@@ -61,8 +61,12 @@ async function request<T>(
   const url = `${BASE_URL}${endpoint}`;
   
   const headers = new Headers(options.headers);
-  if (API_KEY) {
-    headers.set("Authorization", `Bearer ${API_KEY}`);
+  // Always try to send API key if available
+  const key = typeof window === "undefined"
+    ? (process.env.DASHBOARD_API_KEY || process.env.NEXT_PUBLIC_DASHBOARD_API_KEY || "")
+    : (process.env.NEXT_PUBLIC_DASHBOARD_API_KEY || "");
+  if (key) {
+    headers.set("Authorization", `Bearer ${key}`);
   }
   headers.set("Content-Type", "application/json");
   try {
