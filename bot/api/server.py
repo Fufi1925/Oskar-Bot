@@ -108,9 +108,18 @@ def create_app() -> FastAPI:
                     content=body,
                     params=dict(request.query_params),
                 )
+            # Preserve response headers from Next.js. Do NOT collapse headers into a
+            # dict here: NextAuth often sends multiple Set-Cookie headers during
+            # sign-in/callback/session refresh. Collapsing them breaks the Discord
+            # session cookie and causes endless re-authorization loops.
             excluded = {"content-encoding", "content-length", "transfer-encoding", "connection"}
-            response_headers = {k: v for k, v in resp.headers.items() if k.lower() not in excluded}
-            return Response(content=resp.content, status_code=resp.status_code, headers=response_headers)
+            response = Response(content=resp.content, status_code=resp.status_code)
+            response.raw_headers = [
+                (name, value)
+                for name, value in resp.headers.raw
+                if name.decode("latin-1").lower() not in excluded
+            ]
+            return response
         except httpx.ConnectError:
             return Response(
                 content="""<!DOCTYPE html><html><head><title>University Bot</title>
