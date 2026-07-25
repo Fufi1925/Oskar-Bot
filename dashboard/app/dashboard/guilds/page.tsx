@@ -80,7 +80,7 @@ export default async function GuildsPage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-white">{t("yourServers")}</h1>
+          <h1 className="text-3xl font-bold text-white">Deine Server</h1>
           <p className="text-slate-400 mt-2">
             Wähle einen Server um Einstellungen und Module zu verwalten.
           </p>
