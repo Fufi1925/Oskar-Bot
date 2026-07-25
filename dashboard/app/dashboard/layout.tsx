@@ -142,7 +142,7 @@ export default function DashboardLayout({
         { name: "Back to Server", href: "/dashboard/guilds", icon: Server },
       ]
     : [
-        { name: t("dashboard"), href: "/dashboard", icon: LayoutDashboard },
+        { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
         { name: "Server", href: "/dashboard/guilds", icon: Server },
         ...(isAdmin(session?.user?.id) 
             ? [{ name: "Admin Panel", href: "/dashboard/admin", icon: Shield }] 
