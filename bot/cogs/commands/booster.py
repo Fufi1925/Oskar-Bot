@@ -53,7 +53,7 @@ class Booster (Cog ):
         self .bot =bot 
         self .color =0xFF0000 
         self .db_path ="db/boost.db"
-        self .bot .loop .create_task (self .setup_database ())
+        asyncio.create_task(self .setup_database ())
 
 
         self .url_pattern =re .compile (

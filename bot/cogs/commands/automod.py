@@ -12,6 +12,7 @@
 # ║                                                                  ║
 # ╚══════════════════════════════════════════════════════════════════╝
 
+import asyncio
 import discord
 from utils.emoji import CROSS, DISABLE, ENABLE, TICK, TICK_ALT
 from discord.ext import commands
@@ -110,7 +111,7 @@ class Automod(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.default_punishment = "Mute"
-        self.bot.loop.create_task(self.init_db())
+        asyncio.create_task(self.init_db())
 
     async def get_exempt_roles_channels(self, guild_id):
         async with aiosqlite.connect("db/automod.db") as db:

@@ -12,6 +12,7 @@
 # ║                                                                  ║
 # ╚══════════════════════════════════════════════════════════════════╝
 
+import asyncio
 import discord
 from utils.emoji import CROSS, TICK
 from discord.ext import commands
@@ -30,7 +31,7 @@ DB_PATH = "db/autoresponder.db"
 class AutoResponder(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.bot.loop.create_task(self.initialize_db())
+        asyncio.create_task(self.initialize_db())
 
     async def initialize_db(self):
         if not os.path.exists(os.path.dirname(DB_PATH)):

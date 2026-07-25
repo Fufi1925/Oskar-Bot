@@ -98,7 +98,7 @@ class Minecraft(commands.Cog):
         os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
         os.makedirs(os.path.dirname(FONT_PATH), exist_ok=True)
         os.makedirs(os.path.dirname(BACKGROUND_PATH), exist_ok=True)
-        self.bot.loop.create_task(self.init_db())
+        asyncio.create_task(self.init_db())
         self.refresh_all_statuses.start()
 
     async def init_db(self):

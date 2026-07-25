@@ -12,6 +12,7 @@
 # ║                                                                  ║
 # ╚══════════════════════════════════════════════════════════════════╝
 
+import asyncio
 import discord
 from utils.emoji import CROSS, CROSS_ALT, ML_CROSS, TICK, TICK_ALT, ZWARNING
 from discord.ui import LayoutView, TextDisplay, Separator, Container, Button, ActionRow
@@ -375,7 +376,7 @@ class Emergency(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.db_path = "db/emergency.db"
-        self.bot.loop.create_task(self.initialize_database())
+        asyncio.create_task(self.initialize_database())
 
     async def initialize_database(self):
         async with aiosqlite.connect(self.db_path) as db:

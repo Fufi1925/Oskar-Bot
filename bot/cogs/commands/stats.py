@@ -12,6 +12,7 @@
 # ║                                                                  ║
 # ╚══════════════════════════════════════════════════════════════════╝
 
+import asyncio
 import discord
 from utils.emoji import CODEBASE, LOADING, SYSTEM, THUNDER, universitybot_CODE, universitybot_COMMAND, universitybot_GLOBAL, universitybot_OWNER, universitybot_SEARCH
 import psutil
@@ -176,7 +177,7 @@ class Stats(commands.Cog):
         self.start_time = time.time()
         self.total_songs_played = 0
         self.command_usage_count = 0
-        self.bot.loop.create_task(self.setup_database())
+        asyncio.create_task(self.setup_database())
 
     async def setup_database(self):
         async with aiosqlite.connect("db/stats.db") as db:

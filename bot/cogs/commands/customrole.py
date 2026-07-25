@@ -40,7 +40,7 @@ class Customrole(commands.Cog):
         self.rate_limit_timeout = 5
 
 
-        self.bot.loop.create_task(self.create_tables())
+        asyncio.create_task(self.create_tables())
 
 
     async def reset_rate_limit(self, user_id):

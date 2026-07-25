@@ -139,8 +139,8 @@ class Owner(commands.Cog):
         self.db_path = 'db/np.db'
         self.stop_tour = False
         self.bot_owner_ids = BOT_OWNER_IDS
-        self.client.loop.create_task(self.setup_database())
-        self.client.loop.create_task(self.load_staff())
+        asyncio.create_task(self.setup_database())
+        asyncio.create_task(self.load_staff())
         
 
     async def setup_database(self):

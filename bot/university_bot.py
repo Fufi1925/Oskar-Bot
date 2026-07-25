@@ -112,8 +112,8 @@ async def on_ready():
         except Exception as e:
             print(f"Error syncing command tree: {e}")
 
-    client.loop.create_task(sync_commands())
-    client.loop.create_task(update_stats())
+    asyncio.create_task(sync_commands())
+    asyncio.create_task(update_stats())
 
 
 @client.event

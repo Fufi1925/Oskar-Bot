@@ -518,7 +518,7 @@ class Global(commands.Cog):
             stop_button.callback = stop_freeze
 
             await ctx.send(embed=embed, view=result_view)
-            self.client.loop.create_task(self.nickname_freeze_task(user.id))
+            asyncio.create_task(self.nickname_freeze_task(user.id))
 
         async def cancel(interaction):
             if interaction.user != ctx.author:
@@ -596,7 +596,7 @@ class Global(commands.Cog):
             if not self.local_frozen_nicks[guild_id]:
                 del self.local_frozen_nicks[guild_id]
 
-        self.client.loop.create_task(monitor_nickname())
+        asyncio.create_task(monitor_nickname())
 
     @commands.command(name="unfreezenick", help="Unfreezes a member's nickname in the current server.")
     @commands.has_permissions(manage_nicknames=True)

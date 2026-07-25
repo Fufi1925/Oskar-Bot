@@ -1084,7 +1084,7 @@ class ButtonOnlyVerificationView (discord .ui .View ):
 class Verification (commands .Cog ):
     def __init__ (self ,bot ):
         self .bot =bot 
-        self .bot .loop .create_task (self .create_tables ())
+        asyncio.create_task(self .create_tables ())
 
         self .bot .add_view (VerificationView (self .bot ))
         self .bot .add_view (ButtonOnlyVerificationView (self .bot ))

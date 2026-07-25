@@ -12,6 +12,7 @@
 # ║                                                                  ║
 # ╚══════════════════════════════════════════════════════════════════╝
 
+import asyncio
 from discord.ext import commands, tasks
 from discord import *
 import discord
@@ -172,8 +173,8 @@ class NoPrefix(commands.Cog):
         self.client = client
         self.staff = set()
         self.db_path = "db/np.db"
-        self.client.loop.create_task(self.load_staff())
-        self.client.loop.create_task(self.setup_database())
+        asyncio.create_task(self.load_staff())
+        asyncio.create_task(self.setup_database())
         self.expiry_check.start()
 
     async def setup_database(self):

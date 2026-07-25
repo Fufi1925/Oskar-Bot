@@ -12,6 +12,7 @@
 # ║                                                                  ║
 # ╚══════════════════════════════════════════════════════════════════╝
 
+import asyncio
 import discord
 from utils.emoji import CROSS, TICK
 from discord.ext import commands
@@ -99,9 +100,9 @@ async def create_bypass_roles_table():
 class Blacklist(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.bot.loop.create_task(create_blacklist_table())
-        self.bot.loop.create_task(create_bypass_table())
-        self.bot.loop.create_task(create_bypass_roles_table())
+        asyncio.create_task(create_blacklist_table())
+        asyncio.create_task(create_bypass_table())
+        asyncio.create_task(create_bypass_roles_table())
         
 ############ FUNCTIONS ############
     async def is_word_blacklisted(self, guild_id, word):

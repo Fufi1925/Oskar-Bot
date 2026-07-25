@@ -271,7 +271,7 @@ class CategoryConfigView(discord.ui.View):
 class TicketCog(commands.Cog, name="Ticket System"):
     def __init__(self, bot):
         self.bot, self.db = bot, TicketDatabase(DB_PATH)
-        self.bot.loop.create_task(self.load_persistent_views())
+        asyncio.create_task(self.load_persistent_views())
 
     async def load_persistent_views(self):
         await self.bot.wait_until_ready()

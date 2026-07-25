@@ -13,6 +13,7 @@
 # ╚══════════════════════════════════════════════════════════════════╝
 
 from __future__ import annotations
+import asyncio
 import discord
 from utils.emoji import CROSS, ICONS_WARNING, TICK
 import aiosqlite
@@ -49,7 +50,7 @@ class BasicView(discord.ui.View):
 class AutoRole(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.bot.loop.create_task(self.create_table())
+        asyncio.create_task(self.create_table())
         self.color = 0xFF0000
 
     async def create_table(self):

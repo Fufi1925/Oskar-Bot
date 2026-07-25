@@ -12,6 +12,7 @@
 # ║                                                                  ║
 # ╚══════════════════════════════════════════════════════════════════╝
 
+import asyncio
 import discord
 from discord.ext import commands
 import aiosqlite
@@ -30,7 +31,7 @@ db_path = os.path.join(db_folder, db_file)
 class Nightmode(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.bot.loop.create_task(self.initialize_db())
+        asyncio.create_task(self.initialize_db())
         self.ricky = OWNER_IDS_STR
         self.color = 0xFF0000
 

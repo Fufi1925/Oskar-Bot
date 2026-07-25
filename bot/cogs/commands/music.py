@@ -272,30 +272,36 @@ class MusicControlView(LayoutView):
     async def _cb_pause(self, interaction):
         if self.player.paused:
             await self.player.pause(False)
-            await self.player.channel.edit(status=f"{ICONS_PAUSE} Playing: {self.player.current.title}")
+            try:
+                await self.player.channel.edit(status=f"{ICONS_PAUSE} Playing: {self.player.current.title}")
+            except (discord.Forbidden, discord.HTTPException, TypeError, AttributeError):
+                pass
             await interaction.response.send_message(f"Resumed by **{interaction.user.display_name}**.")
         elif self.player.playing:
             await self.player.pause(True)
-            await self.player.channel.edit(status=f"{ICONS_PAUSE} Paused: {self.player.current.title}")
+            try:
+                await self.player.channel.edit(status=f"{ICONS_PAUSE} Paused: {self.player.current.title}")
+            except (discord.Forbidden, discord.HTTPException, TypeError, AttributeError):
+                pass
             await interaction.response.send_message(f"Paused by **{interaction.user.display_name}**.")
 
     async def _cb_skip(self, interaction):
         if self.player.autoplay == wavelink.AutoPlayMode.enabled:
             await self.player.stop()
             return await interaction.response.send_message(f"Skipped by **{interaction.user.display_name}**.")
-        if self.player and self.player.playing and not self.player.queue.is_empty:
+        if self.player and self.player.playing:
             await self.player.stop()
             await interaction.response.send_message(f"Skipped by **{interaction.user.display_name}**.")
         else:
-            await interaction.response.send_message("No song in queue to skip.", ephemeral=True)
+            await interaction.response.send_message("No song is playing.", ephemeral=True)
 
     async def _cb_loop(self, interaction):
         self.player.queue.mode = wavelink.QueueMode.loop if self.player.queue.mode != wavelink.QueueMode.loop else wavelink.QueueMode.normal
         await interaction.response.send_message(f"Loop {'enabled' if self.player.queue.mode == wavelink.QueueMode.loop else 'disabled'} by **{interaction.user.display_name}**.")
 
     async def _cb_shuffle(self, interaction):
-        if self.player.queue:
-            random.shuffle(self.player.queue)
+        if self.player.queue and not self.player.queue.is_empty:
+            self.player.queue.shuffle()
             await interaction.response.send_message(f"Queue shuffled by **{interaction.user.display_name}**.")
         else:
             await interaction.response.send_message("Queue is empty.", ephemeral=True)
@@ -312,7 +318,10 @@ class MusicControlView(LayoutView):
         if self.player:
             voice_channel = self.player.channel
             if voice_channel:
-                await voice_channel.edit(status=None)
+                try:
+                    await voice_channel.edit(status=None)
+                except (discord.Forbidden, discord.HTTPException, TypeError, AttributeError):
+                    pass
             await self.player.disconnect()
             await interaction.response.send_message(f"Stopped and disconnected by **{interaction.user.display_name}**.")
         else:
@@ -337,16 +346,28 @@ class MusicControlView(LayoutView):
 class Music(commands.Cog):
     def __init__(self, client: universitybot):
         self.client = client
-        self.client.loop.create_task(self.connect_nodes())
-        self.client.loop.create_task(self.monitor_inactivity())
-        
-        self.inactivity_timeout = 120 
-        self.player_inactivity = {}  
+        self.inactivity_timeout = 120
+        self.player_inactivity = {}
+        self._node_task: asyncio.Task | None = None
+        self._inactivity_task: asyncio.Task | None = None
+
+    async def cog_load(self):
+        # discord.py 2.x forbids accessing client.loop in Cog.__init__.
+        # Starting background tasks here keeps the whole cogs extension from
+        # failing to load, which previously broke commands such as >play.
+        self._node_task = asyncio.create_task(self.connect_nodes())
+        self._inactivity_task = asyncio.create_task(self.monitor_inactivity())
+
+    async def cog_unload(self):
+        for task in (self._node_task, self._inactivity_task):
+            if task and not task.done():
+                task.cancel()
 
     async def monitor_inactivity(self):
-        while True:
-            for guild in self.client.guilds:
-                await self.check_inactivity(guild.id) 
+        await self.client.wait_until_ready()
+        while not self.client.is_closed():
+            for guild in list(self.client.guilds):
+                await self.check_inactivity(guild.id)
             await asyncio.sleep(60) 
 
     async def check_inactivity(self, guild_id):
@@ -392,27 +413,75 @@ class Music(commands.Cog):
                     pass
 
     async def connect_nodes(self) -> None:
-        host = os.getenv("LAVALINK_HOST", "lava-v4.ajieblogs.eu.org")
+        await self.client.wait_until_ready()
+
+        host = os.getenv("LAVALINK_HOST", "lava-v4.ajieblogs.eu.org").strip()
         password = os.getenv("LAVALINK_PASSWORD", "https://dsc.gg/ajidevserver")
         secure = os.getenv("LAVALINK_SECURE", "true").strip().lower() == "true"
         port = os.getenv("LAVALINK_PORT", "").strip()
+
+        # Railway variables are sometimes pasted as markdown links or with a
+        # protocol. Lavalink Node expects a clean URI, so normalise the host.
+        host = re.sub(r"^https?://", "", host).strip("/")
+        if "](http" in host:
+            match = re.search(r"\((?:https?://)?([^/)]+)", host)
+            if match:
+                host = match.group(1)
 
         if secure:
             uri = f"https://{host}"
         else:
             uri = f"http://{host}:{port}" if port else f"http://{host}"
 
-        nodes = [wavelink.Node(uri=uri, password=password)]
-        await wavelink.Pool.connect(nodes=nodes, client=self.client, cache_capacity=None)
+        while not self.client.is_closed():
+            try:
+                nodes = [wavelink.Node(uri=uri, password=password)]
+                await wavelink.Pool.connect(nodes=nodes, client=self.client, cache_capacity=None)
+                print(f"Lavalink node connected: {uri}")
+                return
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                print(f"Lavalink connection failed ({uri}): {exc}. Retrying in 30 seconds...")
+                await asyncio.sleep(30)
+
+    async def _set_voice_status(self, player, status: str | None):
+        channel = getattr(player, "channel", None)
+        if not channel:
+            return
+        try:
+            await channel.edit(status=status)
+        except (discord.Forbidden, discord.HTTPException, TypeError, AttributeError):
+            pass
 
 
     async def display_player_embed(self, player, track, ctx, autoplay=False):
         await ctx.send(view=MusicControlView(player, ctx, track, autoplay))
 
+    async def search_tracks(self, query: str):
+        """Search Lavalink with safe fallbacks for common configurations."""
+        # Direct URLs should not be prefixed with a search source.
+        if re.match(r"https?://", query):
+            return await wavelink.Playable.search(query)
+
+        last_error = None
+        for source in (TrackSource.YouTubeMusic, "ytsearch", "scsearch"):
+            try:
+                results = await wavelink.Playable.search(query, source=source)
+                if results:
+                    return results
+            except Exception as exc:
+                last_error = exc
+                continue
+
+        if last_error:
+            raise last_error
+        return []
+
 
     async def on_track_end(self, payload: wavelink.TrackEndEventPayload):
         player = payload.player
-        if not player.queue:
+        if player.queue.is_empty:
             if player.queue.mode == wavelink.QueueMode.loop:
                 await player.play(payload.track)
             elif player.autoplay == wavelink.AutoPlayMode.enabled:
@@ -466,7 +535,12 @@ class Music(commands.Cog):
         
             return"""
             
-        tracks = await wavelink.Playable.search(query)
+        try:
+            tracks = await self.search_tracks(query)
+        except Exception as exc:
+            await ctx.send(view=CV2(f"Music search failed. Please check the Lavalink connection/settings. Error: `{exc}`"))
+            return
+
         if not tracks:
             await ctx.send(view=CV2("No results found."))
             return
@@ -485,7 +559,7 @@ class Music(commands.Cog):
             if not vc.playing:
                 await vc.play(await vc.queue.get_wait())
                 await self.display_player_embed(vc, track, ctx)
-            self.client.loop.create_task(self.check_inactivity(ctx.guild.id))
+            asyncio.create_task(self.check_inactivity(ctx.guild.id))
            # await interaction.response.defer()
 
 
@@ -717,7 +791,7 @@ class Music(commands.Cog):
 
         if vc and vc.playing and not vc.paused:
             await vc.pause(True)
-            await vc.channel.edit(status=f"{ZMUSICPAUSE} Paused: {vc.current.title}")
+            await self._set_voice_status(vc, f"{ZMUSICPAUSE} Paused: {vc.current.title}")
             await ctx.send(view=CV2(f"Paused by {ctx.author.mention}."))
         else:
             await ctx.send(view=CV2(f"{WARNING}   Nothing is playing or already paused."))
@@ -738,7 +812,7 @@ class Music(commands.Cog):
 
         if vc and vc.paused:
             await vc.pause(False)
-            await vc.channel.edit(status=f"{MUSIC_ALT1} Playing: {vc.current.title}")
+            await self._set_voice_status(vc, f"{MUSIC_ALT1} Playing: {vc.current.title}")
             await ctx.send(view=CV2(f"Resumed by {ctx.author.mention}."))
         else:
             await ctx.send(view=CV2("Player is not paused."))
@@ -762,11 +836,11 @@ class Music(commands.Cog):
             return await ctx.send(view=CV2(f"Skipped by {ctx.author.mention}."))
 
 
-        if vc and vc.playing and not vc.queue.is_empty:
+        if vc and vc.playing:
             await vc.stop()
             await ctx.send(view=CV2(f"Skipped by {ctx.author.mention}."))
         else:
-            await ctx.send(view=CV2(f"{WARNING} No song is playing or in the queue to skip."))
+            await ctx.send(view=CV2(f"{WARNING} No song is playing."))
 
     @commands.command(name="shuffle", usage="shuffle", help="Shuffles the queue.")
     @blacklist_check()
@@ -782,8 +856,8 @@ class Music(commands.Cog):
             await ctx.send(view=CV2(f"{WARNING} You need to be in the same voice channel as me to use this command."))
             return
 
-        if vc and vc.queue:
-            random.shuffle(vc.queue)
+        if vc and vc.queue and not vc.queue.is_empty:
+            vc.queue.shuffle()
             await ctx.send(view=CV2(f"Queue shuffled by {ctx.author.mention}."))
         else:
             await ctx.send(view=CV2("Queue is empty."))
@@ -804,7 +878,7 @@ class Music(commands.Cog):
             return
 
         if vc and player:
-            await vc.channel.edit(status=None)
+            await self._set_voice_status(vc, None)
             vc.queue.clear()
             await vc.disconnect(force=True)
             await ctx.send(view=CV2(f"Stopped and queue cleared by {ctx.author.mention}."))
@@ -908,11 +982,20 @@ class Music(commands.Cog):
     @ignore_check()
     @commands.cooldown(1, 3, commands.BucketType.user)
     async def join(self, ctx: commands.Context):
-        if ctx.author.voice:
-            await ctx.author.voice.channel.connect(cls=wavelink.Player)
-            await ctx.send(view=CV2("Joined the voice channel."))
-        else:
+        if not ctx.author.voice:
             await ctx.send(view=CV2("You need to join a voice channel first."))
+            return
+
+        if ctx.voice_client:
+            if ctx.voice_client.channel == ctx.author.voice.channel:
+                await ctx.send(view=CV2("I'm already connected to your voice channel."))
+                return
+            await ctx.voice_client.move_to(ctx.author.voice.channel)
+            await ctx.send(view=CV2("Moved to your voice channel."))
+            return
+
+        await ctx.author.voice.channel.connect(cls=wavelink.Player)
+        await ctx.send(view=CV2("Joined the voice channel."))
 
     @commands.hybrid_command(name="disconnect", aliases=["dc", "leave"], usage="disconnect", help="Disconnects the bot from the voice channel.")
     @blacklist_check()
@@ -964,9 +1047,7 @@ class Music(commands.Cog):
         track = player.current
         guild_id = player.guild.id
 
-        voice_channel = player.channel
-        if voice_channel:
-            await voice_channel.edit(status=f"{MUSIC_ALT1} Playing: {track.title}")  # type: ignore
+        await self._set_voice_status(player, f"{MUSIC_ALT1} Playing: {track.title}")
 
         if guild_id not in track_histories:
             track_histories[guild_id] = []
@@ -981,8 +1062,5 @@ class Music(commands.Cog):
     @commands.Cog.listener()
     async def on_wavelink_track_end(self, payload: wavelink.TrackEndEventPayload):
         player = payload.player
-        voice_channel = player.channel
-
-        if voice_channel:
-            await voice_channel.edit(status=None)  # type: ignore
+        await self._set_voice_status(player, None)
         await self.on_track_end(payload)

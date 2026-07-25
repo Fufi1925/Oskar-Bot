@@ -13,6 +13,7 @@
 # ╚══════════════════════════════════════════════════════════════════╝
 
 from __future__ import annotations
+import asyncio
 import discord
 from utils.emoji import CROSS, TICK, ZWARNING
 from discord.ui import LayoutView, TextDisplay, Separator, Container
@@ -100,7 +101,7 @@ class Ignore(commands.Cog):
         self.bot = bot
         self.db_path = "db/ignore.db"
         self.color = 0xFF0000
-        bot.loop.create_task(self.initialize_db())
+        asyncio.create_task(self.initialize_db())
 
     async def initialize_db(self):
         async with aiosqlite.connect(self.db_path) as db:

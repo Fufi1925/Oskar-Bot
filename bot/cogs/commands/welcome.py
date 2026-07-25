@@ -62,7 +62,7 @@ class VariableButton(Button):
 class Welcomer(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.bot.loop.create_task(self._create_table())
+        asyncio.create_task(self._create_table())
 
     async def _create_table(self):
         async with aiosqlite.connect("db/welcome.db") as db:

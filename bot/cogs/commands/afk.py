@@ -12,6 +12,7 @@
 # ║                                                                  ║
 # ╚══════════════════════════════════════════════════════════════════╝
 
+import asyncio
 import discord
 from discord.ext import commands
 from discord.ui import LayoutView, TextDisplay, Separator, Container, Button, ActionRow
@@ -104,7 +105,7 @@ class afk(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.theme_color = THEME_COLOR
-        self.bot.loop.create_task(self.initialize_db())
+        asyncio.create_task(self.initialize_db())
 
     async def initialize_db(self):
         os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)

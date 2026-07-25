@@ -12,6 +12,7 @@
 # ║                                                                  ║
 # ╚══════════════════════════════════════════════════════════════════╝
 
+import asyncio
 from fastapi import APIRouter, Depends, HTTPException, Request
 from api.dependencies import get_bot, limiter
 from api.db_manager import db_manager
@@ -890,7 +891,7 @@ async def patch_guild_j2c(guild_id: int, data: J2CUpdate, bot: "universitybot" =
                     except Exception as e:
                         print(f"Error updating/sending control panel via API: {e}")
 
-                bot.loop.create_task(update_or_send_panel())
+                asyncio.create_task(update_or_send_panel())
 
     return {"status": "success"}
 

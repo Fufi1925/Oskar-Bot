@@ -12,6 +12,7 @@
 # ║                                                                  ║
 # ╚══════════════════════════════════════════════════════════════════╝
 
+import asyncio
 import discord
 from utils.emoji import CROSS, ICONS_WARNING, TICK
 from discord.ext import commands
@@ -29,7 +30,7 @@ class AutoReaction(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.db_path = 'db/autoreact.db'
-        self.bot.loop.create_task(self.setup_database())
+        asyncio.create_task(self.setup_database())
 
     async def setup_database(self):
         async with aiosqlite.connect(self.db_path) as db:

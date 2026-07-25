@@ -12,6 +12,7 @@
 # ║                                                                  ║
 # ╚══════════════════════════════════════════════════════════════════╝
 
+import asyncio
 import discord
 from utils.emoji import CROSS, MANAGER, REDDOT, TICK
 from discord.ext import commands
@@ -27,7 +28,7 @@ from utils.cv2 import CV2, build_container
 class Unwhitelist(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.bot.loop.create_task(self.initialize_db())
+        asyncio.create_task(self.initialize_db())
 
     #@commands.Cog.listener()
     async def initialize_db(self):

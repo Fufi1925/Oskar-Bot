@@ -28,7 +28,7 @@ from utils.config import *
 class Antinuke(commands.Cog):
   def __init__(self, bot):
     self.bot = bot
-    self.bot.loop.create_task(self.initialize_db())
+    asyncio.create_task(self.initialize_db())
 
   async def initialize_db(self):
     self.db = await aiosqlite.connect('db/anti.db')
