@@ -1,0 +1,52 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+*.egg-info/
+
+# Environment
+.env
+.env.local
+bot/.env
+dashboard/.env.local
+
+# Node
+node_modules/
+.next/
+out/
+dist/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Database
+*.db
+*.sqlite3
+
+# Build
+*.tsbuildinfo
+
+# Logs
+*.log
+npm-debug.log*
+
+# Archives
+*.tar
+*.tar.gz
+*.zip
+
+# Large assets (optional - uncomment if needed)
+# bot/assets/*.png
+# bot/assets/*.ttf
