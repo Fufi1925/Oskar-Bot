@@ -336,6 +336,15 @@ export const api = {
   removeOwner: (userId: string) =>
     request<any>(`/team/owners/${userId}`, { method: "DELETE" }),
 
+  // Per-guild behaviour settings
+  getGuildBehaviour: (guildId: string) =>
+    request<{ groups: string[]; settings: any[] }>(`/guilds/${guildId}/behaviour`),
+  updateGuildBehaviour: (guildId: string, data: Record<string, any>) =>
+    request<any>(`/guilds/${guildId}/behaviour`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+
   // Server overview + full config transfer
   getModuleStatus: (guildId: string) => request<any>(`/guilds/${guildId}/module-status`),
   previewConfig: (guildId: string, config: any) =>

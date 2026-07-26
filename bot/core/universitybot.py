@@ -72,6 +72,11 @@ class universitybot(commands.AutoShardedBot):
         await bot_settings.load()
         await feature_flags.load()
         feature_gates.setup_gates(self)
+
+        # Per-guild behaviour settings (disabled commands, cooldowns,
+        # moderation guards) are enforced by their own global check.
+        from cogs.events.guild_settings_enforcement import guild_settings_check
+        self.add_check(guild_settings_check)
         await feature_gates.refresh_blacklist()
         await feature_gates.refresh_premium_guilds()
 

@@ -158,6 +158,16 @@ class FeatureEnforcement(Cog):
                 await ctx.reply(f"🚫 {error.reason}", delete_after=10)
             except Exception:
                 pass
+            return
+
+        # Same for the per-guild settings check.
+        from cogs.events.guild_settings_enforcement import SettingsBlocked
+
+        if isinstance(error, SettingsBlocked):
+            try:
+                await ctx.reply(f"⚠️ {error.reason}", delete_after=10)
+            except Exception:
+                pass
 
 
 async def setup(bot):

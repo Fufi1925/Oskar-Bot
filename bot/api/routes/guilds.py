@@ -1786,3 +1786,34 @@ async def get_module_status(guild_id: int, bot: "universitybot" = Depends(get_bo
             "owner_id": str(guild.owner_id) if guild else None,
         },
     }
+
+
+@router.get("/{guild_id}/behaviour", summary="Per-guild behaviour settings")
+async def get_guild_behaviour(guild_id: int):
+    """Settings that change how the bot acts on this server."""
+    from utils import guild_settings
+
+    values = await guild_settings.load(guild_id, force=True)
+    return {
+        "guild_id": str(guild_id),
+        "groups": list(guild_settings.SETTING_GROUPS),
+        "settings": guild_settings.describe(values),
+    }
+
+
+@router.patch("/{guild_id}/behaviour", summary="Update behaviour settings")
+async def patch_guild_behaviour(guild_id: int, data: dict):
+    from utils import guild_settings, feature_audit
+
+    payload = {k: v for k, v in data.items() if k != "actor"}
+    changed = await guild_settings.set_values(guild_id, payload)
+
+    if changed and guild_settings.get_bool(guild_id, "log_dashboard_changes"):
+        await feature_audit.log_action(
+            "guild_settings_changed",
+            actor=str(data.get("actor", "dashboard")),
+            guild_id=guild_id,
+            detail=", ".join(f"{k}={v}" for k, v in changed.items())[:400],
+        )
+
+    return {"status": "success", "changed": changed}
