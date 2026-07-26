@@ -23,6 +23,7 @@ import {
   isGlobalAdmin,
   fetchTeamAccess,
   hasTeamPermission,
+  fetchBanState,
 } from "@/lib/guild-auth";
 
 export const dynamic = "force-dynamic";
@@ -100,6 +101,27 @@ async function authorize(
   request: NextRequest
 ): Promise<{ ok: true } | { ok: false; response: NextResponse }> {
   const [scope, ...rest] = segments;
+
+  // A dashboard ban blocks the API for an already-signed-in user too. The
+  // middleware catches page loads; this catches everything the browser fires
+  // afterwards.
+  {
+    const session = await getServerSession(authOptions);
+    if (session?.user?.id) {
+      const ban = await fetchBanState(session.user.id);
+      if (ban.banned) {
+        return {
+          ok: false,
+          response: deny(
+            403,
+            ban.reason
+              ? `You are banned from this dashboard: ${ban.reason}`
+              : "You are banned from this dashboard."
+          ),
+        };
+      }
+    }
+  }
 
   if (scope === "guilds") {
     // `/guilds` (list) is allowed for any signed-in user — the page filters it
@@ -310,6 +332,43 @@ async function authorize(
       ok: false,
       response: deny(403, required ? `This requires the '${required}' permission.` : "Not allowed."),
     };
+  }
+
+  if (scope === "access") {
+    // Dashboard user management: who signed in, who is banned. Reading the
+    // list needs team.view, banning somebody needs team.assign — same bar as
+    // handing out roles, because a ban is the mirror image of that.
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) return { ok: false, response: deny(401, "Not signed in.") };
+    if (isGlobalAdmin(session.user.id)) return { ok: true };
+
+    const required = request.method === "GET" ? "team.view" : "team.assign";
+    if (await hasTeamPermission(session.user.id, required)) return { ok: true };
+
+    return { ok: false, response: deny(403, `This requires the '${required}' permission.`) };
+  }
+
+  if (scope === "servers") {
+    // Global server management. Reading is fine for anyone who may see the
+    // team; leaving a server or touching the blacklist is owner territory and
+    // is checked a second time by the bot itself.
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) return { ok: false, response: deny(401, "Not signed in.") };
+    if (isGlobalAdmin(session.user.id)) return { ok: true };
+
+    if (request.method === "GET") {
+      if (await hasTeamPermission(session.user.id, "guild.view")) return { ok: true };
+      return { ok: false, response: deny(403, "This requires the 'guild.view' permission.") };
+    }
+
+    // Writes: roles.manage covers granting roles, blacklist.manage covers
+    // leaving servers and blacklist edits.
+    const isRoleWrite = rest.includes("roles") || rest.includes("members");
+    const required = isRoleWrite ? "roles.manage" : "blacklist.manage";
+    const guildId = /^\d{17,20}$/.test(rest[0] ?? "") ? rest[0] : undefined;
+
+    if (await hasTeamPermission(session.user.id, required, guildId)) return { ok: true };
+    return { ok: false, response: deny(403, `This requires the '${required}' permission.`) };
   }
 
   if (scope === "bot") {

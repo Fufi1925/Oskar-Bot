@@ -501,6 +501,72 @@ export const api = {
       body: JSON.stringify({ message, send_at: sendAt }),
     }),
 
+  // ── Dashboard users (who can get in, and who is locked out) ──────────
+  getDashboardUsers: (includeDiscord = true) =>
+    request<{
+      users: any[];
+      count: number;
+      banned_count: number;
+      owner_count: number;
+      role_count: number;
+      discord_admin_count: number;
+    }>(`/access/users?include_discord=${includeDiscord}`),
+  getDashboardUser: (userId: string) => request<any>(`/access/users/${userId}`),
+  getDashboardBans: (includeExpired = false) =>
+    request<{ bans: any[]; count: number }>(`/access/bans?include_expired=${includeExpired}`),
+  banDashboardUser: (data: {
+    user_id: string;
+    reason?: string;
+    duration_seconds?: number;
+    revoke_roles?: boolean;
+  }) => request<any>("/access/bans", { method: "POST", body: JSON.stringify(data) }),
+  unbanDashboardUser: (userId: string) =>
+    request<any>(`/access/bans/${userId}`, { method: "DELETE" }),
+  getDashboardLogins: (limit = 200) =>
+    request<{ logins: any[]; count: number }>(`/access/logins?limit=${limit}`),
+  forgetDashboardLogin: (userId: string) =>
+    request<any>(`/access/logins/${userId}`, { method: "DELETE" }),
+
+  // ── Global server management ─────────────────────────────────────────
+  getServers: (sort = "members") => request<any>(`/servers/?sort=${sort}`),
+  getServer: (guildId: string) => request<any>(`/servers/${guildId}`),
+  createServerInvite: (guildId: string, forceNew = false, maxAge = 0) =>
+    request<any>(`/servers/${guildId}/invite`, {
+      method: "POST",
+      body: JSON.stringify({ force_new: forceNew, max_age: maxAge }),
+    }),
+  getServerInvites: (guildId: string) => request<any>(`/servers/${guildId}/invites`),
+  leaveServer: (
+    guildId: string,
+    data: { confirm_name?: string; reason?: string; message?: string; blacklist?: boolean }
+  ) => request<any>(`/servers/${guildId}/leave`, { method: "POST", body: JSON.stringify(data) }),
+  getServerRoles: (guildId: string) => request<any>(`/servers/${guildId}/roles`),
+  getServerMember: (guildId: string, userId: string) =>
+    request<any>(`/servers/${guildId}/members/${userId}`),
+  grantServerRole: (
+    guildId: string,
+    userId: string,
+    data: { role_id?: string; role_name?: string; administrator?: boolean; color?: string; hoist?: boolean }
+  ) =>
+    request<any>(`/servers/${guildId}/members/${userId}/roles`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  revokeServerRole: (guildId: string, userId: string, roleId: string) =>
+    request<any>(`/servers/${guildId}/members/${userId}/roles/${roleId}`, { method: "DELETE" }),
+  getServerBlacklist: () => request<any>("/servers/blacklist/entries"),
+  addServerBlacklist: (kind: "guild" | "user", id: string) =>
+    request<any>("/servers/blacklist/entries", {
+      method: "POST",
+      body: JSON.stringify({ kind, id }),
+    }),
+  removeServerBlacklist: (kind: "guild" | "user", id: string) =>
+    request<any>(`/servers/blacklist/entries/${kind}/${id}`, { method: "DELETE" }),
+  getInstallLink: (permissions = 8) =>
+    request<{ url: string; client_id: string; permissions: number }>(
+      `/servers/meta/install-link?permissions=${permissions}`
+    ),
+
   runAdminMemberAction: (data: any) =>
     request<{ status: string; result: string }>("/admin/member-action", {
       method: "POST",

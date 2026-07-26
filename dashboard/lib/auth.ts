@@ -17,6 +17,35 @@ export const authOptions: AuthOptions = {
     }),
   ],
   callbacks: {
+    /**
+     * Records every sign-in with the bot so the admin panel can show who has
+     * been in the dashboard — and refuses the sign-in outright when that user
+     * is on the dashboard ban list.
+     */
+    async signIn({ user, profile }) {
+      const userId = (profile as any)?.id || user?.id;
+      if (!userId) return true;
+
+      try {
+        const { recordLogin } = await import("@/lib/guild-auth");
+        const avatar = user?.image || "";
+        const username =
+          (profile as any)?.username ||
+          (profile as any)?.global_name ||
+          user?.name ||
+          "";
+
+        const banned = await recordLogin(String(userId), String(username), String(avatar));
+        if (banned) {
+          // NextAuth turns this into ?error=AccessDenied on the sign-in page.
+          return false;
+        }
+      } catch {
+        // Never block a login because the bookkeeping call failed.
+      }
+      return true;
+    },
+
     async jwt({ token, account }) {
       if (account) {
         token.accessToken = account.access_token;

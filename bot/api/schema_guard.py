@@ -272,6 +272,25 @@ SCHEMA: dict[str, tuple[str, ...]] = {
         """CREATE TABLE IF NOT EXISTS user_blacklist (user_id TEXT PRIMARY KEY)""",
         """CREATE TABLE IF NOT EXISTS guild_blacklist (guild_id TEXT PRIMARY KEY)""",
     ),
+    "db/admin_config.db": (
+        # Who signed in to the dashboard, and who is locked out of it.
+        """CREATE TABLE IF NOT EXISTS dashboard_logins (
+            user_id TEXT PRIMARY KEY,
+            username TEXT DEFAULT '',
+            avatar TEXT DEFAULT '',
+            first_seen INTEGER DEFAULT 0,
+            last_seen INTEGER DEFAULT 0,
+            login_count INTEGER DEFAULT 0,
+            last_path TEXT DEFAULT ''
+        )""",
+        """CREATE TABLE IF NOT EXISTS dashboard_bans (
+            user_id TEXT PRIMARY KEY,
+            banned_by TEXT DEFAULT '',
+            banned_at INTEGER DEFAULT 0,
+            reason TEXT DEFAULT '',
+            expires_at INTEGER DEFAULT 0
+        )""",
+    ),
     "db/j2c.db": (
         """CREATE TABLE IF NOT EXISTS j2c (
             guild_id INTEGER PRIMARY KEY,

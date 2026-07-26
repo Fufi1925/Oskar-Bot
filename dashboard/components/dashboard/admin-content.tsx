@@ -25,9 +25,11 @@ import { BotSettingsPanel } from "@/components/dashboard/bot-settings-panel";
 import { BackupsPanel } from "@/components/dashboard/backups-panel";
 import { WarningsPanel } from "@/components/dashboard/warnings-panel";
 import { CommandStatsPanel } from "@/components/dashboard/command-stats-panel";
+import { DashboardUsersPanel } from "@/components/dashboard/dashboard-users-panel";
+import { ServersPanel } from "@/components/dashboard/servers-panel";
 
 
-type TabId = "members" | "channels" | "server" | "scans" | "broadcast" | "system" | "features" | "health" | "team" | "access" | "reports" | "audit" | "approvals" | "botsettings" | "backups" | "warnings" | "usage";
+type TabId = "members" | "channels" | "server" | "scans" | "broadcast" | "system" | "features" | "health" | "team" | "access" | "reports" | "audit" | "approvals" | "botsettings" | "backups" | "warnings" | "usage" | "dashusers" | "servers";
 type MemberAction = "ban" | "kick" | "mute" | "unmute";
 
 type QuickAction = {
@@ -49,6 +51,8 @@ const tabs: Array<{ id: TabId; label: string; icon: any }> = [
   { id: "features", label: "Features", icon: Settings },
   { id: "health", label: "Health", icon: Activity },
   { id: "team", label: "Team", icon: Users },
+  { id: "dashusers", label: "Dashboard Users", icon: UserCog },
+  { id: "servers", label: "Servers", icon: Globe },
   { id: "warnings", label: "Warnings", icon: AlertTriangle },
   { id: "usage", label: "Usage", icon: Terminal },
   { id: "reports", label: "Reports", icon: BarChart4 },
@@ -98,6 +102,7 @@ const quickActions: QuickAction[] = [
 const FULL_WIDTH_TABS = new Set<TabId>([
   "features", "health", "team", "access",
   "reports", "audit", "approvals", "botsettings", "backups", "warnings", "usage",
+  "dashusers", "servers",
 ]);
 
 function TextInput({ label, value, setValue, placeholder, type = "text" }: { label: string; value: string; setValue: (value: string) => void; placeholder?: string; type?: string }) {
@@ -220,6 +225,8 @@ export function AdminContent() {
     features: "features.view",
     health: "health.view",
     team: "team.view",
+    dashusers: "team.view",
+    servers: "guild.view",
     warnings: "members.view",
     usage: "metrics.view",
     reports: "reports.view",
@@ -327,6 +334,8 @@ export function AdminContent() {
       {activeTab === "team" && <TeamPanel />}
       {activeTab === "access" && <OwnerAccessPanel currentUserId={(session?.user as any)?.id} />}
       {activeTab === "usage" && <CommandStatsPanel />}
+      {activeTab === "dashusers" && <DashboardUsersPanel currentUserId={(session?.user as any)?.id} />}
+      {activeTab === "servers" && <ServersPanel currentUserId={(session?.user as any)?.id} />}
       {activeTab === "reports" && <ReportsPanel />}
       {activeTab === "audit" && <AuditPanel />}
       {activeTab === "approvals" && <ApprovalsPanel currentUserId={(session?.user as any)?.id} />}

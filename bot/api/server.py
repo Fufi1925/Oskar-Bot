@@ -7,12 +7,13 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from starlette.responses import Response
 from utils.config import *
-from api.routes import bot, guilds, admin, team, moderation, actions
+from api.routes import bot, guilds, admin, team, moderation, actions, access, servers
 from api.dependencies import verify_api_key, limiter
 from api.db_manager import db_manager
 from api.schema_guard import ensure_schema
 from utils import feature_flags
 from utils import dashboard_roles
+from utils import dashboard_access
 from utils.feature_services import record_request
 
 logger = logging.getLogger("api_request_logs")
@@ -46,6 +47,14 @@ async def lifespan(app: FastAPI):
         await dashboard_roles.load()
     except Exception as exc:
         logger.warning(f"Dashboard role preload failed: {exc}")
+
+    # The ban list is consulted on every dashboard request, so it has to be
+    # in memory before the first one arrives.
+    try:
+        await dashboard_access.load()
+        await dashboard_access.purge_expired()
+    except Exception as exc:
+        logger.warning(f"Dashboard access preload failed: {exc}")
 
     yield
     await db_manager.close_all()
@@ -175,6 +184,8 @@ def create_app() -> FastAPI:
     api_app.include_router(team.router, prefix="/team", tags=["Team"])
     api_app.include_router(moderation.router, prefix="/moderation", tags=["Moderation"])
     api_app.include_router(actions.router, prefix="/actions", tags=["Actions"])
+    api_app.include_router(access.router, prefix="/access", tags=["Access"])
+    api_app.include_router(servers.router, prefix="/servers", tags=["Servers"])
 
     @api_app.get("/health")
     async def api_health():

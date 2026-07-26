@@ -145,6 +145,90 @@ export async function fetchTeamAccess(userId: string): Promise<TeamAccess | null
   }
 }
 
+/* ────────────────────────────────────────────────────────────────────────
+   Dashboard bans
+
+   A ban overrides everything: owner status is the only exception, and the
+   bot refuses to ban an owner in the first place. Checked on sign-in, in the
+   middleware and in the proxy, so neither a fresh login nor an existing
+   session gets through.
+   ──────────────────────────────────────────────────────────────────────── */
+
+const banCache = new Map<string, { banned: boolean; reason: string; expires: number }>();
+/** Short TTL: a ban must take effect quickly, but not cost a round trip per request. */
+const BAN_CACHE_TTL_MS = 15_000;
+
+export interface BanState {
+  banned: boolean;
+  reason: string;
+}
+
+export async function fetchBanState(userId: string): Promise<BanState> {
+  const now = Date.now();
+  const cached = banCache.get(userId);
+  if (cached && cached.expires > now) {
+    return { banned: cached.banned, reason: cached.reason };
+  }
+
+  try {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    const key = process.env.DASHBOARD_API_KEY || "";
+    if (key) headers.Authorization = `Bearer ${key}`;
+
+    const res = await fetch(`${API_BASE_URL}/access/check/${userId}`, {
+      headers,
+      cache: "no-store",
+    });
+    if (!res.ok) {
+      // Fail open on a transport error, otherwise a hiccup in the bot API
+      // would lock every user out of their own dashboard.
+      return cached ? { banned: cached.banned, reason: cached.reason } : { banned: false, reason: "" };
+    }
+
+    const data = (await res.json()) as { banned: boolean; reason?: string };
+    const state = { banned: Boolean(data.banned), reason: data.reason || "" };
+    banCache.set(userId, { ...state, expires: now + BAN_CACHE_TTL_MS });
+    return state;
+  } catch {
+    return cached ? { banned: cached.banned, reason: cached.reason } : { banned: false, reason: "" };
+  }
+}
+
+/** Records a sign-in with the bot and reports whether the user is banned. */
+export async function recordLogin(
+  userId: string,
+  username: string,
+  avatar: string
+): Promise<boolean> {
+  try {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    const key = process.env.DASHBOARD_API_KEY || "";
+    if (key) headers.Authorization = `Bearer ${key}`;
+
+    const res = await fetch(`${API_BASE_URL}/access/logins`, {
+      method: "POST",
+      headers,
+      cache: "no-store",
+      body: JSON.stringify({
+        user_id: userId,
+        username,
+        avatar,
+        new_session: true,
+      }),
+    });
+    if (!res.ok) return false;
+
+    const data = (await res.json()) as { banned?: boolean };
+    if (data.banned) {
+      banCache.set(userId, { banned: true, reason: "", expires: Date.now() + BAN_CACHE_TTL_MS });
+    }
+    return Boolean(data.banned);
+  } catch {
+    // The bot API being down must not stop people from signing in.
+    return false;
+  }
+}
+
 /** True when the user holds `permission` (optionally scoped to a guild). */
 export async function hasTeamPermission(
   userId: string,
@@ -173,6 +257,19 @@ export async function verifyGuildAccess(guildId: string): Promise<GuildAccessRes
   }
 
   const userId = session.user.id;
+
+  // A dashboard ban beats every other rule, including Manage Server.
+  const ban = await fetchBanState(userId);
+  if (ban.banned) {
+    return {
+      allowed: false,
+      status: 403,
+      reason: ban.reason
+        ? `You are banned from this dashboard: ${ban.reason}`
+        : "You are banned from this dashboard.",
+      userId,
+    };
+  }
 
   if (isGlobalAdmin(userId)) {
     return { allowed: true, status: 200, reason: "Global admin.", userId };
@@ -222,6 +319,19 @@ export async function verifyAdminAccess(): Promise<GuildAccessResult> {
   if (!session?.user?.id) {
     return { allowed: false, status: 401, reason: "Not signed in." };
   }
+
+  const ban = await fetchBanState(session.user.id);
+  if (ban.banned) {
+    return {
+      allowed: false,
+      status: 403,
+      reason: ban.reason
+        ? `You are banned from this dashboard: ${ban.reason}`
+        : "You are banned from this dashboard.",
+      userId: session.user.id,
+    };
+  }
+
   if (!isGlobalAdmin(session.user.id)) {
     return { allowed: false, status: 403, reason: "Admin access required.", userId: session.user.id };
   }
