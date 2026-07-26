@@ -100,7 +100,7 @@ export default function AutoReactPage({ params }: { params: { guildId: string } 
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
         <div className="lg:col-span-3 space-y-6">
-          <div className="bg-[#141B2D] border border-slate-800 rounded-3xl overflow-hidden shadow-xl p-8 space-y-6">
+          <div className="bg-[#10233f] border border-slate-800 rounded-3xl overflow-hidden shadow-xl p-8 space-y-6">
             
             {config.triggers.length === 0 ? (
               <div className="text-center p-12 bg-slate-900/20 rounded-2xl border border-dashed border-slate-700">
@@ -122,7 +122,7 @@ export default function AutoReactPage({ params }: { params: { guildId: string } 
                         </div>
                         <h4 className="font-bold text-white">Trigger #{index + 1}</h4>
                       </div>
-                      <Button variant="ghost" size="sm" onClick={() => removeTrigger(index)} className="text-red-400 hover:text-red-300 hover:bg-red-400/10 h-8 w-8 p-0">
+                      <Button variant="ghost" size="sm" onClick={() => removeTrigger(index)} className="text-blue-400 hover:text-blue-300 hover:bg-blue-400/10 h-8 w-8 p-0">
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>

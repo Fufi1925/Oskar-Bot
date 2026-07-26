@@ -72,7 +72,7 @@ export function WelcomeForm({ initialConfig, channels, guildId }: WelcomeFormPro
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
       <div className="lg:col-span-2 space-y-6">
-        <div className="bg-[#141B2D] border border-slate-800 rounded-3xl shadow-xl p-8 space-y-6">
+        <div className="bg-[#10233f] border border-slate-800 rounded-3xl shadow-xl p-8 space-y-6">
           <div className="space-y-4">
             <div>
               <label className="text-xs font-black uppercase text-slate-500 tracking-widest pl-1">Response Type</label>
@@ -102,7 +102,7 @@ export function WelcomeForm({ initialConfig, channels, guildId }: WelcomeFormPro
                   value={config.welcome_message || ""}
                   onChange={(e) => setConfig({ ...config, welcome_message: e.target.value })}
                   placeholder="Welcome {user} to {server_name}!"
-                  className="w-full mt-2 bg-[#0f172a] border border-slate-800 rounded-xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-white min-h-[120px]"
+                  className="w-full mt-2 bg-[#0b1f3a] border border-slate-800 rounded-xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-white min-h-[120px]"
                 />
               </div>
             )}
@@ -116,7 +116,7 @@ export function WelcomeForm({ initialConfig, channels, guildId }: WelcomeFormPro
                       type="text"
                       value={config.embed_data?.title || ""}
                       onChange={(e) => setConfig({ ...config, embed_data: { ...config.embed_data, title: e.target.value }})}
-                      className="w-full mt-2 bg-[#0f172a] border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-white"
+                      className="w-full mt-2 bg-[#0b1f3a] border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-white"
                       placeholder="Welcome to the server!"
                     />
                   </div>
@@ -126,7 +126,7 @@ export function WelcomeForm({ initialConfig, channels, guildId }: WelcomeFormPro
                       type="text"
                       value={config.embed_data?.color || ""}
                       onChange={(e) => setConfig({ ...config, embed_data: { ...config.embed_data, color: e.target.value }})}
-                      className="w-full mt-2 bg-[#0f172a] border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-white"
+                      className="w-full mt-2 bg-[#0b1f3a] border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-white"
                       placeholder="#3498db"
                     />
                   </div>
@@ -138,7 +138,7 @@ export function WelcomeForm({ initialConfig, channels, guildId }: WelcomeFormPro
                     value={config.embed_data?.description || ""}
                     onChange={(e) => setConfig({ ...config, embed_data: { ...config.embed_data, description: e.target.value }})}
                     placeholder="We're glad to have you here, {user}!"
-                    className="w-full mt-2 bg-[#0f172a] border border-slate-800 rounded-xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-white min-h-[100px]"
+                    className="w-full mt-2 bg-[#0b1f3a] border border-slate-800 rounded-xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-white min-h-[100px]"
                   />
                 </div>
 
@@ -149,7 +149,7 @@ export function WelcomeForm({ initialConfig, channels, guildId }: WelcomeFormPro
                       type="text"
                       value={config.embed_data?.thumbnail || ""}
                       onChange={(e) => setConfig({ ...config, embed_data: { ...config.embed_data, thumbnail: e.target.value }})}
-                      className="w-full mt-2 bg-[#0f172a] border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-white"
+                      className="w-full mt-2 bg-[#0b1f3a] border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-white"
                       placeholder="{user_avatar} or https://..."
                     />
                   </div>
@@ -159,7 +159,7 @@ export function WelcomeForm({ initialConfig, channels, guildId }: WelcomeFormPro
                       type="text"
                       value={config.embed_data?.image || ""}
                       onChange={(e) => setConfig({ ...config, embed_data: { ...config.embed_data, image: e.target.value }})}
-                      className="w-full mt-2 bg-[#0f172a] border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-white"
+                      className="w-full mt-2 bg-[#0b1f3a] border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-white"
                       placeholder="https://..."
                     />
                   </div>
@@ -180,7 +180,7 @@ export function WelcomeForm({ initialConfig, channels, guildId }: WelcomeFormPro
       </div>
 
       <div className="space-y-6">
-         <div className="bg-[#141B2D] border border-slate-800 rounded-3xl p-6 shadow-xl">
+         <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-6 shadow-xl">
             <h3 className="text-sm font-black uppercase text-slate-500 tracking-widest mb-4">Variables</h3>
             <div className="space-y-2 text-xs text-slate-400 font-mono bg-slate-900/50 p-4 rounded-2xl border border-white/5">
                <p className="flex justify-between hover:text-white transition-colors"><span>{'{user}'}</span> <span>@Username</span></p>
@@ -193,7 +193,7 @@ export function WelcomeForm({ initialConfig, channels, guildId }: WelcomeFormPro
             <p className="text-[10px] text-slate-500 italic text-center mt-4">You can use these variables in both message content and embeds to personalize welcomes.</p>
          </div>
          
-         <div className="bg-[#141B2D] border border-slate-800 rounded-3xl p-6 shadow-xl">
+         <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-6 shadow-xl">
             <h3 className="text-sm font-black uppercase text-slate-500 tracking-widest mb-4">Auto Setup</h3>
             <Button onClick={() => setConfig({
                 ...config,

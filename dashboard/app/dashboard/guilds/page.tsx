@@ -98,8 +98,8 @@ export default async function GuildsPage() {
       </div>
 
       {error && !userGuilds.length && (
-        <div className="bg-red-500/10 border border-red-500/20 p-8 rounded-2xl text-center">
-          <ShieldCheck className="h-12 w-12 text-red-500 mx-auto mb-4 opacity-50" />
+        <div className="bg-blue-500/10 border border-blue-500/20 p-8 rounded-2xl text-center">
+          <ShieldCheck className="h-12 w-12 text-blue-500 mx-auto mb-4 opacity-50" />
           <h3 className="text-white font-bold text-lg">Verbindungsfehler</h3>
           <p className="text-slate-400 mt-2">{error}</p>
         </div>
@@ -116,7 +116,7 @@ export default async function GuildsPage() {
             {botConnectedGuilds.map((guild: any) => (
               <div 
                 key={guild.id}
-                className="bg-[#141B2D] border border-emerald-500/10 rounded-3xl group hover:border-emerald-500/30 hover:bg-[#202c3f] transition-all duration-300 overflow-hidden shadow-sm"
+                className="bg-[#10233f] border border-emerald-500/10 rounded-3xl group hover:border-emerald-500/30 hover:bg-[#17375f] transition-all duration-300 overflow-hidden shadow-sm"
               >
                 <div className="p-6">
                   <div className="flex items-start justify-between mb-6">
@@ -134,7 +134,7 @@ export default async function GuildsPage() {
                           {guild.name?.charAt(0)}
                         </div>
                       )}
-                      <div className="absolute -bottom-1 -right-1 h-4 w-4 rounded-full bg-emerald-500 border-2 border-[#141B2D]" title="Bot Online" />
+                      <div className="absolute -bottom-1 -right-1 h-4 w-4 rounded-full bg-emerald-500 border-2 border-[#10233f]" title="Bot Online" />
                     </div>
                     <div className="flex flex-col items-end text-right">
                       <span className="text-[10px] uppercase font-bold text-slate-500 tracking-widest mb-1">GUILD ID</span>
@@ -184,7 +184,7 @@ export default async function GuildsPage() {
             {botMissingGuilds.map((guild: any) => (
               <div 
                 key={guild.id}
-                className="bg-[#141B2D]/50 border border-slate-800/50 rounded-3xl group hover:border-slate-700 transition-all duration-300 overflow-hidden opacity-75 hover:opacity-100"
+                className="bg-[#10233f]/50 border border-slate-800/50 rounded-3xl group hover:border-slate-700 transition-all duration-300 overflow-hidden opacity-75 hover:opacity-100"
               >
                 <div className="p-6">
                   <div className="flex items-start justify-between mb-6">
@@ -202,7 +202,7 @@ export default async function GuildsPage() {
                           {guild.name?.charAt(0)}
                         </div>
                       )}
-                      <div className="absolute -bottom-1 -right-1 h-4 w-4 rounded-full bg-slate-600 border-2 border-[#141B2D]" title="Bot nicht verbunden" />
+                      <div className="absolute -bottom-1 -right-1 h-4 w-4 rounded-full bg-slate-600 border-2 border-[#10233f]" title="Bot nicht verbunden" />
                     </div>
                   </div>
                   <div>
@@ -212,8 +212,8 @@ export default async function GuildsPage() {
                         <Users className="h-4 w-4 text-slate-500" />
                         <span className="text-sm font-semibold text-slate-300">{guild.approximate_member_count?.toLocaleString() || "—"}</span>
                       </div>
-                      <div className="flex items-center gap-1.5 bg-orange-500/10 px-3 py-1.5 rounded-xl border border-orange-500/20">
-                        <span className="text-sm font-semibold text-orange-400">Bot fehlt</span>
+                      <div className="flex items-center gap-1.5 bg-blue-500/10 px-3 py-1.5 rounded-xl border border-blue-500/20">
+                        <span className="text-sm font-semibold text-blue-400">Bot fehlt</span>
                       </div>
                     </div>
                   </div>

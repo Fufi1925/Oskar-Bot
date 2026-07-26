@@ -40,7 +40,7 @@ export const MetricCard = ({
 }: MetricCardProps) => {
   return (
     <div className={cn(
-      "bg-[#141B2D] border border-slate-800 p-6 rounded-3xl relative overflow-hidden group hover:border-primary/50 transition-all shadow-xl hover:shadow-primary/5 shadow-black/20",
+      "bg-[#10233f] border border-slate-800 p-6 rounded-3xl relative overflow-hidden group hover:border-primary/50 transition-all shadow-xl hover:shadow-primary/5 shadow-black/20",
       className
     )}>
       <div className="flex items-center justify-between relative z-10">
@@ -51,7 +51,7 @@ export const MetricCard = ({
             {trend && (
               <span className={cn(
                 "text-[10px] font-black px-1.5 py-0.5 rounded-lg",
-                trend.isUp ? "bg-emerald-500/10 text-emerald-500" : "bg-red-500/10 text-red-500"
+                trend.isUp ? "bg-emerald-500/10 text-emerald-500" : "bg-blue-500/10 text-blue-500"
               )}>
                 {trend.isUp ? "+" : ""}{trend.value}
               </span>

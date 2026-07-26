@@ -34,8 +34,8 @@ export default function DashboardError({
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] p-6 text-center animate-in fade-in zoom-in-95 duration-500">
-      <div className="h-20 w-20 bg-red-500/10 rounded-3xl flex items-center justify-center mb-6">
-        <AlertTriangle className="h-10 w-10 text-red-500" />
+      <div className="h-20 w-20 bg-blue-500/10 rounded-3xl flex items-center justify-center mb-6">
+        <AlertTriangle className="h-10 w-10 text-blue-500" />
       </div>
       
       <h2 className="text-2xl font-black text-white mb-2 tracking-tight">System Fault Detected</h2>
@@ -63,7 +63,7 @@ export default function DashboardError({
       </div>
       
       {process.env.NODE_ENV === 'development' && (
-        <pre className="mt-8 p-4 bg-black/40 border border-slate-800 rounded-xl text-left text-xs text-red-400 overflow-auto max-w-full font-mono">
+        <pre className="mt-8 p-4 bg-black/40 border border-slate-800 rounded-xl text-left text-xs text-blue-400 overflow-auto max-w-full font-mono">
           {error.message}
         </pre>
       )}

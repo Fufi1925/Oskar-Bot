@@ -65,7 +65,7 @@ export function SettingsForm({ initialPrefix, guildId }: SettingsFormProps) {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
       <div className="lg:col-span-2 space-y-6">
-        <div className="bg-[#141B2D] border border-slate-800 rounded-3xl overflow-hidden shadow-xl shadow-black/20">
+        <div className="bg-[#10233f] border border-slate-800 rounded-3xl overflow-hidden shadow-xl shadow-black/20">
           <div className="p-8 space-y-6">
             <form onSubmit={handleSave} className="space-y-6">
               <div className="space-y-2">
@@ -107,7 +107,7 @@ export function SettingsForm({ initialPrefix, guildId }: SettingsFormProps) {
       </div>
 
       <div className="space-y-6">
-        <div className="bg-[#141B2D] border border-slate-800 rounded-3xl p-6 relative overflow-hidden group">
+        <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-6 relative overflow-hidden group">
           <div className="absolute -right-4 -top-4 opacity-[0.03] group-hover:scale-110 transition-transform">
             <Info className="h-32 w-32 text-white" />
           </div>

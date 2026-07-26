@@ -116,7 +116,7 @@ export default function VanityRolesPage({ params }: { params: { guildId: string 
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
         <div className="lg:col-span-3 space-y-6">
-          <div className="bg-[#141B2D] border border-slate-800 rounded-3xl overflow-hidden shadow-xl p-8 space-y-8">
+          <div className="bg-[#10233f] border border-slate-800 rounded-3xl overflow-hidden shadow-xl p-8 space-y-8">
             
             {/* Add New Setup */}
             <div className="space-y-4">
@@ -204,7 +204,7 @@ export default function VanityRolesPage({ params }: { params: { guildId: string 
                           <span className="font-medium text-slate-200">#{channel?.name || "Unknown"}</span>
                         </div>
                       </div>
-                      <Button variant="ghost" size="sm" onClick={() => handleDelete(setup.vanity)} className="text-red-400 hover:text-red-300 hover:bg-red-400/10 h-8 w-8 p-0">
+                      <Button variant="ghost" size="sm" onClick={() => handleDelete(setup.vanity)} className="text-blue-400 hover:text-blue-300 hover:bg-blue-400/10 h-8 w-8 p-0">
                         <Trash2 className="w-4 h-4" />
                       </Button>
                     </div>

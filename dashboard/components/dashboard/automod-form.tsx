@@ -100,7 +100,7 @@ export function AutomodForm({ initialConfig, guildId }: AutomodFormProps) {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
       <div className="lg:col-span-3 space-y-6">
-        <div className="bg-[#141B2D] border border-slate-800 rounded-3xl overflow-hidden shadow-xl">
+        <div className="bg-[#10233f] border border-slate-800 rounded-3xl overflow-hidden shadow-xl">
           <div className="p-8 space-y-6">
             <div className="flex items-center justify-between mb-4">
                <h3 className="text-sm font-black uppercase text-slate-500 tracking-widest">Master Control</h3>
@@ -181,7 +181,7 @@ export function AutomodForm({ initialConfig, guildId }: AutomodFormProps) {
       </div>
 
       <div className="space-y-6">
-         <div className="bg-[#141B2D] border border-slate-800 rounded-3xl p-6">
+         <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-6">
             <h3 className="text-sm font-black uppercase text-slate-500 tracking-widest mb-4">Logging Level</h3>
             <div className="space-y-3">
                <div className="p-3 bg-slate-900/50 rounded-xl border border-white/5 flex items-center justify-between">

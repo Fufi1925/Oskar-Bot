@@ -50,7 +50,7 @@ export default function GuildOverviewPage({ params }: { params: { guildId: strin
           
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {modules.map((mod) => (
-              <div key={mod.title} className="bg-[#141B2D] border border-slate-800 p-5 rounded-2xl group hover:border-slate-600 transition-all shadow-sm">
+              <div key={mod.title} className="bg-[#10233f] border border-slate-800 p-5 rounded-2xl group hover:border-slate-600 transition-all shadow-sm">
                 <div className="flex items-start justify-between mb-4">
                   <div className="h-10 w-10 bg-slate-800 rounded-xl flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
                     <mod.icon className="h-5 w-5" />
@@ -114,7 +114,7 @@ export default function GuildOverviewPage({ params }: { params: { guildId: strin
           </div>
         </section>
 
-        <section className="bg-[#141B2D] border border-slate-800 rounded-3xl p-8">
+        <section className="bg-[#10233f] border border-slate-800 rounded-3xl p-8">
            <h2 className="text-xl font-bold text-white mb-6">Security Context</h2>
            <div className="flex items-center gap-6">
               <div className="h-20 w-20 rounded-full border-4 border-emerald-500/20 flex items-center justify-center relative shadow-[0_0_20px_rgba(16,185,129,0.1)]">

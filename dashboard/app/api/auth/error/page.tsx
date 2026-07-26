@@ -51,10 +51,10 @@ function ErrorContent() {
   const errorInfo = ERROR_MESSAGES[error] || ERROR_MESSAGES.Default;
 
   return (
-    <div className="min-h-screen bg-[#020617] flex items-center justify-center p-6">
+    <div className="min-h-screen bg-[#071527] flex items-center justify-center p-6">
       <div className="max-w-md w-full text-center">
-        <div className="h-20 w-20 bg-red-500/10 rounded-3xl flex items-center justify-center mx-auto mb-6">
-          <AlertTriangle className="h-10 w-10 text-red-500" />
+        <div className="h-20 w-20 bg-blue-500/10 rounded-3xl flex items-center justify-center mx-auto mb-6">
+          <AlertTriangle className="h-10 w-10 text-blue-500" />
         </div>
         
         <h1 className="text-3xl font-bold text-white mb-3">{errorInfo.title}</h1>
@@ -63,7 +63,7 @@ function ErrorContent() {
 
         <div className="flex flex-col gap-3">
           <Link href="/">
-            <Button className="w-full gap-2 h-12 font-bold bg-red-600 hover:bg-red-500">
+            <Button className="w-full gap-2 h-12 font-bold bg-blue-600 hover:bg-blue-500">
               <ArrowLeft className="h-4 w-4" />
               Zurück zur Startseite
             </Button>
@@ -94,7 +94,7 @@ function ErrorContent() {
 
 export default function AuthErrorPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#020617] flex items-center justify-center text-white">Laden...</div>}>
+    <Suspense fallback={<div className="min-h-screen bg-[#071527] flex items-center justify-center text-white">Laden...</div>}>
       <ErrorContent />
     </Suspense>
   );

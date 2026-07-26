@@ -60,8 +60,8 @@ export default async function GuildLayout({
 
   if (error || !guild) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] border-2 border-dashed border-red-500/20 rounded-3xl bg-red-500/5 p-12 text-center">
-        <ShieldAlert className="h-16 w-16 text-red-500 mb-6 opacity-50" />
+      <div className="flex flex-col items-center justify-center min-h-[400px] border-2 border-dashed border-blue-500/20 rounded-3xl bg-blue-500/5 p-12 text-center">
+        <ShieldAlert className="h-16 w-16 text-blue-500 mb-6 opacity-50" />
         <h2 className="text-2xl font-bold text-white">Access Denied</h2>
         <p className="text-slate-400 mt-2 max-w-md">{error || "This guild does not exist or you do not have permission to manage it."}</p>
         <Link href="/dashboard/guilds" className="mt-8">
@@ -80,7 +80,7 @@ export default async function GuildLayout({
       </Link>
 
       {/* Guild Header */}
-      <div className="bg-[#141B2D] border border-slate-800 rounded-3xl p-8 shadow-xl shadow-black/20">
+      <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-8 shadow-xl shadow-black/20">
         <div className="flex flex-col lg:flex-row lg:items-center gap-8">
           <div className="relative">
             {guild.icon ? (
@@ -96,7 +96,7 @@ export default async function GuildLayout({
                 {guild.name.charAt(0)}
               </div>
             )}
-            <div className="absolute -bottom-2 -right-2 bg-emerald-500 text-white p-2 rounded-xl shadow-lg border-2 border-[#141B2D]" title="Active">
+            <div className="absolute -bottom-2 -right-2 bg-emerald-500 text-white p-2 rounded-xl shadow-lg border-2 border-[#10233f]" title="Active">
               <div className="h-3 w-3 rounded-full bg-white animate-pulse" />
             </div>
           </div>

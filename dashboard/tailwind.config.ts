@@ -28,16 +28,16 @@ const config: Config = {
         background: "var(--background)",
         foreground: "var(--foreground)",
         primary: {
-          DEFAULT: "#ef4444", // Vivid Red
-          hover: "#dc2626",
-          glow: "rgba(239, 68, 68, 0.5)",
+          DEFAULT: "#3b82f6", // Vivid Blue
+          hover: "#2563eb",
+          glow: "rgba(59, 130, 246, 0.5)",
         },
         secondary: {
-          DEFAULT: "#020617", // Deep Navy/Black
-          light: "#0f172a",
+          DEFAULT: "#071527", // Deep Navy/Black
+          light: "#0b1f3a",
         },
         accent: {
-          red: "rgba(239, 68, 68, 0.1)",
+          red: "rgba(59, 130, 246, 0.1)",
           glass: "rgba(255, 255, 255, 0.03)",
         }
       },

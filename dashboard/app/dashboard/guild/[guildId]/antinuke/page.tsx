@@ -33,7 +33,7 @@ export default async function AntiNukePage({ params }: { params: { guildId: stri
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
           <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-            <ShieldAlert className="h-6 w-6 text-red-500" />
+            <ShieldAlert className="h-6 w-6 text-blue-500" />
             Anti-Nuke Protection
           </h2>
           <p className="text-slate-400 mt-1">Protect your server from malicious mass-deletion, mass-banning, and other destructive actions.</p>

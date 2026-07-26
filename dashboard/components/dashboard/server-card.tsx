@@ -40,7 +40,7 @@ export const ServerCard = ({
 }: ServerCardProps) => {
   return (
     <div className={cn(
-      "bg-[#141B2D] border border-slate-800 rounded-[40px] group hover:border-primary/50 transition-all duration-500 overflow-hidden shadow-2xl hover:shadow-primary/10 shadow-black/40 h-full flex flex-col",
+      "bg-[#10233f] border border-slate-800 rounded-[40px] group hover:border-primary/50 transition-all duration-500 overflow-hidden shadow-2xl hover:shadow-primary/10 shadow-black/40 h-full flex flex-col",
       className
     )}>
       <div className="p-8 flex-grow">
@@ -60,7 +60,7 @@ export const ServerCard = ({
               </div>
             )}
             {isActive && (
-              <div className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full bg-emerald-500 border-4 border-[#141B2D] shadow-lg animate-pulse" title="Online" />
+              <div className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full bg-emerald-500 border-4 border-[#10233f] shadow-lg animate-pulse" title="Online" />
             )}
           </div>
           

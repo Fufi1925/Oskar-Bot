@@ -93,12 +93,12 @@ export default function InvcRolePage({ params }: { params: { guildId: string } }
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
         <div className="lg:col-span-3 space-y-6">
-          <div className="bg-[#141B2D] border border-slate-800 rounded-3xl overflow-hidden shadow-xl p-8 space-y-8">
+          <div className="bg-[#10233f] border border-slate-800 rounded-3xl overflow-hidden shadow-xl p-8 space-y-8">
             
             {/* Status & Toggle */}
             <div className="flex items-center justify-between p-6 bg-slate-900/40 rounded-2xl border border-slate-800">
               <div className="flex items-center gap-4">
-                <div className={cn("p-3 rounded-xl transition-colors", config.enabled ? "bg-emerald-500/20 text-emerald-500" : "bg-red-500/20 text-red-500")}>
+                <div className={cn("p-3 rounded-xl transition-colors", config.enabled ? "bg-emerald-500/20 text-emerald-500" : "bg-blue-500/20 text-blue-500")}>
                   <Power className="w-5 h-5" />
                 </div>
                 <div>
@@ -108,7 +108,7 @@ export default function InvcRolePage({ params }: { params: { guildId: string } }
               </div>
               <div className="flex items-center gap-4">
                 <div className="px-3 py-1 rounded-full bg-slate-900 border border-slate-800 flex items-center gap-2">
-                  <div className={cn("w-2 h-2 rounded-full", config.enabled ? 'bg-emerald-500 animate-pulse' : 'bg-red-500')} />
+                  <div className={cn("w-2 h-2 rounded-full", config.enabled ? 'bg-emerald-500 animate-pulse' : 'bg-blue-500')} />
                   <span className="text-[10px] font-bold uppercase text-slate-400">
                     {config.enabled ? 'Live' : 'Off'}
                   </span>

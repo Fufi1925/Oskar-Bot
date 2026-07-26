@@ -115,7 +115,7 @@ export function AntiNukeForm({ initialConfig, guildId }: AntiNukeFormProps) {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
       <div className="lg:col-span-3 space-y-6">
-        <div className="bg-[#141B2D] border border-slate-800 rounded-3xl overflow-hidden shadow-xl">
+        <div className="bg-[#10233f] border border-slate-800 rounded-3xl overflow-hidden shadow-xl">
           <div className="p-8 space-y-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-black uppercase text-slate-500 tracking-widest">Master Control</h3>
@@ -196,7 +196,7 @@ export function AntiNukeForm({ initialConfig, guildId }: AntiNukeFormProps) {
                         size="sm" 
                         onClick={() => handleRemoveWhitelist(userId)}
                         disabled={saving}
-                        className="text-red-400 hover:text-red-300 hover:bg-red-400/10 h-8 w-8 p-0"
+                        className="text-blue-400 hover:text-blue-300 hover:bg-blue-400/10 h-8 w-8 p-0"
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -219,15 +219,15 @@ export function AntiNukeForm({ initialConfig, guildId }: AntiNukeFormProps) {
       </div>
 
       <div className="space-y-6">
-         <div className="bg-gradient-to-br from-red-500/10 to-transparent border border-red-500/20 rounded-3xl p-6 relative overflow-hidden group">
+         <div className="bg-gradient-to-br from-blue-500/10 to-transparent border border-blue-500/20 rounded-3xl p-6 relative overflow-hidden group">
             <div className="absolute -right-4 -top-4 opacity-[0.03] group-hover:scale-110 transition-transform">
-              <ShieldAlert className="h-32 w-32 text-red-500" />
+              <ShieldAlert className="h-32 w-32 text-blue-500" />
             </div>
-            <h3 className="text-sm font-bold text-red-400 mb-2">Maximum Protection</h3>
+            <h3 className="text-sm font-bold text-blue-400 mb-2">Maximum Protection</h3>
             <p className="text-xs text-slate-400 leading-relaxed mb-4">Anti-Nuke is fixed to instantly Ban malicious actors. Ensure that University Bot&apos;s role is at the TOP of the role hierarchy for it to be able to ban admins.</p>
             <div className="flex items-center gap-2">
-              <div className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
-              <span className="text-[10px] font-black uppercase text-red-500">Fixed Punishments</span>
+              <div className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
+              <span className="text-[10px] font-black uppercase text-blue-500">Fixed Punishments</span>
             </div>
          </div>
       </div>

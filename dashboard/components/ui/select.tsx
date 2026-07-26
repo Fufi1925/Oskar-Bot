@@ -79,7 +79,7 @@ const Select = ({ children, value, onValueChange, options, placeholder, classNam
         </button>
 
         {isOpen && (
-          <div className="absolute top-full z-50 mt-2 w-full overflow-hidden rounded-xl border border-slate-800 bg-[#141B2D] p-1 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+          <div className="absolute top-full z-50 mt-2 w-full overflow-hidden rounded-xl border border-slate-800 bg-[#10233f] p-1 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
             <div className="max-h-60 overflow-y-auto overflow-x-hidden no-scrollbar">
               {options.map((option) => (
                 <button
@@ -152,7 +152,7 @@ const SelectContent = ({ children, className }: { children: React.ReactNode, cla
   if (!context || !context.isOpen) return null
 
   return (
-    <div className={cn("absolute top-full z-50 mt-2 w-full overflow-hidden rounded-xl border border-slate-800 bg-[#141B2D] p-1 shadow-2xl animate-in fade-in zoom-in-95 duration-200", className)}>
+    <div className={cn("absolute top-full z-50 mt-2 w-full overflow-hidden rounded-xl border border-slate-800 bg-[#10233f] p-1 shadow-2xl animate-in fade-in zoom-in-95 duration-200", className)}>
       <div className="max-h-60 overflow-y-auto overflow-x-hidden no-scrollbar">
         {children}
       </div>

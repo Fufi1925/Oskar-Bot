@@ -99,11 +99,11 @@ export function GuildTabs({ guildId }: { guildId: string }) {
       </button>
 
       {/* Left Fade */}
-      <div className="absolute left-0 top-0 bottom-0 w-16 bg-gradient-to-r from-[#0f172a] to-transparent z-10 pointer-events-none opacity-0 group-hover/tabs:opacity-100 transition-opacity" />
+      <div className="absolute left-0 top-0 bottom-0 w-16 bg-gradient-to-r from-[#0b1f3a] to-transparent z-10 pointer-events-none opacity-0 group-hover/tabs:opacity-100 transition-opacity" />
       
       <div 
         ref={scrollContainerRef}
-        className="flex gap-2 p-1.5 bg-[#141B2D]/40 border border-slate-800/40 rounded-[20px] overflow-x-auto no-scrollbar w-full scroll-smooth shadow-2xl shadow-black/20"
+        className="flex gap-2 p-1.5 bg-[#10233f]/40 border border-slate-800/40 rounded-[20px] overflow-x-auto no-scrollbar w-full scroll-smooth shadow-2xl shadow-black/20"
       >
         {tabs.map((tab) => {
           const isActive = pathname === tab.href;
@@ -129,7 +129,7 @@ export function GuildTabs({ guildId }: { guildId: string }) {
       </div>
 
       {/* Right Fade */}
-      <div className="absolute right-0 top-0 bottom-0 w-16 bg-gradient-to-l from-[#0f172a] to-transparent z-10 pointer-events-none opacity-0 group-hover/tabs:opacity-100 transition-opacity" />
+      <div className="absolute right-0 top-0 bottom-0 w-16 bg-gradient-to-l from-[#0b1f3a] to-transparent z-10 pointer-events-none opacity-0 group-hover/tabs:opacity-100 transition-opacity" />
 
       <button 
         onClick={() => scroll("right")}

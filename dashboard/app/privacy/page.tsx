@@ -23,15 +23,15 @@ import { Button } from "@/components/ui/button";
 
 export default function PrivacyPage() {
   return (
-    <div className="min-h-screen bg-[#020617] text-slate-200 font-sans">
+    <div className="min-h-screen bg-[#071527] text-slate-200 font-sans">
       {/* Background Decor */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
-        <div className="absolute top-[-10%] right-[-5%] w-[40%] h-[40%] bg-red-500/[0.03] blur-[120px] rounded-full" />
+        <div className="absolute top-[-10%] right-[-5%] w-[40%] h-[40%] bg-blue-500/[0.03] blur-[120px] rounded-full" />
       </div>
 
-      <nav className="fixed top-0 w-full z-50 border-b border-white/[0.03] bg-[#020617]/80 backdrop-blur-3xl px-6 h-20 flex items-center justify-between">
+      <nav className="fixed top-0 w-full z-50 border-b border-white/[0.03] bg-[#071527]/80 backdrop-blur-3xl px-6 h-20 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-4 group">
-          <div className="h-9 w-9 rounded-xl bg-red-600 flex items-center justify-center mr-4">
+          <div className="h-9 w-9 rounded-xl bg-blue-600 flex items-center justify-center mr-4">
             <Bot className="h-5 w-5 text-white" />
           </div>
           <span className="text-xl font-bold text-white font-outfit uppercase tracking-tighter">University Bot Engine</span>
@@ -46,19 +46,19 @@ export default function PrivacyPage() {
 
       <main className="relative z-10 pt-40 pb-32 px-6">
         <div className="max-w-4xl mx-auto">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-red-500 text-[10px] font-black uppercase tracking-widest mb-8">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-500 text-[10px] font-black uppercase tracking-widest mb-8">
             <ShieldCheck className="h-3 w-3" />
             Privacy Shield v2.0
           </div>
           
           <h1 className="text-5xl md:text-7xl font-bold text-white font-outfit tracking-tighter uppercase mb-12 italic">
-            Privacy <span className="text-red-500 not-italic">Policy.</span>
+            Privacy <span className="text-blue-500 not-italic">Policy.</span>
           </h1>
 
           <div className="glass border-white/5 rounded-[40px] p-10 md:p-16 space-y-12">
             <section className="space-y-6">
               <div className="flex items-center gap-4 text-white">
-                <div className="h-10 w-10 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-red-500">
+                <div className="h-10 w-10 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-blue-500">
                    <Eye className="h-5 w-5" />
                 </div>
                 <h2 className="text-2xl font-bold font-outfit uppercase tracking-tight">Data Collection</h2>
@@ -70,7 +70,7 @@ export default function PrivacyPage() {
 
             <section className="space-y-6">
               <div className="flex items-center gap-4 text-white">
-                <div className="h-10 w-10 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-red-500">
+                <div className="h-10 w-10 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-blue-500">
                    <Lock className="h-5 w-5" />
                 </div>
                 <h2 className="text-2xl font-bold font-outfit uppercase tracking-tight">Data Integrity</h2>
@@ -82,7 +82,7 @@ export default function PrivacyPage() {
 
             <section className="space-y-6">
               <div className="flex items-center gap-4 text-white">
-                <div className="h-10 w-10 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-red-500">
+                <div className="h-10 w-10 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-blue-500">
                    <FileText className="h-5 w-5" />
                 </div>
                 <h2 className="text-2xl font-bold font-outfit uppercase tracking-tight">User Rights</h2>
