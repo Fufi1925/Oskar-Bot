@@ -326,6 +326,16 @@ export const api = {
   revokeAllTeamRoles: (userId: string) =>
     request<any>(`/team/members/${userId}`, { method: "DELETE" }),
 
+  // Owner / admin access (owners only)
+  getOwners: () => request<{ owners: any[]; count: number }>("/team/owners"),
+  addOwner: (userId: string, kind: "owner" | "admin", note = "") =>
+    request<any>("/team/owners", {
+      method: "POST",
+      body: JSON.stringify({ user_id: userId, kind, note }),
+    }),
+  removeOwner: (userId: string) =>
+    request<any>(`/team/owners/${userId}`, { method: "DELETE" }),
+
   getSessionPolicy: () =>
     request<{ force_reauth: boolean; reauth_epoch: number; maintenance_banner: boolean }>(
       "/admin/session-policy"

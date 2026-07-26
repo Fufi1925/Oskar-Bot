@@ -212,6 +212,21 @@ async function authorize(
     // Everyone may look up their own access.
     if (resource === "me") return { ok: true };
 
+    // Owner and admin management is the highest privilege in the system:
+    // a team role is never enough, only real owners get through.
+    if (resource === "owners") {
+      const access = await fetchTeamAccess(session.user.id);
+      // Reading the list is fine for any owner or admin; changing it is
+      // reserved for owners.
+      if (request.method === "GET" ? access?.is_owner : access?.can_manage_owners) {
+        return { ok: true };
+      }
+      return {
+        ok: false,
+        response: deny(403, "Only owners can manage owner and admin access."),
+      };
+    }
+
     const mapping = TEAM_PERMISSIONS[resource];
     const required = request.method === "GET" ? mapping?.GET : mapping?.WRITE;
     if (required && (await hasTeamPermission(session.user.id, required))) {

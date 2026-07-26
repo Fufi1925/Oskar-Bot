@@ -16,9 +16,11 @@ import { Select } from "@/components/ui/select";
 import { FeatureFlagsPanel } from "@/components/dashboard/feature-flags-panel";
 import { SystemHealthPanel } from "@/components/dashboard/system-health-panel";
 import { TeamPanel } from "@/components/dashboard/team-panel";
+import { OwnerAccessPanel } from "@/components/dashboard/owner-access-panel";
+import { useSession } from "next-auth/react";
 
 
-type TabId = "members" | "channels" | "server" | "scans" | "broadcast" | "system" | "features" | "health" | "team";
+type TabId = "members" | "channels" | "server" | "scans" | "broadcast" | "system" | "features" | "health" | "team" | "access";
 type MemberAction = "ban" | "kick" | "mute" | "unmute";
 
 type QuickAction = {
@@ -40,6 +42,7 @@ const tabs: Array<{ id: TabId; label: string; icon: any }> = [
   { id: "features", label: "Features", icon: Settings },
   { id: "health", label: "Health", icon: Activity },
   { id: "team", label: "Team", icon: Users },
+  { id: "access", label: "Access", icon: Lock },
 ];
 
 const memberActions: Array<{ action: MemberAction; label: string; desc: string; icon: any }> = [
@@ -87,6 +90,13 @@ function TextInput({ label, value, setValue, placeholder, type = "text" }: { lab
 }
 
 export function AdminContent() {
+  const { data: session } = useSession();
+  // Own access, used to hide tabs the user has no permission for.
+  const [access, setAccess] = useState<{
+    is_owner: boolean;
+    permissions: string[];
+    roles: Array<{ key: string; label: string }>;
+  } | null>(null);
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [config, setConfig] = useState<AdminConfig | null>(null);
   const [guilds, setGuilds] = useState<any[]>([]);
@@ -133,6 +143,16 @@ export function AdminContent() {
     return () => clearInterval(interval);
   }, []);
 
+  // Load own permissions so tabs the user cannot use are hidden.
+  useEffect(() => {
+    const userId = (session?.user as any)?.id;
+    if (!userId) return;
+    api
+      .getOwnAccess(userId)
+      .then(setAccess)
+      .catch(() => setAccess(null));
+  }, [session?.user]);
+
   useEffect(() => {
     if (!guildId) return;
     async function loadGuildMeta() {
@@ -155,6 +175,42 @@ export function AdminContent() {
     { name: "API Latency", value: stats?.api_latency || "0ms", icon: Activity, color: "text-amber-500" },
     { name: "Database Size", value: stats?.db_size || "0 MB", icon: Database, color: "text-purple-500" },
   ];
+
+  // Which permission each tab needs. Tabs without an entry are always shown.
+  const TAB_PERMISSION: Partial<Record<TabId, string>> = {
+    members: "members.view",
+    channels: "channels.manage",
+    server: "server.manage",
+    scans: "security.scan",
+    broadcast: "broadcast.send",
+    system: "maintenance.toggle",
+    features: "features.view",
+    health: "health.view",
+    team: "team.view",
+  };
+
+  const visibleTabs = useMemo(() => {
+    // Before the permissions arrive, show everything: the API rejects
+    // anything the user may not do anyway.
+    if (!access) return tabs;
+    if (access.is_owner) return tabs;
+
+    return tabs.filter((tab) => {
+      // Owner/admin management is only for owners and admins, never for
+      // people who merely hold a team role.
+      if (tab.id === "access") return false;
+      const required = TAB_PERMISSION[tab.id];
+      if (!required) return true;
+      return access.permissions.includes(required);
+    });
+  }, [access]);
+
+  // If the active tab disappeared, fall back to the first one available.
+  useEffect(() => {
+    if (visibleTabs.length && !visibleTabs.some((t) => t.id === activeTab)) {
+      setActiveTab(visibleTabs[0].id);
+    }
+  }, [visibleTabs, activeTab]);
 
   const currentActions = useMemo(() => quickActions.filter((action) => action.tab === activeTab), [activeTab]);
   const currentNeeds = useMemo(() => new Set(currentActions.flatMap((action) => action.needs || [])), [currentActions]);
@@ -223,14 +279,15 @@ export function AdminContent() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">{statItems.map((stat) => <div key={stat.name} className="glass border border-white/5 rounded-3xl p-6 hover:border-white/10 transition-all group"><div className="flex items-center justify-between mb-4"><div className={cn("p-3 rounded-xl bg-white/[0.03] group-hover:scale-110 transition-transform", stat.color)}><stat.icon className="h-6 w-6" /></div><span className="text-[10px] font-black uppercase tracking-widest text-emerald-500 bg-emerald-500/10 px-2 py-1 rounded-lg">Live</span></div><p className="text-slate-500 text-xs font-bold uppercase tracking-widest">{stat.name}</p><h3 className="text-2xl font-black text-white mt-1 font-outfit">{stat.value}</h3></div>)}</div>
 
-      <div className="flex flex-wrap gap-3 p-2 bg-[#10233f]/70 border border-slate-800 rounded-3xl">{tabs.map((tab) => { const active = activeTab === tab.id; return <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={cn("flex items-center gap-2 px-5 py-3 rounded-2xl text-sm font-black uppercase tracking-wider transition-all", active ? "bg-primary text-white shadow-lg shadow-primary/20" : "text-slate-400 hover:bg-slate-800/70 hover:text-white")}><tab.icon className="h-4 w-4" />{tab.label}</button>; })}</div>
+      <div className="flex flex-wrap gap-3 p-2 bg-[#10233f]/70 border border-slate-800 rounded-3xl">{visibleTabs.map((tab) => { const active = activeTab === tab.id; return <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={cn("flex items-center gap-2 px-5 py-3 rounded-2xl text-sm font-black uppercase tracking-wider transition-all", active ? "bg-primary text-white shadow-lg shadow-primary/20" : "text-slate-400 hover:bg-slate-800/70 hover:text-white")}><tab.icon className="h-4 w-4" />{tab.label}</button>; })}</div>
 
       {/* Features and Health are full-width: they have no input sidebar. */}
       {activeTab === "features" && <FeatureFlagsPanel />}
       {activeTab === "health" && <SystemHealthPanel />}
       {activeTab === "team" && <TeamPanel />}
+      {activeTab === "access" && <OwnerAccessPanel currentUserId={(session?.user as any)?.id} />}
 
-      {activeTab !== "features" && activeTab !== "health" && activeTab !== "team" && (
+      {activeTab !== "features" && activeTab !== "health" && activeTab !== "team" && activeTab !== "access" && (
       <div className="grid grid-cols-1 xl:grid-cols-4 gap-8">
         <aside className="xl:col-span-1 glass border border-white/5 rounded-[2rem] p-6 space-y-4 h-fit">
           <h3 className="font-black text-white flex items-center gap-2"><SearchCheck className="h-5 w-5 text-primary" /> Inputs</h3>
@@ -259,7 +316,7 @@ export function AdminContent() {
       </div>
       )}
 
-      {activeTab !== "features" && activeTab !== "health" && activeTab !== "team" && (
+      {activeTab !== "features" && activeTab !== "health" && activeTab !== "team" && activeTab !== "access" && (
         <div className="glass border border-white/5 rounded-3xl p-5 flex gap-3 text-sm text-slate-400"><AlertTriangle className="h-5 w-5 text-amber-500 shrink-0" />Select a server first. For kick, ban, mute and unmute you only need the user ID, timeout duration (for mute) and reason. Channels can be selected from dropdowns.</div>
       )}
     </div>

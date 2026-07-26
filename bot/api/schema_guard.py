@@ -1,0 +1,318 @@
+"""
+Database schema guard.
+
+Every cog creates its own tables the first time it runs. The API, however,
+reads those same tables — and on a fresh deployment it usually gets there
+first. The result was a dashboard full of 500s:
+
+    sqlite3.OperationalError: no such table: automod
+
+This module creates the tables the API reads, using the exact same schema the
+cogs use. `CREATE TABLE IF NOT EXISTS` makes it a no-op once a cog has already
+created them, so nothing is overwritten and no data is touched.
+
+Called once on API startup.
+"""
+
+from __future__ import annotations
+
+import os
+
+import aiosqlite
+
+# db file -> list of CREATE statements
+SCHEMA: dict[str, tuple[str, ...]] = {
+    "db/automod.db": (
+        """CREATE TABLE IF NOT EXISTS automod (
+            guild_id INTEGER PRIMARY KEY,
+            enabled INTEGER DEFAULT 0
+        )""",
+        """CREATE TABLE IF NOT EXISTS automod_punishments (
+            guild_id INTEGER,
+            event TEXT,
+            punishment TEXT,
+            PRIMARY KEY (guild_id, event)
+        )""",
+        """CREATE TABLE IF NOT EXISTS automod_ignored (
+            guild_id INTEGER,
+            type TEXT,
+            id INTEGER
+        )""",
+        """CREATE TABLE IF NOT EXISTS automod_config (
+            guild_id INTEGER,
+            event TEXT,
+            enabled INTEGER DEFAULT 0,
+            PRIMARY KEY (guild_id, event)
+        )""",
+        """CREATE TABLE IF NOT EXISTS automod_logging (
+            guild_id INTEGER PRIMARY KEY,
+            log_channel INTEGER
+        )""",
+    ),
+    "db/ticket.db": (
+        """CREATE TABLE IF NOT EXISTS guild_configs (
+            guild_id INTEGER PRIMARY KEY,
+            panel_channel_id INTEGER,
+            logging_channel_id INTEGER,
+            panel_message_id INTEGER,
+            panel_type TEXT,
+            embed_title TEXT,
+            embed_description TEXT,
+            embed_color INTEGER,
+            embed_image_url TEXT,
+            embed_thumbnail_url TEXT,
+            closed_category_id INTEGER
+        )""",
+        """CREATE TABLE IF NOT EXISTS ticket_categories (
+            category_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            guild_id INTEGER,
+            name TEXT NOT NULL,
+            emoji TEXT,
+            notified_roles TEXT,
+            button_style INTEGER,
+            discord_category_id INTEGER
+        )""",
+        """CREATE TABLE IF NOT EXISTS open_tickets (
+            channel_id INTEGER PRIMARY KEY,
+            ticket_number INTEGER,
+            guild_id INTEGER,
+            creator_id INTEGER NOT NULL,
+            category_db_id INTEGER,
+            created_at TEXT NOT NULL,
+            closed_by_id INTEGER,
+            closed_at TEXT,
+            is_locked BOOLEAN DEFAULT FALSE,
+            is_claimed BOOLEAN DEFAULT FALSE,
+            claimed_by_id INTEGER
+        )""",
+        """CREATE TABLE IF NOT EXISTS user_ticket_counts (
+            guild_id INTEGER,
+            user_id INTEGER,
+            ticket_count INTEGER DEFAULT 0,
+            PRIMARY KEY (guild_id, user_id)
+        )""",
+    ),
+    "db/leveling.db": (
+        """CREATE TABLE IF NOT EXISTS leveling_settings (
+            guild_id INTEGER PRIMARY KEY,
+            enabled INTEGER DEFAULT 0,
+            channel_id INTEGER,
+            level_message TEXT DEFAULT 'Congratulations {user}! You have reached level {level}!',
+            embed_color INTEGER DEFAULT 0,
+            level_image TEXT,
+            thumbnail_enabled INTEGER DEFAULT 1,
+            xp_per_message INTEGER DEFAULT 20,
+            min_xp INTEGER DEFAULT 15,
+            max_xp INTEGER DEFAULT 25,
+            cooldown_seconds INTEGER DEFAULT 60,
+            dm_level_up INTEGER DEFAULT 0
+        )""",
+        """CREATE TABLE IF NOT EXISTS user_xp (
+            guild_id INTEGER,
+            user_id INTEGER,
+            xp INTEGER DEFAULT 0,
+            level INTEGER DEFAULT 0,
+            messages INTEGER DEFAULT 0,
+            last_message REAL DEFAULT 0,
+            PRIMARY KEY (guild_id, user_id)
+        )""",
+        """CREATE TABLE IF NOT EXISTS level_rewards (
+            guild_id INTEGER,
+            level INTEGER,
+            role_id INTEGER,
+            PRIMARY KEY (guild_id, level)
+        )""",
+    ),
+    "db/welcome.db": (
+        """CREATE TABLE IF NOT EXISTS welcome (
+            guild_id INTEGER PRIMARY KEY,
+            welcome_type TEXT,
+            welcome_message TEXT,
+            channel_id INTEGER,
+            embed_data TEXT,
+            auto_delete_duration INTEGER
+        )""",
+    ),
+    "db/anti.db": (
+        """CREATE TABLE IF NOT EXISTS antinuke (
+            guild_id INTEGER PRIMARY KEY,
+            status BOOLEAN
+        )""",
+        """CREATE TABLE IF NOT EXISTS whitelisted_users (
+            guild_id INTEGER,
+            user_id INTEGER,
+            ban BOOLEAN, kick BOOLEAN, prune BOOLEAN, botadd BOOLEAN,
+            serverup BOOLEAN, memup BOOLEAN, chcr BOOLEAN, chdl BOOLEAN,
+            chup BOOLEAN, rlcr BOOLEAN, rlup BOOLEAN, rldl BOOLEAN,
+            meneve BOOLEAN, mngweb BOOLEAN, mngstemo BOOLEAN,
+            PRIMARY KEY (guild_id, user_id)
+        )""",
+        """CREATE TABLE IF NOT EXISTS limit_settings (
+            guild_id INTEGER,
+            action_type TEXT,
+            action_limit INTEGER,
+            time_window INTEGER,
+            PRIMARY KEY (guild_id, action_type)
+        )""",
+        """CREATE TABLE IF NOT EXISTS punishment (
+            guild_id INTEGER PRIMARY KEY,
+            punishment TEXT
+        )""",
+    ),
+    "db/verification.db": (
+        """CREATE TABLE IF NOT EXISTS verification_config (
+            guild_id INTEGER PRIMARY KEY,
+            verification_channel_id INTEGER NOT NULL,
+            verified_role_id INTEGER NOT NULL,
+            log_channel_id INTEGER,
+            verification_method TEXT DEFAULT 'both',
+            enabled BOOLEAN DEFAULT 1,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )""",
+        """CREATE TABLE IF NOT EXISTS verification_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            guild_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            verification_method TEXT NOT NULL,
+            verified_at TEXT NOT NULL
+        )""",
+    ),
+    "db/vanity.db": (
+        """CREATE TABLE IF NOT EXISTS vanity_roles (
+            guild_id INTEGER,
+            vanity TEXT NOT NULL,
+            role_id INTEGER NOT NULL,
+            log_channel_id INTEGER NOT NULL,
+            current_status TEXT,
+            PRIMARY KEY (guild_id, vanity)
+        )""",
+    ),
+    "db/customrole.db": (
+        # Column names come from the customrole cog; the API selects them by name.
+        """CREATE TABLE IF NOT EXISTS roles (
+            guild_id INTEGER PRIMARY KEY,
+            staff TEXT,
+            girl TEXT,
+            vip TEXT,
+            guest TEXT,
+            frnd TEXT,
+            reqrole INTEGER
+        )""",
+        """CREATE TABLE IF NOT EXISTS custom_roles (
+            guild_id INTEGER,
+            user_id INTEGER,
+            role_id INTEGER,
+            PRIMARY KEY (guild_id, user_id)
+        )""",
+    ),
+    "db/logging.db": (
+        """CREATE TABLE IF NOT EXISTS logging (
+            guild_id INTEGER PRIMARY KEY,
+            channel_id INTEGER,
+            enabled INTEGER DEFAULT 0
+        )""",
+    ),
+    "db/autorole.db": (
+        """CREATE TABLE IF NOT EXISTS autorole (
+            guild_id INTEGER PRIMARY KEY,
+            bots TEXT NOT NULL DEFAULT '[]',
+            humans TEXT NOT NULL DEFAULT '[]'
+        )""",
+    ),
+    "db/autoreact.db": (
+        """CREATE TABLE IF NOT EXISTS autoreact (
+            guild_id INTEGER,
+            trigger TEXT,
+            emojis TEXT
+        )""",
+    ),
+    "db/invc.db": (
+        """CREATE TABLE IF NOT EXISTS vcroles (
+            guild_id INTEGER PRIMARY KEY,
+            role_id INTEGER,
+            enabled INTEGER DEFAULT 0
+        )""",
+    ),
+    "db/np.db": (
+        """CREATE TABLE IF NOT EXISTS np (
+            id INTEGER PRIMARY KEY,
+            expiry_time TEXT
+        )""",
+        """CREATE TABLE IF NOT EXISTS np_roles (
+            guild_id INTEGER NOT NULL,
+            role_id INTEGER NOT NULL,
+            PRIMARY KEY (guild_id, role_id)
+        )""",
+    ),
+    "db/nickname.db": (
+        """CREATE TABLE IF NOT EXISTS nickname_rules (
+            guild_id INTEGER NOT NULL,
+            role_id INTEGER NOT NULL,
+            prefix TEXT DEFAULT '',
+            suffix TEXT DEFAULT '',
+            enabled INTEGER DEFAULT 1,
+            PRIMARY KEY (guild_id, role_id)
+        )""",
+    ),
+    "db/settings.db": (
+        """CREATE TABLE IF NOT EXISTS guild_extra_settings (
+            guild_id INTEGER PRIMARY KEY,
+            delete_command_messages INTEGER DEFAULT 0,
+            mention_prefix_response INTEGER DEFAULT 1,
+            same_voice_only INTEGER DEFAULT 1
+        )""",
+    ),
+    "db/prefix.db": (
+        """CREATE TABLE IF NOT EXISTS prefixes (
+            guild_id INTEGER PRIMARY KEY,
+            prefix TEXT NOT NULL
+        )""",
+    ),
+    "db/block.db": (
+        """CREATE TABLE IF NOT EXISTS user_blacklist (user_id TEXT PRIMARY KEY)""",
+        """CREATE TABLE IF NOT EXISTS guild_blacklist (guild_id TEXT PRIMARY KEY)""",
+    ),
+    "db/j2c.db": (
+        """CREATE TABLE IF NOT EXISTS j2c (
+            guild_id INTEGER PRIMARY KEY,
+            channel_id INTEGER,
+            category_id INTEGER,
+            name_template TEXT,
+            user_limit INTEGER DEFAULT 0
+        )""",
+    ),
+    "db/invite.db": (
+        # The tracking endpoints store the invite log channel in a table
+        # called "logging" inside invite.db (not to be confused with
+        # logging.db, which belongs to the event logger).
+        """CREATE TABLE IF NOT EXISTS logging (
+            guild_id INTEGER PRIMARY KEY,
+            channel_id INTEGER
+        )""",
+    ),
+}
+
+
+async def ensure_schema() -> dict[str, int]:
+    """
+    Create every table the API reads.
+
+    Safe to call repeatedly: each statement is CREATE TABLE IF NOT EXISTS, so
+    tables a cog already made are left exactly as they are.
+    """
+    os.makedirs("db", exist_ok=True)
+    created: dict[str, int] = {}
+
+    for db_path, statements in SCHEMA.items():
+        try:
+            async with aiosqlite.connect(db_path) as db:
+                for statement in statements:
+                    await db.execute(statement)
+                await db.commit()
+            created[db_path] = len(statements)
+        except Exception as exc:
+            print(f"[schema_guard] {db_path} failed: {exc}")
+
+    total = sum(created.values())
+    print(f"[schema_guard] Verified {total} tables across {len(created)} databases")
+    return created

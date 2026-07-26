@@ -10,7 +10,9 @@ from utils.config import *
 from api.routes import bot, guilds, admin, team
 from api.dependencies import verify_api_key, limiter
 from api.db_manager import db_manager
+from api.schema_guard import ensure_schema
 from utils import feature_flags
+from utils import dashboard_roles
 from utils.feature_services import record_request
 
 logger = logging.getLogger("api_request_logs")
@@ -25,12 +27,26 @@ DASHBOARD_URL = f"http://127.0.0.1:{DASHBOARD_PORT}"
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Cogs create their tables lazily, but the API reads the same tables and
+    # usually gets there first on a fresh deployment. Without this the
+    # dashboard is full of "no such table" errors.
+    try:
+        await ensure_schema()
+    except Exception as exc:
+        logger.warning(f"Schema guard failed: {exc}")
+
     # The API thread has its own event loop, so the flag cache has to be
     # primed here as well as in the bot's setup_hook.
     try:
         await feature_flags.load()
     except Exception as exc:
         logger.warning(f"Feature flag preload failed: {exc}")
+
+    try:
+        await dashboard_roles.load()
+    except Exception as exc:
+        logger.warning(f"Dashboard role preload failed: {exc}")
+
     yield
     await db_manager.close_all()
 

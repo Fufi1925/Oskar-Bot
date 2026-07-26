@@ -470,6 +470,8 @@ _lock = asyncio.Lock()
 # user_id -> list[Assignment]
 _cache: dict[str, list[Assignment]] = {}
 _loaded = False
+# Owners/admins stored in the database: user_id -> record
+_owner_cache: dict[str, dict] = {}
 
 
 async def _ensure_tables(db: aiosqlite.Connection) -> None:
@@ -482,6 +484,16 @@ async def _ensure_tables(db: aiosqlite.Connection) -> None:
         " granted_at INTEGER DEFAULT 0,"
         " note TEXT DEFAULT '',"
         " PRIMARY KEY (user_id, role_key))"
+    )
+    # Owners and admins added through the dashboard, on top of the ones from
+    # the environment. Lets the team be managed without redeploying.
+    await db.execute(
+        "CREATE TABLE IF NOT EXISTS dashboard_owners ("
+        " user_id TEXT PRIMARY KEY,"
+        " kind TEXT NOT NULL DEFAULT 'admin',"      # 'owner' or 'admin'
+        " added_by TEXT DEFAULT '',"
+        " added_at INTEGER DEFAULT 0,"
+        " note TEXT DEFAULT '')"
     )
     await db.commit()
 
@@ -496,6 +508,7 @@ async def load(force: bool = False) -> None:
 
         os.makedirs("db", exist_ok=True)
         entries: dict[str, list[Assignment]] = {}
+        owners: dict[str, dict] = {}
         try:
             async with aiosqlite.connect(DB_PATH) as db:
                 await _ensure_tables(db)
@@ -517,6 +530,19 @@ async def load(force: bool = False) -> None:
                                 note=note or "",
                             )
                         )
+
+                async with db.execute(
+                    "SELECT user_id, kind, added_by, added_at, note FROM dashboard_owners"
+                ) as cursor:
+                    async for row in cursor:
+                        user_id, kind, added_by, added_at, note = row
+                        owners[str(user_id)] = {
+                            "user_id": str(user_id),
+                            "kind": kind or "admin",
+                            "added_by": added_by or "",
+                            "added_at": int(added_at or 0),
+                            "note": note or "",
+                        }
         except Exception as exc:
             print(f"[dashboard_roles] load failed: {exc}")
             _loaded = True
@@ -524,16 +550,134 @@ async def load(force: bool = False) -> None:
 
         _cache.clear()
         _cache.update(entries)
+        _owner_cache.clear()
+        _owner_cache.update(owners)
         _loaded = True
+
+
+def env_owner_ids() -> set[str]:
+    """Owner/admin IDs coming from the environment. These cannot be removed."""
+    from utils.config import OWNER_IDS_STR
+
+    admin_env = os.getenv("ADMIN_IDS") or os.getenv("NEXT_PUBLIC_ADMIN_IDS") or ""
+    ids = {part.strip() for part in admin_env.split(",") if part.strip()}
+    ids.update(OWNER_IDS_STR)
+    return ids
+
+
+def db_owner_ids() -> set[str]:
+    """Owner/admin IDs added through the dashboard."""
+    return set(_owner_cache)
 
 
 def is_owner(user_id: str) -> bool:
     """Owners bypass the role system entirely."""
-    from utils.config import OWNER_IDS_STR
+    uid = str(user_id)
+    return uid in env_owner_ids() or uid in _owner_cache
 
-    admin_env = os.getenv("ADMIN_IDS") or os.getenv("NEXT_PUBLIC_ADMIN_IDS") or ""
-    admin_ids = {part.strip() for part in admin_env.split(",") if part.strip()}
-    return str(user_id) in admin_ids or str(user_id) in set(OWNER_IDS_STR)
+
+def can_manage_owners(user_id: str) -> bool:
+    """
+    Who may add or remove owners and admins.
+
+    Only environment owners and dashboard entries of kind 'owner'. A plain
+    'admin' has full feature access but must not be able to widen the circle
+    of people who can — otherwise the distinction between the two levels
+    would be meaningless.
+    """
+    uid = str(user_id)
+    if uid in env_owner_ids():
+        return True
+    record = _owner_cache.get(uid)
+    return bool(record and record.get("kind") == "owner")
+
+
+def list_owners() -> list[dict]:
+    """
+    Everyone with full access, from both sources.
+
+    Environment entries are marked as locked so the dashboard can grey out
+    their delete button — removing them there would have no effect anyway.
+    """
+    entries: list[dict] = []
+
+    for uid in sorted(env_owner_ids()):
+        entries.append(
+            {
+                "user_id": uid,
+                "kind": "owner",
+                "source": "env",
+                "locked": True,
+                "added_by": "",
+                "added_at": 0,
+                "note": "Configured through OWNER_IDS / ADMIN_IDS",
+            }
+        )
+
+    for uid, record in sorted(_owner_cache.items()):
+        if uid in env_owner_ids():
+            continue  # already listed above
+        entries.append({**record, "source": "dashboard", "locked": False})
+
+    return entries
+
+
+async def add_owner(
+    user_id: str, *, kind: str = "admin", added_by: str, note: str = ""
+) -> dict:
+    """Grant somebody full dashboard access."""
+    uid = str(user_id).strip()
+    if not uid.isdigit() or not 15 <= len(uid) <= 20:
+        raise ValueError("user_id must be a valid Discord ID")
+    if kind not in ("owner", "admin"):
+        raise ValueError("kind must be 'owner' or 'admin'")
+
+    await load()
+    now = int(time.time())
+
+    async with aiosqlite.connect(DB_PATH) as db:
+        await _ensure_tables(db)
+        await db.execute(
+            "INSERT OR REPLACE INTO dashboard_owners"
+            " (user_id, kind, added_by, added_at, note) VALUES (?, ?, ?, ?, ?)",
+            (uid, kind, str(added_by), now, note[:200]),
+        )
+        await db.commit()
+
+    record = {
+        "user_id": uid,
+        "kind": kind,
+        "added_by": str(added_by),
+        "added_at": now,
+        "note": note[:200],
+    }
+    _owner_cache[uid] = record
+    return record
+
+
+async def remove_owner(user_id: str) -> bool:
+    """
+    Revoke full access.
+
+    Entries from the environment cannot be removed here — they would come
+    back on the next restart, so we reject them instead of pretending.
+    """
+    uid = str(user_id).strip()
+    if uid in env_owner_ids():
+        raise PermissionError(
+            "This ID comes from OWNER_IDS / ADMIN_IDS and must be changed in the "
+            "environment variables."
+        )
+
+    await load()
+    async with aiosqlite.connect(DB_PATH) as db:
+        await _ensure_tables(db)
+        cursor = await db.execute("DELETE FROM dashboard_owners WHERE user_id = ?", (uid,))
+        await db.commit()
+        removed = cursor.rowcount > 0
+
+    _owner_cache.pop(uid, None)
+    return removed
 
 
 def get_assignments(user_id: str) -> list[Assignment]:

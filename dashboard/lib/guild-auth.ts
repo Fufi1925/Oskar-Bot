@@ -105,6 +105,8 @@ export interface GuildAccessResult {
 export interface TeamAccess {
   user_id: string;
   is_owner: boolean;
+  /** Only owners may add or remove other owners and admins. */
+  can_manage_owners: boolean;
   roles: Array<{ key: string; label: string; color: string; rank: number }>;
   permissions: string[];
   highest_rank: number;

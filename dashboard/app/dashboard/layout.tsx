@@ -46,6 +46,11 @@ export default function DashboardLayout({
   const [maintenance, setMaintenance] = useState(false);
   // True when the user holds a dashboard team role, which unlocks the admin panel.
   const [hasTeamRole, setHasTeamRole] = useState(false);
+  // Full team access info, used for the role badge in the sidebar footer.
+  const [teamAccess, setTeamAccess] = useState<{
+    is_owner: boolean;
+    roles: Array<{ key: string; label: string; color: string; rank: number }>;
+  } | null>(null);
   
   const bellRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
@@ -107,8 +112,10 @@ export default function DashboardLayout({
       if (!userId) return;
       try {
         const access = await api.getOwnAccess(userId);
+        setTeamAccess(access);
         setHasTeamRole(Boolean(access?.is_owner || (access?.roles?.length ?? 0) > 0));
       } catch {
+        setTeamAccess(null);
         setHasTeamRole(false);
       }
     };
@@ -358,13 +365,31 @@ export default function DashboardLayout({
                 <User className="h-6 w-6 text-blue-500/50" />
               )}
             </div>
-            <div className="overflow-hidden">
+            <div className="overflow-hidden min-w-0">
               <p className="text-sm font-bold text-white truncate font-outfit">
                 {session?.user?.name || "Administrator"}
               </p>
-              <p className="text-[10px] font-black uppercase text-blue-500/60 truncate tracking-widest">
-                User
-              </p>
+              {/* Shows the actual dashboard role instead of a hardcoded "User" */}
+              {teamAccess?.is_owner ? (
+                <p className="text-[10px] font-black uppercase truncate tracking-widest text-amber-400">
+                  Owner
+                </p>
+              ) : teamAccess?.roles?.length ? (
+                <p
+                  className="text-[10px] font-black uppercase truncate tracking-widest"
+                  style={{ color: teamAccess.roles[0].color }}
+                  title={teamAccess.roles.map((r) => r.label).join(", ")}
+                >
+                  {teamAccess.roles[0].label}
+                  {teamAccess.roles.length > 1 && (
+                    <span className="text-slate-500"> +{teamAccess.roles.length - 1}</span>
+                  )}
+                </p>
+              ) : (
+                <p className="text-[10px] font-black uppercase text-slate-500 truncate tracking-widest">
+                  Member
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -455,7 +480,18 @@ export default function DashboardLayout({
                   <span className="text-xs font-bold text-slate-200 group-hover:text-white transition-colors">
                     {session?.user?.name?.split(' ')[0] || "Admin"}
                   </span>
-                  <span className="text-[9px] font-black uppercase text-blue-500/60 tracking-widest">Active</span>
+                  <span
+                    className="text-[9px] font-black uppercase tracking-widest"
+                    style={{
+                      color: teamAccess?.is_owner
+                        ? "#fbbf24"
+                        : teamAccess?.roles?.[0]?.color ?? "#64748b",
+                    }}
+                  >
+                    {teamAccess?.is_owner
+                      ? "Owner"
+                      : teamAccess?.roles?.[0]?.label ?? "Member"}
+                  </span>
                 </div>
                 <ChevronDown
                   className={cn("h-4 w-4 text-slate-600 transition-transform hidden sm:block", isProfilOpen && "rotate-180")}
@@ -467,6 +503,29 @@ export default function DashboardLayout({
                     <div className="px-4 py-3 border-b border-white/5 mb-2">
                       <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] mb-1">Authenticated As</p>
                       <p className="text-sm font-bold text-white truncate">{session?.user?.name || "Administrator"}</p>
+                      {(teamAccess?.is_owner || (teamAccess?.roles?.length ?? 0) > 0) && (
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {teamAccess?.is_owner ? (
+                            <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md bg-amber-400/10 text-amber-400 border border-amber-400/20">
+                              Owner
+                            </span>
+                          ) : (
+                            teamAccess?.roles.map((role) => (
+                              <span
+                                key={role.key}
+                                className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md border"
+                                style={{
+                                  color: role.color,
+                                  borderColor: `${role.color}40`,
+                                  backgroundColor: `${role.color}15`,
+                                }}
+                              >
+                                {role.label}
+                              </span>
+                            ))
+                          )}
+                        </div>
+                      )}
                     </div>
 
                     <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold text-slate-400 hover:bg-white/5 hover:text-white transition-all group/item">

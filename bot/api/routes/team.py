@@ -238,6 +238,82 @@ async def revoke_all_roles(user_id: str, actor: str = ""):
     return {"status": "success", "user_id": user_id, "removed": count}
 
 
+# ── Owners and admins ─────────────────────────────────────────────────────
+
+
+@router.get("/owners", summary="Everyone with full dashboard access")
+async def list_owners(bot: "universitybot" = Depends(get_bot)):
+    await roles.load()
+    entries = roles.list_owners()
+
+    for entry in entries:
+        user = bot.get_user(int(entry["user_id"])) if entry["user_id"].isdigit() else None
+        entry["username"] = str(user) if user else None
+        entry["avatar"] = str(user.display_avatar.url) if user else None
+
+    return {"owners": entries, "count": len(entries)}
+
+
+@router.post("/owners", summary="Give somebody full dashboard access")
+async def add_owner(data: dict):
+    actor = str(data.get("actor", "")).strip()
+    if not actor:
+        raise HTTPException(status_code=400, detail="actor is required.")
+
+    await roles.load()
+    # Only owners may widen the circle. A dashboard 'admin' has full feature
+    # access but cannot appoint further owners or admins.
+    if not roles.can_manage_owners(actor):
+        raise HTTPException(
+            status_code=403, detail="Only owners can manage owner and admin access."
+        )
+
+    user_id = str(data.get("user_id", "")).strip()
+    kind = str(data.get("kind", "admin")).strip().lower()
+
+    try:
+        record = await roles.add_owner(
+            user_id, kind=kind, added_by=actor, note=str(data.get("note", ""))
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    await feature_audit.log_action(
+        "dashboard_owner_added", actor=actor, detail=f"{kind}: {user_id}"
+    )
+    return {"status": "success", **record}
+
+
+@router.delete("/owners/{user_id}", summary="Revoke full dashboard access")
+async def remove_owner(user_id: str, actor: str = ""):
+    if not actor:
+        raise HTTPException(status_code=400, detail="actor query parameter is required.")
+
+    await roles.load()
+    if not roles.can_manage_owners(actor):
+        raise HTTPException(
+            status_code=403, detail="Only owners can manage owner and admin access."
+        )
+
+    if str(user_id) == str(actor):
+        raise HTTPException(
+            status_code=400, detail="You cannot remove your own access."
+        )
+
+    try:
+        removed = await roles.remove_owner(user_id)
+    except PermissionError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    if not removed:
+        raise HTTPException(status_code=404, detail="This user is not an owner or admin.")
+
+    await feature_audit.log_action(
+        "dashboard_owner_removed", actor=actor, detail=f"removed {user_id}"
+    )
+    return {"status": "success", "user_id": user_id}
+
+
 # ── Self ──────────────────────────────────────────────────────────────────
 
 
@@ -254,6 +330,7 @@ async def get_own_access(user_id: str):
     return {
         "user_id": user_id,
         "is_owner": roles.is_owner(user_id),
+        "can_manage_owners": roles.can_manage_owners(user_id),
         "roles": [
             {"key": r.key, "label": r.label, "color": r.color, "rank": r.rank}
             for r in roles.get_roles(user_id)
