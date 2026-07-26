@@ -28,9 +28,23 @@ import discord
 from discord import Spotify
 from discord.ext import commands, tasks
 
-# Must run before anything touches the filesystem: utils.Tools opens
-# db/prefix.db at import time, which fails if the db/ directory is missing.
-import utils.bootstrap  # noqa: F401
+# Create db/, jsondb/ and the JSON files before anything else runs, because
+# utils.Tools opens db/prefix.db at import time.
+#
+# This is loaded straight from its file rather than with `import
+# utils.bootstrap`. Importing the submodule would execute utils/__init__.py,
+# which imports Tools -> core -> back into utils, and that circular chain
+# fails while utils is still half-initialised.
+def _run_bootstrap():
+    import importlib.util
+    import os
+
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "utils", "bootstrap.py")
+    spec = importlib.util.spec_from_file_location("_bootstrap", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+_run_bootstrap()
 
 from core import Context
 from core.Cog import Cog
