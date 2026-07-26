@@ -61,6 +61,15 @@ const ADMIN_PERMISSIONS: Record<string, { GET?: string; WRITE?: string }> = {
   blacklist: { WRITE: "blacklist.manage" },
   "mass-config": { WRITE: "massconfig.push" },
   stats: { GET: "dashboard.access" },
+  notifications: { GET: "audit.view" },
+  settings: { GET: "health.view", WRITE: "maintenance.toggle" },
+  backups: { GET: "health.view", WRITE: "maintenance.toggle" },
+};
+
+/** Which permission a /moderation/* endpoint requires. */
+const MODERATION_PERMISSIONS: Record<string, { GET?: string; WRITE?: string }> = {
+  warnings: { GET: "members.view", WRITE: "moderation.warn" },
+  members: { GET: "members.view" },
 };
 
 /** Which permission a /team/* endpoint requires. */
@@ -200,6 +209,33 @@ async function authorize(
     const access = await verifyAdminAccess();
     if (!access.allowed) return { ok: false, response: deny(access.status, access.reason) };
     return { ok: true };
+  }
+
+  if (scope === "moderation") {
+    // Shape: /moderation/<guildId>/<resource>/...
+    const guildId = rest[0];
+    const resource = rest[1] ?? "";
+
+    if (!guildId) return { ok: false, response: deny(400, "guild_id missing.") };
+
+    const access = await verifyGuildAccess(guildId);
+    if (!access.allowed) return { ok: false, response: deny(access.status, access.reason) };
+
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) return { ok: false, response: deny(401, "Not signed in.") };
+    if (isGlobalAdmin(session.user.id)) return { ok: true };
+
+    const team = await fetchTeamAccess(session.user.id);
+    // Someone who reached this point through Manage Server on Discord (and
+    // holds no team role) keeps their usual rights.
+    if (!team || team.roles.length === 0) return { ok: true };
+
+    const mapping = MODERATION_PERMISSIONS[resource];
+    const required = request.method === "GET" ? mapping?.GET : mapping?.WRITE;
+    if (!required) return { ok: true };
+    if (await hasTeamPermission(session.user.id, required, guildId)) return { ok: true };
+
+    return { ok: false, response: deny(403, `This requires the '${required}' permission.`) };
   }
 
   if (scope === "team") {

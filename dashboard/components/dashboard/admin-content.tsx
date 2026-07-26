@@ -6,7 +6,7 @@ import {
   RefreshCw, Ban, UserX, Clock, VolumeX, Send, Megaphone, Wrench, AlertTriangle,
   Hash, Volume2, FolderPlus, Pencil, Trash2, Copy,
   Unlock, Timer, MessageSquareX, Bell, BellOff, SearchCheck, Bot, UserCog,
-  Webhook, Link, ScrollText
+  Webhook, Link, ScrollText, BarChart4, ClipboardList
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
@@ -18,9 +18,15 @@ import { SystemHealthPanel } from "@/components/dashboard/system-health-panel";
 import { TeamPanel } from "@/components/dashboard/team-panel";
 import { OwnerAccessPanel } from "@/components/dashboard/owner-access-panel";
 import { useSession } from "next-auth/react";
+import { ReportsPanel } from "@/components/dashboard/reports-panel";
+import { AuditPanel } from "@/components/dashboard/audit-panel";
+import { ApprovalsPanel } from "@/components/dashboard/approvals-panel";
+import { BotSettingsPanel } from "@/components/dashboard/bot-settings-panel";
+import { BackupsPanel } from "@/components/dashboard/backups-panel";
+import { WarningsPanel } from "@/components/dashboard/warnings-panel";
 
 
-type TabId = "members" | "channels" | "server" | "scans" | "broadcast" | "system" | "features" | "health" | "team" | "access";
+type TabId = "members" | "channels" | "server" | "scans" | "broadcast" | "system" | "features" | "health" | "team" | "access" | "reports" | "audit" | "approvals" | "botsettings" | "backups" | "warnings";
 type MemberAction = "ban" | "kick" | "mute" | "unmute";
 
 type QuickAction = {
@@ -42,6 +48,12 @@ const tabs: Array<{ id: TabId; label: string; icon: any }> = [
   { id: "features", label: "Features", icon: Settings },
   { id: "health", label: "Health", icon: Activity },
   { id: "team", label: "Team", icon: Users },
+  { id: "warnings", label: "Warnings", icon: AlertTriangle },
+  { id: "reports", label: "Reports", icon: BarChart4 },
+  { id: "audit", label: "Audit", icon: ScrollText },
+  { id: "approvals", label: "Approvals", icon: ClipboardList },
+  { id: "backups", label: "Backups", icon: Database },
+  { id: "botsettings", label: "Bot Config", icon: Wrench },
   { id: "access", label: "Access", icon: Lock },
 ];
 
@@ -80,6 +92,12 @@ const quickActions: QuickAction[] = [
   { tab: "scans", action: "scan_invites", label: "Scan Invites", desc: "List active invite codes.", icon: Link },
   { tab: "scans", action: "audit_summary", label: "Audit Summary", desc: "Show recent audit log entries.", icon: ScrollText },
 ];
+/** Tabs that render on their own, without the input sidebar. */
+const FULL_WIDTH_TABS = new Set<TabId>([
+  "features", "health", "team", "access",
+  "reports", "audit", "approvals", "botsettings", "backups", "warnings",
+]);
+
 function TextInput({ label, value, setValue, placeholder, type = "text" }: { label: string; value: string; setValue: (value: string) => void; placeholder?: string; type?: string }) {
   return (
     <label className="block space-y-2">
@@ -187,6 +205,12 @@ export function AdminContent() {
     features: "features.view",
     health: "health.view",
     team: "team.view",
+    warnings: "members.view",
+    reports: "reports.view",
+    audit: "audit.view",
+    approvals: "approvals.view",
+    backups: "health.view",
+    botsettings: "maintenance.toggle",
   };
 
   const visibleTabs = useMemo(() => {
@@ -286,8 +310,35 @@ export function AdminContent() {
       {activeTab === "health" && <SystemHealthPanel />}
       {activeTab === "team" && <TeamPanel />}
       {activeTab === "access" && <OwnerAccessPanel currentUserId={(session?.user as any)?.id} />}
+      {activeTab === "reports" && <ReportsPanel />}
+      {activeTab === "audit" && <AuditPanel />}
+      {activeTab === "approvals" && <ApprovalsPanel currentUserId={(session?.user as any)?.id} />}
+      {activeTab === "backups" && <BackupsPanel />}
+      {activeTab === "botsettings" && <BotSettingsPanel />}
+      {activeTab === "warnings" && (
+        <div className="space-y-6">
+          <div className="glass border border-white/5 rounded-[2rem] p-8">
+            <div className="flex items-center gap-4 mb-6">
+              <div className="h-12 w-12 rounded-2xl bg-primary/15 border border-primary/25 flex items-center justify-center">
+                <AlertTriangle className="h-6 w-6 text-primary" />
+              </div>
+              <div>
+                <h3 className="text-xl font-black text-white">Warnings</h3>
+                <p className="text-sm text-slate-400 mt-1">Who was warned, by whom and why.</p>
+              </div>
+            </div>
+            <div className="max-w-md">
+              <span className="text-xs font-black uppercase tracking-widest text-slate-500">Server</span>
+              <div className="mt-2">
+                <Select value={guildId} onValueChange={setGuildId} options={guildOptions} placeholder="Select server" />
+              </div>
+            </div>
+          </div>
+          <WarningsPanel guildId={guildId} />
+        </div>
+      )}
 
-      {activeTab !== "features" && activeTab !== "health" && activeTab !== "team" && activeTab !== "access" && (
+      {!FULL_WIDTH_TABS.has(activeTab) && (
       <div className="grid grid-cols-1 xl:grid-cols-4 gap-8">
         <aside className="xl:col-span-1 glass border border-white/5 rounded-[2rem] p-6 space-y-4 h-fit">
           <h3 className="font-black text-white flex items-center gap-2"><SearchCheck className="h-5 w-5 text-primary" /> Inputs</h3>
@@ -316,7 +367,7 @@ export function AdminContent() {
       </div>
       )}
 
-      {activeTab !== "features" && activeTab !== "health" && activeTab !== "team" && activeTab !== "access" && (
+      {!FULL_WIDTH_TABS.has(activeTab) && (
         <div className="glass border border-white/5 rounded-3xl p-5 flex gap-3 text-sm text-slate-400"><AlertTriangle className="h-5 w-5 text-amber-500 shrink-0" />Select a server first. For kick, ban, mute and unmute you only need the user ID, timeout duration (for mute) and reason. Channels can be selected from dropdowns.</div>
       )}
     </div>

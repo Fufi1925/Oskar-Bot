@@ -66,8 +66,10 @@ class universitybot(commands.AutoShardedBot):
         # startup.
         from utils import feature_flags
         from utils import feature_gates
+        from utils import bot_settings
         from utils.feature_services import FeatureServices, start_deadlock_watchdog
 
+        await bot_settings.load()
         await feature_flags.load()
         feature_gates.setup_gates(self)
         await feature_gates.refresh_blacklist()

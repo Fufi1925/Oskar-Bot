@@ -281,6 +281,25 @@ SCHEMA: dict[str, tuple[str, ...]] = {
             user_limit INTEGER DEFAULT 0
         )""",
     ),
+    "db/warn.db": (
+        """CREATE TABLE IF NOT EXISTS warns (
+            guild_id INTEGER,
+            user_id INTEGER,
+            warns INTEGER,
+            PRIMARY KEY (guild_id, user_id)
+        )""",
+        # The cog only keeps a counter. This table records the detail the
+        # dashboard shows: who warned whom, when and why.
+        """CREATE TABLE IF NOT EXISTS warn_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            guild_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            moderator_id INTEGER,
+            reason TEXT DEFAULT '',
+            created_at INTEGER NOT NULL,
+            active INTEGER DEFAULT 1
+        )""",
+    ),
     "db/invite.db": (
         # The tracking endpoints store the invite log channel in a table
         # called "logging" inside invite.db (not to be confused with

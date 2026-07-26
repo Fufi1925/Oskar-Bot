@@ -23,6 +23,7 @@ from utils import feature_flags
 from utils import feature_audit
 from utils import feature_reports
 from utils import feature_gates
+from utils import bot_settings
 from utils.feature_services import runtime
 
 if TYPE_CHECKING:
@@ -803,6 +804,175 @@ async def report_oauth_error(data: dict):
 
     record_oauth_error(str(data.get("detail", ""))[:200])
     return {"status": "recorded", "total": runtime.oauth_errors}
+
+
+@router.get("/backups", summary="List database backups")
+async def list_backups():
+    """
+    Backups live on Railway's ephemeral filesystem and are lost on redeploy.
+    Downloading them is the only way to keep a copy.
+    """
+    import glob
+
+    backup_dir = "db/backups"
+    snapshots = []
+
+    if os.path.isdir(backup_dir):
+        for path in sorted(glob.glob(os.path.join(backup_dir, "*")), reverse=True):
+            if not os.path.isdir(path):
+                continue
+            files = glob.glob(os.path.join(path, "*.db"))
+            snapshots.append(
+                {
+                    "name": os.path.basename(path),
+                    "created_at": int(os.path.getmtime(path)),
+                    "file_count": len(files),
+                    "size_bytes": sum(os.path.getsize(f) for f in files),
+                }
+            )
+
+    live_size = 0
+    live_count = 0
+    if os.path.isdir("db"):
+        for f in glob.glob("db/*.db"):
+            live_size += os.path.getsize(f)
+            live_count += 1
+
+    return {
+        "snapshots": snapshots,
+        "live": {"file_count": live_count, "size_bytes": live_size},
+        "scheduler_enabled": feature_flags.is_enabled("database_backup_scheduler"),
+        "warning": (
+            "Railway's filesystem is ephemeral: every redeploy wipes these "
+            "snapshots. Download anything you want to keep."
+        ),
+    }
+
+
+@router.post("/backups", summary="Create a backup right now")
+async def create_backup():
+    import glob
+    import shutil
+    import time as _time
+
+    stamp = _time.strftime("%Y%m%d-%H%M%S")
+    target = os.path.join("db", "backups", stamp)
+    os.makedirs(target, exist_ok=True)
+
+    copied = 0
+    for path in glob.glob("db/*.db"):
+        try:
+            async with aiosqlite.connect(path) as source:
+                async with aiosqlite.connect(
+                    os.path.join(target, os.path.basename(path))
+                ) as destination:
+                    await source.backup(destination)
+            copied += 1
+        except Exception:
+            try:
+                shutil.copy2(path, target)
+                copied += 1
+            except Exception:
+                continue
+
+    await feature_audit.log_action(
+        "backup_created", actor="dashboard", detail=f"{stamp}: {copied} databases"
+    )
+    return {"status": "success", "name": stamp, "file_count": copied}
+
+
+@router.get("/backups/{name}/download", summary="Download a backup as a zip")
+async def download_backup(name: str):
+    import io
+    import zipfile
+    import glob
+
+    from fastapi.responses import StreamingResponse
+
+    # Reject anything that could escape the backup directory.
+    if not name.replace("-", "").isalnum():
+        raise HTTPException(status_code=400, detail="Invalid backup name.")
+
+    path = os.path.join("db", "backups", name)
+    if not os.path.isdir(path):
+        raise HTTPException(status_code=404, detail="Backup not found.")
+
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+        for file_path in glob.glob(os.path.join(path, "*.db")):
+            archive.write(file_path, os.path.basename(file_path))
+    buffer.seek(0)
+
+    return StreamingResponse(
+        buffer,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="backup-{name}.zip"'},
+    )
+
+
+@router.get("/backups/live/download", summary="Download the current databases")
+async def download_live():
+    import io
+    import zipfile
+    import glob
+
+    from fastapi.responses import StreamingResponse
+
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+        for file_path in glob.glob("db/*.db"):
+            archive.write(file_path, os.path.basename(file_path))
+    buffer.seek(0)
+
+    import time as _time
+
+    stamp = _time.strftime("%Y%m%d-%H%M%S")
+    return StreamingResponse(
+        buffer,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="live-{stamp}.zip"'},
+    )
+
+
+@router.delete("/backups/{name}", summary="Delete a backup")
+async def delete_backup(name: str):
+    import shutil
+
+    if not name.replace("-", "").isalnum():
+        raise HTTPException(status_code=400, detail="Invalid backup name.")
+
+    path = os.path.join("db", "backups", name)
+    if not os.path.isdir(path):
+        raise HTTPException(status_code=404, detail="Backup not found.")
+
+    shutil.rmtree(path, ignore_errors=True)
+    await feature_audit.log_action("backup_deleted", actor="dashboard", detail=name)
+    return {"status": "success", "name": name}
+
+
+@router.get("/settings", summary="Bot-wide settings")
+async def get_bot_settings():
+    """Settings that used to be hardcoded in university_bot.py."""
+    await bot_settings.load()
+    return {
+        "groups": list(bot_settings.SETTING_GROUPS),
+        "settings": bot_settings.describe(),
+    }
+
+
+@router.patch("/settings", summary="Update bot-wide settings")
+async def patch_bot_settings(data: dict):
+    payload = {k: v for k, v in data.items() if k != "actor"}
+    changed = await bot_settings.set_values(payload)
+
+    if changed:
+        await feature_audit.log_action(
+            "bot_settings_changed",
+            actor=str(data.get("actor", "dashboard")),
+            detail=", ".join(f"{k}={v}" for k, v in changed.items())[:400],
+        )
+
+    return {"status": "success", "changed": changed}
 
 
 @router.get("/session-policy", summary="Session validity policy")

@@ -336,6 +336,33 @@ export const api = {
   removeOwner: (userId: string) =>
     request<any>(`/team/owners/${userId}`, { method: "DELETE" }),
 
+  // Bot-wide settings (formerly hardcoded)
+  getBotSettings: () => request<{ groups: string[]; settings: any[] }>("/admin/settings"),
+  updateBotSettings: (data: Record<string, string>) =>
+    request<any>("/admin/settings", { method: "PATCH", body: JSON.stringify(data) }),
+
+  // Backups
+  getBackups: () => request<any>("/admin/backups"),
+  createBackup: () => request<any>("/admin/backups", { method: "POST", body: "{}" }),
+  deleteBackup: (name: string) =>
+    request<any>(`/admin/backups/${name}`, { method: "DELETE" }),
+
+  // Moderation history
+  getWarnings: (guildId: string) => request<any>(`/moderation/${guildId}/warnings`),
+  addWarning: (guildId: string, userId: string, reason: string) =>
+    request<any>(`/moderation/${guildId}/warnings`, {
+      method: "POST",
+      body: JSON.stringify({ user_id: userId, reason }),
+    }),
+  removeWarning: (guildId: string, entryId: number) =>
+    request<any>(`/moderation/${guildId}/warnings/${entryId}`, { method: "DELETE" }),
+  clearWarnings: (guildId: string, userId: string) =>
+    request<any>(`/moderation/${guildId}/warnings/user/${userId}`, { method: "DELETE" }),
+  searchMembers: (guildId: string, query: string) =>
+    request<{ members: any[] }>(
+      `/moderation/${guildId}/members/search?q=${encodeURIComponent(query)}`
+    ),
+
   getSessionPolicy: () =>
     request<{ force_reauth: boolean; reauth_epoch: number; maintenance_banner: boolean }>(
       "/admin/session-policy"

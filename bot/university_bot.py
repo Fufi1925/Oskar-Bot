@@ -68,10 +68,22 @@ load_dotenv()
 TOKEN = os.getenv("TOKEN")
 
 # --- Configuration ---
-# IMPORTANT: Replace these with your actual channel IDs.
-SERVER_COUNT_CHANNEL_ID = 1419729255977189467  # Replace with your server count channel ID
-USER_COUNT_CHANNEL_ID = 1419729283861184632    # Replace with your user count channel ID
-LOG_CHANNEL_ID = 1396794297386532978 # Replace with the channel ID for join/leave logs
+# These used to be hardcoded channel IDs pointing at somebody else's server,
+# which silently did nothing on every other deployment. They now come from
+# utils/bot_settings.py and are editable in the dashboard; an environment
+# variable of the same name still takes precedence.
+from utils import bot_settings
+
+
+def _stats_channels() -> tuple[int, int]:
+    return (
+        bot_settings.get_int("stats_server_channel"),
+        bot_settings.get_int("stats_user_channel"),
+    )
+
+
+def _guild_log_channel() -> int:
+    return bot_settings.get_int("guild_log_channel")
 
 
 client = universitybot()
@@ -81,24 +93,34 @@ tree = client.tree
 async def update_stats():
     """A background task to update server and user stats in channel names."""
     await client.wait_until_ready()
+    await bot_settings.load()
+
     while not client.is_closed():
+        interval = max(60, bot_settings.get_int("stats_interval", 600))
         try:
-            servers = len(client.guilds)
-            users = sum(guild.member_count for guild in client.guilds if guild.member_count is not None)
-            
-            server_channel = client.get_channel(SERVER_COUNT_CHANNEL_ID)
-            user_channel = client.get_channel(USER_COUNT_CHANNEL_ID)
-            
-            if server_channel:
-                await server_channel.edit(name=f"Servers: {servers}")
-            
-            if user_channel:
-                await user_channel.edit(name=f"Users: {users}")
-                
+            server_channel_id, user_channel_id = _stats_channels()
+
+            # Nothing configured yet — skip quietly instead of spamming errors.
+            if server_channel_id or user_channel_id:
+                servers = len(client.guilds)
+                users = sum(
+                    guild.member_count for guild in client.guilds
+                    if guild.member_count is not None
+                )
+
+                server_channel = client.get_channel(server_channel_id) if server_channel_id else None
+                user_channel = client.get_channel(user_channel_id) if user_channel_id else None
+
+                if server_channel:
+                    await server_channel.edit(name=f"Servers: {servers}")
+
+                if user_channel:
+                    await user_channel.edit(name=f"Users: {users}")
+
         except Exception as e:
             print(f"Error updating stats: {e}")
-        
-        await asyncio.sleep(600) # Update every 10 minutes
+
+        await asyncio.sleep(interval)
 
 # --- Event Handlers ---
 @client.event
@@ -138,7 +160,8 @@ async def on_ready():
 @client.event
 async def on_guild_join(guild: discord.Guild):
     # Log when the bot joins a server
-    log_channel = client.get_channel(LOG_CHANNEL_ID)
+    log_channel_id = _guild_log_channel()
+    log_channel = client.get_channel(log_channel_id) if log_channel_id else None
     if log_channel:
         await log_channel.send(f"{BRAND_NAME} has been added to the server: **{guild.name}** (ID: `{guild.id}`)")
 
@@ -243,7 +266,7 @@ async def on_command_completion(context: commands.Context) -> None:
     full_command_name = context.command.qualified_name
     split = full_command_name.split("\n")
     executed_command = str(split[0])
-    webhook_url = CMD_WEBHOOK_URL
+    webhook_url = bot_settings.get("command_log_webhook") or CMD_WEBHOOK_URL
 
     # Without this guard discord.Webhook.from_url(None) raises on *every*
     # command when CMD_WEBHOOK_URL is not configured.
