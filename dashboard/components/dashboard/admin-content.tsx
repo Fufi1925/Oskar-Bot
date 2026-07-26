@@ -161,6 +161,20 @@ export function AdminContent() {
     return () => clearInterval(interval);
   }, []);
 
+  // Open the tab named in the URL hash, e.g. /dashboard/admin#health.
+  // The global search links here, and it keeps the tab on a page reload.
+  useEffect(() => {
+    const applyHash = () => {
+      const hash = window.location.hash.replace("#", "");
+      if (hash && tabs.some((t) => t.id === hash)) {
+        setActiveTab(hash as TabId);
+      }
+    };
+    applyHash();
+    window.addEventListener("hashchange", applyHash);
+    return () => window.removeEventListener("hashchange", applyHash);
+  }, []);
+
   // Load own permissions so tabs the user cannot use are hidden.
   useEffect(() => {
     const userId = (session?.user as any)?.id;
@@ -303,7 +317,7 @@ export function AdminContent() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">{statItems.map((stat) => <div key={stat.name} className="glass border border-white/5 rounded-3xl p-6 hover:border-white/10 transition-all group"><div className="flex items-center justify-between mb-4"><div className={cn("p-3 rounded-xl bg-white/[0.03] group-hover:scale-110 transition-transform", stat.color)}><stat.icon className="h-6 w-6" /></div><span className="text-[10px] font-black uppercase tracking-widest text-emerald-500 bg-emerald-500/10 px-2 py-1 rounded-lg">Live</span></div><p className="text-slate-500 text-xs font-bold uppercase tracking-widest">{stat.name}</p><h3 className="text-2xl font-black text-white mt-1 font-outfit">{stat.value}</h3></div>)}</div>
 
-      <div className="flex flex-wrap gap-3 p-2 bg-[#10233f]/70 border border-slate-800 rounded-3xl">{visibleTabs.map((tab) => { const active = activeTab === tab.id; return <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={cn("flex items-center gap-2 px-5 py-3 rounded-2xl text-sm font-black uppercase tracking-wider transition-all", active ? "bg-primary text-white shadow-lg shadow-primary/20" : "text-slate-400 hover:bg-slate-800/70 hover:text-white")}><tab.icon className="h-4 w-4" />{tab.label}</button>; })}</div>
+      <div className="flex flex-wrap gap-3 p-2 bg-[#10233f]/70 border border-slate-800 rounded-3xl">{visibleTabs.map((tab) => { const active = activeTab === tab.id; return <button key={tab.id} onClick={() => { setActiveTab(tab.id); window.history.replaceState(null, "", `#${tab.id}`); }} className={cn("flex items-center gap-2 px-5 py-3 rounded-2xl text-sm font-black uppercase tracking-wider transition-all", active ? "bg-primary text-white shadow-lg shadow-primary/20" : "text-slate-400 hover:bg-slate-800/70 hover:text-white")}><tab.icon className="h-4 w-4" />{tab.label}</button>; })}</div>
 
       {/* Features and Health are full-width: they have no input sidebar. */}
       {activeTab === "features" && <FeatureFlagsPanel />}

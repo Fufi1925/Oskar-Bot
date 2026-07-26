@@ -166,13 +166,18 @@ export function LoggingForm({ initialConfig, channels, guildId }: LoggingFormPro
                   <p className="text-xs text-slate-300 leading-relaxed font-medium">Assign specific channels to different event types for better organization.</p>
                </div>
                <div className="p-4 bg-black/20 rounded-2xl border border-white/5 space-y-2">
-                  <p className="text-[10px] uppercase font-bold text-slate-500">Webhooks</p>
-                  <p className="text-xs text-slate-300 leading-relaxed font-medium">Coming soon: Export audit logs to external webhooks and elastic systems.</p>
+                  <p className="text-[10px] uppercase font-bold text-slate-500">Dashboard Audit</p>
+                  <p className="text-xs text-slate-300 leading-relaxed font-medium">Actions taken through the dashboard are recorded separately under Admin &rarr; Audit.</p>
                </div>
             </div>
-            <Button variant="secondary" className="w-full mt-8 py-6 rounded-[24px] font-black uppercase tracking-tighter text-xs">
-               Save Global Config
-            </Button>
+            {/* Every toggle and channel change saves immediately, so there is
+                nothing to submit here. */}
+            <div className="w-full mt-8 py-4 rounded-[24px] bg-emerald-500/5 border border-emerald-500/20 flex items-center justify-center gap-2">
+               <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+               <span className="text-[10px] font-black uppercase tracking-widest text-emerald-500">
+                  {saving ? "Saving..." : "Changes save automatically"}
+               </span>
+            </div>
          </section>
 
          <div className="bg-[#10233f] border border-slate-800 rounded-[40px] p-8 shadow-xl">

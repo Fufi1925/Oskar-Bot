@@ -38,6 +38,7 @@ import { LeaderboardEntry } from "@/types/api";
 export default function LeaderboardPage({ params }: { params: { guildId: string } }) {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
 
   useEffect(() => {
@@ -58,6 +59,18 @@ export default function LeaderboardPage({ params }: { params: { guildId: string 
     entry.name.toLowerCase().includes(search.toLowerCase()) || 
     entry.user_id.toString().includes(search)
   );
+
+  // The top three are shown as podium cards, everything after that is paged.
+  const PER_PAGE = 25;
+  const restData = filteredData.slice(3);
+  const pageCount = Math.max(1, Math.ceil(restData.length / PER_PAGE));
+  const safePage = Math.min(page, pageCount);
+  const pageData = restData.slice((safePage - 1) * PER_PAGE, safePage * PER_PAGE);
+
+  // Jump back to page one whenever the search narrows the list.
+  useEffect(() => {
+    setPage(1);
+  }, [search]);
 
   if (loading) {
     return (
@@ -141,11 +154,11 @@ export default function LeaderboardPage({ params }: { params: { guildId: string 
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/50">
-              {filteredData.slice(3).map((entry, i) => (
+              {pageData.map((entry, i) => (
                 <tr key={entry.user_id} className="group hover:bg-white/[0.02] transition-colors">
                   <td className="px-8 py-6">
                     <span className="text-sm font-black text-slate-500 group-hover:text-white transition-colors">
-                       #{i + 4}
+                       #{(safePage - 1) * PER_PAGE + i + 4}
                     </span>
                   </td>
                   <td className="px-8 py-6">
@@ -186,16 +199,30 @@ export default function LeaderboardPage({ params }: { params: { guildId: string 
           </table>
         </div>
         
-        {/* Pagination Overlay (Simulation) */}
-        <div className="p-6 border-t border-slate-800 bg-slate-900/20 flex items-center justify-between">
+        <div className="p-6 border-t border-slate-800 bg-slate-900/20 flex items-center justify-between flex-wrap gap-4">
            <p className="text-xs text-slate-500 font-medium">
              Showing <span className="text-white">{filteredData.length}</span> active competitors
+             {pageCount > 1 && (
+               <> · page <span className="text-white">{safePage}</span> of {pageCount}</>
+             )}
            </p>
            <div className="flex items-center gap-2">
-              <Button size="icon" variant="outline" className="h-8 w-8 rounded-lg border-slate-800" disabled>
+              <Button
+                size="icon"
+                variant="outline"
+                className="h-8 w-8 rounded-lg border-slate-800"
+                disabled={safePage <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              >
                  <ChevronLeft className="h-4 w-4" />
               </Button>
-              <Button size="icon" variant="outline" className="h-8 w-8 rounded-lg border-slate-800" disabled>
+              <Button
+                size="icon"
+                variant="outline"
+                className="h-8 w-8 rounded-lg border-slate-800"
+                disabled={safePage >= pageCount}
+                onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
+              >
                  <ChevronRight className="h-4 w-4" />
               </Button>
            </div>

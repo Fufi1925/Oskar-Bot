@@ -32,10 +32,17 @@ export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
   let botInfo;
+  let botStatus: any = null;
   let error = null;
 
   try {
     botInfo = await api.getBotInfo();
+    // Live status drives the module list below instead of fixed strings.
+    try {
+      botStatus = await api.getBotStatus();
+    } catch {
+      botStatus = null;
+    }
   } catch (err: any) {
     console.error("Failed to fetch bot info:", err);
     error = err.message || "Failed to connect to the bot API.";
@@ -138,24 +145,43 @@ export default async function DashboardPage() {
             
             <div className="space-y-4">
               {[
-                { name: 'Neural Gateway', status: 'Optimal' },
-                { name: 'Database Cluster', status: 'Synchronized' },
-                { name: 'Edge Shards', status: 'Operational' }
+                {
+                  name: "Gateway",
+                  status: botStatus
+                    ? `${Math.round(botStatus.latency)}ms`
+                    : error
+                    ? "Offline"
+                    : "Unknown",
+                  ok: Boolean(botStatus && botStatus.latency < 500),
+                },
+                {
+                  name: "Servers",
+                  status: `${botInfo.guilds.toLocaleString()} connected`,
+                  ok: botInfo.guilds > 0,
+                },
+                {
+                  name: "Shards",
+                  status: botStatus ? `${botStatus.shards ?? 1} running` : "Unknown",
+                  ok: Boolean(botStatus),
+                },
               ].map((service) => (
                 <div key={service.name} className="flex items-center justify-between p-4 bg-white/[0.02] rounded-2xl border border-white/[0.05] hover:border-blue-500/20 transition-colors">
                   <span className="text-xs font-bold text-slate-300">{service.name}</span>
                   <div className="flex items-center gap-3">
-                    <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
-                    <span className="text-[9px] uppercase font-black text-emerald-500 tracking-widest">{service.status}</span>
+                    <div className={`h-1.5 w-1.5 rounded-full ${service.ok ? "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]" : "bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]"}`} />
+                    <span className={`text-[9px] uppercase font-black tracking-widest ${service.ok ? "text-emerald-500" : "text-amber-500"}`}>{service.status}</span>
                   </div>
                 </div>
               ))}
             </div>
           </div>
           
-          <button className="mt-12 w-full py-4 glass-blue hover:bg-blue-500/10 text-blue-500 rounded-[20px] text-[11px] font-black uppercase tracking-[0.2em] transition-all border border-blue-500/20 relative z-10">
+          <a
+            href="/dashboard/admin#health"
+            className="mt-12 w-full py-4 glass-blue hover:bg-blue-500/10 text-blue-500 rounded-[20px] text-[11px] font-black uppercase tracking-[0.2em] transition-all border border-blue-500/20 relative z-10 flex items-center justify-center"
+          >
             System Diagnostics
-          </button>
+          </a>
           {/* Abstract Design Element */}
           <div className="absolute -bottom-10 -right-10 h-32 w-32 bg-blue-500/10 blur-3xl rounded-full" />
         </div>

@@ -49,6 +49,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
+// Support invite is configurable through the bot settings; this is the
+// build-time fallback for the static landing page.
+const SUPPORT_INVITE =
+  process.env.NEXT_PUBLIC_SUPPORT_INVITE || "https://discord.gg/MG3rYnUZJV";
+
 export default function LandingPage() {
   return (
     <div className="min-h-screen bg-[#071527] text-slate-200 selection:bg-blue-500/30 font-sans overflow-x-hidden">
@@ -425,9 +430,9 @@ export default function LandingPage() {
             <div className="space-y-8">
                <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-white opacity-40">System</h4>
                <ul className="space-y-5 text-[11px] font-black uppercase tracking-widest text-slate-500">
-                  <li><Link href="#" className="hover:text-blue-500 transition-colors">GitHub Repository</Link></li>
+                  <li><a href="https://github.com/Fufi1925/Oskar-Bot" target="_blank" rel="noopener noreferrer" className="hover:text-blue-500 transition-colors">GitHub Repository</a></li>
                   <li><Link href="/docs" className="hover:text-blue-500 transition-colors">Dokumentation</Link></li>
-                  <li><Link href="#" className="hover:text-blue-500 transition-colors">API-Referenz</Link></li>
+                  <li><Link href="/docs#api" className="hover:text-blue-500 transition-colors">API-Referenz</Link></li>
                </ul>
             </div>
             <div className="space-y-8">
@@ -435,7 +440,7 @@ export default function LandingPage() {
                <ul className="space-y-5 text-[11px] font-black uppercase tracking-widest text-slate-500">
                   <li><Link href="/privacy" className="hover:text-blue-500 transition-colors">Datenschutz</Link></li>
                   <li><Link href="/terms" className="hover:text-blue-500 transition-colors">Nutzungsbedingungen</Link></li>
-                  <li><Link href="#" className="hover:text-blue-500 transition-colors">Discord Server</Link></li>
+                  <li><a href={SUPPORT_INVITE} target="_blank" rel="noopener noreferrer" className="hover:text-blue-500 transition-colors">Discord Server</a></li>
                </ul>
             </div>
           </div>

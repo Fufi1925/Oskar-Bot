@@ -20,6 +20,7 @@ import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LanguageSwitcher } from "@/components/language-switcher";
+import { GlobalSearch } from "@/components/global-search";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 import {
   LayoutDashboard, Server, ShieldCheck, Ticket, BarChart4, FileText, Settings,
@@ -51,6 +52,8 @@ export default function DashboardLayout({
     is_owner: boolean;
     roles: Array<{ key: string; label: string; color: string; rank: number }>;
   } | null>(null);
+  // Support link comes from the bot settings so it is configurable.
+  const [supportInvite, setSupportInvite] = useState("https://discord.gg/MG3rYnUZJV");
   
   const bellRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
@@ -120,6 +123,17 @@ export default function DashboardLayout({
       }
     };
     fetchTeamRole();
+
+    // Support invite is a bot setting; fall back to the default on error.
+    api
+      .getBotSettings()
+      .then((data) => {
+        const entry = (data?.settings || []).find(
+          (x: any) => x.key === "support_server_invite"
+        );
+        if (entry?.effective) setSupportInvite(entry.effective);
+      })
+      .catch(() => {});
   }, [status, session?.user]);
 
   if (status === "loading" || status === "unauthenticated") {
@@ -406,14 +420,7 @@ export default function DashboardLayout({
             <Menu className="h-6 w-6" />
           </button>
 
-          <div className="hidden md:flex items-center w-96 max-w-full relative group">
-            <Search className="absolute left-4 h-4 w-4 text-slate-500 group-focus-within:text-blue-500 transition-colors" />
-            <input
-              type="text"
-              placeholder="Query neural network..."
-              className="w-full bg-white/[0.03] border border-white/5 rounded-2xl py-2.5 pl-12 pr-4 text-xs font-bold text-slate-300 focus:outline-none focus:ring-1 focus:ring-blue-500/30 focus:bg-white/[0.05] transition-all placeholder:text-slate-600"
-            />
-          </div>
+          <GlobalSearch />
 
           <div className="flex items-center gap-6">
             <div className="relative" ref={bellRef}>
@@ -528,10 +535,15 @@ export default function DashboardLayout({
                       )}
                     </div>
 
-                    <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold text-slate-400 hover:bg-white/5 hover:text-white transition-all group/item">
+                    <a
+                      href={supportInvite}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold text-slate-400 hover:bg-white/5 hover:text-white transition-all group/item"
+                    >
                       <LifeBuoy className="h-4 w-4 text-slate-600 group-hover/item:text-blue-500 transition-colors" />
-                      Support Matrix
-                    </button>
+                      Support Server
+                    </a>
 
                     <button
                       onClick={() => signOut({ callbackUrl: '/' })}
