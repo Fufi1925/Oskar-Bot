@@ -102,6 +102,18 @@ echo "❌ Bot exited with code $BOT_EXIT"
 cleanup
 trap - EXIT INT TERM
 
-echo "Restarting in 5 seconds..."
-sleep 5
+# Exit code 75 means Discord is rate limiting our login attempts. Restarting
+# quickly makes that worse — every attempt extends the block — so back off
+# for a long time instead. Anything else is likely a crash worth retrying.
+if [ "$BOT_EXIT" = "75" ]; then
+  RATE_LIMIT_BACKOFF=${RATE_LIMIT_BACKOFF:-900}
+  echo "🛑 Discord login rate limit hit."
+  echo "   Waiting ${RATE_LIMIT_BACKOFF}s before trying again so the block can expire."
+  echo "   Restarting the service now would only extend it."
+  sleep "$RATE_LIMIT_BACKOFF"
+else
+  echo "Restarting in 15 seconds..."
+  sleep 15
+fi
+
 exec "$0"

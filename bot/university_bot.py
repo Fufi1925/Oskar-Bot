@@ -13,6 +13,7 @@
 # ╚══════════════════════════════════════════════════════════════════╝
 
 import os
+import sys
 import subprocess
 # os.system("")
 import asyncio
@@ -484,25 +485,67 @@ keep_alive()
 
 
 # --- Main Bot Execution ---
+# Exit code the wrapper script understands as "do not restart quickly".
+RATE_LIMIT_EXIT_CODE = 75
+
+
 async def main():
     async with client:
         # os.system("clear")  # disabled for Railway container
         await client.load_extension("jishaku")
-        
-        max_retries = 5
+
+        # Login rate limits are per IP and get WORSE with every attempt, so
+        # retrying fast is actively harmful. The old loop tried five times
+        # with 1-16s backoff, gave up, and start.sh restarted it after five
+        # seconds — roughly 65 login attempts in nine minutes, which kept the
+        # block alive indefinitely.
+        max_retries = 3
+        base_wait = 60
+
         for attempt in range(max_retries):
             try:
                 await client.start(TOKEN)
-                break
-            except discord.HTTPException as e:
-                if e.status == 429: # Rate limited
-                    wait_time = min((2 ** attempt) + random.random(), 60)
-                    print(f"Rate limited. Retrying in {wait_time:.2f} seconds...")
-                    await asyncio.sleep(wait_time)
-                else:
+                return
+            except discord.HTTPException as exc:
+                if exc.status != 429:
                     raise
-        else:
-            raise Exception("Bot failed to start after multiple retries due to rate limiting.")
+
+                # Discord tells us how long to wait; trust it when present.
+                retry_after = 0.0
+                try:
+                    payload = exc.response.headers if exc.response is not None else {}
+                    retry_after = float(payload.get("Retry-After", 0))
+                except Exception:
+                    retry_after = 0.0
+
+                wait_time = max(retry_after, base_wait * (2 ** attempt))
+                wait_time = min(wait_time, 900) + random.random() * 5
+
+                if attempt == max_retries - 1:
+                    break
+
+                print(
+                    f"⏳ Login rate limited by Discord (429). "
+                    f"Waiting {wait_time / 60:.1f} minutes before retry "
+                    f"{attempt + 2}/{max_retries}."
+                )
+                await asyncio.sleep(wait_time)
+
+        print(
+            "\n"
+            "❌ Could not log in: Discord is rate limiting this IP.\n"
+            "\n"
+            "   Retrying immediately makes it worse, so the process now stops.\n"
+            "   Common causes:\n"
+            "     • the container restarted many times in a row\n"
+            "     • several instances running with the same token\n"
+            "     • the token was reset while an instance was still running\n"
+            "\n"
+            "   What to do: stop the service, wait 15-30 minutes, start it once.\n"
+            "   If it persists, reset the bot token in the Discord developer portal.\n"
+        )
+        # Signals start.sh to back off instead of restarting after 5 seconds.
+        sys.exit(RATE_LIMIT_EXIT_CODE)
 
 if __name__ == "__main__":
     asyncio.run(main())
