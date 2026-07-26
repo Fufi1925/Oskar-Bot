@@ -17,7 +17,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
-import { verifyGuildAccess, verifyAdminAccess, isGlobalAdmin } from "@/lib/guild-auth";
+import {
+  verifyGuildAccess,
+  verifyAdminAccess,
+  isGlobalAdmin,
+  fetchTeamAccess,
+  hasTeamPermission,
+} from "@/lib/guild-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -36,6 +42,33 @@ const GUILD_SCOPED_ADMIN_ACTIONS = new Set(["member-action", "quick-action"]);
 const PUBLIC_ADMIN_READS = new Set(["config", "session-policy"]);
 /** Endpoints any signed-in user may POST to (telemetry only). */
 const PUBLIC_ADMIN_WRITES = new Set(["oauth-error"]);
+
+/**
+ * Which dashboard permission an /admin/* endpoint requires.
+ * Anything not listed here falls back to "must be a global admin".
+ */
+const ADMIN_PERMISSIONS: Record<string, { GET?: string; WRITE?: string }> = {
+  health: { GET: "health.view" },
+  logs: { GET: "logs.view" },
+  metrics: { GET: "metrics.view" },
+  audit: { GET: "audit.view" },
+  timeline: { GET: "audit.view" },
+  features: { GET: "features.view", WRITE: "features.edit" },
+  reports: { GET: "reports.view" },
+  approvals: { GET: "approvals.view", WRITE: "approvals.resolve" },
+  announcements: { WRITE: "announcements.send" },
+  premium: { WRITE: "premium.manage" },
+  blacklist: { WRITE: "blacklist.manage" },
+  "mass-config": { WRITE: "massconfig.push" },
+  stats: { GET: "dashboard.access" },
+};
+
+/** Which permission a /team/* endpoint requires. */
+const TEAM_PERMISSIONS: Record<string, { GET?: string; WRITE?: string }> = {
+  roles: { GET: "dashboard.access" },
+  permissions: { GET: "dashboard.access" },
+  members: { GET: "team.view", WRITE: "team.assign" },
+};
 
 function deny(status: number, message: string) {
   return NextResponse.json({ detail: message }, { status });
@@ -95,14 +128,99 @@ async function authorize(
       const guildId = String(body?.guild_id ?? "");
       if (!guildId) return { ok: false, response: deny(400, "guild_id is required.") };
 
+      // Moderation through the dashboard needs the matching team permission.
+      const wanted = String(body?.action ?? "").toLowerCase();
+      const permissionFor: Record<string, string> = {
+        ban: "moderation.ban",
+        kick: "moderation.kick",
+        mute: "moderation.mute",
+        unmute: "moderation.mute",
+        purge: "moderation.purge",
+        nickname: "members.manage",
+        clear_nickname: "members.manage",
+        add_role: "members.manage",
+        remove_role: "members.manage",
+        member_info: "members.view",
+        create_role: "roles.manage",
+        delete_role: "roles.manage",
+        rename_role: "roles.manage",
+        color_role: "roles.manage",
+        toggle_role_hoist: "roles.manage",
+        toggle_role_mentionable: "roles.manage",
+        create_text_channel: "channels.manage",
+        create_voice_channel: "channels.manage",
+        create_category: "channels.manage",
+        rename_channel: "channels.manage",
+        delete_channel: "channels.manage",
+        clone_channel: "channels.manage",
+        lock_channel: "channels.manage",
+        unlock_channel: "channels.manage",
+        slowmode: "channels.manage",
+        server_name: "server.manage",
+        verification_level_low: "server.manage",
+        verification_level_medium: "server.manage",
+        default_notifications_mentions: "server.manage",
+        default_notifications_all: "server.manage",
+      };
+      const required = permissionFor[wanted] ?? (wanted.startsWith("scan_") || wanted.startsWith("list_") || wanted === "audit_summary" || wanted === "server_stats" ? "security.scan" : null);
+
+      const team = await fetchTeamAccess(session.user.id);
+      const holdsRole = Boolean(team && team.roles.length > 0);
+
+      if (holdsRole && required) {
+        const allowed = await hasTeamPermission(session.user.id, required, guildId);
+        if (!allowed) {
+          return { ok: false, response: deny(403, `Your dashboard role does not include '${required}'.`) };
+        }
+        return { ok: true };
+      }
+
       const access = await verifyGuildAccess(guildId);
       if (!access.allowed) return { ok: false, response: deny(access.status, access.reason) };
       return { ok: true };
     }
 
+    // Everything else: check the permission mapped to this endpoint.
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) return { ok: false, response: deny(401, "Not signed in.") };
+    if (isGlobalAdmin(session.user.id)) return { ok: true };
+
+    const mapping = ADMIN_PERMISSIONS[action];
+    if (mapping) {
+      const isRead = request.method === "GET";
+      const required = isRead ? mapping.GET : mapping.WRITE;
+      if (required && (await hasTeamPermission(session.user.id, required))) {
+        return { ok: true };
+      }
+      if (required) {
+        return { ok: false, response: deny(403, `This requires the '${required}' permission.`) };
+      }
+    }
+
     const access = await verifyAdminAccess();
     if (!access.allowed) return { ok: false, response: deny(access.status, access.reason) };
     return { ok: true };
+  }
+
+  if (scope === "team") {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) return { ok: false, response: deny(401, "Not signed in.") };
+    if (isGlobalAdmin(session.user.id)) return { ok: true };
+
+    const resource = rest[0] ?? "";
+
+    // Everyone may look up their own access.
+    if (resource === "me") return { ok: true };
+
+    const mapping = TEAM_PERMISSIONS[resource];
+    const required = request.method === "GET" ? mapping?.GET : mapping?.WRITE;
+    if (required && (await hasTeamPermission(session.user.id, required))) {
+      return { ok: true };
+    }
+    return {
+      ok: false,
+      response: deny(403, required ? `This requires the '${required}' permission.` : "Not allowed."),
+    };
   }
 
   if (scope === "bot") {
@@ -121,18 +239,42 @@ async function handler(request: NextRequest, context: { params: { path?: string[
   const auth = await authorize(segments, request);
   if (!auth.ok) return auth.response;
 
-  const search = request.nextUrl.search;
   // Preserve the trailing slash the FastAPI router expects on collection routes.
   const trailing = request.nextUrl.pathname.endsWith("/") ? "/" : "";
-  const targetUrl = `${API_BASE_URL}/${segments.join("/")}${trailing}${search}`;
+  const url = new URL(`${API_BASE_URL}/${segments.join("/")}${trailing}`);
+  request.nextUrl.searchParams.forEach((value, key) => url.searchParams.set(key, value));
 
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (API_KEY) headers.Authorization = `Bearer ${API_KEY}`;
 
+  const session = await getServerSession(authOptions);
+  const actorId = session?.user?.id;
+
   let body: string | undefined;
   if (!["GET", "HEAD"].includes(request.method)) {
     body = await request.text();
+
+    // The `actor` must come from the session, never from the client — a
+    // forged actor would bypass the rank check when assigning roles.
+    if (body && actorId) {
+      try {
+        const parsed = JSON.parse(body);
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+          parsed.actor = actorId;
+          body = JSON.stringify(parsed);
+        }
+      } catch {
+        // not JSON, forward unchanged
+      }
+    }
   }
+
+  // Same for DELETE, where the actor travels as a query parameter.
+  if (request.method === "DELETE" && actorId) {
+    url.searchParams.set("actor", actorId);
+  }
+
+  const targetUrl = url.toString();
 
   try {
     const upstream = await fetch(targetUrl, {

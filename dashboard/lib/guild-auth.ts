@@ -94,6 +94,71 @@ export interface GuildAccessResult {
   userId?: string;
 }
 
+/* ────────────────────────────────────────────────────────────────────────
+   Dashboard team roles
+
+   A person can be granted dashboard access without being a bot owner and
+   without having Manage Server on the Discord side. Their roles are stored
+   by the bot; we ask it what the user is allowed to do.
+   ──────────────────────────────────────────────────────────────────────── */
+
+export interface TeamAccess {
+  user_id: string;
+  is_owner: boolean;
+  roles: Array<{ key: string; label: string; color: string; rank: number }>;
+  permissions: string[];
+  highest_rank: number;
+  /** null means every guild */
+  accessible_guilds: string[] | null;
+}
+
+const API_BASE_URL =
+  process.env.API_BASE_URL || `http://127.0.0.1:${process.env.PORT || 8080}/api/v1`;
+
+const teamCache = new Map<string, { access: TeamAccess; expires: number }>();
+const TEAM_CACHE_TTL_MS = 30_000;
+
+/** Fetches the dashboard roles of a user from the bot. */
+export async function fetchTeamAccess(userId: string): Promise<TeamAccess | null> {
+  const now = Date.now();
+  const cached = teamCache.get(userId);
+  if (cached && cached.expires > now) return cached.access;
+
+  try {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    const key = process.env.DASHBOARD_API_KEY || "";
+    if (key) headers.Authorization = `Bearer ${key}`;
+
+    const res = await fetch(`${API_BASE_URL}/team/me/${userId}`, {
+      headers,
+      cache: "no-store",
+    });
+    if (!res.ok) return cached?.access ?? null;
+
+    const access = (await res.json()) as TeamAccess;
+    teamCache.set(userId, { access, expires: now + TEAM_CACHE_TTL_MS });
+    return access;
+  } catch {
+    return cached?.access ?? null;
+  }
+}
+
+/** True when the user holds `permission` (optionally scoped to a guild). */
+export async function hasTeamPermission(
+  userId: string,
+  permission: string,
+  guildId?: string
+): Promise<boolean> {
+  const access = await fetchTeamAccess(userId);
+  if (!access) return false;
+  if (access.is_owner) return true;
+  if (!access.permissions.includes(permission)) return false;
+  if (guildId && access.accessible_guilds !== null) {
+    return access.accessible_guilds.includes(String(guildId));
+  }
+  return true;
+}
+
 /**
  * Verifies that the currently logged-in user may manage `guildId`.
  * Global admins (ADMIN_IDS) bypass the per-guild check.
@@ -117,6 +182,16 @@ export async function verifyGuildAccess(guildId: string): Promise<GuildAccessRes
 
   if (!/^\d{17,20}$/.test(guildId)) {
     return { allowed: false, status: 400, reason: "Invalid guild id.", userId };
+  }
+
+  // A dashboard team role can grant access even without Manage Server on
+  // Discord — that is the point of handing out roles like "Support Agent".
+  const team = await fetchTeamAccess(userId);
+  if (team && !team.is_owner && team.roles.length > 0) {
+    const scoped = team.accessible_guilds;
+    if (scoped === null || scoped.includes(String(guildId))) {
+      return { allowed: true, status: 200, reason: "Dashboard team role.", userId };
+    }
   }
 
   const guilds = await fetchUserGuilds(session.accessToken);

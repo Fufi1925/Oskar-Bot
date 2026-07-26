@@ -15,9 +15,10 @@ import { toast } from "sonner";
 import { Select } from "@/components/ui/select";
 import { FeatureFlagsPanel } from "@/components/dashboard/feature-flags-panel";
 import { SystemHealthPanel } from "@/components/dashboard/system-health-panel";
+import { TeamPanel } from "@/components/dashboard/team-panel";
 
 
-type TabId = "members" | "channels" | "server" | "scans" | "broadcast" | "system" | "features" | "health";
+type TabId = "members" | "channels" | "server" | "scans" | "broadcast" | "system" | "features" | "health" | "team";
 type MemberAction = "ban" | "kick" | "mute" | "unmute";
 
 type QuickAction = {
@@ -38,6 +39,7 @@ const tabs: Array<{ id: TabId; label: string; icon: any }> = [
   { id: "system", label: "System", icon: Wrench },
   { id: "features", label: "Features", icon: Settings },
   { id: "health", label: "Health", icon: Activity },
+  { id: "team", label: "Team", icon: Users },
 ];
 
 const memberActions: Array<{ action: MemberAction; label: string; desc: string; icon: any }> = [
@@ -226,8 +228,9 @@ export function AdminContent() {
       {/* Features and Health are full-width: they have no input sidebar. */}
       {activeTab === "features" && <FeatureFlagsPanel />}
       {activeTab === "health" && <SystemHealthPanel />}
+      {activeTab === "team" && <TeamPanel />}
 
-      {activeTab !== "features" && activeTab !== "health" && (
+      {activeTab !== "features" && activeTab !== "health" && activeTab !== "team" && (
       <div className="grid grid-cols-1 xl:grid-cols-4 gap-8">
         <aside className="xl:col-span-1 glass border border-white/5 rounded-[2rem] p-6 space-y-4 h-fit">
           <h3 className="font-black text-white flex items-center gap-2"><SearchCheck className="h-5 w-5 text-primary" /> Inputs</h3>
@@ -256,7 +259,7 @@ export function AdminContent() {
       </div>
       )}
 
-      {activeTab !== "features" && activeTab !== "health" && (
+      {activeTab !== "features" && activeTab !== "health" && activeTab !== "team" && (
         <div className="glass border border-white/5 rounded-3xl p-5 flex gap-3 text-sm text-slate-400"><AlertTriangle className="h-5 w-5 text-amber-500 shrink-0" />Select a server first. For kick, ban, mute and unmute you only need the user ID, timeout duration (for mute) and reason. Channels can be selected from dropdowns.</div>
       )}
     </div>

@@ -7,7 +7,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from starlette.responses import Response
 from utils.config import *
-from api.routes import bot, guilds, admin
+from api.routes import bot, guilds, admin, team
 from api.dependencies import verify_api_key, limiter
 from api.db_manager import db_manager
 from utils import feature_flags
@@ -156,6 +156,7 @@ def create_app() -> FastAPI:
     api_app.include_router(bot.router, prefix="/bot", tags=["Bot"])
     api_app.include_router(guilds.router, prefix="/guilds", tags=["Guilds"])
     api_app.include_router(admin.router, prefix="/admin", tags=["Admin"])
+    api_app.include_router(team.router, prefix="/team", tags=["Team"])
 
     @api_app.get("/health")
     async def api_health():

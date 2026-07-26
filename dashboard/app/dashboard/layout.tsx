@@ -44,6 +44,8 @@ export default function DashboardLayout({
   const [globalNotification, setGlobalNotification] = useState<string | null>(null);
   // Driven by the maintenance_mode config plus the maintenance_banner feature flag.
   const [maintenance, setMaintenance] = useState(false);
+  // True when the user holds a dashboard team role, which unlocks the admin panel.
+  const [hasTeamRole, setHasTeamRole] = useState(false);
   
   const bellRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
@@ -98,7 +100,20 @@ export default function DashboardLayout({
       }
     };
     fetchNotification();
-  }, [status]);
+
+    // Does this user hold a dashboard role? Decides whether the admin link shows.
+    const fetchTeamRole = async () => {
+      const userId = (session?.user as any)?.id;
+      if (!userId) return;
+      try {
+        const access = await api.getOwnAccess(userId);
+        setHasTeamRole(Boolean(access?.is_owner || (access?.roles?.length ?? 0) > 0));
+      } catch {
+        setHasTeamRole(false);
+      }
+    };
+    fetchTeamRole();
+  }, [status, session?.user]);
 
   if (status === "loading" || status === "unauthenticated") {
     return (
@@ -162,8 +177,8 @@ export default function DashboardLayout({
     : [
         { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
         { name: "Server", href: "/dashboard/guilds", icon: Server },
-        ...(isAdmin(session?.user?.id) 
-            ? [{ name: "Admin Panel", href: "/dashboard/admin", icon: Shield }] 
+        ...(isAdmin(session?.user?.id) || hasTeamRole
+            ? [{ name: "Admin Panel", href: "/dashboard/admin", icon: Shield }]
             : []),
       ];
 

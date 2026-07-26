@@ -308,6 +308,24 @@ export const api = {
       body: JSON.stringify({ percent }),
     }),
 
+  // Dashboard team roles
+  getTeamRoles: () => request<{ categories: string[]; roles: any[]; total: number }>("/team/roles"),
+  getTeamPermissions: () =>
+    request<{ groups: string[]; permissions: any[]; total: number }>("/team/permissions"),
+  getTeamRole: (roleKey: string) => request<any>(`/team/roles/${roleKey}`),
+  getTeamMembers: () => request<{ members: any[]; count: number }>("/team/members"),
+  getTeamMember: (userId: string) => request<any>(`/team/members/${userId}`),
+  getOwnAccess: (userId: string) => request<any>(`/team/me/${userId}`),
+  assignTeamRole: (userId: string, role: string, guildIds: string[] = [], note = "") =>
+    request<any>(`/team/members/${userId}/roles`, {
+      method: "POST",
+      body: JSON.stringify({ role, guild_ids: guildIds, note }),
+    }),
+  revokeTeamRole: (userId: string, roleKey: string) =>
+    request<any>(`/team/members/${userId}/roles/${roleKey}`, { method: "DELETE" }),
+  revokeAllTeamRoles: (userId: string) =>
+    request<any>(`/team/members/${userId}`, { method: "DELETE" }),
+
   getSessionPolicy: () =>
     request<{ force_reauth: boolean; reauth_epoch: number; maintenance_banner: boolean }>(
       "/admin/session-policy"
