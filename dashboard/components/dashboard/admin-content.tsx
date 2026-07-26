@@ -327,7 +327,7 @@ export function AdminContent() {
       {activeTab === "reports" && <ReportsPanel />}
       {activeTab === "audit" && <AuditPanel />}
       {activeTab === "approvals" && <ApprovalsPanel currentUserId={(session?.user as any)?.id} />}
-      {activeTab === "backups" && <BackupsPanel />}
+      {activeTab === "backups" && <BackupsPanel guilds={guilds} />}
       {activeTab === "botsettings" && <BotSettingsPanel />}
       {activeTab === "warnings" && (
         <div className="space-y-6">

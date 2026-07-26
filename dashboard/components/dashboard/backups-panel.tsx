@@ -2,11 +2,13 @@
 
 import React, { useEffect, useState } from "react";
 import {
-  AlertTriangle, Database, Download, HardDrive, Loader2, Plus, RefreshCw, Trash2,
+  AlertTriangle, Database, Download, FileJson, HardDrive, Loader2, Plus, RefreshCw, Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { ConfigTransferPanel } from "@/components/dashboard/config-transfer-panel";
+import { Select } from "@/components/ui/select";
 
 interface Snapshot {
   name: string;
@@ -26,7 +28,13 @@ function formatDate(unix: number) {
   return new Date(unix * 1000).toLocaleString();
 }
 
-export function BackupsPanel() {
+export function BackupsPanel({
+  guilds = [],
+}: {
+  guilds?: Array<{ id: string; name: string }>;
+}) {
+  // Per-server config export lives here too, next to the database backups.
+  const [configGuild, setConfigGuild] = useState("");
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
   const [live, setLive] = useState<{ file_count: number; size_bytes: number } | null>(null);
   const [schedulerOn, setSchedulerOn] = useState(false);
@@ -141,6 +149,43 @@ export function BackupsPanel() {
             to make storage persistent.
           </p>
         </div>
+      </div>
+
+      {/* Per-server settings as JSON — separate from the raw database dumps
+          above, and the one people actually need for restoring a setup. */}
+      <div className="bg-[#10233f] border border-primary/25 rounded-3xl p-8">
+        <div className="flex items-center gap-3 mb-3">
+          <FileJson className="h-5 w-5 text-primary" />
+          <h4 className="font-black text-white">Server configuration</h4>
+        </div>
+        <p className="text-sm text-slate-400 mb-5 leading-relaxed">
+          Download every setting of a single server as one JSON file, and upload it
+          again to restore everything at once. Survives redeploys, unlike the database
+          snapshots below.
+        </p>
+
+        <div className="max-w-md">
+          <span className="text-xs font-black uppercase tracking-widest text-slate-500">
+            Server
+          </span>
+          <div className="mt-2">
+            <Select
+              value={configGuild}
+              onValueChange={setConfigGuild}
+              options={guilds.map((g) => ({ value: String(g.id), label: `${g.name} (${g.id})` }))}
+              placeholder="Select server"
+            />
+          </div>
+        </div>
+
+        {configGuild && (
+          <div className="mt-6">
+            <ConfigTransferPanel
+              guildId={configGuild}
+              guildName={guilds.find((g) => String(g.id) === configGuild)?.name}
+            />
+          </div>
+        )}
       </div>
 
       {live && (

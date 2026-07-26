@@ -1560,3 +1560,229 @@ async def get_admin_dashboard(guild_id: int):
 @router.patch("/{guild_id}/admin-dashboard", summary="Update admin dashboard feature toggles")
 async def update_admin_dashboard(guild_id: int, data: dict):
     return {"status": "success", **await _set_feature_scope(guild_id, "admin_dashboard", ADMIN_DASHBOARD_DEFAULTS, data)}
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#  Configuration export / import
+# ══════════════════════════════════════════════════════════════════════════
+
+
+@router.get("/{guild_id}/config/export", summary="Download the full server configuration")
+async def export_guild_config(
+    guild_id: int,
+    include_user_data: bool = False,
+    bot: "universitybot" = Depends(get_bot),
+):
+    """
+    Every setting configured for this server, as one JSON file.
+
+    Covers all modules at once — welcome, automod, antinuke, leveling,
+    tickets, verification, roles, logging and the rest. Per-user history
+    (XP, warnings, tickets) is left out unless include_user_data is set,
+    because it is not portable between servers.
+    """
+    from api.config_transfer import export_guild
+
+    payload = await export_guild(guild_id, include_user_data=include_user_data)
+
+    guild = bot.get_guild(guild_id)
+    payload["guild_name"] = guild.name if guild else None
+    payload["bot_name"] = bot.user.name if bot.user else None
+
+    from fastapi.responses import JSONResponse
+
+    safe_name = "".join(c for c in (guild.name if guild else str(guild_id)) if c.isalnum() or c in "-_")[:40]
+    filename = f"config-{safe_name or guild_id}-{payload['exported_at']}.json"
+
+    return JSONResponse(
+        content=payload,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.post("/{guild_id}/config/preview", summary="Check an import file without applying it")
+async def preview_guild_config(guild_id: int, data: dict):
+    from api.config_transfer import preview_import
+
+    payload = data.get("config") if "config" in data else data
+    try:
+        return await preview_import(payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.post("/{guild_id}/config/import", summary="Restore a configuration file")
+async def import_guild_config(guild_id: int, data: dict, bot: "universitybot" = Depends(get_bot)):
+    """
+    Apply an exported configuration to this server.
+
+    The target guild id comes from the URL, so a file exported elsewhere can
+    be applied here. Existing rows for the imported tables are replaced
+    unless merge=true is passed.
+    """
+    from api.config_transfer import import_guild
+    from utils import feature_audit
+
+    payload = data.get("config") if "config" in data else data
+    replace = not bool(data.get("merge", False))
+    actor = str(data.get("actor", "dashboard"))
+
+    try:
+        result = await import_guild(guild_id, payload, replace=replace)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    # Settings the bot caches in memory have to be reloaded, otherwise the
+    # import only takes effect after a restart.
+    try:
+        from utils.Tools import invalidate_prefix_cache
+
+        invalidate_prefix_cache(guild_id)
+    except Exception:
+        pass
+
+    invalidate = getattr(bot, "invalidate_no_prefix_cache", None)
+    if callable(invalidate):
+        invalidate()
+
+    await feature_audit.log_action(
+        "config_imported",
+        actor=actor,
+        guild_id=guild_id,
+        detail=f"{result['rows_written']} rows across {result['tables_written']} tables",
+    )
+
+    return {"status": "success", **result}
+
+
+@router.delete("/{guild_id}/config", summary="Reset every setting for this server")
+async def reset_guild_config(guild_id: int, actor: str = "", bot: "universitybot" = Depends(get_bot)):
+    """Wipe all configuration rows for this guild. Cannot be undone."""
+    import glob
+    import os as _os
+
+    from api.config_transfer import _tables_with_guild_id, GLOBAL_TABLES, USER_DATA_TABLES
+    from utils import feature_audit
+
+    removed = 0
+    for db_path in glob.glob("db/*.db"):
+        try:
+            async with aiosqlite.connect(db_path) as db:
+                tables = await _tables_with_guild_id(db)
+                for table in tables:
+                    if table in GLOBAL_TABLES or table in USER_DATA_TABLES:
+                        continue
+                    cursor = await db.execute(
+                        f"DELETE FROM [{table}] WHERE guild_id = ?", (guild_id,)
+                    )
+                    removed += cursor.rowcount if cursor.rowcount > 0 else 0
+                await db.commit()
+        except Exception as exc:
+            print(f"[config reset] {db_path}: {exc}")
+
+    try:
+        from utils.Tools import invalidate_prefix_cache
+
+        invalidate_prefix_cache(guild_id)
+    except Exception:
+        pass
+
+    await feature_audit.log_action(
+        "config_reset", actor=actor, guild_id=guild_id, detail=f"{removed} rows deleted"
+    )
+    return {"status": "success", "rows_deleted": removed}
+
+
+@router.get("/{guild_id}/module-status", summary="Which modules are actually configured")
+async def get_module_status(guild_id: int, bot: "universitybot" = Depends(get_bot)):
+    """
+    Real configuration state per module, for the server overview.
+
+    The overview used to show a fixed list where everything was always
+    "active". This checks the databases so the page reflects reality.
+    """
+    import glob as _glob
+
+    async def has_rows(db_file: str, table: str, condition: str = "") -> int:
+        path = f"db/{db_file}"
+        if not os.path.exists(path):
+            return 0
+        try:
+            async with aiosqlite.connect(path) as db:
+                async with db.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table' AND name = ?", (table,)
+                ) as cursor:
+                    if not await cursor.fetchone():
+                        return 0
+                query = f"SELECT COUNT(*) FROM [{table}] WHERE guild_id = ?"
+                if condition:
+                    query += f" AND {condition}"
+                async with db.execute(query, (guild_id,)) as cursor:
+                    row = await cursor.fetchone()
+                return int(row[0]) if row else 0
+        except Exception:
+            return 0
+
+    # (key, label, database, table, extra condition, dashboard path)
+    checks = [
+        ("welcome", "Welcome", "welcome.db", "welcome", "", "welcome"),
+        ("automod", "Automod", "automod.db", "automod", "enabled = 1", "automod"),
+        ("antinuke", "Anti-Nuke", "anti.db", "antinuke", "", "antinuke"),
+        ("verification", "Verification", "verification.db", "verification_config", "enabled = 1", "verification"),
+        ("leveling", "Leveling", "leveling.db", "leveling_settings", "enabled = 1", "leveling"),
+        ("tickets", "Tickets", "ticket.db", "guild_configs", "", "tickets"),
+        ("logging", "Logging", "logging.db", "logging", "", "logging"),
+        ("autorole", "Auto Role", "autorole.db", "autorole", "", "autorole"),
+        ("reactionroles", "Reaction Roles", "autoreact.db", "autoreact", "", "reactionroles"),
+        ("vanityroles", "Vanity Roles", "vanity.db", "vanity_roles", "", "vanityroles"),
+        ("customroles", "Custom Roles", "customrole.db", "roles", "", "customroles"),
+        ("invcrole", "Voice Roles", "invc.db", "vcroles", "", "invcrole"),
+        ("j2c", "Join to Create", "block.db", "j2c", "", "j2c"),
+        ("nickname", "Nicknames", "nickname.db", "nickname_rules", "", "nickname"),
+        ("noprefix", "No Prefix", "np.db", "np_roles", "", "noprefix"),
+        ("tracking", "Invite Tracking", "invite.db", "logging", "", "tracking"),
+    ]
+
+    modules = []
+    for key, label, db_file, table, condition, path in checks:
+        count = await has_rows(db_file, table, condition)
+        modules.append(
+            {
+                "key": key,
+                "label": label,
+                "configured": count > 0,
+                "entries": count,
+                "path": path,
+            }
+        )
+
+    guild = bot.get_guild(guild_id)
+    prefix = ">"
+    try:
+        from utils.Tools import getConfig
+
+        prefix = (await getConfig(guild_id)).get("prefix", ">")
+    except Exception:
+        pass
+
+    active = sum(1 for m in modules if m["configured"])
+
+    return {
+        "guild_id": str(guild_id),
+        "prefix": prefix,
+        "modules": modules,
+        "active_count": active,
+        "total_count": len(modules),
+        "completion": round((active / len(modules)) * 100) if modules else 0,
+        "guild": {
+            "member_count": guild.member_count if guild else 0,
+            "channel_count": len(guild.channels) if guild else 0,
+            "role_count": len(guild.roles) if guild else 0,
+            "bot_count": sum(1 for m in guild.members if m.bot) if guild else 0,
+            "boost_level": getattr(guild, "premium_tier", 0) if guild else 0,
+            "boost_count": getattr(guild, "premium_subscription_count", 0) if guild else 0,
+            "verification_level": str(getattr(guild.verification_level, "name", "none")) if guild else "none",
+            "created_at": int(guild.created_at.timestamp()) if guild and guild.created_at else 0,
+            "owner_id": str(guild.owner_id) if guild else None,
+        },
+    }

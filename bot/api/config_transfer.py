@@ -1,0 +1,294 @@
+"""
+Full server configuration export and import.
+
+Every module stores its settings in its own SQLite table keyed by guild_id.
+This walks all of them at runtime instead of keeping a hardcoded list, so
+tables added by future cogs are picked up automatically.
+
+Export produces a single JSON file containing every row belonging to one
+guild. Import writes it back, remapping nothing — it is meant for restoring
+the same server or cloning a setup onto another one.
+
+What is deliberately NOT exported:
+  * per-user data (XP, warnings, ticket counts, invite stats) — that is
+    history, not configuration, and copying it to another server is wrong
+  * open tickets and log entries
+  * the global blacklist and dashboard roles, which are not guild settings
+"""
+
+from __future__ import annotations
+
+import glob
+import json
+import os
+import time
+from typing import Any
+
+import aiosqlite
+
+SCHEMA_VERSION = 1
+
+# Tables holding user history rather than configuration. Skipped on export
+# so a config file stays portable between servers.
+USER_DATA_TABLES = {
+    "user_xp",
+    "warns",
+    "warn_log",
+    "open_tickets",
+    "user_ticket_counts",
+    "verification_logs",
+    "custom_roles",
+    "np",
+}
+
+# Tables that are global, not per guild.
+GLOBAL_TABLES = {
+    "user_blacklist",
+    "guild_blacklist",
+    "dashboard_role_assignments",
+    "dashboard_owners",
+    "admin_features",
+    "admin_feature_rollout",
+    "admin_feature_meta",
+    "admin_audit_log",
+    "notification_history",
+    "admin_approval_queue",
+    "bot_settings",
+    "config",
+    "premium_guilds",
+    "scheduled_announcements",
+}
+
+# Friendly names so the dashboard can show what a file contains.
+MODULE_LABELS = {
+    "prefixes": "Command prefix",
+    "welcome": "Welcome messages",
+    "automod": "Automod",
+    "automod_config": "Automod rules",
+    "automod_punishments": "Automod punishments",
+    "automod_ignored": "Automod exceptions",
+    "automod_logging": "Automod log channel",
+    "antinuke": "Anti-nuke",
+    "whitelisted_users": "Anti-nuke whitelist",
+    "limit_settings": "Anti-nuke limits",
+    "punishment": "Anti-nuke punishment",
+    "leveling_settings": "Leveling",
+    "level_rewards": "Level rewards",
+    "verification_config": "Verification",
+    "vanity_roles": "Vanity roles",
+    "autorole": "Auto roles",
+    "autoreact": "Auto reactions",
+    "vcroles": "Voice roles",
+    "roles": "Custom roles",
+    "nickname_rules": "Nickname rules",
+    "np_roles": "No-prefix roles",
+    "guild_extra_settings": "Extra settings",
+    "guild_configs": "Ticket system",
+    "ticket_categories": "Ticket categories",
+    "logging": "Logging",
+    "j2c": "Join to create",
+}
+
+
+async def _tables_with_guild_id(db: aiosqlite.Connection) -> dict[str, list[str]]:
+    """Return {table: columns} for every table that has a guild_id column."""
+    found: dict[str, list[str]] = {}
+
+    async with db.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+    ) as cursor:
+        names = [row[0] for row in await cursor.fetchall()]
+
+    for name in names:
+        try:
+            async with db.execute(f"PRAGMA table_info([{name}])") as cursor:
+                columns = [row[1] for row in await cursor.fetchall()]
+        except Exception:
+            continue
+        if "guild_id" in columns:
+            found[name] = columns
+
+    return found
+
+
+async def export_guild(guild_id: int, *, include_user_data: bool = False) -> dict[str, Any]:
+    """Collect every configuration row belonging to one guild."""
+    payload: dict[str, Any] = {
+        "schema_version": SCHEMA_VERSION,
+        "exported_at": int(time.time()),
+        "guild_id": str(guild_id),
+        "include_user_data": include_user_data,
+        "databases": {},
+    }
+
+    modules: list[str] = []
+    total_rows = 0
+
+    for db_path in sorted(glob.glob("db/*.db")):
+        db_name = os.path.basename(db_path)
+        try:
+            async with aiosqlite.connect(db_path) as db:
+                db.row_factory = aiosqlite.Row
+                tables = await _tables_with_guild_id(db)
+
+                exported: dict[str, list[dict]] = {}
+                for table, _columns in tables.items():
+                    if table in GLOBAL_TABLES:
+                        continue
+                    if table in USER_DATA_TABLES and not include_user_data:
+                        continue
+
+                    try:
+                        async with db.execute(
+                            f"SELECT * FROM [{table}] WHERE guild_id = ?", (guild_id,)
+                        ) as cursor:
+                            rows = [dict(row) for row in await cursor.fetchall()]
+                    except Exception as exc:
+                        print(f"[config_transfer] skip {db_name}.{table}: {exc}")
+                        continue
+
+                    if rows:
+                        exported[table] = rows
+                        total_rows += len(rows)
+                        label = MODULE_LABELS.get(table)
+                        if label and label not in modules:
+                            modules.append(label)
+
+                if exported:
+                    payload["databases"][db_name] = exported
+        except Exception as exc:
+            print(f"[config_transfer] cannot read {db_path}: {exc}")
+
+    payload["summary"] = {
+        "modules": sorted(modules),
+        "table_count": sum(len(t) for t in payload["databases"].values()),
+        "row_count": total_rows,
+    }
+    return payload
+
+
+async def preview_import(data: dict[str, Any]) -> dict[str, Any]:
+    """
+    Describe what an import would do, without writing anything.
+
+    Used by the dashboard to show a confirmation step.
+    """
+    if not isinstance(data, dict):
+        raise ValueError("The file does not contain a configuration object.")
+    if "databases" not in data:
+        raise ValueError("Missing 'databases' — is this a config export?")
+
+    version = int(data.get("schema_version", 0))
+    if version > SCHEMA_VERSION:
+        raise ValueError(
+            f"This file was written by a newer version (schema {version}). Update the bot first."
+        )
+
+    modules: list[str] = []
+    tables = 0
+    rows = 0
+    unknown: list[str] = []
+
+    for db_name, table_map in data["databases"].items():
+        db_path = os.path.join("db", db_name)
+        exists = os.path.exists(db_path)
+
+        for table, entries in table_map.items():
+            tables += 1
+            rows += len(entries)
+            label = MODULE_LABELS.get(table)
+            if label and label not in modules:
+                modules.append(label)
+            if not exists:
+                unknown.append(f"{db_name}.{table}")
+
+    return {
+        "source_guild_id": data.get("guild_id"),
+        "exported_at": data.get("exported_at"),
+        "includes_user_data": bool(data.get("include_user_data")),
+        "modules": sorted(modules),
+        "table_count": tables,
+        "row_count": rows,
+        "missing_databases": sorted(set(unknown)),
+    }
+
+
+async def import_guild(
+    guild_id: int,
+    data: dict[str, Any],
+    *,
+    replace: bool = True,
+) -> dict[str, Any]:
+    """
+    Write a configuration export back into the databases.
+
+    guild_id is taken from the target, not the file, so a config can be
+    cloned onto a different server. With replace=True the guild's existing
+    rows in each imported table are removed first, which is what "restore
+    this backup" means; with replace=False rows are merged in.
+    """
+    await preview_import(data)  # validates and raises on nonsense
+
+    applied: dict[str, int] = {}
+    skipped: list[str] = []
+
+    for db_name, table_map in data["databases"].items():
+        db_path = os.path.join("db", db_name)
+        if not os.path.exists(db_path):
+            skipped.append(f"{db_name} (no such database)")
+            continue
+
+        try:
+            async with aiosqlite.connect(db_path) as db:
+                existing = await _tables_with_guild_id(db)
+
+                for table, entries in table_map.items():
+                    if table not in existing:
+                        skipped.append(f"{db_name}.{table} (table missing)")
+                        continue
+                    if table in GLOBAL_TABLES:
+                        skipped.append(f"{db_name}.{table} (not a guild setting)")
+                        continue
+                    if not entries:
+                        continue
+
+                    columns = existing[table]
+
+                    if replace:
+                        await db.execute(
+                            f"DELETE FROM [{table}] WHERE guild_id = ?", (guild_id,)
+                        )
+
+                    written = 0
+                    for entry in entries:
+                        # Only keep columns this table actually has, so an
+                        # older export still imports after a schema change.
+                        usable = {k: v for k, v in entry.items() if k in columns}
+                        if not usable:
+                            continue
+                        usable["guild_id"] = guild_id
+
+                        names = ", ".join(f"[{c}]" for c in usable)
+                        marks = ", ".join("?" for _ in usable)
+                        try:
+                            await db.execute(
+                                f"INSERT OR REPLACE INTO [{table}] ({names}) VALUES ({marks})",
+                                tuple(usable.values()),
+                            )
+                            written += 1
+                        except Exception as exc:
+                            print(f"[config_transfer] row failed in {table}: {exc}")
+
+                    await db.commit()
+                    if written:
+                        applied[f"{db_name}.{table}"] = written
+        except Exception as exc:
+            skipped.append(f"{db_name} ({exc})")
+
+    return {
+        "guild_id": str(guild_id),
+        "applied": applied,
+        "tables_written": len(applied),
+        "rows_written": sum(applied.values()),
+        "skipped": skipped,
+    }

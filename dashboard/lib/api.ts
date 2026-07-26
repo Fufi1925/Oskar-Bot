@@ -336,6 +336,21 @@ export const api = {
   removeOwner: (userId: string) =>
     request<any>(`/team/owners/${userId}`, { method: "DELETE" }),
 
+  // Server overview + full config transfer
+  getModuleStatus: (guildId: string) => request<any>(`/guilds/${guildId}/module-status`),
+  previewConfig: (guildId: string, config: any) =>
+    request<any>(`/guilds/${guildId}/config/preview`, {
+      method: "POST",
+      body: JSON.stringify(config),
+    }),
+  importConfig: (guildId: string, config: any, merge = false) =>
+    request<any>(`/guilds/${guildId}/config/import`, {
+      method: "POST",
+      body: JSON.stringify({ config, merge }),
+    }),
+  resetConfig: (guildId: string) =>
+    request<any>(`/guilds/${guildId}/config`, { method: "DELETE" }),
+
   // Bot-wide settings (formerly hardcoded)
   getBotSettings: () => request<{ groups: string[]; settings: any[] }>("/admin/settings"),
   updateBotSettings: (data: Record<string, string>) =>
