@@ -286,4 +286,9 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify(data),
     }),
+  runAdminMemberAction: (data: any) =>
+    request<{ status: string; result: string }>("/admin/member-action", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
 };
