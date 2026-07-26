@@ -150,7 +150,7 @@ export function GuildSettingsForm({
         <select
           value={String(value ?? setting.default)}
           onChange={(e) => update(e.target.value)}
-          className="bg-white/[0.03] border border-white/5 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary min-w-[130px]"
+          className="appearance-none bg-[#0b1f3a] border border-white/10 rounded-xl px-3 py-2 pr-9 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2024%2024%22%20stroke%3D%22%2394a3b8%22%20stroke-width%3D%222%22%3E%3Cpath%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20d%3D%22M19%209l-7%207-7-7%22/%3E%3C/svg%3E')] bg-[length:1.1rem] bg-[right_0.6rem_center] bg-no-repeat cursor-pointer min-w-[130px]"
         >
           {setting.choices.map((choice) => (
             <option key={choice} value={choice}>
@@ -179,7 +179,7 @@ export function GuildSettingsForm({
         <select
           value={String(value ?? "")}
           onChange={(e) => update(e.target.value)}
-          className="bg-white/[0.03] border border-white/5 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary min-w-[180px]"
+          className="appearance-none bg-[#0b1f3a] border border-white/10 rounded-xl px-3 py-2 pr-9 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2024%2024%22%20stroke%3D%22%2394a3b8%22%20stroke-width%3D%222%22%3E%3Cpath%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20d%3D%22M19%209l-7%207-7-7%22/%3E%3C/svg%3E')] bg-[length:1.1rem] bg-[right_0.6rem_center] bg-no-repeat cursor-pointer min-w-[180px]"
         >
           <option value="">Disabled</option>
           {channels.map((c) => (
@@ -196,7 +196,7 @@ export function GuildSettingsForm({
         <select
           value={String(value ?? "")}
           onChange={(e) => update(e.target.value)}
-          className="bg-white/[0.03] border border-white/5 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary min-w-[180px]"
+          className="appearance-none bg-[#0b1f3a] border border-white/10 rounded-xl px-3 py-2 pr-9 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2024%2024%22%20stroke%3D%22%2394a3b8%22%20stroke-width%3D%222%22%3E%3Cpath%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20d%3D%22M19%209l-7%207-7-7%22/%3E%3C/svg%3E')] bg-[length:1.1rem] bg-[right_0.6rem_center] bg-no-repeat cursor-pointer min-w-[180px]"
         >
           <option value="">Everyone</option>
           {roles.map((r) => (

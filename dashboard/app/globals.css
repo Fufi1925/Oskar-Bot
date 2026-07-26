@@ -77,3 +77,44 @@ body {
     box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
   }
 }
+
+/* ──────────────────────────────────────────────────────────────────────
+   Native <select> dropdowns
+
+   A native select renders its option list with the operating system's
+   default colours, which meant a white popup on the dark dashboard. Telling
+   the browser the control is dark makes it use the matching native styling,
+   and the explicit option colours cover the browsers that ignore it.
+   ────────────────────────────────────────────────────────────────────── */
+select {
+  color-scheme: dark;
+}
+
+select option,
+select optgroup {
+  background-color: #10233f;
+  color: #e2e8f0;
+}
+
+select option:checked,
+select option:hover {
+  background-color: #2563eb;
+  color: #ffffff;
+}
+
+select optgroup {
+  color: #64748b;
+  font-weight: 800;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+/* Date and colour pickers open native popups with the same problem. */
+input[type="date"],
+input[type="time"],
+input[type="datetime-local"],
+input[type="color"],
+input[type="number"] {
+  color-scheme: dark;
+}
