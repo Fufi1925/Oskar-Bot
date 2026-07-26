@@ -354,13 +354,6 @@ async def run_admin_quick_action(data: dict, bot: "universitybot" = Depends(get_
                 return None
         return member
 
-    def get_role(required: bool = True):
-        role_id = _id("role_id")
-        role = guild.get_role(role_id) if role_id else None
-        if required and not role:
-            raise HTTPException(status_code=404, detail="Role not found")
-        return role
-
     def get_channel(required: bool = True):
         channel_id = _id("channel_id")
         channel = guild.get_channel(channel_id) if channel_id else None
@@ -369,58 +362,8 @@ async def run_admin_quick_action(data: dict, bot: "universitybot" = Depends(get_
         return channel
 
     try:
-        # Member tools
-        if action == "nickname":
-            member = await get_member()
-            nick = str(data.get("nickname", "")).strip()[:32] or None
-            await member.edit(nick=nick, reason=reason)
-            result = f"Nickname updated for {member}."
-        elif action == "add_role":
-            member = await get_member(); role = get_role()
-            await member.add_roles(role, reason=reason)
-            result = f"Added role {role.name} to {member}."
-        elif action == "remove_role":
-            member = await get_member(); role = get_role()
-            await member.remove_roles(role, reason=reason)
-            result = f"Removed role {role.name} from {member}."
-        elif action == "member_info":
-            member = await get_member()
-            result = f"{member} | Joined: {member.joined_at} | Roles: {len(member.roles)} | Bot: {member.bot}"
-        elif action == "clear_nickname":
-            member = await get_member()
-            await member.edit(nick=None, reason=reason)
-            result = f"Nickname cleared for {member}."
-
-        # Role tools
-        elif action == "create_role":
-            name = str(data.get("name", "New Role")).strip()[:100] or "New Role"
-            color_raw = str(data.get("color", "3b82f6")).replace("#", "").strip()
-            color = int(color_raw, 16) if color_raw else 0x3B82F6
-            role = await guild.create_role(name=name, color=discord.Color(color), reason=reason)
-            result = f"Created role {role.name}."
-        elif action == "delete_role":
-            role = get_role()
-            await role.delete(reason=reason)
-            result = f"Deleted role {role.name}."
-        elif action == "rename_role":
-            role = get_role(); name = str(data.get("name", role.name)).strip()[:100]
-            await role.edit(name=name, reason=reason)
-            result = f"Renamed role to {name}."
-        elif action == "color_role":
-            role = get_role(); color_raw = str(data.get("color", "3b82f6")).replace("#", "").strip()
-            await role.edit(color=discord.Color(int(color_raw, 16)), reason=reason)
-            result = f"Updated color for {role.name}."
-        elif action == "toggle_role_hoist":
-            role = get_role()
-            await role.edit(hoist=not role.hoist, reason=reason)
-            result = f"Role hoist is now {'enabled' if not role.hoist else 'disabled'} for {role.name}."
-        elif action == "toggle_role_mentionable":
-            role = get_role()
-            await role.edit(mentionable=not role.mentionable, reason=reason)
-            result = f"Role mentionable toggled for {role.name}."
-
         # Channel tools
-        elif action == "create_text_channel":
+        if action == "create_text_channel":
             name = str(data.get("name", "new-channel")).strip()[:100] or "new-channel"
             channel = await guild.create_text_channel(name=name, reason=reason)
             result = f"Created text channel #{channel.name}."

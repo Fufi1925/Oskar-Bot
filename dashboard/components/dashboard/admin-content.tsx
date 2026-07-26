@@ -36,7 +36,7 @@ type QuickAction = {
   desc: string;
   icon: any;
   tab: Exclude<TabId, "members" | "broadcast" | "system"> | "members";
-  needs?: Array<"channel" | "name" | "color" | "amount" | "seconds">;
+  needs?: Array<"channel" | "name" | "amount" | "seconds">;
 };
 
 const tabs: Array<{ id: TabId; label: string; icon: any }> = [
@@ -132,7 +132,6 @@ export function AdminContent() {
   const [userId, setUserId] = useState("");
   const [channelId, setChannelId] = useState("");
   const [name, setName] = useState("");
-  const [color, setColor] = useState("3b82f6");
   const [amount, setAmount] = useState("10");
   const [seconds, setSeconds] = useState("5");
   const [duration, setDuration] = useState("60");
@@ -256,7 +255,7 @@ export function AdminContent() {
   const currentActions = useMemo(() => quickActions.filter((action) => action.tab === activeTab), [activeTab]);
   const currentNeeds = useMemo(() => new Set(currentActions.flatMap((action) => action.needs || [])), [currentActions]);
 
-  const basePayload = () => ({ guild_id: guildId, user_id: userId.trim(), channel_id: channelId, name: name.trim(), color: color.trim(), nickname: name.trim(), amount: Number(amount) || 10, seconds: Number(seconds) || 5, duration_minutes: Number(duration) || 60, reason: reason.trim() });
+  const basePayload = () => ({ guild_id: guildId, user_id: userId.trim(), channel_id: channelId, name: name.trim(), amount: Number(amount) || 10, seconds: Number(seconds) || 5, duration_minutes: Number(duration) || 60, reason: reason.trim() });
 
   const requireGuild = () => {
     if (!guildId) {
@@ -365,7 +364,6 @@ export function AdminContent() {
           {activeTab === "members" && <TextInput label="User ID" value={userId} setValue={setUserId} placeholder="Only user ID needed" />}
           {currentNeeds.has("channel") && <div className="space-y-2"><span className="text-xs font-black uppercase tracking-widest text-slate-500">Channel</span><Select value={channelId} onValueChange={setChannelId} options={channelOptions} placeholder="Select channel" /></div>}
           {currentNeeds.has("name") && <TextInput label="Name" value={name} setValue={setName} />}
-          {currentNeeds.has("color") && <TextInput label="Hex Color" value={color} setValue={setColor} placeholder="3b82f6" />}
           {currentNeeds.has("amount") && <TextInput label="Amount" value={amount} setValue={setAmount} type="number" />}
           {currentNeeds.has("seconds") && <TextInput label="Seconds" value={seconds} setValue={setSeconds} type="number" />}
           {activeTab === "members" && <TextInput label="Timeout minutes" value={duration} setValue={setDuration} type="number" />}

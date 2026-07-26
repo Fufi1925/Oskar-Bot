@@ -91,17 +91,40 @@ async function request<T>(
     });
 
     if (!response.ok) {
-      let errorData;
+      const contentType = response.headers.get("content-type") || "";
+      let detail = response.statusText || "Request failed";
+      let errorData: any = null;
+
       try {
-        errorData = await response.json();
-      } catch {
-        errorData = { detail: "An unknown error occurred" };
+        if (contentType.includes("application/json")) {
+          errorData = await response.json();
+          detail = errorData?.detail || errorData?.message || JSON.stringify(errorData);
+        } else {
+          const text = await response.text();
+          detail = text
+            .replace(/<[^>]*>/g, " ")
+            .replace(/\s+/g, " ")
+            .trim()
+            .slice(0, 500) || detail;
+        }
+      } catch (parseError) {
+        detail = `${detail} (could not parse error response)`;
       }
-      console.error(`[API HTTP Error] Status ${response.status} for ${url}:`, errorData);
-      throw new ApiError(response.status, errorData.detail || response.statusText);
+
+      console.error(`[API HTTP Error] Status ${response.status} for ${url}:`, errorData || detail);
+      throw new ApiError(response.status, detail);
     }
 
-    return response.json();
+    if (response.status === 204) {
+      return undefined as T;
+    }
+
+    const contentType = response.headers.get("content-type") || "";
+    if (contentType.includes("application/json")) {
+      return response.json();
+    }
+
+    return (await response.text()) as T;
   } catch (error) {
     console.error(`[API Network/Fetch Error] Failed to fetch ${url}:`, error);
     throw error;
