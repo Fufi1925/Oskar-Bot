@@ -24,7 +24,7 @@ import { useLanguage } from "@/lib/i18n/LanguageContext";
 import {
   LayoutDashboard, Server, ShieldCheck, Ticket, BarChart4, FileText, Settings,
   Menu, X, Bell, User, Search, ChevronRight, Star, Sparkles, LogOut,
-  LifeBuoy, ChevronDown, Bot, Shield
+  LifeBuoy, ChevronDown, Bot, Shield, UserCheck, Badge
 } from "lucide-react";
 import { useSession, signIn, signOut } from "next-auth/react";
 import { cn, isAdmin } from "@/lib/utils";
@@ -125,6 +125,8 @@ export default function DashboardLayout({
             { name: "Auto React", href: `/dashboard/guild/${currentGuildId}/autoreact`, icon: Settings },
             { name: "Reaction Roles", href: `/dashboard/guild/${currentGuildId}/reactionroles`, icon: Search },
             { name: "Join DM", href: `/dashboard/guild/${currentGuildId}/joindm`, icon: User },
+            { name: "No Prefix", href: `/dashboard/guild/${currentGuildId}/noprefix`, icon: UserCheck },
+            { name: "Nickname", href: `/dashboard/guild/${currentGuildId}/nickname`, icon: Badge },
             { name: "Invites", href: `/dashboard/guild/${currentGuildId}/invites`, icon: Search },
             { name: "Tracking", href: `/dashboard/guild/${currentGuildId}/tracking`, icon: BarChart4 },
           ],
