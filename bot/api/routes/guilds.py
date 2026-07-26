@@ -1578,6 +1578,16 @@ ADMIN_DASHBOARD_DEFAULTS = {
     "bot_role_guard": True,
     "mass_mention_guard": True,
     "dashboard_audit_log": True,
+    "channel_permission_diff": True,
+    "role_hierarchy_alerts": True,
+    "new_account_watch": True,
+    "suspicious_name_watch": False,
+    "automod_recommendations": True,
+    "backup_snapshot_reminders": True,
+    "staff_activity_insights": False,
+    "ticket_overload_alerts": True,
+    "voice_abuse_monitor": True,
+    "public_webhook_alerts": True,
 }
 
 async def _get_feature_scope(guild_id: int, scope: str, defaults: dict):
