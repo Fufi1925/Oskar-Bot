@@ -94,6 +94,45 @@ async def api_rate_limit(request: Request):
             detail=f"Rate limit exceeded ({limit} requests/minute).",
         )
 
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    """
+    Turn any unhandled crash into JSON the dashboard can display.
+
+    Starlette's default is a bare text/plain "Internal Server Error", which is
+    exactly what the dashboard toast showed: a 500 with nothing to act on and
+    no way to find the cause in the logs. Every crash now carries a short
+    incident id that also appears in the container log.
+    """
+    import traceback
+    import uuid
+
+    incident = uuid.uuid4().hex[:8]
+    logger.error(
+        f"[{incident}] Unhandled error on {request.method} {request.url.path}: "
+        f"{type(exc).__name__}: {exc}\n{traceback.format_exc()}"
+    )
+
+    detail = f"{type(exc).__name__}: {exc}".strip()
+
+    # SQLite trouble is the common case on Railway, where db/ is wiped on
+    # every redeploy unless a volume is mounted. Say what to do about it.
+    text = str(exc).lower()
+    if "unable to open database file" in text:
+        detail = (
+            "The database directory is missing. This happens after a Railway "
+            "redeploy when no volume is mounted at /app/bot/db. It is being "
+            "recreated \u2014 please retry in a moment."
+        )
+    elif "database is locked" in text:
+        detail = "The database is busy right now. Please retry in a moment."
+
+    return Response(
+        content=json.dumps({"detail": detail, "incident": incident}),
+        status_code=500,
+        media_type="application/json",
+    )
+
+
 def create_app() -> FastAPI:
     app = FastAPI(
         title=f"{BRAND_NAME} Bot API",
@@ -128,6 +167,8 @@ def create_app() -> FastAPI:
     app.state.limiter = limiter
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
     app.add_middleware(SlowAPIMiddleware)
+
+    app.add_exception_handler(Exception, unhandled_exception_handler)
 
     _extra_origins = [o.strip() for o in os.getenv("CORS_ORIGINS", "").split(",") if o.strip()]
     _railway_domain = os.getenv("RAILWAY_PUBLIC_DOMAIN", "")
@@ -178,6 +219,9 @@ def create_app() -> FastAPI:
 
     # Bot API ONLY under /api/v1 — NOT /api (so NextAuth /api/auth/* goes to dashboard)
     api_app = FastAPI(dependencies=[Depends(verify_api_key), Depends(api_rate_limit)])
+    # The routers live on this sub-app, so the handler has to be here too:
+    # one registered on the parent never sees their exceptions.
+    api_app.add_exception_handler(Exception, unhandled_exception_handler)
     api_app.include_router(bot.router, prefix="/bot", tags=["Bot"])
     api_app.include_router(guilds.router, prefix="/guilds", tags=["Guilds"])
     api_app.include_router(admin.router, prefix="/admin", tags=["Admin"])

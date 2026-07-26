@@ -28,6 +28,8 @@ import time
 
 import aiosqlite
 
+from utils import db_paths
+
 DB_PATH = "db/admin_config.db"
 
 _lock = asyncio.Lock()
@@ -77,7 +79,7 @@ async def load(force: bool = False) -> None:
         os.makedirs("db", exist_ok=True)
         bans: dict[str, dict] = {}
         try:
-            async with aiosqlite.connect(DB_PATH) as db:
+            async with db_paths.connect(DB_PATH) as db:
                 await _ensure_tables(db)
                 async with db.execute(
                     "SELECT user_id, banned_by, banned_at, reason, expires_at"
@@ -162,7 +164,7 @@ async def ban(
     now = int(time.time())
     expires = now + int(duration_seconds) if duration_seconds and duration_seconds > 0 else 0
 
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with db_paths.connect(DB_PATH) as db:
         await _ensure_tables(db)
         await db.execute(
             "INSERT OR REPLACE INTO dashboard_bans"
@@ -188,7 +190,7 @@ async def unban(user_id: str) -> bool:
     uid = str(user_id).strip()
     await load()
 
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with db_paths.connect(DB_PATH) as db:
         await _ensure_tables(db)
         cursor = await db.execute("DELETE FROM dashboard_bans WHERE user_id = ?", (uid,))
         await db.commit()
@@ -203,7 +205,7 @@ async def purge_expired() -> int:
     now = int(time.time())
     await load()
 
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with db_paths.connect(DB_PATH) as db:
         await _ensure_tables(db)
         cursor = await db.execute(
             "DELETE FROM dashboard_bans WHERE expires_at > 0 AND expires_at <= ?", (now,)
@@ -239,7 +241,7 @@ async def record_login(
 
     now = int(time.time())
     try:
-        async with aiosqlite.connect(DB_PATH) as db:
+        async with db_paths.connect(DB_PATH) as db:
             await _ensure_tables(db)
             async with db.execute(
                 "SELECT login_count FROM dashboard_logins WHERE user_id = ?", (uid,)
@@ -280,7 +282,7 @@ async def list_logins(limit: int = 500) -> list[dict]:
     """Everyone who ever signed in, most recently seen first."""
     entries: list[dict] = []
     try:
-        async with aiosqlite.connect(DB_PATH) as db:
+        async with db_paths.connect(DB_PATH) as db:
             await _ensure_tables(db)
             async with db.execute(
                 "SELECT user_id, username, avatar, first_seen, last_seen, login_count, last_path"
@@ -315,7 +317,7 @@ async def forget_login(user_id: str) -> bool:
     """Remove a login record (does not affect roles or bans)."""
     uid = str(user_id).strip()
     try:
-        async with aiosqlite.connect(DB_PATH) as db:
+        async with db_paths.connect(DB_PATH) as db:
             await _ensure_tables(db)
             cursor = await db.execute("DELETE FROM dashboard_logins WHERE user_id = ?", (uid,))
             await db.commit()

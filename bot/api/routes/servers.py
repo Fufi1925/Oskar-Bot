@@ -18,6 +18,7 @@ import discord
 from fastapi import APIRouter, Depends, HTTPException
 
 from api.dependencies import get_bot
+from utils import db_paths
 from utils import dashboard_authority as authority
 from utils import dashboard_roles as roles
 from utils import feature_audit
@@ -40,7 +41,7 @@ INVITE_CACHE_TTL = 3600.0
 async def _premium_guild_ids() -> set[str]:
     ids: set[str] = set()
     try:
-        async with aiosqlite.connect(CONFIG_DB) as db:
+        async with db_paths.connect(CONFIG_DB) as db:
             await db.execute(
                 "CREATE TABLE IF NOT EXISTS premium_guilds ("
                 " guild_id INTEGER PRIMARY KEY, granted_at INTEGER)"
@@ -57,7 +58,7 @@ async def _premium_guild_ids() -> set[str]:
 async def _blacklisted_guild_ids() -> set[str]:
     ids: set[str] = set()
     try:
-        async with aiosqlite.connect(BLOCK_DB) as db:
+        async with db_paths.connect(BLOCK_DB) as db:
             await db.execute(
                 "CREATE TABLE IF NOT EXISTS guild_blacklist (guild_id TEXT PRIMARY KEY)"
             )
@@ -429,7 +430,7 @@ async def leave_server(guild_id: int, data: dict, bot: "universitybot" = Depends
 
     if blacklist:
         try:
-            async with aiosqlite.connect(BLOCK_DB) as db:
+            async with db_paths.connect(BLOCK_DB) as db:
                 await db.execute(
                     "CREATE TABLE IF NOT EXISTS guild_blacklist (guild_id TEXT PRIMARY KEY)"
                 )
@@ -474,7 +475,7 @@ async def list_blacklist(bot: "universitybot" = Depends(get_bot)):
     guilds: list[dict] = []
     users: list[dict] = []
     try:
-        async with aiosqlite.connect(BLOCK_DB) as db:
+        async with db_paths.connect(BLOCK_DB) as db:
             await db.execute(
                 "CREATE TABLE IF NOT EXISTS guild_blacklist (guild_id TEXT PRIMARY KEY)"
             )
@@ -523,7 +524,7 @@ async def add_blacklist(data: dict, bot: "universitybot" = Depends(get_bot)):
     table = "guild_blacklist" if kind == "guild" else "user_blacklist"
     column = "guild_id" if kind == "guild" else "user_id"
 
-    async with aiosqlite.connect(BLOCK_DB) as db:
+    async with db_paths.connect(BLOCK_DB) as db:
         await db.execute(f"CREATE TABLE IF NOT EXISTS {table} ({column} TEXT PRIMARY KEY)")
         await db.execute(f"INSERT OR IGNORE INTO {table} ({column}) VALUES (?)", (target,))
         await db.commit()
@@ -551,7 +552,7 @@ async def remove_blacklist(
     table = "guild_blacklist" if kind == "guild" else "user_blacklist"
     column = "guild_id" if kind == "guild" else "user_id"
 
-    async with aiosqlite.connect(BLOCK_DB) as db:
+    async with db_paths.connect(BLOCK_DB) as db:
         await db.execute(f"CREATE TABLE IF NOT EXISTS {table} ({column} TEXT PRIMARY KEY)")
         cursor = await db.execute(f"DELETE FROM {table} WHERE {column} = ?", (str(target_id),))
         await db.commit()

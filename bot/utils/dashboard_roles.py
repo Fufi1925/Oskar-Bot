@@ -24,6 +24,8 @@ from dataclasses import dataclass, field
 
 import aiosqlite
 
+from utils import db_paths
+
 DB_PATH = "db/admin_config.db"
 
 
@@ -510,7 +512,7 @@ async def load(force: bool = False) -> None:
         entries: dict[str, list[Assignment]] = {}
         owners: dict[str, dict] = {}
         try:
-            async with aiosqlite.connect(DB_PATH) as db:
+            async with db_paths.connect(DB_PATH) as db:
                 await _ensure_tables(db)
                 async with db.execute(
                     "SELECT user_id, role_key, guild_ids, granted_by, granted_at, note"
@@ -635,7 +637,7 @@ async def add_owner(
     await load()
     now = int(time.time())
 
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with db_paths.connect(DB_PATH) as db:
         await _ensure_tables(db)
         await db.execute(
             "INSERT OR REPLACE INTO dashboard_owners"
@@ -670,7 +672,7 @@ async def remove_owner(user_id: str) -> bool:
         )
 
     await load()
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with db_paths.connect(DB_PATH) as db:
         await _ensure_tables(db)
         cursor = await db.execute("DELETE FROM dashboard_owners WHERE user_id = ?", (uid,))
         await db.commit()
@@ -755,7 +757,7 @@ async def assign(
     clean_guilds = tuple(str(g).strip() for g in (guild_ids or []) if str(g).strip().isdigit())
     now = int(time.time())
 
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with db_paths.connect(DB_PATH) as db:
         await _ensure_tables(db)
         await db.execute(
             "INSERT OR REPLACE INTO dashboard_role_assignments"
@@ -782,7 +784,7 @@ async def assign(
 async def revoke(user_id: str, role_key: str) -> bool:
     """Take a role away. Returns True when something was removed."""
     await load()
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with db_paths.connect(DB_PATH) as db:
         await _ensure_tables(db)
         cursor = await db.execute(
             "DELETE FROM dashboard_role_assignments WHERE user_id = ? AND role_key = ?",
@@ -802,7 +804,7 @@ async def revoke(user_id: str, role_key: str) -> bool:
 async def revoke_all(user_id: str) -> int:
     """Remove every role from a user."""
     await load()
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with db_paths.connect(DB_PATH) as db:
         await _ensure_tables(db)
         cursor = await db.execute(
             "DELETE FROM dashboard_role_assignments WHERE user_id = ?", (str(user_id),)
