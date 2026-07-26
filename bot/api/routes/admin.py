@@ -255,3 +255,225 @@ async def run_member_action(data: dict, bot: "universitybot" = Depends(get_bot))
         raise HTTPException(status_code=400, detail=f"Discord API error: {exc}")
 
     return {"status": "success", "action": action, "guild_id": guild_id, "user_id": user_id, "result": result}
+
+@router.post("/quick-action")
+async def run_admin_quick_action(data: dict, bot: "universitybot" = Depends(get_bot)):
+    """Run dashboard admin utility actions.
+
+    This endpoint powers the simplified tab-based admin dashboard. It supports
+    moderation helpers, role/channel/server tools, and read-only security scans.
+    """
+    import datetime
+    import discord
+
+    action = str(data.get("action", "")).strip().lower()
+    guild_id = str(data.get("guild_id", "")).strip()
+    reason = str(data.get("reason", "Dashboard admin action")).strip()[:512] or "Dashboard admin action"
+
+    if not guild_id.isdigit():
+        raise HTTPException(status_code=400, detail="guild_id must be a valid Discord ID")
+
+    guild = bot.get_guild(int(guild_id))
+    if not guild:
+        raise HTTPException(status_code=404, detail="Guild not found or bot is not in this guild")
+
+    def _id(name: str) -> int | None:
+        value = str(data.get(name, "")).strip()
+        return int(value) if value.isdigit() else None
+
+    async def get_member(required: bool = True):
+        user_id = _id("user_id")
+        if not user_id:
+            if required:
+                raise HTTPException(status_code=400, detail="user_id is required")
+            return None
+        member = guild.get_member(user_id)
+        if not member:
+            try:
+                member = await guild.fetch_member(user_id)
+            except Exception:
+                if required:
+                    raise HTTPException(status_code=404, detail="Member not found in this guild")
+                return None
+        return member
+
+    def get_role(required: bool = True):
+        role_id = _id("role_id")
+        role = guild.get_role(role_id) if role_id else None
+        if required and not role:
+            raise HTTPException(status_code=404, detail="Role not found")
+        return role
+
+    def get_channel(required: bool = True):
+        channel_id = _id("channel_id")
+        channel = guild.get_channel(channel_id) if channel_id else None
+        if required and not channel:
+            raise HTTPException(status_code=404, detail="Channel not found")
+        return channel
+
+    try:
+        # Member tools
+        if action == "nickname":
+            member = await get_member()
+            nick = str(data.get("nickname", "")).strip()[:32] or None
+            await member.edit(nick=nick, reason=reason)
+            result = f"Nickname updated for {member}."
+        elif action == "add_role":
+            member = await get_member(); role = get_role()
+            await member.add_roles(role, reason=reason)
+            result = f"Added role {role.name} to {member}."
+        elif action == "remove_role":
+            member = await get_member(); role = get_role()
+            await member.remove_roles(role, reason=reason)
+            result = f"Removed role {role.name} from {member}."
+        elif action == "member_info":
+            member = await get_member()
+            result = f"{member} | Joined: {member.joined_at} | Roles: {len(member.roles)} | Bot: {member.bot}"
+        elif action == "clear_nickname":
+            member = await get_member()
+            await member.edit(nick=None, reason=reason)
+            result = f"Nickname cleared for {member}."
+
+        # Role tools
+        elif action == "create_role":
+            name = str(data.get("name", "New Role")).strip()[:100] or "New Role"
+            color_raw = str(data.get("color", "3b82f6")).replace("#", "").strip()
+            color = int(color_raw, 16) if color_raw else 0x3B82F6
+            role = await guild.create_role(name=name, color=discord.Color(color), reason=reason)
+            result = f"Created role {role.name}."
+        elif action == "delete_role":
+            role = get_role()
+            await role.delete(reason=reason)
+            result = f"Deleted role {role.name}."
+        elif action == "rename_role":
+            role = get_role(); name = str(data.get("name", role.name)).strip()[:100]
+            await role.edit(name=name, reason=reason)
+            result = f"Renamed role to {name}."
+        elif action == "color_role":
+            role = get_role(); color_raw = str(data.get("color", "3b82f6")).replace("#", "").strip()
+            await role.edit(color=discord.Color(int(color_raw, 16)), reason=reason)
+            result = f"Updated color for {role.name}."
+        elif action == "toggle_role_hoist":
+            role = get_role()
+            await role.edit(hoist=not role.hoist, reason=reason)
+            result = f"Role hoist is now {'enabled' if not role.hoist else 'disabled'} for {role.name}."
+        elif action == "toggle_role_mentionable":
+            role = get_role()
+            await role.edit(mentionable=not role.mentionable, reason=reason)
+            result = f"Role mentionable toggled for {role.name}."
+
+        # Channel tools
+        elif action == "create_text_channel":
+            name = str(data.get("name", "new-channel")).strip()[:100] or "new-channel"
+            channel = await guild.create_text_channel(name=name, reason=reason)
+            result = f"Created text channel #{channel.name}."
+        elif action == "create_voice_channel":
+            name = str(data.get("name", "New Voice")).strip()[:100] or "New Voice"
+            channel = await guild.create_voice_channel(name=name, reason=reason)
+            result = f"Created voice channel {channel.name}."
+        elif action == "create_category":
+            name = str(data.get("name", "New Category")).strip()[:100] or "New Category"
+            category = await guild.create_category(name=name, reason=reason)
+            result = f"Created category {category.name}."
+        elif action == "rename_channel":
+            channel = get_channel(); name = str(data.get("name", channel.name)).strip()[:100]
+            await channel.edit(name=name, reason=reason)
+            result = f"Renamed channel to {name}."
+        elif action == "delete_channel":
+            channel = get_channel(); name = channel.name
+            await channel.delete(reason=reason)
+            result = f"Deleted channel {name}."
+        elif action == "clone_channel":
+            channel = get_channel(); clone = await channel.clone(reason=reason)
+            result = f"Cloned channel to {clone.name}."
+        elif action == "lock_channel":
+            channel = get_channel(); overwrite = channel.overwrites_for(guild.default_role)
+            overwrite.send_messages = False
+            await channel.set_permissions(guild.default_role, overwrite=overwrite, reason=reason)
+            result = f"Locked channel {channel.name}."
+        elif action == "unlock_channel":
+            channel = get_channel(); overwrite = channel.overwrites_for(guild.default_role)
+            overwrite.send_messages = None
+            await channel.set_permissions(guild.default_role, overwrite=overwrite, reason=reason)
+            result = f"Unlocked channel {channel.name}."
+        elif action == "slowmode":
+            channel = get_channel(); seconds = int(data.get("seconds", 5) or 5)
+            await channel.edit(slowmode_delay=max(0, min(seconds, 21600)), reason=reason)
+            result = f"Set slowmode in {channel.name} to {seconds}s."
+        elif action == "purge":
+            channel = get_channel(); amount = int(data.get("amount", 10) or 10)
+            deleted = await channel.purge(limit=max(1, min(amount, 100)), reason=reason)
+            result = f"Deleted {len(deleted)} messages in {channel.name}."
+
+        # Server tools
+        elif action == "server_name":
+            name = str(data.get("name", guild.name)).strip()[:100]
+            await guild.edit(name=name, reason=reason)
+            result = f"Server renamed to {name}."
+        elif action == "verification_level_low":
+            await guild.edit(verification_level=discord.VerificationLevel.low, reason=reason)
+            result = "Verification level set to low."
+        elif action == "verification_level_medium":
+            await guild.edit(verification_level=discord.VerificationLevel.medium, reason=reason)
+            result = "Verification level set to medium."
+        elif action == "default_notifications_mentions":
+            await guild.edit(default_notifications=discord.NotificationLevel.only_mentions, reason=reason)
+            result = "Default notifications set to only mentions."
+        elif action == "default_notifications_all":
+            await guild.edit(default_notifications=discord.NotificationLevel.all_messages, reason=reason)
+            result = "Default notifications set to all messages."
+
+        # Scans / reports
+        elif action == "scan_admin_roles":
+            roles = [r.name for r in guild.roles if r.permissions.administrator]
+            result = f"Administrator roles ({len(roles)}): {', '.join(roles[:25]) or 'none'}"
+        elif action == "scan_dangerous_roles":
+            roles = [r.name for r in guild.roles if r.permissions.manage_roles or r.permissions.manage_channels or r.permissions.ban_members]
+            result = f"Dangerous roles ({len(roles)}): {', '.join(roles[:25]) or 'none'}"
+        elif action == "list_bots":
+            bots = [m.display_name for m in guild.members if m.bot]
+            result = f"Bots ({len(bots)}): {', '.join(bots[:30]) or 'none'}"
+        elif action == "list_staff":
+            staff = [m.display_name for m in guild.members if m.guild_permissions.manage_messages or m.guild_permissions.administrator]
+            result = f"Staff-like members ({len(staff)}): {', '.join(staff[:30]) or 'none'}"
+        elif action == "server_stats":
+            result = f"{guild.name}: {guild.member_count or 0} members, {len(guild.roles)} roles, {len(guild.channels)} channels."
+        elif action == "scan_public_channels":
+            channels = [c.name for c in guild.text_channels if c.permissions_for(guild.default_role).view_channel]
+            result = f"Public text channels ({len(channels)}): {', '.join(channels[:30]) or 'none'}"
+        elif action == "scan_webhooks":
+            count = 0
+            names = []
+            for channel in guild.text_channels[:50]:
+                try:
+                    hooks = await channel.webhooks()
+                    count += len(hooks)
+                    names.extend([f"{channel.name}:{hook.name}" for hook in hooks])
+                except Exception:
+                    pass
+            result = f"Webhooks ({count}): {', '.join(names[:25]) or 'none'}"
+        elif action == "scan_invites":
+            try:
+                invites = await guild.invites()
+                result = f"Invites ({len(invites)}): {', '.join([i.code for i in invites[:30]]) or 'none'}"
+            except discord.Forbidden:
+                raise HTTPException(status_code=403, detail="Bot needs Manage Guild to view invites")
+        elif action == "audit_summary":
+            entries = []
+            try:
+                async for entry in guild.audit_logs(limit=10):
+                    entries.append(f"{entry.action.name} by {entry.user}")
+            except discord.Forbidden:
+                raise HTTPException(status_code=403, detail="Bot needs View Audit Log")
+            result = "Recent audit entries: " + (" | ".join(entries) if entries else "none")
+        else:
+            raise HTTPException(status_code=400, detail=f"Unsupported quick action: {action}")
+
+    except discord.Forbidden:
+        raise HTTPException(status_code=403, detail="Bot is missing permissions or its role is too low for this action")
+    except discord.HTTPException as exc:
+        raise HTTPException(status_code=400, detail=f"Discord API error: {exc}")
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid numeric/color value")
+
+    return {"status": "success", "action": action, "guild_id": guild_id, "result": result}

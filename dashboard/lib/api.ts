@@ -291,4 +291,9 @@ export const api = {
       method: "POST",
       body: JSON.stringify(data),
     }),
+  runAdminQuickAction: (data: any) =>
+    request<{ status: string; result: string }>("/admin/quick-action", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
 };
