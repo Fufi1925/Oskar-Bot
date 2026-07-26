@@ -59,16 +59,26 @@ Gehe zu deinem Service → **Variables** und füge ALLE Variablen aus `.env.exam
 | `DISCORD_CLIENT_SECRET` | Discord OAuth2 Client Secret | ✅ |
 | `NEXTAUTH_SECRET` | Langer Random String ([Generator](https://generate-secret.vercel.app/32)) | ✅ |
 | `NEXTAUTH_URL` | Wird automatisch gesetzt (Railway URL) | ⚡ Auto |
-| `NEXT_PUBLIC_API_URL` | Wird automatisch gesetzt | ⚡ Auto |
-| `NEXT_PUBLIC_ADMIN_IDS` | Discord IDs mit Admin-Zugang | ✅ |
+| `ADMIN_IDS` | Discord IDs mit Admin-Zugang (serverseitige Prüfung) | ✅ |
+| `NEXT_PUBLIC_ADMIN_IDS` | Gleiche IDs, nur für die Anzeige im UI | ✅ |
 | `NEXT_PUBLIC_BRAND_NAME` | `University Bot` | ✅ |
 | `NEXT_PUBLIC_BRAND_NAME_WORD` | `UB` | ✅ |
 | `LAVALINK_HOST` | `lavalink.jirayu.net` | Optional |
 | `LAVALINK_PASSWORD` | `youshallnotpass` | Optional |
 | `LAVALINK_SECURE` | `false` | Optional |
 | `LAVALINK_PORT` | `13592` | Optional |
+| `GIPHY_API_KEY` | Key von developers.giphy.com | Optional |
+| `GOOGLE_API_KEY` / `GROQ_API_KEY` | Für die KI-Commands | Optional |
 | `API_ENABLED` | `true` | ✅ |
 | `brand_name` | `University Bot` | ✅ |
+
+> ⚠️ **Setze niemals `NEXT_PUBLIC_DASHBOARD_API_KEY`.**
+> Variablen mit `NEXT_PUBLIC_` werden beim Build in das JavaScript eingebettet,
+> das an jeden Browser ausgeliefert wird. Der API-Key wäre damit öffentlich.
+> `start.sh` entfernt die Variable inzwischen automatisch, falls sie gesetzt ist.
+> Browser-Anfragen laufen über `/api/bot`, wo der Key erst serverseitig
+> angehängt wird — nachdem geprüft wurde, ob der eingeloggte Nutzer den
+> betroffenen Server überhaupt verwalten darf.
 
 #### 4️⃣ Discord App konfigurieren
 

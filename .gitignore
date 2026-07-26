@@ -50,3 +50,9 @@ npm-debug.log*
 # Large assets (optional - uncomment if needed)
 # bot/assets/*.png
 # bot/assets/*.ttf
+
+# SQLite journals / write-ahead logs
+*.db-journal
+*.db-wal
+*.db-shm
+db/backups/

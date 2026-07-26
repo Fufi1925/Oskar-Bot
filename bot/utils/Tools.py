@@ -31,7 +31,34 @@ async def setup_db():
     await db.commit()
 
 
-asyncio.run(setup_db())
+def _bootstrap_prefix_table():
+  """
+  Create the prefixes table at import time.
+
+  asyncio.run() blows up with "cannot be called from a running event loop" if
+  this module is ever imported from inside async code, so fall back to a plain
+  sqlite3 call in that case. The db/ directory itself is created by
+  utils.bootstrap, which is imported before this module.
+  """
+  os.makedirs('db', exist_ok=True)
+  try:
+    asyncio.get_running_loop()
+  except RuntimeError:
+    asyncio.run(setup_db())
+    return
+
+  import sqlite3
+  with sqlite3.connect('db/prefix.db') as conn:
+    conn.execute('''
+      CREATE TABLE IF NOT EXISTS prefixes (
+        guild_id INTEGER PRIMARY KEY,
+        prefix TEXT NOT NULL
+      )
+    ''')
+    conn.commit()
+
+
+_bootstrap_prefix_table()
 
 async def is_topcheck_enabled(guild_id: int):
     async with aiosqlite.connect('db/topcheck.db') as db:
@@ -89,24 +116,54 @@ def updateignore(guild_id, data):
 
 
 
+# ── Prefix cache ──────────────────────────────────────────────────────────
+# get_prefix() runs for EVERY message the bot sees. Hitting SQLite each time
+# meant opening and closing the database file thousands of times per minute.
+# The prefix changes very rarely, so it is cached in memory and invalidated
+# whenever it is written.
+DEFAULT_PREFIX = ">"
+_prefix_cache: dict[int, str] = {}
+
+
+def invalidate_prefix_cache(guildID=None):
+  """Drop a cached prefix (or the whole cache when guildID is None)."""
+  if guildID is None:
+    _prefix_cache.clear()
+  else:
+    _prefix_cache.pop(int(guildID), None)
+
+
 async def getConfig(guildID):
+  guild_key = int(guildID)
+
+  cached = _prefix_cache.get(guild_key)
+  if cached is not None:
+    return {"prefix": cached}
+
   async with aiosqlite.connect('db/prefix.db') as db:
-    async with db.execute("SELECT prefix FROM prefixes WHERE guild_id = ?", (guildID,)) as cursor:
+    async with db.execute("SELECT prefix FROM prefixes WHERE guild_id = ?", (guild_key,)) as cursor:
       row = await cursor.fetchone()
-      if row:
-        return {"prefix": row[0]}
-      else:
-        defaultConfig = {"prefix": ">"}
-        await updateConfig(guildID, defaultConfig)
-        return defaultConfig
+
+  if row:
+    _prefix_cache[guild_key] = row[0]
+    return {"prefix": row[0]}
+
+  defaultConfig = {"prefix": DEFAULT_PREFIX}
+  await updateConfig(guild_key, defaultConfig)
+  return defaultConfig
 
 async def updateConfig(guildID, data):
+  guild_key = int(guildID)
+  prefix = data["prefix"]
+
   async with aiosqlite.connect('db/prefix.db') as db:
     await db.execute(
       "INSERT OR REPLACE INTO prefixes (guild_id, prefix) VALUES (?, ?)",
-      (guildID, data["prefix"])
+      (guild_key, prefix)
     )
     await db.commit()
+
+  _prefix_cache[guild_key] = prefix
 
 
 

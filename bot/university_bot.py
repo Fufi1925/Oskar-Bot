@@ -28,6 +28,10 @@ import discord
 from discord import Spotify
 from discord.ext import commands, tasks
 
+# Must run before anything touches the filesystem: utils.Tools opens
+# db/prefix.db at import time, which fails if the db/ directory is missing.
+import utils.bootstrap  # noqa: F401
+
 from core import Context
 from core.Cog import Cog
 from core.universitybot import universitybot
@@ -226,6 +230,12 @@ async def on_command_completion(context: commands.Context) -> None:
     split = full_command_name.split("\n")
     executed_command = str(split[0])
     webhook_url = CMD_WEBHOOK_URL
+
+    # Without this guard discord.Webhook.from_url(None) raises on *every*
+    # command when CMD_WEBHOOK_URL is not configured.
+    if not webhook_url:
+        return
+
     async with aiohttp.ClientSession() as session:
         webhook = discord.Webhook.from_url(webhook_url, session=session)
 

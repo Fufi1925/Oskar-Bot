@@ -1,41 +1,72 @@
-Quart
-discord
-discord.py
-discord.ui
+# ══════════════════════════════════════════════════════════════════
+#  University Bot — Python dependencies
+#
+#  Rules for this file:
+#    * no standard library modules (asyncio, typing, datetime, pathlib, ...)
+#    * no duplicates and no unused packages
+#    * pin anything that has broken us before
+# ══════════════════════════════════════════════════════════════════
+
+# ── Discord ───────────────────────────────────────────────────────
+discord.py>=2.4.0,<3.0.0
 jishaku
-mcstatus
-asyncio
 discord-ext-menus
-aiohttp
-datetime
-flask
-typing
-psutil
-collection
-requests
-pathlib
-pymongo
-wavelink>=2.0.0
-httpx
-discord.ext-context
-tasksio
-motor
-Augmentor
-numpy
-aiosqlite
-gtts
-langdetect
-python-dotenv
-pyttsx3
-PyYAML
-Requests
-openai
-duckduckgo-search==6.3.6
-# pillow==11.0.0
-colorama
-chess
-python-dateutil
-deep-translator==1.11.4
+
+# ── Web / API ─────────────────────────────────────────────────────
+fastapi>=0.115.0
 uvicorn==0.46.0
-fastapi
 slowapi
+pydantic>=2.0.0
+httpx
+aiohttp
+requests
+
+# ── Database ──────────────────────────────────────────────────────
+aiosqlite
+
+# ── Imaging ───────────────────────────────────────────────────────
+# REQUIRED: 14 modules import PIL without a fallback (leveling rank cards,
+# music thumbnails, minecraft skins, verification captchas, several games).
+# This used to be commented out and only worked because Augmentor happened
+# to pull Pillow in transitively.
+pillow>=10.0.0
+numpy
+
+# ── Music ─────────────────────────────────────────────────────────
+wavelink>=3.0.0,<4.0.0
+
+# ── Utilities ─────────────────────────────────────────────────────
+# pytz is imported by all 17 antinuke cogs — without it the bot cannot boot.
+pytz
+python-dateutil
+python-dotenv
+PyYAML
+psutil
+colorama
+aiofiles
+typing_extensions
+
+# ── Features ──────────────────────────────────────────────────────
+chess                       # cogs/commands/Games.py, games/chess_game.py
+mcstatus                    # cogs/commands/minecraft.py
+gtts                        # text to speech
+langdetect                  # language detection for AI replies
+deep-translator==1.11.4     # cogs/commands/translate.py
+
+# ── AI ────────────────────────────────────────────────────────────
+openai
+google-generativeai         # cogs/commands/ai.py (guarded by try/except)
+duckduckgo-search==6.3.6
+
+# ══════════════════════════════════════════════════════════════════
+# Removed and why:
+#   asyncio, typing, datetime, pathlib, collection  → standard library
+#   discord, discord.ui                             → part of discord.py
+#   Quart, flask                                    → unused, FastAPI is used
+#   Requests                                        → duplicate of requests
+#   motor, pymongo                                  → unused, storage is SQLite
+#   Augmentor                                       → only pulled in Pillow
+#   pyttsx3, tasksio, discord.ext-context           → not imported anywhere
+#   prodia                                          → only imagine.py, which is
+#                                                     not registered in cogs
+# ══════════════════════════════════════════════════════════════════
