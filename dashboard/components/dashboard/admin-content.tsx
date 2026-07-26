@@ -4,9 +4,9 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   Shield, Users, Server, Activity, Database, Cpu, Globe, Lock, Settings,
   RefreshCw, Ban, UserX, Clock, VolumeX, Send, Megaphone, Wrench, AlertTriangle,
-  Crown, Palette, Eye, AtSign, Hash, Volume2, FolderPlus, Pencil, Trash2, Copy,
+  Hash, Volume2, FolderPlus, Pencil, Trash2, Copy,
   Unlock, Timer, MessageSquareX, Bell, BellOff, SearchCheck, Bot, UserCog,
-  Webhook, Link, ScrollText, UserPlus, UserMinus, UserRoundCog, Eraser, Info
+  Webhook, Link, ScrollText
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
@@ -15,7 +15,7 @@ import { toast } from "sonner";
 import { Select } from "@/components/ui/select";
 
 
-type TabId = "members" | "roles" | "channels" | "server" | "scans" | "broadcast" | "system";
+type TabId = "members" | "channels" | "server" | "scans" | "broadcast" | "system";
 type MemberAction = "ban" | "kick" | "mute" | "unmute";
 
 type QuickAction = {
@@ -24,12 +24,11 @@ type QuickAction = {
   desc: string;
   icon: any;
   tab: Exclude<TabId, "members" | "broadcast" | "system"> | "members";
-  needs?: Array<"member" | "role" | "channel" | "name" | "color" | "amount" | "seconds">;
+  needs?: Array<"channel" | "name" | "color" | "amount" | "seconds">;
 };
 
 const tabs: Array<{ id: TabId; label: string; icon: any }> = [
   { id: "members", label: "Members", icon: Users },
-  { id: "roles", label: "Roles", icon: Crown },
   { id: "channels", label: "Channels", icon: Hash },
   { id: "server", label: "Server", icon: Server },
   { id: "scans", label: "Scans", icon: SearchCheck },
@@ -45,19 +44,6 @@ const memberActions: Array<{ action: MemberAction; label: string; desc: string; 
 ];
 
 const quickActions: QuickAction[] = [
-  { tab: "members", action: "nickname", label: "Set Nickname", desc: "Change a member nickname.", icon: UserRoundCog, needs: ["member", "name"] },
-  { tab: "members", action: "clear_nickname", label: "Clear Nickname", desc: "Reset a member nickname.", icon: Eraser, needs: ["member"] },
-  { tab: "members", action: "add_role", label: "Add Role", desc: "Add the selected role to a member.", icon: UserPlus, needs: ["member", "role"] },
-  { tab: "members", action: "remove_role", label: "Remove Role", desc: "Remove the selected role from a member.", icon: UserMinus, needs: ["member", "role"] },
-  { tab: "members", action: "member_info", label: "Member Info", desc: "Show cached member info.", icon: Info, needs: ["member"] },
-
-  { tab: "roles", action: "create_role", label: "Create Role", desc: "Create a new role with name and color.", icon: Crown, needs: ["name", "color"] },
-  { tab: "roles", action: "delete_role", label: "Delete Role", desc: "Delete the selected role.", icon: Trash2, needs: ["role"] },
-  { tab: "roles", action: "rename_role", label: "Rename Role", desc: "Rename the selected role.", icon: Pencil, needs: ["role", "name"] },
-  { tab: "roles", action: "color_role", label: "Change Role Color", desc: "Set selected role color.", icon: Palette, needs: ["role", "color"] },
-  { tab: "roles", action: "toggle_role_hoist", label: "Toggle Role Hoist", desc: "Show/hide role separately.", icon: Eye, needs: ["role"] },
-  { tab: "roles", action: "toggle_role_mentionable", label: "Toggle Mentionable", desc: "Allow/disallow role mentions.", icon: AtSign, needs: ["role"] },
-
   { tab: "channels", action: "create_text_channel", label: "Create Text Channel", desc: "Create a text channel with the given name.", icon: Hash, needs: ["name"] },
   { tab: "channels", action: "create_voice_channel", label: "Create Voice Channel", desc: "Create a voice channel with the given name.", icon: Volume2, needs: ["name"] },
   { tab: "channels", action: "create_category", label: "Create Category", desc: "Create a category with the given name.", icon: FolderPlus, needs: ["name"] },
@@ -75,7 +61,7 @@ const quickActions: QuickAction[] = [
   { tab: "server", action: "default_notifications_mentions", label: "Notifications Mentions", desc: "Default notifications: only mentions.", icon: BellOff },
   { tab: "server", action: "default_notifications_all", label: "Notifications All", desc: "Default notifications: all messages.", icon: Bell },
 
-  { tab: "scans", action: "scan_admin_roles", label: "Scan Admin Roles", desc: "List roles with administrator.", icon: Crown },
+  { tab: "scans", action: "scan_admin_roles", label: "Scan Admin Roles", desc: "List roles with administrator.", icon: Shield },
   { tab: "scans", action: "scan_dangerous_roles", label: "Scan Dangerous Roles", desc: "List roles with risky permissions.", icon: AlertTriangle },
   { tab: "scans", action: "list_bots", label: "List Bots", desc: "List cached bots in the guild.", icon: Bot },
   { tab: "scans", action: "list_staff", label: "List Staff", desc: "List members with staff-like permissions.", icon: UserCog },
@@ -85,7 +71,6 @@ const quickActions: QuickAction[] = [
   { tab: "scans", action: "scan_invites", label: "Scan Invites", desc: "List active invite codes.", icon: Link },
   { tab: "scans", action: "audit_summary", label: "Audit Summary", desc: "Show recent audit log entries.", icon: ScrollText },
 ];
-
 function TextInput({ label, value, setValue, placeholder, type = "text" }: { label: string; value: string; setValue: (value: string) => void; placeholder?: string; type?: string }) {
   return (
     <label className="block space-y-2">
@@ -99,7 +84,6 @@ export function AdminContent() {
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [config, setConfig] = useState<AdminConfig | null>(null);
   const [guilds, setGuilds] = useState<any[]>([]);
-  const [roles, setRoles] = useState<any[]>([]);
   const [channels, setChannels] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -110,7 +94,6 @@ export function AdminContent() {
 
   const [guildId, setGuildId] = useState("");
   const [userId, setUserId] = useState("");
-  const [roleId, setRoleId] = useState("");
   const [channelId, setChannelId] = useState("");
   const [name, setName] = useState("");
   const [color, setColor] = useState("3b82f6");
@@ -148,11 +131,9 @@ export function AdminContent() {
     if (!guildId) return;
     async function loadGuildMeta() {
       try {
-        const [roleData, channelData] = await Promise.all([api.getRoles(guildId), api.getChannels(guildId)]);
-        setRoles(roleData || []);
+        const channelData = await api.getChannels(guildId);
         setChannels(channelData || []);
       } catch (err) {
-        setRoles([]);
         setChannels([]);
       }
     }
@@ -160,7 +141,6 @@ export function AdminContent() {
   }, [guildId]);
 
   const guildOptions = guilds.map((guild) => ({ value: String(guild.id), label: `${guild.name} (${guild.id})` }));
-  const roleOptions = roles.filter((role) => role.name !== "@everyone").map((role) => ({ value: String(role.id), label: role.name }));
   const channelOptions = channels.map((channel) => ({ value: String(channel.id), label: `#${channel.name}` }));
 
   const statItems = [
@@ -173,7 +153,7 @@ export function AdminContent() {
   const currentActions = useMemo(() => quickActions.filter((action) => action.tab === activeTab), [activeTab]);
   const currentNeeds = useMemo(() => new Set(currentActions.flatMap((action) => action.needs || [])), [currentActions]);
 
-  const basePayload = () => ({ guild_id: guildId, user_id: userId.trim(), role_id: roleId, channel_id: channelId, name: name.trim(), color: color.trim(), nickname: name.trim(), amount: Number(amount) || 10, seconds: Number(seconds) || 5, duration_minutes: Number(duration) || 60, reason: reason.trim() });
+  const basePayload = () => ({ guild_id: guildId, user_id: userId.trim(), channel_id: channelId, name: name.trim(), color: color.trim(), nickname: name.trim(), amount: Number(amount) || 10, seconds: Number(seconds) || 5, duration_minutes: Number(duration) || 60, reason: reason.trim() });
 
   const requireGuild = () => {
     if (!guildId) {
@@ -195,10 +175,8 @@ export function AdminContent() {
 
   const runQuickAction = async (action: QuickAction) => {
     if (!requireGuild()) return;
-    if (action.needs?.includes("member") && !/^\d{15,25}$/.test(userId.trim())) return toast.error("Please enter a valid User ID.");
-    if (action.needs?.includes("role") && !roleId) return toast.error("Please select a role.");
     if (action.needs?.includes("channel") && !channelId) return toast.error("Please select a channel.");
-    if (action.needs?.includes("name") && !name.trim()) return toast.error("Please enter a name/nickname.");
+    if (action.needs?.includes("name") && !name.trim()) return toast.error("Please enter a name.");
     setSaving(true);
     const promise = api.runAdminQuickAction({ ...basePayload(), action: action.action });
     toast.promise(promise, { loading: `Running ${action.label}...`, success: (data) => data.result, error: (err) => err.message || "Action failed." });
@@ -246,22 +224,21 @@ export function AdminContent() {
           <h3 className="font-black text-white flex items-center gap-2"><SearchCheck className="h-5 w-5 text-primary" /> Inputs</h3>
           <div className="space-y-2"><span className="text-xs font-black uppercase tracking-widest text-slate-500">Server</span><Select value={guildId} onValueChange={setGuildId} options={guildOptions} placeholder="Select server" /></div>
 
-          {(activeTab === "members" || currentNeeds.has("member")) && <TextInput label="User ID" value={userId} setValue={setUserId} placeholder="Only user ID needed" />}
-          {currentNeeds.has("role") && <div className="space-y-2"><span className="text-xs font-black uppercase tracking-widest text-slate-500">Role</span><Select value={roleId} onValueChange={setRoleId} options={roleOptions} placeholder="Select role" /></div>}
+          {activeTab === "members" && <TextInput label="User ID" value={userId} setValue={setUserId} placeholder="Only user ID needed" />}
           {currentNeeds.has("channel") && <div className="space-y-2"><span className="text-xs font-black uppercase tracking-widest text-slate-500">Channel</span><Select value={channelId} onValueChange={setChannelId} options={channelOptions} placeholder="Select channel" /></div>}
-          {currentNeeds.has("name") && <TextInput label={activeTab === "members" ? "Nickname" : "Name"} value={name} setValue={setName} />}
+          {currentNeeds.has("name") && <TextInput label="Name" value={name} setValue={setName} />}
           {currentNeeds.has("color") && <TextInput label="Hex Color" value={color} setValue={setColor} placeholder="3b82f6" />}
           {currentNeeds.has("amount") && <TextInput label="Amount" value={amount} setValue={setAmount} type="number" />}
           {currentNeeds.has("seconds") && <TextInput label="Seconds" value={seconds} setValue={setSeconds} type="number" />}
           {activeTab === "members" && <TextInput label="Timeout minutes" value={duration} setValue={setDuration} type="number" />}
-          {(activeTab === "members" || ["roles", "channels", "server"].includes(activeTab)) && <label className="block space-y-2"><span className="text-xs font-black uppercase tracking-widest text-slate-500">Reason</span><textarea value={reason} onChange={(e) => setReason(e.target.value)} className="w-full h-24 bg-white/[0.03] border border-white/5 rounded-2xl p-4 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary" /></label>}
+          {(activeTab === "members" || ["channels", "server"].includes(activeTab)) && <label className="block space-y-2"><span className="text-xs font-black uppercase tracking-widest text-slate-500">Reason</span><textarea value={reason} onChange={(e) => setReason(e.target.value)} className="w-full h-24 bg-white/[0.03] border border-white/5 rounded-2xl p-4 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary" /></label>}
           {result && <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl text-emerald-300 text-sm leading-relaxed">{result}</div>}
         </aside>
 
         <main className="xl:col-span-3 space-y-6">
           {activeTab === "members" && <section className="space-y-5"><div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">{memberActions.map((card) => { const active = memberAction === card.action; return <button key={card.action} onClick={() => setMemberAction(card.action)} className={cn("text-left p-5 rounded-3xl border transition-all", active ? "bg-primary/10 border-primary/40" : "bg-white/[0.02] border-white/5 hover:border-white/10")}><card.icon className={cn("h-6 w-6 mb-3", active ? "text-primary" : "text-slate-500")} /><p className="font-black text-white">{card.label}</p><p className="text-xs text-slate-500 mt-1">{card.desc}</p></button>; })}</div><button onClick={runMemberModeration} disabled={saving} className="w-full py-4 bg-primary rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-primary/20 hover:brightness-110 disabled:opacity-50">Run {memberAction}</button></section>}
 
-          {(activeTab === "members" || activeTab === "roles" || activeTab === "channels" || activeTab === "server" || activeTab === "scans") && <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">{currentActions.map((action) => <button key={action.action} onClick={() => runQuickAction(action)} disabled={saving} className="text-left bg-[#10233f] border border-slate-800 rounded-3xl p-6 hover:border-primary/40 hover:bg-primary/5 transition-all disabled:opacity-50"><action.icon className="h-6 w-6 text-primary mb-4" /><h4 className="font-black text-white">{action.label}</h4><p className="text-sm text-slate-500 mt-2">{action.desc}</p>{action.needs?.length ? <p className="text-[10px] uppercase tracking-widest text-slate-600 mt-4">Needs: {action.needs.join(", ")}</p> : null}</button>)}</section>}
+          {(activeTab === "members" || activeTab === "channels" || activeTab === "server" || activeTab === "scans") && <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">{currentActions.map((action) => <button key={action.action} onClick={() => runQuickAction(action)} disabled={saving} className="text-left bg-[#10233f] border border-slate-800 rounded-3xl p-6 hover:border-primary/40 hover:bg-primary/5 transition-all disabled:opacity-50"><action.icon className="h-6 w-6 text-primary mb-4" /><h4 className="font-black text-white">{action.label}</h4><p className="text-sm text-slate-500 mt-2">{action.desc}</p>{action.needs?.length ? <p className="text-[10px] uppercase tracking-widest text-slate-600 mt-4">Needs: {action.needs.join(", ")}</p> : null}</button>)}</section>}
 
           {activeTab === "broadcast" && <section className="glass border border-white/5 rounded-[2rem] overflow-hidden max-w-3xl"><div className="p-8 border-b border-white/5 flex items-center gap-4 bg-white/[0.01]"><Megaphone className="h-5 w-5 text-blue-500" /><h3 className="text-lg font-bold text-white">Global Broadcast</h3></div><div className="p-8 space-y-5"><textarea value={notification} onChange={(e) => setNotification(e.target.value)} className="w-full h-40 bg-white/[0.03] border border-white/5 rounded-2xl p-4 text-sm text-slate-300 focus:outline-none focus:ring-1 focus:ring-blue-500/30" placeholder="Message to display across all dashboards..." /><button onClick={handleBroadcast} disabled={saving} className="w-full py-4 bg-primary rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-primary/20 hover:brightness-110 disabled:opacity-50"><Send className="h-4 w-4 inline mr-2" />Broadcast Message</button></div></section>}
 
@@ -269,7 +246,7 @@ export function AdminContent() {
         </main>
       </div>
 
-      <div className="glass border border-white/5 rounded-3xl p-5 flex gap-3 text-sm text-slate-400"><AlertTriangle className="h-5 w-5 text-amber-500 shrink-0" />Select a server first. For member actions you only need the user ID, timeout duration and reason. Roles and channels can be selected from dropdowns.</div>
+      <div className="glass border border-white/5 rounded-3xl p-5 flex gap-3 text-sm text-slate-400"><AlertTriangle className="h-5 w-5 text-amber-500 shrink-0" />Select a server first. For kick, ban, mute and unmute you only need the user ID, timeout duration (for mute) and reason. Channels can be selected from dropdowns.</div>
     </div>
   );
 }

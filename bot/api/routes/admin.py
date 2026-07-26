@@ -208,47 +208,88 @@ async def patch_admin_features(data: dict):
 
 @router.post("/member-action")
 async def run_member_action(data: dict, bot: "universitybot" = Depends(get_bot)):
-    """Run a dashboard moderation action against a guild member."""
+    """Run a reliable dashboard moderation action against a guild member/user."""
     import datetime
     import discord
 
     guild_id = str(data.get("guild_id", "")).strip()
     user_id = str(data.get("user_id", "")).strip()
     action = str(data.get("action", "")).strip().lower()
-    reason = str(data.get("reason", "Dashboard moderation action")).strip()[:512] or "Dashboard moderation action"
-    duration_minutes = int(data.get("duration_minutes", 60) or 60)
+    reason = str(data.get("reason", "")).strip()[:512]
+
+    try:
+        duration_minutes = int(data.get("duration_minutes", 60) or 60)
+    except (TypeError, ValueError):
+        duration_minutes = 60
+    duration_minutes = max(1, min(duration_minutes, 40320))
 
     if not guild_id.isdigit() or not user_id.isdigit():
         raise HTTPException(status_code=400, detail="guild_id and user_id must be valid Discord IDs")
+    if action not in {"ban", "kick", "mute", "unmute"}:
+        raise HTTPException(status_code=400, detail="Unsupported action. Use ban, kick, mute, or unmute.")
+    if not reason:
+        raise HTTPException(status_code=400, detail="A reason is required")
 
     guild = bot.get_guild(int(guild_id))
     if not guild:
         raise HTTPException(status_code=404, detail="Guild not found or bot is not in this guild")
 
+    me = guild.me or (guild.get_member(bot.user.id) if bot.user else None)
+    if not me:
+        raise HTTPException(status_code=503, detail="Bot member is not cached yet. Try again in a moment.")
+
+    required_permission = {
+        "ban": "ban_members",
+        "kick": "kick_members",
+        "mute": "moderate_members",
+        "unmute": "moderate_members",
+    }[action]
+    if not getattr(me.guild_permissions, required_permission, False):
+        raise HTTPException(status_code=403, detail=f"Bot is missing Discord permission: {required_permission}")
+
     member = guild.get_member(int(user_id))
-    if action in {"kick", "mute", "unmute"} and member is None:
+    if member is None:
         try:
             member = await guild.fetch_member(int(user_id))
         except Exception:
-            raise HTTPException(status_code=404, detail="Member not found in this guild")
+            member = None
+
+    if action in {"kick", "mute", "unmute"} and member is None:
+        raise HTTPException(status_code=404, detail="Member not found in this guild")
+
+    if member is not None:
+        if member.id == guild.owner_id:
+            raise HTTPException(status_code=403, detail="The server owner cannot be moderated")
+        if member.id == me.id:
+            raise HTTPException(status_code=403, detail="The bot cannot moderate itself")
+        if member.top_role >= me.top_role and guild.owner_id != me.id:
+            raise HTTPException(status_code=403, detail="Bot role is too low. Move the bot role above the target member's highest role")
 
     try:
         if action == "ban":
-            target = member or discord.Object(id=int(user_id))
-            await guild.ban(target, reason=reason, delete_message_seconds=0)
+            if member is not None:
+                await member.ban(reason=reason, delete_message_seconds=0)
+            else:
+                user = discord.Object(id=int(user_id))
+                await guild.ban(user, reason=reason, delete_message_seconds=0)
             result = f"User {user_id} was banned from {guild.name}."
         elif action == "kick":
             await member.kick(reason=reason)
             result = f"User {user_id} was kicked from {guild.name}."
         elif action == "mute":
-            until = discord.utils.utcnow() + datetime.timedelta(minutes=max(1, min(duration_minutes, 40320)))
+            until = discord.utils.utcnow() + datetime.timedelta(minutes=duration_minutes)
             await member.timeout(until, reason=reason)
             result = f"User {user_id} was muted for {duration_minutes} minutes in {guild.name}."
-        elif action == "unmute":
+        else:  # unmute
             await member.timeout(None, reason=reason)
             result = f"User {user_id} was unmuted in {guild.name}."
+    except TypeError:
+        # Compatibility fallback for older discord.py variants.
+        if action == "ban":
+            await guild.ban(member or discord.Object(id=int(user_id)), reason=reason)
+            result = f"User {user_id} was banned from {guild.name}."
         else:
-            raise HTTPException(status_code=400, detail="Unsupported action. Use ban, kick, mute, or unmute.")
+            raise
     except discord.Forbidden:
         raise HTTPException(status_code=403, detail="Bot is missing permissions or its role is too low for this action")
     except discord.HTTPException as exc:
