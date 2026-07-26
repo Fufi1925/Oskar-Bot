@@ -235,7 +235,7 @@ async def run_member_action(data: dict, bot: "universitybot" = Depends(get_bot))
     try:
         if action == "ban":
             target = member or discord.Object(id=int(user_id))
-            await guild.ban(target, reason=reason, delete_message_days=0)
+            await guild.ban(target, reason=reason, delete_message_seconds=0)
             result = f"User {user_id} was banned from {guild.name}."
         elif action == "kick":
             await member.kick(reason=reason)
