@@ -42,6 +42,8 @@ export default function DashboardLayout({
   const { data: session, status } = useSession();
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [globalNotification, setGlobalNotification] = useState<string | null>(null);
+  // Driven by the maintenance_mode config plus the maintenance_banner feature flag.
+  const [maintenance, setMaintenance] = useState(false);
   
   const bellRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
@@ -73,11 +75,24 @@ export default function DashboardLayout({
       signIn("discord");
     }
     
-    // Fetch global notification
+    // Fetch global notification + maintenance state
     const fetchNotification = async () => {
       try {
         const config = await api.getAdminConfig();
         setGlobalNotification(config.global_notification);
+
+        // The banner is only shown when maintenance mode is on AND the
+        // maintenance_banner feature flag allows it.
+        if (config.maintenance_mode) {
+          try {
+            const policy = await api.getSessionPolicy();
+            setMaintenance(Boolean(policy.maintenance_banner));
+          } catch {
+            setMaintenance(true);
+          }
+        } else {
+          setMaintenance(false);
+        }
       } catch (err) {
         console.error("Failed to fetch notifications:", err);
       }
@@ -459,7 +474,19 @@ export default function DashboardLayout({
 
         {/* Content Area */}
         <main className="flex-1 p-6 lg:p-10 animate-in fade-in duration-700 relative z-10">
-          <div className="max-w-[1600px] mx-auto">{children}</div>
+          <div className="max-w-[1600px] mx-auto">
+            {maintenance && (
+              <div className="mb-6 flex items-center gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-5 py-4">
+                <Shield className="h-5 w-5 shrink-0 text-amber-400" />
+                <p className="text-sm font-medium text-amber-200">
+                  <span className="font-black uppercase tracking-widest text-xs">Maintenance mode</span>
+                  {" — "}
+                  bot commands are frozen for everyone except the bot owners. Configuration changes are still saved.
+                </p>
+              </div>
+            )}
+            {children}
+          </div>
         </main>
       </div>
     </div>

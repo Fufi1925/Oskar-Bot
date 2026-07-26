@@ -10,6 +10,8 @@ from utils.config import *
 from api.routes import bot, guilds, admin
 from api.dependencies import verify_api_key, limiter
 from api.db_manager import db_manager
+from utils import feature_flags
+from utils.feature_services import record_request
 
 logger = logging.getLogger("api_request_logs")
 logger.setLevel(logging.INFO)
@@ -23,8 +25,49 @@ DASHBOARD_URL = f"http://127.0.0.1:{DASHBOARD_PORT}"
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # The API thread has its own event loop, so the flag cache has to be
+    # primed here as well as in the bot's setup_hook.
+    try:
+        await feature_flags.load()
+    except Exception as exc:
+        logger.warning(f"Feature flag preload failed: {exc}")
     yield
     await db_manager.close_all()
+
+
+# api_rate_limit_boost: authenticated dashboard traffic gets a much higher
+# ceiling than anonymous callers, but the API is never left completely
+# unlimited.
+RATE_LIMIT_STANDARD = 60      # requests per minute
+RATE_LIMIT_BOOSTED = 600
+
+_rate_state: dict[str, tuple[int, float]] = {}
+
+
+async def api_rate_limit(request: Request):
+    """Simple fixed-window limiter applied to the /api/v1 sub-application."""
+    from fastapi import HTTPException
+
+    limit = RATE_LIMIT_BOOSTED if feature_flags.is_enabled("api_rate_limit_boost") else RATE_LIMIT_STANDARD
+    client_ip = request.client.host if request.client else "unknown"
+    window = int(time.time() // 60)
+    key = f"{client_ip}:{window}"
+
+    count, _ = _rate_state.get(key, (0, time.time()))
+    count += 1
+    _rate_state[key] = (count, time.time())
+
+    # Drop windows older than two minutes so the dict cannot grow unbounded.
+    if len(_rate_state) > 4096:
+        cutoff = time.time() - 120
+        for stale in [k for k, (_, ts) in _rate_state.items() if ts < cutoff]:
+            _rate_state.pop(stale, None)
+
+    if count > limit:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Rate limit exceeded ({limit} requests/minute).",
+        )
 
 def create_app() -> FastAPI:
     app = FastAPI(
@@ -39,14 +82,22 @@ def create_app() -> FastAPI:
         start_time = time.time()
         response = await call_next(request)
         process_time = time.time() - start_time
+        duration_ms = round(process_time * 1000, 2)
         log_data = {
             "timestamp": time.strftime('%Y-%m-%d %H:%M:%S'),
             "method": request.method,
             "path": request.url.path,
             "status_code": response.status_code,
-            "duration_ms": round(process_time * 1000, 2),
+            "duration_ms": duration_ms,
         }
         logger.info(json.dumps(log_data))
+
+        # Feeds dashboard_performance_metrics and slow_query_detector.
+        try:
+            record_request(request.url.path, duration_ms, response.status_code)
+        except Exception:
+            pass
+
         return response
 
     app.state.limiter = limiter
@@ -75,12 +126,33 @@ def create_app() -> FastAPI:
             async with httpx.AsyncClient(timeout=3.0) as client:
                 r = await client.get(f"{DASHBOARD_URL}/")
                 dashboard_ok = r.status_code < 500
-        except:
+        except Exception:
             pass
-        return {"status": "ok", "bot": BRAND_NAME, "dashboard": "online" if dashboard_ok else "starting"}
+
+        bot_instance = getattr(app.state, "bot", None)
+        bot_ready = bool(bot_instance and bot_instance.is_ready())
+
+        payload = {
+            "status": "ok",
+            "bot": BRAND_NAME,
+            "bot_ready": bot_ready,
+            "dashboard": "online" if dashboard_ok else "starting",
+        }
+
+        # deployment_health_gate: report unhealthy until the bot is actually
+        # connected, so a rolling deploy does not send traffic too early.
+        if feature_flags.is_enabled("deployment_health_gate") and not (bot_ready and dashboard_ok):
+            payload["status"] = "starting"
+            return Response(
+                content=json.dumps(payload),
+                status_code=503,
+                media_type="application/json",
+            )
+
+        return payload
 
     # Bot API ONLY under /api/v1 — NOT /api (so NextAuth /api/auth/* goes to dashboard)
-    api_app = FastAPI(dependencies=[Depends(verify_api_key)])
+    api_app = FastAPI(dependencies=[Depends(verify_api_key), Depends(api_rate_limit)])
     api_app.include_router(bot.router, prefix="/bot", tags=["Bot"])
     api_app.include_router(guilds.router, prefix="/guilds", tags=["Guilds"])
     api_app.include_router(admin.router, prefix="/admin", tags=["Admin"])

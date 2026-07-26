@@ -55,18 +55,48 @@ class universitybot(commands.AutoShardedBot):
                          shard_count=1)
         self.status_index = 0
         self.status_list = []
+        # No-prefix caches, populated by _load_no_prefix_state().
+        self._np_users: set[int] = set()
+        self._np_roles: set[tuple[int, int]] = set()
+        self._np_loaded = False
 
     async def setup_hook(self):
+        # Global admin feature flags must be available before the first command
+        # or listener runs, otherwise the safety gates would be bypassed during
+        # startup.
+        from utils import feature_flags
+        from utils import feature_gates
+        from utils.feature_services import FeatureServices, start_deadlock_watchdog
+
+        await feature_flags.load()
+        feature_gates.setup_gates(self)
+        await feature_gates.refresh_blacklist()
+        await feature_gates.refresh_premium_guilds()
+
         await self.load_extensions()
+        await self._load_no_prefix_state()
+
+        self.feature_services = FeatureServices(self)
+        self.feature_services.record_expected_extensions(extensions)
+        self.feature_services.start()
+        start_deadlock_watchdog()
+
         self.status_task.start()
+        self.np_refresh_task.start()
 
     async def load_extensions(self):
+        from utils.feature_services import runtime
+
         for extension in extensions:
             try:
                 await self.load_extension(extension)
                 print(Fore.GREEN + Style.BRIGHT + f"Loaded extension: {extension}")
             except Exception as e:
                 print(f"{Fore.RED}{Style.BRIGHT}Failed to load extension {extension}. {e}")
+                # Remembered so module_load_guard can report it and
+                # cog_auto_recovery can retry the load later.
+                if extension not in runtime.failed_extensions:
+                    runtime.failed_extensions.append(extension)
         print(Fore.GREEN + Style.BRIGHT + "*" * 20)
 
     @tasks.loop(seconds=30)
@@ -108,45 +138,84 @@ class universitybot(commands.AutoShardedBot):
         async for msg in channel.history(limit=1, before=discord.Object(messageID + 1), after=discord.Object(messageID - 1)):
             return msg
 
-    async def get_prefix(self, message: discord.Message):
-        if message.guild:
-            guild_id = message.guild.id
-            async with aiosqlite.connect('db/np.db') as db:
-                async with db.execute("SELECT id FROM np WHERE id = ?", (message.author.id,)) as cursor:
-                    row = await cursor.fetchone()
-            data = await getConfig(guild_id)
-            prefix = data["prefix"]
-            role_np = False
-            try:
-                async with aiosqlite.connect('db/np.db') as db:
-                    await db.execute('''
-                        CREATE TABLE IF NOT EXISTS np_roles (
-                            guild_id INTEGER NOT NULL,
-                            role_id INTEGER NOT NULL,
-                            PRIMARY KEY (guild_id, role_id)
-                        )
-                    ''')
-                    member_role_ids = [role.id for role in getattr(message.author, 'roles', [])]
-                    if member_role_ids:
-                        placeholders = ','.join('?' for _ in member_role_ids)
-                        query = f"SELECT 1 FROM np_roles WHERE guild_id = ? AND role_id IN ({placeholders}) LIMIT 1"
-                        async with db.execute(query, (guild_id, *member_role_ids)) as role_cursor:
-                            role_np = await role_cursor.fetchone() is not None
-            except Exception:
-                role_np = False
+    async def _load_no_prefix_state(self):
+        """
+        Load the no-prefix allowlist into memory.
 
-            if row or role_np:
-                return commands.when_mentioned_or(prefix, '')(self, message)
-            else:
-                return commands.when_mentioned_or(prefix)(self, message)
-        else:
+        get_prefix() runs on every single message. Querying db/np.db twice per
+        message (once for users, once for roles) meant opening the database
+        file several thousand times a minute on an active bot. The tables are
+        tiny and change rarely, so they are cached and refreshed periodically.
+        """
+        users: set[int] = set()
+        roles: set[tuple[int, int]] = set()
+
+        try:
             async with aiosqlite.connect('db/np.db') as db:
-                async with db.execute("SELECT id FROM np WHERE id = ?", (message.author.id,)) as cursor:
-                    row = await cursor.fetchone()
-            if row:
-                return commands.when_mentioned_or('?', '')(self, message)
-            else:
-                return commands.when_mentioned_or('')(self, message)
+                await db.execute('''
+                    CREATE TABLE IF NOT EXISTS np (
+                        id INTEGER PRIMARY KEY
+                    )
+                ''')
+                await db.execute('''
+                    CREATE TABLE IF NOT EXISTS np_roles (
+                        guild_id INTEGER NOT NULL,
+                        role_id INTEGER NOT NULL,
+                        PRIMARY KEY (guild_id, role_id)
+                    )
+                ''')
+                await db.commit()
+
+                async with db.execute("SELECT id FROM np") as cursor:
+                    users = {int(row[0]) async for row in cursor}
+
+                async with db.execute("SELECT guild_id, role_id FROM np_roles") as cursor:
+                    roles = {(int(row[0]), int(row[1])) async for row in cursor}
+        except Exception as exc:
+            print(f"No-prefix cache refresh failed: {exc}")
+            return
+
+        self._np_users = users
+        self._np_roles = roles
+        self._np_loaded = True
+
+    def invalidate_no_prefix_cache(self):
+        """Force the next get_prefix() call to reload the no-prefix tables."""
+        self._np_loaded = False
+
+    @tasks.loop(seconds=60)
+    async def np_refresh_task(self):
+        await self._load_no_prefix_state()
+
+    async def _is_no_prefix(self, message: discord.Message) -> bool:
+        if not self._np_loaded:
+            await self._load_no_prefix_state()
+
+        if message.author.id in self._np_users:
+            return True
+
+        if message.guild is None or not self._np_roles:
+            return False
+
+        guild_id = message.guild.id
+        return any(
+            (guild_id, role.id) in self._np_roles
+            for role in getattr(message.author, 'roles', [])
+        )
+
+    async def get_prefix(self, message: discord.Message):
+        no_prefix = await self._is_no_prefix(message)
+
+        if message.guild:
+            data = await getConfig(message.guild.id)
+            prefix = data["prefix"]
+            if no_prefix:
+                return commands.when_mentioned_or(prefix, '')(self, message)
+            return commands.when_mentioned_or(prefix)(self, message)
+
+        if no_prefix:
+            return commands.when_mentioned_or('?', '')(self, message)
+        return commands.when_mentioned_or('')(self, message)
 
     async def on_message(self, message: discord.Message):
         if message.author.bot:

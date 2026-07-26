@@ -19,6 +19,12 @@ from typing import TYPE_CHECKING, List
 import os
 import aiosqlite
 
+from utils import feature_flags
+from utils import feature_audit
+from utils import feature_reports
+from utils import feature_gates
+from utils.feature_services import runtime
+
 if TYPE_CHECKING:
     from core.universitybot import universitybot
 
@@ -125,86 +131,76 @@ async def patch_admin_config(data: AdminConfigUpdate):
         if data.global_notification is not None:
             await db.execute("UPDATE config SET value = ? WHERE key = 'global_notification'", (data.global_notification,))
         await db.commit()
+
+    # Maintenance mode is no longer just a stored value: switching it on also
+    # freezes commands for everyone except the bot owners.
+    if data.maintenance_mode is not None:
+        await feature_flags.set_values({"global_command_freeze": bool(data.maintenance_mode)})
+        await feature_audit.log_action(
+            "maintenance_mode",
+            actor="dashboard",
+            detail="enabled" if data.maintenance_mode else "disabled",
+        )
+
+    if data.global_notification is not None:
+        await feature_audit.record_notification(data.global_notification)
+
     return {"status": "success"}
 
-ADMIN_FEATURE_DEFAULTS = {
-    "global_emergency_lockdown": False,
-    "maintenance_banner": True,
-    "force_dashboard_reauth": False,
-    "global_command_freeze": False,
-    "owner_only_mode": False,
-    "cross_guild_audit_log": True,
-    "global_blacklist_sync": True,
-    "premium_access_control": True,
-    "api_rate_limit_boost": True,
-    "database_backup_scheduler": True,
-    "database_integrity_scan": True,
-    "orphan_data_cleanup": False,
-    "cache_warmup": True,
-    "shard_health_monitor": True,
-    "lavalink_health_monitor": True,
-    "music_node_failover": True,
-    "discord_api_status_watch": True,
-    "oauth_error_tracker": True,
-    "session_cookie_monitor": True,
-    "dashboard_performance_metrics": True,
-    "slow_query_detector": False,
-    "command_error_analytics": True,
-    "module_load_guard": True,
-    "cog_auto_recovery": True,
-    "guild_join_guard": True,
-    "guild_leave_audit": True,
-    "suspicious_owner_action_alerts": True,
-    "mass_config_push": False,
-    "feature_flag_rollouts": True,
-    "beta_module_access": False,
-    "premium_template_manager": False,
-    "global_announcement_scheduler": True,
-    "staff_permission_review": True,
-    "security_score_calculation": True,
-    "automod_rule_recommendations": True,
-    "ticket_load_balancer": True,
-    "voice_session_analytics": False,
-    "invite_growth_analytics": True,
-    "member_retention_insights": True,
-    "webhook_risk_scanner": True,
-    "role_risk_scanner": True,
-    "channel_risk_scanner": True,
-    "export_admin_reports": True,
-    "incident_timeline_builder": True,
-    "global_notification_history": True,
-    "admin_action_approval_queue": False,
-    "two_person_rule": False,
-    "deployment_health_gate": True,
-    "railway_log_watch": True,
-    "auto_restart_on_deadlock": True,
-}
 
-async def _ensure_admin_features_table():
-    async with aiosqlite.connect(CONFIG_DB) as db:
-        await db.execute("CREATE TABLE IF NOT EXISTS admin_features (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
-        for key, value in ADMIN_FEATURE_DEFAULTS.items():
-            await db.execute("INSERT OR IGNORE INTO admin_features (key, value) VALUES (?, ?)", (key, str(value).lower()))
-        await db.commit()
+@router.get("/notifications/history", summary="Global notification history")
+async def get_notification_history(limit: int = 50):
+    return {"history": await feature_audit.fetch_notification_history(limit)}
 
-@router.get("/features")
+# ── Feature flags ─────────────────────────────────────────────────────────
+# The flag registry, its metadata and all enforcement live in
+# utils/feature_flags.py and the feature_* helper modules. These endpoints are
+# a thin layer on top of it.
+
+@router.get("/features", summary="Get feature flag values")
 async def get_admin_features():
-    await _ensure_admin_features_table()
-    async with aiosqlite.connect(CONFIG_DB) as db:
-        async with db.execute("SELECT key, value FROM admin_features") as cursor:
-            rows = await cursor.fetchall()
-    values = {key: value.lower() == "true" for key, value in rows}
-    return {**ADMIN_FEATURE_DEFAULTS, **values}
+    """Flat key -> bool mapping (kept for backwards compatibility)."""
+    return await feature_flags.load()
 
-@router.patch("/features")
-async def patch_admin_features(data: dict):
-    await _ensure_admin_features_table()
-    clean = {key: bool(value) for key, value in data.items() if key in ADMIN_FEATURE_DEFAULTS}
-    async with aiosqlite.connect(CONFIG_DB) as db:
-        for key, value in clean.items():
-            await db.execute("INSERT OR REPLACE INTO admin_features (key, value) VALUES (?, ?)", (key, str(value).lower()))
-        await db.commit()
-    return {"status": "success", **clean}
+
+@router.get("/features/detail", summary="Get feature flags with metadata")
+async def get_admin_features_detail():
+    """Full metadata: category, description, effect, dependencies, rollout."""
+    await feature_flags.load()
+    return {
+        "categories": list(feature_flags.CATEGORIES),
+        "features": feature_flags.describe(),
+    }
+
+
+@router.patch("/features", summary="Update feature flags")
+async def patch_admin_features(data: dict, bot: "universitybot" = Depends(get_bot)):
+    changed = await feature_flags.set_values(data)
+
+    for key, value in changed.items():
+        await feature_audit.log_action(
+            "feature_flag_changed",
+            actor="dashboard",
+            detail=f"{key} -> {'on' if value else 'off'}",
+        )
+
+    return {"status": "success", "changed": changed, **feature_flags.all_values()}
+
+
+@router.patch("/features/{key}/rollout", summary="Set percentage rollout for a flag")
+async def patch_feature_rollout(key: str, data: dict):
+    if key not in feature_flags.FEATURE_DEFAULTS:
+        raise HTTPException(status_code=404, detail="Unknown feature flag.")
+    try:
+        percent = int(data.get("percent", 100))
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="percent must be a number between 0 and 100.")
+
+    applied = await feature_flags.set_rollout(key, percent)
+    await feature_audit.log_action(
+        "feature_rollout_changed", actor="dashboard", detail=f"{key} -> {applied}%"
+    )
+    return {"status": "success", "key": key, "percent": applied}
 
 @router.post("/member-action")
 async def run_member_action(data: dict, bot: "universitybot" = Depends(get_bot)):
@@ -310,6 +306,7 @@ async def run_admin_quick_action(data: dict, bot: "universitybot" = Depends(get_
     action = str(data.get("action", "")).strip().lower()
     guild_id = str(data.get("guild_id", "")).strip()
     reason = str(data.get("reason", "Dashboard admin action")).strip()[:512] or "Dashboard admin action"
+    actor = str(data.get("actor", "dashboard")).strip()[:64] or "dashboard"
 
     if not guild_id.isdigit():
         raise HTTPException(status_code=400, detail="guild_id must be a valid Discord ID")
@@ -317,6 +314,24 @@ async def run_admin_quick_action(data: dict, bot: "universitybot" = Depends(get_
     guild = bot.get_guild(int(guild_id))
     if not guild:
         raise HTTPException(status_code=404, detail="Guild not found or bot is not in this guild")
+
+    # Destructive actions can be routed through an approval queue instead of
+    # executing straight away (admin_action_approval_queue / two_person_rule).
+    if feature_audit.is_destructive(action) and feature_flags.is_enabled("admin_action_approval_queue"):
+        if not data.get("approved_entry_id"):
+            entry_id = await feature_audit.queue_action(
+                action, data, requested_by=actor, guild_id=guild_id
+            )
+            await feature_audit.log_action(
+                "action_queued", actor=actor, guild_id=guild_id, detail=f"{action} queued as #{entry_id}"
+            )
+            return {
+                "status": "queued",
+                "action": action,
+                "guild_id": guild_id,
+                "queue_id": entry_id,
+                "result": f"Action '{action}' was queued for approval (#{entry_id}).",
+            }
 
     def _id(name: str) -> int | None:
         value = str(data.get(name, "")).strip()
@@ -517,4 +532,288 @@ async def run_admin_quick_action(data: dict, bot: "universitybot" = Depends(get_
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid numeric/color value")
 
+    await feature_audit.log_action(action, actor=actor, guild_id=guild_id, detail=result)
+
     return {"status": "success", "action": action, "guild_id": guild_id, "result": result}
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#  Feature-flag backed endpoints
+# ══════════════════════════════════════════════════════════════════════════
+
+
+@router.get("/health", summary="Runtime health collected by the monitoring flags")
+async def get_admin_health(bot: "universitybot" = Depends(get_bot)):
+    """
+    Aggregated output of shard_health_monitor, lavalink_health_monitor,
+    discord_api_status_watch, database_integrity_scan, module_load_guard,
+    session_cookie_monitor and railway_log_watch.
+    """
+    await feature_flags.load()
+    snapshot = runtime.snapshot()
+
+    return {
+        "bot_ready": bot.is_ready(),
+        "flags": {
+            key: feature_flags.is_enabled(key)
+            for key in (
+                "shard_health_monitor", "lavalink_health_monitor", "music_node_failover",
+                "discord_api_status_watch", "database_integrity_scan",
+                "database_backup_scheduler", "orphan_data_cleanup",
+                "module_load_guard", "cog_auto_recovery", "session_cookie_monitor",
+                "railway_log_watch", "auto_restart_on_deadlock",
+            )
+        },
+        **snapshot,
+    }
+
+
+@router.get("/logs", summary="Recent warnings and errors (railway_log_watch)")
+async def get_admin_logs(limit: int = 100):
+    if not feature_flags.is_enabled("railway_log_watch"):
+        raise HTTPException(status_code=403, detail="Feature 'railway_log_watch' is disabled.")
+    entries = list(runtime.log_buffer)[-max(1, min(limit, 200)):]
+    return {"count": len(entries), "entries": list(reversed(entries))}
+
+
+@router.get("/metrics", summary="API performance metrics")
+async def get_admin_metrics():
+    if not feature_flags.is_enabled("dashboard_performance_metrics"):
+        raise HTTPException(status_code=403, detail="Feature 'dashboard_performance_metrics' is disabled.")
+    return {
+        "endpoints": {k: dict(v) for k, v in runtime.request_stats.items()},
+        "slow_requests": list(runtime.slow_requests),
+        "slow_query_detector": feature_flags.is_enabled("slow_query_detector"),
+        "command_errors": dict(runtime.command_errors),
+        "oauth_errors": runtime.oauth_errors,
+    }
+
+
+@router.get("/audit", summary="Cross-guild audit log")
+async def get_admin_audit(limit: int = 100, suspicious_only: bool = False):
+    if not feature_flags.is_enabled("cross_guild_audit_log"):
+        raise HTTPException(status_code=403, detail="Feature 'cross_guild_audit_log' is disabled.")
+    return {"entries": await feature_audit.fetch_audit(limit, suspicious_only)}
+
+
+@router.get("/timeline", summary="Incident timeline")
+async def get_admin_timeline(limit: int = 50):
+    if not feature_flags.is_enabled("incident_timeline_builder"):
+        raise HTTPException(status_code=403, detail="Feature 'incident_timeline_builder' is disabled.")
+    return {"events": await feature_audit.build_timeline(limit)}
+
+
+@router.get("/approvals", summary="Pending admin actions")
+async def get_admin_approvals(status: str = "pending"):
+    if not feature_flags.is_enabled("admin_action_approval_queue"):
+        raise HTTPException(status_code=403, detail="Feature 'admin_action_approval_queue' is disabled.")
+    return {"entries": await feature_audit.fetch_queue(status)}
+
+
+@router.post("/approvals/{entry_id}", summary="Approve or reject a queued action")
+async def resolve_admin_approval(entry_id: int, data: dict):
+    if not feature_flags.is_enabled("admin_action_approval_queue"):
+        raise HTTPException(status_code=403, detail="Feature 'admin_action_approval_queue' is disabled.")
+
+    approver = str(data.get("approver", "")).strip()
+    approve = bool(data.get("approve", False))
+    if not approver:
+        raise HTTPException(status_code=400, detail="approver is required")
+
+    entries = await feature_audit.fetch_queue("pending", limit=200)
+    entry = next((e for e in entries if int(e["id"]) == entry_id), None)
+    if entry is None:
+        raise HTTPException(status_code=404, detail="Queue entry not found or already resolved.")
+
+    # The two person rule forbids approving your own request.
+    if approve and feature_flags.is_enabled("two_person_rule"):
+        if str(entry.get("requested_by", "")) == approver:
+            raise HTTPException(
+                status_code=403,
+                detail="Two person rule: this action must be approved by a different admin.",
+            )
+
+    resolved = await feature_audit.resolve_queue_entry(entry_id, approver, approve)
+    await feature_audit.log_action(
+        "approval_resolved",
+        actor=approver,
+        guild_id=entry.get("guild_id", ""),
+        detail=f"#{entry_id} {'approved' if approve else 'rejected'}",
+    )
+    return {"status": "success", "approved": approve, "entry": resolved}
+
+
+@router.get("/reports/{name}", summary="Run an analytics report")
+async def get_admin_report(name: str, bot: "universitybot" = Depends(get_bot)):
+    """Analytics reports backed by the corresponding feature flags."""
+    reports = {
+        "security-score": lambda: feature_reports.security_score(bot),
+        "automod-recommendations": lambda: feature_reports.automod_recommendations(bot),
+        "staff-permissions": lambda: feature_reports.staff_permission_review(bot),
+        "role-risk": lambda: feature_reports.role_risk_scan(bot),
+        "channel-risk": lambda: feature_reports.channel_risk_scan(bot),
+        "webhook-risk": lambda: feature_reports.webhook_risk_scan(bot),
+        "ticket-load": lambda: feature_reports.ticket_load(bot),
+        "invite-growth": lambda: feature_reports.invite_growth(bot),
+        "member-retention": lambda: feature_reports.member_retention(bot),
+        "voice-analytics": lambda: feature_reports.voice_analytics(),
+    }
+
+    runner = reports.get(name)
+    if runner is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Unknown report. Available: {', '.join(sorted(reports))}",
+        )
+
+    result = await runner()
+    if not result.get("enabled", True):
+        raise HTTPException(status_code=403, detail=result.get("reason", "Feature disabled."))
+    return result
+
+
+@router.get("/reports/{name}/export", summary="Export a report as JSON")
+async def export_admin_report(name: str, bot: "universitybot" = Depends(get_bot)):
+    if not feature_flags.is_enabled("export_admin_reports"):
+        raise HTTPException(status_code=403, detail="Feature 'export_admin_reports' is disabled.")
+
+    from fastapi.responses import JSONResponse
+
+    payload = await get_admin_report(name, bot)
+    return JSONResponse(
+        content=payload,
+        headers={"Content-Disposition": f'attachment; filename="{name}-report.json"'},
+    )
+
+
+@router.post("/announcements", summary="Schedule a global announcement")
+async def schedule_announcement(data: dict):
+    if not feature_flags.is_enabled("global_announcement_scheduler"):
+        raise HTTPException(status_code=403, detail="Feature 'global_announcement_scheduler' is disabled.")
+
+    import time
+
+    message = str(data.get("message", "")).strip()
+    if not message:
+        raise HTTPException(status_code=400, detail="message is required")
+
+    try:
+        send_at = int(data.get("send_at", time.time()))
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="send_at must be a unix timestamp")
+
+    async with aiosqlite.connect(CONFIG_DB) as db:
+        await db.execute(
+            "CREATE TABLE IF NOT EXISTS scheduled_announcements ("
+            " id INTEGER PRIMARY KEY AUTOINCREMENT,"
+            " message TEXT NOT NULL,"
+            " send_at INTEGER NOT NULL,"
+            " sent_at INTEGER)"
+        )
+        cursor = await db.execute(
+            "INSERT INTO scheduled_announcements (message, send_at) VALUES (?, ?)",
+            (message[:1900], send_at),
+        )
+        await db.commit()
+        announcement_id = cursor.lastrowid
+
+    await feature_audit.log_action(
+        "announcement_scheduled", actor="dashboard", detail=f"#{announcement_id} at {send_at}"
+    )
+    return {"status": "success", "id": announcement_id, "send_at": send_at}
+
+
+@router.post("/mass-config", summary="Apply one setting to many guilds")
+async def mass_config_push(data: dict, bot: "universitybot" = Depends(get_bot)):
+    if not feature_flags.is_enabled("mass_config_push"):
+        raise HTTPException(status_code=403, detail="Feature 'mass_config_push' is disabled.")
+
+    setting = str(data.get("setting", "")).strip().lower()
+    value = data.get("value")
+    guild_ids = [str(g).strip() for g in data.get("guild_ids", []) if str(g).strip().isdigit()]
+
+    if setting != "prefix":
+        raise HTTPException(status_code=400, detail="Only 'prefix' is supported right now.")
+    if not isinstance(value, str) or not 1 <= len(value) <= 10:
+        raise HTTPException(status_code=400, detail="prefix must be 1-10 characters")
+
+    targets = guild_ids or [str(g.id) for g in bot.guilds]
+
+    from utils.Tools import updateConfig
+
+    applied = 0
+    for guild_id in targets:
+        try:
+            await updateConfig(int(guild_id), {"prefix": value})
+            applied += 1
+        except Exception:
+            continue
+
+    await feature_audit.log_action(
+        "mass_config_push", actor="dashboard", detail=f"prefix={value} on {applied} guilds"
+    )
+    return {"status": "success", "applied": applied, "setting": setting, "value": value}
+
+
+@router.post("/premium/{guild_id}", summary="Grant or revoke premium for a guild")
+async def set_guild_premium(guild_id: int, data: dict):
+    if not feature_flags.is_enabled("premium_access_control"):
+        raise HTTPException(status_code=403, detail="Feature 'premium_access_control' is disabled.")
+
+    import time
+
+    grant = bool(data.get("premium", True))
+    async with aiosqlite.connect(CONFIG_DB) as db:
+        await db.execute(
+            "CREATE TABLE IF NOT EXISTS premium_guilds ("
+            " guild_id INTEGER PRIMARY KEY, granted_at INTEGER)"
+        )
+        if grant:
+            await db.execute(
+                "INSERT OR REPLACE INTO premium_guilds (guild_id, granted_at) VALUES (?, ?)",
+                (guild_id, int(time.time())),
+            )
+        else:
+            await db.execute("DELETE FROM premium_guilds WHERE guild_id = ?", (guild_id,))
+        await db.commit()
+
+    await feature_gates.refresh_premium_guilds()
+    await feature_audit.log_action(
+        "premium_changed", actor="dashboard", guild_id=guild_id, detail="granted" if grant else "revoked"
+    )
+    return {"status": "success", "guild_id": str(guild_id), "premium": grant}
+
+
+@router.post("/blacklist/refresh", summary="Reload the global blacklist cache")
+async def refresh_blacklist_cache():
+    if not feature_flags.is_enabled("global_blacklist_sync"):
+        raise HTTPException(status_code=403, detail="Feature 'global_blacklist_sync' is disabled.")
+    await feature_gates.refresh_blacklist()
+    return {
+        "status": "success",
+        "users": len(feature_gates._blacklist_users),
+        "guilds": len(feature_gates._blacklist_guilds),
+    }
+
+
+@router.post("/oauth-error", summary="Report a dashboard OAuth failure")
+async def report_oauth_error(data: dict):
+    """Called by the dashboard so oauth_error_tracker can count failures."""
+    from utils.feature_services import record_oauth_error
+
+    record_oauth_error(str(data.get("detail", ""))[:200])
+    return {"status": "recorded", "total": runtime.oauth_errors}
+
+
+@router.get("/session-policy", summary="Session validity policy")
+async def get_session_policy():
+    """
+    Used by the dashboard to honour force_dashboard_reauth: sessions issued
+    before `reauth_epoch` must be rejected.
+    """
+    await feature_flags.load()
+    return {
+        "force_reauth": feature_flags.is_enabled("force_dashboard_reauth"),
+        "reauth_epoch": feature_flags.reauth_epoch(),
+        "maintenance_banner": feature_flags.is_enabled("maintenance_banner"),
+    }
