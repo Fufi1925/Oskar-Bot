@@ -1384,3 +1384,159 @@ async def patch_guild_rr(guild_id: int, data: RRUpdate):
     return {"status": "success"}
 
 
+
+
+# ========== NO PREFIX ==========
+async def _ensure_np_tables(db):
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS np (
+            id INTEGER PRIMARY KEY,
+            expiry_time TEXT NULL
+        )
+    """)
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS np_roles (
+            guild_id INTEGER NOT NULL,
+            role_id INTEGER NOT NULL,
+            PRIMARY KEY (guild_id, role_id)
+        )
+    """)
+    await db.commit()
+
+@router.get("/{guild_id}/noprefix", summary="Get no-prefix users and roles")
+async def get_no_prefix(guild_id: int):
+    db = await db_manager.get_connection("db/np.db")
+    await _ensure_np_tables(db)
+    async with db.execute("SELECT id FROM np ORDER BY id") as cursor:
+        users = [str(row[0]) for row in await cursor.fetchall()]
+    async with db.execute("SELECT role_id FROM np_roles WHERE guild_id = ? ORDER BY role_id", (guild_id,)) as cursor:
+        roles = [str(row[0]) for row in await cursor.fetchall()]
+    return {"guild_id": str(guild_id), "users": users, "roles": roles}
+
+@router.patch("/{guild_id}/noprefix", summary="Update no-prefix users and roles")
+async def update_no_prefix(guild_id: int, data: dict):
+    users = [str(x).strip() for x in data.get("users", []) if str(x).strip().isdigit()]
+    roles = [str(x).strip() for x in data.get("roles", []) if str(x).strip().isdigit()]
+    db = await db_manager.get_connection("db/np.db")
+    await _ensure_np_tables(db)
+    await db.execute("DELETE FROM np_roles WHERE guild_id = ?", (guild_id,))
+    for user_id in dict.fromkeys(users):
+        await db.execute("INSERT OR IGNORE INTO np (id, expiry_time) VALUES (?, NULL)", (int(user_id),))
+    for role_id in dict.fromkeys(roles):
+        await db.execute("INSERT OR IGNORE INTO np_roles (guild_id, role_id) VALUES (?, ?)", (guild_id, int(role_id)))
+    # Remove only explicitly requested users? The dashboard is the source for global no-prefix users.
+    if data.get("replace_users", True):
+        keep = [int(x) for x in dict.fromkeys(users)]
+        if keep:
+            placeholders = ",".join("?" for _ in keep)
+            await db.execute(f"DELETE FROM np WHERE id NOT IN ({placeholders})", keep)
+        else:
+            await db.execute("DELETE FROM np")
+    await db.commit()
+    return {"status": "success", "users": users, "roles": roles}
+
+
+# ========== NICKNAME RULES ==========
+async def _ensure_nickname_table(db):
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS nickname_rules (
+            guild_id INTEGER NOT NULL,
+            role_id INTEGER NOT NULL,
+            prefix TEXT DEFAULT '',
+            suffix TEXT DEFAULT '',
+            enabled INTEGER DEFAULT 1,
+            PRIMARY KEY (guild_id, role_id)
+        )
+    """)
+    await db.commit()
+
+@router.get("/{guild_id}/nickname", summary="Get nickname role rules")
+async def get_nickname_rules(guild_id: int):
+    db = await db_manager.get_connection("db/nickname.db")
+    await _ensure_nickname_table(db)
+    async with db.execute("SELECT role_id, prefix, suffix, enabled FROM nickname_rules WHERE guild_id = ? ORDER BY role_id", (guild_id,)) as cursor:
+        rows = await cursor.fetchall()
+    return {
+        "guild_id": str(guild_id),
+        "rules": [
+            {"role_id": str(row[0]), "prefix": row[1] or "", "suffix": row[2] or "", "enabled": bool(row[3])}
+            for row in rows
+        ]
+    }
+
+@router.patch("/{guild_id}/nickname", summary="Update nickname role rules")
+async def update_nickname_rules(guild_id: int, data: dict, bot: "universitybot" = Depends(get_bot)):
+    rules = data.get("rules", [])
+    if not isinstance(rules, list):
+        raise HTTPException(status_code=400, detail="rules must be a list")
+    db = await db_manager.get_connection("db/nickname.db")
+    await _ensure_nickname_table(db)
+    await db.execute("DELETE FROM nickname_rules WHERE guild_id = ?", (guild_id,))
+    clean_rules = []
+    for rule in rules[:25]:
+        role_id = str(rule.get("role_id", "")).strip()
+        if not role_id.isdigit():
+            continue
+        prefix = str(rule.get("prefix", ""))[:16]
+        suffix = str(rule.get("suffix", ""))[:16]
+        enabled = bool(rule.get("enabled", True))
+        await db.execute(
+            "INSERT OR REPLACE INTO nickname_rules (guild_id, role_id, prefix, suffix, enabled) VALUES (?, ?, ?, ?, ?)",
+            (guild_id, int(role_id), prefix, suffix, 1 if enabled else 0),
+        )
+        clean_rules.append({"role_id": role_id, "prefix": prefix, "suffix": suffix, "enabled": enabled})
+    await db.commit()
+    # Try applying immediately to current members that are cached.
+    guild = bot.get_guild(guild_id)
+    if guild:
+        apply_rules = getattr(bot, "apply_nickname_rules", None)
+        if apply_rules:
+            for member in guild.members:
+                asyncio.create_task(apply_rules(member))
+    return {"status": "success", "rules": clean_rules}
+
+
+# ========== EXTRA SETTINGS ==========
+async def _ensure_extra_settings_table(db):
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS guild_extra_settings (
+            guild_id INTEGER PRIMARY KEY,
+            delete_command_messages INTEGER DEFAULT 0,
+            mention_prefix_response INTEGER DEFAULT 1,
+            same_voice_only INTEGER DEFAULT 1
+        )
+    """)
+    await db.commit()
+
+@router.get("/{guild_id}/extra-settings", summary="Get additional guild settings")
+async def get_extra_settings(guild_id: int):
+    db = await db_manager.get_connection("db/settings.db")
+    await _ensure_extra_settings_table(db)
+    async with db.execute(
+        "SELECT delete_command_messages, mention_prefix_response, same_voice_only FROM guild_extra_settings WHERE guild_id = ?",
+        (guild_id,),
+    ) as cursor:
+        row = await cursor.fetchone()
+    if not row:
+        return {"guild_id": str(guild_id), "delete_command_messages": False, "mention_prefix_response": True, "same_voice_only": True}
+    return {"guild_id": str(guild_id), "delete_command_messages": bool(row[0]), "mention_prefix_response": bool(row[1]), "same_voice_only": bool(row[2])}
+
+@router.patch("/{guild_id}/extra-settings", summary="Update additional guild settings")
+async def update_extra_settings(guild_id: int, data: dict):
+    db = await db_manager.get_connection("db/settings.db")
+    await _ensure_extra_settings_table(db)
+    values = {
+        "delete_command_messages": bool(data.get("delete_command_messages", False)),
+        "mention_prefix_response": bool(data.get("mention_prefix_response", True)),
+        "same_voice_only": bool(data.get("same_voice_only", True)),
+    }
+    await db.execute(
+        """
+        INSERT OR REPLACE INTO guild_extra_settings
+        (guild_id, delete_command_messages, mention_prefix_response, same_voice_only)
+        VALUES (?, ?, ?, ?)
+        """,
+        (guild_id, int(values["delete_command_messages"]), int(values["mention_prefix_response"]), int(values["same_voice_only"])),
+    )
+    await db.commit()
+    return {"status": "success", **values}

@@ -20,7 +20,10 @@ import { api } from "@/lib/api";
 import { SettingsForm } from "@/components/dashboard/settings-form";
 
 export default async function GuildSettingsPage({ params }: { params: { guildId: string } }) {
-  const config = await api.getPrefix(params.guildId);
+  const [config, extraSettings] = await Promise.all([
+    api.getPrefix(params.guildId),
+    api.getExtraSettings(params.guildId),
+  ]);
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
@@ -32,7 +35,7 @@ export default async function GuildSettingsPage({ params }: { params: { guildId:
         <p className="text-slate-400 mt-1">Manage core bot configuration for this server.</p>
       </div>
 
-      <SettingsForm initialPrefix={config.prefix} guildId={params.guildId} />
+      <SettingsForm initialPrefix={config.prefix} initialExtraSettings={extraSettings} guildId={params.guildId} />
     </div>
   );
 }

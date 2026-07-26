@@ -113,6 +113,27 @@ export const api = {
       body: JSON.stringify({ prefix }),
     }),
 
+  getNoPrefix: (guildId: string) => request<any>(`/guilds/${guildId}/noprefix`),
+  updateNoPrefix: (guildId: string, data: any) =>
+    request<{ status: string }>(`/guilds/${guildId}/noprefix`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+
+  getNicknameRules: (guildId: string) => request<any>(`/guilds/${guildId}/nickname`),
+  updateNicknameRules: (guildId: string, data: any) =>
+    request<{ status: string }>(`/guilds/${guildId}/nickname`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+
+  getExtraSettings: (guildId: string) => request<any>(`/guilds/${guildId}/extra-settings`),
+  updateExtraSettings: (guildId: string, data: any) =>
+    request<{ status: string }>(`/guilds/${guildId}/extra-settings`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+
   getAutomod: (guildId: string) => request<AutomodConfig>(`/guilds/${guildId}/automod`),
   updateAutomod: (guildId: string, data: Partial<AutomodConfig>) => 
     request<{ status: string }>(`/guilds/${guildId}/automod`, {

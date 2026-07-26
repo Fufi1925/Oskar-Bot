@@ -23,6 +23,7 @@ import random
 import time
 
 import aiohttp
+import aiosqlite
 import discord
 from discord import Spotify
 from discord.ext import commands, tasks
@@ -123,8 +124,101 @@ async def on_guild_join(guild: discord.Guild):
     if log_channel:
         await log_channel.send(f"{BRAND_NAME} has been added to the server: **{guild.name}** (ID: `{guild.id}`)")
 
+async def apply_nickname_rules(member: discord.Member):
+    """Apply dashboard-configured prefix/suffix nickname rules for matching roles."""
+    if member.bot or not member.guild:
+        return
+    guild = member.guild
+    me = guild.me or guild.get_member(client.user.id) if client.user else None
+    if not me or not me.guild_permissions.manage_nicknames:
+        return
+    if member.top_role >= me.top_role or member.guild_permissions.administrator:
+        return
+
+    try:
+        async with aiosqlite.connect("db/nickname.db") as db:
+            await db.execute('''
+                CREATE TABLE IF NOT EXISTS nickname_rules (
+                    guild_id INTEGER NOT NULL,
+                    role_id INTEGER NOT NULL,
+                    prefix TEXT DEFAULT '',
+                    suffix TEXT DEFAULT '',
+                    enabled INTEGER DEFAULT 1,
+                    PRIMARY KEY (guild_id, role_id)
+                )
+            ''')
+            async with db.execute(
+                "SELECT role_id, prefix, suffix FROM nickname_rules WHERE guild_id = ? AND enabled = 1",
+                (guild.id,),
+            ) as cursor:
+                rules = await cursor.fetchall()
+    except Exception as exc:
+        print(f"Nickname rule load failed: {exc}")
+        return
+
+    if not rules:
+        return
+
+    role_ids = {role.id for role in member.roles}
+    current_name = member.nick or member.name
+    base_name = current_name
+    for _, prefix, suffix in rules:
+        prefix = prefix or ""
+        suffix = suffix or ""
+        if prefix and base_name.startswith(prefix):
+            base_name = base_name[len(prefix):]
+        if suffix and base_name.endswith(suffix):
+            base_name = base_name[:-len(suffix)]
+    base_name = base_name.strip() or member.name
+
+    matched = next(((prefix or "", suffix or "") for role_id, prefix, suffix in rules if int(role_id) in role_ids), None)
+    if matched:
+        prefix, suffix = matched
+        desired = f"{prefix}{base_name}{suffix}"[:32]
+    else:
+        # Role removed: remove known affixes if they are present, otherwise leave the nickname alone.
+        if base_name == current_name:
+            return
+        desired = base_name[:32]
+
+    if desired == member.name:
+        desired = None
+    if member.nick != desired:
+        try:
+            await member.edit(nick=desired, reason=f"{BRAND_NAME} dashboard nickname rule")
+        except Exception as exc:
+            print(f"Nickname update failed for {member.id}: {exc}")
+
+client.apply_nickname_rules = apply_nickname_rules
+
+@client.event
+async def on_member_update(before: discord.Member, after: discord.Member):
+    if before.roles != after.roles or before.nick != after.nick:
+        await apply_nickname_rules(after)
+
 @client.event
 async def on_command_completion(context: commands.Context) -> None:
+    if context.guild:
+        try:
+            async with aiosqlite.connect("db/settings.db") as db:
+                await db.execute('''
+                    CREATE TABLE IF NOT EXISTS guild_extra_settings (
+                        guild_id INTEGER PRIMARY KEY,
+                        delete_command_messages INTEGER DEFAULT 0,
+                        mention_prefix_response INTEGER DEFAULT 1,
+                        same_voice_only INTEGER DEFAULT 1
+                    )
+                ''')
+                async with db.execute("SELECT delete_command_messages FROM guild_extra_settings WHERE guild_id = ?", (context.guild.id,)) as cursor:
+                    row = await cursor.fetchone()
+            if row and row[0]:
+                try:
+                    await context.message.delete()
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
     if context.author.id in OWNER_IDS:
         return
 

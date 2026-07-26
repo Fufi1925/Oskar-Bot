@@ -43,7 +43,9 @@ import {
   Link2,
   Zap,
   Mic,
-  Mail
+  Mail,
+  UserCheck,
+  Badge
 } from "lucide-react";
 
 interface Tab {
@@ -83,6 +85,8 @@ export function GuildTabs({ guildId }: { guildId: string }) {
     { name: "Auto-Reaktion", href: `/dashboard/guild/${guildId}/autoreact`, icon: Zap },
     { name: "Eigene Rollen", href: `/dashboard/guild/${guildId}/customroles`, icon: Sparkles },
     { name: "Beitritts-DM", href: `/dashboard/guild/${guildId}/joindm`, icon: Mail },
+    { name: "No Prefix", href: `/dashboard/guild/${guildId}/noprefix`, icon: UserCheck },
+    { name: "Nickname", href: `/dashboard/guild/${guildId}/nickname`, icon: Badge },
     { name: "Level-System", href: `/dashboard/guild/${guildId}/leveling`, icon: BarChart4 },
     { name: "Protokollierung", href: `/dashboard/guild/${guildId}/logging`, icon: FileText },
     { name: "Einstellungen", href: `/dashboard/guild/${guildId}/settings`, icon: Settings },
