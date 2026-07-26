@@ -127,6 +127,7 @@ export default function DashboardLayout({
             { name: "Join DM", href: `/dashboard/guild/${currentGuildId}/joindm`, icon: User },
             { name: "No Prefix", href: `/dashboard/guild/${currentGuildId}/noprefix`, icon: UserCheck },
             { name: "Nickname", href: `/dashboard/guild/${currentGuildId}/nickname`, icon: Badge },
+            { name: "Admin Dashboard", href: `/dashboard/guild/${currentGuildId}/admin-dashboard`, icon: Shield },
             { name: "Invites", href: `/dashboard/guild/${currentGuildId}/invites`, icon: Search },
             { name: "Tracking", href: `/dashboard/guild/${currentGuildId}/tracking`, icon: BarChart4 },
           ],

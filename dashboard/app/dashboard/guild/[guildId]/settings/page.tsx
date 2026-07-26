@@ -20,9 +20,10 @@ import { api } from "@/lib/api";
 import { SettingsForm } from "@/components/dashboard/settings-form";
 
 export default async function GuildSettingsPage({ params }: { params: { guildId: string } }) {
-  const [config, extraSettings] = await Promise.all([
+  const [config, extraSettings, featureSettings] = await Promise.all([
     api.getPrefix(params.guildId),
     api.getExtraSettings(params.guildId),
+    api.getSettingsFeatures(params.guildId),
   ]);
 
   return (
@@ -35,7 +36,7 @@ export default async function GuildSettingsPage({ params }: { params: { guildId:
         <p className="text-slate-400 mt-1">Manage core bot configuration for this server.</p>
       </div>
 
-      <SettingsForm initialPrefix={config.prefix} initialExtraSettings={extraSettings} guildId={params.guildId} />
+      <SettingsForm initialPrefix={config.prefix} initialExtraSettings={extraSettings} initialFeatureSettings={featureSettings} guildId={params.guildId} />
     </div>
   );
 }

@@ -134,6 +134,20 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
+  getSettingsFeatures: (guildId: string) => request<any>(`/guilds/${guildId}/settings-features`),
+  updateSettingsFeatures: (guildId: string, data: any) =>
+    request<{ status: string }>(`/guilds/${guildId}/settings-features`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+
+  getAdminDashboard: (guildId: string) => request<any>(`/guilds/${guildId}/admin-dashboard`),
+  updateAdminDashboard: (guildId: string, data: any) =>
+    request<{ status: string }>(`/guilds/${guildId}/admin-dashboard`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+
   getAutomod: (guildId: string) => request<AutomodConfig>(`/guilds/${guildId}/automod`),
   updateAutomod: (guildId: string, data: Partial<AutomodConfig>) => 
     request<{ status: string }>(`/guilds/${guildId}/automod`, {

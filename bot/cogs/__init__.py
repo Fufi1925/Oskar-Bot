@@ -83,7 +83,6 @@ from .commands.Birthday import Birthdays
 from .commands.nitro import Nitro
 from .commands.image import ImageCommands
 from .commands.youtube import Youtube
-from .commands.server_templates import ServerTemplates
 #____________ Events _____________
 
 #from .events.autoblacklist import AutoBlacklist
@@ -262,7 +261,6 @@ async def setup(bot: universitybot):
   await bot.add_cog(Nitro(bot))
   await bot.add_cog(ImageCommands(bot))
   await bot.add_cog(Youtube(bot))
-  await bot.add_cog(ServerTemplates(bot))
 
   await bot.add_cog(_antinuke(bot))
   await bot.add_cog(_extra(bot))

@@ -1540,3 +1540,83 @@ async def update_extra_settings(guild_id: int, data: dict):
     )
     await db.commit()
     return {"status": "success", **values}
+
+
+# ========== DASHBOARD FEATURE SETTINGS ==========
+async def _ensure_feature_settings_table(db):
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS dashboard_feature_settings (
+            guild_id INTEGER NOT NULL,
+            scope TEXT NOT NULL,
+            settings_json TEXT NOT NULL DEFAULT '{}',
+            PRIMARY KEY (guild_id, scope)
+        )
+    """)
+    await db.commit()
+
+SETTINGS_DEFAULTS = {
+    "delete_command_messages": False,
+    "mention_prefix_response": True,
+    "same_voice_only": True,
+    "auto_cleanup_invites": False,
+    "compact_embeds": False,
+    "dm_mod_actions": False,
+    "log_dashboard_changes": True,
+    "require_reason_moderation": False,
+    "auto_slowmode_alerts": False,
+    "protect_admin_roles": True,
+}
+
+ADMIN_DASHBOARD_DEFAULTS = {
+    "emergency_lockdown": False,
+    "anti_raid_watch": True,
+    "auto_role_audit": True,
+    "permission_scan": True,
+    "inactive_channel_scan": False,
+    "invite_security": True,
+    "webhook_monitoring": True,
+    "bot_role_guard": True,
+    "mass_mention_guard": True,
+    "dashboard_audit_log": True,
+}
+
+async def _get_feature_scope(guild_id: int, scope: str, defaults: dict):
+    db = await db_manager.get_connection("db/settings.db")
+    await _ensure_feature_settings_table(db)
+    async with db.execute("SELECT settings_json FROM dashboard_feature_settings WHERE guild_id = ? AND scope = ?", (guild_id, scope)) as cursor:
+        row = await cursor.fetchone()
+    data = {}
+    if row:
+        try:
+            data = json.loads(row[0] or "{}")
+        except Exception:
+            data = {}
+    return {**defaults, **{k: bool(v) for k, v in data.items() if k in defaults}}
+
+async def _set_feature_scope(guild_id: int, scope: str, defaults: dict, data: dict):
+    db = await db_manager.get_connection("db/settings.db")
+    await _ensure_feature_settings_table(db)
+    current = await _get_feature_scope(guild_id, scope, defaults)
+    clean = {**current, **{k: bool(v) for k, v in data.items() if k in defaults}}
+    await db.execute(
+        "INSERT OR REPLACE INTO dashboard_feature_settings (guild_id, scope, settings_json) VALUES (?, ?, ?)",
+        (guild_id, scope, json.dumps(clean)),
+    )
+    await db.commit()
+    return clean
+
+@router.get("/{guild_id}/settings-features", summary="Get settings tab feature toggles")
+async def get_settings_features(guild_id: int):
+    return {"guild_id": str(guild_id), **await _get_feature_scope(guild_id, "settings", SETTINGS_DEFAULTS)}
+
+@router.patch("/{guild_id}/settings-features", summary="Update settings tab feature toggles")
+async def update_settings_features(guild_id: int, data: dict):
+    return {"status": "success", **await _set_feature_scope(guild_id, "settings", SETTINGS_DEFAULTS, data)}
+
+@router.get("/{guild_id}/admin-dashboard", summary="Get admin dashboard feature toggles")
+async def get_admin_dashboard(guild_id: int):
+    return {"guild_id": str(guild_id), **await _get_feature_scope(guild_id, "admin_dashboard", ADMIN_DASHBOARD_DEFAULTS)}
+
+@router.patch("/{guild_id}/admin-dashboard", summary="Update admin dashboard feature toggles")
+async def update_admin_dashboard(guild_id: int, data: dict):
+    return {"status": "success", **await _set_feature_scope(guild_id, "admin_dashboard", ADMIN_DASHBOARD_DEFAULTS, data)}
