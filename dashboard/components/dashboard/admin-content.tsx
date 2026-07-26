@@ -6,7 +6,7 @@ import {
   RefreshCw, Ban, UserX, Clock, VolumeX, Send, Megaphone, Wrench, AlertTriangle,
   Hash, Volume2, FolderPlus, Pencil, Trash2, Copy,
   Unlock, Timer, MessageSquareX, Bell, BellOff, SearchCheck, Bot, UserCog,
-  Webhook, Link, ScrollText, BarChart4, ClipboardList
+  Webhook, Link, ScrollText, BarChart4, ClipboardList, Terminal
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
@@ -24,9 +24,10 @@ import { ApprovalsPanel } from "@/components/dashboard/approvals-panel";
 import { BotSettingsPanel } from "@/components/dashboard/bot-settings-panel";
 import { BackupsPanel } from "@/components/dashboard/backups-panel";
 import { WarningsPanel } from "@/components/dashboard/warnings-panel";
+import { CommandStatsPanel } from "@/components/dashboard/command-stats-panel";
 
 
-type TabId = "members" | "channels" | "server" | "scans" | "broadcast" | "system" | "features" | "health" | "team" | "access" | "reports" | "audit" | "approvals" | "botsettings" | "backups" | "warnings";
+type TabId = "members" | "channels" | "server" | "scans" | "broadcast" | "system" | "features" | "health" | "team" | "access" | "reports" | "audit" | "approvals" | "botsettings" | "backups" | "warnings" | "usage";
 type MemberAction = "ban" | "kick" | "mute" | "unmute";
 
 type QuickAction = {
@@ -49,6 +50,7 @@ const tabs: Array<{ id: TabId; label: string; icon: any }> = [
   { id: "health", label: "Health", icon: Activity },
   { id: "team", label: "Team", icon: Users },
   { id: "warnings", label: "Warnings", icon: AlertTriangle },
+  { id: "usage", label: "Usage", icon: Terminal },
   { id: "reports", label: "Reports", icon: BarChart4 },
   { id: "audit", label: "Audit", icon: ScrollText },
   { id: "approvals", label: "Approvals", icon: ClipboardList },
@@ -95,7 +97,7 @@ const quickActions: QuickAction[] = [
 /** Tabs that render on their own, without the input sidebar. */
 const FULL_WIDTH_TABS = new Set<TabId>([
   "features", "health", "team", "access",
-  "reports", "audit", "approvals", "botsettings", "backups", "warnings",
+  "reports", "audit", "approvals", "botsettings", "backups", "warnings", "usage",
 ]);
 
 function TextInput({ label, value, setValue, placeholder, type = "text" }: { label: string; value: string; setValue: (value: string) => void; placeholder?: string; type?: string }) {
@@ -220,6 +222,7 @@ export function AdminContent() {
     health: "health.view",
     team: "team.view",
     warnings: "members.view",
+    usage: "metrics.view",
     reports: "reports.view",
     audit: "audit.view",
     approvals: "approvals.view",
@@ -324,6 +327,7 @@ export function AdminContent() {
       {activeTab === "health" && <SystemHealthPanel />}
       {activeTab === "team" && <TeamPanel />}
       {activeTab === "access" && <OwnerAccessPanel currentUserId={(session?.user as any)?.id} />}
+      {activeTab === "usage" && <CommandStatsPanel />}
       {activeTab === "reports" && <ReportsPanel />}
       {activeTab === "audit" && <AuditPanel />}
       {activeTab === "approvals" && <ApprovalsPanel currentUserId={(session?.user as any)?.id} />}

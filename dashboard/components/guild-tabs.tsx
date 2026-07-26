@@ -22,6 +22,8 @@ import { usePathname } from "next/navigation";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 import { cn } from "@/lib/utils";
 import { 
+  Gift,
+  ShieldAlert,
   ShieldCheck, 
   Ticket, 
   BarChart4, 
@@ -87,6 +89,9 @@ export function GuildTabs({ guildId }: { guildId: string }) {
     { name: "Beitritts-DM", href: `/dashboard/guild/${guildId}/joindm`, icon: Mail },
     { name: "No Prefix", href: `/dashboard/guild/${guildId}/noprefix`, icon: UserCheck },
     { name: "Nickname", href: `/dashboard/guild/${guildId}/nickname`, icon: Badge },
+    { name: "Giveaways", href: `/dashboard/guild/${guildId}/giveaways`, icon: Gift },
+    { name: "Autoresponder", href: `/dashboard/guild/${guildId}/autoresponder`, icon: MessageSquare },
+    { name: "Notfall", href: `/dashboard/guild/${guildId}/emergency`, icon: ShieldAlert },
     { name: "Admin Dashboard", href: `/dashboard/guild/${guildId}/admin-dashboard`, icon: Shield },
     { name: "Level-System", href: `/dashboard/guild/${guildId}/leveling`, icon: BarChart4 },
     { name: "Protokollierung", href: `/dashboard/guild/${guildId}/logging`, icon: FileText },

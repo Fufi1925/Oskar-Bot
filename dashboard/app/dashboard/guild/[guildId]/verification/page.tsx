@@ -20,6 +20,7 @@ import React, { useState, useEffect } from "react";
 import { Shield, Save, RefreshCcw, Power, Fingerprint, Bell, Hash, UserCheck, Info } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
+import { SendPanel } from "@/components/dashboard/send-panel";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
@@ -77,6 +78,7 @@ export default function VerificationPage({ params }: { params: { guildId: string
   };
 
   const textChannels = channels.filter(c => c.type === "0" || c.type === 0);
+  const pickerChannels = textChannels.map((c: any) => ({ id: String(c.id), name: c.name }));
   const filteredRoles = roles.filter(r => r.name !== "@everyone");
 
   if (loading) {
@@ -258,6 +260,13 @@ export default function VerificationPage({ params }: { params: { guildId: string
             </ul>
           </div>
         </div>
+      </div>
+      <div className="mt-8">
+        <SendPanel
+          guildId={params.guildId}
+          kind="verification"
+          channels={pickerChannels}
+        />
       </div>
     </div>
   );

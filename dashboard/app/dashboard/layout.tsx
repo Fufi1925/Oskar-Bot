@@ -169,6 +169,7 @@ export default function DashboardLayout({
         {
           name: "Engagement",
           items: [
+            { name: "Giveaways", href: `/dashboard/guild/${currentGuildId}/giveaways`, icon: Star },
             { name: "Welcome", href: `/dashboard/guild/${currentGuildId}/welcome`, icon: Bell },
             { name: "Leveling", href: `/dashboard/guild/${currentGuildId}/leveling`, icon: BarChart4 },
             { name: "Vanity Roles", href: `/dashboard/guild/${currentGuildId}/vanityroles`, icon: Star },

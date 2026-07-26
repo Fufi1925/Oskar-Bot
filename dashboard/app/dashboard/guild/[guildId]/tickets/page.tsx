@@ -18,6 +18,7 @@ import React from "react";
 import { Ticket, ExternalLink } from "lucide-react";
 import dynamic from "next/dynamic";
 import { api } from "@/lib/api";
+import { SendPanel } from "@/components/dashboard/send-panel";
 import { Button } from "@/components/ui/button";
 
 const TicketsForm = dynamic(() => import("@/components/dashboard/tickets-form").then(mod => mod.TicketsForm), {
@@ -25,9 +26,17 @@ const TicketsForm = dynamic(() => import("@/components/dashboard/tickets-form").
 });
 
 export default async function TicketsPage({ params }: { params: { guildId: string } }) {
-  const config = await api.getTickets(params.guildId);
+  const [config, channels] = await Promise.all([
+    api.getTickets(params.guildId),
+    api.getChannels(params.guildId).catch(() => []),
+  ]);
 
   if (!config) return null;
+
+  // Feeds the channel picker below so the panel can be posted from here.
+  const ticketChannels = (channels as any[])
+    .filter((c) => !c.type || c.type === "text" || c.type === "news" || c.type === "0" || c.type === 0)
+    .map((c) => ({ id: String(c.id), name: c.name }));
 
   return (
     <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500 pb-20">
@@ -52,6 +61,10 @@ export default async function TicketsPage({ params }: { params: { guildId: strin
       </div>
 
       <TicketsForm initialConfig={config} guildId={params.guildId} />
+
+      <div className="mt-8">
+        <SendPanel guildId={params.guildId} kind="tickets" channels={ticketChannels} />
+      </div>
     </div>
   );
 }

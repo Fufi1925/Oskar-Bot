@@ -336,6 +336,61 @@ export const api = {
   removeOwner: (userId: string) =>
     request<any>(`/team/owners/${userId}`, { method: "DELETE" }),
 
+  // Live actions into Discord
+  sendVerificationPanel: (guildId: string, channelId: string, title?: string, description?: string) =>
+    request<any>(`/actions/${guildId}/verification/send`, {
+      method: "POST",
+      body: JSON.stringify({ channel_id: channelId, title, description }),
+    }),
+  sendTicketPanel: (guildId: string, channelId: string) =>
+    request<any>(`/actions/${guildId}/tickets/send`, {
+      method: "POST",
+      body: JSON.stringify({ channel_id: channelId }),
+    }),
+  testWelcome: (guildId: string, channelId?: string) =>
+    request<any>(`/actions/${guildId}/welcome/test`, {
+      method: "POST",
+      body: JSON.stringify({ channel_id: channelId }),
+    }),
+  sendMessage: (guildId: string, data: any) =>
+    request<any>(`/actions/${guildId}/message/send`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  getAutomodStatus: (guildId: string) => request<any>(`/actions/${guildId}/automod/status`),
+
+  // Giveaways
+  getGiveaways: (guildId: string) => request<any>(`/actions/${guildId}/giveaways`),
+  createGiveaway: (guildId: string, data: any) =>
+    request<any>(`/actions/${guildId}/giveaways`, { method: "POST", body: JSON.stringify(data) }),
+  endGiveaway: (guildId: string, messageId: string) =>
+    request<any>(`/actions/${guildId}/giveaways/${messageId}/end`, { method: "POST", body: "{}" }),
+  cancelGiveaway: (guildId: string, messageId: string) =>
+    request<any>(`/actions/${guildId}/giveaways/${messageId}`, { method: "DELETE" }),
+
+  // Autoresponder
+  getAutoresponders: (guildId: string) => request<any>(`/actions/${guildId}/autoresponder`),
+  saveAutoresponder: (guildId: string, trigger: string, response: string) =>
+    request<any>(`/actions/${guildId}/autoresponder`, {
+      method: "POST",
+      body: JSON.stringify({ trigger, response }),
+    }),
+  deleteAutoresponder: (guildId: string, trigger: string) =>
+    request<any>(`/actions/${guildId}/autoresponder/${encodeURIComponent(trigger)}`, {
+      method: "DELETE",
+    }),
+
+  // Emergency lockdown
+  getEmergency: (guildId: string) => request<any>(`/actions/${guildId}/emergency`),
+  setEmergency: (guildId: string, enable: boolean) =>
+    request<any>(`/actions/${guildId}/emergency`, {
+      method: "POST",
+      body: JSON.stringify({ enable }),
+    }),
+
+  // Command usage
+  getCommandStats: (days = 30) => request<any>(`/admin/command-stats?days=${days}`),
+
   // Per-guild behaviour settings
   getGuildBehaviour: (guildId: string) =>
     request<{ groups: string[]; settings: any[] }>(`/guilds/${guildId}/behaviour`),

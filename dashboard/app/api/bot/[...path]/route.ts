@@ -66,6 +66,18 @@ const ADMIN_PERMISSIONS: Record<string, { GET?: string; WRITE?: string }> = {
   backups: { GET: "health.view", WRITE: "maintenance.toggle" },
 };
 
+/** Which permission an /actions/* endpoint requires. */
+const ACTION_PERMISSIONS: Record<string, { GET?: string; WRITE?: string }> = {
+  verification: { WRITE: "verification.edit" },
+  tickets: { WRITE: "tickets.manage" },
+  welcome: { WRITE: "welcome.edit" },
+  message: { WRITE: "channels.manage" },
+  automod: { GET: "automod.view" },
+  giveaways: { GET: "guild.view", WRITE: "settings.edit" },
+  autoresponder: { GET: "guild.view", WRITE: "settings.edit" },
+  emergency: { GET: "antinuke.view", WRITE: "antinuke.edit" },
+};
+
 /** Which permission a /moderation/* endpoint requires. */
 const MODERATION_PERMISSIONS: Record<string, { GET?: string; WRITE?: string }> = {
   warnings: { GET: "members.view", WRITE: "moderation.warn" },
@@ -209,6 +221,32 @@ async function authorize(
     const access = await verifyAdminAccess();
     if (!access.allowed) return { ok: false, response: deny(access.status, access.reason) };
     return { ok: true };
+  }
+
+  if (scope === "actions") {
+    // Shape: /actions/<guildId>/<resource>/...
+    const guildId = rest[0];
+    const resource = rest[1] ?? "";
+
+    if (!guildId) return { ok: false, response: deny(400, "guild_id missing.") };
+
+    const access = await verifyGuildAccess(guildId);
+    if (!access.allowed) return { ok: false, response: deny(access.status, access.reason) };
+
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) return { ok: false, response: deny(401, "Not signed in.") };
+    if (isGlobalAdmin(session.user.id)) return { ok: true };
+
+    const team = await fetchTeamAccess(session.user.id);
+    // Reached here through Manage Server on Discord: keep the usual rights.
+    if (!team || team.roles.length === 0) return { ok: true };
+
+    const mapping = ACTION_PERMISSIONS[resource];
+    const required = request.method === "GET" ? mapping?.GET : mapping?.WRITE;
+    if (!required) return { ok: true };
+    if (await hasTeamPermission(session.user.id, required, guildId)) return { ok: true };
+
+    return { ok: false, response: deny(403, `This requires the '${required}' permission.`) };
   }
 
   if (scope === "moderation") {

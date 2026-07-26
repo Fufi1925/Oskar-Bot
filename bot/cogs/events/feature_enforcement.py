@@ -19,6 +19,7 @@ from utils import feature_flags as flags
 from utils import feature_audit as audit
 from utils import feature_gates
 from utils.feature_services import runtime, record_command_error
+from utils import command_stats
 
 # A guild whose membership is almost entirely bots is treated as a bot farm.
 BOT_FARM_RATIO = 0.8
@@ -146,7 +147,23 @@ class FeatureEnforcement(Cog):
     # ── error analytics ───────────────────────────────────────────────────
 
     @commands.Cog.listener()
+    async def on_command_completion(self, ctx):
+        """Count successful commands so the dashboard can show usage."""
+        if ctx.command:
+            command_stats.record(
+                ctx.command.qualified_name, ctx.guild.id if ctx.guild else None
+            )
+            await command_stats.flush()
+
+    @commands.Cog.listener()
     async def on_command_error(self, ctx, error):
+        if ctx.command:
+            command_stats.record(
+                ctx.command.qualified_name,
+                ctx.guild.id if ctx.guild else None,
+                failed=True,
+            )
+
         record_command_error(
             ctx.command.qualified_name if ctx.command else "unknown",
             type(error).__name__,

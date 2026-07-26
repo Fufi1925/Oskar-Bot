@@ -987,3 +987,26 @@ async def get_session_policy():
         "reauth_epoch": feature_flags.reauth_epoch(),
         "maintenance_banner": feature_flags.is_enabled("maintenance_banner"),
     }
+
+
+@router.get("/command-stats", summary="Which commands are actually used")
+async def get_command_stats(days: int = 30, guild_id: int = 0, bot: "universitybot" = Depends(get_bot)):
+    """
+    Usage counts per command. The bot had no visibility into this at all.
+    """
+    from utils import command_stats
+
+    data = await command_stats.summary(guild_id or None, days)
+
+    # Enrich with the guild names so the dashboard shows more than IDs.
+    for entry in data.get("guilds", []):
+        guild = bot.get_guild(int(entry["guild_id"])) if entry["guild_id"].isdigit() else None
+        entry["guild_name"] = guild.name if guild else None
+
+    try:
+        data["unused"] = await command_stats.unused_commands(bot, days)
+    except Exception:
+        data["unused"] = []
+
+    data["registered_commands"] = len([c for c in bot.walk_commands() if not c.hidden])
+    return data

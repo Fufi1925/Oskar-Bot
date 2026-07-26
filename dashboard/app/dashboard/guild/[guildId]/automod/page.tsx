@@ -18,6 +18,7 @@ import React from "react";
 import { ShieldCheck } from "lucide-react";
 import dynamic from "next/dynamic";
 import { api } from "@/lib/api";
+import { AutomodStatus } from "@/components/dashboard/automod-status";
 
 const AutomodForm = dynamic(() => import("@/components/dashboard/automod-form").then(mod => mod.AutomodForm), {
   loading: () => <div className="h-96 w-full animate-pulse bg-slate-800/20 rounded-3xl" />
@@ -41,6 +42,9 @@ export default async function AutomodPage({ params }: { params: { guildId: strin
       </div>
 
       <AutomodForm initialConfig={config} guildId={params.guildId} />
+      <div className="mt-8">
+        <AutomodStatus guildId={params.guildId} />
+      </div>
     </div>
   );
 }
