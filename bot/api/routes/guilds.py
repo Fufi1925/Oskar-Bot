@@ -102,7 +102,11 @@ async def update_guild_prefix(guild_id: int, data: PrefixUpdate):
         (guild_id, data.prefix)
     )
     await db.commit()
-    
+
+    # The bot caches prefixes in memory to avoid a database hit per message.
+    from utils.Tools import invalidate_prefix_cache
+    invalidate_prefix_cache(guild_id)
+
     return {"status": "success", "guild_id": guild_id, "new_prefix": data.prefix}
 
 
@@ -691,72 +695,9 @@ async def patch_guild_autorole(guild_id: int, data: AutoRoleUpdate):
     return {"status": "success"}
 
 
-@router.get("/{guild_id}/welcome", response_model=WelcomeConfig, summary="Get Welcome config")
-async def get_guild_welcome(guild_id: int):
-    import aiosqlite
-    import json
-    
-    async with aiosqlite.connect("db/welcome.db") as db:
-        async with db.execute("SELECT welcome_type, welcome_message, channel_id, embed_data, auto_delete_duration FROM welcome WHERE guild_id = ?", (guild_id,)) as cursor:
-            row = await cursor.fetchone()
-            
-    if row:
-        w_type, w_msg, channel_id, embed_data_str, auto_del = row
-        edata = None
-        if embed_data_str:
-            try:
-                edata_dict = json.loads(embed_data_str)
-                edata = WelcomeEmbedData(**edata_dict)
-            except:
-                pass
-        return WelcomeConfig(
-            guild_id=guild_id,
-            welcome_type=w_type,
-            welcome_message=w_msg,
-            channel_id=channel_id,
-            embed_data=edata,
-            auto_delete_duration=auto_del
-        )
-        
-    return WelcomeConfig(guild_id=guild_id)
-
-@router.patch("/{guild_id}/welcome", summary="Update Welcome config")
-async def patch_guild_welcome(guild_id: int, data: WelcomeUpdate):
-    import aiosqlite
-    import json
-    
-    async with aiosqlite.connect("db/welcome.db") as db:
-        async with db.execute("SELECT welcome_type, welcome_message, channel_id, embed_data, auto_delete_duration FROM welcome WHERE guild_id = ?", (guild_id,)) as cursor:
-            row = await cursor.fetchone()
-            
-        current_type = row[0] if row else None
-        current_msg = row[1] if row else None
-        current_channel = row[2] if row else None
-        current_embed_str = row[3] if row else None
-        current_auto = row[4] if row else None
-        
-        new_type = data.welcome_type if data.welcome_type is not None else current_type
-        new_msg = data.welcome_message if data.welcome_message is not None else current_msg
-        new_channel = data.channel_id if data.channel_id is not None else current_channel
-        new_auto = data.auto_delete_duration if data.auto_delete_duration is not None else current_auto
-        
-        new_embed_str = current_embed_str
-        if data.embed_data is not None:
-            new_embed_str = data.embed_data.json(exclude_none=True)
-            
-        if not row:
-            await db.execute(
-                "INSERT INTO welcome (guild_id, welcome_type, welcome_message, channel_id, embed_data, auto_delete_duration) VALUES (?, ?, ?, ?, ?, ?)",
-                (guild_id, new_type, new_msg, new_channel, new_embed_str, new_auto)
-            )
-        else:
-            await db.execute(
-                "UPDATE welcome SET welcome_type=?, welcome_message=?, channel_id=?, embed_data=?, auto_delete_duration=? WHERE guild_id=?",
-                (new_type, new_msg, new_channel, new_embed_str, new_auto, guild_id)
-            )
-            
-        await db.commit()
-    return {"status": "success", "guild_id": guild_id}
+# NOTE: a second, duplicated definition of GET/PATCH /{guild_id}/welcome used
+# to live here. Starlette matches the FIRST registered route, so this copy was
+# dead code that only diverged from the active implementation above.
 
 @router.delete("/{guild_id}/welcome", summary="Delete Welcome config")
 async def delete_guild_welcome(guild_id: int):
@@ -1156,25 +1097,8 @@ async def get_guild_roles(guild_id: int, bot: "universitybot" = Depends(get_bot)
 
 # ========== AUTO REACT ==========
 
-@router.get("/{guild_id}/autoreact", response_model=AutoReactConfig, summary="Get AutoReact config")
-async def get_guild_autoreact(guild_id: int):
-    import aiosqlite
-    async with aiosqlite.connect("db/autoreact.db") as db:
-        await db.execute("""
-            CREATE TABLE IF NOT EXISTS autoreact (
-                guild_id INTEGER,
-                trigger TEXT,
-                emojis TEXT
-            )
-        """)
-        await db.commit()
-
-        async with db.execute("SELECT trigger, emojis FROM autoreact WHERE guild_id = ?", (guild_id,)) as cursor:
-            rows = await cursor.fetchall()
-
-    triggers = [AutoReactTrigger(trigger=row[0], emojis=row[1]) for row in rows]
-    return AutoReactConfig(guild_id=str(guild_id), triggers=triggers)
-
+# NOTE: a duplicated GET /{guild_id}/autoreact used to live here. The active
+# definition sits below in the AUTO REACT section next to its PATCH handler.
 
 # ========== INVC ROLE (Voice Role) ==========
 
@@ -1414,7 +1338,7 @@ async def get_no_prefix(guild_id: int):
     return {"guild_id": str(guild_id), "users": users, "roles": roles}
 
 @router.patch("/{guild_id}/noprefix", summary="Update no-prefix users and roles")
-async def update_no_prefix(guild_id: int, data: dict):
+async def update_no_prefix(guild_id: int, data: dict, bot: "universitybot" = Depends(get_bot)):
     users = [str(x).strip() for x in data.get("users", []) if str(x).strip().isdigit()]
     roles = [str(x).strip() for x in data.get("roles", []) if str(x).strip().isdigit()]
     db = await db_manager.get_connection("db/np.db")
@@ -1433,6 +1357,12 @@ async def update_no_prefix(guild_id: int, data: dict):
         else:
             await db.execute("DELETE FROM np")
     await db.commit()
+
+    # The bot keeps the no-prefix tables in memory; tell it to reload.
+    invalidate = getattr(bot, "invalidate_no_prefix_cache", None)
+    if callable(invalidate):
+        invalidate()
+
     return {"status": "success", "users": users, "roles": roles}
 
 
