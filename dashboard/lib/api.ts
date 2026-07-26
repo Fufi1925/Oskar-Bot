@@ -280,4 +280,10 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify(data),
     }),
+  getAdminFeatures: () => request<Record<string, boolean>>("/admin/features"),
+  updateAdminFeatures: (data: Record<string, boolean>) =>
+    request<{ status: string }>("/admin/features", {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
 };

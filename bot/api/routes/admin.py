@@ -126,3 +126,82 @@ async def patch_admin_config(data: AdminConfigUpdate):
             await db.execute("UPDATE config SET value = ? WHERE key = 'global_notification'", (data.global_notification,))
         await db.commit()
     return {"status": "success"}
+
+ADMIN_FEATURE_DEFAULTS = {
+    "global_emergency_lockdown": False,
+    "maintenance_banner": True,
+    "force_dashboard_reauth": False,
+    "global_command_freeze": False,
+    "owner_only_mode": False,
+    "cross_guild_audit_log": True,
+    "global_blacklist_sync": True,
+    "premium_access_control": True,
+    "api_rate_limit_boost": True,
+    "database_backup_scheduler": True,
+    "database_integrity_scan": True,
+    "orphan_data_cleanup": False,
+    "cache_warmup": True,
+    "shard_health_monitor": True,
+    "lavalink_health_monitor": True,
+    "music_node_failover": True,
+    "discord_api_status_watch": True,
+    "oauth_error_tracker": True,
+    "session_cookie_monitor": True,
+    "dashboard_performance_metrics": True,
+    "slow_query_detector": False,
+    "command_error_analytics": True,
+    "module_load_guard": True,
+    "cog_auto_recovery": True,
+    "guild_join_guard": True,
+    "guild_leave_audit": True,
+    "suspicious_owner_action_alerts": True,
+    "mass_config_push": False,
+    "feature_flag_rollouts": True,
+    "beta_module_access": False,
+    "premium_template_manager": False,
+    "global_announcement_scheduler": True,
+    "staff_permission_review": True,
+    "security_score_calculation": True,
+    "automod_rule_recommendations": True,
+    "ticket_load_balancer": True,
+    "voice_session_analytics": False,
+    "invite_growth_analytics": True,
+    "member_retention_insights": True,
+    "webhook_risk_scanner": True,
+    "role_risk_scanner": True,
+    "channel_risk_scanner": True,
+    "export_admin_reports": True,
+    "incident_timeline_builder": True,
+    "global_notification_history": True,
+    "admin_action_approval_queue": False,
+    "two_person_rule": False,
+    "deployment_health_gate": True,
+    "railway_log_watch": True,
+    "auto_restart_on_deadlock": True,
+}
+
+async def _ensure_admin_features_table():
+    async with aiosqlite.connect(CONFIG_DB) as db:
+        await db.execute("CREATE TABLE IF NOT EXISTS admin_features (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
+        for key, value in ADMIN_FEATURE_DEFAULTS.items():
+            await db.execute("INSERT OR IGNORE INTO admin_features (key, value) VALUES (?, ?)", (key, str(value).lower()))
+        await db.commit()
+
+@router.get("/features")
+async def get_admin_features():
+    await _ensure_admin_features_table()
+    async with aiosqlite.connect(CONFIG_DB) as db:
+        async with db.execute("SELECT key, value FROM admin_features") as cursor:
+            rows = await cursor.fetchall()
+    values = {key: value.lower() == "true" for key, value in rows}
+    return {**ADMIN_FEATURE_DEFAULTS, **values}
+
+@router.patch("/features")
+async def patch_admin_features(data: dict):
+    await _ensure_admin_features_table()
+    clean = {key: bool(value) for key, value in data.items() if key in ADMIN_FEATURE_DEFAULTS}
+    async with aiosqlite.connect(CONFIG_DB) as db:
+        for key, value in clean.items():
+            await db.execute("INSERT OR REPLACE INTO admin_features (key, value) VALUES (?, ?)", (key, str(value).lower()))
+        await db.commit()
+    return {"status": "success", **clean}
