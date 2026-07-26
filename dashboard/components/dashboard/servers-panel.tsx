@@ -11,7 +11,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle, ArrowUpRight, Ban, CheckCircle2, Copy, Crown, Diamond, DoorOpen,
-  ExternalLink, Loader2, Link2, RefreshCw, Search, Shield, ShieldAlert, Sparkles,
+  ChevronDown, ExternalLink, Loader2, Link2, RefreshCw, Search, Shield, ShieldAlert, Sparkles,
   Trash2, UserPlus, Users, X, Zap,
 } from "lucide-react";
 import Link from "next/link";
@@ -67,6 +67,7 @@ export function ServersPanel({ currentUserId }: { currentUserId?: string }) {
   const [sort, setSort] = useState("members");
   const [onlyProblems, setOnlyProblems] = useState(false);
   const [invites, setInvites] = useState<Record<string, string>>({});
+  const [expanded, setExpanded] = useState<string | null>(null);
 
   // Leave dialog
   const [leaveTarget, setLeaveTarget] = useState<ServerRow | null>(null);
@@ -322,167 +323,180 @@ export function ServersPanel({ currentUserId }: { currentUserId?: string }) {
       </div>
 
       {/* Server list */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+      <div className="space-y-2">
         {visible.length === 0 && (
-          <div className="xl:col-span-2 glass border border-white/5 rounded-[2rem] p-12 text-center text-slate-500">
+          <div className="glass border border-white/5 rounded-[2rem] p-12 text-center text-slate-500">
             No server matches this filter.
           </div>
         )}
 
-        {visible.map((server) => (
-          <div
-            key={server.id}
-            className={cn(
-              "glass border rounded-[2rem] p-6 space-y-5",
-              server.blacklisted
-                ? "border-rose-500/30 bg-rose-500/[0.03]"
-                : server.permissions.missing.length
-                ? "border-amber-500/20"
-                : "border-white/5"
-            )}
-          >
-            <div className="flex items-start gap-4">
-              {server.icon_url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={server.icon_url} alt="" className="h-14 w-14 rounded-2xl border border-white/10" />
-              ) : (
-                <div className="h-14 w-14 rounded-2xl bg-slate-800 flex items-center justify-center shrink-0">
-                  <Shield className="h-6 w-6 text-slate-500" />
+        {visible.map((server) => {
+          const open = expanded === server.id;
+          const warn = server.permissions.missing.length > 0;
+          const botFarm = server.bot_ratio > 0.5 && server.member_count > 20;
+
+          return (
+            <div
+              key={server.id}
+              className={cn(
+                "glass border rounded-2xl overflow-hidden transition-colors",
+                server.blacklisted
+                  ? "border-rose-500/30 bg-rose-500/[0.03]"
+                  : warn
+                  ? "border-amber-500/20"
+                  : "border-white/5"
+              )}
+            >
+              {/* Compact row: everything important on one line. */}
+              <div className="flex items-center gap-3 p-3">
+                {server.icon_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={server.icon_url} alt="" className="h-10 w-10 rounded-xl border border-white/10 shrink-0" />
+                ) : (
+                  <div className="h-10 w-10 rounded-xl bg-slate-800 flex items-center justify-center shrink-0">
+                    <Shield className="h-5 w-5 text-slate-500" />
+                  </div>
+                )}
+
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-white truncate">{server.name}</span>
+                    {server.premium && (
+                      <Diamond className="h-3.5 w-3.5 text-amber-400 shrink-0" aria-label="Premium" />
+                    )}
+                    {server.blacklisted && (
+                      <Ban className="h-3.5 w-3.5 text-rose-400 shrink-0" aria-label="Blacklisted" />
+                    )}
+                    {warn && (
+                      <ShieldAlert className="h-3.5 w-3.5 text-amber-400 shrink-0" aria-label="Missing permissions" />
+                    )}
+                    {botFarm && (
+                      <AlertTriangle className="h-3.5 w-3.5 text-rose-400 shrink-0" aria-label="Bot farm" />
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-500 truncate">
+                    {server.member_count.toLocaleString()} members · {server.owner_name || server.owner_id}
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    onClick={() => copyInvite(server)}
+                    disabled={busy === `invite-${server.id}`}
+                    title="Copy an invite link to this server"
+                    className="p-2.5 rounded-xl bg-primary/15 border border-primary/30 text-primary hover:bg-primary/25 disabled:opacity-40"
+                  >
+                    {busy === `invite-${server.id}` ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
+                  </button>
+
+                  <button
+                    onClick={() => openRoleDialog(server)}
+                    title="Give somebody a role here"
+                    className="p-2.5 rounded-xl bg-white/[0.03] border border-white/5 text-slate-300 hover:bg-white/[0.06]"
+                  >
+                    <UserPlus className="h-4 w-4" />
+                  </button>
+
+                  <Link
+                    href={`/dashboard/guild/${server.id}`}
+                    title="Open this server's settings"
+                    className="p-2.5 rounded-xl bg-white/[0.03] border border-white/5 text-slate-300 hover:bg-white/[0.06] inline-flex"
+                  >
+                    <ArrowUpRight className="h-4 w-4" />
+                  </Link>
+
+                  <button
+                    onClick={() => setExpanded(open ? null : server.id)}
+                    title={open ? "Show less" : "Show details"}
+                    className="p-2.5 rounded-xl bg-white/[0.03] border border-white/5 text-slate-400 hover:bg-white/[0.06]"
+                  >
+                    <ChevronDown className={cn("h-4 w-4 transition-transform", open && "rotate-180")} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Details only when asked for, so the list stays short. */}
+              {open && (
+                <div className="border-t border-white/5 p-4 bg-white/[0.01] space-y-4">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {[
+                      { label: "Members", value: server.member_count.toLocaleString() },
+                      { label: "Humans", value: server.human_count.toLocaleString() },
+                      { label: "Channels", value: server.channel_count },
+                      { label: "Roles", value: server.role_count },
+                    ].map((stat) => (
+                      <div key={stat.label} className="bg-white/[0.02] rounded-xl py-2 px-2 border border-white/5 text-center">
+                        <p className="text-base font-black text-white">{stat.value}</p>
+                        <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">{stat.label}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-500">
+                    <button
+                      onClick={() => {
+                        navigator.clipboard?.writeText(server.id);
+                        toast.success("Server ID copied.");
+                      }}
+                      className="font-mono hover:text-slate-300 inline-flex items-center gap-1"
+                    >
+                      {server.id}
+                      <Copy className="h-3 w-3" />
+                    </button>
+                    <span>Joined {formatDate(server.joined_at)}</span>
+                    <span>Created {formatDate(server.created_at)}</span>
+                    {server.boost_count > 0 && <span>{server.boost_count} boosts</span>}
+                  </div>
+
+                  {warn && (
+                    <div className="flex gap-2 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-200/90">
+                      <ShieldAlert className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
+                      <span>
+                        Missing permissions:{" "}
+                        <span className="font-bold">{server.permissions.missing.slice(0, 6).join(", ")}</span>
+                        {server.permissions.missing.length > 6 && ` +${server.permissions.missing.length - 6}`}
+                      </span>
+                    </div>
+                  )}
+
+                  {botFarm && (
+                    <div className="flex gap-2 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-200/90">
+                      <AlertTriangle className="h-4 w-4 text-rose-400 shrink-0 mt-0.5" />
+                      {Math.round(server.bot_ratio * 100)} % of the members are bots — this looks like a bot farm.
+                    </div>
+                  )}
+
+                  {invites[server.id] && (
+                    <div className="flex items-center gap-2 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+                      <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+                      <a
+                        href={invites[server.id]}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-xs text-emerald-300 hover:underline truncate flex-1"
+                      >
+                        {invites[server.id]}
+                      </a>
+                      <ExternalLink className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                    </div>
+                  )}
+
+                  <button
+                    onClick={() => { setLeaveTarget(server); setLeaveConfirm(""); }}
+                    className="px-4 py-2.5 rounded-xl bg-rose-500/10 border border-rose-500/25 text-xs font-black uppercase tracking-wider text-rose-400 hover:bg-rose-500/20"
+                  >
+                    <DoorOpen className="h-3.5 w-3.5 inline mr-1.5" />
+                    Leave server
+                  </button>
                 </div>
               )}
-
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h3 className="font-black text-white truncate">{server.name}</h3>
-                  {server.premium && (
-                    <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30">
-                      Premium
-                    </span>
-                  )}
-                  {server.blacklisted && (
-                    <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-400 border border-rose-500/30">
-                      Blacklisted
-                    </span>
-                  )}
-                  {server.boost_count > 0 && (
-                    <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-fuchsia-500/15 text-fuchsia-300 border border-fuchsia-500/30">
-                      {server.boost_count} boosts
-                    </span>
-                  )}
-                </div>
-
-                <button
-                  onClick={() => {
-                    navigator.clipboard?.writeText(server.id);
-                    toast.success("Server ID copied.");
-                  }}
-                  className="text-xs text-slate-500 hover:text-slate-300 font-mono flex items-center gap-1.5 mt-1"
-                >
-                  {server.id}
-                  <Copy className="h-3 w-3" />
-                </button>
-
-                <p className="text-xs text-slate-500 mt-2 flex items-center gap-1.5">
-                  <Crown className="h-3.5 w-3.5 text-amber-400/70" />
-                  {server.owner_name || server.owner_id}
-                </p>
-              </div>
             </div>
-
-            <div className="grid grid-cols-4 gap-3 text-center">
-              {[
-                { label: "Members", value: server.member_count.toLocaleString() },
-                { label: "Humans", value: server.human_count.toLocaleString() },
-                { label: "Channels", value: server.channel_count },
-                { label: "Roles", value: server.role_count },
-              ].map((stat) => (
-                <div key={stat.label} className="bg-white/[0.02] rounded-2xl py-3 px-2 border border-white/5">
-                  <p className="text-lg font-black text-white">{stat.value}</p>
-                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">{stat.label}</p>
-                </div>
-              ))}
-            </div>
-
-            {server.permissions.missing.length > 0 && (
-              <div className="flex gap-3 p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-200/90">
-                <ShieldAlert className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
-                <span>
-                  Missing permissions:{" "}
-                  <span className="font-bold">{server.permissions.missing.slice(0, 5).join(", ")}</span>
-                  {server.permissions.missing.length > 5 && ` +${server.permissions.missing.length - 5}`}
-                </span>
-              </div>
-            )}
-
-            {server.bot_ratio > 0.5 && server.member_count > 20 && (
-              <div className="flex gap-3 p-3 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-200/90">
-                <AlertTriangle className="h-4 w-4 text-rose-400 shrink-0 mt-0.5" />
-                {Math.round(server.bot_ratio * 100)} % of the members are bots — this looks like a bot farm.
-              </div>
-            )}
-
-            {invites[server.id] && (
-              <div className="flex items-center gap-2 p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20">
-                <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
-                <a
-                  href={invites[server.id]}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-xs text-emerald-300 hover:underline truncate flex-1"
-                >
-                  {invites[server.id]}
-                </a>
-                <ExternalLink className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
-              </div>
-            )}
-
-            <div className="flex items-center justify-between gap-2 text-[10px] text-slate-600 uppercase tracking-widest font-black">
-              <span>Joined {formatDate(server.joined_at)}</span>
-              <span>Created {formatDate(server.created_at)}</span>
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={() => copyInvite(server)}
-                disabled={busy === `invite-${server.id}`}
-                className="flex-1 min-w-[130px] px-4 py-3 rounded-2xl bg-primary/15 border border-primary/30 text-xs font-black uppercase tracking-wider text-primary hover:bg-primary/25 disabled:opacity-40"
-              >
-                {busy === `invite-${server.id}` ? (
-                  <Loader2 className="h-4 w-4 inline animate-spin" />
-                ) : (
-                  <>
-                    <Copy className="h-3.5 w-3.5 inline mr-1.5" />
-                    Copy invite
-                  </>
-                )}
-              </button>
-
-              <button
-                onClick={() => openRoleDialog(server)}
-                className="flex-1 min-w-[130px] px-4 py-3 rounded-2xl bg-white/[0.03] border border-white/5 text-xs font-black uppercase tracking-wider text-slate-300 hover:bg-white/[0.06]"
-              >
-                <UserPlus className="h-3.5 w-3.5 inline mr-1.5" />
-                Give role
-              </button>
-
-              <Link
-                href={`/dashboard/guild/${server.id}`}
-                className="flex-1 min-w-[130px] px-4 py-3 rounded-2xl bg-white/[0.03] border border-white/5 text-xs font-black uppercase tracking-wider text-slate-300 hover:bg-white/[0.06] text-center"
-              >
-                <ArrowUpRight className="h-3.5 w-3.5 inline mr-1.5" />
-                Manage
-              </Link>
-
-              <button
-                onClick={() => { setLeaveTarget(server); setLeaveConfirm(""); }}
-                className="px-4 py-3 rounded-2xl bg-rose-500/10 border border-rose-500/25 text-xs font-black uppercase tracking-wider text-rose-400 hover:bg-rose-500/20"
-              >
-                <DoorOpen className="h-3.5 w-3.5 inline mr-1.5" />
-                Leave server
-              </button>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Leave dialog */}

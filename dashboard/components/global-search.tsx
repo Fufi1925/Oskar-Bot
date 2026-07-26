@@ -8,6 +8,7 @@ import {
   SmilePlus, Sparkles, Ticket, UserCheck, Users, Volume2, Wrench, Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { api } from "@/lib/api";
 
 interface SearchTarget {
   label: string;
@@ -63,6 +64,8 @@ const ADMIN_TABS: SearchTarget[] = [
   { label: "Backups", href: "/dashboard/admin#backups", icon: Database, group: "Admin", keywords: "backup download restore database" },
   { label: "Bot Config", href: "/dashboard/admin#botsettings", icon: Wrench, group: "Admin", keywords: "settings channel stats config" },
   { label: "Team", href: "/dashboard/admin#team", icon: Users, group: "Admin", keywords: "roles staff permissions team" },
+  { label: "Dashboard Users", href: "/dashboard/admin#dashusers", icon: Users, group: "Admin", keywords: "users ban banned login authorized access who signed in kick out" },
+  { label: "All Servers", href: "/dashboard/admin#servers", icon: Bot, group: "Admin", keywords: "servers guilds invite leave copy link fleet overview" },
   { label: "Access", href: "/dashboard/admin#access", icon: Lock, group: "Admin", keywords: "owner admin access ids" },
   { label: "Features", href: "/dashboard/admin#features", icon: Settings, group: "Admin", keywords: "feature flags toggles rollout" },
   { label: "Health", href: "/dashboard/admin#health", icon: Activity, group: "Admin", keywords: "health shards lavalink status" },
@@ -111,8 +114,37 @@ export function GlobalSearch() {
     return () => document.removeEventListener("mousedown", onClick);
   }, []);
 
+  // The servers the bot is in, so they can be found by name instead of
+  // having to know their id. Loaded once, lazily.
+  const [servers, setServers] = useState<Array<{ id: string; name: string }>>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .listGuilds()
+      .then((list) => {
+        if (!cancelled && Array.isArray(list)) {
+          setServers(list.map((g: any) => ({ id: String(g.id), name: String(g.name) })));
+        }
+      })
+      .catch(() => {
+        // Search still works for static pages if this fails.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const results = useMemo(() => {
-    const all = [...TARGETS, ...ADMIN_TABS];
+    const serverTargets: SearchTarget[] = servers.map((server) => ({
+      label: server.name,
+      href: `/dashboard/guild/${server.id}`,
+      icon: Bot,
+      group: "Your Servers",
+      keywords: `${server.name.toLowerCase()} ${server.id} guild server`,
+    }));
+
+    const all = [...TARGETS, ...ADMIN_TABS, ...serverTargets];
     const needle = query.trim().toLowerCase();
 
     const usable = all.filter((t) => !t.guildScoped || guildId);
@@ -126,7 +158,7 @@ export function GlobalSearch() {
           t.group.toLowerCase().includes(needle)
       )
       .slice(0, 10);
-  }, [query, guildId]);
+  }, [query, guildId, servers]);
 
   useEffect(() => setCursor(0), [query]);
 

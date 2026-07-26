@@ -24,6 +24,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from api.dependencies import get_bot
 from utils import dashboard_access as access
+from utils import dashboard_authority as authority
 from utils import dashboard_roles as roles
 from utils import feature_audit
 
@@ -290,7 +291,7 @@ async def list_bans(include_expired: bool = False, bot: "universitybot" = Depend
 
 
 @router.post("/bans", summary="Ban a user from the dashboard")
-async def create_ban(data: dict):
+async def create_ban(data: dict, bot: "universitybot" = Depends(get_bot)):
     actor = str(data.get("actor", "")).strip()
     if not actor:
         raise HTTPException(status_code=400, detail="actor is required.")
@@ -305,15 +306,16 @@ async def create_ban(data: dict):
     if user_id == actor:
         raise HTTPException(status_code=400, detail="You cannot ban yourself.")
 
-    # An owner must never be lockable out of their own dashboard.
-    if roles.is_owner(user_id):
+    # An owner must never be lockable out of their own dashboard. This covers
+    # the Discord application owner too, not just OWNER_IDS.
+    if authority.is_owner(bot, user_id):
         raise HTTPException(
             status_code=403,
             detail="This user is an owner or dashboard admin. Remove that access first.",
         )
 
-    # Only owners, or holders of team.assign who outrank the target.
-    if not roles.is_owner(actor):
+    # Banning is global, so a single server's admin must not be able to do it.
+    if not authority.is_owner(bot, actor):
         if not roles.has_permission(actor, "team.assign"):
             raise HTTPException(status_code=403, detail="You may not ban dashboard users.")
         if roles.highest_rank(user_id) >= roles.highest_rank(actor):
@@ -353,14 +355,16 @@ async def create_ban(data: dict):
 
 
 @router.delete("/bans/{user_id}", summary="Lift a dashboard ban")
-async def delete_ban(user_id: str, actor: str = ""):
+async def delete_ban(
+    user_id: str, actor: str = "", bot: "universitybot" = Depends(get_bot)
+):
     if not actor:
         raise HTTPException(status_code=400, detail="actor query parameter is required.")
 
     await roles.load()
     await access.load()
 
-    if not roles.is_owner(actor) and not roles.has_permission(actor, "team.assign"):
+    if not authority.may_act_globally(bot, actor, "team.assign"):
         raise HTTPException(status_code=403, detail="You may not manage dashboard bans.")
 
     removed = await access.unban(user_id)
@@ -374,10 +378,10 @@ async def delete_ban(user_id: str, actor: str = ""):
 
 
 @router.post("/bans/purge", summary="Delete expired ban entries")
-async def purge_bans(data: dict):
+async def purge_bans(data: dict, bot: "universitybot" = Depends(get_bot)):
     actor = str(data.get("actor", "")).strip()
     await roles.load()
-    if not roles.is_owner(actor) and not roles.has_permission(actor, "team.assign"):
+    if not authority.may_act_globally(bot, actor, "team.assign"):
         raise HTTPException(status_code=403, detail="You may not manage dashboard bans.")
 
     removed = await access.purge_expired()
@@ -426,9 +430,11 @@ async def create_login(data: dict):
 
 
 @router.delete("/logins/{user_id}", summary="Forget a sign-in record")
-async def delete_login(user_id: str, actor: str = ""):
+async def delete_login(
+    user_id: str, actor: str = "", bot: "universitybot" = Depends(get_bot)
+):
     await roles.load()
-    if not roles.is_owner(actor) and not roles.has_permission(actor, "team.assign"):
+    if not authority.may_act_globally(bot, actor, "team.assign"):
         raise HTTPException(status_code=403, detail="You may not manage login records.")
 
     removed = await access.forget_login(user_id)

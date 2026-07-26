@@ -349,25 +349,36 @@ async function authorize(
   }
 
   if (scope === "servers") {
-    // Global server management. Reading is fine for anyone who may see the
-    // team; leaving a server or touching the blacklist is owner territory and
-    // is checked a second time by the bot itself.
+    // Global server management.
+    //
+    // This deliberately does NOT re-implement the permission model. The bot
+    // knows who the Discord application owner is and who administrates which
+    // server; duplicating that here is how the previous version ended up
+    // rejecting the deployer's own requests with 403. The proxy only checks
+    // "is this a signed-in human", and the bot makes the real decision.
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) return { ok: false, response: deny(401, "Not signed in.") };
     if (isGlobalAdmin(session.user.id)) return { ok: true };
 
+    const guildId = /^\d{17,20}$/.test(rest[0] ?? "") ? rest[0] : undefined;
+
+    // Someone acting on one specific server may also get in through Discord's
+    // own Manage Server permission, which is what verifyGuildAccess checks.
+    if (guildId) {
+      const access = await verifyGuildAccess(guildId);
+      if (access.allowed) return { ok: true };
+    }
+
+    // Reading the fleet overview is fine for anyone with dashboard access.
     if (request.method === "GET") {
       if (await hasTeamPermission(session.user.id, "guild.view")) return { ok: true };
       return { ok: false, response: deny(403, "This requires the 'guild.view' permission.") };
     }
 
-    // Writes: roles.manage covers granting roles, blacklist.manage covers
-    // leaving servers and blacklist edits.
     const isRoleWrite = rest.includes("roles") || rest.includes("members");
     const required = isRoleWrite ? "roles.manage" : "blacklist.manage";
-    const guildId = /^\d{17,20}$/.test(rest[0] ?? "") ? rest[0] : undefined;
-
     if (await hasTeamPermission(session.user.id, required, guildId)) return { ok: true };
+
     return { ok: false, response: deny(403, `This requires the '${required}' permission.`) };
   }
 

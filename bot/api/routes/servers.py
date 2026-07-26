@@ -18,6 +18,7 @@ import discord
 from fastapi import APIRouter, Depends, HTTPException
 
 from api.dependencies import get_bot
+from utils import dashboard_authority as authority
 from utils import dashboard_roles as roles
 from utils import feature_audit
 from utils import feature_gates
@@ -386,9 +387,10 @@ async def leave_server(guild_id: int, data: dict, bot: "universitybot" = Depends
         raise HTTPException(status_code=400, detail="actor is required.")
 
     await roles.load()
-    if not roles.is_owner(actor) and not roles.has_permission(actor, "blacklist.manage"):
+    if not authority.may_remove_bot(bot, actor, guild_id):
         raise HTTPException(
-            status_code=403, detail="Only owners may remove the bot from a server."
+            status_code=403,
+            detail="Only a bot owner or the owner of this server may remove the bot.",
         )
 
     guild = bot.get_guild(guild_id)
@@ -505,10 +507,10 @@ async def list_blacklist(bot: "universitybot" = Depends(get_bot)):
 
 
 @router.post("/blacklist/entries", summary="Add a server or user to the blacklist")
-async def add_blacklist(data: dict):
+async def add_blacklist(data: dict, bot: "universitybot" = Depends(get_bot)):
     actor = str(data.get("actor", "")).strip()
     await roles.load()
-    if not roles.is_owner(actor) and not roles.has_permission(actor, "blacklist.manage"):
+    if not authority.may_act_globally(bot, actor, "blacklist.manage"):
         raise HTTPException(status_code=403, detail="You may not manage the blacklist.")
 
     kind = str(data.get("kind", "guild")).strip().lower()
@@ -535,9 +537,11 @@ async def add_blacklist(data: dict):
 
 
 @router.delete("/blacklist/entries/{kind}/{target_id}", summary="Remove a blacklist entry")
-async def remove_blacklist(kind: str, target_id: str, actor: str = ""):
+async def remove_blacklist(
+    kind: str, target_id: str, actor: str = "", bot: "universitybot" = Depends(get_bot)
+):
     await roles.load()
-    if not roles.is_owner(actor) and not roles.has_permission(actor, "blacklist.manage"):
+    if not authority.may_act_globally(bot, actor, "blacklist.manage"):
         raise HTTPException(status_code=403, detail="You may not manage the blacklist.")
 
     kind = kind.strip().lower()
@@ -617,8 +621,11 @@ async def grant_role(
         raise HTTPException(status_code=400, detail="actor is required.")
 
     await roles.load()
-    if not roles.is_owner(actor) and not roles.has_permission(actor, "roles.manage", str(guild_id)):
-        raise HTTPException(status_code=403, detail="You may not manage roles.")
+    if not authority.may_act_on_guild(bot, actor, guild_id, "roles.manage"):
+        raise HTTPException(
+            status_code=403,
+            detail="You need Manage Server on this server, or the 'roles.manage' permission.",
+        )
 
     guild = bot.get_guild(guild_id)
     if guild is None:
@@ -720,8 +727,11 @@ async def revoke_server_role(
         raise HTTPException(status_code=400, detail="actor query parameter is required.")
 
     await roles.load()
-    if not roles.is_owner(actor) and not roles.has_permission(actor, "roles.manage", str(guild_id)):
-        raise HTTPException(status_code=403, detail="You may not manage roles.")
+    if not authority.may_act_on_guild(bot, actor, guild_id, "roles.manage"):
+        raise HTTPException(
+            status_code=403,
+            detail="You need Manage Server on this server, or the 'roles.manage' permission.",
+        )
 
     guild = bot.get_guild(guild_id)
     if guild is None:
