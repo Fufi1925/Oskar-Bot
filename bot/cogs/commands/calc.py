@@ -16,6 +16,89 @@ from discord.ext import commands
 from discord.ui import View, Button, button
 import discord
 
+import ast
+import operator
+
+
+# Safe arithmetic evaluation.
+#
+# Using eval() here would execute arbitrary Python. Even though the calculator
+# only offers digit and operator buttons today, eval() on a user-controlled
+# string is a remote code execution primitive waiting to happen. Instead the
+# expression is parsed into an AST and only a small whitelist of arithmetic
+# nodes is evaluated.
+_ALLOWED_BINARY_OPERATORS = {
+    ast.Add: operator.add,
+    ast.Sub: operator.sub,
+    ast.Mult: operator.mul,
+    ast.Div: operator.truediv,
+    ast.Mod: operator.mod,
+    ast.Pow: operator.pow,
+    ast.FloorDiv: operator.floordiv,
+}
+
+_ALLOWED_UNARY_OPERATORS = {
+    ast.UAdd: operator.pos,
+    ast.USub: operator.neg,
+}
+
+# Guards against expressions like 9**9**9 that would hang the event loop.
+_MAX_EXPONENT = 128
+_MAX_EXPRESSION_LENGTH = 100
+
+
+class CalculationError(Exception):
+    """Raised when an expression is invalid or not allowed."""
+
+
+def _evaluate_node(node):
+    if isinstance(node, ast.Constant):
+        if isinstance(node.value, bool) or not isinstance(node.value, (int, float)):
+            raise CalculationError("Only numbers are allowed.")
+        return node.value
+
+    if isinstance(node, ast.BinOp):
+        op_type = type(node.op)
+        if op_type not in _ALLOWED_BINARY_OPERATORS:
+            raise CalculationError("Operator not allowed.")
+        left = _evaluate_node(node.left)
+        right = _evaluate_node(node.right)
+        if op_type is ast.Pow and (abs(right) > _MAX_EXPONENT or abs(left) > _MAX_EXPONENT):
+            raise CalculationError("Exponent too large.")
+        return _ALLOWED_BINARY_OPERATORS[op_type](left, right)
+
+    if isinstance(node, ast.UnaryOp):
+        op_type = type(node.op)
+        if op_type not in _ALLOWED_UNARY_OPERATORS:
+            raise CalculationError("Operator not allowed.")
+        return _ALLOWED_UNARY_OPERATORS[op_type](_evaluate_node(node.operand))
+
+    raise CalculationError("Expression not allowed.")
+
+
+def safe_eval(expression: str):
+    """Evaluate a purely arithmetic expression without using eval()."""
+    expression = (expression or "").strip()
+    if not expression:
+        raise CalculationError("Empty expression.")
+    if len(expression) > _MAX_EXPRESSION_LENGTH:
+        raise CalculationError("Expression too long.")
+
+    try:
+        parsed = ast.parse(expression, mode="eval")
+    except SyntaxError as exc:
+        raise CalculationError("Invalid expression.") from exc
+
+    result = _evaluate_node(parsed.body)
+
+    if isinstance(result, float):
+        if result != result or result in (float("inf"), float("-inf")):
+            raise CalculationError("Result is not a finite number.")
+        if result.is_integer():
+            return int(result)
+        return round(result, 10)
+    return result
+
 
 class CalculatorView(View):
     def __init__(self, author: discord.Member):
@@ -89,10 +172,10 @@ class CalculatorView(View):
             )
         try:
             expression = self.value.strip().replace("\n", "")
-            result = str(eval(expression))
+            result = str(safe_eval(expression))
             await self.update_embed(interaction, result)
             self.value = result  # Store the result for possible further calculations
-        except:
+        except (CalculationError, ZeroDivisionError, ArithmeticError, ValueError):
             await self.update_embed(interaction, "Error")
 
     @button(label="Clear", style=discord.ButtonStyle.red, row=4)

@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { verifyGuildAccess } from "@/lib/guild-auth";
 
 export const revalidate = 0; // Never cache any guild dashboard page
 
@@ -51,11 +52,20 @@ export default async function GuildLayout({
   let guild;
   let error = null;
 
-  try {
-    guild = await api.getGuildDetails(guildId);
-  } catch (err: any) {
-    console.error("Failed to fetch guild details:", err);
-    error = err.message || "Failed to load guild data.";
+  // Authorization gate: the visitor must actually be allowed to manage this
+  // server. Without this check any signed-in user could open the dashboard of
+  // an arbitrary guild id.
+  const access = await verifyGuildAccess(guildId);
+
+  if (!access.allowed) {
+    error = access.reason;
+  } else {
+    try {
+      guild = await api.getGuildDetails(guildId);
+    } catch (err: any) {
+      console.error("Failed to fetch guild details:", err);
+      error = err.message || "Failed to load guild data.";
+    }
   }
 
   if (error || !guild) {

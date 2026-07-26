@@ -38,14 +38,26 @@ import {
   AdminConfigUpdate
 } from "@/types/api";
 
-// Server-side uses internal URL (same container), client-side uses public URL
-const BASE_URL = typeof window === "undefined"
-  ? (process.env.API_BASE_URL || `http://127.0.0.1:${process.env.PORT || 8080}/api/v1`)
-  : (process.env.NEXT_PUBLIC_API_URL || "/api/v1");
-// API Key: server-side uses DASHBOARD_API_KEY, client-side uses NEXT_PUBLIC_
-const API_KEY = typeof window === "undefined"
-  ? (process.env.DASHBOARD_API_KEY || process.env.NEXT_PUBLIC_DASHBOARD_API_KEY || "")
-  : (process.env.NEXT_PUBLIC_DASHBOARD_API_KEY || "");
+/**
+ * SECURITY MODEL
+ * --------------
+ * The bot API key is a *server-only* secret and must never reach the browser.
+ *
+ *   Server components / route handlers → call FastAPI directly with the key.
+ *   Browser (client components)        → call the /api/bot BFF proxy, which
+ *                                        authorizes the session and attaches
+ *                                        the key server-side.
+ *
+ * That is why there is no NEXT_PUBLIC_DASHBOARD_API_KEY anymore.
+ */
+const isServer = typeof window === "undefined";
+
+const SERVER_BASE_URL =
+  process.env.API_BASE_URL || `http://127.0.0.1:${process.env.PORT || 8080}/api/v1`;
+/** Browser requests go through the authorizing Next.js proxy. */
+const CLIENT_BASE_URL = "/api/bot";
+
+const BASE_URL = isServer ? SERVER_BASE_URL : CLIENT_BASE_URL;
 
 class ApiError extends Error {
   constructor(public status: number, message: string) {
@@ -59,20 +71,22 @@ async function request<T>(
   options: RequestInit & { next?: NextFetchRequestConfig } = {}
 ): Promise<T> {
   const url = `${BASE_URL}${endpoint}`;
-  
+
   const headers = new Headers(options.headers);
-  // Always try to send API key if available
-  const key = typeof window === "undefined"
-    ? (process.env.DASHBOARD_API_KEY || process.env.NEXT_PUBLIC_DASHBOARD_API_KEY || "")
-    : (process.env.NEXT_PUBLIC_DASHBOARD_API_KEY || "");
-  if (key) {
-    headers.set("Authorization", `Bearer ${key}`);
-  }
   headers.set("Content-Type", "application/json");
+
+  // The API key is only ever attached on the server. In the browser the BFF
+  // proxy adds it after checking that the user may touch this guild.
+  if (isServer) {
+    const key = process.env.DASHBOARD_API_KEY || "";
+    if (key) headers.set("Authorization", `Bearer ${key}`);
+  }
+
   try {
     const response = await fetch(url, {
       ...options,
       headers,
+      credentials: isServer ? undefined : "same-origin",
       next: options.next || { revalidate: 0 },
     });
 
@@ -281,11 +295,55 @@ export const api = {
       body: JSON.stringify(data),
     }),
   getAdminFeatures: () => request<Record<string, boolean>>("/admin/features"),
+  getAdminFeaturesDetail: () =>
+    request<{ categories: string[]; features: any[] }>("/admin/features/detail"),
   updateAdminFeatures: (data: Record<string, boolean>) =>
     request<{ status: string }>("/admin/features", {
       method: "PATCH",
       body: JSON.stringify(data),
     }),
+  updateFeatureRollout: (key: string, percent: number) =>
+    request<{ status: string; percent: number }>(`/admin/features/${key}/rollout`, {
+      method: "PATCH",
+      body: JSON.stringify({ percent }),
+    }),
+
+  getSessionPolicy: () =>
+    request<{ force_reauth: boolean; reauth_epoch: number; maintenance_banner: boolean }>(
+      "/admin/session-policy"
+    ),
+  reportOAuthError: (detail: string) =>
+    request<any>("/admin/oauth-error", {
+      method: "POST",
+      body: JSON.stringify({ detail }),
+    }),
+
+  // Monitoring & reports (backed by the feature flags)
+  getAdminHealth: () => request<any>("/admin/health"),
+  getAdminLogs: (limit = 100) => request<any>(`/admin/logs?limit=${limit}`),
+  getAdminMetrics: () => request<any>("/admin/metrics"),
+  getAdminAudit: (limit = 100, suspiciousOnly = false) =>
+    request<any>(`/admin/audit?limit=${limit}&suspicious_only=${suspiciousOnly}`),
+  getAdminTimeline: (limit = 50) => request<any>(`/admin/timeline?limit=${limit}`),
+  getAdminReport: (name: string) => request<any>(`/admin/reports/${name}`),
+  getNotificationHistory: (limit = 50) =>
+    request<any>(`/admin/notifications/history?limit=${limit}`),
+
+  // Approval queue
+  getAdminApprovals: (status = "pending") =>
+    request<any>(`/admin/approvals?status=${status}`),
+  resolveAdminApproval: (id: number, approver: string, approve: boolean) =>
+    request<any>(`/admin/approvals/${id}`, {
+      method: "POST",
+      body: JSON.stringify({ approver, approve }),
+    }),
+
+  scheduleAnnouncement: (message: string, sendAt: number) =>
+    request<any>("/admin/announcements", {
+      method: "POST",
+      body: JSON.stringify({ message, send_at: sendAt }),
+    }),
+
   runAdminMemberAction: (data: any) =>
     request<{ status: string; result: string }>("/admin/member-action", {
       method: "POST",

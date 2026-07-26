@@ -7,18 +7,17 @@ FROM node:18-alpine AS dashboard-builder
 WORKDIR /app/dashboard
 
 # Accept build args for NEXT_PUBLIC_* variables
+# NOTE: never add the API key here. NEXT_PUBLIC_* values are baked into the
+# JavaScript bundle and would be readable by every visitor. Browser requests
+# are proxied through /api/bot, which attaches the key server-side.
 ARG NEXT_PUBLIC_BRAND_NAME="University Bot"
 ARG NEXT_PUBLIC_BRAND_NAME_WORD="UB"
 ARG NEXT_PUBLIC_ADMIN_IDS=""
-ARG NEXT_PUBLIC_API_URL=""
-ARG NEXT_PUBLIC_DASHBOARD_API_KEY=""
 
 # Set them as env vars during build
 ENV NEXT_PUBLIC_BRAND_NAME=${NEXT_PUBLIC_BRAND_NAME}
 ENV NEXT_PUBLIC_BRAND_NAME_WORD=${NEXT_PUBLIC_BRAND_NAME_WORD}
 ENV NEXT_PUBLIC_ADMIN_IDS=${NEXT_PUBLIC_ADMIN_IDS}
-ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
-ENV NEXT_PUBLIC_DASHBOARD_API_KEY=${NEXT_PUBLIC_DASHBOARD_API_KEY}
 
 COPY dashboard/package.json dashboard/package-lock.json* ./
 RUN npm install
@@ -31,9 +30,14 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install Node.js and curl
+# Install curl plus the SAME Node major version used to build the dashboard.
+# Debian's default "nodejs" package lags behind and is not pinned, which made
+# the build and runtime environments drift apart.
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends nodejs curl && \
+    apt-get install -y --no-install-recommends curl ca-certificates gnupg && \
+    curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
+    apt-get install -y --no-install-recommends nodejs && \
+    apt-get purge -y gnupg && apt-get autoremove -y && \
     rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies

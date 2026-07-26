@@ -31,14 +31,18 @@ fi
 # API calls must go to the FastAPI/Bot proxy on port 8080.
 export API_BASE_URL="http://127.0.0.1:$PORT/api/v1"
 
-if [ -n "${DASHBOARD_API_KEY:-}" ] && [ -z "${NEXT_PUBLIC_DASHBOARD_API_KEY:-}" ]; then
-  export NEXT_PUBLIC_DASHBOARD_API_KEY="$DASHBOARD_API_KEY"
-  echo "🔑 NEXT_PUBLIC_DASHBOARD_API_KEY set from DASHBOARD_API_KEY"
+# SECURITY: the API key must never be exposed to the browser. Anything named
+# NEXT_PUBLIC_* is inlined into the client bundle by Next.js, so the key is
+# deliberately NOT mirrored there. Browser requests go through the authorizing
+# proxy at /api/bot instead, which attaches the key server-side.
+if [ -n "${NEXT_PUBLIC_DASHBOARD_API_KEY:-}" ]; then
+  unset NEXT_PUBLIC_DASHBOARD_API_KEY
+  echo "🛡️ NEXT_PUBLIC_DASHBOARD_API_KEY was set and has been removed (it would leak the key to browsers)"
 fi
 
-if [ -n "${RAILWAY_PUBLIC_DOMAIN:-}" ] && [ -z "${NEXT_PUBLIC_API_URL:-}" ]; then
-  export NEXT_PUBLIC_API_URL="/api/v1"
-  echo "🌐 NEXT_PUBLIC_API_URL set to: $NEXT_PUBLIC_API_URL"
+# Admin IDs are needed server-side for authorization checks.
+if [ -z "${ADMIN_IDS:-}" ] && [ -n "${NEXT_PUBLIC_ADMIN_IDS:-}" ]; then
+  export ADMIN_IDS="$NEXT_PUBLIC_ADMIN_IDS"
 fi
 
 echo "=========================================="

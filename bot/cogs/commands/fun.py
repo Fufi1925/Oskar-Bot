@@ -12,6 +12,7 @@
 # ║                                                                  ║
 # ╚══════════════════════════════════════════════════════════════════╝
 
+import os
 import discord
 from discord.ext import commands
 from discord.ui import LayoutView, TextDisplay, Separator, MediaGallery
@@ -24,9 +25,13 @@ from utils.cv2 import CV2, build_container
 class Fun(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.giphy_api_key = "y3KcqQTdiS0RYcpNJrWn8hFGglKqX4is"
+        # Read from the environment — never hardcode credentials in the source.
+        # Set GIPHY_API_KEY in .env / Railway variables.
+        self.giphy_api_key = os.getenv("GIPHY_API_KEY", "").strip()
 
     async def fetch_giphy(self, query):
+        if not self.giphy_api_key:
+            return None
         async with aiohttp.ClientSession() as session:
             async with session.get(f"https://api.giphy.com/v1/gifs/search?api_key={self.giphy_api_key}&q={query}&limit=30&rating=pg") as resp:
                 if resp.status != 200:
