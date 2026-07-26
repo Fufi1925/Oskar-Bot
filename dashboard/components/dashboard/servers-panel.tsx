@@ -85,6 +85,13 @@ export function ServersPanel({ currentUserId }: { currentUserId?: string }) {
   const [newRoleName, setNewRoleName] = useState("");
   const [newRoleAdmin, setNewRoleAdmin] = useState(false);
   const [memberRoles, setMemberRoles] = useState<any[] | null>(null);
+  // Why roles cannot be handed out here, straight from the bot.
+  const [roleAdvice, setRoleAdvice] = useState("");
+
+  const selectedRole = useMemo(
+    () => roleList.find((r: any) => String(r.id) === String(roleId)) || null,
+    [roleList, roleId]
+  );
 
   const load = async (silent = false) => {
     if (!silent) setLoading(true);
@@ -150,6 +157,7 @@ export function ServersPanel({ currentUserId }: { currentUserId?: string }) {
     try {
       const data = await api.getServerRoles(server.id);
       setRoleList(data.roles || []);
+      setRoleAdvice(data.advice || "");
       if (currentUserId) {
         const member = await api.getServerMember(server.id, currentUserId);
         setMemberRoles(member.in_guild ? member.roles : null);
@@ -164,6 +172,9 @@ export function ServersPanel({ currentUserId }: { currentUserId?: string }) {
     const uid = roleUserId.trim();
     if (!/^\d{15,20}$/.test(uid)) return toast.error("Please enter a valid Discord user ID.");
     if (roleMode === "existing" && !roleId) return toast.error("Please pick a role.");
+    if (roleMode === "existing" && selectedRole && !selectedRole.assignable) {
+      return toast.error(selectedRole.hint || "The bot cannot assign this role.");
+    }
     if (roleMode === "new" && !newRoleName.trim()) return toast.error("Please enter a role name.");
 
     setBusy("role");
@@ -178,6 +189,7 @@ export function ServersPanel({ currentUserId }: { currentUserId?: string }) {
       setMemberRoles(member.in_guild ? member.roles : null);
       const roles = await api.getServerRoles(roleTarget.id);
       setRoleList(roles.roles || []);
+      setRoleAdvice(roles.advice || "");
     } catch (err: any) {
       toast.error(err?.message || "Could not grant the role.");
     } finally {
@@ -501,8 +513,8 @@ export function ServersPanel({ currentUserId }: { currentUserId?: string }) {
 
       {/* Leave dialog */}
       {leaveTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm overflow-y-auto">
-          <div className="w-full max-w-lg glass border border-white/10 rounded-[2rem] overflow-hidden my-8">
+        <div className="fixed inset-0 z-[60] overflow-y-auto bg-black/70 backdrop-blur-sm p-4 sm:p-6">
+          <div className="w-full max-w-lg mx-auto my-8 glass border border-white/10 rounded-[2rem] overflow-hidden">
             <div className="p-6 border-b border-white/5 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="h-10 w-10 rounded-2xl bg-rose-500/15 border border-rose-500/25 flex items-center justify-center">
@@ -592,8 +604,8 @@ export function ServersPanel({ currentUserId }: { currentUserId?: string }) {
 
       {/* Role dialog */}
       {roleTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm overflow-y-auto">
-          <div className="w-full max-w-xl glass border border-white/10 rounded-[2rem] overflow-hidden my-8">
+        <div className="fixed inset-0 z-[60] overflow-y-auto bg-black/70 backdrop-blur-sm p-4 sm:p-6">
+          <div className="w-full max-w-xl mx-auto my-8 glass border border-white/10 rounded-[2rem] overflow-hidden">
             <div className="p-6 border-b border-white/5 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="h-10 w-10 rounded-2xl bg-primary/15 border border-primary/25 flex items-center justify-center">
@@ -685,19 +697,41 @@ export function ServersPanel({ currentUserId }: { currentUserId?: string }) {
                   <Select
                     value={roleId}
                     onValueChange={setRoleId}
-                    placeholder="Pick a role"
-                    options={roleList
-                      .filter((r: any) => r.assignable)
-                      .map((r: any) => ({
-                        value: r.id,
-                        label: `${r.name}${r.administrator ? " (Admin)" : ""} · ${r.members}`,
-                      }))}
+                    placeholder={
+                      roleList.some((r: any) => r.assignable)
+                        ? "Pick a role"
+                        : "No role can be assigned yet"
+                    }
+                    options={roleList.map((r: any) => ({
+                      value: r.id,
+                      label: r.assignable
+                        ? `${r.name}${r.administrator ? " (Admin)" : ""}`
+                        : `${r.name} — ${
+                            r.blocked_reason === "own_role"
+                              ? "the bot's own role"
+                              : r.blocked_reason === "managed"
+                              ? "bot/integration role"
+                              : r.blocked_reason === "no_permission"
+                              ? "bot lacks Manage Roles"
+                              : "above the bot's role"
+                          }`,
+                    }))}
                   />
-                  {roleList.some((r: any) => !r.assignable) && (
-                    <span className="text-[11px] text-slate-500">
-                      {roleList.filter((r: any) => !r.assignable).length} role(s) hidden: they sit above
-                      the bot&apos;s highest role ({roleTarget.permissions.highest_role_name || "?"}).
-                    </span>
+
+                  {/* The old build hid unusable roles and just said "99 hidden",
+                      which gave no clue what to actually do about it. */}
+                  {selectedRole && !selectedRole.assignable && (
+                    <div className="flex gap-2 p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 text-xs text-amber-200/90">
+                      <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
+                      <span>{selectedRole.hint}</span>
+                    </div>
+                  )}
+
+                  {roleAdvice && !selectedRole && (
+                    <div className="flex gap-2 p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 text-xs text-amber-200/90">
+                      <ShieldAlert className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
+                      <span>{roleAdvice}</span>
+                    </div>
                   )}
                 </label>
               ) : (

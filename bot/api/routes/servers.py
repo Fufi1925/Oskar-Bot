@@ -579,11 +579,37 @@ async def list_server_roles(guild_id: int, bot: "universitybot" = Depends(get_bo
 
     me = guild.me
     bot_top = me.top_role.position if me else 0
+    can_manage = bool(me and me.guild_permissions.manage_roles)
 
     entries = []
     for role in sorted(guild.roles, key=lambda r: r.position, reverse=True):
         if role.is_default():
             continue
+
+        # Discord refuses in three distinct cases, and the UI needs to tell
+        # them apart — "hidden: 99 roles" was useless because it did not say
+        # which problem to fix.
+        if me is not None and role.id == me.top_role.id:
+            # The bot's own top role. Counting it as "sits above the bot"
+            # made the numbers read one too high and made no sense to anyone.
+            blocked = "own_role"
+            hint = "This is the bot's own role and cannot be handed out."
+        elif role.managed:
+            blocked = "managed"
+            hint = "Managed by an integration or bot; Discord does not allow handing it out."
+        elif not can_manage:
+            blocked = "no_permission"
+            hint = "The bot is missing the 'Manage Roles' permission in this server."
+        elif role.position >= bot_top:
+            blocked = "too_high"
+            hint = (
+                f"Sits above the bot's own role. Drag '{me.top_role.name}' above "
+                f"'{role.name}' in Server Settings → Roles."
+            )
+        else:
+            blocked = None
+            hint = ""
+
         entries.append(
             {
                 "id": str(role.id),
@@ -595,16 +621,38 @@ async def list_server_roles(guild_id: int, bot: "universitybot" = Depends(get_bo
                 "mentionable": role.mentionable,
                 "managed": role.managed,
                 "administrator": role.permissions.administrator,
-                # The bot can only hand out roles below its own highest role.
-                "assignable": (not role.managed) and role.position < bot_top,
+                "assignable": blocked is None,
+                "blocked_reason": blocked,
+                "hint": hint,
             }
         )
+
+    assignable = [e for e in entries if e["assignable"]]
+    too_high = [e for e in entries if e["blocked_reason"] == "too_high"]
 
     return {
         "roles": entries,
         "count": len(entries),
+        "assignable_count": len(assignable),
+        "too_high_count": len(too_high),
+        "managed_count": sum(1 for e in entries if e["blocked_reason"] == "managed"),
         "bot_top_position": bot_top,
-        "bot_can_manage_roles": bool(me and me.guild_permissions.manage_roles),
+        "bot_role_name": me.top_role.name if me else None,
+        "bot_can_manage_roles": can_manage,
+        # A single, actionable sentence for the dashboard to show. Whenever
+        # roles are blocked by position it names the bot role and the fix,
+        # because "99 hidden" on its own told nobody what to do.
+        "advice": (
+            "The bot is missing the 'Manage Roles' permission in this server."
+            if not can_manage
+            else (
+                f"The bot's role '{me.top_role.name}' sits too low: {len(too_high)} role(s) "
+                f"are above it and cannot be assigned. Move it up in "
+                f"Server Settings → Roles."
+                if too_high
+                else ""
+            )
+        ),
     }
 
 

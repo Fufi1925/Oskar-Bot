@@ -502,10 +502,11 @@ export const api = {
     }),
 
   // ── Dashboard users (who can get in, and who is locked out) ──────────
-  getDashboardUsers: (includeDiscord = true) =>
+  getDashboardUsers: (includeDiscord = false) =>
     request<{
       users: any[];
       count: number;
+      authorised_count: number;
       banned_count: number;
       owner_count: number;
       role_count: number;

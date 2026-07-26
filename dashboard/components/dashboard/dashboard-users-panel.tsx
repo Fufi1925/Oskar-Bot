@@ -1,17 +1,17 @@
 "use client";
 
 /**
- * Who can get into this dashboard — and the button to throw them out.
+ * The people who authorised this bot through Discord OAuth — and the button
+ * to throw them out.
  *
- * People reach the dashboard through three different doors, and the panel
- * shows all three side by side, because "remove their role" does nothing to
- * somebody who gets in through Discord's Manage Server permission:
+ * The list is deliberately limited to accounts that actually signed in here,
+ * plus owners and team-role holders. An earlier version also listed every
+ * Discord server admin the bot could see, which drowned the handful of real
+ * dashboard users in hundreds of accounts that never authorised anything.
+ * That view is still available behind the "Discord admins" toggle.
  *
- *   Owner          OWNER_IDS / ADMIN_IDS or the dashboard_owners table
- *   Team role      one of the 40 dashboard roles
- *   Discord admin  Manage Server or Administrator on a server the bot is in
- *
- * A ban is the one thing that beats all three.
+ * A ban beats every route in: the OAuth sign-in itself is refused, open
+ * sessions are cut off on their next request, and it outranks Manage Server.
  */
 
 import React, { useEffect, useMemo, useState } from "react";
@@ -61,7 +61,6 @@ const FILTERS: Array<{ value: string; label: string }> = [
   { value: "banned", label: "Banned" },
   { value: "owner", label: "Owners" },
   { value: "team_role", label: "Team roles" },
-  { value: "discord_admin", label: "Discord admins" },
   { value: "login", label: "Has signed in" },
 ];
 
@@ -99,9 +98,11 @@ function SourceBadge({ source }: { source: string }) {
 export function DashboardUsersPanel({ currentUserId }: { currentUserId?: string }) {
   const [users, setUsers] = useState<DashboardUser[]>([]);
   const [summary, setSummary] = useState<{
-    count: number; banned_count: number; owner_count: number;
-    role_count: number; discord_admin_count: number;
+    count: number; authorised_count: number; banned_count: number;
+    owner_count: number; role_count: number; discord_admin_count: number;
   } | null>(null);
+  // Off by default: these people never authorised the bot.
+  const [showDiscordAdmins, setShowDiscordAdmins] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [query, setQuery] = useState("");
@@ -120,10 +121,14 @@ export function DashboardUsersPanel({ currentUserId }: { currentUserId?: string 
   const load = async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      const data = await api.getDashboardUsers(true);
+      // Only people who went through Discord OAuth. Including every server
+      // admin buried the handful of real dashboard users among hundreds of
+      // accounts that never authorised anything.
+      const data = await api.getDashboardUsers(showDiscordAdmins);
       setUsers(data.users || []);
       setSummary({
         count: data.count,
+        authorised_count: (data as any).authorised_count ?? data.count,
         banned_count: data.banned_count,
         owner_count: data.owner_count,
         role_count: data.role_count,
@@ -140,7 +145,8 @@ export function DashboardUsersPanel({ currentUserId }: { currentUserId?: string 
     load();
     const interval = setInterval(() => load(true), 60000);
     return () => clearInterval(interval);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showDiscordAdmins]);
 
   const submitBan = async () => {
     const targetId = banTarget?.user_id || manualId.trim();
@@ -229,7 +235,7 @@ export function DashboardUsersPanel({ currentUserId }: { currentUserId?: string 
       {/* Summary */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         {[
-          { label: "People", value: summary?.count ?? 0, icon: Users, color: "text-primary" },
+          { label: "Authorised", value: summary?.authorised_count ?? 0, icon: LogIn, color: "text-primary" },
           { label: "Bot owners", value: summary?.owner_count ?? 0, icon: Crown, color: "text-amber-400" },
           { label: "Team roles", value: summary?.role_count ?? 0, icon: Shield, color: "text-blue-400" },
           { label: "Discord admins", value: summary?.discord_admin_count ?? 0, icon: ShieldCheck, color: "text-indigo-300" },
@@ -304,6 +310,19 @@ export function DashboardUsersPanel({ currentUserId }: { currentUserId?: string 
           <Select value={filter} onValueChange={setFilter} options={FILTERS} />
         </div>
         <button
+          onClick={() => setShowDiscordAdmins(!showDiscordAdmins)}
+          title="Also list people who merely have Manage Server somewhere, without ever signing in here"
+          className={cn(
+            "px-5 py-3 rounded-2xl text-sm font-bold border transition-all whitespace-nowrap",
+            showDiscordAdmins
+              ? "bg-indigo-500/15 border-indigo-500/30 text-indigo-300"
+              : "bg-white/[0.03] border-white/5 text-slate-300 hover:bg-white/[0.06]"
+          )}
+        >
+          <ShieldCheck className="h-4 w-4 inline mr-2" />
+          Discord admins
+        </button>
+        <button
           onClick={() => load()}
           disabled={busy}
           className="px-5 py-3 bg-white/[0.03] border border-white/5 rounded-2xl text-sm font-bold text-slate-300 hover:bg-white/[0.06] disabled:opacity-40"
@@ -317,7 +336,9 @@ export function DashboardUsersPanel({ currentUserId }: { currentUserId?: string 
       <div className="space-y-3">
         {visible.length === 0 && (
           <div className="glass border border-white/5 rounded-[2rem] p-12 text-center text-slate-500">
-            Nobody matches this filter.
+            {users.length === 0
+              ? "Nobody has authorised the bot through this dashboard yet. People appear here the moment they sign in with Discord."
+              : "Nobody matches this filter."}
           </div>
         )}
 
@@ -540,8 +561,8 @@ export function DashboardUsersPanel({ currentUserId }: { currentUserId?: string 
 
       {/* Ban dialog */}
       {banTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-          <div className="w-full max-w-lg glass border border-white/10 rounded-[2rem] overflow-hidden">
+        <div className="fixed inset-0 z-[60] overflow-y-auto bg-black/70 backdrop-blur-sm p-4 sm:p-6">
+          <div className="w-full max-w-lg mx-auto my-8 glass border border-white/10 rounded-[2rem] overflow-hidden">
             <div className="p-6 border-b border-white/5 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="h-10 w-10 rounded-2xl bg-rose-500/15 border border-rose-500/25 flex items-center justify-center">

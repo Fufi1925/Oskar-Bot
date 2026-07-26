@@ -80,14 +80,23 @@ def _guild_admin_map(bot) -> dict[str, list[dict]]:
 # ── Overview ──────────────────────────────────────────────────────────────
 
 
-@router.get("/users", summary="Everyone who can reach the dashboard")
+@router.get("/users", summary="Everyone who authorised the bot via OAuth")
 async def list_users(
-    include_discord: bool = True,
+    include_discord: bool = False,
     bot: "universitybot" = Depends(get_bot),
 ):
     """
-    One row per person, merged from all four sources: owners, team roles,
-    recorded logins and (optionally) Discord server admins.
+    The people who actually signed in to this dashboard with Discord OAuth.
+
+    That is the list you can act on: they exist because they clicked
+    "Authorise", so banning one of them means something. Owners and team-role
+    holders are folded in because they are the accounts that matter most, even
+    before their first sign-in.
+
+    Discord server admins are NOT included by default. There are hundreds of
+    them across the servers the bot is in, they never authorised anything, and
+    listing them buried the handful of real dashboard users. Pass
+    `include_discord=true` to see them anyway.
     """
     await roles.load()
     await access.load()
@@ -114,30 +123,16 @@ async def list_users(
                 "username": None,
                 "display_name": None,
                 "avatar": None,
+                "authorised": False,
             }
         return users[uid]
 
-    # 1. Owners and dashboard admins
-    for record in roles.list_owners():
-        row = entry(record["user_id"])
-        row["sources"].append("owner")
-        row["is_owner"] = True
-        row["owner_kind"] = record.get("kind", "admin")
-        row["owner_note"] = record.get("note", "")
-        row["owner_source"] = record.get("source", "")
-
-    # 2. Dashboard team roles
-    for member in roles.all_members():
-        row = entry(member["user_id"])
-        row["sources"].append("team_role")
-        row["roles"] = member.get("roles", [])
-        row["highest_rank"] = member.get("highest_rank", 0)
-        row["permission_count"] = member.get("permission_count", 0)
-
-    # 3. People who actually signed in
+    # 1. People who actually authorised the bot and signed in. This is the
+    #    primary list; everything else only annotates it.
     for login in await access.list_logins(2000):
         row = entry(login["user_id"])
         row["sources"].append("login")
+        row["authorised"] = True
         row["first_seen"] = login["first_seen"]
         row["last_seen"] = login["last_seen"]
         row["login_count"] = login["login_count"]
@@ -147,14 +142,44 @@ async def list_users(
         if login.get("avatar"):
             row["avatar"] = login["avatar"]
 
-    # 4. Discord server admins — potential access even without a role here
+    # 2. Owners and dashboard admins — shown even before a first sign-in,
+    #    because locking yourself out by not seeing them would be worse.
+    for record in roles.list_owners():
+        row = entry(record["user_id"])
+        row["sources"].append("owner")
+        row["is_owner"] = True
+        row["owner_kind"] = record.get("kind", "admin")
+        row["owner_note"] = record.get("note", "")
+        row["owner_source"] = record.get("source", "")
+
+    # 3. Dashboard team roles, same reasoning.
+    for member in roles.all_members():
+        row = entry(member["user_id"])
+        row["sources"].append("team_role")
+        row["roles"] = member.get("roles", [])
+        row["highest_rank"] = member.get("highest_rank", 0)
+        row["permission_count"] = member.get("permission_count", 0)
+
+    # 4. Anyone banned stays visible so the ban can be lifted again, even if
+    #    their login record was deleted in the meantime.
+    for ban_entry in access.list_bans(include_expired=False):
+        entry(ban_entry["user_id"])["sources"].append("banned")
+
+    # 5. Discord server admins, only when explicitly asked for.
     if include_discord:
         for user_id, guilds in _guild_admin_map(bot).items():
             row = entry(user_id)
             row["sources"].append("discord_admin")
             row["guild_admin_of"] = guilds
+    else:
+        # Still annotate the people we do show, so the UI can warn that a ban
+        # does not touch their rights inside Discord itself.
+        admin_map = _guild_admin_map(bot)
+        for uid, row in users.items():
+            if uid in admin_map:
+                row["guild_admin_of"] = admin_map[uid]
 
-    # 5. Bans and Discord identities
+    # 6. Bans and Discord identities
     for uid, row in users.items():
         ban = access.get_ban(uid)
         row["banned"] = ban is not None
@@ -178,10 +203,12 @@ async def list_users(
     return {
         "users": ordered,
         "count": len(ordered),
+        "authorised_count": sum(1 for u in ordered if u["authorised"]),
         "banned_count": sum(1 for u in ordered if u["banned"]),
         "owner_count": sum(1 for u in ordered if u["is_owner"]),
         "role_count": sum(1 for u in ordered if u["roles"]),
         "discord_admin_count": sum(1 for u in ordered if u["guild_admin_of"]),
+        "includes_discord_admins": include_discord,
     }
 
 

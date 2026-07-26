@@ -670,6 +670,14 @@ export const phrasePairs: Array<[de: string, en: string]> = [
   ["Verwaltete Rollen können nicht entfernt werden", "Managed roles cannot be removed"],
   ["Zum Entfernen klicken", "Click to remove"],
   ["Gesperrt", "Blacklisted"],
+  // ── Rollen-Hinweise & OAuth-Nutzer ──────────────────────────────────
+  ["Autorisiert", "Authorised"],
+  ["Keine Rolle kann derzeit vergeben werden", "No role can be assigned yet"],
+  ["die eigene Rolle des Bots", "the bot's own role"],
+  ["Bot-/Integrationsrolle", "bot/integration role"],
+  ["über der Bot-Rolle", "above the bot's role"],
+  ["Bot fehlt „Rollen verwalten“", "bot lacks Manage Roles"],
+  ["Noch niemand hat den Bot über dieses Dashboard autorisiert. Personen erscheinen hier, sobald sie sich mit Discord anmelden.", "Nobody has authorised the bot through this dashboard yet. People appear here the moment they sign in with Discord."],
 ];
 
 function normalise(text: string) {
