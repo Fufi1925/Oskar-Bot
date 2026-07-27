@@ -380,7 +380,7 @@ export const api = {
 
   // Vanity roles
   // Moved off /guilds to their own router. The old routes stored the
-  // trigger exactly as typed, so `.gg/Oskar` and `discord.gg/oskar` were
+  // trigger exactly as typed, so `.gg/MeinServer` and `discord.gg/meinserver` were
   // two separate setups that both looked correct in the dashboard.
   getVanityRoles: (guildId: string) => request<any>(`/vanity/${guildId}`),
   saveVanityRole: (guildId: string, data: any) =>

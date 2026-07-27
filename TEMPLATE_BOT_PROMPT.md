@@ -1,35 +1,42 @@
 # Prompt für die KI des Template-Bots
 
-Kopiere alles ab „--- PROMPT START ---" in die andere KI.
+Kopiere alles zwischen „--- PROMPT START ---" und „--- PROMPT ENDE ---"
+in die andere KI.
 
-Kurz zum Hintergrund, damit du weißt was du weitergibst: Oskar kann den
-zweiten Bot **nicht** selbst hinzufügen — Discord hat dafür keine API,
-auch nicht mit Admin-Rechten. Stattdessen erzeugt Oskar einen
-Einladungslink mit einem signierten `state`-Wert. Der Template-Bot liest
-diesen Wert an seinem OAuth-Redirect zurück und weiß dadurch: „dieser
-Server kommt von Oskar".
+**Kurz zum Hintergrund**, damit du weißt, was du weitergibst: **University
+Bot** kann den Template-Bot **nicht** selbst zu einem Server hinzufügen.
+Discord hat dafür keine Schnittstelle — auch nicht mit Admin-Rechten. Der
+OAuth-Ablauf verlangt zwingend einen eingeloggten Menschen, der im Browser
+auf „Autorisieren" klickt. Das ist Absicht: sonst könnte ein übernommener
+Bot beliebig viele weitere nachziehen, also genau einen Nuke bauen.
 
-Der Teil, den Oskar übernimmt, ist fertig und läuft. Der Prompt
-beschreibt nur die Gegenseite.
+Stattdessen erzeugt University Bot einen Einladungslink mit einem
+signierten `state`-Wert. Der Template-Bot liest den an seinem
+OAuth-Redirect zurück und weiß dadurch: „dieser Server kommt von
+University Bot".
+
+Die Seite von University Bot ist fertig und läuft. Der Prompt beschreibt
+nur die Gegenseite.
 
 ---
 
 ## --- PROMPT START ---
 
 Du arbeitest an einem Discord-Bot („Template-Bot"), der fertige
-Server-Templates einrichtet. Er ist bereits fertig; es kommt **eine neue
-Funktion** dazu.
+Server-Templates einrichtet. Der Bot ist bereits fertig; es kommt **eine
+neue Funktion** dazu.
 
 ### Was gebaut werden soll
 
-Ein zweiter Bot namens **Oskar** schickt Server zu uns. Wenn ein Server
-über Oskar hinzugefügt wurde, soll unser Bot das erkennen und sein
-Template **automatisch** einrichten — ohne dass jemand einen Befehl
-tippt. Kommt ein Server auf normalem Weg dazu, bleibt alles wie bisher.
+Ein zweiter Bot namens **University Bot** schickt Server zu uns. Wenn ein
+Server über University Bot hinzugefügt wurde, soll unser Bot das erkennen
+und sein Template **automatisch** einrichten — ohne dass jemand einen
+Befehl tippt. Kommt ein Server auf normalem Weg dazu, bleibt alles wie
+bisher.
 
 ### Wie die Erkennung funktioniert
 
-Oskar postet einen Einladungslink dieser Form:
+University Bot postet einen Einladungslink dieser Form:
 
 ```
 https://discord.com/oauth2/authorize
@@ -51,7 +58,7 @@ https://unser-bot.example/oauth/callback?code=…&guild_id=…&state=…
 **Wichtig:** `state` kommt **nicht** im `on_guild_join`-Event an. Discord
 liefert es ausschließlich an die Redirect-URI. Wir brauchen also einen
 kleinen Web-Endpunkt. Falls unser Bot noch keinen hat, muss einer dazu
-(FastAPI/aiohttp/Flask, egal).
+(FastAPI, aiohttp, Flask — egal).
 
 ### Aufbau des Tokens
 
@@ -68,7 +75,7 @@ Das JSON enthält:
   "g":   "123456789012345678",   // Server-ID
   "u":   "987654321098765432",   // wer den Link angeklickt hat
   "t":   1785200000,              // Unix-Zeit der Ausstellung
-  "src": "oskar",                 // muss exakt "oskar" sein
+  "src": "university-bot",        // muss exakt so lauten
   "guild_name": "Mein Server"     // optional
 }
 ```
@@ -78,22 +85,28 @@ Das Secret steht bei beiden Bots in der Umgebungsvariable
 
 ### Prüfung — bitte genau in dieser Reihenfolge
 
-1. `state` enthält genau einen Punkt, beide Teile nicht leer
+1. `state` enthält genau einen Punkt, beide Teile sind nicht leer
 2. Signatur mit `hmac.compare_digest` vergleichen (**nicht** mit `==`
    — sonst lässt sich die richtige Signatur über Laufzeitunterschiede
-   erraten)
+   Zeichen für Zeichen erraten)
 3. JSON dekodieren
-4. `src == "oskar"` prüfen
-5. Alter prüfen: `time.time() - t <= 3600`, und `t > 0`
+4. `src == "university-bot"` prüfen
+5. Alter prüfen: `t > 0` **und** `time.time() - t <= 3600`
 
-Schlägt irgendein Schritt fehl: Token **verwerfen**, Server als ganz
+Schlägt irgendein Schritt fehl: Token **verwerfen**, den Server als ganz
 normalen Beitritt behandeln. Nicht raten, nicht teilweise vertrauen.
 
 **Warum die Signatur nicht optional ist:** Ohne sie könnte jeder
-`?state=oskar` an seinen eigenen Einladungslink hängen und unseren Bot
-dazu bringen, einen fremden Server als „von Oskar" zu behandeln. Ist
-`PARTNER_HANDSHAKE_SECRET` nicht gesetzt, gilt **kein** Token als gültig
-— lieber gar keine Automatik als eine manipulierbare.
+`?state=university-bot` an seinen eigenen Einladungslink hängen und
+unseren Bot dazu bringen, einen fremden Server als „von University Bot"
+zu behandeln.
+
+**Warum `src` trotzdem geprüft wird:** Falls wir später weitere Partner
+anbinden, teilen die sich unter Umständen ein Secret. Dann ist `src` das
+Einzige, was sie auseinanderhält.
+
+**Wenn `PARTNER_HANDSHAKE_SECRET` nicht gesetzt ist:** gilt **kein** Token
+als gültig. Lieber gar keine Automatik als eine manipulierbare.
 
 ### Referenz-Implementierung der Prüfung
 
@@ -101,6 +114,7 @@ dazu bringen, einen fremden Server als „von Oskar" zu behandeln. Ist
 import base64, hashlib, hmac, json, os, time
 
 SECRET = os.getenv("PARTNER_HANDSHAKE_SECRET", "").encode()
+SOURCE = "university-bot"
 MAX_AGE = 3600
 
 
@@ -128,7 +142,7 @@ def read_state(state: str) -> dict | None:
     except Exception:
         return None
 
-    if payload.get("src") != "oskar":
+    if payload.get("src") != SOURCE:
         return None
 
     issued = int(payload.get("t", 0))
@@ -148,13 +162,10 @@ GET /oauth/callback?code=…&guild_id=…&state=…
 
 - `read_state(state)` aufrufen
 - bei Erfolg: `guild_id` in einem kurzlebigen Speicher vormerken
-  (Dict im Arbeitsspeicher reicht — nach einer Stunde ist der Eintrag
-  ohnehin wertlos, und ihn beim Neustart zu verlieren ist sicherer als
+  (ein Dict im Arbeitsspeicher reicht — nach einer Stunde ist der Eintrag
+  ohnehin wertlos, und ihn beim Neustart zu verlieren ist sicherer, als
   einen veralteten zu verwenden)
 - dem Nutzer eine kurze Bestätigungsseite zeigen
-
-Achtung: Der Callback kann **vor** `on_guild_join` eintreffen oder
-danach. Beide Reihenfolgen müssen funktionieren — siehe Punkt 3.
 
 **2. `on_guild_join`**
 
@@ -169,42 +180,43 @@ async def on_guild_join(guild):
 
 **3. Das Wettrennen abfangen**
 
-Trifft `on_guild_join` zuerst ein, ist der Eintrag noch nicht da. Merk
-dir dann den Server für kurze Zeit und prüfe im Callback beide
-Richtungen. Ein einfacher Weg: in `on_guild_join` bei fehlendem Eintrag
-zweimal im Abstand von je 2 Sekunden erneut nachsehen, bevor du aufgibst.
+Der Callback kann **vor** `on_guild_join` eintreffen oder **danach** —
+beide Reihenfolgen kommen in der Praxis vor und beide müssen
+funktionieren. Trifft `on_guild_join` zuerst ein, ist der Eintrag noch
+nicht da. Ein einfacher Weg: bei fehlendem Eintrag zweimal im Abstand von
+je 2 Sekunden erneut nachsehen, bevor du aufgibst.
 
 **4. Template anwenden**
 
-- Rechte **zuerst** prüfen: `manage_channels`, `manage_roles`. Fehlen
-  sie, poste eine verständliche Meldung statt in eine Ausnahme zu laufen.
-- Zwischen Erstellungen `await asyncio.sleep(...)` einbauen. Discord
+- Rechte **zuerst** prüfen: `manage_channels`, `manage_roles`. Fehlen sie,
+  poste eine verständliche Meldung, statt in eine Ausnahme zu laufen.
+- Zwischen den Erstellungen `await asyncio.sleep(...)` einbauen. Discord
   begrenzt Kanal- und Rollenerstellung hart; ohne Pause bricht die
-  Einrichtung mittendrin ab und hinterlässt einen halben Server.
-- Grenzen beachten: **500 Kanäle**, **250 Rollen** pro Server. Vorher
+  Einrichtung mittendrin ab und hinterlässt einen halb fertigen Server.
+- Grenzen beachten: **500 Kanäle** und **250 Rollen** pro Server. Vorher
   rechnen, nicht beim Anlegen scheitern.
-- Am Ende eine Zusammenfassung posten: was angelegt wurde, was nicht,
-  und warum nicht.
+- Am Ende eine Zusammenfassung posten: was angelegt wurde, was nicht, und
+  warum nicht.
 
 **5. Nicht doppelt einrichten**
 
-Merke dir pro Server dauerhaft (Datenbank, nicht Arbeitsspeicher), dass
-das Template schon lief. Wird der Bot entfernt und wieder hinzugefügt,
-soll er nicht ein zweites Mal alles anlegen. Ein Befehl zum bewussten
-Wiederholen ist in Ordnung.
+Merke dir pro Server **dauerhaft** (Datenbank, nicht Arbeitsspeicher),
+dass das Template schon lief. Wird der Bot entfernt und wieder
+hinzugefügt, soll er nicht ein zweites Mal alles anlegen. Ein Befehl zum
+bewussten Wiederholen ist in Ordnung.
 
 ### Was du **nicht** versuchen sollst
 
 - **Keinen Bot per API einladen.** Geht nicht, es gibt keinen Endpunkt
   dafür. Wer das behauptet, irrt sich.
-- **Kein `==` für die Signatur.**
+- **Kein `==` für den Signaturvergleich.**
 - **Kein Vertrauen ohne Secret.** Fehlt es, ist die Automatik aus.
 - **Keine Massenerstellung ohne Pausen.**
 
 ### Umgebungsvariablen
 
 ```
-PARTNER_HANDSHAKE_SECRET=<derselbe Wert wie bei Oskar>
+PARTNER_HANDSHAKE_SECRET=<derselbe Wert wie bei University Bot>
 OAUTH_REDIRECT_URI=https://unser-bot.example/oauth/callback
 DISCORD_CLIENT_ID=<unsere Client-ID>
 DISCORD_CLIENT_SECRET=<unser Client-Secret>
@@ -219,6 +231,7 @@ Autorisierung ab.
 - ein gültiges Token wird angenommen
 - eine gefälschte Signatur wird abgelehnt
 - ein ausgetauschter Body unter gültiger Signatur wird abgelehnt
+- ein korrekt signiertes Token mit **anderem `src`** wird abgelehnt
 - ein Token älter als eine Stunde wird abgelehnt
 - ohne `PARTNER_HANDSHAKE_SECRET` wird **jedes** Token abgelehnt
 - `on_guild_join` vor dem Callback funktioniert genauso wie umgekehrt
@@ -229,9 +242,9 @@ Autorisierung ab.
 
 ---
 
-## Was du auf Oskars Seite noch setzen musst
+## Was du auf der Seite von University Bot noch setzen musst
 
-In Railway unter Variables:
+In Railway unter **Variables**:
 
 | Variable | Wert |
 |---|---|
@@ -244,5 +257,16 @@ Dasselbe Secret muss beim Template-Bot stehen. Erzeugen zum Beispiel mit:
 python3 -c "import secrets; print(secrets.token_urlsafe(48))"
 ```
 
-Solange `PARTNER_BOT_CLIENT_ID` fehlt, blendet Oskar den Bereich
+Solange `PARTNER_BOT_CLIENT_ID` fehlt, blendet University Bot den Bereich
 „Template-Bot hinzufügen" im Dashboard einfach aus.
+
+### Wo der Wert im Code steht
+
+`bot/utils/partner_bot.py`:
+
+```python
+SOURCE = "university-bot"
+```
+
+Änderst du diesen String, musst du ihn im Prompt oben mitändern —
+ansonsten lehnt der Template-Bot jeden Link ab.

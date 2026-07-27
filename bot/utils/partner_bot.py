@@ -10,13 +10,13 @@ with administrator rights: the OAuth2 flow requires a signed-in human
 clicking "Authorise" in a browser. That is deliberate — otherwise one
 compromised bot could pull in a dozen more, which is precisely a nuke.
 
-So the flow is: Oskar posts a ready-made invite link carrying a signed
-`state` value. When the template bot joins, it reads that value back and
-knows the join came from Oskar, for which guild, and who asked for it.
+So the flow is: University Bot posts a ready-made invite link carrying a
+signed `state` value. When the template bot joins, it reads that value
+back and knows the join came from us, for which guild, and who asked.
 
 The signature matters. Without it anybody could append
-`?state=oskar` to their own invite and have the template bot treat a
-stranger's server as ours.
+`?state=university-bot` to their own invite and have the template bot
+treat a stranger's server as ours.
 """
 
 from __future__ import annotations
@@ -31,6 +31,11 @@ import time
 
 # Shared between the two bots. Both must see the same value or the
 # signature check fails — which is the point.
+# Identifies us to the template bot. Part of the signed payload, so
+# changing it invalidates every link already handed out -- the template
+# bot compares against this exact string.
+SOURCE = "university-bot"
+
 SECRET_ENV = "PARTNER_HANDSHAKE_SECRET"
 
 # How long a handshake stays valid. Long enough to click through the
@@ -68,7 +73,7 @@ def make_state(guild_id: int, user_id: int, extra: dict | None = None) -> str:
         "g": str(guild_id),
         "u": str(user_id),
         "t": int(time.time()),
-        "src": "oskar",
+        "src": SOURCE,
     }
     if extra:
         payload.update(extra)
@@ -101,7 +106,7 @@ def read_state(state: str) -> dict | None:
     except Exception:
         return None
 
-    if payload.get("src") != "oskar":
+    if payload.get("src") != SOURCE:
         return None
 
     issued = int(payload.get("t", 0))
@@ -147,7 +152,7 @@ def invite_url(
 #   2. Discord redirects to the template bot's redirect URI with
 #      ?code=…&guild_id=…&state=…
 #   3. that endpoint calls read_state(state); if it verifies, the guild
-#      is marked as "sent by Oskar" before the bot has even joined
+#      is marked as "sent by University Bot" before it has even joined
 #   4. on_guild_join looks the guild up and posts the template
 #
 # `pending_handoffs` below is the small piece of that the template bot

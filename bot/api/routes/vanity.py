@@ -6,7 +6,7 @@
 The dashboard side of status-based vanity roles.
 
 The two routes this replaces lived in guilds.py, stored the trigger
-exactly as typed (so `.gg/Oskar` and `discord.gg/oskar` were two separate
+exactly as typed (so `.gg/MeinServer` and `discord.gg/meinserver` were two separate
 setups that both looked correct), had no way to switch a setup off, to
 see who currently holds a role, or to run a sync — and there was no
 delete route at all.

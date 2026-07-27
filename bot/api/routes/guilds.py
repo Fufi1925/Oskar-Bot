@@ -552,8 +552,8 @@ async def patch_guild_verification(guild_id: int, data: VerificationUpdate):
 
 
 # NOTE: vanity roles moved to api/routes/vanity.py. The three routes that
-# lived here stored the trigger exactly as typed, so `.gg/Oskar` and
-# `discord.gg/oskar` became two separate setups that both looked right;
+# lived here stored the trigger exactly as typed, so `.gg/MeinServer` and
+# `discord.gg/meinserver` became two separate setups that both looked right;
 # and they matched nothing useful anyway, because the cog behind them
 # checked whether the *invite* still existed and then handed the role to
 # every member of the server.

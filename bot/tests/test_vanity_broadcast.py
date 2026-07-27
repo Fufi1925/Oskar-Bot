@@ -7,8 +7,8 @@ What these pin down:
   Vanity — the old cog polled `/api/v10/invites/<code>` every fifteen
   seconds and, if the invite existed, gave the role to *every member of
   the guild*, removing it from everyone again the moment a request
-  failed. It also stored the trigger exactly as typed, so `.gg/Oskar`
-  and `discord.gg/oskar` were two separate setups.
+  failed. It also stored the trigger exactly as typed, so `.gg/MeinServer`
+  and `discord.gg/meinserver` were two separate setups.
 
   Broadcast — the dashboard tab called "Global Broadcast" wrote the
   dashboard's own banner and sent nothing to Discord. The route that did
@@ -198,13 +198,13 @@ def run():
     same = {
         vstore.normalise_trigger(raw)
         for raw in [
-            ".gg/oskar", ".gg/Oskar", "discord.gg/oskar",
-            "https://discord.gg/oskar", "https://discord.com/invite/oskar/",
-            "OSKAR", "oskar?ref=x", "  oskar  ",
+            ".gg/meinserver", ".gg/MeinServer", "discord.gg/meinserver",
+            "https://discord.gg/meinserver", "https://discord.com/invite/meinserver/",
+            "MEINSERVER", "meinserver?ref=x", "  meinserver  ",
         ]
     }
     check("every way of writing the trigger becomes the same thing",
-          same == {"oskar"}, str(same))
+          same == {"meinserver"}, str(same))
     check("an empty trigger stays empty", vstore.normalise_trigger("  ") == "")
 
     # ══════════════════════════════════════════════════════════════
@@ -212,19 +212,19 @@ def run():
     # ══════════════════════════════════════════════════════════════
 
     cases = [
-        ("spiele auf .gg/oskar", True, "the usual way people write it"),
-        ("discord.gg/oskar komm rein!", True, "full domain"),
-        ("https://discord.gg/oskar", True, "with the protocol"),
-        ("oskar", True, "the bare code"),
-        ("OSKAR IST TOP", True, "shouting still counts"),
-        ("oskarina", False, "a longer word must not match"),
-        ("meinoskar", False, "nor a word ending in it"),
-        ("oskar-2", False, "nor one with a suffix"),
+        ("spiele auf .gg/meinserver", True, "the usual way people write it"),
+        ("discord.gg/meinserver komm rein!", True, "full domain"),
+        ("https://discord.gg/meinserver", True, "with the protocol"),
+        ("meinserver", True, "the bare code"),
+        ("MEINSERVER IST TOP", True, "shouting still counts"),
+        ("servername", False, "a longer word must not match"),
+        ("meinserver-extra", False, "nor a word ending in it"),
+        ("meinserver-2", False, "nor one with a suffix"),
         ("nichts hier", False, "unrelated text"),
         ("", False, "an empty status"),
     ]
     for text, want, why in cases:
-        got = vstore.matches("oskar", text.lower())
+        got = vstore.matches("meinserver", text.lower())
         check(f"status matching: {why}", got == want, f"{text!r} -> {got}")
 
     check("an empty trigger never matches",
@@ -234,11 +234,11 @@ def run():
     member = FakeMember(10, "Alice")
     member.activities = [
         FakeActivity(name="Visual Studio Code"),
-        FakeActivity(state="komm auf .gg/oskar"),
+        FakeActivity(state="komm auf .gg/meinserver"),
     ]
     text = vstore.status_text(member)
     check("the status text covers every activity",
-          "oskar" in text and "visual studio code" in text, text)
+          "meinserver" in text and "visual studio code" in text, text)
 
     # ══════════════════════════════════════════════════════════════
     #  Vanity: the API
@@ -246,14 +246,14 @@ def run():
 
     base = f"/api/v1/vanity/{GUILD}"
 
-    r = client.post(base, json={"vanity": ".gg/Oskar", "role_id": str(ROLE_OK)})
+    r = client.post(base, json={"vanity": ".gg/MeinServer", "role_id": str(ROLE_OK)})
     check("a setup can be created", r.status_code == 200, r.text[:140])
 
     listing = client.get(base).json()
     check("it is stored under the normalised trigger",
-          listing["setups"][0]["vanity"] == "oskar", str(listing["setups"][0]))
+          listing["setups"][0]["vanity"] == "meinserver", str(listing["setups"][0]))
     check("the dashboard gets it pre-formatted",
-          listing["setups"][0]["display"] == ".gg/oskar",
+          listing["setups"][0]["display"] == ".gg/meinserver",
           listing["setups"][0]["display"])
     check("role ids come back as strings",
           isinstance(listing["setups"][0]["role_id"], str),
@@ -262,7 +262,7 @@ def run():
           listing["presence_intent"] is True)
 
     # Writing the same trigger differently must update, not duplicate.
-    client.post(base, json={"vanity": "discord.gg/OSKAR", "role_id": str(ROLE_OK)})
+    client.post(base, json={"vanity": "discord.gg/MEINSERVER", "role_id": str(ROLE_OK)})
     listing = client.get(base).json()
     check("re-adding the same trigger written differently does not duplicate it",
           len(listing["setups"]) == 1, str(len(listing["setups"])))
@@ -278,10 +278,10 @@ def run():
     check("a missing role is rejected", r.status_code == 400)
 
     # The tester answers without touching anybody.
-    r = client.post(f"{base}/oskar/test", json={"status": "zocke auf .gg/oskar"})
+    r = client.post(f"{base}/meinserver/test", json={"status": "zocke auf .gg/meinserver"})
     check("the tester says yes to a matching status",
           r.json()["matches"] is True, r.text[:120])
-    r = client.post(f"{base}/oskar/test", json={"status": "oskarina"})
+    r = client.post(f"{base}/meinserver/test", json={"status": "servername"})
     check("the tester says no to a near miss",
           r.json()["matches"] is False, r.text[:120])
 
@@ -289,13 +289,13 @@ def run():
     #  Vanity: syncing real members
     # ══════════════════════════════════════════════════════════════
 
-    advertiser = main_guild.add_member(FakeMember(10, "Alice", "komm auf .gg/oskar"))
+    advertiser = main_guild.add_member(FakeMember(10, "Alice", "komm auf .gg/meinserver"))
     bystander = main_guild.add_member(FakeMember(11, "Bob", "nichts"))
     manual = main_guild.add_member(FakeMember(12, "Carol", "nichts"))
     # Carol was given the role by hand; the bot must never take it away.
     manual.roles.append(main_guild.get_role(ROLE_OK))
 
-    r = client.post(f"{base}/oskar/sync", json={})
+    r = client.post(f"{base}/meinserver/sync", json={})
     check("a sync runs", r.status_code == 200, r.text[:140])
     body = r.json()
     check("only the advertiser gets the role", body["granted"] == 1, str(body))
@@ -308,12 +308,12 @@ def run():
 
     # Taking the trigger back out.
     advertiser.activities = [FakeActivity(state="nichts mehr")]
-    r = client.post(f"{base}/oskar/sync", json={})
+    r = client.post(f"{base}/meinserver/sync", json={})
     check("removing the trigger takes the role back",
           role not in advertiser.roles, str(r.json()))
     check("the manual holder still keeps it", role in manual.roles)
 
-    holders = client.get(f"{base}/oskar/holders").json()
+    holders = client.get(f"{base}/meinserver/holders").json()
     check("the holder list is empty again", holders["count"] == 0, str(holders))
 
     # Counters survive.
@@ -323,9 +323,9 @@ def run():
     check("removing is counted", listing["setups"][0]["removed_total"] >= 1,
           str(listing["setups"][0]))
 
-    r = client.delete(f"{base}/oskar")
+    r = client.delete(f"{base}/meinserver")
     check("a setup can be deleted", r.status_code == 200, r.text[:120])
-    r = client.delete(f"{base}/oskar")
+    r = client.delete(f"{base}/meinserver")
     check("deleting it twice gives 404", r.status_code == 404)
 
     # ══════════════════════════════════════════════════════════════

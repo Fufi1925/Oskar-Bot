@@ -11,7 +11,7 @@ What this pins down:
   * The alert has to reach somebody even when the attacker deleted every
     channel, which is the situation it exists for.
   * The handshake token has to be forgeable-proof: without a signature
-    anybody could append `?state=oskar` to their own invite.
+    anybody could append `?state=university-bot` to their own invite.
 
 Run:  python3 tests/test_nuke_alert.py
 """
@@ -326,12 +326,31 @@ def run():
           partner_bot.read_state(tampered) is None)
 
     check("nonsense is rejected", partner_bot.read_state("garbage") is None)
+
+    # A correctly signed token from a *different* sender must not pass:
+    # the template bot serves more than one source.
+    import hashlib as _hl
+    import hmac as _hm
+    import json as _js
+    foreign = _js.dumps(
+        {"g": str(GUILD), "u": "77", "t": int(time.time()), "src": "someone-else"},
+        separators=(",", ":"),
+    ).encode()
+    fbody = partner_bot._b64(foreign)
+    fsig = partner_bot._b64(
+        _hm.new(b"test-secret-123", fbody.encode(), _hl.sha256).digest()
+    )
+    check("a properly signed token from another sender is rejected",
+          partner_bot.read_state(f"{fbody}.{fsig}") is None)
+
+    check("our own source string is what the prompt documents",
+          partner_bot.SOURCE == "university-bot", partner_bot.SOURCE)
     check("an empty token is rejected", partner_bot.read_state("") is None)
 
     # Old links must stop working.
     import json as _json
     stale = {
-        "g": str(GUILD), "u": "77", "src": "oskar",
+        "g": str(GUILD), "u": "77", "src": partner_bot.SOURCE,
         "t": int(time.time()) - partner_bot.MAX_AGE - 60,
     }
     body = partner_bot._b64(_json.dumps(stale, separators=(",", ":")).encode())

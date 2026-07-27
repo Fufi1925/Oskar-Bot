@@ -123,7 +123,7 @@ export function VanityPanel({ guildId }: { guildId: string }) {
   };
 
   // Show what the trigger will be reduced to, so nobody is surprised
-  // that ".gg/Oskar" and "oskar" are the same thing.
+  // that ".gg/MeinServer" and "meinserver" are the same thing.
   const normalised = useMemo(() => {
     let value = trigger.trim().toLowerCase();
     for (const prefix of [

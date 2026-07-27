@@ -28,7 +28,7 @@ import aiosqlite
 DB_PATH = "db/vanity.db"
 
 # How the trigger may be written in a status. All of these are the same:
-#   .gg/oskar   discord.gg/oskar   https://discord.gg/oskar   /oskar
+#   .gg/meinserver   discord.gg/meinserver   https://discord.gg/meinserver   /meinserver
 _PREFIXES = (
     "https://discord.gg/", "http://discord.gg/",
     "https://discord.com/invite/", "http://discord.com/invite/",
@@ -41,7 +41,7 @@ def normalise_trigger(text: str) -> str:
     Reduce whatever was typed to the bare invite code, lowercased.
 
     People enter the trigger in every possible shape; storing the raw
-    string meant `.gg/Oskar` and `discord.gg/oskar` were two different
+    string meant `.gg/MeinServer` and `discord.gg/meinserver` were two different
     setups that both looked right in the dashboard.
     """
     value = str(text or "").strip().lower()
@@ -76,7 +76,7 @@ def matches(trigger: str, text: str) -> bool:
     Whether a status contains the trigger.
 
     Word boundaries matter: a trigger of `gg` must not match the word
-    "gaming", and `oskar` should not match "oskarina". The invite code is
+    "gaming", and `server` should not match "servername". The invite code is
     matched with the usual prefixes optional, so anything from `.gg/x` to
     a bare `x` counts.
     """
