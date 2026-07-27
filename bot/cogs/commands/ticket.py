@@ -275,12 +275,50 @@ class TicketCog(commands.Cog, name="Ticket System"):
 
     async def load_persistent_views(self):
         await self.bot.wait_until_ready()
+        # Legacy single-panel rows.
         for config in self.db.fetchall("SELECT guild_id, panel_message_id FROM guild_configs WHERE panel_message_id IS NOT NULL"):
             if view := self.create_panel_view(config['guild_id']): self.bot.add_view(view, message_id=config['panel_message_id'])
 
-    def create_panel_view(self, guild_id):
-        config = self.db.fetchone("SELECT panel_type FROM guild_configs WHERE guild_id=?", (guild_id,))
-        categories = self.db.fetchall("SELECT * FROM ticket_categories WHERE guild_id=?", (guild_id,))
+        # Panels created through the dashboard. Their buttons are dispatched
+        # by the on_interaction listener below (custom_id starts with
+        # create_ticket_), so an empty persistent view is enough to keep
+        # Discord delivering the interaction after a restart.
+        try:
+            panels = self.db.fetchall(
+                "SELECT panel_id, guild_id, message_id FROM ticket_panels"
+                " WHERE message_id IS NOT NULL"
+            )
+        except Exception:
+            panels = []  # table not created yet on a fresh install
+
+        for panel in panels:
+            view = self.create_panel_view(panel['guild_id'], panel['panel_id'])
+            if view:
+                self.bot.add_view(view, message_id=panel['message_id'])
+
+    def create_panel_view(self, guild_id, panel_id=None):
+        """
+        Build the view for a panel.
+
+        panel_id selects one of the dashboard panels; without it the legacy
+        single-panel configuration is used, which is what the old setup
+        command still writes.
+        """
+        if panel_id is not None:
+            try:
+                config = self.db.fetchone(
+                    "SELECT panel_type FROM ticket_panels WHERE panel_id=?",
+                    (panel_id,),
+                )
+                categories = self.db.fetchall(
+                    "SELECT * FROM ticket_categories WHERE guild_id=? AND panel_id=?",
+                    (guild_id, panel_id),
+                )
+            except Exception:
+                return None
+        else:
+            config = self.db.fetchone("SELECT panel_type FROM guild_configs WHERE guild_id=?", (guild_id,))
+            categories = self.db.fetchall("SELECT * FROM ticket_categories WHERE guild_id=?", (guild_id,))
         if not config or not categories: return None
         view_class = TicketPanelSelect if config['panel_type'] == 'dropdown' else TicketPanelButtons
         view = view_class(self)

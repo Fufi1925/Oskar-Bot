@@ -641,4 +641,40 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ lock }),
     }),
+
+  // Ticket panels — one endpoint per section, so saving one part can
+  // never blank another.
+  getTicketPanels: (guildId: string) =>
+    request<any>(`/tickets/${guildId}/panels`),
+  updateTicketServer: (guildId: string, data: any) =>
+    request<any>(`/tickets/${guildId}/server`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+  createTicketPanel: (guildId: string, name: string) =>
+    request<any>(`/tickets/${guildId}/panels`, {
+      method: "POST",
+      body: JSON.stringify({ name }),
+    }),
+  updateTicketPanel: (guildId: string, panelId: number, data: any) =>
+    request<any>(`/tickets/${guildId}/panels/${panelId}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+  deleteTicketPanel: (guildId: string, panelId: number) =>
+    request<any>(`/tickets/${guildId}/panels/${panelId}`, { method: "DELETE" }),
+  saveTicketCategory: (guildId: string, panelId: number, data: any) =>
+    request<any>(`/tickets/${guildId}/panels/${panelId}/categories`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+  deleteTicketCategory: (guildId: string, categoryId: number) =>
+    request<any>(`/tickets/${guildId}/categories/${categoryId}`, {
+      method: "DELETE",
+    }),
+  postTicketPanel: (guildId: string, panelId: number) =>
+    request<any>(`/tickets/${guildId}/panels/${panelId}/send`, {
+      method: "POST",
+      body: "{}",
+    }),
 };
