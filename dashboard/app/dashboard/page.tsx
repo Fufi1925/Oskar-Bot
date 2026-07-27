@@ -1,190 +1,361 @@
-/**
- * ╔══════════════════════════════════════════════════════════════════╗
- * ║                                                                  ║
- * ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
- * ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
- * ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
- * ║                                                                  ║
- * ║           © 2026 University Bot Devs — All Rights Reserved               ║
- * ║                                                                  ║
- * ║   discord  ──  https://discord.gg/MG3rYnUZJV                      ║
- * ║   youtube  ──  https://youtube.com/@University BotDevs                   ║
- * ║   github   ──  https://github.com/University Bot                        ║
- * ║                                                                  ║
- * ╚══════════════════════════════════════════════════════════════════╝
- */
-
 import React from "react";
-import { 
-  Users, 
-  MessageSquare, 
-  Zap, 
+import Link from "next/link";
+import Image from "next/image";
+import {
   Activity,
-  Server as ServerIcon,
-  ShieldAlert,
-  Settings,
+  ArrowRight,
+  Bot,
+  ChevronRight,
   LifeBuoy,
-  FileText
+  Plus,
+  Server as ServerIcon,
+  Settings,
+  ShieldAlert,
+  Users,
 } from "lucide-react";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/auth";
 import { api } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
 
+const BOT_INVITE_URL =
+  process.env.NEXT_PUBLIC_BOT_INVITE_URL ||
+  "https://discord.com/oauth2/authorize?client_id=1530349205372145715&permissions=8&scope=bot%20applications.commands";
+
+const MANAGE_GUILD = BigInt(0x20);
+const ADMINISTRATOR = BigInt(0x8);
+
+function iconUrl(id: string, icon: string | null) {
+  return icon ? `https://cdn.discordapp.com/icons/${id}/${icon}.png?size=64` : null;
+}
+
 export default async function DashboardPage() {
-  let botInfo;
+  const session = await getServerSession(authOptions);
+  const firstName = (session?.user?.name || "").split(" ")[0] || "there";
+
+  let botInfo: any = null;
   let botStatus: any = null;
-  let error = null;
+  let error: string | null = null;
 
   try {
     botInfo = await api.getBotInfo();
-    // Live status drives the module list below instead of fixed strings.
-    try {
-      botStatus = await api.getBotStatus();
-    } catch {
-      botStatus = null;
-    }
   } catch (err: any) {
-    console.error("Failed to fetch bot info:", err);
-    error = err.message || "Failed to connect to the bot API.";
-    // Fallback data for UI structure if API fails
-    botInfo = {
-      name: "University Bot Bot",
-      guilds: 0,
-      users: 0,
-      commands: 0,
-      latency: "0ms"
-    };
+    error = err?.message || "Could not reach the bot API.";
+    botInfo = { name: "Bot", guilds: 0, users: 0, commands: 0, latency: "0ms" };
   }
 
+  try {
+    botStatus = await api.getBotStatus();
+  } catch {
+    botStatus = null;
+  }
+
+  // The servers this user can actually manage — the reason they are here.
+  let myGuilds: Array<{
+    id: string;
+    name: string;
+    icon: string | null;
+    hasBot: boolean;
+    memberCount: number | null;
+  }> = [];
+
+  if (session?.accessToken) {
+    try {
+      const [botGuilds, res] = await Promise.all([
+        api.listGuilds().catch(() => []),
+        fetch("https://discord.com/api/users/@me/guilds?with_counts=true", {
+          headers: { Authorization: `Bearer ${session.accessToken}` },
+          next: { revalidate: 300 },
+        }),
+      ]);
+
+      if (res.ok) {
+        const all = await res.json();
+        const botMap = new Map(
+          (botGuilds as any[]).map((g) => [String(g.id), g])
+        );
+
+        myGuilds = all
+          .filter((g: any) => {
+            try {
+              const perms = BigInt(g.permissions);
+              return (
+                (perms & ADMINISTRATOR) === ADMINISTRATOR ||
+                (perms & MANAGE_GUILD) === MANAGE_GUILD ||
+                g.owner === true
+              );
+            } catch {
+              return g.owner === true;
+            }
+          })
+          .map((g: any) => {
+            const info: any = botMap.get(String(g.id));
+            return {
+              id: String(g.id),
+              name: g.name,
+              icon: g.icon ?? null,
+              hasBot: Boolean(info),
+              memberCount:
+                typeof info?.member_count === "number" && info.member_count > 0
+                  ? info.member_count
+                  : typeof g.approximate_member_count === "number"
+                  ? g.approximate_member_count
+                  : null,
+            };
+          })
+          .sort(
+            (a: any, b: any) =>
+              Number(b.hasBot) - Number(a.hasBot) ||
+              (b.memberCount ?? 0) - (a.memberCount ?? 0)
+          );
+      }
+    } catch {
+      /* the section below simply stays empty */
+    }
+  }
+
+  const connected = myGuilds.filter((g) => g.hasBot);
+  const preview = myGuilds.slice(0, 6);
+
   const stats = [
-    { name: "Total Guilds", value: botInfo.guilds.toLocaleString(), icon: ServerIcon },
-    { name: "Total Users", value: botInfo.users.toLocaleString(), icon: Users },
-    { name: "System Uptime", value: "99.9%", icon: Activity },
-    { name: "API Latency", value: botInfo.latency, icon: Activity },
+    {
+      name: "Your servers",
+      value: connected.length.toLocaleString("en-US"),
+      hint: `${myGuilds.length} manageable`,
+      icon: ServerIcon,
+    },
+    {
+      name: "Members reached",
+      value: connected
+        .reduce((sum, g) => sum + (g.memberCount ?? 0), 0)
+        .toLocaleString("en-US"),
+      hint: "across your servers",
+      icon: Users,
+    },
+    {
+      name: "Bot servers",
+      value: (botInfo?.guilds ?? 0).toLocaleString("en-US"),
+      hint: "total",
+      icon: Bot,
+    },
+    {
+      name: "Latency",
+      value: botStatus ? `${Math.round(botStatus.latency)}ms` : botInfo?.latency || "—",
+      hint: botStatus ? "gateway" : error ? "offline" : "unknown",
+      icon: Activity,
+    },
   ];
 
   return (
     <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 px-2">
-        <div>
-          <h1 className="text-4xl md:text-5xl font-bold text-white font-outfit tracking-tight">System <span className="text-blue-500 italic">Core.</span></h1>
-          <p className="text-slate-400 mt-3 font-medium flex items-center gap-2">
-            Status and live metrics for <span className="text-blue-500 font-bold px-2 py-0.5 rounded-lg bg-blue-500/10 border border-blue-500/20">{botInfo.name}</span>
-          </p>
+      {/* ── Greeting ─────────────────────────────────────────── */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div className="flex items-center gap-4">
+          {session?.user?.image && (
+            <Image
+              src={session.user.image}
+              alt=""
+              width={56}
+              height={56}
+              unoptimized
+              className="rounded-2xl border-2 border-slate-800"
+            />
+          )}
+          <div>
+            <h1 className="text-3xl md:text-4xl font-bold text-white tracking-tight">
+              Welcome back, <span className="text-blue-500">{firstName}</span>
+            </h1>
+            <p className="text-slate-400 mt-1.5 text-sm">
+              {connected.length > 0
+                ? `You manage ${connected.length} server${connected.length === 1 ? "" : "s"} with ${botInfo?.name || "the bot"}.`
+                : "Add the bot to a server to get started."}
+            </p>
+          </div>
         </div>
-        
+
         {error && (
-          <div className="flex items-center gap-2 px-5 py-2.5 glass-blue rounded-2xl text-blue-500 text-xs font-bold uppercase tracking-widest animate-pulse">
-            <ShieldAlert className="h-4 w-4" />
-            <span>{error}</span>
+          <div className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-amber-500/10 border border-amber-500/25 text-amber-300 text-xs font-bold">
+            <ShieldAlert className="h-4 w-4 shrink-0" />
+            <span>Bot offline — values may be incomplete.</span>
           </div>
         )}
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+      {/* ── Stats ────────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map((stat) => (
-          <div key={stat.name} className="group glass border-white/5 p-7 rounded-[32px] relative overflow-hidden hover:border-blue-500/30 transition-all duration-500 shadow-2xl">
-              {/* Animated Glow Overlay */}
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-              
-             <div className="flex items-center justify-between relative z-10">
-                <div>
-                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2">{stat.name}</p>
-                  <p className="text-3xl font-bold text-white font-outfit tracking-tight">{stat.value}</p>
-                </div>
-                <div className="p-4 bg-blue-500/10 rounded-2xl border border-blue-500/20 group-hover:scale-110 group-hover:bg-blue-500/20 transition-all duration-500">
-                  <stat.icon className="h-6 w-6 text-blue-500" />
-                </div>
-             </div>
-             
-             <div className="absolute bottom-0 left-12 right-12 h-[1px] bg-blue-500/50 blur-[1px] opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+          <div
+            key={stat.name}
+            className="group glass border-white/5 p-6 rounded-[28px] relative overflow-hidden hover:border-blue-500/30 transition-all duration-500"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.18em]">
+                  {stat.name}
+                </p>
+                <p className="text-3xl font-bold text-white tracking-tight mt-2 tabular-nums truncate">
+                  {stat.value}
+                </p>
+                <p className="text-[11px] text-slate-600 mt-1">{stat.hint}</p>
+              </div>
+              <div className="p-3 bg-blue-500/10 rounded-2xl border border-blue-500/20 group-hover:bg-blue-500/20 transition-all shrink-0">
+                <stat.icon className="h-5 w-5 text-blue-500" />
+              </div>
+            </div>
           </div>
         ))}
       </div>
 
-      {/* Featured Modules & Support */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 glass border-white/5 rounded-[40px] p-10 relative group overflow-hidden shadow-2xl">
-          <div className="absolute inset-0 bg-gradient-to-br from-blue-500/[0.03] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-          
-          <div className="flex items-center justify-between mb-8 relative z-10">
-            <h2 className="text-2xl font-bold text-white font-outfit tracking-tight">Quick Actions</h2>
-            <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20">
-               <Zap className="h-3 w-3 text-blue-500" />
-               <span className="text-[10px] font-black text-blue-500 uppercase tracking-widest">Efficiency</span>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 relative z-10">
-            {[
-              { title: "Manage Servers", desc: "View and configure your Discord guilds.", icon: ServerIcon, href: "/dashboard/guilds" },
-              { title: "Global Settings", desc: "Adjust your personal dashboard preferences.", icon: Settings, href: "/dashboard" },
-              { title: "Support Matrix", desc: "Get help from our neural support team.", icon: LifeBuoy, href: "#" },
-              { title: "Documentation", desc: "Learn how to master the University Bot engine.", icon: FileText, href: "#" },
-            ].map((item) => (
-              <a key={item.title} href={item.href} className="flex items-center gap-5 p-4 rounded-2xl bg-white/[0.02] border border-white/[0.03] group/item hover:bg-white/[0.05] hover:border-blue-500/20 transition-all">
-                <div className="h-12 w-12 rounded-2xl bg-blue-500/5 border border-blue-500/10 flex items-center justify-center group-hover/item:bg-blue-500/10 transition-colors">
-                   <item.icon className="h-5 w-5 text-blue-500/60 group-hover/item:text-blue-500 transition-colors" />
-                </div>
-                <div>
-                  <h4 className="text-sm font-bold text-white group-hover/item:text-blue-500 transition-colors">{item.title}</h4>
-                  <p className="text-[10px] text-slate-500 font-medium uppercase tracking-wider">{item.desc}</p>
-                </div>
-              </a>
-            ))}
-          </div>
+      {/* ── Your servers ─────────────────────────────────────── */}
+      <section className="glass border-white/5 rounded-[32px] p-8">
+        <div className="flex items-center justify-between mb-6 gap-4">
+          <h2 className="text-xl font-bold text-white tracking-tight">Your servers</h2>
+          {myGuilds.length > preview.length && (
+            <Link
+              href="/dashboard/guilds"
+              className="flex items-center gap-1.5 text-xs font-black uppercase tracking-widest text-blue-400 hover:text-blue-300 transition-colors shrink-0"
+            >
+              All {myGuilds.length}
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          )}
         </div>
 
-        <div className="glass border-white/5 rounded-[40px] p-10 flex flex-col justify-between relative group shadow-2xl overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-bl from-blue-500/[0.05] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-          
-          <div className="relative z-10">
-            <h2 className="text-2xl font-bold text-white mb-3 font-outfit">Module Status</h2>
-            <p className="text-slate-500 text-sm mb-10 font-medium">Global operational health of University Bot core.</p>
-            
-            <div className="space-y-4">
-              {[
-                {
-                  name: "Gateway",
-                  status: botStatus
-                    ? `${Math.round(botStatus.latency)}ms`
-                    : error
-                    ? "Offline"
-                    : "Unknown",
-                  ok: Boolean(botStatus && botStatus.latency < 500),
-                },
-                {
-                  name: "Servers",
-                  status: `${botInfo.guilds.toLocaleString()} connected`,
-                  ok: botInfo.guilds > 0,
-                },
-                {
-                  name: "Shards",
-                  status: botStatus ? `${botStatus.shards ?? 1} running` : "Unknown",
-                  ok: Boolean(botStatus),
-                },
-              ].map((service) => (
-                <div key={service.name} className="flex items-center justify-between p-4 bg-white/[0.02] rounded-2xl border border-white/[0.05] hover:border-blue-500/20 transition-colors">
-                  <span className="text-xs font-bold text-slate-300">{service.name}</span>
-                  <div className="flex items-center gap-3">
-                    <div className={`h-1.5 w-1.5 rounded-full ${service.ok ? "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]" : "bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]"}`} />
-                    <span className={`text-[9px] uppercase font-black tracking-widest ${service.ok ? "text-emerald-500" : "text-amber-500"}`}>{service.status}</span>
+        {preview.length === 0 ? (
+          <div className="text-center py-10">
+            <ServerIcon className="h-12 w-12 text-slate-700 mx-auto mb-4" />
+            <p className="text-slate-400 font-medium">No servers yet</p>
+            <p className="text-sm text-slate-600 mt-1 mb-6">
+              You need Manage Server or Administrator on a Discord server.
+            </p>
+            <a
+              href={BOT_INVITE_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-blue-500 text-white text-xs font-black uppercase tracking-widest hover:brightness-110 transition-all"
+            >
+              <Plus className="h-4 w-4" />
+              Invite the bot
+            </a>
+          </div>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {preview.map((guild) => {
+              const url = iconUrl(guild.id, guild.icon);
+              const card = (
+                <>
+                  {url ? (
+                    <Image
+                      src={url}
+                      alt=""
+                      width={44}
+                      height={44}
+                      unoptimized
+                      className="rounded-xl border border-slate-800 shrink-0"
+                    />
+                  ) : (
+                    <div className="h-11 w-11 rounded-xl bg-blue-500/15 border border-slate-800 flex items-center justify-center text-blue-400 font-black shrink-0">
+                      {guild.name.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="font-bold text-white text-sm truncate">{guild.name}</p>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      {guild.hasBot
+                        ? guild.memberCount !== null
+                          ? `${guild.memberCount.toLocaleString("en-US")} members`
+                          : "Connected"
+                        : "Bot not added"}
+                    </p>
                   </div>
-                </div>
-              ))}
-            </div>
+                  {guild.hasBot ? (
+                    <ChevronRight className="h-4 w-4 text-slate-600 group-hover:text-blue-400 group-hover:translate-x-0.5 transition-all shrink-0" />
+                  ) : (
+                    <Plus className="h-4 w-4 text-slate-600 group-hover:text-blue-400 shrink-0" />
+                  )}
+                </>
+              );
+
+              const className =
+                "group flex items-center gap-3 p-4 rounded-2xl bg-white/[0.02] border border-white/5 hover:bg-white/[0.05] hover:border-blue-500/25 transition-all";
+
+              return guild.hasBot ? (
+                <Link key={guild.id} href={`/dashboard/guild/${guild.id}`} className={className}>
+                  {card}
+                </Link>
+              ) : (
+                <a
+                  key={guild.id}
+                  href={BOT_INVITE_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={className}
+                >
+                  {card}
+                </a>
+              );
+            })}
           </div>
-          
-          <a
-            href="/dashboard/admin#health"
-            className="mt-12 w-full py-4 glass-blue hover:bg-blue-500/10 text-blue-500 rounded-[20px] text-[11px] font-black uppercase tracking-[0.2em] transition-all border border-blue-500/20 relative z-10 flex items-center justify-center"
-          >
-            System Diagnostics
-          </a>
-          {/* Abstract Design Element */}
-          <div className="absolute -bottom-10 -right-10 h-32 w-32 bg-blue-500/10 blur-3xl rounded-full" />
-        </div>
+        )}
+      </section>
+
+      {/* ── Shortcuts ────────────────────────────────────────── */}
+      <div className="grid gap-4 sm:grid-cols-3">
+        {[
+          {
+            title: "All servers",
+            desc: "Search and configure",
+            icon: ServerIcon,
+            href: "/dashboard/guilds",
+          },
+          {
+            title: "Add the bot",
+            desc: "Invite it to a server",
+            icon: Plus,
+            href: BOT_INVITE_URL,
+            external: true,
+          },
+          {
+            title: "Support",
+            desc: "Ask us on Discord",
+            icon: LifeBuoy,
+            href: "https://discord.gg/MG3rYnUZJV",
+            external: true,
+          },
+        ].map((item) => {
+          const inner = (
+            <>
+              <div className="h-11 w-11 rounded-2xl bg-blue-500/5 border border-blue-500/10 flex items-center justify-center group-hover:bg-blue-500/15 transition-colors shrink-0">
+                <item.icon className="h-5 w-5 text-blue-500/70 group-hover:text-blue-400 transition-colors" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-white group-hover:text-blue-400 transition-colors">
+                  {item.title}
+                </p>
+                <p className="text-[11px] text-slate-500 mt-0.5">{item.desc}</p>
+              </div>
+            </>
+          );
+          const className =
+            "group flex items-center gap-4 p-5 rounded-[24px] glass border-white/5 hover:border-blue-500/25 transition-all";
+
+          return item.external ? (
+            <a
+              key={item.title}
+              href={item.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={className}
+            >
+              {inner}
+            </a>
+          ) : (
+            <Link key={item.title} href={item.href} className={className}>
+              {inner}
+            </Link>
+          );
+        })}
       </div>
     </div>
   );

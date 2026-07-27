@@ -36,6 +36,7 @@ import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { AntiNukeConfig } from "@/types/api";
+import { UserPicker } from "@/components/dashboard/user-picker";
 
 const FEATURES = [
   { id: 'anti_ban_kick', name: 'Anti Ban & Kick', desc: 'Auto bans rogue admins', icon: User },
@@ -167,13 +168,16 @@ export function AntiNukeForm({ initialConfig, guildId }: AntiNukeFormProps) {
                 Whitelisted Users
               </h4>
               
-              <div className="flex gap-2 mb-4">
-                <Input 
-                  placeholder="User ID..." 
-                  value={wlInput}
-                  onChange={(e) => setWlInput(e.target.value)}
-                  className="bg-slate-900/50"
-                />
+              <div className="flex gap-2 mb-4 items-start">
+                <div className="flex-1">
+                  <UserPicker
+                    guildId={guildId}
+                    value={wlInput}
+                    onChange={setWlInput}
+                    label=""
+                    placeholder="Search for a member"
+                  />
+                </div>
                 <Button onClick={handleAddWhitelist} disabled={saving} variant="secondary">
                   <Plus className="h-5 w-5" />
                 </Button>

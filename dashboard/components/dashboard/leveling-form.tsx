@@ -33,6 +33,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { LevelingConfig } from "@/types/api";
+import { ChannelPicker } from "@/components/dashboard/pickers";
 
 interface LevelingFormProps {
   initialConfig: LevelingConfig;
@@ -123,12 +124,13 @@ export function LevelingForm({ initialConfig, guildId }: LevelingFormProps) {
                 <Hash className="h-3 w-3" />
                 Level Up Channel
               </label>
-              <Input 
+              <ChannelPicker
+                guildId={guildId}
                 value={config.level_up_channel || ""}
-                onChange={(e) => setConfig({...config, level_up_channel: e.target.value ? parseInt(e.target.value.replace(/\D/g, "")) : null})}
-                placeholder="Discord Channel ID"
+                onChange={(id) => setConfig({ ...config, level_up_channel: id ? Number(id) : null })}
+                placeholder="Select a channel"
                 disabled={!config.enabled}
-                className="py-6 font-mono"
+                channelTypes={["0", "5"]}
               />
             </div>
 

@@ -40,6 +40,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { TicketConfig, TicketCategory, TicketEmbed } from "@/types/api";
+import { MultiRolePicker } from "@/components/dashboard/pickers";
 
 interface TicketsFormProps {
   initialConfig: TicketConfig;
@@ -165,17 +166,17 @@ export function TicketsForm({ initialConfig, guildId }: TicketsFormProps) {
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-xs font-black uppercase text-slate-500 tracking-widest">Staff Roles (IDs)</label>
-                    <Input 
-                        value={editingCategory.data.staff_roles.join(", ")} 
-                        onChange={(e) => {
-                          const roles = e.target.value.split(",").map(id => id.trim()).filter(id => id && !isNaN(Number(id))).map(Number);
+                    <label className="text-xs font-black uppercase text-slate-500 tracking-widest">Staff Roles</label>
+                    <MultiRolePicker
+                        guildId={guildId}
+                        value={editingCategory.data.staff_roles}
+                        onChange={(ids) =>
                           setEditingCategory({
-                            ...editingCategory, 
-                            data: { ...editingCategory.data, staff_roles: roles }
+                            ...editingCategory,
+                            data: { ...editingCategory.data, staff_roles: ids.map(Number) }
                           })
-                        }}
-                        placeholder="ID1, ID2..."
+                        }
+                        placeholder="Select staff roles"
                     />
                   </div>
                 </div>
@@ -347,14 +348,14 @@ export function TicketsForm({ initialConfig, guildId }: TicketsFormProps) {
                 </Select>
               </div>
               <div className="space-y-2 md:col-span-2">
-                <label className="text-xs font-black uppercase text-slate-500 tracking-widest">Global Staff Role IDs</label>
-                <Input 
-                  value={config.staff_roles.join(", ")} 
-                  onChange={(e) => {
-                    const roles = e.target.value.split(",").map(id => id.trim()).filter(id => id && !isNaN(Number(id))).map(Number);
-                    setConfig({...config, staff_roles: roles})
-                  }}
-                  placeholder="ID1, ID2... These roles can see all tickets"
+                <label className="text-xs font-black uppercase text-slate-500 tracking-widest">
+                  Global Staff Roles
+                </label>
+                <MultiRolePicker
+                  guildId={guildId}
+                  value={config.staff_roles}
+                  onChange={(ids) => setConfig({ ...config, staff_roles: ids.map(Number) })}
+                  placeholder="These roles can see all tickets"
                 />
               </div>
             </div>

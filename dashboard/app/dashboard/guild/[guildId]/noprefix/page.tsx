@@ -7,14 +7,18 @@ import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { UserPicker } from "@/components/dashboard/user-picker";
 
 export default function NoPrefixPage({ params }: { params: { guildId: string } }) {
+  const guildId = params.guildId;
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [users, setUsers] = useState<string[]>([]);
   const [roles, setRoles] = useState<string[]>([]);
   const [allRoles, setAllRoles] = useState<any[]>([]);
   const [userInput, setUserInput] = useState("");
+  // Cache of id -> display name so the list shows people, not raw numbers.
+  const [userNames, setUserNames] = useState<Record<string, string>>({});
   const [selectedRole, setSelectedRole] = useState("");
 
   useEffect(() => {
@@ -36,6 +40,35 @@ export default function NoPrefixPage({ params }: { params: { guildId: string } }
     }
     load();
   }, [params.guildId]);
+
+  // Resolve the stored IDs to names once, so an existing entry does not stay
+  // an unreadable number.
+  useEffect(() => {
+    const missing = users.filter((id) => !userNames[id]);
+    if (missing.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      const found: Record<string, string> = {};
+      for (const id of missing) {
+        try {
+          // searchMembers also matches on the ID itself.
+          const res = await api.searchMembers(guildId, id);
+          const hit = (res?.members || []).find((m: any) => String(m.id) === id);
+          if (hit) found[id] = hit.display_name || hit.name;
+        } catch {
+          /* leave it as the raw id */
+        }
+      }
+      if (!cancelled && Object.keys(found).length) {
+        setUserNames((prev) => ({ ...prev, ...found }));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [users, guildId, userNames]);
+
+  const userName = (id: string) => userNames[id] || id;
 
   const roleOptions = useMemo(() => {
     return allRoles
@@ -80,15 +113,23 @@ export default function NoPrefixPage({ params }: { params: { guildId: string } }
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <section className="bg-[#10233f] border border-slate-800 rounded-3xl p-8 space-y-6 shadow-xl">
-          <h3 className="text-lg font-black text-white flex items-center gap-2"><UserCheck className="h-5 w-5 text-primary" />User per ID</h3>
-          <div className="flex gap-3">
-            <Input value={userInput} onChange={(e) => setUserInput(e.target.value)} placeholder="Discord User-ID" />
+          <h3 className="text-lg font-black text-white flex items-center gap-2"><UserCheck className="h-5 w-5 text-primary" />User</h3>
+          <div className="flex gap-3 items-start">
+            <div className="flex-1">
+              <UserPicker
+                guildId={guildId}
+                value={userInput}
+                onChange={setUserInput}
+                label=""
+                placeholder="Nach Namen suchen"
+              />
+            </div>
             <Button onClick={addUser} className="gap-2"><Plus className="h-4 w-4" />Add</Button>
           </div>
           <div className="space-y-2">
             {users.length === 0 ? <p className="text-sm text-slate-500">Keine User eingetragen.</p> : users.map((id) => (
               <div key={id} className="flex items-center justify-between bg-slate-900/40 border border-slate-800 rounded-2xl px-4 py-3">
-                <span className="font-mono text-sm text-slate-300">{id}</span>
+                <span className="font-mono text-sm text-slate-300">{userName(id)}</span>
                 <Button variant="ghost" size="sm" onClick={() => setUsers(users.filter((x) => x !== id))} className="text-blue-400 hover:bg-blue-500/10"><Trash2 className="h-4 w-4" /></Button>
               </div>
             ))}
