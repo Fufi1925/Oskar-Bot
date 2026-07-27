@@ -23,6 +23,7 @@ import { useLanguage } from "@/lib/i18n/LanguageContext";
 import { cn } from "@/lib/utils";
 import { 
   Gift,
+  Lock,
   ShieldAlert,
   ShieldCheck, 
   Ticket, 
@@ -91,6 +92,7 @@ export function GuildTabs({ guildId }: { guildId: string }) {
     { name: "Nickname", href: `/dashboard/guild/${guildId}/nickname`, icon: Badge },
     { name: "Giveaways", href: `/dashboard/guild/${guildId}/giveaways`, icon: Gift },
     { name: "Autoresponder", href: `/dashboard/guild/${guildId}/autoresponder`, icon: MessageSquare },
+    { name: "Anonymer Chat", href: `/dashboard/guild/${guildId}/anonchat`, icon: Lock },
     { name: "Notfall", href: `/dashboard/guild/${guildId}/emergency`, icon: ShieldAlert },
     { name: "Admin Dashboard", href: `/dashboard/guild/${guildId}/admin-dashboard`, icon: Shield },
     { name: "Level-System", href: `/dashboard/guild/${guildId}/leveling`, icon: BarChart4 },

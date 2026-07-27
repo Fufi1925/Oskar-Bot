@@ -308,6 +308,36 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
+  // Anonymous chat
+  // The log deanonymises members, so every route here sits behind the
+  // same permission as changing the settings.
+  getAnonChat: (guildId: string) => request<any>(`/anonchat/${guildId}`),
+  saveAnonChat: (guildId: string, data: any) =>
+    request<any>(`/anonchat/${guildId}`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  deleteAnonChat: (guildId: string, channelId: string) =>
+    request<any>(`/anonchat/${guildId}/${channelId}`, { method: "DELETE" }),
+  getAnonLog: (guildId: string, limit = 50, userId = "") =>
+    request<any>(
+      `/anonchat/${guildId}/log?limit=${limit}` +
+        (userId ? `&user_id=${userId}` : "")
+    ),
+  blockAnonUser: (guildId: string, data: any) =>
+    request<any>(`/anonchat/${guildId}/blocked`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  unblockAnonUser: (guildId: string, userId: string) =>
+    request<any>(`/anonchat/${guildId}/blocked/${userId}`, { method: "DELETE" }),
+  /** Run text through the same filters the relay uses. */
+  previewAnonMessage: (guildId: string, data: any) =>
+    request<any>(`/anonchat/${guildId}/preview`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
   // Vanity roles
   // Moved off /guilds to their own router. The old routes stored the
   // trigger exactly as typed, so `.gg/Oskar` and `discord.gg/oskar` were

@@ -31,6 +31,7 @@ from .commands.afk import afk
 from .commands.ignore import Ignore
 from .commands.Media import Media
 from .commands.Invc import Invcrole
+from .commands.anonchat import AnonChat
 from .commands.giveaway import Giveaway
 from .commands.Embed import Embed
 from .commands.steal import Steal
@@ -112,6 +113,7 @@ from .universitybot.ignore import _ignore
 from .universitybot.server import _server
 from .universitybot.voice import _voice 
 from .universitybot.welcome import _welcome 
+from .universitybot.anonchat import _anonchat
 from .universitybot.giveaway import _giveaway
 #from .axon.vanityroles import Vanityroles69999
 from .universitybot.logging import _logging
@@ -213,6 +215,7 @@ async def setup(bot: universitybot):
   await bot.add_cog(Media(bot))
   await bot.add_cog(Ignore(bot))
   await bot.add_cog(Invcrole(bot))
+  await bot.add_cog(AnonChat(bot))
   await bot.add_cog(Giveaway(bot))
   await bot.add_cog(Steal(bot))
   await bot.add_cog(Booster(bot))
@@ -270,6 +273,7 @@ async def setup(bot: universitybot):
   await bot.add_cog(_server(bot))
   await bot.add_cog(_voice(bot))   
   await bot.add_cog(_welcome(bot))
+  await bot.add_cog(_anonchat(bot))
   await bot.add_cog(_giveaway(bot))
   await bot.add_cog(_logging(bot))
   await bot.add_cog(_vanity(bot))
