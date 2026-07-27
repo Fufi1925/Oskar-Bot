@@ -18,6 +18,7 @@ import React from "react";
 import { ShieldAlert } from "lucide-react";
 import dynamic from "next/dynamic";
 import { api } from "@/lib/api";
+import { NukeAlertPanel } from "@/components/dashboard/nuke-alert-panel";
 
 const AntiNukeForm = dynamic(() => import("@/components/dashboard/antinuke-form").then(mod => mod.AntiNukeForm), {
   loading: () => <div className="h-96 w-full animate-pulse bg-slate-800/20 rounded-3xl" />
@@ -41,6 +42,9 @@ export default async function AntiNukePage({ params }: { params: { guildId: stri
       </div>
 
       <AntiNukeForm initialConfig={config} guildId={params.guildId} />
+
+      {/* Reporting: whether an attack was stopped, or only seen. */}
+      <NukeAlertPanel guildId={params.guildId} />
     </div>
   );
 }

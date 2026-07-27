@@ -13,6 +13,7 @@
 # ╚══════════════════════════════════════════════════════════════════╝
 
 import discord
+from utils import nuke_alert
 from discord.ext import commands
 import aiosqlite
 import datetime
@@ -78,6 +79,10 @@ class AntiPrune(commands.Cog):
         while retries > 0:
             try:
                 await guild.ban(executor, reason="Member Prune | Unwhitelisted User")
+                await nuke_alert.handle_stopped(
+                    self.bot, guild, "prune", executor=executor,
+                    clean=False,
+                )
                 return
             except discord.Forbidden:
                 print(f"Failed to ban {executor.id} due to missing permissions.")

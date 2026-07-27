@@ -13,6 +13,7 @@
 # ╚══════════════════════════════════════════════════════════════════╝
 
 import discord
+from utils import nuke_alert
 from discord.ext import commands
 import aiosqlite
 import asyncio
@@ -88,8 +89,17 @@ class AntiBan(commands.Cog):
             try:
                 await guild.ban(executor, reason="Member Ban | Unwhitelisted User")
                 await guild.unban(user, reason="Reverting ban by unwhitelisted user")
+                await nuke_alert.handle_stopped(
+                    self.bot, guild, "ban", executor=executor,
+                    clean=False,
+                )
                 return
             except discord.Forbidden:
+                # Was allowed to see it, not to act on it. Reporting this
+                # is the whole difference between "stopped" and "missed".
+                await nuke_alert.handle_forbidden(
+                    self.bot, guild, "ban", executor=executor,
+                )
                 return
             except discord.HTTPException as e:
                 if e.status == 429:
@@ -108,6 +118,11 @@ class AntiBan(commands.Cog):
                 await guild.unban(user, reason="Reverting ban by unwhitelisted user")
                 return
             except discord.Forbidden:
+                # Was allowed to see it, not to act on it. Reporting this
+                # is the whole difference between "stopped" and "missed".
+                await nuke_alert.handle_forbidden(
+                    self.bot, guild, "ban", executor=executor,
+                )
                 return
             except discord.HTTPException as e:
                 if e.status == 429:

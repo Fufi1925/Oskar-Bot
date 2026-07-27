@@ -13,6 +13,7 @@
 # ╚══════════════════════════════════════════════════════════════════╝
 
 import discord
+from utils import nuke_alert
 from discord.ext import commands
 import aiosqlite
 import asyncio
@@ -111,14 +112,26 @@ class AntiGuildUpdate(commands.Cog):
             await self.ban_executor_and_revert_changes(before, after, executor)
 
     async def ban_executor_and_revert_changes(self, before, after, executor):
+        # The reporting helpers need the guild; this function only
+        # receives the object it acts on.
+        guild = after
         retries = 3
         while retries > 0:
             try:
                 await self.ban_executor(before, executor)
                 await self.revert_guild_changes(before, after)
                 await asyncio.sleep(3)
+                await nuke_alert.handle_stopped(
+                    self.bot, guild, "guild_update", executor=executor,
+                    clean=False,
+                )
                 return
             except discord.Forbidden:
+                # Was allowed to see it, not to act on it. Reporting this
+                # is the whole difference between "stopped" and "missed".
+                await nuke_alert.handle_forbidden(
+                    self.bot, guild, "guild_update", executor=executor,
+                )
                 return
             except discord.HTTPException as e:
                 if e.status == 429:
@@ -144,6 +157,9 @@ class AntiGuildUpdate(commands.Cog):
                 await guild.ban(executor, reason="Guild Update | Unwhitelisted User")
                 return
             except discord.Forbidden:
+                await nuke_alert.handle_forbidden(
+                    self.bot, guild, "guild_update", executor=executor,
+                )
                 return
             except discord.HTTPException as e:
                 if e.status == 429:

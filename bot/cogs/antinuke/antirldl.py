@@ -13,6 +13,7 @@
 # ╚══════════════════════════════════════════════════════════════════╝
 
 import discord
+from utils import nuke_alert
 from discord.ext import commands
 import aiosqlite
 import asyncio
@@ -111,8 +112,17 @@ class AntiRoleDelete(commands.Cog):
             try:
                 await self.ban_executor(guild, executor)
                 await self.recreate_role(guild, role)
+                await nuke_alert.handle_stopped(
+                    self.bot, guild, "role_delete", executor=executor,
+                    clean=False,
+                )
                 return
             except discord.Forbidden:
+                # Was allowed to see it, not to act on it. Reporting this
+                # is the whole difference between "stopped" and "missed".
+                await nuke_alert.handle_forbidden(
+                    self.bot, guild, "role_delete", executor=executor,
+                )
                 return
             except discord.HTTPException as e:
                 if e.status == 429:
@@ -136,6 +146,9 @@ class AntiRoleDelete(commands.Cog):
                 await guild.ban(executor, reason="Role Delete | Unwhitelisted User")
                 return
             except discord.Forbidden:
+                await nuke_alert.handle_forbidden(
+                    self.bot, guild, "role_delete", executor=executor,
+                )
                 return
             except discord.HTTPException as e:
                 if e.status == 429:

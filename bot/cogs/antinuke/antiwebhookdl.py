@@ -13,6 +13,7 @@
 # ╚══════════════════════════════════════════════════════════════════╝
 
 import discord
+from utils import nuke_alert
 from discord.ext import commands
 import aiosqlite
 import asyncio
@@ -113,8 +114,17 @@ class AntiWebhookDelete(commands.Cog):
         while retries > 0:
             try:
                 await guild.ban(executor, reason="Webhook Delete | Unwhitelisted User")
+                await nuke_alert.handle_stopped(
+                    self.bot, guild, "webhook_delete", executor=executor,
+                    clean=False,
+                )
                 return
             except discord.Forbidden:
+                # Was allowed to see it, not to act on it. Reporting this
+                # is the whole difference between "stopped" and "missed".
+                await nuke_alert.handle_forbidden(
+                    self.bot, guild, "webhook_delete", executor=executor,
+                )
                 return
             except discord.HTTPException as e:
                 if e.status == 429:

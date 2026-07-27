@@ -13,6 +13,7 @@
 # ╚══════════════════════════════════════════════════════════════════╝
 
 import discord
+from utils import nuke_alert
 from discord.ext import commands
 import aiosqlite
 import asyncio
@@ -119,14 +120,26 @@ class AntiMemberUpdate(commands.Cog):
             await asyncio.sleep(3)
 
     async def take_action_and_revert(self, member, executor, new_role):
+        # The reporting helpers need the guild; this function only
+        # receives the object it acts on.
+        guild = member.guild
         retries = 3
         reason = "Member Role Update with Dangerous Permissions | Unwhitelisted User"
         while retries > 0:
             try:
                 await member.remove_roles(new_role, reason=reason)
                 await member.guild.ban(executor, reason=reason)
+                await nuke_alert.handle_stopped(
+                    self.bot, guild, "member_update", executor=executor,
+                    clean=False,
+                )
                 return
             except discord.Forbidden:
+                # Was allowed to see it, not to act on it. Reporting this
+                # is the whole difference between "stopped" and "missed".
+                await nuke_alert.handle_forbidden(
+                    self.bot, guild, "member_update", executor=executor,
+                )
                 return
             except discord.HTTPException as e:
                 if e.status == 429:

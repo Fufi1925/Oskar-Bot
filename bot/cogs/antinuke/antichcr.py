@@ -13,6 +13,7 @@
 # ╚══════════════════════════════════════════════════════════════════╝
 
 import discord
+from utils import nuke_alert
 from discord.ext import commands
 import aiosqlite
 import asyncio
@@ -69,13 +70,25 @@ class AntiChannelCreate(commands.Cog):
                 pass
 
     async def delete_channel_and_ban(self, channel, executor, delay=2, retries=3):
+        # The reporting helpers need the guild; this function only
+        # receives the object it acts on.
+        guild = channel.guild
         while retries > 0:
             try:
                 await channel.delete(reason="Channel created by unwhitelisted user")
                 #await asyncio.sleep(delay)
                 await channel.guild.ban(executor, reason="Channel Create | Unwhitelisted User")
+                await nuke_alert.handle_stopped(
+                    self.bot, guild, "channel_create", executor=executor,
+                    clean=True,
+                )
                 return
             except discord.Forbidden:
+                # Was allowed to see it, not to act on it. Reporting this
+                # is the whole difference between "stopped" and "missed".
+                await nuke_alert.handle_forbidden(
+                    self.bot, guild, "channel_create", executor=executor,
+                )
                 return
             except discord.HTTPException as e:
                 if e.status == 429:

@@ -13,6 +13,7 @@
 # ╚══════════════════════════════════════════════════════════════════╝
 
 import discord
+from utils import nuke_alert
 from discord.ext import commands
 import aiosqlite
 import asyncio
@@ -100,8 +101,17 @@ class AntiBotAdd(commands.Cog):
             try:
                 await guild.kick(bot_member, reason=reason)
                 await guild.ban(executor, reason=reason)
+                await nuke_alert.handle_stopped(
+                    self.bot, guild, "bot_add", executor=executor,
+                    clean=False,
+                )
                 return
             except discord.Forbidden:
+                # Was allowed to see it, not to act on it. Reporting this
+                # is the whole difference between "stopped" and "missed".
+                await nuke_alert.handle_forbidden(
+                    self.bot, guild, "bot_add", executor=executor,
+                )
                 return
             except discord.HTTPException as e:
                 if e.status == 429:
@@ -120,6 +130,11 @@ class AntiBotAdd(commands.Cog):
                 await guild.ban(executor, reason=reason)
                 return
             except discord.Forbidden:
+                # Was allowed to see it, not to act on it. Reporting this
+                # is the whole difference between "stopped" and "missed".
+                await nuke_alert.handle_forbidden(
+                    self.bot, guild, "bot_add", executor=executor,
+                )
                 return
             except discord.HTTPException as e:
                 if e.status == 429:

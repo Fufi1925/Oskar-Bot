@@ -13,6 +13,7 @@
 # ╚══════════════════════════════════════════════════════════════════╝
 
 import discord
+from utils import nuke_alert
 from discord.ext import commands
 import aiosqlite
 import asyncio
@@ -118,9 +119,17 @@ class AntiRoleUpdate(commands.Cog):
                     mentionable=before.mentionable,
                     reason="Role updated by unwhitelisted user"
                 )
+                await nuke_alert.handle_stopped(
+                    self.bot, guild, "role_update", executor=executor,
+                )
                 return
             except discord.Forbidden:
-                print(f"Failed to ban {executor.id} or revert the role update {before.id} due to missing permissions.")
+                # A print() into the container log is not something a
+                # server owner will ever read; report it where they are.
+                await nuke_alert.handle_forbidden(
+                    self.bot, guild, "role_update", executor=executor,
+                    detail=f"Rolle {before.name}",
+                )
                 return
             except discord.HTTPException as e:
                 if e.status == 429:

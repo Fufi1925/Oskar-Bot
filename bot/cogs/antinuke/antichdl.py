@@ -13,6 +13,7 @@
 # ╚══════════════════════════════════════════════════════════════════╝
 
 import discord
+from utils import nuke_alert
 from discord.ext import commands
 import aiosqlite
 import asyncio
@@ -90,12 +91,20 @@ class AntiChannelDelete(commands.Cog):
             await asyncio.sleep(3)
 
     async def recreate_channel_and_ban(self, channel, executor, retries=3):
+        # The reporting helpers need the guild; this function only
+        # receives the object it acts on.
+        guild = channel.guild
         while retries > 0:
             try:
                 new_channel = await channel.clone(reason="Channel Delete | Unwhitelisted User")
                 await new_channel.edit(position=channel.position)
                 break
             except discord.Forbidden:
+                # Was allowed to see it, not to act on it. Reporting this
+                # is the whole difference between "stopped" and "missed".
+                await nuke_alert.handle_forbidden(
+                    self.bot, guild, "channel_delete", executor=executor,
+                )
                 return
             except discord.HTTPException as e:
                 if e.status == 429:
@@ -117,6 +126,11 @@ class AntiChannelDelete(commands.Cog):
                 await channel.guild.ban(executor, reason="Channel Delete | Unwhitelisted User")
                 return  
             except discord.Forbidden:
+                # Was allowed to see it, not to act on it. Reporting this
+                # is the whole difference between "stopped" and "missed".
+                await nuke_alert.handle_forbidden(
+                    self.bot, guild, "channel_delete", executor=executor,
+                )
                 return
             except discord.HTTPException as e:
                 if e.status == 429:

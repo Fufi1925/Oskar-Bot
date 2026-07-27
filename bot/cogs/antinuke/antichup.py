@@ -13,6 +13,7 @@
 # ╚══════════════════════════════════════════════════════════════════╝
 
 import discord
+from utils import nuke_alert
 from discord.ext import commands
 import aiosqlite
 import asyncio
@@ -90,6 +91,9 @@ class AntiChannelUpdate(commands.Cog):
             await asyncio.sleep(3)
 
     async def revert_channel_update_and_ban(self, before, after, executor, retries=3):
+        # The reporting helpers need the guild; this function only
+        # receives the object it acts on.
+        guild = after.guild
         while retries > 0:
             try:
                 await after.edit(
@@ -103,6 +107,11 @@ class AntiChannelUpdate(commands.Cog):
                 )
                 break
             except discord.Forbidden:
+                # Was allowed to see it, not to act on it. Reporting this
+                # is the whole difference between "stopped" and "missed".
+                await nuke_alert.handle_forbidden(
+                    self.bot, guild, "channel_update", executor=executor,
+                )
                 return
             except discord.HTTPException as e:
                 if e.status == 429:
@@ -124,6 +133,11 @@ class AntiChannelUpdate(commands.Cog):
                 await before.guild.ban(executor, reason="Channel Update | Unwhitelisted User")
                 return  
             except discord.Forbidden:
+                # Was allowed to see it, not to act on it. Reporting this
+                # is the whole difference between "stopped" and "missed".
+                await nuke_alert.handle_forbidden(
+                    self.bot, guild, "channel_update", executor=executor,
+                )
                 return
             except discord.HTTPException as e:
                 if e.status == 429:

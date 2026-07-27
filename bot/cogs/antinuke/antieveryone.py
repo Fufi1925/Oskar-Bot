@@ -13,6 +13,7 @@
 # ╚══════════════════════════════════════════════════════════════════╝
 
 import discord
+from utils import nuke_alert
 from discord.ext import commands
 import aiosqlite
 import asyncio
@@ -82,8 +83,14 @@ class AntiEveryone(commands.Cog):
         while retries > 0:
             try:
                 await user.edit(timed_out_until=discord.utils.utcnow() + timedelta(seconds=duration), reason="Mentioned Everyone/Here | Unwhitelisted User")
-                return  
+                await nuke_alert.handle_stopped(
+                    self.bot, user.guild, "everyone", executor=user,
+                )
+                return
             except discord.Forbidden:
+                await nuke_alert.handle_forbidden(
+                    self.bot, user.guild, "everyone", executor=user,
+                )
                 return
             except discord.HTTPException as e:
                 print(f"Failed to timeout {user.id} due to HTTPException: {e}")
@@ -136,4 +143,4 @@ class AntiEveryone(commands.Cog):
                 print(f"An unexpected error occurred while deleting messages: {e}")
                 return
 
-        print(f"Failed to delete messages after multiple attempts due to rate limits.")
+        print("Failed to delete messages after multiple attempts due to rate limits.")
