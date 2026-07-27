@@ -351,6 +351,35 @@ async def ensure_schema() -> dict[str, int]:
         except Exception as exc:
             print(f"[schema_guard] {db_path} failed: {exc}")
 
+    await _ensure_columns()
+
     total = sum(created.values())
     print(f"[schema_guard] Verified {total} tables across {len(created)} databases")
     return created
+
+
+# Columns added after a table already shipped. CREATE TABLE IF NOT EXISTS
+# does nothing for an existing table, so these need an explicit ALTER.
+ADDED_COLUMNS = (
+    # Lets a restore delete the previous verification panel instead of
+    # leaving a dead one behind next to the new message.
+    ("db/verification.db", "verification_config", "panel_message_id", "INTEGER"),
+    ("db/verification.db", "verification_config", "panel_channel_id", "INTEGER"),
+)
+
+
+async def _ensure_columns() -> None:
+    for db_path, table, column, coltype in ADDED_COLUMNS:
+        try:
+            async with aiosqlite.connect(db_path) as db:
+                async with db.execute(f"PRAGMA table_info([{table}])") as cursor:
+                    existing = {row[1] for row in await cursor.fetchall()}
+                if not existing or column in existing:
+                    continue
+                await db.execute(
+                    f"ALTER TABLE [{table}] ADD COLUMN [{column}] {coltype}"
+                )
+                await db.commit()
+                print(f"[schema_guard] added {table}.{column}")
+        except Exception as exc:
+            print(f"[schema_guard] cannot add {table}.{column}: {exc}")

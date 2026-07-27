@@ -129,8 +129,8 @@ async def export_guild(guild_id: int, *, include_user_data: bool = False) -> dic
     modules: list[str] = []
     total_rows = 0
 
-    for db_path in sorted(glob.glob("db/*.db")):
-        db_name = os.path.basename(db_path)
+    for db_path in iter_database_files():
+        db_name = db_key(db_path)
         try:
             async with aiosqlite.connect(db_path) as db:
                 db.row_factory = aiosqlite.Row
@@ -181,6 +181,41 @@ JSON_CONFIG_FILES = (
     "ignore.json",
     "channels.json",
 )
+
+# Not every cog puts its database in db/. Reaction roles use rr.db and
+# join-to-create uses j2c_data.db, both in the working directory, so a
+# backup that only globbed db/*.db silently skipped them.
+EXTRA_DB_FILES = (
+    "rr.db",
+    "j2c_data.db",
+)
+
+
+def iter_database_files() -> list[str]:
+    """Every SQLite file that belongs in a backup, wherever it lives."""
+    found = sorted(glob.glob("db/*.db"))
+    for name in EXTRA_DB_FILES:
+        if os.path.exists(name) and name not in found:
+            found.append(name)
+    return found
+
+
+def db_key(path: str) -> str:
+    """
+    Stable name for a database inside a backup.
+
+    Files in db/ keep their bare name for backwards compatibility with
+    backups written before the extra locations were covered.
+    """
+    directory, base = os.path.split(path)
+    return base if directory in ("", "db") else path.replace("/", "__")
+
+
+def db_path_from_key(key: str) -> str:
+    """Reverse of db_key()."""
+    if "__" in key:
+        return key.replace("__", "/")
+    return key if key in EXTRA_DB_FILES else os.path.join("db", key)
 
 
 def _collect_json_files() -> dict[str, Any]:
@@ -253,8 +288,8 @@ async def export_everything(*, include_user_data: bool = False) -> dict[str, Any
     guild_ids: set[str] = set()
     global_tables_found: list[str] = []
 
-    for db_path in sorted(glob.glob("db/*.db")):
-        db_name = os.path.basename(db_path)
+    for db_path in iter_database_files():
+        db_name = db_key(db_path)
         try:
             async with aiosqlite.connect(db_path) as db:
                 db.row_factory = aiosqlite.Row
@@ -341,7 +376,7 @@ async def preview_global_import(data: dict[str, Any]) -> dict[str, Any]:
     missing: list[str] = []
 
     for db_name, table_map in data["databases"].items():
-        exists = os.path.exists(os.path.join("db", db_name))
+        exists = os.path.exists(db_path_from_key(db_name))
         for table, entries in table_map.items():
             tables += 1
             rows += len(entries)
@@ -400,7 +435,7 @@ async def import_everything(
     skipped: list[str] = []
 
     for db_name, table_map in data["databases"].items():
-        db_path = os.path.join("db", db_name)
+        db_path = db_path_from_key(db_name)
 
         # Recreating a whole database file is out of scope; a missing file
         # means the owning cog never ran here.
@@ -503,7 +538,7 @@ async def preview_import(data: dict[str, Any]) -> dict[str, Any]:
     unknown: list[str] = []
 
     for db_name, table_map in data["databases"].items():
-        db_path = os.path.join("db", db_name)
+        db_path = db_path_from_key(db_name)
         exists = os.path.exists(db_path)
 
         for table, entries in table_map.items():
@@ -546,7 +581,7 @@ async def import_guild(
     skipped: list[str] = []
 
     for db_name, table_map in data["databases"].items():
-        db_path = os.path.join("db", db_name)
+        db_path = db_path_from_key(db_name)
         if not os.path.exists(db_path):
             skipped.append(f"{db_name} (no such database)")
             continue

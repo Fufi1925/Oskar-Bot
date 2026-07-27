@@ -820,19 +820,22 @@ async def _create_snapshot(prefix: str = "") -> dict:
     target = os.path.join("db", "backups", stamp)
     os.makedirs(target, exist_ok=True)
 
+    from api.config_transfer import db_key, iter_database_files
+
     copied = 0
-    for path in glob.glob("db/*.db"):
+    # Not just db/*.db — reaction roles and join-to-create keep their
+    # databases in the working directory and used to be left out.
+    for path in iter_database_files():
+        stored_as = os.path.join(target, db_key(path))
         try:
             # sqlite's backup API stays consistent while the bot writes.
             async with aiosqlite.connect(path) as source:
-                async with aiosqlite.connect(
-                    os.path.join(target, os.path.basename(path))
-                ) as destination:
+                async with aiosqlite.connect(stored_as) as destination:
                     await source.backup(destination)
             copied += 1
         except Exception:
             try:
-                shutil.copy2(path, target)
+                shutil.copy2(path, stored_as)
                 copied += 1
             except Exception:
                 continue
@@ -874,12 +877,13 @@ async def download_live():
 
     from fastapi.responses import StreamingResponse
 
-    from api.config_transfer import JSON_CONFIG_FILES
+    from api.config_transfer import JSON_CONFIG_FILES, iter_database_files
 
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
-        for file_path in glob.glob("db/*.db"):
-            archive.write(file_path, os.path.basename(file_path))
+        # Keep the real relative path so the archive mirrors the layout.
+        for file_path in iter_database_files():
+            archive.write(file_path, file_path)
         # The JSON config is part of a complete backup too.
         for name in JSON_CONFIG_FILES:
             if os.path.exists(name):
@@ -958,7 +962,8 @@ async def export_all_config(include_user_data: bool = False):
     This replaces having to export each server separately.
     """
     from api.config_transfer import export_everything
-    from fastapi.responses import JSONResponse
+    from fastapi.responses import StreamingResponse
+    import json as _json
     import time as _time
 
     payload = await export_everything(include_user_data=include_user_data)
@@ -975,8 +980,18 @@ async def export_all_config(include_user_data: bool = False):
         ),
     )
 
-    return JSONResponse(
-        content=payload,
+    def _chunks():
+        # JSONResponse serialises into one bytes object and holds both the
+        # dict and the encoded copy in memory. Streaming in slices keeps the
+        # peak far lower, so an export stays possible on a small container
+        # no matter how large the installation gets.
+        encoder = _json.JSONEncoder(ensure_ascii=False)
+        for piece in encoder.iterencode(payload):
+            yield piece.encode("utf-8")
+
+    return StreamingResponse(
+        _chunks(),
+        media_type="application/json",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
@@ -1041,6 +1056,22 @@ async def import_all_config(data: dict):
         print(f"[admin] cache refresh after import failed: {exc}")
 
     result["safety_backup"] = safety
+
+    # The settings come back from the file, but the panel messages live in
+    # Discord and their stored message ids point at messages that no longer
+    # work after a redeploy. Repost them so the buttons are alive again
+    # without anyone re-running the setup commands.
+    if bool(data.get("repost_panels", True)):
+        try:
+            from api.panel_restore import repost_all_panels
+
+            bot = get_bot()
+            result["panels"] = await repost_all_panels(bot)
+        except HTTPException:
+            result["panels"] = {"error": "bot not ready, panels not reposted"}
+        except Exception as exc:  # noqa: BLE001
+            result["panels"] = {"error": str(exc)[:200]}
+
     await feature_audit.log_action(
         "full_backup_imported",
         actor="dashboard",
@@ -1077,10 +1108,14 @@ async def restore_backup(name: str):
     except Exception as exc:
         print(f"[admin] safety backup before restore failed: {exc}")
 
+    from api.config_transfer import db_path_from_key
+
     restored = 0
     failed: list[str] = []
     for path in files:
-        target = os.path.join("db", os.path.basename(path))
+        # Databases outside db/ are stored with their path flattened.
+        target = db_path_from_key(os.path.basename(path))
+        os.makedirs(os.path.dirname(target) or ".", exist_ok=True)
         try:
             # sqlite's backup API writes a consistent copy even while the
             # bot keeps using the destination file.
@@ -1123,6 +1158,18 @@ async def restore_backup(name: str):
     except Exception as exc:
         print(f"[admin] cache refresh after restore failed: {exc}")
 
+    # Same reasoning as the import route: the panel messages themselves are
+    # not part of a snapshot, only the configuration describing them.
+    panels = None
+    try:
+        from api.panel_restore import repost_all_panels
+
+        panels = await repost_all_panels(get_bot())
+    except HTTPException:
+        panels = {"error": "bot not ready, panels not reposted"}
+    except Exception as exc:  # noqa: BLE001
+        panels = {"error": str(exc)[:200]}
+
     await feature_audit.log_action(
         "backup_restored", actor="dashboard", detail=f"{name}: {restored} databases"
     )
@@ -1133,6 +1180,7 @@ async def restore_backup(name: str):
         "json_restored": json_restored,
         "failed": failed,
         "safety_backup": safety,
+        "panels": panels,
     }
 
 

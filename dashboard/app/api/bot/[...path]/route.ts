@@ -457,10 +457,11 @@ async function handler(request: NextRequest, context: { params: { path?: string[
     const length = upstream.headers.get("content-length");
     if (length) headersOut["Content-Length"] = length;
 
-    // Stream the body through untouched. Reading it as text would corrupt
-    // the zip archives served by the backup download routes.
-    const buffer = await upstream.arrayBuffer();
-    return new NextResponse(buffer, {
+    // Pass the body straight through as a stream. Buffering it first
+    // (arrayBuffer/text) holds the whole file in memory, which breaks large
+    // backup downloads on a small container — and reading it as text would
+    // corrupt the zip archives on top of that.
+    return new NextResponse(upstream.body, {
       status: upstream.status,
       headers: headersOut,
     });

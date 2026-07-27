@@ -440,6 +440,8 @@ export default function LandingPage() {
                <ul className="space-y-5 text-[11px] font-black uppercase tracking-widest text-slate-500">
                   <li><Link href="/privacy" className="hover:text-blue-500 transition-colors">Datenschutz</Link></li>
                   <li><Link href="/terms" className="hover:text-blue-500 transition-colors">Nutzungsbedingungen</Link></li>
+                  <li><Link href="/imprint" className="hover:text-blue-500 transition-colors">Impressum</Link></li>
+                  <li><Link href="/team" className="hover:text-blue-500 transition-colors">Team</Link></li>
                   <li><a href={SUPPORT_INVITE} target="_blank" rel="noopener noreferrer" className="hover:text-blue-500 transition-colors">Discord Server</a></li>
                </ul>
             </div>
