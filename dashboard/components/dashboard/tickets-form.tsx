@@ -175,7 +175,7 @@ export function TicketsForm({ initialConfig, guildId }: TicketsFormProps) {
                         onChange={(ids) =>
                           setEditingCategory({
                             ...editingCategory,
-                            data: { ...editingCategory.data, staff_roles: ids.map(Number) }
+                            data: { ...editingCategory.data, staff_roles: ids }
                           })
                         }
                         placeholder="Select staff roles"
@@ -461,7 +461,7 @@ export function TicketsForm({ initialConfig, guildId }: TicketsFormProps) {
                 <MultiRolePicker
                   guildId={guildId}
                   value={config.staff_roles}
-                  onChange={(ids) => setConfig({ ...config, staff_roles: ids.map(Number) })}
+                  onChange={(ids) => setConfig({ ...config, staff_roles: ids })}
                   placeholder="These roles can see all tickets"
                 />
               </div>

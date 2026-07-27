@@ -383,7 +383,7 @@ export function TicketPanels({ guildId }: { guildId: string }) {
                         guildId={guildId}
                         value={panel.channel_id || ""}
                         onChange={(id) =>
-                          patchPanel(panel.panel_id, { channel_id: id ? Number(id) : null })
+                          patchPanel(panel.panel_id, { channel_id: id || null })
                         }
                         placeholder="Kanal wählen"
                         channelTypes={["0", "5"]}
@@ -600,7 +600,7 @@ export function TicketPanels({ guildId }: { guildId: string }) {
             <ChannelPicker
               guildId={guildId}
               value={server.logging_channel || ""}
-              onChange={(id) => patchServer({ logging_channel: id ? Number(id) : null })}
+              onChange={(id) => patchServer({ logging_channel: id || null })}
               placeholder="Kanal wählen (optional)"
               channelTypes={["0", "5"]}
             />
@@ -610,7 +610,7 @@ export function TicketPanels({ guildId }: { guildId: string }) {
             <ChannelPicker
               guildId={guildId}
               value={server.closed_category || ""}
-              onChange={(id) => patchServer({ closed_category: id ? Number(id) : null })}
+              onChange={(id) => patchServer({ closed_category: id || null })}
               placeholder="Kategorie wählen (optional)"
               channelTypes={["4"]}
             />

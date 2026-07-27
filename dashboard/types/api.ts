@@ -14,6 +14,10 @@
  * ╚══════════════════════════════════════════════════════════════════╝
  */
 
+// NOTE: Discord IDs are 64-bit snowflakes. JavaScript numbers lose
+// precision past 2^53, which silently corrupts them (…819721 became
+// …819600), so every ID crossing this boundary is typed as a string.
+
 export interface BotInfo {
   name: string;
   id: number | null;
@@ -67,7 +71,7 @@ export interface AutomodConfig {
 export interface TicketCategory {
   name: string;
   emoji: string | null;
-  staff_roles: number[];
+  staff_roles: string[];
   button_style?: number;
   discord_category_id?: string | null;
 }
@@ -89,7 +93,7 @@ export interface TicketConfig {
   panel_type?: string;
   embed: TicketEmbed;
   categories: TicketCategory[];
-  staff_roles: number[];
+  staff_roles: string[];
   open_ticket_count: number;
 }
 
@@ -104,14 +108,14 @@ export interface LevelingConfig {
   enabled: boolean;
   xp_per_message: number;
   cooldown: number;
-  level_up_channel: number | null;
+  level_up_channel: string | null;
   embed_style: LevelingEmbedStyle;
 }
 
 export interface LoggingConfig {
   guild_id: number;
   log_enabled: Record<string, boolean>;
-  log_channels: Record<string, number>;
+  log_channels: Record<string, string>;
   ignore_channels: number[];
   ignore_roles: number[];
   ignore_users: number[];
@@ -135,13 +139,13 @@ export interface LevelingUpdate {
   enabled?: boolean;
   xp_per_message?: number;
   cooldown?: number;
-  level_up_channel?: number;
+  level_up_channel?: string | null;
   embed_color?: string;
 }
 
 export interface LoggingUpdate {
   log_enabled?: Record<string, boolean>;
-  log_channels?: Record<string, number>;
+  log_channels?: Record<string, string>;
 }
 
 export interface LeaderboardEntry {

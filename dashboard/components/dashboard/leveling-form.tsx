@@ -127,7 +127,7 @@ export function LevelingForm({ initialConfig, guildId }: LevelingFormProps) {
               <ChannelPicker
                 guildId={guildId}
                 value={config.level_up_channel || ""}
-                onChange={(id) => setConfig({ ...config, level_up_channel: id ? Number(id) : null })}
+                onChange={(id) => setConfig({ ...config, level_up_channel: id || null })}
                 placeholder="Select a channel"
                 disabled={!config.enabled}
                 channelTypes={["0", "5"]}

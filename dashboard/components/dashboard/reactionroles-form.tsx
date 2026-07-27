@@ -64,9 +64,9 @@ export function ReactionRolesForm({ initialConfig, roles, guildId }: ReactionRol
       setLoadingAction(true);
       await api.updateRR(guildId, {
         add_role: {
-          message_id: parseInt(newRR.message_id),
+          message_id: newRR.message_id,
           emoji: newRR.emoji,
-          role_id: parseInt(newRR.role_id),
+          role_id: newRR.role_id,
         },
       });
       // Try to optimistically add to the UI

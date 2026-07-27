@@ -73,12 +73,13 @@ export function LoggingForm({ initialConfig, channels, guildId }: LoggingFormPro
 
   const handleChannelChange = async (categoryId: string, channelId: string) => {
     // Optimistic update
-    const newLogChannels = { ...config.log_channels, [categoryId]: parseInt(channelId) };
+    // Discord IDs exceed JS's safe integer range — keep them as strings.
+    const newLogChannels = { ...config.log_channels, [categoryId]: channelId };
     setConfig({ ...config, log_channels: newLogChannels });
 
     setSaving(true);
     const promise = api.updateLogging(guildId, {
-      log_channels: { [categoryId]: parseInt(channelId) }
+      log_channels: { [categoryId]: channelId }
     });
 
     toast.promise(promise, {

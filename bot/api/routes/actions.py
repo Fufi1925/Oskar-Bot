@@ -36,7 +36,10 @@ def _require_channel(guild: discord.Guild, channel_id: str) -> discord.TextChann
     channel = guild.get_channel(int(channel_id))
     if channel is None:
         raise HTTPException(status_code=404, detail="That channel no longer exists.")
-    if not isinstance(channel, discord.TextChannel):
+    # Check for the ability to post rather than the exact class, so
+    # announcement channels and threads are not rejected for the wrong
+    # reason. A voice or category channel has no send().
+    if not hasattr(channel, "send") or not hasattr(channel, "permissions_for"):
         raise HTTPException(status_code=400, detail="Please pick a text channel.")
 
     me = guild.me

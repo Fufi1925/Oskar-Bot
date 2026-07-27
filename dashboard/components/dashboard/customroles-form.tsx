@@ -82,7 +82,7 @@ export function CustomRolesForm({ initialConfig, roles, guildId }: CustomRolesFo
             <div className="w-64">
               <Select
                 value={config.reqrole?.toString() || "none"}
-                onValueChange={(val) => setConfig({ ...config, reqrole: val === "none" ? null : parseInt(val) })}
+                onValueChange={(val) => setConfig({ ...config, reqrole: val === "none" ? null : val })}
               >
                 <SelectTrigger className="w-full h-12 bg-slate-900 border-slate-800 font-medium">
                   <SelectValue placeholder="Select required role..." />
@@ -114,7 +114,7 @@ export function CustomRolesForm({ initialConfig, roles, guildId }: CustomRolesFo
                 
                 <Select
                   value={config[input.key]?.toString() || "none"}
-                  onValueChange={(val) => setConfig({ ...config, [input.key]: val === "none" ? null : parseInt(val) })}
+                  onValueChange={(val) => setConfig({ ...config, [input.key]: val === "none" ? null : val })}
                 >
                   <SelectTrigger className="w-full h-12 bg-slate-900 border-slate-800 font-medium">
                     <SelectValue placeholder="Select a role..." />
