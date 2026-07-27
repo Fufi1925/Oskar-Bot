@@ -31,6 +31,9 @@ SCHEMA_VERSION = 1
 # Tables holding user history rather than configuration. Skipped on export
 # so a config file stays portable between servers.
 USER_DATA_TABLES = {
+    # Who currently holds a vanity role. Per-member state, not config;
+    # a restore re-derives it from the status anyway.
+    "vanity_holders",
     # The leveling system's XP. `user_xp` is the pre-rewrite table, kept
     # here so an old backup still round-trips; `levels` is the live one.
     "levels",
@@ -86,6 +89,7 @@ MODULE_LABELS = {
     "level_excluded": "Leveling exceptions",
     "verification_config": "Verification",
     "vanity_roles": "Vanity roles",
+    "broadcasts": "Admin broadcasts",
     "autorole": "Auto roles",
     "autoreact": "Auto reactions",
     "vcroles": "Voice roles",

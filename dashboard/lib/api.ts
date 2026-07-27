@@ -308,16 +308,61 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
-  getVanityRoles: (guildId: string) => request<any[]>(`/guilds/${guildId}/vanityroles`),
-  addVanityRole: (guildId: string, data: any) =>
-    request<{ status: string }>(`/guilds/${guildId}/vanityroles`, {
+  // Vanity roles
+  // Moved off /guilds to their own router. The old routes stored the
+  // trigger exactly as typed, so `.gg/Oskar` and `discord.gg/oskar` were
+  // two separate setups that both looked correct in the dashboard.
+  getVanityRoles: (guildId: string) => request<any>(`/vanity/${guildId}`),
+  saveVanityRole: (guildId: string, data: any) =>
+    request<any>(`/vanity/${guildId}`, {
       method: "POST",
       body: JSON.stringify(data),
     }),
   deleteVanityRole: (guildId: string, vanity: string) =>
-    request<{ status: string }>(`/guilds/${guildId}/vanityroles/${vanity}`, {
+    request<any>(`/vanity/${guildId}/${encodeURIComponent(vanity)}`, {
       method: "DELETE",
     }),
+  /** Who currently holds the role because of this trigger. */
+  getVanityHolders: (guildId: string, vanity: string) =>
+    request<any>(`/vanity/${guildId}/${encodeURIComponent(vanity)}/holders`),
+  /** Walk every member once; presence events only fire on a change. */
+  syncVanityRole: (guildId: string, vanity: string) =>
+    request<any>(`/vanity/${guildId}/${encodeURIComponent(vanity)}/sync`, {
+      method: "POST",
+      body: "{}",
+    }),
+  /** Try a status against the trigger without touching anybody. */
+  testVanityRole: (guildId: string, vanity: string, status: string) =>
+    request<any>(`/vanity/${guildId}/${encodeURIComponent(vanity)}/test`, {
+      method: "POST",
+      body: JSON.stringify({ status }),
+    }),
+
+  // Admin broadcasts (owner only; lives under /admin)
+  getBroadcasts: () => request<any>("/admin/broadcast"),
+  getBroadcast: (id: number) => request<any>(`/admin/broadcast/${id}`),
+  /** Work out where a broadcast would land, without sending. */
+  previewBroadcast: (data: any) =>
+    request<any>("/admin/broadcast/preview", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  /** Deliver to a single server first. */
+  testBroadcast: (data: any) =>
+    request<any>("/admin/broadcast/test", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  sendBroadcast: (data: any) =>
+    request<any>("/admin/broadcast", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  cancelBroadcast: (id: number) =>
+    request<any>(`/admin/broadcast/${id}/cancel`, { method: "POST", body: "{}" }),
+  /** Retry only the servers where it did not arrive. */
+  resendBroadcast: (id: number) =>
+    request<any>(`/admin/broadcast/${id}/resend`, { method: "POST", body: "{}" }),
 
   getAutoRole: (guildId: string) => request<AutoRoleConfig>(`/guilds/${guildId}/autorole`),
   updateAutoRole: (guildId: string, data: AutoRoleUpdate) =>

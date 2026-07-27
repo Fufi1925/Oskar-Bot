@@ -24,7 +24,7 @@ from api.schemas import (
     AutomodUpdate, LoggingUpdate, TicketUpdate,
     DiscordChannel, DiscordRole, WelcomeConfig, WelcomeEmbedData, WelcomeUpdate,
     AntiNukeConfig, AntiNukeUpdate, VerificationConfig, VerificationUpdate,
-    VanityRoleSetup, AutoRoleConfig, AutoRoleUpdate,
+    AutoRoleConfig, AutoRoleUpdate,
     TrackingConfig, TrackingUpdate, J2CConfig, J2CUpdate, JoinDMConfig, JoinDMUpdate,
     CustomRoleConfig, CustomRoleUpdate, AutoReactConfig, AutoReactUpdate, AutoReactTrigger,
     InvcConfig, InvcUpdate,
@@ -551,44 +551,12 @@ async def patch_guild_verification(guild_id: int, data: VerificationUpdate):
     return {"status": "success", "guild_id": guild_id}
 
 
-@router.get("/{guild_id}/vanityroles", response_model=List[VanityRoleSetup], summary="Get Vanity Roles setups")
-async def get_guild_vanityroles(guild_id: int):
-    import aiosqlite
-    
-    setups = []
-    async with aiosqlite.connect("db/vanity.db") as db:
-        async with db.execute("SELECT vanity, role_id, log_channel_id FROM vanity_roles WHERE guild_id = ?", (guild_id,)) as cursor:
-            rows = await cursor.fetchall()
-            for row in rows:
-                setups.append(VanityRoleSetup(
-                    vanity=row[0],
-                    role_id=row[1],
-                    log_channel_id=row[2]
-                ))
-    return setups
-
-@router.post("/{guild_id}/vanityroles", summary="Add/Update a Vanity Role setup")
-async def post_guild_vanityroles(guild_id: int, data: VanityRoleSetup):
-    import aiosqlite
-    
-    async with aiosqlite.connect("db/vanity.db") as db:
-        await db.execute(
-            "INSERT OR REPLACE INTO vanity_roles (guild_id, vanity, role_id, log_channel_id, current_status) VALUES (?, ?, ?, ?, NULL)",
-            (guild_id, data.vanity.lower(), data.role_id, data.log_channel_id)
-        )
-        await db.commit()
-        
-    return {"status": "success", "vanity": data.vanity}
-
-@router.delete("/{guild_id}/vanityroles/{vanity}", summary="Delete a Vanity Role setup")
-async def delete_guild_vanityroles(guild_id: int, vanity: str):
-    import aiosqlite
-    
-    async with aiosqlite.connect("db/vanity.db") as db:
-        await db.execute("DELETE FROM vanity_roles WHERE guild_id = ? AND vanity = ?", (guild_id, vanity.lower()))
-        await db.commit()
-        
-    return {"status": "success"}
+# NOTE: vanity roles moved to api/routes/vanity.py. The three routes that
+# lived here stored the trigger exactly as typed, so `.gg/Oskar` and
+# `discord.gg/oskar` became two separate setups that both looked right;
+# and they matched nothing useful anyway, because the cog behind them
+# checked whether the *invite* still existed and then handed the role to
+# every member of the server.
 
 
 @router.get("/{guild_id}/autorole", response_model=AutoRoleConfig, summary="Get AutoRole config")

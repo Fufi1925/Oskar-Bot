@@ -58,6 +58,9 @@ const ADMIN_PERMISSIONS: Record<string, { GET?: string; WRITE?: string }> = {
   reports: { GET: "reports.view" },
   approvals: { GET: "approvals.view", WRITE: "approvals.resolve" },
   announcements: { WRITE: "announcements.send" },
+  // Owner-only unless a team role carries announcements.send. Reads are
+  // gated too: the history shows every server the bot is on.
+  broadcast: { GET: "announcements.send", WRITE: "announcements.send" },
   premium: { WRITE: "premium.manage" },
   blacklist: { WRITE: "blacklist.manage" },
   "mass-config": { WRITE: "massconfig.push" },
@@ -266,6 +269,27 @@ async function authorize(
     const mapping = ACTION_PERMISSIONS[resource];
     const required = request.method === "GET" ? mapping?.GET : mapping?.WRITE;
     if (!required) return { ok: true };
+    if (await hasTeamPermission(session.user.id, required, guildId)) return { ok: true };
+
+    return { ok: false, response: deny(403, `This requires the '${required}' permission.`) };
+  }
+
+  if (scope === "vanity") {
+    // Shape: /vanity/<guildId>/...
+    const guildId = rest[0];
+    if (!guildId) return { ok: false, response: deny(400, "guild_id missing.") };
+
+    const access = await verifyGuildAccess(guildId);
+    if (!access.allowed) return { ok: false, response: deny(access.status, access.reason) };
+
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) return { ok: false, response: deny(401, "Not signed in.") };
+    if (isGlobalAdmin(session.user.id)) return { ok: true };
+
+    const team = await fetchTeamAccess(session.user.id);
+    if (!team || team.roles.length === 0) return { ok: true };
+
+    const required = request.method === "GET" ? "guild.view" : "settings.edit";
     if (await hasTeamPermission(session.user.id, required, guildId)) return { ok: true };
 
     return { ok: false, response: deny(403, `This requires the '${required}' permission.`) };

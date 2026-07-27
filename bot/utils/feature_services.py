@@ -452,6 +452,28 @@ class FeatureServices:
             return
 
         now = int(time.time())
+
+        # Broadcasts created in the dashboard. These carry a title, a
+        # tone, a target and a per-guild result, unlike the plain-text
+        # queue below.
+        try:
+            from utils import broadcast_store
+
+            async with aiosqlite.connect(broadcast_store.DB_PATH) as db:
+                await broadcast_store.ensure_schema(db)
+                for row in await broadcast_store.due(db, now):
+                    if row is None:
+                        continue
+                    result = await broadcast_store.deliver(self.bot, db, row["id"])
+                    print(
+                        f"[feature_services] Broadcast {row['id']} sent to "
+                        f"{result['delivered']}/{result['guilds']} guilds"
+                    )
+        except Exception as exc:
+            print(f"[feature_services] broadcast loop failed: {exc}")
+
+        # The original queue, kept so anything scheduled before the
+        # rewrite still goes out.
         try:
             async with aiosqlite.connect("db/admin_config.db") as db:
                 await db.execute(
