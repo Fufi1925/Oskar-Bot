@@ -25,6 +25,7 @@ the real `db/` folder or talk to Discord.
 | `test_snowflake_ids.py` | Discord IDs stay strings. `Number("1327995167345819721")` rounds to `…819600`, which is why picking a channel silently did nothing. |
 | `test_giveaways.py` | Entries via the button, weighted and guaranteed draws, editing a running giveaway, entry requirements — and that the odds never reach the Discord message. |
 | `test_leveling.py` | The XP curve, one storage table instead of two, min/max XP actually being random, multipliers not stacking, reward roles, auto-delete settings, the colour ramps and automatic role ladder, and the migration off the old tables. |
+| `test_extras.py` | The nightmode window across midnight, notify no longer colliding between servers, counting being told to reload, and every save reaching the right cog by its real class name. |
 | `test_memberperks.py` | No-prefix stays inside its own server, the join DM flag survives a reload, and adding a reaction role really puts the reaction on the message. |
 | `test_nuke_alert.py` | The three anti-nuke outcomes read differently, the alert finds a channel even when the attacker deleted every one, and a forged handshake token is rejected. |
 | `test_compose.py` | Every Discord limit is caught before sending, a V2 layout never carries content, an edit clears what was there before, and a foreign message is refused with a reason. |

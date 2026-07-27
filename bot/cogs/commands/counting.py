@@ -48,6 +48,21 @@ class Counting(commands.Cog):
         with open(self.data_file, 'r') as f:
             self.counting_data = json.load(f)
 
+    async def refresh(self, guild_id=None):
+        """
+        Re-read the file after the dashboard changed it.
+
+        The whole state lives in self.counting_data, loaded once at
+        startup. Without this the cog would keep its stale copy and
+        overwrite the dashboard's changes on its next save.
+        """
+        try:
+            with open(self.data_file, "r") as handle:
+                content = handle.read().strip()
+            self.counting_data = json.loads(content) if content else {}
+        except Exception:
+            pass
+
     def save_data(self):
         with open(self.data_file, 'w') as f:
             json.dump(self.counting_data, f, indent=4)

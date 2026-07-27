@@ -362,6 +362,53 @@ export const api = {
       body: "{}",
     }),
 
+  // Booster, sticky, nightmode, jail, counting, notify, birthdays
+  // Seven features that worked in chat but had no dashboard. Every write
+  // tells the owning cog to reload -- several keep state in memory.
+  getBooster: (g: string) => request<any>(`/extras/${g}/booster`),
+  updateBooster: (g: string, data: any) =>
+    request<any>(`/extras/${g}/booster`, { method: "PATCH", body: JSON.stringify(data) }),
+  testBooster: (g: string, data: any) =>
+    request<any>(`/extras/${g}/booster/test`, { method: "POST", body: JSON.stringify(data) }),
+
+  getSticky: (g: string) => request<any>(`/extras/${g}/sticky`),
+  setSticky: (g: string, data: any) =>
+    request<any>(`/extras/${g}/sticky`, { method: "POST", body: JSON.stringify(data) }),
+  removeSticky: (g: string, channelId: string) =>
+    request<any>(`/extras/${g}/sticky/${channelId}`, { method: "DELETE" }),
+
+  getNightmode: (g: string) => request<any>(`/extras/${g}/nightmode`),
+  updateNightmode: (g: string, data: any) =>
+    request<any>(`/extras/${g}/nightmode`, { method: "PATCH", body: JSON.stringify(data) }),
+  toggleNightmode: (g: string, close: boolean) =>
+    request<any>(`/extras/${g}/nightmode/toggle`, {
+      method: "POST", body: JSON.stringify({ close }),
+    }),
+
+  getJail: (g: string) => request<any>(`/extras/${g}/jail`),
+  updateJail: (g: string, data: any) =>
+    request<any>(`/extras/${g}/jail`, { method: "PATCH", body: JSON.stringify(data) }),
+  setupJail: (g: string) =>
+    request<any>(`/extras/${g}/jail/setup`, { method: "POST", body: "{}" }),
+
+  getCounting: (g: string) => request<any>(`/extras/${g}/counting`),
+  updateCounting: (g: string, data: any) =>
+    request<any>(`/extras/${g}/counting`, { method: "PATCH", body: JSON.stringify(data) }),
+  resetCounting: (g: string) =>
+    request<any>(`/extras/${g}/counting/reset`, { method: "POST", body: "{}" }),
+
+  getNotify: (g: string) => request<any>(`/extras/${g}/notify`),
+  setNotify: (g: string, data: any) =>
+    request<any>(`/extras/${g}/notify`, { method: "POST", body: JSON.stringify(data) }),
+  removeNotify: (g: string, kind: string) =>
+    request<any>(`/extras/${g}/notify/${kind}`, { method: "DELETE" }),
+
+  getBirthdays: (g: string) => request<any>(`/extras/${g}/birthday`),
+  setBirthday: (g: string, data: any) =>
+    request<any>(`/extras/${g}/birthday`, { method: "POST", body: JSON.stringify(data) }),
+  removeBirthday: (g: string, userId: string) =>
+    request<any>(`/extras/${g}/birthday/${userId}`, { method: "DELETE" }),
+
   // Anti-nuke alerts
   getNukeAlerts: (guildId: string) => request<any>(`/nukealert/${guildId}`),
   updateNukeAlerts: (guildId: string, data: any) =>
