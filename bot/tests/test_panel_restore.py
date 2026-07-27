@@ -69,6 +69,7 @@ class FakeGuild:
         self.id, self.name = GUILD, "Test Guild"
         self.channel = FakeChannel(CHANNEL, "verify")
         self.role = FakeRole(ROLE, "Verified")
+        self.text_channels = [self.channel]
 
     def get_channel(self, cid):
         return self.channel if int(cid) == CHANNEL else None
@@ -215,6 +216,40 @@ def run():
         print(f"  FAIL  unconfigured guild is a no-op: {result}")
     else:
         print("  PASS  unconfigured guild is a no-op")
+
+    # --- 6. dead reaction role rows are cleaned up --------------------
+    con = sqlite3.connect("rr.db")
+    con.execute(
+        "CREATE TABLE IF NOT EXISTS reaction_roles ("
+        " guild_id INTEGER, message_id INTEGER, emoji TEXT, role_id INTEGER)"
+    )
+    con.execute("DELETE FROM reaction_roles")
+    con.executemany(
+        "INSERT INTO reaction_roles VALUES (?,?,?,?)",
+        [
+            (GUILD, OLD_MESSAGE, "👍", ROLE),   # message still exists
+            (GUILD, 777777, "❤", ROLE),        # message is gone
+        ],
+    )
+    con.commit()
+    con.close()
+
+    guild6 = FakeGuild()
+    guild6.text_channels = [guild6.channel]
+    guild6.channel.existing[OLD_MESSAGE] = FakeMessage(OLD_MESSAGE, guild6.channel)
+    asyncio.run(repost_all_panels(FakeBot(guild6)))
+
+    con = sqlite3.connect("rr.db")
+    left = {r[0] for r in con.execute(
+        "SELECT message_id FROM reaction_roles WHERE guild_id = ?", (GUILD,)
+    ).fetchall()}
+    con.close()
+
+    if left == {OLD_MESSAGE}:
+        print("  PASS  removes dead reaction role rows, keeps live ones")
+    else:
+        failures.append(f"reaction role cleanup wrong, left={left}")
+        print(f"  FAIL  removes dead reaction role rows: {left}")
 
     print(f"\n{len(failures)} failures")
     for line in failures:

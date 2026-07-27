@@ -1,155 +1,429 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
-  Shield, Save, RefreshCcw, Lock, Radar, ScanLine, ServerCog, Trash2, Link,
-  Webhook, Bot, MessageSquareWarning, FileClock, GitCompare, Layers, UserPlus,
-  UserSearch, Wand2, Archive, Activity, Ticket, Mic2, RadioTower
+  AlertTriangle, CheckCircle2, ChevronRight, Hash, Link2, Loader2,
+  RefreshCcw, Shield, ShieldAlert, Trash2, Users, Webhook,
 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
-import { Switch } from "@/components/ui/switch";
-import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
-type FeatureKey =
-  | "emergency_lockdown"
-  | "anti_raid_watch"
-  | "auto_role_audit"
-  | "permission_scan"
-  | "inactive_channel_scan"
-  | "invite_security"
-  | "webhook_monitoring"
-  | "bot_role_guard"
-  | "mass_mention_guard"
-  | "dashboard_audit_log"
-  | "channel_permission_diff"
-  | "role_hierarchy_alerts"
-  | "new_account_watch"
-  | "suspicious_name_watch"
-  | "automod_recommendations"
-  | "backup_snapshot_reminders"
-  | "staff_activity_insights"
-  | "ticket_overload_alerts"
-  | "voice_abuse_monitor"
-  | "public_webhook_alerts";
+/**
+ * Per-guild server tools.
+ *
+ * This page used to be twenty toggles that wrote a boolean nobody read —
+ * nineteen of the twenty keys did not appear anywhere in the bot's source,
+ * so flipping them looked like configuring something and did nothing.
+ *
+ * Everything here queries the live guild instead: the findings are real,
+ * they name the role, bot or webhook they are about, and the one action
+ * (deleting a webhook) actually changes the server.
+ */
 
-const defaults: Record<FeatureKey, boolean> = {
-  emergency_lockdown: false,
-  anti_raid_watch: true,
-  auto_role_audit: true,
-  permission_scan: true,
-  inactive_channel_scan: false,
-  invite_security: true,
-  webhook_monitoring: true,
-  bot_role_guard: true,
-  mass_mention_guard: true,
-  dashboard_audit_log: true,
-  channel_permission_diff: true,
-  role_hierarchy_alerts: true,
-  new_account_watch: true,
-  suspicious_name_watch: false,
-  automod_recommendations: true,
-  backup_snapshot_reminders: true,
-  staff_activity_insights: false,
-  ticket_overload_alerts: true,
-  voice_abuse_monitor: true,
-  public_webhook_alerts: true,
-};
+type TabId = "overview" | "security" | "roles" | "channels" | "invites" | "webhooks";
 
-const features: Array<{ key: FeatureKey; title: string; desc: string; icon: any; group: string }> = [
-  { key: "emergency_lockdown", title: "Emergency Lockdown", desc: "Prepare a one-click lockdown state for dangerous situations.", icon: Lock, group: "Security" },
-  { key: "anti_raid_watch", title: "Anti-Raid Watch", desc: "Track join spikes and suspicious member waves.", icon: Radar, group: "Security" },
-  { key: "auto_role_audit", title: "Auto Role Audit", desc: "Check if managed roles are still below the bot role.", icon: ServerCog, group: "Audits" },
-  { key: "permission_scan", title: "Permission Scan", desc: "Scan channels and roles for risky permissions.", icon: ScanLine, group: "Audits" },
-  { key: "inactive_channel_scan", title: "Inactive Channel Scan", desc: "Find unused channels that can be cleaned up.", icon: Trash2, group: "Cleanup" },
-  { key: "invite_security", title: "Invite Security", desc: "Monitor invite usage and suspicious invite patterns.", icon: Link, group: "Security" },
-  { key: "webhook_monitoring", title: "Webhook Monitoring", desc: "Watch webhook creation/deletion for abuse.", icon: Webhook, group: "Security" },
-  { key: "bot_role_guard", title: "Bot Role Guard", desc: "Warn when bot roles are moved into unsafe positions.", icon: Bot, group: "Security" },
-  { key: "mass_mention_guard", title: "Mass Mention Guard", desc: "Highlight channels where mass mentions may be abused.", icon: MessageSquareWarning, group: "Security" },
-  { key: "dashboard_audit_log", title: "Dashboard Audit Log", desc: "Log all important dashboard admin actions.", icon: FileClock, group: "Audits" },
-  { key: "channel_permission_diff", title: "Channel Permission Diff", desc: "Detect dangerous channel overwrite changes.", icon: GitCompare, group: "Audits" },
-  { key: "role_hierarchy_alerts", title: "Role Hierarchy Alerts", desc: "Warn when staff or bot roles are moved too low.", icon: Layers, group: "Security" },
-  { key: "new_account_watch", title: "New Account Watch", desc: "Flag very new Discord accounts joining the server.", icon: UserPlus, group: "Members" },
-  { key: "suspicious_name_watch", title: "Suspicious Name Watch", desc: "Detect invite spam, scam words, and impersonation patterns in names.", icon: UserSearch, group: "Members" },
-  { key: "automod_recommendations", title: "Automod Recommendations", desc: "Suggest Automod rules based on recent moderation activity.", icon: Wand2, group: "Automation" },
-  { key: "backup_snapshot_reminders", title: "Backup Snapshot Reminders", desc: "Remind admins to create configuration backups regularly.", icon: Archive, group: "Automation" },
-  { key: "staff_activity_insights", title: "Staff Activity Insights", desc: "Show high-level staff moderation activity signals.", icon: Activity, group: "Insights" },
-  { key: "ticket_overload_alerts", title: "Ticket Overload Alerts", desc: "Alert staff when support demand is unusually high.", icon: Ticket, group: "Support" },
-  { key: "voice_abuse_monitor", title: "Voice Abuse Monitor", desc: "Detect suspicious voice channel movements and AFK abuse.", icon: Mic2, group: "Voice" },
-  { key: "public_webhook_alerts", title: "Public Webhook Alerts", desc: "Warn when webhooks exist in public channels.", icon: RadioTower, group: "Security" },
+const TABS: Array<{ id: TabId; label: string; icon: any }> = [
+  { id: "overview", label: "Übersicht", icon: Shield },
+  { id: "security", label: "Sicherheit", icon: ShieldAlert },
+  { id: "roles", label: "Rollen", icon: Users },
+  { id: "channels", label: "Kanäle", icon: Hash },
+  { id: "invites", label: "Einladungen", icon: Link2 },
+  { id: "webhooks", label: "Webhooks", icon: Webhook },
 ];
 
-export default function AdminDashboardPage({ params }: { params: { guildId: string } }) {
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [values, setValues] = useState<Record<FeatureKey, boolean>>(defaults);
+const SEVERITY = {
+  high: { label: "Hoch", cls: "bg-red-500/10 border-red-500/30 text-red-300" },
+  medium: { label: "Mittel", cls: "bg-amber-500/10 border-amber-500/30 text-amber-300" },
+  low: { label: "Niedrig", cls: "bg-sky-500/10 border-sky-500/30 text-sky-300" },
+} as const;
 
-  useEffect(() => {
-    async function load() {
+function Card({ children, className }: { children: React.ReactNode; className?: string }) {
+  return (
+    <div className={cn("bg-[#10233f] border border-slate-800 rounded-3xl p-6", className)}>
+      {children}
+    </div>
+  );
+}
+
+function Stat({ label, value, hint }: { label: string; value: React.ReactNode; hint?: string }) {
+  return (
+    <div>
+      <p className="text-2xl font-black text-white tabular-nums">{value}</p>
+      <p className="text-[10px] uppercase tracking-widest text-slate-500 font-black mt-1">
+        {label}
+      </p>
+      {hint && <p className="text-[11px] text-slate-600 mt-0.5">{hint}</p>}
+    </div>
+  );
+}
+
+function Empty({ text }: { text: string }) {
+  return <p className="text-center text-slate-500 py-10 text-sm">{text}</p>;
+}
+
+export default function ServerToolsPage({ params }: { params: { guildId: string } }) {
+  const guildId = params.guildId;
+  const [tab, setTab] = useState<TabId>("overview");
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [data, setData] = useState<Record<string, any>>({});
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const load = useCallback(
+    async (which: TabId, force = false) => {
+      if (data[which] && !force) return;
+      setLoading(true);
+      const fetchers: Record<TabId, () => Promise<any>> = {
+        overview: () => api.getServerOverview(guildId),
+        security: () => api.runSecurityScan(guildId),
+        roles: () => api.getRoleAudit(guildId),
+        channels: () => api.getChannelAudit(guildId),
+        invites: () => api.getInviteAudit(guildId),
+        webhooks: () => api.getWebhookAudit(guildId),
+      };
       try {
-        setLoading(true);
-        const data = await api.getAdminDashboard(params.guildId);
-        setValues((prev) => ({ ...prev, ...data }));
+        const result = await fetchers[which]();
+        setData((d) => ({ ...d, [which]: result }));
+        setErrors((e) => ({ ...e, [which]: "" }));
       } catch (err: any) {
-        toast.error(err.message || "Admin Dashboard konnte nicht geladen werden.");
+        setErrors((e) => ({ ...e, [which]: err?.message || "Konnte nicht geladen werden." }));
       } finally {
         setLoading(false);
       }
+    },
+    [guildId, data]
+  );
+
+  useEffect(() => {
+    load(tab);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab]);
+
+  const removeWebhook = async (id: string, name: string) => {
+    if (!confirm(`Webhook „${name}" wirklich löschen?`)) return;
+    setBusy(true);
+    try {
+      await api.deleteWebhook(guildId, id);
+      toast.success(`Webhook „${name}" gelöscht.`);
+      await load("webhooks", true);
+      setData((d) => ({ ...d, security: undefined }));
+    } catch (err: any) {
+      toast.error(err?.message || "Löschen fehlgeschlagen.");
+    } finally {
+      setBusy(false);
     }
-    load();
-  }, [params.guildId]);
-
-  const setFeature = (key: FeatureKey, checked: boolean) => setValues((prev) => ({ ...prev, [key]: checked }));
-
-  const save = async () => {
-    setSaving(true);
-    const promise = api.updateAdminDashboard(params.guildId, values);
-    toast.promise(promise, {
-      loading: "Admin Dashboard wird gespeichert...",
-      success: "Admin Dashboard wurde gespeichert.",
-      error: "Admin Dashboard konnte nicht gespeichert werden.",
-    });
-    try { await promise; } finally { setSaving(false); }
   };
 
-  if (loading) return <div className="min-h-[300px] flex items-center justify-center"><RefreshCcw className="h-8 w-8 animate-spin text-primary" /></div>;
-
-  const enabledCount = features.filter((feature) => values[feature.key]).length;
+  const current = data[tab];
+  const error = errors[tab];
 
   return (
-    <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
-      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
+    <div className="max-w-6xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
+      <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-white flex items-center gap-2"><Shield className="h-6 w-6 text-primary" />Admin Dashboard</h2>
-          <p className="text-slate-400 mt-1">20 Premium Admin-Funktionen für Security, Audits, Support, Voice und Automatisierung.</p>
+          <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+            <Shield className="h-6 w-6 text-primary" />
+            Server-Werkzeuge
+          </h2>
+          <p className="text-slate-400 mt-1 text-sm">
+            Live-Analyse dieses Servers — jede Zahl kommt direkt von Discord.
+          </p>
         </div>
-        <div className="px-4 py-2 rounded-2xl bg-primary/10 border border-primary/20 text-primary text-sm font-black">
-          {enabledCount}/20 aktiv
-        </div>
+        <button
+          onClick={() => load(tab, true)}
+          disabled={loading}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-white/[0.03] border border-white/10 text-slate-300 hover:bg-white/[0.07] transition-all text-xs font-black uppercase tracking-widest disabled:opacity-50"
+        >
+          <RefreshCcw className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
+          Neu laden
+        </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-        {features.map((item) => (
-          <div key={item.key} className="bg-[#10233f] border border-slate-800 rounded-3xl p-6 flex items-center justify-between gap-5 shadow-xl hover:border-primary/30 transition-all">
-            <div className="flex items-start gap-4 min-w-0">
-              <div className="p-3 rounded-xl bg-primary/10 text-primary shrink-0"><item.icon className="h-5 w-5" /></div>
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h3 className="font-bold text-white">{item.title}</h3>
-                  <span className="text-[9px] uppercase tracking-widest font-black text-slate-500 bg-slate-900/60 border border-slate-800 px-2 py-0.5 rounded-full">{item.group}</span>
-                </div>
-                <p className="text-sm text-slate-500 mt-1">{item.desc}</p>
-              </div>
-            </div>
-            <Switch checked={values[item.key]} onCheckedChange={(checked) => setFeature(item.key, checked)} />
-          </div>
+      <div className="flex gap-2 flex-wrap">
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setTab(t.id)}
+            className={cn(
+              "flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-black uppercase tracking-widest border transition-all",
+              tab === t.id
+                ? "bg-primary/15 border-primary/40 text-primary"
+                : "bg-[#10233f] border-slate-800 text-slate-400 hover:text-slate-200"
+            )}
+          >
+            <t.icon className="h-3.5 w-3.5" />
+            {t.label}
+          </button>
         ))}
       </div>
 
-      <Button onClick={save} disabled={saving} className="w-full h-14 text-base font-bold gap-2">
-        {saving ? <RefreshCcw className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
-        Speichern
-      </Button>
+      {loading && !current ? (
+        <div className="flex items-center justify-center min-h-[300px]">
+          <Loader2 className="h-8 w-8 text-primary animate-spin opacity-40" />
+        </div>
+      ) : error ? (
+        <Card className="border-amber-500/30 bg-amber-500/5">
+          <div className="flex gap-3">
+            <AlertTriangle className="h-5 w-5 text-amber-400 shrink-0" />
+            <div>
+              <p className="font-bold text-white">Nicht verfügbar</p>
+              <p className="text-sm text-amber-200/80 mt-1">{error}</p>
+            </div>
+          </div>
+        </Card>
+      ) : !current ? null : (
+        <>
+          {/* ── Übersicht ─────────────────────────────────── */}
+          {tab === "overview" && (
+            <div className="space-y-4">
+              <Card>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                  <Stat label="Mitglieder" value={current.members.total.toLocaleString("de-DE")}
+                        hint={`${current.members.humans} Menschen · ${current.members.bots} Bots`} />
+                  <Stat label="Kanäle"
+                        value={current.channels.text + current.channels.voice}
+                        hint={`${current.channels.text} Text · ${current.channels.voice} Voice`} />
+                  <Stat label="Rollen" value={current.roles} />
+                  <Stat label="Boosts" value={current.boosts ?? 0}
+                        hint={`Stufe ${current.boost_level}`} />
+                </div>
+              </Card>
+
+              {current.bot_missing_permissions?.length > 0 && (
+                <Card className="border-amber-500/30 bg-amber-500/5">
+                  <div className="flex gap-3">
+                    <AlertTriangle className="h-5 w-5 text-amber-400 shrink-0" />
+                    <div>
+                      <p className="font-bold text-white">Dem Bot fehlen Rechte</p>
+                      <p className="text-sm text-amber-200/80 mt-1">
+                        Ohne diese Berechtigungen funktionieren Teile des Bots nicht:{" "}
+                        <span className="font-mono">
+                          {current.bot_missing_permissions.join(", ")}
+                        </span>
+                      </p>
+                    </div>
+                  </div>
+                </Card>
+              )}
+            </div>
+          )}
+
+          {/* ── Sicherheit ────────────────────────────────── */}
+          {tab === "security" && (
+            <div className="space-y-4">
+              <Card>
+                <div className="flex flex-wrap items-center justify-between gap-6">
+                  <div className="flex items-center gap-5">
+                    <div
+                      className={cn(
+                        "h-20 w-20 rounded-3xl flex items-center justify-center text-2xl font-black border-2",
+                        current.score >= 80
+                          ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
+                          : current.score >= 50
+                          ? "bg-amber-500/10 border-amber-500/30 text-amber-400"
+                          : "bg-red-500/10 border-red-500/30 text-red-400"
+                      )}
+                    >
+                      {current.score}
+                    </div>
+                    <div>
+                      <p className="font-black text-white text-lg">Sicherheits-Score</p>
+                      <p className="text-sm text-slate-400 mt-0.5">
+                        {current.counts.high} hoch · {current.counts.medium} mittel ·{" "}
+                        {current.counts.low} niedrig
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex gap-6 text-right">
+                    <Stat label="Admin-Rollen" value={current.stats.admin_roles} />
+                    <Stat label="Webhooks" value={current.stats.webhooks} />
+                    <Stat label="Neue Accounts" value={current.stats.new_accounts_7d}
+                          hint="letzte 7 Tage" />
+                  </div>
+                </div>
+              </Card>
+
+              {current.findings.length === 0 ? (
+                <Card>
+                  <div className="flex items-center gap-3 justify-center py-6">
+                    <CheckCircle2 className="h-6 w-6 text-emerald-400" />
+                    <p className="text-slate-300 font-bold">Keine Auffälligkeiten gefunden.</p>
+                  </div>
+                </Card>
+              ) : (
+                <div className="space-y-3">
+                  {current.findings.map((f: any, i: number) => {
+                    const sev = SEVERITY[f.severity as keyof typeof SEVERITY] ?? SEVERITY.low;
+                    return (
+                      <div key={i} className={cn("rounded-2xl border p-5", sev.cls)}>
+                        <div className="flex items-start gap-3">
+                          <span className="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-lg bg-black/25 shrink-0">
+                            {sev.label}
+                          </span>
+                          <div className="min-w-0">
+                            <p className="font-bold text-white">{f.title}</p>
+                            <p className="text-sm opacity-80 mt-1">{f.detail}</p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Rollen ────────────────────────────────────── */}
+          {tab === "roles" && (
+            <div className="space-y-4">
+              <Card>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                  <Stat label="Rollen" value={current.summary.total} />
+                  <Stat label="Mit Admin" value={current.summary.with_admin} />
+                  <Stat label="Ungenutzt" value={current.summary.unused} />
+                  <Stat label="Über dem Bot" value={current.summary.above_bot}
+                        hint="kann der Bot nicht vergeben" />
+                </div>
+              </Card>
+
+              <div className="space-y-2">
+                {current.roles.length === 0 ? (
+                  <Empty text="Keine Rollen gefunden." />
+                ) : (
+                  current.roles.map((r: any) => (
+                    <div key={r.id}
+                         className="bg-[#10233f] border border-slate-800 rounded-2xl px-5 py-4 flex items-center gap-4 flex-wrap">
+                      <span className="h-3 w-3 rounded-full shrink-0"
+                            style={{ background: r.colour }} />
+                      <span className="font-bold text-white truncate flex-1 min-w-[120px]">
+                        {r.name}
+                      </span>
+                      <span className="text-xs text-slate-500 tabular-nums">
+                        {r.members} Mitglieder
+                      </span>
+                      {r.dangerous_permissions.includes("administrator") && (
+                        <span className="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-lg bg-red-500/15 text-red-300 border border-red-500/25">
+                          Administrator
+                        </span>
+                      )}
+                      {r.above_bot && (
+                        <span className="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-lg bg-amber-500/10 text-amber-300 border border-amber-500/25">
+                          Über dem Bot
+                        </span>
+                      )}
+                      {r.unused && (
+                        <span className="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-lg bg-white/[0.04] text-slate-400 border border-white/10">
+                          Ungenutzt
+                        </span>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ── Kanäle ────────────────────────────────────── */}
+          {tab === "channels" && (
+            <div className="space-y-4">
+              <Card>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                  <Stat label="Textkanäle" value={current.summary.total} />
+                  <Stat label="Öffentlich" value={current.summary.public} />
+                  <Stat label="Bot stumm" value={current.summary.bot_cannot_send}
+                        hint="Bot darf nicht schreiben" />
+                  <Stat label="Slowmode" value={current.summary.with_slowmode} />
+                </div>
+              </Card>
+
+              <div className="space-y-2">
+                {current.channels.map((c: any) => (
+                  <div key={c.id}
+                       className="bg-[#10233f] border border-slate-800 rounded-2xl px-5 py-4 flex items-center gap-4 flex-wrap">
+                    <Hash className="h-4 w-4 text-slate-500 shrink-0" />
+                    <span className="font-bold text-white truncate flex-1 min-w-[120px]">
+                      {c.name}
+                    </span>
+                    {c.category && (
+                      <span className="text-xs text-slate-500">{c.category}</span>
+                    )}
+                    {!c.bot_can_send && (
+                      <span className="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-lg bg-amber-500/10 text-amber-300 border border-amber-500/25">
+                        Bot darf nicht schreiben
+                      </span>
+                    )}
+                    {c.slowmode > 0 && (
+                      <span className="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-lg bg-white/[0.04] text-slate-400 border border-white/10">
+                        {c.slowmode}s Slowmode
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ── Einladungen ───────────────────────────────── */}
+          {tab === "invites" && (
+            <div className="space-y-2">
+              {current.invites.length === 0 ? (
+                <Empty text="Keine aktiven Einladungen." />
+              ) : (
+                current.invites.map((i: any) => (
+                  <div key={i.code}
+                       className="bg-[#10233f] border border-slate-800 rounded-2xl px-5 py-4 flex items-center gap-4 flex-wrap">
+                    <code className="font-mono font-bold text-white">{i.code}</code>
+                    <span className="text-xs text-slate-500 flex-1 min-w-[100px]">
+                      {i.channel ? `#${i.channel}` : "—"}
+                      {i.inviter ? ` · von ${i.inviter}` : ""}
+                    </span>
+                    <span className="text-xs text-slate-400 tabular-nums">
+                      {i.uses} Nutzungen
+                    </span>
+                    {i.permanent && (
+                      <span className="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-lg bg-amber-500/10 text-amber-300 border border-amber-500/25">
+                        Läuft nie ab
+                      </span>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+
+          {/* ── Webhooks ──────────────────────────────────── */}
+          {tab === "webhooks" && (
+            <div className="space-y-2">
+              {current.webhooks.length === 0 ? (
+                <Empty text="Keine Webhooks eingerichtet." />
+              ) : (
+                current.webhooks.map((w: any) => (
+                  <div key={w.id}
+                       className="bg-[#10233f] border border-slate-800 rounded-2xl px-5 py-4 flex items-center gap-4 flex-wrap">
+                    <Webhook className="h-4 w-4 text-slate-500 shrink-0" />
+                    <span className="font-bold text-white truncate flex-1 min-w-[120px]">
+                      {w.name}
+                    </span>
+                    <span className="text-xs text-slate-500">
+                      {w.channel ? `#${w.channel}` : "—"}
+                      {w.created_by ? ` · ${w.created_by}` : ""}
+                    </span>
+                    <button
+                      onClick={() => removeWebhook(w.id, w.name)}
+                      disabled={busy}
+                      className="p-2 rounded-xl bg-white/[0.03] border border-white/5 text-slate-400 hover:text-red-400 hover:bg-red-400/10 transition-all disabled:opacity-40"
+                      title="Webhook löschen"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }

@@ -23,13 +23,16 @@ aborting the whole restore.
 
 from __future__ import annotations
 
+import asyncio
 import os
+import sqlite3
 from typing import Any
 
 import aiosqlite
 
 TICKET_DB = "db/ticket.db"
 VERIFICATION_DB = "db/verification.db"
+REACTION_ROLE_DB = "rr.db"
 
 
 async def _delete_old_message(guild, channel_id, message_id) -> bool:
@@ -221,6 +224,82 @@ async def _repost_tickets(bot, guild) -> dict[str, Any] | None:
     }
 
 
+async def _verify_reaction_roles(bot, guild) -> dict[str, Any] | None:
+    """
+    Drop reaction role rows whose message no longer exists.
+
+    A reaction role is only half configuration: the mapping lives in the
+    database, but it is keyed by the message people react to. After a
+    restore that message is often gone — the row survives and silently does
+    nothing, which looks exactly like "roles were not restored properly".
+
+    Removing the dead rows makes the dashboard show the real state instead
+    of mappings that can never fire again. Rows whose message we simply
+    cannot check right now (missing permission, API hiccup) are kept.
+    """
+    if not os.path.exists(REACTION_ROLE_DB):
+        return None
+
+    def _read():
+        con = sqlite3.connect(REACTION_ROLE_DB)
+        try:
+            rows = con.execute(
+                "SELECT DISTINCT message_id FROM reaction_roles WHERE guild_id = ?",
+                (guild.id,),
+            ).fetchall()
+        except sqlite3.Error:
+            rows = []
+        con.close()
+        return [r[0] for r in rows]
+
+    message_ids = await asyncio.to_thread(_read)
+    if not message_ids:
+        return None
+
+    stale: list[int] = []
+    for message_id in message_ids:
+        found = False
+        for channel in getattr(guild, "text_channels", []):
+            try:
+                await channel.fetch_message(int(message_id))
+                found = True
+                break
+            except Exception:
+                continue
+        if not found:
+            stale.append(message_id)
+
+    if not stale:
+        return {
+            "module": "reaction_roles",
+            "status": "ok",
+            "checked": len(message_ids),
+        }
+
+    def _delete():
+        con = sqlite3.connect(REACTION_ROLE_DB)
+        marks = ",".join("?" for _ in stale)
+        con.execute(
+            f"DELETE FROM reaction_roles WHERE guild_id = ? AND message_id IN ({marks})",
+            (guild.id, *stale),
+        )
+        con.commit()
+        con.close()
+
+    await asyncio.to_thread(_delete)
+
+    return {
+        "module": "reaction_roles",
+        "status": "cleaned",
+        "checked": len(message_ids),
+        "removed": len(stale),
+        "reason": (
+            f"{len(stale)} reaction role message(s) no longer exist; "
+            "post the message again and re-add the reactions"
+        ),
+    }
+
+
 async def repost_all_panels(bot, guild_ids=None) -> dict[str, Any]:
     """
     Repost every panel the current configuration describes.
@@ -237,7 +316,8 @@ async def repost_all_panels(bot, guild_ids=None) -> dict[str, Any]:
         guilds = list(bot.guilds)
 
     for guild in guilds:
-        for handler in (_repost_verification, _repost_tickets):
+        for handler in (_repost_verification, _repost_tickets,
+                        _verify_reaction_roles):
             try:
                 outcome = await handler(bot, guild)
             except Exception as exc:  # noqa: BLE001
@@ -251,10 +331,12 @@ async def repost_all_panels(bot, guild_ids=None) -> dict[str, Any]:
                 outcome["guild"] = guild.name
                 results.append(outcome)
 
-    posted = sum(1 for r in results if r["status"] == "posted")
     return {
-        "panels_posted": posted,
+        "panels_posted": sum(1 for r in results if r["status"] == "posted"),
         "panels_skipped": sum(1 for r in results if r["status"] == "skipped"),
         "panels_failed": sum(1 for r in results if r["status"] == "failed"),
+        "reaction_roles_removed": sum(
+            r.get("removed", 0) for r in results if r["module"] == "reaction_roles"
+        ),
         "details": results,
     }

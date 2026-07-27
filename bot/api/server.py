@@ -8,7 +8,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from starlette.responses import Response
 from utils.config import *
-from api.routes import bot, guilds, admin, team, moderation, actions, access, servers
+from api.routes import bot, guilds, admin, team, moderation, actions, access, servers, servertools
 from api.dependencies import verify_api_key, limiter, get_bot_loop
 from api.db_manager import db_manager
 from api.schema_guard import ensure_schema
@@ -248,7 +248,34 @@ def create_app() -> FastAPI:
         except RuntimeError:
             pass
 
-        fut = asyncio.run_coroutine_threadsafe(call_next(request), loop)
+        async def _handle():
+            response = await call_next(request)
+
+            # A streaming response hands back a lazy iterator that is bound
+            # to *this* loop. Returning it would make the server read it
+            # from the uvicorn loop instead, which deadlocks and leaves the
+            # download spinning forever. Drain it here, while we are still
+            # on the loop that owns it.
+            iterator = getattr(response, "body_iterator", None)
+            if iterator is not None:
+                chunks = [chunk async for chunk in iterator]
+                body = b"".join(
+                    c if isinstance(c, bytes) else str(c).encode("utf-8")
+                    for c in chunks
+                )
+                headers = dict(response.headers)
+                # The length changes once the body is assembled.
+                headers.pop("content-length", None)
+                return Response(
+                    content=body,
+                    status_code=response.status_code,
+                    headers=headers,
+                    media_type=response.media_type,
+                )
+
+            return response
+
+        fut = asyncio.run_coroutine_threadsafe(_handle(), loop)
         return await asyncio.wrap_future(fut)
 
     api_app.include_router(bot.router, prefix="/bot", tags=["Bot"])
@@ -259,6 +286,9 @@ def create_app() -> FastAPI:
     api_app.include_router(actions.router, prefix="/actions", tags=["Actions"])
     api_app.include_router(access.router, prefix="/access", tags=["Access"])
     api_app.include_router(servers.router, prefix="/servers", tags=["Servers"])
+    api_app.include_router(
+        servertools.router, prefix="/servertools", tags=["Server Tools"]
+    )
 
     @api_app.get("/health")
     async def api_health():

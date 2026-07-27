@@ -592,4 +592,22 @@ export const api = {
       method: "POST",
       body: JSON.stringify(data),
     }),
+
+  // Per-guild server tools — every one of these reads the live guild.
+  getServerOverview: (guildId: string) =>
+    request<any>(`/servertools/${guildId}/overview`),
+  runSecurityScan: (guildId: string) =>
+    request<any>(`/servertools/${guildId}/security-scan`),
+  getRoleAudit: (guildId: string) =>
+    request<any>(`/servertools/${guildId}/roles/audit`),
+  getChannelAudit: (guildId: string) =>
+    request<any>(`/servertools/${guildId}/channels/audit`),
+  getInviteAudit: (guildId: string) =>
+    request<any>(`/servertools/${guildId}/invites/audit`),
+  getWebhookAudit: (guildId: string) =>
+    request<any>(`/servertools/${guildId}/webhooks/audit`),
+  deleteWebhook: (guildId: string, webhookId: string) =>
+    request<any>(`/servertools/${guildId}/webhooks/${webhookId}`, {
+      method: "DELETE",
+    }),
 };
