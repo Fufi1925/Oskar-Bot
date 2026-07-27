@@ -95,7 +95,7 @@ class MemoryView(BaseView):
     def __init__(
         self,
         game: MemoryGame,
-        items: list[str],
+        items: Optional[list[str]],
         *,
         button_style: discord.ButtonStyle,
         pause_time: float,
@@ -114,7 +114,10 @@ class MemoryView(BaseView):
             items = self.DEFAULT_ITEMS[:]
         assert len(items) == 12
 
-        items *= 2
+        # Work on a copy. `items *= 2` and `.insert()` mutate in place, so
+        # without this the caller's own list grows from 12 to 25 entries and
+        # starting a second game with the same list fails the assert above.
+        items = list(items) * 2
         random.shuffle(items)
         random.shuffle(items)
         items.insert(12, None)
@@ -145,7 +148,7 @@ class MemoryGame:
         ctx: commands.Context[commands.Bot],
         *,
         embed_color: DiscordColor = DEFAULT_COLOR,
-        items: list[str] = [],
+        items: Optional[list[str]] = None,
         pause_time: float = 0.7,
         button_style: discord.ButtonStyle = discord.ButtonStyle.red,
         timeout: Optional[float] = None,

@@ -132,7 +132,7 @@ class General(commands.Cog):
         description=description
       )
       embed.set_author(name=f"{member}", icon_url=member.avatar.url if member.avatar else member.default_avatar.url)
-      embed.set_image(url=user.avatar.url)
+      embed.set_image(url=user.display_avatar.url)
       embed.set_footer(text=f"Requested By {ctx.author}",
                        icon_url=ctx.author.avatar.url if ctx.author.avatar else ctx.author.default_avatar.url)
 

@@ -85,7 +85,7 @@ class Unlock(commands.Cog):
                 color=self.color
             )
             embed.set_author(name=f"{channel.name} is Already Unlocked")
-            embed.set_footer(text=f"Requested by {ctx.author}", icon_url=ctx.author.avatar.url)
+            embed.set_footer(text=f"Requested by {ctx.author}", icon_url=ctx.author.display_avatar.url)
             #view = LockUnlockView(channel=channel, author=ctx.author, ctx=ctx)  
             message = await ctx.send(embed=embed)
            # view.message = message
@@ -100,7 +100,7 @@ class Unlock(commands.Cog):
        # embed.add_field(name=" **Moderator:**", value=ctx.author.mention, inline=False)
         embed.set_thumbnail(url=ctx.author.display_avatar.url)
         embed.set_author(name=f"Successfully Unlocked {channel.name}")
-        embed.set_footer(text=f"Requested by {ctx.author}", icon_url=ctx.author.avatar.url)
+        embed.set_footer(text=f"Requested by {ctx.author}", icon_url=ctx.author.display_avatar.url)
       #  view = LockUnlockView(channel=channel, author=ctx.author, ctx=ctx)  
         message = await ctx.send(embed=embed)
        # view.message = message

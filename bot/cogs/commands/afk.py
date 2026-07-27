@@ -219,7 +219,7 @@ class afk(commands.Cog):
                     dm_embed = discord.Embed(description=f"You were mentioned in **{message.guild.name}** by **{message.author}**", color=self.theme_color)
                     dm_embed.add_field(name="Total Mentions", value=str(new_mentions))
                     dm_embed.add_field(name="Jump to Message", value=f"[Click Here]({message.jump_url})")
-                    dm_embed.set_footer(text=FOOTER_TEXT, icon_url=self.bot.user.avatar.url)
+                    dm_embed.set_footer(text=FOOTER_TEXT, icon_url=self.bot.user.display_avatar.url)
                     try:
                         await mentioned.send(embed=dm_embed)
                     except discord.Forbidden:

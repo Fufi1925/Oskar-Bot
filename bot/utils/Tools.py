@@ -15,7 +15,10 @@
 import json, sys, os
 import discord
 from discord.ext import commands
-from core import Context
+# NOTE: `from core import Context` was imported here but never used. It created a
+# circular import (utils -> utils.Tools -> core -> core.universitybot -> utils),
+# which made `import utils`, `import utils.Tools` and `import api.server` fail
+# with "cannot import name 'getConfig' from 'utils'". Removed on purpose.
 from utils.emoji import DENIED
 import aiosqlite
 import asyncio

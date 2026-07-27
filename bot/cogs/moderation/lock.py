@@ -42,7 +42,7 @@ class Lock(commands.Cog):
                 color=0xFF0000
             )
             #embed.set_author(name=f"{c", icon_url="")
-            embed.set_footer(text=f"Requested by {ctx.author}", icon_url=ctx.author.avatar.url)
+            embed.set_footer(text=f"Requested by {ctx.author}", icon_url=ctx.author.display_avatar.url)
             await ctx.send(embed=embed)
             return
 
@@ -56,7 +56,7 @@ class Lock(commands.Cog):
             color=0xFF0000
         )
         #embed.set_author(name=f"Successfully Locked {channel.name}", icon_url="")
-        embed.set_footer(text=f"Requested by {ctx.author}", icon_url=ctx.author.avatar.url)
+        embed.set_footer(text=f"Requested by {ctx.author}", icon_url=ctx.author.display_avatar.url)
         #embed.set_thumbnail(url=ctx.author.display_avatar.url)
         
         # Send the final message

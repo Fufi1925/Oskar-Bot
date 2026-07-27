@@ -80,7 +80,7 @@ class Twenty48:
 
     def __init__(
         self,
-        number_to_display_mapping: dict[str, str] = {},
+        number_to_display_mapping: Optional[dict[str, str]] = None,
         *,
         render_image: bool = False,
     ) -> None:
@@ -92,7 +92,8 @@ class Twenty48:
         self.message: Optional[discord.Message] = None
 
         self._controls = [ARROW_LEFT, ARROW_RIGHT, ARROW_UP, ARROW_DOWN]
-        self._conversion = number_to_display_mapping
+        # A shared mutable default ({}) would be reused by every instance.
+        self._conversion = dict(number_to_display_mapping or {})
         self._render_image = render_image
 
         if self._render_image and discord.version_info.major < 2:

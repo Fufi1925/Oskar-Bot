@@ -230,7 +230,7 @@ class TypeRacer:
 
         if show_author:
             if discord.version_info.major >= 2:
-                av = ctx.author.avatar.url
+                av = ctx.author.display_avatar.url
             else:
                 av = ctx.author.avatar_url
             embed.set_author(name=ctx.author.name, icon_url=av)

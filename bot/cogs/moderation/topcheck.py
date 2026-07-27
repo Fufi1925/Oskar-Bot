@@ -75,7 +75,7 @@ class TopCheck(commands.Cog):
         f"• `{ctx.prefix}topcheck disable` - Disables top check for the server."
     ),
                               color=0xFF0000)
-        embed.set_footer(text=f"Requested by {ctx.author}", icon_url=ctx.author.avatar.url)
+        embed.set_footer(text=f"Requested by {ctx.author}", icon_url=ctx.author.display_avatar.url)
         await ctx.send(embed=embed)
 
     @topcheck.command(

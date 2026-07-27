@@ -372,7 +372,7 @@ class Extra(commands.Cog):
     else:
       embed.set_image(url=bannerUser.banner)
     embed.set_author(name=f"{member.name}'s Information",
-                     icon_url=member.avatar.url
+                     icon_url=member.display_avatar.url
                      if member.avatar else member.default_avatar.url)
     embed.set_thumbnail(
       url=member.avatar.url if member.avatar else member.default_avatar.url)
@@ -413,12 +413,12 @@ class Extra(commands.Cog):
                       inline=False)
     if member in ctx.guild.members:
       embed.set_footer(text=f"Requested by {ctx.author}",
-                       icon_url=ctx.author.avatar.url
+                       icon_url=ctx.author.display_avatar.url
                        if ctx.author.avatar else ctx.author.default_avatar.url)
     else:
       if member not in ctx.guild.members:
         embed.set_footer(text=f"{member.name} not in this server.",
-                         icon_url=ctx.author.avatar.url if ctx.author.avatar
+                         icon_url=ctx.author.display_avatar.url if ctx.author.avatar
                          else ctx.author.default_avatar.url)
     await ctx.send(embed=embed)
 

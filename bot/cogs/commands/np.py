@@ -137,7 +137,7 @@ class TimeSelect(Select):
                 color=0xFF0000,
             )
             embed.set_thumbnail(
-                url=self.user.avatar.url
+                url=self.user.display_avatar.url
                 if self.user.avatar
                 else self.user.default_avatar.url
             )
@@ -270,7 +270,7 @@ class NoPrefix(commands.Cog):
                         )
                         embed.set_author(
                             name="No Prefix Expired",
-                            icon_url=user.avatar.url
+                            icon_url=user.display_avatar.url
                             if user.avatar
                             else user.default_avatar.url,
                         )
