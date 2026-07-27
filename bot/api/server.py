@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
+import asyncio
 import os, time, json, logging, httpx
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -8,7 +9,7 @@ from slowapi.middleware import SlowAPIMiddleware
 from starlette.responses import Response
 from utils.config import *
 from api.routes import bot, guilds, admin, team, moderation, actions, access, servers
-from api.dependencies import verify_api_key, limiter
+from api.dependencies import verify_api_key, limiter, get_bot_loop
 from api.db_manager import db_manager
 from api.schema_guard import ensure_schema
 from utils import feature_flags
@@ -222,6 +223,34 @@ def create_app() -> FastAPI:
     # The routers live on this sub-app, so the handler has to be here too:
     # one registered on the parent never sees their exceptions.
     api_app.add_exception_handler(Exception, unhandled_exception_handler)
+
+    # ------------------------------------------------------------------
+    # Run every API handler on the BOT's event loop.
+    #
+    # uvicorn runs in its own thread with its own loop, but discord.py
+    # objects (HTTP session, gateway, locks) belong to the bot's loop.
+    # Awaiting them from here raised
+    #     RuntimeError: Timeout context manager should be used inside a task
+    # on every dashboard action (ban, kick, send message, edit channel...).
+    #
+    # Doing it once as middleware fixes all routes at once, instead of
+    # wrapping 112 endpoints by hand.
+    # ------------------------------------------------------------------
+    @api_app.middleware("http")
+    async def run_on_bot_event_loop(request: Request, call_next):
+        loop = get_bot_loop()
+        if loop is None or loop.is_closed():
+            return await call_next(request)
+
+        try:
+            if asyncio.get_running_loop() is loop:
+                return await call_next(request)
+        except RuntimeError:
+            pass
+
+        fut = asyncio.run_coroutine_threadsafe(call_next(request), loop)
+        return await asyncio.wrap_future(fut)
+
     api_app.include_router(bot.router, prefix="/bot", tags=["Bot"])
     api_app.include_router(guilds.router, prefix="/guilds", tags=["Guilds"])
     api_app.include_router(admin.router, prefix="/admin", tags=["Admin"])

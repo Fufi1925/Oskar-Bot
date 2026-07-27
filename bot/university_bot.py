@@ -461,7 +461,7 @@ async def reaction(ctx: Context):
 import uvicorn
 from threading import Thread
 from api.server import create_app
-from api.dependencies import set_bot
+from api.dependencies import set_bot, set_bot_loop
 
 fastapi_app = create_app()
 fastapi_app.state.bot = client
@@ -491,6 +491,11 @@ RATE_LIMIT_EXIT_CODE = 75
 
 async def main():
     async with client:
+        # The API thread must know which loop discord.py lives on, otherwise
+        # every dashboard action that touches Discord fails with
+        # "RuntimeError: Timeout context manager should be used inside a task".
+        set_bot_loop(asyncio.get_running_loop())
+
         # os.system("clear")  # disabled for Railway container
         await client.load_extension("jishaku")
 

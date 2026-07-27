@@ -8,12 +8,61 @@ import os
 security = HTTPBearer(auto_error=False)
 limiter = Limiter(key_func=get_remote_address)
 _bot_instance = None
+_bot_loop = None
 
 
 def set_bot(bot_instance):
     """Store bot instance for dependency injection."""
     global _bot_instance
     _bot_instance = bot_instance
+
+
+def set_bot_loop(loop):
+    """
+    Remember the event loop the bot is actually running on.
+
+    The API runs in a separate thread with its OWN event loop. discord.py
+    objects (HTTP session, gateway, locks) are bound to the bot's loop, so
+    awaiting them from the API loop raises
+
+        RuntimeError: Timeout context manager should be used inside a task
+
+    Everything that touches discord.py therefore has to be scheduled back
+    onto this loop via run_on_bot_loop().
+    """
+    global _bot_loop
+    _bot_loop = loop
+
+
+def get_bot_loop():
+    return _bot_loop
+
+
+async def run_on_bot_loop(coro, timeout: float = 30.0):
+    """
+    Execute a coroutine on the bot's event loop and await the result from
+    whatever loop the caller is on.
+
+    Falls back to a plain await when the bot loop is unknown or when we are
+    already running on it, so this is safe to use unconditionally.
+    """
+    import asyncio
+
+    loop = _bot_loop
+    if loop is None or loop.is_closed():
+        # No bot loop registered (e.g. tests) - run inline.
+        return await coro
+
+    try:
+        running = asyncio.get_running_loop()
+    except RuntimeError:
+        running = None
+
+    if running is loop:
+        return await coro
+
+    fut = asyncio.run_coroutine_threadsafe(coro, loop)
+    return await asyncio.wrap_future(fut)
 
 
 def get_bot():
