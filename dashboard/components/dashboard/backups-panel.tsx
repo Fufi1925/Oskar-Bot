@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
-import { cn } from "@/lib/utils";
+import { cn, downloadFile } from "@/lib/utils";
 import { ConfigTransferPanel } from "@/components/dashboard/config-transfer-panel";
 import { FullBackupPanel } from "@/components/dashboard/full-backup-panel";
 import { Select } from "@/components/ui/select";
@@ -79,10 +79,16 @@ export function BackupsPanel({
     }
   };
 
-  const download = (name: string | null) => {
-    // Streamed as a zip by the API; a plain link is the simplest way.
-    const url = name ? `/api/bot/admin/backups/${name}/download` : "/api/bot/admin/backups/live/download";
-    window.open(url, "_blank");
+  const download = async (name: string | null) => {
+    const url = name
+      ? `/api/bot/admin/backups/${name}/download`
+      : "/api/bot/admin/backups/live/download";
+    try {
+      const saved = await downloadFile(url, name ? `backup-${name}.zip` : "live.zip");
+      toast.success(`Saved ${saved}`);
+    } catch (err: any) {
+      toast.error(err?.message || "Download failed.");
+    }
   };
 
   const remove = async (name: string) => {

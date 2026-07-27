@@ -42,6 +42,26 @@ if TYPE_CHECKING:
 router = APIRouter()
 
 
+def _member_count(guild) -> int:
+    """
+    Best available member count for a guild.
+
+    `guild.member_count` is populated from the gateway, but it can be None
+    before the member chunk for that guild has arrived. Falling back to the
+    cached member list (and then to approximate_member_count) keeps the
+    dashboard from showing 0 or a dash right after a restart.
+    """
+    if guild is None:
+        return 0
+    count = getattr(guild, "member_count", None)
+    if count:
+        return int(count)
+    cached = len(getattr(guild, "members", ()) or ())
+    if cached:
+        return cached
+    return int(getattr(guild, "approximate_member_count", 0) or 0)
+
+
 @router.get("/", response_model=List[GuildSummary], summary="List all guilds", description="Returns a summary of all guilds the bot is currently in.")
 async def list_guilds(bot: "universitybot" = Depends(get_bot)):
     """
@@ -54,7 +74,7 @@ async def list_guilds(bot: "universitybot" = Depends(get_bot)):
             name=guild.name,
             icon_url=str(guild.icon.url) if guild.icon else None,
             owner_id=str(guild.owner_id),
-            member_count=guild.member_count or 0
+            member_count=_member_count(guild),
         ))
     return guilds_list
 
@@ -72,7 +92,7 @@ async def get_guild_details(guild_id: int, bot: "universitybot" = Depends(get_bo
         name=guild.name,
         icon=str(guild.icon.url) if guild.icon else None,
         owner_id=str(guild.owner_id),
-        member_count=guild.member_count or 0,
+        member_count=_member_count(guild),
         role_count=len(guild.roles),
         channel_count=len(guild.channels)
     )
@@ -1775,7 +1795,7 @@ async def get_module_status(guild_id: int, bot: "universitybot" = Depends(get_bo
         "total_count": len(modules),
         "completion": round((active / len(modules)) * 100) if modules else 0,
         "guild": {
-            "member_count": guild.member_count if guild else 0,
+            "member_count": _member_count(guild),
             "channel_count": len(guild.channels) if guild else 0,
             "role_count": len(guild.roles) if guild else 0,
             "bot_count": sum(1 for m in guild.members if m.bot) if guild else 0,

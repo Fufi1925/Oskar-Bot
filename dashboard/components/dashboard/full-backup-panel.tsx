@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
-import { cn } from "@/lib/utils";
+import { cn, downloadFile } from "@/lib/utils";
 
 interface Preview {
   scope: string;
@@ -44,12 +44,19 @@ export function FullBackupPanel() {
   const [result, setResult] = useState<any>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const exportAll = () => {
-    // Sent with a Content-Disposition header, so a normal navigation is
-    // enough and the session cookie comes along.
-    const url = `/api/bot/admin/backups/export-all?include_user_data=${includeUserData}`;
-    window.open(url, "_blank");
-    toast.success("Download started — every server in one file.");
+  const exportAll = async () => {
+    setBusy(true);
+    try {
+      const name = await downloadFile(
+        `/api/bot/admin/backups/export-all?include_user_data=${includeUserData}`,
+        `full-backup-${Date.now()}.json`
+      );
+      toast.success(`Saved ${name} — every server in one file.`);
+    } catch (err: any) {
+      toast.error(err?.message || "Download failed.");
+    } finally {
+      setBusy(false);
+    }
   };
 
   const onFile = async (file: File) => {

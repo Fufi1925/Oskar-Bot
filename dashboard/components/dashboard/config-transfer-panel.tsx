@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
-import { cn } from "@/lib/utils";
+import { cn, downloadFile } from "@/lib/utils";
 
 interface Preview {
   source_guild_id: string;
@@ -35,12 +35,19 @@ export function ConfigTransferPanel({ guildId, guildName }: { guildId: string; g
   const [confirmReset, setConfirmReset] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const exportConfig = () => {
-    // Served with a Content-Disposition header, so a plain navigation is
-    // enough and keeps the session cookie.
-    const url = `/api/bot/guilds/${guildId}/config/export?include_user_data=${includeUserData}`;
-    window.open(url, "_blank");
-    toast.success("Download started.");
+  const exportConfig = async () => {
+    setBusy(true);
+    try {
+      const name = await downloadFile(
+        `/api/bot/guilds/${guildId}/config/export?include_user_data=${includeUserData}`,
+        `config-${guildId}.json`
+      );
+      toast.success(`Saved ${name}`);
+    } catch (err: any) {
+      toast.error(err?.message || "Download failed.");
+    } finally {
+      setBusy(false);
+    }
   };
 
   const onFile = async (file: File) => {

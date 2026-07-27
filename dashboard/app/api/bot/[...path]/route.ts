@@ -443,13 +443,26 @@ async function handler(request: NextRequest, context: { params: { path?: string[
       cache: "no-store",
     });
 
-    const text = await upstream.text();
-    return new NextResponse(text, {
+    const headersOut: Record<string, string> = {
+      "Content-Type": upstream.headers.get("content-type") || "application/json",
+      "Cache-Control": "no-store",
+    };
+
+    // File downloads (config export, backup zips) only work if the
+    // Content-Disposition survives the proxy. Without it the browser just
+    // renders the JSON in a tab instead of saving it.
+    const disposition = upstream.headers.get("content-disposition");
+    if (disposition) headersOut["Content-Disposition"] = disposition;
+
+    const length = upstream.headers.get("content-length");
+    if (length) headersOut["Content-Length"] = length;
+
+    // Stream the body through untouched. Reading it as text would corrupt
+    // the zip archives served by the backup download routes.
+    const buffer = await upstream.arrayBuffer();
+    return new NextResponse(buffer, {
       status: upstream.status,
-      headers: {
-        "Content-Type": upstream.headers.get("content-type") || "application/json",
-        "Cache-Control": "no-store",
-      },
+      headers: headersOut,
     });
   } catch (error: any) {
     console.error(`[BFF] Upstream request failed for ${targetUrl}:`, error?.message ?? error);
