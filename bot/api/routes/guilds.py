@@ -16,6 +16,7 @@ import asyncio
 from fastapi import APIRouter, Depends, HTTPException, Request
 from api.dependencies import get_bot, limiter
 from api.db_manager import db_manager
+from api.patch_utils import merge_partial, model_updates, changed_fields
 from api.schemas import (
     GuildSummary, GuildDetails, PrefixConfig, AutomodConfig, 
     TicketConfig, LevelingConfig, LoggingConfig, TicketEmbed, 
@@ -441,7 +442,9 @@ async def get_guild_welcome(guild_id: int):
         guild_id=guild_id,
         welcome_type=welcome_type,
         welcome_message=welcome_message,
-        channel_id=channel_id,
+        # Stored as INTEGER, declared as a string. Handing the raw int to
+        # Pydantic raised and turned the whole welcome page into a 500.
+        channel_id=str(channel_id) if channel_id not in (None, 0) else None,
         embed_data=embed_parsed,
         auto_delete_duration=auto_delete_duration
     )
@@ -462,20 +465,29 @@ async def patch_guild_welcome(guild_id: int, data: WelcomeUpdate):
                 (guild_id, data.welcome_type or "simple", data.welcome_message, data.channel_id, json.dumps(data.embed_data.dict()) if data.embed_data else None, data.auto_delete_duration)
             )
         else:
-            wt, wm, chid, ed, auth_del = row
-            
-            new_wt = data.welcome_type if data.welcome_type is not None else wt
-            new_wm = data.welcome_message if data.welcome_message is not None else wm
-            new_chid = data.channel_id if data.channel_id is not None else chid
-            new_auth_del = data.auto_delete_duration if data.auto_delete_duration is not None else auth_del
-            
-            new_ed = ed
+            current = dict(zip(
+                ("welcome_type", "welcome_message", "channel_id",
+                 "embed_data", "auto_delete_duration"),
+                row,
+            ))
+
+            updates = model_updates(data)
+            # embed_data arrives as a model and is stored as JSON.
             if data.embed_data is not None:
-                new_ed = json.dumps(data.embed_data.dict())
-                
+                updates["embed_data"] = json.dumps(data.embed_data.dict())
+
+            merged = merge_partial(current, updates)
+
             await db.execute(
                 "UPDATE welcome SET welcome_type = ?, welcome_message = ?, channel_id = ?, embed_data = ?, auto_delete_duration = ? WHERE guild_id = ?",
-                (new_wt, new_wm, new_chid, new_ed, new_auth_del, guild_id)
+                (
+                    merged["welcome_type"],
+                    merged["welcome_message"],
+                    merged["channel_id"],
+                    merged["embed_data"],
+                    merged["auto_delete_duration"],
+                    guild_id,
+                ),
             )
             
         await db.commit()
@@ -1499,10 +1511,9 @@ async def update_extra_settings(guild_id: int, data: dict):
         "mention_prefix_response": bool(row[1]) if row else True,
         "same_voice_only": bool(row[2]) if row else True,
     }
-    values = {
-        key: bool(data[key]) if key in data else current[key]
-        for key in current
-    }
+    values = merge_partial(
+        current, data, coerce={k: bool for k in current}
+    )
     await db.execute(
         """
         INSERT OR REPLACE INTO guild_extra_settings
