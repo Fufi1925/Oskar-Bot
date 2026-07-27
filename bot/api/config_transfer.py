@@ -37,9 +37,14 @@ USER_DATA_TABLES = {
     "open_tickets",
     "user_ticket_counts",
     "verification_logs",
+    # Per-member role assignments, not a server setting.
     "custom_roles",
-    "np",
 }
+
+# NOTE: `np` (the no-prefix allow list) used to be treated as user data and
+# was therefore missing from every backup — even though it is configured on
+# the dashboard under /noprefix and is pure configuration. Restoring a backup
+# silently dropped everyone's no-prefix access.
 
 # Tables that are global, not per guild.
 GLOBAL_TABLES = {

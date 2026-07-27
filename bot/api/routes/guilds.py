@@ -562,12 +562,20 @@ async def get_guild_verification(guild_id: int):
             row = await cursor.fetchone()
             
     if row:
+        # The columns are INTEGER and unset ones hold 0, but the schema
+        # declares strings. Returning the raw 0 made Pydantic raise and the
+        # whole verification page failed with a 500 until it was configured.
+        def _id(value):
+            if value in (None, 0, "0", ""):
+                return None
+            return str(value)
+
         return VerificationConfig(
             guild_id=guild_id,
-            verification_channel_id=row[0],
-            verified_role_id=row[1],
-            log_channel_id=row[2],
-            verification_method=row[3],
+            verification_channel_id=_id(row[0]),
+            verified_role_id=_id(row[1]),
+            log_channel_id=_id(row[2]),
+            verification_method=row[3] or "both",
             enabled=bool(row[4])
         )
     return VerificationConfig(
@@ -1475,10 +1483,25 @@ async def get_extra_settings(guild_id: int):
 async def update_extra_settings(guild_id: int, data: dict):
     db = await db_manager.get_connection("db/settings.db")
     await _ensure_extra_settings_table(db)
+
+    # PATCH must only change what was sent. Falling back to the hardcoded
+    # defaults meant that toggling one switch silently reset the other two:
+    # enable A, later toggle B, and A was off again on the next page load.
+    async with db.execute(
+        "SELECT delete_command_messages, mention_prefix_response, same_voice_only"
+        " FROM guild_extra_settings WHERE guild_id = ?",
+        (guild_id,),
+    ) as cursor:
+        row = await cursor.fetchone()
+
+    current = {
+        "delete_command_messages": bool(row[0]) if row else False,
+        "mention_prefix_response": bool(row[1]) if row else True,
+        "same_voice_only": bool(row[2]) if row else True,
+    }
     values = {
-        "delete_command_messages": bool(data.get("delete_command_messages", False)),
-        "mention_prefix_response": bool(data.get("mention_prefix_response", True)),
-        "same_voice_only": bool(data.get("same_voice_only", True)),
+        key: bool(data[key]) if key in data else current[key]
+        for key in current
     }
     await db.execute(
         """
