@@ -246,27 +246,47 @@ async def send_panel(
 
     from utils.panels import ACCENT, Panel
 
-    buttons = []
-    for category in panel["categories"]:
-        try:
-            style = discord.ButtonStyle(int(category["button_style"]))
-        except (ValueError, TypeError):
-            style = discord.ButtonStyle.secondary
-        buttons.append(
-            discord.ui.Button(
-                label=category["name"][:80],
-                emoji=category["emoji"] or None,
-                style=style,
-                custom_id=f"create_ticket_{category['category_id']}",
-            )
+    # Dropdown or buttons, per panel. A dropdown keeps a long list readable
+    # and is the only workable option past five categories, since Discord
+    # allows at most five buttons per row.
+    if (panel["panel_type"] or "button") == "dropdown":
+        select = discord.ui.Select(
+            placeholder="Wähle eine Kategorie…",
+            custom_id="create_ticket_select",
+            min_values=1,
+            max_values=1,
+            options=[
+                discord.SelectOption(
+                    label=category["name"][:100],
+                    value=str(category["category_id"]),
+                    emoji=category["emoji"] or None,
+                )
+                for category in panel["categories"][:25]
+            ],
         )
+        controls = [select]
+    else:
+        controls = []
+        for category in panel["categories"]:
+            try:
+                style = discord.ButtonStyle(int(category["button_style"]))
+            except (ValueError, TypeError):
+                style = discord.ButtonStyle.secondary
+            controls.append(
+                discord.ui.Button(
+                    label=category["name"][:80],
+                    emoji=category["emoji"] or None,
+                    style=style,
+                    custom_id=f"create_ticket_{category['category_id']}",
+                )
+            )
 
     view = Panel(
         panel["embed_title"] or panel["name"],
         panel["embed_description"] or "Klicke unten, um ein Ticket zu öffnen.",
         accent=panel["embed_color"] or ACCENT["brand"],
         image_url=panel["embed_image_url"] or None,
-        buttons=buttons,
+        buttons=controls,
     )
 
     try:

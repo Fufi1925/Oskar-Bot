@@ -78,7 +78,9 @@ export function TicketPanels({ guildId }: { guildId: string }) {
   const [server, setServer] = useState<any>({});
   const [openTickets, setOpenTickets] = useState(0);
   const [expanded, setExpanded] = useState<number | null>(null);
-  const [editing, setEditing] = useState<{ panelId: number; cat: Category } | null>(null);
+  const [editing, setEditing] = useState<
+    { panelId: number; cat: Category; panelType: string } | null
+  >(null);
 
   const load = useCallback(async () => {
     try {
@@ -207,6 +209,10 @@ export function TicketPanels({ guildId }: { guildId: string }) {
                 />
               </Field>
 
+              {/* A dropdown renders one select, so a per-category button
+                  colour would have no effect — hide it instead of showing a
+                  control that does nothing. */}
+              {editing.panelType !== "dropdown" && (
               <Field label="Knopf-Farbe">
                 <div className="flex gap-2">
                   {BUTTON_STYLES.map((s) => (
@@ -230,6 +236,7 @@ export function TicketPanels({ guildId }: { guildId: string }) {
                   ))}
                 </div>
               </Field>
+              )}
             </div>
 
             <div className="p-6 border-t border-slate-800 flex gap-3">
@@ -395,6 +402,37 @@ export function TicketPanels({ guildId }: { guildId: string }) {
                       />
                     </Field>
 
+                    <Field
+                      label="Darstellung"
+                      hint={
+                        panel.categories.length > 5
+                          ? "Bei mehr als 5 Kategorien ist ein Dropdown nötig — Discord erlaubt nur 5 Knöpfe."
+                          : "Knöpfe sind direkt sichtbar, ein Dropdown spart Platz."
+                      }
+                    >
+                      <div className="flex gap-2">
+                        {[
+                          { value: "button", label: "Knöpfe" },
+                          { value: "dropdown", label: "Dropdown" },
+                        ].map((o) => (
+                          <button
+                            key={o.value}
+                            onClick={() =>
+                              patchPanel(panel.panel_id, { panel_type: o.value })
+                            }
+                            className={cn(
+                              "flex-1 px-4 py-3 rounded-xl text-xs font-bold border transition-all",
+                              (panel.panel_type || "button") === o.value
+                                ? "bg-primary/15 border-primary/40 text-primary"
+                                : "bg-[#0d1b31] border-slate-800 text-slate-400 hover:text-slate-200"
+                            )}
+                          >
+                            {o.label}
+                          </button>
+                        ))}
+                      </div>
+                    </Field>
+
                     <Field label="Farbe">
                       <div className="flex items-center gap-2">
                         <input
@@ -451,6 +489,7 @@ export function TicketPanels({ guildId }: { guildId: string }) {
                         onClick={() =>
                           setEditing({
                             panelId: panel.panel_id,
+                            panelType: panel.panel_type || "button",
                             cat: {
                               name: "",
                               emoji: "🎫",
@@ -493,7 +532,13 @@ export function TicketPanels({ guildId }: { guildId: string }) {
                               </span>
                             )}
                             <button
-                              onClick={() => setEditing({ panelId: panel.panel_id, cat })}
+                              onClick={() =>
+                                setEditing({
+                                  panelId: panel.panel_id,
+                                  panelType: panel.panel_type || "button",
+                                  cat,
+                                })
+                              }
                               className="p-2 rounded-xl bg-white/[0.03] border border-white/5 text-slate-400 hover:text-primary transition-all"
                             >
                               <Settings2 className="h-4 w-4" />

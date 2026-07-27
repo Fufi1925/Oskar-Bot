@@ -37,6 +37,61 @@ PANEL_COLUMNS = (
 
 async def ensure_schema(db: aiosqlite.Connection) -> None:
     """Create the panel tables and migrate a single-panel setup once."""
+    # guild_configs and ticket_categories are normally created by the ticket
+    # cog. The dashboard must not depend on that having happened: if the cog
+    # has not run yet, every read here died with "no such table" — the PATCH
+    # saving a channel succeeded but the reload right after it failed, so the
+    # picker snapped back and it looked like selecting a channel did nothing.
+    await db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS guild_configs (
+            guild_id INTEGER PRIMARY KEY,
+            panel_channel_id INTEGER,
+            logging_channel_id INTEGER,
+            panel_message_id INTEGER,
+            panel_type TEXT,
+            embed_title TEXT,
+            embed_description TEXT,
+            embed_color INTEGER,
+            embed_image_url TEXT,
+            embed_thumbnail_url TEXT,
+            closed_category_id INTEGER,
+            staff_roles TEXT
+        )
+        """
+    )
+    await db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS ticket_categories (
+            category_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            guild_id INTEGER,
+            name TEXT NOT NULL,
+            emoji TEXT,
+            notified_roles TEXT,
+            button_style INTEGER,
+            discord_category_id INTEGER,
+            panel_id INTEGER
+        )
+        """
+    )
+    await db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS open_tickets (
+            channel_id INTEGER PRIMARY KEY,
+            ticket_number INTEGER,
+            guild_id INTEGER,
+            creator_id INTEGER,
+            category_db_id INTEGER,
+            created_at TEXT,
+            closed_by_id INTEGER,
+            closed_at TEXT,
+            is_locked BOOLEAN DEFAULT FALSE,
+            is_claimed BOOLEAN DEFAULT FALSE,
+            claimed_by_id INTEGER
+        )
+        """
+    )
+
     await db.execute(
         """
         CREATE TABLE IF NOT EXISTS ticket_panels (
@@ -223,11 +278,18 @@ async def update_panel(
     """
     await ensure_schema(db)
 
+    # Fields that may legitimately be cleared. For the rest, null still
+    # means "not sent" — otherwise a partial update would blank them.
+    NULLABLE = {"channel_id", "embed_image_url", "embed_thumbnail_url"}
+
     assignments, values = [], []
     for key, column in _WRITABLE.items():
-        if key in data and data[key] is not None:
-            assignments.append(f"{column} = ?")
-            values.append(data[key])
+        if key not in data:
+            continue
+        if data[key] is None and key not in NULLABLE:
+            continue
+        assignments.append(f"{column} = ?")
+        values.append(data[key])
 
     if "staff_roles" in data and data["staff_roles"] is not None:
         assignments.append("staff_roles = ?")

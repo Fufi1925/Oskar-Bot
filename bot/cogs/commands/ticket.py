@@ -332,7 +332,24 @@ class TicketCog(commands.Cog, name="Ticket System"):
 
     @commands.Cog.listener()
     async def on_interaction(self, inter):
-        if inter.type == discord.InteractionType.component and (cid := inter.data.get("custom_id","")).startswith("create_ticket_"): await self.create_ticket_flow(inter, int(cid.split("_")[-1]))
+        if inter.type != discord.InteractionType.component:
+            return
+        cid = inter.data.get("custom_id", "")
+        if not cid.startswith("create_ticket_"):
+            return
+
+        # Dropdown panels send a fixed custom_id and carry the chosen
+        # category in `values`. Without this branch int("select") raised and
+        # the dropdown did nothing at all.
+        if cid == "create_ticket_select":
+            values = inter.data.get("values") or []
+            if not values or not str(values[0]).isdigit():
+                return
+            return await self.create_ticket_flow(inter, int(values[0]))
+
+        suffix = cid.split("_")[-1]
+        if suffix.isdigit():
+            await self.create_ticket_flow(inter, int(suffix))
 
     async def create_ticket_flow(self, inter, cat_id):
         await inter.response.defer(ephemeral=True)

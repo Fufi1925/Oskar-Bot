@@ -235,6 +235,54 @@ def run():
     r = client.delete(f"{base}/panels/999999")
     check("deleting an unknown panel gives 404", r.status_code == 404)
 
+    # --- the channel picker ---------------------------------------------
+    # A PATCH saved the channel but the reload right after it crashed with
+    # "no such table: guild_configs" when the cog had not run yet, so the
+    # picker snapped back and selecting a channel looked broken.
+    fresh = client.post(f"{base}/panels", json={"name": "Kanaltest"}).json()["panel_id"]
+    client.patch(f"{base}/panels/{fresh}", json={"channel_id": 800})
+    got = client.get(f"{base}/panels").json()
+    target = next(p for p in got["panels"] if p["panel_id"] == fresh)
+    check("selecting a channel is stored", target["channel_id"] == "800", str(target))
+
+    client.patch(f"{base}/panels/{fresh}", json={"embed_title": "Titel"})
+    target = next(
+        p for p in client.get(f"{base}/panels").json()["panels"]
+        if p["panel_id"] == fresh
+    )
+    check("editing another field keeps the channel",
+          target["channel_id"] == "800", str(target))
+
+    # Clearing has to work too — null is "not sent" for most fields, but
+    # the channel must be removable.
+    client.patch(f"{base}/panels/{fresh}", json={"channel_id": None})
+    target = next(
+        p for p in client.get(f"{base}/panels").json()["panels"]
+        if p["panel_id"] == fresh
+    )
+    check("the channel can be cleared again", target["channel_id"] is None, str(target))
+
+    # --- dropdown vs buttons ---------------------------------------------
+    client.patch(f"{base}/panels/{fresh}", json={"channel_id": 800,
+                                                 "panel_type": "dropdown"})
+    client.put(
+        f"{base}/panels/{fresh}/categories",
+        json={"name": "Frage", "emoji": "❓", "staff_roles": []},
+    )
+    target = next(
+        p for p in client.get(f"{base}/panels").json()["panels"]
+        if p["panel_id"] == fresh
+    )
+    check("panel type is stored", target["panel_type"] == "dropdown", str(target))
+
+    guild = FakeBot().guilds[0]
+    r = client.post(f"{base}/panels/{fresh}/send", json={})
+    check("a dropdown panel posts", r.status_code == 200, f"-> {r.status_code} {r.text[:80]}")
+
+    client.patch(f"{base}/panels/{fresh}", json={"panel_type": "button"})
+    r = client.post(f"{base}/panels/{fresh}/send", json={})
+    check("a button panel posts", r.status_code == 200, f"-> {r.status_code}")
+
     print(f"\n{len(failures)} failures")
     for line in failures:
         print(f"   {line}")
