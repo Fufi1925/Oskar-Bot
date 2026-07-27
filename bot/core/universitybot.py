@@ -19,6 +19,7 @@ import aiohttp
 import json
 import jishaku
 import asyncio
+import random
 import typing
 from typing import List
 import aiosqlite
@@ -106,7 +107,10 @@ class universitybot(commands.AutoShardedBot):
                     runtime.failed_extensions.append(extension)
         print(Fore.GREEN + Style.BRIGHT + "*" * 20)
 
-    @tasks.loop(seconds=30)
+    # Discord allows 5 presence updates per 60 seconds per session, so the
+    # hard floor is one every 12 seconds. 15s keeps a safety margin while
+    # still feeling lively — the old 30s made the status look frozen.
+    @tasks.loop(seconds=15)
     async def status_task(self):
         await self.wait_until_ready()
         if not self.guilds:
@@ -116,23 +120,58 @@ class universitybot(commands.AutoShardedBot):
         try:
             config = await getConfig(guild.id)
             prefix = config.get("prefix", ">")
-        except:
+        except Exception:
             prefix = ">"
 
         user_count = sum(g.member_count or 0 for g in self.guilds)
         guild_count = len(self.guilds)
+        channel_count = sum(len(g.channels) for g in self.guilds)
+        shard_count = self.shard_count or 1
+        latency_ms = round(self.latency * 1000) if self.latency else 0
 
+        P = discord.ActivityType.playing
+        W = discord.ActivityType.watching
+        L = discord.ActivityType.listening
+        C = discord.ActivityType.competing
+
+        # Emoji live in the activity name; Discord renders them fine there.
+        # Entries are (type, text) and are shuffled once per full cycle so
+        # the sequence is not identical every time round.
         self.status_list = [
-            (discord.ActivityType.playing, f"{prefix}help | Security in your Server"),
-            (discord.ActivityType.watching, f"{user_count} users"),
-            (discord.ActivityType.watching, f"{guild_count} servers"),
-            (discord.ActivityType.listening, "Killing Nukers"),
-            (discord.ActivityType.playing, f"Protector {BotName}"),
+            (P, f"🛡️ {prefix}help │ Server-Schutz"),
+            (W, f"👥 {user_count:,} Mitglieder".replace(",", ".")),
+            (W, f"🌍 {guild_count} Server"),
+            (W, f"💬 {channel_count:,} Kanäle".replace(",", ".")),
+            (L, "🚨 Anti-Nuke läuft"),
+            (P, f"⚡ {BotName}"),
+            (W, f"📊 {prefix}stats"),
+            (L, "🎵 deiner Musik"),
+            (P, "🎮 12 Spiele │ /games"),
+            (W, "🎫 Tickets & Support"),
+            (P, "🔐 Verifizierung aktiv"),
+            (W, f"📈 Level & XP │ {prefix}rank"),
+            (C, "🏆 dem Leaderboard"),
+            (L, "🤖 Automod filtert mit"),
+            (W, f"🛰️ {shard_count} Shard{'s' if shard_count != 1 else ''} │ {latency_ms}ms"),
+            (P, "🎉 Giveaways am Laufen"),
+            (W, "🔎 Logs & Audit-Trail"),
+            (P, f"⚙️ Dashboard │ {prefix}dashboard"),
         ]
+
+        # Reshuffle whenever a full pass is done, so the order varies.
+        if self.status_index % len(self.status_list) == 0:
+            random.shuffle(self.status_list)
 
         current = self.status_list[self.status_index % len(self.status_list)]
         # This task only changes the activity, not the online status (dnd, idle, etc.)
-        await self.change_presence(activity=discord.Activity(type=current[0], name=current[1]))
+        try:
+            await self.change_presence(
+                activity=discord.Activity(type=current[0], name=current[1])
+            )
+        except discord.HTTPException:
+            # A rate limited presence update is not worth crashing the loop
+            # over; the next tick simply tries again.
+            pass
         self.status_index += 1
 
     async def send_raw(self, channel_id: int, content: str, **kwargs) -> typing.Optional[discord.Message]:
