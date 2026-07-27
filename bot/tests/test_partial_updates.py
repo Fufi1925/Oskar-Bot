@@ -81,7 +81,8 @@ class FakeBot:
 
 # (label, path, (field_a, value_a), (field_b, value_b))
 CASES = [
-    ("leveling", "/leveling", ("enabled", True), ("xp_per_message", 25)),
+    # Leveling has its own router now (/leveling/{guild_id}) and its own
+    # test file; a partial save is covered there.
     ("automod", "/automod", ("enabled", True), ("logging_channel", 800)),
     ("extra-settings", "/extra-settings",
      ("delete_command_messages", True), ("same_voice_only", False)),

@@ -149,10 +149,19 @@ export interface LoggingUpdate {
 }
 
 export interface LeaderboardEntry {
-  user_id: number;
+  /**
+   * A string, not a number. Number("1327995167345819721") rounds to
+   * ...819600, which is a different (nonexistent) user.
+   */
+  user_id: string;
   name: string;
   level: number;
   xp: number;
+  rank?: number;
+  messages?: number;
+  avatar?: string | null;
+  left?: boolean;
+  next_level_xp?: number;
 }
 
 export interface DiscordChannel {

@@ -199,10 +199,54 @@ export const api = {
       body: JSON.stringify(data),
     }),
   
-  getLeveling: (guildId: string) => request<LevelingConfig>(`/guilds/${guildId}/leveling`),
-  updateLeveling: (guildId: string, data: any) => 
-    request<{ status: string }>(`/guilds/${guildId}/leveling`, {
+  // Leveling
+  // Moved off /guilds to its own router: the old pair of routes exposed
+  // five of twelve settings and nothing at all for rewards, multipliers,
+  // exclusions or the member list.
+  getLeveling: (guildId: string) => request<any>(`/leveling/${guildId}`),
+  updateLeveling: (guildId: string, data: any) =>
+    request<any>(`/leveling/${guildId}`, {
       method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+  getLevelingBoard: (guildId: string, page = 1, perPage = 25) =>
+    request<any>(`/leveling/${guildId}/leaderboard?page=${page}&per_page=${perPage}`),
+  setLevelingMember: (guildId: string, userId: string, data: any) =>
+    request<any>(`/leveling/${guildId}/members/${userId}`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  resetLevelingMember: (guildId: string, userId: string) =>
+    request<any>(`/leveling/${guildId}/members/${userId}`, { method: "DELETE" }),
+  resetLevelingAll: (guildId: string) =>
+    request<any>(`/leveling/${guildId}/members`, { method: "DELETE" }),
+  addLevelReward: (guildId: string, level: number, roleId: string) =>
+    request<any>(`/leveling/${guildId}/rewards`, {
+      method: "POST",
+      body: JSON.stringify({ level, role_id: roleId }),
+    }),
+  removeLevelReward: (guildId: string, level: number) =>
+    request<any>(`/leveling/${guildId}/rewards/${level}`, { method: "DELETE" }),
+  /** Hand out reward roles people already earned but never received. */
+  syncLevelRewards: (guildId: string) =>
+    request<any>(`/leveling/${guildId}/rewards/sync`, { method: "POST", body: "{}" }),
+  addLevelMultiplier: (guildId: string, data: any) =>
+    request<any>(`/leveling/${guildId}/multipliers`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  removeLevelMultiplier: (guildId: string, type: string, id: string) =>
+    request<any>(`/leveling/${guildId}/multipliers/${type}/${id}`, { method: "DELETE" }),
+  addLevelExcluded: (guildId: string, data: any) =>
+    request<any>(`/leveling/${guildId}/excluded`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  removeLevelExcluded: (guildId: string, type: string, id: string) =>
+    request<any>(`/leveling/${guildId}/excluded/${type}/${id}`, { method: "DELETE" }),
+  previewLevelUp: (guildId: string, data: any) =>
+    request<any>(`/leveling/${guildId}/preview`, {
+      method: "POST",
       body: JSON.stringify(data),
     }),
 
@@ -213,7 +257,17 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
-  getLeaderboard: (guildId: string) => request<LeaderboardEntry[]>(`/guilds/${guildId}/leveling/leaderboard`),
+  /**
+   * The leaderboard as a flat array, for the standalone page.
+   *
+   * The old /guilds/{id}/leveling/leaderboard route read the abandoned
+   * `user_xp` table, so it disagreed with everything else once anybody
+   * had used an admin command.
+   */
+  getLeaderboard: async (guildId: string): Promise<LeaderboardEntry[]> => {
+    const data = await request<any>(`/leveling/${guildId}/leaderboard?per_page=100`);
+    return (data?.entries || []) as LeaderboardEntry[];
+  },
 
   getWelcome: (guildId: string) => request<any>(`/guilds/${guildId}/welcome`),
   updateWelcome: (guildId: string, data: any) => 

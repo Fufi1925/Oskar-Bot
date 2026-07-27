@@ -19,10 +19,10 @@ from api.db_manager import db_manager
 from api.patch_utils import merge_partial, model_updates, changed_fields
 from api.schemas import (
     GuildSummary, GuildDetails, PrefixConfig, AutomodConfig, 
-    TicketConfig, LevelingConfig, LoggingConfig, TicketEmbed, 
-    TicketCategory, LevelingEmbedStyle, PrefixUpdate, 
-    AutomodUpdate, LevelingUpdate, LoggingUpdate, TicketUpdate,
-    LeaderboardEntry, DiscordChannel, DiscordRole, WelcomeConfig, WelcomeEmbedData, WelcomeUpdate,
+    TicketConfig, LoggingConfig, TicketEmbed,
+    TicketCategory, PrefixUpdate,
+    AutomodUpdate, LoggingUpdate, TicketUpdate,
+    DiscordChannel, DiscordRole, WelcomeConfig, WelcomeEmbedData, WelcomeUpdate,
     AntiNukeConfig, AntiNukeUpdate, VerificationConfig, VerificationUpdate,
     VanityRoleSetup, AutoRoleConfig, AutoRoleUpdate,
     TrackingConfig, TrackingUpdate, J2CConfig, J2CUpdate, JoinDMConfig, JoinDMUpdate,
@@ -32,7 +32,6 @@ from api.schemas import (
     InviteStat, InvitesLeaderboard
 )
 from typing import TYPE_CHECKING, List, Optional
-import math
 import aiosqlite
 import json
 import os
@@ -337,82 +336,11 @@ async def patch_guild_tickets(guild_id: int, data: TicketUpdate):
 
 
 
-@router.get("/{guild_id}/leveling", response_model=LevelingConfig, summary="Get Leveling config", description="Retrieves experience points settings, cooldowns, and rank card styles.")
-async def get_guild_leveling(guild_id: int):
-    """
-    Retrieves the leveling system configuration for a specific guild.
-    """
-    db = await db_manager.get_connection('db/leveling.db')
-    cursor = await db.execute("SELECT * FROM leveling_settings WHERE guild_id = ?", (guild_id,))
-    row = await cursor.fetchone()
-    
-    if not row:
-        return LevelingConfig(
-            guild_id=guild_id,
-            enabled=False,
-            xp_per_message=20,
-            cooldown=60,
-            level_up_channel=None,
-            embed_style=LevelingEmbedStyle(color="#000000")
-        )
-
-    embed_color = row["embed_color"] if row["embed_color"] is not None else 0
-    color_hex = f"#{embed_color:06x}"
-
-    return LevelingConfig(
-        guild_id=guild_id,
-        enabled=bool(row["enabled"]),
-        xp_per_message=row["xp_per_message"],
-        cooldown=row["cooldown_seconds"],
-        level_up_channel=row["channel_id"],
-        embed_style=LevelingEmbedStyle(
-            color=color_hex,
-            thumbnail=bool(row["thumbnail_enabled"]),
-            image=row["level_image"]
-        )
-    )
-
-@router.patch("/{guild_id}/leveling", summary="Update Leveling config", description="Modifies the leveling system settings including XP rates and channel notifications.")
-async def patch_guild_leveling(guild_id: int, data: LevelingUpdate):
-    """
-    Updates parts of the leveling configuration for a specific guild.
-    """
-    db = await db_manager.get_connection('db/leveling.db')
-    # We use a series of updates or a single dynamic update.
-    # For simplicity and robustness with INSERT OR REPLACE:
-    
-    cursor = await db.execute("SELECT * FROM leveling_settings WHERE guild_id = ?", (guild_id,))
-    row = await cursor.fetchone()
-    
-    if not row:
-        # Create default entry first if it doesn't exist
-        await db.execute("INSERT INTO leveling_settings (guild_id) VALUES (?)", (guild_id,))
-        await db.commit()
-
-    if data.enabled is not None:
-        await db.execute("UPDATE leveling_settings SET enabled = ? WHERE guild_id = ?", (1 if data.enabled else 0, guild_id))
-    
-    if data.xp_per_message is not None:
-        await db.execute("UPDATE leveling_settings SET xp_per_message = ? WHERE guild_id = ?", (data.xp_per_message, guild_id))
-        
-    if data.cooldown is not None:
-        await db.execute("UPDATE leveling_settings SET cooldown_seconds = ? WHERE guild_id = ?", (data.cooldown, guild_id))
-        
-    if data.level_up_channel is not None:
-        await db.execute("UPDATE leveling_settings SET channel_id = ? WHERE guild_id = ?", (data.level_up_channel, guild_id))
-        
-    if data.embed_color is not None:
-        try:
-            # Convert hex to int
-            clean_hex = data.embed_color.lstrip('#')
-            color_int = int(clean_hex, 16)
-            await db.execute("UPDATE leveling_settings SET embed_color = ? WHERE guild_id = ?", (color_int, guild_id))
-        except ValueError:
-            raise HTTPException(status_code=400, detail="Invalid hex color format.")
-
-    await db.commit()
-    
-    return {"status": "success", "guild_id": guild_id}
+# NOTE: the leveling settings moved to api/routes/leveling.py.
+# The pair of routes that lived here exposed five of twelve settings, read
+# the settings row by tuple index (so a new column shifted every value),
+# and wrote each field with its own UPDATE without checking the row
+# existed. The dashboard now shares utils/leveling_store.py with the cog.
 
 
 @router.get("/{guild_id}/welcome", response_model=WelcomeConfig, summary="Get Welcome config", description="Retrieves the greet/welcome messages setup.")
@@ -1051,45 +979,10 @@ async def patch_guild_logging(guild_id: int, data: LoggingUpdate, bot: "universi
     
     return {"status": "success", "guild_id": guild_id}
 
-@router.get("/{guild_id}/leveling/leaderboard", response_model=List[LeaderboardEntry], summary="Get leveling leaderboard", description="Returns top users by XP for a specific guild.")
-async def get_leveling_leaderboard(guild_id: int, bot: "universitybot" = Depends(get_bot)):
-    db = await db_manager.get_connection('db/leveling.db')
-    cursor = await db.execute(
-        "SELECT user_id, xp FROM user_xp WHERE guild_id = ? ORDER BY xp DESC LIMIT 100", 
-        (guild_id,)
-    )
-    rows = await cursor.fetchall()
-    
-    leaderboard = []
-    guild = bot.get_guild(guild_id)
-    
-    for row in rows:
-        user_id = row["user_id"]
-        xp = row["xp"]
-        # Calculate level: sqrt(xp/100)
-        level = int(math.sqrt(xp / 100)) if xp >= 0 else 0
-        
-        # Try to get member name
-        name = f"User {user_id}"
-        if guild:
-            member = guild.get_member(user_id)
-            if member:
-                name = member.display_name
-            else:
-                try:
-                    user = await bot.fetch_user(user_id)
-                    name = user.name
-                except:
-                    pass
-        
-        leaderboard.append(LeaderboardEntry(
-            user_id=str(user_id),
-            name=name,
-            level=level,
-            xp=xp
-        ))
-    
-    return leaderboard
+# NOTE: the leaderboard moved to /leveling/{guild_id}/leaderboard. The
+# version here read `user_xp`, the table the admin commands never wrote
+# to, so it disagreed with the bot as soon as anybody set somebody's XP.
+
 
 @router.get("/{guild_id}/channels", response_model=List[DiscordChannel], summary="Get guild channels", description="Returns a list of all channels for the specific guild.")
 async def get_guild_channels(guild_id: int, bot: "universitybot" = Depends(get_bot)):

@@ -64,13 +64,7 @@ SEEDS = [
         "anti.db",
         "INSERT OR REPLACE INTO antinuke (guild_id, status) VALUES (?, 1)",
     ),
-    (
-        "leveling",
-        "/leveling",
-        "leveling.db",
-        "INSERT OR REPLACE INTO leveling_settings (guild_id, enabled)"
-        " VALUES (?, 1)",
-    ),
+    # Leveling moved to its own router; see test_leveling.py.
 ]
 
 
