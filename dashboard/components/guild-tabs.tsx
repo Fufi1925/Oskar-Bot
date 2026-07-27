@@ -24,6 +24,7 @@ import { cn } from "@/lib/utils";
 import { 
   Gift,
   Lock,
+  PenLine,
   ShieldAlert,
   ShieldCheck, 
   Ticket, 
@@ -93,6 +94,7 @@ export function GuildTabs({ guildId }: { guildId: string }) {
     { name: "Giveaways", href: `/dashboard/guild/${guildId}/giveaways`, icon: Gift },
     { name: "Autoresponder", href: `/dashboard/guild/${guildId}/autoresponder`, icon: MessageSquare },
     { name: "Anonymer Chat", href: `/dashboard/guild/${guildId}/anonchat`, icon: Lock },
+    { name: "Eigene Nachricht", href: `/dashboard/guild/${guildId}/compose`, icon: PenLine },
     { name: "Notfall", href: `/dashboard/guild/${guildId}/emergency`, icon: ShieldAlert },
     { name: "Admin Dashboard", href: `/dashboard/guild/${guildId}/admin-dashboard`, icon: Shield },
     { name: "Level-System", href: `/dashboard/guild/${guildId}/leveling`, icon: BarChart4 },

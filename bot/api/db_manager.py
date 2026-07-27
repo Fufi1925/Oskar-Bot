@@ -14,6 +14,7 @@
 
 import aiosqlite
 import asyncio
+import os
 from typing import Dict
 
 class DatabaseManager:
@@ -33,6 +34,12 @@ class DatabaseManager:
             if db_path not in self._connections:
                 # We use check_same_thread=False because aiosqlite handles 
                 # thread safety by running queries in a dedicated thread.
+                # Create the folder first: aiosqlite raises "unable to
+                # open database file" when db/ does not exist yet, which
+                # is the case on a fresh container before anything ran.
+                folder = os.path.dirname(db_path)
+                if folder:
+                    os.makedirs(folder, exist_ok=True)
                 conn = await aiosqlite.connect(db_path, check_same_thread=False)
                 conn.row_factory = aiosqlite.Row
                 self._connections[db_path] = conn

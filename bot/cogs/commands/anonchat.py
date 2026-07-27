@@ -28,6 +28,7 @@ import aiosqlite
 import discord
 from discord.ext import commands
 
+from utils import db_open
 from utils import anonchat_store as store
 from utils.panels import ACCENT, Panel, StatusCard
 from utils.Tools import blacklist_check, ignore_check
@@ -52,7 +53,10 @@ class AnonChat(commands.Cog):
         self._last_prune = 0.0
 
     async def cog_load(self) -> None:
-        self.connection = await aiosqlite.connect(store.DB_PATH)
+        # db_open creates the folder first: aiosqlite raises
+        # "unable to open database file" when db/ does not exist,
+        # which is the case on a fresh container.
+        self.connection = await db_open.connect(store.DB_PATH)
         await store.ensure_schema(self.connection)
         self._channels = await store.all_channel_ids(self.connection)
 

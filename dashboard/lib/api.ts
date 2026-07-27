@@ -308,6 +308,32 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
+  // Compose: design a message and post it as the bot
+  /** Validate before sending — Discord's own 400 names no field. */
+  checkMessage: (guildId: string, data: any) =>
+    request<any>(`/compose/${guildId}/check`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  sendComposed: (guildId: string, data: any) =>
+    request<any>(`/compose/${guildId}/send`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  editComposed: (guildId: string, data: any) =>
+    request<any>(`/compose/${guildId}/edit`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  fetchMessage: (guildId: string, channelId: string, messageId: string) =>
+    request<any>(
+      `/compose/${guildId}/fetch?channel_id=${channelId}&message_id=${messageId}`
+    ),
+
+  /** Why is nothing happening in Discord? Checks the running process. */
+  diagnose: (guildId = "") =>
+    request<any>(`/admin/diagnose${guildId ? `?guild_id=${guildId}` : ""}`),
+
   // Anonymous chat
   // The log deanonymises members, so every route here sits behind the
   // same permission as changing the settings.

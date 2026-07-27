@@ -25,6 +25,8 @@ the real `db/` folder or talk to Discord.
 | `test_snowflake_ids.py` | Discord IDs stay strings. `Number("1327995167345819721")` rounds to `…819600`, which is why picking a channel silently did nothing. |
 | `test_giveaways.py` | Entries via the button, weighted and guaranteed draws, editing a running giveaway, entry requirements — and that the odds never reach the Discord message. |
 | `test_leveling.py` | The XP curve, one storage table instead of two, min/max XP actually being random, multipliers not stacking, reward roles, auto-delete settings, the colour ramps and automatic role ladder, and the migration off the old tables. |
+| `test_compose.py` | Every Discord limit is caught before sending, a V2 layout never carries content, an edit clears what was there before, and a foreign message is refused with a reason. |
+| `test_cold_start.py` | Every rewritten cog opens its database on a container that has no `db/` folder yet, and the connection actually works rather than merely existing. |
 | `test_anonchat.py` | The original is deleted before anything else runs, one webhook per channel rather than per member, @everyone is defused, and the staff log records the real author. |
 | `test_vanity_broadcast.py` | Vanity triggers normalise to one form, the status match respects word boundaries, roles given by hand are never revoked; broadcasts record a per-guild outcome, preview sends nothing, and a schedule can be called back. |
 | `test_welcome.py` | One renderer for the greeter and the dashboard preview. They used to fill different placeholders, so the preview showed something no member would ever get. |

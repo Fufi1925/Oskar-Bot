@@ -34,6 +34,7 @@ import aiosqlite
 import discord
 from discord.ext import commands
 
+from utils import db_open
 from utils import leveling_store as store
 from utils import rank_card
 from utils.panels import ACCENT, Panel, StatusCard
@@ -56,7 +57,10 @@ class Leveling(commands.Cog):
         self._cooldowns: dict[tuple[int, int], float] = {}
 
     async def cog_load(self) -> None:
-        self.connection = await aiosqlite.connect(store.DB_PATH)
+        # db_open creates the folder first: aiosqlite raises
+        # "unable to open database file" when db/ does not exist,
+        # which is the case on a fresh container.
+        self.connection = await db_open.connect(store.DB_PATH)
         await store.ensure_schema(self.connection)
 
     async def cog_unload(self) -> None:
