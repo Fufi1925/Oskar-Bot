@@ -37,7 +37,8 @@ def perms(**kw):
 
 
 class FakeRole:
-    def __init__(self, rid, name, permissions, position, members=0, managed=False):
+    def __init__(self, rid, name, permissions, position, members=0,
+                 managed=False, bot_managed=False):
         self.id, self.name = rid, name
         self.permissions, self.position = permissions, position
         self.colour = discord.Colour(0)
@@ -45,9 +46,19 @@ class FakeRole:
         self.members = [object()] * members
         self.deleted = False
         self.edited = None
+        self._bot_managed = bot_managed
 
     def is_default(self):
         return self.name == "@everyone"
+
+    def is_bot_managed(self):
+        return self._bot_managed
+
+    def is_integration(self):
+        return False
+
+    def is_premium_subscriber(self):
+        return False
 
     async def delete(self, reason=None):
         self.deleted = True
@@ -104,7 +115,14 @@ class FakeGuild:
         self.unused = FakeRole(901, "Leer", perms(), 2)
         self.above = FakeRole(902, "Owner", perms(administrator=True), 9, members=1)
         self.managed = FakeRole(903, "BotRole", perms(), 1, managed=True)
-        self.roles = [self.default_role, self.admin, self.unused, self.above, self.managed]
+        # A bot's own role: Administrator, exactly one member, created by
+        # Discord when the bot was invited. Must not be reported.
+        self.bot_role = FakeRole(
+            904, "MusicBot", perms(administrator=True), 4,
+            members=1, bot_managed=True,
+        )
+        self.roles = [self.default_role, self.admin, self.unused,
+                      self.above, self.managed, self.bot_role]
 
         self.channel = FakeChannel(800, "general")
         self.text_channels = [self.channel]
@@ -180,6 +198,27 @@ def run():
     check("scan reports the weak verification level",
           "verification_level" in kinds, str(kinds))
     check("scan scores below 100", r.json().get("score", 100) < 100)
+
+    # --- bot roles are not treated as a risk --------------------------
+    r = client.get(f"{base}/security-scan")
+    body = r.json()
+    titles = " | ".join(f["title"] for f in body.get("findings", []))
+    check("bot role with Administrator is not flagged",
+          "MusicBot" not in titles, titles)
+    check("the human admin role is still flagged",
+          "Admin" in titles, titles)
+    # Two human roles hold Administrator here (Admin and Owner); the bot
+    # role must not be among them.
+    check("admin_roles count excludes bot roles",
+          body["stats"]["admin_roles"] == 2, str(body["stats"]))
+    check("bot admin roles are counted separately",
+          body["stats"].get("bot_admin_roles") == 1, str(body["stats"]))
+
+    r2 = client.get(f"{base}/roles/audit")
+    bot_row = next(x for x in r2.json()["roles"] if x["name"] == "MusicBot")
+    check("bot role is marked as such", bot_row.get("bot_role") is True, str(bot_row))
+    check("bot role is not counted as unused",
+          bot_row["unused"] is False, str(bot_row))
 
     # --- strip admin keeps the other permissions ----------------------
     r = client.post(f"{base}/roles/900/strip-admin", json={})

@@ -31,16 +31,18 @@ import {
   RefreshCcw,
   MessageSquare,
   Hash,
-  Shield
+  Shield,
+  Ticket
 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { TicketConfig, TicketCategory, TicketEmbed } from "@/types/api";
-import { MultiRolePicker } from "@/components/dashboard/pickers";
+import { ChannelPicker, MultiRolePicker } from "@/components/dashboard/pickers";
 
 interface TicketsFormProps {
   initialConfig: TicketConfig;
@@ -203,14 +205,16 @@ export function TicketsForm({ initialConfig, guildId }: TicketsFormProps) {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-xs font-black uppercase text-slate-500 tracking-widest">Discord Category ID</label>
-                    <Input 
-                        value={editingCategory.data.discord_category_id || ""} 
-                        onChange={(e) => setEditingCategory({
-                          ...editingCategory, 
-                          data: { ...editingCategory.data, discord_category_id: e.target.value }
+                    <label className="text-xs font-black uppercase text-slate-500 tracking-widest">Kategorie für neue Tickets</label>
+                    <ChannelPicker
+                        guildId={guildId}
+                        value={editingCategory.data.discord_category_id || ""}
+                        onChange={(id) => setEditingCategory({
+                          ...editingCategory,
+                          data: { ...editingCategory.data, discord_category_id: id || "" }
                         })}
-                        placeholder="Created tickets go here"
+                        placeholder="Kategorie wählen"
+                        channelTypes={["4"]}
                     />
                   </div>
                 </div>
@@ -260,12 +264,48 @@ export function TicketsForm({ initialConfig, guildId }: TicketsFormProps) {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-xs font-black uppercase text-slate-500 tracking-widest">Color (Decimal)</label>
-                    <Input 
-                        value={editingEmbed.color || ""} 
-                        onChange={(e) => setEditingEmbed({...editingEmbed, color: e.target.value ? parseInt(e.target.value) : null})}
-                        placeholder="e.g. 3447003 for Blue"
-                    />
+                    <label className="text-xs font-black uppercase text-slate-500 tracking-widest">Farbe</label>
+                    {/* Discord stores the colour as a decimal integer, which
+                        is unreadable to a human. Show a colour picker and do
+                        the conversion here. */}
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={`#${Number(editingEmbed.color ?? 0x3b82f6)
+                          .toString(16)
+                          .padStart(6, "0")}`}
+                        onChange={(e) =>
+                          setEditingEmbed({
+                            ...editingEmbed,
+                            color: parseInt(e.target.value.slice(1), 16),
+                          })
+                        }
+                        className="h-11 w-14 rounded-xl bg-transparent border border-slate-800 cursor-pointer p-1"
+                      />
+                      <div className="flex gap-1.5 flex-wrap">
+                        {[
+                          ["#5865f2", "Blurple"],
+                          ["#2ecc71", "Grün"],
+                          ["#e74c3c", "Rot"],
+                          ["#f1c40f", "Gelb"],
+                          ["#9b59b6", "Lila"],
+                        ].map(([hex, name]) => (
+                          <button
+                            key={hex}
+                            type="button"
+                            title={name}
+                            onClick={() =>
+                              setEditingEmbed({
+                                ...editingEmbed,
+                                color: parseInt(hex.slice(1), 16),
+                              })
+                            }
+                            style={{ background: hex }}
+                            className="h-7 w-7 rounded-lg border border-white/20 hover:scale-110 transition-transform"
+                          />
+                        ))}
+                      </div>
+                    </div>
                   </div>
                   <div className="space-y-2">
                     <label className="text-xs font-black uppercase text-slate-500 tracking-widest">Thumbnail URL</label>
@@ -297,6 +337,67 @@ export function TicketsForm({ initialConfig, guildId }: TicketsFormProps) {
         </div>
       )}
 
+      {/* A short explanation up front: the tab throws a lot of fields at
+          someone who has never set up a ticket system, and the order the
+          steps have to happen in was not obvious anywhere. */}
+      <div className="bg-[#10233f] border border-primary/20 rounded-3xl p-6 mb-8">
+        <div className="flex items-start gap-4">
+          <div className="p-2.5 rounded-xl bg-primary/10 text-primary shrink-0">
+            <Ticket className="h-5 w-5" />
+          </div>
+          <div className="min-w-0">
+            <h3 className="font-bold text-white">So funktioniert das Ticket-System</h3>
+            <p className="text-sm text-slate-400 mt-1.5 leading-relaxed">
+              Mitglieder klicken auf einen Knopf im Panel und bekommen einen
+              privaten Kanal, in dem nur sie und dein Team schreiben können.
+            </p>
+
+            <ol className="mt-4 space-y-2.5">
+              {[
+                {
+                  done: Boolean(config.panel_channel),
+                  text: "Panel-Kanal wählen — dort erscheint der Knopf",
+                },
+                {
+                  done: (config.categories?.length ?? 0) > 0,
+                  text: "Mindestens eine Kategorie anlegen, z. B. Support",
+                },
+                {
+                  done: (config.staff_roles?.length ?? 0) > 0,
+                  text: "Team-Rollen festlegen — wer Tickets sehen darf",
+                },
+                {
+                  done: Boolean(config.logging_channel),
+                  text: "Transkript-Kanal wählen (optional)",
+                },
+              ].map((step, i) => (
+                <li key={i} className="flex items-center gap-3 text-sm">
+                  <span
+                    className={cn(
+                      "h-5 w-5 rounded-full border flex items-center justify-center text-[10px] font-black shrink-0",
+                      step.done
+                        ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-400"
+                        : "bg-white/[0.03] border-white/15 text-slate-500"
+                    )}
+                  >
+                    {step.done ? "✓" : i + 1}
+                  </span>
+                  <span className={step.done ? "text-slate-500 line-through" : "text-slate-300"}>
+                    {step.text}
+                  </span>
+                </li>
+              ))}
+            </ol>
+
+            <p className="text-xs text-slate-500 mt-4">
+              Danach das Panel über <span className="text-slate-400 font-bold">Panel senden</span>{" "}
+              in den Kanal stellen. Änderungen an Titel oder Farbe brauchen ein
+              erneutes Senden.
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* Main Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Left Column: Stats & Setup */}
@@ -309,27 +410,33 @@ export function TicketsForm({ initialConfig, guildId }: TicketsFormProps) {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <label className="text-xs font-black uppercase text-slate-500 tracking-widest">Panel Channel ID</label>
-                <Input 
-                  value={config.panel_channel || ""} 
-                  onChange={(e) => setConfig({...config, panel_channel: e.target.value})}
-                  placeholder="Where the ticket panel lives"
+                <label className="text-xs font-black uppercase text-slate-500 tracking-widest">Panel-Kanal</label>
+                <ChannelPicker
+                  guildId={guildId}
+                  value={config.panel_channel || ""}
+                  onChange={(id) => setConfig({ ...config, panel_channel: id || "" })}
+                  placeholder="Wo das Ticket-Panel steht"
+                  channelTypes={["0", "5"]}
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-xs font-black uppercase text-slate-500 tracking-widest">Logging Channel ID</label>
-                <Input 
-                  value={config.logging_channel || ""} 
-                  onChange={(e) => setConfig({...config, logging_channel: e.target.value})}
-                  placeholder="Where transcripts go"
+                <label className="text-xs font-black uppercase text-slate-500 tracking-widest">Transkript-Kanal</label>
+                <ChannelPicker
+                  guildId={guildId}
+                  value={config.logging_channel || ""}
+                  onChange={(id) => setConfig({ ...config, logging_channel: id || "" })}
+                  placeholder="Wohin Transkripte gehen"
+                  channelTypes={["0", "5"]}
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-xs font-black uppercase text-slate-500 tracking-widest">Closed Tickets Category ID</label>
-                <Input 
-                  value={config.closed_category || ""} 
-                  onChange={(e) => setConfig({...config, closed_category: e.target.value})}
-                  placeholder="Archive closed tickets here"
+                <label className="text-xs font-black uppercase text-slate-500 tracking-widest">Archiv für geschlossene Tickets</label>
+                <ChannelPicker
+                  guildId={guildId}
+                  value={config.closed_category || ""}
+                  onChange={(id) => setConfig({ ...config, closed_category: id || "" })}
+                  placeholder="Kategorie wählen (optional)"
+                  channelTypes={["4"]}
                 />
               </div>
               <div className="space-y-2">

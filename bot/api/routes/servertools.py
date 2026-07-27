@@ -55,6 +55,29 @@ def _guild_or_404(bot, guild_id: int):
     return guild
 
 
+def _is_bot_role(role: discord.Role) -> bool:
+    """
+    Whether this role belongs to a bot or an integration.
+
+    Discord creates one of these automatically when a bot joins, and its
+    permissions are whatever the invite asked for. The server owner cannot
+    edit or delete it, so flagging it as a risk is noise: there is nothing
+    to act on. `managed` covers older gateway versions that do not send
+    role tags.
+    """
+    if getattr(role, "managed", False):
+        return True
+    for check in ("is_bot_managed", "is_integration", "is_premium_subscriber"):
+        method = getattr(role, check, None)
+        if callable(method):
+            try:
+                if method():
+                    return True
+            except Exception:
+                continue
+    return False
+
+
 def _role_info(role: discord.Role) -> dict:
     held = [p for p in DANGEROUS_PERMISSIONS if getattr(role.permissions, p, False)]
     return {
@@ -64,6 +87,7 @@ def _role_info(role: discord.Role) -> dict:
         "position": role.position,
         "members": len(role.members),
         "managed": role.managed,
+        "bot_role": _is_bot_role(role),
         "mentionable": role.mentionable,
         "hoisted": role.hoist,
         "dangerous_permissions": held,
@@ -142,6 +166,11 @@ async def security_scan(guild_id: int, bot: "universitybot" = Depends(get_bot)):
     findings: list[dict] = []
 
     # --- roles with dangerous permissions ---------------------------
+    #
+    # Bot and integration roles are deliberately excluded. Discord creates
+    # them when the bot is invited, their permissions come from the invite
+    # link, and nobody can edit or delete them from the server side — so
+    # reporting them only produces findings that cannot be acted on.
     admin_roles = []
     for role in guild.roles:
         if role.is_default():
@@ -150,7 +179,7 @@ async def security_scan(guild_id: int, bot: "universitybot" = Depends(get_bot)):
             admin_roles.append(_role_info(role))
 
     for role in admin_roles:
-        if role["members"] > 0 and not role["managed"]:
+        if role["members"] > 0 and not role["bot_role"]:
             findings.append({
                 "severity": "high" if role["members"] > 3 else "medium",
                 "kind": "admin_role",
@@ -175,15 +204,29 @@ async def security_scan(guild_id: int, bot: "universitybot" = Depends(get_bot)):
         })
 
     # --- bots with administrator ------------------------------------
-    for member in guild.members:
-        if member.bot and member.guild_permissions.administrator:
-            findings.append({
-                "severity": "medium",
-                "kind": "bot_admin",
-                "title": f"Bot “{member.display_name}” has Administrator",
-                "detail": "Grant only the permissions the bot needs.",
-                "target_id": str(member.id),
-            })
+    #
+    # Plenty of bots are invited with Administrator on purpose, so this is
+    # informational rather than a problem. It is reported once as a summary
+    # instead of one entry per bot, and it does not drag the score down —
+    # otherwise a normal server with three bots looks broken.
+    admin_bots = [
+        m for m in guild.members
+        if m.bot and m.guild_permissions.administrator
+    ]
+    if admin_bots:
+        names = ", ".join(m.display_name for m in admin_bots[:5])
+        if len(admin_bots) > 5:
+            names += f" +{len(admin_bots) - 5}"
+        findings.append({
+            "severity": "info",
+            "kind": "bot_admin",
+            "title": f"{len(admin_bots)} bot(s) have Administrator",
+            "detail": (
+                f"{names}. Usually intended — only worth reviewing for bots "
+                "you no longer use."
+            ),
+            "target_id": None,
+        })
 
     # --- very new accounts ------------------------------------------
     cutoff = datetime.now(timezone.utc) - timedelta(days=7)
@@ -246,12 +289,13 @@ async def security_scan(guild_id: int, bot: "universitybot" = Depends(get_bot)):
             "target_id": None,
         })
 
-    order = {"high": 0, "medium": 1, "low": 2}
-    findings.sort(key=lambda f: order.get(f["severity"], 3))
+    order = {"high": 0, "medium": 1, "low": 2, "info": 3}
+    findings.sort(key=lambda f: order.get(f["severity"], 4))
 
     return {
         "guild_id": str(guild.id),
         "scanned_at": datetime.now(timezone.utc).isoformat(),
+        # "info" entries are notes, not problems, so they cost no points.
         "score": max(0, 100 - sum(
             {"high": 20, "medium": 10, "low": 4}.get(f["severity"], 0)
             for f in findings
@@ -260,9 +304,13 @@ async def security_scan(guild_id: int, bot: "universitybot" = Depends(get_bot)):
             "high": sum(1 for f in findings if f["severity"] == "high"),
             "medium": sum(1 for f in findings if f["severity"] == "medium"),
             "low": sum(1 for f in findings if f["severity"] == "low"),
+            "info": sum(1 for f in findings if f["severity"] == "info"),
         },
         "stats": {
-            "admin_roles": len(admin_roles),
+            # Bot roles are excluded here too, so the number matches what
+            # the findings above actually reported.
+            "admin_roles": sum(1 for r in admin_roles if not r["bot_role"]),
+            "bot_admin_roles": sum(1 for r in admin_roles if r["bot_role"]),
             "webhooks": webhook_count,
             "invites": invite_count,
             "permanent_invites": permanent,
@@ -289,7 +337,9 @@ async def role_audit(guild_id: int, bot: "universitybot" = Depends(get_bot)):
         info = _role_info(role)
         # A role above the bot cannot be assigned or removed by it.
         info["above_bot"] = role.position >= bot_position
-        info["unused"] = info["members"] == 0 and not role.managed
+        # A bot role legitimately has no members other than the bot itself,
+        # and cannot be deleted anyway — calling it unused is misleading.
+        info["unused"] = info["members"] == 0 and not info["bot_role"]
         roles.append(info)
 
     return {

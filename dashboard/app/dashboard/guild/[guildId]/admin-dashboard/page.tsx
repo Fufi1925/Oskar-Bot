@@ -37,6 +37,8 @@ const SEVERITY = {
   high: { label: "Hoch", cls: "bg-red-500/10 border-red-500/30 text-red-300" },
   medium: { label: "Mittel", cls: "bg-amber-500/10 border-amber-500/30 text-amber-300" },
   low: { label: "Niedrig", cls: "bg-sky-500/10 border-sky-500/30 text-sky-300" },
+  // Not a problem — a note. Rendered in grey so it does not read as a warning.
+  info: { label: "Info", cls: "bg-white/[0.03] border-white/10 text-slate-400" },
 } as const;
 
 function Card({ children, className }: { children: React.ReactNode; className?: string }) {
@@ -302,6 +304,7 @@ export default function ServerToolsPage({ params }: { params: { guildId: string 
                       <p className="text-sm text-slate-400 mt-0.5">
                         {current.counts.high} hoch · {current.counts.medium} mittel ·{" "}
                         {current.counts.low} niedrig
+                        {current.counts.info ? ` · ${current.counts.info} Info` : ""}
                       </p>
                     </div>
                   </div>
@@ -432,8 +435,20 @@ export default function ServerToolsPage({ params }: { params: { guildId: string 
                         {r.members} Mitglieder
                       </span>
                       {r.dangerous_permissions.includes("administrator") && (
-                        <span className="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-lg bg-red-500/15 text-red-300 border border-red-500/25">
+                        <span
+                          className={cn(
+                            "text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-lg border",
+                            r.bot_role
+                              ? "bg-white/[0.04] text-slate-400 border-white/10"
+                              : "bg-red-500/15 text-red-300 border-red-500/25"
+                          )}
+                        >
                           Administrator
+                        </span>
+                      )}
+                      {r.bot_role && (
+                        <span className="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-lg bg-sky-500/10 text-sky-300 border border-sky-500/25">
+                          Bot-Rolle
                         </span>
                       )}
                       {r.above_bot && (
@@ -447,8 +462,9 @@ export default function ServerToolsPage({ params }: { params: { guildId: string 
                         </span>
                       )}
 
-                      {/* Anything above the bot cannot be touched — no button. */}
-                      {!r.above_bot && !r.managed && (
+                      {/* Roles above the bot, and bot/integration roles,
+                          cannot be changed from here — so no buttons. */}
+                      {!r.above_bot && !r.managed && !r.bot_role && (
                         <div className="flex gap-1.5 shrink-0">
                           {r.dangerous_permissions.includes("administrator") && (
                             <button
