@@ -25,10 +25,9 @@ from api.schemas import (
     DiscordChannel, DiscordRole, WelcomeConfig, WelcomeEmbedData, WelcomeUpdate,
     AntiNukeConfig, AntiNukeUpdate, VerificationConfig, VerificationUpdate,
     AutoRoleConfig, AutoRoleUpdate,
-    TrackingConfig, TrackingUpdate, J2CConfig, J2CUpdate, JoinDMConfig, JoinDMUpdate,
+    TrackingConfig, TrackingUpdate, J2CConfig, J2CUpdate, 
     CustomRoleConfig, CustomRoleUpdate, AutoReactConfig, AutoReactUpdate, AutoReactTrigger,
     InvcConfig, InvcUpdate,
-    RRConfig, RRUpdate, ReactionRoleEntry,
     InviteStat, InvitesLeaderboard
 )
 from typing import TYPE_CHECKING, List, Optional
@@ -773,51 +772,11 @@ async def patch_guild_j2c(guild_id: int, data: J2CUpdate, bot: "universitybot" =
     return {"status": "success"}
 
 
-@router.get("/{guild_id}/joindm", response_model=JoinDMConfig, summary="Get JoinDM config")
-async def get_guild_joindm(guild_id: int):
-    config_file = 'jsondb/joindm_messages.json'
-    os.makedirs('jsondb', exist_ok=True)
-    
-    if os.path.exists(config_file):
-        try:
-            with open(config_file, 'r') as f:
-                content = f.read().strip()
-                if not content:
-                    data = {}
-                else:
-                    data = json.loads(content)
-                    if not isinstance(data, dict):
-                        data = {}
-        except (json.JSONDecodeError, Exception):
-            data = {}
-            
-        return JoinDMConfig(guild_id=str(guild_id), message=data.get(str(guild_id)))
-    
-    return JoinDMConfig(guild_id=str(guild_id))
+# NOTE: Join DM moved to api/routes/memberperks.py. The pair here stored
+# a bare string in jsondb/joindm_messages.json, and the cog behind it
+# registered its listener at runtime -- so the feature was silently off
+# after every restart while this endpoint still returned the text.
 
-@router.patch("/{guild_id}/joindm", summary="Update JoinDM config")
-async def patch_guild_joindm(guild_id: int, data: JoinDMUpdate):
-    config_file = 'jsondb/joindm_messages.json'
-    os.makedirs('jsondb', exist_ok=True)
-    
-    messages = {}
-    if os.path.exists(config_file):
-        try:
-            with open(config_file, 'r') as f:
-                content = f.read().strip()
-                if content:
-                    messages = json.loads(content)
-                    if not isinstance(messages, dict):
-                        messages = {}
-        except (json.JSONDecodeError, Exception):
-            messages = {}
-
-    messages[str(guild_id)] = data.message
-    
-    with open(config_file, 'w') as f:
-        json.dump(messages, f, indent=2)
-        
-    return {"status": "success"}
 
 @router.get("/{guild_id}/customroles", response_model=CustomRoleConfig, summary="Get CustomRoles config")
 async def get_guild_customroles(guild_id: int):
@@ -1136,135 +1095,10 @@ async def get_guild_invites(guild_id: int):
 
 # ========== REACTION ROLES ==========
 
-@router.get("/{guild_id}/reactionroles", response_model=RRConfig, summary="Get Reaction Roles config")
-async def get_guild_rr(guild_id: int):
-    db = await db_manager.get_connection("rr.db")
-    await db.execute("""
-        CREATE TABLE IF NOT EXISTS reaction_roles (
-            guild_id INTEGER,
-            message_id INTEGER,
-            emoji TEXT,
-            role_id INTEGER
-        )
-    """)
-    await db.execute("""
-        CREATE TABLE IF NOT EXISTS rr_settings (
-            guild_id INTEGER PRIMARY KEY,
-            dm_enabled INTEGER DEFAULT 1
-        )
-    """)
-    await db.commit()
-
-    async with db.execute("SELECT dm_enabled FROM rr_settings WHERE guild_id = ?", (guild_id,)) as cursor:
-        dm_row = await cursor.fetchone()
-    dm_enabled = dm_row[0] == 1 if dm_row else True
-    
-    async with db.execute("SELECT message_id, emoji, role_id FROM reaction_roles WHERE guild_id = ?", (guild_id,)) as cursor:
-        rows = await cursor.fetchall()
-    
-    roles_list = [
-        ReactionRoleEntry(
-            message_id=str(row[0]),
-            emoji=row[1],
-            role_id=str(row[2])
-        ) for row in rows
-    ]
-    
-    return RRConfig(guild_id=str(guild_id), dm_enabled=dm_enabled, roles=roles_list)
-
-@router.patch("/{guild_id}/reactionroles", summary="Update Reaction Roles config")
-async def patch_guild_rr(guild_id: int, data: RRUpdate):
-    db = await db_manager.get_connection("rr.db")
-    await db.execute("""
-        CREATE TABLE IF NOT EXISTS reaction_roles (
-            guild_id INTEGER,
-            message_id INTEGER,
-            emoji TEXT,
-            role_id INTEGER
-        )
-    """)
-    await db.execute("""
-        CREATE TABLE IF NOT EXISTS rr_settings (
-            guild_id INTEGER PRIMARY KEY,
-            dm_enabled INTEGER DEFAULT 1
-        )
-    """)
-    
-    if data.dm_enabled is not None:
-        await db.execute("INSERT OR REPLACE INTO rr_settings (guild_id, dm_enabled) VALUES (?, ?)",
-                         (guild_id, 1 if data.dm_enabled else 0))
-    
-    if data.add_role is not None:
-        msg_id = int(data.add_role.message_id)
-        role_id = int(data.add_role.role_id)
-        await db.execute("INSERT INTO reaction_roles (guild_id, message_id, emoji, role_id) VALUES (?, ?, ?, ?)",
-                         (guild_id, msg_id, data.add_role.emoji, role_id))
-    
-    if data.remove_role_message_id is not None and data.remove_role_emoji is not None:
-        msg_id = int(data.remove_role_message_id)
-        await db.execute("DELETE FROM reaction_roles WHERE guild_id = ? AND message_id = ? AND emoji = ?",
-                         (guild_id, msg_id, data.remove_role_emoji))
-    
-    await db.commit()
-    return {"status": "success"}
-
-
-
-
-# ========== NO PREFIX ==========
-async def _ensure_np_tables(db):
-    await db.execute("""
-        CREATE TABLE IF NOT EXISTS np (
-            id INTEGER PRIMARY KEY,
-            expiry_time TEXT NULL
-        )
-    """)
-    await db.execute("""
-        CREATE TABLE IF NOT EXISTS np_roles (
-            guild_id INTEGER NOT NULL,
-            role_id INTEGER NOT NULL,
-            PRIMARY KEY (guild_id, role_id)
-        )
-    """)
-    await db.commit()
-
-@router.get("/{guild_id}/noprefix", summary="Get no-prefix users and roles")
-async def get_no_prefix(guild_id: int):
-    db = await db_manager.get_connection("db/np.db")
-    await _ensure_np_tables(db)
-    async with db.execute("SELECT id FROM np ORDER BY id") as cursor:
-        users = [str(row[0]) for row in await cursor.fetchall()]
-    async with db.execute("SELECT role_id FROM np_roles WHERE guild_id = ? ORDER BY role_id", (guild_id,)) as cursor:
-        roles = [str(row[0]) for row in await cursor.fetchall()]
-    return {"guild_id": str(guild_id), "users": users, "roles": roles}
-
-@router.patch("/{guild_id}/noprefix", summary="Update no-prefix users and roles")
-async def update_no_prefix(guild_id: int, data: dict, bot: "universitybot" = Depends(get_bot)):
-    users = [str(x).strip() for x in data.get("users", []) if str(x).strip().isdigit()]
-    roles = [str(x).strip() for x in data.get("roles", []) if str(x).strip().isdigit()]
-    db = await db_manager.get_connection("db/np.db")
-    await _ensure_np_tables(db)
-    await db.execute("DELETE FROM np_roles WHERE guild_id = ?", (guild_id,))
-    for user_id in dict.fromkeys(users):
-        await db.execute("INSERT OR IGNORE INTO np (id, expiry_time) VALUES (?, NULL)", (int(user_id),))
-    for role_id in dict.fromkeys(roles):
-        await db.execute("INSERT OR IGNORE INTO np_roles (guild_id, role_id) VALUES (?, ?)", (guild_id, int(role_id)))
-    # Remove only explicitly requested users? The dashboard is the source for global no-prefix users.
-    if data.get("replace_users", True):
-        keep = [int(x) for x in dict.fromkeys(users)]
-        if keep:
-            placeholders = ",".join("?" for _ in keep)
-            await db.execute(f"DELETE FROM np WHERE id NOT IN ({placeholders})", keep)
-        else:
-            await db.execute("DELETE FROM np")
-    await db.commit()
-
-    # The bot keeps the no-prefix tables in memory; tell it to reload.
-    invalidate = getattr(bot, "invalidate_no_prefix_cache", None)
-    if callable(invalidate):
-        invalidate()
-
-    return {"status": "success", "users": users, "roles": roles}
+# NOTE: reaction roles moved to api/routes/memberperks.py. The route here
+# only wrote a database row; unlike the chat command it never called
+# message.add_reaction(), so an entry created in the dashboard left
+# members with nothing to click on.
 
 
 # ========== NICKNAME RULES ==========
@@ -1280,6 +1114,7 @@ async def _ensure_nickname_table(db):
         )
     """)
     await db.commit()
+
 
 @router.get("/{guild_id}/nickname", summary="Get nickname role rules")
 async def get_nickname_rules(guild_id: int):

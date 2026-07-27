@@ -150,13 +150,6 @@ export const api = {
       body: JSON.stringify({ prefix }),
     }),
 
-  getNoPrefix: (guildId: string) => request<any>(`/guilds/${guildId}/noprefix`),
-  updateNoPrefix: (guildId: string, data: any) =>
-    request<{ status: string }>(`/guilds/${guildId}/noprefix`, {
-      method: "PATCH",
-      body: JSON.stringify(data),
-    }),
-
   getNicknameRules: (guildId: string) => request<any>(`/guilds/${guildId}/nickname`),
   updateNicknameRules: (guildId: string, data: any) =>
     request<{ status: string }>(`/guilds/${guildId}/nickname`, {
@@ -308,6 +301,67 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
+  // Join DM, no-prefix and reaction roles
+  // Moved off /guilds: no-prefix leaked across servers, join DM had no
+  // flag that survived a restart, and adding a reaction role never put
+  // the reaction on the message.
+  getJoinDM: (guildId: string) => request<any>(`/perks/${guildId}/joindm`),
+  updateJoinDM: (guildId: string, data: any) =>
+    request<any>(`/perks/${guildId}/joindm`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+  testJoinDM: (guildId: string, draft?: any) =>
+    request<any>(`/perks/${guildId}/joindm/test`, {
+      method: "POST",
+      body: JSON.stringify(draft || {}),
+    }),
+
+  getNoPrefix: (guildId: string) => request<any>(`/perks/${guildId}/noprefix`),
+  addNoPrefixUser: (guildId: string, data: any) =>
+    request<any>(`/perks/${guildId}/noprefix/users`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  removeNoPrefixUser: (guildId: string, userId: string, scope = "guild") =>
+    request<any>(`/perks/${guildId}/noprefix/users/${userId}?scope=${scope}`, {
+      method: "DELETE",
+    }),
+  addNoPrefixRole: (guildId: string, roleId: string) =>
+    request<any>(`/perks/${guildId}/noprefix/roles`, {
+      method: "POST",
+      body: JSON.stringify({ role_id: roleId }),
+    }),
+  removeNoPrefixRole: (guildId: string, roleId: string) =>
+    request<any>(`/perks/${guildId}/noprefix/roles/${roleId}`, { method: "DELETE" }),
+
+  getReactionRolesV2: (guildId: string) =>
+    request<any>(`/perks/${guildId}/reactionroles`),
+  addReactionRoleV2: (guildId: string, data: any) =>
+    request<any>(`/perks/${guildId}/reactionroles`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  removeReactionRoleV2: (
+    guildId: string, messageId: string, emoji: string, channelId = ""
+  ) =>
+    request<any>(
+      `/perks/${guildId}/reactionroles?message_id=${messageId}` +
+        `&emoji=${encodeURIComponent(emoji)}&channel_id=${channelId}`,
+      { method: "DELETE" }
+    ),
+  updateReactionRoleSettings: (guildId: string, data: any) =>
+    request<any>(`/perks/${guildId}/reactionroles`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+  /** Walk every entry: deleted messages, deleted roles, cleared reactions. */
+  verifyReactionRoles: (guildId: string) =>
+    request<any>(`/perks/${guildId}/reactionroles/verify`, {
+      method: "POST",
+      body: "{}",
+    }),
+
   // Anti-nuke alerts
   getNukeAlerts: (guildId: string) => request<any>(`/nukealert/${guildId}`),
   updateNukeAlerts: (guildId: string, data: any) =>
@@ -455,12 +509,6 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
-  getJoinDM: (guildId: string) => request<any>(`/guilds/${guildId}/joindm`),
-  updateJoinDM: (guildId: string, data: any) =>
-    request<{ status: string }>(`/guilds/${guildId}/joindm`, {
-      method: "PATCH",
-      body: JSON.stringify(data),
-    }),
 
   getCustomRoles: (guildId: string) => request<any>(`/guilds/${guildId}/customroles`),
   updateCustomRoles: (guildId: string, data: any) =>

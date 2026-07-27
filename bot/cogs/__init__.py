@@ -78,7 +78,7 @@ from .commands.verification import Verification
 from .commands.minecraft import Minecraft
 from .commands.encryption import encryption
 from .commands.calc import calculator
-from .commands.joindm import joindm
+from .commands.joindm import JoinDM
 from .commands.Birthday import Birthdays
 from .commands.nitro import Nitro
 from .commands.image import ImageCommands
@@ -255,7 +255,7 @@ async def setup(bot: universitybot):
   await bot.add_cog(Minecraft(bot))
   await bot.add_cog(encryption(bot))
   await bot.add_cog(calculator(bot))
-  await bot.add_cog(joindm(bot))
+  await bot.add_cog(JoinDM(bot))
   await bot.add_cog(Birthdays(bot))
   await bot.add_cog(Nitro(bot))
   await bot.add_cog(ImageCommands(bot))
