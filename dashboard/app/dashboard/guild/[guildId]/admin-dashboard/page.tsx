@@ -2,8 +2,9 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import {
-  AlertTriangle, CheckCircle2, ChevronRight, Hash, Link2, Loader2,
-  RefreshCcw, Shield, ShieldAlert, Trash2, Users, Webhook,
+  AlertTriangle, CheckCircle2, Hash, Link2, Loader2, Lock, LockOpen,
+  RefreshCcw, Shield, ShieldAlert, ShieldOff, Sparkles, Timer, Trash2,
+  Users, Webhook,
 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
@@ -100,6 +101,32 @@ export default function ServerToolsPage({ params }: { params: { guildId: string 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
 
+  /** Run an action, then refresh the affected views. */
+  const act = async (
+    label: string,
+    fn: () => Promise<any>,
+    refresh: TabId[] = [],
+    confirmText?: string
+  ) => {
+    if (confirmText && !confirm(confirmText)) return;
+    setBusy(true);
+    try {
+      const res = await fn();
+      toast.success(res?.result || label);
+      // Drop the caches that this action invalidated.
+      setData((d) => {
+        const next = { ...d };
+        for (const t of refresh) delete next[t];
+        return next;
+      });
+      await load(tab, true);
+    } catch (err: any) {
+      toast.error(err?.message || "Aktion fehlgeschlagen.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const removeWebhook = async (id: string, name: string) => {
     if (!confirm(`Webhook „${name}" wirklich löschen?`)) return;
     setBusy(true);
@@ -190,6 +217,49 @@ export default function ServerToolsPage({ params }: { params: { guildId: string 
                 </div>
               </Card>
 
+              <Card>
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div>
+                    <p className="font-black text-white">Notfall-Sperre</p>
+                    <p className="text-sm text-slate-400 mt-1">
+                      Nimmt @everyone in allen Textkanälen das Schreibrecht — oder
+                      gibt es zurück. Ändert echte Kanalrechte.
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() =>
+                        act(
+                          "Server gesperrt.",
+                          () => api.setLockdown(guildId, true),
+                          ["channels", "security"],
+                          "Wirklich alle Textkanäle sperren?\n\n@everyone kann dann nirgends mehr schreiben."
+                        )
+                      }
+                      disabled={busy}
+                      className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-red-500/15 border border-red-500/30 text-red-300 hover:bg-red-500/25 transition-all text-xs font-black uppercase tracking-widest disabled:opacity-50"
+                    >
+                      <Lock className="h-3.5 w-3.5" />
+                      Sperren
+                    </button>
+                    <button
+                      onClick={() =>
+                        act(
+                          "Sperre aufgehoben.",
+                          () => api.setLockdown(guildId, false),
+                          ["channels", "security"]
+                        )
+                      }
+                      disabled={busy}
+                      className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/[0.03] border border-white/10 text-slate-300 hover:bg-white/[0.07] transition-all text-xs font-black uppercase tracking-widest disabled:opacity-50"
+                    >
+                      <LockOpen className="h-3.5 w-3.5" />
+                      Entsperren
+                    </button>
+                  </div>
+                </div>
+              </Card>
+
               {current.bot_missing_permissions?.length > 0 && (
                 <Card className="border-amber-500/30 bg-amber-500/5">
                   <div className="flex gap-3">
@@ -261,10 +331,46 @@ export default function ServerToolsPage({ params }: { params: { guildId: string 
                           <span className="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-lg bg-black/25 shrink-0">
                             {sev.label}
                           </span>
-                          <div className="min-w-0">
+                          <div className="min-w-0 flex-1">
                             <p className="font-bold text-white">{f.title}</p>
                             <p className="text-sm opacity-80 mt-1">{f.detail}</p>
                           </div>
+
+                          {/* Each finding that can be fixed gets its fix here. */}
+                          {f.kind === "admin_role" && f.target_id && (
+                            <button
+                              onClick={() =>
+                                act(
+                                  "Administrator entfernt.",
+                                  () => api.stripRoleAdmin(guildId, f.target_id),
+                                  ["roles"],
+                                  "Administrator-Recht von dieser Rolle entfernen?\n\nAlle anderen Rechte bleiben erhalten."
+                                )
+                              }
+                              disabled={busy}
+                              className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl bg-black/25 border border-white/10 hover:bg-black/40 transition-all text-[11px] font-black uppercase tracking-widest disabled:opacity-50"
+                            >
+                              <ShieldOff className="h-3.5 w-3.5" />
+                              Admin entziehen
+                            </button>
+                          )}
+
+                          {f.kind === "verification_level" && (
+                            <button
+                              onClick={() =>
+                                act(
+                                  "Verifizierung auf Mittel gesetzt.",
+                                  () => api.setVerificationLevel(guildId, "medium"),
+                                  ["overview"]
+                                )
+                              }
+                              disabled={busy}
+                              className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl bg-black/25 border border-white/10 hover:bg-black/40 transition-all text-[11px] font-black uppercase tracking-widest disabled:opacity-50"
+                            >
+                              <Shield className="h-3.5 w-3.5" />
+                              Auf Mittel setzen
+                            </button>
+                          )}
                         </div>
                       </div>
                     );
@@ -285,6 +391,29 @@ export default function ServerToolsPage({ params }: { params: { guildId: string 
                   <Stat label="Über dem Bot" value={current.summary.above_bot}
                         hint="kann der Bot nicht vergeben" />
                 </div>
+
+                {current.summary.unused > 0 && (
+                  <div className="mt-6 pt-5 border-t border-white/5 flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-sm text-slate-400">
+                      {current.summary.unused} Rolle(n) hat niemand.
+                    </p>
+                    <button
+                      onClick={() =>
+                        act(
+                          "Ungenutzte Rollen gelöscht.",
+                          () => api.cleanupUnusedRoles(guildId),
+                          ["security"],
+                          `${current.summary.unused} ungenutzte Rolle(n) löschen?\n\nRollen von Integrationen und Rollen über dem Bot bleiben bestehen.`
+                        )
+                      }
+                      disabled={busy}
+                      className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/[0.03] border border-white/10 text-slate-300 hover:bg-white/[0.07] transition-all text-xs font-black uppercase tracking-widest disabled:opacity-50"
+                    >
+                      <Sparkles className="h-3.5 w-3.5" />
+                      Aufräumen
+                    </button>
+                  </div>
+                )}
               </Card>
 
               <div className="space-y-2">
@@ -316,6 +445,47 @@ export default function ServerToolsPage({ params }: { params: { guildId: string 
                         <span className="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-lg bg-white/[0.04] text-slate-400 border border-white/10">
                           Ungenutzt
                         </span>
+                      )}
+
+                      {/* Anything above the bot cannot be touched — no button. */}
+                      {!r.above_bot && !r.managed && (
+                        <div className="flex gap-1.5 shrink-0">
+                          {r.dangerous_permissions.includes("administrator") && (
+                            <button
+                              onClick={() =>
+                                act(
+                                  "Administrator entfernt.",
+                                  () => api.stripRoleAdmin(guildId, r.id),
+                                  ["security"],
+                                  `Administrator von „${r.name}" entfernen?`
+                                )
+                              }
+                              disabled={busy}
+                              className="p-2 rounded-xl bg-white/[0.03] border border-white/5 text-slate-400 hover:text-amber-400 hover:bg-amber-400/10 transition-all disabled:opacity-40"
+                              title="Administrator entziehen"
+                            >
+                              <ShieldOff className="h-4 w-4" />
+                            </button>
+                          )}
+                          <button
+                            onClick={() =>
+                              act(
+                                "Rolle gelöscht.",
+                                () => api.deleteGuildRole(guildId, r.id),
+                                ["security"],
+                                `Rolle „${r.name}" wirklich löschen?` +
+                                  (r.members > 0
+                                    ? `\n\n${r.members} Mitglied(er) verlieren sie.`
+                                    : "")
+                              )
+                            }
+                            disabled={busy}
+                            className="p-2 rounded-xl bg-white/[0.03] border border-white/5 text-slate-400 hover:text-red-400 hover:bg-red-400/10 transition-all disabled:opacity-40"
+                            title="Rolle löschen"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
                       )}
                     </div>
                   ))
@@ -358,6 +528,31 @@ export default function ServerToolsPage({ params }: { params: { guildId: string 
                         {c.slowmode}s Slowmode
                       </span>
                     )}
+
+                    <select
+                      value={c.slowmode}
+                      disabled={busy}
+                      onChange={(e) =>
+                        act(
+                          "Slowmode gesetzt.",
+                          () =>
+                            api.setChannelSlowmode(
+                              guildId,
+                              c.id,
+                              Number(e.target.value)
+                            ),
+                          []
+                        )
+                      }
+                      className="shrink-0 bg-[#0d1b31] border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-300 focus:outline-none focus:border-primary/50 disabled:opacity-50"
+                      title="Slowmode"
+                    >
+                      {[0, 5, 10, 30, 60, 300, 900].map((sec) => (
+                        <option key={sec} value={sec}>
+                          {sec === 0 ? "Kein Slowmode" : `${sec}s`}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 ))}
               </div>
@@ -386,6 +581,21 @@ export default function ServerToolsPage({ params }: { params: { guildId: string 
                         Läuft nie ab
                       </span>
                     )}
+                    <button
+                      onClick={() =>
+                        act(
+                          "Einladung widerrufen.",
+                          () => api.revokeInvite(guildId, i.code),
+                          ["security"],
+                          `Einladung „${i.code}" widerrufen?`
+                        )
+                      }
+                      disabled={busy}
+                      className="p-2 rounded-xl bg-white/[0.03] border border-white/5 text-slate-400 hover:text-red-400 hover:bg-red-400/10 transition-all disabled:opacity-40"
+                      title="Einladung widerrufen"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
                   </div>
                 ))
               )}

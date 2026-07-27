@@ -610,4 +610,35 @@ export const api = {
     request<any>(`/servertools/${guildId}/webhooks/${webhookId}`, {
       method: "DELETE",
     }),
+
+  // Actions — each one fixes something the scan reports.
+  deleteGuildRole: (guildId: string, roleId: string) =>
+    request<any>(`/servertools/${guildId}/roles/${roleId}`, { method: "DELETE" }),
+  stripRoleAdmin: (guildId: string, roleId: string) =>
+    request<any>(`/servertools/${guildId}/roles/${roleId}/strip-admin`, {
+      method: "POST",
+      body: "{}",
+    }),
+  cleanupUnusedRoles: (guildId: string) =>
+    request<any>(`/servertools/${guildId}/roles/cleanup-unused`, {
+      method: "POST",
+      body: "{}",
+    }),
+  revokeInvite: (guildId: string, code: string) =>
+    request<any>(`/servertools/${guildId}/invites/${code}`, { method: "DELETE" }),
+  setVerificationLevel: (guildId: string, level: string) =>
+    request<any>(`/servertools/${guildId}/verification-level`, {
+      method: "POST",
+      body: JSON.stringify({ level }),
+    }),
+  setChannelSlowmode: (guildId: string, channelId: string, seconds: number) =>
+    request<any>(`/servertools/${guildId}/channels/${channelId}/slowmode`, {
+      method: "POST",
+      body: JSON.stringify({ seconds }),
+    }),
+  setLockdown: (guildId: string, lock: boolean) =>
+    request<any>(`/servertools/${guildId}/lockdown`, {
+      method: "POST",
+      body: JSON.stringify({ lock }),
+    }),
 };

@@ -438,3 +438,275 @@ async def delete_webhook(
         "webhook_deleted", actor=actor or "dashboard", guild_id=guild_id, detail=name
     )
     return {"status": "success", "deleted": name}
+
+
+# ══════════════════════════════════════════════════════════════════════
+#  Actions — each one fixes something the scan reports
+# ══════════════════════════════════════════════════════════════════════
+
+
+@router.delete("/{guild_id}/roles/{role_id}", summary="Delete a role")
+async def delete_role(
+    guild_id: int,
+    role_id: int,
+    actor: str = "",
+    bot: "universitybot" = Depends(get_bot),
+):
+    """Remove a role. Refuses roles the bot cannot safely touch."""
+    guild = _guild_or_404(bot, guild_id)
+    role = guild.get_role(role_id)
+    if role is None:
+        raise HTTPException(status_code=404, detail="Role not found.")
+    if role.is_default():
+        raise HTTPException(status_code=400, detail="@everyone cannot be deleted.")
+    if role.managed:
+        raise HTTPException(
+            status_code=400,
+            detail="This role is managed by an integration and cannot be deleted.",
+        )
+    if guild.me and role.position >= guild.me.top_role.position:
+        raise HTTPException(
+            status_code=400,
+            detail="The role sits above the bot — move the bot's role higher first.",
+        )
+
+    name, members = role.name, len(role.members)
+    try:
+        await role.delete(reason=f"Dashboard: removed by {actor or 'admin'}")
+    except discord.Forbidden:
+        raise HTTPException(status_code=403, detail="The bot may not delete this role.")
+
+    await feature_audit.log_action(
+        "role_deleted",
+        actor=actor or "dashboard",
+        guild_id=guild_id,
+        detail=f"{name} ({members} members)",
+    )
+    return {"status": "success", "deleted": name, "had_members": members}
+
+
+@router.post("/{guild_id}/roles/{role_id}/strip-admin", summary="Remove Administrator")
+async def strip_admin(
+    guild_id: int,
+    role_id: int,
+    data: dict | None = None,
+    bot: "universitybot" = Depends(get_bot),
+):
+    """
+    Take the Administrator permission off a role.
+
+    The usual answer to the scan's "role grants Administrator" finding:
+    the role keeps everything else it had.
+    """
+    actor = str((data or {}).get("actor", "dashboard"))
+    guild = _guild_or_404(bot, guild_id)
+    role = guild.get_role(role_id)
+    if role is None:
+        raise HTTPException(status_code=404, detail="Role not found.")
+    if not role.permissions.administrator:
+        return {"status": "success", "changed": False, "role": role.name}
+    if guild.me and role.position >= guild.me.top_role.position:
+        raise HTTPException(
+            status_code=400,
+            detail="The role sits above the bot — move the bot's role higher first.",
+        )
+
+    perms = discord.Permissions(role.permissions.value)
+    perms.administrator = False
+    try:
+        await role.edit(permissions=perms, reason=f"Dashboard: {actor}")
+    except discord.Forbidden:
+        raise HTTPException(status_code=403, detail="The bot may not edit this role.")
+
+    await feature_audit.log_action(
+        "role_admin_stripped", actor=actor, guild_id=guild_id, detail=role.name
+    )
+    return {"status": "success", "changed": True, "role": role.name}
+
+
+@router.post("/{guild_id}/roles/cleanup-unused", summary="Delete every empty role")
+async def cleanup_unused_roles(
+    guild_id: int,
+    data: dict | None = None,
+    bot: "universitybot" = Depends(get_bot),
+):
+    """Delete roles nobody holds. Managed roles and anything above the bot stay."""
+    actor = str((data or {}).get("actor", "dashboard"))
+    guild = _guild_or_404(bot, guild_id)
+    top = guild.me.top_role.position if guild.me else 0
+
+    removed: list[str] = []
+    skipped: list[str] = []
+    for role in list(guild.roles):
+        if role.is_default() or role.managed or role.members:
+            continue
+        if role.position >= top:
+            skipped.append(role.name)
+            continue
+        try:
+            await role.delete(reason=f"Dashboard cleanup: {actor}")
+            removed.append(role.name)
+        except discord.HTTPException:
+            skipped.append(role.name)
+
+    await feature_audit.log_action(
+        "roles_cleaned",
+        actor=actor,
+        guild_id=guild_id,
+        detail=f"{len(removed)} removed",
+    )
+    return {"status": "success", "removed": removed, "skipped": skipped}
+
+
+@router.delete("/{guild_id}/invites/{code}", summary="Revoke an invite")
+async def revoke_invite(
+    guild_id: int,
+    code: str,
+    actor: str = "",
+    bot: "universitybot" = Depends(get_bot),
+):
+    guild = _guild_or_404(bot, guild_id)
+    try:
+        invites = await guild.invites()
+    except discord.Forbidden:
+        raise HTTPException(status_code=403, detail="Discord refused the request.")
+
+    target = next((i for i in invites if i.code == code), None)
+    if target is None:
+        raise HTTPException(status_code=404, detail="Invite not found.")
+
+    try:
+        await target.delete(reason=f"Dashboard: revoked by {actor or 'admin'}")
+    except discord.Forbidden:
+        raise HTTPException(status_code=403, detail="The bot may not revoke it.")
+
+    await feature_audit.log_action(
+        "invite_revoked", actor=actor or "dashboard", guild_id=guild_id, detail=code
+    )
+    return {"status": "success", "revoked": code}
+
+
+@router.post("/{guild_id}/verification-level", summary="Raise the verification level")
+async def set_verification_level(
+    guild_id: int,
+    data: dict,
+    bot: "universitybot" = Depends(get_bot),
+):
+    """Answers the scan's "verification level is low" finding."""
+    actor = str(data.get("actor", "dashboard"))
+    wanted = str(data.get("level", "medium")).lower()
+
+    levels = {
+        "none": discord.VerificationLevel.none,
+        "low": discord.VerificationLevel.low,
+        "medium": discord.VerificationLevel.medium,
+        "high": discord.VerificationLevel.high,
+        "highest": discord.VerificationLevel.highest,
+    }
+    if wanted not in levels:
+        raise HTTPException(
+            status_code=400,
+            detail=f"level must be one of: {', '.join(levels)}",
+        )
+
+    guild = _guild_or_404(bot, guild_id)
+    try:
+        await guild.edit(
+            verification_level=levels[wanted], reason=f"Dashboard: {actor}"
+        )
+    except discord.Forbidden:
+        raise HTTPException(
+            status_code=403, detail="The bot needs the Manage Server permission."
+        )
+
+    await feature_audit.log_action(
+        "verification_level_changed", actor=actor, guild_id=guild_id, detail=wanted
+    )
+    return {"status": "success", "level": wanted}
+
+
+@router.post("/{guild_id}/channels/{channel_id}/slowmode", summary="Set slowmode")
+async def set_slowmode(
+    guild_id: int,
+    channel_id: int,
+    data: dict,
+    bot: "universitybot" = Depends(get_bot),
+):
+    actor = str(data.get("actor", "dashboard"))
+    try:
+        seconds = max(0, min(int(data.get("seconds", 0)), 21600))
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="seconds must be a number.")
+
+    guild = _guild_or_404(bot, guild_id)
+    channel = guild.get_channel(channel_id)
+    # Check for the capability rather than the exact class: threads and
+    # announcement channels support slowmode too, and an isinstance check
+    # would reject them.
+    if channel is None or not hasattr(channel, "slowmode_delay"):
+        raise HTTPException(
+            status_code=404, detail="No text channel with that ID."
+        )
+
+    try:
+        await channel.edit(slowmode_delay=seconds, reason=f"Dashboard: {actor}")
+    except discord.Forbidden:
+        raise HTTPException(
+            status_code=403, detail=f"The bot may not edit #{channel.name}."
+        )
+
+    await feature_audit.log_action(
+        "slowmode_set",
+        actor=actor,
+        guild_id=guild_id,
+        detail=f"#{channel.name}: {seconds}s",
+    )
+    return {"status": "success", "channel": channel.name, "seconds": seconds}
+
+
+@router.post("/{guild_id}/lockdown", summary="Lock or unlock every text channel")
+async def lockdown(
+    guild_id: int,
+    data: dict,
+    bot: "universitybot" = Depends(get_bot),
+):
+    """
+    Take @everyone's send permission away across the server, or give it back.
+
+    Deliberately explicit rather than a stored flag: it changes the actual
+    channel overwrites, and reports which channels it could not touch.
+    """
+    actor = str(data.get("actor", "dashboard"))
+    lock = bool(data.get("lock", True))
+
+    guild = _guild_or_404(bot, guild_id)
+    everyone = guild.default_role
+
+    changed: list[str] = []
+    failed: list[str] = []
+    for channel in guild.text_channels:
+        overwrite = channel.overwrites_for(everyone)
+        # None restores "inherit" instead of forcing an explicit allow.
+        overwrite.send_messages = False if lock else None
+        try:
+            await channel.set_permissions(
+                everyone,
+                overwrite=overwrite,
+                reason=f"Dashboard {'lockdown' if lock else 'unlock'}: {actor}",
+            )
+            changed.append(channel.name)
+        except discord.HTTPException:
+            failed.append(channel.name)
+
+    await feature_audit.log_action(
+        "lockdown" if lock else "lockdown_lifted",
+        actor=actor,
+        guild_id=guild_id,
+        detail=f"{len(changed)} channels",
+    )
+    return {
+        "status": "success",
+        "locked": lock,
+        "changed": changed,
+        "failed": failed,
+    }

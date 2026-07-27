@@ -129,6 +129,13 @@ export function GuildSettingsForm({
     (s) => String(draft[s.key] ?? "") !== String(s.default ?? "")
   ).length;
 
+  // Distinct from changedCount above: that one counts "differs from the
+  // default", this one counts "not saved yet", which is what the save bar
+  // has to report.
+  const unsavedCount =
+    settings.filter((s) => String(draft[s.key] ?? "") !== String(s.value ?? ""))
+      .length + (prefix !== initialPrefix ? 1 : 0);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[300px]">
@@ -379,6 +386,46 @@ export function GuildSettingsForm({
           no restart needed.
         </p>
       </div>
+
+      {/* The header save button scrolls out of sight on a long list, so an
+          unsaved change would be easy to lose. This bar follows along and
+          only appears when there is actually something to save. */}
+      {dirty && (
+        <div className="sticky bottom-4 z-30">
+          <div className="bg-[#10233f] border border-amber-500/40 rounded-2xl px-5 py-4 flex items-center justify-between gap-4 shadow-2xl">
+            <p className="text-sm text-slate-300">
+              <span className="font-black text-white">{unsavedCount}</span>{" "}
+              unsaved change{unsavedCount === 1 ? "" : "s"}
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  setDraft(
+                    Object.fromEntries(settings.map((s) => [s.key, s.value]))
+                  );
+                  setPrefix(initialPrefix);
+                }}
+                disabled={saving}
+                className="px-4 py-2.5 rounded-xl bg-white/[0.03] border border-white/10 text-slate-300 hover:bg-white/[0.07] transition-all text-xs font-black uppercase tracking-widest disabled:opacity-50"
+              >
+                Discard
+              </button>
+              <button
+                onClick={save}
+                disabled={saving}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-white text-xs font-black uppercase tracking-widest hover:brightness-110 transition-all disabled:opacity-50"
+              >
+                {saving ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Save className="h-3.5 w-3.5" />
+                )}
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
