@@ -40,7 +40,6 @@ from .commands.block import Block
 from .commands.nightmode import Nightmode
 from .commands.tracking import Tracking
 from .commands.owner import Badges
-#from .commands.map import Map
 from .commands.autoresponder import AutoResponder
 from .commands.customrole import Customrole
 from .commands.autorole import AutoRole
@@ -85,7 +84,6 @@ from .commands.image import ImageCommands
 from .commands.youtube import Youtube
 #____________ Events _____________
 
-#from .events.autoblacklist import AutoBlacklist
 from .events.Errors import Errors
 from .events.on_guild import Guild
 from .events.autorole import Autorole2
@@ -126,6 +124,7 @@ from .universitybot.booster import __boost
 from .universitybot.leveling import _leveling
 from .universitybot.sticky import _sticky
 from .universitybot.verify import _verify
+from .universitybot.ticket import _ticket
 from .universitybot.encryption import _encrypt
 from .universitybot.mc import _mc
 from .universitybot.joindm import _joindm
@@ -153,11 +152,6 @@ from .antinuke.antiwebhookdl import AntiWebhookDelete
 
 #Extra Optional Events 
 
-#from .antinuke.antiemocr import AntiEmojiCreate
-#from .antinuke.antiemodl import AntiEmojiDelete
-#from .antinuke.antiemoup import AntiEmojiUpdate
-#from .antinuke.antisticker import AntiSticker
-#from .antinuke.antiunban import AntiUnban
 
 ############ AUTOMOD ############
 from .automod.antispam import AntiSpam
@@ -288,6 +282,7 @@ async def setup(bot: universitybot):
   await bot.add_cog(_leveling(bot))
   await bot.add_cog(_sticky(bot))
   await bot.add_cog(_verify(bot))
+  await bot.add_cog(_ticket(bot))
   await bot.add_cog(_encrypt(bot))
   await bot.add_cog(_mc(bot))
   await bot.add_cog(_joindm(bot))

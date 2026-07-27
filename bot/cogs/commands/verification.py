@@ -16,6 +16,8 @@ import discord
 from utils.emoji import TICK
 from discord .ext import commands 
 from discord import app_commands 
+from discord .ui import LayoutView ,TextDisplay ,Separator ,ActionRow ,MediaGallery 
+from utils .cv2 import build_container 
 import aiosqlite 
 import random 
 import string 
@@ -33,13 +35,61 @@ logger =logging .getLogger ('discord')
 DATABASE_PATH ='db/verification.db'
 
 
-DISCORD_COLORS ={
-'primary':0xFF0000 ,
-'success':0xFF0000 ,
-'warning':0xFF0000 ,
-'error':0xFF0000 ,
-'secondary':0xFF0000 ,
-'neutral':0xFF0000 
+# Accent colours for the Components V2 cards. These were all the same red
+# before, so a successful verification looked exactly like a hard error.
+TONE_COLORS = {
+    "info": 0x3D7CFF,
+    "success": 0x2ECC71,
+    "warning": 0xF1C40F,
+    "error": 0xE74C3C,
+}
+
+TONE_MARKERS = {
+    "info": "\u2022",
+    "success": "\u2713",
+    "warning": "!",
+    "error": "\u00d7",
+}
+
+
+class VCard(LayoutView):
+    """
+    A Components V2 card, used everywhere this cog previously sent an embed.
+
+    Renders as a real container with a coloured accent bar. The tone drives
+    both the colour and the marker in front of the title, so success,
+    warning and error are distinguishable at a glance.
+    """
+
+    def __init__(self, title: str, *sections, tone: str = "info"):
+        super().__init__(timeout=None)
+
+        self.card_title = title
+        self.card_tone = tone
+
+        marker = TONE_MARKERS.get(tone, "\u2022")
+        items = [TextDisplay(f"### {marker}  {title}" if title else f"### {marker}")]
+
+        for section in sections:
+            text = str(section).strip()
+            if not text:
+                continue
+            items.append(Separator(visible=True))
+            items.append(TextDisplay(text))
+
+        self.add_item(
+            build_container(*items, accent_color=TONE_COLORS.get(tone, TONE_COLORS["info"]))
+        )
+
+
+# Kept for any leftover reference; mapped onto the tones above.
+DISCORD_COLORS = {
+    'primary': TONE_COLORS["info"],
+    'success': TONE_COLORS["success"],
+    'warning': TONE_COLORS["warning"],
+    'error': TONE_COLORS["error"],
+    'secondary': TONE_COLORS["info"],
+    'neutral': TONE_COLORS["info"],
 }
 
 
@@ -188,6 +238,73 @@ async def auto_fix_permissions (guild :discord .Guild ,verification_channel :dis
         logger .error (f"Error in auto-fix permissions: {e}")
         return -1 
 
+class CaptchaCard (LayoutView ):
+    """
+    The CAPTCHA DM as one Components V2 container: instructions, the image
+    and the "Enter code" button all inside the same accented block, instead
+    of an embed with a file and a view bolted on next to it.
+    """
+
+    def __init__ (self ,*,guild_name :str ,buttons :list ):
+        super ().__init__ (timeout =None )
+
+        items =[
+        TextDisplay ("## Verify yourself"),
+        Separator (visible =True ),
+        TextDisplay (
+        f"**Server:** {guild_name}\n\n"
+        "Solve the CAPTCHA below, then press the button to enter the code.\n"
+        "The code is **case-sensitive**."
+        ),
+        MediaGallery (discord .MediaGalleryItem ("attachment://captcha.png")),
+        ]
+
+        if buttons :
+            items .append (ActionRow (*buttons [:5 ]))
+
+        self .add_item (build_container (*items ,accent_color =TONE_COLORS ["info"]))
+
+
+class VerificationPanel (LayoutView ):
+    """
+    The public verification panel, as a single Components V2 container.
+
+    Previously this was an embed with the buttons attached underneath, so the
+    accent bar stopped above the controls. Here the text and the buttons sit
+    in one container, which is what V2 is for.
+
+    timeout=None plus the buttons keeping their custom_id makes the panel
+    survive a bot restart.
+    """
+
+    def __init__ (self ,*,guild_name :str ,methods :list ,role_name :str ,buttons :list ):
+        super ().__init__ (timeout =None )
+
+        items =[
+        TextDisplay (f"## Verification required"),
+        Separator (visible =True ),
+        TextDisplay (
+        f"Welcome to **{guild_name}**.\n"
+        "Verify yourself to unlock the rest of the server."
+        ),
+        ]
+
+        if methods :
+            items .append (Separator (visible =True ))
+            items .append (TextDisplay ("\n".join (methods )))
+
+        items .append (Separator (visible =True ))
+        items .append (TextDisplay (
+        f"You will receive the **{role_name}** role and full access to every channel."
+        ))
+
+        if buttons :
+            items .append (Separator (visible =True ))
+            items .append (ActionRow (*buttons [:5 ]))
+
+        self .add_item (build_container (*items ,accent_color =TONE_COLORS ["info"]))
+
+
 class VerificationModal (discord .ui .Modal ,title ="Enter Verification Code"):
     def __init__ (self ,bot ,captcha_code :str ,guild_id :int ):
         super ().__init__ ()
@@ -206,12 +323,8 @@ class VerificationModal (discord .ui .Modal ,title ="Enter Verification Code"):
     async def on_submit (self ,interaction :discord .Interaction ):
         try :
             if self .captcha_input .value .strip ()!=self .captcha_code :
-                embed =discord .Embed (
-                title ="Incorrect Code",
-                description ="The code you entered is incorrect. Please try again by clicking the verification button in the server.",
-                color =DISCORD_COLORS ['error']
-                )
-                await interaction .response .send_message (embed =embed ,ephemeral =True )
+                embed =VCard("Incorrect Code", "The code you entered is incorrect. Please try again by clicking the verification button in the server.", tone='error')
+                await interaction .response .send_message (view =embed ,ephemeral =True )
                 return 
 
             guild =self .bot .get_guild (self .guild_id )
@@ -244,12 +357,8 @@ class VerificationModal (discord .ui .Modal ,title ="Enter Verification Code"):
 
 
                     if verified_role in member .roles :
-                        embed =discord .Embed (
-                        title ="Already Verified",
-                        description ="You are already verified in this server!",
-                        color =DISCORD_COLORS ['success']
-                        )
-                        await interaction .response .send_message (embed =embed ,ephemeral =True )
+                        embed =VCard("Already Verified", "You are already verified in this server!", tone='success')
+                        await interaction .response .send_message (view =embed ,ephemeral =True )
                         return 
 
 
@@ -258,17 +367,10 @@ class VerificationModal (discord .ui .Modal ,title ="Enter Verification Code"):
 
             await self .log_verification (guild .id ,member .id ,"captcha")
 
-            current_time =utc_to_ist (discord .utils .utcnow ())
-            embed =discord .Embed (
-            title ="Verification Successful",
-            description =f"Welcome to **{guild.name}**!\n\n"
-            f"You have been successfully verified and can now access all channels.",
-            color =DISCORD_COLORS ['success'],
-            timestamp =current_time 
-            )
-            embed .set_footer (text =f"Verified at {current_time.strftime('%I:%M %p IST')}")
+            embed =VCard("Verification Successful", f"Welcome to **{guild.name}**!\n\n"
+            f"You have been successfully verified and can now access all channels.", tone='success')
 
-            await interaction .response .send_message (embed =embed ,ephemeral =True )
+            await interaction .response .send_message (view =embed ,ephemeral =True )
 
 
             await self .send_verification_log (guild ,member ,"CAPTCHA",True )
@@ -306,23 +408,15 @@ class VerificationModal (discord .ui .Modal ,title ="Enter Verification Code"):
                         log_channel =guild .get_channel (result [0 ])
                         if log_channel and log_channel .permissions_for (guild .me ).send_messages :
                             current_time =utc_to_ist (discord .utils .utcnow ())
-                            embed =discord .Embed (
-                            title ="User Verification Log",
-                            color =DISCORD_COLORS ['success']if success else DISCORD_COLORS ['error'],
-                            timestamp =current_time 
+                            embed =VCard (
+                            "Verification "+("succeeded"if success else "failed"),
+                            f"**User:** {user.mention} (`{user}`)\n"
+                            f"**ID:** `{user.id}`\n"
+                            f"**Method:** {method}\n"
+                            f"**Time:** {current_time.strftime('%d.%m.%Y %H:%M')}",
+                            tone ="success"if success else "error",
                             )
-                            embed .add_field (
-                            name ="User Information",
-                            value =f"**User:** {user.mention}\n**ID:** {user.id}\n**Username:** {user.name}",
-                            inline =False 
-                            )
-                            embed .add_field (
-                            name ="Verification Details",
-                            value =f"**Method:** {method}\n**Status:** {'Success' if success else 'Failed'}\n**Time:** {current_time.strftime('%I:%M %p IST')}",
-                            inline =False 
-                            )
-                            embed .set_thumbnail (url =user .avatar .url if user .avatar else user .default_avatar .url )
-                            await log_channel .send (embed =embed )
+                            await log_channel .send (view =embed )
         except Exception as e :
             logger .error (f"Error sending verification log: {e}")
 
@@ -344,43 +438,28 @@ class VerificationView (discord .ui .View ):
                     result =await cur .fetchone ()
 
                     if not result :
-                        embed =discord .Embed (
-                        title ="System Unavailable",
-                        description ="Verification system is not configured or disabled.",
-                        color =DISCORD_COLORS ['error']
-                        )
-                        await interaction .response .send_message (embed =embed ,ephemeral =True )
+                        embed =VCard("System Unavailable", "Verification system is not configured or disabled.", tone='error')
+                        await interaction .response .send_message (view =embed ,ephemeral =True )
                         return 
 
                     verified_role =interaction .guild .get_role (result [0 ])
                     verification_method =result [1 ]
 
                     if not verified_role :
-                        embed =discord .Embed (
-                        description ="Verified role not found. Please contact an administrator.",
-                        color =DISCORD_COLORS ['error']
-                        )
-                        await interaction .response .send_message (embed =embed ,ephemeral =True )
+                        embed =VCard("Verification", "Verified role not found. Please contact an administrator.", tone='error')
+                        await interaction .response .send_message (view =embed ,ephemeral =True )
                         return 
 
 
                     if verified_role in interaction .user .roles :
-                        embed =discord .Embed (
-                        title ="Already Verified",
-                        description ="You are already verified! You can access all channels.",
-                        color =DISCORD_COLORS ['success']
-                        )
-                        await interaction .response .send_message (embed =embed ,ephemeral =True )
+                        embed =VCard("Already Verified", "You are already verified! You can access all channels.", tone='success')
+                        await interaction .response .send_message (view =embed ,ephemeral =True )
                         return 
 
 
             if verification_method not in ["button","both"]:
-                embed =discord .Embed (
-                title ="CAPTCHA Required",
-                description ="This server requires CAPTCHA verification. Please use the CAPTCHA button below.",
-                color =DISCORD_COLORS ['warning']
-                )
-                await interaction .response .send_message (embed =embed ,ephemeral =True )
+                embed =VCard("CAPTCHA Required", "This server requires CAPTCHA verification. Please use the CAPTCHA button below.", tone='warning')
+                await interaction .response .send_message (view =embed ,ephemeral =True )
                 return 
 
 
@@ -391,33 +470,19 @@ class VerificationView (discord .ui .View ):
             await modal .log_verification (interaction .guild .id ,interaction .user .id ,"button")
             await modal .send_verification_log (interaction .guild ,interaction .user ,"BUTTON",True )
 
-            current_time =utc_to_ist (discord .utils .utcnow ())
-            embed =discord .Embed (
-            title ="Welcome to the Server",
-            description =f"**{interaction.user.mention}** has been verified!\n\n"
+            embed =VCard("Welcome to the Server", f"**{interaction.user.mention}** has been verified!\n\n"
             f"Welcome to {interaction.guild.name}!\n"
-            f"You now have access to all channels.",
-            color =DISCORD_COLORS ['success'],
-            timestamp =current_time 
-            )
-            embed .set_footer (text =f"Verified at {current_time.strftime('%I:%M %p IST')}")
+            f"You now have access to all channels.", tone='success')
 
-            await interaction .response .send_message (embed =embed ,ephemeral =True )
+            await interaction .response .send_message (view =embed ,ephemeral =True )
 
         except discord .Forbidden :
-            embed =discord .Embed (
-            description ="Bot lacks permission to assign roles. Please contact an administrator.",
-            color =DISCORD_COLORS ['error']
-            )
-            await interaction .response .send_message (embed =embed ,ephemeral =True )
+            embed =VCard("Verification", "Bot lacks permission to assign roles. Please contact an administrator.", tone='error')
+            await interaction .response .send_message (view =embed ,ephemeral =True )
         except Exception as e :
             logger .error (f"Error in verify button: {e}")
-            embed =discord .Embed (
-
-
-            color =DISCORD_COLORS ['error']
-            )
-            await interaction .response .send_message (embed =embed ,ephemeral =True )
+            embed =VCard("Something went wrong", "The action could not be completed. Please try again.", tone='error')
+            await interaction .response .send_message (view =embed ,ephemeral =True )
 
     @discord .ui .button (label ="CAPTCHA Verify",style =discord .ButtonStyle .primary ,custom_id ="verify_captcha_secure")
     async def verify_captcha (self ,interaction :discord .Interaction ,button :discord .ui .Button ):
@@ -432,31 +497,20 @@ class VerificationView (discord .ui .View ):
                     result =await cur .fetchone ()
 
                     if not result :
-                        embed =discord .Embed (
-                        title ="System Unavailable",
-                        description ="Verification system is not configured or disabled.",
-                        color =DISCORD_COLORS ['error']
-                        )
-                        await interaction .response .send_message (embed =embed ,ephemeral =True )
+                        embed =VCard("System Unavailable", "Verification system is not configured or disabled.", tone='error')
+                        await interaction .response .send_message (view =embed ,ephemeral =True )
                         return 
 
                     verified_role =interaction .guild .get_role (result [0 ])
                     if not verified_role :
-                        embed =discord .Embed (
-                        description ="Verified role not found. Please contact an administrator.",
-                        color =DISCORD_COLORS ['error']
-                        )
-                        await interaction .response .send_message (embed =embed ,ephemeral =True )
+                        embed =VCard("Verification", "Verified role not found. Please contact an administrator.", tone='error')
+                        await interaction .response .send_message (view =embed ,ephemeral =True )
                         return 
 
 
                     if verified_role in interaction .user .roles :
-                        embed =discord .Embed (
-                        title ="Already Verified",
-                        description ="You are already verified! You can access all channels.",
-                        color =DISCORD_COLORS ['success']
-                        )
-                        await interaction .response .send_message (embed =embed ,ephemeral =True )
+                        embed =VCard("Already Verified", "You are already verified! You can access all channels.", tone='success')
+                        await interaction .response .send_message (view =embed ,ephemeral =True )
                         return 
 
 
@@ -466,57 +520,38 @@ class VerificationView (discord .ui .View ):
             try :
 
                 file =discord .File (captcha_image ,filename ="captcha.png")
-                embed =discord .Embed (
-                title ="CAPTCHA Verification",
-                description =f"**Server:** {interaction.guild.name}\n\n"
-                f"Please solve the CAPTCHA below to verify yourself.\n"
-                f"Click the button below to enter your answer.\n\n"
-                f"**Important:** The code is case-sensitive!",
-                color =DISCORD_COLORS ['secondary']
-                )
-                embed .set_image (url ="attachment://captcha.png")
-                embed .set_footer (text ="This CAPTCHA will expire in 10 minutes")
 
                 modal =VerificationModal (self .bot ,captcha_code ,interaction .guild .id )
                 view =CaptchaModalView (modal )
 
-                await interaction .user .send (embed =embed ,file =file ,view =view )
+                card =CaptchaCard (
+                guild_name =interaction .guild .name ,
+                buttons =list (view .children ),
+                )
+                await interaction .user .send (view =card ,file =file )
 
 
-                embed =discord .Embed (
-                title ="Check Your DMs",
-                description ="I've sent you a CAPTCHA in your direct messages.\n\n"
+                embed =VCard("Check Your DMs", "I've sent you a CAPTCHA in your direct messages.\n\n"
                 f"**Steps:**\n"
                 f"1. Check your DMs from me\n"
                 f"2. Solve the CAPTCHA image\n"
                 f"3. Click the button to enter your answer\n\n"
-                f"Make sure your DMs are open!",
-                color =DISCORD_COLORS ['secondary']
-                )
-                embed .set_footer (text ="CAPTCHA expires in 10 minutes")
-                await interaction .response .send_message (embed =embed ,ephemeral =True )
+                f"Make sure your DMs are open!", tone='info')
+                await interaction .response .send_message (view =embed ,ephemeral =True )
 
             except discord .Forbidden :
-                embed =discord .Embed (
-                title ="DMs Disabled",
-                description ="I couldn't send you a DM! Please enable DMs from server members and try again.\n\n"
+                embed =VCard("DMs Disabled", "I couldn't send you a DM! Please enable DMs from server members and try again.\n\n"
                 f"**How to enable DMs:**\n"
                 f"1. Right-click on **{interaction.guild.name}**\n"
                 f"2. Go to **Privacy Settings**\n"
                 f"3. Enable **Direct Messages**\n"
-                f"4. Try verification again",
-                color =DISCORD_COLORS ['error']
-                )
-                await interaction .response .send_message (embed =embed ,ephemeral =True )
+                f"4. Try verification again", tone='error')
+                await interaction .response .send_message (view =embed ,ephemeral =True )
 
         except Exception as e :
             logger .error (f"Error in verify captcha: {e}")
-            embed =discord .Embed (
-
-
-            color =DISCORD_COLORS ['error']
-            )
-            await interaction .response .send_message (embed =embed ,ephemeral =True )
+            embed =VCard("Something went wrong", "The action could not be completed. Please try again.", tone='error')
+            await interaction .response .send_message (view =embed ,ephemeral =True )
 
     def generate_captcha_code (self )->str :
         """Generate a random 6-character alphanumeric code"""
@@ -613,31 +648,20 @@ class CaptchaOnlyVerificationView (discord .ui .View ):
                     result =await cur .fetchone ()
 
                     if not result :
-                        embed =discord .Embed (
-                        title ="System Unavailable",
-                        description ="Verification system is not configured or disabled.",
-                        color =DISCORD_COLORS ['error']
-                        )
-                        await interaction .response .send_message (embed =embed ,ephemeral =True )
+                        embed =VCard("System Unavailable", "Verification system is not configured or disabled.", tone='error')
+                        await interaction .response .send_message (view =embed ,ephemeral =True )
                         return 
 
                     verified_role =interaction .guild .get_role (result [0 ])
                     if not verified_role :
-                        embed =discord .Embed (
-                        description ="Verified role not found. Please contact an administrator.",
-                        color =DISCORD_COLORS ['error']
-                        )
-                        await interaction .response .send_message (embed =embed ,ephemeral =True )
+                        embed =VCard("Verification", "Verified role not found. Please contact an administrator.", tone='error')
+                        await interaction .response .send_message (view =embed ,ephemeral =True )
                         return 
 
 
                     if verified_role in interaction .user .roles :
-                        embed =discord .Embed (
-                        title ="Already Verified",
-                        description ="You are already verified! You can access all channels.",
-                        color =DISCORD_COLORS ['success']
-                        )
-                        await interaction .response .send_message (embed =embed ,ephemeral =True )
+                        embed =VCard("Already Verified", "You are already verified! You can access all channels.", tone='success')
+                        await interaction .response .send_message (view =embed ,ephemeral =True )
                         return 
 
 
@@ -647,57 +671,38 @@ class CaptchaOnlyVerificationView (discord .ui .View ):
             try :
 
                 file =discord .File (captcha_image ,filename ="captcha.png")
-                embed =discord .Embed (
-                title ="CAPTCHA Verification",
-                description =f"**Server:** {interaction.guild.name}\n\n"
-                f"Please solve the CAPTCHA below to verify yourself.\n"
-                f"Click the button below to enter your answer.\n\n"
-                f"**Important:** The code is case-sensitive!",
-                color =DISCORD_COLORS ['secondary']
-                )
-                embed .set_image (url ="attachment://captcha.png")
-                embed .set_footer (text ="This CAPTCHA will expire in 10 minutes")
 
                 modal =VerificationModal (self .bot ,captcha_code ,interaction .guild .id )
                 view =CaptchaModalView (modal )
 
-                await interaction .user .send (embed =embed ,file =file ,view =view )
+                card =CaptchaCard (
+                guild_name =interaction .guild .name ,
+                buttons =list (view .children ),
+                )
+                await interaction .user .send (view =card ,file =file )
 
 
-                embed =discord .Embed (
-                title ="Check Your DMs",
-                description ="I've sent you a CAPTCHA in your direct messages.\n\n"
+                embed =VCard("Check Your DMs", "I've sent you a CAPTCHA in your direct messages.\n\n"
                 f"**Steps:**\n"
                 f"1. Check your DMs from me\n"
                 f"2. Solve the CAPTCHA image\n"
                 f"3. Click the button to enter your answer\n\n"
-                f"Make sure your DMs are open!",
-                color =DISCORD_COLORS ['secondary']
-                )
-                embed .set_footer (text ="CAPTCHA expires in 10 minutes")
-                await interaction .response .send_message (embed =embed ,ephemeral =True )
+                f"Make sure your DMs are open!", tone='info')
+                await interaction .response .send_message (view =embed ,ephemeral =True )
 
             except discord .Forbidden :
-                embed =discord .Embed (
-                title ="DMs Disabled",
-                description ="I couldn't send you a DM! Please enable DMs from server members and try again.\n\n"
+                embed =VCard("DMs Disabled", "I couldn't send you a DM! Please enable DMs from server members and try again.\n\n"
                 f"**How to enable DMs:**\n"
                 f"1. Right-click on **{interaction.guild.name}**\n"
                 f"2. Go to **Privacy Settings**\n"
                 f"3. Enable **Direct Messages**\n"
-                f"4. Try verification again",
-                color =DISCORD_COLORS ['error']
-                )
-                await interaction .response .send_message (embed =embed ,ephemeral =True )
+                f"4. Try verification again", tone='error')
+                await interaction .response .send_message (view =embed ,ephemeral =True )
 
         except Exception as e :
             logger .error (f"Error in verify captcha: {e}")
-            embed =discord .Embed (
-
-
-            color =DISCORD_COLORS ['error']
-            )
-            await interaction .response .send_message (embed =embed ,ephemeral =True )
+            embed =VCard("Something went wrong", "The action could not be completed. Please try again.", tone='error')
+            await interaction .response .send_message (view =embed ,ephemeral =True )
 
     def generate_captcha_code (self )->str :
         """Generate a random 6-character alphanumeric code"""
@@ -839,12 +844,8 @@ class VerificationSetupView (discord .ui .View ):
     @discord .ui .button (label ="Setup Verification System",style =discord .ButtonStyle .green )
     async def setup_verification (self ,interaction :discord .Interaction ,button :discord .ui .Button ):
         if not self .verification_channel :
-            embed =discord .Embed (
-            title ="Missing Configuration",
-            description ="Please select a verification channel first!",
-            color =DISCORD_COLORS ['error']
-            )
-            await interaction .response .send_message (embed =embed ,ephemeral =True )
+            embed =VCard("Missing Configuration", "Please select a verification channel first!", tone='error')
+            await interaction .response .send_message (view =embed ,ephemeral =True )
             return 
 
         try :
@@ -889,40 +890,29 @@ class VerificationSetupView (discord .ui .View ):
             except Exception as e :
                 logger .error (f"Error deleting setup embed: {e}")
 
-            current_time =utc_to_ist (discord .utils .utcnow ())
-            embed =discord .Embed (
-            title ="Verification System Setup Complete",
-            color =DISCORD_COLORS ['success'],
-            timestamp =current_time 
-            )
-            embed .add_field (
-            name ="Configuration Summary",
-            value =f"**Verification Channel:** {self.verification_channel.mention}\n"
-            f"**Verified Role:** {verified_role.mention}\n"
-            f"**Log Channel:** {self.log_channel.mention if self.log_channel else 'None'}\n"
-            f"**Method:** {self.verification_method.title()}",
-            inline =False 
-            )
 
-            security_features ="All channels made private to unverified users\n" "Verification channel locked for unverified users\n" "Auto-message deletion in verification channel\n" "DM-based CAPTCHA system\n" "Comprehensive logging enabled"
+            security_features =(
+            "• All channels made private to unverified users\n"
+            "• Verification channel locked for unverified users\n"
+            "• Auto-message deletion in the verification channel\n"
+            "• DM-based CAPTCHA system\n"
+            "• Comprehensive logging enabled"
+            )
 
             if failed_count >0 :
-                security_features +=f"\n\nNote: {failed_count} channels couldn't be auto-fixed due to permissions"
+                security_features +=(
+                f"\n\n**Note:** {failed_count} channels could not be adjusted "
+                "automatically because of missing permissions."
+                )
 
-            embed .add_field (
-            name ="Security Features",
-            value =security_features ,
-            inline =False 
+            embed =VCard (
+            "Verification system is ready",
+            f"The panel has been posted in {self.verification_channel.mention}.",
+            security_features ,
+            tone ="success",
             )
-            embed .add_field (
-            name ="System Status",
-            value =f"{TICK} **Verification system is now ENABLED and ready to use!**",
-            inline =False 
-            )
-            embed .set_footer (text =f"Setup completed and enabled at {current_time.strftime('%I:%M %p IST')}")
 
-
-            await interaction .followup .send (embed =embed ,ephemeral =True )
+            await interaction .followup .send (view =embed ,ephemeral =True )
 
 
             try :
@@ -940,60 +930,38 @@ class VerificationSetupView (discord .ui .View ):
 
         except Exception as e :
             logger .error (f"Error setting up verification: {e}")
-            embed =discord .Embed (
-            color =DISCORD_COLORS ['error']
-            )
-            await interaction .followup .send (embed =embed ,ephemeral =True )
+            embed =VCard("Something went wrong", "The action could not be completed. Please try again.", tone='error')
+            await interaction .followup .send (view =embed ,ephemeral =True )
 
     async def send_verification_panel (self ,verified_role :discord .Role ):
         """Send the verification panel to the verification channel"""
         try :
             channel =self .verification_channel 
-            current_time =utc_to_ist (discord .utils .utcnow ())
 
-            embed =discord .Embed (
-            title ="Server Verification Required",
-            description =f"**Welcome to {channel.guild.name}!**\n\n"
-            f"To access all channels and features, you need to verify yourself first.\n\n"
-            f"**Choose your verification method:**",
-            color =DISCORD_COLORS ['primary'],
-            timestamp =current_time 
-            )
-
+            methods =[]
             if self .verification_method in ["button","both"]:
-                embed .add_field (
-                name ="Quick Verification",
-                value ="Instant access with one click! Perfect for trusted users.",
-                inline =True 
-                )
-
+                methods .append ("**Quick Verify** — instant access with one click.")
             if self .verification_method in ["captcha","both"]:
-                embed .add_field (
-                name ="CAPTCHA Verification",
-                value ="Secure verification via DM. Proves you're human!",
-                inline =True 
-                )
-
-            embed .add_field (
-            name ="What happens after verification?",
-            value =f"• Access to all server channels\n"
-            f"• Ability to chat and participate\n"
-            f"• Access to all server features\n"
-            f"• **{verified_role.name}** role assigned",
-            inline =False 
-            )
-
-            embed .set_footer (text =f"Verification panel • {current_time.strftime('%I:%M %p IST')}")
-
+                methods .append ("**CAPTCHA Verify** — solve a short code sent by DM.")
 
             if self .verification_method =="button":
-                view =ButtonOnlyVerificationView (self .bot )
+                buttons =ButtonOnlyVerificationView (self .bot )
             elif self .verification_method =="captcha":
-                view =CaptchaOnlyVerificationView (self .bot )
+                buttons =CaptchaOnlyVerificationView (self .bot )
             else :
-                view =VerificationView (self .bot )
+                buttons =VerificationView (self .bot )
 
-            await channel .send (embed =embed ,view =view )
+            # Components V2: the panel and its buttons live in one container,
+            # so the accent bar wraps the whole thing instead of the buttons
+            # hanging underneath a separate embed.
+            panel =VerificationPanel (
+            guild_name =channel .guild .name ,
+            methods =methods ,
+            role_name =verified_role .name ,
+            buttons =list (buttons .children ),
+            )
+
+            await channel .send (view =panel )
 
         except Exception as e :
             logger .error (f"Error sending verification panel: {e}")
@@ -1016,33 +984,22 @@ class ButtonOnlyVerificationView (discord .ui .View ):
                     result =await cur .fetchone ()
 
                     if not result :
-                        embed =discord .Embed (
-                        title ="System Unavailable",
-                        description ="Verification system is not configured or disabled.",
-                        color =DISCORD_COLORS ['error']
-                        )
-                        await interaction .response .send_message (embed =embed ,ephemeral =True )
+                        embed =VCard("System Unavailable", "Verification system is not configured or disabled.", tone='error')
+                        await interaction .response .send_message (view =embed ,ephemeral =True )
                         return 
 
                     verified_role =interaction .guild .get_role (result [0 ])
                     verification_method =result [1 ]
 
                     if not verified_role :
-                        embed =discord .Embed (
-                        description ="Verified role not found. Please contact an administrator.",
-                        color =DISCORD_COLORS ['error']
-                        )
-                        await interaction .response .send_message (embed =embed ,ephemeral =True )
+                        embed =VCard("Verification", "Verified role not found. Please contact an administrator.", tone='error')
+                        await interaction .response .send_message (view =embed ,ephemeral =True )
                         return 
 
 
                     if verified_role in interaction .user .roles :
-                        embed =discord .Embed (
-                        title ="Already Verified",
-                        description ="You are already verified! You can access all channels.",
-                        color =DISCORD_COLORS ['success']
-                        )
-                        await interaction .response .send_message (embed =embed ,ephemeral =True )
+                        embed =VCard("Already Verified", "You are already verified! You can access all channels.", tone='success')
+                        await interaction .response .send_message (view =embed ,ephemeral =True )
                         return 
 
 
@@ -1053,33 +1010,19 @@ class ButtonOnlyVerificationView (discord .ui .View ):
             await modal .log_verification (interaction .guild .id ,interaction .user .id ,"button")
             await modal .send_verification_log (interaction .guild ,interaction .user ,"BUTTON",True )
 
-            current_time =utc_to_ist (discord .utils .utcnow ())
-            embed =discord .Embed (
-            title ="Welcome to the Server",
-            description =f"**{interaction.user.mention}** has been verified!\n\n"
+            embed =VCard("Welcome to the Server", f"**{interaction.user.mention}** has been verified!\n\n"
             f"Welcome to {interaction.guild.name}!\n"
-            f"You now have access to all channels.",
-            color =DISCORD_COLORS ['success'],
-            timestamp =current_time 
-            )
-            embed .set_footer (text =f"Verified at {current_time.strftime('%I:%M %p IST')}")
+            f"You now have access to all channels.", tone='success')
 
-            await interaction .response .send_message (embed =embed ,ephemeral =True )
+            await interaction .response .send_message (view =embed ,ephemeral =True )
 
         except discord .Forbidden :
-            embed =discord .Embed (
-            description ="Bot lacks permission to assign roles. Please contact an administrator.",
-            color =DISCORD_COLORS ['error']
-            )
-            await interaction .response .send_message (embed =embed ,ephemeral =True )
+            embed =VCard("Verification", "Bot lacks permission to assign roles. Please contact an administrator.", tone='error')
+            await interaction .response .send_message (view =embed ,ephemeral =True )
         except Exception as e :
             logger .error (f"Error in verify button: {e}")
-            embed =discord .Embed (
-
-
-            color =DISCORD_COLORS ['error']
-            )
-            await interaction .response .send_message (embed =embed ,ephemeral =True )
+            embed =VCard("Something went wrong", "The action could not be completed. Please try again.", tone='error')
+            await interaction .response .send_message (view =embed ,ephemeral =True )
 
 class Verification (commands .Cog ):
     def __init__ (self ,bot ):
@@ -1143,13 +1086,9 @@ class Verification (commands .Cog ):
                             try :
                                 await message .delete ()
 
-                                embed =discord .Embed (
-                                title ="Message Deleted",
-                                description ="This channel is for verification only. Please use the buttons above to verify.",
-                                color =DISCORD_COLORS ['warning']
-                                )
+                                embed =VCard("Message Deleted", "This channel is for verification only. Please use the buttons above to verify.", tone='warning')
                                 try :
-                                    await message .author .send (embed =embed )
+                                    await message .author .send (view =embed )
                                 except discord .Forbidden :
                                     pass 
                             except discord .Forbidden :
@@ -1172,40 +1111,27 @@ class Verification (commands .Cog ):
             missing_perms =await check_bot_permissions (ctx .guild )
 
             if missing_perms ['guild']:
-                embed =discord .Embed (
-                title ="Missing Permissions",
-                description =f"Bot is missing required server permissions: {', '.join(missing_perms['guild'])}\n\n"
-                "Please grant these permissions and try again.",
-                color =DISCORD_COLORS ['error']
-                )
-                await ctx .send (embed =embed )
+                embed =VCard("Missing Permissions", f"Bot is missing required server permissions: {', '.join(missing_perms['guild'])}\n\n"
+                "Please grant these permissions and try again.", tone='error')
+                await ctx .send (view =embed )
                 return 
 
-            current_time =utc_to_ist (discord .utils .utcnow ())
-            embed =discord .Embed (
-            title ="Advanced Verification System Setup",
-            description ="**Welcome to the next-generation verification system!**\n\n"
+            embed =VCard("Advanced Verification System Setup", "**Welcome to the next-generation verification system!**\n\n"
             "• **Auto-creates verified role** with proper permissions\n"
             "• **DM-based CAPTCHA** system for enhanced security\n"
             "• **Smart channel management** - hides verification after verification\n"
             "• **Auto-permission fixing** for seamless setup\n"
             "• **Auto-message deletion** in verification channel\n"
             "• **Comprehensive logging** and analytics\n\n"
-            "**Configure your system using the dropdowns below:**",
-            color =DISCORD_COLORS ['primary'],
-            timestamp =current_time 
-            )
-            embed .set_footer (text =f"Setup wizard started at {current_time.strftime('%I:%M %p IST')}")
+            "**Configure your system using the dropdowns below:**", tone='info')
 
             view =VerificationSetupView (self .bot ,ctx )
-            await ctx .send (embed =embed ,view =view )
+            await ctx .send (view =view )
 
         except Exception as e :
             logger .error (f"Error in verification setup: {e}")
-            embed =discord .Embed (
-            color =DISCORD_COLORS ['error']
-            )
-            await ctx .send (embed =embed )
+            embed =VCard("Something went wrong", "The action could not be completed. Please try again.", tone='error')
+            await ctx .send (view =embed )
 
     @verification .command (name ="status",description ="Check verification system status and analytics.")
     @blacklist_check ()
@@ -1224,12 +1150,8 @@ class Verification (commands .Cog ):
                     result =await cur .fetchone ()
 
                     if not result :
-                        embed =discord .Embed (
-                        title ="Not Configured",
-                        description ="Verification system is not set up. Use `/verification setup` to get started!",
-                        color =DISCORD_COLORS ['error']
-                        )
-                        await ctx .send (embed =embed )
+                        embed =VCard("Not Configured", "Verification system is not set up. Use `/verification setup` to get started!", tone='error')
+                        await ctx .send (view =embed )
                         return 
 
                     verification_channel =ctx .guild .get_channel (result [0 ])
@@ -1275,64 +1197,47 @@ class Verification (commands .Cog ):
             if missing_perms ['channel']:
                 issues .append (f"Missing channel permissions: {', '.join(missing_perms['channel'])}")
 
-            current_time =utc_to_ist (discord .utils .utcnow ())
-            embed =discord .Embed (
-            title ="Verification System Status",
-            color =DISCORD_COLORS ['success']if enabled and not issues else DISCORD_COLORS ['warning']if enabled else DISCORD_COLORS ['error'],
-            timestamp =current_time 
+            if not enabled :
+                tone ="warning"
+                status_text ="Disabled"
+            elif issues :
+                tone ="warning"
+                status_text ="Operational with issues"
+            else :
+                tone ="success"
+                status_text ="Fully operational"
+
+            overview =(
+            f"**Status:** {status_text}\n"
+            f"**Method:** {str(verification_method).title()}\n"
+            f"**Channel:** {verification_channel.mention if verification_channel else 'not found'}\n"
+            f"**Role:** {verified_role.mention if verified_role else 'not found'}\n"
+            f"**Logs:** {log_channel.mention if log_channel else 'not set'}"
             )
 
-
-            status_text ="Fully Operational"if enabled and not issues else "Operational with Issues"if enabled else "Disabled"
-
-            embed .add_field (
-            name ="System Status",
-            value =f"**Status:** {status_text}\n"
-            f"**Method:** {verification_method.title()}\n"
-            f"**Enabled:** {'Yes' if enabled else 'No'}",
-            inline =True 
+            numbers =(
+            f"**Total verified:** {total_verifications}\n"
+            f"**Last 24 hours:** {recent_verifications}"
             )
-
-            embed .add_field (
-            name ="Configuration",
-            value =f"**Channel:** {verification_channel.mention if verification_channel else 'Not found'}\n"
-            f"**Role:** {verified_role.mention if verified_role else 'Not found'}\n"
-            f"**Log Channel:** {log_channel.mention if log_channel else 'None'}",
-            inline =True 
-            )
-
-            embed .add_field (
-            name ="Analytics",
-            value =f"**Total Verifications:** {total_verifications}\n"
-            f"**Last 24 Hours:** {recent_verifications}\n"
-            f"**Verified Members:** {len([m for m in ctx.guild.members if verified_role in m.roles]) if verified_role else 0}",
-            inline =True 
-            )
-
             if method_stats :
-                stats_text ="\n".join ([f"**{method.title()}:** {count}"for method ,count in method_stats ])
-                embed .add_field (
-                name ="Method Breakdown",
-                value =stats_text ,
-                inline =True 
+                numbers +="\n"+"\n".join (
+                f"**{str(method).title()}:** {count}"for method ,count in method_stats 
                 )
 
+            sections =[overview ,numbers ]
             if issues :
-                embed .add_field (
-                name ="Issues Detected",
-                value ="\n".join ([f"• {issue}"for issue in issues ]),
-                inline =False 
+                sections .append (
+                "**Needs attention**\n"+"\n".join (f"• {i}"for i in issues )
+                +"\n\nRun `verification fix` to repair channel permissions."
                 )
 
-            embed .set_footer (text =f"Status checked at {current_time.strftime('%I:%M %p IST')}")
-            await ctx .send (embed =embed )
+            embed =VCard ("Verification System Status",*sections ,tone =tone )
+            await ctx .send (view =embed )
 
         except Exception as e :
             logger .error (f"Error checking verification status: {e}")
-            embed =discord .Embed (
-            color =DISCORD_COLORS ['error']
-            )
-            await ctx .send (embed =embed )
+            embed =VCard("Something went wrong", "The action could not be completed. Please try again.", tone='error')
+            await ctx .send (view =embed )
 
     @verification .command (name ="fix",description ="Auto-fix channel permissions for verification system.")
     @blacklist_check ()
@@ -1349,54 +1254,35 @@ class Verification (commands .Cog ):
                     result =await cur .fetchone ()
 
                     if not result :
-                        embed =discord .Embed (
-                        title ="Not Configured",
-                        description ="Verification system is not set up or disabled.",
-                        color =DISCORD_COLORS ['error']
-                        )
-                        await ctx .send (embed =embed )
+                        embed =VCard("Not Configured", "Verification system is not set up or disabled.", tone='error')
+                        await ctx .send (view =embed )
                         return 
 
                     verification_channel =ctx .guild .get_channel (result [0 ])
                     verified_role =ctx .guild .get_role (result [1 ])
 
                     if not verification_channel or not verified_role :
-                        embed =discord .Embed (
-                        description ="Verification channel or role not found.",
-                        color =DISCORD_COLORS ['error']
-                        )
-                        await ctx .send (embed =embed )
+                        embed =VCard("Verification", "Verification channel or role not found.", tone='error')
+                        await ctx .send (view =embed )
                         return 
 
 
             failed_count =await auto_fix_permissions (ctx .guild ,verification_channel ,verified_role )
 
             if failed_count ==-1 :
-                embed =discord .Embed (
-                color =DISCORD_COLORS ['error']
-                )
+                embed =VCard("Something went wrong", "The action could not be completed. Please try again.", tone='error')
             elif failed_count >0 :
-                embed =discord .Embed (
-                title ="Permissions Partially Fixed",
-                description =f"Permissions have been auto-fixed for most channels.\n"
-                f"{failed_count} channels couldn't be fixed due to permission restrictions.",
-                color =DISCORD_COLORS ['warning']
-                )
+                embed =VCard("Permissions Partially Fixed", f"Permissions have been auto-fixed for most channels.\n"
+                f"{failed_count} channels couldn't be fixed due to permission restrictions.", tone='warning')
             else :
-                embed =discord .Embed (
-                title ="Permissions Fixed",
-                description ="All channel permissions have been auto-fixed successfully!",
-                color =DISCORD_COLORS ['success']
-                )
+                embed =VCard("Permissions Fixed", "All channel permissions have been auto-fixed successfully!", tone='success')
 
-            await ctx .send (embed =embed )
+            await ctx .send (view =embed )
 
         except Exception as e :
             logger .error (f"Error fixing verification permissions: {e}")
-            embed =discord .Embed (
-            color =DISCORD_COLORS ['error']
-            )
-            await ctx .send (embed =embed )
+            embed =VCard("Something went wrong", "The action could not be completed. Please try again.", tone='error')
+            await ctx .send (view =embed )
 
     @verification .command (name ="disable",description ="Disable the verification system and reset all channel permissions.")
     @blacklist_check ()
@@ -1452,24 +1338,15 @@ class Verification (commands .Cog ):
                         logger .error (f"Error resetting permissions for channel {channel.name}: {e}")
                         failed_count +=1 
 
-            current_time =utc_to_ist (discord .utils .utcnow ())
-            embed =discord .Embed (
-            title ="Verification System Disabled",
-            description =f"The verification system has been disabled and all channels have been reset to public access.\n\n"
+            embed =VCard("Verification System Disabled", f"The verification system has been disabled and all channels have been reset to public access.\n\n"
             f"**Channels Reset:** {count}\n"
-            f"**Failed to Reset:** {failed_count}"+(f" (due to permission restrictions)"if failed_count >0 else ""),
-            color =DISCORD_COLORS ['success']if failed_count ==0 else DISCORD_COLORS ['warning'],
-            timestamp =current_time 
-            )
-            embed .set_footer (text =f"Disabled and reset at {current_time.strftime('%I:%M %p IST')}")
-            await ctx .send (embed =embed )
+            f"**Failed to Reset:** {failed_count}"+(f" (due to permission restrictions)"if failed_count >0 else ""), tone='success')
+            await ctx .send (view =embed )
 
         except Exception as e :
             logger .error (f"Error disabling verification: {e}")
-            embed =discord .Embed (
-            color =DISCORD_COLORS ['error']
-            )
-            await ctx .send (embed =embed )
+            embed =VCard("Something went wrong", "The action could not be completed. Please try again.", tone='error')
+            await ctx .send (view =embed )
 
     @verification .command (name ="enable",description ="Enable the verification system.")
     @blacklist_check ()
@@ -1514,15 +1391,8 @@ class Verification (commands .Cog ):
                     )
                     await db .commit ()
 
-            current_time =utc_to_ist (discord .utils .utcnow ())
-            embed =discord .Embed (
-            title ="Verification System Enabled",
-            description ="The verification system has been enabled.",
-            color =DISCORD_COLORS ['success'],
-            timestamp =current_time 
-            )
-            embed .set_footer (text =f"Enabled at {current_time.strftime('%I:%M %p IST')}")
-            await ctx .send (embed =embed )
+            embed =VCard("Verification System Enabled", "The verification system has been enabled.", tone='success')
+            await ctx .send (view =embed )
 
         except Exception as e :
             logger .error (f"Error enabling verification: {e}")
@@ -1551,22 +1421,14 @@ class Verification (commands .Cog ):
                         await ctx .send ("No verification logs found.")
                         return 
 
-            current_time =utc_to_ist (discord .utils .utcnow ())
-            embed =discord .Embed (
-            title =f"Recent Verification Logs ({len(logs)})",
-            color =DISCORD_COLORS ['primary'],
-            timestamp =current_time 
-            )
-
             log_text =""
             for user_id ,method ,verified_at in logs :
                 user =ctx .guild .get_member (user_id )
                 user_name =user .display_name if user else f"Unknown User ({user_id})"
-                log_text +=f"**{user_name}** - {method.upper()} - {verified_at}\n"
+                log_text +=f"**{user_name}** — {method.upper()} — {verified_at}\n"
 
-            embed .description =log_text 
-            embed .set_footer (text =f"Logs retrieved at {current_time.strftime('%I:%M %p IST')}")
-            await ctx .send (embed =embed )
+            await ctx .send (view =VCard (
+            f"Recent verifications ({len(logs)})",log_text ,tone ="info"))
 
         except Exception as e :
             logger .error (f"Error retrieving verification logs: {e}")
@@ -1578,14 +1440,6 @@ class Verification (commands .Cog ):
     @commands .has_permissions (administrator =True )
     async def verification_reset (self ,ctx ):
         try :
-            embed =discord .Embed (
-            title ="Reset Channel Permissions",
-            description ="This will remove all verification-related channel restrictions.\n\n"
-            "**Warning:** This action cannot be undone and may take some time.\n"
-            "All channels will become visible to @everyone again.",
-            color =DISCORD_COLORS ['warning']
-            )
-
             view =discord .ui .View (timeout =60 )
 
             async def confirm_reset (interaction ):
@@ -1612,24 +1466,20 @@ class Verification (commands .Cog ):
                         except discord .Forbidden :
                             failed_count +=1 
 
-                current_time =utc_to_ist (discord .utils .utcnow ())
-                success_embed =discord .Embed (
-                title ="Permissions Reset Complete",
-                description =f"Successfully reset permissions for {count} channels.\n"
+                success_embed =VCard("Permissions Reset Complete", f"Successfully reset permissions for {count} channels.\n"
                 f"{f'Failed to reset {failed_count} channels due to permission restrictions.' if failed_count > 0 else ''}\n\n"
                 f"The verification system configuration has been preserved.\n"
-                f"You can re-enable restrictions using `/verification setup`.",
-                color =DISCORD_COLORS ['success'],
-                timestamp =current_time 
-                )
-                success_embed .set_footer (text =f"Reset completed at {current_time.strftime('%I:%M %p IST')}")
-                await interaction .edit_original_response (embed =success_embed ,view =None )
+                f"You can re-enable restrictions using `/verification setup`.", tone='success')
+                await interaction .edit_original_response (view =success_embed )
 
             async def cancel_reset (interaction ):
                 if interaction .user !=ctx .author :
                     await interaction .response .send_message ("This action is not for you!",ephemeral =True )
                     return 
-                await interaction .response .edit_message (content ="Reset cancelled.",embed =None ,view =None )
+                # A V2 layout cannot be mixed with `content`, so the cancel
+                # state is a card as well.
+                await interaction .response .edit_message (
+                view =VCard ("Reset cancelled","No permissions were changed.",tone ="info"))
 
             confirm_button =discord .ui .Button (label ="Confirm Reset",style =discord .ButtonStyle .red )
             cancel_button =discord .ui .Button (label ="Cancel",style =discord .ButtonStyle .grey )
@@ -1640,7 +1490,24 @@ class Verification (commands .Cog ):
             view .add_item (confirm_button )
             view .add_item (cancel_button )
 
-            await ctx .send (embed =embed ,view =view )
+            # The warning text and the buttons belong to the same container,
+            # otherwise the confirmation prompt shows bare buttons with no
+            # explanation of what is about to happen.
+            confirm_card =LayoutView (timeout =60 )
+            confirm_card .add_item (build_container (
+            TextDisplay ("### !  Reset channel permissions"),
+            Separator (visible =True ),
+            TextDisplay (
+            "This removes every verification-related channel restriction.\n\n"
+            "**This cannot be undone** and may take a while. All channels "
+            "become visible to @everyone again."
+            ),
+            Separator (visible =True ),
+            ActionRow (confirm_button ,cancel_button ),
+            accent_color =TONE_COLORS ["warning"],
+            ))
+
+            await ctx .send (view =confirm_card )
 
         except Exception as e :
             logger .error (f"Error in verification reset: {e}")
@@ -1696,14 +1563,8 @@ class Verification (commands .Cog ):
                     await db .commit ()
 
             current_time =utc_to_ist (discord .utils .utcnow ())
-            embed =discord .Embed (
-            title ="User Manually Verified",
-            description =f"{user.mention} has been manually verified by {ctx.author.mention}.",
-            color =DISCORD_COLORS ['success'],
-            timestamp =current_time 
-            )
-            embed .set_footer (text =f"Verified at {current_time.strftime('%I:%M %p IST')}")
-            await ctx .send (embed =embed )
+            embed =VCard("User Manually Verified", f"{user.mention} has been manually verified by {ctx.author.mention}.", tone='success')
+            await ctx .send (view =embed )
 
         except discord .Forbidden :
             await ctx .send ("Bot lacks permission to assign roles.")
