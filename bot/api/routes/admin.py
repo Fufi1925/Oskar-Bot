@@ -764,7 +764,9 @@ async def list_backups():
         for path in sorted(glob.glob(os.path.join(backup_dir, "*")), reverse=True):
             if not os.path.isdir(path):
                 continue
-            files = glob.glob(os.path.join(path, "*.db"))
+            # Count the JSON config too, otherwise a snapshot looks smaller
+            # than it is and the file count is misleading.
+            files = [f for f in glob.glob(os.path.join(path, "*")) if os.path.isfile(f)]
             snapshots.append(
                 {
                     "name": os.path.basename(path),
@@ -835,7 +837,22 @@ async def _create_snapshot(prefix: str = "") -> dict:
             except Exception:
                 continue
 
-    return {"name": stamp, "file_count": copied}
+    # Birthdays, join-DM templates and the ignore lists live in JSON files,
+    # not in SQLite. A snapshot without them cannot fully restore the bot.
+    json_copied = 0
+    from api.config_transfer import JSON_CONFIG_FILES
+
+    for name in JSON_CONFIG_FILES:
+        if not os.path.exists(name):
+            continue
+        try:
+            destination = os.path.join(target, name.replace("/", "__"))
+            shutil.copy2(name, destination)
+            json_copied += 1
+        except Exception:
+            continue
+
+    return {"name": stamp, "file_count": copied, "json_count": json_copied}
 
 
 @router.post("/backups", summary="Create a backup right now")
@@ -857,10 +874,16 @@ async def download_live():
 
     from fastapi.responses import StreamingResponse
 
+    from api.config_transfer import JSON_CONFIG_FILES
+
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
         for file_path in glob.glob("db/*.db"):
             archive.write(file_path, os.path.basename(file_path))
+        # The JSON config is part of a complete backup too.
+        for name in JSON_CONFIG_FILES:
+            if os.path.exists(name):
+                archive.write(name, name)
     buffer.seek(0)
 
     import time as _time
@@ -891,8 +914,10 @@ async def download_backup(name: str):
 
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
-        for file_path in glob.glob(os.path.join(path, "*.db")):
-            archive.write(file_path, os.path.basename(file_path))
+        for file_path in glob.glob(os.path.join(path, "*")):
+            if os.path.isfile(file_path):
+                # JSON config was stored with "/" flattened to "__".
+                archive.write(file_path, os.path.basename(file_path))
     buffer.seek(0)
 
     return StreamingResponse(
@@ -1070,6 +1095,21 @@ async def restore_backup(name: str):
             except Exception as exc:
                 failed.append(f"{os.path.basename(path)} ({exc})")
 
+    # Snapshots store the JSON config with "/" flattened to "__".
+    from api.config_transfer import JSON_CONFIG_FILES
+
+    json_restored = 0
+    for name in JSON_CONFIG_FILES:
+        stored = os.path.join(source_dir, name.replace("/", "__"))
+        if not os.path.exists(stored):
+            continue
+        try:
+            os.makedirs(os.path.dirname(name) or ".", exist_ok=True)
+            shutil.copy2(stored, name)
+            json_restored += 1
+        except Exception as exc:
+            failed.append(f"{name} ({exc})")
+
     try:
         await feature_flags.load()
         feature_gates.invalidate_blacklist()
@@ -1090,6 +1130,7 @@ async def restore_backup(name: str):
         "status": "success",
         "name": name,
         "restored": restored,
+        "json_restored": json_restored,
         "failed": failed,
         "safety_backup": safety,
     }

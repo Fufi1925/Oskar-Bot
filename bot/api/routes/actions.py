@@ -20,6 +20,7 @@ import discord
 from fastapi import APIRouter, Depends, HTTPException
 
 from api.dependencies import get_bot
+from utils.panels import Panel, StatusCard, ACCENT
 from utils import feature_audit
 
 if TYPE_CHECKING:
@@ -127,18 +128,6 @@ async def send_verification_panel(
 
     channel = _require_channel(guild, channel_id)
 
-    embed = discord.Embed(
-        title=str(data.get("title") or "Verification"),
-        description=str(
-            data.get("description")
-            or "Press the button below to get access to this server."
-        ),
-        colour=_colour(data.get("color")),
-    )
-    if guild.icon:
-        embed.set_thumbnail(url=guild.icon.url)
-    embed.set_footer(text=guild.name)
-
     # Reuse the cog's view so the buttons keep working after a restart.
     view = None
     try:
@@ -160,8 +149,21 @@ async def send_verification_panel(
             status_code=500, detail=f"Verification module unavailable: {exc}"
         )
 
+    # Components V2, so a panel posted from the dashboard is identical to the
+    # one the cog posts itself instead of being a plain embed.
+    panel = Panel(
+        str(data.get("title") or "Verification required"),
+        str(
+            data.get("description")
+            or f"Welcome to **{guild.name}**.\n"
+            "Verify yourself to unlock the rest of the server."
+        ),
+        accent=_colour(data.get("color")).value if data.get("color") else ACCENT["brand"],
+        buttons=list(view.children),
+    )
+
     try:
-        message = await channel.send(embed=embed, view=view)
+        message = await channel.send(view=panel)
     except discord.Forbidden:
         raise HTTPException(
             status_code=403, detail=f"The bot may not post in #{channel.name}."
@@ -171,7 +173,9 @@ async def send_verification_panel(
 
     # Keep the view alive across restarts.
     try:
-        bot.add_view(view, message_id=message.id)
+        # Register the layout that was actually sent, not the source view —
+        # otherwise the buttons stop responding after a restart.
+        bot.add_view(panel, message_id=message.id)
     except Exception:
         pass
 
@@ -218,14 +222,6 @@ async def send_ticket_panel(guild_id: int, data: dict, bot: "universitybot" = De
 
     channel = _require_channel(guild, str(data.get("channel_id") or row[0] or ""))
 
-    embed = discord.Embed(
-        title=row[1] or "Support",
-        description=row[2] or "Open a ticket and the team will help you.",
-        colour=_colour(row[3]),
-    )
-    if guild.icon:
-        embed.set_thumbnail(url=guild.icon.url)
-
     view = None
     builder = getattr(cog, "create_panel_view", None)
     if callable(builder):
@@ -240,8 +236,18 @@ async def send_ticket_panel(guild_id: int, data: dict, bot: "universitybot" = De
             detail="Add at least one ticket category before sending the panel.",
         )
 
+    # The ticket buttons are dispatched by the cog's global on_interaction
+    # listener (custom_id starts with create_ticket_), so moving the
+    # components into a V2 container keeps them working.
+    panel = Panel(
+        row[1] or "Support",
+        row[2] or "Open a ticket and the team will help you.",
+        accent=_colour(row[3]).value if row[3] else ACCENT["brand"],
+        buttons=list(view.children),
+    )
+
     try:
-        message = await channel.send(embed=embed, view=view)
+        message = await channel.send(view=panel)
     except discord.Forbidden:
         raise HTTPException(status_code=403, detail=f"The bot may not post in #{channel.name}.")
 
@@ -315,33 +321,36 @@ async def test_welcome(guild_id: int, data: dict, bot: "universitybot" = Depends
             .replace("{membercount}", str(guild.member_count or 0))
         )
 
-    embed = None
+    card = None
     if embed_raw:
         try:
             parsed = json.loads(embed_raw)
-            embed = discord.Embed(
-                title=fill(parsed.get("title", "")) or None,
-                description=fill(parsed.get("description", "")) or None,
-                colour=_colour(parsed.get("color")),
+            sections = [
+                fill(parsed.get("description", "")),
+                fill(parsed.get("footer", "")),
+            ]
+            card = Panel(
+                fill(parsed.get("title", "")) or "Welcome",
+                *[s for s in sections if s],
+                accent=_colour(parsed.get("color")).value
+                if parsed.get("color")
+                else ACCENT["brand"],
+                image_url=parsed.get("image") or parsed.get("thumbnail") or None,
             )
-            if parsed.get("thumbnail"):
-                embed.set_thumbnail(url=parsed["thumbnail"])
-            if parsed.get("image"):
-                embed.set_image(url=parsed["image"])
-            if parsed.get("footer"):
-                embed.set_footer(text=fill(parsed["footer"]))
         except Exception:
-            embed = None
+            card = None
 
     content = fill(message_text) if message_text else None
-    if not content and embed is None:
+    if not content and card is None:
         raise HTTPException(status_code=400, detail="The welcome message is empty.")
 
     try:
-        message = await channel.send(
-            content=f"**Preview**\n{content}" if content else "**Preview**",
-            embed=embed,
-        )
+        if card is not None:
+            # A V2 layout cannot be combined with `content`, so the preview
+            # marker becomes part of the card.
+            message = await channel.send(view=card)
+        else:
+            message = await channel.send(content=f"**Preview**\n{content}")
     except discord.Forbidden:
         raise HTTPException(status_code=403, detail=f"The bot may not post in #{channel.name}.")
 
@@ -374,12 +383,13 @@ async def send_message(guild_id: int, data: dict, bot: "universitybot" = Depends
 
     try:
         if as_embed:
-            embed = discord.Embed(
-                title=title or None,
-                description=content or None,
-                colour=_colour(data.get("color")),
-            )
-            message = await channel.send(embed=embed)
+            message = await channel.send(view=Panel(
+                title or "",
+                content or "",
+                accent=_colour(data.get("color")).value
+                if data.get("color")
+                else ACCENT["brand"],
+            ))
         else:
             message = await channel.send(content=content[:2000])
     except discord.Forbidden:
@@ -571,21 +581,19 @@ async def create_giveaway(guild_id: int, data: dict, bot: "universitybot" = Depe
 
     ends_at = _time.time() + minutes * 60
 
-    embed = discord.Embed(
-        title="🎉 Giveaway",
-        description=(
-            f"**{prize}**\n\n"
+    panel = Panel(
+        "🎉 Giveaway",
+        f"### {prize}",
+        (
             f"React with 🎉 to enter.\n"
-            f"Winners: **{winners}**\n"
-            f"Ends: <t:{int(ends_at)}:R>"
+            f"**Winners:** {winners}\n"
+            f"**Ends:** <t:{int(ends_at)}:R>"
         ),
-        colour=_colour(data.get("color", "f59e0b")),
+        accent=_colour(data.get("color", "f59e0b")).value,
     )
-    embed.set_footer(text=f"Ends at")
-    embed.timestamp = discord.utils.utcnow()
 
     try:
-        message = await channel.send(embed=embed)
+        message = await channel.send(view=panel)
         await message.add_reaction("🎉")
     except discord.Forbidden:
         raise HTTPException(

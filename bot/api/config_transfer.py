@@ -167,6 +167,64 @@ async def export_guild(guild_id: int, *, include_user_data: bool = False) -> dic
     return payload
 
 
+# Configuration that does not live in SQLite. These were missing from every
+# backup, so birthdays and join-DM templates were silently lost on a restore.
+JSON_CONFIG_FILES = (
+    "jsondb/birthdays.json",
+    "jsondb/joindm_messages.json",
+    "jsondb/birthday_logs.json",
+    "ignore.json",
+    "channels.json",
+)
+
+
+def _collect_json_files() -> dict[str, Any]:
+    """Read the JSON config files that belong in a backup."""
+    out: dict[str, Any] = {}
+    for name in JSON_CONFIG_FILES:
+        if not os.path.exists(name):
+            continue
+        try:
+            with open(name, encoding="utf-8") as handle:
+                out[name] = json.load(handle)
+        except Exception as exc:
+            print(f"[config_transfer] cannot read {name}: {exc}")
+    return out
+
+
+def _restore_json_files(files: dict[str, Any], *, replace: bool) -> dict[str, int]:
+    """
+    Write JSON config files back.
+
+    With replace=False the existing content is kept and only missing
+    top-level keys are added, mirroring how the SQLite side merges.
+    """
+    written: dict[str, int] = {}
+    for name, payload in (files or {}).items():
+        if name not in JSON_CONFIG_FILES:
+            continue  # never write a path that came from the file itself
+        try:
+            target = payload
+            if not replace and os.path.exists(name):
+                try:
+                    with open(name, encoding="utf-8") as handle:
+                        current = json.load(handle)
+                    if isinstance(current, dict) and isinstance(payload, dict):
+                        merged = dict(payload)
+                        merged.update(current)
+                        target = merged
+                except Exception:
+                    target = payload
+
+            os.makedirs(os.path.dirname(name) or ".", exist_ok=True)
+            with open(name, "w", encoding="utf-8") as handle:
+                json.dump(target, handle, indent=4, ensure_ascii=False)
+            written[name] = len(target) if hasattr(target, "__len__") else 1
+        except Exception as exc:
+            print(f"[config_transfer] cannot write {name}: {exc}")
+    return written
+
+
 async def export_everything(*, include_user_data: bool = False) -> dict[str, Any]:
     """
     Collect EVERYTHING: every guild, every module, plus the global/admin
@@ -239,6 +297,11 @@ async def export_everything(*, include_user_data: bool = False) -> dict[str, Any
         except Exception as exc:
             print(f"[config_transfer] cannot read {db_path}: {exc}")
 
+    # Not everything lives in SQLite.
+    payload["json_files"] = _collect_json_files()
+    if payload["json_files"]:
+        modules.append("Birthdays & join DMs")
+
     payload["summary"] = {
         "modules": sorted(modules),
         "global_tables": sorted(set(global_tables_found)),
@@ -246,6 +309,7 @@ async def export_everything(*, include_user_data: bool = False) -> dict[str, Any
         "guild_ids": sorted(guild_ids),
         "table_count": sum(len(t) for t in payload["databases"].values()),
         "row_count": total_rows,
+        "json_files": sorted(payload["json_files"]),
     }
     return payload
 
@@ -289,6 +353,12 @@ async def preview_global_import(data: dict[str, Any]) -> dict[str, Any]:
             if not exists:
                 missing.append(f"{db_name}.{table}")
 
+    json_files = sorted(
+        n for n in (data.get("json_files") or {}) if n in JSON_CONFIG_FILES
+    )
+    if json_files:
+        modules.append("Birthdays & join DMs")
+
     return {
         "scope": data.get("scope", "guild"),
         "exported_at": data.get("exported_at"),
@@ -298,6 +368,7 @@ async def preview_global_import(data: dict[str, Any]) -> dict[str, Any]:
         "guild_count": len(guild_ids),
         "table_count": tables,
         "row_count": rows,
+        "json_files": json_files,
         "missing_databases": sorted(set(missing)),
     }
 
@@ -390,11 +461,16 @@ async def import_everything(
         except Exception as exc:
             skipped.append(f"{db_name} ({exc})")
 
+    json_written = _restore_json_files(
+        data.get("json_files") or {}, replace=replace
+    )
+
     return {
         "scope": "global",
         "applied": applied,
         "tables_written": len(applied),
         "rows_written": sum(applied.values()),
+        "json_files_written": sorted(json_written),
         "skipped": skipped,
     }
 

@@ -17,6 +17,7 @@ interface Preview {
   guild_count: number;
   table_count: number;
   row_count: number;
+  json_files: string[];
   missing_databases: string[];
 }
 
@@ -110,8 +111,9 @@ export function FullBackupPanel() {
       <p className="text-sm text-slate-400 mb-6 leading-relaxed">
         Every setting of every server, for every module, plus the global
         configuration: dashboard team and roles, feature flags, bot settings,
-        blacklist, premium and announcements. One file, one click — no need to
-        go through the servers one by one.
+        blacklist, premium and announcements — and the config that lives
+        outside the databases, like birthdays and join-DM templates. One file,
+        one click, no going through the servers one by one.
       </p>
 
       {/* ── Export ───────────────────────────────────────────── */}
@@ -207,6 +209,13 @@ export function FullBackupPanel() {
             </p>
           )}
 
+          {preview.json_files?.length > 0 && (
+            <p className="text-xs text-slate-400 mb-4">
+              <span className="font-black text-slate-300">Also included:</span>{" "}
+              {preview.json_files.join(", ")}
+            </p>
+          )}
+
           {preview.missing_databases.length > 0 && (
             <p className="text-xs text-amber-300/90 mb-4">
               Skipped, because these do not exist here:{" "}
@@ -279,7 +288,11 @@ export function FullBackupPanel() {
             <h5 className="font-black text-white">Restored</h5>
           </div>
           <p className="text-sm text-emerald-200/80">
-            {result.rows_written} entries written across {result.tables_written} tables.
+            {result.rows_written} entries written across {result.tables_written} tables
+            {result.json_files_written?.length
+              ? `, plus ${result.json_files_written.length} config files`
+              : ""}
+            .
           </p>
           {result.safety_backup?.name && (
             <p className="text-xs text-slate-400 mt-2">
