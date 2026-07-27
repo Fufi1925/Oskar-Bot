@@ -781,10 +781,18 @@ async def list_backups():
             live_size += os.path.getsize(f)
             live_count += 1
 
+    from utils.feature_services import BACKUP_INTERVAL, BACKUP_KEEP
+
     return {
         "snapshots": snapshots,
         "live": {"file_count": live_count, "size_bytes": live_size},
         "scheduler_enabled": feature_flags.is_enabled("database_backup_scheduler"),
+        "scheduler": {
+            "interval_seconds": BACKUP_INTERVAL,
+            "interval_hours": round(BACKUP_INTERVAL / 3600, 2),
+            "keep": BACKUP_KEEP,
+            "last_backup_at": int(runtime.last_backup_at or 0),
+        },
         "warning": (
             "Railway's filesystem is ephemeral: every redeploy wipes these "
             "snapshots. Download anything you want to keep."
@@ -792,19 +800,28 @@ async def list_backups():
     }
 
 
-@router.post("/backups", summary="Create a backup right now")
-async def create_backup():
+async def _create_snapshot(prefix: str = "") -> dict:
+    """
+    Copy every live database into db/backups/<stamp>.
+
+    Shared by the manual backup button and by the restore/import routes,
+    which take a safety copy before overwriting anything.
+    """
     import glob
     import shutil
     import time as _time
 
     stamp = _time.strftime("%Y%m%d-%H%M%S")
+    if prefix:
+        stamp = f"{prefix}-{stamp}"
+
     target = os.path.join("db", "backups", stamp)
     os.makedirs(target, exist_ok=True)
 
     copied = 0
     for path in glob.glob("db/*.db"):
         try:
+            # sqlite's backup API stays consistent while the bot writes.
             async with aiosqlite.connect(path) as source:
                 async with aiosqlite.connect(
                     os.path.join(target, os.path.basename(path))
@@ -818,10 +835,42 @@ async def create_backup():
             except Exception:
                 continue
 
+    return {"name": stamp, "file_count": copied}
+
+
+@router.post("/backups", summary="Create a backup right now")
+async def create_backup():
+    result = await _create_snapshot()
     await feature_audit.log_action(
-        "backup_created", actor="dashboard", detail=f"{stamp}: {copied} databases"
+        "backup_created",
+        actor="dashboard",
+        detail=f"{result['name']}: {result['file_count']} databases",
     )
-    return {"status": "success", "name": stamp, "file_count": copied}
+    return {"status": "success", **result}
+
+
+@router.get("/backups/live/download", summary="Download the current databases")
+async def download_live():
+    import io
+    import zipfile
+    import glob
+
+    from fastapi.responses import StreamingResponse
+
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+        for file_path in glob.glob("db/*.db"):
+            archive.write(file_path, os.path.basename(file_path))
+    buffer.seek(0)
+
+    import time as _time
+
+    stamp = _time.strftime("%Y%m%d-%H%M%S")
+    return StreamingResponse(
+        buffer,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="live-{stamp}.zip"'},
+    )
 
 
 @router.get("/backups/{name}/download", summary="Download a backup as a zip")
@@ -853,30 +902,6 @@ async def download_backup(name: str):
     )
 
 
-@router.get("/backups/live/download", summary="Download the current databases")
-async def download_live():
-    import io
-    import zipfile
-    import glob
-
-    from fastapi.responses import StreamingResponse
-
-    buffer = io.BytesIO()
-    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
-        for file_path in glob.glob("db/*.db"):
-            archive.write(file_path, os.path.basename(file_path))
-    buffer.seek(0)
-
-    import time as _time
-
-    stamp = _time.strftime("%Y%m%d-%H%M%S")
-    return StreamingResponse(
-        buffer,
-        media_type="application/zip",
-        headers={"Content-Disposition": f'attachment; filename="live-{stamp}.zip"'},
-    )
-
-
 @router.delete("/backups/{name}", summary="Delete a backup")
 async def delete_backup(name: str):
     import shutil
@@ -891,6 +916,183 @@ async def delete_backup(name: str):
     shutil.rmtree(path, ignore_errors=True)
     await feature_audit.log_action("backup_deleted", actor="dashboard", detail=name)
     return {"status": "success", "name": name}
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#  Full backup — everything, every server, in one file
+# ══════════════════════════════════════════════════════════════════════════
+
+
+@router.get("/backups/export-all", summary="Download the complete configuration")
+async def export_all_config(include_user_data: bool = False):
+    """
+    One JSON file containing EVERYTHING: every server's settings for every
+    module, plus the global tables (dashboard team and roles, feature flags,
+    bot settings, blacklist, premium, announcements).
+
+    This replaces having to export each server separately.
+    """
+    from api.config_transfer import export_everything
+    from fastapi.responses import JSONResponse
+    import time as _time
+
+    payload = await export_everything(include_user_data=include_user_data)
+
+    stamp = _time.strftime("%Y%m%d-%H%M%S")
+    filename = f"full-backup-{stamp}.json"
+
+    await feature_audit.log_action(
+        "full_backup_exported",
+        actor="dashboard",
+        detail=(
+            f"{payload['summary']['guild_count']} guilds, "
+            f"{payload['summary']['row_count']} rows"
+        ),
+    )
+
+    return JSONResponse(
+        content=payload,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.post("/backups/preview-all", summary="Check a full backup before importing")
+async def preview_all_config(data: dict):
+    """Validate an uploaded backup and describe what it would change."""
+    from api.config_transfer import preview_global_import
+
+    payload = data.get("config") if isinstance(data.get("config"), dict) else data
+    try:
+        return await preview_global_import(payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/backups/import-all", summary="Restore a complete backup")
+async def import_all_config(data: dict):
+    """
+    Write a full backup back into the databases.
+
+    merge=true keeps existing rows and adds the file's on top; the default
+    replaces the contents of every imported table.
+    include_global=false leaves the dashboard team, feature flags and bot
+    settings alone and restores only the per-server configuration.
+    """
+    from api.config_transfer import import_everything
+
+    payload = data.get("config") if isinstance(data.get("config"), dict) else data
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=400, detail="No configuration supplied.")
+
+    replace = not bool(data.get("merge", False))
+    include_global = bool(data.get("include_global", True))
+
+    # A restore overwrites live data, so keep a safety copy first.
+    safety = None
+    try:
+        safety = await _create_snapshot(prefix="pre-import")
+    except Exception as exc:
+        print(f"[admin] safety backup before import failed: {exc}")
+
+    try:
+        result = await import_everything(
+            payload, replace=replace, include_global=include_global
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    # Caches hold the old values until they are told otherwise.
+    try:
+        await feature_flags.load()
+        feature_gates.invalidate_blacklist()
+        await feature_gates.refresh_blacklist()
+        await feature_gates.refresh_premium_guilds()
+        await bot_settings.load()
+        from utils import dashboard_roles, dashboard_access
+
+        await dashboard_roles.load()
+        await dashboard_access.load()
+    except Exception as exc:
+        print(f"[admin] cache refresh after import failed: {exc}")
+
+    result["safety_backup"] = safety
+    await feature_audit.log_action(
+        "full_backup_imported",
+        actor="dashboard",
+        detail=f"{result['rows_written']} rows into {result['tables_written']} tables",
+    )
+    return {"status": "success", **result}
+
+
+@router.post("/backups/{name}/restore", summary="Restore a stored snapshot")
+async def restore_backup(name: str):
+    """
+    Copy a snapshot from db/backups/<name> back over the live databases.
+
+    The current state is saved as a "pre-restore" snapshot first, so this
+    can be undone.
+    """
+    import glob
+    import shutil
+
+    if not name.replace("-", "").isalnum():
+        raise HTTPException(status_code=400, detail="Invalid backup name.")
+
+    source_dir = os.path.join("db", "backups", name)
+    if not os.path.isdir(source_dir):
+        raise HTTPException(status_code=404, detail="Backup not found.")
+
+    files = glob.glob(os.path.join(source_dir, "*.db"))
+    if not files:
+        raise HTTPException(status_code=400, detail="That snapshot has no databases.")
+
+    safety = None
+    try:
+        safety = await _create_snapshot(prefix="pre-restore")
+    except Exception as exc:
+        print(f"[admin] safety backup before restore failed: {exc}")
+
+    restored = 0
+    failed: list[str] = []
+    for path in files:
+        target = os.path.join("db", os.path.basename(path))
+        try:
+            # sqlite's backup API writes a consistent copy even while the
+            # bot keeps using the destination file.
+            async with aiosqlite.connect(path) as source:
+                async with aiosqlite.connect(target) as destination:
+                    await source.backup(destination)
+            restored += 1
+        except Exception:
+            try:
+                shutil.copy2(path, target)
+                restored += 1
+            except Exception as exc:
+                failed.append(f"{os.path.basename(path)} ({exc})")
+
+    try:
+        await feature_flags.load()
+        feature_gates.invalidate_blacklist()
+        await feature_gates.refresh_blacklist()
+        await feature_gates.refresh_premium_guilds()
+        await bot_settings.load()
+        from utils import dashboard_roles, dashboard_access
+
+        await dashboard_roles.load()
+        await dashboard_access.load()
+    except Exception as exc:
+        print(f"[admin] cache refresh after restore failed: {exc}")
+
+    await feature_audit.log_action(
+        "backup_restored", actor="dashboard", detail=f"{name}: {restored} databases"
+    )
+    return {
+        "status": "success",
+        "name": name,
+        "restored": restored,
+        "failed": failed,
+        "safety_backup": safety,
+    }
 
 
 @router.get("/settings", summary="Bot-wide settings")

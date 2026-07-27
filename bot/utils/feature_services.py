@@ -25,7 +25,21 @@ from utils import feature_flags as flags
 
 DB_DIR = "db"
 BACKUP_DIR = os.path.join(DB_DIR, "backups")
-BACKUP_KEEP = 3
+
+
+def _env_int(name: str, default: int, minimum: int) -> int:
+    """Read a positive integer from the environment, falling back safely."""
+    try:
+        return max(minimum, int(os.getenv(name, "").strip() or default))
+    except (TypeError, ValueError):
+        return default
+
+
+# How many automatic snapshots to keep, and how often to take one.
+# Configurable so a deployment with a persistent volume can keep more
+# history than the default ephemeral setup.
+BACKUP_KEEP = _env_int("BACKUP_KEEP", 3, 1)
+BACKUP_INTERVAL = _env_int("BACKUP_INTERVAL_SECONDS", 21600, 300)
 
 
 # ── Shared runtime state ──────────────────────────────────────────────────
@@ -181,7 +195,7 @@ class FeatureServices:
             (self._health_loop, 60),
             (self._discord_status_loop, 300),
             (self._integrity_loop, 3600),
-            (self._backup_loop, 21600),
+            (self._backup_loop, BACKUP_INTERVAL),
             (self._cleanup_loop, 86400),
             (self._recovery_loop, 600),
             (self._announcement_loop, 60),
@@ -343,12 +357,19 @@ class FeatureServices:
 
         runtime.last_backup_at = time.time()
 
-        # Retention: keep only the newest BACKUP_KEEP directories.
+        # Retention: keep only the newest BACKUP_KEEP automatic snapshots.
+        #
+        # Safety copies taken before a restore or import are named
+        # "pre-restore-*" / "pre-import-*". They are the user's undo and must
+        # survive rotation, so they are excluded here. Sorting is by mtime
+        # rather than by name, because the prefixes break lexical ordering.
         try:
-            snapshots = sorted(
-                (d for d in glob.glob(os.path.join(BACKUP_DIR, "*")) if os.path.isdir(d))
-            )
-            for old in snapshots[:-BACKUP_KEEP]:
+            candidates = [
+                d for d in glob.glob(os.path.join(BACKUP_DIR, "*"))
+                if os.path.isdir(d) and not os.path.basename(d).startswith("pre-")
+            ]
+            candidates.sort(key=os.path.getmtime)
+            for old in candidates[:-BACKUP_KEEP]:
                 shutil.rmtree(old, ignore_errors=True)
         except Exception as exc:
             print(f"[feature_services] backup rotation failed: {exc}")

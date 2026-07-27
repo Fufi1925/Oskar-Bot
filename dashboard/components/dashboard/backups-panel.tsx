@@ -2,12 +2,14 @@
 
 import React, { useEffect, useState } from "react";
 import {
-  AlertTriangle, Database, Download, FileJson, HardDrive, Loader2, Plus, RefreshCw, Trash2,
+  AlertTriangle, Database, Download, FileJson, HardDrive, Loader2, Plus, RefreshCw,
+  RotateCcw, Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { ConfigTransferPanel } from "@/components/dashboard/config-transfer-panel";
+import { FullBackupPanel } from "@/components/dashboard/full-backup-panel";
 import { Select } from "@/components/ui/select";
 
 interface Snapshot {
@@ -38,6 +40,11 @@ export function BackupsPanel({
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
   const [live, setLive] = useState<{ file_count: number; size_bytes: number } | null>(null);
   const [schedulerOn, setSchedulerOn] = useState(false);
+  const [scheduler, setScheduler] = useState<{
+    interval_hours: number;
+    keep: number;
+    last_backup_at: number;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
 
@@ -47,6 +54,7 @@ export function BackupsPanel({
       setSnapshots(data.snapshots || []);
       setLive(data.live || null);
       setSchedulerOn(Boolean(data.scheduler_enabled));
+      setScheduler(data.scheduler || null);
     } catch (err: any) {
       toast.error(err?.message || "Could not load the backups.");
     } finally {
@@ -90,6 +98,26 @@ export function BackupsPanel({
     }
   };
 
+  const restore = async (name: string) => {
+    // Overwrites the live databases, so make it a deliberate action.
+    if (!confirm(
+      `Restore snapshot "${name}"?\n\n` +
+      "This overwrites the current databases. The present state is saved " +
+      "as a pre-restore snapshot first, so it can be undone."
+    )) return;
+
+    setBusy(true);
+    try {
+      const res = await api.restoreBackup(name);
+      toast.success(`Restored ${res.restored} databases.`);
+      await load();
+    } catch (err: any) {
+      toast.error(err?.message || "Restore failed.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[300px]">
@@ -109,11 +137,19 @@ export function BackupsPanel({
             <div>
               <h3 className="text-xl font-black text-white">Backups</h3>
               <p className="text-sm text-slate-400 mt-1">
-                {snapshots.length} snapshots · scheduler{" "}
+                {snapshots.length} snapshots · automatic{" "}
                 <span className={schedulerOn ? "text-emerald-400" : "text-slate-500"}>
                   {schedulerOn ? "on" : "off"}
                 </span>
+                {schedulerOn && scheduler && (
+                  <> · every {scheduler.interval_hours}h, keeps {scheduler.keep}</>
+                )}
               </p>
+              {schedulerOn && scheduler?.last_backup_at ? (
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Last automatic backup: {formatDate(scheduler.last_backup_at)}
+                </p>
+              ) : null}
             </div>
           </div>
 
@@ -151,17 +187,19 @@ export function BackupsPanel({
         </div>
       </div>
 
-      {/* Per-server settings as JSON — separate from the raw database dumps
-          above, and the one people actually need for restoring a setup. */}
+      {/* The one most people want: everything in a single file. */}
+      <FullBackupPanel />
+
+      {/* Still useful for cloning one server's setup onto another. */}
       <div className="bg-[#10233f] border border-primary/25 rounded-3xl p-8">
         <div className="flex items-center gap-3 mb-3">
           <FileJson className="h-5 w-5 text-primary" />
-          <h4 className="font-black text-white">Server configuration</h4>
+          <h4 className="font-black text-white">Single server</h4>
         </div>
         <p className="text-sm text-slate-400 mb-5 leading-relaxed">
-          Download every setting of a single server as one JSON file, and upload it
-          again to restore everything at once. Survives redeploys, unlike the database
-          snapshots below.
+          Only need one server? Export its settings on their own — handy for copying a
+          setup onto another server. For a full backup use{" "}
+          <span className="text-slate-300 font-bold">Complete backup</span> above.
         </p>
 
         <div className="max-w-md">
@@ -229,6 +267,14 @@ export function BackupsPanel({
               </div>
 
               <div className="flex gap-2 shrink-0">
+                <button
+                  onClick={() => restore(snapshot.name)}
+                  disabled={busy}
+                  className="p-2.5 rounded-xl bg-white/[0.03] border border-white/5 text-slate-400 hover:text-amber-400 hover:bg-amber-400/10 transition-all disabled:opacity-40"
+                  title="Restore this snapshot"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                </button>
                 <button
                   onClick={() => download(snapshot.name)}
                   className="p-2.5 rounded-xl bg-white/[0.03] border border-white/5 text-slate-400 hover:text-primary hover:bg-primary/10 transition-all"

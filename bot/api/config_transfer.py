@@ -167,6 +167,238 @@ async def export_guild(guild_id: int, *, include_user_data: bool = False) -> dic
     return payload
 
 
+async def export_everything(*, include_user_data: bool = False) -> dict[str, Any]:
+    """
+    Collect EVERYTHING: every guild, every module, plus the global/admin
+    tables (dashboard team & roles, feature flags, bot settings, blacklist,
+    premium, announcements).
+
+    This is the "one file for the whole bot" backup. Unlike export_guild()
+    it does not filter by guild_id and it deliberately DOES include the
+    global tables, because for a full restore you want them back too.
+    """
+    payload: dict[str, Any] = {
+        "schema_version": SCHEMA_VERSION,
+        "exported_at": int(time.time()),
+        "scope": "global",
+        "include_user_data": include_user_data,
+        "databases": {},
+    }
+
+    modules: list[str] = []
+    total_rows = 0
+    guild_ids: set[str] = set()
+    global_tables_found: list[str] = []
+
+    for db_path in sorted(glob.glob("db/*.db")):
+        db_name = os.path.basename(db_path)
+        try:
+            async with aiosqlite.connect(db_path) as db:
+                db.row_factory = aiosqlite.Row
+
+                async with db.execute(
+                    "SELECT name FROM sqlite_master "
+                    "WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+                ) as cursor:
+                    names = [row[0] for row in await cursor.fetchall()]
+
+                exported: dict[str, list[dict]] = {}
+                for table in names:
+                    # Per-user history is history, not configuration.
+                    if table in USER_DATA_TABLES and not include_user_data:
+                        continue
+
+                    try:
+                        async with db.execute(f"SELECT * FROM [{table}]") as cursor:
+                            rows = [dict(row) for row in await cursor.fetchall()]
+                    except Exception as exc:
+                        print(f"[config_transfer] skip {db_name}.{table}: {exc}")
+                        continue
+
+                    if not rows:
+                        continue
+
+                    exported[table] = rows
+                    total_rows += len(rows)
+
+                    if table in GLOBAL_TABLES:
+                        global_tables_found.append(table)
+                    else:
+                        label = MODULE_LABELS.get(table)
+                        if label and label not in modules:
+                            modules.append(label)
+
+                    # Track how many servers are covered.
+                    for row in rows:
+                        gid = row.get("guild_id")
+                        if gid not in (None, ""):
+                            guild_ids.add(str(gid))
+
+                if exported:
+                    payload["databases"][db_name] = exported
+        except Exception as exc:
+            print(f"[config_transfer] cannot read {db_path}: {exc}")
+
+    payload["summary"] = {
+        "modules": sorted(modules),
+        "global_tables": sorted(set(global_tables_found)),
+        "guild_count": len(guild_ids),
+        "guild_ids": sorted(guild_ids),
+        "table_count": sum(len(t) for t in payload["databases"].values()),
+        "row_count": total_rows,
+    }
+    return payload
+
+
+async def preview_global_import(data: dict[str, Any]) -> dict[str, Any]:
+    """Describe what a global import would do, without writing anything."""
+    if not isinstance(data, dict):
+        raise ValueError("The file does not contain a configuration object.")
+    if "databases" not in data:
+        raise ValueError("Missing 'databases' — is this a backup file?")
+
+    version = int(data.get("schema_version", 0))
+    if version > SCHEMA_VERSION:
+        raise ValueError(
+            f"This file was written by a newer version (schema {version}). "
+            "Update the bot first."
+        )
+
+    modules: list[str] = []
+    global_tables: list[str] = []
+    guild_ids: set[str] = set()
+    tables = 0
+    rows = 0
+    missing: list[str] = []
+
+    for db_name, table_map in data["databases"].items():
+        exists = os.path.exists(os.path.join("db", db_name))
+        for table, entries in table_map.items():
+            tables += 1
+            rows += len(entries)
+            if table in GLOBAL_TABLES:
+                global_tables.append(table)
+            else:
+                label = MODULE_LABELS.get(table)
+                if label and label not in modules:
+                    modules.append(label)
+            for entry in entries:
+                gid = entry.get("guild_id")
+                if gid not in (None, ""):
+                    guild_ids.add(str(gid))
+            if not exists:
+                missing.append(f"{db_name}.{table}")
+
+    return {
+        "scope": data.get("scope", "guild"),
+        "exported_at": data.get("exported_at"),
+        "includes_user_data": bool(data.get("include_user_data")),
+        "modules": sorted(modules),
+        "global_tables": sorted(set(global_tables)),
+        "guild_count": len(guild_ids),
+        "table_count": tables,
+        "row_count": rows,
+        "missing_databases": sorted(set(missing)),
+    }
+
+
+async def import_everything(
+    data: dict[str, Any],
+    *,
+    replace: bool = True,
+    include_global: bool = True,
+) -> dict[str, Any]:
+    """
+    Restore a full-bot backup produced by export_everything().
+
+    replace=True wipes each imported table before writing, which is what
+    "restore this backup" means. replace=False merges rows in.
+
+    include_global=False keeps the current dashboard team, feature flags and
+    bot settings untouched and only restores the per-server configuration —
+    useful when importing another instance's servers.
+    """
+    await preview_global_import(data)
+
+    applied: dict[str, int] = {}
+    skipped: list[str] = []
+
+    for db_name, table_map in data["databases"].items():
+        db_path = os.path.join("db", db_name)
+
+        # Recreating a whole database file is out of scope; a missing file
+        # means the owning cog never ran here.
+        if not os.path.exists(db_path):
+            skipped.append(f"{db_name} (no such database)")
+            continue
+
+        try:
+            async with aiosqlite.connect(db_path) as db:
+                async with db.execute(
+                    "SELECT name FROM sqlite_master "
+                    "WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+                ) as cursor:
+                    existing = {row[0] for row in await cursor.fetchall()}
+
+                for table, entries in table_map.items():
+                    if table not in existing:
+                        skipped.append(f"{db_name}.{table} (table missing)")
+                        continue
+                    if table in GLOBAL_TABLES and not include_global:
+                        skipped.append(f"{db_name}.{table} (global, skipped)")
+                        continue
+                    if not entries:
+                        continue
+
+                    try:
+                        async with db.execute(f"PRAGMA table_info([{table}])") as cursor:
+                            columns = [row[1] for row in await cursor.fetchall()]
+                    except Exception as exc:
+                        skipped.append(f"{db_name}.{table} ({exc})")
+                        continue
+
+                    if replace:
+                        try:
+                            await db.execute(f"DELETE FROM [{table}]")
+                        except Exception as exc:
+                            skipped.append(f"{db_name}.{table} (clear failed: {exc})")
+                            continue
+
+                    written = 0
+                    for entry in entries:
+                        # Keep only columns this table actually has, so an
+                        # older backup still imports after a schema change.
+                        usable = {k: v for k, v in entry.items() if k in columns}
+                        if not usable:
+                            continue
+
+                        names = ", ".join(f"[{c}]" for c in usable)
+                        marks = ", ".join("?" for _ in usable)
+                        try:
+                            await db.execute(
+                                f"INSERT OR REPLACE INTO [{table}] ({names}) "
+                                f"VALUES ({marks})",
+                                tuple(usable.values()),
+                            )
+                            written += 1
+                        except Exception as exc:
+                            print(f"[config_transfer] row failed in {table}: {exc}")
+
+                    await db.commit()
+                    if written:
+                        applied[f"{db_name}.{table}"] = written
+        except Exception as exc:
+            skipped.append(f"{db_name} ({exc})")
+
+    return {
+        "scope": "global",
+        "applied": applied,
+        "tables_written": len(applied),
+        "rows_written": sum(applied.values()),
+        "skipped": skipped,
+    }
+
+
 async def preview_import(data: dict[str, Any]) -> dict[str, Any]:
     """
     Describe what an import would do, without writing anything.

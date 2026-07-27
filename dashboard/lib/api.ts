@@ -448,6 +448,20 @@ export const api = {
   createBackup: () => request<any>("/admin/backups", { method: "POST", body: "{}" }),
   deleteBackup: (name: string) =>
     request<any>(`/admin/backups/${name}`, { method: "DELETE" }),
+  restoreBackup: (name: string) =>
+    request<any>(`/admin/backups/${name}/restore`, { method: "POST", body: "{}" }),
+
+  // Full backup — every server and every global setting in one file
+  previewFullBackup: (config: any) =>
+    request<any>("/admin/backups/preview-all", {
+      method: "POST",
+      body: JSON.stringify(config),
+    }),
+  importFullBackup: (config: any, merge = false, includeGlobal = true) =>
+    request<any>("/admin/backups/import-all", {
+      method: "POST",
+      body: JSON.stringify({ config, merge, include_global: includeGlobal }),
+    }),
 
   // Moderation history
   getWarnings: (guildId: string) => request<any>(`/moderation/${guildId}/warnings`),
