@@ -8,7 +8,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from starlette.responses import Response
 from utils.config import *
-from api.routes import bot, guilds, admin, team, moderation, actions, access, servers, servertools, tickets
+from api.routes import bot, guilds, admin, team, moderation, actions, access, servers, servertools, tickets, giveaways
 from api.dependencies import verify_api_key, limiter, get_bot_loop
 from api.db_manager import db_manager
 from api.schema_guard import ensure_schema
@@ -290,6 +290,9 @@ def create_app() -> FastAPI:
         servertools.router, prefix="/servertools", tags=["Server Tools"]
     )
     api_app.include_router(tickets.router, prefix="/tickets", tags=["Tickets"])
+    api_app.include_router(
+        giveaways.router, prefix="/giveaways", tags=["Giveaways"]
+    )
 
     @api_app.get("/health")
     async def api_health():

@@ -77,11 +77,100 @@ class Giveaway(commands.Cog):
     async def cog_load(self) -> None:
         self.connection = await aiosqlite.connect(db_path)
         self.cursor = await self.connection.cursor()
+        # Dashboard giveaways use extra columns and their own entry table.
+        try:
+            from api import giveaways as gstore
+            await gstore.ensure_schema(self.connection)
+        except Exception as exc:
+            logging.error(f"Giveaway schema check failed: {exc}")
         await self.check_for_ended_giveaways() 
         self.GiveawayEnd.start()
 
     async def cog_unload(self) -> None:
         await self.connection.close()
+
+    @commands.Cog.listener()
+    async def on_interaction(self, interaction: discord.Interaction):
+        """
+        Join button on dashboard giveaways.
+
+        Entries used to be counted by reading the 🎉 reaction back off the
+        message, which loses everything if the reaction is cleared and makes
+        a reroll that skips previous winners impossible. Presses are now
+        recorded in their own table.
+        """
+        if interaction.type != discord.InteractionType.component:
+            return
+        custom_id = (interaction.data or {}).get("custom_id", "")
+        if not custom_id.startswith("giveaway_join_"):
+            return
+
+        suffix = custom_id.rsplit("_", 1)[-1]
+        if not suffix.isdigit():
+            return
+        message_id = int(suffix)
+
+        try:
+            from api import giveaways as gstore
+
+            record = await gstore.get(self.connection, interaction.guild_id, message_id)
+            if record is None:
+                return await interaction.response.send_message(
+                    "Dieses Gewinnspiel gibt es nicht mehr.", ephemeral=True
+                )
+
+            if record.get("ended") or float(record.get("ends_at") or 0) <= datetime.datetime.now().timestamp():
+                return await interaction.response.send_message(
+                    "Dieses Gewinnspiel ist bereits beendet.", ephemeral=True
+                )
+
+            # Optional role requirement.
+            required = record.get("required_role_id")
+            if required and interaction.guild:
+                role = interaction.guild.get_role(int(required))
+                if role and role not in getattr(interaction.user, "roles", []):
+                    return await interaction.response.send_message(
+                        f"Dafür brauchst du die Rolle {role.mention}.", ephemeral=True
+                    )
+
+            # Pressing again leaves the giveaway, so it doubles as an undo.
+            added = await gstore.add_entry(
+                self.connection, message_id, interaction.user.id
+            )
+            if added:
+                total = await gstore.entry_count(self.connection, message_id)
+                await interaction.response.send_message(
+                    f"Du bist dabei! Teilnehmer: **{total}**\n"
+                    "Nochmal drücken, um wieder auszusteigen.",
+                    ephemeral=True,
+                )
+            else:
+                await gstore.remove_entry(
+                    self.connection, message_id, interaction.user.id
+                )
+                total = await gstore.entry_count(self.connection, message_id)
+                await interaction.response.send_message(
+                    f"Du nimmst nicht mehr teil. Teilnehmer: **{total}**",
+                    ephemeral=True,
+                )
+
+            # Keep the entry count on the message honest.
+            try:
+                from api.routes.giveaways import build_view
+
+                total = await gstore.entry_count(self.connection, message_id)
+                await interaction.message.edit(
+                    view=build_view(record, entries=total)
+                )
+            except Exception:
+                pass
+
+        except Exception as exc:
+            logging.error(f"Giveaway join failed: {exc}")
+            if not interaction.response.is_done():
+                await interaction.response.send_message(
+                    "Da ist etwas schiefgelaufen.", ephemeral=True
+                )
 
     async def check_for_ended_giveaways(self):
         await self.cursor.execute("SELECT ends_at, guild_id, message_id, host_id, winners, prize, channel_id FROM Giveaway WHERE ends_at <= ?", (datetime.datetime.now().timestamp(),))
@@ -97,6 +186,31 @@ class Giveaway(commands.Cog):
                 await self.cursor.execute("DELETE FROM Giveaway WHERE message_id = ? AND guild_id = ?", (giveaway[2], giveaway[1]))
                 await self.connection.commit()
                 return
+
+            # A giveaway created from the dashboard collects entries through
+            # its button, not the reaction, so it is drawn and announced by
+            # the shared logic (which also sends the DMs).
+            try:
+                from api import giveaways as gstore
+                from api.routes.giveaways import _announce
+
+                entries = await gstore.entry_count(self.connection, int(giveaway[2]))
+                if entries:
+                    record = await gstore.get(
+                        self.connection, int(giveaway[1]), int(giveaway[2])
+                    )
+                    if record is not None:
+                        winners = await gstore.draw(
+                            self.connection, int(giveaway[2]), int(giveaway[4] or 1)
+                        )
+                        await gstore.record_winners(
+                            self.connection, int(giveaway[2]), winners
+                        )
+                        await gstore.mark_ended(self.connection, int(giveaway[2]))
+                        await _announce(self.bot, record, winners)
+                        return
+            except Exception as exc:
+                logging.error(f"Dashboard giveaway end failed: {exc}")
 
             channel = self.bot.get_channel(int(giveaway[6]))
             if channel is not None:

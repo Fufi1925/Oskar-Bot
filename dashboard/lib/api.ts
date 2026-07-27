@@ -383,14 +383,28 @@ export const api = {
   getAutomodStatus: (guildId: string) => request<any>(`/actions/${guildId}/automod/status`),
 
   // Giveaways
-  getGiveaways: (guildId: string) => request<any>(`/actions/${guildId}/giveaways`),
-  createGiveaway: (guildId: string, data: any) =>
-    request<any>(`/actions/${guildId}/giveaways`, { method: "POST", body: JSON.stringify(data) }),
-  endGiveaway: (guildId: string, messageId: string) =>
-    request<any>(`/actions/${guildId}/giveaways/${messageId}/end`, { method: "POST", body: "{}" }),
+  // Giveaways moved to their own router: button entries, custom text,
+  // DMs and rerolls.
+  getGiveaways: (guildId: string) => request<any>(`/giveaways/${guildId}`),
+  getGiveawayEntries: (guildId: string, messageId: string) =>
+    request<any>(`/giveaways/${guildId}/${messageId}/entries`),
+  startGiveaway: (guildId: string, data: any) =>
+    request<any>(`/giveaways/${guildId}`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  drawGiveaway: (guildId: string, messageId: string) =>
+    request<any>(`/giveaways/${guildId}/${messageId}/end`, {
+      method: "POST",
+      body: "{}",
+    }),
+  rerollGiveaway: (guildId: string, messageId: string, count = 1) =>
+    request<any>(`/giveaways/${guildId}/${messageId}/reroll`, {
+      method: "POST",
+      body: JSON.stringify({ count }),
+    }),
   cancelGiveaway: (guildId: string, messageId: string) =>
-    request<any>(`/actions/${guildId}/giveaways/${messageId}`, { method: "DELETE" }),
-
+    request<any>(`/giveaways/${guildId}/${messageId}`, { method: "DELETE" }),
   // Autoresponder
   getAutoresponders: (guildId: string) => request<any>(`/actions/${guildId}/autoresponder`),
   saveAutoresponder: (guildId: string, trigger: string, response: string) =>
