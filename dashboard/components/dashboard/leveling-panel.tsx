@@ -13,14 +13,15 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  AlertTriangle, Award, BarChart4, Eye, Gauge, Loader2, Medal, MessageSquare,
+  AlertTriangle, Award, BarChart4, ChevronRight, Eye, Gauge, Loader2, Medal, MessageSquare,
   Pencil, Plus, RefreshCw, Save, Search, Send, Settings2, Sparkles, Timer,
-  Trash2, TrendingUp, Users, X, Zap,
+  Trash2, TrendingUp, Users, Wand2, X, Zap,
 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { ChannelPicker, RolePicker } from "@/components/dashboard/pickers";
+import { InlineToggle } from "@/components/dashboard/form-elements";
 
 const INPUT =
   "w-full bg-[#0d1b31] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-primary/50 transition-colors";
@@ -60,32 +61,6 @@ function Field({ label, hint, children }: any) {
   );
 }
 
-function Toggle({ on, onChange, label, hint }: any) {
-  return (
-    <div className="flex items-start gap-3">
-      <button
-        type="button"
-        onClick={() => onChange(!on)}
-        role="switch"
-        aria-checked={!!on}
-        className={cn(
-          "relative h-6 w-11 rounded-full transition-colors shrink-0 mt-0.5",
-          on ? "bg-primary" : "bg-slate-700"
-        )}
-      >
-        <span className={cn(
-          "absolute top-1 h-4 w-4 rounded-full bg-white transition-transform",
-          on ? "translate-x-6" : "translate-x-1"
-        )} />
-      </button>
-      <div className="min-w-0">
-        <p className="text-sm text-slate-300">{label}</p>
-        {hint && <p className="text-[11px] text-slate-600 mt-0.5 leading-relaxed">{hint}</p>}
-      </div>
-    </div>
-  );
-}
-
 function Stat({ icon: Icon, label, value }: any) {
   return (
     <div className="bg-[#0d1b31] border border-slate-800 rounded-2xl p-4">
@@ -104,7 +79,8 @@ export function LevelingPanel({ guildId }: { guildId: string }) {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [tab, setTab] = useState<"settings" | "rewards" | "members" | "tuning">("settings");
+  const [tab, setTab] =
+    useState<"settings" | "rewards" | "members" | "tuning" | "curve">("settings");
   const [draft, setDraft] = useState<Record<string, any>>({});
 
   const load = useCallback(async () => {
@@ -253,6 +229,7 @@ export function LevelingPanel({ guildId }: { guildId: string }) {
           { id: "rewards", label: "Belohnungen", icon: Award },
           { id: "tuning", label: "Multiplikatoren", icon: Gauge },
           { id: "members", label: "Mitglieder", icon: Medal },
+          { id: "curve", label: "XP-Tabelle", icon: TrendingUp },
         ].map((t) => (
           <button
             key={t.id}
@@ -524,9 +501,9 @@ export function LevelingPanel({ guildId }: { guildId: string }) {
               </div>
             </Field>
 
-            <Toggle
-              on={value("delete_command_message")}
-              onChange={(v: boolean) => set("delete_command_message", v)}
+            <InlineToggle
+              checked={value("delete_command_message")}
+              onCheckedChange={(v: boolean) => set("delete_command_message", v)}
               label="Auch den Befehl des Mitglieds löschen"
               hint="Das „!rank“ verschwindet gleich mit. Der Bot braucht dafür das Recht, Nachrichten zu verwalten."
             />
@@ -564,9 +541,9 @@ export function LevelingPanel({ guildId }: { guildId: string }) {
               </div>
             </Field>
 
-            <Toggle
-              on={value("thumbnail_enabled")}
-              onChange={(v: boolean) => set("thumbnail_enabled", v)}
+            <InlineToggle
+              checked={value("thumbnail_enabled")}
+              onCheckedChange={(v: boolean) => set("thumbnail_enabled", v)}
               label="Profilbild in der Level-Up-Nachricht"
             />
           </div>
@@ -580,6 +557,7 @@ export function LevelingPanel({ guildId }: { guildId: string }) {
           data={data}
           busy={busy}
           act={act}
+          reload={load}
           stack={!!value("stack_roles")}
           onStack={(v: boolean) => save({ stack_roles: v })}
         />
@@ -592,6 +570,9 @@ export function LevelingPanel({ guildId }: { guildId: string }) {
 
       {/* ══ Members ══════════════════════════════════ */}
       {tab === "members" && <MembersTab guildId={guildId} busy={busy} act={act} />}
+
+      {/* ══ What each level costs ════════════════════ */}
+      {tab === "curve" && <CurveTab guildId={guildId} />}
 
       {/* ── Sticky save ──────────────────────────────── */}
       {dirty && (
@@ -627,16 +608,19 @@ export function LevelingPanel({ guildId }: { guildId: string }) {
  * Reward roles
  * ------------------------------------------------------------------ */
 
-function RewardsTab({ guildId, data, busy, act, stack, onStack }: any) {
+function RewardsTab({ guildId, data, busy, act, stack, onStack, reload }: any) {
   const [level, setLevel] = useState(5);
   const [roleId, setRoleId] = useState("");
 
   return (
     <div className="space-y-5">
+      {/* Build the whole ladder in one go */}
+      <LadderWizard guildId={guildId} onDone={reload} />
+
       <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-6 space-y-5">
         <div>
           <p className="text-xs font-black uppercase tracking-widest text-slate-500">
-            Neue Belohnung
+            Einzelne Belohnung
           </p>
           <p className="text-[11px] text-slate-600 mt-1.5">
             Wer dieses Level erreicht, bekommt die Rolle automatisch.
@@ -700,9 +684,9 @@ function RewardsTab({ guildId, data, busy, act, stack, onStack }: any) {
           )}
         </div>
 
-        <Toggle
-          on={stack}
-          onChange={onStack}
+        <InlineToggle
+          checked={stack}
+          onCheckedChange={onStack}
           label="Frühere Rollen behalten"
           hint="Aus: Beim Aufstieg wird die vorige Belohnungsrolle wieder abgenommen, nur die höchste bleibt."
         />
@@ -1219,6 +1203,468 @@ function EditMember({ guildId, member, onClose, onDone }: any) {
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ *
+ * What each level costs
+ *
+ * Server owners kept having to ask how long level 10 takes. The answer
+ * depends on the guild's own XP rate and cooldown, so the numbers come
+ * from the API rather than being a fixed table in the docs.
+ * ------------------------------------------------------------------ */
+
+function duration(seconds: number) {
+  if (!seconds) return "—";
+  const h = Math.floor(seconds / 3600);
+  const d = Math.floor(h / 24);
+  if (d >= 1) return `${d} Tg`;
+  if (h >= 1) return `${h} Std`;
+  return `${Math.max(1, Math.round(seconds / 60))} Min`;
+}
+
+function CurveTab({ guildId }: { guildId: string }) {
+  const [data, setData] = useState<any>(null);
+  const [upTo, setUpTo] = useState(25);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    api
+      .getLevelCurve(guildId, upTo)
+      .then((fresh) => { if (!cancelled) setData(fresh); })
+      .catch((err: any) => toast.error(err?.message || "Konnte nicht geladen werden."))
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [guildId, upTo]);
+
+  const levels = data?.levels || [];
+  // Scale the bars against the most expensive level on screen.
+  const peak = levels.length ? levels[levels.length - 1].step_xp : 1;
+
+  return (
+    <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-6 space-y-5">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div className="min-w-0">
+          <p className="text-xs font-black uppercase tracking-widest text-slate-500">
+            Wie viel XP jedes Level braucht
+          </p>
+          <p className="text-[11px] text-slate-600 mt-1.5 leading-relaxed">
+            Gerechnet mit den Einstellungen dieses Servers:{" "}
+            <b className="text-slate-400">
+              ⌀ {data?.average_xp_per_message ?? "…"} XP pro Nachricht
+            </b>
+            , Abklingzeit {data?.cooldown_seconds ?? "…"}s. Ändere die Werte im
+            Reiter „Einstellungen“, dann rechnet die Tabelle neu.
+          </p>
+        </div>
+
+        <div className="flex gap-1.5 shrink-0">
+          {[10, 25, 50, 100].map((n) => (
+            <button
+              key={n}
+              onClick={() => setUpTo(n)}
+              className={cn(
+                "px-3 h-10 rounded-xl text-xs font-bold border transition-all",
+                upTo === n
+                  ? "bg-primary/15 border-primary/40 text-primary"
+                  : "bg-[#0d1b31] border-slate-800 text-slate-400 hover:text-slate-200"
+              )}
+            >
+              bis {n}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center py-14">
+          <Loader2 className="h-6 w-6 text-primary animate-spin opacity-40" />
+        </div>
+      ) : (
+        <>
+          {/* Header row, hidden on narrow screens where the cards stack. */}
+          <div className="hidden md:grid grid-cols-[64px_1fr_110px_110px_90px] gap-3 px-3 text-[10px] font-black uppercase tracking-widest text-slate-600">
+            <span>Level</span>
+            <span>XP für dieses Level</span>
+            <span className="text-right">Nachrichten</span>
+            <span className="text-right">XP gesamt</span>
+            <span className="text-right">min. Zeit</span>
+          </div>
+
+          <div className="space-y-1 max-h-[560px] overflow-y-auto pr-1">
+            {levels.map((row: any) => (
+              <div
+                key={row.level}
+                className={cn(
+                  "grid md:grid-cols-[64px_1fr_110px_110px_90px] gap-x-3 gap-y-1 items-center rounded-xl px-3 py-2.5 border transition-colors",
+                  row.role_id
+                    ? "bg-primary/[0.06] border-primary/25"
+                    : "bg-[#0d1b31] border-slate-800/60"
+                )}
+              >
+                <span className="text-sm font-black text-white">
+                  {row.level}
+                  {row.role_name && (
+                    <span className="md:hidden ml-2 text-[10px] font-bold text-primary">
+                      @{row.role_name}
+                    </span>
+                  )}
+                </span>
+
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <div className="h-1.5 flex-1 rounded-full bg-slate-800 overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-primary/70"
+                        style={{ width: `${Math.max(2, (row.step_xp / peak) * 100)}%` }}
+                      />
+                    </div>
+                    <span className="text-xs text-slate-400 tabular-nums shrink-0">
+                      {num(row.step_xp)}
+                    </span>
+                  </div>
+                  {row.role_name && (
+                    <span className="hidden md:inline text-[10px] font-bold text-primary">
+                      Belohnung: @{row.role_name}
+                    </span>
+                  )}
+                </div>
+
+                <span className="text-xs text-slate-400 tabular-nums md:text-right">
+                  <span className="md:hidden text-slate-600">Nachrichten: </span>
+                  {num(row.messages)}
+                </span>
+                <span className="text-xs text-slate-500 tabular-nums md:text-right">
+                  <span className="md:hidden text-slate-600">gesamt: </span>
+                  {num(row.total_xp)}
+                </span>
+                <span className="text-xs text-slate-500 tabular-nums md:text-right">
+                  {duration(row.min_seconds)}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          <p className="text-[11px] text-slate-600 leading-relaxed">
+            „min. Zeit“ ist der schnellstmögliche Fall — jemand schreibt exakt
+            nach jeder Abklingzeit eine Nachricht. In der Praxis dauert es
+            deutlich länger. Multiplikatoren sind hier nicht eingerechnet.
+          </p>
+        </>
+      )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ *
+ * Automatic role ladder
+ *
+ * Building this by hand means creating a dozen roles in Discord,
+ * colouring each one, dragging them into order and then registering a
+ * reward per level. This does all of it in one call.
+ *
+ * Nothing is created until the preview has been shown: a dozen new roles
+ * are tedious to undo, so the plan is always visible first.
+ * ------------------------------------------------------------------ */
+
+function LadderWizard({ guildId, onDone }: { guildId: string; onDone: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [options, setOptions] = useState<any>(null);
+  const [rungs, setRungs] = useState<any[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [askSetup, setAskSetup] = useState(false);
+
+  const [ramp, setRamp] = useState("sunrise");
+  const [style, setStyle] = useState("level");
+  const [spacing, setSpacing] = useState("linear");
+  const [count, setCount] = useState(5);
+  const [step, setStep] = useState(5);
+  const [hoist, setHoist] = useState(true);
+
+  useEffect(() => {
+    if (!open || options) return;
+    api.getLadderOptions(guildId).then(setOptions).catch(() => setOptions(null));
+  }, [open, options, guildId]);
+
+  // Re-run the preview whenever a choice changes.
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    api
+      .previewLadder(guildId, { ramp, style, spacing, count, step })
+      .then((res) => { if (!cancelled) setRungs(res.rungs || []); })
+      .catch(() => { if (!cancelled) setRungs([]); });
+    return () => { cancelled = true; };
+  }, [open, guildId, ramp, style, spacing, count, step]);
+
+  const create = async (fullSetup: boolean) => {
+    setBusy(true);
+    setAskSetup(false);
+    try {
+      const res = await api.createLadder(guildId, {
+        ramp, style, spacing, count, step, hoist,
+        reuse_existing: true,
+        full_setup: fullSetup,
+      });
+      toast.success(res?.result || "Erstellt.");
+      for (const warning of res?.warnings || []) toast.warning(warning);
+      setOpen(false);
+      onDone();
+    } catch (err: any) {
+      toast.error(err?.message || "Fehlgeschlagen.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        className="w-full flex items-center gap-4 bg-[#10233f] border border-dashed border-primary/30 rounded-3xl p-6 text-left hover:border-primary/60 transition-all group"
+      >
+        <div className="h-11 w-11 rounded-2xl bg-primary/15 grid place-items-center shrink-0">
+          <Wand2 className="h-5 w-5 text-primary" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="font-black text-white">Level-Rollen automatisch anlegen</p>
+          <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
+            Erstellt fertige Rollen mit passenden Farben, sortiert sie und
+            trägt sie als Belohnung ein — in einem Schritt.
+          </p>
+        </div>
+        <ChevronRight className="h-5 w-5 text-slate-600 group-hover:text-primary transition-colors shrink-0" />
+      </button>
+    );
+  }
+
+  return (
+    <div className="bg-[#10233f] border border-primary/30 rounded-3xl p-6 space-y-5">
+      {/* The follow-up question, once they press create */}
+      {askSetup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-[#10233f] border border-slate-800 rounded-3xl w-full max-w-md shadow-2xl">
+            <div className="p-6 space-y-4">
+              <div className="h-11 w-11 rounded-2xl bg-primary/15 grid place-items-center">
+                <Sparkles className="h-5 w-5 text-primary" />
+              </div>
+              <h3 className="font-black text-white text-lg">
+                Auch den Rest einrichten?
+              </h3>
+              <p className="text-sm text-slate-400 leading-relaxed">
+                Die {rungs.length} Rollen werden auf jeden Fall angelegt.
+                Zusätzlich kann das Level-System gleich komplett für dich
+                eingestellt werden:
+              </p>
+              <ul className="text-[13px] text-slate-400 space-y-1.5 pl-1">
+                <li>• Level-System einschalten</li>
+                <li>• 15–25 XP pro Nachricht, 60s Abklingzeit</li>
+                <li>• Level-Up-Nachricht im Kanal, verschwindet nach 60s</li>
+                <li>• Nur die höchste Belohnungsrolle behalten</li>
+              </ul>
+              <p className="text-[11px] text-slate-600 leading-relaxed">
+                Alles davon kannst du danach einzeln ändern. Bestehende
+                Belohnungen bleiben unangetastet.
+              </p>
+            </div>
+            <div className="p-5 border-t border-slate-800 flex gap-3 flex-wrap">
+              <button
+                onClick={() => create(false)}
+                disabled={busy}
+                className="flex-1 min-w-[140px] py-3 rounded-xl bg-white/[0.03] border border-white/10 text-xs font-black uppercase tracking-widest text-slate-300 hover:text-white disabled:opacity-40 transition-all"
+              >
+                Nur die Rollen
+              </button>
+              <button
+                onClick={() => create(true)}
+                disabled={busy}
+                className="flex-1 min-w-[140px] flex items-center justify-center gap-2 py-3 rounded-xl bg-primary text-xs font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:brightness-110 disabled:opacity-40 transition-all"
+              >
+                {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                Ja, alles einrichten
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="flex items-center justify-between gap-4">
+        <p className="text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
+          <Wand2 className="h-3.5 w-3.5 text-primary" />
+          Level-Rollen automatisch anlegen
+        </p>
+        <button
+          onClick={() => setOpen(false)}
+          className="text-slate-500 hover:text-white"
+        >
+          <X className="h-5 w-5" />
+        </button>
+      </div>
+
+      <div className="grid lg:grid-cols-2 gap-5">
+        <Field label="Farbverlauf">
+          <div className="space-y-1.5">
+            {(options?.ramps || []).map((r: any) => (
+              <button
+                key={r.id}
+                onClick={() => setRamp(r.id)}
+                className={cn(
+                  "w-full flex items-center gap-3 rounded-xl border px-3 py-2.5 transition-all",
+                  ramp === r.id
+                    ? "bg-primary/10 border-primary/40"
+                    : "bg-[#0d1b31] border-slate-800 hover:border-slate-700"
+                )}
+              >
+                <span className="flex gap-1 shrink-0">
+                  {r.preview.map((hex: string, i: number) => (
+                    <span
+                      key={i}
+                      className="h-5 w-5 rounded-md"
+                      style={{ background: hex }}
+                    />
+                  ))}
+                </span>
+                <span className="min-w-0 text-left">
+                  <span className="block text-sm font-bold text-white truncate">
+                    {r.label}
+                  </span>
+                  <span className="block text-[10px] text-slate-500 truncate">
+                    {r.description}
+                  </span>
+                </span>
+              </button>
+            ))}
+          </div>
+        </Field>
+
+        <div className="space-y-5">
+          <Field label="Benennung">
+            <div className="grid grid-cols-2 gap-1.5">
+              {(options?.styles || []).map((o: any) => (
+                <button
+                  key={o.id}
+                  onClick={() => setStyle(o.id)}
+                  className={cn(
+                    "h-11 px-3 rounded-xl text-xs font-bold border transition-all truncate",
+                    style === o.id
+                      ? "bg-primary/15 border-primary/40 text-primary"
+                      : "bg-[#0d1b31] border-slate-800 text-slate-400 hover:text-slate-200"
+                  )}
+                >
+                  {o.label}
+                </button>
+              ))}
+            </div>
+          </Field>
+
+          <Field label="Abstände">
+            <div className="space-y-1.5">
+              {(options?.spacings || []).map((o: any) => (
+                <button
+                  key={o.id}
+                  onClick={() => setSpacing(o.id)}
+                  className={cn(
+                    "w-full text-left rounded-xl border px-3 py-2 transition-all",
+                    spacing === o.id
+                      ? "bg-primary/10 border-primary/40"
+                      : "bg-[#0d1b31] border-slate-800 hover:border-slate-700"
+                  )}
+                >
+                  <span className="block text-sm font-bold text-white">{o.label}</span>
+                  <span className="block text-[10px] text-slate-500">{o.description}</span>
+                </button>
+              ))}
+            </div>
+          </Field>
+
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Wie viele Rollen">
+              <input
+                type="number"
+                min={1}
+                max={25}
+                value={count}
+                onChange={(e) =>
+                  setCount(Math.max(1, Math.min(25, Number(e.target.value) || 1)))
+                }
+                className={INPUT}
+              />
+            </Field>
+            <Field
+              label="Ab Level / Schritt"
+              hint={spacing === "milestones" ? "Bei runden Zahlen ohne Wirkung." : undefined}
+            >
+              <input
+                type="number"
+                min={1}
+                max={100}
+                value={step}
+                disabled={spacing === "milestones"}
+                onChange={(e) =>
+                  setStep(Math.max(1, Math.min(100, Number(e.target.value) || 1)))
+                }
+                className={cn(INPUT, spacing === "milestones" && "opacity-40")}
+              />
+            </Field>
+          </div>
+
+          <InlineToggle
+            checked={hoist}
+            onCheckedChange={setHoist}
+            label="Rollen getrennt anzeigen"
+            hint="Mitglieder mit der Rolle stehen in der Mitgliederliste in einer eigenen Gruppe."
+          />
+        </div>
+      </div>
+
+      {/* Preview */}
+      <div className="rounded-2xl bg-[#0b1626] border border-slate-800/70 p-4 space-y-2">
+        <p className="text-[10px] font-black uppercase tracking-widest text-slate-600 flex items-center gap-1">
+          <Eye className="h-3 w-3" /> Das wird angelegt
+        </p>
+        {rungs.length === 0 ? (
+          <p className="text-sm text-slate-600 italic">Wird berechnet …</p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {rungs.map((r: any) => (
+              <span
+                key={r.level}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-xl border text-sm"
+                style={{
+                  borderColor: `${r.colour_hex}66`,
+                  background: `${r.colour_hex}14`,
+                }}
+              >
+                <span
+                  className="h-3 w-3 rounded-full shrink-0"
+                  style={{ background: r.colour_hex }}
+                />
+                <span className="font-bold" style={{ color: r.colour_hex }}>
+                  {r.name}
+                </span>
+                <span className="text-[10px] text-slate-500">Lvl {r.level}</span>
+              </span>
+            ))}
+          </div>
+        )}
+        <p className="text-[11px] text-slate-600 leading-relaxed pt-1">
+          Rollen mit gleichem Namen werden wiederverwendet statt doppelt
+          angelegt. Der Bot braucht dafür das Recht „Rollen verwalten“, und
+          seine eigene Rolle muss über den neuen stehen.
+        </p>
+      </div>
+
+      <button
+        onClick={() => setAskSetup(true)}
+        disabled={busy || rungs.length === 0}
+        className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl bg-primary text-xs font-black uppercase tracking-widest shadow-xl shadow-primary/20 hover:brightness-110 disabled:opacity-40 transition-all"
+      >
+        {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
+        {rungs.length} Rollen anlegen
+      </button>
     </div>
   );
 }

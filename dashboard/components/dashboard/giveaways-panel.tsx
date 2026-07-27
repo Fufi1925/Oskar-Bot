@@ -10,6 +10,7 @@ import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { ChannelPicker, RolePicker } from "@/components/dashboard/pickers";
 import { GiveawayDetail } from "@/components/dashboard/giveaway-detail";
+import { InlineToggle } from "@/components/dashboard/form-elements";
 
 interface Giveaway {
   message_id: string;
@@ -412,23 +413,12 @@ export function GiveawaysPanel({ guildId }: { guildId: string }) {
                 { on: dmWinners, set: setDmWinners, label: "Gewinner per DM benachrichtigen" },
                 { on: dmHost, set: setDmHost, label: "Mir eine Zusammenfassung schicken" },
               ].map((o) => (
-                <label key={o.label} className="flex items-center gap-2.5 cursor-pointer">
-                  <button
-                    onClick={() => o.set(!o.on)}
-                    role="switch"
-                    aria-checked={o.on}
-                    className={cn(
-                      "relative h-6 w-11 rounded-full transition-colors",
-                      o.on ? "bg-primary" : "bg-slate-700"
-                    )}
-                  >
-                    <span className={cn(
-                      "absolute top-1 h-4 w-4 rounded-full bg-white transition-transform",
-                      o.on ? "translate-x-6" : "translate-x-1"
-                    )} />
-                  </button>
-                  <span className="text-sm text-slate-400">{o.label}</span>
-                </label>
+                <InlineToggle
+                  key={o.label}
+                  checked={o.on}
+                  onCheckedChange={o.set}
+                  label={o.label}
+                />
               ))}
             </div>
           </div>

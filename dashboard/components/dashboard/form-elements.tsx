@@ -105,3 +105,76 @@ export const FormInput = ({ label, icon: Icon, className, ...props }: FormInputP
     </div>
   </div>
 );
+
+/* ------------------------------------------------------------------ *
+ * InlineToggle
+ *
+ * A switch with its label beside it, for use inside a form section
+ * rather than as its own card.
+ *
+ * The three hand-rolled copies this replaces all had the same bug: the
+ * thumb was `absolute` with no `left`, so it fell back to its static
+ * position. A <button> centres its content, which put the thumb at
+ * (44 - 16) / 2 = 14px instead of 4px — and `translate-x-6` then pushed
+ * it to 38px, so 10px of a 44px track hung over the right edge and
+ * covered the first letter of the label.
+ *
+ * Pinning it with `left-1` and moving it by the track width minus the
+ * thumb minus both margins (44 - 16 - 4 - 4 = 20px = translate-x-5)
+ * leaves an even 4px gap on both sides.
+ * ------------------------------------------------------------------ */
+
+interface InlineToggleProps {
+  checked: boolean;
+  onCheckedChange: (checked: boolean) => void;
+  label: React.ReactNode;
+  hint?: React.ReactNode;
+  disabled?: boolean;
+  className?: string;
+}
+
+export const InlineToggle = ({
+  checked,
+  onCheckedChange,
+  label,
+  hint,
+  disabled,
+  className,
+}: InlineToggleProps) => (
+  <label
+    className={cn(
+      "flex items-start gap-3",
+      disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer",
+      className
+    )}
+  >
+    <button
+      type="button"
+      role="switch"
+      aria-checked={!!checked}
+      disabled={disabled}
+      onClick={() => !disabled && onCheckedChange(!checked)}
+      className={cn(
+        "relative h-6 w-11 rounded-full transition-colors shrink-0 mt-0.5",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60",
+        checked ? "bg-primary" : "bg-slate-700",
+        disabled && "cursor-not-allowed"
+      )}
+    >
+      <span
+        className={cn(
+          "absolute left-1 top-1 h-4 w-4 rounded-full bg-white shadow transition-transform",
+          checked ? "translate-x-5" : "translate-x-0"
+        )}
+      />
+    </button>
+    <span className="min-w-0">
+      <span className="block text-sm text-slate-300">{label}</span>
+      {hint && (
+        <span className="block text-[11px] text-slate-600 mt-0.5 leading-relaxed">
+          {hint}
+        </span>
+      )}
+    </span>
+  </label>
+);

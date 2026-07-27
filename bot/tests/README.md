@@ -24,7 +24,7 @@ the real `db/` folder or talk to Discord.
 | `test_ticket_panels.py` | Several ticket panels per guild, and that a partial save keeps the rest. |
 | `test_snowflake_ids.py` | Discord IDs stay strings. `Number("1327995167345819721")` rounds to `…819600`, which is why picking a channel silently did nothing. |
 | `test_giveaways.py` | Entries via the button, weighted and guaranteed draws, editing a running giveaway, entry requirements — and that the odds never reach the Discord message. |
-| `test_leveling.py` | The XP curve, one storage table instead of two, min/max XP actually being random, multipliers not stacking, reward roles, auto-delete settings, and the migration off the old tables. |
+| `test_leveling.py` | The XP curve, one storage table instead of two, min/max XP actually being random, multipliers not stacking, reward roles, auto-delete settings, the colour ramps and automatic role ladder, and the migration off the old tables. |
 | `test_welcome.py` | One renderer for the greeter and the dashboard preview. They used to fill different placeholders, so the preview showed something no member would ever get. |
 
 ## Adding a module

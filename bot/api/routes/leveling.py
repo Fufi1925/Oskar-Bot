@@ -309,6 +309,63 @@ async def reset_all(
 
 
 # ══════════════════════════════════════════════════════════════════════
+#  The XP table
+# ══════════════════════════════════════════════════════════════════════
+
+
+@router.get("/{guild_id}/curve", summary="How much XP each level costs")
+async def get_curve(
+    guild_id: int, up_to: int = 50, bot: "universitybot" = Depends(get_bot)
+):
+    """
+    What every level costs, worked out from the same curve the bot uses.
+
+    Server owners kept asking how long level 10 takes; the answer depends
+    on the guild's XP-per-message and cooldown, so it is worked out here
+    from the live settings rather than printed as a fixed table.
+    """
+    db = await _db()
+    guild = bot.get_guild(guild_id)
+    settings = await store.get_settings(db, guild_id)
+
+    up_to = max(1, min(up_to, 200))
+
+    average_xp = (settings["min_xp"] + settings["max_xp"]) / 2 or 1
+    cooldown = settings["cooldown_seconds"]
+
+    rewards = {r["level"]: r["role_id"] for r in await store.rewards(db, guild_id)}
+
+    rows = []
+    previous = 0
+    for level in range(1, up_to + 1):
+        total = store.xp_for_level(level)
+        step = total - previous
+        previous = total
+
+        messages = round(step / average_xp) if average_xp else 0
+        role = guild.get_role(rewards[level]) if guild and level in rewards else None
+
+        rows.append({
+            "level": level,
+            "total_xp": total,
+            "step_xp": step,
+            "messages": messages,
+            "total_messages": round(total / average_xp) if average_xp else 0,
+            # Fastest possible, if somebody writes exactly on every cooldown.
+            "min_seconds": messages * cooldown,
+            "role_id": str(rewards[level]) if level in rewards else None,
+            "role_name": role.name if role else None,
+        })
+
+    return {
+        "curve": "level = floor(sqrt(xp / 100))",
+        "average_xp_per_message": average_xp,
+        "cooldown_seconds": cooldown,
+        "levels": rows,
+    }
+
+
+# ══════════════════════════════════════════════════════════════════════
 #  Reward roles
 # ══════════════════════════════════════════════════════════════════════
 
@@ -436,6 +493,197 @@ async def sync_rewards(
         "status": "success",
         "result": f"{changed} Mitglieder angepasst{note}.",
         "changed": changed,
+    }
+
+
+# ══════════════════════════════════════════════════════════════════════
+#  Automatic role ladder
+# ══════════════════════════════════════════════════════════════════════
+
+
+@router.get("/{guild_id}/ladder/options", summary="Choices for the role ladder")
+async def ladder_options(guild_id: int):
+    """The colour ramps, name styles and spacings the dashboard offers."""
+    from utils import level_presets as presets
+
+    return {
+        "ramps": [
+            {
+                "id": key,
+                "label": value["label"],
+                "description": value["description"],
+                # A few swatches so the dashboard can show the ramp.
+                "preview": [
+                    f"#{c:06x}" for c in presets.ramp_colours(key, 5)
+                ],
+            }
+            for key, value in presets.RAMPS.items()
+        ],
+        "styles": [
+            {"id": key, "label": value["label"]}
+            for key, value in presets.NAME_STYLES.items()
+        ],
+        "spacings": [
+            {"id": key, "label": value["label"], "description": value["description"]}
+            for key, value in presets.SPACINGS.items()
+        ],
+    }
+
+
+@router.post("/{guild_id}/ladder/preview", summary="What the ladder would look like")
+async def ladder_preview(guild_id: int, data: dict):
+    """
+    Work out the ladder without creating anything.
+
+    Creating a dozen roles is hard to undo by hand, so nothing happens
+    until somebody has seen exactly what they are going to get.
+    """
+    from utils import level_presets as presets
+
+    try:
+        count = max(1, min(int(data.get("count", 5)), 25))
+        step = max(1, min(int(data.get("step", 5)), 100))
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Anzahl und Abstand müssen Zahlen sein.")
+
+    return {
+        "rungs": presets.build_ladder(
+            ramp=str(data.get("ramp", "sunrise")),
+            style=str(data.get("style", "level")),
+            spacing=str(data.get("spacing", "linear")),
+            count=count, step=step,
+        )
+    }
+
+
+@router.post("/{guild_id}/ladder", summary="Create the roles and wire them up")
+async def create_ladder(
+    guild_id: int, data: dict, bot: "universitybot" = Depends(get_bot)
+):
+    """
+    Create one Discord role per rung, colour it, order it and register it
+    as the reward for that level.
+
+    `full_setup` additionally applies sensible leveling settings, for a
+    server that has not configured anything yet.
+    """
+    import discord
+
+    from utils import level_presets as presets
+
+    db = await _db()
+    guild = _guild_or_404(bot, guild_id)
+
+    me = guild.me
+    if me is None or not me.guild_permissions.manage_roles:
+        raise HTTPException(
+            status_code=403,
+            detail="Dem Bot fehlt das Recht „Rollen verwalten“.",
+        )
+
+    try:
+        count = max(1, min(int(data.get("count", 5)), 25))
+        step = max(1, min(int(data.get("step", 5)), 100))
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Anzahl und Abstand müssen Zahlen sein.")
+
+    rungs = presets.build_ladder(
+        ramp=str(data.get("ramp", "sunrise")),
+        style=str(data.get("style", "level")),
+        spacing=str(data.get("spacing", "linear")),
+        count=count, step=step,
+    )
+
+    # Discord caps a guild at 250 roles; failing halfway would leave a
+    # mess, so check before creating the first one.
+    if len(guild.roles) + len(rungs) > 250:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Der Server hat {len(guild.roles)} Rollen. {len(rungs)} weitere "
+                   "würden über das Limit von 250 gehen.",
+        )
+
+    existing = {role.name.lower(): role for role in guild.roles}
+    reuse = bool(data.get("reuse_existing", True))
+
+    created, reused, failed = [], [], []
+    for rung in rungs:
+        role = existing.get(rung["name"].lower()) if reuse else None
+
+        if role is None:
+            try:
+                role = await guild.create_role(
+                    name=rung["name"],
+                    colour=discord.Colour(rung["colour"]),
+                    hoist=bool(data.get("hoist", False)),
+                    mentionable=False,
+                    reason="Level-Rollen automatisch angelegt",
+                )
+                created.append(role)
+            except discord.Forbidden:
+                raise HTTPException(
+                    status_code=403,
+                    detail="Der Bot darf keine Rollen anlegen.",
+                )
+            except discord.HTTPException as exc:
+                failed.append(f"{rung['name']}: {exc}")
+                continue
+        else:
+            reused.append(role)
+
+        await store.set_reward(db, guild_id, rung["level"], role.id)
+        rung["role_id"] = str(role.id)
+
+    # Order them so the highest level sits on top, all below the bot.
+    # Without this they land in creation order at the very bottom and the
+    # colour ramp reads backwards in the member list.
+    try:
+        made = [r for r in created if r in guild.roles or True]
+        if made:
+            base = max(1, me.top_role.position - len(made) - 1)
+            positions = {
+                role: base + index for index, role in enumerate(made)
+            }
+            await guild.edit_role_positions(
+                positions=positions, reason="Level-Rollen sortiert"
+            )
+    except discord.Forbidden:
+        failed.append("Die Rollen konnten nicht sortiert werden (fehlende Rechte).")
+    except Exception as exc:
+        failed.append(f"Sortieren fehlgeschlagen: {exc}")
+
+    applied_settings = None
+    if data.get("full_setup"):
+        # Do not switch the announcement channel to something the caller
+        # did not ask for; everything else gets a sane starting value.
+        starter = dict(presets.STARTER_SETTINGS)
+        if str(data.get("channel_id") or "").isdigit():
+            starter["channel_id"] = int(data["channel_id"])
+        applied_settings = await store.save_settings(db, guild_id, starter)
+        _forget(bot, guild_id)
+
+    await feature_audit.log_action(
+        "leveling_ladder", actor=str(data.get("actor", "dashboard")),
+        guild_id=guild_id,
+        detail=f"{len(created)} Rollen angelegt, {len(reused)} übernommen",
+    )
+
+    parts = []
+    if created:
+        parts.append(f"{len(created)} Rollen angelegt")
+    if reused:
+        parts.append(f"{len(reused)} vorhandene übernommen")
+    if applied_settings:
+        parts.append("Einstellungen gesetzt")
+
+    return {
+        "status": "success",
+        "result": ", ".join(parts) + "." if parts else "Nichts zu tun.",
+        "created": len(created),
+        "reused": len(reused),
+        "warnings": failed,
+        "rungs": rungs,
+        "settings_applied": bool(applied_settings),
     }
 
 

@@ -244,6 +244,24 @@ export const api = {
     }),
   removeLevelExcluded: (guildId: string, type: string, id: string) =>
     request<any>(`/leveling/${guildId}/excluded/${type}/${id}`, { method: "DELETE" }),
+  /** What every level costs, worked out from the guild's own XP rate. */
+  getLevelCurve: (guildId: string, upTo = 50) =>
+    request<any>(`/leveling/${guildId}/curve?up_to=${upTo}`),
+  /** Colour ramps, name styles and spacings for the automatic ladder. */
+  getLadderOptions: (guildId: string) =>
+    request<any>(`/leveling/${guildId}/ladder/options`),
+  /** Work out the ladder without creating any roles. */
+  previewLadder: (guildId: string, data: any) =>
+    request<any>(`/leveling/${guildId}/ladder/preview`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  /** Create the roles, colour them, order them and wire them up. */
+  createLadder: (guildId: string, data: any) =>
+    request<any>(`/leveling/${guildId}/ladder`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
   previewLevelUp: (guildId: string, data: any) =>
     request<any>(`/leveling/${guildId}/preview`, {
       method: "POST",

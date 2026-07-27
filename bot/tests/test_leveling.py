@@ -83,6 +83,8 @@ class FakeMember:
         self.roles = []
         self.added, self.removed = [], []
         self.guild = None
+        # The ladder route refuses to run without this permission.
+        self.guild_permissions = discord.Permissions.all()
 
     @property
     def display_avatar(self):
@@ -106,7 +108,7 @@ class FakeGuild:
 
     def __init__(self):
         self.channel = FakeChannel(int(CHANNEL), "chat")
-        self.roles = {
+        self._roles = {
             ROLE_LOW: FakeRole(ROLE_LOW, "Bronze", 1),
             ROLE_HIGH: FakeRole(ROLE_HIGH, "Silber", 2),
             ROLE_TOP: FakeRole(ROLE_TOP, "Zu hoch", 99),
@@ -117,6 +119,9 @@ class FakeGuild:
         }
         for m in self.members.values():
             m.guild = self
+        self._next_role = 950000000000000000
+        self.created_roles = []
+        self.reordered = False
         # The bot's own role sits above Bronze/Silber but below "Zu hoch".
         self.me = FakeMember(1, "Bot")
         self.me.guild = self
@@ -125,11 +130,31 @@ class FakeGuild:
     def get_channel(self, cid):
         return self.channel if str(cid) == CHANNEL else None
 
+    @property
+    def roles(self):
+        # discord.Guild.roles is a list, not a mapping.
+        return list(self._roles.values())
+
     def get_role(self, rid):
-        return self.roles.get(int(rid))
+        return self._roles.get(int(rid))
 
     def get_member(self, uid):
         return self.members.get(int(uid))
+
+    # -- role creation, for the automatic ladder --------------------
+    async def create_role(self, *, name, colour=None, hoist=False,
+                          mentionable=False, reason=None, **kw):
+        self._next_role += 1
+        role = FakeRole(self._next_role, name, position=1)
+        role.color = type("C", (), {"value": getattr(colour, "value", colour) or 0})()
+        self._roles[role.id] = role
+        self.created_roles.append(role)
+        return role
+
+    async def edit_role_positions(self, positions=None, reason=None):
+        for role, position in (positions or {}).items():
+            role.position = position
+        self.reordered = True
 
 
 class FakeBot:
@@ -556,6 +581,171 @@ def run():
           text == "<@10> ist Level 5 auf Test", text)
     check("an unknown placeholder is left alone",
           store.fill("{gibtsnicht}", {"user": "x"}) == "{gibtsnicht}")
+
+    # ══ The XP table ══════════════════════════════════════════════
+    client.patch(base, json={"min_xp": 10, "max_xp": 20, "cooldown_seconds": 60})
+    curve = client.get(f"{base}/curve?up_to=10").json()
+    check("the curve is served", len(curve["levels"]) == 10,
+          str(len(curve["levels"])))
+    check("it uses the guild's own xp rate",
+          curve["average_xp_per_message"] == 15,
+          str(curve["average_xp_per_message"]))
+
+    first, second = curve["levels"][0], curve["levels"][1]
+    check("the table agrees with the curve the bot uses",
+          first["total_xp"] == store.xp_for_level(1), str(first))
+    check("the step is the gap to the previous level",
+          second["step_xp"] == store.xp_for_level(2) - store.xp_for_level(1),
+          str(second))
+    check("higher levels cost more than lower ones",
+          curve["levels"][-1]["step_xp"] > first["step_xp"],
+          f'{curve["levels"][-1]["step_xp"]} vs {first["step_xp"]}')
+    check("it says how many messages that is",
+          second["messages"] == round(second["step_xp"] / 15),
+          str(second["messages"]))
+    check("the fastest possible time follows the cooldown",
+          second["min_seconds"] == second["messages"] * 60,
+          str(second["min_seconds"]))
+
+    # A reward role should show up beside its level.
+    client.post(f"{base}/rewards", json={"level": 2, "role_id": str(ROLE_LOW)})
+    curve = client.get(f"{base}/curve?up_to=5").json()
+    row = next(r for r in curve["levels"] if r["level"] == 2)
+    check("a reward role is shown next to its level",
+          row["role_name"] == "Bronze", str(row))
+    check("reward role ids stay strings",
+          isinstance(row["role_id"], str), str(type(row["role_id"])))
+    client.delete(f"{base}/rewards/2")
+
+    # ══ Colour ramps ══════════════════════════════════════════════
+    from utils import level_presets as presets
+
+    for key, config in presets.RAMPS.items():
+        colours = presets.ramp_colours(key, 8)
+        check(f"the {key} ramp gives one colour per rung",
+              len(colours) == 8, str(len(colours)))
+        check(f"the {key} ramp stays inside 24-bit colour",
+              all(0 <= c <= 0xFFFFFF for c in colours), key)
+        if config["sweep"] != 0:
+            check(f"the {key} ramp actually changes colour",
+                  len(set(colours)) == 8, str(len(set(colours))))
+        else:
+            # A ramp with no hue change has to vary some other way,
+            # otherwise every role comes out identical.
+            check(f"the {key} ramp varies by lightness instead",
+                  len(set(colours)) == 8, str(len(set(colours))))
+
+    check("a single rung does not divide by zero",
+          len(presets.ramp_colours("fire", 1)) == 1)
+
+    # The sunrise ramp has to pass through violet and red, not green —
+    # the short way round the wheel is the wrong way for this one.
+    hues = [
+        (presets.RAMPS["sunrise"]["start"]
+         + presets.RAMPS["sunrise"]["sweep"] * i / 7) % 360
+        for i in range(8)
+    ]
+    check("sunrise goes blue → violet → red → gold, not through green",
+          not any(70 < h < 160 for h in hues),
+          str([round(h) for h in hues]))
+
+    # ══ The ladder ════════════════════════════════════════════════
+    rungs = presets.build_ladder(spacing="linear", count=5, step=5)
+    check("a linear ladder is evenly spaced",
+          [r["level"] for r in rungs] == [5, 10, 15, 20, 25],
+          str([r["level"] for r in rungs]))
+
+    rungs = presets.build_ladder(spacing="growing", count=4, step=5)
+    levels = [r["level"] for r in rungs]
+    gaps = [b - a for a, b in zip(levels, levels[1:])]
+    check("a growing ladder has widening gaps",
+          all(b > a for a, b in zip(gaps, gaps[1:])), str(gaps))
+
+    rungs = presets.build_ladder(spacing="milestones", count=6)
+    check("the milestone ladder uses round numbers",
+          [r["level"] for r in rungs] == [5, 10, 25, 50, 75, 100],
+          str([r["level"] for r in rungs]))
+
+    # More rungs than the built-in list has entries.
+    rungs = presets.build_ladder(spacing="milestones", count=14)
+    check("asking for more milestones than exist still returns that many",
+          len(rungs) == 14, str(len(rungs)))
+    check("the extra milestones keep going up",
+          all(b["level"] > a["level"] for a, b in zip(rungs, rungs[1:])),
+          str([r["level"] for r in rungs]))
+
+    named = presets.build_ladder(style="metal", count=13)
+    check("a name list shorter than the ladder still gives unique names",
+          len({r["name"] for r in named}) == 13,
+          str([r["name"] for r in named[-4:]]))
+
+    numbered = presets.build_ladder(style="level", count=3, step=10)
+    check("the name carries the level",
+          [r["name"] for r in numbered] == ["Level 10", "Level 20", "Level 30"],
+          str([r["name"] for r in numbered]))
+
+    check("every rung comes with a hex colour for the preview",
+          all(r["colour_hex"].startswith("#") and len(r["colour_hex"]) == 7
+              for r in numbered),
+          str([r["colour_hex"] for r in numbered]))
+
+    # ══ Creating the ladder ═══════════════════════════════════════
+    r = client.post(f"{base}/ladder/options")
+    options = client.get(f"{base}/ladder/options").json()
+    check("the dashboard is offered the ramps",
+          len(options["ramps"]) == len(presets.RAMPS), str(len(options["ramps"])))
+    check("each ramp ships swatches for the preview",
+          all(len(ramp["preview"]) == 5 for ramp in options["ramps"]))
+
+    r = client.post(f"{base}/ladder/preview", json={"count": 3, "step": 5})
+    check("a ladder can be previewed without creating anything",
+          r.status_code == 200 and len(r.json()["rungs"]) == 3, r.text[:120])
+    check("previewing creates no roles", len(guild.roles) == 3, str(len(guild.roles)))
+
+    before_roles = len(guild.roles)
+    r = client.post(f"{base}/ladder", json={
+        "count": 3, "step": 5, "ramp": "fire", "style": "level",
+        "actor": "10",
+    })
+    check("the ladder can be created", r.status_code == 200, r.text[:160])
+    body = r.json()
+    check("three roles were created", body["created"] == 3, str(body))
+    check("the roles really exist now",
+          len(guild.roles) == before_roles + 3, str(len(guild.roles)))
+
+    made = client.get(base).json()["rewards"]
+    check("each new role is registered as a reward",
+          len(made) == 3, str(made))
+    check("the rewards point at the levels that were asked for",
+          [m["level"] for m in made] == [5, 10, 15], str(made))
+    check("every created role got its own colour",
+          len({guild.get_role(int(m["role_id"])).color.value for m in made}) == 3,
+          str(made))
+
+    # Running it a second time must not double up.
+    r = client.post(f"{base}/ladder", json={
+        "count": 3, "step": 5, "ramp": "fire", "style": "level",
+        "reuse_existing": True,
+    })
+    check("running it again reuses the roles instead of duplicating them",
+          r.json()["created"] == 0 and r.json()["reused"] == 3, r.text[:140])
+    check("no extra roles appeared",
+          len(guild.roles) == before_roles + 3, str(len(guild.roles)))
+
+    # The full setup also writes the settings.
+    client.patch(base, json={"enabled": False, "min_xp": 1, "max_xp": 1})
+    r = client.post(f"{base}/ladder", json={
+        "count": 2, "step": 5, "full_setup": True, "channel_id": CHANNEL,
+    })
+    check("the full setup reports that it applied settings",
+          r.json()["settings_applied"] is True, r.text[:140])
+    settings = client.get(base).json()
+    check("the full setup switches leveling on", settings["enabled"] is True)
+    check("the full setup sets a sensible xp range",
+          settings["min_xp"] == 15 and settings["max_xp"] == 25,
+          f'{settings["min_xp"]}-{settings["max_xp"]}')
+    check("the full setup uses the channel it was given",
+          settings["channel_id"] == CHANNEL, str(settings["channel_id"]))
 
     # db_manager caches its connections, and aiosqlite's worker thread is
     # not a daemon — without this the process stays alive after the last

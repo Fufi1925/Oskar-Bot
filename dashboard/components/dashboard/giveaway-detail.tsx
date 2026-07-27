@@ -27,6 +27,7 @@ import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { RolePicker } from "@/components/dashboard/pickers";
+import { InlineToggle } from "@/components/dashboard/form-elements";
 
 const INPUT =
   "w-full bg-[#0d1b31] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-primary/50 transition-colors";
@@ -116,29 +117,6 @@ function Field({ label, hint, children }: any) {
       {children}
       {hint && <p className="text-[11px] text-slate-600 leading-relaxed">{hint}</p>}
     </div>
-  );
-}
-
-function Toggle({ on, onChange, label }: any) {
-  return (
-    <label className="flex items-center gap-2.5 cursor-pointer">
-      <button
-        type="button"
-        onClick={() => onChange(!on)}
-        role="switch"
-        aria-checked={on}
-        className={cn(
-          "relative h-6 w-11 rounded-full transition-colors shrink-0",
-          on ? "bg-primary" : "bg-slate-700"
-        )}
-      >
-        <span className={cn(
-          "absolute top-1 h-4 w-4 rounded-full bg-white transition-transform",
-          on ? "translate-x-6" : "translate-x-1"
-        )} />
-      </button>
-      <span className="text-sm text-slate-400">{label}</span>
-    </label>
   );
 }
 
@@ -562,19 +540,19 @@ export function GiveawayDetail({
             ))}
 
             <div className="border-t border-slate-800 pt-5 flex flex-wrap gap-5">
-              <Toggle
-                on={value("dm_winners")}
-                onChange={(v: boolean) => set("dm_winners", v)}
+              <InlineToggle
+                checked={value("dm_winners")}
+                onCheckedChange={(v: boolean) => set("dm_winners", v)}
                 label="Gewinner per DM benachrichtigen"
               />
-              <Toggle
-                on={value("dm_host")}
-                onChange={(v: boolean) => set("dm_host", v)}
+              <InlineToggle
+                checked={value("dm_host")}
+                onCheckedChange={(v: boolean) => set("dm_host", v)}
                 label="Zusammenfassung an den Veranstalter"
               />
-              <Toggle
-                on={value("allow_leave")}
-                onChange={(v: boolean) => set("allow_leave", v)}
+              <InlineToggle
+                checked={value("allow_leave")}
+                onCheckedChange={(v: boolean) => set("allow_leave", v)}
                 label="Aussteigen erlauben (nochmal drücken)"
               />
             </div>
