@@ -2,13 +2,14 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Clock, Dices, ExternalLink, Gift, Loader2, PartyPopper, Plus, RefreshCw,
-  Trash2, Trophy, Users, Wand2,
+  ChevronRight, Clock, Dices, ExternalLink, Gift, Loader2, PartyPopper, Plus,
+  RefreshCw, Shield, Trash2, Trophy, Users, Wand2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { ChannelPicker, RolePicker } from "@/components/dashboard/pickers";
+import { GiveawayDetail } from "@/components/dashboard/giveaway-detail";
 
 interface Giveaway {
   message_id: string;
@@ -85,8 +86,8 @@ export function GiveawaysPanel({ guildId }: { guildId: string }) {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [showText, setShowText] = useState(false);
-  const [entrantsOf, setEntrantsOf] = useState<string | null>(null);
-  const [entrants, setEntrants] = useState<any[]>([]);
+  const [showRules, setShowRules] = useState(false);
+  const [openId, setOpenId] = useState<string | null>(null);
 
   const [prize, setPrize] = useState("");
   const [channelId, setChannelId] = useState("");
@@ -98,7 +99,13 @@ export function GiveawaysPanel({ guildId }: { guildId: string }) {
   const [buttonLabel, setButtonLabel] = useState("");
   const [buttonEmoji, setButtonEmoji] = useState("");
   const [colour, setColour] = useState("#f59e0b");
+  const [imageUrl, setImageUrl] = useState("");
   const [requiredRole, setRequiredRole] = useState("");
+  const [blockedRole, setBlockedRole] = useState("");
+  const [minMessages, setMinMessages] = useState(0);
+  const [minLevel, setMinLevel] = useState(0);
+  const [minAccountDays, setMinAccountDays] = useState(0);
+  const [minMemberDays, setMinMemberDays] = useState(0);
   const [dmWinners, setDmWinners] = useState(true);
   const [dmHost, setDmHost] = useState(true);
 
@@ -152,7 +159,13 @@ export function GiveawaysPanel({ guildId }: { guildId: string }) {
         button_label: buttonLabel.trim(),
         button_emoji: buttonEmoji.trim(),
         colour: parseInt(colour.slice(1), 16),
+        image_url: imageUrl.trim(),
         required_role_id: requiredRole || null,
+        blocked_role_id: blockedRole || null,
+        min_messages: minMessages,
+        min_level: minLevel,
+        min_account_days: minAccountDays,
+        min_member_days: minMemberDays,
         dm_winners: dmWinners,
         dm_host: dmHost,
       });
@@ -160,16 +173,6 @@ export function GiveawaysPanel({ guildId }: { guildId: string }) {
       setCustomMinutes("");
       return res;
     }, "Gewinnspiel gestartet.");
-
-  const openEntrants = async (g: Giveaway) => {
-    setEntrantsOf(g.message_id);
-    try {
-      const data = await api.getGiveawayEntries(guildId, g.message_id);
-      setEntrants(data.entries || []);
-    } catch {
-      setEntrants([]);
-    }
-  };
 
   const previewText = useMemo(() => {
     const ends = new Date(Date.now() + effectiveMinutes * 60_000);
@@ -204,46 +207,20 @@ export function GiveawaysPanel({ guildId }: { guildId: string }) {
     );
   }
 
+  // Clicking a giveaway opens everything about it: entrants, all the
+  // texts, the requirements and the per-user odds.
+  if (openId) {
+    return (
+      <GiveawayDetail
+        guildId={guildId}
+        messageId={openId}
+        onBack={() => { setOpenId(null); load(); }}
+      />
+    );
+  }
+
   return (
     <section className="space-y-6">
-      {/* ── Entrant list ─────────────────────────────── */}
-      {entrantsOf && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-[#10233f] border border-slate-800 rounded-3xl w-full max-w-md shadow-2xl">
-            <div className="p-5 border-b border-slate-800 flex items-center justify-between">
-              <h3 className="font-bold text-white">
-                Teilnehmer ({entrants.length})
-              </h3>
-              <button
-                onClick={() => setEntrantsOf(null)}
-                className="text-slate-500 hover:text-white"
-              >
-                ✕
-              </button>
-            </div>
-            <div className="p-5 max-h-[50vh] overflow-y-auto space-y-1.5">
-              {entrants.length === 0 ? (
-                <p className="text-sm text-slate-500 text-center py-6">
-                  Noch niemand.
-                </p>
-              ) : (
-                entrants.map((e) => (
-                  <div
-                    key={e.id}
-                    className="flex items-center gap-2 text-sm text-slate-300"
-                  >
-                    <Users className="h-3.5 w-3.5 text-slate-600 shrink-0" />
-                    <span className={cn("truncate", e.left && "text-slate-500 italic")}>
-                      {e.name}
-                    </span>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* ── Create ───────────────────────────────────── */}
       <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-8">
         <div className="flex items-center justify-between gap-4 mb-6 flex-wrap">
@@ -420,12 +397,12 @@ export function GiveawaysPanel({ guildId }: { guildId: string }) {
                 </div>
               </Field>
 
-              <Field label="Nur mit Rolle" hint="Leer = alle dürfen teilnehmen.">
-                <RolePicker
-                  guildId={guildId}
-                  value={requiredRole}
-                  onChange={(id) => setRequiredRole(id || "")}
-                  placeholder="Keine Einschränkung"
+              <Field label="Bild (URL)" hint="Wird unter dem Text angezeigt.">
+                <input
+                  value={imageUrl}
+                  onChange={(e) => setImageUrl(e.target.value)}
+                  placeholder="https://…"
+                  className={INPUT}
                 />
               </Field>
             </div>
@@ -453,6 +430,94 @@ export function GiveawaysPanel({ guildId }: { guildId: string }) {
                   <span className="text-sm text-slate-400">{o.label}</span>
                 </label>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* Who may enter */}
+        <button
+          onClick={() => setShowRules((v) => !v)}
+          className="mt-4 flex items-center gap-2 text-xs font-black uppercase tracking-widest text-slate-400 hover:text-primary transition-colors"
+        >
+          <Shield className="h-3.5 w-3.5" />
+          {showRules ? "Bedingungen ausblenden" : "Bedingungen fürs Mitmachen"}
+        </button>
+
+        {showRules && (
+          <div className="mt-5 space-y-5 border-t border-slate-800 pt-5">
+            <p className="text-[11px] text-slate-600 leading-relaxed">
+              Alles auf 0 oder leer heißt: jeder darf mitmachen. Die Bedingungen
+              stehen später auch in der Gewinnspiel-Nachricht, damit niemand
+              erst nach dem Klick erfährt, dass er nicht darf.
+            </p>
+
+            <div className="grid lg:grid-cols-2 gap-5">
+              <Field label="Rolle nötig" hint="Nur wer diese Rolle hat, darf teilnehmen.">
+                <RolePicker
+                  guildId={guildId}
+                  value={requiredRole}
+                  onChange={(id) => setRequiredRole(id || "")}
+                  placeholder="Keine Einschränkung"
+                />
+              </Field>
+
+              <Field label="Rolle ausgeschlossen" hint="Wer diese Rolle hat, darf nicht.">
+                <RolePicker
+                  guildId={guildId}
+                  value={blockedRole}
+                  onChange={(id) => setBlockedRole(id || "")}
+                  placeholder="Niemand ausgeschlossen"
+                />
+              </Field>
+
+              <Field
+                label="Mindestens X Nachrichten"
+                hint="Aus dem Level-System des Servers."
+              >
+                <input
+                  type="number"
+                  min={0}
+                  value={minMessages}
+                  onChange={(e) => setMinMessages(Number(e.target.value) || 0)}
+                  className={INPUT}
+                />
+              </Field>
+
+              <Field label="Mindestens Level X" hint="Ebenfalls aus dem Level-System.">
+                <input
+                  type="number"
+                  min={0}
+                  value={minLevel}
+                  onChange={(e) => setMinLevel(Number(e.target.value) || 0)}
+                  className={INPUT}
+                />
+              </Field>
+
+              <Field
+                label="Account mindestens X Tage alt"
+                hint="Hält frisch erstellte Zweitaccounts draußen."
+              >
+                <input
+                  type="number"
+                  min={0}
+                  value={minAccountDays}
+                  onChange={(e) => setMinAccountDays(Number(e.target.value) || 0)}
+                  className={INPUT}
+                />
+              </Field>
+
+              <Field
+                label="Mindestens X Tage auf dem Server"
+                hint="Wer gerade erst beigetreten ist, darf noch nicht."
+              >
+                <input
+                  type="number"
+                  min={0}
+                  value={minMemberDays}
+                  onChange={(e) => setMinMemberDays(Number(e.target.value) || 0)}
+                  className={INPUT}
+                />
+              </Field>
             </div>
           </div>
         )}
@@ -507,16 +572,20 @@ export function GiveawaysPanel({ guildId }: { guildId: string }) {
                 key={g.message_id}
                 className="bg-[#10233f] border border-emerald-500/20 rounded-2xl p-5 flex items-center gap-4 flex-wrap"
               >
-                <div className="min-w-0 flex-1">
-                  <p className="font-black text-white truncate">{g.prize}</p>
+                <button
+                  onClick={() => setOpenId(g.message_id)}
+                  className="min-w-0 flex-1 text-left group"
+                  title="Details öffnen"
+                >
+                  <p className="font-black text-white truncate flex items-center gap-1.5">
+                    {g.prize}
+                    <ChevronRight className="h-4 w-4 text-slate-600 group-hover:text-primary transition-colors shrink-0" />
+                  </p>
                   <div className="flex items-center gap-3 mt-1.5 text-xs text-slate-400 flex-wrap">
-                    <button
-                      onClick={() => openEntrants(g)}
-                      className="flex items-center gap-1 hover:text-primary transition-colors"
-                    >
+                    <span className="flex items-center gap-1">
                       <Users className="h-3 w-3" />
                       {g.entries} Teilnehmer
-                    </button>
+                    </span>
                     <span className="flex items-center gap-1">
                       <Trophy className="h-3 w-3" />
                       {g.winners} Gewinner
@@ -527,7 +596,7 @@ export function GiveawaysPanel({ guildId }: { guildId: string }) {
                     </span>
                     {g.channel && <span>#{g.channel}</span>}
                   </div>
-                </div>
+                </button>
 
                 <div className="flex gap-2 shrink-0">
                   {g.url && (
@@ -588,8 +657,15 @@ export function GiveawaysPanel({ guildId }: { guildId: string }) {
                 key={g.message_id}
                 className="bg-[#10233f] border border-slate-800 rounded-2xl px-5 py-3.5 flex items-center gap-4 flex-wrap"
               >
-                <div className="min-w-0 flex-1">
-                  <p className="font-bold text-slate-300 truncate">{g.prize}</p>
+                <button
+                  onClick={() => setOpenId(g.message_id)}
+                  className="min-w-0 flex-1 text-left group"
+                  title="Details öffnen"
+                >
+                  <p className="font-bold text-slate-300 truncate flex items-center gap-1.5">
+                    {g.prize}
+                    <ChevronRight className="h-3.5 w-3.5 text-slate-700 group-hover:text-primary transition-colors shrink-0" />
+                  </p>
                   <p className="text-xs text-slate-500 mt-0.5">
                     {g.winner_ids.length > 0
                       ? `${g.winner_ids.length} Gewinner · ${g.entries} Teilnehmer`
@@ -597,7 +673,7 @@ export function GiveawaysPanel({ guildId }: { guildId: string }) {
                     {" · "}
                     {relativeTime(g.ends_at)}
                   </p>
-                </div>
+                </button>
 
                 <div className="flex gap-2 shrink-0">
                   {g.entries > 0 && (

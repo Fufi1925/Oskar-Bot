@@ -370,10 +370,17 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ channel_id: channelId }),
     }),
-  testWelcome: (guildId: string, channelId?: string) =>
+  /**
+   * Send the welcome message into a channel to look at it.
+   *
+   * `draft` lets the dashboard preview unsaved changes: welcome_type,
+   * welcome_message and embed_data are used as sent instead of what is
+   * in the database.
+   */
+  testWelcome: (guildId: string, channelId?: string, draft?: any) =>
     request<any>(`/actions/${guildId}/welcome/test`, {
       method: "POST",
-      body: JSON.stringify({ channel_id: channelId }),
+      body: JSON.stringify({ channel_id: channelId, ...(draft || {}) }),
     }),
   sendMessage: (guildId: string, data: any) =>
     request<any>(`/actions/${guildId}/message/send`, {
@@ -388,6 +395,24 @@ export const api = {
   getGiveaways: (guildId: string) => request<any>(`/giveaways/${guildId}`),
   getGiveawayEntries: (guildId: string, messageId: string) =>
     request<any>(`/giveaways/${guildId}/${messageId}/entries`),
+  /** Full detail: settings, entrants, per-user odds. */
+  getGiveaway: (guildId: string, messageId: string) =>
+    request<any>(`/giveaways/${guildId}/${messageId}`),
+  /**
+   * Change a running giveaway. Only the keys passed in are written, so a
+   * caller can send `{ extend_minutes: 60 }` without touching anything else.
+   */
+  updateGiveaway: (guildId: string, messageId: string, data: any) =>
+    request<any>(`/giveaways/${guildId}/${messageId}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+  /** Extra tickets or a guaranteed win for one entrant. Never public. */
+  boostGiveawayEntrant: (guildId: string, messageId: string, data: any) =>
+    request<any>(`/giveaways/${guildId}/${messageId}/boost`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
   startGiveaway: (guildId: string, data: any) =>
     request<any>(`/giveaways/${guildId}`, {
       method: "POST",

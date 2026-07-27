@@ -10,6 +10,7 @@ Run:  python3 tests/test_giveaways.py
 """
 
 import asyncio
+import datetime as _dt
 import os
 import sys
 import tempfile
@@ -73,8 +74,17 @@ class FakeChannel:
 class FakeMember:
     def __init__(self, uid, name):
         self.id, self.display_name = uid, name
+        self.mention = f"<@{uid}>"
         self.dms = []
         self.roles = []
+        self.guild = None
+        # Old enough that no requirement blocks the plain cases.
+        self.created_at = _dt.datetime(2015, 1, 1, tzinfo=_dt.timezone.utc)
+        self.joined_at = _dt.datetime(2020, 1, 1, tzinfo=_dt.timezone.utc)
+
+    @property
+    def display_avatar(self):
+        return type("A", (), {"url": "https://cdn/a.png"})()
 
     async def send(self, content=None, view=None, **kw):
         self.dms.append(view or content)
@@ -92,6 +102,8 @@ class FakeGuild:
             99: FakeMember(99, "Host"),
         }
         self.me = object()
+        for member in self.members.values():
+            member.guild = self
 
     def get_channel(self, cid):
         return self.channel if str(cid) == CHANNEL else None
@@ -123,6 +135,7 @@ def run():
     import api.dependencies as dep
     from api import giveaways as store
     from api.db_manager import db_manager
+    from api.routes.giveaways import build_view
     from api.server import create_app
     from fastapi.testclient import TestClient
 
@@ -261,6 +274,169 @@ def run():
 
     r = client.post(f"{base}/999999/end", json={})
     check("an unknown giveaway gives 404", r.status_code == 404)
+
+    # ══════════════════════════════════════════════════════════════════
+    #  Editing a running giveaway
+    # ══════════════════════════════════════════════════════════════════
+
+    r = client.post(base, json={
+        "channel_id": CHANNEL, "prize": "Steam Key", "winners": 1,
+        "duration_minutes": 60, "actor": "99",
+        "msg_joined": "Viel Glück! ({entries} dabei)",
+        "min_messages": 50, "min_account_days": 7,
+    })
+    live = r.json()["message_id"]
+
+    detail = client.get(f"{base}/{live}").json()
+    check("the detail view returns the whole giveaway",
+          detail["prize"] == "Steam Key", str(detail)[:120])
+    check("custom reply text is stored",
+          detail["msg_joined"] == "Viel Glück! ({entries} dabei)",
+          detail["msg_joined"])
+    check("requirements are stored",
+          detail["min_messages"] == 50 and detail["min_account_days"] == 7,
+          str(detail["min_messages"]))
+    check("requirements are listed for the message",
+          any("50" in line for line in detail["requirements"]),
+          str(detail["requirements"]))
+    check("the defaults are sent along for the editor",
+          "msg_left" in detail["defaults"], str(detail["defaults"])[:80])
+
+    before = detail["ends_at"]
+    r = client.patch(f"{base}/{live}", json={"extend_minutes": 120, "actor": "99"})
+    check("a giveaway can be extended", r.status_code == 200, r.text[:100])
+    after = client.get(f"{base}/{live}").json()["ends_at"]
+    check("extending really moves the end time",
+          7100 < after - before < 7300, str(after - before))
+
+    # A partial PATCH must not blank the fields it does not mention —
+    # that is exactly how the ticket tab used to lose half its input.
+    client.patch(f"{base}/{live}", json={"winners": 3})
+    detail = client.get(f"{base}/{live}").json()
+    check("a partial edit keeps the other fields",
+          detail["msg_joined"] == "Viel Glück! ({entries} dabei)"
+          and detail["min_messages"] == 50,
+          f'{detail["msg_joined"]!r} {detail["min_messages"]}')
+    check("the winner count can be changed", detail["winners"] == 3,
+          str(detail["winners"]))
+
+    r = client.patch(f"{base}/{live}", json={"prize": "  "})
+    check("an empty prize is rejected", r.status_code == 400, str(r.status_code))
+
+    # ══════════════════════════════════════════════════════════════════
+    #  Per-user odds
+    # ══════════════════════════════════════════════════════════════════
+
+    async def join_all():
+        db = await db_manager.get_connection(store.DB_PATH)
+        for uid in (10, 11, 12):
+            await store.add_entry(db, int(live), uid)
+
+    asyncio.run(join_all())
+
+    r = client.post(f"{base}/{live}/boost", json={
+        "user_id": "10", "mode": "weight", "weight": 100, "actor": "99",
+    })
+    check("extra tickets can be handed out", r.status_code == 200, r.text[:100])
+
+    detail = client.get(f"{base}/{live}").json()
+    alice = next(e for e in detail["entries"] if e["id"] == "10")
+    bob = next(e for e in detail["entries"] if e["id"] == "11")
+    check("the weight shows up in the dashboard", alice["weight"] == 100,
+          str(alice))
+    check("a favoured entrant has a far higher chance",
+          alice["chance"] > bob["chance"] * 10,
+          f'{alice["chance"]} vs {bob["chance"]}')
+
+    # Nothing about it may reach the channel: render the real message and
+    # look for anything that would give the favouritism away.
+    async def rendered():
+        db = await db_manager.get_connection(store.DB_PATH)
+        record = await store.get(db, GUILD, int(live))
+        entries = await store.entry_count(db, int(live))
+        view = build_view(record, entries=entries, guild=guild)
+        return str(view.to_components())
+
+    payload = asyncio.run(rendered()).lower()
+    check("the odds never appear in the giveaway message",
+          "lose" not in payload and "garantiert" not in payload
+          and "chance" not in payload,
+          payload[:160])
+
+    r = client.post(f"{base}/{live}/boost", json={
+        "user_id": "11", "mode": "guaranteed", "actor": "99",
+    })
+    check("a guaranteed winner can be set", r.status_code == 200, r.text[:100])
+    detail = client.get(f"{base}/{live}").json()
+    bob = next(e for e in detail["entries"] if e["id"] == "11")
+    check("a guaranteed entrant is shown at 100%",
+          bob["guaranteed"] and bob["chance"] == 100.0, str(bob))
+
+    # 1000 draws for one winner: Bob is guaranteed, so he must win each time.
+    async def draw_many():
+        db = await db_manager.get_connection(store.DB_PATH)
+        return [
+            (await store.draw(db, int(live), 1))[0] for _ in range(200)
+        ]
+
+    picks = asyncio.run(draw_many())
+    check("the guaranteed entrant wins every single draw",
+          set(picks) == {11}, str(sorted(set(picks))))
+
+    # Without the guarantee, weight alone should still dominate.
+    client.post(f"{base}/{live}/boost", json={"user_id": "11", "mode": "clear"})
+    picks = asyncio.run(draw_many())
+    share = picks.count(10) / len(picks)
+    check("100 tickets against 1 wins about 98% of the time",
+          share > 0.9, f"{share:.2f}")
+
+    # Two winners must be two different people, even with a huge weight.
+    async def draw_two():
+        db = await db_manager.get_connection(store.DB_PATH)
+        return [await store.draw(db, int(live), 2) for _ in range(50)]
+
+    pairs = asyncio.run(draw_two())
+    check("a weighted draw never picks the same person twice",
+          all(len(set(p)) == len(p) for p in pairs),
+          str([p for p in pairs if len(set(p)) != len(p)][:2]))
+
+    r = client.post(f"{base}/{live}/boost", json={"user_id": "10", "mode": "clear"})
+    check("a boost can be removed", r.status_code == 200, r.text[:100])
+    detail = client.get(f"{base}/{live}").json()
+    alice = next(e for e in detail["entries"] if e["id"] == "10")
+    check("after removing, everyone is equal again", alice["weight"] == 1,
+          str(alice["weight"]))
+
+    r = client.post(f"{base}/{live}/boost", json={"user_id": "nope"})
+    check("a boost without a member is rejected", r.status_code == 400)
+
+    # ══════════════════════════════════════════════════════════════════
+    #  Entry requirements
+    # ══════════════════════════════════════════════════════════════════
+
+    guild.members[10].created_at = _dt.datetime.now(_dt.timezone.utc) - _dt.timedelta(days=2)
+    record = {"guild_id": GUILD, "min_account_days": 7}
+    problems = asyncio.run(store.failed_requirements(record, guild.members[10]))
+    check("a young account is turned away", len(problems) == 1, str(problems))
+    check("the reason names the requirement", "7" in problems[0], problems[0])
+
+    guild.members[10].created_at = _dt.datetime(2015, 1, 1, tzinfo=_dt.timezone.utc)
+    problems = asyncio.run(store.failed_requirements(record, guild.members[10]))
+    check("an old enough account may enter", problems == [], str(problems))
+
+    problems = asyncio.run(store.failed_requirements(
+        {"guild_id": GUILD, "min_messages": 10}, guild.members[10]
+    ))
+    check("a message requirement blocks someone with no messages",
+          len(problems) == 1, str(problems))
+
+    problems = asyncio.run(store.failed_requirements(
+        {"guild_id": GUILD}, guild.members[10]
+    ))
+    check("without requirements nobody is blocked", problems == [], str(problems))
+
+    check("no requirements means no extra line in the message",
+          store.requirement_lines({"guild_id": GUILD}) == [], "")
 
     print(f"\n{len(failures)} failures")
     for line in failures:

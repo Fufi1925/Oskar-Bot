@@ -112,55 +112,90 @@ class Giveaway(commands.Cog):
 
         try:
             from api import giveaways as gstore
+            from api.routes.giveaways import (
+                build_view,
+                message_text,
+                placeholder_values,
+            )
+            from utils.panels import StatusCard
+
+            async def reply(title, body, tone="info"):
+                """Every answer is a Components V2 card, like the panel itself."""
+                await interaction.response.send_message(
+                    view=StatusCard(title, body, tone=tone), ephemeral=True
+                )
 
             record = await gstore.get(self.connection, interaction.guild_id, message_id)
             if record is None:
-                return await interaction.response.send_message(
-                    "Dieses Gewinnspiel gibt es nicht mehr.", ephemeral=True
+                return await reply(
+                    "Nicht mehr da", "Dieses Gewinnspiel gibt es nicht mehr.", "error"
                 )
 
             if record.get("ended") or float(record.get("ends_at") or 0) <= datetime.datetime.now().timestamp():
-                return await interaction.response.send_message(
-                    "Dieses Gewinnspiel ist bereits beendet.", ephemeral=True
+                return await reply(
+                    "Schon vorbei",
+                    message_text(record, "msg_ended", placeholder_values(record)),
+                    "warning",
                 )
 
-            # Optional role requirement.
-            required = record.get("required_role_id")
-            if required and interaction.guild:
-                role = interaction.guild.get_role(int(required))
-                if role and role not in getattr(interaction.user, "roles", []):
-                    return await interaction.response.send_message(
-                        f"Dafür brauchst du die Rolle {role.mention}.", ephemeral=True
+            # Entry requirements: role, blocked role, messages, level,
+            # account age, time on the server. All of them optional.
+            member = interaction.user
+            already_in = interaction.user.id in await gstore.entry_ids(
+                self.connection, message_id
+            )
+            if not already_in:
+                problems = await gstore.failed_requirements(record, member)
+                if problems:
+                    heading = message_text(
+                        record, "msg_denied", placeholder_values(record)
                     )
+                    return await reply(
+                        "Noch nicht",
+                        heading + "\n" + "\n".join(f"• {p}" for p in problems),
+                        "warning",
+                    )
+
+            if already_in and not record.get("allow_leave", 1):
+                total = await gstore.entry_count(self.connection, message_id)
+                return await reply(
+                    "Schon dabei",
+                    f"Du nimmst bereits teil. Teilnehmer: **{total}**",
+                    "success",
+                )
 
             # Pressing again leaves the giveaway, so it doubles as an undo.
             added = await gstore.add_entry(
                 self.connection, message_id, interaction.user.id
             )
-            if added:
-                total = await gstore.entry_count(self.connection, message_id)
-                await interaction.response.send_message(
-                    f"Du bist dabei! Teilnehmer: **{total}**\n"
-                    "Nochmal drücken, um wieder auszusteigen.",
-                    ephemeral=True,
-                )
-            else:
+            if not added:
                 await gstore.remove_entry(
                     self.connection, message_id, interaction.user.id
                 )
-                total = await gstore.entry_count(self.connection, message_id)
-                await interaction.response.send_message(
-                    f"Du nimmst nicht mehr teil. Teilnehmer: **{total}**",
-                    ephemeral=True,
+
+            total = await gstore.entry_count(self.connection, message_id)
+            values = placeholder_values(record, entries=total)
+            if added:
+                await reply(
+                    "Du bist dabei",
+                    message_text(record, "msg_joined", values)
+                    + ("\n\nNochmal drücken, um wieder auszusteigen."
+                       if record.get("allow_leave", 1) else ""),
+                    "success",
+                )
+            else:
+                await reply(
+                    "Ausgestiegen",
+                    message_text(record, "msg_left", values),
+                    "info",
                 )
 
             # Keep the entry count on the message honest.
             try:
-                from api.routes.giveaways import build_view
-
-                total = await gstore.entry_count(self.connection, message_id)
                 await interaction.message.edit(
-                    view=build_view(record, entries=total)
+                    view=build_view(
+                        record, entries=total, guild=interaction.guild
+                    )
                 )
             except Exception:
                 pass
@@ -168,8 +203,13 @@ class Giveaway(commands.Cog):
         except Exception as exc:
             logging.error(f"Giveaway join failed: {exc}")
             if not interaction.response.is_done():
+                from utils.panels import StatusCard
+
                 await interaction.response.send_message(
-                    "Da ist etwas schiefgelaufen.", ephemeral=True
+                    view=StatusCard(
+                        "Fehler", "Da ist etwas schiefgelaufen.", tone="error"
+                    ),
+                    ephemeral=True,
                 )
 
     async def check_for_ended_giveaways(self):

@@ -1,218 +1,587 @@
-/**
- * ╔══════════════════════════════════════════════════════════════════╗
- * ║                                                                  ║
- * ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
- * ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
- * ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
- * ║                                                                  ║
- * ║           © 2026 University Bot Devs — All Rights Reserved               ║
- * ║                                                                  ║
- * ║   discord  ──  https://discord.gg/MG3rYnUZJV                      ║
- * ║   youtube  ──  https://youtube.com/@University BotDevs                   ║
- * ║   github   ──  https://github.com/University Bot                        ║
- * ║                                                                  ║
- * ╚══════════════════════════════════════════════════════════════════╝
- */
-
 "use client";
 
-import React, { useState } from "react";
-import { 
-  Save,
-  MessageSquare,
-  Type,
-  LayoutTemplate,
-  RefreshCcw
+/**
+ * The welcome message, editable in full.
+ *
+ * What this replaces: a form with six fields, in English, where the
+ * channel came from a plain <Select> (which turned the channel id into a
+ * JavaScript number and corrupted it), the embed's author and footer
+ * could not be set at all, and the only "preview" was posting into a
+ * real channel.
+ *
+ * Now every field the bot reads is here, the preview renders next to the
+ * form as you type, and the placeholders can be inserted by clicking
+ * them rather than being typed from memory.
+ */
+
+import React, { useMemo, useRef, useState } from "react";
+import {
+  AtSign, Eye, Image as ImageIcon, Loader2, MessageSquare, Save, Send,
+  Sparkles, Trash2, Type,
 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
-import { Button } from "@/components/ui/button";
-import { Select } from "@/components/ui/select";
-import { WelcomeConfig, DiscordChannel } from "@/types/api";
+import { cn } from "@/lib/utils";
+import { ChannelPicker } from "@/components/dashboard/pickers";
+import { WelcomeConfig } from "@/types/api";
 
-interface WelcomeFormProps {
-  initialConfig: WelcomeConfig;
-  channels: DiscordChannel[];
-  guildId: string;
+const INPUT =
+  "w-full bg-[#0d1b31] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-primary/50 transition-colors";
+
+/** Exactly the placeholders utils/greet_render.py understands. */
+const TOKENS = [
+  { token: "{user}", hint: "Erwähnt das Mitglied", sample: "@Neuer" },
+  { token: "{user_name}", hint: "Benutzername", sample: "neuer" },
+  { token: "{user_nick}", hint: "Anzeigename", sample: "Neuer" },
+  { token: "{user_id}", hint: "ID des Mitglieds", sample: "123456789012345678" },
+  { token: "{user_avatar}", hint: "Link zum Profilbild", sample: "https://cdn.discordapp.com/…" },
+  { token: "{user_createdate}", hint: "Account erstellt am", sample: "Mo, Jan 08, 2024" },
+  { token: "{user_joindate}", hint: "Beigetreten am", sample: "Fr, Jul 25, 2026" },
+  { token: "{server_name}", hint: "Servername", sample: "Mein Server" },
+  { token: "{server_membercount}", hint: "Mitgliederzahl", sample: "1.204" },
+  { token: "{server_icon}", hint: "Link zum Serverbild", sample: "https://cdn.discordapp.com/…" },
+];
+
+const TEMPLATES = [
+  {
+    name: "Kurz & freundlich",
+    type: "simple",
+    message: "Willkommen {user} auf **{server_name}**! 🎉 Du bist Mitglied Nummer {server_membercount}.",
+  },
+  {
+    name: "Mit Bild",
+    type: "embed",
+    embed: {
+      title: "Willkommen auf {server_name}!",
+      description:
+        "Schön, dass du da bist, {user}!\n\nSchau dich ruhig um — du bist unser {server_membercount}. Mitglied.",
+      color: "#5865f2",
+      thumbnail: "{user_avatar}",
+      footer_text: "Beigetreten am {user_joindate}",
+    },
+  },
+  {
+    name: "Sachlich",
+    type: "embed",
+    embed: {
+      title: "Neues Mitglied",
+      description: "{user} ist dem Server beigetreten.",
+      color: "#2f3136",
+      footer_text: "Mitglied #{server_membercount}",
+    },
+  },
+];
+
+function Field({ label, hint, children }: any) {
+  return (
+    <div className="space-y-2">
+      <span className="text-xs font-black uppercase tracking-widest text-slate-500">
+        {label}
+      </span>
+      {children}
+      {hint && <p className="text-[11px] text-slate-600 leading-relaxed">{hint}</p>}
+    </div>
+  );
 }
 
-export function WelcomeForm({ initialConfig, channels, guildId }: WelcomeFormProps) {
+/** Fill the placeholders the same way the bot does, for the preview. */
+function fillTokens(text: string) {
+  let out = text || "";
+  for (const t of TOKENS) {
+    out = out.split(t.token).join(t.sample);
+  }
+  return out;
+}
+
+function isImage(url: string) {
+  const filled = fillTokens(url || "");
+  return /^https?:\/\//.test(filled);
+}
+
+export function WelcomeForm({
+  initialConfig,
+  guildId,
+}: {
+  initialConfig: WelcomeConfig;
+  channels?: any[];
+  guildId: string;
+}) {
   const [config, setConfig] = useState<WelcomeConfig>(initialConfig);
   const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const lastFocused = useRef<HTMLTextAreaElement | HTMLInputElement | null>(null);
 
-  const handleSave = async () => {
+  // Memoised: a fresh `{}` on every render would make the preview below
+  // recompute constantly.
+  const embed = useMemo(
+    () => (config.embed_data || {}) as Record<string, any>,
+    [config.embed_data]
+  );
+  const isEmbed = (config.welcome_type || "simple") === "embed";
+
+  const setEmbed = (patch: any) =>
+    setConfig({ ...config, embed_data: { ...embed, ...patch } });
+
+  /** Insert a placeholder where the cursor last was. */
+  const insert = (token: string) => {
+    const el = lastFocused.current;
+    if (!el) return toast.info("Erst in ein Textfeld klicken, dann den Platzhalter.");
+    const start = el.selectionStart ?? el.value.length;
+    const end = el.selectionEnd ?? start;
+    const next = el.value.slice(0, start) + token + el.value.slice(end);
+    // React does not see a direct .value write, so dispatch an input event.
+    const setter = Object.getOwnPropertyDescriptor(
+      el instanceof HTMLTextAreaElement
+        ? HTMLTextAreaElement.prototype
+        : HTMLInputElement.prototype,
+      "value"
+    )?.set;
+    setter?.call(el, next);
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+    el.focus();
+    el.setSelectionRange(start + token.length, start + token.length);
+  };
+
+  const track = {
+    onFocus: (e: any) => { lastFocused.current = e.target; },
+  };
+
+  const save = async () => {
+    if (!config.channel_id) {
+      return toast.error("Bitte zuerst einen Kanal wählen.");
+    }
     setSaving(true);
-    const promise = api.updateWelcome(guildId, config);
-
-    toast.promise(promise, {
-      loading: 'Saving welcome configuration...',
-      success: 'Welcome settings saved successfully!',
-      error: 'Failed to update welcome settings',
-    });
-
     try {
-      await promise;
+      await api.updateWelcome(guildId, config);
+      toast.success("Begrüßung gespeichert.");
     } catch (err: any) {
-      console.error(err);
+      toast.error(err?.message || "Speichern fehlgeschlagen.");
     } finally {
       setSaving(false);
     }
   };
 
-  const channelOptions = channels.map(c => ({
-    value: c.id.toString(),
-    label: `#${c.name}`
-  }));
+  /** Post it into the channel exactly as a member would see it. */
+  const sendTest = async () => {
+    if (!config.channel_id) {
+      return toast.error("Bitte zuerst einen Kanal wählen.");
+    }
+    setTesting(true);
+    try {
+      const res = await api.testWelcome(guildId, config.channel_id, {
+        welcome_type: config.welcome_type || "simple",
+        welcome_message: config.welcome_message || "",
+        embed_data: config.embed_data || null,
+      });
+      toast.success(res?.result || "Vorschau gesendet.");
+    } catch (err: any) {
+      toast.error(err?.message || "Konnte nicht gesendet werden.");
+    } finally {
+      setTesting(false);
+    }
+  };
 
-  const typeOptions = [
-    { value: "simple", label: "Simple Text Message" },
-    { value: "embed", label: "Rich Embed Message" }
-  ];
+  const preview = useMemo(() => ({
+    content: fillTokens(
+      isEmbed ? embed.message || "" : config.welcome_message || ""
+    ),
+    title: fillTokens(embed.title || ""),
+    description: fillTokens(embed.description || ""),
+    footer: fillTokens(embed.footer_text || ""),
+    author: fillTokens(embed.author_name || ""),
+    thumbnail: fillTokens(embed.thumbnail || ""),
+    image: fillTokens(embed.image || ""),
+    colour: embed.color || "#5865f2",
+  }), [config, embed, isEmbed]);
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-      <div className="lg:col-span-2 space-y-6">
-        <div className="bg-[#10233f] border border-slate-800 rounded-3xl shadow-xl p-8 space-y-6">
-          <div className="space-y-4">
-            <div>
-              <label className="text-xs font-black uppercase text-slate-500 tracking-widest pl-1">Response Type</label>
-              <Select 
-                value={config.welcome_type || "simple"}
-                onValueChange={(val) => setConfig({ ...config, welcome_type: val })}
-                options={typeOptions}
-                className="mt-2"
-              />
-            </div>
+    <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
+      {/* ══ Form ═══════════════════════════════════════ */}
+      <div className="xl:col-span-3 space-y-6">
+        <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-6 space-y-5">
+          <Field label="Kanal" hint="Hier landet die Begrüßung.">
+            <ChannelPicker
+              guildId={guildId}
+              value={config.channel_id || ""}
+              onChange={(id) => setConfig({ ...config, channel_id: id || null })}
+              placeholder="Kanal wählen"
+              channelTypes={["0", "5"]}
+            />
+          </Field>
 
-            <div>
-              <label className="text-xs font-black uppercase text-slate-500 tracking-widest pl-1">Welcome Channel</label>
-              <Select 
-                value={config.channel_id || ""}
-                onValueChange={(val) => setConfig({ ...config, channel_id: val })}
-                options={channelOptions}
-                placeholder="Select a channel..."
-                className="mt-2"
-              />
+          <Field label="Art der Nachricht">
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { id: "simple", icon: MessageSquare, label: "Nur Text", desc: "Eine normale Nachricht" },
+                { id: "embed", icon: Sparkles, label: "Als Karte", desc: "Mit Rahmen, Bild und Farbe" },
+              ].map((o) => (
+                <button
+                  key={o.id}
+                  onClick={() => setConfig({ ...config, welcome_type: o.id })}
+                  className={cn(
+                    "text-left rounded-2xl border p-4 transition-all",
+                    (config.welcome_type || "simple") === o.id
+                      ? "bg-primary/10 border-primary/40"
+                      : "bg-[#0d1b31] border-slate-800 hover:border-slate-700"
+                  )}
+                >
+                  <o.icon className={cn(
+                    "h-4 w-4 mb-2",
+                    (config.welcome_type || "simple") === o.id ? "text-primary" : "text-slate-500"
+                  )} />
+                  <p className="text-sm font-bold text-white">{o.label}</p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">{o.desc}</p>
+                </button>
+              ))}
             </div>
+          </Field>
 
-            {config.welcome_type === "simple" && (
-              <div>
-                <label className="text-xs font-black uppercase text-slate-500 tracking-widest pl-1">Message Content</label>
-                <textarea 
-                  value={config.welcome_message || ""}
-                  onChange={(e) => setConfig({ ...config, welcome_message: e.target.value })}
-                  placeholder="Welcome {user} to {server_name}!"
-                  className="w-full mt-2 bg-[#0b1f3a] border border-slate-800 rounded-xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-white min-h-[120px]"
+          <Field
+            label="Nach X Sekunden löschen"
+            hint="0 heißt: die Begrüßung bleibt stehen."
+          >
+            <input
+              type="number"
+              min={0}
+              value={config.auto_delete_duration || 0}
+              onChange={(e) =>
+                setConfig({
+                  ...config,
+                  auto_delete_duration: Math.max(0, Number(e.target.value) || 0),
+                })
+              }
+              className={INPUT}
+            />
+          </Field>
+        </div>
+
+        {/* Placeholders */}
+        <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-6 space-y-3">
+          <div>
+            <p className="text-xs font-black uppercase tracking-widest text-slate-500">
+              Platzhalter
+            </p>
+            <p className="text-[11px] text-slate-600 mt-1.5">
+              Ins Textfeld klicken, dann hier auf einen Platzhalter — er wird
+              an der Cursorstelle eingefügt.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {TOKENS.map((t) => (
+              <button
+                key={t.token}
+                title={`${t.hint} → ${t.sample}`}
+                onClick={() => insert(t.token)}
+                className="px-2.5 py-1.5 rounded-lg bg-white/[0.04] border border-white/10 text-[11px] font-mono text-slate-300 hover:text-primary hover:border-primary/30 transition-all"
+              >
+                {t.token}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Text */}
+        {!isEmbed && (
+          <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-6">
+            <Field label="Nachricht">
+              <textarea
+                {...track}
+                value={config.welcome_message || ""}
+                onChange={(e) =>
+                  setConfig({ ...config, welcome_message: e.target.value })
+                }
+                rows={5}
+                placeholder="Willkommen {user} auf {server_name}!"
+                className={cn(INPUT, "resize-y")}
+              />
+            </Field>
+          </div>
+        )}
+
+        {/* Embed */}
+        {isEmbed && (
+          <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-6 space-y-5">
+            <Field
+              label="Text über der Karte"
+              hint="Optional. Nützlich, um jemanden zu pingen — in der Karte selbst gibt es keine Benachrichtigung."
+            >
+              <input
+                {...track}
+                value={embed.message || ""}
+                onChange={(e) => setEmbed({ message: e.target.value })}
+                placeholder="{user}"
+                className={INPUT}
+              />
+            </Field>
+
+            <div className="grid md:grid-cols-2 gap-5">
+              <Field label="Überschrift">
+                <input
+                  {...track}
+                  value={embed.title || ""}
+                  onChange={(e) => setEmbed({ title: e.target.value })}
+                  placeholder="Willkommen auf {server_name}!"
+                  className={INPUT}
                 />
-              </div>
-            )}
-
-            {config.welcome_type === "embed" && (
-              <div className="space-y-4 pt-4 border-t border-slate-800/50">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-xs font-black uppercase text-slate-500 tracking-widest pl-1">Embed Title</label>
-                    <input 
-                      type="text"
-                      value={config.embed_data?.title || ""}
-                      onChange={(e) => setConfig({ ...config, embed_data: { ...config.embed_data, title: e.target.value }})}
-                      className="w-full mt-2 bg-[#0b1f3a] border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-white"
-                      placeholder="Welcome to the server!"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-black uppercase text-slate-500 tracking-widest pl-1">Embed Color (Hex)</label>
-                    <input 
-                      type="text"
-                      value={config.embed_data?.color || ""}
-                      onChange={(e) => setConfig({ ...config, embed_data: { ...config.embed_data, color: e.target.value }})}
-                      className="w-full mt-2 bg-[#0b1f3a] border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-white"
-                      placeholder="#3498db"
-                    />
-                  </div>
-                </div>
-                
-                <div>
-                  <label className="text-xs font-black uppercase text-slate-500 tracking-widest pl-1">Embed Description</label>
-                  <textarea 
-                    value={config.embed_data?.description || ""}
-                    onChange={(e) => setConfig({ ...config, embed_data: { ...config.embed_data, description: e.target.value }})}
-                    placeholder="We're glad to have you here, {user}!"
-                    className="w-full mt-2 bg-[#0b1f3a] border border-slate-800 rounded-xl p-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-white min-h-[100px]"
+              </Field>
+              <Field label="Farbe">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={
+                      /^#[0-9a-f]{6}$/i.test(embed.color || "")
+                        ? embed.color
+                        : "#5865f2"
+                    }
+                    onChange={(e) => setEmbed({ color: e.target.value })}
+                    className="h-11 w-14 rounded-xl bg-transparent border border-slate-800 cursor-pointer p-1 shrink-0"
+                  />
+                  <input
+                    value={embed.color || ""}
+                    onChange={(e) => setEmbed({ color: e.target.value })}
+                    placeholder="#5865f2"
+                    className={cn(INPUT, "font-mono")}
                   />
                 </div>
+              </Field>
+            </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-xs font-black uppercase text-slate-500 tracking-widest pl-1">Thumbnail URL</label>
-                    <input 
-                      type="text"
-                      value={config.embed_data?.thumbnail || ""}
-                      onChange={(e) => setConfig({ ...config, embed_data: { ...config.embed_data, thumbnail: e.target.value }})}
-                      className="w-full mt-2 bg-[#0b1f3a] border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-white"
-                      placeholder="{user_avatar} or https://..."
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-black uppercase text-slate-500 tracking-widest pl-1">Image URL</label>
-                    <input 
-                      type="text"
-                      value={config.embed_data?.image || ""}
-                      onChange={(e) => setConfig({ ...config, embed_data: { ...config.embed_data, image: e.target.value }})}
-                      className="w-full mt-2 bg-[#0b1f3a] border border-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-white"
-                      placeholder="https://..."
-                    />
-                  </div>
-                </div>
+            <Field label="Beschreibung">
+              <textarea
+                {...track}
+                value={embed.description || ""}
+                onChange={(e) => setEmbed({ description: e.target.value })}
+                rows={4}
+                placeholder="Schön, dass du da bist, {user}!"
+                className={cn(INPUT, "resize-y")}
+              />
+            </Field>
+
+            <div className="border-t border-slate-800 pt-5 space-y-5">
+              <p className="text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
+                <AtSign className="h-3.5 w-3.5" /> Kopfzeile
+              </p>
+              <div className="grid md:grid-cols-2 gap-5">
+                <Field label="Name">
+                  <input
+                    {...track}
+                    value={embed.author_name || ""}
+                    onChange={(e) => setEmbed({ author_name: e.target.value })}
+                    placeholder="{user_name}"
+                    className={INPUT}
+                  />
+                </Field>
+                <Field label="Bild daneben" hint="Muss mit https:// anfangen.">
+                  <input
+                    {...track}
+                    value={embed.author_icon || ""}
+                    onChange={(e) => setEmbed({ author_icon: e.target.value })}
+                    placeholder="{user_avatar}"
+                    className={INPUT}
+                  />
+                </Field>
               </div>
-            )}
-          </div>
+            </div>
 
-          <Button 
-            onClick={handleSave}
-            disabled={saving}
-            className="w-full h-14 text-base font-bold gap-2"
-          >
-            {saving ? <RefreshCcw className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
-            Save Configuration
-          </Button>
-        </div>
+            <div className="border-t border-slate-800 pt-5 space-y-5">
+              <p className="text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
+                <Type className="h-3.5 w-3.5" /> Fußzeile
+              </p>
+              <div className="grid md:grid-cols-2 gap-5">
+                <Field label="Text">
+                  <input
+                    {...track}
+                    value={embed.footer_text || ""}
+                    onChange={(e) => setEmbed({ footer_text: e.target.value })}
+                    placeholder="Mitglied #{server_membercount}"
+                    className={INPUT}
+                  />
+                </Field>
+                <Field label="Bild daneben">
+                  <input
+                    {...track}
+                    value={embed.footer_icon || ""}
+                    onChange={(e) => setEmbed({ footer_icon: e.target.value })}
+                    placeholder="{server_icon}"
+                    className={INPUT}
+                  />
+                </Field>
+              </div>
+            </div>
+
+            <div className="border-t border-slate-800 pt-5 space-y-5">
+              <p className="text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
+                <ImageIcon className="h-3.5 w-3.5" /> Bilder
+              </p>
+              <div className="grid md:grid-cols-2 gap-5">
+                <Field label="Kleines Bild oben rechts">
+                  <input
+                    {...track}
+                    value={embed.thumbnail || ""}
+                    onChange={(e) => setEmbed({ thumbnail: e.target.value })}
+                    placeholder="{user_avatar}"
+                    className={INPUT}
+                  />
+                </Field>
+                <Field label="Großes Bild unten">
+                  <input
+                    {...track}
+                    value={embed.image || ""}
+                    onChange={(e) => setEmbed({ image: e.target.value })}
+                    placeholder="https://…"
+                    className={INPUT}
+                  />
+                </Field>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
-      <div className="space-y-6">
-         <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-6 shadow-xl">
-            <h3 className="text-sm font-black uppercase text-slate-500 tracking-widest mb-4">Variables</h3>
-            <div className="space-y-2 text-xs text-slate-400 font-mono bg-slate-900/50 p-4 rounded-2xl border border-white/5">
-               <p className="flex justify-between hover:text-white transition-colors"><span>{'{user}'}</span> <span>@Username</span></p>
-               <p className="flex justify-between hover:text-white transition-colors"><span>{'{user_name}'}</span> <span>Username</span></p>
-               <p className="flex justify-between hover:text-white transition-colors"><span>{'{server_name}'}</span> <span>Server Name</span></p>
-               <p className="flex justify-between hover:text-white transition-colors"><span>{'{server_membercount}'}</span> <span>Total Members</span></p>
-               <p className="border-t border-slate-800 my-2 pt-2 flex justify-between hover:text-white transition-colors"><span>{'{user_avatar}'}</span> <span>Avatar Image</span></p>
-               <p className="flex justify-between hover:text-white transition-colors"><span>{'{server_icon}'}</span> <span>Server Logo</span></p>
+      {/* ══ Preview + actions ══════════════════════════ */}
+      <div className="xl:col-span-2 space-y-5">
+        <div className="xl:sticky xl:top-6 space-y-5">
+          <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-6 space-y-4">
+            <p className="text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
+              <Eye className="h-3.5 w-3.5" /> Vorschau
+            </p>
+
+            <div className="rounded-2xl bg-[#313338] p-4 space-y-2">
+              {preview.content && (
+                <p className="text-sm text-[#dbdee1] whitespace-pre-line break-words">
+                  {preview.content}
+                </p>
+              )}
+
+              {isEmbed ? (
+                <div
+                  className="rounded border-l-4 bg-[#2b2d31] p-3.5 space-y-2"
+                  style={{
+                    borderLeftColor: /^#[0-9a-f]{6}$/i.test(preview.colour)
+                      ? preview.colour
+                      : "#5865f2",
+                  }}
+                >
+                  <div className="flex gap-3">
+                    <div className="min-w-0 flex-1 space-y-1.5">
+                      {preview.author && (
+                        <p className="text-xs font-semibold text-white">
+                          {preview.author}
+                        </p>
+                      )}
+                      {preview.title && (
+                        <p className="text-[15px] font-bold text-white break-words">
+                          {preview.title}
+                        </p>
+                      )}
+                      {preview.description && (
+                        <p className="text-sm text-[#dbdee1] whitespace-pre-line break-words">
+                          {preview.description}
+                        </p>
+                      )}
+                    </div>
+                    {isImage(preview.thumbnail) && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={preview.thumbnail}
+                        alt=""
+                        className="h-16 w-16 rounded object-cover shrink-0"
+                        onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                      />
+                    )}
+                  </div>
+
+                  {isImage(preview.image) && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={preview.image}
+                      alt=""
+                      className="w-full rounded object-cover max-h-48"
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                    />
+                  )}
+
+                  {preview.footer && (
+                    <p className="text-[11px] text-[#949ba4] break-words">
+                      {preview.footer}
+                    </p>
+                  )}
+                </div>
+              ) : (
+                !preview.content && (
+                  <p className="text-sm text-slate-600 italic">
+                    Noch kein Text eingetragen.
+                  </p>
+                )
+              )}
             </div>
-            <p className="text-[10px] text-slate-500 italic text-center mt-4">You can use these variables in both message content and embeds to personalize welcomes.</p>
-         </div>
-         
-         <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-6 shadow-xl">
-            <h3 className="text-sm font-black uppercase text-slate-500 tracking-widest mb-4">Auto Setup</h3>
-            <Button onClick={() => setConfig({
-                ...config,
-                welcome_type: "embed",
-                embed_data: {
-                  ...config.embed_data,
-                  title: "Welcome to {server_name}!",
-                  description: "Hi {user}, we're glad you joined! You are member #{server_membercount}.",
-                  color: "2f3136",
-                  thumbnail: "{user_avatar}"
-                }
-              })} 
-              variant="outline" 
-              className="w-full border-primary/50 hover:bg-primary/20 text-primary"
+
+            <p className="text-[11px] text-slate-600 leading-relaxed">
+              Die Platzhalter sind hier mit Beispielwerten gefüllt. Wie es
+              wirklich aussieht, zeigt &bdquo;In den Kanal senden&ldquo;.
+            </p>
+          </div>
+
+          <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-6 space-y-3">
+            <button
+              onClick={save}
+              disabled={saving}
+              className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-primary text-xs font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:brightness-110 disabled:opacity-40 transition-all"
             >
-              <LayoutTemplate className="w-4 h-4 mr-2" />
-              Apply Default Template
-            </Button>
-         </div>
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              Speichern
+            </button>
+
+            <button
+              onClick={sendTest}
+              disabled={testing}
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-white/[0.03] border border-white/10 text-xs font-black uppercase tracking-widest text-slate-300 hover:text-primary hover:border-primary/30 disabled:opacity-40 transition-all"
+            >
+              {testing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              In den Kanal senden
+            </button>
+            <p className="text-[11px] text-slate-600 text-center">
+              Sendet den aktuellen Stand — auch ungespeichert.
+            </p>
+          </div>
+
+          <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-6 space-y-3">
+            <p className="text-xs font-black uppercase tracking-widest text-slate-500">
+              Vorlagen
+            </p>
+            {TEMPLATES.map((t) => (
+              <button
+                key={t.name}
+                onClick={() =>
+                  setConfig({
+                    ...config,
+                    welcome_type: t.type,
+                    ...(t.type === "simple"
+                      ? { welcome_message: t.message }
+                      : { embed_data: t.embed as any }),
+                  })
+                }
+                className="w-full text-left px-4 py-3 rounded-xl bg-[#0d1b31] border border-slate-800 text-sm text-slate-300 hover:text-primary hover:border-primary/30 transition-all"
+              >
+                {t.name}
+              </button>
+            ))}
+
+            <button
+              onClick={() =>
+                setConfig({
+                  ...config,
+                  welcome_message: "",
+                  embed_data: null,
+                })
+              }
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest text-slate-500 hover:text-red-400 transition-all"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Texte leeren
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -20,7 +20,7 @@ import discord
 from fastapi import APIRouter, Depends, HTTPException
 
 from api.dependencies import get_bot
-from utils.panels import Panel, StatusCard, ACCENT
+from utils.panels import Panel, ACCENT
 from utils import feature_audit
 
 if TYPE_CHECKING:
@@ -289,7 +289,21 @@ async def send_ticket_panel(guild_id: int, data: dict, bot: "universitybot" = De
 
 @router.post("/{guild_id}/welcome/test", summary="Send a welcome preview")
 async def test_welcome(guild_id: int, data: dict, bot: "universitybot" = Depends(get_bot)):
-    """Post the configured welcome message as if the caller had just joined."""
+    """
+    Post the configured welcome message as if the caller had just joined.
+
+    Rendering goes through utils/greet_render, the same code the greeter
+    runs on a real join. The preview used to have its own, smaller
+    implementation that filled `{server}` and `{count}` while the greeter
+    filled `{server_name}` and `{server_membercount}` — so the preview
+    showed something the members would never get, and half the
+    placeholders came out as raw `{server_name}` text.
+
+    Sending unsaved settings is supported: pass welcome_type,
+    welcome_message and embed_data and nothing is written to the database.
+    """
+    from utils import greet_render
+
     guild = _guild_or_404(bot, guild_id)
 
     async with aiosqlite.connect("db/welcome.db") as db:
@@ -300,68 +314,56 @@ async def test_welcome(guild_id: int, data: dict, bot: "universitybot" = Depends
         ) as cursor:
             row = await cursor.fetchone()
 
-    if row is None:
-        raise HTTPException(status_code=400, detail="No welcome message configured yet.")
+    stored = dict(
+        zip(("welcome_type", "welcome_message", "channel_id", "embed_data"), row)
+    ) if row else {}
 
-    welcome_type, message_text, channel_id, embed_raw = row
-    channel = _require_channel(guild, str(data.get("channel_id") or channel_id or ""))
+    # Anything sent along wins, so the dashboard can preview a draft.
+    config = {
+        "welcome_type": data.get("welcome_type") or stored.get("welcome_type"),
+        "welcome_message": (
+            data["welcome_message"] if "welcome_message" in data
+            else stored.get("welcome_message")
+        ),
+        "embed_data": (
+            json.dumps(data["embed_data"])
+            if isinstance(data.get("embed_data"), dict)
+            else data.get("embed_data") or stored.get("embed_data")
+        ),
+    }
 
-    # Resolve the same placeholders the live greeter uses.
+    if not any(config.values()):
+        raise HTTPException(
+            status_code=400, detail="Es ist noch keine Begrüßung eingerichtet."
+        )
+
+    channel = _require_channel(
+        guild, str(data.get("channel_id") or stored.get("channel_id") or "")
+    )
+
+    # Preview as the caller, so {user} shows a real person.
     member = None
     actor = str(data.get("actor", ""))
     if actor.isdigit():
         member = guild.get_member(int(actor))
     member = member or guild.me
 
-    def fill(text: str) -> str:
-        return (
-            (text or "")
-            .replace("{user}", member.mention if member else "@member")
-            .replace("{user.name}", member.display_name if member else "member")
-            .replace("{server}", guild.name)
-            .replace("{guild}", guild.name)
-            .replace("{count}", str(guild.member_count or 0))
-            .replace("{membercount}", str(guild.member_count or 0))
-        )
-
-    card = None
-    if embed_raw:
-        try:
-            parsed = json.loads(embed_raw)
-            sections = [
-                fill(parsed.get("description", "")),
-                fill(parsed.get("footer", "")),
-            ]
-            card = Panel(
-                fill(parsed.get("title", "")) or "Welcome",
-                *[s for s in sections if s],
-                accent=_colour(parsed.get("color")).value
-                if parsed.get("color")
-                else ACCENT["brand"],
-                image_url=parsed.get("image") or parsed.get("thumbnail") or None,
-            )
-        except Exception:
-            card = None
-
-    content = fill(message_text) if message_text else None
-    if not content and card is None:
-        raise HTTPException(status_code=400, detail="The welcome message is empty.")
+    content, embed = greet_render.render(config, member)
+    if content is None and embed is None:
+        raise HTTPException(status_code=400, detail="Die Begrüßung ist leer.")
 
     try:
-        if card is not None:
-            # A V2 layout cannot be combined with `content`, so the preview
-            # marker becomes part of the card.
-            message = await channel.send(view=card)
-        else:
-            message = await channel.send(content=f"**Preview**\n{content}")
+        message = await channel.send(content=content, embed=embed)
     except discord.Forbidden:
-        raise HTTPException(status_code=403, detail=f"The bot may not post in #{channel.name}.")
+        raise HTTPException(
+            status_code=403, detail=f"Der Bot darf in #{channel.name} nicht schreiben."
+        )
 
     return {
         "status": "success",
         "channel": channel.name,
         "url": message.jump_url,
-        "result": f"Preview sent to #{channel.name}.",
+        "result": f"Vorschau in #{channel.name} gesendet.",
     }
 
 
