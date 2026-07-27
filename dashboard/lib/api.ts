@@ -394,8 +394,13 @@ export const api = {
   getCounting: (g: string) => request<any>(`/extras/${g}/counting`),
   updateCounting: (g: string, data: any) =>
     request<any>(`/extras/${g}/counting`, { method: "PATCH", body: JSON.stringify(data) }),
-  resetCounting: (g: string) =>
-    request<any>(`/extras/${g}/counting/reset`, { method: "POST", body: "{}" }),
+  resetCounting: (g: string, keepRecord = true) =>
+    request<any>(`/extras/${g}/counting/reset`, {
+      method: "POST",
+      body: JSON.stringify({ keep_record: keepRecord }),
+    }),
+  announceCounting: (g: string) =>
+    request<any>(`/extras/${g}/counting/announce`, { method: "POST", body: "{}" }),
 
   getNotify: (g: string) => request<any>(`/extras/${g}/notify`),
   setNotify: (g: string, data: any) =>

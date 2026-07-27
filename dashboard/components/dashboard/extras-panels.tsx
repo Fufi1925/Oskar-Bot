@@ -736,30 +736,76 @@ export function JailPanel({ guildId }: { guildId: string }) {
 export function CountingPanel({ guildId }: { guildId: string }) {
   const load = useCallback(() => api.getCounting(guildId), [guildId]);
   const p = usePanel(load);
+  const [setTo, setSetTo] = useState("");
 
   if (p.loading) return <Loading />;
 
+  const mode = p.value("mode") || "reset";
+  // null means "follow the shared setting" — the selector shows that as
+  // its own option rather than silently picking one.
+  const wrongMode = p.value("wrong_number_mode") ?? null;
+  const doubleMode = p.value("double_post_mode") ?? null;
+  const warnings: string[] = p.data?.warnings || [];
+
   return (
     <section className="space-y-5">
+      {warnings.length > 0 && (
+        <Warn>
+          <span className="font-bold">Das Spiel läuft nicht rund:</span>
+          <br />
+          {warnings.map((w, i) => (
+            <span key={i}>
+              • {w}
+              <br />
+            </span>
+          ))}
+        </Warn>
+      )}
+
       <Card
         icon={Calculator}
-        title="Zähl-Spiel"
-        subtitle="Alle zählen gemeinsam hoch. Wer sich vertut oder zweimal hintereinander schreibt, macht es kaputt."
+        title="Counting"
+        subtitle="Alle zählen gemeinsam hoch — eine Zahl nach der anderen."
         onReload={p.reload}
       >
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-3 gap-3">
           <div className="bg-[#0d1b31] border border-slate-800 rounded-2xl px-4 py-3">
-            <p className="text-lg font-black text-white">{p.data?.current ?? 0}</p>
-            <p className="text-[11px] text-slate-500">Aktueller Stand</p>
+            <p className="text-2xl font-black text-white tabular-nums">
+              {p.data?.current ?? 0}
+            </p>
+            <p className="text-[11px] text-slate-500 mt-0.5">Aktueller Stand</p>
           </div>
           <div className="bg-[#0d1b31] border border-slate-800 rounded-2xl px-4 py-3">
-            <p className="text-lg font-black text-white flex items-center gap-1.5">
-              <Trophy className="h-4 w-4 text-amber-400" />
+            <p className="text-2xl font-black text-primary tabular-nums">
+              {p.data?.next_number ?? 1}
+            </p>
+            <p className="text-[11px] text-slate-500 mt-0.5">Als Nächstes</p>
+          </div>
+          <div className="bg-[#0d1b31] border border-slate-800 rounded-2xl px-4 py-3">
+            <p className="text-2xl font-black text-amber-400 flex items-center gap-1.5 tabular-nums">
+              <Trophy className="h-4 w-4 shrink-0" />
               {p.data?.high_score ?? 0}
             </p>
-            <p className="text-[11px] text-slate-500">Rekord</p>
+            <p className="text-[11px] text-slate-500 mt-0.5">Rekord</p>
           </div>
         </div>
+
+        {p.data?.last_user_name && (
+          <div className="flex items-center gap-2.5 rounded-xl bg-[#0d1b31] border border-slate-800 px-4 py-2.5">
+            {p.data?.last_user_avatar && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={p.data.last_user_avatar}
+                alt=""
+                className="h-6 w-6 rounded-full"
+              />
+            )}
+            <p className="text-[12px] text-slate-400">
+              Zuletzt gezählt von{" "}
+              <span className="text-white font-bold">{p.data.last_user_name}</span>
+            </p>
+          </div>
+        )}
 
         <InlineToggle
           checked={p.value("enabled")}
@@ -767,7 +813,10 @@ export function CountingPanel({ guildId }: { guildId: string }) {
           label="Zählen aktiv"
         />
 
-        <Field label="Kanal">
+        <Field
+          label="Kanal"
+          hint="Nur in diesem Kanal wird gezählt. Der Bot braucht dort Schreibrechte, „Nachrichten verwalten“ und „Reaktionen hinzufügen“."
+        >
           <ChannelPicker
             guildId={guildId}
             value={p.value("channel") || ""}
@@ -777,7 +826,30 @@ export function CountingPanel({ guildId }: { guildId: string }) {
           />
         </Field>
 
-        <Field label="Bei einem Fehler">
+        <SaveBar
+          count={p.dirty}
+          busy={p.busy}
+          onDiscard={() => p.setDraft({})}
+          onSave={() => p.act(() => api.updateCounting(guildId, p.draft))}
+        />
+      </Card>
+
+      <Card
+        icon={Users}
+        title="Regeln"
+        subtitle="Wie streng das Spiel sein soll."
+      >
+        <InlineToggle
+          checked={p.value("require_alternate")}
+          onCheckedChange={(v: boolean) => p.set("require_alternate", v)}
+          label="Immer abwechseln"
+          hint="Wer gerade gezählt hat, muss warten bis jemand anders dran war. Verhindert, dass eine Person allein durchzählt."
+        />
+
+        <Field
+          label="Bei einem Fehler"
+          hint="Gilt für alle Regelbrüche, solange unten nichts Eigenes eingestellt ist."
+        >
           <div className="grid grid-cols-2 gap-2">
             {[
               { id: "reset", label: "Zurück auf 0", desc: "Streng" },
@@ -788,7 +860,7 @@ export function CountingPanel({ guildId }: { guildId: string }) {
                 onClick={() => p.set("mode", o.id)}
                 className={cn(
                   "text-left rounded-2xl border p-4 transition-all",
-                  (p.value("mode") || "reset") === o.id
+                  mode === o.id
                     ? "bg-primary/10 border-primary/40"
                     : "bg-[#0d1b31] border-slate-800 hover:border-slate-700"
                 )}
@@ -800,18 +872,107 @@ export function CountingPanel({ guildId }: { guildId: string }) {
           </div>
         </Field>
 
-        <button
-          onClick={() =>
-            p.act(
-              () => api.resetCounting(guildId),
-              "Zähler auf 0 setzen? Der Rekord bleibt erhalten."
-            )
-          }
-          disabled={p.busy}
-          className="w-full py-3 rounded-xl bg-white/[0.03] border border-white/10 text-xs font-black uppercase tracking-widest text-slate-400 hover:text-white disabled:opacity-40 transition-all"
+        <details className="group rounded-2xl bg-[#0d1b31] border border-slate-800 overflow-hidden">
+          <summary className="cursor-pointer list-none px-4 py-3 flex items-center justify-between">
+            <span className="text-xs font-black uppercase tracking-widest text-slate-400">
+              Pro Fehlerart einstellen
+            </span>
+            <Plus className="h-4 w-4 text-slate-500 group-open:rotate-45 transition-transform" />
+          </summary>
+          <div className="px-4 pb-4 space-y-4">
+            {[
+              {
+                key: "wrong_number_mode",
+                value: wrongMode,
+                label: "Falsche Zahl",
+                hint: "Jemand schreibt eine Zahl, die nicht an der Reihe ist.",
+              },
+              {
+                key: "double_post_mode",
+                value: doubleMode,
+                label: "Zweimal hintereinander",
+                hint: "Nur wichtig, wenn „Immer abwechseln“ an ist.",
+              },
+            ].map((row) => (
+              <Field key={row.key} label={row.label} hint={row.hint}>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { id: null, label: "Wie oben" },
+                    { id: "reset", label: "Auf 0" },
+                    { id: "continue", label: "Weiter" },
+                  ].map((o) => (
+                    <button
+                      key={String(o.id)}
+                      onClick={() => p.set(row.key, o.id)}
+                      className={cn(
+                        "rounded-xl border px-3 py-2.5 text-xs font-bold transition-all",
+                        row.value === o.id
+                          ? "bg-primary/10 border-primary/40 text-white"
+                          : "bg-[#0a1628] border-slate-800 text-slate-400 hover:border-slate-700"
+                      )}
+                    >
+                      {o.label}
+                    </button>
+                  ))}
+                </div>
+              </Field>
+            ))}
+          </div>
+        </details>
+      </Card>
+
+      <Card
+        icon={Hash}
+        title="Kanal aufräumen"
+        subtitle="Was mit Nachrichten passiert, die keine gültige Zahl sind."
+      >
+        <InlineToggle
+          checked={p.value("allow_chat")}
+          onCheckedChange={(v: boolean) => p.set("allow_chat", v)}
+          label="Normalen Text stehen lassen"
+          hint="An: „gg“ oder „nice“ bleiben stehen und brechen die Kette nicht. Aus: alles außer Zahlen wird gelöscht. Bot-Befehle bleiben in beiden Fällen unangetastet."
+        />
+
+        <InlineToggle
+          checked={p.value("delete_wrong")}
+          onCheckedChange={(v: boolean) => p.set("delete_wrong", v)}
+          label="Falsche Zahlen löschen"
+          hint="Aus: die falsche Zahl bleibt stehen, der Bot schreibt nur einen Hinweis."
+        />
+
+        <InlineToggle
+          checked={p.value("react_success")}
+          onCheckedChange={(v: boolean) => p.set("react_success", v)}
+          label="Haken bei richtiger Zahl"
+        />
+
+        {p.value("react_success") && (
+          <Field
+            label="Eigenes Emoji"
+            hint="Leer lassen für den Standard-Haken. Eigene Emojis nur von Servern, auf denen der Bot ist — sonst nimmt er wieder den Haken."
+          >
+            <input
+              className={INPUT}
+              value={p.value("success_emoji") ?? ""}
+              onChange={(e) => p.set("success_emoji", e.target.value)}
+              placeholder="z.B. ✅ oder <:name:123456789>"
+            />
+          </Field>
+        )}
+
+        <Field
+          label="Meilenstein alle"
+          hint="Der Bot meldet sich bei jedem Vielfachen. 0 schaltet die Meldungen ab."
         >
-          Zähler zurücksetzen
-        </button>
+          <input
+            type="number"
+            min={0}
+            max={10000}
+            className={INPUT}
+            value={p.value("milestone_every") ?? 100}
+            onChange={(e) => p.set("milestone_every", Number(e.target.value))}
+          />
+        </Field>
 
         <SaveBar
           count={p.dirty}
@@ -819,6 +980,81 @@ export function CountingPanel({ guildId }: { guildId: string }) {
           onDiscard={() => p.setDraft({})}
           onSave={() => p.act(() => api.updateCounting(guildId, p.draft))}
         />
+      </Card>
+
+      <Card
+        icon={Trophy}
+        title="Zähler verwalten"
+        subtitle="Stand von Hand setzen oder das Spiel neu starten."
+      >
+        <Field
+          label="Stand setzen"
+          hint="Nützlich, wenn ihr woanders weitergezählt habt. Die nächste erwartete Zahl ist dann eins höher."
+        >
+          <div className="flex gap-2">
+            <input
+              type="number"
+              min={0}
+              className={INPUT}
+              value={setTo}
+              onChange={(e) => setSetTo(e.target.value)}
+              placeholder={String(p.data?.current ?? 0)}
+            />
+            <button
+              onClick={async () => {
+                const value = Number(setTo);
+                if (!setTo.trim() || Number.isNaN(value) || value < 0) {
+                  toast.error("Bitte eine Zahl ab 0 eingeben.");
+                  return;
+                }
+                await p.act(() =>
+                  api.updateCounting(guildId, { current: value })
+                );
+                setSetTo("");
+              }}
+              disabled={p.busy}
+              className="px-5 rounded-xl bg-primary text-xs font-black uppercase tracking-widest shrink-0 hover:brightness-110 disabled:opacity-40 transition-all"
+            >
+              Setzen
+            </button>
+          </div>
+        </Field>
+
+        <div className="grid sm:grid-cols-2 gap-2">
+          <button
+            onClick={() =>
+              p.act(
+                () => api.resetCounting(guildId),
+                "Zähler auf 0 setzen? Der Rekord bleibt erhalten."
+              )
+            }
+            disabled={p.busy}
+            className="w-full py-3 rounded-xl bg-white/[0.03] border border-white/10 text-xs font-black uppercase tracking-widest text-slate-400 hover:text-white disabled:opacity-40 transition-all"
+          >
+            Zähler zurücksetzen
+          </button>
+          <button
+            onClick={() =>
+              p.act(
+                () => api.resetCounting(guildId, false),
+                "Zähler UND Rekord löschen? Das lässt sich nicht rückgängig machen."
+              )
+            }
+            disabled={p.busy}
+            className="w-full py-3 rounded-xl bg-red-500/[0.06] border border-red-500/20 text-xs font-black uppercase tracking-widest text-red-300 hover:bg-red-500/10 disabled:opacity-40 transition-all"
+          >
+            Auch Rekord löschen
+          </button>
+        </div>
+
+        <button
+          onClick={() => p.act(() => api.announceCounting(guildId))}
+          disabled={p.busy || !p.data?.channel}
+          className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-white/[0.03] border border-white/10 text-xs font-black uppercase tracking-widest text-slate-400 hover:text-white disabled:opacity-40 transition-all"
+        >
+          <Send className="h-3.5 w-3.5" />
+          Regeln in den Kanal posten
+        </button>
       </Card>
     </section>
   );

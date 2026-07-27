@@ -39,4 +39,4 @@ class _Counting(commands.Cog):
 
     async def __Counting__(self, ctx: commands.Context):
 
-        """`>counting`, `>counting enable/disable`, `>counting channel #channel`, `>counting stats`, `>counting config continue/reset`"""
+        """`>counting`, `>counting enable/disable`, `>counting channel #channel`, `>counting stats`, `>counting config continue/reset`, `>counting alternate on/off`, `>counting reset`"""

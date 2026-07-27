@@ -180,7 +180,7 @@ export default function DashboardLayout({
             { name: "Sticky-Nachricht", href: `/dashboard/guild/${currentGuildId}/sticky`, icon: Pin },
             { name: "Nachtmodus", href: `/dashboard/guild/${currentGuildId}/nightmode`, icon: Moon },
             { name: "Jail", href: `/dashboard/guild/${currentGuildId}/jail`, icon: Lock },
-            { name: "Zähl-Spiel", href: `/dashboard/guild/${currentGuildId}/counting`, icon: Calculator },
+            { name: "Counting", href: `/dashboard/guild/${currentGuildId}/counting`, icon: Calculator },
             { name: "Benachrichtigungen", href: `/dashboard/guild/${currentGuildId}/notify`, icon: Youtube },
             { name: "Geburtstage", href: `/dashboard/guild/${currentGuildId}/birthday`, icon: Cake },
             { name: "Auto Role", href: `/dashboard/guild/${currentGuildId}/autorole`, icon: Search },

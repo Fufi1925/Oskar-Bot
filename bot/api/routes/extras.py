@@ -595,16 +595,47 @@ async def get_counting(guild_id: int, bot: "universitybot" = Depends(get_bot)):
     settings = store.counting_get(guild_id)
     last = (
         guild.get_member(int(settings["last_user"]))
-        if guild and str(settings.get("last_user") or "").isdigit() else None
+        if guild and settings.get("last_user") else None
     )
+
+    # Permission warnings: without these the game half-works and it is
+    # not obvious why. Reported per channel because that is where the
+    # overwrites bite.
+    warnings: list[str] = []
+    channel = (
+        guild.get_channel(int(settings["channel"]))
+        if guild and settings.get("channel") else None
+    )
+    if guild and settings.get("channel") and channel is None:
+        warnings.append("Den eingestellten Kanal gibt es nicht mehr.")
+    elif channel is not None and guild.me is not None:
+        perms = channel.permissions_for(guild.me)
+        if not perms.view_channel:
+            warnings.append(f"Der Bot sieht #{channel.name} nicht.")
+        if not perms.send_messages:
+            warnings.append(f"Der Bot darf in #{channel.name} nicht schreiben.")
+        if not perms.manage_messages:
+            warnings.append(
+                "Ohne „Nachrichten verwalten“ bleiben falsche Zahlen stehen."
+            )
+        if not perms.add_reactions:
+            warnings.append(
+                "Ohne „Reaktionen hinzufügen“ gibt es keinen Haken bei richtigen Zahlen."
+            )
+    if settings.get("enabled") and not settings.get("channel"):
+        warnings.append("Zählen ist an, aber es ist kein Kanal gesetzt.")
 
     return {
         "guild_id": str(guild_id),
         **settings,
+        # Snowflakes as strings: JSON numbers lose the last digits.
         "channel": str(settings["channel"]) if settings["channel"] else None,
         "channel_info": _channel_info(guild, settings["channel"]),
         "last_user": str(settings["last_user"]) if settings["last_user"] else None,
         "last_user_name": last.display_name if last else None,
+        "last_user_avatar": last.display_avatar.url if last else None,
+        "next_number": int(settings["current"]) + 1,
+        "warnings": warnings,
     }
 
 
@@ -613,9 +644,10 @@ async def patch_counting(
     guild_id: int, data: dict, bot: "universitybot" = Depends(get_bot)
 ):
     guild = _guild_or_404(bot, guild_id)
+    current = store.counting_get(guild_id)
 
     if data.get("enabled"):
-        channel_id = data.get("channel") or store.counting_get(guild_id)["channel"]
+        channel_id = data.get("channel") or current["channel"]
         if not channel_id:
             raise HTTPException(
                 status_code=400, detail="Wähle zuerst einen Kanal fürs Zählen."
@@ -623,12 +655,34 @@ async def patch_counting(
         channel = guild.get_channel(int(channel_id))
         if channel is None:
             raise HTTPException(status_code=404, detail="Den Kanal gibt es nicht mehr.")
+        if guild.me is not None:
+            perms = channel.permissions_for(guild.me)
+            if not perms.send_messages:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Der Bot darf in #{channel.name} nicht schreiben.",
+                )
+
+    if "current" in data:
+        try:
+            value = int(data["current"])
+        except (TypeError, ValueError):
+            raise HTTPException(status_code=400, detail="Der Stand muss eine Zahl sein.")
+        if value < 0:
+            raise HTTPException(status_code=400, detail="Der Stand kann nicht negativ sein.")
+        # Setting the counter by hand clears the last counter too,
+        # otherwise "alternate" can lock out the person who last typed.
+        data = {**data, "current": value, "last_user": None}
 
     settings = store.counting_save(guild_id, data)
-    # The cog holds the whole file in memory and would otherwise overwrite
-    # this on its next save.
+    # The cog reads the file per message, but the reload hook stays so a
+    # cog that does cache is still told.
     await _reload(bot, "Counting", guild_id)
 
+    await feature_audit.log_action(
+        "counting_saved", actor=str(data.get("actor", "dashboard")),
+        guild_id=guild_id, detail=", ".join(sorted(k for k in data if k != "actor")),
+    )
     return {"status": "success", "result": "Gespeichert.", "settings": settings}
 
 
@@ -637,13 +691,60 @@ async def reset_counting(
     guild_id: int, data: dict | None = None,
     bot: "universitybot" = Depends(get_bot),
 ):
-    settings = store.counting_save(guild_id, {"current": 0, "last_user": None})
+    keep_record = True
+    if isinstance(data, dict):
+        keep_record = bool(data.get("keep_record", True))
+
+    updates: dict = {"current": 0, "last_user": None}
+    if not keep_record:
+        updates["high_score"] = 0
+
+    settings = store.counting_save(guild_id, updates)
     await _reload(bot, "Counting", guild_id)
     return {
         "status": "success",
-        "result": "Zurückgesetzt. Der Rekord bleibt stehen.",
+        "result": (
+            "Zurückgesetzt. Der Rekord bleibt stehen."
+            if keep_record else "Zurückgesetzt, Rekord gelöscht."
+        ),
         "high_score": settings["high_score"],
     }
+
+
+@router.post("/{guild_id}/counting/announce", summary="Post the counting rules")
+async def announce_counting(
+    guild_id: int, data: dict | None = None,
+    bot: "universitybot" = Depends(get_bot),
+):
+    """
+    Drop a rules card into the counting channel.
+
+    Uses the cog's own renderer so the dashboard cannot drift away from
+    what the bot posts during the game.
+    """
+    guild = _guild_or_404(bot, guild_id)
+    settings = store.counting_get(guild_id)
+
+    if not settings.get("channel"):
+        raise HTTPException(status_code=400, detail="Es ist kein Kanal gesetzt.")
+    channel = guild.get_channel(int(settings["channel"]))
+    if channel is None:
+        raise HTTPException(status_code=404, detail="Den Kanal gibt es nicht mehr.")
+
+    cog = bot.get_cog("Counting")
+    if cog is None or not hasattr(cog, "rules_view"):
+        raise HTTPException(status_code=503, detail="Das Zähl-Modul ist nicht geladen.")
+
+    try:
+        await channel.send(view=cog.rules_view(settings))
+    except discord.Forbidden:
+        raise HTTPException(
+            status_code=403, detail=f"Der Bot darf in #{channel.name} nicht schreiben."
+        )
+    except discord.HTTPException as exc:
+        raise HTTPException(status_code=502, detail=f"Discord lehnte ab: {exc}")
+
+    return {"status": "success", "result": f"Regeln in #{channel.name} gepostet."}
 
 
 # ══════════════════════════════════════════════════════════════════════

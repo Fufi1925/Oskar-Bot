@@ -12,84 +12,176 @@
 # ║                                                                  ║
 # ╚══════════════════════════════════════════════════════════════════╝
 
-import discord
-from utils.emoji import ARROWRED, CROSS, NEXT_ALT1, REDRULESBOOK, RED_BUTTON, RED_PIN, STAR, TICK, ZBACK, ZPAUSE, ZPLAY, ZWARNING
-from discord.ext import commands
-import json
-import os
+"""
+The counting game.
+
+Rewritten because the cog and the dashboard were writing different
+files' worth of keys into the same JSON:
+
+  * the cog stored ``count`` / ``reset_on_fail``
+  * the dashboard stored ``current`` / ``mode``
+
+Neither could see the other. Switching the game on in the dashboard left
+the cog at count 0, and the next correct number in chat wiped whatever
+the dashboard had saved. Both sides now go through
+``utils.extras_store``, which also migrates the old key names.
+
+The rules themselves live in ``counting_judge`` in that store so they can
+be tested without a Discord connection. This file only turns a verdict
+into messages.
+"""
+
 import asyncio
-from discord.ui import LayoutView, TextDisplay, Separator, Container
-from utils.cv2 import CV2, build_container
 
+import discord
+from discord.ext import commands
+from discord.ui import Separator, TextDisplay
 
+from utils import extras_store as store
+from utils.cv2 import build_container
+from utils.emoji import (
+    ARROWRED, CROSS, NEXT_ALT1, REDRULESBOOK, RED_BUTTON, RED_PIN, STAR,
+    TICK, ZWARNING,
+)
 
-# Emoji Variables
 CROSS = CROSS
 TICK = TICK
 WARNING = ZWARNING
-WARNING = ZWARNING
 BOOK = REDRULESBOOK
-PLAY = ZPLAY
-PAUSE = ZPAUSE
 STOP = RED_BUTTON
 NEXT = NEXT_ALT1
-BACK = ZBACK
-ARROW = ARROWRED
+BACK = ARROWRED
 PIN = RED_PIN
 STAR = STAR
+
+# Discord renders "> " as a quote bar. Every line the bot sends in the
+# counting channel uses it so the game messages read as one block and
+# stay visually apart from the players' numbers.
+QUOTE = "> "
+
+
+def quote(text: str) -> str:
+    """Prefix every line with the quote marker."""
+    return "\n".join(f"{QUOTE}{line}" if line else QUOTE
+                     for line in str(text).split("\n"))
+
+
+def panel(title: str, *sections, accent: int | None = None) -> discord.ui.LayoutView:
+    """
+    A Components V2 view whose body is quoted.
+
+    ``CV2`` already builds the container; this only makes sure the text
+    carries the quote bar and lets a colour through for the accent
+    stripe, which CV2 itself does not expose.
+    """
+    view = discord.ui.LayoutView(timeout=None)
+    container = build_container(
+        TextDisplay(f"**{title}**"),
+        *[
+            item
+            for section in sections
+            for item in (Separator(visible=True), TextDisplay(quote(section)))
+        ],
+        accent_color=accent,
+    )
+    view.add_item(container)
+    return view
+
+
+GREEN = 0x57F287
+RED = 0xED4245
+AMBER = 0xFEE75C
+BLURPLE = 0x5865F2
+
 
 class Counting(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.data_file = "db/counting.json"
-        if not os.path.exists(self.data_file):
-            with open(self.data_file, 'w') as f:
-                json.dump({}, f)
-        with open(self.data_file, 'r') as f:
-            self.counting_data = json.load(f)
+        # Guarding one guild at a time: two people can hit send in the
+        # same millisecond, and without this both would be judged
+        # against the same "current" and both accepted.
+        self._locks: dict[int, asyncio.Lock] = {}
+
+    def _lock(self, guild_id: int) -> asyncio.Lock:
+        lock = self._locks.get(guild_id)
+        if lock is None:
+            lock = self._locks[guild_id] = asyncio.Lock()
+        return lock
 
     async def refresh(self, guild_id=None):
         """
-        Re-read the file after the dashboard changed it.
+        Called by the dashboard after it saves.
 
-        The whole state lives in self.counting_data, loaded once at
-        startup. Without this the cog would keep its stale copy and
-        overwrite the dashboard's changes on its next save.
+        Nothing is cached in memory any more — every read goes to the
+        store — so this only exists to keep the API's reload hook happy.
         """
-        try:
-            with open(self.data_file, "r") as handle:
-                content = handle.read().strip()
-            self.counting_data = json.loads(content) if content else {}
-        except Exception:
-            pass
+        return True
 
-    def save_data(self):
-        with open(self.data_file, 'w') as f:
-            json.dump(self.counting_data, f, indent=4)
+    def settings(self, guild_id) -> dict:
+        return store.counting_get(int(guild_id))
 
-    def is_enabled(self, guild_id):
-        guild_id = str(guild_id)
-        return self.counting_data.get(guild_id, {}).get("enabled", False)
+    def is_enabled(self, guild_id) -> bool:
+        return bool(self.settings(guild_id).get("enabled"))
+
+    # ──────────────────────────────────────────────────────────────
+    #  Commands
+    # ──────────────────────────────────────────────────────────────
 
     async def not_enabled_embed(self, ctx):
-        await ctx.send(view=CV2(
-            f"{BOOK} Counting Settings For {ctx.guild.name}",
-            f"**Current Status:** {CROSS} Disabled",
-            "**How to Enable:** Use `counting enable` to enable counting."
+        prefix = ctx.clean_prefix or ">"
+        await ctx.send(view=panel(
+            f"{BOOK} Zählen — {ctx.guild.name}",
+            f"**Status:** {CROSS} Aus",
+            f"Mit `{prefix}counting enable` einschalten, danach "
+            f"`{prefix}counting channel #kanal`.",
+            accent=RED,
         ))
 
     async def send_help_embed(self, ctx):
-        await ctx.send(view=CV2(
-            f"{BOOK} Counting Commands",
-            "Manage and control the counting game settings.\n\n"
-            "**counting enable/disable** — Enable or Disable counting in server\n"
-            "**counting channel #channel** — Set counting channel\n"
-            "**counting config reset/continue** — Set reset mode on mistake\n"
-            "**counting reset** — Reset counting back to 0\n"
-            "**counting stats** — View current counting stats"
+        prefix = ctx.clean_prefix or ">"
+        await ctx.send(view=panel(
+            f"{BOOK} Counting",
+            "Gemeinsam hochzählen — jede Zahl genau einmal, in der richtigen "
+            "Reihenfolge.",
+            f"**{prefix}counting enable / disable** — Spiel an- oder ausschalten\n"
+            f"**{prefix}counting channel #kanal** — Kanal festlegen\n"
+            f"**{prefix}counting config reset / continue** — Was bei einem Fehler passiert\n"
+            f"**{prefix}counting alternate on / off** — Muss immer jemand anders dran sein?\n"
+            f"**{prefix}counting reset** — Zähler zurück auf 0\n"
+            f"**{prefix}counting stats** — Aktueller Stand und Rekord",
+            accent=BLURPLE,
         ))
 
+    def rules_view(self, settings: dict) -> discord.ui.LayoutView:
+        """
+        The rules card, also posted by the dashboard's announce button.
+
+        Kept here so both sides always show the same rules.
+        """
+        rules = [
+            "Immer die **nächste Zahl** schreiben — eine nach der anderen.",
+            "Nur die nackte Zahl. `42` zählt, `42!` oder `42 los` nicht.",
+        ]
+        if settings.get("require_alternate"):
+            rules.append("**Nicht zweimal hintereinander** — jemand anders muss dran sein.")
+        if settings.get("mode") == "reset":
+            rules.append("Ein Fehler setzt den Zähler **zurück auf 0**.")
+        else:
+            rules.append("Ein Fehler ist halb so wild — es geht **weiter**.")
+        if settings.get("allow_chat"):
+            rules.append("Zwischendurch quatschen ist erlaubt.")
+
+        body = "\n".join(f"**{i}.** {r}" for i, r in enumerate(rules, 1))
+        return panel(
+            f"{BOOK} Zähl-Regeln",
+            body,
+            f"**Als Nächstes:** {int(settings.get('current') or 0) + 1}\n"
+            f"{STAR} **Rekord:** {settings.get('high_score') or 0}",
+            accent=BLURPLE,
+        )
+
     @commands.group(name="counting", invoke_without_command=True)
+    @commands.guild_only()
     async def counting(self, ctx):
         if not self.is_enabled(ctx.guild.id):
             await self.not_enabled_embed(ctx)
@@ -99,125 +191,264 @@ class Counting(commands.Cog):
     @counting.command(name="enable")
     @commands.has_permissions(manage_channels=True)
     async def enable(self, ctx):
-        guild_id = str(ctx.guild.id)
-        if guild_id not in self.counting_data:
-            self.counting_data[guild_id] = {"enabled": True, "channel": None, "count": 0, "reset_on_fail": False}
+        settings = store.counting_save(ctx.guild.id, {"enabled": True})
+        if settings["channel"]:
+            hint = f"Kanal: <#{settings['channel']}>"
         else:
-            self.counting_data[guild_id]["enabled"] = True
-        self.save_data()
-        await ctx.send(view=CV2("Counting", f"{TICK} Counting has been Enabled!"))
+            hint = (f"Jetzt noch `{ctx.clean_prefix or '>'}counting channel #kanal` "
+                    "setzen — ohne Kanal passiert nichts.")
+        await ctx.send(view=panel(
+            "Counting", f"{TICK} Zählen ist an.", hint, accent=GREEN,
+        ))
 
     @counting.command(name="disable")
     @commands.has_permissions(manage_channels=True)
     async def disable(self, ctx):
-        guild_id = str(ctx.guild.id)
-        if guild_id not in self.counting_data:
-            await self.not_enabled_embed(ctx)
-            return
-        self.counting_data[guild_id]["enabled"] = False
-        self.save_data()
-        await ctx.send(view=CV2("Counting", f"{STOP} Counting has been Disabled!"))
+        store.counting_save(ctx.guild.id, {"enabled": False})
+        await ctx.send(view=panel(
+            "Counting",
+            f"{STOP} Zählen ist aus. Stand und Rekord bleiben gespeichert.",
+            accent=RED,
+        ))
 
     @counting.command(name="channel")
     @commands.has_permissions(manage_channels=True)
     async def channel(self, ctx, channel: discord.TextChannel):
-        guild_id = str(ctx.guild.id)
-        if not self.is_enabled(guild_id):
-            await self.not_enabled_embed(ctx)
+        me = ctx.guild.me
+        perms = channel.permissions_for(me) if me else None
+        if perms and not perms.send_messages:
+            await ctx.send(view=panel(
+                "Counting",
+                f"{CROSS} In {channel.mention} darf der Bot nicht schreiben.",
+                accent=RED,
+            ))
             return
-        self.counting_data[guild_id]["channel"] = channel.id
-        self.save_data()
-        await ctx.send(view=CV2("Counting", f"{PIN} Counting channel set to {channel.mention}"))
+
+        store.counting_save(ctx.guild.id, {"channel": channel.id})
+        missing = []
+        if perms and not perms.manage_messages:
+            missing.append("„Nachrichten verwalten“ — falsche Zahlen bleiben stehen")
+        if perms and not perms.add_reactions:
+            missing.append("„Reaktionen hinzufügen“ — kein Haken bei richtigen Zahlen")
+
+        sections = [f"{PIN} Gezählt wird ab jetzt in {channel.mention}."]
+        if missing:
+            sections.append(f"{WARNING} Fehlende Rechte:\n" +
+                            "\n".join(f"• {m}" for m in missing))
+        await ctx.send(view=panel("Counting", *sections,
+                                  accent=AMBER if missing else GREEN))
 
     @counting.command(name="config")
     @commands.has_permissions(manage_channels=True)
     async def config(self, ctx, mode: str):
-        guild_id = str(ctx.guild.id)
-        if not self.is_enabled(guild_id):
-            await self.not_enabled_embed(ctx)
-            return
-        if mode.lower() in ["reset", "true", "on"]:
-            self.counting_data[guild_id]["reset_on_fail"] = True
-            msg = f"{TICK} Counting will now reset on mistakes."
-        elif mode.lower() in ["continue", "false", "off"]:
-            self.counting_data[guild_id]["reset_on_fail"] = False
-            msg = f"{TICK} Counting will now continue on mistakes."
+        value = mode.lower()
+        if value in ("reset", "true", "on", "streng"):
+            store.counting_save(ctx.guild.id, {"mode": "reset"})
+            msg = f"{TICK} Bei einem Fehler geht es zurück auf **0**."
+        elif value in ("continue", "false", "off", "entspannt"):
+            store.counting_save(ctx.guild.id, {"mode": "continue"})
+            msg = f"{TICK} Bei einem Fehler wird **weitergezählt**."
         else:
-            await ctx.send(f"{CROSS} Invalid mode! Use `reset` or `continue`.")
+            await ctx.send(view=panel(
+                "Counting",
+                f"{CROSS} Unbekannt: `{mode}` — erlaubt sind `reset` oder `continue`.",
+                accent=RED,
+            ))
             return
-        self.save_data()
-        await ctx.send(view=CV2("Counting", msg))
+        await ctx.send(view=panel("Counting", msg, accent=GREEN))
+
+    @counting.command(name="alternate")
+    @commands.has_permissions(manage_channels=True)
+    async def alternate(self, ctx, mode: str):
+        value = mode.lower() in ("on", "true", "an", "ja", "yes")
+        store.counting_save(ctx.guild.id, {"require_alternate": value})
+        text = (
+            f"{TICK} Es muss immer jemand anders die nächste Zahl schreiben."
+            if value else
+            f"{TICK} Dieselbe Person darf mehrmals hintereinander zählen."
+        )
+        await ctx.send(view=panel("Counting", text, accent=GREEN))
 
     @counting.command(name="reset")
     @commands.has_permissions(manage_channels=True)
     async def reset(self, ctx):
-        guild_id = str(ctx.guild.id)
-        if not self.is_enabled(guild_id):
-            await self.not_enabled_embed(ctx)
-            return
-        self.counting_data[guild_id]["count"] = 0
-        self.save_data()
-        await ctx.send(view=CV2("Counting", f"{NEXT} Counting has been reset to 0!"))
+        settings = store.counting_save(
+            ctx.guild.id, {"current": 0, "last_user": None}
+        )
+        await ctx.send(view=panel(
+            "Counting",
+            f"{NEXT} Zähler steht wieder auf **0**.",
+            f"Rekord bleibt bei **{settings['high_score']}**.",
+            accent=AMBER,
+        ))
 
     @counting.command(name="stats")
     async def stats(self, ctx):
-        guild_id = str(ctx.guild.id)
-        if not self.is_enabled(guild_id):
-            await self.not_enabled_embed(ctx)
-            return
-        data = self.counting_data[guild_id]
-        channel = ctx.guild.get_channel(data["channel"]) if data["channel"] else None
-        channel_str = channel.mention if channel else "Not Set"
-        reset_str = f"{TICK} Yes" if data["reset_on_fail"] else f"{CROSS} No"
-        await ctx.send(view=CV2(
-            f"{BOOK} Counting Stats",
-            f"**Current Count:** {data['count']}\n"
-            f"**Channel:** {channel_str}\n"
-            f"**Reset on Mistake:** {reset_str}"
+        settings = self.settings(ctx.guild.id)
+        channel = (
+            ctx.guild.get_channel(settings["channel"])
+            if settings["channel"] else None
+        )
+
+        last = settings.get("last_user")
+        last_text = f"<@{last}>" if last else "—"
+
+        await ctx.send(view=panel(
+            f"{BOOK} Counting",
+            f"**Aktuell:** {settings['current']}\n"
+            f"**Als Nächstes:** {settings['current'] + 1}\n"
+            f"{STAR} **Rekord:** {settings['high_score']}",
+            f"**Kanal:** {channel.mention if channel else 'nicht gesetzt'}\n"
+            f"**Zuletzt gezählt:** {last_text}",
+            f"**Bei Fehler:** "
+            f"{'zurück auf 0' if settings['mode'] == 'reset' else 'weiterzählen'}\n"
+            f"**Abwechseln nötig:** {'ja' if settings['require_alternate'] else 'nein'}",
+            accent=BLURPLE,
         ))
 
+    # ──────────────────────────────────────────────────────────────
+    #  Game
+    # ──────────────────────────────────────────────────────────────
+
+    async def _is_command(self, message: discord.Message) -> bool:
+        """
+        True when the message starts with a prefix the bot listens to.
+
+        Commands typed in the counting channel must not break the
+        streak — the old cog deleted them and told the user off.
+        """
+        try:
+            prefixes = await self.bot.get_prefix(message)
+        except Exception:
+            return False
+        if isinstance(prefixes, str):
+            prefixes = [prefixes]
+        return any(p and message.content.startswith(p) for p in prefixes)
+
+    async def _cleanup(self, message: discord.Message, notice=None, delay: float = 4.0):
+        """Delete the message and, if given, a short-lived notice."""
+        sent = None
+        if notice is not None:
+            try:
+                sent = await message.channel.send(view=notice)
+            except discord.HTTPException:
+                sent = None
+
+        try:
+            await message.delete()
+        except (discord.Forbidden, discord.NotFound, discord.HTTPException):
+            pass
+
+        if sent is not None:
+            await asyncio.sleep(delay)
+            try:
+                await sent.delete()
+            except (discord.Forbidden, discord.NotFound, discord.HTTPException):
+                pass
+
     @commands.Cog.listener()
-    async def on_message(self, message):
-        if message.author.bot:
+    async def on_message(self, message: discord.Message):
+        # DMs have no guild; the old version raised AttributeError here
+        # on every direct message the bot received.
+        if message.guild is None or message.author.bot:
+            return
+        if message.webhook_id is not None:
             return
 
-        guild_id = str(message.guild.id)
-        if guild_id not in self.counting_data:
+        settings = self.settings(message.guild.id)
+        if not settings.get("enabled"):
+            return
+        if not settings.get("channel") or message.channel.id != settings["channel"]:
+            return
+        if await self._is_command(message):
             return
 
-        data = self.counting_data[guild_id]
-        if not data.get("enabled", False):
-            return
+        async with self._lock(message.guild.id):
+            # Re-read inside the lock: another message may have moved
+            # the counter on while we waited.
+            settings = self.settings(message.guild.id)
+            verdict = store.counting_judge(
+                settings, message.author.id, message.content
+            )
 
-        if message.channel.id != data.get("channel"):
-            return
+            if verdict["action"] == "ignore":
+                return
 
-        content = message.content.strip()
+            if verdict["action"] == "cleanup":
+                await self._cleanup(message)
+                return
 
-        if not content.isdigit():
-            msg = await message.channel.send(f"{WARNING} Alphabet not allowed!")
-            await asyncio.sleep(3)
-            await msg.delete()
-            await message.delete()
-            return
+            if verdict["action"] in ("wrong", "double"):
+                if not settings.get("delete_wrong"):
+                    outcome = store.counting_apply(
+                        message.guild.id, settings, verdict, message.author.id
+                    )
+                    await self._announce_break(message, verdict, outcome)
+                    return
 
-        number = int(content)
-        expected_number = data.get("count", 0) + 1
+                outcome = store.counting_apply(
+                    message.guild.id, settings, verdict, message.author.id
+                )
+                notice = self._break_view(message, verdict, outcome)
+                await self._cleanup(message, notice)
+                return
 
-        if number != expected_number:
-            msg = await message.channel.send(f"{CROSS} Wrong number entered! Expected number is **{expected_number}**")
-            await asyncio.sleep(3)
-            await msg.delete()
-            await message.delete()
-            if data.get("reset_on_fail", False):
-                self.counting_data[guild_id]["count"] = 0
-                self.save_data()
-            return
+            # Correct number.
+            outcome = store.counting_apply(
+                message.guild.id, settings, verdict, message.author.id
+            )
+            await self._celebrate(message, settings, verdict, outcome)
 
-        # Correct number
-        self.counting_data[guild_id]["count"] = number
-        self.save_data()
-        await message.add_reaction(TICK)
+    def _break_view(self, message, verdict, outcome):
+        icon = CROSS if verdict["action"] == "wrong" else WARNING
+        lines = [f"{icon} {message.author.mention} {verdict['reason']}"]
+        if verdict["reset"]:
+            lines.append(f"{BACK} Der Zähler steht wieder auf **0** — "
+                         "die nächste Zahl ist **1**.")
+        else:
+            nxt = int(outcome["settings"].get("current") or 0) + 1
+            lines.append(f"Weiter geht es bei **{nxt}**.")
+        return panel("Counting", "\n".join(lines),
+                     accent=RED if verdict["reset"] else AMBER)
+
+    async def _announce_break(self, message, verdict, outcome):
+        try:
+            await message.channel.send(view=self._break_view(message, verdict, outcome))
+        except discord.HTTPException:
+            pass
+
+    async def _celebrate(self, message, settings, verdict, outcome):
+        number = int(verdict["number"])
+
+        if settings.get("react_success"):
+            emoji = settings.get("success_emoji") or TICK
+            try:
+                await message.add_reaction(emoji)
+            except (discord.Forbidden, discord.NotFound, discord.HTTPException):
+                # A custom emoji from another server cannot be used;
+                # fall back rather than losing the reaction entirely.
+                if emoji != TICK:
+                    try:
+                        await message.add_reaction(TICK)
+                    except discord.HTTPException:
+                        pass
+
+        notes = []
+        if outcome["record"]:
+            notes.append(f"{STAR} **Neuer Rekord: {number}!**")
+
+        every = int(settings.get("milestone_every") or 0)
+        if every > 0 and number % every == 0 and not outcome["record"]:
+            notes.append(f"{STAR} **{number}** — Meilenstein geschafft!")
+
+        if notes:
+            try:
+                await message.channel.send(view=panel(
+                    "Counting", "\n".join(notes), accent=GREEN,
+                ))
+            except discord.HTTPException:
+                pass
+
 
 def setup(bot):
     bot.add_cog(Counting(bot))

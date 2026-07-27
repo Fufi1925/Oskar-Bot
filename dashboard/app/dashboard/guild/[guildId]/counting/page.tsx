@@ -11,9 +11,11 @@ export default function Page({ params }: { params: { guildId: string } }) {
       <div>
         <h2 className="text-2xl font-bold text-white flex items-center gap-2">
           <Calculator className="h-6 w-6 text-primary" />
-          Zähl-Spiel
+          Counting
         </h2>
-        <p className="text-slate-400 mt-1">Gemeinsam hochzählen.</p>
+        <p className="text-slate-400 mt-1">
+          Gemeinsam hochzählen &mdash; Regeln, Rekord und Aufräumen.
+        </p>
       </div>
 
       <CountingPanel guildId={params.guildId} />

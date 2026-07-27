@@ -442,9 +442,54 @@ COUNTING_DEFAULTS = {
     "channel": None,
     "current": 0,
     "last_user": None,
-    "mode": "reset",     # reset | continue
+    "mode": "reset",            # reset | continue
     "high_score": 0,
+    "high_score_at": None,
+    # Require a different member for each number. This is the classic
+    # "no double counting" rule; off by default so small servers where
+    # one person counts alone are not locked out.
+    "require_alternate": False,
+    # What happens on a broken rule. Kept separate because a server may
+    # want a wrong number to be fatal while a double post is only
+    # rejected, or the other way round.
+    "wrong_number_mode": None,  # None -> follow "mode"
+    "double_post_mode": None,   # None -> follow "mode"
+    # Delete the offending message instead of leaving it in the channel.
+    "delete_wrong": True,
+    # Let normal chat stay. When off, anything that is not a number is
+    # removed. Prefix commands are always left alone either way.
+    "allow_chat": True,
+    # React to a correct number.
+    "react_success": True,
+    "success_emoji": "",        # "" -> the bot's tick emoji
+    # Celebrate every N numbers with a milestone note.
+    "milestone_every": 100,
+    "save_record": True,
 }
+
+# Keys the old cog used before the dashboard existed. The cog wrote
+# "count" and "reset_on_fail" while the dashboard reads "current" and
+# "mode" — a server configured through chat commands looked empty in the
+# dashboard, and saving from the dashboard reset the counter in chat.
+COUNTING_LEGACY_KEYS = {"count": "current", "reset_on_fail": "mode"}
+
+
+def counting_migrate(entry: dict) -> dict:
+    """
+    Fold pre-dashboard keys into the current shape.
+
+    Returns a new dict; the caller decides whether to write it back.
+    """
+    entry = dict(entry or {})
+
+    if "current" not in entry and "count" in entry:
+        entry["current"] = entry.get("count") or 0
+    if "mode" not in entry and "reset_on_fail" in entry:
+        entry["mode"] = "reset" if entry.get("reset_on_fail") else "continue"
+
+    entry.pop("count", None)
+    entry.pop("reset_on_fail", None)
+    return entry
 
 
 def counting_load() -> dict:
@@ -461,32 +506,184 @@ def counting_load() -> dict:
 
 def counting_save_all(data: dict) -> None:
     os.makedirs(os.path.dirname(COUNTING_JSON) or ".", exist_ok=True)
-    with open(COUNTING_JSON, "w") as handle:
+    tmp = f"{COUNTING_JSON}.tmp"
+    # Written to a temp file first: the cog reads this file on every
+    # dashboard change, and a half-written file would make json.load
+    # raise and silently drop the whole server's settings.
+    with open(tmp, "w") as handle:
         json.dump(data, handle, indent=4)
+    os.replace(tmp, COUNTING_JSON)
 
 
 def counting_get(guild_id: int) -> dict:
     data = counting_load()
-    entry = data.get(str(guild_id)) or {}
+    entry = counting_migrate(data.get(str(guild_id)) or {})
     return {**COUNTING_DEFAULTS, **entry}
 
 
-def counting_save(guild_id: int, updates: dict) -> dict:
-    data = counting_load()
-    entry = {**COUNTING_DEFAULTS, **(data.get(str(guild_id)) or {})}
-    entry.update({k: v for k, v in updates.items() if k in COUNTING_DEFAULTS})
+def _counting_mode(value, fallback: str = "reset") -> str:
+    return value if value in ("reset", "continue") else fallback
+
+
+def counting_normalise(entry: dict) -> dict:
+    """Force every field into the type the rest of the code expects."""
+    entry = {**COUNTING_DEFAULTS, **counting_migrate(entry)}
 
     entry["enabled"] = bool(entry.get("enabled"))
     entry["current"] = max(0, int(entry.get("current") or 0))
     entry["high_score"] = max(0, int(entry.get("high_score") or 0))
-    if entry.get("mode") not in ("reset", "continue"):
-        entry["mode"] = "reset"
+    entry["mode"] = _counting_mode(entry.get("mode"))
+
+    for key in ("wrong_number_mode", "double_post_mode"):
+        value = entry.get(key)
+        entry[key] = value if value in ("reset", "continue") else None
+
+    for key in ("require_alternate", "delete_wrong", "allow_chat",
+                "react_success", "save_record"):
+        entry[key] = bool(entry.get(key))
+
+    milestone = entry.get("milestone_every")
+    try:
+        milestone = int(milestone)
+    except (TypeError, ValueError):
+        milestone = 100
+    # 0 disables milestones; anything above 10000 just spams.
+    entry["milestone_every"] = min(10000, max(0, milestone))
+
+    entry["success_emoji"] = str(entry.get("success_emoji") or "")[:64]
+
     channel = entry.get("channel")
     entry["channel"] = int(channel) if str(channel or "").isdigit() else None
 
+    last = entry.get("last_user")
+    entry["last_user"] = int(last) if str(last or "").isdigit() else None
+
+    at = entry.get("high_score_at")
+    entry["high_score_at"] = str(at) if at else None
+
+    return entry
+
+
+def counting_save(guild_id: int, updates: dict) -> dict:
+    data = counting_load()
+    entry = {**COUNTING_DEFAULTS, **counting_migrate(data.get(str(guild_id)) or {})}
+    entry.update({k: v for k, v in (updates or {}).items() if k in COUNTING_DEFAULTS})
+
+    entry = counting_normalise(entry)
     data[str(guild_id)] = entry
     counting_save_all(data)
     return entry
+
+
+def counting_effective_mode(settings: dict, kind: str) -> str:
+    """
+    Which punishment applies to `kind` ("wrong" or "double").
+
+    A per-rule setting wins; otherwise the shared "mode" is used.
+    """
+    key = "wrong_number_mode" if kind == "wrong" else "double_post_mode"
+    return _counting_mode(settings.get(key), _counting_mode(settings.get("mode")))
+
+
+def counting_judge(settings: dict, author_id: int, content: str) -> dict:
+    """
+    Decide what to do with one message in the counting channel.
+
+    Pure function so the rules can be tested without a Discord
+    connection. Returns a dict with:
+
+      action  -- "ignore" | "count" | "wrong" | "double"
+      number  -- the accepted number, when action == "count"
+      expected-- the number that was due
+      reset   -- whether the counter goes back to 0
+      reason  -- short German text for the user
+    """
+    settings = {**COUNTING_DEFAULTS, **(settings or {})}
+    expected = int(settings.get("current") or 0) + 1
+    text = (content or "").strip()
+
+    def out(action, **extra):
+        return {"action": action, "number": None, "expected": expected,
+                "reset": False, "reason": "", **extra}
+
+    if not text:
+        return out("ignore")
+
+    number = counting_parse_number(text)
+
+    if number is None:
+        # Not a number at all. Either it is chat the server allows, or
+        # it gets cleaned up — but it never breaks the streak.
+        return out("ignore" if settings.get("allow_chat") else "cleanup")
+
+    if settings.get("require_alternate"):
+        last = settings.get("last_user")
+        if last is not None and int(last) == int(author_id):
+            mode = counting_effective_mode(settings, "double")
+            return out(
+                "double",
+                reset=(mode == "reset"),
+                reason="Du warst gerade schon dran — jemand anders muss weiterzählen.",
+            )
+
+    if number != expected:
+        mode = counting_effective_mode(settings, "wrong")
+        return out(
+            "wrong",
+            reset=(mode == "reset"),
+            reason=f"Falsche Zahl. Erwartet war **{expected}**.",
+        )
+
+    return out("count", number=number)
+
+
+def counting_parse_number(text: str) -> int | None:
+    """
+    Read the number out of a message.
+
+    Only a bare number counts. "5" works, "5!" and "5 lets go" do not —
+    accepting those would make it impossible to tell a typo from chat.
+    A leading "+" is allowed because phone keyboards insert it.
+    """
+    text = (text or "").strip()
+    if not text:
+        return None
+    if text.startswith("+"):
+        text = text[1:].strip()
+    # No thousands separators: "1,000" is ambiguous across locales.
+    if not text.isdigit():
+        return None
+    try:
+        value = int(text)
+    except ValueError:
+        return None
+    return value if value >= 0 else None
+
+
+def counting_apply(guild_id: int, settings: dict, verdict: dict,
+                   author_id: int) -> dict:
+    """Persist the outcome of `counting_judge` and report what changed."""
+    updates: dict[str, Any] = {}
+    record_broken = False
+
+    if verdict["action"] == "count":
+        number = int(verdict["number"])
+        updates["current"] = number
+        updates["last_user"] = int(author_id)
+        if settings.get("save_record") and number > int(settings.get("high_score") or 0):
+            updates["high_score"] = number
+            record_broken = True
+    elif verdict["reset"]:
+        updates["current"] = 0
+        # Cleared so the next counter is never blocked by the person who
+        # broke the streak.
+        updates["last_user"] = None
+
+    if not updates:
+        return {"settings": settings, "record": False}
+
+    saved = counting_save(guild_id, updates)
+    return {"settings": saved, "record": record_broken}
 
 
 # ══════════════════════════════════════════════════════════════════════

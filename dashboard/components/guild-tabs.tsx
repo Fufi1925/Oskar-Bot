@@ -105,7 +105,7 @@ export function GuildTabs({ guildId }: { guildId: string }) {
     { name: "Sticky-Nachricht", href: `/dashboard/guild/${guildId}/sticky`, icon: Pin },
     { name: "Nachtmodus", href: `/dashboard/guild/${guildId}/nightmode`, icon: Moon },
     { name: "Jail", href: `/dashboard/guild/${guildId}/jail`, icon: Lock },
-    { name: "Zähl-Spiel", href: `/dashboard/guild/${guildId}/counting`, icon: Calculator },
+    { name: "Counting", href: `/dashboard/guild/${guildId}/counting`, icon: Calculator },
     { name: "Benachrichtigungen", href: `/dashboard/guild/${guildId}/notify`, icon: Youtube },
     { name: "Geburtstage", href: `/dashboard/guild/${guildId}/birthday`, icon: Cake },
     { name: "Notfall", href: `/dashboard/guild/${guildId}/emergency`, icon: ShieldAlert },
