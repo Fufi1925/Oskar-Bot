@@ -793,6 +793,27 @@ async def notify_list(db: aiosqlite.Connection, guild_id: int) -> list[dict]:
     ]
 
 
+async def notify_get(
+    db: aiosqlite.Connection, guild_id: int, kind: str
+) -> dict | None:
+    """
+    The one row this guild uses for this platform.
+
+    Rows with guild_id 0 are pre-migration leftovers that belong to
+    nobody. The listener must never fall back to one: doing exactly that
+    is what made every server share the first server's ping role.
+    """
+    async with db.execute(
+        "SELECT role_id, channel_id FROM notifications"
+        " WHERE guild_id = ? AND type = ?",
+        (int(guild_id), kind),
+    ) as cursor:
+        row = await cursor.fetchone()
+    if row is None:
+        return None
+    return {"role_id": int(row[0]), "channel_id": int(row[1])}
+
+
 async def notify_set(
     db: aiosqlite.Connection, guild_id: int, kind: str,
     role_id: int, channel_id: int,

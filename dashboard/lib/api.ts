@@ -468,6 +468,8 @@ export const api = {
     request<any>(`/extras/${g}/notify`, { method: "POST", body: JSON.stringify(data) }),
   removeNotify: (g: string, kind: string) =>
     request<any>(`/extras/${g}/notify/${kind}`, { method: "DELETE" }),
+  testNotify: (g: string, kind: string) =>
+    request<any>(`/extras/${g}/notify/${kind}/test`, { method: "POST" }),
 
   getBirthdays: (g: string) => request<any>(`/extras/${g}/birthday`),
   setBirthday: (g: string, data: any) =>

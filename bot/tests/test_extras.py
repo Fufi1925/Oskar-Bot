@@ -273,9 +273,19 @@ def run():
     check("another server can use the same type",
           r.status_code == 200, r.text[:160])
 
+    # The response is keyed by platform now rather than being a list of
+    # entries: the tab shows both platforms always, configured or not.
     ours = client.get(notify_base).json()
+    configured = [p for p in ours["platforms"] if p["configured"]]
     check("each server sees only its own",
-          len(ours["entries"]) == 1, str(ours["entries"]))
+          len(configured) == 1, str(configured))
+    check("and it is the one it set up",
+          configured and configured[0]["key"] == "youtube",
+          str([p["key"] for p in configured]))
+    check("both platforms are offered either way",
+          len(ours["platforms"]) == 2, str(len(ours["platforms"])))
+    check("the unconfigured one is marked as such",
+          any(not p["configured"] for p in ours["platforms"]))
 
     r = client.post(notify_base, json={
         "type": "quatsch", "role_id": str(ROLE_OK), "channel_id": CHANNEL,

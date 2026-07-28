@@ -752,27 +752,119 @@ async def announce_counting(
 # ══════════════════════════════════════════════════════════════════════
 
 
-@router.get("/{guild_id}/notify", summary="Stream and upload notifications")
+@router.get("/{guild_id}/notify", summary="Live notifications")
 async def get_notify(guild_id: int, bot: "universitybot" = Depends(get_bot)):
+    """
+    What this feature is, stated plainly, because the tab used to
+    promise something else.
+
+    The bot watches the *Discord streaming status* of members of this
+    server. Nothing here polls YouTube or Twitch, so an upload by
+    somebody who is not in the server -- or who does not stream through
+    Discord -- is never seen. The old tab said "new video or stream",
+    which is why people set it up and then waited for nothing.
+    """
     db = await db_manager.get_connection(store.NOTIFY_DB)
     await store.notify_ensure(db)
     guild = bot.get_guild(guild_id)
 
-    entries = []
-    for row in await store.notify_list(db, guild_id):
-        entries.append({
-            "type": row["type"],
-            "role": _role_info(guild, row["role_id"]),
-            "channel": _channel_info(guild, row["channel_id"]),
-            "legacy": row["legacy"],
-        })
+    configured = {row["type"]: row for row in await store.notify_list(db, guild_id)}
+
+    platforms = []
+    for kind in store.NOTIFY_TYPES:
+        row = configured.get(kind)
+        entry = {
+            "key": kind,
+            "label": "YouTube" if kind == "youtube" else "Twitch",
+            "configured": row is not None and not row["legacy"],
+            "legacy": bool(row and row["legacy"]),
+            "role": _role_info(guild, row["role_id"]) if row else None,
+            "channel": _channel_info(guild, row["channel_id"]) if row else None,
+        }
+        platforms.append(entry)
+
+    # Who could actually trigger this right now. A server where nobody
+    # ever streams through Discord will never see a single ping, and
+    # that is worth saying before somebody files it as a bug.
+    live = []
+    if guild is not None:
+        for member in getattr(guild, "members", ()) or ():
+            if getattr(member, "bot", False):
+                continue
+            for activity in getattr(member, "activities", ()) or ():
+                if type(activity).__name__ != "Streaming":
+                    continue
+                url = (getattr(activity, "url", "") or "").lower()
+                platform = (
+                    "twitch" if "twitch.tv" in url
+                    else "youtube" if ("youtube.com" in url or "youtu.be" in url)
+                    else None
+                )
+                live.append({
+                    "id": str(member.id),
+                    "name": member.display_name,
+                    "avatar": str(member.display_avatar.url)
+                    if getattr(member, "display_avatar", None) else None,
+                    "platform": platform,
+                    "title": getattr(activity, "name", None),
+                    "url": getattr(activity, "url", None),
+                })
+                break
 
     return {
         "guild_id": str(guild_id),
-        "entries": entries,
+        "platforms": platforms,
         "types": list(store.NOTIFY_TYPES),
-        "has_legacy": any(e["legacy"] for e in entries),
+        "active_count": sum(1 for p in platforms if p["configured"]),
+        "live_now": live,
+        "presence_intent": bool(
+            getattr(getattr(bot, "intents", None), "presences", False)
+        ),
+        "warnings": _notify_warnings(guild, platforms),
     }
+
+
+def _notify_warnings(guild, platforms) -> list[str]:
+    """Everything between this configuration and it working."""
+    problems: list[str] = []
+
+    for entry in platforms:
+        if entry["legacy"]:
+            problems.append(
+                f"Die {entry['label']}-Einstellung stammt aus einer alten "
+                "Version ohne Server-Zuordnung und wird nicht mehr benutzt. "
+                "Bitte neu setzen."
+            )
+        if not entry["configured"]:
+            continue
+        if entry["role"] and entry["role"].get("missing"):
+            problems.append(f"Die Rolle für {entry['label']} gibt es nicht mehr.")
+        if entry["channel"] and entry["channel"].get("missing"):
+            problems.append(f"Der Kanal für {entry['label']} gibt es nicht mehr.")
+
+    if guild is None:
+        return problems
+
+    me = getattr(guild, "me", None)
+    for entry in platforms:
+        if not entry["configured"] or not entry["channel"]:
+            continue
+        channel = guild.get_channel(int(entry["channel"]["id"]))
+        if channel is None or me is None:
+            continue
+        perms = channel.permissions_for(me)
+        if not perms.send_messages:
+            problems.append(
+                f"Der Bot darf in #{channel.name} nicht schreiben — "
+                f"{entry['label']} läuft ins Leere."
+            )
+        elif not perms.embed_links:
+            problems.append(
+                f"Ohne „Links einbetten“ in #{channel.name} bleibt die "
+                f"{entry['label']}-Meldung leer."
+            )
+
+    return problems
 
 
 @router.post("/{guild_id}/notify", summary="Set up a notification")
@@ -803,6 +895,73 @@ async def set_notify(
     await store.notify_set(db, guild_id, kind, int(role_id), int(channel_id))
 
     return {"status": "success", "result": f"{kind}-Benachrichtigung gespeichert."}
+
+
+@router.post("/{guild_id}/notify/{kind}/test", summary="Post a test announcement")
+async def test_notify(
+    guild_id: int, kind: str, bot: "universitybot" = Depends(get_bot)
+):
+    """
+    Post the announcement as it would really look.
+
+    Otherwise the only way to find out whether this works is to have
+    somebody actually go live and hope -- and the failure modes (no
+    permission, deleted channel) are silent.
+    """
+    guild = _guild_or_404(bot, guild_id)
+    kind = kind.lower()
+    if kind not in store.NOTIFY_TYPES:
+        raise HTTPException(status_code=400, detail=f"Unbekannter Typ: {kind}")
+
+    db = await db_manager.get_connection(store.NOTIFY_DB)
+    await store.notify_ensure(db)
+    row = await store.notify_get(db, guild_id, kind)
+    if row is None:
+        raise HTTPException(
+            status_code=400, detail=f"Für {kind} ist nichts eingerichtet."
+        )
+
+    channel = guild.get_channel(row["channel_id"])
+    role = guild.get_role(row["role_id"])
+    if channel is None:
+        raise HTTPException(status_code=400, detail="Den Kanal gibt es nicht mehr.")
+    if role is None:
+        raise HTTPException(status_code=400, detail="Die Rolle gibt es nicht mehr.")
+
+    import discord
+
+    embed = discord.Embed(
+        title="Beispiel ist live!",
+        description=(
+            f"So sieht die {kind.capitalize()}-Meldung aus. "
+            "Diese hier kam aus dem Dashboard."
+        ),
+        colour=0x9146FF if kind == "twitch" else 0xFF0000,
+    )
+    embed.add_field(name="Titel", value="Ein Test-Stream", inline=False)
+
+    try:
+        await channel.send(
+            embed=embed,
+            # A test must not ping the role -- that is the whole point of
+            # it being a test.
+            allowed_mentions=discord.AllowedMentions.none(),
+        )
+    except discord.Forbidden:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Der Bot darf in #{channel.name} nicht schreiben.",
+        )
+    except discord.HTTPException as err:
+        raise HTTPException(status_code=400, detail=f"Discord lehnte ab: {err}")
+
+    return {
+        "status": "success",
+        "result": (
+            f"Testmeldung in #{channel.name} gepostet — ohne Ping an "
+            f"@{role.name}."
+        ),
+    }
 
 
 @router.delete("/{guild_id}/notify/{kind}", summary="Remove a notification")

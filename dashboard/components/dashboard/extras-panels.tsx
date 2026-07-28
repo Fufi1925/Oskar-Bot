@@ -1001,112 +1001,233 @@ export function CountingPanel({ guildId }: { guildId: string }) {
  * Notify
  * ══════════════════════════════════════════════════════════════════ */
 
+/**
+ * Live notifications.
+ *
+ * The tab used to say "new video or stream" and offered a free-form
+ * add-a-row form. Both were misleading:
+ *
+ *   * Nothing in the bot polls YouTube or Twitch. What it watches is the
+ *     **Discord streaming status** of members of this server -- so an
+ *     upload by somebody who is not in the server is never seen. People
+ *     set this up expecting an upload feed and waited for nothing.
+ *   * There are exactly two platforms, and one row each. A generic
+ *     "add" form implied you could have several.
+ *
+ * Now: one card per platform, saying what it does and what it cannot do,
+ * with a test button so you do not have to wait for somebody to go live
+ * to find out whether the channel permissions are right.
+ */
 export function NotifyPanel({ guildId }: { guildId: string }) {
   const load = useCallback(() => api.getNotify(guildId), [guildId]);
   const p = usePanel(load);
-  const [kind, setKind] = useState("youtube");
-  const [roleId, setRoleId] = useState("");
-  const [channelId, setChannelId] = useState("");
+  const guard = useSaveGuard(p.dirty, "notify-save-bar");
 
   if (p.loading) return <Loading />;
 
+  const platforms: any[] = p.data?.platforms || [];
+  const live: any[] = p.data?.live_now || [];
+  const draft = p.draft.platforms || {};
+
+  const change = (key: string, patch: any) =>
+    p.set("platforms", { ...draft, [key]: { ...(draft[key] || {}), ...patch } });
+
+  const save = () =>
+    p.act(async () => {
+      let last: any = null;
+      for (const [key, patch] of Object.entries<any>(draft)) {
+        const base = platforms.find((x) => x.key === key);
+        const roleId = patch.role ?? base?.role?.id ?? "";
+        const channelId = patch.channel ?? base?.channel?.id ?? "";
+        if (!roleId || !channelId) {
+          throw new Error(
+            `Für ${base?.label ?? key} fehlt noch Rolle oder Kanal.`
+          );
+        }
+        last = await api.setNotify(guildId, {
+          type: key,
+          role_id: String(roleId),
+          channel_id: String(channelId),
+        });
+      }
+      return last;
+    });
+
   return (
     <section className="space-y-5">
+      {(p.data?.warnings || []).length > 0 && (
+        <Warn>
+          <span className="font-bold">Das läuft so nicht rund:</span>
+          <br />
+          {p.data.warnings.map((w: string, i: number) => (
+            <span key={i}>
+              • {w}
+              <br />
+            </span>
+          ))}
+        </Warn>
+      )}
+
       <Card
         icon={Youtube}
-        title="Benachrichtigungen"
-        subtitle="Rolle anpingen, wenn ein neues Video oder ein Stream kommt."
+        title="Live-Benachrichtigungen"
+        subtitle="Pingt eine Rolle, sobald jemand von diesem Server einen Stream in seinem Discord-Status hat."
         onReload={p.reload}
       >
-        {p.data?.has_legacy && (
+        {/* Said plainly, because the old wording caused the confusion. */}
+        <div className="rounded-xl bg-white/[0.03] border border-white/10 p-4 space-y-2">
+          <p className="text-[12px] text-slate-300 leading-relaxed">
+            <b className="text-white">Was das ist:</b> Der Bot sieht, wenn ein
+            Mitglied dieses Servers in Discord als &bdquo;Streamt&ldquo;
+            angezeigt wird, und pingt dann die eingestellte Rolle.
+          </p>
+          <p className="text-[12px] text-slate-400 leading-relaxed">
+            <b className="text-slate-200">Was das nicht ist:</b> Kein
+            YouTube-Abo. Neue Videos werden nicht bemerkt, und wer nicht auf
+            diesem Server ist oder nicht über Discord streamt, löst nichts aus.
+          </p>
+        </div>
+
+        {!p.data?.presence_intent && (
           <Warn>
-            Einträge ohne Server-Zuordnung stammen aus einer älteren Version, in
-            der die Einstellung für alle Server gemeinsam war. Lege sie neu an,
-            damit sie nur noch hier gelten.
+            Dem Bot fehlt die Berechtigung, den Online-Status von Mitgliedern
+            zu sehen (Presence Intent). Ohne die merkt er nie, dass jemand live
+            geht.
           </Warn>
         )}
 
-        <div className="grid lg:grid-cols-[140px_1fr_1fr_auto] gap-3 items-end">
-          <Field label="Typ">
-            <select
-              value={kind}
-              onChange={(e) => setKind(e.target.value)}
-              className={INPUT}
-            >
-              {(p.data?.types || []).map((t: string) => (
-                <option key={t} value={t}>{t}</option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Rolle">
-            <RolePicker
-              guildId={guildId}
-              value={roleId}
-              onChange={(id) => setRoleId(id || "")}
-              placeholder="Rolle wählen"
-            />
-          </Field>
-          <Field label="Kanal">
-            <ChannelPicker
-              guildId={guildId}
-              value={channelId}
-              onChange={(id) => setChannelId(id || "")}
-              placeholder="Kanal wählen"
-              channelTypes={["0", "5"]}
-            />
-          </Field>
-          <button
-            onClick={() =>
-              p.act(async () => {
-                const res = await api.setNotify(guildId, {
-                  type: kind, role_id: roleId, channel_id: channelId,
-                });
-                setRoleId("");
-                setChannelId("");
-                return res;
-              })
-            }
-            disabled={p.busy || !roleId || !channelId}
-            className="h-[46px] px-5 rounded-xl bg-primary text-xs font-black uppercase tracking-widest hover:brightness-110 disabled:opacity-40 transition-all"
-          >
-            <Plus className="h-4 w-4" />
-          </button>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="bg-[#0d1b31] border border-slate-800 rounded-2xl px-4 py-3">
+            <p className="text-lg font-black text-white">
+              {p.data?.active_count ?? 0} / {platforms.length}
+            </p>
+            <p className="text-[11px] text-slate-500">Eingerichtet</p>
+          </div>
+          <div className="bg-[#0d1b31] border border-slate-800 rounded-2xl px-4 py-3">
+            <p className="text-lg font-black text-white">{live.length}</p>
+            <p className="text-[11px] text-slate-500">Gerade live</p>
+          </div>
         </div>
+
+        {live.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-[11px] font-black uppercase tracking-widest text-slate-600">
+              Streamt gerade
+            </p>
+            {live.map((person) => (
+              <div
+                key={person.id}
+                className="flex items-center gap-3 bg-[#0d1b31] border border-slate-800 rounded-xl px-3 py-2.5"
+              >
+                {person.avatar ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={person.avatar} alt="" className="h-7 w-7 rounded-full shrink-0" />
+                ) : (
+                  <div className="h-7 w-7 rounded-full bg-slate-800 shrink-0" />
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm text-white truncate">{person.name}</p>
+                  <p className="text-[11px] text-slate-500 truncate">
+                    {person.title || "ohne Titel"}
+                  </p>
+                </div>
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 shrink-0">
+                  {person.platform || "andere"}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </Card>
 
-      {!p.data?.entries?.length ? (
-        <p className="text-sm text-slate-500 py-8 text-center border border-dashed border-slate-800 rounded-2xl">
-          Nichts eingerichtet.
-        </p>
-      ) : (
-        <div className="space-y-2">
-          {p.data.entries.map((entry: any) => (
-            <div
-              key={entry.type}
-              className="flex items-center gap-3 bg-[#10233f] border border-slate-800 rounded-2xl px-4 py-3 flex-wrap"
-            >
-              <span className="px-2.5 py-1 rounded-lg bg-primary/15 text-primary text-xs font-black uppercase shrink-0">
-                {entry.type}
-              </span>
-              <span className="text-sm text-slate-300 flex-1 min-w-0 truncate">
-                @{entry.role.name || "gelöscht"} in #{entry.channel.name || "gelöscht"}
-              </span>
-              {entry.legacy && (
-                <span className="text-[10px] font-black uppercase text-amber-400">
-                  ohne Server
-                </span>
-              )}
-              <button
-                onClick={() => p.act(() => api.removeNotify(guildId, entry.type))}
-                disabled={p.busy}
-                className="p-2 rounded-lg text-slate-500 hover:text-red-400 transition-all shrink-0"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
+      {platforms.map((entry) => {
+        const roleValue =
+          draft[entry.key]?.role ?? entry.role?.id ?? "";
+        const channelValue =
+          draft[entry.key]?.channel ?? entry.channel?.id ?? "";
+        const saved = entry.configured;
+        return (
+          <Card
+            key={entry.key}
+            icon={Youtube}
+            title={entry.label}
+            subtitle={
+              saved
+                ? "Eingerichtet."
+                : "Noch nicht eingerichtet — Rolle und Kanal wählen."
+            }
+          >
+            {entry.legacy && (
+              <Warn>
+                Diese Einstellung stammt aus einer alten Version, in der alle
+                Server dieselbe benutzt haben. Sie wirkt nicht mehr — bitte
+                unten neu setzen und speichern.
+              </Warn>
+            )}
+
+            <div className="grid sm:grid-cols-2 gap-4">
+              <Field label="Rolle, die gepingt wird">
+                <RolePicker
+                  guildId={guildId}
+                  value={roleValue}
+                  onChange={(id) => change(entry.key, { role: id || "" })}
+                  placeholder="Rolle wählen"
+                />
+              </Field>
+              <Field label="Kanal für die Meldung">
+                <ChannelPicker
+                  guildId={guildId}
+                  value={channelValue}
+                  onChange={(id) => change(entry.key, { channel: id || "" })}
+                  placeholder="Kanal wählen"
+                  channelTypes={["0", "5"]}
+                />
+              </Field>
             </div>
-          ))}
-        </div>
-      )}
+
+            {saved && !draft[entry.key] && (
+              <div className="flex gap-2 flex-wrap">
+                <button
+                  onClick={() => p.act(() => api.testNotify(guildId, entry.key))}
+                  disabled={p.busy}
+                  className="flex-1 min-w-[160px] flex items-center justify-center gap-2 py-3 rounded-xl bg-white/[0.03] border border-white/10 text-xs font-black uppercase tracking-widest text-slate-300 hover:text-white disabled:opacity-40 transition-all"
+                >
+                  <Send className="h-3.5 w-3.5" />
+                  Testmeldung posten
+                </button>
+                <button
+                  onClick={() =>
+                    p.act(
+                      () => api.removeNotify(guildId, entry.key),
+                      `${entry.label}-Benachrichtigung entfernen?`
+                    )
+                  }
+                  disabled={p.busy}
+                  className="px-5 py-3 rounded-xl bg-red-500/[0.06] border border-red-500/20 text-xs font-black uppercase tracking-widest text-red-300 hover:bg-red-500/10 disabled:opacity-40 transition-all"
+                >
+                  Entfernen
+                </button>
+              </div>
+            )}
+
+            {saved && (
+              <p className="text-[11px] text-slate-600 leading-relaxed">
+                Die Testmeldung pingt niemanden — sie zeigt nur, ob der Bot in
+                den Kanal schreiben darf.
+              </p>
+            )}
+          </Card>
+        );
+      })}
+
+      <StickySaveBar
+        id="notify-save-bar"
+        count={p.dirty}
+        busy={p.busy}
+        shake={guard.shake}
+        onDiscard={p.discard}
+        onSave={save}
+      />
     </section>
   );
 }

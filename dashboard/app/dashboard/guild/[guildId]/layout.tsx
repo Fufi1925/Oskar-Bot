@@ -38,6 +38,7 @@ export const revalidate = 0; // Never cache any guild dashboard page
 
 import { Button } from "@/components/ui/button";
 import { GuildTabs } from "@/components/guild-tabs";
+import { GuildHeader } from "@/components/dashboard/guild-header";
 
 interface GuildLayoutProps {
   children: React.ReactNode;
@@ -89,72 +90,10 @@ export default async function GuildLayout({
         Back to all servers
       </Link>
 
-      {/* Guild Header */}
-      <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-8 shadow-xl shadow-black/20">
-        <div className="flex flex-col lg:flex-row lg:items-center gap-8">
-          <div className="relative">
-            {guild.icon ? (
-              <Image 
-                src={guild.icon} 
-                alt={guild.name}
-                width={120}
-                height={120}
-                className="rounded-3xl border-4 border-slate-800 shadow-2xl"
-              />
-            ) : (
-              <div className="h-[120px] w-[120px] bg-primary rounded-3xl flex items-center justify-center text-4xl font-bold text-white shadow-2xl border-4 border-slate-800">
-                {guild.name.charAt(0)}
-              </div>
-            )}
-            <div className="absolute -bottom-2 -right-2 bg-emerald-500 text-white p-2 rounded-xl shadow-lg border-2 border-[#10233f]" title="Active">
-              <div className="h-3 w-3 rounded-full bg-white animate-pulse" />
-            </div>
-          </div>
-
-          <div className="flex-1 space-y-4">
-            <div>
-              <div className="flex items-center gap-3">
-                <h1 className="text-4xl font-black text-white tracking-tight">{guild.name}</h1>
-                <span className="px-3 py-1 bg-slate-800 rounded-lg text-[10px] uppercase font-black text-slate-500 tracking-tighter border border-white/5">
-                  ID: {guildId}
-                </span>
-              </div>
-              <p className="text-slate-400 mt-1 italic opacity-80">Server Owner Dashboard</p>
-            </div>
-
-            <div className="flex flex-wrap gap-4">
-              {[
-                { label: "Members", value: guild.member_count, icon: Users, color: "text-blue-400" },
-                { label: "Roles", value: guild.role_count, icon: Shield, color: "text-emerald-400" },
-                { label: "Channels", value: guild.channel_count, icon: Hash, color: "text-purple-400" },
-              ].map((item) => (
-                <div key={item.label} className="flex items-center gap-3 bg-slate-800/50 px-5 py-3 rounded-2xl border border-white/5 shadow-inner">
-                  <div className={cn("p-2 rounded-lg bg-slate-900/50", item.color)}>
-                    <item.icon className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <p className="text-[10px] uppercase font-bold text-slate-500 tracking-wider leading-none mb-1">{item.label}</p>
-                    <p className="text-xl font-bold text-white leading-none">{item.value.toLocaleString()}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="flex flex-col sm:flex-row lg:flex-col gap-3">
-            <Link href={`/dashboard/guild/${guildId}`} className="w-full">
-             <Button className="w-full">
-               Refresh 
-             </Button>
-            </Link>
-             <Link href={`/dashboard/guild/${guildId}/settings`} className="w-full">
-              <Button variant="secondary" className="w-full">
-                Server Settings
-              </Button>
-             </Link>
-          </div>
-        </div>
-      </div>
+      <GuildHeader
+        guild={guild}
+        isOwner={String(guild.owner_id) === String(access.userId ?? "")}
+      />
 
       {/* Modern Tab Navigation */}
       <GuildTabs guildId={guildId} />
