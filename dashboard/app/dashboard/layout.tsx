@@ -199,8 +199,8 @@ export default function DashboardLayout({
           items: [
             { name: "Tickets", href: `/dashboard/guild/${currentGuildId}/tickets`, icon: Ticket },
             { name: "Join to Create", href: `/dashboard/guild/${currentGuildId}/j2c`, icon: Menu },
-            { name: "Custom Roles", href: `/dashboard/guild/${currentGuildId}/customroles`, icon: ShieldCheck },
-            { name: "Voice Role", href: `/dashboard/guild/${currentGuildId}/invcrole`, icon: Settings },
+            { name: "Eigene Rollen", href: `/dashboard/guild/${currentGuildId}/customroles`, icon: ShieldCheck },
+            { name: "Sprach-Rolle", href: `/dashboard/guild/${currentGuildId}/invcrole`, icon: Settings },
           ],
         },
         { name: "Einstellungen", href: `/dashboard/guild/${currentGuildId}/settings`, icon: Settings },

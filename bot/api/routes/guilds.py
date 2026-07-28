@@ -25,9 +25,8 @@ from api.schemas import (
     DiscordChannel, DiscordRole, WelcomeConfig, WelcomeEmbedData, WelcomeUpdate,
     AntiNukeConfig, AntiNukeUpdate, VerificationConfig, VerificationUpdate,
     AutoRoleConfig, AutoRoleUpdate,
-    TrackingConfig, TrackingUpdate, J2CConfig, J2CUpdate, 
-    CustomRoleConfig, CustomRoleUpdate, AutoReactConfig, AutoReactUpdate, AutoReactTrigger,
-    InvcConfig, InvcUpdate,
+    TrackingConfig, TrackingUpdate,
+    AutoReactConfig, AutoReactUpdate, AutoReactTrigger,
     InviteStat, InvitesLeaderboard
 )
 from typing import TYPE_CHECKING, List, Optional
@@ -659,117 +658,7 @@ async def patch_guild_tracking(guild_id: int, data: TrackingUpdate):
         await db.commit()
     return {"status": "success"}
 
-@router.get("/{guild_id}/j2c", response_model=J2CConfig, summary="Get J2C config")
-async def get_guild_j2c(guild_id: int):
-    import aiosqlite
-    async with aiosqlite.connect("j2c_data.db") as db:
-        # Ensure table exists
-        await db.execute("""
-            CREATE TABLE IF NOT EXISTS guild_setup (
-                guild_id INTEGER PRIMARY KEY,
-                join_channel_id INTEGER,
-                control_channel_id INTEGER,
-                control_message_id INTEGER,
-                category_id INTEGER
-            )
-        """)
-        try:
-            await db.execute("ALTER TABLE guild_setup ADD COLUMN category_id INTEGER")
-        except aiosqlite.OperationalError:
-            pass
-        await db.commit()
-        
-        async with db.execute("SELECT join_channel_id, control_channel_id, category_id FROM guild_setup WHERE guild_id = ?", (guild_id,)) as cursor:
-            row = await cursor.fetchone()
-    if row:
-        return J2CConfig(
-            guild_id=str(guild_id), 
-            join_channel_id=str(row[0]) if row[0] else None, 
-            control_channel_id=str(row[1]) if row[1] else None,
-            category_id=str(row[2]) if row[2] else None
-        )
-    return J2CConfig(guild_id=str(guild_id))
 
-@router.patch("/{guild_id}/j2c", summary="Update J2C config")
-async def patch_guild_j2c(guild_id: int, data: J2CUpdate, bot: "universitybot" = Depends(get_bot)):
-    import aiosqlite
-    
-    def to_id(val):
-        if not val or val == "none": return None
-        try: return int(val)
-        except: return None
-
-    join_ch = to_id(data.join_channel_id)
-    ctrl_ch = to_id(data.control_channel_id)
-    cat_ch = to_id(data.category_id)
-    
-    async with aiosqlite.connect("j2c_data.db") as db:
-        await db.execute("""
-            CREATE TABLE IF NOT EXISTS guild_setup (
-                guild_id INTEGER PRIMARY KEY,
-                join_channel_id INTEGER,
-                control_channel_id INTEGER,
-                control_message_id INTEGER,
-                category_id INTEGER
-            )
-        """)
-        try:
-            await db.execute("ALTER TABLE guild_setup ADD COLUMN category_id INTEGER")
-        except aiosqlite.OperationalError:
-            pass
-        
-        async with db.execute("SELECT control_message_id FROM guild_setup WHERE guild_id = ?", (guild_id,)) as cursor:
-            existing = await cursor.fetchone()
-        
-        ctrl_msg_id = existing[0] if existing else None
-        
-        await db.execute(
-            "INSERT OR REPLACE INTO guild_setup (guild_id, join_channel_id, control_channel_id, control_message_id, category_id) VALUES (?, ?, ?, ?, ?)", 
-            (guild_id, join_ch, ctrl_ch, ctrl_msg_id, cat_ch)
-        )
-        await db.commit()
-
-    # Update cog memory cache and send/update the control panel in real-time
-    cog = bot.get_cog("JoinToCreate")
-    if cog:
-        if not join_ch or not ctrl_ch:
-            if guild_id in cog.setup_data:
-                del cog.setup_data[guild_id]
-        else:
-            cog.setup_data[guild_id] = {
-                "join_channel_id": join_ch,
-                "control_channel_id": ctrl_ch,
-                "control_message_id": ctrl_msg_id,
-                "category_id": cat_ch
-            }
-            guild = bot.get_guild(guild_id)
-            if guild:
-                async def update_or_send_panel():
-                    try:
-                        control_channel = guild.get_channel(ctrl_ch)
-                        if control_channel:
-                            msg = None
-                            if ctrl_msg_id:
-                                try:
-                                    msg = await control_channel.fetch_message(ctrl_msg_id)
-                                except:
-                                    pass
-                            
-                            from cogs.commands.j2c import ControlPanelView
-                            if msg:
-                                view = ControlPanelView(cog, guild)
-                                await msg.edit(view=view, embed=None, content=None)
-                            else:
-                                view = ControlPanelView(cog, guild)
-                                msg = await control_channel.send(view=view)
-                                cog.setup_data[guild_id]["control_message_id"] = msg.id
-                                await cog.save_guild_setup(guild_id, cog.setup_data[guild_id])
-                    except Exception as e:
-                        print(f"Error updating/sending control panel via API: {e}")
-
-                asyncio.create_task(update_or_send_panel())
-
-    return {"status": "success"}
 
 
 # NOTE: Join DM moved to api/routes/memberperks.py. The pair here stored
@@ -778,57 +667,7 @@ async def patch_guild_j2c(guild_id: int, data: J2CUpdate, bot: "universitybot" =
 # after every restart while this endpoint still returned the text.
 
 
-@router.get("/{guild_id}/customroles", response_model=CustomRoleConfig, summary="Get CustomRoles config")
-async def get_guild_customroles(guild_id: int):
-    import aiosqlite
-    async with aiosqlite.connect('db/customrole.db') as db:
-        async with db.execute("SELECT staff, girl, vip, guest, frnd, reqrole FROM roles WHERE guild_id = ?", (guild_id,)) as cursor:
-            row = await cursor.fetchone()
-    if row:
-        return CustomRoleConfig(
-            guild_id=str(guild_id),
-            staff=str(row[0]) if row[0] else None,
-            girl=str(row[1]) if row[1] else None,
-            vip=str(row[2]) if row[2] else None,
-            guest=str(row[3]) if row[3] else None,
-            frnd=str(row[4]) if row[4] else None,
-            reqrole=str(row[5]) if row[5] else None
-        )
-    return CustomRoleConfig(guild_id=str(guild_id))
 
-@router.patch("/{guild_id}/customroles", summary="Update CustomRoles config")
-async def patch_guild_customroles(guild_id: int, data: CustomRoleUpdate):
-    import aiosqlite
-    
-    # Convert string IDs to ints for DB INTEGER columns
-    def to_int(val):
-        if val is None: return None
-        try: return int(val)
-        except: return None
-    
-    async with aiosqlite.connect('db/customrole.db') as db:
-        async with db.execute("SELECT * FROM roles WHERE guild_id = ?", (guild_id,)) as cursor:
-            row = await cursor.fetchone()
-        
-        if not row:
-            await db.execute(
-                "INSERT INTO roles (guild_id, staff, girl, vip, guest, frnd, reqrole) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (guild_id, to_int(data.staff), to_int(data.girl), to_int(data.vip), to_int(data.guest), to_int(data.frnd), to_int(data.reqrole))
-            )
-        else:
-            # We have a row, update only provided fields
-            update_fields = []
-            params = []
-            for field, value in data.dict(exclude_unset=True).items():
-                update_fields.append(f"{field} = ?")
-                params.append(to_int(value))
-            
-            if update_fields:
-                query = f"UPDATE roles SET {', '.join(update_fields)} WHERE guild_id = ?"
-                params.append(guild_id)
-                await db.execute(query, params)
-        await db.commit()
-    return {"status": "success"}
 
 @router.get("/{guild_id}/logging", response_model=LoggingConfig, summary="Get Logging config", description="Retrieves the event logging configuration and designated log channels.")
 async def get_guild_logging(guild_id: int, bot: "universitybot" = Depends(get_bot)):
@@ -955,6 +794,13 @@ async def get_guild_roles(guild_id: int, bot: "universitybot" = Depends(get_bot)
 
 
 
+# NOTE: Join to Create, voice roles and custom role commands moved to
+# api/routes/voice.py. The handlers here disagreed with the cogs behind
+# them: /invcrole stored an "enabled" flag the cog never read, so the
+# dashboard switch did nothing, and /customroles exposed only the five
+# fixed slots while the real named commands lived in another table.
+
+
 # ========== AUTO REACT ==========
 
 # NOTE: a duplicated GET /{guild_id}/autoreact used to live here. The active
@@ -962,62 +808,7 @@ async def get_guild_roles(guild_id: int, bot: "universitybot" = Depends(get_bot)
 
 # ========== INVC ROLE (Voice Role) ==========
 
-@router.get("/{guild_id}/invcrole", response_model=InvcConfig, summary="Get Invc Role config")
-async def get_guild_invcrole(guild_id: int):
-    db = await db_manager.get_connection('db/invc.db')
-    # Use execute instead of with for shared connection
-    await db.execute("""
-        CREATE TABLE IF NOT EXISTS vcroles (
-            guild_id INTEGER PRIMARY KEY,
-            role_id INTEGER NOT NULL,
-            enabled INTEGER DEFAULT 0
-        )
-    """)
-    try:
-        await db.execute("ALTER TABLE vcroles ADD COLUMN enabled INTEGER DEFAULT 0")
-    except:
-        pass
-    await db.commit()
 
-    cursor = await db.execute("SELECT role_id, enabled FROM vcroles WHERE guild_id = ?", (guild_id,))
-    row = await cursor.fetchone()
-    
-    role_id = str(row['role_id']) if row and row['role_id'] and row['role_id'] != 0 else None
-    enabled = bool(row['enabled']) if row else False
-    return InvcConfig(guild_id=str(guild_id), role_id=role_id, enabled=enabled)
-
-@router.patch("/{guild_id}/invcrole", summary="Update Invc Role config")
-async def patch_guild_invcrole(guild_id: int, data: InvcUpdate):
-    db = await db_manager.get_connection('db/invc.db')
-    
-    # Get existing row to merge
-    cursor = await db.execute("SELECT role_id, enabled FROM vcroles WHERE guild_id = ?", (guild_id,))
-    row = await cursor.fetchone()
-    
-    current_role = row['role_id'] if row else 0
-    current_enabled = row['enabled'] if row else 0
-    
-    # Update values only if they are provided in the request
-    # If data.role_id is None, it could mean 'unset' (if sent as null) or 'no change' (if omitted).
-    # Given our dashboard sends the full object, we treat None as unset if it matches our frontend's behavior.
-    new_role = current_role
-    if data.role_id is not None:
-        try:
-            new_role = int(data.role_id) if data.role_id and data.role_id != "none" else 0
-        except:
-            new_role = 0
-    elif data.role_id is None:
-        # In our dash, null means "No Role Selected"
-        new_role = 0
-
-    new_enabled = current_enabled
-    if data.enabled is not None:
-        new_enabled = 1 if data.enabled else 0
-
-    await db.execute("INSERT OR REPLACE INTO vcroles (guild_id, role_id, enabled) VALUES (?, ?, ?)", 
-                     (guild_id, new_role, new_enabled))
-    await db.commit()
-    return {"status": "success"}
 
 
 # ========== AUTO REACT ==========
@@ -1454,7 +1245,10 @@ async def get_module_status(guild_id: int, bot: "universitybot" = Depends(get_bo
     import glob as _glob
 
     async def has_rows(db_file: str, table: str, condition: str = "") -> int:
-        path = f"db/{db_file}"
+        # Most databases live in db/, but join-to-create keeps
+        # j2c_data.db in the working directory -- the cog opens it by
+        # that bare name, so the path has to match exactly.
+        path = db_file if os.path.exists(db_file) else f"db/{db_file}"
         if not os.path.exists(path):
             return 0
         try:
@@ -1485,9 +1279,15 @@ async def get_module_status(guild_id: int, bot: "universitybot" = Depends(get_bo
         ("autorole", "Auto Role", "autorole.db", "autorole", "", "autorole"),
         ("reactionroles", "Reaction Roles", "autoreact.db", "autoreact", "", "reactionroles"),
         ("vanityroles", "Vanity Roles", "vanity.db", "vanity_roles", "", "vanityroles"),
-        ("customroles", "Custom Roles", "customrole.db", "roles", "", "customroles"),
-        ("invcrole", "Voice Roles", "invc.db", "vcroles", "", "invcrole"),
-        ("j2c", "Join to Create", "block.db", "j2c", "", "j2c"),
+        # custom_roles, not roles: the "roles" table also holds the
+        # reqrole, so a server with only a reqrole set looked configured.
+        ("customroles", "Custom Roles", "customrole.db", "custom_roles", "", "customroles"),
+        ("invcrole", "Voice Roles", "invc.db", "vcrole_roles", "", "invcrole"),
+        # This pointed at block.db -- the blacklist database, which has
+        # no j2c table -- so Join to Create was reported as "not set up"
+        # on every server no matter what. The data lives in j2c_data.db.
+        ("j2c", "Join to Create", "j2c_data.db", "guild_setup",
+         "join_channel_id IS NOT NULL", "j2c"),
         ("nickname", "Nicknames", "nickname.db", "nickname_rules", "", "nickname"),
         ("noprefix", "No Prefix", "np.db", "np_roles", "", "noprefix"),
         ("tracking", "Invite Tracking", "invite.db", "logging", "", "tracking"),

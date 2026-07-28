@@ -220,6 +220,7 @@ def test_record(store):
     print("\nRecord")
 
     store.counting_save(GUILD, {"current": 9, "high_score": 5,
+                                "record_baseline": 5, "record_announced": False,
                                 "last_user": None, "require_alternate": False})
     settings = store.counting_get(GUILD)
     verdict = store.counting_judge(settings, ALICE, "10")
@@ -240,6 +241,128 @@ def test_record(store):
     out = store.counting_apply(GUILD, off, verdict, ALICE)
     check("with the record turned off it stops moving",
           out["record"] is False and store.counting_get(GUILD)["high_score"] == 11)
+
+
+def _run_streak(store, guild_id, numbers, who=ALICE):
+    """Count through `numbers`; return those that triggered a shout."""
+    shouted = []
+    for n in numbers:
+        settings = store.counting_get(guild_id)
+        verdict = store.counting_judge(settings, who, str(n))
+        out = store.counting_apply(guild_id, settings, verdict, who)
+        if out["record"]:
+            shouted.append(n)
+    return shouted
+
+
+def test_record_spam(store):
+    """
+    The reported bug: on a server whose record is still 0, the bot
+    announced a new record for *every* number -- 1, 2, 3, 4...
+
+    Two mistakes fed it. There was no "already announced" flag, so once
+    the record was passed every further number was also a new high; and
+    the comparison used the live high_score, which climbs in lockstep
+    with the count, so on a fresh server it was beaten forever.
+    """
+    print("\nRecord announcements (the reported bug)")
+
+    fresh = 9401
+    store.counting_save(fresh, {
+        "enabled": True, "channel": CHANNEL_ID, "current": 0,
+        "high_score": 0, "record_baseline": 0, "require_alternate": False,
+        "mode": "reset",
+    })
+    shouted = _run_streak(store, fresh, range(1, 9))
+    check("a server with no record yet stays quiet",
+          shouted == [], f"shouted at {shouted}")
+    check("but the record is still tracked",
+          store.counting_get(fresh)["high_score"] == 8,
+          str(store.counting_get(fresh)["high_score"]))
+
+    # End the streak so there is a record to beat.
+    settings = store.counting_get(fresh)
+    verdict = store.counting_judge(settings, ALICE, "999")
+    store.counting_apply(fresh, settings, verdict, ALICE)
+    after = store.counting_get(fresh)
+    check("a reset freezes the bar for the next streak",
+          after["record_baseline"] == 8, str(after["record_baseline"]))
+    check("and re-arms the announcement",
+          after["record_announced"] is False)
+
+    shouted = _run_streak(store, fresh, range(1, 13))
+    check("the next streak shouts exactly once", len(shouted) == 1, str(shouted))
+    check("and only when the old record is actually passed",
+          shouted == [9], str(shouted))
+
+    # A server that already has a record behaves the same way.
+    known = 9402
+    store.counting_save(known, {
+        "enabled": True, "channel": CHANNEL_ID, "current": 0,
+        "high_score": 5, "record_baseline": 5, "record_announced": False,
+        "require_alternate": False, "mode": "reset",
+    })
+    shouted = _run_streak(store, known, range(1, 10))
+    check("an existing record is beaten once, at the right number",
+          shouted == [6], str(shouted))
+
+    # Counting on past the record must stay silent.
+    more = _run_streak(store, known, range(10, 20))
+    check("carrying on past it stays quiet", more == [], str(more))
+
+    # Turning the record off silences it completely.
+    silent = 9403
+    store.counting_save(silent, {
+        "enabled": True, "channel": CHANNEL_ID, "current": 0,
+        "high_score": 3, "record_baseline": 3, "save_record": False,
+        "require_alternate": False,
+    })
+    check("with save_record off nothing is announced",
+          _run_streak(store, silent, range(1, 10)) == [])
+
+
+def test_milestones(store):
+    print("\nMilestones")
+
+    from cogs.commands.counting import Counting
+
+    cog = Counting(FakeBot())
+    guild = 9404
+
+    class MilestoneGuild(FakeGuild):
+        def __init__(self):
+            super().__init__(guild)
+
+    store.counting_save(guild, {
+        "enabled": True, "channel": CHANNEL_ID, "current": 8,
+        "high_score": 0, "record_baseline": 0, "milestone_every": 10,
+        "require_alternate": False, "allow_chat": True,
+    })
+
+    channel = FakeChannel()
+
+    def send(text):
+        msg = FakeMessage(text, author=FakeAuthor(ALICE), channel=channel,
+                          guild=MilestoneGuild())
+        asyncio.run(cog.on_message(msg))
+        return msg
+
+    channel.sent.clear()
+    send("9")
+    check("an ordinary number says nothing", len(channel.sent) == 0,
+          str(len(channel.sent)))
+
+    channel.sent.clear()
+    send("10")
+    check("a milestone is announced", len(channel.sent) == 1,
+          str(len(channel.sent)))
+
+    # 0 must switch them off rather than divide by zero.
+    store.counting_save(guild, {"milestone_every": 0, "current": 19})
+    channel.sent.clear()
+    send("20")
+    check("milestone_every = 0 switches them off and does not crash",
+          len(channel.sent) == 0, str(len(channel.sent)))
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -717,6 +840,8 @@ def run():
     test_alternate(store)
     test_split_modes(store)
     test_record(store)
+    test_record_spam(store)
+    test_milestones(store)
     test_normalise(store)
     test_atomic_write(store)
     test_cog(store)

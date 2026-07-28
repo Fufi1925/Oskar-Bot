@@ -554,19 +554,34 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
-  getJ2C: (guildId: string) => request<any>(`/guilds/${guildId}/j2c`),
+  // Join to create, voice roles and custom role commands moved to
+  // /voice: the old /guilds handlers wrote fields the cogs never read.
+  getJ2C: (guildId: string) => request<any>(`/voice/${guildId}/j2c`),
   updateJ2C: (guildId: string, data: any) =>
-    request<{ status: string }>(`/guilds/${guildId}/j2c`, {
+    request<any>(`/voice/${guildId}/j2c`, {
       method: "PATCH",
       body: JSON.stringify(data),
     }),
+  postJ2CPanel: (guildId: string) =>
+    request<any>(`/voice/${guildId}/j2c/panel`, { method: "POST", body: "{}" }),
+  resetJ2C: (guildId: string) =>
+    request<any>(`/voice/${guildId}/j2c/reset`, { method: "POST", body: "{}" }),
 
 
-  getCustomRoles: (guildId: string) => request<any>(`/guilds/${guildId}/customroles`),
+  getCustomRoles: (guildId: string) => request<any>(`/voice/${guildId}/customroles`),
   updateCustomRoles: (guildId: string, data: any) =>
-    request<{ status: string }>(`/guilds/${guildId}/customroles`, {
+    request<any>(`/voice/${guildId}/customroles`, {
       method: "PATCH",
       body: JSON.stringify(data),
+    }),
+  addCustomRole: (guildId: string, data: any) =>
+    request<any>(`/voice/${guildId}/customroles`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  deleteCustomRole: (guildId: string, name: string) =>
+    request<any>(`/voice/${guildId}/customroles/${encodeURIComponent(name)}`, {
+      method: "DELETE",
     }),
 
   getAutoReact: (guildId: string) => request<any>(`/guilds/${guildId}/autoreact`),
@@ -576,9 +591,9 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
-  getInvcRole: (guildId: string) => request<any>(`/guilds/${guildId}/invcrole`),
-  updateInvcRole: (guildId: string, data: any) =>
-    request<{ status: string }>(`/guilds/${guildId}/invcrole`, {
+  getVoiceRole: (guildId: string) => request<any>(`/voice/${guildId}/voicerole`),
+  updateVoiceRole: (guildId: string, data: any) =>
+    request<any>(`/voice/${guildId}/voicerole`, {
       method: "PATCH",
       body: JSON.stringify(data),
     }),

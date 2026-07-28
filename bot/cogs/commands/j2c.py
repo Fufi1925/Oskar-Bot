@@ -17,9 +17,9 @@ from discord.ext import commands
 from discord import ui, SelectOption
 from discord.ui import LayoutView, TextDisplay, Separator, ActionRow
 import aiosqlite
-import asyncio
 from typing import Dict, List, Optional
 from utils.cv2 import CV2, build_container
+from utils import voice_store as store
 
 class JoinToCreate(commands.Cog):
     def __init__(self, bot):
@@ -27,11 +27,20 @@ class JoinToCreate(commands.Cog):
         self.private_channels: Dict[int, Dict] = {}
         self.category_name = "J2C"
         self.setup_data: Dict[int, Dict] = {}
-        self.db_path = "j2c_data.db"
+        self.db_path = store.J2C_DB
         self.blocked_users: Dict[int, List[int]] = {}  # {vc_id: [user_ids]}
         self.creating_vc = set()
 
+    async def refresh(self, guild_id=None):
+        """Re-read the setup after the dashboard changed it."""
+        await self.load_data()
+        return True
+
     async def init_db(self):
+        async with aiosqlite.connect(self.db_path) as db:
+            # The shared store owns the schema, including the columns
+            # added after the first version.
+            await store.j2c_ensure(db)
         async with aiosqlite.connect(self.db_path) as db:
             await db.execute("""
                 CREATE TABLE IF NOT EXISTS guild_setup (
@@ -70,14 +79,21 @@ class JoinToCreate(commands.Cog):
     async def load_data(self):
         async with aiosqlite.connect(self.db_path) as db:
             # Load guild setups
-            async with db.execute("SELECT guild_id, join_channel_id, control_channel_id, control_message_id, category_id FROM guild_setup") as cursor:
+            async with db.execute(
+                "SELECT guild_id, join_channel_id, control_channel_id, "
+                "control_message_id, category_id, name_template, "
+                "default_limit, default_locked FROM guild_setup"
+            ) as cursor:
                 async for row in cursor:
-                    guild_id, join_channel_id, control_channel_id, control_message_id, category_id = row
+                    guild_id = row[0]
                     self.setup_data[guild_id] = {
-                        "join_channel_id": join_channel_id,
-                        "control_channel_id": control_channel_id,
-                        "control_message_id": control_message_id,
-                        "category_id": category_id
+                        "join_channel_id": row[1],
+                        "control_channel_id": row[2],
+                        "control_message_id": row[3],
+                        "category_id": row[4],
+                        "name_template": row[5] or "{user}'s VC",
+                        "default_limit": row[6] if row[6] is not None else 2,
+                        "default_locked": bool(row[7]),
                     }
 
             # Load private channels
@@ -104,11 +120,7 @@ class JoinToCreate(commands.Cog):
 
     async def save_guild_setup(self, guild_id: int, data: Dict):
         async with aiosqlite.connect(self.db_path) as db:
-            await db.execute("""
-                INSERT OR REPLACE INTO guild_setup (guild_id, join_channel_id, control_channel_id, control_message_id, category_id)
-                VALUES (?, ?, ?, ?, ?)
-            """, (guild_id, data["join_channel_id"], data["control_channel_id"], data["control_message_id"], data.get("category_id")))
-            await db.commit()
+            await store.j2c_save(db, guild_id, data)
 
     async def save_private_channel(self, vc_id: int, guild_id: int, data: Dict):
         try:
@@ -286,20 +298,67 @@ class JoinToCreate(commands.Cog):
                 if not category:
                     category = discord.utils.get(member.guild.categories, name=self.category_name)
                     
-                vc = await member.guild.create_voice_channel(
-                    f"{member.name}'s VC",
-                    category=category,
-                    reason="Private VC Creation",
-                    user_limit=2
+                template = guild_data.get("name_template") or "{user}'s VC"
+                try:
+                    default_limit = int(guild_data.get("default_limit") or 2)
+                except (TypeError, ValueError):
+                    default_limit = 2
+                locked = bool(guild_data.get("default_locked"))
+
+                name = store.j2c_channel_name(
+                    template,
+                    user_name=member.name,
+                    display_name=member.display_name,
+                    count=len(self.private_channels) + 1,
                 )
-                
-                await member.move_to(vc)
-                
+
+                overwrites = None
+                if locked:
+                    overwrites = {
+                        member.guild.default_role: discord.PermissionOverwrite(
+                            connect=False
+                        ),
+                        member: discord.PermissionOverwrite(
+                            connect=True, manage_channels=True
+                        ),
+                    }
+
+                try:
+                    vc = await member.guild.create_voice_channel(
+                        name,
+                        category=category,
+                        reason="Private VC Creation",
+                        user_limit=default_limit,
+                        overwrites=overwrites,
+                    )
+                except discord.Forbidden:
+                    # Without "Manage Channels" nothing can be created;
+                    # the old code let this bubble up and the member was
+                    # left sitting in the lobby with no explanation.
+                    print(f"j2c: missing Manage Channels in {member.guild.id}")
+                    return
+                except discord.HTTPException as exc:
+                    # 50035 = the category is full (50 channels) or the
+                    # server hit its 500 channel cap.
+                    print(f"j2c: could not create the channel: {exc}")
+                    return
+
+                try:
+                    await member.move_to(vc)
+                except (discord.Forbidden, discord.HTTPException):
+                    # They hung up between joining and the channel being
+                    # ready; an empty channel would linger forever.
+                    try:
+                        await vc.delete(reason="J2C: creator already gone")
+                    except discord.HTTPException:
+                        pass
+                    return
+
                 self.private_channels[vc.id] = {
                     "owner": member.id,
-                    "limit": 2,
+                    "limit": default_limit,
                     "region": "",
-                    "is_locked": False,
+                    "is_locked": locked,
                     "has_waiting_room": False,
                     "has_thread": False,
                     "guild_id": member.guild.id
@@ -309,13 +368,22 @@ class JoinToCreate(commands.Cog):
             finally:
                 self.creating_vc.discard(member.id)
             
+        # A blocked member walking into a private channel. The old code
+        # only looked at `before.channel`, so the check ran when someone
+        # *left* -- blocking somebody never actually kept them out.
+        if after.channel and after.channel.id in self.private_channels:
+            blocked = self.blocked_users.get(after.channel.id) or []
+            if member.id in blocked:
+                owner_id = self.private_channels[after.channel.id].get("owner")
+                if member.id != owner_id:
+                    try:
+                        await member.move_to(None, reason="J2C: blocked")
+                    except (discord.Forbidden, discord.HTTPException):
+                        pass
+                    return
+
         # User left a private channel
         if before.channel and before.channel.id in self.private_channels:
-            # Check if user was blocked
-            if (before.channel.id in self.blocked_users and 
-                member.id in self.blocked_users[before.channel.id]):
-                await member.move_to(None)
-                return
                 
             # Check if channel is empty
             if len(before.channel.members) == 0:
@@ -670,9 +738,35 @@ class ControlPanelView(LayoutView):
 
 
 class UserSelectDropdown(ui.Select):
+    """
+    A member picker that respects Discord's limits.
+
+    Every caller built this from the full member list. Discord rejects a
+    select menu with more than 25 options with a 400, so on any server
+    above 25 members the BLOCK, INVITE, KICK, UNBLOCK and TRANSFER
+    buttons simply failed -- the more successful the server, the more
+    reliably broken. Capping here fixes all six call sites at once.
+    """
+
     def __init__(self, options: List[SelectOption], placeholder: str, callback):
-        super().__init__(placeholder=placeholder, options=options, min_values=1, max_values=len(options))
+        total = len(options)
+        options = options[:store.MAX_SELECT_OPTIONS]
+
+        if total > store.MAX_SELECT_OPTIONS:
+            placeholder = f"{placeholder} (erste {len(options)} von {total})"
+        # Discord also caps the placeholder itself at 100 characters.
+        placeholder = placeholder[:100]
+
+        super().__init__(
+            placeholder=placeholder,
+            options=options,
+            min_values=1,
+            # max_values must never exceed the number of options, and a
+            # zero-option menu is rejected outright.
+            max_values=max(1, len(options)),
+        )
         self.callback_func = callback
+
     async def callback(self, interaction: discord.Interaction):
         await self.callback_func(interaction, self.values)
 

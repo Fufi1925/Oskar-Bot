@@ -445,6 +445,16 @@ COUNTING_DEFAULTS = {
     "mode": "reset",            # reset | continue
     "high_score": 0,
     "high_score_at": None,
+    # Whether "new record" has already been announced in the current
+    # streak. Without this the bot shouts on every single number once
+    # the old record is passed.
+    "record_announced": False,
+    # The record as it stood when the current streak began. The live
+    # high_score is useless for comparing, because it climbs with every
+    # number -- on a fresh server it goes 0, 1, 2, 3 in lockstep with
+    # the count, so "number > high_score" is true forever. The baseline
+    # is frozen at the start of a streak and only moves on a reset.
+    "record_baseline": 0,
     # Require a different member for each number. This is the classic
     # "no double counting" rule; off by default so small servers where
     # one person counts alone are not locked out.
@@ -532,6 +542,7 @@ def counting_normalise(entry: dict) -> dict:
     entry["enabled"] = bool(entry.get("enabled"))
     entry["current"] = max(0, int(entry.get("current") or 0))
     entry["high_score"] = max(0, int(entry.get("high_score") or 0))
+    entry["record_baseline"] = max(0, int(entry.get("record_baseline") or 0))
     entry["mode"] = _counting_mode(entry.get("mode"))
 
     for key in ("wrong_number_mode", "double_post_mode"):
@@ -539,7 +550,7 @@ def counting_normalise(entry: dict) -> dict:
         entry[key] = value if value in ("reset", "continue") else None
 
     for key in ("require_alternate", "delete_wrong", "allow_chat",
-                "react_success", "save_record"):
+                "react_success", "save_record", "record_announced"):
         entry[key] = bool(entry.get(key))
 
     milestone = entry.get("milestone_every")
@@ -668,16 +679,40 @@ def counting_apply(guild_id: int, settings: dict, verdict: dict,
 
     if verdict["action"] == "count":
         number = int(verdict["number"])
+        previous = int(settings.get("high_score") or 0)
         updates["current"] = number
         updates["last_user"] = int(author_id)
-        if settings.get("save_record") and number > int(settings.get("high_score") or 0):
+
+        if settings.get("save_record") and number > previous:
             updates["high_score"] = number
-            record_broken = True
+
+            # Announcing is deliberately narrow. It fires only when the
+            # streak passes the record *that existed before this streak
+            # started*, and only the first time:
+            #
+            #   * A fresh server has no record to beat, so nothing is
+            #     announced until a streak has ended and left one behind.
+            #     Otherwise the bot congratulates the channel on
+            #     reaching 1, then 2, then 3 -- which is what happened.
+            #   * Comparing against the live high_score cannot work: it
+            #     rises with every accepted number, so it is never
+            #     "beaten" by more than one.
+            baseline = int(settings.get("record_baseline") or 0)
+            if baseline > 0 and number > baseline \
+                    and not settings.get("record_announced"):
+                record_broken = True
+                updates["record_announced"] = True
     elif verdict["reset"]:
         updates["current"] = 0
         # Cleared so the next counter is never blocked by the person who
         # broke the streak.
         updates["last_user"] = None
+        # The next streak measures itself against what this one left.
+        updates["record_announced"] = False
+        updates["record_baseline"] = max(
+            int(settings.get("high_score") or 0),
+            int(settings.get("record_baseline") or 0),
+        )
 
     if not updates:
         return {"settings": settings, "record": False}

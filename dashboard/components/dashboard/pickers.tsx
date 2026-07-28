@@ -239,18 +239,29 @@ export function RolePicker(props: Omit<Parameters<typeof SinglePicker>[0], "kind
 /* ------------------------------------------------------------------ *
  * Multi select — replaces the "ID1, ID2, ..." text fields
  * ------------------------------------------------------------------ */
-export function MultiRolePicker({
+/**
+ * Multi select for roles or channels.
+ *
+ * Was roles-only; the voice-role tab needs the same widget for the
+ * channel list, and a second near-identical copy would mean fixing
+ * every future bug twice.
+ */
+function MultiPicker({
+  kind,
   guildId,
   value,
   onChange,
-  placeholder = "Select roles",
+  placeholder = "Auswählen",
   disabled,
+  channelTypes,
 }: {
+  kind: "roles" | "channels";
   guildId?: string;
   value: Array<string | number>;
   onChange: (ids: string[]) => void;
   placeholder?: string;
   disabled?: boolean;
+  channelTypes?: string[];
 }) {
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -262,17 +273,22 @@ export function MultiRolePicker({
   useEffect(() => {
     if (!guildId) return;
     setLoading(true);
-    load("roles", guildId)
+    load(kind, guildId)
       .then(setItems)
       .finally(() => setLoading(false));
-  }, [guildId]);
+  }, [kind, guildId]);
 
   const selected = (value || []).map(String);
   const usable = useMemo(() => {
-    const list = items.filter((r) => r.name !== "@everyone");
+    let list = items;
+    if (kind === "roles") {
+      list = list.filter((r) => r.name !== "@everyone");
+    } else if (channelTypes?.length) {
+      list = list.filter((c) => channelTypes.includes(String(c.type)));
+    }
     const q = query.trim().toLowerCase();
     return q ? list.filter((r) => String(r.name).toLowerCase().includes(q)) : list;
-  }, [items, query]);
+  }, [items, query, kind, channelTypes]);
 
   const toggle = (id: string) =>
     onChange(
@@ -302,10 +318,14 @@ export function MultiRolePicker({
               key={id}
               className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.06] border border-white/10 text-xs text-slate-200"
             >
-              <span
-                className="h-2 w-2 rounded-full"
-                style={{ background: roleColor(role?.color) }}
-              />
+              {kind === "roles" ? (
+                <span
+                  className="h-2 w-2 rounded-full"
+                  style={{ background: roleColor(role?.color) }}
+                />
+              ) : (
+                <span className="text-slate-500">#</span>
+              )}
               {role?.name || id}
               {!disabled && (
                 <X
@@ -340,7 +360,11 @@ export function MultiRolePicker({
           <div className="max-h-64 overflow-y-auto py-1">
             {usable.length === 0 ? (
               <p className="px-4 py-6 text-center text-xs text-slate-500">
-                {loading ? "Loading…" : "No roles found."}
+                {loading
+                  ? "Lädt…"
+                  : kind === "roles"
+                  ? "Keine Rollen gefunden."
+                  : "Keine Kanäle gefunden."}
               </p>
             ) : (
               usable.map((role) => {
@@ -355,10 +379,14 @@ export function MultiRolePicker({
                       active ? "bg-primary/15 text-primary" : "text-slate-300 hover:bg-white/5"
                     )}
                   >
-                    <span
-                      className="h-3 w-3 rounded-full shrink-0"
-                      style={{ background: roleColor(role.color) }}
-                    />
+                    {kind === "roles" ? (
+                      <span
+                        className="h-3 w-3 rounded-full shrink-0"
+                        style={{ background: roleColor(role.color) }}
+                      />
+                    ) : (
+                      <span className="text-slate-500 shrink-0">#</span>
+                    )}
                     <span className="truncate flex-1">{role.name}</span>
                     {active && <Check className="h-3.5 w-3.5 shrink-0" />}
                   </button>
@@ -370,4 +398,16 @@ export function MultiRolePicker({
       )}
     </div>
   );
+}
+
+export function MultiRolePicker(
+  props: Omit<Parameters<typeof MultiPicker>[0], "kind">
+) {
+  return <MultiPicker kind="roles" {...props} />;
+}
+
+export function MultiChannelPicker(
+  props: Omit<Parameters<typeof MultiPicker>[0], "kind">
+) {
+  return <MultiPicker kind="channels" {...props} />;
 }
