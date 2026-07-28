@@ -28,6 +28,7 @@ import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { RolePicker } from "@/components/dashboard/pickers";
 import { InlineToggle } from "@/components/dashboard/form-elements";
+import { StickySaveBar, useSaveGuard } from "@/components/dashboard/save-bar";
 
 const INPUT =
   "w-full bg-[#0d1b31] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-primary/50 transition-colors";
@@ -176,7 +177,26 @@ export function GiveawayDetail({
   const value = (key: string) =>
     draft[key] !== undefined ? draft[key] : data?.[key] ?? "";
   const set = (key: string, v: any) => setDraft((d: any) => ({ ...d, [key]: v }));
-  const dirty = Object.keys(draft).length > 0;
+  const dirtyCount = Object.keys(draft).length;
+  // This view has its own bar, but it was hand-built and -- like every
+  // other hand-built copy -- did not stop a navigation. Clicking back to
+  // the giveaway list threw the edit away without a word.
+  const guard = useSaveGuard(dirtyCount, "giveaway-save-bar");
+
+  /**
+   * "Back" is a button, not a link.
+   *
+   * The shared guard hooks link clicks, so it never sees this one --
+   * pressing back with an unsaved edit dropped it silently. Route it
+   * through the same refusal instead.
+   */
+  const leave = () => {
+    if (dirtyCount > 0) {
+      guard.refuse();
+      return;
+    }
+    onBack();
+  };
 
   const save = async (extra: any = {}, note = "Gespeichert.") => {
     const payload = { ...draft, ...extra };
@@ -230,7 +250,7 @@ export function GiveawayDetail({
     return (
       <div className="text-center py-16 space-y-4">
         <p className="text-slate-400">Dieses Gewinnspiel gibt es nicht mehr.</p>
-        <button onClick={onBack} className="text-primary text-sm font-bold">
+        <button onClick={leave} className="text-primary text-sm font-bold">
           Zurück zur Übersicht
         </button>
       </div>
@@ -253,7 +273,7 @@ export function GiveawayDetail({
       {/* ── Header ───────────────────────────────────── */}
       <div className="flex items-start gap-4 flex-wrap">
         <button
-          onClick={onBack}
+          onClick={leave}
           className="p-2.5 rounded-xl bg-white/[0.03] border border-white/5 text-slate-400 hover:text-white transition-all"
           title="Zurück"
         >
@@ -668,31 +688,14 @@ export function GiveawayDetail({
       )}
 
       {/* ── Sticky save bar ──────────────────────────── */}
-      {dirty && (
-        <div className="sticky bottom-4 z-30">
-          <div className="bg-[#10233f]/95 backdrop-blur border border-primary/30 rounded-2xl p-4 flex items-center gap-4 flex-wrap shadow-2xl">
-            <Settings2 className="h-4 w-4 text-primary shrink-0" />
-            <p className="text-sm text-slate-300 flex-1 min-w-[160px]">
-              {Object.keys(draft).length} Änderung
-              {Object.keys(draft).length === 1 ? "" : "en"} noch nicht gespeichert.
-            </p>
-            <button
-              onClick={() => setDraft({})}
-              className="px-4 py-2.5 rounded-xl bg-white/[0.03] border border-white/10 text-xs font-black uppercase tracking-widest text-slate-400 hover:text-white transition-all"
-            >
-              Verwerfen
-            </button>
-            <button
-              onClick={() => save()}
-              disabled={busy}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-xs font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:brightness-110 disabled:opacity-40 transition-all"
-            >
-              {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-              Speichern
-            </button>
-          </div>
-        </div>
-      )}
+      <StickySaveBar
+        id="giveaway-save-bar"
+        count={dirtyCount}
+        busy={busy}
+        shake={guard.shake}
+        onDiscard={() => setDraft({})}
+        onSave={() => save()}
+      />
     </section>
   );
 }

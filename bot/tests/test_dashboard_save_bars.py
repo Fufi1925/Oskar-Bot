@@ -213,6 +213,53 @@ def test_admin_area():
           "mouse-up only means arrow keys set nothing")
 
 
+def test_buttons_that_leave():
+    """
+    The guard hooks link clicks. Two places leave by button instead.
+
+    Both were found only by walking the panels by hand after the guard
+    was already in place, which is the point: "every tab has a bar" and
+    "no edit can be lost" are not the same statement.
+
+      * The giveaway detail view is swapped in by its parent, so "back"
+        is a <button> the guard never sees. Pressing it with an unsaved
+        edit dropped it silently.
+      * The ticket category editor is a modal. Cancel and the X threw
+        away everything typed into it, and a modal has nowhere to put a
+        sticky bar -- so that one asks with a confirm() instead.
+    """
+    print("\nLeaving by button")
+
+    detail = read(os.path.join(DASH, "components/dashboard/giveaway-detail.tsx"))
+    check("the giveaway view has a save bar",
+          "<StickySaveBar" in detail and 'id="giveaway-save-bar"' in detail)
+    check("its back button goes through the guard",
+          "const leave = () => {" in detail and "guard.refuse();" in detail)
+    check("and no back button calls onBack directly any more",
+          "onClick={onBack}" not in detail,
+          "a raw onBack drops the edit without asking")
+
+    tickets = read(os.path.join(DASH, "components/dashboard/ticket-panels.tsx"))
+    check("the ticket dialog has a close guard",
+          "const closeEditor = () => {" in tickets)
+    check("cancel and the X both use it",
+          tickets.count("onClick={closeEditor}") == 2,
+          str(tickets.count("onClick={closeEditor}")))
+    check("nothing closes the dialog behind its back",
+          tickets.count("onClick={() => setEditing(null)}") == 0,
+          "a raw setEditing(null) skips the confirm")
+    check("the dialog records what it was opened with",
+          "setEditingBase(JSON.stringify(next.cat))" in tickets)
+    # Only the two real openers may reset the baseline. A field edit
+    # that resets it makes "did anything change?" permanently false --
+    # which is exactly what a careless search-and-replace did here once.
+    check("only the two real openers reset the baseline",
+          tickets.count("openEditor({") == 2,
+          str(tickets.count("openEditor({")))
+    check("field edits inside the dialog do not reset it",
+          "openEditor({ ...editing" not in tickets)
+
+
 def test_no_tab_was_missed():
     """
     Every tab that keeps an edit in local state needs a bar somewhere.
@@ -267,6 +314,7 @@ def main():
     test_shared_module()
     test_every_panel()
     test_admin_area()
+    test_buttons_that_leave()
     test_no_tab_was_missed()
     test_old_bars_are_gone()
 

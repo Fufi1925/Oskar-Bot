@@ -81,6 +81,37 @@ export function TicketPanels({ guildId }: { guildId: string }) {
   const [editing, setEditing] = useState<
     { panelId: number; cat: Category; panelType: string } | null
   >(null);
+  // The category as the dialog was opened with it.
+  const [editingBase, setEditingBase] = useState<string>("");
+
+  /** Open the editor and record the starting point. */
+  const openEditor = (next: {
+    panelId: number;
+    cat: Category;
+    panelType: string;
+  }) => {
+    setEditingBase(JSON.stringify(next.cat));
+    setEditing(next);
+  };
+
+  /**
+   * Close the editor, but not over an unsaved edit.
+   *
+   * Cancel and the X used to drop everything typed into the dialog
+   * without a word. A modal has nowhere to put a sticky bar, so this is
+   * the one place a confirm() is the right tool -- there is no page
+   * left to scroll a bar into view on.
+   */
+  const closeEditor = () => {
+    const changed = editing && JSON.stringify(editing.cat) !== editingBase;
+    if (
+      changed &&
+      !confirm("Die Änderungen an dieser Kategorie verwerfen?")
+    ) {
+      return;
+    }
+    setEditing(null);
+  };
 
   const load = useCallback(async () => {
     try {
@@ -146,7 +177,7 @@ export function TicketPanels({ guildId }: { guildId: string }) {
                 {editing.cat.category_id ? "Kategorie bearbeiten" : "Neue Kategorie"}
               </h3>
               <button
-                onClick={() => setEditing(null)}
+                onClick={closeEditor}
                 className="text-slate-500 hover:text-white transition-colors"
               >
                 <X className="h-5 w-5" />
@@ -241,7 +272,7 @@ export function TicketPanels({ guildId }: { guildId: string }) {
 
             <div className="p-6 border-t border-slate-800 flex gap-3">
               <button
-                onClick={() => setEditing(null)}
+                onClick={closeEditor}
                 className="flex-1 px-4 py-3 rounded-xl bg-white/[0.03] border border-white/10 text-slate-300 hover:bg-white/[0.07] transition-all text-xs font-black uppercase tracking-widest"
               >
                 Abbrechen
@@ -487,7 +518,7 @@ export function TicketPanels({ guildId }: { guildId: string }) {
                       </div>
                       <button
                         onClick={() =>
-                          setEditing({
+                          openEditor({
                             panelId: panel.panel_id,
                             panelType: panel.panel_type || "button",
                             cat: {
@@ -533,7 +564,7 @@ export function TicketPanels({ guildId }: { guildId: string }) {
                             )}
                             <button
                               onClick={() =>
-                                setEditing({
+                                openEditor({
                                   panelId: panel.panel_id,
                                   panelType: panel.panel_type || "button",
                                   cat,
