@@ -463,13 +463,27 @@ export const api = {
   announceCounting: (g: string) =>
     request<any>(`/extras/${g}/counting/announce`, { method: "POST", body: "{}" }),
 
+  /**
+   * YouTube subscriptions: a channel name, where to post, who to ping.
+   *
+   * Replaces the pair that stored a role and channel per "type" and
+   * watched members' Discord streaming status instead of YouTube.
+   */
   getNotify: (g: string) => request<any>(`/extras/${g}/notify`),
-  setNotify: (g: string, data: any) =>
-    request<any>(`/extras/${g}/notify`, { method: "POST", body: JSON.stringify(data) }),
-  removeNotify: (g: string, kind: string) =>
-    request<any>(`/extras/${g}/notify/${kind}`, { method: "DELETE" }),
-  testNotify: (g: string, kind: string) =>
-    request<any>(`/extras/${g}/notify/${kind}/test`, { method: "POST" }),
+  addNotify: (g: string, data: any) =>
+    request<any>(`/extras/${g}/notify`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  updateNotify: (g: string, channelId: string, data: any) =>
+    request<any>(`/extras/${g}/notify/${channelId}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+  testNotify: (g: string, channelId: string) =>
+    request<any>(`/extras/${g}/notify/${channelId}/test`, { method: "POST" }),
+  removeNotify: (g: string, channelId: string) =>
+    request<any>(`/extras/${g}/notify/${channelId}`, { method: "DELETE" }),
 
   getBirthdays: (g: string) => request<any>(`/extras/${g}/birthday`),
   setBirthday: (g: string, data: any) =>

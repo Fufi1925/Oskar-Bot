@@ -752,199 +752,312 @@ async def announce_counting(
 # ══════════════════════════════════════════════════════════════════════
 
 
-@router.get("/{guild_id}/notify", summary="Live notifications")
-async def get_notify(guild_id: int, bot: "universitybot" = Depends(get_bot)):
-    """
-    What this feature is, stated plainly, because the tab used to
-    promise something else.
+# ══════════════════════════════════════════════════════════════════════
+#  YouTube notifications
+# ══════════════════════════════════════════════════════════════════════
+#
+# You give it a channel name; it watches for uploads (Shorts included)
+# and for the channel going live.
+#
+# This replaces a feature that could do neither. The old one watched the
+# Discord streaming status of members: it never saw an upload, only
+# worked for people who were on the server, and its listener queried
+# without a guild filter, so every server got the first server's role
+# and channel.
+#
+# Twitch is not here on purpose. Its API returns 401 for everything
+# without a registered client id and secret (verified), so a Twitch box
+# without those would be a control that does nothing.
 
-    The bot watches the *Discord streaming status* of members of this
-    server. Nothing here polls YouTube or Twitch, so an upload by
-    somebody who is not in the server -- or who does not stream through
-    Discord -- is never seen. The old tab said "new video or stream",
-    which is why people set it up and then waited for nothing.
-    """
-    db = await db_manager.get_connection(store.NOTIFY_DB)
-    await store.notify_ensure(db)
-    guild = bot.get_guild(guild_id)
 
-    configured = {row["type"]: row for row in await store.notify_list(db, guild_id)}
+async def _yt_session():
+    import aiohttp
 
-    platforms = []
-    for kind in store.NOTIFY_TYPES:
-        row = configured.get(kind)
-        entry = {
-            "key": kind,
-            "label": "YouTube" if kind == "youtube" else "Twitch",
-            "configured": row is not None and not row["legacy"],
-            "legacy": bool(row and row["legacy"]),
-            "role": _role_info(guild, row["role_id"]) if row else None,
-            "channel": _channel_info(guild, row["channel_id"]) if row else None,
-        }
-        platforms.append(entry)
+    return aiohttp.ClientSession()
 
-    # Who could actually trigger this right now. A server where nobody
-    # ever streams through Discord will never see a single ping, and
-    # that is worth saying before somebody files it as a bug.
-    live = []
-    if guild is not None:
-        for member in getattr(guild, "members", ()) or ():
-            if getattr(member, "bot", False):
-                continue
-            for activity in getattr(member, "activities", ()) or ():
-                if type(activity).__name__ != "Streaming":
-                    continue
-                url = (getattr(activity, "url", "") or "").lower()
-                platform = (
-                    "twitch" if "twitch.tv" in url
-                    else "youtube" if ("youtube.com" in url or "youtu.be" in url)
-                    else None
-                )
-                live.append({
-                    "id": str(member.id),
-                    "name": member.display_name,
-                    "avatar": str(member.display_avatar.url)
-                    if getattr(member, "display_avatar", None) else None,
-                    "platform": platform,
-                    "title": getattr(activity, "name", None),
-                    "url": getattr(activity, "url", None),
-                })
-                break
 
+def _yt_entry(guild, sub: dict) -> dict:
+    channel = guild.get_channel(sub["post_channel"]) if guild else None
+    role = (
+        guild.get_role(sub["role_id"]) if guild and sub["role_id"] else None
+    )
     return {
-        "guild_id": str(guild_id),
-        "platforms": platforms,
-        "types": list(store.NOTIFY_TYPES),
-        "active_count": sum(1 for p in platforms if p["configured"]),
-        "live_now": live,
-        "presence_intent": bool(
-            getattr(getattr(bot, "intents", None), "presences", False)
-        ),
-        "warnings": _notify_warnings(guild, platforms),
+        # Snowflakes and the UC id travel as strings: a JSON number
+        # loses the last digits of a snowflake in the browser.
+        "channel_id": sub["channel_id"],
+        "handle": sub["handle"],
+        "title": sub["title"] or sub["handle"],
+        "url": f"https://www.youtube.com/channel/{sub['channel_id']}",
+        "post_channel": str(sub["post_channel"]),
+        "post_channel_name": getattr(channel, "name", None),
+        "post_channel_missing": channel is None,
+        "role_id": str(sub["role_id"]) if sub["role_id"] else None,
+        "role_name": getattr(role, "name", None),
+        "role_missing": role is None and bool(sub["role_id"]),
+        "on_upload": sub["on_upload"],
+        "on_live": sub["on_live"],
     }
 
 
-def _notify_warnings(guild, platforms) -> list[str]:
-    """Everything between this configuration and it working."""
+def _yt_warnings(guild, entries: list[dict]) -> list[str]:
     problems: list[str] = []
-
-    for entry in platforms:
-        if entry["legacy"]:
-            problems.append(
-                f"Die {entry['label']}-Einstellung stammt aus einer alten "
-                "Version ohne Server-Zuordnung und wird nicht mehr benutzt. "
-                "Bitte neu setzen."
-            )
-        if not entry["configured"]:
-            continue
-        if entry["role"] and entry["role"].get("missing"):
-            problems.append(f"Die Rolle für {entry['label']} gibt es nicht mehr.")
-        if entry["channel"] and entry["channel"].get("missing"):
-            problems.append(f"Der Kanal für {entry['label']} gibt es nicht mehr.")
-
     if guild is None:
         return problems
 
     me = getattr(guild, "me", None)
-    for entry in platforms:
-        if not entry["configured"] or not entry["channel"]:
+    for entry in entries:
+        name = entry["title"]
+        if entry["post_channel_missing"]:
+            problems.append(f"Der Kanal für „{name}“ existiert nicht mehr.")
             continue
-        channel = guild.get_channel(int(entry["channel"]["id"]))
+        if entry["role_missing"]:
+            problems.append(f"Die Ping-Rolle für „{name}“ existiert nicht mehr.")
+
+        channel = guild.get_channel(int(entry["post_channel"]))
         if channel is None or me is None:
             continue
         perms = channel.permissions_for(me)
         if not perms.send_messages:
             problems.append(
                 f"Der Bot darf in #{channel.name} nicht schreiben — "
-                f"{entry['label']} läuft ins Leere."
+                f"„{name}“ läuft ins Leere."
             )
         elif not perms.embed_links:
             problems.append(
                 f"Ohne „Links einbetten“ in #{channel.name} bleibt die "
-                f"{entry['label']}-Meldung leer."
+                f"Meldung für „{name}“ leer."
+            )
+
+        if not entry["on_upload"] and not entry["on_live"]:
+            problems.append(
+                f"Bei „{name}“ sind beide Schalter aus — da kommt nie etwas."
             )
 
     return problems
 
 
-@router.post("/{guild_id}/notify", summary="Set up a notification")
+@router.get("/{guild_id}/notify", summary="YouTube subscriptions")
+async def get_notify(guild_id: int, bot: "universitybot" = Depends(get_bot)):
+    db = await db_manager.get_connection(store.NOTIFY_DB)
+    await store.yt_ensure(db)
+    guild = bot.get_guild(guild_id)
+
+    subs = await store.yt_list(db, guild_id)
+    entries = [_yt_entry(guild, sub) for sub in subs]
+
+    return {
+        "guild_id": str(guild_id),
+        "entries": entries,
+        "max": store.YT_MAX_PER_GUILD,
+        "slots_left": max(0, store.YT_MAX_PER_GUILD - len(entries)),
+        "warnings": _yt_warnings(guild, entries),
+    }
+
+
+@router.post("/{guild_id}/notify", summary="Subscribe to a YouTube channel")
 async def set_notify(
     guild_id: int, data: dict, bot: "universitybot" = Depends(get_bot)
 ):
+    from utils import youtube_watch as yt
+
     guild = _guild_or_404(bot, guild_id)
 
-    kind = str(data.get("type") or "").lower()
-    if kind not in store.NOTIFY_TYPES:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Unbekannter Typ. Möglich: {', '.join(store.NOTIFY_TYPES)}",
-        )
+    typed = str(data.get("name") or "").strip()
+    if not typed:
+        raise HTTPException(status_code=400, detail="Bitte einen YouTube-Kanal angeben.")
+
+    post_channel = str(data.get("channel_id") or "")
+    if not post_channel.isdigit():
+        raise HTTPException(status_code=400, detail="Bitte einen Kanal auswählen.")
+    channel = guild.get_channel(int(post_channel))
+    if channel is None:
+        raise HTTPException(status_code=404, detail="Den Kanal gibt es nicht mehr.")
 
     role_id = str(data.get("role_id") or "")
-    channel_id = str(data.get("channel_id") or "")
-    if not role_id.isdigit() or not channel_id.isdigit():
-        raise HTTPException(status_code=400, detail="Bitte Rolle und Kanal auswählen.")
-
-    if guild.get_channel(int(channel_id)) is None:
-        raise HTTPException(status_code=404, detail="Den Kanal gibt es nicht mehr.")
-    if guild.get_role(int(role_id)) is None:
+    if role_id and not role_id.isdigit():
+        raise HTTPException(status_code=400, detail="Die Rolle ist ungültig.")
+    if role_id and guild.get_role(int(role_id)) is None:
         raise HTTPException(status_code=404, detail="Die Rolle gibt es nicht mehr.")
 
+    on_upload = bool(data.get("on_upload", True))
+    on_live = bool(data.get("on_live", True))
+    if not on_upload and not on_live:
+        raise HTTPException(
+            status_code=400,
+            detail="Mindestens eines von beiden muss an sein, sonst passiert nie etwas.",
+        )
+
     db = await db_manager.get_connection(store.NOTIFY_DB)
-    await store.notify_ensure(db)
-    await store.notify_set(db, guild_id, kind, int(role_id), int(channel_id))
+    await store.yt_ensure(db)
 
-    return {"status": "success", "result": f"{kind}-Benachrichtigung gespeichert."}
+    existing = {s["channel_id"] for s in await store.yt_list(db, guild_id)}
+
+    session = await _yt_session()
+    try:
+        try:
+            found = await yt.resolve(session, typed)
+        except yt.LookupError_ as err:
+            raise HTTPException(status_code=404, detail=str(err))
+
+        # The limit is checked against the resolved id, so re-adding a
+        # channel that is already there counts as an edit, not as a new
+        # one taking up a slot.
+        if found.id not in existing and len(existing) >= store.YT_MAX_PER_GUILD:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Höchstens {store.YT_MAX_PER_GUILD} Kanäle pro Server. "
+                    "Entferne erst einen."
+                ),
+            )
+
+        # Seeded with what is newest right now, otherwise subscribing
+        # would immediately announce the channel's last upload as new.
+        videos = await yt.latest_videos(session, found.id)
+        live = await yt.live_now(session, found.id)
+    finally:
+        await session.close()
+
+    await store.yt_add(
+        db, guild_id,
+        channel_id=found.id, handle=found.handle, title=found.title,
+        post_channel=int(post_channel),
+        role_id=int(role_id) if role_id else None,
+        on_upload=on_upload, on_live=on_live,
+        last_video=videos[0].id if videos else None,
+        last_live=live.id if live else None,
+    )
+
+    return {
+        "status": "success",
+        "result": f"„{found.title}“ wird jetzt beobachtet.",
+        "channel_id": found.id,
+        "title": found.title,
+    }
 
 
-@router.post("/{guild_id}/notify/{kind}/test", summary="Post a test announcement")
+@router.patch(
+    "/{guild_id}/notify/{channel_id}", summary="Change a subscription"
+)
+async def patch_notify(
+    guild_id: int, channel_id: str, data: dict,
+    bot: "universitybot" = Depends(get_bot),
+):
+    """Partial: only the keys actually sent are written."""
+    guild = _guild_or_404(bot, guild_id)
+
+    db = await db_manager.get_connection(store.NOTIFY_DB)
+    await store.yt_ensure(db)
+
+    values: dict = {}
+
+    if "channel_id" in data:
+        post = str(data["channel_id"] or "")
+        if not post.isdigit():
+            raise HTTPException(status_code=400, detail="Bitte einen Kanal auswählen.")
+        if guild.get_channel(int(post)) is None:
+            raise HTTPException(status_code=404, detail="Den Kanal gibt es nicht mehr.")
+        values["post_channel"] = int(post)
+
+    if "role_id" in data:
+        role = str(data["role_id"] or "")
+        if role and not role.isdigit():
+            raise HTTPException(status_code=400, detail="Die Rolle ist ungültig.")
+        if role and guild.get_role(int(role)) is None:
+            raise HTTPException(status_code=404, detail="Die Rolle gibt es nicht mehr.")
+        values["role_id"] = int(role) if role else None
+
+    for flag in ("on_upload", "on_live"):
+        if flag in data:
+            values[flag] = bool(data[flag])
+
+    current = next(
+        (s for s in await store.yt_list(db, guild_id)
+         if s["channel_id"] == channel_id),
+        None,
+    )
+    if current is None:
+        raise HTTPException(status_code=404, detail="Dieses Abo gibt es nicht.")
+
+    merged_upload = values.get("on_upload", current["on_upload"])
+    merged_live = values.get("on_live", current["on_live"])
+    if not merged_upload and not merged_live:
+        raise HTTPException(
+            status_code=400,
+            detail="Mindestens eines von beiden muss an sein, sonst passiert nie etwas.",
+        )
+
+    if not await store.yt_update(db, guild_id, channel_id, values):
+        raise HTTPException(status_code=400, detail="Nichts zu ändern.")
+
+    return {"status": "success", "result": "Gespeichert."}
+
+
+@router.post(
+    "/{guild_id}/notify/{channel_id}/test", summary="Post a test announcement"
+)
 async def test_notify(
-    guild_id: int, kind: str, bot: "universitybot" = Depends(get_bot)
+    guild_id: int, channel_id: str, bot: "universitybot" = Depends(get_bot)
 ):
     """
     Post the announcement as it would really look.
 
-    Otherwise the only way to find out whether this works is to have
-    somebody actually go live and hope -- and the failure modes (no
-    permission, deleted channel) are silent.
+    Otherwise the only way to find out whether this works is to wait for
+    an upload and hope -- and the failure modes (no permission, deleted
+    channel) are silent.
     """
     guild = _guild_or_404(bot, guild_id)
-    kind = kind.lower()
-    if kind not in store.NOTIFY_TYPES:
-        raise HTTPException(status_code=400, detail=f"Unbekannter Typ: {kind}")
 
     db = await db_manager.get_connection(store.NOTIFY_DB)
-    await store.notify_ensure(db)
-    row = await store.notify_get(db, guild_id, kind)
-    if row is None:
-        raise HTTPException(
-            status_code=400, detail=f"Für {kind} ist nichts eingerichtet."
-        )
+    await store.yt_ensure(db)
 
-    channel = guild.get_channel(row["channel_id"])
-    role = guild.get_role(row["role_id"])
+    sub = next(
+        (s for s in await store.yt_list(db, guild_id)
+         if s["channel_id"] == channel_id),
+        None,
+    )
+    if sub is None:
+        raise HTTPException(status_code=404, detail="Dieses Abo gibt es nicht.")
+
+    channel = guild.get_channel(sub["post_channel"])
     if channel is None:
         raise HTTPException(status_code=400, detail="Den Kanal gibt es nicht mehr.")
-    if role is None:
-        raise HTTPException(status_code=400, detail="Die Rolle gibt es nicht mehr.")
+
+    role = guild.get_role(sub["role_id"]) if sub["role_id"] else None
+
+    # Checked before sending, not only caught after. discord.py raises
+    # Forbidden when the API refuses, but the permission is knowable up
+    # front -- and relying on the exception meant a mocked-out send
+    # reported success while the real one could never have gone through.
+    me = getattr(guild, "me", None)
+    if me is not None:
+        perms = channel.permissions_for(me)
+        if not perms.send_messages:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Der Bot darf in #{channel.name} nicht schreiben.",
+            )
+        if not perms.embed_links:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Ohne „Links einbetten“ in #{channel.name} bliebe die "
+                    "Meldung leer."
+                ),
+            )
 
     import discord
 
     embed = discord.Embed(
-        title="Beispiel ist live!",
-        description=(
-            f"So sieht die {kind.capitalize()}-Meldung aus. "
-            "Diese hier kam aus dem Dashboard."
-        ),
-        colour=0x9146FF if kind == "twitch" else 0xFF0000,
+        title=f"Neues Video von {sub['title'] or sub['handle']}",
+        description="So sieht die Meldung aus. Diese hier kam aus dem Dashboard.",
+        colour=0xFF0000,
     )
-    embed.add_field(name="Titel", value="Ein Test-Stream", inline=False)
 
     try:
         await channel.send(
             embed=embed,
-            # A test must not ping the role -- that is the whole point of
-            # it being a test.
+            # A test must not ping -- that is the point of it being a test.
             allowed_mentions=discord.AllowedMentions.none(),
         )
     except discord.Forbidden:
@@ -958,23 +1071,22 @@ async def test_notify(
     return {
         "status": "success",
         "result": (
-            f"Testmeldung in #{channel.name} gepostet — ohne Ping an "
-            f"@{role.name}."
+            f"Testmeldung in #{channel.name} gepostet"
+            + (f" — ohne Ping an @{role.name}." if role else ".")
         ),
     }
 
 
-@router.delete("/{guild_id}/notify/{kind}", summary="Remove a notification")
+@router.delete("/{guild_id}/notify/{channel_id}", summary="Unsubscribe")
 async def delete_notify(
-    guild_id: int, kind: str, actor: str = "",
-    bot: "universitybot" = Depends(get_bot),
+    guild_id: int, channel_id: str, bot: "universitybot" = Depends(get_bot)
 ):
     db = await db_manager.get_connection(store.NOTIFY_DB)
-    await store.notify_ensure(db)
+    await store.yt_ensure(db)
 
-    if not await store.notify_remove(db, guild_id, kind.lower()):
-        raise HTTPException(status_code=404, detail="Dafür war nichts eingerichtet.")
-    return {"status": "success", "result": "Entfernt."}
+    if not await store.yt_remove(db, guild_id, channel_id):
+        raise HTTPException(status_code=404, detail="Dieses Abo gibt es nicht.")
+    return {"status": "success", "result": "Abo entfernt."}
 
 
 # ══════════════════════════════════════════════════════════════════════

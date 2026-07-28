@@ -257,45 +257,12 @@ def run():
           all(a["in_days"] <= b["in_days"] for a, b in zip(upcoming, upcoming[1:])),
           str([e["in_days"] for e in upcoming]))
 
-    # ══ Notify: the cross-server bug ══════════════════════════════
-    notify_base = f"{base}/notify"
-    other_notify = f"/api/v1/extras/{OTHER}/notify"
-
-    r = client.post(notify_base, json={
-        "type": "youtube", "role_id": str(ROLE_OK), "channel_id": CHANNEL,
-    })
-    check("a notification can be set up", r.status_code == 200, r.text[:140])
-
-    # This is the exact insert that used to fail on the unique index.
-    r = client.post(other_notify, json={
-        "type": "youtube", "role_id": str(ROLE_OK), "channel_id": CHANNEL,
-    })
-    check("another server can use the same type",
-          r.status_code == 200, r.text[:160])
-
-    # The response is keyed by platform now rather than being a list of
-    # entries: the tab shows both platforms always, configured or not.
-    ours = client.get(notify_base).json()
-    configured = [p for p in ours["platforms"] if p["configured"]]
-    check("each server sees only its own",
-          len(configured) == 1, str(configured))
-    check("and it is the one it set up",
-          configured and configured[0]["key"] == "youtube",
-          str([p["key"] for p in configured]))
-    check("both platforms are offered either way",
-          len(ours["platforms"]) == 2, str(len(ours["platforms"])))
-    check("the unconfigured one is marked as such",
-          any(not p["configured"] for p in ours["platforms"]))
-
-    r = client.post(notify_base, json={
-        "type": "quatsch", "role_id": str(ROLE_OK), "channel_id": CHANNEL,
-    })
-    check("an unknown type is rejected", r.status_code == 400)
-
-    r = client.delete(f"{notify_base}/youtube")
-    check("a notification can be removed", r.status_code == 200)
-    r = client.delete(f"{notify_base}/youtube")
-    check("removing it twice gives 404", r.status_code == 404)
+    # ══ Notify ════════════════════════════════════════════════════
+    # Moved to tests/test_youtube_notify.py. The feature was replaced
+    # outright: it used to store a role and channel per "type" and watch
+    # members' Discord streaming status; it now subscribes to a YouTube
+    # channel by name and polls the public feed. Nothing about the old
+    # request shape is left to test here.
 
     # ══ Counting ══════════════════════════════════════════════════
     counting_base = f"{base}/counting"

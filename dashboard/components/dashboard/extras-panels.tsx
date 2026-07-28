@@ -1002,55 +1002,65 @@ export function CountingPanel({ guildId }: { guildId: string }) {
  * ══════════════════════════════════════════════════════════════════ */
 
 /**
- * Live notifications.
+ * YouTube notifications.
  *
- * The tab used to say "new video or stream" and offered a free-form
- * add-a-row form. Both were misleading:
+ * You type a channel name, pick where to post and who to ping. The bot
+ * announces new videos and Shorts, and when the channel goes live.
  *
- *   * Nothing in the bot polls YouTube or Twitch. What it watches is the
- *     **Discord streaming status** of members of this server -- so an
- *     upload by somebody who is not in the server is never seen. People
- *     set this up expecting an upload feed and waited for nothing.
- *   * There are exactly two platforms, and one row each. A generic
- *     "add" form implied you could have several.
+ * What this replaces could do neither. It watched the *Discord
+ * streaming status* of members: it never saw an upload, only worked for
+ * people who happened to be on the server, and because the listener
+ * queried without a guild filter every server got the first server's
+ * role and channel.
  *
- * Now: one card per platform, saying what it does and what it cannot do,
- * with a test button so you do not have to wait for somebody to go live
- * to find out whether the channel permissions are right.
+ * No Twitch box. Twitch refuses every API call without a registered
+ * client id and secret, so one here would be a control that does
+ * nothing -- which is the kind of thing this rewrite is removing.
  */
 export function NotifyPanel({ guildId }: { guildId: string }) {
   const load = useCallback(() => api.getNotify(guildId), [guildId]);
   const p = usePanel(load);
   const guard = useSaveGuard(p.dirty, "notify-save-bar");
 
+  const [name, setName] = useState("");
+  const [channelId, setChannelId] = useState("");
+  const [roleId, setRoleId] = useState("");
+  const [onUpload, setOnUpload] = useState(true);
+  const [onLive, setOnLive] = useState(true);
+
   if (p.loading) return <Loading />;
 
-  const platforms: any[] = p.data?.platforms || [];
-  const live: any[] = p.data?.live_now || [];
-  const draft = p.draft.platforms || {};
+  const entries: any[] = p.data?.entries || [];
+  const left = p.data?.slots_left ?? 0;
+  const draft = p.draft.subs || {};
 
-  const change = (key: string, patch: any) =>
-    p.set("platforms", { ...draft, [key]: { ...(draft[key] || {}), ...patch } });
+  const change = (channel: string, patch: any) =>
+    p.set("subs", { ...draft, [channel]: { ...(draft[channel] || {}), ...patch } });
 
   const save = () =>
     p.act(async () => {
       let last: any = null;
-      for (const [key, patch] of Object.entries<any>(draft)) {
-        const base = platforms.find((x) => x.key === key);
-        const roleId = patch.role ?? base?.role?.id ?? "";
-        const channelId = patch.channel ?? base?.channel?.id ?? "";
-        if (!roleId || !channelId) {
-          throw new Error(
-            `Für ${base?.label ?? key} fehlt noch Rolle oder Kanal.`
-          );
-        }
-        last = await api.setNotify(guildId, {
-          type: key,
-          role_id: String(roleId),
-          channel_id: String(channelId),
-        });
+      for (const [channel, patch] of Object.entries<any>(draft)) {
+        last = await api.updateNotify(guildId, channel, patch);
       }
       return last;
+    });
+
+  const add = () =>
+    p.act(async () => {
+      const res = await api.addNotify(guildId, {
+        name: name.trim(),
+        channel_id: channelId,
+        role_id: roleId || null,
+        on_upload: onUpload,
+        on_live: onLive,
+      });
+      setName("");
+      setChannelId("");
+      setRoleId("");
+      setOnUpload(true);
+      setOnLive(true);
+      return res;
     });
 
   return (
@@ -1070,155 +1080,192 @@ export function NotifyPanel({ guildId }: { guildId: string }) {
 
       <Card
         icon={Youtube}
-        title="Live-Benachrichtigungen"
-        subtitle="Pingt eine Rolle, sobald jemand von diesem Server einen Stream in seinem Discord-Status hat."
+        title="YouTube-Benachrichtigungen"
+        subtitle="Kanalname eintragen — der Bot meldet neue Videos, Shorts und Livestreams."
         onReload={p.reload}
       >
-        {/* Said plainly, because the old wording caused the confusion. */}
-        <div className="rounded-xl bg-white/[0.03] border border-white/10 p-4 space-y-2">
-          <p className="text-[12px] text-slate-300 leading-relaxed">
-            <b className="text-white">Was das ist:</b> Der Bot sieht, wenn ein
-            Mitglied dieses Servers in Discord als &bdquo;Streamt&ldquo;
-            angezeigt wird, und pingt dann die eingestellte Rolle.
-          </p>
-          <p className="text-[12px] text-slate-400 leading-relaxed">
-            <b className="text-slate-200">Was das nicht ist:</b> Kein
-            YouTube-Abo. Neue Videos werden nicht bemerkt, und wer nicht auf
-            diesem Server ist oder nicht über Discord streamt, löst nichts aus.
-          </p>
-        </div>
-
-        {!p.data?.presence_intent && (
-          <Warn>
-            Dem Bot fehlt die Berechtigung, den Online-Status von Mitgliedern
-            zu sehen (Presence Intent). Ohne die merkt er nie, dass jemand live
-            geht.
-          </Warn>
-        )}
-
         <div className="grid grid-cols-2 gap-3">
           <div className="bg-[#0d1b31] border border-slate-800 rounded-2xl px-4 py-3">
             <p className="text-lg font-black text-white">
-              {p.data?.active_count ?? 0} / {platforms.length}
+              {entries.length} / {p.data?.max ?? 3}
             </p>
-            <p className="text-[11px] text-slate-500">Eingerichtet</p>
+            <p className="text-[11px] text-slate-500">Kanäle beobachtet</p>
           </div>
           <div className="bg-[#0d1b31] border border-slate-800 rounded-2xl px-4 py-3">
-            <p className="text-lg font-black text-white">{live.length}</p>
-            <p className="text-[11px] text-slate-500">Gerade live</p>
+            <p className="text-lg font-black text-white">{left}</p>
+            <p className="text-[11px] text-slate-500">Plätze frei</p>
           </div>
         </div>
 
-        {live.length > 0 && (
-          <div className="space-y-2">
-            <p className="text-[11px] font-black uppercase tracking-widest text-slate-600">
-              Streamt gerade
+        {left > 0 ? (
+          <div className="rounded-2xl bg-[#0d1b31] border border-slate-800 p-4 space-y-4">
+            <p className="text-xs font-black uppercase tracking-widest text-slate-400">
+              Kanal hinzufügen
             </p>
-            {live.map((person) => (
-              <div
-                key={person.id}
-                className="flex items-center gap-3 bg-[#0d1b31] border border-slate-800 rounded-xl px-3 py-2.5"
-              >
-                {person.avatar ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={person.avatar} alt="" className="h-7 w-7 rounded-full shrink-0" />
-                ) : (
-                  <div className="h-7 w-7 rounded-full bg-slate-800 shrink-0" />
-                )}
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm text-white truncate">{person.name}</p>
-                  <p className="text-[11px] text-slate-500 truncate">
-                    {person.title || "ohne Titel"}
-                  </p>
-                </div>
-                <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 shrink-0">
-                  {person.platform || "andere"}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
-      </Card>
 
-      {platforms.map((entry) => {
-        const roleValue =
-          draft[entry.key]?.role ?? entry.role?.id ?? "";
-        const channelValue =
-          draft[entry.key]?.channel ?? entry.channel?.id ?? "";
-        const saved = entry.configured;
-        return (
-          <Card
-            key={entry.key}
-            icon={Youtube}
-            title={entry.label}
-            subtitle={
-              saved
-                ? "Eingerichtet."
-                : "Noch nicht eingerichtet — Rolle und Kanal wählen."
-            }
-          >
-            {entry.legacy && (
-              <Warn>
-                Diese Einstellung stammt aus einer alten Version, in der alle
-                Server dieselbe benutzt haben. Sie wirkt nicht mehr — bitte
-                unten neu setzen und speichern.
-              </Warn>
-            )}
+            <Field
+              label="YouTube-Kanal"
+              hint="Der @Name wie in der URL, z.B. @MrBeast. Eine Kanal-Adresse oder eine ID (UC…) geht auch."
+            >
+              <input
+                className={INPUT}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="@MrBeast"
+              />
+            </Field>
 
             <div className="grid sm:grid-cols-2 gap-4">
-              <Field label="Rolle, die gepingt wird">
-                <RolePicker
-                  guildId={guildId}
-                  value={roleValue}
-                  onChange={(id) => change(entry.key, { role: id || "" })}
-                  placeholder="Rolle wählen"
-                />
-              </Field>
-              <Field label="Kanal für die Meldung">
+              <Field label="Wo soll es hin?">
                 <ChannelPicker
                   guildId={guildId}
-                  value={channelValue}
-                  onChange={(id) => change(entry.key, { channel: id || "" })}
+                  value={channelId}
+                  onChange={(id) => setChannelId(id || "")}
                   placeholder="Kanal wählen"
                   channelTypes={["0", "5"]}
                 />
               </Field>
+              <Field label="Wer wird gepingt?" hint="Leer lassen für keinen Ping.">
+                <RolePicker
+                  guildId={guildId}
+                  value={roleId}
+                  onChange={(id) => setRoleId(id || "")}
+                  placeholder="Kein Ping"
+                />
+              </Field>
             </div>
 
-            {saved && !draft[entry.key] && (
+            <div className="grid sm:grid-cols-2 gap-3">
+              <InlineToggle
+                checked={onUpload}
+                onCheckedChange={setOnUpload}
+                label="Bei Videos und Shorts"
+                hint="Meldet jeden neuen Upload."
+              />
+              <InlineToggle
+                checked={onLive}
+                onCheckedChange={setOnLive}
+                label="Bei Livestreams"
+                hint="Meldet, sobald der Kanal live geht."
+              />
+            </div>
+
+            <button
+              onClick={add}
+              disabled={p.busy || !name.trim() || !channelId || (!onUpload && !onLive)}
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-primary text-xs font-black uppercase tracking-widest hover:brightness-110 disabled:opacity-40 transition-all"
+            >
+              <Plus className="h-4 w-4" />
+              Hinzufügen
+            </button>
+
+            <p className="text-[11px] text-slate-600 leading-relaxed">
+              Was jetzt schon online ist, wird nicht nachträglich gemeldet —
+              nur was ab dem Hinzufügen neu kommt.
+            </p>
+          </div>
+        ) : (
+          <Warn>
+            Alle {p.data?.max ?? 3} Plätze belegt. Entferne erst einen Kanal.
+          </Warn>
+        )}
+      </Card>
+
+      {entries.length === 0 ? (
+        <p className="text-sm text-slate-500 py-8 text-center border border-dashed border-slate-800 rounded-2xl">
+          Noch kein Kanal beobachtet.
+        </p>
+      ) : (
+        entries.map((entry) => {
+          const value = (field: string) =>
+            draft[entry.channel_id]?.[field] !== undefined
+              ? draft[entry.channel_id][field]
+              : entry[field];
+          return (
+            <Card
+              key={entry.channel_id}
+              icon={Youtube}
+              title={entry.title}
+              subtitle={entry.handle}
+            >
+              <div className="grid sm:grid-cols-2 gap-4">
+                <Field label="Wo soll es hin?">
+                  <ChannelPicker
+                    guildId={guildId}
+                    value={value("post_channel") || ""}
+                    onChange={(id) =>
+                      change(entry.channel_id, { channel_id: id || "" })
+                    }
+                    placeholder="Kanal wählen"
+                    channelTypes={["0", "5"]}
+                  />
+                </Field>
+                <Field label="Wer wird gepingt?" hint="Leer lassen für keinen Ping.">
+                  <RolePicker
+                    guildId={guildId}
+                    value={value("role_id") || ""}
+                    onChange={(id) => change(entry.channel_id, { role_id: id || "" })}
+                    placeholder="Kein Ping"
+                  />
+                </Field>
+              </div>
+
+              <div className="grid sm:grid-cols-2 gap-3">
+                <InlineToggle
+                  checked={!!value("on_upload")}
+                  onCheckedChange={(v: boolean) =>
+                    change(entry.channel_id, { on_upload: v })
+                  }
+                  label="Bei Videos und Shorts"
+                />
+                <InlineToggle
+                  checked={!!value("on_live")}
+                  onCheckedChange={(v: boolean) =>
+                    change(entry.channel_id, { on_live: v })
+                  }
+                  label="Bei Livestreams"
+                />
+              </div>
+
               <div className="flex gap-2 flex-wrap">
+                <a
+                  href={entry.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-4 py-2.5 rounded-xl bg-white/[0.03] border border-white/10 text-[11px] font-black uppercase tracking-widest text-slate-400 hover:text-white transition-all"
+                >
+                  Kanal öffnen
+                </a>
                 <button
-                  onClick={() => p.act(() => api.testNotify(guildId, entry.key))}
+                  onClick={() => p.act(() => api.testNotify(guildId, entry.channel_id))}
                   disabled={p.busy}
-                  className="flex-1 min-w-[160px] flex items-center justify-center gap-2 py-3 rounded-xl bg-white/[0.03] border border-white/10 text-xs font-black uppercase tracking-widest text-slate-300 hover:text-white disabled:opacity-40 transition-all"
+                  className="flex-1 min-w-[150px] flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white/[0.03] border border-white/10 text-[11px] font-black uppercase tracking-widest text-slate-300 hover:text-white disabled:opacity-40 transition-all"
                 >
                   <Send className="h-3.5 w-3.5" />
-                  Testmeldung posten
+                  Testmeldung
                 </button>
                 <button
                   onClick={() =>
                     p.act(
-                      () => api.removeNotify(guildId, entry.key),
-                      `${entry.label}-Benachrichtigung entfernen?`
+                      () => api.removeNotify(guildId, entry.channel_id),
+                      `„${entry.title}“ nicht mehr beobachten?`
                     )
                   }
                   disabled={p.busy}
-                  className="px-5 py-3 rounded-xl bg-red-500/[0.06] border border-red-500/20 text-xs font-black uppercase tracking-widest text-red-300 hover:bg-red-500/10 disabled:opacity-40 transition-all"
+                  className="px-4 py-2.5 rounded-xl bg-red-500/[0.06] border border-red-500/20 text-[11px] font-black uppercase tracking-widest text-red-300 hover:bg-red-500/10 disabled:opacity-40 transition-all"
                 >
                   Entfernen
                 </button>
               </div>
-            )}
 
-            {saved && (
               <p className="text-[11px] text-slate-600 leading-relaxed">
                 Die Testmeldung pingt niemanden — sie zeigt nur, ob der Bot in
                 den Kanal schreiben darf.
               </p>
-            )}
-          </Card>
-        );
-      })}
+            </Card>
+          );
+        })
+      )}
 
       <StickySaveBar
         id="notify-save-bar"

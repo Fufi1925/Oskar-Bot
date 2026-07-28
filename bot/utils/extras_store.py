@@ -793,6 +793,170 @@ async def notify_list(db: aiosqlite.Connection, guild_id: int) -> list[dict]:
     ]
 
 
+# ── YouTube subscriptions ─────────────────────────────────────────────
+#
+# The old feature watched the Discord streaming status of members, which
+# is a different thing entirely: it could never see an upload, and it
+# only worked for people who were on the server. This one subscribes to
+# an actual YouTube channel by name.
+#
+# Three per guild. The poller fetches every subscribed channel on a
+# timer, so the limit is what keeps that from turning into a crawl.
+
+YT_MAX_PER_GUILD = 3
+
+
+async def yt_ensure(db: aiosqlite.Connection) -> None:
+    await db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS yt_subs (
+            guild_id     INTEGER NOT NULL,
+            channel_id   TEXT    NOT NULL,   -- the UC... id, resolved once
+            handle       TEXT    NOT NULL,   -- what the user typed
+            title        TEXT,               -- channel name for display
+            post_channel INTEGER NOT NULL,   -- Discord channel
+            role_id      INTEGER,            -- optional ping role
+            on_upload    INTEGER NOT NULL DEFAULT 1,
+            on_live      INTEGER NOT NULL DEFAULT 1,
+            last_video   TEXT,               -- newest video already posted
+            last_live    TEXT,               -- live broadcast already posted
+            PRIMARY KEY (guild_id, channel_id)
+        )
+        """
+    )
+    await db.commit()
+
+
+async def yt_list(db: aiosqlite.Connection, guild_id: int) -> list[dict]:
+    async with db.execute(
+        "SELECT channel_id, handle, title, post_channel, role_id,"
+        " on_upload, on_live, last_video, last_live"
+        " FROM yt_subs WHERE guild_id = ? ORDER BY rowid",
+        (int(guild_id),),
+    ) as cursor:
+        rows = await cursor.fetchall()
+    return [
+        {
+            "channel_id": r[0],
+            "handle": r[1],
+            "title": r[2],
+            "post_channel": int(r[3]),
+            "role_id": int(r[4]) if r[4] else None,
+            "on_upload": bool(r[5]),
+            "on_live": bool(r[6]),
+            "last_video": r[7],
+            "last_live": r[8],
+        }
+        for r in rows
+    ]
+
+
+async def yt_all(db: aiosqlite.Connection) -> list[dict]:
+    """Every subscription across every guild, for the poller."""
+    async with db.execute(
+        "SELECT guild_id, channel_id, handle, title, post_channel, role_id,"
+        " on_upload, on_live, last_video, last_live FROM yt_subs"
+    ) as cursor:
+        rows = await cursor.fetchall()
+    return [
+        {
+            "guild_id": int(r[0]),
+            "channel_id": r[1],
+            "handle": r[2],
+            "title": r[3],
+            "post_channel": int(r[4]),
+            "role_id": int(r[5]) if r[5] else None,
+            "on_upload": bool(r[6]),
+            "on_live": bool(r[7]),
+            "last_video": r[8],
+            "last_live": r[9],
+        }
+        for r in rows
+    ]
+
+
+async def yt_count(db: aiosqlite.Connection, guild_id: int) -> int:
+    async with db.execute(
+        "SELECT COUNT(*) FROM yt_subs WHERE guild_id = ?", (int(guild_id),)
+    ) as cursor:
+        row = await cursor.fetchone()
+    return int(row[0]) if row else 0
+
+
+async def yt_add(
+    db: aiosqlite.Connection, guild_id: int, *, channel_id: str, handle: str,
+    title: str | None, post_channel: int, role_id: int | None,
+    on_upload: bool = True, on_live: bool = True,
+    last_video: str | None = None, last_live: str | None = None,
+) -> None:
+    """
+    Store a subscription.
+
+    `last_video` is seeded with whatever is newest at the moment of
+    adding. Without that, subscribing to a channel would immediately
+    announce its last upload as though it were new.
+    """
+    await db.execute(
+        "INSERT INTO yt_subs (guild_id, channel_id, handle, title,"
+        " post_channel, role_id, on_upload, on_live, last_video, last_live)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        " ON CONFLICT(guild_id, channel_id) DO UPDATE SET"
+        "   handle = excluded.handle, title = excluded.title,"
+        "   post_channel = excluded.post_channel, role_id = excluded.role_id,"
+        "   on_upload = excluded.on_upload, on_live = excluded.on_live",
+        (
+            int(guild_id), str(channel_id), handle, title, int(post_channel),
+            int(role_id) if role_id else None,
+            1 if on_upload else 0, 1 if on_live else 0, last_video, last_live,
+        ),
+    )
+    await db.commit()
+
+
+async def yt_update(
+    db: aiosqlite.Connection, guild_id: int, channel_id: str, values: dict
+) -> bool:
+    """Write only the keys given, so two edits cannot overwrite each other."""
+    allowed = {
+        "post_channel", "role_id", "on_upload", "on_live",
+        "last_video", "last_live", "title",
+    }
+    fields = {k: v for k, v in values.items() if k in allowed}
+    if not fields:
+        return False
+
+    sets = ", ".join(f"{k} = ?" for k in fields)
+    params = []
+    for key, value in fields.items():
+        if key in ("on_upload", "on_live"):
+            params.append(1 if value else 0)
+        elif key == "role_id":
+            params.append(int(value) if value else None)
+        elif key == "post_channel":
+            params.append(int(value))
+        else:
+            params.append(value)
+    params += [int(guild_id), str(channel_id)]
+
+    cursor = await db.execute(
+        f"UPDATE yt_subs SET {sets} WHERE guild_id = ? AND channel_id = ?",
+        params,
+    )
+    await db.commit()
+    return (cursor.rowcount or 0) > 0
+
+
+async def yt_remove(
+    db: aiosqlite.Connection, guild_id: int, channel_id: str
+) -> bool:
+    cursor = await db.execute(
+        "DELETE FROM yt_subs WHERE guild_id = ? AND channel_id = ?",
+        (int(guild_id), str(channel_id)),
+    )
+    await db.commit()
+    return (cursor.rowcount or 0) > 0
+
+
 async def notify_get(
     db: aiosqlite.Connection, guild_id: int, kind: str
 ) -> dict | None:
