@@ -17,7 +17,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import {
   AlertTriangle, Bell, Check, Clock, Copy, ExternalLink, Loader2, Send,
-  Shield, ShieldAlert, ShieldCheck, Trash2, UserPlus, X,
+  EyeOff, Shield, ShieldAlert, ShieldCheck, Trash2, UserPlus, X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
@@ -27,7 +27,13 @@ import { InlineToggle } from "@/components/dashboard/form-elements";
 
 const OUTCOME = {
   stopped: { label: "Abgewehrt", tone: "text-emerald-400", icon: ShieldCheck },
+  // The attack was undone but the attacker got away: a real outcome of
+  // its own, previously lumped in with "NICHT gestoppt" and so reported
+  // as a failure when it was not one.
+  partial: { label: "Gestoppt, kein Bann", tone: "text-amber-400", icon: ShieldAlert },
   no_perms: { label: "NICHT gestoppt", tone: "text-red-400", icon: ShieldAlert },
+  // The bot cannot even read the audit log, so nothing is defended.
+  blind: { label: "Blind — keine Rechte", tone: "text-red-400", icon: EyeOff },
   disabled: { label: "Anti-Nuke war aus", tone: "text-amber-400", icon: AlertTriangle },
 } as const;
 
@@ -334,7 +340,10 @@ export function NukeAlertPanel({ guildId }: { guildId: string }) {
         ) : (
           <div className="space-y-2 max-h-[500px] overflow-y-auto pr-1">
             {data.incidents.map((entry: any) => {
-              const style = (OUTCOME as any)[entry.outcome] || OUTCOME.stopped;
+              // Falling back to `stopped` would show an unknown outcome as a
+              // success, which is the safest-looking and least true option.
+              const style =
+                (OUTCOME as any)[entry.outcome] || OUTCOME.no_perms;
               const Icon = style.icon;
               return (
                 <div

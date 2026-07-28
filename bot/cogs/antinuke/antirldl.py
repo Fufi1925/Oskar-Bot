@@ -21,6 +21,9 @@ import datetime
 import pytz
 
 class AntiRoleDelete(commands.Cog):
+    # Which anti-nuke action this module reports on.
+    ALERT_ACTION = "role_delete"
+
     def __init__(self, bot):
         self.bot = bot
         self.event_limits = {}
@@ -33,6 +36,10 @@ class AntiRoleDelete(commands.Cog):
 
     async def fetch_audit_logs(self, guild, action):
         if not guild.me.guild_permissions.ban_members:
+            # Returning None here used to end the story in silence --
+            # the anti-nuke could see nothing and said nothing, which
+            # is the one case the owner most needs to hear about.
+            await nuke_alert.handle_blind(self.bot, guild, self.ALERT_ACTION)
             return None
         try:
             async for entry in guild.audit_logs(action=action, limit=1):
@@ -146,7 +153,7 @@ class AntiRoleDelete(commands.Cog):
                 await guild.ban(executor, reason="Role Delete | Unwhitelisted User")
                 return
             except discord.Forbidden:
-                await nuke_alert.handle_forbidden(
+                await nuke_alert.handle_partial(
                     self.bot, guild, "role_delete", executor=executor,
                 )
                 return

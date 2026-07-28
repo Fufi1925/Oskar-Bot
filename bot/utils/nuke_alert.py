@@ -34,17 +34,33 @@ DB_PATH = "db/anti.db"
 # Where the report goes. Falls through the list until something works.
 ALERT_CHANNEL_NAME = "nuke-alarm"
 
-# One report per guild per this many seconds. A nuke fires dozens of
-# events; without this the bot would spam its own alert channel and hit
-# the rate limit while the attack is still running.
+# One channel report per guild per this many seconds. A nuke fires
+# dozens of events; without this the bot would spam its own alert
+# channel and hit the rate limit while the attack is still running.
 COOLDOWN = 20.0
 
+# A DM is far more intrusive than a channel post, and the owner cannot
+# mute it. One nuke should produce one DM, not one per 20 seconds --
+# a five minute attack used to send fifteen.
+DM_COOLDOWN = 900.0
+
+# How long a burst of events counts as *one* attack. Anything within
+# this window is folded into the incident that is already running.
+INCIDENT_WINDOW = 300.0
+
 _last_alert: dict[int, float] = {}
+_last_dm: dict[int, float] = {}
+
+# Open incidents, so a long attack stays one story instead of becoming
+# forty unrelated notifications.
+_incident: dict[int, dict] = {}
 
 # What was done about it.
-OUTCOME_STOPPED = "stopped"      # acted successfully
-OUTCOME_NO_PERMS = "no_perms"    # saw it, could not act
+OUTCOME_STOPPED = "stopped"      # acted successfully, nothing left to do
+OUTCOME_PARTIAL = "partial"      # the damage was undone, the punishment was not
+OUTCOME_NO_PERMS = "no_perms"    # saw it, could not act at all
 OUTCOME_DISABLED = "disabled"    # anti-nuke was off
+OUTCOME_BLIND = "blind"          # cannot even check -- missing audit log access
 
 LABELS = {
     "channel_create": "Kanal erstellt",
@@ -258,6 +274,40 @@ async def alert_channel(guild, settings: dict):
         return None
 
 
+# Channels this bot is deleting right now, as part of its own cleanup.
+#
+# Cleaning up after an attacker means deleting channels, which fires
+# on_guild_channel_delete and walks straight into the anti-nuke module
+# that watches for exactly that. The executor check (`is it me?`) covers
+# the common case, but it depends on the audit log arriving in time --
+# during a nuke the log lags, and a lagging log means the bot can flag
+# its own cleanup as an attack. This set is the authoritative answer and
+# needs no audit log at all.
+_self_deleting: set[int] = set()
+
+# Guilds where the bot is repairing damage. Everything it does in this
+# window is its own doing.
+_repairing: dict[int, float] = {}
+REPAIR_WINDOW = 60.0
+
+
+def mark_repairing(guild_id: int) -> None:
+    _repairing[guild_id] = time.time()
+
+
+def is_self_action(guild_id: int, channel_id: int | None = None) -> bool:
+    """
+    Whether this change came from the bot's own cleanup.
+
+    Checked by the anti-nuke modules before they treat a deletion as an
+    attack, so the bot cannot ban itself for tidying up.
+    """
+    if channel_id is not None and int(channel_id) in _self_deleting:
+        return True
+    started = _repairing.get(int(guild_id))
+    return started is not None and time.time() - started < REPAIR_WINDOW
+
+
 async def clean_created_channels(guild, executor_id: int, limit: int = 50) -> int:
     """
     Delete the channels the attacker created.
@@ -283,6 +333,8 @@ async def clean_created_channels(guild, executor_id: int, limit: int = 50) -> in
             channel = guild.get_channel(entry.target.id) if entry.target else None
             if channel is None:
                 continue
+            _self_deleting.add(channel.id)
+            mark_repairing(guild.id)
             try:
                 await channel.delete(reason="Anti-Nuke: vom Angreifer erstellt")
                 removed += 1
@@ -291,6 +343,12 @@ async def clean_created_channels(guild, executor_id: int, limit: int = 50) -> in
                 await asyncio.sleep(0.7)
             except Exception:
                 continue
+            finally:
+                # Kept briefly after the call so the delete event, which
+                # arrives after this returns, still finds it.
+                asyncio.get_event_loop().call_later(
+                    30, _self_deleting.discard, channel.id
+                )
     except discord.Forbidden:
         return removed
     except Exception:
@@ -314,6 +372,20 @@ def _describe(outcome: str, action: str, missing: str = "") -> tuple[str, str, s
             "success",
         )
 
+    if outcome == OUTCOME_PARTIAL:
+        # This used to be reported as "could NOT stop it", which was
+        # simply wrong: the channel had already been removed or
+        # restored by the time the ban failed. The owner read "not
+        # stopped" while the attack was, in fact, stopped.
+        return (
+            "Angriff gestoppt — Verursacher konnte nicht gebannt werden",
+            f"**{label}** wurde rückgängig gemacht, der Angriff ist gestoppt.\n\n"
+            "Nur der Bann hat nicht geklappt — die Person kann es also erneut "
+            "versuchen."
+            + (f"\n\n**Fehlt:** {missing}" if missing else ""),
+            "warning",
+        )
+
     if outcome == OUTCOME_NO_PERMS:
         return (
             "Angriff erkannt — konnte ihn NICHT stoppen",
@@ -322,6 +394,20 @@ def _describe(outcome: str, action: str, missing: str = "") -> tuple[str, str, s
             + (f"**Fehlt:** {missing}\n\n" if missing else "")
             + "Solange das so ist, kann ich hier nichts abwehren. Bitte gib "
             "mir die Rechte und schieb meine Rolle möglichst weit nach oben.",
+            "error",
+        )
+
+    if outcome == OUTCOME_BLIND:
+        # Nine modules bail out of fetch_audit_logs when the bot cannot
+        # ban, and returned None without a word -- the one case where
+        # silence is worst, because nothing is being defended at all.
+        return (
+            "Anti-Nuke ist blind",
+            f"**{label}** ist passiert, aber ich kann nicht einmal nachsehen, "
+            "wer es war.\n\n"
+            + (f"**Fehlt:** {missing}\n\n" if missing else "")
+            + "Ohne diese Rechte läuft der Anti-Nuke faktisch nicht, egal was "
+            "im Dashboard eingestellt ist.",
             "error",
         )
 
@@ -352,6 +438,109 @@ def missing_permissions(guild) -> list[str]:
     return [label for key, label in needed.items() if not getattr(permissions, key, False)]
 
 
+def recovery_buttons(guild, user_id: int = 0):
+    """
+    The three things an owner needs after an attack, as link buttons.
+
+    Link buttons and not callbacks on purpose: this message has to keep
+    working after a restart, and Discord cannot hand a bot's OAuth flow
+    to another bot without a human in a browser.
+    """
+    import os
+
+    from discord import ButtonStyle
+    from discord.ui import Button
+
+    buttons = []
+
+    client_id = os.getenv("PARTNER_BOT_CLIENT_ID", "").strip()
+    if client_id:
+        try:
+            from utils import partner_bot
+
+            buttons.append(Button(
+                label="Server wiederherstellen",
+                emoji="🛠️",
+                style=ButtonStyle.link,
+                url=partner_bot.invite_url(
+                    client_id, guild_id=guild.id, user_id=user_id
+                ),
+            ))
+        except Exception:
+            pass
+
+    dashboard = os.getenv("DASHBOARD_URL", "").strip().rstrip("/")
+    if dashboard:
+        buttons.append(Button(
+            label="Anti-Nuke prüfen",
+            emoji="🛡️",
+            style=ButtonStyle.link,
+            url=f"{dashboard}/dashboard/guild/{guild.id}/antinuke",
+        ))
+
+    try:
+        from utils.config import serverLink
+
+        if serverLink:
+            buttons.append(Button(
+                label="Hilfe holen",
+                emoji="💬",
+                style=ButtonStyle.link,
+                url=serverLink,
+            ))
+    except Exception:
+        pass
+
+    return buttons or None
+
+
+def _incident_summary(guild_id: int) -> str:
+    """What this attack has done so far, as one line."""
+    entry = _incident.get(guild_id)
+    if not entry:
+        return ""
+
+    counts = entry.get("actions") or {}
+    if not counts:
+        return ""
+
+    parts = [
+        f"{count}× {LABELS.get(name, name)}"
+        for name, count in sorted(counts.items(), key=lambda kv: -kv[1])
+    ]
+    return ", ".join(parts[:6])
+
+
+def _track_incident(guild_id: int, action: str, outcome: str) -> dict:
+    """
+    Fold this event into the attack that is already running.
+
+    Without this every deleted channel is its own "incident" and the
+    owner gets a wall of near-identical notifications for what is really
+    one attack.
+    """
+    now = time.time()
+    entry = _incident.get(guild_id)
+    if entry is None or now - entry["started"] > INCIDENT_WINDOW:
+        entry = {"started": now, "actions": {}, "worst": outcome, "events": 0}
+        _incident[guild_id] = entry
+
+    entry["events"] += 1
+    entry["actions"][action] = entry["actions"].get(action, 0) + 1
+    entry["last"] = now
+
+    # Keep the most serious outcome seen: a single "stopped" in the
+    # middle of an attack must not downgrade the report.
+    severity = {
+        OUTCOME_STOPPED: 0, OUTCOME_PARTIAL: 1, OUTCOME_DISABLED: 2,
+        OUTCOME_NO_PERMS: 3, OUTCOME_BLIND: 4,
+    }
+    if severity.get(outcome, 0) > severity.get(entry["worst"], 0):
+        entry["worst"] = outcome
+
+    return entry
+
+
 async def report(
     bot, guild, action: str, outcome: str,
     executor: Any = None, detail: str = "", cleaned: int = 0,
@@ -375,11 +564,8 @@ async def report(
         if not settings.get("enabled"):
             return
 
-        # One report per attack, not one per deleted channel.
+        incident = _track_incident(guild.id, action, outcome)
         now = time.time()
-        if _last_alert.get(guild.id, 0) + COOLDOWN > now:
-            return
-        _last_alert[guild.id] = now
 
         missing = ", ".join(missing_permissions(guild))
         title, body, tone = _describe(outcome, action, missing)
@@ -393,40 +579,77 @@ async def report(
         if detail:
             sections.append(f"**Details:** {detail}")
         if cleaned:
-            sections.append(f"**Aufgeräumt:** {cleaned} vom Angreifer erstellte Kanäle gelöscht.")
+            sections.append(
+                f"**Aufgeräumt:** {cleaned} vom Angreifer erstellte Kanäle gelöscht."
+            )
 
-        channel = await alert_channel(guild, settings)
-        if channel is not None:
-            from utils.panels import Panel
+        summary = _incident_summary(guild.id)
+        if incident["events"] > 1 and summary:
+            sections.append(f"**Bisher in diesem Angriff:** {summary}")
 
-            content = None
-            if settings.get("ping_owner") and outcome != OUTCOME_STOPPED:
-                owner_id = guild.owner_id
-                if owner_id:
-                    content = f"<@{owner_id}>"
+        buttons = recovery_buttons(guild, getattr(guild, "owner_id", 0) or 0)
 
-            try:
-                await channel.send(
-                    content=content,
-                    view=Panel(title, *sections, tone=tone),
-                    allowed_mentions=discord.AllowedMentions(users=True),
-                )
-            except Exception:
-                pass
+        # ── the channel post ────────────────────────────────────────
+        # One per cooldown. Noisy is acceptable here: it is a log.
+        if _last_alert.get(guild.id, 0) + COOLDOWN <= now:
+            _last_alert[guild.id] = now
 
-        # The owner may not be watching, and during a real nuke the
-        # channel might be gone a second later.
-        if settings.get("dm_owner") and outcome != OUTCOME_STOPPED:
-            owner = guild.owner
-            if owner is not None:
+            channel = await alert_channel(guild, settings)
+            if channel is not None:
+                from utils.panels import Panel
+
+                content = None
+                if settings.get("ping_owner") and outcome != OUTCOME_STOPPED:
+                    owner_id = guild.owner_id
+                    if owner_id:
+                        content = f"<@{owner_id}>"
+
                 try:
-                    from utils.panels import Panel
-
-                    await owner.send(view=Panel(
-                        f"{title} — {guild.name}", *sections, tone=tone
-                    ))
+                    await channel.send(
+                        content=content,
+                        view=Panel(title, *sections, tone=tone, buttons=buttons),
+                        allowed_mentions=discord.AllowedMentions(users=True),
+                    )
                 except Exception:
                     pass
+
+        # ── the DM ──────────────────────────────────────────────────
+        # On its own, much longer timer. The owner cannot mute a DM, and
+        # a five minute attack used to arrive as fifteen separate
+        # messages saying nearly the same thing.
+        if not settings.get("dm_owner"):
+            return
+        if outcome == OUTCOME_STOPPED:
+            # Nothing is required of the owner, so nothing is sent.
+            return
+        if _last_dm.get(guild.id, 0) + DM_COOLDOWN > now:
+            return
+
+        owner = guild.owner
+        if owner is None:
+            return
+
+        _last_dm[guild.id] = now
+
+        from utils.panels import Panel
+
+        dm_sections = list(sections)
+        dm_sections.append(
+            "*Weitere Vorfälle in diesem Angriff schicke ich dir nicht "
+            "einzeln — sieh im Server-Kanal oder im Dashboard nach.*"
+        )
+
+        try:
+            await owner.send(view=Panel(
+                f"{title} — {guild.name}", *dm_sections,
+                tone=tone, buttons=buttons,
+            ))
+        except discord.Forbidden:
+            # DMs closed. Nothing to be done, and retrying every event
+            # would just burn rate limit.
+            pass
+        except Exception:
+            pass
 
     except Exception:
         # Reporting must never break the defence itself.
@@ -438,6 +661,35 @@ async def handle_forbidden(bot, guild, action: str, executor=None, detail="") ->
     await report(bot, guild, action, OUTCOME_NO_PERMS, executor=executor, detail=detail)
 
 
+async def handle_partial(bot, guild, action: str, executor=None, detail="",
+                         repaired: bool = True) -> None:
+    """
+    The damage was undone but the ban failed.
+
+    Previously reported through handle_forbidden, which says "could NOT
+    stop it" -- flatly untrue when the channel had already been removed
+    or restored. The owner saw "not stopped" for an attack that was.
+
+    `repaired` says whether the repair itself got through. The callers
+    wrap the repair and the ban in one try, so a Forbidden can come from
+    either; passing False keeps the honest "could not stop it" wording
+    for the case where nothing was fixed at all.
+    """
+    outcome = OUTCOME_PARTIAL if repaired else OUTCOME_NO_PERMS
+    await report(bot, guild, action, outcome, executor=executor, detail=detail)
+
+
+async def handle_blind(bot, guild, action: str, detail="") -> None:
+    """
+    Something happened and the bot cannot even look up who did it.
+
+    Nine modules return early from fetch_audit_logs when the bot has no
+    ban permission, and said nothing at all -- the one case where
+    silence is worst, because nothing is being defended.
+    """
+    await report(bot, guild, action, OUTCOME_BLIND, detail=detail)
+
+
 async def handle_stopped(
     bot, guild, action: str, executor=None, detail="", clean: bool = False
 ) -> None:
@@ -446,6 +698,9 @@ async def handle_stopped(
     if clean and executor is not None:
         settings = await get_settings(guild.id)
         if settings.get("clean_channels"):
+            # Everything the bot does from here is repair work, not an
+            # attack -- the modules check this before reacting.
+            mark_repairing(guild.id)
             cleaned = await clean_created_channels(guild, executor.id)
     await report(
         bot, guild, action, OUTCOME_STOPPED,

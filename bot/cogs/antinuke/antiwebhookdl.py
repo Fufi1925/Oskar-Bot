@@ -21,6 +21,9 @@ import datetime
 import pytz
 
 class AntiWebhookDelete(commands.Cog):
+    # Which anti-nuke action this module reports on.
+    ALERT_ACTION = "webhook_delete"
+
     def __init__(self, bot):
         self.bot = bot
         self.event_limits = {}
@@ -120,9 +123,10 @@ class AntiWebhookDelete(commands.Cog):
                 )
                 return
             except discord.Forbidden:
-                # Was allowed to see it, not to act on it. Reporting this
-                # is the whole difference between "stopped" and "missed".
-                await nuke_alert.handle_forbidden(
+                # Reached only after the repair above. Reporting a failed
+                # ban as "could not stop it" told owners their server was
+                # still being nuked when it was not.
+                await nuke_alert.handle_partial(
                     self.bot, guild, "webhook_delete", executor=executor,
                 )
                 return

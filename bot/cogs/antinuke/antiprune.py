@@ -21,6 +21,9 @@ import asyncio
 import pytz
 
 class AntiPrune(commands.Cog):
+    # Which anti-nuke action this module reports on.
+    ALERT_ACTION = "prune"
+
     def __init__(self, bot):
         self.bot = bot
 

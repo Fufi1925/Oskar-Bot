@@ -21,6 +21,9 @@ import datetime
 import pytz
 
 class AntiKick(commands.Cog):
+    # Which anti-nuke action this module reports on.
+    ALERT_ACTION = "kick"
+
     def __init__(self, bot):
         self.bot = bot
         self.event_limits = {}
@@ -33,6 +36,10 @@ class AntiKick(commands.Cog):
 
     async def fetch_audit_logs(self, guild, action, target_id):
         if not guild.me.guild_permissions.ban_members:
+            # Returning None here used to end the story in silence --
+            # the anti-nuke could see nothing and said nothing, which
+            # is the one case the owner most needs to hear about.
+            await nuke_alert.handle_blind(self.bot, guild, self.ALERT_ACTION)
             return None
         try:
             async for entry in guild.audit_logs(action=action, limit=1):
@@ -115,9 +122,10 @@ class AntiKick(commands.Cog):
                 )
                 return
             except discord.Forbidden:
-                # Was allowed to see it, not to act on it. Reporting this
-                # is the whole difference between "stopped" and "missed".
-                await nuke_alert.handle_forbidden(
+                # Reached only after the repair above. Reporting a failed
+                # ban as "could not stop it" told owners their server was
+                # still being nuked when it was not.
+                await nuke_alert.handle_partial(
                     self.bot, guild, "kick", executor=executor,
                 )
                 return

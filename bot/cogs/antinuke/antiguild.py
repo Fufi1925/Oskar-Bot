@@ -21,6 +21,9 @@ import datetime
 import pytz
 
 class AntiGuildUpdate(commands.Cog):
+    # Which anti-nuke action this module reports on.
+    ALERT_ACTION = "guild_update"
+
     def __init__(self, bot):
         self.bot = bot
         self.event_limits = {}
@@ -157,7 +160,7 @@ class AntiGuildUpdate(commands.Cog):
                 await guild.ban(executor, reason="Guild Update | Unwhitelisted User")
                 return
             except discord.Forbidden:
-                await nuke_alert.handle_forbidden(
+                await nuke_alert.handle_partial(
                     self.bot, guild, "guild_update", executor=executor,
                 )
                 return

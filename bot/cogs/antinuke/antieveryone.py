@@ -21,6 +21,9 @@ import datetime
 from datetime import timedelta
 
 class AntiEveryone(commands.Cog):
+    # Which anti-nuke action this module reports on.
+    ALERT_ACTION = "everyone"
+
     def __init__(self, bot):
         self.bot = bot
         self.event_limits = {}

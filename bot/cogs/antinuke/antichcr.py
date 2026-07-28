@@ -21,6 +21,9 @@ import datetime
 import pytz
 
 class AntiChannelCreate(commands.Cog):
+    # Which anti-nuke action this module reports on.
+    ALERT_ACTION = "channel_create"
+
     def __init__(self, bot):
         self.bot = bot
         self.event_limits = {}
@@ -41,6 +44,10 @@ class AntiChannelCreate(commands.Cog):
 
     async def fetch_audit_logs(self, guild, action, target_id, delay=1):
         if not guild.me.guild_permissions.ban_members:
+            # Returning None here used to end the story in silence --
+            # the anti-nuke could see nothing and said nothing, which
+            # is the one case the owner most needs to hear about.
+            await nuke_alert.handle_blind(self.bot, guild, self.ALERT_ACTION)
             return None
         try:
             async for entry in guild.audit_logs(action=action, limit=1):
@@ -73,10 +80,14 @@ class AntiChannelCreate(commands.Cog):
         # The reporting helpers need the guild; this function only
         # receives the object it acts on.
         guild = channel.guild
+        repaired = False
         while retries > 0:
             try:
                 await channel.delete(reason="Channel created by unwhitelisted user")
-                #await asyncio.sleep(delay)
+                # Past this point the attack is undone. A Forbidden from
+                # here on is only about the ban, which is a different
+                # message -- see handle_partial(repaired=...).
+                repaired = True
                 await channel.guild.ban(executor, reason="Channel Create | Unwhitelisted User")
                 await nuke_alert.handle_stopped(
                     self.bot, guild, "channel_create", executor=executor,
@@ -84,10 +95,12 @@ class AntiChannelCreate(commands.Cog):
                 )
                 return
             except discord.Forbidden:
-                # Was allowed to see it, not to act on it. Reporting this
-                # is the whole difference between "stopped" and "missed".
-                await nuke_alert.handle_forbidden(
+                # Reached only after the repair above. Reporting a failed
+                # ban as "could not stop it" told owners their server was
+                # still being nuked when it was not.
+                await nuke_alert.handle_partial(
                     self.bot, guild, "channel_create", executor=executor,
+                    repaired=repaired,
                 )
                 return
             except discord.HTTPException as e:
@@ -100,6 +113,14 @@ class AntiChannelCreate(commands.Cog):
 
     @commands.Cog.listener()
     async def on_guild_channel_create(self, channel):
+        # The bot deletes channels itself when cleaning up after an
+        # attacker. Without this it can walk into its own repair work
+        # and flag it as a nuke.
+        if nuke_alert.is_self_action(
+            channel.guild.id, getattr(channel, "id", None)
+        ):
+            return
+
         guild = channel.guild
 
         async with aiosqlite.connect('db/anti.db') as db:
