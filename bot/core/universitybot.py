@@ -107,9 +107,7 @@ class universitybot(commands.AutoShardedBot):
                     runtime.failed_extensions.append(extension)
         print(Fore.GREEN + Style.BRIGHT + "*" * 20)
 
-    # Discord allows 5 presence updates per 60 seconds per session, so the
-    # hard floor is one every 12 seconds. 15s keeps a safety margin while
-    # still feeling lively — the old 30s made the status look frozen.
+   
     @tasks.loop(seconds=15)
     async def status_task(self):
         await self.wait_until_ready()
