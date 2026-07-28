@@ -163,6 +163,56 @@ def test_every_panel():
               "{dirty && (\n        <StickySaveBar" not in src)
 
 
+def test_admin_area():
+    """
+    The admin area has its own tabs, and two of them hold a draft.
+
+    Bot Config is a long list of text fields whose only save button was
+    in the header, four screens up. The dashboard notice in the System
+    tab was worse: a 30-second poll called setNotification() with the
+    server's value, so a longer notice had the text pulled out from
+    under the cursor while it was being typed.
+    """
+    print("\nAdmin area")
+
+    admin = os.path.join(DASH, "components/dashboard/admin-content.tsx")
+    src = read(admin)
+
+    check("the admin page has a rendered save bar for the notice",
+          "<StickySaveBar" in src and 'id="admin-notice-save-bar"' in src)
+    check("the notice save bar has a guard",
+          'useSaveGuard(noticeDirty, "admin-notice-save-bar")' in src)
+    # The poll must not overwrite an edit in progress.
+    check("the 30-second poll leaves an edit in progress alone",
+          "setNotification((current) =>" in src,
+          "a bare setNotification() call clobbers what is being typed")
+    check("and it remembers what the server last sent",
+          "savedNotification.current" in src)
+
+    settings = os.path.join(DASH, "components/dashboard/bot-settings-panel.tsx")
+    src = read(settings)
+    # Both halves: the guard *and* the rendered bar. Checking only for
+    # the id string passed even after the whole <StickySaveBar> element
+    # was deleted, because the useSaveGuard call still mentioned it.
+    check("bot settings has a rendered save bar",
+          "<StickySaveBar" in src and 'id="botsettings-save-bar"' in src)
+    check("bot settings has the matching guard",
+          'useSaveGuard(dirtyCount, "botsettings-save-bar")' in src)
+    check("bot settings counts the changed fields, not just yes/no",
+          "const dirtyCount = settings.filter(" in src)
+
+    flags = os.path.join(DASH, "components/dashboard/feature-flags-panel.tsx")
+    src = read(flags)
+    # Not a save bar -- this one saves per switch on purpose -- but the
+    # slider was lying about its own value.
+    check("the rollout slider is controlled, so its number keeps up",
+          "value={rolloutDraft[flag.key] ?? flag.rollout_percent}" in src,
+          "defaultValue leaves the label showing the old percentage")
+    check("the rollout slider can be moved with the keyboard",
+          "onKeyUp=" in src,
+          "mouse-up only means arrow keys set nothing")
+
+
 def test_no_tab_was_missed():
     """
     Every tab that keeps an edit in local state needs a bar somewhere.
@@ -216,6 +266,7 @@ def main():
 
     test_shared_module()
     test_every_panel()
+    test_admin_area()
     test_no_tab_was_missed()
     test_old_bars_are_gone()
 

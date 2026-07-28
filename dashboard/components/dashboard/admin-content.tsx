@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
 import {
   Shield, Users, Server, Activity, Database, Cpu, Globe, Lock, Settings,
   RefreshCw, Ban, UserX, Clock, VolumeX, Send, Megaphone, Wrench, AlertTriangle,
@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
 import { AdminStats, AdminConfig } from "@/types/api";
 import { toast } from "sonner";
+import { StickySaveBar, useSaveGuard } from "@/components/dashboard/save-bar";
 import { Select } from "@/components/ui/select";
 import { FeatureFlagsPanel } from "@/components/dashboard/feature-flags-panel";
 import { SystemHealthPanel } from "@/components/dashboard/system-health-panel";
@@ -131,6 +132,9 @@ export function AdminContent() {
   const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [notification, setNotification] = useState("");
+  // What the server last confirmed, so an edit in progress is
+  // recognisable and "Verwerfen" has something to go back to.
+  const savedNotification = useRef("");
   const [activeTab, setActiveTab] = useState<TabId>("members");
   const [result, setResult] = useState("");
 
@@ -150,7 +154,15 @@ export function AdminContent() {
       const [statsData, configData, guildData] = await Promise.all([api.getAdminStats(), api.getAdminConfig(), api.listGuilds()]);
       setStats(statsData);
       setConfig(configData);
-      setNotification(configData.global_notification || "");
+      // Only adopt the server's text when the box is untouched. This
+      // poll runs every 30 seconds, so typing a longer notice used to
+      // have the text yanked out from under the cursor mid-sentence.
+      setNotification((current) =>
+        current === savedNotification.current
+          ? configData.global_notification || ""
+          : current
+      );
+      savedNotification.current = configData.global_notification || "";
       setGuilds(guildData || []);
       if (!guildId && guildData?.[0]?.id) setGuildId(String(guildData[0].id));
     } catch (err) {
@@ -309,9 +321,16 @@ export function AdminContent() {
     try {
       await api.updateAdminConfig({ global_notification: notification });
       if (config) setConfig({ ...config, global_notification: notification });
-      toast.success("Broadcast message updated");
+      savedNotification.current = notification;
+      toast.success("Dashboard-Hinweis gespeichert.");
     } catch { toast.error("Failed to update broadcast message"); } finally { setSaving(false); }
   };
+
+  // The notice is the only free-text field on this page, and it sits at
+  // the bottom of the System tab -- easy to type into and walk away
+  // from. Refuse to leave while it differs from what was saved.
+  const noticeDirty = notification === savedNotification.current ? 0 : 1;
+  const noticeGuard = useSaveGuard(noticeDirty, "admin-notice-save-bar");
 
   if (loading) return <div className="flex items-center justify-center min-h-[400px]"><RefreshCw className="h-10 w-10 text-blue-500 animate-spin opacity-20" /></div>;
 
@@ -396,7 +415,7 @@ export function AdminContent() {
               <h4 className="text-sm font-bold text-white">Dashboard-Hinweis</h4>
               <p className="text-[11px] text-slate-500 leading-relaxed">Wird oben im Dashboard angezeigt. Geht <b>nicht</b> an Discord — dafür ist der Broadcast-Tab da.</p>
               <textarea value={notification} onChange={(e) => setNotification(e.target.value)} className="w-full h-24 bg-white/[0.03] border border-white/5 rounded-2xl p-3 text-sm text-slate-300 focus:outline-none focus:ring-1 focus:ring-blue-500/30" placeholder="Leer lassen, um den Hinweis zu entfernen" />
-              <button onClick={handleBroadcast} disabled={saving} className="w-full py-3 bg-white/[0.05] border border-white/10 rounded-2xl font-black uppercase tracking-widest text-[11px] text-slate-300 hover:text-white disabled:opacity-50 transition-all">Hinweis speichern</button>
+              <button onClick={handleBroadcast} disabled={saving || !noticeDirty} className="w-full py-3 bg-white/[0.05] border border-white/10 rounded-2xl font-black uppercase tracking-widest text-[11px] text-slate-300 hover:text-white disabled:opacity-50 transition-all">Hinweis speichern</button>
             </div></div></section>}
         </main>
       </div>
@@ -405,6 +424,15 @@ export function AdminContent() {
       {!FULL_WIDTH_TABS.has(activeTab) && (
         <div className="glass border border-white/5 rounded-3xl p-5 flex gap-3 text-sm text-slate-400"><AlertTriangle className="h-5 w-5 text-amber-500 shrink-0" />Select a server first. For kick, ban, mute and unmute you only need the user ID, timeout duration (for mute) and reason. Channels can be selected from dropdowns.</div>
       )}
+
+      <StickySaveBar
+        id="admin-notice-save-bar"
+        count={noticeDirty}
+        busy={saving}
+        shake={noticeGuard.shake}
+        onDiscard={() => setNotification(savedNotification.current)}
+        onSave={handleBroadcast}
+      />
     </div>
   );
 }

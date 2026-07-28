@@ -28,12 +28,15 @@ export function FeatureFlagsPanel() {
   const [pending, setPending] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState<string>("all");
+  // Where the slider is right now, before the request comes back.
+  const [rolloutDraft, setRolloutDraft] = useState<Record<string, number>>({});
 
   const load = async () => {
     try {
       const data = await api.getAdminFeaturesDetail();
       setFeatures(data.features || []);
       setCategories(data.categories || []);
+      setRolloutDraft({});
     } catch (err: any) {
       toast.error(err?.message || "Could not load feature flags.");
     } finally {
@@ -206,17 +209,32 @@ export function FeatureFlagsPanel() {
                     <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">
                       Rollout
                     </span>
-                    <span className="text-xs font-bold text-primary">{flag.rollout_percent}%</span>
+                    <span className="text-xs font-bold text-primary">
+                      {rolloutDraft[flag.key] ?? flag.rollout_percent}%
+                    </span>
                   </div>
+                  {/* The number beside the slider read flag.rollout_percent
+                      while the slider itself was uncontrolled
+                      (defaultValue), so dragging moved the handle and left
+                      the number on the old value until the request came
+                      back. Worse, the change was only sent on mouse-up:
+                      dragging with the keyboard set nothing at all. */}
                   <input
                     type="range"
                     min={0}
                     max={100}
                     step={10}
-                    defaultValue={flag.rollout_percent}
+                    value={rolloutDraft[flag.key] ?? flag.rollout_percent}
                     disabled={pending === flag.key}
+                    onChange={(e) =>
+                      setRolloutDraft((d) => ({
+                        ...d,
+                        [flag.key]: Number(e.target.value),
+                      }))
+                    }
                     onMouseUp={(e) => setRollout(flag, Number((e.target as HTMLInputElement).value))}
                     onTouchEnd={(e) => setRollout(flag, Number((e.target as HTMLInputElement).value))}
+                    onKeyUp={(e) => setRollout(flag, Number((e.target as HTMLInputElement).value))}
                     className="w-full accent-primary"
                   />
                 </div>

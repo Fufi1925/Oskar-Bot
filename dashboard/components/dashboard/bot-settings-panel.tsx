@@ -5,6 +5,7 @@ import { Info, Loader2, Lock, Save, Sliders } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { StickySaveBar, useSaveGuard } from "@/components/dashboard/save-bar";
 
 interface SettingEntry {
   key: string;
@@ -62,7 +63,17 @@ export function BotSettingsPanel() {
     }
   };
 
-  const dirty = settings.some((s) => (draft[s.key] ?? "") !== s.value);
+  // Count the fields, not just "is anything different" -- the bar says
+  // how many, and one number is the difference between "did I change
+  // that?" and knowing.
+  const dirtyCount = settings.filter(
+    (s) => (draft[s.key] ?? "") !== s.value
+  ).length;
+  const dirty = dirtyCount > 0;
+
+  // Refuses to leave the tab while something is unsaved. Above the
+  // loading early-return: a hook cannot be conditional.
+  const guard = useSaveGuard(dirtyCount, "botsettings-save-bar");
 
   if (loading) {
     return (
@@ -170,6 +181,17 @@ export function BotSettingsPanel() {
           </div>
         </div>
       ))}
+
+      <StickySaveBar
+        id="botsettings-save-bar"
+        count={dirtyCount}
+        busy={saving}
+        shake={guard.shake}
+        onDiscard={() =>
+          setDraft(Object.fromEntries(settings.map((s) => [s.key, s.value])))
+        }
+        onSave={save}
+      />
 
       <div className="flex gap-3 p-5 bg-white/[0.02] border border-white/5 rounded-3xl">
         <Info className="h-5 w-5 text-slate-500 shrink-0" />
