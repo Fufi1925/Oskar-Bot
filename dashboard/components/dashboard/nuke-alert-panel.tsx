@@ -271,6 +271,16 @@ export function NukeAlertPanel({ guildId }: { guildId: string }) {
             </div>
           </div>
 
+          <div className="rounded-xl bg-emerald-500/[0.05] border border-emerald-500/20 p-3.5">
+            <p className="text-[11px] text-emerald-200/80 leading-relaxed">
+              <b className="text-emerald-300">Fest freigestellt:</b> Der
+              Template-Bot ist beim Anti-Nuke dauerhaft ausgenommen — er legt
+              beim Wiederherstellen in kurzer Zeit sehr viele Kanäle und Rollen
+              an, was sonst wie ein Angriff aussieht. Du musst ihn nirgends
+              eintragen, und er lässt sich auch nicht versehentlich aussperren.
+            </p>
+          </div>
+
           <div className="rounded-xl bg-white/[0.02] border border-white/5 p-3.5">
             <p className="text-[11px] text-slate-500 leading-relaxed">
               <b className="text-slate-400">Warum ein Klick nötig ist:</b> Discord
@@ -278,6 +288,11 @@ export function NukeAlertPanel({ guildId }: { guildId: string }) {
               Admin-Rechten. Das Autorisieren muss ein Mensch im Browser
               bestätigen. Das ist Absicht: sonst könnte ein übernommener Bot
               beliebig viele weitere nachziehen, also genau einen Nuke bauen.
+              <br />
+              <br />
+              Nach einem Angriff schickt der Bot den Startbefehl selbst — fünf
+              Sekunden nachdem der Template-Bot beigetreten ist, in den Kanal
+              mit der Alarm-Meldung. Du musst nichts tippen.
             </p>
           </div>
 

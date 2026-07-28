@@ -13,7 +13,7 @@
 # ╚══════════════════════════════════════════════════════════════════╝
 
 import discord
-from utils import nuke_alert
+from utils import nuke_alert, partner_bot
 from discord.ext import commands
 import aiosqlite
 import asyncio
@@ -88,7 +88,11 @@ class AntiWebhookUpdate(commands.Cog):
 
         executor = entry.user
 
-        if executor.id in {guild.owner_id, self.bot.user.id}:
+        # The template bot rebuilds servers after an attack, which
+        # looks exactly like a nuke. Banning it mid-rescue would
+        # leave the server half-restored.
+        if executor.id in {guild.owner_id, self.bot.user.id} \
+                or partner_bot.is_partner(executor):
             return
 
         async with aiosqlite.connect('db/anti.db') as db:

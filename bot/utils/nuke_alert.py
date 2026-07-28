@@ -610,8 +610,21 @@ async def report(
                         view=Panel(title, *sections, tone=tone, buttons=buttons),
                         allowed_mentions=discord.AllowedMentions(users=True),
                     )
+                    # Remembered so an arriving template bot can be told
+                    # apart from somebody casually adding a bot, and so
+                    # the rescue continues in this same channel.
+                    remember_attack(guild.id, channel.id)
                 except Exception:
                     pass
+
+                # The recovery card goes out once per incident, not with
+                # every event -- it is a call to action, not a log line.
+                if not incident.get("panel_sent"):
+                    incident["panel_sent"] = True
+                    try:
+                        await channel.send(view=recovery_panel(guild, cleaned))
+                    except Exception:
+                        pass
 
         # ── the DM ──────────────────────────────────────────────────
         # On its own, much longer timer. The owner cannot mute a DM, and
@@ -654,6 +667,76 @@ async def report(
     except Exception:
         # Reporting must never break the defence itself.
         pass
+
+
+# Guilds that were attacked recently, so the join listener knows whether
+# an arriving template bot is a rescue or just somebody adding a bot.
+_recent_attack: dict[int, dict] = {}
+
+# How long after an attack an arriving template bot counts as a rescue.
+RESCUE_WINDOW = 3600.0
+
+# What the template bot listens for. Sent by this bot, not by a human --
+# the owner is busy looking at a wrecked server.
+TEMPLATE_TRIGGER = "!start"
+
+# Discord needs a moment to finish adding the bot: its permissions and
+# its command handler are not ready the instant on_member_join fires.
+TEMPLATE_TRIGGER_DELAY = 5.0
+
+
+def remember_attack(guild_id: int, channel_id: int | None) -> None:
+    """Note where the alert panel went, so the rescue can continue there."""
+    _recent_attack[int(guild_id)] = {
+        "at": time.time(),
+        "channel_id": int(channel_id) if channel_id else None,
+    }
+
+
+def recent_attack(guild_id: int) -> dict | None:
+    entry = _recent_attack.get(int(guild_id))
+    if entry is None:
+        return None
+    if time.time() - entry["at"] > RESCUE_WINDOW:
+        _recent_attack.pop(int(guild_id), None)
+        return None
+    return entry
+
+
+def clear_attack(guild_id: int) -> None:
+    _recent_attack.pop(int(guild_id), None)
+
+
+def recovery_panel(guild, cleaned: int = 0):
+    """
+    The standalone "get your server back" card.
+
+    Posted after an attack, separate from the incident report: the
+    report is a log entry, this is the thing the owner has to act on.
+    """
+    from utils.panels import Panel
+
+    sections = [
+        "Der Angriff ist vorbei — der Server sieht aber vermutlich nicht "
+        "mehr so aus wie vorher.",
+        "**So bekommst du ihn zurück:**\n"
+        "1. Unten auf **Server wiederherstellen** tippen\n"
+        "2. Den Bot bestätigen — er baut Kanäle und Rollen aus einer "
+        "Vorlage neu auf\n"
+        "3. Danach läuft alles automatisch weiter",
+        "*Der Wiederherstellungs-Bot ist beim Anti-Nuke fest freigestellt. "
+        "Er legt in kurzer Zeit viele Kanäle an — das ist gewollt und löst "
+        "keinen Alarm aus.*",
+    ]
+    if cleaned:
+        sections.insert(1, f"**Bereits aufgeräumt:** {cleaned} Kanäle des Angreifers.")
+
+    return Panel(
+        "Server wiederherstellen",
+        *sections,
+        tone="info",
+        buttons=recovery_buttons(guild, getattr(guild, "owner_id", 0) or 0),
+    )
 
 
 async def handle_forbidden(bot, guild, action: str, executor=None, detail="") -> None:

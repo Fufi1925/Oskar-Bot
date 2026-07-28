@@ -1,0 +1,467 @@
+#!/usr/bin/env python3
+"""
+Handing a wrecked server over to the template bot.
+
+Two things had to be true before this could work at all:
+
+  * **The rescue bot must never be attacked by the anti-nuke.** Rebuilding
+    a server means creating dozens of channels and roles in seconds --
+    the exact shape of a nuke. All seventeen modules would have acted on
+    it. `antibotadd` was worse still: it checks *who invited* the bot, so
+    the rescue bot was kicked on arrival and the admin who invited it was
+    banned.
+
+  * **Somebody has to type the start command.** After a nuke that
+    somebody is staring at an empty server, so this bot types it --
+    five seconds after the template bot joins, in the channel where the
+    recovery panel went.
+
+The handoff is deliberately narrow: only after a real attack, only for
+the one known bot id, only once. Firing it on every bot join would mean
+poking a stranger's bot with a command it never asked for.
+
+Run:  python3 tests/test_partner_rescue.py
+"""
+
+import asyncio
+import os
+import sys
+import tempfile
+import warnings
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.dirname(HERE))
+
+os.environ["ALLOW_KEYLESS_API"] = "true"
+warnings.filterwarnings("ignore")
+
+GUILD = 5501
+OWNER = 9
+ATTACKER = 77
+PARTNER_ID = 1530742522589089952
+
+failures: list[str] = []
+
+
+def check(name, ok, extra=""):
+    if ok:
+        print(f"  ok   {name}")
+    else:
+        print(f"  FAIL {name} {extra}")
+        failures.append(f"{name} {extra}")
+
+
+# ══════════════════════════════════════════════════════════════════════
+#  Fakes
+# ══════════════════════════════════════════════════════════════════════
+
+
+class Perms:
+    def __init__(self, ok=True, **kw):
+        for key in ("send_messages", "view_channel", "read_message_history",
+                    "manage_channels", "ban_members", "kick_members",
+                    "manage_roles", "manage_webhooks", "view_audit_log"):
+            setattr(self, key, kw.get(key, ok))
+
+
+class Channel:
+    def __init__(self, cid=10, name="nuke-alarm", guild=None, ok=True):
+        self.id = cid
+        self.name = name
+        self.guild = guild
+        self.sent: list = []
+        self._ok = ok
+
+    def permissions_for(self, _member):
+        return Perms(self._ok)
+
+    async def send(self, content=None, view=None, **kwargs):
+        self.sent.append(content if content is not None else "<panel>")
+        return type("M", (), {"id": 1})()
+
+
+class Member:
+    def __init__(self, uid, bot=True, guild=None):
+        self.id = uid
+        self.bot = bot
+        self.guild = guild
+        self.mention = f"<@{uid}>"
+        self.name = f"User{uid}"
+
+
+class Guild:
+    def __init__(self, gid=GUILD, channels=None):
+        self.id = gid
+        self.name = "Server"
+        self.owner_id = OWNER
+        self.system_channel = None
+        self.me = Member(1, guild=self)
+        self.me.guild_permissions = Perms()
+        if channels is None:
+            channel = Channel(guild=self)
+            channels = [channel]
+        for channel in channels:
+            channel.guild = self
+        self.text_channels = channels
+
+    def get_channel(self, cid):
+        return next((c for c in self.text_channels if c.id == int(cid)), None)
+
+
+# ══════════════════════════════════════════════════════════════════════
+#  Identity
+# ══════════════════════════════════════════════════════════════════════
+
+
+def test_identity(pb):
+    print("\nRecognising the template bot")
+
+    check("the id is stored exactly, not rounded",
+          pb.BOT_ID == 1530742522589089952, str(pb.BOT_ID))
+    check("it survives as a full 19-digit snowflake",
+          len(str(pb.BOT_ID)) == 19, str(len(str(pb.BOT_ID))))
+
+    check("a bare id is recognised", pb.is_partner(PARTNER_ID))
+    check("an object with .id is recognised",
+          pb.is_partner(Member(PARTNER_ID)))
+    check("a string id is recognised", pb.is_partner(str(PARTNER_ID)))
+
+    check("another bot is not", pb.is_partner(999) is False)
+    check("None is not", pb.is_partner(None) is False)
+    check("nonsense is not", pb.is_partner("abc") is False)
+    check("an object without an id is not",
+          pb.is_partner(object()) is False)
+
+    # An id one digit off must not slip through -- this is the failure
+    # mode that would whitelist a stranger.
+    check("a near-miss id is rejected",
+          pb.is_partner(PARTNER_ID + 1) is False)
+
+
+def test_every_module_whitelists():
+    """
+    All seventeen modules have to skip the rescue bot.
+
+    Asserted on the source: missing one means the bot gets banned
+    halfway through rebuilding, and only on the server where it matters.
+    """
+    print("\nWhitelisted everywhere")
+
+    folder = os.path.join(HERE, "..", "cogs", "antinuke")
+    missing = []
+    unimported = []
+
+    for name in sorted(os.listdir(folder)):
+        if not name.endswith(".py"):
+            continue
+        src = open(os.path.join(folder, name)).read()
+        if "partner_bot.is_partner" not in src:
+            missing.append(name)
+        elif "partner_bot" not in src.split("class ")[0]:
+            unimported.append(name)
+
+    check("every anti-nuke module checks for it", not missing, str(missing))
+    check("and each one imports it properly", not unimported, str(unimported))
+
+    # The bot-add module needs a second check: the one above looks at
+    # who *invited* the bot, which is a normal admin.
+    src = open(os.path.join(folder, "antibotadd.py")).read()
+    joined = src[src.index("async def on_member_join"):]
+    joined = joined[:joined.index("guild = member.guild")]
+    check("antibotadd also checks the arriving bot itself, not just the inviter",
+          "is_partner(member)" in joined, joined[-200:])
+
+
+async def test_not_banned_on_arrival():
+    """The rescue bot joins: antibotadd must leave it alone."""
+    print("\nArriving without being kicked")
+
+    from cogs.antinuke.antibotadd import AntiBotAdd
+
+    acted = []
+
+    class Cog(AntiBotAdd):
+        async def take_action_and_kick_bot(self, *a, **kw):
+            acted.append(a)
+
+    cog = Cog(type("B", (), {"user": Member(2)})())
+    guild = Guild()
+
+    partner = Member(PARTNER_ID, guild=guild)
+    await cog.on_member_join(partner)
+    check("the template bot is not kicked", acted == [], str(acted))
+
+    # A human is not a bot, so the listener returns before anything else.
+    human = Member(555, bot=False, guild=guild)
+    await cog.on_member_join(human)
+    check("a human joining is ignored", acted == [])
+
+
+# ══════════════════════════════════════════════════════════════════════
+#  The handoff
+# ══════════════════════════════════════════════════════════════════════
+
+
+async def test_handoff(na, pb):
+    print("\nThe handoff")
+
+    from cogs.events.partner_handoff import PartnerHandoff
+
+    original_delay = na.TEMPLATE_TRIGGER_DELAY
+    na.TEMPLATE_TRIGGER_DELAY = 0.01
+
+    try:
+        cog = PartnerHandoff(type("B", (), {})())
+
+        # No attack: nothing to rescue, so nothing is sent.
+        guild = Guild()
+        na.clear_attack(guild.id)
+        await cog.on_member_join(Member(PARTNER_ID, guild=guild))
+        check("without a recent attack the bot stays quiet",
+              guild.text_channels[0].sent == [],
+              str(guild.text_channels[0].sent))
+
+        # After an attack.
+        guild = Guild()
+        channel = guild.text_channels[0]
+        na.remember_attack(guild.id, channel.id)
+        cog._done.clear()
+        await cog.on_member_join(Member(PARTNER_ID, guild=guild))
+
+        check("the trigger is sent", na.TEMPLATE_TRIGGER in channel.sent,
+              str(channel.sent))
+        check("it is exactly the command the template bot expects",
+              na.TEMPLATE_TRIGGER == "!start", na.TEMPLATE_TRIGGER)
+        check("and a heads-up goes out first",
+              channel.sent[0] == "<panel>", str(channel.sent))
+        check("the trigger comes last",
+              channel.sent[-1] == na.TEMPLATE_TRIGGER, str(channel.sent))
+
+        # A different bot must not set it off.
+        guild = Guild()
+        channel = guild.text_channels[0]
+        na.remember_attack(guild.id, channel.id)
+        cog._done.clear()
+        await cog.on_member_join(Member(4242, guild=guild))
+        check("another bot joining does nothing", channel.sent == [],
+              str(channel.sent))
+
+        # A human must not either.
+        guild = Guild()
+        channel = guild.text_channels[0]
+        na.remember_attack(guild.id, channel.id)
+        cog._done.clear()
+        await cog.on_member_join(Member(PARTNER_ID, bot=False, guild=guild))
+        check("a human with that id is ignored", channel.sent == [])
+
+        # Twice must stay once.
+        guild = Guild()
+        channel = guild.text_channels[0]
+        na.remember_attack(guild.id, channel.id)
+        cog._done.clear()
+        await cog.on_member_join(Member(PARTNER_ID, guild=guild))
+        # The second event deliberately does *not* re-arm the mark --
+        # re-arming it here is what made the first version of this check
+        # test its own setup rather than the code.
+        await cog.on_member_join(Member(PARTNER_ID, guild=guild))
+        check("a duplicate join event does not send it twice",
+              channel.sent.count(na.TEMPLATE_TRIGGER) == 1,
+              str(channel.sent))
+
+        # The mark is consumed by a completed handoff, so the template
+        # bot rejoining later is not treated as a fresh rescue.
+        check("the attack mark is cleared afterwards",
+              na.recent_attack(guild.id) is None)
+
+        # An old attack does not count.
+        guild = Guild()
+        channel = guild.text_channels[0]
+        na.remember_attack(guild.id, channel.id)
+        na._recent_attack[guild.id]["at"] -= na.RESCUE_WINDOW + 10
+        cog._done.clear()
+        await cog.on_member_join(Member(PARTNER_ID, guild=guild))
+        check("an attack from hours ago is not treated as a rescue",
+              channel.sent == [], str(channel.sent))
+
+        # If the bot leaves, a later rescue may start over.
+        cog._done.add(GUILD)
+        guild = Guild()
+        await cog.on_member_remove(Member(PARTNER_ID, guild=guild))
+        check("the bot leaving re-arms the handoff",
+              GUILD not in cog._done or guild.id not in cog._done)
+    finally:
+        na.TEMPLATE_TRIGGER_DELAY = original_delay
+
+
+async def test_channel_choice(na, pb):
+    print("\nChoosing where to send it")
+
+    from cogs.events.partner_handoff import PartnerHandoff
+
+    original_delay = na.TEMPLATE_TRIGGER_DELAY
+    na.TEMPLATE_TRIGGER_DELAY = 0.01
+
+    try:
+        cog = PartnerHandoff(type("B", (), {})())
+
+        # The panel's channel wins, even when others exist.
+        general = Channel(20, "general")
+        panel = Channel(21, "nuke-alarm")
+        guild = Guild(channels=[general, panel])
+        na.remember_attack(guild.id, panel.id)
+        cog._done.clear()
+        await cog.on_member_join(Member(PARTNER_ID, guild=guild))
+        check("the trigger goes where the panel is",
+              na.TEMPLATE_TRIGGER in panel.sent, str(panel.sent))
+        check("and not into the first channel it finds",
+              general.sent == [], str(general.sent))
+
+        # Panel channel gone: fall back to one that works.
+        general = Channel(20, "general")
+        guild = Guild(channels=[general])
+        na.remember_attack(guild.id, 9999)     # a channel that no longer exists
+        cog._done.clear()
+        await cog.on_member_join(Member(PARTNER_ID, guild=guild))
+        check("a deleted panel channel falls back to another",
+              na.TEMPLATE_TRIGGER in general.sent, str(general.sent))
+
+        # A channel the bot cannot write in is not used.
+        locked = Channel(30, "locked", ok=False)
+        open_one = Channel(31, "open")
+        guild = Guild(channels=[locked, open_one])
+        na.remember_attack(guild.id, locked.id)
+        cog._done.clear()
+        await cog.on_member_join(Member(PARTNER_ID, guild=guild))
+        check("a channel the bot cannot use is skipped", locked.sent == [])
+        check("and a usable one is found instead",
+              na.TEMPLATE_TRIGGER in open_one.sent, str(open_one.sent))
+
+        # Nothing usable at all: no crash, no trigger.
+        locked = Channel(40, "locked", ok=False)
+        guild = Guild(channels=[locked])
+        na.remember_attack(guild.id, locked.id)
+        cog._done.clear()
+        await cog.on_member_join(Member(PARTNER_ID, guild=guild))
+        check("with nowhere to write nothing happens, and nothing raises",
+              locked.sent == [])
+        check("and the guild is not marked as done, so a retry is possible",
+              guild.id not in cog._done)
+    finally:
+        na.TEMPLATE_TRIGGER_DELAY = original_delay
+
+
+def test_delay(na):
+    print("\nThe pause before the trigger")
+
+    check("there is a delay at all", na.TEMPLATE_TRIGGER_DELAY > 0)
+    check("it is the five seconds asked for",
+          na.TEMPLATE_TRIGGER_DELAY == 5.0, str(na.TEMPLATE_TRIGGER_DELAY))
+
+    import ast
+    import inspect
+    from cogs.events.partner_handoff import PartnerHandoff
+
+    source = inspect.getsource(PartnerHandoff._hand_over)
+    tree = ast.parse(source.lstrip().replace("    ", "", 1) if False else
+                     __import__("textwrap").dedent(source))
+    sleeps = [
+        node for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and "sleep" in ast.unparse(node.func)
+    ]
+    check("the handoff actually waits", len(sleeps) == 1, str(len(sleeps)))
+    check("using the shared constant, not a magic number",
+          "TEMPLATE_TRIGGER_DELAY" in ast.unparse(sleeps[0]),
+          ast.unparse(sleeps[0]))
+
+
+# ══════════════════════════════════════════════════════════════════════
+#  The panel
+# ══════════════════════════════════════════════════════════════════════
+
+
+async def test_recovery_panel(na):
+    print("\nThe recovery panel")
+
+    os.environ["PARTNER_BOT_CLIENT_ID"] = "1530742522589089952"
+    os.environ["DASHBOARD_URL"] = "https://example.com"
+
+    guild = Guild()
+    view = na.recovery_panel(guild, cleaned=4)
+    payload = view.to_components()
+
+    check("it is a Components V2 container", payload[0]["type"] == 17,
+          str(payload[0]["type"]))
+
+    text = " ".join(
+        c.get("content", "") for c in payload[0]["components"]
+        if c.get("type") == 10
+    )
+    check("it explains how to get the server back",
+          "wiederherstellen" in text.lower(), text[:120])
+    check("it says the rescue bot will not trigger the anti-nuke",
+          "Alarm" in text or "freigestellt" in text, text[-200:])
+    check("and mentions what was already cleaned up", "4" in text)
+
+    rows = [c for c in payload[0]["components"] if c.get("type") == 1]
+    check("it carries the buttons", len(rows) == 1, str(len(rows)))
+    check("all three of them", len(rows[0]["components"]) == 3,
+          str(len(rows[0]["components"])))
+
+
+async def test_panel_posted_once(na):
+    print("\nThe panel is posted once per attack")
+
+    await na.save_settings(GUILD, {"enabled": 1, "dm_owner": 0, "ping_owner": 0})
+
+    na._last_alert.clear()
+    na._last_dm.clear()
+    na._incident.clear()
+
+    guild = Guild()
+    channel = guild.text_channels[0]
+    guild.owner = None
+    attacker = type("E", (), {"id": ATTACKER, "mention": f"<@{ATTACKER}>"})()
+
+    for _ in range(5):
+        na._last_alert.clear()
+        await na.report(None, guild, "channel_delete",
+                        na.OUTCOME_NO_PERMS, executor=attacker)
+
+    check("every event is logged to the channel",
+          len(channel.sent) >= 5, str(len(channel.sent)))
+    # Five reports plus exactly one panel.
+    check("but the recovery panel only goes out once",
+          len(channel.sent) == 6, str(len(channel.sent)))
+
+    check("and the attack is remembered for the handoff",
+          na.recent_attack(guild.id) is not None)
+    remembered = na.recent_attack(guild.id)
+    check("along with the channel it went to",
+          remembered["channel_id"] == channel.id, str(remembered))
+
+
+async def run():
+    from utils import nuke_alert as na
+    from utils import partner_bot as pb
+
+    test_identity(pb)
+    test_every_module_whitelists()
+    await test_not_banned_on_arrival()
+    await test_handoff(na, pb)
+    await test_channel_choice(na, pb)
+    test_delay(na)
+    await test_recovery_panel(na)
+    await test_panel_posted_once(na)
+
+    print(f"\n{len(failures)} failures")
+    for line in failures:
+        print(f"   {line}")
+    return 1 if failures else 0
+
+
+if __name__ == "__main__":
+    with tempfile.TemporaryDirectory() as tmp:
+        os.chdir(tmp)
+        os.makedirs("db", exist_ok=True)
+        sys.exit(asyncio.run(run()))

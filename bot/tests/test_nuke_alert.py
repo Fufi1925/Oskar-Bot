@@ -241,8 +241,26 @@ def run():
             bot, guild, "channel_create", nuke_alert.OUTCOME_NO_PERMS,
             executor=attacker,
         ))
-        posted = guild.text_channels[0].sent
+        # The recovery panel is a second, deliberate message per attack,
+        # so the reports have to be counted rather than the messages.
+        def reports(channel):
+            out = []
+            for entry in channel.sent:
+                view = entry.get("view")
+                text = " ".join(
+                    c.get("content", "")
+                    for c in view.to_components()[0]["components"]
+                    if c.get("type") == 10
+                ) if view is not None else ""
+                if "Server wiederherstellen" not in text:
+                    out.append(entry)
+            return out
+
+        posted = reports(guild.text_channels[0])
         check("a report reaches the channel", len(posted) == 1, str(len(posted)))
+        check("and the recovery panel goes with it",
+              len(guild.text_channels[0].sent) == 2,
+              str(len(guild.text_channels[0].sent)))
         check("the owner is pinged when the defence failed",
               bool(posted) and "99" in str(posted[0]["content"]),
               str(posted[0]["content"]) if posted else "nothing was posted")
@@ -255,8 +273,8 @@ def run():
             executor=attacker,
         ))
         check("a second event within the cooldown does not spam",
-              len(guild.text_channels[0].sent) == 1,
-              str(len(guild.text_channels[0].sent)))
+              len(reports(guild.text_channels[0])) == 1,
+              str(len(reports(guild.text_channels[0]))))
 
         # A success should not ping the owner at 3am.
         reset_cooldown()

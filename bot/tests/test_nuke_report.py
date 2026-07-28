@@ -124,6 +124,30 @@ class FakeGuild:
         return self.channel
 
 
+def reports_only(channel):
+    """
+    Messages that are incident reports.
+
+    The recovery panel is a separate, deliberate message posted once per
+    attack, so a bare len(channel.sent) no longer counts reports.
+    """
+    out = []
+    for entry in channel.sent:
+        view = entry.get("view")
+        text = " ".join(
+            c.get("content", "")
+            for c in view.to_components()[0]["components"]
+            if c.get("type") == 10
+        ) if view is not None else ""
+        if "Server wiederherstellen" not in text:
+            out.append(entry)
+    return out
+
+
+def panels_only(channel):
+    return [e for e in channel.sent if e not in reports_only(channel)]
+
+
 def reset(na):
     na._last_alert.clear()
     na._last_dm.clear()
@@ -194,8 +218,12 @@ async def test_dm_spam(na):
         await na.report(None, guild, "channel_delete",
                         na.OUTCOME_NO_PERMS, executor=attacker)
 
-    check("the channel keeps a full log", len(guild.channel.sent) == 15,
-          str(len(guild.channel.sent)))
+    check("the channel keeps a full log",
+          len(reports_only(guild.channel)) == 15,
+          str(len(reports_only(guild.channel))))
+    check("and the recovery panel is posted exactly once",
+          len(panels_only(guild.channel)) == 1,
+          str(len(panels_only(guild.channel))))
     check("but the owner is messaged once, not fifteen times",
           len(guild.owner.dms) == 1, f"{len(guild.owner.dms)} DMs")
 
@@ -210,7 +238,8 @@ async def test_dm_spam(na):
         await na.report(None, guild, "channel_delete",
                         na.OUTCOME_NO_PERMS, executor=attacker)
     check("a burst of forty events is one channel post",
-          len(guild.channel.sent) == 1, str(len(guild.channel.sent)))
+          len(reports_only(guild.channel)) == 1,
+          str(len(reports_only(guild.channel))))
     check("and one DM", len(guild.owner.dms) == 1, str(len(guild.owner.dms)))
 
     # Nothing is asked of the owner, so nothing is sent.
@@ -221,7 +250,8 @@ async def test_dm_spam(na):
     check("a stopped attack does not wake the owner at all",
           len(guild.owner.dms) == 0, str(len(guild.owner.dms)))
     check("but is still written to the channel",
-          len(guild.channel.sent) == 1)
+          len(reports_only(guild.channel)) == 1,
+          str(len(reports_only(guild.channel))))
 
     reset(na)
     guild = FakeGuild()
@@ -238,7 +268,8 @@ async def test_dm_spam(na):
         await na.report(None, guild, "channel_delete",
                         na.OUTCOME_NO_PERMS, executor=attacker)
     check("closed DMs do not break the channel report",
-          len(guild.channel.sent) == 5, str(len(guild.channel.sent)))
+          len(reports_only(guild.channel)) == 5,
+          str(len(reports_only(guild.channel))))
 
     reset(na)
     guild = FakeGuild()
@@ -270,7 +301,8 @@ async def test_incident_grouping(na):
 
     last = " ".join(
         c.get("content", "")
-        for c in guild.channel.sent[-1]["view"].to_components()[0]["components"]
+        for c in reports_only(guild.channel)[-1]["view"]
+        .to_components()[0]["components"]
         if c.get("type") == 10
     )
     check("the report shows what the attack has done so far",
@@ -278,7 +310,8 @@ async def test_incident_grouping(na):
 
     first = " ".join(
         c.get("content", "")
-        for c in guild.channel.sent[0]["view"].to_components()[0]["components"]
+        for c in reports_only(guild.channel)[0]["view"]
+        .to_components()[0]["components"]
         if c.get("type") == 10
     )
     check("the very first report does not, having nothing to summarise",
@@ -573,8 +606,10 @@ async def test_buttons_in_report(na):
     await na.report(None, guild, "channel_delete",
                     na.OUTCOME_NO_PERMS, executor=attacker)
 
-    check("the channel got a message", len(guild.channel.sent) == 1)
-    view = guild.channel.sent[0]["view"]
+    check("the channel got a message",
+          len(reports_only(guild.channel)) == 1,
+          str(len(reports_only(guild.channel))))
+    view = reports_only(guild.channel)[0]["view"]
     payload = view.to_components()
     check("it is a Components V2 container", payload[0]["type"] == 17,
           str(payload[0]["type"]))
@@ -604,7 +639,8 @@ async def test_buttons_in_report(na):
     await na.report(None, guild, "channel_delete",
                     na.OUTCOME_NO_PERMS, executor=attacker)
     check("an unconfigured bot still reports the attack",
-          len(guild.channel.sent) == 1)
+          len(reports_only(guild.channel)) == 1,
+          str(len(reports_only(guild.channel))))
 
 
 async def test_alert_channel_survives(na):

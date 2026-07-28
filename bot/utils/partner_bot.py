@@ -36,6 +36,34 @@ import time
 # bot compares against this exact string.
 SOURCE = "university-bot"
 
+# The template bot's own user id.
+#
+# Hard-coded rather than read from PARTNER_BOT_CLIENT_ID because the
+# anti-nuke has to recognise it even on a server that never configured
+# anything -- and because a wrong value here means either banning the
+# rescue bot or whitelisting a stranger. An environment variable can be
+# set by mistake; this cannot.
+BOT_ID = 1530742522589089952
+
+
+def is_partner(user_or_id) -> bool:
+    """
+    Whether this is the template bot.
+
+    Every anti-nuke module calls this before acting. The bot exists to
+    rebuild a server after an attack, which means creating dozens of
+    channels and roles in seconds -- the exact shape of a nuke. Without
+    this it would be banned mid-rescue, and `antibotadd` would ban
+    whoever invited it too.
+    """
+    if user_or_id is None:
+        return False
+    user_id = getattr(user_or_id, "id", user_or_id)
+    try:
+        return int(user_id) == BOT_ID
+    except (TypeError, ValueError):
+        return False
+
 SECRET_ENV = "PARTNER_HANDSHAKE_SECRET"
 
 # How long a handshake stays valid. Long enough to click through the

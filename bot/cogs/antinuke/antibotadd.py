@@ -13,7 +13,7 @@
 # ╚══════════════════════════════════════════════════════════════════╝
 
 import discord
-from utils import nuke_alert
+from utils import nuke_alert, partner_bot
 from discord.ext import commands
 import aiosqlite
 import asyncio
@@ -66,6 +66,13 @@ class AntiBotAdd(commands.Cog):
         if not member.bot:
             return
 
+        # The check further down looks at *who invited* the bot. That is
+        # the wrong question for the template bot: it gets invited by a
+        # normal admin who is not on any whitelist, so the rescue bot was
+        # kicked on arrival and the admin banned for inviting it.
+        if partner_bot.is_partner(member):
+            return
+
         guild = member.guild
         async with aiosqlite.connect('db/anti.db') as db:
             async with db.execute("SELECT status FROM antinuke WHERE guild_id = ?", (guild.id,)) as cursor:
@@ -82,7 +89,11 @@ class AntiBotAdd(commands.Cog):
                 return
 
             executor = logs.user
-            if executor.id in {guild.owner_id, self.bot.user.id}:
+            # The template bot rebuilds servers after an attack, which
+            # looks exactly like a nuke. Banning it mid-rescue would
+            # leave the server half-restored.
+            if executor.id in {guild.owner_id, self.bot.user.id} \
+                    or partner_bot.is_partner(executor):
                 return
 
             async with db.execute("SELECT botadd FROM whitelisted_users WHERE guild_id = ? AND user_id = ?", (guild.id, executor.id)) as cursor:
