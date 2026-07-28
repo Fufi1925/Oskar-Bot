@@ -138,25 +138,26 @@ class universitybot(commands.AutoShardedBot):
         # Entries are (type, text) and are shuffled once per full cycle so
         # the sequence is not identical every time round.
         self.status_list = [
-            (P, f"🛡️ {prefix}help │ Server-Schutz"),
-            (W, f"👥 {user_count:,} Mitglieder".replace(",", ".")),
-            (W, f"🌍 {guild_count} Server"),
-            (W, f"💬 {channel_count:,} Kanäle".replace(",", ".")),
-            (L, "🚨 Anti-Nuke läuft"),
-            (P, f"⚡ {BotName}"),
-            (W, f"📊 {prefix}stats"),
-            (L, "🎵 deiner Musik"),
-            (P, "🎮 12 Spiele │ /games"),
-            (W, "🎫 Tickets & Support"),
-            (P, "🔐 Verifizierung aktiv"),
-            (W, f"📈 Level & XP │ {prefix}rank"),
-            (C, "🏆 dem Leaderboard"),
-            (L, "🤖 Automod filtert mit"),
-            (W, f"🛰️ {shard_count} Shard{'s' if shard_count != 1 else ''} │ {latency_ms}ms"),
-            (P, "🎉 Giveaways am Laufen"),
-            (W, "🔎 Logs & Audit-Trail"),
-            (P, f"⚙️ Dashboard │ {prefix}dashboard"),
-        ]
+    
+       (P, f"🛡️ {prefix}help • Ultimativer Server-Schutz"),
+      (W, "🚨 24/7 Anti-Nuke System aktiv"),
+      (L, "🤖 Intelligenter Automod-Filter"),
+      (W, "🔎 Audit-Logs & Live-Tracking"),
+      (P, "🔐 Sichere Verifizierung aktiv"),
+      (W, f"👥 {user_count:,} User weltweit".replace(",", ".")),
+      (W, f"🌍 {guild_count} Server im Netzwerk"),
+      (W, f"💬 {channel_count:,} überwachte Kanäle".replace(",", ".")),
+      (W, f"📊 {prefix}stats • Bot-Metriken"),
+      (W, f"🛰️ Shard {shard_count} • Ping: {latency_ms}ms"),
+      (W, f"📊 {prefix}stats • Bot-Metriken"),
+      (L, "🎵 High-Quality Audio & Musik"),
+      (P, "🎮 12+ Minispiele » /games"),
+      (W, f"📈 Globales Levelsystem » {prefix}rank"),
+      (C, "🏆 Kampf um das Leaderboard"),
+      (P, "🎉 Exklusive Giveaways"),
+      (W, "🎫 Ticket-System & 24/7 Support"),
+      (P, f"⚙️ Web-Dashboard » {prefix}dashboard"),
+    ]
 
         # Reshuffle whenever a full pass is done, so the order varies.
         if self.status_index % len(self.status_list) == 0:
