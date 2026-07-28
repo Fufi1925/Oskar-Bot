@@ -1,5 +1,5 @@
 # ╔══════════════════════════════════════════════════════════════════╗
-# ║   Booster, sticky, nightmode, jail, counting, notify, birthday   ║
+# ║   Booster, sticky, nightmode, jail, counting, notify             ║
 # ╚══════════════════════════════════════════════════════════════════╝
 
 """
@@ -37,7 +37,6 @@ NIGHTMODE_DB = "db/nightmode.db"
 JAIL_DB = "db/jail.db"
 NOTIFY_DB = "db/notify.db"
 COUNTING_JSON = "db/counting.json"
-BIRTHDAY_JSON = "jsondb/birthdays.json"
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -998,136 +997,4 @@ async def notify_remove(db: aiosqlite.Connection, guild_id: int, kind: str) -> b
     await db.commit()
     return (cursor.rowcount or 0) > 0
 
-
-# ══════════════════════════════════════════════════════════════════════
-#  Birthdays
-# ══════════════════════════════════════════════════════════════════════
-
-
-def birthday_load() -> dict:
-    if not os.path.exists(BIRTHDAY_JSON):
-        return {}
-    try:
-        with open(BIRTHDAY_JSON, "r") as handle:
-            content = handle.read().strip()
-        data = json.loads(content) if content else {}
-        return data if isinstance(data, dict) else {}
-    except Exception:
-        return {}
-
-
-def birthday_save_all(data: dict) -> None:
-    os.makedirs(os.path.dirname(BIRTHDAY_JSON) or ".", exist_ok=True)
-    with open(BIRTHDAY_JSON, "w") as handle:
-        json.dump(data, handle, indent=2)
-
-
-def birthday_list(guild_id: int) -> list[dict]:
-    """
-    Everyone's birthday on this guild.
-
-    The file is keyed by user id at the top level in some versions and by
-    guild in others, so both shapes are read.
-    """
-    data = birthday_load()
-    out = []
-
-    guild_block = data.get(str(guild_id))
-    if isinstance(guild_block, dict):
-        for user_id, value in guild_block.items():
-            if str(user_id).isdigit():
-                out.append({"user_id": int(user_id), "date": str(value)})
-        return out
-
-    for user_id, value in data.items():
-        if not str(user_id).isdigit():
-            continue
-        if isinstance(value, dict):
-            date = value.get("date") or value.get("birthday")
-            if value.get("guild_id") and int(value["guild_id"]) != guild_id:
-                continue
-        else:
-            date = value
-        if date:
-            out.append({"user_id": int(user_id), "date": str(date)})
-    return out
-
-
-def birthday_set(guild_id: int, user_id: int, date: str) -> None:
-    data = birthday_load()
-    block = data.get(str(guild_id))
-    if not isinstance(block, dict):
-        block = {}
-    block[str(user_id)] = date
-    data[str(guild_id)] = block
-    birthday_save_all(data)
-
-
-def birthday_remove(guild_id: int, user_id: int) -> bool:
-    data = birthday_load()
-    block = data.get(str(guild_id))
-    if isinstance(block, dict) and str(user_id) in block:
-        del block[str(user_id)]
-        data[str(guild_id)] = block
-        birthday_save_all(data)
-        return True
-
-    if str(user_id) in data:
-        del data[str(user_id)]
-        birthday_save_all(data)
-        return True
-    return False
-
-
-def birthday_valid(date: str) -> bool:
-    """Accepts DD.MM and DD.MM.YYYY."""
-    import re
-
-    text = str(date or "").strip()
-    if not re.fullmatch(r"\d{1,2}\.\d{1,2}(\.\d{4})?", text):
-        return False
-    parts = text.split(".")
-    day, month = int(parts[0]), int(parts[1])
-    if not 1 <= month <= 12:
-        return False
-    # 29 February has to stay valid even in a non-leap year.
-    limits = {1: 31, 2: 29, 3: 31, 4: 30, 5: 31, 6: 30,
-              7: 31, 8: 31, 9: 30, 10: 31, 11: 30, 12: 31}
-    return 1 <= day <= limits[month]
-
-
-def birthday_upcoming(entries: list[dict], days: int = 30) -> list[dict]:
-    """Sort by how soon the birthday is, wrapping around the year."""
-    import datetime as _dt
-
-    today = _dt.date.today()
-    out = []
-    for entry in entries:
-        parts = str(entry["date"]).split(".")
-        if len(parts) < 2:
-            continue
-        try:
-            day, month = int(parts[0]), int(parts[1])
-        except ValueError:
-            continue
-
-        try:
-            this_year = _dt.date(today.year, month, day)
-        except ValueError:
-            # 29 February in a non-leap year: treat as the 28th.
-            try:
-                this_year = _dt.date(today.year, month, 28)
-            except ValueError:
-                continue
-
-        delta = (this_year - today).days
-        if delta < 0:
-            try:
-                delta = (_dt.date(today.year + 1, month, day) - today).days
-            except ValueError:
-                delta = (_dt.date(today.year + 1, month, 28) - today).days
-
-        out.append({**entry, "in_days": delta})
-
-    out.sort(key=lambda e: e["in_days"])
-    return [e for e in out if e["in_days"] <= days]
+# NOTE: birthdays were removed from the bot entirely.

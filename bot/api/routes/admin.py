@@ -840,7 +840,7 @@ async def _create_snapshot(prefix: str = "") -> dict:
             except Exception:
                 continue
 
-    # Birthdays, join-DM templates and the ignore lists live in JSON files,
+    # Join-DM templates and the ignore lists live in JSON files,
     # not in SQLite. A snapshot without them cannot fully restore the bot.
     json_copied = 0
     from api.config_transfer import JSON_CONFIG_FILES

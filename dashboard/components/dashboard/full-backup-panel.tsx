@@ -112,7 +112,7 @@ export function FullBackupPanel() {
         Every setting of every server, for every module, plus the global
         configuration: dashboard team and roles, feature flags, bot settings,
         blacklist, premium and announcements — and the config that lives
-        outside the databases, like birthdays and join-DM templates. One file,
+        outside the databases, like the join-DM templates. One file,
         one click, no going through the servers one by one.
       </p>
 

@@ -3,7 +3,7 @@
 # ╚══════════════════════════════════════════════════════════════════╝
 
 """
-Booster, sticky messages, nightmode, jail, counting, notify, birthdays.
+Booster, sticky messages, nightmode, jail, counting, notify.
 
 All seven already worked over chat commands; none had a dashboard, so
 most servers never found them. Two carried real bugs that only show up
@@ -1088,71 +1088,4 @@ async def delete_notify(
         raise HTTPException(status_code=404, detail="Dieses Abo gibt es nicht.")
     return {"status": "success", "result": "Abo entfernt."}
 
-
-# ══════════════════════════════════════════════════════════════════════
-#  Birthdays
-# ══════════════════════════════════════════════════════════════════════
-
-
-@router.get("/{guild_id}/birthday", summary="Birthdays on this server")
-async def get_birthdays(guild_id: int, bot: "universitybot" = Depends(get_bot)):
-    guild = bot.get_guild(guild_id)
-    entries = store.birthday_list(guild_id)
-
-    people = []
-    for entry in entries:
-        member = guild.get_member(entry["user_id"]) if guild else None
-        people.append({
-            "user_id": str(entry["user_id"]),
-            "date": entry["date"],
-            "name": member.display_name if member else f"Unbekannt ({entry['user_id']})",
-            "avatar": member.display_avatar.url if member else None,
-            "left": member is None,
-        })
-
-    upcoming = store.birthday_upcoming(entries, days=60)
-    for item in upcoming:
-        member = guild.get_member(item["user_id"]) if guild else None
-        item["user_id"] = str(item["user_id"])
-        item["name"] = member.display_name if member else str(item["user_id"])
-
-    return {
-        "guild_id": str(guild_id),
-        "entries": sorted(people, key=lambda p: p["name"].lower()),
-        "upcoming": upcoming,
-        "total": len(people),
-    }
-
-
-@router.post("/{guild_id}/birthday", summary="Add or change a birthday")
-async def set_birthday(
-    guild_id: int, data: dict, bot: "universitybot" = Depends(get_bot)
-):
-    _guild_or_404(bot, guild_id)
-
-    user_id = str(data.get("user_id") or "")
-    date = str(data.get("date") or "").strip()
-
-    if not user_id.isdigit():
-        raise HTTPException(status_code=400, detail="Bitte ein Mitglied auswählen.")
-    if not store.birthday_valid(date):
-        raise HTTPException(
-            status_code=400,
-            detail="Datum bitte als TT.MM oder TT.MM.JJJJ, zum Beispiel 15.03.",
-        )
-
-    store.birthday_set(guild_id, int(user_id), date)
-    await _reload(bot, "Birthdays", guild_id)
-
-    return {"status": "success", "result": f"Geburtstag am {date} gespeichert."}
-
-
-@router.delete("/{guild_id}/birthday/{user_id}", summary="Remove a birthday")
-async def delete_birthday(
-    guild_id: int, user_id: int, actor: str = "",
-    bot: "universitybot" = Depends(get_bot),
-):
-    if not store.birthday_remove(guild_id, user_id):
-        raise HTTPException(status_code=404, detail="Dafür war nichts gespeichert.")
-    await _reload(bot, "Birthdays", guild_id)
-    return {"status": "success", "result": "Entfernt."}
+# NOTE: birthdays were removed from the bot entirely.

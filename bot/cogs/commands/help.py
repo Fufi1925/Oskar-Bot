@@ -13,7 +13,7 @@
 # ╚══════════════════════════════════════════════════════════════════╝
 
 import discord
-from utils.emoji import ARROWRED, BOOST, CAST, GAMES, LEVEL_UP, LOADINGRED, LOCK, MESSAGE, MINECRAFT, MUSIC, NEW, PIN, SEED, STAR, SWORD, SYSTEM, THUNDER, TICKET, WIFI, ZAI, ZARROW, ZBAN, ZBOT, ZCIRCLE, ZCIRCLE_ALT1, ZCLOUD, ZCOUNTING, ZMODULE, ZPEOPLE, ZROCKET, ZSAFE, ZTADA, ZUNMUTE, ZWRENCH
+from utils.emoji import ARROWRED, BOOST, CAST, GAMES, LEVEL_UP, LOADINGRED, LOCK, MESSAGE, MINECRAFT, MUSIC, NEW, PIN, SEED, STAR, SWORD, SYSTEM, THUNDER, TICKET, WIFI, ZAI, ZARROW, ZBAN, ZBOT, ZCIRCLE_ALT1, ZCLOUD, ZCOUNTING, ZMODULE, ZPEOPLE, ZROCKET, ZSAFE, ZTADA, ZUNMUTE, ZWRENCH
 from discord.ext import commands
 from discord import app_commands, Interaction
 from difflib import get_close_matches
@@ -152,7 +152,6 @@ class HelpCommand(commands.HelpCommand):
               f" {LOCK} `»` Encryption {NEW}\n" 
               f" {MINECRAFT} `»` Minecraft {NEW}\n"
               f" {MESSAGE} `»` Joindm {NEW}\n"
-              f" {ZCIRCLE} `»` Birthday {NEW}\n"
               f" {ZCIRCLE_ALT1} `»` Customrole\n"           
     )
 

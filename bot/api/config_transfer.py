@@ -187,11 +187,9 @@ async def export_guild(guild_id: int, *, include_user_data: bool = False) -> dic
 
 
 # Configuration that does not live in SQLite. These were missing from every
-# backup, so birthdays and join-DM templates were silently lost on a restore.
+# backup, so join-DM templates were silently lost on a restore.
 JSON_CONFIG_FILES = (
-    "jsondb/birthdays.json",
     "jsondb/joindm_messages.json",
-    "jsondb/birthday_logs.json",
     "ignore.json",
     "channels.json",
 )
@@ -354,7 +352,7 @@ async def export_everything(*, include_user_data: bool = False) -> dict[str, Any
     # Not everything lives in SQLite.
     payload["json_files"] = _collect_json_files()
     if payload["json_files"]:
-        modules.append("Birthdays & join DMs")
+        modules.append("Join DMs")
 
     payload["summary"] = {
         "modules": sorted(modules),
@@ -411,7 +409,7 @@ async def preview_global_import(data: dict[str, Any]) -> dict[str, Any]:
         n for n in (data.get("json_files") or {}) if n in JSON_CONFIG_FILES
     )
     if json_files:
-        modules.append("Birthdays & join DMs")
+        modules.append("Join DMs")
 
     return {
         "scope": data.get("scope", "guild"),

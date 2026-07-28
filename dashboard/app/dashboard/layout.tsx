@@ -158,53 +158,72 @@ export default function DashboardLayout({
   // Base sidebar items – will be filtered if we are inside a guild
   const allSidebarItems = currentGuildId
     ? [
-        { name: "Overview", href: `/dashboard/guild/${currentGuildId}`, icon: LayoutDashboard },
+        { name: "Übersicht", href: `/dashboard/guild/${currentGuildId}`, icon: LayoutDashboard },
         {
-          name: "Security",
+          // Same grouping as the tab bar. Two navigations that disagree
+          // about where something lives is worse than one.
+          name: "Schutz",
           items: [
             { name: "Anti-Nuke", href: `/dashboard/guild/${currentGuildId}/antinuke`, icon: ShieldCheck },
             { name: "Automod", href: `/dashboard/guild/${currentGuildId}/automod`, icon: ShieldCheck },
-            { name: "Verification", href: `/dashboard/guild/${currentGuildId}/verification`, icon: User },
+            { name: "Verifizierung", href: `/dashboard/guild/${currentGuildId}/verification`, icon: User },
+            { name: "Notfall", href: `/dashboard/guild/${currentGuildId}/emergency`, icon: Shield },
+            { name: "Jail", href: `/dashboard/guild/${currentGuildId}/jail`, icon: Lock },
+            { name: "Nachtmodus", href: `/dashboard/guild/${currentGuildId}/nightmode`, icon: Moon },
           ],
         },
         {
-          name: "Engagement",
+          name: "Mitglieder",
+          items: [
+            { name: "Begrüßung", href: `/dashboard/guild/${currentGuildId}/welcome`, icon: Bell },
+            { name: "Beitritts-DM", href: `/dashboard/guild/${currentGuildId}/joindm`, icon: User },
+            { name: "Auto-Rolle", href: `/dashboard/guild/${currentGuildId}/autorole`, icon: Search },
+            { name: "Reaktions-Rollen", href: `/dashboard/guild/${currentGuildId}/reactionroles`, icon: Search },
+            { name: "Eigene Rollen", href: `/dashboard/guild/${currentGuildId}/customroles`, icon: ShieldCheck },
+            { name: "Vanity-Rollen", href: `/dashboard/guild/${currentGuildId}/vanityroles`, icon: Star },
+            { name: "Nickname", href: `/dashboard/guild/${currentGuildId}/nickname`, icon: Badge },
+            { name: "Level-System", href: `/dashboard/guild/${currentGuildId}/leveling`, icon: BarChart4 },
+          ],
+        },
+        {
+          name: "Aktivität",
           items: [
             { name: "Giveaways", href: `/dashboard/guild/${currentGuildId}/giveaways`, icon: Star },
-            { name: "Welcome", href: `/dashboard/guild/${currentGuildId}/welcome`, icon: Bell },
-            { name: "Leveling", href: `/dashboard/guild/${currentGuildId}/leveling`, icon: BarChart4 },
-            { name: "Vanity Roles", href: `/dashboard/guild/${currentGuildId}/vanityroles`, icon: Star },
-            { name: "Anonymer Chat", href: `/dashboard/guild/${currentGuildId}/anonchat`, icon: Lock },
-            { name: "Eigene Nachricht", href: `/dashboard/guild/${currentGuildId}/compose`, icon: PenLine },
-            { name: "Booster", href: `/dashboard/guild/${currentGuildId}/booster`, icon: Gem },
-            { name: "Sticky-Nachricht", href: `/dashboard/guild/${currentGuildId}/sticky`, icon: Pin },
-            { name: "Nachtmodus", href: `/dashboard/guild/${currentGuildId}/nightmode`, icon: Moon },
-            { name: "Jail", href: `/dashboard/guild/${currentGuildId}/jail`, icon: Lock },
             { name: "Counting", href: `/dashboard/guild/${currentGuildId}/counting`, icon: Calculator },
+            { name: "Booster", href: `/dashboard/guild/${currentGuildId}/booster`, icon: Gem },
             { name: "Benachrichtigungen", href: `/dashboard/guild/${currentGuildId}/notify`, icon: Youtube },
-            { name: "Geburtstage", href: `/dashboard/guild/${currentGuildId}/birthday`, icon: Cake },
-            { name: "Auto Role", href: `/dashboard/guild/${currentGuildId}/autorole`, icon: Search },
-            { name: "Auto React", href: `/dashboard/guild/${currentGuildId}/autoreact`, icon: Settings },
-            { name: "Reaction Roles", href: `/dashboard/guild/${currentGuildId}/reactionroles`, icon: Search },
-            { name: "Join DM", href: `/dashboard/guild/${currentGuildId}/joindm`, icon: User },
-            { name: "No Prefix", href: `/dashboard/guild/${currentGuildId}/noprefix`, icon: UserCheck },
-            { name: "Nickname", href: `/dashboard/guild/${currentGuildId}/nickname`, icon: Badge },
-            { name: "Admin Dashboard", href: `/dashboard/guild/${currentGuildId}/admin-dashboard`, icon: Shield },
-            { name: "Invites", href: `/dashboard/guild/${currentGuildId}/invites`, icon: Search },
-            { name: "Tracking", href: `/dashboard/guild/${currentGuildId}/tracking`, icon: BarChart4 },
+            { name: "Auto-Reaktion", href: `/dashboard/guild/${currentGuildId}/autoreact`, icon: Settings },
+            { name: "Autoresponder", href: `/dashboard/guild/${currentGuildId}/autoresponder`, icon: PenLine },
+            { name: "Anonymer Chat (Beta)", href: `/dashboard/guild/${currentGuildId}/anonchat`, icon: Lock },
           ],
         },
         {
-          name: "Utility",
+          name: "Sprache",
           items: [
-            { name: "Tickets", href: `/dashboard/guild/${currentGuildId}/tickets`, icon: Ticket },
             { name: "Join to Create", href: `/dashboard/guild/${currentGuildId}/j2c`, icon: Menu },
-            { name: "Eigene Rollen", href: `/dashboard/guild/${currentGuildId}/customroles`, icon: ShieldCheck },
             { name: "Sprach-Rolle", href: `/dashboard/guild/${currentGuildId}/invcrole`, icon: Settings },
           ],
         },
+        {
+          name: "Werkzeuge",
+          items: [
+            { name: "Tickets", href: `/dashboard/guild/${currentGuildId}/tickets`, icon: Ticket },
+            { name: "Eigene Nachricht", href: `/dashboard/guild/${currentGuildId}/compose`, icon: PenLine },
+            { name: "Sticky-Nachricht", href: `/dashboard/guild/${currentGuildId}/sticky`, icon: Pin },
+            { name: "Einladungen", href: `/dashboard/guild/${currentGuildId}/invites`, icon: Search },
+            { name: "Einladungs-Log", href: `/dashboard/guild/${currentGuildId}/tracking`, icon: BarChart4 },
+            { name: "No Prefix", href: `/dashboard/guild/${currentGuildId}/noprefix`, icon: UserCheck },
+          ],
+        },
+        {
+          name: "Verwaltung",
+          items: [
+            { name: "Protokollierung", href: `/dashboard/guild/${currentGuildId}/logging`, icon: LayoutDashboard },
+            { name: "Server-Werkzeuge", href: `/dashboard/guild/${currentGuildId}/admin-dashboard`, icon: Shield },
+          ],
+        },
         { name: "Einstellungen", href: `/dashboard/guild/${currentGuildId}/settings`, icon: Settings },
-        { name: "Back to Server", href: "/dashboard/guilds", icon: Server },
+        { name: "Zurück zur Serverliste", href: "/dashboard/guilds", icon: Server },
       ]
     : [
         { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },

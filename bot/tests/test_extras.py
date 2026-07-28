@@ -239,23 +239,8 @@ def run():
           store.nightmode_should_be_closed(
               {"enabled": 0, "start_hour": 23, "end_hour": 7}, 2) is False)
 
-    # ══ Birthdays: date validation ════════════════════════════════
-    for value, expected in [
-        ("15.03", True), ("1.1", True), ("29.02", True),
-        ("15.03.1990", True), ("31.04", False), ("13.13", False),
-        ("0.5", False), ("quatsch", False), ("", False),
-    ]:
-        check(f"birthday {value!r} is {'valid' if expected else 'rejected'}",
-              store.birthday_valid(value) == expected)
-
-    upcoming = store.birthday_upcoming(
-        [{"user_id": 1, "date": "29.02"}, {"user_id": 2, "date": "01.01"}], days=400
-    )
-    check("29 February does not crash in a non-leap year", len(upcoming) == 2,
-          str(upcoming))
-    check("upcoming birthdays are sorted by how soon they are",
-          all(a["in_days"] <= b["in_days"] for a, b in zip(upcoming, upcoming[1:])),
-          str([e["in_days"] for e in upcoming]))
+    # Birthdays were removed from the bot entirely, so the date
+    # validation and the API that used it are gone with them.
 
     # ══ Notify ════════════════════════════════════════════════════
     # Moved to tests/test_youtube_notify.py. The feature was replaced
@@ -421,30 +406,6 @@ def run():
     check("role ids stay strings",
           isinstance(state["jail_role"]["id"], str), str(state["jail_role"]))
 
-    # ══ Birthdays API ═════════════════════════════════════════════
-    bday_base = f"{base}/birthday"
-    alice = main.add(FakeMember(10, "Alice"))
-
-    r = client.post(bday_base, json={"user_id": "10", "date": "15.03"})
-    check("a birthday can be added", r.status_code == 200, r.text[:140])
-
-    r = client.post(bday_base, json={"user_id": "10", "date": "31.04"})
-    check("an impossible date is refused with a hint",
-          r.status_code == 400 and "TT.MM" in r.json()["detail"], r.text[:160])
-
-    listing = client.get(bday_base).json()
-    check("it shows up with the member's name",
-          listing["entries"] and listing["entries"][0]["name"] == "Alice",
-          str(listing["entries"]))
-    check("user ids stay strings",
-          isinstance(listing["entries"][0]["user_id"], str))
-    check("upcoming birthdays are worked out", "upcoming" in listing)
-
-    r = client.delete(f"{bday_base}/10")
-    check("a birthday can be removed", r.status_code == 200)
-    r = client.delete(f"{bday_base}/10")
-    check("removing it twice gives 404", r.status_code == 404)
-
     # ══ Every write reaches the cog ═══════════════════════════════
     #
     # A refresh call to a cog name that does not exist fails silently --
@@ -457,8 +418,7 @@ def run():
         "Nightmode": lambda: client.patch(night_base, json={"start_hour": 21}),
         "Jail": lambda: client.patch(jail_base, json={"log_channel": CHANNEL}),
         "Counting": lambda: client.patch(counting_base, json={"mode": "reset"}),
-        "Birthdays": lambda: client.post(
-            bday_base, json={"user_id": "10", "date": "01.01"}),
+        # Birthdays used to be in this list. The feature was removed.
     }
     for cog_name, call in expected.items():
         bot.reloaded.clear()

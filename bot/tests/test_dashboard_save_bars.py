@@ -55,7 +55,6 @@ NO_DRAFT = {
     "reactionroles", # add/remove entries, each its own request
     "vanityroles",   # add/remove entries, each its own request
     "autoresponder", # add/remove entries, each its own request
-    "birthday",      # add/remove entries
     "notify",        # add/remove entries
     "sticky",        # add/remove entries
     "customroles",   # add/remove entries plus its own bar in voice-panels

@@ -423,7 +423,7 @@ export const api = {
       body: "{}",
     }),
 
-  // Booster, sticky, nightmode, jail, counting, notify, birthdays
+  // Booster, sticky, nightmode, jail, counting, notify
   // Seven features that worked in chat but had no dashboard. Every write
   // tells the owning cog to reload -- several keep state in memory.
   getBooster: (g: string) => request<any>(`/extras/${g}/booster`),
@@ -485,11 +485,6 @@ export const api = {
   removeNotify: (g: string, channelId: string) =>
     request<any>(`/extras/${g}/notify/${channelId}`, { method: "DELETE" }),
 
-  getBirthdays: (g: string) => request<any>(`/extras/${g}/birthday`),
-  setBirthday: (g: string, data: any) =>
-    request<any>(`/extras/${g}/birthday`, { method: "POST", body: JSON.stringify(data) }),
-  removeBirthday: (g: string, userId: string) =>
-    request<any>(`/extras/${g}/birthday/${userId}`, { method: "DELETE" }),
 
   // Anti-nuke alerts
   getNukeAlerts: (guildId: string) => request<any>(`/nukealert/${guildId}`),

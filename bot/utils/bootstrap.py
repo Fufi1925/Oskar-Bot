@@ -27,9 +27,7 @@ REQUIRED_DIRECTORIES = (
 REQUIRED_JSON_FILES = {
     "ignore.json": {"guilds": {}},
     "channels.json": {},
-    "jsondb/birthdays.json": {},
     "jsondb/joindm_messages.json": {},
-    "jsondb/birthday_logs.json": {},
 }
 
 
