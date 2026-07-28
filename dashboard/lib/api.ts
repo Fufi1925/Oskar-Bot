@@ -178,11 +178,16 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
-  getAutomod: (guildId: string) => request<AutomodConfig>(`/guilds/${guildId}/automod`),
-  updateAutomod: (guildId: string, data: Partial<AutomodConfig>) => 
-    request<{ status: string }>(`/guilds/${guildId}/automod`, {
-      method: "PATCH",
-      body: JSON.stringify(data),
+  // Automod moved to /automod: the old /guilds pair stored whatever key
+  // the dashboard sent, and the dashboard sent names no listener used --
+  // so nothing set in the tab ever reached the bot.
+  getAutomod: (g: string) => request<any>(`/automod/${g}`),
+  updateAutomod: (g: string, data: any) =>
+    request<any>(`/automod/${g}`, { method: "PATCH", body: JSON.stringify(data) }),
+  resetAutomod: (g: string, keepRules = true) =>
+    request<any>(`/automod/${g}/reset`, {
+      method: "POST",
+      body: JSON.stringify({ keep_rules: keepRules }),
     }),
 
   getTickets: (guildId: string) => request<TicketConfig>(`/guilds/${guildId}/tickets`),

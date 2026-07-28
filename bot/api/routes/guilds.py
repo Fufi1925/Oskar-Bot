@@ -18,10 +18,14 @@ from api.dependencies import get_bot, limiter
 from api.db_manager import db_manager
 from api.patch_utils import merge_partial, model_updates, changed_fields
 from api.schemas import (
-    GuildSummary, GuildDetails, PrefixConfig, AutomodConfig, 
+    GuildSummary, GuildDetails, PrefixConfig,
+# NOTE: automod moved to api/routes/verify.py's sibling,
+# api/routes/automod.py. The pair here stored whatever key the dashboard
+# sent -- and it sent "anti_spam" while the cogs read "Anti spam", so
+# nothing configured in the tab ever reached the bot.
     TicketConfig, LoggingConfig, TicketEmbed,
     TicketCategory, PrefixUpdate,
-    AutomodUpdate, LoggingUpdate, TicketUpdate,
+    LoggingUpdate, TicketUpdate,
     DiscordChannel, DiscordRole, WelcomeConfig, WelcomeEmbedData, WelcomeUpdate,
     AntiNukeConfig, AntiNukeUpdate,
 # NOTE: verification moved to api/routes/verify.py. The pair here knew
@@ -133,85 +137,7 @@ async def update_guild_prefix(guild_id: int, data: PrefixUpdate):
 
 
 
-@router.get("/{guild_id}/automod", response_model=AutomodConfig, summary="Get AutoMod config", description="Retrieves active AutoMod rules, punishments, and ignored entities.")
-async def get_guild_automod(guild_id: int):
-    """
-    Retrieves the AutoMod configuration for a specific guild.
-    """
-    db = await db_manager.get_connection('db/automod.db')
-    # Check enabled status
-    cursor = await db.execute("SELECT enabled FROM automod WHERE guild_id = ?", (guild_id,))
-    enabled_row = await cursor.fetchone()
-    enabled = bool(enabled_row[0]) if enabled_row else False
 
-    # Get punishments
-    cursor = await db.execute("SELECT event, punishment FROM automod_punishments WHERE guild_id = ?", (guild_id,))
-    punishments = {row[0]: row[1] for row in await cursor.fetchall()}
-
-    # Get ignored items
-    cursor = await db.execute("SELECT type, id FROM automod_ignored WHERE guild_id = ?", (guild_id,))
-    ignored_items = await cursor.fetchall()
-    ignored_roles = [row[1] for row in ignored_items if row[0] == 'role']
-    ignored_channels = [row[1] for row in ignored_items if row[0] == 'channel']
-
-    # Get logging channel
-    cursor = await db.execute("SELECT log_channel FROM automod_logging WHERE guild_id = ?", (guild_id,))
-    logging_row = await cursor.fetchone()
-    logging_channel = logging_row[0] if logging_row else None
-
-    return AutomodConfig(
-        guild_id=guild_id,
-        enabled=enabled,
-        punishments=punishments,
-        ignored_roles=ignored_roles,
-        ignored_channels=ignored_channels,
-        logging_channel=logging_channel
-    )
-
-@router.patch("/{guild_id}/automod", summary="Update AutoMod config", description="Partially updates the AutoMod configuration components.")
-async def patch_guild_automod(guild_id: int, data: AutomodUpdate):
-    """
-    Updates parts of the AutoMod configuration for a specific guild.
-    """
-    db = await db_manager.get_connection('db/automod.db')
-    if data.enabled is not None:
-        await db.execute(
-            "INSERT OR REPLACE INTO automod (guild_id, enabled) VALUES (?, ?)",
-            (guild_id, 1 if data.enabled else 0)
-        )
-
-    if data.punishments is not None:
-        for event, punishment in data.punishments.items():
-            await db.execute(
-                "INSERT OR REPLACE INTO automod_punishments (guild_id, event, punishment) VALUES (?, ?, ?)",
-                (guild_id, event, punishment)
-            )
-
-    if data.ignored_roles is not None:
-        await db.execute("DELETE FROM automod_ignored WHERE guild_id = ? AND type = 'role'", (guild_id,))
-        for role_id in data.ignored_roles:
-            await db.execute(
-                "INSERT OR REPLACE INTO automod_ignored (guild_id, type, id) VALUES (?, 'role', ?)",
-                (guild_id, role_id)
-            )
-
-    if data.ignored_channels is not None:
-        await db.execute("DELETE FROM automod_ignored WHERE guild_id = ? AND type = 'channel'", (guild_id,))
-        for channel_id in data.ignored_channels:
-            await db.execute(
-                "INSERT OR REPLACE INTO automod_ignored (guild_id, type, id) VALUES (?, 'channel', ?)",
-                (guild_id, channel_id)
-            )
-
-    if data.logging_channel is not None:
-        await db.execute(
-            "INSERT OR REPLACE INTO automod_logging (guild_id, log_channel) VALUES (?, ?)",
-            (guild_id, data.logging_channel)
-        )
-
-    await db.commit()
-    
-    return {"status": "success", "guild_id": guild_id}
 
 @router.get("/{guild_id}/tickets", response_model=TicketConfig, summary="Get Ticket config", description="Retrieves the support ticket system setup, categories, and staff roles.")
 async def get_guild_tickets(guild_id: int):

@@ -83,7 +83,11 @@ class FakeBot:
 CASES = [
     # Leveling has its own router now (/leveling/{guild_id}) and its own
     # test file; a partial save is covered there.
-    ("automod", "/automod", ("enabled", True), ("logging_channel", 800)),
+    # Automod has its own router now (/automod/{guild_id}); an absolute
+    # path overrides the /guilds base. The field is log_channel, not
+    # logging_channel -- the old name was never read by anything.
+    ("automod", "/api/v1/automod/{guild}",
+     ("enabled", True), ("log_channel", None)),
     ("extra-settings", "/extra-settings",
      ("delete_command_messages", True), ("same_voice_only", False)),
     # Verification moved to its own router (/verify/{guild_id}); a full

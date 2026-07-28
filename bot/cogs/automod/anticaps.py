@@ -12,131 +12,122 @@
 # ║                                                                  ║
 # ╚══════════════════════════════════════════════════════════════════╝
 
-import discord
-from utils.emoji import TICK
-from discord.ext import commands
 import aiosqlite
-import asyncio
-from datetime import timedelta
+import discord
+from discord.ext import commands, tasks
+
+from utils import automod_store as store
+
 
 class AntiCaps(commands.Cog):
+    """
+    Messages that are almost all capitals.
+
+    All six automod modules were near-identical copies that each read
+    the database themselves, which is why the same bugs appeared in all
+    of them: no guard against direct messages, punishment names that did
+    not match what the dashboard wrote, and `except: pass` around every
+    action so a missing permission looked like the rule being off.
+    """
+
+    RULE = "caps"
+
     def __init__(self, bot):
         self.bot = bot
-        self.caps_threshold = 70
-        self.mute_duration = 2 * 60
+        self.tracker = store.SpamTracker()
+        self.cleanup.start()
 
-    async def is_automod_enabled(self, guild_id):
-        async with aiosqlite.connect("db/automod.db") as db:
-            cursor = await db.execute("SELECT enabled FROM automod WHERE guild_id = ?", (guild_id,))
-            result = await cursor.fetchone()
-            return result is not None and result[0] == 1
+    def cog_unload(self):
+        self.cleanup.cancel()
 
-    async def is_anti_caps_enabled(self, guild_id):
-        async with aiosqlite.connect("db/automod.db") as db:
-            cursor = await db.execute("SELECT punishment FROM automod_punishments WHERE guild_id = ? AND event = 'Anti caps'", (guild_id,))
-            result = await cursor.fetchone()
-            return result is not None
+    @tasks.loop(minutes=5)
+    async def cleanup(self):
+        # Without this the tracker keeps an entry for every member the
+        # bot has ever seen talk.
+        self.tracker.prune()
 
-    async def get_ignored_channels(self, guild_id):
-        async with aiosqlite.connect("db/automod.db") as db:
-            cursor = await db.execute("SELECT id FROM automod_ignored WHERE guild_id = ? AND type = 'channel'", (guild_id,))
-            return [row[0] for row in await cursor.fetchall()]
+    @cleanup.before_loop
+    async def before_cleanup(self):
+        await self.bot.wait_until_ready()
 
-    async def get_ignored_roles(self, guild_id):
-        async with aiosqlite.connect("db/automod.db") as db:
-            cursor = await db.execute("SELECT id FROM automod_ignored WHERE guild_id = ? AND type = 'role'", (guild_id,))
-            return [row[0] for row in await cursor.fetchall()]
-
-    async def get_punishment(self, guild_id):
-        async with aiosqlite.connect("db/automod.db") as db:
-            cursor = await db.execute("SELECT punishment FROM automod_punishments WHERE guild_id = ? AND event = 'Anti caps'", (guild_id,))
-            result = await cursor.fetchone()
-            return result[0] if result else None
-
-    async def log_action(self, guild, user, channel, action, reason):
-        async with aiosqlite.connect("db/automod.db") as db:
-            cursor = await db.execute("SELECT log_channel FROM automod_logging WHERE guild_id = ?", (guild.id,))
-            log_channel_id = await cursor.fetchone()
-
-        if log_channel_id and log_channel_id[0]:
-            log_channel = guild.get_channel(log_channel_id[0])
-            if log_channel:
-                embed = discord.Embed(title="Automod Log: Anti-Caps", color=0xFF0000)
-                embed.add_field(name="User", value=user.mention, inline=False)
-                embed.add_field(name="Action", value=action, inline=False)
-                embed.add_field(name="Channel", value=channel.mention, inline=False)
-                embed.add_field(name="Reason", value=reason, inline=False)
-                embed.set_footer(text=f"User ID: {user.id}")
-                avatar_url = user.avatar.url if user.avatar else user.default_avatar.url
-                embed.set_thumbnail(url=avatar_url)
-                embed.timestamp=discord.utils.utcnow()
-                await log_channel.send(embed=embed)
+    async def settings(self, guild_id: int) -> dict:
+        async with aiosqlite.connect(store.DB_PATH) as db:
+            return await store.get_settings(db, guild_id)
 
     @commands.Cog.listener()
     async def on_message(self, message):
-        if len(message.content) < 45:
+        # A direct message has no guild. Reading message.guild.id
+        # straight away raised AttributeError on every DM the bot got.
+        if message.guild is None or message.author.bot:
             return
-            
-        if message.author.bot:
+        if message.webhook_id is not None:
             return
 
         guild = message.guild
-        user = message.author
-        channel = message.channel
-        guild_id = guild.id
+        member = message.author
 
-        if not await self.is_automod_enabled(guild_id) or not await self.is_anti_caps_enabled(guild_id):
+        try:
+            settings = await self.settings(guild.id)
+        except Exception as exc:
+            print(f"automod ({self.RULE}): could not read settings: {exc}")
             return
 
-        if user == guild.owner or user == self.bot.user:
+        if not store.rule_active(settings, self.RULE):
             return
 
-        ignored_channels = await self.get_ignored_channels(guild_id)
-        if channel.id in ignored_channels:
+        perms = getattr(member, "guild_permissions", None)
+        if store.is_exempt(
+            settings,
+            channel_id=message.channel.id,
+            role_ids=[r.id for r in getattr(member, "roles", [])],
+            is_owner=member.id == guild.owner_id,
+            # Moderators were not exempt before -- only the owner -- so
+            # a moderator posting a link was muted by their own bot.
+            is_admin=bool(
+                perms and (perms.administrator or perms.manage_messages)
+            ),
+        ):
+            return
+        if member.id == self.bot.user.id:
             return
 
-        ignored_roles = await self.get_ignored_roles(guild_id)
-        if any(role.id in ignored_roles for role in user.roles):
+        entry = settings["rules"][self.RULE]
+
+        content = message.content or ""
+        # Short messages are shouted by accident far too often.
+        if len(content) < 45:
+            return
+        letters = [c for c in content if c.isalpha()]
+        if not letters:
+            return
+        percent = sum(1 for c in letters if c.isupper()) / len(letters) * 100
+        if percent <= entry["threshold"]:
             return
 
-        if len(message.content) > 0:
-            caps_count = sum(1 for c in message.content if c.isupper())
-            caps_percentage = (caps_count / len(message.content)) * 100
+        action = await store.punish(
+            self.bot, message, self.RULE, settings, "Zu viele Großbuchstaben"
+        )
+        if action is None:
+            return
 
-            if caps_percentage > self.caps_threshold:
-                punishment = await self.get_punishment(guild_id)
-                action_taken = None
-                reason = "Excessive Caps"
+        await store.log_action(
+            self.bot, message, settings, self.RULE, action, "Zu viele Großbuchstaben"
+        )
 
-                try:
-                    if punishment == "Mute":
-                        timeout_duration = discord.utils.utcnow() + timedelta(minutes=1)
-                        await user.edit(timed_out_until=timeout_duration, reason="Excessive Caps")
-                        action_taken = "Muted for 1 minutes"
-                    elif punishment == "Kick":
-                        await user.kick(reason="Excessive Caps")
-                        action_taken = "Kicked"
-                    elif punishment == "Ban":
-                        await user.ban(reason="Excessive Caps")
-                        action_taken = "Banned"
-                    await message.delete()
+        try:
+            from utils.panels import Panel
 
-                    simple_embed = discord.Embed(title="Automod Anti-Caps", color=0xFF0000)
-                    simple_embed.description = f"{TICK} | {user.mention} has been successfully **{action_taken}** for **Excessive caps.**"
-                    
-                    simple_embed.set_footer(text="Use the “automod logging” command to get automod logs if it is not enabled.", icon_url=self.bot.user.display_avatar.url)
-                    await channel.send(embed=simple_embed, delete_after=30)
+            await message.channel.send(
+                view=Panel(
+                    "Automod",
+                    f"{member.mention} — {action} ({'Zu viele Großbuchstaben'}).",
+                    tone="warning",
+                ),
+                delete_after=15,
+            )
+        except (discord.Forbidden, discord.HTTPException):
+            pass
 
-                    await self.log_action(guild, user, channel, action_taken, reason)
 
-                except discord.Forbidden:
-                    pass
-                except discord.HTTPException:
-                    pass
-                except Exception:
-                    pass
-
-    @commands.Cog.listener()
-    async def on_rate_limit(self, message):
-        await asyncio.sleep(10)
-
+async def setup(bot):
+    await bot.add_cog(AntiCaps(bot))
