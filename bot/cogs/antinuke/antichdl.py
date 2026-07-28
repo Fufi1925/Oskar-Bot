@@ -113,14 +113,22 @@ class AntiChannelDelete(commands.Cog):
         # The reporting helpers need the guild; this function only
         # receives the object it acts on.
         guild = channel.guild
+        repaired = False
         while retries > 0:
             try:
                 new_channel = await channel.clone(reason="Channel Delete | Unwhitelisted User")
-                await new_channel.edit(position=channel.position)
+                # The channel is back: the attack is undone from here on.
+                repaired = True
+                try:
+                    await new_channel.edit(position=channel.position)
+                except discord.HTTPException:
+                    # Cosmetic only. Failing to reorder a restored
+                    # channel used to be reported as "could not stop the
+                    # attack", which was simply untrue.
+                    pass
                 break
             except discord.Forbidden:
-                # Was allowed to see it, not to act on it. Reporting this
-                # is the whole difference between "stopped" and "missed".
+                # Nothing was restored, so this really is a failure.
                 await nuke_alert.handle_forbidden(
                     self.bot, guild, "channel_delete", executor=executor,
                 )
@@ -143,6 +151,12 @@ class AntiChannelDelete(commands.Cog):
         while retries > 0:
             try:
                 await channel.guild.ban(executor, reason="Channel Delete | Unwhitelisted User")
+                # This module never reported success at all -- it only
+                # ever spoke up when something went wrong, so a fully
+                # handled attack produced complete silence.
+                await nuke_alert.handle_stopped(
+                    self.bot, guild, "channel_delete", executor=executor,
+                )
                 return  
             except discord.Forbidden:
                 # Reached only after the repair above. Reporting a failed
@@ -150,6 +164,7 @@ class AntiChannelDelete(commands.Cog):
                 # still being nuked when it was not.
                 await nuke_alert.handle_partial(
                     self.bot, guild, "channel_delete", executor=executor,
+                    repaired=repaired,
                 )
                 return
             except discord.HTTPException as e:

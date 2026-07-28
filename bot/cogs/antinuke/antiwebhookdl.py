@@ -132,6 +132,9 @@ class AntiWebhookDelete(commands.Cog):
                 # still being nuked when it was not.
                 await nuke_alert.handle_partial(
                     self.bot, guild, "webhook_delete", executor=executor,
+                    # This helper only bans; a Forbidden here
+                    # means nothing was undone.
+                    repaired=False,
                 )
                 return
             except discord.HTTPException as e:

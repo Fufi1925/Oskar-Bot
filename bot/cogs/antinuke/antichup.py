@@ -113,6 +113,7 @@ class AntiChannelUpdate(commands.Cog):
         # The reporting helpers need the guild; this function only
         # receives the object it acts on.
         guild = after.guild
+        repaired = False
         while retries > 0:
             try:
                 await after.edit(
@@ -124,6 +125,8 @@ class AntiChannelUpdate(commands.Cog):
                     user_limit=before.user_limit if hasattr(before, 'user_limit') else None,
                     reason="Channel Update | Unwhitelisted User"
                 )
+                # The settings are back to what they were: undone.
+                repaired = True
                 break
             except discord.Forbidden:
                 # Was allowed to see it, not to act on it. Reporting this
@@ -150,6 +153,11 @@ class AntiChannelUpdate(commands.Cog):
         while retries > 0:
             try:
                 await before.guild.ban(executor, reason="Channel Update | Unwhitelisted User")
+                # This module never reported success -- it only ever
+                # spoke up on failure, so a handled attack was silent.
+                await nuke_alert.handle_stopped(
+                    self.bot, guild, "channel_update", executor=executor,
+                )
                 return  
             except discord.Forbidden:
                 # Reached only after the repair above. Reporting a failed
@@ -157,6 +165,7 @@ class AntiChannelUpdate(commands.Cog):
                 # still being nuked when it was not.
                 await nuke_alert.handle_partial(
                     self.bot, guild, "channel_update", executor=executor,
+                    repaired=repaired,
                 )
                 return
             except discord.HTTPException as e:

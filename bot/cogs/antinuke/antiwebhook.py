@@ -117,19 +117,27 @@ class AntiWebhookUpdate(commands.Cog):
                 return
 
     async def ban_executor_and_delete_webhook(self, guild, executor, webhook):
+        banned = False
         retries = 3
         while retries > 0:
             try:
                 await guild.ban(executor, reason="Webhook Update | Unwhitelisted User")
+                banned = True
                 if webhook:
                     await webhook.delete(reason="Webhook updated by unwhitelisted user")
+                # Never reported success before: the module only spoke up
+                # when something failed.
+                await nuke_alert.handle_stopped(
+                    self.bot, guild, "webhook_update", executor=executor,
+                )
                 return
             except discord.Forbidden:
-                # Reached only after the repair above. Reporting a failed
-                # ban as "could not stop it" told owners their server was
-                # still being nuked when it was not.
+                # Here the ban runs *before* the webhook is removed, so
+                # "repaired" depends on whether the ban got through --
+                # a Forbidden on the ban itself means nothing was done.
                 await nuke_alert.handle_partial(
                     self.bot, guild, "webhook_update", executor=executor,
+                    repaired=banned,
                 )
                 return
             except discord.HTTPException as e:

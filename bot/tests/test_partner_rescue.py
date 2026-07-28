@@ -232,8 +232,12 @@ async def test_handoff(na, pb):
               str(channel.sent))
         check("it is exactly the command the template bot expects",
               na.TEMPLATE_TRIGGER == "!start", na.TEMPLATE_TRIGGER)
-        check("and a heads-up goes out first",
-              channel.sent[0] == "<panel>", str(channel.sent))
+        # The ping comes first now, so the bot is notified before the
+        # explanation card; see test_ping_then_trigger.
+        check("the bot is pinged before anything else",
+              channel.sent[0].startswith("<@"), str(channel.sent))
+        check("a heads-up follows", channel.sent[1] == "<panel>",
+              str(channel.sent))
         check("the trigger comes last",
               channel.sent[-1] == na.TEMPLATE_TRIGGER, str(channel.sent))
 
@@ -354,8 +358,10 @@ def test_delay(na):
     print("\nThe pause before the trigger")
 
     check("there is a delay at all", na.TEMPLATE_TRIGGER_DELAY > 0)
-    check("it is the five seconds asked for",
-          na.TEMPLATE_TRIGGER_DELAY == 5.0, str(na.TEMPLATE_TRIGGER_DELAY))
+    # Two seconds between the ping and the command. The longer wait now
+    # sits before the backup channel is created instead.
+    check("it is the two seconds asked for",
+          na.TEMPLATE_TRIGGER_DELAY == 2.0, str(na.TEMPLATE_TRIGGER_DELAY))
 
     import ast
     import inspect
@@ -429,16 +435,185 @@ async def test_panel_posted_once(na):
                         na.OUTCOME_NO_PERMS, executor=attacker)
 
     check("every event is logged to the channel",
-          len(channel.sent) >= 5, str(len(channel.sent)))
-    # Five reports plus exactly one panel.
-    check("but the recovery panel only goes out once",
-          len(channel.sent) == 6, str(len(channel.sent)))
+          len(channel.sent) == 5, str(len(channel.sent)))
+    # The recovery panel is not here any more -- it goes into the
+    # #backup channel after the attack. This fake records "<panel>" for
+    # a view-only message, so every entry being one means reports only.
+    check("the alert channel carries reports only",
+          all(entry == "<panel>" for entry in channel.sent),
+          str(channel.sent[:3]))
 
     check("and the attack is remembered for the handoff",
           na.recent_attack(guild.id) is not None)
     remembered = na.recent_attack(guild.id)
     check("along with the channel it went to",
           remembered["channel_id"] == channel.id, str(remembered))
+    check("the panel was scheduled rather than posted inline",
+          na._incident[guild.id].get("panel_sent") is True,
+          str(na._incident.get(guild.id)))
+
+
+async def test_backup_channel(na):
+    """
+    The rescue gets its own channel, twenty seconds after the attack.
+
+    Creating it immediately would build it into a nuke that is still
+    running -- the events that trigger this arrive while channels are
+    being deleted.
+    """
+    print("\nThe backup channel")
+
+    original = na.BACKUP_DELAY
+    na.BACKUP_DELAY = 0.05
+    try:
+        await na.save_settings(GUILD, {"enabled": 1, "dm_owner": 0, "ping_owner": 0})
+        na._last_alert.clear()
+        na._last_dm.clear()
+        na._incident.clear()
+        na._backup_pending.clear()
+
+        guild = Guild()
+        guild.owner = None
+        guild.created = []
+
+        async def create_text_channel(name, **kwargs):
+            channel = Channel(200 + len(guild.created), name, guild)
+            guild.text_channels.append(channel)
+            guild.created.append(name)
+            return channel
+
+        guild.create_text_channel = create_text_channel
+        guild.default_role = type("R", (), {"id": 0})()
+
+        attacker = type("E", (), {"id": ATTACKER, "mention": f"<@{ATTACKER}>"})()
+        await na.report(None, guild, "channel_delete",
+                        na.OUTCOME_NO_PERMS, executor=attacker)
+
+        check("nothing is created while the attack is still running",
+              guild.created == [], str(guild.created))
+
+        await asyncio.sleep(0.3)
+
+        check("the backup channel appears afterwards",
+              guild.created == [na.BACKUP_CHANNEL_NAME], str(guild.created))
+        check("it is called 'backup'", na.BACKUP_CHANNEL_NAME == "backup",
+              na.BACKUP_CHANNEL_NAME)
+
+        backup = next(c for c in guild.text_channels
+                      if c.name == na.BACKUP_CHANNEL_NAME)
+        check("the panel is posted into it", len(backup.sent) == 1,
+              str(backup.sent))
+
+        remembered = na.recent_attack(guild.id)
+        check("and the handoff is pointed at it",
+              remembered and remembered["channel_id"] == backup.id,
+              str(remembered))
+
+        # A burst of events must not start a timer each.
+        na._last_alert.clear()
+        na._incident.clear()
+        guild.created.clear()
+        for _ in range(10):
+            na._last_alert.clear()
+            await na.report(None, guild, "channel_delete",
+                            na.OUTCOME_NO_PERMS, executor=attacker)
+        await asyncio.sleep(0.3)
+        check("an existing backup channel is reused, not duplicated",
+              guild.created == [], str(guild.created))
+
+        check("the wait is twenty seconds in production", original == 20.0,
+              str(original))
+    finally:
+        na.BACKUP_DELAY = original
+
+
+async def test_ping_then_trigger(na, pb):
+    """Ping the bot, wait two seconds, then send the command."""
+    print("\nPing, pause, trigger")
+
+    from cogs.events.partner_handoff import PartnerHandoff
+
+    original = na.TEMPLATE_TRIGGER_DELAY
+    na.TEMPLATE_TRIGGER_DELAY = 0.01
+    try:
+        check("the pause is two seconds in production", original == 2.0,
+              str(original))
+
+        cog = PartnerHandoff(type("B", (), {})())
+        backup = Channel(50, na.BACKUP_CHANNEL_NAME)
+        guild = Guild(channels=[backup])
+        na.remember_attack(guild.id, backup.id)
+        cog._done.clear()
+
+        member = Member(PARTNER_ID, guild=guild)
+        await cog.on_member_join(member)
+
+        check("three messages go out", len(backup.sent) == 3, str(backup.sent))
+        check("the bot is pinged first",
+              backup.sent[0] == member.mention, str(backup.sent[0]))
+        check("then the explanation", backup.sent[1] == "<panel>",
+              str(backup.sent[1]))
+        check("then the trigger", backup.sent[2] == na.TEMPLATE_TRIGGER,
+              str(backup.sent[2]))
+
+        # The ping has to be a real message, not a mention buried in a
+        # card -- a card does not notify.
+        check("the ping is its own plain message",
+              isinstance(backup.sent[0], str)
+              and backup.sent[0].startswith("<@"), str(backup.sent[0]))
+    finally:
+        na.TEMPLATE_TRIGGER_DELAY = original
+
+
+async def test_backup_access(na, pb):
+    """
+    The backup channel is hidden from @everyone, including the rescue bot.
+
+    Without opening it the handoff would filter the channel out as
+    unusable and do the rescue somewhere else -- or nowhere.
+    """
+    print("\nLetting the rescue bot in")
+
+    from cogs.events.partner_handoff import PartnerHandoff
+
+    original = na.TEMPLATE_TRIGGER_DELAY
+    na.TEMPLATE_TRIGGER_DELAY = 0.01
+    try:
+        cog = PartnerHandoff(type("B", (), {})())
+
+        class Hidden(Channel):
+            def __init__(self, *a, **kw):
+                super().__init__(*a, **kw)
+                self.granted = {}
+                self.visible_to = set()
+
+            def permissions_for(self, member):
+                if getattr(member, "id", None) == PARTNER_ID \
+                        and PARTNER_ID not in self.visible_to:
+                    return Perms(False)
+                return Perms(True)
+
+            async def set_permissions(self, target, **kwargs):
+                self.granted[target.id] = kwargs
+                self.visible_to.add(target.id)
+
+        backup = Hidden(60, na.BACKUP_CHANNEL_NAME)
+        guild = Guild(channels=[backup])
+        na.remember_attack(guild.id, backup.id)
+        cog._done.clear()
+
+        member = Member(PARTNER_ID, guild=guild)
+        await cog.on_member_join(member)
+
+        check("the bot is given access to the backup channel",
+              PARTNER_ID in backup.granted, str(backup.granted))
+        check("including being able to read it",
+              backup.granted.get(PARTNER_ID, {}).get("view_channel") is True,
+              str(backup.granted))
+        check("and the rescue then happens there",
+              na.TEMPLATE_TRIGGER in backup.sent, str(backup.sent))
+    finally:
+        na.TEMPLATE_TRIGGER_DELAY = original
 
 
 async def run():
@@ -448,6 +623,9 @@ async def run():
     test_identity(pb)
     test_every_module_whitelists()
     await test_not_banned_on_arrival()
+    await test_backup_channel(na)
+    await test_ping_then_trigger(na, pb)
+    await test_backup_access(na, pb)
     await test_handoff(na, pb)
     await test_channel_choice(na, pb)
     test_delay(na)

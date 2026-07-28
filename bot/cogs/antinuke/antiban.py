@@ -111,6 +111,9 @@ class AntiBan(commands.Cog):
                 # still being nuked when it was not.
                 await nuke_alert.handle_partial(
                     self.bot, guild, "ban", executor=executor,
+                    # The ban is the first thing tried here, so a
+                    # Forbidden means nothing was undone at all.
+                    repaired=False,
                 )
                 return
             except discord.HTTPException as e:

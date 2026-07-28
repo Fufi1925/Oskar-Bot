@@ -136,9 +136,13 @@ class AntiMemberUpdate(commands.Cog):
         guild = member.guild
         retries = 3
         reason = "Member Role Update with Dangerous Permissions | Unwhitelisted User"
+        repaired = False
         while retries > 0:
             try:
                 await member.remove_roles(new_role, reason=reason)
+                # The dangerous role is off them: the attack is undone
+                # regardless of what the ban does.
+                repaired = True
                 await member.guild.ban(executor, reason=reason)
                 await nuke_alert.handle_stopped(
                     self.bot, guild, "member_update", executor=executor,
@@ -151,6 +155,7 @@ class AntiMemberUpdate(commands.Cog):
                 # still being nuked when it was not.
                 await nuke_alert.handle_partial(
                     self.bot, guild, "member_update", executor=executor,
+                    repaired=repaired,
                 )
                 return
             except discord.HTTPException as e:

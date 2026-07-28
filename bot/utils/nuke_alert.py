@@ -617,14 +617,13 @@ async def report(
                 except Exception:
                     pass
 
-                # The recovery card goes out once per incident, not with
-                # every event -- it is a call to action, not a log line.
-                if not incident.get("panel_sent"):
-                    incident["panel_sent"] = True
-                    try:
-                        await channel.send(view=recovery_panel(guild, cleaned))
-                    except Exception:
-                        pass
+        # The recovery card goes into its own channel once per incident,
+        # after the attack has had time to finish. Posting it here and
+        # now would drop it into a channel that may not survive the next
+        # few seconds.
+        if not incident.get("panel_sent"):
+            incident["panel_sent"] = True
+            asyncio.create_task(schedule_backup_channel(bot, guild, cleaned))
 
         # ── the DM ──────────────────────────────────────────────────
         # On its own, much longer timer. The owner cannot mute a DM, and
@@ -676,13 +675,25 @@ _recent_attack: dict[int, dict] = {}
 # How long after an attack an arriving template bot counts as a rescue.
 RESCUE_WINDOW = 3600.0
 
+# Where the recovery panel goes. A channel of its own, created after the
+# attack, so the panel is not buried in whatever survived -- and so the
+# whole rescue happens in one place the owner can find.
+BACKUP_CHANNEL_NAME = "backup"
+
+# How long to wait before creating it. A nuke is still running while the
+# events arrive; building the rescue channel immediately means building
+# it into an attack that may still delete it. Twenty seconds is long
+# enough for the burst to end.
+BACKUP_DELAY = 20.0
+
 # What the template bot listens for. Sent by this bot, not by a human --
 # the owner is busy looking at a wrecked server.
 TEMPLATE_TRIGGER = "!start"
 
-# Discord needs a moment to finish adding the bot: its permissions and
-# its command handler are not ready the instant on_member_join fires.
-TEMPLATE_TRIGGER_DELAY = 5.0
+# After the ping, before the trigger. Discord has not finished setting
+# the member up when on_member_join fires: permissions are still
+# resolving and the other bot's command handler may not be listening.
+TEMPLATE_TRIGGER_DELAY = 2.0
 
 
 def remember_attack(guild_id: int, channel_id: int | None) -> None:
@@ -705,6 +716,87 @@ def recent_attack(guild_id: int) -> dict | None:
 
 def clear_attack(guild_id: int) -> None:
     _recent_attack.pop(int(guild_id), None)
+
+
+# Guilds where a backup channel is already being prepared, so a burst of
+# forty events does not start forty timers.
+_backup_pending: set[int] = set()
+
+
+async def ensure_backup_channel(guild, settings: dict):
+    """
+    A channel of its own for the rescue, created after the dust settles.
+
+    Waiting matters: the events that trigger this arrive *while* the
+    attack is running, and a channel created mid-nuke is just another
+    thing for the attacker to delete. Only the bot and the server staff
+    can see it, so the panel is not sitting in public during an
+    incident.
+    """
+    me = guild.me
+    if me is None or not me.guild_permissions.manage_channels:
+        return None
+
+    existing = next(
+        (c for c in guild.text_channels if c.name == BACKUP_CHANNEL_NAME),
+        None,
+    )
+    if existing is not None:
+        return existing
+
+    try:
+        overwrites = {
+            guild.default_role: discord.PermissionOverwrite(
+                read_messages=False, send_messages=False
+            ),
+            me: discord.PermissionOverwrite(
+                read_messages=True, send_messages=True, manage_channels=True
+            ),
+        }
+        return await guild.create_text_channel(
+            BACKUP_CHANNEL_NAME,
+            overwrites=overwrites,
+            reason="Anti-Nuke: Kanal für die Wiederherstellung",
+            topic="Hier läuft die Wiederherstellung nach dem Angriff.",
+        )
+    except discord.Forbidden:
+        return None
+    except discord.HTTPException as exc:
+        # 50035 covers the 500-channel server cap.
+        print(f"nuke_alert: could not create #{BACKUP_CHANNEL_NAME}: {exc}")
+        return None
+
+
+async def schedule_backup_channel(bot, guild, cleaned: int = 0) -> None:
+    """
+    Wait out the attack, then open the rescue channel and post the panel.
+
+    Scheduled once per incident. Failing here must never take the
+    defence down with it, so everything is wrapped.
+    """
+    if guild.id in _backup_pending:
+        return
+    _backup_pending.add(guild.id)
+
+    try:
+        await asyncio.sleep(BACKUP_DELAY)
+
+        channel = await ensure_backup_channel(guild, await get_settings(guild.id))
+        if channel is None:
+            return
+
+        try:
+            await channel.send(view=recovery_panel(guild, cleaned))
+        except discord.HTTPException:
+            return
+
+        # The handoff continues here, not wherever the alert happened to
+        # land -- this channel is the one the owner was pointed at.
+        remember_attack(guild.id, channel.id)
+    except Exception as exc:
+        print(f"nuke_alert: backup channel setup failed: {exc}")
+    finally:
+        _backup_pending.discard(guild.id)
 
 
 def recovery_panel(guild, cleaned: int = 0):

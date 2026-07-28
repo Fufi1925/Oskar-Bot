@@ -111,9 +111,13 @@ class AntiBotAdd(commands.Cog):
             await self.take_action_and_kick_bot(guild, executor, member, "Unwhitelisted user added a bot")
 
     async def take_action_and_kick_bot(self, guild, executor, bot_member, reason, retries=3):
+        repaired = False
         while retries > 0:
             try:
                 await guild.kick(bot_member, reason=reason)
+                # The rogue bot is gone: the attack is undone whatever
+                # happens to the ban below.
+                repaired = True
                 await guild.ban(executor, reason=reason)
                 await nuke_alert.handle_stopped(
                     self.bot, guild, "bot_add", executor=executor,
@@ -126,6 +130,7 @@ class AntiBotAdd(commands.Cog):
                 # still being nuked when it was not.
                 await nuke_alert.handle_partial(
                     self.bot, guild, "bot_add", executor=executor,
+                    repaired=repaired,
                 )
                 return
             except discord.HTTPException as e:
@@ -150,6 +155,9 @@ class AntiBotAdd(commands.Cog):
                 # still being nuked when it was not.
                 await nuke_alert.handle_partial(
                     self.bot, guild, "bot_add", executor=executor,
+                    # The ban is the first thing tried here, so a
+                    # Forbidden means nothing was undone at all.
+                    repaired=False,
                 )
                 return
             except discord.HTTPException as e:

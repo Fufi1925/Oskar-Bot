@@ -221,8 +221,11 @@ async def test_dm_spam(na):
     check("the channel keeps a full log",
           len(reports_only(guild.channel)) == 15,
           str(len(reports_only(guild.channel))))
-    check("and the recovery panel is posted exactly once",
-          len(panels_only(guild.channel)) == 1,
+    # The recovery panel no longer lands here: it goes into its own
+    # #backup channel twenty seconds after the attack, so the alert
+    # channel now carries reports only.
+    check("the alert channel carries reports only",
+          len(panels_only(guild.channel)) == 0,
           str(len(panels_only(guild.channel))))
     check("but the owner is messaged once, not fifteen times",
           len(guild.owner.dms) == 1, f"{len(guild.owner.dms)} DMs")
@@ -513,6 +516,174 @@ def test_blind_reporting():
     check("and every label has German wording", not unknown, str(unknown))
 
 
+async def test_restore_then_failed_ban():
+    """
+    The reported bug, in the module that actually caused it.
+
+    antichdl restores a deleted channel by cloning it. Four things went
+    wrong there:
+
+      * a successful defence reported nothing at all -- the module only
+        ever spoke up on failure, so a fully handled attack was silent
+      * a Forbidden while merely *reordering* the restored channel was
+        reported as "could not stop the attack", though the channel was
+        already back
+      * handle_partial was called without `repaired`, so it defaulted to
+        True even when the clone itself had failed
+    """
+    print("\nRestored, but the ban failed")
+
+    from cogs.antinuke.antichdl import AntiChannelDelete
+    import cogs.antinuke.antichdl as module
+    from utils import nuke_alert as na
+
+    seen: list[str] = []
+
+    async def stopped(*a, **kw):
+        seen.append("stopped")
+
+    async def partial(*a, repaired=True, **kw):
+        seen.append("partial" if repaired else "no_perms")
+
+    async def forbidden_(*a, **kw):
+        seen.append("no_perms")
+
+    # Restored at the end: leaking these into the next test would make
+    # its results depend on the order the tests happen to run in.
+    real_stopped = na.handle_stopped
+    real_partial = na.handle_partial
+    real_forbidden = na.handle_forbidden
+    na.handle_stopped, na.handle_partial, na.handle_forbidden = (
+        stopped, partial, forbidden_)
+    module.nuke_alert = na
+
+    class Guild:
+        id = GUILD
+        owner_id = OWNER
+
+        def __init__(self, ban_ok):
+            self.ban_ok = ban_ok
+
+        async def ban(self, _user, reason=None):
+            if not self.ban_ok:
+                raise forbidden()
+
+    class Clone:
+        def __init__(self, edit_ok):
+            self.edit_ok = edit_ok
+
+        async def edit(self, **kwargs):
+            if not self.edit_ok:
+                raise forbidden()
+
+    class Channel:
+        id = 5
+        position = 0
+
+        def __init__(self, clone_ok, ban_ok, edit_ok=True):
+            self.guild = Guild(ban_ok)
+            self.clone_ok = clone_ok
+            self.edit_ok = edit_ok
+            self.restored = False
+
+        async def clone(self, reason=None):
+            if not self.clone_ok:
+                raise forbidden()
+            self.restored = True
+            return Clone(self.edit_ok)
+
+    cog = AntiChannelDelete(
+        type("B", (), {"user": type("U", (), {"id": 2})()})())
+    attacker = type("E", (), {"id": ATTACKER})()
+
+    seen.clear()
+    channel = Channel(True, True)
+    await cog.recreate_channel_and_ban(channel, attacker)
+    check("a fully handled attack is reported as stopped",
+          seen == ["stopped"], str(seen))
+    check("and the channel really is back", channel.restored is True)
+
+    seen.clear()
+    channel = Channel(True, False)
+    await cog.recreate_channel_and_ban(channel, attacker)
+    check("restored but not banned -> partial, not 'could not stop'",
+          seen == ["partial"], str(seen))
+    check("the channel is back either way", channel.restored is True)
+
+    seen.clear()
+    channel = Channel(False, False)
+    await cog.recreate_channel_and_ban(channel, attacker)
+    check("nothing restored -> the honest failure",
+          seen == ["no_perms"], str(seen))
+
+    # Reordering is cosmetic; failing at it is not a failed defence.
+    seen.clear()
+    channel = Channel(True, True, edit_ok=False)
+    await cog.recreate_channel_and_ban(channel, attacker)
+    check("failing to reorder the restored channel is still a success",
+          seen == ["stopped"], str(seen))
+
+    na.handle_stopped = real_stopped
+    na.handle_partial = real_partial
+    na.handle_forbidden = real_forbidden
+
+
+def test_every_module_reports_success():
+    """
+    A module that only speaks up on failure is worse than useless.
+
+    Four of them never called handle_stopped, so on those servers the
+    only anti-nuke message anybody ever saw was bad news.
+    """
+    print("\nEvery module reports success too")
+
+    folder = os.path.join(HERE, "..", "cogs", "antinuke")
+    silent = []
+    for name in sorted(os.listdir(folder)):
+        if not name.endswith(".py"):
+            continue
+        src = open(os.path.join(folder, name)).read()
+        if "handle_partial" not in src and "handle_forbidden" not in src:
+            continue
+        if "handle_stopped" not in src:
+            silent.append(name)
+
+    check("no module reports only failures", not silent, str(silent))
+
+
+def test_partial_always_states_repaired():
+    """
+    handle_partial defaults to repaired=True.
+
+    That default claims the attack was undone. Any caller that has not
+    actually repaired anything must say so, or a total failure gets
+    reported as a success with a missing ban.
+    """
+    print("\nEvery partial report says what was repaired")
+
+    import ast
+
+    folder = os.path.join(HERE, "..", "cogs", "antinuke")
+    missing = []
+    for name in sorted(os.listdir(folder)):
+        if not name.endswith(".py"):
+            continue
+        src = open(os.path.join(folder, name)).read()
+        if "handle_partial" not in src:
+            continue
+        lines = src.split("\n")
+        for node in ast.walk(ast.parse(src)):
+            if not isinstance(node, ast.Try):
+                continue
+            for handler in node.handlers:
+                block = "\n".join(lines[handler.lineno - 1:handler.end_lineno])
+                if "handle_partial" in block and "repaired=" not in block:
+                    missing.append(f"{name}:{handler.lineno}")
+
+    check("every handle_partial call is explicit about it",
+          not missing, str(missing))
+
+
 def test_no_stale_wording():
     """
     A Forbidden after a ban must not use the "could not stop it" helper.
@@ -687,6 +858,9 @@ async def run():
     test_listener_guards()
     await test_module_reports()
     test_blind_reporting()
+    await test_restore_then_failed_ban()
+    test_every_module_reports_success()
+    test_partial_always_states_repaired()
     test_no_stale_wording()
     test_buttons(na)
     await test_buttons_in_report(na)

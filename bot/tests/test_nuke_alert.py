@@ -258,8 +258,11 @@ def run():
 
         posted = reports(guild.text_channels[0])
         check("a report reaches the channel", len(posted) == 1, str(len(posted)))
-        check("and the recovery panel goes with it",
-              len(guild.text_channels[0].sent) == 2,
+        # The recovery panel is no longer posted alongside the report:
+        # it goes into a dedicated #backup channel twenty seconds later,
+        # once the attack has had time to finish.
+        check("the alert channel carries the report only",
+              len(guild.text_channels[0].sent) == 1,
               str(len(guild.text_channels[0].sent)))
         check("the owner is pinged when the defence failed",
               bool(posted) and "99" in str(posted[0]["content"]),

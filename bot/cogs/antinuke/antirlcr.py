@@ -158,6 +158,9 @@ class AntiRoleCreate(commands.Cog):
             except discord.Forbidden:
                 await nuke_alert.handle_partial(
                     self.bot, guild, "role_create", executor=executor,
+                    # This helper only bans; a Forbidden here
+                    # means nothing was undone.
+                    repaired=False,
                 )
                 return
             except discord.HTTPException as e:
