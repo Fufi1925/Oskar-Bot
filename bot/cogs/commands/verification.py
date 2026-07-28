@@ -18,6 +18,7 @@ from discord .ext import commands
 from discord import app_commands 
 from discord .ui import LayoutView ,TextDisplay ,Separator ,ActionRow ,MediaGallery 
 from utils .cv2 import build_container 
+from utils import verify_store 
 import aiosqlite 
 import random 
 import string 
@@ -305,6 +306,35 @@ class VerificationPanel (LayoutView ):
         self .add_item (build_container (*items ,accent_color =TONE_COLORS ["info"]))
 
 
+class ConfigurablePanel (LayoutView ):
+    """
+    The verification panel, with every word coming from the settings.
+
+    Replaces the fixed-text VerificationPanel: the old one hard-coded
+    English strings, so a German server could set a channel and a role
+    and nothing else. timeout=None plus the buttons keeping their
+    custom_id is what makes the panel survive a restart.
+    """
+
+    def __init__ (self ,*,title :str ,sections :list ,buttons :list ):
+        super ().__init__ (timeout =None )
+
+        items =[TextDisplay (f"## {title}")]
+        for section in sections :
+            text =str (section ).strip ()
+            if not text :
+                continue
+            items .append (Separator (visible =True ))
+            items .append (TextDisplay (text ))
+
+        if buttons :
+            items .append (Separator (visible =True ))
+            # Discord refuses more than five buttons in one row.
+            items .append (ActionRow (*buttons [:5 ]))
+
+        self .add_item (build_container (*items ,accent_color =TONE_COLORS ["info"]))
+
+
 class VerificationModal (discord .ui .Modal ,title ="Enter Verification Code"):
     def __init__ (self ,bot ,captcha_code :str ,guild_id :int ):
         super ().__init__ ()
@@ -362,18 +392,16 @@ class VerificationModal (discord .ui .Modal ,title ="Enter Verification Code"):
                         return 
 
 
-            await member .add_roles (verified_role ,reason ="CAPTCHA verification completed")
-
-
-            await self .log_verification (guild .id ,member .id ,"captcha")
-
-            embed =VCard("Verification Successful", f"Welcome to **{guild.name}**!\n\n"
-            f"You have been successfully verified and can now access all channels.", tone='success')
-
-            await interaction .response .send_message (view =embed ,ephemeral =True )
-
-
-            await self .send_verification_log (guild ,member ,"CAPTCHA",True )
+            # The modal fires from a DM, so interaction.user is a User and
+            # interaction.guild is None -- finish_verification needs the
+            # member and the guild it belongs to.
+            proxy =_MemberInteraction (interaction ,guild ,member )
+            card =await finish_verification (
+            self .bot ,proxy ,verified_role ,"captcha"
+            )
+            if card is None :
+                return 
+            await interaction .response .send_message (view =card ,ephemeral =True )
 
         except discord .Forbidden :
             await interaction .response .send_message ("Bot lacks permission to assign roles.",ephemeral =True )
@@ -420,6 +448,99 @@ class VerificationModal (discord .ui .Modal ,title ="Enter Verification Code"):
         except Exception as e :
             logger .error (f"Error sending verification log: {e}")
 
+class _MemberInteraction :
+    """
+    An interaction that knows its guild and member.
+
+    The CAPTCHA modal is submitted from a direct message, where
+    ``interaction.guild`` is None and ``interaction.user`` is a User
+    rather than a Member -- so role checks and mentions would both fail.
+    This wraps the real interaction and substitutes the two.
+    """
+
+    def __init__ (self ,interaction ,guild ,member ):
+        self ._interaction =interaction 
+        self .guild =guild 
+        self .user =member 
+
+    def __getattr__ (self ,name ):
+        return getattr (self ._interaction ,name )
+
+
+async def finish_verification (bot ,interaction ,role ,method :str ):
+    """
+    Everything that happens once somebody passes.
+
+    Was copy-pasted across three button views with slightly different
+    wording each time; now one place decides what is said, whether a DM
+    goes out and which extra rules apply.
+
+    Returns a card to show the person, or None when they were rejected
+    (in which case the rejection has already been sent).
+    """
+    guild =interaction .guild 
+    member =interaction .user 
+
+    async with aiosqlite .connect (DATABASE_PATH )as db :
+        settings =await verify_store .get_settings (db ,guild .id )
+
+    # A minimum account age keeps throwaway accounts out. Off unless set.
+    created =getattr (member ,"created_at",None )
+    if created is not None :
+        age_days =(datetime .now (timezone .utc )-created ).total_seconds ()/86400
+        if verify_store .account_too_young (settings ,age_days ):
+            needed =settings ["min_account_age_days"]
+            await interaction .response .send_message (
+            view =VCard (
+            "Konto zu neu",
+            f"Dein Discord-Konto muss mindestens **{needed} Tage** alt sein, "
+            f"um dich hier zu verifizieren.\n\n"
+            f"Deins ist **{int(age_days)} Tage** alt.",
+            tone ='error',
+            ),
+            ephemeral =True ,
+            )
+            return None 
+
+    await member .add_roles (role ,reason =f"Verifizierung ({method})")
+
+    # Take the holding role away, if the server uses one.
+    unverified_id =settings .get ("unverified_role_id")
+    if settings .get ("remove_unverified_role")and unverified_id :
+        unverified =guild .get_role (int (unverified_id ))
+        if unverified is not None and unverified in member .roles :
+            try :
+                await member .remove_roles (unverified ,reason ="Verifiziert")
+            except (discord .Forbidden ,discord .HTTPException ):
+                # Not fatal: they are verified either way.
+                pass 
+
+    modal =VerificationModal (bot ,"",guild .id )
+    await modal .log_verification (guild .id ,member .id ,method )
+    await modal .send_verification_log (guild ,member ,method .upper (),True )
+
+    def fill (key ):
+        return verify_store .render (
+        settings .get (key ,""),
+        server =guild .name ,
+        user_mention =member .mention ,
+        user_name =member .display_name ,
+        role =f"@{role.name}",
+        member_count =guild .member_count or 0 ,
+        )
+
+    if settings .get ("dm_on_success"):
+        try :
+            await member .send (view =VCard (
+            "Verifiziert",fill ("dm_success_text"),tone ='success',
+            ))
+        except (discord .Forbidden ,discord .HTTPException ):
+            # Closed DMs are not a verification failure.
+            pass 
+
+    return VCard ("Verifiziert",fill ("success_text"),tone ='success')
+
+
 class VerificationView (discord .ui .View ):
     def __init__ (self ,bot ):
         super ().__init__ (timeout =None )
@@ -463,18 +584,12 @@ class VerificationView (discord .ui .View ):
                 return 
 
 
-            await interaction .user .add_roles (verified_role ,reason ="Quick button verification")
-
-
-            modal =VerificationModal (self .bot ,"",interaction .guild .id )
-            await modal .log_verification (interaction .guild .id ,interaction .user .id ,"button")
-            await modal .send_verification_log (interaction .guild ,interaction .user ,"BUTTON",True )
-
-            embed =VCard("Welcome to the Server", f"**{interaction.user.mention}** has been verified!\n\n"
-            f"Welcome to {interaction.guild.name}!\n"
-            f"You now have access to all channels.", tone='success')
-
-            await interaction .response .send_message (view =embed ,ephemeral =True )
+            card =await finish_verification (
+            self .bot ,interaction ,verified_role ,"button"
+            )
+            if card is None :
+                return 
+            await interaction .response .send_message (view =card ,ephemeral =True )
 
         except discord .Forbidden :
             embed =VCard("Verification", "Bot lacks permission to assign roles. Please contact an administrator.", tone='error')
@@ -513,6 +628,26 @@ class VerificationView (discord .ui .View ):
                         await interaction .response .send_message (view =embed ,ephemeral =True )
                         return 
 
+
+            # Checked before the image is built: otherwise a too-new
+            # account gets a CAPTCHA in its DMs and is only told no
+            # after solving it.
+            async with aiosqlite .connect (DATABASE_PATH )as db :
+                settings =await verify_store .get_settings (db ,interaction .guild .id )
+            created =getattr (interaction .user ,"created_at",None )
+            if created is not None :
+                age_days =(datetime .now (timezone .utc )-created ).total_seconds ()/86400
+                if verify_store .account_too_young (settings ,age_days ):
+                    await interaction .response .send_message (
+                    view =VCard (
+                    "Konto zu neu",
+                    f"Dein Discord-Konto muss mindestens "
+                    f"**{settings['min_account_age_days']} Tage** alt sein.",
+                    tone ='error',
+                    ),
+                    ephemeral =True ,
+                    )
+                    return 
 
             captcha_code =self .generate_captcha_code ()
             captcha_image =self .create_captcha_image (captcha_code )
@@ -664,6 +799,26 @@ class CaptchaOnlyVerificationView (discord .ui .View ):
                         await interaction .response .send_message (view =embed ,ephemeral =True )
                         return 
 
+
+            # Checked before the image is built: otherwise a too-new
+            # account gets a CAPTCHA in its DMs and is only told no
+            # after solving it.
+            async with aiosqlite .connect (DATABASE_PATH )as db :
+                settings =await verify_store .get_settings (db ,interaction .guild .id )
+            created =getattr (interaction .user ,"created_at",None )
+            if created is not None :
+                age_days =(datetime .now (timezone .utc )-created ).total_seconds ()/86400
+                if verify_store .account_too_young (settings ,age_days ):
+                    await interaction .response .send_message (
+                    view =VCard (
+                    "Konto zu neu",
+                    f"Dein Discord-Konto muss mindestens "
+                    f"**{settings['min_account_age_days']} Tage** alt sein.",
+                    tone ='error',
+                    ),
+                    ephemeral =True ,
+                    )
+                    return 
 
             captcha_code =self .generate_captcha_code ()
             captcha_image =self .create_captcha_image (captcha_code )
@@ -1003,18 +1158,12 @@ class ButtonOnlyVerificationView (discord .ui .View ):
                         return 
 
 
-            await interaction .user .add_roles (verified_role ,reason ="Quick button verification")
-
-
-            modal =VerificationModal (self .bot ,"",interaction .guild .id )
-            await modal .log_verification (interaction .guild .id ,interaction .user .id ,"button")
-            await modal .send_verification_log (interaction .guild ,interaction .user ,"BUTTON",True )
-
-            embed =VCard("Welcome to the Server", f"**{interaction.user.mention}** has been verified!\n\n"
-            f"Welcome to {interaction.guild.name}!\n"
-            f"You now have access to all channels.", tone='success')
-
-            await interaction .response .send_message (view =embed ,ephemeral =True )
+            card =await finish_verification (
+            self .bot ,interaction ,verified_role ,"button"
+            )
+            if card is None :
+                return 
+            await interaction .response .send_message (view =card ,ephemeral =True )
 
         except discord .Forbidden :
             embed =VCard("Verification", "Bot lacks permission to assign roles. Please contact an administrator.", tone='error')
@@ -1032,6 +1181,96 @@ class Verification (commands .Cog ):
         self .bot .add_view (VerificationView (self .bot ))
         self .bot .add_view (ButtonOnlyVerificationView (self .bot ))
         self .bot .add_view (CaptchaOnlyVerificationView (self .bot ))
+
+    async def refresh(self, guild_id=None):
+        """
+        Called by the dashboard after it saves.
+
+        Nothing is cached in memory -- every read goes to the store --
+        so this only exists so the API's reload hook finds something.
+        A missing hook fails silently and looks exactly like "the
+        dashboard saves but Discord ignores it".
+        """
+        return True
+
+    async def settings(self, guild_id: int) -> dict:
+        """The configuration for one server, defaults filled in."""
+        async with aiosqlite.connect(DATABASE_PATH) as db:
+            return await verify_store.get_settings(db, int(guild_id))
+
+    def build_panel(self, guild, settings: dict, role=None, preview: bool = False):
+        """
+        The public panel, built from the configured texts.
+
+        Shared with the dashboard's "post" and "preview" actions so the
+        preview cannot drift away from what actually gets posted --
+        a second renderer is how a preview starts lying.
+        """
+        role_name = f"@{role.name}" if role is not None else "@Verifiziert"
+
+        def fill(key):
+            return verify_store.render(
+                settings.get(key, ""),
+                server=getattr(guild, "name", ""),
+                user_mention="@Lena" if preview else "",
+                user_name="Lena" if preview else "",
+                role=role_name,
+                member_count=getattr(guild, "member_count", 0) or 0,
+            )
+
+        methods = verify_store.methods_for(settings)
+        if preview:
+            # Dead buttons: a preview that hands out roles is not a
+            # preview. Unique custom_ids so they cannot collide with the
+            # live panel's persistent handlers either.
+            buttons = []
+            if "button" in methods:
+                buttons.append(discord.ui.Button(
+                    label=settings.get("button_label") or "Verifizieren",
+                    style=discord.ButtonStyle.green,
+                    custom_id="verify_preview_button", disabled=True,
+                ))
+            if "captcha" in methods:
+                buttons.append(discord.ui.Button(
+                    label=settings.get("captcha_label") or "Mit CAPTCHA",
+                    style=discord.ButtonStyle.primary,
+                    custom_id="verify_preview_captcha", disabled=True,
+                ))
+        else:
+            if methods == ["button"]:
+                view = ButtonOnlyVerificationView(self.bot)
+            elif methods == ["captcha"]:
+                view = CaptchaOnlyVerificationView(self.bot)
+            else:
+                view = VerificationView(self.bot)
+
+            buttons = list(view.children)
+            # The labels are configurable; the custom_ids are not, because
+            # those are what make the panel survive a restart.
+            for child in buttons:
+                if getattr(child, "custom_id", "") in (
+                    "verify_button_quick", "verify_button_only",
+                ):
+                    child.label = (settings.get("button_label")
+                                   or "Verifizieren")[:80]
+                elif getattr(child, "custom_id", "") in (
+                    "verify_captcha_secure", "verify_captcha_only",
+                ):
+                    child.label = (settings.get("captcha_label")
+                                   or "Mit CAPTCHA")[:80]
+
+        sections = [fill("panel_text")]
+        footer = fill("panel_footer")
+        if footer.strip():
+            sections.append(footer)
+        if preview:
+            sections.append("*Vorschau — die Knöpfe sind hier ohne Funktion.*")
+
+        return ConfigurablePanel(
+            title=fill("panel_title"),
+            sections=sections,
+            buttons=buttons,
+        )
 
     async def create_tables (self ):
         """Create database tables for verification system"""
@@ -1068,31 +1307,41 @@ class Verification (commands .Cog ):
     @commands .Cog .listener ()
     async def on_message (self ,message ):
         """Auto-delete messages in verification channel from non-bot users"""
-        if message .author .bot :
+        # DMs have no guild. This read message.guild.id straight away, so
+        # every direct message the bot received raised AttributeError
+        # before the handler could return.
+        if message .guild is None or message .author .bot :
             return 
 
         try :
-            async with aiosqlite .connect (DATABASE_PATH )as db :
-                async with db .cursor ()as cur :
-                    await cur .execute (
-                    "SELECT verification_channel_id FROM verification_config WHERE guild_id = ? AND enabled = 1",
-                    (message .guild .id ,)
-                    )
-                    result =await cur .fetchone ()
+            settings =await self .settings (message .guild .id )
 
-                    if result and result [0 ]==message .channel .id :
+            if not settings ["enabled"]or not settings ["delete_messages"]:
+                return 
+            if message .channel .id !=settings ["verification_channel_id"]:
+                return 
+            if message .author .guild_permissions .manage_messages :
+                return 
 
-                        if not message .author .guild_permissions .manage_messages :
-                            try :
-                                await message .delete ()
+            try :
+                await message .delete ()
+            except (discord .Forbidden ,discord .NotFound ):
+                return 
 
-                                embed =VCard("Message Deleted", "This channel is for verification only. Please use the buttons above to verify.", tone='warning')
-                                try :
-                                    await message .author .send (view =embed )
-                                except discord .Forbidden :
-                                    pass 
-                            except discord .Forbidden :
-                                pass 
+            # Telling people off in their DMs is now optional: on a busy
+            # server this fires constantly and cannot be muted.
+            if not settings ["dm_on_delete"]:
+                return 
+
+            embed =VCard(
+            "Nachricht gelöscht",
+            "Dieser Kanal ist nur zum Verifizieren. Nutze bitte die Knöpfe.",
+            tone ='warning',
+            )
+            try :
+                await message .author .send (view =embed )
+            except (discord .Forbidden ,discord .HTTPException ):
+                pass 
         except Exception as e :
             logger .error (f"Error in verification message handler: {e}")
 

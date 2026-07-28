@@ -40,9 +40,11 @@ SEEDS = [
         " embed_data, auto_delete_duration)"
         " VALUES (?, 'simple', 'hi', 800, NULL, 0)",
     ),
+    # Verification lives under its own router now, so these carry an
+    # absolute path instead of hanging off the /guilds base.
     (
         "verification",
-        "/verification",
+        "/api/v1/verify/{guild}",
         "verification.db",
         "INSERT OR REPLACE INTO verification_config"
         " (guild_id, verification_channel_id, verified_role_id,"
@@ -51,7 +53,7 @@ SEEDS = [
     ),
     (
         "verification-empty",
-        "/verification",
+        "/api/v1/verify/{guild}",
         "verification.db",
         "INSERT OR REPLACE INTO verification_config"
         " (guild_id, verification_channel_id, verified_role_id,"
@@ -91,7 +93,13 @@ def run():
             continue
 
         try:
-            response = client.get(base + path)
+            # A case may give an absolute path when its router is not
+            # the /guilds one.
+            url = (
+                path.format(guild=GUILD) if path.startswith("/api/")
+                else base + path
+            )
+            response = client.get(url)
         except Exception as exc:  # noqa: BLE001
             failures.append(f"{label}: raised {type(exc).__name__}")
             print(f"  FAIL  {label}: raised {type(exc).__name__}")

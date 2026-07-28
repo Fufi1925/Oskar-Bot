@@ -86,8 +86,29 @@ class FakeBot:
     def add_view(self, view, message_id=None):
         self.registered.append(message_id)
 
-    def get_cog(self, _name):
+    def get_cog(self, name):
+        # Restoring a verification panel now asks the cog to render it,
+        # so the configured texts survive a restore -- panel_restore used
+        # to rebuild it with the English strings hard-coded and quietly
+        # overwrite them. A fake that answers None would test a path that
+        # no longer exists.
+        if name == "Verification":
+            return _FakeVerificationCog()
         return None
+
+
+class _FakeVerificationCog:
+    """Just enough of the cog for panel_restore to call it."""
+
+    def build_panel(self, guild, settings, role=None, preview=False):
+        import discord
+
+        view = discord.ui.View(timeout=None)
+        view.add_item(discord.ui.Button(
+            label=settings.get("button_label") or "Verifizieren",
+            custom_id="verify_button_quick",
+        ))
+        return view
 
 
 def seed_verification(enabled=1, channel=CHANNEL, role=ROLE, panel_id=None):
@@ -100,8 +121,14 @@ def seed_verification(enabled=1, channel=CHANNEL, role=ROLE, panel_id=None):
         " verification_method TEXT, enabled BOOLEAN,"
         " panel_message_id INTEGER)"
     )
+    # Columns named explicitly: the table grew when verification became
+    # configurable, and a positional INSERT breaks every time a column
+    # is added -- which says nothing about the code under test.
     con.execute(
-        "INSERT OR REPLACE INTO verification_config VALUES (?,?,?,?,?,?,?)",
+        "INSERT OR REPLACE INTO verification_config"
+        " (guild_id, verification_channel_id, verified_role_id,"
+        "  log_channel_id, verification_method, enabled, panel_message_id)"
+        " VALUES (?,?,?,?,?,?,?)",
         (GUILD, channel, role, 0, "both", enabled, panel_id),
     )
     con.commit()

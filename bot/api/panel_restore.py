@@ -75,7 +75,9 @@ async def _repost_verification(bot, guild) -> dict[str, Any] | None:
     if not row or not row[3]:
         return None
 
-    channel_id, role_id, method = row[0], row[1], (row[2] or "both").lower()
+    # The method is no longer read here -- build_panel picks the buttons
+    # from the stored settings.
+    channel_id, role_id = row[0], row[1]
     old_message_id = row[4] if has_panel_id and len(row) > 4 else None
     channel = guild.get_channel(int(channel_id)) if channel_id else None
     role = guild.get_role(int(role_id)) if role_id else None
@@ -87,36 +89,23 @@ async def _repost_verification(bot, guild) -> dict[str, Any] | None:
         return {"module": "verification", "status": "skipped",
                 "reason": "verified role is gone"}
 
+    # Rendered by the cog, not here. This used to build its own panel
+    # with the English strings hard-coded, so restoring after a backup
+    # silently replaced whatever texts the server had configured.
+    cog = bot.get_cog("Verification")
+    if cog is None or not hasattr(cog, "build_panel"):
+        return {"module": "verification", "status": "failed",
+                "reason": "verification module unavailable"}
+
     try:
-        from cogs.commands.verification import (
-            ButtonOnlyVerificationView,
-            CaptchaOnlyVerificationView,
-            VerificationPanel,
-            VerificationView,
-        )
+        from utils import verify_store
+
+        async with aiosqlite.connect(verify_store.DB_PATH) as db:
+            settings = await verify_store.get_settings(db, guild.id)
+        panel = cog.build_panel(guild, settings, role)
     except Exception as exc:  # noqa: BLE001
         return {"module": "verification", "status": "failed",
-                "reason": f"module unavailable: {exc}"}
-
-    if method == "button":
-        view = ButtonOnlyVerificationView(bot)
-    elif method == "captcha":
-        view = CaptchaOnlyVerificationView(bot)
-    else:
-        view = VerificationView(bot)
-
-    methods = []
-    if method in ("button", "both"):
-        methods.append("**Quick Verify** — instant access with one click.")
-    if method in ("captcha", "both"):
-        methods.append("**CAPTCHA Verify** — solve a short code sent by DM.")
-
-    panel = VerificationPanel(
-        guild_name=guild.name,
-        methods=methods,
-        role_name=role.name,
-        buttons=list(view.children),
-    )
+                "reason": f"could not build the panel: {exc}"}
 
     # Remove the stale panel first, so the channel does not end up with a
     # dead copy sitting above the working one.

@@ -294,6 +294,27 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
+  // The verification tab moved to /verify: the old /guilds handlers knew
+  // five columns and wrote 0 for "not set", which the read side then
+  // handed back as if it were a real channel id.
+  getVerify: (g: string) => request<any>(`/verify/${g}`),
+  updateVerify: (g: string, data: any) =>
+    request<any>(`/verify/${g}`, { method: "PATCH", body: JSON.stringify(data) }),
+  postVerifyPanel: (g: string) =>
+    request<any>(`/verify/${g}/panel`, { method: "POST", body: "{}" }),
+  previewVerifyPanel: (g: string, draft: any = {}) =>
+    request<any>(`/verify/${g}/preview`, {
+      method: "POST",
+      body: JSON.stringify(draft || {}),
+    }),
+  resetVerify: (g: string, keepTexts = true) =>
+    request<any>(`/verify/${g}/reset`, {
+      method: "POST",
+      body: JSON.stringify({ keep_texts: keepTexts }),
+    }),
+  verifyMemberManually: (g: string, userId: string) =>
+    request<any>(`/verify/${g}/verify/${userId}`, { method: "POST", body: "{}" }),
+
   getVerification: (guildId: string) => request<any>(`/guilds/${guildId}/verification`),
   updateVerification: (guildId: string, data: any) => 
     request<{ status: string }>(`/guilds/${guildId}/verification`, {

@@ -86,8 +86,10 @@ CASES = [
     ("automod", "/automod", ("enabled", True), ("logging_channel", 800)),
     ("extra-settings", "/extra-settings",
      ("delete_command_messages", True), ("same_voice_only", False)),
-    ("verification", "/verification",
-     ("enabled", True), ("verification_method", "captcha")),
+    # Verification moved to its own router (/verify/{guild_id}); a full
+    # path here overrides the /guilds base.
+    ("verification", "/api/v1/verify/{guild}",
+     ("dm_on_success", True), ("verification_method", "captcha")),
     ("welcome", "/welcome",
      ("welcome_message", "hello"), ("auto_delete_duration", 30)),
     ("antinuke", "/antinuke", ("status", True), ("status", True)),
@@ -110,7 +112,9 @@ def run():
     failures = []
 
     for label, path, a, b in CASES:
-        url = base + path
+        # A case may give an absolute path when its router is not the
+        # /guilds one.
+        url = path.format(guild=GUILD) if path.startswith("/api/") else base + path
 
         # Toggle-map modules: flip the first two booleans the GET reports.
         if a is None:

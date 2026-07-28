@@ -160,10 +160,14 @@ SCHEMA: dict[str, tuple[str, ...]] = {
         )""",
     ),
     "db/verification.db": (
+        # The channel and the role were NOT NULL, which made it
+        # impossible to save any other setting before picking them --
+        # the insert failed outright. They are optional now; the API
+        # refuses to *switch the feature on* without them instead.
         """CREATE TABLE IF NOT EXISTS verification_config (
             guild_id INTEGER PRIMARY KEY,
-            verification_channel_id INTEGER NOT NULL,
-            verified_role_id INTEGER NOT NULL,
+            verification_channel_id INTEGER,
+            verified_role_id INTEGER,
             log_channel_id INTEGER,
             verification_method TEXT DEFAULT 'both',
             enabled BOOLEAN DEFAULT 1,

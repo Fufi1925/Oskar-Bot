@@ -23,7 +23,11 @@ from api.schemas import (
     TicketCategory, PrefixUpdate,
     AutomodUpdate, LoggingUpdate, TicketUpdate,
     DiscordChannel, DiscordRole, WelcomeConfig, WelcomeEmbedData, WelcomeUpdate,
-    AntiNukeConfig, AntiNukeUpdate, VerificationConfig, VerificationUpdate,
+    AntiNukeConfig, AntiNukeUpdate,
+# NOTE: verification moved to api/routes/verify.py. The pair here knew
+# five columns and stored 0 for "not set" -- zero is not null, so the
+# read side handed "0" back to the dashboard as though it were a real
+# channel id, and the INSERT branch wiped a setup made over chat.
     AutoRoleConfig, AutoRoleUpdate,
     TrackingConfig, TrackingUpdate,
     AutoReactConfig, AutoReactUpdate, AutoReactTrigger,
@@ -491,62 +495,7 @@ async def patch_guild_antinuke(guild_id: int, data: AntiNukeUpdate):
     return {"status": "success", "guild_id": guild_id}
 
 
-@router.get("/{guild_id}/verification", response_model=VerificationConfig, summary="Get Verification config")
-async def get_guild_verification(guild_id: int):
-    import aiosqlite
-    
-    async with aiosqlite.connect("db/verification.db") as db:
-        async with db.execute("SELECT verification_channel_id, verified_role_id, log_channel_id, verification_method, enabled FROM verification_config WHERE guild_id = ?", (guild_id,)) as cursor:
-            row = await cursor.fetchone()
-            
-    if row:
-        # The columns are INTEGER and unset ones hold 0, but the schema
-        # declares strings. Returning the raw 0 made Pydantic raise and the
-        # whole verification page failed with a 500 until it was configured.
-        def _id(value):
-            if value in (None, 0, "0", ""):
-                return None
-            return str(value)
 
-        return VerificationConfig(
-            guild_id=guild_id,
-            verification_channel_id=_id(row[0]),
-            verified_role_id=_id(row[1]),
-            log_channel_id=_id(row[2]),
-            verification_method=row[3] or "both",
-            enabled=bool(row[4])
-        )
-    return VerificationConfig(
-        guild_id=guild_id,
-        verification_channel_id=None,
-        verified_role_id=None,
-        log_channel_id=None,
-        verification_method="both",
-        enabled=True
-    )
-
-@router.patch("/{guild_id}/verification", summary="Update Verification config")
-async def patch_guild_verification(guild_id: int, data: VerificationUpdate):
-    import aiosqlite
-    
-    async with aiosqlite.connect("db/verification.db") as db:
-        async with db.execute("SELECT * FROM verification_config WHERE guild_id = ?", (guild_id,)) as cursor:
-            row = await cursor.fetchone()
-            
-        if not row:
-            await db.execute(
-                "INSERT INTO verification_config (guild_id, verification_channel_id, verified_role_id, log_channel_id, verification_method, enabled) VALUES (?, ?, ?, ?, ?, ?)",
-                (guild_id, data.verification_channel_id or 0, data.verified_role_id or 0, data.log_channel_id or 0, data.verification_method or "both", data.enabled if data.enabled is not None else True)
-            )
-        else:
-            await db.execute(
-                "UPDATE verification_config SET verification_channel_id = COALESCE(?, verification_channel_id), verified_role_id = COALESCE(?, verified_role_id), log_channel_id = COALESCE(?, log_channel_id), verification_method = COALESCE(?, verification_method), enabled = COALESCE(?, enabled) WHERE guild_id = ?",
-                (data.verification_channel_id, data.verified_role_id, data.log_channel_id, data.verification_method, data.enabled, guild_id)
-            )
-            
-        await db.commit()
-        
-    return {"status": "success", "guild_id": guild_id}
 
 
 # NOTE: vanity roles moved to api/routes/vanity.py. The three routes that
