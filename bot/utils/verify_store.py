@@ -60,17 +60,20 @@ DEFAULTS: dict[str, Any] = {
     "panel_channel_id": None,
 
     # ── the texts ────────────────────────────────────────────────
-    "panel_title": "Verifizierung",
+    # The defaults are what most servers will never change, so they say
+    # what happens rather than just "verify yourself".
+    "panel_title": "Kurz bestätigen, dann bist du drin",
     "panel_text": (
-        "Willkommen auf **{server}**!\n"
-        "Verifiziere dich, um den Rest des Servers zu sehen."
+        "Willkommen auf **{server}**! 👋\n\n"
+        "Damit hier keine Spam-Bots landen, fehlt nur noch ein Klick.\n"
+        "Danach siehst du alle Kanäle und kannst mitreden."
     ),
-    "panel_footer": "Du bekommst danach die Rolle {role}.",
-    "button_label": "Verifizieren",
-    "captcha_label": "Mit CAPTCHA",
+    "panel_footer": "Du bekommst dann {role} — dauert keine zehn Sekunden.",
+    "button_label": "Bin kein Bot",
+    "captcha_label": "Stattdessen CAPTCHA",
     "success_text": (
-        "Willkommen auf **{server}**, {user}!\n"
-        "Du hast jetzt Zugriff auf alle Kanäle."
+        "Alles klar, {user} — du bist dabei! 🎉\n"
+        "Alle Kanäle von **{server}** sind jetzt für dich offen."
     ),
 
     # ── direct messages ──────────────────────────────────────────
@@ -78,12 +81,18 @@ DEFAULTS: dict[str, Any] = {
     # optional -- but whether the bot congratulates people afterwards is.
     "dm_on_success": False,
     "dm_success_text": (
-        "Du bist jetzt auf **{server}** verifiziert. Viel Spaß!"
+        "Willkommen auf **{server}**, {user.name}!\n\n"
+        "Du bist verifiziert und kannst loslegen. "
+        "Schau am besten zuerst in die Regeln und stell dich kurz vor."
     ),
     # The nag when somebody writes in the verification channel.
     "dm_on_delete": True,
 
     # ── extra rules, off unless asked for ────────────────────────
+    # How many answers the CAPTCHA dropdown offers. Typing a code out is
+    # the part people get wrong on a phone; picking from a short list is
+    # not, and a wrong guess still costs them an attempt.
+    "captcha_choices": 5,
     "min_account_age_days": 0,
     "verify_timeout_minutes": 0,
     # Remove the unverified role once they pass, if one is set.
@@ -108,7 +117,7 @@ BOOL_KEYS = (
     "delete_messages",
 )
 
-INT_KEYS = ("min_account_age_days", "verify_timeout_minutes")
+INT_KEYS = ("min_account_age_days", "verify_timeout_minutes", "captcha_choices")
 
 PLACEHOLDERS = {
     "{server}": "Name des Servers",
@@ -211,6 +220,7 @@ async def ensure_schema(db: aiosqlite.Connection) -> None:
         "dm_on_success": "INTEGER DEFAULT 0",
         "dm_success_text": "TEXT",
         "dm_on_delete": "INTEGER DEFAULT 1",
+        "captcha_choices": "INTEGER DEFAULT 5",
         "min_account_age_days": "INTEGER DEFAULT 0",
         "verify_timeout_minutes": "INTEGER DEFAULT 0",
         "remove_unverified_role": "INTEGER DEFAULT 1",
@@ -280,6 +290,9 @@ def normalise(settings: dict) -> dict:
     # A week is plenty; beyond that people just think it is broken.
     out["min_account_age_days"] = min(365, out["min_account_age_days"])
     out["verify_timeout_minutes"] = min(10080, out["verify_timeout_minutes"])
+    # Two is the fewest that is still a choice; Discord allows 25 options
+    # in a select, and beyond about eight it stops being readable.
+    out["captcha_choices"] = min(8, max(2, out["captcha_choices"] or 5))
 
     if out.get("verification_method") not in METHODS:
         out["verification_method"] = "both"
@@ -376,6 +389,47 @@ def unknown_placeholders(text: str) -> list[str]:
 # ══════════════════════════════════════════════════════════════════════
 #  The rules
 # ══════════════════════════════════════════════════════════════════════
+
+
+def captcha_options(code: str, count: int = 5, *, rng=None) -> list[str]:
+    """
+    The real code plus lookalike decoys, shuffled.
+
+    Typing a six-character code is the part people fail on a phone, so
+    the modal is replaced by a short list. The decoys are built by
+    swapping characters in the real code rather than drawing fresh
+    random strings: a decoy that shares no shape with the answer makes
+    the right one obvious at a glance.
+
+    Kept pure and injectable so the tests can pin the shuffle instead of
+    hoping.
+    """
+    import random as _random
+    import string as _string
+
+    rng = rng or _random
+    code = str(code or "")
+    count = max(2, min(8, int(count or 5)))
+
+    if not code:
+        return []
+
+    alphabet = _string.ascii_letters + _string.digits
+    options = {code}
+    # Bounded: with a short code there may not be `count` distinct
+    # variations, and an unbounded loop would hang rather than give up.
+    for _ in range(count * 40):
+        if len(options) >= count:
+            break
+        candidate = list(code)
+        for index in rng.sample(range(len(code)), min(2, len(code))):
+            choices = [c for c in alphabet if c != candidate[index]]
+            candidate[index] = rng.choice(choices)
+        options.add("".join(candidate))
+
+    out = list(options)
+    rng.shuffle(out)
+    return out
 
 
 def account_too_young(settings: dict, account_age_days: float) -> bool:

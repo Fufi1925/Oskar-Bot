@@ -592,6 +592,111 @@ def test_panel_rendering(store):
 # ══════════════════════════════════════════════════════════════════════
 
 
+def test_captcha_options(store):
+    """
+    The CAPTCHA answers, as a dropdown.
+
+    Typing a six-character code is the part people fail on a phone, so
+    the modal was replaced by a short list. Two things have to hold: the
+    real code is always in it, and the decoys look enough like it that
+    the answer is not obvious from shape alone.
+    """
+    print("\nCAPTCHA choices")
+
+    import random
+
+    code = "Ab3xY9"
+    for count in (2, 5, 8):
+        options = store.captcha_options(code, count, rng=random.Random(1))
+        check(f"{count} options are produced", len(options) == count,
+              str(options))
+        check(f"the real code is among {count}", code in options, str(options))
+        check(f"no duplicates among {count}",
+              len(options) == len(set(options)), str(options))
+        check(f"every option is the same length as the code ({count})",
+              all(len(o) == len(code) for o in options), str(options))
+
+    # A decoy that shares no characters would give the answer away.
+    options = store.captcha_options(code, 5, rng=random.Random(7))
+    decoys = [o for o in options if o != code]
+    check("the decoys are near-misses, not random strings",
+          all(sum(a == b for a, b in zip(o, code)) >= len(code) - 2
+              for o in decoys),
+          str(decoys))
+
+    check("the count is clamped upward",
+          len(store.captcha_options(code, 99)) <= 8)
+    check("and downward", len(store.captcha_options(code, 0)) >= 2)
+    check("an empty code yields nothing", store.captcha_options("", 5) == [])
+
+    # A two-character code cannot produce eight distinct variations; it
+    # has to give up rather than loop forever.
+    short = store.captcha_options("A1", 8)
+    check("a short code does not hang", len(short) >= 2, str(short))
+    check("and still contains the answer", "A1" in short, str(short))
+
+    # The setting is stored and clamped.
+    settings = store.normalise({**store.DEFAULTS, "captcha_choices": 99})
+    check("the stored setting is clamped too",
+          settings["captcha_choices"] == 8, str(settings["captcha_choices"]))
+    check("the default is five", store.DEFAULTS["captcha_choices"] == 5)
+
+
+def test_captcha_view(store):
+    """The dropdown has to be a real select inside the V2 card."""
+    print("\nThe CAPTCHA card")
+
+    from cogs.commands.verification import CaptchaCard, CaptchaChoiceView
+
+    code = "Ab3xY9"
+    options = store.captcha_options(code, 5)
+    view = CaptchaChoiceView(None, code, GUILD, options)
+    card = CaptchaCard(guild_name="Test Server", buttons=[],
+                       select=view.children[0])
+    payload = card.to_components()
+
+    check("the card is a V2 container", payload[0]["type"] == 17,
+          str(payload[0]["type"]))
+
+    kinds = [c["type"] for c in payload[0]["components"]]
+    check("it still shows the image", 12 in kinds, str(kinds))
+    check("and carries an action row", 1 in kinds, str(kinds))
+
+    row = next(c for c in payload[0]["components"] if c["type"] == 1)
+    check("the row holds exactly one component",
+          len(row["components"]) == 1, str(len(row["components"])))
+
+    # Discord refuses a row that mixes a select with buttons. The card is
+    # also used with buttons elsewhere, so passing both has to keep them
+    # apart -- checking only the buttons=[] case proved nothing.
+    import discord as _discord
+
+    with_buttons = CaptchaCard(
+        guild_name="Test Server",
+        buttons=[_discord.ui.Button(label="X", custom_id="x")],
+        select=CaptchaChoiceView(None, code, GUILD, options).children[0],
+    ).to_components()
+    rows = [c for c in with_buttons[0]["components"] if c["type"] == 1]
+    for r in rows:
+        kinds = {c["type"] for c in r["components"]}
+        check("no row mixes a select with buttons",
+              not (3 in kinds and 2 in kinds), str(kinds))
+
+    select = row["components"][0]
+    check("which is a string select", select["type"] == 3, str(select["type"]))
+    labels = [o["label"] for o in select["options"]]
+    check("all five answers are offered", len(labels) == 5, str(labels))
+    check("the right one is there", code in labels, str(labels))
+    check("only one can be picked",
+          select.get("max_values", 1) == 1, str(select.get("max_values")))
+
+    # Discord refuses more than 25 options in a select.
+    many = CaptchaChoiceView(None, code, GUILD, [f"x{i}" for i in range(40)])
+    payload = many.children[0].to_component_dict()
+    check("an over-long list is cut to Discord's 25",
+          len(payload["options"]) == 25, str(len(payload["options"])))
+
+
 async def test_api(store):
     print("\nAPI")
 
@@ -758,6 +863,55 @@ async def test_api(store):
     check("clearing the texts works too",
           client.get(base).json()["panel_title"] == store.DEFAULTS["panel_title"])
 
+    # ── the recent list ─────────────────────────────────────────
+    # It used to print the raw snowflake and nothing else, which is
+    # unreadable -- the tab now needs a name and a face.
+    member2 = Member(222)
+    member2.name = "lena"
+    member2.display_name = "Lena"
+    member2.display_avatar = type("A", (), {"url": "https://cdn/x.png"})()
+    guild._members[222] = member2
+    client.post(f"{base}/verify/222", json={})
+
+    recent = client.get(base).json()["recent"]
+    check("the list carries member details", "member" in recent[0],
+          str(recent[0]))
+    card = recent[0]["member"]
+    check("with a name", card["display_name"] == "Lena", str(card))
+    check("and an avatar", card["avatar"] == "https://cdn/x.png", str(card))
+    check("the id stays a string, not a rounded number",
+          isinstance(card["id"], str), str(card["id"]))
+    check("and is not marked as gone", card["left"] is False, str(card))
+
+    # Somebody who left has no member object at all.
+    await store.log_verification(
+        await db_manager.get_connection(store.DB_PATH),
+        GUILD, 987654321098765432, "button", "2026-01-01T00:00:00",
+    )
+    recent = client.get(base).json()["recent"]
+    gone = next(e for e in recent if e["user_id"] == "987654321098765432")
+    check("somebody who left is flagged", gone["member"]["left"] is True,
+          str(gone["member"]))
+    check("their id survives in full",
+          gone["member"]["id"] == "987654321098765432", str(gone["member"]))
+    check("and nothing crashes on the missing member",
+          gone["member"]["avatar"] is None, str(gone["member"]))
+
+    # ── taking the role back ────────────────────────────────────
+    check("the member has the role before",
+          any(r.id == ROLE_OK for r in member2.roles), str(member2.roles))
+    r = client.request("DELETE", f"{base}/verify/222")
+    check("the role can be taken back", r.status_code == 200, r.text[:120])
+    check("and really is gone",
+          not any(r_.id == ROLE_OK for r_ in member2.roles), str(member2.roles))
+
+    r = client.request("DELETE", f"{base}/verify/222")
+    check("doing it twice is not an error", r.status_code == 200, r.text[:120])
+
+    r = client.request("DELETE", f"{base}/verify/999")
+    check("an unknown member gives 404", r.status_code == 404,
+          str(r.status_code))
+
     r = client.get("/api/v1/verify/999999")
     check("an unknown guild still answers", r.status_code == 200,
           str(r.status_code))
@@ -795,6 +949,8 @@ async def run():
     await test_dm_crash(store)
     await test_message_cleanup(store)
     test_panel_rendering(store)
+    test_captcha_options(store)
+    test_captcha_view(store)
     await test_api(store)
     test_panel_restore_uses_cog()
 

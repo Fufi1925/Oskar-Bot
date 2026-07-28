@@ -59,6 +59,35 @@ def _channel_info(guild, channel_id):
     }
 
 
+def _member_card(guild, user_id) -> dict:
+    """
+    Enough about a member for the list to show a face and a name.
+
+    The list used to print the raw snowflake and nothing else, which is
+    unreadable -- and the id stays a string here for the same reason it
+    does everywhere else: a JSON number drops the last digits.
+    """
+    member = guild.get_member(int(user_id)) if guild and user_id else None
+    if member is None:
+        return {
+            "id": str(user_id),
+            "name": None,
+            "display_name": None,
+            "avatar": None,
+            "left": True,
+        }
+    return {
+        "id": str(user_id),
+        "name": getattr(member, "name", None),
+        "display_name": getattr(member, "display_name", None),
+        # display_avatar, not avatar: the plain one is None for anybody
+        # still on a default avatar.
+        "avatar": getattr(getattr(member, "display_avatar", None), "url", None),
+        "bot": bool(getattr(member, "bot", False)),
+        "left": False,
+    }
+
+
 def _colour_of(role):
     """
     A role colour as a plain int.
@@ -211,7 +240,10 @@ async def get_verification(guild_id: int, bot: "universitybot" = Depends(get_bot
             "dm_success": preview("dm_success_text"),
         },
         "verified_count": await store.count_verified(db, guild_id),
-        "recent": await store.recent_logs(db, guild_id, 10),
+        "recent": [
+            {**entry, "member": _member_card(guild, entry["user_id"])}
+            for entry in await store.recent_logs(db, guild_id, 10)
+        ],
         "warnings": _warnings(guild, settings),
     }
 
@@ -431,6 +463,46 @@ async def reset_verification(
             "Ausgeschaltet. Deine Texte bleiben gespeichert."
             if keep_texts else "Ausgeschaltet und Texte zurückgesetzt."
         ),
+    }
+
+
+@router.delete("/{guild_id}/verify/{user_id}", summary="Take the role back")
+async def unverify_member(
+    guild_id: int, user_id: int, bot: "universitybot" = Depends(get_bot)
+):
+    """Undo a verification -- the obvious companion to doing it by hand."""
+    guild = _guild_or_404(bot, guild_id)
+    db = await db_manager.get_connection(store.DB_PATH)
+    settings = await store.get_settings(db, guild_id)
+
+    if not settings.get("verified_role_id"):
+        raise HTTPException(status_code=400, detail="Es ist keine Rolle gesetzt.")
+
+    member = guild.get_member(user_id)
+    if member is None:
+        raise HTTPException(
+            status_code=404, detail="Die Person ist nicht mehr auf dem Server."
+        )
+
+    role = guild.get_role(int(settings["verified_role_id"]))
+    if role is None:
+        raise HTTPException(status_code=404, detail="Die Rolle gibt es nicht mehr.")
+    if role not in member.roles:
+        return {
+            "status": "success",
+            "result": f"{member.display_name} hatte die Rolle gar nicht.",
+        }
+
+    try:
+        await member.remove_roles(role, reason="Verifizierung über das Dashboard entzogen")
+    except discord.Forbidden:
+        raise HTTPException(
+            status_code=403, detail=f"Der Bot darf @{role.name} nicht entfernen."
+        )
+
+    return {
+        "status": "success",
+        "result": f"{member.display_name} ist nicht mehr verifiziert.",
     }
 
 

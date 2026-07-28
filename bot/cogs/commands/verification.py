@@ -246,21 +246,31 @@ class CaptchaCard (LayoutView ):
     of an embed with a file and a view bolted on next to it.
     """
 
-    def __init__ (self ,*,guild_name :str ,buttons :list ):
+    def __init__ (self ,*,guild_name :str ,buttons :list ,select =None ):
         super ().__init__ (timeout =None )
 
+        instruction =(
+        "Such unten den Code aus dem Bild heraus."
+        if select is not None else
+        "Löse das CAPTCHA und tippe den Code über den Knopf ein."
+        )
+
         items =[
-        TextDisplay ("## Verify yourself"),
+        TextDisplay ("## Kurz bestätigen"),
         Separator (visible =True ),
         TextDisplay (
         f"**Server:** {guild_name}\n\n"
-        "Solve the CAPTCHA below, then press the button to enter the code.\n"
-        "The code is **case-sensitive**."
+        f"{instruction}\n"
+        "Achte auf **Groß- und Kleinschreibung**."
         ),
         MediaGallery (discord .MediaGalleryItem ("attachment://captcha.png")),
         ]
 
-        if buttons :
+        # A select has to sit in an ActionRow of its own -- Discord
+        # refuses a row that mixes a select with anything else.
+        if select is not None :
+            items .append (ActionRow (select ))
+        elif buttons :
             items .append (ActionRow (*buttons [:5 ]))
 
         self .add_item (build_container (*items ,accent_color =TONE_COLORS ["info"]))
@@ -656,22 +666,32 @@ class VerificationView (discord .ui .View ):
 
                 file =discord .File (captcha_image ,filename ="captcha.png")
 
-                modal =VerificationModal (self .bot ,captcha_code ,interaction .guild .id )
-                view =CaptchaModalView (modal )
+                # A dropdown of near-miss codes instead of a modal:
+                # typing six characters is the part people get wrong,
+                # and the modal gave no feedback until it was submitted.
+                choices =verify_store .captcha_options (
+                captcha_code ,settings .get ("captcha_choices",5 ),
+                )
+                view =CaptchaChoiceView (
+                self .bot ,captcha_code ,interaction .guild .id ,choices ,
+                )
 
                 card =CaptchaCard (
                 guild_name =interaction .guild .name ,
-                buttons =list (view .children ),
+                buttons =[],
+                select =view .children [0 ],
                 )
                 await interaction .user .send (view =card ,file =file )
 
 
-                embed =VCard("Check Your DMs", "I've sent you a CAPTCHA in your direct messages.\n\n"
-                f"**Steps:**\n"
-                f"1. Check your DMs from me\n"
-                f"2. Solve the CAPTCHA image\n"
-                f"3. Click the button to enter your answer\n\n"
-                f"Make sure your DMs are open!", tone='info')
+                embed =VCard("Schau in deine DMs",
+                "Ich habe dir das CAPTCHA privat geschickt.\n\n"
+                "**So geht's:**\n"
+                "1. Öffne meine Direktnachricht\n"
+                "2. Sieh dir das Bild an\n"
+                "3. Wähl den passenden Code aus der Liste\n\n"
+                "Falls nichts ankommt, sind deine DMs für diesen Server zu.",
+                tone='info')
                 await interaction .response .send_message (view =embed ,ephemeral =True )
 
             except discord .Forbidden :
@@ -827,22 +847,32 @@ class CaptchaOnlyVerificationView (discord .ui .View ):
 
                 file =discord .File (captcha_image ,filename ="captcha.png")
 
-                modal =VerificationModal (self .bot ,captcha_code ,interaction .guild .id )
-                view =CaptchaModalView (modal )
+                # A dropdown of near-miss codes instead of a modal:
+                # typing six characters is the part people get wrong,
+                # and the modal gave no feedback until it was submitted.
+                choices =verify_store .captcha_options (
+                captcha_code ,settings .get ("captcha_choices",5 ),
+                )
+                view =CaptchaChoiceView (
+                self .bot ,captcha_code ,interaction .guild .id ,choices ,
+                )
 
                 card =CaptchaCard (
                 guild_name =interaction .guild .name ,
-                buttons =list (view .children ),
+                buttons =[],
+                select =view .children [0 ],
                 )
                 await interaction .user .send (view =card ,file =file )
 
 
-                embed =VCard("Check Your DMs", "I've sent you a CAPTCHA in your direct messages.\n\n"
-                f"**Steps:**\n"
-                f"1. Check your DMs from me\n"
-                f"2. Solve the CAPTCHA image\n"
-                f"3. Click the button to enter your answer\n\n"
-                f"Make sure your DMs are open!", tone='info')
+                embed =VCard("Schau in deine DMs",
+                "Ich habe dir das CAPTCHA privat geschickt.\n\n"
+                "**So geht's:**\n"
+                "1. Öffne meine Direktnachricht\n"
+                "2. Sieh dir das Bild an\n"
+                "3. Wähl den passenden Code aus der Liste\n\n"
+                "Falls nichts ankommt, sind deine DMs für diesen Server zu.",
+                tone='info')
                 await interaction .response .send_message (view =embed ,ephemeral =True )
 
             except discord .Forbidden :
@@ -933,6 +963,106 @@ class CaptchaOnlyVerificationView (discord .ui .View ):
         img_buffer .seek (0 )
 
         return img_buffer 
+
+class CaptchaChoiceSelect (discord .ui .Select ):
+    """
+    The answers to a CAPTCHA, as a dropdown.
+
+    Typing a six-character code is the part people get wrong, especially
+    on a phone -- and the modal offered no feedback until it was
+    submitted. The decoys are near-misses of the real code, so the
+    answer is not obvious from shape alone.
+    """
+
+    def __init__ (self ,bot ,code :str ,guild_id :int ,options :list ):
+        super ().__init__ (
+        placeholder ="Welcher Code steht im Bild?",
+        min_values =1 ,
+        max_values =1 ,
+        options =[
+        discord .SelectOption (label =value ,value =value )
+        for value in options [:25 ]
+        ],
+        )
+        self .bot =bot 
+        self .code =code 
+        self .guild_id =guild_id 
+
+    async def callback (self ,interaction :discord .Interaction ):
+        chosen =self .values [0 ]
+
+        if chosen !=self .code :
+            # The whole view is retired on a wrong answer: leaving it
+            # live would turn a one-in-five guess into unlimited tries.
+            for child in self .view .children :
+                child .disabled =True 
+            try :
+                await interaction .response .edit_message (view =self .view )
+            except discord .HTTPException :
+                pass 
+            await interaction .followup .send (
+            view =VCard (
+            "Falscher Code",
+            "Das war nicht der Code aus dem Bild.\n"
+            "Geh zurück in den Server und starte die Verifizierung neu.",
+            tone ='error',
+            ),
+            ephemeral =True ,
+            )
+            return 
+
+        guild =self .bot .get_guild (self .guild_id )
+        if guild is None :
+            await interaction .response .send_message (
+            view =VCard ("Fehler","Den Server finde ich nicht mehr.",tone ='error'),
+            )
+            return 
+
+        member =guild .get_member (interaction .user .id )
+        if member is None :
+            await interaction .response .send_message (
+            view =VCard ("Fehler","Du bist nicht mehr auf dem Server.",tone ='error'),
+            )
+            return 
+
+        async with aiosqlite .connect (DATABASE_PATH )as db :
+            settings =await verify_store .get_settings (db ,guild .id )
+
+        role_id =settings .get ("verified_role_id")
+        role =guild .get_role (int (role_id ))if role_id else None 
+        if role is None :
+            await interaction .response .send_message (
+            view =VCard ("Fehler","Die Rolle gibt es nicht mehr.",tone ='error'),
+            )
+            return 
+
+        if role in member .roles :
+            await interaction .response .send_message (
+            view =VCard ("Schon erledigt","Du bist bereits verifiziert.",tone ='success'),
+            )
+            return 
+
+        for child in self .view .children :
+            child .disabled =True 
+        try :
+            await interaction .response .edit_message (view =self .view )
+        except discord .HTTPException :
+            pass 
+
+        proxy =_MemberInteraction (interaction ,guild ,member )
+        card =await finish_verification (self .bot ,proxy ,role ,"captcha")
+        if card is None :
+            return 
+        await interaction .followup .send (view =card )
+
+
+class CaptchaChoiceView (discord .ui .View ):
+    """The dropdown on its own, sent with the CAPTCHA image."""
+
+    def __init__ (self ,bot ,code :str ,guild_id :int ,options :list ):
+        super ().__init__ (timeout =600 )
+        self .add_item (CaptchaChoiceSelect (bot ,code ,guild_id ,options ))
+
 
 class CaptchaModalView (discord .ui .View ):
     def __init__ (self ,modal :VerificationModal ):

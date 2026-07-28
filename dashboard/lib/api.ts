@@ -314,6 +314,8 @@ export const api = {
     }),
   verifyMemberManually: (g: string, userId: string) =>
     request<any>(`/verify/${g}/verify/${userId}`, { method: "POST", body: "{}" }),
+  unverifyMember: (g: string, userId: string) =>
+    request<any>(`/verify/${g}/verify/${userId}`, { method: "DELETE" }),
 
   getVerification: (guildId: string) => request<any>(`/guilds/${guildId}/verification`),
   updateVerification: (guildId: string, data: any) => 

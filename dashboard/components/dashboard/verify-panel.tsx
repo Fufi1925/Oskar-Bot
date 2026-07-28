@@ -13,10 +13,10 @@
  * the common case stays a short page.
  */
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   AlertTriangle, CheckCircle2, ChevronDown, Eye, Loader2, Lock, Mail,
-  MessageSquare, Plus, RefreshCw, Save, Send, Shield, ShieldCheck,
+  MessageSquare, RefreshCw, Save, Send, Shield, ShieldCheck, UserMinus, X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
@@ -89,29 +89,106 @@ function Warnings({ items }: { items?: string[] }) {
   );
 }
 
-function SaveBar({ count, onDiscard, onSave, busy }: any) {
+/**
+ * One save bar for the whole tab, pinned to the bottom.
+ *
+ * Every card used to carry its own, so a change made at the top was
+ * saved by a button four screens down -- and it was easy to leave the
+ * page with the change still sitting there.
+ */
+function StickySaveBar({ count, onDiscard, onSave, busy, shake }: any) {
   if (!count) return null;
   return (
-    <div className="flex items-center gap-3 flex-wrap pt-2 border-t border-slate-800">
-      <p className="text-sm text-slate-300 flex-1 min-w-[120px]">
-        {count} Änderung{count === 1 ? "" : "en"} offen.
-      </p>
-      <button
-        onClick={onDiscard}
-        className="px-4 py-2.5 rounded-xl bg-white/[0.03] border border-white/10 text-xs font-black uppercase tracking-widest text-slate-400 hover:text-white transition-all"
+    <div className="sticky bottom-4 z-40 pt-2">
+      <div
+        className={cn(
+          "rounded-2xl px-5 py-4 flex items-center justify-between gap-4 shadow-2xl border transition-colors",
+          shake
+            ? "bg-red-500/15 border-red-500/60 animate-[verify-shake_0.4s_ease-in-out]"
+            : "bg-[#10233f] border-amber-500/40"
+        )}
       >
-        Verwerfen
-      </button>
-      <button
-        onClick={onSave}
-        disabled={busy}
-        className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-xs font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:brightness-110 disabled:opacity-40 transition-all"
-      >
-        {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-        Speichern
-      </button>
+        <p className={cn("text-sm min-w-0", shake ? "text-red-200" : "text-slate-300")}>
+          {shake ? (
+            <>
+              <span className="font-black">Erst speichern oder verwerfen</span>
+              {" — sonst geht deine Änderung verloren."}
+            </>
+          ) : (
+            <>
+              <span className="font-black text-white">{count}</span>
+              {` Änderung${count === 1 ? "" : "en"} noch nicht gespeichert.`}
+            </>
+          )}
+        </p>
+        <div className="flex gap-2 shrink-0">
+          <button
+            onClick={onDiscard}
+            disabled={busy}
+            className="px-4 py-2.5 rounded-xl bg-white/[0.03] border border-white/10 text-xs font-black uppercase tracking-widest text-slate-300 hover:text-white disabled:opacity-40 transition-all"
+          >
+            Verwerfen
+          </button>
+          <button
+            onClick={onSave}
+            disabled={busy}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-xs font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:brightness-110 disabled:opacity-40 transition-all"
+          >
+            {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+            Speichern
+          </button>
+        </div>
+      </div>
     </div>
   );
+}
+
+/**
+ * Stop a navigation while there are unsaved changes.
+ *
+ * Next.js routes on the client, so `beforeunload` alone only covers a
+ * reload or a closed tab -- clicking another tab in the sidebar would
+ * still throw the draft away silently. Catching the click in the
+ * capture phase is what makes that reachable.
+ */
+function useUnsavedGuard(active: boolean, onBlocked: () => void) {
+  const blocked = useRef(onBlocked);
+  blocked.current = onBlocked;
+
+  useEffect(() => {
+    if (!active) return;
+
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+
+    const onClick = (e: MouseEvent) => {
+      const link = (e.target as HTMLElement)?.closest?.("a");
+      if (!link) return;
+
+      const href = link.getAttribute("href");
+      // Anchors, new tabs and external links are none of our business.
+      if (!href || href.startsWith("#") || link.target === "_blank") return;
+      if (/^https?:\/\//.test(href) && !href.startsWith(window.location.origin)) {
+        return;
+      }
+      if (href === window.location.pathname) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+      blocked.current();
+    };
+
+    window.addEventListener("beforeunload", onBeforeUnload);
+    // Capture phase: Next's Link handles the click itself, so a
+    // bubbling listener would run after the route already changed.
+    document.addEventListener("click", onClick, true);
+    return () => {
+      window.removeEventListener("beforeunload", onBeforeUnload);
+      document.removeEventListener("click", onClick, true);
+    };
+  }, [active]);
 }
 
 function usePanel(load: () => Promise<any>) {
@@ -215,6 +292,34 @@ function TextField({ label, hint, value, onChange, rows = 3, role, server, max }
   );
 }
 
+function Detail({ label, value, mono }: any) {
+  return (
+    <div className="min-w-0">
+      <p className="text-[10px] uppercase tracking-widest text-slate-600">
+        {label}
+      </p>
+      <p
+        className={cn(
+          "text-[12px] text-slate-200 truncate",
+          mono && "font-mono"
+        )}
+      >
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function formatWhen(value: string) {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString("de-DE", {
+    day: "2-digit", month: "2-digit", year: "numeric",
+    hour: "2-digit", minute: "2-digit",
+  });
+}
+
 function Loading() {
   return (
     <div className="flex items-center justify-center min-h-[240px]">
@@ -245,6 +350,20 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
   const load = useCallback(() => api.getVerify(guildId), [guildId]);
   const p = usePanel(load);
   const [advanced, setAdvanced] = useState(false);
+  const [openMember, setOpenMember] = useState<string | null>(null);
+  const [shake, setShake] = useState(false);
+
+  // Flash the bar red instead of a browser dialog: the dialog cannot be
+  // styled, and half the time the browser suppresses it anyway.
+  const refuse = useCallback(() => {
+    setShake(true);
+    document
+      .getElementById("verify-save-bar")
+      ?.scrollIntoView({ behavior: "smooth", block: "center" });
+    window.setTimeout(() => setShake(false), 1200);
+  }, []);
+
+  useUnsavedGuard(p.dirty > 0, refuse);
 
   if (p.loading) return <Loading />;
 
@@ -336,12 +455,6 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
           </div>
         </Field>
 
-        <SaveBar
-          count={p.dirty}
-          busy={p.busy}
-          onDiscard={() => p.setDraft({})}
-          onSave={save}
-        />
       </Card>
 
       {/* ── Texts ──────────────────────────────────────────────── */}
@@ -427,12 +540,6 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
           onChange={(v: string) => p.set("success_text", v)}
         />
 
-        <SaveBar
-          count={p.dirty}
-          busy={p.busy}
-          onDiscard={() => p.setDraft({})}
-          onSave={save}
-        />
       </Card>
 
       {/* ── Direct messages ────────────────────────────────────── */}
@@ -462,6 +569,36 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
         )}
 
         {(method === "captcha" || method === "both") && (
+          <Field
+            label="Antwortmöglichkeiten beim CAPTCHA"
+            hint="Statt den Code abzutippen, wählt die Person aus einer Liste. Weniger Auswahl heißt: leichter zu raten."
+          >
+            <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
+              {[2, 3, 4, 5, 6, 7, 8].map((n) => (
+                <button
+                  key={n}
+                  onClick={() => p.set("captcha_choices", n)}
+                  className={cn(
+                    "rounded-xl border py-2.5 text-sm font-bold transition-all",
+                    (p.value("captcha_choices") ?? 5) === n
+                      ? "bg-primary/10 border-primary/40 text-white"
+                      : "bg-[#0d1b31] border-slate-800 text-slate-400 hover:border-slate-700"
+                  )}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
+            <p className="text-[11px] text-slate-600">
+              Bei {p.value("captcha_choices") ?? 5} Möglichkeiten liegt eine
+              blinde Vermutung bei{" "}
+              {Math.round(100 / (p.value("captcha_choices") ?? 5))}%. Ein
+              falscher Versuch beendet den Vorgang.
+            </p>
+          </Field>
+        )}
+
+        {(method === "captcha" || method === "both") && (
           <div className="rounded-xl bg-white/[0.02] border border-white/5 p-3.5">
             <p className="text-[11px] text-slate-500 leading-relaxed">
               <b className="text-slate-400">Zum CAPTCHA:</b> Das Bild geht
@@ -473,12 +610,6 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
           </div>
         )}
 
-        <SaveBar
-          count={p.dirty}
-          busy={p.busy}
-          onDiscard={() => p.setDraft({})}
-          onSave={save}
-        />
       </Card>
 
       {/* ── Panel actions ──────────────────────────────────────── */}
@@ -607,13 +738,6 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
               />
             )}
 
-            <SaveBar
-              count={p.dirty}
-              busy={p.busy}
-              onDiscard={() => p.setDraft({})}
-              onSave={save}
-            />
-
             <button
               onClick={() =>
                 p.act(
@@ -638,23 +762,108 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
           subtitle="Die letzten zehn Freischaltungen."
         >
           <div className="space-y-2">
-            {p.data.recent.map((entry: any, i: number) => (
-              <div
-                key={i}
-                className="flex items-center gap-3 rounded-xl bg-[#0d1b31] border border-slate-800 px-4 py-2.5"
-              >
-                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
-                <span className="text-[12px] text-slate-300 font-mono truncate flex-1">
-                  {entry.user_id}
-                </span>
-                <span className="text-[11px] text-slate-500 shrink-0">
-                  {entry.method}
-                </span>
-              </div>
-            ))}
+            {p.data.recent.map((entry: any, i: number) => {
+              const m = entry.member || {};
+              const key = `${entry.user_id}-${i}`;
+              const open = openMember === key;
+              const label = m.display_name || m.name || "Nicht mehr im Server";
+
+              return (
+                <div
+                  key={key}
+                  className={cn(
+                    "rounded-xl border transition-colors",
+                    open
+                      ? "bg-[#0a1628] border-primary/40"
+                      : "bg-[#0d1b31] border-slate-800"
+                  )}
+                >
+                  <button
+                    onClick={() => setOpenMember(open ? null : key)}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-left"
+                  >
+                    {m.avatar ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={m.avatar}
+                        alt=""
+                        className="h-7 w-7 rounded-full shrink-0"
+                      />
+                    ) : (
+                      <div className="h-7 w-7 rounded-full bg-slate-800 grid place-items-center shrink-0">
+                        <Shield className="h-3.5 w-3.5 text-slate-600" />
+                      </div>
+                    )}
+
+                    <span
+                      className={cn(
+                        "text-[13px] truncate flex-1 min-w-0",
+                        m.left ? "text-slate-500 italic" : "text-white"
+                      )}
+                    >
+                      {label}
+                    </span>
+
+                    <span className="text-[11px] text-slate-500 shrink-0 hidden sm:block">
+                      {entry.method}
+                    </span>
+                    <ChevronDown
+                      className={cn(
+                        "h-3.5 w-3.5 text-slate-600 shrink-0 transition-transform",
+                        open && "rotate-180"
+                      )}
+                    />
+                  </button>
+
+                  {open && (
+                    <div className="px-4 pb-4 pt-1 space-y-3 border-t border-slate-800/70">
+                      <div className="grid sm:grid-cols-2 gap-x-4 gap-y-2 pt-3">
+                        <Detail label="Discord-Name" value={m.name || "unbekannt"} />
+                        <Detail label="Anzeigename" value={m.display_name || "—"} />
+                        {/* Shown as text, not a number: JavaScript rounds
+                            a 19-digit id and the last digits change. */}
+                        <Detail label="ID" value={entry.user_id} mono />
+                        <Detail label="Methode" value={entry.method} />
+                        <Detail label="Wann" value={formatWhen(entry.at)} />
+                        <Detail
+                          label="Status"
+                          value={m.left ? "Server verlassen" : "Auf dem Server"}
+                        />
+                      </div>
+
+                      {!m.left && (
+                        <button
+                          onClick={() =>
+                            p.act(
+                              () => api.unverifyMember(guildId, entry.user_id),
+                              `${label} die Verifiziert-Rolle wieder abnehmen?`
+                            )
+                          }
+                          disabled={p.busy}
+                          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-red-500/[0.06] border border-red-500/20 text-[11px] font-black uppercase tracking-widest text-red-300 hover:bg-red-500/10 disabled:opacity-40 transition-all"
+                        >
+                          <UserMinus className="h-3.5 w-3.5" />
+                          Rolle wieder abnehmen
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </Card>
       )}
+
+      <div id="verify-save-bar">
+        <StickySaveBar
+          count={p.dirty}
+          busy={p.busy}
+          shake={shake}
+          onDiscard={() => p.setDraft({})}
+          onSave={save}
+        />
+      </div>
     </section>
   );
 }
