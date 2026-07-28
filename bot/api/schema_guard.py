@@ -198,11 +198,18 @@ SCHEMA: dict[str, tuple[str, ...]] = {
             frnd TEXT,
             reqrole INTEGER
         )""",
+        # A named command per role: ">gamer @user" toggles it. This
+        # declared (guild_id, user_id) at one point, which matches
+        # nothing in the codebase -- the cog and the API both address
+        # rows by name. Because schema_guard runs first and
+        # CREATE TABLE IF NOT EXISTS is a no-op against an existing
+        # table, every fresh deploy got the wrong shape and each
+        # prefixed message raised "no such column: name".
         """CREATE TABLE IF NOT EXISTS custom_roles (
-            guild_id INTEGER,
-            user_id INTEGER,
-            role_id INTEGER,
-            PRIMARY KEY (guild_id, user_id)
+            guild_id INTEGER NOT NULL,
+            name TEXT NOT NULL,
+            role_id INTEGER NOT NULL,
+            PRIMARY KEY (guild_id, name)
         )""",
     ),
     "db/logging.db": (

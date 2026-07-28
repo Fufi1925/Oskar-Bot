@@ -278,7 +278,39 @@ def customrole_check_name(name: str) -> str | None:
     return None
 
 
+async def _customrole_repair(db: aiosqlite.Connection) -> bool:
+    """
+    Rebuild custom_roles when it has the wrong columns.
+
+    schema_guard used to declare this table as (guild_id, user_id,
+    role_id) -- a shape nothing in the codebase reads. It runs before
+    everything else, and CREATE TABLE IF NOT EXISTS does not alter an
+    existing table, so on any deployment that started from an empty
+    database the wrong table won and every prefixed message raised
+    "no such column: name".
+
+    Returns True if the table was rebuilt.
+    """
+    async with db.execute("PRAGMA table_info(custom_roles)") as cursor:
+        columns = [row[1] for row in await cursor.fetchall()]
+
+    if not columns or "name" in columns:
+        return False
+
+    # Rows keyed by user_id cannot be translated into named commands --
+    # there is no name to recover. The table is dropped rather than
+    # migrated, which is honest: it never held usable data.
+    await db.execute("DROP TABLE custom_roles")
+    await db.commit()
+    print(
+        "[voice_store] custom_roles had the wrong columns "
+        f"({', '.join(columns)}); rebuilt with (guild_id, name, role_id)."
+    )
+    return True
+
+
 async def customrole_ensure(db: aiosqlite.Connection) -> None:
+    await _customrole_repair(db)
     await db.execute(
         """
         CREATE TABLE IF NOT EXISTS roles (

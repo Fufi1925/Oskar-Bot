@@ -13,7 +13,10 @@ class _anonchat(commands.Cog):
     """Anonymous chat commands"""
 
     def help_custom(self):
-        emoji = "🎭 "
+        # No trailing space: Discord validates the emoji field of a
+        # select option strictly and rejects "🎭 " as an invalid
+        # emoji, which fails the whole >help menu with a 400.
+        emoji = "🎭"
         label = "Anonymer Chat"
         description = "Nachrichten ohne Namen in einem Kanal"
         return emoji, label, description

@@ -283,6 +283,82 @@ def test_voicerole_rules(store):
                                   CHANNEL_VOICE, False, True) is False)
 
 
+async def test_schema_conflict(store):
+    """
+    schema_guard and the store disagreed about custom_roles.
+
+    The guard declared (guild_id, user_id, role_id) -- a shape nothing
+    reads -- and it runs first. CREATE TABLE IF NOT EXISTS does not
+    alter an existing table, so on any deployment starting from an empty
+    database the wrong table won and every prefixed message raised
+    "sqlite3.OperationalError: no such column: name". It went unnoticed
+    locally because the development database already had the right
+    table.
+    """
+    print("\nWrong table shape (seen in production)")
+
+    import sqlite3
+
+    path = store.CUSTOMROLE_DB
+    if os.path.exists(path):
+        os.remove(path)
+
+    conn = sqlite3.connect(path)
+    conn.execute(
+        "CREATE TABLE custom_roles (guild_id INTEGER, user_id INTEGER,"
+        " role_id INTEGER, PRIMARY KEY (guild_id, user_id))"
+    )
+    conn.commit()
+    conn.close()
+
+    db = await aiosqlite.connect(path)
+    db.row_factory = aiosqlite.Row
+    try:
+        # This is the call that crashed on every message with a prefix.
+        result = await store.customrole_lookup(db, GUILD, "gamer")
+        check("a lookup against the wrong table does not crash",
+              result is None, str(result))
+
+        columns = [
+            row[1] for row in
+            await (await db.execute("PRAGMA table_info(custom_roles)")).fetchall()
+        ]
+        check("the table is rebuilt with the right columns",
+              "name" in columns, str(columns))
+        check("and the dead column is gone", "user_id" not in columns, str(columns))
+
+        await store.customrole_add(db, GUILD, "gamer", ROLE_OK)
+        check("commands can be created afterwards",
+              await store.customrole_lookup(db, GUILD, "gamer") == ROLE_OK)
+
+        # Repairing must not run again and wipe what was just created.
+        await store.customrole_ensure(db)
+        check("a correct table is left alone",
+              await store.customrole_lookup(db, GUILD, "gamer") == ROLE_OK)
+    finally:
+        await db.close()
+        if os.path.exists(path):
+            os.remove(path)
+
+
+def test_schema_guard_matches_store():
+    """The guard must declare the same shape the store expects."""
+    print("\nschema_guard agrees with the store")
+
+    guard = open(os.path.join(HERE, "..", "api", "schema_guard.py")).read()
+    block = guard[guard.index("db/customrole.db"):]
+    block = block[:block.index("db/logging.db")]
+
+    check("custom_roles is keyed by name in schema_guard",
+          "name TEXT NOT NULL" in block and "PRIMARY KEY (guild_id, name)" in block,
+          block[-300:])
+    # Only the SQL matters -- the surrounding comment mentions the old
+    # column on purpose, to explain what went wrong.
+    sql = block[block.index("CREATE TABLE IF NOT EXISTS custom_roles"):]
+    sql = sql[:sql.index('"""')]
+    check("and no longer by user_id", "user_id" not in sql, sql)
+
+
 async def test_customrole_store(store):
     print("\nCustom role storage")
 
@@ -859,6 +935,8 @@ async def run():
 
     await test_voicerole_store(store)
     test_voicerole_rules(store)
+    await test_schema_conflict(store)
+    test_schema_guard_matches_store()
     await test_customrole_store(store)
     await test_j2c_store(store)
     await test_voicerole_cog(store)

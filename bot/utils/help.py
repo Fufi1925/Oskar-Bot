@@ -18,6 +18,41 @@ from utils.cv2 import build_container
 from utils.emoji import REWIND, PREVIOUS, NEXT, FORWARD, DELETE, HOME
 from discord.ui import LayoutView, TextDisplay, Separator, ActionRow
 
+import re as _re
+
+# Discord accepts either a plain unicode emoji or <:name:id> / <a:name:id>
+# in a select option, and validates it strictly.
+_CUSTOM_EMOJI = _re.compile(r"^<a?:[A-Za-z0-9_]{2,32}:\d{15,25}>$")
+
+
+def safe_emoji(value):
+    """
+    An emoji Discord will accept, or None.
+
+    One bad entry used to take the whole help menu down with a 400
+    "Invalid emoji" -- every category became unreachable because a
+    single cog had a trailing space in its emoji. Dropping just that
+    icon is always better than losing the menu.
+    """
+    if value is None:
+        return None
+
+    # A discord.Emoji/PartialEmoji is already valid; only strings are
+    # hand-written and therefore suspect.
+    if not isinstance(value, str):
+        return value
+
+    text = value.strip()
+    if not text:
+        return None
+    if _CUSTOM_EMOJI.match(text):
+        return text
+    # A unicode emoji is one or two codepoints plus optional modifiers;
+    # anything longer is a broken custom-emoji string.
+    if "<" not in text and ":" not in text and len(text) <= 8:
+        return text
+    return None
+
 
 class Dropdown(discord.ui.Select):
 
@@ -164,7 +199,8 @@ class View(LayoutView):
         total_pages = 0
         used_labels = set()
 
-        options.append(discord.SelectOption(label="Home", emoji=HOME, description=""))
+        options.append(discord.SelectOption(
+            label="Home", emoji=safe_emoji(HOME), description=""))
 
         # Convert homeembed (CV2Embed) to page data
         if hasattr(homeembed, '_title'):
@@ -197,7 +233,8 @@ class View(LayoutView):
                     label = f"{original_label} {counter}"
                     counter += 1
                 used_labels.add(label)
-                options.append(discord.SelectOption(label=label, emoji=emoji, description=description))
+                options.append(discord.SelectOption(
+                    label=label, emoji=safe_emoji(emoji), description=description))
 
                 fields = []
                 for command in cog.get_commands():
