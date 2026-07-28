@@ -134,7 +134,7 @@ export function BackupsPanel({
 
   return (
     <section className="space-y-6">
-      <div className="glass border border-white/5 rounded-[2rem] p-8">
+      <div className="glass border border-white/5 rounded-[2rem] p-5 sm:p-8">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="flex items-center gap-4">
             <div className="h-12 w-12 rounded-2xl bg-primary/15 border border-primary/25 flex items-center justify-center">
@@ -179,7 +179,7 @@ export function BackupsPanel({
       </div>
 
       {/* This is the important part — people lose data to this. */}
-      <div className="bg-amber-500/10 border border-amber-500/30 rounded-3xl p-6 flex gap-4">
+      <div className="bg-amber-500/10 border border-amber-500/30 rounded-3xl p-4 sm:p-6 flex gap-4">
         <AlertTriangle className="h-6 w-6 text-amber-400 shrink-0" />
         <div>
           <h4 className="font-black text-white">Railway wipes these on redeploy</h4>
@@ -233,7 +233,7 @@ export function BackupsPanel({
       </div>
 
       {live && (
-        <div className="bg-[#10233f] border border-primary/25 rounded-3xl p-6 flex items-center justify-between gap-4 flex-wrap">
+        <div className="bg-[#10233f] border border-primary/25 rounded-3xl p-4 sm:p-6 flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-4">
             <HardDrive className="h-5 w-5 text-primary" />
             <div>

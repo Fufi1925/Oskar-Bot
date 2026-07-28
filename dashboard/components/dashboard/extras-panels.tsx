@@ -44,7 +44,7 @@ function Field({ label, hint, children }: any) {
 
 function Card({ icon: Icon, title, subtitle, children, onReload }: any) {
   return (
-    <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-6 space-y-5">
+    <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
       <div className="flex items-start justify-between gap-4">
         <div className="flex gap-3 min-w-0">
           <div className="h-10 w-10 rounded-2xl bg-primary/15 grid place-items-center shrink-0">
@@ -708,7 +708,7 @@ export function CountingPanel({ guildId }: { guildId: string }) {
         subtitle="Alle zählen gemeinsam hoch — eine Zahl nach der anderen."
         onReload={p.reload}
       >
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           <div className="bg-[#0d1b31] border border-slate-800 rounded-2xl px-4 py-3">
             <p className="text-2xl font-black text-white tabular-nums">
               {p.data?.current ?? 0}

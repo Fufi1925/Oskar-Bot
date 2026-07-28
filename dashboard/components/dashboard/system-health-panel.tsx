@@ -42,7 +42,7 @@ function Card({ title, icon: Icon, children, tone = "neutral" }: {
 }) {
   return (
     <div className={cn(
-      "bg-[#10233f] border rounded-3xl p-6",
+      "bg-[#10233f] border rounded-3xl p-4 sm:p-6",
       tone === "good" && "border-emerald-500/25",
       tone === "warn" && "border-amber-500/30",
       tone === "neutral" && "border-slate-800",

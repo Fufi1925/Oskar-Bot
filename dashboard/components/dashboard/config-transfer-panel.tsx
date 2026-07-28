@@ -107,7 +107,7 @@ export function ConfigTransferPanel({ guildId, guildName }: { guildId: string; g
 
   return (
     <section className="space-y-6">
-      <div className="glass border border-white/5 rounded-[2rem] p-8">
+      <div className="glass border border-white/5 rounded-[2rem] p-5 sm:p-8">
         <div className="flex items-center gap-4">
           <div className="h-12 w-12 rounded-2xl bg-primary/15 border border-primary/25 flex items-center justify-center">
             <FileJson className="h-6 w-6 text-primary" />

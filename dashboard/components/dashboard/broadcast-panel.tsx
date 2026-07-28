@@ -262,7 +262,7 @@ export function BroadcastPanel({ guilds }: { guilds?: any[] }) {
       )}
 
       {/* ── Compose ──────────────────────────────────── */}
-      <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-6 space-y-5">
+      <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-2xl bg-primary/15 grid place-items-center shrink-0">

@@ -383,7 +383,7 @@ export function GiveawayDetail({
 
       {/* ══ Entrants ══════════════════════════════════ */}
       {tab === "entries" && (
-        <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-6 space-y-5">
+        <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
           <div className="flex items-center gap-3 flex-wrap">
             <div className="relative flex-1 min-w-[200px]">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-600" />
@@ -470,7 +470,7 @@ export function GiveawayDetail({
       {/* ══ Texts ═════════════════════════════════════ */}
       {tab === "texts" && (
         <div className="space-y-5">
-          <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-6 space-y-5">
+          <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
             <p className="text-xs font-black uppercase tracking-widest text-slate-500">
               Die Nachricht im Kanal
             </p>
@@ -517,7 +517,7 @@ export function GiveawayDetail({
             />
           </div>
 
-          <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-6 space-y-6">
+          <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-6">
             <div>
               <p className="text-xs font-black uppercase tracking-widest text-slate-500">
                 Antworten an die Teilnehmer
@@ -582,7 +582,7 @@ export function GiveawayDetail({
 
       {/* ══ Requirements ══════════════════════════════ */}
       {tab === "rules" && (
-        <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-6 space-y-6">
+        <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-6">
           <div>
             <p className="text-xs font-black uppercase tracking-widest text-slate-500">
               Wer darf teilnehmen

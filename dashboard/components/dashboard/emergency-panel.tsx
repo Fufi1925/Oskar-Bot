@@ -153,7 +153,7 @@ export function EmergencyPanel({ guildId }: { guildId: string }) {
       </div>
 
       {state.locked_roles.length > 0 && (
-        <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-6">
+        <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6">
           <p className="text-xs font-black uppercase tracking-widest text-slate-500 mb-3">
             Affected roles
           </p>

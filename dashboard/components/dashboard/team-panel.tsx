@@ -137,7 +137,7 @@ export function TeamPanel() {
   return (
     <section className="space-y-6">
       {/* Header */}
-      <div className="glass border border-white/5 rounded-[2rem] p-8">
+      <div className="glass border border-white/5 rounded-[2rem] p-5 sm:p-8">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="flex items-center gap-4">
             <div className="h-12 w-12 rounded-2xl bg-primary/15 border border-primary/25 flex items-center justify-center">
@@ -282,7 +282,7 @@ export function TeamPanel() {
             {members.map((member) => (
               <div
                 key={member.user_id}
-                className="bg-[#10233f] border border-slate-800 rounded-3xl p-6"
+                className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6"
               >
                 <div className="flex items-start justify-between gap-4 flex-wrap">
                   <div className="flex items-center gap-4">
@@ -393,7 +393,7 @@ export function TeamPanel() {
             {visibleRoles.map((role) => (
               <div
                 key={role.key}
-                className="bg-[#10233f] border border-slate-800 rounded-3xl p-6 hover:border-white/10 transition-all"
+                className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 hover:border-white/10 transition-all"
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">

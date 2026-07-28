@@ -191,7 +191,7 @@ function TabLink({
     <Link href={`/dashboard/guild/${guildId}/${tab.slug}`} className="shrink-0">
       <div
         className={cn(
-          "flex items-center gap-2 px-4 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-wider transition-colors whitespace-nowrap border",
+          "flex items-center gap-2 px-4 py-3 sm:py-2.5 rounded-xl text-[11px] font-black uppercase tracking-wider transition-colors whitespace-nowrap border",
           active
             ? "bg-primary text-white border-white/10 shadow-lg shadow-primary/25"
             : "text-slate-400 bg-slate-900/40 border-slate-800/40 hover:bg-slate-800/60 hover:text-white hover:border-slate-700/50"
@@ -266,7 +266,7 @@ export function GuildTabs({ guildId }: { guildId: string }) {
         <Link href={overviewHref} className="shrink-0">
           <div
             className={cn(
-              "flex items-center gap-2 px-5 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-wider transition-colors border",
+              "flex items-center gap-2 px-5 py-3 sm:py-2.5 rounded-xl text-[11px] font-black uppercase tracking-wider transition-colors border",
               current === ""
                 ? "bg-primary text-white border-white/10 shadow-lg shadow-primary/25"
                 : "text-slate-400 bg-slate-900/40 border-slate-800/40 hover:bg-slate-800/60 hover:text-white"
@@ -277,7 +277,7 @@ export function GuildTabs({ guildId }: { guildId: string }) {
           </div>
         </Link>
 
-        <label className="relative flex-1 min-w-[200px]">
+        <label className="relative w-full sm:flex-1 sm:w-auto sm:min-w-[200px]">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500" />
           <input
             value={query}
@@ -335,7 +335,7 @@ export function GuildTabs({ guildId }: { guildId: string }) {
               >
                 <button
                   onClick={() => setOpenGroup(open ? null : group.name)}
-                  className="w-full flex items-center gap-3 px-5 py-3"
+                  className="w-full flex items-center gap-3 px-4 sm:px-5 py-3.5 sm:py-3"
                 >
                   <group.icon
                     className={cn(

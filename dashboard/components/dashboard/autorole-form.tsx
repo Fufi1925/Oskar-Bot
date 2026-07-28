@@ -50,7 +50,7 @@ function dangersOf(role: any): string[] {
 
 function Card({ icon: Icon, title, subtitle, children }: any) {
   return (
-    <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-6 space-y-5">
+    <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
       <div className="flex gap-3 min-w-0">
         <div className="h-10 w-10 rounded-2xl bg-primary/15 grid place-items-center shrink-0">
           <Icon className="h-5 w-5 text-primary" />

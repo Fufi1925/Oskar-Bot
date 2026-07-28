@@ -118,7 +118,7 @@ export function OwnerAccessPanel({ currentUserId }: { currentUserId?: string }) 
 
   return (
     <section className="space-y-6">
-      <div className="glass border border-white/5 rounded-[2rem] p-8">
+      <div className="glass border border-white/5 rounded-[2rem] p-5 sm:p-8">
         <div className="flex items-center gap-4">
           <div className="h-12 w-12 rounded-2xl bg-amber-400/15 border border-amber-400/25 flex items-center justify-center">
             <Crown className="h-6 w-6 text-amber-400" />
@@ -213,7 +213,7 @@ export function OwnerAccessPanel({ currentUserId }: { currentUserId?: string }) 
           <div
             key={entry.user_id}
             className={cn(
-              "bg-[#10233f] border rounded-3xl p-6 flex items-center justify-between gap-4 flex-wrap",
+              "bg-[#10233f] border rounded-3xl p-4 sm:p-6 flex items-center justify-between gap-4 flex-wrap",
               entry.kind === "owner" ? "border-amber-400/25" : "border-slate-800"
             )}
           >

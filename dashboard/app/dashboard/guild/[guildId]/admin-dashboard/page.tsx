@@ -43,7 +43,7 @@ const SEVERITY = {
 
 function Card({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={cn("bg-[#10233f] border border-slate-800 rounded-3xl p-6", className)}>
+    <div className={cn("bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6", className)}>
       {children}
     </div>
   );

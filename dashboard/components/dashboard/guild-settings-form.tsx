@@ -254,7 +254,7 @@ export function GuildSettingsForm({
   return (
     <div className="space-y-6">
       {/* Header with prefix and save */}
-      <div className="glass border border-white/5 rounded-[2rem] p-8">
+      <div className="glass border border-white/5 rounded-[2rem] p-5 sm:p-8">
         <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-6">
           <div className="flex-1">
             <h2 className="text-xl font-black text-white">Server settings</h2>

@@ -128,7 +128,7 @@ export function AutoresponderPanel({ guildId }: { guildId: string }) {
           {items.map((item) => (
             <div
               key={item.trigger}
-              className="bg-[#10233f] border border-slate-800 rounded-3xl p-6 flex items-start justify-between gap-4"
+              className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 flex items-start justify-between gap-4"
             >
               <div className="flex items-start gap-4 min-w-0">
                 <MessageSquare className="h-5 w-5 text-primary shrink-0 mt-1" />

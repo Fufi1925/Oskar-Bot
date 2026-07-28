@@ -59,10 +59,15 @@ export function StickySaveBar({
 }: StickySaveBarProps) {
   if (!count) return null;
   return (
-    <div id={id} className="sticky bottom-4 z-40 pt-2">
+    <div
+      id={id}
+      className="sticky bottom-3 sm:bottom-4 z-40 pt-2"
+      // Keeps the bar clear of the home indicator on phones that have one.
+      style={{ marginBottom: "env(safe-area-inset-bottom)" }}
+    >
       <div
         className={cn(
-          "rounded-2xl px-5 py-4 flex items-center justify-between gap-4 shadow-2xl border transition-colors",
+          "rounded-2xl px-4 sm:px-5 py-3.5 sm:py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 shadow-2xl border transition-colors",
           shake
             ? "bg-red-500/15 border-red-500/60 animate-[verify-shake_0.4s_ease-in-out]"
             : blocked
@@ -85,18 +90,18 @@ export function StickySaveBar({
             </>
           )}
         </p>
-        <div className="flex gap-2 shrink-0">
+        <div className="flex gap-2 shrink-0 w-full sm:w-auto">
           <button
             onClick={onDiscard}
             disabled={busy}
-            className="px-4 py-2.5 rounded-xl bg-white/[0.03] border border-white/10 text-xs font-black uppercase tracking-widest text-slate-300 hover:text-white disabled:opacity-40 transition-all"
+            className="flex-1 sm:flex-none px-4 py-3 sm:py-2.5 rounded-xl bg-white/[0.03] border border-white/10 text-xs font-black uppercase tracking-widest text-slate-300 hover:text-white disabled:opacity-40 transition-all"
           >
             Verwerfen
           </button>
           <button
             onClick={onSave}
             disabled={busy || !!blocked}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-xs font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:brightness-110 disabled:opacity-40 transition-all"
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-3 sm:py-2.5 rounded-xl bg-primary text-xs font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:brightness-110 disabled:opacity-40 transition-all"
           >
             {busy ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />

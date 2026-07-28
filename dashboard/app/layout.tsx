@@ -14,7 +14,7 @@
  * ╚══════════════════════════════════════════════════════════════════╝
  */
 
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 import { Toaster } from "@/components/ui/sonner";
@@ -26,6 +26,21 @@ const brandName = process.env.NEXT_PUBLIC_BRAND_NAME || "University Bot";
 export const metadata: Metadata = {
   title: `${brandName} - Ultimate Discord Bot`,
   description: "Advanced Discord community management and security.",
+};
+
+/**
+ * Without this a phone renders the page at roughly 980px and then zooms
+ * out to fit, which is why everything was tiny and every tap landed
+ * next to the thing it was aimed at. Next only emits the tag when a
+ * viewport export exists.
+ *
+ * maximumScale is deliberately not set: capping zoom locks out anybody
+ * who needs to enlarge text.
+ */
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: "#0b1f3a",
 };
 
 export default function RootLayout({

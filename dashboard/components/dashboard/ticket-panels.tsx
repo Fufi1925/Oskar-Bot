@@ -296,7 +296,7 @@ export function TicketPanels({ guildId }: { guildId: string }) {
       )}
 
       {/* ── Intro ───────────────────────────────────────── */}
-      <div className="bg-[#10233f] border border-primary/20 rounded-3xl p-6">
+      <div className="bg-[#10233f] border border-primary/20 rounded-3xl p-4 sm:p-6">
         <div className="flex items-start gap-4">
           <div className="p-2.5 rounded-xl bg-primary/10 text-primary shrink-0">
             <Ticket className="h-5 w-5" />
@@ -618,7 +618,7 @@ export function TicketPanels({ guildId }: { guildId: string }) {
       </div>
 
       {/* ── Server-wide ─────────────────────────────────── */}
-      <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-6 space-y-5">
+      <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
         <div>
           <h3 className="font-bold text-white">Für alle Panels</h3>
           <p className="text-[11px] text-slate-500 mt-0.5">

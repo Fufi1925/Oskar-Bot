@@ -34,7 +34,7 @@ function Card({ icon: Icon, title, subtitle, children, tone }: any) {
   return (
     <div
       className={cn(
-        "border rounded-3xl p-6 space-y-5",
+        "border rounded-3xl p-4 sm:p-6 space-y-5",
         tone === "danger"
           ? "bg-red-500/[0.04] border-red-500/25"
           : "bg-[#10233f] border-slate-800"

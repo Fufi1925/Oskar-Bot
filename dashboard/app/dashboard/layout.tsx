@@ -442,7 +442,7 @@ export default function DashboardLayout({
       {/* Main Content Area (unchanged) */}
       <div className="lg:pl-72 flex flex-col min-h-screen relative z-10">
         {/* Top Navbar (unchanged) */}
-        <header className="h-20 sticky top-4 z-30 mx-4 lg:mx-10 flex items-center justify-between border border-white/10 glass bg-white/[0.01] backdrop-blur-3xl px-8 rounded-[2rem] shadow-xl shadow-black/20 mb-6 mt-4">
+        <header className="h-16 lg:h-20 sticky top-2 lg:top-4 z-30 mx-3 lg:mx-10 flex items-center justify-between gap-2 border border-white/10 glass bg-white/[0.01] backdrop-blur-3xl px-3 lg:px-8 rounded-[1.5rem] lg:rounded-[2rem] shadow-xl shadow-black/20 mb-4 lg:mb-6 mt-3 lg:mt-4">
           <button
             className="p-2 lg:hidden text-slate-400 hover:bg-white/5 rounded-xl transition-colors"
             onClick={() => setIsSidebarOpen(true)}
@@ -452,7 +452,7 @@ export default function DashboardLayout({
 
           <GlobalSearch />
 
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-2 lg:gap-6">
             <div className="relative" ref={bellRef}>
               <button 
                 onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
@@ -589,7 +589,7 @@ export default function DashboardLayout({
         </header>
 
         {/* Content Area */}
-        <main className="flex-1 p-6 lg:p-10 animate-in fade-in duration-700 relative z-10">
+        <main className="flex-1 p-3 sm:p-6 lg:p-10 animate-in fade-in duration-700 relative z-10">
           <div className="max-w-[1600px] mx-auto">
             {maintenance && (
               <div className="mb-6 flex items-center gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-5 py-4">

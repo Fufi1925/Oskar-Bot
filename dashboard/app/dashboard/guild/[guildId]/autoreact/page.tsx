@@ -177,7 +177,7 @@ export default function AutoReactPage({ params }: { params: { guildId: string } 
 
         {/* Sidebar */}
         <div className="space-y-6">
-          <div className="bg-gradient-to-br from-yellow-500/10 to-transparent border border-yellow-500/20 rounded-3xl p-6 relative overflow-hidden group">
+          <div className="bg-gradient-to-br from-yellow-500/10 to-transparent border border-yellow-500/20 rounded-3xl p-4 sm:p-6 relative overflow-hidden group">
             <div className="absolute -right-4 -top-4 opacity-[0.03] group-hover:scale-110 transition-transform">
               <Zap className="h-32 w-32 text-yellow-500" />
             </div>

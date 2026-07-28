@@ -137,7 +137,7 @@ export function NukeAlertPanel({ guildId }: { guildId: string }) {
     <section className="space-y-6">
       {/* ── The thing that actually matters ──────────── */}
       {missing.length > 0 ? (
-        <div className="bg-red-500/[0.07] border border-red-500/30 rounded-3xl p-6 space-y-3">
+        <div className="bg-red-500/[0.07] border border-red-500/30 rounded-3xl p-4 sm:p-6 space-y-3">
           <div className="flex gap-3">
             <ShieldAlert className="h-5 w-5 text-red-400 shrink-0 mt-0.5" />
             <div className="min-w-0">
@@ -167,7 +167,7 @@ export function NukeAlertPanel({ guildId }: { guildId: string }) {
       )}
 
       {/* ── Settings ─────────────────────────────────── */}
-      <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-6 space-y-5">
+      <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
         <div className="flex items-center gap-3">
           <div className="h-10 w-10 rounded-2xl bg-primary/15 grid place-items-center shrink-0">
             <Bell className="h-5 w-5 text-primary" />
@@ -241,7 +241,7 @@ export function NukeAlertPanel({ guildId }: { guildId: string }) {
 
       {/* ── Partner bot ──────────────────────────────── */}
       {data?.partner_configured && (
-        <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-6 space-y-4">
+        <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-4">
           <div className="flex gap-3">
             <div className="h-10 w-10 rounded-2xl bg-primary/15 grid place-items-center shrink-0">
               <UserPlus className="h-5 w-5 text-primary" />

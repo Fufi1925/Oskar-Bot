@@ -68,7 +68,7 @@ export function CommandStatsPanel() {
 
   return (
     <section className="space-y-6">
-      <div className="glass border border-white/5 rounded-[2rem] p-8">
+      <div className="glass border border-white/5 rounded-[2rem] p-5 sm:p-8">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="flex items-center gap-4">
             <div className="h-12 w-12 rounded-2xl bg-primary/15 border border-primary/25 flex items-center justify-center">
@@ -120,7 +120,7 @@ export function CommandStatsPanel() {
       ) : (
         <>
           {data.daily.length > 1 && (
-            <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-6">
+            <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6">
               <p className="text-xs font-black uppercase tracking-widest text-slate-500 mb-4">
                 Per day
               </p>
@@ -176,7 +176,7 @@ export function CommandStatsPanel() {
           </div>
 
           {data.guilds.length > 1 && (
-            <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-6">
+            <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6">
               <p className="text-xs font-black uppercase tracking-widest text-slate-500 mb-4">
                 Busiest servers
               </p>
@@ -196,7 +196,7 @@ export function CommandStatsPanel() {
       )}
 
       {data.unused.length > 0 && (
-        <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-6">
+        <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6">
           <button
             onClick={() => setShowUnused(!showUnused)}
             className="flex items-center gap-3 w-full text-left"

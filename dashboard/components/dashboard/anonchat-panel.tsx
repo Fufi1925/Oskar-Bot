@@ -109,7 +109,7 @@ export function AnonChatPanel({ guildId }: { guildId: string }) {
   return (
     <section className="space-y-6">
       {/* ── What this is ─────────────────────────────── */}
-      <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-6 space-y-4">
+      <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-4">
         <div className="flex gap-3">
           <div className="h-10 w-10 rounded-2xl bg-primary/15 grid place-items-center shrink-0">
             <Lock className="h-5 w-5 text-primary" />
@@ -135,7 +135,7 @@ export function AnonChatPanel({ guildId }: { guildId: string }) {
         </div>
 
         {channels.length > 0 && (
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             <Stat label="Nachrichten" value={data.stats?.messages ?? 0} />
             <Stat label="Letzte 24 Std" value={data.stats?.last_24h ?? 0} />
             <Stat label="Verschiedene Leute" value={data.stats?.people ?? 0} />
@@ -169,7 +169,7 @@ export function AnonChatPanel({ guildId }: { guildId: string }) {
       {/* ══ Channels ═════════════════════════════════ */}
       {tab === "channels" && (
         <div className="space-y-5">
-          <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-6 space-y-5">
+          <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
             <div className="flex items-center justify-between gap-4">
               <p className="text-xs font-black uppercase tracking-widest text-slate-500">
                 Kanal anonym machen
@@ -242,7 +242,7 @@ export function AnonChatPanel({ guildId }: { guildId: string }) {
 
       {/* ══ Blocked ══════════════════════════════════ */}
       {tab === "blocked" && (
-        <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-6 space-y-5">
+        <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
           <div>
             <p className="text-xs font-black uppercase tracking-widest text-slate-500">
               Vom anonymen Chat ausgeschlossen
@@ -663,7 +663,7 @@ function LogTab({ guildId, busy, act }: any) {
   }, [entries, query]);
 
   return (
-    <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-6 space-y-5">
+    <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
       <div className="rounded-xl bg-amber-500/[0.06] border border-amber-500/20 p-3.5 flex gap-2.5">
         <Info className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
         <p className="text-[12px] text-amber-200/80 leading-relaxed">

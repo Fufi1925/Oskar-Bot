@@ -159,8 +159,8 @@ export function GuildHeader({
   const state = health(checked ? latency : null);
 
   return (
-    <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-8 shadow-xl shadow-black/20">
-      <div className="flex flex-col lg:flex-row lg:items-center gap-8">
+    <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 lg:p-8 shadow-xl shadow-black/20">
+      <div className="flex flex-col lg:flex-row lg:items-center gap-5 lg:gap-8">
         <div className="relative shrink-0">
           {guild.icon ? (
             <Image
@@ -168,10 +168,10 @@ export function GuildHeader({
               alt={guild.name}
               width={120}
               height={120}
-              className="rounded-3xl border-4 border-slate-800 shadow-2xl"
+              className="h-20 w-20 lg:h-[120px] lg:w-[120px] rounded-2xl lg:rounded-3xl border-4 border-slate-800 shadow-2xl object-cover"
             />
           ) : (
-            <div className="h-[120px] w-[120px] bg-primary rounded-3xl flex items-center justify-center text-4xl font-bold text-white shadow-2xl border-4 border-slate-800">
+            <div className="h-20 w-20 lg:h-[120px] lg:w-[120px] bg-primary rounded-2xl lg:rounded-3xl flex items-center justify-center text-2xl lg:text-4xl font-bold text-white shadow-2xl border-4 border-slate-800">
               {guild.name.charAt(0)}
             </div>
           )}
@@ -197,7 +197,7 @@ export function GuildHeader({
         <div className="flex-1 min-w-0 space-y-4">
           <div>
             <div className="flex items-center gap-3 flex-wrap">
-              <h1 className="text-4xl font-black text-white tracking-tight break-words">
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black text-white tracking-tight break-words">
                 {guild.name}
               </h1>
               <button

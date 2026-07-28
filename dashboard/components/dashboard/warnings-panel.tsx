@@ -164,7 +164,7 @@ export function WarningsPanel({ guildId }: { guildId: string }) {
 
           <div className="space-y-3">
             {users.map((user) => (
-              <div key={user.user_id} className="bg-[#10233f] border border-slate-800 rounded-3xl p-6">
+              <div key={user.user_id} className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6">
                 <div className="flex items-center justify-between gap-4 flex-wrap">
                   <div className="min-w-0">
                     <p className="font-black text-white truncate">

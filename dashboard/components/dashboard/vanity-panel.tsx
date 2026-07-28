@@ -192,7 +192,7 @@ export function VanityPanel({ guildId }: { guildId: string }) {
       )}
 
       {/* ── What this does ───────────────────────────── */}
-      <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-6 space-y-4">
+      <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-4">
         <div className="flex gap-3">
           <div className="h-10 w-10 rounded-2xl bg-primary/15 grid place-items-center shrink-0">
             <Link2 className="h-5 w-5 text-primary" />
@@ -219,7 +219,7 @@ export function VanityPanel({ guildId }: { guildId: string }) {
         )}
 
         {setups.length > 0 && (
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             <Stat label="Auslöser" value={data.stats?.setups ?? 0} />
             <Stat label="Haben die Rolle" value={data.stats?.holders ?? 0} />
             <Stat label="Insgesamt vergeben" value={data.stats?.granted_total ?? 0} />
@@ -228,7 +228,7 @@ export function VanityPanel({ guildId }: { guildId: string }) {
       </div>
 
       {/* ── Add ──────────────────────────────────────── */}
-      <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-6 space-y-5">
+      <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
         <div className="flex items-center justify-between gap-4">
           <p className="text-xs font-black uppercase tracking-widest text-slate-500">
             Neuer Auslöser
