@@ -23,6 +23,7 @@ import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { Select } from "@/components/ui/select";
+import { StickySaveBar, useSaveGuard } from "@/components/dashboard/save-bar";
 
 interface DashboardUser {
   user_id: string;
@@ -110,13 +111,43 @@ export function DashboardUsersPanel({ currentUserId }: { currentUserId?: string 
   const [expanded, setExpanded] = useState<string | null>(null);
 
   // Ban dialog
+  // Two ways to ban, and they used to share one set of fields.
+  //
+  // Typing a reason into the "Ban by user ID" form and then clicking
+  // Ban on somebody in the list wiped what you had typed, because
+  // opening the dialog reset banReason and banDuration. The revoke
+  // checkbox was not reset at all, so it silently carried over in the
+  // other direction: unticking it up top left the next dialog unticked
+  // without showing why.
   const [banTarget, setBanTarget] = useState<DashboardUser | null>(null);
   const [banReason, setBanReason] = useState("");
   const [banDuration, setBanDuration] = useState("0");
   const [banRevokeRoles, setBanRevokeRoles] = useState(true);
 
+  // The by-ID form keeps its own copy of all three.
+  const [manualReason, setManualReason] = useState("");
+  const [manualDuration, setManualDuration] = useState("0");
+  const [manualRevokeRoles, setManualRevokeRoles] = useState(true);
+
   // Manual ban by ID, for someone who never signed in
   const [manualId, setManualId] = useState("");
+
+  // A typed-out ban reason is an unsaved edit like any other: leaving
+  // the tab used to drop it silently. Only the id counts as "started" --
+  // a reason with no target is nothing to protect.
+  const manualDirty = manualId.trim() ? 1 : 0;
+  const manualGuard = useSaveGuard(manualDirty, "banbyid-save-bar");
+
+  /**
+   * Close the ban dialog, but not over a typed-out reason.
+   *
+   * A modal has nowhere to put a sticky bar and no page left to scroll
+   * one into view, so this is the one place a confirm() is right.
+   */
+  const closeBanDialog = () => {
+    if (banReason.trim() && !confirm("Den eingetippten Grund verwerfen?")) return;
+    setBanTarget(null);
+  };
 
   const load = async (silent = false) => {
     if (!silent) setLoading(true);
@@ -148,25 +179,39 @@ export function DashboardUsersPanel({ currentUserId }: { currentUserId?: string 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showDiscordAdmins]);
 
-  const submitBan = async () => {
-    const targetId = banTarget?.user_id || manualId.trim();
-    if (!/^\d{15,20}$/.test(targetId)) {
+  /**
+   * Ban somebody. The caller says who and with what -- nothing is read
+   * back out of the other form's state.
+   *
+   * The by-ID button used to run `setBanTarget(null); submitBan();`.
+   * That does not do what it looks like: a state setter does not take
+   * effect until the next render, so submitBan() still saw the old
+   * banTarget and would have banned the person from the dialog rather
+   * than the id that was typed in.
+   */
+  const submitBan = async (
+    targetId: string,
+    reason: string,
+    duration: string,
+    revokeRoles: boolean,
+    onDone: () => void,
+  ) => {
+    const clean = targetId.trim();
+    if (!/^\d{15,20}$/.test(clean)) {
       return toast.error("Please enter a valid Discord user ID.");
     }
-    if (targetId === currentUserId) return toast.error("You cannot ban yourself.");
+    if (clean === currentUserId) return toast.error("You cannot ban yourself.");
 
     setBusy(true);
     try {
       await api.banDashboardUser({
-        user_id: targetId,
-        reason: banReason.trim(),
-        duration_seconds: Number(banDuration) || 0,
-        revoke_roles: banRevokeRoles,
+        user_id: clean,
+        reason: reason.trim(),
+        duration_seconds: Number(duration) || 0,
+        revoke_roles: revokeRoles,
       });
       toast.success("User banned from the dashboard.");
-      setBanTarget(null);
-      setBanReason("");
-      setManualId("");
+      onDone();
       await load(true);
     } catch (err: any) {
       toast.error(err?.message || "The ban failed.");
@@ -267,25 +312,31 @@ export function DashboardUsersPanel({ currentUserId }: { currentUserId?: string 
             className="bg-white/[0.03] border border-white/5 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
           />
           <input
-            value={banReason}
-            onChange={(e) => setBanReason(e.target.value)}
+            value={manualReason}
+            onChange={(e) => setManualReason(e.target.value)}
             placeholder="Reason (optional)"
             className="lg:col-span-2 bg-white/[0.03] border border-white/5 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
           />
-          <Select value={banDuration} onValueChange={setBanDuration} options={DURATIONS} />
+          <Select value={manualDuration} onValueChange={setManualDuration} options={DURATIONS} />
         </div>
         <div className="flex flex-wrap items-center gap-4">
           <label className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
             <input
               type="checkbox"
-              checked={banRevokeRoles}
-              onChange={(e) => setBanRevokeRoles(e.target.checked)}
+              checked={manualRevokeRoles}
+              onChange={(e) => setManualRevokeRoles(e.target.checked)}
               className="h-4 w-4 rounded accent-primary"
             />
             Also remove all their dashboard roles
           </label>
           <button
-            onClick={() => { setBanTarget(null); submitBan(); }}
+            onClick={() =>
+              submitBan(manualId, manualReason, manualDuration, manualRevokeRoles, () => {
+                setManualId("");
+                setManualReason("");
+                setManualDuration("0");
+              })
+            }
             disabled={busy || !manualId.trim()}
             className="px-6 py-3 bg-rose-500/90 hover:bg-rose-500 rounded-2xl font-black uppercase tracking-widest text-xs disabled:opacity-40"
           >
@@ -424,7 +475,12 @@ export function DashboardUsersPanel({ currentUserId }: { currentUserId?: string 
                     </button>
                   ) : (
                     <button
-                      onClick={() => { setBanTarget(user); setBanReason(""); setBanDuration("0"); }}
+                      onClick={() => {
+                        setBanTarget(user);
+                        setBanReason("");
+                        setBanDuration("0");
+                        setBanRevokeRoles(true);
+                      }}
                       disabled={busy || isSelf || user.is_owner}
                       title={
                         isSelf ? "You cannot ban yourself"
@@ -573,7 +629,7 @@ export function DashboardUsersPanel({ currentUserId }: { currentUserId?: string 
                   <p className="text-xs text-slate-500 font-mono">{banTarget.user_id}</p>
                 </div>
               </div>
-              <button onClick={() => setBanTarget(null)} className="text-slate-500 hover:text-white">
+              <button onClick={closeBanDialog} className="text-slate-500 hover:text-white">
                 <X className="h-5 w-5" />
               </button>
             </div>
@@ -623,13 +679,22 @@ export function DashboardUsersPanel({ currentUserId }: { currentUserId?: string 
 
             <div className="p-6 border-t border-white/5 flex gap-3">
               <button
-                onClick={() => setBanTarget(null)}
+                onClick={closeBanDialog}
                 className="flex-1 py-3 rounded-2xl bg-white/[0.03] border border-white/5 text-sm font-bold text-slate-300 hover:bg-white/[0.06]"
               >
                 Cancel
               </button>
               <button
-                onClick={submitBan}
+                onClick={() =>
+                  banTarget &&
+                  submitBan(
+                    banTarget.user_id,
+                    banReason,
+                    banDuration,
+                    banRevokeRoles,
+                    () => setBanTarget(null),
+                  )
+                }
                 disabled={busy}
                 className="flex-1 py-3 rounded-2xl bg-rose-500/90 hover:bg-rose-500 text-sm font-black uppercase tracking-widest disabled:opacity-40"
               >
@@ -639,6 +704,28 @@ export function DashboardUsersPanel({ currentUserId }: { currentUserId?: string 
           </div>
         </div>
       )}
+
+      {/* Not a save bar in the usual sense -- there is nothing to
+          "save" until the ban is sent -- but the same refusal, so a
+          half-filled ban form is not thrown away by a stray click. */}
+      <StickySaveBar
+        id="banbyid-save-bar"
+        count={manualDirty}
+        busy={busy}
+        shake={manualGuard.shake}
+        onDiscard={() => {
+          setManualId("");
+          setManualReason("");
+          setManualDuration("0");
+        }}
+        onSave={() =>
+          submitBan(manualId, manualReason, manualDuration, manualRevokeRoles, () => {
+            setManualId("");
+            setManualReason("");
+            setManualDuration("0");
+          })
+        }
+      />
     </div>
   );
 }

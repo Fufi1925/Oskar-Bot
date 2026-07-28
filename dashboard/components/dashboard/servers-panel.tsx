@@ -84,6 +84,37 @@ export function ServersPanel({ currentUserId }: { currentUserId?: string }) {
   const [roleMode, setRoleMode] = useState<"existing" | "new">("existing");
   const [newRoleName, setNewRoleName] = useState("");
   const [newRoleAdmin, setNewRoleAdmin] = useState(false);
+
+  /**
+   * Close the "leave server" dialog, but not over a typed-out reason.
+   *
+   * Cancel and the X threw away the reason and the goodbye message
+   * without a word -- and left them filled in, so opening the dialog
+   * for a different server showed the previous server's text as though
+   * it belonged there. Both are fixed here: ask, then clear.
+   *
+   * A modal has nowhere to put a sticky bar and no page left to scroll
+   * one into view, so a confirm() is the right tool in this one spot.
+   */
+  const closeLeaveDialog = () => {
+    const typed = leaveReason.trim() || leaveMessage.trim() || leaveConfirm.trim();
+    if (typed && !confirm("Die Eingaben für diesen Server verwerfen?")) return;
+    setLeaveTarget(null);
+    setLeaveConfirm("");
+    setLeaveReason("");
+    setLeaveMessage("");
+    setLeaveBlacklist(false);
+  };
+
+  /** Same for the role dialog. */
+  const closeRoleDialog = () => {
+    if (newRoleName.trim() && !confirm("Den eingetippten Rollennamen verwerfen?")) {
+      return;
+    }
+    setRoleTarget(null);
+    setNewRoleName("");
+    setNewRoleAdmin(false);
+  };
   const [memberRoles, setMemberRoles] = useState<any[] | null>(null);
   // Why roles cannot be handed out here, straight from the bot.
   const [roleAdvice, setRoleAdvice] = useState("");
@@ -525,7 +556,7 @@ export function ServersPanel({ currentUserId }: { currentUserId?: string }) {
                   <p className="text-xs text-slate-500 truncate max-w-[240px]">{leaveTarget.name}</p>
                 </div>
               </div>
-              <button onClick={() => setLeaveTarget(null)} className="text-slate-500 hover:text-white">
+              <button onClick={closeLeaveDialog} className="text-slate-500 hover:text-white">
                 <X className="h-5 w-5" />
               </button>
             </div>
@@ -585,7 +616,7 @@ export function ServersPanel({ currentUserId }: { currentUserId?: string }) {
 
             <div className="p-6 border-t border-white/5 flex gap-3">
               <button
-                onClick={() => setLeaveTarget(null)}
+                onClick={closeLeaveDialog}
                 className="flex-1 py-3 rounded-2xl bg-white/[0.03] border border-white/5 text-sm font-bold text-slate-300 hover:bg-white/[0.06]"
               >
                 Cancel
@@ -616,7 +647,7 @@ export function ServersPanel({ currentUserId }: { currentUserId?: string }) {
                   <p className="text-xs text-slate-500 truncate max-w-[240px]">{roleTarget.name}</p>
                 </div>
               </div>
-              <button onClick={() => setRoleTarget(null)} className="text-slate-500 hover:text-white">
+              <button onClick={closeRoleDialog} className="text-slate-500 hover:text-white">
                 <X className="h-5 w-5" />
               </button>
             </div>
@@ -776,7 +807,7 @@ export function ServersPanel({ currentUserId }: { currentUserId?: string }) {
 
             <div className="p-6 border-t border-white/5 flex gap-3">
               <button
-                onClick={() => setRoleTarget(null)}
+                onClick={closeRoleDialog}
                 className="flex-1 py-3 rounded-2xl bg-white/[0.03] border border-white/5 text-sm font-bold text-slate-300 hover:bg-white/[0.06]"
               >
                 Close

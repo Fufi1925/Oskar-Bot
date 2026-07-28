@@ -260,6 +260,87 @@ def test_buttons_that_leave():
           "openEditor({ ...editing" not in tickets)
 
 
+def test_dialogs_with_text_fields():
+    """
+    Every modal that holds a text field has to ask before closing.
+
+    A modal has nowhere to put a sticky bar and no page left to scroll
+    one into view, so these use a confirm() -- the one place it is the
+    right tool. Three were found by walking the panels; this check is
+    what stops the fourth from being written without one.
+
+    The list is explicit rather than derived: a heuristic over "has
+    fixed inset-0 and an <input>" also matched read-only detail views
+    and would have to be taught about each of them anyway.
+    """
+    print("\nDialogs")
+
+    cases = [
+        ("ticket-panels.tsx", "closeEditor", 2),
+        ("dashboard-users-panel.tsx", "closeBanDialog", 2),
+        ("servers-panel.tsx", "closeLeaveDialog", 2),
+        ("servers-panel.tsx", "closeRoleDialog", 2),
+    ]
+
+    for filename, handler, uses in cases:
+        src = read(os.path.join(DASH, "components/dashboard", filename))
+        check(f"{filename}: {handler} exists",
+              f"const {handler} = () => {{" in src)
+        check(f"{filename}: {handler} asks before dropping the text",
+              f"const {handler} = () => {{" in src
+              and "confirm(" in src.split(f"const {handler} = () => {{")[1][:400],
+              "closing without asking loses whatever was typed")
+        check(f"{filename}: cancel and the X both use {handler}",
+              src.count(f"onClick={{{handler}}}") == uses,
+              str(src.count(f"onClick={{{handler}}}")))
+
+    # A dialog that clears its fields on close is what stops the next
+    # one showing the previous target's text as though it were its own.
+    servers = read(os.path.join(DASH, "components/dashboard/servers-panel.tsx"))
+    for setter in ('setLeaveReason("")', 'setLeaveMessage("")', 'setNewRoleName("")'):
+        check(f"servers-panel.tsx: the dialog clears {setter} on close",
+              servers.count(setter) >= 2,
+              "cleared on save but not on cancel leaks into the next server")
+
+
+def test_shared_fields():
+    """
+    Two flows that write the same thing must not share one set of
+    fields.
+
+    Dashboard Users had one: the "ban by ID" form and the per-user ban
+    dialog both read banReason/banDuration/banRevokeRoles. Opening the
+    dialog reset two of them, wiping what had been typed into the form,
+    and the third was never reset, so it carried over invisibly in the
+    other direction.
+    """
+    print("\nShared fields")
+
+    src = read(os.path.join(DASH, "components/dashboard/dashboard-users-panel.tsx"))
+
+    for name in ("manualReason", "manualDuration", "manualRevokeRoles"):
+        check(f"the by-id form has its own {name}",
+              f"const [{name}, set" in src)
+
+    # submitBan must be told who to ban rather than reading it back out
+    # of state. `setBanTarget(null); submitBan()` did not do what it
+    # looks like: the setter only lands on the next render, so the call
+    # still saw the old target.
+    check("submitBan takes its target as an argument",
+          "const submitBan = async (" in src and "targetId: string," in src,
+          "reading banTarget back out of state races with setBanTarget")
+    # Comments are stripped first: the doc comment above submitBan
+    # quotes the old broken line to explain what it replaced, and
+    # matching that would fail the check on the very fix it describes.
+    code = re.sub(r"/\*.*?\*/", "", src, flags=re.S)
+    code = re.sub(r"^\s*//.*$", "", code, flags=re.M)
+    check("nothing clears the target and submits in the same handler",
+          "setBanTarget(null); submitBan()" not in code)
+    check("opening the dialog resets all three of its own fields",
+          "setBanRevokeRoles(true);" in src,
+          "an unticked box carried over into the next ban unseen")
+
+
 def test_no_tab_was_missed():
     """
     Every tab that keeps an edit in local state needs a bar somewhere.
@@ -315,6 +396,8 @@ def main():
     test_every_panel()
     test_admin_area()
     test_buttons_that_leave()
+    test_dialogs_with_text_fields()
+    test_shared_fields()
     test_no_tab_was_missed()
     test_old_bars_are_gone()
 
