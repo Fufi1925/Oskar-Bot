@@ -175,6 +175,11 @@ export interface DiscordRole {
   name: string;
   color: number;
   position: number;
+  /** 64-bit bitfield as a string — a JSON number would lose its low bits. */
+  permissions?: string;
+  managed?: boolean;
+  /** The bot's own highest role position, so hierarchy can be checked here. */
+  bot_top_position?: number;
 }
 
 export interface TicketUpdate {

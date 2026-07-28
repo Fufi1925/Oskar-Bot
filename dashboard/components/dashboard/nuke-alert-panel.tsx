@@ -24,6 +24,7 @@ import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { ChannelPicker } from "@/components/dashboard/pickers";
 import { InlineToggle } from "@/components/dashboard/form-elements";
+import { StickySaveBar, useSaveGuard } from "@/components/dashboard/save-bar";
 
 const OUTCOME = {
   stopped: { label: "Abgewehrt", tone: "text-emerald-400", icon: ShieldCheck },
@@ -80,7 +81,9 @@ export function NukeAlertPanel({ guildId }: { guildId: string }) {
 
   const value = (key: string) => (key in draft ? draft[key] : data?.[key]);
   const set = (key: string, v: any) => setDraft((d) => ({ ...d, [key]: v }));
-  const dirty = Object.keys(draft).length > 0;
+  const dirtyCount = Object.keys(draft).length;
+  // Refuses to leave the tab while something is unsaved.
+  const guard = useSaveGuard(dirtyCount, "nukealert-save-bar");
 
   const save = async () => {
     setBusy(true);
@@ -233,24 +236,6 @@ export function NukeAlertPanel({ guildId }: { guildId: string }) {
             <Send className="h-4 w-4" />
             Testmeldung senden
           </button>
-          {dirty && (
-            <>
-              <button
-                onClick={() => setDraft({})}
-                className="px-5 py-3 rounded-xl bg-white/[0.03] border border-white/10 text-xs font-black uppercase tracking-widest text-slate-400 hover:text-white transition-all"
-              >
-                Verwerfen
-              </button>
-              <button
-                onClick={save}
-                disabled={busy}
-                className="flex-1 min-w-[140px] flex items-center justify-center gap-2 py-3 rounded-xl bg-primary text-xs font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:brightness-110 disabled:opacity-40 transition-all"
-              >
-                {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
-                Speichern
-              </button>
-            </>
-          )}
         </div>
       </div>
 
@@ -387,6 +372,15 @@ export function NukeAlertPanel({ guildId }: { guildId: string }) {
           </div>
         )}
       </div>
+
+      <StickySaveBar
+        id="nukealert-save-bar"
+        count={dirtyCount}
+        busy={busy}
+        shake={guard.shake}
+        onDiscard={() => setDraft({})}
+        onSave={save}
+      />
     </section>
   );
 }

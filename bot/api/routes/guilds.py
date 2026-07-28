@@ -23,11 +23,12 @@ from api.schemas import (
 # api/routes/automod.py. The pair here stored whatever key the dashboard
 # sent -- and it sent "anti_spam" while the cogs read "Anti spam", so
 # nothing configured in the tab ever reached the bot.
-    TicketConfig, LoggingConfig, TicketEmbed,
+    TicketConfig, TicketEmbed,
     TicketCategory, PrefixUpdate,
-    LoggingUpdate, TicketUpdate,
+    TicketUpdate,
     DiscordChannel, DiscordRole, WelcomeConfig, WelcomeEmbedData, WelcomeUpdate,
-    AntiNukeConfig, AntiNukeUpdate,
+# NOTE: logging moved to api/routes/logging_cfg.py, anti-nuke to
+# api/routes/antinuke.py. Their schemas went with them.
 # NOTE: verification moved to api/routes/verify.py. The pair here knew
 # five columns and stored 0 for "not set" -- zero is not null, so the
 # read side handed "0" back to the dashboard as though it were a real
@@ -351,77 +352,11 @@ async def patch_guild_welcome(guild_id: int, data: WelcomeUpdate):
     return {"status": "success", "guild_id": guild_id}
 
 
-@router.get("/{guild_id}/antinuke", response_model=AntiNukeConfig, summary="Get AntiNuke config")
-async def get_guild_antinuke(guild_id: int):
-    import aiosqlite
-    
-    async with aiosqlite.connect("db/anti.db") as db:
-        async with db.execute("SELECT status FROM antinuke WHERE guild_id = ?", (guild_id,)) as cursor:
-            row = await cursor.fetchone()
-        
-        whitelisted = []
-        # Need to check if table exists first since it's created by the cog
-        cursor = await db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='whitelisted_users'")
-        if await cursor.fetchone():
-            async with db.execute("SELECT user_id FROM whitelisted_users WHERE guild_id = ?", (guild_id,)) as wl_cursor:
-                wl_rows = await wl_cursor.fetchall()
-                whitelisted = [str(r[0]) for r in wl_rows]
-            
-    return AntiNukeConfig(
-        guild_id=guild_id,
-        status=bool(row[0]) if row else False,
-        whitelisted_users=whitelisted
-    )
-
-@router.patch("/{guild_id}/antinuke", summary="Update AntiNuke config")
-async def patch_guild_antinuke(guild_id: int, data: AntiNukeUpdate):
-    import aiosqlite
-    
-    async with aiosqlite.connect("db/anti.db") as db:
-        if data.status is not None:
-            # Get existing or create
-            async with db.execute("SELECT status FROM antinuke WHERE guild_id = ?", (guild_id,)) as cursor:
-                row = await cursor.fetchone()
-                
-            if not row:
-                await db.execute(
-                    "INSERT INTO antinuke (guild_id, status) VALUES (?, ?)",
-                    (guild_id, data.status)
-                )
-            else:
-                await db.execute(
-                    "UPDATE antinuke SET status = ? WHERE guild_id = ?",
-                    (data.status, guild_id)
-                )
-        
-        if data.add_whitelist:
-            # Only add if table exists to avoid errors
-            cursor = await db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='whitelisted_users'")
-            if await cursor.fetchone():
-                try:
-                    user_id = int(data.add_whitelist)
-                    # Check if already whitelisted
-                    async with db.execute("SELECT * FROM whitelisted_users WHERE guild_id = ? AND user_id = ?", (guild_id, user_id)) as wl_cursor:
-                        if not await wl_cursor.fetchone():
-                            await db.execute("INSERT INTO whitelisted_users (guild_id, user_id, ban, kick, prune, botadd, serverup, memup, chcr, chdl, chup, rlcr, rlup, rldl, meneve, mngweb, mngstemo) VALUES (?, ?, True, True, True, True, True, True, True, True, True, True, True, True, True, True, True)", (guild_id, user_id))
-                except ValueError:
-                    pass
-                    
-        if data.remove_whitelist:
-            cursor = await db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='whitelisted_users'")
-            if await cursor.fetchone():
-                try:
-                    user_id = int(data.remove_whitelist)
-                    await db.execute("DELETE FROM whitelisted_users WHERE guild_id = ? AND user_id = ?", (guild_id, user_id))
-                except ValueError:
-                    pass
-            
-        await db.commit()
-        
-    return {"status": "success", "guild_id": guild_id}
-
-
-
+# NOTE: anti-nuke moved to api/routes/antinuke.py. The pair here could
+# only add a whitelist entry with every column True -- a full bypass of
+# all seventeen protections from a button labelled "Add" -- and it did
+# nothing at all when the table had not been created yet, while still
+# reporting success.
 
 
 # NOTE: vanity roles moved to api/routes/vanity.py. The three routes that
@@ -523,13 +458,23 @@ async def get_guild_tracking(guild_id: int):
     async with aiosqlite.connect("db/invite.db") as db:
         async with db.execute("SELECT channel_id FROM logging WHERE guild_id = ?", (guild_id,)) as cursor:
             row = await cursor.fetchone()
-    return TrackingConfig(guild_id=guild_id, channel_id=row[0] if row else None)
+    return TrackingConfig(
+        guild_id=guild_id,
+        channel_id=str(row[0]) if row and row[0] else None,
+    )
 
 @router.patch("/{guild_id}/tracking", summary="Update Tracking config")
 async def patch_guild_tracking(guild_id: int, data: TrackingUpdate):
     import aiosqlite
     async with aiosqlite.connect("db/invite.db") as db:
-        await db.execute("INSERT OR REPLACE INTO logging (guild_id, channel_id) VALUES (?, ?)", (guild_id, data.channel_id))
+        # The table stores an integer; the string only exists so the id
+        # survives the trip through the browser intact.
+        channel_id = int(data.channel_id) if data.channel_id else None
+        await db.execute(
+            "CREATE TABLE IF NOT EXISTS logging "
+            "(guild_id INTEGER PRIMARY KEY, channel_id INTEGER)"
+        )
+        await db.execute("INSERT OR REPLACE INTO logging (guild_id, channel_id) VALUES (?, ?)", (guild_id, channel_id))
         await db.commit()
     return {"status": "success"}
 
@@ -544,81 +489,11 @@ async def patch_guild_tracking(guild_id: int, data: TrackingUpdate):
 
 
 
-@router.get("/{guild_id}/logging", response_model=LoggingConfig, summary="Get Logging config", description="Retrieves the event logging configuration and designated log channels.")
-async def get_guild_logging(guild_id: int, bot: "universitybot" = Depends(get_bot)):
-    """
-    Retrieves the logging configuration for a specific guild.
-    """
-    cog = bot.get_cog("Logging")
-    config = None
-    
-    if cog and guild_id in cog.config_cache:
-        config = cog.config_cache[guild_id]
-    else:
-        # Try reading from file as fallback
-        import json
-        import os
-        config_file = "jsondb/logging_config.json"
-        if os.path.exists(config_file):
-            try:
-                with open(config_file, "r") as f:
-                    data = json.load(f)
-                    config = data.get(str(guild_id))
-            except:
-                pass
+# NOTE: logging moved to api/routes/logging_cfg.py. The pair here knew
+# six of the cog's nine categories, so emoji, reaction and server-update
+# logging could not be reached from the web at all -- and the ignore
+# lists were readable but not writable.
 
-    if not config:
-        return LoggingConfig(
-            guild_id=guild_id,
-            log_enabled={},
-            log_channels={},
-            ignore_channels=[],
-            ignore_roles=[],
-            ignore_users=[],
-            auto_delete_duration=None
-        )
-
-    return LoggingConfig(
-        guild_id=guild_id,
-        log_enabled=config.get("log_enabled", {}),
-        log_channels=config.get("log_channels", {}),
-        ignore_channels=config.get("ignore_channels", []),
-        ignore_roles=config.get("ignore_roles", []),
-        ignore_users=config.get("ignore_users", []),
-        auto_delete_duration=config.get("auto_delete_duration")
-    )
-
-@router.patch("/{guild_id}/logging", summary="Update Logging config", description="Updates which Discord events are logged and where they are posted.")
-async def patch_guild_logging(guild_id: int, data: LoggingUpdate, bot: "universitybot" = Depends(get_bot)):
-    """
-    Updates the logging configuration for a specific guild.
-    """
-    cog = bot.get_cog("Logging")
-    if not cog:
-        raise HTTPException(status_code=503, detail="Logging service is currently unavailable.")
-
-    # Get current config or defaults
-    current_config = cog.config_cache.get(guild_id, {})
-    
-    log_channels = current_config.get("log_channels", {})
-    if data.log_channels is not None:
-        log_channels.update(data.log_channels)
-        
-    log_enabled = current_config.get("log_enabled", {})
-    if data.log_enabled is not None:
-        log_enabled.update(data.log_enabled)
-
-    await cog._save_log_config(
-        guild_id,
-        log_channels,
-        log_enabled,
-        current_config.get("ignore_channels", []),
-        current_config.get("ignore_roles", []),
-        current_config.get("ignore_users", []),
-        current_config.get("auto_delete_duration")
-    )
-    
-    return {"status": "success", "guild_id": guild_id}
 
 # NOTE: the leaderboard moved to /leveling/{guild_id}/leaderboard. The
 # version here read `user_xp`, the table the admin commands never wrote
@@ -651,6 +526,9 @@ async def get_guild_roles(guild_id: int, bot: "universitybot" = Depends(get_bot)
     if not guild:
         raise HTTPException(status_code=404, detail="Guild not found")
         
+    me = guild.me
+    bot_top = me.top_role.position if me is not None and me.top_role else 0
+
     roles = []
     for role in guild.roles:
         # Avoid @everyone role if desired, but frontend might need filtering. Let's return all.
@@ -658,7 +536,12 @@ async def get_guild_roles(guild_id: int, bot: "universitybot" = Depends(get_bot)
             id=str(role.id),
             name=role.name,
             color=role.color.value,
-            position=role.position
+            position=role.position,
+            # A 64-bit bitfield as a JSON number would lose its low bits
+            # in the browser, so it travels as a string.
+            permissions=str(role.permissions.value),
+            managed=bool(role.managed),
+            bot_top_position=bot_top,
         ))
     # Sort roles by position descending
     roles.sort(key=lambda x: x.position, reverse=True)

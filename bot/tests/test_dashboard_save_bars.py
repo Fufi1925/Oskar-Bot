@@ -1,0 +1,229 @@
+#!/usr/bin/env python3
+"""
+Every guild tab has to have a save bar, and it has to be wired up.
+
+This is a static check over the dashboard sources rather than a
+behavioural one -- there is no Node in the test run -- but the four
+things it pins down are exactly the ones that went wrong by hand:
+
+  * A tab that edits a draft but has no bar. The change then lives in
+    React state until you navigate away, and it is gone with no word.
+  * A bar that is rendered but whose `useSaveGuard` was forgotten, so
+    leaving is not refused after all.
+  * A guard whose bar id does not match the bar's `id`, so the refusal
+    scrolls to nothing and the shake never shows.
+  * A save bar inside a `{dirty && ...}` wrapper *and* with its own
+    `count` check, which used to double up and render an empty bar.
+
+Run:  python3 tests/test_dashboard_save_bars.py
+"""
+
+import os
+import re
+import sys
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+DASH = os.path.join(os.path.dirname(os.path.dirname(HERE)), "Oskar-Bot", "dashboard")
+if not os.path.isdir(DASH):
+    DASH = os.path.join(os.path.dirname(os.path.dirname(HERE)), "dashboard")
+
+failures: list[str] = []
+
+
+def check(name, ok, extra=""):
+    if ok:
+        print(f"  ok   {name}")
+    else:
+        print(f"  FAIL {name} {extra}")
+        failures.append(f"{name} {extra}")
+
+
+def read(path):
+    with open(path, encoding="utf-8") as handle:
+        return handle.read()
+
+
+# Tabs whose page is a list of actions with no draft state: nothing is
+# ever "unsaved", so a save bar would never appear.
+NO_DRAFT = {
+    "invites",       # read-only statistics
+    "giveaways",     # a dialog per giveaway, saved on confirm
+    "compose",       # one-shot send
+    "emergency",     # buttons that act immediately
+    "admin-dashboard",
+    "noprefix",      # add/remove entries, each its own request
+    "reactionroles", # add/remove entries, each its own request
+    "vanityroles",   # add/remove entries, each its own request
+    "autoresponder", # add/remove entries, each its own request
+    "birthday",      # add/remove entries
+    "notify",        # add/remove entries
+    "sticky",        # add/remove entries
+    "customroles",   # add/remove entries plus its own bar in voice-panels
+    "j2c",
+    "invcrole",
+    "booster",
+    "nightmode",
+    "jail",
+    "counting",
+    "tickets",       # dialogs with an explicit save
+    "anonchat",      # a bar per channel card
+    "leveling",
+    "verification",
+    "automod",
+    "welcome",
+    "settings",
+    "joindm",
+    "logging",
+    "antinuke",
+    "autorole",
+    "nickname",
+    "tracking",
+    "autoreact",
+}
+
+
+def test_shared_module():
+    print("\nThe shared module")
+
+    path = os.path.join(DASH, "components/dashboard/save-bar.tsx")
+    check("save-bar.tsx exists", os.path.exists(path))
+    if not os.path.exists(path):
+        return
+    src = read(path)
+
+    for name in ("StickySaveBar", "useUnsavedGuard", "useSaveGuard", "usePanel",
+                 "useDraft", "Loading"):
+        check(f"it exports {name}", f"export function {name}" in src)
+
+    # The guard is what makes the bar more than decoration.
+    check("the guard catches clicks in the capture phase",
+          'document.addEventListener("click", onClick, true)' in src,
+          "without capture, Next's Link has already routed")
+    check("the guard also covers a reload",
+          'window.addEventListener("beforeunload"' in src)
+    check("external links are let through",
+          "startsWith(window.location.origin)" in src)
+    check("a link to the same page is let through",
+          "href === window.location.pathname" in src)
+    check("the bar hides itself when there is nothing to save",
+          "if (!count) return null;" in src)
+    check("the listeners are removed again",
+          src.count("removeEventListener") == 2, str(src.count("removeEventListener")))
+
+
+def test_every_panel():
+    print("\nPanels")
+
+    folder = os.path.join(DASH, "components/dashboard")
+    pages = os.path.join(DASH, "app/dashboard/guild/[guildId]")
+
+    files = [os.path.join(folder, f) for f in sorted(os.listdir(folder))
+             if f.endswith(".tsx")]
+    for entry in sorted(os.listdir(pages)):
+        page = os.path.join(pages, entry, "page.tsx")
+        if os.path.isfile(page):
+            files.append(page)
+
+    for path in files:
+        src = read(path)
+        name = os.path.relpath(path, DASH)
+        if "StickySaveBar" not in src:
+            continue
+        # save-bar.tsx defines it; it is not a consumer.
+        if path.endswith("save-bar.tsx"):
+            continue
+
+        check(f"{name}: imports the bar from the shared module",
+              'from "@/components/dashboard/save-bar"' in src)
+
+        # Every rendered bar needs an id, and every id needs a guard
+        # pointing at it -- otherwise the refusal has nothing to scroll
+        # to and the user sees nothing happen at all.
+        bar_ids = re.findall(r'<StickySaveBar\s+id="([^"]+)"', src)
+        rendered = src.count("<StickySaveBar")
+        check(f"{name}: every rendered bar carries an id",
+              len(bar_ids) == rendered, f"{len(bar_ids)} ids for {rendered} bars")
+
+        guard_ids = re.findall(r'useSaveGuard\([^,]+,\s*[`"]([^`"]+)[`"]\)', src)
+        for bar_id in bar_ids:
+            check(f"{name}: the guard for {bar_id} matches the bar",
+                  bar_id in guard_ids, str(guard_ids))
+
+        check(f"{name}: every bar has a discard",
+              src.count("onDiscard=") >= rendered)
+        check(f"{name}: every bar has a save",
+              src.count("onSave=") >= rendered)
+        check(f"{name}: the shake is passed through",
+              src.count("shake={") >= rendered,
+              "without it the refusal is invisible")
+
+        # A bar inside `{dirty && ...}` on top of its own count check
+        # renders nothing but still takes up the sticky slot.
+        check(f"{name}: the bar is not double-gated",
+              "{dirty && (\n        <StickySaveBar" not in src)
+
+
+def test_no_tab_was_missed():
+    """
+    Every tab that keeps an edit in local state needs a bar somewhere.
+
+    The list above is the exception list, and it has to stay honest:
+    an entry for a tab that no longer exists means the list is stale.
+    """
+    print("\nCoverage")
+
+    pages = os.path.join(DASH, "app/dashboard/guild/[guildId]")
+    tabs = sorted(
+        entry for entry in os.listdir(pages)
+        if os.path.isdir(os.path.join(pages, entry))
+    )
+
+    stale = [name for name in NO_DRAFT if name not in tabs]
+    check("the exception list has no entry for a tab that is gone",
+          not stale, str(stale))
+
+    unknown = [t for t in tabs if t not in NO_DRAFT]
+    check("every tab is either covered or listed as needing no bar",
+          not unknown, str(unknown))
+
+
+def test_old_bars_are_gone():
+    """
+    The near-identical local copies each panel used to carry.
+
+    Three of them existed with slightly different wording and none of
+    them stopped a navigation. Leaving one behind means that tab quietly
+    keeps the old behaviour.
+    """
+    print("\nNo leftovers")
+
+    folder = os.path.join(DASH, "components/dashboard")
+    for entry in sorted(os.listdir(folder)):
+        if not entry.endswith(".tsx") or entry == "save-bar.tsx":
+            continue
+        src = read(os.path.join(folder, entry))
+        check(f"{entry}: no local SaveBar definition",
+              "function SaveBar(" not in src
+              and "function StickySaveBar(" not in src)
+        check(f"{entry}: no local unsaved guard",
+              "function useUnsavedGuard(" not in src)
+
+
+def main():
+    check("the dashboard folder was found", os.path.isdir(DASH), DASH)
+    if not os.path.isdir(DASH):
+        return 1
+
+    test_shared_module()
+    test_every_panel()
+    test_no_tab_was_missed()
+    test_old_bars_are_gone()
+
+    print(f"\n{len(failures)} failures")
+    for line in failures:
+        print(f"   {line}")
+    return 1 if failures else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { StickySaveBar, useSaveGuard } from "@/components/dashboard/save-bar";
 
 type Rule = { role_id: string; prefix: string; suffix: string; enabled: boolean };
 
@@ -16,6 +17,9 @@ export default function NicknamePage({ params }: { params: { guildId: string } }
   const [saving, setSaving] = useState(false);
   const [roles, setRoles] = useState<any[]>([]);
   const [rules, setRules] = useState<Rule[]>([]);
+  // What the server last confirmed, so "unsaved" is answerable and
+  // "Verwerfen" has something to go back to.
+  const [saved, setSaved] = useState<Rule[]>([]);
   const [selectedRole, setSelectedRole] = useState("");
   const [prefix, setPrefix] = useState("");
   const [suffix, setSuffix] = useState("");
@@ -29,6 +33,7 @@ export default function NicknamePage({ params }: { params: { guildId: string } }
           api.getRoles(params.guildId),
         ]);
         setRules(cfg.rules || []);
+        setSaved(cfg.rules || []);
         setRoles(roleData || []);
       } catch (err: any) {
         toast.error(err.message || "Nickname-Regeln konnten nicht geladen werden.");
@@ -50,15 +55,22 @@ export default function NicknamePage({ params }: { params: { guildId: string } }
     setSelectedRole(""); setPrefix(""); setSuffix("");
   };
 
+  // Every edit above only touches local state, so without this the
+  // whole page could be left behind with nothing saved and no hint.
+  const dirty = JSON.stringify(rules) === JSON.stringify(saved) ? 0 : 1;
+  const guard = useSaveGuard(dirty, "nickname-save-bar");
+
   const save = async () => {
     setSaving(true);
-    const promise = api.updateNicknameRules(params.guildId, { rules });
-    toast.promise(promise, {
-      loading: "Nickname-Regeln werden gespeichert...",
-      success: "Nickname-Regeln wurden gespeichert.",
-      error: "Nickname-Regeln konnten nicht gespeichert werden.",
-    });
-    try { await promise; } finally { setSaving(false); }
+    try {
+      await api.updateNicknameRules(params.guildId, { rules });
+      setSaved(rules);
+      toast.success("Nickname-Regeln wurden gespeichert.");
+    } catch (err: any) {
+      toast.error(err?.message || "Nickname-Regeln konnten nicht gespeichert werden.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (loading) return <div className="min-h-[300px] flex items-center justify-center"><RefreshCcw className="h-8 w-8 animate-spin text-primary" /></div>;
@@ -96,10 +108,14 @@ export default function NicknamePage({ params }: { params: { guildId: string } }
         </div>
       </section>
 
-      <Button onClick={save} disabled={saving} className="w-full h-14 text-base font-bold gap-2">
-        {saving ? <RefreshCcw className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
-        Speichern
-      </Button>
+      <StickySaveBar
+        id="nickname-save-bar"
+        count={dirty}
+        busy={saving}
+        shake={guard.shake}
+        onDiscard={() => setRules(saved)}
+        onSave={save}
+      />
     </div>
   );
 }

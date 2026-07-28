@@ -1,47 +1,25 @@
-/**
- * ╔══════════════════════════════════════════════════════════════════╗
- * ║                                                                  ║
- * ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
- * ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
- * ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
- * ║                                                                  ║
- * ║           © 2026 University Bot Devs — All Rights Reserved               ║
- * ║                                                                  ║
- * ║   discord  ──  https://discord.gg/MG3rYnUZJV                      ║
- * ║   youtube  ──  https://youtube.com/@University BotDevs                   ║
- * ║   github   ──  https://github.com/University Bot                        ║
- * ║                                                                  ║
- * ╚══════════════════════════════════════════════════════════════════╝
- */
-
 import React from "react";
 import { ShieldAlert } from "lucide-react";
-import dynamic from "next/dynamic";
-import { api } from "@/lib/api";
+import { AntiNukePanel } from "@/components/dashboard/antinuke-panel";
 import { NukeAlertPanel } from "@/components/dashboard/nuke-alert-panel";
 
-const AntiNukeForm = dynamic(() => import("@/components/dashboard/antinuke-form").then(mod => mod.AntiNukeForm), {
-  loading: () => <div className="h-96 w-full animate-pulse bg-slate-800/20 rounded-3xl" />
-});
+export const dynamic = "force-dynamic";
 
-export default async function AntiNukePage({ params }: { params: { guildId: string } }) {
-  const config = await api.getAntiNuke(params.guildId);
-
-  if (!config) return null;
-
+export default function AntiNukePage({ params }: { params: { guildId: string } }) {
   return (
-    <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div>
-          <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-            <ShieldAlert className="h-6 w-6 text-blue-500" />
-            Anti-Nuke Protection
-          </h2>
-          <p className="text-slate-400 mt-1">Protect your server from malicious mass-deletion, mass-banning, and other destructive actions.</p>
-        </div>
+    <div className="max-w-4xl mx-auto space-y-6 pb-24">
+      <div>
+        <h2 className="text-2xl font-black text-white flex items-center gap-2 tracking-tight">
+          <ShieldAlert className="h-6 w-6 text-primary" />
+          Anti-Nuke
+        </h2>
+        <p className="text-slate-400 mt-1 text-sm">
+          Schutz davor, dass jemand mit Rechten den Server in Minuten
+          leerräumt — Kanäle löschen, alle bannen, Rollen zerschießen.
+        </p>
       </div>
 
-      <AntiNukeForm initialConfig={config} guildId={params.guildId} />
+      <AntiNukePanel guildId={params.guildId} />
 
       {/* Reporting: whether an attack was stopped, or only seen. */}
       <NukeAlertPanel guildId={params.guildId} />

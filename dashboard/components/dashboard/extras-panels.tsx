@@ -23,6 +23,9 @@ import { cn } from "@/lib/utils";
 import { ChannelPicker, RolePicker, MultiRolePicker } from "@/components/dashboard/pickers";
 import { UserPicker } from "@/components/dashboard/user-picker";
 import { InlineToggle } from "@/components/dashboard/form-elements";
+import {
+  Loading, StickySaveBar, usePanel, useSaveGuard,
+} from "@/components/dashboard/save-bar";
 
 const INPUT =
   "w-full bg-[#0d1b31] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-primary/50 transition-colors";
@@ -79,82 +82,6 @@ function Warn({ children }: any) {
   );
 }
 
-function SaveBar({ count, onDiscard, onSave, busy }: any) {
-  if (!count) return null;
-  return (
-    <div className="flex items-center gap-3 flex-wrap pt-2 border-t border-slate-800">
-      <p className="text-sm text-slate-300 flex-1 min-w-[120px]">
-        {count} Änderung{count === 1 ? "" : "en"} offen.
-      </p>
-      <button
-        onClick={onDiscard}
-        className="px-4 py-2.5 rounded-xl bg-white/[0.03] border border-white/10 text-xs font-black uppercase tracking-widest text-slate-400 hover:text-white transition-all"
-      >
-        Verwerfen
-      </button>
-      <button
-        onClick={onSave}
-        disabled={busy}
-        className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-xs font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:brightness-110 disabled:opacity-40 transition-all"
-      >
-        {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-        Speichern
-      </button>
-    </div>
-  );
-}
-
-/** Shared load/draft/save wiring. */
-function usePanel(load: () => Promise<any>) {
-  const [data, setData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState(false);
-  const [draft, setDraft] = useState<Record<string, any>>({});
-
-  const reload = useCallback(async () => {
-    try {
-      setData(await load());
-      setDraft({});
-    } catch (err: any) {
-      toast.error(err?.message || "Konnte nicht geladen werden.");
-    } finally {
-      setLoading(false);
-    }
-  }, [load]);
-
-  useEffect(() => { reload(); }, [reload]);
-
-  const act = async (fn: () => Promise<any>, confirmText?: string) => {
-    if (confirmText && !confirm(confirmText)) return;
-    setBusy(true);
-    try {
-      const res = await fn();
-      toast.success(res?.result || "Erledigt.");
-      await reload();
-      return res;
-    } catch (err: any) {
-      toast.error(err?.message || "Fehlgeschlagen.");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return {
-    data, loading, busy, draft, setDraft, reload, act,
-    value: (key: string) => (key in draft ? draft[key] : data?.[key]),
-    set: (key: string, v: any) => setDraft((d) => ({ ...d, [key]: v })),
-    dirty: Object.keys(draft).length,
-  };
-}
-
-function Loading() {
-  return (
-    <div className="flex items-center justify-center min-h-[240px]">
-      <Loader2 className="h-8 w-8 text-primary animate-spin opacity-40" />
-    </div>
-  );
-}
-
 /* ══════════════════════════════════════════════════════════════════ *
  * Booster
  * ══════════════════════════════════════════════════════════════════ */
@@ -162,6 +89,8 @@ function Loading() {
 export function BoosterPanel({ guildId }: { guildId: string }) {
   const load = useCallback(() => api.getBooster(guildId), [guildId]);
   const p = usePanel(load);
+  // Before the early return below -- a hook may not be conditional.
+  const guard = useSaveGuard(p.dirty, "booster-save-bar");
 
   const preview = useMemo(() => {
     let text = String(p.value("boost")?.message ?? "");
@@ -307,10 +236,12 @@ export function BoosterPanel({ guildId }: { guildId: string }) {
         />
       </Card>
 
-      <SaveBar
+      <StickySaveBar
+        id="booster-save-bar"
         count={p.dirty}
         busy={p.busy}
-        onDiscard={() => p.setDraft({})}
+        shake={guard.shake}
+        onDiscard={p.discard}
         onSave={() =>
           p.act(() =>
             api.updateBooster(guildId, {
@@ -446,6 +377,7 @@ export function StickyPanel({ guildId }: { guildId: string }) {
 export function NightmodePanel({ guildId }: { guildId: string }) {
   const load = useCallback(() => api.getNightmode(guildId), [guildId]);
   const p = usePanel(load);
+  const guard = useSaveGuard(p.dirty, "nightmode-save-bar");
 
   if (p.loading) return <Loading />;
 
@@ -576,13 +508,16 @@ export function NightmodePanel({ guildId }: { guildId: string }) {
           </button>
         </div>
 
-        <SaveBar
-          count={p.dirty}
-          busy={p.busy}
-          onDiscard={() => p.setDraft({})}
-          onSave={() => p.act(() => api.updateNightmode(guildId, p.draft))}
-        />
       </Card>
+
+      <StickySaveBar
+        id="nightmode-save-bar"
+        count={p.dirty}
+        busy={p.busy}
+        shake={guard.shake}
+        onDiscard={p.discard}
+        onSave={() => p.act(() => api.updateNightmode(guildId, p.draft))}
+      />
     </section>
   );
 }
@@ -594,6 +529,7 @@ export function NightmodePanel({ guildId }: { guildId: string }) {
 export function JailPanel({ guildId }: { guildId: string }) {
   const load = useCallback(() => api.getJail(guildId), [guildId]);
   const p = usePanel(load);
+  const guard = useSaveGuard(p.dirty, "jail-save-bar");
 
   if (p.loading) return <Loading />;
 
@@ -666,21 +602,6 @@ export function JailPanel({ guildId }: { guildId: string }) {
           </Field>
         </div>
 
-        <SaveBar
-          count={p.dirty}
-          busy={p.busy}
-          onDiscard={() => p.setDraft({})}
-          onSave={() =>
-            p.act(() =>
-              api.updateJail(guildId, {
-                jail_role: p.draft.jail_role,
-                jail_channel: p.draft.jail_channel,
-                mod_role: p.draft.mod_role,
-                log_channel: p.draft.log_channel,
-              })
-            )
-          }
-        />
       </Card>
 
       <div>
@@ -725,6 +646,24 @@ export function JailPanel({ guildId }: { guildId: string }) {
           </div>
         )}
       </div>
+
+      <StickySaveBar
+        id="jail-save-bar"
+        count={p.dirty}
+        busy={p.busy}
+        shake={guard.shake}
+        onDiscard={p.discard}
+        onSave={() =>
+          p.act(() =>
+            api.updateJail(guildId, {
+              jail_role: p.draft.jail_role,
+              jail_channel: p.draft.jail_channel,
+              mod_role: p.draft.mod_role,
+              log_channel: p.draft.log_channel,
+            })
+          )
+        }
+      />
     </section>
   );
 }
@@ -736,6 +675,7 @@ export function JailPanel({ guildId }: { guildId: string }) {
 export function CountingPanel({ guildId }: { guildId: string }) {
   const load = useCallback(() => api.getCounting(guildId), [guildId]);
   const p = usePanel(load);
+  const guard = useSaveGuard(p.dirty, "counting-save-bar");
   const [setTo, setSetTo] = useState("");
 
   if (p.loading) return <Loading />;
@@ -826,12 +766,6 @@ export function CountingPanel({ guildId }: { guildId: string }) {
           />
         </Field>
 
-        <SaveBar
-          count={p.dirty}
-          busy={p.busy}
-          onDiscard={() => p.setDraft({})}
-          onSave={() => p.act(() => api.updateCounting(guildId, p.draft))}
-        />
       </Card>
 
       <Card
@@ -974,12 +908,6 @@ export function CountingPanel({ guildId }: { guildId: string }) {
           />
         </Field>
 
-        <SaveBar
-          count={p.dirty}
-          busy={p.busy}
-          onDiscard={() => p.setDraft({})}
-          onSave={() => p.act(() => api.updateCounting(guildId, p.draft))}
-        />
       </Card>
 
       <Card
@@ -1056,6 +984,15 @@ export function CountingPanel({ guildId }: { guildId: string }) {
           Regeln in den Kanal posten
         </button>
       </Card>
+
+      <StickySaveBar
+        id="counting-save-bar"
+        count={p.dirty}
+        busy={p.busy}
+        shake={guard.shake}
+        onDiscard={p.discard}
+        onSave={() => p.act(() => api.updateCounting(guildId, p.draft))}
+      />
     </section>
   );
 }

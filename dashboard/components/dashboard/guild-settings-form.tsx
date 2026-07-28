@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { Switch } from "@/components/ui/switch";
+import { StickySaveBar, useSaveGuard } from "@/components/dashboard/save-bar";
 
 interface SettingEntry {
   key: string;
@@ -135,6 +136,10 @@ export function GuildSettingsForm({
   const unsavedCount =
     settings.filter((s) => String(draft[s.key] ?? "") !== String(s.value ?? ""))
       .length + (prefix !== initialPrefix ? 1 : 0);
+
+  // Refuses to leave the tab while something is unsaved. Must sit above
+  // the loading early-return -- a hook cannot be conditional.
+  const guard = useSaveGuard(unsavedCount, "settings-save-bar");
 
   if (loading) {
     return (
@@ -390,42 +395,17 @@ export function GuildSettingsForm({
       {/* The header save button scrolls out of sight on a long list, so an
           unsaved change would be easy to lose. This bar follows along and
           only appears when there is actually something to save. */}
-      {dirty && (
-        <div className="sticky bottom-4 z-30">
-          <div className="bg-[#10233f] border border-amber-500/40 rounded-2xl px-5 py-4 flex items-center justify-between gap-4 shadow-2xl">
-            <p className="text-sm text-slate-300">
-              <span className="font-black text-white">{unsavedCount}</span>{" "}
-              unsaved change{unsavedCount === 1 ? "" : "s"}
-            </p>
-            <div className="flex gap-2">
-              <button
-                onClick={() => {
-                  setDraft(
-                    Object.fromEntries(settings.map((s) => [s.key, s.value]))
-                  );
-                  setPrefix(initialPrefix);
-                }}
-                disabled={saving}
-                className="px-4 py-2.5 rounded-xl bg-white/[0.03] border border-white/10 text-slate-300 hover:bg-white/[0.07] transition-all text-xs font-black uppercase tracking-widest disabled:opacity-50"
-              >
-                Discard
-              </button>
-              <button
-                onClick={save}
-                disabled={saving}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-white text-xs font-black uppercase tracking-widest hover:brightness-110 transition-all disabled:opacity-50"
-              >
-                {saving ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Save className="h-3.5 w-3.5" />
-                )}
-                Save
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <StickySaveBar
+        id="settings-save-bar"
+        count={unsavedCount}
+        busy={saving}
+        shake={guard.shake}
+        onDiscard={() => {
+          setDraft(Object.fromEntries(settings.map((s) => [s.key, s.value])));
+          setPrefix(initialPrefix);
+        }}
+        onSave={save}
+      />
     </div>
   );
 }

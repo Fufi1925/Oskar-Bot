@@ -24,6 +24,7 @@ import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { ChannelPicker } from "@/components/dashboard/pickers";
 import { WelcomeConfig } from "@/types/api";
+import { StickySaveBar, useSaveGuard } from "@/components/dashboard/save-bar";
 
 const INPUT =
   "w-full bg-[#0d1b31] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-primary/50 transition-colors";
@@ -107,6 +108,7 @@ export function WelcomeForm({
   guildId: string;
 }) {
   const [config, setConfig] = useState<WelcomeConfig>(initialConfig);
+  const [saved, setSaved] = useState<WelcomeConfig>(initialConfig);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const lastFocused = useRef<HTMLTextAreaElement | HTMLInputElement | null>(null);
@@ -118,6 +120,22 @@ export function WelcomeForm({
     [config.embed_data]
   );
   const isEmbed = (config.welcome_type || "simple") === "embed";
+
+  // How many top-level fields differ from what is on the server. The
+  // whole embed counts as one -- reporting "7 changes" because seven
+  // embed keys moved would be noise.
+  const dirty = useMemo(() => {
+    const keys = new Set([...Object.keys(config), ...Object.keys(saved)]);
+    let count = 0;
+    for (const key of keys) {
+      const a = (config as any)[key];
+      const b = (saved as any)[key];
+      if (JSON.stringify(a ?? null) !== JSON.stringify(b ?? null)) count += 1;
+    }
+    return count;
+  }, [config, saved]);
+
+  const guard = useSaveGuard(dirty, "welcome-save-bar");
 
   const setEmbed = (patch: any) =>
     setConfig({ ...config, embed_data: { ...embed, ...patch } });
@@ -153,6 +171,7 @@ export function WelcomeForm({
     setSaving(true);
     try {
       await api.updateWelcome(guildId, config);
+      setSaved(config);
       toast.success("Begrüßung gespeichert.");
     } catch (err: any) {
       toast.error(err?.message || "Speichern fehlgeschlagen.");
@@ -195,6 +214,7 @@ export function WelcomeForm({
   }), [config, embed, isEmbed]);
 
   return (
+    <div className="space-y-5">
     <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
       {/* ══ Form ═══════════════════════════════════════ */}
       <div className="xl:col-span-3 space-y-6">
@@ -522,16 +542,9 @@ export function WelcomeForm({
             </p>
           </div>
 
+          {/* The save button used to live here, four screens below the
+              field you were editing. It is one bar at the bottom now. */}
           <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-6 space-y-3">
-            <button
-              onClick={save}
-              disabled={saving}
-              className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-primary text-xs font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:brightness-110 disabled:opacity-40 transition-all"
-            >
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-              Speichern
-            </button>
-
             <button
               onClick={sendTest}
               disabled={testing}
@@ -583,6 +596,17 @@ export function WelcomeForm({
           </div>
         </div>
       </div>
+      </div>
+
+      <StickySaveBar
+        id="welcome-save-bar"
+        count={dirty}
+        busy={saving}
+        shake={guard.shake}
+        blocked={!config.channel_id ? "Ohne Kanal kann nichts gespeichert werden." : null}
+        onDiscard={() => setConfig(saved)}
+        onSave={save}
+      />
     </div>
   );
 }

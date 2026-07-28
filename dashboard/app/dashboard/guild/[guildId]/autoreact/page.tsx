@@ -23,17 +23,21 @@ import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { StickySaveBar, useSaveGuard } from "@/components/dashboard/save-bar";
 
 export default function AutoReactPage({ params }: { params: { guildId: string } }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [config, setConfig] = useState<any>({ triggers: [] });
+  // What the server last confirmed, so "unsaved" is answerable.
+  const [saved, setSaved] = useState<any>({ triggers: [] });
 
   const fetchData = async () => {
     try {
       setLoading(true);
       const configData = await api.getAutoReact(params.guildId);
       setConfig(configData);
+      setSaved(configData);
     } catch (error) {
       console.error("Failed to fetch auto react data:", error);
       toast.error("Failed to load auto react configuration");
@@ -44,15 +48,32 @@ export default function AutoReactPage({ params }: { params: { guildId: string } 
 
   useEffect(() => { fetchData(); }, [params.guildId]);
 
+  // Adding, editing and deleting a trigger all only touched local
+  // state, so the whole page could be left behind unsaved with no hint.
+  const dirty =
+    JSON.stringify(config.triggers || []) === JSON.stringify(saved.triggers || [])
+      ? 0
+      : 1;
+  const guard = useSaveGuard(dirty, "autoreact-save-bar");
+
   const handleSave = async () => {
+    const empty = (config.triggers || []).filter(
+      (t: any) => !t.trigger?.trim() || !t.emojis?.trim()
+    );
+    if (empty.length) {
+      toast.error("Jeder Auslöser braucht ein Wort und mindestens ein Emoji.");
+      return;
+    }
     setSaving(true);
-    const promise = api.updateAutoReact(params.guildId, { triggers: config.triggers });
-    toast.promise(promise, {
-      loading: 'Saving auto react configuration...',
-      success: 'Auto react settings saved!',
-      error: 'Failed to save auto react config',
-    });
-    try { await promise; } catch {} finally { setSaving(false); }
+    try {
+      await api.updateAutoReact(params.guildId, { triggers: config.triggers });
+      setSaved(config);
+      toast.success("Gespeichert.");
+    } catch (err: any) {
+      toast.error(err?.message || "Speichern fehlgeschlagen.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const addTrigger = () => {
@@ -149,10 +170,6 @@ export default function AutoReactPage({ params }: { params: { guildId: string } 
                   </div>
                 ))}
 
-                <Button onClick={handleSave} disabled={saving} className="w-full h-14 text-base font-bold gap-2">
-                  {saving ? <RefreshCcw className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
-                  Save All Triggers
-                </Button>
               </>
             )}
           </div>
@@ -177,6 +194,15 @@ export default function AutoReactPage({ params }: { params: { guildId: string } 
           </div>
         </div>
       </div>
+
+      <StickySaveBar
+        id="autoreact-save-bar"
+        count={dirty}
+        busy={saving}
+        shake={guard.shake}
+        onDiscard={() => setConfig(saved)}
+        onSave={handleSave}
+      />
     </div>
   );
 }

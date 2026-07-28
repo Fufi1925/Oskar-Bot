@@ -26,6 +26,7 @@ import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { ChannelPicker, RolePicker } from "@/components/dashboard/pickers";
 import { InlineToggle } from "@/components/dashboard/form-elements";
+import { useSaveGuard } from "@/components/dashboard/save-bar";
 
 const INPUT =
   "w-full bg-[#0d1b31] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-primary/50 transition-colors";
@@ -304,6 +305,10 @@ function ChannelCard({ guildId, channel, modes, busy, act, open, onToggleOpen }:
   const value = (key: string) => (key in draft ? draft[key] : channel[key]);
   const set = (key: string, v: any) => setDraft((d) => ({ ...d, [key]: v }));
   const dirty = Object.keys(draft).length > 0;
+
+  // Each channel card saves itself, but leaving the tab with one of
+  // them half-edited used to drop the change without a word.
+  const guard = useSaveGuard(dirty ? 1 : 0, `anon-save-${channel.channel_id}`);
 
   const save = () =>
     act(async () => {
@@ -593,7 +598,14 @@ function ChannelCard({ guildId, channel, modes, busy, act, open, onToggleOpen }:
           </div>
 
           {dirty && (
-            <div className="flex gap-3 flex-wrap pt-2">
+            <div
+              id={`anon-save-${channel.channel_id}`}
+              className={cn(
+                "flex gap-3 flex-wrap pt-2 rounded-xl transition-colors",
+                guard.shake &&
+                  "bg-red-500/10 border border-red-500/40 p-3 animate-[verify-shake_0.4s_ease-in-out]"
+              )}
+            >
               <button
                 onClick={() => setDraft({})}
                 className="px-4 py-3 rounded-xl bg-white/[0.03] border border-white/10 text-xs font-black uppercase tracking-widest text-slate-400 hover:text-white transition-all"

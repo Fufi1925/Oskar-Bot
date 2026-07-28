@@ -25,14 +25,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { ChannelPicker } from "@/components/dashboard/pickers";
+import { StickySaveBar, useSaveGuard } from "@/components/dashboard/save-bar";
 
 export default function TrackingPage({ params }: { params: { guildId: string } }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [channels, setChannels] = useState<any[]>([]);
-  const [config, setConfig] = useState<any>({
-    channel_id: null,
-  });
+  const [config, setConfig] = useState<any>({ channel_id: null });
+  const [saved, setSaved] = useState<any>({ channel_id: null });
 
   const fetchData = async () => {
     try {
@@ -42,6 +43,7 @@ export default function TrackingPage({ params }: { params: { guildId: string } }
         api.getChannels(params.guildId),
       ]);
       setConfig(configData);
+      setSaved(configData);
       setChannels(channelsData);
     } catch (error) {
       console.error("Failed to fetch tracking data:", error);
@@ -55,14 +57,20 @@ export default function TrackingPage({ params }: { params: { guildId: string } }
     fetchData();
   }, [params.guildId]);
 
+  const dirty =
+    String(config.channel_id ?? "") === String(saved.channel_id ?? "") ? 0 : 1;
+  const guard = useSaveGuard(dirty, "tracking-save-bar");
+
   const handleSave = async () => {
     try {
       setSaving(true);
-      await api.updateTracking(params.guildId, config);
-      toast.success("Tracking configuration saved successfully");
-    } catch (error) {
-      console.error("Failed to save tracking config:", error);
-      toast.error("Failed to save tracking configuration");
+      await api.updateTracking(params.guildId, {
+        channel_id: config.channel_id || null,
+      });
+      setSaved(config);
+      toast.success("Gespeichert.");
+    } catch (error: any) {
+      toast.error(error?.message || "Speichern fehlgeschlagen.");
     } finally {
       setSaving(false);
     }
@@ -98,22 +106,20 @@ export default function TrackingPage({ params }: { params: { guildId: string } }
         <CardContent className="space-y-6">
           <div className="space-y-2">
             <Label>Log Channel</Label>
-            <Select
-              value={config.channel_id?.toString() || "none"}
-              onValueChange={(val) => setConfig({ ...config, channel_id: val === "none" ? null : parseInt(val) })}
-              options={[
-                { value: "none", label: "Disabled" },
-                ...channels.map((chan) => ({ value: chan.id.toString(), label: `#${chan.name}` }))
-              ]}
+            {/* parseInt() here used to round the snowflake: a 19-digit
+                id past 2**53 came back off by a hundred or so, and the
+                save pointed at a channel that does not exist. */}
+            <ChannelPicker
+              guildId={params.guildId}
+              value={config.channel_id ? String(config.channel_id) : ""}
+              onChange={(id: string | null) =>
+                setConfig({ ...config, channel_id: id })
+              }
+              placeholder="Kein Protokoll"
+              channelTypes={["0", "5"]}
             />
           </div>
 
-          <div className="flex justify-end pt-4">
-            <Button onClick={handleSave} disabled={saving} className="gap-2">
-              {saving ? <RefreshCcw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-              Save Changes
-            </Button>
-          </div>
         </CardContent>
       </Card>
 
@@ -131,6 +137,15 @@ export default function TrackingPage({ params }: { params: { guildId: string } }
           </p>
         </CardContent>
       </Card>
+
+      <StickySaveBar
+        id="tracking-save-bar"
+        count={dirty}
+        busy={saving}
+        shake={guard.shake}
+        onDiscard={() => setConfig(saved)}
+        onSave={handleSave}
+      />
     </div>
   );
 }

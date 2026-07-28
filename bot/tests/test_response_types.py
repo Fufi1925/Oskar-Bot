@@ -60,9 +60,11 @@ SEEDS = [
         " log_channel_id, verification_method, enabled)"
         " VALUES (?, 0, 0, 0, 'both', 1)",
     ),
+    # Anti-nuke moved to its own router (/antinuke/{guild_id}); a full
+    # path here overrides the /guilds base.
     (
         "antinuke",
-        "/antinuke",
+        "/api/v1/antinuke/{guild}",
         "anti.db",
         "INSERT OR REPLACE INTO antinuke (guild_id, status) VALUES (?, 1)",
     ),

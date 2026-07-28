@@ -23,6 +23,9 @@ import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { ChannelPicker, RolePicker } from "@/components/dashboard/pickers";
 import { InlineToggle } from "@/components/dashboard/form-elements";
+import {
+  Loading, StickySaveBar, usePanel, useSaveGuard,
+} from "@/components/dashboard/save-bar";
 
 const INPUT =
   "w-full bg-[#0d1b31] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-primary/50 transition-colors";
@@ -89,153 +92,6 @@ function Warnings({ items }: { items?: string[] }) {
   );
 }
 
-/**
- * One save bar for the whole tab, pinned to the bottom.
- *
- * Every card used to carry its own, so a change made at the top was
- * saved by a button four screens down -- and it was easy to leave the
- * page with the change still sitting there.
- */
-function StickySaveBar({ count, onDiscard, onSave, busy, shake }: any) {
-  if (!count) return null;
-  return (
-    <div className="sticky bottom-4 z-40 pt-2">
-      <div
-        className={cn(
-          "rounded-2xl px-5 py-4 flex items-center justify-between gap-4 shadow-2xl border transition-colors",
-          shake
-            ? "bg-red-500/15 border-red-500/60 animate-[verify-shake_0.4s_ease-in-out]"
-            : "bg-[#10233f] border-amber-500/40"
-        )}
-      >
-        <p className={cn("text-sm min-w-0", shake ? "text-red-200" : "text-slate-300")}>
-          {shake ? (
-            <>
-              <span className="font-black">Erst speichern oder verwerfen</span>
-              {" — sonst geht deine Änderung verloren."}
-            </>
-          ) : (
-            <>
-              <span className="font-black text-white">{count}</span>
-              {` Änderung${count === 1 ? "" : "en"} noch nicht gespeichert.`}
-            </>
-          )}
-        </p>
-        <div className="flex gap-2 shrink-0">
-          <button
-            onClick={onDiscard}
-            disabled={busy}
-            className="px-4 py-2.5 rounded-xl bg-white/[0.03] border border-white/10 text-xs font-black uppercase tracking-widest text-slate-300 hover:text-white disabled:opacity-40 transition-all"
-          >
-            Verwerfen
-          </button>
-          <button
-            onClick={onSave}
-            disabled={busy}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-xs font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:brightness-110 disabled:opacity-40 transition-all"
-          >
-            {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-            Speichern
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/**
- * Stop a navigation while there are unsaved changes.
- *
- * Next.js routes on the client, so `beforeunload` alone only covers a
- * reload or a closed tab -- clicking another tab in the sidebar would
- * still throw the draft away silently. Catching the click in the
- * capture phase is what makes that reachable.
- */
-function useUnsavedGuard(active: boolean, onBlocked: () => void) {
-  const blocked = useRef(onBlocked);
-  blocked.current = onBlocked;
-
-  useEffect(() => {
-    if (!active) return;
-
-    const onBeforeUnload = (e: BeforeUnloadEvent) => {
-      e.preventDefault();
-      e.returnValue = "";
-    };
-
-    const onClick = (e: MouseEvent) => {
-      const link = (e.target as HTMLElement)?.closest?.("a");
-      if (!link) return;
-
-      const href = link.getAttribute("href");
-      // Anchors, new tabs and external links are none of our business.
-      if (!href || href.startsWith("#") || link.target === "_blank") return;
-      if (/^https?:\/\//.test(href) && !href.startsWith(window.location.origin)) {
-        return;
-      }
-      if (href === window.location.pathname) return;
-
-      e.preventDefault();
-      e.stopPropagation();
-      blocked.current();
-    };
-
-    window.addEventListener("beforeunload", onBeforeUnload);
-    // Capture phase: Next's Link handles the click itself, so a
-    // bubbling listener would run after the route already changed.
-    document.addEventListener("click", onClick, true);
-    return () => {
-      window.removeEventListener("beforeunload", onBeforeUnload);
-      document.removeEventListener("click", onClick, true);
-    };
-  }, [active]);
-}
-
-function usePanel(load: () => Promise<any>) {
-  const [data, setData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState(false);
-  const [draft, setDraft] = useState<Record<string, any>>({});
-
-  const reload = useCallback(async () => {
-    try {
-      setData(await load());
-      setDraft({});
-    } catch (err: any) {
-      toast.error(err?.message || "Konnte nicht geladen werden.");
-    } finally {
-      setLoading(false);
-    }
-  }, [load]);
-
-  useEffect(() => {
-    reload();
-  }, [reload]);
-
-  const act = async (fn: () => Promise<any>, confirmText?: string) => {
-    if (confirmText && !confirm(confirmText)) return;
-    setBusy(true);
-    try {
-      const res = await fn();
-      toast.success(res?.result || "Erledigt.");
-      await reload();
-      return res;
-    } catch (err: any) {
-      toast.error(err?.message || "Fehlgeschlagen.");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return {
-    data, loading, busy, draft, setDraft, reload, act,
-    value: (key: string) => (key in draft ? draft[key] : data?.[key]),
-    set: (key: string, v: any) => setDraft((d) => ({ ...d, [key]: v })),
-    dirty: Object.keys(draft).length,
-  };
-}
-
-/** Placeholders the bot understands. Anything else stays as typed. */
 const KNOWN = ["{server}", "{user}", "{user.name}", "{role}", "{member_count}"];
 
 function fill(text: string, role: string, server: string) {
@@ -320,14 +176,6 @@ function formatWhen(value: string) {
   });
 }
 
-function Loading() {
-  return (
-    <div className="flex items-center justify-center min-h-[240px]">
-      <Loader2 className="h-8 w-8 text-primary animate-spin opacity-40" />
-    </div>
-  );
-}
-
 const METHODS = [
   {
     id: "button",
@@ -351,19 +199,10 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
   const p = usePanel(load);
   const [advanced, setAdvanced] = useState(false);
   const [openMember, setOpenMember] = useState<string | null>(null);
-  const [shake, setShake] = useState(false);
 
-  // Flash the bar red instead of a browser dialog: the dialog cannot be
-  // styled, and half the time the browser suppresses it anyway.
-  const refuse = useCallback(() => {
-    setShake(true);
-    document
-      .getElementById("verify-save-bar")
-      ?.scrollIntoView({ behavior: "smooth", block: "center" });
-    window.setTimeout(() => setShake(false), 1200);
-  }, []);
-
-  useUnsavedGuard(p.dirty > 0, refuse);
+  // Flash the bar red instead of a browser dialog: the dialog cannot
+  // be styled, and half the time the browser suppresses it anyway.
+  const guard = useSaveGuard(p.dirty, "verify-save-bar");
 
   if (p.loading) return <Loading />;
 
@@ -855,15 +694,14 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
         </Card>
       )}
 
-      <div id="verify-save-bar">
-        <StickySaveBar
-          count={p.dirty}
-          busy={p.busy}
-          shake={shake}
-          onDiscard={() => p.setDraft({})}
-          onSave={save}
-        />
-      </div>
+      <StickySaveBar
+        id="verify-save-bar"
+        count={p.dirty}
+        busy={p.busy}
+        shake={guard.shake}
+        onDiscard={p.discard}
+        onSave={save}
+      />
     </section>
   );
 }

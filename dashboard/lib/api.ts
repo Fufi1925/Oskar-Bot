@@ -266,11 +266,24 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
-  getLogging: (guildId: string) => request<LoggingConfig>(`/guilds/${guildId}/logging`),
-  updateLogging: (guildId: string, data: any) => 
-    request<{ status: string }>(`/guilds/${guildId}/logging`, {
+  /**
+   * Logging moved off /guilds onto its own router.
+   *
+   * The pair under /guilds knew six of the cog's nine categories and
+   * could not touch the ignore lists at all.
+   */
+  getLogging: (guildId: string) => request<any>(`/logging/${guildId}`),
+  updateLogging: (guildId: string, data: any) =>
+    request<any>(`/logging/${guildId}`, {
       method: "PATCH",
       body: JSON.stringify(data),
+    }),
+  testLogging: (guildId: string, category: string) =>
+    request<any>(`/logging/${guildId}/test/${category}`, { method: "POST" }),
+  setAllLogging: (guildId: string, channel: string, includeNoisy = false) =>
+    request<any>(`/logging/${guildId}/all`, {
+      method: "POST",
+      body: JSON.stringify({ channel, include_noisy: includeNoisy }),
     }),
 
   /**
@@ -292,11 +305,31 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
-  getAntiNuke: (guildId: string) => request<any>(`/guilds/${guildId}/antinuke`),
-  updateAntiNuke: (guildId: string, data: any) => 
-    request<{ status: string }>(`/guilds/${guildId}/antinuke`, {
+  /**
+   * Anti-nuke moved off /guilds onto its own router.
+   *
+   * The pair under /guilds could only add a whitelist entry with every
+   * action allowed — a complete bypass of all seventeen protections —
+   * and did nothing at all when the table did not exist yet.
+   */
+  getAntiNuke: (guildId: string) => request<any>(`/antinuke/${guildId}`),
+  updateAntiNuke: (guildId: string, data: any) =>
+    request<any>(`/antinuke/${guildId}`, {
       method: "PATCH",
       body: JSON.stringify(data),
+    }),
+  setAntiNukeWhitelist: (
+    guildId: string,
+    userId: string,
+    actions: Record<string, boolean>
+  ) =>
+    request<any>(`/antinuke/${guildId}/whitelist/${userId}`, {
+      method: "PUT",
+      body: JSON.stringify({ actions }),
+    }),
+  removeAntiNukeWhitelist: (guildId: string, userId: string) =>
+    request<any>(`/antinuke/${guildId}/whitelist/${userId}`, {
+      method: "DELETE",
     }),
 
   // The verification tab moved to /verify: the old /guilds handlers knew

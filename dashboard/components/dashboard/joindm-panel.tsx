@@ -22,6 +22,7 @@ import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { InlineToggle } from "@/components/dashboard/form-elements";
+import { StickySaveBar, useSaveGuard } from "@/components/dashboard/save-bar";
 
 const INPUT =
   "w-full bg-[#0d1b31] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-primary/50 transition-colors";
@@ -78,7 +79,9 @@ export function JoinDMPanel({ guildId }: { guildId: string }) {
 
   const value = (key: string) => (key in draft ? draft[key] : data?.[key]);
   const set = (key: string, v: any) => setDraft((d) => ({ ...d, [key]: v }));
-  const dirty = Object.keys(draft).length > 0;
+  const dirtyCount = Object.keys(draft).length;
+  // Refuses to leave the tab while something is unsaved.
+  const guard = useSaveGuard(dirtyCount, "joindm-save-bar");
 
   const save = async (extra: Record<string, any> = {}) => {
     const payload = { ...draft, ...extra };
@@ -406,30 +409,17 @@ export function JoinDMPanel({ guildId }: { guildId: string }) {
             </p>
           </div>
 
-          {dirty && (
-            <div className="bg-[#10233f]/95 backdrop-blur border border-primary/30 rounded-2xl p-4 flex items-center gap-3 flex-wrap">
-              <p className="text-sm text-slate-300 flex-1 min-w-[120px]">
-                {Object.keys(draft).length} Änderung
-                {Object.keys(draft).length === 1 ? "" : "en"} offen.
-              </p>
-              <button
-                onClick={() => setDraft({})}
-                className="px-4 py-2.5 rounded-xl bg-white/[0.03] border border-white/10 text-xs font-black uppercase tracking-widest text-slate-400 hover:text-white transition-all"
-              >
-                Verwerfen
-              </button>
-              <button
-                onClick={() => save()}
-                disabled={busy}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-xs font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:brightness-110 disabled:opacity-40 transition-all"
-              >
-                {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-                Speichern
-              </button>
-            </div>
-          )}
         </div>
       </div>
+
+      <StickySaveBar
+        id="joindm-save-bar"
+        count={dirtyCount}
+        busy={busy}
+        shake={guard.shake}
+        onDiscard={() => setDraft({})}
+        onSave={() => save()}
+      />
     </section>
   );
 }

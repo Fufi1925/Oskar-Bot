@@ -1,220 +1,259 @@
-/**
- * ╔══════════════════════════════════════════════════════════════════╗
- * ║                                                                  ║
- * ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
- * ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
- * ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
- * ║                                                                  ║
- * ║           © 2026 University Bot Devs — All Rights Reserved               ║
- * ║                                                                  ║
- * ║   discord  ──  https://discord.gg/MG3rYnUZJV                      ║
- * ║   youtube  ──  https://youtube.com/@University BotDevs                   ║
- * ║   github   ──  https://github.com/University Bot                        ║
- * ║                                                                  ║
- * ╚══════════════════════════════════════════════════════════════════╝
- */
-
 "use client";
 
-import React, { useState } from "react";
-import { UserPlus, Save, RefreshCcw, User, Bot, Trash2, ShieldCheck, Info } from "lucide-react";
+/**
+ * Auto Role.
+ *
+ * What this replaces: an English form with a plain <Select> per list, a
+ * save button at the bottom of the left column, and no way to tell that
+ * a role would never be handed out. The two things that actually break
+ * this feature -- the bot's own role sitting below the one you picked,
+ * and a role with dangerous permissions -- were not mentioned anywhere.
+ *
+ * Same shape as the other rebuilt tabs: one save bar for the whole page,
+ * and leaving with an unsaved change is refused.
+ */
+
+import React from "react";
+import {
+  AlertTriangle, Bot, Info, ShieldAlert, Trash2, User, UserPlus,
+} from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
-import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AutoRoleConfig, DiscordRole } from "@/types/api";
 import { cn } from "@/lib/utils";
+import { AutoRoleConfig, DiscordRole } from "@/types/api";
+import { MultiRolePicker } from "@/components/dashboard/pickers";
+import {
+  StickySaveBar, useDraft, useSaveGuard,
+} from "@/components/dashboard/save-bar";
 
-interface AutoRoleFormProps {
+/** Permissions that make handing a role to everyone a bad idea. */
+const DANGEROUS: Array<[bigint, string]> = [
+  [BigInt(0x8), "Administrator"],
+  [BigInt(0x20), "Server verwalten"],
+  [BigInt(0x10000000), "Rollen verwalten"],
+  [BigInt(0x10), "Kanäle verwalten"],
+  [BigInt(0x4), "Bannen"],
+  [BigInt(0x2), "Kicken"],
+  [BigInt(0x2000), "Nachrichten verwalten"],
+];
+
+function dangersOf(role: any): string[] {
+  if (!role?.permissions) return [];
+  let bits: bigint;
+  try {
+    bits = BigInt(role.permissions);
+  } catch {
+    return [];
+  }
+  return DANGEROUS.filter(([bit]) => (bits & bit) === bit).map(([, name]) => name);
+}
+
+function Card({ icon: Icon, title, subtitle, children }: any) {
+  return (
+    <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-6 space-y-5">
+      <div className="flex gap-3 min-w-0">
+        <div className="h-10 w-10 rounded-2xl bg-primary/15 grid place-items-center shrink-0">
+          <Icon className="h-5 w-5 text-primary" />
+        </div>
+        <div className="min-w-0">
+          <p className="font-black text-white">{title}</p>
+          {subtitle && (
+            <p className="text-[12px] text-slate-400 mt-1 leading-relaxed">
+              {subtitle}
+            </p>
+          )}
+        </div>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function Warn({ children }: any) {
+  return (
+    <div className="rounded-xl bg-amber-500/[0.06] border border-amber-500/20 p-3.5 flex gap-2.5">
+      <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
+      <div className="text-[12px] text-amber-200/80 leading-relaxed">{children}</div>
+    </div>
+  );
+}
+
+export function AutoRoleForm({
+  initialConfig,
+  roles,
+  guildId,
+}: {
   initialConfig: AutoRoleConfig;
   roles: DiscordRole[];
   guildId: string;
-}
+}) {
+  const d = useDraft<{ humans: string[]; bots: string[] }>({
+    humans: initialConfig.humans || [],
+    bots: initialConfig.bots || [],
+  });
+  const guard = useSaveGuard(d.dirty, "autorole-save-bar");
 
-export function AutoRoleForm({ initialConfig, roles, guildId }: AutoRoleFormProps) {
-  const [config, setConfig] = useState<AutoRoleConfig>(initialConfig);
-  const [saving, setSaving] = useState(false);
+  const byId = (id: string) => roles.find((r) => String(r.id) === String(id));
 
-  const handleSave = async () => {
-    setSaving(true);
-    // Be explicit about fields to send to match AutoRoleUpdate schema
-    const data = {
-      bots: config.bots,
-      humans: config.humans
-    };
-    const promise = api.updateAutoRole(guildId, data);
+  // The bot can only hand out roles below its own highest one. Discord
+  // refuses silently otherwise, which is the single most common reason
+  // this feature "does nothing". The API reports the bot's own top
+  // position on every role; guessing it from "managed" roles would also
+  // match every other bot's role.
+  const botTop = roles[0]?.bot_top_position ?? 0;
 
-    toast.promise(promise, {
-      loading: 'Saving AutoRole configuration...',
-      success: 'Settings saved successfully!',
-      error: 'Failed to update AutoRole config',
+  const problems = (ids: string[]) => {
+    const out: string[] = [];
+    for (const id of ids) {
+      const role = byId(id);
+      if (!role) {
+        out.push(`Eine gewählte Rolle (${id}) gibt es nicht mehr.`);
+        continue;
+      }
+      if (botTop > 0 && (role.position || 0) >= botTop) {
+        out.push(
+          `„${role.name}“ steht über der Bot-Rolle — Discord lässt den Bot ` +
+            "sie nicht vergeben."
+        );
+      }
+      const danger = dangersOf(role);
+      if (danger.length) {
+        out.push(
+          `„${role.name}“ gibt jedem neuen Mitglied: ${danger.join(", ")}.`
+        );
+      }
+    }
+    return out;
+  };
+
+  const save = d.commit(async (values) => {
+    if (values.humans.length > 10 || values.bots.length > 10) {
+      throw new Error("Höchstens 10 Rollen je Liste.");
+    }
+    await api.updateAutoRole(guildId, {
+      humans: values.humans,
+      bots: values.bots,
     });
+  });
 
-    try {
-      await promise;
-    } catch (err: any) {
-      console.error(err);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const addRole = (type: "humans" | "bots", roleId: string) => {
-    if (config[type].includes(roleId)) return;
-    if (config[type].length >= 10) {
-      toast.error(`You can only add up to 10 roles for ${type === "humans" ? "Members" : "Bots"}.`);
-      return;
-    }
-    setConfig({ ...config, [type]: [...config[type], roleId] });
-  };
-
-  const removeRole = (type: "humans" | "bots", roleId: string) => {
-    setConfig({ ...config, [type]: config[type].filter(r => r !== roleId) });
-  };
-
-  const formatColor = (decimal: number) => {
-    if (!decimal || decimal === 0) return "#94a3b8";
-    return `#${decimal.toString(16).padStart(6, '0')}`;
-  };
-
-  const renderRoleList = (type: "humans" | "bots") => {
-    const title = type === "humans" ? "Member Roles" : "Bot Roles";
-    const Icon = type === "humans" ? User : Bot;
-    const accentColor = type === "humans" ? "text-primary" : "text-blue-400";
-    const bgColor = type === "humans" ? "bg-primary/10" : "bg-blue-400/10";
-
+  const List = ({
+    field,
+    title,
+    hint,
+    icon: Icon,
+  }: {
+    field: "humans" | "bots";
+    title: string;
+    hint: string;
+    icon: any;
+  }) => {
+    const ids = d.value(field) || [];
+    const issues = problems(ids);
     return (
-      <div className="space-y-6">
+      <div className="space-y-4">
         <div className="flex items-center gap-3">
-          <div className={cn("p-2.5 rounded-xl", bgColor, accentColor)}>
+          <div className="p-2.5 rounded-xl bg-primary/10 text-primary">
             <Icon className="h-5 w-5" />
           </div>
-          <div>
-            <h4 className="font-bold text-white text-base">{title}</h4>
-            <p className="text-xs text-slate-400">Roles given to newly joined {type}.</p>
+          <div className="min-w-0">
+            <h4 className="font-bold text-white text-sm">{title}</h4>
+            <p className="text-[11px] text-slate-500 leading-relaxed">{hint}</p>
           </div>
+          <span className="ml-auto text-[11px] font-black text-slate-500 shrink-0">
+            {ids.length} / 10
+          </span>
         </div>
-        
-        <Select value="" onValueChange={(val) => addRole(type, val)}>
-          <SelectTrigger className="w-full h-12 bg-slate-900/50 border-slate-800 hover:border-slate-700 transition-all">
-            <SelectValue placeholder={`Add a ${type === "humans" ? "member" : "bot"} role...`} />
-          </SelectTrigger>
-          <SelectContent className="bg-slate-900 border-slate-800 max-h-[300px]">
-            {roles
-              .filter(r => !config[type].includes(r.id))
-              .sort((a, b) => (b.position || 0) - (a.position || 0))
-              .map((r) => (
-                <SelectItem key={r.id} value={r.id} className="focus:bg-slate-800 group">
-                  <div className="flex items-center gap-2">
-                    <div 
-                      className="w-2 h-2 rounded-full" 
-                      style={{ backgroundColor: formatColor(r.color) }}
-                    />
-                    <span>{r.name}</span>
-                  </div>
-                </SelectItem>
-              ))}
-          </SelectContent>
-        </Select>
 
-        <div className="grid grid-cols-1 gap-2 min-h-[100px] p-4 bg-slate-900/40 rounded-2xl border border-slate-800/50 relative overflow-hidden">
-          {config[type].length === 0 ? (
-            <div className="absolute inset-0 flex flex-col items-center justify-center opacity-20">
-              <ShieldCheck className="h-8 w-8 mb-2" />
-              <span className="text-xs font-medium">No roles selected</span>
-            </div>
-          ) : (
-            <div className="flex flex-wrap gap-2 relative z-10">
-              {config[type].map((roleId) => {
-                const role = roles.find(r => r.id === roleId);
-                const color = role ? formatColor(role.color) : "#94a3b8";
-                return (
-                  <div 
-                    key={roleId} 
-                    className="flex items-center gap-2 bg-slate-800/80 border border-slate-700/50 px-3 py-1.5 rounded-lg text-sm group animate-in zoom-in-95 duration-200"
-                  >
-                    <div 
-                      className="w-2 h-2 rounded-full shadow-[0_0_8px_rgba(0,0,0,0.5)]" 
-                      style={{ backgroundColor: color }}
-                    />
-                    <span className="text-slate-200 font-medium">{role ? role.name : `Unknown (${roleId})`}</span>
-                    <button 
-                      onClick={() => removeRole(type, roleId)}
-                      className="ml-1 text-slate-500 hover:text-blue-400 transition-colors p-0.5 rounded-md hover:bg-blue-400/10"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
+        <MultiRolePicker
+          guildId={guildId}
+          value={ids}
+          onChange={(next: string[]) => {
+            if (next.length > 10) {
+              toast.error("Höchstens 10 Rollen je Liste.");
+              return;
+            }
+            d.set(field, next);
+          }}
+        />
+
+        {issues.length > 0 && (
+          <Warn>
+            {issues.map((problem, i) => (
+              <span key={i}>
+                • {problem}
+                <br />
+              </span>
+            ))}
+          </Warn>
+        )}
       </div>
     );
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-      <div className="lg:col-span-3 space-y-6">
-        <div className="bg-[#10233f] border border-slate-800 rounded-[32px] shadow-2xl p-8 space-y-10 relative">
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-            {renderRoleList("humans")}
-            {renderRoleList("bots")}
-          </div>
+    <section className="space-y-5">
+      <Card
+        icon={UserPlus}
+        title="Rollen beim Beitritt"
+        subtitle="Jeder, der auf den Server kommt, bekommt diese Rollen sofort — ohne dass jemand etwas tun muss."
+      >
+        <List
+          field="humans"
+          title="Für Mitglieder"
+          hint="Menschen, die dem Server beitreten."
+          icon={User}
+        />
 
-          <div className="pt-6 border-t border-slate-800">
-            <Button 
-              onClick={handleSave}
-              disabled={saving}
-              className="w-full h-14 text-base font-bold gap-3 shadow-lg shadow-primary/20 hover:shadow-primary/30 active:scale-[0.98] transition-all"
-            >
-              {saving ? <RefreshCcw className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
-              Save AutoRole Settings
-            </Button>
-          </div>
-
+        <div className="border-t border-slate-800 pt-5">
+          <List
+            field="bots"
+            title="Für Bots"
+            hint="Andere Bots, die hinzugefügt werden."
+            icon={Bot}
+          />
         </div>
-      </div>
+      </Card>
 
-      <div className="space-y-6">
-        <div className="bg-gradient-to-br from-[#10233f] to-slate-900 border border-slate-800 rounded-3xl p-6 relative overflow-hidden group">
-          <div className="absolute -right-6 -top-6 opacity-[0.05] group-hover:scale-110 transition-transform duration-500">
-            <UserPlus className="h-40 w-40 text-primary" />
-          </div>
-          
-          <div className="flex items-center gap-2 mb-4">
-            <Info className="h-4 w-4 text-primary" />
-            <h3 className="text-sm font-bold text-white">Guidelines</h3>
-          </div>
-          
-          <p className="text-xs text-slate-400 leading-relaxed mb-6">
-            AutoRole ensures every new member is welcomed with the right sets of roles immediately upon joining.
+      <Card
+        icon={Info}
+        title="Woran es meistens scheitert"
+        subtitle="Die drei Dinge, die diese Funktion still ausbremsen."
+      >
+        <div className="space-y-3 text-[12px] text-slate-400 leading-relaxed">
+          <p className="flex gap-2.5">
+            <ShieldAlert className="h-4 w-4 text-slate-600 shrink-0 mt-0.5" />
+            <span>
+              <b className="text-slate-200">Reihenfolge:</b> Die Bot-Rolle muss
+              in den Server-Einstellungen <i>über</i> jeder Rolle stehen, die
+              hier gewählt ist. Sonst lehnt Discord ab, ohne eine Meldung.
+            </span>
           </p>
-          
-          <div className="space-y-4">
-            <div className="flex gap-3">
-              <div className="h-1.5 w-1.5 rounded-full bg-primary mt-1.5 shrink-0" />
-              <p className="text-[11px] text-slate-400 leading-relaxed">
-                <span className="text-slate-200 font-bold">Hierarchy Matter:</span> Ensure University Bot&apos;s top role is <span className="text-primary italic">higher</span> than any role you select here.
-              </p>
-            </div>
-            <div className="flex gap-3">
-              <div className="h-1.5 w-1.5 rounded-full bg-primary mt-1.5 shrink-0" />
-              <p className="text-[11px] text-slate-400 leading-relaxed">
-                <span className="text-slate-200 font-bold">Bot Detection:</span> We automatically separate bots from human members for precise role assignment.
-              </p>
-            </div>
-            <div className="flex gap-3">
-              <div className="h-1.5 w-1.5 rounded-full bg-primary mt-1.5 shrink-0" />
-              <p className="text-[11px] text-slate-400 leading-relaxed">
-                <span className="text-slate-200 font-bold">Limits:</span> We has limits on roles. We support up to 10 roles per category for stability.
-              </p>
-            </div>
-          </div>
+          <p className="flex gap-2.5">
+            <ShieldAlert className="h-4 w-4 text-slate-600 shrink-0 mt-0.5" />
+            <span>
+              <b className="text-slate-200">Recht:</b> Der Bot braucht „Rollen
+              verwalten“.
+            </span>
+          </p>
+          <p className="flex gap-2.5">
+            <ShieldAlert className="h-4 w-4 text-slate-600 shrink-0 mt-0.5" />
+            <span>
+              <b className="text-slate-200">Verifizierung:</b> Wenn dein Server
+              eine Regel-Zustimmung verlangt, bekommt ein Mitglied Rollen erst,
+              wenn es zugestimmt hat.
+            </span>
+          </p>
         </div>
-      </div>
-    </div>
+      </Card>
+
+      <StickySaveBar
+        id="autorole-save-bar"
+        count={d.dirty}
+        busy={d.busy}
+        shake={guard.shake}
+        onDiscard={d.discard}
+        onSave={save}
+      />
+    </section>
   );
 }

@@ -96,7 +96,8 @@ CASES = [
      ("dm_on_success", True), ("verification_method", "captcha")),
     ("welcome", "/welcome",
      ("welcome_message", "hello"), ("auto_delete_duration", 30)),
-    ("antinuke", "/antinuke", ("status", True), ("status", True)),
+    # Anti-nuke moved to its own router (/antinuke/{guild_id}).
+    ("antinuke", "/api/v1/antinuke/{guild}", ("status", True), ("status", True)),
     ("settings-features", "/settings-features", None, None),
     ("admin-dashboard", "/admin-dashboard", None, None),
 ]

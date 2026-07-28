@@ -60,7 +60,16 @@ class DiscordRole(BaseModel):
     id: str
     name: str
     color: int
-    position: int # text, voice, category, etc.
+    position: int
+    # The three fields below let the dashboard warn before a save rather
+    # than after: a role above the bot's own is never handed out, and a
+    # role with Administrator should not be given to everyone who joins.
+    # Permissions are a string because the bitfield is 64-bit.
+    permissions: str = "0"
+    managed: bool = False
+    # The bot's own highest position, repeated on every role so the
+    # frontend does not need a second request to work out the hierarchy.
+    bot_top_position: int = 0
 
 # --- Module Configurations ---
 
@@ -159,10 +168,12 @@ class VerificationConfig(BaseModel):
 
 class TrackingConfig(BaseModel):
     guild_id: int
-    channel_id: Optional[int] = None
+    # A snowflake as a JSON number loses its last digits in the browser
+    # (Number() is only exact to 2**53), so it travels as a string.
+    channel_id: Optional[str] = None
 
 class TrackingUpdate(BaseModel):
-    channel_id: Optional[int] = None
+    channel_id: Optional[str] = None
 
 class J2CConfig(BaseModel):
     guild_id: str

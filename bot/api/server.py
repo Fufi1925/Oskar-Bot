@@ -8,7 +8,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from starlette.responses import Response
 from utils.config import *
-from api.routes import bot, guilds, admin, team, moderation, actions, access, servers, servertools, tickets, giveaways, leveling, vanity, broadcast, anonchat, diagnose, compose, nukealert, memberperks, extras, voice, verify, automod
+from api.routes import bot, guilds, admin, team, moderation, actions, access, servers, servertools, tickets, giveaways, leveling, vanity, broadcast, anonchat, diagnose, compose, nukealert, memberperks, extras, voice, verify, automod, logging_cfg, antinuke
 from api.dependencies import verify_api_key, limiter, get_bot_loop
 from api.db_manager import db_manager
 from api.schema_guard import ensure_schema
@@ -311,6 +311,12 @@ def create_app() -> FastAPI:
     api_app.include_router(voice.router, prefix="/voice", tags=["Voice"])
     api_app.include_router(verify.router, prefix="/verify", tags=["Verification"])
     api_app.include_router(automod.router, prefix="/automod", tags=["Automod"])
+    api_app.include_router(
+        logging_cfg.router, prefix="/logging", tags=["Logging"]
+    )
+    api_app.include_router(
+        antinuke.router, prefix="/antinuke", tags=["Anti-Nuke"]
+    )
     # Broadcasts sit under /admin so the owner-only gate in the dashboard
     # proxy already covers them.
     api_app.include_router(
