@@ -428,6 +428,66 @@ async def run_endpoint():
 # ══════════════════════════════════════════════════════════════════════
 
 
+def test_status_command():
+    """
+    !status and /status, from anywhere, panel always in the one channel.
+
+    Two commands rather than one because !status needs the Message
+    Content intent, which is a switch in the developer portal. Discord
+    refuses the login outright when a bot asks for a privileged intent
+    it was not granted -- so the text command is off unless STATUS_PREFIX
+    is set, and /status is always there as the one that cannot fail that
+    way.
+    """
+    print("\nThe status command")
+
+    source = open(os.path.join(STATUS, "status_bot.py"), encoding="utf-8").read()
+
+    check("there is a slash command", 'name="status"' in source)
+    check("it is registered to the home guild, not globally",
+          "copy_global_to(guild=guild)" in source,
+          "a global command can take an hour to appear")
+    check("the reply is only shown to whoever asked",
+          "ephemeral=True" in source,
+          "the panel goes to the channel; the receipt does not belong there")
+
+    check("there is a text command too", "async def on_message" in source)
+    check("the prefix comes from the environment",
+          'os.getenv("STATUS_PREFIX")' in source)
+    check("message_content is only requested when the prefix is used",
+          "if PREFIX_COMMAND_ENABLED:\n            intents.message_content = True" in source,
+          "asking for a privileged intent that is switched off in the "
+          "portal makes Discord refuse the login entirely")
+    check("the text command is off by default",
+          'PREFIX = (os.getenv("STATUS_PREFIX") or "").strip()' in source
+          and "PREFIX_COMMAND_ENABLED = bool(PREFIX)" in source)
+
+    # The actual requirement: it does not matter where you type it.
+    check("both commands share one implementation",
+          source.count("await self.refresh_panel()") == 2,
+          "two copies would drift")
+    check("the panel always goes to the configured channel",
+          "self.get_channel(STATUS_CHANNEL_ID)" in source.split(
+              "async def refresh_panel")[1][:900],
+          "it must not post where the command was typed")
+
+    # Other servers must not be able to drive this bot.
+    guard = source.split("async def on_message")[1][:600]
+    check("a command on another guild is ignored",
+          "message.guild.id != HOME_GUILD_ID" in guard)
+    check("and so are other bots", "message.author.bot" in guard)
+
+    # Reposting rather than editing: asking to see the status and having
+    # it quietly change three thousand messages up the channel is not
+    # what anybody means.
+    body = source.split("async def refresh_panel")[1][:2200]
+    check("the panel is reposted at the bottom",
+          "self.message = None" in body and "await self.publish()" in body)
+    check("and the old one is removed",
+          "old_message.delete()" in body,
+          "otherwise every call leaves another dead panel behind")
+
+
 def test_deployment():
     print("\nHow it is deployed")
 
@@ -529,6 +589,7 @@ def main():
     test_no_name_clashes_with_discord()
     test_one_miss_is_not_an_outage()
     asyncio.run(run_endpoint())
+    test_status_command()
     test_deployment()
     test_dashboard_can_choose()
 

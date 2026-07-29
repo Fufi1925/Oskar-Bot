@@ -67,6 +67,13 @@ FAILURES_BEFORE_DOWN = int(os.getenv("STATUS_FAILURES_BEFORE_DOWN") or 3)
 
 REQUEST_TIMEOUT = aiohttp.ClientTimeout(total=10)
 
+# The text command. Off unless STATUS_PREFIX is set, because reading
+# messages needs the privileged Message Content intent and Discord
+# refuses the login when the portal switch is off -- defaulting to on
+# would strand anybody who has not flipped it.
+PREFIX = (os.getenv("STATUS_PREFIX") or "").strip()
+PREFIX_COMMAND_ENABLED = bool(PREFIX)
+
 GREEN = 0x3BA55D
 AMBER = 0xFAA61A
 RED = 0xED4245
@@ -100,10 +107,20 @@ class Health:
 
 class StatusBot(discord.Client):
     def __init__(self) -> None:
-        # No message content, no members: this bot reads nothing and
-        # only ever posts. Asking for intents it does not need would be
-        # one more thing to get refused over.
-        super().__init__(intents=discord.Intents.none())
+        # Still almost nothing: no members, no presences, no reactions.
+        #
+        # message_content is the exception, and only when asked for.
+        # It is a privileged intent -- Discord refuses the login outright
+        # if the switch in the developer portal is off -- so turning it
+        # on by default would break the bot for anyone who has not.
+        # /status works without it; !status does not.
+        intents = discord.Intents.none()
+        intents.guilds = True
+        if PREFIX_COMMAND_ENABLED:
+            intents.message_content = True
+
+        super().__init__(intents=intents)
+        self.tree = discord.app_commands.CommandTree(self)
         self.session: aiohttp.ClientSession | None = None
         self.health = Health()
         self.consecutive_failures = 0
@@ -117,6 +134,30 @@ class StatusBot(discord.Client):
     async def setup_hook(self) -> None:
         self.session = aiohttp.ClientSession()
         self._task = asyncio.create_task(self.watch_loop())
+
+        # /status works without any privileged intent, so it is always
+        # registered -- it is the one that is certain to work.
+        @self.tree.command(
+            name="status",
+            description="Status jetzt prüfen und das Panel erneuern",
+        )
+        async def status_command(interaction: discord.Interaction):
+            # Ephemeral: the panel goes to the status channel, and the
+            # confirmation is only of interest to whoever asked.
+            await interaction.response.defer(ephemeral=True)
+            ok, note = await self.refresh_panel()
+            await interaction.followup.send(note, ephemeral=True)
+
+        if HOME_GUILD_ID:
+            # Copied to the one guild rather than published globally:
+            # a guild command appears immediately, a global one can take
+            # an hour, and this bot has no business anywhere else.
+            guild = discord.Object(id=HOME_GUILD_ID)
+            self.tree.copy_global_to(guild=guild)
+            try:
+                await self.tree.sync(guild=guild)
+            except Exception as err:  # noqa: BLE001
+                print(f"[status] could not register /status: {err}")
         try:
             await start_web(self)
         except Exception as err:  # noqa: BLE001
@@ -143,6 +184,92 @@ class StatusBot(discord.Client):
                 "[status] STATUS_CHANNEL_ID is not set — the live message "
                 "cannot be posted."
             )
+
+    # ── commands ─────────────────────────────────────────────────
+
+    async def refresh_panel(self) -> tuple[bool, str]:
+        """
+        Check now and rebuild the panel, wherever it belongs.
+
+        Shared by both commands. They differ only in how the answer gets
+        back to whoever asked; the work is identical, and the panel
+        always lands in STATUS_CHANNEL_ID no matter which channel the
+        command came from.
+        """
+        if not STATUS_CHANNEL_ID:
+            return False, (
+                "Es ist kein Status-Kanal eingestellt (`STATUS_CHANNEL_ID`)."
+            )
+
+        channel = self.get_channel(STATUS_CHANNEL_ID)
+        if channel is None:
+            try:
+                channel = await self.fetch_channel(STATUS_CHANNEL_ID)
+            except Exception:
+                return False, (
+                    "Den eingestellten Status-Kanal sehe ich nicht. Bin ich "
+                    "auf dem Server und darf ich den Kanal sehen?"
+                )
+
+        health = await self.check()
+        self.health = health
+
+        if health.reachable:
+            self.consecutive_failures = 0
+        else:
+            self.consecutive_failures += 1
+
+        if self.consecutive_failures >= FAILURES_BEFORE_DOWN:
+            new_state = "down"
+        elif health.reachable:
+            new_state = health.state
+        else:
+            new_state = self.state if self.state != "unknown" else "starting"
+
+        if new_state != self.state:
+            self.state = new_state
+            self.state_since = time.time()
+
+        # Posted fresh on purpose. Asking for the panel and having it
+        # silently edited three thousand messages up the channel is not
+        # what anybody means by "show me the status".
+        old_message = self.message
+        self.message = None
+        await self.publish()
+
+        if old_message is not None and self.message is not None:
+            if old_message.id != self.message.id:
+                try:
+                    await old_message.delete()
+                except Exception:
+                    # An old panel left behind is untidy, not broken.
+                    pass
+
+        if self.message is None:
+            return False, f"Ich darf in {channel.mention} nicht schreiben."
+
+        return True, f"Status aktualisiert: {self.message.jump_url}"
+
+    async def on_message(self, message: discord.Message) -> None:
+        if not PREFIX_COMMAND_ENABLED:
+            return
+        if message.author.bot or message.guild is None:
+            return
+        if HOME_GUILD_ID and message.guild.id != HOME_GUILD_ID:
+            return
+        if message.content.strip().lower() != f"{PREFIX}status":
+            return
+
+        ok, note = await self.refresh_panel()
+        try:
+            # A short reply where the command was typed, so the person
+            # knows it worked even though the panel went elsewhere.
+            await message.reply(note, mention_author=False,
+                                delete_after=None if not ok else 15)
+        except discord.Forbidden:
+            pass
+        except Exception as err:
+            print(f"[status] could not reply to {PREFIX}status: {err}")
 
     # ── the check ────────────────────────────────────────────────
 

@@ -17,6 +17,10 @@ DASHBOARD_API_KEY="<derselbe wie beim Hauptbot>"
 NEXT_PUBLIC_BRAND_NAME="University Bot"
 STATUS_POLL_SECONDS="30"
 STATUS_FAILURES_BEFORE_DOWN="3"
+
+# Nur wenn du !status willst — vorher im Developer Portal den
+# "Message Content Intent" einschalten, sonst startet der Bot nicht.
+# STATUS_PREFIX="!"
 PORT="8080"
 ```
 

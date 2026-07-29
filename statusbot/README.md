@@ -71,6 +71,41 @@ Update des Hauptbots einen Fehlalarm.
 Rechteprüfung pro Server hinter sich und darf deshalb nicht zum
 Universalwerkzeug werden.
 
+## Befehle
+
+Beide bewirken dasselbe: **jetzt prüfen und das Panel im Status-Kanal
+neu aufbauen** — egal, in welchem Kanal du sie eintippst.
+
+### `/status` — funktioniert immer
+
+Braucht keine Freischaltung. Erscheint kurz nach dem Start im
+Support-Server. Die Rückmeldung siehst nur du.
+
+### `!status` — muss freigeschaltet werden
+
+Zwei Schritte:
+
+1. **Discord Developer Portal** → deine zweite App → **Bot** →
+   **Message Content Intent** einschalten
+2. Variable setzen: `STATUS_PREFIX="!"`
+
+Ohne Schritt 1 **verweigert Discord den Login komplett** — nicht nur den
+Befehl. Deshalb bleibt `!status` aus, solange `STATUS_PREFIX` leer ist:
+Ein Bot, der wegen eines nicht gesetzten Schalters gar nicht startet,
+wäre schlimmer als einer ohne Textbefehl.
+
+Anderen Präfix willst du? `STATUS_PREFIX=">"` und der Befehl heißt
+`>status`.
+
+### Was dabei passiert
+
+Das Panel wird **neu gepostet**, nicht bearbeitet. Wer nach dem Status
+fragt, will ihn unten im Kanal sehen und nicht dreitausend Nachrichten
+weiter oben. Das alte Panel wird gelöscht, damit keine Leichen liegen
+bleiben.
+
+Befehle von anderen Servern oder von Bots werden ignoriert.
+
 ## Was er bewusst nicht tut
 
 **Keine Datenbank, kein Volume, keine Befehle.** Je weniger drin ist,
