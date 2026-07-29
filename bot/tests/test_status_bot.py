@@ -387,6 +387,22 @@ def test_deployment():
         if line.strip() and not line.startswith("#")
     ]) <= 4, "the service that must stay up should carry little")
 
+    # railway.toml applies to every service built from this repo. If it
+    # pins dockerfilePath, the status service silently builds the main
+    # bot's image instead -- two copies of the main bot, both logging in
+    # with the same token, kicking each other off Discord. Nothing in
+    # the logs would say "wrong Dockerfile".
+    toml_path = os.path.join(ROOT, "railway.toml")
+    if os.path.exists(toml_path):
+        toml = open(toml_path, encoding="utf-8").read()
+        active = [
+            line for line in toml.splitlines()
+            if line.strip().startswith("dockerfilePath")
+        ]
+        check("railway.toml does not pin one Dockerfile for every service",
+              not active,
+              "each service must set its own path in Settings -> Build")
+
     source = open(os.path.join(STATUS, "status_bot.py"), encoding="utf-8").read()
     check("it explains why it is a separate service",
           "separate Railway service" in source or "separate service" in source,

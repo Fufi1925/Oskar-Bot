@@ -1,6 +1,14 @@
 [build]
 builder = "DOCKERFILE"
-dockerfilePath = "Dockerfile"
+# dockerfilePath is deliberately not pinned here.
+#
+# railway.toml applies to every service built from this repo, so setting
+# it would force the status bot to build the main bot's Dockerfile and
+# quietly run a second copy of the main bot. Each service sets its own
+# path under Settings -> Build instead:
+#
+#   main bot    ->  Dockerfile
+#   status bot  ->  statusbot/Dockerfile
 
 [deploy]
 restartPolicyType = "ON_FAILURE"
