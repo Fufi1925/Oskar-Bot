@@ -107,8 +107,37 @@ export function ComposePanel({ guildId }: { guildId: string }) {
   const [allowMentions, setAllowMentions] = useState(false);
   const [pin, setPin] = useState(false);
 
+  /**
+   * Which bot posts.
+   *
+   * Only the support server has a second one; everywhere else this
+   * comes back with a single option and the picker stays hidden rather
+   * than showing a choice of one.
+   */
+  const [senders, setSenders] = useState<any[]>([]);
+  const [sender, setSender] = useState("main");
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .getSenders(guildId)
+      .then((res) => {
+        if (!cancelled) setSenders(res?.options || []);
+      })
+      .catch(() => {
+        // A missing list is not worth an error toast -- the tab works
+        // fine with just the main bot.
+        if (!cancelled) setSenders([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [guildId]);
+
   const payload = useMemo(() => {
-    const base: any = { kind, channel_id: channelId, allow_mentions: allowMentions, pin };
+    const base: any = {
+      kind, channel_id: channelId, allow_mentions: allowMentions, pin, sender,
+    };
     if (kind === "text") base.content = content;
     if (kind === "embed") base.embed = embed;
     if (kind === "v2") {
@@ -116,7 +145,7 @@ export function ComposePanel({ guildId }: { guildId: string }) {
       base.blocks = blocks.map(({ id, ...rest }) => rest);
     }
     return base;
-  }, [kind, channelId, content, embed, blocks, accent, allowMentions, pin]);
+  }, [kind, channelId, content, embed, blocks, accent, allowMentions, pin, sender]);
 
   // Check as you type, but not on every keystroke.
   useEffect(() => {
@@ -786,6 +815,35 @@ export function ComposePanel({ guildId }: { guildId: string }) {
 
           {/* Send */}
           <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-4">
+            {/* Only rendered where there is an actual choice. A picker
+                with one option is noise. */}
+            {senders.length > 1 && (
+              <Field
+                label="Als welcher Bot"
+                hint="Der Status-Bot läuft getrennt und kann auch posten, wenn der Hauptbot gerade nicht erreichbar ist."
+              >
+                <div className="grid sm:grid-cols-2 gap-2">
+                  {senders.map((option) => (
+                    <button
+                      key={option.id}
+                      onClick={() => { setSender(option.id); setSent(null); }}
+                      className={cn(
+                        "text-left rounded-2xl border p-3 transition-all",
+                        sender === option.id
+                          ? "bg-primary/10 border-primary/40"
+                          : "bg-[#0d1b31] border-slate-800 hover:border-slate-700"
+                      )}
+                    >
+                      <p className="text-sm font-bold text-white">{option.name}</p>
+                      <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
+                        {option.description}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              </Field>
+            )}
+
             <Field label="In welchen Kanal">
               <ChannelPicker
                 guildId={guildId}

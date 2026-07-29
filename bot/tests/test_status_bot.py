@@ -399,6 +399,44 @@ def test_deployment():
           "a bot that only posts needs nothing else")
 
 
+def test_dashboard_can_choose():
+    """
+    The dashboard offers the status bot as a sender, but only where it
+    exists.
+
+    The point of the option: "the bot is down" cannot be announced by
+    the bot that is down. The point of the scoping: the status bot has
+    no per-guild permission model behind it, so it must not become a
+    way to post anywhere.
+    """
+    print("\nChoosing the sender")
+
+    compose = open(os.path.join(BOT, "api/routes/compose.py"),
+                   encoding="utf-8").read()
+
+    check("there is an endpoint listing the senders",
+          '/senders' in compose)
+    check("the status bot is only offered on the support guild",
+          "guild_id == HOME_GUILD_ID and _status_bot_url()" in compose)
+    check("and only when its URL is configured",
+          "_status_bot_url()" in compose)
+    check("sending through it is refused elsewhere",
+          "Der Status-Bot postet nur im Support-Server." in compose)
+    check("an unreachable status bot is named as such",
+          "Der Status-Bot antwortet nicht" in compose,
+          "a generic failure would send somebody hunting in the wrong place")
+    check("an unknown sender falls back to the main bot",
+          'data.get("sender") or "main"' in compose)
+
+    panel = open(os.path.join(
+        os.path.dirname(BOT), "dashboard/components/dashboard/compose-panel.tsx"
+    ), encoding="utf-8").read()
+    check("the picker is hidden when there is only one option",
+          "senders.length > 1 &&" in panel,
+          "a choice of one is noise")
+    check("the choice is sent along", "sender," in panel)
+
+
 def main():
     check("the statusbot folder exists", os.path.isdir(STATUS), STATUS)
     if not os.path.isdir(STATUS):
@@ -409,6 +447,7 @@ def main():
     test_one_miss_is_not_an_outage()
     asyncio.run(run_endpoint())
     test_deployment()
+    test_dashboard_can_choose()
 
     print(f"\n{len(failures)} failures")
     for line in failures:

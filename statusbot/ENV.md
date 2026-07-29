@@ -1,0 +1,87 @@
+# Variablen für den Status-Service
+
+Der Status-Bot ist ein **eigener Railway-Service** und hat deshalb seine
+eigenen Variablen. Er erbt nichts vom Hauptbot — Railway trennt das pro
+Service.
+
+## Die Liste zum Kopieren
+
+Beim **Status-Service** eintragen (Variables → Raw Editor):
+
+```
+STATUS_BOT_TOKEN="<Token der ZWEITEN Discord-Application>"
+MAIN_BOT_URL="https://universtiy-bot.up.railway.app"
+STATUS_CHANNEL_ID="<ID des Status-Kanals>"
+HOME_GUILD_ID="1530378233579704370"
+DASHBOARD_API_KEY="<derselbe wie beim Hauptbot>"
+NEXT_PUBLIC_BRAND_NAME="University Bot"
+STATUS_POLL_SECONDS="30"
+STATUS_FAILURES_BEFORE_DOWN="3"
+PORT="8080"
+```
+
+### Was jede Variable macht
+
+| Variable | Pflicht | Erklärung |
+|---|---|---|
+| `STATUS_BOT_TOKEN` | **ja** | Token der zweiten Application. **Nicht** der des Hauptbots — sonst loggen sich zwei Prozesse mit demselben Token ein und werfen sich gegenseitig raus. |
+| `MAIN_BOT_URL` | **ja** | Öffentliche URL des **Hauptbots**. Zeigt sie auf den Status-Service selbst, prüft er sich selbst und meldet nie eine Störung. |
+| `STATUS_CHANNEL_ID` | **ja** | Kanal für die Live-Statusnachricht. Rechtsklick auf den Kanal → ID kopieren (Entwicklermodus muss an sein). |
+| `HOME_GUILD_ID` | nein | Support-Server. Standard ist bereits `1530378233579704370`. |
+| `DASHBOARD_API_KEY` | nur fürs Senden | Muss **derselbe** sein wie beim Hauptbot, sonst weist der Sende-Endpunkt das Dashboard ab. |
+| `NEXT_PUBLIC_BRAND_NAME` | nein | Name in der Statusnachricht. Standard: `University Bot`. |
+| `STATUS_POLL_SECONDS` | nein | Prüfabstand, Standard `30`. |
+| `STATUS_FAILURES_BEFORE_DOWN` | nein | Fehlversuche bis „Störung", Standard `3`. Mit 30 Sekunden Abstand also nach ca. 1,5 Minuten. |
+| `PORT` | nein | Railway setzt das meist selbst. |
+
+### Was der Status-Service **nicht** braucht
+
+Diese bewusst **nicht** eintragen — er benutzt sie nicht:
+
+`TOKEN` · `DISCORD_CLIENT_ID` · `DISCORD_CLIENT_SECRET` ·
+`NEXTAUTH_SECRET` · `NEXTAUTH_URL` · `LAVALINK_*` · `DATA_DIR` ·
+`OWNER_IDS` · `PARTNER_*` · alle `NEXT_PUBLIC_IMPRINT_*`
+
+Er hat keine Datenbank, kein Dashboard und keine Musik. Je weniger
+Zugangsdaten in dem Dienst liegen, dessen einzige Aufgabe das
+Weiterlaufen ist, desto besser.
+
+---
+
+## Beim Hauptbot ergänzen
+
+Eine einzige Variable, damit das Dashboard weiß, wohin es zum Senden
+greifen soll:
+
+```
+STATUS_BOT_URL="https://<url-des-status-service>.up.railway.app"
+```
+
+Fehlt sie, funktioniert alles wie bisher — nur die Auswahl „mit welchem
+Bot senden" erscheint dann nicht.
+
+---
+
+## ⚠️ Zwei Sachen, die beim Hauptbot nicht stimmen
+
+### `NEXT_PUBLIC_DASHBOARD_API_KEY` löschen
+
+Alles mit `NEXT_PUBLIC_` wird von Next.js **in die Webseite eingebacken**
+und ist für jeden Besucher im Quelltext lesbar. Der API-Schlüssel darf
+dort nicht stehen.
+
+`start.sh` entfernt die Variable beim Start automatisch (im Deploy-Log
+steht dann „🛡️ … has been removed"), aber sie gehört trotzdem gelöscht:
+Verlässt man sich auf die Notbremse, reicht ein Umbau am Startskript und
+der Schlüssel steht plötzlich öffentlich.
+
+Richtig ist nur `DASHBOARD_API_KEY` (ohne Präfix). Browser-Anfragen
+laufen über den Proxy unter `/api/bot`, der den Schlüssel serverseitig
+anhängt.
+
+### Impressum
+
+`NEXT_PUBLIC_IMPRINT_ADDRESS="."` — ein Impressum mit einem Punkt als
+Adresse erfüllt die Anforderungen in Deutschland nicht. Bei einer
+öffentlich erreichbaren Seite ist das ein echtes Risiko, kein
+Schönheitsfehler.

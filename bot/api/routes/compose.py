@@ -19,9 +19,11 @@ again, losing its pins, links and reactions.
 
 from __future__ import annotations
 
+import os
 from typing import TYPE_CHECKING
 
 import discord
+import httpx
 from fastapi import APIRouter, Depends, HTTPException
 
 from api.dependencies import get_bot
@@ -86,8 +88,100 @@ async def check(guild_id: int, data: dict):
     }
 
 
+# The support server, and the second bot that also lives there.
+#
+# Sending "the bot is down" through the bot that is down does not work,
+# so the status bot can post too. It runs as its own Railway service and
+# is reached over HTTP; when STATUS_BOT_URL is unset the option simply
+# does not appear.
+HOME_GUILD_ID = int(os.getenv("HOME_GUILD_ID") or 1530378233579704370)
+
+
+def _status_bot_url() -> str:
+    return (os.getenv("STATUS_BOT_URL") or "").strip().rstrip("/")
+
+
+@router.get("/{guild_id}/senders", summary="Which bots can post here")
+async def senders(guild_id: int, bot: "universitybot" = Depends(get_bot)):
+    """
+    The dashboard asks this to decide whether to offer a choice.
+
+    Everywhere except the support server there is exactly one answer, so
+    the picker is hidden rather than shown with a single option.
+    """
+    options = [{
+        "id": "main",
+        "name": getattr(bot.user, "name", "University Bot"),
+        "description": "Der Hauptbot. Für alles Normale.",
+    }]
+
+    if guild_id == HOME_GUILD_ID and _status_bot_url():
+        options.append({
+            "id": "status",
+            "name": "University Status",
+            "description": (
+                "Der Status-Bot. Läuft in einem eigenen Container und kann "
+                "auch dann posten, wenn der Hauptbot gerade weg ist."
+            ),
+        })
+
+    return {"guild_id": str(guild_id), "options": options}
+
+
+async def _send_via_status(guild_id: int, data: dict) -> dict:
+    """Hand the message to the status bot's own endpoint."""
+    url = _status_bot_url()
+    if not url:
+        raise HTTPException(
+            status_code=503,
+            detail="Der Status-Bot ist nicht eingerichtet (STATUS_BOT_URL fehlt).",
+        )
+    if guild_id != HOME_GUILD_ID:
+        raise HTTPException(
+            status_code=403,
+            detail="Der Status-Bot postet nur im Support-Server.",
+        )
+
+    key = (os.getenv("DASHBOARD_API_KEY") or "").strip()
+    payload = {k: v for k, v in data.items() if k != "sender"}
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            response = await client.post(
+                f"{url}/send", json=payload, headers={"X-API-Key": key}
+            )
+    except httpx.HTTPError as err:
+        # The one case worth naming precisely: if the status bot is also
+        # unreachable, saying so beats a generic failure.
+        raise HTTPException(
+            status_code=502,
+            detail=f"Der Status-Bot antwortet nicht ({type(err).__name__}).",
+        )
+
+    try:
+        body = response.json()
+    except Exception:
+        body = {}
+
+    if response.status_code >= 400:
+        raise HTTPException(
+            status_code=response.status_code,
+            detail=body.get("detail") or "Der Status-Bot hat abgelehnt.",
+        )
+    return body
+
+
 @router.post("/{guild_id}/send", summary="Post the message")
 async def send(guild_id: int, data: dict, bot: "universitybot" = Depends(get_bot)):
+    # Which bot should post. Anything other than "status" is the main
+    # one, so an unknown value falls back to the safe default rather
+    # than failing.
+    if str(data.get("sender") or "main") == "status":
+        problems = builder.validate(data)
+        if problems:
+            raise HTTPException(status_code=400, detail=" ".join(problems))
+        return await _send_via_status(guild_id, data)
+
     guild = _guild_or_404(bot, guild_id)
     channel = _channel(guild, data.get("channel_id"))
 

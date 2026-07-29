@@ -512,6 +512,11 @@ export const api = {
       method: "POST",
       body: JSON.stringify(data),
     }),
+  /**
+   * Which bots can post here. One answer everywhere except the support
+   * server, where the status bot can post too.
+   */
+  getSenders: (guildId: string) => request<any>(`/compose/${guildId}/senders`),
   editComposed: (guildId: string, data: any) =>
     request<any>(`/compose/${guildId}/edit`, {
       method: "POST",
