@@ -63,6 +63,19 @@ gebaut.
 Nein. Railway gibt 1 GB Volume im kostenlosen Tarif. Aktueller
 Verbrauch: unter 1 MB.
 
+### Warum steht kein `VOLUME` im Dockerfile?
+
+Weil Railway den Build dann komplett ablehnt:
+
+```
+dockerfile invalid: docker VOLUME at Line 76 is not supported,
+use Railway Volumes
+```
+
+Railway verwaltet Volumes ausschließlich über sein eigenes Dashboard.
+Im Dockerfile steht deshalb nur `ENV DATA_DIR=/data` — das Anhängen
+machst du mit den fünf Klicks oben.
+
 ---
 
 ### Architektur

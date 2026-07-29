@@ -345,7 +345,13 @@ def test_startup_and_docker():
     docker = open(os.path.join(os.path.dirname(BOT), "Dockerfile"),
                   encoding="utf-8").read()
     check("the Dockerfile sets DATA_DIR", "ENV DATA_DIR=/data" in docker)
-    check("and declares the volume", 'VOLUME ["/data"]' in docker)
+    # Railway refuses to build at all when a VOLUME instruction is
+    # present: "docker VOLUME at Line 76 is not supported, use Railway
+    # Volumes". It manages mounts from its own dashboard, so declaring
+    # one here is not just redundant, it is fatal.
+    check("and does not declare a docker VOLUME",
+          "\nVOLUME " not in docker and not docker.startswith("VOLUME "),
+          "Railway rejects the build outright")
 
     admin = open(os.path.join(BOT, "api/routes/admin.py"), encoding="utf-8").read()
     check("the health endpoint reports it", '"storage": {' in admin,

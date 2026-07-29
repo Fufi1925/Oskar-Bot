@@ -71,9 +71,13 @@ ENV HOSTNAME=0.0.0.0
 # container and the data is gone on the next deploy, which is the
 # behaviour this replaces.
 #
-# On Railway: add a volume with the mount path /data.
+# On Railway: add a volume in the dashboard with the mount path /data.
+#
+# No VOLUME instruction here on purpose -- Railway rejects the whole
+# build with "docker VOLUME at Line N is not supported, use Railway
+# Volumes". It manages mounts itself, so the declaration is both
+# unnecessary and fatal.
 ENV DATA_DIR=/data
-VOLUME ["/data"]
 
 EXPOSE 8080
 
