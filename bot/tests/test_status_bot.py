@@ -114,6 +114,23 @@ class FakeHealth:
         return "online" if (self.bot_ready and self.dashboard == "online") else "starting"
 
 
+def buttons(view) -> list[tuple[str, str]]:
+    """Every link button in the view, as (label, url)."""
+    import discord
+
+    found: list[tuple[str, str]] = []
+
+    def walk(item):
+        if isinstance(item, discord.ui.Button):
+            found.append((item.label, item.url))
+        for child in getattr(item, "children", None) or []:
+            walk(child)
+
+    for child in view.children:
+        walk(child)
+    return found
+
+
 def render(view) -> str:
     """Every bit of text in a LayoutView, flattened."""
     found: list[str] = []
@@ -217,6 +234,118 @@ async def run_checks():
               str(health.error))
     finally:
         await bot.session.close()
+
+
+def test_links_and_partner():
+    """
+    Buttons, and the rule that runs through the whole panel: never show
+    a number that was not measured.
+
+    A status page that lies is worth less than no status page. The
+    template bot is the case that forces the issue -- reading another
+    bot's online status needs the Presences intent, which this service
+    does not ask for, and without it Member.status is *always* offline.
+    Printing that as a red dot would be wrong; printing a green "online,
+    34 ms" would be worse.
+    """
+    print("\nLinks and the template bot")
+
+    from view import StatusView
+
+    # Buttons only appear when configured.
+    empty = StatusView(brand="B", state="online", health=FakeHealth(),
+                       since=time.time())
+    check("no buttons when nothing is configured", buttons(empty) == [],
+          "a button that goes nowhere is worse than no button")
+
+    full = StatusView(
+        brand="B", state="online", health=FakeHealth(), since=time.time(),
+        website="https://example.com", invite="https://example.com/invite",
+        support="https://discord.gg/abc",
+    )
+    labels = [label for label, _ in buttons(full)]
+    check("the dashboard link becomes a button", "Dashboard" in labels, str(labels))
+    check("the invite link becomes a button", "Einladen" in labels, str(labels))
+    check("the support link becomes a button", "Support" in labels, str(labels))
+
+    partial = StatusView(brand="B", state="online", health=FakeHealth(),
+                         since=time.time(), website="https://example.com")
+    check("only the configured ones show up", len(buttons(partial)) == 1,
+          str(buttons(partial)))
+
+    # The template bot row.
+    without = render(StatusView(brand="B", state="online",
+                                health=FakeHealth(), since=time.time()))
+    check("no template row when it could not be checked",
+          "Template" not in without,
+          "an unknown row invented is the thing being avoided")
+
+    honest = render(StatusView(
+        brand="B", state="online", health=FakeHealth(), since=time.time(),
+        partner={"ok": True, "label": "University Template",
+                 "detail": "auf dem Server · Online-Status nicht abrufbar"},
+    ))
+    check("the template row says what was actually checked",
+          "Online-Status nicht abrufbar" in honest, honest[-200:])
+    check("and does not claim it is online",
+          "🟢 **University Template**\n-# online" not in honest)
+
+    missing = render(StatusView(
+        brand="B", state="online", health=FakeHealth(), since=time.time(),
+        partner={"ok": False, "label": "Template-Bot",
+                 "detail": "nicht auf dem Server"},
+    ))
+    check("a missing template bot is marked red",
+          "🔴 **Template-Bot**" in missing, missing[-200:])
+
+    # Nothing unmeasured may be drawn as a fact.
+    down = render(StatusView(
+        brand="B", state="down",
+        health=FakeHealth(reachable=False, error="Zeitüberschreitung",
+                          code=None, latency=None),
+        since=time.time(),
+    ))
+    check("an unreachable bot shows no latency at all",
+          "ms" not in down.split("Zuletzt")[0],
+          "inventing a ping for something we could not reach is the "
+          "exact failure this rule exists for")
+    check("and marks the rest as not checked",
+          down.count("⚪") >= 2 and "nicht geprüft" in down, down[:200])
+
+    source = open(os.path.join(STATUS, "status_bot.py"), encoding="utf-8").read()
+    # Only an assignment counts as requesting it. Reading
+    # self.intents.presences to decide what to display is fine and is
+    # checked for separately below -- an earlier version of this check
+    # matched both and failed on the reading.
+    check("the presences intent is not requested",
+          "intents.presences = True" not in source,
+          "asking for a privileged intent that is off makes Discord "
+          "refuse the login")
+    check("but a real status is used if it happens to be available",
+          "self.intents.presences" in source,
+          "if somebody turns it on later, show the real value")
+    check("the partner check fails soft",
+          "return None" in source.split("async def check_partner")[1][:2000],
+          "one unreadable row must not blank the panel")
+
+    # The wording itself, not just the view. Checking only the view let
+    # a mutation through that had check_partner return a flat "online"
+    # without the intent -- exactly the invented status this is about.
+    body = source.split("async def check_partner")[1].split("def build_view")[0]
+    # Everything after the presences branch closes. Splitting on the
+    # `if` alone kept the branch itself in the slice, where the word
+    # "online" is legitimate -- and the check then failed on correct
+    # code, which is how this was caught.
+    after_branch = body.split("if self.intents.presences:")[1]
+    fallback = after_branch.split("}\n", 1)[1] if "}\n" in after_branch else after_branch
+
+    check("without the intent it does not say plain 'online'",
+          '"detail": "online"' not in fallback,
+          "claiming a status that was never read is the failure mode "
+          "this whole rule exists for")
+    check("it says what it actually checked instead",
+          "auf dem Server" in fallback and "nicht abrufbar" in fallback,
+          fallback[-200:])
 
 
 def test_no_name_clashes_with_discord():
@@ -586,6 +715,7 @@ def main():
 
     test_layout()
     asyncio.run(run_checks())
+    test_links_and_partner()
     test_no_name_clashes_with_discord()
     test_one_miss_is_not_an_outage()
     asyncio.run(run_endpoint())

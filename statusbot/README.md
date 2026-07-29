@@ -106,6 +106,41 @@ bleiben.
 
 Befehle von anderen Servern oder von Bots werden ignoriert.
 
+## Knöpfe unter dem Panel
+
+Drei Links, jeder erscheint nur wenn gesetzt:
+
+| Variable | Knopf |
+|---|---|
+| `WEBSITE_URL` | 🖥️ Dashboard |
+| `BOT_INVITE_URL` | ➕ Einladen |
+| `SUPPORT_INVITE_URL` | 💬 Support |
+
+Ist keiner gesetzt, erscheint keine Knopfreihe. Ein Knopf, der ins Leere
+führt, ist schlechter als kein Knopf.
+
+## Der Template-Bot im Panel
+
+Mit `PARTNER_BOT_CLIENT_ID` bekommt das Panel eine Zeile für den
+Template-Bot.
+
+**Was dort steht, ist bewusst zurückhaltend:**
+
+> 🟢 **University Template**
+> auf dem Server · Online-Status nicht abrufbar
+
+Der Grund: Den Online-Status eines anderen Bots zu lesen braucht den
+**Presences Intent** — einen privilegierten Schalter. Ohne ihn liefert
+Discord *immer* „offline", auch wenn der Bot einwandfrei läuft. Ein
+roter Punkt wäre also falsch — und ein grüner mit „online, 34 ms" wäre
+schlimmer: erfunden.
+
+Also steht da genau das, was geprüft wurde: **ist er auf dem Server, ja
+oder nein.** Ist er weg, wird die Zeile rot.
+
+Schaltest du den Presences Intent später ein, zeigt das Panel
+automatisch den echten Status — der Code prüft das zur Laufzeit.
+
 ## Was er bewusst nicht tut
 
 **Keine Datenbank, kein Volume, keine Befehle.** Je weniger drin ist,

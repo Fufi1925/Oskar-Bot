@@ -67,6 +67,15 @@ FAILURES_BEFORE_DOWN = int(os.getenv("STATUS_FAILURES_BEFORE_DOWN") or 3)
 
 REQUEST_TIMEOUT = aiohttp.ClientTimeout(total=10)
 
+# Links shown as buttons under the panel. Each one only appears when it
+# is configured -- a button that goes nowhere is worse than no button.
+WEBSITE_URL = (os.getenv("WEBSITE_URL") or os.getenv("NEXTAUTH_URL") or "").strip()
+INVITE_URL = (os.getenv("BOT_INVITE_URL") or "").strip()
+SUPPORT_URL = (os.getenv("SUPPORT_INVITE_URL") or "").strip()
+
+# The template bot that gets invited alongside the main one.
+PARTNER_BOT_ID = int(os.getenv("PARTNER_BOT_CLIENT_ID") or 0)
+
 # The text command. Off unless STATUS_PREFIX is set, because reading
 # messages needs the privileged Message Content intent and Discord
 # refuses the login when the portal switch is off -- defaulting to on
@@ -127,6 +136,7 @@ class StatusBot(discord.Client):
         self.state = "unknown"
         self.state_since = time.time()
         self.message: discord.Message | None = None
+        self.partner: dict | None = None
         self._task: asyncio.Task | None = None
 
     # ── lifecycle ────────────────────────────────────────────────
@@ -316,6 +326,64 @@ class StatusBot(discord.Client):
 
     # ── the message ──────────────────────────────────────────────
 
+    async def check_partner(self) -> dict | None:
+        """
+        What we can honestly say about the template bot.
+
+        Deliberately limited. Reading another bot's online status needs
+        the Presences intent, which is a privileged switch this service
+        does not ask for -- and without it `Member.status` is *always*
+        `offline`, which would put a permanent red dot next to a bot
+        that is running fine. Showing a made-up "online, 34 ms" would be
+        worse still: a status page that lies is worth less than no
+        status page.
+
+        So it reports the one thing that is actually knowable without
+        privileges: is the bot a member of this server, yes or no. The
+        wording says exactly that and no more.
+
+        Returns None when even that could not be established, and then
+        the row is left out entirely rather than guessed at.
+        """
+        if not PARTNER_BOT_ID or not HOME_GUILD_ID:
+            return None
+
+        guild = self.get_guild(HOME_GUILD_ID)
+        if guild is None:
+            return None
+
+        try:
+            member = await guild.fetch_member(PARTNER_BOT_ID)
+        except discord.NotFound:
+            return {
+                "ok": False,
+                "label": "Template-Bot",
+                "detail": "nicht auf dem Server",
+            }
+        except discord.Forbidden:
+            return None
+        except Exception:
+            return None
+
+        name = getattr(member, "display_name", "Template-Bot")
+
+        # If presences happen to be available -- because somebody turned
+        # the intent on later -- use the real value. Otherwise say what
+        # was checked instead of pretending the dot means "online".
+        if self.intents.presences:
+            live = member.status is not discord.Status.offline
+            return {
+                "ok": live,
+                "label": name,
+                "detail": "online" if live else "offline",
+            }
+
+        return {
+            "ok": True,
+            "label": name,
+            "detail": "auf dem Server · Online-Status nicht abrufbar",
+        }
+
     def build_view(self) -> discord.ui.LayoutView:
         from view import StatusView
 
@@ -324,6 +392,10 @@ class StatusBot(discord.Client):
             state=self.state,
             health=self.health,
             since=self.state_since,
+            website=WEBSITE_URL,
+            invite=INVITE_URL,
+            support=SUPPORT_URL,
+            partner=self.partner,
         )
 
     async def find_message(self) -> None:
@@ -415,6 +487,13 @@ class StatusBot(discord.Client):
                     self.consecutive_failures += 1
 
                 self.health = health
+
+                try:
+                    self.partner = await self.check_partner()
+                except Exception as err:  # noqa: BLE001
+                    # One unreadable row must not stop the whole panel.
+                    print(f"[status] partner check failed: {err}")
+                    self.partner = None
 
                 # A single miss is not an outage. Only call it down once
                 # it has failed several times in a row, or a deploy of

@@ -15,6 +15,14 @@ STATUS_CHANNEL_ID="<ID des Status-Kanals>"
 HOME_GUILD_ID="1530378233579704370"
 DASHBOARD_API_KEY="<derselbe wie beim Hauptbot>"
 NEXT_PUBLIC_BRAND_NAME="University Bot"
+
+# Knöpfe unter dem Panel. Jeder erscheint nur, wenn gesetzt.
+WEBSITE_URL="https://universtiy-bot.up.railway.app"
+BOT_INVITE_URL="<Einladungslink des Hauptbots>"
+SUPPORT_INVITE_URL="https://discord.gg/MG3rYnUZJV"
+
+# Zeigt eine Zeile für den Template-Bot im Panel.
+PARTNER_BOT_CLIENT_ID="1530742522589089952"
 STATUS_POLL_SECONDS="30"
 STATUS_FAILURES_BEFORE_DOWN="3"
 
