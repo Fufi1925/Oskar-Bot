@@ -22,6 +22,7 @@ import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { ChannelPicker } from "@/components/dashboard/pickers";
 import { InlineToggle } from "@/components/dashboard/form-elements";
+import { announcementsFor } from "@/lib/announcements";
 
 const INPUT =
   "w-full bg-[#0d1b31] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-primary/50 transition-colors";
@@ -51,7 +52,14 @@ function Field({ label, hint, children }: any) {
   );
 }
 
-/** Discord renders **bold**, *italic*, `code` and __underline__. */
+/**
+ * Discord renders **bold**, *italic*, `code`, __underline__, three
+ * levels of heading and small text.
+ *
+ * The headings were missing here, so a preview of "# Titel" showed the
+ * hash as literal text while Discord would have rendered a heading --
+ * the preview was lying about what would be posted.
+ */
 function markdown(text: string) {
   const escaped = (text || "")
     .replace(/&/g, "&amp;")
@@ -60,6 +68,12 @@ function markdown(text: string) {
   return escaped
     .replace(/```([\s\S]*?)```/g, '<pre class="bg-black/40 rounded p-2 my-1 text-[12px] overflow-x-auto">$1</pre>')
     .replace(/`([^`]+)`/g, '<code class="bg-black/40 rounded px-1">$1</code>')
+    // Headings first: they are line-anchored, and running them after
+    // the inline rules would let a bold marker split the line.
+    .replace(/^### (.*)$/gm, '<span class="block font-bold text-[15px] mt-2">$1</span>')
+    .replace(/^## (.*)$/gm, '<span class="block font-bold text-[17px] mt-2">$1</span>')
+    .replace(/^# (.*)$/gm, '<span class="block font-bold text-[20px] mt-2">$1</span>')
+    .replace(/^-# (.*)$/gm, '<span class="block text-[11px] text-slate-400">$1</span>')
     .replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>")
     .replace(/__([^_]+)__/g, "<u>$1</u>")
     .replace(/\*([^*]+)\*/g, "<i>$1</i>")
@@ -156,10 +170,64 @@ export function ComposePanel({ guildId }: { guildId: string }) {
       return copy;
     });
 
+  /**
+   * Prepared changelog posts, and only on the server they belong to.
+   *
+   * Everywhere else this is an empty list and the card below is not
+   * rendered at all -- a stranger's server has no use for "the bot got
+   * a database" and should not have to scroll past it.
+   */
+  const announcements = announcementsFor(guildId);
+
+  const loadAnnouncement = (entry: (typeof announcements)[number]) => {
+    setKind("v2");
+    setAccent(entry.accent);
+    setBlocks(entry.blocks.map((block) => ({ ...block, id: nextId++ })));
+    setSent(null);
+    toast.success(`„${entry.label}" geladen — Kanal wählen und senden.`);
+  };
+
   return (
     <section className="grid xl:grid-cols-5 gap-6">
       {/* ══ Editor ═══════════════════════════════════ */}
       <div className="xl:col-span-3 space-y-5">
+        {announcements.length > 0 && (
+          <div className="bg-[#10233f] border border-primary/25 rounded-3xl p-4 sm:p-6 space-y-4">
+            <div className="flex gap-3">
+              <div className="h-10 w-10 rounded-2xl bg-primary/15 grid place-items-center shrink-0">
+                <Sparkles className="h-5 w-5 text-primary" />
+              </div>
+              <div className="min-w-0">
+                <p className="font-black text-white">Fertige Ankündigungen</p>
+                <p className="text-[12px] text-slate-400 mt-1 leading-relaxed">
+                  Nur auf diesem Server sichtbar. Laden, Kanal wählen,
+                  senden — vorher lässt sich noch alles ändern.
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              {announcements.map((entry) => (
+                <button
+                  key={entry.id}
+                  onClick={() => loadAnnouncement(entry)}
+                  className="w-full text-left rounded-2xl border border-slate-800 bg-[#0d1b31] px-4 py-3 hover:border-primary/40 transition-colors"
+                >
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-sm font-bold text-white">{entry.label}</p>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-600">
+                      {entry.date}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    {entry.summary}
+                  </p>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
           <Field label="Art der Nachricht">
             <div className="grid md:grid-cols-3 gap-2">
