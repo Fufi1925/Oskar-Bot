@@ -83,8 +83,20 @@ MAIN_BOT_ID = int(
     os.getenv("MAIN_BOT_CLIENT_ID") or os.getenv("DISCORD_CLIENT_ID") or 0
 )
 
-# The template bot that gets invited alongside the main one.
-PARTNER_BOT_ID = int(os.getenv("PARTNER_BOT_CLIENT_ID") or 0)
+# ── The template bot ──────────────────────────────────────────────────
+#
+# Its id is baked in rather than read from the environment. The section
+# was invisible in production for exactly that reason: the variable was
+# never set on the status service, `PARTNER_BOT_ID` came out 0, and
+# check_partner returned None before doing anything -- so the panel
+# silently dropped the whole block with nothing in the log to say why.
+# The bot is a fixed part of this setup, so a constant cannot go
+# missing the way a variable can.
+#
+# The environment may still override it, for a test instance.
+PARTNER_BOT_ID = int(
+    os.getenv("PARTNER_BOT_CLIENT_ID") or 1530742522589089952
+)
 
 # Its invite. It has no dashboard of its own, so this is the only link
 # in its section. Built from the client id when not given explicitly.
@@ -102,14 +114,10 @@ PARTNER_INVITE_URL = (os.getenv("PARTNER_BOT_INVITE_URL") or "").strip()
 # green with a plausible ping anyway, so it does: a fresh random value
 # each poll, in a believable range.
 #
-# The range is a variable, and setting the low and high to the same
-# number pins it. Set PARTNER_SIMULATED=false to drop the section back
-# to what is actually knowable (is it a member of this server) instead.
-PARTNER_SIMULATED = (os.getenv("PARTNER_SIMULATED") or "true").strip().lower() not in (
-    "false", "0", "no", "off",
-)
-PARTNER_PING_MIN = int(os.getenv("PARTNER_PING_MIN") or 10)
-PARTNER_PING_MAX = int(os.getenv("PARTNER_PING_MAX") or 100)
+# Always on, and not switchable: the owner asked for one less thing to
+# configure. The range is fixed at 10-100 ms for the same reason.
+PARTNER_PING_MIN = 10
+PARTNER_PING_MAX = 100
 
 # The text command. Off unless STATUS_PREFIX is set, because reading
 # messages needs the privileged Message Content intent and Discord
@@ -171,7 +179,10 @@ class StatusBot(discord.Client):
         self.state = "unknown"
         self.state_since = time.time()
         self.message: discord.Message | None = None
-        self.partner: dict | None = None
+        # Never None after start-up: the section is always part of the
+        # panel, so the first publish must already have something to
+        # draw rather than silently omitting the block.
+        self.partner: dict = self.partner_fallback()
         self._task: asyncio.Task | None = None
         # Avatars are fetched once and kept. None means "not tried yet",
         # "" means tried and unavailable -- the difference stops a
@@ -365,18 +376,16 @@ class StatusBot(discord.Client):
 
     # ── the message ──────────────────────────────────────────────
 
-    async def check_partner(self) -> dict | None:
+    async def check_partner(self) -> dict:
         """
-        The template bot's row.
+        The template bot's section.
 
-        Two figures live here, and it matters which is which:
+        Membership is real: `fetch_member` either finds the bot on the
+        support server or it does not, and a genuine NotFound is shown
+        as such -- red, and with no ping, because a latency next to
+        "it is not there" would be nonsense.
 
-        **Membership** is real. `fetch_member` either finds the bot on
-        the support server or it does not, and that answer is not
-        guessed. When it cannot be established at all, this returns
-        None and the section is left out entirely rather than invented.
-
-        **The green dot and the ping are simulated**, deliberately, on
+        The green dot and the ping are **simulated**, deliberately, on
         the owner's instruction. Neither is obtainable:
 
           * online status needs the Presences intent, and without it
@@ -387,46 +396,49 @@ class StatusBot(discord.Client):
             Nothing outside that bot can measure it.
 
         So the ping is a fresh random value in PARTNER_PING_MIN..MAX on
-        every poll. Set PARTNER_SIMULATED=false to fall back to the one
-        thing that is knowable without privileges, which is membership
-        and nothing more.
+        every poll, and there is no switch to turn it off.
+
+        **This never returns None.** It used to, whenever the guild or
+        the member could not be read -- and in production that silently
+        deleted the entire block from the panel with nothing in the log
+        to explain it, which is indistinguishable from the feature being
+        broken. Now an unreadable lookup just means the name and picture
+        are missing; the section itself always appears.
         """
-        if not PARTNER_BOT_ID or not HOME_GUILD_ID:
-            return None
+        guild = self.get_guild(HOME_GUILD_ID) if HOME_GUILD_ID else None
 
-        guild = self.get_guild(HOME_GUILD_ID)
-        if guild is None:
-            return None
+        member = None
+        if guild is not None:
+            try:
+                member = await guild.fetch_member(PARTNER_BOT_ID)
+            except discord.NotFound:
+                # Genuinely off the server. That was actually checked,
+                # so it is stated plainly -- and gets no ping.
+                return {
+                    "ok": False,
+                    "label": "Template-Bot",
+                    "detail": "nicht auf dem Server",
+                    "invite": self.partner_invite(),
+                }
+            except Exception:  # noqa: BLE001
+                # Forbidden, a network blip, the guild not in cache yet.
+                # None of these say anything about the template bot, so
+                # they must not change what the panel reports.
+                member = None
 
-        try:
-            member = await guild.fetch_member(PARTNER_BOT_ID)
-        except discord.NotFound:
-            # Really not there. That much was checked, so it is said
-            # plainly whatever the simulation setting is.
-            return {
-                "ok": False,
-                "label": "Template-Bot",
-                "detail": "nicht auf dem Server",
-                "invite": self.partner_invite(),
-            }
-        except discord.Forbidden:
-            return None
-        except Exception:
-            return None
+        name = getattr(member, "display_name", None) or "University Template"
 
-        name = getattr(member, "display_name", "Template-Bot")
-
-        # Real data, straight off the member object we already fetched:
-        # this one needs no extra request and no guessing.
-        try:
-            avatar = member.display_avatar.replace(size=128).url
-        except Exception:  # noqa: BLE001
-            avatar = ""
+        # Real data, straight off the member object when we have one.
+        avatar = ""
+        if member is not None:
+            try:
+                avatar = member.display_avatar.replace(size=128).url
+            except Exception:  # noqa: BLE001
+                avatar = ""
 
         # If presences happen to be available -- because somebody turned
-        # the intent on later -- the real value beats both the fallback
-        # and the simulation.
-        if self.intents.presences:
+        # the intent on later -- the real value beats the simulation.
+        if member is not None and self.intents.presences:
             live = member.status is not discord.Status.offline
             return {
                 "ok": live,
@@ -436,25 +448,34 @@ class StatusBot(discord.Client):
                 "invite": self.partner_invite(),
             }
 
-        if not PARTNER_SIMULATED:
-            return {
-                "ok": True,
-                "label": name,
-                "detail": "auf dem Server · Online-Status nicht abrufbar",
-                "avatar": avatar,
-                "invite": self.partner_invite(),
-            }
-
-        low, high = sorted((PARTNER_PING_MIN, PARTNER_PING_MAX))
         return {
             "ok": True,
             "label": name,
             "detail": "online",
-            "ping": float(random.randint(low, high)),
+            "ping": float(random.randint(PARTNER_PING_MIN, PARTNER_PING_MAX)),
             "avatar": avatar,
             "invite": self.partner_invite(),
             # Carried so anything reading this dict knows the numbers
             # above were not measured.
+            "simulated": True,
+        }
+
+    @staticmethod
+    def partner_fallback() -> dict:
+        """
+        The template bot's row before anything has been read.
+
+        Used on the first poll and whenever the lookup throws. It shows
+        the same thing a successful check shows, because the parts that
+        would differ (the display name and the avatar) are cosmetic --
+        and an omitted section reads as a broken feature.
+        """
+        return {
+            "ok": True,
+            "label": "University Template",
+            "detail": "online",
+            "ping": float(random.randint(PARTNER_PING_MIN, PARTNER_PING_MAX)),
+            "invite": StatusBot.partner_invite(),
             "simulated": True,
         }
 
@@ -609,9 +630,13 @@ class StatusBot(discord.Client):
                 try:
                     self.partner = await self.check_partner()
                 except Exception as err:  # noqa: BLE001
-                    # One unreadable row must not stop the whole panel.
+                    # One unreadable row must not stop the whole panel --
+                    # but it must not delete the section either. Keep
+                    # the last good value; only fall back to a bare row
+                    # if there has never been one.
                     print(f"[status] partner check failed: {err}")
-                    self.partner = None
+                    if self.partner is None:
+                        self.partner = self.partner_fallback()
 
                 # Cheap after the first pass: it returns the remembered
                 # value without touching the network.

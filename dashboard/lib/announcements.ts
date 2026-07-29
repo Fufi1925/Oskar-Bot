@@ -41,6 +41,49 @@ export interface Announcement {
 
 export const ANNOUNCEMENTS: Announcement[] = [
   {
+    id: "2026-07-j2c-fix",
+    label: "Changelog: Join to Create",
+    summary: "Zwei Fehler behoben, warum Einstellungen nicht wirkten",
+    guilds: [BOT_GUILD_ID],
+    date: "30.07.2026",
+    accent: "#faa61a",
+    blocks: [
+      {
+        type: "text",
+        text:
+          "# 🔧 Changelog · Join to Create\n" +
+          "### Zwei Fehler behoben, die das Einstellen wirkungslos machten",
+      },
+      { type: "divider" },
+      {
+        type: "text",
+        text:
+          "Wer Join to Create im Dashboard eingestellt hat, bei dem ist " +
+          "unter Umständen **nichts passiert**. Zwei Ursachen, beide " +
+          "gefunden und behoben.",
+      },
+      { type: "divider" },
+      {
+        type: "text",
+        text:
+          "## Was kaputt war\n\n" +
+          "> 🗄️ **Ältere Server** — auf Servern, die den Bot schon länger " +
+          "nutzen, brach das Laden mit einem Datenbankfehler ab. Der Bot " +
+          "hat die Einstellung nie zu sehen bekommen, obwohl das " +
+          "Dashboard sie als gespeichert anzeigte.\n" +
+          "> 🔌 **Ausschalten wirkte nicht** — nach dem Abschalten hat der " +
+          "Bot bis zum nächsten Neustart weiter Kanäle angelegt.",
+      },
+      { type: "divider" },
+      {
+        type: "text",
+        text:
+          "-# Falls es bei euch nicht ging: einmal neu einstellen, " +
+          "jetzt greift es sofort.",
+      },
+    ],
+  },
+  {
     id: "2026-07-status-panel",
     label: "Changelog: Status-Panel",
     summary: "Statusanzeige neu gebaut, ein Abschnitt pro Bot",

@@ -716,6 +716,181 @@ async def test_j2c_cog(store):
           owner.moved_to == "not called", str(owner.moved_to))
 
 
+async def test_j2c_cache_reload(store):
+    """
+    The cache the cog answers voice events from must match the database.
+
+    Two ways it did not, both of which look exactly like "I set it in
+    the dashboard and nothing happens":
+
+      * ``load_data`` assigned into the existing dicts and never removed
+        anything, so a guild that switched Join to Create **off** stayed
+        in the cache and kept creating channels until the next restart.
+      * it ran the SELECT without letting the shared store bring the
+        schema up to date, so on a database written before the extra
+        columns existed it raised "no such column: name_template". The
+        caller swallows that, leaving the cache empty -- and then Join
+        to Create does nothing at all, on a server where the dashboard
+        happily shows it as configured.
+    """
+    print("\nJoin to Create: the cog's cache")
+
+    import aiosqlite
+
+    from cogs.commands.j2c import JoinToCreate
+
+    cog = JoinToCreate(FakeBot())
+    await cog.init_db()
+
+    async with aiosqlite.connect(store.J2C_DB) as db:
+        await store.j2c_save(db, GUILD, {
+            "join_channel_id": str(CHANNEL_VOICE),
+            "control_channel_id": str(CHANNEL_TEXT),
+        })
+    await cog.refresh(GUILD)
+    check("a dashboard save reaches the cog",
+          GUILD in cog.setup_data, str(cog.setup_data))
+
+    # Switching it off has to actually switch it off.
+    async with aiosqlite.connect(store.J2C_DB) as db:
+        await store.j2c_clear(db, GUILD)
+    await cog.refresh(GUILD)
+    check("switching it off empties the cache too",
+          GUILD not in cog.setup_data,
+          "the cog kept creating channels for a guild that had turned "
+          "the feature off")
+
+    # And a changed lobby is picked up, not merged on top of the old one.
+    async with aiosqlite.connect(store.J2C_DB) as db:
+        await store.j2c_save(db, GUILD, {
+            "join_channel_id": str(CHANNEL_VOICE),
+            "control_channel_id": str(CHANNEL_TEXT),
+        })
+        await store.j2c_save(db, GUILD, {"join_channel_id": "4242424242424242"})
+    await cog.refresh(GUILD)
+    check("a changed lobby channel is picked up",
+          cog.setup_data[GUILD]["join_channel_id"] == 4242424242424242,
+          str(cog.setup_data[GUILD]["join_channel_id"]))
+
+    # Live state lives in the database, so a reload must not drop it.
+    await cog.save_private_channel(555, GUILD, {
+        "owner": ALICE, "limit": 2, "region": "",
+        "is_locked": False, "has_waiting_room": False, "has_thread": False,
+    })
+    await cog.block_user(555, BOB)
+    await cog.refresh(GUILD)
+    check("an open private channel survives a reload",
+          555 in cog.private_channels, str(list(cog.private_channels)))
+    check("and so does a block",
+          BOB in (cog.blocked_users.get(555) or []),
+          str(cog.blocked_users))
+
+
+async def test_j2c_old_database(store):
+    """
+    A database from before the extra columns existed must still load.
+
+    This is the upgrade path every existing server takes, and it was
+    broken: the cog's SELECT names columns the old table does not have,
+    so it raised and the cache stayed empty -- Join to Create dead, with
+    the dashboard showing it as set up.
+    """
+    print("\nJoin to Create: an older database")
+
+    import os
+
+    import aiosqlite
+
+    from cogs.commands.j2c import JoinToCreate
+
+    # Start from a table with only the original five columns.
+    if os.path.exists(store.J2C_DB):
+        os.remove(store.J2C_DB)
+    async with aiosqlite.connect(store.J2C_DB) as db:
+        await db.execute(
+            """CREATE TABLE guild_setup (
+                guild_id INTEGER PRIMARY KEY,
+                join_channel_id INTEGER,
+                control_channel_id INTEGER,
+                control_message_id INTEGER,
+                category_id INTEGER)"""
+        )
+        await db.execute(
+            "INSERT INTO guild_setup VALUES (?, ?, ?, ?, ?)",
+            (GUILD, CHANNEL_VOICE, CHANNEL_TEXT, None, None),
+        )
+        await db.commit()
+
+    # Confirm the table really is the old shape, otherwise this test
+    # proves nothing -- an earlier test in the same run may already have
+    # migrated the file, and then the check below passes for the wrong
+    # reason. That is exactly what happened the first time: the
+    # mutation removing the migration did not fail anything.
+    async with aiosqlite.connect(store.J2C_DB) as db:
+        async with db.execute("PRAGMA table_info(guild_setup)") as cursor:
+            columns = [row[1] async for row in cursor]
+    check("the table really is the pre-migration shape",
+          "name_template" not in columns,
+          f"{columns} -- this test cannot detect anything otherwise")
+
+    cog = JoinToCreate(FakeBot())
+    failed = None
+    try:
+        await cog.load_data()
+    except Exception as err:  # noqa: BLE001
+        failed = err
+
+    check("loading an older database does not raise",
+          failed is None,
+          f"{type(failed).__name__}: {failed} -- the cache then stays "
+          "empty and the feature is silently dead")
+    check("and the existing setup is still there",
+          GUILD in cog.setup_data, str(cog.setup_data))
+    if GUILD in cog.setup_data:
+        check("with the lobby it was configured with",
+              cog.setup_data[GUILD]["join_channel_id"] == CHANNEL_VOICE)
+        check("and sensible defaults for the new columns",
+              cog.setup_data[GUILD]["name_template"] == "{user}'s VC"
+              and cog.setup_data[GUILD]["default_limit"] == 2,
+              str(cog.setup_data[GUILD]))
+
+    # The event has to work off that migrated cache. FakeGuild has no
+    # channel factory, so the lobby and the creation call are supplied
+    # here rather than reaching for real Discord objects.
+    created = []
+
+    class Lobby:
+        id = CHANNEL_VOICE
+        name = "Join to Create"
+        category = None
+        members = []
+
+    class CreatingGuild(FakeGuild):
+        categories = []
+
+        async def create_voice_channel(self, name, **kwargs):
+            created.append(name)
+            made = Lobby()
+            made.id = 998877
+            made.name = name
+            return made
+
+    guild = CreatingGuild()
+    guild._channels[CHANNEL_VOICE] = Lobby()
+    member = FakeMember(ALICE)
+    member.guild = guild
+
+    await cog.on_voice_state_update(
+        member, FakeVoiceState(None), FakeVoiceState(guild._channels[CHANNEL_VOICE])
+    )
+    check("and a member joining the lobby gets a channel",
+          len(created) == 1,
+          "nothing was created from a migrated setup")
+    if created:
+        check("named from the default template",
+              created[0].endswith("'s VC"), created[0])
+
+
 # ══════════════════════════════════════════════════════════════════════
 #  API
 # ══════════════════════════════════════════════════════════════════════
@@ -942,6 +1117,8 @@ async def run():
     await test_voicerole_cog(store)
     await test_customrole_cog(store)
     await test_j2c_cog(store)
+    await test_j2c_cache_reload(store)
+    await test_j2c_old_database(store)
     await test_api(store)
     test_setup_overview()
 

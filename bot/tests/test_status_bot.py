@@ -424,29 +424,48 @@ def test_links_and_partner():
 
 def test_partner_ping_range():
     """
-    The generated ping: inside the configured range, and different each
-    time.
+    The generated ping, and the rule that the section is always there.
 
-    A constant would be the giveaway that it is fake, and a value
-    outside the range would mean the setting does nothing.
+    The figures are simulated on the owner's instruction and there is
+    deliberately no switch and no variable for them: the section was
+    invisible in production precisely because it depended on
+    PARTNER_BOT_CLIENT_ID being set on the status service, and it was
+    not. check_partner returned None before doing anything and the whole
+    block silently vanished, with nothing in the log to say why. So the
+    id is a constant and the method never returns None.
+
+    A constant ping would be the giveaway that it is fake, and a value
+    outside the range would mean the bounds do nothing.
     """
-    print("\nThe template bot's generated ping")
+    print("\nThe template bot's section")
 
     import importlib
     import status_bot as sb
     importlib.reload(sb)
 
-    check("simulation is on by default", sb.PARTNER_SIMULATED is True,
-          str(sb.PARTNER_SIMULATED))
+    check("the template bot's id is baked in, not from the environment",
+          sb.PARTNER_BOT_ID == 1530742522589089952,
+          f"{sb.PARTNER_BOT_ID} -- an unset variable is how the whole "
+          "section disappeared from the live panel")
     check("the low end is 10", sb.PARTNER_PING_MIN == 10,
           str(sb.PARTNER_PING_MIN))
     check("the high end is 100", sb.PARTNER_PING_MAX == 100,
           str(sb.PARTNER_PING_MAX))
 
+    source = open(os.path.join(STATUS, "status_bot.py"), encoding="utf-8").read()
+    check("there is no on/off switch for it",
+          "PARTNER_SIMULATED" not in source,
+          "the owner asked for one less thing to configure")
+
     # Drive the real code path rather than re-implementing it here.
     class FakeMember:
         display_name = "University Template"
         status = None
+
+        class display_avatar:
+            @staticmethod
+            def replace(**kwargs):
+                return type("A", (), {"url": "https://cdn/x.png"})()
 
     class FakeGuild:
         async def fetch_member(self, _id):
@@ -457,10 +476,9 @@ def test_partner_ping_range():
     bot._intents = type("I", (), {"presences": False})()
     type(bot).intents = property(lambda self: self._intents)
 
-    sb.PARTNER_BOT_ID = 1530742522589089952
-
     try:
         seen = set()
+        row = None
         for _ in range(200):
             row = asyncio.run(bot.check_partner())
             seen.add(row["ping"])
@@ -473,27 +491,56 @@ def test_partner_ping_range():
               str(sorted(seen)[:5]))
         check("and it is not the same number every poll", len(seen) > 5,
               f"{len(seen)} distinct values in 200 polls")
-        check("the row reads as online", row["ok"] is True and row["detail"] == "online")
-        check("it carries the bot's own name", row["label"] == "University Template")
-
-        # The invite is derived from the client id when not given.
+        check("the row reads as online",
+              row["ok"] is True and row["detail"] == "online")
+        check("it carries the bot's own name",
+              row["label"] == "University Template")
         check("an invite link is built from the client id",
               str(sb.PARTNER_BOT_ID) in row["invite"]
               and row["invite"].startswith("https://discord.com/oauth2/authorize"),
               row["invite"])
-
-        # Whoever reads this dict must be able to tell.
         check("the dict says the figures are simulated",
               row.get("simulated") is True,
               "a caller that cannot tell measured from generated will "
               "eventually copy the number somewhere it matters")
 
-        # A template bot that is genuinely not on the server. This
-        # branch is separate code, and a mutation that gave it a ping
-        # slipped past an earlier version of these tests -- the view
-        # was checked, the branch that fills it was not.
+        # ── the section must survive every failure mode ──────────
+        #
+        # This is the actual production bug: any of these returned None
+        # and the block disappeared from the panel entirely.
+        bot.get_guild = lambda _id: None
+        no_guild = asyncio.run(bot.check_partner())
+        check("no guild in cache still shows the section",
+              no_guild is not None and no_guild["ok"] is True,
+              str(no_guild))
+        check("and still has a ping", "ping" in (no_guild or {}), str(no_guild))
+
         import discord
 
+        class Forbidden:
+            async def fetch_member(self, _id):
+                raise discord.Forbidden(
+                    type("R", (), {"status": 403, "reason": "Forbidden"})(),
+                    "no",
+                )
+
+        bot.get_guild = lambda _id: Forbidden()
+        denied = asyncio.run(bot.check_partner())
+        check("a permission error still shows the section",
+              denied is not None and denied["ok"] is True, str(denied))
+
+        class Broken:
+            async def fetch_member(self, _id):
+                raise RuntimeError("network")
+
+        bot.get_guild = lambda _id: Broken()
+        broken = asyncio.run(bot.check_partner())
+        check("an unexpected error still shows the section",
+              broken is not None and broken["ok"] is True, str(broken))
+        check("it falls back to a sensible name",
+              broken["label"] == "University Template", str(broken))
+
+        # The one case that genuinely changes what is displayed.
         class Absent:
             async def fetch_member(self, _id):
                 raise discord.NotFound(
@@ -501,7 +548,6 @@ def test_partner_ping_range():
                     "unknown member",
                 )
 
-        sb.PARTNER_SIMULATED = True
         bot.get_guild = lambda _id: Absent()
         gone = asyncio.run(bot.check_partner())
         check("an absent template bot is reported as absent",
@@ -511,28 +557,31 @@ def test_partner_ping_range():
               "ping" not in gone,
               "the one thing actually established here is that it is "
               "NOT there; a latency next to that is nonsense")
-        bot.get_guild = lambda _id: FakeGuild()
-
-        # And the switch back to the honest version still works.
-        sb.PARTNER_SIMULATED = False
-        honest = asyncio.run(bot.check_partner())
-        check("turning simulation off drops the ping",
-              "ping" not in honest, str(honest))
-        check("and says what was actually checked instead",
-              "nicht abrufbar" in honest["detail"], str(honest))
     finally:
         del type(bot).intents
 
+    check("check_partner never returns None",
+          "return None" not in source.split("async def check_partner")[1]
+                                    .split("@staticmethod")[0],
+          "returning None deletes the whole section from the panel")
+
+    # There must be something to draw before the first check finishes.
+    check("there is a fallback row for the very first poll",
+          "def partner_fallback" in source)
+    check("and the bot starts out holding it",
+          "self.partner: dict = self.partner_fallback()" in source,
+          "otherwise the first published panel has no template section")
+    check("a failed poll keeps the last row instead of dropping it",
+          "if self.partner is None:" in source,
+          "blanking it on one bad poll makes the section flicker away")
+
     # The comments have to be there: the next person to read this file
     # must not mistake the ping for a measurement.
-    source = open(os.path.join(STATUS, "status_bot.py"), encoding="utf-8").read()
-    body = source.split("async def check_partner")[1].split("def build_view")[0]
     check("the code says out loud that the ping is not measured",
           "not measured" in source or "are simulated" in source,
           "an unlabelled fake number is how a status page starts lying "
           "by accident")
-    check("and explains why it cannot be", "gateway latency" in source,
-          body[:200])
+    check("and explains why it cannot be", "gateway latency" in source)
 
 
 def test_discord_markup():

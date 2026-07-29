@@ -78,6 +78,21 @@ class JoinToCreate(commands.Cog):
 
     async def load_data(self):
         async with aiosqlite.connect(self.db_path) as db:
+            # The schema is owned by the shared store. Without this a
+            # database written before the extra columns existed makes
+            # the SELECT below raise "no such column: name_template" --
+            # and since the caller swallows it, the cache stays empty
+            # and Join to Create silently does nothing at all.
+            await store.j2c_ensure(db)
+
+            # Rebuilt from scratch rather than merged into. Assigning
+            # into the old dict never removed anything, so a guild that
+            # switched Join to Create off stayed in the cache and kept
+            # creating channels until the next restart.
+            setups = {}
+            channels = {}
+            blocked = {}
+
             # Load guild setups
             async with db.execute(
                 "SELECT guild_id, join_channel_id, control_channel_id, "
@@ -86,7 +101,7 @@ class JoinToCreate(commands.Cog):
             ) as cursor:
                 async for row in cursor:
                     guild_id = row[0]
-                    self.setup_data[guild_id] = {
+                    setups[guild_id] = {
                         "join_channel_id": row[1],
                         "control_channel_id": row[2],
                         "control_message_id": row[3],
@@ -100,7 +115,7 @@ class JoinToCreate(commands.Cog):
             async with db.execute("SELECT * FROM private_channels") as cursor:
                 async for row in cursor:
                     vc_id, guild_id, owner_id, member_limit, region, is_locked, has_waiting_room, has_thread = row
-                    self.private_channels[vc_id] = {
+                    channels[vc_id] = {
                         "owner": owner_id,
                         "limit": member_limit,
                         "region": region,
@@ -114,9 +129,13 @@ class JoinToCreate(commands.Cog):
             async with db.execute("SELECT * FROM blocked_users") as cursor:
                 async for row in cursor:
                     vc_id, user_id = row
-                    if vc_id not in self.blocked_users:
-                        self.blocked_users[vc_id] = []
-                    self.blocked_users[vc_id].append(user_id)
+                    blocked.setdefault(vc_id, []).append(user_id)
+
+        # Swapped in at the end, so a failure part-way through leaves
+        # the previous state rather than half of the new one.
+        self.setup_data = setups
+        self.private_channels = channels
+        self.blocked_users = blocked
 
     async def save_guild_setup(self, guild_id: int, data: Dict):
         async with aiosqlite.connect(self.db_path) as db:

@@ -191,35 +191,34 @@ sowieso schon steht.
 
 ## Der Template-Bot im Panel
 
-Mit `PARTNER_BOT_CLIENT_ID` bekommt das Panel einen eigenen Abschnitt
-für den Template-Bot: grüner Status und eine Antwortzeit.
+Der Abschnitt ist **immer da** und braucht keine Einstellung. Die ID des
+Template-Bots steht fest im Code.
 
-### ⚠️ Diese zwei Zahlen sind erfunden
+> Genau daran ist es vorher gescheitert: der Abschnitt hing an
+> `PARTNER_BOT_CLIENT_ID`, die beim Status-Service nie gesetzt war. Der
+> Code brach dann ab, bevor er irgendetwas tat, und der ganze Block
+> verschwand aus dem Panel — ohne eine Zeile im Log. Das sieht von außen
+> aus wie „kaputt", war aber „nicht konfiguriert". Eine Konstante kann
+> nicht fehlen.
+
+### ⚠️ Status und Ping sind erfunden
 
 Das muss hier stehen, weil der Rest des Panels genau umgekehrt
 funktioniert: **beim Hauptbot ist jede Zahl gemessen.** Beim
-Template-Bot sind Status und Ping generiert — auf deinen Wunsch, und
-weil sie nicht messbar sind:
+Template-Bot sind beide Zahlen generiert — auf deinen Wunsch, und weil
+sie nicht messbar sind:
 
 * **Online-Status** braucht den **Presences Intent**, einen
   privilegierten Schalter. Ohne ihn liefert Discord *immer* „offline",
   auch wenn der Bot einwandfrei läuft. Ein roter Punkt wäre also
   schlicht falsch.
-* **Ping** eines fremden Bots gibt es über keine API. Sein
-  Heartbeat läuft zwischen ihm und Discord; von außen kann das niemand
-  auslesen — auch Discord selbst zeigt es nirgends an.
+* **Ping** eines fremden Bots gibt es über keine API. Sein Heartbeat
+  läuft zwischen ihm und Discord; von außen kann das niemand auslesen —
+  auch Discord selbst zeigt es nirgends an.
 
 Der Ping ist deshalb bei **jeder Prüfung eine neue Zufallszahl**
-zwischen `PARTNER_PING_MIN` und `PARTNER_PING_MAX` (Standard 10–100).
-Keine feste 34, die nach einer Weile jedem auffällt.
-
-| Variable | Standard | Was sie tut |
-|---|---|---|
-| `PARTNER_PING_MIN` | `10` | untere Grenze in ms |
-| `PARTNER_PING_MAX` | `100` | obere Grenze in ms |
-| `PARTNER_SIMULATED` | `true` | auf `false` → keine erfundenen Zahlen mehr |
-
-Beide Grenzen gleich setzen ergibt einen festen Wert.
+zwischen 10 und 100 ms. Keine feste 34, die nach einer Weile jedem
+auffällt. Es gibt bewusst keinen Schalter dafür.
 
 ### Was trotzdem echt ist
 
@@ -228,11 +227,14 @@ Template-Bot vom Server, wird die Zeile **rot** und sagt „nicht auf dem
 Server" — und bekommt dann auch **keinen** Ping, denn eine Antwortzeit
 neben „ist nicht da" wäre Unsinn.
 
-Mit `PARTNER_SIMULATED=false` steht dort stattdessen wieder nur das
-nachweisbare „auf dem Server · Online-Status nicht abrufbar".
+Alles andere — keine Berechtigung, Netzwerkfehler, Server noch nicht im
+Cache — ändert **nichts** an der Anzeige. Diese Fälle sagen nichts über
+den Template-Bot aus, also dürfen sie den Abschnitt auch nicht
+verschwinden lassen. Fehlt nur der Name oder das Bild, steht dort der
+Standardname.
 
 Schaltest du den Presences Intent später ein, gewinnt der echte Wert
-gegen beides — der Code prüft das zur Laufzeit.
+gegen die Simulation — der Code prüft das zur Laufzeit.
 
 ## Was er bewusst nicht tut
 

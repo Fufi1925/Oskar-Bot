@@ -24,15 +24,11 @@ BOT_INVITE_URL="<Einladungslink des Hauptbots>"
 # Für das Profilbild des Hauptbots im Panel. Meist schon gesetzt.
 MAIN_BOT_CLIENT_ID="1530349205372145715"
 
-# Zeigt den Abschnitt für den Template-Bot im Panel.
-PARTNER_BOT_CLIENT_ID="1530742522589089952"
-# Optional. Ohne diese Zeile wird der Link aus der Client-ID gebaut.
+# Der Template-Bot braucht KEINE Variable mehr - seine ID steht fest
+# im Code. Genau daran ist der Abschnitt vorher gescheitert: die
+# Variable war hier nie gesetzt, und der Block verschwand kommentarlos.
+# Nur falls sein Einladungslink abweicht:
 # PARTNER_BOT_INVITE_URL="<Einladungslink des Template-Bots>"
-# Status und Ping des Template-Bots sind erfunden - sie sind von außen
-# nicht messbar. Bereich der Zufallszahl, oder ganz abschalten:
-PARTNER_PING_MIN="10"
-PARTNER_PING_MAX="100"
-# PARTNER_SIMULATED="false"
 STATUS_POLL_SECONDS="30"
 STATUS_FAILURES_BEFORE_DOWN="3"
 
@@ -57,10 +53,7 @@ PORT="8080"
 | `MAIN_BOT_CLIENT_ID` | nein | Nur fürs Profilbild des Hauptbots im Panel. Ersatzweise wird `DISCORD_CLIENT_ID` genommen. |
 | `BOT_INVITE_URL` | nein | Knopf „Einladen" beim Hauptbot. |
 | `WEBSITE_URL` | nein | Knopf „Dashboard" beim Hauptbot. |
-| `PARTNER_BOT_CLIENT_ID` | nein | Blendet den Abschnitt für den Template-Bot ein. |
-| `PARTNER_BOT_INVITE_URL` | nein | Sein Einladungslink. Ohne die Variable wird er aus der Client-ID gebaut. |
-| `PARTNER_PING_MIN` / `MAX` | nein | Bereich des **erfundenen** Pings, Standard 10–100 ms. Der echte ist von außen nicht auslesbar. |
-| `PARTNER_SIMULATED` | nein | `false` schaltet die erfundenen Zahlen ab; dann steht dort nur, ob der Bot auf dem Server ist. |
+| `PARTNER_BOT_INVITE_URL` | nein | Einladungslink des Template-Bots. Ohne die Variable wird er aus seiner ID gebaut. |
 | `PORT` | nein | Railway setzt das meist selbst. |
 
 ### Was der Status-Service **nicht** braucht
