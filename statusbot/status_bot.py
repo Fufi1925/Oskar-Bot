@@ -1,0 +1,466 @@
+#!/usr/bin/env python3
+# ╔══════════════════════════════════════════════════════════════════╗
+# ║   University Status                                              ║
+# ╚══════════════════════════════════════════════════════════════════╝
+
+"""
+A second, deliberately tiny bot that watches the main one.
+
+Why it is a separate Railway service and not another thread in the main
+container: a watcher that shares a container with the thing it watches
+cannot report the failure that matters. When Railway restarts the
+container, the deploy fails, or `restartPolicyMaxRetries = 5` is used
+up, both processes die together -- and the outage goes unannounced,
+which is precisely the case anybody builds a status bot for.
+
+Two separate containers die separately. That is the whole point, and it
+is the only reason this file exists rather than a cog in the main bot.
+
+What it does:
+
+  * Polls the main bot's ``/health`` endpoint over the public URL, the
+    same way a stranger would reach it. Checking from inside would test
+    a different thing than "is it reachable".
+  * Keeps one Components V2 message in a status channel, edited in
+    place rather than reposted, so the channel does not fill up.
+  * Announces a change of state once, when it changes -- not every
+    poll.
+
+It writes nothing to the database and has no commands. Less to go
+wrong in the thing whose job is to still be running.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import os
+import sys
+import time
+from datetime import datetime, timezone
+
+import aiohttp
+import discord
+
+# ── Configuration, all from the environment ───────────────────────────
+
+TOKEN = os.getenv("STATUS_BOT_TOKEN", "").strip()
+
+# The main bot's public URL. Railway gives every service its own domain;
+# this must be the *main* one, not this service's.
+MAIN_URL = (os.getenv("MAIN_BOT_URL") or "").strip().rstrip("/")
+
+# Where the live status message lives.
+STATUS_CHANNEL_ID = int(os.getenv("STATUS_CHANNEL_ID") or 0)
+
+# The support guild. Used only to sanity-check the channel is ours.
+HOME_GUILD_ID = int(os.getenv("HOME_GUILD_ID") or 1530378233579704370)
+
+BRAND = os.getenv("NEXT_PUBLIC_BRAND_NAME", "University Bot")
+
+# How often to look. Every 30s is frequent enough to be useful and slow
+# enough that a brief restart does not trigger an alarm on its own.
+POLL_SECONDS = int(os.getenv("STATUS_POLL_SECONDS") or 30)
+
+# How many failed polls before it is called an outage. A single missed
+# request is normal -- a deploy, a dropped connection, a slow response.
+FAILURES_BEFORE_DOWN = int(os.getenv("STATUS_FAILURES_BEFORE_DOWN") or 3)
+
+REQUEST_TIMEOUT = aiohttp.ClientTimeout(total=10)
+
+GREEN = 0x3BA55D
+AMBER = 0xFAA61A
+RED = 0xED4245
+
+
+def _now() -> str:
+    return datetime.now(timezone.utc).strftime("%d.%m.%Y %H:%M UTC")
+
+
+class Health:
+    """The last thing we managed to learn about the main bot."""
+
+    def __init__(self) -> None:
+        self.reachable = False
+        self.bot_ready = False
+        self.dashboard = "unbekannt"
+        self.latency_ms: float | None = None
+        self.status_code: int | None = None
+        self.error: str | None = None
+        self.checked_at = 0.0
+
+    @property
+    def state(self) -> str:
+        """One of: online, starting, down."""
+        if not self.reachable:
+            return "down"
+        if self.bot_ready and self.dashboard == "online":
+            return "online"
+        return "starting"
+
+
+class StatusBot(discord.Client):
+    def __init__(self) -> None:
+        # No message content, no members: this bot reads nothing and
+        # only ever posts. Asking for intents it does not need would be
+        # one more thing to get refused over.
+        super().__init__(intents=discord.Intents.none())
+        self.session: aiohttp.ClientSession | None = None
+        self.health = Health()
+        self.consecutive_failures = 0
+        self.state = "unknown"
+        self.state_since = time.time()
+        self.message: discord.Message | None = None
+        self._task: asyncio.Task | None = None
+
+    # ── lifecycle ────────────────────────────────────────────────
+
+    async def setup_hook(self) -> None:
+        self.session = aiohttp.ClientSession()
+        self._task = asyncio.create_task(self.loop())
+        try:
+            await start_web(self)
+        except Exception as err:  # noqa: BLE001
+            # Watching matters more than the send endpoint; losing one
+            # must not take the other down with it.
+            print(f"[status] the send endpoint failed to start: {err}")
+
+    async def close(self) -> None:
+        if self._task:
+            self._task.cancel()
+        if self.session and not self.session.closed:
+            await self.session.close()
+        await super().close()
+
+    async def on_ready(self) -> None:
+        print(f"[status] logged in as {self.user}")
+        if not MAIN_URL:
+            print(
+                "[status] MAIN_BOT_URL is not set — there is nothing to "
+                "watch. Set it to the main service's public URL."
+            )
+        if not STATUS_CHANNEL_ID:
+            print(
+                "[status] STATUS_CHANNEL_ID is not set — the live message "
+                "cannot be posted."
+            )
+
+    # ── the check ────────────────────────────────────────────────
+
+    async def check(self) -> Health:
+        """
+        Ask the main bot how it is, from outside.
+
+        Deliberately over the public URL: that is the path a real user
+        takes, so it also catches a container that is up but not
+        serving.
+        """
+        health = Health()
+        health.checked_at = time.time()
+
+        if not MAIN_URL or self.session is None:
+            health.error = "MAIN_BOT_URL fehlt"
+            return health
+
+        started = time.perf_counter()
+        try:
+            async with self.session.get(
+                f"{MAIN_URL}/health", timeout=REQUEST_TIMEOUT
+            ) as response:
+                health.status_code = response.status
+                health.latency_ms = (time.perf_counter() - started) * 1000
+                # /health answers 503 while starting, with a body that
+                # still says what is going on. Reading it either way is
+                # the difference between "starting" and "down".
+                try:
+                    payload = await response.json()
+                except Exception:
+                    payload = {}
+                health.reachable = True
+                health.bot_ready = bool(payload.get("bot_ready"))
+                health.dashboard = str(payload.get("dashboard") or "unbekannt")
+        except asyncio.TimeoutError:
+            health.error = "Zeitüberschreitung"
+        except aiohttp.ClientError as err:
+            health.error = type(err).__name__
+        except Exception as err:  # noqa: BLE001 - a watcher must not die
+            health.error = f"{type(err).__name__}: {err}"
+
+        return health
+
+    # ── the message ──────────────────────────────────────────────
+
+    def build_view(self) -> discord.ui.LayoutView:
+        from view import StatusView
+
+        return StatusView(
+            brand=BRAND,
+            state=self.state,
+            health=self.health,
+            since=self.state_since,
+        )
+
+    async def find_message(self) -> None:
+        """
+        Reuse the message from the last run instead of posting a new one.
+
+        Without this every restart leaves another status message behind
+        and the channel turns into a list of dead ones.
+        """
+        if not STATUS_CHANNEL_ID:
+            return
+        channel = self.get_channel(STATUS_CHANNEL_ID)
+        if channel is None:
+            try:
+                channel = await self.fetch_channel(STATUS_CHANNEL_ID)
+            except Exception as err:
+                print(f"[status] cannot see the status channel: {err}")
+                return
+
+        guild = getattr(channel, "guild", None)
+        if guild is not None and HOME_GUILD_ID and guild.id != HOME_GUILD_ID:
+            print(
+                f"[status] the status channel is on guild {guild.id}, not "
+                f"{HOME_GUILD_ID}. Refusing to post there."
+            )
+            return
+
+        try:
+            async for message in channel.history(limit=30):
+                if message.author.id == self.user.id:
+                    self.message = message
+                    return
+        except discord.Forbidden:
+            print("[status] no permission to read the status channel history.")
+        except Exception as err:
+            print(f"[status] could not look for an old message: {err}")
+
+    async def publish(self) -> None:
+        if not STATUS_CHANNEL_ID:
+            return
+
+        view = self.build_view()
+
+        if self.message is not None:
+            try:
+                await self.message.edit(view=view)
+                return
+            except discord.NotFound:
+                self.message = None
+            except discord.Forbidden:
+                print("[status] not allowed to edit the status message.")
+                return
+            except Exception as err:
+                print(f"[status] editing failed: {err}")
+                self.message = None
+
+        channel = self.get_channel(STATUS_CHANNEL_ID)
+        if channel is None:
+            return
+        try:
+            self.message = await channel.send(view=view)
+        except discord.Forbidden:
+            print("[status] not allowed to post in the status channel.")
+        except Exception as err:
+            print(f"[status] posting failed: {err}")
+
+    # ── the loop ─────────────────────────────────────────────────
+
+    async def loop(self) -> None:
+        await self.wait_until_ready()
+        await self.find_message()
+
+        while not self.is_closed():
+            try:
+                health = await self.check()
+
+                if health.reachable:
+                    self.consecutive_failures = 0
+                else:
+                    self.consecutive_failures += 1
+
+                self.health = health
+
+                # A single miss is not an outage. Only call it down once
+                # it has failed several times in a row, or a deploy of
+                # the main service would read as a crash every time.
+                if self.consecutive_failures >= FAILURES_BEFORE_DOWN:
+                    new_state = "down"
+                elif health.reachable:
+                    new_state = health.state
+                else:
+                    new_state = self.state if self.state != "unknown" else "starting"
+
+                if new_state != self.state:
+                    print(f"[status] {self.state} -> {new_state}")
+                    self.state = new_state
+                    self.state_since = time.time()
+
+                await self.publish()
+                await self.set_presence()
+            except asyncio.CancelledError:
+                raise
+            except Exception as err:  # noqa: BLE001
+                # The watcher staying up matters more than any one pass.
+                print(f"[status] poll failed: {type(err).__name__}: {err}")
+
+            await asyncio.sleep(POLL_SECONDS)
+
+    async def set_presence(self) -> None:
+        label = {
+            "online": f"{BRAND}: alles läuft",
+            "starting": f"{BRAND}: startet gerade",
+            "down": f"{BRAND}: gestört",
+            "unknown": "prüfe…",
+        }.get(self.state, "prüfe…")
+
+        status = {
+            "online": discord.Status.online,
+            "starting": discord.Status.idle,
+            "down": discord.Status.dnd,
+        }.get(self.state, discord.Status.idle)
+
+        try:
+            await self.change_presence(
+                status=status,
+                activity=discord.CustomActivity(name=label[:128]),
+            )
+        except Exception:
+            pass
+
+
+# ══════════════════════════════════════════════════════════════════════
+#  A tiny HTTP endpoint, so the dashboard can post through this bot
+# ══════════════════════════════════════════════════════════════════════
+#
+# The point of the whole service is that it is still running when the
+# main bot is not. A changelog that can only be sent through the main
+# bot is useless in exactly the situation you need it -- "the bot is
+# down" is the one announcement that cannot go out via the bot that is
+# down.
+#
+# So this serves one route, guarded by the same shared key the dashboard
+# already uses. It sends and does nothing else: no reads, no config, no
+# database.
+
+async def start_web(bot: "StatusBot") -> None:
+    from aiohttp import web
+
+    key = (os.getenv("DASHBOARD_API_KEY") or "").strip()
+
+    async def handle_send(request):
+        if not key:
+            return web.json_response(
+                {"detail": "Auf diesem Dienst ist kein API-Schlüssel gesetzt."},
+                status=503,
+            )
+        if request.headers.get("X-API-Key", "") != key:
+            return web.json_response({"detail": "Nicht erlaubt."}, status=401)
+
+        try:
+            data = await request.json()
+        except Exception:
+            return web.json_response({"detail": "Kein gültiges JSON."}, status=400)
+
+        channel_id = str(data.get("channel_id") or "")
+        if not channel_id.isdigit():
+            return web.json_response(
+                {"detail": "Bitte einen Kanal angeben."}, status=400
+            )
+
+        channel = bot.get_channel(int(channel_id))
+        if channel is None:
+            try:
+                channel = await bot.fetch_channel(int(channel_id))
+            except Exception:
+                return web.json_response(
+                    {"detail": "Diesen Kanal sehe ich nicht. Ist der "
+                               "Status-Bot auf dem Server?"},
+                    status=404,
+                )
+
+        guild = getattr(channel, "guild", None)
+        # Scoped to the support server on purpose. This endpoint posts
+        # as a bot with no per-guild permission model behind it, so it
+        # must not become a way to post anywhere it happens to be.
+        if HOME_GUILD_ID and (guild is None or guild.id != HOME_GUILD_ID):
+            return web.json_response(
+                {"detail": "Dieser Bot darf nur im Support-Server posten."},
+                status=403,
+            )
+
+        try:
+            from message_builder import build, validate
+        except ImportError:
+            return web.json_response(
+                {"detail": "Der Nachrichten-Baustein fehlt in diesem Dienst."},
+                status=500,
+            )
+
+        problems = validate(data)
+        if problems:
+            return web.json_response({"detail": " ".join(problems)}, status=400)
+
+        kwargs = build(data)
+        if not data.get("allow_mentions"):
+            kwargs["allowed_mentions"] = discord.AllowedMentions.none()
+
+        try:
+            message = await channel.send(**kwargs)
+        except discord.Forbidden:
+            return web.json_response(
+                {"detail": f"Ich darf in #{channel.name} nicht schreiben."},
+                status=403,
+            )
+        except discord.HTTPException as err:
+            return web.json_response(
+                {"detail": f"Discord hat abgelehnt: {err}"}, status=400
+            )
+
+        return web.json_response({
+            "status": "success",
+            "result": f"Als {bot.user.name} in #{channel.name} gesendet.",
+            "message_id": str(message.id),
+            "url": message.jump_url,
+        })
+
+    async def handle_health(_request):
+        return web.json_response({
+            "status": "ok",
+            "watching": MAIN_URL or None,
+            "main_state": bot.state,
+        })
+
+    app = web.Application()
+    app.router.add_post("/send", handle_send)
+    app.router.add_get("/health", handle_health)
+
+    runner = web.AppRunner(app)
+    await runner.setup()
+    port = int(os.getenv("PORT") or 8080)
+    site = web.TCPSite(runner, "0.0.0.0", port)
+    await site.start()
+    print(f"[status] send endpoint listening on {port}")
+
+
+def main() -> int:
+    if not TOKEN:
+        print(
+            "[status] STATUS_BOT_TOKEN is not set. This service has "
+            "nothing to log in with — set it in Railway."
+        )
+        # Exit 0 rather than crash-looping: an unconfigured service
+        # should sit still, not burn restarts.
+        return 0
+
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    bot = StatusBot()
+    try:
+        bot.run(TOKEN, log_handler=None)
+    except discord.LoginFailure:
+        print("[status] Discord refused the token.")
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

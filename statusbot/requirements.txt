@@ -1,0 +1,4 @@
+# Deliberately small. This service exists to still be running when the
+# main one is not, so it depends on as little as possible.
+discord.py>=2.4.0
+aiohttp>=3.9.0
