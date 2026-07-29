@@ -219,6 +219,72 @@ async def run_checks():
         await bot.session.close()
 
 
+def test_no_name_clashes_with_discord():
+    """
+    Nothing on StatusBot may shadow something discord.Client owns.
+
+    This is not hypothetical: the first deploy crash-looped with
+    "'_UnixSelectorEventLoop' object is not callable" because the
+    polling method was called `loop`, and discord.py assigns the running
+    event loop to `self.loop` during start-up. The method was simply
+    gone by the time anything called it.
+
+    Nothing in the local tests caught that -- the clash only happens
+    after a real login -- so it is checked statically instead.
+    """
+    print("\nNo name clashes with discord.Client")
+
+    import ast
+
+    import discord
+
+    source = open(os.path.join(STATUS, "status_bot.py"), encoding="utf-8").read()
+    tree = ast.parse(source)
+
+    names: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ClassDef) and node.name == "StatusBot":
+            for item in node.body:
+                if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    names.add(item.name)
+            for item in ast.walk(node):
+                if (
+                    isinstance(item, ast.Attribute)
+                    and isinstance(item.ctx, ast.Store)
+                    and isinstance(item.value, ast.Name)
+                    and item.value.id == "self"
+                ):
+                    names.add(item.attr)
+
+    check("the class was found", bool(names), "StatusBot not parsed")
+
+    # Overriding these is the normal way to extend a Client, and each
+    # one calls super(). Everything else must not collide.
+    intentional = {"__init__", "close", "setup_hook", "on_ready"}
+
+    # Attributes discord.py sets at runtime rather than on the class,
+    # which is why `loop` did not show up in dir(discord.Client).
+    runtime_attributes = {
+        "loop", "ws", "http", "user", "application_id",
+        "shard_id", "shard_count",
+    }
+
+    owned = set(dir(discord.Client)) | runtime_attributes
+    clashes = sorted((names & owned) - intentional)
+
+    check("nothing shadows a discord.Client attribute",
+          not clashes,
+          f"{clashes} — this is how the first deploy crash-looped")
+
+    # And the specific one, named, so the fix cannot quietly be undone.
+    check("the polling loop is not called 'loop'",
+          "loop" not in names or "async def loop" not in source,
+          "discord.py overwrites self.loop with the event loop")
+    check("it is called watch_loop", "async def watch_loop" in source)
+    check("and that is what gets scheduled",
+          "create_task(self.watch_loop())" in source)
+
+
 def test_one_miss_is_not_an_outage():
     """
     A single failed poll happens: a deploy, a dropped connection, a slow
@@ -460,6 +526,7 @@ def main():
 
     test_layout()
     asyncio.run(run_checks())
+    test_no_name_clashes_with_discord()
     test_one_miss_is_not_an_outage()
     asyncio.run(run_endpoint())
     test_deployment()

@@ -116,7 +116,7 @@ class StatusBot(discord.Client):
 
     async def setup_hook(self) -> None:
         self.session = aiohttp.ClientSession()
-        self._task = asyncio.create_task(self.loop())
+        self._task = asyncio.create_task(self.watch_loop())
         try:
             await start_web(self)
         except Exception as err:  # noqa: BLE001
@@ -265,7 +265,16 @@ class StatusBot(discord.Client):
 
     # ── the loop ─────────────────────────────────────────────────
 
-    async def loop(self) -> None:
+    async def watch_loop(self) -> None:
+        """
+        The polling loop.
+
+        Not called `loop`: discord.Client assigns the running event loop
+        to `self.loop` during start-up, which replaces any method of
+        that name. Calling it then raises
+        "'_UnixSelectorEventLoop' object is not callable" -- which is
+        exactly what happened on the first deploy.
+        """
         await self.wait_until_ready()
         await self.find_message()
 
