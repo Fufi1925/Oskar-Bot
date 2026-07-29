@@ -36,15 +36,47 @@ from discord.ext import commands, tasks
 # utils.bootstrap`. Importing the submodule would execute utils/__init__.py,
 # which imports Tools -> core -> back into utils, and that circular chain
 # fails while utils is still half-initialised.
-def _run_bootstrap():
+def _load_standalone(name: str):
+    """Load one module straight from its file, without touching utils/."""
     import importlib.util
     import os
 
-    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "utils", "bootstrap.py")
-    spec = importlib.util.spec_from_file_location("_bootstrap", path)
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "utils", f"{name}.py")
+    spec = importlib.util.spec_from_file_location(f"_{name}", path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
+    return module
 
+
+# Storage first, bootstrap second, and the order matters: bootstrap
+# creates db/ and jsondb/ if they are missing, so if it ran first it
+# would create them in the image and storage would then have to move
+# directories that were made a moment earlier.
+def _prepare_storage():
+    storage = _load_standalone("storage")
+    if storage.is_persistent():
+        for line in storage.prepare():
+            print(f"[storage] {line}")
+        print(f"[storage] data lives in {storage.data_dir()}")
+        if not storage.looks_mounted():
+            print(
+                "[storage] WARNING: DATA_DIR is set but nothing is mounted "
+                "there. The files are inside the container and will still "
+                "be lost on the next deploy. Attach a volume in Railway "
+                f"with the mount path {storage.data_dir()}."
+            )
+    else:
+        print(
+            "[storage] DATA_DIR is not set — the databases sit next to the "
+            "code and will be lost on the next deploy."
+        )
+
+
+def _run_bootstrap():
+    _load_standalone("bootstrap")
+
+
+_prepare_storage()
 _run_bootstrap()
 
 from core import Context

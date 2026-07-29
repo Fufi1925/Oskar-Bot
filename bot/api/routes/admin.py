@@ -496,8 +496,27 @@ async def get_admin_health(bot: "universitybot" = Depends(get_bot)):
     await feature_flags.load()
     snapshot = runtime.snapshot()
 
+    # Whether the data survives a deploy. This is the one health fact
+    # nobody notices until it is too late: everything works fine right
+    # up to the next deploy, and then every server's settings are gone.
+    from utils import storage
+    persistence = storage.describe()
+
     return {
         "bot_ready": bot.is_ready(),
+        "storage": {
+            **persistence,
+            "safe": persistence["persistent"] and persistence["mounted"],
+            "hint": (
+                "Alles in Ordnung — die Daten liegen auf einem Volume."
+                if persistence["persistent"] and persistence["mounted"]
+                else "DATA_DIR ist gesetzt, aber dort ist kein Volume "
+                     "eingehängt. Die Daten sind beim nächsten Deploy weg."
+                if persistence["persistent"]
+                else "Kein Volume: Die Datenbanken liegen neben dem Code "
+                     "und gehen bei jedem Deploy verloren."
+            ),
+        },
         "flags": {
             key: feature_flags.is_enabled(key)
             for key in (

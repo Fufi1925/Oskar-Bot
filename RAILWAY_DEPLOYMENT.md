@@ -4,6 +4,67 @@
 
 ---
 
+## ⚠️ ZUERST: Volume anlegen (sonst gehen alle Daten verloren)
+
+Railway baut den Container bei **jedem Deploy neu**. Ohne Volume sind
+danach alle 61 Datenbanken weg — jeder Server verliert jede Einstellung,
+jedes Mal.
+
+**Das musst du einmal im Railway-Dashboard klicken:**
+
+1. Dein Projekt öffnen → auf den Service klicken
+2. Reiter **Variables** → prüfen, dass `DATA_DIR` auf `/data` steht
+   (steht schon im Dockerfile, also normalerweise nichts zu tun)
+3. Rechtsklick auf den Service → **Add Volume**
+   *(oder: Service → Settings → Volumes → New Volume)*
+4. Als **Mount Path** eintragen: `/data`
+5. Speichern → Railway startet neu
+
+**Fertig.** Beim nächsten Start schiebt der Bot alles Vorhandene ins
+Volume und meldet im Log:
+
+```
+[storage] db/ -> /data/db
+[storage] jsondb/ -> /data/jsondb
+[storage] rr.db moved
+[storage] j2c_data.db linked
+[storage] data lives in /data
+```
+
+### Woran du merkst, dass es NICHT geklappt hat
+
+Steht das im Log, fehlt das Volume noch:
+
+```
+[storage] WARNING: DATA_DIR is set but nothing is mounted there.
+```
+
+Im Dashboard steht es auch: **Admin → Health → storage**. Dort heißt es
+entweder „Alles in Ordnung — die Daten liegen auf einem Volume" oder es
+sagt dir genau, was fehlt.
+
+### Warum nicht einfach ein Volume auf `bot/db`?
+
+Weil drei Dinge außerhalb liegen: `rr.db` (Reaktions-Rollen),
+`j2c_data.db` (Join to Create) und der Ordner `jsondb/`. Ein Volume nur
+auf `bot/db` hätte die stillschweigend liegen lassen — der Bot wäre
+sauber gestartet und die Reaktions-Rollen wären trotzdem weg gewesen.
+Deshalb liegt alles unter `/data`.
+
+### Ein Volume ist kein Backup
+
+Es überlebt Deploys, aber nicht ein gelöschtes Volume und keinen
+Bedienfehler. Unter **Admin → Backups** kannst du jederzeit eine
+Sicherung herunterladen. Ein automatischer Zeitplan dafür ist noch nicht
+gebaut.
+
+### Kostet das was?
+
+Nein. Railway gibt 1 GB Volume im kostenlosen Tarif. Aktueller
+Verbrauch: unter 1 MB.
+
+---
+
 ### Architektur
 
 ```

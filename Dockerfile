@@ -62,6 +62,19 @@ ENV PORT=8080
 ENV DASHBOARD_PORT=3000
 ENV HOSTNAME=0.0.0.0
 
+# Where the databases live.
+#
+# Everything the bot writes -- 61 SQLite files, the JSON config and the
+# two strays (rr.db, j2c_data.db) that sit outside db/ -- is put under
+# this one directory at startup, so a single mounted volume covers all
+# of it. Without a volume mounted here the directory is just part of the
+# container and the data is gone on the next deploy, which is the
+# behaviour this replaces.
+#
+# On Railway: add a volume with the mount path /data.
+ENV DATA_DIR=/data
+VOLUME ["/data"]
+
 EXPOSE 8080
 
 CMD ["./start.sh"]
