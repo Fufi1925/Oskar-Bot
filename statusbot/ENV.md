@@ -21,6 +21,9 @@ NEXT_PUBLIC_BRAND_NAME="University Bot"
 WEBSITE_URL="https://universtiy-bot.up.railway.app"
 BOT_INVITE_URL="<Einladungslink des Hauptbots>"
 
+# Für das Profilbild des Hauptbots im Panel. Meist schon gesetzt.
+MAIN_BOT_CLIENT_ID="1530349205372145715"
+
 # Zeigt den Abschnitt für den Template-Bot im Panel.
 PARTNER_BOT_CLIENT_ID="1530742522589089952"
 # Optional. Ohne diese Zeile wird der Link aus der Client-ID gebaut.
@@ -51,6 +54,7 @@ PORT="8080"
 | `NEXT_PUBLIC_BRAND_NAME` | nein | Name in der Statusnachricht. Standard: `University Bot`. |
 | `STATUS_POLL_SECONDS` | nein | Prüfabstand, Standard `30`. |
 | `STATUS_FAILURES_BEFORE_DOWN` | nein | Fehlversuche bis „Störung", Standard `3`. Mit 30 Sekunden Abstand also nach ca. 1,5 Minuten. |
+| `MAIN_BOT_CLIENT_ID` | nein | Nur fürs Profilbild des Hauptbots im Panel. Ersatzweise wird `DISCORD_CLIENT_ID` genommen. |
 | `BOT_INVITE_URL` | nein | Knopf „Einladen" beim Hauptbot. |
 | `WEBSITE_URL` | nein | Knopf „Dashboard" beim Hauptbot. |
 | `PARTNER_BOT_CLIENT_ID` | nein | Blendet den Abschnitt für den Template-Bot ein. |

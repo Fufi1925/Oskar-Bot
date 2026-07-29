@@ -43,7 +43,7 @@ export const ANNOUNCEMENTS: Announcement[] = [
   {
     id: "2026-07-status-panel",
     label: "Changelog: Status-Panel",
-    summary: "Statusanzeige neu aufgeteilt, pro Bot",
+    summary: "Statusanzeige neu gebaut, ein Abschnitt pro Bot",
     guilds: [BOT_GUILD_ID],
     date: "30.07.2026",
     accent: "#3ba55d",
@@ -52,36 +52,36 @@ export const ANNOUNCEMENTS: Announcement[] = [
         type: "text",
         text:
           "# 📊 Changelog · Status-Panel\n" +
-          "### Übersichtlicher, ein Abschnitt pro Bot",
+          "### Neu gebaut, übersichtlicher, ein Abschnitt pro Bot",
       },
       { type: "divider" },
       {
         type: "text",
         text:
-          "Die Statusanzeige im Status-Kanal war eine einzige lange Liste. " +
-          "Jetzt ist sie aufgeteilt: **oben der Hauptbot** mit seinen " +
-          "Werten und seinen Knöpfen, **darunter der Template-Bot** mit " +
-          "seinen.",
+          "Die Statusanzeige im Status-Kanal war eine lange Liste mit " +
+          "allen Links unten dran. Jetzt hat **jeder Bot seinen eigenen " +
+          "Abschnitt** — mit Profilbild, Zustand, Messwerten und seinen " +
+          "eigenen Knöpfen darunter.",
       },
       { type: "divider" },
       {
         type: "text",
         text:
           "## Was sich geändert hat\n\n" +
-          "**Knöpfe gehören jetzt zum jeweiligen Bot.** Vorher hingen alle " +
-          "Links unten in einer Reihe und man wusste nicht, wozu welcher " +
-          "gehört.\n\n" +
-          "**Support-Knopf entfernt.** Das Panel steht im Support-Server — " +
-          "ein Link dorthin zeigt auf den Raum, in dem ihr schon steht.\n\n" +
-          "**Fußzeile aufgeräumt.** Nur noch Name und Zeitstempel, und der " +
-          "zählt sich in eurem Discord selbst hoch.",
+          "> 🖼️ **Profilbilder** — beide Bots stehen mit ihrem echten " +
+          "Discord-Bild im Panel.\n" +
+          "> 🎯 **Knöpfe gehören zum Bot** — vorher hingen alle Links " +
+          "unten in einer Reihe.\n" +
+          "> ⏱️ **Live-Zeitstempel** — zählt sich selbst hoch und zeigt " +
+          "**eure** Zeitzone statt UTC.\n" +
+          "> 🧹 **Support-Knopf raus** — das Panel steht im " +
+          "Support-Server, der Link zeigte auf diesen Raum hier.",
       },
       { type: "divider" },
       {
         type: "text",
         text:
-          "-# Das Panel aktualisiert sich weiterhin von selbst. " +
-          "Mit `/status` erzwingt ihr eine sofortige Prüfung.",
+          "-# Mit `/status` erzwingt ihr jederzeit eine sofortige Prüfung.",
       },
     ],
   },

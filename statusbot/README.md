@@ -111,35 +111,65 @@ Befehle von anderen Servern oder von Bots werden ignoriert.
 Vier Blöcke, von oben nach unten:
 
 ```
-🟢  Alle Systeme laufen          ← 1. Überschrift
-unverändert seit 2 Stunden
+# 🟢  Alle Systeme laufen                    ← 1. Überschrift (h1)
+-# Unverändert seit 2 Stunden · seit 14:31
+> Der Bot ist erreichbar und bereit.
 
-## University Bot                ← 2. Hauptbot
-🟢 Erreichbar          HTTP 200
-🟢 Antwortzeit         ▰▰▰▰▰ 143 ms · schnell
-🟢 Discord-Verbindung  verbunden
-🟢 Dashboard           erreichbar
-[🖥️ Dashboard] [➕ Einladen]     ← seine eigenen Knöpfe
+  ┌────┐  ## University Bot                  ← 2. Hauptbot (h2)
+  │ 🖼️ │  ### 🟢 Betriebsbereit                  + Profilbild
+  └────┘  -# Hauptbot · Dashboard, Befehle
+> 🟢 **Erreichbar** · `HTTP 200`
+> 🟢 **Antwortzeit** · `143 ms` · ▰▰▰▰▰ schnell
+> 🟢 **Discord-Verbindung** · verbunden
+> 🟢 **Dashboard** · erreichbar
+[🖥️ Dashboard] [➕ Einladen]                    seine eigenen Knöpfe
 
-## University Template           ← 3. Template-Bot
-🟢 Status              online
-🟢 Antwortzeit         ▰▰▰▰ 47 ms · schnell
-[➕ Einladen]                    ← nur Einladung, er hat keine Website
+  ┌────┐  ## University Template             ← 3. Template-Bot
+  │ 🖼️ │  ### 🟢 Online                          gleiche Bauart
+  └────┘  -# Template-Bot · Server-Vorlagen
+> 🟢 **Status** · online
+> 🟢 **Antwortzeit** · `47 ms` · ▰▰▰▰ schnell
+[➕ Einladen]                                   keine Website → nur das
 
-University Status System · vor 12 Sekunden    ← 4. Fußzeile
+-# University Status System · vor 12 Sekunden  ← 4. Fußzeile
 ```
 
-Jeder Bot hat seine Knöpfe direkt unter seinen eigenen Zahlen — so ist
-klar, wozu sie gehören.
+Beide Bots sind **gleich gebaut**: Profilbild, Name, Zustandszeile,
+Messwerte, eigene Knöpfe. Zwei unterschiedlich gebaute Blöcke würden
+wie zwei verschiedene Dinge wirken.
 
-### Fußzeile
+### Profilbilder
 
-Nur zwei Dinge: der Name und die Zeit. Die Zeit ist ein **relativer
-Discord-Zeitstempel** (`<t:…:R>`), den jeder Client selbst hochzählt —
-„vor 12 Sekunden", „vor einer Minute". Deshalb steht dort auch kein
-„aktualisiert sich alle 30 Sekunden" mehr: der Zeitstempel zeigt die
-Wahrheit selbst, ohne ein Versprechen zu machen, das bei einer Störung
-nicht mehr stimmt.
+Jeder Bot bekommt sein echtes Discord-Profilbild neben den Namen. Beide
+kommen von Discord selbst — der Hauptbot über seine Application, der
+Template-Bot direkt vom Mitglied-Objekt, das ohnehin abgefragt wird.
+Nichts davon steht in einer Variable, kann also auch nicht veralten,
+wenn ihr das Bild ändert.
+
+Klappt die Abfrage nicht, fehlt nur das Bild. Die Überschrift bleibt.
+
+### Discord-Markup statt Fließtext
+
+Das ist keine Deko — jedes dieser Zeichen macht etwas, das ein
+nachgebauter Text nicht kann:
+
+| Markup | Wirkung |
+|---|---|
+| `# ## ###` | echte Überschriften, deshalb sind die Bots optisch getrennte Blöcke |
+| `>` | Discord zieht einen senkrechten Strich neben zusammenhängende Zeilen — gruppiert die Messwerte ohne Kasten |
+| `-#` | Kleingedrucktes für alles, was nur Zusammenhang ist |
+| `**fett**` | sagt, *was* eine Zeile ist |
+| `` `143 ms` `` | Messwerte in Code-Schrift: ein Wert ist auf einen Blick ein Wert und keine Prosa |
+| `<t:…:R>` | „vor 12 Sekunden", vom Client selbst hochgezählt |
+| `<t:…:t>` | Uhrzeit in **eurer** Zeitzone, nicht in UTC |
+
+Der Punkt bei den Zeitstempeln: eine ausgeschriebene Uhrzeit
+(„Stand: 12:04 UTC") ist in der Sekunde falsch, in der die Nachricht
+bearbeitet wird — und das passiert alle 30 Sekunden. Discord-Stempel
+bleiben von selbst richtig und zeigen jedem seine eigene Zeitzone.
+
+Die Trennlinien sind echte `Separator`-Bauteile, keine Bindestriche im
+Text — zwischen den Bots mit großem Abstand, innerhalb mit kleinem.
 
 ### Knöpfe
 

@@ -123,6 +123,9 @@ def buttons(view) -> list[tuple[str, str]]:
     def walk(item):
         if isinstance(item, discord.ui.Button):
             found.append((item.label, item.url))
+        accessory = getattr(item, "accessory", None)
+        if accessory is not None:
+            walk(accessory)
         for child in getattr(item, "children", None) or []:
             walk(child)
 
@@ -139,12 +142,51 @@ def render(view) -> str:
         content = getattr(item, "content", None)
         if isinstance(content, str):
             found.append(content)
+        # A Section keeps its thumbnail/button in `accessory`, not in
+        # `children`. Walking only children misses it entirely, which
+        # is how an earlier version of this file "passed" while the
+        # avatars were not rendered at all.
+        accessory = getattr(item, "accessory", None)
+        if accessory is not None:
+            walk(accessory)
         for child in getattr(item, "children", None) or []:
             walk(child)
 
     for child in view.children:
         walk(child)
     return "\n".join(found)
+
+
+def section(text: str, heading: str) -> str:
+    """
+    Everything under a heading, or "" when the heading is not there.
+
+    Plain `.split(...)[1]` raises IndexError when the heading is
+    missing, which crashes the run instead of failing a check -- and a
+    crashed run reports nothing at all about the checks after it.
+    """
+    parts = text.split(heading, 1)
+    return parts[1] if len(parts) > 1 else ""
+
+
+def thumbnails(view) -> list[str]:
+    """Every thumbnail URL in the view."""
+    import discord
+
+    found: list[str] = []
+
+    def walk(item):
+        if isinstance(item, discord.ui.Thumbnail):
+            found.append(item.media.url)
+        accessory = getattr(item, "accessory", None)
+        if accessory is not None:
+            walk(accessory)
+        for child in getattr(item, "children", None) or []:
+            walk(child)
+
+    for child in view.children:
+        walk(child)
+    return found
 
 
 def test_layout():
@@ -267,14 +309,18 @@ def test_links_and_partner():
                  "detail": "online", "ping": 42.0,
                  "invite": "https://example.com/t"},
     ))
-    positions = [
-        full.index("Alle Systeme laufen"),
-        full.index("## University Bot"),
-        full.index("## University Template"),
-        full.index("University Status System"),
-    ]
-    check("headline, then main bot, then template bot, then footer",
-          positions == sorted(positions), full)
+    # str.index raises when a marker is missing, which turns a failed
+    # check into a crashed run -- the rest of the file then never runs
+    # and the summary says nothing. Reported as a failure instead.
+    markers = ["Alle Systeme laufen", "## University Bot",
+               "## University Template", "University Status System"]
+    missing = [marker for marker in markers if marker not in full]
+    check("headline, main bot, template bot and footer are all present",
+          not missing, f"missing: {missing}")
+    if not missing:
+        positions = [full.index(marker) for marker in markers]
+        check("and they come in that order",
+              positions == sorted(positions), full)
 
     # ── the footer ───────────────────────────────────────────────
     footer = full.rsplit("\n", 1)[-1]
@@ -347,8 +393,8 @@ def test_links_and_partner():
     ))
     check("the template bot shows as online", "🟢 **Status**" in shown, shown)
     check("with its own ping", "63 ms" in shown, shown)
-    check("drawn the same way as the main bot's", "▰" in shown.split("## University Template")[1],
-          shown)
+    check("drawn the same way as the main bot's",
+          "▰" in section(shown, "## University Template"), shown)
 
     missing = render(StatusView(
         brand="B", state="online", health=FakeHealth(), since=time.time(),
@@ -359,7 +405,7 @@ def test_links_and_partner():
           "🔴 **Status**" in missing and "nicht auf dem Server" in missing,
           missing[-250:])
     check("and gets no invented ping when it is not there",
-          "ms" not in missing.split("## Template-Bot")[1], missing[-250:])
+          "ms" not in section(missing, "## Template-Bot"), missing[-250:])
 
     # ── the main bot's figures are still never invented ──────────
     down = render(StatusView(
@@ -487,6 +533,158 @@ def test_partner_ping_range():
           "by accident")
     check("and explains why it cannot be", "gateway latency" in source,
           body[:200])
+
+
+def test_discord_markup():
+    """
+    The panel is written in Discord's own markup, not in plain text.
+
+    This is not decoration. Each of these renders as something the
+    client maintains or draws, where the plain-text equivalent goes
+    stale or reads as an undifferentiated wall:
+
+      * `<t:...:R>` and `<t:...:t>` are counted up by the client, so a
+        message edited every 30 seconds is never wrong in between. A
+        written-out "Stand: 12:04 UTC" is wrong the moment it is sent.
+      * `>` draws a continuous bar down a run of lines, which groups
+        the readings without a box.
+      * `#`/`##`/`###` are real headings, so the two bots are visibly
+        separate blocks rather than paragraphs.
+      * `-#` is small print, for the things that are context.
+      * backticks put measured values in code type, which separates a
+        reading from prose at a glance.
+    """
+    print("\nDiscord markup")
+
+    from view import StatusView
+
+    full = render(StatusView(
+        brand="University Bot", state="online", health=FakeHealth(),
+        since=time.time() - 7200, website="https://example.com",
+        invite="https://example.com/i",
+        partner={"ok": True, "label": "University Template",
+                 "detail": "online", "ping": 42.0},
+    ))
+
+    check("the headline is an h1", full.startswith("# 🟢"), full[:40])
+    check("each bot gets an h2",
+          "## University Bot" in full and "## University Template" in full)
+    check("and a state line as an h3",
+          "### 🟢 Betriebsbereit" in full and "### 🟢 Online" in full, full)
+
+    quoted = [line for line in full.splitlines() if line.startswith("> ")]
+    check("the readings are quoted lines", len(quoted) >= 6,
+          f"{len(quoted)} quoted lines")
+    check("every reading row is quoted",
+          all(line.startswith("> ") for line in full.splitlines()
+              if "**Antwortzeit**" in line or "**Erreichbar**" in line),
+          full)
+    check("the explanation is quoted too",
+          "> Der Bot ist erreichbar und bereit." in full)
+
+    check("measured values are in code type",
+          "`143 ms`" in full or "`120 ms`" in full, full)
+    check("the http status too", "`HTTP 200`" in full, full)
+
+    check("context lines use small print", full.count("-# ") >= 3, full)
+    check("labels are bold", full.count("**") >= 8, full)
+
+    # Timestamps: the client keeps these current, a written time does
+    # not. Both kinds appear -- relative in the footer, clock time for
+    # when the state last changed.
+    check("the footer timestamp is relative", "<t:" in full and ":R>" in full)
+    check("the state change carries a clock stamp", ":t>" in full, full)
+    check("no hand-written UTC clock reading is left",
+          "UTC" not in full,
+          "a fixed clock reading is stale the moment the message is "
+          "edited; that is what the timestamp markup is for")
+
+    # A separator between the blocks, drawn by Discord rather than by
+    # a row of dashes in the text.
+    import discord
+
+    def count(kind):
+        found = []
+
+        def walk(item):
+            if isinstance(item, kind):
+                found.append(item)
+            for child in getattr(item, "children", None) or []:
+                walk(child)
+
+        for child in StatusView(
+            brand="B", state="online", health=FakeHealth(), since=time.time(),
+            partner={"ok": True, "label": "T", "detail": "online", "ping": 5.0},
+        ).children:
+            walk(child)
+        return len(found)
+
+    check("real separators, not dashes in the text",
+          count(discord.ui.Separator) >= 3 and "---" not in full,
+          f"{count(discord.ui.Separator)} separators")
+
+    source_view = open(os.path.join(STATUS, "view.py"), encoding="utf-8").read()
+    check("the large spacing is used between bots",
+          "SeparatorSpacing.large" in source_view,
+          "same-size gaps everywhere make one block of two")
+
+
+def test_avatars():
+    """
+    Each bot's name plate carries its own profile picture.
+
+    Both are real: the main bot's comes from its application over
+    Discord's CDN, the template bot's straight off the member object
+    that was already fetched. Neither is configured by hand, so neither
+    can drift out of date.
+
+    A missing avatar must cost nothing but the picture -- Section
+    requires an accessory, so the heading falls back to plain text
+    rather than raising.
+    """
+    print("\nAvatars")
+
+    from view import StatusView
+
+    main_url = "https://cdn.discordapp.com/avatars/1/a.png?size=128"
+    partner_url = "https://cdn.discordapp.com/avatars/2/b.png?size=128"
+
+    view = StatusView(
+        brand="University Bot", state="online", health=FakeHealth(),
+        since=time.time(), avatar=main_url,
+        partner={"ok": True, "label": "University Template",
+                 "detail": "online", "ping": 30.0, "avatar": partner_url},
+    )
+    urls = thumbnails(view)
+    check("the main bot's avatar is shown", main_url in urls, str(urls))
+    check("the template bot's too", partner_url in urls, str(urls))
+    check("one each, no duplicates", len(urls) == 2, str(urls))
+
+    # The heading text must survive either way.
+    without = StatusView(
+        brand="University Bot", state="online", health=FakeHealth(),
+        since=time.time(),
+        partner={"ok": True, "label": "T", "detail": "online", "ping": 30.0},
+    )
+    check("no avatar means no thumbnail", thumbnails(without) == [],
+          str(thumbnails(without)))
+    text = render(without)
+    check("but the heading is still there", "## University Bot" in text, text)
+    check("and so is the state line", "### 🟢 Betriebsbereit" in text, text)
+
+    # The bot fetches them itself rather than taking them from config.
+    source = open(os.path.join(STATUS, "status_bot.py"), encoding="utf-8").read()
+    check("the main avatar comes from Discord, not an env var",
+          "display_avatar" in source and "await self.fetch_user" in source,
+          "a URL pasted into config goes stale when the picture changes")
+    check("the template avatar is read off the member object",
+          "member.display_avatar" in source)
+    check("a failed lookup is remembered, not retried every poll",
+          "self._main_avatar is not None" in source,
+          "one broken fetch must not mean a request every 30 seconds")
+    check("and it fails soft",
+          'avatar = ""' in source,
+          "no picture is a missing picture, not a broken panel")
 
 
 def test_no_name_clashes_with_discord():
@@ -858,6 +1056,8 @@ def main():
     asyncio.run(run_checks())
     test_links_and_partner()
     test_partner_ping_range()
+    test_discord_markup()
+    test_avatars()
     test_no_name_clashes_with_discord()
     test_one_miss_is_not_an_outage()
     asyncio.run(run_endpoint())

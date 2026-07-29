@@ -76,6 +76,13 @@ REQUEST_TIMEOUT = aiohttp.ClientTimeout(total=10)
 WEBSITE_URL = (os.getenv("WEBSITE_URL") or os.getenv("NEXTAUTH_URL") or "").strip()
 INVITE_URL = (os.getenv("BOT_INVITE_URL") or "").strip()
 
+# The main bot's own application id, used only to fetch its avatar for
+# the panel. Falls back to the dashboard's client id, which is the same
+# application.
+MAIN_BOT_ID = int(
+    os.getenv("MAIN_BOT_CLIENT_ID") or os.getenv("DISCORD_CLIENT_ID") or 0
+)
+
 # The template bot that gets invited alongside the main one.
 PARTNER_BOT_ID = int(os.getenv("PARTNER_BOT_CLIENT_ID") or 0)
 
@@ -166,6 +173,10 @@ class StatusBot(discord.Client):
         self.message: discord.Message | None = None
         self.partner: dict | None = None
         self._task: asyncio.Task | None = None
+        # Avatars are fetched once and kept. None means "not tried yet",
+        # "" means tried and unavailable -- the difference stops a
+        # failed lookup from being retried on every single poll.
+        self._main_avatar: str | None = None
 
     # ── lifecycle ────────────────────────────────────────────────
 
@@ -405,6 +416,13 @@ class StatusBot(discord.Client):
 
         name = getattr(member, "display_name", "Template-Bot")
 
+        # Real data, straight off the member object we already fetched:
+        # this one needs no extra request and no guessing.
+        try:
+            avatar = member.display_avatar.replace(size=128).url
+        except Exception:  # noqa: BLE001
+            avatar = ""
+
         # If presences happen to be available -- because somebody turned
         # the intent on later -- the real value beats both the fallback
         # and the simulation.
@@ -414,6 +432,7 @@ class StatusBot(discord.Client):
                 "ok": live,
                 "label": name,
                 "detail": "online" if live else "offline",
+                "avatar": avatar,
                 "invite": self.partner_invite(),
             }
 
@@ -422,6 +441,7 @@ class StatusBot(discord.Client):
                 "ok": True,
                 "label": name,
                 "detail": "auf dem Server · Online-Status nicht abrufbar",
+                "avatar": avatar,
                 "invite": self.partner_invite(),
             }
 
@@ -431,6 +451,7 @@ class StatusBot(discord.Client):
             "label": name,
             "detail": "online",
             "ping": float(random.randint(low, high)),
+            "avatar": avatar,
             "invite": self.partner_invite(),
             # Carried so anything reading this dict knows the numbers
             # above were not measured.
@@ -456,6 +477,31 @@ class StatusBot(discord.Client):
             "&permissions=8&scope=bot%20applications.commands"
         )
 
+    async def main_avatar(self) -> str:
+        """
+        The main bot's profile picture, for the panel's name plate.
+
+        Fetched once and remembered. It comes from Discord's own CDN via
+        the application object, so it is the real picture rather than
+        something configured by hand that could drift out of date.
+
+        Returns "" when it cannot be had -- the heading then renders
+        without a thumbnail instead of with a broken image.
+        """
+        if self._main_avatar is not None:
+            return self._main_avatar
+
+        self._main_avatar = ""
+        if not MAIN_BOT_ID:
+            return ""
+        try:
+            user = await self.fetch_user(MAIN_BOT_ID)
+        except Exception as err:  # noqa: BLE001
+            print(f"[status] could not fetch the main bot's avatar: {err}")
+            return ""
+        self._main_avatar = user.display_avatar.replace(size=128).url
+        return self._main_avatar
+
     def build_view(self) -> discord.ui.LayoutView:
         from view import StatusView
 
@@ -466,6 +512,7 @@ class StatusBot(discord.Client):
             since=self.state_since,
             website=WEBSITE_URL,
             invite=INVITE_URL,
+            avatar=self._main_avatar or "",
             partner=self.partner,
         )
 
@@ -565,6 +612,10 @@ class StatusBot(discord.Client):
                     # One unreadable row must not stop the whole panel.
                     print(f"[status] partner check failed: {err}")
                     self.partner = None
+
+                # Cheap after the first pass: it returns the remembered
+                # value without touching the network.
+                await self.main_avatar()
 
                 # A single miss is not an outage. Only call it down once
                 # it has failed several times in a row, or a deploy of
