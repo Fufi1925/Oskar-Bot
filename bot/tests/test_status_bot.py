@@ -238,114 +238,255 @@ async def run_checks():
 
 def test_links_and_partner():
     """
-    Buttons, and the rule that runs through the whole panel: never show
-    a number that was not measured.
+    The four-part layout, the buttons, and the one place where the panel
+    knowingly shows a number it did not measure.
 
-    A status page that lies is worth less than no status page. The
-    template bot is the case that forces the issue -- reading another
-    bot's online status needs the Presences intent, which this service
-    does not ask for, and without it Member.status is *always* offline.
-    Printing that as a red dot would be wrong; printing a green "online,
-    34 ms" would be worse.
+    Everything about the main bot is measured -- and the rule that
+    nothing unmeasured may be drawn as a fact still holds there, which
+    is what the "unreachable shows no latency" check below is about.
+
+    The template bot's section is the deliberate exception, on the
+    owner's instruction, and it is exceptional because the figures are
+    not obtainable at all: online status needs the Presences intent
+    (without it Member.status is *always* offline), and no API reports
+    a third-party bot's gateway latency to anyone but that bot. So the
+    ping is generated. What is checked here is that it is generated
+    inside the configured range, that it changes, and that the switch
+    to turn it off still leads back to the honest wording.
     """
-    print("\nLinks and the template bot")
+    print("\nLayout, links and the template bot")
 
     from view import StatusView
 
-    # Buttons only appear when configured.
+    # ── the order of the four blocks ─────────────────────────────
+    full = render(StatusView(
+        brand="University Bot", state="online", health=FakeHealth(),
+        since=time.time(), website="https://example.com",
+        invite="https://example.com/invite",
+        partner={"ok": True, "label": "University Template",
+                 "detail": "online", "ping": 42.0,
+                 "invite": "https://example.com/t"},
+    ))
+    positions = [
+        full.index("Alle Systeme laufen"),
+        full.index("## University Bot"),
+        full.index("## University Template"),
+        full.index("University Status System"),
+    ]
+    check("headline, then main bot, then template bot, then footer",
+          positions == sorted(positions), full)
+
+    # ── the footer ───────────────────────────────────────────────
+    footer = full.rsplit("\n", 1)[-1]
+    check("the footer names the status system", "University Status System" in footer,
+          footer)
+    check("and carries a live timestamp", "<t:" in footer and ":R>" in footer,
+          "a relative stamp counts itself up in every client, so the "
+          "line stays true between edits")
+    check("the 30-second note is gone from the footer",
+          "30 Sekunden" not in full and "alle 30" not in full, footer)
+    check("the footer is one line, name and time only",
+          footer.count("·") == 1 and "geprüft" not in footer, footer)
+
+    # ── buttons, per bot ─────────────────────────────────────────
     empty = StatusView(brand="B", state="online", health=FakeHealth(),
                        since=time.time())
     check("no buttons when nothing is configured", buttons(empty) == [],
           "a button that goes nowhere is worse than no button")
 
-    full = StatusView(
+    labels = [label for label, _ in buttons(StatusView(
         brand="B", state="online", health=FakeHealth(), since=time.time(),
         website="https://example.com", invite="https://example.com/invite",
-        support="https://discord.gg/abc",
-    )
-    labels = [label for label, _ in buttons(full)]
-    check("the dashboard link becomes a button", "Dashboard" in labels, str(labels))
-    check("the invite link becomes a button", "Einladen" in labels, str(labels))
-    check("the support link becomes a button", "Support" in labels, str(labels))
+    ))]
+    check("the main bot gets a dashboard button", "Dashboard" in labels, str(labels))
+    check("and an invite button", "Einladen" in labels, str(labels))
+
+    # The support button is gone on purpose: the panel lives in the
+    # support server, so the link would point at the room you are in.
+    check("there is no support button any more", "Support" not in labels,
+          str(labels))
+
+    source_view = open(os.path.join(STATUS, "view.py"), encoding="utf-8").read()
+    check("the view takes no support argument", "support" not in source_view,
+          "a leftover parameter invites the button back")
+    source = open(os.path.join(STATUS, "status_bot.py"), encoding="utf-8").read()
+    check("and the bot no longer reads SUPPORT_INVITE_URL",
+          "SUPPORT_INVITE_URL" not in source)
 
     partial = StatusView(brand="B", state="online", health=FakeHealth(),
                          since=time.time(), website="https://example.com")
     check("only the configured ones show up", len(buttons(partial)) == 1,
           str(buttons(partial)))
 
-    # The template bot row.
+    # The template bot has no website, so exactly one button.
+    with_partner = buttons(StatusView(
+        brand="B", state="online", health=FakeHealth(), since=time.time(),
+        website="https://example.com", invite="https://example.com/i",
+        partner={"ok": True, "label": "T", "detail": "online", "ping": 20.0,
+                 "invite": "https://example.com/t"},
+    ))
+    check("the template bot gets its own invite button",
+          ("Einladen", "https://example.com/t") in with_partner,
+          str(with_partner))
+    check("and no dashboard button, because it has no website",
+          [url for label, url in with_partner if label == "Dashboard"]
+          == ["https://example.com"],
+          str(with_partner))
+
+    # ── the template row ─────────────────────────────────────────
     without = render(StatusView(brand="B", state="online",
                                 health=FakeHealth(), since=time.time()))
-    check("no template row when it could not be checked",
+    check("no template section when it could not be checked",
           "Template" not in without,
           "an unknown row invented is the thing being avoided")
 
-    honest = render(StatusView(
+    shown = render(StatusView(
         brand="B", state="online", health=FakeHealth(), since=time.time(),
         partner={"ok": True, "label": "University Template",
-                 "detail": "auf dem Server · Online-Status nicht abrufbar"},
+                 "detail": "online", "ping": 63.0},
     ))
-    check("the template row says what was actually checked",
-          "Online-Status nicht abrufbar" in honest, honest[-200:])
-    check("and does not claim it is online",
-          "🟢 **University Template**\n-# online" not in honest)
+    check("the template bot shows as online", "🟢 **Status**" in shown, shown)
+    check("with its own ping", "63 ms" in shown, shown)
+    check("drawn the same way as the main bot's", "▰" in shown.split("## University Template")[1],
+          shown)
 
     missing = render(StatusView(
         brand="B", state="online", health=FakeHealth(), since=time.time(),
         partner={"ok": False, "label": "Template-Bot",
                  "detail": "nicht auf dem Server"},
     ))
-    check("a missing template bot is marked red",
-          "🔴 **Template-Bot**" in missing, missing[-200:])
+    check("a template bot that is really absent is marked red",
+          "🔴 **Status**" in missing and "nicht auf dem Server" in missing,
+          missing[-250:])
+    check("and gets no invented ping when it is not there",
+          "ms" not in missing.split("## Template-Bot")[1], missing[-250:])
 
-    # Nothing unmeasured may be drawn as a fact.
+    # ── the main bot's figures are still never invented ──────────
     down = render(StatusView(
         brand="B", state="down",
         health=FakeHealth(reachable=False, error="Zeitüberschreitung",
                           code=None, latency=None),
         since=time.time(),
     ))
-    check("an unreachable bot shows no latency at all",
-          "ms" not in down.split("Zuletzt")[0],
+    check("an unreachable main bot shows no latency at all",
+          "ms" not in down,
           "inventing a ping for something we could not reach is the "
           "exact failure this rule exists for")
     check("and marks the rest as not checked",
           down.count("⚪") >= 2 and "nicht geprüft" in down, down[:200])
 
+
+def test_partner_ping_range():
+    """
+    The generated ping: inside the configured range, and different each
+    time.
+
+    A constant would be the giveaway that it is fake, and a value
+    outside the range would mean the setting does nothing.
+    """
+    print("\nThe template bot's generated ping")
+
+    import importlib
+    import status_bot as sb
+    importlib.reload(sb)
+
+    check("simulation is on by default", sb.PARTNER_SIMULATED is True,
+          str(sb.PARTNER_SIMULATED))
+    check("the low end is 10", sb.PARTNER_PING_MIN == 10,
+          str(sb.PARTNER_PING_MIN))
+    check("the high end is 100", sb.PARTNER_PING_MAX == 100,
+          str(sb.PARTNER_PING_MAX))
+
+    # Drive the real code path rather than re-implementing it here.
+    class FakeMember:
+        display_name = "University Template"
+        status = None
+
+    class FakeGuild:
+        async def fetch_member(self, _id):
+            return FakeMember()
+
+    bot = sb.StatusBot.__new__(sb.StatusBot)
+    bot.get_guild = lambda _id: FakeGuild()
+    bot._intents = type("I", (), {"presences": False})()
+    type(bot).intents = property(lambda self: self._intents)
+
+    sb.PARTNER_BOT_ID = 1530742522589089952
+
+    try:
+        seen = set()
+        for _ in range(200):
+            row = asyncio.run(bot.check_partner())
+            seen.add(row["ping"])
+            if not (sb.PARTNER_PING_MIN <= row["ping"] <= sb.PARTNER_PING_MAX):
+                break
+
+        check("every value lands inside the range",
+              all(sb.PARTNER_PING_MIN <= value <= sb.PARTNER_PING_MAX
+                  for value in seen),
+              str(sorted(seen)[:5]))
+        check("and it is not the same number every poll", len(seen) > 5,
+              f"{len(seen)} distinct values in 200 polls")
+        check("the row reads as online", row["ok"] is True and row["detail"] == "online")
+        check("it carries the bot's own name", row["label"] == "University Template")
+
+        # The invite is derived from the client id when not given.
+        check("an invite link is built from the client id",
+              str(sb.PARTNER_BOT_ID) in row["invite"]
+              and row["invite"].startswith("https://discord.com/oauth2/authorize"),
+              row["invite"])
+
+        # Whoever reads this dict must be able to tell.
+        check("the dict says the figures are simulated",
+              row.get("simulated") is True,
+              "a caller that cannot tell measured from generated will "
+              "eventually copy the number somewhere it matters")
+
+        # A template bot that is genuinely not on the server. This
+        # branch is separate code, and a mutation that gave it a ping
+        # slipped past an earlier version of these tests -- the view
+        # was checked, the branch that fills it was not.
+        import discord
+
+        class Absent:
+            async def fetch_member(self, _id):
+                raise discord.NotFound(
+                    type("R", (), {"status": 404, "reason": "Not Found"})(),
+                    "unknown member",
+                )
+
+        sb.PARTNER_SIMULATED = True
+        bot.get_guild = lambda _id: Absent()
+        gone = asyncio.run(bot.check_partner())
+        check("an absent template bot is reported as absent",
+              gone["ok"] is False and gone["detail"] == "nicht auf dem Server",
+              str(gone))
+        check("and gets no ping, generated or otherwise",
+              "ping" not in gone,
+              "the one thing actually established here is that it is "
+              "NOT there; a latency next to that is nonsense")
+        bot.get_guild = lambda _id: FakeGuild()
+
+        # And the switch back to the honest version still works.
+        sb.PARTNER_SIMULATED = False
+        honest = asyncio.run(bot.check_partner())
+        check("turning simulation off drops the ping",
+              "ping" not in honest, str(honest))
+        check("and says what was actually checked instead",
+              "nicht abrufbar" in honest["detail"], str(honest))
+    finally:
+        del type(bot).intents
+
+    # The comments have to be there: the next person to read this file
+    # must not mistake the ping for a measurement.
     source = open(os.path.join(STATUS, "status_bot.py"), encoding="utf-8").read()
-    # Only an assignment counts as requesting it. Reading
-    # self.intents.presences to decide what to display is fine and is
-    # checked for separately below -- an earlier version of this check
-    # matched both and failed on the reading.
-    check("the presences intent is not requested",
-          "intents.presences = True" not in source,
-          "asking for a privileged intent that is off makes Discord "
-          "refuse the login")
-    check("but a real status is used if it happens to be available",
-          "self.intents.presences" in source,
-          "if somebody turns it on later, show the real value")
-    check("the partner check fails soft",
-          "return None" in source.split("async def check_partner")[1][:2000],
-          "one unreadable row must not blank the panel")
-
-    # The wording itself, not just the view. Checking only the view let
-    # a mutation through that had check_partner return a flat "online"
-    # without the intent -- exactly the invented status this is about.
     body = source.split("async def check_partner")[1].split("def build_view")[0]
-    # Everything after the presences branch closes. Splitting on the
-    # `if` alone kept the branch itself in the slice, where the word
-    # "online" is legitimate -- and the check then failed on correct
-    # code, which is how this was caught.
-    after_branch = body.split("if self.intents.presences:")[1]
-    fallback = after_branch.split("}\n", 1)[1] if "}\n" in after_branch else after_branch
-
-    check("without the intent it does not say plain 'online'",
-          '"detail": "online"' not in fallback,
-          "claiming a status that was never read is the failure mode "
-          "this whole rule exists for")
-    check("it says what it actually checked instead",
-          "auf dem Server" in fallback and "nicht abrufbar" in fallback,
-          fallback[-200:])
+    check("the code says out loud that the ping is not measured",
+          "not measured" in source or "are simulated" in source,
+          "an unlabelled fake number is how a status page starts lying "
+          "by accident")
+    check("and explains why it cannot be", "gateway latency" in source,
+          body[:200])
 
 
 def test_no_name_clashes_with_discord():
@@ -716,6 +857,7 @@ def main():
     test_layout()
     asyncio.run(run_checks())
     test_links_and_partner()
+    test_partner_ping_range()
     test_no_name_clashes_with_discord()
     test_one_miss_is_not_an_outage()
     asyncio.run(run_endpoint())

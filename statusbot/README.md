@@ -106,40 +106,103 @@ bleiben.
 
 Befehle von anderen Servern oder von Bots werden ignoriert.
 
-## Knöpfe unter dem Panel
+## Wie das Panel aufgebaut ist
 
-Drei Links, jeder erscheint nur wenn gesetzt:
+Vier Blöcke, von oben nach unten:
 
-| Variable | Knopf |
-|---|---|
-| `WEBSITE_URL` | 🖥️ Dashboard |
-| `BOT_INVITE_URL` | ➕ Einladen |
-| `SUPPORT_INVITE_URL` | 💬 Support |
+```
+🟢  Alle Systeme laufen          ← 1. Überschrift
+unverändert seit 2 Stunden
 
-Ist keiner gesetzt, erscheint keine Knopfreihe. Ein Knopf, der ins Leere
+## University Bot                ← 2. Hauptbot
+🟢 Erreichbar          HTTP 200
+🟢 Antwortzeit         ▰▰▰▰▰ 143 ms · schnell
+🟢 Discord-Verbindung  verbunden
+🟢 Dashboard           erreichbar
+[🖥️ Dashboard] [➕ Einladen]     ← seine eigenen Knöpfe
+
+## University Template           ← 3. Template-Bot
+🟢 Status              online
+🟢 Antwortzeit         ▰▰▰▰ 47 ms · schnell
+[➕ Einladen]                    ← nur Einladung, er hat keine Website
+
+University Status System · vor 12 Sekunden    ← 4. Fußzeile
+```
+
+Jeder Bot hat seine Knöpfe direkt unter seinen eigenen Zahlen — so ist
+klar, wozu sie gehören.
+
+### Fußzeile
+
+Nur zwei Dinge: der Name und die Zeit. Die Zeit ist ein **relativer
+Discord-Zeitstempel** (`<t:…:R>`), den jeder Client selbst hochzählt —
+„vor 12 Sekunden", „vor einer Minute". Deshalb steht dort auch kein
+„aktualisiert sich alle 30 Sekunden" mehr: der Zeitstempel zeigt die
+Wahrheit selbst, ohne ein Versprechen zu machen, das bei einer Störung
+nicht mehr stimmt.
+
+### Knöpfe
+
+| Variable | Knopf | Wo |
+|---|---|---|
+| `WEBSITE_URL` | 🖥️ Dashboard | Hauptbot |
+| `BOT_INVITE_URL` | ➕ Einladen | Hauptbot |
+| `PARTNER_BOT_INVITE_URL` | ➕ Einladen | Template-Bot |
+
+Jeder erscheint nur, wenn er gesetzt ist. Ein Knopf, der ins Leere
 führt, ist schlechter als kein Knopf.
+
+**Der Support-Knopf ist absichtlich weg.** Das Panel steht im
+Support-Server — ein Link dorthin würde auf den Raum zeigen, in dem man
+sowieso schon steht.
+
+`PARTNER_BOT_INVITE_URL` kannst du weglassen: dann wird der Link aus
+`PARTNER_BOT_CLIENT_ID` zusammengebaut (die normale OAuth2-Adresse).
 
 ## Der Template-Bot im Panel
 
-Mit `PARTNER_BOT_CLIENT_ID` bekommt das Panel eine Zeile für den
-Template-Bot.
+Mit `PARTNER_BOT_CLIENT_ID` bekommt das Panel einen eigenen Abschnitt
+für den Template-Bot: grüner Status und eine Antwortzeit.
 
-**Was dort steht, ist bewusst zurückhaltend:**
+### ⚠️ Diese zwei Zahlen sind erfunden
 
-> 🟢 **University Template**
-> auf dem Server · Online-Status nicht abrufbar
+Das muss hier stehen, weil der Rest des Panels genau umgekehrt
+funktioniert: **beim Hauptbot ist jede Zahl gemessen.** Beim
+Template-Bot sind Status und Ping generiert — auf deinen Wunsch, und
+weil sie nicht messbar sind:
 
-Der Grund: Den Online-Status eines anderen Bots zu lesen braucht den
-**Presences Intent** — einen privilegierten Schalter. Ohne ihn liefert
-Discord *immer* „offline", auch wenn der Bot einwandfrei läuft. Ein
-roter Punkt wäre also falsch — und ein grüner mit „online, 34 ms" wäre
-schlimmer: erfunden.
+* **Online-Status** braucht den **Presences Intent**, einen
+  privilegierten Schalter. Ohne ihn liefert Discord *immer* „offline",
+  auch wenn der Bot einwandfrei läuft. Ein roter Punkt wäre also
+  schlicht falsch.
+* **Ping** eines fremden Bots gibt es über keine API. Sein
+  Heartbeat läuft zwischen ihm und Discord; von außen kann das niemand
+  auslesen — auch Discord selbst zeigt es nirgends an.
 
-Also steht da genau das, was geprüft wurde: **ist er auf dem Server, ja
-oder nein.** Ist er weg, wird die Zeile rot.
+Der Ping ist deshalb bei **jeder Prüfung eine neue Zufallszahl**
+zwischen `PARTNER_PING_MIN` und `PARTNER_PING_MAX` (Standard 10–100).
+Keine feste 34, die nach einer Weile jedem auffällt.
 
-Schaltest du den Presences Intent später ein, zeigt das Panel
-automatisch den echten Status — der Code prüft das zur Laufzeit.
+| Variable | Standard | Was sie tut |
+|---|---|---|
+| `PARTNER_PING_MIN` | `10` | untere Grenze in ms |
+| `PARTNER_PING_MAX` | `100` | obere Grenze in ms |
+| `PARTNER_SIMULATED` | `true` | auf `false` → keine erfundenen Zahlen mehr |
+
+Beide Grenzen gleich setzen ergibt einen festen Wert.
+
+### Was trotzdem echt ist
+
+**Ob er auf dem Server ist.** Das wird wirklich geprüft. Fliegt der
+Template-Bot vom Server, wird die Zeile **rot** und sagt „nicht auf dem
+Server" — und bekommt dann auch **keinen** Ping, denn eine Antwortzeit
+neben „ist nicht da" wäre Unsinn.
+
+Mit `PARTNER_SIMULATED=false` steht dort stattdessen wieder nur das
+nachweisbare „auf dem Server · Online-Status nicht abrufbar".
+
+Schaltest du den Presences Intent später ein, gewinnt der echte Wert
+gegen beides — der Code prüft das zur Laufzeit.
 
 ## Was er bewusst nicht tut
 

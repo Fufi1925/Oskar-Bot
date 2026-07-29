@@ -17,12 +17,19 @@ DASHBOARD_API_KEY="<derselbe wie beim Hauptbot>"
 NEXT_PUBLIC_BRAND_NAME="University Bot"
 
 # Knöpfe unter dem Panel. Jeder erscheint nur, wenn gesetzt.
+# Kein Support-Link: das Panel steht bereits im Support-Server.
 WEBSITE_URL="https://universtiy-bot.up.railway.app"
 BOT_INVITE_URL="<Einladungslink des Hauptbots>"
-SUPPORT_INVITE_URL="https://discord.gg/MG3rYnUZJV"
 
-# Zeigt eine Zeile für den Template-Bot im Panel.
+# Zeigt den Abschnitt für den Template-Bot im Panel.
 PARTNER_BOT_CLIENT_ID="1530742522589089952"
+# Optional. Ohne diese Zeile wird der Link aus der Client-ID gebaut.
+# PARTNER_BOT_INVITE_URL="<Einladungslink des Template-Bots>"
+# Status und Ping des Template-Bots sind erfunden - sie sind von außen
+# nicht messbar. Bereich der Zufallszahl, oder ganz abschalten:
+PARTNER_PING_MIN="10"
+PARTNER_PING_MAX="100"
+# PARTNER_SIMULATED="false"
 STATUS_POLL_SECONDS="30"
 STATUS_FAILURES_BEFORE_DOWN="3"
 
@@ -44,6 +51,12 @@ PORT="8080"
 | `NEXT_PUBLIC_BRAND_NAME` | nein | Name in der Statusnachricht. Standard: `University Bot`. |
 | `STATUS_POLL_SECONDS` | nein | Prüfabstand, Standard `30`. |
 | `STATUS_FAILURES_BEFORE_DOWN` | nein | Fehlversuche bis „Störung", Standard `3`. Mit 30 Sekunden Abstand also nach ca. 1,5 Minuten. |
+| `BOT_INVITE_URL` | nein | Knopf „Einladen" beim Hauptbot. |
+| `WEBSITE_URL` | nein | Knopf „Dashboard" beim Hauptbot. |
+| `PARTNER_BOT_CLIENT_ID` | nein | Blendet den Abschnitt für den Template-Bot ein. |
+| `PARTNER_BOT_INVITE_URL` | nein | Sein Einladungslink. Ohne die Variable wird er aus der Client-ID gebaut. |
+| `PARTNER_PING_MIN` / `MAX` | nein | Bereich des **erfundenen** Pings, Standard 10–100 ms. Der echte ist von außen nicht auslesbar. |
+| `PARTNER_SIMULATED` | nein | `false` schaltet die erfundenen Zahlen ab; dann steht dort nur, ob der Bot auf dem Server ist. |
 | `PORT` | nein | Railway setzt das meist selbst. |
 
 ### Was der Status-Service **nicht** braucht
@@ -52,7 +65,8 @@ Diese bewusst **nicht** eintragen — er benutzt sie nicht:
 
 `TOKEN` · `DISCORD_CLIENT_ID` · `DISCORD_CLIENT_SECRET` ·
 `NEXTAUTH_SECRET` · `NEXTAUTH_URL` · `LAVALINK_*` · `DATA_DIR` ·
-`OWNER_IDS` · `PARTNER_*` · alle `NEXT_PUBLIC_IMPRINT_*`
+`OWNER_IDS` · alle `NEXT_PUBLIC_IMPRINT_*` · `SUPPORT_INVITE_URL`
+(wird nicht mehr gelesen — der Support-Knopf ist entfallen)
 
 Er hat keine Datenbank, kein Dashboard und keine Musik. Je weniger
 Zugangsdaten in dem Dienst liegen, dessen einzige Aufgabe das

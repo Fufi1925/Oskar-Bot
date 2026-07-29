@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import random
 import sys
 import time
 from datetime import datetime, timezone
@@ -69,12 +70,39 @@ REQUEST_TIMEOUT = aiohttp.ClientTimeout(total=10)
 
 # Links shown as buttons under the panel. Each one only appears when it
 # is configured -- a button that goes nowhere is worse than no button.
+#
+# No support button: the panel lives in the support server, so a link
+# back to it would only point at the channel it is already in.
 WEBSITE_URL = (os.getenv("WEBSITE_URL") or os.getenv("NEXTAUTH_URL") or "").strip()
 INVITE_URL = (os.getenv("BOT_INVITE_URL") or "").strip()
-SUPPORT_URL = (os.getenv("SUPPORT_INVITE_URL") or "").strip()
 
 # The template bot that gets invited alongside the main one.
 PARTNER_BOT_ID = int(os.getenv("PARTNER_BOT_CLIENT_ID") or 0)
+
+# Its invite. It has no dashboard of its own, so this is the only link
+# in its section. Built from the client id when not given explicitly.
+PARTNER_INVITE_URL = (os.getenv("PARTNER_BOT_INVITE_URL") or "").strip()
+
+# ── The template bot's figures are simulated ──────────────────────────
+#
+# Say it plainly, because everything else in this file follows the
+# opposite rule: these two numbers are not measured.
+#
+# They cannot be. Reading another bot's online status needs the
+# Presences intent, and no API exists that reports a third-party bot's
+# gateway latency to anyone but that bot itself -- its heartbeat round
+# trip is between it and Discord. The owner asked for the row to show
+# green with a plausible ping anyway, so it does: a fresh random value
+# each poll, in a believable range.
+#
+# The range is a variable, and setting the low and high to the same
+# number pins it. Set PARTNER_SIMULATED=false to drop the section back
+# to what is actually knowable (is it a member of this server) instead.
+PARTNER_SIMULATED = (os.getenv("PARTNER_SIMULATED") or "true").strip().lower() not in (
+    "false", "0", "no", "off",
+)
+PARTNER_PING_MIN = int(os.getenv("PARTNER_PING_MIN") or 10)
+PARTNER_PING_MAX = int(os.getenv("PARTNER_PING_MAX") or 100)
 
 # The text command. Off unless STATUS_PREFIX is set, because reading
 # messages needs the privileged Message Content intent and Discord
@@ -328,22 +356,29 @@ class StatusBot(discord.Client):
 
     async def check_partner(self) -> dict | None:
         """
-        What we can honestly say about the template bot.
+        The template bot's row.
 
-        Deliberately limited. Reading another bot's online status needs
-        the Presences intent, which is a privileged switch this service
-        does not ask for -- and without it `Member.status` is *always*
-        `offline`, which would put a permanent red dot next to a bot
-        that is running fine. Showing a made-up "online, 34 ms" would be
-        worse still: a status page that lies is worth less than no
-        status page.
+        Two figures live here, and it matters which is which:
 
-        So it reports the one thing that is actually knowable without
-        privileges: is the bot a member of this server, yes or no. The
-        wording says exactly that and no more.
+        **Membership** is real. `fetch_member` either finds the bot on
+        the support server or it does not, and that answer is not
+        guessed. When it cannot be established at all, this returns
+        None and the section is left out entirely rather than invented.
 
-        Returns None when even that could not be established, and then
-        the row is left out entirely rather than guessed at.
+        **The green dot and the ping are simulated**, deliberately, on
+        the owner's instruction. Neither is obtainable:
+
+          * online status needs the Presences intent, and without it
+            `Member.status` is *always* offline -- so reading it would
+            put a permanent red dot on a bot that runs fine;
+          * a third-party bot's gateway latency is not exposed by any
+            API. Its heartbeat round trip is between it and Discord.
+            Nothing outside that bot can measure it.
+
+        So the ping is a fresh random value in PARTNER_PING_MIN..MAX on
+        every poll. Set PARTNER_SIMULATED=false to fall back to the one
+        thing that is knowable without privileges, which is membership
+        and nothing more.
         """
         if not PARTNER_BOT_ID or not HOME_GUILD_ID:
             return None
@@ -355,10 +390,13 @@ class StatusBot(discord.Client):
         try:
             member = await guild.fetch_member(PARTNER_BOT_ID)
         except discord.NotFound:
+            # Really not there. That much was checked, so it is said
+            # plainly whatever the simulation setting is.
             return {
                 "ok": False,
                 "label": "Template-Bot",
                 "detail": "nicht auf dem Server",
+                "invite": self.partner_invite(),
             }
         except discord.Forbidden:
             return None
@@ -368,21 +406,55 @@ class StatusBot(discord.Client):
         name = getattr(member, "display_name", "Template-Bot")
 
         # If presences happen to be available -- because somebody turned
-        # the intent on later -- use the real value. Otherwise say what
-        # was checked instead of pretending the dot means "online".
+        # the intent on later -- the real value beats both the fallback
+        # and the simulation.
         if self.intents.presences:
             live = member.status is not discord.Status.offline
             return {
                 "ok": live,
                 "label": name,
                 "detail": "online" if live else "offline",
+                "invite": self.partner_invite(),
             }
 
+        if not PARTNER_SIMULATED:
+            return {
+                "ok": True,
+                "label": name,
+                "detail": "auf dem Server · Online-Status nicht abrufbar",
+                "invite": self.partner_invite(),
+            }
+
+        low, high = sorted((PARTNER_PING_MIN, PARTNER_PING_MAX))
         return {
             "ok": True,
             "label": name,
-            "detail": "auf dem Server · Online-Status nicht abrufbar",
+            "detail": "online",
+            "ping": float(random.randint(low, high)),
+            "invite": self.partner_invite(),
+            # Carried so anything reading this dict knows the numbers
+            # above were not measured.
+            "simulated": True,
         }
+
+    @staticmethod
+    def partner_invite() -> str:
+        """
+        The template bot's invite link.
+
+        Taken from PARTNER_BOT_INVITE_URL when set, otherwise built from
+        the client id -- the standard OAuth2 URL, which is the same one
+        the developer portal hands out.
+        """
+        if PARTNER_INVITE_URL:
+            return PARTNER_INVITE_URL
+        if not PARTNER_BOT_ID:
+            return ""
+        return (
+            "https://discord.com/oauth2/authorize"
+            f"?client_id={PARTNER_BOT_ID}"
+            "&permissions=8&scope=bot%20applications.commands"
+        )
 
     def build_view(self) -> discord.ui.LayoutView:
         from view import StatusView
@@ -394,7 +466,6 @@ class StatusBot(discord.Client):
             since=self.state_since,
             website=WEBSITE_URL,
             invite=INVITE_URL,
-            support=SUPPORT_URL,
             partner=self.partner,
         )
 
