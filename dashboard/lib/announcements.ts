@@ -41,6 +41,38 @@ export interface Announcement {
 
 export const ANNOUNCEMENTS: Announcement[] = [
   {
+    id: "2026-07-status-emojis",
+    label: "Changelog: Status-Emojis",
+    summary: "Eigene Emojis im Status-Panel",
+    guilds: [BOT_GUILD_ID],
+    date: "30.07.2026",
+    accent: "#3ba55d",
+    blocks: [
+      {
+        type: "text",
+        text:
+          "# ✨ Changelog · Status-Panel\n" +
+          "### Jetzt mit unseren eigenen Emojis",
+      },
+      { type: "divider" },
+      {
+        type: "text",
+        text:
+          "Das Status-Panel benutzt ab sofort die eigenen Emojis statt " +
+          "der Standard-Kreise — für Online, Störung, Startvorgang, " +
+          "Laufzeit und die Knöpfe.",
+      },
+      { type: "divider" },
+      {
+        type: "text",
+        text:
+          "-# Falls Discord sie mal nicht liefert, fällt das Panel " +
+          "automatisch auf die normalen Symbole zurück — es bleibt " +
+          "immer lesbar.",
+      },
+    ],
+  },
+  {
     id: "2026-07-j2c-fix",
     label: "Changelog: Join to Create",
     summary: "Zwei Fehler behoben, warum Einstellungen nicht wirkten",

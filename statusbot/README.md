@@ -189,6 +189,58 @@ sowieso schon steht.
 `PARTNER_BOT_INVITE_URL` kannst du weglassen: dann wird der Link aus
 `PARTNER_BOT_CLIENT_ID` zusammengebaut (die normale OAuth2-Adresse).
 
+## Eigene Emojis
+
+Das Panel nutzt die sechs Emojis, die in den **App-Einstellungen**
+hochgeladen sind:
+
+| Emoji | Wo es auftaucht |
+|---|---|
+| `online` | alles läuft, und jede Zeile die in Ordnung ist |
+| `offllien` | Störung, und jede fehlgeschlagene Zeile |
+| `loding` | „Startet gerade" |
+| `uptime` | die Zeile „Unverändert seit …" |
+| `website` | Knopf „Dashboard" |
+| `zbot` | vor „Hauptbot" und „Template-Bot" |
+
+### ⚠️ Sie funktionieren nur in der App, der sie gehören
+
+Das ist eine harte Discord-Regel, kein Berechtigungsproblem: *„An
+application can own up to 2000 emojis that can only be used by that
+app."* Auch `USE_EXTERNAL_EMOJIS` hilft nicht.
+
+Der Status-Bot ist eine **zweite Application**. Liegen die Emojis bei
+der App des Hauptbots, kann der Status-Bot sie **nicht** benutzen —
+statt eines Bildes stünde dann wörtlich `<:online:1532168117319499839>`
+im Panel. Das wäre schlimmer als ein einfacher grüner Punkt.
+
+**Deshalb wird nichts geraten.** Beim Start fragt der Bot Discord, welche
+Emojis *seine eigene* App besitzt, und benutzt nur die. Alles andere
+fällt automatisch auf die normalen Zeichen zurück (🟢 🔴 🟡 ⏱️ 🖥️ 🤖).
+Das Panel sieht in beiden Fällen richtig aus.
+
+Im Deploy-Log steht, was passiert ist:
+
+```
+[status] using custom emojis: loding, offllien, online, uptime, website, zbot
+```
+
+oder
+
+```
+[status] not available to this application: online, offllien, …
+         — using plain ones instead. App emojis only work for the app
+         that owns them.
+```
+
+**Steht dort die zweite Zeile:** die Emojis noch einmal in den
+Einstellungen der **Status-Bot-Application** hochladen (Developer Portal
+→ die zweite App → Emojis). Die IDs in `statusbot/emojis.py` müssen dann
+auf die neuen angepasst werden — dieselben Namen, neue IDs.
+
+Es gibt keine Variable dafür. Klappt es nicht, sieht man es im Log und
+das Panel funktioniert trotzdem.
+
 ## Der Template-Bot im Panel
 
 Der Abschnitt ist **immer da** und braucht keine Einstellung. Die ID des

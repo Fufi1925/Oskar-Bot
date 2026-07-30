@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import time
 
+import emojis
 from discord import SeparatorSpacing
 from discord.ui import (
     ActionRow,
@@ -60,7 +61,11 @@ FOOTER_NAME = "University Status System"
 # Marks for the checklist. `None` means "not measured" and gets a
 # hollow one, never a red one: red says we looked and it was broken,
 # hollow says we did not look.
-MARKS = {True: "🟢", False: "🔴", None: "⚪"}
+#
+# Read through the emoji module rather than hard-coded, so the custom
+# set is used when this application owns it and the plain characters
+# when it does not. Called per draw, not captured once: the check that
+# decides which to use finishes after this module is imported.
 
 
 def _rule(large: bool = False) -> Separator:
@@ -96,7 +101,7 @@ def _row(ok: bool | None, label: str, value: str = "", note: str = "") -> str:
     is visibly a reading rather than prose -- and any wording after it
     is left plain.
     """
-    line = f"> {MARKS[ok]} **{label}**"
+    line = f"> {emojis.state_mark(ok)} **{label}**"
     if value:
         line += f" · `{value}`"
     if note:
@@ -165,18 +170,18 @@ class StatusView(LayoutView):
 
         headline, colour, note = {
             "online": (
-                "🟢  Alle Systeme laufen",
+                f"{emojis.markup('online')}  Alle Systeme laufen",
                 GREEN,
                 "Der Bot ist erreichbar und bereit.",
             ),
             "starting": (
-                "🟡  Startet gerade",
+                f"{emojis.markup('starting')}  Startet gerade",
                 AMBER,
                 "Der Bot antwortet, ist aber noch nicht vollständig bereit. "
                 "Nach einem Update dauert das ein bis zwei Minuten.",
             ),
             "down": (
-                "🔴  Störung",
+                f"{emojis.markup('down')}  Störung",
                 RED,
                 # Careful wording: we know the check failed, not that the
                 # bot is gone. Saying the second would be a guess, and
@@ -185,7 +190,8 @@ class StatusView(LayoutView):
                 "Neustart, ein fehlgeschlagenes Update oder eine Störung "
                 "bei Discord sein.",
             ),
-        }.get(state, ("⚪  Wird geprüft", GREY, "Noch keine Messung."))
+        }.get(state, (f"{emojis.markup('unknown')}  Wird geprüft", GREY,
+                      "Noch keine Messung."))
 
         # ── 1 · the headline ─────────────────────────────────────
         #
@@ -196,7 +202,8 @@ class StatusView(LayoutView):
         parts = [
             TextDisplay(
                 f"# {headline}\n"
-                f"-# Unverändert seit {_ago(since)} · seit <t:{changed}:t>"
+                f"-# {emojis.markup('uptime')} Unverändert seit {_ago(since)}"
+                f" · seit <t:{changed}:t>"
             ),
             _rule(),
             # The explanation as a quote: it is the panel talking about
@@ -206,17 +213,19 @@ class StatusView(LayoutView):
         ]
 
         # ── 2 · the main bot ─────────────────────────────────────
-        state_word, state_mark = {
-            "online": ("Betriebsbereit", "🟢"),
-            "starting": ("Startet", "🟡"),
-            "down": ("Nicht erreichbar", "🔴"),
-        }.get(state, ("Wird geprüft", "⚪"))
+        state_word, state_role = {
+            "online": ("Betriebsbereit", "online"),
+            "starting": ("Startet", "starting"),
+            "down": ("Nicht erreichbar", "down"),
+        }.get(state, ("Wird geprüft", "unknown"))
+        state_mark = emojis.markup(state_role)
 
         parts.append(_heading(
             brand,
             state_mark,
             state_word,
-            "Hauptbot · Dashboard, Befehle und Automatiken",
+            f"{emojis.markup('bot')} Hauptbot · Dashboard, Befehle und "
+            "Automatiken",
             avatar,
         ))
 
@@ -258,9 +267,14 @@ class StatusView(LayoutView):
         # configured -- a button that goes nowhere is worse than none.
         main_buttons: list[Button] = []
         if website:
-            main_buttons.append(Button(label="Dashboard", url=website, emoji="🖥️"))
+            main_buttons.append(Button(
+                label="Dashboard", url=website,
+                emoji=emojis.button("website"),
+            ))
         if invite:
-            main_buttons.append(Button(label="Einladen", url=invite, emoji="➕"))
+            main_buttons.append(Button(
+                label="Einladen", url=invite, emoji=emojis.button("invite"),
+            ))
         if main_buttons:
             row = ActionRow()
             for button in main_buttons:
@@ -279,9 +293,10 @@ class StatusView(LayoutView):
             ok = partner.get("ok")
             parts.append(_heading(
                 name,
-                MARKS[ok],
+                emojis.state_mark(ok),
                 "Online" if ok else "Nicht auf dem Server",
-                "Template-Bot · fertige Server-Vorlagen",
+                f"{emojis.markup('bot')} Template-Bot · fertige "
+                "Server-Vorlagen",
                 partner.get("avatar") or "",
             ))
 
@@ -307,7 +322,10 @@ class StatusView(LayoutView):
             partner_invite = partner.get("invite") or ""
             if partner_invite:
                 row = ActionRow()
-                row.add_item(Button(label="Einladen", url=partner_invite, emoji="➕"))
+                row.add_item(Button(
+                    label="Einladen", url=partner_invite,
+                    emoji=emojis.button("invite"),
+                ))
                 parts.append(row)
 
         # ── 4 · the footer ───────────────────────────────────────

@@ -42,6 +42,8 @@ from datetime import datetime, timezone
 import aiohttp
 import discord
 
+import emojis
+
 # ── Configuration, all from the environment ───────────────────────────
 
 TOKEN = os.getenv("STATUS_BOT_TOKEN", "").strip()
@@ -232,8 +234,45 @@ class StatusBot(discord.Client):
             await self.session.close()
         await super().close()
 
+    async def load_emojis(self) -> None:
+        """
+        Find out which custom emojis this application may actually use.
+
+        An application-owned emoji only works for the application that
+        owns it -- there is no permission that lifts that. Since the
+        status bot is a second application, using the ids without
+        checking would print raw "<:online:1532...>" text into the panel
+        on every poll.
+
+        So it asks. Whatever comes back is used; everything else falls
+        back to the plain characters, and the log says which.
+        """
+        try:
+            owned = await self.fetch_application_emojis()
+        except Exception as err:  # noqa: BLE001
+            print(
+                f"[status] could not read the application's emojis ({err}) — "
+                "falling back to plain ones."
+            )
+            return
+
+        taken = emojis.adopt({e.name: e.id for e in owned})
+        if taken:
+            print(f"[status] using custom emojis: {', '.join(taken)}")
+        absent = emojis.missing()
+        if absent:
+            # Named individually: the likely cause is that they were
+            # uploaded to the main bot's application instead of this
+            # one, and that is worth being able to see at a glance.
+            print(
+                f"[status] not available to this application: "
+                f"{', '.join(absent)} — using plain ones instead. "
+                "App emojis only work for the app that owns them."
+            )
+
     async def on_ready(self) -> None:
         print(f"[status] logged in as {self.user}")
+        await self.load_emojis()
         if not MAIN_URL:
             print(
                 "[status] MAIN_BOT_URL is not set — there is nothing to "

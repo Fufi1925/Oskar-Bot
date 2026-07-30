@@ -736,6 +736,154 @@ def test_avatars():
           "no picture is a missing picture, not a broken panel")
 
 
+def test_emojis():
+    """
+    The custom emojis, and the constraint that decides everything here.
+
+    An application-owned emoji **only works for the application that
+    owns it**. Discord's documentation is explicit: "an application can
+    own up to 2000 emojis that can only be used by that app", and
+    USE_EXTERNAL_EMOJIS does not lift it.
+
+    The status bot is a *second* application. If these emojis live on
+    the main bot's application, then posting <:online:1532...> puts that
+    literal string into the panel -- a status page reading
+    "<:online:1532168117319499839> Alle Systeme laufen" is worse than
+    one with a plain green circle.
+
+    So the ids are never used on faith. The bot asks Discord which
+    emojis it owns and only those are used; the rest fall back to the
+    characters that were there before. What is checked here is that both
+    directions work and that the fallback is the *default* -- a panel
+    drawn before the check finishes must show circles, not raw text.
+    """
+    print("\nCustom emojis")
+
+    import emojis
+    from view import StatusView
+
+    # ── the safe default ─────────────────────────────────────────
+    emojis.adopt({})
+    check("nothing is adopted until Discord confirms it",
+          emojis.missing() == sorted(emojis.CUSTOM),
+          str(emojis.missing()))
+    check("and every role falls back to a plain character",
+          emojis.markup("online") == "🟢" and emojis.markup("down") == "🔴",
+          f"{emojis.markup('online')} {emojis.markup('down')}")
+
+    plain = render(StatusView(
+        brand="B", state="online", health=FakeHealth(), since=time.time(),
+        website="https://example.com",
+        partner={"ok": True, "label": "T", "detail": "online", "ping": 20.0},
+    ))
+    check("an unconfirmed emoji never reaches the message as raw text",
+          "<:" not in plain,
+          "this is the failure being guarded against: the literal "
+          "'<:online:1532...>' printed into the panel")
+
+    # ── when the application does own them ───────────────────────
+    taken = emojis.adopt(dict(emojis.CUSTOM))
+    check("all six from the upload are recognised",
+          taken == ["loding", "offllien", "online", "uptime", "website",
+                    "zbot"],
+          str(taken))
+    check("nothing is left over", emojis.missing() == [], str(emojis.missing()))
+
+    custom = render(StatusView(
+        brand="B", state="online", health=FakeHealth(), since=time.time(),
+        partner={"ok": True, "label": "T", "detail": "online", "ping": 20.0},
+    ))
+    check("the online emoji is used for a working state",
+          "<:online:1532168117319499839>" in custom, custom[:120])
+    check("the uptime emoji sits on the 'unchanged since' line",
+          "<:uptime:1532168115339919552>" in custom, custom[:200])
+    check("and the bot emoji labels each bot",
+          custom.count("<:zbot:1532168112810627222>") == 2, custom)
+
+    down = render(StatusView(
+        brand="B", state="down",
+        health=FakeHealth(reachable=False, error="Zeitüberschreitung",
+                          code=None, latency=None),
+        since=time.time(),
+    ))
+    check("the offline emoji is used for a failure",
+          "<:offllien:1532168119597142068>" in down, down[:120])
+    check("but 'not checked' stays a hollow circle, not a red emoji",
+          "⚪" in down,
+          "red says we looked and it was broken; hollow says we did not "
+          "look, and there is no uploaded emoji for that")
+
+    starting = render(StatusView(
+        brand="B", state="starting",
+        health=FakeHealth(ready=False, dashboard="starting", code=503),
+        since=time.time(),
+    ))
+    check("the loading emoji is used while starting",
+          "<:loding:1532168121182453950>" in starting, starting[:120])
+
+    # ── buttons need a PartialEmoji, not a string ────────────────
+    import discord
+
+    picked = emojis.button("website")
+    check("a custom button emoji is a PartialEmoji",
+          isinstance(picked, discord.PartialEmoji),
+          f"{type(picked).__name__} -- passing '<:name:id>' as a string "
+          "makes Discord reject the component")
+    check("with the right id", getattr(picked, "id", None) == 1532168114085826863,
+          str(picked))
+    check("and the website emoji lands on the dashboard button",
+          any(isinstance(b, discord.PartialEmoji) and b.name == "website"
+              for b in _button_emojis(StatusView(
+                  brand="B", state="online", health=FakeHealth(),
+                  since=time.time(), website="https://example.com"))),
+          "the uploaded 'website' emoji exists for exactly this button")
+
+    # A role with no uploaded emoji still returns something usable.
+    check("a role without a custom emoji returns the plain character",
+          emojis.button("invite") == "➕", str(emojis.button("invite")))
+
+    # ── an id that does not match is refused ─────────────────────
+    emojis.adopt({"online": 999})
+    check("a name collision with a different id is not adopted",
+          emojis.markup("online") == "🟢",
+          "some unrelated emoji uploaded later must not silently change "
+          "what the panel draws")
+
+    # ── the bot actually asks Discord ────────────────────────────
+    source = open(os.path.join(STATUS, "status_bot.py"), encoding="utf-8").read()
+    check("the bot asks which emojis it owns",
+          "fetch_application_emojis" in source,
+          "using the ids without checking is the whole risk")
+    check("it does that on ready", "await self.load_emojis()" in source)
+    check("a failed lookup falls back instead of crashing",
+          "falling back to plain ones" in source)
+    check("and unavailable ones are named in the log",
+          "not available to this application" in source,
+          "otherwise nobody can tell why the panel looks plain")
+
+    emojis.adopt({})
+
+
+def _button_emojis(view):
+    """Every button's emoji in a view."""
+    import discord
+
+    found = []
+
+    def walk(item):
+        if isinstance(item, discord.ui.Button):
+            found.append(item.emoji)
+        accessory = getattr(item, "accessory", None)
+        if accessory is not None:
+            walk(accessory)
+        for child in getattr(item, "children", None) or []:
+            walk(child)
+
+    for child in view.children:
+        walk(child)
+    return found
+
+
 def test_no_name_clashes_with_discord():
     """
     Nothing on StatusBot may shadow something discord.Client owns.
@@ -1107,6 +1255,7 @@ def main():
     test_partner_ping_range()
     test_discord_markup()
     test_avatars()
+    test_emojis()
     test_no_name_clashes_with_discord()
     test_one_miss_is_not_an_outage()
     asyncio.run(run_endpoint())
