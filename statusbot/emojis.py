@@ -32,13 +32,25 @@ from __future__ import annotations
 # The ids are from the application's emoji page. The names are theirs,
 # typos included ("loding", "offllien") -- renaming them here would only
 # make the two lists disagree.
-CUSTOM = {
-    "loding": 1532168121182453950,
-    "offllien": 1532168119597142068,
-    "online": 1532168117319499839,
-    "uptime": 1532168115339919552,
-    "website": 1532168114085826863,
-    "zbot": 1532168112810627222,
+# Each entry is (id, animated).
+#
+# The animated flag is not cosmetic: an animated emoji has to be written
+# `<a:name:id>`. Writing `<:name:id>` for one produces no picture at all
+# -- Discord prints the raw text instead. That is exactly what happened
+# on the first deploy: uptime, website and zbot showed up (static, so
+# `<:` was right) while online, offllien and loding appeared as literal
+# ":online:" text, because all three are animated.
+#
+# Verified against the CDN rather than guessed: fetching
+# cdn.discordapp.com/emojis/<id>.webp?animated=true and looking for the
+# ANIM chunk in the RIFF container tells you which is which.
+CUSTOM: dict[str, tuple[int, bool]] = {
+    "loding": (1532168121182453950, True),
+    "offllien": (1532168119597142068, True),
+    "online": (1532168117319499839, True),
+    "uptime": (1532168115339919552, False),
+    "website": (1532168114085826863, False),
+    "zbot": (1532168112810627222, False),
 }
 
 # ── Where each one is used, and what to show instead ──────────────────
@@ -64,24 +76,37 @@ ROLES: dict[str, tuple[str, str]] = {
 # Filled in by adopt(). Empty until then, which means "use the
 # fallbacks" -- the safe direction: a panel drawn before the check has
 # finished shows plain circles rather than raw text.
-_usable: dict[str, int] = {}
+#
+# name -> (id, animated). The animated flag here comes from Discord's
+# answer, not from the table above, so an emoji that gets re-uploaded as
+# a still image starts rendering correctly without a code change.
+_usable: dict[str, tuple[int, bool]] = {}
 
 
-def adopt(owned: dict[str, int]) -> list[str]:
+def adopt(owned: dict[str, tuple[int, bool]]) -> list[str]:
     """
     Record which of the emojis this application actually owns.
 
-    `owned` maps name -> id, as read from Discord. Only entries whose id
-    matches the one listed above are taken: a name collision with some
-    unrelated emoji uploaded later should not silently change what the
-    panel draws.
+    `owned` maps name -> (id, animated), as read from Discord. Only
+    entries whose id matches the one listed above are taken: a name
+    collision with some unrelated emoji uploaded later should not
+    silently change what the panel draws.
+
+    Discord's own `animated` flag wins over the table. The table is
+    there so the right thing happens before the first check completes;
+    once Discord has answered, its answer is the truth -- re-uploading
+    an emoji as a still image then needs no code change.
 
     Returns the names that were accepted, for the log line.
     """
     _usable.clear()
-    for name, emoji_id in CUSTOM.items():
-        if owned.get(name) == emoji_id:
-            _usable[name] = emoji_id
+    for name, (emoji_id, animated) in CUSTOM.items():
+        found = owned.get(name)
+        if not found:
+            continue
+        found_id, found_animated = found
+        if found_id == emoji_id:
+            _usable[name] = (found_id, bool(found_animated))
     return sorted(_usable)
 
 
@@ -94,11 +119,15 @@ def markup(role: str) -> str:
     """
     The emoji for a role, as it goes into message text.
 
-    A custom one becomes ``<:name:id>``; otherwise the plain character.
+    A custom one becomes ``<a:name:id>`` when it is animated and
+    ``<:name:id>`` when it is not. Getting that prefix wrong does not
+    degrade gracefully -- Discord renders the raw text, so the panel
+    reads ":online:" instead of showing a picture.
     """
     name, fallback = ROLES.get(role, ("", "•"))
     if name and name in _usable:
-        return f"<:{name}:{_usable[name]}>"
+        emoji_id, animated = _usable[name]
+        return f"<{'a' if animated else ''}:{name}:{emoji_id}>"
     return fallback
 
 
@@ -114,7 +143,10 @@ def button(role: str):
     if name and name in _usable:
         import discord
 
-        return discord.PartialEmoji(name=name, id=_usable[name])
+        emoji_id, animated = _usable[name]
+        # `animated` matters here too: a button whose emoji is animated
+        # but not flagged as such shows a still frame at best.
+        return discord.PartialEmoji(name=name, id=emoji_id, animated=animated)
     return fallback
 
 

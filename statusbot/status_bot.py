@@ -256,7 +256,10 @@ class StatusBot(discord.Client):
             )
             return
 
-        taken = emojis.adopt({e.name: e.id for e in owned})
+        # The animated flag has to come along: an animated emoji written
+        # as <:name:id> renders as raw text, which is what happened on
+        # the first deploy.
+        taken = emojis.adopt({e.name: (e.id, e.animated) for e in owned})
         if taken:
             print(f"[status] using custom emojis: {', '.join(taken)}")
         absent = emojis.missing()

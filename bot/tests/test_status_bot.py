@@ -787,16 +787,32 @@ def test_emojis():
           taken == ["loding", "offllien", "online", "uptime", "website",
                     "zbot"],
           str(taken))
+
+    # Which ones are animated was read off Discord's CDN, not guessed:
+    # the .webp?animated=true response carries an ANIM chunk for the
+    # animated ones. Pinned here so a careless edit cannot flip it.
+    animated = {name for name, (_, flag) in emojis.CUSTOM.items() if flag}
+    check("the three moving ones are marked animated",
+          animated == {"loding", "offllien", "online"},
+          f"{sorted(animated)} -- checked against the CDN, not assumed")
     check("nothing is left over", emojis.missing() == [], str(emojis.missing()))
 
     custom = render(StatusView(
         brand="B", state="online", health=FakeHealth(), since=time.time(),
         partner={"ok": True, "label": "T", "detail": "online", "ping": 20.0},
     ))
-    check("the online emoji is used for a working state",
-          "<:online:1532168117319499839>" in custom, custom[:120])
+    # <a:...> for the animated ones. This is not a detail: writing
+    # <:...> for an animated emoji makes Discord print the raw text
+    # instead of a picture, and that is exactly what shipped -- uptime,
+    # website and zbot appeared while online, offllien and loding came
+    # out as ":online:" and friends.
+    check("the online emoji is animated, so it uses the a: prefix",
+          "<a:online:1532168117319499839>" in custom, custom[:160])
     check("the uptime emoji sits on the 'unchanged since' line",
           "<:uptime:1532168115339919552>" in custom, custom[:200])
+    check("and a static emoji does NOT get the a: prefix",
+          "<a:uptime:" not in custom,
+          "the wrong way round breaks it just as thoroughly")
     check("and the bot emoji labels each bot",
           custom.count("<:zbot:1532168112810627222>") == 2, custom)
 
@@ -806,8 +822,8 @@ def test_emojis():
                           code=None, latency=None),
         since=time.time(),
     ))
-    check("the offline emoji is used for a failure",
-          "<:offllien:1532168119597142068>" in down, down[:120])
+    check("the offline emoji uses the a: prefix too",
+          "<a:offllien:1532168119597142068>" in down, down[:160])
     check("but 'not checked' stays a hollow circle, not a red emoji",
           "⚪" in down,
           "red says we looked and it was broken; hollow says we did not "
@@ -818,8 +834,8 @@ def test_emojis():
         health=FakeHealth(ready=False, dashboard="starting", code=503),
         since=time.time(),
     ))
-    check("the loading emoji is used while starting",
-          "<:loding:1532168121182453950>" in starting, starting[:120])
+    check("and so does the loading one",
+          "<a:loding:1532168121182453950>" in starting, starting[:160])
 
     # ── buttons need a PartialEmoji, not a string ────────────────
     import discord
@@ -842,8 +858,17 @@ def test_emojis():
     check("a role without a custom emoji returns the plain character",
           emojis.button("invite") == "➕", str(emojis.button("invite")))
 
+    # ── Discord's answer decides, not the table ──────────────────
+    #
+    # So an emoji re-uploaded as a still image starts rendering right
+    # without anyone editing the code.
+    emojis.adopt({"online": (1532168117319499839, False)})
+    check("a re-uploaded still image drops the a: prefix by itself",
+          emojis.markup("online") == "<:online:1532168117319499839>",
+          emojis.markup("online"))
+
     # ── an id that does not match is refused ─────────────────────
-    emojis.adopt({"online": 999})
+    emojis.adopt({"online": (999, True)})
     check("a name collision with a different id is not adopted",
           emojis.markup("online") == "🟢",
           "some unrelated emoji uploaded later must not silently change "
@@ -854,6 +879,39 @@ def test_emojis():
     check("the bot asks which emojis it owns",
           "fetch_application_emojis" in source,
           "using the ids without checking is the whole risk")
+    # Reading the flag and then not passing it on is invisible in the
+    # view -- the table would still be right and the panel would still
+    # look correct in the tests. Checked at the seam instead.
+    check("and passes Discord's animated flag through",
+          "e.animated" in source,
+          "dropping it here is how an animated emoji ends up written "
+          "as <:name:id> and printed as raw text")
+
+    # The same seam, exercised rather than grepped: feed adopt() what
+    # the bot would build from a real answer and see what comes out.
+    class FakeEmoji:
+        def __init__(self, name, eid, animated):
+            self.name, self.id, self.animated = name, eid, animated
+
+    answer = [FakeEmoji(n, i, a) for n, (i, a) in emojis.CUSTOM.items()]
+    emojis.adopt({e.name: (e.id, e.animated) for e in answer})
+    check("an animated emoji from Discord renders with a:",
+          emojis.markup("online").startswith("<a:"),
+          emojis.markup("online"))
+    check("and a static one without",
+          emojis.markup("uptime").startswith("<:"),
+          emojis.markup("uptime"))
+
+    # A button whose emoji is animated must say so too, or Discord
+    # shows a single frame.
+    emojis.ROLES["_test_anim"] = ("online", "🟢")
+    try:
+        moving = emojis.button("_test_anim")
+        check("an animated button emoji keeps its animated flag",
+              getattr(moving, "animated", None) is True,
+              f"{moving!r} -- a still frame instead of the animation")
+    finally:
+        del emojis.ROLES["_test_anim"]
     check("it does that on ready", "await self.load_emojis()" in source)
     check("a failed lookup falls back instead of crashing",
           "falling back to plain ones" in source)

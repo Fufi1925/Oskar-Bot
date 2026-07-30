@@ -194,14 +194,32 @@ sowieso schon steht.
 Das Panel nutzt die sechs Emojis, die in den **App-Einstellungen**
 hochgeladen sind:
 
-| Emoji | Wo es auftaucht |
-|---|---|
-| `online` | alles läuft, und jede Zeile die in Ordnung ist |
-| `offllien` | Störung, und jede fehlgeschlagene Zeile |
-| `loding` | „Startet gerade" |
-| `uptime` | die Zeile „Unverändert seit …" |
-| `website` | Knopf „Dashboard" |
-| `zbot` | vor „Hauptbot" und „Template-Bot" |
+| Emoji | Wo es auftaucht | |
+|---|---|---|
+| `online` | alles läuft, und jede Zeile die in Ordnung ist | animiert |
+| `offllien` | Störung, und jede fehlgeschlagene Zeile | animiert |
+| `loding` | „Startet gerade" | animiert |
+| `uptime` | die Zeile „Unverändert seit …" | statisch |
+| `website` | Knopf „Dashboard" | statisch |
+| `zbot` | vor „Hauptbot" und „Template-Bot" | statisch |
+
+### Animiert oder statisch — das ist kein Detail
+
+Discord schreibt animierte Emojis **anders**:
+
+* statisch: `<:uptime:1532168115339919552>`
+* animiert: `<a:online:1532168117319499839>` ← mit `a` vorne
+
+Nimmt man die falsche Form, erscheint **kein Bild**, sondern der rohe
+Text. Genau das war der Fehler beim ersten Versuch: `uptime`, `website`
+und `zbot` waren zu sehen (statisch, also war `<:` richtig), während
+`online`, `offllien` und `loding` als `:online:` im Panel standen — alle
+drei sind animiert.
+
+Welche animiert sind, habe ich **nicht geraten**, sondern bei Discords
+CDN nachgesehen. Und beim Start entscheidet ohnehin Discords eigene
+Antwort: lädst du eines später als Standbild neu hoch, stellt sich das
+von allein um.
 
 ### ⚠️ Sie funktionieren nur in der App, der sie gehören
 
