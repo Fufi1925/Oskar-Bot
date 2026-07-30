@@ -783,9 +783,9 @@ def test_emojis():
 
     # ── when the application does own them ───────────────────────
     taken = emojis.adopt(dict(emojis.CUSTOM))
-    check("all six from the upload are recognised",
-          taken == ["loding", "offllien", "online", "uptime", "website",
-                    "zbot"],
+    check("every uploaded emoji is recognised",
+          taken == ["loding", "offllien", "online", "plus", "uptime",
+                    "website", "zbot"],
           str(taken))
 
     # Which ones are animated was read off Discord's CDN, not guessed:
@@ -795,6 +795,11 @@ def test_emojis():
     check("the three moving ones are marked animated",
           animated == {"loding", "offllien", "online"},
           f"{sorted(animated)} -- checked against the CDN, not assumed")
+    still = {name for name, (_, flag) in emojis.CUSTOM.items() if not flag}
+    check("and the still ones are not",
+          still == {"plus", "uptime", "website", "zbot"},
+          f"{sorted(still)} -- an a: prefix on a still emoji breaks it "
+          "just as thoroughly as a missing one")
     check("nothing is left over", emojis.missing() == [], str(emojis.missing()))
 
     custom = render(StatusView(
@@ -855,8 +860,13 @@ def test_emojis():
           "the uploaded 'website' emoji exists for exactly this button")
 
     # A role with no uploaded emoji still returns something usable.
+    # "unknown" is deliberately one: there is no emoji for "we did not
+    # look at this", and reusing the red one would claim otherwise.
     check("a role without a custom emoji returns the plain character",
-          emojis.button("invite") == "➕", str(emojis.button("invite")))
+          emojis.button("unknown") == "⚪", str(emojis.button("unknown")))
+    check("and the invite button uses the uploaded plus",
+          getattr(emojis.button("invite"), "name", None) == "plus",
+          str(emojis.button("invite")))
 
     # ── Discord's answer decides, not the table ──────────────────
     #

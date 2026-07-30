@@ -48,6 +48,7 @@ CUSTOM: dict[str, tuple[int, bool]] = {
     "loding": (1532168121182453950, True),
     "offllien": (1532168119597142068, True),
     "online": (1532168117319499839, True),
+    "plus": (1532180478520463441, False),
     "uptime": (1532168115339919552, False),
     "website": (1532168114085826863, False),
     "zbot": (1532168112810627222, False),
@@ -70,7 +71,7 @@ ROLES: dict[str, tuple[str, str]] = {
     "uptime": ("uptime", "⏱️"),
     "website": ("website", "🖥️"),
     "bot": ("zbot", "🤖"),
-    "invite": ("", "➕"),
+    "invite": ("plus", "➕"),
 }
 
 # Filled in by adopt(). Empty until then, which means "use the

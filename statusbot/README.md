@@ -202,6 +202,7 @@ hochgeladen sind:
 | `uptime` | die Zeile „Unverändert seit …" | statisch |
 | `website` | Knopf „Dashboard" | statisch |
 | `zbot` | vor „Hauptbot" und „Template-Bot" | statisch |
+| `plus` | Knopf „Einladen" (beide Bots) | statisch |
 
 ### Animiert oder statisch — das ist kein Detail
 
