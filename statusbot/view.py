@@ -214,7 +214,7 @@ class StatusView(LayoutView):
 
         # ── 2 · the main bot ─────────────────────────────────────
         state_word, state_role = {
-            "<a:online:1532168117319499839>" ("Betriebsbereit", "online"),
+            "<a:online:1532168117319499839>", ("Betriebsbereit", "online"),
             "starting", ("Startet", "starting"),
             "down", ("Nicht erreichbar", "down"),
         }.get(state, ("Wird geprüft", "unknown"))
