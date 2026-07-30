@@ -91,12 +91,21 @@ def test_workflow_exists():
     triggers = data.get("on", data.get(True))
     check("it has triggers", bool(triggers), str(list(data)))
     if triggers:
-        check("it runs on push", "push" in triggers, str(list(triggers)))
-        check("and on pull requests", "pull_request" in triggers,
-              str(list(triggers)))
-        check("and can be started by hand",
-              "workflow_dispatch" in triggers,
-              "useful when a run failed for an unrelated reason")
+        # Manual only, on the owner's explicit instruction: the tests
+        # run when he says so and at no other time. This used to fire on
+        # every push, which is what he asked to stop.
+        check("it can be started by hand",
+              "workflow_dispatch" in triggers, str(list(triggers)))
+        check("it does NOT run on push",
+              "push" not in triggers,
+              "the owner asked for manual runs only")
+        check("and not on pull requests",
+              "pull_request" not in triggers,
+              "same reason -- nothing starts this but a person")
+        check("manual is the only trigger",
+              list(triggers) == ["workflow_dispatch"],
+              f"{list(triggers)} -- anything else here is a trigger "
+              "that fires without being asked")
 
     jobs = data.get("jobs") or {}
     check("there is a bot job", "bot" in jobs, str(list(jobs)))
@@ -221,6 +230,10 @@ def test_no_network_is_honoured():
 
     raw = read(WORKFLOW)
     check("the workflow sets NO_NETWORK", "NO_NETWORK" in raw, "")
+    check("and it defaults to skipping the network",
+          "'0' || '1'" in raw or '"0" || "1"' in raw,
+          "a red build because YouTube was slow says nothing about the "
+          "code; the live check is a box you tick when you want it")
 
     readers = []
     tests_dir = os.path.join(BOT, "tests")

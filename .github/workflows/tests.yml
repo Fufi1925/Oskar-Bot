@@ -2,27 +2,34 @@
 # ║   Run the tests on every push                                    ║
 # ╚══════════════════════════════════════════════════════════════════╝
 #
-# Why this exists: the test suite only ran when somebody remembered to
-# run it. A hand edit that turned a dict literal into a set shipped and
-# crash-looped the status bot -- the whole panel raised "'set' object
-# has no attribute 'get'" on every build. Locally that is a two second
-# failure; in production it was a broken deploy.
+# Runs ONLY when started by hand. No push trigger, no pull request
+# trigger -- the owner asked for that explicitly and it is the whole
+# point of this file's configuration, so do not add one back.
 #
-# So: every push, every pull request. Nothing here needs a secret, and
-# nothing here talks to Discord.
+# How to start it:
+#   GitHub -> Actions -> "Tests" -> "Run workflow"
+#
+# What it is for: a hand edit that turned a dict literal into a set once
+# shipped and crash-looped the status bot -- the panel raised "'set'
+# object has no attribute 'get'" on every build. Two seconds to catch
+# locally, a broken deploy in production. Worth running before a deploy
+# that matters; not worth running on every typo fix.
+#
+# Nothing here needs a secret, and nothing here talks to Discord.
 
 name: Tests
 
 on:
-  push:
-    branches: ["**"]
-  pull_request:
-  # Lets you start it by hand from the Actions tab, which is handy when
-  # a run failed for an unrelated reason.
+  # Manual only. Deliberately the single trigger here.
   workflow_dispatch:
+    inputs:
+      network:
+        description: "YouTube-Tests gegen das echte Netz laufen lassen"
+        type: boolean
+        default: false
 
-# A second push to the same branch cancels the first run. Without this
-# a burst of commits queues up runs whose results nobody will read.
+# Two runs started by hand at once are almost certainly a mistake, but
+# the second one is the one that was meant, so it wins.
 concurrency:
   group: tests-${{ github.ref }}
   cancel-in-progress: true
@@ -117,7 +124,10 @@ jobs:
         # mean red builds for reasons that have nothing to do with the
         # commit.
         env:
-          NO_NETWORK: "1"
+          # Off by default: a red build because YouTube was slow says
+          # nothing about the code. Tick the box when starting the run
+          # to check the feed parsing against the real site.
+          NO_NETWORK: ${{ inputs.network && '0' || '1' }}
         run: python tests/run_all.py
 
   dashboard:
