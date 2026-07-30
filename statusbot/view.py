@@ -398,3 +398,141 @@ class StatusView(LayoutView):
         parts.append(TextDisplay(f"-# {FOOTER_NAME} · <t:{stamp}:R>"))
 
         self.add_item(Container(*parts, accent_colour=colour))
+
+
+# ══════════════════════════════════════════════════════════════════════
+#  The /verlauf panel
+# ══════════════════════════════════════════════════════════════════════
+
+
+class HistoryView(LayoutView):
+    """
+    The charts, as their own message.
+
+    Kept separate from the live panel deliberately. That one is edited
+    every 30 seconds and has to stay glanceable from a notification
+    shade; this one is asked for, read once, and can afford to be long.
+
+    Everything here is measured. There is no simulated figure on this
+    panel at all -- the template bot's invented ping has no business in
+    a chart somebody might screenshot as evidence.
+    """
+
+    def __init__(
+        self,
+        *,
+        brand: str,
+        slots: list[dict],
+        uptime: dict,
+        errors: dict,
+        hours: int,
+        persistent: bool,
+    ):
+        super().__init__(timeout=None)
+
+        import charts
+
+        parts: list = [
+            TextDisplay(
+                f"# {emojis.markup('uptime')}  Verlauf\n"
+                f"-# {brand} · letzte {hours} Stunden"
+            ),
+            _rule(large=True),
+        ]
+
+        # ── availability ─────────────────────────────────────────
+        avail, avail_caption = charts.availability_chart(slots)
+        if avail:
+            parts.append(TextDisplay(
+                f"### Erreichbarkeit\n{avail}\n-# {avail_caption}"
+            ))
+        else:
+            parts.append(TextDisplay(
+                "### Erreichbarkeit\n-# Noch keine Messwerte."
+            ))
+
+        # ── latency ──────────────────────────────────────────────
+        bars, caption = charts.latency_chart(slots)
+        if bars:
+            parts.append(_rule())
+            parts.append(TextDisplay(
+                f"### Antwortzeit\n`{bars}`\n-# {caption}"
+            ))
+
+        # ── uptime over the longer window ────────────────────────
+        if uptime.get("known"):
+            parts.append(_rule())
+            rows = [
+                f"> {emojis.state_mark(True)} **Erreichbar** · "
+                f"`{uptime['percent']:.2f} %`"
+                + ("" if uptime.get("complete") else " · Aufzeichnung noch kurz"),
+            ]
+            if uptime.get("outage_count"):
+                total = int(uptime["outage_seconds"])
+                rows.append(
+                    f"> {emojis.state_mark(False)} **Störungen** · "
+                    f"`{uptime['outage_count']}` · zusammen {_ago_span(total)}"
+                )
+                ended = uptime.get("last_outage_end")
+                if ended:
+                    rows.append(f"> {emojis.markup('uptime')} **Zuletzt** · <t:{int(ended)}:R>")
+            else:
+                rows.append(
+                    f"> {emojis.state_mark(True)} **Störungen** · keine"
+                )
+            parts.append(TextDisplay(
+                f"### Die letzten {uptime['days']} Tage\n" + "\n".join(rows)
+            ))
+
+        # ── command errors from the main bot ─────────────────────
+        if errors.get("known"):
+            parts.append(_rule())
+            total = errors["total"]
+            mark = emojis.state_mark(True if total == 0 else None)
+            rows = [
+                f"> {mark} **Fehlgeschlagene Befehle** · `{total}`"
+                f" in {errors['hours']} Stunden"
+            ]
+            if errors.get("restarts"):
+                # Worth its own line: the counter resetting is how a
+                # restart shows up here, and a restart nobody ordered
+                # is a thing to look into.
+                rows.append(
+                    f"> {emojis.markup('starting')} **Neustarts** · "
+                    f"`{errors['restarts']}`"
+                )
+            parts.append(TextDisplay(
+                "### Befehle\n" + "\n".join(rows) + "\n"
+                "-# Vom Hauptbot selbst gezählt: Befehle, die mit einem "
+                "Fehler endeten — nicht Ausfälle."
+            ))
+
+        # ── the honest footnote ──────────────────────────────────
+        parts.append(_rule(large=True))
+        if persistent:
+            note = f"-# {FOOTER_NAME} · alle Werte gemessen"
+        else:
+            # Without a volume the record restarts on every deploy, and
+            # a chart covering "the last 24 hours" that actually covers
+            # forty minutes would be misleading.
+            note = (
+                f"-# {FOOTER_NAME} · ⚠️ ohne Volume — die Aufzeichnung "
+                "beginnt nach jedem Deploy von vorn"
+            )
+        parts.append(TextDisplay(note))
+
+        self.add_item(Container(*parts, accent_colour=GREEN))
+
+
+def _ago_span(seconds: int) -> str:
+    """A duration in words, for totals rather than points in time."""
+    if seconds < 60:
+        return f"{seconds} Sekunden"
+    minutes = seconds // 60
+    if minutes < 60:
+        return f"{minutes} Minuten"
+    hours, minutes = divmod(minutes, 60)
+    if hours < 24:
+        return f"{hours} h {minutes} min" if minutes else f"{hours} Stunden"
+    days, hours = divmod(hours, 24)
+    return f"{days} Tage {hours} h" if hours else f"{days} Tage"

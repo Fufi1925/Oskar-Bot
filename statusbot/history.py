@@ -46,6 +46,11 @@ WINDOW_DAYS = int(os.getenv("STATUS_HISTORY_DAYS") or 7)
 # the window can be widened later without having thrown the data away.
 KEEP_DAYS = int(os.getenv("STATUS_HISTORY_KEEP_DAYS") or 90)
 
+# How often a latency sample is kept. Every poll would be 2,880 rows a
+# day to draw a chart with 24 bars in it; every 5 minutes is 288, and
+# the bars are hourly averages anyway.
+SAMPLE_EVERY = int(os.getenv("STATUS_SAMPLE_SECONDS") or 300)
+
 
 def _connect() -> sqlite3.Connection | None:
     """
@@ -63,6 +68,19 @@ def _connect() -> sqlite3.Connection | None:
             CREATE TABLE IF NOT EXISTS state_changes (
                 at REAL PRIMARY KEY,
                 state TEXT NOT NULL
+            )
+            """
+        )
+        # Latency samples, for the response-time graph. One row per
+        # poll would be 2,880 a day; one per SAMPLE_EVERY keeps a week
+        # in a few hundred rows, which is plenty for a 24-bar chart.
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS samples (
+                at REAL PRIMARY KEY,
+                latency_ms REAL,
+                reachable INTEGER NOT NULL,
+                errors INTEGER DEFAULT 0
             )
             """
         )
@@ -203,4 +221,161 @@ def summary(now: float | None = None) -> dict:
         # not, the figure is still useful but should not be presented
         # as "over 7 days".
         "complete": measured >= WINDOW_DAYS * 86400 * 0.95,
+    }
+
+
+# ══════════════════════════════════════════════════════════════════════
+#  Latency samples
+# ══════════════════════════════════════════════════════════════════════
+
+
+def sample(latency_ms: float | None, reachable: bool, errors: int = 0,
+           when: float | None = None) -> None:
+    """
+    Keep one measurement, for the graphs.
+
+    Called on every poll but only writes every SAMPLE_EVERY seconds --
+    the caller does not have to track that itself, because getting it
+    wrong in one place would quietly fill the database.
+    """
+    now = float(when or time.time())
+    connection = _connect()
+    if connection is None:
+        return
+    try:
+        cursor = connection.execute("SELECT MAX(at) FROM samples")
+        row = cursor.fetchone()
+        if row and row[0] and now - row[0] < SAMPLE_EVERY:
+            return
+
+        with connection:
+            connection.execute(
+                "INSERT OR REPLACE INTO samples (at, latency_ms, reachable, errors) "
+                "VALUES (?, ?, ?, ?)",
+                (now, latency_ms, 1 if reachable else 0, int(errors)),
+            )
+            connection.execute(
+                "DELETE FROM samples WHERE at < ?",
+                (now - KEEP_DAYS * 86400,),
+            )
+    except Exception as err:  # noqa: BLE001
+        print(f"[status] could not write sample: {err}")
+    finally:
+        connection.close()
+
+
+def buckets(hours: int = 24, count: int = 24, now: float | None = None) -> list[dict]:
+    """
+    The samples grouped into `count` equal slots over `hours`.
+
+    Each slot reports the average latency and whether anything was
+    unreachable in it. Slots with no samples are marked so -- the chart
+    draws a gap rather than pretending the line continued, which is the
+    difference between "nothing was wrong" and "we were not watching".
+    """
+    now = now or time.time()
+    span = hours * 3600
+    start = now - span
+    width = span / count
+
+    connection = _connect()
+    if connection is None:
+        return []
+    try:
+        rows = connection.execute(
+            "SELECT at, latency_ms, reachable, errors FROM samples "
+            "WHERE at >= ? ORDER BY at",
+            (start,),
+        ).fetchall()
+    except Exception as err:  # noqa: BLE001
+        print(f"[status] could not read samples: {err}")
+        return []
+    finally:
+        connection.close()
+
+    slots: list[dict] = [
+        {
+            "start": start + index * width,
+            "end": start + (index + 1) * width,
+            "latencies": [],
+            "unreachable": 0,
+            "errors": 0,
+            "samples": 0,
+        }
+        for index in range(count)
+    ]
+
+    for at, latency, reachable, errors in rows:
+        index = int((at - start) / width)
+        if not 0 <= index < count:
+            continue
+        slot = slots[index]
+        slot["samples"] += 1
+        slot["errors"] += int(errors or 0)
+        if reachable:
+            if latency is not None:
+                slot["latencies"].append(latency)
+        else:
+            slot["unreachable"] += 1
+
+    for slot in slots:
+        latencies = slot.pop("latencies")
+        slot["latency"] = sum(latencies) / len(latencies) if latencies else None
+        slot["known"] = slot["samples"] > 0
+        slot["bad"] = slot["unreachable"] > 0
+
+    return slots
+
+
+def error_summary(hours: int = 24, now: float | None = None) -> dict:
+    """
+    How many command errors happened over the window.
+
+    The stored value is the main bot's **running total since it
+    started**, not a per-poll count -- so summing the column gives a
+    meaningless number that grows with however many samples were taken.
+    (First version did exactly that and reported 132 errors for a
+    window that contained about a dozen.)
+
+    What is wanted is the difference between the first and last reading.
+    A restart resets the counter to zero, so a drop means "the bot
+    restarted", not "minus fifty errors": those steps are summed
+    segment by segment and the restart is reported separately, since a
+    restart is itself worth knowing about.
+    """
+    now = now or time.time()
+    connection = _connect()
+    if connection is None:
+        return {"known": False}
+    try:
+        rows = connection.execute(
+            "SELECT errors FROM samples WHERE at >= ? ORDER BY at",
+            (now - hours * 3600,),
+        ).fetchall()
+    except Exception:  # noqa: BLE001
+        return {"known": False}
+    finally:
+        connection.close()
+
+    values = [int(r[0] or 0) for r in rows]
+    if len(values) < 2:
+        return {"known": False}
+
+    total = 0
+    restarts = 0
+    for previous, current in zip(values, values[1:]):
+        if current >= previous:
+            total += current - previous
+        else:
+            # Counter went backwards: the bot restarted. Everything
+            # counted since that restart is the new value itself.
+            restarts += 1
+            total += current
+
+    return {
+        "known": True,
+        "samples": len(values),
+        "total": total,
+        "restarts": restarts,
+        "hours": hours,
     }

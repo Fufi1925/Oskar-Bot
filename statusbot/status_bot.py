@@ -44,6 +44,7 @@ import discord
 
 import emojis
 import history
+from view import HistoryView
 
 # ── Configuration, all from the environment ───────────────────────────
 
@@ -239,6 +240,9 @@ class StatusBot(discord.Client):
         # "" means tried and unavailable -- the difference stops a
         # failed lookup from being retried on every single poll.
         self._main_avatar: str | None = None
+        # Error counts are polled far less often than the health check.
+        self._errors_cached = 0
+        self._errors_checked = 0.0
 
     # ── lifecycle ────────────────────────────────────────────────
 
@@ -258,6 +262,37 @@ class StatusBot(discord.Client):
             await interaction.response.defer(ephemeral=True)
             ok, note = await self.refresh_panel()
             await interaction.followup.send(note, ephemeral=True)
+
+        @self.tree.command(
+            name="verlauf",
+            description="Graphen: Erreichbarkeit, Antwortzeit, Störungen",
+        )
+        @discord.app_commands.describe(
+            stunden="Zeitraum der Graphen (1 bis 168, Standard 24)",
+        )
+        async def history_command(
+            interaction: discord.Interaction,
+            stunden: int = 24,
+        ):
+            # Not ephemeral by default -- charts are the kind of thing
+            # people want to show someone else. The live panel stays
+            # where it is; this is a separate, one-off message.
+            await interaction.response.defer()
+
+            hours = max(1, min(168, stunden))
+            # 24 columns whatever the window: wider than that wraps on
+            # a phone, which is where most people read this.
+            slots = history.buckets(hours=hours, count=24)
+
+            view = HistoryView(
+                brand=BRAND,
+                slots=slots,
+                uptime=history.summary(),
+                errors=history.error_summary(hours=hours),
+                hours=hours,
+                persistent=history.storage_is_persistent(),
+            )
+            await interaction.followup.send(view=view)
 
         @self.tree.command(
             name="wartung",
@@ -803,6 +838,17 @@ class StatusBot(discord.Client):
 
                     await self.announce(previous, new_state, previous_since)
 
+                # A latency sample for the charts. Written on every
+                # poll, but history.sample() only keeps one every few
+                # minutes -- the caller does not have to track that,
+                # because getting it wrong in one place would quietly
+                # fill the database.
+                history.sample(
+                    health.latency_ms,
+                    health.reachable,
+                    errors=await self.command_errors(),
+                )
+
                 await self.publish()
                 await self.set_presence()
             except asyncio.CancelledError:
@@ -899,6 +945,55 @@ class StatusBot(discord.Client):
             "role id nor 'everyone' — announcing without a ping."
         )
         return "", discord.AllowedMentions.none()
+
+    async def command_errors(self) -> int:
+        """
+        How many failed commands the main bot has counted.
+
+        Read from /admin/metrics, which needs the shared key -- the
+        status service already has it for the send endpoint. Returns 0
+        when it cannot be read, which is the honest default: an
+        unreachable bot reports no errors because we cannot ask, not
+        because there were none, and the chart says "keine Daten" for
+        that slot anyway.
+
+        Cached briefly. The poll runs every 30 seconds and this figure
+        does not need to be that fresh; hammering the main bot's admin
+        API from a watcher would be its own small problem.
+        """
+        import time as _time
+
+        now = _time.time()
+        if now - self._errors_checked < 300:
+            return self._errors_cached
+
+        self._errors_checked = now
+
+        key = (os.getenv("DASHBOARD_API_KEY") or "").strip()
+        if not MAIN_URL or not key or self.session is None:
+            return 0
+
+        try:
+            async with self.session.get(
+                f"{MAIN_URL}/api/v1/admin/metrics",
+                headers={"Authorization": f"Bearer {key}"},
+                timeout=REQUEST_TIMEOUT,
+            ) as response:
+                if response.status != 200:
+                    # 403 means the feature flag is off, which is a
+                    # choice rather than a fault. Not worth logging on
+                    # every poll.
+                    return 0
+                payload = await response.json()
+        except Exception:  # noqa: BLE001
+            return 0
+
+        errors = payload.get("command_errors") or {}
+        try:
+            self._errors_cached = sum(int(v) for v in errors.values())
+        except Exception:  # noqa: BLE001
+            self._errors_cached = 0
+        return self._errors_cached
 
     async def set_presence(self) -> None:
         label = {

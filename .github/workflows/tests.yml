@@ -104,6 +104,7 @@ jobs:
             api/config_transfer.py \
             tests/test_backups.py \
             tests/test_status_history.py \
+            tests/test_status_charts.py \
             tests/test_dashboard_links.py \
             tests/test_legal_pages.py \
             tests/test_team_page.py \

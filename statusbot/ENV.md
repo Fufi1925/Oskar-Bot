@@ -240,3 +240,64 @@ Discord keinen `Retry-After`-Wert mitschickt.
 
 **Häufige Ursache:** zwei Dienste mit demselben Token, oder viele
 Deploys kurz hintereinander.
+
+
+---
+
+## `/verlauf` — Graphen
+
+Zeigt Erreichbarkeit, Antwortzeit, Störungen und Befehlsfehler als
+Balkengrafik. Standard sind 24 Stunden, wählbar bis 168 (7 Tage):
+
+```
+/verlauf
+/verlauf stunden:72
+```
+
+So sieht es aus:
+
+```
+### Erreichbarkeit
+🟩🟩🟩⬛🟩🟩🟩🟩🟩🟥🟥🟥🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩
+3× Störung · 1× keine Daten
+
+### Antwortzeit
+▆▇▆·▆▆▆▆▆xxx▆▅▅▆▆▆▆▅▆▆▇▆
+0–250 ms · ø 170 ms · max 204 ms · `x` nicht erreichbar
+```
+
+**Die Zeichen bedeuten:**
+
+| | |
+|---|---|
+| 🟩 / ▆ | alles in Ordnung, Balkenhöhe = Antwortzeit |
+| 🟥 / `x` | nicht erreichbar (**kein** hoher Balken — ein Ausfall hat keine Antwortzeit) |
+| ⬛ / `·` | keine Daten (der Wächter lief selbst nicht) |
+
+Der Unterschied zwischen 🟥 und ⬛ ist wichtig: „nicht erreichbar" ist
+eine Messung, „keine Daten" ist keine.
+
+### Befehlsfehler
+
+Der Status-Bot holt sich alle 5 Minuten vom Hauptbot, wie viele Befehle
+mit einem Fehler endeten. Dafür braucht er nichts Zusätzliches — er hat
+den `DASHBOARD_API_KEY` bereits.
+
+Klappt das nicht (Feature-Flag aus, Bot nicht erreichbar), fehlt der
+Abschnitt einfach. Es wird nichts geschätzt.
+
+### Neue Variablen (alle optional)
+
+```
+STATUS_SAMPLE_SECONDS="300"   # wie oft ein Messwert gespeichert wird
+```
+
+Alle 5 Minuten statt bei jeder Prüfung: alle 30 Sekunden wären 2.880
+Zeilen pro Tag für eine Grafik mit 24 Balken.
+
+### ⚠️ Ohne Volume
+
+Ohne Volume auf `/data` beginnt die Aufzeichnung nach jedem Deploy von
+vorn. Die Grafik zeigt dann fast nur ⬛ und das Panel schreibt es
+ausdrücklich dazu — statt so zu tun, als wären 40 Minuten Daten ein
+ganzer Tag.
