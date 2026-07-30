@@ -469,13 +469,20 @@ def recovery_buttons(guild, user_id: int = 0):
         except Exception:
             pass
 
-    dashboard = os.getenv("DASHBOARD_URL", "").strip().rstrip("/")
-    if dashboard:
+    # Was os.getenv("DASHBOARD_URL") alone, which is not set on the
+    # live deployment -- so this button never appeared, silently, on the
+    # one alert where reaching the settings quickly matters most.
+    # utils.links falls back to NEXTAUTH_URL, which the dashboard cannot
+    # work without.
+    from utils.links import guild_dashboard_url
+
+    antinuke_tab = guild_dashboard_url(guild.id, "antinuke")
+    if antinuke_tab:
         buttons.append(Button(
             label="Anti-Nuke prüfen",
             emoji="🛡️",
             style=ButtonStyle.link,
-            url=f"{dashboard}/dashboard/guild/{guild.id}/antinuke",
+            url=antinuke_tab,
         ))
 
     try:

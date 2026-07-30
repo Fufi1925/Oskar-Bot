@@ -21,6 +21,36 @@ from utils.config import BotName, serverLink
 from discord.ext import commands
 from discord.ui import Button, View
 
+from utils import links
+
+
+def _welcome_text(guild: discord.Guild) -> str:
+    """
+    What the bot says in the DM after being added.
+
+    The dashboard line is only included when there is a dashboard to
+    link to -- telling somebody to "open the dashboard" with no address
+    is worse than not mentioning it.
+    """
+    lines = [
+        f"{ZMODULE} **Danke fürs Hinzufügen!**",
+        "",
+        f"{ARROWRED} Standard-Präfix: `>`",
+        f"{ARROWRED} `>help` zeigt alle Befehle",
+    ]
+
+    if links.guild_dashboard_url(guild.id):
+        lines.append(
+            f"{ARROWRED} Alles einstellen kannst du im **Dashboard** — "
+            "der Knopf unten führt direkt zu diesem Server"
+        )
+
+    lines.append(
+        f"{ARROWRED} Fragen? Der **Support-Server** hilft weiter"
+    )
+    return "\n".join(lines)
+
+
 class Autorole(Cog):
     def __init__(self, bot: universitybot):
        self.bot = bot
@@ -31,19 +61,43 @@ class Autorole(Cog):
         async for entry in guild.audit_logs(limit=3):
             if entry.action == discord.AuditLogAction.bot_add:
                 embed = discord.Embed(
-                   description=f"{ZMODULE} **Thanks for adding me.**\n\n{ARROWRED} My default prefix is `>`\n{ARROWRED}> Use the `>help` command to see a list of commands\n{ARROWRED} For detailed guides, FAQ and information, visit our **[Support Server](https://discord.gg/MG3rYnUZJV)**",
+                   description=_welcome_text(guild),
                     color=0xFF0000
                )
                 embed.set_thumbnail(url=entry.user.avatar.url if entry.user.avatar else entry.user.default_avatar.url)
                 embed.set_author(name=f"{guild.name}", icon_url=guild.me.display_avatar.url)
                
-                website_button = Button(label='Website', style=discord.ButtonStyle.link, url='https://.vercel.app')
-                support_button = Button(label='Support', style=discord.ButtonStyle.link, url='https://discord.gg/MG3rYnUZJV')
-                vote_button = Button(label='Vote for Me', style=discord.ButtonStyle.link, url=f'https://top.gg/bot/{self.bot.user.id}/vote')
+                # The dashboard first: it is the reason most people
+                # add the bot, and it is what the DM should lead with.
+                #
+                # The old website button pointed at "https://.vercel.app"
+                # -- a URL with no host, which Discord accepts and which
+                # goes nowhere. That is presumably why it was commented
+                # out instead of fixed. The address now comes from
+                # utils.links, which falls back to NEXTAUTH_URL: the
+                # dashboard cannot log anybody in without that, so on a
+                # working deployment it is always set and always right.
                 view = View()
-                view.add_item(support_button)
-                #view.add_item(website_button)
-                #view.add_item(vote_button)
+
+                dashboard = links.guild_dashboard_url(guild.id)
+                if dashboard:
+                    # Straight to *this* server's settings, not the
+                    # front page -- one click less, and it makes clear
+                    # which server the link is about.
+                    view.add_item(Button(
+                        label="Dashboard öffnen",
+                        emoji="🖥️",
+                        style=discord.ButtonStyle.link,
+                        url=dashboard,
+                    ))
+
+                support = links.support_url() or 'https://discord.gg/MG3rYnUZJV'
+                view.add_item(Button(
+                    label='Support',
+                    emoji="💬",
+                    style=discord.ButtonStyle.link,
+                    url=support,
+                ))
                 if guild.icon:
                     embed.set_author(name=guild.name, icon_url=guild.icon.url)
                 try:

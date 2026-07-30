@@ -138,3 +138,28 @@ sie schon gesetzt ist — die ohne Präfix hat Vorrang.
 
 ⚠️ **`IMPRINT_ADDRESS="."` zählt als nicht gesetzt.** Ein Punkt ist
 keine ladungsfähige Anschrift. Die Seite zeigt dann oben eine Warnung.
+
+
+---
+
+## Dashboard-Knöpfe im Bot
+
+Der Bot setzt an drei Stellen einen **Dashboard**-Knopf: in die
+Willkommens-DM nach dem Hinzufügen, unter `>help` und in die
+Anti-Nuke-Warnung.
+
+**Du musst dafür nichts einstellen.** Die Adresse wird in dieser
+Reihenfolge gesucht:
+
+1. `DASHBOARD_URL` — falls du sie ausdrücklich setzen willst
+2. `NEXTAUTH_URL` — **hast du bereits gesetzt**, wird genommen
+3. `WEBSITE_URL`
+4. `CORS_ORIGINS` (erster Eintrag)
+
+Findet er keine gültige Adresse, erscheint **kein** Knopf — statt eines
+Links, der ins Leere führt.
+
+> Vorher hing der Anti-Nuke-Knopf allein an `DASHBOARD_URL`. Die ist bei
+> dir nicht gesetzt, also ist dieser Knopf **nie** erschienen — ohne
+> jede Meldung. Und in der Willkommens-DM stand fest
+> `https://.vercel.app`, eine Adresse ohne Server-Namen.

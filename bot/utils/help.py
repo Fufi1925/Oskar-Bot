@@ -18,6 +18,8 @@ from utils.cv2 import build_container
 from utils.emoji import REWIND, PREVIOUS, NEXT, FORWARD, DELETE, HOME
 from discord.ui import LayoutView, TextDisplay, Separator, ActionRow
 
+from utils import links
+
 import re as _re
 
 # Discord accepts either a plain unicode emoji or <:name:id> / <a:name:id>
@@ -123,6 +125,28 @@ class View(LayoutView):
 
         # Add buttons ActionRow inside the container
         items.append(ActionRow(homeB, backB, quitB, nextB, lastB))
+
+        # The dashboard, on its own row.
+        #
+        # It cannot join the row above: Discord allows five buttons per
+        # ActionRow and the navigation already uses all five, so adding
+        # a sixth raises "maximum number of children exceeded" before
+        # the message is ever sent.
+        #
+        # Left out entirely when there is no dashboard address rather
+        # than rendered as a dead link.
+        dashboard = (
+            links.guild_dashboard_url(self.ctx.guild.id)
+            if getattr(self.ctx, "guild", None)
+            else links.dashboard_url()
+        )
+        if dashboard:
+            items.append(ActionRow(discord.ui.Button(
+                label="Dashboard",
+                emoji="🖥️",
+                style=discord.ButtonStyle.link,
+                url=dashboard,
+            )))
 
         # Add dropdowns inside the container
         if self.ui == 0:
