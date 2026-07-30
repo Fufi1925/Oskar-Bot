@@ -16,6 +16,7 @@ import {
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { api } from "@/lib/api";
+import { SUPPORT_INVITE } from "@/lib/legal";
 
 export const dynamic = "force-dynamic";
 
@@ -320,7 +321,9 @@ export default async function DashboardPage() {
             title: "Support",
             desc: "Ask us on Discord",
             icon: LifeBuoy,
-            href: "https://discord.gg/MG3rYnUZJV",
+            // Was hard-coded, so setting NEXT_PUBLIC_SUPPORT_INVITE did
+            // nothing here while it worked everywhere else.
+            href: SUPPORT_INVITE,
             external: true,
           },
         ].map((item) => {

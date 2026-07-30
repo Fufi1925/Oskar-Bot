@@ -1,6 +1,7 @@
 import React from "react";
 import Link from "next/link";
 import { ArrowLeft, Compass, LayoutDashboard, LifeBuoy, Server } from "lucide-react";
+import { SUPPORT_INVITE } from "@/lib/legal";
 
 export const metadata = {
   title: "404 — Page not found",
@@ -20,7 +21,7 @@ const LINKS = [
     desc: "Pick a server to configure",
   },
   {
-    href: "https://discord.gg/MG3rYnUZJV",
+    href: SUPPORT_INVITE,
     icon: LifeBuoy,
     title: "Support",
     desc: "Ask us on Discord",

@@ -48,11 +48,11 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { SUPPORT_INVITE } from "@/lib/legal";
 
 // Support invite is configurable through the bot settings; this is the
 // build-time fallback for the static landing page.
-const SUPPORT_INVITE =
-  process.env.NEXT_PUBLIC_SUPPORT_INVITE || "https://discord.gg/MG3rYnUZJV";
+
 
 export default function LandingPage() {
   return (

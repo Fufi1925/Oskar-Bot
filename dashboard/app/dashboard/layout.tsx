@@ -32,6 +32,7 @@ import { useSession, signIn, signOut } from "next-auth/react";
 import { cn, isAdmin } from "@/lib/utils";
 import { api } from "@/lib/api";
 import { AdminConfig } from "@/types/api";
+import { SUPPORT_INVITE } from "@/lib/legal";
 
 export default function DashboardLayout({
   children,
@@ -54,7 +55,9 @@ export default function DashboardLayout({
     roles: Array<{ key: string; label: string; color: string; rank: number }>;
   } | null>(null);
   // Support link comes from the bot settings so it is configurable.
-  const [supportInvite, setSupportInvite] = useState("https://discord.gg/MG3rYnUZJV");
+  // The initial value is the shared default, not a second hard-coded
+  // copy -- it is what shows for the moment before the fetch lands.
+  const [supportInvite, setSupportInvite] = useState(SUPPORT_INVITE);
   
   const bellRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);

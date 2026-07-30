@@ -1,6 +1,7 @@
 import React from "react";
 import { Globe, MessageCircle, Users } from "lucide-react";
 import { LegalPage, Section } from "@/components/legal-page";
+import { SUPPORT_INVITE } from "@/lib/legal";
 
 export const metadata = {
   title: "Team",
@@ -11,8 +12,7 @@ export const metadata = {
 // fetched from the running bot, which is not up while the image builds.
 export const dynamic = "force-dynamic";
 
-const SUPPORT =
-  process.env.NEXT_PUBLIC_SUPPORT_INVITE || "https://discord.gg/MG3rYnUZJV";
+const SUPPORT = SUPPORT_INVITE;
 
 const API_BASE_URL =
   process.env.API_BASE_URL ||

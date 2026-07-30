@@ -108,3 +108,33 @@ anhängt.
 Adresse erfüllt die Anforderungen in Deutschland nicht. Bei einer
 öffentlich erreichbaren Seite ist das ein echtes Risiko, kein
 Schönheitsfehler.
+
+---
+
+## Impressum, Datenschutz, Nutzungsbedingungen
+
+Diese Angaben liest die Website **beim Aufruf**, nicht beim Bauen.
+Deshalb **ohne** `NEXT_PUBLIC_`-Präfix eintragen — beim **Hauptbot**:
+
+```
+IMPRINT_NAME="<Vor- und Nachname oder Firma>"
+IMPRINT_ADDRESS="<Straße Nr.
+PLZ Ort>"
+IMPRINT_EMAIL="<E-Mail, die auch gelesen wird>"
+
+# Optional:
+# PRIVACY_EMAIL="<eigene Adresse für Datenschutz-Anfragen>"
+# IMPRINT_VAT_ID="<USt-IdNr., nur falls vorhanden>"
+```
+
+**Warum ohne Präfix:** Alles mit `NEXT_PUBLIC_` wird von Next.js beim
+**Bauen** des Images fest eingebacken. Das Dockerfile übergibt aber nur
+drei solche Variablen — die Impressum-Angaben waren nie dabei. In
+Railway gesetzt hatten sie deshalb **keine Wirkung**, und das Impressum
+blieb leer, egal was eingetragen war.
+
+Die alte Schreibweise mit `NEXT_PUBLIC_` funktioniert weiterhin, falls
+sie schon gesetzt ist — die ohne Präfix hat Vorrang.
+
+⚠️ **`IMPRINT_ADDRESS="."` zählt als nicht gesetzt.** Ein Punkt ist
+keine ladungsfähige Anschrift. Die Seite zeigt dann oben eine Warnung.

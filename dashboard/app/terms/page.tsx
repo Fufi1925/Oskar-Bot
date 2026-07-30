@@ -1,105 +1,200 @@
-/**
- * ╔══════════════════════════════════════════════════════════════════╗
- * ║                                                                  ║
- * ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
- * ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
- * ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
- * ║                                                                  ║
- * ║           © 2026 University Bot Devs — All Rights Reserved               ║
- * ║                                                                  ║
- * ║   discord  ──  https://discord.gg/MG3rYnUZJV                      ║
- * ║   youtube  ──  https://youtube.com/@University BotDevs                   ║
- * ║   github   ──  https://github.com/University Bot                        ║
- * ║                                                                  ║
- * ╚══════════════════════════════════════════════════════════════════╝
- */
-
-"use client";
-
 import React from "react";
-import Link from "next/link";
-import { Bot, ChevronLeft, Scale, Terminal, ShieldAlert, Cpu } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Scale } from "lucide-react";
+import { LegalPage, Section } from "@/components/legal-page";
+import {
+  BRAND,
+  LEGAL_UPDATED,
+  PRIVACY_EMAIL,
+  SUPPORT_INVITE,
+} from "@/lib/legal";
 
+// Rendered per request, not baked in at build time.
+//
+// These pages read the operator's details from the environment, and
+// those are configured in Railway *after* the image is built. As a
+// static page the imprint would freeze whatever was set during the
+// docker build -- which is nothing -- and keep reporting every field
+// as missing however the deployment is configured.
+export const dynamic = "force-dynamic";
+
+export const metadata = {
+  title: "Nutzungsbedingungen",
+  description: "Die Regeln für die Nutzung des Bots und des Dashboards.",
+};
+
+/**
+ * Terms of service.
+ *
+ * Replaces English marketing copy ("neural edge clusters", "immediate
+ * neural deauthorization") that read like a science-fiction prop. Terms
+ * are the document people are held to, so they have to be in the
+ * language of the site and describe things that actually exist.
+ *
+ * Notably removed: the claim of striving for "100% uptime through our
+ * neural edge clusters". It is one container on one host, and a hobby
+ * project promising uptime in its terms is a promise it cannot keep.
+ */
 export default function TermsPage() {
   return (
-    <div className="min-h-screen bg-[#071527] text-slate-200 font-sans">
-      {/* Background Decor */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
-        <div className="absolute bottom-[-10%] left-[-5%] w-[40%] h-[40%] bg-blue-600/[0.03] blur-[120px] rounded-full" />
-      </div>
+    <LegalPage
+      title="Nutzungsbedingungen"
+      subtitle={`Die Regeln für die Nutzung von ${BRAND}.`}
+      icon={Scale}
+      updated={LEGAL_UPDATED}
+    >
+      <Section title="Worum es geht">
+        <p>
+          {BRAND} ist ein kostenloser Discord-Bot mit Web-Dashboard, betrieben
+          als privates Projekt. Wer den Bot auf einen Server einlädt oder das
+          Dashboard benutzt, akzeptiert diese Bedingungen.
+        </p>
+        <p>
+          Zusätzlich gelten die{" "}
+          <a
+            href="https://discord.com/terms"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-400 hover:underline"
+          >
+            Nutzungsbedingungen von Discord
+          </a>{" "}
+          und deren{" "}
+          <a
+            href="https://discord.com/guidelines"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-400 hover:underline"
+          >
+            Community-Richtlinien
+          </a>
+          . Wer dort gesperrt ist, kann auch diesen Dienst nicht nutzen.
+        </p>
+      </Section>
 
-      <nav className="fixed top-0 w-full z-50 border-b border-white/[0.03] bg-[#071527]/80 backdrop-blur-3xl px-6 h-20 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-4 group">
-          <div className="h-10 w-10 rounded-xl bg-blue-600 flex items-center justify-center group-hover:rotate-12 transition-transform">
-            <Bot className="h-5 w-5 text-white" />
-          </div>
-          <span className="text-xl font-bold text-white font-outfit uppercase tracking-tighter">{process.env.NEXT_PUBLIC_BRAND_NAME || "University Bot"} Engine</span>
-        </Link>
-        <Link href="/">
-          <Button variant="ghost" className="text-slate-400 hover:text-white gap-2">
-            <ChevronLeft className="h-4 w-4" />
-            Back to Home
-          </Button>
-        </Link>
-      </nav>
+      <Section title="Was erlaubt ist">
+        <p>
+          Den Bot auf eigenen Servern einsetzen, konfigurieren und benutzen —
+          privat wie in Vereinen, Klassen oder Lerngruppen. Es gibt keine
+          Nutzerobergrenze und keine kostenpflichtigen Funktionen.
+        </p>
+      </Section>
 
-      <main className="relative z-10 pt-40 pb-32 px-6">
-        <div className="max-w-4xl mx-auto">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-500 text-[10px] font-black uppercase tracking-widest mb-8">
-            <Scale className="h-3 w-3" />
-            Neural Protocol v2.4
-          </div>
-          
-          <h1 className="text-5xl md:text-7xl font-bold text-white font-outfit tracking-tighter uppercase mb-12 italic text-right">
-            Terms of <span className="text-blue-500 not-italic">Service.</span>
-          </h1>
+      <Section title="Was nicht erlaubt ist">
+        <ul className="list-disc pl-5 space-y-2 text-slate-400">
+          <li>
+            Einsatz für Belästigung, Massen-Direktnachrichten (Spam), Raids
+            oder das Umgehen von Sperren auf anderen Servern.
+          </li>
+          <li>
+            Verbreitung rechtswidriger Inhalte über die Funktionen des Bots.
+          </li>
+          <li>
+            Automatisiertes Abfragen der API außerhalb der vorgesehenen
+            Nutzung, sowie Versuche, Beschränkungen oder Rechteprüfungen zu
+            umgehen.
+          </li>
+          <li>
+            Angriffe auf die Verfügbarkeit — Lastspitzen absichtlich
+            erzeugen, Endpunkte in Schleife aufrufen und Vergleichbares.
+          </li>
+          <li>
+            Nachbauen, Weitergeben oder Veröffentlichen des Quellcodes. Er
+            ist nicht öffentlich und steht unter keiner freien Lizenz.
+          </li>
+        </ul>
+        <p>
+          Bei Verstößen können einzelne Nutzer oder ganze Server ohne
+          Vorankündigung vom Dienst ausgeschlossen werden.
+        </p>
+      </Section>
 
-          <div className="glass border-white/5 rounded-[40px] p-10 md:p-16 space-y-12 bg-gradient-to-br from-white/[0.01] to-transparent">
-            <section className="space-y-6">
-              <div className="flex items-center gap-4 text-white">
-                <div className="h-10 w-10 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-blue-500">
-                   <Terminal className="h-5 w-5" />
-                </div>
-                <h2 className="text-2xl font-bold font-outfit uppercase tracking-tight">Acceptance of Protocol</h2>
-              </div>
-              <p className="text-slate-400 leading-relaxed font-medium">
-                By integrating the {process.env.NEXT_PUBLIC_BRAND_NAME || "University Bot"} Engine into your Discord server, you agree to abide by these terms. The engine is provided &quot;as is,&quot; and while we strive for 100% uptime through our neural edge clusters, we are not liable for any data loss resulting from third-party API disruptions.
-              </p>
-            </section>
+      <Section title="Verantwortung der Server-Administratoren">
+        <p>
+          Wer den Bot einlädt, entscheidet über seine Konfiguration und ist
+          für den Einsatz auf dem eigenen Server verantwortlich. Das gilt
+          besonders für die Protokoll-Funktion: Wird sie eingeschaltet,
+          landen Ereignisse aus dem Server in einem Kanal — wer das
+          aktiviert, muss die Mitglieder darüber informieren.
+        </p>
+      </Section>
 
-            <section className="space-y-6">
-              <div className="flex items-center gap-4 text-white">
-                <div className="h-10 w-10 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-blue-500">
-                   <ShieldAlert className="h-5 w-5" />
-                </div>
-                <h2 className="text-2xl font-bold font-outfit uppercase tracking-tight">Usage Constraints</h2>
-              </div>
-              <p className="text-slate-400 leading-relaxed font-medium">
-                You may not use the {process.env.NEXT_PUBLIC_BRAND_NAME || "University Bot"} Engine for any illicit activities, including but not limited to: automated harassment, token logging, or raid coordination. Violation of these constraints will result in immediate neural deauthorization and blacklisting from the global cluster network.
-              </p>
-            </section>
+      <Section title="Verfügbarkeit">
+        <p>
+          Der Dienst wird bereitgestellt, <em>wie er ist</em>. Es gibt keine
+          zugesicherte Verfügbarkeit: Wartungen, Updates, Störungen bei
+          Discord oder beim Hoster können jederzeit zu Ausfällen führen. Der
+          aktuelle Zustand ist im Support-Server einsehbar.
+        </p>
+        <p>
+          Funktionen können sich ändern oder wegfallen. Der Betrieb kann
+          eingestellt werden; in dem Fall wird das im Support-Server
+          angekündigt, damit Einstellungen exportiert werden können.
+        </p>
+      </Section>
 
-            <section className="space-y-6">
-              <div className="flex items-center gap-4 text-white">
-                <div className="h-10 w-10 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-blue-500">
-                   <Cpu className="h-5 w-5" />
-                </div>
-                <h2 className="text-2xl font-bold font-outfit uppercase tracking-tight">API & Scaling</h2>
-              </div>
-              <p className="text-slate-400 leading-relaxed font-medium">
-                We reserve the right to throttle or limit API access for guilds that exceed disproportionate resource allocations. High-scale enterprise clusters are available for communities requiring dedicated neural shards.
-              </p>
-            </section>
+      <Section title="Haftung">
+        <p>
+          Für Vorsatz und grobe Fahrlässigkeit wird uneingeschränkt gehaftet,
+          ebenso bei Verletzung von Leben, Körper oder Gesundheit. Bei
+          einfacher Fahrlässigkeit besteht eine Haftung nur bei Verletzung
+          wesentlicher Vertragspflichten und begrenzt auf den typischen,
+          vorhersehbaren Schaden.
+        </p>
+        <p>
+          Für Datenverluste, entgangene Konfigurationen oder Folgen von
+          Ausfällen wird darüber hinaus nicht gehaftet. Es handelt sich um
+          ein kostenloses Angebot — wichtige Konfigurationen sollten
+          exportiert und selbst gesichert werden.
+        </p>
+      </Section>
 
-            <div className="pt-12 border-t border-white/5">
-              <p className="text-[10px] font-black uppercase text-slate-600 tracking-[0.4em]">
-                March 2026 // Distributed via {process.env.NEXT_PUBLIC_BRAND_NAME || "University Bot"} Neural Cloud
-              </p>
-            </div>
-          </div>
-        </div>
-      </main>
-    </div>
+      <Section title="Eigene Inhalte">
+        <p>
+          Texte, die ihr eingebt — Willkommensnachrichten, Autoresponder,
+          Ankündigungen — bleiben eure. Sie werden ausschließlich verarbeitet,
+          um die jeweilige Funktion auszuführen, und nicht anderweitig
+          verwendet.
+        </p>
+      </Section>
+
+      <Section title="Änderungen dieser Bedingungen">
+        <p>
+          Diese Bedingungen können angepasst werden, etwa wenn neue
+          Funktionen hinzukommen. Wesentliche Änderungen werden im
+          Support-Server angekündigt. Wer nicht einverstanden ist, kann den
+          Bot jederzeit von seinem Server entfernen.
+        </p>
+      </Section>
+
+      <Section title="Schlussbestimmungen">
+        <p>
+          Es gilt deutsches Recht. Sollte eine Bestimmung unwirksam sein,
+          bleibt der Rest davon unberührt.
+        </p>
+        <p>
+          Fragen? Am schnellsten im{" "}
+          <a
+            href={SUPPORT_INVITE}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-400 hover:underline"
+          >
+            Support-Server
+          </a>
+          {PRIVACY_EMAIL ? (
+            <>
+              {" "}oder per Mail an{" "}
+              <a
+                href={`mailto:${PRIVACY_EMAIL}`}
+                className="text-blue-400 hover:underline"
+              >
+                {PRIVACY_EMAIL}
+              </a>
+            </>
+          ) : null}
+          .
+        </p>
+      </Section>
+    </LegalPage>
   );
 }
