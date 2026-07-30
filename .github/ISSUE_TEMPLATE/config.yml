@@ -1,0 +1,16 @@
+# The support server is the faster route for almost everything, so it is
+# offered before the issue forms rather than hidden behind them.
+#
+# blank_issues_enabled stays true on purpose: forcing a template on a
+# private repo whose only users are the two developers would mostly get
+# in the way of quick notes.
+blank_issues_enabled: true
+
+contact_links:
+  - name: 💬 Support-Server
+    url: https://discord.gg/MG3rYnUZJV
+    about: Fragen, Hilfe und alles Kurzfristige — meist schneller als ein Issue.
+
+  - name: 🔒 Sicherheitslücke melden
+    url: https://github.com/Fufi1925/Oskar-Bot/blob/main/.github/SECURITY.md
+    about: Bitte NICHT als öffentliches Issue. So geht es richtig.

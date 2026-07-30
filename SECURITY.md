@@ -1,5 +1,11 @@
 # Security & Architecture Notes
 
+> **Eine Lücke gefunden?** Bitte nicht als öffentliches Issue —
+> der Meldeweg steht in [.github/SECURITY.md](.github/SECURITY.md).
+>
+> Diese Datei hier beschreibt, *wie* die Sicherheitsmechanismen
+> funktionieren.
+
 Wie Authentifizierung, Autorisierung und die globalen Feature-Flags in diesem
 Projekt funktionieren.
 

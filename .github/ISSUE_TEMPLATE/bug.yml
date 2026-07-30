@@ -1,0 +1,78 @@
+name: 🐛 Fehler melden
+description: Etwas funktioniert nicht wie erwartet.
+labels: ["bug"]
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Danke fürs Melden. Die wichtigste Frage ist immer: **wie löst man
+        es aus?** Ein Fehler, den wir nachstellen können, ist meist am
+        selben Tag behoben.
+
+        Geht es um eine **Sicherheitslücke**, bitte hier abbrechen und
+        [SECURITY.md](../blob/main/SECURITY.md) folgen — ein offenes
+        Issue erklärt Fremden den Angriff, bevor er geschlossen ist.
+
+  - type: textarea
+    id: what
+    attributes:
+      label: Was passiert?
+      placeholder: |
+        Beispiel: Im Dashboard unter „Join to Create" speichere ich den
+        Lobby-Kanal, es kommt „Gespeichert" — aber es passiert nichts,
+        wenn jemand den Kanal betritt.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Wie kann man es nachstellen?
+      description: Schritt für Schritt. Lieber zu genau als zu knapp.
+      placeholder: |
+        1. Dashboard öffnen → Server wählen
+        2. Reiter „Join to Create"
+        3. Lobby-Kanal auswählen, speichern
+        4. Den Kanal in Discord betreten
+        5. Es wird kein Kanal erstellt
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Was hättest du erwartet?
+    validations:
+      required: false
+
+  - type: input
+    id: guild
+    attributes:
+      label: Server-ID
+      description: >
+        Rechtsklick auf den Server → ID kopieren (Entwicklermodus muss an
+        sein). Ohne sie können wir in den Protokollen nichts zuordnen.
+      placeholder: "1520714989860814992"
+    validations:
+      required: false
+
+  - type: dropdown
+    id: where
+    attributes:
+      label: Wo tritt es auf?
+      options:
+        - Dashboard (Website)
+        - Bot in Discord
+        - Beides
+        - Weiß nicht
+    validations:
+      required: true
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Screenshots oder Fehlermeldungen
+      description: Bilder einfach ins Feld ziehen.
+    validations:
+      required: false

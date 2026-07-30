@@ -1,0 +1,59 @@
+# Dependency updates.
+#
+# Monthly rather than weekly, and grouped: this is a two-person project,
+# and a pull request per package every Monday is noise that gets closed
+# unread. Once a month with everything in one PR is something you might
+# actually look at.
+#
+# Security fixes are separate -- GitHub raises those immediately,
+# regardless of this schedule.
+
+version: 2
+
+updates:
+  - package-ecosystem: pip
+    directory: /bot
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 3
+    groups:
+      # One PR for everything that is only a patch or minor bump. Those
+      # are the ones that are usually safe to take as a batch.
+      safe-updates:
+        update-types: ["minor", "patch"]
+    ignore:
+      # discord.py is the one dependency where a minor bump has broken
+      # things here before -- Components V2 arrived in 2.6 and changed
+      # behaviour. Major versions get looked at by hand.
+      - dependency-name: "discord.py"
+        update-types: ["version-update:semver-major"]
+    commit-message:
+      prefix: "deps"
+
+  - package-ecosystem: npm
+    directory: /dashboard
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 3
+    groups:
+      safe-updates:
+        update-types: ["minor", "patch"]
+    ignore:
+      # Next 15 is a migration, not an update. Same for React 19.
+      - dependency-name: "next"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react-dom"
+        update-types: ["version-update:semver-major"]
+    commit-message:
+      prefix: "deps"
+
+  # The actions in the workflow itself. Pinned by major version, so this
+  # catches actions/checkout@v4 becoming unsupported.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: "ci"

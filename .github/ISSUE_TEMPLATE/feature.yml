@@ -1,0 +1,40 @@
+name: ✨ Idee oder Wunsch
+description: Etwas, das der Bot können sollte.
+labels: ["idee"]
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Ideen sind willkommen — auch halbfertige.
+
+  - type: textarea
+    id: idea
+    attributes:
+      label: Was soll es können?
+      placeholder: |
+        Beispiel: Ein Starboard — Nachrichten, die genug ⭐ bekommen,
+        landen automatisch in einem Kanal.
+    validations:
+      required: true
+
+  - type: textarea
+    id: why
+    attributes:
+      label: Wofür brauchst du das?
+      description: >
+        Der Zweck hilft mehr als die Lösung. Oft gibt es einen einfacheren
+        Weg zum selben Ziel.
+    validations:
+      required: false
+
+  - type: dropdown
+    id: urgency
+    attributes:
+      label: Wie dringend?
+      options:
+        - Nur so eine Idee
+        - Wäre schön
+        - Brauche ich wirklich
+    validations:
+      required: false

@@ -332,12 +332,148 @@ def test_boot_script_fails_loudly():
           "that notices")
 
 
+def test_repository_metadata():
+    """
+    The files that say what this repository is.
+
+    The repository was **public** until this was checked -- the whole
+    source readable by anyone, while the website had just been scrubbed
+    of every link to it. Scrubbing the links was pointless while the
+    repository itself was open, and nobody had noticed because nothing
+    ever asserted it.
+
+    That is fixed at GitHub, which these tests cannot see. What they can
+    check is that the files in the tree agree: a licence that reserves
+    rights, a README that does not promise MIT, and a security policy
+    that says where to report instead of opening an issue.
+    """
+    print("\nRepository metadata")
+
+    licence = read(os.path.join(ROOT, "LICENSE"))
+    check("there is a LICENSE file", bool(licence), "")
+    if licence:
+        check("it reserves all rights",
+              "All Rights Reserved" in licence, licence[:80])
+        check("and does not grant a licence",
+              "No permission is granted" in licence, "")
+        check("MIT is not mentioned as the licence",
+              "MIT License" not in licence and "MIT license" not in licence,
+              "the README claimed MIT, which would have let anyone "
+              "copy and redistribute the code")
+        check("access to the repo is not a licence",
+              "does not constitute a licence" in licence,
+              "somebody who gets in should not think that is permission")
+
+    readme = read(os.path.join(ROOT, "README.md"))
+    # Blockquote lines dropped first: the README quotes the old "MIT
+    # License" to say it was wrong, and a plain search reports the
+    # correction as the bug. Third time this pattern has bitten in this
+    # project, hence the note.
+    readme_claims = "\n".join(
+        line for line in readme.splitlines() if not line.lstrip().startswith(">")
+    )
+    check("the README does not claim MIT",
+          "MIT License" not in readme_claims,
+          "it did; the same false claim was in the imprint")
+    check("and it does say the rights are reserved",
+          "Alle Rechte vorbehalten" in readme_claims, "")
+    check("it points at the LICENSE file",
+          "LICENSE" in readme, "")
+    check("and says pull requests are not taken",
+          "Pull Requests" in readme or "Pull-Requests" in readme, "")
+
+    # GitHub reads .github/SECURITY.md for the "report a vulnerability"
+    # link. The SECURITY.md in the root is architecture documentation
+    # that predates this -- I overwrote it once by assuming the name
+    # meant the same thing, so both are checked and cross-linked.
+    security = read(os.path.join(ROOT, ".github", "SECURITY.md"))
+    check("there is a reporting policy", bool(security),
+          ".github/SECURITY.md is what GitHub surfaces")
+
+    architecture = read(os.path.join(ROOT, "SECURITY.md"))
+    check("the architecture notes are still there",
+          "Security & Architecture Notes" in architecture,
+          "this file documents how auth and the feature flags work")
+    check("and the two point at each other",
+          ".github/SECURITY.md" in architecture
+          and "../SECURITY.md" in security,
+          "two files with the same name need to say which is which")
+    if security:
+        check("it says not to open a public issue",
+              "nicht als öffentliches Issue" in security
+              or "NICHT als öffentliches Issue" in security,
+              "a public issue explains the attack before it is fixed")
+        check("it names a private route",
+              "Direktnachricht" in security or "E-Mail" in security, "")
+        check("it says to revoke first when a secret leaks",
+              "widerrufen" in security,
+              "deleting a secret from a file leaves it in the history; "
+              "revoking is the part that actually helps")
+
+
+def test_github_config_parses():
+    """
+    Every YAML under .github/ has to parse.
+
+    A broken issue template does not fail loudly -- GitHub just silently
+    stops offering it, which nobody notices for months.
+    """
+    print("\nThe .github configuration")
+
+    try:
+        import yaml
+    except ImportError:
+        print("  --   pyyaml missing, skipping")
+        return
+
+    github = os.path.join(ROOT, ".github")
+    found = []
+    for base, dirs, names in os.walk(github):
+        for name in names:
+            if name.endswith((".yml", ".yaml")):
+                found.append(os.path.join(base, name))
+
+    check("there are config files", len(found) >= 3, str(len(found)))
+
+    for path in found:
+        rel = os.path.relpath(path, ROOT)
+        try:
+            yaml.safe_load(read(path))
+            check(f"{rel} parses", True)
+        except Exception as err:  # noqa: BLE001
+            check(f"{rel} parses", False, str(err)[:120])
+
+    dependabot = read(os.path.join(github, "dependabot.yml"))
+    check("dependabot is configured", bool(dependabot), "")
+    if dependabot:
+        for ecosystem in ("pip", "npm", "github-actions"):
+            check(f"it watches {ecosystem}", ecosystem in dependabot, "")
+        check("updates are grouped, not one PR per package",
+              "groups:" in dependabot,
+              "a PR per package every week gets closed unread")
+
+    templates = os.path.join(github, "ISSUE_TEMPLATE")
+    check("there are issue templates", os.path.isdir(templates), "")
+    if os.path.isdir(templates):
+        config = read(os.path.join(templates, "config.yml"))
+        check("the security policy is linked from the issue picker",
+              "SECURITY.md" in config,
+              "the moment somebody opens an issue is the moment to say "
+              "'not this way' for security reports")
+        bug = read(os.path.join(templates, "bug.yml"))
+        check("the bug form asks for the guild id",
+              "Server-ID" in bug,
+              "without it nothing can be found in the logs")
+
+
 def main():
     data = test_workflow_exists()
     test_commands_exist(data)
     test_versions_match_the_container(data)
     test_lint_step_is_realistic()
     test_boot_script_fails_loudly()
+    test_repository_metadata()
+    test_github_config_parses()
 
     print(f"\n{len(failures)} failures")
     for line in failures:

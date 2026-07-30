@@ -115,6 +115,26 @@ cd dashboard && npm install && npm run dev
 
 ---
 
-## ✦ License
+## ✦ Lizenz
 
-MIT License
+**Alle Rechte vorbehalten.** Der Quellcode ist nicht öffentlich und
+steht unter keiner freien Lizenz — siehe [LICENSE](LICENSE).
+
+Dieses Repository ist privat. Zugriff darauf ist keine Erlaubnis, den
+Code zu verwenden, zu kopieren oder weiterzugeben.
+
+> Hier stand vorher „MIT License". Das war falsch: MIT hätte jedem
+> erlaubt, den Code zu kopieren und weiterzuverbreiten. Dieselbe
+> Falschangabe stand im Impressum der Website und ist dort ebenfalls
+> korrigiert.
+
+## ✦ Sicherheit
+
+Eine Lücke gefunden? Bitte **nicht** als öffentliches Issue melden —
+siehe [.github/SECURITY.md](.github/SECURITY.md).
+
+## ✦ Mitarbeit
+
+Dies ist kein offenes Projekt; Pull Requests von außen werden nicht
+angenommen. Fehlerberichte und Vorschläge sind trotzdem willkommen, am
+besten im [Support-Server](https://discord.gg/MG3rYnUZJV).
