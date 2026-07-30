@@ -23,7 +23,6 @@ Run:  python3 tests/test_backups.py
 
 import asyncio
 import os
-import shutil
 import sys
 import tempfile
 import time
