@@ -138,6 +138,29 @@ AMBER = 0xFAA61A
 RED = 0xED4245
 
 
+def _retry_after(err: "discord.HTTPException") -> float:
+    """
+    How long Discord asked us to wait, in seconds.
+
+    Prefers the Retry-After header, which is what Discord actually sends
+    on a 429. Falls back to a fixed wait when it is missing or absurd --
+    a header saying "wait eleven hours" is more likely a bug than an
+    instruction, and sitting there for eleven hours helps nobody.
+    """
+    default = float(os.getenv("STATUS_RATELIMIT_WAIT") or 300)
+    try:
+        raw = err.response.headers.get("Retry-After")  # type: ignore[union-attr]
+        if raw is None:
+            return default
+        seconds = float(raw)
+    except Exception:  # noqa: BLE001
+        return default
+
+    # Clamp. Below a minute is pointless for a global block, and above
+    # an hour we would rather be restarted by hand.
+    return max(60.0, min(seconds, 3600.0))
+
+
 def _duration(seconds: int) -> str:
     """A span in words: "3 Minuten", "1 Stunde 20 Minuten"."""
     if seconds < 60:
@@ -1075,6 +1098,34 @@ def main() -> int:
     except discord.LoginFailure:
         print("[status] Discord refused the token.")
         return 1
+    except discord.HTTPException as err:
+        # 429 during login is the one failure that a restart makes
+        # worse. Discord blocks the whole application, not the request;
+        # every attempt while blocked extends the block, and Railway
+        # restarts on a non-zero exit -- so returning 1 here produced a
+        # login attempt roughly once a second, which is exactly how the
+        # limit got hit in the first place and why it would not clear.
+        #
+        # Observed in production: the service crash-looped through its
+        # five retries in about six seconds.
+        #
+        # So: wait it out in-process. Discord sends Retry-After; when it
+        # does not, back off by a growing amount rather than guessing a
+        # single figure.
+        if err.status != 429:
+            raise
+
+        wait = _retry_after(err)
+        print(
+            f"[status] Discord is rate limiting the login (429). "
+            f"Waiting {int(wait)}s before trying again. Restarting the "
+            "service does not help -- it makes the block last longer."
+        )
+        time.sleep(wait)
+        # Exit 0 so Railway does not count this as a crash. The next
+        # deploy or manual restart tries again with a clean slate; a
+        # restart loop is the thing being avoided.
+        return 0
     return 0
 
 

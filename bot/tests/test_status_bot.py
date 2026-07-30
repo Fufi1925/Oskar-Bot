@@ -952,6 +952,125 @@ def _button_emojis(view):
     return found
 
 
+def test_rate_limited_login():
+    """
+    A 429 on login must not turn into a restart loop.
+
+    This happened in production. Discord rate limited the login, the bot
+    raised, main() let it through, the process exited non-zero, and
+    Railway restarted it -- roughly once a second. Every attempt while
+    blocked extends the block, so the service burned its five retries in
+    about six seconds and the limit lasted longer than it had to.
+
+    The fix is counter-intuitive and worth stating: the right response
+    to "you are being rate limited" is to *stop trying*, not to try
+    again. So the bot waits in-process for as long as Discord asked, and
+    then exits 0 -- because a non-zero exit is what makes Railway
+    restart it.
+    """
+    print("\nA rate-limited login")
+
+    import discord
+
+    import status_bot as sb
+
+    class Response:
+        def __init__(self, status, headers=None):
+            self.status = status
+            self.headers = headers or {}
+            self.reason = "Too Many Requests"
+
+    def error(status, headers=None):
+        return discord.HTTPException(Response(status, headers), "rate limited")
+
+    # Discord's own figure is used when it sends one.
+    check("Retry-After is honoured",
+          sb._retry_after(error(429, {"Retry-After": "120"})) == 120.0,
+          str(sb._retry_after(error(429, {"Retry-After": "120"}))))
+
+    # Clamped at both ends: a few seconds is pointless against a global
+    # block, and a header asking for eleven hours is likelier a bug than
+    # an instruction.
+    check("a tiny wait is raised to a useful one",
+          sb._retry_after(error(429, {"Retry-After": "5"})) == 60.0, "")
+    check("and an absurd one is capped",
+          sb._retry_after(error(429, {"Retry-After": "999999"})) == 3600.0, "")
+    check("a missing header falls back",
+          sb._retry_after(error(429, {})) > 0, "")
+    check("so does a malformed one",
+          sb._retry_after(error(429, {"Retry-After": "soon"})) > 0, "")
+
+    # The behaviour that matters. Patched to a short wait so the test
+    # does not sit here for a minute.
+    # main() returns early when there is no token, so without this the
+    # test never reaches the login at all -- and "exit 0" would pass for
+    # entirely the wrong reason. Caught exactly that way: the 429 case
+    # looked fine while the 500 case revealed nothing had run.
+    original_token = sb.TOKEN
+    sb.TOKEN = "test-token"
+
+    original_bot = sb.StatusBot
+    original_wait = sb._retry_after
+    sb._retry_after = lambda err: 0.01
+
+    class RateLimited:
+        def run(self, *args, **kwargs):
+            raise error(429, {"Retry-After": "60"})
+
+    class ServerError:
+        def run(self, *args, **kwargs):
+            raise error(500)
+
+    try:
+        sb.StatusBot = lambda: RateLimited()
+        code = sb.main()
+        check("a 429 exits zero, so Railway does not restart",
+              code == 0,
+              f"exit {code} -- a non-zero exit is what caused the loop")
+
+        # Anything else is a real fault and must not be swallowed: a
+        # bot that exits quietly on every error never gets looked at.
+        sb.StatusBot = lambda: ServerError()
+        raised = False
+        try:
+            sb.main()
+        except discord.HTTPException:
+            raised = True
+        check("other HTTP errors still propagate", raised,
+              "swallowing every failure hides real ones")
+
+        # Proof that the two cases above actually reached bot.run().
+        # Without a token main() returns before that, and both checks
+        # would pass while testing nothing.
+        reached = []
+
+        class Records:
+            def run(self, *args, **kwargs):
+                reached.append(True)
+                raise error(429, {"Retry-After": "60"})
+
+        sb.StatusBot = lambda: Records()
+        sb.main()
+        check("the login was actually attempted", reached == [True],
+              "main() returns early without a token; these checks would "
+              "otherwise pass without running anything")
+    finally:
+        sb.StatusBot = original_bot
+        sb._retry_after = original_wait
+        sb.TOKEN = original_token
+
+    source = open(os.path.join(STATUS, "status_bot.py"), encoding="utf-8").read()
+    check("it waits before giving up",
+          "time.sleep(wait)" in source,
+          "exiting immediately just hands the next attempt to Railway")
+    check("and only treats 429 this way",
+          "if err.status != 429:" in source and "raise" in source, "")
+    check("the log explains that restarting makes it worse",
+          "makes the block last longer" in source,
+          "the obvious reaction to a crash-looping service is to "
+          "restart it, which is the wrong one here")
+
+
 def test_no_name_clashes_with_discord():
     """
     Nothing on StatusBot may shadow something discord.Client owns.
@@ -1324,6 +1443,7 @@ def main():
     test_discord_markup()
     test_avatars()
     test_emojis()
+    test_rate_limited_login()
     test_no_name_clashes_with_discord()
     test_one_miss_is_not_an_outage()
     asyncio.run(run_endpoint())

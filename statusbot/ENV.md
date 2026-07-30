@@ -215,3 +215,28 @@ zeigt die Seite „Status nicht abrufbar" statt zu raten.
 Gemeldet wird **nur** der Wechsel in eine Störung und die Rückkehr.
 Ein normaler Deploy („startet gerade") löst nichts aus — sonst gewöhnt
 sich jeder daran, den Kanal zu ignorieren.
+
+
+---
+
+## Wenn im Log „429 Too Many Requests" steht
+
+```
+discord.errors.HTTPException: 429 Too Many Requests
+You are being blocked from accessing our API temporarily
+```
+
+**Nicht neu starten.** Discord sperrt die ganze Application, nicht die
+einzelne Anfrage — jeder weitere Login-Versuch verlängert die Sperre.
+Genau das ist passiert: Der Bot stürzte ab, Railway startete neu, der
+nächste Versuch verlängerte die Sperre, im Sekundentakt.
+
+Der Bot wartet jetzt selbst ab und beendet sich danach mit Code 0,
+damit Railway ihn **nicht** automatisch neu startet.
+
+**Was zu tun ist:** ein paar Minuten warten, dann den Service einmal
+von Hand starten. Optional `STATUS_RATELIMIT_WAIT="300"` setzen, falls
+Discord keinen `Retry-After`-Wert mitschickt.
+
+**Häufige Ursache:** zwei Dienste mit demselben Token, oder viele
+Deploys kurz hintereinander.
