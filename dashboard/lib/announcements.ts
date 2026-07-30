@@ -41,6 +41,68 @@ export interface Announcement {
 
 export const ANNOUNCEMENTS: Announcement[] = [
   {
+    id: "2026-07-fehler-sichtbar",
+    label: "Changelog: Fehlermeldungen",
+    summary: "Abstürze verschwanden spurlos, Befehle in DMs stürzten ab",
+    guilds: [BOT_GUILD_ID],
+    date: "30.07.2026",
+    accent: "#faa61a",
+    blocks: [
+      {
+        type: "text",
+        text:
+          "# 🛟 Changelog · Fehlermeldungen\n" +
+          "### Wenn ein Befehl einfach nichts tat",
+      },
+      { type: "divider" },
+      {
+        type: "text",
+        text:
+          "Ging in einem Befehl etwas schief, das nicht vorhergesehen " +
+          "war, passierte **gar nichts**: keine Antwort für euch, keine " +
+          "Zeile im Log für uns. Der Befehl sah aus, als hättet ihr ihn " +
+          "nie abgeschickt.",
+      },
+      { type: "divider" },
+      {
+        type: "text",
+        text:
+          "## Was kaputt war\n\n" +
+          "> 🕳️ **Unbekannte Fehler fielen ins Nichts.** Zwölf bekannte " +
+          "Fälle wurden behandelt, danach hörte die Behandlung einfach " +
+          "auf — ohne Meldung, ohne Protokoll.\n" +
+          "> 💥 **Befehle in Privatnachrichten stürzten ab.** Die " +
+          "Prüfung der Ignorier-Liste ist serverbezogen; in einer DM " +
+          "gibt es keinen Server. Die Fehlerbehandlung lief dabei " +
+          "selbst auf einen Fehler.\n" +
+          "> 🙈 **„Dir fehlt eine Berechtigung“ wurde verschluckt**, " +
+          "wenn man auf der Ignorier-Liste stand — man bekam die " +
+          "falsche Begründung zu sehen.",
+      },
+      { type: "divider" },
+      {
+        type: "text",
+        text:
+          "## Was jetzt gilt\n\n" +
+          "> ✅ Unerwartete Fehler bekommen eine **klare Antwort**: es " +
+          "liegt an uns, nicht an euch.\n" +
+          "> ✅ Der vollständige **Fehlerbericht landet im Protokoll** — " +
+          "wir sehen Probleme jetzt sofort statt erst nach einer " +
+          "Meldung.\n" +
+          "> ✅ Befehle in **Privatnachrichten** antworten wieder " +
+          "richtig.\n" +
+          "> ✅ Berechtigungs-Hinweise werden **nicht mehr überdeckt**.",
+      },
+      { type: "divider" },
+      {
+        type: "text",
+        text:
+          "-# Unbekannte Befehle bleiben still — es spamt also nichts, " +
+          "wenn man sich vertippt.",
+      },
+    ],
+  },
+  {
     id: "2026-07-emojis-kaputt",
     label: "Changelog: Emojis",
     summary: "Vier tote Emojis und ein Sync, der sie nicht heilen konnte",

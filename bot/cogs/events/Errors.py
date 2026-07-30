@@ -13,10 +13,8 @@
 # ╚══════════════════════════════════════════════════════════════════╝
 
 import discord
-import json
-import aiosqlite
+import traceback
 from discord.ext import commands
-from utils.config import serverLink
 from core import universitybot, Cog, Context
 from utils.Tools import get_ignore_data
 
@@ -38,7 +36,23 @@ class Errors(Cog):
       ctx.command.reset_cooldown(ctx)
       return
 
-    if isinstance(error, commands.CheckFailure):
+    # NoPrivateMessage, MissingPermissions, BotMissingPermissions, NotOwner and
+    # MissingRole are all subclasses of CheckFailure. They have their own
+    # branches further down, so they must not be captured here. The ignore list
+    # is also per guild: in a DM ctx.guild is None and reading ctx.guild.id
+    # raised AttributeError inside the error handler itself.
+    if (
+      isinstance(error, commands.CheckFailure)
+      and not isinstance(error, (
+        commands.NoPrivateMessage,
+        commands.MissingPermissions,
+        commands.BotMissingPermissions,
+        commands.MissingRole,
+        commands.MissingAnyRole,
+        commands.NotOwner,
+      ))
+      and ctx.guild is not None
+    ):
       data = await get_ignore_data(ctx.guild.id)
       ch = data["channel"]
       iuser = data["user"]
@@ -111,12 +125,45 @@ class Errors(Cog):
       await ctx.reply(f'** Huh! I need {missing} Permission to run the {ctx.command.qualified_name}command! Give me {missing} Permission**', delete_after=7)
       return
 
-    if isinstance(error, discord.HTTPException):
-      print(f"[ERROR] HTTPException in {ctx.command}: {error}")
-      return
+    # Everything below is a real fault, not a user mistake. Previously the
+    # function just ended here: the user saw nothing happen and the log stayed
+    # empty, so a broken command was invisible until someone reported it.
+    await self._report_unexpected(ctx, error)
 
-    if isinstance(error, commands.CommandInvokeError):
-      print(f"[ERROR] CommandInvokeError in {ctx.command}: {error}")
-      print(f"  Original: {error.original}")
-      return
+  async def _report_unexpected(self, ctx: Context, error) -> None:
+    """
+    Last line of defence for errors that are nobody's fault but ours.
+
+    Writes a full stack trace to the log so the problem is visible in
+    Railway, and tells the user the command failed instead of leaving
+    them staring at nothing.
+    """
+    # CommandInvokeError wraps the exception the command actually raised.
+    # The wrapper says nothing useful, so unwrap it for the trace.
+    original = getattr(error, "original", error)
+
+    where = ctx.command.qualified_name if ctx.command else "unknown command"
+    guild = f"{ctx.guild.id}" if ctx.guild else "DM"
+    print(f"[ERROR] Unhandled error in '{where}' (guild {guild}, user {ctx.author.id}): "
+          f"{type(original).__name__}: {original}")
+    trace = "".join(
+      traceback.format_exception(type(original), original, original.__traceback__)
+    )
+    print(trace.rstrip())
+
+    # Never let the reporting itself break the handler: the channel may be
+    # gone, or we may lack permission to talk in it.
+    try:
+      embed = discord.Embed(
+        color=0xFF0000,
+        description=(
+          f"**Something went wrong while running `{where}`.**\n"
+          "This is a bug on our side, not something you did. "
+          "It has been written to the log."
+        ),
+      )
+      embed.set_author(name="Unexpected Error", icon_url=self.client.user.display_avatar.url)
+      await ctx.reply(embed=embed, delete_after=15)
+    except discord.HTTPException:
+      pass
 
