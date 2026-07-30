@@ -1,0 +1,712 @@
+[
+ {
+  "name": "37496alert",
+  "id": "1530375474276995152",
+  "animated": true
+ },
+ {
+  "name": "a_Hypesquad_Balance",
+  "id": "1530375496829763684",
+  "animated": true
+ },
+ {
+  "name": "a_Hypesquad_Bravery",
+  "id": "1530375356274708702",
+  "animated": true
+ },
+ {
+  "name": "Active_Developer",
+  "id": "1530375164259209216",
+  "animated": true
+ },
+ {
+  "name": "ArrowRed",
+  "id": "1530375308270899371",
+  "animated": true
+ },
+ {
+  "name": "BlackCrown",
+  "id": "1530375431973376001",
+  "animated": true
+ },
+ {
+  "name": "blobpart",
+  "id": "1530375528979103805",
+  "animated": true
+ },
+ {
+  "name": "boost",
+  "id": "1530375445785084005",
+  "animated": false
+ },
+ {
+  "name": "boosts",
+  "id": "1530375345574777045",
+  "animated": true
+ },
+ {
+  "name": "BugHunterLevel1",
+  "id": "1530375321281368285",
+  "animated": false
+ },
+ {
+  "name": "BugHunterLvl2",
+  "id": "1532395583564677380",
+  "animated": false
+ },
+ {
+  "name": "CertifiedDiscordModerator",
+  "id": "1530375542338093227",
+  "animated": false
+ },
+ {
+  "name": "channel",
+  "id": "1530375477263470745",
+  "animated": false
+ },
+ {
+  "name": "codebase",
+  "id": "1530375110815645706",
+  "animated": false
+ },
+ {
+  "name": "coded",
+  "id": "1530375137382109184",
+  "animated": false
+ },
+ {
+  "name": "CrossIcon",
+  "id": "1530375441888710918",
+  "animated": false
+ },
+ {
+  "name": "Cute_Cute_Cute",
+  "id": "1530375091601539243",
+  "animated": false
+ },
+ {
+  "name": "delete",
+  "id": "1530375208899448902",
+  "animated": false
+ },
+ {
+  "name": "Denied",
+  "id": "1530375301656219849",
+  "animated": false
+ },
+ {
+  "name": "Disable",
+  "id": "1530375483936608277",
+  "animated": false
+ },
+ {
+  "name": "dnd",
+  "id": "1530375178448535634",
+  "animated": false
+ },
+ {
+  "name": "EarlySupporter",
+  "id": "1530375223051026582",
+  "animated": false
+ },
+ {
+  "name": "EarlyVerifiedBotDeveloper",
+  "id": "1530375202331164844",
+  "animated": true
+ },
+ {
+  "name": "emote",
+  "id": "1530375407965310979",
+  "animated": true
+ },
+ {
+  "name": "Enable",
+  "id": "1530375130683801730",
+  "animated": false
+ },
+ {
+  "name": "forward",
+  "id": "1530375267560722522",
+  "animated": false
+ },
+ {
+  "name": "games",
+  "id": "1530375470921810150",
+  "animated": false
+ },
+ {
+  "name": "GIFD",
+  "id": "1530375467344072905",
+  "animated": true
+ },
+ {
+  "name": "GIFN",
+  "id": "1530375490215477251",
+  "animated": true
+ },
+ {
+  "name": "handshake",
+  "id": "1530375521534214306",
+  "animated": false
+ },
+ {
+  "name": "happy_panda",
+  "id": "1530375098035339334",
+  "animated": false
+ },
+ {
+  "name": "headmod",
+  "id": "1530375195397849309",
+  "animated": false
+ },
+ {
+  "name": "heart3",
+  "id": "1530375335223365772",
+  "animated": false
+ },
+ {
+  "name": "heart_em",
+  "id": "1530375151152267314",
+  "animated": false
+ },
+ {
+  "name": "Heeriye",
+  "id": "1530375555654881341",
+  "animated": false
+ },
+ {
+  "name": "Hypesquad_Brilliance",
+  "id": "1530375404962185489",
+  "animated": false
+ },
+ {
+  "name": "HypesquadEvents",
+  "id": "1532395580771536917",
+  "animated": false
+ },
+ {
+  "name": "icon_browser",
+  "id": "1530375500214829247",
+  "animated": false
+ },
+ {
+  "name": "iconLoad",
+  "id": "1530375463996756008",
+  "animated": false
+ },
+ {
+  "name": "icons_channel",
+  "id": "1530375438654898288",
+  "animated": false
+ },
+ {
+  "name": "icons_home",
+  "id": "1530375328114016470",
+  "animated": false
+ },
+ {
+  "name": "icons_music",
+  "id": "1530375398804819988",
+  "animated": false
+ },
+ {
+  "name": "icons_next",
+  "id": "1530375143992590346",
+  "animated": false
+ },
+ {
+  "name": "icons_pause",
+  "id": "1530375294656057394",
+  "animated": false
+ },
+ {
+  "name": "icons_plus",
+  "id": "1530375247008759960",
+  "animated": false
+ },
+ {
+  "name": "icons_warning",
+  "id": "1530375205631955056",
+  "animated": false
+ },
+ {
+  "name": "idle",
+  "id": "1530375449488785429",
+  "animated": false
+ },
+ {
+  "name": "index",
+  "id": "1530375391959580783",
+  "animated": false
+ },
+ {
+  "name": "info",
+  "id": "1530375411299782786",
+  "animated": false
+ },
+ {
+  "name": "king",
+  "id": "1530375254529147023",
+  "animated": true
+ },
+ {
+  "name": "loading",
+  "id": "1530375402004942909",
+  "animated": true
+ },
+ {
+  "name": "loadingred",
+  "id": "1530375297894060083",
+  "animated": true
+ },
+ {
+  "name": "lock",
+  "id": "1530375181887995924",
+  "animated": false
+ },
+ {
+  "name": "manager",
+  "id": "1530375251031101552",
+  "animated": false
+ },
+ {
+  "name": "max__A",
+  "id": "1530375373232144388",
+  "animated": true
+ },
+ {
+  "name": "mention",
+  "id": "1530375226532167770",
+  "animated": true
+ },
+ {
+  "name": "mingle",
+  "id": "1530375188720652438",
+  "animated": true
+ },
+ {
+  "name": "ml_cross",
+  "id": "1530375171444179085",
+  "animated": false
+ },
+ {
+  "name": "mobile",
+  "id": "1530375216151134278",
+  "animated": true
+ },
+ {
+  "name": "music",
+  "id": "1530375370006593779",
+  "animated": true
+ },
+ {
+  "name": "musicstop_icons",
+  "id": "1530375140381294635",
+  "animated": false
+ },
+ {
+  "name": "New",
+  "id": "1530375314528538625",
+  "animated": false
+ },
+ {
+  "name": "next",
+  "id": "1530375229845672077",
+  "animated": false
+ },
+ {
+  "name": "nitroboost",
+  "id": "1530375104372932739",
+  "animated": true
+ },
+ {
+  "name": "offline",
+  "id": "1530375199114137772",
+  "animated": false
+ },
+ {
+  "name": "online",
+  "id": "1530375304907067452",
+  "animated": true
+ },
+ {
+  "name": "PartneredServerOwner",
+  "id": "1532395582306386231",
+  "animated": false
+ },
+ {
+  "name": "pc",
+  "id": "1530375283893469234",
+  "animated": false
+ },
+ {
+  "name": "premium",
+  "id": "1530375127638872164",
+  "animated": true
+ },
+ {
+  "name": "racecar64",
+  "id": "1530375435463168110",
+  "animated": true
+ },
+ {
+  "name": "red_button",
+  "id": "1530375507214991471",
+  "animated": false
+ },
+ {
+  "name": "red_pin",
+  "id": "1530375100900053043",
+  "animated": false
+ },
+ {
+  "name": "reddot",
+  "id": "1530375503712878603",
+  "animated": true
+ },
+ {
+  "name": "RedHeart",
+  "id": "1530375421596794912",
+  "animated": true
+ },
+ {
+  "name": "RedRulesBook",
+  "id": "1530375161017008229",
+  "animated": true
+ },
+ {
+  "name": "rewind",
+  "id": "1530375395298250772",
+  "animated": false
+ },
+ {
+  "name": "rewind1",
+  "id": "1530375493751148675",
+  "animated": false
+ },
+ {
+  "name": "sg_rd",
+  "id": "1530375264574374118",
+  "animated": true
+ },
+ {
+  "name": "shuffle",
+  "id": "1530375185079865375",
+  "animated": false
+ },
+ {
+  "name": "skip",
+  "id": "1530375545823694888",
+  "animated": false
+ },
+ {
+  "name": "staff",
+  "id": "1530375157988720792",
+  "animated": true
+ },
+ {
+  "name": "Star",
+  "id": "1530375287399776406",
+  "animated": true
+ },
+ {
+  "name": "star",
+  "id": "1530375318085566464",
+  "animated": true
+ },
+ {
+  "name": "starr",
+  "id": "1530375456715444358",
+  "animated": false
+ },
+ {
+  "name": "TADAA",
+  "id": "1530375414575529984",
+  "animated": true
+ },
+ {
+  "name": "tick",
+  "id": "1530375233037664349",
+  "animated": false
+ },
+ {
+  "name": "timer",
+  "id": "1530375349232472206",
+  "animated": true
+ },
+ {
+  "name": "U_admin",
+  "id": "1530375175432966204",
+  "animated": false
+ },
+ {
+  "name": "universitybot_code",
+  "id": "1530375487174606878",
+  "animated": false
+ },
+ {
+  "name": "universitybot_command",
+  "id": "1530375113814577194",
+  "animated": false
+ },
+ {
+  "name": "universitybot_global",
+  "id": "1530375192025632969",
+  "animated": false
+ },
+ {
+  "name": "universitybot_mention",
+  "id": "1530375331729510430",
+  "animated": false
+ },
+ {
+  "name": "universitybot_owner",
+  "id": "1530375107812524112",
+  "animated": false
+ },
+ {
+  "name": "universitybot_search",
+  "id": "1530375538999562240",
+  "animated": false
+ },
+ {
+  "name": "universitybot_system",
+  "id": "1530375121292755104",
+  "animated": false
+ },
+ {
+  "name": "universitybot_time",
+  "id": "1530375094893936800",
+  "animated": false
+ },
+ {
+  "name": "universitybotconnection",
+  "id": "1530375380681363476",
+  "animated": false
+ },
+ {
+  "name": "universitybothammer",
+  "id": "1530375418128105592",
+  "animated": false
+ },
+ {
+  "name": "universitybotlinks",
+  "id": "1530375352835117126",
+  "animated": false
+ },
+ {
+  "name": "universitybotsys",
+  "id": "1530375270790467584",
+  "animated": false
+ },
+ {
+  "name": "universitybotthunder",
+  "id": "1530375325056237600",
+  "animated": false
+ },
+ {
+  "name": "unlock",
+  "id": "1530375088577450054",
+  "animated": false
+ },
+ {
+  "name": "uptime",
+  "id": "1530375280714055731",
+  "animated": false
+ },
+ {
+  "name": "warning",
+  "id": "1530375219733201036",
+  "animated": false
+ },
+ {
+  "name": "zai",
+  "id": "1530375243258920980",
+  "animated": false
+ },
+ {
+  "name": "zArrow",
+  "id": "1530375154977214504",
+  "animated": false
+ },
+ {
+  "name": "zback",
+  "id": "1530375525044850749",
+  "animated": false
+ },
+ {
+  "name": "zban",
+  "id": "1530375511237197856",
+  "animated": false
+ },
+ {
+  "name": "zbot",
+  "id": "1530375453142159521",
+  "animated": false
+ },
+ {
+  "name": "zcast",
+  "id": "1530375366495965264",
+  "animated": false
+ },
+ {
+  "name": "zcircle",
+  "id": "1530375261185638400",
+  "animated": false
+ },
+ {
+  "name": "zCloud",
+  "id": "1530375428559343936",
+  "animated": false
+ },
+ {
+  "name": "zcounting",
+  "id": "1530375514722926783",
+  "animated": false
+ },
+ {
+  "name": "zcross",
+  "id": "1530375117954093107",
+  "animated": false
+ },
+ {
+  "name": "zdil",
+  "id": "1530375257800835184",
+  "animated": false
+ },
+ {
+  "name": "zHuman",
+  "id": "1530375212862935040",
+  "animated": false
+ },
+ {
+  "name": "zlevelup",
+  "id": "1530375085167218688",
+  "animated": false
+ },
+ {
+  "name": "zmc",
+  "id": "1530375460620337152",
+  "animated": false
+ },
+ {
+  "name": "zmodule",
+  "id": "1530375147008294923",
+  "animated": false
+ },
+ {
+  "name": "zmsg",
+  "id": "1530375239580516484",
+  "animated": false
+ },
+ {
+  "name": "zmusic",
+  "id": "1530375363090448404",
+  "animated": false
+ },
+ {
+  "name": "zmusicpause",
+  "id": "1530375338733867019",
+  "animated": false
+ },
+ {
+  "name": "zmute",
+  "id": "1530375311043334145",
+  "animated": false
+ },
+ {
+  "name": "zpause",
+  "id": "1530375124258259015",
+  "animated": false
+ },
+ {
+  "name": "zpeople",
+  "id": "1530375384657297549",
+  "animated": false
+ },
+ {
+  "name": "zpin",
+  "id": "1530375133791784964",
+  "animated": false
+ },
+ {
+  "name": "zplay",
+  "id": "1530375388558262282",
+  "animated": false
+ },
+ {
+  "name": "zplus",
+  "id": "1530375548793262110",
+  "animated": false
+ },
+ {
+  "name": "zrocket",
+  "id": "1530375359806312488",
+  "animated": false
+ },
+ {
+  "name": "zSafe",
+  "id": "1530375518434889879",
+  "animated": false
+ },
+ {
+  "name": "zseed",
+  "id": "1530375235981803573",
+  "animated": false
+ },
+ {
+  "name": "zsettings",
+  "id": "1530375532535873636",
+  "animated": false
+ },
+ {
+  "name": "zsowrd",
+  "id": "1530375481067573340",
+  "animated": false
+ },
+ {
+  "name": "ztada",
+  "id": "1530375290684047540",
+  "animated": false
+ },
+ {
+  "name": "ztick",
+  "id": "1530375424922750977",
+  "animated": false
+ },
+ {
+  "name": "Ztick",
+  "id": "1530375535925006457",
+  "animated": false
+ },
+ {
+  "name": "zticket",
+  "id": "1530375273802104833",
+  "animated": false
+ },
+ {
+  "name": "ztimer",
+  "id": "1530375552190517319",
+  "animated": false
+ },
+ {
+  "name": "zunmute",
+  "id": "1530375376654565507",
+  "animated": false
+ },
+ {
+  "name": "zwarning",
+  "id": "1530375341607096371",
+  "animated": false
+ },
+ {
+  "name": "zwifi",
+  "id": "1530375277459537960",
+  "animated": false
+ },
+ {
+  "name": "zwrench",
+  "id": "1530375167446876170",
+  "animated": false
+ }
+]

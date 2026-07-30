@@ -41,6 +41,69 @@ export interface Announcement {
 
 export const ANNOUNCEMENTS: Announcement[] = [
   {
+    id: "2026-07-emojis-kaputt",
+    label: "Changelog: Emojis",
+    summary: "Vier tote Emojis und ein Sync, der sie nicht heilen konnte",
+    guilds: [BOT_GUILD_ID],
+    date: "30.07.2026",
+    accent: "#ed4245",
+    blocks: [
+      {
+        type: "text",
+        text:
+          "# 🧩 Changelog · Emojis\n" +
+          "### Warum an manchen Stellen `<:error:139…>` stand",
+      },
+      { type: "divider" },
+      {
+        type: "text",
+        text:
+          "In einigen Antworten tauchte statt eines Emojis der nackte " +
+          "Quelltext auf, etwa `<:error:1397218903389044776>`. Das " +
+          "passiert, wenn Discord den Emoji hinter der ID nicht kennt — " +
+          "dann wird der Platzhalter einfach als Text ausgegeben.",
+      },
+      { type: "divider" },
+      {
+        type: "text",
+        text:
+          "## Was kaputt war\n\n" +
+          "> ❌ **Vier Emojis gab es nicht mehr** — `error`, das " +
+          "Partner-Abzeichen, Bug-Hunter II und Hypesquad-Events. Die " +
+          "Vorlagen zeigten auf gelöschte Bilder.\n" +
+          "> 🔁 **Der automatische Abgleich lief ins Leere.** Er wollte " +
+          "sie bei jedem Start neu hochladen, kam an die Bilder nicht " +
+          "heran und meldete stur `4 failures` — bei jedem Neustart, " +
+          "endlos.\n" +
+          "> 👑 **Die Krone war als unbewegt eingetragen**, obwohl sie " +
+          "animiert ist. Ein falsches `a:` reicht schon, damit Discord " +
+          "den Text stehen lässt.",
+      },
+      { type: "divider" },
+      {
+        type: "text",
+        text:
+          "## Was jetzt gilt\n\n" +
+          "> ✅ Die vier fehlenden Emojis wurden **neu hochgeladen**, " +
+          "`error` zeigt auf ein vorhandenes rotes Kreuz.\n" +
+          "> ✅ Der Abgleich übernimmt das **animiert-Kennzeichen von " +
+          "Discord** statt aus der eigenen Vorlage — der Krone-Fehler " +
+          "kann sich so selbst reparieren.\n" +
+          "> ✅ Beim Herunterladen werden jetzt **mehrere Bildformate** " +
+          "probiert statt nur einem.\n" +
+          "> ✅ Gegen die echte Discord-Schnittstelle geprüft: " +
+          "**142 von 142 passen, keine Fehlschläge.**",
+      },
+      { type: "divider" },
+      {
+        type: "text",
+        text:
+          "-# Ein Test wacht ab sofort darüber, dass keine ID, kein " +
+          "Name und kein animiert-Kennzeichen mehr auseinanderlaufen.",
+      },
+    ],
+  },
+  {
     id: "2026-07-logs",
     label: "Changelog: Logs",
     summary: "Reaktionen wurden nie geloggt, Rollen im falschen Reiter",

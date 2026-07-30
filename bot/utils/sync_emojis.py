@@ -53,22 +53,35 @@ def system(msg):  _log("EmojiSync", Fore.MAGENTA, "★", msg)
 
 def _restart() -> None:
     """Replace the current process with a fresh copy of itself."""
-    system(f"Restarting bot to load updated emoji IDs...")
+    system("Restarting bot to load updated emoji IDs...")
     # Flush stdout so the message is visible before the process is replaced
     sys.stdout.flush()
     os.execv(sys.executable, [sys.executable] + sys.argv)
 
 
 async def _fetch_emoji_image(session: aiohttp.ClientSession, emoji_id: str, animated: bool):
-    ext = "gif" if animated else "webp"
-    url = f"https://cdn.discordapp.com/emojis/{emoji_id}.{ext}"
-    try:
-        async with session.get(url, allow_redirects=True) as r:
-            if r.status == 200:
-                return await r.read()
-    except Exception:
-        pass
-    return None
+    """
+    Download the source image for an emoji.
+
+    The extension in the template is only a guess: an emoji written as
+    `<a:name:id>` is not necessarily animated on Discord's side. Asking for
+    the wrong one gets a 415, so try the likely extension first and then
+    fall back to the others instead of giving up.
+
+    Returns (bytes, mime) or (None, None).
+    """
+    order = ["gif", "png", "webp"] if animated else ["png", "webp", "gif"]
+    mimes = {"gif": "image/gif", "png": "image/png", "webp": "image/webp"}
+
+    for ext in order:
+        url = f"https://cdn.discordapp.com/emojis/{emoji_id}.{ext}"
+        try:
+            async with session.get(url, allow_redirects=True) as r:
+                if r.status == 200:
+                    return await r.read(), mimes[ext]
+        except Exception:
+            continue
+    return None, None
 
 
 async def run_sync(token: str) -> None:
@@ -142,13 +155,17 @@ async def run_sync(token: str) -> None:
 
             if existing:
                 new_id = existing["id"]
-                if old_id != new_id:
-                    old_str = f"<{animated_str}:{name}:{old_id}>"
-                    new_str = f"<{animated_str}:{existing['name']}:{new_id}>"
+                # The "a" prefix must match what Discord actually stores. Keeping
+                # the template's own prefix leaves an animated emoji written as
+                # <:name:id>, which Discord renders as plain text.
+                new_prefix = "a" if existing.get("animated") else ""
+                old_str = f"<{animated_str}:{name}:{old_id}>"
+                new_str = f"<{new_prefix}:{existing['name']}:{new_id}>"
+                if old_str != new_str:
                     content = content.replace(old_str, new_str)
                     updated = True
                     fixed += 1
-                    warning(f"Auto-fixing ID: {name} {Fore.LIGHTBLACK_EX}-> {new_id}")
+                    warning(f"Auto-fixing: {name} {Fore.LIGHTBLACK_EX}-> {new_str}")
                 else:
                     skipped += 1
                 continue
@@ -156,13 +173,15 @@ async def run_sync(token: str) -> None:
             # Not found — upload it
             info(f"Uploading: {name} {Fore.LIGHTBLACK_EX}(not in application emojis)")
 
-            image_data = await _fetch_emoji_image(session, old_id, animated)
+            image_data, mime = await _fetch_emoji_image(session, old_id, animated)
             if not image_data:
-                error(f"Could not download image for {name} [ID: {old_id}]")
+                error(
+                    f"Could not download image for {name} [ID: {old_id}] — "
+                    f"the source emoji is gone; point it at a live emoji in emoji.py"
+                )
                 failed += 1
                 continue
 
-            mime = "image/gif" if animated else "image/webp"
             b64 = base64.b64encode(image_data).decode("utf-8")
             image_uri = f"data:{mime};base64,{b64}"
 
@@ -174,7 +193,9 @@ async def run_sync(token: str) -> None:
                     new_emoji = await r2.json()
                     new_id = new_emoji["id"]
                     old_str = f"<{animated_str}:{name}:{old_id}>"
-                    new_str = f"<{animated_str}:{new_emoji['name']}:{new_id}>"
+                    # Use the flag Discord reports, not the one we guessed.
+                    up_prefix = "a" if new_emoji.get("animated") else ""
+                    new_str = f"<{up_prefix}:{new_emoji['name']}:{new_id}>"
                     content = content.replace(old_str, new_str)
                     app_emojis.append(new_emoji)
                     updated = True
