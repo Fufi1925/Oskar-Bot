@@ -991,11 +991,13 @@ export function CountingPanel({ guildId }: { guildId: string }) {
           Kanal leeren &amp; Regeln posten
         </button>
         <p className="text-[11px] text-slate-500 -mt-1">
-          Löscht den Zähl-Kanal leer, postet die Regeln und setzt den Zähler
-          auf 0. Die Regel-Nachricht hält sich danach selbst aktuell &mdash;
-          &bdquo;Als Nächstes&ldquo; und der Rekord werden live mitgeschrieben.
-          Nachrichten, die älter als 14 Tage sind, kann Discord nicht
-          löschen.
+          Löscht <span className="text-slate-300">alle</span> Nachrichten im
+          Zähl-Kanal, postet die Regeln und setzt den Zähler auf 0. Die
+          Regel-Nachricht hält sich danach selbst aktuell &mdash; &bdquo;Als
+          Nächstes&ldquo; und der Rekord werden live mitgeschrieben. Dasselbe
+          passiert automatisch, sobald der Zähler durch einen Fehler auf 0
+          zurückfällt. Sehr alte Nachrichten dauern länger, weil Discord sie
+          nur einzeln löschen lässt.
         </p>
       </Card>
 

@@ -101,6 +101,11 @@ BLURPLE = 0x5865F2
 # live without spending the whole budget on one message.
 RULES_EDIT_INTERVAL = 5.0
 
+# Each wipe round clears up to 100 messages. 200 rounds is 20 000
+# messages, far past any real counting channel, and stops a pinned or
+# undeletable message from spinning forever.
+MAX_WIPE_ROUNDS = 200
+
 
 class Counting(commands.Cog):
     def __init__(self, bot):
@@ -259,12 +264,8 @@ class Counting(commands.Cog):
             accent=BLURPLE,
         ))
 
-    def rules_view(self, settings: dict) -> discord.ui.LayoutView:
-        """
-        The rules card, also posted by the dashboard's announce button.
-
-        Kept here so both sides always show the same rules.
-        """
+    def _rules_body(self, settings: dict) -> str:
+        """The numbered rules, as they follow from the settings."""
         rules = [
             "Immer die **nächste Zahl** schreiben — eine nach der anderen.",
             "Nur die nackte Zahl. `42` zählt, `42!` oder `42 los` nicht.",
@@ -272,52 +273,78 @@ class Counting(commands.Cog):
         if settings.get("require_alternate"):
             rules.append("**Nicht zweimal hintereinander** — jemand anders muss dran sein.")
         if settings.get("mode") == "reset":
-            rules.append("Ein Fehler setzt den Zähler **zurück auf 0**.")
+            rules.append("Ein Fehler setzt den Zähler **zurück auf 0** "
+                         "und der Kanal wird geleert.")
         else:
             rules.append("Ein Fehler ist halb so wild — es geht **weiter**.")
         if settings.get("allow_chat"):
             rules.append("Zwischendurch quatschen ist erlaubt.")
 
-        body = "\n".join(f"**{i}.** {r}" for i, r in enumerate(rules, 1))
+        return "\n".join(f"**{i}.** {r}" for i, r in enumerate(rules, 1))
+
+    def _rules_status(self, settings: dict) -> str:
+        """The live part of the card: next number and record."""
+        return (
+            f"**Als Nächstes:** {int(settings.get('current') or 0) + 1}\n"
+            f"{STAR} **Rekord:** {settings.get('high_score') or 0}"
+        )
+
+    def rules_view(self, settings: dict) -> discord.ui.LayoutView:
+        """
+        The rules card, also posted by the dashboard's announce button.
+
+        Kept here so both sides always show the same rules.
+        """
         return panel(
             f"{BOOK} Zähl-Regeln",
-            body,
-            f"**Als Nächstes:** {int(settings.get('current') or 0) + 1}\n"
-            f"{STAR} **Rekord:** {settings.get('high_score') or 0}",
+            self._rules_body(settings),
+            self._rules_status(settings),
             accent=BLURPLE,
         )
 
-    async def purge_and_announce(self, channel, settings: dict) -> dict:
+    async def wipe_channel(self, channel) -> dict:
+        """
+        Delete every message in the channel, however many there are.
+
+        `purge` is called in rounds instead of once with a huge limit.
+        A single call walks the history exactly once, so anything posted
+        while it was running would survive; looping until a round finds
+        nothing leaves the channel genuinely empty.
+
+        Messages older than 14 days cannot be bulk deleted, so
+        discord.py falls back to deleting them one at a time. That still
+        removes them, it is only slower, which is why there is a ceiling
+        on the number of rounds rather than on the number of messages.
+        """
+        deleted = 0
+        rounds = 0
+        # A stubborn message (a pinned system message, a race with
+        # someone posting) must not turn this into an endless loop.
+        while rounds < MAX_WIPE_ROUNDS:
+            rounds += 1
+            try:
+                removed = await channel.purge(limit=100, bulk=True, check=lambda m: True)
+            except discord.Forbidden:
+                raise
+            except discord.HTTPException:
+                # Rate limited or a transient failure. Report what we
+                # managed rather than pretending the channel is clean.
+                return {"deleted": deleted, "complete": False}
+
+            deleted += len(removed)
+            if not removed:
+                return {"deleted": deleted, "complete": True}
+
+        return {"deleted": deleted, "complete": False}
+
+    async def restart_game(self, channel, settings: dict) -> dict:
         """
         Wipe the counting channel, post the rules, start again at 0.
 
-        This is what "post the rules" does from the dashboard: the
-        channel is meant to contain the rules card and nothing else, so
-        the game starts from a clean slate every time.
-
-        Returns a report: how many messages went, whether anything was
-        too old to remove, and the new rules message.
+        Used both by the dashboard button and automatically whenever the
+        counter falls back to 0 during play.
         """
-        deleted = 0
-        too_old = False
-
-        # Bulk delete only works on messages under 14 days. Anything
-        # older has to go one by one, which Discord rate-limits hard, so
-        # it is reported instead of silently skipped.
-        try:
-            removed = await channel.purge(limit=1000, bulk=True, check=lambda m: True)
-            deleted = len(removed)
-        except discord.Forbidden:
-            raise
-        except discord.HTTPException:
-            too_old = True
-
-        if not too_old:
-            try:
-                leftovers = [m async for m in channel.history(limit=50)]
-                too_old = len(leftovers) > 0
-            except discord.HTTPException:
-                pass
+        report = await self.wipe_channel(channel)
 
         # Reset before drawing the card so it shows "next: 1" straight
         # away. The record survives — only the streak restarts.
@@ -338,7 +365,11 @@ class Counting(commands.Cog):
         })
         self._rules_last_edit[int(channel.guild.id)] = time.monotonic()
 
-        return {"deleted": deleted, "too_old": too_old, "message": message}
+        return {**report, "message": message}
+
+    # Kept under the old name: the API and older callers use it.
+    async def purge_and_announce(self, channel, settings: dict) -> dict:
+        return await self.restart_game(channel, settings)
 
     @commands.group(name="counting", invoke_without_command=True)
     @commands.guild_only()
@@ -539,19 +570,24 @@ class Counting(commands.Cog):
                 return
 
             if verdict["action"] in ("wrong", "double"):
+                outcome = store.counting_apply(
+                    message.guild.id, settings, verdict, message.author.id
+                )
+
+                # Back to zero means a fresh round: clear the channel and
+                # put the rules back at the top, so the game always
+                # starts from the same clean state. Announcing the break
+                # first would be pointless — the notice is wiped with
+                # everything else a moment later.
+                if verdict["reset"]:
+                    await self._restart_after_reset(message, verdict, outcome)
+                    return
+
                 if not settings.get("delete_wrong"):
-                    outcome = store.counting_apply(
-                        message.guild.id, settings, verdict, message.author.id
-                    )
-                    # A reset changes the next number, so the card is
-                    # wrong until it is redrawn.
                     self.refresh_rules_card(message.guild.id)
                     await self._announce_break(message, verdict, outcome)
                     return
 
-                outcome = store.counting_apply(
-                    message.guild.id, settings, verdict, message.author.id
-                )
                 self.refresh_rules_card(message.guild.id)
                 notice = self._break_view(message, verdict, outcome)
                 await self._cleanup(message, notice)
@@ -563,6 +599,56 @@ class Counting(commands.Cog):
             )
             self.refresh_rules_card(message.guild.id)
             await self._celebrate(message, settings, verdict, outcome)
+
+    async def _restart_after_reset(self, message, verdict, outcome):
+        """
+        The streak broke and the counter went back to 0: start over.
+
+        Wipes the channel and posts a fresh rules card that says who
+        broke it and how far the server had come, so the information is
+        not lost with the messages.
+        """
+        channel = message.channel
+        # How far the streak had come: the number that was due, minus one.
+        reached = int(verdict.get("expected") or 1) - 1
+
+        try:
+            report = await self.wipe_channel(channel)
+        except discord.Forbidden:
+            # Without "manage messages" nothing can be cleared. Fall
+            # back to the old behaviour rather than doing nothing.
+            self.refresh_rules_card(message.guild.id)
+            await self._announce_break(message, verdict, outcome)
+            return
+        except discord.HTTPException:
+            report = {"deleted": 0, "complete": False}
+
+        fresh = self.settings(message.guild.id)
+        lines = [
+            f"{CROSS} {message.author.mention} {verdict['reason']}",
+            f"{BACK} Gezählt wurde bis **{reached}** — es geht wieder bei **1** los.",
+        ]
+        if not report["complete"]:
+            lines.append(
+                f"{WARNING} Der Kanal konnte nicht ganz geleert werden."
+            )
+
+        try:
+            card = await channel.send(view=panel(
+                f"{BOOK} Zähl-Regeln",
+                "\n".join(lines),
+                self._rules_body(fresh),
+                self._rules_status(fresh),
+                accent=RED,
+            ))
+        except discord.HTTPException:
+            return
+
+        store.counting_save(message.guild.id, {
+            "rules_message": card.id,
+            "rules_channel": channel.id,
+        })
+        self._rules_last_edit[int(message.guild.id)] = time.monotonic()
 
     def _break_view(self, message, verdict, outcome):
         icon = CROSS if verdict["action"] == "wrong" else WARNING

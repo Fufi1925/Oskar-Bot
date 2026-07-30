@@ -77,12 +77,25 @@ class FakeChannel:
         self.name = "counting"
         self.sent: list = []
         self.mention = f"<#{cid}>"
+        # Messages the channel "contains", so purge has something to
+        # remove and the wipe loop can actually terminate.
+        self.backlog: list = []
+        self.purge_calls = 0
+        self._next_id = 500000
 
     async def send(self, content=None, view=None, **kw):
         msg = FakeMessage("", author=FakeAuthor(1, bot=True), channel=self)
         msg.view = view
+        self._next_id += 1
+        msg.id = self._next_id
         self.sent.append(msg)
         return msg
+
+    async def purge(self, limit=100, bulk=True, check=None):
+        self.purge_calls += 1
+        taken = self.backlog[:limit]
+        self.backlog = self.backlog[limit:]
+        return taken
 
 
 class FakeGuild:
@@ -119,9 +132,13 @@ class FakeMessage:
 class FakeBot:
     def __init__(self, prefix=">"):
         self.prefix = prefix
+        self.guilds_by_id: dict = {}
 
     async def get_prefix(self, message):
         return [self.prefix, "<@1>"]
+
+    def get_guild(self, gid):
+        return self.guilds_by_id.get(int(gid))
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -503,10 +520,27 @@ def test_cog(store):
           store.counting_get(GUILD)["current"] == before)
 
     store.counting_save(GUILD, {"allow_chat": True})
+    channel.backlog = [object()] * 7
+    channel.purge_calls = 0
     wrong = message("99")
     asyncio.run(cog.on_message(wrong))
-    check("a wrong number is deleted", wrong.deleted is True)
     check("and the counter resets", store.counting_get(GUILD)["current"] == 0)
+    # A reset now clears the whole channel, so the offending message goes
+    # with everything else instead of being deleted on its own.
+    check("a reset wipes the channel", channel.purge_calls >= 1,
+          "the channel was never purged")
+    check("and nothing is left in it", channel.backlog == [],
+          f"{len(channel.backlog)} messages survived")
+    fresh_card = store.counting_get(GUILD)
+    check("a fresh rules card is posted and tracked",
+          fresh_card["rules_message"] == channel.sent[-1].id,
+          f"stored {fresh_card['rules_message']}")
+    said = _text_of(channel.sent[-1].view)
+    # The streak stood at 1, so the card reports "counted up to 1" and
+    # invites the next attempt at 1 again.
+    check("the new card reports the broken streak",
+          "Gezählt wurde bis" in said and "Als Nächstes:** 1" in said,
+          f"card says {said[:200]!r}")
 
     bot_msg = message("1")
     bot_msg.author.bot = True
@@ -712,22 +746,14 @@ def test_api(store):
             self._ok = ok
             self.purged = 0
             self.guild = FakeGuild()
+            self.backlog = [object()] * 3
 
         def permissions_for(self, _member):
             return Perms(self._ok)
 
-        async def send(self, content=None, view=None, **kw):
-            msg = await super().send(content=content, view=view, **kw)
-            msg.id = 880000 + len(self.sent)
-            return msg
-
-        async def purge(self, limit=None, bulk=True, check=None):
+        async def purge(self, limit=100, bulk=True, check=None):
             self.purged += 1
-            return [object()] * 3
-
-        async def history(self, limit=None):
-            for _ in ():
-                yield None
+            return await super().purge(limit=limit, bulk=bulk, check=check)
 
     class ApiGuild:
         def __init__(self):
@@ -837,7 +863,8 @@ def test_api(store):
     check("and the card really reached the channel",
           len(bot.guild._channels[CHANNEL_ID].sent) == 1)
     check("the dashboard button also empties the channel",
-          bot.guild._channels[CHANNEL_ID].purged == 1,
+          bot.guild._channels[CHANNEL_ID].purged >= 1
+          and bot.guild._channels[CHANNEL_ID].backlog == [],
           "the channel was never purged")
     check("and restarts the counter at 0",
           store.counting_get(GUILD)["current"] == 0,
@@ -1037,21 +1064,13 @@ def test_purge_and_restart(store):
         def __init__(self):
             super().__init__()
             self.guild = FakeGuild()
+            # Two full rounds plus a short one: the wipe loop has to keep
+            # going until a round comes back empty.
+            self.backlog = [object()] * 212
 
-        async def send(self, content=None, view=None, **kw):
-            msg = await super().send(content=content, view=view, **kw)
-            # Discord gives every message an id; the cog stores it so it
-            # can edit the card later.
-            msg.id = 777000 + len(self.sent)
-            return msg
-
-        async def purge(self, limit=None, bulk=True, check=None):
-            purged["limit"] = limit
-            return [object()] * 12
-
-        async def history(self, limit=None):
-            for _ in ():
-                yield None
+        async def purge(self, limit=100, bulk=True, check=None):
+            purged["rounds"] = purged.get("rounds", 0) + 1
+            return await super().purge(limit=limit, bulk=bulk, check=check)
 
     channel = PurgeChannel()
     cog = counting.Counting(FakeBot())
@@ -1065,8 +1084,13 @@ def test_purge_and_restart(store):
     report = asyncio.run(cog.purge_and_announce(channel, settings))
     after = store.counting_get(GUILD)
 
-    check("the channel is emptied", report["deleted"] == 12,
-          f"deleted={report['deleted']}")
+    check("every message is removed, not just the first 100",
+          report["deleted"] == 212, f"deleted={report['deleted']}")
+    check("it keeps purging until a round comes back empty",
+          purged.get("rounds") == 4, f"{purged.get('rounds')} rounds")
+    check("and it reports the channel as clean", report["complete"] is True)
+    check("nothing is left behind", channel.backlog == [],
+          f"{len(channel.backlog)} left")
     check("the counter restarts at 0", after["current"] == 0,
           f"current={after['current']}")
     check("the record survives", after["high_score"] == 57,
@@ -1081,6 +1105,87 @@ def test_purge_and_restart(store):
           "the freshly posted card is out of date")
     check("a new streak can announce a record again",
           after["record_announced"] is False)
+
+
+def test_reset_wipes_everything(store):
+    """
+    The reported scenario: the server counted to 833, someone posted the
+    wrong number, and the channel was left holding 800-odd messages with
+    stale rules at the very top.
+
+    A reset must clear the channel completely and put a fresh rules card
+    back, no matter how many messages there are.
+    """
+    print("\nA reset clears the whole channel")
+
+    import importlib
+    counting = importlib.import_module("cogs.commands.counting")
+
+    bot = FakeBot()
+    cog = counting.Counting(bot)
+    channel = FakeChannel()
+    guild = FakeGuild()
+    bot.guilds_by_id[guild.id] = guild
+    guild.get_channel = lambda cid: channel if int(cid) == channel.id else None
+
+    store.counting_save(GUILD, {
+        "enabled": True, "channel": CHANNEL_ID, "current": 833,
+        "high_score": 833, "mode": "reset", "delete_wrong": True,
+        "allow_chat": True, "last_user": BOB,
+        "rules_message": None, "rules_channel": None,
+    })
+
+    # 833 numbers plus chatter: far more than one purge round.
+    channel.backlog = [object()] * 851
+
+    wrong = FakeMessage("999", author=FakeAuthor(ALICE), channel=channel,
+                        guild=guild)
+    asyncio.run(cog.on_message(wrong))
+
+    after = store.counting_get(GUILD)
+    check("the counter is back to 0", after["current"] == 0,
+          f"current={after['current']}")
+    check("all 851 messages are gone", channel.backlog == [],
+          f"{len(channel.backlog)} survived")
+    check("more than one purge round was needed",
+          channel.purge_calls >= 9, f"{channel.purge_calls} rounds")
+    check("exactly one message is left: the rules",
+          len(channel.sent) == 1, f"{len(channel.sent)} posted")
+
+    said = _text_of(channel.sent[0].view)
+    check("the card names who broke it", "<@111>" in said, said[:150])
+    check("and says how far they had come", "833" in said, said[:250])
+    check("and shows the next number as 1", "Als Nächstes:** 1" in said,
+          said[:250])
+    check("the record of 833 is kept", after["high_score"] == 833,
+          f"high_score={after['high_score']}")
+    check("the new card is tracked for live edits",
+          after["rules_message"] == channel.sent[0].id,
+          f"stored {after['rules_message']}")
+
+    # Without "manage messages" the bot cannot wipe. It must still tell
+    # people what happened instead of going quiet.
+    import discord as d
+
+    class NoPermChannel(FakeChannel):
+        async def purge(self, limit=100, bulk=True, check=None):
+            raise d.Forbidden(_FakeForbidden(), "no manage_messages")
+
+    store.counting_save(GUILD, {"current": 5, "rules_message": None})
+    blocked = NoPermChannel()
+    guild2 = FakeGuild()
+    msg2 = FakeMessage("77", author=FakeAuthor(ALICE), channel=blocked,
+                       guild=guild2)
+    asyncio.run(cog.on_message(msg2))
+    check("without permission it still announces the break",
+          len(blocked.sent) >= 1, "the bot said nothing at all")
+    check("and the counter still resets",
+          store.counting_get(GUILD)["current"] == 0)
+
+
+class _FakeForbidden:
+    status = 403
+    reason = "Forbidden"
 
 
 def run():
@@ -1100,6 +1205,7 @@ def run():
     test_components_v2(store)
     test_live_rules_card(store)
     test_purge_and_restart(store)
+    test_reset_wipes_everything(store)
     test_api(store)
 
     print(f"\n{len(failures)} failures")

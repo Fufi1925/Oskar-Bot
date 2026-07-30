@@ -747,7 +747,7 @@ async def announce_counting(
         )
 
     try:
-        report = await cog.purge_and_announce(channel, settings)
+        report = await cog.restart_game(channel, settings)
     except discord.Forbidden:
         raise HTTPException(
             status_code=403, detail=f"Der Bot darf in #{channel.name} nicht schreiben."
@@ -755,14 +755,14 @@ async def announce_counting(
     except discord.HTTPException as exc:
         raise HTTPException(status_code=502, detail=f"Discord lehnte ab: {exc}")
 
-    parts = [f"#{channel.name} geleert ({report['deleted']} Nachrichten)"]
-    parts.append("Regeln gepostet")
-    parts.append("Zähler steht auf 0")
-    result = ", ".join(parts) + "."
-    if report["too_old"]:
+    result = (
+        f"#{channel.name} geleert ({report['deleted']} Nachrichten), "
+        "Regeln gepostet, Zähler steht auf 0."
+    )
+    if not report.get("complete"):
         result += (
-            " Ältere Nachrichten (über 14 Tage) konnte Discord nicht "
-            "in einem Rutsch löschen — die stehen noch da."
+            " Es blieben Nachrichten übrig — vermutlich hat Discord "
+            "gebremst. Einfach noch einmal ausführen."
         )
 
     return {"status": "success", "result": result}

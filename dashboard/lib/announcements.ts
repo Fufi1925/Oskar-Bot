@@ -41,6 +41,68 @@ export interface Announcement {
 
 export const ANNOUNCEMENTS: Announcement[] = [
   {
+    id: "2026-07-counting-neustart",
+    label: "Changelog: Counting-Neustart",
+    summary: "Fehler = Kanal komplett leer und Regeln wieder oben",
+    guilds: [BOT_GUILD_ID],
+    date: "30.07.2026",
+    accent: "#ed4245",
+    blocks: [
+      {
+        type: "text",
+        text:
+          "# 🧹 Changelog · Counting\n" +
+          "### Nach einem Fehler beginnt wirklich alles von vorn",
+      },
+      { type: "divider" },
+      {
+        type: "text",
+        text:
+          "Bisher blieb nach einem Fehler der ganze Verlauf stehen: " +
+          "Ihr wart bei **833**, jemand schrieb die falsche Zahl, der " +
+          "Zähler sprang auf 0 — und im Kanal standen weiter 800 alte " +
+          "Zahlen, mit den Regeln ganz oben, wo sie niemand mehr sah.",
+      },
+      { type: "divider" },
+      {
+        type: "text",
+        text:
+          "## Was jetzt passiert\n\n" +
+          "> 🧹 Fällt der Zähler auf **0**, wird der Kanal " +
+          "**komplett geleert** — egal wie viele Nachrichten drin " +
+          "sind.\n" +
+          "> 📋 Danach stehen die **Regeln wieder ganz oben**, als " +
+          "einzige Nachricht im Kanal.\n" +
+          "> 📉 Auf der Karte steht, **wer** die Kette gerissen hat " +
+          "und **wie weit** ihr gekommen wart — die Info geht also " +
+          "nicht mit den Nachrichten verloren.\n" +
+          "> 🏆 Der **Rekord bleibt** erhalten.",
+      },
+      { type: "divider" },
+      {
+        type: "text",
+        text:
+          "## Kleingedrucktes\n\n" +
+          "> ⏳ Nachrichten, die älter als 14 Tage sind, muss Discord " +
+          "einzeln löschen. Das dauert länger, sie werden aber " +
+          "trotzdem entfernt.\n" +
+          "> 🔐 Fehlt dem Bot das Recht **„Nachrichten verwalten“**, " +
+          "kann er nicht aufräumen — dann meldet er den Fehler wie " +
+          "bisher, statt kommentarlos nichts zu tun.\n" +
+          "> 🎛️ Wer das nicht will, stellt unter „Bei einem Fehler“ " +
+          "auf **Weiterzählen** — dann wird nie geleert.",
+      },
+      { type: "divider" },
+      {
+        type: "text",
+        text:
+          "-# Kleine Richtigstellung zur letzten Meldung: Nachrichten " +
+          "über 14 Tage werden **doch** gelöscht, nur langsamer. Das " +
+          "hatten wir falsch angekündigt.",
+      },
+    ],
+  },
+  {
     id: "2026-07-counting-live",
     label: "Changelog: Counting",
     summary: "Regel-Nachricht zählt live mit, Neustart räumt den Kanal auf",
