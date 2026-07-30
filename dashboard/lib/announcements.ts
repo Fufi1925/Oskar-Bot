@@ -41,6 +41,224 @@ export interface Announcement {
 
 export const ANNOUNCEMENTS: Announcement[] = [
   {
+    id: "2026-07-logs",
+    label: "Changelog: Logs",
+    summary: "Reaktionen wurden nie geloggt, Rollen im falschen Reiter",
+    guilds: [BOT_GUILD_ID],
+    date: "30.07.2026",
+    accent: "#ed4245",
+    blocks: [
+      {
+        type: "text",
+        text:
+          "# 📋 Changelog · Logs\n" +
+          "### Zwei Fehler behoben, drei Ereignisse ergänzt",
+      },
+      { type: "divider" },
+      {
+        type: "text",
+        text:
+          "Der Reiter heißt jetzt **Logs** statt „Protokollierung“ — " +
+          "kürzer und das, was ohnehin alle sagen. Unter dem alten " +
+          "Namen ist er weiterhin auffindbar.",
+      },
+      { type: "divider" },
+      {
+        type: "text",
+        text:
+          "## Was kaputt war\n\n" +
+          "> 😀 **Reaktionen** wurden nur erfasst, solange die Nachricht " +
+          "noch im Zwischenspeicher des Bots lag — auf einem lebhaften " +
+          "Server sind das ein paar Minuten. Bei allem, was älter war, " +
+          "kam schlicht nichts an. Jetzt wird jede Reaktion erfasst, " +
+          "egal wie alt die Nachricht ist.\n" +
+          "> 🎭 **Rollenvergabe** landete unter „Moderation“. Wer die " +
+          "Kategorie **Rollen** eingeschaltet und dann eine Rolle " +
+          "vergeben hat, sah nichts — nicht zu unterscheiden von einem " +
+          "kaputten Bot. Steht jetzt unter Rollen, samt der Person, die " +
+          "sie vergeben hat.",
+      },
+      { type: "divider" },
+      {
+        type: "text",
+        text:
+          "## Neu erfasst\n\n" +
+          "> 🧹 **Massenlöschungen** — beim Aufräumen von hundert " +
+          "Nachrichten blieb bisher **keinerlei** Spur zurück. Jetzt ein " +
+          "Eintrag mit Anzahl, verantwortlicher Person und einer " +
+          "Leseprobe.\n" +
+          "> 🧵 **Threads**, die erstellt oder gelöscht werden.\n" +
+          "> 🔗 **Einladungen** — über eine Einladung kommt ein Raid " +
+          "herein, das gehört ins Log.",
+      },
+      { type: "divider" },
+      {
+        type: "text",
+        text:
+          "-# Im Reiter gibt es jetzt dauerhaft „Alles hierhin " +
+          "protokollieren“ und „Alle Arten ausschalten“ — statt neun " +
+          "einzelner Schalter.",
+      },
+    ],
+  },
+  {
+    id: "2026-07-status-service",
+    label: "Changelog: Störungsmeldungen",
+    summary: "Ausfallmeldung, Uptime, Wartungsmodus, Statusseite",
+    guilds: [BOT_GUILD_ID],
+    date: "30.07.2026",
+    accent: "#3ba55d",
+    blocks: [
+      {
+        type: "text",
+        text:
+          "# 🚨 Changelog · Störungen\n" +
+          "### Ihr erfahrt es jetzt, statt es zu merken",
+      },
+      { type: "divider" },
+      {
+        type: "text",
+        text:
+          "Bisher änderte sich bei einer Störung nur still das " +
+          "Status-Panel — wer nicht zufällig hinsah, erfuhr nichts. " +
+          "Jetzt gibt es eine **Meldung mit Ping**, sobald der Bot " +
+          "ausfällt, und eine **Entwarnung**, die sagt, wie lange es " +
+          "gedauert hat.",
+      },
+      { type: "divider" },
+      {
+        type: "text",
+        text:
+          "## Was dazugekommen ist\n\n" +
+          "> 📈 **Uptime-Verlauf** — das Panel zeigt die " +
+          "Erreichbarkeit der letzten sieben Tage und wann die letzte " +
+          "Störung war.\n" +
+          "> 📊 **`/verlauf`** — Graphen für Erreichbarkeit, " +
+          "Antwortzeit und Fehler. Lücken sind als Lücken gezeichnet: " +
+          "„nicht gemessen“ und „alles in Ordnung“ sind zwei " +
+          "verschiedene Aussagen.\n" +
+          "> 🔧 **Wartungsmodus** — geplante Arbeiten werden als " +
+          "Wartung angekündigt statt als Ausfall, und lösen keinen " +
+          "Alarm aus.\n" +
+          "> 🌐 **Statusseite** — `/status` auf der Website, ohne " +
+          "Discord und ohne Anmeldung erreichbar. Genau dann, wenn " +
+          "Discord selbst das Problem ist.",
+      },
+      { type: "divider" },
+      {
+        type: "text",
+        text:
+          "## Und ein Fehler, der das Gegenteil bewirkte\n\n" +
+          "Nach zu vielen Anfragen sperrt Discord kurzzeitig aus. Der " +
+          "Status-Bot startete daraufhin sofort neu, fragte erneut an, " +
+          "wurde erneut gesperrt — im Sekundentakt. Der Wächter hat die " +
+          "Störung dadurch **verlängert**. Er wartet die Sperre jetzt " +
+          "ab, statt dagegen anzurennen.",
+      },
+      { type: "divider" },
+      {
+        type: "text",
+        text:
+          "-# Es wird nur bei echten Ausfällen gemeldet. Ein Neustart " +
+          "nach einem Update ist kein Alarm — sonst gewöhnt man sich " +
+          "das Wegsehen an.",
+      },
+    ],
+  },
+  {
+    id: "2026-07-dashboard-button",
+    label: "Changelog: Dashboard-Knopf",
+    summary: "Direktlink in Willkommens-DM, Hilfe und Alarmen",
+    guilds: [BOT_GUILD_ID],
+    date: "30.07.2026",
+    accent: "#5865f2",
+    blocks: [
+      {
+        type: "text",
+        text:
+          "# 🔗 Changelog · Dashboard\n" +
+          "### Der Weg zu den Einstellungen ist jetzt einen Klick lang",
+      },
+      { type: "divider" },
+      {
+        type: "text",
+        text:
+          "In der **Willkommens-DM** und im **Hilfe-Menü** gibt es " +
+          "jetzt einen Knopf, der direkt zu **eurem** Server im " +
+          "Dashboard führt — nicht auf die Startseite.",
+      },
+      { type: "divider" },
+      {
+        type: "text",
+        text:
+          "## Dabei aufgefallen\n\n" +
+          "> 🕳️ Die Willkommens-DM hatte einen Website-Knopf mit einer " +
+          "**Adresse ohne Hostnamen**. Discord zeigt so einen Knopf " +
+          "brav an, er führt nur nirgendwohin.\n" +
+          "> 🛡️ Beim **Anti-Nuke-Alarm** fehlte der Knopf zu den " +
+          "Einstellungen vollständig — ausgerechnet bei der Meldung, " +
+          "bei der man am schnellsten hinmuss. Er wurde nur " +
+          "eingeblendet, wenn eine bestimmte Einstellung gesetzt war, " +
+          "und die war es nie. Gemeldet hat das niemand, weil ein " +
+          "fehlender Knopf wie Absicht aussieht.",
+      },
+      { type: "divider" },
+      {
+        type: "text",
+        text:
+          "-# Die Regel überall: keine Adresse, kein Knopf. Ein toter " +
+          "Link ist schlimmer als gar keiner.",
+      },
+    ],
+  },
+  {
+    id: "2026-07-legal",
+    label: "Changelog: Datenschutz",
+    summary: "Datenschutz, AGB und Impressum neu geschrieben",
+    guilds: [BOT_GUILD_ID],
+    date: "30.07.2026",
+    accent: "#faa61a",
+    blocks: [
+      {
+        type: "text",
+        text:
+          "# ⚖️ Changelog · Rechtliches\n" +
+          "### Da stand, was gut klang — nicht, was stimmt",
+      },
+      { type: "divider" },
+      {
+        type: "text",
+        text:
+          "Die Datenschutzerklärung versprach **AES-256-Verschlüsselung** " +
+          "und „weltweit verteilte Server“. Beides war nicht wahr: eure " +
+          "Einstellungen liegen in ganz normalen Datenbankdateien auf " +
+          "**einem** Server. Ein Versprechen, das man nicht hält, ist " +
+          "schlimmer als eine ehrliche Beschreibung.",
+      },
+      { type: "divider" },
+      {
+        type: "text",
+        text:
+          "## Was jetzt dasteht\n\n" +
+          "> 📄 **Datenschutz** — was tatsächlich gespeichert wird, wo " +
+          "es liegt, wie lange, und wie ihr es löschen lasst.\n" +
+          "> 📜 **Lizenz** — der Quellcode ist nicht frei verwendbar; " +
+          "Lizenz, README und Impressum behaupteten das " +
+          "widersprüchlich.\n" +
+          "> 🏷️ **Impressum** — die Angaben wurden vorher nur beim Bauen " +
+          "eingelesen, Änderungen kamen nie an. Fehlt eine Pflichtangabe, " +
+          "sagt die Seite das deutlich, statt eine Lücke zu verstecken.",
+      },
+      { type: "divider" },
+      {
+        type: "text",
+        text:
+          "-# Nichts von alledem ändert, was der Bot tut — nur, was " +
+          "über ihn behauptet wird.",
+      },
+    ],
+  },
+  {
     id: "2026-07-team-page",
     label: "Changelog: Team-Seite",
     summary: "Team-Seite mit Profilbildern",
