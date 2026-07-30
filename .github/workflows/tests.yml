@@ -1,0 +1,165 @@
+# ╔══════════════════════════════════════════════════════════════════╗
+# ║   Run the tests on every push                                    ║
+# ╚══════════════════════════════════════════════════════════════════╝
+#
+# Why this exists: the test suite only ran when somebody remembered to
+# run it. A hand edit that turned a dict literal into a set shipped and
+# crash-looped the status bot -- the whole panel raised "'set' object
+# has no attribute 'get'" on every build. Locally that is a two second
+# failure; in production it was a broken deploy.
+#
+# So: every push, every pull request. Nothing here needs a secret, and
+# nothing here talks to Discord.
+
+name: Tests
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  # Lets you start it by hand from the Actions tab, which is handy when
+  # a run failed for an unrelated reason.
+  workflow_dispatch:
+
+# A second push to the same branch cancels the first run. Without this
+# a burst of commits queues up runs whose results nobody will read.
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  bot:
+    name: Bot (${{ matrix.python }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    strategy:
+      # One version failing should still tell us about the other.
+      fail-fast: false
+      matrix:
+        # 3.11 is what the container runs -- see the Dockerfile. 3.13 is
+        # what this workspace uses, and it has caught real differences
+        # before, so both are checked.
+        python: ["3.11", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: bot/requirements.txt
+
+      - name: Install dependencies
+        working-directory: bot
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install ruff
+
+      - name: Compile everything
+        working-directory: bot
+        # Catches syntax errors in files no test happens to import --
+        # which is most of the 145 cogs.
+        run: python -m compileall -q . ../statusbot
+
+      - name: Lint for syntax errors
+        working-directory: bot
+        # E9 only, across everything: syntax and indentation errors,
+        # the class of problem that stops a file from running at all.
+        # This passes on the current tree.
+        #
+        # NOT the full F set here. It reports 458 pre-existing findings
+        # -- 330 unused imports, 47 pointless f-strings, and one false
+        # positive in a vendored package (games/__init__.py deletes a
+        # class after using it, which ruff reads as undefined). A job
+        # that is red from day one is a job everybody learns to ignore,
+        # and then it catches nothing.
+        run: python -m ruff check --select=E9 .
+
+      - name: Lint the maintained code properly
+        working-directory: bot
+        # The full F set, but only where it currently passes: the
+        # modules and tests written or rewritten during this work.
+        # Widen the list as older files get cleaned up.
+        run: |
+          python -m ruff check --select=F,E9 --ignore=F403,F405 \
+            ../statusbot/ \
+            utils/links.py \
+            utils/storage.py \
+            utils/youtube_watch.py \
+            utils/voice_store.py \
+            utils/feature_services.py \
+            api/config_transfer.py \
+            tests/test_backups.py \
+            tests/test_dashboard_links.py \
+            tests/test_legal_pages.py \
+            tests/test_team_page.py \
+            tests/test_status_bot.py \
+            tests/test_storage.py \
+            tests/test_youtube_notify.py
+
+      - name: Every cog loads
+        working-directory: bot
+        # A cog that fails to import is invisible to the tests but fatal
+        # at start-up. This is the check that would have caught the
+        # status bot's set-literal edit.
+        run: python ../.github/scripts/boot_test.py
+
+      - name: Test suite
+        working-directory: bot
+        # No network on purpose. The YouTube tests notice and skip
+        # themselves; making CI depend on youtube.com being up would
+        # mean red builds for reasons that have nothing to do with the
+        # commit.
+        env:
+          NO_NETWORK: "1"
+        run: python tests/run_all.py
+
+  dashboard:
+    name: Dashboard
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # Matches the Dockerfile's build stage (node:18-alpine). A
+          # different major version here would test something the
+          # deployment never runs.
+          #
+          # Pinned to 18.17 as a floor, not bare "18": next 14 declares
+          # engines.node ">=18.17.0", and setup-node resolving an older
+          # 18.x would fail for a reason that has nothing to do with the
+          # commit.
+          node-version: "18.17"
+          cache: npm
+          cache-dependency-path: dashboard/package-lock.json
+
+      - name: Install dependencies
+        working-directory: dashboard
+        # npm ci needs the lock file to match package.json exactly,
+        # which is what we want in CI -- a silent dependency drift
+        # between here and the image is worth failing over.
+        run: npm ci
+
+      - name: Type check
+        working-directory: dashboard
+        # ./node_modules/.bin/tsc, not npx: npx has picked the wrong
+        # package before and reported success against nothing.
+        run: ./node_modules/.bin/tsc --noEmit
+
+      - name: Build
+        working-directory: dashboard
+        # The same build the Dockerfile runs. Catches the JSX quirks
+        # that type checking does not -- unescaped quotes in text, for
+        # instance, which have broken this build before.
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
+        run: npm run build
