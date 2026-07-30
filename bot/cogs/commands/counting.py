@@ -32,6 +32,7 @@ into messages.
 """
 
 import asyncio
+import time
 
 import discord
 from discord.ext import commands
@@ -94,6 +95,13 @@ AMBER = 0xFEE75C
 BLURPLE = 0x5865F2
 
 
+# How long to wait between two edits of the same rules card. Discord
+# rate-limits message edits per channel, and a busy game produces a
+# number every few hundred milliseconds. Five seconds still reads as
+# live without spending the whole budget on one message.
+RULES_EDIT_INTERVAL = 5.0
+
+
 class Counting(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -101,12 +109,111 @@ class Counting(commands.Cog):
         # same millisecond, and without this both would be judged
         # against the same "current" and both accepted.
         self._locks: dict[int, asyncio.Lock] = {}
+        # Per guild bookkeeping for the live rules card: when it was
+        # last edited, and the task that will write the pending value.
+        self._rules_last_edit: dict[int, float] = {}
+        self._rules_pending: dict[int, asyncio.Task] = {}
 
     def _lock(self, guild_id: int) -> asyncio.Lock:
         lock = self._locks.get(guild_id)
         if lock is None:
             lock = self._locks[guild_id] = asyncio.Lock()
         return lock
+
+    def cog_unload(self):
+        # Without this a reload leaves the delayed edits running against
+        # a cog that no longer exists.
+        for task in self._rules_pending.values():
+            task.cancel()
+        self._rules_pending.clear()
+
+    # ──────────────────────────────────────────────────────────────
+    #  The live rules card
+    # ──────────────────────────────────────────────────────────────
+
+    async def _fetch_rules_message(self, guild, settings):
+        """
+        The tracked rules message, or None if it is gone.
+
+        A message the bot cannot find any more is forgotten so it does
+        not try again after every single number.
+        """
+        message_id = settings.get("rules_message")
+        channel_id = settings.get("rules_channel")
+        if not message_id or not channel_id:
+            return None
+
+        channel = guild.get_channel(int(channel_id))
+        if channel is None:
+            store.counting_save(guild.id, {"rules_message": None, "rules_channel": None})
+            return None
+
+        try:
+            return await channel.fetch_message(int(message_id))
+        except (discord.NotFound, discord.Forbidden):
+            # Deleted by a moderator, or we lost access. Either way the
+            # id is worthless now.
+            store.counting_save(guild.id, {"rules_message": None, "rules_channel": None})
+            return None
+        except discord.HTTPException:
+            # A hiccup; keep the id and try again next time.
+            return None
+
+    async def _write_rules_card(self, guild_id: int) -> None:
+        """Edit the tracked rules card to the current numbers."""
+        guild = self.bot.get_guild(int(guild_id))
+        if guild is None:
+            return
+
+        settings = self.settings(guild_id)
+        message = await self._fetch_rules_message(guild, settings)
+        if message is None:
+            return
+
+        try:
+            await message.edit(view=self.rules_view(settings))
+            self._rules_last_edit[int(guild_id)] = time.monotonic()
+        except discord.HTTPException:
+            # Includes 429. The next number tries again; losing one
+            # refresh is better than blocking the game.
+            pass
+
+    async def _delayed_rules_update(self, guild_id: int, wait: float) -> None:
+        try:
+            await asyncio.sleep(wait)
+            await self._write_rules_card(guild_id)
+        except asyncio.CancelledError:
+            raise
+        finally:
+            self._rules_pending.pop(int(guild_id), None)
+
+    def refresh_rules_card(self, guild_id) -> None:
+        """
+        Bring the rules card up to date, at most every few seconds.
+
+        Called after every accepted number, so it must never block the
+        game and never queue up more than one pending edit. When an edit
+        happened recently the update is deferred instead of dropped, so
+        the last number of a burst is always the one on display.
+        """
+        guild_id = int(guild_id)
+        settings = self.settings(guild_id)
+        if not settings.get("rules_message"):
+            return
+
+        if guild_id in self._rules_pending:
+            # An edit is already scheduled; it will pick up the newest
+            # numbers when it runs.
+            return
+
+        since = time.monotonic() - self._rules_last_edit.get(guild_id, 0.0)
+        if since >= RULES_EDIT_INTERVAL:
+            task = asyncio.create_task(self._delayed_rules_update(guild_id, 0))
+        else:
+            task = asyncio.create_task(
+                self._delayed_rules_update(guild_id, RULES_EDIT_INTERVAL - since)
+            )
+        self._rules_pending[guild_id] = task
 
     async def refresh(self, guild_id=None):
         """
@@ -179,6 +286,59 @@ class Counting(commands.Cog):
             f"{STAR} **Rekord:** {settings.get('high_score') or 0}",
             accent=BLURPLE,
         )
+
+    async def purge_and_announce(self, channel, settings: dict) -> dict:
+        """
+        Wipe the counting channel, post the rules, start again at 0.
+
+        This is what "post the rules" does from the dashboard: the
+        channel is meant to contain the rules card and nothing else, so
+        the game starts from a clean slate every time.
+
+        Returns a report: how many messages went, whether anything was
+        too old to remove, and the new rules message.
+        """
+        deleted = 0
+        too_old = False
+
+        # Bulk delete only works on messages under 14 days. Anything
+        # older has to go one by one, which Discord rate-limits hard, so
+        # it is reported instead of silently skipped.
+        try:
+            removed = await channel.purge(limit=1000, bulk=True, check=lambda m: True)
+            deleted = len(removed)
+        except discord.Forbidden:
+            raise
+        except discord.HTTPException:
+            too_old = True
+
+        if not too_old:
+            try:
+                leftovers = [m async for m in channel.history(limit=50)]
+                too_old = len(leftovers) > 0
+            except discord.HTTPException:
+                pass
+
+        # Reset before drawing the card so it shows "next: 1" straight
+        # away. The record survives — only the streak restarts.
+        fresh = store.counting_save(channel.guild.id, {
+            "current": 0,
+            "last_user": None,
+            "record_announced": False,
+            "record_baseline": max(
+                int(settings.get("high_score") or 0),
+                int(settings.get("record_baseline") or 0),
+            ),
+        })
+
+        message = await channel.send(view=self.rules_view(fresh))
+        store.counting_save(channel.guild.id, {
+            "rules_message": message.id,
+            "rules_channel": channel.id,
+        })
+        self._rules_last_edit[int(channel.guild.id)] = time.monotonic()
+
+        return {"deleted": deleted, "too_old": too_old, "message": message}
 
     @commands.group(name="counting", invoke_without_command=True)
     @commands.guild_only()
@@ -383,12 +543,16 @@ class Counting(commands.Cog):
                     outcome = store.counting_apply(
                         message.guild.id, settings, verdict, message.author.id
                     )
+                    # A reset changes the next number, so the card is
+                    # wrong until it is redrawn.
+                    self.refresh_rules_card(message.guild.id)
                     await self._announce_break(message, verdict, outcome)
                     return
 
                 outcome = store.counting_apply(
                     message.guild.id, settings, verdict, message.author.id
                 )
+                self.refresh_rules_card(message.guild.id)
                 notice = self._break_view(message, verdict, outcome)
                 await self._cleanup(message, notice)
                 return
@@ -397,6 +561,7 @@ class Counting(commands.Cog):
             outcome = store.counting_apply(
                 message.guild.id, settings, verdict, message.author.id
             )
+            self.refresh_rules_card(message.guild.id)
             await self._celebrate(message, settings, verdict, outcome)
 
     def _break_view(self, message, verdict, outcome):

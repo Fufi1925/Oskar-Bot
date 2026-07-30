@@ -474,6 +474,11 @@ COUNTING_DEFAULTS = {
     # Celebrate every N numbers with a milestone note.
     "milestone_every": 100,
     "save_record": True,
+    # The rules card the bot keeps up to date. Storing the ids lets the
+    # bot edit that one message in place instead of posting the score
+    # again after every number. Cleared when the message is gone.
+    "rules_message": None,
+    "rules_channel": None,
 }
 
 # Keys the old cog used before the dashboard existed. The cog wrote
@@ -570,6 +575,13 @@ def counting_normalise(entry: dict) -> dict:
 
     at = entry.get("high_score_at")
     entry["high_score_at"] = str(at) if at else None
+
+    # Discord ids are stored as ints. They arrive as strings from JSON
+    # and from the dashboard, and JavaScript rounds them if they are
+    # ever treated as numbers there.
+    for key in ("rules_message", "rules_channel"):
+        value = entry.get(key)
+        entry[key] = int(value) if str(value or "").isdigit() else None
 
     return entry
 

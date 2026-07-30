@@ -710,9 +710,24 @@ def test_api(store):
         def __init__(self, cid, ok=True):
             super().__init__(cid)
             self._ok = ok
+            self.purged = 0
+            self.guild = FakeGuild()
 
         def permissions_for(self, _member):
             return Perms(self._ok)
+
+        async def send(self, content=None, view=None, **kw):
+            msg = await super().send(content=content, view=view, **kw)
+            msg.id = 880000 + len(self.sent)
+            return msg
+
+        async def purge(self, limit=None, bulk=True, check=None):
+            self.purged += 1
+            return [object()] * 3
+
+        async def history(self, limit=None):
+            for _ in ():
+                yield None
 
     class ApiGuild:
         def __init__(self):
@@ -821,6 +836,16 @@ def test_api(store):
           r.text[:120])
     check("and the card really reached the channel",
           len(bot.guild._channels[CHANNEL_ID].sent) == 1)
+    check("the dashboard button also empties the channel",
+          bot.guild._channels[CHANNEL_ID].purged == 1,
+          "the channel was never purged")
+    check("and restarts the counter at 0",
+          store.counting_get(GUILD)["current"] == 0,
+          f"current={store.counting_get(GUILD)['current']}")
+    check("the answer says what happened",
+          "geleert" in r.json().get("result", "")
+          and "0" in r.json().get("result", ""),
+          r.text[:160])
 
     posted = bot.guild._channels[CHANNEL_ID].sent[0].view.to_components()
     check("what it posted is a V2 container", posted[0]["type"] == 17)
@@ -830,6 +855,232 @@ def test_api(store):
           str(r.status_code))
 
     asyncio.run(db_manager.close_all())
+
+
+def test_live_rules_card(store):
+    """
+    The rules card is edited in place instead of reposted, and it is
+    throttled so a fast game cannot spend the whole rate limit on it.
+    """
+    print("\nLive rules card")
+
+    import importlib
+    counting = importlib.import_module("cogs.commands.counting")
+
+    edits: list = []
+
+    class TrackedMessage(FakeMessage):
+        def __init__(self, *a, **kw):
+            super().__init__(*a, **kw)
+            self.id = 4242
+
+        async def edit(self, view=None, **kw):
+            edits.append(view)
+            self.view = view
+
+    guild = FakeGuild()
+    channel = FakeChannel()
+    card = TrackedMessage("", author=FakeAuthor(1, bot=True), channel=channel)
+
+    async def fetch_message(mid):
+        return card
+
+    channel.fetch_message = fetch_message
+    guild.get_channel = lambda cid: channel if int(cid) == channel.id else None
+
+    bot = FakeBot()
+    bot.get_guild = lambda gid: guild if int(gid) == GUILD else None
+    cog = counting.Counting(bot)
+
+    store.counting_save(GUILD, {
+        "enabled": True, "channel": CHANNEL_ID, "current": 5,
+        "rules_message": card.id, "rules_channel": channel.id,
+    })
+
+    original_interval = counting.RULES_EDIT_INTERVAL
+    counting.RULES_EDIT_INTERVAL = 0.2
+
+    async def scenario():
+        # First refresh: nothing was edited recently, so it runs at once.
+        cog.refresh_rules_card(GUILD)
+        await asyncio.sleep(0.05)
+        first = len(edits)
+
+        # A burst of numbers must not produce a burst of edits.
+        for n in range(6, 12):
+            store.counting_save(GUILD, {"current": n})
+            cog.refresh_rules_card(GUILD)
+        immediately = len(edits)
+
+        # Wait well past the interval: the six queued numbers must have
+        # collapsed into a single extra edit, not six. Without this wait
+        # the check passes even with the throttle removed, because the
+        # deferred edits simply had not fired yet.
+        await asyncio.sleep(counting.RULES_EDIT_INTERVAL * 4)
+        return first, immediately, len(edits)
+
+    first, immediately, settled = asyncio.run(scenario())
+    counting.RULES_EDIT_INTERVAL = original_interval
+
+    check("the card is edited, not reposted", first == 1 and len(channel.sent) == 0,
+          f"edits={first} posts={len(channel.sent)}")
+    check("a burst does not edit once per number",
+          immediately == first, f"{immediately} edits during the burst")
+    check("six queued numbers collapse into one edit",
+          settled == first + 1, f"{settled - first} edits for six numbers")
+
+    # Numbers that arrive spread out still have to respect the interval.
+    # A burst arriving in one go is caught by the "already pending"
+    # guard alone, so without this the interval itself is untested.
+    counting.RULES_EDIT_INTERVAL = 5.0
+
+    async def spaced():
+        cog2 = counting.Counting(bot)
+        edits.clear()
+        cog2.refresh_rules_card(GUILD)
+        await asyncio.sleep(0.05)          # first edit lands
+        started = len(edits)
+        # Second number, well inside the interval, with the previous
+        # task already finished.
+        store.counting_save(GUILD, {"current": 30})
+        cog2.refresh_rules_card(GUILD)
+        await asyncio.sleep(0.05)
+        return started, len(edits)
+
+    started, after = asyncio.run(spaced())
+    counting.RULES_EDIT_INTERVAL = original_interval
+
+    check("a second number inside the interval waits",
+          after == started,
+          f"{after - started} extra edits — the interval is ignored")
+
+    # The pending edit must still land, carrying the newest number.
+    async def wait_for_pending():
+        await asyncio.sleep(counting.RULES_EDIT_INTERVAL + 0.3)
+
+    original = counting.RULES_EDIT_INTERVAL
+    counting.RULES_EDIT_INTERVAL = 0.1
+
+    async def scenario_two():
+        cog2 = counting.Counting(bot)
+        store.counting_save(GUILD, {"current": 20})
+        cog2.refresh_rules_card(GUILD)
+        await asyncio.sleep(0.05)
+        store.counting_save(GUILD, {"current": 21})
+        cog2.refresh_rules_card(GUILD)
+        await asyncio.sleep(0.4)
+
+    edits.clear()
+    asyncio.run(scenario_two())
+    counting.RULES_EDIT_INTERVAL = original
+
+    check("the deferred edit still happens", len(edits) >= 2,
+          f"only {len(edits)} edits")
+    rendered = _text_of(edits[-1]) if edits else ""
+    check("and it shows the newest number", "22" in rendered,
+          f"card says {rendered[:120]!r}")
+
+    # A deleted card must be forgotten, not retried forever.
+    async def missing():
+        import discord as d
+
+        async def gone(mid):
+            raise d.NotFound(_FakeResponse(), "gone")
+
+        channel.fetch_message = gone
+        store.counting_save(GUILD, {
+            "rules_message": card.id, "rules_channel": channel.id,
+        })
+        cog3 = counting.Counting(bot)
+        await cog3._write_rules_card(GUILD)
+
+    asyncio.run(missing())
+    check("a deleted card is forgotten",
+          store.counting_get(GUILD)["rules_message"] is None,
+          "the bot would keep chasing a message that is gone")
+
+
+class _FakeResponse:
+    status = 404
+    reason = "Not Found"
+
+
+def _text_of(view) -> str:
+    """Flatten a LayoutView into plain text for assertions."""
+    out: list[str] = []
+
+    def walk(item):
+        content = getattr(item, "content", None)
+        if isinstance(content, str):
+            out.append(content)
+        for child in getattr(item, "children", []) or []:
+            walk(child)
+
+    for child in getattr(view, "children", []) or []:
+        walk(child)
+    return " ".join(out)
+
+
+def test_purge_and_restart(store):
+    """
+    'Post the rules' clears the channel, posts the card and restarts
+    the count at 0, keeping the record.
+    """
+    print("\nPurge and restart")
+
+    import importlib
+    counting = importlib.import_module("cogs.commands.counting")
+
+    purged: dict = {}
+
+    class PurgeChannel(FakeChannel):
+        def __init__(self):
+            super().__init__()
+            self.guild = FakeGuild()
+
+        async def send(self, content=None, view=None, **kw):
+            msg = await super().send(content=content, view=view, **kw)
+            # Discord gives every message an id; the cog stores it so it
+            # can edit the card later.
+            msg.id = 777000 + len(self.sent)
+            return msg
+
+        async def purge(self, limit=None, bulk=True, check=None):
+            purged["limit"] = limit
+            return [object()] * 12
+
+        async def history(self, limit=None):
+            for _ in ():
+                yield None
+
+    channel = PurgeChannel()
+    cog = counting.Counting(FakeBot())
+
+    settings = store.counting_save(GUILD, {
+        "enabled": True, "channel": CHANNEL_ID,
+        "current": 57, "high_score": 57, "record_announced": True,
+        "rules_message": None, "rules_channel": None,
+    })
+
+    report = asyncio.run(cog.purge_and_announce(channel, settings))
+    after = store.counting_get(GUILD)
+
+    check("the channel is emptied", report["deleted"] == 12,
+          f"deleted={report['deleted']}")
+    check("the counter restarts at 0", after["current"] == 0,
+          f"current={after['current']}")
+    check("the record survives", after["high_score"] == 57,
+          f"high_score={after['high_score']}")
+    check("the rules card is posted", len(channel.sent) == 1,
+          f"{len(channel.sent)} messages posted")
+    check("and it is remembered for later edits",
+          after["rules_message"] == channel.sent[0].id
+          and after["rules_channel"] == channel.id,
+          f"stored {after['rules_message']}/{after['rules_channel']}")
+    check("the card shows 'next: 1'", "1" in _text_of(channel.sent[0].view),
+          "the freshly posted card is out of date")
+    check("a new streak can announce a record again",
+          after["record_announced"] is False)
 
 
 def run():
@@ -847,6 +1098,8 @@ def run():
     test_cog(store)
     test_race(store)
     test_components_v2(store)
+    test_live_rules_card(store)
+    test_purge_and_restart(store)
     test_api(store)
 
     print(f"\n{len(failures)} failures")

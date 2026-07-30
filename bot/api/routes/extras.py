@@ -732,11 +732,22 @@ async def announce_counting(
         raise HTTPException(status_code=404, detail="Den Kanal gibt es nicht mehr.")
 
     cog = bot.get_cog("Counting")
-    if cog is None or not hasattr(cog, "rules_view"):
+    if cog is None or not hasattr(cog, "purge_and_announce"):
         raise HTTPException(status_code=503, detail="Das Zähl-Modul ist nicht geladen.")
 
+    me = guild.me
+    perms = channel.permissions_for(me) if me else None
+    if perms and not perms.manage_messages:
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                f"Der Bot braucht in #{channel.name} das Recht "
+                "„Nachrichten verwalten“, um den Kanal leeren zu können."
+            ),
+        )
+
     try:
-        await channel.send(view=cog.rules_view(settings))
+        report = await cog.purge_and_announce(channel, settings)
     except discord.Forbidden:
         raise HTTPException(
             status_code=403, detail=f"Der Bot darf in #{channel.name} nicht schreiben."
@@ -744,7 +755,17 @@ async def announce_counting(
     except discord.HTTPException as exc:
         raise HTTPException(status_code=502, detail=f"Discord lehnte ab: {exc}")
 
-    return {"status": "success", "result": f"Regeln in #{channel.name} gepostet."}
+    parts = [f"#{channel.name} geleert ({report['deleted']} Nachrichten)"]
+    parts.append("Regeln gepostet")
+    parts.append("Zähler steht auf 0")
+    result = ", ".join(parts) + "."
+    if report["too_old"]:
+        result += (
+            " Ältere Nachrichten (über 14 Tage) konnte Discord nicht "
+            "in einem Rutsch löschen — die stehen noch da."
+        )
+
+    return {"status": "success", "result": result}
 
 
 # ══════════════════════════════════════════════════════════════════════

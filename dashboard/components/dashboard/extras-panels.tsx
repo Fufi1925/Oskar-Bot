@@ -976,13 +976,27 @@ export function CountingPanel({ guildId }: { guildId: string }) {
         </div>
 
         <button
-          onClick={() => p.act(() => api.announceCounting(guildId))}
+          onClick={() =>
+            p.act(
+              () => api.announceCounting(guildId),
+              "Spiel neu starten? Alle Nachrichten im Zähl-Kanal werden " +
+                "gelöscht, danach werden die Regeln gepostet und der Zähler " +
+                "steht auf 0. Der Rekord bleibt erhalten."
+            )
+          }
           disabled={p.busy || !p.data?.channel}
           className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-white/[0.03] border border-white/10 text-xs font-black uppercase tracking-widest text-slate-400 hover:text-white disabled:opacity-40 transition-all"
         >
           <Send className="h-3.5 w-3.5" />
-          Regeln in den Kanal posten
+          Kanal leeren &amp; Regeln posten
         </button>
+        <p className="text-[11px] text-slate-500 -mt-1">
+          Löscht den Zähl-Kanal leer, postet die Regeln und setzt den Zähler
+          auf 0. Die Regel-Nachricht hält sich danach selbst aktuell &mdash;
+          &bdquo;Als Nächstes&ldquo; und der Rekord werden live mitgeschrieben.
+          Nachrichten, die älter als 14 Tage sind, kann Discord nicht
+          löschen.
+        </p>
       </Card>
 
       <StickySaveBar

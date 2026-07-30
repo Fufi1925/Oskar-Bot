@@ -41,6 +41,65 @@ export interface Announcement {
 
 export const ANNOUNCEMENTS: Announcement[] = [
   {
+    id: "2026-07-counting-live",
+    label: "Changelog: Counting",
+    summary: "Regel-Nachricht zählt live mit, Neustart räumt den Kanal auf",
+    guilds: [BOT_GUILD_ID],
+    date: "30.07.2026",
+    accent: "#3ba55d",
+    blocks: [
+      {
+        type: "text",
+        text:
+          "# 🔢 Changelog · Counting\n" +
+          "### Die Regeln zeigen jetzt den echten Stand",
+      },
+      { type: "divider" },
+      {
+        type: "text",
+        text:
+          "Bisher war die Regel-Nachricht eine Momentaufnahme: Sobald " +
+          "jemand weitergezählt hatte, stimmten „Als Nächstes“ und der " +
+          "Rekord darin nicht mehr.",
+      },
+      { type: "divider" },
+      {
+        type: "text",
+        text:
+          "## Was neu ist\n\n" +
+          "> 🔄 **Die Regel-Nachricht hält sich selbst aktuell.** " +
+          "„Als Nächstes“ und der Rekord werden mitgeschrieben — die " +
+          "Nachricht wird bearbeitet, nicht ständig neu gepostet.\n" +
+          "> 🧹 **Ein Knopf startet das Spiel neu.** „Kanal leeren & " +
+          "Regeln posten“ räumt den Zähl-Kanal frei, postet die Regeln " +
+          "und stellt den Zähler auf 0.\n" +
+          "> 🏆 **Der Rekord bleibt** dabei erhalten — nur die laufende " +
+          "Runde beginnt von vorn.",
+      },
+      { type: "divider" },
+      {
+        type: "text",
+        text:
+          "## Gut zu wissen\n\n" +
+          "> ⏱️ Die Nachricht wird höchstens alle paar Sekunden " +
+          "aktualisiert. Bei schnellem Zählen bleibt sie so trotzdem " +
+          "lesbar, ohne dass Discord uns ausbremst.\n" +
+          "> 🗑️ Wird die Regel-Nachricht gelöscht, merkt der Bot das " +
+          "und hört auf, sie zu suchen.\n" +
+          "> 📅 Nachrichten, die **älter als 14 Tage** sind, kann " +
+          "Discord nicht auf einmal löschen — die bleiben stehen. Der " +
+          "Bot sagt es dazu.\n" +
+          "> 🔐 Dafür braucht der Bot im Kanal das Recht " +
+          "**„Nachrichten verwalten“**.",
+      },
+      { type: "divider" },
+      {
+        type: "text",
+        text: "-# Zu finden im Dashboard unter Counting → Zähler verwalten.",
+      },
+    ],
+  },
+  {
     id: "2026-07-fehler-sichtbar",
     label: "Changelog: Fehlermeldungen",
     summary: "Abstürze verschwanden spurlos, Befehle in DMs stürzten ab",
