@@ -153,6 +153,41 @@ def _heading(
     return TextDisplay("\n".join(lines))
 
 
+def _uptime_line(uptime: dict) -> str:
+    """
+    The history line: how much of the window was up, and the last
+    outage.
+
+    "Up" counts starting as well as online -- a bot that is booting is
+    not broken, and counting deploys as downtime would make every
+    update look like an incident.
+    """
+    percent = uptime["percent"]
+    days = uptime["days"]
+
+    # A partial record is still worth showing, but must not be
+    # presented as covering the whole window.
+    span = (
+        f"{days} Tagen"
+        if uptime.get("complete")
+        else f"{_ago(time.time() - uptime['measured_seconds'])}"
+    )
+
+    line = f"-# {emojis.markup('uptime')} {percent:.2f} % erreichbar in {span}"
+
+    if uptime.get("outage_count"):
+        ended = uptime.get("last_outage_end")
+        if ended:
+            line += (
+                f" · letzte Störung <t:{int(ended)}:R>"
+                f" ({_ago(time.time() - uptime['last_outage_seconds'])} lang)"
+            )
+    else:
+        line += " · keine Störung"
+
+    return line
+
+
 class StatusView(LayoutView):
     def __init__(
         self,
@@ -165,6 +200,9 @@ class StatusView(LayoutView):
         invite: str = "",
         avatar: str = "",
         partner=None,
+        uptime=None,
+        maintenance: bool = False,
+        maintenance_note: str = "",
     ):
         super().__init__(timeout=None)
 
@@ -192,6 +230,20 @@ class StatusView(LayoutView):
             ),
         }.get(state, (f"{emojis.markup('unknown')}  Wird geprüft", GREY,
                       "Noch keine Messung."))
+
+        # Maintenance overrides the headline, but not the readings
+        # below -- those stay real. The point is to stop the panel
+        # shouting "outage" at something that was planned, not to hide
+        # what is actually happening.
+        if maintenance:
+            headline = f"{emojis.markup('starting')}  Geplante Wartung"
+            colour = AMBER
+            note = (
+                "An diesem Bot wird gerade gearbeitet. Kurze Ausfälle sind "
+                "in dieser Zeit normal und kein Grund zur Sorge."
+            )
+            if maintenance_note:
+                note += f"\n**Grund:** {maintenance_note}"
 
         # ── 1 · the headline ─────────────────────────────────────
         #
@@ -336,6 +388,13 @@ class StatusView(LayoutView):
         # has to promise an interval it might not keep.
         stamp = int(health.checked_at or time.time())
         parts.append(_rule(large=True))
+
+        # The uptime line, when there is enough recorded to mean
+        # anything. Left out otherwise rather than printing a
+        # percentage derived from twenty minutes of data.
+        if uptime and uptime.get("known"):
+            parts.append(TextDisplay(_uptime_line(uptime)))
+
         parts.append(TextDisplay(f"-# {FOOTER_NAME} · <t:{stamp}:R>"))
 
         self.add_item(Container(*parts, accent_colour=colour))

@@ -24,5 +24,13 @@ COPY bot/utils/message_builder.py ./statusbot/message_builder.py
 
 ENV PYTHONUNBUFFERED=1
 
-# No volume and no port: it stores nothing and serves nothing.
+# Where the uptime record goes. Attach a Railway volume mounted here,
+# or the history restarts on every deploy -- Railway's filesystem is
+# wiped each time. Without one the panel simply omits the uptime line
+# rather than printing a figure built from the last twenty minutes.
+#
+# No VOLUME instruction: Railway rejects the build outright with
+# "docker VOLUME at Line N is not supported, use Railway Volumes".
+ENV STATUS_DATA_DIR=/data
+
 CMD ["python", "statusbot/status_bot.py"]

@@ -163,3 +163,55 @@ Links, der ins Leere führt.
 > dir nicht gesetzt, also ist dieser Knopf **nie** erschienen — ohne
 > jede Meldung. Und in der Willkommens-DM stand fest
 > `https://.vercel.app`, eine Adresse ohne Server-Namen.
+
+
+---
+
+## Neu: Ausfallmeldung, Verlauf, Wartung, Status-Seite
+
+### Beim **Status-Service** eintragen
+
+```
+# Wer bei einer Störung gepingt wird. Rollen-ID, oder "everyone".
+# Leer = Meldung ohne Ping.
+STATUS_ALERT_ROLE_ID="<Rollen-ID>"
+
+# Wird im Dockerfile schon gesetzt. Nur ändern, wenn dein Volume
+# woanders hängt.
+STATUS_DATA_DIR="/data"
+
+# Optional:
+STATUS_HISTORY_DAYS="7"        # Zeitraum im Panel
+STATUS_HISTORY_KEEP_DAYS="90"  # wie lange aufbewahrt wird
+```
+
+### ⚠️ Volume nicht vergessen
+
+Der Verlauf braucht ein **Railway-Volume**, gemountet auf `/data`.
+Railway löscht das Dateisystem bei jedem Deploy — ohne Volume fängt die
+Aufzeichnung jedes Mal von vorn an.
+
+Ohne Volume stürzt nichts ab: das Panel lässt die Uptime-Zeile dann
+einfach weg, statt eine Zahl aus zwanzig Minuten Daten zu zeigen.
+
+### Beim **Hauptbot** eintragen
+
+```
+STATUS_BOT_URL="https://<url-des-status-service>.up.railway.app"
+```
+
+Die brauchst du für die Seite **/status** auf der Website. Fehlt sie,
+zeigt die Seite „Status nicht abrufbar" statt zu raten.
+
+### Was jetzt passiert
+
+| | |
+|---|---|
+| **Ausfall** | Eigene Nachricht im Status-Kanal + Ping. Bei Rückkehr eine Entwarnung mit Ausfalldauer. |
+| **Verlauf** | Panel zeigt „99,4 % erreichbar in 7 Tagen · letzte Störung vor 2 Tagen". |
+| **Wartung** | `/wartung an grund:Datenbank-Umzug` → Panel meldet Wartung statt Störung, keine Pings. `/wartung an:false` beendet es. |
+| **Website** | `/status` zeigt dieselben Daten — auch für Leute ohne Discord-Zugang. |
+
+Gemeldet wird **nur** der Wechsel in eine Störung und die Rückkehr.
+Ein normaler Deploy („startet gerade") löst nichts aus — sonst gewöhnt
+sich jeder daran, den Kanal zu ignorieren.

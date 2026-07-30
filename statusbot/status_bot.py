@@ -43,6 +43,7 @@ import aiohttp
 import discord
 
 import emojis
+import history
 
 # ── Configuration, all from the environment ───────────────────────────
 
@@ -125,12 +126,32 @@ PARTNER_PING_MAX = 100
 # messages needs the privileged Message Content intent and Discord
 # refuses the login when the portal switch is off -- defaulting to on
 # would strand anybody who has not flipped it.
+# Who to ping when the main bot goes down. A role id, or "everyone".
+# Empty means announce without pinging anybody.
+ALERT_ROLE_ID = (os.getenv("STATUS_ALERT_ROLE_ID") or "").strip()
+
 PREFIX = (os.getenv("STATUS_PREFIX") or "").strip()
 PREFIX_COMMAND_ENABLED = bool(PREFIX)
 
 GREEN = 0x3BA55D
 AMBER = 0xFAA61A
 RED = 0xED4245
+
+
+def _duration(seconds: int) -> str:
+    """A span in words: "3 Minuten", "1 Stunde 20 Minuten"."""
+    if seconds < 60:
+        return f"{seconds} Sekunden"
+    minutes, secs = divmod(seconds, 60)
+    if minutes < 60:
+        return f"{minutes} Minute{'n' if minutes != 1 else ''}"
+    hours, minutes = divmod(minutes, 60)
+    if hours < 24:
+        text = f"{hours} Stunde{'n' if hours != 1 else ''}"
+        return f"{text} {minutes} Minuten" if minutes else text
+    days, hours = divmod(hours, 24)
+    text = f"{days} Tag{'e' if days != 1 else ''}"
+    return f"{text} {hours} Stunden" if hours else text
 
 
 def _now() -> str:
@@ -180,6 +201,11 @@ class StatusBot(discord.Client):
         self.consecutive_failures = 0
         self.state = "unknown"
         self.state_since = time.time()
+        # Set by /wartung. While on, the panel says "planned
+        # maintenance" instead of raising an alarm, and no outage
+        # announcement goes out.
+        self.maintenance = False
+        self.maintenance_note = ""
         self.message: discord.Message | None = None
         # Never None after start-up: the section is always part of the
         # panel, so the first publish must already have something to
@@ -208,6 +234,51 @@ class StatusBot(discord.Client):
             # confirmation is only of interest to whoever asked.
             await interaction.response.defer(ephemeral=True)
             ok, note = await self.refresh_panel()
+            await interaction.followup.send(note, ephemeral=True)
+
+        @self.tree.command(
+            name="wartung",
+            description="Wartungsmodus an oder aus",
+        )
+        @discord.app_commands.describe(
+            an="An = Panel zeigt Wartung statt Störung",
+            grund="Wird im Panel angezeigt, z. B. „Datenbank-Umzug“",
+        )
+        async def maintenance_command(
+            interaction: discord.Interaction,
+            an: bool,
+            grund: str = "",
+        ):
+            # Only people who can manage the server. This changes what
+            # every member sees, so it is not for everybody -- and the
+            # status bot has no permission model of its own to lean on.
+            member = interaction.user
+            allowed = getattr(
+                getattr(member, "guild_permissions", None), "manage_guild", False
+            )
+            if not allowed:
+                await interaction.response.send_message(
+                    "Dafür brauchst du „Server verwalten“.", ephemeral=True
+                )
+                return
+
+            await interaction.response.defer(ephemeral=True)
+            self.maintenance = bool(an)
+            self.maintenance_note = grund.strip()[:200]
+
+            # Recorded like any other state change, so a planned window
+            # does not count against uptime the way a real outage does.
+            history.record("maintenance" if an else self.state)
+
+            await self.publish()
+            await self.set_presence()
+
+            if an:
+                note = "Wartungsmodus ist **an**. Das Panel meldet keine Störung mehr."
+                if self.maintenance_note:
+                    note += f"\nGrund: {self.maintenance_note}"
+            else:
+                note = "Wartungsmodus ist **aus**. Normale Überwachung läuft wieder."
             await interaction.followup.send(note, ephemeral=True)
 
         if HOME_GUILD_ID:
@@ -577,6 +648,9 @@ class StatusBot(discord.Client):
             invite=INVITE_URL,
             avatar=self._main_avatar or "",
             partner=self.partner,
+            uptime=history.summary(),
+            maintenance=self.maintenance,
+            maintenance_note=self.maintenance_note,
         )
 
     async def find_message(self) -> None:
@@ -696,8 +770,15 @@ class StatusBot(discord.Client):
 
                 if new_state != self.state:
                     print(f"[status] {self.state} -> {new_state}")
+                    previous, previous_since = self.state, self.state_since
                     self.state = new_state
                     self.state_since = time.time()
+
+                    # Written on change only. One row per poll would be
+                    # 2,880 a day to record that nothing happened.
+                    history.record(new_state, self.state_since)
+
+                    await self.announce(previous, new_state, previous_since)
 
                 await self.publish()
                 await self.set_presence()
@@ -708,6 +789,93 @@ class StatusBot(discord.Client):
                 print(f"[status] poll failed: {type(err).__name__}: {err}")
 
             await asyncio.sleep(POLL_SECONDS)
+
+    async def announce(self, previous: str, now: str, since: float) -> None:
+        """
+        Say something when the state changes for the worse or the better.
+
+        Only two transitions are worth a message: into an outage, and
+        out of one. Everything else -- online to starting during a
+        deploy, starting to online afterwards -- is normal and would
+        train people to ignore the channel.
+
+        Silent during maintenance: an announced restart that announces
+        itself again is noise, and the ping would wake somebody for a
+        thing they scheduled.
+        """
+        if self.maintenance:
+            return
+        if not STATUS_CHANNEL_ID:
+            return
+
+        # "unknown -> down" happens when the watcher itself starts up
+        # while the main bot is already down. Worth announcing. But
+        # "unknown -> online" is just this service booting.
+        if now == "down":
+            text = (
+                f"# {emojis.markup('down')} Störung\n"
+                f"{BRAND} ist seit <t:{int(time.time())}:R> nicht erreichbar.\n"
+                "-# Wir schauen uns das an. Das Panel oben hält sich "
+                "selbst aktuell."
+            )
+        elif previous == "down" and now in ("online", "starting"):
+            outage = max(0, int(time.time() - since))
+            text = (
+                f"# {emojis.markup('online')} Wieder erreichbar\n"
+                f"{BRAND} läuft wieder. Die Störung dauerte "
+                f"{_duration(outage)}.\n"
+                "-# Falls noch etwas klemmt: einmal neu laden."
+            )
+        else:
+            return
+
+        channel = self.get_channel(STATUS_CHANNEL_ID)
+        if channel is None:
+            try:
+                channel = await self.fetch_channel(STATUS_CHANNEL_ID)
+            except Exception:  # noqa: BLE001
+                return
+
+        content, mentions = self.alert_mention()
+        try:
+            await channel.send(
+                content=f"{content}\n{text}" if content else text,
+                allowed_mentions=mentions,
+            )
+        except discord.Forbidden:
+            print("[status] not allowed to post the outage notice.")
+        except Exception as err:  # noqa: BLE001
+            print(f"[status] could not announce: {err}")
+
+    @staticmethod
+    def alert_mention() -> tuple[str, discord.AllowedMentions]:
+        """
+        The ping, and permission for exactly that ping and nothing else.
+
+        AllowedMentions is set explicitly rather than left to default:
+        the announcement text is built here, but a future edit that puts
+        a user name in it must not turn into an accidental ping.
+        """
+        if not ALERT_ROLE_ID:
+            return "", discord.AllowedMentions.none()
+
+        if ALERT_ROLE_ID.lower() == "everyone":
+            return "@everyone", discord.AllowedMentions(
+                everyone=True, roles=False, users=False
+            )
+
+        if ALERT_ROLE_ID.isdigit():
+            return f"<@&{ALERT_ROLE_ID}>", discord.AllowedMentions(
+                everyone=False,
+                roles=[discord.Object(id=int(ALERT_ROLE_ID))],
+                users=False,
+            )
+
+        print(
+            f"[status] STATUS_ALERT_ROLE_ID={ALERT_ROLE_ID!r} is neither a "
+            "role id nor 'everyone' — announcing without a ping."
+        )
+        return "", discord.AllowedMentions.none()
 
     async def set_presence(self) -> None:
         label = {
@@ -834,9 +1002,53 @@ async def start_web(bot: "StatusBot") -> None:
             "main_state": bot.state,
         })
 
+    async def handle_public_status(_request):
+        """
+        The same figures the panel shows, as JSON, for the website.
+
+        No key: it is the one endpoint that has to work for somebody who
+        is not on the Discord server -- and, more to the point, when
+        Discord itself is the thing that is broken. It exposes nothing
+        that is not already visible in a public channel.
+
+        CORS is open for the same reason. A status page nobody can read
+        is not a status page.
+        """
+        health = bot.health
+        return web.json_response(
+            {
+                "state": "maintenance" if bot.maintenance else bot.state,
+                "since": int(bot.state_since),
+                "maintenance": bot.maintenance,
+                "maintenance_note": bot.maintenance_note,
+                "brand": BRAND,
+                "main": {
+                    "reachable": health.reachable,
+                    "bot_ready": health.bot_ready,
+                    "dashboard": health.dashboard,
+                    "latency_ms": (
+                        round(health.latency_ms) if health.latency_ms else None
+                    ),
+                    "status_code": health.status_code,
+                    "error": health.error,
+                    "checked_at": int(health.checked_at or 0),
+                },
+                "uptime": history.summary(),
+                # Flagged, because the panel's own rule is that a
+                # generated figure must never be mistaken for a measured
+                # one. A website reading this must be able to tell.
+                "partner": bot.partner,
+            },
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Cache-Control": "public, max-age=15",
+            },
+        )
+
     app = web.Application()
     app.router.add_post("/send", handle_send)
     app.router.add_get("/health", handle_health)
+    app.router.add_get("/status.json", handle_public_status)
 
     runner = web.AppRunner(app)
     await runner.setup()
