@@ -424,14 +424,16 @@ export default function LandingPage() {
                 <span className="text-3xl font-bold text-white font-outfit uppercase tracking-tighter">{process.env.NEXT_PUBLIC_BRAND_NAME || "University Bot"} Engine</span>
               </div>
               <p className="text-slate-600 max-w-sm font-bold leading-relaxed uppercase text-xs tracking-widest">
-                The high-performance Discord engine for communities that demand excellence. Open-source, secure, and infinitely scalable.
+                The high-performance Discord engine for communities that demand excellence. Secure, reliable, and infinitely scalable.
               </p>
             </div>
             <div className="space-y-8">
                <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-white opacity-40">System</h4>
                <ul className="space-y-5 text-[11px] font-black uppercase tracking-widest text-slate-500">
-                  <li><a href="https://github.com/Fufi1925/Oskar-Bot" target="_blank" rel="noopener noreferrer" className="hover:text-blue-500 transition-colors">GitHub Repository</a></li>
+                  {/* No repository link. The source is closed, and a link
+                      to a 404 still tells a visitor where to go digging. */}
                   <li><Link href="/docs" className="hover:text-blue-500 transition-colors">Dokumentation</Link></li>
+                  <li><Link href="/team" className="hover:text-blue-500 transition-colors">Team</Link></li>
                   <li><Link href="/docs#api" className="hover:text-blue-500 transition-colors">API-Referenz</Link></li>
                </ul>
             </div>

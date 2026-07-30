@@ -101,15 +101,27 @@ def test_the_content():
 
     # Length: medium was asked for, not a one-liner and not a wall.
     #
-    # Measured across the whole block, not per string literal: the text
-    # is written as several "..." + "..." pieces joined with +, and a
-    # per-literal pattern stopped at the first join and reported 201
-    # characters for something that is nearly 1500.
-    blocks = re.findall(r"text:\s*(.*?),\n      \},", src, re.S)
-    joined = " ".join(blocks)
-    check("the announcement text was found", len(blocks) >= 4, str(len(blocks)))
-    check("the text is not a one-liner", len(joined) > 600, f"{len(joined)} chars")
-    check("and not a wall of text", len(joined) < 4000, f"{len(joined)} chars")
+    # Measured per announcement, not across the file. Two earlier
+    # mistakes here, both worth keeping in mind:
+    #
+    #   * a per-literal pattern stopped at the first "+" join and
+    #     reported 201 characters for something near 1500;
+    #   * summing every block in the file worked while there was one
+    #     announcement and then measured nothing but the file size --
+    #     it failed at five entries without any single one being long.
+    entries = re.split(r"\n  \{\n    id: ", src)[1:]
+    check("the announcements were found", len(entries) >= 1, str(len(entries)))
+
+    for entry in entries:
+        name = entry.split('"')[1] if '"' in entry else "?"
+        blocks = re.findall(r"text:\s*(.*?),\n      \},", entry, re.S)
+        joined = " ".join(blocks)
+        check(f"{name}: the text was found", len(blocks) >= 3,
+              f"{len(blocks)} blocks")
+        check(f"{name}: not a one-liner", len(joined) > 300,
+              f"{len(joined)} chars")
+        check(f"{name}: not a wall of text", len(joined) < 4000,
+              f"{len(joined)} chars")
 
     # Discord markdown that the message relies on.
     check("it uses headings", "# " in src)

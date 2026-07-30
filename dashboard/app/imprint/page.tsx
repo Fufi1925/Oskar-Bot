@@ -125,10 +125,13 @@ export default function ImprintPage() {
 
       <Section title="Urheberrecht">
         <p>
-          Der Quellcode dieses Projekts steht unter der MIT-Lizenz. Marken,
-          Logos und Inhalte Dritter — insbesondere von Discord Inc. — unterliegen
-          den Rechten der jeweiligen Inhaber. Dieses Projekt steht in keiner
-          Verbindung zu Discord Inc.
+          Der Quellcode dieses Projekts ist nicht öffentlich und steht unter
+          keiner freien Lizenz. Alle Rechte vorbehalten. Vervielfältigung,
+          Weitergabe oder Veröffentlichung — ganz oder in Teilen — sind ohne
+          ausdrückliche Zustimmung nicht gestattet. Marken, Logos und Inhalte
+          Dritter — insbesondere von Discord Inc. — unterliegen den Rechten der
+          jeweiligen Inhaber. Dieses Projekt steht in keiner Verbindung zu
+          Discord Inc.
         </p>
       </Section>
     </LegalPage>

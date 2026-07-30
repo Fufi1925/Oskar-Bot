@@ -41,6 +41,38 @@ export interface Announcement {
 
 export const ANNOUNCEMENTS: Announcement[] = [
   {
+    id: "2026-07-team-page",
+    label: "Changelog: Team-Seite",
+    summary: "Team-Seite mit Profilbildern",
+    guilds: [BOT_GUILD_ID],
+    date: "30.07.2026",
+    accent: "#5865f2",
+    blocks: [
+      {
+        type: "text",
+        text:
+          "# 👥 Changelog · Team\n" +
+          "### Wer hinter dem Bot steckt",
+      },
+      { type: "divider" },
+      {
+        type: "text",
+        text:
+          "Die Team-Seite zeigt jetzt beide Entwickler mit ihrem " +
+          "echten Discord-Profilbild und -Namen.\n\n" +
+          "> **Fufi** — Entwicklung und Betrieb von Bot und Dashboard\n" +
+          "> **Vexo** — Entwickler des Template-Bots, von ihm stammt " +
+          "die ursprüngliche Idee zum Projekt",
+      },
+      { type: "divider" },
+      {
+        type: "text",
+        text:
+          "-# Fragen oder Fehler? Am schnellsten hier im Support-Server.",
+      },
+    ],
+  },
+  {
     id: "2026-07-backups",
     label: "Changelog: Backups",
     summary: "Tägliche Sicherung, und zwei fehlende Datenbanken",
