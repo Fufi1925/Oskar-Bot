@@ -195,6 +195,87 @@ def test_history_survives_nothing_gracefully():
 # ══════════════════════════════════════════════════════════════════════
 
 
+def test_storage_is_reported_at_boot():
+    """
+    The bot must say at start-up whether the history will survive.
+
+    Railway logs the *host* path of a mounted volume, which says nothing
+    about where it landed inside the container. If the mount point is
+    not exactly STATUS_DATA_DIR, the bot writes into the container, the
+    record is wiped on every deploy, and nothing mentions it -- the
+    panel simply never shows an uptime figure and nobody knows why.
+    """
+    print("\nWhere the history lives is reported")
+
+    import importlib
+    import io
+    from contextlib import redirect_stdout
+
+    source = read(os.path.join(STATUS, "status_bot.py"))
+    check("there is a report at boot",
+          "def report_storage" in source, "")
+    check("and on_ready calls it",
+          "self.report_storage()" in source,
+          "a check nothing calls reports nothing")
+
+    workspace = tempfile.mkdtemp()
+    os.environ["STATUS_DATA_DIR"] = workspace
+    import history
+    importlib.reload(history)
+    import status_bot as sb
+    importlib.reload(sb)
+
+    try:
+        # A plain directory is not a volume.
+        out = io.StringIO()
+        with redirect_stdout(out):
+            sb.StatusBot.report_storage()
+        text = out.getvalue()
+        check("a plain directory is called out",
+              "NOT on a volume" in text, text.strip())
+        check("and the path is named",
+              workspace in text, text.strip())
+        check("and it says what to do",
+              "STATUS_DATA_DIR" in text or "Mount a Railway volume" in text,
+              text.strip())
+
+        # The positive case too. Only testing the warning let a
+        # mutation through that removed the confirmation entirely --
+        # silence then means "no volume" and "volume fine" alike, which
+        # is the ambiguity this whole line exists to remove.
+        original = history.storage_is_persistent
+        history.storage_is_persistent = lambda: True
+        try:
+            out = io.StringIO()
+            with redirect_stdout(out):
+                sb.StatusBot.report_storage()
+            text = out.getvalue()
+            check("a real volume is confirmed, not passed over silently",
+                  text.strip() != "",
+                  "no output means the same as no volume")
+            check("and the confirmation says it survives",
+                  "survives" in text or "volume" in text, text.strip())
+            check("without warning about anything",
+                  "NOT on a volume" not in text, text.strip())
+        finally:
+            history.storage_is_persistent = original
+
+        # A directory that does not exist at all.
+        os.environ["STATUS_DATA_DIR"] = "/tmp/definitely-not-here-xyz"
+        importlib.reload(history)
+        importlib.reload(sb)
+        out = io.StringIO()
+        with redirect_stdout(out):
+            sb.StatusBot.report_storage()
+        check("a missing directory is mentioned as missing",
+              "does not exist" in out.getvalue(), out.getvalue().strip())
+    finally:
+        shutil.rmtree(workspace, ignore_errors=True)
+        os.environ.pop("STATUS_DATA_DIR", None)
+        importlib.reload(history)
+        importlib.reload(sb)
+
+
 def test_announcements():
     print("\nAnnouncing an outage")
 
@@ -441,6 +522,7 @@ def test_status_page():
 def main():
     test_history()
     test_history_survives_nothing_gracefully()
+    test_storage_is_reported_at_boot()
     test_announcements()
     test_maintenance()
     test_public_endpoint()

@@ -363,6 +363,35 @@ class StatusBot(discord.Client):
             await self.session.close()
         await super().close()
 
+    @staticmethod
+    def report_storage() -> None:
+        """
+        Say at start-up where the history is going, and whether it will
+        survive.
+
+        Railway's own log line reports the *host* path of a mounted
+        volume, which says nothing about where it landed inside the
+        container. If the mount point is not exactly STATUS_DATA_DIR the
+        bot writes into the container instead, the record is wiped on
+        every deploy, and nothing anywhere mentions it -- the panel just
+        quietly never shows an uptime figure.
+
+        One line at boot is cheap and turns a silent misconfiguration
+        into an obvious one.
+        """
+        path = history.DATA_DIR
+        if history.storage_is_persistent():
+            print(f"[status] history is on a volume at {path} — it survives deploys")
+            return
+
+        exists = os.path.isdir(path)
+        print(
+            f"[status] history is NOT on a volume ({path}"
+            + ("" if exists else ", which does not exist yet")
+            + "). It will be wiped on the next deploy. Mount a Railway "
+            f"volume at {path}, or set STATUS_DATA_DIR to where yours is."
+        )
+
     async def load_emojis(self) -> None:
         """
         Find out which custom emojis this application may actually use.
@@ -405,6 +434,7 @@ class StatusBot(discord.Client):
     async def on_ready(self) -> None:
         print(f"[status] logged in as {self.user}")
         await self.load_emojis()
+        self.report_storage()
         if not MAIN_URL:
             print(
                 "[status] MAIN_BOT_URL is not set — there is nothing to "

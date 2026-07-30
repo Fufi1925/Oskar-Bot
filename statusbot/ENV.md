@@ -295,6 +295,26 @@ STATUS_SAMPLE_SECONDS="300"   # wie oft ein Messwert gespeichert wird
 Alle 5 Minuten statt bei jeder Prüfung: alle 30 Sekunden wären 2.880
 Zeilen pro Tag für eine Grafik mit 24 Balken.
 
+### Prüfen, ob das Volume wirklich greift
+
+Beim Start schreibt der Bot eine von zwei Zeilen ins Log:
+
+```
+[status] history is on a volume at /data — it survives deploys
+```
+```
+[status] history is NOT on a volume (/data). It will be wiped on the
+next deploy. Mount a Railway volume at /data, ...
+```
+
+**Wichtig:** Railways eigene Zeile „Mounting volume on: /var/lib/…"
+zeigt den Pfad auf dem **Host**, nicht im Container. Sie sagt also
+nicht, ob dein Volume auch dort hängt, wo der Bot schreibt. Nur die
+Zeile oben beantwortet das.
+
+Hängt dein Volume woanders: entweder in Railway auf `/data` ändern oder
+`STATUS_DATA_DIR` auf den tatsächlichen Pfad setzen.
+
 ### ⚠️ Ohne Volume
 
 Ohne Volume auf `/data` beginnt die Aufzeichnung nach jedem Deploy von
