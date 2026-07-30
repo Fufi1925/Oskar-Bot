@@ -240,7 +240,7 @@ export function LoggingPanel({ guildId }: { guildId: string }) {
 
       <Card
         icon={Bell}
-        title="Protokollierung"
+        title="Logs"
         subtitle="Der Bot schreibt mit, was auf dem Server passiert. Jede Art von Ereignis kann in einen eigenen Kanal."
         onReload={p.reload}
       >

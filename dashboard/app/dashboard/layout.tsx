@@ -221,7 +221,7 @@ export default function DashboardLayout({
         {
           name: "Verwaltung",
           items: [
-            { name: "Protokollierung", href: `/dashboard/guild/${currentGuildId}/logging`, icon: LayoutDashboard },
+            { name: "Logs", href: `/dashboard/guild/${currentGuildId}/logging`, icon: LayoutDashboard },
             { name: "Server-Werkzeuge", href: `/dashboard/guild/${currentGuildId}/admin-dashboard`, icon: Shield },
           ],
         },

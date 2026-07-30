@@ -50,7 +50,7 @@ const TARGETS: SearchTarget[] = [
   { label: "Auto Reactions", href: "/dashboard/guild/{g}/autoreact", icon: Zap, group: "Utility", keywords: "auto react emoji trigger", guildScoped: true },
   { label: "No Prefix", href: "/dashboard/guild/{g}/noprefix", icon: Command, group: "Utility", keywords: "no prefix users roles", guildScoped: true },
   { label: "Nicknames", href: "/dashboard/guild/{g}/nickname", icon: UserCheck, group: "Utility", keywords: "nickname prefix suffix", guildScoped: true },
-  { label: "Logging", href: "/dashboard/guild/{g}/logging", icon: FileText, group: "Utility", keywords: "log events audit channel", guildScoped: true },
+  { label: "Logs", href: "/dashboard/guild/{g}/logging", icon: FileText, group: "Utility", keywords: "log logging events audit channel protokoll protokollierung", guildScoped: true },
   { label: "Server Settings", href: "/dashboard/guild/{g}/settings", icon: Settings, group: "Utility", keywords: "prefix settings config", guildScoped: true },
 ];
 

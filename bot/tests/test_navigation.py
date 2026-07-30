@@ -236,6 +236,60 @@ def test_both_navigations_agree():
           f"tabs={sorted(tab_groups)} sidebar={sorted(side_groups)}")
 
 
+def test_tab_names_are_consistent():
+    """
+    One tab, one name, in all four places it appears.
+
+    The logging tab was called "Protokollierung" in the sidebar, the tab
+    bar, the page heading and the panel title -- four separate strings,
+    with nothing checking they agreed. Renaming it meant finding all
+    four by hand, and missing one would show a different name depending
+    on where you looked.
+
+    Now called "Logs", and asserted rather than hoped for.
+    """
+    print("\nTab names agree everywhere")
+
+    places = {
+        "sidebar": "app/dashboard/layout.tsx",
+        "tab bar": "components/guild-tabs.tsx",
+        "page heading": "app/dashboard/guild/[guildId]/logging/page.tsx",
+        "panel title": "components/dashboard/logging-panel.tsx",
+    }
+
+    for label, path in places.items():
+        # Comments stripped: the tab file explains in a comment that the
+        # old name stays searchable, and that sentence necessarily
+        # contains the old name. Checking the raw text failed on the
+        # very code that documents the decision.
+        body = strip_comments(read(os.path.join(DASH, path)))
+        check(f"{label}: says Logs", '"Logs"' in body or ">Logs" in body
+              or "Logs\n" in body, path)
+        check(f"{label}: no longer says Protokollierung",
+              "Protokollierung" not in body,
+              "a half-finished rename shows a different name depending "
+              "on where you look")
+
+    # The old name has to stay findable. Somebody who learned it should
+    # not lose the tab because it was renamed.
+    # Comments stripped: the code carries a comment explaining why the
+    # old name stays searchable, and a plain search finds that comment
+    # instead of the actual keyword. Removing the keyword then looked
+    # fine.
+    tabs = strip_comments(read(os.path.join(DASH, "components/guild-tabs.tsx")))
+    check("the old name is still searchable",
+          "protokoll" in tabs.lower(),
+          "renaming a tab must not hide it from people who know the "
+          "old name")
+
+    search = strip_comments(read(os.path.join(DASH, "components/global-search.tsx")))
+    check("global search calls it the same thing",
+          '"Logs"' in search and '"Logging"' not in search,
+          "the search result and the tab it opens must not disagree")
+    check("and still matches the old name",
+          "protokoll" in search.lower(), "")
+
+
 def main():
     check("the dashboard folder was found", os.path.isdir(DASH), DASH)
     if not os.path.isdir(DASH):
@@ -246,6 +300,7 @@ def main():
     test_tab_bar()
     test_beta_marking()
     test_both_navigations_agree()
+    test_tab_names_are_consistent()
 
     print(f"\n{len(failures)} failures")
     for line in failures:

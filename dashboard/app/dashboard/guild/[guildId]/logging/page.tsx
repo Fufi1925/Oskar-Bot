@@ -10,7 +10,7 @@ export default function LoggingPage({ params }: { params: { guildId: string } })
       <div>
         <h2 className="text-2xl font-black text-white flex items-center gap-2 tracking-tight">
           <BellRing className="h-6 w-6 text-primary" />
-          Protokollierung
+          Logs
         </h2>
         <p className="text-slate-400 mt-1 text-sm">
           Wer hat was gelöscht, wer ist gegangen, wer hat eine Rolle bekommen —

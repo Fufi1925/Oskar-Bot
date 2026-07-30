@@ -170,7 +170,11 @@ function buildGroups(t: TranslateFn): Group[] {
       name: "Verwaltung",
       icon: Settings,
       tabs: [
-        { name: "Protokollierung", slug: "logging", icon: FileText, also: ["logging", "logs", "audit"] },
+        // The tab was called "Protokollierung" until now, so both
+        // spellings stay searchable -- renaming it must not hide it
+        // from anybody who learned the old name.
+        { name: "Logs", slug: "logging", icon: FileText,
+          also: ["logging", "logs", "audit", "protokoll", "protokollierung"] },
         { name: "Server-Werkzeuge", slug: "admin-dashboard", icon: Shield, also: ["admin", "scan", "audit"] },
         { name: "Einstellungen", slug: "settings", icon: Settings, also: ["settings", "prefix"] },
       ],
