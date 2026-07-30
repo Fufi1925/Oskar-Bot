@@ -46,7 +46,29 @@ SECOND = 1327995167345819722
 TEAM_ROLE = 500000000000000001
 BOT_USER = 600000000000000001
 
+BOT = os.path.dirname(HERE)
+
 failures: list[str] = []
+
+
+def read(path: str) -> str:
+    with open(path, encoding="utf-8") as handle:
+        return handle.read()
+
+
+def strip_comments(src: str) -> str:
+    """
+    Drop comments before searching.
+
+    The cog explains in comments *why* the cache-only reaction events
+    were replaced -- and that explanation names them. Searching the raw
+    text finds the explanation and reports the fix as the bug.
+    """
+    without_block = re.sub(r"/\*.*?\*/", "", src, flags=re.S)
+    return "\n".join(
+        line for line in without_block.splitlines()
+        if not line.lstrip().startswith("#")
+    )
 
 
 def check(name, ok, extra=""):
@@ -525,8 +547,139 @@ async def test_api():
           r.status_code == 503, str(r.status_code))
 
 
+def test_events_reach_the_right_category():
+    """
+    Every event has to land in the category the dashboard offers for it.
+
+    A category switched on in the dashboard that never receives anything
+    is indistinguishable from a broken bot -- and that is what happened:
+    giving a member a role was logged under "Moderation", while the
+    dashboard has a category called "Rollen" that stayed silent no
+    matter what.
+    """
+    print("\nEvents land in the right category")
+
+    source = read(os.path.join(BOT, "cogs/commands/logging.py"))
+
+    # Which category each handler sends to.
+    handlers: dict[str, set[str]] = {}
+    current = None
+    lines = source.splitlines()
+    for index, line in enumerate(lines):
+        found = re.search(r"async def (on_[a-z_]+|_reaction_log)", line)
+        if found:
+            current = found.group(1)
+            handlers.setdefault(current, set())
+        if current and "_send_log(" in line:
+            blob = "\n".join(lines[index:index + 6])
+            for category in re.findall(r'"([a-z_]+_events|member_moderation)"', blob):
+                handlers[current].add(category)
+
+    check("role changes go to the role category",
+          "role_events" in handlers.get("on_member_update", set()),
+          f"{handlers.get('on_member_update')} -- somebody switching on "
+          "\"Rollen\" and handing out a role saw nothing")
+
+    check("and no longer to moderation",
+          "member_moderation" not in handlers.get("on_member_update", set())
+          or "role_events" in handlers.get("on_member_update", set()),
+          str(handlers.get("on_member_update")))
+
+    # Every category the dashboard offers must be reachable.
+    from api.routes.logging_cfg import CATEGORIES
+
+    reachable = set()
+    for cats in handlers.values():
+        reachable |= cats
+    unreachable = sorted(set(CATEGORIES) - reachable)
+    check("every category the dashboard offers can actually fire",
+          not unreachable,
+          f"{unreachable} -- a category nothing sends to is a switch "
+          "that does nothing")
+
+
+def test_reactions_use_the_raw_events():
+    """
+    on_reaction_add only fires for cached messages.
+
+    discord.py keeps 1000 messages across the whole bot by default, so
+    on a busy server that is minutes of history. Reacting to anything
+    older produced no event and nothing was logged -- the reported
+    symptom exactly.
+
+    The raw events always fire.
+    """
+    print("\nReactions are logged whatever their age")
+
+    source = read(os.path.join(BOT, "cogs/commands/logging.py"))
+    code = strip_comments(source)
+
+    check("the raw add event is used",
+          "async def on_raw_reaction_add" in code, "")
+    check("and the raw remove event",
+          "async def on_raw_reaction_remove" in code, "")
+    check("the cache-only versions are gone",
+          "async def on_reaction_add" not in code
+          and "async def on_reaction_remove" not in code,
+          "those only fire for messages still in the cache")
+
+    body = source.split("async def _reaction_log")[1].split("\n    @commands")[0]
+
+    check("both events share one implementation",
+          code.count("await self._reaction_log(") == 2,
+          "two copies drift, and one of them ends up missing a check")
+    check("bots are still filtered out",
+          'getattr(user, "bot", False)' in body,
+          "reaction roles and paginators would bury the human ones")
+    check("DMs are skipped",
+          "payload.guild_id is None" in body, "")
+    check("the jump link is built from ids",
+          "discord.com/channels/" in body,
+          "the raw event carries no message object to take it from")
+    check("a member that cannot be resolved still logs",
+          "fetch_user" in body and "<@{payload.user_id}>" in body,
+          "the id is the one thing that survives a deleted account")
+    check("it still reports the reaction category",
+          '"reaction_events"' in body, "")
+
+
+def test_new_events():
+    """
+    Things Discord reports that were not being logged at all.
+    """
+    print("\nEvents that were missing entirely")
+
+    source = read(os.path.join(BOT, "cogs/commands/logging.py"))
+    code = strip_comments(source)
+
+    for event, why in (
+        ("on_bulk_message_delete",
+         "a purge fires one bulk event, not fifty deletes -- clearing a "
+         "hundred messages left no trace"),
+        ("on_thread_create", "threads are channels people talk in"),
+        ("on_thread_delete", ""),
+        ("on_invite_create", "an invite is how a raid gets in"),
+        ("on_invite_delete", ""),
+    ):
+        check(f"{event} is handled", f"async def {event}" in code, why)
+
+    bulk = source.split("async def on_bulk_message_delete")[1].split("\n    @commands")[0]
+    check("a purge is one entry, not one per message",
+          '"Count"' in bulk, "")
+    check("and says who did it",
+          "message_bulk_delete" in bulk,
+          "that is the question a purge log answers")
+    check("only a sample of the messages is quoted",
+          "messages[:5]" in bulk,
+          "fifty quoted messages exceed the embed limits and are "
+          "unreadable anyway")
+
+
 async def run():
     test_categories_match_the_cog()
+    test_events_reach_the_right_category()
+    test_reactions_use_the_raw_events()
+    test_new_events()
     await test_api()
 
     print(f"\n{len(failures)} failures")

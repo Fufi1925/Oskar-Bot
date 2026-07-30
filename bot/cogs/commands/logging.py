@@ -2512,10 +2512,31 @@ class Logging(commands.Cog):
                         name="Roles Removed", value=roles_removed, inline=False
                     )
 
+                # Who did it. A role appearing on somebody with no
+                # explanation is the case this log exists for -- "who
+                # gave them that?" is the whole question.
+                entry = await self._get_audit_log(
+                    after.guild,
+                    discord.AuditLogAction.member_role_update,
+                    after.id,
+                )
+                if entry is not None and entry.user is not None:
+                    embed.add_field(
+                        name="Changed by", value=entry.user.mention, inline=True
+                    )
+
                 embed.set_footer(text=f"User ID: {after.id}")
 
+                # "role_events", not "member_moderation".
+                #
+                # Somebody switching on the category called "Rollen" and
+                # then handing out a role saw nothing, because this went
+                # to the moderation category instead. The dashboard's
+                # own description for role_events says "Rollen angelegt,
+                # gelöscht oder in den Rechten geändert" -- a role being
+                # given to a member belongs there by any reading.
                 await self._send_log(
-                    after.guild, "member_moderation", embed, None, after.id
+                    after.guild, "role_events", embed, None, after.id
                 )
 
             if before.nick != after.nick:
@@ -2923,75 +2944,228 @@ class Logging(commands.Cog):
         except Exception as e:
             logger.error(f"Error in on_guild_emojis_update: {e}")
 
+    # ── bulk deletes, threads, invites ───────────────────────────
+
     @commands.Cog.listener()
-    async def on_reaction_add(self, reaction, user):
-        """Log reaction additions (optional)."""
+    async def on_bulk_message_delete(self, messages: list[discord.Message]):
+        """
+        A purge. One entry, not fifty.
+
+        on_message_delete does not fire for these -- Discord sends a
+        single bulk event -- so without this a moderator clearing a
+        hundred messages left no trace at all.
+        """
         try:
-            if not reaction.message.guild or user.bot:
+            if not messages:
+                return
+            first = messages[0]
+            if first.guild is None:
                 return
 
-            embed = self._create_modern_embed("Reaction Added")
-            embed.set_author(name=user.display_name, icon_url=user.display_avatar.url)
+            embed = self._create_modern_embed("Messages Purged")
+            embed.add_field(name="Count", value=str(len(messages)), inline=True)
+            embed.add_field(name="Channel", value=first.channel.mention, inline=True)
 
-            embed.add_field(name="User", value=user.mention, inline=True)
-            embed.add_field(name="Reaction", value=str(reaction.emoji), inline=True)
+            entry = await self._get_audit_log(
+                first.guild, discord.AuditLogAction.message_bulk_delete
+            )
+            if entry is not None and entry.user is not None:
+                embed.add_field(name="Deleted by", value=entry.user.mention,
+                                inline=True)
+
+            # A sample rather than all of them: fifty quoted messages in
+            # one embed hits Discord's field limits and is unreadable.
+            sample = [
+                f"**{m.author.display_name}:** {(m.content or '')[:80]}"
+                for m in messages[:5]
+                if getattr(m, "content", None)
+            ]
+            if sample:
+                embed.add_field(
+                    name="First few",
+                    value="\n".join(sample)[:1000],
+                    inline=False,
+                )
+
+            await self._send_log(
+                first.guild, "message_events", embed, first.channel.id, None
+            )
+        except Exception as e:
+            logger.error(f"Error in on_bulk_message_delete: {e}")
+
+    @commands.Cog.listener()
+    async def on_thread_create(self, thread: discord.Thread):
+        try:
+            embed = self._create_modern_embed("Thread Created")
+            embed.add_field(name="Thread", value=thread.mention, inline=True)
+            if thread.parent is not None:
+                embed.add_field(name="In", value=thread.parent.mention, inline=True)
+            if thread.owner is not None:
+                embed.add_field(name="By", value=thread.owner.mention, inline=True)
+            embed.set_footer(text=f"Thread ID: {thread.id}")
+            await self._send_log(
+                thread.guild, "channel_events", embed, thread.parent_id, None
+            )
+        except Exception as e:
+            logger.error(f"Error in on_thread_create: {e}")
+
+    @commands.Cog.listener()
+    async def on_thread_delete(self, thread: discord.Thread):
+        try:
+            embed = self._create_modern_embed("Thread Deleted")
+            embed.add_field(name="Thread", value=f"#{thread.name}", inline=True)
+            if thread.parent is not None:
+                embed.add_field(name="In", value=thread.parent.mention, inline=True)
+            embed.set_footer(text=f"Thread ID: {thread.id}")
+            await self._send_log(
+                thread.guild, "channel_events", embed, thread.parent_id, None
+            )
+        except Exception as e:
+            logger.error(f"Error in on_thread_delete: {e}")
+
+    @commands.Cog.listener()
+    async def on_invite_create(self, invite: discord.Invite):
+        """
+        Invites are how a raid gets in, so who made one is worth knowing.
+        """
+        try:
+            guild = invite.guild
+            if guild is None or not isinstance(guild, discord.Guild):
+                return
+            embed = self._create_modern_embed("Invite Created")
+            embed.add_field(name="Code", value=f"`{invite.code}`", inline=True)
+            if invite.inviter is not None:
+                embed.add_field(name="By", value=invite.inviter.mention, inline=True)
+            if invite.channel is not None:
+                embed.add_field(name="Channel",
+                                value=getattr(invite.channel, "mention", "?"),
+                                inline=True)
             embed.add_field(
-                name="Message",
-                value=f"[Jump to message]({reaction.message.jump_url})",
+                name="Expires",
+                value="never" if not invite.max_age else f"{invite.max_age}s",
                 inline=True,
             )
             embed.add_field(
-                name="Channel", value=reaction.message.channel.mention, inline=True
-            )
-
-            embed.set_footer(
-                text=f"User ID: {user.id} • Message ID: {reaction.message.id}"
-            )
-
-            await self._send_log(
-                reaction.message.guild,
-                "reaction_events",
-                embed,
-                reaction.message.channel.id,
-                user.id,
-            )
-        except Exception as e:
-            logger.error(f"Error in on_reaction_add: {e}")
-
-    @commands.Cog.listener()
-    async def on_reaction_remove(self, reaction, user):
-        """Log reaction removals (optional)."""
-        try:
-            if not reaction.message.guild or user.bot:
-                return
-
-            embed = self._create_modern_embed("Reaction Removed")
-            embed.set_author(name=user.display_name, icon_url=user.display_avatar.url)
-
-            embed.add_field(name="User", value=user.mention, inline=True)
-            embed.add_field(name="Reaction", value=str(reaction.emoji), inline=True)
-            embed.add_field(
-                name="Message",
-                value=f"[Jump to message]({reaction.message.jump_url})",
+                name="Uses",
+                value="unlimited" if not invite.max_uses else str(invite.max_uses),
                 inline=True,
             )
-            embed.add_field(
-                name="Channel", value=reaction.message.channel.mention, inline=True
+            await self._send_log(guild, "system_events", embed, None, None)
+        except Exception as e:
+            logger.error(f"Error in on_invite_create: {e}")
+
+    @commands.Cog.listener()
+    async def on_invite_delete(self, invite: discord.Invite):
+        try:
+            guild = invite.guild
+            if guild is None or not isinstance(guild, discord.Guild):
+                return
+            embed = self._create_modern_embed("Invite Deleted")
+            embed.add_field(name="Code", value=f"`{invite.code}`", inline=True)
+            await self._send_log(guild, "system_events", embed, None, None)
+        except Exception as e:
+            logger.error(f"Error in on_invite_delete: {e}")
+
+    # ── reactions ────────────────────────────────────────────────
+    #
+    # The raw events, not on_reaction_add/on_reaction_remove.
+    #
+    # Those two only fire for messages discord.py still holds in its
+    # message cache -- 1000 messages by default, shared across every
+    # channel of every server. On a busy bot that is a few minutes of
+    # history, so reacting to anything older produced no event at all
+    # and nothing was logged. Which is exactly the reported symptom.
+    #
+    # The raw events always fire. The cost is that they carry ids
+    # rather than objects, so the channel, the member and the emoji
+    # have to be resolved by hand -- see _reaction_log.
+
+    @commands.Cog.listener()
+    async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent):
+        await self._reaction_log(payload, added=True)
+
+    @commands.Cog.listener()
+    async def on_raw_reaction_remove(self, payload: discord.RawReactionActionEvent):
+        await self._reaction_log(payload, added=False)
+
+    async def _reaction_log(
+        self, payload: discord.RawReactionActionEvent, *, added: bool
+    ) -> None:
+        """
+        One reaction, added or removed.
+
+        Shared by both events because they differ in one word. Two
+        copies of this drifted apart once already -- the remove handler
+        was missing a check the add handler had.
+        """
+        try:
+            if payload.guild_id is None:
+                return  # a DM
+
+            guild = self.bot.get_guild(payload.guild_id)
+            if guild is None:
+                return
+
+            # payload.member is only populated on add, and only for
+            # guild reactions. On remove it is always None, so the user
+            # has to be looked up.
+            user = payload.member or guild.get_member(payload.user_id)
+            if user is None:
+                try:
+                    user = await self.bot.fetch_user(payload.user_id)
+                except Exception:  # noqa: BLE001
+                    user = None
+
+            # Bots react constantly -- reaction roles, paginators, the
+            # bot's own panels. Logging those buries the human ones.
+            if user is not None and getattr(user, "bot", False):
+                return
+
+            channel = guild.get_channel_or_thread(payload.channel_id)
+
+            embed = self._create_modern_embed(
+                "Reaction Added" if added else "Reaction Removed"
             )
+            if user is not None:
+                embed.set_author(
+                    name=getattr(user, "display_name", str(user)),
+                    icon_url=user.display_avatar.url,
+                )
+                embed.add_field(name="User", value=user.mention, inline=True)
+            else:
+                # The id is still worth having: it is the one thing that
+                # identifies who did it, even when the account is gone.
+                embed.add_field(
+                    name="User", value=f"<@{payload.user_id}>", inline=True
+                )
+
+            embed.add_field(name="Reaction", value=str(payload.emoji), inline=True)
+
+            # Built from ids rather than taken from a message object,
+            # which the raw event does not carry.
+            jump = (
+                f"https://discord.com/channels/{payload.guild_id}"
+                f"/{payload.channel_id}/{payload.message_id}"
+            )
+            embed.add_field(
+                name="Message", value=f"[Jump to message]({jump})", inline=True
+            )
+            if channel is not None:
+                embed.add_field(name="Channel", value=channel.mention, inline=True)
 
             embed.set_footer(
-                text=f"User ID: {user.id} • Message ID: {reaction.message.id}"
+                text=f"User ID: {payload.user_id} • Message ID: {payload.message_id}"
             )
 
             await self._send_log(
-                reaction.message.guild,
+                guild,
                 "reaction_events",
                 embed,
-                reaction.message.channel.id,
-                user.id,
+                payload.channel_id,
+                payload.user_id,
             )
         except Exception as e:
-            logger.error(f"Error in on_reaction_remove: {e}")
+            logger.error(f"Error in reaction log: {e}")
 
 
 async def setup(bot):

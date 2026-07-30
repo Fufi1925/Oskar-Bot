@@ -261,12 +261,15 @@ export function LoggingPanel({ guildId }: { guildId: string }) {
           </div>
         </div>
 
-        {activeNow === 0 && (
-          <div className="rounded-xl bg-primary/[0.06] border border-primary/25 p-4 space-y-3">
+        {/* Always available, not just while nothing is set up.
+            Hiding it after the first category was configured meant the
+            fastest way to fix a wrongly-split setup disappeared exactly
+            when somebody needed it. */}
+        <div className="rounded-xl bg-primary/[0.06] border border-primary/25 p-4 space-y-3">
             <p className="text-[12px] text-slate-300 leading-relaxed">
-              Noch nichts eingerichtet. Der schnellste Start: einen Kanal
-              wählen, dann landet alles dort. Einzeln aufteilen kannst du es
-              danach immer noch.
+              {activeNow === 0
+                ? "Noch nichts eingerichtet. Der schnellste Start: einen Kanal wählen, dann landet alles dort. Einzeln aufteilen kannst du es danach immer noch."
+                : "Alles in einen Kanal umziehen? Kanal wählen und bestätigen — die einzelnen Einstellungen darunter werden dabei überschrieben."}
             </p>
             <ChannelPicker
               guildId={guildId}
@@ -289,7 +292,29 @@ export function LoggingPanel({ guildId }: { guildId: string }) {
               Reaktionen bleiben dabei aus — die feuern bei jedem Klick auf
               ein Emoji und fluten den Kanal.
             </p>
-          </div>
+        </div>
+
+        {/* Turning everything off in one go. Without this the only way
+            to stop a channel filling up was nine separate toggles, one
+            save each. */}
+        {activeNow > 0 && (
+          <button
+            onClick={() => {
+              const off: Record<string, any> = {};
+              for (const c of categories) {
+                off[c.key] = { ...(catDraft[c.key] || {}), enabled: false };
+              }
+              // Through p.set, like every other change: the save bar
+              // counts pending edits from the draft, so writing the
+              // state directly would leave it showing "nothing to save".
+              p.set("categories", off);
+              toast.info("Alle aus — unten speichern, dann gilt es.");
+            }}
+            disabled={p.busy}
+            className="w-full py-3 rounded-xl bg-white/[0.03] border border-white/10 text-[11px] font-black uppercase tracking-widest text-slate-400 hover:text-white disabled:opacity-40 transition-all"
+          >
+            Alle Arten ausschalten
+          </button>
         )}
       </Card>
 
