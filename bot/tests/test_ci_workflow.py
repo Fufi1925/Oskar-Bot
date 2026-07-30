@@ -207,6 +207,55 @@ def test_versions_match_the_container(data):
 # ══════════════════════════════════════════════════════════════════════
 
 
+def test_no_network_is_honoured():
+    """
+    CI sets NO_NETWORK, and something has to read it.
+
+    The workflow passed the variable from the first version, but no test
+    looked at it -- so the first CI run fetched youtube.com for real. It
+    passed, which is exactly why this was easy to miss: it works right
+    up until YouTube is slow or rate-limits the runner, and then the
+    build is red for a reason unrelated to the commit.
+    """
+    print("\nNO_NETWORK actually does something")
+
+    raw = read(WORKFLOW)
+    check("the workflow sets NO_NETWORK", "NO_NETWORK" in raw, "")
+
+    readers = []
+    tests_dir = os.path.join(BOT, "tests")
+    for name in sorted(os.listdir(tests_dir)):
+        if not name.endswith(".py"):
+            continue
+        if "NO_NETWORK" in read(os.path.join(tests_dir, name)):
+            readers.append(name)
+
+    check("and at least one test reads it", readers, str(readers))
+
+    # The network tests are the reason it exists.
+    check("the youtube test honours it",
+          "test_youtube_notify.py" in readers,
+          "it is the only suite that talks to the open internet")
+
+    # Exercise it rather than grep for it: run the suite with the
+    # variable set and confirm something is actually skipped.
+    result = subprocess.run(
+        [sys.executable, "tests/test_youtube_notify.py"],
+        cwd=BOT, capture_output=True, text=True,
+        env={**os.environ, "NO_NETWORK": "1"},
+        timeout=300,
+    )
+    check("with NO_NETWORK the run still passes",
+          result.returncode == 0, result.stdout[-300:])
+    check("and it skips the network part",
+          "skipped" in result.stdout and "0 failures" in result.stdout,
+          result.stdout[-200:])
+    check("without hitting youtube",
+          "Against real YouTube" not in result.stdout
+          or "no network" in result.stdout.lower(),
+          result.stdout[-300:])
+
+
 def test_lint_step_is_realistic():
     """
     A lint job that is red from day one is a lint job everybody learns
@@ -470,6 +519,7 @@ def main():
     data = test_workflow_exists()
     test_commands_exist(data)
     test_versions_match_the_container(data)
+    test_no_network_is_honoured()
     test_lint_step_is_realistic()
     test_boot_script_fails_loudly()
     test_repository_metadata()

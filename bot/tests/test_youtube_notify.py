@@ -447,6 +447,22 @@ async def test_api(online: bool):
 
 
 async def reachable() -> bool:
+    """
+    Is YouTube reachable, and are we allowed to use it?
+
+    NO_NETWORK is honoured first. CI sets it: the workflow passed the
+    variable from the start, but nothing read it, so the first run
+    fetched youtube.com for real. That works right up until YouTube is
+    slow or rate-limits the runner, and then the build is red for a
+    reason that has nothing to do with the commit.
+
+    The check itself stays -- these two endpoints are undocumented
+    public markup, and a silent change there would otherwise only show
+    up as "the bot stopped posting". It just belongs in a run somebody
+    started deliberately, not on every push.
+    """
+    if (os.getenv("NO_NETWORK") or "").strip().lower() in ("1", "true", "yes"):
+        return False
     try:
         async with aiohttp.ClientSession() as session:
             async with session.get(
