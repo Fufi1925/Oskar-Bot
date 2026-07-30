@@ -41,6 +41,49 @@ export interface Announcement {
 
 export const ANNOUNCEMENTS: Announcement[] = [
   {
+    id: "2026-07-backups",
+    label: "Changelog: Backups",
+    summary: "Tägliche Sicherung, und zwei fehlende Datenbanken",
+    guilds: [BOT_GUILD_ID],
+    date: "30.07.2026",
+    accent: "#faa61a",
+    blocks: [
+      {
+        type: "text",
+        text:
+          "# 💾 Changelog · Backups\n" +
+          "### Zwei Datenbanken fehlten in der automatischen Sicherung",
+      },
+      { type: "divider" },
+      {
+        type: "text",
+        text:
+          "Die automatische Sicherung hat **Reaktions-Rollen** und " +
+          "**Join to Create** übersprungen — beide liegen außerhalb des " +
+          "Datenbank-Ordners. Beim Zurückspielen wären sie weg gewesen. " +
+          "Behoben: es wird jetzt überall dasselbe gesichert.",
+      },
+      { type: "divider" },
+      {
+        type: "text",
+        text:
+          "## Außerdem\n\n" +
+          "> 📅 **Einmal am Tag** statt alle sechs Stunden.\n" +
+          "> 🧹 **Nur die neueste** wird behalten — kein Zumüllen mehr.\n" +
+          "> ✅ **Erst prüfen, dann löschen** — die alte Sicherung " +
+          "verschwindet erst, wenn die neue gelesen und für gut " +
+          "befunden wurde. Geht etwas schief, bleibt die alte da.",
+      },
+      { type: "divider" },
+      {
+        type: "text",
+        text:
+          "-# Sicherungen liegen unter Admin → Backups und lassen sich " +
+          "dort herunterladen.",
+      },
+    ],
+  },
+  {
     id: "2026-07-status-emojis",
     label: "Changelog: Status-Emojis",
     summary: "Eigene Emojis im Status-Panel",

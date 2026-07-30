@@ -35,11 +35,52 @@ def _env_int(name: str, default: int, minimum: int) -> int:
         return default
 
 
-# How many automatic snapshots to keep, and how often to take one.
-# Configurable so a deployment with a persistent volume can keep more
-# history than the default ephemeral setup.
-BACKUP_KEEP = _env_int("BACKUP_KEEP", 3, 1)
-BACKUP_INTERVAL = _env_int("BACKUP_INTERVAL_SECONDS", 21600, 300)
+# One snapshot a day, and only the newest one kept.
+#
+# Keeping one is the owner's call: the volume is for living data, not an
+# archive, and three sets of every database is mostly clutter. It is
+# safe here only because the old one is deleted *after* the new one has
+# been read back and verified -- see _backup_loop. Deleting first would
+# mean a failed backup leaves nothing.
+#
+# Both are still configurable for a deployment that wants more history.
+BACKUP_KEEP = _env_int("BACKUP_KEEP", 1, 1)
+BACKUP_INTERVAL = _env_int("BACKUP_INTERVAL_SECONDS", 86400, 300)
+
+
+async def _verify_snapshot(target: str, expected_paths) -> tuple[bool, str]:
+    """
+    Read a fresh snapshot back before trusting it.
+
+    A backup nobody has opened is a guess. This checks three things that
+    actually go wrong: a file missing entirely, a file that is there but
+    empty, and a file SQLite refuses to read. The last one is the reason
+    for the integrity check rather than a size comparison -- a truncated
+    copy has a plausible size and opens fine until you query it.
+
+    Returns (ok, reason). The reason is for the log when it is not ok.
+    """
+    from api.config_transfer import db_key
+
+    if not os.path.isdir(target):
+        return False, "the folder was not created"
+
+    for path in expected_paths:
+        stored = os.path.join(target, db_key(path))
+        if not os.path.exists(stored):
+            return False, f"{os.path.basename(path)} is missing"
+        if os.path.getsize(stored) == 0:
+            return False, f"{os.path.basename(path)} is empty"
+        try:
+            async with aiosqlite.connect(stored) as db:
+                async with db.execute("PRAGMA integrity_check") as cursor:
+                    row = await cursor.fetchone()
+            if not row or row[0] != "ok":
+                return False, f"{os.path.basename(path)}: {row[0] if row else 'unreadable'}"
+        except Exception as exc:
+            return False, f"{os.path.basename(path)} cannot be opened ({exc})"
+
+    return True, ""
 
 
 # ── Shared runtime state ──────────────────────────────────────────────────
@@ -330,39 +371,60 @@ class FeatureServices:
             )
 
     async def _backup_loop(self) -> None:
+        """
+        The daily snapshot.
+
+        Two rules, both deliberate:
+
+        **What goes in** comes from config_transfer.write_snapshot, the
+        same function the dashboard's backup button uses. This loop used
+        to glob ``db/*.db`` itself, which quietly skipped ``rr.db``
+        (reaction roles) and ``j2c_data.db`` (join to create) -- so
+        restoring an automatic snapshot wiped both.
+
+        **When the old one goes** is after the new one is verified, not
+        before. The old snapshot is the only copy that exists while the
+        new one is being written; deleting first and then failing
+        half-way through leaves nothing at all. So: write, check, and
+        only then remove -- and if the check fails, keep what we had and
+        say so.
+        """
         if not flags.is_enabled("database_backup_scheduler"):
             return
 
+        from api.config_transfer import iter_database_files, write_snapshot
+
         stamp = time.strftime("%Y%m%d-%H%M%S")
         target = os.path.join(BACKUP_DIR, stamp)
-        os.makedirs(target, exist_ok=True)
 
-        copied = 0
-        for path in glob.glob(os.path.join(DB_DIR, "*.db")):
-            try:
-                # sqlite's own backup API keeps the copy consistent while the
-                # bot keeps writing.
-                async with aiosqlite.connect(path) as source:
-                    async with aiosqlite.connect(
-                        os.path.join(target, os.path.basename(path))
-                    ) as destination:
-                        await source.backup(destination)
-                copied += 1
-            except Exception:
-                try:
-                    shutil.copy2(path, target)
-                    copied += 1
-                except Exception as exc:
-                    print(f"[feature_services] backup of {path} failed: {exc}")
+        try:
+            copied, json_copied = await write_snapshot(target)
+        except Exception as exc:
+            print(f"[feature_services] backup failed: {exc}")
+            shutil.rmtree(target, ignore_errors=True)
+            return
+
+        ok, problem = await _verify_snapshot(target, iter_database_files())
+        if not ok:
+            # A snapshot that cannot be read back is not a backup. Drop
+            # it and keep the previous one, which is still good.
+            print(
+                f"[feature_services] backup {stamp} did not verify "
+                f"({problem}) — discarded, keeping the previous one."
+            )
+            shutil.rmtree(target, ignore_errors=True)
+            return
 
         runtime.last_backup_at = time.time()
 
-        # Retention: keep only the newest BACKUP_KEEP automatic snapshots.
+        # Rotation, only now that there is a verified replacement.
         #
         # Safety copies taken before a restore or import are named
-        # "pre-restore-*" / "pre-import-*". They are the user's undo and must
-        # survive rotation, so they are excluded here. Sorting is by mtime
-        # rather than by name, because the prefixes break lexical ordering.
+        # "pre-restore-*" / "pre-import-*". They are the user's undo and
+        # must survive rotation, so they are excluded here. Sorting is
+        # by mtime rather than by name, because the prefixes break
+        # lexical ordering.
+        removed = 0
         try:
             candidates = [
                 d for d in glob.glob(os.path.join(BACKUP_DIR, "*"))
@@ -371,10 +433,15 @@ class FeatureServices:
             candidates.sort(key=os.path.getmtime)
             for old in candidates[:-BACKUP_KEEP]:
                 shutil.rmtree(old, ignore_errors=True)
+                removed += 1
         except Exception as exc:
             print(f"[feature_services] backup rotation failed: {exc}")
 
-        print(f"[feature_services] Backup complete: {copied} databases -> {target}")
+        print(
+            f"[feature_services] Backup complete and verified: "
+            f"{copied} databases + {json_copied} config files -> {target}"
+            + (f" ({removed} older removed)" if removed else "")
+        )
 
     async def _cleanup_loop(self) -> None:
         if not flags.is_enabled("orphan_data_cleanup"):

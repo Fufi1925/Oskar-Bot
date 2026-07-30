@@ -230,6 +230,59 @@ def db_path_from_key(key: str) -> str:
     return key if key in EXTRA_DB_FILES else os.path.join("db", key)
 
 
+async def write_snapshot(target: str) -> tuple[int, int]:
+    """
+    Copy every live database and JSON config file into `target`.
+
+    The single place that knows what belongs in a snapshot. There used
+    to be two: this one, behind the dashboard's backup button, and a
+    second copy inside the background scheduler that globbed ``db/*.db``
+    and nothing else. The two drifted, and the automatic backups
+    silently skipped ``rr.db`` (reaction roles) and ``j2c_data.db``
+    (join to create) -- the exact files this module already carried a
+    comment about. Restoring an automatic snapshot would have wiped
+    both.
+
+    Returns (databases copied, json files copied).
+    """
+    import shutil
+
+    os.makedirs(target, exist_ok=True)
+
+    copied = 0
+    for path in iter_database_files():
+        stored_as = os.path.join(target, db_key(path))
+        try:
+            # sqlite's own backup API keeps the copy consistent while
+            # the bot carries on writing to the original.
+            async with aiosqlite.connect(path) as source:
+                async with aiosqlite.connect(stored_as) as destination:
+                    await source.backup(destination)
+            copied += 1
+        except Exception:
+            try:
+                shutil.copy2(path, stored_as)
+                copied += 1
+            except Exception as exc:
+                print(f"[config_transfer] backup of {path} failed: {exc}")
+
+    # Join-DM templates and the ignore lists live in JSON, not SQLite. A
+    # snapshot without them cannot fully restore the bot.
+    json_copied = 0
+    for name in JSON_CONFIG_FILES:
+        if not os.path.exists(name):
+            continue
+        try:
+            destination = os.path.join(target, name.replace("/", "__"))
+            os.makedirs(os.path.dirname(destination) or ".", exist_ok=True)
+            shutil.copy2(name, destination)
+            json_copied += 1
+        except Exception as exc:
+            print(f"[config_transfer] backup of {name} failed: {exc}")
+
+    return copied, json_copied
+
+
 def _collect_json_files() -> dict[str, Any]:
     """Read the JSON config files that belong in a backup."""
     out: dict[str, Any] = {}

@@ -108,7 +108,9 @@ FEATURE_FLAGS: tuple[FeatureFlag, ...] = (
     FeatureFlag(
         "database_backup_scheduler", "Database Backup Scheduler", CATEGORY_DATA,
         "Creates periodic snapshots of every SQLite database.",
-        True, "Copies db/*.db into db/backups every 6 hours (keeps 3 sets).",
+        True, "Copies every database into db/backups once a day. Keeps the "
+              "newest one; the old one is deleted only after the new one "
+              "has been read back and verified.",
     ),
     FeatureFlag(
         "database_integrity_scan", "Database Integrity Scan", CATEGORY_DATA,

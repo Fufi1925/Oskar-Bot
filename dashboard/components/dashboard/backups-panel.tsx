@@ -143,17 +143,31 @@ export function BackupsPanel({
             <div>
               <h3 className="text-xl font-black text-white">Backups</h3>
               <p className="text-sm text-slate-400 mt-1">
-                {snapshots.length} snapshots · automatic{" "}
+                {snapshots.length} Sicherungen · automatisch{" "}
                 <span className={schedulerOn ? "text-emerald-400" : "text-slate-500"}>
-                  {schedulerOn ? "on" : "off"}
+                  {schedulerOn ? "an" : "aus"}
                 </span>
                 {schedulerOn && scheduler && (
-                  <> · every {scheduler.interval_hours}h, keeps {scheduler.keep}</>
+                  <>
+                    {" "}
+                    · alle {scheduler.interval_hours} h, {scheduler.keep}{" "}
+                    {scheduler.keep === 1 ? "wird behalten" : "werden behalten"}
+                  </>
                 )}
               </p>
               {schedulerOn && scheduler?.last_backup_at ? (
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Last automatic backup: {formatDate(scheduler.last_backup_at)}
+                  Letzte automatische Sicherung:{" "}
+                  {formatDate(scheduler.last_backup_at)}
+                </p>
+              ) : null}
+              {/* Worth saying, because keeping only one snapshot sounds
+                  riskier than it is: the old one is only deleted once
+                  the new one has been read back successfully. */}
+              {schedulerOn && scheduler?.keep === 1 ? (
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Die alte Sicherung wird erst gelöscht, wenn die neue
+                  geprüft ist — schlägt sie fehl, bleibt die alte erhalten.
                 </p>
               ) : null}
             </div>
@@ -256,7 +270,12 @@ export function BackupsPanel({
       <div className="space-y-3">
         {snapshots.length === 0 ? (
           <p className="text-center text-slate-500 py-12">
-            No snapshots yet. The scheduler runs every 6 hours, or create one now.
+            {/* Read from the scheduler rather than written out: the
+                interval was hard-coded here and still said "6 hours"
+                long after it had been changed. */}
+            Noch keine Sicherung. Die automatische läuft
+            {scheduler ? ` alle ${scheduler.interval_hours} h` : " regelmäßig"}
+            {" "}— oder jetzt eine anlegen.
           </p>
         ) : (
           snapshots.map((snapshot) => (

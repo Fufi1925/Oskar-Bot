@@ -827,52 +827,22 @@ async def _create_snapshot(prefix: str = "") -> dict:
 
     Shared by the manual backup button and by the restore/import routes,
     which take a safety copy before overwriting anything.
+
+    The copying itself lives in config_transfer.write_snapshot, which is
+    also what the background scheduler calls. Two separate copies of
+    "what belongs in a backup" is how the automatic one ended up
+    skipping rr.db and j2c_data.db.
     """
-    import glob
-    import shutil
     import time as _time
+
+    from api.config_transfer import write_snapshot
 
     stamp = _time.strftime("%Y%m%d-%H%M%S")
     if prefix:
         stamp = f"{prefix}-{stamp}"
 
     target = os.path.join("db", "backups", stamp)
-    os.makedirs(target, exist_ok=True)
-
-    from api.config_transfer import db_key, iter_database_files
-
-    copied = 0
-    # Not just db/*.db — reaction roles and join-to-create keep their
-    # databases in the working directory and used to be left out.
-    for path in iter_database_files():
-        stored_as = os.path.join(target, db_key(path))
-        try:
-            # sqlite's backup API stays consistent while the bot writes.
-            async with aiosqlite.connect(path) as source:
-                async with aiosqlite.connect(stored_as) as destination:
-                    await source.backup(destination)
-            copied += 1
-        except Exception:
-            try:
-                shutil.copy2(path, stored_as)
-                copied += 1
-            except Exception:
-                continue
-
-    # Join-DM templates and the ignore lists live in JSON files,
-    # not in SQLite. A snapshot without them cannot fully restore the bot.
-    json_copied = 0
-    from api.config_transfer import JSON_CONFIG_FILES
-
-    for name in JSON_CONFIG_FILES:
-        if not os.path.exists(name):
-            continue
-        try:
-            destination = os.path.join(target, name.replace("/", "__"))
-            shutil.copy2(name, destination)
-            json_copied += 1
-        except Exception:
-            continue
+    copied, json_copied = await write_snapshot(target)
 
     return {"name": stamp, "file_count": copied, "json_count": json_copied}
 
