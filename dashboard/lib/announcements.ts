@@ -41,6 +41,76 @@ export interface Announcement {
 
 export const ANNOUNCEMENTS: Announcement[] = [
   {
+    id: "2026-07-slash-aufraeumen",
+    label: "Changelog: Slash-Menü",
+    summary: "11 Befehle aus dem / -Menü, /report repariert",
+    guilds: [BOT_GUILD_ID],
+    date: "30.07.2026",
+    accent: "#5865f2",
+    blocks: [
+      {
+        type: "text",
+        text:
+          "# 🧭 Changelog · Slash-Menü\n" +
+          "### Weniger Krempel, wenn ihr `/` tippt",
+      },
+      { type: "divider" },
+      {
+        type: "text",
+        text:
+          "Das `/`-Menü hatte **142 Einträge**. Discord erlaubt aber " +
+          "nur 100 — ein Teil kam also ohnehin nie an. Elf Befehle sind " +
+          "jetzt **nur noch mit Präfix** erreichbar.",
+      },
+      { type: "divider" },
+      {
+        type: "text",
+        text:
+          "## Nicht mehr im / -Menü\n\n" +
+          "> `hinglish` · `urban` · `steal` · `disconnect`\n" +
+          "> `2048` · `lights-out` · `number-slider`\n" +
+          "> `list early` · `list activedeveloper`\n" +
+          "> `list createdat` · `list joinedat`\n\n" +
+          "**Gelöscht wurde nichts** — `!urban`, `!2048` und der Rest " +
+          "funktionieren weiter wie bisher.",
+      },
+      { type: "divider" },
+      {
+        type: "text",
+        text:
+          "## Zwei davon waren als / -Befehl kaputt\n\n" +
+          "> 🎵 **`/disconnect`** war der einzige Musik-Befehl im Menü. " +
+          "Man konnte die Musik beenden, aber nicht starten — `/play` " +
+          "gab es nie.\n" +
+          "> 😀 **`/steal`** benutzt man, indem man auf eine Nachricht " +
+          "antwortet. Bei `/` gibt es keine Antwort-Nachricht, also tat " +
+          "die Hälfte des Befehls stillschweigend nichts.",
+      },
+      { type: "divider" },
+      {
+        type: "text",
+        text:
+          "## `/report` funktioniert wieder\n\n" +
+          "Der Befehl schickte an einen fest eingebauten Kanal, in dem " +
+          "der Bot **gar nicht mehr ist**. Ergebnis: Absturz, kein " +
+          "Bug-Report kam an, und der Melder sah **keinerlei** " +
+          "Rückmeldung.\n\n" +
+          "> ✅ Der Kanal ist jetzt einstellbar (Admin → Einstellungen " +
+          "→ Bug Report Channel).\n" +
+          "> ✅ Ist keiner gesetzt, sagt der Bot das ehrlich, statt " +
+          "still zu scheitern.",
+      },
+      { type: "divider" },
+      {
+        type: "text",
+        text:
+          "-# Behalten wurden unter anderem `/nuke`, `/unbanall`, " +
+          "`/list bots`, `/list emojis`, `/list roles` und alle Spiele " +
+          "zu zweit.",
+      },
+    ],
+  },
+  {
     id: "2026-07-counting-neustart",
     label: "Changelog: Counting-Neustart",
     summary: "Fehler = Kanal komplett leer und Regeln wieder oben",

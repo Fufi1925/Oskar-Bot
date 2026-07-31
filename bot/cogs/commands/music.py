@@ -997,7 +997,12 @@ class Music(commands.Cog):
         await ctx.author.voice.channel.connect(cls=wavelink.Player)
         await ctx.send(view=CV2("Joined the voice channel."))
 
-    @commands.hybrid_command(name="disconnect", aliases=["dc", "leave"], usage="disconnect", help="Disconnects the bot from the voice channel.")
+    # Prefix-only. This was the *only* music command in the slash menu:
+    # you could stop playback with /disconnect but there was no /play to
+    # start it, because the other 16 music commands are prefix-only.
+    # Half a feature is more confusing than none, so it now matches the
+    # rest. !disconnect / !dc / !leave still work.
+    @commands.command(name="disconnect", aliases=["dc", "leave"], usage="disconnect", help="Disconnects the bot from the voice channel.")
     @blacklist_check()
     @ignore_check()
     @commands.cooldown(1, 3, commands.BucketType.user)

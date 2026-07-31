@@ -65,6 +65,13 @@ SETTINGS: tuple[Setting, ...] = (
         "channel",
     ),
     Setting(
+        "report_channel", "Bug Report Channel", "Logging",
+        "Where /report sends bug reports. Without one the command tells "
+        "the reporter it could not be delivered instead of failing "
+        "silently.",
+        "channel", env_var="REPORT_CHANNEL_ID",
+    ),
+    Setting(
         "support_server_invite", "Support Server", "Branding",
         "Invite link shown in help messages and the dashboard footer.",
         "text", default="https://discord.gg/MG3rYnUZJV",

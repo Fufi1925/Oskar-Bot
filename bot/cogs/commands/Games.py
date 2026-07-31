@@ -93,10 +93,12 @@ class Games(Cog):
         game = games.Wordle()
         await game.start(ctx, timeout=120)
 
-    @commands.hybrid_command(name="2048",
-                             help="Play 2048 game with bot.",
-                             aliases=["twenty48"],
-                             usage="2048")
+    # Solo games are prefix-only: they crowd the slash menu without
+    # being reachable any faster there. !2048 still works.
+    @commands.command(name="2048",
+                      help="Play 2048 game with bot.",
+                      aliases=["twenty48"],
+                      usage="2048")
     @blacklist_check()
     @ignore_check()
     @commands.cooldown(1, 3, commands.BucketType.user)
@@ -119,10 +121,11 @@ class Games(Cog):
         game = btn.MemoryGame()
         await game.start(ctx)
 
-    @commands.hybrid_command(name="number-slider",
-                             help="slide numbers with bot",
-                             aliases=["slider"],
-                             usage="slider")
+    # Prefix-only, see the note on 2048.
+    @commands.command(name="number-slider",
+                      help="slide numbers with bot",
+                      aliases=["slider"],
+                      usage="slider")
     @blacklist_check()
     @ignore_check()
     @commands.cooldown(1, 3, commands.BucketType.user)
@@ -185,10 +188,11 @@ class Games(Cog):
 
 
 
-    @commands.hybrid_command(name="lights-out",
-                             help="Play Lights Show game with bot.",
-                             aliases=["lightsout"],
-                             usage="Lights-out")
+    # Prefix-only, see the note on 2048.
+    @commands.command(name="lights-out",
+                      help="Play Lights Show game with bot.",
+                      aliases=["lightsout"],
+                      usage="Lights-out")
     @blacklist_check()
     @ignore_check()
     @commands.cooldown(1, 3, commands.BucketType.user)

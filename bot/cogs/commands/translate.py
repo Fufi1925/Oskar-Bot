@@ -48,7 +48,10 @@ class TranslateCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @commands.hybrid_command(
+    # Prefix-only: Hinglish to English has no audience on a German
+    # server, so it does not earn a slot in the slash menu. !hinglish
+    # still works for anyone who wants it.
+    @commands.command(
         name="hinglish",
         help="Translate informal Hinglish to proper English.",
         usage="!hinglish chlo udhr chat active krlo idhr nai"

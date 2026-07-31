@@ -29,6 +29,7 @@ import requests
 from typing import *
 from utils import *
 from utils.config import BotName, serverLink
+from utils import bot_settings
 from utils import Paginator, DescriptionEmbedPaginator, FieldPagePaginator, TextPaginator
 from core import Cog, universitybot, Context
 from typing import Optional
@@ -687,7 +688,9 @@ class Extra(commands.Cog):
                           ctx=ctx)
     await paginator.paginate()
 
-  @__list_.command(name="early", aliases=["sup"], help= "List of members that have Early Supporter badge.", with_app_command=True)
+  # Prefix-only: a Discord badge nobody can earn any more is decoration,
+  # not a tool. !list early still works.
+  @__list_.command(name="early", aliases=["sup"], help= "List of members that have Early Supporter badge.", with_app_command=False)
   @blacklist_check()
   @ignore_check()
   @commands.cooldown(1, 3, commands.BucketType.user)
@@ -714,9 +717,10 @@ class Extra(commands.Cog):
                           ctx=ctx)
     await paginator.paginate()
 
+  # Prefix-only, same reasoning as "early": a badge listing is trivia.
   @__list_.command(name="activedeveloper", help= "List of members that have Active Developer badge.",
                    aliases=["activedev"],
-                   with_app_command=True)
+                   with_app_command=False)
   @blacklist_check()
   @ignore_check()
   @commands.cooldown(1, 3, commands.BucketType.user)
@@ -743,7 +747,9 @@ class Extra(commands.Cog):
                           ctx=ctx)
     await paginator.paginate()
 
-  @__list_.command(name="createdat", help= "List of Account Creation Date of all Users", with_app_command=True)
+  # Prefix-only: dumping the creation date of every member is a wall of
+  # text that nobody reads. !list createdat still works.
+  @__list_.command(name="createdat", help= "List of Account Creation Date of all Users", with_app_command=False)
   @blacklist_check()
   @ignore_check()
   @commands.cooldown(1, 3, commands.BucketType.user)
@@ -764,7 +770,8 @@ class Extra(commands.Cog):
                           ctx=ctx)
     await paginator.paginate()
 
-  @__list_.command(name="joinedat", help= "List of Guild Joined date of all Users", with_app_command=True)
+  # Prefix-only, same reasoning as "createdat".
+  @__list_.command(name="joinedat", help= "List of Guild Joined date of all Users", with_app_command=False)
   @blacklist_check()
   @ignore_check()
   @commands.cooldown(1, 3, commands.BucketType.user)
@@ -979,8 +986,33 @@ class Extra(commands.Cog):
   @ignore_check()
   @commands.cooldown(1, 30, commands.BucketType.channel)
   async def report(self, ctx, *, bug):
-    channel = self.bot.get_channel(1396813063642153030)
+    # The target used to be a hardcoded channel id. The bot is not in
+    # that channel any more (Discord answers 50001 Missing Access), so
+    # get_channel returned None and the next line raised AttributeError:
+    # every report was lost and the reporter saw nothing at all.
+    # It now uses the configurable channel, and says so when unset.
+    channel_id = bot_settings.get_int("report_channel")
+    channel = self.bot.get_channel(channel_id) if channel_id else None
+
+    if channel is None:
+      await ctx.reply(view=CV2(
+        f"{ZWARNING} Report not delivered",
+        "No report channel is configured, so this could not be "
+        "forwarded. An admin can set one under Admin → Settings → "
+        "Report Channel.",
+      ))
+      return
+
     report_text = f"{bug}\n\n**Reported By:** {ctx.author.name}\n**Server:** {ctx.guild.name}\n**Channel:** {ctx.channel.name}"
-    await channel.send(view=CV2("Bug Reported", report_text))
+    try:
+      await channel.send(view=CV2("Bug Reported", report_text))
+    except discord.HTTPException:
+      # Forbidden, deleted channel, anything else Discord refuses.
+      await ctx.reply(view=CV2(
+        f"{ZWARNING} Report not delivered",
+        "The report channel could not be reached. Please tell an admin.",
+      ))
+      return
+
     await ctx.reply(view=CV2(f"{TICK} Bug Reported", "Thank you for reporting the bug. We will look into it."))
 

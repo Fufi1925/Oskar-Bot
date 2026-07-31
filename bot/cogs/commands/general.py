@@ -302,7 +302,10 @@ class General(commands.Cog):
     await ctx.send(view=CV2(f"{self.bot.user.name}", f"**{ZWARNING} Successfully Wizzed {ctx.guild.name}**"))
 
 
-  @commands.hybrid_command(
+  # Prefix-only: Urban Dictionary is English slang and frequently
+  # obscene, which is not what a university server wants one keystroke
+  # away in the slash menu. !urban still works.
+  @commands.command(
     name="urban",
     description="Searches for specified phrase on urbandictionary",
     help="Get meaning of specified phrase",

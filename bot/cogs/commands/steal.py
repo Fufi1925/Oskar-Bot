@@ -26,7 +26,11 @@ class Steal(commands.Cog):
 
 
 
-    @commands.hybrid_command(name="steal", help="Steal an emoji or sticker", usage="steal <emoji>", aliases=["eadd"], with_app_command=True)
+    # Prefix-only. The main way to use this is replying to a message
+    # that holds the emoji, and a slash command has no reply to read:
+    # ctx.message.reference is always None there, so half the command
+    # silently did nothing. !steal (as a reply) still works.
+    @commands.command(name="steal", help="Steal an emoji or sticker", usage="steal <emoji>", aliases=["eadd"])
     @blacklist_check()
     @ignore_check()
     @commands.cooldown(1, 3, commands.BucketType.user)
