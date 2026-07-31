@@ -55,8 +55,12 @@ python3 -c "import secrets; print(secrets.token_urlsafe(32))"
 
 ## Schnittstelle für den Template-Bot
 
-Der Template-Bot ist ein eigenes Programm. Er muss selbst nachfragen —
-wir können sein Premium nicht von außen freischalten.
+> **Eingebaut.** Der Template-Bot fragt seit
+> [`9c5a3e3`](https://github.com/Fufi1925/University-Template) selbst nach
+> (`core/licence.py`). Es müssen dort nur noch `MAIN_BOT_URL` und
+> `PREMIUM_PARTNER_TOKEN` gesetzt werden.
+>
+> Bleiben beide leer, gilt dort weiterhin nur der alte Master-Key.
 
 **Anfrage**
 
@@ -91,7 +95,7 @@ Abgelaufene und gesperrte Keys liefern `premium: false`.
 | `401` | Token fehlt oder ist falsch. |
 | `503` | `PREMIUM_PARTNER_TOKEN` ist beim Hauptbot nicht gesetzt. |
 
-**Beispiel (Python, discord.py)**
+**So ist es im Template-Bot umgesetzt** (`core/licence.py`, gekürzt)
 
 ```python
 import os
@@ -125,23 +129,28 @@ async def has_premium(user_id: int) -> bool:
         return False
 ```
 
-Zwei Hinweise für die Einbindung:
+Zwei Eigenschaften, an denen dort alles hängt:
 
-- **Zwischenspeichern.** Ein Aufruf pro Nachricht wäre ein Fehler; ein
-  paar Minuten Cache reichen völlig.
-- **Im Zweifel nein.** Ist der Hauptbot nicht erreichbar, darf das nicht
-  versehentlich Premium freischalten.
+- **Zwischenspeichern.** Antworten gelten 5 Minuten. Ein Aufruf pro Klick
+  wäre zu langsam — Discord verwirft Interaktionen nach 3 Sekunden.
+- **Im Zweifel nein.** Netzwerkfehler, 401, 503, unlesbare Antwort: alles
+  bedeutet „kein Premium". Ein Ausfall darf niemanden freischalten.
+
+Der Template-Bot prüft **zuerst seinen lokalen Store** (Master-Key) und
+erst danach hier. Eine bestehende Freischaltung gilt also weiter, auch
+wenn der Hauptbot gerade nicht erreichbar ist.
 
 ## Was das Dashboard zeigt
 
-**Admin → Premium**, zwei Karten:
+**Seitenleiste → Premium** (für jeden angemeldeten Nutzer, nicht nur für
+Admins — wer einen Key gekauft hat, ist kein Teammitglied):
 
-- **University Bot Premium** — „Coming Soon", kein Eingabefeld. Für den
-  Hauptbot gibt es noch nichts zu verkaufen.
-- **Template-Bot Premium** — Status und das Feld zum Einlösen.
+- **University Bot Premium** — „Coming Soon"
+- **Template-Bot Premium** — Status und Eingabefeld
 
-Darunter für das Team die Liste der ausgegebenen Keys mit Sperr-Knopf.
-Dort stehen nur Hashes, nie die Keys selbst.
+Zusätzlich unter **Admin → Premium** dieselben zwei Karten, darunter für
+das Team die Liste der ausgegebenen Keys mit Sperr-Knopf. Dort stehen nur
+Hashes, nie die Keys selbst.
 
 ## Sicherheit
 

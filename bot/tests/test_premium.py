@@ -232,6 +232,37 @@ def test_proxy_binding():
           'rest[0] === "keys"' in body and "Admins only." in body)
 
 
+def test_dashboard_page():
+    print("\nPremium page in the sidebar")
+
+    dash = os.path.join(os.path.dirname(BOT), "dashboard")
+
+    page = os.path.join(dash, "app", "dashboard", "premium", "page.tsx")
+    check("the page exists", os.path.exists(page), page)
+
+    src = open(page, encoding="utf-8").read()
+    body = "\n".join(l for l in src.splitlines() if not l.lstrip().startswith("//"))
+    check("it renders the premium panel", "<PremiumPanel />" in body)
+    check("it is not cached", 'dynamic = "force-dynamic"' in body,
+          "a stale page would show the wrong premium status")
+    check("signed-out visitors are sent away", 'redirect("/dashboard")' in body)
+    # A customer who bought a key is not staff. Gating this page behind
+    # isAdmin would lock the buyer out of their own purchase.
+    check("it is not limited to admins", "isAdmin" not in body,
+          "customers could not reach the redeem field")
+
+    layout = open(os.path.join(dash, "app", "dashboard", "layout.tsx"), encoding="utf-8").read()
+    lbody = "\n".join(l for l in layout.splitlines() if not l.lstrip().startswith("//"))
+    check("the sidebar links to it", '"/dashboard/premium"' in lbody)
+
+    # The sidebar splits into "inside a guild" and "top level". Premium is
+    # account-wide, so it belongs to the second list, next to Admin Panel.
+    tail = lbody.split('name: "Server", href: "/dashboard/guilds"')[-1]
+    check("the link sits in the top-level menu",
+          '"/dashboard/premium"' in tail,
+          "it landed in the per-guild menu instead")
+
+
 def run():
     from utils import premium_store as store
 
@@ -239,6 +270,7 @@ def run():
     test_api(store)
     test_command_guards()
     test_proxy_binding()
+    test_dashboard_page()
 
     print(f"\n{len(failures)} failures")
     for line in failures:

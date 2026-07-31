@@ -231,6 +231,9 @@ export default function DashboardLayout({
     : [
         { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
         { name: "Server", href: "/dashboard/guilds", icon: Server },
+        // Premium is for everyone: a customer who bought a key needs to
+        // reach the redeem field without being staff.
+        { name: "Premium", href: "/dashboard/premium", icon: Gem },
         ...(isAdmin(session?.user?.id) || hasTeamRole
             ? [{ name: "Admin Panel", href: "/dashboard/admin", icon: Shield }]
             : []),
