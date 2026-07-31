@@ -464,6 +464,24 @@ export const api = {
     request<any>(`/extras/${g}/counting/announce`, { method: "POST", body: "{}" }),
 
   /**
+   * Premium licence keys.
+   *
+   * `redeemKey` deliberately sends no user id: the proxy fills it in
+   * from the session, so a key can only ever be bound to the account
+   * that is actually signed in.
+   */
+  getMyPremium: (userId: string) => request<any>(`/premium/me/${userId}`),
+  redeemKey: (key: string) =>
+    request<any>(`/premium/redeem`, { method: "POST", body: JSON.stringify({ key }) }),
+  listPremiumKeys: (limit = 100) =>
+    request<any>(`/premium/keys?limit=${limit}`),
+  revokePremiumKey: (keyHash: string) =>
+    request<any>(`/premium/revoke`, {
+      method: "POST",
+      body: JSON.stringify({ key_hash: keyHash }),
+    }),
+
+  /**
    * YouTube subscriptions: a channel name, where to post, who to ping.
    *
    * Replaces the pair that stored a role and channel per "type" and

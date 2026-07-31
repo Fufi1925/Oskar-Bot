@@ -68,6 +68,7 @@ from .commands.reactionroles import ReactionRoles
 from .commands.messages import Messages
 from .commands.fastgreet import FastGreet
 from .commands.counting import Counting
+from .commands.premium import Premium
 from .commands.j2c import JoinToCreate
 from .commands.ai import AI 
 from .commands.dms import StaffDMCog
@@ -194,7 +195,7 @@ async def setup(bot: universitybot):
         AntiChannelCreate, AntiChannelDelete, AntiChannelUpdate, AntiEveryone, AntiGuildUpdate,
         AntiIntegration, AntiKick, AntiPrune, AntiRoleCreate, AntiRoleDelete,
         AntiRoleUpdate, AntiWebhookUpdate, AntiWebhookCreate, 
-        AntiWebhookDelete, AntiSpam, AntiCaps, AntiLink, AntiInvite, AntiMassMention, Stats, Status, NoPrefix, FilterCog, AutoReaction, AutoReactListener, Ban, Unban, Mute, Unmute, Lock, Unlock, Hide, Unhide, Kick, Warn, Role, Message, Moderation, TopCheck, Snipe, Global, QR, VanityRoles, ReactionRoles, Messages, TranslateCog, FastGreet, Jail, inviteTracker,Counting,AI
+        AntiWebhookDelete, AntiSpam, AntiCaps, AntiLink, AntiInvite, AntiMassMention, Stats, Status, NoPrefix, FilterCog, AutoReaction, AutoReactListener, Ban, Unban, Mute, Unmute, Lock, Unlock, Hide, Unhide, Kick, Warn, Role, Message, Moderation, TopCheck, Snipe, Global, QR, VanityRoles, ReactionRoles, Messages, TranslateCog, FastGreet, Jail, inviteTracker,Counting,Premium,AI
     ]
 
 
@@ -278,6 +279,7 @@ async def setup(bot: universitybot):
   await bot.add_cog(_vanity(bot))
   await bot.add_cog(inviteTracker(bot))
   await bot.add_cog(Counting(bot))
+  await bot.add_cog(Premium(bot))
   await bot.add_cog(_Counting(bot))
   await bot.add_cog(_J2C(bot))
   await bot.add_cog(_ai(bot))

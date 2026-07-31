@@ -438,6 +438,31 @@ async function authorize(
     return { ok: false, response: deny(403, `This requires the '${required}' permission.`) };
   }
 
+  if (scope === "premium") {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) return { ok: false, response: deny(401, "Not signed in.") };
+
+    // Listing and revoking keys is staff work.
+    if (rest[0] === "keys" || rest[0] === "revoke") {
+      if (isGlobalAdmin(session.user.id)) return { ok: true };
+      const team = await fetchTeamAccess(session.user.id);
+      const staff = Boolean(team && (team.is_owner || team.roles.length > 0));
+      if (!staff) return { ok: false, response: deny(403, "Admins only.") };
+      return { ok: true };
+    }
+
+    // "Does this user have premium" belongs to the template bot, which
+    // authenticates with its own token straight against the API. Serving
+    // it here would let any signed-in browser read other accounts.
+    if (rest[0] === "check") {
+      return { ok: false, response: deny(403, "Not available through the dashboard.") };
+    }
+
+    // Everything else (reading your own status, redeeming a key) is for
+    // the signed-in user and is pinned to their own id below.
+    return { ok: true };
+  }
+
   if (scope === "compose") {
     // Shape: /compose/<guildId>/...
     // Posting as the bot into any channel is close to "manage messages",
@@ -739,6 +764,12 @@ async function handler(request: NextRequest, context: { params: { path?: string[
         const parsed = JSON.parse(body);
         if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
           parsed.actor = actorId;
+          // Redeeming binds a key to an account for good. The account has
+          // to be the signed-in one: a user_id from the browser would let
+          // anyone activate premium onto someone else's id.
+          if (segments[0] === "premium" && segments[1] === "redeem") {
+            parsed.user_id = actorId;
+          }
           body = JSON.stringify(parsed);
         }
       } catch {

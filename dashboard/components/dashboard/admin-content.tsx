@@ -6,7 +6,7 @@ import {
   RefreshCw, Ban, UserX, Clock, VolumeX, Send, Megaphone, Wrench, AlertTriangle,
   Hash, Volume2, FolderPlus, Pencil, Trash2, Copy,
   Unlock, Timer, MessageSquareX, Bell, BellOff, SearchCheck, Bot, UserCog,
-  Webhook, Link, ScrollText, BarChart4, ClipboardList, Terminal
+  Webhook, Link, ScrollText, BarChart4, ClipboardList, Terminal, Gem
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
@@ -17,6 +17,7 @@ import { Select } from "@/components/ui/select";
 import { FeatureFlagsPanel } from "@/components/dashboard/feature-flags-panel";
 import { SystemHealthPanel } from "@/components/dashboard/system-health-panel";
 import { TeamPanel } from "@/components/dashboard/team-panel";
+import { PremiumPanel, PremiumKeysPanel } from "@/components/dashboard/premium-panel";
 import { OwnerAccessPanel } from "@/components/dashboard/owner-access-panel";
 import { useSession } from "next-auth/react";
 import { ReportsPanel } from "@/components/dashboard/reports-panel";
@@ -31,7 +32,7 @@ import { DashboardUsersPanel } from "@/components/dashboard/dashboard-users-pane
 import { ServersPanel } from "@/components/dashboard/servers-panel";
 
 
-type TabId = "members" | "channels" | "server" | "scans" | "broadcast" | "system" | "features" | "health" | "team" | "access" | "reports" | "audit" | "approvals" | "botsettings" | "backups" | "warnings" | "usage" | "dashusers" | "servers";
+type TabId = "members" | "channels" | "server" | "scans" | "broadcast" | "system" | "features" | "health" | "team" | "access" | "reports" | "audit" | "approvals" | "botsettings" | "backups" | "warnings" | "usage" | "dashusers" | "servers" | "premium";
 type MemberAction = "ban" | "kick" | "mute" | "unmute";
 
 type QuickAction = {
@@ -63,6 +64,7 @@ const tabs: Array<{ id: TabId; label: string; icon: any }> = [
   { id: "backups", label: "Backups", icon: Database },
   { id: "botsettings", label: "Bot Config", icon: Wrench },
   { id: "access", label: "Access", icon: Lock },
+  { id: "premium", label: "Premium", icon: Gem },
 ];
 
 const memberActions: Array<{ action: MemberAction; label: string; desc: string; icon: any }> = [
@@ -104,7 +106,7 @@ const quickActions: QuickAction[] = [
 const FULL_WIDTH_TABS = new Set<TabId>([
   "features", "health", "team", "access",
   "reports", "audit", "approvals", "botsettings", "backups", "warnings", "usage",
-  "dashusers", "servers",
+  "dashusers", "servers", "premium",
 ]);
 
 function TextInput({ label, value, setValue, placeholder, type = "text" }: { label: string; value: string; setValue: (value: string) => void; placeholder?: string; type?: string }) {
@@ -352,6 +354,12 @@ export function AdminContent() {
       {activeTab === "features" && <FeatureFlagsPanel />}
       {activeTab === "health" && <SystemHealthPanel />}
       {activeTab === "team" && <TeamPanel />}
+      {activeTab === "premium" && (
+        <div className="space-y-6">
+          <PremiumPanel />
+          <PremiumKeysPanel />
+        </div>
+      )}
       {activeTab === "access" && <OwnerAccessPanel currentUserId={(session?.user as any)?.id} />}
       {activeTab === "usage" && <CommandStatsPanel />}
       {activeTab === "dashusers" && <DashboardUsersPanel currentUserId={(session?.user as any)?.id} />}
