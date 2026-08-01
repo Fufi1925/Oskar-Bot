@@ -548,6 +548,92 @@ def test_admin_stat_values():
     check("reduced motion skips the animation", "reduced" in widget)
 
 
+def test_proximity_effect():
+    """
+    The LineSidebar proximity effect, adapted rather than dropped in.
+
+    React Bits' component takes `items: string[]` and an `onItemClick`,
+    and renders `<li onClick>`. Using it as-is would have replaced real
+    links with click handlers, losing right-click "open in new tab",
+    middle-click, the URL preview and Next.js prefetching. The visual
+    idea is worth having; that trade is not — so the mechanism was kept
+    as a hook and the markup left alone.
+    """
+    print("\nProximity effect")
+
+    hook_path = os.path.join(DASH, "components", "ui", "proximity.tsx")
+    check("the hook exists", os.path.isfile(hook_path), hook_path)
+    hook = strip_comments(read(hook_path))
+    layout = strip_comments(read(os.path.join(DASH, "app", "dashboard", "layout.tsx")))
+
+    check("it is a client component", '"use client"' in hook)
+    check("all three falloff curves are there",
+          "linear:" in hook and "smooth:" in hook and "sharp:" in hook)
+    check("one shared rAF loop drives every row",
+          "requestAnimationFrame" in hook)
+    check("the loop is cancelled on unmount",
+          "cancelAnimationFrame" in hook,
+          "a leaked loop keeps running after navigation")
+    # A fixed step per frame runs at double speed on a 144 Hz display.
+    check("the easing is frame-rate independent",
+          "Math.exp" in hook,
+          "the effect would run faster on a high refresh rate screen")
+    # Without a floor the loop chases a difference nobody can see.
+    check("the loop stops when settled", "settled" in hook)
+    # A touch drag is a scroll, not a hover.
+    check("touch drags are ignored",
+          'pointerType === "touch"' in hook,
+          "scrolling on a phone would light up rows under the finger")
+
+    print("\nThe sidebar keeps real links")
+    check("rows are still Link elements",
+          "prox-row" in layout and "<Link" in layout)
+    check("the effect is attached to them", "proximity.itemProps" in layout)
+    check("the container handles the pointer",
+          "proximity.containerProps" in layout)
+    # React runs every hook on every render; the layout returns early
+    # while the session loads.
+    check("the hook runs before the early return",
+          layout.index("useProximity({")
+          < layout.index('if (status === "loading"'),
+          "the hook would be skipped while loading and React would throw")
+    check("marker and index are hidden from screen readers",
+          'className="prox-marker" aria-hidden' in layout,
+          "decoration would be read out")
+
+    print("\nCSS")
+    css = read(os.path.join(DASH, "app", "globals.css"))
+    check("the row class exists", ".prox-row {" in css)
+    # color-mix is not used anywhere else in this project, so a browser
+    # that does not know it must still get a visible marker.
+    # Inside the rule that actually sets color-mix: the first marker
+    # rule also contains an rgba, so searching from the first occurrence
+    # passed even with the fallback deleted.
+    mix_rule = ""
+    for chunk in css.split(".prox-row .prox-marker")[1:]:
+        candidate = chunk[: chunk.index("}")] if "}" in chunk else ""
+        if "color-mix" in candidate:
+            mix_rule = candidate
+            break
+    check("there is a fallback before color-mix",
+          mix_rule.index("background-color: rgba(") < mix_rule.index("color-mix"),
+          "an unsupported color-mix would leave the marker invisible")
+    check("motion can be switched off",
+          any(".prox-row" in block for block in
+              css.split("prefers-reduced-motion")[1:]),
+          "the shift ignores the system setting")
+
+    # The effect measures vertical distance only. Every button in a
+    # horizontal row shares an offsetTop, so they would all light at
+    # once — that is a switch, not a proximity effect.
+    admin = strip_comments(read(
+        os.path.join(DASH, "components", "dashboard", "admin-content.tsx")
+    ))
+    check("it is not used on the horizontal tab row",
+          "useProximity" not in admin,
+          "all tabs would light together — the effect measures y only")
+
+
 def main():
     check("the dashboard folder was found", os.path.isdir(DASH), DASH)
     if not os.path.isdir(DASH):
@@ -564,6 +650,7 @@ def main():
     test_admin_glass_surfaces()
     test_admin_live_badge()
     test_admin_stat_values()
+    test_proximity_effect()
 
     print(f"\n{len(failures)} failures")
     for line in failures:

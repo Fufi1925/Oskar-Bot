@@ -364,3 +364,63 @@ input[type="number"] {
 @supports not (backdrop-filter: blur(1px)) {
   .admin-glass { background: rgba(17, 32, 58, 0.92); }
 }
+
+/* ── Proximity rows (adapted from React Bits' LineSidebar) ───────────
+
+   Each row carries --effect, 0..1, eased in JS by useProximity. Colour,
+   shift and marker length all read that one value, so they move as one
+   thing rather than three transitions drifting apart.
+
+   No CSS transition here on purpose: the easing already happens per
+   frame in the rAF loop, and adding one on top makes the response lag
+   behind the cursor. */
+.prox-row {
+  position: relative;
+  transform: translateX(calc(var(--effect, 0) * var(--prox-shift, 8px)));
+}
+
+/* The leading line. Grows and brightens as the cursor nears. */
+.prox-row .prox-marker {
+  position: absolute;
+  left: calc(-1 * var(--prox-marker, 22px));
+  top: 50%;
+  height: 1px;
+  width: var(--prox-marker, 22px);
+  transform-origin: left center;
+  transform: translateY(-50%) scaleX(calc(0.45 + var(--effect, 0) * 0.55));
+  background-color: rgba(148, 163, 184, 0.35);
+  pointer-events: none;
+}
+
+/* color-mix is not used anywhere else in this project, so the plain
+   colour comes first — a browser that does not understand the second
+   declaration keeps the first and the row is simply not tinted. */
+.prox-row .prox-marker {
+  background-color: rgba(148, 163, 184, 0.35);
+  background-color: color-mix(
+    in srgb,
+    var(--prox-accent, #60a5fa) calc(var(--effect, 0) * 100%),
+    rgba(148, 163, 184, 0.35)
+  );
+}
+
+.prox-row .prox-index {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.7em;
+  opacity: calc(0.35 + var(--effect, 0) * 0.65);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Reaching a little past the row means it reacts just before the
+   cursor arrives, which is what makes the effect feel responsive. */
+.prox-row::before {
+  content: "";
+  position: absolute;
+  inset: -4px -12px;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .prox-row { transform: none; }
+  .prox-row .prox-marker { transform: translateY(-50%); }
+}

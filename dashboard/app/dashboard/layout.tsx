@@ -21,6 +21,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { GlobalSearch } from "@/components/global-search";
+import { useProximity } from "@/components/ui/proximity";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 import {
   LayoutDashboard, Server, ShieldCheck, Ticket, BarChart4, FileText, Settings,
@@ -139,6 +140,18 @@ export default function DashboardLayout({
       })
       .catch(() => {});
   }, [status, session?.user]);
+
+  // The proximity effect from React Bits' LineSidebar.
+  //
+  // Above the early return on purpose: React requires every hook to run
+  // on every render, and the loading branch below returns before the
+  // sidebar is built. Placing it further down threw
+  // "Rendered fewer hooks than expected" the moment the session
+  // resolved.
+  //
+  // pathname is enough to derive the active row; the item list is not
+  // needed yet at this point.
+  const proximity = useProximity({ radius: 90, smoothing: 130 });
 
   if (status === "loading" || status === "unauthenticated") {
     return (
@@ -299,8 +312,19 @@ export default function DashboardLayout({
         </div>
 
         {/* Scrollable Navigation */}
-        <nav className="mt-8 px-4 space-y-6 overflow-y-auto flex-1 no-scrollbar relative z-10 pb-3">
-          {mainSidebarItems.map((item: any) => {
+        <nav
+          className="mt-8 px-4 space-y-6 overflow-y-auto flex-1 no-scrollbar relative z-10 pb-3"
+          {...proximity.containerProps}
+        >
+          {(() => {
+            // Only the flat top-level rows take part. Inside a guild the
+            // sidebar is six groups of sub-links, and lighting those by
+            // cursor distance fights the group headings instead of
+            // helping.
+            let flat = -1;
+            return mainSidebarItems.map((item: any) => {
+              if (!item.items) flat++;
+              const proxIndex = flat;
             if (item.items) {
               return (
                 <div key={item.name} className="space-y-2">
@@ -358,7 +382,13 @@ export default function DashboardLayout({
                 key={item.name}
                 href={item.href}
                 data-active={isActive ? "true" : undefined}
+                // Still a real Link: right-click, middle-click, the URL
+                // preview and Next.js prefetching all keep working. The
+                // original component renders <li onClick>, which loses
+                // every one of those.
+                {...proximity.itemProps(proxIndex)}
                 className={cn(
+                  "prox-row",
                   "flex items-center gap-4 px-4 py-3 rounded-2xl transition-all duration-300 group text-[14px] font-bold",
                   isPremium
                     ? cn(
@@ -377,6 +407,13 @@ export default function DashboardLayout({
                     : "text-slate-400 hover:bg-white/[0.03] hover:text-slate-200"
                 )}
               >
+                {/* The leading line and index from LineSidebar. Both
+                    are decoration, so they are hidden from screen
+                    readers -- the label already says everything. */}
+                <span className="prox-marker" aria-hidden />
+                <span className="prox-index text-slate-500" aria-hidden>
+                  {String(proxIndex + 1).padStart(2, "0")}
+                </span>
                 {isAdmin ? (
                   // A filled tile rather than a bare glyph: that is what
                   // makes this row read as a destination at a glance.
@@ -408,7 +445,8 @@ export default function DashboardLayout({
                 )}
               </Link>
             );
-          })}
+            });
+          })()}
         </nav>
 
         {/* Fixed "Back to Server" link (only shown inside a guild) */}

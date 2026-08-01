@@ -156,6 +156,7 @@ export function AdminContent() {
   // When the figures on screen were fetched. Drives the age badges;
   // without it they would have nothing to count from.
   const [lastLoaded, setLastLoaded] = useState<number | null>(null);
+
   const [saving, setSaving] = useState(false);
   const [notification, setNotification] = useState("");
   // What the server last confirmed, so an edit in progress is
