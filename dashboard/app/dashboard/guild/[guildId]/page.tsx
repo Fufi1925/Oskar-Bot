@@ -122,7 +122,7 @@ export default function GuildOverviewPage({ params }: { params: { guildId: strin
       ) : (
         <>
           {/* Setup progress */}
-          <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-8">
+          <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-8 border-glow-card">
             <div className="flex items-center justify-between gap-6 flex-wrap mb-6">
               <div>
                 <h2 className="text-xl font-black text-white">Setup progress</h2>
@@ -216,7 +216,7 @@ export default function GuildOverviewPage({ params }: { params: { guildId: strin
                     <Link
                       key={mod.key}
                       href={`/dashboard/guild/${params.guildId}/${mod.path}`}
-                      className="group bg-[#10233f] border border-emerald-500/20 rounded-3xl p-5 hover:border-emerald-500/40 transition-all"
+                      className="group bg-[#10233f] border border-emerald-500/20 rounded-3xl p-5 hover:border-emerald-500/40 transition-all border-glow-card"
                     >
                       <div className="flex items-start justify-between mb-4">
                         <div className="h-10 w-10 bg-emerald-500/10 rounded-xl flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform">
@@ -255,7 +255,7 @@ export default function GuildOverviewPage({ params }: { params: { guildId: strin
                     <Link
                       key={mod.key}
                       href={`/dashboard/guild/${params.guildId}/${mod.path}`}
-                      className="group bg-[#10233f]/50 border border-slate-800 rounded-3xl p-5 hover:border-primary/40 hover:bg-[#10233f] transition-all"
+                      className="group bg-[#10233f]/50 border border-slate-800 rounded-3xl p-5 hover:border-primary/40 hover:bg-[#10233f] transition-all border-glow-card"
                     >
                       <div className="flex items-start justify-between mb-4">
                         <div className="h-10 w-10 bg-slate-800/60 rounded-xl flex items-center justify-center text-slate-500 group-hover:text-primary group-hover:scale-110 transition-all">

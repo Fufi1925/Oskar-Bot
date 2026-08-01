@@ -40,6 +40,17 @@ export interface ProximityOptions {
   smoothing?: number;
   /** Index that stays lit even without the cursor. */
   activeIndex?: number | null;
+  /**
+   * How distance is measured.
+   *
+   * `vertical` compares the y coordinate only, which is right for a
+   * stacked list where each row spans the full width.
+   *
+   * `both` uses the real 2D distance, which is what a wrapping row of
+   * buttons needs: they share an offsetTop, so measuring y alone lights
+   * an entire line at once.
+   */
+  axis?: "vertical" | "both";
 }
 
 export interface Proximity {
@@ -66,6 +77,7 @@ export function useProximity({
   falloff = "smooth",
   smoothing = 120,
   activeIndex = null,
+  axis = "vertical",
 }: ProximityOptions = {}): Proximity {
   const container = useRef<HTMLElement | null>(null);
   const rows = useRef<(HTMLElement | null)[]>([]);
@@ -126,21 +138,38 @@ export function useProximity({
       // whatever the finger happens to pass over.
       if (event.pointerType === "touch") return;
 
-      const top = host.getBoundingClientRect().top;
-      const y = event.clientY - top + host.scrollTop;
+      const box = host.getBoundingClientRect();
+      const y = event.clientY - box.top + host.scrollTop;
+      const x = event.clientX - box.left + host.scrollLeft;
       const ease = FALLOFF[falloff] ?? FALLOFF.linear;
+      const flat = axis === "vertical";
 
       for (let i = 0; i < rows.current.length; i++) {
         const el = rows.current[i];
         if (!el) continue;
-        const centre = el.offsetTop + el.offsetHeight / 2;
-        targets.current[i] = ease(
-          Math.max(0, 1 - Math.abs(y - centre) / radius)
-        );
+
+        const cy = el.offsetTop + el.offsetHeight / 2;
+        let distance: number;
+
+        if (flat) {
+          // A stacked list: every row spans the full width, so the
+          // horizontal position of the cursor says nothing.
+          distance = Math.abs(y - cy);
+        } else {
+          // A wrapping row of buttons. Measuring y alone would light a
+          // whole line at once, because every button in it shares an
+          // offsetTop -- that is a switch, not a proximity effect.
+          const cx = el.offsetLeft + el.offsetWidth / 2;
+          const dx = x - cx;
+          const dy = y - cy;
+          distance = Math.sqrt(dx * dx + dy * dy);
+        }
+
+        targets.current[i] = ease(Math.max(0, 1 - distance / radius));
       }
       start();
     },
-    [falloff, radius, start]
+    [axis, falloff, radius, start]
   );
 
   const onPointerLeave = useCallback(() => {

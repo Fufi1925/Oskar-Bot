@@ -20,6 +20,7 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/components/auth-provider";
 import { LanguageProvider } from "@/lib/i18n/LanguageContext";
+import { BorderGlowProvider } from "@/components/ui/border-glow";
 
 const brandName = process.env.NEXT_PUBLIC_BRAND_NAME || "University Bot";
 
@@ -55,6 +56,10 @@ export default function RootLayout({
           <LanguageProvider>{children}</LanguageProvider>
           <Toaster />
         </AuthProvider>
+        {/* One pointer listener for every card on the page. Mounted here
+            rather than per card: 132 listeners and 132 rAF loops for
+            one cursor is work nobody sees. Renders no markup. */}
+        <BorderGlowProvider />
       </body>
     </html>
   );

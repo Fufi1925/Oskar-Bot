@@ -759,15 +759,80 @@ def test_proximity_effect():
           "proximity]" not in search,
           "an unstable dependency re-runs the effect on every render")
 
-    # The effect measures vertical distance only. Every button in a
-    # horizontal row shares an offsetTop, so they would all light at
-    # once — that is a switch, not a proximity effect.
+    print("\nThe tab rows use it, measured in two dimensions")
+    # This used to assert the opposite: the hook measured y only, and a
+    # wrapping row of buttons all share an offsetTop, so every tab in a
+    # line lit at once. The hook now takes an axis, and the rows opt
+    # into the real 2D distance -- so the old assertion is gone rather
+    # than weakened.
     admin = strip_comments(read(
         os.path.join(DASH, "components", "dashboard", "admin-content.tsx")
     ))
-    check("it is not used on the horizontal tab row",
-          "useProximity" not in admin,
-          "all tabs would light together — the effect measures y only")
+    tabs = strip_comments(read(os.path.join(DASH, "components", "guild-tabs.tsx")))
+
+    check("the hook can measure both axes",
+          'axis === "vertical"' in hook and "Math.sqrt" in hook,
+          "a wrapping row needs real distance, not just y")
+    check("a stacked list still measures y only",
+          "Math.abs(y - cy)" in hook,
+          "using 2D on a full-width list would dim rows toward the edges")
+
+    for label, src in (("admin", admin), ("guild", tabs)):
+        check(f"the {label} tab row asks for both axes",
+              'axis: "both"' in src,
+              "every tab in a line would light at once")
+        check(f"the {label} row is the offsetParent",
+              "relative" in src and "containerProps" in src,
+              "distances would be measured against the wrong box")
+        # Not just "the word appears": the count has to come from the
+        # list that is actually rendered. A hard-coded number keeps
+        # easing rows that have left the page, and passes a check that
+        # only looks for the identifier.
+        check(f"the {label} row drops stale buttons",
+              re.search(r"set(?:Tab)?Count\((?:shownTabs|tabs)\.length\)", src)
+              is not None,
+              "switching groups leaves rows being eased that are gone")
+
+    # Each collapsible group is its own container. One shared instance
+    # would measure every tab against whichever group registered first.
+    # Checking that the component is *declared* is not enough -- it has
+    # to be the thing the groups actually render, which is what the
+    # first version of this check missed.
+    check("each guild tab row gets its own instance",
+          "function TabRow" in tabs and tabs.count("<TabRow") >= 2,
+          "one hook across separate containers measures the wrong box")
+    check("the old inline rows are gone",
+          "flex gap-2 flex-wrap\">" not in tabs,
+          "a hand-rolled row would have no effect at all")
+
+    print("\nThe tab movement fits a sideways row")
+    # LineSidebar's maxShift: 37 is a horizontal push on a vertical
+    # list -- items slide into empty space. These tabs sit shoulder to
+    # shoulder, so the travel is perpendicular here too: vertical, and
+    # small enough to stay inside the strip.
+    tab_rule = ""
+    for chunk in css.split(".prox-tab {")[1:]:
+        body = chunk[: chunk.index("}")] if "}" in chunk else ""
+        if "transform" in body:
+            tab_rule = body
+            break
+    check("tabs lift rather than slide sideways",
+          "translateY" in tab_rule and "translateX" not in tab_rule,
+          "a sideways push drives a tab into its neighbour")
+    lift = re.search(r"translateY\(calc\(var\(--effect, 0\) \* -(\d+)px\)\)", tab_rule)
+    check("the lift stays inside the strip",
+          lift is not None and int(lift.group(1)) <= 12,
+          f"{lift.group(1) if lift else '?'}px would leave the row or resize it")
+    # `transition-all` from the Tailwind class would fight the rAF loop.
+    # Read the declaration itself, not the rest of the rule: the first
+    # version of this check matched `will-change: transform` on the next
+    # line and failed against correct CSS.
+    transitioned = re.search(r"transition-property:\s*([^;]+);", tab_rule)
+    check("the transform is not also transitioned",
+          transitioned is not None
+          and "transform" not in transitioned.group(1)
+          and "all" not in transitioned.group(1).split(","),
+          "a CSS transition on top of the loop lags behind the cursor")
 
 
 def main():

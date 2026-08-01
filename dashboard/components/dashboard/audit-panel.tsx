@@ -128,7 +128,7 @@ export function AuditPanel() {
       ) : (
         <>
           {tab === "audit" && (
-            <div className="bg-[#10233f] border border-slate-800 rounded-3xl overflow-hidden">
+            <div className="bg-[#10233f] border border-slate-800 rounded-3xl overflow-hidden border-glow-card is-clipped">
               {entries.length === 0 ? (
                 <p className="text-sm text-slate-500 py-12 text-center">
                   No actions recorded yet.
@@ -187,7 +187,7 @@ export function AuditPanel() {
           )}
 
           {tab === "timeline" && (
-            <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6">
+            <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 border-glow-card">
               {timeline.length === 0 ? (
                 <p className="text-sm text-slate-500 py-8 text-center">No events yet.</p>
               ) : (
@@ -220,7 +220,7 @@ export function AuditPanel() {
           )}
 
           {tab === "broadcasts" && (
-            <div className="bg-[#10233f] border border-slate-800 rounded-3xl overflow-hidden">
+            <div className="bg-[#10233f] border border-slate-800 rounded-3xl overflow-hidden border-glow-card is-clipped">
               {broadcasts.length === 0 ? (
                 <p className="text-sm text-slate-500 py-12 text-center">
                   No broadcasts sent yet.

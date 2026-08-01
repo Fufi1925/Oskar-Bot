@@ -193,7 +193,7 @@ export function BroadcastPanel({ guilds }: { guilds?: any[] }) {
       {/* ── Result dialog ────────────────────────────── */}
       {openResult && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-[#10233f] border border-slate-800 rounded-3xl w-full max-w-lg shadow-2xl max-h-[85vh] flex flex-col">
+          <div className="bg-[#10233f] border border-slate-800 rounded-3xl w-full max-w-lg shadow-2xl max-h-[85vh] flex flex-col border-glow-card">
             <div className="p-5 border-b border-slate-800 flex items-center justify-between gap-3">
               <div className="min-w-0">
                 <h3 className="font-black text-white truncate">
@@ -262,7 +262,7 @@ export function BroadcastPanel({ guilds }: { guilds?: any[] }) {
       )}
 
       {/* ── Compose ──────────────────────────────────── */}
-      <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
+      <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5 border-glow-card">
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-2xl bg-primary/15 grid place-items-center shrink-0">

@@ -106,7 +106,7 @@ export function ReactionRolesPanel({ guildId }: { guildId: string }) {
   return (
     <section className="space-y-6">
       {/* ── What this does ───────────────────────────── */}
-      <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-4">
+      <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-4 border-glow-card">
         <div className="flex gap-3">
           <div className="h-10 w-10 rounded-2xl bg-primary/15 grid place-items-center shrink-0">
             <Smile className="h-5 w-5 text-primary" />
@@ -137,7 +137,7 @@ export function ReactionRolesPanel({ guildId }: { guildId: string }) {
       </div>
 
       {/* ── Add ──────────────────────────────────────── */}
-      <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
+      <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5 border-glow-card">
         <div>
           <p className="text-xs font-black uppercase tracking-widest text-slate-500">
             Neue Reaktions-Rolle
@@ -239,7 +239,7 @@ export function ReactionRolesPanel({ guildId }: { guildId: string }) {
 
       {/* ── Verify ───────────────────────────────────── */}
       {data?.total > 0 && (
-        <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-4">
+        <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-4 border-glow-card">
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div className="min-w-0">
               <p className="text-xs font-black uppercase tracking-widest text-slate-500">
@@ -299,7 +299,7 @@ export function ReactionRolesPanel({ guildId }: { guildId: string }) {
           {data.messages.map((message: any) => (
             <div
               key={message.message_id}
-              className="bg-[#10233f] border border-slate-800 rounded-3xl p-5 space-y-3"
+              className="bg-[#10233f] border border-slate-800 rounded-3xl p-5 space-y-3 border-glow-card"
             >
               <div className="flex items-center gap-2.5 flex-wrap">
                 <MessageSquare className="h-4 w-4 text-slate-600 shrink-0" />

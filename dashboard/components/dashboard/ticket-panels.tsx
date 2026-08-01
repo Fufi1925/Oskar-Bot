@@ -171,7 +171,7 @@ export function TicketPanels({ guildId }: { guildId: string }) {
       {/* ── Category editor ─────────────────────────────── */}
       {editing && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-[#10233f] border border-slate-800 rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden">
+          <div className="bg-[#10233f] border border-slate-800 rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden border-glow-card is-clipped">
             <div className="p-6 border-b border-slate-800 flex items-center justify-between">
               <h3 className="font-bold text-white">
                 {editing.cat.category_id ? "Kategorie bearbeiten" : "Neue Kategorie"}
@@ -296,7 +296,7 @@ export function TicketPanels({ guildId }: { guildId: string }) {
       )}
 
       {/* ── Intro ───────────────────────────────────────── */}
-      <div className="bg-[#10233f] border border-primary/20 rounded-3xl p-4 sm:p-6">
+      <div className="bg-[#10233f] border border-primary/20 rounded-3xl p-4 sm:p-6 border-glow-card">
         <div className="flex items-start gap-4">
           <div className="p-2.5 rounded-xl bg-primary/10 text-primary shrink-0">
             <Ticket className="h-5 w-5" />
@@ -329,7 +329,7 @@ export function TicketPanels({ guildId }: { guildId: string }) {
           return (
             <div
               key={panel.panel_id}
-              className="bg-[#10233f] border border-slate-800 rounded-3xl overflow-hidden"
+              className="bg-[#10233f] border border-slate-800 rounded-3xl overflow-hidden border-glow-card is-clipped"
             >
               {/* header */}
               <div className="p-5 flex items-center gap-4 flex-wrap">
@@ -618,7 +618,7 @@ export function TicketPanels({ guildId }: { guildId: string }) {
       </div>
 
       {/* ── Server-wide ─────────────────────────────────── */}
-      <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
+      <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5 border-glow-card">
         <div>
           <h3 className="font-bold text-white">Für alle Panels</h3>
           <p className="text-[11px] text-slate-500 mt-0.5">

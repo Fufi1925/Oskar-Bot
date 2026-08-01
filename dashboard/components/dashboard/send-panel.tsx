@@ -52,7 +52,7 @@ export function SendPanel({
   };
 
   return (
-    <div className="bg-[#10233f] border border-primary/25 rounded-3xl p-4 sm:p-6">
+    <div className="bg-[#10233f] border border-primary/25 rounded-3xl p-4 sm:p-6 border-glow-card">
       <div className="flex items-center gap-3 mb-3">
         <Send className="h-5 w-5 text-primary" />
         <h4 className="font-black text-white">Post the panel</h4>

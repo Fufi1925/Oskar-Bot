@@ -154,7 +154,7 @@ export function ApprovalsPanel({ currentUserId }: { currentUserId?: string }) {
             return (
               <div
                 key={entry.id}
-                className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6"
+                className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 border-glow-card"
               >
                 <div className="flex items-start justify-between gap-4 flex-wrap">
                   <div className="min-w-0">

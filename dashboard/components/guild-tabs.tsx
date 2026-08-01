@@ -41,6 +41,7 @@ import { useLanguage } from "@/lib/i18n/LanguageContext";
 /** Exactly what useLanguage() hands back, so the key union survives. */
 type TranslateFn = ReturnType<typeof useLanguage>["t"];
 import { cn } from "@/lib/utils";
+import { useProximity } from "@/components/ui/proximity";
 import {
   Activity,
   BarChart4,
@@ -182,17 +183,76 @@ function buildGroups(t: TranslateFn): Group[] {
   ];
 }
 
+/**
+ * One wrapping row of tabs, with the proximity effect.
+ *
+ * A row of its own rather than one shared instance across all of them:
+ * the hook measures against a single container, and these rows are in
+ * separate collapsible groups. Sharing one would measure every tab
+ * against whichever group happened to register first.
+ */
+function TabRow({
+  tabs,
+  guildId,
+  current,
+  className,
+}: {
+  tabs: Tab[];
+  guildId: string;
+  current: string;
+  className?: string;
+}) {
+  // Your LineSidebar settings: radius 85, smoothing 120, smooth
+  // falloff, no index and no marker. `axis: "both"` is the one
+  // addition -- these tabs wrap, and every tab in a line shares an
+  // offsetTop, so vertical distance alone would light a whole line.
+  const proximity = useProximity({
+    radius: 85,
+    smoothing: 120,
+    falloff: "smooth",
+    axis: "both",
+    activeIndex: tabs.findIndex((tab) => tab.slug === current),
+  });
+
+  const { setCount } = proximity;
+  React.useEffect(() => {
+    setCount(tabs.length);
+  }, [tabs.length, setCount]);
+
+  return (
+    // `relative` so this box is the buttons' offsetParent, which is what
+    // the hook measures them against.
+    <div className={cn("flex gap-2 flex-wrap relative", className)} {...proximity.containerProps}>
+      {tabs.map((tab, index) => (
+        <TabLink
+          key={tab.slug}
+          tab={tab}
+          guildId={guildId}
+          active={tab.slug === current}
+          itemProps={proximity.itemProps(index)}
+        />
+      ))}
+    </div>
+  );
+}
+
 function TabLink({
   tab,
   guildId,
   active,
+  itemProps,
 }: {
   tab: Tab;
   guildId: string;
   active: boolean;
+  itemProps?: { ref: (el: HTMLElement | null) => void };
 }) {
   return (
-    <Link href={`/dashboard/guild/${guildId}/${tab.slug}`} className="shrink-0">
+    <Link
+      href={`/dashboard/guild/${guildId}/${tab.slug}`}
+      className="shrink-0 prox-tab"
+      {...itemProps}
+    >
       <div
         className={cn(
           "flex items-center gap-2 px-4 py-3 sm:py-2.5 rounded-xl text-[11px] font-black uppercase tracking-wider transition-colors whitespace-nowrap border",
@@ -303,22 +363,13 @@ export function GuildTabs({ guildId }: { guildId: string }) {
 
       {/* ── Search results ────────────────────────────── */}
       {matches !== null ? (
-        <div className="bg-[#10233f]/40 border border-slate-800/40 rounded-[20px] p-3">
+        <div className="bg-[#10233f]/40 border border-slate-800/40 rounded-[20px] p-3 border-glow-card">
           {matches.length === 0 ? (
             <p className="text-sm text-slate-500 py-4 text-center">
               Nichts gefunden für &bdquo;{query}&ldquo;.
             </p>
           ) : (
-            <div className="flex gap-2 flex-wrap">
-              {matches.map((tab) => (
-                <TabLink
-                  key={tab.slug}
-                  tab={tab}
-                  guildId={guildId}
-                  active={tab.slug === current}
-                />
-              ))}
-            </div>
+            <TabRow tabs={matches} guildId={guildId} current={current} />
           )}
         </div>
       ) : (
@@ -367,16 +418,12 @@ export function GuildTabs({ guildId }: { guildId: string }) {
                 </button>
 
                 {open && (
-                  <div className="px-3 pb-3 flex gap-2 flex-wrap">
-                    {group.tabs.map((tab) => (
-                      <TabLink
-                        key={tab.slug}
-                        tab={tab}
-                        guildId={guildId}
-                        active={tab.slug === current}
-                      />
-                    ))}
-                  </div>
+                  <TabRow
+                    tabs={group.tabs}
+                    guildId={guildId}
+                    current={current}
+                    className="px-3 pb-3"
+                  />
                 )}
               </div>
             );

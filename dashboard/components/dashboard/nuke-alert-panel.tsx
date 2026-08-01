@@ -167,7 +167,7 @@ export function NukeAlertPanel({ guildId }: { guildId: string }) {
       )}
 
       {/* ── Settings ─────────────────────────────────── */}
-      <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
+      <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5 border-glow-card">
         <div className="flex items-center gap-3">
           <div className="h-10 w-10 rounded-2xl bg-primary/15 grid place-items-center shrink-0">
             <Bell className="h-5 w-5 text-primary" />
@@ -241,7 +241,7 @@ export function NukeAlertPanel({ guildId }: { guildId: string }) {
 
       {/* ── Partner bot ──────────────────────────────── */}
       {data?.partner_configured && (
-        <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-4">
+        <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-4 border-glow-card">
           <div className="flex gap-3">
             <div className="h-10 w-10 rounded-2xl bg-primary/15 grid place-items-center shrink-0">
               <UserPlus className="h-5 w-5 text-primary" />

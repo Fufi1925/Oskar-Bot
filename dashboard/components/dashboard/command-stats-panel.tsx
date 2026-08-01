@@ -109,7 +109,7 @@ export function CommandStatsPanel() {
       </div>
 
       {data.total_uses === 0 ? (
-        <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-12 text-center">
+        <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-12 text-center border-glow-card">
           <Activity className="h-10 w-10 text-slate-700 mx-auto mb-4" />
           <p className="text-slate-400">No commands recorded in the last {days} days.</p>
           <p className="text-xs text-slate-600 mt-2">
@@ -120,7 +120,7 @@ export function CommandStatsPanel() {
       ) : (
         <>
           {data.daily.length > 1 && (
-            <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6">
+            <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 border-glow-card">
               <p className="text-xs font-black uppercase tracking-widest text-slate-500 mb-4">
                 Per day
               </p>
@@ -137,7 +137,7 @@ export function CommandStatsPanel() {
             </div>
           )}
 
-          <div className="bg-[#10233f] border border-slate-800 rounded-3xl overflow-hidden">
+          <div className="bg-[#10233f] border border-slate-800 rounded-3xl overflow-hidden border-glow-card is-clipped">
             <div className="px-6 py-4 border-b border-white/5 flex items-center gap-3">
               <TrendingUp className="h-5 w-5 text-primary" />
               <h4 className="font-black text-white text-sm uppercase tracking-wider">
@@ -176,7 +176,7 @@ export function CommandStatsPanel() {
           </div>
 
           {data.guilds.length > 1 && (
-            <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6">
+            <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 border-glow-card">
               <p className="text-xs font-black uppercase tracking-widest text-slate-500 mb-4">
                 Busiest servers
               </p>
@@ -196,7 +196,7 @@ export function CommandStatsPanel() {
       )}
 
       {data.unused.length > 0 && (
-        <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6">
+        <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 border-glow-card">
           <button
             onClick={() => setShowUnused(!showUnused)}
             className="flex items-center gap-3 w-full text-left"

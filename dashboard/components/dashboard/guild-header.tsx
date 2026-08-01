@@ -159,7 +159,7 @@ export function GuildHeader({
   const state = health(checked ? latency : null);
 
   return (
-    <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 lg:p-8 shadow-xl shadow-black/20">
+    <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 lg:p-8 shadow-xl shadow-black/20 border-glow-card">
       <div className="flex flex-col lg:flex-row lg:items-center gap-5 lg:gap-8">
         <div className="relative shrink-0">
           {guild.icon ? (

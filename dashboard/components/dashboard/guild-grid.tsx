@@ -126,7 +126,7 @@ export function GuildGrid({
         ].map((s) => (
           <div
             key={s.label}
-            className="bg-[#10233f] border border-slate-800 rounded-2xl p-5 flex items-center justify-between gap-3"
+            className="bg-[#10233f] border border-slate-800 rounded-2xl p-5 flex items-center justify-between gap-3 border-glow-card"
           >
             <div className="min-w-0">
               <p className="text-2xl font-black text-white tabular-nums truncate">
@@ -206,7 +206,7 @@ export function GuildGrid({
             {shownConnected.map((guild) => (
               <div
                 key={guild.id}
-                className="bg-[#10233f] border border-emerald-500/10 rounded-3xl group hover:border-emerald-500/30 hover:bg-[#17375f] transition-all duration-300 overflow-hidden shadow-sm flex flex-col"
+                className="bg-[#10233f] border border-emerald-500/10 rounded-3xl group hover:border-emerald-500/30 hover:bg-[#17375f] transition-all duration-300 overflow-hidden shadow-sm flex flex-col border-glow-card is-clipped"
               >
                 <div className="p-6 flex-grow">
                   <div className="flex items-start justify-between mb-6">
@@ -277,7 +277,7 @@ export function GuildGrid({
             {shownMissing.map((guild) => (
               <div
                 key={guild.id}
-                className="bg-[#10233f]/50 border border-slate-800/50 rounded-3xl group hover:border-slate-700 transition-all duration-300 overflow-hidden opacity-75 hover:opacity-100 flex flex-col"
+                className="bg-[#10233f]/50 border border-slate-800/50 rounded-3xl group hover:border-slate-700 transition-all duration-300 overflow-hidden opacity-75 hover:opacity-100 flex flex-col border-glow-card is-clipped"
               >
                 <div className="p-6 flex-grow">
                   <div className="flex items-start justify-between mb-6">

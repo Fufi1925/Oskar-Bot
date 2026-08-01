@@ -151,7 +151,7 @@ export function VanityPanel({ guildId }: { guildId: string }) {
       {/* ── Holders dialog ───────────────────────────── */}
       {holdersOf && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-[#10233f] border border-slate-800 rounded-3xl w-full max-w-md shadow-2xl">
+          <div className="bg-[#10233f] border border-slate-800 rounded-3xl w-full max-w-md shadow-2xl border-glow-card">
             <div className="p-5 border-b border-slate-800 flex items-center justify-between">
               <div className="min-w-0">
                 <h3 className="font-black text-white truncate">
@@ -192,7 +192,7 @@ export function VanityPanel({ guildId }: { guildId: string }) {
       )}
 
       {/* ── What this does ───────────────────────────── */}
-      <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-4">
+      <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-4 border-glow-card">
         <div className="flex gap-3">
           <div className="h-10 w-10 rounded-2xl bg-primary/15 grid place-items-center shrink-0">
             <Link2 className="h-5 w-5 text-primary" />
@@ -228,7 +228,7 @@ export function VanityPanel({ guildId }: { guildId: string }) {
       </div>
 
       {/* ── Add ──────────────────────────────────────── */}
-      <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
+      <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5 border-glow-card">
         <div className="flex items-center justify-between gap-4">
           <p className="text-xs font-black uppercase tracking-widest text-slate-500">
             Neuer Auslöser

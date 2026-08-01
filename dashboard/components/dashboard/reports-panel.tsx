@@ -128,7 +128,7 @@ export function ReportsPanel() {
       )}
 
       {data && !loading && (
-        <div className="bg-[#10233f] border border-slate-800 rounded-3xl overflow-hidden">
+        <div className="bg-[#10233f] border border-slate-800 rounded-3xl overflow-hidden border-glow-card is-clipped">
           <div className="p-6 border-b border-white/5 flex items-center justify-between gap-4 flex-wrap">
             <h4 className="font-black text-white">
               {REPORTS.find((r) => r.id === active)?.label}

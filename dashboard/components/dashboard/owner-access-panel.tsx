@@ -144,7 +144,7 @@ export function OwnerAccessPanel({ currentUserId }: { currentUserId?: string }) 
 
       {/* Add */}
       {canManage && (
-      <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-8">
+      <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-8 border-glow-card">
         <h4 className="font-black text-white flex items-center gap-2 mb-6">
           <ShieldPlus className="h-5 w-5 text-primary" /> Grant full access
         </h4>

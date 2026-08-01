@@ -223,7 +223,7 @@ export function GiveawaysPanel({ guildId }: { guildId: string }) {
   return (
     <section className="space-y-6">
       {/* ── Create ───────────────────────────────────── */}
-      <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-8">
+      <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-8 border-glow-card">
         <div className="flex items-center justify-between gap-4 mb-6 flex-wrap">
           <h3 className="font-black text-white flex items-center gap-2">
             <Gift className="h-5 w-5 text-primary" />
@@ -560,7 +560,7 @@ export function GiveawaysPanel({ guildId }: { guildId: string }) {
             {running.map((g) => (
               <div
                 key={g.message_id}
-                className="bg-[#10233f] border border-emerald-500/20 rounded-2xl p-5 flex items-center gap-4 flex-wrap"
+                className="bg-[#10233f] border border-emerald-500/20 rounded-2xl p-5 flex items-center gap-4 flex-wrap border-glow-card"
               >
                 <button
                   onClick={() => setOpenId(g.message_id)}

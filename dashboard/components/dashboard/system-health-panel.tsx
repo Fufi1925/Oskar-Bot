@@ -240,7 +240,7 @@ export function SystemHealthPanel() {
       )}
 
       {logs.length > 0 && (
-        <div className="bg-[#10233f] border border-slate-800 rounded-3xl overflow-hidden">
+        <div className="bg-[#10233f] border border-slate-800 rounded-3xl overflow-hidden border-glow-card is-clipped">
           <div className="p-6 border-b border-white/5 flex items-center gap-3">
             <ScrollText className="h-5 w-5 text-primary" />
             <h4 className="font-black text-white text-sm uppercase tracking-wider">

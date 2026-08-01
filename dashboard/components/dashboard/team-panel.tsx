@@ -171,7 +171,7 @@ export function TeamPanel() {
       {tab === "team" && (
         <>
           {/* Assign */}
-          <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-8">
+          <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-8 border-glow-card">
             <h4 className="font-black text-white flex items-center gap-2 mb-6">
               <UserPlus className="h-5 w-5 text-primary" /> Grant a role
             </h4>
@@ -282,7 +282,7 @@ export function TeamPanel() {
             {members.map((member) => (
               <div
                 key={member.user_id}
-                className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6"
+                className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 border-glow-card"
               >
                 <div className="flex items-start justify-between gap-4 flex-wrap">
                   <div className="flex items-center gap-4">
@@ -393,7 +393,7 @@ export function TeamPanel() {
             {visibleRoles.map((role) => (
               <div
                 key={role.key}
-                className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 hover:border-white/10 transition-all"
+                className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 hover:border-white/10 transition-all border-glow-card"
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">

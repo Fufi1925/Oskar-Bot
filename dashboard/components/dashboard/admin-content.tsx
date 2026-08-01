@@ -14,6 +14,7 @@ import { AdminStats, AdminConfig } from "@/types/api";
 import { toast } from "sonner";
 import { StickySaveBar, useSaveGuard } from "@/components/dashboard/save-bar";
 import { Select } from "@/components/ui/select";
+import { useProximity } from "@/components/ui/proximity";
 import { FeatureFlagsPanel } from "@/components/dashboard/feature-flags-panel";
 import { SystemHealthPanel } from "@/components/dashboard/system-health-panel";
 import { TeamPanel } from "@/components/dashboard/team-panel";
@@ -304,6 +305,40 @@ export function AdminContent() {
     }
   }, [visibleTabs, activeTab]);
 
+  // The tabs shown for the open group, in render order. The proximity
+  // effect needs the same order and the same count as the DOM, so it is
+  // derived once here instead of being rebuilt inside the JSX.
+  const shownTabs = useMemo(
+    () =>
+      TAB_GROUPS.filter((group) => group.ids.includes(activeTab))
+        .flatMap((group) => group.ids)
+        .map((id) => visibleTabs.find((tab) => tab.id === id))
+        .filter(Boolean) as typeof visibleTabs,
+    [activeTab, visibleTabs]
+  );
+
+  // Your LineSidebar settings, with one change that the layout forces:
+  // axis "both". The tabs wrap onto several lines and every button in a
+  // line shares an offsetTop, so measuring the vertical distance alone
+  // would light a whole line at once -- a switch, not a proximity
+  // effect. radius 85, smoothing 120 and the smooth falloff are as
+  // given.
+  const tabProximity = useProximity({
+    radius: 85,
+    smoothing: 120,
+    falloff: "smooth",
+    axis: "both",
+    activeIndex: shownTabs.findIndex((tab) => tab.id === activeTab),
+  });
+
+  // Switching groups changes how many buttons exist. Without this the
+  // rows from a longer group keep being eased against elements that
+  // have left the page.
+  const { setCount: setTabCount } = tabProximity;
+  useEffect(() => {
+    setTabCount(shownTabs.length);
+  }, [shownTabs.length, setTabCount]);
+
   const currentActions = useMemo(() => quickActions.filter((action) => action.tab === activeTab), [activeTab]);
   const currentNeeds = useMemo(() => new Set(currentActions.flatMap((action) => action.needs || [])), [currentActions]);
 
@@ -494,34 +529,39 @@ export function AdminContent() {
           })}
         </div>
 
-        <div className="flex flex-wrap gap-1.5 p-3">
-          {TAB_GROUPS.filter((group) => group.ids.includes(activeTab))
-            .flatMap((group) => group.ids)
-            .map((id) => visibleTabs.find((tab) => tab.id === id))
-            .filter(Boolean)
-            .map((tab) => {
-              const active = activeTab === tab!.id;
-              const Icon = tab!.icon;
-              return (
-                <button
-                  key={tab!.id}
-                  onClick={() => {
-                    setActiveTab(tab!.id);
-                    window.history.replaceState(null, "", `#${tab!.id}`);
-                  }}
-                  aria-current={active ? "page" : undefined}
-                  className={cn(
-                    "flex items-center gap-2 px-4 py-2.5 rounded-xl text-[12.5px] font-bold transition-all",
-                    active
-                      ? "bg-primary text-white shadow-lg shadow-primary/25"
-                      : "text-slate-400 bg-white/[0.02] hover:bg-slate-800/70 hover:text-white"
-                  )}
-                >
-                  <Icon className="h-3.5 w-3.5 shrink-0" />
-                  {tab!.label}
-                </button>
-              );
-            })}
+        {/* `relative` is what makes the maths work: useProximity
+            measures the pointer against this box and the buttons
+            against their offsetParent, and the two have to be the
+            same element. */}
+        <div
+          className="flex flex-wrap gap-1.5 p-3 relative"
+          {...tabProximity.containerProps}
+        >
+          {shownTabs.map((tab, index) => {
+            const active = activeTab === tab.id;
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => {
+                  setActiveTab(tab.id);
+                  window.history.replaceState(null, "", `#${tab.id}`);
+                }}
+                aria-current={active ? "page" : undefined}
+                {...tabProximity.itemProps(index)}
+                className={cn(
+                  "prox-tab",
+                  "flex items-center gap-2 px-4 py-2.5 rounded-xl text-[12.5px] font-bold transition-all",
+                  active
+                    ? "bg-primary text-white shadow-lg shadow-primary/25"
+                    : "text-slate-400 bg-white/[0.02] hover:bg-slate-800/70 hover:text-white"
+                )}
+              >
+                <Icon className="h-3.5 w-3.5 shrink-0" />
+                {tab.label}
+              </button>
+            );
+          })}
         </div>
       </nav>
 
@@ -581,7 +621,7 @@ export function AdminContent() {
         <main className="xl:col-span-3 space-y-6">
           {activeTab === "members" && <section className="space-y-5"><div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">{memberActions.map((card) => { const active = memberAction === card.action; return <button key={card.action} onClick={() => setMemberAction(card.action)} className={cn("text-left p-5 rounded-3xl border transition-all", active ? "bg-primary/10 border-primary/40" : "bg-white/[0.02] border-white/5 hover:border-white/10")}><card.icon className={cn("h-6 w-6 mb-3", active ? "text-primary" : "text-slate-500")} /><p className="font-black text-white">{card.label}</p><p className="text-xs text-slate-500 mt-1">{card.desc}</p></button>; })}</div><button onClick={runMemberModeration} disabled={saving} className="w-full py-4 bg-primary rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-primary/20 hover:brightness-110 disabled:opacity-50">Run {memberAction}</button></section>}
 
-          {(activeTab === "members" || activeTab === "channels" || activeTab === "server" || activeTab === "scans") && <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">{currentActions.map((action) => <button key={action.action} onClick={() => runQuickAction(action)} disabled={saving} className="text-left bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 hover:border-primary/40 hover:bg-primary/5 transition-all disabled:opacity-50"><action.icon className="h-6 w-6 text-primary mb-4" /><h4 className="font-black text-white">{action.label}</h4><p className="text-sm text-slate-500 mt-2">{action.desc}</p>{action.needs?.length ? <p className="text-[10px] uppercase tracking-widest text-slate-600 mt-4">Needs: {action.needs.join(", ")}</p> : null}</button>)}</section>}
+          {(activeTab === "members" || activeTab === "channels" || activeTab === "server" || activeTab === "scans") && <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">{currentActions.map((action) => <button key={action.action} onClick={() => runQuickAction(action)} disabled={saving} className="text-left bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 hover:border-primary/40 hover:bg-primary/5 transition-all disabled:opacity-50 border-glow-card"><action.icon className="h-6 w-6 text-primary mb-4" /><h4 className="font-black text-white">{action.label}</h4><p className="text-sm text-slate-500 mt-2">{action.desc}</p>{action.needs?.length ? <p className="text-[10px] uppercase tracking-widest text-slate-600 mt-4">Needs: {action.needs.join(", ")}</p> : null}</button>)}</section>}
 
           {activeTab === "broadcast" && <BroadcastPanel guilds={guilds} />}
 
