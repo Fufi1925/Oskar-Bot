@@ -838,6 +838,72 @@ def test_dashboard_page():
           "the pulse ignores prefers-reduced-motion")
 
 
+def test_mount_animation():
+    """
+    The Premium tab animates in when it opens.
+
+    Found while building it: the dashboard uses `animate-in fade-in
+    slide-in-from-bottom-2` in 45 places, and that comes from the
+    tailwindcss-animate plugin — which is not in package.json. Those
+    classes produce no CSS whatsoever, so none of it has ever animated.
+
+    Rather than pull in a dependency, Reveal does it with React state
+    and a plain transition, which also allows a computed stagger.
+    """
+    print("\nThe tab animates on open")
+
+    dash = os.path.join(os.path.dirname(BOT), "dashboard")
+
+    reveal_path = os.path.join(dash, "components", "ui", "reveal.tsx")
+    check("the Reveal helper exists", os.path.exists(reveal_path), reveal_path)
+    reveal = open(reveal_path, encoding="utf-8").read()
+    # Strip block comments too, not just "//" lines. The header of this
+    # file explains the very things being checked, so a search for
+    # "prefers-reduced-motion" matched the prose even after the code was
+    # removed — the first run of this test passed with the media query
+    # deleted.
+    import re as _re
+    rbody = _re.sub(r"/\*.*?\*/", "", reveal, flags=_re.S)
+    rbody = "\n".join(l for l in rbody.splitlines() if not l.lstrip().startswith("//"))
+
+    check("it is a client component", '"use client"' in rbody,
+          "hooks cannot run in a server component")
+    check("it animates with state, not dead classes",
+          "useState" in rbody and "transition-all" in rbody)
+    check("it staggers by a computed delay", "transitionDelay" in rbody)
+    check("numbers count up", "CountUp" in rbody and "requestAnimationFrame" in rbody)
+    # Two frames, or the browser skips straight to the end state and
+    # there is nothing to see.
+    check("it paints the start state first",
+          "second = requestAnimationFrame(() => setShown(true))" in rbody,
+          "a single frame makes the browser skip to the end state")
+    check("reduced motion is honoured",
+          "prefers-reduced-motion" in rbody and "useReducedMotion" in rbody)
+    check("counting is skipped under reduced motion",
+          "if (reduced || animated.current)" in rbody)
+
+    admin = open(os.path.join(dash, "components", "dashboard",
+                              "premium-admin.tsx"), encoding="utf-8").read()
+    abody = "\n".join(l for l in admin.splitlines() if not l.lstrip().startswith("//"))
+
+    check("the admin tab uses it", "<Reveal" in abody)
+    check("the counters count up", "<CountUp" in abody)
+    check("blocks arrive one after another",
+          "delay={60}" in abody and "delay={120}" in abody,
+          "everything appears at once")
+    # Two hundred keys at 35ms each would take seven seconds to finish.
+    check("the row stagger is capped",
+          "Math.min(index, 10)" in abody,
+          "a long list would animate for far too long")
+
+    page = open(os.path.join(dash, "app", "dashboard", "premium", "page.tsx"),
+                encoding="utf-8").read()
+    check("the customer page animates too", "<Reveal" in page)
+    check("and no longer uses the dead classes",
+          "animate-in" not in page,
+          "animate-in generates no CSS in this project")
+
+
 def run():
     from utils import premium_store as store
 
@@ -852,6 +918,7 @@ def run():
     test_unrevoke_restores_access(store)
     test_delete_and_purge(store)
     test_dashboard_page()
+    test_mount_animation()
 
     print(f"\n{len(failures)} failures")
     for line in failures:

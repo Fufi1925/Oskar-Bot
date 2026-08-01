@@ -31,6 +31,7 @@ import { toast } from "sonner";
 
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { CountUp, Reveal } from "@/components/ui/reveal";
 
 /* ── types ─────────────────────────────────────────────────────────── */
 
@@ -154,7 +155,9 @@ function Stat({
         onClick && "hover:border-slate-700"
       )}
     >
-      <p className={cn("text-2xl font-black tabular-nums", tone)}>{value}</p>
+      <p className={cn("text-2xl font-black tabular-nums", tone)}>
+        <CountUp value={value} />
+      </p>
       <p className="text-[11px] text-slate-400 mt-0.5">{label}</p>
       <p className="text-[10px] text-slate-600 mt-0.5">{hint}</p>
     </Tag>
@@ -461,7 +464,7 @@ export function PremiumAdmin() {
     <div className="space-y-5">
       {/* Anything broken belongs at the top, not buried under the list. */}
       {problems.length > 0 && (
-        <div className="rounded-2xl border border-amber-500/30 bg-amber-500/[0.06] px-5 py-4">
+        <Reveal className="rounded-2xl border border-amber-500/30 bg-amber-500/[0.06] px-5 py-4">
           <p className="text-sm font-bold text-amber-300 flex items-center gap-2">
             <AlertTriangle className="h-4 w-4" />
             Einrichtung unvollständig
@@ -474,10 +477,10 @@ export function PremiumAdmin() {
               </li>
             ))}
           </ul>
-        </div>
+        </Reveal>
       )}
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <Reveal delay={60} className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <Stat
           label="Aktive Lizenzen"
           value={stats?.active ?? 0}
@@ -508,8 +511,9 @@ export function PremiumAdmin() {
           hint={`${stats?.total ?? 0} Keys insgesamt`}
           tone="text-slate-200"
         />
-      </div>
+      </Reveal>
 
+      <Reveal delay={120}>
       <Panel
         icon={ShieldCheck}
         title="Premium-Rolle"
@@ -535,8 +539,10 @@ export function PremiumAdmin() {
           </p>
         )}
       </Panel>
+      </Reveal>
 
       {/* Minting is occasional, so it stays folded away by default. */}
+      <Reveal delay={180}>
       <Panel
         icon={Plus}
         title="Key erstellen"
@@ -712,8 +718,10 @@ export function PremiumAdmin() {
           </div>
         )}
       </Panel>
+      </Reveal>
 
       {/* The list is the tab. */}
+      <Reveal delay={240}>
       <Panel
         icon={KeyRound}
         title="Alle Keys"
@@ -847,15 +855,18 @@ export function PremiumAdmin() {
               Alle {visible.length} angezeigten auswählen
             </label>
 
-            {visible.map((row) => {
+            {visible.map((row, index) => {
               const state = stateOf(row, now);
               const meta = STATES[state];
               const left = remaining(row.expires_at);
               const isOpen = expanded === row.key_hash;
 
               return (
-                <div
+                <Reveal
                   key={row.key_hash}
+                  // Capped at ten rows' worth: with two hundred keys a
+                  // per-row delay would take half a minute to finish.
+                  delay={Math.min(index, 10) * 35}
                   className={cn(
                     "rounded-xl border bg-[#0a1628] transition-colors",
                     selected.has(row.key_hash)
@@ -946,7 +957,7 @@ export function PremiumAdmin() {
 
                   {/* Everything the API knows, without cluttering the row. */}
                   {isOpen && (
-                    <div className="border-t border-slate-800/70 px-3 py-3 grid sm:grid-cols-2 gap-x-6 gap-y-2">
+                    <Reveal className="border-t border-slate-800/70 px-3 py-3 grid sm:grid-cols-2 gap-x-6 gap-y-2">
                       {[
                         ["Status", meta.label],
                         ["Erstellt", fmtDateTime(row.created_at)],
@@ -979,14 +990,15 @@ export function PremiumAdmin() {
                           {row.key_hash}
                         </code>
                       </div>
-                    </div>
+                    </Reveal>
                   )}
-                </div>
+                </Reveal>
               );
             })}
           </div>
         )}
       </Panel>
+      </Reveal>
     </div>
   );
 }
