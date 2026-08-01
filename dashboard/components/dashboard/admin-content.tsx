@@ -18,6 +18,9 @@ import { FeatureFlagsPanel } from "@/components/dashboard/feature-flags-panel";
 import { SystemHealthPanel } from "@/components/dashboard/system-health-panel";
 import { TeamPanel } from "@/components/dashboard/team-panel";
 import { PremiumAdmin } from "@/components/dashboard/premium-admin";
+import { DataAge } from "@/components/ui/data-age";
+import { StatValue } from "@/components/ui/stat-value";
+import { Reveal } from "@/components/ui/reveal";
 import { OwnerAccessPanel } from "@/components/dashboard/owner-access-panel";
 import { useSession } from "next-auth/react";
 import { ReportsPanel } from "@/components/dashboard/reports-panel";
@@ -150,6 +153,9 @@ export function AdminContent() {
   const [channels, setChannels] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  // When the figures on screen were fetched. Drives the age badges;
+  // without it they would have nothing to count from.
+  const [lastLoaded, setLastLoaded] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [notification, setNotification] = useState("");
   // What the server last confirmed, so an edit in progress is
@@ -185,6 +191,11 @@ export function AdminContent() {
       savedNotification.current = configData.global_notification || "";
       setGuilds(guildData || []);
       if (!guildId && guildData?.[0]?.id) setGuildId(String(guildData[0].id));
+      // Only on success. Stamping this in `finally` would let a failed
+      // refresh reset the age to "gerade eben" while the figures on
+      // screen are the old ones -- exactly the case the badge exists to
+      // reveal.
+      setLastLoaded(Date.now());
     } catch (err) {
       console.error("Failed to fetch admin data:", err);
       toast.error("Failed to load real-time data");
@@ -356,15 +367,76 @@ export function AdminContent() {
 
   return (
     <div className="space-y-10 animate-in fade-in duration-500">
-      <div className="relative group">
-        <div className="absolute -inset-1 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-3xl blur opacity-10 group-hover:opacity-20 transition duration-1000" />
-        <div className="relative bg-[#0b1f3a] border border-white/10 rounded-3xl p-8 lg:p-12 flex flex-col lg:flex-row lg:items-center justify-between gap-8">
-          <div className="flex items-center gap-6"><div className="h-16 w-16 rounded-2xl bg-blue-500/20 flex items-center justify-center border border-blue-500/30 shadow-2xl shadow-blue-500/20"><Shield className="h-8 w-8 text-blue-500" /></div><div><h1 className="text-4xl font-black text-white tracking-tight font-outfit">Admin Control Panel</h1><p className="text-slate-400 mt-2 font-medium">Select a server, then run moderation and management actions quickly.</p></div></div>
-          <button onClick={() => fetchData(true)} className="flex items-center gap-3 bg-blue-500/5 px-6 py-3 rounded-2xl border border-blue-500/10 hover:bg-blue-500/10 transition-all active:scale-95"><RefreshCw className={cn("h-4 w-4 text-blue-500 transition-all", refreshing && "animate-spin")} /><span className="text-xs font-black uppercase tracking-widest text-blue-500">{refreshing ? "Refreshing..." : "Real-time Mode"}</span></button>
-        </div>
-      </div>
+      {/* The header sat on a flat navy box. It is now glass over a slow
+          colour wash, so the top of the page has depth without anything
+          moving in the foreground. */}
+      <Reveal>
+        <div className="relative isolate admin-hero admin-glass rounded-[28px] p-8 lg:p-11 overflow-hidden">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8">
+            <div className="flex items-center gap-6">
+              <div className="h-16 w-16 rounded-2xl bg-blue-500/15 grid place-items-center border border-blue-400/25 shadow-lg shadow-blue-500/10 shrink-0">
+                <Shield className="h-8 w-8 text-blue-400" />
+              </div>
+              <div>
+                <h1 className="text-4xl font-black text-white tracking-tight font-outfit">
+                  Admin Control Panel
+                </h1>
+                <p className="text-slate-400 mt-2 font-medium">
+                  Select a server, then run moderation and management actions quickly.
+                </p>
+              </div>
+            </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">{statItems.map((stat) => <div key={stat.name} className="glass border border-white/5 rounded-3xl p-4 sm:p-6 hover:border-white/10 transition-all group"><div className="flex items-center justify-between mb-4"><div className={cn("p-3 rounded-xl bg-white/[0.03] group-hover:scale-110 transition-transform", stat.color)}><stat.icon className="h-6 w-6" /></div><span className="text-[10px] font-black uppercase tracking-widest text-emerald-500 bg-emerald-500/10 px-2 py-1 rounded-lg">Live</span></div><p className="text-slate-500 text-xs font-bold uppercase tracking-widest">{stat.name}</p><h3 className="text-2xl font-black text-white mt-1 font-outfit">{stat.value}</h3></div>)}</div>
+            <button
+              onClick={() => fetchData(true)}
+              disabled={refreshing}
+              className="admin-glass admin-glass-hover shrink-0 flex items-center gap-3 px-6 py-3 rounded-2xl disabled:opacity-60"
+            >
+              <RefreshCw
+                className={cn(
+                  "h-4 w-4 text-blue-400 transition-all",
+                  refreshing && "animate-spin"
+                )}
+              />
+              <span className="text-xs font-black uppercase tracking-widest text-blue-300">
+                {refreshing ? "Refreshing..." : "Real-time Mode"}
+              </span>
+            </button>
+          </div>
+        </div>
+      </Reveal>
+
+      {/* Cards arrive one after another and their figures animate to
+          the new value on every refresh — that is how a change gets
+          noticed without staring at the screen. */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+        {statItems.map((stat, index) => (
+          <Reveal key={stat.name} delay={60 + index * 70}>
+            <div className="admin-glass admin-glass-hover rounded-3xl p-5 sm:p-6 h-full group">
+              <div className="flex items-center justify-between mb-4">
+                <div
+                  className={cn(
+                    "p-3 rounded-xl bg-white/[0.04] border border-white/[0.06] transition-transform duration-300 group-hover:scale-110",
+                    stat.color
+                  )}
+                >
+                  <stat.icon className="h-6 w-6" />
+                </div>
+                {/* Was a green "LIVE" on all four. The data refreshes
+                    every 30s, so that was a small lie and told nobody
+                    anything; the real age does. */}
+                <DataAge since={lastLoaded} />
+              </div>
+              <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">
+                {stat.name}
+              </p>
+              <h3 className="text-2xl font-black text-white mt-1 font-outfit">
+                <StatValue value={stat.value} />
+              </h3>
+            </div>
+          </Reveal>
+        ))}
+      </div>
 
       {/* One group at a time.
 
@@ -374,10 +446,10 @@ export function AdminContent() {
           section, see only its tabs. One tidy row instead of four
           uneven ones, and the active section stays obvious. */}
       <nav
-        className="bg-[#10233f]/70 border border-slate-800 rounded-3xl overflow-hidden"
+        className="admin-glass rounded-3xl overflow-hidden"
         aria-label="Admin-Bereiche"
       >
-        <div className="flex border-b border-slate-800/80">
+        <div className="flex border-b border-white/[0.07]">
           {TAB_GROUPS.map((group) => {
             const count = group.ids.filter((id) =>
               visibleTabs.some((tab) => tab.id === id)

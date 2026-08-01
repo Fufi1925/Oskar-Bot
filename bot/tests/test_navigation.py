@@ -347,11 +347,17 @@ def test_admin_link_style():
           "a bare glyph looks like every other row")
     check("the open link is marked",
           '.admin-link[data-active="true"]' in css)
-    # The whole point of the difference: no infinite animation here.
-    admin_block = css[css.index(".admin-link"):] if ".admin-link" in css else ""
+    # The point of the difference: the *link* must not pulse. Taking
+    # everything from ".admin-link" to the end of the file swept in the
+    # header's background wash, which is a different element entirely.
+    link_rules = [
+        chunk[: chunk.index("}")]
+        for chunk in css.split(".admin-link")[1:]
+        if "}" in chunk
+    ]
     check("admin has no endless pulse",
-          "infinite" not in admin_block,
-          "admin animates like premium")
+          not any("infinite" in rule for rule in link_rules),
+          "the admin link animates like premium")
 
 
 def test_admin_tab_groups():
@@ -408,6 +414,140 @@ def test_admin_tab_groups():
     check("the bar is a landmark", "<nav" in body and "aria-label" in body)
 
 
+def test_admin_glass_surfaces():
+    """
+    The admin panel is glass, not flat navy boxes.
+
+    Real glass needs three things at once and the old version had none:
+    a blur behind it, an edge brighter at the top than the bottom, and a
+    highlight where light would fall.
+    """
+    print("\nAdmin glass")
+
+    css = read(os.path.join(DASH, "app", "globals.css"))
+    body = strip_comments(read(
+        os.path.join(DASH, "components", "dashboard", "admin-content.tsx")
+    ))
+
+    check("the surface class exists", ".admin-glass {" in css)
+
+    rule = ""
+    for chunk in css.split(".admin-glass {")[1:]:
+        candidate = chunk[: chunk.index("}")] if "}" in chunk else ""
+        if "backdrop-filter" in candidate:
+            rule = candidate
+            break
+    # The unprefixed property specifically: "-webkit-backdrop-filter"
+    # contains the string "backdrop-filter", so a loose check passed
+    # with the standard property deleted -- and every non-Safari browser
+    # would have shown a flat box.
+    check("it actually blurs what is behind it",
+          any(line.strip().startswith("backdrop-filter:")
+              for line in rule.splitlines()),
+          "without the unprefixed property only Safari blurs")
+    check("the blur is prefixed for Safari",
+          "-webkit-backdrop-filter" in rule,
+          "Safari would render a flat panel")
+    check("there is an inner highlight", "inset 0 1px 0" in rule)
+    check("there is a rim light", ".admin-glass::before" in css)
+    # An overlay across the whole card would swallow every click on it.
+    before = css[css.index(".admin-glass::before"):]
+    before = before[: before.index("}")]
+    check("the rim does not eat clicks",
+          "pointer-events: none" in before,
+          "the overlay would block the buttons underneath")
+    # Firefox and older Safari have no backdrop-filter; without a
+    # fallback the text sits on almost nothing.
+    check("browsers without backdrop-filter get a solid fill",
+          "@supports not (backdrop-filter" in css)
+
+    check("the header uses it", "admin-hero admin-glass" in body)
+    check("the cards use it", body.count("admin-glass") >= 3)
+    check("the tab bar uses it",
+          'className="admin-glass rounded-3xl overflow-hidden"' in body)
+
+    # The drift is decoration on a page people keep open.
+    check("the background wash can be switched off",
+          any("admin-hero" in block for block in
+              css.split("prefers-reduced-motion")[1:]),
+          "the header animates regardless of the system setting")
+
+
+def test_admin_live_badge():
+    """
+    The stat cards showed a green LIVE badge each.
+
+    The panel refreshes every 30 seconds, so "live" was a small lie, and
+    four identical badges carried no information. A ticking age says
+    whether the number is current — and turns amber when the refresh
+    loop has stopped, which is the case a green badge would hide.
+    """
+    print("\nData age instead of LIVE")
+
+    body = strip_comments(read(
+        os.path.join(DASH, "components", "dashboard", "admin-content.tsx")
+    ))
+    widget = strip_comments(read(os.path.join(DASH, "components", "ui", "data-age.tsx")))
+
+    check("the badge component exists", "export function DataAge" in widget)
+    check("the cards use it", "<DataAge" in body)
+    check("the fake LIVE badge is gone",
+          ">Live<" not in body and ">LIVE<" not in body,
+          "a badge claiming live on 30s-old data")
+
+    check("the age ticks", "setInterval" in widget)
+    # A clock in the page component re-renders twenty tab buttons and a
+    # table once a second.
+    check("the interval lives in the badge, not the page",
+          "setInterval" in widget)
+    check("the interval is cleared", "clearInterval" in widget,
+          "a timer per card would pile up on every re-render")
+    check("stale data is marked differently",
+          "staleAfter" in widget and "amber" in widget,
+          "a stopped refresh loop would still look healthy")
+
+    # Stamping the time in `finally` would make a failed refresh look
+    # fresh while the figures on screen are the old ones.
+    fetch = body[body.index("const fetchData"):]
+    fetch = fetch[: fetch.index("  };")]
+    check("the timestamp is only set on success",
+          "setLastLoaded" in fetch
+          and fetch.index("setLastLoaded") < fetch.index("} catch"),
+          "a failed refresh would reset the age to 'gerade eben'")
+
+
+def test_admin_stat_values():
+    """
+    Stat figures animate to their new value.
+
+    They are strings with units -- "16.51ms", "0.94 MB" -- so CountUp
+    cannot take them, and a naive parseFloat would print "0.94" where
+    "0,94 MB" belongs.
+    """
+    print("\nAnimated stat figures")
+
+    widget = strip_comments(read(os.path.join(DASH, "components", "ui", "stat-value.tsx")))
+    body = strip_comments(read(
+        os.path.join(DASH, "components", "dashboard", "admin-content.tsx")
+    ))
+
+    check("the component exists", "export function StatValue" in widget)
+    check("the cards use it", "<StatValue" in body)
+    check("the unit is kept", "suffix" in widget,
+          "'0.94 MB' would lose its unit")
+    # The gap has to be captured with the unit, not skipped.
+    check("the space before the unit survives",
+          r"(\s*.*)$" in widget,
+          "'0,94 MB' would render as '0,94MB'")
+    check("text without a number is left alone",
+          "if (!parsed)" in widget,
+          "an error string would become NaN")
+    check("it counts from the previous figure",
+          "from.current" in widget,
+          "every refresh would snap back to zero")
+    check("reduced motion skips the animation", "reduced" in widget)
+
+
 def main():
     check("the dashboard folder was found", os.path.isdir(DASH), DASH)
     if not os.path.isdir(DASH):
@@ -421,6 +561,9 @@ def main():
     test_tab_names_are_consistent()
     test_admin_link_style()
     test_admin_tab_groups()
+    test_admin_glass_surfaces()
+    test_admin_live_badge()
+    test_admin_stat_values()
 
     print(f"\n{len(failures)} failures")
     for line in failures:

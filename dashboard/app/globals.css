@@ -271,3 +271,96 @@ input[type="number"] {
   .admin-link,
   .admin-badge { transition: none; }
 }
+
+/* ── Admin panel surfaces ────────────────────────────────────────────
+
+   The panel used flat navy boxes with hard 1px borders. Real glass
+   needs three things at once, and the old version had none of them:
+   a blur behind it, a light edge that is brighter at the top than the
+   bottom, and a highlight where light would actually fall.
+
+   Kept deliberately restrained: this is a control panel people stare at
+   for a long time, not a landing page. */
+.admin-glass {
+  position: relative;
+  background:
+    linear-gradient(
+      160deg,
+      rgba(255, 255, 255, 0.055) 0%,
+      rgba(255, 255, 255, 0.018) 42%,
+      rgba(255, 255, 255, 0.008) 100%
+    );
+  backdrop-filter: blur(22px) saturate(140%);
+  -webkit-backdrop-filter: blur(22px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow:
+    0 18px 40px -22px rgba(0, 0, 0, 0.85),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07);
+}
+
+/* The rim light. A border alone reads as a drawn outline; a real edge
+   is brightest along the top and fades away by the bottom. */
+.admin-glass::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    160deg,
+    rgba(255, 255, 255, 0.22),
+    rgba(255, 255, 255, 0.04) 38%,
+    transparent 70%
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+.admin-glass-hover {
+  transition: border-color 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.admin-glass-hover:hover {
+  border-color: rgba(255, 255, 255, 0.16);
+  transform: translateY(-2px);
+  box-shadow:
+    0 26px 50px -24px rgba(0, 0, 0, 0.9),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+/* The header gets a slow coloured wash behind the glass, so the top of
+   the page has some depth without anything moving in the foreground. */
+.admin-hero::after {
+  content: "";
+  position: absolute;
+  inset: -40%;
+  z-index: -1;
+  background:
+    radial-gradient(38% 55% at 18% 25%, rgba(59, 130, 246, 0.20), transparent 70%),
+    radial-gradient(34% 50% at 82% 70%, rgba(99, 102, 241, 0.16), transparent 70%);
+  filter: blur(26px);
+  animation: admin-drift 22s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+
+@keyframes admin-drift {
+  0%   { transform: translate3d(-2%, -1%, 0) scale(1); }
+  100% { transform: translate3d(2%, 1.5%, 0) scale(1.06); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-glass-hover { transition: none; }
+  .admin-glass-hover:hover { transform: none; }
+  .admin-hero::after { animation: none; }
+}
+
+/* Safari and Firefox without backdrop-filter would show the near
+   transparent background as a flat dark rectangle -- readable, but the
+   text would sit on almost nothing. Give those a solid fill instead. */
+@supports not (backdrop-filter: blur(1px)) {
+  .admin-glass { background: rgba(17, 32, 58, 0.92); }
+}
