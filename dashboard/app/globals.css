@@ -217,3 +217,48 @@ input[type="number"] {
 @media (prefers-reduced-motion: reduce) {
   .premium-celebrate { display: none; }
 }
+
+/* The Admin Panel entry in the sidebar.
+
+   Premium glows gold because it sells something. Admin is the opposite
+   kind of link — it leads somewhere consequential, so it reads as a
+   steady steel-blue plate rather than something that wants attention.
+   No pulse: this one is used daily and a permanent animation on a link
+   people click all the time is just fatigue. */
+.admin-link {
+  position: relative;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background:
+    linear-gradient(180deg, rgba(148, 163, 184, 0.08), rgba(148, 163, 184, 0.02));
+}
+
+/* A hairline down the left edge, the way a shield rim reads. It brightens
+   on hover instead of the whole plate moving. */
+.admin-link::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 22%;
+  bottom: 22%;
+  width: 2px;
+  border-radius: 0 2px 2px 0;
+  background: rgba(148, 163, 184, 0.45);
+  transition: background 0.25s ease, top 0.25s ease, bottom 0.25s ease;
+}
+
+.admin-link:hover::before,
+.admin-link[data-active="true"]::before {
+  background: #60a5fa;
+  top: 12%;
+  bottom: 12%;
+}
+
+.admin-link[data-active="true"] {
+  border-color: rgba(96, 165, 250, 0.35);
+  background:
+    linear-gradient(180deg, rgba(96, 165, 250, 0.12), rgba(96, 165, 250, 0.03));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-link::before { transition: none; }
+}

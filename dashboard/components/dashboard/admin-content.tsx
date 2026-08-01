@@ -67,6 +67,24 @@ const tabs: Array<{ id: TabId; label: string; icon: any }> = [
   { id: "premium", label: "Premium", icon: Gem },
 ];
 
+/**
+ * The tab bar, grouped.
+ *
+ * Twenty tabs in one flex-wrap row spilled over three lines of
+ * identical-looking buttons, so finding "Backups" meant reading all
+ * twenty. Grouping them by what they are for turns that into picking a
+ * section first.
+ *
+ * Every tab appears exactly once; a tab missing from here would vanish
+ * from the UI entirely, which is why a test counts them.
+ */
+const TAB_GROUPS: Array<{ name: string; ids: TabId[] }> = [
+  { name: "Server", ids: ["members", "channels", "server", "scans", "broadcast"] },
+  { name: "Betrieb", ids: ["health", "system", "usage", "warnings", "reports", "audit"] },
+  { name: "Zugriff", ids: ["team", "dashusers", "access", "approvals"] },
+  { name: "Verwaltung", ids: ["features", "botsettings", "backups", "servers", "premium"] },
+];
+
 const memberActions: Array<{ action: MemberAction; label: string; desc: string; icon: any }> = [
   { action: "mute", label: "Mute", desc: "Timeout a member for a selected duration.", icon: Clock },
   { action: "unmute", label: "Unmute", desc: "Remove a member timeout.", icon: VolumeX },
@@ -348,7 +366,51 @@ export function AdminContent() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">{statItems.map((stat) => <div key={stat.name} className="glass border border-white/5 rounded-3xl p-4 sm:p-6 hover:border-white/10 transition-all group"><div className="flex items-center justify-between mb-4"><div className={cn("p-3 rounded-xl bg-white/[0.03] group-hover:scale-110 transition-transform", stat.color)}><stat.icon className="h-6 w-6" /></div><span className="text-[10px] font-black uppercase tracking-widest text-emerald-500 bg-emerald-500/10 px-2 py-1 rounded-lg">Live</span></div><p className="text-slate-500 text-xs font-bold uppercase tracking-widest">{stat.name}</p><h3 className="text-2xl font-black text-white mt-1 font-outfit">{stat.value}</h3></div>)}</div>
 
-      <div className="flex flex-wrap gap-3 p-2 bg-[#10233f]/70 border border-slate-800 rounded-3xl">{visibleTabs.map((tab) => { const active = activeTab === tab.id; return <button key={tab.id} onClick={() => { setActiveTab(tab.id); window.history.replaceState(null, "", `#${tab.id}`); }} className={cn("flex items-center gap-2 px-5 py-3 rounded-2xl text-sm font-black uppercase tracking-wider transition-all", active ? "bg-primary text-white shadow-lg shadow-primary/20" : "text-slate-400 hover:bg-slate-800/70 hover:text-white")}><tab.icon className="h-4 w-4" />{tab.label}</button>; })}</div>
+      {/* Grouped, because twenty identical buttons across three wrapped
+          lines meant reading all twenty to find one. Groups the user
+          has no permission for disappear entirely rather than showing
+          an empty heading. */}
+      <nav
+        className="p-3 bg-[#10233f]/70 border border-slate-800 rounded-3xl space-y-3"
+        aria-label="Admin-Bereiche"
+      >
+        {TAB_GROUPS.map((group) => {
+          const items = group.ids
+            .map((id) => visibleTabs.find((tab) => tab.id === id))
+            .filter(Boolean) as typeof visibleTabs;
+          if (items.length === 0) return null;
+
+          return (
+            <div key={group.name} className="flex flex-wrap items-center gap-2">
+              <span className="w-24 shrink-0 text-[10px] font-black uppercase tracking-[0.15em] text-slate-600">
+                {group.name}
+              </span>
+              {items.map((tab) => {
+                const active = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => {
+                      setActiveTab(tab.id);
+                      window.history.replaceState(null, "", `#${tab.id}`);
+                    }}
+                    aria-current={active ? "page" : undefined}
+                    className={cn(
+                      "flex items-center gap-2 px-3.5 py-2 rounded-xl text-[12px] font-bold transition-all",
+                      active
+                        ? "bg-primary text-white shadow-lg shadow-primary/20"
+                        : "text-slate-400 hover:bg-slate-800/70 hover:text-white"
+                    )}
+                  >
+                    <tab.icon className="h-3.5 w-3.5 shrink-0" />
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
+          );
+        })}
+      </nav>
 
       {/* Features and Health are full-width: they have no input sidebar. */}
       {activeTab === "features" && <FeatureFlagsPanel />}

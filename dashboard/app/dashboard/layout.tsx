@@ -347,10 +347,17 @@ export default function DashboardLayout({
             // blue every other link shares. Keyed off the href, not the
             // label, because the label is translated.
             const isPremium = item.href === "/dashboard/premium";
+            // Admin gets its own treatment: a steel plate rather than the
+            // flat blue, but deliberately without Premium's pulse — this
+            // one is clicked daily and a permanent animation would wear
+            // thin. Keyed off the href, not the label, which is
+            // translated.
+            const isAdmin = item.href === "/dashboard/admin";
             return (
               <Link
                 key={item.name}
                 href={item.href}
+                data-active={isActive ? "true" : undefined}
                 className={cn(
                   "flex items-center gap-4 px-4 py-3 rounded-2xl transition-all duration-300 group text-[14px] font-bold",
                   isPremium
@@ -359,6 +366,13 @@ export default function DashboardLayout({
                         isActive
                           ? "bg-amber-400/[0.14] text-amber-200"
                           : "bg-amber-400/[0.06] text-amber-200/90 hover:bg-amber-400/[0.12] hover:text-amber-100"
+                      )
+                    : isAdmin
+                    ? cn(
+                        "admin-link",
+                        isActive
+                          ? "text-blue-200"
+                          : "text-slate-300 hover:text-white"
                       )
                     : isActive
                     ? "bg-blue-500/10 text-blue-500 border border-blue-500/20 shadow-[0_0_20px_rgba(59,130,246,0.1)]"
@@ -370,6 +384,8 @@ export default function DashboardLayout({
                     "h-5 w-5 transition-all duration-300",
                     isPremium
                       ? cn("text-amber-300 drop-shadow-[0_0_6px_rgba(250,166,26,0.55)]", isActive && "scale-110")
+                      : isAdmin
+                      ? cn(isActive ? "text-blue-300" : "text-slate-400 group-hover:text-blue-300")
                       : isActive
                       ? "text-blue-500 scale-110"
                       : "text-slate-600 group-hover:text-slate-400"
@@ -380,7 +396,7 @@ export default function DashboardLayout({
                   <ChevronRight
                     className={cn(
                       "ml-auto h-4 w-4",
-                      isPremium ? "text-amber-300" : "text-blue-500"
+                      isPremium ? "text-amber-300" : isAdmin ? "text-blue-300" : "text-blue-500"
                     )}
                   />
                 ) : (

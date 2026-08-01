@@ -290,6 +290,87 @@ def test_tab_names_are_consistent():
           "protokoll" in search.lower(), "")
 
 
+def test_admin_link_style():
+    """
+    The Admin entry in the sidebar looks like admin, not like Premium.
+
+    Premium glows gold because it sells something. Admin leads somewhere
+    consequential and is clicked daily, so it gets a steady steel plate
+    and deliberately no pulse -- a permanent animation on a link people
+    use constantly is just fatigue.
+    """
+    print("\nAdmin link in the sidebar")
+
+    layout = strip_comments(read(os.path.join(DASH, "app", "dashboard", "layout.tsx")))
+
+    check("the admin link has its own class", "admin-link" in layout)
+    # Keyed off the href: the label is translated, so matching the word
+    # "Admin" would silently lose the styling in another language.
+    check("it is matched by href, not by label",
+          'item.href === "/dashboard/admin"' in layout,
+          "matching on the label breaks under translation")
+    check("the active state reaches the CSS",
+          'data-active={isActive ? "true" : undefined}' in layout,
+          "the edge marker cannot know which link is open")
+    check("it does not reuse the premium glow",
+          "premium-link" in layout and layout.count("admin-link") >= 1
+          and "admin-link premium-link" not in layout,
+          "admin would pulse like a sales link")
+
+    css = read(os.path.join(DASH, "app", "globals.css"))
+    check("the class is defined", ".admin-link" in css)
+    check("there is an edge marker", ".admin-link::before" in css)
+    check("the open link is marked",
+          '.admin-link[data-active="true"]' in css)
+    # The whole point of the difference: no infinite animation here.
+    admin_block = css[css.index(".admin-link"):] if ".admin-link" in css else ""
+    check("admin has no endless pulse",
+          "infinite" not in admin_block,
+          "admin animates like premium")
+
+
+def test_admin_tab_groups():
+    """
+    The admin tab bar is grouped.
+
+    Twenty tabs in one flex-wrap row spilled across three lines of
+    identical buttons, so finding one meant reading all twenty.
+
+    The risk when grouping: a tab left out of the groups is not just
+    misplaced, it disappears from the UI completely.
+    """
+    print("\nAdmin tab bar")
+
+    src = read(os.path.join(DASH, "components", "dashboard", "admin-content.tsx"))
+    body = strip_comments(src)
+
+    check("the groups exist", "TAB_GROUPS" in body)
+
+    defined = re.findall(r'\{ id: "(\w+)", label:', body)
+    start = body.index("const TAB_GROUPS")
+    block = body[start:body.index("];", start)]
+    names = re.findall(r'name: "(\w+)"', block)
+    grouped = [t for t in re.findall(r'"(\w+)"', block) if t not in names]
+
+    check("every tab is in a group", not set(defined) - set(grouped),
+          f"missing from the bar: {sorted(set(defined) - set(grouped))}")
+    check("no group lists an unknown tab", not set(grouped) - set(defined),
+          f"unknown: {sorted(set(grouped) - set(defined))}")
+    check("no tab appears twice",
+          len(grouped) == len(set(grouped)),
+          f"duplicated: {[t for t in set(grouped) if grouped.count(t) > 1]}")
+    check("the groups have names", len(names) >= 3, str(names))
+
+    # An empty heading is worse than no heading: it implies something is
+    # there that the viewer cannot see.
+    check("empty groups are hidden",
+          "items.length === 0) return null" in body,
+          "a group the user cannot use would show an empty row")
+    check("the open tab is announced to screen readers",
+          'aria-current={active ? "page" : undefined}' in body)
+    check("the bar is a landmark", "<nav" in body and "aria-label" in body)
+
+
 def main():
     check("the dashboard folder was found", os.path.isdir(DASH), DASH)
     if not os.path.isdir(DASH):
@@ -301,6 +382,8 @@ def main():
     test_beta_marking()
     test_both_navigations_agree()
     test_tab_names_are_consistent()
+    test_admin_link_style()
+    test_admin_tab_groups()
 
     print(f"\n{len(failures)} failures")
     for line in failures:
