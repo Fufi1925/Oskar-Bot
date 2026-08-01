@@ -425,7 +425,7 @@ export default function ServerToolsPage({ params }: { params: { guildId: string 
                 ) : (
                   current.roles.map((r: any) => (
                     <div key={r.id}
-                         className="bg-[#10233f] border border-slate-800 rounded-2xl px-5 py-4 flex items-center gap-4 flex-wrap border-glow-card">
+                         className="bg-[#10233f] border border-slate-800 rounded-2xl px-5 py-4 flex items-center gap-4 flex-wrap border-glow-card glow-r-2xl">
                       <span className="h-3 w-3 rounded-full shrink-0"
                             style={{ background: r.colour }} />
                       <span className="font-bold text-white truncate flex-1 min-w-[120px]">
@@ -526,7 +526,7 @@ export default function ServerToolsPage({ params }: { params: { guildId: string 
               <div className="space-y-2">
                 {current.channels.map((c: any) => (
                   <div key={c.id}
-                       className="bg-[#10233f] border border-slate-800 rounded-2xl px-5 py-4 flex items-center gap-4 flex-wrap border-glow-card">
+                       className="bg-[#10233f] border border-slate-800 rounded-2xl px-5 py-4 flex items-center gap-4 flex-wrap border-glow-card glow-r-2xl">
                     <Hash className="h-4 w-4 text-slate-500 shrink-0" />
                     <span className="font-bold text-white truncate flex-1 min-w-[120px]">
                       {c.name}
@@ -583,7 +583,7 @@ export default function ServerToolsPage({ params }: { params: { guildId: string 
               ) : (
                 current.invites.map((i: any) => (
                   <div key={i.code}
-                       className="bg-[#10233f] border border-slate-800 rounded-2xl px-5 py-4 flex items-center gap-4 flex-wrap border-glow-card">
+                       className="bg-[#10233f] border border-slate-800 rounded-2xl px-5 py-4 flex items-center gap-4 flex-wrap border-glow-card glow-r-2xl">
                     <code className="font-mono font-bold text-white">{i.code}</code>
                     <span className="text-xs text-slate-500 flex-1 min-w-[100px]">
                       {i.channel ? `#${i.channel}` : "—"}
@@ -626,7 +626,7 @@ export default function ServerToolsPage({ params }: { params: { guildId: string 
               ) : (
                 current.webhooks.map((w: any) => (
                   <div key={w.id}
-                       className="bg-[#10233f] border border-slate-800 rounded-2xl px-5 py-4 flex items-center gap-4 flex-wrap border-glow-card">
+                       className="bg-[#10233f] border border-slate-800 rounded-2xl px-5 py-4 flex items-center gap-4 flex-wrap border-glow-card glow-r-2xl">
                     <Webhook className="h-4 w-4 text-slate-500 shrink-0" />
                     <span className="font-bold text-white truncate flex-1 min-w-[120px]">
                       {w.name}

@@ -683,7 +683,21 @@ def test_proximity_effect():
     # box. Sidebar 256px - 2x16px nav padding leaves exactly 16px of
     # room. Past that the row is clipped, or the nav scrolls sideways
     # under `no-scrollbar` -- invisibly. See repro/prox_shift_budget.py.
-    SIDEBAR_W, NAV_PAD = 256, 16
+    # Read the padding off the nav instead of hard-coding it. It was
+    # 16px, then had to grow to 40px so the rows could travel further --
+    # and a copy of the number in this file just went stale and failed
+    # against correct CSS. The point of the check is that the two agree.
+    SIDEBAR_W = 256
+    nav_class = re.search(
+        r'className="mt-8 ([^"]*?)\s+space-y-6[^"]*overflow-y-auto', layout
+    )
+    check("the nav padding can be read",
+          nav_class is not None,
+          "cannot verify the shift budget without it")
+    pad_right = re.search(r"\bpr-(\d+)\b", nav_class.group(1)) if nav_class else None
+    both = re.search(r"\bpx-(\d+)\b", nav_class.group(1)) if nav_class else None
+    # Tailwind's spacing scale is 4px per step.
+    NAV_PAD = int((pad_right or both).group(1)) * 4 if (pad_right or both) else 0
     budget = NAV_PAD
 
     def shift_of(rule: str) -> int:
@@ -718,6 +732,25 @@ def test_proximity_effect():
     check("but still less than the top level",
           0 < nested_shift < top_shift,
           "a nested list that travels as far looks like it is coming apart")
+    # LineSidebar's own maxShift. The nav padding was widened to make
+    # room for exactly this, so if the travel shrinks again the padding
+    # is just wasted space.
+    check("the top-level travel is LineSidebar's 37px",
+          top_shift == 37,
+          f"got {top_shift}px")
+    # The search dropdown is not in the nav and has no spare padding of
+    # its own, so it must not inherit the sidebar's travel.
+    tight_rule = css.split(".prox-row-tight {")[1]
+    tight_rule = tight_rule[: tight_rule.index("}")]
+    tight_shift = shift_of(tight_rule)
+    check("the dropdown keeps a small travel",
+          0 < tight_shift <= 12,
+          f"{tight_shift}px would be clipped by the dropdown's own edge")
+    search_src = strip_comments(
+        read(os.path.join(DASH, "components", "global-search.tsx")))
+    check("and the dropdown actually uses it",
+          "prox-row-tight" in search_src and "prox-row-sm" not in search_src,
+          "the dropdown would slide as far as the sidebar")
     check("and inside the budget as well",
           nested_shift <= budget,
           f"{nested_shift}px against {budget}px of room")

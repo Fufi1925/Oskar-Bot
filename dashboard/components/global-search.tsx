@@ -241,7 +241,9 @@ export function GlobalSearch() {
               onMouseEnter={() => setCursor(index)}
               {...proximity.itemProps(index)}
               className={cn(
-                "prox-row prox-row-sm",
+                // Tight, not the sidebar's travel: this dropdown has no
+                // spare padding on the right to slide into.
+                "prox-row prox-row-tight",
                 "w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors",
                 index === cursor ? "bg-blue-500/10" : "hover:bg-white/[0.03]"
               )}

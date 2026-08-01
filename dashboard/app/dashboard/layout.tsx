@@ -313,7 +313,13 @@ export default function DashboardLayout({
 
         {/* Scrollable Navigation */}
         <nav
-          className="mt-8 px-4 space-y-6 overflow-y-auto flex-1 no-scrollbar relative z-10 pb-3"
+          // pr-10 rather than px-4 on both sides: the rows slide right
+          // by up to 37px, and a scroll container clips at its padding
+          // box. With 16px of room they were cut off; 40px clears the
+          // full travel with 3px to spare. 44px would be too much --
+          // "Zurück zur Serverliste" starts wrapping. Worked out in
+          // repro/prox_shift_budget.py.
+          className="mt-8 pl-4 pr-10 space-y-6 overflow-y-auto flex-1 no-scrollbar relative z-10 pb-3"
           {...proximity.containerProps}
         >
           {(() => {

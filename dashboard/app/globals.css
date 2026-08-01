@@ -379,16 +379,19 @@ input[type="number"] {
    frame in the rAF loop, and adding one on top makes the response lag
    behind the cursor.
 
-   How far the shift may go is not a matter of taste. The nav is
+   How far the shift may go is bounded by the nav, not by taste. It is
    `overflow-y: auto`, which per CSS Overflow 3 computes the other axis
    to `auto` too, and a scroll container clips at its padding box. The
-   sidebar is 256px with 16px of nav padding, so a row has exactly 16px
-   of room to slide into before it is clipped -- or, worse, starts
-   scrolling sideways under `no-scrollbar`, invisibly. 14px keeps 2px
-   in hand. See repro/prox_shift_budget.py. */
+   sidebar is 256px; the nav now carries 40px of right padding for this
+   (pr-10), so a row has 40px to slide into before it is clipped -- or,
+   worse, starts scrolling sideways under `no-scrollbar`, invisibly.
+
+   37px is LineSidebar's maxShift, and it fits with 3px to spare. 44px
+   of padding would be too much: "Zurück zur Serverliste" starts
+   wrapping. See repro/prox_shift_budget.py. */
 .prox-row {
   position: relative;
-  transform: translateX(calc(var(--effect, 0) * var(--prox-shift, 14px)));
+  transform: translateX(calc(var(--effect, 0) * var(--prox-shift, 37px)));
 }
 
 /* Reaching a little past the row means it reacts just before the
@@ -402,8 +405,15 @@ input[type="number"] {
 
 /* A shorter shift for rows that sit inside another row -- sub-links in
    a group, results in a dropdown. The full travel makes a nested list
-   look like it is coming apart. */
+   look like it is coming apart, and the search dropdown has no extra
+   padding to slide into at all. */
 .prox-row-sm {
+  --prox-shift: 26px;
+}
+
+/* The search results live in a dropdown that does not have the nav's
+   40px of right padding, so they get the old, smaller travel. */
+.prox-row-tight {
   --prox-shift: 10px;
 }
 
@@ -454,6 +464,11 @@ input[type="number"] {
   --glow-padding: 40px;
   --cone-spread: 25;
   --card-bg: #10233f;
+  /* The card's own corner radius. It has to be stated, not inherited:
+     see the note on ::after. Tailwind's rounded-3xl is the default
+     because 113 of the 121 cards use it; .glow-r-* below covers the
+     rest. */
+  --card-radius: 1.5rem;
   --glow-color: hsl(213deg 94% 68% / 100%);
   --glow-color-60: hsl(213deg 94% 68% / 60%);
   --glow-color-50: hsl(213deg 94% 68% / 50%);
@@ -547,6 +562,15 @@ input[type="number"] {
      ring lands on the card's edge rather than the layer's own. */
   border: var(--glow-padding) solid transparent;
   background-clip: padding-box;
+  /* Not `inherit`. An inset shadow is drawn on the padding box, and CSS
+     derives that radius by subtracting the border width -- here the
+     40px used to push the ring back onto the card. Inheriting the
+     card's 24px gives 24 - 40, clamped to 0: a square corner around a
+     rounded card, which is exactly what it looked like.
+
+     Adding the padding back cancels the subtraction, so the ring lands
+     on the card's real radius. See repro/glow_radius.py. */
+  border-radius: calc(var(--card-radius) + var(--glow-padding));
   -webkit-mask-image: conic-gradient(
     from var(--cursor-angle) at center,
     black 2.5%, transparent 10%, transparent 90%, black 97.5%
@@ -569,7 +593,15 @@ input[type="number"] {
 .border-glow-card.is-clipped::after {
   inset: 0;
   border-width: 0;
+  /* No border to subtract here, so the plain radius is correct. */
+  border-radius: var(--card-radius);
 }
+
+/* Cards that are not rounded-3xl. The glow ring is built from the
+   radius, so it has to be told which one -- a value it cannot read off
+   the element itself. */
+.glow-r-2xl { --card-radius: 1rem; }
+.glow-r-20 { --card-radius: 20px; }
 
 @media (prefers-reduced-motion: reduce) {
   /* The rim is a hover state, not an animation, so it stays -- removing

@@ -314,7 +314,7 @@ export function GiveawayDetail({
 
       {/* ── Quick actions ────────────────────────────── */}
       {data.running && (
-        <div className="bg-[#10233f] border border-slate-800 rounded-2xl p-5 space-y-4 border-glow-card">
+        <div className="bg-[#10233f] border border-slate-800 rounded-2xl p-5 space-y-4 border-glow-card glow-r-2xl">
           <p className="text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
             <Clock className="h-3.5 w-3.5" /> Laufzeit verlängern
           </p>

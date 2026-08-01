@@ -560,7 +560,7 @@ export function GiveawaysPanel({ guildId }: { guildId: string }) {
             {running.map((g) => (
               <div
                 key={g.message_id}
-                className="bg-[#10233f] border border-emerald-500/20 rounded-2xl p-5 flex items-center gap-4 flex-wrap border-glow-card"
+                className="bg-[#10233f] border border-emerald-500/20 rounded-2xl p-5 flex items-center gap-4 flex-wrap border-glow-card glow-r-2xl"
               >
                 <button
                   onClick={() => setOpenId(g.message_id)}

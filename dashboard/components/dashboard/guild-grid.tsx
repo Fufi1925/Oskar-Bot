@@ -126,7 +126,7 @@ export function GuildGrid({
         ].map((s) => (
           <div
             key={s.label}
-            className="bg-[#10233f] border border-slate-800 rounded-2xl p-5 flex items-center justify-between gap-3 border-glow-card"
+            className="bg-[#10233f] border border-slate-800 rounded-2xl p-5 flex items-center justify-between gap-3 border-glow-card glow-r-2xl"
           >
             <div className="min-w-0">
               <p className="text-2xl font-black text-white tabular-nums truncate">

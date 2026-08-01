@@ -205,6 +205,37 @@ def test_css():
           "inset: 0" in clipped,
           "overflow-hidden would cut the halo into a hard straight line")
 
+    print("\nThe glow corner matches the card's")
+    # The ring is an inset box-shadow, which is drawn on the padding
+    # box -- and CSS derives that radius by subtracting the border
+    # width. The halo layer carries a 40px transparent border to push
+    # the ring back onto the card, so inheriting the card's 24px gives
+    # 24 - 40, clamped to 0: a square corner around a rounded card.
+    # Adding the padding back cancels the subtraction.
+    check("the halo radius adds the padding back",
+          "border-radius: calc(var(--card-radius) + var(--glow-padding))" in halo,
+          "inheriting the radius squares the corner -- 24px - 40px clamps to 0")
+    check("the radius is not inherited on the halo",
+          "border-radius: inherit" not in halo,
+          "inherit is what produced the square corner")
+    # The clipped variant has no border to subtract, so it must not add
+    # the padding either -- that would round it too far.
+    check("the clipped variant uses the plain radius",
+          "border-radius: var(--card-radius);" in clipped,
+          "with no border there is nothing to compensate for")
+
+    base_all = rule_body(css, ".border-glow-card", "--card-radius")
+    check("there is a default radius to work from",
+          "--card-radius:" in base_all,
+          "the ring cannot be built without knowing the card's corner")
+    # Three radii are in use across the cards; the odd ones need a class
+    # because CSS cannot read the element's own computed radius.
+    for cls, value in ((".glow-r-2xl", "1rem"), (".glow-r-20", "20px")):
+        body = rule_body(css, cls)
+        check(f"{cls} sets its own radius",
+              f"--card-radius: {value}" in body,
+              "this card's glow would use the 3xl corner")
+
     print("\nAccessibility")
     reduced = ""
     for chunk in css.split("prefers-reduced-motion")[1:]:
@@ -241,6 +272,27 @@ def test_applied():
 
     check("the class reached a lot of cards", count >= 100,
           f"only {count} cards carry it")
+
+    # A card whose corner is not rounded-3xl needs the matching radius
+    # class, or its glow is built from the wrong corner. Checking the
+    # markup, not just that the CSS exists.
+    mismatched = []
+    for root, dirs, names in os.walk(DASH):
+        dirs[:] = [d for d in dirs if d not in {"node_modules", ".next", ".git"}]
+        for name in names:
+            if not name.endswith(".tsx"):
+                continue
+            src = read(os.path.join(root, name))
+            for match in re.finditer(r'className="([^"]*border-glow-card[^"]*)"', src):
+                cls = match.group(1)
+                if "rounded-2xl" in cls and "glow-r-2xl" not in cls:
+                    mismatched.append((name, "rounded-2xl"))
+                elif "rounded-[20px]" in cls and "glow-r-20" not in cls:
+                    mismatched.append((name, "rounded-[20px]"))
+    check("every odd radius carries its class",
+          not mismatched,
+          f"{len(mismatched)} card(s) would glow at the wrong corner: "
+          f"{mismatched[:3]}")
     check("across the whole dashboard", files >= 40, f"only {files} files")
     # Cards that clip their own content need the inside-only variant.
     check("clipping cards were marked", clipped > 0,
