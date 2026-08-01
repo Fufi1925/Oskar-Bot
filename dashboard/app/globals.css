@@ -192,3 +192,28 @@ input[type="number"] {
     display: none;
   }
 }
+
+/* One sweep across the status card the moment a key is redeemed.
+
+   Deliberately not a loop. This marks an event that just happened; a
+   permanent shimmer on a page people leave open would be noise, and the
+   gold border already carries the state on its own. */
+@keyframes premium-celebrate {
+  0%   { transform: translateX(0);    opacity: 0; }
+  15%  {                              opacity: 1; }
+  100% { transform: translateX(420%); opacity: 0; }
+}
+
+.premium-celebrate {
+  background: linear-gradient(
+    100deg,
+    transparent 0%,
+    rgba(255, 214, 128, 0.22) 50%,
+    transparent 100%
+  );
+  animation: premium-celebrate 1.4s ease-out forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .premium-celebrate { display: none; }
+}

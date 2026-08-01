@@ -595,6 +595,42 @@ def test_revoke_reaches_the_template_bot(store):
               store.create_key(created_by=1, duration_days=0)["key"])) is None)
 
 
+def test_status_reports_the_duration(store):
+    """
+    The dashboard draws "how much of the licence is left" as a bar, and
+    for that it needs the original duration alongside the expiry date.
+
+    Without it the bar silently never appears — no error, just a missing
+    element nobody notices until somebody asks where it went.
+    """
+    print("\nStatus carries the duration")
+
+    key = store.create_key(created_by=1, duration_days=30)["key"]
+    store.redeem(key, 9100)
+    state = store.status(9100)
+    check("a timed licence reports its length",
+          state.get("duration_days") == 30, str(state))
+
+    forever = store.create_key(created_by=1, duration_days=0)["key"]
+    store.redeem(forever, 9200)
+    check("a lifetime licence reports 0",
+          store.status(9200).get("duration_days") == 0,
+          "dividing by this would be meaningless")
+
+    check("no licence reports 0",
+          store.status(9300).get("duration_days") == 0)
+
+    # Two licences: the bar has to match the date shown next to it, so
+    # the duration must come from whichever one runs longest.
+    short = store.create_key(created_by=1, duration_days=7)["key"]
+    long = store.create_key(created_by=1, duration_days=90)["key"]
+    store.redeem(short, 9400)
+    store.redeem(long, 9400)
+    check("with two licences the longer one wins",
+          store.status(9400).get("duration_days") == 90,
+          f"got {store.status(9400).get('duration_days')}")
+
+
 def test_unrevoke_restores_access(store):
     """
     Reported: taking premium away and giving it back left the user
@@ -832,10 +868,16 @@ def test_dashboard_page():
           not (used - defined - {"none"}),
           f"missing keyframes for: {sorted(used - defined - {'none'})}")
     # An endlessly pulsing element is a genuine accessibility problem.
-    reduced = css.split("prefers-reduced-motion")[-1] if "prefers-reduced-motion" in css else ""
-    check("motion can be switched off by the system",
-          "premium-link" in reduced and "animation: none" in reduced,
+    # Check every reduced-motion block, not just the last one: adding a
+    # second block moved the goalposts and this passed for the wrong
+    # reason until it did not.
+    blocks = css.split("prefers-reduced-motion")[1:]
+    check("the sidebar pulse can be switched off",
+          any("premium-link" in b and "animation: none" in b for b in blocks),
           "the pulse ignores prefers-reduced-motion")
+    check("the redeem celebration can be switched off",
+          any("premium-celebrate" in b for b in blocks),
+          "the success sweep ignores prefers-reduced-motion")
 
 
 def test_mount_animation():
@@ -903,6 +945,55 @@ def test_mount_animation():
           "animate-in" not in page,
           "animate-in generates no CSS in this project")
 
+    print("\nThe customer panel")
+    panel_path = os.path.join(dash, "components", "dashboard", "premium-panel.tsx")
+    panel_src = open(panel_path, encoding="utf-8").read()
+    import re as _re
+    pb = _re.sub(r"/\*.*?\*/", "", panel_src, flags=_re.S)
+    pb = "\n".join(l for l in pb.splitlines() if not l.lstrip().startswith("//"))
+
+    # Count them: with four blocks on the page, swapping one back to a
+    # plain div left the word in the file and the check green.
+    check("every block animates on open", pb.count("<Reveal") >= 4,
+          f"only {pb.count('<Reveal')} of 4 blocks animate")
+    check("the remaining days count up", "<CountUp" in pb)
+    # Defined *and* rendered — a skeleton that is never returned is just
+    # dead code.
+    check("there is a loading skeleton",
+          "function Skeleton()" in pb and "return <Skeleton />" in pb,
+          "the page jumps from nothing to content")
+    check("the key is formatted while typing", "tidyKey" in pb)
+    check("a wrong length is caught before the request",
+          "cleaned.length !== 16" in pb,
+          "a typo costs a round trip to find out")
+    check("success is acknowledged", "justRedeemed" in pb)
+
+    styles = open(os.path.join(dash, "app", "globals.css"), encoding="utf-8").read()
+    # The name appears four times (keyframes, rule, animation, and the
+    # reduced-motion override), so pick the line that actually starts
+    # the animation rather than whichever match happens to be last.
+    celebrate = [
+        line for line in styles.splitlines()
+        if "animation:" in line and "premium-celebrate" in line
+    ]
+    check("the celebration runs once",
+          bool(celebrate) and "forwards" in celebrate[0]
+          and "infinite" not in celebrate[0],
+          f"a permanent shimmer on an idle page is noise: {celebrate}")
+
+    # A bar dividing by an absent number renders NaN%, which silently
+    # collapses to nothing.
+    check("the progress bar needs a real duration",
+          "template?.duration_days" in pb,
+          "the bar would divide by undefined")
+
+    # Leftovers from when this file also held the admin tab. Unused
+    # imports are the kind of thing that quietly rots.
+    for gone in ("Trash2", "Undo2", "AlertTriangle", "ShieldCheck",
+                 "Plus", "Ban", "Search", "Copy"):
+        check(f"'{gone}' is no longer imported here", gone not in pb,
+              "dead import left over from the admin split")
+
 
 def run():
     from utils import premium_store as store
@@ -915,6 +1006,7 @@ def run():
     test_partner_reaches_the_api(store)
     test_key_dm_is_components_v2()
     test_revoke_reaches_the_template_bot(store)
+    test_status_reports_the_duration(store)
     test_unrevoke_restores_access(store)
     test_delete_and_purge(store)
     test_dashboard_page()

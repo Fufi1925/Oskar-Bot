@@ -226,11 +226,18 @@ def status(user_id: int | str, product: str = "template_bot") -> dict[str, Any]:
 
     best: Optional[int] = None
     lifetime = False
+    duration = 0
     for row in rows:
         if row["expires_at"] is None:
             lifetime = True
         elif row["expires_at"] > now:
-            best = max(best or 0, int(row["expires_at"]))
+            if best is None or int(row["expires_at"]) > best:
+                best = int(row["expires_at"])
+                # The duration of the licence that runs longest, so the
+                # dashboard can draw "how much is left of it". Reporting
+                # any other row's duration would give a bar that does not
+                # match the date next to it.
+                duration = int(row["duration"] or 0)
 
     active = lifetime or best is not None
     return {
@@ -240,6 +247,8 @@ def status(user_id: int | str, product: str = "template_bot") -> dict[str, Any]:
         # None means "forever" when active, and nothing at all when not.
         "expires_at": None if lifetime else best,
         "lifetime": lifetime,
+        # 0 when unknown or unlimited; the caller must not divide by it.
+        "duration_days": 0 if lifetime else duration,
     }
 
 
