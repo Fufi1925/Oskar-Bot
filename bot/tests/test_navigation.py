@@ -597,12 +597,53 @@ def test_proximity_effect():
           layout.index("useProximity({")
           < layout.index('if (status === "loading"'),
           "the hook would be skipped while loading and React would throw")
-    check("marker and index are hidden from screen readers",
+    check("the marker is hidden from screen readers",
           'className="prox-marker" aria-hidden' in layout,
           "decoration would be read out")
+    # The container has to be the rows' offsetParent, or every distance
+    # is measured against the wrong box. Reading it off the first row's
+    # offsetParent guessed; the ref does not.
+    check("the container is passed in explicitly",
+          "ref:" in hook and "container.current = el" in hook,
+          "offsetParent guessing breaks as soon as a wrapper is added")
+
+    print("\nThe row numbers are gone")
+    # 01, 02, 03 down the side of a sidebar that is read by label. They
+    # were the loudest thing on it and nobody navigates by ordinal.
+    check("no index element is rendered",
+          "prox-index" not in layout,
+          "the numbers are back")
+    check("no index is styled either",
+          "prox-index" not in strip_comments(
+              read(os.path.join(DASH, "app", "globals.css"))),
+          "dead CSS for an element that no longer exists")
+    check("nothing still builds a padded number",
+          'padStart(2, "0")' not in layout,
+          "leftover numbering code")
+
+    print("\nEvery link takes part, not just the top level")
+    # Inside a guild the sidebar is mostly sub-links. Lighting only the
+    # four flat rows meant the effect was invisible on most pages.
+    check("sub-links carry the row class",
+          layout.count("prox-row") >= 2,
+          "only the top-level rows would react")
+    check("sub-links get their own index",
+          layout.count("proximity.itemProps") >= 2)
+    check("one running index covers both levels",
+          "nextIndex()" in layout,
+          "two counters would hand the same index to two rows")
+    check("nested rows are toned down",
+          "prox-row-sm" in layout,
+          "a full-size shift makes a nested list look like it is coming apart")
 
     print("\nCSS")
-    css = read(os.path.join(DASH, "app", "globals.css"))
+    # Comments stripped: the note above the reduced-motion rule explains
+    # what `transform: none` would break, and so contains "scaleX"
+    # itself. Reading the raw file let that comment satisfy the check --
+    # the mutation that swapped the rule for `transform: none` was not
+    # caught until this line changed.
+    css_raw = read(os.path.join(DASH, "app", "globals.css"))
+    css = strip_comments(css_raw)
     check("the row class exists", ".prox-row {" in css)
     # color-mix is not used anywhere else in this project, so a browser
     # that does not know it must still get a visible marker.
@@ -622,6 +663,64 @@ def test_proximity_effect():
           any(".prox-row" in block for block in
               css.split("prefers-reduced-motion")[1:]),
           "the shift ignores the system setting")
+
+    # The marker used to sit at `left: -22px`, outside a row that is
+    # 16px inside an `overflow-y-auto` nav. Per CSS Overflow 3 a scroll
+    # container clips the other axis too, so 6 of those 22px were cut
+    # off on every row. An in-flow flex child cannot be clipped.
+    marker_rule = ""
+    for chunk in css.split(".prox-row .prox-marker")[1:]:
+        candidate = chunk[: chunk.index("}")] if "}" in chunk else ""
+        if "flex:" in candidate or "position:" in candidate:
+            marker_rule = candidate
+            break
+    check("the marker is in the flow, not hanging outside",
+          "position: absolute" not in marker_rule
+          and "left: calc(-1" not in marker_rule,
+          "overflow-y-auto on the nav clips whatever sticks out sideways")
+    check("it reserves a fixed slot",
+          "flex:" in marker_rule,
+          "an animating width would drag the label along with it")
+
+    # `transform: none` in the reduced-motion block would collapse the
+    # scaleX and leave every line at full length -- the loudest state.
+    # Cut each block down to the media query body *first*. Testing the
+    # raw split chunk matches the marker rules that sit further down the
+    # file, outside the query entirely -- which is how this test passed
+    # a body that did not contain the rule at all.
+    reduced = ""
+    for block in css.split("prefers-reduced-motion")[1:]:
+        body = block[: block.index("\n}\n")] if "\n}\n" in block else block
+        if ".prox-row .prox-marker" in body:
+            reduced = body
+            break
+    check("reduced motion freezes the line short, not long",
+          "scaleX" in reduced,
+          "transform: none would show every marker at full width")
+
+    print("\nThe search results use it too")
+    search = strip_comments(read(os.path.join(DASH, "components", "global-search.tsx")))
+    check("rows carry the class", "prox-row" in search)
+    check("the container is wired up",
+          "proximity.containerProps" in search)
+    # The dropdown is `absolute`, which already makes it the offsetParent.
+    # Tailwind emits `relative` after `absolute`, so adding it would win
+    # and drop the panel back into the flow.
+    check("no relative is added to the absolute dropdown",
+          "z-50 py-2 relative" not in search,
+          "the dropdown would stop floating over the page")
+    # Keyboard and mouse must not end up with two separate highlights.
+    check("the keyboard cursor drives the same effect",
+          "activeIndex: open" in search,
+          "arrowing down would light nothing")
+    # The result list is rebuilt on every keystroke.
+    check("stale rows are dropped when the list shrinks",
+          "setProxCount(results.length)" in search,
+          "rows from a longer previous search keep being eased")
+    # useProximity returns a fresh object literal every render.
+    check("the effect does not depend on the whole object",
+          "proximity]" not in search,
+          "an unstable dependency re-runs the effect on every render")
 
     # The effect measures vertical distance only. Every button in a
     # horizontal row shares an offsetTop, so they would all light at

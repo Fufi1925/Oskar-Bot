@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
+import { useProximity } from "@/components/ui/proximity";
 
 interface SearchTarget {
   label: string;
@@ -162,6 +163,28 @@ export function GlobalSearch() {
 
   useEffect(() => setCursor(0), [query]);
 
+  // The same proximity effect the sidebar uses. `activeIndex` is the
+  // keyboard cursor, so arrowing down lights rows exactly the way
+  // hovering them does -- one highlight, driven from two inputs,
+  // instead of two that can disagree.
+  const proximity = useProximity({
+    radius: 70,
+    smoothing: 110,
+    activeIndex: open && results.length ? cursor : null,
+  });
+
+  // The list is rebuilt on every keystroke. Without this, rows from a
+  // longer previous result set stay in the array and keep being eased
+  // against elements that are no longer on the page.
+  //
+  // Pulled out of the object on purpose: useProximity hands back a
+  // fresh object literal each render, so depending on `proximity` here
+  // would re-run this on every render. `setCount` itself is stable.
+  const { setCount: setProxCount } = proximity;
+  useEffect(() => {
+    setProxCount(results.length);
+  }, [results.length, setProxCount]);
+
   const go = (target: SearchTarget) => {
     const href = target.href.replace("{g}", guildId ?? "");
     router.push(href);
@@ -201,17 +224,29 @@ export function GlobalSearch() {
       />
 
       {open && results.length > 0 && (
-        <div className="absolute top-full left-0 right-0 mt-2 max-h-96 overflow-y-auto bg-[#071a33]/95 backdrop-blur-3xl border border-white/10 rounded-2xl shadow-2xl shadow-black/50 z-50 py-2">
+        <div
+          // No `relative` added here on purpose. useProximity needs the
+          // container to be the rows' offsetParent, and `absolute`
+          // already positions this box, so it is. Adding `relative`
+          // would not just be redundant -- Tailwind emits it after
+          // `absolute`, so it would win and drop the dropdown back into
+          // the flow.
+          className="absolute top-full left-0 right-0 mt-2 max-h-96 overflow-y-auto bg-[#071a33]/95 backdrop-blur-3xl border border-white/10 rounded-2xl shadow-2xl shadow-black/50 z-50 py-2"
+          {...proximity.containerProps}
+        >
           {results.map((target, index) => (
             <button
               key={target.href + target.label}
               onClick={() => go(target)}
               onMouseEnter={() => setCursor(index)}
+              {...proximity.itemProps(index)}
               className={cn(
+                "prox-row prox-row-sm",
                 "w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors",
                 index === cursor ? "bg-blue-500/10" : "hover:bg-white/[0.03]"
               )}
             >
+              <span className="prox-marker" aria-hidden />
               <target.icon
                 className={cn(
                   "h-4 w-4 shrink-0",

@@ -43,8 +43,15 @@ export interface ProximityOptions {
 }
 
 export interface Proximity {
-  /** Put on the scrolling container. */
+  /**
+   * Spread onto the scrolling container. The ref is what makes the
+   * distance maths correct: `offsetTop` is measured against the nearest
+   * positioned ancestor, so the element the pointer is measured from
+   * has to be that same ancestor. Give the container `position:
+   * relative` (Tailwind `relative`) and the two always agree.
+   */
   containerProps: {
+    ref: (el: HTMLElement | null) => void;
     onPointerMove: (event: React.PointerEvent) => void;
     onPointerLeave: () => void;
   };
@@ -141,15 +148,14 @@ export function useProximity({
     start();
   }, [start]);
 
+  const containerRef = useCallback((el: HTMLElement | null) => {
+    container.current = el;
+  }, []);
+
   const itemProps = useCallback(
     (index: number) => ({
       ref: (el: HTMLElement | null) => {
         rows.current[index] = el;
-        // The container is whatever the rows sit in. Taking it from the
-        // first row means no second ref to wire up at the call site.
-        if (el && !container.current) {
-          container.current = el.offsetParent as HTMLElement | null;
-        }
       },
     }),
     []
@@ -175,7 +181,7 @@ export function useProximity({
   );
 
   return {
-    containerProps: { onPointerMove, onPointerLeave },
+    containerProps: { ref: containerRef, onPointerMove, onPointerLeave },
     itemProps,
     setCount,
   };

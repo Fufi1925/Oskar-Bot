@@ -317,14 +317,14 @@ export default function DashboardLayout({
           {...proximity.containerProps}
         >
           {(() => {
-            // Only the flat top-level rows take part. Inside a guild the
-            // sidebar is six groups of sub-links, and lighting those by
-            // cursor distance fights the group headings instead of
-            // helping.
+            // Every link in the sidebar takes part, sub-links included.
+            // They are all in one scrolling column, so one running index
+            // over the whole thing is all the effect needs -- a group
+            // heading is not a link and simply does not get one.
             let flat = -1;
+            const nextIndex = () => ++flat;
             return mainSidebarItems.map((item: any) => {
-              if (!item.items) flat++;
-              const proxIndex = flat;
+              const proxIndex = item.items ? -1 : nextIndex();
             if (item.items) {
               return (
                 <div key={item.name} className="space-y-2">
@@ -334,17 +334,21 @@ export default function DashboardLayout({
                   <div className="space-y-1">
                     {item.items.map((subItem: any) => {
                       const isActive = pathname === subItem.href;
+                      const subIndex = nextIndex();
                       return (
                         <Link
                           key={subItem.name}
                           href={subItem.href}
+                          {...proximity.itemProps(subIndex)}
                           className={cn(
+                            "prox-row prox-row-sm",
                             "flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-300 group text-[13px] font-bold",
                             isActive
                               ? "bg-blue-500/10 text-blue-500 border border-blue-500/20 shadow-[0_0_20px_rgba(59,130,246,0.1)]"
                               : "text-slate-400 hover:bg-white/[0.03] hover:text-slate-200"
                           )}
                         >
+                          <span className="prox-marker" aria-hidden />
                           <subItem.icon
                             className={cn(
                               "h-4 w-4 transition-all duration-300",
@@ -407,13 +411,16 @@ export default function DashboardLayout({
                     : "text-slate-400 hover:bg-white/[0.03] hover:text-slate-200"
                 )}
               >
-                {/* The leading line and index from LineSidebar. Both
-                    are decoration, so they are hidden from screen
-                    readers -- the label already says everything. */}
+                {/* The leading line from LineSidebar. Decoration, so it
+                    is hidden from screen readers -- the label already
+                    says everything.
+
+                    The original also numbers each row 01, 02, 03. Those
+                    are gone: they are the loudest thing in a sidebar
+                    that is meant to be read by label, and nobody
+                    navigates by ordinal. The line alone carries the
+                    effect. */}
                 <span className="prox-marker" aria-hidden />
-                <span className="prox-index text-slate-500" aria-hidden>
-                  {String(proxIndex + 1).padStart(2, "0")}
-                </span>
                 {isAdmin ? (
                   // A filled tile rather than a bare glyph: that is what
                   // makes this row read as a destination at a glance.

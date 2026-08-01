@@ -379,15 +379,27 @@ input[type="number"] {
   transform: translateX(calc(var(--effect, 0) * var(--prox-shift, 8px)));
 }
 
-/* The leading line. Grows and brightens as the cursor nears. */
+/* The leading line. Grows and brightens as the cursor nears.
+
+   It sits in the row as a normal flex child, not absolutely to the left
+   of it. The absolute version hung 22px outside the row, and the
+   sidebar's nav is `overflow-y-auto` — which, per the overflow spec,
+   turns the other axis into `auto` as well. The row starts 16px from
+   the nav edge, so 6 of those 22px were being clipped away. An in-flow
+   slot cannot be clipped by anything, which is also what lets the same
+   markup work inside the search dropdown.
+
+   The slot has a fixed width and the line inside it is scaled, so the
+   label never moves as the effect changes. A width that animates would
+   drag the icon and text along with it. */
 .prox-row .prox-marker {
-  position: absolute;
-  left: calc(-1 * var(--prox-marker, 22px));
-  top: 50%;
+  flex: 0 0 var(--prox-marker, 20px);
+  width: var(--prox-marker, 20px);
+  /* The row's own gap would leave too much air after a 20px line. */
+  margin-right: -0.5rem;
   height: 1px;
-  width: var(--prox-marker, 22px);
   transform-origin: left center;
-  transform: translateY(-50%) scaleX(calc(0.45 + var(--effect, 0) * 0.55));
+  transform: scaleX(calc(0.35 + var(--effect, 0) * 0.65));
   background-color: rgba(148, 163, 184, 0.35);
   pointer-events: none;
 }
@@ -404,13 +416,6 @@ input[type="number"] {
   );
 }
 
-.prox-row .prox-index {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 0.7em;
-  opacity: calc(0.35 + var(--effect, 0) * 0.65);
-  font-variant-numeric: tabular-nums;
-}
-
 /* Reaching a little past the row means it reacts just before the
    cursor arrives, which is what makes the effect feel responsive. */
 .prox-row::before {
@@ -420,7 +425,18 @@ input[type="number"] {
   pointer-events: none;
 }
 
+/* A shorter shift and a shorter line for rows that sit inside another
+   row -- sub-links in a group, results in a dropdown. The full 8px
+   makes a nested list look like it is coming apart. */
+.prox-row-sm {
+  --prox-shift: 5px;
+  --prox-marker: 14px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .prox-row { transform: none; }
-  .prox-row .prox-marker { transform: translateY(-50%); }
+  /* Not `transform: none`: that would collapse the scaleX and leave the
+     line at full width, which is the loudest state of all. Freeze it at
+     the resting length instead. */
+  .prox-row .prox-marker { transform: scaleX(0.35); }
 }
