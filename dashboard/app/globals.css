@@ -220,45 +220,54 @@ input[type="number"] {
 
 /* The Admin Panel entry in the sidebar.
 
-   Premium glows gold because it sells something. Admin is the opposite
-   kind of link — it leads somewhere consequential, so it reads as a
-   steady steel-blue plate rather than something that wants attention.
-   No pulse: this one is used daily and a permanent animation on a link
-   people click all the time is just fatigue. */
+   The first attempt was a grey plate with a hairline edge. Grey on a
+   dark navy sidebar has almost no contrast — it read as a disabled item
+   rather than the most powerful link in the list.
+
+   This one is solid: a filled indigo tile with a real icon badge, so it
+   is unmistakably a destination and clearly different from Premium's
+   gold. Still no pulse — Premium animates because it sells something,
+   Admin is clicked daily and a permanent animation there is fatigue. */
 .admin-link {
   position: relative;
-  border: 1px solid rgba(148, 163, 184, 0.18);
+  border: 1px solid rgba(99, 102, 241, 0.28);
   background:
-    linear-gradient(180deg, rgba(148, 163, 184, 0.08), rgba(148, 163, 184, 0.02));
+    linear-gradient(135deg, rgba(79, 70, 229, 0.18), rgba(99, 102, 241, 0.06));
+  transition: border-color 0.25s ease, background 0.25s ease;
 }
 
-/* A hairline down the left edge, the way a shield rim reads. It brightens
-   on hover instead of the whole plate moving. */
-.admin-link::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 22%;
-  bottom: 22%;
-  width: 2px;
-  border-radius: 0 2px 2px 0;
-  background: rgba(148, 163, 184, 0.45);
-  transition: background 0.25s ease, top 0.25s ease, bottom 0.25s ease;
-}
-
-.admin-link:hover::before,
-.admin-link[data-active="true"]::before {
-  background: #60a5fa;
-  top: 12%;
-  bottom: 12%;
+.admin-link:hover {
+  border-color: rgba(129, 140, 248, 0.55);
+  background:
+    linear-gradient(135deg, rgba(79, 70, 229, 0.28), rgba(99, 102, 241, 0.12));
 }
 
 .admin-link[data-active="true"] {
-  border-color: rgba(96, 165, 250, 0.35);
+  border-color: rgba(129, 140, 248, 0.7);
   background:
-    linear-gradient(180deg, rgba(96, 165, 250, 0.12), rgba(96, 165, 250, 0.03));
+    linear-gradient(135deg, rgba(79, 70, 229, 0.34), rgba(99, 102, 241, 0.16));
+  box-shadow: 0 0 22px rgba(99, 102, 241, 0.18);
+}
+
+/* The icon sits in its own filled square, the way an app tile reads.
+   That is what separates it from every other row at a glance. */
+.admin-badge {
+  display: grid;
+  place-items: center;
+  height: 30px;
+  width: 30px;
+  border-radius: 9px;
+  background: rgba(99, 102, 241, 0.22);
+  border: 1px solid rgba(129, 140, 248, 0.3);
+  transition: background 0.25s ease;
+}
+
+.admin-link:hover .admin-badge,
+.admin-link[data-active="true"] .admin-badge {
+  background: rgba(129, 140, 248, 0.38);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .admin-link::before { transition: none; }
+  .admin-link,
+  .admin-badge { transition: none; }
 }

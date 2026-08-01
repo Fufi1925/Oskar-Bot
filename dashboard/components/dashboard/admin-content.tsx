@@ -366,50 +366,90 @@ export function AdminContent() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">{statItems.map((stat) => <div key={stat.name} className="glass border border-white/5 rounded-3xl p-4 sm:p-6 hover:border-white/10 transition-all group"><div className="flex items-center justify-between mb-4"><div className={cn("p-3 rounded-xl bg-white/[0.03] group-hover:scale-110 transition-transform", stat.color)}><stat.icon className="h-6 w-6" /></div><span className="text-[10px] font-black uppercase tracking-widest text-emerald-500 bg-emerald-500/10 px-2 py-1 rounded-lg">Live</span></div><p className="text-slate-500 text-xs font-bold uppercase tracking-widest">{stat.name}</p><h3 className="text-2xl font-black text-white mt-1 font-outfit">{stat.value}</h3></div>)}</div>
 
-      {/* Grouped, because twenty identical buttons across three wrapped
-          lines meant reading all twenty to find one. Groups the user
-          has no permission for disappear entirely rather than showing
-          an empty heading. */}
+      {/* One group at a time.
+
+          First attempt showed all four groups stacked, each a different
+          length — four ragged rows that looked worse than the twenty
+          buttons they replaced. Now the group is a choice: pick a
+          section, see only its tabs. One tidy row instead of four
+          uneven ones, and the active section stays obvious. */}
       <nav
-        className="p-3 bg-[#10233f]/70 border border-slate-800 rounded-3xl space-y-3"
+        className="bg-[#10233f]/70 border border-slate-800 rounded-3xl overflow-hidden"
         aria-label="Admin-Bereiche"
       >
-        {TAB_GROUPS.map((group) => {
-          const items = group.ids
-            .map((id) => visibleTabs.find((tab) => tab.id === id))
-            .filter(Boolean) as typeof visibleTabs;
-          if (items.length === 0) return null;
+        <div className="flex border-b border-slate-800/80">
+          {TAB_GROUPS.map((group) => {
+            const count = group.ids.filter((id) =>
+              visibleTabs.some((tab) => tab.id === id)
+            ).length;
+            // A section the user has no permission for is not shown at
+            // all — an empty tab promises something that is not there.
+            if (count === 0) return null;
 
-          return (
-            <div key={group.name} className="flex flex-wrap items-center gap-2">
-              <span className="w-24 shrink-0 text-[10px] font-black uppercase tracking-[0.15em] text-slate-600">
+            const open = group.ids.includes(activeTab);
+            return (
+              <button
+                key={group.name}
+                onClick={() => {
+                  const first = group.ids.find((id) =>
+                    visibleTabs.some((tab) => tab.id === id)
+                  );
+                  if (first) {
+                    setActiveTab(first);
+                    window.history.replaceState(null, "", `#${first}`);
+                  }
+                }}
+                aria-current={open ? "true" : undefined}
+                className={cn(
+                  "relative flex-1 px-4 py-3.5 text-[12px] font-black uppercase tracking-[0.12em] transition-colors",
+                  open
+                    ? "text-white bg-white/[0.04]"
+                    : "text-slate-500 hover:text-slate-300 hover:bg-white/[0.02]"
+                )}
+              >
                 {group.name}
-              </span>
-              {items.map((tab) => {
-                const active = activeTab === tab.id;
-                return (
-                  <button
-                    key={tab.id}
-                    onClick={() => {
-                      setActiveTab(tab.id);
-                      window.history.replaceState(null, "", `#${tab.id}`);
-                    }}
-                    aria-current={active ? "page" : undefined}
-                    className={cn(
-                      "flex items-center gap-2 px-3.5 py-2 rounded-xl text-[12px] font-bold transition-all",
-                      active
-                        ? "bg-primary text-white shadow-lg shadow-primary/20"
-                        : "text-slate-400 hover:bg-slate-800/70 hover:text-white"
-                    )}
-                  >
-                    <tab.icon className="h-3.5 w-3.5 shrink-0" />
-                    {tab.label}
-                  </button>
-                );
-              })}
-            </div>
-          );
-        })}
+                <span className="ml-2 text-[10px] font-bold text-slate-600">
+                  {count}
+                </span>
+                {/* The underline is what carries "you are here" — colour
+                    alone is not enough to read at a glance. */}
+                {open && (
+                  <span className="absolute inset-x-3 bottom-0 h-0.5 rounded-t bg-primary" />
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="flex flex-wrap gap-1.5 p-3">
+          {TAB_GROUPS.filter((group) => group.ids.includes(activeTab))
+            .flatMap((group) => group.ids)
+            .map((id) => visibleTabs.find((tab) => tab.id === id))
+            .filter(Boolean)
+            .map((tab) => {
+              const active = activeTab === tab!.id;
+              const Icon = tab!.icon;
+              return (
+                <button
+                  key={tab!.id}
+                  onClick={() => {
+                    setActiveTab(tab!.id);
+                    window.history.replaceState(null, "", `#${tab!.id}`);
+                  }}
+                  aria-current={active ? "page" : undefined}
+                  className={cn(
+                    "flex items-center gap-2 px-4 py-2.5 rounded-xl text-[12.5px] font-bold transition-all",
+                    active
+                      ? "bg-primary text-white shadow-lg shadow-primary/25"
+                      : "text-slate-400 bg-white/[0.02] hover:bg-slate-800/70 hover:text-white"
+                  )}
+                >
+                  <Icon className="h-3.5 w-3.5 shrink-0" />
+                  {tab!.label}
+                </button>
+              );
+            })}
+        </div>
       </nav>
 
       {/* Features and Health are full-width: they have no input sidebar. */}

@@ -319,7 +319,32 @@ def test_admin_link_style():
 
     css = read(os.path.join(DASH, "app", "globals.css"))
     check("the class is defined", ".admin-link" in css)
-    check("there is an edge marker", ".admin-link::before" in css)
+    # A grey plate on a dark navy sidebar read as disabled. The tile has
+    # to be filled to look like the most powerful link in the list.
+    # Both parts, and both inside their own rule: checking the words
+    # separately passed even with the badge rule renamed away, because
+    # "linear-gradient" appears elsewhere in the stylesheet.
+    link_rule = css[css.index(".admin-link {"):] if ".admin-link {" in css else ""
+    link_rule = link_rule[: link_rule.index("}")] if "}" in link_rule else ""
+    check("the link itself is filled",
+          "linear-gradient" in link_rule,
+          "a low-contrast outline reads as a disabled item")
+    # The name also appears inside the reduced-motion block, so a plain
+    # "is it mentioned" check passed with the real rule renamed away.
+    # Look for what the badge actually needs to be a tile.
+    badge_rule = ""
+    for chunk in css.split(".admin-badge {")[1:]:
+        candidate = chunk[: chunk.index("}")] if "}" in chunk else ""
+        if "background" in candidate:
+            badge_rule = candidate
+            break
+    check("the badge is a real tile",
+          "background" in badge_rule and "border-radius" in badge_rule,
+          "the icon has no filled tile to sit in")
+    # In JSX it is a class name without the dot; in CSS it has one.
+    check("the icon sits in its own badge",
+          'className="admin-badge' in layout,
+          "a bare glyph looks like every other row")
     check("the open link is marked",
           '.admin-link[data-active="true"]' in css)
     # The whole point of the difference: no infinite animation here.
@@ -361,13 +386,25 @@ def test_admin_tab_groups():
           f"duplicated: {[t for t in set(grouped) if grouped.count(t) > 1]}")
     check("the groups have names", len(names) >= 3, str(names))
 
-    # An empty heading is worse than no heading: it implies something is
-    # there that the viewer cannot see.
-    check("empty groups are hidden",
-          "items.length === 0) return null" in body,
-          "a group the user cannot use would show an empty row")
+    # Four stacked groups of different lengths looked worse than the
+    # twenty buttons they replaced. One section at a time keeps it to a
+    # single tidy row.
+    check("one section is shown at a time",
+          "TAB_GROUPS.filter((group) => group.ids.includes(activeTab))" in body,
+          "all groups render at once again")
+    # A section nobody may open promises something that is not there.
+    check("empty sections are hidden",
+          "if (count === 0) return null" in body,
+          "a section the user cannot use would still show")
+    check("the section shows how many tabs it holds", "{count}" in body)
+    # Colour alone is not enough to say which section is open.
+    check("the open section is underlined",
+          "absolute inset-x-3 bottom-0" in body,
+          "only colour marks the open section")
     check("the open tab is announced to screen readers",
           'aria-current={active ? "page" : undefined}' in body)
+    check("the open section is announced too",
+          'aria-current={open ? "true" : undefined}' in body)
     check("the bar is a landmark", "<nav" in body and "aria-label" in body)
 
 

@@ -370,33 +370,37 @@ export default function DashboardLayout({
                     : isAdmin
                     ? cn(
                         "admin-link",
-                        isActive
-                          ? "text-blue-200"
-                          : "text-slate-300 hover:text-white"
+                        isActive ? "text-indigo-100" : "text-indigo-200/90 hover:text-white"
                       )
                     : isActive
                     ? "bg-blue-500/10 text-blue-500 border border-blue-500/20 shadow-[0_0_20px_rgba(59,130,246,0.1)]"
                     : "text-slate-400 hover:bg-white/[0.03] hover:text-slate-200"
                 )}
               >
-                <item.icon
-                  className={cn(
-                    "h-5 w-5 transition-all duration-300",
-                    isPremium
-                      ? cn("text-amber-300 drop-shadow-[0_0_6px_rgba(250,166,26,0.55)]", isActive && "scale-110")
-                      : isAdmin
-                      ? cn(isActive ? "text-blue-300" : "text-slate-400 group-hover:text-blue-300")
-                      : isActive
-                      ? "text-blue-500 scale-110"
-                      : "text-slate-600 group-hover:text-slate-400"
-                  )}
-                />
+                {isAdmin ? (
+                  // A filled tile rather than a bare glyph: that is what
+                  // makes this row read as a destination at a glance.
+                  <span className="admin-badge shrink-0">
+                    <item.icon className="h-4 w-4 text-indigo-200" />
+                  </span>
+                ) : (
+                  <item.icon
+                    className={cn(
+                      "h-5 w-5 transition-all duration-300",
+                      isPremium
+                        ? cn("text-amber-300 drop-shadow-[0_0_6px_rgba(250,166,26,0.55)]", isActive && "scale-110")
+                        : isActive
+                        ? "text-blue-500 scale-110"
+                        : "text-slate-600 group-hover:text-slate-400"
+                    )}
+                  />
+                )}
                 {item.name}
                 {isActive ? (
                   <ChevronRight
                     className={cn(
                       "ml-auto h-4 w-4",
-                      isPremium ? "text-amber-300" : isAdmin ? "text-blue-300" : "text-blue-500"
+                      isPremium ? "text-amber-300" : isAdmin ? "text-indigo-300" : "text-blue-500"
                     )}
                   />
                 ) : (
