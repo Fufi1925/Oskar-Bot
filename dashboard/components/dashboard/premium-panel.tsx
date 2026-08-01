@@ -24,13 +24,18 @@
 import React, { useCallback, useEffect, useState } from "react";
 import {
   Gem, Clock, Check, KeyRound, Trash2, ExternalLink, Plus, Undo2,
-  AlertTriangle, ShieldCheck, Copy, Sparkles, RefreshCw,
+  AlertTriangle, ShieldCheck, Copy, Sparkles, RefreshCw, Search, Ban,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
+
+/** The four states a key can be in. */
+type KeyState = "active" | "unclaimed" | "expired" | "revoked";
+/** Which rows the admin list is showing. */
+type Filter = "all" | KeyState;
 
 const INPUT =
   "w-full bg-[#0a1628] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white " +
@@ -320,25 +325,34 @@ export function PremiumPanel() {
 export function PremiumKeysPanel() {
   const [keys, setKeys] = useState<any[]>([]);
   const [role, setRole] = useState<any>(null);
-  const [setup, setSetup] = useState({ pepper: true, token: true });
+  const [stats, setStats] = useState<any>(null);
+  const [setup, setSetup] = useState({ pepper: true, token: true, url: true });
   const [loading, setLoading] = useState(true);
 
   const [days, setDays] = useState("30");
   const [recipient, setRecipient] = useState("");
   const [note, setNote] = useState("");
+  const [amount, setAmount] = useState("1");
   const [minting, setMinting] = useState(false);
-  // Shown once. The key is stored hashed, so this is the only moment it
+  // Shown once. Keys are stored hashed, so this is the only moment they
   // can ever be read.
-  const [fresh, setFresh] = useState<{ key: string; note: string } | null>(null);
+  const [fresh, setFresh] = useState<{ keys: string[]; note: string } | null>(null);
+
+  // Filtering and search, because a hundred rows of hashes is not a list
+  // anybody can work with.
+  const [filter, setFilter] = useState<Filter>("all");
+  const [query, setQuery] = useState("");
 
   const load = useCallback(async () => {
     try {
-      const res = await api.listPremiumKeys(100);
+      const res = await api.listPremiumKeys(200);
       setKeys(res?.keys || []);
       setRole(res?.role || null);
+      setStats(res?.stats || null);
       setSetup({
         pepper: Boolean(res?.pepper_set),
         token: Boolean(res?.partner_token_set),
+        url: Boolean(res?.template_url_set),
       });
     } catch (err: any) {
       toast.error(err?.message || "Keys konnten nicht geladen werden.");
@@ -357,6 +371,11 @@ export function PremiumKeysPanel() {
       toast.error("Laufzeit: 0 (unbegrenzt) bis 3650 Tage.");
       return;
     }
+    const count = Math.max(1, Math.min(25, Number(amount) || 1));
+    if (count > 1 && recipient.trim()) {
+      toast.error("Mehrere Keys lassen sich nicht an eine Person schicken.");
+      return;
+    }
     if (recipient.trim() && !/^\d{15,25}$/.test(recipient.trim())) {
       toast.error("Die Benutzer-ID besteht nur aus Ziffern.");
       return;
@@ -364,16 +383,29 @@ export function PremiumKeysPanel() {
 
     setMinting(true);
     try {
-      const res = await api.createPremiumKey({
-        days: value,
-        user_id: recipient.trim() || undefined,
-        note: note.trim() || undefined,
+      const made: string[] = [];
+      let lastNote = "";
+      for (let i = 0; i < count; i++) {
+        const res = await api.createPremiumKey({
+          days: value,
+          user_id: recipient.trim() || undefined,
+          note: note.trim() || undefined,
+        });
+        made.push(res.key);
+        lastNote = res.result;
+        if (res.delivery && res.delivery !== "sent" && res.delivery !== "none") {
+          toast.warning(res.result);
+        }
+      }
+      setFresh({
+        keys: made,
+        note: count > 1 ? `${count} Keys erstellt.` : lastNote,
       });
-      setFresh({ key: res.key, note: res.result });
-      if (res.delivery === "sent") toast.success(res.result);
-      else toast.warning(res.result);
+      if (count === 1 && !recipient.trim()) toast.success(lastNote);
+      if (recipient.trim()) toast.success(lastNote);
       setRecipient("");
       setNote("");
+      setAmount("1");
       await load();
     } catch (err: any) {
       toast.error(err?.message || "Key konnte nicht erstellt werden.");
@@ -387,7 +419,7 @@ export function PremiumKeysPanel() {
       !undo &&
       !confirm(
         "Diesen Key sperren? Premium wird sofort entzogen — auch im " +
-          "Template-Bot."
+          "Template-Bot. Rückgängig machen ist möglich."
       )
     ) {
       return;
@@ -401,15 +433,61 @@ export function PremiumKeysPanel() {
     }
   };
 
+  const remove = async (hash: string) => {
+    if (
+      !confirm(
+        "Diesen Key ENDGÜLTIG löschen? Er verschwindet aus der Liste und " +
+          "das lässt sich nicht rückgängig machen."
+      )
+    ) {
+      return;
+    }
+    try {
+      const res = await api.deletePremiumKey(hash);
+      toast.success(res?.result || "Gelöscht.");
+      await load();
+    } catch (err: any) {
+      toast.error(err?.message || "Löschen fehlgeschlagen.");
+    }
+  };
+
+  const purge = async (what: "revoked" | "expired" | "unclaimed") => {
+    const labels = {
+      revoked: "gesperrten",
+      expired: "abgelaufenen",
+      unclaimed: "nicht eingelösten",
+    };
+    if (!confirm(`Alle ${labels[what]} Keys endgültig löschen?`)) return;
+    try {
+      const res = await api.purgePremiumKeys(what);
+      toast.success(res?.result || "Aufgeräumt.");
+      await load();
+    } catch (err: any) {
+      toast.error(err?.message || "Aufräumen fehlgeschlagen.");
+    }
+  };
+
   const now = Date.now();
-  const active = keys.filter(
-    (k) => k.redeemed_by && !k.revoked && (!k.expires_at || k.expires_at * 1000 > now)
-  ).length;
-  const open = keys.filter((k) => !k.redeemed_by && !k.revoked).length;
+
+  const stateOf = (k: any): KeyState => {
+    if (k.revoked) return "revoked";
+    if (!k.redeemed_by) return "unclaimed";
+    if (k.expires_at && k.expires_at * 1000 <= now) return "expired";
+    return "active";
+  };
+
+  const visible = keys.filter((k) => {
+    if (filter !== "all" && stateOf(k) !== filter) return false;
+    const needle = query.trim().toLowerCase();
+    if (!needle) return true;
+    return [k.redeemed_by, k.redeemed_name, k.note, k.key_hash]
+      .filter(Boolean)
+      .some((field: string) => String(field).toLowerCase().includes(needle));
+  });
 
   return (
     <div className="space-y-5">
-      {(!setup.pepper || !setup.token) && (
+      {(!setup.pepper || !setup.token || !setup.url) && (
         <div className="rounded-2xl border border-amber-500/30 bg-amber-500/[0.06] px-5 py-4">
           <p className="text-sm font-bold text-amber-300 flex items-center gap-2">
             <AlertTriangle className="h-4 w-4" />
@@ -429,15 +507,23 @@ export function PremiumKeysPanel() {
                 Template-Bot kann nicht nachfragen, wer Premium hat.
               </li>
             )}
+            {!setup.url && (
+              <li>
+                &bull; <code>TEMPLATE_BOT_URL</code> fehlt &mdash; Sperren und
+                Freigeben wirken erst nach bis zu 5 Minuten statt sofort.
+              </li>
+            )}
           </ul>
         </div>
       )}
 
-      <div className="grid sm:grid-cols-3 gap-3">
+      {/* Numbers first: what is going on, at a glance. */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {[
-          { label: "Aktiv", value: active, tone: "text-emerald-300" },
-          { label: "Offen", value: open, tone: "text-slate-200" },
-          { label: "Insgesamt", value: keys.length, tone: "text-slate-400" },
+          { label: "Aktiv", value: stats?.active ?? 0, tone: "text-emerald-300", hint: `${stats?.lifetime ?? 0} unbegrenzt` },
+          { label: "Nicht eingelöst", value: stats?.unclaimed ?? 0, tone: "text-sky-300", hint: "warten auf Käufer" },
+          { label: "Läuft bald ab", value: stats?.expiring_soon ?? 0, tone: "text-amber-300", hint: "in 7 Tagen" },
+          { label: "Neu (30 Tage)", value: stats?.created_30d ?? 0, tone: "text-slate-200", hint: `${stats?.total ?? 0} insgesamt` },
         ].map((stat) => (
           <div
             key={stat.label}
@@ -446,7 +532,8 @@ export function PremiumKeysPanel() {
             <p className={cn("text-2xl font-black tabular-nums", stat.tone)}>
               {stat.value}
             </p>
-            <p className="text-[11px] text-slate-500 mt-0.5">{stat.label}</p>
+            <p className="text-[11px] text-slate-400 mt-0.5">{stat.label}</p>
+            <p className="text-[10px] text-slate-600 mt-0.5">{stat.hint}</p>
           </div>
         ))}
       </div>
@@ -473,14 +560,14 @@ export function PremiumKeysPanel() {
         )}
       </Section>
 
-      <Section icon={Plus} title="Key erstellen" subtitle="Ersetzt den alten /key-Befehl.">
-        <div className="grid sm:grid-cols-2 gap-3">
+      <Section icon={Plus} title="Keys erstellen" subtitle="Ersetzt den alten /key-Befehl.">
+        <div className="grid sm:grid-cols-3 gap-3">
           <div className="space-y-1.5">
             <label
               htmlFor="premium-days"
               className="text-xs font-black uppercase tracking-widest text-slate-400"
             >
-              Laufzeit in Tagen
+              Laufzeit (Tage)
             </label>
             <input
               id="premium-days"
@@ -491,10 +578,50 @@ export function PremiumKeysPanel() {
               value={days}
               onChange={(e) => setDays(e.target.value)}
             />
+            <div className="flex flex-wrap gap-1.5">
+              {[
+                { label: "30 T", value: "30" },
+                { label: "90 T", value: "90" },
+                { label: "1 Jahr", value: "365" },
+                { label: "∞", value: "0" },
+              ].map((preset) => (
+                <button
+                  key={preset.value}
+                  onClick={() => setDays(preset.value)}
+                  className={cn(
+                    "px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-colors",
+                    days === preset.value
+                      ? "bg-primary/15 border-primary/40 text-white"
+                      : "bg-[#0a1628] border-slate-800 text-slate-400 hover:border-slate-700"
+                  )}
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label
+              htmlFor="premium-amount"
+              className="text-xs font-black uppercase tracking-widest text-slate-400"
+            >
+              Anzahl
+            </label>
+            <input
+              id="premium-amount"
+              type="number"
+              min={1}
+              max={25}
+              className={INPUT}
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+            />
             <p className="text-[11px] text-slate-500">
-              0 = unbegrenzt. Die Zeit läuft ab dem Einlösen, nicht ab jetzt.
+              Mehrere auf einmal, z.B. für ein Gewinnspiel.
             </p>
           </div>
+
           <div className="space-y-1.5">
             <label
               htmlFor="premium-user"
@@ -511,7 +638,7 @@ export function PremiumKeysPanel() {
               inputMode="numeric"
             />
             <p className="text-[11px] text-slate-500">
-              Leer lassen, um den Key selbst weiterzugeben.
+              Leer lassen, um selbst weiterzugeben.
             </p>
           </div>
         </div>
@@ -537,30 +664,51 @@ export function PremiumKeysPanel() {
           disabled={minting || !setup.pepper}
           className="w-full py-3 rounded-xl bg-primary text-xs font-black uppercase tracking-widest hover:brightness-110 disabled:opacity-40 transition-all"
         >
-          {minting ? "Wird erstellt …" : "Key erstellen"}
+          {minting ? "Wird erstellt …" : "Erstellen"}
         </button>
 
         {fresh && (
           <div className="rounded-2xl border border-amber-500/30 bg-amber-500/[0.06] px-5 py-4 space-y-2">
-            <p className="text-[12px] text-slate-300">{fresh.note}</p>
-            <div className="flex items-center gap-2">
-              <code className="flex-1 font-mono text-sm text-white tracking-widest bg-[#0a1628] rounded-lg px-3 py-2 select-all">
-                {fresh.key}
-              </code>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-[12px] text-slate-300">{fresh.note}</p>
               <button
-                onClick={() => {
-                  navigator.clipboard?.writeText(fresh.key);
-                  toast.success("Kopiert.");
-                }}
-                className="p-2.5 rounded-lg bg-white/[0.03] border border-white/10 text-slate-400 hover:text-white transition-colors"
-                aria-label="Key kopieren"
+                onClick={() => setFresh(null)}
+                className="text-[11px] text-slate-500 hover:text-white transition-colors"
               >
-                <Copy className="h-4 w-4" />
+                ausblenden
               </button>
             </div>
+            {fresh.keys.map((k) => (
+              <div key={k} className="flex items-center gap-2">
+                <code className="flex-1 font-mono text-sm text-white tracking-widest bg-[#0a1628] rounded-lg px-3 py-2 select-all">
+                  {k}
+                </code>
+                <button
+                  onClick={() => {
+                    navigator.clipboard?.writeText(k);
+                    toast.success("Kopiert.");
+                  }}
+                  className="p-2.5 rounded-lg bg-white/[0.03] border border-white/10 text-slate-400 hover:text-white transition-colors"
+                  aria-label="Key kopieren"
+                >
+                  <Copy className="h-4 w-4" />
+                </button>
+              </div>
+            ))}
+            {fresh.keys.length > 1 && (
+              <button
+                onClick={() => {
+                  navigator.clipboard?.writeText(fresh.keys.join("\n"));
+                  toast.success("Alle kopiert.");
+                }}
+                className="text-[11px] font-bold text-amber-200 hover:text-white transition-colors"
+              >
+                Alle {fresh.keys.length} kopieren
+              </button>
+            )}
             <p className="text-[11px] text-amber-300">
-              Jetzt notieren. Der Key wird nur verschlüsselt gespeichert und
-              lässt sich später nicht mehr anzeigen.
+              Jetzt notieren. Keys werden nur verschlüsselt gespeichert und
+              lassen sich später nicht mehr anzeigen.
             </p>
           </div>
         )}
@@ -569,7 +717,7 @@ export function PremiumKeysPanel() {
       <Section
         icon={KeyRound}
         title="Ausgegebene Keys"
-        subtitle="Sperren entzieht Premium sofort, auch im Template-Bot."
+        subtitle="Sperren entzieht Premium sofort. Löschen ist endgültig."
         action={
           <button
             onClick={load}
@@ -580,21 +728,61 @@ export function PremiumKeysPanel() {
           </button>
         }
       >
+        <div className="flex flex-wrap items-center gap-2">
+          {(
+            [
+              ["all", "Alle", keys.length],
+              ["active", "Aktiv", stats?.active ?? 0],
+              ["unclaimed", "Offen", stats?.unclaimed ?? 0],
+              ["expired", "Abgelaufen", stats?.expired ?? 0],
+              ["revoked", "Gesperrt", stats?.revoked ?? 0],
+            ] as [Filter, string, number][]
+          ).map(([id, label, count]) => (
+            <button
+              key={id}
+              onClick={() => setFilter(id)}
+              className={cn(
+                "px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-colors",
+                filter === id
+                  ? "bg-primary/15 border-primary/40 text-white"
+                  : "bg-[#0a1628] border-slate-800 text-slate-400 hover:border-slate-700"
+              )}
+            >
+              {label} <span className="text-slate-500">{count}</span>
+            </button>
+          ))}
+        </div>
+
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-600" />
+          <input
+            className={cn(INPUT, "pl-10")}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Nach Name, ID oder Notiz suchen"
+            aria-label="Keys durchsuchen"
+          />
+        </div>
+
         {loading ? (
           <p className="text-[12px] text-slate-500">Wird geladen …</p>
-        ) : keys.length === 0 ? (
-          <p className="text-[12px] text-slate-500">Noch keine Keys erstellt.</p>
+        ) : visible.length === 0 ? (
+          <p className="text-[12px] text-slate-500">
+            {keys.length === 0
+              ? "Noch keine Keys erstellt."
+              : "Nichts gefunden."}
+          </p>
         ) : (
           <div className="space-y-2">
-            {keys.map((k) => {
-              const expired = k.expires_at && k.expires_at * 1000 <= now;
-              const state = k.revoked
-                ? { label: "Gesperrt", tone: "text-red-300 bg-red-500/10" }
-                : expired
-                ? { label: "Abgelaufen", tone: "text-slate-400 bg-slate-500/10" }
-                : k.redeemed_by
-                ? { label: "Aktiv", tone: "text-emerald-300 bg-emerald-500/10" }
-                : { label: "Offen", tone: "text-sky-300 bg-sky-500/10" };
+            {visible.map((k) => {
+              const state = stateOf(k);
+              const badge = {
+                revoked: { label: "Gesperrt", tone: "text-red-300 bg-red-500/10" },
+                expired: { label: "Abgelaufen", tone: "text-slate-400 bg-slate-500/10" },
+                active: { label: "Aktiv", tone: "text-emerald-300 bg-emerald-500/10" },
+                unclaimed: { label: "Offen", tone: "text-sky-300 bg-sky-500/10" },
+              }[state];
+              const left = daysLeft(k.expires_at);
 
               return (
                 <div
@@ -604,10 +792,10 @@ export function PremiumKeysPanel() {
                   <span
                     className={cn(
                       "text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-md shrink-0",
-                      state.tone
+                      badge.tone
                     )}
                   >
-                    {state.label}
+                    {badge.label}
                   </span>
 
                   <div className="min-w-0 flex-1">
@@ -621,32 +809,71 @@ export function PremiumKeysPanel() {
                     <p className="text-[11px] text-slate-500 mt-0.5 truncate">
                       {k.duration === 0 ? "unbegrenzt" : `${k.duration} Tage`}
                       {k.expires_at ? ` · bis ${formatDate(k.expires_at)}` : ""}
+                      {state === "active" && left !== null && left <= 7
+                        ? ` · noch ${left} ${left === 1 ? "Tag" : "Tage"}`
+                        : ""}
                       {k.note ? ` · ${k.note}` : ""}
                     </p>
                   </div>
 
-                  <button
-                    onClick={() => setRevoked(k.key_hash, Boolean(k.revoked))}
-                    className={cn(
-                      "p-2 rounded-lg transition-colors shrink-0",
-                      k.revoked
-                        ? "text-slate-500 hover:text-emerald-300 hover:bg-emerald-500/10"
-                        : "text-slate-500 hover:text-red-300 hover:bg-red-500/10"
-                    )}
-                    aria-label={k.revoked ? "Sperre aufheben" : "Key sperren"}
-                    title={k.revoked ? "Sperre aufheben" : "Key sperren"}
-                  >
-                    {k.revoked ? (
-                      <Undo2 className="h-4 w-4" />
-                    ) : (
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      onClick={() => setRevoked(k.key_hash, Boolean(k.revoked))}
+                      className={cn(
+                        "p-2 rounded-lg transition-colors",
+                        k.revoked
+                          ? "text-slate-500 hover:text-emerald-300 hover:bg-emerald-500/10"
+                          : "text-slate-500 hover:text-amber-300 hover:bg-amber-500/10"
+                      )}
+                      aria-label={k.revoked ? "Sperre aufheben" : "Key sperren"}
+                      title={k.revoked ? "Sperre aufheben" : "Key sperren"}
+                    >
+                      {k.revoked ? (
+                        <Undo2 className="h-4 w-4" />
+                      ) : (
+                        <Ban className="h-4 w-4" />
+                      )}
+                    </button>
+                    <button
+                      onClick={() => remove(k.key_hash)}
+                      className="p-2 rounded-lg text-slate-600 hover:text-red-300 hover:bg-red-500/10 transition-colors"
+                      aria-label="Key endgültig löschen"
+                      title="Endgültig löschen"
+                    >
                       <Trash2 className="h-4 w-4" />
-                    )}
-                  </button>
+                    </button>
+                  </div>
                 </div>
               );
             })}
           </div>
         )}
+      </Section>
+
+      <Section
+        icon={Trash2}
+        title="Aufräumen"
+        subtitle="Löscht Gruppen endgültig. Aktive Lizenzen sind nie dabei."
+        tone="muted"
+      >
+        <div className="grid sm:grid-cols-3 gap-2">
+          {(
+            [
+              ["revoked", "Gesperrte löschen", stats?.revoked ?? 0],
+              ["expired", "Abgelaufene löschen", stats?.expired ?? 0],
+              ["unclaimed", "Nicht eingelöste löschen", stats?.unclaimed ?? 0],
+            ] as ["revoked" | "expired" | "unclaimed", string, number][]
+          ).map(([what, label, count]) => (
+            <button
+              key={what}
+              onClick={() => purge(what)}
+              disabled={count === 0}
+              className="py-3 px-3 rounded-xl bg-red-500/[0.06] border border-red-500/20 text-[11px] font-black uppercase tracking-widest text-red-300 hover:bg-red-500/10 disabled:opacity-30 disabled:hover:bg-red-500/[0.06] transition-all"
+            >
+              {label} ({count})
+            </button>
+          ))}
+        </div>
       </Section>
     </div>
   );

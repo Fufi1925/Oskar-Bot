@@ -482,6 +482,16 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ key_hash: keyHash, undo }),
     }),
+  deletePremiumKey: (keyHash: string) =>
+    request<any>(`/premium/delete`, {
+      method: "POST",
+      body: JSON.stringify({ key_hash: keyHash }),
+    }),
+  purgePremiumKeys: (what: "revoked" | "expired" | "unclaimed") =>
+    request<any>(`/premium/purge`, {
+      method: "POST",
+      body: JSON.stringify({ what }),
+    }),
 
   /**
    * YouTube subscriptions: a channel name, where to post, who to ping.

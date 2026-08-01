@@ -442,8 +442,9 @@ async function authorize(
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) return { ok: false, response: deny(401, "Not signed in.") };
 
-    // Listing and revoking keys is staff work.
-    if (rest[0] === "keys" || rest[0] === "revoke") {
+    // Listing, revoking and deleting keys is staff work. Deleting most
+    // of all: it cannot be undone.
+    if (["keys", "revoke", "delete", "purge"].includes(rest[0] ?? "")) {
       if (isGlobalAdmin(session.user.id)) return { ok: true };
       const team = await fetchTeamAccess(session.user.id);
       const staff = Boolean(team && (team.is_owner || team.roles.length > 0));

@@ -55,6 +55,23 @@ Dashboard sagt dazu, welcher der beiden Fälle eingetreten ist.
 > Hält jemand **zwei** gültige Lizenzen, wird beim Sperren einer davon
 > nichts gemeldet — die andere gilt ja weiter.
 
+## Sperren, Freigeben, Löschen
+
+| Aktion | Wirkung | Umkehrbar |
+|---|---|---|
+| **Sperren** | Premium sofort weg, Zeile bleibt in der Liste | ja |
+| **Sperre aufheben** | Premium gilt sofort wieder | ja |
+| **Löschen** | Zeile verschwindet endgültig | **nein** |
+| **Aufräumen** | Ganze Gruppe löschen (gesperrt / abgelaufen / offen) | **nein** |
+
+Ein „alles löschen" gibt es bewusst nicht — das würde die Zeilen
+mitnehmen, die gerade jemandem Premium geben.
+
+Bei **jeder** dieser Aktionen wird der Template-Bot benachrichtigt, damit
+sie sofort greift und nicht erst nach Ablauf seines Zwischenspeichers.
+Das gilt ausdrücklich auch fürs **Freigeben**: sonst stünde im Dashboard
+„aktiv", während der Bot noch bis zu fünf Minuten „nein" sagt.
+
 ## Die Premium-Rolle
 
 Unter **Admin → Bot Config → Premium Role** eine Rollen-ID eintragen.

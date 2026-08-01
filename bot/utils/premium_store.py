@@ -281,6 +281,102 @@ def unrevoke_hash(key_hash: str) -> bool:
         return cur.rowcount > 0
 
 
+def delete_hash(key_hash: str) -> bool:
+    """
+    Remove a key row for good.
+
+    Revoking keeps the row so the history stays readable; deleting is for
+    rows that should not be there at all — a test key, a wrong duration,
+    a mistaken entry. It cannot be undone, which is why the dashboard
+    asks first.
+
+    Note this frees the key itself again in principle, but since only the
+    hash was ever stored and the key was 16 characters of 31, that is not
+    a practical concern.
+    """
+    ensure()
+    with _connect() as conn:
+        cur = conn.execute(
+            "DELETE FROM premium_keys WHERE key_hash = ?", (str(key_hash),)
+        )
+        return cur.rowcount > 0
+
+
+def purge(what: str = "revoked") -> int:
+    """
+    Delete a whole group of rows at once.
+
+    "revoked"   — blocked keys
+    "expired"   — redeemed keys whose time ran out
+    "unclaimed" — keys nobody ever redeemed
+
+    Deliberately no "all": clearing the table would also remove the rows
+    that are currently granting people premium.
+    """
+    ensure()
+    now = int(time.time())
+
+    clauses = {
+        "revoked": ("revoked = 1", ()),
+        "expired": (
+            "redeemed_by IS NOT NULL AND expires_at IS NOT NULL AND expires_at <= ?",
+            (now,),
+        ),
+        "unclaimed": ("redeemed_by IS NULL AND revoked = 0", ()),
+    }
+    if what not in clauses:
+        raise ValueError(f"unknown group: {what}")
+
+    where, params = clauses[what]
+    with _connect() as conn:
+        cur = conn.execute(f"DELETE FROM premium_keys WHERE {where}", params)
+        return cur.rowcount
+
+
+def stats(product: str = "template_bot") -> dict[str, int]:
+    """Counts for the admin overview, computed in one pass."""
+    ensure()
+    now = int(time.time())
+    with _connect() as conn:
+        rows = conn.execute(
+            "SELECT redeemed_by, expires_at, revoked, created_at "
+            "FROM premium_keys WHERE product = ?",
+            (product,),
+        ).fetchall()
+
+    out = {
+        "total": len(rows),
+        "active": 0,
+        "unclaimed": 0,
+        "expired": 0,
+        "revoked": 0,
+        "lifetime": 0,
+        "expiring_soon": 0,
+        "created_30d": 0,
+    }
+    week = now + 7 * 86400
+    month_ago = now - 30 * 86400
+
+    for row in rows:
+        if row["created_at"] and int(row["created_at"]) >= month_ago:
+            out["created_30d"] += 1
+        if row["revoked"]:
+            out["revoked"] += 1
+        elif not row["redeemed_by"]:
+            out["unclaimed"] += 1
+        elif row["expires_at"] is None:
+            out["active"] += 1
+            out["lifetime"] += 1
+        elif int(row["expires_at"]) > now:
+            out["active"] += 1
+            if int(row["expires_at"]) <= week:
+                out["expiring_soon"] += 1
+        else:
+            out["expired"] += 1
+
+    return out
+
+
 def owner_of_hash(key_hash: str) -> Optional[str]:
     """Which account a key belongs to, or None if nobody redeemed it."""
     ensure()

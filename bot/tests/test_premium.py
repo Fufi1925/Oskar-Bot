@@ -18,6 +18,7 @@ abused rather than the happy path:
     python3 tests/test_premium.py
 """
 
+import asyncio
 import os
 import sys
 import tempfile
@@ -382,7 +383,9 @@ def test_proxy_binding():
     check("the template bot's check is not reachable from a browser",
           'rest[0] === "check"' in body)
     check("key management is staff only",
-          'rest[0] === "keys"' in body and "Admins only." in body)
+          '["keys", "revoke", "delete", "purge"]' in body
+          and "Admins only." in body,
+          "deleting keys is not behind the staff gate")
 
 
 def test_partner_reaches_the_api(store):
@@ -560,9 +563,10 @@ def test_revoke_reaches_the_template_bot(store):
     src = open(os.path.join(BOT, "api", "routes", "premium.py"), encoding="utf-8").read()
     body = "\n".join(l for l in src.splitlines() if not l.lstrip().startswith("#"))
 
-    check("the template bot is notified", "_tell_partner_revoked" in body)
-    check("it posts to the revoke endpoint",
-          "/internal/licence-revoked" in body)
+    check("the template bot is notified", "_tell_partner(" in body)
+    check("it posts to the internal endpoints",
+          '/internal/{endpoint}' in body
+          and '_tell_partner("licence-revoked"' in body)
     check("authenticated with the partner token",
           "X-Partner-Token" in body)
     check("the owner is read before the row changes",
@@ -589,6 +593,126 @@ def test_revoke_reaches_the_template_bot(store):
     check("an unredeemed key has no owner",
           store.owner_of_hash(store.hash_key(
               store.create_key(created_by=1, duration_days=0)["key"])) is None)
+
+
+def test_unrevoke_restores_access(store):
+    """
+    Reported: taking premium away and giving it back left the user
+    without premium, while the dashboard said they had it.
+
+    Revoking told the template bot. Lifting the block told it nothing,
+    so its cache kept answering "no premium" for up to five minutes —
+    the dashboard said active, the bot said no.
+    """
+    print("\nGiving premium back actually gives it back")
+
+    key = store.create_key(created_by=1, duration_days=30)["key"]
+    store.redeem(key, 8100)
+    key_hash = store.hash_key(key)
+
+    check("premium is on", store.status(8100)["premium"] is True)
+    store.revoke_hash(key_hash)
+    check("and off after revoking", store.status(8100)["premium"] is False)
+    store.unrevoke_hash(key_hash)
+    check("and on again after undo", store.status(8100)["premium"] is True,
+          "the store itself lost the licence")
+
+    src = open(os.path.join(BOT, "api", "routes", "premium.py"), encoding="utf-8").read()
+    body = "\n".join(l for l in src.splitlines() if not l.lstrip().startswith("#"))
+
+    check("undo notifies the template bot too",
+          'await _tell_partner("licence-refresh"' in body,
+          "lifting a block still tells the other side nothing")
+
+    # Drive the real route and record what it would send. Reading the
+    # source only proves the line exists, not that it runs — the first
+    # version of this test passed with the branch disabled.
+    import api.routes.premium as premium_route
+
+    calls: list[tuple[str, str]] = []
+
+    async def fake_tell(endpoint, user_id):
+        calls.append((endpoint, str(user_id)))
+        return True
+
+    real_tell = premium_route._tell_partner
+    real_url = os.environ.get("TEMPLATE_BOT_URL")
+    premium_route._tell_partner = fake_tell
+    os.environ["TEMPLATE_BOT_URL"] = "https://template.invalid"
+    try:
+        asyncio.run(premium_route.revoke_key({"key_hash": key_hash}, bot=None))
+        check("revoking calls the revoke endpoint",
+              calls and calls[-1] == ("licence-revoked", "8100"),
+              str(calls))
+
+        calls.clear()
+        asyncio.run(
+            premium_route.revoke_key({"key_hash": key_hash, "undo": True}, bot=None)
+        )
+        check("undo really calls the refresh endpoint",
+              calls and calls[-1] == ("licence-refresh", "8100"),
+              f"nothing was sent: {calls}")
+    finally:
+        premium_route._tell_partner = real_tell
+        if real_url is None:
+            os.environ.pop("TEMPLATE_BOT_URL", None)
+        else:
+            os.environ["TEMPLATE_BOT_URL"] = real_url
+    check("revoking uses the revoke endpoint",
+          'await _tell_partner("licence-revoked"' in body)
+    # If the branch still reads "if not undo and owner", the refresh can
+    # never run.
+    check("the notification is not limited to revoking",
+          "if not undo and owner:" not in body,
+          "undo is excluded from notifying again")
+
+
+def test_delete_and_purge(store):
+    print("\nDeleting keys for good")
+
+    key = store.create_key(created_by=1, duration_days=30)["key"]
+    store.redeem(key, 8200)
+    key_hash = store.hash_key(key)
+
+    check("the key exists", store.owner_of_hash(key_hash) == "8200")
+    check("delete reports success", store.delete_hash(key_hash) is True)
+    check("it is gone from the list",
+          all(row["key_hash"] != key_hash for row in store.list_keys(500)))
+    check("and premium with it", store.status(8200)["premium"] is False)
+    check("deleting twice reports failure", store.delete_hash(key_hash) is False)
+
+    # Bulk cleanup must never touch a licence somebody is using.
+    live = store.create_key(created_by=1, duration_days=0)["key"]
+    store.redeem(live, 8300)
+    dead = store.create_key(created_by=1, duration_days=30)["key"]
+    store.redeem(dead, 8400)
+    store.revoke(dead)
+    store.create_key(created_by=1, duration_days=30)  # never redeemed
+
+    removed = store.purge("revoked")
+    check("revoked keys can be purged", removed >= 1, str(removed))
+    check("an active licence survives the purge",
+          store.status(8300)["premium"] is True,
+          "purging cut a live licence")
+
+    before = len(store.list_keys(500))
+    store.purge("unclaimed")
+    check("unclaimed keys are purged", len(store.list_keys(500)) < before)
+    check("the live one is still there",
+          store.status(8300)["premium"] is True)
+
+    try:
+        store.purge("all")
+        check("there is no purge-everything", False, "purge('all') was allowed")
+    except ValueError:
+        check("there is no purge-everything", True)
+
+    print("\nCounts for the overview")
+    numbers = store.stats()
+    for field in ("total", "active", "unclaimed", "expired", "revoked",
+                  "lifetime", "expiring_soon", "created_30d"):
+        check(f"stats has '{field}'", field in numbers, str(numbers))
+    check("active matches the live licence", numbers["active"] >= 1, str(numbers))
 
 
 def test_dashboard_page():
@@ -647,6 +771,8 @@ def run():
     test_partner_reaches_the_api(store)
     test_key_dm_is_components_v2()
     test_revoke_reaches_the_template_bot(store)
+    test_unrevoke_restores_access(store)
+    test_delete_and_purge(store)
     test_dashboard_page()
 
     print(f"\n{len(failures)} failures")

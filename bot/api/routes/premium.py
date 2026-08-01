@@ -197,8 +197,12 @@ async def list_keys(limit: int = 100, bot: "universitybot" = Depends(get_bot)):
     return {
         "keys": keys,
         "role": _role_state(bot),
+        "stats": store.stats(),
         "pepper_set": bool(os.getenv(store.PEPPER_ENV, "").strip()),
         "partner_token_set": bool(os.getenv(PARTNER_TOKEN_ENV, "").strip()),
+        # Without this a revoke only lands when the other side's cache
+        # expires, so the dashboard says whether it is configured.
+        "template_url_set": bool((os.getenv("TEMPLATE_BOT_URL") or "").strip()),
     }
 
 
@@ -409,35 +413,122 @@ async def revoke_key(data: dict, bot: "universitybot" = Depends(get_bot)):
     result = "Die Sperre wurde aufgehoben." if undo else "Der Key wurde gesperrt."
     notified = None
 
-    if not undo and owner:
-        # Only when the account has no other valid licence left —
-        # somebody may hold two, and revoking one must not cut the other.
-        if not store.status(owner)["premium"]:
-            notified = await _tell_partner_revoked(owner)
-            if notified is False:
-                result += (
-                    " Der Template-Bot konnte nicht benachrichtigt werden — "
-                    "dort greift es, sobald er erneut nachfragt "
-                    "(spätestens nach 5 Minuten)."
-                )
-            elif notified is True:
-                result += " Premium wurde im Template-Bot sofort entzogen."
+    if owner:
+        now_premium = store.status(owner)["premium"]
+
+        if undo:
+            # Lifting a block used to tell the other side nothing at all.
+            # Its cache still held "no premium" for up to five minutes,
+            # so the dashboard said active while the bot said no — the
+            # worst kind of wrong, because it looks fixed.
+            if now_premium:
+                notified = await _tell_partner("licence-refresh", owner)
+                if notified is True:
+                    result += " Premium gilt im Template-Bot wieder sofort."
+                elif notified is False:
+                    result += (
+                        " Der Template-Bot konnte nicht benachrichtigt werden —"
+                        " dort greift es spätestens nach 5 Minuten."
+                    )
+        else:
+            # Only when nothing valid is left: somebody may hold two
+            # licences, and revoking one must not cut the other.
+            if not now_premium:
+                notified = await _tell_partner("licence-revoked", owner)
+                if notified is False:
+                    result += (
+                        " Der Template-Bot konnte nicht benachrichtigt werden — "
+                        "dort greift es, sobald er erneut nachfragt "
+                        "(spätestens nach 5 Minuten)."
+                    )
+                elif notified is True:
+                    result += " Premium wurde im Template-Bot sofort entzogen."
 
     return {"status": "success", "result": result, "notified": notified}
 
 
-async def _tell_partner_revoked(user_id: str) -> Optional[bool]:
+@router.post("/delete", summary="Delete a key for good")
+async def delete_key(data: dict, bot: "universitybot" = Depends(get_bot)):
     """
-    Tell the template bot that this account lost its licence.
+    Remove a key row entirely.
+
+    Revoking keeps the history; deleting is for rows that should never
+    have existed. If the row was still granting premium, the template
+    bot is told, or the licence would live on there until its cache
+    expires.
+    """
+    key_hash = str(data.get("key_hash") or "").strip()
+    if not key_hash:
+        raise HTTPException(status_code=400, detail="Kein Key angegeben.")
+
+    owner = store.owner_of_hash(key_hash)
+    was_active = bool(owner) and store.status(owner)["premium"]
+
+    if not store.delete_hash(key_hash):
+        raise HTTPException(status_code=404, detail="Diesen Key gibt es nicht.")
+
+    result = "Der Key wurde endgültig gelöscht."
+    notified = None
+    if was_active and owner and not store.status(owner)["premium"]:
+        notified = await _tell_partner("licence-revoked", owner)
+        if notified is True:
+            result += " Premium wurde im Template-Bot sofort entzogen."
+        elif notified is False:
+            result += (
+                " Der Template-Bot konnte nicht benachrichtigt werden — "
+                "dort greift es spätestens nach 5 Minuten."
+            )
+
+    await feature_audit.log_action("premium_key_deleted", actor="dashboard")
+    return {"status": "success", "result": result, "notified": notified}
+
+
+@router.post("/purge", summary="Delete a whole group of keys")
+async def purge_keys(data: dict, bot: "universitybot" = Depends(get_bot)):
+    """
+    Bulk cleanup: revoked, expired or never-redeemed keys.
+
+    There is no "delete everything" on purpose — that would take the
+    rows currently granting people premium with it.
+    """
+    what = str(data.get("what") or "").strip()
+    try:
+        removed = store.purge(what)
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail="Unbekannte Gruppe. Erlaubt: revoked, expired, unclaimed.",
+        )
+
+    labels = {
+        "revoked": "gesperrte",
+        "expired": "abgelaufene",
+        "unclaimed": "nicht eingelöste",
+    }
+    await feature_audit.log_action(
+        "premium_keys_purged", actor="dashboard", detail=f"{what}={removed}"
+    )
+    return {
+        "status": "success",
+        "removed": removed,
+        "result": f"{removed} {labels[what]} Keys gelöscht."
+                  if removed else f"Keine {labels[what]} Keys vorhanden.",
+    }
+
+
+async def _tell_partner(endpoint: str, user_id: str) -> Optional[bool]:
+    """
+    Tell the template bot that an account's licence changed.
+
+    `endpoint` is "licence-revoked" or "licence-refresh". Both clear the
+    other side's cache; the first also drops any local unlock.
 
     Returns True on success, False when the call failed, and None when
-    no template bot URL is configured — those are three different
-    situations and the dashboard says which one happened.
+    no template bot URL is configured — three different situations, and
+    the dashboard says which one happened rather than claiming success.
 
-    Without this the revoke only takes effect once the other side's
-    cache expires. Worse, a local unlock from the old master key would
-    survive entirely: taken away in the dashboard, still active in the
-    bot.
+    Without this a change only takes effect once the other side's cache
+    expires, up to five minutes later.
     """
     base = (os.getenv("TEMPLATE_BOT_URL") or "").strip().rstrip("/")
     token = os.getenv(PARTNER_TOKEN_ENV, "").strip()
@@ -448,10 +539,10 @@ async def _tell_partner_revoked(user_id: str) -> Optional[bool]:
         timeout = aiohttp.ClientTimeout(total=5)
         async with aiohttp.ClientSession(timeout=timeout) as session:
             async with session.post(
-                f"{base}/internal/licence-revoked",
+                f"{base}/internal/{endpoint}",
                 headers={"X-Partner-Token": token},
                 json={"user_id": str(user_id)},
             ) as response:
                 return response.status == 200
-    except Exception:  # noqa: BLE001 - revoking must not fail on this
+    except Exception:  # noqa: BLE001 - the revoke must not fail on this
         return False
