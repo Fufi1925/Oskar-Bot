@@ -17,7 +17,7 @@ import { Select } from "@/components/ui/select";
 import { FeatureFlagsPanel } from "@/components/dashboard/feature-flags-panel";
 import { SystemHealthPanel } from "@/components/dashboard/system-health-panel";
 import { TeamPanel } from "@/components/dashboard/team-panel";
-import { PremiumPanel, PremiumKeysPanel } from "@/components/dashboard/premium-panel";
+import { PremiumAdmin } from "@/components/dashboard/premium-admin";
 import { OwnerAccessPanel } from "@/components/dashboard/owner-access-panel";
 import { useSession } from "next-auth/react";
 import { ReportsPanel } from "@/components/dashboard/reports-panel";
@@ -354,12 +354,7 @@ export function AdminContent() {
       {activeTab === "features" && <FeatureFlagsPanel />}
       {activeTab === "health" && <SystemHealthPanel />}
       {activeTab === "team" && <TeamPanel />}
-      {activeTab === "premium" && (
-        <div className="space-y-6">
-          <PremiumPanel />
-          <PremiumKeysPanel />
-        </div>
-      )}
+      {activeTab === "premium" && <PremiumAdmin />}
       {activeTab === "access" && <OwnerAccessPanel currentUserId={(session?.user as any)?.id} />}
       {activeTab === "usage" && <CommandStatsPanel />}
       {activeTab === "dashusers" && <DashboardUsersPanel currentUserId={(session?.user as any)?.id} />}

@@ -747,10 +747,55 @@ def test_dashboard_page():
     check("only once premium is active",
           pbody.index("active ? (") < pbody.index("template_invite"),
           "the invite shows without premium")
-    check("the admin panel can mint keys", "createPremiumKey" in pbody)
-    check("and undo a revoke", "setRevoked" in pbody and "undo" in pbody)
-    check("a fresh key is shown once", "fresh" in pbody)
-    check("the role state is surfaced", "role?.ok" in pbody)
+    # The customer panel is only for redeeming. Staff tooling moved to
+    # premium-admin.tsx, and leaving mint buttons here would put them in
+    # front of people who cannot use them.
+    check("the customer panel does not mint keys",
+          "createPremiumKey" not in pbody,
+          "staff controls are still on the customer page")
+
+    admin = open(os.path.join(dash, "components", "dashboard",
+                              "premium-admin.tsx"), encoding="utf-8").read()
+    abody = "\n".join(l for l in admin.splitlines() if not l.lstrip().startswith("//"))
+
+    print("\nThe admin tab")
+    check("it can mint keys", "createPremiumKey" in abody)
+    check("it can revoke and undo",
+          "revokePremiumKey" in abody and '"unrevoke"' in abody)
+    check("it can delete for good", "deletePremiumKey" in abody)
+    check("a fresh key is shown once", "fresh" in abody)
+    check("the role state is surfaced", "role?.ok" in abody)
+
+    # Every field the API returns must be *rendered*, not merely
+    # mentioned. Checking the whole file passes as long as the name
+    # appears in a type or in the CSV export, which is how the first
+    # version of this test stayed green with the detail row deleted.
+    detail = abody[abody.index("{isOpen && ("):] if "{isOpen && (" in abody else ""
+    check("there is a detail row", bool(detail), "nothing expands")
+
+    for field in ("created_at", "redeemed_at", "expires_at", "created_by",
+                  "note", "product", "key_hash"):
+        check(f"'{field}' is in the detail row", field in detail,
+              f"the API sends {field} and the row does not show it")
+    for field in ("redeemed_name", "duration"):
+        check(f"'{field}' is shown", field in abody,
+              f"the API sends {field} and nothing displays it")
+
+    check("rows can be selected for bulk work", "selected" in abody)
+    # Both the handler and the buttons that call it: renaming the
+    # function alone left the name in the file and the test green.
+    check("bulk actions exist",
+          "const runBulk" in abody
+          and 'runBulk("revoke")' in abody
+          and 'runBulk("delete")' in abody,
+          "the bulk bar is not wired up")
+    check("the list can be searched", "query" in abody)
+    check("and sorted", "sortBy" in abody)
+    check("the export never writes a key, only hashes",
+          "key_hash" in abody and "premium-keys-" in abody)
+    check("CSV fields are quoted",
+          'replace(/"/g' in abody,
+          "a note with a comma would shift every later column")
 
     # The sidebar splits into "inside a guild" and "top level". Premium is
     # account-wide, so it belongs to the second list, next to Admin Panel.
