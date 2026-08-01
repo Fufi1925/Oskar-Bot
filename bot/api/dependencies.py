@@ -85,6 +85,37 @@ def _allow_keyless() -> bool:
     return not os.getenv("DASHBOARD_API_KEY")
 
 
+def _is_partner_licence_check(request: Request) -> bool:
+    """
+    Whether this is the template bot asking about a licence.
+
+    That one endpoint carries its own credential (X-Partner-Token) and is
+    called by a different program, which has no reason to know the
+    dashboard key. Without this exception the route answered 401 to a
+    correct token and premium never activated anywhere.
+
+    Narrow on purpose: only GET, only /premium/check/..., and only when a
+    partner token is actually configured and matches. Everything else
+    still needs the dashboard key.
+    """
+    if request.method != "GET":
+        return False
+
+    path = request.url.path.rstrip("/")
+    if "/premium/check/" not in path:
+        return False
+
+    expected = os.getenv("PREMIUM_PARTNER_TOKEN", "").strip()
+    if not expected:
+        return False
+
+    supplied = (request.headers.get("x-partner-token") or "").strip()
+    if not supplied:
+        return False
+
+    return hmac.compare_digest(supplied, expected)
+
+
 def verify_api_key(
     request: Request,
     credentials: HTTPAuthorizationCredentials | None = Depends(security),
@@ -102,6 +133,11 @@ def verify_api_key(
     the source address. Comparison is constant-time to avoid leaking the key
     through timing differences.
     """
+    # The template bot authenticates with its own token on exactly one
+    # read-only route; see _is_partner_licence_check.
+    if _is_partner_licence_check(request):
+        return "partner-token"
+
     api_key = os.getenv("DASHBOARD_API_KEY")
 
     if not api_key:

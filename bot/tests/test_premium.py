@@ -358,6 +358,120 @@ def test_proxy_binding():
           'rest[0] === "keys"' in body and "Admins only." in body)
 
 
+def test_partner_reaches_the_api(store):
+    """
+    The reported bug: premium never activated in the template bot.
+
+    The whole /api/v1 app sits behind verify_api_key, so a request
+    carrying only X-Partner-Token was rejected with 401 before the route
+    ever ran. The template bot has no reason to know the dashboard key —
+    it is a different program — so the licence check authenticates with
+    its own token instead.
+
+    This test runs with DASHBOARD_API_KEY set, the way production is.
+    Without that the old code passed by accident, because a missing key
+    lets everything through.
+    """
+    print("\nThe template bot can reach the licence check")
+
+    from fastapi.testclient import TestClient
+    from api import dependencies as dep
+    from api.server import create_app
+
+    saved_key = os.environ.get("DASHBOARD_API_KEY")
+    saved_keyless = os.environ.get("ALLOW_KEYLESS_API")
+    os.environ["DASHBOARD_API_KEY"] = "dashboard-secret"
+    os.environ.pop("ALLOW_KEYLESS_API", None)
+    os.environ["PREMIUM_PARTNER_TOKEN"] = "partner-secret"
+
+    try:
+        class Bot:
+            user = type("U", (), {"id": 1})()
+
+            def get_guild(self, _gid):
+                return None
+
+            def get_user(self, _uid):
+                return None
+
+        dep.set_bot(Bot())
+        client = TestClient(create_app())
+        base = "/api/v1/premium"
+
+        key = store.create_key(created_by=1, duration_days=30)["key"]
+        store.redeem(key, 5150)
+
+        r = client.get(f"{base}/check/5150",
+                       headers={"X-Partner-Token": "partner-secret"})
+        check("the partner token alone is enough", r.status_code == 200,
+              f"{r.status_code} {r.text[:120]}")
+        check("and premium is reported", r.json().get("premium") is True,
+              r.text[:120])
+
+        # The exception has to be narrow, or it becomes a way around the
+        # dashboard key entirely.
+        r = client.get(f"{base}/check/5150",
+                       headers={"X-Partner-Token": "wrong"})
+        check("a wrong partner token is still rejected", r.status_code == 401,
+              str(r.status_code))
+
+        r = client.get(f"{base}/check/5150")
+        check("no token at all is rejected", r.status_code == 401,
+              str(r.status_code))
+
+        r = client.get(f"{base}/keys",
+                       headers={"X-Partner-Token": "partner-secret"})
+        check("the partner token opens no other route", r.status_code == 401,
+              f"{r.status_code} — the exception is too wide")
+
+        r = client.get("/api/v1/admin/settings",
+                       headers={"X-Partner-Token": "partner-secret"})
+        check("and does not reach admin routes", r.status_code == 401,
+              f"{r.status_code} — the exception is far too wide")
+
+        # Without a configured partner token the exception must not exist,
+        # otherwise an empty value would match an empty header.
+        os.environ.pop("PREMIUM_PARTNER_TOKEN")
+        r = client.get(f"{base}/check/5150", headers={"X-Partner-Token": ""})
+        check("an unconfigured token grants nothing", r.status_code == 401,
+              str(r.status_code))
+        os.environ["PREMIUM_PARTNER_TOKEN"] = "partner-secret"
+
+        # The gate is also tested on its own. Through the API a wrong
+        # token is caught twice — here and again in the route — so a hole
+        # in the gate alone would not show up above.
+        class FakeRequest:
+            def __init__(self, path, headers, method="GET"):
+                self.method = method
+                self.url = type("U", (), {"path": path})()
+                self.headers = headers
+
+        gate = dep._is_partner_licence_check
+        ok = FakeRequest("/api/v1/premium/check/1",
+                         {"x-partner-token": "partner-secret"})
+        check("the gate accepts the right token", gate(ok) is True)
+        check("the gate rejects a wrong token",
+              gate(FakeRequest("/api/v1/premium/check/1",
+                               {"x-partner-token": "nope"})) is False,
+              "any token would pass the gate")
+        check("the gate rejects a missing header",
+              gate(FakeRequest("/api/v1/premium/check/1", {})) is False)
+        check("the gate rejects other paths",
+              gate(FakeRequest("/api/v1/admin/settings",
+                               {"x-partner-token": "partner-secret"})) is False)
+        check("the gate rejects other methods",
+              gate(FakeRequest("/api/v1/premium/check/1",
+                               {"x-partner-token": "partner-secret"},
+                               method="POST")) is False)
+    finally:
+        if saved_key is None:
+            os.environ.pop("DASHBOARD_API_KEY", None)
+        else:
+            os.environ["DASHBOARD_API_KEY"] = saved_key
+        if saved_keyless is not None:
+            os.environ["ALLOW_KEYLESS_API"] = saved_keyless
+
+
 def test_dashboard_page():
     print("\nPremium page in the sidebar")
 
@@ -411,6 +525,7 @@ def run():
     test_key_commands_are_gone()
     test_role_sync(store)
     test_proxy_binding()
+    test_partner_reaches_the_api(store)
     test_dashboard_page()
 
     print(f"\n{len(failures)} failures")

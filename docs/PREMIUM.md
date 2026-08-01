@@ -119,6 +119,16 @@ X-Partner-Token: <PREMIUM_PARTNER_TOKEN>
 
 Abgelaufene und gesperrte Keys liefern `premium: false`.
 
+> **Kein Dashboard-Key nötig.** Die restliche API verlangt
+> `Authorization: Bearer <DASHBOARD_API_KEY>`. Dieser eine Endpunkt nicht:
+> der Template-Bot ist ein anderes Programm und hat keinen Grund, den
+> Dashboard-Schlüssel zu kennen. Er authentifiziert sich ausschließlich
+> mit `X-Partner-Token`.
+>
+> Die Ausnahme ist eng gefasst — nur `GET`, nur `/premium/check/…`, und nur
+> bei passendem Token. Jede andere Route braucht weiterhin den
+> Dashboard-Schlüssel.
+
 **Statuscodes**
 
 | Code | Bedeutung |
