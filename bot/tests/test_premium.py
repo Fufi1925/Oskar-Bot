@@ -759,6 +759,39 @@ def test_dashboard_page():
           '"/dashboard/premium"' in tail,
           "it landed in the per-guild menu instead")
 
+    print("\nThe Premium link glows")
+    check("the link gets its own class", "premium-link" in lbody,
+          "no glow class on the sidebar entry")
+    # Keyed off the href, because the label is translated and a German
+    # UI would silently lose the styling.
+    check("it is matched by href, not by label",
+          'item.href === "/dashboard/premium"' in lbody,
+          "matching on the label breaks under translation")
+
+    css = open(os.path.join(dash, "app", "globals.css"), encoding="utf-8").read()
+
+    # Every animation the class asks for must actually be defined, or the
+    # browser silently ignores it and the link just sits there.
+    import re as _re
+
+    defined = set(_re.findall(r"@keyframes\s+([A-Za-z0-9_-]+)", css))
+    used = set(_re.findall(r"animation:\s*([A-Za-z0-9_-]+)", css))
+
+    check("the glow animation is defined", "premium-glow" in defined,
+          f"defined: {sorted(defined)}")
+    check("the sweep animation is defined", "premium-sweep" in defined,
+          f"defined: {sorted(defined)}")
+    check("the class uses the glow",
+          ".premium-link" in css and "premium-glow" in used)
+    check("no animation is used without being defined",
+          not (used - defined - {"none"}),
+          f"missing keyframes for: {sorted(used - defined - {'none'})}")
+    # An endlessly pulsing element is a genuine accessibility problem.
+    reduced = css.split("prefers-reduced-motion")[-1] if "prefers-reduced-motion" in css else ""
+    check("motion can be switched off by the system",
+          "premium-link" in reduced and "animation: none" in reduced,
+          "the pulse ignores prefers-reduced-motion")
+
 
 def run():
     from utils import premium_store as store

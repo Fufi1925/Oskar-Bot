@@ -342,13 +342,25 @@ export default function DashboardLayout({
             }
 
             const isActive = pathname === item.href;
+            // Premium is the one entry that should catch the eye before
+            // it is read, so it glows gold instead of using the flat
+            // blue every other link shares. Keyed off the href, not the
+            // label, because the label is translated.
+            const isPremium = item.href === "/dashboard/premium";
             return (
               <Link
                 key={item.name}
                 href={item.href}
                 className={cn(
                   "flex items-center gap-4 px-4 py-3 rounded-2xl transition-all duration-300 group text-[14px] font-bold",
-                  isActive
+                  isPremium
+                    ? cn(
+                        "premium-link border border-amber-400/30",
+                        isActive
+                          ? "bg-amber-400/[0.14] text-amber-200"
+                          : "bg-amber-400/[0.06] text-amber-200/90 hover:bg-amber-400/[0.12] hover:text-amber-100"
+                      )
+                    : isActive
                     ? "bg-blue-500/10 text-blue-500 border border-blue-500/20 shadow-[0_0_20px_rgba(59,130,246,0.1)]"
                     : "text-slate-400 hover:bg-white/[0.03] hover:text-slate-200"
                 )}
@@ -356,12 +368,21 @@ export default function DashboardLayout({
                 <item.icon
                   className={cn(
                     "h-5 w-5 transition-all duration-300",
-                    isActive ? "text-blue-500 scale-110" : "text-slate-600 group-hover:text-slate-400"
+                    isPremium
+                      ? cn("text-amber-300 drop-shadow-[0_0_6px_rgba(250,166,26,0.55)]", isActive && "scale-110")
+                      : isActive
+                      ? "text-blue-500 scale-110"
+                      : "text-slate-600 group-hover:text-slate-400"
                   )}
                 />
                 {item.name}
                 {isActive ? (
-                  <ChevronRight className="ml-auto h-4 w-4 text-blue-500" />
+                  <ChevronRight
+                    className={cn(
+                      "ml-auto h-4 w-4",
+                      isPremium ? "text-amber-300" : "text-blue-500"
+                    )}
+                  />
                 ) : (
                   <ChevronRight className="ml-auto h-4 w-4 opacity-0 group-hover:opacity-30 transition-opacity" />
                 )}

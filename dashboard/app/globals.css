@@ -130,3 +130,65 @@ input[type="number"] {
   60% { transform: translateX(-4px); }
   80% { transform: translateX(4px); }
 }
+
+/* The Premium entry in the sidebar.
+
+   Premium is the one link that has to be noticed without being read, so
+   it gets a slow gold pulse instead of the flat blue everything else
+   uses. Slow on purpose: at three seconds it reads as "special", at one
+   it reads as "error".
+
+   The sweep is a separate layer behind the label rather than an
+   animated background, so the text never moves and stays readable
+   while it passes. */
+@keyframes premium-glow {
+  0%, 100% {
+    box-shadow: 0 0 14px rgba(250, 166, 26, 0.16),
+                inset 0 0 0 1px rgba(250, 166, 26, 0.22);
+  }
+  50% {
+    box-shadow: 0 0 26px rgba(250, 166, 26, 0.34),
+                inset 0 0 0 1px rgba(250, 166, 26, 0.42);
+  }
+}
+
+@keyframes premium-sweep {
+  0%   { transform: translateX(-120%); }
+  100% { transform: translateX(220%); }
+}
+
+.premium-link {
+  position: relative;
+  overflow: hidden;
+  animation: premium-glow 3s ease-in-out infinite;
+}
+
+.premium-link::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 40%;
+  pointer-events: none;
+  background: linear-gradient(
+    100deg,
+    transparent 0%,
+    rgba(255, 214, 128, 0.16) 50%,
+    transparent 100%
+  );
+  animation: premium-sweep 4.5s ease-in-out infinite;
+}
+
+/* Respect the system setting. An endlessly pulsing element is a real
+   problem for some people, and a static gold border says the same
+   thing. */
+@media (prefers-reduced-motion: reduce) {
+  .premium-link,
+  .premium-link::after {
+    animation: none;
+  }
+  .premium-link::after {
+    display: none;
+  }
+}
