@@ -169,7 +169,7 @@ export function GlobalSearch() {
   // instead of two that can disagree.
   const proximity = useProximity({
     radius: 70,
-    smoothing: 110,
+    smoothing: 120,
     activeIndex: open && results.length ? cursor : null,
   });
 
@@ -246,7 +246,6 @@ export function GlobalSearch() {
                 index === cursor ? "bg-blue-500/10" : "hover:bg-white/[0.03]"
               )}
             >
-              <span className="prox-marker" aria-hidden />
               <target.icon
                 className={cn(
                   "h-4 w-4 shrink-0",

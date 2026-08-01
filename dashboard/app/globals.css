@@ -367,53 +367,28 @@ input[type="number"] {
 
 /* ── Proximity rows (adapted from React Bits' LineSidebar) ───────────
 
-   Each row carries --effect, 0..1, eased in JS by useProximity. Colour,
-   shift and marker length all read that one value, so they move as one
-   thing rather than three transitions drifting apart.
+   Each row carries --effect, 0..1, eased in JS by useProximity. The
+   shift reads that one value, so the whole row moves as one thing
+   rather than as several transitions drifting apart.
+
+   The leading line is gone: the movement alone carries the effect, and
+   a row that both slides and grows a line was two signals for one
+   thing.
 
    No CSS transition here on purpose: the easing already happens per
    frame in the rAF loop, and adding one on top makes the response lag
-   behind the cursor. */
+   behind the cursor.
+
+   How far the shift may go is not a matter of taste. The nav is
+   `overflow-y: auto`, which per CSS Overflow 3 computes the other axis
+   to `auto` too, and a scroll container clips at its padding box. The
+   sidebar is 256px with 16px of nav padding, so a row has exactly 16px
+   of room to slide into before it is clipped -- or, worse, starts
+   scrolling sideways under `no-scrollbar`, invisibly. 14px keeps 2px
+   in hand. See repro/prox_shift_budget.py. */
 .prox-row {
   position: relative;
-  transform: translateX(calc(var(--effect, 0) * var(--prox-shift, 8px)));
-}
-
-/* The leading line. Grows and brightens as the cursor nears.
-
-   It sits in the row as a normal flex child, not absolutely to the left
-   of it. The absolute version hung 22px outside the row, and the
-   sidebar's nav is `overflow-y-auto` — which, per the overflow spec,
-   turns the other axis into `auto` as well. The row starts 16px from
-   the nav edge, so 6 of those 22px were being clipped away. An in-flow
-   slot cannot be clipped by anything, which is also what lets the same
-   markup work inside the search dropdown.
-
-   The slot has a fixed width and the line inside it is scaled, so the
-   label never moves as the effect changes. A width that animates would
-   drag the icon and text along with it. */
-.prox-row .prox-marker {
-  flex: 0 0 var(--prox-marker, 20px);
-  width: var(--prox-marker, 20px);
-  /* The row's own gap would leave too much air after a 20px line. */
-  margin-right: -0.5rem;
-  height: 1px;
-  transform-origin: left center;
-  transform: scaleX(calc(0.35 + var(--effect, 0) * 0.65));
-  background-color: rgba(148, 163, 184, 0.35);
-  pointer-events: none;
-}
-
-/* color-mix is not used anywhere else in this project, so the plain
-   colour comes first — a browser that does not understand the second
-   declaration keeps the first and the row is simply not tinted. */
-.prox-row .prox-marker {
-  background-color: rgba(148, 163, 184, 0.35);
-  background-color: color-mix(
-    in srgb,
-    var(--prox-accent, #60a5fa) calc(var(--effect, 0) * 100%),
-    rgba(148, 163, 184, 0.35)
-  );
+  transform: translateX(calc(var(--effect, 0) * var(--prox-shift, 14px)));
 }
 
 /* Reaching a little past the row means it reacts just before the
@@ -425,18 +400,13 @@ input[type="number"] {
   pointer-events: none;
 }
 
-/* A shorter shift and a shorter line for rows that sit inside another
-   row -- sub-links in a group, results in a dropdown. The full 8px
-   makes a nested list look like it is coming apart. */
+/* A shorter shift for rows that sit inside another row -- sub-links in
+   a group, results in a dropdown. The full travel makes a nested list
+   look like it is coming apart. */
 .prox-row-sm {
-  --prox-shift: 5px;
-  --prox-marker: 14px;
+  --prox-shift: 10px;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .prox-row { transform: none; }
-  /* Not `transform: none`: that would collapse the scaleX and leave the
-     line at full width, which is the loudest state of all. Freeze it at
-     the resting length instead. */
-  .prox-row .prox-marker { transform: scaleX(0.35); }
 }

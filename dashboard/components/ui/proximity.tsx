@@ -13,9 +13,9 @@
  *
  * So the mechanism is kept and the markup is left alone. Each row gets
  * a `--effect` custom property between 0 and 1, eased toward its target
- * by one shared rAF loop. Colour, shift and marker length all read that
- * same value, so they move together instead of drifting apart the way
- * three separate CSS transitions would.
+ * by one shared rAF loop. What reads that value is left to CSS; here it
+ * drives the horizontal shift, and nothing else. The original's tick
+ * marks and index numbers are not used.
  *
  * Original: https://reactbits.dev — LineSidebar
  */

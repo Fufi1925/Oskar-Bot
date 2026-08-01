@@ -597,9 +597,6 @@ def test_proximity_effect():
           layout.index("useProximity({")
           < layout.index('if (status === "loading"'),
           "the hook would be skipped while loading and React would throw")
-    check("the marker is hidden from screen readers",
-          'className="prox-marker" aria-hidden' in layout,
-          "decoration would be read out")
     # The container has to be the rows' offsetParent, or every distance
     # is measured against the wrong box. Reading it off the first row's
     # offsetParent guessed; the ref does not.
@@ -607,19 +604,42 @@ def test_proximity_effect():
           "ref:" in hook and "container.current = el" in hook,
           "offsetParent guessing breaks as soon as a wrapper is added")
 
-    print("\nThe row numbers are gone")
-    # 01, 02, 03 down the side of a sidebar that is read by label. They
-    # were the loudest thing on it and nobody navigates by ordinal.
+    print("\nNo numbers and no tick marks")
+    # Both come from the original LineSidebar. The 01/02/03 gutter was
+    # the loudest thing in a sidebar that is read by label, and the line
+    # was a second signal for what the movement already says. The shift
+    # is the whole effect now.
+    search_src = strip_comments(
+        read(os.path.join(DASH, "components", "global-search.tsx")))
+    css_src = strip_comments(read(os.path.join(DASH, "app", "globals.css")))
+
     check("no index element is rendered",
           "prox-index" not in layout,
           "the numbers are back")
     check("no index is styled either",
-          "prox-index" not in strip_comments(
-              read(os.path.join(DASH, "app", "globals.css"))),
+          "prox-index" not in css_src,
           "dead CSS for an element that no longer exists")
     check("nothing still builds a padded number",
           'padStart(2, "0")' not in layout,
           "leftover numbering code")
+    check("no marker span in the sidebar",
+          "prox-marker" not in layout,
+          "the tick marks are back")
+    check("none in the search results either",
+          "prox-marker" not in search_src,
+          "the dropdown kept a line the sidebar dropped")
+    check("no marker rule is left behind",
+          "prox-marker" not in css_src,
+          "dead CSS for an element nothing renders")
+    # The accent colour and the color-mix fallback existed only to tint
+    # the line. With the line gone they are dead weight -- and color-mix
+    # is used nowhere else in the project.
+    check("the marker-only accent variable is gone",
+          "prox-accent" not in css_src,
+          "a custom property nothing reads")
+    check("and the color-mix it fed",
+          "color-mix" not in css_src,
+          "a fallback for a declaration that no longer exists")
 
     print("\nEvery link takes part, not just the top level")
     # Inside a guild the sidebar is mostly sub-links. Lighting only the
@@ -637,66 +657,83 @@ def test_proximity_effect():
           "a full-size shift makes a nested list look like it is coming apart")
 
     print("\nCSS")
-    # Comments stripped: the note above the reduced-motion rule explains
-    # what `transform: none` would break, and so contains "scaleX"
-    # itself. Reading the raw file let that comment satisfy the check --
-    # the mutation that swapped the rule for `transform: none` was not
-    # caught until this line changed.
-    css_raw = read(os.path.join(DASH, "app", "globals.css"))
-    css = strip_comments(css_raw)
+    # Comments stripped throughout: notes explaining what a rule avoids
+    # necessarily contain the thing being avoided, and matching those
+    # has let mutated trees pass before.
+    css = css_src
     check("the row class exists", ".prox-row {" in css)
-    # color-mix is not used anywhere else in this project, so a browser
-    # that does not know it must still get a visible marker.
-    # Inside the rule that actually sets color-mix: the first marker
-    # rule also contains an rgba, so searching from the first occurrence
-    # passed even with the fallback deleted.
-    mix_rule = ""
-    for chunk in css.split(".prox-row .prox-marker")[1:]:
-        candidate = chunk[: chunk.index("}")] if "}" in chunk else ""
-        if "color-mix" in candidate:
-            mix_rule = candidate
-            break
-    check("there is a fallback before color-mix",
-          mix_rule.index("background-color: rgba(") < mix_rule.index("color-mix"),
-          "an unsupported color-mix would leave the marker invisible")
+    # Cut each media block to its own body first. A raw split chunk runs
+    # to the end of the file, so an earlier reduced-motion block matched
+    # the .prox-row rules further down and this passed with the block
+    # deleted outright.
+    def media_bodies(source: str, query: str) -> list[str]:
+        out = []
+        for chunk in source.split(query)[1:]:
+            out.append(chunk[: chunk.index("\n}\n")] if "\n}\n" in chunk else chunk)
+        return out
+
     check("motion can be switched off",
-          any(".prox-row" in block for block in
-              css.split("prefers-reduced-motion")[1:]),
+          any(".prox-row" in body and "transform: none" in body
+              for body in media_bodies(css, "prefers-reduced-motion")),
           "the shift ignores the system setting")
 
-    # The marker used to sit at `left: -22px`, outside a row that is
-    # 16px inside an `overflow-y-auto` nav. Per CSS Overflow 3 a scroll
-    # container clips the other axis too, so 6 of those 22px were cut
-    # off on every row. An in-flow flex child cannot be clipped.
-    marker_rule = ""
-    for chunk in css.split(".prox-row .prox-marker")[1:]:
-        candidate = chunk[: chunk.index("}")] if "}" in chunk else ""
-        if "flex:" in candidate or "position:" in candidate:
-            marker_rule = candidate
-            break
-    check("the marker is in the flow, not hanging outside",
-          "position: absolute" not in marker_rule
-          and "left: calc(-1" not in marker_rule,
-          "overflow-y-auto on the nav clips whatever sticks out sideways")
-    check("it reserves a fixed slot",
-          "flex:" in marker_rule,
-          "an animating width would drag the label along with it")
+    # How far a row may slide is bounded, not a matter of taste. The nav
+    # is `overflow-y: auto`; per CSS Overflow 3 the other axis computes
+    # to `auto` as well, and a scroll container clips at its padding
+    # box. Sidebar 256px - 2x16px nav padding leaves exactly 16px of
+    # room. Past that the row is clipped, or the nav scrolls sideways
+    # under `no-scrollbar` -- invisibly. See repro/prox_shift_budget.py.
+    SIDEBAR_W, NAV_PAD = 256, 16
+    budget = NAV_PAD
 
-    # `transform: none` in the reduced-motion block would collapse the
-    # scaleX and leave every line at full length -- the loudest state.
-    # Cut each block down to the media query body *first*. Testing the
-    # raw split chunk matches the marker rules that sit further down the
-    # file, outside the query entirely -- which is how this test passed
-    # a body that did not contain the rule at all.
-    reduced = ""
-    for block in css.split("prefers-reduced-motion")[1:]:
-        body = block[: block.index("\n}\n")] if "\n}\n" in block else block
-        if ".prox-row .prox-marker" in body:
-            reduced = body
-            break
-    check("reduced motion freezes the line short, not long",
-          "scaleX" in reduced,
-          "transform: none would show every marker at full width")
+    def shift_of(rule: str) -> int:
+        """The px value of --prox-shift in a rule body, 0 if absent."""
+        found = re.search(r"--prox-shift:\s*(\d+)px", rule)
+        return int(found.group(1)) if found else 0
+
+    # The default lives in the translateX fallback, the nested override
+    # in .prox-row-sm.
+    row_rule = css.split(".prox-row {")[1]
+    row_rule = row_rule[: row_rule.index("}")]
+    default_shift = re.search(r"var\(--prox-shift,\s*(\d+)px\)", row_rule)
+    check("the row shifts on --effect",
+          default_shift is not None and "translateX" in row_rule,
+          "no movement means no effect at all")
+
+    top_shift = int(default_shift.group(1)) if default_shift else 0
+    check("the top-level shift is bigger than it was",
+          top_shift > 8,
+          f"asked for more travel, got {top_shift}px (was 8px)")
+    check("and still inside the padding edge",
+          top_shift <= budget,
+          f"{top_shift}px against {budget}px of room "
+          f"({SIDEBAR_W}px sidebar, {NAV_PAD}px nav padding) would clip")
+
+    sm_rule = css.split(".prox-row-sm {")[1]
+    sm_rule = sm_rule[: sm_rule.index("}")]
+    nested_shift = shift_of(sm_rule)
+    check("nested rows shift further too",
+          nested_shift > 5,
+          f"got {nested_shift}px (was 5px)")
+    check("but still less than the top level",
+          0 < nested_shift < top_shift,
+          "a nested list that travels as far looks like it is coming apart")
+    check("and inside the budget as well",
+          nested_shift <= budget,
+          f"{nested_shift}px against {budget}px of room")
+
+    print("\nSmoothing")
+    # One time constant everywhere, or two lists that sit side by side
+    # ease at visibly different speeds.
+    for label, src in (("sidebar", layout), ("search", search_src)):
+        found = re.search(r"smoothing:\s*(\d+)", src)
+        check(f"the {label} asks for 120ms",
+              found is not None and found.group(1) == "120",
+              f"got {found.group(1) if found else 'none'}")
+    hook_default = re.search(r"smoothing\s*=\s*(\d+)", hook)
+    check("the hook default agrees",
+          hook_default is not None and hook_default.group(1) == "120",
+          f"got {hook_default.group(1) if hook_default else 'none'}")
 
     print("\nThe search results use it too")
     search = strip_comments(read(os.path.join(DASH, "components", "global-search.tsx")))

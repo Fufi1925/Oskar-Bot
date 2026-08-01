@@ -151,7 +151,7 @@ export default function DashboardLayout({
   //
   // pathname is enough to derive the active row; the item list is not
   // needed yet at this point.
-  const proximity = useProximity({ radius: 90, smoothing: 130 });
+  const proximity = useProximity({ radius: 90, smoothing: 120 });
 
   if (status === "loading" || status === "unauthenticated") {
     return (
@@ -348,7 +348,6 @@ export default function DashboardLayout({
                               : "text-slate-400 hover:bg-white/[0.03] hover:text-slate-200"
                           )}
                         >
-                          <span className="prox-marker" aria-hidden />
                           <subItem.icon
                             className={cn(
                               "h-4 w-4 transition-all duration-300",
@@ -411,16 +410,11 @@ export default function DashboardLayout({
                     : "text-slate-400 hover:bg-white/[0.03] hover:text-slate-200"
                 )}
               >
-                {/* The leading line from LineSidebar. Decoration, so it
-                    is hidden from screen readers -- the label already
-                    says everything.
-
-                    The original also numbers each row 01, 02, 03. Those
-                    are gone: they are the loudest thing in a sidebar
-                    that is meant to be read by label, and nobody
-                    navigates by ordinal. The line alone carries the
-                    effect. */}
-                <span className="prox-marker" aria-hidden />
+                {/* No leading line and no 01/02/03 gutter, both from the
+                    original LineSidebar. The numbers were the loudest
+                    thing in a sidebar that is read by label, and the
+                    line was a second signal for what the movement
+                    already says. The shift alone carries the effect. */}
                 {isAdmin ? (
                   // A filled tile rather than a bare glyph: that is what
                   // makes this row read as a destination at a glance.
