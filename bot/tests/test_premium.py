@@ -135,9 +135,27 @@ def test_api(store):
             self.name = f"user{uid}"
             self.display_name = f"User {uid}"
             self.sent: list[str] = []
+            self.views: list = []
 
-        async def send(self, content=None, **kw):
-            self.sent.append(content or "")
+        async def send(self, content=None, view=None, **kw):
+            # The DM is a Components V2 view, not text. Flattening it
+            # here keeps the assertion about *what the buyer sees*
+            # rather than about which argument was used.
+            self.views.append(view)
+            if view is not None:
+                parts: list[str] = []
+
+                def walk(items):
+                    for item in items:
+                        if item.get("type") == 10:
+                            parts.append(item.get("content", ""))
+                        if "components" in item:
+                            walk(item["components"])
+
+                walk(view.to_components())
+                self.sent.append("\n".join(parts))
+            else:
+                self.sent.append(content or "")
 
     class Bot:
         user = type("U", (), {"id": 1})()
@@ -237,9 +255,18 @@ def test_api(store):
     r = client.post(f"{base}/keys", json={"days": 7, "user_id": str(BOB)})
     sent = r.json()
     check("a key is delivered by DM", sent.get("delivery") == "sent", r.text[:160])
-    check("and the DM carries the key",
-          sent["key"] in bot.users[BOB].sent[-1],
+
+    dm = bot.users[BOB].sent[-1]
+    check("and the DM carries the key", sent["key"] in dm,
           "the DM went out without the key in it")
+    # What was actually sent, not just what _key_dm can produce: the
+    # route could always go back to a plain string.
+    check("the DM that goes out is a V2 view",
+          bot.users[BOB].views[-1] is not None,
+          "a plain text message was sent instead of a panel")
+    check("with the bot's emojis in it",
+          dm.count("<:") + dm.count("<a:") >= 4,
+          "the delivered DM has no bot emojis")
 
     r = client.post(f"{base}/keys", json={"days": 30, "user_id": "999999999999999999"})
     check("an unknown recipient is reported, key still made",
@@ -472,6 +499,98 @@ def test_partner_reaches_the_api(store):
             os.environ["ALLOW_KEYLESS_API"] = saved_keyless
 
 
+def test_key_dm_is_components_v2():
+    """
+    The DM carrying a key looks like the rest of the bot.
+
+    It used to be a plain markdown message in a bot that speaks in
+    panels everywhere else — which reads like a phishing attempt for
+    something that is worth money.
+    """
+    print("\nThe key DM")
+
+    os.environ.setdefault("DASHBOARD_URL", "https://example.invalid")
+    from api.routes.premium import _key_dm
+
+    view = _key_dm("5RN2-AGKT-GS6P-CTYE", "30 Tage ab Einlösung")
+    payload = view.to_components()
+
+    check("the DM builds at all", bool(payload))
+
+    texts: list[str] = []
+    kinds: set[int] = set()
+
+    def walk(items):
+        for item in items:
+            kinds.add(item.get("type"))
+            if item.get("type") == 10:
+                texts.append(item.get("content", ""))
+            if "components" in item:
+                walk(item["components"])
+
+    walk(payload)
+    blob = "\n".join(texts)
+
+    # Type 17 is a container, i.e. Components V2 rather than a plain
+    # message or a legacy embed.
+    check("it is a V2 container", 17 in kinds, str(sorted(kinds)))
+    check("the key is in there", "5RN2-AGKT-GS6P-CTYE" in blob)
+    check("inside a code block so it can be tapped to copy",
+          "```" in blob)
+    check("the duration is stated", "30 Tage" in blob)
+    check("custom emojis are used, not plain text",
+          blob.count("<:") + blob.count("<a:") >= 4,
+          "the DM has no bot emojis in it")
+    check("a dashboard button is attached", 2 in kinds,
+          "no button — the buyer has to find the page themselves")
+    check("it warns that this is the only copy",
+          "einzige Kopie" in blob)
+
+
+def test_revoke_reaches_the_template_bot(store):
+    """
+    Revoking in the dashboard has to take premium away everywhere.
+
+    Two things would otherwise keep it alive on the other side: the
+    licence cache (up to five minutes) and any local unlock left over
+    from the old master key. So the template bot is told directly.
+    """
+    print("\nRevoking reaches the template bot")
+
+    src = open(os.path.join(BOT, "api", "routes", "premium.py"), encoding="utf-8").read()
+    body = "\n".join(l for l in src.splitlines() if not l.lstrip().startswith("#"))
+
+    check("the template bot is notified", "_tell_partner_revoked" in body)
+    check("it posts to the revoke endpoint",
+          "/internal/licence-revoked" in body)
+    check("authenticated with the partner token",
+          "X-Partner-Token" in body)
+    check("the owner is read before the row changes",
+          body.index("owner = store.owner_of_hash") < body.index("ok = store.unrevoke_hash"),
+          "after revoking, the owner could no longer be looked up")
+    check("a failed notification does not break the revoke",
+          "except Exception" in body)
+
+    # Someone may hold two licences; revoking one must not cut the other.
+    first = store.create_key(created_by=1, duration_days=0)["key"]
+    second = store.create_key(created_by=1, duration_days=0)["key"]
+    store.redeem(first, 7001)
+    store.redeem(second, 7001)
+    store.revoke(first)
+    check("a second licence keeps premium alive",
+          store.status(7001)["premium"] is True,
+          "revoking one key cut an unrelated licence")
+    store.revoke(second)
+    check("and premium ends with the last one",
+          store.status(7001)["premium"] is False)
+
+    check("the owner of a key can be looked up",
+          store.owner_of_hash(store.hash_key(second)) == "7001")
+    check("an unredeemed key has no owner",
+          store.owner_of_hash(store.hash_key(
+              store.create_key(created_by=1, duration_days=0)["key"])) is None)
+
+
 def test_dashboard_page():
     print("\nPremium page in the sidebar")
 
@@ -526,6 +645,8 @@ def run():
     test_role_sync(store)
     test_proxy_binding()
     test_partner_reaches_the_api(store)
+    test_key_dm_is_components_v2()
+    test_revoke_reaches_the_template_bot(store)
     test_dashboard_page()
 
     print(f"\n{len(failures)} failures")

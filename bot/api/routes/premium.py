@@ -22,10 +22,15 @@ import hmac
 import os
 from typing import TYPE_CHECKING, Optional
 
+import aiohttp
 import discord
 from fastapi import APIRouter, Depends, Header, HTTPException
 
 from api.dependencies import get_bot
+from discord.ui import Separator, TextDisplay
+from utils.cv2 import build_container
+from utils.emoji import NEXT_ALT1 as NEXT, PREMIUM, STAR, UPTIME, ZBOT, ZSAFE, ZWARNING
+from utils.links import dashboard_url
 from utils import bot_settings
 from utils import feature_audit
 from utils import premium_store as store
@@ -239,6 +244,59 @@ def _role_state(bot) -> dict:
     return state
 
 
+def _key_dm(key: str, laufzeit: str) -> discord.ui.LayoutView:
+    """
+    The DM carrying a fresh licence key.
+
+    Components V2 with the bot's own emojis, like the rest of what it
+    sends — a plain wall of markdown in the middle of a bot that speaks
+    in panels everywhere else reads like a phishing attempt.
+
+    The key sits in a code block so a phone keyboard does not autocorrect
+    it and so it can be tapped to copy.
+    """
+    view = discord.ui.LayoutView(timeout=None)
+    view.add_item(build_container(
+        TextDisplay(f"## {PREMIUM} Dein Premium-Key"),
+        Separator(visible=True),
+        TextDisplay(f"```\n{key}\n```"),
+        Separator(visible=True),
+        TextDisplay(
+            f"{UPTIME} **Laufzeit:** {laufzeit}\n"
+            f"{ZBOT} **Gilt für:** Template-Bot"
+        ),
+        Separator(visible=True),
+        TextDisplay(
+            f"{NEXT} **So löst du ihn ein**\n"
+            f"> {STAR} Dashboard öffnen → Reiter **Premium**\n"
+            f"> {STAR} Key eintragen und auf **Einlösen** klicken\n"
+            f"> {STAR} Danach erscheint der Einladungslink für den Bot"
+        ),
+        Separator(visible=True),
+        TextDisplay(
+            f"{ZSAFE} Der Key wird beim Einlösen fest an dein "
+            "Discord-Konto gebunden und lässt sich danach nicht mehr "
+            "übertragen."
+        ),
+        TextDisplay(
+            f"-# {ZWARNING} Wir speichern den Key nur verschlüsselt — "
+            "diese Nachricht ist die einzige Kopie. Bitte gut aufheben."
+        ),
+        accent_color=0xFAA61A,
+    ))
+
+    dashboard = dashboard_url()
+    if dashboard:
+        view.add_item(discord.ui.ActionRow(
+            discord.ui.Button(
+                label="Zum Dashboard",
+                style=discord.ButtonStyle.link,
+                url=f"{dashboard}/dashboard/premium",
+            )
+        ))
+    return view
+
+
 @router.post("/keys", summary="Mint a new key")
 async def create_key(data: dict, bot: "universitybot" = Depends(get_bot)):
     """
@@ -289,14 +347,7 @@ async def create_key(data: dict, bot: "universitybot" = Depends(get_bot)):
             delivery = "unknown_user"
         else:
             try:
-                await user.send(
-                    f"**Dein Premium-Key**\n```\n{created['key']}\n```\n"
-                    f"**Laufzeit:** {laufzeit}\n\n"
-                    "Trage ihn im Dashboard unter **Premium** ein. Er wird "
-                    "beim Einlösen fest an dein Discord-Konto gebunden.\n\n"
-                    "Wir speichern den Key nur verschlüsselt — diese "
-                    "Nachricht ist die einzige Kopie."
-                )
+                await user.send(view=_key_dm(created["key"], laufzeit))
                 delivery = "sent"
             except discord.Forbidden:
                 delivery = "dms_closed"
@@ -338,21 +389,69 @@ async def revoke_key(data: dict, bot: "universitybot" = Depends(get_bot)):
     undo = bool(data.get("undo"))
 
     if key:
-        ok = store.unrevoke_hash(store.hash_key(key)) if undo else store.revoke(key)
-    elif key_hash:
-        # From the admin list, where only the hash is known.
-        ok = store.unrevoke_hash(key_hash) if undo else store.revoke_hash(key_hash)
-    else:
+        key_hash = store.hash_key(key)
+
+    if not key_hash:
         raise HTTPException(status_code=400, detail="Kein Key angegeben.")
 
+    # Read the owner *before* changing anything: the template bot has to
+    # be told which account lost its licence.
+    owner = store.owner_of_hash(key_hash)
+
+    ok = store.unrevoke_hash(key_hash) if undo else store.revoke_hash(key_hash)
     if not ok:
         raise HTTPException(status_code=404, detail="Diesen Key gibt es nicht.")
 
     await feature_audit.log_action(
         "premium_unrevoked" if undo else "premium_revoked", actor="dashboard"
     )
-    return {
-        "status": "success",
-        "result": "Die Sperre wurde aufgehoben." if undo
-                  else "Der Key wurde gesperrt.",
-    }
+
+    result = "Die Sperre wurde aufgehoben." if undo else "Der Key wurde gesperrt."
+    notified = None
+
+    if not undo and owner:
+        # Only when the account has no other valid licence left —
+        # somebody may hold two, and revoking one must not cut the other.
+        if not store.status(owner)["premium"]:
+            notified = await _tell_partner_revoked(owner)
+            if notified is False:
+                result += (
+                    " Der Template-Bot konnte nicht benachrichtigt werden — "
+                    "dort greift es, sobald er erneut nachfragt "
+                    "(spätestens nach 5 Minuten)."
+                )
+            elif notified is True:
+                result += " Premium wurde im Template-Bot sofort entzogen."
+
+    return {"status": "success", "result": result, "notified": notified}
+
+
+async def _tell_partner_revoked(user_id: str) -> Optional[bool]:
+    """
+    Tell the template bot that this account lost its licence.
+
+    Returns True on success, False when the call failed, and None when
+    no template bot URL is configured — those are three different
+    situations and the dashboard says which one happened.
+
+    Without this the revoke only takes effect once the other side's
+    cache expires. Worse, a local unlock from the old master key would
+    survive entirely: taken away in the dashboard, still active in the
+    bot.
+    """
+    base = (os.getenv("TEMPLATE_BOT_URL") or "").strip().rstrip("/")
+    token = os.getenv(PARTNER_TOKEN_ENV, "").strip()
+    if not base or not token:
+        return None
+
+    try:
+        timeout = aiohttp.ClientTimeout(total=5)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.post(
+                f"{base}/internal/licence-revoked",
+                headers={"X-Partner-Token": token},
+                json={"user_id": str(user_id)},
+            ) as response:
+                return response.status == 200
+    except Exception:  # noqa: BLE001 - revoking must not fail on this
+        return False

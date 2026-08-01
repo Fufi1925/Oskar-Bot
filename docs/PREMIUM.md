@@ -40,6 +40,21 @@ ob er aktiv, offen, abgelaufen oder gesperrt ist. Sperren lässt sich
 Die Laufzeit läuft **ab Einlösung**, nicht ab Erstellung. Ein Key, der
 eine Woche ungelesen in der DM liegt, verliert dadurch nichts.
 
+## Sperren wirkt sofort
+
+Wird ein Key im Dashboard gesperrt, meldet der Hauptbot das dem
+Template-Bot (`POST /internal/licence-revoked`). Der löscht daraufhin
+**alle** lokalen Freischaltungen dieses Kontos aus seinem Volume und
+leert seinen Zwischenspeicher — Premium ist dort also sofort weg, nicht
+erst nach fünf Minuten.
+
+Ohne `TEMPLATE_BOT_URL` entfällt nur die Sofortwirkung: der Widerruf
+greift dann, sobald der Template-Bot das nächste Mal nachfragt. Das
+Dashboard sagt dazu, welcher der beiden Fälle eingetreten ist.
+
+> Hält jemand **zwei** gültige Lizenzen, wird beim Sperren einer davon
+> nichts gemeldet — die andere gilt ja weiter.
+
 ## Die Premium-Rolle
 
 Unter **Admin → Bot Config → Premium Role** eine Rollen-ID eintragen.
@@ -72,6 +87,7 @@ Key, den jeder lesen kann, der an die Datenbank kommt.
 | `PREMIUM_KEY_PEPPER` | Hauptbot | Zufälliger Wert, mit dem Keys gehasht werden. |
 | `PREMIUM_PARTNER_TOKEN` | Hauptbot **und** Template-Bot | Gemeinsames Geheimnis für die Abfrage. |
 | `PARTNER_BOT_CLIENT_ID` | Hauptbot | Client-ID des Template-Bots, für den Einladungslink. |
+| `TEMPLATE_BOT_URL` | Hauptbot | Adresse des Template-Bots. Ohne sie wirkt ein Widerruf erst nach ~5 Minuten. |
 | `PREMIUM_ROLE_ID` | Hauptbot (optional) | Rolle für Premium-Nutzer. Auch im Dashboard einstellbar. |
 | `HOME_GUILD_ID` | Hauptbot | Support-Server. Standard: `1530378233579704370`. |
 

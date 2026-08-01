@@ -281,6 +281,19 @@ def unrevoke_hash(key_hash: str) -> bool:
         return cur.rowcount > 0
 
 
+def owner_of_hash(key_hash: str) -> Optional[str]:
+    """Which account a key belongs to, or None if nobody redeemed it."""
+    ensure()
+    with _connect() as conn:
+        row = conn.execute(
+            "SELECT redeemed_by FROM premium_keys WHERE key_hash = ?",
+            (str(key_hash),),
+        ).fetchone()
+    if row is None or not row["redeemed_by"]:
+        return None
+    return str(row["redeemed_by"])
+
+
 def premium_user_ids(product: str = "template_bot") -> set[str]:
     """
     Everyone whose premium is currently valid.

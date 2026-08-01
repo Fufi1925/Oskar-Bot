@@ -1,24 +1,30 @@
 "use client";
 
 /**
- * The Premium tab.
+ * Premium.
  *
- * Two products, deliberately unequal:
+ * Written from scratch. The first version was a stack of grey boxes that
+ * said the same thing whether or not you had a licence, and the state
+ * that actually matters — do I have premium, until when — was a line of
+ * small text among many.
  *
- *   Main bot      — nothing to sell yet, so it says "coming soon" and
- *                   offers no field. A disabled input that pretends to
- *                   do something is worse than an honest placeholder.
- *   Template bot  — a licence key bought in Discord, typed in here.
+ * Now the page leads with one card that can only say one of two things,
+ * and everything else follows from that:
  *
- * The key is bound to the signed-in Discord account. The account id is
- * never sent from here: the proxy fills it in from the session, so the
- * form cannot activate premium onto somebody else's id.
+ *   no licence  -> the field to redeem one, and nothing else
+ *   licence     -> until when, and the invite link to use it
+ *
+ * The main bot has nothing to sell, so it gets an honest placeholder
+ * rather than a disabled form pretending otherwise.
+ *
+ * The account id is never sent from here. The proxy fills it in from the
+ * session, so a key can only ever be bound to whoever is signed in.
  */
 
 import React, { useCallback, useEffect, useState } from "react";
 import {
   Gem, Clock, Check, KeyRound, Trash2, ExternalLink, Plus, Undo2,
-  AlertTriangle, ShieldCheck, Copy,
+  AlertTriangle, ShieldCheck, Copy, Sparkles, RefreshCw,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
@@ -39,39 +45,68 @@ function formatDate(seconds?: number | null): string {
   });
 }
 
-function Card({
+/** Days left, or null when it never expires. */
+function daysLeft(seconds?: number | null): number | null {
+  if (!seconds) return null;
+  return Math.max(0, Math.ceil((seconds * 1000 - Date.now()) / 86_400_000));
+}
+
+function Section({
   icon: Icon,
   title,
   subtitle,
-  accent,
   children,
+  tone = "plain",
+  action,
 }: {
   icon: any;
   title: string;
-  subtitle: string;
-  accent?: string;
-  children: React.ReactNode;
+  subtitle?: string;
+  children?: React.ReactNode;
+  tone?: "plain" | "gold" | "muted";
+  action?: React.ReactNode;
 }) {
   return (
-    <section className="bg-[#0d1b31]/60 border border-slate-800 rounded-3xl p-6 space-y-5">
+    <section
+      className={cn(
+        "rounded-3xl border p-6 space-y-5",
+        tone === "gold"
+          ? "border-amber-500/25 bg-gradient-to-b from-amber-500/[0.07] to-transparent"
+          : tone === "muted"
+          ? "border-slate-800/70 bg-[#0d1b31]/40"
+          : "border-slate-800 bg-[#0d1b31]/60"
+      )}
+    >
       <header className="flex items-start gap-3">
         <div
           className={cn(
             "h-10 w-10 rounded-2xl grid place-items-center shrink-0",
-            accent || "bg-primary/10"
+            tone === "gold" ? "bg-amber-500/15" : "bg-primary/10"
           )}
         >
-          <Icon className="h-5 w-5 text-primary" />
+          <Icon
+            className={cn(
+              "h-5 w-5",
+              tone === "gold" ? "text-amber-300" : "text-primary"
+            )}
+          />
         </div>
-        <div>
+        <div className="min-w-0 flex-1">
           <h3 className="text-base font-bold text-white">{title}</h3>
-          <p className="text-[12px] text-slate-400 mt-0.5">{subtitle}</p>
+          {subtitle && (
+            <p className="text-[12px] text-slate-400 mt-0.5">{subtitle}</p>
+          )}
         </div>
+        {action}
       </header>
       {children}
     </section>
   );
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   For the customer
+   ══════════════════════════════════════════════════════════════════════ */
 
 export function PremiumPanel() {
   const { data: session } = useSession();
@@ -84,7 +119,6 @@ export function PremiumPanel() {
 
   const load = useCallback(async () => {
     if (!userId) return;
-    setLoading(true);
     try {
       setStatus(await api.getMyPremium(userId));
     } catch (err: any) {
@@ -118,85 +152,125 @@ export function PremiumPanel() {
 
   const template = status?.template_bot;
   const active = Boolean(template?.premium);
+  const left = daysLeft(template?.expires_at);
+
+  if (loading) {
+    return (
+      <div className="rounded-3xl border border-slate-800 bg-[#0d1b31]/60 p-6">
+        <p className="text-[12px] text-slate-500">Wird geladen …</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6 max-w-3xl">
-      <Card
-        icon={Gem}
-        title="University Bot Premium"
-        subtitle="Zusatzfunktionen für diesen Bot."
+    <div className="space-y-5">
+      {/* The one thing worth knowing, said once and clearly. */}
+      <section
+        className={cn(
+          "rounded-3xl border p-6",
+          active
+            ? "border-amber-500/30 bg-gradient-to-br from-amber-500/[0.10] via-amber-500/[0.03] to-transparent"
+            : "border-slate-800 bg-[#0d1b31]/60"
+        )}
       >
-        <div className="rounded-2xl border border-dashed border-slate-700 bg-[#0a1628] px-5 py-8 text-center">
-          <Clock className="h-6 w-6 text-slate-500 mx-auto" />
-          <p className="text-sm font-bold text-slate-300 mt-3">Coming Soon</p>
-          <p className="text-[12px] text-slate-500 mt-1">
-            Für den Haupt-Bot gibt es noch kein Premium. Sobald es so weit
-            ist, steht es hier.
-          </p>
-        </div>
-      </Card>
-
-      <Card
-        icon={KeyRound}
-        title="Template-Bot Premium"
-        subtitle="Lizenz-Key eingeben, den du in Discord gekauft hast."
-      >
-        {loading ? (
-          <p className="text-[12px] text-slate-500">Wird geladen …</p>
-        ) : active ? (
-          <div className="space-y-3">
-            <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/[0.06] px-5 py-4">
-              <p className="text-sm font-bold text-emerald-300 flex items-center gap-2">
-                <Check className="h-4 w-4" />
-                Premium ist aktiv
-              </p>
-              <p className="text-[12px] text-slate-400 mt-1">
-                {template?.lifetime
-                  ? "Unbegrenzt gültig."
-                  : `Gültig bis ${formatDate(template?.expires_at)}.`}
-              </p>
-            </div>
-
-            {/* Only once premium is active. The licence follows the
-                account, so the bot can be added to any server at any
-                time and will recognise the buyer there straight away. */}
-            {status?.template_invite && (
-              <a
-                href={status.template_invite}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-primary/10 border border-primary/30 text-xs font-black uppercase tracking-widest text-white hover:bg-primary/20 transition-all"
-              >
-                <ExternalLink className="h-3.5 w-3.5" />
-                Template-Bot zum Server hinzufügen
-              </a>
+        <div className="flex items-start gap-4">
+          <div
+            className={cn(
+              "h-14 w-14 rounded-2xl grid place-items-center shrink-0",
+              active ? "bg-amber-500/20" : "bg-slate-800/60"
             )}
-            <p className="text-[11px] text-slate-500">
-              Premium hängt an deinem Konto, nicht am Server. Du kannst den
-              Bot auf jeden Server holen &mdash; er erkennt dich dort
+          >
+            <Gem
+              className={cn(
+                "h-7 w-7",
+                active ? "text-amber-300" : "text-slate-500"
+              )}
+            />
+          </div>
+
+          <div className="min-w-0 flex-1">
+            <p
+              className={cn(
+                "text-lg font-black",
+                active ? "text-amber-200" : "text-white"
+              )}
+            >
+              {active ? "Premium ist aktiv" : "Kein Premium"}
+            </p>
+
+            {active ? (
+              <p className="text-[13px] text-slate-300 mt-1">
+                {template?.lifetime ? (
+                  <>Unbegrenzt gültig &mdash; läuft nicht ab.</>
+                ) : (
+                  <>
+                    Gültig bis{" "}
+                    <span className="font-bold text-white">
+                      {formatDate(template?.expires_at)}
+                    </span>
+                    {left !== null && (
+                      <span className="text-slate-400">
+                        {" "}
+                        &middot; noch {left} {left === 1 ? "Tag" : "Tage"}
+                      </span>
+                    )}
+                  </>
+                )}
+              </p>
+            ) : (
+              <p className="text-[13px] text-slate-400 mt-1">
+                Kauf dir im Support-Server einen Lizenz-Key und trage ihn
+                unten ein.
+              </p>
+            )}
+          </div>
+
+          <button
+            onClick={load}
+            className="p-2 rounded-lg text-slate-500 hover:text-white hover:bg-white/[0.04] transition-colors shrink-0"
+            aria-label="Status neu laden"
+            title="Status neu laden"
+          >
+            <RefreshCw className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* Only once it is active: the link that makes the licence useful. */}
+        {active && status?.template_invite && (
+          <div className="mt-5 pt-5 border-t border-amber-500/15 space-y-2">
+            <a
+              href={status.template_invite}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-amber-500/15 border border-amber-500/30 text-xs font-black uppercase tracking-widest text-amber-100 hover:bg-amber-500/25 transition-all"
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+              Template-Bot zum Server hinzufügen
+            </a>
+            <p className="text-[11px] text-slate-400">
+              Premium hängt an deinem Konto, nicht an einem Server. Du kannst
+              den Bot auf jeden Server holen &mdash; er erkennt dich dort
               sofort, ohne dass du den Key erneut eingibst.
             </p>
           </div>
-        ) : (
-          <div className="rounded-2xl border border-slate-800 bg-[#0a1628] px-5 py-4">
-            <p className="text-sm font-bold text-slate-300">
-              Kein Premium aktiv
-            </p>
-            <p className="text-[12px] text-slate-500 mt-1">
-              Key im Support-Server kaufen, dann hier eintragen.
-            </p>
-          </div>
         )}
+      </section>
 
-        <div className="space-y-2">
-          <label className="text-xs font-black uppercase tracking-widest text-slate-400">
-            Lizenz-Key
-          </label>
+      {/* The form disappears once there is nothing to redeem. */}
+      {!active && (
+        <Section
+          icon={KeyRound}
+          title="Lizenz-Key einlösen"
+          subtitle="Für die Premium-Vorlagen des Template-Bots."
+        >
           <div className="flex flex-col sm:flex-row gap-2">
             <input
-              className={cn(INPUT, "font-mono tracking-widest uppercase")}
+              className={cn(INPUT, "font-mono tracking-[0.2em] uppercase")}
               value={key}
               onChange={(e) => setKey(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") redeem();
+              }}
               placeholder="XXXX-XXXX-XXXX-XXXX"
               maxLength={40}
               spellCheck={false}
@@ -205,46 +279,59 @@ export function PremiumPanel() {
             <button
               onClick={redeem}
               disabled={busy || !userId}
-              className="px-6 py-3 rounded-xl bg-primary text-xs font-black uppercase tracking-widest shrink-0 hover:brightness-110 disabled:opacity-40 transition-all"
+              className="px-7 py-3 rounded-xl bg-primary text-xs font-black uppercase tracking-widest shrink-0 hover:brightness-110 disabled:opacity-40 transition-all"
             >
               {busy ? "Prüfen …" : "Einlösen"}
             </button>
           </div>
           <p className="text-[11px] text-slate-500">
-            Der Key wird fest mit deinem Discord-Konto verbunden und lässt
-            sich danach nicht mehr übertragen. Groß- und Kleinschreibung
-            sowie Bindestriche sind egal.
+            Groß- und Kleinschreibung sowie Bindestriche sind egal. Der Key
+            wird beim Einlösen fest mit deinem Discord-Konto verbunden.
           </p>
+        </Section>
+      )}
+
+      {/* Nothing to sell yet, so nothing is offered. */}
+      <Section
+        icon={Sparkles}
+        title="University Bot Premium"
+        subtitle="Zusatzfunktionen für diesen Bot."
+        tone="muted"
+      >
+        <div className="flex items-center gap-3 rounded-2xl border border-dashed border-slate-700/70 bg-[#0a1628]/60 px-5 py-4">
+          <Clock className="h-5 w-5 text-slate-500 shrink-0" />
+          <div>
+            <p className="text-sm font-bold text-slate-300">Coming Soon</p>
+            <p className="text-[11px] text-slate-500 mt-0.5">
+              Hier gibt es noch nichts zu kaufen. Sobald es so weit ist,
+              steht es an dieser Stelle.
+            </p>
+          </div>
         </div>
-      </Card>
+      </Section>
     </div>
   );
 }
 
-/**
- * Key management for staff. Only hashes are stored, so this can list
- * and revoke keys but never show one — a lost key gets revoked and
- * replaced, it cannot be looked up.
- */
+/* ══════════════════════════════════════════════════════════════════════
+   For staff
+   ══════════════════════════════════════════════════════════════════════ */
+
 export function PremiumKeysPanel() {
   const [keys, setKeys] = useState<any[]>([]);
   const [role, setRole] = useState<any>(null);
-  const [setup, setSetup] = useState<{ pepper: boolean; token: boolean }>({
-    pepper: true,
-    token: true,
-  });
+  const [setup, setSetup] = useState({ pepper: true, token: true });
   const [loading, setLoading] = useState(true);
 
   const [days, setDays] = useState("30");
   const [recipient, setRecipient] = useState("");
   const [note, setNote] = useState("");
   const [minting, setMinting] = useState(false);
-  // The freshly minted key, shown once. It is stored hashed, so this is
-  // the only moment it can ever be read.
+  // Shown once. The key is stored hashed, so this is the only moment it
+  // can ever be read.
   const [fresh, setFresh] = useState<{ key: string; note: string } | null>(null);
 
   const load = useCallback(async () => {
-    setLoading(true);
     try {
       const res = await api.listPremiumKeys(100);
       setKeys(res?.keys || []);
@@ -298,26 +385,30 @@ export function PremiumKeysPanel() {
   const setRevoked = async (hash: string, undo: boolean) => {
     if (
       !undo &&
-      !confirm("Diesen Key sperren? Premium wird damit sofort entzogen.")
+      !confirm(
+        "Diesen Key sperren? Premium wird sofort entzogen — auch im " +
+          "Template-Bot."
+      )
     ) {
       return;
     }
     try {
-      await api.revokePremiumKey(hash, undo);
-      toast.success(undo ? "Sperre aufgehoben." : "Key gesperrt.");
+      const res = await api.revokePremiumKey(hash, undo);
+      toast.success(res?.result || (undo ? "Sperre aufgehoben." : "Key gesperrt."));
       await load();
     } catch (err: any) {
       toast.error(err?.message || "Änderung fehlgeschlagen.");
     }
   };
 
+  const now = Date.now();
   const active = keys.filter(
-    (k) => k.redeemed_by && !k.revoked && (!k.expires_at || k.expires_at * 1000 > Date.now())
+    (k) => k.redeemed_by && !k.revoked && (!k.expires_at || k.expires_at * 1000 > now)
   ).length;
   const open = keys.filter((k) => !k.redeemed_by && !k.revoked).length;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {(!setup.pepper || !setup.token) && (
         <div className="rounded-2xl border border-amber-500/30 bg-amber-500/[0.06] px-5 py-4">
           <p className="text-sm font-bold text-amber-300 flex items-center gap-2">
@@ -342,10 +433,29 @@ export function PremiumKeysPanel() {
         </div>
       )}
 
-      <Card
+      <div className="grid sm:grid-cols-3 gap-3">
+        {[
+          { label: "Aktiv", value: active, tone: "text-emerald-300" },
+          { label: "Offen", value: open, tone: "text-slate-200" },
+          { label: "Insgesamt", value: keys.length, tone: "text-slate-400" },
+        ].map((stat) => (
+          <div
+            key={stat.label}
+            className="rounded-2xl border border-slate-800 bg-[#0d1b31]/60 px-5 py-4"
+          >
+            <p className={cn("text-2xl font-black tabular-nums", stat.tone)}>
+              {stat.value}
+            </p>
+            <p className="text-[11px] text-slate-500 mt-0.5">{stat.label}</p>
+          </div>
+        ))}
+      </div>
+
+      <Section
         icon={ShieldCheck}
         title="Premium-Rolle"
         subtitle="Wird automatisch vergeben und wieder entzogen."
+        tone="muted"
       >
         {!role?.configured ? (
           <p className="text-[12px] text-slate-500">
@@ -356,18 +466,14 @@ export function PremiumKeysPanel() {
         ) : role?.ok ? (
           <p className="text-[12px] text-emerald-300">
             <b>{role.name}</b> &mdash; aktuell {role.members ?? 0} Mitglieder.
-            Die Rolle wird alle 10 Minuten abgeglichen.
+            Wird alle 10 Minuten abgeglichen.
           </p>
         ) : (
           <p className="text-[12px] text-amber-300">{role?.problem}</p>
         )}
-      </Card>
+      </Section>
 
-      <Card
-        icon={Plus}
-        title="Key erstellen"
-        subtitle="Ersetzt den alten /key-Befehl."
-      >
+      <Section icon={Plus} title="Key erstellen" subtitle="Ersetzt den alten /key-Befehl.">
         <div className="grid sm:grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <label
@@ -435,7 +541,7 @@ export function PremiumKeysPanel() {
         </button>
 
         {fresh && (
-          <div className="rounded-2xl border border-primary/30 bg-primary/[0.06] px-5 py-4 space-y-2">
+          <div className="rounded-2xl border border-amber-500/30 bg-amber-500/[0.06] px-5 py-4 space-y-2">
             <p className="text-[12px] text-slate-300">{fresh.note}</p>
             <div className="flex items-center gap-2">
               <code className="flex-1 font-mono text-sm text-white tracking-widest bg-[#0a1628] rounded-lg px-3 py-2 select-all">
@@ -458,12 +564,21 @@ export function PremiumKeysPanel() {
             </p>
           </div>
         )}
-      </Card>
+      </Section>
 
-      <Card
+      <Section
         icon={KeyRound}
         title="Ausgegebene Keys"
-        subtitle={`${active} aktiv · ${open} noch nicht eingelöst · ${keys.length} insgesamt`}
+        subtitle="Sperren entzieht Premium sofort, auch im Template-Bot."
+        action={
+          <button
+            onClick={load}
+            className="p-2 rounded-lg text-slate-500 hover:text-white hover:bg-white/[0.04] transition-colors"
+            aria-label="Liste neu laden"
+          >
+            <RefreshCw className="h-4 w-4" />
+          </button>
+        }
       >
         {loading ? (
           <p className="text-[12px] text-slate-500">Wird geladen …</p>
@@ -472,13 +587,29 @@ export function PremiumKeysPanel() {
         ) : (
           <div className="space-y-2">
             {keys.map((k) => {
-              const expired =
-                k.expires_at && k.expires_at * 1000 <= Date.now();
+              const expired = k.expires_at && k.expires_at * 1000 <= now;
+              const state = k.revoked
+                ? { label: "Gesperrt", tone: "text-red-300 bg-red-500/10" }
+                : expired
+                ? { label: "Abgelaufen", tone: "text-slate-400 bg-slate-500/10" }
+                : k.redeemed_by
+                ? { label: "Aktiv", tone: "text-emerald-300 bg-emerald-500/10" }
+                : { label: "Offen", tone: "text-sky-300 bg-sky-500/10" };
+
               return (
                 <div
                   key={k.key_hash}
                   className="flex items-center gap-3 rounded-xl bg-[#0a1628] border border-slate-800 px-4 py-3"
                 >
+                  <span
+                    className={cn(
+                      "text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-md shrink-0",
+                      state.tone
+                    )}
+                  >
+                    {state.label}
+                  </span>
+
                   <div className="min-w-0 flex-1">
                     <p className="text-[12px] text-slate-300 truncate">
                       {k.redeemed_by
@@ -487,27 +618,17 @@ export function PremiumKeysPanel() {
                           : k.redeemed_by
                         : "Noch nicht eingelöst"}
                     </p>
-                    <p className="text-[11px] text-slate-500 mt-0.5">
-                      {k.revoked
-                        ? "Gesperrt"
-                        : expired
-                        ? "Abgelaufen"
-                        : k.redeemed_by
-                        ? "Aktiv"
-                        : "Offen"}
-                      {" · "}
+                    <p className="text-[11px] text-slate-500 mt-0.5 truncate">
                       {k.duration === 0 ? "unbegrenzt" : `${k.duration} Tage`}
                       {k.expires_at ? ` · bis ${formatDate(k.expires_at)}` : ""}
                       {k.note ? ` · ${k.note}` : ""}
                     </p>
-                    <p className="text-[10px] font-mono text-slate-600 mt-0.5 truncate">
-                      {k.key_hash.slice(0, 16)}…
-                    </p>
                   </div>
+
                   <button
                     onClick={() => setRevoked(k.key_hash, Boolean(k.revoked))}
                     className={cn(
-                      "p-2 rounded-lg transition-colors",
+                      "p-2 rounded-lg transition-colors shrink-0",
                       k.revoked
                         ? "text-slate-500 hover:text-emerald-300 hover:bg-emerald-500/10"
                         : "text-slate-500 hover:text-red-300 hover:bg-red-500/10"
@@ -526,7 +647,7 @@ export function PremiumKeysPanel() {
             })}
           </div>
         )}
-      </Card>
+      </Section>
     </div>
   );
 }
