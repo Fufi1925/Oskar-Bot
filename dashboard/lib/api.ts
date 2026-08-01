@@ -475,10 +475,12 @@ export const api = {
     request<any>(`/premium/redeem`, { method: "POST", body: JSON.stringify({ key }) }),
   listPremiumKeys: (limit = 100) =>
     request<any>(`/premium/keys?limit=${limit}`),
-  revokePremiumKey: (keyHash: string) =>
+  createPremiumKey: (data: { days: number; user_id?: string; note?: string }) =>
+    request<any>(`/premium/keys`, { method: "POST", body: JSON.stringify(data) }),
+  revokePremiumKey: (keyHash: string, undo = false) =>
     request<any>(`/premium/revoke`, {
       method: "POST",
-      body: JSON.stringify({ key_hash: keyHash }),
+      body: JSON.stringify({ key_hash: keyHash, undo }),
     }),
 
   /**

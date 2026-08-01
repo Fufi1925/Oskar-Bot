@@ -5,8 +5,8 @@ Lizenz-Keys für die Premium-Funktionen des Template-Bots.
 ## Wie es abläuft
 
 1. Jemand kauft Premium im Discord.
-2. Ein Team-Mitglied erstellt mit `/key create` auf dem Support-Server
-   einen Key. Der Bot schickt ihn **per DM** — nie in den Kanal.
+2. Ein Team-Mitglied erstellt den Key im Dashboard unter
+   **Admin → Premium**. Auf Wunsch schickt der Bot ihn **per DM**.
 3. Der Käufer trägt den Key im Dashboard unter **Admin → Premium** ein.
    Beim Einlösen wird er fest an sein Discord-Konto gebunden.
 4. Der Template-Bot fragt bei uns nach, ob dieses Konto Premium hat.
@@ -14,17 +14,47 @@ Lizenz-Keys für die Premium-Funktionen des Template-Bots.
 Der Key gilt für das **Discord-Konto**, nicht für einen Server. Wer ihn
 eingelöst hat, hat Premium — egal auf welchem Server.
 
-## Befehle
+## Keys verwalten
 
-| Befehl | Wirkung |
+Alles unter **Admin → Premium**. Die früheren `/key`-Befehle gibt es
+nicht mehr: Lizenzen sind Abrechnung, das gehört an eine Stelle mit
+Protokoll statt in einen Chat-Befehl, den nur drei Leute nutzen dürfen.
+
+| Feld | Wirkung |
 |---|---|
-| `/key create [days] [note]` | Neuer Key. `days=0` heißt unbegrenzt, Standard 30. |
-| `/key revoke <key>` | Key sperren. Wirkt auch, wenn er schon eingelöst wurde. |
+| Laufzeit in Tagen | `0` = unbegrenzt. Standard 30. |
+| Discord-ID | Optional. Ist sie gesetzt, geht der Key per DM raus. |
+| Notiz | Optional, z.B. eine Bestellnummer. |
 
-Beide nur auf dem Support-Server und nur für Konten in `OWNER_IDS`.
+Der erzeugte Key wird **einmal** angezeigt und lässt sich kopieren.
+Danach ist er nur noch gehasht gespeichert.
+
+Ob die DM angekommen ist, wird ehrlich gemeldet: `sent`, `dms_closed`,
+`unknown_user` oder `failed`. Der Key existiert in jedem Fall — bei
+einem Fehlschlag muss er von Hand weitergegeben werden.
+
+In der Liste steht pro Key, wer ihn eingelöst hat (Name statt nur ID),
+ob er aktiv, offen, abgelaufen oder gesperrt ist. Sperren lässt sich
+**rückgängig machen**, damit ein Fehlklick nicht endgültig ist.
 
 Die Laufzeit läuft **ab Einlösung**, nicht ab Erstellung. Ein Key, der
 eine Woche ungelesen in der DM liegt, verliert dadurch nichts.
+
+## Die Premium-Rolle
+
+Unter **Admin → Bot Config → Premium Role** eine Rollen-ID eintragen.
+Wer eine gültige Lizenz hat, bekommt die Rolle auf dem Support-Server.
+
+Abgeglichen wird alle 10 Minuten — nicht nur beim Einlösen. Eine Lizenz
+*endet* auch, und dabei löst nichts ein Ereignis aus: ohne Timer würde
+ein abgelaufener Kunde die Rolle für immer behalten.
+
+Drei Dinge gehen dabei erfahrungsgemäß schief, und alle drei werden im
+Dashboard getrennt gemeldet:
+
+- keine Rolle eingestellt
+- dem Bot fehlt „Rollen verwalten"
+- die Rolle steht **über** der Bot-Rolle — Discord verweigert das
 
 ## Wichtig: Keys sind nicht wiederherstellbar
 
@@ -41,11 +71,13 @@ Key, den jeder lesen kann, der an die Datenbank kommt.
 |---|---|---|
 | `PREMIUM_KEY_PEPPER` | Hauptbot | Zufälliger Wert, mit dem Keys gehasht werden. |
 | `PREMIUM_PARTNER_TOKEN` | Hauptbot **und** Template-Bot | Gemeinsames Geheimnis für die Abfrage. |
+| `PARTNER_BOT_CLIENT_ID` | Hauptbot | Client-ID des Template-Bots, für den Einladungslink. |
+| `PREMIUM_ROLE_ID` | Hauptbot (optional) | Rolle für Premium-Nutzer. Auch im Dashboard einstellbar. |
 | `HOME_GUILD_ID` | Hauptbot | Support-Server. Standard: `1530378233579704370`. |
 
 > ⚠️ **`PREMIUM_KEY_PEPPER` muss vor dem ersten Key gesetzt sein und darf
 > danach nie geändert werden.** Eine Änderung macht *alle* bisherigen
-> Keys ungültig. `/key create` weigert sich, solange der Wert fehlt.
+> Keys ungültig. Das Dashboard weigert sich, solange der Wert fehlt.
 
 Einen Pepper erzeugen:
 

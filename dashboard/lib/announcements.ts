@@ -41,6 +41,61 @@ export interface Announcement {
 
 export const ANNOUNCEMENTS: Announcement[] = [
   {
+    id: "2026-08-premium-keys",
+    label: "Changelog: Premium",
+    summary: "Persönliche Lizenz-Keys statt einem Master-Key für alle",
+    guilds: [BOT_GUILD_ID],
+    date: "01.08.2026",
+    accent: "#faa61a",
+    blocks: [
+      {
+        type: "text",
+        text:
+          "# 💎 Changelog · Premium\n" +
+          "### Jeder bekommt seinen eigenen Key",
+      },
+      { type: "divider" },
+      {
+        type: "text",
+        text:
+          "Beim Template-Bot gab es bisher **einen einzigen Key** für " +
+          "alle. Wer ihn kannte, war drin — und zurücknehmen ließ er " +
+          "sich nur, indem man ihn für jeden gleichzeitig ändert.",
+      },
+      { type: "divider" },
+      {
+        type: "text",
+        text:
+          "## Was neu ist\n\n" +
+          "> 🔑 **Persönliche Keys.** 16 Zeichen, fest an dein " +
+          "Discord-Konto gebunden.\n" +
+          "> 🖥️ **Neuer Reiter „Premium“** in der Seitenleiste — für " +
+          "alle, nicht nur fürs Team.\n" +
+          "> ⏳ **Laufzeit wählbar**, die Zeit läuft ab dem Einlösen.\n" +
+          "> 🎖️ **Premium-Rolle** wird automatisch vergeben — und wieder " +
+          "entzogen, sobald die Lizenz endet.",
+      },
+      { type: "divider" },
+      {
+        type: "text",
+        text:
+          "## Am Konto, nicht am Server\n\n" +
+          "Nach dem Einlösen erscheint der Einladungslink für den " +
+          "Template-Bot. Du kannst ihn auf **jeden** Server holen — er " +
+          "erkennt dich dort sofort, ganz ohne den Key erneut " +
+          "einzugeben. Das gilt auch, wenn der Bot noch nirgends drauf " +
+          "ist.",
+      },
+      { type: "divider" },
+      {
+        type: "text",
+        text:
+          "-# Die `/key`-Befehle gibt es nicht mehr — Keys werden im " +
+          "Admin-Dashboard erstellt und verwaltet.",
+      },
+    ],
+  },
+  {
     id: "2026-07-slash-aufraeumen",
     label: "Changelog: Slash-Menü",
     summary: "11 Befehle aus dem / -Menü, /report repariert",

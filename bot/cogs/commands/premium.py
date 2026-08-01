@@ -13,18 +13,15 @@
 # ╚══════════════════════════════════════════════════════════════════╝
 
 """
-/key — mint a premium licence key.
+The premium role.
 
-Two guards, because a key is worth money:
+Licence keys are minted and revoked in the dashboard under
+Admin → Premium; this cog only makes sure the role matches reality.
 
-  * only on the support server, so the command does not even appear
-    elsewhere
-  * only for people in OWNER_IDS
-
-The key is sent by DM, never into the channel. It is stored hashed, so
-that DM is the only copy in existence — if it is lost the key has to be
-revoked and a new one issued. That is deliberate: a key readable from
-the database would be a key readable by anyone who reaches the database.
+Handing the role out at redemption would be half a feature, because a
+licence also ends. Nothing fires an event when a key expires at three in
+the morning, so the role is reconciled on a timer: everyone entitled
+gets it, everyone else loses it.
 """
 
 from __future__ import annotations
@@ -32,12 +29,10 @@ from __future__ import annotations
 import os
 
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
 
+from utils import bot_settings
 from utils import premium_store as store
-from utils.config import OWNER_IDS
-from utils.cv2 import CV2
-from utils.emoji import CROSS, STAR, TICK, ZWARNING
 
 # The support server. Same variable the compose route uses, so the two
 # never drift apart.
@@ -47,115 +42,91 @@ HOME_GUILD_ID = int(os.getenv("HOME_GUILD_ID") or 1530378233579704370)
 class Premium(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.sync_roles.start()
 
-    @commands.hybrid_group(name="key", invoke_without_command=True)
-    @commands.guild_only()
-    async def key(self, ctx):
-        await ctx.send(view=CV2(
-            f"{STAR} Premium-Keys",
-            "**/key create** — einen neuen Key erstellen\n"
-            "**/key revoke** — einen Key sperren\n\n"
-            "Nur auf dem Support-Server und nur für das Team.",
-        ), ephemeral=True)
+    def cog_unload(self):
+        self.sync_roles.cancel()
 
-    def _may_use(self, ctx) -> bool:
-        if ctx.guild is None or ctx.guild.id != HOME_GUILD_ID:
-            return False
-        return ctx.author.id in OWNER_IDS
+    # ──────────────────────────────────────────────────────────────
+    #  The premium role
+    # ──────────────────────────────────────────────────────────────
 
-    @key.command(name="create")
-    @commands.guild_only()
-    async def key_create(self, ctx, days: int = 30, *, note: str = ""):
+    @tasks.loop(minutes=10)
+    async def sync_roles(self) -> None:
         """
-        Mint a key and DM it to the caller.
+        Keep the premium role in step with who actually has a licence.
 
-        days = 0 means it never expires. The clock starts when the key is
-        redeemed, not now, so a key sitting unread in a DM is not eaten
-        by its own duration.
+        Granting on redemption alone is not enough: a licence also *ends*.
+        Nothing fires an event when a key runs out at three in the
+        morning, so the role has to be checked on a timer, or an expired
+        customer keeps the role forever.
+
+        Ten minutes is a compromise. Faster would mean more requests for
+        a thing that changes a few times a day at most.
         """
-        if not self._may_use(ctx):
-            await ctx.send(view=CV2(
-                f"{CROSS} Nicht erlaubt",
-                "Diesen Befehl gibt es nur auf dem Support-Server und nur "
-                "für das Team.",
-            ), ephemeral=True)
-            return
-
-        if days < 0 or days > 3650:
-            await ctx.send(view=CV2(
-                f"{CROSS} Ungültige Laufzeit",
-                "Bitte 0 (unbegrenzt) bis 3650 Tage angeben.",
-            ), ephemeral=True)
-            return
-
-        if not os.getenv(store.PEPPER_ENV, "").strip():
-            # Without the pepper the hashes are guessable, and worse:
-            # setting it later invalidates every key issued before.
-            await ctx.send(view=CV2(
-                f"{ZWARNING} Nicht eingerichtet",
-                f"`{store.PEPPER_ENV}` ist nicht gesetzt. Ohne diesen Wert "
-                "wären die Keys unsicher gespeichert — und wird er später "
-                "gesetzt, verfallen alle vorher erstellten Keys.",
-            ), ephemeral=True)
-            return
-
-        created = store.create_key(
-            created_by=ctx.author.id, duration_days=days, note=note,
-        )
-        laufzeit = "unbegrenzt" if days == 0 else f"{days} Tage ab Einlösung"
-
         try:
-            await ctx.author.send(view=CV2(
-                f"{STAR} Premium-Key",
-                f"```\n{created['key']}\n```\n"
-                f"**Laufzeit:** {laufzeit}\n"
-                f"**Für:** Template-Bot\n\n"
-                "Diesen Key im Dashboard unter **Premium** eintragen. "
-                "Er wird beim Einlösen fest an das Discord-Konto gebunden "
-                "und lässt sich danach nicht übertragen.\n\n"
-                "Wir speichern den Key nur verschlüsselt — diese Nachricht "
-                "ist die einzige Kopie. Geht sie verloren, muss der Key "
-                "gesperrt und ein neuer erstellt werden.",
-            ))
-        except discord.Forbidden:
-            # The key already exists at this point. Saying "failed" would
-            # be a lie, and the admin needs to know it is out there.
-            await ctx.send(view=CV2(
-                f"{ZWARNING} Key erstellt, aber keine DM möglich",
-                "Der Key wurde erstellt, konnte dir aber nicht per DM "
-                "geschickt werden — deine Privatnachrichten sind zu. "
-                "Bitte DMs öffnen und den Key sperren, dann einen neuen "
-                "erstellen.",
-            ), ephemeral=True)
-            return
+            await self._sync_once()
+        except Exception as exc:  # noqa: BLE001 - a loop must not die
+            print(f"[premium] role sync failed: {exc}")
 
-        await ctx.send(view=CV2(
-            f"{TICK} Key erstellt",
-            f"Der Key ist per DM unterwegs. Laufzeit: **{laufzeit}**.",
-        ), ephemeral=True)
+    @sync_roles.before_loop
+    async def _before_sync(self) -> None:
+        await self.bot.wait_until_ready()
+        # Settings live in the database, and the first read happens after
+        # login. Without this the very first pass sees no role id.
+        await bot_settings.load()
 
-    @key.command(name="revoke")
-    @commands.guild_only()
-    async def key_revoke(self, ctx, key: str):
-        """Turn a key off, whether or not it was already redeemed."""
-        if not self._may_use(ctx):
-            await ctx.send(view=CV2(
-                f"{CROSS} Nicht erlaubt",
-                "Diesen Befehl gibt es nur auf dem Support-Server und nur "
-                "für das Team.",
-            ), ephemeral=True)
-            return
+    async def _sync_once(self) -> dict[str, int]:
+        """Add the role to everyone entitled, remove it from everyone else."""
+        role_id = bot_settings.get("premium_role", "").strip()
+        if not role_id.isdigit():
+            return {"added": 0, "removed": 0}
 
-        if store.revoke(key):
-            await ctx.send(view=CV2(
-                f"{TICK} Gesperrt",
-                "Der Key wurde gesperrt und funktioniert nicht mehr.",
-            ), ephemeral=True)
-        else:
-            await ctx.send(view=CV2(
-                f"{CROSS} Nicht gefunden",
-                "Zu dieser Eingabe gibt es keinen Key.",
-            ), ephemeral=True)
+        guild = self.bot.get_guild(HOME_GUILD_ID)
+        if guild is None:
+            return {"added": 0, "removed": 0}
+
+        role = guild.get_role(int(role_id))
+        if role is None:
+            return {"added": 0, "removed": 0}
+
+        me = guild.me
+        # Discord refuses to manage a role at or above the bot's own top
+        # role. Trying anyway just produces a stream of 403s.
+        if me is None or not me.guild_permissions.manage_roles \
+                or role >= me.top_role:
+            print(
+                "[premium] cannot manage the premium role — either "
+                "'Manage Roles' is missing or the role sits above mine"
+            )
+            return {"added": 0, "removed": 0}
+
+        entitled = store.premium_user_ids()
+        added = removed = 0
+
+        for user_id in entitled:
+            member = guild.get_member(int(user_id)) if user_id.isdigit() else None
+            if member is not None and role not in member.roles:
+                try:
+                    await member.add_roles(role, reason="Premium licence active")
+                    added += 1
+                except discord.HTTPException:
+                    pass
+
+        for member in list(role.members):
+            if str(member.id) not in entitled:
+                try:
+                    await member.remove_roles(role, reason="Premium licence ended")
+                    removed += 1
+                except discord.HTTPException:
+                    pass
+
+        return {"added": added, "removed": removed}
+
+    # The /key commands were removed on purpose. Minting a licence is
+    # billing work, it belongs in one place with an audit trail, and a
+    # chat command that only three people may run is a worse version of
+    # a dashboard button. Everything now lives under Admin -> Premium.
 
 
 # Registered centrally in cogs/__init__.py, like every other cog here,

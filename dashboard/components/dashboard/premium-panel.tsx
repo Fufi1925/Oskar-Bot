@@ -16,7 +16,10 @@
  */
 
 import React, { useCallback, useEffect, useState } from "react";
-import { Gem, Clock, Check, KeyRound, Trash2 } from "lucide-react";
+import {
+  Gem, Clock, Check, KeyRound, Trash2, ExternalLink, Plus, Undo2,
+  AlertTriangle, ShieldCheck, Copy,
+} from "lucide-react";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 
@@ -141,15 +144,37 @@ export function PremiumPanel() {
         {loading ? (
           <p className="text-[12px] text-slate-500">Wird geladen …</p>
         ) : active ? (
-          <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/[0.06] px-5 py-4">
-            <p className="text-sm font-bold text-emerald-300 flex items-center gap-2">
-              <Check className="h-4 w-4" />
-              Premium ist aktiv
-            </p>
-            <p className="text-[12px] text-slate-400 mt-1">
-              {template?.lifetime
-                ? "Unbegrenzt gültig."
-                : `Gültig bis ${formatDate(template?.expires_at)}.`}
+          <div className="space-y-3">
+            <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/[0.06] px-5 py-4">
+              <p className="text-sm font-bold text-emerald-300 flex items-center gap-2">
+                <Check className="h-4 w-4" />
+                Premium ist aktiv
+              </p>
+              <p className="text-[12px] text-slate-400 mt-1">
+                {template?.lifetime
+                  ? "Unbegrenzt gültig."
+                  : `Gültig bis ${formatDate(template?.expires_at)}.`}
+              </p>
+            </div>
+
+            {/* Only once premium is active. The licence follows the
+                account, so the bot can be added to any server at any
+                time and will recognise the buyer there straight away. */}
+            {status?.template_invite && (
+              <a
+                href={status.template_invite}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-primary/10 border border-primary/30 text-xs font-black uppercase tracking-widest text-white hover:bg-primary/20 transition-all"
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+                Template-Bot zum Server hinzufügen
+              </a>
+            )}
+            <p className="text-[11px] text-slate-500">
+              Premium hängt an deinem Konto, nicht am Server. Du kannst den
+              Bot auf jeden Server holen &mdash; er erkennt dich dort
+              sofort, ohne dass du den Key erneut eingibst.
             </p>
           </div>
         ) : (
@@ -203,13 +228,31 @@ export function PremiumPanel() {
  */
 export function PremiumKeysPanel() {
   const [keys, setKeys] = useState<any[]>([]);
+  const [role, setRole] = useState<any>(null);
+  const [setup, setSetup] = useState<{ pepper: boolean; token: boolean }>({
+    pepper: true,
+    token: true,
+  });
   const [loading, setLoading] = useState(true);
+
+  const [days, setDays] = useState("30");
+  const [recipient, setRecipient] = useState("");
+  const [note, setNote] = useState("");
+  const [minting, setMinting] = useState(false);
+  // The freshly minted key, shown once. It is stored hashed, so this is
+  // the only moment it can ever be read.
+  const [fresh, setFresh] = useState<{ key: string; note: string } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const res = await api.listPremiumKeys(100);
       setKeys(res?.keys || []);
+      setRole(res?.role || null);
+      setSetup({
+        pepper: Boolean(res?.pepper_set),
+        token: Boolean(res?.partner_token_set),
+      });
     } catch (err: any) {
       toast.error(err?.message || "Keys konnten nicht geladen werden.");
     } finally {
@@ -221,64 +264,269 @@ export function PremiumKeysPanel() {
     load();
   }, [load]);
 
-  const revoke = async (hash: string) => {
-    if (!confirm("Diesen Key sperren? Das lässt sich nicht rückgängig machen.")) return;
+  const mint = async () => {
+    const value = Number(days);
+    if (Number.isNaN(value) || value < 0 || value > 3650) {
+      toast.error("Laufzeit: 0 (unbegrenzt) bis 3650 Tage.");
+      return;
+    }
+    if (recipient.trim() && !/^\d{15,25}$/.test(recipient.trim())) {
+      toast.error("Die Benutzer-ID besteht nur aus Ziffern.");
+      return;
+    }
+
+    setMinting(true);
     try {
-      await api.revokePremiumKey(hash);
-      toast.success("Key gesperrt.");
+      const res = await api.createPremiumKey({
+        days: value,
+        user_id: recipient.trim() || undefined,
+        note: note.trim() || undefined,
+      });
+      setFresh({ key: res.key, note: res.result });
+      if (res.delivery === "sent") toast.success(res.result);
+      else toast.warning(res.result);
+      setRecipient("");
+      setNote("");
       await load();
     } catch (err: any) {
-      toast.error(err?.message || "Sperren fehlgeschlagen.");
+      toast.error(err?.message || "Key konnte nicht erstellt werden.");
+    } finally {
+      setMinting(false);
     }
   };
 
+  const setRevoked = async (hash: string, undo: boolean) => {
+    if (
+      !undo &&
+      !confirm("Diesen Key sperren? Premium wird damit sofort entzogen.")
+    ) {
+      return;
+    }
+    try {
+      await api.revokePremiumKey(hash, undo);
+      toast.success(undo ? "Sperre aufgehoben." : "Key gesperrt.");
+      await load();
+    } catch (err: any) {
+      toast.error(err?.message || "Änderung fehlgeschlagen.");
+    }
+  };
+
+  const active = keys.filter(
+    (k) => k.redeemed_by && !k.revoked && (!k.expires_at || k.expires_at * 1000 > Date.now())
+  ).length;
+  const open = keys.filter((k) => !k.redeemed_by && !k.revoked).length;
+
   return (
-    <Card
-      icon={KeyRound}
-      title="Ausgegebene Keys"
-      subtitle="Mit /key create auf dem Support-Server erstellen."
-    >
-      {loading ? (
-        <p className="text-[12px] text-slate-500">Wird geladen …</p>
-      ) : keys.length === 0 ? (
-        <p className="text-[12px] text-slate-500">
-          Noch keine Keys erstellt.
-        </p>
-      ) : (
-        <div className="space-y-2">
-          {keys.map((k) => (
-            <div
-              key={k.key_hash}
-              className="flex items-center gap-3 rounded-xl bg-[#0a1628] border border-slate-800 px-4 py-3"
-            >
-              <div className="min-w-0 flex-1">
-                <p className="text-[12px] font-mono text-slate-400 truncate">
-                  {k.key_hash.slice(0, 16)}…
-                </p>
-                <p className="text-[11px] text-slate-500 mt-0.5">
-                  {k.revoked
-                    ? "Gesperrt"
-                    : k.redeemed_by
-                    ? `Eingelöst von ${k.redeemed_by}`
-                    : "Noch nicht eingelöst"}
-                  {" · "}
-                  {k.duration === 0 ? "unbegrenzt" : `${k.duration} Tage`}
-                  {k.expires_at ? ` · bis ${formatDate(k.expires_at)}` : ""}
-                </p>
-              </div>
-              {!k.revoked && (
-                <button
-                  onClick={() => revoke(k.key_hash)}
-                  className="p-2 rounded-lg text-slate-500 hover:text-red-300 hover:bg-red-500/10 transition-colors"
-                  aria-label="Key sperren"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              )}
-            </div>
-          ))}
+    <div className="space-y-6">
+      {(!setup.pepper || !setup.token) && (
+        <div className="rounded-2xl border border-amber-500/30 bg-amber-500/[0.06] px-5 py-4">
+          <p className="text-sm font-bold text-amber-300 flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4" />
+            Einrichtung unvollständig
+          </p>
+          <ul className="text-[12px] text-slate-400 mt-2 space-y-1">
+            {!setup.pepper && (
+              <li>
+                &bull; <code>PREMIUM_KEY_PEPPER</code> fehlt &mdash; es lassen
+                sich keine Keys erstellen. Wird der Wert später gesetzt,
+                verfallen alle vorher erstellten Keys.
+              </li>
+            )}
+            {!setup.token && (
+              <li>
+                &bull; <code>PREMIUM_PARTNER_TOKEN</code> fehlt &mdash; der
+                Template-Bot kann nicht nachfragen, wer Premium hat.
+              </li>
+            )}
+          </ul>
         </div>
       )}
-    </Card>
+
+      <Card
+        icon={ShieldCheck}
+        title="Premium-Rolle"
+        subtitle="Wird automatisch vergeben und wieder entzogen."
+      >
+        {!role?.configured ? (
+          <p className="text-[12px] text-slate-500">
+            Keine Rolle eingestellt. Unter <b>Bot Config &rarr; Premium Role</b>{" "}
+            eine Rollen-ID eintragen, dann bekommt jeder mit gültiger Lizenz
+            diese Rolle auf dem Support-Server.
+          </p>
+        ) : role?.ok ? (
+          <p className="text-[12px] text-emerald-300">
+            <b>{role.name}</b> &mdash; aktuell {role.members ?? 0} Mitglieder.
+            Die Rolle wird alle 10 Minuten abgeglichen.
+          </p>
+        ) : (
+          <p className="text-[12px] text-amber-300">{role?.problem}</p>
+        )}
+      </Card>
+
+      <Card
+        icon={Plus}
+        title="Key erstellen"
+        subtitle="Ersetzt den alten /key-Befehl."
+      >
+        <div className="grid sm:grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <label
+              htmlFor="premium-days"
+              className="text-xs font-black uppercase tracking-widest text-slate-400"
+            >
+              Laufzeit in Tagen
+            </label>
+            <input
+              id="premium-days"
+              type="number"
+              min={0}
+              max={3650}
+              className={INPUT}
+              value={days}
+              onChange={(e) => setDays(e.target.value)}
+            />
+            <p className="text-[11px] text-slate-500">
+              0 = unbegrenzt. Die Zeit läuft ab dem Einlösen, nicht ab jetzt.
+            </p>
+          </div>
+          <div className="space-y-1.5">
+            <label
+              htmlFor="premium-user"
+              className="text-xs font-black uppercase tracking-widest text-slate-400"
+            >
+              Discord-ID (optional)
+            </label>
+            <input
+              id="premium-user"
+              className={INPUT}
+              value={recipient}
+              onChange={(e) => setRecipient(e.target.value)}
+              placeholder="Für DM-Versand"
+              inputMode="numeric"
+            />
+            <p className="text-[11px] text-slate-500">
+              Leer lassen, um den Key selbst weiterzugeben.
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <label
+            htmlFor="premium-note"
+            className="text-xs font-black uppercase tracking-widest text-slate-400"
+          >
+            Notiz (optional)
+          </label>
+          <input
+            id="premium-note"
+            className={INPUT}
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="z.B. Bestellung #42"
+          />
+        </div>
+
+        <button
+          onClick={mint}
+          disabled={minting || !setup.pepper}
+          className="w-full py-3 rounded-xl bg-primary text-xs font-black uppercase tracking-widest hover:brightness-110 disabled:opacity-40 transition-all"
+        >
+          {minting ? "Wird erstellt …" : "Key erstellen"}
+        </button>
+
+        {fresh && (
+          <div className="rounded-2xl border border-primary/30 bg-primary/[0.06] px-5 py-4 space-y-2">
+            <p className="text-[12px] text-slate-300">{fresh.note}</p>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 font-mono text-sm text-white tracking-widest bg-[#0a1628] rounded-lg px-3 py-2 select-all">
+                {fresh.key}
+              </code>
+              <button
+                onClick={() => {
+                  navigator.clipboard?.writeText(fresh.key);
+                  toast.success("Kopiert.");
+                }}
+                className="p-2.5 rounded-lg bg-white/[0.03] border border-white/10 text-slate-400 hover:text-white transition-colors"
+                aria-label="Key kopieren"
+              >
+                <Copy className="h-4 w-4" />
+              </button>
+            </div>
+            <p className="text-[11px] text-amber-300">
+              Jetzt notieren. Der Key wird nur verschlüsselt gespeichert und
+              lässt sich später nicht mehr anzeigen.
+            </p>
+          </div>
+        )}
+      </Card>
+
+      <Card
+        icon={KeyRound}
+        title="Ausgegebene Keys"
+        subtitle={`${active} aktiv · ${open} noch nicht eingelöst · ${keys.length} insgesamt`}
+      >
+        {loading ? (
+          <p className="text-[12px] text-slate-500">Wird geladen …</p>
+        ) : keys.length === 0 ? (
+          <p className="text-[12px] text-slate-500">Noch keine Keys erstellt.</p>
+        ) : (
+          <div className="space-y-2">
+            {keys.map((k) => {
+              const expired =
+                k.expires_at && k.expires_at * 1000 <= Date.now();
+              return (
+                <div
+                  key={k.key_hash}
+                  className="flex items-center gap-3 rounded-xl bg-[#0a1628] border border-slate-800 px-4 py-3"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[12px] text-slate-300 truncate">
+                      {k.redeemed_by
+                        ? k.redeemed_name
+                          ? `${k.redeemed_name} (${k.redeemed_by})`
+                          : k.redeemed_by
+                        : "Noch nicht eingelöst"}
+                    </p>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      {k.revoked
+                        ? "Gesperrt"
+                        : expired
+                        ? "Abgelaufen"
+                        : k.redeemed_by
+                        ? "Aktiv"
+                        : "Offen"}
+                      {" · "}
+                      {k.duration === 0 ? "unbegrenzt" : `${k.duration} Tage`}
+                      {k.expires_at ? ` · bis ${formatDate(k.expires_at)}` : ""}
+                      {k.note ? ` · ${k.note}` : ""}
+                    </p>
+                    <p className="text-[10px] font-mono text-slate-600 mt-0.5 truncate">
+                      {k.key_hash.slice(0, 16)}…
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setRevoked(k.key_hash, Boolean(k.revoked))}
+                    className={cn(
+                      "p-2 rounded-lg transition-colors",
+                      k.revoked
+                        ? "text-slate-500 hover:text-emerald-300 hover:bg-emerald-500/10"
+                        : "text-slate-500 hover:text-red-300 hover:bg-red-500/10"
+                    )}
+                    aria-label={k.revoked ? "Sperre aufheben" : "Key sperren"}
+                    title={k.revoked ? "Sperre aufheben" : "Key sperren"}
+                  >
+                    {k.revoked ? (
+                      <Undo2 className="h-4 w-4" />
+                    ) : (
+                      <Trash2 className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </Card>
+    </div>
   );
 }

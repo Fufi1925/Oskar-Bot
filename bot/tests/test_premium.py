@@ -129,13 +129,35 @@ def test_api(store):
     from api import dependencies as dep
     from api.server import create_app
 
+    class FakeUser:
+        def __init__(self, uid):
+            self.id = uid
+            self.name = f"user{uid}"
+            self.display_name = f"User {uid}"
+            self.sent: list[str] = []
+
+        async def send(self, content=None, **kw):
+            self.sent.append(content or "")
+
     class Bot:
         user = type("U", (), {"id": 1})()
+
+        def __init__(self):
+            self.users = {}
 
         def get_guild(self, _gid):
             return None
 
-    dep.set_bot(Bot())
+        def get_user(self, uid):
+            # Mirrors discord.py: only cached users, None otherwise.
+            return self.users.get(int(uid))
+
+        async def fetch_user(self, uid):
+            return self.users.get(int(uid))
+
+    bot = Bot()
+    bot.users[BOB] = FakeUser(BOB)
+    dep.set_bot(bot)
     client = TestClient(create_app())
     base = "/api/v1/premium"
 
@@ -177,40 +199,144 @@ def test_api(store):
     r = client.post(f"{base}/redeem", json={"user_id": str(ALICE), "key": ""})
     check("an empty key is refused", r.status_code == 400, str(r.status_code))
 
+    os.environ["PARTNER_BOT_CLIENT_ID"] = "1530742522589089952"
     r = client.get(f"{base}/me/{BOB}")
     body = r.json()
     check("the dashboard sees its own status",
           body["template_bot"]["premium"] is True, r.text[:160])
+    invite = body.get("template_invite", "")
+    check("an invite link for the template bot is offered",
+          "oauth2/authorize" in invite and "1530742522589089952" in invite,
+          invite[:120])
+    # Premium follows the account, so the link must not pin one server.
+    check("the invite does not preselect a server",
+          "guild_id" not in invite,
+          "the buyer could only add the bot to one place")
     check("the main bot is honestly marked coming soon",
           body["main_bot"]["coming_soon"] is True
           and body["main_bot"]["premium"] is False, r.text[:160])
 
+    print("\nMinting from the dashboard")
+
+    # Without a pepper the keys would be hashed unsafely, and setting one
+    # later would invalidate everything minted before.
+    saved = os.environ.pop("PREMIUM_KEY_PEPPER")
+    r = client.post(f"{base}/keys", json={"days": 30})
+    check("minting is refused without a pepper", r.status_code == 503,
+          str(r.status_code))
+    os.environ["PREMIUM_KEY_PEPPER"] = saved
+
+    r = client.post(f"{base}/keys", json={"days": 30})
+    minted = r.json()
+    check("a key can be minted", r.status_code == 200, r.text[:160])
+    check("the key is returned exactly once",
+          len(store.normalise(minted.get("key", ""))) == 16, r.text[:160])
+    check("with nobody to DM it is reported honestly",
+          minted.get("delivery") == "none", r.text[:160])
+
+    r = client.post(f"{base}/keys", json={"days": 7, "user_id": str(BOB)})
+    sent = r.json()
+    check("a key is delivered by DM", sent.get("delivery") == "sent", r.text[:160])
+    check("and the DM carries the key",
+          sent["key"] in bot.users[BOB].sent[-1],
+          "the DM went out without the key in it")
+
+    r = client.post(f"{base}/keys", json={"days": 30, "user_id": "999999999999999999"})
+    check("an unknown recipient is reported, key still made",
+          r.json().get("delivery") == "unknown_user"
+          and r.json().get("key"), r.text[:200])
+
+    r = client.post(f"{base}/keys", json={"days": 5000})
+    check("an absurd duration is refused", r.status_code == 400, str(r.status_code))
+    r = client.post(f"{base}/keys", json={"days": -1})
+    check("a negative duration is refused", r.status_code == 400, str(r.status_code))
+
     r = client.get(f"{base}/keys")
     listed = r.json().get("keys", [])
     check("keys can be listed", r.status_code == 200 and len(listed) > 0)
+    check("the listing reports setup state",
+          "pepper_set" in r.json() and "partner_token_set" in r.json())
+    check("and the role state", "role" in r.json())
+
+    print("\nRevoking from the dashboard")
+    target = next(k for k in listed if k.get("redeemed_by"))
+    r = client.post(f"{base}/revoke", json={"key_hash": target["key_hash"]})
+    check("revoke by hash works", r.status_code == 200, r.text[:160])
+    r = client.post(f"{base}/revoke",
+                    json={"key_hash": target["key_hash"], "undo": True})
+    check("and can be undone", r.status_code == 200
+          and "aufgehoben" in r.text, r.text[:160])
+    r = client.post(f"{base}/revoke", json={"key_hash": "nope"})
+    check("an unknown hash is refused", r.status_code == 404, str(r.status_code))
     check("the listing never contains a usable key",
           all("key" not in row or row.get("key") is None for row in listed)
           and store.normalise(key) not in r.text,
           "the admin list leaks keys")
 
 
-def test_command_guards():
-    print("\n/key guards")
+def test_key_commands_are_gone():
+    print("\n/key is gone — the dashboard owns this now")
 
     src = open(os.path.join(BOT, "cogs", "commands", "premium.py"), encoding="utf-8").read()
     body = "\n".join(l for l in src.splitlines() if not l.lstrip().startswith("#"))
 
-    check("it is limited to the support server",
-          "ctx.guild.id != HOME_GUILD_ID" in body)
-    check("and to the owner list", "OWNER_IDS" in body)
-    check("the key is sent by DM, not into the channel",
-          "ctx.author.send" in body)
-    check("a closed DM is handled",
-          "discord.Forbidden" in body,
-          "a user with DMs off would crash the command")
-    check("it refuses to run without the pepper",
-          "PEPPER_ENV" in body,
-          "keys would be hashed without a pepper and break later")
+    check("no /key command group", 'name="key"' not in body,
+          "the chat command is back")
+    check("no key subcommands", "@key.command" not in body)
+    check("the cog registers no commands at all",
+          "hybrid_command" not in body and "hybrid_group" not in body)
+
+
+def test_role_sync(store):
+    print("\nThe premium role follows the licence")
+
+    src = open(os.path.join(BOT, "cogs", "commands", "premium.py"), encoding="utf-8").read()
+    body = "\n".join(l for l in src.splitlines() if not l.lstrip().startswith("#"))
+
+    check("there is a timer", "@tasks.loop" in body,
+          "nothing fires when a licence expires, so a timer is required")
+    check("the role is added", "add_roles" in body)
+    check("and removed again", "remove_roles" in body,
+          "an expired customer would keep the role forever")
+    check("a role above the bot is refused",
+          "top_role" in body,
+          "Discord rejects those and the loop would spin on 403s")
+    check("the loop cannot die", "except Exception" in body)
+
+    # premium_user_ids is what decides who holds the role.
+    import time as _time
+    import sqlite3
+
+    fresh = store.create_key(created_by=1, duration_days=30)["key"]
+    store.redeem(fresh, 4001)
+    check("an active licence is listed", "4001" in store.premium_user_ids())
+
+    gone = store.create_key(created_by=1, duration_days=30)["key"]
+    store.redeem(gone, 4002)
+    with sqlite3.connect(store.DB_PATH) as conn:
+        conn.execute(
+            "UPDATE premium_keys SET expires_at = ? WHERE key_hash = ?",
+            (int(_time.time()) - 60, store.hash_key(gone)),
+        )
+    check("an expired licence drops out", "4002" not in store.premium_user_ids(),
+          "the role would never come off")
+
+    banned = store.create_key(created_by=1, duration_days=0)["key"]
+    store.redeem(banned, 4003)
+    store.revoke(banned)
+    check("a revoked licence drops out", "4003" not in store.premium_user_ids())
+
+    never = store.create_key(created_by=1, duration_days=30)["key"]
+    check("an unredeemed key grants nobody the role",
+          store.premium_user_ids() and never not in store.premium_user_ids())
+
+    print("\nRevoking can be undone")
+    key_hash = store.hash_key(banned)
+    check("unrevoke reports success", store.unrevoke_hash(key_hash) is True)
+    check("and premium comes back", "4003" in store.premium_user_ids(),
+          "revoking the wrong row would be permanent")
+    check("revoke by hash works too", store.revoke_hash(key_hash) is True)
+    check("and takes it away again", "4003" not in store.premium_user_ids())
 
 
 def test_proxy_binding():
@@ -255,6 +381,20 @@ def test_dashboard_page():
     lbody = "\n".join(l for l in layout.splitlines() if not l.lstrip().startswith("//"))
     check("the sidebar links to it", '"/dashboard/premium"' in lbody)
 
+    panel = open(os.path.join(dash, "components", "dashboard",
+                              "premium-panel.tsx"), encoding="utf-8").read()
+    pbody = "\n".join(l for l in panel.splitlines() if not l.lstrip().startswith("//"))
+    check("the invite link is rendered", "template_invite" in pbody)
+    # Offering it before a key is redeemed would advertise a bot the
+    # visitor cannot use yet.
+    check("only once premium is active",
+          pbody.index("active ? (") < pbody.index("template_invite"),
+          "the invite shows without premium")
+    check("the admin panel can mint keys", "createPremiumKey" in pbody)
+    check("and undo a revoke", "setRevoked" in pbody and "undo" in pbody)
+    check("a fresh key is shown once", "fresh" in pbody)
+    check("the role state is surfaced", "role?.ok" in pbody)
+
     # The sidebar splits into "inside a guild" and "top level". Premium is
     # account-wide, so it belongs to the second list, next to Admin Panel.
     tail = lbody.split('name: "Server", href: "/dashboard/guilds"')[-1]
@@ -268,7 +408,8 @@ def run():
 
     test_keys(store)
     test_api(store)
-    test_command_guards()
+    test_key_commands_are_gone()
+    test_role_sync(store)
     test_proxy_binding()
     test_dashboard_page()
 

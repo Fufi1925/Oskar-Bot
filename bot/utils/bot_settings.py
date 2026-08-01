@@ -72,6 +72,13 @@ SETTINGS: tuple[Setting, ...] = (
         "channel", env_var="REPORT_CHANNEL_ID",
     ),
     Setting(
+        "premium_role", "Premium Role", "Premium",
+        "Role given to anyone with an active licence, on the support "
+        "server. It is taken away again when the licence expires or is "
+        "revoked. Leave empty to hand out no role at all.",
+        "text", env_var="PREMIUM_ROLE_ID",
+    ),
+    Setting(
         "support_server_invite", "Support Server", "Branding",
         "Invite link shown in help messages and the dashboard footer.",
         "text", default="https://discord.gg/MG3rYnUZJV",

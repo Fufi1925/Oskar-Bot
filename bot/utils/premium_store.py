@@ -254,6 +254,56 @@ def revoke(key: str) -> bool:
         return cur.rowcount > 0
 
 
+def revoke_hash(key_hash: str) -> bool:
+    """
+    Revoke by hash, which is all the admin list ever sees.
+
+    The key itself is not stored, so a support request of the shape
+    "please cancel this person's licence" can only be served this way.
+    """
+    ensure()
+    with _connect() as conn:
+        cur = conn.execute(
+            "UPDATE premium_keys SET revoked = 1 WHERE key_hash = ?",
+            (str(key_hash),),
+        )
+        return cur.rowcount > 0
+
+
+def unrevoke_hash(key_hash: str) -> bool:
+    """Undo a revoke. Revoking the wrong row should not be permanent."""
+    ensure()
+    with _connect() as conn:
+        cur = conn.execute(
+            "UPDATE premium_keys SET revoked = 0 WHERE key_hash = ?",
+            (str(key_hash),),
+        )
+        return cur.rowcount > 0
+
+
+def premium_user_ids(product: str = "template_bot") -> set[str]:
+    """
+    Everyone whose premium is currently valid.
+
+    Used to decide who should hold the premium role. Expired and revoked
+    rows drop out here, which is what makes the role come off again.
+    """
+    ensure()
+    now = int(time.time())
+    with _connect() as conn:
+        rows = conn.execute(
+            "SELECT redeemed_by, expires_at FROM premium_keys "
+            "WHERE product = ? AND revoked = 0 AND redeemed_by IS NOT NULL",
+            (product,),
+        ).fetchall()
+
+    return {
+        str(row["redeemed_by"])
+        for row in rows
+        if row["expires_at"] is None or int(row["expires_at"]) > now
+    }
+
+
 def list_keys(limit: int = 100) -> list[dict[str, Any]]:
     """
     Recent keys for the admin view.
