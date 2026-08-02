@@ -18,6 +18,67 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { withAuth } from "next-auth/middleware";
 
+import {
+  BYPASS_COOKIE,
+  BYPASS_PATH,
+  bypassToken,
+  maintenanceOn,
+} from "@/lib/maintenance";
+
+/**
+ * Maintenance mode, checked before anything else.
+ *
+ * Order matters: the auth check below redirects anonymous visitors to
+ * the sign-in page, so running it first would send people to Discord to
+ * log in during an outage instead of telling them the site is down.
+ *
+ * Returns a response when the request should be intercepted, or null to
+ * carry on as normal.
+ */
+function maintenanceGate(request: NextRequest): NextResponse | null {
+  if (!maintenanceOn()) return null;
+
+  const { pathname } = request.nextUrl;
+
+  // The bypass page has to stay reachable, or there is no way back in.
+  if (pathname === BYPASS_PATH || pathname.startsWith(`${BYPASS_PATH}/`)) {
+    return null;
+  }
+
+  // Already unlocked in this browser.
+  if (request.cookies.get(BYPASS_COOKIE)?.value === bypassToken()) {
+    return null;
+  }
+
+  // Next's own assets, or the notice cannot render at all.
+  if (pathname.startsWith("/_next/") || pathname === "/favicon.ico") {
+    return null;
+  }
+
+  // API callers get JSON; a rewritten HTML page would be parsed as a
+  // failed request and produce a confusing error in the client.
+  if (pathname.startsWith("/api/")) {
+    return NextResponse.json(
+      {
+        detail:
+          "Website und Dashboard sind gerade in Wartung. Der Discord-Bot " +
+          "läuft normal weiter.",
+        maintenance: true,
+      },
+      { status: 503 },
+    );
+  }
+
+  // Rewrite, not redirect: the address bar keeps the path the visitor
+  // asked for, so a refresh lands them where they wanted once the
+  // maintenance is over.
+  //
+  // 200 and not 503 on purpose. start.sh waits for `curl /` to succeed
+  // before starting the bot, and a 503 there aborts the container --
+  // which would take down the very bot this page says is still running.
+  return NextResponse.rewrite(new URL("/wartung", request.url));
+}
+
 const API_BASE_URL =
   process.env.API_BASE_URL || `http://127.0.0.1:${process.env.PORT || 8080}/api/v1`;
 
@@ -55,7 +116,8 @@ async function isBanned(userId: string): Promise<{ banned: boolean; reason: stri
   }
 }
 
-export default withAuth(
+/** The signed-in checks, unchanged. Only runs on the protected paths. */
+const authGate = withAuth(
   async function middleware(request: NextRequest & { nextauth: { token: any } }) {
     const userId = request.nextauth?.token?.sub;
     if (!userId) return NextResponse.next();
@@ -85,11 +147,32 @@ export default withAuth(
   }
 );
 
+/** Paths that still need a session once maintenance is off. */
+function needsAuth(pathname: string): boolean {
+  return pathname.startsWith("/dashboard") || pathname.startsWith("/api/bot");
+}
+
+export default function middleware(request: NextRequest, event: any) {
+  // Maintenance first. withAuth sends anonymous visitors to the sign-in
+  // page, so checking it second would bounce people to Discord to log
+  // in during an outage rather than telling them the site is down.
+  const halted = maintenanceGate(request);
+  if (halted) return halted;
+
+  if (needsAuth(request.nextUrl.pathname)) {
+    return (authGate as any)(request, event);
+  }
+  return NextResponse.next();
+}
+
 export const config = {
   matcher: [
-    "/dashboard/:path*",
-    // The BFF proxy authorizes each request individually, but rejecting
-    // anonymous traffic early keeps it cheap.
-    "/api/bot/:path*",
+    // Everything, so maintenance mode covers every path -- that is the
+    // point of it. The auth check inside still only applies to
+    // /dashboard and /api/bot.
+    //
+    // Excluded: Next's own build output and the favicon. Rewriting
+    // those would leave the notice itself without styling.
+    "/((?!_next/static|_next/image|favicon.ico).*)",
   ],
 };
