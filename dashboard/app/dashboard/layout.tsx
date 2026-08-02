@@ -151,7 +151,7 @@ export default function DashboardLayout({
   //
   // pathname is enough to derive the active row; the item list is not
   // needed yet at this point.
-  const proximity = useProximity({ radius: 90, smoothing: 4 });
+  const proximity = useProximity({ radius: 90, smoothing: 1 });
 
   if (status === "loading" || status === "unauthenticated") {
     return (
