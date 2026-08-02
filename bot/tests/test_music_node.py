@@ -263,7 +263,7 @@ def test_no_double_retry_loop():
           "self._lavalink_task" in body,
           "a fire-and-forget task can be garbage-collected")
     check("it still reports the outcome once",
-          "not reachable" in body and "node connected" in body)
+          "No Lavalink node reachable" in body and "node connected" in body)
 
 
 def test_guild_log_channel_is_configurable():
@@ -317,8 +317,89 @@ def test_guild_log_channel_is_configurable():
           "it would raise on send()")
 
 
+def test_dead_defaults_are_gone():
+    """
+    The two hosts the bot shipped with are both dead.
+
+        lava-v4.ajieblogs.eu.org   404, the vhost is gone
+        lavalink.jirayu.net:13592  500, "dial tcp 38.49.216.39:2334:
+                                   connection refused" -- a proxy whose
+                                   backend is down. The 429 wavelink
+                                   logged forever was that same outage
+                                   on the websocket route.
+
+    So "the music server is not reachable" was true on every /play. No
+    guard fixes that; the host has to be one that answers.
+    """
+    print("\nThe Lavalink hosts")
+    src = strip_comments(source())
+
+    for dead in ("ajieblogs", "jirayu"):
+        check(f"{dead} is no longer a default", dead not in src,
+              "this host does not answer")
+
+    check("there is more than one candidate",
+          src.count("serenetia") >= 2,
+          "a single host means a single point of failure again")
+    check("the environment variable still wins",
+          'os.getenv("LAVALINK_HOST"' in src,
+          "your own node must take precedence over the public ones")
+    # A fire-and-forget task can be collected mid-connection.
+    check("each attempt is kept referenced",
+          "self._lavalink_tasks.append(task)" in src)
+    check("the list is initialised",
+          "_lavalink_tasks: list[asyncio.Task] = []" in src,
+          "AttributeError on the first connection attempt")
+    # Waiting the full window on a dead host means never reaching the
+    # next candidate.
+    check("a dead candidate is abandoned",
+          "trying the next one" in src,
+          "one unreachable host would block the rest")
+
+
+def test_rate_limit_is_reported():
+    """
+    The public nodes allow a handful of searches, then answer 429.
+
+    Measured: four searches, then 429 on the first host; fewer on the
+    second. That used to surface as "No results found.", which sends
+    people hunting for a better search term when the answer is "wait a
+    few seconds".
+    """
+    print("\nA rate-limited search")
+    src = strip_comments(source())
+
+    check("there is a distinct exception for it",
+          "class RateLimited" in src)
+    check("a 429 is recognised",
+          '"429" in str(exc)' in src,
+          "wavelink puts the status in the message, not the type")
+    # Not just "the raise appears": it has to be reachable. A mutation
+    # that changed the guard to `if False:` left the line in place and
+    # passed this check.
+    raised = re.search(
+        r"if\s+throttled\s*:\s*\n\s*raise\s+Music\.RateLimited\(\)", src
+    )
+    check("it is raised rather than swallowed",
+          raised is not None,
+          "the raise is present but unreachable")
+    check("and handled separately from other failures",
+          "except Music.RateLimited:" in src,
+          "it would fall through to the generic error text")
+    check("the user is told to wait, not to search differently",
+          "busy right now" in src,
+          '"No results found." is the wrong answer to a 429')
+
+    # It must not be mistaken for an empty result.
+    from cogs.commands.music import Music
+    check("it is a real exception type",
+          issubclass(Music.RateLimited, Exception))
+
+
 def main():
     test_reproduces()
+    test_dead_defaults_are_gone()
+    test_rate_limit_is_reported()
     test_guard()
     test_every_connect_is_guarded()
     test_connect_log_is_honest()

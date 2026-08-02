@@ -359,12 +359,19 @@ class MusicControlView(LayoutView):
 
 
 class Music(commands.Cog):
+    class RateLimited(Exception):
+        """The Lavalink node turned the search away with a 429."""
+
     def __init__(self, client: universitybot):
         self.client = client
         self.inactivity_timeout = 120
         self.player_inactivity = {}
         self._node_task: asyncio.Task | None = None
         self._inactivity_task: asyncio.Task | None = None
+        # One per Lavalink candidate tried. Kept referenced because
+        # asyncio only holds a weak reference to a running task and will
+        # happily collect it mid-connection.
+        self._lavalink_tasks: list[asyncio.Task] = []
 
     async def cog_load(self):
         # discord.py 2.x forbids accessing client.loop in Cog.__init__.
@@ -437,7 +444,7 @@ class Music(commands.Cog):
         # resurrect it.
         quieten_libraries()
 
-        host = os.getenv("LAVALINK_HOST", "lava-v4.ajieblogs.eu.org").strip()
+        host = os.getenv("LAVALINK_HOST", "").strip()
         password = os.getenv("LAVALINK_PASSWORD", "https://dsc.gg/ajidevserver")
         secure = os.getenv("LAVALINK_SECURE", "true").strip().lower() == "true"
         port = os.getenv("LAVALINK_PORT", "").strip()
@@ -450,54 +457,80 @@ class Music(commands.Cog):
             if match:
                 host = match.group(1)
 
-        if secure:
-            uri = f"https://{host}"
-        else:
-            uri = f"http://{host}:{port}" if port else f"http://{host}"
+        # Candidates, in order. LAVALINK_HOST wins when it is set; the
+        # rest are fallbacks.
+        #
+        # Both previous defaults are dead, which is why every /play
+        # answered "the music server is not reachable":
+        #
+        #   lava-v4.ajieblogs.eu.org   404 -- the vhost is gone
+        #   lavalink.jirayu.net:13592  500 -- only a proxy, and the box
+        #                              behind it (38.49.216.39) refuses
+        #                              the connection. Its 429 on the
+        #                              websocket was that same outage
+        #                              wearing a different hat.
+        #
+        # The two below were checked by hand: /v4/info returns 200 and
+        # /v4/loadtracks returns real results. Both are public and rate
+        # limited -- roughly four searches before a 429 on the first,
+        # fewer on the second -- so they are a stopgap, not a fix. Point
+        # LAVALINK_HOST at your own Lavalink for anything serious.
+        candidates: list[tuple[str, str]] = []
+        if host:
+            if secure:
+                candidates.append((f"https://{host}", password))
+            else:
+                candidates.append(
+                    (f"http://{host}:{port}" if port else f"http://{host}", password)
+                )
+        for fallback in ("lavalinkv4.serenetia.com", "lavalink.serenetia.com"):
+            uri = f"https://{fallback}"
+            if uri not in [c[0] for c in candidates]:
+                candidates.append((uri, "https://dsc.gg/ajidevserver"))
 
-        # One attempt, not a retry loop.
-        #
-        # wavelink already retries on its own: Pool.connect() awaits
+        # wavelink retries on its own: Pool.connect() awaits
         # node._connect(), and the websocket underneath has an unbounded
-        # reconnect loop. On a host that refuses the handshake --
-        # lavalink.jirayu.net answering 429 for hours -- that await
-        # never returns.
+        # reconnect loop. On a host that refuses the handshake that
+        # await never returns.
         #
-        # The previous version wrapped this in `while not is_closed()`
+        # An earlier version wrapped this in `while not is_closed()`
         # with a 30s sleep. That loop could never reach a second
         # iteration, because it was parked inside the first await
-        # forever. Its "Retrying in 30 seconds..." message appeared
+        # forever -- its "Retrying in 30 seconds..." line appeared
         # exactly once in the Railway log and never again, which is what
         # gave it away. See repro/lavalink_loop.py.
         #
-        # So: kick it off in the background, wait a bounded time to see
-        # whether it comes up, say so once, and let wavelink carry on
-        # retrying -- which it does either way, and music recovers by
-        # itself when the host does.
-        task = asyncio.create_task(
-            wavelink.Pool.connect(
-                nodes=[wavelink.Node(uri=uri, password=password)],
-                client=self.client,
-                cache_capacity=None,
+        # So each candidate gets a bounded window to come up, and we
+        # move on to the next rather than waiting on a dead host.
+        for uri, node_password in candidates:
+            task = asyncio.create_task(
+                wavelink.Pool.connect(
+                    nodes=[wavelink.Node(uri=uri, password=node_password)],
+                    client=self.client,
+                    cache_capacity=None,
+                )
             )
-        )
-        # Held on the cog so the task is not garbage-collected mid-flight;
-        # asyncio only keeps a weak reference to it.
-        self._lavalink_task = task
+            # Held on the cog so the task is not garbage-collected
+            # mid-flight; asyncio only keeps a weak reference to it.
+            self._lavalink_tasks.append(task)
 
-        for _ in range(40):  # 20 seconds
-            if self.music_ready():
-                print(f"[music] Lavalink node connected: {uri}")
-                return
-            if task.done() and task.exception() is not None:
-                print(f"[music] Lavalink connection failed ({uri}): "
-                      f"{task.exception()}")
-                return
-            await asyncio.sleep(0.5)
+            failed = False
+            for _ in range(20):  # 10 seconds per candidate
+                if self.music_ready():
+                    print(f"[music] Lavalink node connected: {uri}")
+                    return
+                if task.done() and task.exception() is not None:
+                    print(f"[music] {uri} failed: {task.exception()}")
+                    failed = True
+                    break
+                await asyncio.sleep(0.5)
 
-        print(f"[music] Lavalink node not reachable ({uri}); music commands "
-              "are disabled until it answers. wavelink keeps retrying in the "
-              "background.")
+            if not failed:
+                print(f"[music] {uri} did not answer in time, trying the next one.")
+
+        print("[music] No Lavalink node reachable; music commands are disabled "
+              "until one answers. wavelink keeps retrying in the background. "
+              "Set LAVALINK_HOST / LAVALINK_PASSWORD to use your own server.")
 
     @staticmethod
     def music_ready() -> bool:
@@ -548,12 +581,21 @@ class Music(commands.Cog):
         await ctx.send(view=MusicControlView(player, ctx, track, autoplay))
 
     async def search_tracks(self, query: str):
-        """Search Lavalink with safe fallbacks for common configurations."""
+        """
+        Search Lavalink with safe fallbacks for common configurations.
+
+        Raises RateLimited when the node turned every attempt away. The
+        public nodes allow only a handful of searches before answering
+        429, and that used to surface as "No results found." -- which
+        sends people looking for a better search term when the real
+        answer is "wait a moment".
+        """
         # Direct URLs should not be prefixed with a search source.
         if re.match(r"https?://", query):
             return await wavelink.Playable.search(query)
 
         last_error = None
+        throttled = False
         for source in (TrackSource.YouTubeMusic, "ytsearch", "scsearch"):
             try:
                 results = await wavelink.Playable.search(query, source=source)
@@ -561,8 +603,14 @@ class Music(commands.Cog):
                     return results
             except Exception as exc:
                 last_error = exc
+                # wavelink wraps the HTTP status in the message rather
+                # than in a dedicated exception type.
+                if "429" in str(exc) or "rate" in str(exc).lower():
+                    throttled = True
                 continue
 
+        if throttled:
+            raise Music.RateLimited()
         if last_error:
             raise last_error
         return []
@@ -631,6 +679,16 @@ class Music(commands.Cog):
             
         try:
             tracks = await self.search_tracks(query)
+        except Music.RateLimited:
+            # Distinct from "no results": the public nodes allow only a
+            # few searches a minute, and telling someone to try a
+            # different search term when the node said 429 sends them
+            # looking for a problem that is not theirs.
+            await ctx.send(view=CV2(
+                f"{WARNING} The music server is busy right now (too many "
+                "searches at once). Wait a few seconds and try again."
+            ))
+            return
         except Exception as exc:
             await ctx.send(view=CV2(f"Music search failed. Please check the Lavalink connection/settings. Error: `{exc}`"))
             return
