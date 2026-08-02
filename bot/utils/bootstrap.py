@@ -13,7 +13,38 @@ makes sure every path the code expects exists.
 from __future__ import annotations
 
 import json
+import logging
 import os
+
+# Libraries that are far too talkative at INFO.
+#
+# Three cogs call `logging.basicConfig(level=logging.INFO)`, and
+# basicConfig configures the *root* logger -- so one cog turns on INFO
+# for every library in the process. The Railway log was mostly two
+# things nobody reads:
+#
+#   * wavelink retrying a Lavalink node that answers 429. Three lines
+#     per attempt, forever: in one 2.5-minute log, 33 lines of it. Our
+#     own one-line status message says whether music works.
+#
+#   * httpx narrating the dashboard's calls to itself --
+#     "HTTP Request: GET http://127.0.0.1:3000/..." -- immediately
+#     followed by our own request log line saying the same thing.
+#
+# ERROR rather than CRITICAL: a genuine failure still gets through.
+NOISY_LOGGERS = (
+    "wavelink",
+    "wavelink.node",
+    "wavelink.websocket",
+    "httpx",
+    "httpcore",
+)
+
+
+def quieten_libraries() -> None:
+    """Raise the bar for libraries that log routine work at INFO."""
+    for name in NOISY_LOGGERS:
+        logging.getLogger(name).setLevel(logging.ERROR)
 
 # Directories that must exist before any cog touches the filesystem.
 REQUIRED_DIRECTORIES = (
@@ -68,6 +99,11 @@ def ensure_json_files() -> list[str]:
 
 def run() -> None:
     """Prepare the filesystem. Safe to call more than once."""
+    # Before anything else: the cogs call basicConfig at import time, and
+    # these levels have to survive that. setLevel on a named logger is
+    # not touched by basicConfig, which only configures the root.
+    quieten_libraries()
+
     directories = ensure_directories()
     files = ensure_json_files()
     if directories:

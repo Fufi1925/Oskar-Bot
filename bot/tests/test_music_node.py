@@ -165,11 +165,72 @@ def test_connect_log_is_honest():
           "a silent failure leaves nobody knowing music is off")
 
 
+def test_retry_spam_is_quietened():
+    """
+    wavelink retries a 429 host forever, three log lines per attempt.
+
+    In one 2.5-minute Railway log that was 33 lines of the same thing.
+    The info line among them only shows up because three cogs call
+    `logging.basicConfig(level=logging.INFO)`, and basicConfig
+    configures the *root* logger -- so one cog turns on INFO for every
+    library in the process.
+    """
+    print("\nThe retry spam")
+    import logging
+    from utils.bootstrap import NOISY_LOGGERS, quieten_libraries
+
+    for name in ("wavelink", "wavelink.websocket", "httpx"):
+        check(f"{name} is on the quiet list", name in NOISY_LOGGERS)
+
+    # Called from run(), which executes on import -- so it has to be
+    # wired in, not merely available. Calling it here first would mask
+    # exactly that: the check passed with the call deleted from run().
+    boot_src = strip_comments(
+        open(os.path.join(BOT, "utils", "bootstrap.py"), encoding="utf-8").read()
+    )
+    run_body = boot_src.split("def run()")[1] if "def run()" in boot_src else ""
+    check("start-up actually calls it",
+          "quieten_libraries()" in run_body,
+          "the levels would never be applied in production")
+
+    quieten_libraries()
+    level = logging.getLogger("wavelink.websocket").level
+    check("wavelink is raised to ERROR", level == logging.ERROR,
+          f"got {logging.getLevelName(level)}")
+
+    # A named logger's own level is not touched by basicConfig, which
+    # only configures the root -- but the cogs run after bootstrap, so
+    # this has to be true rather than assumed.
+    logging.basicConfig(level=logging.INFO)
+    after = logging.getLogger("wavelink.websocket").level
+    check("and survives a later basicConfig(INFO)", after == logging.ERROR,
+          f"a cog's basicConfig reset it to {logging.getLevelName(after)}")
+
+    # Quiet, not silent: a real failure still has to reach the log.
+    ws = logging.getLogger("wavelink.websocket")
+    check("routine retries are dropped", not ws.isEnabledFor(logging.INFO))
+    check("so is the 429 warning", not ws.isEnabledFor(logging.WARNING))
+    check("but genuine errors get through", ws.isEnabledFor(logging.ERROR),
+          "silencing everything would hide a real outage")
+
+    # httpx narrates the dashboard calling itself, one line per request,
+    # directly beside our own request log saying the same thing.
+    check("httpx is quietened too",
+          not logging.getLogger("httpx").isEnabledFor(logging.INFO),
+          "every internal HTTP call would be logged twice")
+
+    src = strip_comments(source())
+    check("music re-applies it when connecting",
+          "quieten_libraries()" in src,
+          "a stray basicConfig during start-up would resurrect the spam")
+
+
 def main():
     test_reproduces()
     test_guard()
     test_every_connect_is_guarded()
     test_connect_log_is_honest()
+    test_retry_spam_is_quietened()
 
     print(f"\n{len(failures)} failures")
     for line in failures:

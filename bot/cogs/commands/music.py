@@ -30,6 +30,7 @@ from typing import cast
 import asyncio
 from utils.Tools import *
 from utils.cv2 import CV2, build_container, CV2Embed
+from utils.bootstrap import quieten_libraries
 track_histories = {}
 import base64
 import re
@@ -428,6 +429,13 @@ class Music(commands.Cog):
 
     async def connect_nodes(self) -> None:
         await self.client.wait_until_ready()
+
+        # wavelink's retry logging is quietened centrally, in
+        # utils/bootstrap.py -- it retries a 429 host forever at three
+        # lines an attempt. Re-applied here because that runs at import
+        # time and a stray basicConfig later in start-up must not
+        # resurrect it.
+        quieten_libraries()
 
         host = os.getenv("LAVALINK_HOST", "lava-v4.ajieblogs.eu.org").strip()
         password = os.getenv("LAVALINK_PASSWORD", "https://dsc.gg/ajidevserver")
