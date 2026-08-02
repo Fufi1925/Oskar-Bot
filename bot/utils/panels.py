@@ -399,7 +399,22 @@ def from_view(view: discord.ui.View, content: str = "", *,
     Like from_embed, the view's items are moved rather than copied: a
     component belongs to one view at a time, and a component left on a
     view that is never sent has its callback routed nowhere.
+
+    A LayoutView handed in here is returned untouched. Its children are
+    Containers, not components, and stuffing a Container into an
+    ActionRow is what produced
+
+        400 Bad Request (error code: 50035): Invalid Form Body
+        In components.0.components.1.components.0:
+        Value of field "type" must be one of (2, 3, 5, 6, 7, 8).
+
+    on >help. The rewrite script matched the *local* name `View`, which
+    in utils/help.py is a LayoutView subclass, so it wrapped a panel
+    inside a panel.
     """
+    if isinstance(view, discord.ui.LayoutView):
+        return view
+
     buttons = list(view.children) if view is not None else []
     if view is not None:
         for item in buttons:
