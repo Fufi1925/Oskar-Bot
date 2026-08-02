@@ -28,6 +28,7 @@ from typing import Any
 
 import aiosqlite
 import discord
+from utils.emoji import INFO, ZSAFE, ZWRENCH
 
 DB_PATH = "db/anti.db"
 
@@ -460,7 +461,7 @@ def recovery_buttons(guild, user_id: int = 0):
 
             buttons.append(Button(
                 label="Server wiederherstellen",
-                emoji="🛠️",
+                emoji=ZWRENCH,
                 style=ButtonStyle.link,
                 url=partner_bot.invite_url(
                     client_id, guild_id=guild.id, user_id=user_id
@@ -480,7 +481,7 @@ def recovery_buttons(guild, user_id: int = 0):
     if antinuke_tab:
         buttons.append(Button(
             label="Anti-Nuke prüfen",
-            emoji="🛡️",
+            emoji=ZSAFE,
             style=ButtonStyle.link,
             url=antinuke_tab,
         ))
@@ -491,7 +492,7 @@ def recovery_buttons(guild, user_id: int = 0):
         if serverLink:
             buttons.append(Button(
                 label="Hilfe holen",
-                emoji="💬",
+                emoji=INFO,
                 style=ButtonStyle.link,
                 url=serverLink,
             ))

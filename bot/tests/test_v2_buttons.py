@@ -297,12 +297,157 @@ def test_calculator_is_v2():
     check("and the value is stored", view.value == "7", view.value)
 
 
+def test_components_are_inside_the_container():
+    """
+    A LayoutView will happily take an ActionRow at the top level.
+
+    It is valid, it compiles, nothing warns -- and it renders *below*
+    the card, which is the exact pre-V2 look this whole conversion was
+    meant to remove. The J2C panel did this with all twelve of its
+    buttons: it was a LayoutView, so every scan called it converted,
+    while the buttons sat outside the box the whole time.
+
+    Components belong in a Container. Only a Container.
+    """
+    print("\nComponents sit inside the container")
+
+    ROWISH = {"ActionRow", "Button", "Select", "UserSelect", "RoleSelect",
+              "ChannelSelect", "MentionableSelect", "UserSelectDropdown"}
+    V2BASES = {"LayoutView", "CV2", "CV2Embed", "Panel", "StatusCard"}
+
+    def is_v2_class(cls, known):
+        bases = [ast.unparse(b).split(".")[-1] for b in cls.bases]
+        return any(b in V2BASES or b in known for b in bases)
+
+    outside = []
+    checked = 0
+
+    for path, tree in FILES.items():
+        # Local subclasses count too, so a two-step chain is seen.
+        known = set()
+        for _ in range(3):
+            for cls in ast.walk(tree):
+                if isinstance(cls, ast.ClassDef) and is_v2_class(cls, known):
+                    known.add(cls.name)
+
+        for cls in ast.walk(tree):
+            if not isinstance(cls, ast.ClassDef):
+                continue
+            if not is_v2_class(cls, known):
+                continue
+            checked += 1
+            for node in ast.walk(cls):
+                if not isinstance(node, ast.Call):
+                    continue
+                if not isinstance(node.func, ast.Attribute):
+                    continue
+                if node.func.attr != "add_item":
+                    continue
+                if ast.unparse(node.func.value) != "self":
+                    continue
+                if not node.args:
+                    continue
+                head = ast.unparse(node.args[0]).split("(")[0].split(".")[-1].strip()
+                if head in ROWISH:
+                    outside.append(
+                        f"{os.path.relpath(path, BOT)}:{node.lineno} "
+                        f"{cls.name} -> {head}")
+
+    print(f"\n  ({checked} V2 classes checked)")
+    check("nothing is added straight to the view", not outside,
+          f"{len(outside)} would render below the card: {outside[:3]}")
+
+
+def test_j2c_panel():
+    print("\nThe Join-to-Create panel")
+    from cogs.commands.j2c import ControlPanelView
+
+    class Guild:
+        def get_channel(self, _id):
+            return None
+
+    class Cog:
+        private_channels: dict = {}
+
+    view = ControlPanelView(Cog(), Guild())
+
+    kinds = [type(child).__name__ for child in view.children]
+    check("the view holds only a container", kinds == ["Container"], str(kinds))
+
+    buttons = []
+
+    def walk(item):
+        if type(item).__name__ == "Button":
+            buttons.append(item)
+        for child in getattr(item, "children", []) or []:
+            walk(child)
+
+    for child in view.children[0].children:
+        walk(child)
+
+    check("all twelve buttons are in it", len(buttons) == 12, f"got {len(buttons)}")
+    # Every one of these exists in the app; a platform emoji here is
+    # drawn differently by every operating system.
+    platform = [b.label for b in buttons if not str(b.emoji).startswith("<")]
+    check("every button uses a custom emoji", not platform, str(platform))
+    check("the labels are unchanged",
+          {b.label for b in buttons} == {
+              "LIMIT", "PRIVACY", "THREAD", "UNTRUST", "INVITE", "KICK",
+              "REGION", "UNBLOCK", "CLAIM", "TRANSFER", "DELETE", "BLOCK"},
+          str(sorted(b.label for b in buttons)))
+    # custom_id is what keeps a persistent view working across restarts.
+    check("the custom ids survived",
+          all(b.custom_id and b.custom_id.startswith("j2c:") for b in buttons),
+          "a persistent panel stops responding after a restart")
+
+
+def test_no_platform_emoji_on_buttons():
+    """
+    The app owns 142 emojis. A button reaching for the platform's ✅ or
+    🔒 is drawn differently on Windows, Android and iOS, and looks
+    nothing like the rest of the bot.
+    """
+    print("\nCustom emoji on every button")
+    offenders = []
+
+    for path, tree in FILES.items():
+        for node in ast.walk(tree):
+            calls = []
+            if isinstance(node, ast.Call) and \
+                    ast.unparse(node.func).split(".")[-1] == "Button":
+                calls.append(node)
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                calls += [d for d in node.decorator_list
+                          if isinstance(d, ast.Call)
+                          and ast.unparse(d.func).split(".")[-1] == "button"]
+            for call in calls:
+                for keyword in call.keywords:
+                    if keyword.arg != "emoji":
+                        continue
+                    value = keyword.value
+                    if isinstance(value, ast.Constant) and \
+                            isinstance(value.value, str) and \
+                            not value.value.startswith("<"):
+                        label = next(
+                            (ast.unparse(k.value).strip("'\"")
+                             for k in call.keywords if k.arg == "label"), "?")
+                        offenders.append(
+                            f"{os.path.relpath(path, BOT)}:{call.lineno} "
+                            f"{label} {value.value}")
+
+    check("no button carries a platform emoji", not offenders,
+          f"{len(offenders)}: {offenders[:4]}")
+
+
 def main():
     load()
     test_no_plain_views_sent()
     test_from_view_moves_components()
     test_reused_views_are_not_wrapped()
     test_calculator_is_v2()
+    test_components_are_inside_the_container()
+    test_j2c_panel()
+    test_no_platform_emoji_on_buttons()
 
     print(f"\n{len(failures)} failures")
     for line in failures:

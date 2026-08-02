@@ -15,7 +15,7 @@
 import discord
 from utils.Tools import *
 from utils.cv2 import build_container
-from utils.emoji import REWIND, PREVIOUS, NEXT, FORWARD, DELETE, HOME
+from utils.emoji import REWIND, PREVIOUS, NEXT, FORWARD, DELETE, HOME, PC
 from discord.ui import LayoutView, TextDisplay, Separator, ActionRow
 
 from utils import links
@@ -143,7 +143,7 @@ class View(LayoutView):
         if dashboard:
             items.append(ActionRow(discord.ui.Button(
                 label="Dashboard",
-                emoji="🖥️",
+                emoji=PC,
                 style=discord.ButtonStyle.link,
                 url=dashboard,
             )))

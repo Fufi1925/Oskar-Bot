@@ -21,6 +21,7 @@ from typing import Dict, List, Optional
 from utils.cv2 import CV2, build_container
 from utils import voice_store as store
 from utils.panels import from_view
+from utils.emoji import CROSS, DELETE, DENIED, LOCK, MENTION, MESSAGE, SHUFFLE, STAR, TIMER, UNLOCK, ZBAN, ZCLOUD
 
 class JoinToCreate(commands.Cog):
     def __init__(self, bot):
@@ -465,37 +466,49 @@ class ControlPanelView(LayoutView):
             Separator(visible=True),
             TextDisplay(desc)
         )
-        self.add_item(container)
 
-        b_limit = ui.Button(label="LIMIT", style=discord.ButtonStyle.blurple, custom_id="j2c:limit", emoji="⏳")
+        # Custom emoji rather than the platform's. Every one of these
+        # exists in the app -- checked against tests/data/app_emojis.json
+        # -- so they render the same on every OS instead of each system
+        # drawing its own hourglass and padlock.
+        b_limit = ui.Button(label="LIMIT", style=discord.ButtonStyle.blurple, custom_id="j2c:limit", emoji=TIMER)
         b_limit.callback = self.set_limit
-        b_privacy = ui.Button(label="PRIVACY", style=discord.ButtonStyle.blurple, custom_id="j2c:privacy", emoji="🔒")
+        b_privacy = ui.Button(label="PRIVACY", style=discord.ButtonStyle.blurple, custom_id="j2c:privacy", emoji=LOCK)
         b_privacy.callback = self.toggle_privacy
-        b_thread = ui.Button(label="THREAD", style=discord.ButtonStyle.blurple, custom_id="j2c:thread", emoji="💬")
+        b_thread = ui.Button(label="THREAD", style=discord.ButtonStyle.blurple, custom_id="j2c:thread", emoji=MESSAGE)
         b_thread.callback = self.create_thread
-        b_untrust = ui.Button(label="UNTRUST", style=discord.ButtonStyle.green, custom_id="j2c:untrust", emoji="❌")
+        b_untrust = ui.Button(label="UNTRUST", style=discord.ButtonStyle.green, custom_id="j2c:untrust", emoji=CROSS)
         b_untrust.callback = self.untrust
-        b_invite = ui.Button(label="INVITE", style=discord.ButtonStyle.green, custom_id="j2c:invite", emoji="✉️")
+        b_invite = ui.Button(label="INVITE", style=discord.ButtonStyle.green, custom_id="j2c:invite", emoji=MENTION)
         b_invite.callback = self.invite_user
-        b_kick = ui.Button(label="KICK", style=discord.ButtonStyle.green, custom_id="j2c:kick", emoji="👢")
+        b_kick = ui.Button(label="KICK", style=discord.ButtonStyle.green, custom_id="j2c:kick", emoji=ZBAN)
         b_kick.callback = self.kick_user
-        b_region = ui.Button(label="REGION", style=discord.ButtonStyle.green, custom_id="j2c:region", emoji="🌍")
+        b_region = ui.Button(label="REGION", style=discord.ButtonStyle.green, custom_id="j2c:region", emoji=ZCLOUD)
         b_region.callback = self.set_region
-        b_unblock = ui.Button(label="UNBLOCK", style=discord.ButtonStyle.red, custom_id="j2c:unblock", emoji="🔓")
+        b_unblock = ui.Button(label="UNBLOCK", style=discord.ButtonStyle.red, custom_id="j2c:unblock", emoji=UNLOCK)
         b_unblock.callback = self.unblock
-        b_claim = ui.Button(label="CLAIM", style=discord.ButtonStyle.red, custom_id="j2c:claim", emoji="⭐")
+        b_claim = ui.Button(label="CLAIM", style=discord.ButtonStyle.red, custom_id="j2c:claim", emoji=STAR)
         b_claim.callback = self.claim
-        b_transfer = ui.Button(label="TRANSFER", style=discord.ButtonStyle.red, custom_id="j2c:transfer", emoji="🔄")
+        b_transfer = ui.Button(label="TRANSFER", style=discord.ButtonStyle.red, custom_id="j2c:transfer", emoji=SHUFFLE)
         b_transfer.callback = self.transfer
-        b_delete = ui.Button(label="DELETE", style=discord.ButtonStyle.red, custom_id="j2c:delete", emoji="🗑️")
+        b_delete = ui.Button(label="DELETE", style=discord.ButtonStyle.red, custom_id="j2c:delete", emoji=DELETE)
         b_delete.callback = self.delete_vc
-        b_block = ui.Button(label="BLOCK", style=discord.ButtonStyle.danger, custom_id="j2c:block", emoji="🚫")
+        b_block = ui.Button(label="BLOCK", style=discord.ButtonStyle.danger, custom_id="j2c:block", emoji=DENIED)
         b_block.callback = self.block
 
-        self.add_item(ActionRow(b_limit, b_privacy, b_thread))
-        self.add_item(ActionRow(b_untrust, b_invite, b_kick, b_region))
-        self.add_item(ActionRow(b_unblock, b_claim, b_transfer, b_delete))
-        self.add_item(ActionRow(b_block))
+        # Into the container, not next to it.
+        #
+        # A LayoutView accepts an ActionRow at the top level and it is
+        # perfectly valid -- it just renders *below* the card, which is
+        # the old pre-V2 look this panel was supposed to leave behind.
+        # The buttons were sitting outside the box the whole time.
+        container.add_item(Separator(visible=True))
+        container.add_item(ActionRow(b_limit, b_privacy, b_thread))
+        container.add_item(ActionRow(b_untrust, b_invite, b_kick, b_region))
+        container.add_item(ActionRow(b_unblock, b_claim, b_transfer, b_delete))
+        container.add_item(ActionRow(b_block))
+
+        self.add_item(container)
     
     async def get_owned_vc(self, interaction: discord.Interaction) -> Optional[discord.VoiceChannel]:
         for vc_id, data in self.cog.private_channels.items():

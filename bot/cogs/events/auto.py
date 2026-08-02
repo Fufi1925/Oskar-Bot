@@ -13,7 +13,7 @@
 # ╚══════════════════════════════════════════════════════════════════╝
 
 import discord
-from utils.emoji import ARROWRED, ZMODULE
+from utils.emoji import ARROWRED, HANDSHAKE, PC, ZMODULE
 from discord.utils import *
 from core import universitybot, Cog
 from utils.Tools import *
@@ -87,7 +87,7 @@ class Autorole(Cog):
                     # which server the link is about.
                     view.add_item(Button(
                         label="Dashboard öffnen",
-                        emoji="🖥️",
+                        emoji=PC,
                         style=discord.ButtonStyle.link,
                         url=dashboard,
                     ))
@@ -95,7 +95,7 @@ class Autorole(Cog):
                 support = links.support_url() or 'https://discord.gg/MG3rYnUZJV'
                 view.add_item(Button(
                     label='Support',
-                    emoji="💬",
+                    emoji=HANDSHAKE,
                     style=discord.ButtonStyle.link,
                     url=support,
                 ))

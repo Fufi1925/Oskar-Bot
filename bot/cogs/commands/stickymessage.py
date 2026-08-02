@@ -19,7 +19,7 @@ import asyncio
 import os
 from discord.ext import commands
 from typing import Optional
-from utils.emoji import CROSS, MESSAGE, ZSETTINGS
+from utils.emoji import CROSS, MESSAGE, ZMODULE, ZSETTINGS
 from utils.panels import from_embed
 
 RED_THEME_COLOR = 0xFF0000
@@ -236,11 +236,11 @@ class StickySetupView(AuthorOnlyView):
         super().__init__(ctx)
         self.channel = channel
 
-    @discord.ui.button(label='Plain Text', style=discord.ButtonStyle.primary, emoji='📝')
+    @discord.ui.button(label='Plain Text', style=discord.ButtonStyle.primary, emoji=MESSAGE)
     async def plain_text(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.send_modal(PlainTextModal(self.ctx, self.channel))
 
-    @discord.ui.button(label='Embed', style=discord.ButtonStyle.secondary, emoji='📋')
+    @discord.ui.button(label='Embed', style=discord.ButtonStyle.secondary, emoji=ZMODULE)
     async def embed_message(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.send_modal(EmbedModal(self.ctx, self.channel))
 
