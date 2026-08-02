@@ -162,6 +162,20 @@ class SearchResultView(LayoutView):
                 return
 
             track = self.results[index]
+
+            # The node can drop between the search and the click. Same
+            # reason as in play_source: connect() raises before we could
+            # catch it, so it is checked first -- and answered on the
+            # interaction, or the button just spins.
+            if not self.ctx.voice_client and not Music.music_ready():
+                await interaction.response.send_message(
+                    f"{WARNING} The music server is not reachable right now, "
+                    "so playback is unavailable. Please try again in a few "
+                    "minutes.",
+                    ephemeral=True,
+                )
+                return
+
             vc = self.ctx.voice_client or await self.ctx.author.voice.channel.connect(cls=wavelink.Player)
             vc.ctx = self.ctx
 
@@ -437,13 +451,63 @@ class Music(commands.Cog):
             try:
                 nodes = [wavelink.Node(uri=uri, password=password)]
                 await wavelink.Pool.connect(nodes=nodes, client=self.client, cache_capacity=None)
-                print(f"Lavalink node connected: {uri}")
-                return
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
-                print(f"Lavalink connection failed ({uri}): {exc}. Retrying in 30 seconds...")
+                print(f"[music] Lavalink connection failed ({uri}): {exc}. "
+                      "Retrying in 30 seconds...")
                 await asyncio.sleep(30)
+                continue
+
+            # Pool.connect() returns as soon as the handshake is handed
+            # off -- the websocket is still being established in the
+            # background. The old code printed "node connected" right
+            # here, which is why the log said connected and then
+            # immediately logged 429s from the same node.
+            for _ in range(20):
+                if self.music_ready():
+                    print(f"[music] Lavalink node connected: {uri}")
+                    return
+                await asyncio.sleep(0.5)
+
+            print(f"[music] Lavalink node did not come up ({uri}); "
+                  "music commands stay disabled. Retrying in 30 seconds...")
+            await asyncio.sleep(30)
+
+    @staticmethod
+    def music_ready() -> bool:
+        """
+        True when a Lavalink node is actually connected.
+
+        wavelink builds its Player in `__init__`, and that calls
+        `Pool.get_node()` -- so `channel.connect(cls=wavelink.Player)`
+        raises InvalidNodeException before any of our code runs when no
+        node is up. There is nothing to catch further in; it has to be
+        checked before connecting.
+        """
+        try:
+            return bool(wavelink.Pool.get_node())
+        except Exception:
+            # get_node raises when the pool is empty or nothing reached
+            # CONNECTED. Either way: not ready.
+            return False
+
+    async def require_music(self, ctx) -> bool:
+        """
+        Tell the user music is unavailable, rather than dying silently.
+
+        The public Lavalink host answers 429 for long stretches, and
+        every music command used to end as an unhandled traceback in the
+        log with no reply in the channel at all.
+        """
+        if self.music_ready():
+            return True
+        await ctx.send(view=CV2(
+            f"{WARNING} The music server is not reachable right now, "
+            "so playback is unavailable. This usually clears up on its "
+            "own -- please try again in a few minutes."
+        ))
+        return False
 
     async def _set_voice_status(self, player, status: str | None):
         channel = getattr(player, "channel", None)
@@ -514,6 +578,11 @@ class Music(commands.Cog):
     async def play_source(self, ctx, query):
         if not ctx.author.voice:
             await ctx.send(view=CV2(f"{WARNING} you need to be in a voice channel to use this command."))
+            return
+
+        # Checked before connecting: wavelink resolves the node inside
+        # Player.__init__, so connect() raises before we could catch it.
+        if not await self.require_music(ctx):
             return
 
         vc = ctx.voice_client or await ctx.author.voice.channel.connect(cls=wavelink.Player)
@@ -676,6 +745,11 @@ class Music(commands.Cog):
     async def search2(self, ctx: commands.Context, *, query: str):
         if not ctx.author.voice:
             await ctx.send(view=CV2(f"{WARNING} You need to be in a voice channel to use this command."))
+            return
+
+        # Said up front rather than after the user has picked a platform
+        # and a track from a menu that was never going to work.
+        if not await self.require_music(ctx):
             return
 
         await ctx.send(view=PlatformSelectView(ctx, query))
@@ -992,6 +1066,11 @@ class Music(commands.Cog):
                 return
             await ctx.voice_client.move_to(ctx.author.voice.channel)
             await ctx.send(view=CV2("Moved to your voice channel."))
+            return
+
+        # Moving an existing player above is fine without a node; making
+        # a new one is not.
+        if not await self.require_music(ctx):
             return
 
         await ctx.author.voice.channel.connect(cls=wavelink.Player)
