@@ -15,7 +15,7 @@
 import os
 import random
 import discord
-from utils.emoji import FORWARD, ICONLOAD, ICONS_MUSIC, ICONS_PAUSE, ICONS_WARNING_ALT1, MUSICSTOP_ICONS, MUSIC_ALT1, MUTE, REWIND, REWIND_ALT1, SHUFFLE, SKIP, TICK, WARNING, ZMUSICPAUSE, ZPLUS, ZUNMUTE
+from utils.emoji import FORWARD, HANDSHAKE, ICONLOAD, ICONS_MUSIC, ICONS_PAUSE, ICONS_WARNING_ALT1, MUSICSTOP_ICONS, MUSIC_ALT1, MUTE, REWIND, REWIND_ALT1, SHUFFLE, SKIP, STAR, TICK, WARNING, ZMUSICPAUSE, ZPLUS, ZUNMUTE
 from discord.ext import commands, tasks
 import datetime
 from discord.ui import Button, View, LayoutView, TextDisplay, Separator, Container, ActionRow
@@ -395,8 +395,8 @@ class Music(commands.Cog):
             if player:
                 await player.disconnect(force=True)
                 try:
-                    support = Button(label='Support', style=discord.ButtonStyle.link, url='https://discord.gg/MG3rYnUZJV')
-                    vote = Button(label='Vote', style=discord.ButtonStyle.link, url='https://top.gg/bot//vote')
+                    support = Button(label='Support', emoji=HANDSHAKE, style=discord.ButtonStyle.link, url='https://discord.gg/MG3rYnUZJV')
+                    vote = Button(label='Vote', emoji=STAR, style=discord.ButtonStyle.link, url='https://top.gg/bot//vote')
                     view = LayoutView(timeout=None)
                     container = build_container(
                         TextDisplay("**Inactive Timeout**"),
@@ -492,8 +492,8 @@ class Music(commands.Cog):
                     await player.ctx.send(view=CV2("No suitable track found for autoplay."))
             else:
                 await player.disconnect()
-                support = Button(label='Support', style=discord.ButtonStyle.link, url='https://discord.gg/MG3rYnUZJV')
-                vote = Button(label='Vote', style=discord.ButtonStyle.link, url='https://top.gg/bot//vote')
+                support = Button(label='Support', emoji=HANDSHAKE, style=discord.ButtonStyle.link, url='https://discord.gg/MG3rYnUZJV')
+                vote = Button(label='Vote', emoji=STAR, style=discord.ButtonStyle.link, url='https://top.gg/bot//vote')
                 view = LayoutView(timeout=None)
                 container = build_container(
                     TextDisplay("**Queue Ended**"),

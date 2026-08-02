@@ -14,7 +14,7 @@
 
 import asyncio
 import discord
-from utils.emoji import ARROWRED, CROSS, DISABLE, ENABLE, MANAGER, TICK
+from utils.emoji import ARROWRED, CROSS, DISABLE, ENABLE, MANAGER, TICK, ZPLUS
 from discord.ext import commands
 from discord.ui import LayoutView, TextDisplay, Separator, Container
 import aiosqlite
@@ -140,7 +140,7 @@ class Whitelist(commands.Cog):
         ]
 
         select = discord.ui.Select(placeholder="Choose Your Options", min_values=1, max_values=len(options), options=options, custom_id="wl")
-        button = discord.ui.Button(label="Add This User To All Categories", style=discord.ButtonStyle.primary, custom_id="catWl")
+        button = discord.ui.Button(label="Add This User To All Categories", emoji=ZPLUS, style=discord.ButtonStyle.primary, custom_id="catWl")
 
         action_view = discord.ui.View()
         action_view.add_item(select)

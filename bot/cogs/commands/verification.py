@@ -13,7 +13,7 @@
 # ╚══════════════════════════════════════════════════════════════════╝
 
 import discord 
-from utils.emoji import TICK
+from utils.emoji import CROSS, TICK, WARNING, ZSAFE
 from discord .ext import commands 
 from discord import app_commands 
 from discord .ui import LayoutView ,TextDisplay ,Separator ,ActionRow ,MediaGallery 
@@ -556,7 +556,7 @@ class VerificationView (discord .ui .View ):
         super ().__init__ (timeout =None )
         self .bot =bot 
 
-    @discord .ui .button (label ="Quick Verify",style =discord .ButtonStyle .green ,custom_id ="verify_button_quick")
+    @discord .ui .button (label ="Quick Verify", emoji=ZSAFE,style =discord .ButtonStyle .green ,custom_id ="verify_button_quick")
     async def verify_button (self ,interaction :discord .Interaction ,button :discord .ui .Button ):
         try :
 
@@ -609,7 +609,7 @@ class VerificationView (discord .ui .View ):
             embed =VCard("Something went wrong", "The action could not be completed. Please try again.", tone='error')
             await interaction .response .send_message (view =embed ,ephemeral =True )
 
-    @discord .ui .button (label ="CAPTCHA Verify",style =discord .ButtonStyle .primary ,custom_id ="verify_captcha_secure")
+    @discord .ui .button (label ="CAPTCHA Verify", emoji=ZSAFE,style =discord .ButtonStyle .primary ,custom_id ="verify_captcha_secure")
     async def verify_captcha (self ,interaction :discord .Interaction ,button :discord .ui .Button ):
         try :
 
@@ -790,7 +790,7 @@ class CaptchaOnlyVerificationView (discord .ui .View ):
         super ().__init__ (timeout =None )
         self .bot =bot 
 
-    @discord .ui .button (label ="Verify with CAPTCHA",style =discord .ButtonStyle .primary ,custom_id ="verify_captcha_only")
+    @discord .ui .button (label ="Verify with CAPTCHA", emoji=ZSAFE,style =discord .ButtonStyle .primary ,custom_id ="verify_captcha_only")
     async def verify_captcha (self ,interaction :discord .Interaction ,button :discord .ui .Button ):
         try :
 
@@ -1069,7 +1069,7 @@ class CaptchaModalView (discord .ui .View ):
         super ().__init__ (timeout =600 )
         self .modal =modal 
 
-    @discord .ui .button (label ="Enter Code",style =discord .ButtonStyle .secondary ,custom_id ="enter_captcha_code")
+    @discord .ui .button (label ="Enter Code", emoji=ZSAFE,style =discord .ButtonStyle .secondary ,custom_id ="enter_captcha_code")
     async def enter_captcha (self ,interaction :discord .Interaction ,button :discord .ui .Button ):
         await interaction .response .send_modal (self .modal )
 
@@ -1126,7 +1126,7 @@ class VerificationSetupView (discord .ui .View ):
         await interaction .response .defer ()
         self .verification_method =select .values [0 ]
 
-    @discord .ui .button (label ="Setup Verification System",style =discord .ButtonStyle .green )
+    @discord .ui .button (label ="Setup Verification System", emoji=ZSAFE,style =discord .ButtonStyle .green )
     async def setup_verification (self ,interaction :discord .Interaction ,button :discord .ui .Button ):
         if not self .verification_channel :
             embed =VCard("Missing Configuration", "Please select a verification channel first!", tone='error')
@@ -1256,7 +1256,7 @@ class ButtonOnlyVerificationView (discord .ui .View ):
         super ().__init__ (timeout =None )
         self .bot =bot 
 
-    @discord .ui .button (label ="Verify Now",style =discord .ButtonStyle .green ,custom_id ="verify_button_only")
+    @discord .ui .button (label ="Verify Now", emoji=ZSAFE,style =discord .ButtonStyle .green ,custom_id ="verify_button_only")
     async def verify_button (self ,interaction :discord .Interaction ,button :discord .ui .Button ):
         try :
 
@@ -1860,8 +1860,8 @@ class Verification (commands .Cog ):
                 await interaction .response .edit_message (
                 view =VCard ("Reset cancelled","No permissions were changed.",tone ="info"))
 
-            confirm_button =discord .ui .Button (label ="Confirm Reset",style =discord .ButtonStyle .red )
-            cancel_button =discord .ui .Button (label ="Cancel",style =discord .ButtonStyle .grey )
+            confirm_button =discord .ui .Button (label ="Confirm Reset", emoji=WARNING,style =discord .ButtonStyle .red )
+            cancel_button =discord .ui .Button (label ="Cancel", emoji=CROSS,style =discord .ButtonStyle .grey )
 
             confirm_button .callback =confirm_reset 
             cancel_button .callback =cancel_reset 

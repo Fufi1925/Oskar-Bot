@@ -55,6 +55,7 @@ Path(LOGS_DIR).mkdir(exist_ok=True)
 
 from utils.cv2 import CV2, build_container
 from discord.ui import TextDisplay, Separator, ActionRow, LayoutView, Container, Select
+from utils.emoji import CHANNEL, INFO, NEXT, PREVIOUS, TICK, U_ADMIN, ZPEOPLE, ZSETTINGS
 
 
 class LogSetupLayoutView(LayoutView):
@@ -122,7 +123,7 @@ class LogSetupLayoutView(LayoutView):
 
         await interaction.response.edit_message(view=layout_view)
 
-    @discord.ui.button(label="Finish Setup", style=discord.ButtonStyle.success)
+    @discord.ui.button(label="Finish Setup", emoji=TICK, style=discord.ButtonStyle.success)
     async def finish_button(self, interaction: discord.Interaction, button: Button):
         await self.finish_setup(interaction)
 
@@ -314,7 +315,7 @@ class LogSetupView(View):
             logger.error(f"Error in category selection: {e}")
             pass
 
-    @discord.ui.button(label="Finish Setup", style=discord.ButtonStyle.success)
+    @discord.ui.button(label="Finish Setup", emoji=TICK, style=discord.ButtonStyle.success)
     async def finish_button(self, interaction: discord.Interaction, button: Button):
         """Finish the setup process."""
         await self.finish_setup(interaction)
@@ -397,7 +398,7 @@ class InteractiveConfigView(View):
             return False
         return True
 
-    @discord.ui.button(label="Change Channels", style=discord.ButtonStyle.primary)
+    @discord.ui.button(label="Change Channels", emoji=CHANNEL, style=discord.ButtonStyle.primary)
     async def change_channels(self, interaction: discord.Interaction, button: Button):
         """Open channel configuration menu."""
         view = ChannelConfigView(self.bot, self.author, self.config)
@@ -435,7 +436,7 @@ class InteractiveConfigView(View):
                 break
         await interaction.response.edit_message(embed=None, view=layout_view)
 
-    @discord.ui.button(label="Manage Ignores", style=discord.ButtonStyle.secondary)
+    @discord.ui.button(label="Manage Ignores", emoji=ZSETTINGS, style=discord.ButtonStyle.secondary)
     async def manage_ignores(self, interaction: discord.Interaction, button: Button):
         """Open ignore management menu."""
         view = IgnoreManagementView(self.bot, self.author, self.config)
@@ -455,7 +456,7 @@ class InteractiveConfigView(View):
         await interaction.response.edit_message(embed=None, view=layout_view)
 
     @discord.ui.button(
-        label="Auto-Delete Settings", style=discord.ButtonStyle.secondary
+        label="Auto-Delete Settings", emoji=ZSETTINGS, style=discord.ButtonStyle.secondary
     )
     async def auto_delete_settings(
         self, interaction: discord.Interaction, button: Button
@@ -619,7 +620,7 @@ class IgnoreManagementView(View):
         self.author = author
         self.config = config
 
-    @discord.ui.button(label="View Ignored", style=discord.ButtonStyle.secondary)
+    @discord.ui.button(label="View Ignored", emoji=INFO, style=discord.ButtonStyle.secondary)
     async def view_ignored(self, interaction: discord.Interaction, button: Button):
         """Show current ignore lists."""
         ignore_channels = self.config.get("ignore_channels", [])
@@ -674,7 +675,7 @@ class IgnoreManagementView(View):
                 break
         await interaction.response.edit_message(embed=None, view=layout_view)
 
-    @discord.ui.button(label="Manage Channels", style=discord.ButtonStyle.primary)
+    @discord.ui.button(label="Manage Channels", emoji=CHANNEL, style=discord.ButtonStyle.primary)
     async def manage_channels(self, interaction: discord.Interaction, button: Button):
         """Manage ignored channels."""
         from utils.cv2 import CV2
@@ -692,7 +693,7 @@ class IgnoreManagementView(View):
                 break
         await interaction.response.edit_message(embed=None, view=layout_view)
 
-    @discord.ui.button(label="Manage Roles", style=discord.ButtonStyle.primary)
+    @discord.ui.button(label="Manage Roles", emoji=U_ADMIN, style=discord.ButtonStyle.primary)
     async def manage_roles(self, interaction: discord.Interaction, button: Button):
         """Manage ignored roles."""
         from utils.cv2 import CV2
@@ -710,7 +711,7 @@ class IgnoreManagementView(View):
                 break
         await interaction.response.edit_message(embed=None, view=layout_view)
 
-    @discord.ui.button(label="Manage Users", style=discord.ButtonStyle.primary)
+    @discord.ui.button(label="Manage Users", emoji=ZPEOPLE, style=discord.ButtonStyle.primary)
     async def manage_users(self, interaction: discord.Interaction, button: Button):
         """Manage ignored users."""
         from utils.cv2 import CV2
@@ -889,7 +890,7 @@ class ChannelSelectView(View):
         """Add navigation buttons for pagination."""
         if self.total_pages > 1:
             prev_button = Button(
-                label="◀ Previous",
+                label="◀ Previous", emoji=PREVIOUS,
                 style=discord.ButtonStyle.secondary,
                 disabled=self.current_page == 0,
                 custom_id="prev_page",
@@ -898,7 +899,7 @@ class ChannelSelectView(View):
             self.add_item(prev_button)
 
             next_button = Button(
-                label="Next ▶",
+                label="Next ▶", emoji=NEXT,
                 style=discord.ButtonStyle.secondary,
                 disabled=self.current_page >= self.total_pages - 1,
                 custom_id="next_page",
@@ -1045,7 +1046,7 @@ class ChannelSelectView(View):
             logger.error(f"Error in channel selection callback: {e}")
             pass
 
-    @discord.ui.button(label="Back to Setup", style=discord.ButtonStyle.secondary)
+    @discord.ui.button(label="Back to Setup", emoji=PREVIOUS, style=discord.ButtonStyle.secondary)
     async def back_button(self, interaction: discord.Interaction, button: Button):
         """Return to main setup view."""
         if self.config:

@@ -32,8 +32,8 @@ class ConfirmView(LayoutView):
         self.ctx = ctx
         self.value = None
 
-        self.yes_btn = Button(label="Confirm", style=discord.ButtonStyle.green)
-        self.no_btn = Button(label="Cancel", style=discord.ButtonStyle.red)
+        self.yes_btn = Button(label="Confirm", emoji=TICK, style=discord.ButtonStyle.green)
+        self.no_btn = Button(label="Cancel", emoji=CROSS, style=discord.ButtonStyle.red)
 
         self.yes_btn.callback = self.confirm_callback
         self.no_btn.callback = self.cancel_callback

@@ -17,6 +17,8 @@ from discord.ext import commands
 from typing import Union
 import wavelink
 from utils.Tools import *
+from utils.panels import from_embed
+from utils.emoji import CROSS
 
 class FilterCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
@@ -110,7 +112,7 @@ class FilterCog(commands.Cog):
                 #await interaction.message.delete()  
                 self.disable_all()  
 
-            @discord.ui.button(label="Cancel", style=discord.ButtonStyle.red)
+            @discord.ui.button(label="Cancel", emoji=CROSS, style=discord.ButtonStyle.red)
             async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
                 await interaction.message.delete()  
                 self.disable_all()  
@@ -125,7 +127,7 @@ class FilterCog(commands.Cog):
         current_filter = self.active_filters.get(ctx.guild.id, "None")
         embed = discord.Embed(title="Enable Filter", description="Choose a filter to apply:", color=discord.Color.blue())
         embed.add_field(name="Current Filter", value=current_filter, inline=False)
-        await ctx.send(embed=embed, view=view)
+        await ctx.send(view=from_embed(embed, view))
 
     @filter.command(help="Disable the current filter.")
     @blacklist_check()

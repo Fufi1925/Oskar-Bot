@@ -81,7 +81,11 @@ OFFLINE = "<:offline:1530375199114137772>"
 PARTNER_BADGE = "<:PartneredServerOwner:1532395582306386231>"
 PC = "<:pc:1530375283893469234>"
 PIN = "<:zpin:1530375133791784964>"
-PREVIOUS = "<:next:1530375229845672077>"
+# Was <:next:> -- the same right-pointing arrow as NEXT_ALT1, so every
+# "previous page" button in the paginator and the help menu showed an
+# arrow pointing forwards. <:zback:> is the app's only left-pointing
+# arrow; checked against the rendered images, not the names.
+PREVIOUS = "<:zback:1530375525044850749>"
 RED_BUTTON = "<:red_button:1530375507214991471>"
 RED_PIN = "<:red_pin:1530375100900053043>"
 REWIND = "<:rewind1:1530375493751148675>"
@@ -251,12 +255,19 @@ GAME_BUTTONS = {
     "target": "🎯",
 }
 
+# The app owns 142 custom emojis, so these tables use them rather than
+# the platform's ✅ / ❌ / ⚠️. Those render differently on every OS and
+# have nothing to do with the bot's own look; the custom set is one
+# style everywhere. The *_UNICODE constants stay defined for anywhere
+# a real fallback is still wanted.
 ACTION_EMOJIS = {
-    "success": SUCCESS,
-    "error": ERROR_UNICODE,
-    "warning": WARNING_UNICODE,
-    "clock": CLOCK,
-    "refresh": REFRESH,
+    "success": TICK,
+    "error": CROSS,
+    "warning": WARNING,
+    "clock": TIMER,
+    # The app has no refresh arrow of its own; <:iconLoad:> is the
+    # nearest thing and reads as "working on it".
+    "refresh": ICONLOAD,
 }
 
 RPS_CHOICES = {
@@ -266,11 +277,14 @@ RPS_CHOICES = {
 }
 
 BUTTON_EMOJIS = {
-    "note": NOTE,
-    "privacy": LOCK_UNICODE,
-    "claim": STAR_UNICODE,
-    "untrust": ERROR_UNICODE,
-    "block": BLOCK,
+    "note": MESSAGE,
+    "privacy": LOCK,
+    "claim": STAR,
+    "untrust": CROSS,
+    "block": DENIED,
+    # No custom counterpart for these two among the app's 142; the
+    # platform emoji stays rather than a wrong icon that happens to be
+    # custom.
     "target": "🎯",
     "edit": "✏️",
 }
@@ -284,12 +298,14 @@ FUN_EMOJIS = [
 ]
 
 MINECRAFT_EMOJIS = {
-    "success": SUCCESS,
-    "error": ERROR_UNICODE,
-    "warning": WARNING_UNICODE,
-    "clock": CLOCK,
-    "refresh": REFRESH,
-    "java": JAVA_COFFEE,
+    "success": TICK,
+    "error": CROSS,
+    "warning": WARNING,
+    "clock": TIMER,
+    "refresh": ICONLOAD,
+    # <:zmc:> is the app's own Minecraft icon -- better here than a
+    # coffee cup standing in for "Java edition".
+    "java": MINECRAFT,
 }
 
 # ============================================================================
@@ -372,11 +388,119 @@ def get_button_emoji(button_type: str) -> str:
 # COMPATIBILITY ALIASES
 # ============================================================================
 
-# Common aliases for frequently used emojis
+# Common aliases for frequently used emojis.
+#
+# These used to be split: ERROR was the custom <:zcross:>, while SUCCESS
+# right next to it was the platform's ✅ -- so a success and a failure
+# from the same command did not look like they came from the same bot.
+# Both are custom now.
 CHECKMARK = TICK
 CROSS_MARK = CROSS
-CHECK = SUCCESS
+CHECK = TICK
 FAIL = ERROR
-OK = SUCCESS
+OK = TICK
 NOT_OK = ERROR
+
+
+# ============================================================================
+# BUTTON LABEL → EMOJI
+# ============================================================================
+
+# 140 buttons across the bot carried no emoji at all. Rather than pick
+# one at 140 call sites -- and end up with three different icons for
+# "Cancel" -- the label decides, once, here.
+#
+# Matched lowercase; the longest matching key wins, so "stop freezing"
+# does not pick up the plain "stop" icon. A label with no match keeps no
+# emoji: a wrong icon is worse than none.
+LABEL_EMOJIS = {
+    # confirm / deny
+    "yes": TICK,
+    "no": CROSS,
+    "confirm": TICK,
+    "confirm reset": WARNING,
+    "cancel": CROSS,
+    "submit": TICK,
+    "submit & continue": TICK,
+    "finish setup": TICK,
+    "done": TICK,
+    "enable": ENABLE,
+    "disable": DISABLE,
+    "approve": TICK,
+    "deny": DENIED,
+    # navigation
+    "next": NEXT,
+    "previous": PREVIOUS,
+    "back": ZBACK,
+    "back to setup": ZBACK,
+    "home": HOME,
+    "stop": MUSICSTOP_ICONS,
+    "stop freezing": MUSICSTOP_ICONS,
+    # editing
+    "edit": ZWRENCH,
+    "edit content": MESSAGE,
+    "edit settings": ZSETTINGS,
+    "settings": ZSETTINGS,
+    "change channels": CHANNEL,
+    "manage channels": CHANNEL,
+    "manage roles": U_ADMIN,
+    "manage users": ZPEOPLE,
+    "manage ignores": ZSETTINGS,
+    "add": ZPLUS,
+    "delete": DELETE,
+    "remove": DELETE,
+    "clear": DELETE,
+    "reset": WARNING,
+    # information
+    "info": INFO,
+    "help": INFO,
+    "support": HANDSHAKE,
+    "vote": STAR,
+    "invite": ZBOT,
+    "title": MESSAGE,
+    "description": MESSAGE,
+    "show rules": REDRULESBOOK,
+    "show overwrites": ZSETTINGS,
+    "show punishment type": SWORD,
+    "view ignored": INFO,
+    "list successful": TICK,
+    "list unsuccessful": CROSS,
+    # features
+    "verify now": ZSAFE,
+    "quick verify": ZSAFE,
+    "captcha verify": ZSAFE,
+    "verify with captcha": ZSAFE,
+    "enter code": ZSAFE,
+    "setup verification system": ZSAFE,
+    "join": ZPLUS,
+    "steal as emoji": EMOTE,
+    "steal as sticker": EMOTE,
+    "global afk": ZDIL,
+    "local afk": ZDIL,
+    "download icon": ICON_BROWSER,
+    "server avatar": ZPEOPLE,
+    "user banner": ZHUMAN,
+    "make a guess!": GAMES,
+    "hint": INFO,
+}
+
+
+def get_label_emoji(label: str) -> str | None:
+    """
+    The emoji for a button label, or None when nothing fits.
+
+    Longest match first, so "edit settings" does not resolve to the
+    plain "edit" icon.
+    """
+    key = str(label or "").strip().lower()
+    if not key:
+        return None
+    if key in LABEL_EMOJIS:
+        return LABEL_EMOJIS[key]
+    # Fall back to the longest key contained in the label.
+    best = None
+    for candidate, emoji in LABEL_EMOJIS.items():
+        if candidate in key and (best is None or len(candidate) > len(best[0])):
+            best = (candidate, emoji)
+    return best[1] if best else None
 

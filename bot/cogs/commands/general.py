@@ -14,7 +14,7 @@
 
 import asyncio
 import discord
-from utils.emoji import CROSS, TICK, ZWARNING, universitybotCONNECTION, universitybotLINKS
+from utils.emoji import CROSS, ICON_BROWSER, TICK, ZHUMAN, ZPEOPLE, ZWARNING, universitybotCONNECTION, universitybotLINKS
 from discord.ext import commands, tasks
 from discord.utils import get
 import datetime
@@ -67,7 +67,7 @@ class AvatarView(View):
       return False
     return True
 
-  @discord.ui.button(label='Server Avatar', style=discord.ButtonStyle.success, custom_id='server_avatar_button')
+  @discord.ui.button(label='Server Avatar', emoji=ZPEOPLE, style=discord.ButtonStyle.success, custom_id='server_avatar_button')
   async def server_avatar(self, interaction: discord.Interaction, button: Button):
     if not self.member.guild_avatar:
       await interaction.response.send_message(
@@ -79,7 +79,7 @@ class AvatarView(View):
       embed.set_image(url=self.member.guild_avatar.url)
       await interaction.response.edit_message(embed=embed)
 
-  @discord.ui.button(label='User Banner', style=discord.ButtonStyle.success, custom_id='banner_button')
+  @discord.ui.button(label='User Banner', emoji=ZHUMAN, style=discord.ButtonStyle.success, custom_id='banner_button')
   async def banner(self, interaction: discord.Interaction, button: Button):
     if not self.banner_url:
       await interaction.response.send_message(
@@ -93,6 +93,7 @@ class AvatarView(View):
 
 
 from utils.config import BotName
+from utils.panels import from_embed
 
 class General(commands.Cog):
 
@@ -137,7 +138,7 @@ class General(commands.Cog):
                        icon_url=ctx.author.avatar.url if ctx.author.avatar else ctx.author.default_avatar.url)
 
       view = AvatarView(user, member, ctx.author.id, banner_url)
-      await ctx.send(embed=embed, view=view)
+      await ctx.send(view=from_embed(embed, view))
     except Exception as e:
       print(f"Error: {e}")
 
@@ -167,7 +168,7 @@ class General(commands.Cog):
     view = LayoutView(timeout=None)
     gallery = MediaGallery()
     gallery.add_item(media=str(server.icon.url))
-    dl_btn = Button(label="Download Icon", url=str(server.icon.url), style=ButtonStyle.link)
+    dl_btn = Button(label="Download Icon", emoji=ICON_BROWSER, url=str(server.icon.url), style=ButtonStyle.link)
     view.add_item(build_container(
         TextDisplay(f"**{server}'s Icon**"),
         Separator(visible=True),

@@ -13,7 +13,7 @@
 # ╚══════════════════════════════════════════════════════════════════╝
 
 import discord
-from utils.emoji import ICONS_CHANNEL, ICONS_PLUS, TICK, ZTICK
+from utils.emoji import CROSS, ICONS_CHANNEL, ICONS_PLUS, NEXT, PREVIOUS, TICK, ZTICK, ZWRENCH
 from discord.ext import commands
 from discord.ui import View, Select, Button
 import aiosqlite
@@ -21,6 +21,7 @@ import asyncio
 import re
 import json
 from utils.Tools import *
+from utils.panels import from_embed
 
 class VariableButton(Button):
     def __init__(self, author):
@@ -128,7 +129,7 @@ class Welcomer(commands.Cog):
         button_embed.callback = lambda interaction: option_callback(interaction, button_embed)
         options_view.add_item(button_embed)
 
-        button_cancel = Button(label="Cancel", style=discord.ButtonStyle.danger, custom_id="cancel")
+        button_cancel = Button(label="Cancel", emoji=CROSS, style=discord.ButtonStyle.danger, custom_id="cancel")
         button_cancel.callback = lambda interaction: option_callback(interaction, button_cancel)
         options_view.add_item(button_cancel)
 
@@ -152,7 +153,7 @@ class Welcomer(commands.Cog):
         embed.set_footer(text="Click the buttons below to choose the welcome message type.", icon_url=self.bot.user.display_avatar.url)
         
 
-        await ctx.send(embed=embed, view=options_view)
+        await ctx.send(view=from_embed(embed, options_view))
 
     async def simple_setup(self, ctx):
         setup_view = View(timeout=600)
@@ -225,11 +226,11 @@ class Welcomer(commands.Cog):
                 return
             await preview_message.delete()
 
-        submit_button = Button(label="Submit", style=discord.ButtonStyle.success)
+        submit_button = Button(label="Submit", emoji=TICK, style=discord.ButtonStyle.success)
         submit_button.callback = submit_callback
         setup_view.add_item(submit_button)
 
-        edit_button = Button(label="Edit", style=discord.ButtonStyle.primary)
+        edit_button = Button(label="Edit", emoji=ZWRENCH, style=discord.ButtonStyle.primary)
         edit_button.callback = edit_callback
         setup_view.add_item(edit_button)
         setup_view.add_item(VariableButton(ctx.author))
@@ -315,7 +316,7 @@ class Welcomer(commands.Cog):
             if embed_data["image"]:
                 embed.set_image(url=safe_format(embed_data["image"]))
 
-            await preview_message.edit(content="**Embed Preview:** " + content, embed=embed, view=setup_view)
+            await preview_message.edit(content="**Embed Preview:** " + content, view=from_embed(embed, setup_view))
 
         preview_message = await ctx.send("Configuring embed welcome message...")
 
@@ -404,7 +405,7 @@ class Welcomer(commands.Cog):
                 item.disabled = True
             await preview_message.edit(view=setup_view)
 
-        submit_button = Button(label="Submit", style=discord.ButtonStyle.success)
+        submit_button = Button(label="Submit", emoji=TICK, style=discord.ButtonStyle.success)
         submit_button.callback = submit_callback
         setup_view.add_item(submit_button)
         setup_view.add_item(VariableButton(ctx.author))
@@ -416,7 +417,7 @@ class Welcomer(commands.Cog):
             await preview_message.delete()
             await interaction.response.send_message("Embed setup cancelled.", ephemeral=True)
 
-        cancel_button = Button(label="Cancel", style=discord.ButtonStyle.danger)
+        cancel_button = Button(label="Cancel", emoji=CROSS, style=discord.ButtonStyle.danger)
         cancel_button.callback = cancel_callback
         setup_view.add_item(cancel_button)
 
@@ -446,8 +447,8 @@ class Welcomer(commands.Cog):
             color=0xFF0000
         )
 
-        yes_button = Button(label="Confirm", style=discord.ButtonStyle.danger)
-        no_button = Button(label="Cancel", style=discord.ButtonStyle.secondary)
+        yes_button = Button(label="Confirm", emoji=TICK, style=discord.ButtonStyle.danger)
+        no_button = Button(label="Cancel", emoji=CROSS, style=discord.ButtonStyle.secondary)
 
         async def yes_button_callback(interaction):
             if interaction.user != ctx.author:
@@ -480,7 +481,7 @@ class Welcomer(commands.Cog):
         view.add_item(yes_button)
         view.add_item(no_button)
 
-        await ctx.send(embed=embed, view=view)
+        await ctx.send(view=from_embed(embed, view))
         
 
     @greet.command(name="channel", help="Sets the channel where welcome messages will be sent.")
@@ -534,8 +535,8 @@ class Welcomer(commands.Cog):
 
             select_menu.callback = select_callback
 
-            next_button = Button(label="Next List of Channels", style=discord.ButtonStyle.secondary, disabled=page >= len(chunks) - 1)
-            previous_button = Button(label="Previous", style=discord.ButtonStyle.secondary, disabled=page <= 0)
+            next_button = Button(label="Next List of Channels", emoji=NEXT, style=discord.ButtonStyle.secondary, disabled=page >= len(chunks) - 1)
+            previous_button = Button(label="Previous", emoji=PREVIOUS, style=discord.ButtonStyle.secondary, disabled=page <= 0)
 
             async def next_callback(interaction: discord.Interaction):
                 if interaction.user != ctx.author:
@@ -789,8 +790,8 @@ class Welcomer(commands.Cog):
                 description=f"**Response Type:** Simple\n**Message Content:** {welcome_message or 'None'}",
                 color=0xFF0000
             )
-            edit_button = Button(label="Edit", style=discord.ButtonStyle.primary)
-            cancel_button = Button(label="Cancel", style=discord.ButtonStyle.danger)
+            edit_button = Button(label="Edit", emoji=ZWRENCH, style=discord.ButtonStyle.primary)
+            cancel_button = Button(label="Cancel", emoji=CROSS, style=discord.ButtonStyle.danger)
 
             async def cancel_button_callback(interaction):
                 nonlocal cancel_flag
@@ -800,7 +801,7 @@ class Welcomer(commands.Cog):
                 await interaction.response.send_message("Setup has been canceled.", ephemeral=True)
                 cancel_flag = True  
                 view.clear_items()  
-                await interaction.message.edit(embed=embed, view=view)
+                await interaction.message.edit(view=from_embed(embed, view))
 
             cancel_button.callback = cancel_button_callback
 
@@ -827,7 +828,7 @@ class Welcomer(commands.Cog):
                     embed.description = f"**Response Type:** Simple\n**Message Content:** {new_message.content}"
                     edit_button.disabled = True
                     cancel_button.disabled = True
-                    await interaction.message.edit(embed=embed, view=view)
+                    await interaction.message.edit(view=from_embed(embed, view))
                     await ctx.send("Welcome message has been successfully updated.")
                 except asyncio.TimeoutError:
                     await ctx.send("You took too long to respond.")
@@ -840,7 +841,7 @@ class Welcomer(commands.Cog):
             view.add_item(VariableButton(ctx.author))
             view.add_item(cancel_button)
             
-            await ctx.send(embed=embed, view=view)
+            await ctx.send(view=from_embed(embed, view))
 
         elif welcome_type == "embed":
             embed_data_json = json.loads(embed_data) if embed_data else {}
@@ -861,7 +862,7 @@ class Welcomer(commands.Cog):
                 ]
             )
 
-            cancel_button = Button(label="Cancel", style=discord.ButtonStyle.danger)
+            cancel_button = Button(label="Cancel", emoji=CROSS, style=discord.ButtonStyle.danger)
 
             async def cancel_button_callback(interaction):
                 nonlocal cancel_flag
@@ -871,7 +872,7 @@ class Welcomer(commands.Cog):
                 await interaction.response.send_message("Setup has been canceled.", ephemeral=True)
                 cancel_flag = True  
                 view.clear_items()  
-                await interaction.message.edit(embed=embed, view=view)
+                await interaction.message.edit(view=from_embed(embed, view))
 
             cancel_button.callback = cancel_button_callback
 
@@ -945,6 +946,6 @@ class Welcomer(commands.Cog):
             view.add_item(VariableButton(ctx.author))
             view.add_item(cancel_button)
             
-            await ctx.send(embed=embed, view=view)
+            await ctx.send(view=from_embed(embed, view))
 
 

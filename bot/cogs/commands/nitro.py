@@ -15,6 +15,7 @@
 import discord
 from discord.ext import commands
 from discord.ui import Button, View
+from utils.panels import from_embed
 
 
 class Nitro(commands.Cog):
@@ -51,4 +52,4 @@ class Nitro(commands.Cog):
         view = View()
         view.add_item(claim_button)
 
-        await ctx.send(embed=embed, view=view)
+        await ctx.send(view=from_embed(embed, view))

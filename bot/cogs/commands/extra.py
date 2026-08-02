@@ -14,7 +14,7 @@
 
 import os 
 import discord
-from utils.emoji import BOOST, CODEBASE, CROSS, KING, TICK, UPTIME, ZWARNING
+from utils.emoji import BOOST, CODEBASE, CROSS, KING, TICK, UPTIME, ZPLUS, ZSETTINGS, ZWARNING
 from discord.ext import commands
 import datetime
 import sys
@@ -76,7 +76,7 @@ class OverwritesView(View):
       self.channel = channel
       self.author_id = author_id
 
-  @discord.ui.button(label='Show Overwrites', style=discord.ButtonStyle.primary)
+  @discord.ui.button(label='Show Overwrites', emoji=ZSETTINGS, style=discord.ButtonStyle.primary)
   async def show_overwrites(self, interaction: discord.Interaction, button: Button):
       if interaction.user.id != self.author_id:
           await interaction.response.send_message("Uh oh! That message doesn't belong to you. You must run this command to interact with it.", ephemeral=True)
@@ -842,7 +842,7 @@ class Extra(commands.Cog):
     if channel.user_limit:
         vc_text += f"\n**User Limit:** {channel.user_limit}"
     view = LayoutView(timeout=None)
-    join_btn = Button(label="Join", style=discord.ButtonStyle.link, url=f"https://discord.com/channels/{ctx.guild.id}/{channel.id}")
+    join_btn = Button(label="Join", emoji=ZPLUS, style=discord.ButtonStyle.link, url=f"https://discord.com/channels/{ctx.guild.id}/{channel.id}")
     view.add_item(build_container(
         TextDisplay(f"**Voice Channel Info — {channel.name}**"),
         Separator(visible=True),

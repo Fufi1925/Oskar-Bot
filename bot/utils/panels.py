@@ -36,12 +36,27 @@ ACCENT = {
     "giveaway": 0xF59E0B,
 }
 
-MARKERS = {
-    "info": "\u2022",
-    "success": "\u2713",
-    "warning": "!",
-    "error": "\u00d7",
-}
+# The app has its own emoji for each of these, so a status card carries
+# the bot's own look instead of a bullet, a check mark and a bare "!".
+# Imported lazily inside the module to keep panels.py free of a hard
+# dependency on the emoji table -- if a name is ever dropped there, the
+# card still renders with the old text marker rather than raising.
+try:  # pragma: no cover - trivial import guard
+    from utils.emoji import TICK, CROSS, WARNING, INFO
+
+    MARKERS = {
+        "info": INFO,
+        "success": TICK,
+        "warning": WARNING,
+        "error": CROSS,
+    }
+except ImportError:  # pragma: no cover
+    MARKERS = {
+        "info": "\u2022",
+        "success": "\u2713",
+        "warning": "!",
+        "error": "\u00d7",
+    }
 
 
 def container(*items, accent_color=None) -> Container:
@@ -53,12 +68,35 @@ def container(*items, accent_color=None) -> Container:
     return box
 
 
+def _is_select(item) -> bool:
+    """A select of any flavour: string, user, role, mentionable, channel."""
+    return "Select" in type(item).__name__
+
+
 def _rows(buttons, limit: int = 5):
-    """Split components into ActionRows of at most five."""
+    """
+    Split components into ActionRows.
+
+    Five buttons fit in a row, but a select takes the whole row -- so a
+    select mixed in with buttons has to break the run. Chunking purely
+    by count raised "maximum number of children exceeded" as soon as a
+    select shared a row, which is a 400 from Discord at send time.
+    """
     out = []
-    buttons = [b for b in (buttons or []) if b is not None]
-    for i in range(0, len(buttons), limit):
-        out.append(ActionRow(*buttons[i:i + limit]))
+    current: list = []
+    for item in [b for b in (buttons or []) if b is not None]:
+        if _is_select(item):
+            if current:
+                out.append(ActionRow(*current))
+                current = []
+            out.append(ActionRow(item))
+            continue
+        current.append(item)
+        if len(current) == limit:
+            out.append(ActionRow(*current))
+            current = []
+    if current:
+        out.append(ActionRow(*current))
     return out
 
 
@@ -120,3 +158,62 @@ class StatusCard(LayoutView):
             items.append(Separator(visible=True))
             items.append(TextDisplay(str(body)))
         self.add_item(container(*items, accent_color=ACCENT.get(tone, ACCENT["info"])))
+
+
+def _fields_to_text(embed: discord.Embed) -> list[str]:
+    """An embed's fields as V2 text blocks."""
+    out = []
+    for field in embed.fields:
+        name = str(field.name or "").strip()
+        value = str(field.value or "").strip()
+        if not name and not value:
+            continue
+        out.append(f"**{name}**\n{value}" if name and value else (name or value))
+    return out
+
+
+def from_embed(embed: discord.Embed, view: discord.ui.View | None = None,
+               *, tone: str | None = None) -> "Panel":
+    """
+    Rebuild a classic embed as a V2 panel, keeping an existing view's
+    buttons.
+
+    Components V2 and embeds cannot appear on the same message, so a cog
+    that already builds an embed and a View has no cheap way across --
+    it has to take the view apart and hand the components to a Panel.
+    Doing that at 83 call sites by hand is 83 chances to drop a button.
+
+    The view's items are *moved*, not copied: a component may belong to
+    one view at a time, and leaving it attached to the old view means
+    discord.py still routes its callback through a view that is never
+    sent. The callbacks keep working because they live on the items.
+
+    Returns a Panel; the caller sends it as `view=` with no embed.
+    """
+    title = str(embed.title or "").strip()
+
+    sections: list[str] = []
+    description = str(embed.description or "").strip()
+    if description:
+        sections.append(description)
+    sections.extend(_fields_to_text(embed))
+    if embed.footer and embed.footer.text:
+        sections.append(f"-# {embed.footer.text}")
+
+    buttons = list(view.children) if view is not None else []
+    if view is not None:
+        # Detach so the components have exactly one owner.
+        for item in buttons:
+            view.remove_item(item)
+
+    image_url = embed.image.url if embed.image else None
+
+    return Panel(
+        title,
+        *sections,
+        tone=tone or "info",
+        accent=embed.colour.value if embed.colour is not None else None,
+        image_url=image_url,
+        buttons=buttons,
+        timeout=getattr(view, "timeout", None),
+    )

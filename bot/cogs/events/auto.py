@@ -22,6 +22,7 @@ from discord.ext import commands
 from discord.ui import Button, View
 
 from utils import links
+from utils.panels import from_embed
 
 
 def _welcome_text(guild: discord.Guild) -> str:
@@ -101,6 +102,6 @@ class Autorole(Cog):
                 if guild.icon:
                     embed.set_author(name=guild.name, icon_url=guild.icon.url)
                 try:
-                    await entry.user.send(embed=embed, view=view)
+                    await entry.user.send(view=from_embed(embed, view))
                 except Exception as e:
                     print(e)

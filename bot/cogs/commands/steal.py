@@ -19,6 +19,8 @@ import requests
 from io import BytesIO
 import re
 from utils.Tools import *
+from utils.panels import from_embed
+from utils.emoji import EMOTE
 
 class Steal(commands.Cog):
     def __init__(self, bot):
@@ -140,7 +142,7 @@ class Steal(commands.Cog):
                 self.stickers = stickers
                 self.emojis = emojis
 
-            @discord.ui.button(label="Steal as Emoji", style=discord.ButtonStyle.primary)
+            @discord.ui.button(label="Steal as Emoji", emoji=EMOTE, style=discord.ButtonStyle.primary)
             async def steal_as_emoji(self, interaction: discord.Interaction, button: discord.ui.Button):
                 
                 if interaction.user.id != self.ctx.author.id:
@@ -166,7 +168,7 @@ class Steal(commands.Cog):
                         url = f'https://cdn.discordapp.com/emojis/{emoji_id}.png'
                     await self.bot.cogs['Steal'].add_emoji(self.ctx, url, name, animated=(anim == '<a'))
 
-            @discord.ui.button(label="Steal as Sticker", style=discord.ButtonStyle.success)
+            @discord.ui.button(label="Steal as Sticker", emoji=EMOTE, style=discord.ButtonStyle.success)
             async def steal_as_sticker(self, interaction: discord.Interaction, button: discord.ui.Button):
                 
                 if interaction.user.id != self.ctx.author.id:
@@ -199,6 +201,6 @@ class Steal(commands.Cog):
                 embed.set_image(url=url)
 
         view = StealView(self.bot, ctx, attachments, stickers, emojis)
-        await ctx.send(embed=embed, view=view)
+        await ctx.send(view=from_embed(embed, view))
 
 

@@ -16,7 +16,7 @@ import asyncio
 from discord.ext import commands, tasks
 from discord import *
 import discord
-from utils.emoji import BOOST, ICONS_WARNING, INFO, MENTION, PREMIUM, TICK, TIME, TIMER_ALT1, U_ADMIN, ZDIL, ZHUMAN, universitybotHAMMER, universitybotSYS
+from utils.emoji import BOOST, CROSS, HANDSHAKE, ICONS_WARNING, INFO, MENTION, PREMIUM, TICK, TIME, TIMER_ALT1, U_ADMIN, ZDIL, ZHUMAN, universitybotHAMMER, universitybotSYS
 import aiosqlite
 from typing import Optional
 from datetime import datetime, timedelta
@@ -279,7 +279,7 @@ class NoPrefix(commands.Cog):
                             text=f"{BRAND_NAME}  - No Prefix, Join support to regain access."
                         )
                         support = Button(
-                            label="Support",
+                            label="Support", emoji=HANDSHAKE,
                             style=discord.ButtonStyle.link,
                             url=f"https://discord.gg/MG3rYnUZJV",
                         )
@@ -646,8 +646,8 @@ class NoPrefix(commands.Cog):
         )
 
         # Create confirmation buttons
-        yes_button = Button(label="Yes", style=discord.ButtonStyle.danger)
-        no_button = Button(label="No", style=discord.ButtonStyle.secondary)
+        yes_button = Button(label="Yes", emoji=TICK, style=discord.ButtonStyle.danger)
+        no_button = Button(label="No", emoji=CROSS, style=discord.ButtonStyle.secondary)
 
         view = View()
         view.add_item(yes_button)

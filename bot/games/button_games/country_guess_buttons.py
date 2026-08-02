@@ -21,6 +21,7 @@ from discord.ext import commands
 
 from ..country_guess import CountryGuesser
 from ..utils import DiscordColor, DEFAULT_COLOR, BaseView
+from utils.emoji import CROSS, GAMES, INFO
 
 
 class CountryInput(discord.ui.Modal, title="Input your guess!"):
@@ -91,11 +92,11 @@ class CountryView(BaseView):
         else:
             return True
 
-    @discord.ui.button(label="Make a guess!", style=discord.ButtonStyle.blurple)
+    @discord.ui.button(label="Make a guess!", emoji=GAMES, style=discord.ButtonStyle.blurple)
     async def guess_button(self, interaction: discord.Interaction, _) -> None:
         return await interaction.response.send_modal(CountryInput(self))
 
-    @discord.ui.button(label="hint", style=discord.ButtonStyle.green)
+    @discord.ui.button(label="hint", emoji=INFO, style=discord.ButtonStyle.green)
     async def hint_button(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ) -> None:
@@ -109,7 +110,7 @@ class CountryView(BaseView):
             button.disabled = True
             await interaction.message.edit(view=self)
 
-    @discord.ui.button(label="Cancel", style=discord.ButtonStyle.red)
+    @discord.ui.button(label="Cancel", emoji=CROSS, style=discord.ButtonStyle.red)
     async def cancel_button(self, interaction: discord.Interaction, _) -> None:
         self.disable_all()
 

@@ -25,7 +25,7 @@ from typing import Optional
 from utils import Paginator, DescriptionEmbedPaginator, FieldPagePaginator, TextPaginator
 from utils.Tools import *
 from utils.config import OWNER_IDS, BOT_OWNER_IDS
-from utils.emoji import BOOSTS, DISCORD_BADGE_EMOJIS, LOADINGRED, NITRO_BOOST, TICK, ZWARNING
+from utils.emoji import BOOSTS, DISCORD_BADGE_EMOJIS, LOADINGRED, MUSICSTOP_ICONS, NITRO_BOOST, TICK, ZWARNING
 from core import Cog, universitybot, Context
 import sqlite3
 import os
@@ -553,7 +553,7 @@ class Owner(commands.Cog):
                 super().__init__(timeout=time_in_seconds)
                 self.outer_self = outer_self
 
-            @discord.ui.button(label="Stop", style=discord.ButtonStyle.danger)
+            @discord.ui.button(label="Stop", emoji=MUSICSTOP_ICONS, style=discord.ButtonStyle.danger)
             async def stop_button(self, interaction: discord.Interaction, button: discord.ui.Button):
                 if interaction.user.id not in self.outer_self.bot_owner_ids:
                     await interaction.response.send_message("Only the bot owner can stop this process.", ephemeral=True)

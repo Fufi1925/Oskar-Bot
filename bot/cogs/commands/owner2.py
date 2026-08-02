@@ -19,6 +19,8 @@ from discord import Member
 from utils import Paginator, DescriptionEmbedPaginator
 from datetime import timedelta
 import asyncio
+from utils.panels import from_embed
+from utils.emoji import CROSS, MUSICSTOP_ICONS, TICK
 
 class Global(commands.Cog):
     def __init__(self, client):
@@ -44,8 +46,8 @@ class Global(commands.Cog):
             description=f"The user is in **{mutual_count}** mutual guilds with the bot.\n\nGlobal Ban Requestor: {ctx.author.mention}",
             color=0xFF0000
         )
-        yes_button = Button(label="Yes", style=discord.ButtonStyle.green)
-        no_button = Button(label="No", style=discord.ButtonStyle.red)
+        yes_button = Button(label="Yes", emoji=TICK, style=discord.ButtonStyle.green)
+        no_button = Button(label="No", emoji=CROSS, style=discord.ButtonStyle.red)
         view = View()
         view.add_item(yes_button)
         view.add_item(no_button)
@@ -70,8 +72,8 @@ class Global(commands.Cog):
             )
             embed.add_field(name="Success Count", value=f"{len(success)} Guilds")
             embed.add_field(name="Failure Count", value=f"{len(failure)} Guilds")
-            success_button = Button(label="List Successful", style=discord.ButtonStyle.green)
-            failure_button = Button(label="List Unsuccessful", style=discord.ButtonStyle.red)
+            success_button = Button(label="List Successful", emoji=TICK, style=discord.ButtonStyle.green)
+            failure_button = Button(label="List Unsuccessful", emoji=CROSS, style=discord.ButtonStyle.red)
             new_view = View()
             new_view.add_item(success_button)
             new_view.add_item(failure_button)
@@ -98,7 +100,7 @@ class Global(commands.Cog):
 
             success_button.callback = list_success
             failure_button.callback = list_failure
-            await ctx.send(embed=embed, view=new_view)
+            await ctx.send(view=from_embed(embed, new_view))
 
         async def cancel(interaction):
             if interaction.user != ctx.author:
@@ -107,7 +109,7 @@ class Global(commands.Cog):
 
         yes_button.callback = confirm
         no_button.callback = cancel
-        await ctx.send(embed=confirm_embed, view=view)
+        await ctx.send(view=from_embed(confirm_embed, view))
 
     @global_command.command(name="kick", help="Kicks the user from all mutual guilds.")
     @commands.is_owner()
@@ -120,8 +122,8 @@ class Global(commands.Cog):
             description=f"The user is in **{mutual_count}** mutual guilds with the bot.\n\nGlobal Kick Requestor: {ctx.author.mention}",
             color=0xFF0000
         )
-        yes_button = Button(label="Yes", style=discord.ButtonStyle.green)
-        no_button = Button(label="No", style=discord.ButtonStyle.red)
+        yes_button = Button(label="Yes", emoji=TICK, style=discord.ButtonStyle.green)
+        no_button = Button(label="No", emoji=CROSS, style=discord.ButtonStyle.red)
         view = View()
         view.add_item(yes_button)
         view.add_item(no_button)
@@ -146,8 +148,8 @@ class Global(commands.Cog):
             )
             embed.add_field(name="Success Count", value=f"{len(success)} Guilds")
             embed.add_field(name="Failure Count", value=f"{len(failure)} Guilds")
-            success_button = Button(label="List Successful", style=discord.ButtonStyle.green)
-            failure_button = Button(label="List Unsuccessful", style=discord.ButtonStyle.red)
+            success_button = Button(label="List Successful", emoji=TICK, style=discord.ButtonStyle.green)
+            failure_button = Button(label="List Unsuccessful", emoji=CROSS, style=discord.ButtonStyle.red)
             new_view = View()
             new_view.add_item(success_button)
             new_view.add_item(failure_button)
@@ -174,7 +176,7 @@ class Global(commands.Cog):
 
             success_button.callback = list_success
             failure_button.callback = list_failure
-            await ctx.send(embed=embed, view=new_view)
+            await ctx.send(view=from_embed(embed, new_view))
 
         async def cancel(interaction):
             if interaction.user != ctx.author:
@@ -183,7 +185,7 @@ class Global(commands.Cog):
 
         yes_button.callback = confirm
         no_button.callback = cancel
-        await ctx.send(embed=confirm_embed, view=view)
+        await ctx.send(view=from_embed(confirm_embed, view))
 
     @global_command.command(name="timeout", help="Timeouts the user for 28 days in all mutual guilds.")
     @commands.is_owner()
@@ -196,8 +198,8 @@ class Global(commands.Cog):
             description=f"The user is in **{mutual_count}** mutual guilds with the bot.\n\nGlobal Timeout Requestor: {ctx.author.mention}",
             color=0xFF0000
         )
-        yes_button = Button(label="Yes", style=discord.ButtonStyle.green)
-        no_button = Button(label="No", style=discord.ButtonStyle.red)
+        yes_button = Button(label="Yes", emoji=TICK, style=discord.ButtonStyle.green)
+        no_button = Button(label="No", emoji=CROSS, style=discord.ButtonStyle.red)
         view = View()
         view.add_item(yes_button)
         view.add_item(no_button)
@@ -226,8 +228,8 @@ class Global(commands.Cog):
             )
             embed.add_field(name="Success Count", value=f"{len(success)} Guilds")
             embed.add_field(name="Failure Count", value=f"{len(failure)} Guilds")
-            success_button = Button(label="List Successful", style=discord.ButtonStyle.green)
-            failure_button = Button(label="List Unsuccessful", style=discord.ButtonStyle.red)
+            success_button = Button(label="List Successful", emoji=TICK, style=discord.ButtonStyle.green)
+            failure_button = Button(label="List Unsuccessful", emoji=CROSS, style=discord.ButtonStyle.red)
             new_view = View()
             new_view.add_item(success_button)
             new_view.add_item(failure_button)
@@ -254,7 +256,7 @@ class Global(commands.Cog):
 
             success_button.callback = list_success
             failure_button.callback = list_failure
-            await ctx.send(embed=embed, view=new_view)
+            await ctx.send(view=from_embed(embed, new_view))
 
         async def cancel(interaction):
             if interaction.user != ctx.author:
@@ -263,7 +265,7 @@ class Global(commands.Cog):
 
         yes_button.callback = confirm
         no_button.callback = cancel
-        await ctx.send(embed=confirm_embed, view=view)
+        await ctx.send(view=from_embed(confirm_embed, view))
 
 
     @global_command.command(name="nick", help="Changes the nickname of a user in all mutual guilds.")
@@ -280,8 +282,8 @@ class Global(commands.Cog):
             description=f"The user is in **{mutual_count}** mutual guilds with the bot.\n\nGlobal Nick Requestor: {ctx.author.mention}",
             color=0xFF0000
         )
-        yes_button = Button(label="Yes", style=discord.ButtonStyle.green)
-        no_button = Button(label="No", style=discord.ButtonStyle.red)
+        yes_button = Button(label="Yes", emoji=TICK, style=discord.ButtonStyle.green)
+        no_button = Button(label="No", emoji=CROSS, style=discord.ButtonStyle.red)
         view = View()
         view.add_item(yes_button)
         view.add_item(no_button)
@@ -308,8 +310,8 @@ class Global(commands.Cog):
             )
             embed.add_field(name="Success Count", value=f"{len(success)} Guilds")
             embed.add_field(name="Failure Count", value=f"{len(failure)} Guilds")
-            success_button = Button(label="List Successful", style=discord.ButtonStyle.green)
-            failure_button = Button(label="List Unsuccessful", style=discord.ButtonStyle.red)
+            success_button = Button(label="List Successful", emoji=TICK, style=discord.ButtonStyle.green)
+            failure_button = Button(label="List Unsuccessful", emoji=CROSS, style=discord.ButtonStyle.red)
             new_view = View()
             new_view.add_item(success_button)
             new_view.add_item(failure_button)
@@ -336,7 +338,7 @@ class Global(commands.Cog):
 
             success_button.callback = list_success
             failure_button.callback = list_failure
-            await ctx.send(embed=embed, view=new_view)
+            await ctx.send(view=from_embed(embed, new_view))
 
         async def cancel(interaction):
             if interaction.user != ctx.author:
@@ -345,7 +347,7 @@ class Global(commands.Cog):
 
         yes_button.callback = confirm
         no_button.callback = cancel
-        await ctx.send(embed=confirm_embed, view=view)
+        await ctx.send(view=from_embed(confirm_embed, view))
 
 
     @global_command.command(name="clearnick", help="Clears the nickname of a user in all mutual guilds.")
@@ -359,8 +361,8 @@ class Global(commands.Cog):
             description=f"The user is in **{mutual_count}** mutual guilds with the bot.\n\nGlobal Clearnick Requestor: {ctx.author.mention}",
             color=0xFF0000
         )
-        yes_button = Button(label="Yes", style=discord.ButtonStyle.green)
-        no_button = Button(label="No", style=discord.ButtonStyle.red)
+        yes_button = Button(label="Yes", emoji=TICK, style=discord.ButtonStyle.green)
+        no_button = Button(label="No", emoji=CROSS, style=discord.ButtonStyle.red)
         view = View()
         view.add_item(yes_button)
         view.add_item(no_button)
@@ -387,8 +389,8 @@ class Global(commands.Cog):
             )
             embed.add_field(name="Success Count", value=f"{len(success)} Guilds")
             embed.add_field(name="Failure Count", value=f"{len(failure)} Guilds")
-            success_button = Button(label="List Successful", style=discord.ButtonStyle.green)
-            failure_button = Button(label="List Unsuccessful", style=discord.ButtonStyle.red)
+            success_button = Button(label="List Successful", emoji=TICK, style=discord.ButtonStyle.green)
+            failure_button = Button(label="List Unsuccessful", emoji=CROSS, style=discord.ButtonStyle.red)
             new_view = View()
             new_view.add_item(success_button)
             new_view.add_item(failure_button)
@@ -415,7 +417,7 @@ class Global(commands.Cog):
 
             success_button.callback = list_success
             failure_button.callback = list_failure
-            await ctx.send(embed=embed, view=new_view)
+            await ctx.send(view=from_embed(embed, new_view))
 
         async def cancel(interaction):
             if interaction.user != ctx.author:
@@ -424,7 +426,7 @@ class Global(commands.Cog):
 
         yes_button.callback = confirm
         no_button.callback = cancel
-        await ctx.send(embed=confirm_embed, view=view)
+        await ctx.send(view=from_embed(confirm_embed, view))
 
 
     @global_command.command(name="freezenick", help="Freezes a user's nickname in all mutual guilds.")
@@ -444,8 +446,8 @@ class Global(commands.Cog):
             description=f"The user is in {mutual_count} mutual guilds with the bot.\n\nGlobal Freezenick Requestor: {ctx.author.mention}",
             color=0xFF0000
         )
-        yes_button = Button(label="Yes", style=discord.ButtonStyle.green)
-        no_button = Button(label="No", style=discord.ButtonStyle.red)
+        yes_button = Button(label="Yes", emoji=TICK, style=discord.ButtonStyle.green)
+        no_button = Button(label="No", emoji=CROSS, style=discord.ButtonStyle.red)
         view = View()
         view.add_item(yes_button)
         view.add_item(no_button)
@@ -479,9 +481,9 @@ class Global(commands.Cog):
             embed.add_field(name="Success Count", value=f"{len(success)} Guilds")
             embed.add_field(name="Failure Count", value=f"{len(failure)} Guilds")
 
-            success_button = Button(label="List Successful", style=discord.ButtonStyle.green)
-            failure_button = Button(label="List Unsuccessful", style=discord.ButtonStyle.red)
-            stop_button = Button(label="Stop Freezing", style=discord.ButtonStyle.red)
+            success_button = Button(label="List Successful", emoji=TICK, style=discord.ButtonStyle.green)
+            failure_button = Button(label="List Unsuccessful", emoji=CROSS, style=discord.ButtonStyle.red)
+            stop_button = Button(label="Stop Freezing", emoji=MUSICSTOP_ICONS, style=discord.ButtonStyle.red)
             result_view = View()
             result_view.add_item(success_button)
             result_view.add_item(failure_button)
@@ -517,7 +519,7 @@ class Global(commands.Cog):
             failure_button.callback = list_failure
             stop_button.callback = stop_freeze
 
-            await ctx.send(embed=embed, view=result_view)
+            await ctx.send(view=from_embed(embed, result_view))
             asyncio.create_task(self.nickname_freeze_task(user.id))
 
         async def cancel(interaction):
@@ -528,7 +530,7 @@ class Global(commands.Cog):
 
         yes_button.callback = confirm
         no_button.callback = cancel
-        await ctx.send(embed=confirm_embed, view=view)
+        await ctx.send(view=from_embed(confirm_embed, view))
 
     async def nickname_freeze_task(self, user_id: int):
         while user_id in self.client.frozen_nicknames:

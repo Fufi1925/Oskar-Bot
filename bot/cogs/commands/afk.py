@@ -22,7 +22,7 @@ import time
 
 from utils.Tools import blacklist_check, ignore_check
 from utils.cv2 import CV2, build_container
-from utils.emoji import TICK, MENTION, SEED, TIME
+from utils.emoji import MENTION, SEED, TICK, TIME, ZDIL
 from utils.config import *
 
 DB_PATH = "db/afk.db"
@@ -36,8 +36,8 @@ class AfkTypeView(LayoutView):
         self.reason = reason
         self.value = None
 
-        self.global_btn = Button(label="Global AFK", style=discord.ButtonStyle.primary)
-        self.local_btn = Button(label="Local AFK", style=discord.ButtonStyle.success)
+        self.global_btn = Button(label="Global AFK", emoji=ZDIL, style=discord.ButtonStyle.primary)
+        self.local_btn = Button(label="Local AFK", emoji=ZDIL, style=discord.ButtonStyle.success)
 
         self.global_btn.callback = self.global_afk
         self.local_btn.callback = self.local_afk

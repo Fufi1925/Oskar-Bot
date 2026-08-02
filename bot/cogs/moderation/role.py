@@ -29,6 +29,7 @@ import requests
 import aiohttp
 import time
 from datetime import datetime, timezone, timedelta
+from utils.panels import from_embed
 
 
 time_regex = re.compile(r"(?:(\d{1,5})(h|s|m|d))+?")
@@ -345,7 +346,7 @@ class Role(commands.Cog):
             button1.callback = button1_callback
             view.add_item(button)
             view.add_item(button1)
-            await ctx.reply(embed=embed, view=view, mention_author=False)
+            await ctx.reply(view=from_embed(embed, view), mention_author=False)
 
     else:
         denied = discord.Embed(title=f"{ZWARNING} Access Denied",
@@ -428,7 +429,7 @@ class Role(commands.Cog):
             button1.callback = button1_callback
             view.add_item(button)
             view.add_item(button1)
-            await ctx.reply(embed=embed, view=view, mention_author=False)
+            await ctx.reply(view=from_embed(embed, view), mention_author=False)
 
     else:
         denied = discord.Embed(title=f"{CROSS} Access Denied",
@@ -507,7 +508,7 @@ class Role(commands.Cog):
         button1.callback = button1_callback
         view.add_item(button)
         view.add_item(button1)
-        await ctx.reply(embed=embed, view=view, mention_author=False)
+        await ctx.reply(view=from_embed(embed, view), mention_author=False)
 
     else:
         denied = discord.Embed(title=f"{CROSS} Access Denied",
@@ -588,7 +589,7 @@ class Role(commands.Cog):
             button1.callback = button1_callback
             view.add_item(button)
             view.add_item(button1)
-            await ctx.reply(embed=embed, view=view, mention_author=False)
+            await ctx.reply(view=from_embed(embed, view), mention_author=False)
     else:
         denied = discord.Embed(title=f"{CROSS} Access Denied",
             description="Your role should be above my top role.",
@@ -684,7 +685,7 @@ class Role(commands.Cog):
             button1.callback = button1_callback
             view.add_item(button)
             view.add_item(button1)
-            await ctx.reply(embed=embed, view=view, mention_author=False)
+            await ctx.reply(view=from_embed(embed, view), mention_author=False)
     else:
         denied = discord.Embed(title=f"{CROSS} Access Denied",
             description="Your role should be above my top role.",
@@ -766,7 +767,7 @@ class Role(commands.Cog):
             button1.callback = button1_callback
             view.add_item(button)
             view.add_item(button1)
-            await ctx.reply(embed=embed, view=view, mention_author=False)
+            await ctx.reply(view=from_embed(embed, view), mention_author=False)
     else:
         denied = discord.Embed(title=f"{CROSS} Access Denied",
             description="Your role should be above my top role.",
@@ -847,7 +848,7 @@ class Role(commands.Cog):
             button1.callback = button1_callback
             view.add_item(button)
             view.add_item(button1)
-            await ctx.reply(embed=embed, view=view, mention_author=False)
+            await ctx.reply(view=from_embed(embed, view), mention_author=False)
     else:
         denied = discord.Embed(title=f"{CROSS} Access Denied",
             description="Your role should be above my top role.",
@@ -929,7 +930,7 @@ class Role(commands.Cog):
             button1.callback = button1_callback
             view.add_item(button)
             view.add_item(button1)
-            await ctx.reply(embed=embed, view=view, mention_author=False)
+            await ctx.reply(view=from_embed(embed, view), mention_author=False)
     else:
         denied = discord.Embed(title=f"{CROSS} Access Denied",
             description="Your role should be above my top role.",

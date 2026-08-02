@@ -18,6 +18,7 @@ import discord
 
 import ast
 import operator
+from utils.emoji import DELETE
 
 
 # Safe arithmetic evaluation.
@@ -178,7 +179,7 @@ class CalculatorView(View):
         except (CalculationError, ZeroDivisionError, ArithmeticError, ValueError):
             await self.update_embed(interaction, "Error")
 
-    @button(label="Clear", style=discord.ButtonStyle.red, row=4)
+    @button(label="Clear", emoji=DELETE, style=discord.ButtonStyle.red, row=4)
     async def clear(self, interaction: discord.Interaction, button: Button):
         await self.update_value(interaction, "Clear")
 

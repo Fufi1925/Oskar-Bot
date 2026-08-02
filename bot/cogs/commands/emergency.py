@@ -29,8 +29,8 @@ class EmergencyRestoreConfirmView(LayoutView):
         self.ctx = ctx
         self.value = None
 
-        self.yes_btn = Button(label="Yes", style=discord.ButtonStyle.green)
-        self.no_btn = Button(label="No", style=discord.ButtonStyle.danger)
+        self.yes_btn = Button(label="Yes", emoji=TICK, style=discord.ButtonStyle.green)
+        self.no_btn = Button(label="No", emoji=CROSS, style=discord.ButtonStyle.danger)
 
         self.yes_btn.callback = self.confirm_callback
         self.no_btn.callback = self.cancel_callback

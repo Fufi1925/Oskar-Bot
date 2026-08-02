@@ -14,7 +14,7 @@
 
 import asyncio
 import discord
-from utils.emoji import CROSS, DISABLE, ENABLE, TICK, TICK_ALT
+from utils.emoji import CROSS, DISABLE, ENABLE, REDRULESBOOK, TICK, TICK_ALT
 from discord.ext import commands
 import aiosqlite
 from utils.Tools import *
@@ -38,7 +38,7 @@ class ShowRules(LayoutView):
         self.author = author
         self.selected_events = selected_events
 
-        show_rules_btn = discord.ui.Button(label="Show Rules", style=discord.ButtonStyle.secondary)
+        show_rules_btn = discord.ui.Button(label="Show Rules", emoji=REDRULESBOOK, style=discord.ButtonStyle.secondary)
         show_rules_btn.callback = self._show_rules_callback
 
         items = [TextDisplay(f"**{title}**")]
@@ -76,9 +76,9 @@ class ConfirmDisable(LayoutView):
         self.author = author
         self.value = None
 
-        yes_btn = discord.ui.Button(label="Yes", style=discord.ButtonStyle.danger)
+        yes_btn = discord.ui.Button(label="Yes", emoji=TICK, style=discord.ButtonStyle.danger)
         yes_btn.callback = self._confirm_callback
-        no_btn = discord.ui.Button(label="No", style=discord.ButtonStyle.secondary)
+        no_btn = discord.ui.Button(label="No", emoji=CROSS, style=discord.ButtonStyle.secondary)
         no_btn.callback = self._cancel_callback
 
         items = [TextDisplay(f"**{title}**")]
@@ -234,7 +234,7 @@ class Automod(commands.Cog):
             await self.enable_automod(ctx, guild_id, selected_events, interaction)
         select_menu.callback = select_callback
 
-        enable_all_button = discord.ui.Button(label="Enable for All Events", style=discord.ButtonStyle.primary)
+        enable_all_button = discord.ui.Button(label="Enable for All Events", emoji=ENABLE, style=discord.ButtonStyle.primary)
 
         async def enable_all_callback(interaction):
             if interaction.user != ctx.author:
@@ -246,7 +246,7 @@ class Automod(commands.Cog):
 
         enable_all_button.callback = enable_all_callback
 
-        cancel_button = discord.ui.Button(label="Cancel", style=discord.ButtonStyle.danger)
+        cancel_button = discord.ui.Button(label="Cancel", emoji=CROSS, style=discord.ButtonStyle.danger)
 
         async def cancel_callback(interaction):
             if interaction.user != ctx.author:
@@ -305,7 +305,7 @@ class Automod(commands.Cog):
                 print(f"Automod rule-create error: {e}")
 
         
-        enable_logging_button = discord.ui.Button(label="Enable Automod Logging", style=discord.ButtonStyle.success)
+        enable_logging_button = discord.ui.Button(label="Enable Automod Logging", emoji=ENABLE, style=discord.ButtonStyle.success)
 
         async def enable_logging_callback(interaction):
             if interaction.user != ctx.author:

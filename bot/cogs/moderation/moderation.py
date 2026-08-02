@@ -36,6 +36,7 @@ from datetime import datetime, timezone, timedelta
 import sqlite3
 from typing import *
 from discord.utils import utcnow
+from utils.panels import from_embed
 
 
 
@@ -199,7 +200,7 @@ class Moderation(commands.Cog):
           view.add_item(button)
           view.add_item(button1)
           embed.set_footer(text="Please click either 'Confirm' or 'Cancel' to proceed. You have 30 seconds to decide!")
-          await ctx.reply(embed=embed, view=view, mention_author=False,delete_after=30)     
+          await ctx.reply(view=from_embed(embed, view), mention_author=False,delete_after=30)     
 
 
       else:
@@ -284,7 +285,7 @@ class Moderation(commands.Cog):
           view.add_item(button)
           view.add_item(button1)
           embed.set_footer(text=f"Please click either 'Confirm' or 'Cancel' to proceed. You have 30 seconds to decide!")
-          await ctx.reply(embed=embed, view=view, mention_author=False,delete_after=30)     
+          await ctx.reply(view=from_embed(embed, view), mention_author=False,delete_after=30)     
 
       else:
           denied = discord.Embed(title=f"{ZWARNING} Access Denied",
@@ -433,7 +434,7 @@ class Moderation(commands.Cog):
           view.add_item(button)
           view.add_item(button1)
           embed.set_footer(text=f"Please click either 'Confirm' or 'Cancel' to proceed. You have 30 seconds to decide!")
-          await ctx.reply(embed=embed, view=view, mention_author=False,delete_after=30)
+          await ctx.reply(view=from_embed(embed, view), mention_author=False,delete_after=30)
 
       else:
           denied = discord.Embed(title=f"{ZWARNING} Access Denied",
@@ -511,7 +512,7 @@ class Moderation(commands.Cog):
           view.add_item(button)
           view.add_item(button1)
           embed.set_footer(text=f"Please click either 'Confirm' or 'Cancel' to proceed. You have 30 seconds to decide!")
-          await ctx.reply(embed=embed, view=view, mention_author=False,delete_after=30)     
+          await ctx.reply(view=from_embed(embed, view), mention_author=False,delete_after=30)     
 
       else:
           denied = discord.Embed(title=f"{ZWARNING} Access Denied",
@@ -741,7 +742,7 @@ class Moderation(commands.Cog):
     view.add_item(button)
     view.add_item(button1)
     embed.set_footer(text="Please click either 'Confirm' or 'Cancel' to proceed. You have 30 seconds to decide!")
-    await ctx.reply(embed=embed, view=view, mention_author=False,delete_after=30)
+    await ctx.reply(view=from_embed(embed, view), mention_author=False,delete_after=30)
 
 
 
@@ -1040,7 +1041,7 @@ class Moderation(commands.Cog):
     button1.callback = button1_callback
     view.add_item(button)
     view.add_item(button1)
-    await ctx.reply(embed=embed, view=view, mention_author=False)
+    await ctx.reply(view=from_embed(embed, view), mention_author=False)
   
   @commands.hybrid_command(name="audit",
                            help="See recents audit log action in the server .")

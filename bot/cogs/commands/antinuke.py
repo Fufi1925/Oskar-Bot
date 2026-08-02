@@ -13,7 +13,7 @@
 # ╚══════════════════════════════════════════════════════════════════╝
 
 import discord
-from utils.emoji import CROSS, EMOTE, TICK, ZSAFE, ZSETTINGS
+from utils.emoji import CROSS, EMOTE, SWORD, TICK, ZSAFE, ZSETTINGS
 from discord.ext import commands
 from discord.ui import LayoutView, TextDisplay, Separator, Container, Button, ActionRow
 import aiosqlite
@@ -196,7 +196,7 @@ class Antinuke(commands.Cog):
           f"{TICK} **Auto Recovery**"
         )
 
-        punishment_btn = Button(label="Show Punishment Type", style=discord.ButtonStyle.secondary)
+        punishment_btn = Button(label="Show Punishment Type", emoji=SWORD, style=discord.ButtonStyle.secondary)
         punishment_btn.callback = self._show_punishment
 
         result_view = LayoutView(timeout=None)

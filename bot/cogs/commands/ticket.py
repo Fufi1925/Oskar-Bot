@@ -15,7 +15,7 @@
 # cogs/commands/ticket.py
 
 import discord
-from utils.emoji import CROSS, DELETE_ALT1, HANDSHAKE, LOCK, TICK, UNLOCK, ZBAN, ZMODULE, ZWRENCH
+from utils.emoji import CROSS, DELETE_ALT1, HANDSHAKE, LOCK, MESSAGE, TICK, UNLOCK, ZBAN, ZMODULE, ZWRENCH
 from discord import app_commands
 from discord.ext import commands
 import sqlite3
@@ -25,6 +25,7 @@ import io
 import os
 import re
 from utils.config import *
+from utils.panels import from_embed
 
 # --- Configurable Variables ---
 EMBED_COLOR = 0xFF0000
@@ -126,13 +127,13 @@ class EmbedEditorView(discord.ui.View):
             return msg.content
         except: return None
 
-    @discord.ui.button(label="Title", style=discord.ButtonStyle.green, row=0)
+    @discord.ui.button(label="Title", emoji=MESSAGE, style=discord.ButtonStyle.green, row=0)
     async def edit_title(self, inter, button):
         if title := await self._prompt(inter, "Enter new title:"):
             self.embed_data["title"] = title
             await self.message.edit(embed=self._create_preview_embed())
 
-    @discord.ui.button(label="Description", style=discord.ButtonStyle.green, row=0)
+    @discord.ui.button(label="Description", emoji=MESSAGE, style=discord.ButtonStyle.green, row=0)
     async def edit_desc(self, inter, button):
         if desc := await self._prompt(inter, "Enter new description:"):
             self.embed_data["description"] = desc
@@ -150,7 +151,7 @@ class EmbedEditorView(discord.ui.View):
             self.embed_data["thumbnail"] = {"url": url} if url.lower() != 'none' else {}
             await self.message.edit(embed=self._create_preview_embed())
 
-    @discord.ui.button(label="Submit & Continue", style=discord.ButtonStyle.primary, row=2)
+    @discord.ui.button(label="Submit & Continue", emoji=TICK, style=discord.ButtonStyle.primary, row=2)
     async def submit(self, inter, button):
         await inter.response.defer()
         for item in self.children: item.disabled = True
@@ -171,7 +172,7 @@ class CategoryConfigView(discord.ui.View):
         self.add_item(discord.ui.Button(label=f"Add Category", style=discord.ButtonStyle.success, custom_id="add_cat"))
         self.remove_select = discord.ui.Select(placeholder="Select a category to remove...", custom_id="remove_cat")
         self.add_item(self.remove_select)
-        self.add_item(discord.ui.Button(label="Finish Setup", style=discord.ButtonStyle.primary, custom_id="finish_setup", row=2))
+        self.add_item(discord.ui.Button(label="Finish Setup", emoji=TICK, style=discord.ButtonStyle.primary, custom_id="finish_setup", row=2))
 
     async def start(self, interaction):
         self._update_remove_select()
@@ -263,7 +264,7 @@ class CategoryConfigView(discord.ui.View):
         if img_url := config['embed_image_url']: panel_embed.set_image(url=img_url)
         if thumb_url := config['embed_thumbnail_url']: panel_embed.set_thumbnail(url=thumb_url)
         final_view = self.cog.create_panel_view(guild_id)
-        msg = await panel_ch.send(embed=panel_embed, view=final_view)
+        msg = await panel_ch.send(view=from_embed(panel_embed, final_view))
         db.execute("UPDATE guild_configs SET panel_message_id = ? WHERE guild_id = ?", (msg.id, guild_id))
         await self.message.edit(content=f"{SUCCESS_EMOJI} Setup complete! Panel sent to {panel_ch.mention}.", view=None, embed=None)
         self.stop()

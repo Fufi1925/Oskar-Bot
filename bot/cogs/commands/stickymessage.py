@@ -19,6 +19,7 @@ import asyncio
 import os
 from discord.ext import commands
 from typing import Optional
+from utils.emoji import CROSS, MESSAGE, ZSETTINGS
 
 RED_THEME_COLOR = 0xFF0000
 
@@ -242,7 +243,7 @@ class StickySetupView(AuthorOnlyView):
     async def embed_message(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.send_modal(EmbedModal(self.ctx, self.channel))
 
-    @discord.ui.button(label='Cancel', style=discord.ButtonStyle.danger)
+    @discord.ui.button(label='Cancel', emoji=CROSS, style=discord.ButtonStyle.danger)
     async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
         embed = discord.Embed(title="Cancelled", description="Sticky message setup has been cancelled.", color=RED_THEME_COLOR)
         await interaction.response.edit_message(embed=embed, view=None)
@@ -312,18 +313,18 @@ class StickyEditView(AuthorOnlyView):
         self.channel = channel
         self.sticky_data = sticky_data
 
-    @discord.ui.button(label='Edit Content', style=discord.ButtonStyle.primary)
+    @discord.ui.button(label='Edit Content', emoji=MESSAGE, style=discord.ButtonStyle.primary)
     async def edit_content(self, interaction: discord.Interaction, button: discord.ui.Button):
         if self.sticky_data['message_type'] == 'plain':
             await interaction.response.send_modal(EditPlainTextModal(self.ctx, self.channel, self.sticky_data))
         else:
             await interaction.response.send_modal(EditEmbedModal(self.ctx, self.channel, self.sticky_data))
 
-    @discord.ui.button(label='Edit Settings', style=discord.ButtonStyle.secondary)
+    @discord.ui.button(label='Edit Settings', emoji=ZSETTINGS, style=discord.ButtonStyle.secondary)
     async def edit_settings(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.send_modal(EditSettingsModal(self.ctx, self.channel, self.sticky_data))
 
-    @discord.ui.button(label='Cancel', style=discord.ButtonStyle.danger)
+    @discord.ui.button(label='Cancel', emoji=CROSS, style=discord.ButtonStyle.danger)
     async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
         embed = discord.Embed(title="Cancelled", description="Editing has been cancelled.", color=RED_THEME_COLOR)
         await interaction.response.edit_message(embed=embed, view=None)

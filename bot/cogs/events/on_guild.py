@@ -15,10 +15,11 @@
 from discord.ext import commands
 from core import universitybot, Cog
 import discord
-from utils.emoji import ARROWRED, KING, ZBOT, ZHUMAN, ZROCKET
+from utils.emoji import ARROWRED, HANDSHAKE, KING, ZBOT, ZHUMAN, ZROCKET
 import logging
 from discord.ui import View, Button, Select
 from utils.config import *
+from utils.panels import from_embed
 
 logging.basicConfig(
     level=logging.INFO,
@@ -113,7 +114,7 @@ Threads : {len(guild.threads)}
                 embed.set_thumbnail(url=guild.icon.url)
 
             support = Button(
-                label="Support",
+                label="Support", emoji=HANDSHAKE,
                 style=discord.ButtonStyle.link,
                 url=f"https://discord.gg/MG3rYnUZJV",
             )
@@ -135,7 +136,7 @@ Threads : {len(guild.threads)}
                     )
                     return
 
-            await channel.send(embed=embed, view=view)
+            await channel.send(view=from_embed(embed, view))
 
         except Exception as e:
             logging.error(f"Error in on_guild_join: {e}")
