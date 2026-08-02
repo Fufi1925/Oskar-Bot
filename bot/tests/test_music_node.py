@@ -157,11 +157,19 @@ def test_connect_log_is_honest():
     check("it does not claim success straight after Pool.connect",
           "node connected" not in immediate,
           "the log said connected while the node was still failing")
-    check("it waits for the node to actually come up",
-          "music_ready()" in after[:900],
-          "nothing verifies the node before reporting success")
+
+    # Not just "music_ready appears somewhere": the success line has to
+    # be *inside* that check. A mutation that replaced the poll with
+    # `if True:` left the call elsewhere in the file and passed.
+    guarded = re.search(
+        r"if\s+self\.music_ready\(\)\s*:\s*\n\s*print\([^\n]*node connected",
+        src,
+    )
+    check("the success line is behind that check",
+          guarded is not None,
+          "success is announced without confirming the node is up")
     check("and says so when it does not",
-          "did not come up" in src,
+          "not reachable" in src,
           "a silent failure leaves nobody knowing music is off")
 
 
@@ -225,12 +233,98 @@ def test_retry_spam_is_quietened():
           "a stray basicConfig during start-up would resurrect the spam")
 
 
+def test_no_double_retry_loop():
+    """
+    We must not wrap wavelink's own retry in a second one.
+
+    Pool.connect() awaits node._connect(), and the websocket underneath
+    reconnects forever on its own. On a host that refuses the handshake
+    that await never returns -- so a `while ...: connect(); sleep(30)`
+    loop is parked in its first iteration for good. Its "Retrying in 30
+    seconds..." line showed up exactly once in the Railway log and never
+    again, which is what gave it away.
+    """
+    print("\nNo retry loop around wavelink's own")
+    src = strip_comments(source())
+    body = src.split("async def connect_nodes")[1].split("@staticmethod")[0]
+
+    check("the connect is kicked off in the background",
+          "asyncio.create_task(" in body,
+          "awaiting it directly blocks forever on a dead host")
+    check("there is no while loop around it",
+          "while " not in body,
+          "a loop here can never reach its second iteration")
+    check("nothing sleeps 30s pretending to retry",
+          "sleep(30)" not in body,
+          "that message never fires twice, so it is a lie")
+    # asyncio only keeps a weak reference to a task; dropping it lets the
+    # connection be collected mid-flight.
+    check("the task is kept referenced",
+          "self._lavalink_task" in body,
+          "a fire-and-forget task can be garbage-collected")
+    check("it still reports the outcome once",
+          "not reachable" in body and "node connected" in body)
+
+
+def test_guild_log_channel_is_configurable():
+    """
+    The join/leave log used a hard-coded channel that no longer exists.
+
+    From the log: "Channel with ID 1396794297386532978 not found." --
+    logged at ERROR on every join and every leave, and the message
+    dropped, while `guild_log_channel` sat in the dashboard unused.
+    university_bot.py already reads that setting for the same event.
+    """
+    print("\nThe guild join/leave log")
+    path = os.path.join(BOT, "cogs", "events", "on_guild.py")
+    src = strip_comments(open(path, encoding="utf-8").read())
+
+    check("the dead hard-coded id is gone",
+          "1396794297386532978" not in src,
+          "it points at a channel that no longer exists")
+    check("the dashboard setting is used instead",
+          'bot_settings.get_int("guild_log_channel")' in src)
+    # An unset log channel is a normal configuration, not a fault.
+    check("a missing channel is not an error",
+          "logging.error" not in src.split("_guild_log_channel")[0]
+          or "not found" not in src,
+          "this fired at ERROR on every single join")
+
+    import asyncio as _asyncio
+    from cogs.events.on_guild import _guild_log_channel
+    from utils import bot_settings
+
+    class Client:
+        def __init__(self, found):
+            self.found = found
+
+        def get_channel(self, cid):
+            return f"<channel {cid}>" if self.found else None
+
+    async def scenarios():
+        unset = _guild_log_channel(Client(True))
+        await bot_settings.set_values({"guild_log_channel": "1234567890123456789"})
+        present = _guild_log_channel(Client(True))
+        deleted = _guild_log_channel(Client(False))
+        await bot_settings.set_values({"guild_log_channel": ""})
+        return unset, present, deleted
+
+    unset, present, deleted = _asyncio.run(scenarios())
+    check("unset means no channel", unset is None)
+    check("a configured channel is found", present is not None,
+          "the setting is read but ignored")
+    check("a deleted channel is handled", deleted is None,
+          "it would raise on send()")
+
+
 def main():
     test_reproduces()
     test_guard()
     test_every_connect_is_guarded()
     test_connect_log_is_honest()
     test_retry_spam_is_quietened()
+    test_no_double_retry_loop()
+    test_guild_log_channel_is_configurable()
 
     print(f"\n{len(failures)} failures")
     for line in failures:

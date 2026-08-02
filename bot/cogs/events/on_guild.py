@@ -20,6 +20,21 @@ import logging
 from discord.ui import View, Button, Select
 from utils.config import *
 from utils.panels import from_embed
+from utils import bot_settings
+
+
+def _guild_log_channel(client):
+    """
+    The join/leave log channel, from the dashboard setting.
+
+    This used to be a hard-coded 1396794297386532978. That channel is
+    gone, so every join and every leave logged
+    "Channel with ID ... not found." at ERROR and dropped the message --
+    while `guild_log_channel` sat in the dashboard being ignored.
+    university_bot.py already reads that setting for the same event.
+    """
+    channel_id = bot_settings.get_int("guild_log_channel")
+    return client.get_channel(channel_id) if channel_id else None
 
 logging.basicConfig(
     level=logging.INFO,
@@ -45,10 +60,12 @@ class Guild(Cog):
                 for inv in await guild.invites()
                 if inv.max_age == 0 and inv.max_uses == 0
             ]
-            ch = 1396794297386532978
-            me = self.client.get_channel(ch)
+            me = _guild_log_channel(self.client)
             if me is None:
-                logging.error(f"Channel with ID {ch} not found.")
+                # Not configured, or the channel is gone. Debug, not
+                # error: not wanting a join log is a normal setup, and
+                # this fired on every single join.
+                logging.debug("No guild log channel configured; skipping.")
                 return
 
             channels = len(set(self.client.get_all_channels()))
@@ -160,10 +177,9 @@ Threads : {len(guild.threads)}
             self.recently_removed_guilds.clear()
 
         try:
-            ch = 1396794297386532978
-            idk = self.client.get_channel(ch)
+            idk = _guild_log_channel(self.client)
             if idk is None:
-                logging.error(f"Channel with ID {ch} not found.")
+                logging.debug("No guild log channel configured; skipping.")
                 return
 
             channels = len(set(self.client.get_all_channels()))

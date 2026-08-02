@@ -455,32 +455,49 @@ class Music(commands.Cog):
         else:
             uri = f"http://{host}:{port}" if port else f"http://{host}"
 
-        while not self.client.is_closed():
-            try:
-                nodes = [wavelink.Node(uri=uri, password=password)]
-                await wavelink.Pool.connect(nodes=nodes, client=self.client, cache_capacity=None)
-            except asyncio.CancelledError:
-                raise
-            except Exception as exc:
-                print(f"[music] Lavalink connection failed ({uri}): {exc}. "
-                      "Retrying in 30 seconds...")
-                await asyncio.sleep(30)
-                continue
+        # One attempt, not a retry loop.
+        #
+        # wavelink already retries on its own: Pool.connect() awaits
+        # node._connect(), and the websocket underneath has an unbounded
+        # reconnect loop. On a host that refuses the handshake --
+        # lavalink.jirayu.net answering 429 for hours -- that await
+        # never returns.
+        #
+        # The previous version wrapped this in `while not is_closed()`
+        # with a 30s sleep. That loop could never reach a second
+        # iteration, because it was parked inside the first await
+        # forever. Its "Retrying in 30 seconds..." message appeared
+        # exactly once in the Railway log and never again, which is what
+        # gave it away. See repro/lavalink_loop.py.
+        #
+        # So: kick it off in the background, wait a bounded time to see
+        # whether it comes up, say so once, and let wavelink carry on
+        # retrying -- which it does either way, and music recovers by
+        # itself when the host does.
+        task = asyncio.create_task(
+            wavelink.Pool.connect(
+                nodes=[wavelink.Node(uri=uri, password=password)],
+                client=self.client,
+                cache_capacity=None,
+            )
+        )
+        # Held on the cog so the task is not garbage-collected mid-flight;
+        # asyncio only keeps a weak reference to it.
+        self._lavalink_task = task
 
-            # Pool.connect() returns as soon as the handshake is handed
-            # off -- the websocket is still being established in the
-            # background. The old code printed "node connected" right
-            # here, which is why the log said connected and then
-            # immediately logged 429s from the same node.
-            for _ in range(20):
-                if self.music_ready():
-                    print(f"[music] Lavalink node connected: {uri}")
-                    return
-                await asyncio.sleep(0.5)
+        for _ in range(40):  # 20 seconds
+            if self.music_ready():
+                print(f"[music] Lavalink node connected: {uri}")
+                return
+            if task.done() and task.exception() is not None:
+                print(f"[music] Lavalink connection failed ({uri}): "
+                      f"{task.exception()}")
+                return
+            await asyncio.sleep(0.5)
 
-            print(f"[music] Lavalink node did not come up ({uri}); "
-                  "music commands stay disabled. Retrying in 30 seconds...")
-            await asyncio.sleep(30)
+        print(f"[music] Lavalink node not reachable ({uri}); music commands "
+              "are disabled until it answers. wavelink keeps retrying in the "
+              "background.")
 
     @staticmethod
     def music_ready() -> bool:
