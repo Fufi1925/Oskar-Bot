@@ -1,0 +1,115 @@
+####################################################################
+#  Lavalink for University Bot
+#
+#  Deploy this folder as its own Railway service. The bot then talks
+#  to it over Railway's private network, so the audio node is not
+#  shared with anyone and there is no rate limit but your own.
+#
+#  Setup is in lavalink/README.md.
+####################################################################
+
+server:
+  # Railway hands the port in as $PORT. Fixed to 2333 here and set in
+  # railway.toml, because Lavalink reads this file, not the variable.
+  port: 2333
+  address: 0.0.0.0
+
+lavalink:
+  # PASSWORD is read from the environment so the real one is never in
+  # git. Set it in Railway -> Variables.
+  server:
+    password: "${LAVALINK_SERVER_PASSWORD}"
+
+    sources:
+      # Off on purpose: the built-in YouTube source has been broken
+      # since 2024. The youtube-source plugin below replaces it, and
+      # leaving both on makes them fight over the same requests.
+      youtube: false
+      bandcamp: true
+      soundcloud: true
+      twitch: true
+      vimeo: true
+      http: true
+      local: false
+
+    filters:
+      volume: true
+      equalizer: true
+      karaoke: true
+      timescale: true
+      tremolo: true
+      vibrato: true
+      distortion: true
+      rotation: true
+      channelMix: true
+      lowPass: true
+
+    bufferDurationMs: 400
+    frameBufferDurationMs: 5000
+    opusEncodingQuality: 10
+    resamplingQuality: LOW
+    trackStuckThresholdMs: 10000
+    useSeekGhosting: true
+    youtubePlaylistLoadLimit: 6
+    playerUpdateInterval: 5
+    youtubeSearchEnabled: true
+    soundcloudSearchEnabled: true
+
+  plugins:
+    # The current YouTube client. Without this, YouTube playback fails.
+    - dependency: "dev.lavalink.youtube:youtube-plugin:1.18.2"
+      repository: "https://maven.lavalink.dev/releases"
+      snapshot: false
+
+    # Spotify, Apple Music and Deezer links. Spotify does not stream
+    # directly -- LavaSrc resolves the track and plays it from YouTube,
+    # which is why the plugin above has to work first.
+    - dependency: "com.github.topi314.lavasrc:lavasrc-plugin:4.8.3"
+      repository: "https://maven.lavalink.dev/releases"
+      snapshot: false
+
+plugins:
+  youtube:
+    enabled: true
+    # Client order matters. MUSIC and WEB handle searches and most
+    # playback; ANDROID_VR is the fallback that still works when the
+    # others are age-gated or throttled.
+    clients:
+      - MUSIC
+      - ANDROID_VR
+      - WEB
+      - WEBEMBEDDED
+
+  lavasrc:
+    providers:
+      - "ytsearch:\"%ISRC%\""
+      - "ytsearch:%QUERY%"
+      - "scsearch:%QUERY%"
+    sources:
+      # Spotify needs a free developer app -- see the README. Leave it
+      # false until you have the two values, or every Spotify link
+      # fails with an authentication error.
+      spotify: false
+      applemusic: false
+      deezer: false
+      yandexmusic: false
+    spotify:
+      clientId: "${SPOTIFY_CLIENT_ID:}"
+      clientSecret: "${SPOTIFY_CLIENT_SECRET:}"
+      countryCode: "DE"
+
+metrics:
+  prometheus:
+    enabled: false
+
+logging:
+  level:
+    root: INFO
+    lavalink: INFO
+  # Off: it logs a line per request, and Railway charges for log volume.
+  request:
+    enabled: false
+  logback:
+    rollingpolicy:
+      max-history: 7
+      max-file-size: 10MB
