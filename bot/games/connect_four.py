@@ -21,6 +21,7 @@ import discord
 from discord.ext import commands
 
 from .utils import DiscordColor, DEFAULT_COLOR
+from utils.panels import from_embed
 
 RED = "🔴"
 BLUE = "🔵"
@@ -179,7 +180,7 @@ class ConnectFour:
         self.embed_color = discord.Color.random()
 
         embed = self.make_embed(status=False)
-        self.message = await ctx.send(self.board_string(), embed=embed, **kwargs)
+        self.message = await ctx.send(self.board_string(), **kwargs, view=from_embed(embed))
 
         for button in self._controls:
             await self.message.add_reaction(button)
@@ -211,9 +212,9 @@ class ConnectFour:
                 await self.message.remove_reaction(emoji, user)
 
             embed = self.make_embed(status=False)
-            await self.message.edit(content=self.board_string(), embed=embed)
+            await self.message.edit(content=self.board_string(), view=from_embed(embed))
 
         embed = self.make_embed(status=status)
-        await self.message.edit(content=self.board_string(), embed=embed)
+        await self.message.edit(content=self.board_string(), view=from_embed(embed))
 
         return self.message

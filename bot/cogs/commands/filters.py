@@ -67,7 +67,7 @@ class FilterCog(commands.Cog):
 
         await player.set_filters(filters)
         self.active_filters[ctx.guild.id] = filter_name
-        await ctx.send(embed=discord.Embed(description=f"Filter set to **{filter_name}**.", color=discord.Color.green()))
+        await ctx.send(view=from_embed(discord.Embed(description=f"Filter set to **{filter_name}**.", color=discord.Color.green())))
 
     @commands.hybrid_group(invoke_without_command=True)
     @blacklist_check()
@@ -146,5 +146,5 @@ class FilterCog(commands.Cog):
         filters = wavelink.Filters()
         await player.set_filters(filters)
         self.active_filters.pop(ctx.guild.id, None)
-        await ctx.send(embed=discord.Embed(description="Filter disabled.", color=discord.Color.red()))
+        await ctx.send(view=from_embed(discord.Embed(description="Filter disabled.", color=discord.Color.red())))
 

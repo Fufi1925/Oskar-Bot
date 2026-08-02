@@ -15,6 +15,7 @@
 import discord
 from utils.emoji import CHANNEL, TICK, ZCROSS
 from discord.ext import commands
+from utils.panels import from_embed
 
 class Hide(commands.Cog):
     def __init__(self, bot):
@@ -46,7 +47,7 @@ class Hide(commands.Cog):
             # Set the author's avatar as the thumbnail
             if author_avatar_url:
                 embed.set_thumbnail(url=author_avatar_url)
-            await ctx.send(embed=embed)
+            await ctx.send(view=from_embed(embed))
             return
 
         # Hide the channel by updating permissions for the @everyone role
@@ -63,7 +64,7 @@ class Hide(commands.Cog):
         if author_avatar_url:
             embed.set_thumbnail(url=author_avatar_url)
             
-        await ctx.send(embed=embed)
+        await ctx.send(view=from_embed(embed))
 
 # Function to add the cog to your bot
 async def setup(bot):

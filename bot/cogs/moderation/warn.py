@@ -19,6 +19,7 @@ from discord import ui
 import aiosqlite
 import asyncio
 from utils.Tools import *
+from utils.panels import from_embed
 
 
 #class WarnView(ui.View):
@@ -150,7 +151,7 @@ class Warn(commands.Cog):
             embed.timestamp = discord.utils.utcnow()
 
            # view = WarnView(user=user, author=ctx.author)
-            message = await ctx.send(embed=embed)
+            message = await ctx.send(view=from_embed(embed))
           #  view.message = message
         except Exception as e:
             await ctx.send(f"An error occurred: {str(e)}")
@@ -175,7 +176,7 @@ class Warn(commands.Cog):
             embed.set_footer(text=f"Requested by {ctx.author}", icon_url=self.get_user_avatar(ctx.author))
             embed.timestamp = discord.utils.utcnow()
 
-            await ctx.send(embed=embed)
+            await ctx.send(view=from_embed(embed))
         except Exception as e:
             await ctx.send(f"An error occurred: {str(e)}")
             print(f"Error during clearwarns command: {e}")

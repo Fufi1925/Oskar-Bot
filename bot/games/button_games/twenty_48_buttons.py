@@ -22,6 +22,7 @@ from discord.ext import commands
 
 from ..twenty_48 import Twenty48
 from ..utils import DiscordColor, DEFAULT_COLOR, BaseView
+from utils.panels import from_embed
 
 
 class Twenty48_Button(discord.ui.Button["BaseView"]):
@@ -76,14 +77,10 @@ class Twenty48_Button(discord.ui.Button["BaseView"]):
 
         if self.game._render_image:
             image = await self.game.render_image()
-            await interaction.response.edit_message(
-                attachments=[image], embed=self.game.embed
-            )
+            await interaction.response.edit_message(attachments=[image], view=from_embed(self.game.embed))
         else:
             board_string = self.game.number_to_emoji()
-            await interaction.response.edit_message(
-                content=board_string, embed=self.game.embed
-            )
+            await interaction.response.edit_message(content=board_string, view=from_embed(self.game.embed))
 
 
 class BetaTwenty48(Twenty48):

@@ -21,6 +21,7 @@ from discord.ext import commands
 from ..chess_game import Chess
 from .wordle_buttons import WordInputButton
 from ..utils import DiscordColor, DEFAULT_COLOR, BaseView
+from utils.panels import from_embed
 
 
 class ChessInput(discord.ui.Modal, title="Make your move"):
@@ -74,7 +75,7 @@ class ChessInput(discord.ui.Modal, title="Make your move"):
             else:
                 embed = await game.make_embed()
 
-            return await interaction.response.edit_message(embed=embed, view=self.view)
+            return await interaction.response.edit_message(view=from_embed(embed, self.view))
 
 
 class ChessButton(WordInputButton):
@@ -148,7 +149,7 @@ class BetaChess(Chess):
         embed = await self.make_embed()
         self.view = ChessView(self, timeout=timeout)
 
-        self.message = await ctx.send(embed=embed, view=self.view)
+        self.message = await ctx.send(view=from_embed(embed, self.view))
 
         await self.view.wait()
         return self.message

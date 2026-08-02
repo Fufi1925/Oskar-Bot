@@ -41,6 +41,7 @@ import aiohttp
 import aiosqlite
 import discord
 from discord.ext import commands, tasks
+from utils.panels import from_embed
 
 from utils.Tools import *
 from utils.cv2 import CV2
@@ -175,7 +176,7 @@ class NotifCommands(commands.Cog):
         try:
             await channel.send(
                 content=role.mention if role else None,
-                embed=embed,
+                view=from_embed(embed),
                 # Explicit, so a role that happens to be @everyone
                 # cannot ping the whole server on every upload.
                 allowed_mentions=discord.AllowedMentions(

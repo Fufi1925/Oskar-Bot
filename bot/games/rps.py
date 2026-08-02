@@ -22,6 +22,7 @@ import discord
 from discord.ext import commands
 
 from .utils import DiscordColor, DEFAULT_COLOR
+from utils.panels import from_embed
 
 
 class RockPaperScissors:
@@ -81,7 +82,7 @@ class RockPaperScissors:
             description="React to play!",
             color=discord.Color.random(),
         )
-        self.message = await ctx.send(embed=embed)
+        self.message = await ctx.send(view=from_embed(embed))
 
         for option in self.OPTIONS:
             await self.message.add_reaction(option)
@@ -92,7 +93,7 @@ class RockPaperScissors:
             user_choice = await self.wait_for_choice(ctx, timeout=timeout)
         except asyncio.TimeoutError:
             embed.description = "You took too long to respond!"
-            await self.message.edit(embed=embed)
+            await self.message.edit(view=from_embed(embed))
             return self.message
 
         if user_choice == bot_choice:
@@ -104,5 +105,5 @@ class RockPaperScissors:
         else:
             embed.description = f"**You Lost!**\nI picked {bot_choice} and you picked {user_choice}."
 
-        await self.message.edit(embed=embed)
+        await self.message.edit(view=from_embed(embed))
         return self.message

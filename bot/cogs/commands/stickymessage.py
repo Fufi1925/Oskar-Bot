@@ -20,6 +20,7 @@ import os
 from discord.ext import commands
 from typing import Optional
 from utils.emoji import CROSS, MESSAGE, ZSETTINGS
+from utils.panels import from_embed
 
 RED_THEME_COLOR = 0xFF0000
 
@@ -122,7 +123,7 @@ class StickyMessage(commands.Cog):
             except (json.JSONDecodeError, ValueError):
                 embed = discord.Embed(description="Error: Could not decode embed data.", color=RED_THEME_COLOR)
 
-        new_sticky = await message.channel.send(content=content, embed=embed, delete_after=delete_after)
+        new_sticky = await message.channel.send(content=content, delete_after=delete_after, view=from_embed(embed))
 
         async with aiosqlite.connect("db/stickymessages.db") as db:
             await db.execute(
@@ -145,10 +146,10 @@ class StickyMessage(commands.Cog):
             cursor = await db.execute("SELECT 1 FROM sticky_messages WHERE channel_id = ?", (channel.id,))
             if await cursor.fetchone():
                 embed = discord.Embed(title="Setup Error", description=f"A sticky message already exists in {channel.mention}.", color=RED_THEME_COLOR)
-                return await ctx.send(embed=embed)
+                return await ctx.send(view=from_embed(embed))
         
         embed = discord.Embed(title="Sticky Message Setup", description=f"Choose the message type for {channel.mention}:", color=RED_THEME_COLOR)
-        await ctx.send(embed=embed, view=StickySetupView(ctx, channel))
+        await ctx.send(view=from_embed(embed, StickySetupView(ctx, channel)))
 
     @stickymessage.command(name='remove', aliases=['delete', 'del'])
     @commands.has_permissions(manage_messages=True)
@@ -158,7 +159,7 @@ class StickyMessage(commands.Cog):
             cursor = await db.execute("SELECT last_message_id FROM sticky_messages WHERE channel_id = ?", (channel.id,))
             data = await cursor.fetchone()
             if not data:
-                return await ctx.send(embed=discord.Embed(title="Not Found", description=f"No sticky message found in {channel.mention}.", color=RED_THEME_COLOR))
+                return await ctx.send(view=from_embed(discord.Embed(title="Not Found", description=f"No sticky message found in {channel.mention}.", color=RED_THEME_COLOR)))
             
             if data[0]:
                 try:
@@ -171,7 +172,7 @@ class StickyMessage(commands.Cog):
             await db.commit()
 
         embed = discord.Embed(title="Success", description=f"Sticky message in {channel.mention} has been removed.", color=RED_THEME_COLOR)
-        await ctx.send(embed=embed)
+        await ctx.send(view=from_embed(embed))
 
     @stickymessage.command(name='list')
     @commands.has_permissions(manage_messages=True)
@@ -182,7 +183,7 @@ class StickyMessage(commands.Cog):
             stickies = await cursor.fetchall()
 
         if not stickies:
-            return await ctx.send(embed=discord.Embed(title="No Stickies Found", description="There are no active sticky messages on this server.", color=RED_THEME_COLOR))
+            return await ctx.send(view=from_embed(discord.Embed(title="No Stickies Found", description="There are no active sticky messages on this server.", color=RED_THEME_COLOR)))
 
         embed = discord.Embed(title=f"Sticky Messages in {ctx.guild.name}", color=RED_THEME_COLOR)
         for sticky in stickies:
@@ -193,7 +194,7 @@ class StickyMessage(commands.Cog):
                 value=f"**Type**: {sticky['message_type'].title()}\n**Status**: {status}\n**Delay**: {sticky['delay_seconds']}s",
                 inline=True
             )
-        await ctx.send(embed=embed)
+        await ctx.send(view=from_embed(embed))
 
     @stickymessage.command(name='edit')
     @commands.has_permissions(manage_messages=True)
@@ -205,10 +206,10 @@ class StickyMessage(commands.Cog):
             sticky_data = await cursor.fetchone()
         
         if not sticky_data:
-            return await ctx.send(embed=discord.Embed(title="Not Found", description=f"No sticky message found in {channel.mention}.", color=RED_THEME_COLOR))
+            return await ctx.send(view=from_embed(discord.Embed(title="Not Found", description=f"No sticky message found in {channel.mention}.", color=RED_THEME_COLOR)))
 
         embed = discord.Embed(title="Edit Sticky Message", description=f"Editing sticky for {channel.mention}. Choose an option:", color=RED_THEME_COLOR)
-        await ctx.send(embed=embed, view=StickyEditView(ctx, channel, sticky_data))
+        await ctx.send(view=from_embed(embed, StickyEditView(ctx, channel, sticky_data)))
 
 class AuthorOnlyView(discord.ui.View):
     def __init__(self, ctx: commands.Context, timeout: float = 300.0):
@@ -246,7 +247,7 @@ class StickySetupView(AuthorOnlyView):
     @discord.ui.button(label='Cancel', emoji=CROSS, style=discord.ButtonStyle.danger)
     async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
         embed = discord.Embed(title="Cancelled", description="Sticky message setup has been cancelled.", color=RED_THEME_COLOR)
-        await interaction.response.edit_message(embed=embed, view=None)
+        await interaction.response.edit_message(view=from_embed(embed))
 
 class PlainTextModal(discord.ui.Modal, title='Plain Text Sticky Message'):
     def __init__(self, ctx: commands.Context, channel: discord.TextChannel):
@@ -271,7 +272,7 @@ class PlainTextModal(discord.ui.Modal, title='Plain Text Sticky Message'):
             await db.commit()
 
         embed = discord.Embed(title="Sticky Created", description=f"Successfully created a plain text sticky in {self.channel.mention}.", color=RED_THEME_COLOR)
-        await interaction.response.edit_message(embed=embed, view=None)
+        await interaction.response.edit_message(view=from_embed(embed))
 
 class EmbedModal(discord.ui.Modal, title='Embed Sticky Message'):
     def __init__(self, ctx: commands.Context, channel: discord.TextChannel):
@@ -305,7 +306,7 @@ class EmbedModal(discord.ui.Modal, title='Embed Sticky Message'):
             await db.commit()
         
         embed = discord.Embed(title="Sticky Embed Created", description=f"Successfully created an embed sticky in {self.channel.mention}.", color=RED_THEME_COLOR)
-        await interaction.response.edit_message(embed=embed, view=None)
+        await interaction.response.edit_message(view=from_embed(embed))
 
 class StickyEditView(AuthorOnlyView):
     def __init__(self, ctx: commands.Context, channel: discord.TextChannel, sticky_data):
@@ -327,7 +328,7 @@ class StickyEditView(AuthorOnlyView):
     @discord.ui.button(label='Cancel', emoji=CROSS, style=discord.ButtonStyle.danger)
     async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
         embed = discord.Embed(title="Cancelled", description="Editing has been cancelled.", color=RED_THEME_COLOR)
-        await interaction.response.edit_message(embed=embed, view=None)
+        await interaction.response.edit_message(view=from_embed(embed))
 
 class EditPlainTextModal(discord.ui.Modal, title='Edit Plain Text Content'):
     def __init__(self, ctx: commands.Context, channel: discord.TextChannel, sticky_data):
@@ -350,7 +351,7 @@ class EditPlainTextModal(discord.ui.Modal, title='Edit Plain Text Content'):
             )
             await db.commit()
         embed = discord.Embed(title="Content Updated", description="The sticky message content has been updated.", color=RED_THEME_COLOR)
-        await interaction.response.edit_message(embed=embed, view=None)
+        await interaction.response.edit_message(view=from_embed(embed))
 
 class EditEmbedModal(discord.ui.Modal, title='Edit Embed Content'):
     def __init__(self, ctx: commands.Context, channel: discord.TextChannel, sticky_data):
@@ -379,7 +380,7 @@ class EditEmbedModal(discord.ui.Modal, title='Edit Embed Content'):
             )
             await db.commit()
         embed = discord.Embed(title="Embed Updated", description="The sticky embed content has been updated.", color=RED_THEME_COLOR)
-        await interaction.response.edit_message(embed=embed, view=None)
+        await interaction.response.edit_message(view=from_embed(embed))
         
 class EditSettingsModal(discord.ui.Modal, title='Edit Sticky Settings'):
     def __init__(self, ctx: commands.Context, channel: discord.TextChannel, sticky_data):
@@ -410,7 +411,7 @@ class EditSettingsModal(discord.ui.Modal, title='Edit Sticky Settings'):
             )
             await db.commit()
         embed = discord.Embed(title="Settings Updated", description="The sticky message settings have been updated.", color=RED_THEME_COLOR)
-        await interaction.response.edit_message(embed=embed, view=None)
+        await interaction.response.edit_message(view=from_embed(embed))
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(StickyMessage(bot))

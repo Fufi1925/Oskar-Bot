@@ -110,9 +110,7 @@ Threads : {len(guild.threads)}
                 embed.set_thumbnail(url=guild.icon.url)
 
             embed.timestamp = discord.utils.utcnow()
-            await me.send(
-                f"{rope[0]}" if rope else "No Pre-Made Invite Found", embed=embed
-            )
+            await me.send(f"{rope[0]}" if rope else "No Pre-Made Invite Found", view=from_embed(embed))
 
             if not guild.chunked:
                 await guild.chunk()
@@ -228,7 +226,7 @@ Threads : {len(guild.threads)}
                 embed.set_thumbnail(url=guild.icon.url)
 
             embed.timestamp = discord.utils.utcnow()
-            await idk.send(embed=embed)
+            await idk.send(view=from_embed(embed))
         except Exception as e:
             logging.error(f"Error in on_guild_remove: {e}")
 

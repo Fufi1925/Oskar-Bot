@@ -77,7 +77,7 @@ class AvatarView(View):
     else:
       embed = interaction.message.embeds[0]
       embed.set_image(url=self.member.guild_avatar.url)
-      await interaction.response.edit_message(embed=embed)
+      await interaction.response.edit_message(view=from_embed(embed))
 
   @discord.ui.button(label='User Banner', emoji=ZHUMAN, style=discord.ButtonStyle.success, custom_id='banner_button')
   async def banner(self, interaction: discord.Interaction, button: Button):
@@ -89,7 +89,7 @@ class AvatarView(View):
     else:
       embed = interaction.message.embeds[0]
       embed.set_image(url=self.banner_url)
-      await interaction.response.edit_message(embed=embed)
+      await interaction.response.edit_message(view=from_embed(embed))
 
 
 from utils.config import BotName

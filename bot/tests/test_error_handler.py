@@ -88,11 +88,42 @@ class FakeContext:
         self.help_sent = False
         self.message = types.SimpleNamespace(content="!ping", jump_url="https://x.invalid/1")
 
-    async def reply(self, content=None, *, embed=None, **kw):
-        self.replies.append(embed.description if embed is not None else content)
+    def _record(self, content, embed, view):
+        """
+        What the user would actually read.
 
-    async def send(self, content=None, *, embed=None, **kw):
-        self.replies.append(embed.description if embed is not None else content)
+        The handler used to send `embed=`; it now sends a Components V2
+        panel as `view=`, so recording only the embed made every check
+        see an empty string and report that the user was told nothing.
+        Both shapes are read here, because the point of these tests is
+        that *something* comes back -- not how it is packaged.
+        """
+        if embed is not None:
+            self.replies.append(embed.description)
+            return
+        if view is not None:
+            texts = []
+
+            def walk(item):
+                if type(item).__name__ == "TextDisplay":
+                    texts.append(str(item.content))
+                for child in getattr(item, "children", []) or []:
+                    walk(child)
+                accessory = getattr(item, "accessory", None)
+                if accessory is not None:
+                    walk(accessory)
+
+            for child in getattr(view, "children", []) or []:
+                walk(child)
+            self.replies.append("\n".join(texts))
+            return
+        self.replies.append(content)
+
+    async def reply(self, content=None, *, embed=None, view=None, **kw):
+        self._record(content, embed, view)
+
+    async def send(self, content=None, *, embed=None, view=None, **kw):
+        self._record(content, embed, view)
 
     async def send_help(self, *a, **kw):
         self.help_sent = True

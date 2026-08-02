@@ -36,6 +36,7 @@ from typing import Optional
 import aiosqlite 
 import asyncio
 import aiohttp
+from utils.panels import from_embed
 
 
 start_time = time.time()
@@ -421,7 +422,7 @@ class Extra(commands.Cog):
         embed.set_footer(text=f"{member.name} not in this server.",
                          icon_url=ctx.author.display_avatar.url if ctx.author.avatar
                          else ctx.author.default_avatar.url)
-    await ctx.send(embed=embed)
+    await ctx.send(view=from_embed(embed))
 
 
 

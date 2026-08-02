@@ -15,6 +15,7 @@
 import discord
 from utils.emoji import LOCK
 from discord.ext import commands
+from utils.panels import from_embed
 
 
 class _encrypt(commands.Cog):
@@ -72,7 +73,7 @@ class _encrypt(commands.Cog):
             text="Use encode/decode commands to encrypt or decrypt your text"
         )
 
-        await ctx.reply(embed=embed)
+        await ctx.reply(view=from_embed(embed))
 
 
 async def setup(bot):

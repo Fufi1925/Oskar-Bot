@@ -18,6 +18,7 @@ from discord.ext import commands
 from discord import ui
 from utils.Tools import *
 from datetime import timedelta
+from utils.panels import from_embed
 
 #class MuteUnmuteView(ui.View):
    # def __init__(self, user, author):
@@ -161,7 +162,7 @@ class Unmute(commands.Cog):
             embed.set_author(name=f"{user.name} is Not Muted!", icon_url=self.get_user_avatar(user))
             embed.set_footer(text=f"Requested by {ctx.author}", icon_url=self.get_user_avatar(ctx.author))
           #  view = MuteUnmuteView(user=user, author=ctx.author)
-            message = await ctx.send(embed=embed)
+            message = await ctx.send(view=from_embed(embed))
           #  view.message = message
             return
 
@@ -181,7 +182,7 @@ class Unmute(commands.Cog):
             error = discord.Embed(color=self.color, description="I can't unmute a user with higher permissions!")
             error.set_footer(text=f"Requested by {ctx.author}", icon_url=self.get_user_avatar(ctx.author))
             error.set_author(name="Error Unmuting User", icon_url="https://cdn.discordapp.com/emojis/1448949627712966717.png?v=1&size=48&quality=lossless")
-            return await ctx.send(embed=error)
+            return await ctx.send(view=from_embed(error))
 
         embed = discord.Embed(
             description=f"**{TICK} | Successfully Unmuted [{user}](https://discord.com/users/{user.id})**",
@@ -194,6 +195,6 @@ class Unmute(commands.Cog):
         embed.timestamp = discord.utils.utcnow()
 
      #   view = MuteUnmuteView(user=user, author=ctx.author)
-        message = await ctx.send(embed=embed)
+        message = await ctx.send(view=from_embed(embed))
       #  view.message = message
 

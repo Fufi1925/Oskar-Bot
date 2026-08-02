@@ -23,6 +23,7 @@ import discord
 from discord.ext import commands
 
 from .utils import DiscordColor, DEFAULT_COLOR
+from utils.panels import from_embed
 
 
 class ReactionGame:
@@ -78,14 +79,14 @@ class ReactionGame:
             color=discord.Color.random(),
         )
 
-        self.message = await ctx.send(embed=embed)
+        self.message = await ctx.send(view=from_embed(embed))
         await self.message.add_reaction(self.emoji)
 
         pause = random.uniform(1.0, 5.0)
         await asyncio.sleep(pause)
 
         embed.description = f"React with {self.emoji} now!"
-        await self.message.edit(embed=embed)
+        await self.message.edit(view=from_embed(embed))
 
         try:
             user, elapsed = await self.wait_for_reaction(ctx, timeout=timeout)
@@ -93,6 +94,6 @@ class ReactionGame:
             return self.message
 
         embed.description = f"{user.mention} reacted first in `{elapsed:.2f}s` !"
-        await self.message.edit(embed=embed)
+        await self.message.edit(view=from_embed(embed))
 
         return self.message

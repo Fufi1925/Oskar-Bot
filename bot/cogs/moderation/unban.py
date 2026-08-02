@@ -17,6 +17,7 @@ from utils.emoji import DELETE, TICK, ZWARNING
 from discord.ext import commands
 from discord import ui
 from utils.Tools import *
+from utils.panels import from_embed
 
 #class BanView(ui.View):
    # def __init__(self, user, author):
@@ -153,7 +154,7 @@ class Unban(commands.Cog):
             embed.set_author(name=f"{user.name} is Not Banned!", icon_url=self.get_user_avatar(user))
             embed.set_footer(text=f"Requested by {ctx.author}", icon_url=self.get_user_avatar(ctx.author))
             #view = AlreadyUnbannedView(user=user, author=ctx.author)
-            message = await ctx.send(embed=embed)
+            message = await ctx.send(view=from_embed(embed))
             #view.message = message 
             return
 
@@ -176,7 +177,7 @@ class Unban(commands.Cog):
         embed.timestamp = discord.utils.utcnow()
 
         #view = BanView(user=user, author=ctx.author)
-        message = await ctx.send(embed=embed)
+        message = await ctx.send(view=from_embed(embed))
       #  view.message = message
 
 

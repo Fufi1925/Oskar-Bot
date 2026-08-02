@@ -21,6 +21,7 @@ import discord
 from discord.ext import commands
 
 from ..utils import *
+from utils.panels import from_embed
 
 if TYPE_CHECKING:
     from typing_extensions import TypeAlias
@@ -72,9 +73,7 @@ class SlideButton(discord.ui.Button["SlideView"]):
                     self.view.stop()
                     game.embed.description = "**Congrats! You won!**"
 
-                return await interaction.response.edit_message(
-                    embed=game.embed, view=self.view
-                )
+                return await interaction.response.edit_message(view=from_embed(game.embed, self.view))
 
 
 class SlideView(BaseView):
@@ -201,7 +200,7 @@ class NumberSlider:
         )
         self.embed.add_field(name="\u200b", value="Moves: `0`")
 
-        self.message = await ctx.send(embed=self.embed, view=self.view)
+        self.message = await ctx.send(view=from_embed(self.embed, self.view))
 
         await double_wait(
             wait_for_delete(ctx, self.message),

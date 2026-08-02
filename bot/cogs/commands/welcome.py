@@ -58,7 +58,7 @@ class VariableButton(Button):
             embed.add_field(name=var, value=desc, inline=False)
 
         embed.set_footer(text="Add placeholders directly in the welcome message or embed fields.")
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        await interaction.response.send_message(ephemeral=True, view=from_embed(embed))
 
 class Welcomer(commands.Cog):
     def __init__(self, bot):
@@ -101,7 +101,7 @@ class Welcomer(commands.Cog):
         if row:
             error = discord.Embed(description=f"A welcome message has already been set in {ctx.guild.name}. Use `{ctx.prefix}greet reset` to reconfigure.", color=0xFF0000)
             error.set_author(name="Error", icon_url="https://cdn.discordapp.com/emojis/1294218790082711553.png")
-            return await ctx.send(embed=error)
+            return await ctx.send(view=from_embed(error))
             
         options_view = View(timeout=600)
 
@@ -439,7 +439,7 @@ class Welcomer(commands.Cog):
         if not is_set_up: 
             error = discord.Embed(description=f"No welcome message has been set for {ctx.guild.name}! Please set a welcome message first using `{ctx.prefix}greet setup`", color=0xFF0000)
             error.set_author(name="Greet is not configured!", icon_url="https://cdn.discordapp.com/emojis/1294218790082711553.png")
-            return await ctx.send(embed=error)
+            return await ctx.send(view=from_embed(error))
             
         embed = discord.Embed(
             title="Are you sure?",
@@ -462,7 +462,7 @@ class Welcomer(commands.Cog):
             embed.color = discord.Color(0xFF0000)
             embed.title = f"{TICK}> Success"
             embed.description = "Welcome message configuration has been successfully reset."
-            await interaction.message.edit(embed=embed, view=None)
+            await interaction.message.edit(view=from_embed(embed))
 
         async def no_button_callback(interaction):
             if interaction.user != ctx.author:
@@ -472,7 +472,7 @@ class Welcomer(commands.Cog):
             embed.color = discord.Color(0xFF0000)
             embed.title = "Cancelled"
             embed.description = "Greet Reset operation has been cancelled."
-            await interaction.message.edit(embed=embed, view=None)
+            await interaction.message.edit(view=from_embed(embed))
 
         yes_button.callback = yes_button_callback
         no_button.callback = no_button_callback
@@ -500,7 +500,7 @@ class Welcomer(commands.Cog):
         if not welcome_message:
             error = discord.Embed(description=f"No welcome message has been set for {ctx.guild.name}! Please set a welcome message first using `{ctx.prefix}greet setup`", color=0xFF0000)
             error.set_author(name="Greet is not configured!", icon_url="https://cdn.discordapp.com/emojis/1294218790082711553.png")
-            await ctx.send(embed=error)
+            await ctx.send(view=from_embed(error))
             return
 
         channels = ctx.guild.text_channels
@@ -530,7 +530,7 @@ class Welcomer(commands.Cog):
                     await db.commit()
 
                 embed.description = f"Current Welcome Channel: {selected_channel.mention}"
-                await interaction.response.edit_message(embed=embed, view=None)
+                await interaction.response.edit_message(view=from_embed(embed))
                 await ctx.send(f"{TICK}> Welcome channel has been set to {selected_channel.mention}")
 
             select_menu.callback = select_callback
@@ -544,7 +544,7 @@ class Welcomer(commands.Cog):
                     return
                 nonlocal current_page
                 current_page += 1
-                await interaction.response.edit_message(embed=embed, view=generate_view(current_page))
+                await interaction.response.edit_message(view=from_embed(embed, generate_view(current_page)))
 
             async def previous_callback(interaction: discord.Interaction):
                 if interaction.user != ctx.author:
@@ -552,7 +552,7 @@ class Welcomer(commands.Cog):
                     return
                 nonlocal current_page
                 current_page -= 1
-                await interaction.response.edit_message(embed=embed, view=generate_view(current_page))
+                await interaction.response.edit_message(view=from_embed(embed, generate_view(current_page)))
 
             next_button.callback = next_callback
             previous_button.callback = previous_callback
@@ -570,7 +570,7 @@ class Welcomer(commands.Cog):
         )
         embed.set_footer(text="Use the dropdown menu to select a channel. Navigate pages if needed.")
 
-        await ctx.send(embed=embed, view=generate_view(current_page))
+        await ctx.send(view=from_embed(embed, generate_view(current_page)))
 
 
 
@@ -588,7 +588,7 @@ class Welcomer(commands.Cog):
         if row is None:
             error = discord.Embed(description=f"No welcome message has been set for {ctx.guild.name}! Please set a welcome message first using `{ctx.prefix}greet setup`", color=0xFF0000)
             error.set_author(name="Greet is not configured!", icon_url="https://cdn.discordapp.com/emojis/1294218790082711553.png")
-            await ctx.send(embed=error)
+            await ctx.send(view=from_embed(error))
             return
 
         welcome_type, welcome_message, channel_id, embed_data = row
@@ -597,7 +597,7 @@ class Welcomer(commands.Cog):
         if not welcome_channel:
             error2 = discord.Embed(description=f"Welcome channel not set or invalid. Use `{ctx.prefix}greet channel` to set one.", color=0xFF0000)
             error2.set_author(name="Channel not set", icon_url="https://cdn.discordapp.com/emojis/1294218790082711553.png")
-            await ctx.send(embed=error2)
+            await ctx.send(view=from_embed(error2))
             return
 
         placeholders = {
@@ -670,7 +670,7 @@ class Welcomer(commands.Cog):
             if embed_info.get("image"):
                 embed.set_image(url=safe_format(embed_info["image"]))
 
-            await welcome_channel.send(content=content, embed=embed)
+            await welcome_channel.send(content=content, view=from_embed(embed))
 
 
 
@@ -714,14 +714,14 @@ class Welcomer(commands.Cog):
 
             embed.add_field(name="Greet Channel", value=channel_display, inline=False)
             embed.add_field(name="Auto Delete Duration", value=auto_delete_duration, inline=False)
-            await ctx.send(embed=embed)
+            await ctx.send(view=from_embed(embed))
         else:
             error = discord.Embed(
                 description=f"No welcome message has been set for {ctx.guild.name}! Please set a welcome message first using `{ctx.prefix}greet setup`",
                 color=0xFF0000
             )
             error.set_author(name="Greet is not configured!", icon_url="https://cdn.discordapp.com/emojis/1294218790082711553.png")
-            await ctx.send(embed=error)
+            await ctx.send(view=from_embed(error))
 
 
     @greet.command(name="autodelete", aliases=["autodel"], help="Sets the auto-delete duration for the welcome message.")
@@ -777,7 +777,7 @@ class Welcomer(commands.Cog):
         if row is None:
             error = discord.Embed(description=f"No welcome message has been set for {ctx.guild.name}! Please set a welcome message first using `{ctx.prefix}greet setup`", color=0xFF0000)
             error.set_author(name="Greet is not configured!", icon_url="https://cdn.discordapp.com/emojis/1294218790082711553.png")
-            await ctx.send(embed=error)
+            await ctx.send(view=from_embed(error))
             return
 
         welcome_type, welcome_message, embed_data = row
@@ -930,7 +930,7 @@ class Welcomer(commands.Cog):
                             await db.commit()
 
                         embed.description = f"**Response Type:** Embed\n**Embed Data:**\n```{json.dumps(embed_data_json, indent=4)}```"
-                        await interaction.message.edit(embed=embed, view=None)
+                        await interaction.message.edit(view=from_embed(embed))
                         await ctx.send("Embed data has been successfully updated.")
                         break 
                     except asyncio.TimeoutError:

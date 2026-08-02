@@ -22,6 +22,7 @@ import discord
 from discord.ext import commands
 
 from ..utils import *
+from utils.panels import from_embed
 
 
 class MemoryButton(discord.ui.Button["MemoryView"]):
@@ -67,7 +68,7 @@ class MemoryButton(discord.ui.Button["MemoryView"]):
                     )
                     return self.view.stop()
 
-            return await interaction.message.edit(view=self.view, embed=game.embed)
+            return await interaction.message.edit(view=from_embed(game.embed, self.view))
         else:
             self.emoji = self.value
             self.view.opened = self
@@ -189,7 +190,7 @@ class MemoryGame:
             pause_time=pause_time,
             timeout=timeout,
         )
-        self.message = await ctx.send(embed=self.embed, view=self.view)
+        self.message = await ctx.send(view=from_embed(self.embed, self.view))
 
         await double_wait(
             wait_for_delete(ctx, self.message),

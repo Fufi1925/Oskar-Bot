@@ -23,6 +23,7 @@ import discord
 from discord.ext import commands
 
 from ..utils import DiscordColor, DEFAULT_COLOR, BaseView
+from utils.panels import from_embed
 
 
 class ReactionButton(discord.ui.Button["ReactionView"]):
@@ -49,7 +50,7 @@ class ReactionButton(discord.ui.Button["ReactionView"]):
             game.embed.description = (
                 f"{interaction.user.mention} reacted first in `{elapsed:.2f}s` !"
             )
-            await interaction.response.edit_message(embed=game.embed)
+            await interaction.response.edit_message(view=from_embed(game.embed))
 
             self.clicked = True
             return game.finished_event.set()
@@ -128,7 +129,7 @@ class BetaReactionGame:
             color=discord.Color.random(),
         )
         self.view = ReactionView(self, button_style=start_button_style, timeout=timeout)
-        self.message = await ctx.send(embed=self.embed, view=self.view)
+        self.message = await ctx.send(view=from_embed(self.embed, self.view))
 
         pause = random.uniform(*pause_range)
         await asyncio.sleep(pause)

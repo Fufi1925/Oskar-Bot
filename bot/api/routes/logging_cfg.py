@@ -30,6 +30,7 @@ from typing import TYPE_CHECKING
 from fastapi import APIRouter, Depends, HTTPException
 
 from api.dependencies import get_bot
+from utils.panels import from_embed
 
 if TYPE_CHECKING:
     from core.universitybot import universitybot
@@ -386,7 +387,7 @@ async def test_logging(
     )
 
     try:
-        await channel.send(embed=embed)
+        await channel.send(view=from_embed(embed))
     except discord.Forbidden:
         raise HTTPException(
             status_code=400,

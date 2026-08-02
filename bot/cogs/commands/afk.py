@@ -24,6 +24,7 @@ from utils.Tools import blacklist_check, ignore_check
 from utils.cv2 import CV2, build_container
 from utils.emoji import MENTION, SEED, TICK, TIME, ZDIL
 from utils.config import *
+from utils.panels import from_embed
 
 DB_PATH = "db/afk.db"
 THEME_COLOR = 0xFF0000
@@ -221,7 +222,7 @@ class afk(commands.Cog):
                     dm_embed.add_field(name="Jump to Message", value=f"[Click Here]({message.jump_url})")
                     dm_embed.set_footer(text=FOOTER_TEXT, icon_url=self.bot.user.display_avatar.url)
                     try:
-                        await mentioned.send(embed=dm_embed)
+                        await mentioned.send(view=from_embed(dm_embed))
                     except discord.Forbidden:
                         pass
 
@@ -232,7 +233,7 @@ class afk(commands.Cog):
     @commands.cooldown(1, 5, commands.BucketType.user)
     async def afk(self, ctx: commands.Context, *, reason: str = "I am AFK"):
         if any(w in reason.lower() for w in ("discord.gg", "gg/")):
-            return await ctx.send(embed=discord.Embed(description="⚠️ Advertising is not allowed in AFK reasons.", color=self.theme_color), ephemeral=True)
+            return await ctx.send(ephemeral=True, view=from_embed(discord.Embed(description="⚠️ Advertising is not allowed in AFK reasons.", color=self.theme_color)))
 
         type_view = AfkTypeView(ctx.author, reason)
         msg = await ctx.reply(view=type_view, mention_author=False)

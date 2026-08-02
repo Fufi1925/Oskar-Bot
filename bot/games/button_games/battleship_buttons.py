@@ -32,6 +32,7 @@ from ..battleship import (
 
 from .wordle_buttons import WordInputButton
 from ..utils import DiscordColor, DEFAULT_COLOR, BaseView
+from utils.panels import from_embed, from_embeds
 
 
 class Player:
@@ -294,9 +295,7 @@ class SetupInput(discord.ui.Modal):
 
             embed, file, _, _ = await game.get_file(interaction.user, hide=False)
 
-            await interaction.response.edit_message(
-                attachments=[file], embed=embed, view=self.button.view
-            )
+            await interaction.response.edit_message(attachments=[file], view=from_embed(embed, self.button.view))
 
             if all(
                 button.disabled
@@ -386,7 +385,7 @@ class BetaBattleShip(BattleShip):
         )
 
         view = SetupView(self, timeout=self.timeout)
-        await user.send(file=file, embeds=[embed, embed1], view=view)
+        await user.send(file=file, view=from_embeds([embed, embed1], view))
 
         return view.wait()
 
@@ -421,15 +420,13 @@ class BetaBattleShip(BattleShip):
         )
 
         await self.message1.edit(
-            view=self.view1,
             content="**Battleship**",
-            embeds=[e2, e1, self.player1.embed],
+            view=from_embeds([e2, e1, self.player1.embed], self.view1),
             attachments=[f2, f1],
         )
         await self.message2.edit(
-            view=self.view2,
             content="**Battleship**",
-            embeds=[e4, e3, self.player2.embed],
+            view=from_embeds([e4, e3, self.player2.embed], self.view2),
             attachments=[f4, f3],
         )
 
@@ -499,14 +496,12 @@ class BetaBattleShip(BattleShip):
 
         self.message1 = await self.player1.send(
             content="**Game starting!**",
-            view=self.view1,
-            embeds=[e2, e1, self.player1.embed],
+            view=from_embeds([e2, e1, self.player1.embed], self.view1),
             files=[f2, f1],
         )
         self.message2 = await self.player2.send(
             content="**Game starting!**",
-            view=self.view2,
-            embeds=[e4, e3, self.player2.embed],
+            view=from_embeds([e4, e3, self.player2.embed], self.view2),
             files=[f4, f3],
         )
 

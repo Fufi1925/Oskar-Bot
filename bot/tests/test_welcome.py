@@ -53,8 +53,11 @@ class FakeMember:
 
 
 class FakeMessage:
-    def __init__(self, content=None, embed=None):
-        self.content, self.embed = content, embed
+    # `view` is recorded too: the greeting is a Components V2 panel now,
+    # and a stub that only kept the embed made the panel invisible to
+    # the assertions.
+    def __init__(self, content=None, embed=None, view=None):
+        self.content, self.embed, self.view = content, embed, view
         self.jump_url = "https://d/1"
 
     async def delete(self, delay=None):
@@ -70,7 +73,7 @@ class FakeChannel:
         return discord.Permissions.all()
 
     async def send(self, content=None, embed=None, view=None, **kw):
-        message = FakeMessage(content, embed)
+        message = FakeMessage(content, embed, view)
         self.sent.append(message)
         return message
 
@@ -280,9 +283,34 @@ def run():
     )
     check("an unsaved draft can be previewed", r.status_code == 200, r.text[:120])
     sent = guild.channel.sent[-1]
+    # The preview is a Components V2 panel now, not an embed, so read
+    # the text out of whichever one was sent. What matters is that the
+    # rendered title reaches the channel -- with placeholders filled in.
+    def rendered_text(message) -> str:
+        if getattr(message, "embed", None) is not None:
+            return "\n".join(
+                str(part) for part in
+                (message.embed.title, message.embed.description) if part
+            )
+        collected: list[str] = []
+
+        def walk(item):
+            if type(item).__name__ == "TextDisplay":
+                collected.append(str(item.content))
+            for child in getattr(item, "children", []) or []:
+                walk(child)
+            accessory = getattr(item, "accessory", None)
+            if accessory is not None:
+                walk(accessory)
+
+        for child in getattr(getattr(message, "view", None), "children", []) or []:
+            walk(child)
+        return "\n".join(collected)
+
+    body = rendered_text(sent)
     check("the draft is rendered as a card, not as text",
-          sent.embed is not None and sent.embed.title == "Entwurf für Mein Server",
-          str(sent.embed.title if sent.embed else None))
+          "Entwurf für Mein Server" in body,
+          repr(body[:120]))
 
     # Saving the draft must not have happened.
     async def stored():

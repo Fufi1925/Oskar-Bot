@@ -17,6 +17,7 @@ import traceback
 from discord.ext import commands
 from core import universitybot, Cog, Context
 from utils.Tools import get_ignore_data
+from utils.panels import from_embed
 
 class Errors(Cog):
   def __init__(self, client: universitybot):
@@ -79,7 +80,7 @@ class Errors(Cog):
       embed = discord.Embed(color=0xFF0000, description="You can't use my commands in DMs.")
       embed.set_author(name=ctx.author, icon_url=ctx.author.avatar.url if ctx.author.avatar else ctx.author.default_avatar.url)
       embed.set_thumbnail(url=ctx.author.avatar.url if ctx.author.avatar else ctx.author.default_avatar.url)
-      await ctx.reply(embed=embed, delete_after=20)
+      await ctx.reply(delete_after=20, view=from_embed(embed))
       return
 
     if isinstance(error, commands.TooManyArguments):
@@ -92,7 +93,7 @@ class Errors(Cog):
       embed.set_author(name="Cooldown", icon_url=self.client.user.display_avatar.url)
       
       embed.set_footer(text=f"Requested by {ctx.author}", icon_url=ctx.author.avatar.url if ctx.author.avatar else ctx.author.default_avatar.url)
-      await ctx.reply(embed=embed, delete_after=10)
+      await ctx.reply(delete_after=10, view=from_embed(embed))
       return
 
     if isinstance(error, commands.MaxConcurrencyReached):
@@ -100,7 +101,7 @@ class Errors(Cog):
       embed.set_author(name="Command in Progress.", icon_url=self.client.user.display_avatar.url)
       
       embed.set_footer(text=f"Requested by {ctx.author}", icon_url=ctx.author.avatar.url if ctx.author.avatar else ctx.author.default_avatar.url)
-      await ctx.reply(embed=embed, delete_after=10)
+      await ctx.reply(delete_after=10, view=from_embed(embed))
       ctx.command.reset_cooldown(ctx)
       return
 
@@ -111,7 +112,7 @@ class Errors(Cog):
       embed.set_author(name="Missing Permissions", icon_url=self.client.user.display_avatar.url)
       
       embed.set_footer(text=f"Requested by {ctx.author}", icon_url=ctx.author.avatar.url if ctx.author.avatar else ctx.author.default_avatar.url)
-      await ctx.reply(embed=embed, delete_after=7)
+      await ctx.reply(delete_after=7, view=from_embed(embed))
       ctx.command.reset_cooldown(ctx)
       return
 
@@ -163,7 +164,7 @@ class Errors(Cog):
         ),
       )
       embed.set_author(name="Unexpected Error", icon_url=self.client.user.display_avatar.url)
-      await ctx.reply(embed=embed, delete_after=15)
+      await ctx.reply(delete_after=15, view=from_embed(embed))
     except discord.HTTPException:
       pass
 

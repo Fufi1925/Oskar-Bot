@@ -23,6 +23,7 @@ import chess
 from utils.emoji import SUCCESS
 
 from .utils import DiscordColor, DEFAULT_COLOR
+from utils.panels import from_embed
 
 
 class Chess:
@@ -114,7 +115,7 @@ class Chess:
         self.embed_color = discord.Color.random()
 
         embed = await self.make_embed()
-        self.message = await ctx.send(embed=embed, **kwargs)
+        self.message = await ctx.send(**kwargs, view=from_embed(embed))
 
         while not ctx.bot.is_closed():
 
@@ -143,10 +144,10 @@ class Chess:
             if self.board.is_game_over():
                 break
 
-            await self.message.edit(embed=embed)
+            await self.message.edit(view=from_embed(embed))
 
         embed = await self.fetch_results()
-        await self.message.edit(embed=embed)
+        await self.message.edit(view=from_embed(embed))
         await ctx.send("~ Game Over ~")
 
         return self.message

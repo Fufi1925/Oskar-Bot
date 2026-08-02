@@ -25,6 +25,7 @@ from discord.ext import commands
 from PIL import Image, ImageFilter, ImageOps
 
 from .utils import *
+from utils.panels import from_embed
 
 
 class CountryGuesser:
@@ -170,7 +171,7 @@ class CountryGuesser:
         self.embed = self.get_embed()
         self.embed.set_footer(text="send your guess within 100 seconds into the chat now!")
 
-        self.message = await ctx.send(embed=self.embed, file=file)
+        self.message = await ctx.send(file=file, view=from_embed(self.embed))
 
         self.accepted_length = None
         start_time = asyncio.get_event_loop().time()
@@ -227,7 +228,7 @@ class CountryGuesser:
         else:
             embed.description = f"Time's up! No one guessed the country. The correct answer was `{self.country.title()}`."
           
-        return await ctx.send(embed=embed)
+        return await ctx.send(view=from_embed(embed))
 
     
     async def end_game_manually(self, ctx: commands.Context):

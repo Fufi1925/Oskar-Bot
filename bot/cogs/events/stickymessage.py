@@ -18,6 +18,7 @@ import json
 import asyncio
 from discord.ext import commands
 from utils.config import *
+from utils.panels import from_embed
 
 class StickyMessageListener(commands.Cog):
     def __init__(self, bot):
@@ -157,7 +158,7 @@ class StickyMessageListener(commands.Cog):
                         embed.set_footer(text=f"{BRAND_NAME} Development")
 
                     embed.timestamp = discord.utils.utcnow()
-                    return await channel.send(embed=embed)
+                    return await channel.send(view=from_embed(embed))
 
                 except json.JSONDecodeError:
                     return await channel.send(content="*[Embed data corrupted]*")

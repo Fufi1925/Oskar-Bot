@@ -25,6 +25,7 @@ import io
 import asyncio
 import base64
 from utils.emoji import SUCCESS, ERROR, WARNING_UNICODE, CLOCK, REFRESH, JAVA_COFFEE
+from utils.panels import from_embed
 
 # --- Updated Asset Paths ---
 ASSETS_DIR = "assets"
@@ -68,7 +69,7 @@ class SetupModal(ui.Modal, title="Minecraft Server Setup"):
             await interaction.followup.send(f"{EMOJI_ERROR} Could not reach or identify the server. Check IP/Port and try again.", ephemeral=True)
             return
         embed, file, view = await self.cog.generate_response(interaction.guild, detected_type, ip, port, interaction.user.id)
-        sent_message = await interaction.channel.send(embed=embed, file=file, view=view)
+        sent_message = await interaction.channel.send(file=file, view=from_embed(embed, view))
         await self.cog.save_status_message(interaction.guild.id, interaction.user.id, interaction.channel.id, sent_message.id, detected_type, ip, port)
         await interaction.followup.send(f"{EMOJI_SUCCESS} Auto-updating status for `{ip}` set up!", ephemeral=True)
 
@@ -88,7 +89,7 @@ class MinecraftView(ui.View):
         await interaction.response.defer(ephemeral=True)
         cog = self.bot.get_cog("Minecraft")
         embed, file, view = await cog.generate_response(interaction.guild, self.server_type, self.ip, self.port, self.user_id)
-        await interaction.message.edit(embed=embed, attachments=[file] if file else [], view=view)
+        await interaction.message.edit(attachments=[file] if file else [], view=from_embed(embed, view))
         await interaction.followup.send(f"{EMOJI_SUCCESS} Status refreshed.", ephemeral=True)
         self.last_refresh = now
 
@@ -247,7 +248,7 @@ class Minecraft(commands.Cog):
                         if not channel: continue
                         message = await channel.fetch_message(row[3])
                         embed, file, view = await self.generate_response(guild, row[4], row[5], row[6], row[1])
-                        await message.edit(embed=embed, attachments=[file] if file else [], view=view)
+                        await message.edit(attachments=[file] if file else [], view=from_embed(embed, view))
                         await asyncio.sleep(2)
                     except discord.NotFound: await self.delete_status_message(row[0])
                     except Exception as e: print(f"Auto-refresh error for guild {row[0]}: {e}")
@@ -277,7 +278,7 @@ class Minecraft(commands.Cog):
         if not row:
             return await interaction.followup.send(f"{EMOJI_WARNING} No server configured. Use `/minecraft setup`.", ephemeral=True)
         embed, file, _ = await self.generate_response(interaction.guild, row[0], row[1], row[2], row[3])
-        await interaction.followup.send(embed=embed, file=file, ephemeral=False)
+        await interaction.followup.send(file=file, ephemeral=False, view=from_embed(embed))
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(Minecraft(bot))

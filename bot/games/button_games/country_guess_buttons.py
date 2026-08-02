@@ -22,6 +22,7 @@ from discord.ext import commands
 from ..country_guess import CountryGuesser
 from ..utils import DiscordColor, DEFAULT_COLOR, BaseView
 from utils.emoji import CROSS, GAMES, INFO
+from utils.panels import from_embed
 
 
 class CountryInput(discord.ui.Modal, title="Input your guess!"):
@@ -50,7 +51,7 @@ class CountryInput(discord.ui.Modal, title="Input your guess!"):
 
             self.view.disable_all()
             game.embed.description = f"```fix\n{game.country.title()}\n```"
-            await interaction.message.edit(view=self.view, embed=game.embed)
+            await interaction.message.edit(view=from_embed(game.embed, self.view))
             return self.view.stop()
         else:
             game.guesses -= 1
@@ -59,7 +60,7 @@ class CountryInput(discord.ui.Modal, title="Input your guess!"):
                 self.view.disable_all()
                 game.update_guesslog("- GAME OVER, you lost -")
 
-                await interaction.message.edit(embed=game.embed, view=self.view)
+                await interaction.message.edit(view=from_embed(game.embed, self.view))
                 await interaction.response.send_message(
                     f"Game Over! you lost, The country was `{game.country.title()}`"
                 )
@@ -71,7 +72,7 @@ class CountryInput(discord.ui.Modal, title="Input your guess!"):
                     f"+ You have {game.guesses} guesses left.\n"
                 )
 
-                await interaction.response.edit_message(embed=game.embed)
+                await interaction.response.edit_message(view=from_embed(game.embed))
 
 
 class CountryView(BaseView):
@@ -120,7 +121,7 @@ class CountryView(BaseView):
         await interaction.response.send_message(
             f"Game Over! The country was `{self.game.country.title()}`"
         )
-        await interaction.message.edit(view=self, embed=self.game.embed)
+        await interaction.message.edit(view=from_embed(self.game.embed, self))
         return self.stop()
 
 
@@ -175,7 +176,7 @@ class BetaCountryGuesser(CountryGuesser):
         )
 
         self.view = CountryView(self, user=ctx.author, timeout=timeout)
-        self.message = await ctx.send(embed=self.embed, file=file, view=self.view)
+        self.message = await ctx.send(file=file, view=from_embed(self.embed, self.view))
 
         await self.view.wait()
         return self.message

@@ -16,6 +16,7 @@ import discord
 from utils.emoji import DELETE, TICK
 from discord.ext import commands
 from discord import ui
+from utils.panels import from_embed
 
 #class LockUnlockView(ui.View):
     #def __init__(self, channel, author, ctx):
@@ -87,7 +88,7 @@ class Unlock(commands.Cog):
             embed.set_author(name=f"{channel.name} is Already Unlocked")
             embed.set_footer(text=f"Requested by {ctx.author}", icon_url=ctx.author.display_avatar.url)
             #view = LockUnlockView(channel=channel, author=ctx.author, ctx=ctx)  
-            message = await ctx.send(embed=embed)
+            message = await ctx.send(view=from_embed(embed))
            # view.message = message
             return
 
@@ -102,7 +103,7 @@ class Unlock(commands.Cog):
         embed.set_author(name=f"Successfully Unlocked {channel.name}")
         embed.set_footer(text=f"Requested by {ctx.author}", icon_url=ctx.author.display_avatar.url)
       #  view = LockUnlockView(channel=channel, author=ctx.author, ctx=ctx)  
-        message = await ctx.send(embed=embed)
+        message = await ctx.send(view=from_embed(embed))
        # view.message = message
 
 

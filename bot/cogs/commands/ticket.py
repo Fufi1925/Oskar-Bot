@@ -87,7 +87,7 @@ async def log_ticket_action(db, guild, user, action, details):
     if log_channel := await get_or_create_log_channel(db, guild):
         embed = discord.Embed(title=f"Ticket Action: {action}", color=EMBED_COLOR, timestamp=datetime.now())
         embed.add_field(name="Action By", value=user.mention).add_field(name="Details", value=details, inline=False)
-        try: await log_channel.send(embed=embed)
+        try: await log_channel.send(view=from_embed(embed))
         except: pass
 
 async def get_or_create_closed_category(db, guild):
@@ -115,7 +115,7 @@ class EmbedEditorView(discord.ui.View):
         return embed
 
     async def start(self, interaction):
-        await interaction.response.send_message("Use the buttons to customize the panel embed.", embed=self._create_preview_embed(), view=self, ephemeral=True)
+        await interaction.response.send_message("Use the buttons to customize the panel embed.", view=from_embed(self._create_preview_embed(), self), ephemeral=True)
         self.message = await interaction.original_response()
 
     async def _prompt(self, inter, prompt):
@@ -131,25 +131,25 @@ class EmbedEditorView(discord.ui.View):
     async def edit_title(self, inter, button):
         if title := await self._prompt(inter, "Enter new title:"):
             self.embed_data["title"] = title
-            await self.message.edit(embed=self._create_preview_embed())
+            await self.message.edit(view=from_embed(self._create_preview_embed()))
 
     @discord.ui.button(label="Description", emoji=MESSAGE, style=discord.ButtonStyle.green, row=0)
     async def edit_desc(self, inter, button):
         if desc := await self._prompt(inter, "Enter new description:"):
             self.embed_data["description"] = desc
-            await self.message.edit(embed=self._create_preview_embed())
+            await self.message.edit(view=from_embed(self._create_preview_embed()))
     
     @discord.ui.button(label="Image URL", style=discord.ButtonStyle.blurple, row=1)
     async def edit_image(self, inter, button):
         if url := await self._prompt(inter, "Enter image URL (`none` to remove):"):
             self.embed_data["image"] = {"url": url} if url.lower() != 'none' else {}
-            await self.message.edit(embed=self._create_preview_embed())
+            await self.message.edit(view=from_embed(self._create_preview_embed()))
 
     @discord.ui.button(label="Thumbnail URL", style=discord.ButtonStyle.blurple, row=1)
     async def edit_thumb(self, inter, button):
         if url := await self._prompt(inter, "Enter thumbnail URL (`none` to remove):"):
             self.embed_data["thumbnail"] = {"url": url} if url.lower() != 'none' else {}
-            await self.message.edit(embed=self._create_preview_embed())
+            await self.message.edit(view=from_embed(self._create_preview_embed()))
 
     @discord.ui.button(label="Submit & Continue", emoji=TICK, style=discord.ButtonStyle.primary, row=2)
     async def submit(self, inter, button):
@@ -176,7 +176,7 @@ class CategoryConfigView(discord.ui.View):
 
     async def start(self, interaction):
         self._update_remove_select()
-        await interaction.followup.send(embed=self._update_embed(), view=self, ephemeral=True)
+        await interaction.followup.send(view=from_embed(self._update_embed(), self), ephemeral=True)
         self.message = await interaction.original_response()
     
     def _update_embed(self):
@@ -234,7 +234,7 @@ class CategoryConfigView(discord.ui.View):
             "button_style": discord.ButtonStyle.secondary.value
         })
         self._update_remove_select()
-        await self.message.edit(embed=self._update_embed(), view=self)
+        await self.message.edit(view=from_embed(self._update_embed(), self))
         await inter.followup.send(f"Category '{cat_name}' added/removed successfully.", ephemeral=True)
 
     async def _remove_category(self, inter, value):
@@ -246,7 +246,7 @@ class CategoryConfigView(discord.ui.View):
         except ValueError:
             pass
         self._update_remove_select()
-        await self.message.edit(embed=self._update_embed(), view=self)
+        await self.message.edit(view=from_embed(self._update_embed(), self))
         await inter.response.defer()
 
     async def _finish_setup(self, inter):
@@ -381,7 +381,7 @@ class TicketCog(commands.Cog, name="Ticket System"):
         
         ticket_embed = discord.Embed(title=f"Welcome to your Ticket ( #{t_num:04d} )", description="Thank you for reaching out for support. Our staff team has been notified and will be with you as soon as possible.\n\nPlease describe your issue in detail while you wait.", color=EMBED_COLOR)
         ticket_embed.set_image(url=TICKET_CHANNEL_IMAGE_URL)
-        await ch.send(content=" ".join(pings), embed=ticket_embed, view=TicketActionsView(self, ch.id, cat_id))
+        await ch.send(content=" ".join(pings), view=from_embed(ticket_embed, TicketActionsView(self, ch.id, cat_id)))
         await inter.followup.send(f"Your ticket has been successfully created: {ch.mention}", ephemeral=True)
 
     @commands.hybrid_group(name="ticket", description="Main command group for the ticket system.")
@@ -501,7 +501,7 @@ class TicketActionsView(discord.ui.View):
         closed_embed.add_field(name="Closed By", value=i.user.mention, inline=True)
         closed_embed.add_field(name="Original Category", value=category_name, inline=True)
         
-        await i.channel.send(embed=closed_embed, view=ClosedTicketActionsView(self.cog, self.ch_id, self.cat_id))
+        await i.channel.send(view=from_embed(closed_embed, ClosedTicketActionsView(self.cog, self.ch_id, self.cat_id)))
         await i.message.edit(view=None)
         await i.followup.send("Ticket successfully closed and archived.", ephemeral=True)
         self.stop()
@@ -538,7 +538,7 @@ class ClosedTicketActionsView(discord.ui.View):
         self.cog.db.execute("UPDATE open_tickets SET closed_by_id=NULL, closed_at=NULL WHERE channel_id=?", (self.ch_id,))
         
         reopen_embed = discord.Embed(title="Ticket Reopened", description=f"This ticket has been reopened by {i.user.mention}.", color=EMBED_COLOR)
-        await i.channel.send(embed=reopen_embed, view=TicketActionsView(self.cog, self.ch_id, self.cat_id))
+        await i.channel.send(view=from_embed(reopen_embed, TicketActionsView(self.cog, self.ch_id, self.cat_id)))
         await i.message.edit(view=None)
         await log_ticket_action(self.cog.db, i.guild, i.user, "Reopened", f"{i.channel.mention}")
         self.stop()

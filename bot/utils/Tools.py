@@ -22,6 +22,7 @@ from discord.ext import commands
 from utils.emoji import DENIED
 import aiosqlite
 import asyncio
+from utils.panels import from_embed
 
 async def setup_db():
   async with aiosqlite.connect('db/prefix.db') as db:
@@ -266,7 +267,7 @@ def top_check():
                 text=f"“{ctx.command.qualified_name}” command executed by {ctx.author}",
                 icon_url=ctx.author.avatar.url if ctx.author.avatar else ctx.author.default_avatar.url
             )
-            await ctx.send(embed=embed)
+            await ctx.send(view=from_embed(embed))
             return False
 
         return True

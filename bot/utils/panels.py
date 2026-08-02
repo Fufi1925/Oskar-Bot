@@ -22,8 +22,10 @@ from discord.ui import (
     Container,
     LayoutView,
     MediaGallery,
+    Section,
     Separator,
     TextDisplay,
+    Thumbnail,
 )
 
 # Shared accent colours. Keep in sync with the verification cog's tones.
@@ -115,6 +117,7 @@ class Panel(LayoutView):
         tone: str = "info",
         accent: int | None = None,
         image_url: str | None = None,
+        thumbnail_url: str | None = None,
         buttons=None,
         heading: str = "##",
         timeout: float | None = None,
@@ -126,14 +129,36 @@ class Panel(LayoutView):
             items.append(TextDisplay(f"{heading} {title}"))
 
         first = True
+        blocks: list[TextDisplay] = []
         for section in sections:
             text = str(section or "").strip()
             if not text:
                 continue
             if title or not first:
                 items.append(Separator(visible=True))
-            items.append(TextDisplay(text))
+            display = TextDisplay(text)
+            items.append(display)
+            blocks.append(display)
             first = False
+
+        # A thumbnail sat top-right of an embed. The V2 equivalent is a
+        # Section with the image as its accessory, so the first block of
+        # text is moved inside one. Without this the thumbnail is simply
+        # dropped -- 81 embeds set one.
+        if thumbnail_url and blocks:
+            anchor = blocks[0]
+            position = items.index(anchor)
+            try:
+                items[position] = Section(
+                    anchor, accessory=Thumbnail(thumbnail_url)
+                )
+            except Exception:
+                # Any rejection (a bad URL, a future API change) must not
+                # cost the text: leave the plain block in place.
+                pass
+        elif thumbnail_url:
+            # Nothing to attach it to, so show it rather than lose it.
+            items.append(MediaGallery(discord.MediaGalleryItem(thumbnail_url)))
 
         if image_url:
             items.append(MediaGallery(discord.MediaGalleryItem(image_url)))
@@ -160,20 +185,101 @@ class StatusCard(LayoutView):
         self.add_item(container(*items, accent_color=ACCENT.get(tone, ACCENT["info"])))
 
 
+# ── embed → V2, without dropping anything ───────────────────────────
+#
+# The first version of from_embed() kept the title, description, fields
+# and footer, and silently lost the author (102 uses), the thumbnail
+# (81), the embed url and the timestamp. Across 342 embeds that is a lot
+# of text quietly disappearing, so every part is now accounted for.
+
+
+def _field_block(field) -> str:
+    """One embed field as a text block."""
+    name = str(getattr(field, "name", "") or "").strip()
+    value = str(getattr(field, "value", "") or "").strip()
+    if name and value:
+        return f"**{name}**\n{value}"
+    return name or value
+
+
 def _fields_to_text(embed: discord.Embed) -> list[str]:
-    """An embed's fields as V2 text blocks."""
-    out = []
+    """
+    An embed's fields as V2 text blocks.
+
+    Inline fields sat side by side in an embed; V2 has no columns, so
+    consecutive inline fields are joined into one block instead of
+    becoming a stack of tiny separated sections.
+    """
+    out: list[str] = []
+    run: list[str] = []
+
     for field in embed.fields:
-        name = str(field.name or "").strip()
-        value = str(field.value or "").strip()
-        if not name and not value:
+        block = _field_block(field)
+        if not block:
             continue
-        out.append(f"**{name}**\n{value}" if name and value else (name or value))
+        if getattr(field, "inline", False):
+            run.append(block)
+            continue
+        if run:
+            out.append("\n\n".join(run))
+            run = []
+        out.append(block)
+
+    if run:
+        out.append("\n\n".join(run))
     return out
 
 
-def from_embed(embed: discord.Embed, view: discord.ui.View | None = None,
-               *, tone: str | None = None) -> "Panel":
+def embed_sections(embed: discord.Embed) -> tuple[str, list[str], str | None, str | None]:
+    """
+    Everything readable in an embed: (title, body blocks, image, thumb).
+
+    Split out from from_embed so callers that build their own panel can
+    reuse it, and so the "nothing is lost" test has one place to check.
+    """
+    title = str(embed.title or "").strip()
+
+    # The author line sits above the title in an embed, so it goes first
+    # here too. Linked when the embed linked it.
+    head: list[str] = []
+    author = getattr(embed, "author", None)
+    author_name = str(getattr(author, "name", "") or "").strip() if author else ""
+    if author_name:
+        author_url = getattr(author, "url", None)
+        head.append(f"-# {f'[{author_name}]({author_url})' if author_url else author_name}")
+
+    # An embed title can be a link. A V2 heading cannot, so the link
+    # moves into the heading text as markdown.
+    if title and embed.url:
+        title = f"[{title}]({embed.url})"
+
+    sections: list[str] = []
+    description = str(embed.description or "").strip()
+    if description:
+        sections.append(description)
+    sections.extend(_fields_to_text(embed))
+
+    # Footer and timestamp share the last line in an embed, so they are
+    # kept on one line here as well.
+    tail: list[str] = []
+    footer = getattr(embed, "footer", None)
+    footer_text = str(getattr(footer, "text", "") or "").strip() if footer else ""
+    stamp = getattr(embed, "timestamp", None)
+    if footer_text and stamp:
+        tail.append(f"-# {footer_text} • <t:{int(stamp.timestamp())}:f>")
+    elif footer_text:
+        tail.append(f"-# {footer_text}")
+    elif stamp:
+        tail.append(f"-# <t:{int(stamp.timestamp())}:f>")
+
+    image_url = embed.image.url if embed.image else None
+    thumb_url = embed.thumbnail.url if embed.thumbnail else None
+
+    return title, head + sections + tail, image_url, thumb_url
+
+
+def from_embed(embed: discord.Embed | None, view: discord.ui.View | None = None,
+               *, tone: str | None = None) -> "Panel | None":
     """
     Rebuild a classic embed as a V2 panel, keeping an existing view's
     buttons.
@@ -181,7 +287,8 @@ def from_embed(embed: discord.Embed, view: discord.ui.View | None = None,
     Components V2 and embeds cannot appear on the same message, so a cog
     that already builds an embed and a View has no cheap way across --
     it has to take the view apart and hand the components to a Panel.
-    Doing that at 83 call sites by hand is 83 chances to drop a button.
+    Doing that by hand at hundreds of call sites is hundreds of chances
+    to drop a button or a line of text.
 
     The view's items are *moved*, not copied: a component may belong to
     one view at a time, and leaving it attached to the old view means
@@ -189,16 +296,19 @@ def from_embed(embed: discord.Embed, view: discord.ui.View | None = None,
     sent. The callbacks keep working because they live on the items.
 
     Returns a Panel; the caller sends it as `view=` with no embed.
-    """
-    title = str(embed.title or "").strip()
 
-    sections: list[str] = []
-    description = str(embed.description or "").strip()
-    if description:
-        sections.append(description)
-    sections.extend(_fields_to_text(embed))
-    if embed.footer and embed.footer.text:
-        sections.append(f"-# {embed.footer.text}")
+    `embed=None` gives back None rather than raising. Several callers
+    build an optional embed -- a greeting can be plain text -- and used
+    to pass `embed=None` straight through to send(), which discord.py
+    accepts. Wrapping that in from_embed() turned a working "text only"
+    path into AttributeError: 'NoneType' object has no attribute
+    'title'. Returning None keeps `view=None` meaning exactly what it
+    meant before.
+    """
+    if embed is None:
+        return None
+
+    title, sections, image_url, thumb_url = embed_sections(embed)
 
     buttons = list(view.children) if view is not None else []
     if view is not None:
@@ -206,14 +316,69 @@ def from_embed(embed: discord.Embed, view: discord.ui.View | None = None,
         for item in buttons:
             view.remove_item(item)
 
-    image_url = embed.image.url if embed.image else None
-
     return Panel(
         title,
         *sections,
         tone=tone or "info",
         accent=embed.colour.value if embed.colour is not None else None,
         image_url=image_url,
+        thumbnail_url=thumb_url,
+        buttons=buttons,
+        timeout=getattr(view, "timeout", None),
+    )
+
+
+def from_embeds(embeds, view: discord.ui.View | None = None,
+                *, tone: str | None = None) -> "Panel | None":
+    """
+    Several embeds as one V2 panel.
+
+    A message could carry up to ten embeds stacked on top of each other;
+    Components V2 has no equivalent, so they are merged into a single
+    container with a divider between them. Battleship sends three at
+    once -- two boards and a status card -- and the order is what makes
+    them readable, so it is preserved exactly.
+
+    The first embed's title becomes the panel heading; the others keep
+    theirs as a bold line inside the body, because a container has one
+    heading.
+    """
+    embeds = [e for e in (embeds or []) if e is not None]
+    if not embeds:
+        return None
+    if len(embeds) == 1:
+        return from_embed(embeds[0], view, tone=tone)
+
+    title, sections, image_url, thumb_url = embed_sections(embeds[0])
+
+    for extra in embeds[1:]:
+        extra_title, extra_sections, extra_image, extra_thumb = embed_sections(extra)
+        if extra_title:
+            sections.append(f"**{extra_title}**")
+        sections.extend(extra_sections)
+        # Only one image and one thumbnail can be shown per container,
+        # so a later one is only taken when the first had none.
+        image_url = image_url or extra_image
+        thumb_url = thumb_url or extra_thumb
+
+    buttons = list(view.children) if view is not None else []
+    if view is not None:
+        for item in buttons:
+            view.remove_item(item)
+
+    accent = None
+    for candidate in embeds:
+        if candidate.colour is not None:
+            accent = candidate.colour.value
+            break
+
+    return Panel(
+        title,
+        *sections,
+        tone=tone or "info",
+        accent=accent,
+        image_url=image_url,
+        thumbnail_url=thumb_url,
         buttons=buttons,
         timeout=getattr(view, "timeout", None),
     )

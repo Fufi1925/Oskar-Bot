@@ -25,6 +25,7 @@ from discord.ext import commands
 from PIL import Image, ImageDraw, ImageFont
 
 from .utils import *
+from utils.panels import from_embed
 
 BORDER: Final[int] = 40
 SQ: Final[int] = 100
@@ -145,7 +146,7 @@ class Wordle:
         embed.set_image(url="attachment://wordle.png")
         embed.set_footer(text='Say "stop" to cancel the game!')
 
-        self.message = await ctx.send(embed=embed, file=discord.File(buf, "wordle.png"))
+        self.message = await ctx.send(file=discord.File(buf, "wordle.png"), view=from_embed(embed))
 
         while not ctx.bot.is_closed():
 
@@ -180,9 +181,7 @@ class Wordle:
                 embed = discord.Embed(title="Wordle!", color=discord.Color.random())
                 embed.set_image(url="attachment://wordle.png")
 
-                self.message = await ctx.send(
-                    embed=embed, file=discord.File(buf, "wordle.png")
-                )
+                self.message = await ctx.send(file=discord.File(buf, "wordle.png"), view=from_embed(embed))
 
                 if won:
                     await ctx.send("Game Over! You won!")

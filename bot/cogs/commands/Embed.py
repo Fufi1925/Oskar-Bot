@@ -20,6 +20,7 @@ from discord import ui
 import asyncio
 from utils.Tools import *
 import re
+from utils.panels import from_embed
 
 
 class EmbedBuilder(ui.LayoutView):
@@ -216,7 +217,7 @@ class EmbedBuilder(ui.LayoutView):
             msg = await self.ctx.bot.wait_for("message", timeout=30, check=chk)
             chnl = msg.channel_mentions[0]
             embed = self._build_embed()
-            await chnl.send(embed=embed)
+            await chnl.send(view=from_embed(embed))
 
             # Show success
             self.container.clear_items()

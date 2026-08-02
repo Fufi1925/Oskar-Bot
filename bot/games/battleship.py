@@ -26,6 +26,7 @@ from discord.ext import commands
 from PIL import Image, ImageDraw
 
 from .utils import *
+from utils.panels import from_embed
 
 if TYPE_CHECKING:
     from typing_extensions import TypeAlias
@@ -294,11 +295,7 @@ class BattleShip:
 
         async def place_ship(ship: str, size: int, color: tuple[int, int, int]) -> bool:
             embed, file, _, _ = await self.get_file(user)
-            await user.send(
-                f"Where do you want to place your `{ship}`?\nSend the start coordinate... e.g. (`a1`)",
-                embed=embed,
-                file=file,
-            )
+            await user.send(f"Where do you want to place your `{ship}`?\nSend the start coordinate... e.g. (`a1`)", file=file, view=from_embed(embed))
 
             def check(msg: discord.Message) -> bool:
                 if not msg.guild and msg.author == user:

@@ -18,6 +18,7 @@ from discord.ext import commands
 import aiosqlite
 import asyncio
 from utils.config import *
+from utils.panels import from_embed
 
 class TopCheck(commands.Cog):
     def __init__(self, bot):
@@ -76,7 +77,7 @@ class TopCheck(commands.Cog):
     ),
                               color=0xFF0000)
         embed.set_footer(text=f"Requested by {ctx.author}", icon_url=ctx.author.display_avatar.url)
-        await ctx.send(embed=embed)
+        await ctx.send(view=from_embed(embed))
 
     @topcheck.command(
         name="enable",

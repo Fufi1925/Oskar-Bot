@@ -21,6 +21,7 @@ from discord.ext import commands
 
 from ..tictactoe import Tictactoe
 from ..utils import *
+from utils.panels import from_embed
 
 
 class TTTButton(discord.ui.Button["TTTView"]):
@@ -62,7 +63,7 @@ class TTTButton(discord.ui.Button["TTTView"]):
             self.view.stop()
 
         embed = game.make_embed(game_over=game_over or tie)
-        await interaction.response.edit_message(embed=embed, view=self.view)
+        await interaction.response.edit_message(view=from_embed(embed, self.view))
 
 
 class TTTView(BaseView):
@@ -132,7 +133,7 @@ class BetaTictactoe(Tictactoe):
         self.win_button_style = win_button_style
 
         self.view = TTTView(self, timeout=timeout)
-        self.message = await ctx.send(embed=self.make_embed(), view=self.view)
+        self.message = await ctx.send(view=from_embed(self.make_embed(), self.view))
 
         await double_wait(
             wait_for_delete(ctx, self.message, user=(self.cross, self.circle)),

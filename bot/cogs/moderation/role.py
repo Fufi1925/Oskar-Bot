@@ -80,7 +80,7 @@ class Role(commands.Cog):
         error.set_author(name="Error")
         error.set_footer(text=f"Requested by {ctx.author}",
                         icon_url=ctx.author.avatar.url if ctx.author.avatar else ctx.author.default_avatar.url)
-        return await ctx.send(embed=error)
+        return await ctx.send(view=from_embed(error))
 
     if ctx.author != ctx.guild.owner and ctx.author.top_role <= member.top_role:
         error = discord.Embed(
@@ -90,7 +90,7 @@ class Role(commands.Cog):
         error.set_author(name="Access Denied")
         error.set_footer(text=f"Requested by {ctx.author}",
                         icon_url=ctx.author.avatar.url if ctx.author.avatar else ctx.author.default_avatar.url)
-        return await ctx.send(embed=error)
+        return await ctx.send(view=from_embed(error))
 
     try:
         if role not in member.roles:
@@ -111,19 +111,19 @@ class Role(commands.Cog):
             success.set_author(name="Role Removed")
             success.set_footer(text=f"Requested by {ctx.author}",
                         icon_url=ctx.author.avatar.url if ctx.author.avatar else ctx.author.default_avatar.url)
-        await ctx.send(embed=success)
+        await ctx.send(view=from_embed(success))
     except discord.Forbidden:
         error = discord.Embed(
             color=self.color,
             description=f"{ZWARNING} I don't have permission to manage roles for this user!"
         )
-        await ctx.send(embed=error)
+        await ctx.send(view=from_embed(error))
     except Exception as e:
         error = discord.Embed(
             color=self.color,
             description=f"{ZWARNING} An unexpected error occurred: {str(e)}"
         )
-        await ctx.send(embed=error)
+        await ctx.send(view=from_embed(error))
 
 
   @role.command(help="Give role to member for particular time")
@@ -142,7 +142,7 @@ class Role(commands.Cog):
         embed.set_author(name="Error")
         embed.set_footer(text=f"Requested by {ctx.author}",
                         icon_url=ctx.author.avatar.url if ctx.author.avatar else ctx.author.default_avatar.url)
-        return await ctx.send(embed=embed)
+        return await ctx.send(view=from_embed(embed))
           
     else:
       if role.position >= ctx.guild.me.top_role.position:
@@ -153,7 +153,7 @@ class Role(commands.Cog):
         embed1.set_author(name="Error")
         embed1.set_footer(text=f"Requested by {ctx.author}",
                         icon_url=ctx.author.avatar.url if ctx.author.avatar else ctx.author.default_avatar.url)
-        return await ctx.send(embed=embed1)
+        return await ctx.send(view=from_embed(embed1))
     seconds = convert(time)
     await user.add_roles(role, reason=None)
     success = discord.Embed(
@@ -163,7 +163,7 @@ class Role(commands.Cog):
     success.set_author(name="Success")
     success.set_footer(text=f"Requested by {ctx.author}",
                         icon_url=ctx.author.avatar.url if ctx.author.avatar else ctx.author.default_avatar.url)
-    await ctx.send(embed=success)
+    await ctx.send(view=from_embed(success))
     await asyncio.sleep(seconds)
     await user.remove_roles(role)
 
@@ -184,7 +184,7 @@ class Role(commands.Cog):
         embed.set_author(name="Error")
         embed.set_footer(text=f"Requested by {ctx.author}",
                         icon_url=ctx.author.avatar.url if ctx.author.avatar else ctx.author.default_avatar.url)
-        return await ctx.send(embed=embed)
+        return await ctx.send(view=from_embed(embed))
 
     if role.position >= ctx.guild.me.top_role.position:
         embed = discord.Embed(
@@ -194,7 +194,7 @@ class Role(commands.Cog):
         embed.set_author(name="Error")
         embed.set_footer(text=f"Requested by {ctx.author}",
                         icon_url=ctx.author.avatar.url if ctx.author.avatar else ctx.author.default_avatar.url)
-        return await ctx.send(embed=embed)
+        return await ctx.send(view=from_embed(embed))
 
     if role is None:
         embed = discord.Embed(
@@ -204,7 +204,7 @@ class Role(commands.Cog):
         embed.set_author(name="Error")
         embed.set_footer(text=f"Requested by {ctx.author}",
                         icon_url=ctx.author.avatar.url if ctx.author.avatar else ctx.author.default_avatar.url)
-        return await ctx.send(embed=embed)
+        return await ctx.send(view=from_embed(embed))
 
     await role.delete()
     
@@ -215,7 +215,7 @@ class Role(commands.Cog):
     embed.set_author(name="Success")
     embed.set_footer(text=f"Requested by {ctx.author}",
                         icon_url=ctx.author.avatar.url if ctx.author.avatar else ctx.author.default_avatar.url)
-    await ctx.send(embed=embed)
+    await ctx.send(view=from_embed(embed))
       
   @role.command(help="Create a role in the guild")
   @blacklist_check()
@@ -233,7 +233,7 @@ class Role(commands.Cog):
     embed.set_footer(text=f"Requested by {ctx.author}",
                         icon_url=ctx.author.avatar.url if ctx.author.avatar else ctx.author.default_avatar.url)
     await ctx.guild.create_role(name=name, color=discord.Color.default())
-    await ctx.send(embed=embed)
+    await ctx.send(view=from_embed(embed))
 
 
   @role.command(help="Renames a role in the server.")
@@ -252,7 +252,7 @@ class Role(commands.Cog):
         embed.set_author(name="Error")
         embed.set_footer(text=f"Requested by {ctx.author}",
                         icon_url=ctx.author.avatar.url if ctx.author.avatar else ctx.author.default_avatar.url)
-        return await ctx.send(embed=embed)
+        return await ctx.send(view=from_embed(embed))
 
     
     if role.position >= ctx.guild.me.top_role.position:
@@ -263,7 +263,7 @@ class Role(commands.Cog):
         embed.set_author(name="Error")
         embed.set_footer(text=f"Requested by {ctx.author}",
                         icon_url=ctx.author.avatar.url if ctx.author.avatar else ctx.author.default_avatar.url)
-        return await ctx.send(embed=embed)
+        return await ctx.send(view=from_embed(embed))
 
     await role.edit(name=newname)
     embed = discord.Embed(
@@ -273,7 +273,7 @@ class Role(commands.Cog):
     embed.set_author(name="Success")
     embed.set_footer(text=f"Requested by {ctx.author}",
                         icon_url=ctx.author.avatar.url if ctx.author.avatar else ctx.author.default_avatar.url)
-    await ctx.send(embed=embed)                  
+    await ctx.send(view=from_embed(embed))                  
 
   @role.command(name="humans", help="Gives role to all humans in the guild")
   @blacklist_check()
@@ -298,7 +298,7 @@ class Role(commands.Cog):
                     embed1 = discord.Embed(
                         color=self.color,
                         description=f"Assigning {role.mention} to all humans...")
-                    await interaction.response.edit_message(embed=embed1, view=None)
+                    await interaction.response.edit_message(view=from_embed(embed1))
                     for member in interaction.guild.members:
                         if not member.bot and role not in member.roles:
                             try:
@@ -326,7 +326,7 @@ class Role(commands.Cog):
                 embed2 = discord.Embed(
                     color=self.color,
                     description=f"Action cancelled. No humans will be assigned the role {role.mention}.")
-                await interaction.response.edit_message(embed=embed2, view=None)
+                await interaction.response.edit_message(view=from_embed(embed2))
             else:
                 await interaction.response.send_message(
                     "This action is not for you!",
@@ -336,7 +336,7 @@ class Role(commands.Cog):
 
         members_without_role = [member for member in ctx.guild.members if not member.bot and role not in member.roles]
         if len(members_without_role) == 0:
-            return await ctx.reply(embed=discord.Embed(description=f"{ZWARNING} | All humans already have the {role.mention} role.", color=self.color))
+            return await ctx.reply(view=from_embed(discord.Embed(description=f"{ZWARNING} | All humans already have the {role.mention} role.", color=self.color)))
         else:
             embed = discord.Embed(
                 color=self.color,
@@ -354,7 +354,7 @@ class Role(commands.Cog):
             color=0xFF0000)
         denied.set_footer(text=f"“{ctx.command.qualified_name}” Command executed by {ctx.author}",
                    icon_url=ctx.author.avatar.url if ctx.author.avatar else ctx.author.default_avatar.url)
-        await ctx.send(embed=denied, mention_author=False)
+        await ctx.send(mention_author=False, view=from_embed(denied))
 
 
 
@@ -381,7 +381,7 @@ class Role(commands.Cog):
                     embed1 = discord.Embed(
                         color=self.color,
                         description=f"Adding {role.mention} to all bots...")
-                    await interaction.response.edit_message(embed=embed1, view=None)
+                    await interaction.response.edit_message(view=from_embed(embed1))
                     for member in interaction.guild.members:
                         if member.bot and role not in member.roles:
                             try:
@@ -409,7 +409,7 @@ class Role(commands.Cog):
                 embed2 = discord.Embed(
                     color=self.color,
                     description=f"Action cancelled. No bots will be assigned the role {role.mention}.")
-                await interaction.response.edit_message(embed=embed2, view=None)
+                await interaction.response.edit_message(view=from_embed(embed2))
             else:
                 await interaction.response.send_message(
                     "This action is not for you!",
@@ -419,7 +419,7 @@ class Role(commands.Cog):
 
         bots_without_role = [member for member in ctx.guild.members if member.bot and role not in member.roles]
         if len(bots_without_role) == 0:
-            return await ctx.reply(embed=discord.Embed(description=f"{ZWARNING} | All bots already have the {role.mention} role.", color=self.color))
+            return await ctx.reply(view=from_embed(discord.Embed(description=f"{ZWARNING} | All bots already have the {role.mention} role.", color=self.color)))
         else:
             embed = discord.Embed(
                 color=self.color,
@@ -437,7 +437,7 @@ class Role(commands.Cog):
             color=0xFF0000)
         denied.set_footer(text=f"“{ctx.command.qualified_name}” Command executed by {ctx.author}",
                    icon_url=ctx.author.avatar.url if ctx.author.avatar else ctx.author.default_avatar.url)
-        await ctx.send(embed=denied, mention_author=False)
+        await ctx.send(mention_author=False, view=from_embed(denied))
 
 
 
@@ -464,7 +464,7 @@ class Role(commands.Cog):
                     embed1 = discord.Embed(
                         color=self.color,
                         description=f"Adding {role.mention} to all unverified members.")
-                    await interaction.response.edit_message(embed=embed1, view=None)
+                    await interaction.response.edit_message(view=from_embed(embed1))
                     for member in interaction.guild.members:
                         if member.avatar is None and role not in member.roles:
                             try:
@@ -492,7 +492,7 @@ class Role(commands.Cog):
                 embed2 = discord.Embed(
                     color=self.color,
                     description=f"Action cancelled. No unverified members will be assigned the role {role.mention}.")
-                await interaction.response.edit_message(embed=embed2, view=None)
+                await interaction.response.edit_message(view=from_embed(embed2))
             else:
                 await interaction.response.send_message(
                     "This action is not for you!",
@@ -516,7 +516,7 @@ class Role(commands.Cog):
             color=0xFF0000)
         denied.set_footer(text=f"“{ctx.command.qualified_name}” Command executed by {ctx.author}",
                    icon_url=ctx.author.avatar.url if ctx.author.avatar else ctx.author.default_avatar.url)
-        await ctx.send(embed=denied, mention_author=False)
+        await ctx.send(mention_author=False, view=from_embed(denied))
 
 
   @role.command(name="all", help="Gives role to all the members in the guild")
@@ -542,7 +542,7 @@ class Role(commands.Cog):
                     embed1 = discord.Embed(
                         color=self.color,
                         description=f"Adding {role.mention} to all members.")
-                    await interaction.response.edit_message(embed=embed1, view=None)
+                    await interaction.response.edit_message(view=from_embed(embed1))
                     for member in interaction.guild.members:
                         try:
                             await member.add_roles(role, reason=f"Role All Command Executed By: {ctx.author}")
@@ -569,7 +569,7 @@ class Role(commands.Cog):
                 embed2 = discord.Embed(
                     color=self.color,
                     description=f"Action cancelled. No members will be assigned the role {role.mention}.")
-                await interaction.response.edit_message(embed=embed2, view=None)
+                await interaction.response.edit_message(view=from_embed(embed2))
             else:
                 await interaction.response.send_message(
                     "This action is not for you!",
@@ -579,7 +579,7 @@ class Role(commands.Cog):
 
         members_without_role = [member for member in ctx.guild.members if role not in member.roles]
         if len(members_without_role) == 0:
-            return await ctx.reply(embed=discord.Embed(description=f"{ZWARNING} | {role.mention} is already given to all the members of the server.", color=self.color))
+            return await ctx.reply(view=from_embed(discord.Embed(description=f"{ZWARNING} | {role.mention} is already given to all the members of the server.", color=self.color)))
         else:
             embed = discord.Embed(
                 color=self.color,
@@ -596,7 +596,7 @@ class Role(commands.Cog):
             color=0xFF0000)
         denied.set_footer(text=f"“{ctx.command.qualified_name}” Command executed by {ctx.author}",
                    icon_url=ctx.author.avatar.url if ctx.author.avatar else ctx.author.default_avatar.url)
-        await ctx.send(embed=denied, mention_author=False)
+        await ctx.send(mention_author=False, view=from_embed(denied))
 
 
 
@@ -637,7 +637,7 @@ class Role(commands.Cog):
                     embed1 = discord.Embed(
                         color=self.color,
                         description=f"Removing {role.mention} from all humans.")
-                    await interaction.response.edit_message(embed=embed1, view=None)
+                    await interaction.response.edit_message(view=from_embed(embed1))
                     for member in interaction.guild.members:
                         if not member.bot and role in member.roles:
                             try:
@@ -665,7 +665,7 @@ class Role(commands.Cog):
                 embed2 = discord.Embed(
                     color=self.color,
                     description=f"Action cancelled. {role.mention} will not be removed from any humans.")
-                await interaction.response.edit_message(embed=embed2, view=None)
+                await interaction.response.edit_message(view=from_embed(embed2))
             else:
                 await interaction.response.send_message(
                     "This action is not for you!",
@@ -675,7 +675,7 @@ class Role(commands.Cog):
 
         humans_with_role = [member for member in ctx.guild.members if not member.bot and role in member.roles]
         if len(humans_with_role) == 0:
-            return await ctx.reply(embed=discord.Embed(description=f"| Already no humans have {role.mention}.", color=self.color))
+            return await ctx.reply(view=from_embed(discord.Embed(description=f"| Already no humans have {role.mention}.", color=self.color)))
         else:
             embed = discord.Embed(
                 color=self.color,
@@ -692,9 +692,9 @@ class Role(commands.Cog):
             color=0xFF0000)
         denied.set_footer(text=f"“{ctx.command.qualified_name}” Command executed by {ctx.author}",
                    icon_url=ctx.author.avatar.url if ctx.author.avatar else ctx.author.default_avatar.url)
-        await ctx.send(embed=denied, mention_author=False)
+        await ctx.send(mention_author=False, view=from_embed(denied))
 
-        await ctx.send(embed=embed, mention_author=False)
+        await ctx.send(mention_author=False, view=from_embed(embed))
         
 
 
@@ -719,7 +719,7 @@ class Role(commands.Cog):
                     embed1 = discord.Embed(
                         color=self.color,
                         description=f"Removing {role.mention} from all bots...")
-                    await interaction.response.edit_message(embed=embed1, view=None)
+                    await interaction.response.edit_message(view=from_embed(embed1))
                     for member in interaction.guild.members:
                         if member.bot and role in member.roles:
                             try:
@@ -747,7 +747,7 @@ class Role(commands.Cog):
                 embed2 = discord.Embed(
                     color=self.color,
                     description=f"Action cancelled. {role.mention} will not be removed from any bots.")
-                await interaction.response.edit_message(embed=embed2, view=None)
+                await interaction.response.edit_message(view=from_embed(embed2))
             else:
                 await interaction.response.send_message(
                     "This action is not for you!",
@@ -757,7 +757,7 @@ class Role(commands.Cog):
 
         bots_with_role = [member for member in ctx.guild.members if member.bot and role in member.roles]
         if len(bots_with_role) == 0:
-            return await ctx.reply(embed=discord.Embed(description=f"| Already no bots have {role.mention}.", color=self.color))
+            return await ctx.reply(view=from_embed(discord.Embed(description=f"| Already no bots have {role.mention}.", color=self.color)))
         else:
             embed = discord.Embed(
                 color=self.color,
@@ -774,7 +774,7 @@ class Role(commands.Cog):
             color=0xFF0000)
         denied.set_footer(text=f"“{ctx.command.qualified_name}” Command executed by {ctx.author}",
                    icon_url=ctx.author.avatar.url if ctx.author.avatar else ctx.author.default_avatar.url)
-        await ctx.send(embed=denied, mention_author=False)
+        await ctx.send(mention_author=False, view=from_embed(denied))
 
     
 
@@ -801,7 +801,7 @@ class Role(commands.Cog):
                     embed1 = discord.Embed(
                         color=self.color,
                         description=f"Removing {role.mention} from all members.")
-                    await interaction.response.edit_message(embed=embed1, view=None)
+                    await interaction.response.edit_message(view=from_embed(embed1))
 
                     for member in interaction.guild.members:
                         if role in member.roles:
@@ -829,7 +829,7 @@ class Role(commands.Cog):
                 embed2 = discord.Embed(
                     color=self.color,
                     description=f"Action cancelled. {role.mention} will not be removed from anyone.")
-                await interaction.response.edit_message(embed=embed2, view=None)
+                await interaction.response.edit_message(view=from_embed(embed2))
             else:
                 await interaction.response.send_message("This action is not for you!",
                                                         embed=None,
@@ -838,7 +838,7 @@ class Role(commands.Cog):
 
         members_with_role = [member for member in ctx.guild.members if role in member.roles]
         if len(members_with_role) == 0:
-            return await ctx.reply(embed=discord.Embed(description=f"| No members currently have {role.mention}.", color=self.color))
+            return await ctx.reply(view=from_embed(discord.Embed(description=f"| No members currently have {role.mention}.", color=self.color)))
         else:
             embed = discord.Embed(
                 color=self.color,
@@ -855,7 +855,7 @@ class Role(commands.Cog):
             color=0xFF0000)
         denied.set_footer(text=f"“{ctx.command.qualified_name}” Command executed by {ctx.author}",
                    icon_url=ctx.author.avatar.url if ctx.author.avatar else ctx.author.default_avatar.url)
-        await ctx.send(embed=denied, mention_author=False)
+        await ctx.send(mention_author=False, view=from_embed(denied))
 
     
     
@@ -881,7 +881,7 @@ class Role(commands.Cog):
                     embed1 = discord.Embed(
                         color=self.color,
                         description=f"Removing {role.mention} from all unverified members.")
-                    await interaction.response.edit_message(embed=embed1, view=None)
+                    await interaction.response.edit_message(view=from_embed(embed1))
 
                     for member in interaction.guild.members:
                         if member.avatar is None and role in member.roles:
@@ -910,7 +910,7 @@ class Role(commands.Cog):
                 embed2 = discord.Embed(
                     color=self.color,
                     description=f"Action cancelled. {role.mention} will not be removed from any unverified members.")
-                await interaction.response.edit_message(embed=embed2, view=None)
+                await interaction.response.edit_message(view=from_embed(embed2))
             else:
                 await interaction.response.send_message(
                     "This action is not for you!",
@@ -920,7 +920,7 @@ class Role(commands.Cog):
 
         unverified_members = [member for member in ctx.guild.members if member.avatar is None and role in member.roles]
         if len(unverified_members) == 0:
-            return await ctx.reply(embed=discord.Embed(description=f"| Already no unverified members have {role.mention}.", color=self.color))
+            return await ctx.reply(view=from_embed(discord.Embed(description=f"| Already no unverified members have {role.mention}.", color=self.color)))
         else:
             embed = discord.Embed(
                 color=self.color,
@@ -937,7 +937,7 @@ class Role(commands.Cog):
             color=0xFF0000)
         denied.set_footer(text=f"“{ctx.command.qualified_name}” Command executed by {ctx.author}",
                    icon_url=ctx.author.avatar.url if ctx.author.avatar else ctx.author.default_avatar.url)
-        await ctx.send(embed=denied, mention_author=False)
+        await ctx.send(mention_author=False, view=from_embed(denied))
 
   
 

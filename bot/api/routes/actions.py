@@ -22,6 +22,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from api.dependencies import get_bot
 from utils.panels import Panel, ACCENT
 from utils import feature_audit
+from utils.panels import from_embed
 
 if TYPE_CHECKING:
     from core.universitybot import universitybot
@@ -353,7 +354,7 @@ async def test_welcome(guild_id: int, data: dict, bot: "universitybot" = Depends
         raise HTTPException(status_code=400, detail="Die Begrüßung ist leer.")
 
     try:
-        message = await channel.send(content=content, embed=embed)
+        message = await channel.send(content=content, view=from_embed(embed))
     except discord.Forbidden:
         raise HTTPException(
             status_code=403, detail=f"Der Bot darf in #{channel.name} nicht schreiben."

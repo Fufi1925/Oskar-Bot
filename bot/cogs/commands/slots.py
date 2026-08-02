@@ -20,6 +20,7 @@ import uuid
 from PIL import Image
 import bisect
 from utils.Tools import *
+from utils.panels import from_embed
 
 
 class Slots(commands.Cog):
@@ -91,7 +92,7 @@ class Slots(commands.Cog):
             )
 
             embed.set_image(url=f"attachment://{unique_filename}")
-            await message.edit(content=None, embed=embed)
+            await message.edit(content=None, view=from_embed(embed))
 
             os.remove(fp)
         except Exception as e:

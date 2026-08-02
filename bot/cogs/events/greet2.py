@@ -18,6 +18,7 @@ import asyncio
 from discord.ext import commands
 
 from utils import greet_render
+from utils.panels import from_embed
 
 class greet(commands.Cog):
     def __init__(self, bot):
@@ -62,7 +63,7 @@ class greet(commands.Cog):
                 continue
 
             try:
-                sent_message = await welcome_channel.send(content=content, embed=embed)
+                sent_message = await welcome_channel.send(content=content, view=from_embed(embed))
                 if auto_delete_duration:
                     await sent_message.delete(delay=auto_delete_duration)
             except discord.Forbidden:

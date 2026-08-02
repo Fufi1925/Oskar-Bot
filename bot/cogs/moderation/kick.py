@@ -16,6 +16,7 @@ import discord
 from utils.emoji import TICK
 from discord.ext import commands
 from utils.Tools import * # Assuming these decorators exist as provided
+from utils.panels import from_embed
 
 class Kick(commands.Cog):
     def __init__(self, bot):
@@ -77,7 +78,7 @@ class Kick(commands.Cog):
         if member_avatar_url:
             embed.set_thumbnail(url=member_avatar_url)
 
-        await ctx.send(embed=embed)
+        await ctx.send(view=from_embed(embed))
 
 # Function to add the cog to your bot
 async def setup(bot):

@@ -23,6 +23,7 @@ from discord.ext import commands
 
 from ..rps import RockPaperScissors
 from ..utils import DiscordColor, DEFAULT_COLOR, BaseView
+from utils.panels import from_embed
 
 
 class RPSButton(discord.ui.Button["RPSView"]):
@@ -102,9 +103,7 @@ class RPSButton(discord.ui.Button["RPSView"]):
                     self.view.disable_all()
                     self.view.stop()
 
-            return await interaction.response.edit_message(
-                embed=game.embed, view=self.view
-            )
+            return await interaction.response.edit_message(view=from_embed(game.embed, self.view))
 
 
 class RPSView(BaseView):
@@ -152,7 +151,7 @@ class BetaRockPaperScissors(RockPaperScissors):
     ) -> discord.Message:
         if ctx.author == self.player2:
             embed = discord.Embed(title=f"{WARNING_ALT}   Access Denied", description="You cannot play against yourself!", color=0x000000)
-            return await ctx.reply(embed=embed)
+            return await ctx.reply(view=from_embed(embed))
             
         """
         Starts the Rock Paper Scissors (buttons) game.
@@ -182,7 +181,7 @@ class BetaRockPaperScissors(RockPaperScissors):
         )
 
         self.view = RPSView(self, button_style=button_style, timeout=timeout)
-        self.message = await ctx.send(embed=self.embed, view=self.view)
+        self.message = await ctx.send(view=from_embed(self.embed, self.view))
 
         await self.view.wait()
         return self.message

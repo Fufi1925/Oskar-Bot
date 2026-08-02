@@ -31,6 +31,7 @@ from time import strftime
 from core import Cog ,universitybot ,Context 
 from discord.ui import LayoutView, TextDisplay, Separator, Container
 from utils.cv2 import CV2, build_container
+from utils.panels import from_embed
 
 class CV2(LayoutView):
     def __init__(self, title, *sections):
@@ -439,7 +440,7 @@ class Booster (Cog ):
                     embed .set_footer (text =ctx .guild .name ,icon_url =ctx .guild .icon .url )
 
                 ping_content =ctx .author .mention if data ["boost"]["ping"]else ""
-                await channel .send (ping_content ,embed =embed )
+                await channel .send (ping_content, view=from_embed(embed))
             else :
                 await channel .send (formatted_message )
 

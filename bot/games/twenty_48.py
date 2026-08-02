@@ -28,6 +28,7 @@ from PIL import Image, ImageDraw, ImageFont
 from utils.emoji import ARROW_LEFT, ARROW_RIGHT, ARROW_UP, ARROW_DOWN, STOP_BUTTON
 
 from .utils import *
+from utils.panels import from_embed
 
 if TYPE_CHECKING:
     from typing_extensions import TypeAlias
@@ -379,10 +380,10 @@ class Twenty48:
 
             if self._render_image:
                 image = await self.render_image()
-                await self.message.edit(attachments=[image], embed=self.embed)
+                await self.message.edit(attachments=[image], view=from_embed(self.embed))
             else:
                 board_string = self.number_to_emoji()
-                await self.message.edit(content=board_string, embed=self.embed)
+                await self.message.edit(content=board_string, view=from_embed(self.embed))
 
             if won or lost:
                 break

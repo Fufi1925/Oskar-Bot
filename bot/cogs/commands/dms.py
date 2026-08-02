@@ -17,6 +17,7 @@ from discord.ui import LayoutView, TextDisplay, Separator, Container, Button, Ac
 from discord.ext import commands
 from utils.cv2 import CV2, build_container
 from utils.config import STAFF_IDS
+from utils.panels import from_embed
 
 
 class SuccessView(LayoutView):
@@ -97,7 +98,7 @@ class StaffDMCog(commands.Cog):
             )
             embed.set_footer(text=f"This message was sent by {ctx.author.name}.")
 
-            await member.send(embed=embed)
+            await member.send(view=from_embed(embed))
 
             view = SuccessView(member)
             await ctx.reply(view=view)

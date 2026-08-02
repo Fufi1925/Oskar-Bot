@@ -15,6 +15,7 @@
 import discord
 from utils.emoji import TICK
 from discord.ext import commands
+from utils.panels import from_embed
 
 class Lock(commands.Cog):
     def __init__(self, bot):
@@ -43,7 +44,7 @@ class Lock(commands.Cog):
             )
             #embed.set_author(name=f"{c", icon_url="")
             embed.set_footer(text=f"Requested by {ctx.author}", icon_url=ctx.author.display_avatar.url)
-            await ctx.send(embed=embed)
+            await ctx.send(view=from_embed(embed))
             return
 
         # Lock the channel by updating permissions for the @everyone role
@@ -60,7 +61,7 @@ class Lock(commands.Cog):
         #embed.set_thumbnail(url=ctx.author.display_avatar.url)
         
         # Send the final message
-        await ctx.send(embed=embed)
+        await ctx.send(view=from_embed(embed))
 
 # Standard setup function to load the cog
 async def setup(bot):

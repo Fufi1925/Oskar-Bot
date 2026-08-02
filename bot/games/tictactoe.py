@@ -22,6 +22,7 @@ from discord.ext import commands
 from utils.emoji import ERROR
 
 from .utils import DiscordColor, DEFAULT_COLOR
+from utils.panels import from_embed
 
 
 class Tictactoe:
@@ -161,7 +162,7 @@ class Tictactoe:
         self.embed_color = embed_color
 
         embed = self.make_embed()
-        self.message = await ctx.send(self.board_string(), embed=embed, **kwargs)
+        self.message = await ctx.send(self.board_string(), **kwargs, view=from_embed(embed))
 
         for button in self._controls:
             await self.message.add_reaction(button)
@@ -192,9 +193,9 @@ class Tictactoe:
             if remove_reaction_after:
                 await self.message.remove_reaction(emoji, user)
 
-            await self.message.edit(content=self.board_string(), embed=embed)
+            await self.message.edit(content=self.board_string(), view=from_embed(embed))
 
         embed = self.make_embed(game_over=True)
-        await self.message.edit(content=self.board_string(), embed=embed)
+        await self.message.edit(content=self.board_string(), view=from_embed(embed))
 
         return self.message

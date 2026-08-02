@@ -21,6 +21,7 @@ from discord.ext import commands
 
 from ..connect_four import ConnectFour, BLANK
 from ..utils import *
+from utils.panels import from_embed
 
 
 class ConnectFourButton(discord.ui.Button["ConnectFourView"]):
@@ -60,11 +61,7 @@ class ConnectFourButton(discord.ui.Button["ConnectFourView"]):
             self.view.disable_all()
             self.view.stop()
 
-        return await interaction.response.edit_message(
-            view=self.view,
-            embed=embed,
-            content=game.board_string(),
-        )
+        return await interaction.response.edit_message(view=from_embed(embed, self.view), content=game.board_string())
 
 
 class ConnectFourView(BaseView):
@@ -117,11 +114,7 @@ class BetaConnectFour(ConnectFour):
         self.view = ConnectFourView(self, timeout=timeout)
 
         embed = self.make_embed(status=False)
-        self.message = await ctx.send(
-            content=self.board_string(),
-            view=self.view,
-            embed=embed,
-        )
+        self.message = await ctx.send(content=self.board_string(), view=from_embed(embed, self.view))
 
         await self.view.wait()
         return self.message

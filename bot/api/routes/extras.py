@@ -25,6 +25,7 @@ from api.db_manager import db_manager
 from api.dependencies import get_bot
 from utils import extras_store as store
 from utils import feature_audit
+from utils.panels import from_embed
 
 if TYPE_CHECKING:
     from core.universitybot import universitybot
@@ -1077,7 +1078,7 @@ async def test_notify(
 
     try:
         await channel.send(
-            embed=embed,
+            view=from_embed(embed),
             # A test must not ping -- that is the point of it being a test.
             allowed_mentions=discord.AllowedMentions.none(),
         )

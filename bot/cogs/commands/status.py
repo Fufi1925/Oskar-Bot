@@ -19,6 +19,7 @@ from PIL import Image, ImageDraw, ImageFont
 import aiohttp
 import os
 from utils.Tools import *
+from utils.panels import from_embed
 
 class Status(commands.Cog):
     def __init__(self, bot):
@@ -98,7 +99,7 @@ class Status(commands.Cog):
         requester_avatar_url = ctx.author.avatar.url if ctx.author.avatar else ctx.author.default_avatar.url
         embed.set_footer(text=f"Requested by {ctx.author.display_name}", icon_url=requester_avatar_url)
 
-        await ctx.send(embed=embed, file=file if 'file' in locals() else None)
+        await ctx.send(file=file if 'file' in locals() else None, view=from_embed(embed))
         await processing.delete()
 
     def create_spotify_card(self, song_name, album_image_path):

@@ -29,6 +29,7 @@ from discord.ext import commands
 
 from core import Cog
 from utils import guild_settings
+from utils.panels import from_embed
 
 MODERATION_COMMANDS = {"ban", "kick", "mute", "timeout", "warn", "softban", "tempban"}
 
@@ -124,7 +125,7 @@ class GuildSettingsEnforcement(Cog):
                 if moderator:
                     embed.add_field(name="Moderator", value=str(moderator), inline=False)
                 try:
-                    await channel.send(embed=embed)
+                    await channel.send(view=from_embed(embed))
                 except Exception:
                     pass
 

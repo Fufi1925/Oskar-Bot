@@ -31,6 +31,7 @@ import discord
 from discord.ext import commands
 
 from .utils import *
+from utils.panels import from_embed
 
 
 class UserData(TypedDict):
@@ -128,7 +129,7 @@ class TypeRacer:
             self.embed.description += (
                 self.format_line(len(winners), winners[len(winners) - 1]) + "\n"
             )
-            await self.message.edit(embed=self.embed)
+            await self.message.edit(view=from_embed(self.embed))
 
             await message.add_reaction(self.EMOJI_MAP[len(winners)])
 
@@ -141,9 +142,7 @@ class TypeRacer:
         )
         embed.add_field(name="Winners", value="\n".join(desc))
 
-        return await ctx.reply(
-            embed=embed, allowed_mentions=discord.AllowedMentions.none()
-        )
+        return await ctx.reply(allowed_mentions=discord.AllowedMentions.none(), view=from_embed(embed))
 
     async def start(
         self,
@@ -236,7 +235,7 @@ class TypeRacer:
             embed.set_author(name=ctx.author.name, icon_url=av)
 
         self.embed = embed
-        self.message = await ctx.send(embed=embed, file=discord.File(buffer, "tr.png"))
+        self.message = await ctx.send(file=discord.File(buffer, "tr.png"), view=from_embed(embed))
 
         await self.wait_for_tr_response(
             ctx, text, timeout=timeout, min_accuracy=min_accuracy

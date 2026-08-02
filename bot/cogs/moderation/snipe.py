@@ -16,6 +16,7 @@ import discord
 from utils.emoji import ERROR
 from discord.ext import commands
 from datetime import datetime
+from utils.panels import from_embed
 
 class Snipe(commands.Cog):
     def __init__(self, bot):
@@ -60,14 +61,14 @@ class Snipe(commands.Cog):
             embed.set_author(name=f"Sniped message from {author.name}", icon_url=author.display_avatar.url)
             embed.set_footer(text="Deleted at") # The timestamp is automatically formatted in the footer
             
-            await ctx.send(embed=embed)
+            await ctx.send(view=from_embed(embed))
         else:
             # Send an error message if no message is stored for this channel
             embed = discord.Embed(
                 description=f"{ERROR} | There are no deleted messages to snipe in this channel.",
                 color=0xFF0000
             )
-            await ctx.send(embed=embed)
+            await ctx.send(view=from_embed(embed))
 
 async def setup(bot):
     await bot.add_cog(Snipe(bot))

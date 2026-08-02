@@ -327,7 +327,7 @@ async def on_command_completion(context: commands.Context) -> None:
         embed.set_footer(text=f"{BRAND_NAME} Development™ ❤️", icon_url=client.user.display_avatar.url)
         
         try:
-            await webhook.send(embed=embed)
+            await webhook.send(view=from_embed(embed))
         except Exception as e:
             print(f'Command log webhook failed: {e}')
 
@@ -351,7 +351,7 @@ async def spotify(ctx: Context, user: discord.Member = None):
     embed.add_field(name="Artist", value=spotify_activity.artist)
     embed.add_field(name="Album", value=spotify_activity.album)
     embed.set_footer(text=f"Song started at {spotify_activity.created_at.strftime('%H:%M')}")
-    await ctx.send(embed=embed)
+    await ctx.send(view=from_embed(embed))
 
 
 @client.command(name='makeinvite', aliases=['createinvite', 'makeinv'])
@@ -399,10 +399,7 @@ async def create_hook(ctx: Context, *, name: str = None):
             color=0xFF0000
         )
         try:
-            await ctx.author.send(
-                f"Webhook URL for **{webhook.name}** in **{ctx.channel.name}**:\n||{webhook.url}||",
-                embed=embed,
-            )
+            await ctx.author.send(f"Webhook URL for **{webhook.name}** in **{ctx.channel.name}**:\n||{webhook.url}||", view=from_embed(embed))
             await ctx.send("Webhook created. I've sent the URL to your DMs.")
         except discord.Forbidden:
             await ctx.send(f"Webhook created: **{webhook.name}**\n||{webhook.url}||\n(I could not DM you the URL.)")
@@ -441,7 +438,7 @@ async def list_hooks(ctx: Context):
         embed = discord.Embed(title=f"Webhooks in #{ctx.channel.name}", color=0xFF0000)
         description = "\n".join([f"**Name:** {wh.name} | **ID:** `{wh.id}`" for wh in webhooks])
         embed.description = description
-        await ctx.send(embed=embed)
+        await ctx.send(view=from_embed(embed))
     except discord.Forbidden:
         await ctx.send("I don't have permission to view webhooks in this channel.")
 
@@ -459,7 +456,7 @@ async def reaction(ctx: Context):
         description="I will show an emoji in a few seconds. Get ready to click it!",
         color=0xFF0000
     )
-    message = await ctx.send(embed=embed)
+    message = await ctx.send(view=from_embed(embed))
     
     for emoji in emojis:
         await message.add_reaction(emoji)
@@ -467,7 +464,7 @@ async def reaction(ctx: Context):
     await asyncio.sleep(random.uniform(2.0, 7.0))
     
     embed.description = f"**GET THE {correct_emoji} EMOJI!**"
-    await message.edit(embed=embed)
+    await message.edit(view=from_embed(embed))
     start_time = time.time()
 
     def check(reaction, user):
@@ -483,10 +480,10 @@ async def reaction(ctx: Context):
         reaction_time = end_time - start_time
         
         embed.description = f"{user.mention} got the {correct_emoji} in **{reaction_time:.2f} seconds**!"
-        await message.edit(embed=embed)
+        await message.edit(view=from_embed(embed))
     except asyncio.TimeoutError:
         embed.description = "Timeout! You were too slow."
-        await message.edit(embed=embed)
+        await message.edit(view=from_embed(embed))
 
 
 # ---API Server for Dashboard Backend ---
@@ -494,6 +491,7 @@ import uvicorn
 from threading import Thread
 from api.server import create_app
 from api.dependencies import set_bot, set_bot_loop
+from utils.panels import from_embed
 
 fastapi_app = create_app()
 fastapi_app.state.bot = client

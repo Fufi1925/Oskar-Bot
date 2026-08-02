@@ -21,6 +21,7 @@ from discord.ext import commands
 
 from ..wordle import Wordle
 from ..utils import DiscordColor, DEFAULT_COLOR, BaseView
+from utils.panels import from_embed
 
 
 class WordInput(discord.ui.Modal, title="Word Input"):
@@ -66,9 +67,7 @@ class WordInput(discord.ui.Modal, title="Word Input"):
                 self.view.disable_all()
                 self.view.stop()
 
-            return await interaction.response.edit_message(
-                embed=embed, attachments=[file], view=self.view
-            )
+            return await interaction.response.edit_message(attachments=[file], view=from_embed(embed, self.view))
 
 
 class WordInputButton(discord.ui.Button["WordleView"]):
@@ -144,10 +143,6 @@ class BetaWordle(Wordle):
         embed.set_image(url="attachment://wordle.png")
 
         self.view = WordleView(self, timeout=timeout)
-        self.message = await ctx.send(
-            embed=embed,
-            file=discord.File(buf, "wordle.png"),
-            view=self.view,
-        )
+        self.message = await ctx.send(file=discord.File(buf, "wordle.png"), view=from_embed(embed, self.view))
         await self.view.wait()
         return self.message

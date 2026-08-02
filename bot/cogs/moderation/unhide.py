@@ -15,6 +15,7 @@
 import discord
 from utils.emoji import CHANNEL, TICK
 from discord.ext import commands
+from utils.panels import from_embed
 
 class Unhide(commands.Cog):
     def __init__(self, bot):
@@ -45,7 +46,7 @@ class Unhide(commands.Cog):
             embed.set_author(name=f"{channel.name} is Already Visible")
             if author_avatar_url:
                 embed.set_thumbnail(url=author_avatar_url)
-            await ctx.send(embed=embed)
+            await ctx.send(view=from_embed(embed))
             return
 
         # Unhide the channel by updating permissions
@@ -61,7 +62,7 @@ class Unhide(commands.Cog):
         if author_avatar_url:
             embed.set_thumbnail(url=author_avatar_url)
             
-        await ctx.send(embed=embed)
+        await ctx.send(view=from_embed(embed))
 
 # Function to add the cog to your bot
 async def setup(bot):
