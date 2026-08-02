@@ -56,6 +56,7 @@ Path(LOGS_DIR).mkdir(exist_ok=True)
 from utils.cv2 import CV2, build_container
 from discord.ui import TextDisplay, Separator, ActionRow, LayoutView, Container, Select
 from utils.emoji import CHANNEL, INFO, NEXT, PREVIOUS, TICK, U_ADMIN, ZPEOPLE, ZSETTINGS
+from utils.panels import from_view
 
 
 class LogSetupLayoutView(LayoutView):
@@ -1624,7 +1625,7 @@ class Logging(commands.Cog):
                 return
 
             view = LogSetupLayoutView(self.bot, ctx.author, LOG_CATEGORIES)
-            message = await ctx.send(view=view)
+            message = await ctx.send(view=from_view(view))
         except Exception as e:
             logger.error(f"Error in log setup: {e}")
             embed = self._create_modern_embed(

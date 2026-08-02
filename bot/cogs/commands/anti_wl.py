@@ -20,6 +20,7 @@ from discord.ui import LayoutView, TextDisplay, Separator, Container
 import aiosqlite
 from utils.Tools import *
 from utils.cv2 import CV2, build_container
+from utils.panels import from_view
 
 
 
@@ -169,7 +170,7 @@ class Whitelist(commands.Cog):
             f"**Executor:** <@!{ctx.author.id}> │ **Target:** <@!{member.id}>"
         )
 
-        msg = await ctx.send(view=action_view)
+        msg = await ctx.send(view=from_view(action_view))
 
         def check(interaction):
             return interaction.user.id == ctx.author.id and interaction.message.id == msg.id

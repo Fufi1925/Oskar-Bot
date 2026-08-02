@@ -29,6 +29,7 @@ import logging
 from datetime import datetime ,timezone ,timedelta 
 from typing import Optional 
 from utils .Tools import *
+from utils.panels import from_view
 
 
 logger =logging .getLogger ('discord')
@@ -1505,7 +1506,7 @@ class Verification (commands .Cog ):
             "**Configure your system using the dropdowns below:**", tone='info')
 
             view =VerificationSetupView (self .bot ,ctx )
-            await ctx .send (view =view )
+            await ctx .send (view=from_view(view))
 
         except Exception as e :
             logger .error (f"Error in verification setup: {e}")

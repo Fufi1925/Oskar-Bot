@@ -13,7 +13,7 @@
 # ╚══════════════════════════════════════════════════════════════════╝
 
 from discord.ext import commands
-from discord.ui import View, Button, button
+from discord.ui import View, Button, button, LayoutView, ActionRow, Container, TextDisplay, Separator
 import discord
 
 import ast
@@ -101,106 +101,160 @@ def safe_eval(expression: str):
     return result
 
 
-class CalculatorView(View):
-    def __init__(self, author: discord.Member):
+class _CalcRow(ActionRow):
+    """
+    One row of calculator keys.
+
+    A LayoutView ignores @button decorators -- verified: the class comes
+    out with zero children -- and it has no `row=` either, because rows
+    are real objects in V2 rather than a number on each button. So each
+    row is its own ActionRow, and the keys keep their decorators.
+    """
+
+    def __init__(self, view: "CalculatorView"):
         super().__init__()
-        self.author = author
-        self.value = ""
-        self.message = None
+        self._view = view
 
-    # Button interactions 
-    @button(label="1", style=discord.ButtonStyle.grey, row=0)
-    async def one(self, interaction: discord.Interaction, button: Button):
-        await self.update_value(interaction, "1")
 
-    @button(label="2", style=discord.ButtonStyle.grey, row=0)
-    async def two(self, interaction: discord.Interaction, button: Button):
-        await self.update_value(interaction, "2")
+class _Row0(_CalcRow):
+    @button(label="1", style=discord.ButtonStyle.grey)
+    async def one(self, interaction: discord.Interaction, item: Button):
+        await self._view.update_value(interaction, "1")
 
-    @button(label="3", style=discord.ButtonStyle.grey, row=0)
-    async def three(self, interaction: discord.Interaction, button: Button):
-        await self.update_value(interaction, "3")
+    @button(label="2", style=discord.ButtonStyle.grey)
+    async def two(self, interaction: discord.Interaction, item: Button):
+        await self._view.update_value(interaction, "2")
 
-    @button(label="4", style=discord.ButtonStyle.grey, row=1)
-    async def four(self, interaction: discord.Interaction, button: Button):
-        await self.update_value(interaction, "4")
+    @button(label="3", style=discord.ButtonStyle.grey)
+    async def three(self, interaction: discord.Interaction, item: Button):
+        await self._view.update_value(interaction, "3")
 
-    @button(label="5", style=discord.ButtonStyle.grey, row=1)
-    async def five(self, interaction: discord.Interaction, button: Button):
-        await self.update_value(interaction, "5")
 
-    @button(label="6", style=discord.ButtonStyle.grey, row=1)
-    async def six(self, interaction: discord.Interaction, button: Button):
-        await self.update_value(interaction, "6")
+class _Row1(_CalcRow):
+    @button(label="4", style=discord.ButtonStyle.grey)
+    async def four(self, interaction: discord.Interaction, item: Button):
+        await self._view.update_value(interaction, "4")
 
-    @button(label="7", style=discord.ButtonStyle.grey, row=2)
-    async def seven(self, interaction: discord.Interaction, button: Button):
-        await self.update_value(interaction, "7")
+    @button(label="5", style=discord.ButtonStyle.grey)
+    async def five(self, interaction: discord.Interaction, item: Button):
+        await self._view.update_value(interaction, "5")
 
-    @button(label="8", style=discord.ButtonStyle.grey, row=2)
-    async def eight(self, interaction: discord.Interaction, button: Button):
-        await self.update_value(interaction, "8")
+    @button(label="6", style=discord.ButtonStyle.grey)
+    async def six(self, interaction: discord.Interaction, item: Button):
+        await self._view.update_value(interaction, "6")
 
-    @button(label="9", style=discord.ButtonStyle.grey, row=2)
-    async def nine(self, interaction: discord.Interaction, button: Button):
-        await self.update_value(interaction, "9")
 
-    @button(label="0", style=discord.ButtonStyle.grey, row=3)
-    async def zero(self, interaction: discord.Interaction, button: Button):
-        await self.update_value(interaction, "0")
+class _Row2(_CalcRow):
+    @button(label="7", style=discord.ButtonStyle.grey)
+    async def seven(self, interaction: discord.Interaction, item: Button):
+        await self._view.update_value(interaction, "7")
 
-    @button(label="+", style=discord.ButtonStyle.blurple, row=3)
-    async def add(self, interaction: discord.Interaction, button: Button):
-        await self.update_value(interaction, "+")
+    @button(label="8", style=discord.ButtonStyle.grey)
+    async def eight(self, interaction: discord.Interaction, item: Button):
+        await self._view.update_value(interaction, "8")
 
-    @button(label="-", style=discord.ButtonStyle.blurple, row=3)
-    async def subtract(self, interaction: discord.Interaction, button: Button):
-        await self.update_value(interaction, "-")
+    @button(label="9", style=discord.ButtonStyle.grey)
+    async def nine(self, interaction: discord.Interaction, item: Button):
+        await self._view.update_value(interaction, "9")
 
-    @button(label="*", style=discord.ButtonStyle.blurple, row=3)
-    async def multiply(self, interaction: discord.Interaction, button: Button):
-        await self.update_value(interaction, "*")
 
-    @button(label="/", style=discord.ButtonStyle.blurple, row=3)
-    async def divide(self, interaction: discord.Interaction, button: Button):
-        await self.update_value(interaction, "/")
+class _Row3(_CalcRow):
+    @button(label="0", style=discord.ButtonStyle.grey)
+    async def zero(self, interaction: discord.Interaction, item: Button):
+        await self._view.update_value(interaction, "0")
 
-    @button(label="=", style=discord.ButtonStyle.green, row=4)
-    async def equals(self, interaction: discord.Interaction, button: Button):
-        if interaction.user != self.author:
+    @button(label="+", style=discord.ButtonStyle.blurple)
+    async def add(self, interaction: discord.Interaction, item: Button):
+        await self._view.update_value(interaction, "+")
+
+    @button(label="-", style=discord.ButtonStyle.blurple)
+    async def subtract(self, interaction: discord.Interaction, item: Button):
+        await self._view.update_value(interaction, "-")
+
+    @button(label="*", style=discord.ButtonStyle.blurple)
+    async def multiply(self, interaction: discord.Interaction, item: Button):
+        await self._view.update_value(interaction, "*")
+
+    @button(label="/", style=discord.ButtonStyle.blurple)
+    async def divide(self, interaction: discord.Interaction, item: Button):
+        await self._view.update_value(interaction, "/")
+
+
+class _Row4(_CalcRow):
+    @button(label="=", style=discord.ButtonStyle.green)
+    async def equals(self, interaction: discord.Interaction, item: Button):
+        if interaction.user != self._view.author:
             return await interaction.response.send_message(
                 "This is not your embed.", ephemeral=True
             )
         try:
-            expression = self.value.strip().replace("\n", "")
+            expression = self._view.value.strip().replace("\n", "")
             result = str(safe_eval(expression))
-            await self.update_embed(interaction, result)
-            self.value = result  # Store the result for possible further calculations
+            await self._view.update_embed(interaction, result)
+            # Store the result for possible further calculations
+            self._view.value = result
         except (CalculationError, ZeroDivisionError, ArithmeticError, ValueError):
-            await self.update_embed(interaction, "Error")
+            await self._view.update_embed(interaction, "Error")
 
-    @button(label="Clear", emoji=DELETE, style=discord.ButtonStyle.red, row=4)
-    async def clear(self, interaction: discord.Interaction, button: Button):
-        await self.update_value(interaction, "Clear")
+    @button(label="Clear", emoji=DELETE, style=discord.ButtonStyle.red)
+    async def clear(self, interaction: discord.Interaction, item: Button):
+        await self._view.update_value(interaction, "Clear")
+
+
+class CalculatorView(LayoutView):
+    """
+    The calculator, as a Components V2 panel.
+
+    The display is a TextDisplay inside the container rather than the
+    message content, so the keys sit in the same card as the number they
+    are typing -- which is the whole point of the conversion.
+
+    It rebuilds itself on every keypress instead of handing its children
+    to a helper: from_view() *moves* the components out of the view it is
+    given, so a view that is sent again later would arrive with no
+    buttons at all. The calculator is edited on every single press, so
+    that would have left it keyless after the first one.
+    """
+
+    def __init__(self, author: discord.Member):
+        super().__init__(timeout=180)
+        self.author = author
+        self.value = ""
+        self.message = None
+        self._render("")
+
+    def _render(self, result: str) -> None:
+        self.clear_items()
+        box = Container(accent_color=0x5865F2)
+        box.add_item(TextDisplay(
+            f"### Calculator\n-# {self.author.display_name}\n"
+            f"```\n{result or ' '}\n```"
+        ))
+        box.add_item(Separator(visible=True))
+        for row in (_Row0, _Row1, _Row2, _Row3, _Row4):
+            box.add_item(row(self))
+        self.add_item(box)
 
     async def update_value(self, interaction: discord.Interaction, value: str):
         # Check if the person interacting is the author of the embed
         if interaction.user != self.author:
             return await interaction.response.send_message(
-                "This content does not appear to be part of your embedded materials.", ephemeral=True
+                "This content does not appear to be part of your embedded materials.",
+                ephemeral=True,
             )
         # Append the value or clear if "Clear"
         if value == "Clear":
             self.value = ""
         else:
             self.value += value
-        # Update the embed with the new value
+        # Update the panel with the new value
         await self.update_embed(interaction, self.value)
 
     async def update_embed(self, interaction: discord.Interaction, result: str):
-        content = f"**Calculator** | `{self.author.display_name}`\n```\n{result}\n```"
-        await interaction.response.edit_message(content=content, view=self)
+        self._render(result)
+        await interaction.response.edit_message(view=self)
         self.message = interaction.message
+
 
 class calculator(commands.Cog):
     def __init__(self, bot):
@@ -212,7 +266,9 @@ class calculator(commands.Cog):
         # Ensure we pass the author to the view so it knows who triggered it
         view = CalculatorView(author=ctx.author)
         # We store the message so we know what to edit and update later
-        view.message = await ctx.send(content="**Calculator**\n```\n \n```", view=view)
+        # No content=: the display lives inside the panel now, so
+        # sending it alongside would print the number twice.
+        view.message = await ctx.send(view=view)
 
 # Add the cog to the bot
 def setup(bot):

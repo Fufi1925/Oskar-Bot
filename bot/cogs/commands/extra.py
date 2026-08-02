@@ -37,6 +37,7 @@ import aiosqlite
 import asyncio
 import aiohttp
 from utils.panels import from_embed
+from utils.panels import from_view
 
 
 start_time = time.time()
@@ -443,7 +444,7 @@ class Extra(commands.Cog):
         f"**Hoisted:** {role.hoist}\n**Managed:** {role.managed}\n**Created At:** {created_at}"
     )
     view = RoleInfoView(role, ctx.author.id)
-    await ctx.send(content=role_text, view=view)
+    await ctx.send(view=from_view(view, role_text))
 
 
 
@@ -875,7 +876,7 @@ class Extra(commands.Cog):
     )
     view = OverwritesView(channel, ctx.author.id)
     view.add_item(Button(label="Redirect Channel", style=discord.ButtonStyle.green, url=f"https://discord.com/channels/{ctx.guild.id}/{channel.id}"))
-    await ctx.send(content=ch_text, view=view)
+    await ctx.send(view=from_view(view, ch_text))
 
 
   @commands.hybrid_command(name="ping", aliases=['latency'], help="Checks the bot's latencies.")

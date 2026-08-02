@@ -21,6 +21,7 @@ from datetime import timedelta
 import asyncio
 from utils.panels import from_embed
 from utils.emoji import CROSS, MUSICSTOP_ICONS, TICK
+from utils.panels import from_view
 
 class Global(commands.Cog):
     def __init__(self, client):
@@ -56,7 +57,7 @@ class Global(commands.Cog):
             if interaction.user != ctx.author:
                 return await interaction.response.send_message("This interaction is not for you.", ephemeral=True)
             view.clear_items()
-            await interaction.response.edit_message(view=view)
+            await interaction.response.edit_message(view=from_view(view))
             await ctx.send(f"Processing global ban for {user.name}...")
             success, failure = [], []
             for guild in mutual_guilds:
@@ -132,7 +133,7 @@ class Global(commands.Cog):
             if interaction.user != ctx.author:
                 return await interaction.response.send_message("This interaction is not for you.", ephemeral=True)
             view.clear_items()
-            await interaction.response.edit_message(view=view)
+            await interaction.response.edit_message(view=from_view(view))
             await ctx.send(f"Processing global kick for {user.name}...")
             success, failure = [], []
             for guild in mutual_guilds:
@@ -208,7 +209,7 @@ class Global(commands.Cog):
             if interaction.user != ctx.author:
                 return await interaction.response.send_message("This interaction is not for you.", ephemeral=True)
             view.clear_items()
-            await interaction.response.edit_message(view=view)
+            await interaction.response.edit_message(view=from_view(view))
             await ctx.send(f"Processing global timeout for {user.name}...")
             success, failure = [], []
             
@@ -292,7 +293,7 @@ class Global(commands.Cog):
             if interaction.user != ctx.author:
                 return await interaction.response.send_message("This interaction is not for you.", ephemeral=True)
             view.clear_items()
-            await interaction.response.edit_message(view=view)
+            await interaction.response.edit_message(view=from_view(view))
             await ctx.send(f"Processing global nickname change for {user.name}...")
             success, failure = [], []
             for guild in mutual_guilds:
@@ -371,7 +372,7 @@ class Global(commands.Cog):
             if interaction.user != ctx.author:
                 return await interaction.response.send_message("This interaction is not for you.", ephemeral=True)
             view.clear_items()
-            await interaction.response.edit_message(view=view)
+            await interaction.response.edit_message(view=from_view(view))
             await ctx.send(f"Processing global nickname clear for {user.name}...")
             success, failure = [], []
             for guild in mutual_guilds:

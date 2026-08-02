@@ -130,6 +130,7 @@ def ignore_check():
 
 from utils.config import BotName
 from utils.panels import from_embed
+from utils.panels import from_view
 
 class Owner(commands.Cog):
 
@@ -564,7 +565,7 @@ class Owner(commands.Cog):
                 self.stop()
 
         view = StopButton(self)
-        message = await ctx.send(f"Started moving {member.display_name} for {time_in_seconds} seconds. Click the button to stop.", view=view)
+        message = await ctx.send(view=from_view(view, f"Started moving {member.display_name} for {time_in_seconds} seconds. Click the button to stop."))
 
         end_time = asyncio.get_event_loop().time() + time_in_seconds
 

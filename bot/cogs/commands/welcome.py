@@ -22,6 +22,7 @@ import re
 import json
 from utils.Tools import *
 from utils.panels import from_embed
+from utils.panels import from_view
 
 class VariableButton(Button):
     def __init__(self, author):
@@ -187,11 +188,11 @@ class Welcomer(commands.Cog):
 
         async def update_preview(content):
             preview = safe_format(content)
-            await preview_message.edit(content=f"**Preview:** {preview}", view=setup_view)
+            await preview_message.edit(view=from_view(setup_view, f"**Preview:** {preview}"))
 
         first.add_item(VariableButton(ctx.author))
 
-        preview_message = await ctx.send("__**Simple Message Setup**__ \nEnter your welcome message here:", view=first)
+        preview_message = await ctx.send(view=from_view(first, "__**Simple Message Setup**__ \nEnter your welcome message here:"))
 
         async def submit_callback(interaction):
             if interaction.user != ctx.author:
@@ -202,7 +203,7 @@ class Welcomer(commands.Cog):
                 await interaction.response.send_message(f"{TICK}> Welcome message setup completed!")
                 for item in setup_view.children:
                     item.disabled = True
-                await preview_message.edit(view=setup_view)
+                await preview_message.edit(view=from_view(setup_view))
             else:
                 await interaction.response.send_message("No message entered to submit.", ephemeral=True)
 
@@ -403,7 +404,7 @@ class Welcomer(commands.Cog):
 
             for item in setup_view.children:
                 item.disabled = True
-            await preview_message.edit(view=setup_view)
+            await preview_message.edit(view=from_view(setup_view))
 
         submit_button = Button(label="Submit", emoji=TICK, style=discord.ButtonStyle.success)
         submit_button.callback = submit_callback

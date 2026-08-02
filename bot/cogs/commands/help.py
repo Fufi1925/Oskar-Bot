@@ -36,6 +36,7 @@ color = 0xFF0000
 client = universitybot()
 
 from utils.config import BotName
+from utils.panels import from_view
 
 class HelpCommand(commands.HelpCommand):
 
@@ -160,7 +161,7 @@ class HelpCommand(commands.HelpCommand):
     )
     
     view = vhelp.View(mapping=mapping, ctx=self.context, homeembed=embed, ui=2)
-    await ctx.reply(view=view)
+    await ctx.reply(view=from_view(view))
 
   async def send_command_help(self, command):
     ctx = self.context

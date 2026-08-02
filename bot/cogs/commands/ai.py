@@ -35,6 +35,7 @@ import logging
 import io 
 from PIL import Image 
 from utils.config import *
+from utils.panels import from_view
 
 logger =logging .getLogger ('discord')
 logger .setLevel (logging .WARNING )
@@ -1517,7 +1518,7 @@ Support server: https://discord.gg/MG3rYnUZJV"""
         if not question_data :
             del self .active_games [channel_id ]
             view = CV2View("🧠 Trivia Game", "Failed to generate the next question. Game ended.")
-            await interaction .followup .send (view=view)
+            await interaction .followup .send (view=from_view(view))
             return 
 
         game ["current_question"]=question_data ["question"]
@@ -1534,12 +1535,12 @@ Support server: https://discord.gg/MG3rYnUZJV"""
                 response_message +=f"- {user.display_name if user else 'Unknown'}: {score}\n"
             del self .active_games [channel_id ]
             view = CV2View("🧠 Trivia Game", response_message)
-            await interaction .followup .send (view=view)
+            await interaction .followup .send (view=from_view(view))
         else :
             response_message +=f"\n\n**Round {game['round']}/{game['max_rounds']}**\n{game['current_question']}"
             view =TriviaAnswerView (self ,channel_id ,game ["current_answer"],game ["incorrect_answers"])
             trivia_view = CV2View("🧠 Trivia Game", response_message + "\n\n*Click a button to answer! First correct answer wins the point.*")
-            await interaction .followup .send (view =view )
+            await interaction .followup .send (view=from_view(view))
 
     async def show_stats (self ,ctx ):
         """Show user's trivia statistics"""

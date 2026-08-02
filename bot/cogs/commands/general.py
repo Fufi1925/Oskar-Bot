@@ -94,6 +94,7 @@ class AvatarView(View):
 
 from utils.config import BotName
 from utils.panels import from_embed
+from utils.panels import from_view
 
 class General(commands.Cog):
 
@@ -176,7 +177,7 @@ class General(commands.Cog):
         gallery,
         ActionRow(dl_btn)
     ))
-    await ctx.send(view=view)
+    await ctx.send(view=from_view(view))
 
 
   @commands.hybrid_command(name="membercount",

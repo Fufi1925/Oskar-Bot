@@ -20,6 +20,7 @@ import aiosqlite
 from typing import Dict, List, Optional
 from utils.cv2 import CV2, build_container
 from utils import voice_store as store
+from utils.panels import from_view
 
 class JoinToCreate(commands.Cog):
     def __init__(self, bot):
@@ -565,7 +566,7 @@ class ControlPanelView(LayoutView):
         dropdown = UserSelectDropdown(options, "Select members to invite", self.invite_selected)
         view = ui.View()
         view.add_item(dropdown)
-        await interaction.response.send_message("Select members to invite:", view=view, ephemeral=True)
+        await interaction.response.send_message(view=from_view(view, "Select members to invite:"), ephemeral=True)
     
     async def invite_selected(self, interaction: discord.Interaction, selected: List[str]):
         await interaction.response.defer(ephemeral=True)
@@ -593,7 +594,7 @@ class ControlPanelView(LayoutView):
         dropdown = UserSelectDropdown(options, "Select members to kick", self.kick_selected)
         view = ui.View()
         view.add_item(dropdown)
-        await interaction.response.send_message("Select members to kick:", view=view, ephemeral=True)
+        await interaction.response.send_message(view=from_view(view, "Select members to kick:"), ephemeral=True)
     
     async def kick_selected(self, interaction: discord.Interaction, selected: List[str]):
         await interaction.response.defer(ephemeral=True)
@@ -620,7 +621,7 @@ class ControlPanelView(LayoutView):
         dropdown = RegionSelectDropdown(regions, vc)
         view = ui.View()
         view.add_item(dropdown)
-        await interaction.response.send_message("Select a region:", view=view, ephemeral=True)
+        await interaction.response.send_message(view=from_view(view, "Select a region:"), ephemeral=True)
     
     async def unblock(self, interaction: discord.Interaction):
         vc = await self.get_owned_vc(interaction)
@@ -638,7 +639,7 @@ class ControlPanelView(LayoutView):
         dropdown = UserSelectDropdown(options, "Select users to unblock", self.unblock_selected)
         view = ui.View()
         view.add_item(dropdown)
-        await interaction.response.send_message("Select users to unblock:", view=view, ephemeral=True)
+        await interaction.response.send_message(view=from_view(view, "Select users to unblock:"), ephemeral=True)
     
     async def unblock_selected(self, interaction: discord.Interaction, selected: List[str]):
         await interaction.response.defer(ephemeral=True)
@@ -668,7 +669,7 @@ class ControlPanelView(LayoutView):
         dropdown = VCSelectDropdown(options, "Select VC to claim", self.claim_selected)
         view = ui.View()
         view.add_item(dropdown)
-        await interaction.response.send_message("Select VC to claim:", view=view, ephemeral=True)
+        await interaction.response.send_message(view=from_view(view, "Select VC to claim:"), ephemeral=True)
     
     async def claim_selected(self, interaction: discord.Interaction, selected: List[str]):
         await interaction.response.defer(ephemeral=True)
@@ -697,7 +698,7 @@ class ControlPanelView(LayoutView):
         dropdown = UserSelectDropdown(options, "Select new owner", self.transfer_selected)
         view = ui.View()
         view.add_item(dropdown)
-        await interaction.response.send_message("Select new owner:", view=view, ephemeral=True)
+        await interaction.response.send_message(view=from_view(view, "Select new owner:"), ephemeral=True)
     
     async def transfer_selected(self, interaction: discord.Interaction, selected: List[str]):
         await interaction.response.defer(ephemeral=True)
@@ -744,7 +745,7 @@ class ControlPanelView(LayoutView):
         dropdown = UserSelectDropdown(options, "Select members to block", self.block_selected)
         view = ui.View()
         view.add_item(dropdown)
-        await interaction.response.send_message("Select members to block:", view=view, ephemeral=True)
+        await interaction.response.send_message(view=from_view(view, "Select members to block:"), ephemeral=True)
     
     async def block_selected(self, interaction: discord.Interaction, selected: List[str]):
         await interaction.response.defer(ephemeral=True)

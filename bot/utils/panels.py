@@ -382,3 +382,34 @@ def from_embeds(embeds, view: discord.ui.View | None = None,
         buttons=buttons,
         timeout=getattr(view, "timeout", None),
     )
+
+
+def from_view(view: discord.ui.View, content: str = "", *,
+              title: str = "", tone: str = "info",
+              accent: int | None = None) -> "Panel":
+    """
+    A plain View plus its message text as one V2 panel.
+
+    For the messages that never had an embed: some text and a row of
+    buttons, where the buttons hang *below* the message instead of
+    sitting inside a card with it. There is nothing wrong with that --
+    it is just the old look, and it is the only thing left that does not
+    match the rest of the bot.
+
+    Like from_embed, the view's items are moved rather than copied: a
+    component belongs to one view at a time, and a component left on a
+    view that is never sent has its callback routed nowhere.
+    """
+    buttons = list(view.children) if view is not None else []
+    if view is not None:
+        for item in buttons:
+            view.remove_item(item)
+
+    return Panel(
+        title,
+        content,
+        tone=tone,
+        accent=accent,
+        buttons=buttons,
+        timeout=getattr(view, "timeout", None),
+    )
