@@ -37,12 +37,14 @@ import {
   ChevronDown,
   Circle,
   Gauge,
+  Info,
   Loader2,
   Lock,
   RefreshCw,
   Rocket,
   Sparkles,
   Terminal,
+  Trash2,
   X,
   XCircle,
 } from "lucide-react";
@@ -243,6 +245,10 @@ export function SpeedrunPanel({ guildId }: { guildId: string }) {
   const [options, setOptions] = useState<Record<string, boolean>>({});
   const [expanded, setExpanded] = useState(false);
   const [intros, setIntros] = useState(true);
+  // "Alles löschen" -- standardmäßig aus. Der Schaden ist endgültig,
+  // also muss man ihn ausdrücklich anfordern, nicht bloß nicht abwählen.
+  const [wipe, setWipe] = useState(false);
+  const [wipeConfirm, setWipeConfirm] = useState("");
 
   const [lines, setLines] = useState<LogLine[]>([]);
   const [phase, setPhase] = useState<"idle" | "building" | "finishing" | "done" | "failed">(
@@ -388,7 +394,10 @@ export function SpeedrunPanel({ guildId }: { guildId: string }) {
       await api.speedrunStart(guildId, {
         template: chosen,
         user_id: userId,
-        options: { intros, rebuild: false },
+        options: { intros, rebuild: wipe },
+        // Der Bot prüft das noch einmal selbst. Hier steht es, weil er
+        // sonst nicht wissen kann, ob wirklich jemand zugestimmt hat.
+        confirm: wipe ? wipeConfirm.trim() : "",
       });
       sinceRef.current = 0;
       sinceMainRef.current = 0;
@@ -418,6 +427,15 @@ export function SpeedrunPanel({ guildId }: { guildId: string }) {
   const ready = Boolean(pre?.ready);
   const running = phase === "building" || phase === "finishing";
   const chosenTemplate = templates.find((t) => t.key === chosen);
+
+  // Ohne Löschen immer startklar; mit Löschen erst, wenn der Servername
+  // genau stimmt. Der Vergleich läuft auch im Bot noch einmal -- hier
+  // geht es nur darum, den Knopf zu sperren, statt eine Fehlermeldung
+  // zu zeigen, nachdem jemand schon geklickt hat.
+  const wipeReady =
+    !wipe ||
+    (Boolean(pre?.guild_name) &&
+      wipeConfirm.trim() === String(pre.guild_name).trim());
 
   return (
     <section className="space-y-6">
@@ -677,11 +695,23 @@ export function SpeedrunPanel({ guildId }: { guildId: string }) {
             </p>
           </div>
 
-          <div className="rounded-2xl border border-primary/30 bg-primary/[0.06] p-4 flex gap-3">
-            <Sparkles className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+          <div
+            className={cn(
+              "rounded-2xl border p-4 flex gap-3",
+              wipe
+                ? "border-red-500/30 bg-red-500/[0.06]"
+                : "border-primary/30 bg-primary/[0.06]"
+            )}
+          >
+            {wipe ? (
+              <Trash2 className="h-4 w-4 text-red-400 shrink-0 mt-0.5" />
+            ) : (
+              <Sparkles className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+            )}
             <div className="min-w-0">
               <p className="text-sm font-black text-white">
-                Standard: {Object.values(options).filter(Boolean).length} von{" "}
+                {wipe ? "Alles löschen, dann neu bauen" : "Standard"}:{" "}
+                {Object.values(options).filter(Boolean).length} von{" "}
                 {steps.length} Schritten
               </p>
               <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
@@ -690,6 +720,11 @@ export function SpeedrunPanel({ guildId }: { guildId: string }) {
                   .map((step) => step.label)
                   .join(" · ") || "Nichts ausgewählt."}
               </p>
+              {wipe && (
+                <p className="text-[11px] text-red-200/80 mt-2 leading-relaxed font-bold">
+                  Alle bestehenden Kanäle und Rollen werden vorher gelöscht.
+                </p>
+              )}
             </div>
           </div>
 
@@ -720,6 +755,65 @@ export function SpeedrunPanel({ guildId }: { guildId: string }) {
                 hint="Eine angeheftete Erklärung pro Kanal. Aus, wenn die Kanäle leer bleiben sollen."
               />
 
+              {/* ── Alles löschen ────────────────────────────
+                  Getrennt vom Rest und rot umrandet, weil es als
+                  einziger Schalter Bestehendes zerstört statt etwas
+                  hinzuzufügen. */}
+              <div className="rounded-xl border border-red-500/25 bg-red-500/[0.05] p-3.5 mt-1">
+                <InlineToggle
+                  checked={wipe}
+                  onCheckedChange={(value) => {
+                    setWipe(value);
+                    if (!value) setWipeConfirm("");
+                  }}
+                  label={
+                    <span className="text-red-200/90 font-bold">
+                      Vorher alles löschen
+                    </span>
+                  }
+                  hint="Alle Kanäle und Rollen weg, dann neu aufbauen. Ohne diesen Haken kommt das Template zum Bestehenden dazu."
+                />
+
+                {wipe && (
+                  <div className="mt-3.5 space-y-2.5">
+                    <div className="flex gap-2.5">
+                      <AlertTriangle className="h-4 w-4 text-red-400 shrink-0 mt-0.5" />
+                      <p className="text-[11px] text-red-200/80 leading-relaxed">
+                        Das löscht <strong>jeden</strong> Kanal und{" "}
+                        <strong>jede</strong> Rolle, die der Bot anfassen darf
+                        &mdash; auch die, die nichts mit der Vorlage zu tun
+                        haben. Alle Nachrichtenverläufe sind danach endgültig
+                        weg. Discord hat keinen Papierkorb.
+                      </p>
+                    </div>
+                    <div className="flex gap-2.5">
+                      <Info className="h-4 w-4 text-slate-500 shrink-0 mt-0.5" />
+                      <p className="text-[11px] text-slate-400 leading-relaxed">
+                        Was über der Bot-Rolle steht, bleibt stehen &mdash;
+                        daran kommt der Bot nicht heran.
+                      </p>
+                    </div>
+
+                    <label className="block">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-red-300/70">
+                        Zum Bestätigen den Servernamen tippen
+                      </span>
+                      <input
+                        value={wipeConfirm}
+                        onChange={(event) => setWipeConfirm(event.target.value)}
+                        placeholder={pre?.guild_name || "Servername"}
+                        className="mt-1.5 w-full bg-[#0d1b31] border border-red-500/30 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-red-500/60 transition-colors"
+                      />
+                      {pre?.guild_name && (
+                        <span className="block text-[10px] text-slate-600 mt-1.5">
+                          Erwartet: <code className="text-slate-400">{pre.guild_name}</code>
+                        </span>
+                      )}
+                    </label>
+                  </div>
+                )}
+              </div>
+
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-600 pt-2">
                 University Bot
               </p>
@@ -746,16 +840,35 @@ export function SpeedrunPanel({ guildId }: { guildId: string }) {
               Zurück
             </button>
             <button
-              disabled={busy}
+              disabled={busy || !wipeReady}
               onClick={start}
-              className="ml-auto px-4 py-2 rounded-xl bg-primary text-white text-[11px] font-black uppercase tracking-wider hover:bg-primary/80 transition-colors inline-flex items-center gap-2 disabled:opacity-50"
+              title={
+                wipeReady
+                  ? undefined
+                  : "Tippe zuerst den Servernamen, um das Löschen zu bestätigen."
+              }
+              className={cn(
+                "ml-auto px-4 py-2 rounded-xl text-[11px] font-black uppercase tracking-wider transition-colors inline-flex items-center gap-2",
+                !wipeReady
+                  ? "bg-slate-800 text-slate-600 cursor-not-allowed"
+                  : wipe
+                  ? "bg-red-600 text-white hover:bg-red-500"
+                  : "bg-primary text-white hover:bg-primary/80",
+                busy && "opacity-50"
+              )}
             >
               {busy ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : wipe ? (
+                <Trash2 className="h-3.5 w-3.5" />
               ) : (
                 <Rocket className="h-3.5 w-3.5" />
               )}
-              {chosenTemplate ? `„${chosenTemplate.name}“ bauen` : "Starten"}
+              {wipe
+                ? "Alles löschen und neu bauen"
+                : chosenTemplate
+                ? `„${chosenTemplate.name}“ bauen`
+                : "Starten"}
             </button>
           </div>
         </div>

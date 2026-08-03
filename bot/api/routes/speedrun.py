@@ -325,13 +325,57 @@ async def start(
             detail="Der University Bot ist nicht auf diesem Server.",
         )
 
+    options = dict(data.get("options") or {})
+
+    # ------------------------------------------------------------------ #
+    # "Alles löschen" -- der einzige Schritt, der Bestehendes zerstört
+    # ------------------------------------------------------------------ #
+    #
+    # Im Aufbau-Modus kommt das Template zum Server dazu. Mit rebuild
+    # wird vorher jeder Kanal und jede Rolle gelöscht, die der Bot
+    # anfassen darf -- auch die, die nichts mit dem Template zu tun
+    # haben. Nachrichtenverläufe sind danach weg, endgültig; Discord
+    # hat keinen Papierkorb.
+    #
+    # Deshalb reicht ein Häkchen im Browser hier nicht. Wer den
+    # Endpunkt direkt mit curl aufruft, umgeht jede Abfrage im
+    # Dashboard, und ein "options.rebuild=true" ist schnell getippt.
+    # Die Bestätigung wird darum hier verlangt: der Servername, genau
+    # so geschrieben, wie er in Discord steht.
+    if options.get("rebuild"):
+        confirm = str(data.get("confirm") or "").strip()
+        if confirm != guild.name.strip():
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "»Alles löschen« braucht eine Bestätigung: schicke den "
+                    "Servernamen genau so mit, wie er in Discord steht. "
+                    f"Erwartet: »{guild.name}«."
+                ),
+            )
+
+        # Was der Bot nicht löschen kann, bleibt stehen -- und dann
+        # steht der Server halb leer da. Lieber vorher sagen.
+        me = guild.me
+        perms = me.guild_permissions if me is not None else None
+        if perms is None or not (
+            perms.administrator or (perms.manage_channels and perms.manage_roles)
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Für »Alles löschen« braucht der Bot »Kanäle verwalten« "
+                    "und »Rollen verwalten«."
+                ),
+            )
+
     status_code, body = await _call_template(
         "POST",
         "/internal/speedrun/start",
         payload={
             "guild_id": str(guild_id),
             "template": template_key,
-            "options": data.get("options") or {},
+            "options": options,
             "user_id": user_id,
         },
         timeout=20,

@@ -344,6 +344,65 @@ def test_the_server_says_why_it_cannot_reach_the_template_bot():
                 os.environ[key] = value
 
 
+def test_the_wipe_switch_is_hard_to_hit_by_accident():
+    """
+    »Alles löschen« darf niemandem versehentlich passieren.
+
+    Es ist der einzige Schalter, der Bestehendes zerstört statt etwas
+    hinzuzufügen, und Discord hat keinen Papierkorb.
+    """
+
+    print("\n»Alles löschen« ist kein Versehen")
+
+    panel = strip_comments(read(PANEL))
+
+    check("es gibt den Schalter", "setWipe" in panel)
+    check("er ist standardmäßig aus",
+          "useState(false)" in panel.split("const [wipe,")[1][:40],
+          "ein Löschen, das man nur nicht abwählt, ist eine Falle")
+
+    # Bestätigung durch Abtippen des Servernamens.
+    check("es wird eine Bestätigung getippt", "wipeConfirm" in panel)
+    check("sie wird mit dem Servernamen verglichen",
+          "pre.guild_name" in panel or "pre?.guild_name" in panel)
+
+    # Und der Knopf sperrt, bis sie stimmt. Sonst käme die Absage erst
+    # nach dem Klick vom Server.
+    check("der Startknopf sperrt ohne Bestätigung", "wipeReady" in panel)
+    check("und zwar wirklich am disabled",
+          "disabled={busy || !wipeReady}" in panel,
+          "wipeReady wird berechnet, aber nicht benutzt")
+
+    # Ein Abwählen darf keine getippte Bestätigung stehen lassen --
+    # sonst reicht ein zweiter Klick auf den Schalter zum Auslösen.
+    #
+    # Nur zu prüfen, dass `setWipeConfirm("")` irgendwo vorkommt, wäre
+    # wertlos: der Aufruf steht auch dann noch da, wenn er hinter
+    # `if (false)` hängt. Ein Mutationstest hat genau das durchgelassen.
+    # Also die Bedingung mitlesen.
+    handler = panel.split("onCheckedChange={(value) => {")
+    check("der Schalter hat einen eigenen Handler", len(handler) > 1)
+    if len(handler) > 1:
+        body = handler[1].split("}}")[0]
+        check("Abwählen löscht die Bestätigung",
+              'if (!value) setWipeConfirm("")' in body,
+              f"Handler-Rumpf: {body.strip()[:120]}")
+
+    # Der Wert muss auch wirklich beim Bot ankommen. `rebuild: false`
+    # fest verdrahtet war der Zustand vorher.
+    check("der Schalter wird mitgeschickt", "rebuild: wipe" in panel,
+          "rebuild wird nicht aus dem Schalter gespeist")
+    check("die Bestätigung wird mitgeschickt", "confirm:" in panel)
+
+    # Und es steht klar da, was passiert -- vor dem Klick.
+    check("die Folgen werden benannt",
+          "endgültig" in panel and "Papierkorb" in panel,
+          "der Text verharmlost, was das Löschen anrichtet")
+    check("der Knopf sagt, dass er löscht",
+          "Alles löschen und neu bauen" in panel,
+          "der Knopf muss beschriften, was er tut")
+
+
 def test_the_console_does_not_fight_the_reader():
     """Automatisches Mitrollen darf nicht die Zeile wegreißen, die man liest."""
 
@@ -365,6 +424,7 @@ def main():
     test_the_progress_poll_cannot_start_twice()
     test_one_failed_call_does_not_blank_the_others()
     test_the_server_says_why_it_cannot_reach_the_template_bot()
+    test_the_wipe_switch_is_hard_to_hit_by_accident()
     test_the_console_does_not_fight_the_reader()
 
     print()

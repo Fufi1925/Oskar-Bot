@@ -100,6 +100,114 @@ def test_beta_gate():
           "die Sperre läge allein im Browser")
 
 
+def test_wipe_needs_the_server_name():
+    """
+    »Alles löschen« ist der einzige Schritt, der Bestehendes zerstört.
+
+    Ein Häkchen im Browser reicht dafür nicht: wer den Endpunkt mit curl
+    aufruft, umgeht jede Rückfrage im Dashboard, und
+    ``options.rebuild=true`` ist schnell getippt. Discord hat keinen
+    Papierkorb — was hier gelöscht wird, ist weg.
+
+    Also muss der Bot selbst eine Bestätigung verlangen: den Servernamen,
+    genau so geschrieben.
+    """
+
+    print("\n»Alles löschen« verlangt eine Bestätigung")
+    import ast
+
+    path = os.path.join(BOT, "api", "routes", "speedrun.py")
+    source = open(path, encoding="utf-8").read()
+
+    tree = ast.parse(source)
+    start = next(
+        node for node in ast.walk(tree)
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        and node.name == "start"
+    )
+    block = ast.get_source_segment(source, start) or ""
+
+    # Kommentare raus: eine Erklärung über den Riegel ist nicht der
+    # Riegel. Genau diese Verwechslung ist in diesem Projekt mehrfach
+    # passiert.
+    code = "\n".join(
+        line for line in block.splitlines() if not line.strip().startswith("#")
+    )
+
+    check("der Start liest options.rebuild", '"rebuild"' in code, code[:200])
+    check("und verlangt dann eine Bestätigung", '"confirm"' in code)
+    check("die mit dem Servernamen verglichen wird",
+          "guild.name" in code,
+          "ohne Vergleich wäre jede Eingabe gültig")
+
+    # Ab hier über den Syntaxbaum statt über Textsuche. Zwei Mutationen
+    # sind vorher durchgerutscht, weil "das Wort kommt vor" nichts über
+    # die Wirkung sagt: `if confirm != guild.name` durch `if False`
+    # ersetzt, und die Bedingung stand immer noch im Quelltext.
+    start_tree = ast.parse(code.strip())
+    func = start_tree.body[0]
+
+    # Den Zweig finden, der an options["rebuild"] hängt.
+    rebuild_branch = None
+    for node in ast.walk(func):
+        if isinstance(node, ast.If) and "rebuild" in ast.unparse(node.test):
+            rebuild_branch = node
+            break
+    check("es gibt einen Zweig für den Lösch-Schalter", rebuild_branch is not None)
+    if rebuild_branch is None:
+        return
+
+    # Er darf nicht konstant sein: `if False:` ist keine Sperre, und
+    # `if True:` würde jeden normalen Aufbau blockieren.
+    check("der Zweig hängt wirklich an den Optionen",
+          not isinstance(rebuild_branch.test, ast.Constant),
+          f"Bedingung ist konstant: {ast.unparse(rebuild_branch.test)}")
+
+    # Innerhalb: eine Prüfung, die den Servernamen vergleicht UND
+    # abbricht. Beides am selben if, sonst hängt das raise woanders.
+    def raises(node) -> bool:
+        return any(isinstance(inner, ast.Raise) for inner in ast.walk(node))
+
+    inner_ifs = [n for n in ast.walk(rebuild_branch) if isinstance(n, ast.If)]
+
+    name_checks = [
+        n for n in inner_ifs
+        if "guild.name" in ast.unparse(n.test)
+        and not isinstance(n.test, ast.Constant)
+        and raises(n)
+    ]
+    check("ein falscher Name bricht ab", bool(name_checks),
+          "der Namensvergleich ist konstant oder ohne raise — "
+          "damit käme jede Eingabe durch")
+
+    perm_checks = [
+        n for n in inner_ifs
+        if "manage_channels" in ast.unparse(n.test)
+        and not isinstance(n.test, ast.Constant)
+        and raises(n)
+    ]
+    check("fehlende Löschrechte brechen ab", bool(perm_checks),
+          "sonst bleibt der halbe Server stehen")
+
+    # Und die Optionen müssen wirklich aus der Anfrage kommen. Ein
+    # `options = {}` wäre still: rebuild wäre immer aus, das Häkchen
+    # im Dashboard hätte keine Wirkung, und niemand bekäme einen Fehler.
+    assigns = [
+        n for n in ast.walk(func)
+        if isinstance(n, ast.Assign)
+        and any(getattr(t, "id", "") == "options" for t in n.targets)
+    ]
+    check("options werden aus den Daten gelesen",
+          any("data" in ast.unparse(n.value) for n in assigns),
+          f"options kommt nicht aus data: "
+          f"{[ast.unparse(n.value) for n in assigns]}")
+
+    # Und sie werden auch weitergereicht, nicht nur gelesen.
+    check("options gehen an den Template-Bot",
+          '"options": options' in code,
+          "die Auswahl bliebe hier hängen")
+
+
 def test_premium_failure_is_closed():
     """Eine kaputte Premium-Abfrage darf nichts freischalten."""
 
@@ -200,6 +308,7 @@ def main():
     test_routes_exist()
     test_missing_configuration_says_what_is_missing()
     test_beta_gate()
+    test_wipe_needs_the_server_name()
     test_premium_failure_is_closed()
     test_template_bot_errors_become_502()
     test_no_token_in_the_answer()
