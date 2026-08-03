@@ -231,6 +231,119 @@ def test_the_progress_poll_cannot_start_twice():
           "since_main" in read(API) or "sinceMain" in read(API))
 
 
+def test_one_failed_call_does_not_blank_the_others():
+    """
+    Der Bug, den der Nutzer gemeldet hat.
+
+    Das Laden holt drei Sachen auf einmal: die Voraussetzungen, die
+    Vorlagen und die Schritte. Mit `Promise.all` wirft der ganze Block,
+    sobald *einer* davon scheitert -- und dann wird auch das Ergebnis
+    der geglückten verworfen.
+
+    Im Betrieb war der Template-Bot nicht erreichbar, /templates gab
+    502, und weil damit auch die erfolgreiche Antwort von /precheck
+    weggeworfen wurde, blieb `pre` null. Die Oberfläche las daraus
+    lauter Kreuze und behauptete, beide Bots fehlten -- obwohl sie da
+    waren. Die Ursache lag beim zweiten Bot, die Anzeige zeigte auf den
+    ersten.
+    """
+
+    print("\nEin gescheiterter Aufruf macht nicht alles leer")
+
+    panel = strip_comments(read(PANEL))
+
+    check("die drei Aufrufe laufen mit allSettled",
+          "Promise.allSettled" in panel,
+          "mit Promise.all verwirft ein Fehlschlag auch die geglückten Antworten")
+    check("kein Promise.all mehr im Ladeweg",
+          "Promise.all(" not in panel,
+          "Promise.all( gefunden")
+
+    # Jeder der drei muss einzeln ausgewertet werden.
+    for name in ("precheck", "list", "stepList"):
+        check(f"„{name}“ wird einzeln geprüft",
+              f'{name}.status === "fulfilled"' in panel,
+              f"{name} wird nicht auf fulfilled geprüft")
+
+    # Und der Fehler muss sichtbar werden, statt sich als "fehlt"
+    # auszugeben. Getrennt, denn eine kaputte Vorlagenliste sagt nichts
+    # über die Voraussetzungen aus.
+    check("es gibt einen eigenen Fehler für die Prüfung", "preError" in panel)
+    check("und einen für die Vorlagen", "templateError" in panel)
+    check("der Prüf-Fehler wird angezeigt",
+          "{preError && (" in panel,
+          "der Fehler wird gespeichert, aber nie gezeigt")
+    check("der Vorlagen-Fehler wird angezeigt",
+          "{templateError && (" in panel)
+
+    # Und die Meldung muss die häufigste Ursache benennen. "Konnte nicht
+    # geladen werden" hat den Nutzer eine Runde gekostet.
+    check("die Meldung nennt TEMPLATE_BOT_URL",
+          "TEMPLATE_BOT_URL" in panel)
+    check("und weist auf IPv6 hin",
+          "IPv6" in panel,
+          "Railways internes Netz ist IPv6-only — das ist die häufigste Ursache")
+
+
+def test_the_server_says_why_it_cannot_reach_the_template_bot():
+    """Drei Ursachen dürfen nicht denselben Namen tragen."""
+
+    print("\nDie 502-Meldung nennt die Ursache")
+
+    import asyncio
+
+    from fastapi import HTTPException
+
+    from api.routes import speedrun
+
+    old_url = os.environ.get("TEMPLATE_BOT_URL")
+    old_token = os.environ.get("PREMIUM_PARTNER_TOKEN")
+    os.environ["PREMIUM_PARTNER_TOKEN"] = "test-token"
+
+    try:
+        # 1. Niemand nimmt ab (der IPv6-Fall sieht genau so aus).
+        os.environ["TEMPLATE_BOT_URL"] = "http://127.0.0.1:1"
+        try:
+            asyncio.run(speedrun._call_template("GET", "/x", timeout=3))
+            check("abgelehnte Verbindung meldet einen Fehler", False, "kein Fehler")
+        except HTTPException as exc:
+            detail = str(exc.detail)
+            check("abgelehnte Verbindung wird zu 502", exc.status_code == 502)
+            check("und erklärt den IPv6-Fall", "IPv6" in detail, detail)
+
+        # 2. Den Namen gibt es nicht -- falsche TEMPLATE_BOT_URL.
+        os.environ["TEMPLATE_BOT_URL"] = "http://kein-solcher-dienst.railway.internal:8080"
+        try:
+            asyncio.run(speedrun._call_template("GET", "/x", timeout=5))
+            check("unbekannter Name meldet einen Fehler", False, "kein Fehler")
+        except HTTPException as exc:
+            detail = str(exc.detail)
+            check("unbekannter Name wird zu 502", exc.status_code == 502)
+            check("und nennt TEMPLATE_BOT_URL", "TEMPLATE_BOT_URL" in detail, detail)
+            check("und erwähnt den fehlenden Port",
+                  "Port" in detail, detail)
+
+        # Die beiden Meldungen dürfen nicht dieselbe sein: sie brauchen
+        # verschiedene Handgriffe.
+        messages = []
+        for url in ("http://127.0.0.1:1", "http://kein-solcher-dienst.railway.internal:8080"):
+            os.environ["TEMPLATE_BOT_URL"] = url
+            try:
+                asyncio.run(speedrun._call_template("GET", "/x", timeout=5))
+            except HTTPException as exc:
+                messages.append(str(exc.detail))
+        check("die zwei Ursachen bekommen verschiedene Meldungen",
+              len(messages) == 2 and messages[0] != messages[1],
+              str(messages))
+    finally:
+        for key, value in (("TEMPLATE_BOT_URL", old_url),
+                           ("PREMIUM_PARTNER_TOKEN", old_token)):
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+
+
 def test_the_console_does_not_fight_the_reader():
     """Automatisches Mitrollen darf nicht die Zeile wegreißen, die man liest."""
 
@@ -250,6 +363,8 @@ def main():
     test_no_german_quotes_break_a_string()
     test_the_browser_decides_nothing()
     test_the_progress_poll_cannot_start_twice()
+    test_one_failed_call_does_not_blank_the_others()
+    test_the_server_says_why_it_cannot_reach_the_template_bot()
     test_the_console_does_not_fight_the_reader()
 
     print()

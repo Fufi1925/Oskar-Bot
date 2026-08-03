@@ -232,6 +232,10 @@ export function SpeedrunPanel({ guildId }: { guildId: string }) {
   const [busy, setBusy] = useState(false);
 
   const [pre, setPre] = useState<any>(null);
+  // Getrennte Fehler pro Aufruf: scheitert die Vorlagenliste, heißt das
+  // nicht, dass die Voraussetzungen nicht stimmen -- und umgekehrt.
+  const [preError, setPreError] = useState("");
+  const [templateError, setTemplateError] = useState("");
   const [templates, setTemplates] = useState<any[]>([]);
   const [chosen, setChosen] = useState<string>("");
 
@@ -256,28 +260,49 @@ export function SpeedrunPanel({ guildId }: { guildId: string }) {
   /* -- Laden ---------------------------------------------------- */
 
   const load = useCallback(async () => {
-    try {
-      const [precheck, list, stepList] = await Promise.all([
-        api.speedrunPrecheck(guildId, userId),
-        api.speedrunTemplates(userId),
-        api.speedrunSteps(),
-      ]);
-      setPre(precheck);
-      setTemplates(list?.templates ?? []);
-      const specs: StepSpec[] = stepList?.steps ?? [];
-      setSteps(specs);
-      setOptions(
-        Object.fromEntries(specs.map((s) => [s.key, s.default]))
-      );
+    // allSettled, nicht all: `Promise.all` wirft, sobald *einer* der
+    // drei Aufrufe scheitert, und dann werden auch die geglückten
+    // verworfen. Genau das ist passiert -- der Template-Bot war nicht
+    // erreichbar, /templates gab 502, und weil damit auch das Ergebnis
+    // von /precheck weggeworfen wurde, blieb `pre` null und die
+    // Voraussetzungen standen alle auf "fehlt", obwohl sie erfüllt
+    // waren. Die Ursache lag beim zweiten Bot, die Anzeige zeigte auf
+    // den ersten.
+    const [precheck, list, stepList] = await Promise.allSettled([
+      api.speedrunPrecheck(guildId, userId),
+      api.speedrunTemplates(userId),
+      api.speedrunSteps(),
+    ]);
 
-      // Ein einziges freigegebenes Template muss man nicht auswählen.
-      const free = (list?.templates ?? []).filter((t: any) => t.available);
-      if (free.length === 1) setChosen(free[0].key);
-    } catch (err: any) {
-      toast.error(err?.message || "Konnte nicht geladen werden.");
-    } finally {
-      setLoading(false);
+    if (precheck.status === "fulfilled") {
+      setPre(precheck.value);
+      setPreError("");
+    } else {
+      setPre(null);
+      setPreError(precheck.reason?.message || "Die Prüfung ist fehlgeschlagen.");
     }
+
+    if (stepList.status === "fulfilled") {
+      const specs: StepSpec[] = stepList.value?.steps ?? [];
+      setSteps(specs);
+      setOptions(Object.fromEntries(specs.map((s) => [s.key, s.default])));
+    }
+
+    if (list.status === "fulfilled") {
+      const items = list.value?.templates ?? [];
+      setTemplates(items);
+      setTemplateError("");
+      // Ein einziges freigegebenes Template muss man nicht auswählen.
+      const free = items.filter((t: any) => t.available);
+      if (free.length === 1) setChosen(free[0].key);
+    } else {
+      setTemplates([]);
+      setTemplateError(
+        list.reason?.message || "Die Vorlagen konnten nicht geladen werden."
+      );
+    }
+
+    setLoading(false);
   }, [guildId, userId]);
 
   useEffect(() => {
@@ -436,6 +461,24 @@ export function SpeedrunPanel({ guildId }: { guildId: string }) {
             Voraussetzungen
           </p>
 
+          {/* Konnte gar nicht geprüft werden. Ohne diesen Kasten stünden
+              unten lauter rote Kreuze, die behaupten, die Bots fehlten --
+              dabei ist bloß die Prüfung selbst nicht durchgekommen. */}
+          {preError && (
+            <div className="rounded-xl bg-red-500/[0.06] border border-red-500/20 p-3.5 flex gap-2.5 mb-3">
+              <XCircle className="h-4 w-4 text-red-400 shrink-0 mt-0.5" />
+              <div className="min-w-0">
+                <p className="text-[12px] text-red-200/90 font-bold">
+                  Die Prüfung selbst ist fehlgeschlagen.
+                </p>
+                <p className="text-[11px] text-red-200/70 mt-1 leading-relaxed">
+                  {preError} Was unten steht, ist deshalb ungeprüft — nicht
+                  unbedingt falsch.
+                </p>
+              </div>
+            </div>
+          )}
+
           <Requirement
             ok={Boolean(checks.main_bot_present)}
             label="University Bot ist auf dem Server"
@@ -528,6 +571,25 @@ export function SpeedrunPanel({ guildId }: { guildId: string }) {
               echten Server gelaufen.
             </p>
           </div>
+
+          {templateError && (
+            <div className="rounded-xl bg-red-500/[0.06] border border-red-500/20 p-3.5 flex gap-2.5">
+              <XCircle className="h-4 w-4 text-red-400 shrink-0 mt-0.5" />
+              <div className="min-w-0">
+                <p className="text-[12px] text-red-200/90 font-bold">
+                  Die Vorlagen kommen vom Template-Bot — er antwortet nicht.
+                </p>
+                <p className="text-[11px] text-red-200/70 mt-1 leading-relaxed">
+                  {templateError}
+                </p>
+                <p className="text-[11px] text-red-200/70 mt-2 leading-relaxed">
+                  Häufigste Ursache: <code>TEMPLATE_BOT_URL</code> fehlt oder
+                  zeigt woandershin, oder der Template-Bot lauscht nicht auf
+                  IPv6 — Railways internes Netz läuft nur darüber.
+                </p>
+              </div>
+            </div>
+          )}
 
           <div className="grid gap-3 sm:grid-cols-2">
             {templates.map((template) => {

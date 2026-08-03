@@ -108,15 +108,52 @@ async def _call_template(
                     body = {"error": (await response.text())[:200]}
                 return response.status, body
     except aiohttp.ClientError as exc:
+        raise HTTPException(status_code=502, detail=_why_unreachable(exc, url)) from exc
+    except asyncio.TimeoutError as exc:
         raise HTTPException(
             status_code=502,
-            detail=f"Template-Bot nicht erreichbar: {exc}",
+            detail=(
+                f"Der Template-Bot hat auf {url} nicht innerhalb von "
+                f"{timeout} Sekunden geantwortet. Läuft der Dienst gerade hoch?"
+            ),
         ) from exc
-    except Exception as exc:  # Timeout und alles Uebrige
+    except Exception as exc:
         raise HTTPException(
             status_code=502,
-            detail=f"Template-Bot antwortet nicht: {type(exc).__name__}",
+            detail=f"Template-Bot antwortet nicht: {type(exc).__name__}: {exc}",
         ) from exc
+
+
+def _why_unreachable(exc: Exception, url: str) -> str:
+    """Aus einem Verbindungsfehler eine Anweisung machen.
+
+    "Template-Bot nicht erreichbar" war die alte Meldung, und die ist
+    wertlos: sie nennt drei voellig verschiedene Ursachen beim selben
+    Namen. Auf Railway sind es praktisch immer diese hier, und sie
+    lassen sich am Fehler unterscheiden.
+    """
+
+    errno = getattr(getattr(exc, "os_error", None), "errno", None)
+
+    # -2/-5 = getaddrinfo: den Namen gibt es nicht.
+    if isinstance(exc, aiohttp.ClientConnectorDNSError) or errno in (-2, -5):
+        return (
+            f"Die Adresse »{url}« gibt es nicht. Prüfe TEMPLATE_BOT_URL in "
+            "Railway: sie muss auf den Template-Bot zeigen, also etwa "
+            "http://<dienstname>.railway.internal:8080 — mit Port, denn ohne "
+            "ihn versucht http Port 80."
+        )
+
+    # 111 = ECONNREFUSED: der Name stimmt, aber dort horcht nichts.
+    if errno == 111 or isinstance(exc, ConnectionRefusedError):
+        return (
+            f"Unter »{url}« nimmt niemand die Verbindung an. Zwei häufige "
+            "Gründe: der Template-Bot läuft nicht — oder er lauscht nur auf "
+            "IPv4. Railways internes Netz ist IPv6-only, der Dienst muss "
+            "deshalb auf :: (bzw. auf beiden Familien) horchen."
+        )
+
+    return f"Template-Bot nicht erreichbar ({url}): {exc}"
 
 
 def _has_premium(user_id: str) -> bool:
