@@ -94,6 +94,8 @@ class FakeGuild:
             22: FakeChannel(22, "🎫・ʜɪʟꜰᴇ"),
             23: FakeChannel(23, "📋・ᴍᴏᴅ-ʟᴏɢꜱ"),
             24: FakeChannel(24, "💬・ɴᴀᴄʜʀɪᴄʜᴛᴇɴ-ʟᴏɢꜱ"),
+            25: FakeChannel(25, "🔢・ᴢᴀᴇʜʟᴇɴ"),
+            26: FakeChannel(26, "🔊・ᴀʟʟɢᴇᴍᴇɪɴᴇʀ-ᴛᴀʟᴋ"),
         }
         self.me = FakeMe(FakeRole(99, "Bot", 50))
 
@@ -150,6 +152,8 @@ HANDOVER = {
         "verify": "20",
         "welcome": "21",
         "tickets": "22",
+        "counting": "25",
+        "j2c": "26",
         "rules": None,
         "roles": None,
         "announcements": None,
@@ -176,17 +180,29 @@ def run_in(workdir, coro_factory):
     entscheidet das Arbeitsverzeichnis, welche Datei getroffen wird.
     """
 
+    from api.db_manager import db_manager
+
+    async def wrapped():
+        try:
+            return await coro_factory()
+        finally:
+            # Die Verbindungen zeigen sonst auf geloeschte Dateien und
+            # der naechste Test bekaeme die alte Datenbank.
+            #
+            # Und sie muessen *geschlossen* werden, nicht nur aus dem
+            # Zwischenspeicher geworfen: jede aiosqlite-Verbindung haelt
+            # einen eigenen Thread offen. Ein blosses .clear() liess sie
+            # laufen, und der Prozess hing am Ende ewig beim Beenden --
+            # der Test war fertig, das Programm kam nie zurueck. Mein
+            # Fehler aus der letzten Runde.
+            await db_manager.close_all()
+
     old = os.getcwd()
     os.chdir(workdir)
     try:
-        return asyncio.run(coro_factory())
+        return asyncio.run(wrapped())
     finally:
         os.chdir(old)
-        # Die Verbindungen des db_manager zeigen sonst auf geloeschte
-        # Dateien und der naechste Test bekommt die alte Datenbank.
-        from api.db_manager import db_manager
-
-        db_manager._connections.clear()
 
 
 # --------------------------------------------------------------------- #
@@ -501,6 +517,141 @@ def test_tickets_do_not_pile_up_on_a_second_run():
               str(len(found[0].get("categories") or [])))
 
 
+def test_counting_is_actually_switched_on():
+    """Der Kanal allein zählt nicht -- das Spiel muss scharf sein.
+
+    Der Template-Bot legt den Zähl-Kanal an und schreibt eine 1 hinein.
+    Im Hauptbot steht das Spiel aber auf ``enabled: False`` mit
+    ``channel: None``. Ohne diesen Schritt sieht der Kanal fertig aus
+    und reagiert auf keine Zahl -- genau das war die Meldung.
+    """
+
+    print("\nDas Zählspiel läuft danach wirklich")
+    from utils import speedrun_handover as ho
+
+    workdir = fresh_workdir()
+    guild = FakeGuild()
+    bot = FakeBot()
+
+    async def go():
+        report = await ho.run_handover(
+            bot, guild, HANDOVER,
+            options={key: key == "counting" for key in ho.STEPS},
+        )
+        # Mit demselben Weg zurücklesen, den das Counting-Cog nimmt.
+        from utils import extras_store as store
+
+        return report, store.counting_get(guild.id)
+
+    try:
+        report, settings = run_in(workdir, go)
+    finally:
+        shutil.rmtree(workdir, ignore_errors=True)
+
+    check("der Schritt meldet Erfolg", not report.failed, str(report.failed))
+    check("das Spiel ist an", settings["enabled"] is True, str(settings["enabled"]))
+    check("der Kanal stimmt", str(settings["channel"]) == "25",
+          str(settings["channel"]))
+    # Der Template-Bot hat die 1 schon gepostet. Stünde hier 0, würde
+    # der Bot die nächste Zahl als 1 erwarten und die 2 als Fehler
+    # werten -- das Spiel wäre kaputt, bevor jemand mitspielt.
+    check("der Stand berücksichtigt die gepostete 1",
+          settings["current"] == 1, str(settings["current"]))
+
+
+def test_j2c_points_at_a_voice_channel():
+    print("\nJoin to Create hängt am Sprachkanal")
+    from utils import speedrun_handover as ho
+
+    workdir = fresh_workdir()
+    guild = FakeGuild()
+    bot = FakeBot()
+
+    async def go():
+        report = await ho.run_handover(
+            bot, guild, HANDOVER,
+            options={key: key == "j2c" for key in ho.STEPS},
+        )
+        from api.db_manager import db_manager
+        from utils import voice_store as store
+
+        db = await db_manager.get_connection("db/j2c_data.db")
+        return report, await store.j2c_get(db, guild.id)
+
+    try:
+        report, settings = run_in(workdir, go)
+    finally:
+        shutil.rmtree(workdir, ignore_errors=True)
+
+    check("der Schritt meldet Erfolg", not report.failed, str(report.failed))
+    check("der Sprachkanal ist eingetragen",
+          str(settings.get("join_channel_id")) == "26",
+          str(settings.get("join_channel_id")))
+
+
+def test_leveling_is_on():
+    print("\nDas Level-System ist an")
+    from utils import speedrun_handover as ho
+
+    workdir = fresh_workdir()
+    guild = FakeGuild()
+    bot = FakeBot()
+
+    async def go():
+        report = await ho.run_handover(
+            bot, guild, HANDOVER,
+            options={key: key == "leveling" for key in ho.STEPS},
+        )
+        from api.db_manager import db_manager
+        from utils import leveling_store as store
+
+        db = await db_manager.get_connection(store.DB_PATH)
+        return report, await store.get_settings(db, guild.id)
+
+    try:
+        report, settings = run_in(workdir, go)
+    finally:
+        shutil.rmtree(workdir, ignore_errors=True)
+
+    check("der Schritt meldet Erfolg", not report.failed, str(report.failed))
+    check("XP sind eingeschaltet", bool(settings.get("enabled")),
+          str(settings.get("enabled")))
+
+
+def test_the_ticket_panel_is_posted_not_just_prepared():
+    """Ein Speedrun, der auf halbem Weg stehen bleibt, ist keiner."""
+
+    print("\nDas Ticket-Panel steht im Kanal")
+    from utils import speedrun_handover as ho
+
+    workdir = fresh_workdir()
+    guild = FakeGuild()
+    bot = FakeBot()
+
+    async def go():
+        return await ho.run_handover(
+            bot, guild, HANDOVER,
+            options={key: key == "tickets" for key in ho.STEPS},
+        )
+
+    try:
+        report = run_in(workdir, go)
+    finally:
+        shutil.rmtree(workdir, ignore_errors=True)
+
+    check("der Schritt meldet Erfolg", not report.failed, str(report.failed))
+    # In den Ticket-Kanal (22) muss eine Nachricht gegangen sein.
+    check("im Ticket-Kanal steht etwas",
+          len(guild._channels[22].sent) == 1,
+          f"{len(guild._channels[22].sent)} Nachrichten")
+    # Und nur dort -- nicht versehentlich in einen anderen Kanal.
+    elsewhere = {
+        cid: len(c.sent) for cid, c in guild._channels.items()
+        if cid != 22 and c.sent
+    }
+    check("und sonst nirgends", not elsewhere, str(elsewhere))
+
+
 def test_unchecked_steps_are_not_run():
     """Was nicht angehakt ist, wird nicht angefasst."""
 
@@ -533,8 +684,22 @@ def test_defaults_and_unknown_keys():
 
     defaults = ho.default_options()
     check("Verify ist standardmäßig an", defaults["verify"] is True)
-    check("Automod ist standardmäßig aus", defaults["automod"] is False,
-          "Automod greift in jede Nachricht ein")
+
+    # Automod war zuerst standardmäßig aus, mit der Begründung, dass er
+    # in jede Nachricht eingreift. Das war die falsche Abwägung: ein
+    # frischer Server ohne Spam-Bremse ist genau das, wonach Werbe-Bots
+    # suchen, und wer den Speedrun laufen lässt, will einen fertigen
+    # Server — keinen mit einer abgeschalteten Schutzfunktion, von der
+    # er nichts weiß. Die Team-Rollen sind ausgenommen, und fünf
+    # Nachrichten in zehn Sekunden schreibt niemand aus Versehen.
+    check("Automod ist standardmäßig an", defaults["automod"] is True,
+          "ein frischer Server ohne Spam-Bremse ist ein Ziel")
+
+    # Alles, was der Speedrun ohne Zutun anschaltet, muss auch abwählbar
+    # sein — sonst ist der Baukasten eine Behauptung.
+    for key in ho.STEPS:
+        cleaned = ho.normalise_options({key: False})
+        check(f"„{key}“ lässt sich abwählen", cleaned[key] is False)
 
     # Ein Tippfehler im Browser darf nicht stillschweigend durchgereicht
     # werden -- sonst sucht jemand ewig, warum sein Schritt nichts tut.
@@ -594,6 +759,10 @@ def main():
     test_autorole_refuses_a_role_above_the_bot()
     test_autorole_writes_the_format_the_cog_reads()
     test_tickets_do_not_pile_up_on_a_second_run()
+    test_counting_is_actually_switched_on()
+    test_j2c_points_at_a_voice_channel()
+    test_leveling_is_on()
+    test_the_ticket_panel_is_posted_not_just_prepared()
     test_unchecked_steps_are_not_run()
     test_defaults_and_unknown_keys()
     test_the_log_names_the_bot()

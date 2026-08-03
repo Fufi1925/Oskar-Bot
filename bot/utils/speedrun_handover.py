@@ -109,12 +109,33 @@ STEPS: dict[str, dict[str, Any]] = {
         "default": True,
         "needs": ["roles.unverified"],
     },
+    "counting": {
+        "label": "Zählspiel",
+        "description": "Der Zähl-Kanal wird scharf geschaltet und startet bei 1.",
+        "default": True,
+        "needs": ["channels.counting"],
+    },
+    "leveling": {
+        "label": "Level-System",
+        "description": "XP fürs Schreiben, Rangkarte mit Profilbild.",
+        "default": True,
+        "needs": [],
+    },
+    "j2c": {
+        "label": "Join to Create",
+        "description": "Wer den Sprachkanal betritt, bekommt einen eigenen.",
+        "default": True,
+        "needs": ["channels.j2c"],
+    },
     "automod": {
         "label": "Automod",
         "description": "Spam, Massenpings und Einladungen werden gebremst.",
-        # Standardmaessig aus: Automod greift in jede Nachricht ein, und
-        # auf einem frischen Server will das erst jemand einstellen.
-        "default": False,
+        # An by default: ein frischer Server ohne Spam-Bremse ist genau
+        # das Ziel, das Werbe-Bots suchen. Team-Rollen sind
+        # ausgenommen, und die Regeln greifen erst bei echtem Spam --
+        # fuenf Nachrichten in zehn Sekunden schreibt niemand aus
+        # Versehen.
+        "default": True,
         "needs": [],
     },
 }
@@ -329,11 +350,76 @@ async def _do_tickets(bot, guild, handover: dict, report: HandoverReport, log: L
             {"name": "Allgemeine Frage", "emoji": "❓", "staff_roles": staff},
         )
 
-    report.add(
-        "tickets", True,
-        f"Panel angelegt für #{channel.name}. Zum Posten: Reiter „Tickets“.",
+    # Und das Panel gleich posten. Es nur anzulegen hiess: der Kanal
+    # bleibt leer, und man muesste den Reiter „Tickets“ suchen, um den
+    # letzten Klick zu machen. Ein Speedrun, der auf halbem Weg stehen
+    # bleibt, ist keiner.
+    posted = await _post_ticket_panel(bot, guild, channel, db, panel_id)
+    if posted:
+        report.add("tickets", True, f"Panel steht in #{channel.name}.")
+        await log(f"Tickets eingerichtet — Panel in #{channel.name}", "success")
+    else:
+        report.add(
+            "tickets", False,
+            f"Angelegt, aber das Panel ließ sich nicht in #{channel.name} "
+            "posten. Nachholen im Reiter „Tickets“.",
+        )
+        await log(f"Tickets: Panel in #{channel.name} nicht gepostet", "warn")
+
+
+async def _post_ticket_panel(bot, guild, channel, db, panel_id: int) -> bool:
+    """Das Ticket-Panel in den Kanal stellen.
+
+    Baut dieselbe View wie die Route ``/tickets/{guild}/panels/{id}/send``
+    -- ein zweiter Nachbau der Knopf-Logik wuerde irgendwann von ihr
+    abweichen, und dann verhielte sich der Speedrun anders als der
+    Reiter.
+    """
+
+    import discord
+
+    from api import ticket_panels as panels
+    from utils.panels import ACCENT, Panel
+
+    entries = await panels.list_panels(db, guild.id)
+    panel = next((p for p in entries if p["panel_id"] == panel_id), None)
+    if panel is None or not panel.get("categories"):
+        return False
+
+    controls = []
+    for category in panel["categories"]:
+        try:
+            style = discord.ButtonStyle(int(category["button_style"]))
+        except (ValueError, TypeError):
+            style = discord.ButtonStyle.secondary
+        controls.append(
+            discord.ui.Button(
+                label=category["name"][:80],
+                emoji=category["emoji"] or None,
+                style=style,
+                custom_id=f"create_ticket_{category['category_id']}",
+            )
+        )
+
+    view = Panel(
+        panel["embed_title"] or panel["name"],
+        panel["embed_description"] or "Klicke unten, um ein Ticket zu öffnen.",
+        accent=panel["embed_color"] or ACCENT["brand"],
+        buttons=controls,
     )
-    await log(f"Tickets vorbereitet — Panel für #{channel.name}", "success")
+
+    try:
+        message = await channel.send(view=view)
+    except (discord.Forbidden, discord.HTTPException):
+        return False
+
+    await panels.set_message_id(db, guild.id, panel_id, message.id)
+    # Ohne das hören die Knöpfe nach einem Neustart auf zu reagieren.
+    try:
+        bot.add_view(view, message_id=message.id)
+    except Exception:
+        pass
+    return True
 
 
 async def _do_welcome(bot, guild, handover: dict, report: HandoverReport, log: LogHook):
@@ -440,6 +526,89 @@ async def _do_automod(bot, guild, handover: dict, report: HandoverReport, log: L
     await log("Automod eingerichtet", "success")
 
 
+async def _do_counting(bot, guild, handover: dict, report: HandoverReport, log: LogHook):
+    """Das Zählspiel scharf schalten.
+
+    Der Template-Bot legt den Kanal an und schreibt eine 1 hinein --
+    aber im Hauptbot steht das Spiel auf ``enabled: False`` mit
+    ``channel: None``. Ohne diesen Schritt sieht der Kanal fertig aus
+    und reagiert auf keine Zahl.
+    """
+
+    from utils import extras_store as store
+
+    channel_id = int(_dig(handover, "channels.counting"))
+    channel = guild.get_channel(channel_id)
+    if channel is None:
+        report.add("counting", False, "Der Zähl-Kanal ist nicht mehr da.")
+        await log("Zählspiel: Kanal fehlt", "error")
+        return
+
+    # Der Template-Bot hat die 1 schon gepostet, also geht es bei 1
+    # weiter -- mit current=0 wuerde der Bot die naechste Zahl als 1
+    # erwarten und die 2 als Fehler werten.
+    store.counting_save(
+        guild.id,
+        {
+            "enabled": True,
+            "channel": channel_id,
+            "current": 1,
+            "mode": "reset",
+            "delete_wrong": True,
+            "react_success": True,
+            "save_record": True,
+        },
+    )
+
+    report.add("counting", True, f"Zählspiel läuft in #{channel.name}, Stand: 1.")
+    await log(f"Zählspiel eingerichtet — #{channel.name}", "success")
+
+
+async def _do_leveling(bot, guild, handover: dict, report: HandoverReport, log: LogHook):
+    from api.db_manager import db_manager
+    from utils import leveling_store as store
+
+    db = await db_manager.get_connection(store.DB_PATH)
+    await store.ensure_schema(db)
+
+    # Ankündigungen in den Kanal, in dem ohnehin geredet wird -- eine
+    # Level-Meldung im Regel-Kanal wäre Lärm an der falschen Stelle.
+    updates: dict[str, Any] = {"enabled": True}
+
+    await store.save_settings(db, guild.id, updates)
+
+    report.add("leveling", True, "XP fürs Schreiben ist an.")
+    await log("Level-System eingerichtet", "success")
+
+
+async def _do_j2c(bot, guild, handover: dict, report: HandoverReport, log: LogHook):
+    from api.db_manager import db_manager
+    from utils import voice_store as store
+
+    channel_id = int(_dig(handover, "channels.j2c"))
+    channel = guild.get_channel(channel_id)
+    if channel is None:
+        report.add("j2c", False, "Der Sprachkanal ist nicht mehr da.")
+        await log("Join to Create: Kanal fehlt", "error")
+        return
+
+    db = await db_manager.get_connection("db/j2c_data.db")
+    await store.j2c_ensure(db)
+
+    category = getattr(channel, "category", None)
+    await store.j2c_save(
+        db,
+        guild.id,
+        {
+            "join_channel_id": channel_id,
+            "category_id": category.id if category is not None else None,
+        },
+    )
+
+    report.add("j2c", True, f"Eigene Sprachkanäle über #{channel.name}.")
+    await log(f"Join to Create eingerichtet — #{channel.name}", "success")
+
+
 _RUNNERS: dict[str, Callable] = {
     "verify": _do_verify,
     "logging": _do_logging,
@@ -447,13 +616,27 @@ _RUNNERS: dict[str, Callable] = {
     "tickets": _do_tickets,
     "welcome": _do_welcome,
     "autorole": _do_autorole,
+    "counting": _do_counting,
+    "leveling": _do_leveling,
+    "j2c": _do_j2c,
     "automod": _do_automod,
 }
 
 # Reihenfolge des Ablaufs. Verify zuerst, weil das der Schritt ist, den
 # man im Server sofort sieht; Automod zuletzt, weil er am wenigsten
 # dringend ist und am ehesten scheitert.
-ORDER = ("verify", "autorole", "logging", "antinuke", "tickets", "welcome", "automod")
+ORDER = (
+    "verify",
+    "autorole",
+    "logging",
+    "antinuke",
+    "tickets",
+    "welcome",
+    "counting",
+    "leveling",
+    "j2c",
+    "automod",
+)
 
 
 async def run_handover(

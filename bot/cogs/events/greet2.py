@@ -12,12 +12,14 @@
 # ║                                                                  ║
 # ╚══════════════════════════════════════════════════════════════════╝
 
+import contextlib
+
 import discord
 import aiosqlite
 import asyncio
 from discord.ext import commands
 
-from utils import greet_render
+from utils import greet_render, welcome_card
 from utils.panels import from_embed
 
 class greet(commands.Cog):
@@ -34,6 +36,57 @@ class greet(commands.Cog):
         if member.guild.id not in self.processing:
             self.processing.add(member.guild.id)
             await self.process_queue(member.guild)
+
+    async def build_banner(self, member) -> discord.File | None:
+        """Das Willkommens-Bild, oder None wenn es nicht geht.
+
+        Jeder Schritt kann scheitern -- Pillow fehlt, der Avatar-Download
+        laeuft in einen Timeout, das Bild ist kaputt -- und keiner davon
+        darf die Begruessung verhindern. Deshalb faengt jede Stufe fuer
+        sich ab statt einmal ganz aussen.
+        """
+
+        avatar_bytes = None
+        try:
+            asset = getattr(member, "display_avatar", None)
+            if asset is not None:
+                # Discord liefert bis 4096; 256 reicht fuer 168 Pixel
+                # Darstellung und laedt deutlich schneller.
+                with contextlib.suppress(Exception):
+                    avatar_bytes = await asyncio.wait_for(
+                        asset.replace(size=256, format="png").read(), timeout=5
+                    )
+        except Exception:
+            avatar_bytes = None
+
+        guild = member.guild
+        accent = 0x3B82F6
+        try:
+            # Die Farbe der Bot-Rolle, damit das Banner zum Server passt.
+            me = guild.me
+            if me is not None and me.colour.value:
+                accent = me.colour.value
+        except Exception:
+            pass
+
+        try:
+            # Pillow rechnet ein paar hundert Millisekunden und blockiert
+            # dabei die Event-Loop. Bei einer Beitrittswelle stockt sonst
+            # der ganze Bot, also in einen Thread damit.
+            buffer = await asyncio.to_thread(
+                welcome_card.render,
+                name=member.display_name,
+                avatar_bytes=avatar_bytes,
+                guild_name=guild.name,
+                member_count=guild.member_count or len(guild.members),
+                accent=accent,
+            )
+        except Exception:
+            return None
+
+        if buffer is None:
+            return None
+        return discord.File(buffer, filename="willkommen.png")
 
     async def process_queue(self, guild):
         while self.join_queue[guild.id]:
@@ -62,8 +115,19 @@ class greet(commands.Cog):
             if content is None and embed is None:
                 continue
 
+            # Das Banner mit Profilbild. Es ist Beiwerk: schlaegt das
+            # Zeichnen fehl oder laesst sich der Avatar nicht laden,
+            # geht die Begruessung trotzdem raus -- nur eben ohne Bild.
+            # Ein Willkommensgruss, der an einem Bild scheitert, ist
+            # schlimmer als einer ohne.
+            banner = await self.build_banner(member)
+
             try:
-                sent_message = await welcome_channel.send(content=content, view=from_embed(embed))
+                sent_message = await welcome_channel.send(
+                    content=content,
+                    view=from_embed(embed),
+                    **({"file": banner} if banner is not None else {}),
+                )
                 if auto_delete_duration:
                     await sent_message.delete(delay=auto_delete_duration)
             except discord.Forbidden:
