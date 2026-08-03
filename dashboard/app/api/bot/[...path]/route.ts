@@ -377,6 +377,44 @@ async function authorize(
     return { ok: false, response: deny(403, `This requires the '${required}' permission.`) };
   }
 
+  if (scope === "speedrun") {
+    // Shape: /speedrun/templates, /speedrun/steps or /speedrun/<guildId>/...
+    //
+    // Ein Speedrun legt Dutzende Rollen und Kanäle an und schaltet
+    // Verify, Anti-Nuke und Tickets scharf. Das ist die eingreifendste
+    // Aktion im ganzen Dashboard, deshalb liegt die Latte hier auf
+    // "server.manage" statt auf "settings.edit".
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) return { ok: false, response: deny(401, "Not signed in.") };
+
+    const first = rest[0] ?? "";
+
+    // Die Listen sind serverunabhängig: welche Templates es gibt und
+    // welche Schritte der Bot anbietet. Für jeden Angemeldeten lesbar,
+    // sie verraten nichts über einen konkreten Server.
+    if (first === "templates" || first === "steps") {
+      return { ok: true };
+    }
+
+    const guildId = first;
+    if (!/^\d{17,20}$/.test(guildId)) {
+      return { ok: false, response: deny(400, "guild_id missing.") };
+    }
+
+    const access = await verifyGuildAccess(guildId);
+    if (!access.allowed) return { ok: false, response: deny(access.status, access.reason) };
+
+    if (isGlobalAdmin(session.user.id)) return { ok: true };
+
+    const team = await fetchTeamAccess(session.user.id);
+    // Über Discords eigenes "Server verwalten" hereingekommen.
+    if (!team || team.roles.length === 0) return { ok: true };
+
+    const required = request.method === "GET" ? "guild.view" : "server.manage";
+    if (await hasTeamPermission(session.user.id, required, guildId)) return { ok: true };
+    return { ok: false, response: deny(403, `This requires the '${required}' permission.`) };
+  }
+
   if (scope === "extras") {
     // Shape: /extras/<guildId>/...
     const guildId = rest[0];

@@ -27,7 +27,7 @@ import {
   LayoutDashboard, Server, ShieldCheck, Ticket, BarChart4, FileText, Settings,
   Menu, X, Bell, User, Search, ChevronRight, Star, Sparkles, LogOut,
   Lock, PenLine, Gem, Pin, Moon, Calculator, Youtube, Cake,
-  LifeBuoy, ChevronDown, Bot, Shield, UserCheck, Badge
+  LifeBuoy, ChevronDown, Bot, Shield, UserCheck, Badge, Gauge
 } from "lucide-react";
 import { useSession, signIn, signOut } from "next-auth/react";
 import { cn, isAdmin } from "@/lib/utils";
@@ -236,6 +236,7 @@ export default function DashboardLayout({
           items: [
             { name: "Logs", href: `/dashboard/guild/${currentGuildId}/logging`, icon: LayoutDashboard },
             { name: "Server-Werkzeuge", href: `/dashboard/guild/${currentGuildId}/admin-dashboard`, icon: Shield },
+            { name: "Speedrun (Beta)", href: `/dashboard/guild/${currentGuildId}/speedrun`, icon: Gauge },
           ],
         },
         { name: "Einstellungen", href: `/dashboard/guild/${currentGuildId}/settings`, icon: Settings },

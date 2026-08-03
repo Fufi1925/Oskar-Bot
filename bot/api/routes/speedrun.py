@@ -27,7 +27,9 @@ danach nicht raten muss.
 
 from __future__ import annotations
 
+import asyncio
 import os
+import time
 from typing import TYPE_CHECKING, Any
 
 import aiohttp
@@ -35,6 +37,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from api.dependencies import get_bot
 from utils import premium_store as store
+from utils import speedrun_handover as handover
 
 if TYPE_CHECKING:
     from core.universitybot import universitybot
@@ -307,13 +310,196 @@ async def start(
 
 
 # --------------------------------------------------------------------- #
-# 4. Fortschritt
+# 4. Die zweite Haelfte: was der University Bot danach einrichtet
+# --------------------------------------------------------------------- #
+#
+# Der Zustand liegt im Arbeitsspeicher, aus demselben Grund wie beim
+# Template-Bot: laeuft der Bot neu an, ist die Uebergabe ohnehin
+# abgebrochen, und ein auf Platte gespeicherter Job stuende dann fuer
+# immer auf "laeuft".
+
+# guild_id -> {"state", "lines", "report", "started", "finished"}
+_MAIN_JOBS: dict[int, dict] = {}
+
+# Wie lange eine fertige Uebergabe abrufbar bleibt. Gleicher Wert wie
+# beim Template-Bot, damit beide Haelften zusammen ablaufen.
+KEEP_FINISHED = 15 * 60
+MAX_LINES = 500
+
+
+def _prune_main_jobs() -> None:
+    now = time.time()
+    for guild_id, job in list(_MAIN_JOBS.items()):
+        if job["state"] == "running":
+            continue
+        if job.get("finished") and now - job["finished"] > KEEP_FINISHED:
+            del _MAIN_JOBS[guild_id]
+
+
+def _main_job(guild_id: int) -> dict | None:
+    _prune_main_jobs()
+    return _MAIN_JOBS.get(guild_id)
+
+
+async def _run_main_phase(bot, guild, job: dict, options: dict, payload: dict) -> None:
+    """Die Schritte des University Bots, im Hintergrund.
+
+    Laeuft als Task, damit die HTTP-Antwort sofort raus kann -- Verify
+    postet ein Panel, Tickets legen Tabellen an, das dauert.
+    """
+
+    async def log(text: str, level: str = "info") -> None:
+        if len(job["lines"]) >= MAX_LINES:
+            return
+        job["lines"].append(
+            {"text": text, "source": "main", "level": level, "at": time.time()}
+        )
+
+    try:
+        await log("University Bot übernimmt")
+        report = await handover.run_handover(
+            bot, guild, payload, options=options, log=log
+        )
+        job["report"] = report.as_dict()
+        job["state"] = "done" if not report.failed else "partial"
+
+        done = sum(1 for step in report.steps if step.ok)
+        if report.failed:
+            await log(
+                f"Fertig mit Lücken — {done} von {len(report.steps)} Schritten",
+                "warn",
+            )
+        else:
+            await log(f"Fertig — {done} Schritte eingerichtet", "success")
+    except Exception as exc:
+        job["state"] = "failed"
+        job["error"] = f"{type(exc).__name__}: {exc}"
+        await log(f"Abbruch: {type(exc).__name__}: {exc}", "error")
+    finally:
+        job["finished"] = time.time()
+
+
+@router.post("/{guild_id}/finish", summary="Hauptbot-Einrichtung starten")
+async def finish(
+    guild_id: int,
+    data: dict,
+    bot: "universitybot" = Depends(get_bot),
+):
+    """
+    Nimmt die Landkarte des Template-Bots und richtet damit ein.
+
+    Getrennt vom Bau und nicht automatisch angehaengt: der Bau laeuft
+    beim anderen Bot, und dessen Ende kennt nur das Dashboard sicher --
+    es fragt den Fortschritt ohnehin ab. Ein Rueckruf vom Template-Bot
+    haette einen zweiten Weg gebraucht, auf dem er diesen Bot erreicht.
+    """
+
+    guild = bot.get_guild(guild_id)
+    if guild is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Der University Bot ist nicht auf diesem Server.",
+        )
+
+    if (existing := _main_job(guild_id)) and existing["state"] == "running":
+        raise HTTPException(
+            status_code=409,
+            detail="Die Einrichtung läuft für diesen Server schon.",
+        )
+
+    # Die Landkarte kommt vom Template-Bot, nicht aus dem Browser. Sonst
+    # koennte jeder mit curl beliebige Kanal-IDs schicken und den Bot
+    # dazu bringen, das Verify-Panel in einen fremden Kanal zu posten.
+    status_code, body = await _call_template(
+        "GET", f"/internal/speedrun/{guild_id}?since=0", timeout=10
+    )
+    if status_code != 200:
+        raise HTTPException(
+            status_code=502,
+            detail=str(body.get("error") or f"Template-Bot: HTTP {status_code}"),
+        )
+
+    if body.get("state") == "running":
+        raise HTTPException(
+            status_code=409,
+            detail="Der Template-Bot baut noch. Warte, bis er fertig ist.",
+        )
+    if body.get("state") != "done":
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Es liegt kein fertiger Bau vor. "
+                f"Zustand beim Template-Bot: {body.get('state') or 'unbekannt'}."
+            ),
+        )
+
+    result = body.get("result") or {}
+    if not result.get("roles") and not result.get("channels"):
+        raise HTTPException(
+            status_code=400,
+            detail="Der Template-Bot hat keine Rollen und Kanäle gemeldet.",
+        )
+
+    options = handover.normalise_options(data.get("options"))
+
+    job = {
+        "state": "running",
+        "lines": [],
+        "report": None,
+        "started": time.time(),
+        "finished": 0.0,
+        "error": "",
+    }
+    _MAIN_JOBS[guild_id] = job
+
+    # Auf der Schleife des Bots, nicht auf der des API-Threads: alles,
+    # was discord.py anfasst (Panel posten, Rollen lesen), ist an die
+    # Bot-Schleife gebunden.
+    async def runner():
+        await _run_main_phase(bot, guild, job, options, result)
+
+    loop = bot.loop
+    if loop is not None and not loop.is_closed():
+        asyncio.run_coroutine_threadsafe(runner(), loop)
+    else:  # Tests und lokaler Betrieb ohne laufenden Bot
+        asyncio.create_task(runner())
+
+    return {"status": "started", "guild_id": str(guild_id), "options": options}
+
+
+@router.get("/steps", summary="Welche Schritte der Hauptbot anbietet")
+async def steps():
+    """Der Baukasten fürs Dashboard: Name, Erklärung, Standardzustand."""
+
+    return {
+        "steps": [
+            {
+                "key": key,
+                "label": spec["label"],
+                "description": spec["description"],
+                "default": spec["default"],
+            }
+            for key, spec in handover.STEPS.items()
+        ],
+        "order": list(handover.ORDER),
+    }
+
+
+# --------------------------------------------------------------------- #
+# 5. Fortschritt -- beide Haelften in einer Antwort
 # --------------------------------------------------------------------- #
 
 
 @router.get("/{guild_id}/status", summary="Fortschritt abholen")
-async def status_route(guild_id: int, since: int = 0):
-    """Reicht den Fortschritt durch. ``since`` = schon gelesene Zeilen."""
+async def status_route(guild_id: int, since: int = 0, since_main: int = 0):
+    """
+    Der Stand beider Bots, in einer Antwort.
+
+    ``since`` zaehlt die Zeilen des Template-Bots, ``since_main`` die des
+    University Bots. Zwei Zaehler, weil beide unabhaengig voneinander
+    wachsen -- ein gemeinsamer wuerde Zeilen verschlucken, sobald beide
+    gleichzeitig schreiben.
+    """
 
     status_code, body = await _call_template(
         "GET",
@@ -325,4 +511,18 @@ async def status_route(guild_id: int, since: int = 0):
             status_code=502,
             detail=str(body.get("error") or f"Template-Bot: HTTP {status_code}"),
         )
+
+    job = _main_job(guild_id)
+    if job is None:
+        body["main"] = {"state": "none", "lines": [], "line_count": 0, "report": None}
+    else:
+        start = max(since_main, 0)
+        body["main"] = {
+            "state": job["state"],
+            "lines": job["lines"][start:],
+            "line_count": len(job["lines"]),
+            "report": job["report"],
+            "error": job.get("error", ""),
+        }
+
     return body

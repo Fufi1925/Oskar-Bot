@@ -1125,4 +1125,30 @@ export const api = {
       method: "POST",
       body: "{}",
     }),
+
+  // Speedrun (Beta) — der Template-Bot baut, danach richtet dieser Bot ein.
+  // Alles läuft über den University Bot; das Dashboard redet nie direkt
+  // mit dem Template-Bot, weil dessen Partner-Token nicht in den Browser
+  // gehört.
+  speedrunPrecheck: (guildId: string, userId: string) =>
+    request<any>(
+      `/speedrun/${guildId}/precheck?user_id=${encodeURIComponent(userId)}`
+    ),
+  speedrunTemplates: (userId: string) =>
+    request<any>(`/speedrun/templates?user_id=${encodeURIComponent(userId)}`),
+  speedrunSteps: () => request<any>(`/speedrun/steps`),
+  speedrunStart: (guildId: string, data: any) =>
+    request<any>(`/speedrun/${guildId}/start`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  speedrunFinish: (guildId: string, options: Record<string, boolean>) =>
+    request<any>(`/speedrun/${guildId}/finish`, {
+      method: "POST",
+      body: JSON.stringify({ options }),
+    }),
+  speedrunStatus: (guildId: string, since = 0, sinceMain = 0) =>
+    request<any>(
+      `/speedrun/${guildId}/status?since=${since}&since_main=${sinceMain}`
+    ),
 };

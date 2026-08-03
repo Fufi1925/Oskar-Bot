@@ -180,29 +180,56 @@ def test_tab_bar():
 
 
 def test_beta_marking():
+    """
+    Beta is marked in both navigations or in neither.
+
+    This used to pin one hard-coded name ("only anonchat is marked
+    beta"), which meant every new beta tab broke the test for the wrong
+    reason -- the list was stale, not the code. What actually matters is
+    that the two navigations agree: the tab bar and the sidebar drifting
+    apart is the bug this file exists for.
+    """
     print("\nBeta marking")
 
     tabs = read(os.path.join(DASH, "components/guild-tabs.tsx"))
-    entry = re.search(
-        r'slug: "anonchat",\s*\n\s*icon: \w+,\s*\n\s*tag: "beta"', tabs
-    )
-    check("anonchat is tagged beta in the tab bar", entry is not None)
+    sidebar = read(os.path.join(DASH, "app/dashboard/layout.tsx"))
+
     check("the badge is actually rendered", 'BETA' in tabs)
     check("and it explains what beta means",
           "Beta:" in tabs,
           "a badge nobody can interpret is decoration")
 
-    # Two navigations that disagree is how the sidebar and the tab bar
-    # drifted apart in the first place.
-    sidebar = read(os.path.join(DASH, "app/dashboard/layout.tsx"))
-    check("the sidebar says beta too",
-          "Anonymer Chat (Beta)" in sidebar,
-          "the two navigations must not disagree")
+    # Which slugs the tab bar calls beta. The entry may span several
+    # lines and the key order varies, so the match runs over the whole
+    # object rather than three fixed lines.
+    tab_betas = {
+        match.group("slug")
+        for match in re.finditer(
+            r'\{[^{}]*slug:\s*"(?P<slug>[a-z0-9-]+)"[^{}]*\}', tabs, re.S
+        )
+        if 'tag: "beta"' in match.group(0)
+    }
+    check("the tab bar marks something as beta", tab_betas, str(tab_betas))
 
-    # Nothing else claims to be beta unless it is in both.
-    tab_betas = set(re.findall(r'slug: "([a-z0-9-]+)",\s*\n\s*icon: \w+,\s*\n\s*tag: "beta"', tabs))
-    check("only anonchat is marked beta", tab_betas == {"anonchat"},
-          str(tab_betas))
+    # Which slugs the sidebar calls beta -- it spells it out in the label.
+    side_betas = {
+        slug
+        for label, slug in re.findall(
+            r'name:\s*"([^"]*)",\s*href:\s*`/dashboard/guild/\$\{currentGuildId\}/([a-z0-9-]+)`',
+            sidebar,
+        )
+        if "(Beta)" in label
+    }
+
+    check("both navigations agree on what is beta",
+          tab_betas == side_betas,
+          f"tab bar: {sorted(tab_betas)}, sidebar: {sorted(side_betas)}")
+
+    # And every beta tab really has a page -- a badge on a dead link is
+    # worse than no badge.
+    pages = os.path.join(DASH, "app/dashboard/guild/[guildId]")
+    missing = [slug for slug in tab_betas if not os.path.isdir(os.path.join(pages, slug))]
+    check("every beta tab has a page", not missing, str(missing))
 
 
 def test_both_navigations_agree():

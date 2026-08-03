@@ -78,6 +78,11 @@ NO_DRAFT = {
     "nickname",
     "tracking",
     "autoreact",
+    # Speedrun speichert nichts, das man später wiederfinden müsste: die
+    # Auswahl gilt für genau einen Durchlauf und wird beim Start
+    # mitgeschickt. Eine Speicherleiste würde behaupten, es gäbe einen
+    # Entwurf, den man verlieren kann.
+    "speedrun",
 }
 
 
