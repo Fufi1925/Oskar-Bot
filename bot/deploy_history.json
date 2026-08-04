@@ -1,6 +1,12 @@
 {
  "commits": [
   {
+   "commit": "efbadf6c50894f218070b9c87235a47a37673a53",
+   "at": "1785879707",
+   "subject": "chore: deploy-historie nach dem tester-commit auffrischen",
+   "body": "Die Datei wird vor dem Build erzeugt und muss den Commit enthalten,\nder gerade ausgeliefert wird -- sonst zeigt der Tester-Reiter beim\nersten Aufruf einen Stand von vorgestern."
+  },
+  {
    "commit": "75cae27ee6a1ccb254d5f20c6d4ff88c84aee4e5",
    "at": "1785879699",
    "subject": "feat(tester): Tester-Rolle mit eigenem Reiter, Changelog und Premium-Bypass",
@@ -233,12 +239,6 @@
    "at": "1785620593",
    "subject": "fix(dashboard): drop the row numbers and stop clipping the marker",
    "body": "The 01/02/03 gutter from LineSidebar is gone. It was the loudest thing\nin a sidebar that is read by label, and nobody navigates by ordinal.\n\nWhile removing it, a real bug in the marker turned up. It was placed at\nleft: -22px, outside a row that sits 16px inside a nav with\noverflow-y-auto. Per CSS Overflow 3 a scroll container clips the other\naxis too, so 6 of those 22px -- 27% of the line -- were cut off on every\nrow. It is now an in-flow flex child of fixed width with the line scaled\ninside it, so nothing can clip it and the label does not move as the\neffect changes.\n\nTwo more gaps closed:\n\n  * Sub-links took no part at all. Inside a guild the sidebar is mostly\n    sub-links, so the effect was invisible on most pages. One running\n    index now covers both levels; nested rows get a shorter shift.\n  * The search dropdown uses the same effect, with the keyboard cursor\n    feeding activeIndex so arrowing down and hovering produce one\n    highlight instead of two that can disagree.\n\nuseProximity now takes the container by ref instead of reading the first\nrow's offsetParent, which guessed wrong as soon as a wrapper appeared.\n\nreduced-motion freezes the line at its resting length; transform: none\nwould have collapsed the scaleX and shown every marker at full width.\n\nVerified: the clipping is reproduced by repro/prox_clip.py, and all\neight mutations -- numbers back, marker outside, reduced-motion at full\nwidth, sub-links stripped, dropdown stripped, cursor unhooked, stale\nrows kept, offsetParent guessing -- fail the suite when reintroduced.\nTwo of the new checks passed against a mutated tree at first: one\nmatched a marker rule outside the media query, the other matched the\nword scaleX in a comment. Both now cut to the rule body and strip\ncomments first.\n\nNot tested in a real browser: there is none in this environment."
-  },
-  {
-   "commit": "6e0988b3b4811dfd06e93136f4250a8cd8dd34b1",
-   "at": "1785619114",
-   "subject": "feat(dashboard): LineSidebar proximity effect on the sidebar",
-   "body": "Adapted from React Bits' LineSidebar rather than dropped in whole.\n\nThat component takes `items: string[]` and an `onItemClick`, and\nrenders `<li onClick>`. Our navigation is `<Link href>`. Using it as-is\nwould have replaced real links with click handlers and lost right-click\n\"open in new tab\", middle-click, the URL preview in the corner and\nNext.js prefetching — and it has no notion of the icons or the six\ngroups the guild sidebar is built from. The visual idea is worth\nhaving; that trade is not.\n\nSo the mechanism is kept as a hook and the markup left alone. Each row\ngets --effect between 0 and 1, eased toward its target by one shared\nrAF loop with frame-rate independent smoothing, exactly as in the\noriginal. Colour, shift and marker length all read that same value, so\nthey move as one thing instead of three CSS transitions drifting apart.\nMarker lines and zero-padded indices are carried over.\n\nApplied to the flat top-level rows only — Dashboard, Server, Premium,\nAdmin Panel. Inside a guild the sidebar is six groups of sub-links, and\nlighting those by cursor distance fights the group headings.\n\nDeliberately *not* on the admin tab row: the effect measures vertical\ndistance, and every button in a horizontal row shares an offsetTop, so\nall twenty would light at once. That is a switch, not a proximity\neffect. I wired it there first and took it back out; a test now keeps\nit out.\n\nTwo things added on top of the original: touch drags are ignored,\nbecause a drag is a scroll and reacting to it lights up whatever the\nfinger passes over; and the marker has a plain rgba before the\ncolor-mix, since color-mix is used nowhere else in this project and an\nunsupported declaration would leave it invisible.\n\nThe hook sits above the layout's early return — React runs every hook\non every render, and the loading branch returns before the sidebar is\nbuilt."
   }
  ]
 }

@@ -21,10 +21,25 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+/**
+ * Steht diese ID in NEXT_PUBLIC_ADMIN_IDS?
+ *
+ * Nur für die Anzeige. Die Variable wird beim Build ins JavaScript
+ * eingebacken und ist im Browser für jeden lesbar -- als Sperre taugt
+ * sie nicht. Wer sie umgeht, landet trotzdem an der serverseitigen
+ * Prüfung in app/dashboard/admin/page.tsx.
+ *
+ * Die Einträge werden getrimmt. Vorher wurde roh an Kommas getrennt,
+ * also passte "123" nicht auf "111, 123" -- ein Leerzeichen hinter dem
+ * Komma hat einen echten Admin ausgesperrt, und zwar lautlos.
+ */
 export function isAdmin(userId?: string | null) {
   if (!userId) return false;
-  const adminIds = (process.env.NEXT_PUBLIC_ADMIN_IDS || "").split(",");
-  return adminIds.includes(userId);
+  return (process.env.NEXT_PUBLIC_ADMIN_IDS || "")
+    .split(",")
+    .map((id) => id.trim())
+    .filter(Boolean)
+    .includes(String(userId).trim());
 }
 
 /**

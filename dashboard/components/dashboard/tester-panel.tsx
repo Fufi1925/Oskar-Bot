@@ -26,7 +26,8 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   Bug,
-  CheckCircle2,
+  MessageSquare,
+  ThumbsUp,
   Clock,
   Gem,
   Lightbulb,
@@ -54,9 +55,18 @@ const TONES: Record<string, { border: string; text: string; icon: any }> = {
 
 const STATES: Record<string, { label: string; tone: string }> = {
   open: { label: "offen", tone: "text-amber-300 bg-amber-500/15" },
-  planned: { label: "geplant", tone: "text-sky-300 bg-sky-500/15" },
+  confirmed: { label: "bestätigt", tone: "text-sky-300 bg-sky-500/15" },
+  in_progress: { label: "in Arbeit", tone: "text-violet-300 bg-violet-500/15" },
   done: { label: "erledigt", tone: "text-emerald-300 bg-emerald-500/15" },
   rejected: { label: "abgelehnt", tone: "text-slate-400 bg-slate-700/40" },
+  duplicate: { label: "Duplikat", tone: "text-slate-400 bg-slate-700/40" },
+};
+
+const PRIORITIES: Record<string, { label: string; tone: string }> = {
+  low: { label: "klein", tone: "text-slate-400 bg-slate-700/40" },
+  normal: { label: "normal", tone: "text-slate-400 bg-slate-700/40" },
+  high: { label: "stört", tone: "text-orange-300 bg-orange-500/15" },
+  critical: { label: "kritisch", tone: "text-red-300 bg-red-500/15" },
 };
 
 function when(seconds?: number | null) {
@@ -84,7 +94,17 @@ export function TesterPanel() {
   const [kind, setKind] = useState("bug");
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
+  const [area, setArea] = useState("");
+  const [priority, setPriority] = useState("normal");
   const [sending, setSending] = useState(false);
+  // Bereits gemeldete Sachen mit ähnlichem Titel.
+  const [similar, setSimilar] = useState<any[]>([]);
+
+  // Welche Meldung gerade aufgeklappt ist, samt geladenem Verlauf.
+  const [expanded, setExpanded] = useState<number | null>(null);
+  const [detail, setDetail] = useState<any>(null);
+  const [reply, setReply] = useState("");
+  const [filterState, setFilterState] = useState("");
 
   const load = useCallback(async () => {
     // allSettled: fällt der Changelog aus, soll das Formular trotzdem
@@ -127,17 +147,53 @@ export function TesterPanel() {
     load();
   }, [load]);
 
+  // Der Filter lädt die Liste neu. `load` selbst hängt nicht daran,
+  // damit ein Wechsel nicht auch Changelog und Zugang neu holt.
+  useEffect(() => {
+    if (loading) return;
+    (async () => {
+      try {
+        const answer = await api.testerFeedbackFiltered(100, filterState, "");
+        setFeedback(answer?.entries ?? []);
+        setStats(answer?.stats ?? null);
+        setScope(answer?.scope ?? "own");
+      } catch {
+        // Die vorherige Liste bleibt stehen.
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterState]);
+
   const submit = async () => {
-    if (title.trim().length < 3) {
+    if (title.trim().length < 5) {
       toast.error("Der Titel ist zu kurz.");
       return;
     }
     setSending(true);
     try {
-      await api.testerSubmit(kind, title.trim(), body.trim());
-      toast.success("Danke — die Meldung ist angekommen.");
+      const answer = await api.testerSubmit({
+        kind,
+        title: title.trim(),
+        body: body.trim(),
+        area: area.trim(),
+        priority,
+      });
+      // Der Hinweis auf ähnliche Meldungen kommt *nach* dem
+      // Abschicken zurück -- die Meldung wird trotzdem angelegt.
+      if (answer?.similar?.length) {
+        toast.success(
+          `Angekommen. Ähnliches gibt es schon: #${answer.similar
+            .map((entry: any) => entry.id)
+            .join(", #")}`
+        );
+      } else {
+        toast.success("Danke — die Meldung ist angekommen.");
+      }
       setTitle("");
       setBody("");
+      setArea("");
+      setPriority("normal");
+      setSimilar([]);
       await load();
     } catch (err: any) {
       toast.error(err?.message || "Das hat nicht geklappt.");
@@ -146,10 +202,48 @@ export function TesterPanel() {
     }
   };
 
-  const setEntryState = async (id: number, next: string) => {
+  /** Verlauf einer Meldung nachladen -- erst beim Aufklappen. */
+  const openDetail = async (id: number) => {
+    if (expanded === id) {
+      setExpanded(null);
+      setDetail(null);
+      return;
+    }
+    setExpanded(id);
+    setDetail(null);
+    setReply("");
     try {
-      await api.testerSetState(id, next);
+      setDetail(await api.testerDetail(id));
+    } catch (err: any) {
+      toast.error(err?.message || "Der Verlauf ließ sich nicht laden.");
+    }
+  };
+
+  const sendReply = async (id: number) => {
+    if (!reply.trim()) return;
+    try {
+      await api.testerComment(id, reply.trim());
+      setReply("");
+      setDetail(await api.testerDetail(id));
+    } catch (err: any) {
+      toast.error(err?.message || "Das hat nicht geklappt.");
+    }
+  };
+
+  const toggleVote = async (id: number) => {
+    try {
+      await api.testerVote(id);
       await load();
+    } catch (err: any) {
+      toast.error(err?.message || "Das hat nicht geklappt.");
+    }
+  };
+
+  const patch = async (id: number, changes: Record<string, unknown>) => {
+    try {
+      await api.testerUpdate(id, changes);
+      await load();
+      if (expanded === id) setDetail(await api.testerDetail(id));
     } catch (err: any) {
       toast.error(err?.message || "Das hat nicht geklappt.");
     }
@@ -325,7 +419,7 @@ export function TesterPanel() {
           Fehler oder Vorschlag
         </p>
 
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           {[
             { id: "bug", label: "Fehler", icon: Bug },
             { id: "idea", label: "Vorschlag", icon: Lightbulb },
@@ -349,6 +443,32 @@ export function TesterPanel() {
         <input
           value={title}
           onChange={(event) => setTitle(event.target.value)}
+          onBlur={async () => {
+            // Erst beim Verlassen des Feldes suchen, nicht bei jedem
+            // Tastendruck -- das wären dreißig Aufrufe für einen Satz.
+            if (title.trim().length < 5) {
+              setSimilar([]);
+              return;
+            }
+            try {
+              const answer = await api.testerFeedbackFiltered(100, "", kind);
+              const words = title.toLowerCase().split(/\W+/).filter(
+                (word) => word.length > 3
+              );
+              setSimilar(
+                (answer?.entries ?? [])
+                  .filter((entry: any) => {
+                    if (entry.closed) return false;
+                    const other = String(entry.title).toLowerCase();
+                    const hits = words.filter((word) => other.includes(word));
+                    return words.length > 0 && hits.length >= Math.min(2, words.length);
+                  })
+                  .slice(0, 3)
+              );
+            } catch {
+              setSimilar([]);
+            }
+          }}
           maxLength={120}
           placeholder={
             kind === "bug"
@@ -358,11 +478,55 @@ export function TesterPanel() {
           className="w-full bg-[#0d1b31] border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-violet-500/50 transition-colors"
         />
 
+        {/* Warnung vor Dubletten -- noch vor dem Abschicken.
+            Sie hält niemanden auf: zwei Leute können dieselbe
+            Überschrift für verschiedene Dinge wählen. */}
+        {similar.length > 0 && (
+          <div className="rounded-xl bg-sky-500/[0.06] border border-sky-500/20 p-3 space-y-1.5">
+            <p className="text-[11px] text-sky-200/90 font-bold">
+              Das könnte schon gemeldet sein:
+            </p>
+            {similar.map((entry: any) => (
+              <p key={entry.id} className="text-[11px] text-sky-200/70">
+                #{entry.id} · {entry.title}
+              </p>
+            ))}
+            <p className="text-[10px] text-slate-500 pt-0.5">
+              Wenn es doch etwas anderes ist, schick es trotzdem ab.
+            </p>
+          </div>
+        )}
+
+        <div className="grid sm:grid-cols-2 gap-3">
+          <input
+            value={area}
+            onChange={(event) => setArea(event.target.value)}
+            maxLength={60}
+            placeholder="Wo? z. B. Speedrun, Tickets"
+            className="w-full bg-[#0d1b31] border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-violet-500/50 transition-colors"
+          />
+
+          {/* Dringlichkeit nur bei Fehlern: ein Vorschlag ist ein
+              Wunsch, keine Störung. */}
+          {kind === "bug" && (
+            <select
+              value={priority}
+              onChange={(event) => setPriority(event.target.value)}
+              className="w-full bg-[#0d1b31] border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-violet-500/50 transition-colors"
+            >
+              <option value="low">Kleinigkeit</option>
+              <option value="normal">Normal</option>
+              <option value="high">Stört beim Arbeiten</option>
+              <option value="critical">Geht gar nicht mehr</option>
+            </select>
+          )}
+        </div>
+
         <textarea
           value={body}
           onChange={(event) => setBody(event.target.value)}
           rows={4}
-          maxLength={2000}
+          maxLength={4000}
           placeholder={
             kind === "bug"
               ? "Was hast du getan, was ist passiert, was hättest du erwartet?"
@@ -373,14 +537,14 @@ export function TesterPanel() {
 
         <div className="flex items-center gap-3">
           <span className="text-[11px] text-slate-600">
-            {body.length} / 2000
+            {body.length} / 4000
           </span>
           <button
             onClick={submit}
-            disabled={sending || title.trim().length < 3}
+            disabled={sending || title.trim().length < 5}
             className={cn(
               "ml-auto px-4 py-2 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all inline-flex items-center gap-2",
-              title.trim().length >= 3 && !sending
+              title.trim().length >= 5 && !sending
                 ? "bg-violet-500 text-white hover:bg-violet-400"
                 : "bg-slate-800 text-slate-600 cursor-not-allowed"
             )}
@@ -401,12 +565,36 @@ export function TesterPanel() {
           <p className="text-xs font-black uppercase tracking-widest text-slate-500">
             {scope === "all" ? "Alle Meldungen" : "Deine Meldungen"}
           </p>
+
           {stats?.total > 0 && (
-            <span className="text-[11px] text-slate-600">
-              {stats.open} offen · {stats.bugs} Fehler · {stats.ideas}{" "}
-              Vorschläge
-            </span>
+            <div className="flex items-center gap-2 flex-wrap text-[10px]">
+              {stats.critical > 0 && (
+                <span className="px-2 py-0.5 rounded bg-red-500/15 text-red-300 font-black uppercase tracking-widest">
+                  {stats.critical} kritisch
+                </span>
+              )}
+              <span className="text-slate-600">
+                {stats.open} offen · {stats.working} in Arbeit · {stats.done}{" "}
+                erledigt
+              </span>
+            </div>
           )}
+
+          {/* Filter. Ohne sie ist eine Liste mit dreißig erledigten
+              Meldungen nicht mehr zu gebrauchen. */}
+          <select
+            value={filterState}
+            onChange={(event) => setFilterState(event.target.value)}
+            className="ml-auto bg-[#0d1b31] border border-slate-800 rounded-lg px-2.5 py-1.5 text-[11px] text-slate-300 focus:outline-none"
+          >
+            <option value="">Alle Stände</option>
+            <option value="open">offen</option>
+            <option value="confirmed">bestätigt</option>
+            <option value="in_progress">in Arbeit</option>
+            <option value="done">erledigt</option>
+            <option value="rejected">abgelehnt</option>
+            <option value="duplicate">Duplikat</option>
+          </select>
         </div>
 
         {feedback.length === 0 ? (
@@ -419,10 +607,20 @@ export function TesterPanel() {
           <div className="space-y-2">
             {feedback.map((entry) => {
               const meta = STATES[entry.state] ?? STATES.open;
+              const prio = PRIORITIES[entry.priority] ?? PRIORITIES.normal;
+              const open = expanded === entry.id;
+
               return (
                 <div
                   key={entry.id}
-                  className="rounded-2xl border border-slate-800 bg-[#0d1b31] p-4"
+                  className={cn(
+                    "rounded-2xl border bg-[#0d1b31] p-4 transition-colors",
+                    entry.closed
+                      ? "border-slate-800/60 opacity-60"
+                      : entry.priority === "critical"
+                      ? "border-red-500/30"
+                      : "border-slate-800"
+                  )}
                 >
                   <div className="flex items-start gap-2.5 flex-wrap">
                     {entry.kind === "bug" ? (
@@ -430,53 +628,201 @@ export function TesterPanel() {
                     ) : (
                       <Lightbulb className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
                     )}
+
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-bold text-white leading-snug">
                         {entry.title}
                       </p>
-                      {entry.body && (
-                        <p className="text-[11px] text-slate-500 mt-1.5 leading-relaxed whitespace-pre-wrap">
-                          {entry.body}
-                        </p>
-                      )}
+
+                      <div className="flex items-center gap-2 flex-wrap mt-1.5">
+                        <span
+                          className={cn(
+                            "px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest",
+                            meta.tone
+                          )}
+                        >
+                          {meta.label}
+                        </span>
+                        {entry.kind === "bug" && entry.priority !== "normal" && (
+                          <span
+                            className={cn(
+                              "px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest",
+                              prio.tone
+                            )}
+                          >
+                            {prio.label}
+                          </span>
+                        )}
+                        {entry.area && (
+                          <span className="text-[10px] text-slate-500">
+                            {entry.area}
+                          </span>
+                        )}
+                        {entry.duplicate_of && (
+                          <span className="text-[10px] text-slate-500">
+                            → #{entry.duplicate_of}
+                          </span>
+                        )}
+                        {entry.assignee && (
+                          <span className="text-[10px] text-sky-300/70">
+                            bearbeitet von {entry.assignee}
+                          </span>
+                        )}
+                      </div>
+
                       <p className="text-[10px] text-slate-600 mt-2 font-mono">
                         #{entry.id} · {when(entry.at)}
                         {scope === "all" && ` · ${entry.user_id}`}
                       </p>
-                      {entry.note && (
-                        <p className="text-[11px] text-sky-200/70 mt-1.5 leading-relaxed">
-                          Antwort: {entry.note}
-                        </p>
-                      )}
                     </div>
 
-                    <span
+                    {/* Zustimmung. Zeigt, was mehrere betrifft. */}
+                    <button
+                      onClick={() => toggleVote(entry.id)}
+                      title="Betrifft mich auch"
                       className={cn(
-                        "px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest shrink-0",
-                        meta.tone
+                        "shrink-0 px-2.5 py-1.5 rounded-lg border text-[11px] font-black inline-flex items-center gap-1.5 transition-colors",
+                        entry.voted
+                          ? "border-violet-500/50 text-violet-200 bg-violet-500/10"
+                          : "border-slate-800 text-slate-500 hover:text-slate-300"
                       )}
                     >
-                      {meta.label}
-                    </span>
+                      <ThumbsUp className="h-3 w-3" />
+                      {entry.votes || 0}
+                    </button>
                   </div>
 
-                  {isOwner && (
-                    <div className="flex gap-1.5 mt-3 pt-3 border-t border-slate-800/70 flex-wrap">
-                      {Object.entries(STATES).map(([key, value]) => (
+                  <button
+                    onClick={() => openDetail(entry.id)}
+                    className="mt-3 text-[10px] font-black uppercase tracking-wider text-slate-500 hover:text-slate-300 transition-colors inline-flex items-center gap-1.5"
+                  >
+                    <MessageSquare className="h-3 w-3" />
+                    {open ? "Weniger" : "Verlauf und Antworten"}
+                  </button>
+
+                  {open && (
+                    <div className="mt-3 pt-3 border-t border-slate-800/70 space-y-3">
+                      {detail?.body && (
+                        <p className="text-[12px] text-slate-400 leading-relaxed whitespace-pre-wrap">
+                          {detail.body}
+                        </p>
+                      )}
+
+                      {/* Der Verlauf. Anhängend, nie überschrieben --
+                          eine Begründung von vorletzter Woche steht
+                          auch nach der dritten Statusänderung noch da. */}
+                      {detail?.log?.length > 0 && (
+                        <div className="space-y-1.5">
+                          {detail.log.map((item: any) => (
+                            <div
+                              key={item.id}
+                              className={cn(
+                                "text-[11px] leading-relaxed",
+                                item.kind === "state"
+                                  ? "text-slate-500"
+                                  : "text-slate-300"
+                              )}
+                            >
+                              <span className="text-slate-600 font-mono mr-1.5">
+                                {when(item.at)}
+                              </span>
+                              {item.kind === "state" ? (
+                                <span className="italic">{item.text}</span>
+                              ) : (
+                                <>
+                                  <span className="font-bold text-slate-400">
+                                    {item.author}:
+                                  </span>{" "}
+                                  {item.text}
+                                </>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Antworten -- für beide Seiten. */}
+                      <div className="flex gap-2">
+                        <input
+                          value={reply}
+                          onChange={(event) => setReply(event.target.value)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter") sendReply(entry.id);
+                          }}
+                          placeholder="Antworten …"
+                          className="flex-1 bg-[#0a1628] border border-slate-800 rounded-lg px-3 py-2 text-[12px] text-white placeholder:text-slate-600 focus:outline-none focus:border-slate-700"
+                        />
                         <button
-                          key={key}
-                          onClick={() => setEntryState(entry.id, key)}
-                          disabled={entry.state === key}
+                          onClick={() => sendReply(entry.id)}
+                          disabled={!reply.trim()}
                           className={cn(
-                            "px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border transition-colors",
-                            entry.state === key
-                              ? "border-slate-700 text-slate-600 cursor-default"
-                              : "border-slate-800 text-slate-500 hover:text-white hover:border-slate-700"
+                            "px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider transition-colors",
+                            reply.trim()
+                              ? "bg-slate-700 text-white hover:bg-slate-600"
+                              : "bg-slate-800 text-slate-600 cursor-not-allowed"
                           )}
                         >
-                          {value.label}
+                          Senden
                         </button>
-                      ))}
+                      </div>
+
+                      {/* Owner-Werkzeuge */}
+                      {isOwner && (
+                        <div className="space-y-2 pt-2 border-t border-slate-800/70">
+                          <div className="flex gap-1.5 flex-wrap">
+                            {Object.entries(STATES).map(([key, value]) => (
+                              <button
+                                key={key}
+                                onClick={() => patch(entry.id, { state: key })}
+                                disabled={entry.state === key}
+                                className={cn(
+                                  "px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border transition-colors",
+                                  entry.state === key
+                                    ? "border-slate-700 text-slate-600 cursor-default"
+                                    : "border-slate-800 text-slate-500 hover:text-white hover:border-slate-700"
+                                )}
+                              >
+                                {value.label}
+                              </button>
+                            ))}
+                          </div>
+
+                          {entry.kind === "bug" && (
+                            <div className="flex gap-1.5 flex-wrap">
+                              {Object.entries(PRIORITIES).map(([key, value]) => (
+                                <button
+                                  key={key}
+                                  onClick={() =>
+                                    patch(entry.id, { priority: key })
+                                  }
+                                  disabled={entry.priority === key}
+                                  className={cn(
+                                    "px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border transition-colors",
+                                    entry.priority === key
+                                      ? "border-slate-700 text-slate-600 cursor-default"
+                                      : "border-slate-800 text-slate-500 hover:text-white hover:border-slate-700"
+                                  )}
+                                >
+                                  {value.label}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+
+                          <button
+                            onClick={() =>
+                              patch(entry.id, {
+                                assignee: entry.assignee ? "" : "me",
+                              })
+                            }
+                            className="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border border-slate-800 text-slate-500 hover:text-white hover:border-slate-700 transition-colors"
+                          >
+                            {entry.assignee
+                              ? "Bearbeiter entfernen"
+                              : "Übernehmen"}
+                          </button>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

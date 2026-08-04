@@ -89,29 +89,59 @@ async def deploy_changelog(user_id: str = "", limit: int = 40):
 
 
 @router.get("/feedback", summary="Gemeldete Fehler und Vorschläge")
-async def list_feedback(user_id: str = "", limit: int = 100):
+async def list_feedback(
+    user_id: str = "",
+    limit: int = 100,
+    state: str = "",
+    kind: str = "",
+):
     """
     Owner sehen alles, Tester nur ihre eigenen Meldungen.
 
     Ein Tester soll wissen, dass seine Meldung angekommen ist -- fremde
-    Meldungen gehen ihn nichts an, und in einer Fehlermeldung steht
-    schnell mehr, als der Melder öffentlich sagen wollte.
+    gehen ihn nichts an, und in einer Fehlermeldung steht schnell mehr,
+    als der Melder öffentlich sagen wollte.
     """
 
     uid = _require_tester(user_id)
 
     if roles.is_owner(uid):
         return {
-            "entries": feedback.listing(limit=limit),
+            "entries": feedback.listing(
+                viewer=uid, limit=limit, state=state, kind=kind
+            ),
             "stats": feedback.stats(),
             "scope": "all",
         }
 
     return {
-        "entries": feedback.listing(user_id=uid, limit=limit),
+        "entries": feedback.listing(
+            user_id=uid, viewer=uid, limit=limit, state=state, kind=kind
+        ),
         "stats": {},
         "scope": "own",
     }
+
+
+@router.get("/feedback/{entry_id}", summary="Eine Meldung samt Verlauf")
+async def feedback_detail(entry_id: int, user_id: str = ""):
+    """Die Einzelansicht -- mit allen Kommentaren."""
+
+    uid = _require_tester(user_id)
+
+    entry = feedback.detail(entry_id, viewer=uid)
+    if entry is None:
+        raise HTTPException(status_code=404, detail="Die Meldung gibt es nicht.")
+
+    # Ein Tester sieht nur seine eigene. Ohne diese Zeile käme er über
+    # /feedback/17 an jede fremde Meldung -- die Liste filtert, die
+    # Einzelansicht muss es auch.
+    if not roles.is_owner(uid) and str(entry["user_id"]) != uid:
+        raise HTTPException(
+            status_code=403, detail="Das ist nicht deine Meldung."
+        )
+
+    return entry
 
 
 @router.post("/feedback", summary="Fehler oder Vorschlag einreichen")
@@ -125,31 +155,113 @@ async def create_feedback(data: dict):
         str(data.get("title") or ""),
         body=str(data.get("body") or ""),
         kind=str(data.get("kind") or "bug"),
+        area=str(data.get("area") or ""),
+        priority=str(data.get("priority") or "normal"),
         user_name=str(data.get("user_name") or ""),
     )
     if not result["ok"]:
         raise HTTPException(status_code=400, detail=result["reason"])
 
-    return {"submitted": True, "id": result["id"]}
+    # `similar` mitgeben statt die Meldung abzulehnen: zwei Leute
+    # können dieselbe Überschrift für verschiedene Dinge wählen, und
+    # wer ein "gibt es schon" bekommt, meldet beim nächsten Mal gar
+    # nichts mehr.
+    return {
+        "submitted": True,
+        "id": result["id"],
+        "similar": result["similar"],
+    }
 
 
-@router.post("/feedback/{entry_id}", summary="Bearbeitungsstand setzen")
-async def update_feedback(entry_id: int, data: dict):
-    """Owner setzen den Stand: offen, geplant, erledigt, abgelehnt."""
+@router.post("/feedback/{entry_id}/comment", summary="Antworten")
+async def add_comment(entry_id: int, data: dict):
+    """
+    Eine Rückfrage oder Antwort anhängen.
 
-    _require_owner(str(data.get("user_id") or ""))
+    Owner dürfen überall antworten, ein Tester nur in seiner eigenen
+    Meldung -- sonst könnte er in fremden mitreden, die er gar nicht
+    sehen darf.
+    """
 
-    state = str(data.get("state") or "").strip()
-    if state not in feedback.STATES:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Unbekannter Stand. Möglich: {', '.join(feedback.STATES)}.",
-        )
+    uid = _require_tester(str(data.get("user_id") or ""))
 
-    if not feedback.set_state(entry_id, state, str(data.get("note") or "")):
+    entry = feedback.detail(entry_id)
+    if entry is None:
         raise HTTPException(status_code=404, detail="Die Meldung gibt es nicht.")
 
-    return {"updated": True, "state": state}
+    if not roles.is_owner(uid) and str(entry["user_id"]) != uid:
+        raise HTTPException(
+            status_code=403, detail="Das ist nicht deine Meldung."
+        )
+
+    text = str(data.get("text") or "")
+    if not feedback.comment(entry_id, uid, text):
+        raise HTTPException(status_code=400, detail="Der Text ist leer.")
+
+    return {"added": True}
+
+
+@router.post("/feedback/{entry_id}/vote", summary="Zustimmen")
+async def vote_feedback(entry_id: int, data: dict):
+    """Zustimmung geben oder zurückziehen.
+
+    Damit sichtbar wird, welcher Vorschlag mehreren wichtig ist -- und
+    welcher Fehler mehrere trifft.
+    """
+
+    uid = _require_tester(str(data.get("user_id") or ""))
+
+    result = feedback.vote(entry_id, uid)
+    if not result["ok"]:
+        raise HTTPException(status_code=404, detail="Die Meldung gibt es nicht.")
+
+    return result
+
+
+@router.post("/feedback/{entry_id}", summary="Bearbeiten")
+async def update_feedback(entry_id: int, data: dict):
+    """Stand, Dringlichkeit, Bearbeiter -- nur für Owner."""
+
+    actor = _require_owner(str(data.get("user_id") or ""))
+
+    raw_duplicate = data.get("duplicate_of")
+    duplicate_of = None
+    if raw_duplicate not in (None, "", 0):
+        try:
+            duplicate_of = int(raw_duplicate)
+        except (TypeError, ValueError):
+            raise HTTPException(
+                status_code=400, detail="»duplicate_of« muss eine Nummer sein."
+            ) from None
+
+    raw_assignee = data.get("assignee")
+
+    result = feedback.update(
+        entry_id,
+        actor=actor,
+        state=str(data.get("state") or ""),
+        priority=str(data.get("priority") or ""),
+        assignee=None if raw_assignee is None else str(raw_assignee),
+        duplicate_of=duplicate_of,
+        note=str(data.get("note") or ""),
+    )
+    if not result["ok"]:
+        raise HTTPException(status_code=400, detail=result["reason"])
+
+    return result
+
+
+@router.get("/feedback-options", summary="Zustände und Dringlichkeiten")
+async def feedback_options(user_id: str = ""):
+    """Damit das Dashboard die Listen nicht zweitpflegen muss."""
+
+    _require_tester(user_id)
+    return {
+        "states": list(feedback.STATES),
+        "priorities": list(feedback.PRIORITIES),
+        "kinds": list(feedback.KINDS),
+        "closed": list(feedback.CLOSED),
+    }
 
 
 @router.get("/members", summary="Wer die Tester-Rolle hat")

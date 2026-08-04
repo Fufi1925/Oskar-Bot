@@ -312,6 +312,63 @@ def test_a_tester_sees_only_their_own_reports():
         asyncio.run(run())
 
 
+def test_a_tester_cannot_open_a_stranger_report():
+    """
+    Die Liste filtert -- die Einzelansicht muss es auch.
+
+    Sonst kommt man über /feedback/17 an jede fremde Meldung, obwohl
+    sie in keiner Liste auftaucht. Ein Mutationstest hat gezeigt, dass
+    diese Prüfung ersatzlos entfallen konnte, ohne dass ein Test rot
+    wurde.
+    """
+
+    print("\nEin Tester öffnet keine fremde Meldung")
+
+    from fastapi import HTTPException
+
+    from api.routes import tester
+
+    with TempState() as (dr, _ps, tf):
+        async def run():
+            await dr.assign(TESTER, "tester", granted_by="owner")
+            await dr.assign(OTHER, "tester", granted_by="owner")
+
+            mine = tf.submit(TESTER, "Meine eigene Meldung")["id"]
+            theirs = tf.submit(OTHER, "Die Meldung des anderen")["id"]
+
+            # Die eigene: geht.
+            entry = await tester.feedback_detail(mine, user_id=TESTER)
+            check("die eigene Meldung geht auf", entry["id"] == mine)
+
+            # Die fremde: nicht.
+            try:
+                await tester.feedback_detail(theirs, user_id=TESTER)
+                check("die fremde bleibt zu", False,
+                      "jeder Tester liest jede Meldung über die ID")
+            except HTTPException as exc:
+                check("die fremde bleibt zu", exc.status_code == 403,
+                      f"HTTP {exc.status_code}")
+
+            # Kommentieren ebenfalls nicht.
+            try:
+                await tester.add_comment(
+                    theirs, {"user_id": TESTER, "text": "hallo"}
+                )
+                check("und man kann dort nicht mitreden", False,
+                      "ein Tester kommentiert in fremden Meldungen")
+            except HTTPException as exc:
+                check("und man kann dort nicht mitreden",
+                      exc.status_code == 403, f"HTTP {exc.status_code}")
+
+            # In der eigenen schon.
+            ok = await tester.add_comment(
+                mine, {"user_id": TESTER, "text": "Nachtrag"}
+            )
+            check("in der eigenen schon", ok["added"] is True)
+
+        asyncio.run(run())
+
+
 def test_owners_see_everything():
     print("\nOwner sehen alle Meldungen")
 
@@ -382,11 +439,197 @@ def test_a_report_needs_a_title():
               tf.submit(TESTER, "Der Knopf tut nichts")["ok"] is True)
 
         # Unbekannte Art faellt auf "bug" zurueck statt zu werfen.
-        tf.submit(TESTER, "Irgendwas", kind="quatsch")
+        tf.submit(TESTER, "Irgendwas passiert hier", kind="quatsch")
         entries = tf.listing(user_id=TESTER)
         check("eine unbekannte Art wird zu »bug«",
               all(e["kind"] in tf.KINDS for e in entries),
               str([e["kind"] for e in entries]))
+
+        # Ein Vorschlag hat keine Dringlichkeit -- er ist ein Wunsch.
+        result = tf.submit(TESTER, "Waere schoen wenn", kind="idea",
+                           priority="critical")
+        entry = tf.detail(result["id"])
+        check("ein Vorschlag bleibt auf normal",
+              entry["priority"] == "normal", entry["priority"])
+
+
+def test_the_history_is_append_only():
+    """
+    Der Grund fuer den Umbau.
+
+    Vorher gab es ein einziges Notizfeld: die zweite Antwort
+    ueberschrieb die erste, und niemand konnte nachlesen, warum etwas
+    abgelehnt wurde.
+    """
+
+    print("\nDer Verlauf wird nur ergänzt")
+
+    with TempState() as (_dr, _ps, tf):
+        entry = tf.submit(TESTER, "Der Knopf tut nichts")["id"]
+
+        tf.update(entry, actor="owner", state="confirmed",
+                  note="Kann ich nachstellen.")
+        tf.update(entry, actor="owner", state="in_progress")
+        tf.comment(entry, TESTER, "Danke!")
+        tf.update(entry, actor="owner", state="done", note="Behoben.")
+
+        log = tf.detail(entry)["log"]
+        texts = [item["text"] for item in log]
+
+        check("die erste Antwort steht noch da",
+              any("nachstellen" in t for t in texts), str(texts))
+        check("die letzte auch",
+              any("Behoben" in t for t in texts), str(texts))
+        check("die Antwort des Melders ebenfalls",
+              any("Danke" in t for t in texts))
+        check("jede Statusänderung ist vermerkt",
+              sum(1 for i in log if i["kind"] == "state") >= 3,
+              str([i["kind"] for i in log]))
+
+        # Und die Reihenfolge stimmt: aelteste zuerst.
+        check("der Verlauf ist chronologisch",
+              [i["id"] for i in log] == sorted(i["id"] for i in log))
+
+
+def test_duplicates_are_flagged_not_blocked():
+    """
+    Ein Hinweis, keine Sperre.
+
+    Zwei Leute koennen dieselbe Ueberschrift fuer verschiedene Dinge
+    waehlen -- und wer ein "gibt es schon" bekommt, meldet beim
+    naechsten Mal gar nichts mehr.
+    """
+
+    print("\nDubletten werden gemeldet, nicht abgelehnt")
+
+    with TempState() as (_dr, _ps, tf):
+        first = tf.submit(TESTER, "Der Knopf tut nichts!")
+        check("die erste geht durch", first["ok"] is True)
+        check("und findet nichts Ähnliches", first["similar"] == [])
+
+        second = tf.submit(OTHER, "knopf tut nichts")
+        check("die zweite geht auch durch", second["ok"] is True,
+              "eine Dublette wurde abgelehnt")
+        check("aber sie nennt die erste",
+              [s["id"] for s in second["similar"]] == [first["id"]],
+              str(second["similar"]))
+
+        # Ein voellig anderer Titel darf nicht als Dublette gelten.
+        third = tf.submit(TESTER, "Die Farben im Diagramm stimmen nicht")
+        check("ein anderer Titel ist keine Dublette",
+              third["similar"] == [], str(third["similar"]))
+
+        # Eine erledigte Meldung wird nicht mehr vorgeschlagen.
+        #
+        # Beide bisherigen ("Der Knopf tut nichts!" und "knopf tut
+        # nichts") haben denselben Fingerabdruck. Also müssen beide
+        # geschlossen werden, sonst schlägt die zweite weiterhin an --
+        # der erste Anlauf dieses Tests hat genau das übersehen.
+        tf.update(first["id"], actor="owner", state="done")
+        tf.update(second["id"], actor="owner", state="rejected")
+
+        fourth = tf.submit(TESTER, "Der Knopf tut nichts")
+        check("erledigte zählen nicht mehr",
+              fourth["similar"] == [], str(fourth["similar"]))
+
+
+def test_votes_count_once_per_person():
+    print("\nZustimmung zählt einmal je Person")
+
+    with TempState() as (_dr, _ps, tf):
+        entry = tf.submit(TESTER, "Betrifft mich auch")["id"]
+
+        tf.vote(entry, OTHER)
+        tf.vote(entry, OTHER)  # zweites Mal: zuruecknehmen
+        check("zweimal klicken nimmt zurück",
+              tf.detail(entry)["votes"] == 0)
+
+        tf.vote(entry, OTHER)
+        tf.vote(entry, "333")
+        check("zwei Leute, zwei Stimmen",
+              tf.detail(entry)["votes"] == 2)
+        check("die eigene Stimme ist markiert",
+              tf.detail(entry, viewer=OTHER)["voted"] is True)
+        check("die eines anderen nicht",
+              tf.detail(entry, viewer="999")["voted"] is False)
+
+
+def test_open_and_urgent_come_first():
+    """Sonst verschwindet eine offene Meldung unter zwanzig erledigten."""
+
+    print("\nOffen und dringend steht oben")
+
+    with TempState() as (_dr, _ps, tf):
+        done = tf.submit(TESTER, "Schon erledigt worden")["id"]
+        tf.update(done, actor="owner", state="done")
+        small = tf.submit(TESTER, "Kleiner Schreibfehler", priority="low")["id"]
+        urgent = tf.submit(TESTER, "Gar nichts geht mehr",
+                           priority="critical")["id"]
+
+        order = [e["id"] for e in tf.listing()]
+        check("das Dringendste zuerst", order[0] == urgent, str(order))
+        check("das Erledigte zuletzt", order[-1] == done, str(order))
+        check("die Kleinigkeit dazwischen", order[1] == small, str(order))
+
+
+def test_a_duplicate_cannot_point_at_itself():
+    """Sonst dreht sich die Anzeige im Kreis."""
+
+    print("\nEin Duplikat verweist nicht auf sich selbst")
+
+    with TempState() as (_dr, _ps, tf):
+        entry = tf.submit(TESTER, "Irgendein Fehler hier")["id"]
+        result = tf.update(entry, actor="owner", duplicate_of=entry)
+        check("wird abgelehnt", result["ok"] is False, str(result))
+
+        other = tf.submit(TESTER, "Ein anderer Fehler")["id"]
+        ok = tf.update(other, actor="owner", duplicate_of=entry)
+        check("auf eine andere zeigen geht", ok["ok"] is True)
+        check("und setzt den Stand",
+              tf.detail(other)["state"] == "duplicate")
+
+
+def test_an_old_database_is_upgraded():
+    """
+    Die erste Fassung hatte weniger Spalten.
+
+    Ohne Nachziehen schlaegt jede Abfrage fehl -- und die bereits
+    gemeldeten Sachen waeren weg.
+    """
+
+    print("\nEine alte Datenbank wird nachgezogen")
+
+    import sqlite3
+
+    with TempState() as (_dr, _ps, tf):
+        # Die alte Tabelle von Hand anlegen.
+        os.makedirs(os.path.dirname(tf.DB_PATH), exist_ok=True)
+        with sqlite3.connect(tf.DB_PATH) as conn:
+            conn.execute(
+                "CREATE TABLE tester_feedback ("
+                "id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, "
+                "user_name TEXT NOT NULL DEFAULT '', kind TEXT NOT NULL DEFAULT 'bug', "
+                "title TEXT NOT NULL, body TEXT NOT NULL DEFAULT '', "
+                "state TEXT NOT NULL DEFAULT 'open', note TEXT NOT NULL DEFAULT '', "
+                "at INTEGER NOT NULL, updated_at INTEGER)"
+            )
+            conn.execute(
+                "INSERT INTO tester_feedback (user_id, title, at) VALUES (?, ?, ?)",
+                (TESTER, "Alte Meldung von früher", 1700000000),
+            )
+
+        # Jetzt der neue Code.
+        entries = tf.listing()
+        check("die alte Meldung ist noch da", len(entries) == 1, str(entries))
+        if entries:
+            check("und hat die neuen Felder",
+                  entries[0]["priority"] == "normal"
+                  and entries[0]["area"] == "",
+                  str(entries[0]))
+
+        # Und Neues lässt sich weiterhin anlegen.
+        check("neue Meldungen gehen weiter",
+              tf.submit(TESTER, "Etwas ganz Neues")["ok"] is True)
 
 
 # --------------------------------------------------------------------- #
@@ -520,6 +763,114 @@ def test_the_proxy_passes_the_session_id():
           "sonst liest ein Tester fremde Meldungen mit ?user_id=…")
 
 
+def test_a_plain_user_never_sees_the_admin_link():
+    """
+    Wer keine Dashboard-Rolle hat, soll den Link gar nicht erst sehen.
+
+    Der Link haengt an `isAdmin(...) || hasTeamRole`. `isAdmin` liest
+    NEXT_PUBLIC_ADMIN_IDS -- eine Variable, die beim Build ins
+    JavaScript eingebacken und im Browser fuer jeden lesbar ist. Als
+    Sperre taugt sie nicht; sie darf nur *zusaetzlich* etwas
+    freischalten, nie etwas oeffnen, was sonst zu waere.
+    """
+
+    print("\nOhne Rolle kein Admin-Link")
+
+    layout = strip_comments(read("app", "dashboard", "layout.tsx"))
+    utils = read("lib", "utils.ts")
+
+    check("der Link hängt an einer Bedingung",
+          'name: "Admin Panel"' in layout)
+    check("und zwar an der Team-Rolle",
+          "hasTeamRole" in layout,
+          "sonst entscheidet allein eine im Browser lesbare Variable")
+
+    # Der Startwert muss `false` sein: solange die Abfrage laeuft, darf
+    # der Link nicht aufblitzen.
+    check("er ist zu Beginn versteckt",
+          "useState(false)" in layout.split("hasTeamRole")[1][:80],
+          "der Link blitzt auf, bevor die Rollen geladen sind")
+
+    # Ein leerer Eintrag darf niemanden durchlassen. "".split(",")
+    # ergibt [""] -- ohne filter(Boolean) waere eine leere userId
+    # gleich einem leeren Eintrag.
+    check("leere Einträge werden verworfen",
+          "filter(Boolean)" in utils,
+          '"".split(",") ergibt [""] -- das darf nicht matchen')
+    check("Leerzeichen werden entfernt",
+          ".trim()" in utils,
+          '"111, 123" sperrte einen echten Admin aus')
+
+
+def test_the_admin_page_checks_on_the_server():
+    """Der Link ist Anzeige. Die Sperre ist die Seite selbst."""
+
+    print("\nDie Admin-Seite prüft serverseitig")
+
+    page = strip_comments(read("app", "dashboard", "admin", "page.tsx"))
+
+    check("die Sitzung wird serverseitig gelesen",
+          "getServerSession" in page)
+    check("ohne Anmeldung wird umgeleitet",
+          "redirect" in page)
+    check("die Team-Rolle wird geprüft",
+          "fetchTeamAccess" in page,
+          "sonst kommt jeder Angemeldete über die URL hinein")
+
+    # Und die Prüfung muss wirklich umleiten, nicht nur rechnen.
+    branch = page.split("fetchTeamAccess")[1][:400]
+    check("ohne Rolle geht es zurück ins Dashboard",
+          "redirect" in branch,
+          "das Ergebnis wird berechnet und dann ignoriert")
+
+    # fetchTeamAccess liest ADMIN_IDS serverseitig -- nicht die
+    # NEXT_PUBLIC-Variante, die im Browser steht.
+    auth = read("lib", "guild-auth.ts")
+    check("serverseitig gilt ADMIN_IDS",
+          "process.env.ADMIN_IDS" in auth,
+          "eine im Browser lesbare Variable als Sperre wäre keine")
+
+
+def test_nobody_reads_a_stranger_access():
+    """
+    `/team/me/{user_id}` darf nur den eigenen Zugang liefern.
+
+    Die ID steht im Pfad und kommt aus dem Browser. Vorher liess der
+    Proxy jede durch: mit /team/me/<fremde-id> las jeder Angemeldete,
+    welche Dashboard-Rollen ein anderer hat.
+    """
+
+    print("\nNiemand liest den Zugang eines Fremden")
+
+    proxy = strip_comments(read("app", "api", "bot", "[...path]", "route.ts"))
+    block = proxy.split('scope === "team"')[1][:1200]
+
+    check("es gibt eine Regel für /me", 'resource === "me"' in block)
+
+    branch = block.split('resource === "me"')[1][:400]
+    check("die ID im Pfad wird gelesen", "rest[1]" in branch)
+
+    # Die Bedingung selbst ansehen, nicht nur die Wörter drumherum.
+    #
+    # `if (false) { ... }` ließ alles stehen -- Vergleich, deny(403),
+    # die ganze Zeile -- und trotzdem kam jede fremde ID durch. Ein
+    # Mutationstest hat das durchgelassen.
+    guard = re.search(r"if \(([^)]*wanted[^)]*)\)", branch)
+    check("es gibt eine echte Bedingung", guard is not None, branch[:120])
+    if guard is not None:
+        condition = guard.group(1)
+        check("sie vergleicht mit der Sitzung",
+              "session.user.id" in condition,
+              f"Bedingung: {condition}")
+        check("und ist nicht konstant",
+              "false" not in condition.lower()
+              and "true" not in condition.lower(),
+              f"Bedingung: {condition}")
+    check("abgewiesen wird mit 403",
+          "deny(403" in branch,
+          "der Vergleich wird berechnet und ignoriert")
+
+
 def test_the_removed_commands_are_gone():
     """`ticket setup` und `verification setup` sollten weg sein."""
 
@@ -555,13 +906,23 @@ def main():
     test_a_broken_role_lookup_does_not_grant_premium()
     test_the_routes_check_the_role_themselves()
     test_a_tester_sees_only_their_own_reports()
+    test_a_tester_cannot_open_a_stranger_report()
     test_owners_see_everything()
     test_only_owners_change_the_state()
     test_a_report_needs_a_title()
+    test_the_history_is_append_only()
+    test_duplicates_are_flagged_not_blocked()
+    test_votes_count_once_per_person()
+    test_open_and_urgent_come_first()
+    test_a_duplicate_cannot_point_at_itself()
+    test_an_old_database_is_upgraded()
     test_the_changelog_reads_real_commits()
     test_headings_are_not_used_as_explanations()
     test_the_tab_is_wired_and_gated()
     test_the_proxy_passes_the_session_id()
+    test_a_plain_user_never_sees_the_admin_link()
+    test_the_admin_page_checks_on_the_server()
+    test_nobody_reads_a_stranger_access()
     test_the_removed_commands_are_gone()
 
     print()

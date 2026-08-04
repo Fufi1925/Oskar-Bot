@@ -737,8 +737,24 @@ async function authorize(
 
     const resource = rest[0] ?? "";
 
-    // Everyone may look up their own access.
-    if (resource === "me") return { ok: true };
+    // Jeder darf seinen *eigenen* Zugang abfragen -- und nur den.
+    //
+    // Die user_id steht im Pfad und kommt aus dem Browser. Vorher
+    // stand hier ein bedingungsloses `return { ok: true }`, also
+    // konnte jeder Angemeldete mit /team/me/<fremde-id> nachsehen,
+    // welche Dashboard-Rollen jemand anderes hat. Keine Geheimnisse,
+    // aber eine Auskunft über andere Leute, die niemand angefordert
+    // hat -- und sie war mit einer geänderten URL zu holen.
+    if (resource === "me") {
+      const wanted = rest[1] ?? "";
+      if (wanted && wanted !== session.user.id) {
+        return {
+          ok: false,
+          response: deny(403, "You can only look up your own access."),
+        };
+      }
+      return { ok: true };
+    }
 
     // Owner and admin management is the highest privilege in the system:
     // a team role is never enough, only real owners get through.

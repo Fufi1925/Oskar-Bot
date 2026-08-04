@@ -564,15 +564,38 @@ export const api = {
     request<any>(`/tester/changelog?limit=${limit}`),
   testerFeedback: (limit = 100) =>
     request<any>(`/tester/feedback?limit=${limit}`),
-  testerSubmit: (kind: string, title: string, body: string, userName = "") =>
+  testerFeedbackFiltered: (limit = 100, state = "", kind = "") =>
+    request<any>(
+      `/tester/feedback?limit=${limit}` +
+        `&state=${encodeURIComponent(state)}&kind=${encodeURIComponent(kind)}`
+    ),
+  testerDetail: (id: number) => request<any>(`/tester/feedback/${id}`),
+  testerOptions: () => request<any>(`/tester/feedback-options`),
+  testerSubmit: (payload: {
+    kind: string;
+    title: string;
+    body: string;
+    area?: string;
+    priority?: string;
+  }) =>
     request<any>(`/tester/feedback`, {
       method: "POST",
-      body: JSON.stringify({ kind, title, body, user_name: userName }),
+      body: JSON.stringify(payload),
     }),
-  testerSetState: (id: number, state: string, note = "") =>
+  testerComment: (id: number, text: string) =>
+    request<any>(`/tester/feedback/${id}/comment`, {
+      method: "POST",
+      body: JSON.stringify({ text }),
+    }),
+  testerVote: (id: number) =>
+    request<any>(`/tester/feedback/${id}/vote`, {
+      method: "POST",
+      body: "{}",
+    }),
+  testerUpdate: (id: number, patch: Record<string, unknown>) =>
     request<any>(`/tester/feedback/${id}`, {
       method: "POST",
-      body: JSON.stringify({ state, note }),
+      body: JSON.stringify(patch),
     }),
   testerMembers: () => request<any>(`/tester/members`),
   editComposed: (guildId: string, data: any) =>
