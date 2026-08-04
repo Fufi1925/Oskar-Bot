@@ -29,7 +29,15 @@ from utils.panels import from_embed
 
 # --- Configurable Variables ---
 EMBED_COLOR = 0xFF0000
-TICKET_CHANNEL_IMAGE_URL = "https://cdn.discordapp.com/attachments/1403014653214330951/1403022431303630900/images_2.jpg?ex=68a1e776&is=68a095f6&hm=2c4e74b079fa409410920507bfb55549d485aafa89e194d15ab548eaba684555&"
+# Kein Bild mehr in der Ticket-Begruessung.
+#
+# Hier stand eine Discord-CDN-Adresse mit Ablaufsignatur ("?ex=...").
+# Solche Links verfallen nach Stunden; danach liefert der Server 403,
+# Discord lehnt die Nachricht mit dem toten Bild ab, und der frisch
+# erstellte Ticket-Kanal bleibt leer. Genau das ist passiert.
+#
+# Wer wieder ein Bild will: an einen dauerhaften Ort legen und die
+# Adresse hier eintragen -- keine attachments-URL aus einem Chat.
 
 # --- Emoji Variables ---
 SUCCESS_EMOJI = TICK
@@ -379,10 +387,42 @@ class TicketCog(commands.Cog, name="Ticket System"):
         self.db.execute('INSERT INTO user_ticket_counts VALUES (?,?,1) ON CONFLICT(guild_id,user_id) DO UPDATE SET ticket_count=ticket_count+1', (guild.id,user.id))
         await log_ticket_action(self.db, guild, user, "Ticket Created", f"Ticket {ch.mention} by {user.mention} (Category: {cat_info['name']}).")
         
-        ticket_embed = discord.Embed(title=f"Welcome to your Ticket ( #{t_num:04d} )", description="Thank you for reaching out for support. Our staff team has been notified and will be with you as soon as possible.\n\nPlease describe your issue in detail while you wait.", color=EMBED_COLOR)
-        ticket_embed.set_image(url=TICKET_CHANNEL_IMAGE_URL)
-        await ch.send(content=" ".join(pings), view=from_embed(ticket_embed, TicketActionsView(self, ch.id, cat_id)))
-        await inter.followup.send(f"Your ticket has been successfully created: {ch.mention}", ephemeral=True)
+        # Die Begruessung im frischen Ticket.
+        #
+        # Zwei Fehler steckten hier, und zusammen sorgten sie dafuer,
+        # dass der Kanal leer blieb:
+        #
+        #  * ``set_image(TICKET_CHANNEL_IMAGE_URL)`` -- eine
+        #    Discord-CDN-Adresse mit abgelaufener Signatur. Sie liefert
+        #    403, und Discord lehnt die ganze Nachricht ab.
+        #  * ``content=`` zusammen mit einer Components-V2-View. Mit
+        #    dem V2-Flag gibt es kein content-Feld mehr; Discord
+        #    antwortet mit 50035.
+        #
+        # Die Erwaehnungen brauchen aber ein content-Feld, sonst
+        # benachrichtigt niemand das Team. Also zwei Nachrichten: die
+        # Pings als reiner Text, danach die Karte.
+        ticket_embed = discord.Embed(
+            title=f"Ticket #{t_num:04d}",
+            description=(
+                f"Danke, dass du dich meldest, {user.mention}.\n"
+                "Das Team ist benachrichtigt und meldet sich, sobald jemand da ist.\n\n"
+                "**Beschreibe dein Anliegen so genau wie möglich** — je mehr "
+                "wir wissen, desto schneller geht es."
+            ),
+            color=EMBED_COLOR,
+        )
+        ticket_embed.set_footer(text=f"Kategorie: {cat_info['name']}")
+
+        try:
+            await ch.send(" ".join(pings))
+        except discord.HTTPException:
+            # Ohne Erwaehnung geht es zur Not auch -- die Karte ist
+            # wichtiger als der Ping.
+            pass
+
+        await ch.send(view=from_embed(ticket_embed, TicketActionsView(self, ch.id, cat_id)))
+        await inter.followup.send(f"Dein Ticket ist offen: {ch.mention}", ephemeral=True)
 
     @commands.hybrid_group(name="ticket", description="Main command group for the ticket system.")
     @commands.guild_only()

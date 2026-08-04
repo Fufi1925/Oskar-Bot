@@ -272,6 +272,93 @@ input[type="number"] {
   .admin-badge { transition: none; }
 }
 
+/* ── Speedrun row ────────────────────────────────────────────────────
+
+   The one row in the sidebar that *does* something rather than opening
+   a settings page: it builds an entire server in one go. It should not
+   look like "Nicknames" three lines above.
+
+   Premium is amber and pulses, Admin is indigo with a tile. This one
+   takes cyan and the thing neither of them has: a light that travels
+   along the top edge. Slow -- 4.5s -- because it sits in a sidebar
+   somebody looks at all day, and anything faster becomes a twitch in
+   the corner of the eye.
+
+   The icon gets its own tile like Admin's, so the row reads as a
+   destination, plus a soft glow that the plain glyphs do not have. */
+.speedrun-link {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(34, 211, 238, 0.26);
+  background:
+    linear-gradient(135deg, rgba(8, 145, 178, 0.18), rgba(34, 211, 238, 0.05));
+  transition: border-color 0.25s ease, background 0.25s ease;
+}
+
+.speedrun-link:hover {
+  border-color: rgba(34, 211, 238, 0.55);
+  background:
+    linear-gradient(135deg, rgba(8, 145, 178, 0.28), rgba(34, 211, 238, 0.1));
+}
+
+.speedrun-link[data-active="true"] {
+  border-color: rgba(34, 211, 238, 0.7);
+  background:
+    linear-gradient(135deg, rgba(8, 145, 178, 0.34), rgba(34, 211, 238, 0.14));
+  box-shadow: 0 0 22px rgba(34, 211, 238, 0.16);
+}
+
+/* The travelling light. A 1px line along the top, nothing more -- a
+   glow across the whole row would fight with the text. */
+.speedrun-link::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -40%;
+  height: 1px;
+  width: 40%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(103, 232, 249, 0.9),
+    transparent
+  );
+  animation: speedrun-sweep 4.5s ease-in-out infinite;
+}
+
+@keyframes speedrun-sweep {
+  0%   { transform: translateX(0); opacity: 0; }
+  12%  { opacity: 1; }
+  48%  { opacity: 1; }
+  60%  { transform: translateX(350%); opacity: 0; }
+  100% { transform: translateX(350%); opacity: 0; }
+}
+
+.speedrun-badge {
+  display: grid;
+  place-items: center;
+  height: 30px;
+  width: 30px;
+  border-radius: 9px;
+  background: rgba(34, 211, 238, 0.2);
+  border: 1px solid rgba(103, 232, 249, 0.3);
+  transition: background 0.25s ease, box-shadow 0.25s ease;
+}
+
+.speedrun-link:hover .speedrun-badge,
+.speedrun-link[data-active="true"] .speedrun-badge {
+  background: rgba(103, 232, 249, 0.34);
+  box-shadow: 0 0 14px rgba(34, 211, 238, 0.35);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .speedrun-link,
+  .speedrun-badge { transition: none; }
+  /* Der Streif verschwindet ganz statt einzufrieren: eine stehende
+     helle Linie sähe nach Darstellungsfehler aus. */
+  .speedrun-link::before { animation: none; opacity: 0; }
+}
+
 /* ── Admin panel surfaces ────────────────────────────────────────────
 
    The panel used flat navy boxes with hard 1px borders. Real glass

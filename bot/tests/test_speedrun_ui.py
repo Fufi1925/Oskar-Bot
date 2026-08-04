@@ -604,6 +604,64 @@ def test_motion_respects_the_system_setting():
         check(f"{name} wird abgeschaltet", name in block, block[:150])
 
 
+def test_the_sidebar_row_stands_out():
+    """Der Speedrun baut einen ganzen Server -- er darf nicht aussehen
+    wie „Nickname“ drei Zeilen darüber.
+
+    Premium ist bernstein und pulst, Admin ist indigo mit Kachel. Dieser
+    hier nimmt cyan und das, was keiner der beiden hat: ein Licht, das
+    über die Oberkante läuft.
+    """
+
+    print("\nDie Sidebar-Zeile hebt sich ab")
+
+    css = read("app/globals.css")
+    layout = strip_comments(read("app/dashboard/layout.tsx"))
+
+    check("es gibt einen eigenen Stil", ".speedrun-link {" in css)
+    check("mit eigenem Symbol-Feld", ".speedrun-badge {" in css)
+    # Der Keyframe muss existieren *und* benutzt werden. Nur nach dem
+    # Namen zu suchen hat eine Mutation durchgelassen, die ihn
+    # umbenannte: die Regel stand noch da, die animation-Zeile zeigte
+    # ins Leere, und der Streif war weg.
+    check("es gibt einen Keyframe", "@keyframes speedrun-sweep" in css)
+    before_block = css.split(".speedrun-link::before {")
+    check("es gibt eine Streif-Regel", len(before_block) > 1)
+    if len(before_block) > 1:
+        rule = before_block[1].split("}")[0]
+        check("der Streif ist animiert",
+              "animation: speedrun-sweep " in rule,
+              f"animation-Zeile: {rule.strip()[:100]}")
+
+        # Und der Name muss auf einen Keyframe zeigen, den es gibt.
+        import re as _re
+
+        used = _re.search(r"animation:\s*([\w-]+)", rule)
+        if used:
+            name = used.group(1)
+            check("der Keyframe existiert wirklich",
+                  f"@keyframes {name} " in css or f"@keyframes {name}{{" in css,
+                  f"animation: {name} zeigt ins Leere")
+
+    # Die Farbe muss sich von den beiden anderen unterscheiden -- sonst
+    # ist die Hervorhebung keine.
+    check("die Farbe ist nicht die von Premium",
+          "rgba(34, 211, 238" in css and "amber" not in css.split(".speedrun-link {")[1][:400])
+    check("und nicht die von Admin",
+          "99, 102, 241" not in css.split(".speedrun-link {")[1][:400])
+
+    # Und das Ganze muss auch verdrahtet sein, nicht nur im CSS stehen.
+    check("die Sidebar erkennt die Zeile", "isSpeedrun" in layout)
+    check("sie vergibt die Klasse", '"speedrun-link"' in layout)
+    check("und das Symbol-Feld", '"speedrun-badge shrink-0"' in layout)
+
+    # Wer Bewegung abgestellt hat, bekommt keine.
+    reduced = css.split("prefers-reduced-motion: reduce")
+    check("der Streif achtet auf prefers-reduced-motion",
+          any(".speedrun-link::before" in block for block in reduced[1:]),
+          "eine stehende helle Linie sieht nach Darstellungsfehler aus")
+
+
 def test_the_console_does_not_fight_the_reader():
     """Automatisches Mitrollen darf nicht die Zeile wegreißen, die man liest."""
 
@@ -633,6 +691,7 @@ def main():
     test_partial_is_not_shown_as_done()
     test_a_stuck_build_can_be_cancelled()
     test_motion_respects_the_system_setting()
+    test_the_sidebar_row_stands_out()
     test_the_console_does_not_fight_the_reader()
 
     print()

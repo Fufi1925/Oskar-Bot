@@ -133,6 +133,12 @@ STEPS: dict[str, dict[str, Any]] = {
         "default": True,
         "needs": [],
     },
+    "tracking": {
+        "label": "Einladungs-Log",
+        "description": "Protokolliert, wer wen auf den Server geholt hat.",
+        "default": True,
+        "needs": [],
+    },
     "j2c": {
         "label": "Join to Create",
         "description": "Wer den Sprachkanal betritt, bekommt einen eigenen.",
@@ -455,20 +461,46 @@ async def _post_ticket_panel(bot, guild, channel, db, panel_id: int) -> bool:
     if panel is None or not panel.get("categories"):
         return False
 
-    controls = []
-    for category in panel["categories"]:
-        try:
-            style = discord.ButtonStyle(int(category["button_style"]))
-        except (ValueError, TypeError):
-            style = discord.ButtonStyle.secondary
-        controls.append(
-            discord.ui.Button(
-                label=category["name"][:80],
-                emoji=category["emoji"] or None,
-                style=style,
-                custom_id=f"create_ticket_{category['category_id']}",
+    # Knoepfe oder Dropdown -- genau das, was in panel_type steht.
+    #
+    # Hier wurden unbedingt Knoepfe gebaut, waehrend die Datenbank
+    # "dropdown" sagte. Das Dashboard zeigte also ein Dropdown an und in
+    # Discord standen Knoepfe. Schlimmer noch: der Cog baut die View
+    # nach einem Neustart aus panel_type neu -- die Nachricht haette
+    # nach dem naechsten Deploy anders ausgesehen als vorher.
+    if (panel.get("panel_type") or "button") == "dropdown":
+        controls = [
+            discord.ui.Select(
+                placeholder="Wähle eine Kategorie…",
+                custom_id="create_ticket_select",
+                min_values=1,
+                max_values=1,
+                options=[
+                    discord.SelectOption(
+                        label=category["name"][:100],
+                        value=str(category["category_id"]),
+                        emoji=category["emoji"] or None,
+                    )
+                    # Discord erlaubt hoechstens 25 Eintraege.
+                    for category in panel["categories"][:25]
+                ],
             )
-        )
+        ]
+    else:
+        controls = []
+        for category in panel["categories"]:
+            try:
+                style = discord.ButtonStyle(int(category["button_style"]))
+            except (ValueError, TypeError):
+                style = discord.ButtonStyle.secondary
+            controls.append(
+                discord.ui.Button(
+                    label=category["name"][:80],
+                    emoji=category["emoji"] or None,
+                    style=style,
+                    custom_id=f"create_ticket_{category['category_id']}",
+                )
+            )
 
     view = Panel(
         panel["embed_title"] or panel["name"],
@@ -820,21 +852,106 @@ async def _do_counting(bot, guild, handover: dict, report: HandoverReport, log: 
     await log(f"Zählspiel eingerichtet — #{channel.name}", "success")
 
 
+# Ab welchem Level welche Rolle. Die Schlüssel sind Rollen-Keys aus der
+# Übergabe.
+#
+# Bewusst flach gehalten: drei Stufen, die ersten beiden früh genug, dass
+# man sie in der ersten Woche erreicht. Eine Leiter mit zehn Stufen sieht
+# im Dashboard beeindruckend aus und niemand kommt je oben an.
+_LEVEL_REWARDS = (
+    (5, "member"),
+    (15, "active"),
+    (30, "vip"),
+)
+
+
 async def _do_leveling(bot, guild, handover: dict, report: HandoverReport, log: LogHook):
     from api.db_manager import db_manager
     from utils import leveling_store as store
 
     db = await db_manager.get_connection(store.DB_PATH)
     await store.ensure_schema(db)
+    await store.save_settings(db, guild.id, {"enabled": True})
 
-    # Ankündigungen in den Kanal, in dem ohnehin geredet wird -- eine
-    # Level-Meldung im Regel-Kanal wäre Lärm an der falschen Stelle.
-    updates: dict[str, Any] = {"enabled": True}
+    # Rollen-Belohnungen. Ohne die sammelt man XP und bekommt nie etwas
+    # dafür -- das Level-System ist dann eine Zahl ohne Folgen.
+    me = guild.me
+    roles = handover.get("roles") or {}
+    given, skipped = [], []
 
-    await store.save_settings(db, guild.id, updates)
+    for level, key in _LEVEL_REWARDS:
+        raw = roles.get(key)
+        if not raw:
+            continue
+        role = guild.get_role(int(raw))
+        if role is None or role.managed:
+            continue
+        # Eine Rolle über der Bot-Rolle kann er nicht vergeben. Sie
+        # einzutragen hieße: beim Levelaufstieg passiert nichts, und
+        # niemand weiß warum.
+        if me is not None and role >= me.top_role:
+            skipped.append(role.name)
+            continue
+        await store.set_reward(db, guild.id, level, role.id)
+        given.append(f"Level {level} → {role.name}")
 
-    report.add("leveling", True, "XP fürs Schreiben ist an.")
-    await log("Level-System eingerichtet", "success")
+    detail = "XP fürs Schreiben ist an."
+    if given:
+        detail += " Belohnungen: " + ", ".join(given) + "."
+    if skipped:
+        detail += (
+            " Nicht eingetragen (stehen über der Bot-Rolle): "
+            + ", ".join(skipped)
+            + "."
+        )
+
+    report.add("leveling", True, detail)
+    await log(
+        f"Level-System eingerichtet — {len(given)} Rollen-Belohnungen", "success"
+    )
+
+
+async def _do_tracking(bot, guild, handover: dict, report: HandoverReport, log: LogHook):
+    """Einladungs-Protokoll: wer hat wen geholt.
+
+    Braucht einen Kanal, in den geschrieben wird. Der Einladungs-Log aus
+    dem Template ist dafür da; fehlt er, nimmt der Schritt den
+    allgemeinen Log-Kanal.
+    """
+
+    import aiosqlite
+
+    me = guild.me
+    if me is not None and not me.guild_permissions.manage_guild:
+        report.add(
+            "tracking", False,
+            "Dem Bot fehlt „Server verwalten“ — ohne das sieht er keine Einladungen.",
+        )
+        await log("Einladungs-Log: Recht fehlt", "error")
+        return
+
+    # Der eigene Einladungs-Kanal, sonst der Mitglieder-Log.
+    logs = handover.get("log_channels") or {}
+    raw = _dig(handover, "channels.invite_log") or logs.get("join_leave_events")
+    channel = guild.get_channel(int(raw)) if raw else None
+    if channel is None:
+        report.add("tracking", False, "Kein Kanal für den Einladungs-Log gefunden.")
+        await log("Einladungs-Log: kein Kanal", "warn")
+        return
+
+    async with aiosqlite.connect("db/invite.db") as db:
+        await db.execute(
+            "CREATE TABLE IF NOT EXISTS logging ("
+            " guild_id INTEGER PRIMARY KEY, channel_id INTEGER)"
+        )
+        await db.execute(
+            "INSERT OR REPLACE INTO logging (guild_id, channel_id) VALUES (?, ?)",
+            (guild.id, channel.id),
+        )
+        await db.commit()
+
+    report.add("tracking", True, f"Einladungs-Log geht nach #{channel.name}.")
+    await log(f"Einladungs-Log eingerichtet — #{channel.name}", "success")
 
 
 async def _do_j2c(bot, guild, handover: dict, report: HandoverReport, log: LogHook):
@@ -876,6 +993,7 @@ _RUNNERS: dict[str, Callable] = {
     "rules": _do_rules,
     "counting": _do_counting,
     "leveling": _do_leveling,
+    "tracking": _do_tracking,
     "j2c": _do_j2c,
     "automod": _do_automod,
 }
@@ -894,6 +1012,7 @@ ORDER = (
     "welcome",
     "counting",
     "leveling",
+    "tracking",
     "j2c",
     "automod",
 )

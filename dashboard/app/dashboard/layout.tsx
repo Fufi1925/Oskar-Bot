@@ -387,6 +387,11 @@ export default function DashboardLayout({
             // thin. Keyed off the href, not the label, which is
             // translated.
             const isAdmin = item.href === "/dashboard/admin";
+            // Der Speedrun baut einen ganzen Server -- er soll
+            // nicht aussehen wie "Nickname" drei Zeilen darüber.
+            // Eigene Farbe, eigenes Symbol-Feld und ein Licht,
+            // das über die Oberkante läuft.
+            const isSpeedrun = item.href.endsWith("/speedrun");
             return (
               <Link
                 key={item.name}
@@ -412,6 +417,11 @@ export default function DashboardLayout({
                         "admin-link",
                         isActive ? "text-indigo-100" : "text-indigo-200/90 hover:text-white"
                       )
+                    : isSpeedrun
+                    ? cn(
+                        "speedrun-link",
+                        isActive ? "text-cyan-100" : "text-cyan-200/90 hover:text-white"
+                      )
                     : isActive
                     ? "bg-blue-500/10 text-blue-500 border border-blue-500/20 shadow-[0_0_20px_rgba(59,130,246,0.1)]"
                     : "text-slate-400 hover:bg-white/[0.03] hover:text-slate-200"
@@ -427,6 +437,10 @@ export default function DashboardLayout({
                   // makes this row read as a destination at a glance.
                   <span className="admin-badge shrink-0">
                     <item.icon className="h-4 w-4 text-indigo-200" />
+                  </span>
+                ) : isSpeedrun ? (
+                  <span className="speedrun-badge shrink-0">
+                    <item.icon className="h-4 w-4 text-cyan-200" />
                   </span>
                 ) : (
                   <item.icon
@@ -445,7 +459,13 @@ export default function DashboardLayout({
                   <ChevronRight
                     className={cn(
                       "ml-auto h-4 w-4",
-                      isPremium ? "text-amber-300" : isAdmin ? "text-indigo-300" : "text-blue-500"
+                      isPremium
+                        ? "text-amber-300"
+                        : isAdmin
+                        ? "text-indigo-300"
+                        : isSpeedrun
+                        ? "text-cyan-300"
+                        : "text-blue-500"
                     )}
                   />
                 ) : (

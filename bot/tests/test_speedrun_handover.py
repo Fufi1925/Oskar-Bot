@@ -98,6 +98,9 @@ class FakePermissions:
         self.administrator = overrides.get("administrator", True)
         self.manage_roles = overrides.get("manage_roles", True)
         self.manage_channels = overrides.get("manage_channels", True)
+        # Ohne "Server verwalten" sieht der Bot keine Einladungen -- der
+        # echte Code prüft das, also muss der Fake das Feld kennen.
+        self.manage_guild = overrides.get("manage_guild", True)
 
 
 class FakeMe:
@@ -118,6 +121,9 @@ class FakeGuild:
             12: FakeRole(12, "🛡️・ᴍᴏᴅᴇʀᴀᴛᴏʀ", 3),
             13: FakeRole(13, "🎨・ᴄᴏɴᴛᴇɴᴛ ᴄʀᴇᴀᴛᴏʀ", 4),
             14: FakeRole(14, "🖌️・ᴅᴇꜱɪɢɴᴇʀ", 5),
+            15: FakeRole(15, "👤・ᴍᴇᴍʙᴇʀ", 6),
+            16: FakeRole(16, "🌟・ᴀᴄᴛɪᴠᴇ", 7),
+            17: FakeRole(17, "💎・ᴠɪᴘ", 8),
         }
         self._channels = {
             20: FakeChannel(20, "✅・ᴠᴇʀɪꜰɪᴢɪᴇʀᴇɴ"),
@@ -129,6 +135,7 @@ class FakeGuild:
             26: FakeChannel(26, "🔊・ᴀʟʟɢᴇᴍᴇɪɴᴇʀ-ᴛᴀʟᴋ"),
             27: FakeChannel(27, "📜・ʀᴇɢᴇʟɴ"),
             28: FakeChannel(28, "🏷️・ʀᴏʟʟᴇɴ-ᴠᴇʀɢᴀʙᴇ"),
+            29: FakeChannel(29, "📨・ᴇɪɴʟᴀᴅᴜɴɢꜱ-ʟᴏɢꜱ"),
         }
         self.me = FakeMe(FakeRole(99, "Bot", 50))
 
@@ -186,6 +193,9 @@ HANDOVER = {
         "unverified": "10",
         "verified": "11",
         "moderator": "12",
+        "member": "15",
+        "active": "16",
+        "vip": "17",
     },
     "staff_roles": ["12"],
     "channels": {
@@ -196,6 +206,7 @@ HANDOVER = {
         "j2c": "26",
         "rules": "27",
         "roles": "28",
+        "invite_log": "29",
         "announcements": None,
     },
     # Die Akzent-Rollen des Templates: die darf sich jeder selbst geben.
@@ -219,6 +230,24 @@ def _find_selects(view):
 
     def walk(item):
         if isinstance(item, discord.ui.Select):
+            found.append(item)
+        for child in getattr(item, "children", []) or []:
+            walk(child)
+
+    for child in getattr(view, "children", []) or []:
+        walk(child)
+    return found
+
+
+def _find_buttons(view):
+    """Alle Knöpfe einer View, beliebig tief verschachtelt."""
+
+    import discord
+
+    found = []
+
+    def walk(item):
+        if isinstance(item, discord.ui.Button):
             found.append(item)
         for child in getattr(item, "children", []) or []:
             walk(child)
@@ -1081,6 +1110,211 @@ def test_the_welcome_message_reads_german_and_is_filled_in():
     _json.dumps(info)  # muss serialisierbar bleiben
 
 
+def test_the_ticket_panel_matches_its_stored_type():
+    """Dashboard sagte Dropdown, in Discord standen Knöpfe.
+
+    Der Speedrun baute die View unbedingt aus Knöpfen, während in der
+    Datenbank "dropdown" stand. Schlimmer als nur unschön: der Cog baut
+    die View nach einem Neustart aus panel_type neu -- die Nachricht
+    hätte nach dem nächsten Deploy anders ausgesehen als vorher.
+    """
+
+    print("\nDas Panel sieht aus, wie es gespeichert ist")
+    from utils import speedrun_handover as ho
+
+    workdir = fresh_workdir()
+    guild = FakeGuild()
+    bot = FakeBot()
+
+    async def go():
+        from api import ticket_panels as panels
+        from api.db_manager import db_manager
+
+        await ho.run_handover(
+            bot, guild, HANDOVER,
+            options={key: key == "tickets" for key in ho.STEPS},
+        )
+        db = await db_manager.get_connection("db/ticket.db")
+        return await panels.list_panels(db, guild.id)
+
+    try:
+        found = run_in(workdir, go)
+    finally:
+        shutil.rmtree(workdir, ignore_errors=True)
+
+    check("es gibt ein Panel", len(found) == 1, str(len(found)))
+    stored = found[0]["panel_type"] if found else None
+
+    view = guild._channels[22].sent[0]
+    selects = _find_selects(view)
+    buttons = _find_buttons(view)
+
+    check("gespeichert ist dropdown", stored == "dropdown", str(stored))
+    check("und gepostet wurde ein Dropdown", len(selects) == 1, str(len(selects)))
+    check("ohne Knöpfe daneben", not buttons, str(len(buttons)))
+
+    if selects:
+        # Genau die custom_id, auf die der Ticket-Cog hört. Eine andere
+        # und der Klick verpufft.
+        check("der Cog erkennt es wieder",
+              selects[0].custom_id == "create_ticket_select",
+              str(selects[0].custom_id))
+        check("alle drei Kategorien stehen drin",
+              len(selects[0].options) == 3, str(len(selects[0].options)))
+
+
+def test_level_rewards_are_set():
+    """Ohne Belohnungen sammelt man XP und bekommt nie etwas dafür."""
+
+    print("\nLevel-Aufstiege bringen Rollen")
+    from utils import speedrun_handover as ho
+
+    workdir = fresh_workdir()
+    guild = FakeGuild()
+    bot = FakeBot()
+
+    async def go():
+        from api.db_manager import db_manager
+        from utils import leveling_store as store
+
+        report = await ho.run_handover(
+            bot, guild, HANDOVER,
+            options={key: key == "leveling" for key in ho.STEPS},
+        )
+        db = await db_manager.get_connection(store.DB_PATH)
+        return report, await store.rewards(db, guild.id)
+
+    try:
+        report, rewards = run_in(workdir, go)
+    finally:
+        shutil.rmtree(workdir, ignore_errors=True)
+
+    check("der Schritt meldet Erfolg", not report.failed, str(report.failed))
+    check("es gibt drei Belohnungen", len(rewards) == 3, str(rewards))
+
+    by_level = {r["level"]: r["role_id"] for r in rewards}
+    check("Level 5 gibt es", 5 in by_level, str(sorted(by_level)))
+    check("die Stufen steigen an",
+          sorted(by_level) == [5, 15, 30], str(sorted(by_level)))
+    # Und jede Stufe eine andere Rolle -- dreimal dieselbe wäre sinnlos.
+    check("jede Stufe eine eigene Rolle",
+          len(set(by_level.values())) == 3, str(by_level))
+
+
+def test_a_level_role_above_the_bot_is_skipped():
+    """Sie einzutragen hieße: beim Aufstieg passiert nichts."""
+
+    print("\nZu hohe Level-Rollen werden nicht eingetragen")
+    from utils import speedrun_handover as ho
+
+    workdir = fresh_workdir()
+    guild = FakeGuild()
+    guild._roles[17].position = 500  # VIP über die Bot-Rolle
+    bot = FakeBot()
+
+    async def go():
+        from api.db_manager import db_manager
+        from utils import leveling_store as store
+
+        report = await ho.run_handover(
+            bot, guild, HANDOVER,
+            options={key: key == "leveling" for key in ho.STEPS},
+        )
+        db = await db_manager.get_connection(store.DB_PATH)
+        return report, await store.rewards(db, guild.id)
+
+    try:
+        report, rewards = run_in(workdir, go)
+    finally:
+        shutil.rmtree(workdir, ignore_errors=True)
+
+    check("die anderen zwei bleiben", len(rewards) == 2, str(rewards))
+    step = next(s for s in report.steps if s.key == "leveling")
+    check("und es wird gesagt, welche fehlt",
+          "über der Bot-Rolle" in step.detail, step.detail)
+
+
+def test_invite_tracking_gets_a_channel():
+    print("\nDas Einladungs-Protokoll bekommt einen Kanal")
+    import aiosqlite
+
+    from utils import speedrun_handover as ho
+
+    workdir = fresh_workdir()
+    guild = FakeGuild()
+    bot = FakeBot()
+
+    async def go():
+        report = await ho.run_handover(
+            bot, guild, HANDOVER,
+            options={key: key == "tracking" for key in ho.STEPS},
+        )
+        async with aiosqlite.connect("db/invite.db") as db:
+            async with db.execute(
+                "SELECT channel_id FROM logging WHERE guild_id = ?", (guild.id,)
+            ) as cursor:
+                row = await cursor.fetchone()
+        return report, row
+
+    try:
+        report, row = run_in(workdir, go)
+    finally:
+        shutil.rmtree(workdir, ignore_errors=True)
+
+    check("der Schritt meldet Erfolg", not report.failed, str(report.failed))
+    check("der Kanal ist eingetragen", row is not None and str(row[0]) == "29",
+          str(row))
+
+
+def test_the_ticket_greeting_has_no_dead_image():
+    """Eine abgelaufene CDN-Adresse kostet die ganze Nachricht.
+
+    Im Ticket-Cog stand eine Discord-Anhang-URL mit Ablaufsignatur. Sie
+    liefert seit Monaten 403, Discord lehnt das Embed mit dem toten Bild
+    ab -- und der frisch erstellte Ticket-Kanal blieb leer.
+    """
+
+    print("\nKeine ablaufenden Bild-Adressen im Ticket")
+    import re
+
+    source = open(
+        os.path.join(BOT, "cogs", "commands", "ticket.py"), encoding="utf-8"
+    ).read()
+    code = "\n".join(
+        line for line in source.splitlines() if not line.strip().startswith("#")
+    )
+
+    # Anhang-URLs tragen eine Ablaufsignatur (?ex=...). Sie sind für
+    # dauerhafte Nachrichten grundsätzlich untauglich.
+    expiring = re.findall(r"cdn\.discordapp\.com/attachments/[^\"'\s]+", code)
+    check("keine ablaufende Anhang-URL mehr", not expiring, str(expiring)[:120])
+
+    # Und content darf nicht zusammen mit einer V2-View gehen: mit dem
+    # V2-Flag gibt es kein content-Feld, Discord antwortet mit 50035.
+    #
+    # Über den Syntaxbaum, nicht mit einem Muster. Mein erster Versuch
+    # war `send\(\s*content=[^)]*view=from_embed` -- und `[^)]*` stoppt
+    # an der ersten Klammer, die hier in `" ".join(pings)` steckt. Der
+    # Aufruf blieb also unentdeckt, obwohl er genau danebenstand.
+    import ast
+
+    offenders = []
+    for node in ast.walk(ast.parse(source)):
+        if not isinstance(node, ast.Call):
+            continue
+        names = {kw.arg for kw in node.keywords if kw.arg}
+        if "content" not in names or "view" not in names:
+            continue
+        view_arg = next(kw.value for kw in node.keywords if kw.arg == "view")
+        rendered = ast.unparse(view_arg)
+        # Nur V2-Views zählen: from_embed, Panel, StatusCard und Co.
+        if any(marker in rendered for marker in ("from_embed", "Panel(", "CV2(")):
+            offenders.append(f"Zeile {node.lineno}: {rendered[:60]}")
+
+    check("kein content zusammen mit einer V2-View",
+          not offenders, str(offenders)[:200])
+
+
 def test_unchecked_steps_are_not_run():
     """Was nicht angehakt ist, wird nicht angefasst."""
 
@@ -1198,6 +1432,11 @@ def main():
     test_duplicate_emojis_are_dropped()
     test_rules_are_posted()
     test_the_panels_use_custom_emojis()
+    test_the_ticket_panel_matches_its_stored_type()
+    test_level_rewards_are_set()
+    test_a_level_role_above_the_bot_is_skipped()
+    test_invite_tracking_gets_a_channel()
+    test_the_ticket_greeting_has_no_dead_image()
     test_unchecked_steps_are_not_run()
     test_defaults_and_unknown_keys()
     test_the_log_names_the_bot()
