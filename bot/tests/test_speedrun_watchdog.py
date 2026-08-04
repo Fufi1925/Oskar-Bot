@@ -56,6 +56,24 @@ class FakeBot:
     loop = None
 
 
+async def _await(handle):
+    """Auf das Ende warten, egal ob Task oder concurrent-Future.
+
+    ``_spawn`` liefert einen asyncio-Task, wenn keine Bot-Schleife da
+    ist, und sonst ein ``concurrent.futures.Future``. In den Tests ist
+    es immer der erste Fall, aber darauf zu bauen hiesse, dass der Test
+    still etwas anderes prueft, sobald sich das aendert.
+    """
+
+    if hasattr(handle, "__await__"):
+        try:
+            await handle
+        except asyncio.CancelledError:
+            pass
+        return
+    await asyncio.wrap_future(handle)
+
+
 def fresh_job(**over):
     job = {
         "state": "waiting",
@@ -253,26 +271,63 @@ def test_a_cancelled_run_stays_cancelled():
     original_call = speedrun._call_template
 
     try:
-        # Eine Einrichtung, die zwei Sekunden braucht.
-        handover = Handover(delay=2.0)
+        # Eine Einrichtung, die auf ein Signal wartet statt auf die Uhr.
+        #
+        # Vorher stand hier `sleep(2.0)` und der Test wartete 2,4 s
+        # darauf. Unter Last -- die volle Suite startet 62 Prozesse --
+        # reichte das nicht, und der Test schlug sprunghaft fehl,
+        # obwohl am Code nichts falsch war. Ein Test, der von der
+        # Maschinenauslastung abhängt, meldet Fehler, die keine sind,
+        # und irgendwann glaubt man ihm auch die echten nicht mehr.
+        #
+        # Jetzt hängt es an einem Event: die Einrichtung läuft weiter,
+        # bis der Test sie freigibt. Kein Warten auf Sekunden.
+        release = asyncio.Event()
+
+        class Blocking(Handover):
+            async def __call__(self, bot, guild, payload, options=None,
+                               log=None, on_step=None):
+                self.calls.append({"payload": payload,
+                                   "options": dict(options or {})})
+                await release.wait()
+
+                class Report:
+                    steps: list = []
+                    failed: list = []
+
+                    def as_dict(self):
+                        return {"steps": [], "ok": True}
+
+                return Report()
+
+        handover = Blocking()
         install(speedrun, [{"state": "done", "run_id": "lauf-1"}], handover)
 
         job = fresh_job(state="running")
         speedrun._MAIN_JOBS[1] = job
 
         async def run():
-            speedrun._spawn(
+            task = speedrun._spawn(
                 FakeBot(),
                 speedrun._run_main_phase(None, FakeGuild(), job, {}, {}),
                 1,
             )
-            await asyncio.sleep(0.2)
+            # Warten, bis die Einrichtung wirklich angelaufen ist.
+            for _ in range(200):
+                if handover.calls:
+                    break
+                await asyncio.sleep(0.005)
+
             await speedrun.cancel(1)
             straight_after = job["state"]
 
-            # Lange genug warten, dass die Einrichtung fertig geworden
-            # wäre, hätte der Abbruch sie nicht gestoppt.
-            await asyncio.sleep(2.4)
+            # Die Einrichtung zu Ende laufen lassen. Hätte der Abbruch
+            # sie nicht gestoppt, schriebe sie jetzt "done".
+            release.set()
+            try:
+                await asyncio.wait_for(asyncio.shield(_await(task)), timeout=10)
+            except (asyncio.TimeoutError, asyncio.CancelledError):
+                pass
             return straight_after, job["state"]
 
         straight_after, later = asyncio.run(run())
@@ -492,20 +547,47 @@ def test_each_cancel_guard_works_on_its_own():
         # -- Sicherung 2: der Task-Abbruch allein -------------------- #
         # Ohne Marke, aber der Task wird gestoppt. Die Einrichtung darf
         # dann nicht zu Ende laufen.
-        slow = Handover(delay=2.0)
+        #
+        # Auch hier ein Event statt einer Wartezeit: der frühere
+        # `sleep(2.0)`/`sleep(2.3)`-Aufbau schlug unter Last fehl, ohne
+        # dass am Code etwas falsch war.
+        blocked = asyncio.Event()
+        started = asyncio.Event()
+
+        async def slow(bot, guild, payload, options=None, log=None,
+                       on_step=None):
+            started.set()
+            await blocked.wait()
+
+            class Report:
+                steps: list = []
+                failed: list = []
+
+                def as_dict(self):
+                    return {"steps": [], "ok": True}
+
+            return Report()
+
         speedrun.handover.run_handover = slow
         job2 = fresh_job(state="running")
         speedrun._MAIN_JOBS[2] = job2
 
         async def run_two():
-            speedrun._spawn(
+            task = speedrun._spawn(
                 FakeBot(),
                 speedrun._run_main_phase(None, FakeGuild(2), job2, {}, {}),
                 2,
             )
-            await asyncio.sleep(0.2)
+            await asyncio.wait_for(started.wait(), timeout=10)
+
             speedrun._cancel_tasks(2)
-            await asyncio.sleep(2.3)
+            # Freigeben: liefe die Einrichtung trotz Abbruch weiter,
+            # käme sie jetzt bis zum Ende und schriebe "done".
+            blocked.set()
+            try:
+                await asyncio.wait_for(asyncio.shield(_await(task)), timeout=10)
+            except (asyncio.TimeoutError, asyncio.CancelledError):
+                pass
             return job2["state"]
 
         state_two = asyncio.run(run_two())

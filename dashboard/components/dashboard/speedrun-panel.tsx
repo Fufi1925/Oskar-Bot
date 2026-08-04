@@ -61,6 +61,7 @@ import { useSession } from "next-auth/react";
 import {
   AlertTriangle,
   ArrowLeft,
+  Ban,
   ArrowRight,
   Check,
   CheckCircle2,
@@ -70,6 +71,7 @@ import {
   Gauge,
   Hash,
   Info,
+  KeyRound,
   Layers,
   Loader2,
   Lock,
@@ -82,6 +84,7 @@ import {
   Square,
   Terminal,
   Trash2,
+  Unlock,
   TriangleAlert,
   Users,
   Volume2,
@@ -519,6 +522,20 @@ export function SpeedrunPanel({ guildId }: { guildId: string }) {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
 
+  // Die Code-Sperre. `loading: true` bis die erste Antwort da ist --
+  // sonst blitzt das Eingabefeld auch bei einem längst freien Server
+  // kurz auf.
+  const [gate, setGate] = useState({
+    loading: true,
+    unlocked: false,
+    banned: false,
+    reason: "",
+    error: "",
+  });
+  const [code, setCode] = useState("");
+  const [codeError, setCodeError] = useState("");
+  const [unlocking, setUnlocking] = useState(false);
+
   const [pre, setPre] = useState<any>(null);
   // Getrennte Fehler pro Aufruf: scheitert die Vorlagenliste, heißt das
   // nicht, dass die Voraussetzungen nicht stimmen -- und umgekehrt.
@@ -701,6 +718,65 @@ export function SpeedrunPanel({ guildId }: { guildId: string }) {
 
   /* -- Laden ----------------------------------------------------- */
 
+  /* -- Die Code-Sperre ------------------------------------------- */
+  //
+  // Der Reiter bleibt zu, bis jemand den Beta-Code eingegeben hat.
+  // Freigeschaltet wird der *Server*, nicht das Konto: der Speedrun
+  // baut einen konkreten Server um, und wer zwei Server aufsetzen
+  // will, gibt ihn zweimal ein.
+  //
+  // Das hier ist die Anzeige. Die Sperre selbst sitzt im Bot -- jeder
+  // Schritt, der etwas bewirkt, prüft sie noch einmal. Ein Overlay im
+  // Browser ist eine Tür ohne Wand: `/start` ist eine HTTP-Route, und
+  // curl fragt nicht nach einem Overlay.
+  const checkAccess = useCallback(async () => {
+    try {
+      const state = await api.speedrunAccess(guildId);
+      setGate({
+        loading: false,
+        unlocked: Boolean(state?.unlocked),
+        banned: Boolean(state?.banned),
+        reason: String(state?.ban_reason || ""),
+        error: "",
+      });
+    } catch (err: any) {
+      // Im Zweifel zu. Eine kaputte Abfrage darf nichts freischalten --
+      // sonst reicht ein Aussetzer, um an der Sperre vorbeizukommen.
+      setGate({
+        loading: false,
+        unlocked: false,
+        banned: false,
+        reason: "",
+        error: err?.message || "Der Zugang ließ sich nicht prüfen.",
+      });
+    }
+  }, [guildId]);
+
+  useEffect(() => {
+    checkAccess();
+  }, [checkAccess]);
+
+  const submitCode = async () => {
+    const typed = code.trim();
+    if (!typed) return;
+    setUnlocking(true);
+    setCodeError("");
+    try {
+      await api.speedrunUnlock(guildId, typed, userId);
+      setGate((old) => ({ ...old, unlocked: true, error: "" }));
+      setCode("");
+      toast.success("Speedrun freigeschaltet.");
+      // Erst jetzt die eigentlichen Daten holen: vor der Freischaltung
+      // wären es lauter 403er gewesen.
+      setLoading(true);
+      load();
+    } catch (err: any) {
+      setCodeError(err?.message || "Der Code stimmt nicht.");
+    } finally {
+      setUnlocking(false);
+    }
+  };
+
   const load = useCallback(async () => {
     // allSettled, nicht all: `Promise.all` wirft, sobald *einer* der
     // Aufrufe scheitert, und dann werden auch die geglückten verworfen.
@@ -797,9 +873,12 @@ export function SpeedrunPanel({ guildId }: { guildId: string }) {
     setLoading(false);
   }, [guildId, userId]);
 
+  // Erst laden, wenn der Server freigeschaltet ist. Vorher beantwortet
+  // der Bot jeden dieser Aufrufe mit 403, und der Reiter stünde hinter
+  // dem Code-Feld voller roter Fehlermeldungen.
   useEffect(() => {
-    if (userId) load();
-  }, [load, userId]);
+    if (userId && gate.unlocked) load();
+  }, [load, userId, gate.unlocked]);
 
   /* -- Starten und Abbrechen ------------------------------------- */
 
@@ -876,6 +955,154 @@ export function SpeedrunPanel({ guildId }: { guildId: string }) {
   };
 
   /* -- Ansicht --------------------------------------------------- */
+  //
+  // Ab hier stehen frühe Rückgaben. Jeder Hook muss darüber liegen --
+  // ein Hook nach einem bedingten `return` wird beim nächsten Rendern
+  // übersprungen, und React zählt dann anders durch. Das ist kein
+  // Stilfehler, das ist ein Absturz. Ein Test wacht darüber.
+
+  if (gate.loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[300px]">
+        <Loader2 className="h-8 w-8 text-primary animate-spin opacity-40" />
+      </div>
+    );
+  }
+
+  // Gesperrt. Kein Code hilft, also gibt es auch kein Eingabefeld --
+  // eines anzubieten, das nie funktioniert, wäre nur Spott.
+  if (gate.banned) {
+    return (
+      <section className="space-y-6">
+        <Motion />
+        <Rise>
+          <div className={cn(CARD, "space-y-4")}>
+            <div className="flex gap-3">
+              <div className="h-10 w-10 rounded-2xl bg-red-500/15 grid place-items-center shrink-0">
+                <Ban className="h-5 w-5 text-red-400" />
+              </div>
+              <div className="min-w-0">
+                <p className="font-black text-white">
+                  Der Speedrun ist für diesen Server gesperrt
+                </p>
+                <p className="text-[12px] text-slate-400 mt-1 leading-relaxed">
+                  Ein Administrator hat den Zugang entzogen. Das lässt sich
+                  nicht mit dem Code aufheben.
+                </p>
+              </div>
+            </div>
+            {gate.reason && (
+              <div className="rounded-xl bg-red-500/[0.06] border border-red-500/20 p-3.5">
+                <p className="text-[10px] font-black uppercase tracking-widest text-red-300/70">
+                  Begründung
+                </p>
+                <p className="text-[12px] text-red-200/80 mt-1.5 leading-relaxed">
+                  {gate.reason}
+                </p>
+              </div>
+            )}
+          </div>
+        </Rise>
+      </section>
+    );
+  }
+
+  // Zu, aber freischaltbar.
+  if (!gate.unlocked) {
+    return (
+      <section className="space-y-6">
+        <Motion />
+        <Rise>
+          <div className={cn(CARD, "space-y-5")}>
+            <div className="flex gap-3">
+              <div className="h-10 w-10 rounded-2xl bg-cyan-400/15 grid place-items-center shrink-0 sr-pulse">
+                <KeyRound className="h-5 w-5 text-cyan-300" />
+              </div>
+              <div className="min-w-0">
+                <p className="font-black text-white flex items-center gap-2 flex-wrap">
+                  Geschlossene Beta
+                  <span className="px-1.5 py-0.5 rounded text-[9px] font-black tracking-widest bg-amber-400/15 text-amber-300/90">
+                    BETA
+                  </span>
+                </p>
+                <p className="text-[12px] text-slate-400 mt-1 leading-relaxed">
+                  Der Speedrun setzt einen ganzen Server auf. Er ist noch nicht
+                  für alle offen — mit dem Beta-Code schaltest du ihn{" "}
+                  <strong className="text-slate-300">für diesen Server</strong>{" "}
+                  frei.
+                </p>
+              </div>
+            </div>
+
+            {gate.error && (
+              <div className="rounded-xl bg-red-500/[0.06] border border-red-500/20 p-3.5 flex gap-2.5">
+                <XCircle className="h-4 w-4 text-red-400 shrink-0 mt-0.5" />
+                <p className="text-[12px] text-red-200/80 leading-relaxed">
+                  {gate.error} Lade die Seite neu.
+                </p>
+              </div>
+            )}
+
+            <div className="space-y-2.5">
+              <label className="block">
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+                  Beta-Code
+                </span>
+                <div className="mt-1.5 flex flex-col sm:flex-row gap-2">
+                  <input
+                    value={code}
+                    autoFocus
+                    onChange={(event) => {
+                      setCode(event.target.value);
+                      if (codeError) setCodeError("");
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") submitCode();
+                    }}
+                    placeholder="Code eingeben"
+                    className={cn(
+                      "flex-1 bg-[#0d1b31] border rounded-xl px-3.5 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none transition-colors",
+                      codeError
+                        ? "border-red-500/50 focus:border-red-500/70"
+                        : "border-slate-800 focus:border-cyan-400/50"
+                    )}
+                  />
+                  <button
+                    onClick={submitCode}
+                    disabled={unlocking || !code.trim()}
+                    className={cn(
+                      "px-4 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all inline-flex items-center justify-center gap-2 shrink-0",
+                      code.trim() && !unlocking
+                        ? "bg-cyan-500 text-white hover:bg-cyan-400"
+                        : "bg-slate-800 text-slate-600 cursor-not-allowed"
+                    )}
+                  >
+                    {unlocking ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Unlock className="h-3.5 w-3.5" />
+                    )}
+                    Freischalten
+                  </button>
+                </div>
+              </label>
+
+              {codeError && (
+                <p className="text-[11px] text-red-300/80 leading-relaxed">
+                  {codeError}
+                </p>
+              )}
+
+              <p className="text-[11px] text-slate-600 leading-relaxed">
+                Groß- und Kleinschreibung spielt keine Rolle. Den Code
+                bekommst du vom Team.
+              </p>
+            </div>
+          </div>
+        </Rise>
+      </section>
+    );
+  }
 
   if (loading) {
     return (

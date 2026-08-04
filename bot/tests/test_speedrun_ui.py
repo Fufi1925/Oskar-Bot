@@ -762,8 +762,103 @@ def test_the_console_does_not_fight_the_reader():
     check("Scrollen setzt sie zurück", "onScroll" in panel)
 
 
+def test_the_locked_tab_shows_nothing_but_the_code_field():
+    """
+    Ein gesperrter Reiter darf nicht bedienbar sein.
+
+    Die eigentliche Sperre sitzt im Bot -- ein Overlay im Browser hält
+    niemanden auf, der curl bedienen kann. Trotzdem muss die Anzeige
+    stimmen: wer nicht freigeschaltet ist, soll das Eingabefeld sehen
+    und sonst nichts, nicht einen voll bedienbaren Reiter, dessen
+    Knöpfe alle in 403 laufen.
+    """
+
+    print("\nOhne Code zeigt der Reiter nur das Eingabefeld")
+
+    panel = strip_comments(read(PANEL))
+
+    check("der Reiter fragt den Zustand ab", "api.speedrunAccess" in panel)
+    check("es gibt ein Eingabefeld", "api.speedrunUnlock" in panel)
+
+    # Die frühe Rückgabe muss an den Zustand gebunden sein. Nur zu
+    # prüfen, dass das Wort vorkommt, wäre wertlos: ein `if (false)`
+    # ließe die Zeile stehen und den Reiter offen. Ein Mutationstest
+    # hat genau das durchgelassen.
+    check("ein nicht freigeschalteter Server sieht den Reiter nicht",
+          "if (!gate.unlocked) {" in panel,
+          "die Sperre hängt nicht am Zustand -- der Reiter ist offen")
+    check("ein gebannter Server bekommt eine eigene Ansicht",
+          "if (gate.banned) {" in panel)
+
+    # Die Reihenfolge zählt: die Sperre muss *vor* dem eigentlichen
+    # Reiter greifen, sonst rendert er kurz mit.
+    if "if (!gate.unlocked) {" in panel and "stage === 0" in panel:
+        check("die Sperre steht vor dem Reiter",
+              panel.index("if (!gate.unlocked) {") < panel.index("stage === 0"),
+              "der Reiter wird gerendert, bevor die Sperre greift")
+
+    # Und die Daten dürfen erst nach der Freischaltung geholt werden --
+    # sonst steht die Seite hinter dem Code-Feld voller 403-Meldungen.
+    check("geladen wird erst nach der Freischaltung",
+          "gate.unlocked) load()" in panel or "userId && gate.unlocked" in panel,
+          "die Aufrufe laufen schon vor der Freischaltung los")
+
+    # Im Zweifel zu. Eine gescheiterte Abfrage darf nichts freischalten.
+    catch_block = panel.split("} catch (err: any) {")
+    gate_catch = [b for b in catch_block if "setGate({" in b[:200]]
+    check("eine kaputte Abfrage schaltet nicht frei",
+          bool(gate_catch) and "unlocked: false" in gate_catch[0][:300],
+          "ein Aussetzer reicht, um an der Sperre vorbeizukommen")
+
+
+def test_only_admins_reach_the_access_management():
+    """
+    Die Verwaltung zeigt jeden Server -- das ist nichts für Moderatoren.
+
+    Sie listet Namen, Mitgliederzahlen und wer wann freigeschaltet hat,
+    und sie kann jedem Server den Zugang nehmen. Ein Server-Moderator
+    hat dort nichts zu suchen, auch nicht für den eigenen Server.
+    """
+
+    print("\nAn die Zugangsverwaltung kommen nur Admins")
+
+    proxy = strip_comments(read(PROXY))
+
+    block = proxy.split('scope === "speedrun"')[1].split('scope === "extras"')[0]
+
+    check("es gibt eine Regel für die Verwaltung",
+          'first === "admin"' in block,
+          "die Admin-Routen laufen in die normale guild_id-Prüfung")
+
+    # Nur den *Zweig* ansehen, nicht den Rest des Blocks.
+    #
+    # Ein erster Versuch suchte "isGlobalAdmin" in den 400 Zeichen nach
+    # `first === "admin"`. Das blieb grün, als die Prüfung ersatzlos
+    # entfiel: weiter unten steht für den normalen Server-Fall noch ein
+    # `isGlobalAdmin`, und das lag im Fenster. Also den Zweig genau
+    # abgrenzen -- von der Bedingung bis zu seiner schließenden Klammer.
+    if 'first === "admin"' in block:
+        branch = block.split('first === "admin"')[1].split("\n    }")[0]
+        check("der Zweig verlangt einen globalen Admin",
+              "isGlobalAdmin" in branch,
+              "jeder Angemeldete käme an die Verwaltung")
+        check("und weist sonst ab",
+              "deny(403" in branch,
+              "ohne Absage läuft der Aufruf einfach durch")
+
+    # Die Regel muss *vor* der guild_id-Prüfung stehen: "admin" ist
+    # keine achtzehnstellige Zahl und würde sonst als fehlende
+    # guild_id abgewiesen, bevor sie jemand erreichen kann.
+    if 'first === "admin"' in block and "guild_id missing" in block:
+        check("die Regel steht vor der ID-Prüfung",
+              block.index('first === "admin"') < block.index("guild_id missing"),
+              "die Admin-Routen antworten mit 400 statt zu funktionieren")
+
+
 def main():
     test_the_tab_and_the_page_exist_together()
+    test_the_locked_tab_shows_nothing_but_the_code_field()
+    test_only_admins_reach_the_access_management()
     test_every_call_has_a_proxy_rule()
     test_the_api_calls_match_the_routes()
     test_hooks_come_before_any_early_return()

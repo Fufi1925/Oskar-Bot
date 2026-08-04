@@ -454,7 +454,12 @@ export default function DashboardLayout({
                     )}
                   />
                 )}
-                {item.name}
+                {/* Der Reiter heißt in der Navigation "Speedrun (Beta)".
+                    Das Wort in Klammern mitzuschleppen macht die Zeile
+                    lang und die Klammer laut; als kleines Zeichen sagt
+                    es dasselbe und stört nicht beim Lesen. */}
+                {isSpeedrun ? item.name.replace(" (Beta)", "") : item.name}
+                {isSpeedrun && <span className="speedrun-beta">BETA</span>}
                 {isActive ? (
                   <ChevronRight
                     className={cn(

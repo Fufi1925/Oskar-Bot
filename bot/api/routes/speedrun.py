@@ -37,6 +37,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from api.dependencies import get_bot
 from utils import premium_store as store
+from utils import speedrun_access as access
 from utils import speedrun_handover as handover
 
 if TYPE_CHECKING:
@@ -294,6 +295,80 @@ async def templates(user_id: str = ""):
 
 
 # --------------------------------------------------------------------- #
+# 2b. Die Code-Sperre
+# --------------------------------------------------------------------- #
+#
+# Der Reiter ist zu, bis jemand den Beta-Code eingibt. Freigeschaltet
+# wird ein *Server*, nicht ein Nutzer -- der Speedrun baut einen
+# konkreten Server um.
+#
+# Die Pruefung liegt hier und nicht nur im Browser. Eine Sperre, die
+# allein im Dashboard sitzt, ist keine: /start ist eine HTTP-Route, und
+# curl fragt nicht nach einem Overlay.
+
+
+@router.get("/{guild_id}/access", summary="Ist der Reiter für diesen Server offen?")
+async def access_state(guild_id: int):
+    """Der Zustand -- das Erste, was der Reiter beim Öffnen fragt."""
+
+    state = access.state(guild_id)
+    # Der Code selbst wird hier nicht mitgeschickt, auch nicht gehasht:
+    # er steht auf der Seite im Klartext daneben, sobald er gilt, aber
+    # eine Antwort, die ihn verraet, waere eine Vorlage zum Raten.
+    return {
+        "unlocked": state["unlocked"],
+        "banned": state["banned"],
+        "ban_reason": state.get("ban_reason", ""),
+        "unlocked_at": state.get("unlocked_at"),
+        "runs": state.get("runs", 0),
+    }
+
+
+@router.post("/{guild_id}/access", summary="Reiter mit dem Code freischalten")
+async def access_unlock(guild_id: int, data: dict):
+    """Den Code prüfen und den Server freischalten.
+
+    Falsche Eingaben werden mitgeschrieben. Nicht um Leute zu
+    verfolgen, sondern weil ein Server mit vierzig Fehlversuchen etwas
+    anderes ist als einer mit einem Vertipper -- und das sieht man im
+    Admin-Panel sonst nicht.
+    """
+
+    result = access.unlock(
+        guild_id,
+        str(data.get("code") or ""),
+        str(data.get("user_id") or ""),
+    )
+    if not result["ok"]:
+        raise HTTPException(status_code=403, detail=result["reason"])
+
+    return {"unlocked": True, "already": result.get("already", False)}
+
+
+def _require_unlocked(guild_id: int) -> None:
+    """Abbrechen, wenn der Server nicht frei ist.
+
+    Steht vor jedem Schritt, der etwas bewirkt. Ohne diese Zeile waere
+    die Sperre eine Anzeige und keine Sperre.
+    """
+
+    state = access.state(guild_id)
+    if state["banned"]:
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "Für diesen Server ist der Speedrun gesperrt. "
+                + (state.get("ban_reason") or "Melde dich beim Team.")
+            ),
+        )
+    if not state["unlocked"]:
+        raise HTTPException(
+            status_code=403,
+            detail="Der Speedrun ist für diesen Server nicht freigeschaltet.",
+        )
+
+
+# --------------------------------------------------------------------- #
 # 3. Start
 # --------------------------------------------------------------------- #
 
@@ -305,6 +380,9 @@ async def start(
     bot: "universitybot" = Depends(get_bot),
 ):
     """Startet den Bau beim Template-Bot. Antwortet sofort."""
+
+    # Zuerst: darf dieser Server überhaupt?
+    _require_unlocked(guild_id)
 
     template_key = str(data.get("template") or "").strip()
     user_id = str(data.get("user_id") or "").strip()
@@ -392,6 +470,14 @@ async def start(
     # nur noch zu. Wer den Tab zumacht, bekommt trotzdem einen fertigen
     # Server statt eines halben.
     run_id = str(body.get("run_id") or "")
+
+    # Mitzaehlen, dass hier gebaut wird. Erst jetzt, nachdem der
+    # Template-Bot zugesagt hat -- ein abgelehnter Start ist kein Lauf.
+    try:
+        access.note_run(guild_id, user_id)
+    except Exception:  # pragma: no cover - Buchhaltung darf nie den Bau kippen
+        pass
+
     _cancel_tasks(guild_id)
     job = {
         "state": "waiting",
@@ -974,3 +1060,143 @@ async def status_route(guild_id: int, since: int = 0, since_main: int = 0):
         }
 
     return body
+
+
+# --------------------------------------------------------------------- #
+# 6. Verwaltung -- wer darf, wer nicht
+# --------------------------------------------------------------------- #
+#
+# Diese Routen liegen hinter /speedrun/admin/*. Der Proxy im Dashboard
+# laesst dorthin nur globale Admins durch; hier steht keine zweite
+# Rechtepruefung, weil der Bot die Discord-Rollen des Aufrufers gar
+# nicht kennt -- die Sitzung lebt im Dashboard.
+
+
+@router.get("/admin/guilds", summary="Alle Server mit ihrem Zugang")
+async def admin_guilds(
+    limit: int = 200,
+    bot: "universitybot" = Depends(get_bot),
+):
+    """Die Liste fuers Admin-Panel, angereichert um Namen und Groesse.
+
+    Die Zugangstabelle kennt nur IDs. Eine Liste aus achtzehnstelligen
+    Zahlen ist zum Verwalten unbrauchbar -- welcher davon war noch
+    gleich der Server, der Aerger gemacht hat? Der Name kommt deshalb
+    aus dem Bot-Cache dazu, soweit er dort steht.
+    """
+
+    entries = access.list_guilds(limit)
+
+    for entry in entries:
+        guild = None
+        try:
+            guild = bot.get_guild(int(entry["guild_id"]))
+        except (TypeError, ValueError):
+            pass
+
+        entry["name"] = getattr(guild, "name", "")
+        entry["members"] = getattr(guild, "member_count", None)
+        # Ob der Bot ueberhaupt noch drauf ist. Ein Server, den er
+        # verlassen hat, braucht keinen Bann mehr.
+        entry["bot_present"] = guild is not None
+
+    return {"guilds": entries, "stats": access.stats()}
+
+
+@router.get("/admin/history", summary="Verlauf: wer wann was")
+async def admin_history(guild_id: str = "", limit: int = 100):
+    """Jede Freischaltung, jeder Fehlversuch, jeder Entzug, jeder Bann."""
+
+    return {"events": access.history(guild_id, limit)}
+
+
+@router.post("/admin/{guild_id}/revoke", summary="Freischaltung entziehen")
+async def admin_revoke(
+    guild_id: int,
+    data: dict,
+    bot: "universitybot" = Depends(get_bot),
+):
+    """Den Code entziehen: der Server muss ihn neu eingeben.
+
+    Ein laufender Bau wird dabei abgebrochen. Wer jemandem den Zugang
+    nimmt, will nicht, dass der angefangene Umbau trotzdem zu Ende
+    laeuft -- und der Bot arbeitet nach dem Entzug sonst noch Minuten
+    weiter am Server.
+    """
+
+    actor = str(data.get("actor_id") or "")
+    existed = access.revoke(guild_id, actor)
+    stopped = await _stop_everything(guild_id)
+
+    return {"revoked": existed, "run_cancelled": stopped}
+
+
+@router.post("/admin/{guild_id}/ban", summary="Server dauerhaft sperren")
+async def admin_ban(
+    guild_id: int,
+    data: dict,
+    bot: "universitybot" = Depends(get_bot),
+):
+    """Sperren. Danach hilft kein Code mehr."""
+
+    actor = str(data.get("actor_id") or "")
+    reason = str(data.get("reason") or "").strip()
+
+    access.ban(guild_id, actor, reason)
+    stopped = await _stop_everything(guild_id)
+
+    return {"banned": True, "run_cancelled": stopped}
+
+
+@router.post("/admin/{guild_id}/unban", summary="Sperre aufheben")
+async def admin_unban(guild_id: int, data: dict):
+    """Den Bann loesen.
+
+    Der Server ist danach **nicht** wieder frei -- der Code muss neu
+    eingegeben werden. Alles andere waere ueberraschend: eine
+    aufgehobene Sperre ist keine Freischaltung.
+    """
+
+    lifted = access.unban(guild_id, str(data.get("actor_id") or ""))
+    return {"unbanned": lifted, "needs_code_again": True}
+
+
+async def _stop_everything(guild_id: int) -> bool:
+    """Einen laufenden Speedrun beenden, so weit es geht.
+
+    Wird beim Entzug und beim Bann gerufen. Scheitert der Aufruf beim
+    Template-Bot, ist das kein Grund, den Entzug zu verweigern -- der
+    Zugang ist dann trotzdem weg, und das ist die Hauptsache.
+    """
+
+    job = _MAIN_JOBS.get(guild_id)
+    running = job is not None and job["state"] in ("running", "waiting")
+
+    if job is not None:
+        job["cancelled"] = True
+        if running:
+            job["state"] = "failed"
+            job["error"] = "Der Zugang wurde entzogen."
+            job["finished"] = time.time()
+            job["lines"].append(
+                {
+                    "text": "Abgebrochen — der Zugang für diesen Server wurde entzogen.",
+                    "source": "main",
+                    "level": "error",
+                    "at": time.time(),
+                }
+            )
+
+    _cancel_tasks(guild_id)
+
+    try:
+        await _call_template(
+            "POST", f"/internal/speedrun/{guild_id}/cancel", payload={}, timeout=10
+        )
+    except HTTPException:
+        # Der Template-Bot ist nicht erreichbar. Der Bau dort laeuft
+        # dann weiter -- daran laesst sich von hier nichts aendern, und
+        # der Entzug gilt trotzdem.
+        pass
+
+    return running

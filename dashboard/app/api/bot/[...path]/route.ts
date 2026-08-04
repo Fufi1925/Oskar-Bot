@@ -396,6 +396,27 @@ async function authorize(
       return { ok: true };
     }
 
+    // Die Verwaltung der Beta-Zugänge: nur globale Admins.
+    //
+    // Diese Routen zeigen *jeden* Server, der den Code eingegeben hat,
+    // samt Namen, Mitgliederzahl und dem, wer ihn wann freigeschaltet
+    // hat -- und sie können jedem Server den Zugang nehmen. Das ist
+    // nichts, was ein Server-Moderator sehen oder tun darf, auch nicht
+    // für den eigenen Server.
+    //
+    // Die Regel steht *vor* der guild_id-Prüfung: "admin" ist keine
+    // achtzehnstellige Zahl und würde sonst als fehlende guild_id
+    // abgewiesen, noch bevor irgendjemand sie erreichen kann.
+    if (first === "admin") {
+      if (!isGlobalAdmin(session.user.id)) {
+        return {
+          ok: false,
+          response: deny(403, "Only global admins can manage Speedrun access."),
+        };
+      }
+      return { ok: true };
+    }
+
     const guildId = first;
     if (!/^\d{17,20}$/.test(guildId)) {
       return { ok: false, response: deny(400, "guild_id missing.") };

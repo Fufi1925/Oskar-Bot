@@ -1156,6 +1156,37 @@ export const api = {
     }),
   speedrunCancel: (guildId: string) =>
     request<any>(`/speedrun/${guildId}/cancel`, { method: "POST", body: "{}" }),
+
+  // Die Code-Sperre. Freigeschaltet wird ein Server, nicht ein Nutzer.
+  speedrunAccess: (guildId: string) =>
+    request<any>(`/speedrun/${guildId}/access`),
+  speedrunUnlock: (guildId: string, code: string, userId: string) =>
+    request<any>(`/speedrun/${guildId}/access`, {
+      method: "POST",
+      body: JSON.stringify({ code, user_id: userId }),
+    }),
+
+  // Verwaltung (nur globale Admins -- der Proxy prüft das).
+  speedrunAdminGuilds: () => request<any>(`/speedrun/admin/guilds`),
+  speedrunAdminHistory: (guildId = "", limit = 100) =>
+    request<any>(
+      `/speedrun/admin/history?guild_id=${encodeURIComponent(guildId)}&limit=${limit}`
+    ),
+  speedrunAdminRevoke: (guildId: string, actorId: string) =>
+    request<any>(`/speedrun/admin/${guildId}/revoke`, {
+      method: "POST",
+      body: JSON.stringify({ actor_id: actorId }),
+    }),
+  speedrunAdminBan: (guildId: string, actorId: string, reason: string) =>
+    request<any>(`/speedrun/admin/${guildId}/ban`, {
+      method: "POST",
+      body: JSON.stringify({ actor_id: actorId, reason }),
+    }),
+  speedrunAdminUnban: (guildId: string, actorId: string) =>
+    request<any>(`/speedrun/admin/${guildId}/unban`, {
+      method: "POST",
+      body: JSON.stringify({ actor_id: actorId }),
+    }),
   speedrunStatus: (guildId: string, since = 0, sinceMain = 0) =>
     request<any>(
       `/speedrun/${guildId}/status?since=${since}&since_main=${sinceMain}`
