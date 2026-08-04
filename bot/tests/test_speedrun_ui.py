@@ -147,17 +147,51 @@ def test_hooks_come_before_any_early_return():
     start = source.index("export function SpeedrunPanel")
     body = source[start:]
 
-    early = body.find("\n    return (")
-    check("die Komponente hat ein return", early > 0)
+    # Jede *bedingte* Rückkehr, nicht das Schluss-return.
+    #
+    # Ein erster Versuch suchte die erste Zeile `    return (` und
+    # verglich, was danach kommt. Das traf den Loading-Zweig, der
+    # mitten in der Komponente steht -- der Test war rot, obwohl alle
+    # Hooks davor lagen. Was zählt, ist die Reihenfolge: kein Hook darf
+    # *nach* einem frühen return kommen, denn beim nächsten Rendern
+    # würde er übersprungen und React zählt anders durch.
+    hook_pattern = r"\b(?:useState|useEffect|useCallback|useRef|useSession)\s*\("
+    hooks = [m.start() for m in re.finditer(hook_pattern, body)]
+    check("die Komponente ruft Hooks auf", len(hooks) >= 8, str(len(hooks)))
 
-    head = body[:early]
-    tail = body[early:]
+    # Frühe Rückkehr = ein `return` innerhalb eines if-Blocks der
+    # Komponente. Genau vier Leerzeichen: der Loading-Zweig steht auf
+    # dieser Ebene.
+    #
+    # Ein Versuch mit `{6,}` traf ihn nicht -- er hat vier -- sondern
+    # ein verschachteltes JSX-Return tief in der Ausgabe. Damit stand
+    # der Vergleichspunkt hinter allen Hooks und der Test konnte gar
+    # nichts mehr finden.
+    early_returns = [
+        m.start()
+        for m in re.finditer(r"\n {4}return \(", body)
+        if "if (" in body[max(0, m.start() - 120):m.start()]
+    ]
+    check("es gibt eine frühe Rückkehr", bool(early_returns),
+          "ohne die sagt der Test nichts aus")
 
-    hooks_after = re.findall(r"\b(useState|useEffect|useCallback|useRef|useSession)\s*\(", tail)
-    check("kein Hook nach dem ersten return", not hooks_after, str(hooks_after))
+    if early_returns and hooks:
+        first_early = min(early_returns)
+        # Jeder Hook hinter der ersten frühen Rückkehr ist ein Fehler --
+        # egal wie eingerückt. Ein Versuch, hier nach Einrückung zu
+        # filtern, ließ genau den Fall durch, den der Test finden soll:
+        # ein `const [x] = useState()` direkt nach dem Loading-Zweig.
+        offenders = []
+        for pos in hooks:
+            if pos <= first_early:
+                continue
+            line_start = body.rfind("\n", 0, pos) + 1
+            line = body[line_start:body.find("\n", pos)]
+            offenders.append(line.strip()[:60])
 
-    hooks_before = re.findall(r"\b(useState|useEffect|useCallback|useRef|useSession)\s*\(", head)
-    check("die Hooks stehen davor", len(hooks_before) >= 8, str(len(hooks_before)))
+        check("kein Hook nach der ersten frühen Rückkehr",
+              not offenders,
+              f"{len(offenders)} dahinter: {offenders[:3]}")
 
 
 def test_no_german_quotes_break_a_string():
@@ -403,6 +437,173 @@ def test_the_wipe_switch_is_hard_to_hit_by_accident():
           "der Knopf muss beschriften, was er tut")
 
 
+def test_the_poll_cannot_overlap_itself():
+    """Der Bug, der doppelte Zeilen erzeugte.
+
+    Mit `setInterval` startet die nächste Abfrage, egal ob die vorige
+    fertig ist. Dauert eine Antwort länger als der Takt, liest die
+    zweite denselben Zähler wie die erste und holt dieselben Zeilen noch
+    einmal. Nachgestellt: 2,5s Antwort bei 1,5s Takt ergab 10 Zeilen
+    statt 5, jede doppelt.
+    """
+
+    print("\nDie Abfragen überholen sich nicht")
+
+    panel = strip_comments(read(PANEL))
+
+    check("kein setInterval mehr im Ladeweg",
+          "setInterval" not in panel,
+          "setInterval startet die nächste Abfrage ungefragt")
+    check("es wird neu geplant statt getaktet", "setTimeout(tick" in panel)
+    check("eine laufende Abfrage sperrt", "pollingRef" in panel)
+
+    # Der Riegel muss *abgefragt* werden, nicht nur vorkommen.
+    #
+    # Ein erster Versuch suchte "pollingRef.current" im Rumpf. Das
+    # blieb auch nach dem Entfernen der Abfrage grün, weil das Lösen im
+    # finally-Zweig dieselbe Zeichenfolge enthält. Also gezielt nach
+    # der Abfrage und nach dem Setzen suchen.
+    tick = panel.split("const tick = async ()")[1].split("};")[0]
+    check("der Riegel wird abgefragt",
+          "|| pollingRef.current) return" in tick,
+          "ohne die Abfrage überholen sich die Aufrufe weiterhin")
+    check("er wird gesetzt", "pollingRef.current = true" in tick)
+    check("und wieder gelöst", "pollingRef.current = false" in tick)
+
+    # Die Zähler direkt nach dem Lesen setzen, nicht später: die
+    # nächste Abfrage muss den neuen Stand sehen.
+    apply = panel.split("const applyStatus")[1].split("const tick")[0]
+    check("die Zähler werden im selben Durchlauf gesetzt",
+          "sinceRef.current =" in apply and "sinceMainRef.current =" in apply)
+
+
+def test_a_reload_finds_a_running_build():
+    """Nach F5 stand man auf Schritt 1, während im Hintergrund gebaut wurde."""
+
+    print("\nEin Neuladen findet den laufenden Bau")
+
+    panel = strip_comments(read(PANEL))
+    load = panel.split("const load = useCallback")[1].split("useEffect")[0]
+
+    check("beim Laden wird der Status abgefragt",
+          "api.speedrunStatus" in load,
+          "ohne das ist ein laufender Bau unsichtbar")
+    check("ein laufender Bau springt zum Terminal",
+          "setStage(3)" in load)
+    check("die alten Zeilen werden nachgeholt",
+          "setLines(past)" in load,
+          "sonst beginnt die Ausgabe mitten im Satz")
+    check("es wird sichtbar gemacht", "setResumed(true)" in load)
+    # Und die Übergabe darf nicht erneut anlaufen, wenn sie schon läuft.
+    check("der Riegel wird passend gesetzt",
+          "finishedRef.current = mainState" in load)
+
+
+def test_the_handover_is_tied_to_this_run():
+    """Ein alter Bau darf die Einrichtung nicht erneut auslösen.
+
+    Ein fertiger Job bleibt beim Template-Bot 15 Minuten abrufbar. Die
+    Bedingung war nur "fertig und noch nicht übergeben" -- das erfüllt
+    auch ein Bau von vorhin.
+    """
+
+    print("\nDie Übergabe gehört zu genau diesem Lauf")
+
+    panel = strip_comments(read(PANEL))
+    api_src = strip_comments(read(API))
+
+    check("das Panel merkt sich die Lauf-Kennung", "runIdRef" in panel)
+    check("sie wird beim Start übernommen",
+          "runIdRef.current = answer?.run_id" in panel)
+    check("und beim Abschluss mitgeschickt",
+          "api.speedrunFinish(guildId, optionsRef.current, runIdRef.current)"
+          in panel)
+    check("die API reicht sie durch", "run_id: runId" in api_src)
+
+    # Und der Bot prüft sie -- eine Sperre nur im Browser ist keine.
+    route = strip_comments(
+        open(os.path.join(BOT, "api", "routes", "speedrun.py"),
+             encoding="utf-8").read().replace("# ", "")
+    )
+    check("der Bot vergleicht die Kennung",
+          'wanted_run != actual_run' in route,
+          "sonst liegt die Sperre allein im Browser")
+
+
+def test_the_timer_does_not_restart_on_every_toggle():
+    """poll hing an `options` -- jeder Klick setzte den Timer neu auf."""
+
+    print("\nEin Schalter setzt den Timer nicht zurück")
+
+    panel = strip_comments(read(PANEL))
+
+    check("die Optionen liegen in einem Ref", "optionsRef" in panel)
+    check("die Schleife liest das Ref",
+          "optionsRef.current" in panel)
+
+    # Der Effekt darf nicht von `options` abhängen.
+    effect = panel.split("if (!isRunning) return;")[1].split("}, [")[1].split("]")[0]
+    check("options steht nicht in den Abhängigkeiten",
+          "options" not in effect,
+          f"Abhängigkeiten: [{effect}]")
+
+
+def test_partial_is_not_shown_as_done():
+    """Ein Lauf mit Lücken darf nicht wie ein sauberer aussehen."""
+
+    print("\n„Teilweise fertig“ wird als solches gezeigt")
+
+    panel = strip_comments(read(PANEL))
+
+    check("die Phase kennt partial", '"partial"' in panel)
+    check("sie wird gesetzt", 'setPhase("partial")' in panel)
+    check("und angezeigt", "Fertig, mit Lücken" in panel)
+    check("mit einer Erklärung",
+          "Einzelne Schritte sind nicht durchgelaufen" in panel,
+          "sonst rätselt man, was fehlt")
+
+
+def test_a_stuck_build_can_be_cancelled():
+    """Ohne Abbrechen hängt der Reiter für immer auf „läuft“."""
+
+    print("\nEin hängender Bau lässt sich abbrechen")
+
+    panel = strip_comments(read(PANEL))
+    api_src = strip_comments(read(API))
+
+    check("es gibt einen Abbrechen-Knopf", "Abbrechen" in panel)
+    check("er ruft die API", "api.speedrunCancel" in panel)
+    check("die API kennt den Weg", "speedrunCancel:" in api_src)
+
+    # Und er sagt vorher, was passiert: der Server bleibt halb gebaut.
+    check("die Folge wird genannt",
+          "bleibt so stehen" in panel,
+          "ein Abbruch räumt nichts auf -- das muss dastehen")
+
+    from api.routes import speedrun as route_module
+
+    paths = {r.path for r in route_module.router.routes}
+    check("der Bot hat die Route", "/{guild_id}/cancel" in paths, str(sorted(paths)))
+
+
+def test_motion_respects_the_system_setting():
+    """Wer Bewegung abgestellt hat, darf keine bekommen."""
+
+    print("\nAnimationen achten auf prefers-reduced-motion")
+
+    panel = read(PANEL)
+
+    check("es gibt Animationen", "@keyframes sr-" in panel)
+    check("prefers-reduced-motion wird beachtet",
+          "prefers-reduced-motion: reduce" in panel,
+          "für manche ist Bewegung nicht Geschmack, sondern Übelkeit")
+
+    # Und die Abschaltung muss alle Animationen treffen, nicht eine.
+    block = panel.split("prefers-reduced-motion: reduce")[1].split("}\n      }")[0]
+    for name in ("sr-rise", "sr-sheen", "sr-caret", "sr-pulse"):
+        check(f"{name} wird abgeschaltet", name in block, block[:150])
+
+
 def test_the_console_does_not_fight_the_reader():
     """Automatisches Mitrollen darf nicht die Zeile wegreißen, die man liest."""
 
@@ -425,6 +626,13 @@ def main():
     test_one_failed_call_does_not_blank_the_others()
     test_the_server_says_why_it_cannot_reach_the_template_bot()
     test_the_wipe_switch_is_hard_to_hit_by_accident()
+    test_the_poll_cannot_overlap_itself()
+    test_a_reload_finds_a_running_build()
+    test_the_handover_is_tied_to_this_run()
+    test_the_timer_does_not_restart_on_every_toggle()
+    test_partial_is_not_shown_as_done()
+    test_a_stuck_build_can_be_cancelled()
+    test_motion_respects_the_system_setting()
     test_the_console_does_not_fight_the_reader()
 
     print()

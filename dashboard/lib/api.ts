@@ -1142,11 +1142,20 @@ export const api = {
       method: "POST",
       body: JSON.stringify(data),
     }),
-  speedrunFinish: (guildId: string, options: Record<string, boolean>) =>
+  speedrunFinish: (
+    guildId: string,
+    options: Record<string, boolean>,
+    runId = ""
+  ) =>
     request<any>(`/speedrun/${guildId}/finish`, {
       method: "POST",
-      body: JSON.stringify({ options }),
+      // run_id: der Bot lehnt ab, wenn der fertige Bau zu einem anderen
+      // Durchlauf gehört. Sonst könnte ein 15 Minuten alter Job die
+      // Einrichtung ein zweites Mal auslösen.
+      body: JSON.stringify({ options, run_id: runId }),
     }),
+  speedrunCancel: (guildId: string) =>
+    request<any>(`/speedrun/${guildId}/cancel`, { method: "POST", body: "{}" }),
   speedrunStatus: (guildId: string, since = 0, sinceMain = 0) =>
     request<any>(
       `/speedrun/${guildId}/status?since=${since}&since_main=${sinceMain}`

@@ -514,6 +514,25 @@ async def finish(
             ),
         )
 
+    # Die Übergabe muss zu dem Bau gehören, den der Aufrufer gestartet
+    # hat.
+    #
+    # Ein fertiger Job bleibt beim Template-Bot 15 Minuten abrufbar.
+    # Ohne diese Prüfung erfüllt auch ein alter Bau die Bedingung
+    # "fertig", und das Dashboard würde die Einrichtung ein zweites Mal
+    # anstoßen -- Panels doppelt, Rollen neu vergeben, ohne dass jemand
+    # etwas gestartet hat.
+    wanted_run = str(data.get("run_id") or "").strip()
+    actual_run = str(body.get("run_id") or "")
+    if wanted_run and actual_run and wanted_run != actual_run:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Der fertige Bau beim Template-Bot gehört zu einem anderen "
+                "Durchlauf. Starte den Speedrun neu."
+            ),
+        )
+
     result = body.get("result") or {}
     if not result.get("roles") and not result.get("channels"):
         raise HTTPException(
@@ -530,6 +549,9 @@ async def finish(
         "started": time.time(),
         "finished": 0.0,
         "error": "",
+        # Zu welchem Bau diese Einrichtung gehört. Das Dashboard
+        # vergleicht damit, ob der Zustand, den es sieht, seiner ist.
+        "run_id": actual_run or wanted_run,
     }
     _MAIN_JOBS[guild_id] = job
 
@@ -571,6 +593,45 @@ async def steps():
 # --------------------------------------------------------------------- #
 
 
+@router.post("/{guild_id}/cancel", summary="Laufenden Speedrun abbrechen")
+async def cancel(guild_id: int):
+    """
+    Bricht den Bau beim Template-Bot ab und vergisst die Einrichtung.
+
+    Der Server bleibt halb gebaut stehen -- Discord kennt kein Zurück.
+    Trotzdem nötig: hängt der Bau an einem Rate-Limit oder einem
+    Netzproblem, steht der Reiter sonst für immer auf "läuft" und ein
+    zweiter Versuch ist gesperrt.
+    """
+
+    status_code, body = await _call_template(
+        "POST", f"/internal/speedrun/{guild_id}/cancel", payload={}, timeout=10
+    )
+
+    # Die zweite Hälfte hier ebenfalls beenden, sonst läuft sie weiter,
+    # während der Bau schon abgebrochen ist.
+    job = _MAIN_JOBS.get(guild_id)
+    if job is not None and job["state"] == "running":
+        job["state"] = "failed"
+        job["error"] = "Abgebrochen."
+        job["finished"] = time.time()
+        job["lines"].append(
+            {
+                "text": "Abgebrochen.",
+                "source": "main",
+                "level": "warn",
+                "at": time.time(),
+            }
+        )
+
+    if status_code != 200:
+        raise HTTPException(
+            status_code=502,
+            detail=str(body.get("error") or f"Template-Bot: HTTP {status_code}"),
+        )
+    return {"cancelled": bool(body.get("cancelled")), "guild_id": str(guild_id)}
+
+
 @router.get("/{guild_id}/status", summary="Fortschritt abholen")
 async def status_route(guild_id: int, since: int = 0, since_main: int = 0):
     """
@@ -604,6 +665,7 @@ async def status_route(guild_id: int, since: int = 0, since_main: int = 0):
             "line_count": len(job["lines"]),
             "report": job["report"],
             "error": job.get("error", ""),
+            "run_id": job.get("run_id", ""),
         }
 
     return body
