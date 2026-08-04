@@ -387,6 +387,33 @@ async def start(
             detail=str(body.get("error") or f"Template-Bot: HTTP {status_code}"),
         )
 
+    # Ab hier wartet der Bot selbst auf das Ende des Baus und richtet
+    # danach ein. Der Browser ruft /finish nicht mehr auf -- er schaut
+    # nur noch zu. Wer den Tab zumacht, bekommt trotzdem einen fertigen
+    # Server statt eines halben.
+    run_id = str(body.get("run_id") or "")
+    _cancel_tasks(guild_id)
+    job = {
+        "state": "waiting",
+        "lines": [],
+        "report": None,
+        "started": time.time(),
+        "finished": 0.0,
+        "error": "",
+        "run_id": run_id,
+        "cancelled": False,
+        "step": 0,
+        "total": 0,
+        "options": handover.normalise_options(data.get("steps")),
+    }
+    _MAIN_JOBS[guild_id] = job
+
+    _spawn(
+        bot,
+        _watch_build(bot, guild, job, job["options"], run_id),
+        guild_id,
+    )
+
     return body
 
 
@@ -400,7 +427,62 @@ async def start(
 # immer auf "laeuft".
 
 # guild_id -> {"state", "lines", "report", "started", "finished"}
+#
+# Zustaende:
+#   waiting  Der Template-Bot baut noch; dieser Bot wartet darauf.
+#   running  Die Einrichtung laeuft.
+#   done     Alle gewaehlten Schritte sind durch.
+#   partial  Gelaufen, aber einzelne Schritte haben nicht geklappt.
+#   failed   Abgebrochen oder gescheitert.
 _MAIN_JOBS: dict[int, dict] = {}
+
+# Laufende Hintergrund-Tasks (Waechter und Einrichtung), damit ein
+# Abbruch sie wirklich erreicht. asyncio haelt auf Tasks nur eine
+# schwache Referenz -- ohne dieses Dict kann ein Lauf mitten drin
+# eingesammelt werden.
+_MAIN_TASKS: dict[int, set] = {}
+
+# Wie lange der Waechter auf das Ende des Baus wartet, bevor er
+# aufgibt. Der laengste Bau (rp, 101 Kanaele) braucht mit Discords
+# Rate-Limits gut zehn Minuten; dreissig lassen Luft, ohne dass ein
+# haengender Job ewig als "laeuft" dasteht.
+WATCH_TIMEOUT = 30 * 60
+
+# Abstand zwischen zwei Nachfragen des Waechters beim Template-Bot.
+WATCH_INTERVAL = 3.0
+
+
+def _remember_task(guild_id: int, task) -> None:
+    tasks = _MAIN_TASKS.setdefault(guild_id, set())
+    tasks.add(task)
+    task.add_done_callback(lambda finished: tasks.discard(finished))
+
+
+def _spawn(bot, coro, guild_id: int):
+    """Eine Coroutine auf der Bot-Schleife starten und festhalten.
+
+    Alles, was discord.py anfasst, gehoert auf die Schleife des Bots --
+    die API laeuft in einem eigenen Thread. ``run_coroutine_threadsafe``
+    liefert ein concurrent.futures.Future, kein Task; abbrechen laesst
+    sich beides ueber ``.cancel()``.
+    """
+
+    loop = getattr(bot, "loop", None)
+    if loop is not None and not loop.is_closed():
+        handle = asyncio.run_coroutine_threadsafe(coro, loop)
+    else:  # Tests und lokaler Betrieb ohne laufenden Bot
+        handle = asyncio.ensure_future(coro)
+    _remember_task(guild_id, handle)
+    return handle
+
+
+def _cancel_tasks(guild_id: int) -> None:
+    for task in list(_MAIN_TASKS.get(guild_id, ())):
+        try:
+            task.cancel()
+        except Exception:  # pragma: no cover - ein toter Task ist egal
+            pass
+    _MAIN_TASKS.pop(guild_id, None)
 
 # Wie lange eine fertige Uebergabe abrufbar bleibt. Gleicher Wert wie
 # beim Template-Bot, damit beide Haelften zusammen ablaufen.
@@ -436,13 +518,25 @@ async def _run_main_phase(bot, guild, job: dict, options: dict, payload: dict) -
             {"text": text, "source": "main", "level": level, "at": time.time()}
         )
 
+    # Der Fortschritt der zweiten Haelfte. Ohne ihn stand der Balken
+    # waehrend der gesamten Einrichtung still: er kam nur vom
+    # Template-Bot, und der ist zu diesem Zeitpunkt schon fertig.
+    chosen = handover.normalise_options(options)
+    planned = [key for key in handover.ORDER if chosen.get(key)]
+    job["total"] = len(planned)
+    job["step"] = 0
+
+    async def step_done(_key: str) -> None:
+        job["step"] = min(job.get("step", 0) + 1, job["total"])
+
     try:
         await log("University Bot übernimmt")
         report = await handover.run_handover(
-            bot, guild, payload, options=options, log=log
+            bot, guild, payload, options=options, log=log, on_step=step_done
         )
         job["report"] = report.as_dict()
         job["state"] = "done" if not report.failed else "partial"
+        job["step"] = job["total"]
 
         done = sum(1 for step in report.steps if step.ok)
         if report.failed:
@@ -452,12 +546,174 @@ async def _run_main_phase(bot, guild, job: dict, options: dict, payload: dict) -
             )
         else:
             await log(f"Fertig — {done} Schritte eingerichtet", "success")
+    except asyncio.CancelledError:
+        # Abgebrochen. Der Zustand steht schon auf "failed" -- ihn hier
+        # zu ueberschreiben wuerde den Abbruch verschlucken.
+        await log("Einrichtung abgebrochen.", "warn")
+        job["finished"] = time.time()
+        raise
     except Exception as exc:
         job["state"] = "failed"
         job["error"] = f"{type(exc).__name__}: {exc}"
         await log(f"Abbruch: {type(exc).__name__}: {exc}", "error")
     finally:
+        # Ein abgebrochener Lauf bleibt abgebrochen.
+        #
+        # Vorher stand hier nur ``job["finished"] = ...``, und der
+        # Zustand wurde oben bedingungslos auf "done" gesetzt. Wer
+        # waehrend der Einrichtung auf Abbrechen klickte, sah den Reiter
+        # kurz auf "Abgebrochen" springen und zwei Sekunden spaeter auf
+        # "Fertig" -- obwohl die Haelfte fehlte. Nachgestellt in
+        # repro/bug_cancel.py.
+        if job.get("cancelled"):
+            job["state"] = "failed"
         job["finished"] = time.time()
+
+
+async def _fetch_build(guild_id: int) -> dict:
+    """Den Stand des Baus beim Template-Bot holen."""
+
+    status_code, body = await _call_template(
+        "GET", f"/internal/speedrun/{guild_id}?since=0", timeout=10
+    )
+    if status_code != 200:
+        raise HTTPException(
+            status_code=502,
+            detail=str(body.get("error") or f"Template-Bot: HTTP {status_code}"),
+        )
+    return body
+
+
+def _begin_handover(bot, guild, job: dict, options: dict, result: dict) -> None:
+    """Die Einrichtung starten und den Task festhalten."""
+
+    job["state"] = "running"
+    job["started_main"] = time.time()
+
+    async def runner():
+        await _run_main_phase(bot, guild, job, options, result)
+
+    _spawn(bot, runner(), guild.id)
+
+
+async def _watch_build(bot, guild, job: dict, options: dict, run_id: str) -> None:
+    """Auf das Ende des Baus warten und dann selbst uebernehmen.
+
+    Der Grund, warum es diesen Waechter gibt:
+
+    Vorher stiess ausschliesslich der Browser die zweite Haelfte an --
+    das Panel fragte den Fortschritt ab, sah "fertig" und rief /finish.
+    Wer den Tab zumachte, das Handy sperrte oder unterwegs das Netz
+    verlor, bekam einen halb eingerichteten Server: Rollen und Kanaele
+    standen, aber Verify, Tickets, Logs, Anti-Nuke und die Begruessung
+    fehlten -- ohne jede Meldung, und ein zweiter Versuch haette alles
+    doppelt angelegt. Ein Bau dauert ueber eine Minute; einen Tab so
+    lange offen zu halten ist keine Bedingung, die man Leuten stellen
+    kann. Nachgestellt in repro/bug_tab_closed.py.
+
+    Der Waechter laeuft im Bot. Er ueberlebt jeden geschlossenen Tab und
+    braucht den Browser nur noch zum Zuschauen.
+    """
+
+    deadline = time.time() + WATCH_TIMEOUT
+
+    async def log(text: str, level: str = "info") -> None:
+        if len(job["lines"]) < MAX_LINES:
+            job["lines"].append(
+                {"text": text, "source": "main", "level": level, "at": time.time()}
+            )
+
+    try:
+        while True:
+            if job.get("cancelled"):
+                return
+
+            if time.time() > deadline:
+                job["state"] = "failed"
+                job["error"] = "Der Bau hat zu lange gebraucht."
+                job["finished"] = time.time()
+                await log(
+                    "Der Template-Bot ist seit 30 Minuten nicht fertig geworden — "
+                    "aufgegeben. Was gebaut wurde, bleibt stehen.",
+                    "error",
+                )
+                return
+
+            try:
+                body = await _fetch_build(guild.id)
+            except HTTPException:
+                # Ein Aussetzer ist kein Grund aufzugeben: der
+                # Template-Bot startet nach einem Deploy neu, und der Bau
+                # laeuft dort weiter. Erst die Frist beendet das Warten.
+                await asyncio.sleep(WATCH_INTERVAL)
+                continue
+
+            state = body.get("state")
+            actual_run = str(body.get("run_id") or "")
+
+            # Gehoert der Bau, den wir sehen, noch zu unserem Lauf? Nach
+            # einem Neustart des Template-Bots kann dort ein voellig
+            # anderer Job liegen.
+            if run_id and actual_run and actual_run != run_id:
+                job["state"] = "failed"
+                job["error"] = "Der Bau gehört zu einem anderen Durchlauf."
+                job["finished"] = time.time()
+                await log(
+                    "Beim Template-Bot läuft inzwischen ein anderer Durchlauf — "
+                    "diese Einrichtung wurde abgebrochen.",
+                    "error",
+                )
+                return
+
+            if state == "running":
+                await asyncio.sleep(WATCH_INTERVAL)
+                continue
+
+            if state == "failed":
+                job["state"] = "failed"
+                job["error"] = str(body.get("error") or "Der Bau ist gescheitert.")
+                job["finished"] = time.time()
+                await log(
+                    "Der Bau ist gescheitert — es wird nichts eingerichtet.", "error"
+                )
+                return
+
+            if state != "done":
+                # "none" heisst: der Job ist beim Template-Bot abgelaufen
+                # oder wurde vergessen. Ohne die Landkarte laesst sich
+                # nichts einrichten.
+                job["state"] = "failed"
+                job["error"] = f"Unerwarteter Zustand beim Template-Bot: {state}."
+                job["finished"] = time.time()
+                await log(
+                    "Der Template-Bot kennt diesen Bau nicht mehr — "
+                    "die Einrichtung lässt sich nicht nachholen.",
+                    "error",
+                )
+                return
+
+            result = body.get("result") or {}
+            if not result.get("roles") and not result.get("channels"):
+                job["state"] = "failed"
+                job["error"] = "Der Bau hat keine Rollen und Kanäle gemeldet."
+                job["finished"] = time.time()
+                await log(
+                    "Der Template-Bot hat keine Rollen und Kanäle gemeldet.", "error"
+                )
+                return
+
+            if job.get("cancelled"):
+                return
+
+            _begin_handover(bot, guild, job, options, result)
+            return
+    except asyncio.CancelledError:
+        raise
+    except Exception as exc:  # pragma: no cover - der Waechter darf nie platzen
+        job["state"] = "failed"
+        job["error"] = f"{type(exc).__name__}: {exc}"
+        job["finished"] = time.time()
+        await log(f"Warten auf den Bau fehlgeschlagen: {exc}", "error")
 
 
 @router.post("/{guild_id}/finish", summary="Hauptbot-Einrichtung starten")
@@ -469,10 +725,12 @@ async def finish(
     """
     Nimmt die Landkarte des Template-Bots und richtet damit ein.
 
-    Getrennt vom Bau und nicht automatisch angehaengt: der Bau laeuft
-    beim anderen Bot, und dessen Ende kennt nur das Dashboard sicher --
-    es fragt den Fortschritt ohnehin ab. Ein Rueckruf vom Template-Bot
-    haette einen zweiten Weg gebraucht, auf dem er diesen Bot erreicht.
+    Im Normalfall wird dieser Endpunkt nicht mehr gebraucht: seit dem
+    Waechter (``_watch_build``) uebernimmt der Bot von selbst, sobald
+    der Bau fertig ist. Er bleibt als Nachhol-Weg fuer den Fall, dass
+    der Waechter den Bau verpasst hat -- etwa weil der Bot mitten im Bau
+    neu gestartet ist. Dann steht der Server gebaut, aber nicht
+    eingerichtet da, und dieser Aufruf holt es nach.
     """
 
     guild = bot.get_guild(guild_id)
@@ -482,10 +740,17 @@ async def finish(
             detail="Der University Bot ist nicht auf diesem Server.",
         )
 
-    if (existing := _main_job(guild_id)) and existing["state"] == "running":
+    existing = _main_job(guild_id)
+    if existing and existing["state"] in ("running", "waiting"):
+        # "waiting" heisst: der Waechter sitzt schon dran. Ein zweiter
+        # Anlauf wuerde alles doppelt anlegen.
         raise HTTPException(
             status_code=409,
-            detail="Die Einrichtung läuft für diesen Server schon.",
+            detail=(
+                "Die Einrichtung läuft für diesen Server schon."
+                if existing["state"] == "running"
+                else "Der Bot wartet bereits auf das Ende des Baus."
+            ),
         )
 
     # Die Landkarte kommt vom Template-Bot, nicht aus dem Browser. Sonst
@@ -542,6 +807,7 @@ async def finish(
 
     options = handover.normalise_options(data.get("options"))
 
+    _cancel_tasks(guild_id)
     job = {
         "state": "running",
         "lines": [],
@@ -552,20 +818,17 @@ async def finish(
         # Zu welchem Bau diese Einrichtung gehört. Das Dashboard
         # vergleicht damit, ob der Zustand, den es sieht, seiner ist.
         "run_id": actual_run or wanted_run,
+        "cancelled": False,
+        "step": 0,
+        "total": 0,
+        "options": options,
     }
     _MAIN_JOBS[guild_id] = job
 
     # Auf der Schleife des Bots, nicht auf der des API-Threads: alles,
     # was discord.py anfasst (Panel posten, Rollen lesen), ist an die
     # Bot-Schleife gebunden.
-    async def runner():
-        await _run_main_phase(bot, guild, job, options, result)
-
-    loop = bot.loop
-    if loop is not None and not loop.is_closed():
-        asyncio.run_coroutine_threadsafe(runner(), loop)
-    else:  # Tests und lokaler Betrieb ohne laufenden Bot
-        asyncio.create_task(runner())
+    _begin_handover(bot, guild, job, options, result)
 
     return {"status": "started", "guild_id": str(guild_id), "options": options}
 
@@ -604,14 +867,18 @@ async def cancel(guild_id: int):
     zweiter Versuch ist gesperrt.
     """
 
-    status_code, body = await _call_template(
-        "POST", f"/internal/speedrun/{guild_id}/cancel", payload={}, timeout=10
-    )
-
-    # Die zweite Hälfte hier ebenfalls beenden, sonst läuft sie weiter,
-    # während der Bau schon abgebrochen ist.
+    # Die zweite Hälfte zuerst stoppen, dann den Bau.
+    #
+    # Die Marke muss *vor* dem Abbruch der Tasks stehen: `_run_main_phase`
+    # liest sie in seinem finally-Zweig, und nur so bleibt "failed" auch
+    # stehen. Vorher wurde hier bloß der Zustand gesetzt -- die
+    # Einrichtung lief seelenruhig weiter und schrieb am Ende "done"
+    # darüber. Auf dem Bildschirm sprang der Reiter von "Abgebrochen"
+    # zurück auf "Fertig", während der halbe Server fehlte.
+    # Nachgestellt in repro/bug_cancel.py.
     job = _MAIN_JOBS.get(guild_id)
-    if job is not None and job["state"] == "running":
+    if job is not None and job["state"] in ("running", "waiting"):
+        job["cancelled"] = True
         job["state"] = "failed"
         job["error"] = "Abgebrochen."
         job["finished"] = time.time()
@@ -623,6 +890,13 @@ async def cancel(guild_id: int):
                 "at": time.time(),
             }
         )
+
+    # Den Wächter und eine laufende Einrichtung wirklich beenden.
+    _cancel_tasks(guild_id)
+
+    status_code, body = await _call_template(
+        "POST", f"/internal/speedrun/{guild_id}/cancel", payload={}, timeout=10
+    )
 
     if status_code != 200:
         raise HTTPException(
@@ -643,18 +917,45 @@ async def status_route(guild_id: int, since: int = 0, since_main: int = 0):
     gleichzeitig schreiben.
     """
 
-    status_code, body = await _call_template(
-        "GET",
-        f"/internal/speedrun/{guild_id}?since={max(since, 0)}",
-        timeout=10,
-    )
-    if status_code != 200:
-        raise HTTPException(
-            status_code=502,
-            detail=str(body.get("error") or f"Template-Bot: HTTP {status_code}"),
-        )
-
     job = _main_job(guild_id)
+
+    # Den Template-Bot fragen -- aber sein Ausfall darf nicht die ganze
+    # Antwort kosten.
+    #
+    # Vorher warf diese Route 502, sobald der Template-Bot nicht
+    # antwortete. Genau in der Einrichtungsphase ist das falsch: da
+    # arbeitet nur noch dieser Bot, sein Stand liegt hier im
+    # Arbeitsspeicher, und der Template-Bot wird nicht mehr gebraucht.
+    # Ein Neustart drüben ließ den Reiter trotzdem ins Leere laufen und
+    # der Nutzer sah die Einrichtung nicht mehr.
+    # Nachgestellt in repro/bug_status_502.py.
+    template_error = ""
+    try:
+        status_code, body = await _call_template(
+            "GET",
+            f"/internal/speedrun/{guild_id}?since={max(since, 0)}",
+            timeout=10,
+        )
+        if status_code != 200:
+            raise HTTPException(
+                status_code=502,
+                detail=str(body.get("error") or f"Template-Bot: HTTP {status_code}"),
+            )
+    except HTTPException as exc:
+        # Ohne eigenen Job gibt es nichts zu retten: dann ist der
+        # Ausfall die ganze Nachricht.
+        if job is None:
+            raise
+        template_error = str(exc.detail)
+        body = {
+            "state": "unreachable",
+            "lines": [],
+            "line_count": max(since, 0),
+            "error": template_error,
+        }
+
+    body["template_error"] = template_error
+
     if job is None:
         body["main"] = {"state": "none", "lines": [], "line_count": 0, "report": None}
     else:
@@ -666,6 +967,10 @@ async def status_route(guild_id: int, since: int = 0, since_main: int = 0):
             "report": job["report"],
             "error": job.get("error", ""),
             "run_id": job.get("run_id", ""),
+            # Fortschritt der zweiten Hälfte. Ohne ihn stand der Balken
+            # während der gesamten Einrichtung still.
+            "step": job.get("step", 0),
+            "total": job.get("total", 0),
         }
 
     return body

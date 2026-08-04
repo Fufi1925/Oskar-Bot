@@ -26,6 +26,7 @@ Dashboard. Was nicht angehakt ist, wird nicht angefasst.
 
 from __future__ import annotations
 
+import asyncio
 import json
 from dataclasses import dataclass, field
 from typing import Any, Awaitable, Callable
@@ -1024,6 +1025,7 @@ async def run_handover(
     handover: dict,
     options: dict | None = None,
     log: LogHook | None = None,
+    on_step: Callable[[str], Awaitable[None]] | None = None,
 ) -> HandoverReport:
     """Alle gewaehlten Schritte, einer nach dem anderen.
 
@@ -1041,6 +1043,22 @@ async def run_handover(
 
     say: LogHook = log or noop
 
+    async def tick(key: str) -> None:
+        """Einen erledigten Schritt melden -- egal wie er ausging.
+
+        Auch ein übersprungener oder gescheiterter Schritt ist
+        abgearbeitet. Nur die geglückten zu zählen ließe den
+        Fortschrittsbalken bei einem unvollständigen Lauf für immer
+        unter 100 % stehen.
+        """
+
+        if on_step is None:
+            return
+        try:
+            await on_step(key)
+        except Exception:  # pragma: no cover - Anzeige darf nie den Lauf kippen
+            pass
+
     for key in ORDER:
         if not chosen.get(key):
             continue
@@ -1054,15 +1072,22 @@ async def run_handover(
                 + ", ".join(missing),
             )
             await say(f"{label} übersprungen — {', '.join(missing)} fehlt", "warn")
+            await tick(key)
             continue
 
         try:
             await _RUNNERS[key](bot, guild, handover, report, say)
+        except asyncio.CancelledError:
+            # Ein Abbruch ist kein Fehler dieses Schritts -- er muss
+            # durchgereicht werden, sonst läuft die Einrichtung nach dem
+            # Klick auf "Abbrechen" einfach weiter.
+            raise
         except Exception as exc:
             # Ein Schritt, der wirft, darf die anderen nicht mitnehmen.
             report.add(key, False, f"{type(exc).__name__}: {exc}")
             await say(
                 f"{STEPS[key]['label']}: {type(exc).__name__}: {exc}", "error"
             )
+        await tick(key)
 
     return report

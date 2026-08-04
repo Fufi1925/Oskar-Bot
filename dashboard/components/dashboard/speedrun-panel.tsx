@@ -5,9 +5,29 @@
  *
  * Vier Schritte: Voraussetzungen, Vorlage, Umfang, Lauf.
  *
- * Neu geschrieben, nachdem sechs Fehler zusammenkamen. Jeder davon
- * wurde nachgestellt, bevor er behoben wurde, und jeder hat hier eine
- * Stelle, an der die Lösung steht:
+ * ─────────────────────────────────────────────────────────────────────
+ * Der wichtigste Unterschied zur vorigen Fassung
+ * ─────────────────────────────────────────────────────────────────────
+ *
+ * Früher stieß **dieses Panel** die zweite Hälfte an: es fragte den
+ * Fortschritt ab, sah "Bau fertig" und rief `/finish`. Damit hing die
+ * halbe Einrichtung am offenen Browser-Tab. Wer während des Baus den
+ * Tab schloss, das Handy sperrte oder unterwegs das Netz verlor, bekam
+ * Rollen und Kanäle — aber kein Verify, keine Tickets, keine Logs,
+ * keine Anti-Nuke, keine Begrüßung. Ohne Meldung, und ein zweiter
+ * Anlauf hätte alles doppelt angelegt. Ein Bau dauert über eine Minute;
+ * einen Tab so lange offen zu halten ist keine Bedingung, die man
+ * jemandem stellen kann.
+ *
+ * Jetzt übernimmt der Bot selbst, sobald der Bau fertig ist
+ * (`_watch_build` in `api/routes/speedrun.py`). Dieses Panel **schaut
+ * nur noch zu**. Man darf den Tab jederzeit zumachen und später
+ * wiederkommen — der Lauf wird beim Öffnen gefunden und weiter
+ * angezeigt.
+ *
+ * ─────────────────────────────────────────────────────────────────────
+ * Weitere Fehler, die hier eine Stelle haben
+ * ─────────────────────────────────────────────────────────────────────
  *
  *  1. **Doppelte Log-Zeilen.** `setInterval` startete die nächste
  *     Abfrage, bevor die vorige ihren Zähler gesetzt hatte. Nachgestellt
@@ -17,29 +37,26 @@
  *
  *  2. **Neu laden verlor den Bau.** Der Ladevorgang fragte den Status
  *     nie ab, also stand man nach F5 auf Schritt 1, während im
- *     Hintergrund weitergebaut wurde. Jetzt wird beim Öffnen geprüft,
- *     ob etwas läuft, und direkt zum Terminal gesprungen.
+ *     Hintergrund weitergebaut wurde.
  *
- *  3. **Die Übergabe konnte sich selbst auslösen.** Die Bedingung war
- *     "Bau fertig und Einrichtung noch nicht gelaufen" — das erfüllt
- *     auch ein 15 Minuten alter Job. Jetzt trägt jeder Lauf eine
- *     `run_id`, und der Bot lehnt eine fremde ab.
- *
- *  4. **Der Timer wurde ständig neu aufgesetzt**, weil er an `options`
+ *  3. **Der Timer wurde ständig neu aufgesetzt**, weil er an `options`
  *     hing. Die Optionen liegen jetzt in einem Ref.
  *
- *  5. **"Teilweise fertig" sah aus wie "fertig".** Der Zustand kam vom
- *     Bot, die Anzeige kannte ihn nicht.
+ *  4. **"Teilweise fertig" sah aus wie "fertig".**
  *
- *  6. **Kein Weg zurück.** Hängt der Bau, blieb der Reiter für immer
+ *  5. **Kein Weg zurück.** Hängt der Bau, blieb der Reiter für immer
  *     auf "läuft". Es gibt jetzt Abbrechen.
  *
- * Die Bewegung ist absichtlich zurückhaltend: Reihen laufen gestaffelt
- * ein, der Fortschrittsbalken schimmert, das Terminal blinkt am Cursor.
- * Alles davon respektiert `prefers-reduced-motion`.
+ *  6. **Ein Aussetzer des Template-Bots ließ die Anzeige ins Leere
+ *     laufen.** Er wird während der Einrichtung gar nicht mehr
+ *     gebraucht; sein Ausfall wird jetzt als Hinweis gezeigt, statt die
+ *     ganze Antwort zu verwerfen.
+ *
+ * Die Bewegung ist absichtlich zurückhaltend und respektiert
+ * durchgehend `prefers-reduced-motion`.
  */
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import {
   AlertTriangle,
@@ -49,18 +66,26 @@ import {
   CheckCircle2,
   ChevronDown,
   CircleDashed,
+  Clock,
   Gauge,
+  Hash,
   Info,
+  Layers,
   Loader2,
   Lock,
+  MessageSquare,
   RefreshCw,
   Rocket,
+  Search,
+  Shield,
   Sparkles,
   Square,
   Terminal,
   Trash2,
   TriangleAlert,
-  X,
+  Users,
+  Volume2,
+  WifiOff,
   XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -84,7 +109,14 @@ interface StepSpec {
   default: boolean;
 }
 
-type Phase = "idle" | "building" | "finishing" | "done" | "partial" | "failed";
+type Phase =
+  | "idle"
+  | "building"
+  | "waiting"
+  | "finishing"
+  | "done"
+  | "partial"
+  | "failed";
 
 /** Abstand zwischen zwei Abfragen — gemessen ab dem Ende der letzten. */
 const POLL_MS = 1200;
@@ -288,8 +320,64 @@ function Requirement({
   );
 }
 
-/** Das Terminal. Rollt mit, solange man nicht selbst hochgescrollt hat. */
-function Console({ lines, running }: { lines: LogLine[]; running: boolean }) {
+/** Eine Zahl mit Symbol — für „was entsteht hier eigentlich“. */
+function Stat({
+  icon: Icon,
+  value,
+  label,
+}: {
+  icon: React.ElementType;
+  value: React.ReactNode;
+  label: string;
+}) {
+  return (
+    <div className="flex items-center gap-2 min-w-0">
+      <Icon className="h-3.5 w-3.5 text-slate-500 shrink-0" />
+      <span className="text-sm font-black text-white tabular-nums">{value}</span>
+      <span className="text-[11px] text-slate-500 truncate">{label}</span>
+    </div>
+  );
+}
+
+/** mm:ss seit einem Zeitpunkt. */
+function useElapsed(since: number, running: boolean) {
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (!running || !since) return;
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [running, since]);
+
+  if (!since) return "";
+  const seconds = Math.max(0, Math.floor((now - since) / 1000));
+  const mm = String(Math.floor(seconds / 60)).padStart(2, "0");
+  const ss = String(seconds % 60).padStart(2, "0");
+  return `${mm}:${ss}`;
+}
+
+/**
+ * Das Terminal. Rollt mit, solange man nicht selbst hochgescrollt hat.
+ *
+ * Mit Filter: bei 94 Kanälen und 16 Rollen schreibt der Bau über
+ * hundert Zeilen. Wer nach einem Fehler sucht, soll ihn nicht suchen
+ * müssen.
+ */
+function Console({
+  lines,
+  running,
+  onlyProblems,
+  onToggleProblems,
+  query,
+  onQuery,
+}: {
+  lines: LogLine[];
+  running: boolean;
+  onlyProblems: boolean;
+  onToggleProblems: () => void;
+  query: string;
+  onQuery: (value: string) => void;
+}) {
   const boxRef = useRef<HTMLDivElement | null>(null);
   const stickRef = useRef(true);
 
@@ -300,38 +388,80 @@ function Console({ lines, running }: { lines: LogLine[]; running: boolean }) {
     stickRef.current = box.scrollHeight - box.scrollTop - box.clientHeight < 40;
   };
 
+  const problems = useMemo(
+    () => lines.filter((line) => line.level === "error" || line.level === "warn").length,
+    [lines]
+  );
+
+  const shown = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    return lines.filter((line) => {
+      if (onlyProblems && line.level !== "error" && line.level !== "warn") {
+        return false;
+      }
+      if (needle && !line.text.toLowerCase().includes(needle)) return false;
+      return true;
+    });
+  }, [lines, onlyProblems, query]);
+
   useEffect(() => {
     const box = boxRef.current;
     // Nur nachziehen, wenn der Leser unten steht. Sonst reißt es ihm
     // die Zeile weg, die er gerade liest.
     if (box && stickRef.current) box.scrollTop = box.scrollHeight;
-  }, [lines.length]);
+  }, [shown.length]);
 
   return (
     <div className="rounded-2xl border border-slate-800 bg-[#080f1c] overflow-hidden">
-      <div className="flex items-center gap-2 px-4 py-2.5 border-b border-slate-800/70 bg-[#0d1728]">
-        <Terminal className="h-3.5 w-3.5 text-slate-500" />
+      <div className="flex items-center gap-2 px-3 sm:px-4 py-2.5 border-b border-slate-800/70 bg-[#0d1728] flex-wrap">
+        <Terminal className="h-3.5 w-3.5 text-slate-500 shrink-0" />
         <span className="text-[11px] font-black uppercase tracking-widest text-slate-500">
           Live-Ausgabe
         </span>
-        <span className="ml-auto text-[10px] font-mono text-slate-600">
-          {lines.length} Zeilen
-        </span>
         {running && <Loader2 className="h-3 w-3 text-primary animate-spin" />}
+
+        <div className="ml-auto flex items-center gap-2">
+          <label className="relative">
+            <Search className="h-3 w-3 text-slate-600 absolute left-2 top-1/2 -translate-y-1/2" />
+            <input
+              value={query}
+              onChange={(event) => onQuery(event.target.value)}
+              placeholder="Suchen"
+              className="w-24 sm:w-36 bg-[#080f1c] border border-slate-800 rounded-lg pl-6 pr-2 py-1 text-[11px] text-slate-300 placeholder:text-slate-600 focus:outline-none focus:border-slate-700"
+            />
+          </label>
+          <button
+            onClick={onToggleProblems}
+            className={cn(
+              "px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border transition-colors shrink-0",
+              onlyProblems
+                ? "border-amber-500/40 text-amber-300 bg-amber-500/10"
+                : "border-slate-800 text-slate-500 hover:text-slate-300"
+            )}
+          >
+            Nur Probleme{problems > 0 ? ` (${problems})` : ""}
+          </button>
+        </div>
       </div>
       <div
         ref={boxRef}
         onScroll={onScroll}
-        className="h-[340px] overflow-y-auto px-4 py-3 font-mono text-[12px] leading-relaxed"
+        className="h-[300px] sm:h-[340px] overflow-y-auto px-3 sm:px-4 py-3 font-mono text-[12px] leading-relaxed"
       >
         {lines.length === 0 ? (
           <p className="text-slate-600">
             Noch nichts passiert.
             {running && <span className="sr-caret text-primary"> ▋</span>}
           </p>
+        ) : shown.length === 0 ? (
+          <p className="text-slate-600">
+            {onlyProblems
+              ? "Keine Warnungen und keine Fehler — das ist die gute Nachricht."
+              : "Nichts gefunden."}
+          </p>
         ) : (
           <>
-            {lines.map((line, index) => (
+            {shown.map((line, index) => (
               <div
                 key={`${line.at}-${index}`}
                 className="flex gap-2.5 sr-rise"
@@ -363,6 +493,18 @@ function Console({ lines, running }: { lines: LogLine[]; running: boolean }) {
           </>
         )}
       </div>
+      <div className="px-3 sm:px-4 py-2 border-t border-slate-800/70 bg-[#0d1728] flex items-center gap-3">
+        <span className="text-[10px] font-mono text-slate-600">
+          {shown.length === lines.length
+            ? `${lines.length} Zeilen`
+            : `${shown.length} von ${lines.length} Zeilen`}
+        </span>
+        {problems > 0 && (
+          <span className="text-[10px] font-mono text-amber-400/80">
+            {problems} auffällig
+          </span>
+        )}
+      </div>
     </div>
   );
 }
@@ -384,6 +526,7 @@ export function SpeedrunPanel({ guildId }: { guildId: string }) {
   const [templateError, setTemplateError] = useState("");
   const [templates, setTemplates] = useState<any[]>([]);
   const [chosen, setChosen] = useState<string>("");
+  const [preview, setPreview] = useState("");
 
   const [steps, setSteps] = useState<StepSpec[]>([]);
   const [options, setOptions] = useState<Record<string, boolean>>({});
@@ -399,13 +542,19 @@ export function SpeedrunPanel({ guildId }: { guildId: string }) {
   const [phase, setPhase] = useState<Phase>("idle");
   const [report, setReport] = useState<any>(null);
   const [progress, setProgress] = useState({ step: 0, total: 0 });
+  const [mainProgress, setMainProgress] = useState({ step: 0, total: 0 });
   const [resumed, setResumed] = useState(false);
+  const [startedAt, setStartedAt] = useState(0);
+  // Der Template-Bot antwortet gerade nicht. Kein Grund zur Panik,
+  // solange der Hauptbot einrichtet -- ihn braucht es dafür nicht mehr.
+  const [templateGap, setTemplateGap] = useState("");
+  const [onlyProblems, setOnlyProblems] = useState(false);
+  const [logQuery, setLogQuery] = useState("");
 
   // In Refs, nicht im State: die Poll-Schleife liest sie, und ein
   // State-Wert wäre in ihrer Closure eingefroren.
   const sinceRef = useRef(0);
   const sinceMainRef = useRef(0);
-  const finishedRef = useRef(false);
   const runIdRef = useRef("");
   const optionsRef = useRef<Record<string, boolean>>({});
   const phaseRef = useRef<Phase>("idle");
@@ -430,69 +579,82 @@ export function SpeedrunPanel({ guildId }: { guildId: string }) {
     };
   }, []);
 
-  const isRunning = phase === "building" || phase === "finishing";
+  const isRunning =
+    phase === "building" || phase === "waiting" || phase === "finishing";
+
+  const elapsed = useElapsed(startedAt, isRunning);
 
   /* -- Fortschritt einsammeln ------------------------------------ */
 
-  const applyStatus = useCallback(
-    async (data: any) => {
-      const fresh: LogLine[] = [
-        ...(data?.lines ?? []),
-        ...(data?.main?.lines ?? []),
-      ];
-      if (fresh.length) {
-        // Nach Zeitstempel, sonst stehen die Zeilen des zweiten Bots
-        // immer unten, auch wenn sie zeitlich dazwischen gehören.
-        fresh.sort((a, b) => a.at - b.at);
-        setLines((old) => [...old, ...fresh]);
-      }
-      // Zähler direkt hinter dem Lesen setzen, nicht erst nach dem
-      // Rendern: die nächste Abfrage muss den neuen Stand sehen.
-      sinceRef.current = data?.line_count ?? sinceRef.current;
-      sinceMainRef.current = data?.main?.line_count ?? sinceMainRef.current;
+  const applyStatus = useCallback(async (data: any) => {
+    const fresh: LogLine[] = [
+      ...(data?.lines ?? []),
+      ...(data?.main?.lines ?? []),
+    ];
+    if (fresh.length) {
+      // Nach Zeitstempel, sonst stehen die Zeilen des zweiten Bots
+      // immer unten, auch wenn sie zeitlich dazwischen gehören.
+      fresh.sort((a, b) => a.at - b.at);
+      setLines((old) => [...old, ...fresh]);
+    }
+    // Zähler direkt hinter dem Lesen setzen, nicht erst nach dem
+    // Rendern: die nächste Abfrage muss den neuen Stand sehen.
+    sinceRef.current = data?.line_count ?? sinceRef.current;
+    sinceMainRef.current = data?.main?.line_count ?? sinceMainRef.current;
 
-      if (typeof data?.step === "number") {
-        setProgress({ step: data.step, total: data.total ?? 0 });
-      }
-      if (data?.main?.report) setReport(data.main.report);
+    if (typeof data?.step === "number") {
+      setProgress({ step: data.step, total: data.total ?? 0 });
+    }
+    if (typeof data?.main?.step === "number") {
+      setMainProgress({ step: data.main.step, total: data.main.total ?? 0 });
+    }
+    if (data?.main?.report) setReport(data.main.report);
 
-      const templateState = data?.state;
-      const mainState = data?.main?.state;
+    // Der Template-Bot ist weg. Während der Einrichtung ist das
+    // folgenlos -- der Hauptbot arbeitet allein weiter.
+    setTemplateGap(String(data?.template_error || ""));
 
-      if (data?.run_id && !runIdRef.current) runIdRef.current = data.run_id;
+    const templateState = data?.state;
+    const mainState = data?.main?.state;
 
-      // Der Bau ist durch: die zweite Hälfte anstoßen. Genau einmal --
-      // ohne diesen Riegel startet jede Abfrage einen neuen Durchlauf.
-      if (templateState === "done" && mainState === "none" && !finishedRef.current) {
-        finishedRef.current = true;
-        setPhase("finishing");
-        try {
-          await api.speedrunFinish(guildId, optionsRef.current, runIdRef.current);
-        } catch (err: any) {
-          setPhase("failed");
-          toast.error(err?.message || "Die Einrichtung ließ sich nicht starten.");
-        }
-        return;
-      }
+    if (data?.main?.run_id && !runIdRef.current) {
+      runIdRef.current = data.main.run_id;
+    } else if (data?.run_id && !runIdRef.current) {
+      runIdRef.current = data.run_id;
+    }
 
-      if (templateState === "failed") {
-        setPhase("failed");
-        return;
-      }
-      if (mainState === "failed") {
-        setPhase("failed");
-        return;
-      }
+    // Der Zustand kommt vollständig vom Bot.
+    //
+    // Früher stand hier ein Aufruf von `/finish`, sobald der Bau fertig
+    // war -- und damit hing die zweite Hälfte am offenen Tab. Der Bot
+    // übernimmt das jetzt selbst; hier wird nur noch gelesen.
+    if (mainState === "failed") {
+      setPhase("failed");
+      return;
+    }
+    if (mainState === "partial") {
       // "partial" heißt: gelaufen, aber mit Lücken. Das als "Fertig" zu
       // zeigen wäre gelogen -- man würde die roten Zeilen übersehen.
-      if (mainState === "partial") {
-        setPhase("partial");
-        return;
-      }
-      if (mainState === "done") setPhase("done");
-    },
-    [guildId]
-  );
+      setPhase("partial");
+      return;
+    }
+    if (mainState === "done") {
+      setPhase("done");
+      return;
+    }
+    if (mainState === "running") {
+      setPhase("finishing");
+      return;
+    }
+    if (mainState === "waiting") {
+      // Der Bot wartet auf das Ende des Baus. Läuft der Bau noch, ist
+      // das "bauen"; ist er durch, dauert es nur einen Wimpernschlag.
+      setPhase(templateState === "done" ? "waiting" : "building");
+      return;
+    }
+
+    if (templateState === "failed") setPhase("failed");
+  }, []);
 
   /* -- Die Schleife ---------------------------------------------- */
   //
@@ -585,6 +747,10 @@ export function SpeedrunPanel({ guildId }: { guildId: string }) {
     // Neuladen auf Schritt 1, während im Hintergrund weitergebaut
     // wurde -- der Bau war unsichtbar und der Startknopf hätte einen
     // zweiten angestoßen.
+    //
+    // "waiting" gehört ausdrücklich dazu: das ist der Zustand zwischen
+    // fertigem Bau und begonnener Einrichtung. Er fehlte hier, und
+    // genau in diesem Fenster landete man wieder auf Schritt 1.
     if (status.status === "fulfilled") {
       const data = status.value;
       const templateState = data?.state;
@@ -592,10 +758,10 @@ export function SpeedrunPanel({ guildId }: { guildId: string }) {
       const active =
         templateState === "running" ||
         mainState === "running" ||
-        (templateState === "done" && mainState === "running");
+        mainState === "waiting";
 
       if (active) {
-        runIdRef.current = data?.run_id || data?.main?.run_id || "";
+        runIdRef.current = data?.main?.run_id || data?.run_id || "";
         // Was schon gelaufen ist, ins Terminal holen -- sonst beginnt
         // die Ausgabe mitten im Satz.
         const past: LogLine[] = [
@@ -605,13 +771,24 @@ export function SpeedrunPanel({ guildId }: { guildId: string }) {
         setLines(past);
         sinceRef.current = data?.line_count ?? 0;
         sinceMainRef.current = data?.main?.line_count ?? 0;
-        // Die Übergabe darf nicht erneut anlaufen, wenn sie schon läuft.
-        finishedRef.current = mainState !== "none";
         if (data?.main?.report) setReport(data.main.report);
         if (typeof data?.step === "number") {
           setProgress({ step: data.step, total: data.total ?? 0 });
         }
-        setPhase(mainState === "running" ? "finishing" : "building");
+        if (typeof data?.main?.step === "number") {
+          setMainProgress({
+            step: data.main.step,
+            total: data.main.total ?? 0,
+          });
+        }
+        if (past.length) setStartedAt(past[0].at * 1000);
+        setPhase(
+          mainState === "running"
+            ? "finishing"
+            : templateState === "done"
+            ? "waiting"
+            : "building"
+        );
         setStage(3);
         setResumed(true);
       }
@@ -633,18 +810,26 @@ export function SpeedrunPanel({ guildId }: { guildId: string }) {
         template: chosen,
         user_id: userId,
         options: { intros, rebuild: wipe },
+        // Die Schritte gehen beim Start mit, weil der Bot die zweite
+        // Hälfte selbst anstößt. Früher kamen sie erst mit /finish aus
+        // dem Browser -- der jetzt nicht mehr gefragt wird.
+        steps: options,
         // Der Bot prüft das noch einmal selbst. Hier steht es, weil er
         // sonst nicht wissen kann, ob wirklich jemand zugestimmt hat.
         confirm: wipe ? wipeConfirm.trim() : "",
       });
       sinceRef.current = 0;
       sinceMainRef.current = 0;
-      finishedRef.current = false;
       runIdRef.current = answer?.run_id || "";
       setLines([]);
       setReport(null);
       setProgress({ step: 0, total: 0 });
+      setMainProgress({ step: 0, total: 0 });
       setResumed(false);
+      setTemplateGap("");
+      setOnlyProblems(false);
+      setLogQuery("");
+      setStartedAt(Date.now());
       setPhase("building");
       setStage(3);
     } catch (err: any) {
@@ -681,8 +866,10 @@ export function SpeedrunPanel({ guildId }: { guildId: string }) {
     setLines([]);
     setReport(null);
     setProgress({ step: 0, total: 0 });
+    setMainProgress({ step: 0, total: 0 });
     setResumed(false);
-    finishedRef.current = false;
+    setTemplateGap("");
+    setStartedAt(0);
     runIdRef.current = "";
     setLoading(true);
     load();
@@ -701,6 +888,7 @@ export function SpeedrunPanel({ guildId }: { guildId: string }) {
   const checks = pre?.checks ?? {};
   const ready = Boolean(pre?.ready);
   const chosenTemplate = templates.find((t) => t.key === chosen);
+  const previewTemplate = templates.find((t) => t.key === preview);
   const chosenCount = Object.values(options).filter(Boolean).length;
 
   // Ohne Löschen immer startklar; mit Löschen erst, wenn der Servername
@@ -712,10 +900,27 @@ export function SpeedrunPanel({ guildId }: { guildId: string }) {
     (Boolean(pre?.guild_name) &&
       wipeConfirm.trim() === String(pre.guild_name).trim());
 
-  const percent =
-    progress.total > 0
-      ? Math.min(100, Math.round((progress.step / progress.total) * 100))
+  // Ein Balken über beide Hälften.
+  //
+  // Vorher zeigte er nur den Bau. Sobald der durch war, sprang er auf
+  // 100 %, und die Einrichtung -- dreizehn Schritte, die Panels posten
+  // und Tabellen anlegen -- lief hinter einem vollen Balken ab. Es sah
+  // aus, als hinge etwas. Jetzt zählen beide Hälften mit: der Bau macht
+  // die ersten zwei Drittel aus, die Einrichtung das letzte.
+  const BUILD_SHARE = 0.65;
+  const buildPart =
+    progress.total > 0 ? Math.min(1, progress.step / progress.total) : 0;
+  const mainPart =
+    mainProgress.total > 0
+      ? Math.min(1, mainProgress.step / mainProgress.total)
       : 0;
+  const percent =
+    phase === "done" || phase === "partial"
+      ? 100
+      : Math.round((buildPart * BUILD_SHARE + mainPart * (1 - BUILD_SHARE)) * 100);
+
+  const failedSteps: any[] = report?.steps?.filter((s: any) => !s.ok) ?? [];
+  const okSteps: any[] = report?.steps?.filter((s: any) => s.ok) ?? [];
 
   return (
     <section className="space-y-6">
@@ -904,54 +1109,138 @@ export function SpeedrunPanel({ guildId }: { guildId: string }) {
               {templates.map((template, index) => {
                 const locked = !template.available;
                 const active = chosen === template.key;
+                const open = preview === template.key;
                 return (
                   <Rise key={template.key} index={index}>
-                    <button
-                      disabled={locked}
-                      onClick={() => setChosen(template.key)}
+                    <div
                       className={cn(
-                        "w-full h-full text-left rounded-2xl border p-4 transition-all duration-200",
-                        locked &&
-                          "opacity-45 cursor-not-allowed border-slate-800/60 bg-[#0d1b31]",
+                        "h-full rounded-2xl border transition-all duration-200",
+                        locked && "opacity-45 border-slate-800/60 bg-[#0d1b31]",
                         !locked &&
                           active &&
-                          "border-primary/60 bg-primary/[0.08] shadow-lg shadow-primary/10 -translate-y-0.5",
+                          "border-primary/60 bg-primary/[0.08] shadow-lg shadow-primary/10",
                         !locked &&
                           !active &&
-                          "border-slate-800 bg-[#0d1b31] hover:border-slate-700 hover:-translate-y-0.5"
+                          "border-slate-800 bg-[#0d1b31] hover:border-slate-700"
                       )}
                     >
-                      <div className="flex items-start gap-2.5">
-                        <span className="text-lg shrink-0">{template.emoji}</span>
-                        <div className="min-w-0 flex-1">
-                          <p className="font-black text-white text-sm flex items-center gap-2">
-                            {template.name}
-                            {locked && (
-                              <Lock className="h-3 w-3 text-slate-500 shrink-0" />
-                            )}
-                            {active && !locked && (
-                              <CheckCircle2 className="h-3.5 w-3.5 text-primary shrink-0" />
-                            )}
-                          </p>
-                          <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
-                            {template.tagline}
-                          </p>
-                          <p className="text-[10px] text-slate-600 mt-2 font-bold uppercase tracking-wider">
-                            {template.role_count} Rollen ·{" "}
-                            {template.category_count} Kategorien
-                          </p>
-                          {locked && template.locked_reason && (
-                            <p className="text-[10px] text-amber-300/70 mt-2 leading-relaxed">
-                              {template.locked_reason}
+                      <button
+                        disabled={locked}
+                        onClick={() => setChosen(template.key)}
+                        className={cn(
+                          "w-full text-left p-4",
+                          locked ? "cursor-not-allowed" : "cursor-pointer"
+                        )}
+                      >
+                        <div className="flex items-start gap-2.5">
+                          <span className="text-lg shrink-0">{template.emoji}</span>
+                          <div className="min-w-0 flex-1">
+                            <p className="font-black text-white text-sm flex items-center gap-2">
+                              {template.name}
+                              {locked && (
+                                <Lock className="h-3 w-3 text-slate-500 shrink-0" />
+                              )}
+                              {active && !locked && (
+                                <CheckCircle2 className="h-3.5 w-3.5 text-primary shrink-0" />
+                              )}
                             </p>
-                          )}
+                            <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
+                              {template.tagline}
+                            </p>
+
+                            {/* Was wirklich entsteht.
+                                „3 Rollen“ stand hier früher an einer
+                                Vorlage, die sechzehn anlegt: gezählt
+                                wurden nur die Akzent-Rollen aus der
+                                JSON-Datei, nicht die Basisleiter. */}
+                            <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 mt-3">
+                              <Stat
+                                icon={Users}
+                                value={template.role_count}
+                                label="Rollen"
+                              />
+                              <Stat
+                                icon={Layers}
+                                value={template.category_count}
+                                label="Kategorien"
+                              />
+                              <Stat
+                                icon={Hash}
+                                value={template.text_count ?? "–"}
+                                label="Textkanäle"
+                              />
+                              <Stat
+                                icon={Volume2}
+                                value={template.voice_count ?? "–"}
+                                label="Sprachkanäle"
+                              />
+                            </div>
+
+                            {locked && template.locked_reason && (
+                              <p className="text-[10px] text-amber-300/70 mt-2.5 leading-relaxed">
+                                {template.locked_reason}
+                              </p>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    </button>
+                      </button>
+
+                      {/* Ausklappen: die Kategorien im Überblick. Vorher
+                          musste man den Bau starten, um zu erfahren, was
+                          die Vorlage überhaupt anlegt. */}
+                      {Array.isArray(template.outline) &&
+                        template.outline.length > 0 && (
+                          <div className="px-4 pb-3">
+                            <button
+                              onClick={() =>
+                                setPreview(open ? "" : template.key)
+                              }
+                              className="w-full flex items-center gap-2 pt-2 border-t border-slate-800/70 text-[10px] font-black uppercase tracking-wider text-slate-500 hover:text-slate-300 transition-colors"
+                            >
+                              {open ? "Weniger" : "Was wird gebaut?"}
+                              <ChevronDown
+                                className={cn(
+                                  "h-3 w-3 ml-auto transition-transform duration-300",
+                                  open && "rotate-180"
+                                )}
+                              />
+                            </button>
+
+                            {open && (
+                              <Rise>
+                                <div className="mt-2.5 space-y-1">
+                                  {template.outline.map((entry: any) => (
+                                    <div
+                                      key={entry.label}
+                                      className="flex items-center gap-2 text-[11px]"
+                                    >
+                                      <span className="shrink-0">
+                                        {entry.emoji}
+                                      </span>
+                                      <span className="text-slate-400 truncate">
+                                        {entry.label}
+                                      </span>
+                                      <span className="ml-auto text-slate-600 tabular-nums shrink-0">
+                                        {entry.channels}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </Rise>
+                            )}
+                          </div>
+                        )}
+                    </div>
                   </Rise>
                 );
               })}
             </div>
+
+            {previewTemplate?.description && (
+              <p className="text-[11px] text-slate-500 leading-relaxed">
+                {previewTemplate.description}
+              </p>
+            )}
 
             <div className="flex items-center gap-2 pt-1">
               <button
@@ -992,6 +1281,38 @@ export function SpeedrunPanel({ guildId }: { guildId: string }) {
                 Sachen weglassen willst.
               </p>
             </div>
+
+            {/* Was gleich passiert, in Zahlen -- direkt vor dem Knopf,
+                der es auslöst. */}
+            {chosenTemplate && (
+              <div className="rounded-2xl border border-slate-800 bg-[#0d1b31] p-4">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-600 mb-3">
+                  Das entsteht
+                </p>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <Stat
+                    icon={Users}
+                    value={chosenTemplate.role_count}
+                    label="Rollen"
+                  />
+                  <Stat
+                    icon={Layers}
+                    value={chosenTemplate.category_count}
+                    label="Kategorien"
+                  />
+                  <Stat
+                    icon={Hash}
+                    value={chosenTemplate.text_count ?? "–"}
+                    label="Textkanäle"
+                  />
+                  <Stat
+                    icon={Volume2}
+                    value={chosenTemplate.voice_count ?? "–"}
+                    label="Sprachkanäle"
+                  />
+                </div>
+              </div>
+            )}
 
             <div
               className={cn(
@@ -1195,20 +1516,55 @@ export function SpeedrunPanel({ guildId }: { guildId: string }) {
               </div>
             )}
 
+            {/* Der Tab darf zu.
+                Das ist keine Beruhigung, sondern seit dem Wächter im Bot
+                die Wahrheit -- und der häufigste Grund, warum jemand
+                minutenlang auf einen Ladebalken starrt. */}
+            {isRunning && (
+              <div className="rounded-xl bg-slate-500/[0.06] border border-slate-700/40 p-3.5 flex gap-2.5">
+                <Shield className="h-4 w-4 text-slate-400 shrink-0 mt-0.5" />
+                <p className="text-[12px] text-slate-400 leading-relaxed">
+                  Du kannst diese Seite jederzeit schließen — der Bot macht
+                  allein weiter und richtet danach selbst ein. Beim nächsten
+                  Öffnen siehst du, wie weit er ist.
+                </p>
+              </div>
+            )}
+
+            {/* Der Template-Bot ist weg. Während der Einrichtung
+                folgenlos, deshalb grau statt rot. */}
+            {templateGap && isRunning && (
+              <div className="rounded-xl bg-amber-500/[0.06] border border-amber-500/20 p-3.5 flex gap-2.5">
+                <WifiOff className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
+                <div className="min-w-0">
+                  <p className="text-[12px] text-amber-200/80 leading-relaxed">
+                    Der Template-Bot antwortet gerade nicht.
+                    {phase === "finishing"
+                      ? " Für die Einrichtung wird er nicht mehr gebraucht — sie läuft weiter."
+                      : " Es wird weiter nachgefragt."}
+                  </p>
+                </div>
+              </div>
+            )}
+
             <div className="flex items-center gap-3 flex-wrap">
               <p className="text-xs font-black uppercase tracking-widest text-slate-500">
                 {phase === "building" && "Der Template-Bot baut…"}
+                {phase === "waiting" && "Bau fertig — Übergabe läuft an…"}
                 {phase === "finishing" && "Der University Bot richtet ein…"}
                 {phase === "done" && "Fertig"}
                 {phase === "partial" && "Fertig, mit Lücken"}
                 {phase === "failed" && "Abgebrochen"}
                 {phase === "idle" && "Bereit"}
               </p>
-              {progress.total > 0 && isRunning && (
-                <span className="text-[11px] font-mono text-slate-500">
-                  {progress.step}/{progress.total}
+
+              {isRunning && elapsed && (
+                <span className="text-[11px] font-mono text-slate-500 inline-flex items-center gap-1.5">
+                  <Clock className="h-3 w-3" />
+                  {elapsed}
                 </span>
               )}
+
               {phase === "done" && (
                 <CheckCircle2 className="h-4 w-4 text-emerald-400" />
               )}
@@ -1229,45 +1585,84 @@ export function SpeedrunPanel({ guildId }: { guildId: string }) {
               )}
             </div>
 
-            {progress.total > 0 && (
-              <div className="h-1.5 rounded-full bg-slate-800 overflow-hidden">
-                <div
-                  className={cn(
-                    "h-full bg-primary transition-all duration-500 relative overflow-hidden",
-                    isRunning && "sr-sheen"
+            {/* Ein Balken über beide Hälften, mit Prozentzahl. */}
+            {(isRunning || phase === "done" || phase === "partial") && (
+              <div className="space-y-1.5">
+                <div className="h-1.5 rounded-full bg-slate-800 overflow-hidden">
+                  <div
+                    className={cn(
+                      "h-full transition-all duration-500 relative overflow-hidden",
+                      phase === "partial" ? "bg-amber-400" : "bg-primary",
+                      isRunning && "sr-sheen"
+                    )}
+                    style={{ width: `${percent}%` }}
+                  />
+                </div>
+                <div className="flex items-center gap-2 text-[10px] font-mono text-slate-600">
+                  <span className="tabular-nums">{percent}%</span>
+                  {phase === "building" && progress.total > 0 && (
+                    <span>
+                      Bau {progress.step}/{progress.total}
+                    </span>
                   )}
-                  style={{ width: `${percent}%` }}
-                />
+                  {phase === "finishing" && mainProgress.total > 0 && (
+                    <span>
+                      Einrichtung {mainProgress.step}/{mainProgress.total}
+                    </span>
+                  )}
+                </div>
               </div>
             )}
 
-            <Console lines={lines} running={isRunning} />
+            <Console
+              lines={lines}
+              running={isRunning}
+              onlyProblems={onlyProblems}
+              onToggleProblems={() => setOnlyProblems((old) => !old)}
+              query={logQuery}
+              onQuery={setLogQuery}
+            />
 
             {report && (
               <Rise>
-                <div className="space-y-1.5">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-600">
-                    Was der University Bot eingerichtet hat
-                  </p>
-                  {report.steps?.map((step: any, index: number) => (
-                    <Rise key={step.key} index={index}>
-                      <div className="flex items-start gap-2.5 py-1">
-                        {step.ok ? (
-                          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0 mt-0.5" />
-                        ) : (
-                          <CircleDashed className="h-3.5 w-3.5 text-amber-400 shrink-0 mt-0.5" />
-                        )}
-                        <p
-                          className={cn(
-                            "text-[12px] leading-relaxed",
-                            step.ok ? "text-slate-400" : "text-amber-200/80"
-                          )}
-                        >
-                          {step.detail || step.key}
-                        </p>
-                      </div>
-                    </Rise>
-                  ))}
+                <div className="space-y-3">
+                  {/* Was nicht geklappt hat, zuerst -- sonst steht es
+                      unter dreizehn grünen Haken und wird übersehen. */}
+                  {failedSteps.length > 0 && (
+                    <div className="rounded-2xl border border-amber-500/25 bg-amber-500/[0.05] p-4 space-y-1.5">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-amber-300/80">
+                        Das hat nicht geklappt ({failedSteps.length})
+                      </p>
+                      {failedSteps.map((step: any, index: number) => (
+                        <Rise key={step.key} index={index}>
+                          <div className="flex items-start gap-2.5 py-1">
+                            <CircleDashed className="h-3.5 w-3.5 text-amber-400 shrink-0 mt-0.5" />
+                            <p className="text-[12px] leading-relaxed text-amber-100/80">
+                              {step.detail || step.key}
+                            </p>
+                          </div>
+                        </Rise>
+                      ))}
+                    </div>
+                  )}
+
+                  {okSteps.length > 0 && (
+                    <div className="space-y-1.5">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-600">
+                        Eingerichtet ({okSteps.length})
+                      </p>
+                      {okSteps.map((step: any, index: number) => (
+                        <Rise key={step.key} index={index}>
+                          <div className="flex items-start gap-2.5 py-1">
+                            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0 mt-0.5" />
+                            <p className="text-[12px] leading-relaxed text-slate-400">
+                              {step.detail || step.key}
+                            </p>
+                          </div>
+                        </Rise>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </Rise>
             )}
@@ -1283,14 +1678,61 @@ export function SpeedrunPanel({ guildId }: { guildId: string }) {
               </div>
             )}
 
+            {/* Nach einem geglückten Lauf: was jetzt zu tun ist. Der
+                Server ist fertig, aber die Regeln sind Platzhalter und
+                die Bot-Rolle sollte nach oben. */}
+            {(phase === "done" || phase === "partial") && (
+              <div className="rounded-2xl border border-slate-800 bg-[#0d1b31] p-4 space-y-2">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-600">
+                  Was du noch tun solltest
+                </p>
+                {[
+                  "Die Regeln im Regel-Kanal anpassen — der Text ist ein Platzhalter.",
+                  "Die Bot-Rolle über die Team-Rollen schieben, sonst kann er sie nicht vergeben.",
+                  "Einmal selbst durch die Verify-Schleuse gehen und prüfen, ob die Rolle kommt.",
+                ].map((line, index) => (
+                  <div key={line} className="flex items-start gap-2.5">
+                    <span className="h-4 w-4 rounded-full bg-slate-800 text-slate-500 grid place-items-center text-[9px] font-black shrink-0 mt-0.5">
+                      {index + 1}
+                    </span>
+                    <p className="text-[12px] text-slate-400 leading-relaxed">
+                      {line}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+
             {!isRunning && (
-              <button
-                onClick={restart}
-                className="px-3.5 py-2 rounded-xl border border-slate-800 text-slate-400 text-[11px] font-black uppercase tracking-wider hover:text-white transition-colors inline-flex items-center gap-2"
-              >
-                <ArrowLeft className="h-3.5 w-3.5" />
-                Von vorne
-              </button>
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  onClick={restart}
+                  className="px-3.5 py-2 rounded-xl border border-slate-800 text-slate-400 text-[11px] font-black uppercase tracking-wider hover:text-white transition-colors inline-flex items-center gap-2"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                  Von vorne
+                </button>
+                {lines.length > 0 && (
+                  <button
+                    onClick={() => {
+                      const text = lines
+                        .map(
+                          (line) =>
+                            `[${line.source}] ${line.level.padEnd(7)} ${line.text}`
+                        )
+                        .join("\n");
+                      navigator.clipboard
+                        ?.writeText(text)
+                        .then(() => toast.success("Log kopiert."))
+                        .catch(() => toast.error("Kopieren ging nicht."));
+                    }}
+                    className="px-3.5 py-2 rounded-xl border border-slate-800 text-slate-400 text-[11px] font-black uppercase tracking-wider hover:text-white transition-colors inline-flex items-center gap-2"
+                  >
+                    <MessageSquare className="h-3.5 w-3.5" />
+                    Log kopieren
+                  </button>
+                )}
+              </div>
             )}
           </div>
         </Rise>

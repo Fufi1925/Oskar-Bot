@@ -242,20 +242,76 @@ def test_the_browser_decides_nothing():
               "PARTNER_TOKEN" not in source and "X-Partner-Token" not in source)
 
 
-def test_the_progress_poll_cannot_start_twice():
-    """Sonst startet jede Abfrage eine neue Einrichtung."""
+def test_the_handover_does_not_hang_on_an_open_tab():
+    """
+    Der schwerste Fehler dieses Reiters.
 
-    print("\nDie zweite Hälfte startet genau einmal")
+    Früher stieß das Panel die zweite Hälfte an: es fragte den
+    Fortschritt ab, sah „Bau fertig“ und rief `/finish`. Damit hing die
+    halbe Einrichtung am offenen Browser-Tab. Wer während des Baus den
+    Tab schloss, das Handy sperrte oder unterwegs das Netz verlor, bekam
+    Rollen und Kanäle — aber kein Verify, keine Tickets, keine Logs,
+    keine Anti-Nuke, keine Begrüßung. Ohne Meldung. Ein Bau dauert über
+    eine Minute; einen Tab so lange offen zu halten ist keine Bedingung,
+    die man jemandem stellen kann.
+
+    Jetzt übernimmt der Bot selbst. Geprüft wird beides: dass der
+    Browser es *nicht* mehr tut, und dass der Bot es *wirklich* tut.
+    """
+
+    print("\nDie Übergabe hängt nicht am offenen Tab")
+
+    import ast
 
     panel = strip_comments(read(PANEL))
 
-    check("es gibt einen Riegel", "finishedRef" in panel)
-    # Er muss abgefragt werden, bevor gestartet wird -- und gesetzt,
-    # bevor der Aufruf rausgeht. Andernfalls schafft es die nächste
-    # Abfrage (1,5 s später) noch dazwischen.
-    finish_block = panel.split("api.speedrunFinish")[0]
-    check("er wird vorher geprüft", "!finishedRef.current" in finish_block)
-    check("und vorher gesetzt", "finishedRef.current = true" in finish_block)
+    # 1. Der Browser darf die Einrichtung nicht mehr auslösen.
+    check("das Panel ruft /finish nicht mehr auf",
+          "api.speedrunFinish" not in panel,
+          "damit hinge die zweite Hälfte wieder am offenen Tab")
+
+    # 2. Der Bot muss es stattdessen tun -- über den Syntaxbaum, denn
+    #    „das Wort kommt vor“ sagt nichts darüber, ob der Wächter auch
+    #    gestartet wird.
+    route_src = open(
+        os.path.join(BOT, "api", "routes", "speedrun.py"), encoding="utf-8"
+    ).read()
+    tree = ast.parse(route_src)
+
+    start = next(
+        (n for n in ast.walk(tree)
+         if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
+         and n.name == "start"),
+        None,
+    )
+    check("es gibt die Start-Route", start is not None)
+    if start is not None:
+        check("der Start setzt den Wächter an",
+              "_watch_build" in ast.unparse(start),
+              "ohne ihn wartet niemand auf das Ende des Baus")
+
+    watcher = next(
+        (n for n in ast.walk(tree)
+         if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
+         and n.name == "_watch_build"),
+        None,
+    )
+    check("es gibt den Wächter", watcher is not None)
+    if watcher is not None:
+        body = ast.unparse(watcher)
+        check("er wartet in einer Schleife",
+              any(isinstance(n, ast.While) for n in ast.walk(watcher)),
+              "ohne Schleife fragt er genau einmal und gibt auf")
+        check("und übergibt danach", "_begin_handover" in body)
+        # Ein Abbruch muss ihn erreichen, sonst richtet er nach dem
+        # Klick auf „Abbrechen“ trotzdem noch ein.
+        check("ein Abbruch stoppt ihn", "cancelled" in body)
+
+    # 3. Die Schritte müssen beim Start mitgehen -- der Browser wird ja
+    #    nicht mehr gefragt. Ohne sie richtete der Bot immer den
+    #    Standard ein und die Auswahl im Reiter wäre wirkungslos.
+    check("die Auswahl geht beim Start mit", "steps: options" in panel,
+          "sonst ignoriert der Bot, was im Umfang abgewählt wurde")
 
     # Zähler in Refs, nicht im State: ein State-Wert wäre in der Closure
     # des Timers eingefroren und würde dieselben Zeilen doppelt holen.
@@ -451,8 +507,14 @@ def test_the_poll_cannot_overlap_itself():
 
     panel = strip_comments(read(PANEL))
 
-    check("kein setInterval mehr im Ladeweg",
-          "setInterval" not in panel,
+    # Kein setInterval *in der Abfrageschleife*. Anderswo ist er
+    # harmlos: die Laufzeit-Uhr tickt einmal pro Sekunde und ruft
+    # nichts ab. Deshalb wird hier der Effekt der Schleife angesehen,
+    # nicht die ganze Datei -- ein pauschales Verbot hätte die Uhr
+    # verboten und mit dem Fehler nichts zu tun gehabt.
+    poll_effect = panel.split("if (!isRunning) return;")[1].split("}, [")[0]
+    check("die Abfrageschleife nutzt kein setInterval",
+          "setInterval" not in poll_effect,
           "setInterval startet die nächste Abfrage ungefragt")
     check("es wird neu geplant statt getaktet", "setTimeout(tick" in panel)
     check("eine laufende Abfrage sperrt", "pollingRef" in panel)
@@ -494,9 +556,18 @@ def test_a_reload_finds_a_running_build():
           "setLines(past)" in load,
           "sonst beginnt die Ausgabe mitten im Satz")
     check("es wird sichtbar gemacht", "setResumed(true)" in load)
-    # Und die Übergabe darf nicht erneut anlaufen, wenn sie schon läuft.
-    check("der Riegel wird passend gesetzt",
-          "finishedRef.current = mainState" in load)
+
+    # Der Zustand zwischen fertigem Bau und begonnener Einrichtung
+    # zählt ausdrücklich als „läuft“.
+    #
+    # Er fehlte hier: „waiting“ war weder running noch done, also galt
+    # der Lauf beim Neuladen als beendet. Wer genau in diesem Fenster
+    # neu lud -- es dauert bis zu drei Sekunden -- landete wieder auf
+    # Schritt 1, während der Bot im Hintergrund einrichtete. Der
+    # Startknopf hätte einen zweiten Lauf angestoßen.
+    check("ein wartender Lauf gilt als laufend",
+          'mainState === "waiting"' in load,
+          "sonst ist die Übergabe im Moment des Neuladens unsichtbar")
 
 
 def test_the_handover_is_tied_to_this_run():
@@ -515,10 +586,28 @@ def test_the_handover_is_tied_to_this_run():
     check("das Panel merkt sich die Lauf-Kennung", "runIdRef" in panel)
     check("sie wird beim Start übernommen",
           "runIdRef.current = answer?.run_id" in panel)
-    check("und beim Abschluss mitgeschickt",
-          "api.speedrunFinish(guildId, optionsRef.current, runIdRef.current)"
-          in panel)
     check("die API reicht sie durch", "run_id: runId" in api_src)
+
+    # Seit der Bot die Übergabe selbst anstößt, muss *er* prüfen, ob
+    # der fertige Bau noch zu seinem Lauf gehört. Der Browser kann das
+    # nicht mehr tun -- er ist beim Abschluss womöglich gar nicht offen.
+    import ast
+
+    route_src = open(
+        os.path.join(BOT, "api", "routes", "speedrun.py"), encoding="utf-8"
+    ).read()
+    watcher = next(
+        (n for n in ast.walk(ast.parse(route_src))
+         if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
+         and n.name == "_watch_build"),
+        None,
+    )
+    check("der Wächter kennt die Lauf-Kennung", watcher is not None)
+    if watcher is not None:
+        body = ast.unparse(watcher)
+        check("er vergleicht sie mit dem laufenden Bau",
+              "actual_run != run_id" in body or "run_id != actual_run" in body,
+              "sonst richtet er nach einem fremden Bau ein")
 
     # Und der Bot prüft sie -- eine Sperre nur im Browser ist keine.
     route = strip_comments(
@@ -680,7 +769,7 @@ def main():
     test_hooks_come_before_any_early_return()
     test_no_german_quotes_break_a_string()
     test_the_browser_decides_nothing()
-    test_the_progress_poll_cannot_start_twice()
+    test_the_handover_does_not_hang_on_an_open_tab()
     test_one_failed_call_does_not_blank_the_others()
     test_the_server_says_why_it_cannot_reach_the_template_bot()
     test_the_wipe_switch_is_hard_to_hit_by_accident()
