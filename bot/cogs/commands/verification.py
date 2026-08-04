@@ -1481,37 +1481,17 @@ class Verification (commands .Cog ):
     async def verification (self ,ctx ):
         await ctx .send_help (ctx .command )
 
-    @verification .command (name ="setup",description ="Set up the advanced verification system.")
-    @blacklist_check ()
-    @ignore_check ()
-    @commands .has_permissions (administrator =True )
-    async def verification_setup (self ,ctx ):
-        try :
-
-            missing_perms =await check_bot_permissions (ctx .guild )
-
-            if missing_perms ['guild']:
-                embed =VCard("Missing Permissions", f"Bot is missing required server permissions: {', '.join(missing_perms['guild'])}\n\n"
-                "Please grant these permissions and try again.", tone='error')
-                await ctx .send (view =embed )
-                return 
-
-            embed =VCard("Advanced Verification System Setup", "**Welcome to the next-generation verification system!**\n\n"
-            "• **Auto-creates verified role** with proper permissions\n"
-            "• **DM-based CAPTCHA** system for enhanced security\n"
-            "• **Smart channel management** - hides verification after verification\n"
-            "• **Auto-permission fixing** for seamless setup\n"
-            "• **Auto-message deletion** in verification channel\n"
-            "• **Comprehensive logging** and analytics\n\n"
-            "**Configure your system using the dropdowns below:**", tone='info')
-
-            view =VerificationSetupView (self .bot ,ctx )
-            await ctx .send (view=from_view(view))
-
-        except Exception as e :
-            logger .error (f"Error in verification setup: {e}")
-            embed =VCard("Something went wrong", "The action could not be completed. Please try again.", tone='error')
-            await ctx .send (view =embed )
+    # `verification setup` gibt es nicht mehr -- auf Wunsch entfernt.
+    #
+    # Die Verifizierung wird im Dashboard eingerichtet (Reiter
+    # "Verify"): Kanal, Rolle und Methode lassen sich dort einzeln
+    # ändern, der Chat-Assistent konnte nur alles am Stück.
+    #
+    # `VerificationSetupView` bleibt stehen -- sie hatte hier ihren
+    # einzigen Aufrufer, aber das Aufräumen gehört nicht in einen
+    # Commit, der einen Befehl entfernt.
+    #
+    # Die übrigen /verification-Befehle (status, reset, ...) bleiben.
 
     @verification .command (name ="status",description ="Check verification system status and analytics.")
     @blacklist_check ()

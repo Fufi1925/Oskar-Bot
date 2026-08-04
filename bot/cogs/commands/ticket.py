@@ -429,12 +429,19 @@ class TicketCog(commands.Cog, name="Ticket System"):
     async def ticket(self, ctx):
         if ctx.invoked_subcommand is None: await ctx.send_help(ctx.command)
 
-    @ticket.command(name="setup", description="Start the interactive setup for the ticket panel.")
-    @commands.has_permissions(manage_guild=True)
-    @app_commands.describe(style="The style of the ticket creation panel.", channel="The channel where the ticket panel will be sent.")
-    @app_commands.choices(style=[app_commands.Choice(name="Dropdown Menu", value="dropdown"), app_commands.Choice(name="Buttons", value="button")])
-    async def setup(self, ctx, style: app_commands.Choice[str], channel: discord.TextChannel):
-        await EmbedEditorView(self, ctx, channel, style.value).start(ctx.interaction)
+    # `ticket setup` gibt es nicht mehr -- auf Wunsch entfernt.
+    #
+    # Das Ticket-System wird im Dashboard eingerichtet (Reiter
+    # "Tickets"): dort lassen sich Kategorien, Rechte und das Panel
+    # zusammenklicken und jederzeit wieder ändern. Der Chat-Assistent
+    # konnte das nur einmal am Stück und hatte kein Zurück.
+    #
+    # `EmbedEditorView` (oben) hatte hier ihren einzigen Aufrufer und
+    # ist damit tot. Sie bleibt trotzdem stehen: das Dashboard postet
+    # Panels über /tickets/{guild}/panels/{id}/send und baut sie
+    # selbst, aber die Klasse ist mehrere hundert Zeilen groß, und sie
+    # im selben Zug zu löschen wäre eine zweite Änderung in einem
+    # Commit, der eigentlich nur einen Befehl entfernt.
 
     @ticket.command(name="close", description="Close the current ticket channel.")
     @commands.has_permissions(manage_channels=True)

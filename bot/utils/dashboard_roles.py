@@ -189,6 +189,15 @@ PERMISSIONS: tuple[Permission, ...] = (
                "See who holds which dashboard role."),
     Permission("team.assign", "Assign Roles", "Team",
                "Give and take dashboard roles from people.", dangerous=True),
+
+    # ── Beta-Test ─────────────────────────────────────────────────────────
+    # Die einzige Berechtigung des Tester-Reiters. Sie oeffnet nichts
+    # weiter: wer sie hat, sieht im Admin-Panel genau eine Seite --
+    # was zuletzt ausgeliefert wurde, und ein Formular fuer Fehler und
+    # Vorschlaege.
+    Permission("tester.access", "Tester-Bereich", "Beta",
+               "Sieht den Tester-Reiter: letzte Änderungen melden und "
+               "Rückmeldung geben."),
 )
 
 PERMISSIONS_BY_KEY: dict[str, Permission] = {p.key: p for p in PERMISSIONS}
@@ -235,6 +244,7 @@ CAT_COMMUNITY = "Community"
 CAT_CONTENT = "Content"
 CAT_TECHNICAL = "Technical"
 CAT_ANALYTICS = "Analytics"
+CAT_BETA = "Beta-Test"
 
 ALL_PERMISSION_KEYS = tuple(p.key for p in PERMISSIONS)
 
@@ -439,6 +449,17 @@ ROLES: tuple[Role, ...] = (
          "Reads the cross-guild audit log and incident timeline.",
          _perms("audit.view", "reports.view", "logs.view", "team.view"),
          rank=49, color="#115e59"),
+    # ── Beta-Test (1) ─────────────────────────────────────────────────────
+    Role("tester", "Tester", CAT_BETA,
+         "Testet neue Funktionen vor dem Rollout. Sieht im Admin-Panel "
+         "nur den Tester-Reiter und hat dort alle Premium-Funktionen frei.",
+         # Bewusst kurz: dashboard.access, damit die Anmeldung
+         # ueberhaupt geht, und tester.access fuer den einen Reiter.
+         # Ein Tester soll Funktionen ausprobieren, nicht den Server
+         # verwalten -- jede weitere Berechtigung waere eine, die
+         # niemand angefordert hat.
+         _perms("tester.access"),
+         rank=10, color="#8b5cf6"),
     Role("compliance_officer", "Compliance Officer", CAT_ANALYTICS,
          "Reviews the audit log and resolves queued admin actions.",
          _perms("audit.view", "approvals.view", "approvals.resolve", "reports.view",
@@ -449,7 +470,7 @@ ROLES: tuple[Role, ...] = (
 ROLES_BY_KEY: dict[str, Role] = {r.key: r for r in ROLES}
 ROLE_CATEGORIES: tuple[str, ...] = tuple(dict.fromkeys(r.category for r in ROLES))
 
-assert len(ROLES) == 40, f"expected 40 roles, got {len(ROLES)}"
+assert len(ROLES) == 41, f"expected 41 roles, got {len(ROLES)}"
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -715,6 +736,30 @@ def get_permissions(user_id: str, guild_id: str | None = None) -> set[str]:
 
 def has_permission(user_id: str, permission: str, guild_id: str | None = None) -> bool:
     return permission in get_permissions(user_id, guild_id)
+
+
+# Die Rolle, die den Premium-Bypass traegt.
+#
+# Als Konstante, damit "tester" nicht an fuenf Stellen als Zeichenkette
+# steht: eine davon wuerde beim ersten Umbenennen vergessen, und dann
+# haette jemand still kein Premium mehr -- oder schlimmer, jemand
+# anderes plötzlich schon.
+TESTER_ROLE_KEY = "tester"
+
+
+def is_tester(user_id: str) -> bool:
+    """Haelt dieser Nutzer die Tester-Rolle?
+
+    Getrennt von ``has_permission("tester.access")``, obwohl beides
+    heute dasselbe Ergebnis liefert: die Berechtigung oeffnet einen
+    Reiter, diese Frage schaltet *Premium* frei. Wer spaeter einer
+    anderen Rolle den Tester-Reiter geben will, soll ihr damit nicht
+    versehentlich alle Premium-Funktionen mitgeben.
+    """
+
+    if not user_id:
+        return False
+    return any(role.key == TESTER_ROLE_KEY for role in get_roles(str(user_id)))
 
 
 def highest_rank(user_id: str) -> int:

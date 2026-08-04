@@ -555,6 +555,26 @@ export const api = {
    * nicht um die eines bestimmten Servers.
    */
   getBotEmojis: () => request<any>(`/compose/emojis`),
+
+  // ── Tester-Bereich ────────────────────────────────────────────────
+  // Die user_id setzt der Proxy aus der Sitzung; sie hier mitzugeben
+  // hätte keine Wirkung.
+  testerStatus: () => request<any>(`/tester/status`),
+  testerChangelog: (limit = 40) =>
+    request<any>(`/tester/changelog?limit=${limit}`),
+  testerFeedback: (limit = 100) =>
+    request<any>(`/tester/feedback?limit=${limit}`),
+  testerSubmit: (kind: string, title: string, body: string, userName = "") =>
+    request<any>(`/tester/feedback`, {
+      method: "POST",
+      body: JSON.stringify({ kind, title, body, user_name: userName }),
+    }),
+  testerSetState: (id: number, state: string, note = "") =>
+    request<any>(`/tester/feedback/${id}`, {
+      method: "POST",
+      body: JSON.stringify({ state, note }),
+    }),
+  testerMembers: () => request<any>(`/tester/members`),
   editComposed: (guildId: string, data: any) =>
     request<any>(`/compose/${guildId}/edit`, {
       method: "POST",

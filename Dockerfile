@@ -47,6 +47,30 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy bot code
 COPY bot/ ./bot/
 
+# Die Deploy-Historie fuer den Tester-Reiter.
+#
+# Im fertigen Image gibt es kein .git -- oben wird nur bot/ und
+# dashboard/ kopiert. Der Reiter zeigt aber, was zuletzt ausgeliefert
+# wurde, und braucht die Angaben zur Laufzeit.
+#
+# Erzeugt wird die Datei *vor* dem Build mit
+#
+#     python tools/freeze_history.py
+#
+# und sie liegt dann als bot/deploy_history.json im Kontext. Sie wird
+# oben mit `COPY bot/` mitkopiert.
+#
+# Warum nicht einfach .git ins Image kopieren und hier `git log`
+# aufrufen: .git enthaelt die komplette Geschichte und unter Umstaenden
+# Zugangsdaten in .git/config. Das gehoert in kein Laufzeit-Image.
+#
+# Fehlt die Datei, faellt der Reiter auf `git log` zurueck und zeigt
+# lokal trotzdem etwas. Im Image bleibt er dann leer -- unschoen, aber
+# kein Grund, den Deploy abzubrechen.
+RUN test -f bot/deploy_history.json \
+    && echo "[build] deploy history present" \
+    || echo "[build] no deploy history -- tester tab will be empty"
+
 # Copy dashboard standalone build
 COPY --from=dashboard-builder /app/dashboard/.next/standalone ./dashboard/standalone
 COPY --from=dashboard-builder /app/dashboard/.next/static ./dashboard/standalone/.next/static

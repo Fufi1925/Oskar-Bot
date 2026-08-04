@@ -240,10 +240,41 @@ def status(user_id: int | str, product: str = "template_bot") -> dict[str, Any]:
                 duration = int(row["duration"] or 0)
 
     active = lifetime or best is not None
+
+    # Tester bekommen Premium ohne Key.
+    #
+    # Die Pruefung sitzt hier und nicht bei den Aufrufern: `status()`
+    # ist die eine Stelle, die "hat dieser Nutzer Premium?" beantwortet
+    # -- Dashboard, Speedrun und der Template-Bot fragen alle darueber.
+    # Den Bypass an jedem Aufrufer einzeln einzubauen hiesse, ihn
+    # irgendwann irgendwo zu vergessen.
+    #
+    # Der Import steht bewusst in der Funktion: dashboard_roles laedt
+    # utils/, und utils/__init__ importiert wiederum diese Datei --
+    # oben stuende ein Ringschluss.
+    tester = False
+    if not active:
+        try:
+            from utils import dashboard_roles
+
+            tester = dashboard_roles.is_tester(user_id)
+        except Exception:
+            # Eine kaputte Rollenabfrage darf niemandem Premium
+            # wegnehmen, den er bezahlt hat -- und keinem geben.
+            tester = False
+
+    if tester:
+        active = True
+        lifetime = True
+
     return {
         "user_id": user_id,
         "product": product,
         "premium": active,
+        # Damit die Oberflaeche "Tester-Zugang" statt "Lifetime-Key"
+        # anzeigen kann -- und der Nutzer nicht glaubt, er haette
+        # bezahlt.
+        "via_tester": tester,
         # None means "forever" when active, and nothing at all when not.
         "expires_at": None if lifetime else best,
         "lifetime": lifetime,

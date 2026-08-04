@@ -497,6 +497,20 @@ async function authorize(
     return { ok: false, response: deny(403, `This requires the '${required}' permission.`) };
   }
 
+  if (scope === "tester") {
+    // Der Tester-Bereich prüft seine Rechte im Bot selbst, über die
+    // Tester-Rolle. Hier reicht deshalb "angemeldet" -- ein
+    // isGlobalAdmin-Gate wie bei /admin würde genau die Leute
+    // aussperren, für die der Bereich gebaut ist.
+    //
+    // Die user_id wird aus der Sitzung gesetzt und nicht aus dem
+    // Aufruf übernommen: sonst schreibt sich jeder eine fremde ID in
+    // die Anfrage und liest deren Meldungen.
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) return { ok: false, response: deny(401, "Not signed in.") };
+    return { ok: true };
+  }
+
   if (scope === "premium") {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) return { ok: false, response: deny(401, "Not signed in.") };
@@ -844,6 +858,13 @@ async function handler(request: NextRequest, context: { params: { path?: string[
           if (segments[0] === "premium" && segments[1] === "redeem") {
             parsed.user_id = actorId;
           }
+          // Dasselbe für den Tester-Bereich: der Bot entscheidet
+          // anhand der user_id, wer Tester ist und wessen Meldungen
+          // jemand sieht. Käme sie aus dem Browser, schriebe sich
+          // jeder eine fremde ID hinein.
+          if (segments[0] === "tester") {
+            parsed.user_id = actorId;
+          }
           body = JSON.stringify(parsed);
         }
       } catch {
@@ -855,6 +876,13 @@ async function handler(request: NextRequest, context: { params: { path?: string[
   // Same for DELETE, where the actor travels as a query parameter.
   if (request.method === "DELETE" && actorId) {
     url.searchParams.set("actor", actorId);
+  }
+
+  // Der Tester-Bereich liest die user_id auch bei GET. Sie kommt
+  // immer aus der Sitzung -- ein mitgeschickter Wert wird
+  // überschrieben, nicht ergänzt.
+  if (segments[0] === "tester" && actorId) {
+    url.searchParams.set("user_id", actorId);
   }
 
   const targetUrl = url.toString();

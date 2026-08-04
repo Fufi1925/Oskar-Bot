@@ -6,7 +6,7 @@ import {
   RefreshCw, Ban, UserX, Clock, VolumeX, Send, Megaphone, Wrench, AlertTriangle,
   Hash, Volume2, FolderPlus, Pencil, Trash2, Copy,
   Unlock, Timer, MessageSquareX, Bell, BellOff, SearchCheck, Bot, UserCog,
-  Webhook, Link, ScrollText, BarChart4, ClipboardList, Terminal, Gem, Gauge
+  Webhook, Link, ScrollText, BarChart4, ClipboardList, Terminal, Gem, Gauge, Bug
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
@@ -20,6 +20,7 @@ import { SystemHealthPanel } from "@/components/dashboard/system-health-panel";
 import { TeamPanel } from "@/components/dashboard/team-panel";
 import { PremiumAdmin } from "@/components/dashboard/premium-admin";
 import { SpeedrunAdmin } from "@/components/dashboard/speedrun-admin";
+import { TesterPanel } from "@/components/dashboard/tester-panel";
 import { DataAge } from "@/components/ui/data-age";
 import { StatValue } from "@/components/ui/stat-value";
 import { Reveal } from "@/components/ui/reveal";
@@ -37,7 +38,7 @@ import { DashboardUsersPanel } from "@/components/dashboard/dashboard-users-pane
 import { ServersPanel } from "@/components/dashboard/servers-panel";
 
 
-type TabId = "members" | "channels" | "server" | "scans" | "broadcast" | "system" | "features" | "health" | "team" | "access" | "reports" | "audit" | "approvals" | "botsettings" | "backups" | "warnings" | "usage" | "dashusers" | "servers" | "premium" | "speedrun";
+type TabId = "members" | "channels" | "server" | "scans" | "broadcast" | "system" | "features" | "health" | "team" | "access" | "reports" | "audit" | "approvals" | "botsettings" | "backups" | "warnings" | "usage" | "dashusers" | "servers" | "premium" | "speedrun" | "tester";
 type MemberAction = "ban" | "kick" | "mute" | "unmute";
 
 type QuickAction = {
@@ -71,6 +72,7 @@ const tabs: Array<{ id: TabId; label: string; icon: any }> = [
   { id: "access", label: "Access", icon: Lock },
   { id: "premium", label: "Premium", icon: Gem },
   { id: "speedrun", label: "Speedrun", icon: Gauge },
+  { id: "tester", label: "Tester", icon: Bug },
 ];
 
 /**
@@ -88,7 +90,7 @@ const TAB_GROUPS: Array<{ name: string; ids: TabId[] }> = [
   { name: "Server", ids: ["members", "channels", "server", "scans", "broadcast"] },
   { name: "Betrieb", ids: ["health", "system", "usage", "warnings", "reports", "audit"] },
   { name: "Zugriff", ids: ["team", "dashusers", "access", "approvals"] },
-  { name: "Verwaltung", ids: ["features", "botsettings", "backups", "servers", "premium", "speedrun"] },
+  { name: "Verwaltung", ids: ["features", "botsettings", "backups", "servers", "premium", "speedrun", "tester"] },
 ];
 
 const memberActions: Array<{ action: MemberAction; label: string; desc: string; icon: any }> = [
@@ -130,7 +132,7 @@ const quickActions: QuickAction[] = [
 const FULL_WIDTH_TABS = new Set<TabId>([
   "features", "health", "team", "access",
   "reports", "audit", "approvals", "botsettings", "backups", "warnings", "usage",
-  "dashusers", "servers", "premium", "speedrun",
+  "dashusers", "servers", "premium", "speedrun", "tester",
 ]);
 
 function TextInput({ label, value, setValue, placeholder, type = "text" }: { label: string; value: string; setValue: (value: string) => void; placeholder?: string; type?: string }) {
@@ -282,6 +284,7 @@ export function AdminContent() {
     approvals: "approvals.view",
     backups: "health.view",
     botsettings: "maintenance.toggle",
+    tester: "tester.access",
   };
 
   const visibleTabs = useMemo(() => {
@@ -289,6 +292,19 @@ export function AdminContent() {
     // anything the user may not do anyway.
     if (!access) return tabs;
     if (access.is_owner) return tabs;
+
+    // Tester sehen genau einen Reiter -- ihren.
+    //
+    // Ohne diese Zeile käme jeder Reiter durch, der in TAB_PERMISSION
+    // keinen Eintrag hat: die Schleife unten lässt solche mit
+    // `return true` stehen. Ein Tester hätte damit Reiter gesehen, die
+    // ihn nichts angehen, und beim Klick lauter Fehlermeldungen
+    // bekommen. Die Rolle ist bewusst eng: ausprobieren, nicht
+    // verwalten.
+    const testerOnly =
+      access.permissions.includes("tester.access") &&
+      !access.permissions.includes("team.view");
+    if (testerOnly) return tabs.filter((tab) => tab.id === "tester");
 
     return tabs.filter((tab) => {
       // Owner/admin management is only for owners and admins, never for
@@ -573,6 +589,7 @@ export function AdminContent() {
       {activeTab === "team" && <TeamPanel />}
       {activeTab === "premium" && <PremiumAdmin />}
       {activeTab === "speedrun" && <SpeedrunAdmin />}
+      {activeTab === "tester" && <TesterPanel />}
       {activeTab === "access" && <OwnerAccessPanel currentUserId={(session?.user as any)?.id} />}
       {activeTab === "usage" && <CommandStatsPanel />}
       {activeTab === "dashusers" && <DashboardUsersPanel currentUserId={(session?.user as any)?.id} />}

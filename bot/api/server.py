@@ -8,7 +8,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from starlette.responses import Response
 from utils.config import *
-from api.routes import bot, guilds, admin, team, moderation, actions, access, servers, servertools, tickets, giveaways, leveling, vanity, broadcast, anonchat, diagnose, compose, nukealert, memberperks, extras, voice, verify, automod, logging_cfg, antinuke, premium, speedrun
+from api.routes import bot, guilds, admin, team, moderation, actions, access, servers, servertools, tickets, giveaways, leveling, vanity, broadcast, anonchat, diagnose, compose, nukealert, memberperks, extras, voice, verify, automod, logging_cfg, antinuke, premium, speedrun, tester
 from api.dependencies import verify_api_key, limiter, get_bot_loop
 from api.db_manager import db_manager
 from api.schema_guard import ensure_schema
@@ -328,6 +328,13 @@ def create_app() -> FastAPI:
     )
     api_app.include_router(
         giveaways.router, prefix="/giveaways", tags=["Giveaways"]
+    )
+    # Der Tester-Bereich. Eigenes Präfix statt unter /admin: die
+    # Routen prüfen ihre Rechte selbst über die Tester-Rolle, und der
+    # /admin-Gate im Dashboard-Proxy lässt nur globale Admins durch --
+    # ein Tester käme dort nicht hinein.
+    api_app.include_router(
+        tester.router, prefix="/tester", tags=["Tester"]
     )
 
     @api_app.get("/health")
