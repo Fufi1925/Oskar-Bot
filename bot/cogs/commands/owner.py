@@ -13,6 +13,13 @@
 # ╚══════════════════════════════════════════════════════════════════╝
 
 from __future__ import annotations
+# aiohttp wird unten in setup() benutzt, war aber nie importiert.
+#
+# Das hat nicht nur eine Zeile gekostet, sondern das ganze Cog: der
+# NameError fliegt in setup(), also schlaegt `load_extension` fehl und
+# *keiner* der Owner-Befehle wird registriert -- auch die Badges nicht.
+# Im Log stand dazu eine einzelne rote Zeile zwischen 147 gruenen.
+import aiohttp
 from discord.ext import commands
 from discord import *
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
@@ -25,7 +32,7 @@ from typing import Optional
 from utils import Paginator, DescriptionEmbedPaginator, FieldPagePaginator, TextPaginator
 from utils.Tools import *
 from utils.config import OWNER_IDS, BOT_OWNER_IDS
-from utils.emoji import BOOSTS, DISCORD_BADGE_EMOJIS, LOADINGRED, MUSICSTOP_ICONS, NITRO_BOOST, TICK, ZWARNING
+from utils.emoji import BOOSTS, CROSS, DISCORD_BADGE_EMOJIS, LOADING, LOADINGRED, MUSICSTOP_ICONS, NITRO_BOOST, TICK, ZWARNING
 from core import Cog, universitybot, Context
 import sqlite3
 import os
@@ -279,6 +286,96 @@ class Owner(commands.Cog):
     async def _restart(self, ctx: Context):
         await ctx.reply(f"{TICK} | **Successfully Restarting {BotName} It Takes 10 seconds**")
         restart_program()
+
+    @commands.command(
+        name="syncslash",
+        aliases=["slashsync", "synccommands"],
+        help="Meldet die Slash-Befehle bei Discord an.",
+    )
+    @commands.is_owner()
+    async def _sync_slash(self, ctx, scope: str = "global"):
+        """Die Slash-Befehle von Hand anmelden.
+
+        Beim Start passiert das automatisch, aber genau einmal pro
+        Prozess -- Discord erlaubt nur wenige globale Syncs pro Tag.
+        Wer nicht neu starten will oder wissen muss, *warum* nichts
+        ankommt, braucht diesen Weg.
+
+        ``!syncslash``        global. Kann bis zu einer Stunde dauern,
+                              bis Discord es an alle Server ausliefert.
+        ``!syncslash hier``   nur dieser Server, dafür sofort sichtbar.
+                              Zum Ausprobieren gedacht.
+
+        Der bisherige ``!sync`` gleicht Datenbanken ab und hat mit
+        Slash-Befehlen nichts zu tun -- deshalb ein eigener Name statt
+        einer zweiten Bedeutung für denselben Befehl.
+        """
+
+        tree = self.client.tree
+        here = str(scope).lower() in {"hier", "here", "guild", "local"}
+
+        note = await ctx.reply(
+            f"{LOADING} Melde die Slash-Befehle an "
+            f"({'nur hier' if here else 'global'}) …",
+            mention_author=False,
+        )
+
+        try:
+            if here:
+                if ctx.guild is None:
+                    await note.edit(
+                        content=f"{CROSS} „hier“ geht nur auf einem Server."
+                    )
+                    return
+                # Die globalen Befehle auf diesen Server kopieren und
+                # dort anmelden: das umgeht die Wartezeit, die ein
+                # globaler Sync hat.
+                tree.copy_global_to(guild=ctx.guild)
+                synced = await tree.sync(guild=ctx.guild)
+            else:
+                synced = await tree.sync()
+        except discord.HTTPException as exc:
+            # Der häufigste Fall im Betrieb, und der einzige, den man
+            # nicht durch Warten löst: Discord bremst.
+            hint = ""
+            if exc.status == 429:
+                hint = (
+                    "\nDiscord bremst (Rate-Limit). Globale Syncs sind auf "
+                    "wenige pro Tag begrenzt — probier es später erneut "
+                    "oder nimm `!syncslash hier`."
+                )
+            await note.edit(
+                content=f"{CROSS} Fehlgeschlagen: HTTP {exc.status} — {exc.text}{hint}"
+            )
+            return
+        except Exception as exc:
+            await note.edit(
+                content=f"{CROSS} Fehlgeschlagen: {type(exc).__name__}: {exc}"
+            )
+            return
+
+        if not synced:
+            await note.edit(
+                content=(
+                    f"{CROSS} Der Sync lief durch, hat aber **nichts** "
+                    "angemeldet. Der Befehlsbaum ist leer — dann sind die "
+                    "Cogs nicht geladen."
+                )
+            )
+            return
+
+        where = "auf diesem Server" if here else "global"
+        extra = (
+            ""
+            if here
+            else "\n-# Discord braucht dafür manchmal bis zu einer Stunde."
+        )
+        await note.edit(
+            content=(
+                f"{TICK} **{len(synced)}** Slash-Befehle {where} angemeldet."
+                f"{extra}"
+            )
+        )
 
     @commands.command(name="sync", help="Syncs all database.")
     @commands.is_owner()

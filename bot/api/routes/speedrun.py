@@ -290,10 +290,21 @@ async def templates(user_id: str = ""):
         key = str(entry.get("key") or "")
         in_beta = key in BETA_TEMPLATES
 
+        # Im Speedrun entscheidet allein die Beta-Freigabe.
+        #
+        # Wer den Beta-Code eingegeben hat, darf alle freigegebenen
+        # Vorlagen bauen -- auch die, die im `!start`-Menü des
+        # Template-Bots Premium verlangen. Die Beta ist die Huerde,
+        # nicht Premium: der Code wird einzeln vergeben, und wer ihn
+        # hat, soll nicht an einer zweiten Schranke haengenbleiben.
+        #
+        # Im Template-Bot bleibt `clan` weiterhin Premium -- dort gilt
+        # die Trennung unveraendert. Nur dieser Weg ist offen.
         if not in_beta:
-            reason = "In der Beta ist erst dieses eine Template freigegeben."
-        elif entry.get("premium") and not premium:
-            reason = "Nur mit Premium."
+            reason = (
+                f"In der Beta sind erst {len(BETA_TEMPLATES)} Vorlagen "
+                "freigegeben."
+            )
         else:
             reason = ""
 
@@ -353,17 +364,20 @@ async def access_unlock(guild_id: int, data: dict):
     return {"unlocked": True, "already": result.get("already", False)}
 
 
-async def _template_is_free(template_key: str, user_id: str) -> bool:
-    """Darf dieser Nutzer diese Vorlage bauen?
+async def _template_exists(template_key: str) -> bool:
+    """Kennt der Template-Bot diese Vorlage überhaupt?
 
-    Gefragt wird der Template-Bot: dort steht, welche Vorlage Premium
-    verlangt. Eine zweite Liste hier wäre die naheliegende Abkürzung
-    und würde beim nächsten neuen Template auseinanderlaufen.
+    Der Speedrun verlangt **kein** Premium: wer den Beta-Code hat, darf
+    jede freigegebene Vorlage bauen. Die Beta-Liste ist die Huerde, und
+    die steht schon im Aufrufer.
 
-    Im Zweifel **nein**. Ist der Template-Bot nicht erreichbar oder
-    kennt er die Vorlage nicht, wird nicht gebaut -- eine kaputte
-    Abfrage darf nichts freischalten, wofür jemand bezahlt. Der Bau
-    würde ohne den Template-Bot ohnehin scheitern.
+    Geprueft wird deshalb nur noch, ob es die Vorlage wirklich gibt.
+    Ein Tippfehler im Namen soll nicht erst nach dem Start als
+    unverstaendlicher Fehler beim Template-Bot auffallen.
+
+    Im Zweifel **nein**: ist der Template-Bot nicht erreichbar, wird
+    nicht gebaut. Der Bau wuerde ohne ihn ohnehin scheitern, und ein
+    klarer Hinweis ist besser als ein halber Lauf.
     """
 
     try:
@@ -376,15 +390,10 @@ async def _template_is_free(template_key: str, user_id: str) -> bool:
     if status_code != 200:
         return False
 
-    for entry in body.get("templates", []):
-        if str(entry.get("key") or "") != template_key:
-            continue
-        if not entry.get("premium"):
-            return True
-        return _has_premium(str(user_id or ""))
-
-    # Unbekannte Vorlage: der Bau würde ohnehin scheitern.
-    return False
+    return any(
+        str(entry.get("key") or "") == template_key
+        for entry in body.get("templates", [])
+    )
 
 
 def _require_unlocked(guild_id: int) -> None:
@@ -438,24 +447,18 @@ async def start(
             ),
         )
 
-    # Premium-Vorlagen brauchen Premium -- und zwar hier, nicht nur im
-    # Dashboard.
+    # Kein Premium im Speedrun: der Beta-Code reicht.
     #
-    # Die Liste unter /templates markiert sie korrekt als gesperrt, das
-    # Panel zeigt sie ausgegraut. Aber /start hat das nie nachgeprüft:
-    # wer den Endpunkt direkt aufrief, baute damit jede Premium-Vorlage
-    # ohne Premium. Eine Sperre, die allein im Browser sitzt, ist
-    # keine -- dieselbe Lücke wie damals bei der Beta-Liste.
-    #
-    # Welche Vorlage Premium verlangt, weiß nur der Template-Bot; hier
-    # steht dazu bewusst keine zweite Liste, die auseinanderlaufen
-    # könnte.
-    if not await _template_is_free(template_key, user_id):
+    # Die Beta-Freigabe oben ist die einzige Huerde. Hier wird nur noch
+    # geprueft, dass es die Vorlage wirklich gibt -- ein Tippfehler im
+    # Namen soll nicht als unverstaendlicher Fehler mitten im Bau
+    # auffallen.
+    if not await _template_exists(template_key):
         raise HTTPException(
-            status_code=403,
+            status_code=400,
             detail=(
-                f"»{template_key}« ist eine Premium-Vorlage. "
-                "Löse einen Premium-Key ein, um sie zu bauen."
+                f"Der Template-Bot kennt »{template_key}« nicht. "
+                "Ist er erreichbar und auf dem aktuellen Stand?"
             ),
         )
 

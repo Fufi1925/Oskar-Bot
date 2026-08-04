@@ -87,7 +87,14 @@ class MentionSelectView(LayoutView):
             )
         elif selected == "Links":
             content = (
-                f"**[Invite {BotName}](https://discord.com/oauth2/authorize?client_id=1530349205372145715)**\n"
+                # Ohne `scope=bot applications.commands` meldet Discord
+                # fuer diesen Server nie Slash-Befehle an: der Bot ist
+                # dann zwar drauf und Prefix geht, aber das / -Menue
+                # bleibt leer -- egal wie oft der Bot synct. Genau das
+                # war hier der Fall.
+                f"**[Invite {BotName}](https://discord.com/oauth2/authorize"
+                f"?client_id={self.message.guild.me.id}&permissions=8"
+                "&scope=bot+applications.commands)**\n"
                 "**[Join Support Server](https://discord.gg/MG3rYnUZJV)**"
             )
 

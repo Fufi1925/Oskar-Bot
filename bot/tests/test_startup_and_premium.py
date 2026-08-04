@@ -27,6 +27,7 @@ Run:  python3 tests/test_startup_and_premium.py
 import ast
 import asyncio
 import os
+import re
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -145,6 +146,137 @@ def test_a_failed_sync_is_not_swallowed():
     check("logging ist importiert", "\nimport logging" in src)
 
 
+def test_the_invite_links_carry_the_slash_scope():
+    """
+    Ohne `applications.commands` gibt es nie Slash-Befehle.
+
+    Discord meldet sie nur fuer Server an, auf die der Bot mit diesem
+    Scope eingeladen wurde. Fehlt er, ist der Bot drauf, Prefix geht --
+    und das / -Menue bleibt leer, egal wie oft gesynct wird.
+
+    Zwei echte Fehler steckten in den Links, die der Bot selbst
+    verteilt: `/invite` nannte eine voellig fremde Client-ID, und der
+    Link im Erwaehnungs-Menue hatte gar keinen Scope.
+    """
+
+    print("\nDie Einladungslinks bringen Slash-Befehle mit")
+
+    import glob
+    import re
+
+    # Die ID eines fremden Bots, die hier einmal fest eingetippt war.
+    FOREIGN = "1396114795102470196"
+
+    checked = 0
+    for path in glob.glob(os.path.join(BOT, "**", "*.py"), recursive=True):
+        if os.sep + "tests" + os.sep in path:
+            continue
+        text = open(path, encoding="utf-8", errors="ignore").read()
+        if "oauth2/authorize" not in text:
+            continue
+
+        try:
+            tree = ast.parse(text)
+        except SyntaxError:
+            continue
+
+        rel = os.path.relpath(path, BOT)
+
+        # Je Datei prüfen, nicht je Textstück.
+        #
+        # Die Links stehen oft über mehrere Zeilen zusammengesetzt --
+        # "…authorize" in der einen, "&scope=…" in der nächsten. Wer
+        # jedes Fragment einzeln ansieht, meldet lauter Fehlalarme:
+        # genau das ist mir hier passiert, sechs Stück auf einmal.
+        # Kommentare strippen, bevor gesucht wird.
+        #
+        # Sonst findet die Prüfung ihre eigene Erklärung wieder: in
+        # mention.py steht "Ohne `scope=bot applications.commands` …"
+        # als Kommentar direkt über dem Link. Mit dem blieb der Test
+        # grün, obwohl der Scope aus dem Link entfernt war -- ein
+        # Mutationstest hat genau das durchgelassen.
+        code = re.sub(r"^\s*#.*$", "", text, flags=re.M)
+
+        checked += 1
+        check(f"{rel}: die Links bringen den Scope mit",
+              "applications.commands" in code,
+              "ohne ihn gibt es auf diesem Server nie Slash-Befehle")
+
+        # Die fremde ID darf in keinem *Einladungslink* stehen. In
+        # Avatar-URLs ist sie harmlos -- das ist nur ein Bild.
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.JoinedStr, ast.Constant)):
+                continue
+            try:
+                piece = ast.unparse(node)
+            except Exception:
+                continue
+            if "oauth2/authorize" not in piece:
+                continue
+            check(f"{rel}: keine fremde Client-ID im Einladungslink",
+                  FOREIGN not in piece,
+                  f"{FOREIGN} gehoert einem anderen Bot")
+
+    check("es wurden Links geprüft", checked >= 3, str(checked))
+
+
+def test_the_owner_cog_imports_cleanly():
+    """
+    Ein NameError in setup() nimmt das ganze Cog mit.
+
+    `aiohttp` wurde in setup() benutzt, aber nie importiert. Damit
+    schlug load_extension fehl -- und im Log stand dazu eine einzelne
+    rote Zeile zwischen 147 grünen.
+    """
+
+    print("\nDas Owner-Cog importiert sauber")
+
+    src = source("cogs", "commands", "owner.py")
+
+    # Jeder benutzte Name auf Modulebene muss auch importiert sein.
+    tree = ast.parse(src)
+    imported = set()
+    for node in tree.body:
+        if isinstance(node, ast.Import):
+            imported |= {a.asname or a.name.split(".")[0] for a in node.names}
+        elif isinstance(node, ast.ImportFrom):
+            imported |= {a.asname or a.name for a in node.names}
+
+    setup = function(src, "setup")
+    check("es gibt ein setup()", setup is not None)
+    if setup is not None:
+        body = ast.unparse(setup)
+        for name in ("aiohttp",):
+            if name in body:
+                check(f"{name} ist importiert", name in imported,
+                      "sonst: NameError, und das ganze Cog fehlt")
+
+
+def test_there_is_a_manual_sync_command():
+    """Ein Weg, den Sync anzustoßen, ohne neu zu starten."""
+
+    print("\nEs gibt einen Befehl zum Nachsyncen")
+
+    src = source("cogs", "commands", "owner.py")
+
+    check("der Befehl heißt syncslash", 'name="syncslash"' in src)
+    check("er ruft tree.sync", "tree.sync" in src)
+    check("er kann auch nur diesen Server",
+          "copy_global_to" in src,
+          "ein globaler Sync braucht bis zu einer Stunde — zum "
+          "Ausprobieren ist das unbrauchbar")
+    check("er nennt das Rate-Limit beim Namen",
+          "429" in src,
+          "der häufigste Fehlschlag, und der einzige, den Warten nicht löst")
+    check("er meldet einen leeren Baum",
+          "Der Sync lief durch" in src,
+          "ein leerer Baum synct erfolgreich und liefert nichts")
+
+    # Der alte !sync gleicht Datenbanken ab -- er darf nicht ersetzt
+    # worden sein.
+    check("der alte !sync bleibt erhalten", 'name="sync"' in src)
+
+
 def test_the_tree_has_something_to_sync():
     """
     Ein leerer Baum synct erfolgreich — und liefert nichts.
@@ -215,9 +347,11 @@ def test_the_status_is_defined_once():
 
     check("es gibt eine Konstante",
           "PRESENCE_STATUS = discord.Status." in src)
-    check("sie steht auf »Nicht stören«",
-          "PRESENCE_STATUS = discord.Status.do_not_disturb" in src,
-          "gewünscht war: nicht online")
+    # Ausdrücklich so gewünscht: der Bot soll ansprechbar wirken.
+    # Vorher stand hier do_not_disturb und er war dauerhaft rot.
+    check("sie steht auf »online«",
+          "PRESENCE_STATUS = discord.Status.online" in src,
+          "gewünscht war: online, nicht »Nicht stören«")
 
     # Der Konstruktor darf den Wert nicht noch einmal hinschreiben.
     tree = ast.parse(src)
@@ -268,16 +402,21 @@ def _install(speedrun, templates, premium: bool):
     speedrun._has_premium = lambda _user: premium
 
 
-def test_a_premium_template_needs_premium():
+def test_the_beta_code_is_the_only_hurdle():
     """
-    Der Kern: /start muss Premium selbst prüfen.
+    Im Speedrun reicht der Beta-Code -- auch für Premium-Vorlagen.
 
-    Die Liste markiert Premium-Vorlagen korrekt als gesperrt, aber
-    /start sah nur in die Beta-Liste. Wer den Endpunkt direkt aufrief,
-    baute jede Premium-Vorlage ohne Premium.
+    Ausdrücklich so gewünscht: wer den Code hat, darf alle
+    freigegebenen Vorlagen bauen. Der Code wird einzeln vergeben, und
+    wer ihn bekommen hat, soll nicht an einer zweiten Schranke
+    hängenbleiben.
+
+    Im `!start`-Menü des Template-Bots bleibt `clan` weiterhin
+    Premium -- dort gilt die Trennung unverändert. Nur dieser Weg ist
+    offen.
     """
 
-    print("\nEine Premium-Vorlage verlangt Premium")
+    print("\nDer Beta-Code ist die einzige Hürde")
 
     from fastapi import HTTPException
 
@@ -296,11 +435,33 @@ def test_a_premium_template_needs_premium():
     templates = [
         {"key": "clan", "premium": True},
         {"key": "community", "premium": False},
+        # Nicht in der Beta -- muss weiterhin abprallen.
+        {"key": "gaming", "premium": True},
     ]
 
     try:
-        # 1. Ohne Premium: abgelehnt.
+        # Ohne jedes Premium.
         _install(speedrun, templates, premium=False)
+
+        # 1. Die Liste bietet die Premium-Vorlage an.
+        listed = asyncio.run(speedrun.templates(user_id="123"))
+        by_key = {t["key"]: t for t in listed["templates"]}
+        check("clan ist ohne Premium wählbar",
+              by_key["clan"]["available"] is True,
+              f"gesperrt mit: {by_key['clan']['locked_reason']!r}")
+        check("und trägt keinen Sperrgrund",
+              not by_key["clan"]["locked_reason"])
+
+        # 2. Was nicht in der Beta ist, bleibt gesperrt.
+        check("gaming bleibt gesperrt",
+              by_key["gaming"]["available"] is False,
+              "die Beta-Freigabe muss weiter greifen")
+        check("und nennt die Beta als Grund",
+              "beta" in by_key["gaming"]["locked_reason"].lower(),
+              by_key["gaming"]["locked_reason"])
+
+        # 3. Der Start lässt die Premium-Vorlage durch.
+        #    Er scheitert später am fehlenden Bot -- aber nicht an 403.
         try:
             asyncio.run(
                 speedrun.start(
@@ -309,44 +470,49 @@ def test_a_premium_template_needs_premium():
                     _FakeBot(),
                 )
             )
-            check("ohne Premium wird abgelehnt", False,
-                  "der Clan-Server wurde ohne Premium gebaut")
+            check("clan lässt sich ohne Premium starten", True)
         except HTTPException as exc:
-            check("ohne Premium wird abgelehnt", exc.status_code == 403,
+            check("clan lässt sich ohne Premium starten",
+                  exc.status_code != 403,
+                  f"HTTP {exc.status_code}: {exc.detail}")
+
+        # 4. Eine Vorlage außerhalb der Beta prallt weiter ab.
+        try:
+            asyncio.run(
+                speedrun.start(
+                    _FakeGuild.id,
+                    {"template": "gaming", "user_id": "123"},
+                    _FakeBot(),
+                )
+            )
+            check("gaming prallt ab", False, "eine gesperrte Vorlage lief los")
+        except HTTPException as exc:
+            check("gaming prallt ab", exc.status_code == 400,
                   f"HTTP {exc.status_code}")
-            check("die Meldung nennt Premium",
-                  "premium" in str(exc.detail).lower(), str(exc.detail))
 
-        # 2. Eine freie Vorlage geht auch ohne Premium durch.
-        #    Sie scheitert später am fehlenden Template-Bot -- aber
-        #    nicht mit 403.
+        # 5. Eine Vorlage, die der Template-Bot nicht kennt, muss
+        #    ebenfalls abprallen -- und zwar über den Startweg, nicht
+        #    nur in der Hilfsfunktion. Ein Mutationstest hat gezeigt,
+        #    dass die Prüfung ganz entfallen konnte, ohne dass ein Test
+        #    rot wurde: sie war nur einzeln geprüft.
+        speedrun.BETA_TEMPLATES.add("gibtsnicht")
         try:
             asyncio.run(
                 speedrun.start(
                     _FakeGuild.id,
-                    {"template": "community", "user_id": "123"},
+                    {"template": "gibtsnicht", "user_id": "123"},
                     _FakeBot(),
                 )
             )
-            check("eine freie Vorlage kommt durch", True)
+            check("eine unbekannte Vorlage prallt beim Start ab", False,
+                  "der Bau lief mit einem Namen los, den es nicht gibt")
         except HTTPException as exc:
-            check("eine freie Vorlage kommt durch", exc.status_code != 403,
-                  f"HTTP {exc.status_code}: {exc.detail}")
-
-        # 3. Mit Premium geht die Premium-Vorlage.
-        _install(speedrun, templates, premium=True)
-        try:
-            asyncio.run(
-                speedrun.start(
-                    _FakeGuild.id,
-                    {"template": "clan", "user_id": "123"},
-                    _FakeBot(),
-                )
-            )
-            check("mit Premium kommt sie durch", True)
-        except HTTPException as exc:
-            check("mit Premium kommt sie durch", exc.status_code != 403,
-                  f"HTTP {exc.status_code}: {exc.detail}")
+            check("eine unbekannte Vorlage prallt beim Start ab",
+                  exc.status_code == 400, f"HTTP {exc.status_code}")
+            check("die Meldung nennt den Template-Bot",
+                  "template-bot" in str(exc.detail).lower(), str(exc.detail))
+        finally:
+            speedrun.BETA_TEMPLATES.discard("gibtsnicht")
     finally:
         speedrun._call_template = original_call
         speedrun._has_premium = original_premium
@@ -355,10 +521,15 @@ def test_a_premium_template_needs_premium():
         speedrun._MAIN_TASKS.clear()
 
 
-def test_an_unreachable_template_bot_denies_rather_than_allows():
-    """Im Zweifel zu: eine kaputte Abfrage darf nichts freischalten."""
+def test_an_unknown_template_is_refused():
+    """
+    Ein Tippfehler im Namen soll früh auffallen.
 
-    print("\nIm Zweifel wird nicht gebaut")
+    Sonst scheitert er erst mitten im Bau mit einer Meldung, die
+    niemand einordnen kann.
+    """
+
+    print("\nEine unbekannte Vorlage prallt ab")
 
     from fastapi import HTTPException
 
@@ -366,22 +537,29 @@ def test_an_unreachable_template_bot_denies_rather_than_allows():
 
     original_call = speedrun._call_template
 
-    async def dead(*_a, **_k):
-        raise HTTPException(status_code=502, detail="weg")
-
-    speedrun._call_template = dead
     try:
-        allowed = asyncio.run(speedrun._template_is_free("clan", "123"))
-        check("ohne Antwort keine Freigabe", allowed is False,
-              "ein Aussetzer schaltet eine bezahlte Vorlage frei")
-
-        # Auch eine unbekannte Vorlage darf nicht durchrutschen.
         async def empty(*_a, **_k):
             return 200, {"templates": []}
 
         speedrun._call_template = empty
-        allowed = asyncio.run(speedrun._template_is_free("clan", "123"))
-        check("eine unbekannte Vorlage wird abgelehnt", allowed is False)
+        check("eine unbekannte Vorlage wird abgelehnt",
+              asyncio.run(speedrun._template_exists("clan")) is False)
+
+        async def known(*_a, **_k):
+            return 200, {"templates": [{"key": "clan", "premium": True}]}
+
+        speedrun._call_template = known
+        check("eine bekannte kommt durch",
+              asyncio.run(speedrun._template_exists("clan")) is True)
+
+        # Im Zweifel zu: ohne Antwort wird nicht gebaut. Der Bau würde
+        # ohne den Template-Bot ohnehin scheitern.
+        async def dead(*_a, **_k):
+            raise HTTPException(status_code=502, detail="weg")
+
+        speedrun._call_template = dead
+        check("ohne erreichbaren Template-Bot: nein",
+              asyncio.run(speedrun._template_exists("clan")) is False)
     finally:
         speedrun._call_template = original_call
 
@@ -402,11 +580,14 @@ def main():
     test_the_command_sync_actually_runs()
     test_the_sync_does_not_repeat_on_every_reconnect()
     test_a_failed_sync_is_not_swallowed()
+    test_the_invite_links_carry_the_slash_scope()
+    test_the_owner_cog_imports_cleanly()
+    test_there_is_a_manual_sync_command()
     test_the_tree_has_something_to_sync()
     test_the_presence_loop_keeps_the_status()
     test_the_status_is_defined_once()
-    test_a_premium_template_needs_premium()
-    test_an_unreachable_template_bot_denies_rather_than_allows()
+    test_the_beta_code_is_the_only_hurdle()
+    test_an_unknown_template_is_refused()
     test_the_beta_list_has_five_templates()
 
     print()

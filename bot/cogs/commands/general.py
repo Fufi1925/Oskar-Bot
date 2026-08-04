@@ -397,7 +397,15 @@ class General(commands.Cog):
       invite_text = (
           "```Empower your server with blazing-fast features and 24/7 support!```\n"
           f"{universitybotLINKS} **Quick Actions**\n"
-          f">>> **[Invite {BotName}](https://discord.com/oauth2/authorize?client_id=1396114795102470196&permissions=8&integration_type=0&scope=bot+applications.commands)**\n"
+          # Die eigene Anwendungs-ID, nicht eine fest eingetippte.
+          #
+          # Hier stand 1396114795102470196 -- die ID eines voellig
+          # anderen Bots. Wer ueber diesen Link eingeladen hat, holte
+          # sich nicht diesen Bot auf den Server. `self.bot.user.id`
+          # ist immer die richtige und kann nicht veralten.
+          f">>> **[Invite {BotName}](https://discord.com/oauth2/authorize"
+          f"?client_id={self.bot.user.id}&permissions=8"
+          "&scope=bot+applications.commands)**\n"
           "**[Support Server](https://discord.gg/MG3rYnUZJV)**"
       )
       await ctx.send(view=CV2(f"{universitybotCONNECTION} {BotName} Integration Hub!", invite_text))

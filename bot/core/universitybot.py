@@ -44,7 +44,10 @@ class universitybot(commands.AutoShardedBot):
     # der Presence-Schleife, die ihn ohne `status=` wieder auf "online"
     # zurücksetzte. Zwei Quellen für denselben Wert laufen auseinander,
     # und genau das ist passiert.
-    PRESENCE_STATUS = discord.Status.do_not_disturb
+    #
+    # Auf "online": der Bot soll ansprechbar wirken. Vorher stand hier
+    # do_not_disturb, was ihn dauerhaft rot erscheinen ließ.
+    PRESENCE_STATUS = discord.Status.online
 
     def __init__(self, *arg, **kwargs):
         intents = discord.Intents.all()
