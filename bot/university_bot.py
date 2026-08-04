@@ -17,6 +17,7 @@ import sys
 import subprocess
 # os.system("")
 import asyncio
+import logging
 import traceback
 from threading import Thread
 from datetime import datetime
@@ -155,6 +156,15 @@ async def update_stats():
 
         await asyncio.sleep(interval)
 
+# Ob die Slash-Befehle in diesem Prozess schon angemeldet wurden.
+#
+# `on_ready` feuert bei jedem Reconnect, Discord erlaubt aber nur
+# wenige globale Command-Syncs pro Tag. Ohne diesen Riegel laeuft ein
+# Bot mit wackliger Verbindung ins Rate-Limit -- und hat dann gar keine
+# Slash-Befehle mehr.
+_COMMANDS_SYNCED = False
+
+
 # --- Event Handlers ---
 @client.event
 async def on_ready():
@@ -175,18 +185,55 @@ async def on_ready():
     print(f"Connected to: {len(client.guilds)} guilds")
     print(f"Connected to: {len(client.users)} users")
 
-    # Sync application emojis on startup
-    await run_sync(TOKEN)
-
-    async def sync_commands():
+    # ------------------------------------------------------------------
+    # Slash-Befehle anmelden.
+    #
+    # Drei Sachen waren hier falsch, und zusammen hiessen sie: es gibt
+    # keine / -Befehle, nur Prefix.
+    #
+    #  1. Der Sync lief *nach* `run_sync(TOKEN)`. Dieser Emoji-Abgleich
+    #     ersetzt den Prozess per os.execv, sobald er emoji.py
+    #     angefasst hat -- alles danach wird dann nie erreicht. Der
+    #     Sync steht jetzt davor.
+    #
+    #  2. `on_ready` feuert bei *jedem* Reconnect erneut, nicht nur
+    #     beim Start. Discord erlaubt aber nur wenige globale
+    #     Command-Syncs pro Tag; ein Bot, der ein paarmal die
+    #     Verbindung verliert, laeuft ins Rate-Limit und synct dann gar
+    #     nicht mehr. Der Riegel unten laesst es genau einmal pro
+    #     Prozess zu.
+    #
+    #  3. Ein Fehlschlag wurde mit `print` abgelegt und verschwand
+    #     zwischen tausend Zeilen Startausgabe. Jetzt geht er als
+    #     Fehler ins Log, mit Traceback.
+    # ------------------------------------------------------------------
+    global _COMMANDS_SYNCED
+    if not _COMMANDS_SYNCED:
+        _COMMANDS_SYNCED = True
         try:
             synced = await client.tree.sync()
-            all_commands = list(client.commands)
-            print(f"Synced Total {len(all_commands)} Client Commands and {len(synced)} Slash Commands")
-        except Exception as e:
-            print(f"Error syncing command tree: {e}")
+            print(
+                f"Synced {len(list(client.commands))} prefix commands and "
+                f"{len(synced)} slash commands"
+            )
+            if not synced:
+                # Kein Absturz, aber fast immer ein Fehler: ohne
+                # angemeldete Befehle ist das / -Menue leer.
+                logging.warning(
+                    "Der Command-Tree ist leer -- es wurden keine "
+                    "Slash-Befehle angemeldet."
+                )
+        except Exception:
+            # Beim naechsten Reconnect noch einmal versuchen: ein
+            # einzelner Aussetzer soll den Bot nicht dauerhaft ohne
+            # Slash-Befehle lassen.
+            _COMMANDS_SYNCED = False
+            logging.exception("Slash-Befehle konnten nicht angemeldet werden")
 
-    asyncio.create_task(sync_commands())
+    # Erst danach die Emojis: dieser Aufruf kann den Prozess neu
+    # starten, und dann waere der Sync oben uebersprungen worden.
+    await run_sync(TOKEN)
+
     asyncio.create_task(update_stats())
 
 

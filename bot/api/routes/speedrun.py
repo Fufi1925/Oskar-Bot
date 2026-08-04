@@ -353,6 +353,40 @@ async def access_unlock(guild_id: int, data: dict):
     return {"unlocked": True, "already": result.get("already", False)}
 
 
+async def _template_is_free(template_key: str, user_id: str) -> bool:
+    """Darf dieser Nutzer diese Vorlage bauen?
+
+    Gefragt wird der Template-Bot: dort steht, welche Vorlage Premium
+    verlangt. Eine zweite Liste hier wäre die naheliegende Abkürzung
+    und würde beim nächsten neuen Template auseinanderlaufen.
+
+    Im Zweifel **nein**. Ist der Template-Bot nicht erreichbar oder
+    kennt er die Vorlage nicht, wird nicht gebaut -- eine kaputte
+    Abfrage darf nichts freischalten, wofür jemand bezahlt. Der Bau
+    würde ohne den Template-Bot ohnehin scheitern.
+    """
+
+    try:
+        status_code, body = await _call_template(
+            "GET", "/internal/speedrun/templates", timeout=10
+        )
+    except HTTPException:
+        return False
+
+    if status_code != 200:
+        return False
+
+    for entry in body.get("templates", []):
+        if str(entry.get("key") or "") != template_key:
+            continue
+        if not entry.get("premium"):
+            return True
+        return _has_premium(str(user_id or ""))
+
+    # Unbekannte Vorlage: der Bau würde ohnehin scheitern.
+    return False
+
+
 def _require_unlocked(guild_id: int) -> None:
     """Abbrechen, wenn der Server nicht frei ist.
 
@@ -401,6 +435,27 @@ async def start(
             detail=(
                 f"»{template_key}« ist in der Beta nicht freigegeben. "
                 f"Verfügbar: {', '.join(sorted(BETA_TEMPLATES))}."
+            ),
+        )
+
+    # Premium-Vorlagen brauchen Premium -- und zwar hier, nicht nur im
+    # Dashboard.
+    #
+    # Die Liste unter /templates markiert sie korrekt als gesperrt, das
+    # Panel zeigt sie ausgegraut. Aber /start hat das nie nachgeprüft:
+    # wer den Endpunkt direkt aufrief, baute damit jede Premium-Vorlage
+    # ohne Premium. Eine Sperre, die allein im Browser sitzt, ist
+    # keine -- dieselbe Lücke wie damals bei der Beta-Liste.
+    #
+    # Welche Vorlage Premium verlangt, weiß nur der Template-Bot; hier
+    # steht dazu bewusst keine zweite Liste, die auseinanderlaufen
+    # könnte.
+    if not await _template_is_free(template_key, user_id):
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                f"»{template_key}« ist eine Premium-Vorlage. "
+                "Löse einen Premium-Key ein, um sie zu bauen."
             ),
         )
 

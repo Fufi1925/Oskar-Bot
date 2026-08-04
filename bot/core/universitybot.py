@@ -38,6 +38,14 @@ extensions: List[str] = [
 ]
 
 class universitybot(commands.AutoShardedBot):
+    # Der Online-Status des Bots -- an genau einer Stelle.
+    #
+    # Er stand vorher zweimal da: einmal im Konstruktor und implizit in
+    # der Presence-Schleife, die ihn ohne `status=` wieder auf "online"
+    # zurücksetzte. Zwei Quellen für denselben Wert laufen auseinander,
+    # und genau das ist passiert.
+    PRESENCE_STATUS = discord.Status.do_not_disturb
+
     def __init__(self, *arg, **kwargs):
         intents = discord.Intents.all()
         intents.presences = True
@@ -45,8 +53,7 @@ class universitybot(commands.AutoShardedBot):
         super().__init__(command_prefix=self.get_prefix,
                          case_insensitive=True,
                          intents=intents,
-                         # The status is already set to Do Not Disturb here
-                         status=discord.Status.do_not_disturb,
+                         status=self.PRESENCE_STATUS,
                          strip_after_prefix=True,
                          owner_ids=OWNER_IDS,
                          allowed_mentions=discord.AllowedMentions(
@@ -162,10 +169,19 @@ class universitybot(commands.AutoShardedBot):
             random.shuffle(self.status_list)
 
         current = self.status_list[self.status_index % len(self.status_list)]
-        # This task only changes the activity, not the online status (dnd, idle, etc.)
+        # Den Status jedes Mal mitschicken, nicht nur die Tätigkeit.
+        #
+        # Der Kommentar hier behauptete jahrelang, diese Schleife lasse
+        # den Online-Status in Ruhe. Das stimmt nicht: discord.py setzt
+        # bei `status=None` hart auf `Status.online` (siehe
+        # Client.change_presence -- "if status is None: status =
+        # Status.online"). Der erste Tick nach dem Start hat das im
+        # Konstruktor gesetzte "Nicht stören" also überschrieben, und
+        # danach stand der Bot dauerhaft auf grün.
         try:
             await self.change_presence(
-                activity=discord.Activity(type=current[0], name=current[1])
+                status=self.PRESENCE_STATUS,
+                activity=discord.Activity(type=current[0], name=current[1]),
             )
         except discord.HTTPException:
             # A rate limited presence update is not worth crashing the loop
