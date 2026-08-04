@@ -109,6 +109,18 @@ STEPS: dict[str, dict[str, Any]] = {
         "default": True,
         "needs": ["roles.unverified"],
     },
+    "selfroles": {
+        "label": "Rollen-Vergabe",
+        "description": "Panel im Rollen-Kanal: jeder gibt sich seine Rollen selbst.",
+        "default": True,
+        "needs": ["channels.roles", "self_roles"],
+    },
+    "rules": {
+        "label": "Regeln",
+        "description": "Regeltext im Regel-Kanal, zum Anpassen gedacht.",
+        "default": True,
+        "needs": ["channels.rules"],
+    },
     "counting": {
         "label": "Zählspiel",
         "description": "Der Zähl-Kanal wird scharf geschaltet und startet bei 1.",
@@ -329,11 +341,17 @@ async def _do_tickets(bot, guild, handover: dict, report: HandoverReport, log: L
         else await panels.create_panel(db, guild.id, "Support")
     )
 
+    from utils import emoji as emoji_set
+
     await panels.update_panel(
         db, guild.id, panel_id,
         {
             "channel_id": channel_id,
-            "embed_title": "Support",
+            # Knöpfe statt Dropdown: bei einer einzigen Kategorie ist ein
+            # Auswahlmenü ein Klick zu viel, und man sieht nicht einmal,
+            # was darin steht, bevor man es aufklappt.
+            "panel_type": "button",
+            "embed_title": f"{emoji_set.TICKET}  Support",
             "embed_description": (
                 "Du brauchst Hilfe? Öffne unten ein Ticket — "
                 "nur du und das Team sehen es."
@@ -347,7 +365,11 @@ async def _do_tickets(bot, guild, handover: dict, report: HandoverReport, log: L
     if not (mine or {}).get("categories"):
         await panels.upsert_category(
             db, guild.id, panel_id,
-            {"name": "Allgemeine Frage", "emoji": "❓", "staff_roles": staff},
+            {
+                "name": "Allgemeine Frage",
+                "emoji": emoji_set.INFO,
+                "staff_roles": staff,
+            },
         )
 
     # Und das Panel gleich posten. Es nur anzulegen hiess: der Kanal
@@ -526,6 +548,151 @@ async def _do_automod(bot, guild, handover: dict, report: HandoverReport, log: L
     await log("Automod eingerichtet", "success")
 
 
+async def _do_selfroles(bot, guild, handover: dict, report: HandoverReport, log: LogHook):
+    """Das Rollen-Panel posten und die Reaktionen eintragen.
+
+    Der Template-Bot hatte hier fruher ein eigenes Dropdown. Das ist
+    weggefallen, weil der Hauptbot die Rollen fuehrt -- ohne diesen
+    Schritt blieb der Kanal danach aber leer. Das war mein Fehler: die
+    alte Loesung entfernt, die neue nicht gebaut.
+    """
+
+    import discord
+
+    from api.db_manager import db_manager
+    from utils import emoji as emoji_set
+    from utils.panels import ACCENT, Panel
+
+    channel_id = int(_dig(handover, "channels.roles"))
+    channel = guild.get_channel(channel_id)
+    if channel is None:
+        report.add("selfroles", False, "Der Rollen-Kanal ist nicht mehr da.")
+        await log("Rollen-Vergabe: Kanal fehlt", "error")
+        return
+
+    me = guild.me
+    if me is not None and not me.guild_permissions.manage_roles:
+        report.add("selfroles", False, "Dem Bot fehlt „Rollen verwalten“.")
+        await log("Rollen-Vergabe: Recht fehlt", "error")
+        return
+
+    # Nur Rollen, die der Bot auch vergeben kann. Eine Rolle ueber der
+    # Bot-Rolle laesst sich anklicken und passiert nichts -- schlimmer
+    # als sie wegzulassen.
+    usable = []
+    for entry in handover.get("self_roles") or []:
+        role = guild.get_role(int(entry["id"]))
+        if role is None or role.managed:
+            continue
+        if me is not None and role >= me.top_role:
+            continue
+        usable.append((role, entry.get("emoji") or "🔹"))
+
+    if not usable:
+        report.add(
+            "selfroles", False,
+            "Keine vergebbare Rolle gefunden — stehen sie über der Bot-Rolle?",
+        )
+        await log("Rollen-Vergabe: keine passende Rolle", "warn")
+        return
+
+    lines = "\n".join(f"{emoji}  **{role.name}**" for role, emoji in usable)
+    panel = Panel(
+        f"{emoji_set.U_ADMIN}  Rollen aussuchen",
+        "Reagiere unten, um dir eine Rolle zu geben.\n"
+        "Noch einmal reagieren nimmt sie wieder weg.\n\n" + lines,
+        accent=ACCENT["brand"],
+    )
+
+    try:
+        message = await channel.send(view=panel)
+    except (discord.Forbidden, discord.HTTPException) as exc:
+        report.add("selfroles", False, f"Panel nicht gepostet: {exc}")
+        await log("Rollen-Vergabe: Panel fehlgeschlagen", "error")
+        return
+
+    db = await db_manager.get_connection("rr.db")
+    await db.execute(
+        "CREATE TABLE IF NOT EXISTS reaction_roles ("
+        " guild_id INTEGER, message_id INTEGER, emoji TEXT, role_id INTEGER)"
+    )
+
+    added = 0
+    for role, emoji in usable:
+        # Erst die Reaktion setzen: klappt sie nicht (unbekanntes
+        # Emoji), soll auch keine Zeile in der Datenbank stehen, die
+        # niemand ausloesen kann.
+        try:
+            await message.add_reaction(emoji)
+        except (discord.HTTPException, TypeError):
+            continue
+        await db.execute(
+            "INSERT INTO reaction_roles (guild_id, message_id, emoji, role_id)"
+            " VALUES (?, ?, ?, ?)",
+            (guild.id, message.id, emoji, role.id),
+        )
+        added += 1
+    await db.commit()
+
+    if not added:
+        report.add("selfroles", False, "Keine Reaktion ließ sich setzen.")
+        await log("Rollen-Vergabe: keine Reaktion gesetzt", "error")
+        return
+
+    report.add("selfroles", True, f"{added} Rollen zur Auswahl in #{channel.name}.")
+    await log(f"Rollen-Vergabe eingerichtet — {added} Rollen", "success")
+
+
+# Ein Regelwerk, das zu jedem Server passt und das man anpassen soll.
+# Bewusst kurz: eine Wand aus zwanzig Punkten liest niemand, und was
+# niemand liest, kann man auch nicht durchsetzen.
+_DEFAULT_RULES = (
+    ("Respekt", "Keine Beleidigungen, keine Belästigung, keine Diskriminierung."),
+    ("Kein Spam", "Keine Nachrichtenfluten, keine Massenpings, keine Werbung."),
+    ("Passende Kanäle", "Schreib dort, wo das Thema hingehört."),
+    ("Keine NSFW-Inhalte", "Weder in Nachrichten noch im Profilbild oder Namen."),
+    ("Privates bleibt privat", "Keine fremden Daten teilen, auch nicht als Scherz."),
+    ("Discord-Regeln gelten", "Die Nutzungsbedingungen von Discord gelten hier auch."),
+)
+
+
+async def _do_rules(bot, guild, handover: dict, report: HandoverReport, log: LogHook):
+    """Einen Regeltext in den Regel-Kanal stellen."""
+
+    import discord
+
+    from utils import emoji as emoji_set
+    from utils.panels import ACCENT, Panel
+
+    channel_id = int(_dig(handover, "channels.rules"))
+    channel = guild.get_channel(channel_id)
+    if channel is None:
+        report.add("rules", False, "Der Regel-Kanal ist nicht mehr da.")
+        await log("Regeln: Kanal fehlt", "error")
+        return
+
+    body = "\n\n".join(
+        f"**{index}. {title}**\n{text}"
+        for index, (title, text) in enumerate(_DEFAULT_RULES, start=1)
+    )
+    panel = Panel(
+        f"{emoji_set.REDRULESBOOK}  Regeln auf {guild.name}",
+        body + "\n\n*Diese Regeln sind eine Vorlage — passe sie an deinen "
+               "Server an.*",
+        accent=ACCENT["brand"],
+    )
+
+    try:
+        await channel.send(view=panel)
+    except (discord.Forbidden, discord.HTTPException) as exc:
+        report.add("rules", False, f"Regeln nicht gepostet: {exc}")
+        await log("Regeln: Posten fehlgeschlagen", "error")
+        return
+
+    report.add("rules", True, f"Regeln stehen in #{channel.name} (bitte anpassen).")
+    await log(f"Regeln eingerichtet — #{channel.name}", "success")
+
+
 async def _do_counting(bot, guild, handover: dict, report: HandoverReport, log: LogHook):
     """Das Zählspiel scharf schalten.
 
@@ -616,6 +783,8 @@ _RUNNERS: dict[str, Callable] = {
     "tickets": _do_tickets,
     "welcome": _do_welcome,
     "autorole": _do_autorole,
+    "selfroles": _do_selfroles,
+    "rules": _do_rules,
     "counting": _do_counting,
     "leveling": _do_leveling,
     "j2c": _do_j2c,
@@ -627,6 +796,8 @@ _RUNNERS: dict[str, Callable] = {
 # dringend ist und am ehesten scheitert.
 ORDER = (
     "verify",
+    "rules",
+    "selfroles",
     "autorole",
     "logging",
     "antinuke",

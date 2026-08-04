@@ -20,7 +20,7 @@ import asyncio
 from discord.ext import commands
 
 from utils import greet_render, welcome_card
-from utils.panels import from_embed
+from utils.panels import Panel, from_embed
 
 class greet(commands.Cog):
     def __init__(self, bot):
@@ -122,10 +122,30 @@ class greet(commands.Cog):
             # schlimmer als einer ohne.
             banner = await self.build_banner(member)
 
+            # Bei Components V2 muss das Bild *in* die View, nicht
+            # daneben. Eine Datei einfach mitzuschicken laedt sie zwar
+            # hoch, aber Discord zeigt sie nicht an -- eine V2-Nachricht
+            # rendert ausschliesslich ihre Komponenten. Genau deshalb kam
+            # weiterhin die alte Begruessung ohne Bild an.
+            #
+            # attachment:// verweist auf die Datei derselben Nachricht.
+            view = from_embed(embed)
+            if banner is not None:
+                if view is not None:
+                    view.add_image(f"attachment://{banner.filename}")
+                else:
+                    # Reiner Text: dann traegt das Panel das Bild allein.
+                    view = Panel(
+                        "",
+                        content or "",
+                        image_url=f"attachment://{banner.filename}",
+                    )
+                    content = None
+
             try:
                 sent_message = await welcome_channel.send(
                     content=content,
-                    view=from_embed(embed),
+                    view=view,
                     **({"file": banner} if banner is not None else {}),
                 )
                 if auto_delete_duration:

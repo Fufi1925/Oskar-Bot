@@ -172,6 +172,44 @@ class Panel(LayoutView):
         self.add_item(container(*items, accent_color=colour))
 
 
+    def add_image(self, url: str) -> bool:
+        """
+        Add an image to a panel that is already built.
+
+        Needed for attachments: the file only gets its `attachment://`
+        name at send time, so the panel cannot be told about it in the
+        constructor.
+
+        This is not optional decoration. A Components V2 message renders
+        *only* its components -- a file passed alongside is uploaded and
+        then never shown. That is why the welcome banner did not appear:
+        the image was there, the message simply had nowhere to put it.
+
+        Returns False when the image could not be placed, so the caller
+        can decide to send without it rather than lose the message.
+        """
+        try:
+            gallery = MediaGallery(discord.MediaGalleryItem(url))
+        except Exception:
+            return False
+
+        # Into the container, not next to it -- an item added to the
+        # LayoutView itself would sit outside the card.
+        for child in self.children:
+            if isinstance(child, Container):
+                try:
+                    child.add_item(gallery)
+                    return True
+                except Exception:
+                    return False
+
+        try:
+            self.add_item(gallery)
+            return True
+        except Exception:
+            return False
+
+
 class StatusCard(LayoutView):
     """Small result card: a marker, a title and one block of text."""
 

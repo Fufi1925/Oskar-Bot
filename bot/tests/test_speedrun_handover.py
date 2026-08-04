@@ -42,10 +42,13 @@ def check(name, ok, extra=""):
 
 
 class FakeRole:
-    def __init__(self, role_id, name, position=1):
+    def __init__(self, role_id, name, position=1, managed=False):
         self.id = role_id
         self.name = name
         self.position = position
+        # Rollen einer Integration kann niemand vergeben -- der echte
+        # Code prüft das, also muss der Fake das Feld haben.
+        self.managed = managed
 
     def __ge__(self, other):
         return self.position >= other.position
@@ -59,10 +62,13 @@ class FakeChannel:
         self.id = channel_id
         self.name = name
         self.sent = []
+        # Die Nachrichtenobjekte selbst, um Reaktionen prüfen zu können.
+        self.messages: list["FakeMessage"] = []
 
     async def send(self, *args, **kwargs):
         message = FakeMessage(len(self.sent) + 9000, self)
         self.sent.append(kwargs.get("view") or (args[0] if args else None))
+        self.messages.append(message)
         return message
 
 
@@ -70,11 +76,25 @@ class FakeMessage:
     def __init__(self, message_id, channel):
         self.id = message_id
         self.channel = channel
+        self.reactions: list[str] = []
+
+    async def add_reaction(self, emoji):
+        self.reactions.append(str(emoji))
+
+
+class FakePermissions:
+    """Die Rechte, die die Schritte abfragen. Standard: alles erlaubt."""
+
+    def __init__(self, **overrides):
+        self.administrator = overrides.get("administrator", True)
+        self.manage_roles = overrides.get("manage_roles", True)
+        self.manage_channels = overrides.get("manage_channels", True)
 
 
 class FakeMe:
-    def __init__(self, top_role):
+    def __init__(self, top_role, permissions=None):
         self.top_role = top_role
+        self.guild_permissions = permissions or FakePermissions()
 
 
 class FakeGuild:
@@ -87,6 +107,8 @@ class FakeGuild:
             10: FakeRole(10, "🔰・ᴜɴᴠᴇʀɪꜰɪᴇᴅ", 1),
             11: FakeRole(11, "✅・ᴠᴇʀɪꜰɪᴇᴅ", 2),
             12: FakeRole(12, "🛡️・ᴍᴏᴅᴇʀᴀᴛᴏʀ", 3),
+            13: FakeRole(13, "🎨・ᴄᴏɴᴛᴇɴᴛ ᴄʀᴇᴀᴛᴏʀ", 4),
+            14: FakeRole(14, "🖌️・ᴅᴇꜱɪɢɴᴇʀ", 5),
         }
         self._channels = {
             20: FakeChannel(20, "✅・ᴠᴇʀɪꜰɪᴢɪᴇʀᴇɴ"),
@@ -96,6 +118,8 @@ class FakeGuild:
             24: FakeChannel(24, "💬・ɴᴀᴄʜʀɪᴄʜᴛᴇɴ-ʟᴏɢꜱ"),
             25: FakeChannel(25, "🔢・ᴢᴀᴇʜʟᴇɴ"),
             26: FakeChannel(26, "🔊・ᴀʟʟɢᴇᴍᴇɪɴᴇʀ-ᴛᴀʟᴋ"),
+            27: FakeChannel(27, "📜・ʀᴇɢᴇʟɴ"),
+            28: FakeChannel(28, "🏷️・ʀᴏʟʟᴇɴ-ᴠᴇʀɢᴀʙᴇ"),
         }
         self.me = FakeMe(FakeRole(99, "Bot", 50))
 
@@ -154,10 +178,15 @@ HANDOVER = {
         "tickets": "22",
         "counting": "25",
         "j2c": "26",
-        "rules": None,
-        "roles": None,
+        "rules": "27",
+        "roles": "28",
         "announcements": None,
     },
+    # Die Akzent-Rollen des Templates: die darf sich jeder selbst geben.
+    "self_roles": [
+        {"id": "13", "name": "🎨・ᴄᴏɴᴛᴇɴᴛ ᴄʀᴇᴀᴛᴏʀ", "emoji": "🎨", "key": "creator"},
+        {"id": "14", "name": "🖌️・ᴅᴇꜱɪɢɴᴇʀ", "emoji": "🖌️", "key": "designer"},
+    ],
     "log_channels": {
         "member_moderation": "23",
         "message_events": "24",
@@ -223,10 +252,7 @@ def test_verify_is_written_and_readable():
 
     async def go():
         report = await ho.run_handover(
-            bot, guild, HANDOVER, options={"verify": True,
-                                           "logging": False, "antinuke": False,
-                                           "tickets": False, "welcome": False,
-                                           "autorole": False, "automod": False}
+            bot, guild, HANDOVER, options={key: key == "verify" for key in ho.STEPS}
         )
         # Mit demselben Weg zurueckholen, den das Verify-Cog nimmt.
         from api.db_manager import db_manager
@@ -270,9 +296,7 @@ def test_logs_go_to_their_own_channels():
     async def go():
         return await ho.run_handover(
             bot, guild, HANDOVER,
-            options={"logging": True, "verify": False, "antinuke": False,
-                     "tickets": False, "welcome": False, "autorole": False,
-                     "automod": False},
+            options={key: key == "logging" for key in ho.STEPS},
         )
 
     try:
@@ -309,11 +333,12 @@ def test_a_missing_channel_is_skipped_not_guessed():
     blind["channels"] = dict(HANDOVER["channels"], verify=None)
 
     async def go():
+        # Nur Verify. Die Schritte einzeln aufzuzählen war brüchig: ein
+        # neuer Schritt fehlte in der Liste, lief mit seinem Standard
+        # mit und postete dann doch etwas.
         return await ho.run_handover(
             bot, guild, blind,
-            options={"verify": True, "logging": False, "antinuke": False,
-                     "tickets": False, "welcome": False, "autorole": False,
-                     "automod": False},
+            options={key: key == "verify" for key in ho.STEPS},
         )
 
     try:
@@ -343,9 +368,7 @@ def test_one_broken_step_does_not_stop_the_others():
     async def go():
         return await ho.run_handover(
             bot, guild, HANDOVER,
-            options={"verify": True, "logging": True, "antinuke": True,
-                     "tickets": False, "welcome": False, "autorole": False,
-                     "automod": False},
+            options={key: key in ("verify", "logging", "antinuke") for key in ho.STEPS},
         )
 
     try:
@@ -374,9 +397,7 @@ def test_antinuke_whitelists_the_owner():
     async def go():
         report = await ho.run_handover(
             bot, guild, HANDOVER,
-            options={"antinuke": True, "verify": False, "logging": False,
-                     "tickets": False, "welcome": False, "autorole": False,
-                     "automod": False},
+            options={key: key == "antinuke" for key in ho.STEPS},
         )
         async with aiosqlite.connect("db/anti.db") as db:
             async with db.execute(
@@ -419,9 +440,7 @@ def test_autorole_refuses_a_role_above_the_bot():
     async def go():
         return await ho.run_handover(
             bot, guild, HANDOVER,
-            options={"autorole": True, "verify": False, "logging": False,
-                     "antinuke": False, "tickets": False, "welcome": False,
-                     "automod": False},
+            options={key: key == "autorole" for key in ho.STEPS},
         )
 
     try:
@@ -450,9 +469,7 @@ def test_autorole_writes_the_format_the_cog_reads():
     async def go():
         report = await ho.run_handover(
             bot, guild, HANDOVER,
-            options={"autorole": True, "verify": False, "logging": False,
-                     "antinuke": False, "tickets": False, "welcome": False,
-                     "automod": False},
+            options={key: key == "autorole" for key in ho.STEPS},
         )
         async with aiosqlite.connect("db/autorole.db") as db:
             async with db.execute(
@@ -509,6 +526,12 @@ def test_tickets_do_not_pile_up_on_a_second_run():
     if found:
         check("es zeigt auf den Ticket-Kanal",
               str(found[0]["channel_id"]) == "22", str(found[0]["channel_id"]))
+        # Knöpfe, kein Dropdown. Bei einer einzigen Kategorie ist ein
+        # Auswahlmenü ein Klick zu viel, und man sieht nicht einmal,
+        # was drinsteht, bevor man es aufklappt.
+        check("es sind Knöpfe, kein Dropdown",
+              found[0]["panel_type"] == "button",
+              str(found[0]["panel_type"]))
         check("die Team-Rolle ist eingetragen",
               "12" in [str(r) for r in (found[0].get("staff_roles") or [])],
               str(found[0].get("staff_roles")))
@@ -652,6 +675,142 @@ def test_the_ticket_panel_is_posted_not_just_prepared():
     check("und sonst nirgends", not elsewhere, str(elsewhere))
 
 
+def test_self_roles_are_posted_with_reactions():
+    """Der Rollen-Kanal blieb leer -- mein Fehler.
+
+    Ich hatte dem Template-Bot das Rollen-Dropdown weggenommen (weil der
+    Hauptbot die Rollen führt) und den Ersatz nicht gebaut. Der Kanal
+    stand danach da und enthielt nichts.
+    """
+
+    print("\nDie Rollen-Vergabe steht im Kanal")
+    from utils import speedrun_handover as ho
+
+    workdir = fresh_workdir()
+    guild = FakeGuild()
+    bot = FakeBot()
+
+    async def go():
+        return await ho.run_handover(
+            bot, guild, HANDOVER,
+            options={key: key == "selfroles" for key in ho.STEPS},
+        )
+
+    try:
+        report = run_in(workdir, go)
+    finally:
+        shutil.rmtree(workdir, ignore_errors=True)
+
+    check("der Schritt meldet Erfolg", not report.failed, str(report.failed))
+    check("im Rollen-Kanal steht ein Panel",
+          len(guild._channels[28].sent) == 1,
+          f"{len(guild._channels[28].sent)} Nachrichten")
+
+    # Ein Panel ohne Reaktionen ist ein Bild ohne Funktion: man liest,
+    # welche Rollen es gibt, und kann keine davon anklicken.
+    posted = guild._channels[28].messages
+    check("es wurde eine Nachricht behalten", len(posted) == 1)
+    if posted:
+        check("die Reaktionen sind gesetzt",
+              len(posted[0].reactions) == 2, str(posted[0].reactions))
+
+
+def test_self_roles_skip_a_role_above_the_bot():
+    """Eine Rolle, die der Bot nicht vergeben kann, darf nicht dastehen.
+
+    Sie wäre anklickbar und würde nichts tun -- schlimmer, als sie
+    wegzulassen.
+    """
+
+    print("\nUnvergebbare Rollen kommen nicht ins Panel")
+    from utils import speedrun_handover as ho
+
+    workdir = fresh_workdir()
+    guild = FakeGuild()
+    # Content Creator über die Bot-Rolle schieben.
+    guild._roles[13].position = 500
+    bot = FakeBot()
+
+    async def go():
+        return await ho.run_handover(
+            bot, guild, HANDOVER,
+            options={key: key == "selfroles" for key in ho.STEPS},
+        )
+
+    try:
+        report = run_in(workdir, go)
+    finally:
+        shutil.rmtree(workdir, ignore_errors=True)
+
+    check("der Schritt läuft trotzdem", not report.failed, str(report.failed))
+    posted = guild._channels[28].messages
+    if posted:
+        check("nur die vergebbare Rolle ist drin",
+              len(posted[0].reactions) == 1, str(posted[0].reactions))
+
+
+def test_rules_are_posted():
+    print("\nDie Regeln stehen im Regel-Kanal")
+    from utils import speedrun_handover as ho
+
+    workdir = fresh_workdir()
+    guild = FakeGuild()
+    bot = FakeBot()
+
+    async def go():
+        return await ho.run_handover(
+            bot, guild, HANDOVER,
+            options={key: key == "rules" for key in ho.STEPS},
+        )
+
+    try:
+        report = run_in(workdir, go)
+    finally:
+        shutil.rmtree(workdir, ignore_errors=True)
+
+    check("der Schritt meldet Erfolg", not report.failed, str(report.failed))
+    check("im Regel-Kanal steht etwas",
+          len(guild._channels[27].sent) == 1,
+          f"{len(guild._channels[27].sent)} Nachrichten")
+    # Und der Text sagt, dass er angepasst gehört -- sonst stehen auf
+    # jedem Server dieselben sechs Sätze und niemand merkt es.
+    step = next(s for s in report.steps if s.key == "rules")
+    check("der Hinweis aufs Anpassen fehlt nicht",
+          "anpassen" in step.detail.lower(), step.detail)
+
+
+def test_the_panels_use_custom_emojis():
+    """Die App hat 142 eigene Emojis -- die neuen Panels nutzen sie auch."""
+
+    print("\nEigene Emojis in den neuen Panels")
+    import re
+
+    source = open(
+        os.path.join(BOT, "utils", "speedrun_handover.py"), encoding="utf-8"
+    ).read()
+    # Kommentare raus, sonst zählt eine Erklärung als Verwendung.
+    code = "\n".join(
+        line for line in source.splitlines() if not line.strip().startswith("#")
+    )
+
+    check("die Emoji-Sammlung wird benutzt", "emoji_set." in code)
+    used = set(re.findall(r"emoji_set\.([A-Z_]+)", code))
+    check("mehrere verschiedene Emojis", len(used) >= 3, str(used))
+
+    # Und die Namen gibt es wirklich -- ein Tippfehler wäre ein
+    # AttributeError mitten im Bau.
+    from utils import emoji as emoji_set
+
+    missing = [name for name in used if not hasattr(emoji_set, name)]
+    check("alle Namen existieren", not missing, str(missing))
+
+    # Sie müssen auch wie Discord-Emojis aussehen, nicht wie Text.
+    for name in sorted(used):
+        value = str(getattr(emoji_set, name))
+        check(f"{name} ist ein Custom-Emoji",
+              value.startswith("<") and value.endswith(">"), value)
+
+
 def test_unchecked_steps_are_not_run():
     """Was nicht angehakt ist, wird nicht angefasst."""
 
@@ -734,9 +893,7 @@ def test_the_log_names_the_bot():
     async def go():
         return await ho.run_handover(
             bot, guild, HANDOVER,
-            options={"antinuke": True, "verify": False, "logging": False,
-                     "tickets": False, "welcome": False, "autorole": False,
-                     "automod": False},
+            options={key: key == "antinuke" for key in ho.STEPS},
             log=collect,
         )
 
@@ -763,6 +920,10 @@ def main():
     test_j2c_points_at_a_voice_channel()
     test_leveling_is_on()
     test_the_ticket_panel_is_posted_not_just_prepared()
+    test_self_roles_are_posted_with_reactions()
+    test_self_roles_skip_a_role_above_the_bot()
+    test_rules_are_posted()
+    test_the_panels_use_custom_emojis()
     test_unchecked_steps_are_not_run()
     test_defaults_and_unknown_keys()
     test_the_log_names_the_bot()
