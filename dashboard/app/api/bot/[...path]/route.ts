@@ -527,6 +527,20 @@ async function authorize(
     // Shape: /compose/<guildId>/...
     // Posting as the bot into any channel is close to "manage messages",
     // so it needs a write permission, not guild.view.
+
+    // Die Emoji-Liste ist serverunabhängig: sie zählt auf, welche
+    // eigenen Emojis der Bot mitbringt, und verrät nichts über einen
+    // konkreten Server. Für jeden Angemeldeten lesbar.
+    //
+    // Die Regel steht vor der guild_id-Prüfung, weil "emojis" keine
+    // achtzehnstellige Zahl ist und sonst als fehlende guild_id
+    // abgewiesen würde, bevor sie jemand erreichen kann.
+    if (rest[0] === "emojis") {
+      const session = await getServerSession(authOptions);
+      if (!session?.user?.id) return { ok: false, response: deny(401, "Not signed in.") };
+      return { ok: true };
+    }
+
     const guildId = rest[0];
     if (!guildId) return { ok: false, response: deny(400, "guild_id missing.") };
 

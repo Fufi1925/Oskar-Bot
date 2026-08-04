@@ -11,7 +11,7 @@
  * this look like over there".
  */
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle, ArrowDown, ArrowUp, Check, Copy, Eye, FileText, Image as ImageIcon,
   Layers, Link2, Loader2, Minus, MousePointerClick, Pencil, Plus, Send,
@@ -20,6 +20,7 @@ import {
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { EmojiPicker, insertAtCursor } from "@/components/dashboard/emoji-picker";
 import { ChannelPicker } from "@/components/dashboard/pickers";
 import { InlineToggle } from "@/components/dashboard/form-elements";
 import { announcementsFor } from "@/lib/announcements";
@@ -90,6 +91,14 @@ export function ComposePanel({ guildId }: { guildId: string }) {
 
   // text
   const [content, setContent] = useState("");
+
+  // Wohin ein ausgewähltes Emoji geschrieben wird.
+  //
+  // Für das freie Textfeld reicht ein Ref. Die V2-Blöcke brauchen eins
+  // je Block: mit einem einzelnen zeigte es immer auf den zuletzt
+  // gerenderten, und das Emoji landete im falschen Feld.
+  const contentRef = useRef<HTMLTextAreaElement | null>(null);
+  const blockRefs = useRef<Record<number, HTMLTextAreaElement | null>>({});
 
   // embed
   const [embed, setEmbed] = useState<any>({
@@ -295,6 +304,7 @@ export function ComposePanel({ guildId }: { guildId: string }) {
               hint="Discord-Formatierung geht: **fett**, *kursiv*, `Code`, > Zitat."
             >
               <textarea
+                ref={contentRef}
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
                 rows={8}
@@ -302,7 +312,29 @@ export function ComposePanel({ guildId }: { guildId: string }) {
                 placeholder="Was der Bot schreiben soll …"
                 className={cn(INPUT, "resize-y")}
               />
-              <p className="text-[11px] text-slate-600 text-right">{content.length} / 2000</p>
+              <div className="flex items-center gap-2">
+                <EmojiPicker
+                  onPick={(raw) => {
+                    const field = contentRef.current;
+                    const { text, caret } = insertAtCursor(field, content, raw);
+                    // 2000 ist Discords Grenze. Ohne die Prüfung
+                    // schneidet der Server hinten ab, und zwar mitten
+                    // im Emoji -- übrig bliebe eine kaputte Zahl.
+                    if (text.length > 2000) {
+                      toast.error("Das passt nicht mehr in 2000 Zeichen.");
+                      return;
+                    }
+                    setContent(text);
+                    // Den Cursor hinter das Emoji setzen, damit man
+                    // einfach weitertippen kann.
+                    requestAnimationFrame(() => {
+                      field?.focus();
+                      field?.setSelectionRange(caret, caret);
+                    });
+                  }}
+                />
+                <p className="text-[11px] text-slate-600 ml-auto">{content.length} / 2000</p>
+              </div>
             </Field>
           </div>
         )}
@@ -539,13 +571,36 @@ export function ComposePanel({ guildId }: { guildId: string }) {
                     </div>
 
                     {block.type === "text" && (
-                      <textarea
-                        value={block.text || ""}
-                        onChange={(e) => patchBlock(block.id, { text: e.target.value })}
-                        rows={3}
-                        placeholder="**Fett**, *kursiv*, `Code` …"
-                        className={cn(INPUT, "resize-y")}
-                      />
+                      <>
+                        <textarea
+                          ref={(node) => {
+                            // Pro Block ein Feld merken, damit das
+                            // Emoji im richtigen landet -- ein
+                            // einzelnes Ref zeigte immer auf den
+                            // zuletzt gerenderten Block.
+                            blockRefs.current[block.id] = node;
+                          }}
+                          value={block.text || ""}
+                          onChange={(e) => patchBlock(block.id, { text: e.target.value })}
+                          rows={3}
+                          placeholder="**Fett**, *kursiv*, `Code` …"
+                          className={cn(INPUT, "resize-y")}
+                        />
+                        <EmojiPicker
+                          className="mt-2"
+                          onPick={(raw) => {
+                            const field = blockRefs.current[block.id] ?? null;
+                            const { text, caret } = insertAtCursor(
+                              field, block.text || "", raw
+                            );
+                            patchBlock(block.id, { text });
+                            requestAnimationFrame(() => {
+                              field?.focus();
+                              field?.setSelectionRange(caret, caret);
+                            });
+                          }}
+                        />
+                      </>
                     )}
 
                     {block.type === "image" && (

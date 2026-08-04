@@ -346,3 +346,150 @@ async def fetch(
             if message.components else ""
         ),
     }
+
+
+# --------------------------------------------------------------------- #
+# Die Emoji-Auswahl
+# --------------------------------------------------------------------- #
+#
+# Der Bot hat gut 140 eigene Emojis. Wer sie in einer Nachricht
+# benutzen wollte, musste bisher ihre Schreibweise kennen --
+# `<:name:1234567890>`, achtzehnstellige ID inklusive. In der Praxis
+# heisst das: aus dem Quelltext abschreiben oder im Chat `\:name:`
+# tippen und das Ergebnis kopieren.
+#
+# Diese Route liefert die Liste, damit das Dashboard eine Auswahl
+# anbieten kann.
+
+# Wie die Emoji-Namen auf Gruppen verteilt werden.
+#
+# Reine Sortierhilfe fuers Dashboard, damit nicht 142 Kacheln in einer
+# Reihe stehen. Ein Emoji faellt in die erste Gruppe, deren Muster
+# passt; was uebrig bleibt, landet unter "Sonstige" -- deshalb kann
+# diese Liste nie etwas verschlucken.
+_EMOJI_GROUPS: list[tuple[str, tuple[str, ...]]] = [
+    ("Zustand", ("ONLINE", "OFFLINE", "IDLE", "DND", "STREAM", "ENABLE",
+                 "DISABLE", "TICK", "CROSS", "DENIED", "WARNING", "INFO",
+                 "LOADING", "SUCCESS", "ERROR")),
+    ("Moderation", ("BAN", "KICK", "MUTE", "UNMUTE", "TIMEOUT", "LOCK",
+                    "UNLOCK", "SHIELD", "SAFE", "MOD", "ADMIN", "STAFF",
+                    "RULE", "REPORT", "WARN")),
+    ("Team & Rollen", ("OWNER", "U_ADMIN", "MEMBER", "USER", "ROLE",
+                       "PARTNER", "BOOST", "VIP", "CROWN", "BADGE",
+                       "HUNTER", "SUPPORTER", "MODERATOR", "DEVELOPER")),
+    ("Kanäle", ("CHANNEL", "VOICE", "STAGE", "FORUM", "THREAD", "CATEGORY",
+                "ANNOUNCE", "NEWS", "TEXT")),
+    ("Tickets & Hilfe", ("TICKET", "SUPPORT", "HELP", "QUESTION", "MAIL",
+                         "INBOX")),
+    ("Musik & Medien", ("MUSIC", "PLAY", "PAUSE", "SKIP", "STOP", "VOLUME",
+                        "CAST", "IMAGE", "VIDEO")),
+    ("Werkzeuge", ("SETTINGS", "TOOL", "WRENCH", "GEAR", "CODE", "BUG",
+                   "DATABASE", "SERVER", "CLOUD", "LINK", "SEARCH",
+                   "DELETE", "EDIT", "ADD", "REMOVE")),
+    ("Auszeichnungen", ("STAR", "TROPHY", "GEM", "SPARKLE", "FIRE", "HEART",
+                        "GIFT", "PARTY", "LEVEL", "XP", "HYPESQUAD",
+                        "PREMIUM", "KING", "TADA", "CROWN")),
+    ("Navigation", ("NEXT", "PREVIOUS", "FORWARD", "REWIND", "ARROW",
+                    "SHUFFLE", "INDEX", "HOME", "PIN", "MENTION",
+                    "PLUS", "NEW", "BROWSER")),
+    ("Geräte & Technik", ("MOBILE", "PC", "WIFI", "CONNECTION", "SYSTEM",
+                          "SYS", "COMMAND", "GLOBAL", "BOT", "TIME",
+                          "TIMER", "UPTIME", "THUNDER")),
+    ("Spaß", ("GAMES", "MINECRAFT", "RACECAR", "PANDA", "CUTE", "BLOB",
+              "EMOTE", "MINGLE", "GIF", "HANDSHAKE", "PEOPLE", "HUMAN",
+              "SEED", "SWORD", "HEERIYE")),
+]
+
+
+def _emoji_group(name: str) -> str:
+    """Zu welcher Gruppe ein Emoji-Name gehoert."""
+
+    upper = name.upper()
+    for label, needles in _EMOJI_GROUPS:
+        for needle in needles:
+            if needle in upper:
+                return label
+    return "Sonstige"
+
+
+@router.get("/emojis", summary="Die eigenen Emojis des Bots")
+async def emojis():
+    """Alle Custom-Emojis, gruppiert und mit fertiger Schreibweise.
+
+    Gelesen wird ``utils/emoji.py`` ueber den Syntaxbaum, nicht ueber
+    ``dir()``: das Modul enthaelt neben den Emojis auch Dictionaries,
+    Hilfsfunktionen und Aliase, und ein ``dir()`` haette die alle
+    mitgenommen. Der Syntaxbaum liefert genau die Zuweisungen auf
+    oberster Ebene, deren Wert wie ein Discord-Emoji aussieht.
+
+    Damit kann die Liste nicht von der Quelle abweichen: es gibt keine
+    zweite, gepflegte Aufstellung, die man vergessen koennte.
+    """
+
+    import ast
+    import re as _re
+    from pathlib import Path
+
+    source_path = Path(__file__).resolve().parent.parent.parent / "utils" / "emoji.py"
+    try:
+        tree = ast.parse(source_path.read_text(encoding="utf-8"))
+    except Exception as exc:  # pragma: no cover - nur bei kaputter Datei
+        raise HTTPException(
+            status_code=500,
+            detail=f"Die Emoji-Liste ließ sich nicht lesen: {exc}",
+        ) from exc
+
+    pattern = _re.compile(r"^<(a?):([A-Za-z0-9_]+):(\d+)>$")
+    seen: set[str] = set()
+    items: list[dict] = []
+
+    for node in tree.body:
+        if not isinstance(node, ast.Assign) or len(node.targets) != 1:
+            continue
+        target = node.targets[0]
+        if not isinstance(target, ast.Name):
+            continue
+        if not isinstance(node.value, ast.Constant) or not isinstance(
+            node.value.value, str
+        ):
+            continue
+
+        raw = node.value.value
+        match = pattern.match(raw)
+        if match is None:
+            continue
+
+        # Mehrere Namen zeigen auf dasselbe Emoji (DELETE und
+        # DELETE_ALT1 etwa). Zweimal dieselbe Kachel anzubieten waere
+        # nur verwirrend.
+        if raw in seen:
+            continue
+        seen.add(raw)
+
+        items.append(
+            {
+                "key": target.id,
+                "name": match.group(2),
+                "id": match.group(3),
+                "animated": bool(match.group(1)),
+                # Genau das, was in den Text muss.
+                "raw": raw,
+                "group": _emoji_group(target.id),
+                # Fuer die Vorschau im Browser: Discord liefert jedes
+                # Emoji auch als Bild.
+                "url": (
+                    f"https://cdn.discordapp.com/emojis/{match.group(3)}."
+                    f"{'gif' if match.group(1) else 'png'}?size=48"
+                ),
+            }
+        )
+
+    items.sort(key=lambda entry: (entry["group"] == "Sonstige", entry["group"],
+                                  entry["key"]))
+
+    groups: list[str] = []
+    for entry in items:
+        if entry["group"] not in groups:
+            groups.append(entry["group"])
+
+    return {"emojis": items, "groups": groups, "count": len(items)}

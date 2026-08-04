@@ -547,6 +547,14 @@ export const api = {
    * server, where the status bot can post too.
    */
   getSenders: (guildId: string) => request<any>(`/compose/${guildId}/senders`),
+
+  /**
+   * Die eigenen Emojis des Bots, gruppiert.
+   *
+   * Serverunabhängig: es geht um die Emojis, die der Bot mitbringt,
+   * nicht um die eines bestimmten Servers.
+   */
+  getBotEmojis: () => request<any>(`/compose/emojis`),
   editComposed: (guildId: string, data: any) =>
     request<any>(`/compose/${guildId}/edit`, {
       method: "POST",

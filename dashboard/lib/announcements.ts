@@ -41,6 +41,197 @@ export interface Announcement {
 
 export const ANNOUNCEMENTS: Announcement[] = [
   {
+    id: "2026-08-speedrun-vorlagen",
+    label: "Changelog: Speedrun-Vorlagen",
+    summary: "Drei neue Vorlagen, und die Schalter passen jetzt dazu",
+    guilds: [BOT_GUILD_ID],
+    date: "04.08.2026",
+    accent: "#22d3ee",
+    blocks: [
+      {
+        type: "text",
+        text:
+          "# <:zrocket:1530375359806312488> Changelog \u00b7 Speedrun\n" +
+          "### Drei neue Vorlagen",
+      },
+      { type: "divider" },
+      {
+        type: "text",
+        text:
+          "> <:zmusic:1530375363090448404> **Musik & DJ** \u2014 H\u00f6rsessions, eigene Tracks, " +
+          "zwei B\u00fchnen und Sprachr\u00e4ume nach Genre.\n" +
+          "> <:codebase:1530375110815645706> **Entwickler & Open Source** \u2014 Hilfe-Foren nach " +
+          "Stack, Code-Review, Pair-Programming-R\u00e4ume.\n" +
+          "> <:zseed:1530375235981803573> **Kleiner Server** \u2014 nur das N\u00f6tigste. 17 Kan\u00e4le " +
+          "statt neunzig, f\u00fcr Freundeskreise.",
+      },
+      { type: "divider" },
+      {
+        type: "text",
+        text:
+          "## Die Schalter passen jetzt zur Vorlage\n\n" +
+          "Unter \u201eErweitert\u201c standen bisher **alle dreizehn Schritte auf " +
+          "an** \u2014 egal, was die Vorlage \u00fcberhaupt baut. Bei zw\u00f6lf von " +
+          "dreizehn waren dadurch Sachen angehakt, die nie entstehen: " +
+          "`rp` legt keinen Rollen-Kanal an, `business` kein " +
+          "Ticket-Panel, einen Z\u00e4hl-Kanal hat nur `community`.\n\n" +
+          "Man merkte es erst hinterher im Bericht: \u201e\u00dcbersprungen\u201c.",
+      },
+      {
+        type: "text",
+        text:
+          "Jetzt meldet jede Vorlage, was sie hergibt. Was nicht geht, " +
+          "ist ausgegraut und sagt warum \u2014 vor dem Start, nicht danach.",
+      },
+      { type: "divider" },
+      {
+        type: "text",
+        text:
+          "-# Der Speedrun ist weiterhin Beta und braucht einen Code.",
+      },
+    ],
+  },
+  {
+    id: "2026-08-speedrun-beta-code",
+    label: "Changelog: Speedrun-Zugang",
+    summary: "Beta-Code pro Server, Verwaltung im Admin-Panel",
+    guilds: [BOT_GUILD_ID],
+    date: "03.08.2026",
+    accent: "#67e8f9",
+    blocks: [
+      {
+        type: "text",
+        text:
+          "# <:lock:1530375181887995924> Changelog \u00b7 Speedrun\n" +
+          "### Geschlossene Beta",
+      },
+      { type: "divider" },
+      {
+        type: "text",
+        text:
+          "Der Speedrun setzt einen ganzen Server auf \u2014 Dutzende Rollen " +
+          "und Kan\u00e4le, dazu Verify, Logs, Anti-Nuke und Tickets. Das ist " +
+          "nichts, was man versehentlich ausl\u00f6sen sollte.",
+      },
+      { type: "divider" },
+      {
+        type: "text",
+        text:
+          "## Was neu ist\n\n" +
+          "> <:zSafe:1530375518434889879> **Ein Code schaltet den Reiter frei** \u2014 und zwar f\u00fcr " +
+          "**diesen Server**, nicht f\u00fcr dein Konto.\n" +
+          "> <:U_admin:1530375175432966204> **Verwaltung im Admin-Panel**: welche Server " +
+          "freigeschaltet sind, wer es war und wann.\n" +
+          "> <:zban:1530375511237197856> **Entziehen oder sperren.** Entziehen hei\u00dft: Code " +
+          "neu eingeben. Sperren hei\u00dft: kein Code hilft mehr.",
+      },
+      { type: "divider" },
+      {
+        type: "text",
+        text:
+          "Beides bricht einen laufenden Speedrun sofort ab. Wer jemandem " +
+          "den Zugang nimmt, will nicht, dass der angefangene Umbau " +
+          "trotzdem noch zehn Minuten weiterl\u00e4uft.",
+      },
+    ],
+  },
+  {
+    id: "2026-08-speedrun-tab-zu",
+    label: "Changelog: Speedrun l\u00e4uft ohne Tab",
+    summary: "Tab schlie\u00dfen ist jetzt erlaubt \u2014 der Bot macht allein weiter",
+    guilds: [BOT_GUILD_ID],
+    date: "02.08.2026",
+    accent: "#ef4444",
+    blocks: [
+      {
+        type: "text",
+        text:
+          "# <:warning:1530375219733201036> Changelog \u00b7 Speedrun\n" +
+          "### Der wichtigste Fehler seit Langem",
+      },
+      { type: "divider" },
+      {
+        type: "text",
+        text:
+          "Die zweite H\u00e4lfte des Speedruns hing **am offenen " +
+          "Browser-Tab**. Nur das Dashboard hat sie angesto\u00dfen: es fragte " +
+          "den Fortschritt ab, sah \u201eBau fertig\u201c und meldete das dem Bot.\n\n" +
+          "Tab zu w\u00e4hrend des Baus \u2014 Handy sperrt, Netz weg, Fenster " +
+          "geschlossen \u2014 und **niemand** hat das je gemeldet.",
+      },
+      {
+        type: "text",
+        text:
+          "Das Ergebnis: Rollen und Kan\u00e4le standen, aber Verify, " +
+          "Tickets, Logs, Anti-Nuke, Level und die Begr\u00fc\u00dfung fehlten. " +
+          "Ohne jede Meldung. Ein Bau dauert \u00fcber eine Minute \u2014 einen " +
+          "Tab so lange offen zu halten ist keine Bedingung, die man " +
+          "jemandem stellen kann.",
+      },
+      { type: "divider" },
+      {
+        type: "text",
+        text:
+          "## Was jetzt gilt\n\n" +
+          "> <:ztick:1530375424922750977> **Der Bot wartet selbst** auf das Ende des Baus und " +
+          "richtet danach ein.\n" +
+          "> <:ztick:1530375424922750977> **Du darfst die Seite schlie\u00dfen.** Beim n\u00e4chsten " +
+          "\u00d6ffnen siehst du, wie weit er ist.\n" +
+          "> <:ztick:1530375424922750977> **Abbrechen bricht wirklich ab.** Vorher sprang der " +
+          "Reiter danach zur\u00fcck auf \u201eFertig\u201c, w\u00e4hrend die H\u00e4lfte fehlte.",
+      },
+      { type: "divider" },
+      {
+        type: "text",
+        text:
+          "Dazu: ein Fortschrittsbalken \u00fcber **beide** H\u00e4lften (er stand " +
+          "vorher die ganze Einrichtung \u00fcber auf 100 %), Laufzeit, ein " +
+          "durchsuchbares Log mit \u201eNur Probleme\u201c-Filter und Fehler " +
+          "**vor** den Erfolgen statt darunter.",
+      },
+    ],
+  },
+  {
+    id: "2026-08-tickets-rechte",
+    label: "Changelog: Ticket-Rechte",
+    summary: "Jeder konnte fremde Tickets schlie\u00dfen \u2014 behoben",
+    guilds: [BOT_GUILD_ID],
+    date: "02.08.2026",
+    accent: "#f59e0b",
+    blocks: [
+      {
+        type: "text",
+        text:
+          "# <:zticket:1530375273802104833> Changelog \u00b7 Tickets\n" +
+          "### Eine Rechtel\u00fccke und ein leerer Kanal",
+      },
+      { type: "divider" },
+      {
+        type: "text",
+        text:
+          "**Jeder konnte fremde Tickets schlie\u00dfen.** Die Pr\u00fcfung, wer " +
+          "einen Knopf dr\u00fccken darf, ging beim Umbau der Panels " +
+          "verloren \u2014 sie war noch da, wurde aber nie ausgef\u00fchrt.",
+      },
+      {
+        type: "text",
+        text:
+          "Dazu kam: **ein Ticket zu \u00f6ffnen erzeugte einen leeren Kanal.** " +
+          "Im Dashboard sah alles richtig aus, in Discord kam nichts an. " +
+          "Ursache war ein totes Bild und eine Nachrichtenform, die " +
+          "Discord in dieser Kombination ablehnt.",
+      },
+      { type: "divider" },
+      {
+        type: "text",
+        text:
+          "> <:ztick:1530375424922750977> Nur noch Ersteller und Team schlie\u00dfen ein Ticket.\n" +
+          "> <:ztick:1530375424922750977> Beim \u00d6ffnen kommt wieder eine Begr\u00fc\u00dfung mit Kn\u00f6pfen.\n" +
+          "> <:ztick:1530375424922750977> Tickets tauchen jetzt auch in der \u00dcbersicht auf.",
+      },
+    ],
+  },
+  {
     id: "2026-08-premium-keys",
     label: "Changelog: Premium",
     summary: "Persönliche Lizenz-Keys statt einem Master-Key für alle",
