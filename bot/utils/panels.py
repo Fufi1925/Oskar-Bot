@@ -354,7 +354,7 @@ def from_embed(embed: discord.Embed | None, view: discord.ui.View | None = None,
         for item in buttons:
             view.remove_item(item)
 
-    return Panel(
+    panel = Panel(
         title,
         *sections,
         tone=tone or "info",
@@ -364,6 +364,47 @@ def from_embed(embed: discord.Embed | None, view: discord.ui.View | None = None,
         buttons=buttons,
         timeout=getattr(view, "timeout", None),
     )
+
+    _carry_permission_check(view, panel)
+    return panel
+
+
+def _carry_permission_check(source: discord.ui.View | None, target) -> None:
+    """
+    Move the source view's `interaction_check` onto the panel.
+
+    Without this the check is silently dropped, and that is a hole, not
+    a cosmetic problem. Discord calls `interaction_check` on the view a
+    message was *sent* with. The buttons move to the panel, the original
+    view keeps its check and is never sent again -- so the check never
+    runs.
+
+    Found on the ticket buttons: Claim, Lock and Close were guarded by a
+    staff-role check on `TicketActionsView`, that view went through
+    `from_embed`, and afterwards anybody in the channel could close
+    somebody else's ticket.
+
+    Three call sites were affected, all of them tickets. Fixing it here
+    rather than at each one, because the next view with a check would
+    hit exactly the same trap.
+    """
+    if source is None:
+        return
+
+    check = getattr(type(source), "interaction_check", None)
+    if check is None or check is discord.ui.View.interaction_check:
+        return  # nothing of its own to carry
+
+    async def carried(interaction, _source=source):
+        # Bound to the *original* view: its check reads self.cog,
+        # self.cat_id and the rest. Re-binding to the panel would only
+        # produce AttributeError at the moment somebody clicks.
+        return await _source.interaction_check(interaction)
+
+    # On the instance, not the class -- Panel is shared by every caller,
+    # and a class attribute would leak one ticket's check into the next
+    # panel anybody builds.
+    target.interaction_check = carried
 
 
 def from_embeds(embeds, view: discord.ui.View | None = None,

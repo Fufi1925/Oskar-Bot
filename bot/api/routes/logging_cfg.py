@@ -118,11 +118,31 @@ def _config(cog, guild_id: int) -> dict:
 
 def _channel_info(guild, channel_id):
     channel = guild.get_channel(int(channel_id)) if guild and channel_id else None
+
+    # Darf der Bot dort überhaupt schreiben?
+    #
+    # Ohne diese Angabe sieht ein Kanal ohne Schreibrecht im Dashboard
+    # genauso aus wie einer mit -- angeschaltet, Kanal gewählt, alles
+    # grün, und es kommt trotzdem nie ein Eintrag an. Das ist die
+    # häufigste Ursache hinter "Logging geht nicht".
+    cannot_post = False
+    if channel is not None and guild is not None and guild.me is not None:
+        try:
+            permissions = channel.permissions_for(guild.me)
+            cannot_post = not (
+                permissions.view_channel and permissions.send_messages
+            )
+        except Exception:
+            # Ein Kanaltyp ohne permissions_for (oder ein Fake im Test)
+            # darf die ganze Antwort nicht kosten.
+            cannot_post = False
+
     return {
         # Snowflakes travel as strings: a JSON number loses the last digits.
         "id": str(channel_id) if channel_id else None,
         "name": getattr(channel, "name", None),
         "missing": channel is None and bool(channel_id),
+        "cannot_post": cannot_post,
     }
 
 
