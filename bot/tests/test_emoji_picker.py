@@ -268,15 +268,60 @@ def test_the_picker_inserts_at_the_cursor():
           "blockRefs.current[block.id] ??" in panel
           or "blockRefs.current[block.id]" in panel)
 
-    # Die Grenze von Discord. Auch hier zählt die Bedingung, nicht das
-    # Vorkommen: `if (false)` ließe beide Wörter stehen.
-    guard = re.search(r"if \(([^)]*text\.length[^)]*)\)", panel)
-    check("die 2000-Zeichen-Grenze wird geprüft",
-          guard is not None and "2000" in guard.group(1),
-          f"Bedingung: {guard.group(1) if guard else 'keine gefunden'} — "
-          "sonst schneidet der Server mitten im Emoji ab")
+    # Die Grenzen von Discord. Auch hier zählt die Bedingung, nicht das
+    # Vorkommen: `if (false)` ließe die Wörter stehen.
+    #
+    # Es gibt zwei Stellen, und sie sehen verschieden aus: das freie
+    # Textfeld prüft fest gegen 2000, die Embed-Hilfe gegen ein
+    # übergebenes `limit`, weil Discord jedes Embed-Feld einzeln zählt
+    # (Titel 256, Beschreibung 4096, Fußzeile 2048). Ein einzelnes
+    # Suchmuster traf nur die erste und meldete die zweite als Fehler.
+    guards = re.findall(r"if \(([^)]*text\.length[^)]*)\)", panel)
+    check("beide Grenzen werden geprüft", len(guards) >= 2,
+          f"gefunden: {guards}")
+    check("das freie Textfeld prüft gegen 2000",
+          any("2000" in g for g in guards),
+          f"Bedingungen: {guards}")
+    check("die Embed-Felder prüfen gegen ihre eigene Grenze",
+          any("limit" in g for g in guards),
+          f"Bedingungen: {guards} — ein fester Wert wäre für Titel (256) "
+          "und Beschreibung (4096) gleichzeitig falsch")
     check("und es kommt eine Meldung statt stillen Abschneidens",
           "passt nicht mehr" in panel)
+
+    # Die Auswahl muss überall stehen, wo Text entsteht -- nicht nur im
+    # freien Feld. Ein Embed ohne Auswahl heißt: dort weiterhin die
+    # Schreibweise von Hand kennen.
+    # Auf den *Render*-Zweig eingrenzen, nicht auf den ersten Treffer:
+    # "kind === \"embed\"" steht auch in der Typ-Auswahl oben, und der
+    # Ausschnitt dazwischen war dreißig Zeichen lang.
+    embed_branch = panel.split('{kind === "embed" && (')[1].split(
+        '{kind === "v2" && (')[0]
+    check("der Embed-Zweig bietet die Auswahl",
+          "EmojiPicker" in embed_branch,
+          "im Embed müsste man den Code weiterhin abschreiben")
+    for field in ("title", "description", "author_name", "footer_text"):
+        check(f"…auch für {field}",
+              f'insertIntoEmbed("{field}"' in embed_branch,
+              f"{field} hat keine Auswahl")
+
+    # Die Embed-Hilfe muss ihr Feld auch wirklich nachschlagen.
+    #
+    # `const node = null` ließe alles andere grün: die Auswahl steht
+    # da, die Grenze wird geprüft, nur landet jedes Emoji am Ende statt
+    # am Cursor. Ein Mutationstest hat genau das durchgelassen.
+    helper = panel.split("const insertIntoEmbed")[1].split("};")[0]
+    check("die Embed-Hilfe schlägt ihr Feld nach",
+          "embedRefs.current[field]" in helper,
+          "ohne das Feld landet jedes Emoji am Ende")
+    check("und reicht es an die Einfüge-Hilfe weiter",
+          "insertAtCursor(node" in helper,
+          f"Rumpf: {helper.strip()[:120]}")
+
+    buttons_branch = panel.split('block.type === "buttons"')[1][:3000]
+    check("das Button-Emoji lässt sich auswählen",
+          "EmojiPicker" in buttons_branch,
+          "gerade dort ist ein Emoji am naheliegendsten")
 
 
 def test_the_api_call_exists():

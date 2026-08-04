@@ -59,7 +59,7 @@ PARTNER_TOKEN_ENV = "PREMIUM_PARTNER_TOKEN"
 # Kategorie), und sie decken die Faelle ab, an denen die starre
 # Schritt-Liste vorher aufgefallen ist -- "minimal" hat weder Verify
 # noch Tickets noch Rollen-Vergabe.
-BETA_TEMPLATES = {"community", "music", "dev", "minimal"}
+BETA_TEMPLATES = {"community", "music", "dev", "minimal", "clan"}
 
 
 def _template_base() -> str:

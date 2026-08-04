@@ -156,6 +156,9 @@ def test_the_known_gaps_are_reported():
         "community": {"counting": True, "verify": True, "tickets": True},
         "music": {"counting": False, "verify": True, "tickets": True},
         "dev": {"counting": False, "verify": True, "tickets": True},
+        # clan ist wie gaming aufgebaut, hat aber einen Premium-Bereich.
+        "clan": {"verify": True, "tickets": True, "selfroles": True,
+                 "counting": False},
     }
 
     for key, wanted in expected.items():

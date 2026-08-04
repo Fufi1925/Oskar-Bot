@@ -100,6 +100,36 @@ export function ComposePanel({ guildId }: { guildId: string }) {
   const contentRef = useRef<HTMLTextAreaElement | null>(null);
   const blockRefs = useRef<Record<number, HTMLTextAreaElement | null>>({});
 
+  // Dieselbe Sache für die Embed-Felder. Titel, Beschreibung und die
+  // beiden Fußzeilen tragen Fließtext -- dort gehört ein Emoji genauso
+  // hin wie in eine freie Nachricht.
+  const embedRefs = useRef<
+    Record<string, HTMLInputElement | HTMLTextAreaElement | null>
+  >({});
+
+  /**
+   * Ein Emoji in ein Embed-Feld setzen.
+   *
+   * Einmal geschrieben statt viermal: Titel, Beschreibung, Autor und
+   * Fußzeile unterscheiden sich nur im Namen und in ihrer Grenze.
+   * Discord zählt jedes Feld einzeln, und ein abgeschnittener
+   * Emoji-Code hinterlässt eine nackte Zahl im Text.
+   */
+  const insertIntoEmbed = (field: string, raw: string, limit: number) => {
+    const node = embedRefs.current[field] ?? null;
+    const current = String(embed[field] ?? "");
+    const { text, caret } = insertAtCursor(node, current, raw);
+    if (text.length > limit) {
+      toast.error(`Das passt nicht mehr in ${limit} Zeichen.`);
+      return;
+    }
+    setEmbed({ ...embed, [field]: text });
+    requestAnimationFrame(() => {
+      node?.focus();
+      node?.setSelectionRange(caret, caret);
+    });
+  };
+
   // embed
   const [embed, setEmbed] = useState<any>({
     title: "", description: "", color: "#5865f2",
@@ -357,10 +387,15 @@ export function ComposePanel({ guildId }: { guildId: string }) {
             <div className="grid md:grid-cols-2 gap-5">
               <Field label="Titel">
                 <input
+                  ref={(node) => { embedRefs.current.title = node; }}
                   value={embed.title}
                   onChange={(e) => setEmbed({ ...embed, title: e.target.value })}
                   maxLength={256}
                   className={INPUT}
+                />
+                <EmojiPicker
+                  className="mt-2"
+                  onPick={(raw) => insertIntoEmbed("title", raw, 256)}
                 />
               </Field>
               <Field label="Farbe">
@@ -382,27 +417,42 @@ export function ComposePanel({ guildId }: { guildId: string }) {
 
             <Field label="Beschreibung">
               <textarea
+                ref={(node) => { embedRefs.current.description = node; }}
                 value={embed.description}
                 onChange={(e) => setEmbed({ ...embed, description: e.target.value })}
                 rows={5}
                 maxLength={4096}
                 className={cn(INPUT, "resize-y")}
               />
+              <EmojiPicker
+                className="mt-2"
+                onPick={(raw) => insertIntoEmbed("description", raw, 4096)}
+              />
             </Field>
 
             <div className="grid md:grid-cols-2 gap-5">
               <Field label="Autor (Kopfzeile)">
                 <input
+                  ref={(node) => { embedRefs.current.author_name = node; }}
                   value={embed.author_name}
                   onChange={(e) => setEmbed({ ...embed, author_name: e.target.value })}
                   className={INPUT}
                 />
+                <EmojiPicker
+                  className="mt-2"
+                  onPick={(raw) => insertIntoEmbed("author_name", raw, 256)}
+                />
               </Field>
               <Field label="Fußzeile">
                 <input
+                  ref={(node) => { embedRefs.current.footer_text = node; }}
                   value={embed.footer_text}
                   onChange={(e) => setEmbed({ ...embed, footer_text: e.target.value })}
                   className={INPUT}
+                />
+                <EmojiPicker
+                  className="mt-2"
+                  onPick={(raw) => insertIntoEmbed("footer_text", raw, 2048)}
                 />
               </Field>
               <Field label="Großes Bild (URL)">
@@ -634,6 +684,17 @@ export function ComposePanel({ guildId }: { guildId: string }) {
                               }}
                               placeholder="🔗"
                               className="w-14 bg-[#0b1626] border border-slate-800 rounded-xl px-2 py-3 text-sm text-white text-center focus:outline-none"
+                            />
+                            {/* Hier wird ersetzt statt eingefügt: ein
+                                Knopf trägt genau ein Emoji, und zwei
+                                hintereinander lehnt Discord ab. */}
+                            <EmojiPicker
+                              label="Emoji für diesen Knopf"
+                              onPick={(raw) => {
+                                const buttons = [...(block.buttons || [])];
+                                buttons[bi] = { ...button, emoji: raw };
+                                patchBlock(block.id, { buttons });
+                              }}
                             />
                             <input
                               value={button.label}

@@ -83,7 +83,7 @@ def test_beta_gate():
     print("\nDie Beta-Sperre")
     from api.routes import speedrun
 
-    # Vier Vorlagen sind freigegeben. Die uebrigen neun sind gebaut,
+    # Fuenf Vorlagen sind freigegeben. Die uebrigen neun sind gebaut,
     # aber noch nicht auf einem echten Server gelaufen.
     #
     # Fest verdrahtet statt "mindestens eine": eine Vorlage aus
@@ -91,7 +91,7 @@ def test_beta_gate():
     # jemand sie angewendet hat. Wer eine dazunimmt, aendert diese
     # Zeile mit -- und genau dann soll jemand hinsehen.
     check("die Beta-Liste stimmt",
-          speedrun.BETA_TEMPLATES == {"community", "music", "dev", "minimal"},
+          speedrun.BETA_TEMPLATES == {"community", "music", "dev", "minimal", "clan"},
           str(speedrun.BETA_TEMPLATES))
 
     source = open(
