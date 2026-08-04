@@ -742,7 +742,51 @@ def test_the_sidebar_row_stands_out():
     # Und das Ganze muss auch verdrahtet sein, nicht nur im CSS stehen.
     check("die Sidebar erkennt die Zeile", "isSpeedrun" in layout)
     check("sie vergibt die Klasse", '"speedrun-link"' in layout)
-    check("und das Symbol-Feld", '"speedrun-badge shrink-0"' in layout)
+    check("und das Symbol-Feld", "speedrun-badge" in layout)
+
+    # Der Stil muss in dem Zweig stehen, der die Zeile wirklich
+    # rendert.
+    #
+    # Hier lag ein Fehler, den dieser Test nicht gesehen hat: die
+    # Sidebar hat zwei Renderpfade -- einen für Einträge der obersten
+    # Ebene (Premium, Admin) und einen für Untereinträge einer Gruppe.
+    # „Speedrun (Beta)“ steht in der Gruppe „Verwaltung“, läuft also
+    # durch den zweiten. Der Stil stand nur im ersten. Im Dashboard sah
+    # die Zeile deshalb aus wie jede andere, während dieser Test grün
+    # blieb: „isSpeedrun kommt in der Datei vor“ sagt nichts darüber,
+    # ob es an der Stelle steht, die zählt.
+    in_group = bool(
+        re.search(r'name:\s*"Verwaltung",\s*items:\s*\[[^\]]*speedrun',
+                  layout, re.S)
+    )
+    check("der Reiter steht in einer Gruppe", in_group,
+          "wenn er auf die oberste Ebene wandert, muss dieser Test angepasst "
+          "werden -- dann greift der andere Zweig")
+
+    if in_group and "item.items.map((subItem: any) =>" in layout:
+        branch = layout.split("item.items.map((subItem: any) =>")[1]
+        # Der Zweig endet, wo die Gruppe geschlossen wird.
+        branch = branch.split("})}")[0]
+        check("der Gruppen-Zweig kennt den Speedrun",
+              "isSpeedrun" in branch,
+              "der Stil steht im falschen Zweig und wird nie vergeben")
+
+        # Und er muss ihn am Pfad erkennen, nicht an einer Konstanten.
+        #
+        # `const isSpeedrun = false` ließe alle Prüfungen oben grün:
+        # die Wörter stehen weiter da, die Zeile bekommt trotzdem nie
+        # einen eigenen Stil. Ein Mutationstest hat genau das
+        # durchgelassen.
+        check("er erkennt ihn am Pfad",
+              'subItem.href.endsWith("/speedrun")' in branch,
+              "die Erkennung hängt an einer Konstanten statt am Link")
+        check("er vergibt dort die Klasse",
+              "speedrun-link" in branch,
+              "die Zeile bekommt im Dashboard keine eigene Gestaltung")
+        check("und dort das Symbol-Feld",
+              "speedrun-badge" in branch)
+        check("und das BETA-Zeichen",
+              "speedrun-beta" in branch)
 
     # Wer Bewegung abgestellt hat, bekommt keine.
     reduced = css.split("prefers-reduced-motion: reduce")
@@ -811,6 +855,78 @@ def test_the_locked_tab_shows_nothing_but_the_code_field():
           "ein Aussetzer reicht, um an der Sperre vorbeizukommen")
 
 
+def test_the_switches_follow_the_chosen_template():
+    """
+    Kein Schalter für etwas, das die Vorlage nicht baut.
+
+    Vorher holte der Reiter die Schritt-Liste einmal beim Öffnen und
+    ließ sie dann stehen -- mit allen dreizehn auf „an“, egal welche
+    Vorlage gewählt war. Bei zwölf von dreizehn standen dadurch
+    Schalter für Sachen an, die nie entstehen: „minimal“ hat weder
+    Verify noch Tickets noch Rollen-Vergabe. Wer sie anließ, las
+    hinterher im Bericht „Übersprungen“.
+    """
+
+    print("\nDie Schalter folgen der gewählten Vorlage")
+
+    panel = strip_comments(read(PANEL))
+
+    # Die Liste muss *mit* der Vorlage geholt werden. Ein Aufruf ohne
+    # Argument liefert wieder die starre Liste von früher.
+    check("die Schritte werden zur Vorlage geholt",
+          "api.speedrunSteps(chosen)" in panel,
+          "ohne die Vorlage kommt die alte, starre Liste zurück")
+
+    # Und erneut, wenn die Vorlage wechselt. Steht `chosen` nicht in
+    # den Abhängigkeiten, bleibt die Liste der ersten Wahl stehen.
+    if "api.speedrunSteps(chosen)" in panel:
+        after = panel.split("api.speedrunSteps(chosen)")[1]
+        deps = after.split("}, [")[1].split("]")[0] if "}, [" in after else ""
+        check("ein Wechsel der Vorlage lädt sie neu",
+              "chosen" in deps,
+              f"Abhängigkeiten: [{deps}] — die Liste bleibt sonst stehen")
+
+    # Der Schalter muss wirklich gesperrt werden.
+    #
+    # Nur zu prüfen, dass „supported“ vorkommt, wäre wertlos: ein
+    # `const possible = true` ließe das Wort stehen und den Schalter
+    # anklickbar. Also die Herkunft mitlesen.
+    check("gesperrt wird anhand der Auskunft",
+          "step.supported !== false" in panel,
+          "die Sperre hängt nicht an dem, was die Vorlage meldet")
+    check("und der Schalter ist dann wirklich aus",
+          "disabled={!possible}" in panel,
+          "ohne disabled bleibt er anklickbar")
+    check("ein gesperrter Schalter gilt als nicht gewählt",
+          "checked={possible && Boolean(options[step.key])}" in panel,
+          "sonst wird ein unmöglicher Schritt mitgeschickt")
+    check("und es steht dabei, warum",
+          "legt dafür keinen Kanal an" in panel,
+          "ein grauer Schalter ohne Grund ist ein Rätsel")
+
+
+def test_the_template_bot_reports_what_it_can_build():
+    """Ohne diese Auskunft kann der Hauptbot nichts ausgrauen."""
+
+    print("\nDer Template-Bot meldet, was er baut")
+
+    import os as _os
+
+    web_path = _os.path.join(
+        _os.path.dirname(_os.path.dirname(BOT)), "University-Template", "web.py"
+    )
+    if not _os.path.isfile(web_path):
+        print("  skip (University-Template liegt nicht daneben)")
+        return
+
+    web = open(web_path, encoding="utf-8").read()
+    web = re.sub(r"^\s*#.*$", "", web, flags=re.M)
+
+    check("die Vorlagenliste enthält die Auskunft",
+          '"capabilities": template.capabilities' in web,
+          "der Hauptbot erfährt nie, was die Vorlage kann")
+
+
 def test_only_admins_reach_the_access_management():
     """
     Die Verwaltung zeigt jeden Server -- das ist nichts für Moderatoren.
@@ -858,6 +974,8 @@ def test_only_admins_reach_the_access_management():
 def main():
     test_the_tab_and_the_page_exist_together()
     test_the_locked_tab_shows_nothing_but_the_code_field()
+    test_the_switches_follow_the_chosen_template()
+    test_the_template_bot_reports_what_it_can_build()
     test_only_admins_reach_the_access_management()
     test_every_call_has_a_proxy_rule()
     test_the_api_calls_match_the_routes()

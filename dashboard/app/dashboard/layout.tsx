@@ -342,30 +342,66 @@ export default function DashboardLayout({
                     {item.items.map((subItem: any) => {
                       const isActive = pathname === subItem.href;
                       const subIndex = nextIndex();
+                      // Der Speedrun steht in der Gruppe "Verwaltung",
+                      // wird also *hier* gerendert und nicht im Zweig
+                      // für die oberste Ebene weiter unten.
+                      //
+                      // Genau daran ist die Hervorhebung vorher
+                      // gescheitert: sie stand nur dort. Premium sah
+                      // richtig aus, weil Premium ein Eintrag der
+                      // obersten Ebene ist -- der Speedrun ist es
+                      // nicht, und der Stil kam nie an.
+                      const isSpeedrun = subItem.href.endsWith("/speedrun");
                       return (
                         <Link
                           key={subItem.name}
                           href={subItem.href}
+                          data-active={isActive ? "true" : undefined}
                           {...proximity.itemProps(subIndex)}
                           className={cn(
                             "prox-row prox-row-sm",
                             "flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-300 group text-[13px] font-bold",
-                            isActive
+                            isSpeedrun
+                              ? cn(
+                                  "speedrun-link",
+                                  isActive
+                                    ? "text-cyan-100"
+                                    : "text-cyan-200/90 hover:text-white"
+                                )
+                              : isActive
                               ? "bg-blue-500/10 text-blue-500 border border-blue-500/20 shadow-[0_0_20px_rgba(59,130,246,0.1)]"
                               : "text-slate-400 hover:bg-white/[0.03] hover:text-slate-200"
                           )}
                         >
-                          <subItem.icon
-                            className={cn(
-                              "h-4 w-4 transition-all duration-300",
-                              isActive
-                                ? "text-blue-500 scale-110"
-                                : "text-slate-600 group-hover:text-slate-400"
-                            )}
-                          />
-                          {subItem.name}
-                          {isActive && (
+                          {isSpeedrun ? (
+                            <span className="speedrun-badge shrink-0">
+                              <subItem.icon className="h-3.5 w-3.5 text-cyan-200" />
+                            </span>
+                          ) : (
+                            <subItem.icon
+                              className={cn(
+                                "h-4 w-4 transition-all duration-300",
+                                isActive
+                                  ? "text-blue-500 scale-110"
+                                  : "text-slate-600 group-hover:text-slate-400"
+                              )}
+                            />
+                          )}
+                          {/* "(Beta)" als Zeichen statt als Text: in
+                              einer Untereintrag-Zeile ist der Platz
+                              knapp, und die Klammer ist lauter als
+                              das, was sie sagt. */}
+                          {isSpeedrun
+                            ? subItem.name.replace(" (Beta)", "")
+                            : subItem.name}
+                          {isSpeedrun && (
+                            <span className="speedrun-beta">BETA</span>
+                          )}
+                          {isActive && !isSpeedrun && (
                             <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse shadow-[0_0_10px_rgba(59,130,246,0.5)]" />
+                          )}
+                          {isActive && isSpeedrun && (
+                            <div className="ml-auto w-1.5 h-1.5 rounded-full bg-cyan-300 shadow-[0_0_10px_rgba(34,211,238,0.6)]" />
                           )}
                         </Link>
                       );

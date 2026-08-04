@@ -1136,7 +1136,15 @@ export const api = {
     ),
   speedrunTemplates: (userId: string) =>
     request<any>(`/speedrun/templates?user_id=${encodeURIComponent(userId)}`),
-  speedrunSteps: () => request<any>(`/speedrun/steps`),
+  // Mit `template` kommt zurück, welche Schritte diese Vorlage
+  // überhaupt hergibt. Ohne sie wären Schalter für Sachen an, die auf
+  // diesem Server nie entstehen.
+  speedrunSteps: (template = "") =>
+    request<any>(
+      template
+        ? `/speedrun/steps?template=${encodeURIComponent(template)}`
+        : `/speedrun/steps`
+    ),
   speedrunStart: (guildId: string, data: any) =>
     request<any>(`/speedrun/${guildId}/start`, {
       method: "POST",

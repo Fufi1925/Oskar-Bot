@@ -110,6 +110,8 @@ interface StepSpec {
   label: string;
   description: string;
   default: boolean;
+  /** Ob die gewählte Vorlage diesen Schritt überhaupt hergibt. */
+  supported?: boolean;
 }
 
 type Phase =
@@ -879,6 +881,43 @@ export function SpeedrunPanel({ guildId }: { guildId: string }) {
   useEffect(() => {
     if (userId && gate.unlocked) load();
   }, [load, userId, gate.unlocked]);
+
+  // Die Schritte hängen an der Vorlage.
+  //
+  // Nicht jede baut alles: `rp` hat keinen Rollen-Kanal, `business`
+  // kein Ticket-Panel, einen Zähl-Kanal hat nur `community`. Vorher
+  // wurde die Liste einmal beim Öffnen geholt und blieb dann stehen --
+  // mit allen dreizehn Schaltern auf „an“, auch für Sachen, die diese
+  // Vorlage nie anlegt. Der Nutzer erfuhr das erst hinterher im
+  // Bericht als „Übersprungen“.
+  useEffect(() => {
+    if (!chosen || !gate.unlocked) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const answer = await api.speedrunSteps(chosen);
+        if (cancelled) return;
+        const specs: StepSpec[] = answer?.steps ?? [];
+        setSteps(specs);
+        // Die Auswahl neu setzen statt zusammenzuführen: ein Schalter,
+        // den der Nutzer bei der vorigen Vorlage angehakt hat, darf
+        // bei dieser nicht angehakt bleiben, wenn sie ihn gar nicht
+        // hergibt.
+        setOptions(
+          Object.fromEntries(specs.map((spec) => [spec.key, spec.default]))
+        );
+      } catch {
+        // Die Liste von vorhin bleibt stehen. Sie ist dann zu
+        // großzügig, aber der Bot überspringt ohnehin, was fehlt --
+        // eine leere Liste wäre schlimmer.
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [chosen, gate.unlocked]);
 
   /* -- Starten und Abbrechen ------------------------------------- */
 
@@ -1670,18 +1709,36 @@ export function SpeedrunPanel({ guildId }: { guildId: string }) {
                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-600 pt-2">
                     University Bot
                   </p>
-                  {steps.map((step, index) => (
-                    <Rise key={step.key} index={index}>
-                      <InlineToggle
-                        checked={Boolean(options[step.key])}
-                        onCheckedChange={(value) =>
-                          setOptions((old) => ({ ...old, [step.key]: value }))
-                        }
-                        label={step.label}
-                        hint={step.description}
-                      />
-                    </Rise>
-                  ))}
+                  {steps.map((step, index) => {
+                    // Was diese Vorlage nicht baut, lässt sich auch
+                    // nicht einrichten. Der Schalter bleibt sichtbar,
+                    // aber gesperrt, und sagt warum -- ihn ganz
+                    // wegzulassen wäre die schlechtere Wahl: dann
+                    // fragt sich jemand, wo die Tickets hin sind.
+                    const possible = step.supported !== false;
+                    return (
+                      <Rise key={step.key} index={index}>
+                        <InlineToggle
+                          checked={possible && Boolean(options[step.key])}
+                          disabled={!possible}
+                          onCheckedChange={(value) =>
+                            setOptions((old) => ({ ...old, [step.key]: value }))
+                          }
+                          label={step.label}
+                          hint={
+                            possible ? (
+                              step.description
+                            ) : (
+                              <span className="text-slate-500">
+                                Diese Vorlage legt dafür keinen Kanal an —
+                                deshalb nicht wählbar.
+                              </span>
+                            )
+                          }
+                        />
+                      </Rise>
+                    );
+                  })}
                 </div>
               </Rise>
             )}

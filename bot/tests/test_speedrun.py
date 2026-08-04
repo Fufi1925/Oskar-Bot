@@ -83,8 +83,15 @@ def test_beta_gate():
     print("\nDie Beta-Sperre")
     from api.routes import speedrun
 
-    check("nur community ist frei",
-          speedrun.BETA_TEMPLATES == {"community"},
+    # Vier Vorlagen sind freigegeben. Die uebrigen neun sind gebaut,
+    # aber noch nicht auf einem echten Server gelaufen.
+    #
+    # Fest verdrahtet statt "mindestens eine": eine Vorlage aus
+    # Versehen freizugeben ist nicht rueckgaengig zu machen, sobald
+    # jemand sie angewendet hat. Wer eine dazunimmt, aendert diese
+    # Zeile mit -- und genau dann soll jemand hinsehen.
+    check("die Beta-Liste stimmt",
+          speedrun.BETA_TEMPLATES == {"community", "music", "dev", "minimal"},
           str(speedrun.BETA_TEMPLATES))
 
     source = open(

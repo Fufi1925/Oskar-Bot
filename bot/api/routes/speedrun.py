@@ -47,11 +47,19 @@ router = APIRouter()
 
 PARTNER_TOKEN_ENV = "PREMIUM_PARTNER_TOKEN"
 
-# Beta: nur dieses eine Template ist freigeschaltet -- auch fuer
-# Premium. Die anderen neun sind gebaut, aber noch nicht durch einen
-# echten Server gelaufen, und ein halb geprueftes Template auf einem
-# fremden Server anzuwenden ist nicht rueckgaengig zu machen.
-BETA_TEMPLATES = {"community"}
+# Welche Templates in der Beta gebaut werden duerfen -- auch fuer
+# Premium.
+#
+# Die uebrigen sind fertig, aber noch nicht auf einem echten Server
+# gelaufen, und ein halb geprueftes Template auf einem fremden Server
+# anzuwenden laesst sich nicht rueckgaengig machen.
+#
+# Die drei neuen sind bewusst dabei: sie bestehen dieselben Pruefungen
+# wie community (Bau-Simulation, Uebergabe-Landkarte, Rechte je
+# Kategorie), und sie decken die Faelle ab, an denen die starre
+# Schritt-Liste vorher aufgefallen ist -- "minimal" hat weder Verify
+# noch Tickets noch Rollen-Vergabe.
+BETA_TEMPLATES = {"community", "music", "dev", "minimal"}
 
 
 def _template_base() -> str:
@@ -920,20 +928,67 @@ async def finish(
 
 
 @router.get("/steps", summary="Welche Schritte der Hauptbot anbietet")
-async def steps():
-    """Der Baukasten fürs Dashboard: Name, Erklärung, Standardzustand."""
+async def steps(template: str = ""):
+    """Der Baukasten fürs Dashboard: Name, Erklärung, Standardzustand.
 
-    return {
-        "steps": [
+    Mit ``?template=`` kommt dazu, ob der Schritt bei *dieser* Vorlage
+    überhaupt möglich ist.
+
+    Ohne diese Angabe bot der Reiter alle dreizehn Schritte an, egal
+    was die Vorlage baut. Bei neun von zehn standen dadurch Schalter
+    auf »an« für Sachen, die nie entstehen: ``rp`` hat keinen
+    Rollen-Kanal, ``business`` kein Ticket-Panel, einen Zähl-Kanal hat
+    nur ``community``. Wer sie anließ, las hinterher im Bericht
+    »Übersprungen« -- und hatte etwas eingeschaltet, das gar nicht
+    gehen konnte.
+
+    Der Parameter ist absichtlich freiwillig: ohne ihn verhält sich die
+    Route wie vorher, damit ein alter Browser-Stand nicht auf einmal
+    leere Listen bekommt.
+    """
+
+    supported: dict[str, bool] = {}
+    template_key = str(template or "").strip()
+    template_error = ""
+
+    if template_key:
+        try:
+            status_code, body = await _call_template(
+                "GET", "/internal/speedrun/templates", timeout=10
+            )
+            if status_code == 200:
+                for entry in body.get("templates", []):
+                    if str(entry.get("key") or "") == template_key:
+                        supported = dict(entry.get("capabilities") or {})
+                        break
+        except HTTPException as exc:
+            # Der Template-Bot ist weg. Dann lieber alle Schritte
+            # anbieten als keinen: eine unvollständige Liste wäre
+            # schlimmer als eine, die einen Schritt zu viel zeigt.
+            template_error = str(exc.detail)
+
+    entries = []
+    for key, spec in handover.STEPS.items():
+        # Nicht in der Auskunft = kein Kanalbedarf = geht immer.
+        possible = supported.get(key, True)
+        entries.append(
             {
                 "key": key,
                 "label": spec["label"],
                 "description": spec["description"],
-                "default": spec["default"],
+                # Was die Vorlage nicht hergibt, steht auch nicht auf
+                # "an" -- sonst schickt das Dashboard einen Schritt
+                # los, der nur übersprungen werden kann.
+                "default": bool(spec["default"]) and possible,
+                "supported": possible,
             }
-            for key, spec in handover.STEPS.items()
-        ],
+        )
+
+    return {
+        "steps": entries,
         "order": list(handover.ORDER),
+        "template": template_key,
+        "template_error": template_error,
     }
 
 
