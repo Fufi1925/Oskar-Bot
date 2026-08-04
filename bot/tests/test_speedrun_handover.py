@@ -57,10 +57,19 @@ class FakeRole:
         return self.position < other.position
 
 
+class FakeCategory:
+    def __init__(self, category_id, name):
+        self.id = category_id
+        self.name = name
+
+
 class FakeChannel:
-    def __init__(self, channel_id, name):
+    def __init__(self, channel_id, name, category=None):
         self.id = channel_id
         self.name = name
+        # Echte Kanäle liegen unter einer Kategorie. Der Ticket-Schritt
+        # braucht deren ID, sonst laufen die Tickets ins Leere.
+        self.category = category
         self.sent = []
         # Die Nachrichtenobjekte selbst, um Reaktionen prüfen zu können.
         self.messages: list["FakeMessage"] = []
@@ -113,7 +122,7 @@ class FakeGuild:
         self._channels = {
             20: FakeChannel(20, "✅・ᴠᴇʀɪꜰɪᴢɪᴇʀᴇɴ"),
             21: FakeChannel(21, "👋・ᴡɪʟʟᴋᴏᴍᴍᴇɴ"),
-            22: FakeChannel(22, "🎫・ʜɪʟꜰᴇ"),
+            22: FakeChannel(22, "🎫・ʜɪʟꜰᴇ", category=FakeCategory(99, "🛟・ʜɪʟꜰᴇ")),
             23: FakeChannel(23, "📋・ᴍᴏᴅ-ʟᴏɢꜱ"),
             24: FakeChannel(24, "💬・ɴᴀᴄʜʀɪᴄʜᴛᴇɴ-ʟᴏɢꜱ"),
             25: FakeChannel(25, "🔢・ᴢᴀᴇʜʟᴇɴ"),
@@ -152,6 +161,13 @@ class FakeLoggingCog:
             "guild_id": guild_id,
             "channels": dict(channels),
             "enabled": dict(enabled),
+            # Auch die Ausnahmen festhalten: ohne sie protokolliert
+            # jeder Log-Eintrag den nächsten, und ein Fake, der das Feld
+            # wegwirft, könnte das nie zeigen.
+            "ignore_channels": list(ignore_channels),
+            "ignore_roles": list(ignore_roles),
+            "ignore_users": list(ignore_users),
+            "auto_delete": auto_delete,
         }
 
 
@@ -192,6 +208,24 @@ HANDOVER = {
         "message_events": "24",
     },
 }
+
+
+def _find_selects(view):
+    """Alle Dropdowns einer View, beliebig tief verschachtelt."""
+
+    import discord
+
+    found = []
+
+    def walk(item):
+        if isinstance(item, discord.ui.Select):
+            found.append(item)
+        for child in getattr(item, "children", []) or []:
+            walk(child)
+
+    for child in getattr(view, "children", []) or []:
+        walk(child)
+    return found
 
 
 def fresh_workdir():
@@ -526,18 +560,28 @@ def test_tickets_do_not_pile_up_on_a_second_run():
     if found:
         check("es zeigt auf den Ticket-Kanal",
               str(found[0]["channel_id"]) == "22", str(found[0]["channel_id"]))
-        # Knöpfe, kein Dropdown. Bei einer einzigen Kategorie ist ein
-        # Auswahlmenü ein Klick zu viel, und man sieht nicht einmal,
-        # was drinsteht, bevor man es aufklappt.
-        check("es sind Knöpfe, kein Dropdown",
-              found[0]["panel_type"] == "button",
+        # Dropdown: die Liste bleibt auch mit mehreren Kategorien
+        # lesbar, und Discord erlaubt nur fünf Knöpfe je Reihe.
+        check("es ist ein Dropdown",
+              found[0]["panel_type"] == "dropdown",
               str(found[0]["panel_type"]))
         check("die Team-Rolle ist eingetragen",
               "12" in [str(r) for r in (found[0].get("staff_roles") or [])],
               str(found[0].get("staff_roles")))
-        check("es gibt genau eine Kategorie",
-              len(found[0].get("categories") or []) == 1,
-              str(len(found[0].get("categories") or [])))
+        cats = found[0].get("categories") or []
+        check("es gibt drei Kategorien", len(cats) == 3, str(len(cats)))
+
+        # Ohne discord_category_id bricht jeder Klick auf den Ticket-Knopf
+        # ab: der Cog antwortet "This ticket category has been deleted or
+        # is misconfigured". Genau das war der gemeldete Fehler.
+        missing = [c["name"] for c in cats if not c.get("discord_category_id")]
+        check("jede Kategorie kennt ihre Discord-Kategorie",
+              not missing, str(missing))
+
+        # Zwei gleiche Emojis im selben Dropdown kann man nicht
+        # auseinanderhalten.
+        icons = [c.get("emoji") for c in cats if c.get("emoji")]
+        check("kein Emoji doppelt", len(icons) == len(set(icons)), str(icons))
 
 
 def test_counting_is_actually_switched_on():
@@ -706,13 +750,31 @@ def test_self_roles_are_posted_with_reactions():
           len(guild._channels[28].sent) == 1,
           f"{len(guild._channels[28].sent)} Nachrichten")
 
-    # Ein Panel ohne Reaktionen ist ein Bild ohne Funktion: man liest,
-    # welche Rollen es gibt, und kann keine davon anklicken.
+    # Ein Dropdown, keine Reaktionen. Eine Reaktion ist ein einzelnes
+    # Emoji -- zwei Rollen mit demselben Emoji wären nicht zu
+    # unterscheiden, und darum ging es beim Wechsel.
     posted = guild._channels[28].messages
     check("es wurde eine Nachricht behalten", len(posted) == 1)
-    if posted:
-        check("die Reaktionen sind gesetzt",
-              len(posted[0].reactions) == 2, str(posted[0].reactions))
+    check("es werden keine Reaktionen mehr gesetzt",
+          posted and not posted[0].reactions, str(posted[0].reactions if posted else None))
+
+    view = guild._channels[28].sent[0]
+    selects = _find_selects(view)
+    check("es gibt ein Dropdown", len(selects) == 1, str(len(selects)))
+    if selects:
+        select = selects[0]
+        from cogs.events import selfroles as sr
+
+        check("der Listener erkennt es wieder",
+              select.custom_id == sr.CUSTOM_ID, str(select.custom_id))
+        check("beide Rollen stehen drin",
+              len(select.options) == 2, str(len(select.options)))
+        # min_values=0: abwählen muss möglich sein, sonst wird man eine
+        # Rolle nie wieder los.
+        check("abwählen ist möglich", select.min_values == 0,
+              str(select.min_values))
+        check("mehrere gleichzeitig wählbar",
+              select.max_values == 2, str(select.max_values))
 
 
 def test_self_roles_skip_a_role_above_the_bot():
@@ -743,10 +805,57 @@ def test_self_roles_skip_a_role_above_the_bot():
         shutil.rmtree(workdir, ignore_errors=True)
 
     check("der Schritt läuft trotzdem", not report.failed, str(report.failed))
-    posted = guild._channels[28].messages
-    if posted:
+    selects = _find_selects(guild._channels[28].sent[0])
+    if selects:
         check("nur die vergebbare Rolle ist drin",
-              len(posted[0].reactions) == 1, str(posted[0].reactions))
+              len(selects[0].options) == 1,
+              str([o.label for o in selects[0].options]))
+
+
+def test_duplicate_emojis_are_dropped():
+    """Zwei gleiche Emojis im Dropdown kann niemand unterscheiden.
+
+    Die normalen Testdaten haben zufällig verschiedene Emojis -- damit
+    liefe die Entdopplung nie und der Test wäre wertlos. Hier stehen
+    absichtlich zwei gleiche.
+    """
+
+    print("\nDoppelte Emojis fliegen raus")
+    from utils import speedrun_handover as ho
+
+    workdir = fresh_workdir()
+    guild = FakeGuild()
+    bot = FakeBot()
+
+    same = dict(HANDOVER)
+    same["self_roles"] = [
+        {"id": "13", "name": "Creator", "emoji": "🎨", "key": "creator"},
+        {"id": "14", "name": "Designer", "emoji": "🎨", "key": "designer"},
+    ]
+
+    async def go():
+        return await ho.run_handover(
+            bot, guild, same,
+            options={key: key == "selfroles" for key in ho.STEPS},
+        )
+
+    try:
+        report = run_in(workdir, go)
+    finally:
+        shutil.rmtree(workdir, ignore_errors=True)
+
+    check("der Schritt meldet Erfolg", not report.failed, str(report.failed))
+
+    selects = _find_selects(guild._channels[28].sent[0])
+    check("es gibt ein Dropdown", len(selects) == 1)
+    if selects:
+        options = selects[0].options
+        # Beide Rollen bleiben -- nur das doppelte Emoji fällt weg.
+        check("beide Rollen stehen drin", len(options) == 2, str(len(options)))
+        icons = [str(o.emoji) for o in options if o.emoji]
+        check("das Emoji kommt nur einmal vor",
+              len(icons) == len(set(icons)), str(icons))
+        check("genau eines behält es", len(icons) == 1, str(icons))
 
 
 def test_rules_are_posted():
@@ -809,6 +918,167 @@ def test_the_panels_use_custom_emojis():
         value = str(getattr(emoji_set, name))
         check(f"{name} ist ein Custom-Emoji",
               value.startswith("<") and value.endswith(">"), value)
+
+
+def test_tickets_show_up_in_the_overview():
+    """Die Übersicht liest guild_configs, nicht ticket_panels.
+
+    Ohne eine Zeile dort stand »Tickets« als nicht eingerichtet da,
+    obwohl das Panel im Kanal hing -- so wurde es gemeldet.
+    """
+
+    print("\nTickets stehen in der Übersicht")
+    import aiosqlite
+
+    from utils import speedrun_handover as ho
+
+    workdir = fresh_workdir()
+    guild = FakeGuild()
+    bot = FakeBot()
+
+    async def go():
+        report = await ho.run_handover(
+            bot, guild, HANDOVER,
+            options={key: key == "tickets" for key in ho.STEPS},
+        )
+        # Genau die Abfrage, die die Übersicht stellt.
+        async with aiosqlite.connect("db/ticket.db") as db:
+            async with db.execute(
+                "SELECT COUNT(*) FROM guild_configs WHERE guild_id = ?",
+                (guild.id,),
+            ) as cursor:
+                rows = (await cursor.fetchone())[0]
+            async with db.execute(
+                "SELECT panel_channel_id, staff_roles FROM guild_configs"
+                " WHERE guild_id = ?",
+                (guild.id,),
+            ) as cursor:
+                entry = await cursor.fetchone()
+        return report, rows, entry
+
+    try:
+        report, rows, entry = run_in(workdir, go)
+    finally:
+        shutil.rmtree(workdir, ignore_errors=True)
+
+    check("der Schritt meldet Erfolg", not report.failed, str(report.failed))
+    check("es gibt eine Zeile in guild_configs", rows == 1, str(rows))
+    if entry:
+        check("der Panel-Kanal ist vermerkt", str(entry[0]) == "22", str(entry[0]))
+        check("die Team-Rollen sind vermerkt", "12" in str(entry[1]), str(entry[1]))
+
+
+def test_log_channels_do_not_log_themselves():
+    """Sonst protokolliert jeder Log-Eintrag den nächsten."""
+
+    print("\nDie Log-Kanäle sind vom Protokoll ausgenommen")
+    from utils import speedrun_handover as ho
+
+    workdir = fresh_workdir()
+    guild = FakeGuild()
+    cog = FakeLoggingCog()
+    bot = FakeBot({"Logging": cog})
+
+    async def go():
+        return await ho.run_handover(
+            bot, guild, HANDOVER,
+            options={key: key == "logging" for key in ho.STEPS},
+        )
+
+    try:
+        report = run_in(workdir, go)
+    finally:
+        shutil.rmtree(workdir, ignore_errors=True)
+
+    check("der Schritt meldet Erfolg", not report.failed, str(report.failed))
+    check("das Cog hat die Ausnahmen bekommen",
+          cog.saved is not None and cog.saved.get("ignore_channels"),
+          str(cog.saved))
+    if cog.saved:
+        ignored = set(cog.saved["ignore_channels"])
+        used = set(cog.saved["channels"].values())
+        check("jeder Log-Kanal steht auf der Ausnahmeliste",
+              used <= ignored, f"{used - ignored} fehlen")
+
+
+def test_the_welcome_message_reads_german_and_is_filled_in():
+    """Platzhalter, Autorzeile und Fußzeile müssen wirklich ankommen.
+
+    Zwei Fallen hier, beide vermieden statt geraten:
+
+      * Die Platzhalter heißen `{server_name}` und
+        `{server_membercount}`. Ein `{server}` bliebe roh im Text stehen.
+      * build_embed() liest flache Schlüssel `author_name`/`footer_text`.
+        Ein verschachteltes `{"author": {...}}` würde kommentarlos
+        ignoriert -- die Zeile fehlte einfach.
+    """
+
+    print("\nDie Willkommensnachricht ist deutsch und ausgefüllt")
+    import json as _json
+    import re as _re
+
+    from utils import greet_render
+
+    source = open(
+        os.path.join(BOT, "utils", "speedrun_handover.py"), encoding="utf-8"
+    ).read()
+    block = source.split("json.dumps(")[1]
+    depth, end = 0, 0
+    for index, char in enumerate(block):
+        if char == "{":
+            depth += 1
+        elif char == "}":
+            depth -= 1
+            if depth == 0:
+                end = index + 1
+                break
+    raw = block[block.index("{"):end]
+    raw = _re.sub(r"^\s*#.*$", "", raw, flags=_re.M)
+    info = eval(raw)  # noqa: S307 -- eigener Quelltext, kein Fremdeingabe
+
+    check("die Autorzeile ist flach", "author_name" in info, str(sorted(info)))
+    check("die Fußzeile ist flach", "footer_text" in info, str(sorted(info)))
+    check("die Fußzeile nennt den Bot",
+          "University Bot" in info.get("footer_text", ""),
+          info.get("footer_text"))
+
+    class _Icon:
+        url = "https://cdn.discordapp.com/icons/1/a.png"
+
+    class _Guild:
+        name = "University Support"
+        id = 1
+        member_count = 1247
+        icon = _Icon()
+
+    class _Avatar:
+        url = "https://cdn.discordapp.com/avatars/2/b.png"
+
+    class _Member:
+        mention = "<@2>"
+        name = "fufi"
+        id = 2
+        display_name = "Fufi"
+        guild = _Guild()
+        display_avatar = _Avatar()
+        joined_at = None
+        created_at = None
+
+    embed = greet_render.build_embed(info, greet_render.placeholders(_Member()))
+
+    check("der Servername steht als Autor da",
+          embed.author.name == "University Support", str(embed.author.name))
+    check("das Servericon ist gesetzt", bool(embed.author.icon_url))
+    check("die Fußzeile kommt an",
+          embed.footer.text == "by University Bot", str(embed.footer.text))
+
+    text = (embed.description or "") + (embed.author.name or "")
+    leftover = _re.findall(r"\{[a-z_]+\}", text)
+    check("kein Platzhalter bleibt stehen", not leftover, str(leftover))
+    check("die Mitgliedszahl ist eingesetzt", "1247" in text, text[:80])
+    check("der Text ist deutsch", "Schön, dass du da bist" in text, text[:80])
+
+    _json.dumps(info)  # muss serialisierbar bleiben
 
 
 def test_unchecked_steps_are_not_run():
@@ -920,8 +1190,12 @@ def main():
     test_j2c_points_at_a_voice_channel()
     test_leveling_is_on()
     test_the_ticket_panel_is_posted_not_just_prepared()
+    test_tickets_show_up_in_the_overview()
+    test_log_channels_do_not_log_themselves()
+    test_the_welcome_message_reads_german_and_is_filled_in()
     test_self_roles_are_posted_with_reactions()
     test_self_roles_skip_a_role_above_the_bot()
+    test_duplicate_emojis_are_dropped()
     test_rules_are_posted()
     test_the_panels_use_custom_emojis()
     test_unchecked_steps_are_not_run()

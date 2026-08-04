@@ -1025,6 +1025,36 @@ async def get_module_status(guild_id: int, bot: "universitybot" = Depends(get_bo
         except Exception:
             return 0
 
+    async def has_json_entry(path: str, condition=None) -> int:
+        """Für Module, die in einer JSON-Datei liegen statt in SQLite.
+
+        Logs und das Zählspiel speichern so. has_rows() findet dort
+        nichts und meldete sie deshalb auf jedem Server als "nicht
+        eingerichtet" -- auch wenn sie liefen.
+        """
+        import json as _json
+
+        for candidate in (path, f"db/{path}", f"jsondb/{path}"):
+            if not os.path.exists(candidate):
+                continue
+            try:
+                with open(candidate, encoding="utf-8") as handle:
+                    data = _json.load(handle) or {}
+            except Exception:
+                return 0
+            entry = data.get(str(guild_id))
+            if not entry:
+                return 0
+            if condition and not condition(entry):
+                return 0
+            return 1
+        return 0
+
+    def _has_log_channel(entry) -> bool:
+        # Eine leere Konfiguration entsteht schon beim ersten Blick ins
+        # Menü. Erst ein gesetzter Kanal heißt "eingerichtet".
+        return bool((entry or {}).get("log_channels"))
+
     # (key, label, database, table, extra condition, dashboard path)
     checks = [
         ("welcome", "Welcome", "welcome.db", "welcome", "", "welcome"),
@@ -1033,7 +1063,6 @@ async def get_module_status(guild_id: int, bot: "universitybot" = Depends(get_bo
         ("verification", "Verification", "verification.db", "verification_config", "enabled = 1", "verification"),
         ("leveling", "Leveling", "leveling.db", "leveling_settings", "enabled = 1", "leveling"),
         ("tickets", "Tickets", "ticket.db", "guild_configs", "", "tickets"),
-        ("logging", "Logging", "logging.db", "logging", "", "logging"),
         ("autorole", "Auto Role", "autorole.db", "autorole", "", "autorole"),
         ("reactionroles", "Reaction Roles", "autoreact.db", "autoreact", "", "reactionroles"),
         ("vanityroles", "Vanity Roles", "vanity.db", "vanity_roles", "", "vanityroles"),
@@ -1051,6 +1080,13 @@ async def get_module_status(guild_id: int, bot: "universitybot" = Depends(get_bo
         ("tracking", "Invite Tracking", "invite.db", "logging", "", "tracking"),
     ]
 
+    # (key, label, JSON-Datei, Bedingung, Dashboard-Pfad)
+    json_checks = [
+        ("logging", "Logging", "logging_config.json", _has_log_channel, "logging"),
+        ("counting", "Counting", "counting.json",
+         lambda e: bool(e.get("enabled")) and bool(e.get("channel")), "counting"),
+    ]
+
     modules = []
     for key, label, db_file, table, condition, path in checks:
         count = await has_rows(db_file, table, condition)
@@ -1063,6 +1099,23 @@ async def get_module_status(guild_id: int, bot: "universitybot" = Depends(get_bo
                 "path": path,
             }
         )
+
+    for key, label, json_file, condition, path in json_checks:
+        count = await has_json_entry(json_file, condition)
+        modules.append(
+            {
+                "key": key,
+                "label": label,
+                "configured": count > 0,
+                "entries": count,
+                "path": path,
+            }
+        )
+
+    # Nach Name sortieren, damit die JSON-Module nicht als Anhängsel
+    # unten stehen und die Reihenfolge nicht davon abhängt, wo etwas
+    # gespeichert wird.
+    modules.sort(key=lambda m: m["label"].lower())
 
     guild = bot.get_guild(guild_id)
     prefix = ">"

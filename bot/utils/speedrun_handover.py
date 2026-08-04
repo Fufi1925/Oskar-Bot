@@ -277,9 +277,20 @@ async def _do_logging(bot, guild, handover: dict, report: HandoverReport, log: L
         await log("Logs: keine Kanäle gefunden", "error")
         return
 
-    await cog._save_log_config(guild.id, channels, enabled, [], [], [], None)
+    # Die Log-Kanäle selbst ausnehmen. Ohne das protokolliert jeder
+    # Log-Eintrag den nächsten: der Bot schreibt in #nachrichten-logs,
+    # das ist eine neue Nachricht, also schreibt er wieder hinein. Ein
+    # Server mit zehn Log-Kanälen erzeugt so dauerhaft Grundrauschen.
+    ignore_channels = sorted(set(channels.values()))
 
-    report.add("logging", True, f"{len(channels)} Log-Arten verdrahtet.")
+    await cog._save_log_config(
+        guild.id, channels, enabled, ignore_channels, [], [], None
+    )
+
+    report.add(
+        "logging", True,
+        f"{len(channels)} Log-Arten verdrahtet, Log-Kanäle ausgenommen.",
+    )
     await log(f"Logs eingerichtet — {len(channels)} Kanäle", "success")
 
 
@@ -343,34 +354,70 @@ async def _do_tickets(bot, guild, handover: dict, report: HandoverReport, log: L
 
     from utils import emoji as emoji_set
 
+    # Die Discord-Kategorie, unter der die Ticket-Kanäle entstehen.
+    #
+    # Ohne sie bricht jeder Klick auf den Ticket-Knopf ab: der Cog liest
+    # `discord_category_id`, findet nichts und antwortet "This ticket
+    # category has been deleted or is misconfigured". Genau das war der
+    # Fehler -- das Panel stand da und tat beim Öffnen nichts.
+    ticket_home = getattr(channel, "category", None)
+
     await panels.update_panel(
         db, guild.id, panel_id,
         {
             "channel_id": channel_id,
-            # Knöpfe statt Dropdown: bei einer einzigen Kategorie ist ein
-            # Auswahlmenü ein Klick zu viel, und man sieht nicht einmal,
-            # was darin steht, bevor man es aufklappt.
-            "panel_type": "button",
+            # Dropdown statt Knöpfe: die Liste bleibt auch mit mehreren
+            # Kategorien lesbar, und Discord erlaubt nur fünf Knöpfe je
+            # Reihe.
+            "panel_type": "dropdown",
             "embed_title": f"{emoji_set.TICKET}  Support",
             "embed_description": (
-                "Du brauchst Hilfe? Öffne unten ein Ticket — "
-                "nur du und das Team sehen es."
+                "Du brauchst Hilfe? Wähle unten aus, worum es geht — "
+                "nur du und das Team sehen das Ticket."
             ),
             "staff_roles": staff,
         },
     )
 
-    # Die Kategorie braucht die Team-Rollen ebenfalls: sie entscheidet,
-    # wer im Ticket benachrichtigt wird und es lesen darf.
-    if not (mine or {}).get("categories"):
+    # Die Kategorien. Jede braucht die Team-Rollen (wer wird
+    # benachrichtigt und darf mitlesen) und die Discord-Kategorie, unter
+    # der der Kanal angelegt wird.
+    #
+    # Jedes Emoji genau einmal: zwei gleiche im selben Dropdown kann man
+    # nicht auseinanderhalten.
+    wanted = [
+        ("Allgemeine Frage", emoji_set.INFO),
+        ("Problem melden", emoji_set.WARNING),
+        ("Beschwerde", emoji_set.SWORD),
+    ]
+    existing_names = {
+        str(entry.get("name")) for entry in ((mine or {}).get("categories") or [])
+    }
+    for name, icon in wanted:
+        if name in existing_names:
+            continue
         await panels.upsert_category(
             db, guild.id, panel_id,
             {
-                "name": "Allgemeine Frage",
-                "emoji": emoji_set.INFO,
+                "name": name,
+                "emoji": icon,
                 "staff_roles": staff,
+                "discord_category_id": ticket_home.id if ticket_home else None,
             },
         )
+
+    # Die Übersicht im Dashboard liest guild_configs, nicht
+    # ticket_panels. Ohne eine Zeile dort stand "Tickets" als "nicht
+    # eingerichtet" da, obwohl das Panel im Kanal hing.
+    await db.execute(
+        "INSERT INTO guild_configs (guild_id, panel_channel_id, staff_roles)"
+        " VALUES (?, ?, ?)"
+        " ON CONFLICT(guild_id) DO UPDATE SET"
+        "  panel_channel_id = excluded.panel_channel_id,"
+        "  staff_roles = excluded.staff_roles",
+        (guild.id, channel_id, ",".join(str(r) for r in staff)),
+    )
+    await db.commit()
 
     # Und das Panel gleich posten. Es nur anzulegen hiess: der Kanal
     # bleibt leer, und man muesste den Reiter „Tickets“ suchen, um den
@@ -467,15 +514,30 @@ async def _do_welcome(bot, guild, handover: dict, report: HandoverReport, log: L
             (
                 guild.id,
                 "embed",
-                "Willkommen auf **{server}**, {user}!",
+                "Willkommen auf **{server_name}**, {user}!",
                 channel_id,
                 json.dumps(
                     {
+                        # Autorenzeile: Servername plus Servericon. Sie
+                        # steht über dem Titel und macht die Nachricht
+                        # sichtbar zu einer des Servers.
+                        #
+                        # Flache Schlüssel, kein verschachteltes Objekt:
+                        # build_embed() liest "author_name"/"author_icon".
+                        # Ein {"author": {...}} hätte es kommentarlos
+                        # ignoriert -- die Zeile wäre einfach weggeblieben.
+                        "author_name": "{server_name}",
+                        "author_icon": "{server_icon}",
                         "title": "Willkommen!",
                         "description": (
-                            "Schön, dass du da bist, {user}.\n"
+                            "Schön, dass du da bist, {user}!\n\n"
+                            "Du bist Mitglied Nummer "
+                            "**{server_membercount}** auf "
+                            "**{server_name}**.\n"
                             "Verifiziere dich, dann siehst du den ganzen Server."
                         ),
+                        # Kleingedrucktes unten, wie bei einem Embed.
+                        "footer_text": "by University Bot",
                     }
                 ),
                 None,
@@ -559,7 +621,7 @@ async def _do_selfroles(bot, guild, handover: dict, report: HandoverReport, log:
 
     import discord
 
-    from api.db_manager import db_manager
+    from cogs.events import selfroles
     from utils import emoji as emoji_set
     from utils.panels import ACCENT, Panel
 
@@ -596,12 +658,50 @@ async def _do_selfroles(bot, guild, handover: dict, report: HandoverReport, log:
         await log("Rollen-Vergabe: keine passende Rolle", "warn")
         return
 
-    lines = "\n".join(f"{emoji}  **{role.name}**" for role, emoji in usable)
+    # Ein Dropdown statt Reaktionen. Eine Reaktion ist ein einzelnes
+    # Emoji -- zwei Rollen mit demselben Emoji kann niemand
+    # auseinanderhalten, und von Hand entfernte Reaktionen laufen
+    # stillschweigend aus dem Takt. Im Dropdown steht der Name daneben.
+    options = []
+    seen_emojis: set[str] = set()
+    for role, icon in usable:
+        # Jedes Emoji nur einmal: doppelte sind im Menü nicht zu
+        # unterscheiden, und darum ging es beim Wechsel gerade.
+        if icon in seen_emojis:
+            icon = None
+        elif icon:
+            seen_emojis.add(icon)
+        try:
+            options.append(
+                discord.SelectOption(
+                    label=role.name[:100],
+                    value=str(role.id),
+                    emoji=icon or None,
+                )
+            )
+        except Exception:
+            # Ein Emoji, das Discord nicht kennt, darf nicht die ganze
+            # Rolle kosten.
+            options.append(
+                discord.SelectOption(label=role.name[:100], value=str(role.id))
+            )
+
+    select = discord.ui.Select(
+        placeholder="Rollen aussuchen…",
+        custom_id=selfroles.CUSTOM_ID,
+        min_values=0,
+        # Alles gleichzeitig wählbar: abwählen nimmt die Rolle wieder
+        # weg, das ist der ganze Bedienablauf.
+        max_values=len(options),
+        options=options,
+    )
+
     panel = Panel(
         f"{emoji_set.U_ADMIN}  Rollen aussuchen",
-        "Reagiere unten, um dir eine Rolle zu geben.\n"
-        "Noch einmal reagieren nimmt sie wieder weg.\n\n" + lines,
+        "Wähle unten aus, was auf dich zutrifft.\n"
+        "Abwählen nimmt die Rolle wieder weg.",
         accent=ACCENT["brand"],
+        buttons=[select],
     )
 
     try:
@@ -611,36 +711,25 @@ async def _do_selfroles(bot, guild, handover: dict, report: HandoverReport, log:
         await log("Rollen-Vergabe: Panel fehlgeschlagen", "error")
         return
 
-    db = await db_manager.get_connection("rr.db")
-    await db.execute(
-        "CREATE TABLE IF NOT EXISTS reaction_roles ("
-        " guild_id INTEGER, message_id INTEGER, emoji TEXT, role_id INTEGER)"
+    # Welche Rollen dieses Panel vergibt. Der Listener liest das beim
+    # Klick nach -- ohne diesen Eintrag antwortet er "kennt keine Rollen".
+    await selfroles.remember_panel(
+        guild.id,
+        message.id,
+        [(role.id, role.name, icon) for role, icon in usable],
     )
 
-    added = 0
-    for role, emoji in usable:
-        # Erst die Reaktion setzen: klappt sie nicht (unbekanntes
-        # Emoji), soll auch keine Zeile in der Datenbank stehen, die
-        # niemand ausloesen kann.
-        try:
-            await message.add_reaction(emoji)
-        except (discord.HTTPException, TypeError):
-            continue
-        await db.execute(
-            "INSERT INTO reaction_roles (guild_id, message_id, emoji, role_id)"
-            " VALUES (?, ?, ?, ?)",
-            (guild.id, message.id, emoji, role.id),
-        )
-        added += 1
-    await db.commit()
+    # Damit die Knöpfe auch nach einem Neustart reagieren.
+    try:
+        bot.add_view(panel, message_id=message.id)
+    except Exception:
+        pass
 
-    if not added:
-        report.add("selfroles", False, "Keine Reaktion ließ sich setzen.")
-        await log("Rollen-Vergabe: keine Reaktion gesetzt", "error")
-        return
-
-    report.add("selfroles", True, f"{added} Rollen zur Auswahl in #{channel.name}.")
-    await log(f"Rollen-Vergabe eingerichtet — {added} Rollen", "success")
+    report.add(
+        "selfroles", True,
+        f"{len(usable)} Rollen zur Auswahl in #{channel.name}.",
+    )
+    await log(f"Rollen-Vergabe eingerichtet — {len(usable)} Rollen", "success")
 
 
 # Ein Regelwerk, das zu jedem Server passt und das man anpassen soll.

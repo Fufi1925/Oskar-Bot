@@ -92,6 +92,7 @@ from .events.on_guild import Guild
 from .events.autorole import Autorole2
 from .events.auto import Autorole
 from .events.greet2 import greet
+from .events.selfroles import SelfRoles
 from .events.mention import Mention
 from .events.react import React
 from .events.autoreact import AutoReactListener
@@ -190,7 +191,7 @@ async def setup(bot: universitybot):
         Voice, Owner, Customrole, afk, Embed, Media, Ignore, TicketCog, Logging,
         Invcrole, Steal, Timer,
         Blacklist, Block, Nightmode, Badges, Antinuke, Whitelist, 
-        Unwhitelist, Extraowner, Blackjack, Slots, Guild, Errors, Autorole2, Autorole, greet, AutoResponder,
+        Unwhitelist, Extraowner, Blackjack, Slots, Guild, Errors, Autorole2, Autorole, greet, SelfRoles, AutoResponder,
         Mention, AutoRole, React, AntiMemberUpdate, AntiBan, AntiBotAdd,
         AntiChannelCreate, AntiChannelDelete, AntiChannelUpdate, AntiEveryone, AntiGuildUpdate,
         AntiIntegration, AntiKick, AntiPrune, AntiRoleCreate, AntiRoleDelete,
@@ -302,6 +303,7 @@ async def setup(bot: universitybot):
   await bot.add_cog(NightmodeSchedule(bot))
   await bot.add_cog(PartnerHandoff(bot))
   await bot.add_cog(greet(bot))
+  await bot.add_cog(SelfRoles(bot))
   await bot.add_cog(AutoResponder(bot))
   await bot.add_cog(Mention(bot))
   await bot.add_cog(AutoRole(bot))
