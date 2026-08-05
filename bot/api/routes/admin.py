@@ -1213,23 +1213,73 @@ async def get_session_policy():
 
 
 @router.get("/command-stats", summary="Which commands are actually used")
-async def get_command_stats(days: int = 30, guild_id: int = 0, bot: "universitybot" = Depends(get_bot)):
+async def get_command_stats(
+    days: int = 30,
+    guild_id: int = 0,
+    actor: str = "",
+    bot: "universitybot" = Depends(get_bot),
+):
     """
     Usage counts per command. The bot had no visibility into this at all.
+
+    Seit dieser Runde darf jede Dashboard-Rolle die Statistik lesen --
+    vorher haengt der Reiter an `metrics.view`, und die hatten sechs von
+    einundvierzig Rollen.
+
+    Eine Angabe darin ist aber nicht fuer jeden bestimmt: die Liste der
+    meistgenutzten Server nennt die Namen *jedes* Servers, auf dem der
+    Bot ist. Das ist Kundschaft, keine Betriebszahl. Fuer alle ausser
+    Ownern und Admins werden Name und Bild deshalb maskiert; die
+    Zaehlerstaende bleiben stehen, denn genau um die geht es.
+
+    Maskiert wird hier und nicht im Browser. Was der Server ausliefert,
+    steht in den Entwicklerwerkzeugen -- eine Sperre, die nur die
+    Anzeige ausblendet, ist keine.
     """
     from utils import command_stats
+    from utils import dashboard_roles
 
     data = await command_stats.summary(guild_id or None, days)
+
+    # Darf der Anfragende die Servernamen sehen?
+    #
+    # Im Zweifel nein: ohne `actor` -- etwa bei einem direkten Aufruf
+    # mit dem API-Schluessel ohne Sitzung -- wird maskiert. Lieber ein
+    # Sternchen zu viel als ein Servername zu viel.
+    try:
+        await dashboard_roles.load()
+    except Exception:
+        pass
+    may_see_guilds = bool(actor) and dashboard_roles.is_owner(str(actor))
 
     # Enrich with the guild names so the dashboard shows more than IDs.
     for entry in data.get("guilds", []):
         guild = bot.get_guild(int(entry["guild_id"])) if entry["guild_id"].isdigit() else None
-        entry["guild_name"] = guild.name if guild else None
+
+        if may_see_guilds:
+            entry["guild_name"] = guild.name if guild else None
+            entry["guild_icon"] = (
+                str(guild.icon.url) if guild is not None and guild.icon else None
+            )
+            continue
+
+        # Die ID muss genauso weg wie der Name: mit ihr laesst sich der
+        # Server ueber die Discord-API nachschlagen, und dann waere die
+        # Maskierung eine reine Geste.
+        entry["guild_id"] = ""
+        entry["guild_name"] = "•••••"
+        entry["guild_icon"] = None
+        entry["masked"] = True
+
+    data["guilds_masked"] = not may_see_guilds
 
     try:
         data["unused"] = await command_stats.unused_commands(bot, days)
     except Exception:
         data["unused"] = []
 
-    data["registered_commands"] = len([c for c in bot.walk_commands() if not c.hidden])
+    # Prefix *und* Slash. `walk_commands()` allein kennt nur die
+    # Prefix-Befehle, und die Statistik verglich die Nutzung dann gegen
+    # eine Gesamtzahl, in der die Slash-Befehle fehlten.
+    data["registered_commands"] = len(command_stats.all_command_names(bot))
     return data

@@ -99,8 +99,60 @@ class universitybot(commands.AutoShardedBot):
         self.feature_services.start()
         start_deadlock_watchdog()
 
+        self._count_failed_slash_commands()
+
         self.status_task.start()
         self.np_refresh_task.start()
+
+    def _count_failed_slash_commands(self):
+        """Fehlgeschlagene Slash-Befehle in die Statistik aufnehmen.
+
+        Fuer Prefix-Befehle gibt es `on_command_error` als ganz normales
+        Ereignis; ein Cog kann es abonnieren. Fuer Slash-Befehle gibt es
+        das nicht: `CommandTree._dispatch_error` ruft `tree.on_error`
+        direkt auf und dispatcht **kein** Ereignis. Ein Listener namens
+        `on_app_command_error` waere toter Code -- er wuerde nie laufen.
+
+        Deshalb wird der vorhandene Handler hier umschlossen statt
+        ersetzt: erst zaehlen, dann das Original aufrufen. Wuerde er
+        ueberschrieben, verschwaende die Fehlerausgabe von discord.py,
+        und ein kaputter Slash-Befehl fiele niemandem mehr auf.
+        """
+
+        from utils import command_stats
+        from utils.feature_services import record_command_error
+
+        tree = self.tree
+        # Zweimal einhaengen doppelt jeden Zaehler. `setup_hook` laeuft
+        # zwar nur einmal, aber ein Reload dieses Moduls im Betrieb
+        # nicht -- der Riegel kostet nichts.
+        if getattr(tree, "_usage_counter_installed", False):
+            return
+
+        original = tree.on_error
+
+        async def on_error(interaction, error):
+            try:
+                command = getattr(interaction, "command", None)
+                name = (
+                    getattr(command, "qualified_name", "")
+                    or getattr(command, "name", "")
+                )
+                if name:
+                    command_stats.record(
+                        f"/{name}",
+                        interaction.guild.id if interaction.guild else None,
+                        failed=True,
+                    )
+                    record_command_error(f"/{name}", type(error).__name__)
+            except Exception:
+                # Buchhaltung darf die Fehlerbehandlung nie verschlucken.
+                pass
+
+            await original(interaction, error)
+
+        tree.on_error = on_error
+        tree._usage_counter_installed = True
 
     async def load_extensions(self):
         from utils.feature_services import runtime

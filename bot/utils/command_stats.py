@@ -173,12 +173,48 @@ async def summary(guild_id: int | None = None, days: int = 30) -> dict:
     }
 
 
+def all_command_names(bot) -> list[str]:
+    """Jeder Befehl, den der Bot anbietet -- Prefix *und* Slash.
+
+    ``bot.walk_commands()`` liefert ausschliesslich Prefix-Befehle. Die
+    Statistik verglich die Nutzung deshalb gegen eine Gesamtzahl, in der
+    die dreiundsiebzig Slash-Befehle fehlten: im Dashboard stand "x von
+    235", obwohl der Bot deutlich mehr anbietet, und kein einziger
+    Slash-Befehl konnte je in der Liste "nie benutzt" auftauchen -- er
+    stand gar nicht erst drin.
+
+    Slash-Befehle tragen einen fuehrenden Schraegstrich, genau so wie
+    sie gezaehlt werden. ``/ban`` und ``ban`` sind derselbe Befehl, aber
+    nicht dieselbe Bedienung.
+    """
+
+    names: list[str] = []
+
+    for command in bot.walk_commands():
+        if not command.hidden:
+            names.append(command.qualified_name)
+
+    # Der Baum kann bei einem noch nicht fertig gestarteten Bot leer
+    # oder gar nicht vorhanden sein. Das ist kein Fehler -- dann gibt es
+    # eben nur die Prefix-Befehle.
+    tree = getattr(bot, "tree", None)
+    if tree is not None:
+        try:
+            for command in tree.walk_commands():
+                # Gruppen sind keine aufrufbaren Befehle. Sie zaehlen
+                # mit, waeren aber nie "benutzt" -- und stuenden dann
+                # fuer immer in der Liste der ungenutzten.
+                if hasattr(command, "walk_commands"):
+                    continue
+                names.append(f"/{command.qualified_name}")
+        except Exception:
+            pass
+
+    return sorted(dict.fromkeys(names))
+
+
 async def unused_commands(bot, days: int = 30) -> list[str]:
     """Commands that exist but were never called in the period."""
     data = await summary(days=days)
     used = {entry["command"] for entry in data.get("commands", [])}
-    return sorted(
-        command.qualified_name
-        for command in bot.walk_commands()
-        if command.qualified_name not in used and not command.hidden
-    )
+    return [name for name in all_command_names(bot) if name not in used]

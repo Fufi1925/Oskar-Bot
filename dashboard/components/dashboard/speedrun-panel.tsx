@@ -1155,6 +1155,11 @@ export function SpeedrunPanel({ guildId }: { guildId: string }) {
   const ready = Boolean(pre?.ready);
   const chosenTemplate = templates.find((t) => t.key === chosen);
   const previewTemplate = templates.find((t) => t.key === preview);
+
+  // Die baubaren Vorlagen. Der Bot sortiert sie bereits nach vorn --
+  // hier wird nur gezählt, damit der Erklärtext die richtige Zahl
+  // nennt statt einer fest eingetippten.
+  const openTemplates = templates.filter((t) => t.available);
   const chosenCount = Object.values(options).filter(Boolean).length;
 
   // Ohne Löschen immer startklar; mit Löschen erst, wenn der Servername
@@ -1345,10 +1350,16 @@ export function SpeedrunPanel({ guildId }: { guildId: string }) {
               <p className="text-xs font-black uppercase tracking-widest text-slate-500">
                 Vorlage
               </p>
+              {/* Die Zahl kommt aus der Antwort, nicht aus diesem Text.
+                  Hier stand fest „erst eine Vorlage“, während der Bot
+                  längst fünf freigab — ein Satz, der bei jeder
+                  Freischaltung erneut falsch geworden wäre. */}
               <p className="text-[12px] text-slate-500 mt-1">
-                In der Beta ist erst eine Vorlage freigegeben — auch mit
-                Premium. Die übrigen sind gebaut, aber noch nicht auf einem
-                echten Server gelaufen.
+                {openTemplates.length === 1
+                  ? "In der Beta ist erst eine Vorlage freigegeben"
+                  : `In der Beta sind ${openTemplates.length} Vorlagen freigegeben`}{" "}
+                — auch ohne Premium. Die übrigen sind gebaut, aber noch nicht
+                auf einem echten Server gelaufen.
               </p>
             </div>
 
@@ -1408,6 +1419,19 @@ export function SpeedrunPanel({ guildId }: { guildId: string }) {
                               )}
                               {active && !locked && (
                                 <CheckCircle2 className="h-3.5 w-3.5 text-primary shrink-0" />
+                              )}
+                              {/* Premium-Vorlagen, die hier trotzdem
+                                  offen sind. Der Clan Server ist so
+                                  eine: im Menü des Template-Bots kostet
+                                  er Premium, im Speedrun reicht der
+                                  Beta-Code. Ohne diesen Hinweis sieht
+                                  die Kachel aus wie jede andere — und
+                                  niemand merkt, was er da gerade
+                                  umsonst bekommt. */}
+                              {!locked && template.premium && (
+                                <span className="ml-auto shrink-0 text-[9px] font-black uppercase tracking-wider text-amber-300/90 bg-amber-500/10 border border-amber-500/25 rounded-full px-2 py-0.5">
+                                  Premium frei
+                                </span>
                               )}
                             </p>
                             <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">

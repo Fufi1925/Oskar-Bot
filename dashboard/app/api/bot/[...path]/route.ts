@@ -67,6 +67,12 @@ const ADMIN_PERMISSIONS: Record<string, { GET?: string; WRITE?: string }> = {
   blacklist: { WRITE: "blacklist.manage" },
   "mass-config": { WRITE: "massconfig.push" },
   stats: { GET: "dashboard.access" },
+  // Die Befehls-Statistik. Ohne diesen Eintrag fiel sie auf
+  // verifyAdminAccess() zurück, und die lässt ausschließlich globale
+  // Admins durch: der Usage-Reiter war zwar sichtbar, gab beim Klick
+  // aber "Admin access required." Die Servernamen darin maskiert der
+  // Bot selbst für alle außer Ownern.
+  "command-stats": { GET: "metrics.view" },
   notifications: { GET: "audit.view" },
   settings: { GET: "health.view", WRITE: "maintenance.toggle" },
   backups: { GET: "health.view", WRITE: "maintenance.toggle" },
@@ -899,6 +905,15 @@ async function handler(request: NextRequest, context: { params: { path?: string[
   // überschrieben, nicht ergänzt.
   if (segments[0] === "tester" && actorId) {
     url.searchParams.set("user_id", actorId);
+  }
+
+  // Die Befehls-Statistik zeigt die Namen jedes Servers, auf dem der
+  // Bot ist. Der Bot maskiert sie für alle außer Ownern -- dafür muss
+  // er wissen, wer fragt. Die ID kommt aus der Sitzung, nie aus dem
+  // Browser: ein mitgeschickter Wert wird überschrieben, sonst setzt
+  // sich jeder eine Owner-ID in die URL.
+  if (segments[0] === "admin" && segments[1] === "command-stats") {
+    url.searchParams.set("actor", actorId ?? "");
   }
 
   const targetUrl = url.toString();

@@ -204,12 +204,37 @@ PERMISSIONS_BY_KEY: dict[str, Permission] = {p.key: p for p in PERMISSIONS}
 PERMISSION_GROUPS: tuple[str, ...] = tuple(dict.fromkeys(p.group for p in PERMISSIONS))
 
 # Shorthand bundles used when defining roles below.
-_VIEW_BASE = ("dashboard.access", "guild.view")
+#
+# ``metrics.view`` gehoert seit dieser Runde zur Grundausstattung.
+#
+# Vorher hatten sie sechs von einundvierzig Rollen, und weil der
+# Usage-Reiter im Admin-Panel genau daran haengt, war er fuer
+# fuenfunddreissig Rollen unsichtbar: Moderatoren, Support, Community,
+# selbst der Head of Staff sahen im Panel keine einzige Zahl darueber,
+# welche Befehle ueberhaupt benutzt werden.
+#
+# Die Berechtigung ist lesend und nennt keine Inhalte -- nur
+# Befehlsnamen und Zaehlerstaende. Die einzige heikle Angabe darin
+# sind die Servernamen ("Busiest servers"), und die werden fuer alle
+# ausser Ownern maskiert (siehe ``api/routes/admin.py``).
+_VIEW_BASE = ("dashboard.access", "guild.view", "metrics.view")
+
+# Was eine Rolle mindestens braucht, um sich ueberhaupt anzumelden.
+#
+# Getrennt vom ``_VIEW_BASE``, damit eine bewusst enge Rolle nicht
+# automatisch alles mitbekommt, was spaeter zur Grundausstattung
+# dazukommt. Genau ein Fall nutzt das: der Tester.
+_LOGIN_BASE = ("dashboard.access", "guild.view")
 
 
-def _perms(*keys: str) -> tuple[str, ...]:
-    """Build a permission tuple, always including the view baseline."""
-    combined = list(_VIEW_BASE)
+def _perms(*keys: str, base: tuple[str, ...] | None = None) -> tuple[str, ...]:
+    """Build a permission tuple, always including the view baseline.
+
+    ``base`` waehlt die Grundausstattung. Ohne Angabe ist es
+    ``_VIEW_BASE``; eine Rolle, die bewusst nichts weiter sehen soll,
+    reicht ``_LOGIN_BASE`` durch.
+    """
+    combined = list(_VIEW_BASE if base is None else base)
     for key in keys:
         if key not in PERMISSIONS_BY_KEY:
             raise KeyError(f"Unknown permission: {key}")
@@ -458,7 +483,13 @@ ROLES: tuple[Role, ...] = (
          # Ein Tester soll Funktionen ausprobieren, nicht den Server
          # verwalten -- jede weitere Berechtigung waere eine, die
          # niemand angefordert hat.
-         _perms("tester.access"),
+         #
+         # ``base=_LOGIN_BASE`` haelt ihn ausdruecklich aus der
+         # Grundausstattung heraus. Sonst bekaeme er ueber ``_VIEW_BASE``
+         # ``metrics.view`` -- und der Reiter-Filter im Admin-Panel
+         # erkennt einen Tester genau daran, dass er ausser
+         # ``tester.access`` nichts hat.
+         _perms("tester.access", base=_LOGIN_BASE),
          rank=10, color="#8b5cf6"),
     Role("compliance_officer", "Compliance Officer", CAT_ANALYTICS,
          "Reviews the audit log and resolves queued admin actions.",

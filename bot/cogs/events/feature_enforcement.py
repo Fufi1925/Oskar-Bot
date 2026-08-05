@@ -155,6 +155,38 @@ class FeatureEnforcement(Cog):
             )
             await command_stats.flush()
 
+    # ── slash commands ────────────────────────────────────────────────────
+    #
+    # `on_command_completion` feuert discord.py NUR fuer Prefix-Befehle.
+    # Slash-Befehle laufen an dieser Zaehlung komplett vorbei: die
+    # Statistik im Dashboard zeigte deshalb ausschliesslich Aufrufe mit
+    # Prefix, obwohl Discord den Nutzern in erster Linie `/` anbietet.
+    #
+    # Das passende Ereignis heisst `app_command_completion` und wird in
+    # `discord.app_commands.CommandTree._call` dispatcht -- einmal pro
+    # erfolgreichem Aufruf.
+
+    @commands.Cog.listener()
+    async def on_app_command_completion(self, interaction, command):
+        """Dasselbe fuer Slash-Befehle."""
+
+        name = getattr(command, "qualified_name", "") or getattr(command, "name", "")
+        if not name:
+            return
+
+        # Mit fuehrendem Schraegstrich abgelegt, damit im Dashboard
+        # sichtbar bleibt, welcher Weg gemeint ist: `/ban` und `ban`
+        # sind derselbe Befehl, aber nicht dieselbe Bedienung -- und
+        # genau diese Unterscheidung ist der Grund, warum die Zahlen
+        # ueberhaupt jemanden interessieren.
+        command_stats.record(
+            f"/{name}",
+            interaction.guild.id if interaction.guild else None,
+        )
+        await command_stats.flush()
+
+
+
     @commands.Cog.listener()
     async def on_command_error(self, ctx, error):
         if ctx.command:

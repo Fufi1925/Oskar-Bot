@@ -310,6 +310,21 @@ async def templates(user_id: str = ""):
 
         items.append({**entry, "available": not reason, "locked_reason": reason})
 
+    # Baubares nach vorn.
+    #
+    # Der Template-Bot sortiert seine Liste nach (premium, Name) -- das
+    # passt zu seinem `!start`-Menue, aber nicht zum Speedrun. Hier
+    # entscheidet nicht Premium, sondern die Beta-Freigabe, und `clan`
+    # stand deshalb auf Platz neun: hinter acht Kacheln, von denen
+    # sieben grau und nicht anklickbar waren. Man musste an allem
+    # vorbeiscrollen, was man gerade *nicht* nehmen kann.
+    #
+    # `sorted` ist stabil, also bleibt innerhalb der beiden Gruppen die
+    # Reihenfolge des Template-Bots erhalten -- die freien vor den
+    # Premium-Vorlagen, jeweils alphabetisch. Aus 14 Kacheln werden so
+    # erst die fuenf baubaren, dann der Rest.
+    items.sort(key=lambda entry: not entry["available"])
+
     return {"templates": items, "premium": premium, "beta": sorted(BETA_TEMPLATES)}
 
 
