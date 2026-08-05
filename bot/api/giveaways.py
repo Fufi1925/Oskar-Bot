@@ -75,6 +75,31 @@ async def ensure_schema(db: aiosqlite.Connection) -> None:
         """
     )
 
+    # Wem fuer welches Gewinnspiel schon eine DM geschickt wurde.
+    #
+    # Der eigentliche Riegel gegen den DM-Spam. Frueher entschied allein
+    # der Ablauf, ob geschickt wird -- und weil die Timer-Schleife
+    # dasselbe Gewinnspiel alle fuenf Sekunden erneut beendete, kam die
+    # DM eben alle fuenf Sekunden erneut.
+    #
+    # Jetzt entscheidet die Datenbank: der Primaerschluessel laesst
+    # dieselbe Kombination kein zweites Mal zu. Das haelt auch dann,
+    # wenn zwei Ablaeufe gleichzeitig ankuendigen wollen.
+    #
+    # ``kind`` trennt Gewinner- und Host-DM, damit ein Host, der selbst
+    # gewinnt, beide bekommt -- aber jede nur einmal.
+    await db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS giveaway_dms (
+            message_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            kind TEXT NOT NULL DEFAULT 'winner',
+            sent_at REAL NOT NULL,
+            PRIMARY KEY (message_id, user_id, kind)
+        )
+        """
+    )
+
     # Per-user tuning of the draw. Never shown in the channel: the host
     # sets it in the dashboard, entrants only ever see the plain count.
     #   weight     — how many tickets the user holds (1 = normal)
@@ -363,15 +388,95 @@ async def get(db: aiosqlite.Connection, guild_id: int, message_id: int) -> dict 
     return dict(row) if row else None
 
 
-async def mark_ended(db: aiosqlite.Connection, message_id: int) -> None:
+async def mark_ended(db: aiosqlite.Connection, message_id: int) -> bool:
     """
     Flag it as finished instead of deleting the row.
 
     The entries and winners have to stay around for a reroll, and the
     dashboard should still be able to show what happened.
+
+    Gibt True zurueck, wenn *dieser* Aufruf das Gewinnspiel beendet
+    hat, und False, wenn es schon beendet war. Das ist der Riegel
+    gegen den Mehrfach-Abschluss:
+
+    ``UPDATE ... WHERE ended = 0`` ist eine einzelne Anweisung, also
+    atomar. Zwei Aufrufer -- der Timer und ein Klick im Dashboard --
+    koennen nicht beide True bekommen, auch wenn sie sich
+    ueberschneiden. Wer False bekommt, muss die Ankuendigung und alle
+    DMs auslassen.
+
+    Vorher setzte diese Funktion nur das Flag und meldete nichts
+    zurueck. Die Auswahl der Timer-Schleife filterte gleichzeitig nur
+    nach ``ends_at <= jetzt`` und nie nach ``ended`` -- die Zeile
+    tauchte also alle fuenf Sekunden wieder auf, wurde erneut
+    ausgelost und erneut angekuendigt. Pro Stunde waren das 720
+    Ankuendigungen und ebenso viele DMs an jeden Gewinner.
     """
-    await db.execute("UPDATE Giveaway SET ended = 1 WHERE message_id = ?", (message_id,))
+
+    cursor = await db.execute(
+        "UPDATE Giveaway SET ended = 1 WHERE message_id = ? AND ended = 0",
+        (message_id,),
+    )
     await db.commit()
+    return cursor.rowcount > 0
+
+
+async def is_ended(db: aiosqlite.Connection, message_id: int) -> bool:
+    """Ist dieses Gewinnspiel schon abgeschlossen?"""
+
+    async with db.execute(
+        "SELECT ended FROM Giveaway WHERE message_id = ?", (message_id,)
+    ) as cursor:
+        row = await cursor.fetchone()
+    return bool(row and row[0])
+
+
+# ------------------------------------------------------------- DM-Sperre
+
+
+async def claim_dm(db: aiosqlite.Connection, message_id: int, user_id: int) -> bool:
+    """Darf dieser Nutzer fuer dieses Gewinnspiel eine DM bekommen?
+
+    True genau beim ersten Mal. Jeder weitere Aufruf gibt False.
+
+    ``INSERT OR IGNORE`` mit zusammengesetztem Primaerschluessel: die
+    Datenbank entscheidet, nicht der Code. Selbst wenn zwei Ablaeufe
+    gleichzeitig ankuendigen wollen -- der Timer und ein Klick im
+    Dashboard -- bekommt nur einer den Zuschlag.
+
+    Bewusst eine eigene Tabelle statt eines Feldes an den Gewinnern:
+    auch der Host bekommt eine DM, und der steht nicht in
+    ``giveaway_winners``. ``kind`` trennt beide Faelle, damit ein
+    Gewinner, der zugleich Host ist, seine Gewinner-DM nicht verliert.
+    """
+
+    try:
+        cursor = await db.execute(
+            "INSERT OR IGNORE INTO giveaway_dms (message_id, user_id, kind, sent_at)"
+            " VALUES (?, ?, ?, ?)",
+            (message_id, user_id, "winner", time.time()),
+        )
+        await db.commit()
+        return cursor.rowcount > 0
+    except Exception:
+        # Lieber eine DM zu wenig als eine Endlosschleife: schlaegt die
+        # Buchhaltung fehl, wird nicht geschickt.
+        return False
+
+
+async def claim_host_dm(db: aiosqlite.Connection, message_id: int, user_id: int) -> bool:
+    """Dasselbe fuer die Zusammenfassung an den Host."""
+
+    try:
+        cursor = await db.execute(
+            "INSERT OR IGNORE INTO giveaway_dms (message_id, user_id, kind, sent_at)"
+            " VALUES (?, ?, ?, ?)",
+            (message_id, user_id, "host", time.time()),
+        )
+        await db.commit()
+        return cursor.rowcount > 0
+    except Exception:
+        return False
 
 
 # ---------------------------------------------------------- requirements

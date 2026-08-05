@@ -13,6 +13,7 @@ dashboard never ended on its own.
 
 from __future__ import annotations
 
+import asyncio
 import time as _time
 from typing import TYPE_CHECKING
 
@@ -689,8 +690,48 @@ async def boost_entrant(
 # ══════════════════════════════════════════════════════════════════════
 
 
-async def _announce(bot, record: dict, winner_ids: list[int], *, reroll=False):
-    """Edit the message, reply with the result and send the DMs."""
+# Pause zwischen zwei DMs.
+#
+# Discord drosselt Direktnachrichten scharf; fuenfzehn Gewinner am
+# Stueck laufen ins Rate-Limit, und discord.py wartet die Strafe dann
+# blockierend ab -- der Bot wirkt in dieser Zeit eingefroren. Eine
+# Dreiviertelsekunde Abstand bleibt darunter und kostet bei fuenfzehn
+# Gewinnern gut zehn Sekunden, die niemandem auffallen.
+DM_DELAY = 0.75
+
+
+async def _send_dm(db, member, message_id: int, view, *, host: bool = False) -> bool:
+    """Eine DM -- aber nur, wenn dieser Nutzer noch keine bekommen hat.
+
+    Die Sperre liegt in der Datenbank, nicht im Ablauf: sie haelt auch
+    dann, wenn derselbe Abschluss aus zwei Richtungen kommt.
+    """
+
+    claim = store.claim_host_dm if host else store.claim_dm
+    if not await claim(db, message_id, int(member.id)):
+        return False
+
+    try:
+        await member.send(view=view)
+        return True
+    except discord.Forbidden:
+        # DMs zu. Kein Fehler, der irgendwo auffallen muesste -- der
+        # Eintrag bleibt trotzdem stehen, sonst wird es bei jedem
+        # weiteren Versuch erneut probiert.
+        return False
+    except Exception:
+        return False
+
+
+async def _announce(bot, record: dict, winner_ids: list[int], *, reroll=False, db=None):
+    """Edit the message, reply with the result and send the DMs.
+
+    ``db`` wird durchgereicht, damit die DM-Sperre dieselbe Verbindung
+    benutzt wie der Aufrufer. Ohne Angabe wird die uebliche geholt.
+    """
+    if db is None:
+        db = await _db()
+
     guild = bot.get_guild(int(record["guild_id"]))
     if guild is None:
         return
@@ -740,51 +781,68 @@ async def _announce(bot, record: dict, winner_ids: list[int], *, reroll=False):
         pass
 
     # DM the winners — this is the part people actually notice.
+    #
+    # Und genau hier lag der Spam. Jede DM geht jetzt durch `_send_dm`,
+    # das in `giveaway_dms` einen Anspruch eintraegt: pro Nutzer und
+    # Gewinnspiel genau eine. Selbst wenn dieser Abschluss ein zweites
+    # Mal durchlaeuft, kommt keine zweite Nachricht an.
+    #
+    # Ein Reroll ist ausdruecklich ein neuer Anlass -- wer neu gezogen
+    # wurde, hat vorher keine bekommen und ist deshalb noch nicht
+    # eingetragen.
+    message_id = int(record["message_id"])
+
     if record.get("dm_winners", 1) and winner_ids:
+        from utils.panels import StatusCard
+
         url = (
             f"https://discord.com/channels/{record['guild_id']}"
             f"/{record['channel_id']}/{record['message_id']}"
         )
-        for user_id in winner_ids:
+        for index, user_id in enumerate(winner_ids):
             member = guild.get_member(int(user_id))
             if member is None:
                 continue
-            try:
-                from utils.panels import StatusCard
 
-                body = message_text(
-                    record, "msg_winner_dm",
-                    {
-                        **values,
-                        "user": getattr(member, "mention", f"<@{user_id}>"),
-                        "user_name": getattr(member, "display_name", ""),
-                    },
-                )
-                await member.send(view=StatusCard(
+            body = message_text(
+                record, "msg_winner_dm",
+                {
+                    **values,
+                    "user": getattr(member, "mention", f"<@{user_id}>"),
+                    "user_name": getattr(member, "display_name", ""),
+                },
+            )
+            sent = await _send_dm(
+                db, member, message_id,
+                StatusCard(
                     "Du hast gewonnen!",
                     f"{body}\n\n[Zum Gewinnspiel]({url})",
                     tone="success",
-                ))
-            except discord.Forbidden:
-                pass  # DMs closed — not an error worth failing over
-            except Exception:
-                pass
+                ),
+            )
+
+            # Nur zwischen tatsaechlich verschickten Nachrichten warten,
+            # und nicht hinter der letzten: sonst kostet ein Abschluss
+            # ohne eine einzige DM trotzdem Sekunden.
+            if sent and index < len(winner_ids) - 1:
+                await asyncio.sleep(DM_DELAY)
 
     # And tell the host how it went.
     if record.get("dm_host", 1) and record.get("host_id"):
         host = guild.get_member(int(record["host_id"]))
         if host is not None:
-            try:
-                from utils.panels import StatusCard
+            from utils.panels import StatusCard
 
-                await host.send(view=StatusCard(
+            await _send_dm(
+                db, host, message_id,
+                StatusCard(
                     "Gewinnspiel beendet" if not reroll else "Neu ausgelost",
                     f"**{prize}** auf **{guild.name}**\n\n"
                     + (f"Gewinner: {mentions}" if winner_ids else "Keine Teilnehmer."),
                     tone="info",
-                ))
-            except Exception:
-                pass
+                ),
+                host=True,
+            )
 
 
 @router.post("/{guild_id}/{message_id}/end", summary="End and draw")
@@ -797,11 +855,28 @@ async def end_giveaway(
     if record is None:
         raise HTTPException(status_code=404, detail="Gewinnspiel nicht gefunden.")
 
+    # Erst den Riegel umlegen, dann auslosen.
+    #
+    # `mark_ended` meldet False, wenn das Gewinnspiel schon beendet war
+    # -- dann hat es ein anderer Weg bereits abgeschlossen (der Timer,
+    # oder ein zweiter Klick), und alles Weitere waere eine zweite
+    # Ankuendigung mit einer zweiten Runde DMs.
+    #
+    # Die Reihenfolge ist Absicht: wird zuerst ausgelost und danach
+    # gesperrt, koennen zwei gleichzeitige Aufrufe beide ziehen.
+    if not await store.mark_ended(db, message_id):
+        winners = await store.past_winner_ids(db, message_id)
+        return {
+            "status": "success",
+            "winners": [str(w) for w in winners],
+            "entrants": await store.entry_count(db, message_id),
+            "result": "War schon beendet.",
+        }
+
     winner_ids = await store.draw(db, message_id, int(record.get("winners") or 1))
     await store.record_winners(db, message_id, winner_ids)
-    await store.mark_ended(db, message_id)
 
-    await _announce(bot, record, winner_ids)
+    await _announce(bot, record, winner_ids, db=db)
 
     await feature_audit.log_action(
         "giveaway_ended",
@@ -845,7 +920,7 @@ async def reroll_giveaway(
         raise HTTPException(status_code=400, detail="Keine Teilnehmer zum Auslosen.")
 
     await store.record_winners(db, message_id, winner_ids, reroll=True)
-    await _announce(bot, record, winner_ids, reroll=True)
+    await _announce(bot, record, winner_ids, reroll=True, db=db)
 
     await feature_audit.log_action(
         "giveaway_rerolled",
