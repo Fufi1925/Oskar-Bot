@@ -1216,6 +1216,21 @@ export const api = {
   speedrunCancel: (guildId: string) =>
     request<any>(`/speedrun/${guildId}/cancel`, { method: "POST", body: "{}" }),
 
+  // ── Ping-Reaktionen ──────────────────────────────────────────────
+  pingReactions: () => request<any>(`/admin/ping-reactions`),
+  pingReactionSave: (data: any) =>
+    request<any>(`/admin/ping-reactions`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  pingReactionDelete: (userId: string) =>
+    request<any>(`/admin/ping-reactions/${userId}`, { method: "DELETE" }),
+  pingReactionToggle: (userId: string, enabled: boolean) =>
+    request<any>(`/admin/ping-reactions/${userId}/toggle`, {
+      method: "POST",
+      body: JSON.stringify({ enabled }),
+    }),
+
   // ── Support-Warteraum ────────────────────────────────────────────
   supportQueue: (guildId: string) =>
     request<any>(`/supportqueue/${guildId}`),

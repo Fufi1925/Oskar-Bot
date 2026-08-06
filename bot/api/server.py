@@ -8,7 +8,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from starlette.responses import Response
 from utils.config import *
-from api.routes import bot, guilds, admin, team, moderation, actions, access, servers, servertools, tickets, giveaways, leveling, vanity, broadcast, anonchat, diagnose, compose, nukealert, memberperks, extras, voice, verify, automod, logging_cfg, antinuke, premium, speedrun, supportqueue, tester
+from api.routes import bot, guilds, admin, team, moderation, actions, access, servers, servertools, tickets, giveaways, leveling, vanity, broadcast, anonchat, diagnose, compose, nukealert, memberperks, extras, voice, verify, automod, logging_cfg, antinuke, pingreactions, premium, speedrun, supportqueue, tester
 from api.dependencies import verify_api_key, limiter, get_bot_loop
 from api.db_manager import db_manager
 from api.schema_guard import ensure_schema
@@ -341,6 +341,12 @@ def create_app() -> FastAPI:
     # anhand der guild_id im Pfad.
     api_app.include_router(
         supportqueue.router, prefix="/supportqueue", tags=["Support Queue"]
+    )
+    # Ping-Reaktionen. Unter /admin, weil der Reiter dort sitzt und die
+    # Liste global gilt -- der Proxy laesst dorthin nur Admins und
+    # Rollen mit der passenden Berechtigung.
+    api_app.include_router(
+        pingreactions.router, prefix="/admin/ping-reactions", tags=["Admin"]
     )
 
     @api_app.get("/health")

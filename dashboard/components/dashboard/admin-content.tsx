@@ -6,7 +6,8 @@ import {
   RefreshCw, Ban, UserX, Clock, VolumeX, Send, Megaphone, Wrench, AlertTriangle,
   Hash, Volume2, FolderPlus, Pencil, Trash2, Copy,
   Unlock, Timer, MessageSquareX, Bell, BellOff, SearchCheck, Bot, UserCog,
-  Webhook, Link, ScrollText, BarChart4, ClipboardList, Terminal, Gem, Gauge, Bug
+  Webhook, Link, ScrollText, BarChart4, ClipboardList, Terminal, Gem, Gauge, Bug,
+  AtSign
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
@@ -34,11 +35,12 @@ import { BroadcastPanel } from "@/components/dashboard/broadcast-panel";
 import { BackupsPanel } from "@/components/dashboard/backups-panel";
 import { WarningsPanel } from "@/components/dashboard/warnings-panel";
 import { CommandStatsPanel } from "@/components/dashboard/command-stats-panel";
+import { PingReactionsPanel } from "@/components/dashboard/ping-reactions-panel";
 import { DashboardUsersPanel } from "@/components/dashboard/dashboard-users-panel";
 import { ServersPanel } from "@/components/dashboard/servers-panel";
 
 
-type TabId = "members" | "channels" | "server" | "scans" | "broadcast" | "system" | "features" | "health" | "team" | "access" | "reports" | "audit" | "approvals" | "botsettings" | "backups" | "warnings" | "usage" | "dashusers" | "servers" | "premium" | "speedrun" | "tester";
+type TabId = "members" | "channels" | "server" | "scans" | "broadcast" | "system" | "features" | "health" | "team" | "access" | "reports" | "audit" | "approvals" | "botsettings" | "backups" | "warnings" | "usage" | "dashusers" | "servers" | "premium" | "speedrun" | "tester" | "pingreactions";
 type MemberAction = "ban" | "kick" | "mute" | "unmute";
 
 type QuickAction = {
@@ -68,6 +70,7 @@ const tabs: Array<{ id: TabId; label: string; icon: any }> = [
   { id: "audit", label: "Audit", icon: ScrollText },
   { id: "approvals", label: "Approvals", icon: ClipboardList },
   { id: "backups", label: "Backups", icon: Database },
+  { id: "pingreactions", label: "Ping", icon: AtSign },
   { id: "botsettings", label: "Bot Config", icon: Wrench },
   { id: "access", label: "Access", icon: Lock },
   { id: "premium", label: "Premium", icon: Gem },
@@ -90,7 +93,7 @@ const TAB_GROUPS: Array<{ name: string; ids: TabId[] }> = [
   { name: "Server", ids: ["members", "channels", "server", "scans", "broadcast"] },
   { name: "Betrieb", ids: ["health", "system", "usage", "warnings", "reports", "audit"] },
   { name: "Zugriff", ids: ["team", "dashusers", "access", "approvals"] },
-  { name: "Verwaltung", ids: ["features", "botsettings", "backups", "servers", "premium", "speedrun", "tester"] },
+  { name: "Verwaltung", ids: ["features", "botsettings", "backups", "pingreactions", "servers", "premium", "speedrun", "tester"] },
 ];
 
 const memberActions: Array<{ action: MemberAction; label: string; desc: string; icon: any }> = [
@@ -285,6 +288,9 @@ export function AdminContent() {
     backups: "health.view",
     botsettings: "maintenance.toggle",
     tester: "tester.access",
+    // Lesen darf jede Team-Rolle; aendern gated der Proxy separat
+    // ueber maintenance.toggle.
+    pingreactions: "dashboard.access",
   };
 
   const visibleTabs = useMemo(() => {
@@ -592,6 +598,7 @@ export function AdminContent() {
       {activeTab === "tester" && <TesterPanel />}
       {activeTab === "access" && <OwnerAccessPanel currentUserId={(session?.user as any)?.id} />}
       {activeTab === "usage" && <CommandStatsPanel />}
+      {activeTab === "pingreactions" && <PingReactionsPanel />}
       {activeTab === "dashusers" && <DashboardUsersPanel currentUserId={(session?.user as any)?.id} />}
       {activeTab === "servers" && <ServersPanel currentUserId={(session?.user as any)?.id} />}
       {activeTab === "reports" && <ReportsPanel />}

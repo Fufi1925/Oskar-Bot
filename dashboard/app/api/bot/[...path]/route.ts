@@ -73,6 +73,10 @@ const ADMIN_PERMISSIONS: Record<string, { GET?: string; WRITE?: string }> = {
   // aber "Admin access required." Die Servernamen darin maskiert der
   // Bot selbst für alle außer Ownern.
   "command-stats": { GET: "metrics.view" },
+  // Ping-Reaktionen: wer beim Erwähnen welche Emojis bekommt. Lesen
+  // darf jede Team-Rolle, ändern nur, wer Bot-Einstellungen ändern
+  // darf — die Regel gilt global, nicht für einen Server.
+  "ping-reactions": { GET: "dashboard.access", WRITE: "maintenance.toggle" },
   notifications: { GET: "audit.view" },
   settings: { GET: "health.view", WRITE: "maintenance.toggle" },
   backups: { GET: "health.view", WRITE: "maintenance.toggle" },
