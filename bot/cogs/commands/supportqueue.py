@@ -47,6 +47,37 @@ from utils import support_queue as store
 
 LOGGER = logging.getLogger("universitybot.supportqueue")
 
+
+def _make_logger_visible() -> None:
+    """Dafuer sorgen, dass Meldungen dieses Cogs auch ankommen.
+
+    Am Root-Logger dieses Bots haengt kein Handler -- nachgesehen:
+    ``logging.getLogger().handlers`` ist leer. Alles, was hier ueber
+    ``LOGGER.warning`` ginge, verschwaende damit spurlos.
+
+    Das war beim ersten Fehlerbericht das eigentliche Problem: der Bot
+    kam in den Kanal und ging sofort wieder raus, und im Railway-Log
+    stand dazu keine einzige Zeile. Ohne Hinweis laesst sich so etwas
+    nur raten.
+
+    Der Handler haengt am Modul-Logger und nicht am Root, damit er die
+    Ausgabe der uebrigen Module nicht veraendert. ``propagate`` bleibt
+    an: kommt spaeter doch eine zentrale Konfiguration, sieht sie die
+    Meldungen weiterhin.
+    """
+
+    if any(getattr(h, "_supportqueue", False) for h in LOGGER.handlers):
+        return
+
+    handler = logging.StreamHandler()
+    handler.setFormatter(logging.Formatter("[supportqueue] %(levelname)s %(message)s"))
+    handler._supportqueue = True  # type: ignore[attr-defined]
+    LOGGER.addHandler(handler)
+    LOGGER.setLevel(logging.INFO)
+
+
+_make_logger_visible()
+
 # Die mitgelieferte Wartemusik.
 #
 # Bewusst eine Suchanfrage und keine feste URL: eine URL zu einer
@@ -203,6 +234,22 @@ class SupportQueue(Cog):
 
             seconds = int(record.get("music_seconds") or store.DEFAULT_MUSIC_SECONDS)
 
+            # Eine Zeile, wenn es losgeht -- und eine, wenn es nicht
+            # losgeht. Ohne die zweite sieht ein sofortiges Verlassen
+            # im Log genauso aus wie gar kein Ereignis.
+            if not self._humans_present(channel):
+                LOGGER.warning(
+                    "Niemand in #%s gesehen, obwohl gerade jemand beigetreten "
+                    "ist — der Bot geht wieder. Steht der Member im Cache?",
+                    getattr(channel, "name", channel.id),
+                )
+                return
+
+            LOGGER.info(
+                "Warteraum #%s: Ansage, dann %ss Musik",
+                getattr(channel, "name", channel.id), seconds,
+            )
+
             while self._humans_present(channel):
                 await self._speak_greeting(player, guild, record)
                 if not self._humans_present(channel):
@@ -226,11 +273,62 @@ class SupportQueue(Cog):
 
         Ohne diese Frage laeuft die Schleife weiter, wenn der letzte
         Mensch gegangen ist -- der Bot spielt dann sich selbst etwas
-        vor. Gezaehlt wird der Kanal, nicht die Warteliste: wer den
-        Kanal wechselt, ohne dass das Ereignis ankommt, faellt sonst
-        durchs Raster.
+        vor.
+
+        Warum das hier nicht einfach `channel.members` liest
+        ---------------------------------------------------
+        Genau daran ist die erste Fassung gescheitert: der Bot kam in
+        den Kanal und ging sofort wieder raus. `channel.members` ist
+        keine gespeicherte Liste, sondern wird bei jedem Zugriff neu
+        berechnet -- und filtert dabei stillschweigend:
+
+            for user_id, state in self.guild._voice_states.items():
+                if state.channel and state.channel.id == self.id:
+                    member = self.guild.get_member(user_id)
+                    if member is not None:      # <-- hier faellt es raus
+                        ret.append(member)
+
+        Kennt der Member-Cache den Nutzer nicht, gibt `get_member()`
+        None und die Person verschwindet aus der Liste. Der Kanal wirkt
+        leer, `while self._humans_present(...)` ist sofort falsch, die
+        Schleife wird nie betreten -- und das `finally` trennt die
+        Verbindung. Aus Sicht des Wartenden: der Bot kommt und ist im
+        selben Moment wieder weg.
+
+        Der Voice-Zustand selbst kennt jeden im Kanal, auch ohne
+        gecachten Member. Deshalb wird zuerst dort nachgesehen und
+        `channel.members` nur als Rueckfallebene benutzt.
         """
 
+        guild = getattr(channel, "guild", None)
+        states = getattr(guild, "_voice_states", None)
+
+        if isinstance(states, dict) and states:
+            bot_id = getattr(getattr(guild, "me", None), "id", None)
+            for user_id, state in states.items():
+                target = getattr(state, "channel", None)
+                if target is None or getattr(target, "id", None) != channel.id:
+                    continue
+                if bot_id is not None and user_id == bot_id:
+                    continue
+
+                # Ist es ein Bot? Nur beantwortbar, wenn der Member
+                # bekannt ist. Im Zweifel als Mensch zaehlen: lieber
+                # einmal zu lange spielen als den Wartenden abwuergen
+                # -- und ein zweiter Bot im Support-Warteraum ist der
+                # deutlich seltenere Fall.
+                member = None
+                if guild is not None:
+                    try:
+                        member = guild.get_member(user_id)
+                    except Exception:  # noqa: BLE001
+                        member = None
+                if member is None or not getattr(member, "bot", False):
+                    return True
+            return False
+
+        # Kein Voice-Zustand verfuegbar (Attrappen im Test, aeltere
+        # Bibliothek): dann eben die uebliche Liste.
         return any(not m.bot for m in getattr(channel, "members", []))
 
     async def _join(self, channel):
@@ -240,11 +338,24 @@ class SupportQueue(Cog):
             return None
 
         try:
-            return await channel.connect(cls=wavelink.Player, self_deaf=True)
+            # `self_deaf=False`: ein Bot, der sich selbst taub stellt,
+            # wird auf manchen Servern von Moderations-Regeln aus dem
+            # Kanal geworfen -- und es sieht fuer die Wartenden aus,
+            # als waere er abgestuerzt. Zu hoeren braucht er nichts,
+            # aber taub muss er dafuer nicht sein.
+            return await channel.connect(cls=wavelink.Player, self_deaf=False)
         except discord.ClientException:
             # Schon verbunden -- den vorhandenen Player nehmen.
             return channel.guild.voice_client
         except Exception as exc:  # noqa: BLE001
+            # Mit print, nicht nur ueber den Logger.
+            #
+            # Am Root-Logger haengt in diesem Bot kein Handler
+            # (nachgesehen: `logging.getLogger().handlers` ist leer).
+            # Eine Warnung von hier landete deshalb nirgends -- und
+            # ein fehlgeschlagener Beitritt sah aus wie "der Bot geht
+            # sofort wieder raus", ohne eine Zeile im Railway-Log.
+            print(f"[supportqueue] Beitritt fehlgeschlagen: {exc!r}")
             LOGGER.warning("Beitritt zum Warteraum fehlgeschlagen: %s", exc)
             return None
 

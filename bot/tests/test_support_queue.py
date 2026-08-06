@@ -307,6 +307,193 @@ def test_the_music_is_cut_to_length():
               f"Lautstaerke {played[0][1]}")
 
 
+def test_an_uncached_member_still_counts():
+    """Gemeldet: "Bot joint und leavt nach einer Millisekunde."
+
+    Die Ursache lag in `_humans_present`. Sie las `channel.members`,
+    und das ist keine gespeicherte Liste, sondern wird bei jedem
+    Zugriff neu berechnet -- mit einem stillen Filter:
+
+        for user_id, state in self.guild._voice_states.items():
+            if state.channel and state.channel.id == self.id:
+                member = self.guild.get_member(user_id)
+                if member is not None:      # <-- hier faellt es raus
+                    ret.append(member)
+
+    Kennt der Member-Cache den Nutzer nicht, verschwindet die Person
+    aus der Liste. Der Kanal wirkt leer, `while _humans_present(...)`
+    ist sofort falsch, die Schleife wird nie betreten -- und das
+    `finally` trennt die Verbindung. Genau das Bild, das gemeldet
+    wurde.
+
+    Geprueft wird hier mit einem **echten** `discord.VoiceChannel`,
+    nicht mit der Attrappe: die Attrappe hat eine eigene
+    `members`-Liste und kann den Fehler gar nicht zeigen.
+    """
+
+    print("\nEin Wartender ohne Cache-Eintrag zaehlt trotzdem")
+
+    import discord
+
+    from cogs.commands.supportqueue import SupportQueue
+
+    class State:
+        def __init__(self, channel):
+            self.channel = channel
+
+    class Guild:
+        id = 1
+
+        def __init__(self, *, cached):
+            self._voice_states = {}
+            self._cached = cached
+            self.me = FakeMember(1, "Bot", bot=True)
+
+        def get_member(self, user_id):
+            if not self._cached:
+                return None
+            return FakeMember(user_id, "Alice")
+
+    def make(*, cached, present):
+        guild = Guild(cached=cached)
+        channel = discord.VoiceChannel.__new__(discord.VoiceChannel)
+        channel.id = 555
+        channel.guild = guild
+        if present:
+            guild._voice_states[10] = State(channel)
+        return channel
+
+    # Der Fehlerfall: jemand ist im Kanal, aber nicht im Cache.
+    channel = make(cached=False, present=True)
+    check("channel.members ist leer -- so entstand der Fehler",
+          len(channel.members) == 0,
+          f"{len(channel.members)} Eintraege")
+    check("der Bot sieht ihn trotzdem",
+          SupportQueue._humans_present(channel) is True,
+          "sonst geht er sofort wieder raus")
+
+    # Mit Cache muss es natuerlich weiterhin klappen.
+    channel = make(cached=True, present=True)
+    check("mit Cache erst recht",
+          SupportQueue._humans_present(channel) is True)
+
+    # Und ein leerer Kanal bleibt leer -- sonst laeuft die Schleife ewig.
+    channel = make(cached=True, present=False)
+    check("ein leerer Kanal bleibt leer",
+          SupportQueue._humans_present(channel) is False,
+          "sonst spielt der Bot sich selbst etwas vor")
+
+
+def test_the_bot_itself_is_not_a_waiting_human():
+    """Sonst verlaesst der Bot den Kanal nie wieder.
+
+    Er sitzt selbst im Voice-Zustand. Zaehlt er sich mit, ist immer
+    "jemand da" -- die Schleife laeuft endlos und der Kanal bleibt
+    dauerhaft belegt.
+    """
+
+    print("\nDer Bot zaehlt sich nicht selbst")
+
+    import discord
+
+    from cogs.commands.supportqueue import SupportQueue
+
+    class State:
+        def __init__(self, channel):
+            self.channel = channel
+
+    class Guild:
+        id = 1
+
+        def __init__(self):
+            self._voice_states = {}
+            self.me = FakeMember(1, "Bot", bot=True)
+
+        def get_member(self, user_id):
+            # Auch der Bot selbst ist nicht im Cache -- der Fall, in
+            # dem die "im Zweifel Mensch"-Regel greifen wuerde.
+            return None
+
+    guild = Guild()
+    channel = discord.VoiceChannel.__new__(discord.VoiceChannel)
+    channel.id = 555
+    channel.guild = guild
+    guild._voice_states[1] = State(channel)  # nur der Bot
+
+    check("allein im Kanal zaehlt der Bot nicht",
+          SupportQueue._humans_present(channel) is False,
+          "sonst bleibt er fuer immer drin")
+
+    # Kommt ein Mensch dazu, muss es umschlagen.
+    guild._voice_states[10] = State(channel)
+    check("mit einem Menschen schon",
+          SupportQueue._humans_present(channel) is True)
+
+
+def test_problems_are_written_somewhere():
+    """Am Root-Logger dieses Bots haengt kein Handler.
+
+    Deshalb war der gemeldete Fehler unsichtbar: der Bot kam, ging --
+    und im Log stand dazu keine Zeile. Ohne Hinweis laesst sich so
+    etwas nur raten.
+    """
+
+    print("\nMeldungen des Warteraums kommen an")
+
+    import logging
+
+    from cogs.commands import supportqueue as module
+
+    check("der Logger hat einen eigenen Handler",
+          bool(module.LOGGER.handlers),
+          "sonst verschwindet jede Warnung spurlos")
+    check("und laesst Warnungen durch",
+          module.LOGGER.isEnabledFor(logging.WARNING))
+
+    # Wirklich schreiben, nicht nur die Einstellung ansehen.
+    import io
+
+    stream = io.StringIO()
+    handler = logging.StreamHandler(stream)
+    module.LOGGER.addHandler(handler)
+    try:
+        module.LOGGER.warning("Probemeldung")
+    finally:
+        module.LOGGER.removeHandler(handler)
+
+    check("eine Meldung landet wirklich im Strom",
+          "Probemeldung" in stream.getvalue(),
+          repr(stream.getvalue()))
+
+
+def test_the_bot_is_not_deafened():
+    """Ein tauber Bot fliegt auf manchen Servern aus dem Kanal."""
+
+    print("\nDer Bot stellt sich nicht taub")
+
+    import ast
+
+    src = open(
+        os.path.join(BOT, "cogs", "commands", "supportqueue.py"), encoding="utf-8"
+    ).read()
+    tree = ast.parse(src)
+
+    join = next(
+        (n for n in ast.walk(tree)
+         if isinstance(n, ast.AsyncFunctionDef) and n.name == "_join"),
+        None,
+    )
+    check("es gibt _join", join is not None)
+    if join is None:
+        return
+
+    body = ast.unparse(join)
+    check("connect wird aufgerufen", "channel.connect(" in body)
+    check("aber nicht taub",
+          "self_deaf=False" in body,
+          "self_deaf=True laesst ihn auf manchen Servern rausfliegen")
+
+
 def test_the_loop_does_not_spin():
     """Ein Player, der sofort "fertig" meldet, darf die Schleife nicht
     durchdrehen lassen.
@@ -390,6 +577,62 @@ def test_the_loop_stops_when_everyone_left():
     check("nichts wurde abgespielt", player.played == [],
           f"abgespielt: {player.played}")
     check("und der Bot ist wieder draussen", player.disconnected is True)
+
+
+def test_the_loop_ends_when_the_last_one_leaves_mid_run():
+    """Der Kanal leert sich *waehrend* die Schleife laeuft.
+
+    Der Test darueber prueft nur, dass sie gar nicht erst startet.
+    Damit blieb eine Manipulation unentdeckt: `while True` statt
+    `while self._humans_present(channel)`. Der Bot haette dann
+    weitergespielt, nachdem der Letzte gegangen ist -- Ansage und
+    Musik in einen leeren Kanal, endlos, und der Sprachkanal bliebe
+    dauerhaft belegt.
+
+    Hier geht der Wartende also mitten im Lauf, und danach muss die
+    Schleife von selbst enden.
+    """
+
+    print("\nDie Schleife endet auch mitten im Lauf")
+
+    async def scenario():
+        from utils import support_queue as store
+
+        store.reset()
+        guild = FakeGuild()
+        cog, path = await build_cog(
+            guild, channel_id=555, enabled=True, music_seconds=10
+        )
+        try:
+            guild.voice.members = [FakeMember(10, "Alice")]
+            record = await cog.settings(guild.id)
+
+            task = asyncio.create_task(cog._run_loop(guild, guild.voice, record))
+
+            # Die Ansage laufen lassen, dann den Kanal leeren.
+            await asyncio.sleep(1.5)
+            guild.voice.members = []
+
+            # Jetzt muss die Schleife von allein zu Ende kommen.
+            ended = True
+            try:
+                await asyncio.wait_for(task, timeout=20)
+            except asyncio.TimeoutError:
+                ended = False
+                task.cancel()
+
+            return ended, guild.voice.player
+        finally:
+            await cog._connection.close()
+            os.unlink(path)
+
+    ended, player = asyncio.run(scenario())
+
+    check("die Schleife kommt von selbst zum Ende",
+          ended is True,
+          "sie laeuft weiter, obwohl niemand mehr da ist")
+    check("und der Bot verlaesst den Kanal",
+          player.disconnected is True)
 
 
 def test_a_mute_does_not_restart_everything():
@@ -810,8 +1053,13 @@ def test_the_dashboard_page_exists():
 def main() -> int:
     test_the_bot_joins_speaks_and_plays()
     test_the_music_is_cut_to_length()
+    test_an_uncached_member_still_counts()
+    test_the_bot_itself_is_not_a_waiting_human()
+    test_problems_are_written_somewhere()
+    test_the_bot_is_not_deafened()
     test_the_loop_does_not_spin()
     test_the_loop_stops_when_everyone_left()
+    test_the_loop_ends_when_the_last_one_leaves_mid_run()
     test_a_mute_does_not_restart_everything()
     test_two_people_share_one_loop()
     test_the_last_one_out_turns_off_the_light()

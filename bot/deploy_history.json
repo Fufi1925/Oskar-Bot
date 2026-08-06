@@ -1,6 +1,12 @@
 {
  "commits": [
   {
+   "commit": "8d641c7dcb50eeccb1a1d26b843a28c3f6d5c000",
+   "at": "1786032978",
+   "subject": "feat(support): Warteraum mit Ansage und Wartemusik",
+   "body": "Ein Sprachkanal wird zum Warteraum erklaert. Betritt ihn jemand, kommt\nder Bot dazu, spricht eine Begruessung und spielt danach Wartemusik.\nNach der eingestellten Zeit -- voreingestellt dreissig Sekunden --\nwiederholt sich beides, bis das Team da ist oder der Letzte geht.\n\nDer Reiter traegt ein BETA-Abzeichen, verlangt aber keinen Code: jeder\nmit Dashboard-Zugang kann ihn sofort benutzen.\n\nKein ffmpeg, kein PyNaCl\n------------------------\nErst sah das nach einem Blocker aus: beides fehlt im Image, und ohne\nPyNaCl kann discord.py normalerweise nicht einmal einen Sprachkanal\nbetreten. Nachgeprueft statt angenommen -- `wavelink.Player` erbt\nnicht von `VoiceClient` (MRO: Player -> VoiceProtocol -> object). Nur\n`VoiceClient` verschluesselt die Audiopakete selbst und braucht dafuer\nnacl; bei Lavalink macht das der Audiodienst. Also keine neue\nAbhaengigkeit und kein groesseres Image.\n\nAuch die Sprachausgabe laeuft darueber: Google Translate liefert den\ngesprochenen Satz als MP3 hinter einer URL, und Lavalinks\nhttp-Quelle ist eingeschaltet.\n\nOhne erreichbaren Knoten betritt der Bot den Kanal gar nicht. Stumm\ndabeisitzen taeuscht Anwesenheit vor -- die Meldung ans Team geht\ntrotzdem raus, und im Dashboard steht oben, woran es liegt.\n\nBeim Bauen selbst gefunden\n--------------------------\nDie Warteschleife lief bei voller Last durch, sobald Lavalink ein\nStueck nicht laden konnte: `_wait_until_idle` kehrte sofort zurueck,\nwenn der Player schon \"spielt nicht\" meldete, und die Schleife startete\nohne Pause die naechste Runde. Tausende Durchlaeufe pro Sekunde -- und\ndie Task liess sich nicht einmal mehr abbrechen, weil sie nie an einen\nWartepunkt kam. Aufgefallen ist es, weil der Test haengen blieb statt\nfehlzuschlagen. Behoben mit einer Mindest-Wartezeit; gemessen sind es\njetzt zwei Runden in zwei Sekunden.\n\nDrei bestehende Tests schlugen an, und das zu Recht: Sidebar und\nTab-Leiste sind zwei getrennte Listen, und ich hatte nur die erste\nergaenzt. Genau dafuer gibt es test_navigation.py. Nachgetragen.\n\nWas noch drin steckt\n--------------------\n  * Wer wartet und seit wann -- die Uhr laeuft ab dem ersten Beitritt,\n    nicht ab dem letzten Ereignis. `on_voice_state_update` feuert auch\n    beim Stummschalten.\n  * Ein Wechsel innerhalb desselben Kanals ist kein Beitritt, sonst\n    redet der Bot bei jedem Klick aufs Mikrofon los.\n  * Zwei Wartende teilen sich eine Schleife.\n  * Beim Speichern wird geprueft, ob der Bot den Kanal betreten und\n    darin sprechen darf -- nicht erst, wenn der erste Mensch\n    vergeblich wartet.\n  * Grenzen fuer Ansage und Dauer gelten im Bot, nicht nur im Browser.\n  * Optional eine Meldung ins Team-Postfach, mit Rollen-Ping.\n\ntests/test_support_queue.py: 23 von 23 Mutationen erkannt.\n\nFuer den Betrieb: LAVALINK_HOST muss gesetzt sein, und db/support_queue.db\nbraucht ein Railway-Volume -- sonst sind die Einstellungen nach jedem\nDeploy weg."
+  },
+  {
    "commit": "39d54418fe8536faef86c9b592f87adc708c70a9",
    "at": "1785975057",
    "subject": "refactor(slash): Einrichtung raus aus dem /-Menue, help sagt wo was lebt",
@@ -231,12 +237,6 @@
   {
    "commit": "74d08b24babb1b1e308ad184548c29cef1019662",
    "at": "1785627126",
-   "subject": "Update layout.tsx",
-   "body": ""
-  },
-  {
-   "commit": "446bfa07807b32341514179273dee592cee59b26",
-   "at": "1785626994",
    "subject": "Update layout.tsx",
    "body": ""
   }
