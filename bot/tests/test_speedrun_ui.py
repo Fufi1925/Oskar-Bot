@@ -777,8 +777,25 @@ def test_the_sidebar_row_stands_out():
         # die Wörter stehen weiter da, die Zeile bekommt trotzdem nie
         # einen eigenen Stil. Ein Mutationstest hat genau das
         # durchgelassen.
+        # Seit dem Support-Warteraum teilen sich zwei Beta-Reiter
+        # denselben Stil, und die Erkennung läuft über eine Liste:
+        #
+        #     ["/speedrun", "/supportqueue"].some((p) => href.endsWith(p))
+        #
+        # Geprüft wird deshalb beides -- die alte direkte Form und die
+        # Liste. Was die Prüfung weiterhin ausschließt, ist der Fall,
+        # der sie ursprünglich nötig machte: eine feste Konstante
+        # (`const isSpeedrun = false`), die alle Wortsuchen grün lässt
+        # und trotzdem nie einen Stil vergibt.
+        by_path = (
+            'subItem.href.endsWith("/speedrun")' in branch
+            or (
+                '"/speedrun"' in branch
+                and "subItem.href.endsWith(path)" in branch
+            )
+        )
         check("er erkennt ihn am Pfad",
-              'subItem.href.endsWith("/speedrun")' in branch,
+              by_path,
               "die Erkennung hängt an einer Konstanten statt am Link")
         check("er vergibt dort die Klasse",
               "speedrun-link" in branch,

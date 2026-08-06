@@ -1,6 +1,12 @@
 {
  "commits": [
   {
+   "commit": "39d54418fe8536faef86c9b592f87adc708c70a9",
+   "at": "1785975057",
+   "subject": "refactor(slash): Einrichtung raus aus dem /-Menue, help sagt wo was lebt",
+   "body": "Das /-Menue hatte 73 Namen und 129 aufrufbare Befehle. Discord erlaubt\n100 globale Befehle -- viel Luft war nicht mehr, und vor allem deckten\ndie Einrichtungs-Befehle die eigentliche Bedienung zu: wer /a tippte,\nbekam erst dreizehn automod-Unterbefehle.\n\nFuenfzehn Gruppen tragen jetzt `with_app_command=False`: automod, log,\ngreet, verification, media, setup (customrole), nightmode, filter,\ncreaterr, dmrr, extraowner und die vier whitelist-Befehle. Alle haben\neine Dashboard-Seite, auf der dasselbe als Formular steht -- ein\nFormular mit zwoelf Feldern ist im Browser schlicht besser aufgehoben\nals in einer Chatzeile.\n\nDie Vorgabe war ausdruecklich: jeder Befehl bleibt als Prefix. Das ist\nnachgemessen und nicht behauptet -- 539 Prefix-Befehle vor dem Umbau,\n539 danach. Nur die Slash-Anmeldung faellt weg. Am Dekorator der Gruppe\nzu drehen reicht; die Unterbefehle folgen automatisch.\n\n  /-Menue:  73 Namen, 129 Befehle  ->  58 Namen, 73 Befehle\n  Prefix:   539                    ->  539\n\n`minecraft` bleibt bewusst im Menue: dafuer gibt es keine\nDashboard-Seite, es waere sonst gar nicht mehr per Menue erreichbar.\n\n>help erklaert das jetzt, statt es zu verschweigen:\n\n  * Die Startseite nennt beide Zahlen getrennt. Vorher stand dort eine\n    einzige, aus `walk_commands()` -- das sind ausschliesslich\n    Prefix-Befehle, die Slash-Befehle fehlten in der Zaehlung ganz.\n  * Jeder Befehl sagt, wo er aufrufbar ist. Ohne diesen Hinweis sucht\n    man ihn im /-Menue, findet ihn nicht und haelt ihn fuer geloescht.\n  * Bei Einrichtungs-Befehlen kommt ein Link auf den passenden Reiter\n    dazu. Wo es keine Seite gibt (media, extraowner), wird auch keine\n    versprochen -- ein toter Link ist schlimmer als kein Hinweis.\n\nDie Zuordnung Befehl -> Reiter steht in utils/command_surface.py, an\neiner Stelle, und der Test prueft gegen die Ordner im Dashboard, dass\njeder verlinkte Reiter wirklich existiert.\n\nEigener Fehler beim Bauen, der Erwaehnung wert: `has_slash` fragte\nzuerst `command.app_command is not None`. discord.py setzt das Feld bei\neinem abgeschalteten Hybrid-Befehl aber auf MISSING, nicht auf None --\nund MISSING is not None ist wahr. Die Funktion meldete damit fuer jeden\nBefehl \"hat Slash\". Aufgefallen, weil sie gegen echte Objekte getestet\nwurde; sie liest jetzt `with_app_command`.\n\ntests/test_slash_cleanup.py: 21 von 21 Mutationen erkannt.\n\nNach dem Deploy muss einmal `>syncslash` laufen, damit Discord das\nkuerzere Menue uebernimmt."
+  },
+  {
    "commit": "ac8fcb645a1a49f66b502077cc4161020e7564e3",
    "at": "1785971334",
    "subject": "fix(giveaway): ein Ende, eine Nachricht, eine DM -- statt alle fuenf Sekunden",
@@ -233,12 +239,6 @@
    "at": "1785626994",
    "subject": "Update layout.tsx",
    "body": ""
-  },
-  {
-   "commit": "17f5a9fefbbf5560a0ad3ac13c5b4900c77f3696",
-   "at": "1785626240",
-   "subject": "fix(dashboard): round the glow corner, widen the sidebar travel to 37px",
-   "body": "The glow corner\n---------------\nThe halo was square in the corners of a rounded card, which is what the\nscreenshot showed. The ring is an inset box-shadow, and an inset shadow\nis painted on the padding box -- whose radius CSS derives by subtracting\nthe border width. The halo layer carries a 40px transparent border to\npush the ring back onto the card's edge, so inheriting the card's 24px\ngave 24 - 40, clamped to 0.\n\nAdding the padding back cancels the subtraction. Because the radius now\nhas to be known rather than inherited, it comes from --card-radius,\ndefaulting to rounded-3xl (113 of the 121 cards); the 8 cards on other\nradii carry .glow-r-2xl or .glow-r-20. The clipped variant has no border\nto compensate for, so it uses the plain value.\n\nWorked out in repro/glow_radius.py rather than guessed.\n\nThe sidebar travel\n------------------\nNow LineSidebar's own maxShift of 37px, up from 14. The nav had 16px of\nroom, and a scroll container clips at its padding box, so the padding\nwent with it: pl-4 pr-10. 40px clears the full travel with 3px spare and\nis the most that fits -- at 44px \"Zurueck zur Serverliste\" starts to\nwrap, which repro/prox_shift_budget.py now checks alongside the budget.\n\nSub-links go 10px -> 26px. The global search dropdown stays at 10px on a\nnew .prox-row-tight: it is not in the nav and has no spare padding of\nits own to slide into, so it would have been clipped by its own edge.\n\nVerified: 48 test files green, and all 31 mutations fail the suite when\nreintroduced -- including the radius going back to inherit, the padding\nshrinking back, and the dropdown inheriting the sidebar's travel. The\nbudget check no longer hard-codes the padding; the old copy went stale\nthe moment the nav changed and failed against correct CSS.\n\nNot tested in a real browser: there is none in this environment."
   }
  ]
 }

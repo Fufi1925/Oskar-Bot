@@ -83,6 +83,11 @@ NO_DRAFT = {
     # mitgeschickt. Eine Speicherleiste würde behaupten, es gäbe einen
     # Entwurf, den man verlieren kann.
     "speedrun",
+    # Der Support-Warteraum hat einen eigenen Speichern-Knopf direkt
+    # unter den Feldern. Das Formular ist kurz genug, dass er ohne
+    # Scrollen sichtbar bleibt -- eine eingeblendete Leiste am unteren
+    # Rand wäre ein zweiter Knopf für dieselbe Sache.
+    "supportqueue",
 }
 
 

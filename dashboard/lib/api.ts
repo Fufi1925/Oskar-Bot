@@ -1216,6 +1216,20 @@ export const api = {
   speedrunCancel: (guildId: string) =>
     request<any>(`/speedrun/${guildId}/cancel`, { method: "POST", body: "{}" }),
 
+  // ── Support-Warteraum ────────────────────────────────────────────
+  supportQueue: (guildId: string) =>
+    request<any>(`/supportqueue/${guildId}`),
+  supportQueueSave: (guildId: string, data: any) =>
+    request<any>(`/supportqueue/${guildId}`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  supportQueueTest: (guildId: string) =>
+    request<any>(`/supportqueue/${guildId}/test`, {
+      method: "POST",
+      body: "{}",
+    }),
+
   // Die Code-Sperre. Freigeschaltet wird ein Server, nicht ein Nutzer.
   speedrunAccess: (guildId: string) =>
     request<any>(`/speedrun/${guildId}/access`),

@@ -8,7 +8,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from starlette.responses import Response
 from utils.config import *
-from api.routes import bot, guilds, admin, team, moderation, actions, access, servers, servertools, tickets, giveaways, leveling, vanity, broadcast, anonchat, diagnose, compose, nukealert, memberperks, extras, voice, verify, automod, logging_cfg, antinuke, premium, speedrun, tester
+from api.routes import bot, guilds, admin, team, moderation, actions, access, servers, servertools, tickets, giveaways, leveling, vanity, broadcast, anonchat, diagnose, compose, nukealert, memberperks, extras, voice, verify, automod, logging_cfg, antinuke, premium, speedrun, supportqueue, tester
 from api.dependencies import verify_api_key, limiter, get_bot_loop
 from api.db_manager import db_manager
 from api.schema_guard import ensure_schema
@@ -335,6 +335,12 @@ def create_app() -> FastAPI:
     # ein Tester käme dort nicht hinein.
     api_app.include_router(
         tester.router, prefix="/tester", tags=["Tester"]
+    )
+    # Der Support-Warteraum. Wie die uebrigen Server-Funktionen unter
+    # einem eigenen Praefix; die Rechte prueft der Dashboard-Proxy
+    # anhand der guild_id im Pfad.
+    api_app.include_router(
+        supportqueue.router, prefix="/supportqueue", tags=["Support Queue"]
     )
 
     @api_app.get("/health")

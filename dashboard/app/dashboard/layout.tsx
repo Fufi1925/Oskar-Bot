@@ -27,7 +27,7 @@ import {
   LayoutDashboard, Server, ShieldCheck, Ticket, BarChart4, FileText, Settings,
   Menu, X, Bell, User, Search, ChevronRight, Star, Sparkles, LogOut,
   Lock, PenLine, Gem, Pin, Moon, Calculator, Youtube, Cake,
-  LifeBuoy, ChevronDown, Bot, Shield, UserCheck, Badge, Gauge
+  LifeBuoy, ChevronDown, Bot, Shield, UserCheck, Badge, Gauge, Headphones
 } from "lucide-react";
 import { useSession, signIn, signOut } from "next-auth/react";
 import { cn, isAdmin } from "@/lib/utils";
@@ -237,6 +237,7 @@ export default function DashboardLayout({
             { name: "Logs", href: `/dashboard/guild/${currentGuildId}/logging`, icon: LayoutDashboard },
             { name: "Server-Werkzeuge", href: `/dashboard/guild/${currentGuildId}/admin-dashboard`, icon: Shield },
             { name: "Speedrun (Beta)", href: `/dashboard/guild/${currentGuildId}/speedrun`, icon: Gauge },
+            { name: "Support-Warteraum (Beta)", href: `/dashboard/guild/${currentGuildId}/supportqueue`, icon: Headphones },
           ],
         },
         { name: "Einstellungen", href: `/dashboard/guild/${currentGuildId}/settings`, icon: Settings },
@@ -351,7 +352,14 @@ export default function DashboardLayout({
                       // richtig aus, weil Premium ein Eintrag der
                       // obersten Ebene ist -- der Speedrun ist es
                       // nicht, und der Stil kam nie an.
-                      const isSpeedrun = subItem.href.endsWith("/speedrun");
+                      // Beta-Reiter tragen denselben Stil: eigenes
+                      // Symbol-Feld, Abzeichen, ruhigeres Licht. Der
+                      // Warteraum ist der zweite davon -- die Liste
+                      // steht hier, damit ein dritter nicht wieder
+                      // durchs Raster fällt.
+                      const isSpeedrun = ["/speedrun", "/supportqueue"].some(
+                        (path) => subItem.href.endsWith(path)
+                      );
                       return (
                         <Link
                           key={subItem.name}
@@ -427,7 +435,9 @@ export default function DashboardLayout({
             // nicht aussehen wie "Nickname" drei Zeilen darüber.
             // Eigene Farbe, eigenes Symbol-Feld und ein Licht,
             // das über die Oberkante läuft.
-            const isSpeedrun = item.href.endsWith("/speedrun");
+            const isSpeedrun = ["/speedrun", "/supportqueue"].some((path) =>
+              item.href.endsWith(path)
+            );
             return (
               <Link
                 key={item.name}

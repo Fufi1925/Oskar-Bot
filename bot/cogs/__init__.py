@@ -33,6 +33,7 @@ from .commands.Media import Media
 from .commands.Invc import Invcrole
 from .commands.anonchat import AnonChat
 from .commands.giveaway import Giveaway
+from .commands.supportqueue import SupportQueue
 from .commands.Embed import Embed
 from .commands.steal import Steal
 from .commands.timer import Timer
@@ -219,6 +220,7 @@ async def setup(bot: universitybot):
   await bot.add_cog(Invcrole(bot))
   await bot.add_cog(AnonChat(bot))
   await bot.add_cog(Giveaway(bot))
+  await bot.add_cog(SupportQueue(bot))
   await bot.add_cog(Steal(bot))
   await bot.add_cog(Booster(bot))
   await bot.add_cog(Timer(bot))
