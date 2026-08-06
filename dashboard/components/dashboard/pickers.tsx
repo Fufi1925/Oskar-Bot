@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Check, ChevronDown, Hash, Loader2, Search, Volume2, X } from "lucide-react";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { PopoverLayer } from "@/components/ui/popover-layer";
 
 /* ------------------------------------------------------------------ *
  * Shared cache
@@ -33,15 +34,22 @@ export function invalidatePickerCache(guildId?: string) {
   cache.delete(`channels:${guildId}`);
 }
 
-function useOutsideClose(ref: React.RefObject<HTMLElement>, close: () => void) {
-  useEffect(() => {
-    const onClick = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) close();
-    };
-    document.addEventListener("mousedown", onClick);
-    return () => document.removeEventListener("mousedown", onClick);
-  }, [ref, close]);
-}
+/* ------------------------------------------------------------------ *
+ * Warum die Menues per `PopoverLayer` gezeichnet werden
+ *
+ * Vorher stand hier `absolute z-50`. Das reichte nicht: fast jede
+ * Karte im Dashboard traegt `.border-glow-card` mit
+ * `isolation: isolate` und ist damit ein Stapelkontext. Ein Kind kann
+ * seinen Stapelkontext nicht verlassen -- der z-index zaehlt nur
+ * innerhalb der Karte. Die naechste Karte im Dokument lag also immer
+ * darueber, und auf dem Handy lief das Menue zusaetzlich unten aus
+ * dem Bild, weil `max-h-64` mehr ist als dort Platz war.
+ *
+ * `PopoverLayer` haengt das Menue per Portal an `document.body` und
+ * rechnet seine Groesse gegen das echte Fenster. Es kuemmert sich
+ * ausserdem um Klick-daneben und Escape -- deshalb braucht es hier
+ * keinen eigenen Aussenklick-Haken mehr.
+ * ------------------------------------------------------------------ */
 
 function roleColor(color?: number) {
   if (!color) return "#99aab5";
@@ -75,7 +83,6 @@ function SinglePicker({
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const box = useRef<HTMLDivElement>(null);
-  useOutsideClose(box, () => setOpen(false));
 
   useEffect(() => {
     if (!guildId) return;
@@ -168,25 +175,32 @@ function SinglePicker({
         </span>
       </button>
 
-      {open && (
-        <div className="absolute z-50 mt-2 w-full rounded-xl border border-slate-800 bg-[#0d1b31] shadow-2xl overflow-hidden">
+      <PopoverLayer
+        anchor={box}
+        open={open}
+        onClose={() => setOpen(false)}
+        className="rounded-xl border border-slate-800 bg-[#0d1b31] shadow-2xl"
+      >
           {items.length > 8 && (
-            <div className="relative border-b border-slate-800">
+            <div className="relative border-b border-slate-800 shrink-0">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500" />
               <input
                 autoFocus
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search…"
+                placeholder="Suchen…"
                 className="w-full bg-transparent pl-9 pr-3 py-2.5 text-sm text-white placeholder:text-slate-500 focus:outline-none"
               />
             </div>
           )}
 
-          <div className="max-h-64 overflow-y-auto py-1">
+          {/* `min-h-0` ist noetig, damit die Liste in einem Flex-Kasten
+              schrumpfen darf. Ohne das behaelt sie ihre volle Hoehe und
+              schiebt den Rest aus dem Bild -- gerade auf dem Handy. */}
+          <div className="flex-1 min-h-0 overflow-y-auto py-1">
             {usable.length === 0 ? (
               <p className="px-4 py-6 text-center text-xs text-slate-500">
-                {loading ? "Loading…" : "Nothing found."}
+                {loading ? "Lädt…" : "Nichts gefunden."}
               </p>
             ) : (
               usable.map((item) => {
@@ -222,8 +236,7 @@ function SinglePicker({
               })
             )}
           </div>
-        </div>
-      )}
+      </PopoverLayer>
     </div>
   );
 }
@@ -268,7 +281,6 @@ function MultiPicker({
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const box = useRef<HTMLDivElement>(null);
-  useOutsideClose(box, () => setOpen(false));
 
   useEffect(() => {
     if (!guildId) return;
@@ -343,21 +355,25 @@ function MultiPicker({
         <ChevronDown className="h-4 w-4 text-slate-500 ml-auto shrink-0" />
       </div>
 
-      {open && (
-        <div className="absolute z-50 mt-2 w-full rounded-xl border border-slate-800 bg-[#0d1b31] shadow-2xl overflow-hidden">
+      <PopoverLayer
+        anchor={box}
+        open={open}
+        onClose={() => setOpen(false)}
+        className="rounded-xl border border-slate-800 bg-[#0d1b31] shadow-2xl"
+      >
           {items.length > 8 && (
-            <div className="relative border-b border-slate-800">
+            <div className="relative border-b border-slate-800 shrink-0">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500" />
               <input
                 autoFocus
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search…"
+                placeholder="Suchen…"
                 className="w-full bg-transparent pl-9 pr-3 py-2.5 text-sm text-white placeholder:text-slate-500 focus:outline-none"
               />
             </div>
           )}
-          <div className="max-h-64 overflow-y-auto py-1">
+          <div className="flex-1 min-h-0 overflow-y-auto py-1">
             {usable.length === 0 ? (
               <p className="px-4 py-6 text-center text-xs text-slate-500">
                 {loading
@@ -394,8 +410,7 @@ function MultiPicker({
               })
             )}
           </div>
-        </div>
-      )}
+      </PopoverLayer>
     </div>
   );
 }

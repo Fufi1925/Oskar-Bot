@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Loader2, Search, X } from "lucide-react";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { PopoverLayer } from "@/components/ui/popover-layer";
 
 interface Member {
   id: string;
@@ -39,18 +40,10 @@ export function UserPicker({
   const [selected, setSelected] = useState<Member | null>(null);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const boxRef = useRef<HTMLDivElement>(null);
-
-  // Close when clicking outside.
-  useEffect(() => {
-    const onClick = (event: MouseEvent) => {
-      if (boxRef.current && !boxRef.current.contains(event.target as Node)) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", onClick);
-    return () => document.removeEventListener("mousedown", onClick);
-  }, []);
+  // Das Eingabefeld ist der Anker: die Trefferliste haengt per Portal
+  // an `document.body` und richtet sich daran aus. Klick daneben und
+  // Escape erledigt `PopoverLayer` mit.
+  const fieldRef = useRef<HTMLDivElement>(null);
 
   // Clear the chip when the value is reset from outside.
   useEffect(() => {
@@ -88,7 +81,7 @@ export function UserPicker({
   };
 
   return (
-    <div className="space-y-2" ref={boxRef}>
+    <div className="space-y-2">
       <span className="text-xs font-black uppercase tracking-widest text-slate-500">{label}</span>
 
       {selected ? (
@@ -104,7 +97,7 @@ export function UserPicker({
           </button>
         </div>
       ) : (
-        <div className="relative">
+        <div className="relative" ref={fieldRef}>
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
           <input
             value={query}
@@ -122,15 +115,21 @@ export function UserPicker({
             className="w-full bg-white/[0.03] border border-white/5 rounded-2xl pl-11 pr-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
           />
 
-          {open && guildId && (
-            <div className="absolute z-30 mt-2 w-full max-h-72 overflow-y-auto bg-[#0b1f3a] border border-white/10 rounded-2xl shadow-2xl shadow-black/50">
+          <PopoverLayer
+            anchor={fieldRef}
+            open={open && !!guildId}
+            onClose={() => setOpen(false)}
+            maxHeight={288}
+            className="bg-[#0b1f3a] border border-white/10 rounded-2xl shadow-2xl shadow-black/50"
+          >
+            <div className="flex-1 min-h-0 overflow-y-auto">
               {loading ? (
                 <div className="flex items-center justify-center py-6">
                   <Loader2 className="h-5 w-5 text-primary animate-spin opacity-50" />
                 </div>
               ) : results.length === 0 ? (
                 <p className="text-xs text-slate-500 py-6 text-center">
-                  {query ? "No members found." : "Start typing to search."}
+                  {query ? "Keine Mitglieder gefunden." : "Tippen, um zu suchen."}
                 </p>
               ) : (
                 results.map((member) => (
@@ -163,7 +162,7 @@ export function UserPicker({
                 ))
               )}
             </div>
-          )}
+          </PopoverLayer>
         </div>
       )}
     </div>

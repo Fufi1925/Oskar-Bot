@@ -19,6 +19,7 @@
 import * as React from "react"
 import { ChevronDown, Check } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { PopoverLayer } from "@/components/ui/popover-layer"
 
 // Context for sub-components
 const SelectContext = React.createContext<{
@@ -26,6 +27,10 @@ const SelectContext = React.createContext<{
   onValueChange: (value: string) => void
   isOpen: boolean
   setIsOpen: (open: boolean) => void
+  // Der Kasten, an dem die Liste klebt. Sie haengt per Portal an
+  // `document.body` und hat draussen keinen Vorfahren mehr, an dem
+  // sie sich ausrichten koennte -- also muss sie ihn kennen.
+  anchor: React.RefObject<HTMLDivElement | null>
 } | null>(null)
 
 export interface SelectOption {
@@ -48,16 +53,6 @@ const Select = ({ children, value, onValueChange, options, placeholder, classNam
   const [isOpen, setIsOpen] = React.useState(false)
   const containerRef = React.useRef<HTMLDivElement>(null)
 
-  React.useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setIsOpen(false)
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside)
-    return () => document.removeEventListener("mousedown", handleClickOutside)
-  }, [])
-
   // If options are provided, use the legacy rendering
   if (options) {
     const selectedOption = options.find((opt) => opt.value === value)
@@ -78,9 +73,14 @@ const Select = ({ children, value, onValueChange, options, placeholder, classNam
           <ChevronDown className={cn("h-4 w-4 text-slate-500 transition-transform duration-200", isOpen && "rotate-180")} />
         </button>
 
-        {isOpen && (
-          <div className="absolute top-full z-50 mt-2 w-full overflow-hidden rounded-xl border border-slate-800 bg-[#10233f] p-1 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
-            <div className="max-h-60 overflow-y-auto overflow-x-hidden no-scrollbar">
+        <PopoverLayer
+          anchor={containerRef}
+          open={isOpen}
+          onClose={() => setIsOpen(false)}
+          maxHeight={260}
+          className="rounded-xl border border-slate-800 bg-[#10233f] p-1 shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+        >
+            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden no-scrollbar">
               {options.map((option) => (
                 <button
                   key={option.value}
@@ -99,15 +99,14 @@ const Select = ({ children, value, onValueChange, options, placeholder, classNam
                 </button>
               ))}
             </div>
-          </div>
-        )}
+        </PopoverLayer>
       </div>
     )
   }
 
   // Otherwise, use the sub-component pattern
   return (
-    <SelectContext.Provider value={{ value, onValueChange, isOpen, setIsOpen }}>
+    <SelectContext.Provider value={{ value, onValueChange, isOpen, setIsOpen, anchor: containerRef }}>
       <div className={cn("relative w-full", className)} ref={containerRef}>
         {children}
       </div>
@@ -149,14 +148,20 @@ const SelectValue = ({ placeholder, className }: { placeholder?: string, classNa
 
 const SelectContent = ({ children, className }: { children: React.ReactNode, className?: string }) => {
   const context = React.useContext(SelectContext)
-  if (!context || !context.isOpen) return null
+  if (!context) return null
 
   return (
-    <div className={cn("absolute top-full z-50 mt-2 w-full overflow-hidden rounded-xl border border-slate-800 bg-[#10233f] p-1 shadow-2xl animate-in fade-in zoom-in-95 duration-200", className)}>
-      <div className="max-h-60 overflow-y-auto overflow-x-hidden no-scrollbar">
+    <PopoverLayer
+      anchor={context.anchor}
+      open={context.isOpen}
+      onClose={() => context.setIsOpen(false)}
+      maxHeight={260}
+      className={cn("rounded-xl border border-slate-800 bg-[#10233f] p-1 shadow-2xl animate-in fade-in zoom-in-95 duration-200", className)}
+    >
+      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden no-scrollbar">
         {children}
       </div>
-    </div>
+    </PopoverLayer>
   )
 }
 

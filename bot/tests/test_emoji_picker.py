@@ -413,26 +413,25 @@ def _strip_comments(src: str) -> str:
     return re.sub(r"/\*.*?\*/", "", src, flags=re.S)
 
 
-def _popup_block() -> str:
-    """Der Quelltext des aufklappenden Felds.
+def _layer_source() -> str:
+    """Der gemeinsame Baustein, an den die Auswahl inzwischen abgibt.
 
-    Die Klassen stehen in einem ``cn(...)``-Aufruf ueber mehrere
-    Zeilen. Nur den ersten String zu lesen waere zu wenig -- daran ist
-    die erste Fassung dieser Pruefung gescheitert: sie meldete
-    ``z-0``, weil sie einen Bruchteil gemessen hat.
+    Die Portal-Logik stand frueher als eigene Kopie in
+    ``emoji-picker.tsx``. Sie liegt jetzt in ``ui/popover-layer.tsx``
+    und wird von allen Menues der Seite benutzt -- Rollen- und
+    Kanalauswahl, Mitgliedersuche, Auswahlfelder, Sprachumschalter,
+    Suche, Glocke und Profilmenue.
 
-    Wird der Anker nicht gefunden, kommt ein leerer String zurueck
-    statt einer Ausnahme. Ein Test, der mit einem Traceback abbricht,
-    laesst alle folgenden Pruefungen ungelaufen -- genau das ist beim
-    Umbau passiert.
+    Der Umzug hat einen Fehler mitbehoben, den nur die Kopie hatte:
+    sie waehlte die Breite fest (320 unterhalb von 640px) ohne Deckel
+    gegen die Fensterbreite. Auf einem 320 breiten Geraet stand das
+    Feld damit 24 Pixel ueber dem rechten Rand.
     """
 
-    src = _picker_source()
-    try:
-        start = src.index("{open &&")
-        return src[start : src.index("\n        >", start)]
-    except ValueError:
-        return ""
+    return open(
+        os.path.join(DASH, "components", "ui", "popover-layer.tsx"),
+        encoding="utf-8",
+    ).read()
 
 
 def test_the_popup_escapes_the_card():
@@ -458,26 +457,36 @@ def test_the_popup_escapes_the_card():
     # "document.body" und "Stapelkontext" stehen mehrfach in den
     # Kommentaren. Zwei Mutationen sind genau daran vorbeigekommen.
     src = _strip_comments(_picker_source())
+    layer = _strip_comments(_layer_source())
+
+    # Die Auswahl gibt an den gemeinsamen Baustein ab. Der blosse
+    # Import zaehlt nicht -- das Element muss im Baum stehen.
+    check("sie benutzt die oberste Ebene",
+          "<PopoverLayer" in src,
+          "ohne sie bleibt die Auswahl im Stapelkontext der Karte")
+    check("und uebergibt ihren Knopf als Anker",
+          "anchor={boxRef}" in src,
+          "ohne Anker weiss das Feld nicht, wo es sitzen soll")
 
     # Den AUFRUF pruefen, nicht den Import: `createPortal` bleibt
     # oben stehen, auch wenn niemand es mehr benutzt. Genau das
     # entwischte beim Mutationstest.
-    check("sie wird per Portal gerendert",
-          "createPortal(" in src and "&& createPortal(" in src,
+    check("die Ebene rendert per Portal",
+          re.search(r"createPortal\s*\(", layer) is not None,
           "weder z-index noch `fixed` holen ein Kind aus einem "
           "Stapelkontext heraus")
-    # Und das Ziel muss ausserhalb liegen. Ein Portal in den eigenen
-    # Knopf hinein waere derselbe Kontext -- also wirkungslos.
+    # Und das Ziel muss ausserhalb liegen. Ein Portal in die Karte
+    # hinein waere derselbe Kontext -- also wirkungslos.
     check("und zwar an document.body",
-          re.search(r"createPortal\([\s\S]{0,6000}?document\.body", src)
+          re.search(r"createPortal\([\s\S]{0,6000}?document\.body", layer)
           is not None,
           "ein Portal in ein Element der Karte waere wirkungslos")
     check("das Rendern auf dem Server bricht nicht ab",
-          "&& mounted &&" in src and "setMounted(true)" in src,
+          "!mounted" in layer and "setMounted(true)" in layer,
           "`document` gibt es dort nicht -- der Riegel muss in der "
           "Bedingung stehen, nicht nur irgendwo")
-    check("gezeichnet wird erst, wenn beides steht",
-          "{open && spot && mounted &&" in src,
+    check("gezeichnet wird erst, wenn die Position steht",
+          "if (!open || !mounted || !spot) return null;" in layer,
           "sonst blitzt es kurz in der Ecke auf")
 
     # Gegenprobe: die Falle ist wirklich da. Ohne diesen Nachweis
@@ -506,18 +515,27 @@ def test_the_popup_fits_the_screen():
     print("\nDie Auswahl passt auf den Bildschirm")
 
     src = _strip_comments(_picker_source())
+    layer = _strip_comments(_layer_source())
 
     check("keine feste Hoehe mehr in der Liste",
           "max-h-[300px]" not in src,
           "auf kleinen Fenstern lief das Feld damit unten hinaus")
     check("die Hoehe wird aus dem freien Platz gerechnet",
-          "window.innerHeight" in src and "height: spot.height" in src)
+          "window.innerHeight" in layer and "height: spot.height" in layer)
     check("und nach unten begrenzt",
-          "Math.min(" in src,
+          "Math.min(" in layer,
           "sonst wird das Feld auf einem grossen Schirm unnoetig lang")
     check("mit einer Untergrenze",
-          "Math.max(160" in src,
+          "Math.max(" in layer and "opts.minHeight" in layer,
           "ein Feld mit zwei Reihen waere nicht benutzbar")
+
+    # Der Fehler, den nur die alte Kopie hatte: eine feste Breite ohne
+    # Deckel. Auf einem 320 breiten Geraet stand das Feld 24 Pixel
+    # ueber dem Rand.
+    check("die Breite wird gegen das Fenster gedeckelt",
+          "view.width - 2 * MARGIN" in layer
+          and "Math.min(wanted, room)" in layer,
+          "eine feste Breite laeuft auf einem 320px-Geraet ueber den Rand")
 
     check("die Liste fuellt den verbleibenden Raum",
           "flex-1 min-h-0" in src,
@@ -526,10 +544,13 @@ def test_the_popup_fits_the_screen():
           src.count("shrink-0") >= 2,
           "sonst wird die Suchzeile gestaucht statt der Liste")
 
+    # Auf die Wirkung pruefen, nicht auf das Wort: `const up = false`
+    # liesse alle Begriffe stehen und klappte trotzdem nie nach oben.
     check("es klappt nach oben, wenn unten kein Platz ist",
-          "const openUp = below < 260 && above > below;" in src
-          and "button.top - gap - room" in src,
-          "`const openUp = false` laesst alle Woerter stehen und "
+          "const up = below < Math.min(220, opts.maxHeight) && above > below;"
+          in layer
+          and "anchor.top - GAP - height" in layer,
+          "`const up = false` laesst alle Woerter stehen und "
           "klappt trotzdem nie nach oben")
 
 
@@ -544,17 +565,27 @@ def test_clicking_inside_does_not_close_it():
     print("\nEin Klick im Feld schliesst es nicht")
 
     src = _strip_comments(_picker_source())
+    layer = _strip_comments(_layer_source())
 
     check("es gibt einen zweiten Bezug auf das Feld",
-          "popRef" in src)
+          "popRef" in layer)
     check("und er haengt wirklich am Feld",
-          "ref={popRef}" in src,
+          "ref={popRef}" in layer,
           "die Deklaration allein bleibt null -- contains() trifft dann nie")
     check("und er wird beim Klick geprueft",
-          "inPopup" in src,
+          "inPopup" in layer,
           "sonst schliesst jeder Klick auf ein Emoji die Auswahl")
     check("geschlossen wird nur ausserhalb von beidem",
-          "if (!inButton && !inPopup) setOpen(false);" in src)
+          "if (!inAnchor && !inPopup) onClose();" in layer)
+    check("Escape schliesst ebenfalls",
+          'event.key === "Escape"' in layer)
+
+    # Der alte Haken in der Auswahl selbst muss weg sein. Bliebe er
+    # stehen, schloesse er das Feld, bevor der Klick ankommt -- und
+    # der neue Haken im Baustein koennte daran nichts aendern.
+    check("die Auswahl hat keinen eigenen Aussenklick-Haken mehr",
+          not re.search(r'addEventListener\(\s*["\']mousedown["\']', src),
+          "zwei Haken schliessen sich gegenseitig aus")
 
 
 def test_the_popup_position_is_computed():
@@ -562,31 +593,29 @@ def test_the_popup_position_is_computed():
 
     print("\nDie Position wird gerechnet")
 
-    src = _strip_comments(_picker_source())
+    layer = _strip_comments(_layer_source())
 
-    check("es gibt eine Platzierung", "const place" in src)
+    check("es gibt eine Platzierung", "const place" in layer)
     check("sie laeuft beim Oeffnen",
-          "if (next) place();" in src,
+          "if (open) place();" in layer,
           "ohne Aufruf bleibt `spot` null und nichts wird gezeichnet")
-    check("sie misst den Knopf", "getBoundingClientRect" in src)
+    check("sie misst den Anker", "getBoundingClientRect" in layer)
     check("und setzt echte Koordinaten",
-          "top: spot.top" in src and "left: spot.left" in src,
+          "top: spot.top" in layer and "left: spot.left" in layer,
           "ohne top/left klebt ein fixed Element in der Ecke")
 
     check("es weicht nach links aus, wenn rechts kein Platz ist",
-          "button.right - width" in src)
+          "left = view.width - width - MARGIN;" in layer)
     check("es rutscht nicht links hinaus",
-          "if (left < margin) left = margin;" in src)
+          "if (left < MARGIN) left = MARGIN;" in layer)
 
-    classes = " ".join(re.findall(r'"([^"]*)"', _popup_block()))
-    shown = re.findall(r"w-\[(\d+)px\]", classes)
-    measured = re.findall(
-        r"const width = window\.innerWidth >= 640 \? (\d+) : (\d+)", src
-    )
-    check("die Anzeige nennt zwei Breiten", len(shown) == 2, str(shown))
-    check("und die Rechnung benutzt genau dieselben",
-          bool(measured) and set(measured[0]) == set(shown),
-          f"gezeigt {shown}, gerechnet {measured[0] if measured else '(keine)'}")
+    # Die Reihenfolge ist entscheidend: bei einem Fenster, das
+    # schmaler ist als das Menue, muessen beide Regeln greifen und die
+    # linke gewinnen. Stuende sie zuerst, ragte das Menue rechts raus.
+    check("und zwar in dieser Reihenfolge",
+          layer.index("left = view.width - width - MARGIN;")
+          < layer.index("if (left < MARGIN) left = MARGIN;"),
+          "sonst gewinnt die rechte Regel und das Menue ragt links raus")
 
 
 def test_the_popup_follows_the_page():
@@ -594,19 +623,19 @@ def test_the_popup_follows_the_page():
 
     print("\nDie Auswahl wandert mit")
 
-    src = _picker_source()
+    layer = _layer_source()
 
     check("auf Scrollen wird gehoert",
-          'addEventListener("scroll"' in src,
+          'addEventListener("scroll"' in layer,
           "sonst haengt das Feld im Nichts, sobald man scrollt")
     check("auf Groessenaenderung auch",
-          'addEventListener("resize"' in src)
+          'addEventListener("resize"' in layer)
     check("auch bei Bildlauf in einem inneren Bereich",
-          'addEventListener("scroll", update, true)' in src,
+          'addEventListener("scroll", update, true)' in layer,
           "ohne capture verpasst man das Scrollen innerhalb eines Panels")
     check("und beides wird wieder abgemeldet",
-          'removeEventListener("scroll"' in src
-          and 'removeEventListener("resize"' in src,
+          'removeEventListener("scroll"' in layer
+          and 'removeEventListener("resize"' in layer,
           "sonst sammeln sich Zuhoerer bei jedem Oeffnen an")
 
 
@@ -615,24 +644,24 @@ def test_the_popup_is_on_top():
 
     print("\nDie Auswahl liegt obenauf")
 
-    classes = " ".join(re.findall(r'"([^"]*)"', _popup_block()))
+    layer = _strip_comments(_layer_source())
 
-    match = re.search(r"z-\[?(\d+)\]?", classes)
+    match = re.search(r"z-\[?(\d+)\]?", layer)
     level = int(match.group(1)) if match else 0
-    check("sie hat eine Ebene", level > 0, classes)
+    check("sie hat eine Ebene", level > 0, str(level))
 
     rivals: list[tuple[str, int]] = []
     for folder, _dirs, files in os.walk(DASH):
         if "node_modules" in folder or ".next" in folder:
             continue
         for name in files:
-            if not name.endswith((".tsx", ".ts")) or name == "emoji-picker.tsx":
+            if not name.endswith((".tsx", ".ts")) or name == "popover-layer.tsx":
                 continue
             try:
                 text = open(os.path.join(folder, name), encoding="utf-8").read()
             except OSError:
                 continue
-            for found in re.findall(r"z-\[?(\d+)\]?", text):
+            for found in re.findall(r"z-\[?(\d+)\]?", _strip_comments(text)):
                 rivals.append((name, int(found)))
 
     highest = max((value for _n, value in rivals), default=0)
@@ -654,7 +683,7 @@ def test_the_trap_is_documented():
     gibt.
 
     Geprueft wird deshalb das Gegenteil: dass die Falle *vorhanden*
-    und im Code erklaert ist. Wer den `fixed`-Umbau spaeter
+    und im Code erklaert ist. Wer den Portal-Umbau spaeter
     zurueckdreht, soll im Kommentar lesen koennen, warum er da war.
     """
 
@@ -662,31 +691,33 @@ def test_the_trap_is_documented():
 
     # Hier ausdruecklich der rohe Quelltext: geprueft wird ja gerade,
     # dass die Erklaerung in den Kommentaren steht.
-    src = _picker_source()
+    layer = _layer_source()
 
     # Nicht zaehlen, sondern die Kernaussage suchen.
     #
     # Eine Zahl ist der falsche Massstab: bei fuenf Erwaehnungen
     # bleiben nach dem Loeschen von zweien immer noch drei stehen, und
     # der Test war gruen, obwohl die eigentliche Erklaerung weg war.
-    # Gesucht wird deshalb der Satz, auf den es ankommt.
     check("der Kommentar erklaert, dass man den Kontext nicht verlassen kann",
-          "nicht verlassen" in src,
+          "nicht verlassen" in layer,
           "ohne diesen Satz probiert der naechste wieder einen "
           "hoeheren z-index -- so sind hier zwei Anlaeufe gescheitert")
     check("und nennt ihn beim Namen",
-          "Stapelkontext" in src)
+          "Stapelkontext" in layer)
     check("und die Klasse, die ihn eroeffnet",
-          "border-glow-card" in src)
+          "border-glow-card" in layer)
     check("und dass z-index darin nicht hilft",
-          "wirkungslos" in src or "gilt nur" in src)
+          "hilft" in layer or "zaehlt nur" in layer)
     # Die Eigenschaft beim Namen nennen, nicht nur umschreiben: wer
     # den Umbau spaeter prueft, sucht nach `isolation: isolate` in
     # globals.css und muss die Verbindung herstellen koennen.
     check("die Eigenschaft steht ausgeschrieben da",
-          src.count("isolation: isolate") >= 2,
-          "einmal in der Funktionsbeschreibung, einmal an der Stelle "
-          "selbst -- sonst fehlt der Bezug an einer der beiden")
+          layer.count("isolation: isolate") >= 2,
+          "einmal in der Beschreibung, einmal an der Stelle selbst")
+    # Die anderen Faellen ebenfalls -- es ist nicht nur `isolation`.
+    check("die weiteren Stapelkontexte sind genannt",
+          "backdrop-filter" in layer and "transform" in layer,
+          "sonst sucht der naechste nur nach isolate und wundert sich")
 
 
 def main():

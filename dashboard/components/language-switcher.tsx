@@ -1,23 +1,19 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef } from "react";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 import { Globe } from "lucide-react";
+import { PopoverLayer } from "@/components/ui/popover-layer";
 
 export function LanguageSwitcher() {
   const { language, setLanguage, t } = useLanguage();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (ref.current && !ref.current.contains(event.target as Node)) {
-        setOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  // Klick daneben und Escape uebernimmt `PopoverLayer`. Ein eigener
+  // Haken waere hier sogar falsch: die Liste haengt per Portal an
+  // `document.body` und liegt nicht mehr in `ref`, ein Klick auf eine
+  // Sprache haette also als "daneben" gezaehlt.
 
   return (
     <div className="relative" ref={ref}>
@@ -32,8 +28,16 @@ export function LanguageSwitcher() {
         </span>
       </button>
 
-      {open && (
-        <div className="absolute right-0 top-full mt-2 w-40 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl overflow-hidden z-50">
+      <PopoverLayer
+        anchor={ref}
+        open={open}
+        onClose={() => setOpen(false)}
+        align="end"
+        width={160}
+        minHeight={0}
+        maxHeight={200}
+        className="bg-slate-900 border border-slate-700 rounded-xl shadow-2xl"
+      >
           <button
             onClick={() => { setLanguage("de"); setOpen(false); }}
             className={`w-full flex items-center gap-3 px-4 py-3 text-sm transition-colors ${
@@ -56,8 +60,7 @@ export function LanguageSwitcher() {
             <span className="text-lg">🇬🇧</span>
             <span className="font-medium">{t("english")}</span>
           </button>
-        </div>
-      )}
+      </PopoverLayer>
     </div>
   );
 }

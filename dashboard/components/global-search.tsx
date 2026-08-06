@@ -10,6 +10,7 @@ import {
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
 import { useProximity } from "@/components/ui/proximity";
+import { PopoverLayer } from "@/components/ui/popover-layer";
 
 interface SearchTarget {
   label: string;
@@ -107,13 +108,11 @@ export function GlobalSearch() {
     return () => document.removeEventListener("keydown", onKey);
   }, []);
 
-  useEffect(() => {
-    const onClick = (event: MouseEvent) => {
-      if (boxRef.current && !boxRef.current.contains(event.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", onClick);
-    return () => document.removeEventListener("mousedown", onClick);
-  }, []);
+  // Klick daneben und Escape macht `PopoverLayer`. Ein eigener Haken
+  // auf `boxRef` waere hier falsch: die Trefferliste haengt per Portal
+  // an `document.body`, liegt also nicht mehr in `boxRef` -- jeder
+  // Klick auf einen Treffer haette als "daneben" gezaehlt und das
+  // Menue geschlossen, bevor die Navigation ausgeloest wird.
 
   // The servers the bot is in, so they can be found by name instead of
   // having to know their id. Loaded once, lazily.
@@ -223,15 +222,23 @@ export function GlobalSearch() {
         className="w-full bg-white/[0.03] border border-white/5 rounded-2xl py-2.5 pl-12 pr-4 text-xs font-bold text-slate-300 focus:outline-none focus:ring-1 focus:ring-blue-500/30 focus:bg-white/[0.05] transition-all placeholder:text-slate-600"
       />
 
-      {open && results.length > 0 && (
+      <PopoverLayer
+        anchor={boxRef}
+        open={open && results.length > 0}
+        onClose={() => setOpen(false)}
+        maxHeight={384}
+        className="bg-[#071a33]/95 backdrop-blur-3xl border border-white/10 rounded-2xl shadow-2xl shadow-black/50"
+      >
+        {/* Der Naeherungseffekt misst die Zeilen mit `offsetTop` gegen
+            ihren offsetParent. Der muss also dieser Kasten sein --
+            deshalb `relative`. Frueher stand hier bewusst KEIN
+            `relative`, weil `absolute` diese Rolle schon uebernahm;
+            seit das Menue per Portal haengt und die Position von aussen
+            gesetzt wird, ist `relative` genau richtig. Ohne das messen
+            die Zeilen gegen `document.body` und der Effekt leuchtet
+            an der falschen Stelle. */}
         <div
-          // No `relative` added here on purpose. useProximity needs the
-          // container to be the rows' offsetParent, and `absolute`
-          // already positions this box, so it is. Adding `relative`
-          // would not just be redundant -- Tailwind emits it after
-          // `absolute`, so it would win and drop the dropdown back into
-          // the flow.
-          className="absolute top-full left-0 right-0 mt-2 max-h-96 overflow-y-auto bg-[#071a33]/95 backdrop-blur-3xl border border-white/10 rounded-2xl shadow-2xl shadow-black/50 z-50 py-2"
+          className="relative flex-1 min-h-0 overflow-y-auto py-2"
           {...proximity.containerProps}
         >
           {results.map((target, index) => (
@@ -265,17 +272,24 @@ export function GlobalSearch() {
 
           {!guildId && (
             <p className="px-4 pt-2 pb-1 text-[10px] text-slate-600 border-t border-white/5 mt-2">
-              Open a server to search its settings pages too.
+              Öffne einen Server, um auch dessen Seiten zu finden.
             </p>
           )}
         </div>
-      )}
+      </PopoverLayer>
 
-      {open && results.length === 0 && (
-        <div className="absolute top-full left-0 right-0 mt-2 bg-[#071a33]/95 backdrop-blur-3xl border border-white/10 rounded-2xl shadow-2xl z-50 p-6">
-          <p className="text-xs text-slate-500 text-center">Nothing found for “{query}”.</p>
-        </div>
-      )}
+      <PopoverLayer
+        anchor={boxRef}
+        open={open && results.length === 0}
+        onClose={() => setOpen(false)}
+        maxHeight={120}
+        minHeight={0}
+        className="bg-[#071a33]/95 backdrop-blur-3xl border border-white/10 rounded-2xl shadow-2xl"
+      >
+        <p className="text-xs text-slate-500 text-center p-6">
+          Nichts gefunden für „{query}“.
+        </p>
+      </PopoverLayer>
     </div>
   );
 }

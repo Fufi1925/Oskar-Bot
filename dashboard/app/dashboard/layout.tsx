@@ -22,6 +22,7 @@ import { usePathname } from "next/navigation";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { GlobalSearch } from "@/components/global-search";
 import { useProximity } from "@/components/ui/proximity";
+import { PopoverLayer } from "@/components/ui/popover-layer";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 import {
   LayoutDashboard, Server, ShieldCheck, Ticket, BarChart4, FileText, Settings,
@@ -63,21 +64,13 @@ export default function DashboardLayout({
   const bellRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
 
-  // Close dropdowns on click outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as Node;
-      if (bellRef.current && !bellRef.current.contains(target)) {
-        setIsNotificationsOpen(false);
-      }
-      if (profileRef.current && !profileRef.current.contains(target)) {
-        setIsProfilOpen(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  // Klick daneben macht `PopoverLayer` fuer beide Menues selbst.
+  //
+  // Der alte Haken hier waere jetzt sogar schaedlich: die Menues
+  // haengen per Portal an `document.body` und liegen nicht mehr in
+  // `bellRef`/`profileRef`. Jeder Klick hinein -- etwa auf
+  // "Abmelden" -- haette als "daneben" gezaehlt und das Menue
+  // geschlossen, bevor der Knopf reagiert.
 
   // Auto-close sidebar on mobile when navigating
   React.useEffect(() => {
@@ -628,8 +621,17 @@ export default function DashboardLayout({
                 )}
               </button>
 
-              {isNotificationsOpen && (
-                <div className="absolute right-0 mt-3 w-80 bg-[#071a33]/90 backdrop-blur-3xl border border-white/5 rounded-[24px] shadow-[0_20px_50px_rgba(0,0,0,0.5)] p-4 z-20 animate-in fade-in zoom-in-95 duration-300 origin-top-right">
+              <PopoverLayer
+                anchor={bellRef}
+                open={isNotificationsOpen}
+                onClose={() => setIsNotificationsOpen(false)}
+                align="end"
+                width={320}
+                minHeight={0}
+                maxHeight={420}
+                className="bg-[#071a33]/90 backdrop-blur-3xl border border-white/5 rounded-[24px] shadow-[0_20px_50px_rgba(0,0,0,0.5)] animate-in fade-in zoom-in-95 duration-300 origin-top-right"
+              >
+                <div className="overflow-y-auto p-4">
                     <div className="flex items-center justify-between mb-4 border-b border-white/5 pb-2">
                       <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Broadcast Metrics</p>
                       <button 
@@ -659,8 +661,8 @@ export default function DashboardLayout({
                         <p className="text-[10px] font-medium text-slate-600 mt-1 uppercase tracking-widest">Everything is operating normally</p>
                       </div>
                     )}
-                  </div>
-              )}
+                </div>
+              </PopoverLayer>
             </div>
             <div className="h-8 w-[1px] bg-white/5 hidden sm:block"></div>
 
@@ -699,8 +701,17 @@ export default function DashboardLayout({
                 />
               </button>
 
-              {isProfilOpen && (
-                <div className="absolute right-0 mt-3 w-56 bg-[#071a33]/90 backdrop-blur-3xl border border-white/5 rounded-[24px] shadow-[0_20px_50px_rgba(0,0,0,0.5)] p-2 z-20 animate-in fade-in zoom-in-95 duration-300 origin-top-right">
+              <PopoverLayer
+                anchor={profileRef}
+                open={isProfilOpen}
+                onClose={() => setIsProfilOpen(false)}
+                align="end"
+                width={224}
+                minHeight={0}
+                maxHeight={420}
+                className="bg-[#071a33]/90 backdrop-blur-3xl border border-white/5 rounded-[24px] shadow-[0_20px_50px_rgba(0,0,0,0.5)] animate-in fade-in zoom-in-95 duration-300 origin-top-right"
+              >
+                <div className="overflow-y-auto p-2">
                     <div className="px-4 py-3 border-b border-white/5 mb-2">
                       <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] mb-1">Authenticated As</p>
                       <p className="text-sm font-bold text-white truncate">{session?.user?.name || "Administrator"}</p>
@@ -746,8 +757,8 @@ export default function DashboardLayout({
                       <LogOut className="h-4 w-4" />
                       Deauthorize
                     </button>
-                  </div>
-              )}
+                </div>
+              </PopoverLayer>
             </div>
           </div>
         </header>
