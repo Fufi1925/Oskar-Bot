@@ -111,12 +111,35 @@ class HelpCommand(commands.HelpCommand):
     prefix = data["prefix"]
     filtered = await self.filter_commands(self.context.bot.walk_commands(), sort=True)
 
+    # Beide Zahlen getrennt nennen.
+    #
+    # Hier stand nur `walk_commands()`, und das sind ausschliesslich
+    # Prefix-Befehle -- die Slash-Befehle fehlten in der Zaehlung
+    # vollstaendig. Seit dem Aufraeumen ist der Unterschied gross
+    # genug, dass eine einzelne Zahl in die Irre fuehrt: 539 Befehle
+    # per Prefix, aber nur 73 im /-Menue.
+    prefix_total = len(set(self.context.bot.walk_commands()))
+    try:
+        slash_total = len(self.context.bot.tree.get_commands())
+    except Exception:
+        slash_total = 0
+
+    dash = ""
+    try:
+        from utils.links import guild_dashboard_url
+
+        dash = guild_dashboard_url(self.context.guild.id)
+    except Exception:
+        dash = ""
+
     embed = CV2Embed(
         description=(
-         f"**{ARROWRED} __Start {BotName} Today__**\n"        
+         f"**{ARROWRED} __Start {BotName} Today__**\n"
          f"**{ZARROW} Type {prefix}antinuke enable**\n"
          f"**{ZARROW} Server Prefix:** `{prefix}`\n"
-         f"**{ZARROW} Total Commands:** `{len(set(self.context.bot.walk_commands()))}`\n"),         
+         f"**{ZARROW} Commands:** `{prefix_total}` mit Prefix · "
+         f"`{slash_total}` im `/`-Menü\n"
+         + (f"**{ZARROW} Einrichten:** [Dashboard]({dash})\n" if dash else "")),
         color=0xFF0000)
     
     embed.add_field(
@@ -175,9 +198,31 @@ class HelpCommand(commands.HelpCommand):
       await self.send_ignore_message(ctx, "command")
       return
 
+    from utils import command_surface as surface
+
     universitybot = f">>> {command.help}" if command.help else '>>> No Help Provided...'
+
+    # Wo laesst sich der Befehl aufrufen?
+    #
+    # Seit dem Aufraeumen des /-Menues ist das nicht mehr bei jedem
+    # Befehl gleich: die Einrichtung laeuft nur noch per Prefix. Ohne
+    # diesen Hinweis sucht man den Befehl im /-Menue und findet ihn
+    # nicht -- und haelt ihn fuer geloescht, obwohl er funktioniert.
+    slash = surface.has_slash(command)
+    where = (
+        f"`/{command.qualified_name}` oder `{self.context.prefix}{command.qualified_name}`"
+        if slash
+        else f"`{self.context.prefix}{command.qualified_name}` — nicht im `/`-Menü"
+    )
+
+    hint = surface.dashboard_hint(command, self.context.guild.id)
+
     embed = CV2Embed(
-        description=f"""{universitybot}""",
+        description=(
+            f"""{universitybot}\n\n"""
+            f"{ZARROW} {where}"
+            + (f"\n{ZARROW} {hint}" if hint else "")
+        ),
         color=color)
     alias = ' & '.join(command.aliases)
 
@@ -221,6 +266,8 @@ class HelpCommand(commands.HelpCommand):
       await self.send_ignore_message(ctx, "command")
       return
 
+    from utils import command_surface as surface
+
     entries = [
         (
             f"`{self.context.prefix}{cmd.qualified_name}`\n",
@@ -231,10 +278,24 @@ class HelpCommand(commands.HelpCommand):
 
     count = len(group.commands)
 
+    # Der Kopf der Gruppe sagt, wo sie lebt.
+    #
+    # Gerade bei `automod` mit dreizehn Unterbefehlen ist das die
+    # Stelle, an der jemand nachschaut, warum im /-Menue nichts
+    # auftaucht.
+    lines = ["< > Duty | [ ] Optional"]
+    if not surface.has_slash(group):
+        lines.append(
+            f"Nur mit Prefix: `{self.context.prefix}{group.qualified_name} …`"
+        )
+        hint = surface.dashboard_hint(group, self.context.guild.id)
+        if hint:
+            lines.append(hint)
+
     embeds = FieldPagePaginator(
       entries=entries,
       title=f"{group.qualified_name.title()} [{count}]",
-      description="< > Duty | [ ] Optional\n",
+      description="\n".join(lines) + "\n",
       per_page=4
     ).get_pages()   
     

@@ -68,7 +68,7 @@ class ReactionRoles(commands.Cog):
         with sqlite3.connect(self.db) as conn:
             conn.execute("REPLACE INTO rr_settings (guild_id, dm_enabled) VALUES (?, ?)", (guild_id, value))
 
-    @commands.hybrid_command(name="createrr", help="Create a reaction role.", usage="createrr <channel> <message_id> <emoji> <role>")
+    @commands.hybrid_command(name="createrr", help="Create a reaction role.", usage="createrr <channel> <message_id> <emoji> <role>", with_app_command=False)
     @commands.has_permissions(manage_roles=True)
     async def createrr(self, ctx: Context, channel: discord.TextChannel, message_id: int, emoji: str, role: discord.Role):
         try:
@@ -81,7 +81,7 @@ class ReactionRoles(commands.Cog):
         except discord.HTTPException as e:
             await ctx.send(f"{CROSS}  Error: {str(e)}", ephemeral=True if ctx.interaction else False)
 
-    @commands.hybrid_command(name="dmrr", help="Enable or disable DM messages for reaction roles.", usage="dmrr <enable|disable>")
+    @commands.hybrid_command(name="dmrr", help="Enable or disable DM messages for reaction roles.", usage="dmrr <enable|disable>", with_app_command=False)
     @commands.has_permissions(manage_guild=True)
     async def dmrr(self, ctx: Context, mode: str):
         if mode.lower() not in ["enable", "disable"]:

@@ -96,7 +96,7 @@ class Extraowner(commands.Cog):
         ''')
         await self.db.commit()
 
-    @commands.hybrid_command(name='extraowner', aliases=["owner"], help="Adds Extraowner to the server")
+    @commands.hybrid_command(name='extraowner', aliases=["owner"], help="Adds Extraowner to the server", with_app_command=False)
     @blacklist_check()
     @ignore_check()
     @commands.cooldown(1, 10, commands.BucketType.user)

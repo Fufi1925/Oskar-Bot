@@ -34,7 +34,7 @@ class Unwhitelist(commands.Cog):
     async def initialize_db(self):
         self.db = await aiosqlite.connect('db/anti.db')
 
-    @commands.hybrid_command(name='unwhitelist', aliases=['unwl'], help="Unwhitelist a user from antinuke")
+    @commands.hybrid_command(name='unwhitelist', aliases=['unwl'], help="Unwhitelist a user from antinuke", with_app_command=False)
     @commands.has_permissions(administrator=True)
     @blacklist_check()
     @ignore_check()

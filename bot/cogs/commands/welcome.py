@@ -80,7 +80,7 @@ class Welcomer(commands.Cog):
             """)
             await db.commit()
 
-    @commands.hybrid_group(invoke_without_command=True, name="greet", help="Shows all the greet commands.")
+    @commands.hybrid_group(invoke_without_command=True, name="greet", help="Shows all the greet commands.", with_app_command=False)
     @blacklist_check()
     @ignore_check()
     async def greet(self, ctx: commands.Context):

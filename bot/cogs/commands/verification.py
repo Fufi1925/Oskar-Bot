@@ -1476,7 +1476,7 @@ class Verification (commands .Cog ):
         except Exception as e :
             logger .error (f"Error in verification message handler: {e}")
 
-    @commands .hybrid_group (name ="verification",invoke_without_command =True ,description ="Advanced verification system management.")
+    @commands .hybrid_group (name ="verification",invoke_without_command =True ,description ="Advanced verification system management.", with_app_command=False)
     @commands .has_permissions (administrator =True )
     async def verification (self ,ctx ):
         await ctx .send_help (ctx .command )

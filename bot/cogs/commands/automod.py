@@ -184,7 +184,7 @@ class Automod(commands.Cog):
             """)
             await db.commit()
 
-    @commands.hybrid_group(invoke_without_command=True)
+    @commands.hybrid_group(invoke_without_command=True, with_app_command=False)
     @blacklist_check()
     @ignore_check()
     @commands.cooldown(1, 4, commands.BucketType.user)

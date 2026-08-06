@@ -157,7 +157,7 @@ class Customrole(commands.Cog):
 
     @commands.hybrid_group(name="setup",
                            description="Set up custom role commands.",
-                           help="Set up custom role commands.")
+                           help="Set up custom role commands.", with_app_command=False)
     @blacklist_check()      # noqa: F405
     @ignore_check()         # noqa: F405
     @commands.cooldown(1, 3, commands.BucketType.user)

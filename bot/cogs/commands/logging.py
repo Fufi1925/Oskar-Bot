@@ -1600,7 +1600,7 @@ class Logging(commands.Cog):
         embeds.append(config_embed)
         return embeds
 
-    @commands.hybrid_group(invoke_without_command=True, name="log")
+    @commands.hybrid_group(invoke_without_command=True, name="log", with_app_command=False)
     async def log(self, ctx: commands.Context):
         """Main logging command group. Works with both slash (/) and prefix (!) commands."""
 

@@ -69,7 +69,7 @@ class FilterCog(commands.Cog):
         self.active_filters[ctx.guild.id] = filter_name
         await ctx.send(view=from_embed(discord.Embed(description=f"Filter set to **{filter_name}**.", color=discord.Color.green())))
 
-    @commands.hybrid_group(invoke_without_command=True)
+    @commands.hybrid_group(invoke_without_command=True, with_app_command=False)
     @blacklist_check()
     @ignore_check()
     @commands.cooldown(1, 3, commands.BucketType.user)

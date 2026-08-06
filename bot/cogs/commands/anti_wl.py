@@ -59,7 +59,7 @@ class Whitelist(commands.Cog):
         ''')
         await self.db.commit()
 
-    @commands.hybrid_command(name='whitelist', aliases=['wl'], help="Whitelists a user from antinuke for a specific action.")
+    @commands.hybrid_command(name='whitelist', aliases=['wl'], help="Whitelists a user from antinuke for a specific action.", with_app_command=False)
 
     @blacklist_check()
     @ignore_check()
@@ -254,7 +254,7 @@ class Whitelist(commands.Cog):
             await msg.edit(view=None)
 
 
-    @commands.hybrid_command(name='whitelisted', aliases=['wlist'], help="Shows the list of whitelisted users.")
+    @commands.hybrid_command(name='whitelisted', aliases=['wlist'], help="Shows the list of whitelisted users.", with_app_command=False)
     @blacklist_check()
     @ignore_check()
     @commands.cooldown(1, 5, commands.BucketType.user)
@@ -310,7 +310,7 @@ class Whitelist(commands.Cog):
         await ctx.send(view=view)
 
 
-    @commands.hybrid_command(name="whitelistreset", aliases=['wlreset'], help="Resets the whitelisted users.")
+    @commands.hybrid_command(name="whitelistreset", aliases=['wlreset'], help="Resets the whitelisted users.", with_app_command=False)
     @blacklist_check()
     @ignore_check()
     @commands.cooldown(1, 10, commands.BucketType.user)

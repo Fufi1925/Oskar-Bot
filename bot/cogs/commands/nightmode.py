@@ -61,6 +61,7 @@ class Nightmode(commands.Cog):
         aliases=[],
         help="Manages Nightmode feature",
         invoke_without_command=True,
+        with_app_command=False,
     )
     @blacklist_check()
     @ignore_check()
