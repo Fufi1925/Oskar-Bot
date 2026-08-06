@@ -400,6 +400,19 @@ def _picker_source() -> str:
     ).read()
 
 
+def _strip_comments(src: str) -> str:
+    """Kommentare raus -- sonst treffen die Suchen die eigenen Notizen.
+
+    In den Kommentaren steht woertlich, was frueher falsch war
+    (`max-h-[300px]`, `absolute`). Ohne Strippen meldet eine Suche
+    Fehler, die es im Code nicht mehr gibt -- genau das ist beim
+    Schreiben dieser Pruefungen passiert.
+    """
+
+    src = re.sub(r"^\s*//.*$", "", src, flags=re.M)
+    return re.sub(r"/\*.*?\*/", "", src, flags=re.S)
+
+
 def _popup_block() -> str:
     """Der Quelltext des aufklappenden Felds.
 
@@ -423,46 +436,56 @@ def _popup_block() -> str:
 
 
 def test_the_popup_escapes_the_card():
-    """Gemeldet: die Auswahl liegt hinter der naechsten Karte.
+    """Gemeldet: die Auswahl liegt hinter anderen Elementen.
 
-    Der erste Anlauf zog den z-index von 50 auf 100 -- wirkungslos,
-    weil der Wert nicht das Problem war.
+    Zwei Anlaeufe sind daran gescheitert, beide aus demselben Irrtum:
 
-    Die Karten tragen ``.border-glow-card``, und die setzt
-    ``isolation: isolate`` (fuer ihre eigenen ``z-index: -1``-Ebenen
-    noetig). Das eroeffnet einen **Stapelkontext**: alles darin wird
-    als eine Einheit gegen den Rest der Seite gestapelt, und ein Kind
-    kann nie ueber etwas ausserhalb steigen. ``z-[100]`` galt nur
-    *innerhalb* der Karte.
+      1. ``z-50`` -> ``z-[100]``. Der Wert war nie das Problem.
+      2. ``absolute`` -> ``fixed``. Auch falsch: ``fixed`` aendert nur
+         den Bezugsrahmen fuer die Koordinaten, nicht die Malflaeche.
+         Es eroeffnet sogar selbst einen Stapelkontext.
 
-    Der einzige Ausweg ist ``position: fixed`` -- das haengt am
-    Fenster statt am Elternteil.
+    Die Regel: **ein Element kann seinen Stapelkontext nicht
+    verlassen** -- egal welcher z-index, egal welche position. Die
+    Karten tragen ``isolation: isolate``, sind also einer.
+
+    Der einzige Ausweg ist ein Ortswechsel im DOM.
     """
 
-    print("\nDie Auswahl kommt aus der Karte heraus")
+    print("\nDie Auswahl haengt ausserhalb der Karte")
 
-    block = _popup_block()
-    check("das Aufklappfeld ist auffindbar", bool(block))
-    if not block:
-        return
+    # Gestrippt, sonst trifft jede Suche die eigenen Erklaerungen:
+    # "document.body" und "Stapelkontext" stehen mehrfach in den
+    # Kommentaren. Zwei Mutationen sind genau daran vorbeigekommen.
+    src = _strip_comments(_picker_source())
 
-    classes = " ".join(re.findall(r'"([^"]*)"', block))
-    src = _picker_source()
+    # Den AUFRUF pruefen, nicht den Import: `createPortal` bleibt
+    # oben stehen, auch wenn niemand es mehr benutzt. Genau das
+    # entwischte beim Mutationstest.
+    check("sie wird per Portal gerendert",
+          "createPortal(" in src and "&& createPortal(" in src,
+          "weder z-index noch `fixed` holen ein Kind aus einem "
+          "Stapelkontext heraus")
+    # Und das Ziel muss ausserhalb liegen. Ein Portal in den eigenen
+    # Knopf hinein waere derselbe Kontext -- also wirkungslos.
+    check("und zwar an document.body",
+          re.search(r"createPortal\([\s\S]{0,6000}?document\.body", src)
+          is not None,
+          "ein Portal in ein Element der Karte waere wirkungslos")
+    check("das Rendern auf dem Server bricht nicht ab",
+          "&& mounted &&" in src and "setMounted(true)" in src,
+          "`document` gibt es dort nicht -- der Riegel muss in der "
+          "Bedingung stehen, nicht nur irgendwo")
+    check("gezeichnet wird erst, wenn beides steht",
+          "{open && spot && mounted &&" in src,
+          "sonst blitzt es kurz in der Ecke auf")
 
-    check("sie haengt am Fenster, nicht am Elternteil",
-          "fixed" in classes,
-          "`absolute` bleibt im Stapelkontext der Karte gefangen")
-    check("und nicht mehr absolut positioniert",
-          "absolute" not in classes,
-          "beides zusammen waere widerspruechlich")
-
-    # Gegenprobe: die Karte IST ein Stapelkontext. Ohne diesen Nachweis
-    # wuesste niemand, warum `fixed` noetig ist.
+    # Gegenprobe: die Falle ist wirklich da. Ohne diesen Nachweis
+    # wuesste niemand, warum der Umbau noetig war.
     css = open(os.path.join(DASH, "app", "globals.css"), encoding="utf-8").read()
     check("die Karte eroeffnet wirklich einen Stapelkontext",
           re.search(r"\.border-glow-card\s*\{[^}]*isolation:\s*isolate", css)
-          is not None,
-          "sonst waere der ganze Umbau unnoetig")
+          is not None)
 
     panel = open(
         os.path.join(DASH, "components", "dashboard", "ping-reactions-panel.tsx"),
@@ -472,43 +495,89 @@ def test_the_popup_escapes_the_card():
           "border-glow-card" in panel)
 
 
+def test_the_popup_fits_the_screen():
+    """Der zweite gemeldete Punkt: das Feld lief unten hinaus.
+
+    Es hatte eine feste Hoehe (`max-h-[300px]` in der Liste, dazu 420
+    in der Rechnung) -- die passt auf einem grossen Bildschirm und auf
+    einem kleinen nicht.
+    """
+
+    print("\nDie Auswahl passt auf den Bildschirm")
+
+    src = _strip_comments(_picker_source())
+
+    check("keine feste Hoehe mehr in der Liste",
+          "max-h-[300px]" not in src,
+          "auf kleinen Fenstern lief das Feld damit unten hinaus")
+    check("die Hoehe wird aus dem freien Platz gerechnet",
+          "window.innerHeight" in src and "height: spot.height" in src)
+    check("und nach unten begrenzt",
+          "Math.min(" in src,
+          "sonst wird das Feld auf einem grossen Schirm unnoetig lang")
+    check("mit einer Untergrenze",
+          "Math.max(160" in src,
+          "ein Feld mit zwei Reihen waere nicht benutzbar")
+
+    check("die Liste fuellt den verbleibenden Raum",
+          "flex-1 min-h-0" in src,
+          "ohne min-h-0 waechst ein Flex-Kind ueber seinen Container hinaus")
+    check("Kopf und Fuss schrumpfen nicht mit",
+          src.count("shrink-0") >= 2,
+          "sonst wird die Suchzeile gestaucht statt der Liste")
+
+    check("es klappt nach oben, wenn unten kein Platz ist",
+          "const openUp = below < 260 && above > below;" in src
+          and "button.top - gap - room" in src,
+          "`const openUp = false` laesst alle Woerter stehen und "
+          "klappt trotzdem nie nach oben")
+
+
+def test_clicking_inside_does_not_close_it():
+    """Seit dem Portal liegt das Feld ausserhalb des Knopf-Elements.
+
+    Die Pruefung "Klick daneben schliesst" sah nur in ``boxRef`` nach.
+    Ein Klick auf ein Emoji haette die Auswahl damit sofort
+    geschlossen -- man haette nach jedem Emoji neu oeffnen muessen.
+    """
+
+    print("\nEin Klick im Feld schliesst es nicht")
+
+    src = _strip_comments(_picker_source())
+
+    check("es gibt einen zweiten Bezug auf das Feld",
+          "popRef" in src)
+    check("und er haengt wirklich am Feld",
+          "ref={popRef}" in src,
+          "die Deklaration allein bleibt null -- contains() trifft dann nie")
+    check("und er wird beim Klick geprueft",
+          "inPopup" in src,
+          "sonst schliesst jeder Klick auf ein Emoji die Auswahl")
+    check("geschlossen wird nur ausserhalb von beidem",
+          "if (!inButton && !inPopup) setOpen(false);" in src)
+
+
 def test_the_popup_position_is_computed():
     """`fixed` ohne Koordinaten klebt oben links am Fenster."""
 
     print("\nDie Position wird gerechnet")
 
-    src = _picker_source()
+    src = _strip_comments(_picker_source())
 
     check("es gibt eine Platzierung", "const place" in src)
-    # Und sie wird beim Oeffnen wirklich gerufen. `if (false) place()`
-    # liess den Test zuerst durchgehen: der Aufruf stand ja noch da.
     check("sie laeuft beim Oeffnen",
           "if (next) place();" in src,
           "ohne Aufruf bleibt `spot` null und nichts wird gezeichnet")
     check("sie misst den Knopf", "getBoundingClientRect" in src)
     check("und setzt echte Koordinaten",
-          "style={{ top:" in src,
+          "top: spot.top" in src and "left: spot.left" in src,
           "ohne top/left klebt ein fixed Element in der Ecke")
 
-    check("das Feld wird erst mit Position gezeichnet",
-          "{open && spot &&" in src,
-          "sonst blitzt es fuer einen Moment in der Ecke auf")
-
-    # Rechts raus, links raus, unten raus -- alle drei muessen bedacht
-    # sein. Frueher gab es nur die erste Richtung.
     check("es weicht nach links aus, wenn rechts kein Platz ist",
           "button.right - width" in src)
     check("es rutscht nicht links hinaus",
-          "if (left < margin)" in src)
-    # Nicht nur, dass die Zeile existiert -- der Zweig davor muss
-    # erreichbar sein. Beim Mutationstest blieb `if (false) {` gruen,
-    # weil `button.top - height` weiterhin im Text stand.
-    check("und klappt nach oben, wenn unten kein Platz ist",
-          "if (top + height > window.innerHeight - margin) {" in src
-          and "button.top - height" in src,
-          "die Zeile allein nuetzt nichts, wenn der Zweig tot ist")
+          "if (left < margin) left = margin;" in src)
 
-    # Die Messbreite muss der angezeigten entsprechen.
     classes = " ".join(re.findall(r'"([^"]*)"', _popup_block()))
     shown = re.findall(r"w-\[(\d+)px\]", classes)
     measured = re.findall(
@@ -591,11 +660,22 @@ def test_the_trap_is_documented():
 
     print("\nDie Ursache ist im Code festgehalten")
 
+    # Hier ausdruecklich der rohe Quelltext: geprueft wird ja gerade,
+    # dass die Erklaerung in den Kommentaren steht.
     src = _picker_source()
 
-    check("der Kommentar nennt den Stapelkontext",
-          "Stapelkontext" in src,
-          "sonst dreht jemand `fixed` zurueck und der Fehler ist wieder da")
+    # Nicht zaehlen, sondern die Kernaussage suchen.
+    #
+    # Eine Zahl ist der falsche Massstab: bei fuenf Erwaehnungen
+    # bleiben nach dem Loeschen von zweien immer noch drei stehen, und
+    # der Test war gruen, obwohl die eigentliche Erklaerung weg war.
+    # Gesucht wird deshalb der Satz, auf den es ankommt.
+    check("der Kommentar erklaert, dass man den Kontext nicht verlassen kann",
+          "nicht verlassen" in src,
+          "ohne diesen Satz probiert der naechste wieder einen "
+          "hoeheren z-index -- so sind hier zwei Anlaeufe gescheitert")
+    check("und nennt ihn beim Namen",
+          "Stapelkontext" in src)
     check("und die Klasse, die ihn eroeffnet",
           "border-glow-card" in src)
     check("und dass z-index darin nicht hilft",
@@ -621,6 +701,8 @@ def main():
     test_the_new_changelogs_are_there()
     test_the_changelogs_use_real_emojis()
     test_the_popup_escapes_the_card()
+    test_the_popup_fits_the_screen()
+    test_clicking_inside_does_not_close_it()
     test_the_popup_position_is_computed()
     test_the_popup_follows_the_page()
     test_the_popup_is_on_top()
