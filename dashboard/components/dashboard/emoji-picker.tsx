@@ -74,18 +74,83 @@ export function EmojiPicker({
   const [error, setError] = useState("");
   const [emojis, setEmojis] = useState<BotEmoji[]>([]);
   const [query, setQuery] = useState("");
-  // Nach links aufklappen statt nach rechts?
+  // Wo das Feld auf dem Bildschirm sitzt.
   //
-  // Ein festes `right-0` wäre falsch: die Auswahl steht an neun
-  // Stellen, und in `compose-panel` sitzen sieben davon *links* im
-  // Formular. Dort würde sie durch `right-0` nach links aus dem Bild
-  // rutschen — derselbe Fehler, nur spiegelverkehrt.
+  // Warum von Hand gerechnet und nicht per CSS positioniert:
   //
-  // Deshalb wird beim Öffnen gemessen: passt das Feld rechts noch ins
-  // Fenster, klappt es wie gewohnt nach rechts auf. Passt es nicht,
-  // hängt es an der rechten Kante des Knopfes und wächst nach links.
-  const [alignRight, setAlignRight] = useState(false);
+  // Die Karten des Dashboards tragen `.border-glow-card`, und die
+  // setzt `isolation: isolate` — für ihre eigenen `z-index: -1`-Ebenen
+  // nötig, aber sie eröffnet damit einen **Stapelkontext**. Alles
+  // darin wird als eine Einheit gegen den Rest der Seite gestapelt.
+  // Ein Kind kann dann nie über etwas ausserhalb steigen, egal welchen
+  // z-index es trägt: `z-[100]` gilt nur *innerhalb* der Karte.
+  //
+  // Genau daran ist der letzte Anlauf gescheitert. Der Wert war nicht
+  // das Problem — die Auswahl lag im falschen Kontext. Ein noch
+  // höherer Wert hätte wieder nichts geändert.
+  //
+  // `position: fixed` hängt das Feld dagegen am Fenster auf, nicht am
+  // Elternteil. Damit ist es aus dem Kontext heraus und liegt wirklich
+  // über allem. Der Preis: die Position muss selbst gerechnet werden.
+  const [spot, setSpot] = useState<{ top: number; left: number } | null>(null);
   const boxRef = useRef<HTMLDivElement | null>(null);
+
+  /**
+   * Das Feld unter den Knopf legen — und dabei im Bild bleiben.
+   *
+   * Gemessen wird beim Öffnen, nicht beim Aufbau der Seite: die
+   * Fensterbreite ändert sich, und der Knopf kann in einem Bereich
+   * sitzen, der erst später sichtbar wird.
+   */
+  const place = useCallback(() => {
+    const button = boxRef.current?.getBoundingClientRect();
+    if (!button) return;
+
+    const width = window.innerWidth >= 640 ? 380 : 320;
+    const margin = 12;
+
+    // Standard: linksbündig zum Knopf, wie es ein Menü tut.
+    let left = button.left;
+
+    // Läuft es rechts hinaus, an der rechten Kante des Knopfes
+    // ausrichten — dann wächst es nach links, dorthin wo Platz ist.
+    if (left + width + margin > window.innerWidth) {
+      left = button.right - width;
+    }
+    // Und falls es dadurch links hinausrutscht (schmales Fenster),
+    // einfach an den linken Rand.
+    if (left < margin) left = margin;
+
+    let top = button.bottom + 8;
+
+    // Unten kein Platz? Dann über den Knopf. 420 ist die Höhe des
+    // Feldes samt Suchzeile — mehr wird es nicht, die Liste scrollt.
+    const height = 420;
+    if (top + height > window.innerHeight - margin) {
+      const above = button.top - height - 8;
+      top = above > margin ? above : Math.max(margin, window.innerHeight - height - margin);
+    }
+
+    setSpot({ top, left });
+  }, []);
+
+  // Beim Scrollen und bei Größenänderung mitwandern.
+  //
+  // Ein `fixed` Element bleibt sonst stehen, während die Seite sich
+  // bewegt — es hinge dann irgendwo im Nichts statt unter seinem
+  // Knopf. `capture` ist nötig, weil der Bildlauf in einem inneren
+  // Bereich stattfinden kann und nicht am Fenster.
+  useEffect(() => {
+    if (!open) return;
+
+    const update = () => place();
+    window.addEventListener("scroll", update, true);
+    window.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("scroll", update, true);
+      window.removeEventListener("resize", update);
+    };
+  }, [open, place]);
 
   // Erst laden, wenn jemand die Auswahl öffnet. Sie hängt an jedem
   // Textfeld; alle beim Aufbau der Seite laden zu lassen wären ein
@@ -154,17 +219,7 @@ export function EmojiPicker({
         onClick={() => {
           setOpen((old) => {
             const next = !old;
-            if (next) {
-              // Beim Öffnen messen, nicht beim Aufbau der Seite: die
-              // Breite des Fensters ändert sich, und der Knopf kann in
-              // einem Bereich sitzen, der erst später sichtbar wird.
-              const box = boxRef.current?.getBoundingClientRect();
-              const width = window.innerWidth >= 640 ? 380 : 320;
-              // 16 Pixel Luft zum Rand, damit es nicht knapp anliegt.
-              setAlignRight(
-                Boolean(box && box.left + width + 16 > window.innerWidth)
-              );
-            }
+            if (next) place();
             return next;
           });
         }}
@@ -180,26 +235,22 @@ export function EmojiPicker({
         Emoji
       </button>
 
-      {open && (
+      {open && spot && (
         <div
+          // `fixed`, nicht `absolute` — das ist der eigentliche Punkt.
+          //
+          // Die Karten tragen `.border-glow-card` mit
+          // `isolation: isolate`. Das eröffnet einen Stapelkontext, und
+          // darin ist jedes z-index wirkungslos gegenüber allem
+          // ausserhalb: `z-[100]` galt nur innerhalb der Karte, deshalb
+          // lag die Auswahl weiter unter der nächsten Karte.
+          //
+          // `fixed` hängt das Feld am Fenster auf statt am Elternteil.
+          // Damit ist es aus dem Kontext heraus — Position wird dafür
+          // in `place()` selbst gerechnet.
+          style={{ top: spot.top, left: spot.left }}
           className={cn(
-            // Die Richtung wird beim Öffnen gemessen (siehe oben).
-            //
-            // Ohne Angabe setzt der Browser ein `absolute` an die linke
-            // Kante und lässt es nach rechts wachsen. Das Feld ist 320
-            // bis 380 Pixel breit, und im Ping-Reiter steht der Knopf
-            // rechtsbündig (`ml-auto`) — die Auswahl ragte dadurch
-            // über den Bildrand hinaus, die letzten Spalten waren
-            // nicht erreichbar.
-            "absolute mt-2 w-[320px] sm:w-[380px]",
-            alignRight ? "right-0" : "left-0",
-            // Über allem anderen.
-            //
-            // `z-50` reichte nicht: die Sidebar trägt ebenfalls `z-50`,
-            // jeder Dialog auch. Bei gleichem z-index gewinnt das
-            // Element, das im Dokument später steht — die Auswahl
-            // verschwand also hinter Nachbarelementen.
-            "z-[100]",
+            "fixed w-[320px] sm:w-[380px] z-[200]",
             "rounded-2xl border border-slate-700 bg-[#0d1728]",
             "shadow-2xl shadow-black/50 overflow-hidden"
           )}

@@ -393,90 +393,156 @@ def test_the_changelogs_use_real_emojis():
 # ══════════════════════════════════════════════════════════════════════
 
 
+def _picker_source() -> str:
+    return open(
+        os.path.join(DASH, "components", "dashboard", "emoji-picker.tsx"),
+        encoding="utf-8",
+    ).read()
+
+
 def _popup_block() -> str:
     """Der Quelltext des aufklappenden Felds.
 
     Die Klassen stehen in einem ``cn(...)``-Aufruf ueber mehrere
-    Zeilen. Nur den ersten String zu lesen waere zu wenig -- genau
-    daran ist die erste Fassung dieser Pruefung gescheitert: sie
-    meldete ``z-0``, weil sie einen Bruchteil gemessen hat.
+    Zeilen. Nur den ersten String zu lesen waere zu wenig -- daran ist
+    die erste Fassung dieser Pruefung gescheitert: sie meldete
+    ``z-0``, weil sie einen Bruchteil gemessen hat.
+
+    Wird der Anker nicht gefunden, kommt ein leerer String zurueck
+    statt einer Ausnahme. Ein Test, der mit einem Traceback abbricht,
+    laesst alle folgenden Pruefungen ungelaufen -- genau das ist beim
+    Umbau passiert.
     """
 
-    src = open(
-        os.path.join(DASH, "components", "dashboard", "emoji-picker.tsx"),
-        encoding="utf-8",
-    ).read()
-    start = src.index("{open && (")
-    return src[start : src.index("\n        >", start)]
+    src = _picker_source()
+    try:
+        start = src.index("{open &&")
+        return src[start : src.index("\n        >", start)]
+    except ValueError:
+        return ""
 
 
-def test_the_popup_stays_inside_the_window():
-    """Gemeldet: die Auswahl lief rechts aus dem Bild.
+def test_the_popup_escapes_the_card():
+    """Gemeldet: die Auswahl liegt hinter der naechsten Karte.
 
-    Ohne Angabe einer Kante setzt der Browser ein ``absolute`` an die
-    linke Kante und laesst es nach rechts wachsen. Das Feld ist 320
-    bis 380 Pixel breit, und im Ping-Reiter steht der Knopf
-    rechtsbuendig -- die letzten Spalten waren nicht erreichbar.
+    Der erste Anlauf zog den z-index von 50 auf 100 -- wirkungslos,
+    weil der Wert nicht das Problem war.
 
-    Ein festes ``right-0`` waere aber der umgekehrte Fehler: in
-    ``compose-panel`` stehen sieben der neun Auswahlen links im
-    Formular. Deshalb wird beim Oeffnen gemessen.
+    Die Karten tragen ``.border-glow-card``, und die setzt
+    ``isolation: isolate`` (fuer ihre eigenen ``z-index: -1``-Ebenen
+    noetig). Das eroeffnet einen **Stapelkontext**: alles darin wird
+    als eine Einheit gegen den Rest der Seite gestapelt, und ein Kind
+    kann nie ueber etwas ausserhalb steigen. ``z-[100]`` galt nur
+    *innerhalb* der Karte.
+
+    Der einzige Ausweg ist ``position: fixed`` -- das haengt am
+    Fenster statt am Elternteil.
     """
 
-    print("\nDie Auswahl bleibt im Bild")
+    print("\nDie Auswahl kommt aus der Karte heraus")
 
     block = _popup_block()
+    check("das Aufklappfeld ist auffindbar", bool(block))
+    if not block:
+        return
+
     classes = " ".join(re.findall(r'"([^"]*)"', block))
+    src = _picker_source()
 
-    check("sie kann nach rechts aufklappen", "left-0" in classes)
-    check("und nach links", "right-0" in classes,
-          "sonst laeuft sie bei einem rechtsbuendigen Knopf hinaus")
-    check("die Richtung haengt an einer Bedingung",
-          "alignRight" in block,
-          "eine feste Richtung ist auf der jeweils anderen Seite falsch")
+    check("sie haengt am Fenster, nicht am Elternteil",
+          "fixed" in classes,
+          "`absolute` bleibt im Stapelkontext der Karte gefangen")
+    check("und nicht mehr absolut positioniert",
+          "absolute" not in classes,
+          "beides zusammen waere widerspruechlich")
 
-    src = open(
-        os.path.join(DASH, "components", "dashboard", "emoji-picker.tsx"),
+    # Gegenprobe: die Karte IST ein Stapelkontext. Ohne diesen Nachweis
+    # wuesste niemand, warum `fixed` noetig ist.
+    css = open(os.path.join(DASH, "app", "globals.css"), encoding="utf-8").read()
+    check("die Karte eroeffnet wirklich einen Stapelkontext",
+          re.search(r"\.border-glow-card\s*\{[^}]*isolation:\s*isolate", css)
+          is not None,
+          "sonst waere der ganze Umbau unnoetig")
+
+    panel = open(
+        os.path.join(DASH, "components", "dashboard", "ping-reactions-panel.tsx"),
         encoding="utf-8",
     ).read()
+    check("und die Auswahl steht in einer solchen Karte",
+          "border-glow-card" in panel)
 
-    check("sie wird wirklich gemessen",
-          "getBoundingClientRect" in src and "innerWidth" in src,
-          "ohne Messung ist die Wahl geraten")
-    # Zwischen `if (next)` und der Messung stehen Kommentare -- die
-    # erste Fassung dieser Pruefung hatte ein zu enges Fenster (300
-    # Zeichen) und schlug deshalb fehl, obwohl der Code stimmte.
-    check("gemessen wird beim Oeffnen",
-          re.search(r"if \(next\)[\s\S]{0,600}?setAlignRight", src) is not None,
-          "beim Aufbau der Seite waere die Breite noch eine andere")
-    # Die Messung muss mit derselben Breite rechnen, die spaeter
-    # angezeigt wird. Rechnet sie mit weniger, meldet sie "passt noch"
-    # und die Auswahl laeuft doch hinaus.
-    #
-    # Geprueft wird deshalb der Vergleich selbst, nicht das blosse
-    # Vorkommen der Zahlen: `320` steht ohnehin in der Klassenliste,
-    # eine Wortsuche waere also auch bei `const width = 40` gruen
-    # geblieben -- genau das ist beim Mutationstest passiert.
+
+def test_the_popup_position_is_computed():
+    """`fixed` ohne Koordinaten klebt oben links am Fenster."""
+
+    print("\nDie Position wird gerechnet")
+
+    src = _picker_source()
+
+    check("es gibt eine Platzierung", "const place" in src)
+    # Und sie wird beim Oeffnen wirklich gerufen. `if (false) place()`
+    # liess den Test zuerst durchgehen: der Aufruf stand ja noch da.
+    check("sie laeuft beim Oeffnen",
+          "if (next) place();" in src,
+          "ohne Aufruf bleibt `spot` null und nichts wird gezeichnet")
+    check("sie misst den Knopf", "getBoundingClientRect" in src)
+    check("und setzt echte Koordinaten",
+          "style={{ top:" in src,
+          "ohne top/left klebt ein fixed Element in der Ecke")
+
+    check("das Feld wird erst mit Position gezeichnet",
+          "{open && spot &&" in src,
+          "sonst blitzt es fuer einen Moment in der Ecke auf")
+
+    # Rechts raus, links raus, unten raus -- alle drei muessen bedacht
+    # sein. Frueher gab es nur die erste Richtung.
+    check("es weicht nach links aus, wenn rechts kein Platz ist",
+          "button.right - width" in src)
+    check("es rutscht nicht links hinaus",
+          "if (left < margin)" in src)
+    # Nicht nur, dass die Zeile existiert -- der Zweig davor muss
+    # erreichbar sein. Beim Mutationstest blieb `if (false) {` gruen,
+    # weil `button.top - height` weiterhin im Text stand.
+    check("und klappt nach oben, wenn unten kein Platz ist",
+          "if (top + height > window.innerHeight - margin) {" in src
+          and "button.top - height" in src,
+          "die Zeile allein nuetzt nichts, wenn der Zweig tot ist")
+
+    # Die Messbreite muss der angezeigten entsprechen.
+    classes = " ".join(re.findall(r'"([^"]*)"', _popup_block()))
     shown = re.findall(r"w-\[(\d+)px\]", classes)
-    # Die `640` ist die Bildschirmgrenze (Tailwinds `sm:`), keine
-    # Feldbreite -- sie darf nicht mitgezaehlt werden.
     measured = re.findall(
         r"const width = window\.innerWidth >= 640 \? (\d+) : (\d+)", src
     )
-
     check("die Anzeige nennt zwei Breiten", len(shown) == 2, str(shown))
-    check("und die Messung benutzt genau dieselben",
+    check("und die Rechnung benutzt genau dieselben",
           bool(measured) and set(measured[0]) == set(shown),
-          f"gezeigt {shown}, gemessen {measured[0] if measured else '(keine)'}")
+          f"gezeigt {shown}, gerechnet {measured[0] if measured else '(keine)'}")
+
+
+def test_the_popup_follows_the_page():
+    """Ein `fixed` Element bleibt sonst stehen, wenn die Seite scrollt."""
+
+    print("\nDie Auswahl wandert mit")
+
+    src = _picker_source()
+
+    check("auf Scrollen wird gehoert",
+          'addEventListener("scroll"' in src,
+          "sonst haengt das Feld im Nichts, sobald man scrollt")
+    check("auf Groessenaenderung auch",
+          'addEventListener("resize"' in src)
+    check("auch bei Bildlauf in einem inneren Bereich",
+          'addEventListener("scroll", update, true)' in src,
+          "ohne capture verpasst man das Scrollen innerhalb eines Panels")
+    check("und beides wird wieder abgemeldet",
+          'removeEventListener("scroll"' in src
+          and 'removeEventListener("resize"' in src,
+          "sonst sammeln sich Zuhoerer bei jedem Oeffnen an")
 
 
 def test_the_popup_is_on_top():
-    """Gemeldet: sie lag hinter anderen Elementen.
-
-    ``z-50`` reichte nicht -- die Sidebar traegt ebenfalls ``z-50``,
-    jeder Dialog auch. Bei gleichem z-index gewinnt das Element, das
-    im Dokument spaeter steht.
-    """
+    """Zusaetzlich zur Befreiung muss der Wert hoch genug sein."""
 
     print("\nDie Auswahl liegt obenauf")
 
@@ -486,19 +552,15 @@ def test_the_popup_is_on_top():
     level = int(match.group(1)) if match else 0
     check("sie hat eine Ebene", level > 0, classes)
 
-    # Womit konkurriert sie? Nicht raten -- nachsehen.
     rivals: list[tuple[str, int]] = []
     for folder, _dirs, files in os.walk(DASH):
         if "node_modules" in folder or ".next" in folder:
             continue
         for name in files:
-            if not name.endswith((".tsx", ".ts")):
+            if not name.endswith((".tsx", ".ts")) or name == "emoji-picker.tsx":
                 continue
-            if name == "emoji-picker.tsx":
-                continue
-            path = os.path.join(folder, name)
             try:
-                text = open(path, encoding="utf-8").read()
+                text = open(os.path.join(folder, name), encoding="utf-8").read()
             except OSError:
                 continue
             for found in re.findall(r"z-\[?(\d+)\]?", text):
@@ -509,40 +571,43 @@ def test_the_popup_is_on_top():
 
     check(f"sie liegt ueber allem anderen (hoechster sonst: {highest})",
           level > highest,
-          f"gleichauf mit: {[n for n, _v in top]} — bei Gleichstand "
-          "gewinnt das spaetere Element im Dokument")
+          f"gleichauf mit: {[n for n, _v in top]}")
 
 
-def test_no_parent_traps_the_popup():
-    """Ein Stapelkontext im Elternteil macht jedes z-index wirkungslos.
+def test_the_trap_is_documented():
+    """Die Karte bleibt ein Stapelkontext -- das muss dokumentiert sein.
 
-    ``isolate``, ``transform``, ``filter`` und ein paar weitere
-    Eigenschaften eroeffnen einen eigenen Kontext: was darin liegt,
-    kann nie ueber etwas ausserhalb steigen -- egal wie hoch der Wert
-    ist. Deshalb wird die Kette um die Aufrufstelle abgesucht.
+    Der frühere Test hiess "kein Elternteil sperrt die Auswahl ein"
+    und suchte in den Panels nach `isolate` & Co. Er war gruen, weil
+    das Wort dort nicht steht -- es steht in globals.css, an der
+    Klasse `.border-glow-card`. Ein Test, der am falschen Ort sucht,
+    ist schlimmer als keiner: er verspricht Sicherheit, die es nicht
+    gibt.
+
+    Geprueft wird deshalb das Gegenteil: dass die Falle *vorhanden*
+    und im Code erklaert ist. Wer den `fixed`-Umbau spaeter
+    zurueckdreht, soll im Kommentar lesen koennen, warum er da war.
     """
 
-    print("\nKein Elternteil sperrt die Auswahl ein")
+    print("\nDie Ursache ist im Code festgehalten")
 
-    traps = ("isolate", "transform", "filter", "backdrop-blur", "contain-")
+    src = _picker_source()
 
-    for panel in ("ping-reactions-panel.tsx", "compose-panel.tsx"):
-        path = os.path.join(DASH, "components", "dashboard", panel)
-        if not os.path.isfile(path):
-            continue
-        src = open(path, encoding="utf-8").read()
+    check("der Kommentar nennt den Stapelkontext",
+          "Stapelkontext" in src,
+          "sonst dreht jemand `fixed` zurueck und der Fehler ist wieder da")
+    check("und die Klasse, die ihn eroeffnet",
+          "border-glow-card" in src)
+    check("und dass z-index darin nicht hilft",
+          "wirkungslos" in src or "gilt nur" in src)
+    # Die Eigenschaft beim Namen nennen, nicht nur umschreiben: wer
+    # den Umbau spaeter prueft, sucht nach `isolation: isolate` in
+    # globals.css und muss die Verbindung herstellen koennen.
+    check("die Eigenschaft steht ausgeschrieben da",
+          src.count("isolation: isolate") >= 2,
+          "einmal in der Funktionsbeschreibung, einmal an der Stelle "
+          "selbst -- sonst fehlt der Bezug an einer der beiden")
 
-        found: list[str] = []
-        for match in re.finditer(r"<EmojiPicker", src):
-            before = src[max(0, match.start() - 500) : match.start()]
-            for classes in re.findall(r'className="([^"]{0,200})"', before)[-4:]:
-                for trap in traps:
-                    if trap in classes:
-                        found.append(f"{panel}: {trap}")
-
-        check(f"{panel}: kein Stapelkontext in der Naehe",
-              not found,
-              str(sorted(set(found))))
 
 def main():
     test_the_list_comes_from_the_source()
@@ -555,9 +620,11 @@ def main():
     test_the_api_call_exists()
     test_the_new_changelogs_are_there()
     test_the_changelogs_use_real_emojis()
-    test_the_popup_stays_inside_the_window()
+    test_the_popup_escapes_the_card()
+    test_the_popup_position_is_computed()
+    test_the_popup_follows_the_page()
     test_the_popup_is_on_top()
-    test_no_parent_traps_the_popup()
+    test_the_trap_is_documented()
 
     print()
     if failures:
