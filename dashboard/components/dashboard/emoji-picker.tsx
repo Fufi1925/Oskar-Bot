@@ -74,6 +74,17 @@ export function EmojiPicker({
   const [error, setError] = useState("");
   const [emojis, setEmojis] = useState<BotEmoji[]>([]);
   const [query, setQuery] = useState("");
+  // Nach links aufklappen statt nach rechts?
+  //
+  // Ein festes `right-0` wäre falsch: die Auswahl steht an neun
+  // Stellen, und in `compose-panel` sitzen sieben davon *links* im
+  // Formular. Dort würde sie durch `right-0` nach links aus dem Bild
+  // rutschen — derselbe Fehler, nur spiegelverkehrt.
+  //
+  // Deshalb wird beim Öffnen gemessen: passt das Feld rechts noch ins
+  // Fenster, klappt es wie gewohnt nach rechts auf. Passt es nicht,
+  // hängt es an der rechten Kante des Knopfes und wächst nach links.
+  const [alignRight, setAlignRight] = useState(false);
   const boxRef = useRef<HTMLDivElement | null>(null);
 
   // Erst laden, wenn jemand die Auswahl öffnet. Sie hängt an jedem
@@ -140,7 +151,23 @@ export function EmojiPicker({
     <div className={cn("relative", className)} ref={boxRef}>
       <button
         type="button"
-        onClick={() => setOpen((old) => !old)}
+        onClick={() => {
+          setOpen((old) => {
+            const next = !old;
+            if (next) {
+              // Beim Öffnen messen, nicht beim Aufbau der Seite: die
+              // Breite des Fensters ändert sich, und der Knopf kann in
+              // einem Bereich sitzen, der erst später sichtbar wird.
+              const box = boxRef.current?.getBoundingClientRect();
+              const width = window.innerWidth >= 640 ? 380 : 320;
+              // 16 Pixel Luft zum Rand, damit es nicht knapp anliegt.
+              setAlignRight(
+                Boolean(box && box.left + width + 16 > window.innerWidth)
+              );
+            }
+            return next;
+          });
+        }}
         title={label}
         className={cn(
           "inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[11px] font-black uppercase tracking-wider transition-colors",
@@ -154,7 +181,29 @@ export function EmojiPicker({
       </button>
 
       {open && (
-        <div className="absolute z-50 mt-2 w-[320px] sm:w-[380px] rounded-2xl border border-slate-700 bg-[#0d1728] shadow-2xl shadow-black/50 overflow-hidden">
+        <div
+          className={cn(
+            // Die Richtung wird beim Öffnen gemessen (siehe oben).
+            //
+            // Ohne Angabe setzt der Browser ein `absolute` an die linke
+            // Kante und lässt es nach rechts wachsen. Das Feld ist 320
+            // bis 380 Pixel breit, und im Ping-Reiter steht der Knopf
+            // rechtsbündig (`ml-auto`) — die Auswahl ragte dadurch
+            // über den Bildrand hinaus, die letzten Spalten waren
+            // nicht erreichbar.
+            "absolute mt-2 w-[320px] sm:w-[380px]",
+            alignRight ? "right-0" : "left-0",
+            // Über allem anderen.
+            //
+            // `z-50` reichte nicht: die Sidebar trägt ebenfalls `z-50`,
+            // jeder Dialog auch. Bei gleichem z-index gewinnt das
+            // Element, das im Dokument später steht — die Auswahl
+            // verschwand also hinter Nachbarelementen.
+            "z-[100]",
+            "rounded-2xl border border-slate-700 bg-[#0d1728]",
+            "shadow-2xl shadow-black/50 overflow-hidden"
+          )}
+        >
           <div className="flex items-center gap-2 p-2.5 border-b border-slate-800">
             <div className="relative flex-1">
               <Search className="h-3.5 w-3.5 text-slate-600 absolute left-2.5 top-1/2 -translate-y-1/2" />

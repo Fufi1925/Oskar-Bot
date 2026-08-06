@@ -387,6 +387,163 @@ def test_the_changelogs_use_real_emojis():
           f"kennt der Bot nicht: {invented}")
 
 
+
+# ══════════════════════════════════════════════════════════════════════
+#  Wo die Auswahl aufklappt
+# ══════════════════════════════════════════════════════════════════════
+
+
+def _popup_block() -> str:
+    """Der Quelltext des aufklappenden Felds.
+
+    Die Klassen stehen in einem ``cn(...)``-Aufruf ueber mehrere
+    Zeilen. Nur den ersten String zu lesen waere zu wenig -- genau
+    daran ist die erste Fassung dieser Pruefung gescheitert: sie
+    meldete ``z-0``, weil sie einen Bruchteil gemessen hat.
+    """
+
+    src = open(
+        os.path.join(DASH, "components", "dashboard", "emoji-picker.tsx"),
+        encoding="utf-8",
+    ).read()
+    start = src.index("{open && (")
+    return src[start : src.index("\n        >", start)]
+
+
+def test_the_popup_stays_inside_the_window():
+    """Gemeldet: die Auswahl lief rechts aus dem Bild.
+
+    Ohne Angabe einer Kante setzt der Browser ein ``absolute`` an die
+    linke Kante und laesst es nach rechts wachsen. Das Feld ist 320
+    bis 380 Pixel breit, und im Ping-Reiter steht der Knopf
+    rechtsbuendig -- die letzten Spalten waren nicht erreichbar.
+
+    Ein festes ``right-0`` waere aber der umgekehrte Fehler: in
+    ``compose-panel`` stehen sieben der neun Auswahlen links im
+    Formular. Deshalb wird beim Oeffnen gemessen.
+    """
+
+    print("\nDie Auswahl bleibt im Bild")
+
+    block = _popup_block()
+    classes = " ".join(re.findall(r'"([^"]*)"', block))
+
+    check("sie kann nach rechts aufklappen", "left-0" in classes)
+    check("und nach links", "right-0" in classes,
+          "sonst laeuft sie bei einem rechtsbuendigen Knopf hinaus")
+    check("die Richtung haengt an einer Bedingung",
+          "alignRight" in block,
+          "eine feste Richtung ist auf der jeweils anderen Seite falsch")
+
+    src = open(
+        os.path.join(DASH, "components", "dashboard", "emoji-picker.tsx"),
+        encoding="utf-8",
+    ).read()
+
+    check("sie wird wirklich gemessen",
+          "getBoundingClientRect" in src and "innerWidth" in src,
+          "ohne Messung ist die Wahl geraten")
+    # Zwischen `if (next)` und der Messung stehen Kommentare -- die
+    # erste Fassung dieser Pruefung hatte ein zu enges Fenster (300
+    # Zeichen) und schlug deshalb fehl, obwohl der Code stimmte.
+    check("gemessen wird beim Oeffnen",
+          re.search(r"if \(next\)[\s\S]{0,600}?setAlignRight", src) is not None,
+          "beim Aufbau der Seite waere die Breite noch eine andere")
+    # Die Messung muss mit derselben Breite rechnen, die spaeter
+    # angezeigt wird. Rechnet sie mit weniger, meldet sie "passt noch"
+    # und die Auswahl laeuft doch hinaus.
+    #
+    # Geprueft wird deshalb der Vergleich selbst, nicht das blosse
+    # Vorkommen der Zahlen: `320` steht ohnehin in der Klassenliste,
+    # eine Wortsuche waere also auch bei `const width = 40` gruen
+    # geblieben -- genau das ist beim Mutationstest passiert.
+    shown = re.findall(r"w-\[(\d+)px\]", classes)
+    # Die `640` ist die Bildschirmgrenze (Tailwinds `sm:`), keine
+    # Feldbreite -- sie darf nicht mitgezaehlt werden.
+    measured = re.findall(
+        r"const width = window\.innerWidth >= 640 \? (\d+) : (\d+)", src
+    )
+
+    check("die Anzeige nennt zwei Breiten", len(shown) == 2, str(shown))
+    check("und die Messung benutzt genau dieselben",
+          bool(measured) and set(measured[0]) == set(shown),
+          f"gezeigt {shown}, gemessen {measured[0] if measured else '(keine)'}")
+
+
+def test_the_popup_is_on_top():
+    """Gemeldet: sie lag hinter anderen Elementen.
+
+    ``z-50`` reichte nicht -- die Sidebar traegt ebenfalls ``z-50``,
+    jeder Dialog auch. Bei gleichem z-index gewinnt das Element, das
+    im Dokument spaeter steht.
+    """
+
+    print("\nDie Auswahl liegt obenauf")
+
+    classes = " ".join(re.findall(r'"([^"]*)"', _popup_block()))
+
+    match = re.search(r"z-\[?(\d+)\]?", classes)
+    level = int(match.group(1)) if match else 0
+    check("sie hat eine Ebene", level > 0, classes)
+
+    # Womit konkurriert sie? Nicht raten -- nachsehen.
+    rivals: list[tuple[str, int]] = []
+    for folder, _dirs, files in os.walk(DASH):
+        if "node_modules" in folder or ".next" in folder:
+            continue
+        for name in files:
+            if not name.endswith((".tsx", ".ts")):
+                continue
+            if name == "emoji-picker.tsx":
+                continue
+            path = os.path.join(folder, name)
+            try:
+                text = open(path, encoding="utf-8").read()
+            except OSError:
+                continue
+            for found in re.findall(r"z-\[?(\d+)\]?", text):
+                rivals.append((name, int(found)))
+
+    highest = max((value for _n, value in rivals), default=0)
+    top = sorted({r for r in rivals if r[1] == highest})[:3]
+
+    check(f"sie liegt ueber allem anderen (hoechster sonst: {highest})",
+          level > highest,
+          f"gleichauf mit: {[n for n, _v in top]} — bei Gleichstand "
+          "gewinnt das spaetere Element im Dokument")
+
+
+def test_no_parent_traps_the_popup():
+    """Ein Stapelkontext im Elternteil macht jedes z-index wirkungslos.
+
+    ``isolate``, ``transform``, ``filter`` und ein paar weitere
+    Eigenschaften eroeffnen einen eigenen Kontext: was darin liegt,
+    kann nie ueber etwas ausserhalb steigen -- egal wie hoch der Wert
+    ist. Deshalb wird die Kette um die Aufrufstelle abgesucht.
+    """
+
+    print("\nKein Elternteil sperrt die Auswahl ein")
+
+    traps = ("isolate", "transform", "filter", "backdrop-blur", "contain-")
+
+    for panel in ("ping-reactions-panel.tsx", "compose-panel.tsx"):
+        path = os.path.join(DASH, "components", "dashboard", panel)
+        if not os.path.isfile(path):
+            continue
+        src = open(path, encoding="utf-8").read()
+
+        found: list[str] = []
+        for match in re.finditer(r"<EmojiPicker", src):
+            before = src[max(0, match.start() - 500) : match.start()]
+            for classes in re.findall(r'className="([^"]{0,200})"', before)[-4:]:
+                for trap in traps:
+                    if trap in classes:
+                        found.append(f"{panel}: {trap}")
+
+        check(f"{panel}: kein Stapelkontext in der Naehe",
+              not found,
+              str(sorted(set(found))))
+
 def main():
     test_the_list_comes_from_the_source()
     test_every_code_is_well_formed()
@@ -398,6 +555,9 @@ def main():
     test_the_api_call_exists()
     test_the_new_changelogs_are_there()
     test_the_changelogs_use_real_emojis()
+    test_the_popup_stays_inside_the_window()
+    test_the_popup_is_on_top()
+    test_no_parent_traps_the_popup()
 
     print()
     if failures:
