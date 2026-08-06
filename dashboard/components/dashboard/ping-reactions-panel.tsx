@@ -16,11 +16,12 @@ import React, { useCallback, useEffect, useState } from "react";
 import {
   AtSign,
   Loader2,
-  Lock,
   Pause,
   Play,
   Plus,
+  RotateCcw,
   Save,
+  ShieldCheck,
   Trash2,
   X,
 } from "lucide-react";
@@ -43,9 +44,13 @@ interface EmojiInfo {
 interface Rule {
   user_id: string;
   emojis: EmojiInfo[];
+  /** Der mitgelieferte Stand — nur bei den eingebauten Regeln gefüllt. */
+  default_emojis: EmojiInfo[];
   note: string;
   enabled: boolean;
   builtin: boolean;
+  /** Weicht das, was gilt, vom Code-Stand ab? */
+  customised: boolean;
   name?: string;
   avatar?: string | null;
 }
@@ -86,6 +91,12 @@ export function PingReactionsPanel() {
   const [picked, setPicked] = useState<EmojiInfo[]>([]);
   const [note, setNote] = useState("");
   const [editing, setEditing] = useState("");
+  // Ob der Eintrag, der gerade bearbeitet wird, pausiert ist.
+  //
+  // Ohne diese Merkung schrieb `save` fest `enabled: true` -- und das
+  // Bearbeiten einer pausierten Regel hätte sie stillschweigend wieder
+  // eingeschaltet. Beim Ändern der Emojis erwartet das niemand.
+  const [editingEnabled, setEditingEnabled] = useState(true);
 
   const load = useCallback(async () => {
     try {
@@ -106,6 +117,7 @@ export function PingReactionsPanel() {
     setPicked([]);
     setNote("");
     setEditing("");
+    setEditingEnabled(true);
   };
 
   const addEmoji = (raw: string) => {
@@ -150,7 +162,7 @@ export function PingReactionsPanel() {
         user_id: userId.trim(),
         emojis: picked.map((entry) => entry.raw),
         note,
-        enabled: true,
+        enabled: editing ? editingEnabled : true,
       });
       toast.success("Gespeichert.");
       reset();
@@ -175,6 +187,27 @@ export function PingReactionsPanel() {
     }
   };
 
+  /**
+   * Eine mitgelieferte Regel auf den Code-Stand zurücksetzen.
+   *
+   * Technisch dasselbe wie Löschen — es verschwindet nur die
+   * Überschreibung, nicht die Regel. Deshalb ein eigener Name und eine
+   * eigene Rückmeldung: „Gelöscht" wäre hier schlicht falsch.
+   */
+  const reset_ = async (rule: Rule) => {
+    setBusy(true);
+    try {
+      const answer = await api.pingReactionDelete(rule.user_id);
+      toast.success(answer?.result || "Zurückgesetzt.");
+      if (editing === rule.user_id) reset();
+      await load();
+    } catch (err: any) {
+      toast.error(err?.message || "Ging nicht.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const toggle = async (rule: Rule) => {
     setBusy(true);
     try {
@@ -190,8 +223,12 @@ export function PingReactionsPanel() {
 
   const edit = (rule: Rule) => {
     setEditing(rule.user_id);
+    setEditingEnabled(rule.enabled);
     setUserId(rule.user_id);
-    setPicked(rule.emojis);
+    // Eine pausierte Regel hat eine leere Anzeige, aber gespeicherte
+    // Emojis -- beim Bearbeiten müssen die mitgelieferten her, sonst
+    // steht das Formular leer da.
+    setPicked(rule.emojis.length ? rule.emojis : rule.default_emojis);
     setNote(rule.note);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -305,46 +342,109 @@ export function PingReactionsPanel() {
         </button>
       </div>
 
-      {/* Fest im Code */}
+      {/* Mitgeliefert — jetzt änderbar */}
       {builtin.length > 0 && (
         <div className={CARD}>
           <div className="flex items-center gap-3 mb-1">
-            <Lock className="h-5 w-5 text-slate-500 shrink-0" />
+            <ShieldCheck className="h-5 w-5 text-primary shrink-0" />
             <h3 className="font-black text-white text-sm uppercase tracking-wider">
-              Fest eingebaut
+              Mitgeliefert
             </h3>
           </div>
           <p className="text-[12px] text-slate-500 mb-4 leading-relaxed">
-            Steht im Code und lässt sich hier nicht ändern — damit ein
-            Versehen im Panel die eigene Kennzeichnung nicht abschaltet.
+            Diese Regeln stehen im Code und gelten ohne weiteres Zutun. Eine
+            Änderung hier legt sich darüber — „Zurücksetzen“ holt jederzeit
+            den Originalstand zurück.
           </p>
 
           <div className="space-y-2">
             {builtin.map((rule) => (
               <div
                 key={rule.user_id}
-                className="flex flex-wrap items-center gap-3 rounded-xl bg-[#0d1b31] border border-slate-800/70 px-3 py-2.5 opacity-80"
+                className={cn(
+                  "flex flex-wrap items-center gap-3 rounded-xl border px-3 py-2.5 transition-colors",
+                  rule.enabled
+                    ? "bg-[#0d1b31] border-slate-800"
+                    : "bg-[#0d1b31]/50 border-slate-800/50 opacity-55"
+                )}
               >
-                <span className="h-8 w-8 rounded-full bg-slate-800 flex items-center justify-center text-[10px] font-black text-slate-400 shrink-0 overflow-hidden">
+                <span className="h-8 w-8 rounded-full bg-primary/15 border border-primary/25 flex items-center justify-center text-[10px] font-black text-primary shrink-0 overflow-hidden">
                   {rule.avatar ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={rule.avatar} alt="" className="h-full w-full" />
                   ) : (
-                    "??"
+                    rule.user_id.slice(-2)
                   )}
                 </span>
+
                 <div className="min-w-0">
-                  <p className="text-sm text-slate-300 truncate">
+                  <p className="text-sm text-slate-200 truncate flex items-center gap-2">
                     {rule.name || "Unbekannt"}
+                    {rule.customised && (
+                      <span className="text-[9px] font-black uppercase tracking-wider text-cyan-300/90 bg-cyan-500/10 border border-cyan-500/25 rounded-full px-2 py-0.5">
+                        geändert
+                      </span>
+                    )}
+                    {!rule.enabled && (
+                      <span className="text-[9px] font-black uppercase tracking-wider text-amber-400/80">
+                        pausiert
+                      </span>
+                    )}
                   </p>
                   <p className="text-[10px] text-slate-600 font-mono">
                     {rule.user_id}
+                    {rule.note ? ` · ${rule.note}` : ""}
                   </p>
                 </div>
-                <div className="flex flex-wrap gap-1.5 ml-auto">
-                  {rule.emojis.map((info) => (
-                    <Emoji key={info.raw} info={info} />
-                  ))}
+
+                <div className="flex flex-wrap gap-1.5 sm:ml-auto">
+                  {rule.emojis.length === 0 ? (
+                    <span className="text-[11px] text-slate-600 self-center">
+                      keine
+                    </span>
+                  ) : (
+                    rule.emojis.map((info) => (
+                      <Emoji key={info.raw} info={info} />
+                    ))
+                  )}
+                </div>
+
+                <div className="flex gap-1.5 ml-auto sm:ml-0">
+                  <button
+                    onClick={() => toggle(rule)}
+                    disabled={busy}
+                    title={rule.enabled ? "Pausieren" : "Wieder aktivieren"}
+                    className="p-2 rounded-lg bg-white/[0.03] border border-white/5 hover:bg-white/[0.07] transition-all disabled:opacity-40"
+                  >
+                    {rule.enabled ? (
+                      <Pause className="h-3.5 w-3.5 text-amber-400" />
+                    ) : (
+                      <Play className="h-3.5 w-3.5 text-emerald-400" />
+                    )}
+                  </button>
+                  <button
+                    onClick={() => edit(rule)}
+                    disabled={busy}
+                    title="Bearbeiten"
+                    className="p-2 rounded-lg bg-white/[0.03] border border-white/5 hover:bg-white/[0.07] transition-all disabled:opacity-40"
+                  >
+                    <Save className="h-3.5 w-3.5 text-slate-400" />
+                  </button>
+                  {/* Zurücksetzen statt Löschen: die Regel verschwindet
+                      nicht, sie fällt auf den Code-Stand zurück. Ein
+                      Mülleimer-Symbol würde etwas anderes versprechen. */}
+                  <button
+                    onClick={() => reset_(rule)}
+                    disabled={busy || !rule.customised}
+                    title={
+                      rule.customised
+                        ? `Zurücksetzen auf ${rule.default_emojis.length} Emojis`
+                        : "Steht schon auf dem Originalstand"
+                    }
+                    className="p-2 rounded-lg bg-white/[0.03] border border-white/5 hover:bg-white/[0.07] transition-all disabled:opacity-25"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5 text-slate-400" />
+                  </button>
                 </div>
               </div>
             ))}

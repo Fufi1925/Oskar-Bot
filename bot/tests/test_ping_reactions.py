@@ -59,6 +59,15 @@ def source(*parts) -> str:
 
 # Echte Emojis aus utils/emoji.py -- keine erfundenen.
 STAFF = "<a:staff:1530375157988720792>"
+
+# Zwei gueltige Snowflakes fuer die Tests.
+#
+# Kurze Zahlen wie 111 gehen nicht ueberall: die Route prueft die
+# Laenge (17 bis 20 Ziffern), weil eine zu kurze Zahl keine
+# Discord-ID sein kann. Der erste Anlauf dieses Tests ist genau daran
+# gescheitert.
+OWNER_A = 111111111111111111
+OWNER_B = 222222222222222222
 MINGLE = "<a:mingle:1530375188720652438>"
 
 
@@ -250,10 +259,90 @@ def test_the_owners_still_react():
               "sonst scheitert add_reaction stumm")
 
 
-def test_the_panel_cannot_overwrite_an_owner():
-    """Sonst liesse sich die eigene Kennzeichnung im Panel abschalten."""
+def test_a_builtin_rule_can_be_changed():
+    """Die mitgelieferten Regeln sind jetzt aenderbar.
 
-    print("\nDas Panel kann keinen Besitzer ueberschreiben")
+    Sie waren zuerst gesperrt. Ausdruecklich anders gewuenscht -- also
+    legt sich eine gespeicherte Zeile ueber den Code-Stand.
+
+    Drei Zustaende, und alle drei bedeuten etwas anderes. Der mittlere
+    ist der heikle: waere er nicht vom ersten zu unterscheiden, haette
+    das Pausieren einer Besitzer-Regel den Code-Standard
+    zurueckgeholt statt sie abzuschalten -- der Schalter saehe kaputt
+    aus.
+    """
+
+    print("\nEine mitgelieferte Regel laesst sich aendern")
+
+    import aiosqlite
+
+    import cogs.events.react as react_module
+    from utils import ping_reactions as store
+
+    async def scenario():
+        handle, path = tempfile.mkstemp(suffix=".db")
+        os.close(handle)
+        db = await aiosqlite.connect(path)
+        await store.ensure_schema(db)
+
+        original_ids = react_module.OWNER_IDS
+        react_module.OWNER_IDS = [111, 222]
+        store.reset()
+        await store.load(db, force=True)
+
+        try:
+            out = {}
+            out["default"] = react_module.owner_reactions(111)
+
+            await store.save(db, 111, [STAFF])
+            await store.load(db, force=True)
+            out["changed"] = react_module.owner_reactions(111)
+            out["other_untouched"] = react_module.owner_reactions(222)
+
+            await store.save(db, 111, [STAFF], enabled=False)
+            await store.load(db, force=True)
+            out["paused"] = react_module.owner_reactions(111)
+            out["paused_override"] = store.override_for(111)
+
+            await store.remove(db, 111)
+            await store.load(db, force=True)
+            out["after_reset"] = react_module.owner_reactions(111)
+            out["reset_override"] = store.override_for(111)
+            return out
+        finally:
+            react_module.OWNER_IDS = original_ids
+            store.reset()
+            await db.close()
+            os.unlink(path)
+
+    out = asyncio.run(scenario())
+
+    check("ohne Aenderung gilt der Code-Stand",
+          len(out["default"]) == 4,
+          f"{len(out['default'])}: {out['default']}")
+    check("eine Aenderung schlaegt den Code",
+          out["changed"] == (STAFF,),
+          f"{out['changed']}")
+    check("der andere Besitzer bleibt unberuehrt",
+          len(out["other_untouched"]) == 3,
+          str(out["other_untouched"]))
+
+    check("pausiert heisst wirklich nichts",
+          out["paused"] == (),
+          f"{out['paused']} — der Code-Stand kam zurueck, "
+          "der Schalter waere wirkungslos")
+    check("und unterscheidet sich von 'nichts gespeichert'",
+          out["paused_override"] == [] and out["reset_override"] is None,
+          f"pausiert={out['paused_override']!r}, "
+          f"zurueckgesetzt={out['reset_override']!r}")
+
+    check("Zuruecksetzen holt den Code-Stand zurueck",
+          len(out["after_reset"]) == 4,
+          f"{len(out['after_reset'])}: {out['after_reset']}")
+
+
+def test_the_route_no_longer_blocks_owners():
+    print("\nDie Route weist eine Besitzer-ID nicht mehr ab")
 
     src = source("api", "routes", "pingreactions.py")
     tree = ast.parse(src)
@@ -268,11 +357,133 @@ def test_the_panel_cannot_overwrite_an_owner():
         return
 
     body = ast.unparse(node)
-    check("die Route fragt die festen Regeln ab",
-          "owner_reactions(" in body)
-    check("und weist sie ab",
-          "HTTPException" in body and "feste Regel" in body,
-          "sonst laesst sich eine Besitzer-ID ueberschreiben")
+    check("keine Sperre mehr fuer feste Regeln",
+          "feste Regel" not in body,
+          "sonst laesst sich eine Besitzer-ID weiterhin nicht aendern")
+
+
+def test_delete_and_toggle_really_behave_differently():
+    """Die beiden Routen wirklich aufrufen, nicht nur lesen.
+
+    Die Textsuche oben zeigt, dass die Unterscheidung im Code steht --
+    ob sie greift, sieht man erst beim Ausfuehren. Genau hier sind
+    beim Mutationstest zwei Manipulationen entwischt.
+    """
+
+    print("\nLoeschen und Pausieren verhalten sich unterschiedlich")
+
+    import cogs.events.react as react_module
+    from api.db_manager import db_manager
+    from api.routes import pingreactions as route
+    from utils import ping_reactions as store
+
+    class Bot:
+        def get_user(self, _uid):
+            return None
+
+    async def scenario():
+        handle, path = tempfile.mkstemp(suffix=".db")
+        os.close(handle)
+
+        original_path = store.DB_PATH
+        original_ids = react_module.OWNER_IDS
+        store.DB_PATH = path
+        react_module.OWNER_IDS = [OWNER_A, OWNER_B]
+        store.reset()
+
+        try:
+            out = {}
+
+            # Pausieren einer Regel, die es nur im Code gibt.
+            answer = await route.toggle_rule(OWNER_A, {"enabled": False})
+            out["toggle_ok"] = answer["status"]
+            out["after_pause"] = react_module.owner_reactions(OWNER_A)
+
+            # Wieder an.
+            await route.toggle_rule(OWNER_A, {"enabled": True})
+            out["after_resume"] = react_module.owner_reactions(OWNER_A)
+
+            # Aendern, dann zuruecksetzen.
+            await route.save_rule(
+                {"user_id": str(OWNER_A), "emojis": [STAFF]}, Bot()
+            )
+            out["after_change"] = react_module.owner_reactions(OWNER_A)
+
+            answer = await route.delete_rule(OWNER_A)
+            out["reset_flag"] = answer.get("reset_to_default")
+            out["reset_text"] = answer.get("result", "")
+            out["after_reset"] = react_module.owner_reactions(OWNER_A)
+
+            # Und eine gewoehnliche ID: dort heisst Loeschen wirklich weg.
+            await route.save_rule(
+                {"user_id": "998877665544332211", "emojis": [STAFF]}, Bot()
+            )
+            answer = await route.delete_rule(998877665544332211)
+            out["plain_flag"] = answer.get("reset_to_default")
+            out["plain_text"] = answer.get("result", "")
+            return out
+        finally:
+            store.DB_PATH = original_path
+            react_module.OWNER_IDS = original_ids
+            store.reset()
+            await db_manager.close_all()
+            os.unlink(path)
+
+    out = asyncio.run(scenario())
+
+    check("eine eingebaute Regel laesst sich pausieren",
+          out["toggle_ok"] == "success" and out["after_pause"] == (),
+          f"{out['after_pause']} — 404 oder der Code-Stand kam zurueck")
+    check("und wieder einschalten",
+          len(out["after_resume"]) == 4,
+          str(out["after_resume"]))
+    check("aendern wirkt", out["after_change"] == (STAFF,),
+          str(out["after_change"]))
+
+    check("Zuruecksetzen meldet sich als solches",
+          out["reset_flag"] is True,
+          "sonst steht dort 'Gelöscht', und das stimmt nicht")
+    check("die Rueckmeldung sagt es auch",
+          "urückgesetzt" in out["reset_text"],
+          out["reset_text"])
+    check("und der Code-Stand gilt wieder",
+          len(out["after_reset"]) == 4,
+          str(out["after_reset"]))
+
+    check("bei einer gewoehnlichen ID heisst es weiterhin geloescht",
+          out["plain_flag"] is False and "elöscht" in out["plain_text"],
+          f"{out['plain_flag']}, {out['plain_text']!r}")
+
+
+def test_pausing_a_builtin_rule_creates_a_row():
+    """Zum Pausieren muss erst eine Zeile entstehen.
+
+    Eine mitgelieferte Regel hat zunaechst gar keinen Datenbankeintrag
+    -- sie steht nur im Code. Der Umschalter muss deshalb einen
+    anlegen, und zwar mit genau den Emojis, die gerade gelten. Sonst
+    stuende beim Wiedereinschalten nichts mehr drin.
+    """
+
+    print("\nPausieren legt eine Zeile an")
+
+    src = source("api", "routes", "pingreactions.py")
+    tree = ast.parse(src)
+
+    node = next(
+        (n for n in ast.walk(tree)
+         if isinstance(n, ast.AsyncFunctionDef) and n.name == "toggle_rule"),
+        None,
+    )
+    check("es gibt toggle_rule", node is not None)
+    if node is None:
+        return
+
+    body = ast.unparse(node)
+    check("ohne Zeile wird der Code-Stand herangezogen",
+          "default_owner_reactions" in body,
+          "sonst gibt es 404 beim Pausieren einer eingebauten Regel")
+    check("und nur dann abgewiesen, wenn es auch keinen Standard gibt",
+          "if not default:" in body)
 
 
 # --------------------------------------------------------------------- #
@@ -551,6 +762,61 @@ def test_the_tab_is_wired_up():
           match.groups() if match else "kein Eintrag")
 
 
+def test_the_panel_can_edit_builtin_rules():
+    """Die eingebauten Regeln brauchen dieselben Knoepfe wie die anderen."""
+
+    print("\nDas Panel kann die mitgelieferten Regeln bearbeiten")
+
+    dashboard = os.path.join(os.path.dirname(BOT), "dashboard")
+    if not os.path.isdir(dashboard):
+        print("  skip")
+        return
+
+    panel = open(
+        os.path.join(dashboard, "components", "dashboard", "ping-reactions-panel.tsx"),
+        encoding="utf-8",
+    ).read()
+
+    # Der Block der eingebauten Regeln -- bis zum naechsten Kommentar.
+    start = panel.index("Mitgeliefert")
+    block = panel[start : panel.index("Die eigenen Einträge")]
+
+    check("sie haben einen Bearbeiten-Knopf",
+          "edit(rule)" in block,
+          "sonst bleiben sie unveraenderlich")
+    check("und einen Pausenknopf",
+          "toggle(rule)" in block)
+    check("und Zuruecksetzen",
+          "reset_(rule)" in block,
+          "ohne den gibt es keinen Weg zurueck zum Originalstand")
+    check("Zuruecksetzen ist kein Loeschen",
+          "Trash2" not in block,
+          "ein Muelleimer verspricht, dass die Regel verschwindet")
+    check("es ist aus, wenn nichts geaendert wurde",
+          "!rule.customised" in block,
+          "sonst kann man auf den Stand zuruecksetzen, auf dem man steht")
+    check("eine Aenderung ist erkennbar",
+          "geändert" in block,
+          "sonst sieht niemand, ob der Originalstand gilt")
+
+    # Und der Fallstrick beim Bearbeiten einer pausierten Regel.
+    #
+    # Nicht nur nachsehen, ob das Wort vorkommt -- geprueft wird, dass
+    # es an der Stelle steht, an der es wirkt. Beim Mutationstest sind
+    # beide Faelle zuerst entwischt: das Wort blieb im Text stehen,
+    # waehrend die Zeile, die es benutzt, verdreht war.
+    check("der Pausenzustand wird gemerkt",
+          "setEditingEnabled(rule.enabled)" in panel,
+          "sonst weiss das Formular nicht, ob die Regel pausiert war")
+    check("und beim Speichern verwendet",
+          "enabled: editing ? editingEnabled : true" in panel,
+          "ein festes `enabled: true` schaltet eine pausierte Regel "
+          "beim Ändern der Emojis stillschweigend wieder ein")
+    check("das Formular faellt auf die mitgelieferten Emojis zurueck",
+          "rule.emojis.length ? rule.emojis : rule.default_emojis" in panel,
+          "sonst steht es bei einer pausierten Regel leer da")
+
+
 def test_the_panel_only_offers_custom_emojis():
     print("\nDas Panel bietet nur eigene Emojis an")
 
@@ -590,7 +856,10 @@ def main() -> int:
     test_only_custom_emojis_are_accepted()
     test_the_bot_refuses_bad_input()
     test_the_owners_still_react()
-    test_the_panel_cannot_overwrite_an_owner()
+    test_a_builtin_rule_can_be_changed()
+    test_the_route_no_longer_blocks_owners()
+    test_pausing_a_builtin_rule_creates_a_row()
+    test_delete_and_toggle_really_behave_differently()
     test_a_listed_user_gets_reactions()
     test_both_mention_spellings_work()
     test_bots_are_ignored()
@@ -599,6 +868,7 @@ def main() -> int:
     test_duplicates_across_people_collapse()
     test_a_broken_list_does_not_break_the_owners()
     test_the_tab_is_wired_up()
+    test_the_panel_can_edit_builtin_rules()
     test_the_panel_only_offers_custom_emojis()
 
     print()

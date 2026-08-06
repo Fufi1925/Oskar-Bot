@@ -32,18 +32,26 @@ from discord.ext import commands
 from utils.config import OWNER_IDS
 from utils.emoji import ACTIVE_DEVELOPER, BLACKCROWN, MINGLE, STAFF
 
-# Die fest verdrahteten Reaktionen der Besitzer.
+# Die mitgelieferten Reaktionen der Besitzer.
 #
-# Als Konstante und nicht mehr inline, damit das Admin-Panel sie
-# anzeigen kann: dort steht sonst eine Liste, in der die beiden
-# wichtigsten Eintraege fehlen, und niemand versteht, warum der Bot
-# trotzdem reagiert.
+# Sie sind der **Standard**, nicht mehr das letzte Wort: seit dem
+# Admin-Reiter laesst sich jede davon ueberschreiben, abschalten und
+# wieder auf diesen Stand zuruecksetzen.
+#
+# Im Code bleiben sie trotzdem, und zwar aus einem Grund: eine leere
+# oder verlorene Datenbank soll nicht dazu fuehren, dass die
+# Kennzeichnung stillschweigend verschwindet. Ohne gespeicherte
+# Aenderung gilt genau das hier.
 OWNER_EMOJIS = (BLACKCROWN, ACTIVE_DEVELOPER, STAFF, MINGLE)
 CO_OWNER_EMOJIS = (BLACKCROWN, ACTIVE_DEVELOPER, STAFF)
 
 
-def owner_reactions(user_id: int) -> tuple[str, ...]:
-    """Was ein Besitzer bekommt -- oder nichts."""
+def default_owner_reactions(user_id: int) -> tuple[str, ...]:
+    """Der mitgelieferte Stand fuer diese ID -- ohne Ruecksicht auf das Panel.
+
+    Braucht das Dashboard, um "zuruecksetzen" anbieten zu koennen: es
+    muss zeigen koennen, worauf zurueckgesetzt wird.
+    """
 
     if not OWNER_IDS:
         return ()
@@ -52,6 +60,31 @@ def owner_reactions(user_id: int) -> tuple[str, ...]:
     if user_id in OWNER_IDS:
         return CO_OWNER_EMOJIS
     return ()
+
+
+def owner_reactions(user_id: int) -> tuple[str, ...]:
+    """Was ein Besitzer *jetzt* bekommt -- Panel schlaegt Code.
+
+    Die drei Faelle von ``override_for`` bedeuten Verschiedenes und
+    duerfen nicht zusammenfallen:
+
+      ``None``  nichts gespeichert -> der mitgelieferte Stand.
+      ``[]``    gespeichert, aber pausiert -> ausdruecklich nichts.
+      Liste     genau diese Emojis.
+
+    Wuerde hier nur auf "ist die Liste leer" geprueft, waere das
+    Pausieren einer Besitzer-Regel wirkungslos: der Code-Standard kaeme
+    sofort zurueck, und im Panel saehe es aus, als haette der Schalter
+    nicht funktioniert.
+    """
+
+    from utils import ping_reactions as store
+
+    override = store.override_for(user_id)
+    if override is not None:
+        return tuple(override)
+
+    return default_owner_reactions(user_id)
 
 
 class React(commands.Cog):
@@ -102,11 +135,19 @@ class React(commands.Cog):
             return
 
         emojis: list[str] = []
+        # Eine Quelle pro Person, nicht zwei.
+        #
+        # `owner_reactions()` liest die Ueberschreibung selbst und
+        # faellt nur ohne gespeicherte Zeile auf den Code-Stand zurueck.
+        # Zusaetzlich noch `reactions_for()` abzufragen wuerde dieselben
+        # Emojis ein zweites Mal einsammeln -- und bei einem pausierten
+        # Besitzer waere die Reihenfolge der beiden Aufrufe plötzlich
+        # entscheidend. Deshalb hier genau ein Aufruf.
         for user_id in mentioned:
-            for emoji in owner_reactions(user_id):
-                if emoji not in emojis:
-                    emojis.append(emoji)
-            for emoji in store.reactions_for(user_id):
+            wanted = owner_reactions(user_id)
+            if not wanted:
+                wanted = store.reactions_for(user_id)
+            for emoji in wanted:
                 if emoji not in emojis:
                     emojis.append(emoji)
 

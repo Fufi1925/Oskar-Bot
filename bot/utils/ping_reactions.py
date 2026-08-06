@@ -223,7 +223,19 @@ async def remove(db: aiosqlite.Connection, user_id: int) -> bool:
 # ganzen Bot -- deshalb liegt die Liste im Arbeitsspeicher und wird nur
 # nach einer Aenderung neu geladen.
 
+# user_id -> Emojis. Nur eingeschaltete Eintraege.
 _cache: dict[int, list[str]] = {}
+
+# Jede user_id, zu der es eine Zeile gibt -- auch pausierte.
+#
+# Der Unterschied ist wichtig, seit die fest eingebauten Regeln
+# ueberschreibbar sind: "keine Zeile" heisst *nimm den Standard aus dem
+# Code*, "Zeile, aber pausiert" heisst *ausdruecklich nichts*. Ohne
+# diese zweite Menge waeren beide Faelle nicht zu unterscheiden, und
+# das Pausieren einer Besitzer-Regel haette einfach den Code-Standard
+# zurueckgeholt statt sie abzuschalten.
+_known: set[int] = set()
+
 _loaded = False
 
 
@@ -235,20 +247,47 @@ async def load(db: aiosqlite.Connection, *, force: bool = False) -> None:
 
     entries = await all_entries(db)
     _cache.clear()
+    _known.clear()
     for entry in entries:
+        user_id = int(entry["user_id"])
+        _known.add(user_id)
         if entry["enabled"] and entry["emojis"]:
-            _cache[int(entry["user_id"])] = list(entry["emojis"])
+            _cache[user_id] = list(entry["emojis"])
     _loaded = True
 
 
 def reactions_for(user_id: int) -> list[str]:
-    """Was dieser Nutzer bekommt. Leer heisst: kein Eintrag."""
+    """Was dieser Nutzer bekommt. Leer heisst: kein aktiver Eintrag."""
 
     return list(_cache.get(int(user_id), []))
 
 
+def override_for(user_id: int) -> list[str] | None:
+    """Die gespeicherte Regel -- oder None, wenn es keine gibt.
+
+    Drei Antworten, und alle drei bedeuten etwas anderes:
+
+      ``None``  keine Zeile. Der Aufrufer nimmt seinen Standard.
+      ``[]``    eine Zeile, aber pausiert. Ausdruecklich nichts.
+      Liste     genau diese Emojis.
+
+    Nur so laesst sich eine fest eingebaute Regel im Panel sowohl
+    aendern als auch abschalten -- und durch Loeschen der Zeile wieder
+    auf den Code-Stand zuruecksetzen.
+    """
+
+    uid = int(user_id)
+    if uid not in _known:
+        return None
+    return list(_cache.get(uid, []))
+
+
+def has_override(user_id: int) -> bool:
+    return int(user_id) in _known
+
+
 def known_users() -> list[int]:
-    return list(_cache)
+    return list(_known)
 
 
 def reset() -> None:
@@ -256,4 +295,5 @@ def reset() -> None:
 
     global _loaded
     _cache.clear()
+    _known.clear()
     _loaded = False

@@ -85,27 +85,53 @@ def _emoji_details(raw: str) -> dict:
     }
 
 
-def _builtin_rules(bot) -> list[dict]:
-    """Die fest verdrahteten Besitzer-Reaktionen -- nur zum Ansehen."""
+def _builtin_rules(bot, entries: list[dict]) -> list[dict]:
+    """Die mitgelieferten Besitzer-Regeln -- jetzt auch aenderbar.
 
-    from cogs.events.react import owner_reactions
+    Sie waren zuerst nur zum Ansehen da. Aenderbar heisst nicht, dass
+    sie aus dem Code verschwinden: der Code bleibt der Standard, eine
+    gespeicherte Zeile legt sich darueber, und "Zuruecksetzen" wirft
+    die Zeile weg.
+
+    Deshalb steht bei jedem Eintrag beides -- was gerade gilt und was
+    mitgeliefert wurde. Ohne den Vergleich sieht niemand, ob er den
+    Originalstand vor sich hat oder eine eigene Aenderung.
+    """
+
+    from cogs.events.react import default_owner_reactions
 
     from utils.config import OWNER_IDS
 
-    entries = []
+    by_id = {entry["user_id"]: entry for entry in entries}
+
+    rules = []
     for user_id in OWNER_IDS:
-        emojis = owner_reactions(user_id)
-        if not emojis:
+        default = default_owner_reactions(user_id)
+        if not default:
             continue
-        entries.append({
+
+        override = by_id.get(str(user_id))
+        if override is None:
+            current = list(default)
+            enabled = True
+            note = ""
+        else:
+            current = override["emojis"]
+            enabled = override["enabled"]
+            note = override["note"]
+
+        rules.append({
             "user_id": str(user_id),
-            "emojis": [_emoji_details(e) for e in emojis],
-            "note": "Fest im Code — nicht über das Panel änderbar.",
-            "enabled": True,
+            "emojis": [_emoji_details(e) for e in current],
+            "default_emojis": [_emoji_details(e) for e in default],
+            "note": note,
+            "enabled": enabled,
             "builtin": True,
+            # Weicht das, was gilt, vom mitgelieferten Stand ab?
+            "customised": override is not None,
             **_describe(bot, str(user_id)),
         })
-    return entries
+    return rules
 
 
 @router.get("", summary="Alle Ping-Reaktionen")
@@ -113,17 +139,30 @@ async def list_rules(bot: "universitybot" = Depends(get_bot)):
     db = await _db()
     entries = await store.all_entries(db)
 
+    from cogs.events.react import default_owner_reactions
+
+    builtin = _builtin_rules(bot, entries)
+    builtin_ids = {rule["user_id"] for rule in builtin}
+
     rules = []
     for entry in entries:
+        # Eine Zeile zu einer Besitzer-ID steht oben als Aenderung der
+        # mitgelieferten Regel -- sie hier ein zweites Mal zu zeigen
+        # waere derselbe Eintrag zweimal, mit zwei Loeschknoepfen.
+        if entry["user_id"] in builtin_ids:
+            continue
         rules.append({
             **entry,
             "emojis": [_emoji_details(e) for e in entry["emojis"]],
+            "default_emojis": [],
             "builtin": False,
+            "customised": True,
             **_describe(bot, entry["user_id"]),
         })
 
+    _ = default_owner_reactions  # nur fuer den Import-Check
     return {
-        "builtin": _builtin_rules(bot),
+        "builtin": builtin,
         "rules": rules,
         "count": len(rules),
         "limits": {
@@ -148,16 +187,14 @@ async def save_rule(data: dict, bot: "universitybot" = Depends(get_bot)):
             detail="Das ist keine gültige Discord-ID. Sie hat 17 bis 20 Ziffern.",
         )
 
-    from cogs.events.react import owner_reactions
-
-    if owner_reactions(int(raw_id)):
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                "Für diese ID gibt es schon eine feste Regel im Code. "
-                "Sie lässt sich hier nicht überschreiben."
-            ),
-        )
+    # Eine Besitzer-ID wird hier nicht mehr abgewiesen.
+    #
+    # Sie war zuerst gesperrt, damit ein Versehen im Panel die eigene
+    # Kennzeichnung nicht abschalten kann. Ausdruecklich anders
+    # gewuenscht -- also legt sich eine gespeicherte Zeile jetzt ueber
+    # den Code-Stand. Rueckgaengig geht ueber DELETE: die Zeile
+    # verschwindet, der mitgelieferte Stand gilt wieder. Verloren gehen
+    # kann dabei nichts.
 
     emojis = data.get("emojis")
     if not isinstance(emojis, list):
@@ -196,8 +233,23 @@ async def save_rule(data: dict, bot: "universitybot" = Depends(get_bot)):
     }
 
 
-@router.delete("/{user_id}", summary="Eintrag löschen")
+@router.delete("/{user_id}", summary="Eintrag löschen bzw. zurücksetzen")
 async def delete_rule(user_id: int, actor: str = ""):
+    """Die gespeicherte Zeile entfernen.
+
+    Bei einer gewoehnlichen ID heisst das: weg, der Bot reagiert nicht
+    mehr.
+
+    Bei einer Besitzer-ID heisst dasselbe etwas anderes -- die Zeile
+    war nur eine Ueberschreibung, und ohne sie gilt wieder der
+    mitgelieferte Stand aus dem Code. Deshalb steht in der Antwort
+    auch, was gerade passiert ist: "geloescht" waere an dieser Stelle
+    schlicht falsch und wuerde jemanden glauben lassen, die
+    Kennzeichnung sei nun weg.
+    """
+
+    from cogs.events.react import default_owner_reactions
+
     db = await _db()
     removed = await store.remove(db, user_id)
     if not removed:
@@ -205,12 +257,24 @@ async def delete_rule(user_id: int, actor: str = ""):
 
     await store.load(db, force=True)
 
+    default = default_owner_reactions(user_id)
+
     await feature_audit.log_action(
-        "ping_reaction_deleted",
+        "ping_reaction_reset" if default else "ping_reaction_deleted",
         actor=actor or "dashboard",
         detail=str(user_id),
     )
-    return {"status": "success", "result": "Gelöscht."}
+
+    if default:
+        return {
+            "status": "success",
+            "result": (
+                f"Zurückgesetzt — es gelten wieder die {len(default)} "
+                "mitgelieferten Emojis."
+            ),
+            "reset_to_default": True,
+        }
+    return {"status": "success", "result": "Gelöscht.", "reset_to_default": False}
 
 
 @router.post("/{user_id}/toggle", summary="Ein- oder ausschalten")
@@ -221,10 +285,27 @@ async def toggle_rule(user_id: int, data: dict | None = None):
     zusammengeklickt hat, moechte sie nicht noch einmal suchen.
     """
 
+    from cogs.events.react import default_owner_reactions
+
     db = await _db()
     entry = await store.get(db, user_id)
+
     if entry is None:
-        raise HTTPException(status_code=404, detail="Diesen Eintrag gibt es nicht.")
+        # Eine mitgelieferte Besitzer-Regel hat noch keine Zeile: sie
+        # steht bisher nur im Code. Zum Pausieren muss also erst eine
+        # angelegt werden -- mit genau den Emojis, die gerade gelten,
+        # damit beim spaeteren Wiedereinschalten nichts fehlt.
+        default = default_owner_reactions(user_id)
+        if not default:
+            raise HTTPException(
+                status_code=404, detail="Diesen Eintrag gibt es nicht."
+            )
+        entry = {
+            "emojis": list(default),
+            "note": "",
+            "enabled": True,
+            "added_by": "",
+        }
 
     payload = data or {}
     wanted = bool(payload.get("enabled", not entry["enabled"]))
