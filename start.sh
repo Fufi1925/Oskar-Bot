@@ -15,6 +15,10 @@ if [ -z "${PHANTOM_BASE_URL:-}" ]; then
   echo "👻 PHANTOM_BASE_URL set to: $PHANTOM_BASE_URL"
 fi
 export PHANTOM_COOKIE_PATH="${PHANTOM_COOKIE_PATH:-/phantom}"
+if [ -n "${DATA_DIR:-}" ]; then
+  mkdir -p "$DATA_DIR/phantom"
+  export PHANTOM_DB_PATH="${PHANTOM_DB_PATH:-$DATA_DIR/phantom/phantom.db}"
+fi
 
 # Set NEXTAUTH_URL automatically if not set
 if [ -z "${NEXTAUTH_URL:-}" ]; then

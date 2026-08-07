@@ -77,9 +77,7 @@ def oauth_authorize_url(state: str, settings: Settings | None = None) -> str:
         "redirect_uri": settings.oauth_redirect_uri,
         "scope": OAUTH_SCOPES,
         "state": state,
-        "prompt": "none",
     }
-    # prompt=none tries silent re-auth; fall back without if Discord rejects
     return f"{DISCORD_AUTH}?{urlencode(params)}"
 
 

@@ -61,9 +61,17 @@ class Settings(BaseSettings):
 
     @property
     def db_path(self) -> Path:
+        import os
+        # On Railway the shared volume is /data — keep Phantom isolated there.
+        data_dir = os.getenv("DATA_DIR", "").strip()
         p = Path(self.phantom_db_path)
+        if data_dir:
+            base = Path(data_dir) / "phantom"
+            base.mkdir(parents=True, exist_ok=True)
+            return base / (p.name if not p.is_absolute() else p.name)
         if not p.is_absolute():
             p = ROOT / p
+        p.parent.mkdir(parents=True, exist_ok=True)
         return p
 
 

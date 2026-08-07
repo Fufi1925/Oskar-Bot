@@ -1,50 +1,82 @@
 from __future__ import annotations
 
 import json
+import logging
+import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
-from fastapi import Depends, FastAPI, Form, HTTPException, Request, Response
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi import FastAPI, Form, HTTPException, Request, Response
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from app import auth, db as dbmod
 from app.config import get_settings
 
+log = logging.getLogger("phantom")
+
 APP_DIR = Path(__file__).resolve().parent
 TEMPLATES = Jinja2Templates(directory=str(APP_DIR / "templates"))
 
+# Module-level DB: request.app is the PARENT app when mounted under University,
+# so app.state.db on the sub-app is unreliable. Always use this helper.
+_db_conn = None
+_db_lock = None
+
 
 def render(request: Request, template_name: str, context: dict[str, Any]) -> HTMLResponse:
-    """Jinja render helper — avoids Starlette TemplateResponse arg quirks."""
     template = TEMPLATES.env.get_template(template_name)
-    html = template.render(context)
-    return HTMLResponse(html)
+    return HTMLResponse(template.render(context))
+
+
+async def get_db():
+    """Lazy shared SQLite connection for Phantom."""
+    global _db_conn, _db_lock
+    import asyncio
+
+    if _db_lock is None:
+        _db_lock = asyncio.Lock()
+    async with _db_lock:
+        if _db_conn is None:
+            settings = get_settings()
+            # Prefer /data on Railway if available
+            try:
+                if settings.db_path:
+                    settings.db_path.parent.mkdir(parents=True, exist_ok=True)
+            except Exception:
+                pass
+            _db_conn = await dbmod.connect()
+            log.info("Phantom DB ready at %s", get_settings().db_path)
+        return _db_conn
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    settings = get_settings()
-    settings.db_path.parent.mkdir(parents=True, exist_ok=True)
-    app.state.db = await dbmod.connect()
+    # Best-effort init (also works when mounted)
+    try:
+        await get_db()
+    except Exception as exc:
+        log.error("Phantom DB init failed: %s", exc)
     yield
-    await app.state.db.close()
+    global _db_conn
+    if _db_conn is not None:
+        try:
+            await _db_conn.close()
+        except Exception:
+            pass
+        _db_conn = None
 
 
 def create_app() -> FastAPI:
     settings = get_settings()
-    # When mounted under parent FastAPI at /phantom, leave FastAPI root_path empty.
-    # Link prefix still comes from PHANTOM_BASE_URL for templates/cookies/OAuth.
-    _mount_mode = True  # always mounted in University stack; standalone run_dashboard wraps mount
     app = FastAPI(
         title="Phantom Dashboard",
         docs_url=None,
         redoc_url=None,
         openapi_url=None,
         lifespan=lifespan,
-        # root_path lets reverse-proxies mount under /phantom
         root_path="",
     )
 
@@ -55,11 +87,15 @@ def create_app() -> FastAPI:
     )
 
     def _href(path: str) -> str:
-        """Build absolute site path under /phantom prefix."""
         prefix = (settings.root_path or "").rstrip("/")
         if not path.startswith("/"):
             path = "/" + path
         return f"{prefix}{path}" if prefix else path
+
+    def _cookie_secure(request: Request) -> bool:
+        # Railway / reverse proxy
+        proto = (request.headers.get("x-forwarded-proto") or request.url.scheme or "").lower()
+        return proto == "https"
 
     def ctx(request: Request, **extra: Any) -> dict[str, Any]:
         s = get_settings()
@@ -79,20 +115,45 @@ def create_app() -> FastAPI:
         base.update(extra)
         return base
 
-    def set_flash(response: Response, message: str) -> None:
+    def set_flash(response: Response, message: str, request: Request | None = None) -> None:
         s = get_settings()
+        secure = _cookie_secure(request) if request is not None else True
+        # Cookies must be latin-1 safe
+        safe = (
+            str(message)
+            .replace("„", "'")
+            .replace("“", "'")
+            .replace("”", "'")
+            .replace("–", "-")
+            .replace("—", "-")
+            .encode("latin-1", errors="replace")
+            .decode("latin-1")
+        )[:180]
         response.set_cookie(
             "phantom_flash",
-            message[:180],
-            max_age=20,
-            path=s.phantom_cookie_path,
+            safe,
+            max_age=30,
+            path=s.phantom_cookie_path or "/",
             httponly=False,
             samesite="lax",
+            secure=secure,
         )
 
     def clear_flash(response: Response) -> None:
         s = get_settings()
-        response.delete_cookie("phantom_flash", path=s.phantom_cookie_path)
+        response.delete_cookie("phantom_flash", path=s.phantom_cookie_path or "/")
+
+    def set_session_cookie(response: Response, token: str, request: Request) -> None:
+        s = get_settings()
+        response.set_cookie(
+            s.phantom_cookie_name,
+            token,
+            max_age=s.phantom_session_max_age,
+            path=s.phantom_cookie_path or "/",
+            httponly=True,
+            samesite="lax",
+            secure=_cookie_secure(request),
+        )
 
     # ── Pages ──────────────────────────────────────────────
 
@@ -114,7 +175,13 @@ def create_app() -> FastAPI:
             missing.append("PHANTOM_DISCORD_CLIENT_ID")
         if not s.phantom_discord_client_secret:
             missing.append("PHANTOM_DISCORD_CLIENT_SECRET")
-        resp = render(request, "login.html", ctx(request, missing=missing, redirect_uri=s.oauth_redirect_uri))
+        if not s.phantom_secret_key or s.phantom_secret_key == "dev-only-change-me":
+            missing.append("PHANTOM_SECRET_KEY")
+        resp = render(
+            request,
+            "login.html",
+            ctx(request, missing=missing, redirect_uri=s.oauth_redirect_uri),
+        )
         clear_flash(resp)
         return resp
 
@@ -122,7 +189,9 @@ def create_app() -> FastAPI:
     async def auth_discord(request: Request, force: int = 0):
         s = get_settings()
         if not s.phantom_discord_client_id or not s.phantom_discord_client_secret:
-            return RedirectResponse(url=_href("/login"), status_code=302)
+            resp = RedirectResponse(url=_href("/login"), status_code=302)
+            set_flash(resp, "OAuth ist nicht konfiguriert (CLIENT_ID/SECRET).", request)
+            return resp
         state = auth.make_oauth_state()
         url = (
             auth.oauth_authorize_url_force(state, s)
@@ -130,13 +199,15 @@ def create_app() -> FastAPI:
             else auth.oauth_authorize_url(state, s)
         )
         resp = RedirectResponse(url=url, status_code=302)
+        # Path must match /phantom so browser sends cookie on callback
         resp.set_cookie(
             "phantom_oauth_state",
             state,
             max_age=600,
-            path=s.phantom_cookie_path,
+            path=s.phantom_cookie_path or "/",
             httponly=True,
             samesite="lax",
+            secure=_cookie_secure(request),
         )
         return resp
 
@@ -146,16 +217,27 @@ def create_app() -> FastAPI:
         code: str | None = None,
         state: str | None = None,
         error: str | None = None,
+        error_description: str | None = None,
     ):
         s = get_settings()
         if error:
+            msg = error_description or error
             resp = RedirectResponse(url=_href("/login"), status_code=302)
-            set_flash(resp, f"Discord Login abgebrochen: {error}")
+            set_flash(resp, f"Discord Login abgebrochen: {msg}", request)
             return resp
+
         expected = request.cookies.get("phantom_oauth_state")
-        if not code or not state or not expected or state != expected:
+        if not code:
             resp = RedirectResponse(url=_href("/login"), status_code=302)
-            set_flash(resp, "Ungültiger OAuth-State. Bitte erneut anmelden.")
+            set_flash(resp, "Kein OAuth-Code von Discord erhalten.", request)
+            return resp
+        if not state or not expected or state != expected:
+            resp = RedirectResponse(url=_href("/login"), status_code=302)
+            set_flash(
+                resp,
+                "OAuth-State ungültig/abgelaufen. Bitte erneut über 'Mit Discord anmelden' starten.",
+                request,
+            )
             return resp
 
         try:
@@ -164,48 +246,47 @@ def create_app() -> FastAPI:
             if not access:
                 raise HTTPException(status_code=400, detail="no_access_token")
             duser = await auth.fetch_discord_user(access)
+            if not duser.get("id"):
+                raise HTTPException(status_code=400, detail="no_user_id")
             expires_in = int(token_data.get("expires_in") or 0)
-            import time as _t
 
+            db = await get_db()
             await dbmod.upsert_user(
-                request.app.state.db,
+                db,
                 user_id=int(duser["id"]),
                 username=duser.get("username") or "user",
                 global_name=duser.get("global_name"),
                 avatar=duser.get("avatar"),
                 access_token=access,
                 refresh_token=token_data.get("refresh_token"),
-                token_expires_at=int(_t.time()) + expires_in if expires_in else None,
+                token_expires_at=int(time.time()) + expires_in if expires_in else None,
             )
             session = auth.create_session_token(duser, s)
         except HTTPException as e:
+            log.exception("Phantom OAuth HTTPException")
             resp = RedirectResponse(url=_href("/login"), status_code=302)
-            set_flash(resp, f"Login fehlgeschlagen ({e.detail}).")
+            set_flash(resp, f"Login fehlgeschlagen: {e.detail}", request)
             return resp
         except Exception as e:
+            log.exception("Phantom OAuth failed")
             resp = RedirectResponse(url=_href("/login"), status_code=302)
-            set_flash(resp, f"Login Fehler: {type(e).__name__}")
+            # show a bit more than just AttributeError
+            detail = f"{type(e).__name__}: {e}"
+            set_flash(resp, f"Login Fehler: {detail[:140]}", request)
             return resp
 
         resp = RedirectResponse(url=_href("/dashboard"), status_code=302)
-        resp.set_cookie(
-            s.phantom_cookie_name,
-            session,
-            max_age=s.phantom_session_max_age,
-            path=s.phantom_cookie_path,
-            httponly=True,
-            samesite="lax",
-        )
-        resp.delete_cookie("phantom_oauth_state", path=s.phantom_cookie_path)
-        set_flash(resp, "Erfolgreich angemeldet.")
+        set_session_cookie(resp, session, request)
+        resp.delete_cookie("phantom_oauth_state", path=s.phantom_cookie_path or "/")
+        set_flash(resp, "Erfolgreich angemeldet.", request)
         return resp
 
     @app.get("/auth/logout")
-    async def logout():
+    async def logout(request: Request):
         s = get_settings()
         resp = RedirectResponse(url=_href("/login"), status_code=302)
-        resp.delete_cookie(s.phantom_cookie_name, path=s.phantom_cookie_path)
-        set_flash(resp, "Abgemeldet.")
+        resp.delete_cookie(s.phantom_cookie_name, path=s.phantom_cookie_path or "/")
+        set_flash(resp, "Abgemeldet.", request)
         return resp
 
     @app.get("/dashboard", response_class=HTMLResponse)
@@ -214,16 +295,25 @@ def create_app() -> FastAPI:
         if not user:
             return RedirectResponse(url=_href("/login"), status_code=302)
 
-        # load guilds via stored access token
-        db = request.app.state.db
+        db = await get_db()
         row = await dbmod.get_user(db, int(user["uid"]))
         guilds: list[dict[str, Any]] = []
         if row and row.get("access_token"):
-            raw = await auth.fetch_user_guilds(row["access_token"])
-            for g in raw:
-                if auth.can_manage_guild(g):
-                    guilds.append(g)
-            guilds.sort(key=lambda x: (x.get("name") or "").lower())
+            try:
+                raw = await auth.fetch_user_guilds(row["access_token"])
+                for g in raw:
+                    if auth.can_manage_guild(g):
+                        guilds.append(g)
+                guilds.sort(key=lambda x: (x.get("name") or "").lower())
+            except Exception as e:
+                log.exception("guild fetch failed")
+                resp = render(
+                    request,
+                    "dashboard.html",
+                    ctx(request, guilds=[], page="home", load_error=str(e)),
+                )
+                clear_flash(resp)
+                return resp
 
         resp = render(request, "dashboard.html", ctx(request, guilds=guilds, page="home"))
         clear_flash(resp)
@@ -235,28 +325,35 @@ def create_app() -> FastAPI:
         if not user:
             return RedirectResponse(url=_href("/login"), status_code=302)
 
-        db = request.app.state.db
+        db = await get_db()
         row = await dbmod.get_user(db, int(user["uid"]))
         guild = None
         if row and row.get("access_token"):
-            for g in await auth.fetch_user_guilds(row["access_token"]):
-                if int(g.get("id") or 0) == guild_id and auth.can_manage_guild(g):
-                    guild = g
-                    break
+            try:
+                for g in await auth.fetch_user_guilds(row["access_token"]):
+                    if int(g.get("id") or 0) == guild_id and auth.can_manage_guild(g):
+                        guild = g
+                        break
+            except Exception:
+                guild = None
         if not guild:
             resp = RedirectResponse(url=_href("/dashboard"), status_code=302)
-            set_flash(resp, "Kein Zugriff auf diesen Server.")
+            set_flash(resp, "Kein Zugriff auf diesen Server.", request)
             return resp
 
         config = await dbmod.get_guild_config(db, guild_id)
         tickets = await dbmod.list_open_tickets(db, guild_id)
-        resp = render(request, "guild.html", ctx(
+        resp = render(
+            request,
+            "guild.html",
+            ctx(
                 request,
                 page="guild",
                 guild=guild,
                 config=config,
                 tickets=tickets,
-                staff_role_ids_json=json.dumps(config.get("staff_role_ids") or [])),
+                staff_role_ids_json=json.dumps(config.get("staff_role_ids") or []),
+            ),
         )
         clear_flash(resp)
         return resp
@@ -289,8 +386,9 @@ def create_app() -> FastAPI:
         except Exception:
             roles = []
 
+        db = await get_db()
         await dbmod.save_guild_config(
-            request.app.state.db,
+            db,
             guild_id,
             panel_channel_id=_parse_id(panel_channel_id),
             log_channel_id=_parse_id(log_channel_id),
@@ -300,19 +398,28 @@ def create_app() -> FastAPI:
             or "Klicke auf den Button, um ein Ticket zu öffnen.",
         )
         resp = RedirectResponse(url=_href(f"/dashboard/guild/{guild_id}"), status_code=302)
-        set_flash(resp, "Einstellungen gespeichert.")
+        set_flash(resp, "Einstellungen gespeichert.", request)
         return resp
 
-    # ── JSON API (nur Phantom, für Bot + Dashboard) ────────
+    # ── JSON API ───────────────────────────────────────────
 
     @app.get("/api/health")
     async def api_health():
         s = get_settings()
+        db_ok = False
+        try:
+            db = await get_db()
+            await db.execute("SELECT 1")
+            db_ok = True
+        except Exception:
+            db_ok = False
         return {
             "ok": True,
             "service": "phantom",
             "brand": s.phantom_brand_name,
             "base_url": s.base_url,
+            "db_ok": db_ok,
+            "oauth_redirect": s.oauth_redirect_uri,
         }
 
     @app.get("/api/me")
@@ -322,14 +429,12 @@ def create_app() -> FastAPI:
 
     @app.get("/api/guilds/{guild_id}/config")
     async def api_guild_config(request: Request, guild_id: int):
-        # Bot auth via header OR logged-in dashboard user
         s = get_settings()
         bot_key = request.headers.get("X-Phantom-Bot-Token")
-        if bot_key and s.phantom_bot_token and bot_key == s.phantom_bot_token:
-            pass
-        else:
+        if not (bot_key and s.phantom_bot_token and bot_key == s.phantom_bot_token):
             auth.require_session_user(request)
-        cfg = await dbmod.get_guild_config(request.app.state.db, guild_id)
+        db = await get_db()
+        cfg = await dbmod.get_guild_config(db, guild_id)
         return {"config": cfg}
 
     @app.get("/api/guilds/{guild_id}/tickets")
@@ -338,19 +443,20 @@ def create_app() -> FastAPI:
         bot_key = request.headers.get("X-Phantom-Bot-Token")
         if not (bot_key and s.phantom_bot_token and bot_key == s.phantom_bot_token):
             auth.require_session_user(request)
-        tickets = await dbmod.list_open_tickets(request.app.state.db, guild_id)
+        db = await get_db()
+        tickets = await dbmod.list_open_tickets(db, guild_id)
         return {"tickets": tickets}
 
     @app.post("/api/internal/tickets/register")
     async def api_register_ticket(request: Request):
-        """Nur Phantom-Bot."""
         s = get_settings()
         bot_key = request.headers.get("X-Phantom-Bot-Token")
         if not (bot_key and s.phantom_bot_token and bot_key == s.phantom_bot_token):
             raise HTTPException(status_code=401, detail="bot_only")
         body = await request.json()
+        db = await get_db()
         await dbmod.register_ticket(
-            request.app.state.db,
+            db,
             channel_id=int(body["channel_id"]),
             guild_id=int(body["guild_id"]),
             owner_id=int(body["owner_id"]),
@@ -366,8 +472,9 @@ def create_app() -> FastAPI:
             raise HTTPException(status_code=401, detail="bot_only")
         body = await request.json()
         claimed_by = body.get("claimed_by")
+        db = await get_db()
         await dbmod.set_ticket_claim(
-            request.app.state.db,
+            db,
             channel_id,
             int(claimed_by) if claimed_by is not None else None,
         )
@@ -379,7 +486,8 @@ def create_app() -> FastAPI:
         bot_key = request.headers.get("X-Phantom-Bot-Token")
         if not (bot_key and s.phantom_bot_token and bot_key == s.phantom_bot_token):
             raise HTTPException(status_code=401, detail="bot_only")
-        await dbmod.delete_ticket(request.app.state.db, channel_id)
+        db = await get_db()
+        await dbmod.delete_ticket(db, channel_id)
         return {"ok": True}
 
     @app.get("/api/internal/guilds/{guild_id}/config")
@@ -388,7 +496,8 @@ def create_app() -> FastAPI:
         bot_key = request.headers.get("X-Phantom-Bot-Token")
         if not (bot_key and s.phantom_bot_token and bot_key == s.phantom_bot_token):
             raise HTTPException(status_code=401, detail="bot_only")
-        cfg = await dbmod.get_guild_config(request.app.state.db, guild_id)
+        db = await get_db()
+        cfg = await dbmod.get_guild_config(db, guild_id)
         return {"config": cfg}
 
     return app
