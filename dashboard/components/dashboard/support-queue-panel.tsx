@@ -18,6 +18,7 @@ import {
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { EmojiPicker } from "@/components/dashboard/emoji-picker";
 
 const CARD =
   "bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 border-glow-card";
@@ -292,6 +293,14 @@ export function SupportQueuePanel({ guildId }: { guildId: string }) {
           placeholder={defaults.greeting}
           className="w-full bg-[#0d1b31] border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-white placeholder:text-slate-600 outline-none focus:border-primary/50 transition-colors resize-none leading-relaxed"
         />
+        <div className="mt-2">
+          <EmojiPicker
+            onPick={(raw) => {
+              const cap = defaults.max_greeting ?? 300;
+              setGreeting((old) => ((old + raw).length > cap ? old : old + raw));
+            }}
+          />
+        </div>
         <div className="flex items-center justify-between mt-2">
           <span className="text-[11px] text-slate-600">
             Platzhalter: <code className="text-slate-500">{"{server}"}</code>

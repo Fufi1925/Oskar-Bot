@@ -23,6 +23,7 @@ import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { ChannelPicker, RolePicker } from "@/components/dashboard/pickers";
 import { InlineToggle } from "@/components/dashboard/form-elements";
+import { EmojiPicker } from "@/components/dashboard/emoji-picker";
 
 const INPUT =
   "w-full bg-[#0d1b31] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-primary/50 transition-colors";
@@ -175,6 +176,12 @@ export function ReactionRolesPanel({ guildId }: { guildId: string }) {
                 onChange={(e) => setEmoji(e.target.value.trim())}
                 placeholder="✅"
                 className={INPUT}
+              />
+              {/* Ersetzen statt anhaengen: eine Reaktion ist genau ein
+                  Emoji. Die Knoepfe darunter machen es genauso. */}
+              <EmojiPicker
+                label="Eigenes Emoji des Bots"
+                onPick={(raw) => setEmoji(raw)}
               />
               <div className="flex flex-wrap gap-1.5">
                 {COMMON_EMOJI.map((e) => (

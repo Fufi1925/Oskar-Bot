@@ -25,6 +25,7 @@ import { cn } from "@/lib/utils";
 import { ChannelPicker } from "@/components/dashboard/pickers";
 import { WelcomeConfig } from "@/types/api";
 import { StickySaveBar, useSaveGuard } from "@/components/dashboard/save-bar";
+import { EmojiText } from "@/components/dashboard/emoji-field";
 
 const INPUT =
   "w-full bg-[#0d1b31] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-primary/50 transition-colors";
@@ -304,15 +305,19 @@ export function WelcomeForm({
         {!isEmbed && (
           <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 border-glow-card">
             <Field label="Nachricht">
-              <textarea
+              <EmojiText
                 {...track}
                 value={config.welcome_message || ""}
-                onChange={(e) =>
-                  setConfig({ ...config, welcome_message: e.target.value })
+                onChange={(next) =>
+                  setConfig({ ...config, welcome_message: next })
                 }
                 rows={5}
+                limit={2000}
+                showCount
                 placeholder="Willkommen {user} auf {server_name}!"
-                className={cn(INPUT, "resize-y")}
+                onLimitReached={(max) =>
+                  toast.error(`Das passt nicht mehr in ${max} Zeichen.`)
+                }
               />
             </Field>
           </div>
@@ -325,23 +330,29 @@ export function WelcomeForm({
               label="Text über der Karte"
               hint="Optional. Nützlich, um jemanden zu pingen — in der Karte selbst gibt es keine Benachrichtigung."
             >
-              <input
+              <EmojiText
                 {...track}
                 value={embed.message || ""}
-                onChange={(e) => setEmbed({ message: e.target.value })}
+                onChange={(next) => setEmbed({ message: next })}
+                limit={2000}
                 placeholder="{user}"
-                className={INPUT}
+                onLimitReached={(max) =>
+                  toast.error(`Das passt nicht mehr in ${max} Zeichen.`)
+                }
               />
             </Field>
 
             <div className="grid md:grid-cols-2 gap-5">
               <Field label="Überschrift">
-                <input
+                <EmojiText
                   {...track}
                   value={embed.title || ""}
-                  onChange={(e) => setEmbed({ title: e.target.value })}
+                  onChange={(next) => setEmbed({ title: next })}
+                  limit={256}
                   placeholder="Willkommen auf {server_name}!"
-                  className={INPUT}
+                  onLimitReached={(max) =>
+                    toast.error(`Eine Überschrift darf höchstens ${max} Zeichen haben.`)
+                  }
                 />
               </Field>
               <Field label="Farbe">
@@ -367,13 +378,17 @@ export function WelcomeForm({
             </div>
 
             <Field label="Beschreibung">
-              <textarea
+              <EmojiText
                 {...track}
                 value={embed.description || ""}
-                onChange={(e) => setEmbed({ description: e.target.value })}
+                onChange={(next) => setEmbed({ description: next })}
                 rows={4}
+                limit={4096}
+                showCount
                 placeholder="Schön, dass du da bist, {user}!"
-                className={cn(INPUT, "resize-y")}
+                onLimitReached={(max) =>
+                  toast.error(`Die Beschreibung darf höchstens ${max} Zeichen haben.`)
+                }
               />
             </Field>
 
@@ -383,12 +398,15 @@ export function WelcomeForm({
               </p>
               <div className="grid md:grid-cols-2 gap-5">
                 <Field label="Name">
-                  <input
+                  <EmojiText
                     {...track}
                     value={embed.author_name || ""}
-                    onChange={(e) => setEmbed({ author_name: e.target.value })}
+                    onChange={(next) => setEmbed({ author_name: next })}
+                    limit={256}
                     placeholder="{user_name}"
-                    className={INPUT}
+                    onLimitReached={(max) =>
+                      toast.error(`Die Kopfzeile darf höchstens ${max} Zeichen haben.`)
+                    }
                   />
                 </Field>
                 <Field label="Bild daneben" hint="Muss mit https:// anfangen.">
@@ -409,12 +427,15 @@ export function WelcomeForm({
               </p>
               <div className="grid md:grid-cols-2 gap-5">
                 <Field label="Text">
-                  <input
+                  <EmojiText
                     {...track}
                     value={embed.footer_text || ""}
-                    onChange={(e) => setEmbed({ footer_text: e.target.value })}
+                    onChange={(next) => setEmbed({ footer_text: next })}
+                    limit={2048}
                     placeholder="Mitglied #{server_membercount}"
-                    className={INPUT}
+                    onLimitReached={(max) =>
+                      toast.error(`Die Fußzeile darf höchstens ${max} Zeichen haben.`)
+                    }
                   />
                 </Field>
                 <Field label="Bild daneben">

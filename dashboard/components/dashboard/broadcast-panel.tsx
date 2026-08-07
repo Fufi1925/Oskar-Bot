@@ -21,6 +21,7 @@ import {
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { EmojiPicker } from "@/components/dashboard/emoji-picker";
 
 const INPUT =
   "w-full bg-[#0d1b31] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-primary/50 transition-colors";
@@ -299,6 +300,13 @@ export function BroadcastPanel({ guilds }: { guilds?: any[] }) {
             maxLength={200}
             className={INPUT}
           />
+          <div className="mt-2">
+            <EmojiPicker
+              onPick={(raw) =>
+                setTitle((old) => ((old + raw).length > 200 ? old : old + raw))
+              }
+            />
+          </div>
         </Field>
 
         <Field label="Nachricht">
@@ -310,6 +318,13 @@ export function BroadcastPanel({ guilds }: { guilds?: any[] }) {
             maxLength={3500}
             className={cn(INPUT, "resize-y")}
           />
+          <div className="mt-2">
+            <EmojiPicker
+              onPick={(raw) =>
+                setMessage((old) => ((old + raw).length > 3500 ? old : old + raw))
+              }
+            />
+          </div>
           <p className="text-[11px] text-slate-600 text-right">
             {message.length} / 3500
           </p>

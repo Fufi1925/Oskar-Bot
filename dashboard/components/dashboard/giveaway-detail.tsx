@@ -29,6 +29,7 @@ import { cn } from "@/lib/utils";
 import { RolePicker } from "@/components/dashboard/pickers";
 import { InlineToggle } from "@/components/dashboard/form-elements";
 import { StickySaveBar, useSaveGuard } from "@/components/dashboard/save-bar";
+import { EmojiPicker } from "@/components/dashboard/emoji-picker";
 
 const INPUT =
   "w-full bg-[#0d1b31] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-primary/50 transition-colors";
@@ -481,8 +482,17 @@ export function GiveawayDetail({
                   value={value("title")}
                   onChange={(e) => set("title", e.target.value)}
                   placeholder="🎉 Gewinnspiel"
+                  maxLength={256}
                   className={INPUT}
                 />
+                <div className="mt-2">
+                  <EmojiPicker
+                    onPick={(raw) => {
+                      const now = String(value("title") ?? "");
+                      if ((now + raw).length <= 256) set("title", now + raw);
+                    }}
+                  />
+                </div>
               </Field>
               <Field label="Knopf-Text" hint="Leer = 🎉 Teilnehmen">
                 <div className="flex gap-2">
@@ -492,11 +502,25 @@ export function GiveawayDetail({
                     placeholder="🎉"
                     className="w-16 bg-[#0d1b31] border border-slate-800 rounded-xl px-3 py-3 text-sm text-white text-center focus:outline-none focus:border-primary/50"
                   />
+                  {/* Ersetzen statt anhaengen: ein Knopf traegt genau
+                      ein Emoji, zwei lehnt Discord ab. */}
+                  <EmojiPicker
+                    label="Emoji für den Knopf"
+                    onPick={(raw) => set("button_emoji", raw)}
+                  />
                   <input
                     value={value("button_label")}
                     onChange={(e) => set("button_label", e.target.value)}
                     placeholder="Teilnehmen"
+                    maxLength={80}
                     className={cn(INPUT, "flex-1")}
+                  />
+                  <EmojiPicker
+                    label="Emoji in die Beschriftung"
+                    onPick={(raw) => {
+                      const now = String(value("button_label") ?? "");
+                      if ((now + raw).length <= 80) set("button_label", now + raw);
+                    }}
                   />
                 </div>
               </Field>
@@ -507,8 +531,17 @@ export function GiveawayDetail({
                 value={value("description")}
                 onChange={(e) => set("description", e.target.value)}
                 rows={4}
+                maxLength={4096}
                 className={cn(INPUT, "resize-y font-mono text-[13px]")}
               />
+              <div className="mt-2">
+                <EmojiPicker
+                  onPick={(raw) => {
+                    const now = String(value("description") ?? "");
+                    if ((now + raw).length <= 4096) set("description", now + raw);
+                  }}
+                />
+              </div>
             </Field>
             <Preview
               text={value("description")}
@@ -680,8 +713,17 @@ export function GiveawayDetail({
               <input
                 value={value("prize") || data.prize}
                 onChange={(e) => set("prize", e.target.value)}
+                maxLength={200}
                 className={INPUT}
               />
+              <div className="mt-2">
+                <EmojiPicker
+                  onPick={(raw) => {
+                    const now = String(value("prize") || data.prize || "");
+                    if ((now + raw).length <= 200) set("prize", now + raw);
+                  }}
+                />
+              </div>
             </Field>
           </div>
         </div>

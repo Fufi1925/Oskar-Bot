@@ -26,6 +26,7 @@ import { InlineToggle } from "@/components/dashboard/form-elements";
 import {
   Loading, StickySaveBar, usePanel, useSaveGuard,
 } from "@/components/dashboard/save-bar";
+import { EmojiText } from "@/components/dashboard/emoji-field";
 
 const INPUT =
   "w-full bg-[#0d1b31] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-primary/50 transition-colors";
@@ -113,22 +114,20 @@ function TextField({ label, hint, value, onChange, rows = 3, role, server, max }
   const bad = unknownPlaceholders(value);
   return (
     <Field label={label} hint={hint}>
-      {rows === 1 ? (
-        <input
-          className={INPUT}
-          value={value ?? ""}
-          maxLength={max}
-          onChange={(e) => onChange(e.target.value)}
-        />
-      ) : (
-        <textarea
-          className={cn(INPUT, "resize-y min-h-[80px]")}
-          rows={rows}
-          value={value ?? ""}
-          maxLength={max}
-          onChange={(e) => onChange(e.target.value)}
-        />
-      )}
+      {/* Alle Verify-Texte laufen durch dieses eine Feld -- Ueberschrift,
+          Beschreibung, Fusszeile, die Meldung danach. Die Emoji-Auswahl
+          hier einzubauen deckt sie deshalb alle auf einmal ab, statt
+          fuenfmal dasselbe zu wiederholen. */}
+      <EmojiText
+        value={value ?? ""}
+        onChange={onChange}
+        rows={rows === 1 ? undefined : rows}
+        limit={max ?? 2000}
+        className={rows === 1 ? undefined : "min-h-[80px]"}
+        onLimitReached={(cap: number) =>
+          toast.error(`Hier passen höchstens ${cap} Zeichen hinein.`)
+        }
+      />
       {bad.length > 0 && (
         <p className="text-[11px] text-amber-300/80">
           {bad.join(", ")} gibt es nicht — bleibt so stehen, wie du es getippt hast.
@@ -348,21 +347,25 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
         <div className="grid sm:grid-cols-2 gap-4">
           {(method === "button" || method === "both") && (
             <Field label="Knopf: Verifizieren" hint="Höchstens 80 Zeichen.">
-              <input
-                className={INPUT}
-                maxLength={80}
+              <EmojiText
                 value={p.value("button_label") ?? ""}
-                onChange={(e) => p.set("button_label", e.target.value)}
+                onChange={(next: string) => p.set("button_label", next)}
+                limit={80}
+                onLimitReached={(cap: number) =>
+                  toast.error(`Eine Knopfbeschriftung darf höchstens ${cap} Zeichen haben.`)
+                }
               />
             </Field>
           )}
           {(method === "captcha" || method === "both") && (
             <Field label="Knopf: CAPTCHA" hint="Höchstens 80 Zeichen.">
-              <input
-                className={INPUT}
-                maxLength={80}
+              <EmojiText
                 value={p.value("captcha_label") ?? ""}
-                onChange={(e) => p.set("captcha_label", e.target.value)}
+                onChange={(next: string) => p.set("captcha_label", next)}
+                limit={80}
+                onLimitReached={(cap: number) =>
+                  toast.error(`Eine Knopfbeschriftung darf höchstens ${cap} Zeichen haben.`)
+                }
               />
             </Field>
           )}

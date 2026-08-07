@@ -42,6 +42,7 @@ import {
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { EmojiPicker } from "@/components/dashboard/emoji-picker";
 
 const CARD =
   "bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 border-glow-card";
@@ -534,6 +535,13 @@ export function TesterPanel() {
           }
           className="w-full bg-[#0d1b31] border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-violet-500/50 transition-colors resize-y"
         />
+        <div className="mt-2">
+          <EmojiPicker
+            onPick={(raw) =>
+              setBody((old) => ((old + raw).length > 4000 ? old : old + raw))
+            }
+          />
+        </div>
 
         <div className="flex items-center gap-3">
           <span className="text-[11px] text-slate-600">

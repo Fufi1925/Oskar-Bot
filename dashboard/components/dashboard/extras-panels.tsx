@@ -26,6 +26,7 @@ import { InlineToggle } from "@/components/dashboard/form-elements";
 import {
   Loading, StickySaveBar, usePanel, useSaveGuard,
 } from "@/components/dashboard/save-bar";
+import { EmojiPicker } from "@/components/dashboard/emoji-picker";
 
 const INPUT =
   "w-full bg-[#0d1b31] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-primary/50 transition-colors";
@@ -170,8 +171,17 @@ export function BoosterPanel({ guildId }: { guildId: string }) {
             value={boost.message ?? ""}
             onChange={(e) => setBoost({ message: e.target.value })}
             rows={3}
+            maxLength={2000}
             className={cn(INPUT, "resize-y")}
           />
+          <div className="pt-1">
+            <EmojiPicker
+              onPick={(raw) => {
+                const now = boost.message ?? "";
+                if ((now + raw).length <= 2000) setBoost({ message: now + raw });
+              }}
+            />
+          </div>
           <div className="flex flex-wrap gap-1.5 pt-1">
             {Object.keys(p.data?.placeholders || {}).map((token) => (
               <button
@@ -302,6 +312,13 @@ export function StickyPanel({ guildId }: { guildId: string }) {
             placeholder="Bitte lest zuerst die Regeln!"
             className={cn(INPUT, "resize-y")}
           />
+          <div className="pt-1">
+            <EmojiPicker
+              onPick={(raw) =>
+                setMessage((old) => ((old + raw).length > 2000 ? old : old + raw))
+              }
+            />
+          </div>
         </Field>
 
         <button
@@ -891,6 +908,14 @@ export function CountingPanel({ guildId }: { guildId: string }) {
               onChange={(e) => p.set("success_emoji", e.target.value)}
               placeholder="z.B. ✅ oder <:name:123456789>"
             />
+            {/* Ersetzen statt anhaengen: als Reaktion ist genau ein
+                Emoji erlaubt. */}
+            <div className="mt-2">
+              <EmojiPicker
+                label="Eigenes Emoji des Bots"
+                onPick={(raw) => p.set("success_emoji", raw)}
+              />
+            </div>
           </Field>
         )}
 

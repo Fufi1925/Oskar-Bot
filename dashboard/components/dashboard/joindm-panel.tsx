@@ -23,6 +23,7 @@ import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { InlineToggle } from "@/components/dashboard/form-elements";
 import { StickySaveBar, useSaveGuard } from "@/components/dashboard/save-bar";
+import { EmojiText } from "@/components/dashboard/emoji-field";
 
 const INPUT =
   "w-full bg-[#0d1b31] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-primary/50 transition-colors";
@@ -225,11 +226,14 @@ export function JoinDMPanel({ guildId }: { guildId: string }) {
 
           <div className="grid md:grid-cols-2 gap-5">
             <Field label="Überschrift">
-              <input
+              <EmojiText
                 value={value("title") ?? ""}
-                onChange={(e) => set("title", e.target.value)}
+                onChange={(next) => set("title", next)}
+                limit={256}
                 placeholder="Willkommen!"
-                className={INPUT}
+                onLimitReached={(cap) =>
+                  toast.error(`Eine Überschrift darf höchstens ${cap} Zeichen haben.`)
+                }
               />
             </Field>
             <Field label="Farbe">
@@ -255,13 +259,16 @@ export function JoinDMPanel({ guildId }: { guildId: string }) {
           </div>
 
           <Field label="Text">
-            <textarea
+            <EmojiText
               value={value("message") ?? ""}
-              onChange={(e) => set("message", e.target.value)}
+              onChange={(next) => set("message", next)}
               rows={5}
-              maxLength={2000}
+              limit={2000}
+              showCount
               placeholder="Hey {user_name}, schön dass du da bist!"
-              className={cn(INPUT, "resize-y")}
+              onLimitReached={(cap) =>
+                toast.error(`Der Text darf höchstens ${cap} Zeichen haben.`)
+              }
             />
             <div className="flex flex-wrap gap-1.5 pt-1">
               {Object.keys(data?.placeholders || {}).map((key) => (
@@ -281,10 +288,13 @@ export function JoinDMPanel({ guildId }: { guildId: string }) {
 
           <div className="grid md:grid-cols-2 gap-5">
             <Field label="Fußzeile" hint="Optional, kleiner Text darunter.">
-              <input
+              <EmojiText
                 value={value("footer") ?? ""}
-                onChange={(e) => set("footer", e.target.value)}
-                className={INPUT}
+                onChange={(next) => set("footer", next)}
+                limit={2048}
+                onLimitReached={(cap) =>
+                  toast.error(`Die Fußzeile darf höchstens ${cap} Zeichen haben.`)
+                }
               />
             </Field>
             <Field label="Bild (URL)" hint="Muss mit https:// anfangen.">
@@ -303,11 +313,14 @@ export function JoinDMPanel({ guildId }: { guildId: string }) {
             </p>
             <div className="grid md:grid-cols-2 gap-5">
               <Field label="Beschriftung">
-                <input
+                <EmojiText
                   value={value("button_label") ?? ""}
-                  onChange={(e) => set("button_label", e.target.value)}
+                  onChange={(next) => set("button_label", next)}
+                  limit={80}
                   placeholder="Zu den Regeln"
-                  className={INPUT}
+                  onLimitReached={(cap) =>
+                    toast.error(`Eine Knopfbeschriftung darf höchstens ${cap} Zeichen haben.`)
+                  }
                 />
               </Field>
               <Field label="Link" hint="Ein Knopf ohne Link wird nicht angezeigt.">

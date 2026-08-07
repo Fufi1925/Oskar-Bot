@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { UserPicker } from "@/components/dashboard/user-picker";
+import { EmojiPicker } from "@/components/dashboard/emoji-picker";
 
 interface WarnEntry {
   id: number;
@@ -131,8 +132,18 @@ export function WarningsPanel({ guildId }: { guildId: string }) {
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               placeholder="What happened?"
+              maxLength={500}
               className="w-full bg-white/[0.03] border border-white/5 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
             />
+            {/* Der Grund geht dem Mitglied per DM zu -- also echter
+                Discord-Text. Die Grenze 500 kommt aus der Route. */}
+            <div className="pt-1">
+              <EmojiPicker
+                onPick={(raw) =>
+                  setReason((old) => ((old + raw).length > 500 ? old : old + raw))
+                }
+              />
+            </div>
           </label>
         </div>
 

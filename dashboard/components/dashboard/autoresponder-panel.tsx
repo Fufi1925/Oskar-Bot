@@ -5,6 +5,7 @@ import { Loader2, MessageSquare, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { EmojiText } from "@/components/dashboard/emoji-field";
 
 const INPUT =
   "w-full bg-white/[0.03] border border-white/5 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary";
@@ -98,12 +99,16 @@ export function AutoresponderPanel({ guildId }: { guildId: string }) {
             <span className="text-xs font-black uppercase tracking-widest text-slate-500">
               Reply
             </span>
-            <textarea
+            <EmojiText
               value={response}
-              onChange={(e) => setResponse(e.target.value)}
+              onChange={setResponse}
               placeholder="Hi there! How can we help?"
               rows={3}
-              className={cn(INPUT, "resize-y")}
+              limit={2000}
+              showCount
+              onLimitReached={(cap) =>
+                toast.error(`Eine Antwort darf höchstens ${cap} Zeichen haben.`)
+              }
             />
           </label>
         </div>

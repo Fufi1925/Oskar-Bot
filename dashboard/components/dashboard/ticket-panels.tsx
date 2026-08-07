@@ -8,6 +8,8 @@ import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { ChannelPicker, MultiRolePicker } from "@/components/dashboard/pickers";
+import { EmojiPicker } from "@/components/dashboard/emoji-picker";
+import { EmojiDraftField } from "@/components/dashboard/emoji-field";
 
 interface Category {
   category_id?: number;
@@ -193,8 +195,21 @@ export function TicketPanels({ guildId }: { guildId: string }) {
                       setEditing({ ...editing, cat: { ...editing.cat, name: e.target.value } })
                     }
                     placeholder="z. B. Support"
+                    maxLength={100}
                     className="w-full bg-[#0d1b31] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-primary/50"
                   />
+                  <div className="mt-2">
+                    <EmojiPicker
+                      onPick={(raw) => {
+                        const next = editing.cat.name + raw;
+                        if (next.length > 100) return;
+                        setEditing({
+                          ...editing,
+                          cat: { ...editing.cat, name: next },
+                        });
+                      }}
+                    />
+                  </div>
                 </Field>
                 <Field label="Emoji">
                   <input
@@ -205,6 +220,19 @@ export function TicketPanels({ guildId }: { guildId: string }) {
                     placeholder="🎫"
                     className="w-full bg-[#0d1b31] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white text-center focus:outline-none focus:border-primary/50"
                   />
+                  {/* Ersetzen statt anhaengen: eine Kategorie traegt
+                      genau ein Symbol, im Dropdown wie auf dem Knopf. */}
+                  <div className="mt-2">
+                    <EmojiPicker
+                      label="Symbol wählen"
+                      onPick={(raw) =>
+                        setEditing({
+                          ...editing,
+                          cat: { ...editing.cat, emoji: raw },
+                        })
+                      }
+                    />
+                  </div>
                 </Field>
               </div>
 
@@ -422,14 +450,13 @@ export function TicketPanels({ guildId }: { guildId: string }) {
                     </Field>
 
                     <Field label="Überschrift">
-                      <input
+                      <EmojiDraftField
                         defaultValue={panel.embed_title}
-                        onBlur={(e) =>
-                          e.target.value !== panel.embed_title &&
-                          patchPanel(panel.panel_id, { embed_title: e.target.value })
+                        onCommit={(next) =>
+                          patchPanel(panel.panel_id, { embed_title: next })
                         }
+                        limit={256}
                         placeholder="z. B. Support"
-                        className="w-full bg-[#0d1b31] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-primary/50"
                       />
                     </Field>
 
@@ -495,15 +522,14 @@ export function TicketPanels({ guildId }: { guildId: string }) {
                   </div>
 
                   <Field label="Beschreibung">
-                    <textarea
+                    <EmojiDraftField
                       defaultValue={panel.embed_description}
-                      onBlur={(e) =>
-                        e.target.value !== panel.embed_description &&
-                        patchPanel(panel.panel_id, { embed_description: e.target.value })
+                      onCommit={(next) =>
+                        patchPanel(panel.panel_id, { embed_description: next })
                       }
+                      limit={4096}
                       rows={3}
                       placeholder="Klicke unten, um ein Ticket zu öffnen."
-                      className="w-full bg-[#0d1b31] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-primary/50 resize-y"
                     />
                   </Field>
 

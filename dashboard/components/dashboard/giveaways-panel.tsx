@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { ChannelPicker, RolePicker } from "@/components/dashboard/pickers";
 import { GiveawayDetail } from "@/components/dashboard/giveaway-detail";
 import { InlineToggle } from "@/components/dashboard/form-elements";
+import { EmojiPicker } from "@/components/dashboard/emoji-picker";
 
 interface Giveaway {
   message_id: string;
@@ -246,6 +247,15 @@ export function GiveawaysPanel({ guildId }: { guildId: string }) {
               maxLength={200}
               className={INPUT}
             />
+            <div className="mt-2">
+              <EmojiPicker
+                onPick={(raw) =>
+                  setPrize((old) =>
+                    (old + raw).length > 200 ? old : old + raw
+                  )
+                }
+              />
+            </div>
           </Field>
 
           <Field label="Kanal">
@@ -332,8 +342,18 @@ export function GiveawaysPanel({ guildId }: { guildId: string }) {
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="🎉 Gewinnspiel"
+                  maxLength={256}
                   className={INPUT}
                 />
+                <div className="mt-2">
+                  <EmojiPicker
+                    onPick={(raw) =>
+                      setTitle((old) =>
+                        (old + raw).length > 256 ? old : old + raw
+                      )
+                    }
+                  />
+                </div>
               </Field>
 
               <Field label="Knopf-Text" hint="Leer = Teilnehmen">
@@ -343,6 +363,13 @@ export function GiveawaysPanel({ guildId }: { guildId: string }) {
                     onChange={(e) => setButtonEmoji(e.target.value)}
                     placeholder="🎉"
                     className="w-16 bg-[#0d1b31] border border-slate-800 rounded-xl px-3 py-3 text-sm text-white text-center focus:outline-none focus:border-primary/50"
+                  />
+                  {/* Ersetzen, nicht anhaengen: auf einem Knopf ist
+                      genau ein Emoji erlaubt. Zwei lehnt Discord ab,
+                      und der Fehler kaeme erst beim Absenden. */}
+                  <EmojiPicker
+                    label="Emoji für den Knopf"
+                    onPick={(raw) => setButtonEmoji(raw)}
                   />
                   <input
                     value={buttonLabel}
@@ -359,9 +386,19 @@ export function GiveawaysPanel({ guildId }: { guildId: string }) {
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 rows={4}
+                maxLength={4096}
                 placeholder="**{prize}**&#10;&#10;Drücke den Knopf, um teilzunehmen.&#10;**Gewinner:** {winners}&#10;**Endet:** {ends}"
                 className={cn(INPUT, "resize-y font-mono text-[13px]")}
               />
+              <div className="mt-2">
+                <EmojiPicker
+                  onPick={(raw) =>
+                    setDescription((old) =>
+                      (old + raw).length > 4096 ? old : old + raw
+                    )
+                  }
+                />
+              </div>
               <div className="flex flex-wrap gap-1.5 pt-1">
                 {TOKENS.map((t) => (
                   <button

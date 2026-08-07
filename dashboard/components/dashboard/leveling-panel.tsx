@@ -23,6 +23,7 @@ import { cn } from "@/lib/utils";
 import { ChannelPicker, RolePicker } from "@/components/dashboard/pickers";
 import { InlineToggle } from "@/components/dashboard/form-elements";
 import { StickySaveBar, useSaveGuard } from "@/components/dashboard/save-bar";
+import { EmojiPicker } from "@/components/dashboard/emoji-picker";
 
 const INPUT =
   "w-full bg-[#0d1b31] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-primary/50 transition-colors";
@@ -359,8 +360,17 @@ export function LevelingPanel({ guildId }: { guildId: string }) {
                 value={value("level_message") ?? ""}
                 onChange={(e) => set("level_message", e.target.value)}
                 rows={3}
+                maxLength={2000}
                 className={cn(INPUT, "resize-y")}
               />
+              <div className="pt-1">
+                <EmojiPicker
+                  onPick={(raw) => {
+                    const now = String(value("level_message") ?? "");
+                    if ((now + raw).length <= 2000) set("level_message", now + raw);
+                  }}
+                />
+              </div>
               <div className="flex flex-wrap gap-1.5 pt-1">
                 {Object.entries(data.placeholders || {}).map(([key, hint]) => (
                   <button
