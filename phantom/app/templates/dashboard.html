@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Dashboard · {{ brand }}{% endblock %}
+{% block body %}
+<div class="shell">
+  <div class="topbar">
+    <div class="brand">
+      <div class="brand-mark">◈</div>
+      <span>{{ brand }}</span>
+    </div>
+    <div class="nav-user">
+      {% if avatar_url %}<img src="{{ avatar_url }}" alt="" />{% endif %}
+      <span>{{ user.global_name or user.username }}</span>
+      <a class="btn btn-ghost" href="{{ root_path }}/auth/logout">Logout</a>
+    </div>
+  </div>
+
+  <section class="card hero">
+    <div>
+      <h1>Server auswählen</h1>
+      <p>
+        Verwalte Ticket-Einstellungen für Server, auf denen du Admin-Rechte hast
+        und der Phantom-Bot eingeladen ist.
+      </p>
+    </div>
+    <a class="btn btn-primary" href="{{ root_path }}/dashboard">Aktualisieren</a>
+  </section>
+
+  {% if guilds %}
+  <div class="grid">
+    {% for g in guilds %}
+    <a class="card guild-card" href="{{ root_path }}/dashboard/guild/{{ g.id }}">
+      <div class="guild-icon">
+        {% if g.icon %}
+        <img src="https://cdn.discordapp.com/icons/{{ g.id }}/{{ g.icon }}.png?size=128" alt="" />
+        {% else %}
+        {{ (g.name or '?')[0] }}
+        {% endif %}
+      </div>
+      <div class="guild-meta">
+        <strong>{{ g.name }}</strong>
+        <span>ID {{ g.id }}{% if g.owner %} · Owner{% endif %}</span>
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="card empty">
+    Keine verwaltbaren Server gefunden.<br />
+    Lade den Phantom-Bot ein und stelle sicher, dass du Admin-/Manage-Server-Rechte hast.
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

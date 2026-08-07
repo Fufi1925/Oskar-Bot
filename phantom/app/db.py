@@ -1,0 +1,254 @@
+from __future__ import annotations
+
+import json
+import time
+from pathlib import Path
+from typing import Any
+
+import aiosqlite
+
+from app.config import get_settings
+
+_SCHEMA = """
+CREATE TABLE IF NOT EXISTS users (
+    user_id     INTEGER PRIMARY KEY,
+    username    TEXT NOT NULL,
+    global_name TEXT,
+    avatar      TEXT,
+    access_token TEXT,
+    refresh_token TEXT,
+    token_expires_at INTEGER,
+    updated_at  INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS guild_configs (
+    guild_id            INTEGER PRIMARY KEY,
+    panel_channel_id    INTEGER,
+    log_channel_id      INTEGER,
+    staff_role_ids      TEXT DEFAULT '[]',
+    panel_message_id    INTEGER,
+    panel_title         TEXT,
+    panel_description   TEXT,
+    updated_at          INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS open_tickets (
+    channel_id      INTEGER PRIMARY KEY,
+    guild_id        INTEGER NOT NULL,
+    owner_id        INTEGER NOT NULL,
+    claimed_by      INTEGER,
+    category        TEXT DEFAULT 'support',
+    status          TEXT DEFAULT 'open',
+    created_at      INTEGER NOT NULL,
+    claimed_at      INTEGER
+);
+
+CREATE INDEX IF NOT EXISTS idx_tickets_guild ON open_tickets(guild_id);
+CREATE INDEX IF NOT EXISTS idx_tickets_owner ON open_tickets(owner_id);
+"""
+
+
+async def connect() -> aiosqlite.Connection:
+    settings = get_settings()
+    settings.db_path.parent.mkdir(parents=True, exist_ok=True)
+    db = await aiosqlite.connect(settings.db_path)
+    db.row_factory = aiosqlite.Row
+    await db.executescript(_SCHEMA)
+    await db.commit()
+    return db
+
+
+async def upsert_user(
+    db: aiosqlite.Connection,
+    *,
+    user_id: int,
+    username: str,
+    global_name: str | None,
+    avatar: str | None,
+    access_token: str | None = None,
+    refresh_token: str | None = None,
+    token_expires_at: int | None = None,
+) -> None:
+    now = int(time.time())
+    await db.execute(
+        """
+        INSERT INTO users (user_id, username, global_name, avatar, access_token, refresh_token, token_expires_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(user_id) DO UPDATE SET
+            username=excluded.username,
+            global_name=excluded.global_name,
+            avatar=excluded.avatar,
+            access_token=COALESCE(excluded.access_token, users.access_token),
+            refresh_token=COALESCE(excluded.refresh_token, users.refresh_token),
+            token_expires_at=COALESCE(excluded.token_expires_at, users.token_expires_at),
+            updated_at=excluded.updated_at
+        """,
+        (
+            user_id,
+            username,
+            global_name,
+            avatar,
+            access_token,
+            refresh_token,
+            token_expires_at,
+            now,
+        ),
+    )
+    await db.commit()
+
+
+async def get_user(db: aiosqlite.Connection, user_id: int) -> dict[str, Any] | None:
+    cur = await db.execute("SELECT * FROM users WHERE user_id = ?", (user_id,))
+    row = await cur.fetchone()
+    return dict(row) if row else None
+
+
+async def get_guild_config(db: aiosqlite.Connection, guild_id: int) -> dict[str, Any]:
+    cur = await db.execute("SELECT * FROM guild_configs WHERE guild_id = ?", (guild_id,))
+    row = await cur.fetchone()
+    if not row:
+        return {
+            "guild_id": guild_id,
+            "panel_channel_id": None,
+            "log_channel_id": None,
+            "staff_role_ids": [],
+            "panel_message_id": None,
+            "panel_title": "Support Center",
+            "panel_description": "Klicke auf den Button, um ein Ticket zu öffnen.",
+            "updated_at": None,
+        }
+    data = dict(row)
+    try:
+        data["staff_role_ids"] = json.loads(data.get("staff_role_ids") or "[]")
+    except json.JSONDecodeError:
+        data["staff_role_ids"] = []
+    return data
+
+
+async def save_guild_config(
+    db: aiosqlite.Connection,
+    guild_id: int,
+    *,
+    panel_channel_id: int | None = None,
+    log_channel_id: int | None = None,
+    staff_role_ids: list[int] | None = None,
+    panel_message_id: int | None = None,
+    panel_title: str | None = None,
+    panel_description: str | None = None,
+) -> dict[str, Any]:
+    current = await get_guild_config(db, guild_id)
+    now = int(time.time())
+    payload = {
+        "guild_id": guild_id,
+        "panel_channel_id": panel_channel_id
+        if panel_channel_id is not None
+        else current.get("panel_channel_id"),
+        "log_channel_id": log_channel_id
+        if log_channel_id is not None
+        else current.get("log_channel_id"),
+        "staff_role_ids": json.dumps(
+            staff_role_ids if staff_role_ids is not None else current.get("staff_role_ids") or []
+        ),
+        "panel_message_id": panel_message_id
+        if panel_message_id is not None
+        else current.get("panel_message_id"),
+        "panel_title": panel_title if panel_title is not None else current.get("panel_title"),
+        "panel_description": panel_description
+        if panel_description is not None
+        else current.get("panel_description"),
+        "updated_at": now,
+    }
+    await db.execute(
+        """
+        INSERT INTO guild_configs (
+            guild_id, panel_channel_id, log_channel_id, staff_role_ids,
+            panel_message_id, panel_title, panel_description, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(guild_id) DO UPDATE SET
+            panel_channel_id=excluded.panel_channel_id,
+            log_channel_id=excluded.log_channel_id,
+            staff_role_ids=excluded.staff_role_ids,
+            panel_message_id=excluded.panel_message_id,
+            panel_title=excluded.panel_title,
+            panel_description=excluded.panel_description,
+            updated_at=excluded.updated_at
+        """,
+        (
+            payload["guild_id"],
+            payload["panel_channel_id"],
+            payload["log_channel_id"],
+            payload["staff_role_ids"],
+            payload["panel_message_id"],
+            payload["panel_title"],
+            payload["panel_description"],
+            payload["updated_at"],
+        ),
+    )
+    await db.commit()
+    return await get_guild_config(db, guild_id)
+
+
+async def list_open_tickets(db: aiosqlite.Connection, guild_id: int) -> list[dict[str, Any]]:
+    cur = await db.execute(
+        "SELECT * FROM open_tickets WHERE guild_id = ? ORDER BY created_at DESC",
+        (guild_id,),
+    )
+    rows = await cur.fetchall()
+    return [dict(r) for r in rows]
+
+
+async def register_ticket(
+    db: aiosqlite.Connection,
+    *,
+    channel_id: int,
+    guild_id: int,
+    owner_id: int,
+    category: str = "support",
+) -> None:
+    await db.execute(
+        """
+        INSERT OR REPLACE INTO open_tickets
+        (channel_id, guild_id, owner_id, claimed_by, category, status, created_at, claimed_at)
+        VALUES (?, ?, ?, NULL, ?, 'open', ?, NULL)
+        """,
+        (channel_id, guild_id, owner_id, category, int(time.time())),
+    )
+    await db.commit()
+
+
+async def set_ticket_claim(
+    db: aiosqlite.Connection, channel_id: int, claimed_by: int | None
+) -> None:
+    if claimed_by is None:
+        await db.execute(
+            "UPDATE open_tickets SET claimed_by=NULL, claimed_at=NULL, status='open' WHERE channel_id=?",
+            (channel_id,),
+        )
+    else:
+        await db.execute(
+            "UPDATE open_tickets SET claimed_by=?, claimed_at=?, status='claimed' WHERE channel_id=?",
+            (claimed_by, int(time.time()), channel_id),
+        )
+    await db.commit()
+
+
+async def delete_ticket(db: aiosqlite.Connection, channel_id: int) -> None:
+    await db.execute("DELETE FROM open_tickets WHERE channel_id=?", (channel_id,))
+    await db.commit()
+
+
+async def get_ticket(db: aiosqlite.Connection, channel_id: int) -> dict[str, Any] | None:
+    cur = await db.execute("SELECT * FROM open_tickets WHERE channel_id=?", (channel_id,))
+    row = await cur.fetchone()
+    return dict(row) if row else None
+
+
+async def count_user_open_tickets(
+    db: aiosqlite.Connection, guild_id: int, owner_id: int
+) -> int:
+    cur = await db.execute(
+        "SELECT COUNT(*) AS c FROM open_tickets WHERE guild_id=? AND owner_id=?",
+        (guild_id, owner_id),
+    )
+    row = await cur.fetchone()
+    return int(row["c"] if row else 0)
