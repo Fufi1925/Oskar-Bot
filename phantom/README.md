@@ -13,6 +13,10 @@ Komplett **eigenes** System unter:
 - **Eigenes** Discord-OAuth (Login)  
 - **Eigene** SQLite-DB unter `phantom/data/`  
 - **Kein** Remote-Control / Killswitch  
+  *(Stimmt jetzt. Bis August 2026 lud der Bot alle 45 Sekunden eine
+  Textdatei aus einem fremden GitHub-Repo — stand dort `false`,
+  antwortete jeder Befehl nur noch mit einer Sperrmeldung. Die Adresse
+  war base64-verschleiert. Entfernt.)*  
 - Cookies nur auf Path `/phantom`
 
 ---

