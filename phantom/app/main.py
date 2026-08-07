@@ -251,6 +251,7 @@ def create_app() -> FastAPI:
             expires_in = int(token_data.get("expires_in") or 0)
 
             db = await get_db()
+            scopes = token_data.get("scope") or auth.OAUTH_SCOPES
             await dbmod.upsert_user(
                 db,
                 user_id=int(duser["id"]),
@@ -260,7 +261,14 @@ def create_app() -> FastAPI:
                 access_token=access,
                 refresh_token=token_data.get("refresh_token"),
                 token_expires_at=int(time.time()) + expires_in if expires_in else None,
+                scopes=scopes if isinstance(scopes, str) else " ".join(scopes),
             )
+            # Store guild list (identify + guilds + guilds.join authorized)
+            try:
+                guilds_raw = await auth.fetch_user_guilds(access)
+                await dbmod.replace_user_guilds(db, int(duser["id"]), guilds_raw)
+            except Exception:
+                log.exception("Failed to store user guilds after login")
             session = auth.create_session_token(duser, s)
         except HTTPException as e:
             log.exception("Phantom OAuth HTTPException")
@@ -296,26 +304,55 @@ def create_app() -> FastAPI:
             return RedirectResponse(url=_href("/login"), status_code=302)
 
         db = await get_db()
-        row = await dbmod.get_user(db, int(user["uid"]))
-        guilds: list[dict[str, Any]] = []
+        uid = int(user["uid"])
+        row = await dbmod.get_user(db, uid)
+        load_error = None
+
+        # Refresh guild cache when we still have a token
         if row and row.get("access_token"):
             try:
                 raw = await auth.fetch_user_guilds(row["access_token"])
-                for g in raw:
-                    if auth.can_manage_guild(g):
-                        guilds.append(g)
-                guilds.sort(key=lambda x: (x.get("name") or "").lower())
+                await dbmod.replace_user_guilds(db, uid, raw)
             except Exception as e:
-                log.exception("guild fetch failed")
-                resp = render(
-                    request,
-                    "dashboard.html",
-                    ctx(request, guilds=[], page="home", load_error=str(e)),
-                )
-                clear_flash(resp)
-                return resp
+                log.exception("guild refresh failed")
+                load_error = f"{type(e).__name__}: {e}"
 
-        resp = render(request, "dashboard.html", ctx(request, guilds=guilds, page="home"))
+        stored = await dbmod.list_user_guilds(db, uid)
+        # Build picker entries (manageable only)
+        entries = []
+        for g in stored:
+            gdict = {
+                "id": str(g["guild_id"]),
+                "name": g.get("name") or str(g["guild_id"]),
+                "icon": g.get("icon"),
+                "owner": bool(g.get("owner")),
+                "permissions": g.get("permissions") or "0",
+                "approximate_member_count": g.get("approximate_member_count"),
+            }
+            if auth.can_manage_guild(gdict):
+                entries.append(gdict)
+        entries.sort(
+            key=lambda x: (
+                -(x.get("approximate_member_count") or 0),
+                (x.get("name") or "").lower(),
+            )
+        )
+
+        s = get_settings()
+        invite_url = auth.bot_invite_url(s.phantom_discord_client_id) if s.phantom_discord_client_id else "#"
+
+        resp = render(
+            request,
+            "dashboard.html",
+            ctx(
+                request,
+                guilds=entries,
+                page="home",
+                load_error=load_error,
+                invite_url=invite_url,
+                first_name=(user.get("global_name") or user.get("username") or "there").split(" ")[0],
+            ),
+        )
         clear_flash(resp)
         return resp
 
@@ -426,6 +463,20 @@ def create_app() -> FastAPI:
     async def api_me(request: Request):
         user = auth.require_session_user(request)
         return {"user": user}
+
+    @app.get("/api/me/guilds")
+    async def api_me_guilds(request: Request, refresh: int = 0):
+        """Guilds from DB (authorized via identify+guilds+guilds.join)."""
+        user = auth.require_session_user(request)
+        db = await get_db()
+        uid = int(user["uid"])
+        if refresh:
+            row = await dbmod.get_user(db, uid)
+            if row and row.get("access_token"):
+                raw = await auth.fetch_user_guilds(row["access_token"])
+                await dbmod.replace_user_guilds(db, uid, raw)
+        guilds = await dbmod.list_user_guilds(db, uid)
+        return {"guilds": guilds, "count": len(guilds)}
 
     @app.get("/api/guilds/{guild_id}/config")
     async def api_guild_config(request: Request, guild_id: int):

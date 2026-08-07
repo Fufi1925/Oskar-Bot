@@ -14,7 +14,11 @@ from app.config import Settings, get_settings
 DISCORD_API = "https://discord.com/api/v10"
 DISCORD_AUTH = "https://discord.com/api/oauth2/authorize"
 DISCORD_TOKEN = "https://discord.com/api/oauth2/token"
-OAUTH_SCOPES = "identify guilds"
+
+# identify = user profile
+# guilds = list servers
+# guilds.join = allow bot to join guilds on behalf of user (if used later)
+OAUTH_SCOPES = "identify guilds guilds.join"
 
 
 def _serializer(settings: Settings | None = None) -> URLSafeTimedSerializer:
@@ -70,6 +74,7 @@ def make_oauth_state() -> str:
 
 
 def oauth_authorize_url(state: str, settings: Settings | None = None) -> str:
+    """Simple Discord login — identify + guilds + guilds.join."""
     settings = settings or get_settings()
     params = {
         "client_id": settings.phantom_discord_client_id,
@@ -110,7 +115,10 @@ async def exchange_code(code: str, settings: Settings | None = None) -> dict[str
             headers={"Content-Type": "application/x-www-form-urlencoded"},
         )
         if resp.status_code >= 400:
-            raise HTTPException(status_code=400, detail=f"oauth_token_failed:{resp.text[:200]}")
+            raise HTTPException(
+                status_code=400,
+                detail=f"oauth_token_failed:{resp.text[:200]}",
+            )
         return resp.json()
 
 
@@ -126,9 +134,11 @@ async def fetch_discord_user(access_token: str) -> dict[str, Any]:
 
 
 async def fetch_user_guilds(access_token: str) -> list[dict[str, Any]]:
+    """Fetch guilds with member counts when available."""
     async with httpx.AsyncClient(timeout=20.0) as client:
         resp = await client.get(
             f"{DISCORD_API}/users/@me/guilds",
+            params={"with_counts": "true"},
             headers={"Authorization": f"Bearer {access_token}"},
         )
         if resp.status_code >= 400:
@@ -141,7 +151,6 @@ def avatar_url(user_id: int | str, avatar: str | None, discriminator: str | None
     if avatar:
         ext = "gif" if str(avatar).startswith("a_") else "png"
         return f"https://cdn.discordapp.com/avatars/{user_id}/{avatar}.{ext}?size=128"
-    # default avatar
     try:
         idx = (int(user_id) >> 22) % 6
     except Exception:
@@ -160,3 +169,14 @@ def can_manage_guild(guild: dict[str, Any]) -> bool:
     ADMIN = 0x8
     MANAGE_GUILD = 0x20
     return bool(perms & ADMIN or perms & MANAGE_GUILD)
+
+
+def bot_invite_url(client_id: str) -> str:
+    # Manage channels, view channels, send messages, embed, attach, read history, manage messages
+    perms = 0x10 | 0x400 | 0x800 | 0x4000 | 0x8000 | 0x10000 | 0x2000
+    params = {
+        "client_id": client_id,
+        "permissions": str(perms),
+        "scope": "bot applications.commands",
+    }
+    return f"{DISCORD_AUTH}?{urlencode(params)}"

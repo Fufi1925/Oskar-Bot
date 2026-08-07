@@ -202,6 +202,50 @@ button, input, textarea, select { font: inherit; }
   gap: 14px;
   padding-bottom: 40px;
 }
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 14px;
+}
+@media (max-width: 720px) {
+  .stats-row { grid-template-columns: 1fr; }
+}
+.stat {
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.stat-val {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+.stat-label {
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+}
+.toolbar {
+  padding: 12px;
+  margin-bottom: 14px;
+}
+.toolbar input {
+  width: 100%;
+  border: 1px solid var(--line);
+  background: var(--bg1);
+  color: var(--text);
+  border-radius: 12px;
+  padding: 12px 14px;
+  outline: none;
+}
+.toolbar input:focus {
+  border-color: rgba(124, 92, 255, 0.55);
+  box-shadow: 0 0 0 3px rgba(124, 92, 255, 0.12);
+}
 .guild-card {
   padding: 18px;
   display: flex;
@@ -214,28 +258,36 @@ button, input, textarea, select { font: inherit; }
   transform: translateY(-2px);
 }
 .guild-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 14px;
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
   background: var(--bg3);
-  border: 1px solid var(--line);
+  border: 2px solid rgba(15, 23, 42, 0.9);
   object-fit: cover;
   display: grid;
   place-items: center;
-  font-weight: 700;
-  color: var(--muted);
+  font-weight: 800;
+  font-size: 20px;
+  color: #7dd3a7;
   overflow: hidden;
   flex-shrink: 0;
+  box-shadow: 0 10px 24px rgba(0,0,0,0.35);
 }
 .guild-icon img { width: 100%; height: 100%; object-fit: cover; }
-.guild-meta { min-width: 0; }
+.guild-meta { min-width: 0; flex: 1; }
 .guild-meta strong {
   display: block;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-size: 15px;
 }
-.guild-meta span { color: var(--muted); font-size: 13px; }
+.guild-meta span { color: var(--muted); font-size: 13px; display: inline-flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: 4px; }
+.chev {
+  color: var(--muted);
+  font-size: 22px;
+  opacity: 0.5;
+}
 
 /* Guild settings */
 .layout {

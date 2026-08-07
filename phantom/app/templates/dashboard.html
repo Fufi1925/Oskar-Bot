@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Dashboard · {{ brand }}{% endblock %}
+{% block title %}Server · {{ brand }}{% endblock %}
 {% block body %}
 <div class="shell">
   <div class="topbar">
@@ -16,19 +16,51 @@
 
   <section class="card hero">
     <div>
-      <h1>Server auswählen</h1>
+      <h1>Willkommen zurück{% if first_name %}, <span style="color:#5b8cff">{{ first_name }}</span>{% endif %}</h1>
       <p>
-        Verwalte Ticket-Einstellungen für Server, auf denen du Admin-Rechte hast
-        und der Phantom-Bot eingeladen ist.
+        Wähle einen Server, um Ticket-Einstellungen zu verwalten.
+        {% if guilds %}Du hast Zugriff auf <strong>{{ guilds|length }}</strong> Server.{% endif %}
       </p>
     </div>
-    <a class="btn btn-primary" href="{{ root_path }}/dashboard">Aktualisieren</a>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <a class="btn btn-primary" href="{{ root_path }}/dashboard">Aktualisieren</a>
+      {% if invite_url and invite_url != '#' %}
+      <a class="btn btn-discord" href="{{ invite_url }}" target="_blank" rel="noopener">Bot einladen</a>
+      {% endif %}
+    </div>
   </section>
 
+  {% if load_error %}
+  <div class="warn" style="width:min(1120px,calc(100% - 32px));margin:0 auto 14px">
+    Server-Liste konnte nicht live aktualisiert werden — zeige gespeicherte Daten.
+    <div style="opacity:.8;margin-top:4px;font-size:12px">{{ load_error }}</div>
+  </div>
+  {% endif %}
+
   {% if guilds %}
-  <div class="grid">
+  <div class="stats-row">
+    <div class="card stat">
+      <div class="stat-val">{{ guilds|length }}</div>
+      <div class="stat-label">Server</div>
+    </div>
+    <div class="card stat">
+      <div class="stat-val">{{ guilds|selectattr('owner')|list|length }}</div>
+      <div class="stat-label">Owner</div>
+    </div>
+    <div class="card stat">
+      <div class="stat-val">{% set ns = namespace(total=0) %}{% for g in guilds %}{% if g.approximate_member_count %}{% set ns.total = ns.total + g.approximate_member_count %}{% endif %}{% endfor %}{{ ns.total }}</div>
+      <div class="stat-label">Mitglieder ≈</div>
+    </div>
+  </div>
+
+  <div class="toolbar card">
+    <input id="guild-search" type="search" placeholder="Server suchen…" />
+  </div>
+
+  <div class="grid" id="guild-grid">
     {% for g in guilds %}
-    <a class="card guild-card" href="{{ root_path }}/dashboard/guild/{{ g.id }}">
+    <a class="card guild-card" href="{{ root_path }}/dashboard/guild/{{ g.id }}"
+       data-name="{{ (g.name or '')|lower }}" data-id="{{ g.id }}">
       <div class="guild-icon">
         {% if g.icon %}
         <img src="https://cdn.discordapp.com/icons/{{ g.id }}/{{ g.icon }}.png?size=128" alt="" />
@@ -38,16 +70,37 @@
       </div>
       <div class="guild-meta">
         <strong>{{ g.name }}</strong>
-        <span>ID {{ g.id }}{% if g.owner %} · Owner{% endif %}</span>
+        <span>
+          {% if g.owner %}<span class="pill ok">Owner</span>{% else %}<span class="pill">Admin</span>{% endif %}
+          {% if g.approximate_member_count %} · {{ g.approximate_member_count }} Mitglieder{% endif %}
+        </span>
       </div>
+      <div class="chev">›</div>
     </a>
     {% endfor %}
   </div>
   {% else %}
   <div class="card empty">
     Keine verwaltbaren Server gefunden.<br />
-    Lade den Phantom-Bot ein und stelle sicher, dass du Admin-/Manage-Server-Rechte hast.
+    {% if invite_url and invite_url != '#' %}
+    <a class="btn btn-discord" style="margin-top:16px" href="{{ invite_url }}" target="_blank" rel="noopener">Phantom-Bot einladen</a>
+    {% endif %}
   </div>
   {% endif %}
 </div>
+<script>
+(function () {
+  var input = document.getElementById('guild-search');
+  var grid = document.getElementById('guild-grid');
+  if (!input || !grid) return;
+  input.addEventListener('input', function () {
+    var q = (input.value || '').toLowerCase().trim();
+    grid.querySelectorAll('.guild-card').forEach(function (card) {
+      var name = card.getAttribute('data-name') || '';
+      var id = card.getAttribute('data-id') || '';
+      card.style.display = (!q || name.indexOf(q) !== -1 || id.indexOf(q) !== -1) ? '' : 'none';
+    });
+  });
+})();
+</script>
 {% endblock %}

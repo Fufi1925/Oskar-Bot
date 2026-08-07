@@ -5,18 +5,15 @@
   <div class="card login-card">
     <div class="login-badge">
       <span class="brand-mark" style="width:22px;height:22px;border-radius:7px;font-size:12px">◈</span>
-      {{ brand }} Dashboard
+      {{ brand }}
     </div>
-    <h1>Willkommen zurück</h1>
-    <p>
-      Melde dich mit Discord an, um Ticket-Einstellungen für deine Server zu verwalten.
-      Dieses System läuft isoliert unter <strong>/phantom</strong>.
-    </p>
+    <h1>Anmelden</h1>
+    <p>Melde dich mit Discord an.</p>
 
     {% if missing %}
     <div class="warn">
       <strong>Setup unvollständig.</strong><br />
-      Bitte setze in der <code>.env</code>: {{ missing|join(", ") }}
+      Bitte setze: {{ missing|join(", ") }}
     </div>
     {% endif %}
 
@@ -27,12 +24,6 @@
         </svg>
         Mit Discord anmelden
       </a>
-      <a class="btn btn-ghost" href="{{ root_path }}/auth/discord?force=1">Erneut autorisieren</a>
-    </div>
-
-    <div class="hint">
-      OAuth Redirect muss exakt sein:<br />
-      <code>{{ redirect_uri }}</code>
     </div>
   </div>
 </div>

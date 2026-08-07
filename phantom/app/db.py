@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import time
-from pathlib import Path
 from typing import Any
 
 import aiosqlite
@@ -18,8 +17,26 @@ CREATE TABLE IF NOT EXISTS users (
     access_token TEXT,
     refresh_token TEXT,
     token_expires_at INTEGER,
+    scopes      TEXT,
     updated_at  INTEGER NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS user_guilds (
+    user_id     INTEGER NOT NULL,
+    guild_id    INTEGER NOT NULL,
+    name        TEXT,
+    icon        TEXT,
+    owner       INTEGER DEFAULT 0,
+    permissions TEXT,
+    features    TEXT,
+    approximate_member_count INTEGER,
+    raw_json    TEXT,
+    updated_at  INTEGER NOT NULL,
+    PRIMARY KEY (user_id, guild_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_guilds_user ON user_guilds(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_guilds_guild ON user_guilds(guild_id);
 
 CREATE TABLE IF NOT EXISTS guild_configs (
     guild_id            INTEGER PRIMARY KEY,
@@ -54,6 +71,12 @@ async def connect() -> aiosqlite.Connection:
     db = await aiosqlite.connect(settings.db_path)
     db.row_factory = aiosqlite.Row
     await db.executescript(_SCHEMA)
+    # lightweight migrations for older DBs
+    try:
+        await db.execute("ALTER TABLE users ADD COLUMN scopes TEXT")
+        await db.commit()
+    except Exception:
+        pass
     await db.commit()
     return db
 
@@ -68,12 +91,15 @@ async def upsert_user(
     access_token: str | None = None,
     refresh_token: str | None = None,
     token_expires_at: int | None = None,
+    scopes: str | None = None,
 ) -> None:
     now = int(time.time())
     await db.execute(
         """
-        INSERT INTO users (user_id, username, global_name, avatar, access_token, refresh_token, token_expires_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO users (
+            user_id, username, global_name, avatar,
+            access_token, refresh_token, token_expires_at, scopes, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(user_id) DO UPDATE SET
             username=excluded.username,
             global_name=excluded.global_name,
@@ -81,6 +107,7 @@ async def upsert_user(
             access_token=COALESCE(excluded.access_token, users.access_token),
             refresh_token=COALESCE(excluded.refresh_token, users.refresh_token),
             token_expires_at=COALESCE(excluded.token_expires_at, users.token_expires_at),
+            scopes=COALESCE(excluded.scopes, users.scopes),
             updated_at=excluded.updated_at
         """,
         (
@@ -91,6 +118,7 @@ async def upsert_user(
             access_token,
             refresh_token,
             token_expires_at,
+            scopes,
             now,
         ),
     )
@@ -101,6 +129,66 @@ async def get_user(db: aiosqlite.Connection, user_id: int) -> dict[str, Any] | N
     cur = await db.execute("SELECT * FROM users WHERE user_id = ?", (user_id,))
     row = await cur.fetchone()
     return dict(row) if row else None
+
+
+async def replace_user_guilds(
+    db: aiosqlite.Connection,
+    user_id: int,
+    guilds: list[dict[str, Any]],
+) -> int:
+    """Replace stored guild list for a user. Returns count saved."""
+    now = int(time.time())
+    await db.execute("DELETE FROM user_guilds WHERE user_id = ?", (user_id,))
+    for g in guilds:
+        try:
+            gid = int(g.get("id"))
+        except (TypeError, ValueError):
+            continue
+        features = g.get("features") or []
+        await db.execute(
+            """
+            INSERT INTO user_guilds (
+                user_id, guild_id, name, icon, owner, permissions,
+                features, approximate_member_count, raw_json, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                user_id,
+                gid,
+                g.get("name"),
+                g.get("icon"),
+                1 if g.get("owner") else 0,
+                str(g.get("permissions") or "0"),
+                json.dumps(features, ensure_ascii=False),
+                g.get("approximate_member_count"),
+                json.dumps(g, ensure_ascii=False),
+                now,
+            ),
+        )
+    await db.commit()
+    return len(guilds)
+
+
+async def list_user_guilds(db: aiosqlite.Connection, user_id: int) -> list[dict[str, Any]]:
+    cur = await db.execute(
+        "SELECT * FROM user_guilds WHERE user_id = ? ORDER BY name COLLATE NOCASE",
+        (user_id,),
+    )
+    rows = await cur.fetchall()
+    out: list[dict[str, Any]] = []
+    for row in rows:
+        d = dict(row)
+        d["owner"] = bool(d.get("owner"))
+        try:
+            d["features"] = json.loads(d.get("features") or "[]")
+        except json.JSONDecodeError:
+            d["features"] = []
+        try:
+            d["raw"] = json.loads(d.get("raw_json") or "{}")
+        except json.JSONDecodeError:
+            d["raw"] = {}
+        out.append(d)
+    return out
 
 
 async def get_guild_config(db: aiosqlite.Connection, guild_id: int) -> dict[str, Any]:

@@ -158,6 +158,20 @@ Buttons: **Ticket erstellen** · **Claimen** · **Schließen**
 
 ---
 
+## OAuth Scopes
+
+Phantom fordert automatisch:
+
+- `identify`
+- `guilds`
+- `guilds.join`
+
+Server-Liste wird nach Login in SQLite (`user_guilds`) gespeichert und ist lesbar über:
+
+- Dashboard Server-Auswahl
+- `GET /api/me/guilds`
+- `GET /api/me/guilds?refresh=1` (live neu laden + speichern)
+
 ## Isolation Checkliste
 
 - [ ] Eigene Discord Application (nicht University)
