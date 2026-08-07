@@ -18,8 +18,8 @@
     <div>
       <h1>Willkommen zurück{% if first_name %}, <span style="color:#5b8cff">{{ first_name }}</span>{% endif %}</h1>
       <p>
+        <strong>Nur Server, auf denen der Phantom-Bot wirklich Mitglied ist.</strong><br>
         Wähle einen Server, um Ticket-Einstellungen zu verwalten.
-        {% if guilds %}Du hast Zugriff auf <strong>{{ guilds|length }}</strong> Server.{% endif %}
       </p>
     </div>
     <div style="display:flex;gap:10px;flex-wrap:wrap">
@@ -29,6 +29,32 @@
       {% endif %}
     </div>
   </section>
+
+  <!-- Main-Bot Style LIVE OVERVIEW -->
+  {% if stats %}
+  <div class="stats-row">
+    <div class="card stat">
+      <div class="stat-val">{{ stats.total_servers }}</div>
+      <div class="stat-label">Server (Bot aktiv)</div>
+    </div>
+    <div class="card stat">
+      <div class="stat-val">{{ stats.open_tickets }}</div>
+      <div class="stat-label">Offene Tickets</div>
+    </div>
+    <div class="card stat">
+      <div class="stat-val">{{ stats.claimed_tickets }}</div>
+      <div class="stat-label">Geclaimte Tickets</div>
+    </div>
+    <div class="card stat">
+      <div class="stat-val">{{ stats.total_tickets_active }}</div>
+      <div class="stat-label">Aktive Tickets gesamt</div>
+    </div>
+    <div class="card stat">
+      <div class="stat-val">{{ stats.recent_activity }}</div>
+      <div class="stat-label">Aktivität (24h)</div>
+    </div>
+  </div>
+  {% endif %}
 
   {% if load_error %}
   <div class="warn" style="width:min(1120px,calc(100% - 32px));margin:0 auto 14px">

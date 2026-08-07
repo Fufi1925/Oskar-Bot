@@ -14,11 +14,24 @@ from fastapi.templating import Jinja2Templates
 
 from app import auth, db as dbmod
 from app.config import get_settings
+import time as _time
 
 log = logging.getLogger("phantom")
 
 APP_DIR = Path(__file__).resolve().parent
 TEMPLATES = Jinja2Templates(directory=str(APP_DIR / "templates"))
+
+def _format_timestamp(ts: int | None) -> str:
+    if not ts:
+        return "—"
+    try:
+        from datetime import datetime
+        dt = datetime.fromtimestamp(int(ts))
+        return dt.strftime("%d.%m.%Y %H:%M")
+    except Exception:
+        return str(ts)
+
+TEMPLATES.env.filters["timestamp"] = _format_timestamp
 
 # Module-level DB: request.app is the PARENT app when mounted under University,
 # so app.state.db on the sub-app is unreliable. Always use this helper.
@@ -305,38 +318,55 @@ def create_app() -> FastAPI:
 
         db = await get_db()
         uid = int(user["uid"])
-        row = await dbmod.get_user(db, uid)
         load_error = None
 
-        # Refresh guild cache when we still have a token
+        # IMPORTANT: Only show guilds where the Phantom BOT is actually a member
+        # (not all user guilds). This fulfills "no server config where bot is not present".
+        bot_guilds = await dbmod.list_bot_guilds(db)
+
+        # Also get user's manageable guilds (from their OAuth) so we can filter
+        # only servers the user can manage + bot is in.
+        user_manageable = set()
+        row = await dbmod.get_user(db, uid)
         if row and row.get("access_token"):
             try:
                 raw = await auth.fetch_user_guilds(row["access_token"])
                 await dbmod.replace_user_guilds(db, uid, raw)
+                for g in raw:
+                    gdict = {
+                        "id": str(g.get("id")),
+                        "permissions": str(g.get("permissions") or "0"),
+                        "owner": bool(g.get("owner")),
+                    }
+                    if auth.can_manage_guild(gdict):
+                        user_manageable.add(int(g.get("id")))
             except Exception as e:
                 log.exception("guild refresh failed")
                 load_error = f"{type(e).__name__}: {e}"
 
-        stored = await dbmod.list_user_guilds(db, uid)
-        # Build picker entries (manageable only)
+        # Final list: only servers where BOT is present AND user can manage
         entries = []
-        for g in stored:
-            gdict = {
-                "id": str(g["guild_id"]),
-                "name": g.get("name") or str(g["guild_id"]),
-                "icon": g.get("icon"),
-                "owner": bool(g.get("owner")),
-                "permissions": g.get("permissions") or "0",
-                "approximate_member_count": g.get("approximate_member_count"),
-            }
-            if auth.can_manage_guild(gdict):
-                entries.append(gdict)
+        for g in bot_guilds:
+            gid = int(g["guild_id"])
+            if gid in user_manageable:
+                entries.append({
+                    "id": str(gid),
+                    "name": g.get("name") or str(gid),
+                    "icon": g.get("icon"),
+                    "owner": False,  # we don't know owner here, but doesn't matter
+                    "approximate_member_count": g.get("member_count"),
+                    "bot_in": True,
+                })
+
         entries.sort(
             key=lambda x: (
                 -(x.get("approximate_member_count") or 0),
                 (x.get("name") or "").lower(),
             )
         )
+
+        # Main-bot style LIVE OVERVIEW stats (only Phantom scope)
+        stats = await dbmod.get_phantom_stats(db)
 
         s = get_settings()
         invite_url = auth.bot_invite_url(s.phantom_discord_client_id) if s.phantom_discord_client_id else "#"
@@ -351,6 +381,8 @@ def create_app() -> FastAPI:
                 load_error=load_error,
                 invite_url=invite_url,
                 first_name=(user.get("global_name") or user.get("username") or "there").split(" ")[0],
+                bot_only=True,
+                stats=stats,   # ← main-bot-like overview
             ),
         )
         clear_flash(resp)
@@ -363,23 +395,37 @@ def create_app() -> FastAPI:
             return RedirectResponse(url=_href("/login"), status_code=302)
 
         db = await get_db()
+
+        # CRITICAL: Only allow if the Phantom BOT is actually in this guild
+        if not await dbmod.is_bot_in_guild(db, guild_id):
+            resp = RedirectResponse(url=_href("/dashboard"), status_code=302)
+            set_flash(resp, "Der Phantom-Bot ist auf diesem Server nicht vorhanden. Du kannst ihn nur auf Servern konfigurieren, auf denen er Mitglied ist.", request)
+            return resp
+
+        # Check user has manage rights (from their OAuth data)
+        has_access = False
         row = await dbmod.get_user(db, int(user["uid"]))
-        guild = None
         if row and row.get("access_token"):
             try:
                 for g in await auth.fetch_user_guilds(row["access_token"]):
                     if int(g.get("id") or 0) == guild_id and auth.can_manage_guild(g):
+                        has_access = True
                         guild = g
                         break
             except Exception:
-                guild = None
-        if not guild:
+                has_access = False
+
+        if not has_access:
             resp = RedirectResponse(url=_href("/dashboard"), status_code=302)
-            set_flash(resp, "Kein Zugriff auf diesen Server.", request)
+            set_flash(resp, "Du hast keine Berechtigung, diesen Server zu bearbeiten.", request)
             return resp
 
         config = await dbmod.get_guild_config(db, guild_id)
         tickets = await dbmod.list_open_tickets(db, guild_id)
+
+        # Live stats (main-bot style)
+        live_stats = await dbmod.get_guild_live_stats(db, guild_id)
+
         resp = render(
             request,
             "guild.html",
@@ -389,6 +435,7 @@ def create_app() -> FastAPI:
                 guild=guild,
                 config=config,
                 tickets=tickets,
+                live_stats=live_stats,
                 staff_role_ids_json=json.dumps(config.get("staff_role_ids") or []),
             ),
         )

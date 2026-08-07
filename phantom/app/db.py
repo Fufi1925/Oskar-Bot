@@ -57,11 +57,23 @@ CREATE TABLE IF NOT EXISTS open_tickets (
     category        TEXT DEFAULT 'support',
     status          TEXT DEFAULT 'open',
     created_at      INTEGER NOT NULL,
-    claimed_at      INTEGER
+    claimed_at      INTEGER,
+    last_activity   INTEGER
 );
 
 CREATE INDEX IF NOT EXISTS idx_tickets_guild ON open_tickets(guild_id);
 CREATE INDEX IF NOT EXISTS idx_tickets_owner ON open_tickets(owner_id);
+
+-- Bot's own guilds (only servers where Phantom Bot is actually a member)
+CREATE TABLE IF NOT EXISTS bot_guilds (
+    guild_id    INTEGER PRIMARY KEY,
+    name        TEXT,
+    icon        TEXT,
+    member_count INTEGER,
+    updated_at  INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_bot_guilds_updated ON bot_guilds(updated_at);
 """
 
 
@@ -325,6 +337,16 @@ async def delete_ticket(db: aiosqlite.Connection, channel_id: int) -> None:
     await db.commit()
 
 
+async def update_ticket_activity(db: aiosqlite.Connection, channel_id: int) -> None:
+    """Update last_activity timestamp (for live feeling)."""
+    now = int(time.time())
+    await db.execute(
+        "UPDATE open_tickets SET last_activity = ? WHERE channel_id = ?",
+        (now, channel_id),
+    )
+    await db.commit()
+
+
 async def get_ticket(db: aiosqlite.Connection, channel_id: int) -> dict[str, Any] | None:
     cur = await db.execute("SELECT * FROM open_tickets WHERE channel_id=?", (channel_id,))
     row = await cur.fetchone()
@@ -340,3 +362,143 @@ async def count_user_open_tickets(
     )
     row = await cur.fetchone()
     return int(row["c"] if row else 0)
+
+
+# ─────────────────────────────────────────────────────────────
+# BOT GUILDS (nur Server, auf denen der Phantom-Bot wirklich Member ist)
+# ─────────────────────────────────────────────────────────────
+
+async def sync_bot_guilds(
+    db: aiosqlite.Connection, guilds: list[dict[str, Any]]
+) -> int:
+    """Replace the list of guilds the bot is actually in. Called by the bot."""
+    now = int(time.time())
+    await db.execute("DELETE FROM bot_guilds")
+    for g in guilds:
+        try:
+            gid = int(g.get("id") or g.get("guild_id"))
+        except (TypeError, ValueError):
+            continue
+        await db.execute(
+            """
+            INSERT INTO bot_guilds (guild_id, name, icon, member_count, updated_at)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (
+                gid,
+                g.get("name"),
+                g.get("icon"),
+                g.get("member_count") or g.get("approximate_member_count"),
+                now,
+            ),
+        )
+    await db.commit()
+    return len(guilds)
+
+
+async def list_bot_guilds(db: aiosqlite.Connection) -> list[dict[str, Any]]:
+    cur = await db.execute(
+        "SELECT * FROM bot_guilds ORDER BY name COLLATE NOCASE"
+    )
+    rows = await cur.fetchall()
+    return [dict(r) for r in rows]
+
+
+async def get_bot_guild(db: aiosqlite.Connection, guild_id: int) -> dict[str, Any] | None:
+    cur = await db.execute("SELECT * FROM bot_guilds WHERE guild_id = ?", (guild_id,))
+    row = await cur.fetchone()
+    return dict(row) if row else None
+
+
+async def is_bot_in_guild(db: aiosqlite.Connection, guild_id: int) -> bool:
+    cur = await db.execute("SELECT 1 FROM bot_guilds WHERE guild_id = ?", (guild_id,))
+    return await cur.fetchone() is not None
+
+
+async def update_bot_guild_stats(
+    db: aiosqlite.Connection, guild_id: int, *, name: str | None = None, icon: str | None = None, member_count: int | None = None
+) -> None:
+    """Lightweight update for a single guild the bot is in."""
+    now = int(time.time())
+    sets = []
+    params = []
+    if name is not None:
+        sets.append("name = ?")
+        params.append(name)
+    if icon is not None:
+        sets.append("icon = ?")
+        params.append(icon)
+    if member_count is not None:
+        sets.append("member_count = ?")
+        params.append(member_count)
+    sets.append("updated_at = ?")
+    params.append(now)
+    params.append(guild_id)
+
+    if len(sets) > 1:
+        await db.execute(
+            f"UPDATE bot_guilds SET {', '.join(sets)} WHERE guild_id = ?",
+            params,
+        )
+        await db.commit()
+
+
+# ── LIVE STATS HELPERS (for main-bot-like overview) ──
+
+async def get_phantom_stats(db: aiosqlite.Connection) -> dict[str, Any]:
+    """Return live overview stats like the main University Bot dashboard."""
+    cur = await db.execute("SELECT COUNT(*) FROM bot_guilds")
+    total_servers = (await cur.fetchone())[0] or 0
+
+    cur = await db.execute("SELECT COUNT(*) FROM open_tickets WHERE status = 'open'")
+    open_tickets = (await cur.fetchone())[0] or 0
+
+    cur = await db.execute("SELECT COUNT(*) FROM open_tickets WHERE status = 'claimed'")
+    claimed_tickets = (await cur.fetchone())[0] or 0
+
+    cur = await db.execute("SELECT COUNT(DISTINCT guild_id) FROM open_tickets")
+    servers_with_tickets = (await cur.fetchone())[0] or 0
+
+    # Recent activity (last 24h)
+    day_ago = int(time.time()) - 86400
+    cur = await db.execute(
+        "SELECT COUNT(*) FROM open_tickets WHERE created_at > ? OR claimed_at > ?",
+        (day_ago, day_ago),
+    )
+    recent_activity = (await cur.fetchone())[0] or 0
+
+    return {
+        "total_servers": total_servers,
+        "open_tickets": open_tickets,
+        "claimed_tickets": claimed_tickets,
+        "servers_with_tickets": servers_with_tickets,
+        "recent_activity": recent_activity,
+        "total_tickets_active": open_tickets + claimed_tickets,
+    }
+
+
+async def get_guild_live_stats(db: aiosqlite.Connection, guild_id: int) -> dict[str, Any]:
+    """Live stats for a single guild (like main bot overview)."""
+    cur = await db.execute(
+        "SELECT COUNT(*) FROM open_tickets WHERE guild_id = ? AND status = 'open'",
+        (guild_id,),
+    )
+    open_count = (await cur.fetchone())[0] or 0
+
+    cur = await db.execute(
+        "SELECT COUNT(*) FROM open_tickets WHERE guild_id = ?",
+        (guild_id,),
+    )
+    total_count = (await cur.fetchone())[0] or 0
+
+    cur = await db.execute(
+        "SELECT * FROM open_tickets WHERE guild_id = ? ORDER BY COALESCE(claimed_at, created_at) DESC LIMIT 5",
+        (guild_id,),
+    )
+    recent = [dict(r) for r in await cur.fetchall()]
+
+    return {
+        "open_tickets": open_count,
+        "total_tickets": total_count,
+        "recent_tickets": recent,
+    }

@@ -34,7 +34,7 @@
 
     <main class="card panel">
       <h2>Ticket-Einstellungen</h2>
-      <p class="sub">Wird vom Phantom-Bot gelesen. Keine Verbindung zu anderen Systemen außerhalb von /phantom.</p>
+      <p class="sub">Wird vom Phantom-Bot gelesen. Nur für Server, auf denen der Bot Mitglied ist.</p>
 
       <form class="form-grid" method="post" action="{{ root_path }}/dashboard/guild/{{ guild.id }}/save">
         <label>
@@ -59,19 +59,43 @@
         </label>
         <div class="row-actions">
           <button class="btn btn-primary" type="submit">Speichern</button>
+          <a class="btn btn-ghost" href="{{ root_path }}/dashboard">← Zurück zur Übersicht</a>
         </div>
       </form>
 
-      <h2 style="margin-top:34px">Offene Tickets</h2>
-      <p class="sub">Aus der Phantom-Datenbank.</p>
+      <!-- LIVE OVERVIEW like Main Bot -->
+      <div style="margin: 32px 0 12px; padding-top: 18px; border-top: 1px solid var(--line);">
+        <h2 style="margin-bottom:8px">Live Übersicht</h2>
+        <div class="stats-row" style="grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); margin-bottom: 18px;">
+          <div class="card stat">
+            <div class="stat-val">{{ live_stats.open_tickets or 0 }}</div>
+            <div class="stat-label">Offene Tickets</div>
+          </div>
+          <div class="card stat">
+            <div class="stat-val">{{ live_stats.total_tickets or 0 }}</div>
+            <div class="stat-label">Tickets gesamt</div>
+          </div>
+          <div class="card stat">
+            <div class="stat-val">{{ (live_stats.recent_tickets | length) or 0 }}</div>
+            <div class="stat-label">Zuletzt aktiv</div>
+          </div>
+        </div>
+      </div>
+
+      <h2 style="margin-top: 12px">Aktuelle Tickets (Live)</h2>
+      <p class="sub">Echtzeit-Daten aus der Phantom-Datenbank. Aktualisiert sich bei jeder Bot-Aktion.</p>
+
       {% if tickets %}
       <table class="table">
         <thead>
           <tr>
-            <th>Kanal</th>
+            <th>Kanal-ID</th>
             <th>Owner</th>
             <th>Status</th>
+            <th>Claimed by</th>
             <th>Kategorie</th>
+            <th>Erstellt</th>
+            <th>Letzte Aktivität</th>
           </tr>
         </thead>
         <tbody>
@@ -81,19 +105,43 @@
             <td><code>{{ t.owner_id }}</code></td>
             <td>
               {% if t.status == 'claimed' %}
-              <span class="pill ok">{{ t.status }}</span>
+              <span class="pill ok">claimed</span>
               {% else %}
-              <span class="pill warn">{{ t.status }}</span>
+              <span class="pill warn">open</span>
               {% endif %}
             </td>
-            <td>{{ t.category }}</td>
+            <td>
+              {% if t.claimed_by %}
+                <code>{{ t.claimed_by }}</code>
+              {% else %}
+                <span style="color:#666">—</span>
+              {% endif %}
+            </td>
+            <td>{{ t.category or 'support' }}</td>
+            <td>
+              {% if t.created_at %}
+                <span style="font-size:12px">{{ t.created_at | int | timestamp }}</span>
+              {% else %}—{% endif %}
+            </td>
+            <td>
+              {% if t.last_activity %}
+                <span style="font-size:12px">{{ t.last_activity | int | timestamp }}</span>
+              {% else %}
+                <span style="font-size:12px">{{ t.created_at | int | timestamp }}</span>
+              {% endif %}
+            </td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
       {% else %}
-      <div class="empty">Keine offenen Tickets.</div>
+      <div class="empty">Keine offenen Tickets auf diesem Server.</div>
       {% endif %}
+
+      <div style="margin-top: 20px; font-size: 12px; color: var(--muted);">
+        💡 Tipp: Der Bot synchronisiert automatisch alle Server, auf denen er Mitglied ist. 
+        Nur diese erscheinen hier. <a href="{{ root_path }}/dashboard/guild/{{ guild.id }}" style="color:inherit">Seite neu laden</a> für aktuelle Daten.
+      </div>
     </main>
   </div>
 </div>

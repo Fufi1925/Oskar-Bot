@@ -88,6 +88,8 @@ class TicketControlView(ui.View):
             return
 
         await dbmod.set_ticket_claim(db, interaction.channel.id, interaction.user.id)
+        await dbmod.update_ticket_activity(db, interaction.channel.id)
+
         # perms: staff role view-only-ish optional — keep simple
         await interaction.channel.set_permissions(
             interaction.user, view_channel=True, send_messages=True, attach_files=True
@@ -112,6 +114,7 @@ class TicketControlView(ui.View):
 
         await interaction.response.send_message("Ticket wird in 3 Sekunden geschlossen…")
         await asyncio.sleep(3)
+        await dbmod.update_ticket_activity(db, interaction.channel.id)
         await dbmod.delete_ticket(db, interaction.channel.id)
         try:
             await interaction.channel.delete(reason=f"Ticket closed by {member}")
@@ -168,6 +171,9 @@ class PanelView(ui.View):
             db, channel_id=channel.id, guild_id=guild.id, owner_id=user.id, category="support"
         )
 
+        # Update live activity
+        await dbmod.update_ticket_activity(db, channel.id)
+
         embed = discord.Embed(
             title=f"Ticket von {user.display_name}",
             description=(
@@ -198,6 +204,74 @@ async def on_ready():
     bot.add_view(PanelView())
     bot.add_view(TicketControlView())
     log.info("Phantom Ticket-Bot online as %s", bot.user)
+
+    # Sync all guilds the bot is actually a member of (CRITICAL for dashboard filtering)
+    await sync_bot_guilds_to_db()
+    log.info("Synced %s guilds the bot is in", len(bot.guilds))
+
+    # Start periodic sync every 5 minutes (keeps dashboard fresh even if events missed)
+    bot.loop.create_task(periodic_guild_sync())
+
+
+async def periodic_guild_sync():
+    await bot.wait_until_ready()
+    while not bot.is_closed():
+        try:
+            await sync_bot_guilds_to_db()
+            log.debug("Periodic guild sync done")
+        except Exception as e:
+            log.warning("Periodic guild sync failed: %s", e)
+        await asyncio.sleep(300)  # every 5 minutes
+
+
+async def sync_bot_guilds_to_db():
+    """Push current bot guilds into Phantom DB so dashboard only shows servers where bot is present."""
+    db = await get_db()
+    guilds_data = []
+    for g in bot.guilds:
+        guilds_data.append({
+            "id": g.id,
+            "name": g.name,
+            "icon": str(g.icon) if g.icon else None,
+            "member_count": getattr(g, "member_count", 0),
+        })
+    await dbmod.sync_bot_guilds(db, guilds_data)
+
+
+@bot.event
+async def on_guild_join(guild: discord.Guild):
+    """Bot joined a new server → immediately make it available in dashboard."""
+    db = await get_db()
+    await dbmod.sync_bot_guilds(db, [{
+        "id": guild.id,
+        "name": guild.name,
+        "icon": str(guild.icon) if guild.icon else None,
+        "member_count": guild.member_count,
+    }])
+    log.info("Bot joined guild %s — synced to dashboard", guild.id)
+
+
+@bot.event
+async def on_guild_remove(guild: discord.Guild):
+    """Bot was removed from a server → remove from available list."""
+    db = await get_db()
+    await db.execute("DELETE FROM bot_guilds WHERE guild_id = ?", (guild.id,))
+    await db.commit()
+    log.info("Bot removed from guild %s — removed from dashboard", guild.id)
+
+
+@bot.event
+async def on_guild_update(before: discord.Guild, after: discord.Guild):
+    """Keep member count / name / icon up to date for the dashboard."""
+    if before.member_count != after.member_count or before.name != after.name:
+        db = await get_db()
+        await dbmod.update_bot_guild_stats(
+            db,
+            after.id,
+            name=after.name,
+            icon=str(after.icon) if after.icon else None,
+            member_count=after.member_count,
+        )
 
 
 @bot.command(name="panel")
