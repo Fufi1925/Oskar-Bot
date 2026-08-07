@@ -790,7 +790,12 @@ def test_the_idle_check_is_precise():
 
     src = strip_py(open(MUSIC_COG, encoding="utf-8").read())
 
-    found = re.search(r"await asyncio\.sleep\((\d+)\)\n\n    @staticmethod", src)
+    # Aus der Schleife selbst lesen, nicht ueber das, was zufaellig
+    # danach steht. Das alte Muster verlangte `@staticmethod` direkt
+    # im Anschluss -- seit dort eine neue Hilfsfunktion sitzt, fand es
+    # nichts mehr und meldete 999, obwohl der Takt stimmte.
+    loop = src.split("async def monitor_inactivity")[1].split("    def ")[0]
+    found = re.search(r"await asyncio\.sleep\((\d+)\)", loop)
     tick = int(found.group(1)) if found else 999
     check("die Schleife laeuft mindestens alle 5s", tick <= 5, f"-> {tick}s")
 
@@ -807,6 +812,283 @@ def test_the_idle_check_is_precise():
             elapsed += tick
         worst = max(worst, (left or 0) - wanted)
     check("hoechstens 5s Abweichung", worst <= 5, f"-> {worst}s daneben")
+
+
+
+# ------------------------------------------------------------------ #
+# Der gemeldete Fall: 24/7 + Autoplay, Bot allein, jemand joint
+# ------------------------------------------------------------------ #
+def test_the_queue_end_respects_stay_forever():
+    """Bei 24/7 darf der Bot am Listenende NICHT gehen.
+
+    Das war der gemeldete "Bot leavt": `on_track_end` trennte die
+    Verbindung, sobald die Warteschlange leer war -- ohne den
+    Dauerbetrieb zu pruefen. Die Liste lief durch, der Bot ging, und
+    der naechste Beitritt fand einen Kanal ohne Bot vor.
+    """
+    print("\nAm Listenende bleibt der Bot bei 24/7")
+
+    src = strip_py(open(MUSIC_COG, encoding="utf-8").read())
+    block = src.split("async def on_track_end")[1].split("    async def ")[0]
+
+    check("der Dauerbetrieb wird gelesen", 'settings.get("stay_forever")' in block)
+
+    # Die Wirkung, nicht das Wort: nach dem Lesen muss ein `return`
+    # kommen, und zwar VOR dem disconnect.
+    guarded = re.search(
+        r'if settings\.get\("stay_forever"\):[\s\S]{0,300}?return', block
+    )
+    check("und danach wird zurueckgekehrt", bool(guarded))
+
+    check(
+        "der Ausstieg steht vor dem Trennen",
+        bool(guarded) and guarded.end() < block.index("await player.disconnect()"),
+        "sonst geht er trotzdem raus",
+    )
+
+    # Und das Trennen muss die LETZTE Handlung sein -- steht danach
+    # noch ein `return`, war der Ausstieg wirkungslos.
+    after_disconnect = block[block.index("await player.disconnect()"):]
+    check(
+        "nach dem Trennen wird nur noch gemeldet",
+        "player.pause" not in after_disconnect,
+        "sonst wird an einem getrennten Spieler herumgeschaltet",
+    )
+
+    # Und das Trennen darf nicht hinter der ctx-Pruefung stehen.
+    #
+    # Wird `if ctx is None: return` davor geschoben, trennt der Bot
+    # bei einem Dashboard-Start (ctx ist dort immer None) gar nicht
+    # mehr -- er saesse fuer immer im leeren Kanal, obwohl 24/7 aus
+    # ist. Geprueft ueber den Syntaxbaum: eine Textsuche kennt die
+    # Reihenfolge der Anweisungen nicht.
+    tree = ast.parse(open(MUSIC_COG, encoding="utf-8").read())
+    order_ok = False
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.AsyncFunctionDef) or node.name != "on_track_end":
+            continue
+
+        disconnect_at = None
+        ctx_guard_at = None
+        for index, stmt in enumerate(node.body):
+            text = ast.unparse(stmt)
+            if disconnect_at is None and "player.disconnect()" in text:
+                disconnect_at = index
+            if (
+                ctx_guard_at is None
+                and isinstance(stmt, ast.If)
+                and "ctx is None" in ast.unparse(stmt.test)
+            ):
+                ctx_guard_at = index
+
+        order_ok = (
+            disconnect_at is not None
+            and ctx_guard_at is not None
+            and disconnect_at < ctx_guard_at
+        )
+        check(
+            "getrennt wird vor der ctx-Pruefung",
+            order_ok,
+            f"disconnect bei {disconnect_at}, ctx-Pruefung bei {ctx_guard_at}",
+        )
+        break
+    else:
+        check("on_track_end gefunden", False)
+
+
+def test_track_end_survives_a_dashboard_start():
+    """`player.ctx` gibt es nur bei `>play`.
+
+    `wavelink.Player` kennt kein `ctx` -- das Attribut wird von Hand
+    gesetzt, und zwar nur im Chat-Befehl. Startet die Musik ueber das
+    Dashboard, ist es nie gesetzt: jeder Titelwechsel endete in einem
+    AttributeError, und die Wiedergabe blieb stehen.
+    """
+    print("\nTitelwechsel ohne Textkanal")
+
+    # Erst belegen, dass wavelink wirklich kein ctx hat.
+    try:
+        import wavelink
+
+        check(
+            "wavelink.Player hat kein ctx",
+            not hasattr(wavelink.Player, "ctx"),
+            "dann waere der ganze Aufwand unnoetig",
+        )
+    except ImportError:
+        print("  --   wavelink nicht installiert, uebersprungen")
+
+    src = strip_py(open(MUSIC_COG, encoding="utf-8").read())
+    block = src.split("async def on_track_end")[1].split("    async def ")[0]
+
+    check(
+        "ctx wird vorsichtig geholt",
+        'getattr(player, "ctx", None)' in block,
+        "ein direktes player.ctx wirft bei Dashboard-Start",
+    )
+    # ZAEHLEN, nicht "kommt vor": es gibt drei Stellen, an denen ctx
+    # benutzt wird (naechster Titel, Autoplay, Listenende). Faellt eine
+    # Pruefung weg, blieb der Test gruen -- die anderen enthielten das
+    # Wort ja noch.
+    # Beide Schreibweisen zaehlen: `if ctx is None: return` und
+    # `if ctx is not None: ...`. Nur eine zu suchen meldete faelschlich
+    # zu wenige Pruefungen.
+    guards = len(re.findall(r"if ctx is (?:not )?None", block))
+    uses = len(re.findall(r"\bctx\.send\(|display_player_embed\([^)]*ctx", block))
+    check(
+        "jede Benutzung ist abgesichert",
+        guards >= 3,
+        f"{guards} Pruefungen fuer {uses} Benutzungen",
+    )
+
+    # Und keine Benutzung darf VOR ihrer Pruefung stehen.
+    for match in re.finditer(r"await ctx\.send\(", block):
+        before_it = block[: match.start()]
+        check(
+            f"ctx.send bei Zeichen {match.start()} ist abgesichert",
+            "if ctx is None" in before_it,
+            "ein ungeprueftes ctx.send wirft bei Dashboard-Start",
+        )
+    # Kein direkter Zugriff mehr.
+    check(
+        "kein rohes player.ctx mehr",
+        "player.ctx" not in block,
+        "genau das war der Absturz",
+    )
+
+
+def test_autostart_leaves_a_paused_player_alone():
+    """Ein pausierter Spieler meldet `playing == False`.
+
+    Der Autostart hielt ihn deshalb fuer untaetig und rief
+    `start_playlist()` -- die leert die Warteschlange und beginnt von
+    vorne. Beim Beitritt lief das gleichzeitig mit dem Fortsetzen: der
+    eine wollte an der alten Stelle weiter, der andere warf die Liste
+    neu an.
+    """
+    print("\nAutostart laesst einen pausierten Spieler in Ruhe")
+
+    src = strip_py(open(MUSIC_COG, encoding="utf-8").read())
+    block = src.split("async def _maybe_autostart")[1].split("    async def ")[0]
+
+    check("er prueft auf 'spielt gerade'", 'getattr(client, "playing", False)' in block)
+    check(
+        "und auf 'pausiert'",
+        'getattr(client, "paused", False)' in block,
+        "ein pausierter Spieler meldet playing == False",
+    )
+    check(
+        "und auf eine gefuellte Warteschlange",
+        "len(queue) > 0" in block,
+        "zwischen zwei Titeln ist playing kurz False",
+    )
+
+
+def test_the_voice_handlers_do_not_race():
+    """discord.py ruft jeden Listener mit `create_task`.
+
+    Die drei Behandler an `on_voice_state_update` laufen also wirklich
+    gleichzeitig, nicht nacheinander. Ohne Schloss entscheidet, wer
+    zuerst fertig ist -- und das Ergebnis wechselt von Mal zu Mal.
+    """
+    print("\nDie Voice-Behandler kommen sich nicht in die Quere")
+
+    src = strip_py(open(MUSIC_COG, encoding="utf-8").read())
+
+    check("es gibt ein Schloss je Server", "_voice_locks" in src)
+    check("und eine Hilfsfunktion dafuer", "def _voice_lock" in src)
+
+    # Das Schloss muss GESPEICHERT und wiederverwendet werden. Ein
+    # frisches `asyncio.Lock()` je Aufruf ist wirkungslos -- jeder
+    # bekaeme sein eigenes und niemand wartete. Genau das entwischte
+    # beim ersten Mutationslauf.
+    lock_fn = src.split("def _voice_lock")[1].split("\n    @")[0].split("\n    def ")[0]
+    check(
+        "das Schloss wird gemerkt, nicht neu erzeugt",
+        "_voice_locks[guild_id] = lock" in lock_fn
+        and "self._voice_locks.get(guild_id)" in lock_fn,
+        "ein frisches Lock je Aufruf sperrt nichts",
+    )
+
+    for handler in (
+        "music_resume_on_join",
+        "music_pause_on_empty",
+        "music_autostart",
+    ):
+        block = src.split(f"async def {handler}")[1].split("    async def ")[0]
+        check(
+            f"{handler} nimmt das Schloss",
+            "async with self._voice_lock(" in block,
+        )
+
+    # Und wirklich ausfuehren: zwei Aufgaben, die dasselbe Schloss
+    # wollen, duerfen sich nicht ueberlappen.
+    async def probe():
+        import asyncio as _a
+
+        locks: dict = {}
+
+        def get_lock(gid):
+            if gid not in locks:
+                locks[gid] = _a.Lock()
+            return locks[gid]
+
+        order = []
+
+        async def worker(name):
+            async with get_lock(1):
+                order.append(f"{name}-start")
+                await _a.sleep(0.01)
+                order.append(f"{name}-ende")
+
+        await _a.gather(worker("A"), worker("B"))
+        return order
+
+    order = asyncio.run(probe())
+    # Ohne Schloss waere die Reihenfolge A-start, B-start, A-ende...
+    check(
+        "zwei Aufgaben ueberlappen nicht",
+        order in (
+            ["A-start", "A-ende", "B-start", "B-ende"],
+            ["B-start", "B-ende", "A-start", "A-ende"],
+        ),
+        str(order),
+    )
+
+
+def test_stay_forever_resumes_a_paused_player():
+    """Wird 24/7 eingeschaltet, waehrend der Bot pausiert ist.
+
+    `check_inactivity` steigt bei Dauerbetrieb sofort aus -- und
+    dieser Ausstieg stand VOR der Stelle, die einen pausierten
+    Spieler wieder anwirft. Der Bot waere fuer immer stumm geblieben.
+    """
+    print("\n24/7 weckt einen pausierten Spieler")
+
+    src = strip_py(open(MUSIC_COG, encoding="utf-8").read())
+    block = src.split("async def check_inactivity")[1].split("    async def ")[0]
+
+    # Genau den stay_forever-Block herausschneiden -- bis zu seinem
+    # `return`, nicht bis zu einem Kommentar.
+    #
+    # Als Trennmarker diente erst "# Der richtige Kanal". Das ist ein
+    # Kommentar, und `strip_py` entfernt die vorher: das Fenster reichte
+    # in den naechsten Abschnitt hinein, der ohnehin weckt, und der
+    # Test blieb gruen. Genau so ist diese Mutation entwischt.
+    stay = block.index('if settings.get("stay_forever"):')
+    tail = block[stay:]
+    end = tail.index("\n            return") + len("\n            return")
+    stay_block = tail[:end]
+
+    woken = re.search(
+        r"if guild_id in self\._paused_empty:[\s\S]{0,300}?pause\(False\)",
+        stay_block,
+    )
+    check(
+        "der 24/7-Zweig weckt einen pausierten Spieler",
+        bool(woken),
+        "sonst bliebe er nach dem Umschalten fuer immer stumm",
+    )
 
 
 def test_it_pauses_when_the_channel_empties():
@@ -910,6 +1192,11 @@ def main() -> int:
     test_tracks_are_stored_with_their_cover()
     test_discord_ids_travel_as_text()
     test_the_idle_check_is_precise()
+    test_the_queue_end_respects_stay_forever()
+    test_track_end_survives_a_dashboard_start()
+    test_autostart_leaves_a_paused_player_alone()
+    test_the_voice_handlers_do_not_race()
+    test_stay_forever_resumes_a_paused_player()
     test_it_pauses_when_the_channel_empties()
     test_a_hand_paused_bot_stays_paused()
     test_the_idle_check_looks_at_the_right_channel()

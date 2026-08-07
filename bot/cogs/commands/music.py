@@ -377,6 +377,18 @@ class Music(commands.Cog):
         # haben. Ein von Hand pausierter Bot soll beim naechsten
         # Beitritt nicht von selbst weiterspielen.
         self._paused_empty: set[int] = set()
+        # Ein Schloss je Server.
+        #
+        # discord.py ruft jeden Listener mit `create_task` auf -- die
+        # drei Behandler an `on_voice_state_update` laufen also
+        # WIRKLICH gleichzeitig, nicht nacheinander (geprueft in
+        # discord.Client._schedule_event).
+        #
+        # Beim Beitritt bedeutet das: `music_resume_on_join` will an
+        # der alten Stelle weitermachen, `music_autostart` will die
+        # Liste neu anwerfen. Ohne Schloss entscheidet, wer zuerst
+        # fertig ist -- und das Ergebnis wechselt von Mal zu Mal.
+        self._voice_locks: dict[int, asyncio.Lock] = {}
         self._node_task: asyncio.Task | None = None
         self._inactivity_task: asyncio.Task | None = None
         # One per Lavalink candidate tried. Kept referenced because
@@ -418,6 +430,15 @@ class Music(commands.Cog):
             # gepufferte Einstellungen und zaehlt eine Liste durch.
             # Dafuer stimmt die eingestellte Zeit auf die Sekunde.
             await asyncio.sleep(5)
+
+    def _voice_lock(self, guild_id: int) -> asyncio.Lock:
+        """Das Schloss dieses Servers, bei Bedarf angelegt."""
+
+        lock = self._voice_locks.get(guild_id)
+        if lock is None:
+            lock = asyncio.Lock()
+            self._voice_locks[guild_id] = lock
+        return lock
 
     @staticmethod
     def _humans_in(channel) -> int:
@@ -496,6 +517,16 @@ class Music(commands.Cog):
         settings = await self._settings_for(guild_id)
         if settings.get("stay_forever"):
             self._idle_since.pop(guild_id, None)
+            # Aber: war 24/7 vorher AUS und der Bot deshalb pausiert,
+            # bliebe er es fuer immer -- dieser Ausstieg stand vor der
+            # Stelle, die wieder anwirft. Also hier nachholen.
+            if guild_id in self._paused_empty:
+                self._paused_empty.discard(guild_id)
+                try:
+                    if getattr(player, "paused", False):
+                        await player.pause(False)
+                except Exception:
+                    pass
             return
 
         # Der richtige Kanal, und Menschen statt Koepfe.
@@ -811,34 +842,84 @@ class Music(commands.Cog):
 
 
     async def on_track_end(self, payload: wavelink.TrackEndEventPayload):
+        """Ein Titel ist zu Ende -- was nun?
+
+        Hier lagen zwei Fehler, die zusammen das gemeldete Verhalten
+        ergaben ("24/7 an, jemand joint, Bot geht raus").
+
+        **1. `player.ctx` gibt es nicht immer.**
+        `wavelink.Player` kennt kein `ctx` -- das Attribut wird von
+        Hand gesetzt, und zwar nur im `>play`-Befehl. Startet die
+        Musik ueber das Dashboard, ist es nie gesetzt, und jeder
+        Titelwechsel endete in einem AttributeError. Die Wiedergabe
+        blieb dann einfach stehen.
+
+        **2. Der Dauerbetrieb wurde ignoriert.**
+        War die Warteschlange leer, trennte der Bot die Verbindung --
+        ohne zu pruefen, ob 24/7 eingeschaltet ist. Genau das ist das
+        "der Bot leavt": die Liste lief durch, er ging, und der
+        naechste Beitritt fand einen Kanal ohne Bot vor.
+        """
+
         player = payload.player
-        if player.queue.is_empty:
-            if player.queue.mode == wavelink.QueueMode.loop:
-                await player.play(payload.track)
-            elif player.autoplay == wavelink.AutoPlayMode.enabled:
-                await asyncio.sleep(5)
-                if player.current:
-                    await self.display_player_embed(player, player.current, player.ctx, autoplay=True)
-                else:
-                    await player.ctx.send(view=CV2("No suitable track found for autoplay."))
-            else:
-                await player.disconnect()
-                support = Button(label='Support', emoji=HANDSHAKE, style=discord.ButtonStyle.link, url='https://discord.gg/MG3rYnUZJV')
-                vote = Button(label='Vote', emoji=STAR, style=discord.ButtonStyle.link, url='https://top.gg/bot//vote')
-                view = LayoutView(timeout=None)
-                container = build_container(
-                    TextDisplay("**Queue Ended**"),
-                    Separator(visible=True),
-                    TextDisplay("All tracks have been played, leaving the voice channel."),
-                    Separator(visible=True),
-                    ActionRow(support, vote),
-                )
-                view.add_item(container)
-                await player.ctx.send(view=view)
-        else:
+        guild_id = getattr(getattr(player, "guild", None), "id", None)
+
+        # Der Textkanal, in dem gemeldet wird -- falls es einen gibt.
+        # Bei einem Start ueber das Dashboard gibt es keinen, und das
+        # ist kein Fehler: dann wird eben nichts geschrieben.
+        ctx = getattr(player, "ctx", None)
+
+        if not player.queue.is_empty:
             next_track = await player.queue.get_wait()
             await player.play(next_track)
-            await self.display_player_embed(player, next_track, player.ctx)
+            if ctx is not None:
+                await self.display_player_embed(player, next_track, ctx)
+            return
+
+        if player.queue.mode == wavelink.QueueMode.loop:
+            await player.play(payload.track)
+            return
+
+        if player.autoplay == wavelink.AutoPlayMode.enabled:
+            await asyncio.sleep(5)
+            if ctx is None:
+                return
+            if player.current:
+                await self.display_player_embed(
+                    player, player.current, ctx, autoplay=True
+                )
+            else:
+                await ctx.send(view=CV2("No suitable track found for autoplay."))
+            return
+
+        # Die Liste ist durch. Bei Dauerbetrieb bleibt der Bot.
+        if guild_id is not None:
+            try:
+                settings = await self._settings_for(guild_id)
+            except Exception:
+                settings = {}
+            if settings.get("stay_forever"):
+                # Nichts tun -- er wartet im Kanal auf den naechsten
+                # Start. Ohne diese Abfrage ging er raus, obwohl 24/7
+                # ausdruecklich eingeschaltet war.
+                return
+
+        await player.disconnect()
+
+        if ctx is None:
+            return
+        support = Button(label='Support', emoji=HANDSHAKE, style=discord.ButtonStyle.link, url='https://discord.gg/MG3rYnUZJV')
+        vote = Button(label='Vote', emoji=STAR, style=discord.ButtonStyle.link, url='https://top.gg/bot//vote')
+        view = LayoutView(timeout=None)
+        container = build_container(
+            TextDisplay("**Queue Ended**"),
+            Separator(visible=True),
+            TextDisplay("All tracks have been played, leaving the voice channel."),
+            Separator(visible=True),
+            ActionRow(support, vote),
+        )
+        view.add_item(container)
+        await ctx.send(view=view)
 
 
 
@@ -1544,31 +1625,35 @@ class Music(commands.Cog):
             return
 
         guild = member.guild
-        if guild.id not in self._paused_empty:
-            return
 
-        player = None
-        for client in self.client.voice_clients:
-            if client.guild.id == guild.id:
-                player = client
-                break
+        # Unter Schloss: `music_autostart` haengt am selben Ereignis
+        # und wuerde sonst gleichzeitig die Liste neu anwerfen.
+        async with self._voice_lock(guild.id):
+            if guild.id not in self._paused_empty:
+                return
 
-        channel = getattr(player, "channel", None) if player else None
-        if channel is None or channel.id != after.channel.id:
-            return
+            player = None
+            for client in self.client.voice_clients:
+                if client.guild.id == guild.id:
+                    player = client
+                    break
 
-        # `_update_voice_state` laeuft VOR dem Dispatch -- die Person
-        # steht also schon in den Voice-States, wenn wir hier sind.
-        if self._humans_in(channel) <= 0:
-            return
+            channel = getattr(player, "channel", None) if player else None
+            if channel is None or channel.id != after.channel.id:
+                return
 
-        self._paused_empty.discard(guild.id)
-        self._idle_since.pop(guild.id, None)
-        try:
-            if getattr(player, "paused", False):
-                await player.pause(False)
-        except Exception:
-            pass
+            # `_update_voice_state` laeuft VOR dem Dispatch -- die
+            # Person steht also schon in den Voice-States.
+            if self._humans_in(channel) <= 0:
+                return
+
+            self._paused_empty.discard(guild.id)
+            self._idle_since.pop(guild.id, None)
+            try:
+                if getattr(player, "paused", False):
+                    await player.pause(False)
+            except Exception:
+                pass
 
     @commands.Cog.listener("on_voice_state_update")
     async def music_pause_on_empty(self, member, before, after):
@@ -1586,38 +1671,40 @@ class Music(commands.Cog):
             return
 
         guild = member.guild
-        player = None
-        for client in self.client.voice_clients:
-            if client.guild.id == guild.id:
-                player = client
-                break
 
-        channel = getattr(player, "channel", None) if player else None
-        if channel is None or channel.id != before.channel.id:
-            return
+        async with self._voice_lock(guild.id):
+            player = None
+            for client in self.client.voice_clients:
+                if client.guild.id == guild.id:
+                    player = client
+                    break
 
-        # Dauerbetrieb heisst: spielen, egal ob jemand zuhoert.
-        try:
-            settings = await self._settings_for(guild.id)
-        except Exception:
-            return
-        if settings.get("stay_forever"):
-            return
+            channel = getattr(player, "channel", None) if player else None
+            if channel is None or channel.id != before.channel.id:
+                return
 
-        if self._humans_in(channel) > 0:
-            return
+            # Dauerbetrieb heisst: spielen, egal ob jemand zuhoert.
+            try:
+                settings = await self._settings_for(guild.id)
+            except Exception:
+                return
+            if settings.get("stay_forever"):
+                return
 
-        if guild.id in self._paused_empty:
-            return
+            if self._humans_in(channel) > 0:
+                return
 
-        try:
-            if getattr(player, "playing", False) and not getattr(
-                player, "paused", False
-            ):
-                await player.pause(True)
-                self._paused_empty.add(guild.id)
-        except Exception:
-            pass
+            if guild.id in self._paused_empty:
+                return
+
+            try:
+                if getattr(player, "playing", False) and not getattr(
+                    player, "paused", False
+                ):
+                    await player.pause(True)
+                    self._paused_empty.add(guild.id)
+            except Exception:
+                pass
 
     @commands.Cog.listener("on_voice_state_update")
     async def music_autostart(self, member, before, after):
@@ -1637,6 +1724,16 @@ class Music(commands.Cog):
             return
 
         guild = member.guild
+
+        # Unter demselben Schloss wie `music_resume_on_join`: sonst
+        # wirft dieser Behandler die Liste neu an, waehrend der andere
+        # gerade an der alten Stelle fortsetzt.
+        async with self._voice_lock(guild.id):
+            await self._maybe_autostart(guild, after.channel)
+
+    async def _maybe_autostart(self, guild, channel) -> None:
+        """Die Startliste anwerfen -- wenn wirklich nichts laeuft."""
+
         try:
             settings = await self._settings_for(guild.id)
         except Exception:
@@ -1646,15 +1743,39 @@ class Music(commands.Cog):
             return
         if not settings.get("channel_id"):
             return
-        if int(settings["channel_id"]) != after.channel.id:
+        if int(settings["channel_id"]) != channel.id:
             return
         if not settings.get("autostart_playlist"):
             return
 
         # Laeuft schon etwas, nicht dazwischenfunken.
+        #
+        # `playing` allein reicht nicht: ein PAUSIERTER Spieler meldet
+        # ebenfalls False. Der Autostart hielt ihn deshalb fuer
+        # untaetig und rief `start_playlist()` -- die leert die
+        # Warteschlange und beginnt von vorne.
+        #
+        # Beim Beitritt laufen `music_resume_on_join` und dieser
+        # Behandler gleichzeitig los: der eine wollte an der alten
+        # Stelle weitermachen, der andere warf die Liste neu an. Wer
+        # zuerst fertig war, entschied. Genau das war das gemeldete
+        # Durcheinander.
         for client in self.client.voice_clients:
-            if client.guild.id == guild.id and getattr(client, "playing", False):
+            if client.guild.id != guild.id:
+                continue
+            if getattr(client, "playing", False):
                 return
+            if getattr(client, "paused", False):
+                return
+            # Auch ein Spieler mit gefuellter Warteschlange arbeitet
+            # noch -- er wartet nur zwischen zwei Titeln.
+            queue = getattr(client, "queue", None)
+            if queue is not None:
+                try:
+                    if len(queue) > 0:
+                        return
+                except TypeError:
+                    pass
 
         try:
             from api.db_manager import db_manager
@@ -1672,5 +1793,5 @@ class Music(commands.Cog):
             return
 
         await self.start_playlist(
-            guild, after.channel, playlist["tracks"], settings.get("volume")
+            guild, channel, playlist["tracks"], settings.get("volume")
         )
