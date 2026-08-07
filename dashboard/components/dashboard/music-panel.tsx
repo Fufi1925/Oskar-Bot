@@ -25,8 +25,8 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
-  ListMusic, Loader2, Music, Pause, Play, Plus, RefreshCw,
-  SkipForward, Square, Trash2, Volume2,
+  ListMusic, Loader2, LogOut, Music, Pause, Play, Plus, RefreshCw,
+  SkipForward, Trash2, Volume2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
@@ -95,6 +95,11 @@ export function MusicPanel({ guildId }: { guildId: string }) {
   const [open, setOpen] = useState<number | null>(null);
   const [addQuery, setAddQuery] = useState("");
 
+  // Der Regler beim Ziehen. Ohne diesen Zwischenstand springt er
+  // zurück, sobald die nächste Abfrage die alte Zahl bringt -- die
+  // Änderung ist ja noch nicht abgeschickt.
+  const [volumeDraft, setVolumeDraft] = useState<number | null>(null);
+
   const load = useCallback(async () => {
     try {
       const answer = await api.music(guildId);
@@ -152,8 +157,25 @@ export function MusicPanel({ guildId }: { guildId: string }) {
     try {
       const answer = await api.musicControl(guildId, action, value);
       if (answer?.live) setLive(answer.live);
+
+      // Der Bot hat die Zahl jetzt -- der Entwurf hat ausgedient.
+      // Ohne dieses Zurücksetzen bliebe er für immer stehen und die
+      // Anzeige folgte dem Bot nie wieder, etwa wenn jemand im Chat
+      // `>volume` benutzt.
+      if (action === "volume") setVolumeDraft(null);
+
+      // Die gespeicherte Lautstärke wandert mit, damit die Anzeige
+      // auch stimmt, wenn der Bot später in keinem Kanal mehr ist.
+      if (action === "volume" && typeof value === "number") {
+        setData((old: any) =>
+          old ? { ...old, settings: { ...old.settings, volume: value } } : old
+        );
+      }
     } catch (error: any) {
       toast.error(error?.message || "Das hat nicht geklappt.");
+      // Auch im Fehlerfall zurück: sonst zeigt der Regler dauerhaft
+      // etwas an, das nie angekommen ist.
+      if (action === "volume") setVolumeDraft(null);
     } finally {
       setBusy("");
     }
@@ -170,6 +192,16 @@ export function MusicPanel({ guildId }: { guildId: string }) {
   if (!data) return null;
 
   const settings = data.settings || {};
+  // Der gewählte Kanal als ganzer Eintrag, nicht nur seine Nummer --
+  // für die Zeile darunter, die Kategorie und Rechte mit anzeigt.
+  const chosen = (data.channels || []).find(
+    (entry: any) => String(entry.id) === String(settings.channel_id || "")
+  );
+
+  // Beim Ziehen der Entwurf, sonst der Stand vom Bot -- und solange
+  // er in keinem Kanal ist, die gespeicherte Voreinstellung.
+  const volumeShown =
+    volumeDraft ?? (live?.connected ? live.volume : settings.volume) ?? 60;
   const playlists = data.playlists || [];
   const limits = data.limits || {};
   const lavalink = data.lavalink || {};
@@ -204,10 +236,70 @@ export function MusicPanel({ guildId }: { guildId: string }) {
         </div>
       )}
 
+      {/* ── Status auf einen Blick ──────────────────────────── */}
+      {/*
+        Drei Zahlen, die man sonst aus drei Karten zusammensuchen
+        müsste: läuft gerade etwas, wie viele Playlists gibt es, und
+        bleibt der Bot dauerhaft im Kanal.
+      */}
+      <div className="grid grid-cols-3 gap-3">
+        <div className="rounded-2xl bg-[#10233f] border border-slate-800 px-4 py-3.5">
+          <p className="text-[9px] font-black uppercase tracking-widest text-slate-600">
+            Zustand
+          </p>
+          <div className="flex items-center gap-2 mt-1.5">
+            <span
+              className={cn(
+                "h-2 w-2 rounded-full shrink-0",
+                live?.playing && !live?.paused
+                  ? "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,.6)]"
+                  : live?.connected
+                  ? "bg-amber-400"
+                  : "bg-slate-600"
+              )}
+            />
+            <span className="text-[13px] font-bold text-white truncate">
+              {live?.playing && !live?.paused
+                ? "Spielt"
+                : live?.paused
+                ? "Pausiert"
+                : live?.connected
+                ? "Im Kanal"
+                : "Offline"}
+            </span>
+          </div>
+        </div>
+
+        <div className="rounded-2xl bg-[#10233f] border border-slate-800 px-4 py-3.5">
+          <p className="text-[9px] font-black uppercase tracking-widest text-slate-600">
+            Playlists
+          </p>
+          <p className="text-[13px] font-bold text-white mt-1.5">
+            {(data.playlists || []).length}
+          </p>
+        </div>
+
+        <div className="rounded-2xl bg-[#10233f] border border-slate-800 px-4 py-3.5">
+          <p className="text-[9px] font-black uppercase tracking-widest text-slate-600">
+            Dauerbetrieb
+          </p>
+          <p
+            className={cn(
+              "text-[13px] font-bold mt-1.5",
+              settings.stay_forever ? "text-emerald-300" : "text-slate-500"
+            )}
+          >
+            {settings.stay_forever ? "24/7 an" : "Aus"}
+          </p>
+        </div>
+      </div>
+
       {/* ── 1. Einstellungen ────────────────────────────────── */}
       <div className={cn(CARD, "space-y-5")}>
         <div className="flex items-center gap-3">
-          <Music className="h-5 w-5 text-primary" />
+          <div className="h-9 w-9 rounded-xl bg-primary/10 grid place-items-center shrink-0">
+            <Music className="h-4 w-4 text-primary" />
+          </div>
           <div>
             <h3 className="font-bold text-white">Sprachkanal</h3>
             <p className="text-[12px] text-slate-500 mt-0.5">
@@ -242,6 +334,44 @@ export function MusicPanel({ guildId }: { guildId: string }) {
               </option>
             ))}
           </select>
+
+          {/* Was gerade gewählt ist -- als Zeile, nicht nur im
+              zugeklappten Menü.
+              
+              Ein <select> zeigt seine Auswahl zwar an, aber ohne
+              Kategorie und ohne den Hinweis, ob der Bot dort
+              überhaupt sprechen darf. Genau das ist der häufigste
+              Grund für "es passiert nichts". */}
+          {chosen ? (
+            <div className="flex items-center gap-3 rounded-xl bg-primary/[0.07] border border-primary/25 px-3.5 py-3">
+              <div className="h-8 w-8 rounded-lg bg-primary/15 grid place-items-center shrink-0">
+                <Volume2 className="h-4 w-4 text-primary" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[13px] font-bold text-white truncate">
+                  {chosen.name}
+                </p>
+                <p className="text-[11px] text-slate-500 truncate">
+                  {chosen.category || "Ohne Kategorie"}
+                  {live?.connected && live?.channel_id === chosen.id
+                    ? " · der Bot ist gerade drin"
+                    : ""}
+                </p>
+              </div>
+              {!chosen.can_speak && (
+                <span className="text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-md bg-amber-500/15 text-amber-300 border border-amber-500/25 shrink-0">
+                  stumm
+                </span>
+              )}
+            </div>
+          ) : (
+            <div className="rounded-xl bg-white/[0.02] border border-dashed border-slate-700 px-3.5 py-3">
+              <p className="text-[12px] text-slate-500">
+                Noch kein Kanal gewählt — ohne ihn weiß der Bot nicht, wo er
+                spielen soll.
+              </p>
+            </div>
+          )}
         </Field>
 
         <InlineToggle
@@ -285,27 +415,6 @@ export function MusicPanel({ guildId }: { guildId: string }) {
           </Field>
         )}
 
-        <Field
-          label={`Lautstärke — ${settings.volume ?? 60}%`}
-          hint="Womit ein Titel startet. Über 100 % übersteuert hörbar."
-        >
-          <input
-            type="range"
-            min={limits.min_volume ?? 0}
-            max={limits.max_volume ?? 200}
-            value={settings.volume ?? 60}
-            onChange={(event) =>
-              setData((old: any) => ({
-                ...old,
-                settings: { ...old.settings, volume: Number(event.target.value) },
-              }))
-            }
-            onMouseUp={(event: any) => save({ volume: Number(event.target.value) })}
-            onTouchEnd={(event: any) => save({ volume: Number(event.target.value) })}
-            className="w-full accent-primary"
-          />
-        </Field>
-
         <div className="border-t border-slate-800 pt-5 space-y-4">
           <InlineToggle
             checked={Boolean(settings.autostart)}
@@ -346,7 +455,9 @@ export function MusicPanel({ guildId }: { guildId: string }) {
       <div className={cn(CARD, "space-y-5")}>
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-3">
-            <ListMusic className="h-5 w-5 text-primary" />
+            <div className="h-9 w-9 rounded-xl bg-primary/10 grid place-items-center shrink-0">
+              <ListMusic className="h-4 w-4 text-primary" />
+            </div>
             <div>
               <h3 className="font-bold text-white">Playlists</h3>
               <p className="text-[12px] text-slate-500 mt-0.5">
@@ -575,7 +686,9 @@ export function MusicPanel({ guildId }: { guildId: string }) {
       <div className={cn(CARD, "space-y-5")}>
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <Volume2 className="h-5 w-5 text-primary" />
+            <div className="h-9 w-9 rounded-xl bg-primary/10 grid place-items-center shrink-0">
+              <Volume2 className="h-4 w-4 text-primary" />
+            </div>
             <div>
               <h3 className="font-bold text-white">Läuft gerade</h3>
               <p className="text-[12px] text-slate-500 mt-0.5">
@@ -674,22 +787,47 @@ export function MusicPanel({ guildId }: { guildId: string }) {
                 Weiter
               </button>
 
+              {/* "Verlassen" statt "Stopp".
+                  
+                  Die Aktion war schon immer beides: Warteschlange
+                  leeren UND den Kanal verlassen. "Stopp" ließ das
+                  Zweite erwarten -- man drückte es, um die Musik
+                  anzuhalten, und der Bot war weg. Dafür gibt es
+                  Pause. */}
               <button
                 disabled={busy === "stop"}
                 onClick={() => control("stop")}
                 className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/[0.04] border border-white/10 text-slate-400 text-xs font-black uppercase tracking-widest hover:text-red-400 hover:border-red-500/30 disabled:opacity-40 transition-all"
+                title="Warteschlange leeren und den Sprachkanal verlassen"
               >
-                <Square className="h-3.5 w-3.5" />
-                Stopp
+                <LogOut className="h-3.5 w-3.5" />
+                Verlassen
               </button>
+            </div>
 
-              <div className="flex items-center gap-2 ml-auto min-w-[160px]">
+            {/* Lautstärke -- der einzige Regler.
+                
+                Oben in den Einstellungen stand ein zweiter, und das
+                war verwirrend: zwei Regler für dieselbe Zahl, wobei
+                der obere erst beim nächsten Titel wirkte. Dieser hier
+                wirkt sofort und wird zugleich gespeichert. */}
+            <div className="rounded-2xl bg-[#0a1628] border border-slate-800 px-4 py-3.5">
+              <div className="flex items-center justify-between mb-2.5">
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+                  Lautstärke
+                </span>
+                <span className="text-[12px] font-bold text-slate-300 tabular-nums">
+                  {volumeShown} %
+                </span>
+              </div>
+              <div className="flex items-center gap-3">
                 <Volume2 className="h-3.5 w-3.5 text-slate-600 shrink-0" />
                 <input
                   type="range"
-                  min={0}
-                  max={200}
-                  defaultValue={live.volume ?? 60}
+                  min={limits.min_volume ?? 0}
+                  max={limits.max_volume ?? 200}
+                  value={volumeShown}
+                  onChange={(event) => setVolumeDraft(Number(event.target.value))}
                   onMouseUp={(event: any) =>
                     control("volume", Number(event.target.value))
                   }
@@ -699,6 +837,10 @@ export function MusicPanel({ guildId }: { guildId: string }) {
                   className="flex-1 accent-primary"
                 />
               </div>
+              <p className="text-[11px] text-slate-600 mt-2 leading-relaxed">
+                Wirkt sofort und bleibt für das nächste Mal gespeichert.
+                Über 100 % übersteuert hörbar.
+              </p>
             </div>
 
             {/* Warteschlange */}

@@ -523,6 +523,18 @@ async def control(
         elif action == "volume":
             level = store.clamp_volume((data or {}).get("value"))
             await player.set_volume(level)
+            # Und merken. Der Regler hier ist der einzige -- in den
+            # Einstellungen oben stand frueher ein zweiter, was
+            # verwirrte: zwei Regler fuer eine Zahl, und der obere
+            # wirkte erst beim naechsten Titel.
+            #
+            # Ohne das Speichern waere die Lautstaerke nach dem
+            # naechsten Neustart wieder auf 60, obwohl sie sichtbar
+            # anders eingestellt war.
+            await store.save_settings(await _db(), guild_id, {"volume": level})
+            cog = bot.get_cog("Music")
+            if cog is not None and hasattr(cog, "forget_settings"):
+                cog.forget_settings(guild_id)
         elif action == "seek":
             # In Millisekunden, wie Lavalink es erwartet.
             try:

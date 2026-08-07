@@ -471,10 +471,6 @@ def test_the_panel_has_all_three_parts():
     check("Dauerbetrieb einstellbar", "stay_forever" in panel)
     check("Playlists werden gezeigt", "playlists.map" in panel)
 
-    # Das Bild muss seine Quelle wirklich aus dem Titel ziehen -- und
-    # zwar an BEIDEN Stellen: in der aufgeklappten Playlist und in der
-    # Warteschlange. Nur eine zu pruefen liess eine Mutation durch, die
-    # das erste Cover leerte; das zweite hielt den Test gruen.
     covers = len(re.findall(r"src=\{entry\.artwork\}", panel))
     check(
         "beide Titel-Cover werden angezeigt",
@@ -487,12 +483,11 @@ def test_the_panel_has_all_three_parts():
     )
     check("Fortschrittsbalken", "percent" in panel)
 
-    # Die Knoepfe muessen `control` wirklich rufen -- mit der Aktion.
     for action, label in [
         ("pause", "Pause"),
         ("resume", "Weiter"),
         ("skip", "Ueberspringen"),
-        ("stop", "Stopp"),
+        ("stop", "Verlassen"),
         ("volume", "Lautstaerke"),
     ]:
         check(
@@ -503,12 +498,147 @@ def test_the_panel_has_all_three_parts():
             or re.search(r':\s*"' + action + r'"\)', panel) is not None,
         )
 
+    # Auf die KARTEN-Ueberschriften pruefen, nicht auf das erste
+    # Vorkommen des Wortes. "Playlists" steht seit der Statusleiste
+    # schon ganz oben als Kennzahl -- der alte Vergleich meldete
+    # deshalb eine falsche Reihenfolge, obwohl die Karten stimmen.
     order = [
-        panel.index("Sprachkanal"),
-        panel.index("Playlists"),
-        panel.index("Läuft gerade"),
+        panel.index('<h3 className="font-bold text-white">Sprachkanal</h3>'),
+        panel.index('<h3 className="font-bold text-white">Playlists</h3>'),
+        panel.index('<h3 className="font-bold text-white">Läuft gerade</h3>'),
     ]
-    check("Reihenfolge stimmt", order == sorted(order), str(order))
+    check("Reihenfolge der Karten stimmt", order == sorted(order), str(order))
+
+
+def test_there_is_only_one_volume_slider():
+    """Zwei Regler fuer dieselbe Zahl waren verwirrend.
+
+    Oben in den Einstellungen stand einer, unten bei der Wiedergabe
+    ein zweiter. Der obere wirkte erst beim naechsten Titel -- man zog
+    ihn und nichts passierte.
+    """
+    print("\nEs gibt nur noch einen Lautstaerkeregler")
+
+    panel = strip_ts(read_dash("components", "dashboard", "music-panel.tsx"))
+
+    sliders = len(re.findall(r'type="range"', panel))
+    check("genau ein Schieberegler", sliders == 1, f"-> {sliders}")
+
+    # Und er steht unten, bei der Wiedergabe -- nicht oben.
+    slider_at = panel.index('type="range"')
+    check(
+        "und zwar im Live-Bereich",
+        slider_at > panel.index("Läuft gerade"),
+        "der Regler steht noch oben in den Einstellungen",
+    )
+
+    # Er muss auch sichtbar sein. `hidden` liesse den Regler im Code
+    # stehen und zeigte ihn trotzdem nie.
+    #
+    # Rueckwaerts vom Regler zum umschliessenden <div> suchen, nicht
+    # vorwaerts vom Wort "Lautstärke": dieses steht INNERHALB des
+    # Kastens, und ein Fenster ab dort verpasst genau die Klasse, die
+    # ihn ausblendet. So ist diese Mutation zweimal entwischt.
+    before = panel[:slider_at]
+    opener = before.rindex("<div")
+    wrapper = panel[opener : slider_at]
+    check(
+        "und ist nicht ausgeblendet",
+        "hidden" not in wrapper,
+        f"der Kasten darum: {wrapper[:80]}",
+    )
+
+    # Und der ganze Live-Bereich darf nicht ausgeblendet sein.
+    live_block = panel[panel.index("Läuft gerade") :]
+    check(
+        "der Live-Bereich ist sichtbar",
+        'className="hidden"' not in live_block,
+    )
+
+
+def test_the_volume_is_remembered():
+    """Sonst steht sie nach dem Neustart wieder auf 60.
+
+    Der Regler unten sprach frueher nur den laufenden Spieler an. Da
+    er jetzt der einzige ist, muss er den Wert auch speichern.
+    """
+    print("\nDie Lautstaerke wird gemerkt")
+
+    route = strip_py(
+        open(os.path.join(BOT, "api", "routes", "music.py"), encoding="utf-8").read()
+    )
+    block = route.split('elif action == "volume":')[1].split("elif action ==")[0]
+
+    check("sie wird am Spieler gesetzt", "set_volume" in block)
+    check("und gespeichert", "save_settings" in block,
+          "ohne das ist sie nach dem Neustart wieder auf 60")
+    check("der Puffer im Cog wird verworfen", "forget_settings" in block)
+
+
+def test_the_chosen_channel_is_shown():
+    """Ein <select> zeigt zu wenig.
+
+    Es nennt den Namen, aber nicht die Kategorie und nicht, ob der Bot
+    dort ueberhaupt sprechen darf -- der haeufigste Grund fuer "es
+    passiert nichts".
+    """
+    print("\nDer gewaehlte Kanal wird angezeigt")
+
+    panel = strip_ts(read_dash("components", "dashboard", "music-panel.tsx"))
+
+    check("der Eintrag wird nachgeschlagen", "const chosen =" in panel)
+    check(
+        "und wirklich gegen die Einstellung geprueft",
+        re.search(r"String\(entry\.id\) === String\(settings\.channel_id", panel)
+        is not None,
+    )
+    check("der Name wird gezeigt", "chosen.name" in panel)
+    check("die Kategorie auch", "chosen.category" in panel)
+    check("und ein Hinweis, wenn er dort stumm ist", "chosen.can_speak" in panel)
+    check(
+        "ohne Kanal steht ein Hinweis da",
+        "Noch kein Kanal gewählt" in panel,
+    )
+
+
+def test_stopping_is_called_leaving():
+    """Die Aktion verlaesst den Kanal -- das muss draufstehen.
+
+    "Stopp" liess erwarten, dass nur die Musik anhaelt. Man drueckte
+    es und der Bot war weg. Zum Anhalten gibt es Pause.
+    """
+    print("\nDer Knopf heisst »Verlassen«")
+
+    panel = strip_ts(read_dash("components", "dashboard", "music-panel.tsx"))
+    check("die Beschriftung stimmt", "Verlassen" in panel)
+    check("»Stopp« steht nicht mehr da", "Stopp" not in panel)
+
+    # Und die Aktion dahinter macht wirklich beides.
+    route = strip_py(
+        open(os.path.join(BOT, "api", "routes", "music.py"), encoding="utf-8").read()
+    )
+    block = route.split('elif action == "stop":')[1].split("elif action ==")[0]
+    check("Warteschlange wird geleert", "queue.clear()" in block)
+    check("und der Kanal verlassen", "disconnect()" in block)
+
+
+def test_no_invisible_tailwind_classes():
+    """`h-4.5` gibt es in Tailwind nicht -- die Regel entsteht nie.
+
+    Gemessen, nicht vermutet: im gebauten CSS steht `h-4{` und `h-5{`,
+    aber kein `h-4\.5{`. Ein Symbol mit dieser Klasse haette gar keine
+    Groesse. Der Fehler stand hier schon in premium-admin.tsx, bevor
+    ich ihn dreimal nachgebaut habe.
+    """
+    print("\nKeine Klassen, die es nicht gibt")
+
+    for name in os.listdir(os.path.join(DASH, "components", "dashboard")):
+        if not name.endswith(".tsx"):
+            continue
+        src = strip_ts(read_dash("components", "dashboard", name))
+        # Tailwind kennt nur 0.5, 1.5, 2.5 und 3.5 als Bruchteile.
+        bad = re.findall(r"\b[hw]-(?:[4-9]|\d\d+)\.5\b", src)
+        check(f"{name} ohne erfundene Groesse", not bad, f"-> {sorted(set(bad))}")
 
 
 def test_the_clock_keeps_running_between_polls():
@@ -595,6 +725,11 @@ def main() -> int:
     test_the_proxy_knows_the_scope()
     test_the_dashboard_is_wired_up()
     test_the_panel_has_all_three_parts()
+    test_there_is_only_one_volume_slider()
+    test_the_volume_is_remembered()
+    test_the_chosen_channel_is_shown()
+    test_stopping_is_called_leaving()
+    test_no_invisible_tailwind_classes()
     test_the_clock_keeps_running_between_polls()
     test_a_channel_the_bot_cannot_join_is_refused()
 
