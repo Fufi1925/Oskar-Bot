@@ -14,7 +14,7 @@
  * them rather than being typed from memory.
  */
 
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   AtSign, Eye, Image as ImageIcon, Loader2, MessageSquare, Save, Send,
   Sparkles, Trash2, Type,
@@ -44,11 +44,27 @@ const TOKENS = [
   { token: "{server_icon}", hint: "Link zum Serverbild", sample: "https://cdn.discordapp.com/…" },
 ];
 
-const TEMPLATES = [
+/**
+ * Die Vorlagen, falls der Bot nicht antwortet.
+ *
+ * Sie kommen normalerweise von `/compose/templates/welcome`, damit die
+ * Emoji-Codes aus derselben Quelle stammen wie die Auswahl
+ * (`utils/emoji.py`). Eine zweite, hier gepflegte Liste liefe beim
+ * ersten neuen Emoji auseinander -- genau dieser Fehler stand schon
+ * einmal im Changelog, als vier Emojis auf geloeschte IDs zeigten und
+ * als roher Text erschienen.
+ *
+ * Dieser Rueckfall traegt deshalb bewusst **keine** Emojis: ein hier
+ * eingefrorener Code waere die zweite Quelle, die vermieden werden
+ * soll. Ohne Verbindung bekommt man schlichte Vorlagen -- brauchbar,
+ * nur ohne Bild.
+ */
+const FALLBACK_TEMPLATES = [
   {
     name: "Kurz & freundlich",
     type: "simple",
-    message: "Willkommen {user} auf **{server_name}**! 🎉 Du bist Mitglied Nummer {server_membercount}.",
+    message:
+      "Willkommen {user} auf **{server_name}**! Du bist Mitglied Nummer {server_membercount}.",
   },
   {
     name: "Mit Bild",
@@ -113,6 +129,28 @@ export function WelcomeForm({
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const lastFocused = useRef<HTMLTextAreaElement | HTMLInputElement | null>(null);
+
+  // Die Vorlagen vom Bot holen. Er liest die Emoji-Codes aus
+  // `utils/emoji.py` -- dieselbe Quelle wie die Auswahl. Schlaegt der
+  // Aufruf fehl, bleiben die schlichten Vorlagen oben stehen.
+  const [templates, setTemplates] = useState<any[]>(FALLBACK_TEMPLATES);
+  useEffect(() => {
+    let alive = true;
+    api
+      .getWelcomeTemplates()
+      .then((answer: any) => {
+        if (alive && Array.isArray(answer?.templates) && answer.templates.length) {
+          setTemplates(answer.templates);
+        }
+      })
+      .catch(() => {
+        // Kein Fehler fuer den Nutzer: die Vorlagen sind eine Abkuerzung,
+        // keine Voraussetzung. Die schlichten tun es auch.
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   // Memoised: a fresh `{}` on every render would make the preview below
   // recompute constantly.
@@ -583,7 +621,7 @@ export function WelcomeForm({
             <p className="text-xs font-black uppercase tracking-widest text-slate-500">
               Vorlagen
             </p>
-            {TEMPLATES.map((t) => (
+            {templates.map((t: any) => (
               <button
                 key={t.name}
                 onClick={() =>

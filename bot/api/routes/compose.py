@@ -493,3 +493,100 @@ async def emojis():
             groups.append(entry["group"])
 
     return {"emojis": items, "groups": groups, "count": len(items)}
+
+
+# ── Vorgefertigte Texte ───────────────────────────────────────────────
+#
+# Die Begruessungs-Vorlagen standen frueher fest im Dashboard, mitsamt
+# ihren Emojis als Unicode-Zeichen ("🎉"). Zwei Probleme damit:
+#
+#   1. Ein Unicode-Zeichen sieht auf jedem Geraet anders aus. Windows,
+#      iOS und Android bringen eigene Saetze mit, und was ein Geraet
+#      nicht kennt, zeigt es als leeres Rechteck.
+#   2. Wollte man stattdessen die eigenen Emojis des Bots nehmen,
+#      muesste die Schreibweise `<a:TADAA:1530375414575529984>` ins
+#      Dashboard kopiert werden -- eine zweite Stelle, die beim ersten
+#      neuen Emoji auseinanderlaeuft. Genau dieser Fehler stand hier
+#      schon einmal im Changelog: vier Emojis zeigten auf geloeschte
+#      IDs und erschienen als roher Text.
+#
+# Deshalb kommen die Vorlagen jetzt von hier. Die Codes werden aus
+# `utils/emoji.py` gelesen -- derselben Quelle, aus der auch die
+# Auswahl im Dashboard gespeist wird.
+#
+# Wichtig: Emojis gehoeren nur in Felder, die Discord auch als
+# Nachricht rendert. In Kanal-, Rollen- oder Webhook-Namen erscheint
+# der rohe Code als Text; solche Felder bleiben hier aussen vor.
+
+
+@router.get("/templates/welcome", summary="Vorgefertigte Begruessungen")
+async def welcome_templates():
+    """Die Vorlagen fuer die Begruessung, mit den Emojis des Bots.
+
+    Gelesen wird ``utils/emoji.py``. Faellt ein Emoji eines Tages weg,
+    steht hier ein leerer String statt eines kaputten Codes -- eine
+    Vorlage ohne Emoji ist immer noch brauchbar, ein
+    ``<:weg:123>`` mitten im Satz nicht.
+    """
+
+    from utils import emoji as bot_emoji
+
+    def pick(name: str) -> str:
+        return str(getattr(bot_emoji, name, "") or "")
+
+    party = pick("TADAA")
+    wave = pick("MINGLE")
+    star = pick("STAR")
+
+    return {
+        "templates": [
+            {
+                "name": "Kurz & freundlich",
+                "type": "simple",
+                "message": (
+                    f"Willkommen {{user}} auf **{{server_name}}**! {party} "
+                    "Du bist Mitglied Nummer {server_membercount}."
+                ),
+            },
+            {
+                "name": "Mit Bild",
+                "type": "embed",
+                "embed": {
+                    "title": f"{wave} Willkommen auf {{server_name}}!",
+                    "description": (
+                        "Schön, dass du da bist, {user}!\n\n"
+                        "Schau dich ruhig um — du bist unser "
+                        "{server_membercount}. Mitglied."
+                    ),
+                    "color": "#5865f2",
+                    "thumbnail": "{user_avatar}",
+                    "footer_text": "Beigetreten am {user_joindate}",
+                },
+            },
+            {
+                "name": "Sachlich",
+                "type": "embed",
+                "embed": {
+                    "title": "Neues Mitglied",
+                    "description": "{user} ist dem Server beigetreten.",
+                    "color": "#2f3136",
+                    "footer_text": "Mitglied #{server_membercount}",
+                },
+            },
+            {
+                "name": "Mit Sternen",
+                "type": "embed",
+                "embed": {
+                    "title": f"{star} Willkommen, {{user_name}}!",
+                    "description": (
+                        f"{party} Schön, dass du zu **{{server_name}}** "
+                        "gefunden hast.\n\n"
+                        "Du bist unser {server_membercount}. Mitglied."
+                    ),
+                    "color": "#fbbf24",
+                    "thumbnail": "{user_avatar}",
+                    "footer_text": "Beigetreten am {user_joindate}",
+                },
+            },
+        ]
+    }

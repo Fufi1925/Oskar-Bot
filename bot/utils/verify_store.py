@@ -38,6 +38,8 @@ import re
 
 from typing import Any
 
+from utils import emoji as bot_emoji
+
 import aiosqlite
 
 DB_PATH = "db/verification.db"
@@ -63,8 +65,18 @@ DEFAULTS: dict[str, Any] = {
     # The defaults are what most servers will never change, so they say
     # what happens rather than just "verify yourself".
     "panel_title": "Kurz bestätigen, dann bist du drin",
+    # Die eigenen Emojis des Bots statt Unicode.
+    #
+    # Ein Unicode-Zeichen sieht auf jedem Geraet anders aus -- Windows,
+    # iOS und Android bringen eigene Saetze mit, und manche fehlen ganz
+    # (dann steht dort ein leeres Rechteck). Ein App-Emoji ist ueberall
+    # dasselbe Bild.
+    #
+    # Das geht hier, weil diese Texte in einer *Nachricht* landen. In
+    # Kanal-, Rollen- oder Webhook-Namen waere es falsch: dort rendert
+    # Discord Custom-Emojis nicht und der rohe Code stuende als Text da.
     "panel_text": (
-        "Willkommen auf **{server}**! 👋\n\n"
+        f"Willkommen auf **{{server}}**! {bot_emoji.MINGLE}\n\n"
         "Damit hier keine Spam-Bots landen, fehlt nur noch ein Klick.\n"
         "Danach siehst du alle Kanäle und kannst mitreden."
     ),
@@ -72,7 +84,7 @@ DEFAULTS: dict[str, Any] = {
     "button_label": "Bin kein Bot",
     "captcha_label": "Stattdessen CAPTCHA",
     "success_text": (
-        "Alles klar, {user} — du bist dabei! 🎉\n"
+        f"Alles klar, {{user}} — du bist dabei! {bot_emoji.TADAA}\n"
         "Alle Kanäle von **{server}** sind jetzt für dich offen."
     ),
 

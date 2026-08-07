@@ -555,6 +555,10 @@ export const api = {
    * nicht um die eines bestimmten Servers.
    */
   getBotEmojis: () => request<any>(`/compose/emojis`),
+  // Die Begruessungs-Vorlagen kommen vom Bot, damit die Emoji-Codes
+  // aus derselben Quelle stammen wie die Auswahl. Eine zweite Liste
+  // hier liefe beim ersten neuen Emoji auseinander.
+  getWelcomeTemplates: () => request<any>(`/compose/templates/welcome`),
 
   // ── Tester-Bereich ────────────────────────────────────────────────
   // Die user_id setzt der Proxy aus der Sitzung; sie hier mitzugeben

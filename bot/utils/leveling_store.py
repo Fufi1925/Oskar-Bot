@@ -34,6 +34,8 @@ from typing import Any
 
 import aiosqlite
 
+from utils import emoji as bot_emoji
+
 DB_PATH = "db/leveling.db"
 
 # ── XP curve ────────────────────────────────────────────────────────
@@ -75,7 +77,10 @@ DEFAULTS: dict[str, Any] = {
     "enabled": 0,
     "channel_id": None,          # None = reply where the member wrote
     "announce_mode": "channel",  # channel | dm | off
-    "level_message": "🎉 {user} ist jetzt **Level {level}**!",
+    # Eigenes Emoji des Bots statt Unicode: ein Unicode-Zeichen sieht
+    # auf jedem Geraet anders aus, ein App-Emoji ueberall gleich. Der
+    # Text landet in einer Nachricht -- dort rendert Discord das.
+    "level_message": f"{bot_emoji.LEVEL_UP} {{user}} ist jetzt **Level {{level}}**!",
     "embed_color": 0x5865F2,
     "level_image": None,
     "thumbnail_enabled": 1,

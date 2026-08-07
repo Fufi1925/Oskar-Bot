@@ -590,6 +590,16 @@ async function authorize(
       return { ok: true };
     }
 
+    // Dasselbe gilt für die vorgefertigten Texte: sie hängen an keinem
+    // Server, sondern zählen auf, was der Bot an Vorlagen mitbringt.
+    // Auch hier vor der guild_id-Prüfung, weil "templates" keine
+    // achtzehnstellige Zahl ist.
+    if (rest[0] === "templates") {
+      const session = await getServerSession(authOptions);
+      if (!session?.user?.id) return { ok: false, response: deny(401, "Not signed in.") };
+      return { ok: true };
+    }
+
     const guildId = rest[0];
     if (!guildId) return { ok: false, response: deny(400, "guild_id missing.") };
 
