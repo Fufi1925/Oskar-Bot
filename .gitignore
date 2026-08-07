@@ -56,3 +56,9 @@ npm-debug.log*
 *.db-wal
 *.db-shm
 db/backups/
+
+# Phantom local secrets/runtime
+phantom/.env
+phantom/.venv/
+phantom/data/*.db
+phantom/**/__pycache__/
