@@ -710,6 +710,197 @@ def test_a_channel_the_bot_cannot_join_is_refused():
     check("mit einer Meldung im Klartext", "nicht betreten" in route)
 
 
+
+def test_discord_ids_travel_as_text():
+    """18-stellige IDs ueberleben JavaScripts Zahlen nicht.
+
+    Gemeldet: der Stammkanal liess sich waehlen, in Discord passierte
+    es auch -- aber im Dashboard stand weiter "Noch kein Kanal
+    gewaehlt".
+
+    Der Grund: JavaScripts Zahlen sind Fliesskomma. Alles oberhalb von
+    2^53-1 verliert Stellen::
+
+        echt              1530378233579704370
+        nach JSON.parse   1530378233579704300
+
+    Die Kanalliste kam als Text, die Einstellung als Zahl -- der
+    Vergleich konnte nie stimmen. Discord selbst liefert IDs aus genau
+    diesem Grund als Zeichenkette.
+    """
+    print("\nDiscord-IDs reisen als Text")
+
+    route = strip_py(
+        open(os.path.join(BOT, "api", "routes", "music.py"), encoding="utf-8").read()
+    )
+
+    check("es gibt die Umwandlung", "def _ids_as_text" in route)
+    check(
+        "sie wird beim Lesen benutzt",
+        re.search(r'"settings": _ids_as_text\(settings\)', route) is not None,
+    )
+    check(
+        "und beim Speichern",
+        route.count("_ids_as_text(settings)") >= 2,
+        f"nur {route.count('_ids_as_text(settings)')}x -- beide Wege brauchen es",
+    )
+
+    # Wirklich ausfuehren, nicht nur den Text lesen.
+    sys.path.insert(0, BOT)
+    from api.routes import music as music_route
+
+    out = music_route._ids_as_text(
+        {"channel_id": 1530378233579704370, "autostart_playlist": 7, "volume": 60}
+    )
+    check("die Kanal-ID ist eine Zeichenkette", isinstance(out["channel_id"], str))
+    check(
+        "und verliert keine Stelle",
+        out["channel_id"] == "1530378233579704370",
+        f"-> {out['channel_id']}",
+    )
+    check("None bleibt None", music_route._ids_as_text({"channel_id": None})["channel_id"] is None)
+
+    # Die Gegenprobe: als Zahl waere sie kaputt.
+    as_float = int(float(1530378233579704370))
+    check(
+        "als Zahl waere sie es nicht",
+        as_float != 1530378233579704370,
+        "dann waere der ganze Aufwand unnoetig",
+    )
+
+    # Und das Dashboard muss beide Seiten als Text vergleichen.
+    panel = strip_ts(read_dash("components", "dashboard", "music-panel.tsx"))
+    check(
+        "das Dashboard vergleicht als Text",
+        re.search(
+            r"String\(entry\.id\)\s*===\s*String\(settings\.channel_id", panel
+        )
+        is not None,
+    )
+
+
+def test_the_idle_check_is_precise():
+    """Der Takt der Schleife ist die Genauigkeit der Leerlaufzeit.
+
+    Bei 30 Sekunden Takt griff eine eingestellte Minute erst nach 90
+    Sekunden -- nachgerechnet: 45s eingestellt bedeutete 60s, 100s
+    bedeutete 120s. Das war der gemeldete "geht nicht".
+    """
+    print("\nDie Leerlaufzeit ist genau")
+
+    src = strip_py(open(MUSIC_COG, encoding="utf-8").read())
+
+    found = re.search(r"await asyncio\.sleep\((\d+)\)\n\n    @staticmethod", src)
+    tick = int(found.group(1)) if found else 999
+    check("die Schleife laeuft mindestens alle 5s", tick <= 5, f"-> {tick}s")
+
+    # Nachrechnen, was das bedeutet.
+    worst = 0
+    for wanted in (30, 45, 60, 75, 90, 100, 150, 200):
+        elapsed, since, left = 0, None, None
+        while elapsed <= 900:
+            if since is None:
+                since = elapsed
+            elif elapsed - since >= wanted:
+                left = elapsed
+                break
+            elapsed += tick
+        worst = max(worst, (left or 0) - wanted)
+    check("hoechstens 5s Abweichung", worst <= 5, f"-> {worst}s daneben")
+
+
+def test_it_pauses_when_the_channel_empties():
+    """Sonst spielt die Playlist in einen leeren Kanal weiter.
+
+    Gewuenscht: sobald niemand mehr da ist, sofort anhalten -- und bei
+    der Rueckkehr an derselben Stelle weitermachen. Pausieren statt
+    stoppen, damit die Stelle erhalten bleibt.
+    """
+    print("\nLeerer Kanal haelt die Musik an")
+
+    src = strip_py(open(MUSIC_COG, encoding="utf-8").read())
+
+    # Die Behandler muessen als Ereignis ANGEMELDET sein. Nur den
+    # Namen zu suchen reicht nicht: eine umbenannte Funktion enthaelt
+    # ihn immer noch als Teilzeichenkette, und discord.py ruft sie
+    # trotzdem nie. Genau so sind zwei Mutationen entwischt.
+    #
+    # Geprueft wird deshalb der Dekorator direkt darueber.
+    for handler, what in [
+        ("music_pause_on_empty", "Anhalten"),
+        ("music_resume_on_join", "Weiterspielen"),
+    ]:
+        registered = re.search(
+            r'@commands\.Cog\.listener\("on_voice_state_update"\)\s*\n'
+            r"\s*async def " + handler + r"\(",
+            src,
+        )
+        check(f"{what} ist als Ereignis angemeldet", bool(registered),
+              "ohne den Dekorator ruft discord.py die Funktion nie")
+
+    block = src.split("async def music_pause_on_empty")[1].split("async def")[0]
+    check("er pausiert wirklich", "player.pause(True)" in block)
+    check(
+        "und beachtet den Dauerbetrieb",
+        'settings.get("stay_forever")' in block,
+        "sonst hielte er auch bei 24/7 an",
+    )
+    check("er zaehlt den Kanal nach", "_humans_in" in block)
+
+    back = src.split("async def music_resume_on_join")[1].split("async def")[0]
+    check("das Weiterspielen loest pause(False) aus", "player.pause(False)" in back)
+    check("und zaehlt ebenfalls nach", "_humans_in" in back)
+
+
+def test_a_hand_paused_bot_stays_paused():
+    """Wer im Chat `>pause` drueckt, will keine Ueberraschung.
+
+    Ohne Merkliste spielte der Bot beim naechsten Beitritt von selbst
+    weiter -- obwohl ihn jemand ausdruecklich angehalten hatte.
+    """
+    print("\nVon Hand pausiert bleibt pausiert")
+
+    src = strip_py(open(MUSIC_COG, encoding="utf-8").read())
+
+    check("es gibt eine Merkliste", "_paused_empty" in src)
+
+    block = src.split("async def music_pause_on_empty")[1].split("async def")[0]
+    check("sie wird beim Anhalten gefuellt", "_paused_empty.add" in block)
+
+    # Die Abfrage muss WIRKEN: `if False: return` liesse das Wort
+    # stehen und spielte trotzdem immer weiter. Deshalb auf die
+    # Bedingung selbst pruefen.
+    back = src.split("async def music_resume_on_join")[1].split("async def")[0]
+    guard = re.search(
+        r"if guild\.id not in self\._paused_empty:\s*\n\s*return", back
+    )
+    check(
+        "das Weiterspielen bricht ohne Eintrag ab",
+        bool(guard),
+        "`if False: return` laesst das Wort stehen und spielt doch weiter",
+    )
+
+    # Beim Verlassen aufraeumen -- sonst bleibt der Server ewig in der
+    # Liste, und nach dem naechsten Beitritt spielt nichts weiter,
+    # weil der Eintrag noch da ist.
+    # Gezielt die Stelle direkt vor dem Verlassen pruefen.
+    #
+    # `check_inactivity` raeumt an vier Stellen auf; eine Suche ueber
+    # die ganze Funktion bleibt gruen, wenn genau die letzte fehlt --
+    # und genau die zaehlt: ohne sie bleibt der Server in der Liste,
+    # und nach dem naechsten Beitritt spielt nichts weiter.
+    ordered = re.search(
+        r"self\._paused_empty\.discard\(guild_id\)\s*\n"
+        r"\s*await self\._leave_idle",
+        src,
+    )
+    check(
+        "vor dem Verlassen wird aufgeraeumt",
+        bool(ordered),
+        "ein stehengebliebener Eintrag verhindert das naechste Weiterspielen",
+    )
+
+
 def main() -> int:
     test_the_settings_round_trip()
     test_absurd_values_are_clamped()
@@ -717,6 +908,10 @@ def main() -> int:
     test_deleting_the_autostart_playlist_clears_the_setting()
     test_a_broken_row_does_not_kill_the_page()
     test_tracks_are_stored_with_their_cover()
+    test_discord_ids_travel_as_text()
+    test_the_idle_check_is_precise()
+    test_it_pauses_when_the_channel_empties()
+    test_a_hand_paused_bot_stays_paused()
     test_the_idle_check_looks_at_the_right_channel()
     test_it_counts_humans_from_the_voice_states()
     test_the_timers_do_not_stack()

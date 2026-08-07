@@ -373,6 +373,10 @@ class Music(commands.Cog):
         # Einstellungen kurz puffern -- die Schleife laeuft alle 30s
         # ueber jeden Server.
         self._settings_cache: dict[int, tuple[float, dict]] = {}
+        # Server, bei denen WIR wegen eines leeren Kanals pausiert
+        # haben. Ein von Hand pausierter Bot soll beim naechsten
+        # Beitritt nicht von selbst weiterspielen.
+        self._paused_empty: set[int] = set()
         self._node_task: asyncio.Task | None = None
         self._inactivity_task: asyncio.Task | None = None
         # One per Lavalink candidate tried. Kept referenced because
@@ -403,7 +407,17 @@ class Music(commands.Cog):
                     # nicht beenden -- sonst bleibt der Bot auf allen
                     # anderen Servern fuer immer sitzen.
                     pass
-            await asyncio.sleep(30)
+            # Alle fuenf Sekunden statt alle dreissig.
+            #
+            # Der Takt ist die Genauigkeit der Leerlaufzeit: bei 30s
+            # konnte eine eingestellte Minute erst nach 90 Sekunden
+            # greifen, weil dazwischen niemand nachsah. Nachgerechnet:
+            # 45s eingestellt -> Bot ging nach 60s, 100s -> 120s.
+            #
+            # Fuenf Sekunden kosten fast nichts: die Schleife liest
+            # gepufferte Einstellungen und zaehlt eine Liste durch.
+            # Dafuer stimmt die eingestellte Zeit auf die Sekunde.
+            await asyncio.sleep(5)
 
     @staticmethod
     def _humans_in(channel) -> int:
@@ -470,6 +484,7 @@ class Music(commands.Cog):
 
         if player is None:
             self._idle_since.pop(guild_id, None)
+            self._paused_empty.discard(guild_id)
             return
 
         channel = getattr(player, "channel", None)
@@ -486,7 +501,38 @@ class Music(commands.Cog):
         # Der richtige Kanal, und Menschen statt Koepfe.
         if self._humans_in(channel) > 0:
             self._idle_since.pop(guild_id, None)
+            # Jemand ist (wieder) da: weiterspielen, falls wir wegen
+            # eines leeren Kanals pausiert hatten.
+            #
+            # Nur dann -- wer im Chat `>pause` gedrueckt hat, will
+            # nicht, dass der Bot beim naechsten Beitritt von selbst
+            # weiterspielt. Deshalb die Merkliste.
+            if guild_id in self._paused_empty:
+                self._paused_empty.discard(guild_id)
+                try:
+                    if getattr(player, "paused", False):
+                        await player.pause(False)
+                except Exception:
+                    pass
             return
+
+        # Ab hier ist niemand mehr da.
+        #
+        # Sofort anhalten, nicht erst beim Verlassen. Sonst laeuft die
+        # Playlist in einen leeren Kanal weiter, und nach der Rueckkehr
+        # ist man mitten im dritten Lied -- genau das war gemeldet.
+        #
+        # Pausieren statt stoppen: die Stelle bleibt erhalten, und beim
+        # naechsten Beitritt geht es dort weiter.
+        if guild_id not in self._paused_empty:
+            try:
+                if getattr(player, "playing", False) and not getattr(
+                    player, "paused", False
+                ):
+                    await player.pause(True)
+                    self._paused_empty.add(guild_id)
+            except Exception:
+                pass
 
         # Ab hier ist der Kanal leer. Statt eines schlafenden Timers
         # pro Durchlauf merken wir uns, seit wann -- das kann sich
@@ -502,6 +548,7 @@ class Music(commands.Cog):
             return
 
         self._idle_since.pop(guild_id, None)
+        self._paused_empty.discard(guild_id)
         await self._leave_idle(guild, player, limit)
 
     async def _leave_idle(self, guild, player, limit: int):
@@ -1476,6 +1523,101 @@ class Music(commands.Cog):
             return False, f"Das Abspielen schlug fehl: {error}"
 
         return True, f"{len(resolved)} Titel gestartet."
+
+    @commands.Cog.listener("on_voice_state_update")
+    async def music_resume_on_join(self, member, before, after):
+        """Sofort weiterspielen, sobald wieder jemand da ist.
+
+        Die Schleife oben pruefte alle fuenf Sekunden -- das reicht,
+        um den Bot nicht in einen leeren Kanal spielen zu lassen, ist
+        aber als *Reaktion* traege: man kommt herein und es bleibt
+        noch einen Moment still.
+
+        Hier haengt es am Ereignis selbst. Der Kanal wird trotzdem
+        nachgezaehlt, statt dem Ereignis zu vertrauen: `after.channel`
+        sagt nur, wohin diese eine Person gegangen ist.
+        """
+
+        if member.bot:
+            return
+        if after.channel is None:
+            return
+
+        guild = member.guild
+        if guild.id not in self._paused_empty:
+            return
+
+        player = None
+        for client in self.client.voice_clients:
+            if client.guild.id == guild.id:
+                player = client
+                break
+
+        channel = getattr(player, "channel", None) if player else None
+        if channel is None or channel.id != after.channel.id:
+            return
+
+        # `_update_voice_state` laeuft VOR dem Dispatch -- die Person
+        # steht also schon in den Voice-States, wenn wir hier sind.
+        if self._humans_in(channel) <= 0:
+            return
+
+        self._paused_empty.discard(guild.id)
+        self._idle_since.pop(guild.id, None)
+        try:
+            if getattr(player, "paused", False):
+                await player.pause(False)
+        except Exception:
+            pass
+
+    @commands.Cog.listener("on_voice_state_update")
+    async def music_pause_on_empty(self, member, before, after):
+        """Sofort anhalten, wenn der Letzte geht.
+
+        Getrennt vom Beitritt, weil die Frage eine andere ist: hier
+        zaehlt der Kanal, den jemand *verlassen* hat.
+        """
+
+        if member.bot:
+            return
+        if before.channel is None:
+            return
+        if after.channel is not None and after.channel.id == before.channel.id:
+            return
+
+        guild = member.guild
+        player = None
+        for client in self.client.voice_clients:
+            if client.guild.id == guild.id:
+                player = client
+                break
+
+        channel = getattr(player, "channel", None) if player else None
+        if channel is None or channel.id != before.channel.id:
+            return
+
+        # Dauerbetrieb heisst: spielen, egal ob jemand zuhoert.
+        try:
+            settings = await self._settings_for(guild.id)
+        except Exception:
+            return
+        if settings.get("stay_forever"):
+            return
+
+        if self._humans_in(channel) > 0:
+            return
+
+        if guild.id in self._paused_empty:
+            return
+
+        try:
+            if getattr(player, "playing", False) and not getattr(
+                player, "paused", False
+            ):
+                await player.pause(True)
+                self._paused_empty.add(guild.id)
+        except Exception:
+            pass
 
     @commands.Cog.listener("on_voice_state_update")
     async def music_autostart(self, member, before, after):

@@ -194,8 +194,17 @@ export function MusicPanel({ guildId }: { guildId: string }) {
   const settings = data.settings || {};
   // Der gewählte Kanal als ganzer Eintrag, nicht nur seine Nummer --
   // für die Zeile darunter, die Kategorie und Rechte mit anzeigt.
+  // Beide Seiten als Text vergleichen.
+  //
+  // Discord-IDs sind 18- bis 19-stellig und damit größer als
+  // `Number.MAX_SAFE_INTEGER` (9007199254740991). Kämen sie als Zahl
+  // an, hätte JSON.parse sie schon gerundet -- aus ...370 würde
+  // ...300, und dieser Vergleich fände nie etwas. Der Bot schickt sie
+  // deshalb als Zeichenkette; `String()` hier ist der Gürtel zum
+  // Hosenträger, falls doch einmal eine Zahl durchkommt.
   const chosen = (data.channels || []).find(
-    (entry: any) => String(entry.id) === String(settings.channel_id || "")
+    (entry: any) =>
+      String(entry.id) === String(settings.channel_id ?? "")
   );
 
   // Beim Ziehen der Entwurf, sonst der Stand vom Bot -- und solange
@@ -264,7 +273,7 @@ export function MusicPanel({ guildId }: { guildId: string }) {
                 : live?.paused
                 ? "Pausiert"
                 : live?.connected
-                ? "Im Kanal"
+                ? "Wartet"
                 : "Offline"}
             </span>
           </div>
@@ -762,6 +771,20 @@ export function MusicPanel({ guildId }: { guildId: string }) {
                 </div>
               </div>
             </div>
+
+            {/* Warum es still ist.
+                
+                Ohne diesen Hinweis wirkt der pausierte Bot kaputt:
+                man sieht einen Titel, hört aber nichts. */}
+            {live.paused && (
+              <div className="rounded-xl bg-amber-500/[0.07] border border-amber-500/25 px-3.5 py-2.5">
+                <p className="text-[12px] text-amber-200/80 leading-relaxed">
+                  Pausiert. Ist niemand mehr im Kanal, hält der Bot von
+                  selbst an und macht an derselben Stelle weiter, sobald
+                  wieder jemand da ist.
+                </p>
+              </div>
+            )}
 
             {/* Steuerung */}
             <div className="flex items-center gap-2 flex-wrap">

@@ -200,6 +200,35 @@ def _live_state(bot, guild_id: int) -> dict:
 # ── Lesen ────────────────────────────────────────────────────────────
 
 
+def _ids_as_text(settings: dict) -> dict:
+    """Discord-IDs als Zeichenkette ausliefern, nicht als Zahl.
+
+    Hier lag ein gemeldeter Fehler: der Stammkanal liess sich waehlen,
+    in Discord passierte es auch -- aber im Dashboard stand weiter
+    "Noch kein Kanal gewaehlt".
+
+    Der Grund ist JavaScript. Seine Zahlen sind Fliesskomma; alles
+    oberhalb von 2^53-1 (9007199254740991) verliert Stellen. Eine
+    Discord-ID ist 18- bis 19-stellig:
+
+        echt              1530378233579704370
+        nach JSON.parse   1530378233579704300
+
+    Die Kanalliste kam als Text (`str(channel.id)`), die Einstellung
+    als Zahl. Der Vergleich der beiden konnte deshalb nie stimmen, und
+    die Anzeige fand ihren Eintrag nicht.
+
+    Discord selbst liefert seine IDs aus genau diesem Grund als
+    Zeichenkette. Hier wird es nachgezogen.
+    """
+
+    out = dict(settings)
+    for key in ("channel_id", "autostart_playlist"):
+        value = out.get(key)
+        out[key] = str(value) if value is not None else None
+    return out
+
+
 @router.get("/{guild_id}", summary="Musik-Einstellungen und Playlists")
 async def get_music(guild_id: int, bot: "universitybot" = Depends(get_bot)):
     guild = _guild_or_404(bot, guild_id)
@@ -209,7 +238,7 @@ async def get_music(guild_id: int, bot: "universitybot" = Depends(get_bot)):
     playlists = await store.list_playlists(db, guild_id)
 
     return {
-        "settings": settings,
+        "settings": _ids_as_text(settings),
         "playlists": playlists,
         "channels": _voice_channels(guild),
         "lavalink": _lavalink_state(),
@@ -298,7 +327,7 @@ async def patch_music(
     await feature_audit.log_action(
         "music_settings", guild_id=guild_id, detail=str(sorted(patch))
     )
-    return {"status": "success", "settings": settings}
+    return {"status": "success", "settings": _ids_as_text(settings)}
 
 
 # ── Playlists ────────────────────────────────────────────────────────
