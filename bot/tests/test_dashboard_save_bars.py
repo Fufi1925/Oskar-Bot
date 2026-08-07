@@ -66,6 +66,11 @@ NO_DRAFT = {
     "counting",
     "tickets",       # dialogs with an explicit save
     "anonchat",      # a bar per channel card
+    # Music saves on the spot: every switch, the channel and the
+    # playlists are each their own request. A bar would sit there with
+    # nothing to save -- the slider is the one place where a draft
+    # exists, and it commits on release.
+    "music",
     "leveling",
     "verification",
     "automod",

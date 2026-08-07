@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import {
   Activity, BarChart4, Bot, ClipboardList, Command, Database, FileText, Hash,
-  Layers, Link2, Lock, Mail, Mic, Search, Settings, Shield, ShieldCheck,
+  Layers, Link2, Lock, Mail, Mic, Music, Search, Settings, Shield, ShieldCheck,
   SmilePlus, Sparkles, Ticket, UserCheck, Users, Volume2, Wrench, Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -48,6 +48,7 @@ const TARGETS: SearchTarget[] = [
   { label: "Voice Role", href: "/dashboard/guild/{g}/invcrole", icon: Volume2, group: "Roles", keywords: "voice channel role invc", guildScoped: true },
 
   { label: "Tickets", href: "/dashboard/guild/{g}/tickets", icon: Ticket, group: "Support", keywords: "support ticket panel", guildScoped: true },
+  { label: "Musik", href: "/dashboard/guild/{g}/music", icon: Music, group: "Engagement", keywords: "music musik playlist song 247 24/7 dauerbetrieb lautstaerke volume voice sprachkanal", guildScoped: true },
   { label: "Join to Create", href: "/dashboard/guild/{g}/j2c", icon: Mic, group: "Voice", keywords: "temporary voice channel j2c", guildScoped: true },
   { label: "Auto Reactions", href: "/dashboard/guild/{g}/autoreact", icon: Zap, group: "Utility", keywords: "auto react emoji trigger", guildScoped: true },
   { label: "No Prefix", href: "/dashboard/guild/{g}/noprefix", icon: Command, group: "Utility", keywords: "no prefix users roles", guildScoped: true },

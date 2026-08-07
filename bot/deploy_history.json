@@ -1,6 +1,12 @@
 {
  "commits": [
   {
+   "commit": "8f928beee56a93e708d1765823d7d67b8ccb33d4",
+   "at": "1786065739",
+   "subject": "feat(texte): vorgefertigte Texte nutzen die eigenen Emojis des Bots",
+   "body": "Gemeldet: bei Verifizierung, Begruessung und Speedrun sollen die\nvorgefertigten Texte Custom-Emojis benutzen statt Unicode-Zeichen.\n\nWarum das besser ist: ein Unicode-Zeichen sieht auf jedem Geraet\nanders aus -- Windows, iOS und Android bringen eigene Saetze mit, und\nwas ein Geraet nicht kennt, zeigt es als leeres Rechteck. Ein\nApp-Emoji ist ueberall dasselbe Bild.\n\nUmgestellt (alles Text, der in einer Discord-Nachricht landet):\n\n  bot/utils/verify_store.py   panel_text, success_text\n  bot/utils/leveling_store.py level_message\n  Begruessungs-Vorlagen       jetzt vom Bot geliefert\n\nDie Vorlagen kamen bisher fest aus dem Dashboard. Sie kommen jetzt\nueber die neue Route /compose/templates/welcome, weil die Codes sonst\nan zwei Stellen staenden -- und die zweite beim ersten neuen Emoji\nauseinanderliefe. Genau dieser Fehler steht hier schon im Changelog:\nvier Emojis zeigten auf geloeschte IDs und erschienen als roher Text.\n\nDie Route schlaegt die Namen ueber getattr in utils/emoji.py nach,\nstatt Codes abzuschreiben, und faellt auf einen leeren String zurueck,\nfalls ein Emoji verschwindet. Eine Vorlage ohne Emoji ist brauchbar,\nein <:weg:123> mitten im Satz nicht.\n\nDazu eine vierte Vorlage (\"Mit Sternen\") und ein Rueckfall im\nDashboard, falls der Bot nicht antwortet -- der traegt bewusst KEINE\nEmojis, sonst waere er die zweite Quelle.\n\nAlle 11 verwendeten Emoji-IDs wurden live gegen Discords CDN geprueft\nund liefern ein Bild.\n\nNICHT umgestellt -- der Template-Bot mit den Speedrun-Vorlagen. Zwei\nGruende, jeder fuer sich ausreichend:\n\n  1. Von 673 Emojis dort sitzen 519 im Feld `emoji`, und das bildet\n     den Kanalnamen. Discord rendert Custom-Emojis in Kanal-,\n     Kategorie- und Rollennamen nicht; dort stuende der rohe Code als\n     Text im Namen.\n  2. Der Template-Bot ist eine eigene Anwendung. App-Emojis gehoeren\n     genau einer App -- er synchronisiert sich beim Start bereits\n     eigene Kopien der 142 Emojis.\n\nVor der Umstellung nachgemessen statt geraten: ein Skript hat jede\nVorlage durchsucht und nach Verwendungszweck sortiert. Speedrun im\nHauptbot hatte ueberhaupt keine Unicode-Emojis.\n\nTests: bot/tests/test_template_emojis.py -- prueft auch, dass die\nPlatzhalter ({server}, {user}, {level}) den Umbau auf f-Strings\nueberlebt haben, und dass der Template-Bot unangetastet blieb.\n\nMutationstest: 19 von 19 gefangen.\n\nNicht gegen echtes Discord getestet -- kein Token, kein Browser.\nGeprueft: tsc, next build, 74 Testdateien, Boot-Test (148 Cogs,\n0 Fehler), ruff ohne neue Treffer."
+  },
+  {
    "commit": "a7a07fd1897399ce67b69f4e60f073be372b94c5",
    "at": "1786062050",
    "subject": "feat(dashboard): Emoji-Auswahl an jedem Feld, dessen Text nach Discord geht",
@@ -231,12 +237,6 @@
   {
    "commit": "61acbc7d45afefb9a6b26dd8b2ddc0d4d112c765",
    "at": "1785633667",
-   "subject": "Update layout.tsx",
-   "body": ""
-  },
-  {
-   "commit": "d1f9451d7f54636ce48c4c74845434668efdd5c9",
-   "at": "1785633312",
    "subject": "Update layout.tsx",
    "body": ""
   }

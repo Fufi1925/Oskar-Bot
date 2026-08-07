@@ -1249,6 +1249,46 @@ export const api = {
       body: "{}",
     }),
 
+  // ── Musik ────────────────────────────────────────────────────────
+  music: (guildId: string) => request<any>(`/music/${guildId}`),
+  // Getrennt vom Rest: der Fortschrittsbalken fragt das im Sekundentakt
+  // ab, und die Playlists jedes Mal mitzuschicken waere unnoetig.
+  musicLive: (guildId: string) => request<any>(`/music/${guildId}/live`),
+  musicSave: (guildId: string, data: any) =>
+    request<any>(`/music/${guildId}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+  musicControl: (guildId: string, action: string, value?: number) =>
+    request<any>(`/music/${guildId}/control`, {
+      method: "POST",
+      body: JSON.stringify({ action, value }),
+    }),
+  musicPlay: (guildId: string, playlistId: number) =>
+    request<any>(`/music/${guildId}/play`, {
+      method: "POST",
+      body: JSON.stringify({ playlist_id: playlistId }),
+    }),
+  musicPlaylistCreate: (guildId: string, name: string, query?: string) =>
+    request<any>(`/music/${guildId}/playlists`, {
+      method: "POST",
+      body: JSON.stringify({ name, query }),
+    }),
+  musicPlaylistAddTracks: (guildId: string, playlistId: number, query: string) =>
+    request<any>(`/music/${guildId}/playlists/${playlistId}/tracks`, {
+      method: "POST",
+      body: JSON.stringify({ query }),
+    }),
+  musicPlaylistSave: (guildId: string, playlistId: number, data: any) =>
+    request<any>(`/music/${guildId}/playlists/${playlistId}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+  musicPlaylistDelete: (guildId: string, playlistId: number) =>
+    request<any>(`/music/${guildId}/playlists/${playlistId}`, {
+      method: "DELETE",
+    }),
+
   // Die Code-Sperre. Freigeschaltet wird ein Server, nicht ein Nutzer.
   speedrunAccess: (guildId: string) =>
     request<any>(`/speedrun/${guildId}/access`),

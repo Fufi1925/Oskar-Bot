@@ -28,6 +28,7 @@ import io
 import aiohttp
 from typing import cast
 import asyncio
+import time
 from utils.Tools import *
 from utils.cv2 import CV2, build_container, CV2Embed
 from utils.bootstrap import quieten_libraries
@@ -366,6 +367,12 @@ class Music(commands.Cog):
         self.client = client
         self.inactivity_timeout = 120
         self.player_inactivity = {}
+        # Seit wann ein Server ohne Zuhoerer dasteht. Ersetzt die
+        # frueheren schlafenden Timer, die sich stapelten.
+        self._idle_since: dict[int, float] = {}
+        # Einstellungen kurz puffern -- die Schleife laeuft alle 30s
+        # ueber jeden Server.
+        self._settings_cache: dict[int, tuple[float, dict]] = {}
         self._node_task: asyncio.Task | None = None
         self._inactivity_task: asyncio.Task | None = None
         # One per Lavalink candidate tried. Kept referenced because
@@ -389,10 +396,68 @@ class Music(commands.Cog):
         await self.client.wait_until_ready()
         while not self.client.is_closed():
             for guild in list(self.client.guilds):
-                await self.check_inactivity(guild.id)
-            await asyncio.sleep(60) 
+                try:
+                    await self.check_inactivity(guild.id)
+                except Exception:
+                    # Ein Server mit kaputtem Zustand darf die Schleife
+                    # nicht beenden -- sonst bleibt der Bot auf allen
+                    # anderen Servern fuer immer sitzen.
+                    pass
+            await asyncio.sleep(30)
+
+    @staticmethod
+    def _humans_in(channel) -> int:
+        """Wie viele Menschen wirklich im Kanal sind.
+
+        Nicht ``channel.members``: das ist eine berechnete Liste, die
+        still ueber ``guild.get_member()`` filtert. Ist ein Mitglied
+        nicht im Cache, fehlt es -- der Kanal wirkt leerer, als er
+        ist, und der Bot geht mitten im Lied.
+
+        ``guild._voice_states`` ist die Liste, die Discord selbst
+        fuehrt. Sie kennt jede Person im Kanal, gecacht oder nicht.
+        """
+
+        guild = getattr(channel, "guild", None)
+        if guild is None:
+            return 0
+
+        states = getattr(guild, "_voice_states", None)
+        if states is None:
+            # Aeltere discord.py oder eine Attrappe im Test: dann eben
+            # die berechnete Liste, besser als gar nichts.
+            return sum(
+                1 for m in getattr(channel, "members", []) if not m.bot
+            )
+
+        count = 0
+        for user_id, state in states.items():
+            if getattr(state, "channel", None) is None:
+                continue
+            if state.channel.id != channel.id:
+                continue
+            member = guild.get_member(user_id)
+            # Unbekannt heisst hier "nicht im Cache", nicht "Bot".
+            # Als Mensch zaehlen ist die sichere Annahme: lieber
+            # bleiben als jemanden mitten im Lied abschneiden.
+            if member is None or not member.bot:
+                count += 1
+        return count
 
     async def check_inactivity(self, guild_id):
+        """Geht der Bot, weil niemand mehr zuhoert?
+
+        Hier lag ein Fehler, der Server mit mehreren Sprachkanaelen
+        traf: geprueft wurde ``guild.voice_channels[0]`` -- der
+        **erste** Kanal des Servers, nicht der, in dem der Bot sitzt.
+        Stand dort zufaellig eine Person, trennte der Bot die
+        Verbindung, obwohl nebenan zehn Leute Musik hoerten.
+
+        Ausserdem startete die alte Fassung bei jedem Durchlauf einen
+        neuen Timer. Nach zehn Minuten Leerlauf warteten zehn Timer
+        parallel auf denselben Kanal.
+        """
+
         guild = self.client.get_guild(guild_id)
         if not guild:
             return
@@ -403,36 +468,118 @@ class Music(commands.Cog):
                 player = vc
                 break
 
-        if player and player.playing and len(player.channel.members) == 1:
-            await self.inactivity_timer(guild)
+        if player is None:
+            self._idle_since.pop(guild_id, None)
+            return
 
-    async def inactivity_timer(self, guild):
-        await asyncio.sleep(self.inactivity_timeout)
-        if len(guild.voice_channels[0].members) == 1:
-            player = None
-            for vc in self.client.voice_clients:
-                if vc.guild.id == guild.id:
-                    player = vc
-                    break
-            if player:
-                await player.disconnect(force=True)
-                try:
-                    support = Button(label='Support', emoji=HANDSHAKE, style=discord.ButtonStyle.link, url='https://discord.gg/MG3rYnUZJV')
-                    vote = Button(label='Vote', emoji=STAR, style=discord.ButtonStyle.link, url='https://top.gg/bot//vote')
-                    view = LayoutView(timeout=None)
-                    container = build_container(
-                        TextDisplay("**Inactive Timeout**"),
-                        Separator(visible=True),
-                        TextDisplay("Bot has been disconnected due to inactivity (being idle in Voice Channel) for more than 2 minutes."),
-                        Separator(visible=True),
-                        ActionRow(support, vote),
-                        Separator(visible=True),
-                        TextDisplay(f"*Thanks for choosing {BRAND_NAME}!*"),
-                    )
-                    view.add_item(container)
-                    await player.ctx.channel.send(view=view)
-                except:
-                    pass
+        channel = getattr(player, "channel", None)
+        if channel is None:
+            self._idle_since.pop(guild_id, None)
+            return
+
+        # Dauerbetrieb: der Bot bleibt, egal ob jemand zuhoert.
+        settings = await self._settings_for(guild_id)
+        if settings.get("stay_forever"):
+            self._idle_since.pop(guild_id, None)
+            return
+
+        # Der richtige Kanal, und Menschen statt Koepfe.
+        if self._humans_in(channel) > 0:
+            self._idle_since.pop(guild_id, None)
+            return
+
+        # Ab hier ist der Kanal leer. Statt eines schlafenden Timers
+        # pro Durchlauf merken wir uns, seit wann -- das kann sich
+        # nicht stapeln.
+        now = time.monotonic()
+        since = self._idle_since.get(guild_id)
+        if since is None:
+            self._idle_since[guild_id] = now
+            return
+
+        limit = int(settings.get("idle_seconds") or self.inactivity_timeout)
+        if now - since < limit:
+            return
+
+        self._idle_since.pop(guild_id, None)
+        await self._leave_idle(guild, player, limit)
+
+    async def _leave_idle(self, guild, player, limit: int):
+        """Verbindung trennen und im Textkanal Bescheid sagen."""
+
+        try:
+            await player.disconnect(force=True)
+        except Exception:
+            return
+
+        channel = getattr(getattr(player, "ctx", None), "channel", None)
+        if channel is None:
+            return
+
+        minutes = max(1, limit // 60)
+        try:
+            support = Button(label='Support', emoji=HANDSHAKE, style=discord.ButtonStyle.link, url='https://discord.gg/MG3rYnUZJV')
+            vote = Button(label='Vote', emoji=STAR, style=discord.ButtonStyle.link, url='https://top.gg/bot//vote')
+            view = LayoutView(timeout=None)
+            container = build_container(
+                TextDisplay("**Inactive Timeout**"),
+                Separator(visible=True),
+                TextDisplay(
+                    "Der Bot hat den Sprachkanal verlassen — dort hat "
+                    f"seit {minutes} Minute(n) niemand mehr zugehört.\n\n"
+                    "Im Dashboard lässt sich unter *Musik* einstellen, "
+                    "dass er dauerhaft bleibt."
+                ),
+                Separator(visible=True),
+                ActionRow(support, vote),
+                Separator(visible=True),
+                TextDisplay(f"*Thanks for choosing {BRAND_NAME}!*"),
+            )
+            view.add_item(container)
+            await channel.send(view=view)
+        except Exception:
+            pass
+
+    async def _settings_for(self, guild_id: int) -> dict:
+        """Die Musik-Einstellungen eines Servers, kurz gepuffert.
+
+        `check_inactivity` laeuft alle 30 Sekunden ueber jeden Server.
+        Ohne Puffer waeren das bei tausend Servern zweitausend
+        Datenbankabfragen pro Minute fuer Werte, die sich fast nie
+        aendern.
+        """
+
+        now = time.monotonic()
+        cached = self._settings_cache.get(guild_id)
+        if cached and now - cached[0] < 60:
+            return cached[1]
+
+        try:
+            from api.db_manager import db_manager
+            from utils import music_store
+
+            connection = await db_manager.get_connection(music_store.DB_PATH)
+            await music_store.ensure_schema(connection)
+            settings = await music_store.get_settings(connection, guild_id)
+        except Exception:
+            # Ohne Datenbank gilt das alte Verhalten: nach zwei Minuten
+            # gehen. Ein Fehler beim Lesen darf den Bot nicht dauerhaft
+            # im Kanal festhalten.
+            from utils import music_store
+
+            settings = dict(music_store.DEFAULTS)
+
+        self._settings_cache[guild_id] = (now, settings)
+        return settings
+
+    def forget_settings(self, guild_id: int) -> None:
+        """Puffer verwerfen, nachdem das Dashboard etwas geaendert hat.
+
+        Ohne das dauert es bis zu einer Minute, bis ein umgelegter
+        Schalter wirkt -- und der Nutzer denkt, es sei kaputt.
+        """
+
+        self._settings_cache.pop(guild_id, None)
 
     async def connect_nodes(self) -> None:
         await self.client.wait_until_ready()
@@ -1231,3 +1378,157 @@ class Music(commands.Cog):
         player = payload.player
         await self._set_voice_status(player, None)
         await self.on_track_end(payload)
+
+    # ── Dashboard: Stammkanal, Dauerbetrieb, Playlists ──────────────
+    #
+    # Diese drei Methoden sind der Teil, den der Musik-Reiter im
+    # Dashboard anspricht. Sie stehen hier und nicht in der Route,
+    # weil nur dieser Prozess den Sprachkanal halten kann -- ein
+    # Browser kann Discord nicht sagen "spiel weiter".
+
+    async def _connect_to(self, channel):
+        """In einen Sprachkanal, ueber Lavalink.
+
+        Gibt (Player, None) zurueck oder (None, Grund). Ein Grund im
+        Klartext ist wichtiger als eine Ausnahme: er landet im
+        Dashboard, wo ihn jemand lesen kann.
+        """
+
+        if not self.music_ready():
+            return None, (
+                "Kein Lavalink-Knoten verbunden — ohne ihn kann der Bot "
+                "keine Musik abspielen. Bitte LAVALINK_HOST in Railway "
+                "prüfen."
+            )
+
+        guild = channel.guild
+        existing = None
+        for client in self.client.voice_clients:
+            if client.guild.id == guild.id:
+                existing = client
+                break
+
+        try:
+            if existing is not None:
+                if getattr(existing, "channel", None) is None or existing.channel.id != channel.id:
+                    await existing.move_to(channel)
+                return existing, None
+            player = await channel.connect(cls=wavelink.Player)
+            return player, None
+        except Exception as error:
+            return None, f"Der Bot kam nicht in den Kanal: {error}"
+
+    async def start_playlist(self, guild, channel, tracks, volume=None):
+        """Eine gespeicherte Playlist im Kanal starten.
+
+        `tracks` sind die im Dashboard gespeicherten Angaben, keine
+        Lavalink-Objekte -- die lassen sich nicht in einer Datenbank
+        ablegen. Sie werden hier ueber ihre Adresse neu aufgeloest.
+
+        Gibt (True, Meldung) oder (False, Grund) zurueck.
+        """
+
+        player, problem = await self._connect_to(channel)
+        if player is None:
+            return False, problem
+
+        queue = getattr(player, "queue", None)
+        if queue is not None:
+            try:
+                queue.clear()
+            except Exception:
+                pass
+
+        # Der erste Titel entscheidet, ob es ueberhaupt geht. Schlaegt
+        # er fehl, ist eine Meldung besser als ein stummer Kanal.
+        resolved = []
+        for entry in tracks:
+            uri = str(entry.get("uri") or "").strip()
+            if not uri:
+                continue
+            try:
+                found = await wavelink.Playable.search(uri)
+            except Exception:
+                continue
+            if not found:
+                continue
+            items = getattr(found, "tracks", None) or list(found)
+            if items:
+                resolved.append(items[0])
+
+        if not resolved:
+            return False, (
+                "Keiner der gespeicherten Titel ließ sich abspielen. "
+                "Vielleicht sind die Links nicht mehr gültig."
+            )
+
+        if volume is not None:
+            try:
+                await player.set_volume(int(volume))
+            except Exception:
+                pass
+
+        try:
+            for track in resolved[1:]:
+                queue.put(track)
+            await player.play(resolved[0])
+        except Exception as error:
+            return False, f"Das Abspielen schlug fehl: {error}"
+
+        return True, f"{len(resolved)} Titel gestartet."
+
+    @commands.Cog.listener("on_voice_state_update")
+    async def music_autostart(self, member, before, after):
+        """Startliste anwerfen, sobald jemand den Stammkanal betritt.
+
+        Nur beim *Betreten*: `after.channel` ist der Stammkanal und
+        `before.channel` war es nicht. Ohne diese zweite Bedingung
+        loeste jede Aenderung im Kanal aus -- auch Stummschalten, das
+        ebenfalls ein `on_voice_state_update` ist.
+        """
+
+        if member.bot:
+            return
+        if after.channel is None:
+            return
+        if before.channel is not None and before.channel.id == after.channel.id:
+            return
+
+        guild = member.guild
+        try:
+            settings = await self._settings_for(guild.id)
+        except Exception:
+            return
+
+        if not settings.get("autostart"):
+            return
+        if not settings.get("channel_id"):
+            return
+        if int(settings["channel_id"]) != after.channel.id:
+            return
+        if not settings.get("autostart_playlist"):
+            return
+
+        # Laeuft schon etwas, nicht dazwischenfunken.
+        for client in self.client.voice_clients:
+            if client.guild.id == guild.id and getattr(client, "playing", False):
+                return
+
+        try:
+            from api.db_manager import db_manager
+            from utils import music_store
+
+            connection = await db_manager.get_connection(music_store.DB_PATH)
+            await music_store.ensure_schema(connection)
+            playlist = await music_store.get_playlist(
+                connection, guild.id, int(settings["autostart_playlist"])
+            )
+        except Exception:
+            return
+
+        if not playlist or not playlist["tracks"]:
+            return
+
+        await self.start_playlist(
+            guild, after.channel, playlist["tracks"], settings.get("volume")
+        )

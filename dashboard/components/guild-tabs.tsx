@@ -45,6 +45,7 @@ import { useProximity } from "@/components/ui/proximity";
 import {
   Activity,
   BarChart4,
+  Music,
   Badge,
   Bot,
   Calculator,
@@ -185,6 +186,16 @@ function buildGroups(t: TranslateFn): Group[] {
           icon: Gauge,
           tag: "beta",
           also: ["speedrun", "setup", "vorlage", "template", "aufsetzen"],
+        },
+        {
+          name: "Musik",
+          slug: "music",
+          icon: Music,
+          also: [
+            "musik", "music", "playlist", "song", "lied", "player", "247",
+            "24/7", "dauerbetrieb", "lautstaerke", "lautstärke", "volume",
+            "sprachkanal", "voice",
+          ],
         },
         {
           name: "Support-Warteraum",
