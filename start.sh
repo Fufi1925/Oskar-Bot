@@ -3,6 +3,18 @@ set -u
 
 export PORT=${PORT:-8080}
 export DASHBOARD_PORT=${DASHBOARD_PORT:-3000}
+export PHANTOM_PORT=${PHANTOM_PORT:-8787}
+
+# Phantom public URL (isolated under /phantom on same domain)
+if [ -z "${PHANTOM_BASE_URL:-}" ]; then
+  if [ -n "${RAILWAY_PUBLIC_DOMAIN:-}" ]; then
+    export PHANTOM_BASE_URL="https://$RAILWAY_PUBLIC_DOMAIN/phantom"
+  else
+    export PHANTOM_BASE_URL="http://localhost:$PORT/phantom"
+  fi
+  echo "👻 PHANTOM_BASE_URL set to: $PHANTOM_BASE_URL"
+fi
+export PHANTOM_COOKIE_PATH="${PHANTOM_COOKIE_PATH:-/phantom}"
 
 # Set NEXTAUTH_URL automatically if not set
 if [ -z "${NEXTAUTH_URL:-}" ]; then
@@ -54,6 +66,11 @@ echo "=========================================="
 
 DASHBOARD_PID=""
 cleanup() {
+  if [ -n "${PHANTOM_BOT_PID:-}" ] && kill -0 "$PHANTOM_BOT_PID" 2>/dev/null; then
+    echo "🧹 Stopping Phantom Bot (PID: $PHANTOM_BOT_PID)"
+    kill "$PHANTOM_BOT_PID" 2>/dev/null || true
+    wait "$PHANTOM_BOT_PID" 2>/dev/null || true
+  fi
   if [ -n "$DASHBOARD_PID" ] && kill -0 "$DASHBOARD_PID" 2>/dev/null; then
     echo "🧹 Stopping Dashboard (PID: $DASHBOARD_PID)"
     kill "$DASHBOARD_PID" 2>/dev/null || true
@@ -93,6 +110,18 @@ done
 echo ""
 echo "🚀 Starting Bot + API server on port $PORT..."
 echo "=========================================="
+# Start Phantom ticket bot (optional — only if token is set)
+PHANTOM_BOT_PID=""
+if [ -n "${PHANTOM_BOT_TOKEN:-}" ] && [ -f /app/phantom/run_bot.py ]; then
+  echo "👻 Starting Phantom Ticket-Bot..."
+  cd /app/phantom
+  PYTHONPATH=/app/phantom python run_bot.py > /tmp/phantom-bot.log 2>&1 &
+  PHANTOM_BOT_PID=$!
+  echo "✅ Phantom Ticket-Bot started (PID: $PHANTOM_BOT_PID)"
+else
+  echo "ℹ️ Phantom Ticket-Bot skipped (PHANTOM_BOT_TOKEN not set)"
+fi
+
 cd /app/bot
 python university_bot.py 2>&1
 BOT_EXIT=$?

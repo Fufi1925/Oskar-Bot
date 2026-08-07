@@ -47,6 +47,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy bot code
 COPY bot/ ./bot/
 
+# Phantom isolated /phantom stack (dashboard + ticket bot)
+COPY phantom/ ./phantom/
+RUN pip install --no-cache-dir -r ./phantom/requirements.txt
+
 # Die Deploy-Historie fuer den Tester-Reiter.
 #
 # Im fertigen Image gibt es kein .git -- oben wird nur bot/ und

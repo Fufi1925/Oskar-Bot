@@ -35,6 +35,9 @@ async def lifespan(app: FastAPI):
 
 def create_app() -> FastAPI:
     settings = get_settings()
+    # When mounted under parent FastAPI at /phantom, leave FastAPI root_path empty.
+    # Link prefix still comes from PHANTOM_BASE_URL for templates/cookies/OAuth.
+    _mount_mode = True  # always mounted in University stack; standalone run_dashboard wraps mount
     app = FastAPI(
         title="Phantom Dashboard",
         docs_url=None,
@@ -42,7 +45,7 @@ def create_app() -> FastAPI:
         openapi_url=None,
         lifespan=lifespan,
         # root_path lets reverse-proxies mount under /phantom
-        root_path=settings.root_path or "",
+        root_path="",
     )
 
     app.mount(
@@ -50,6 +53,13 @@ def create_app() -> FastAPI:
         StaticFiles(directory=str(APP_DIR / "static")),
         name="static",
     )
+
+    def _href(path: str) -> str:
+        """Build absolute site path under /phantom prefix."""
+        prefix = (settings.root_path or "").rstrip("/")
+        if not path.startswith("/"):
+            path = "/" + path
+        return f"{prefix}{path}" if prefix else path
 
     def ctx(request: Request, **extra: Any) -> dict[str, Any]:
         s = get_settings()
@@ -90,15 +100,15 @@ def create_app() -> FastAPI:
     async def home(request: Request):
         user = auth.get_session_user(request)
         if user:
-            return RedirectResponse(url="/dashboard", status_code=302)
-        return RedirectResponse(url="/login", status_code=302)
+            return RedirectResponse(url=_href("/dashboard"), status_code=302)
+        return RedirectResponse(url=_href("/login"), status_code=302)
 
     @app.get("/login", response_class=HTMLResponse)
     async def login_page(request: Request):
         s = get_settings()
         user = auth.get_session_user(request)
         if user:
-            return RedirectResponse(url="/dashboard", status_code=302)
+            return RedirectResponse(url=_href("/dashboard"), status_code=302)
         missing = []
         if not s.phantom_discord_client_id:
             missing.append("PHANTOM_DISCORD_CLIENT_ID")
@@ -112,7 +122,7 @@ def create_app() -> FastAPI:
     async def auth_discord(request: Request, force: int = 0):
         s = get_settings()
         if not s.phantom_discord_client_id or not s.phantom_discord_client_secret:
-            return RedirectResponse(url="/login", status_code=302)
+            return RedirectResponse(url=_href("/login"), status_code=302)
         state = auth.make_oauth_state()
         url = (
             auth.oauth_authorize_url_force(state, s)
@@ -139,12 +149,12 @@ def create_app() -> FastAPI:
     ):
         s = get_settings()
         if error:
-            resp = RedirectResponse(url="/login", status_code=302)
+            resp = RedirectResponse(url=_href("/login"), status_code=302)
             set_flash(resp, f"Discord Login abgebrochen: {error}")
             return resp
         expected = request.cookies.get("phantom_oauth_state")
         if not code or not state or not expected or state != expected:
-            resp = RedirectResponse(url="/login", status_code=302)
+            resp = RedirectResponse(url=_href("/login"), status_code=302)
             set_flash(resp, "Ungültiger OAuth-State. Bitte erneut anmelden.")
             return resp
 
@@ -169,15 +179,15 @@ def create_app() -> FastAPI:
             )
             session = auth.create_session_token(duser, s)
         except HTTPException as e:
-            resp = RedirectResponse(url="/login", status_code=302)
+            resp = RedirectResponse(url=_href("/login"), status_code=302)
             set_flash(resp, f"Login fehlgeschlagen ({e.detail}).")
             return resp
         except Exception as e:
-            resp = RedirectResponse(url="/login", status_code=302)
+            resp = RedirectResponse(url=_href("/login"), status_code=302)
             set_flash(resp, f"Login Fehler: {type(e).__name__}")
             return resp
 
-        resp = RedirectResponse(url="/dashboard", status_code=302)
+        resp = RedirectResponse(url=_href("/dashboard"), status_code=302)
         resp.set_cookie(
             s.phantom_cookie_name,
             session,
@@ -193,7 +203,7 @@ def create_app() -> FastAPI:
     @app.get("/auth/logout")
     async def logout():
         s = get_settings()
-        resp = RedirectResponse(url="/login", status_code=302)
+        resp = RedirectResponse(url=_href("/login"), status_code=302)
         resp.delete_cookie(s.phantom_cookie_name, path=s.phantom_cookie_path)
         set_flash(resp, "Abgemeldet.")
         return resp
@@ -202,7 +212,7 @@ def create_app() -> FastAPI:
     async def dashboard_home(request: Request):
         user = auth.get_session_user(request)
         if not user:
-            return RedirectResponse(url="/login", status_code=302)
+            return RedirectResponse(url=_href("/login"), status_code=302)
 
         # load guilds via stored access token
         db = request.app.state.db
@@ -223,7 +233,7 @@ def create_app() -> FastAPI:
     async def dashboard_guild(request: Request, guild_id: int):
         user = auth.get_session_user(request)
         if not user:
-            return RedirectResponse(url="/login", status_code=302)
+            return RedirectResponse(url=_href("/login"), status_code=302)
 
         db = request.app.state.db
         row = await dbmod.get_user(db, int(user["uid"]))
@@ -234,7 +244,7 @@ def create_app() -> FastAPI:
                     guild = g
                     break
         if not guild:
-            resp = RedirectResponse(url="/dashboard", status_code=302)
+            resp = RedirectResponse(url=_href("/dashboard"), status_code=302)
             set_flash(resp, "Kein Zugriff auf diesen Server.")
             return resp
 
@@ -263,7 +273,7 @@ def create_app() -> FastAPI:
     ):
         user = auth.get_session_user(request)
         if not user:
-            return RedirectResponse(url="/login", status_code=302)
+            return RedirectResponse(url=_href("/login"), status_code=302)
 
         def _parse_id(raw: str) -> int | None:
             raw = (raw or "").strip()
@@ -289,7 +299,7 @@ def create_app() -> FastAPI:
             panel_description=panel_description.strip()[:1800]
             or "Klicke auf den Button, um ein Ticket zu öffnen.",
         )
-        resp = RedirectResponse(url=f"/dashboard/guild/{guild_id}", status_code=302)
+        resp = RedirectResponse(url=_href(f"/dashboard/guild/{guild_id}"), status_code=302)
         set_flash(resp, "Einstellungen gespeichert.")
         return resp
 

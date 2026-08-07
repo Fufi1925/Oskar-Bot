@@ -357,6 +357,24 @@ def create_app() -> FastAPI:
     # Mount bot API at /api/v1 ONLY
     app.mount("/api/v1", api_app)
 
+    # Phantom isolated stack under /phantom (own dashboard + API + tickets bot config)
+    # Must be mounted BEFORE the catch-all dashboard proxy below.
+    try:
+        import sys
+        from pathlib import Path as _Path
+        _phantom_root = _Path(__file__).resolve().parents[2] / "phantom"
+        if _phantom_root.is_dir():
+            sys.path.insert(0, str(_phantom_root))
+            from app.main import create_app as create_phantom_app
+            phantom_app = create_phantom_app()
+            app.mount("/phantom", phantom_app)
+            logger.info("Phantom mounted at /phantom")
+        else:
+            logger.warning("Phantom directory missing at %s — /phantom will 404", _phantom_root)
+    except Exception as exc:
+        logger.error("Failed to mount Phantom at /phantom: %s", exc)
+
+
     # Dashboard proxy — handles everything else (including /api/auth/*)
     @app.api_route("/{path:path}", methods=["GET","POST","PUT","DELETE","PATCH","OPTIONS","HEAD"])
     async def proxy_to_dashboard(request: Request, path: str):
