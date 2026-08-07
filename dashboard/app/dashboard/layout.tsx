@@ -28,7 +28,8 @@ import {
   LayoutDashboard, Server, ShieldCheck, Ticket, BarChart4, FileText, Settings,
   Menu, X, Bell, User, Search, ChevronRight, Star, Sparkles, LogOut,
   Lock, PenLine, Gem, Pin, Moon, Calculator, Youtube, Cake,
-  LifeBuoy, ChevronDown, Bot, Shield, UserCheck, Badge, Gauge, Headphones
+  LifeBuoy, ChevronDown, Bot, Shield, UserCheck, Badge, Gauge, Headphones,
+  Music
 } from "lucide-react";
 import { useSession, signIn, signOut } from "next-auth/react";
 import { cn, isAdmin } from "@/lib/utils";
@@ -209,6 +210,7 @@ export default function DashboardLayout({
         {
           name: "Sprache",
           items: [
+            { name: "Musik", href: `/dashboard/guild/${currentGuildId}/music`, icon: Music },
             { name: "Join to Create", href: `/dashboard/guild/${currentGuildId}/j2c`, icon: Menu },
             { name: "Sprach-Rolle", href: `/dashboard/guild/${currentGuildId}/invcrole`, icon: Settings },
           ],

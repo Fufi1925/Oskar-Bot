@@ -1,6 +1,12 @@
 {
  "commits": [
   {
+   "commit": "b2d55adb512e4495609262bd5d6d7568e8c51650",
+   "at": "1786068436",
+   "subject": "feat(musik): Dashboard-Reiter mit Stammkanal, Playlists und Live-Ansicht",
+   "body": "Gewuenscht: ein fester Sprachkanal, in dem der Bot dauerhaft sitzt und\nspielt, sobald jemand da ist; darunter Playlists zum Anlegen und\nAnsehen samt Cover; darunter eine Live-Ansicht mit Cover, laufender\nZeit und Steuerung.\n\nDer Bot hatte einen Musik-Cog, aber keine Dashboard-Seite und kein\n24/7 -- er lief dem Aufrufer hinterher und ging nach zwei Minuten.\n\nNeu:\n  bot/utils/music_store.py          Stammkanal, Dauerbetrieb, Playlists\n  bot/api/routes/music.py           7 Routen\n  dashboard/components/dashboard/music-panel.tsx\n  dashboard/app/dashboard/guild/[guildId]/music/page.tsx\n\nDie drei Bereiche, in der gewuenschten Reihenfolge: Sprachkanal mit\nDauerbetrieb und Lautstaerke, dann die Playlists, dann live.\n\nPlaylists speichern Titel, Interpret, Cover und Laenge -- nicht nur\ndie Adresse. Das Dashboard soll die Titel zeigen, und bei jedem\nSeitenaufbau Lavalink zu befragen dauert, verbraucht bei den\noeffentlichen Knoten ein Kontingent (429) und schlaegt ganz fehl,\nsobald kein Knoten laeuft.\n\nECHTER FEHLER MITBEHOBEN, der schon vorher da war\n\n`Music.inactivity_timer` prueft nach zwei Minuten, ob noch jemand\nzuhoert -- und schaute dabei auf `guild.voice_channels[0]`. Das ist\nder erste Sprachkanal des Servers, nicht der, in dem der Bot sitzt.\nStand dort zufaellig eine Person, trennte der Bot mitten im Lied,\nobwohl nebenan zehn Leute zuhoerten.\n\nVier weitere Punkte an derselben Stelle:\n\n  * `channel.members` filtert still ueber `guild.get_member()`.\n    Ungecachte Mitglieder fehlen, der Kanal wirkt leerer als er ist.\n    Jetzt `guild._voice_states`.\n  * Gezaehlt wurde `== 1` statt Menschen -- Bots zaehlten mit.\n  * Jeder Durchlauf startete einen neuen schlafenden Timer. Nach zehn\n    Minuten Leerlauf warteten zehn parallel auf denselben Kanal. Jetzt\n    ein Zeitstempel.\n  * Eine Ausnahme in einem Server beendete die ganze Schleife -- der\n    Bot blieb dann auf allen anderen Servern fuer immer sitzen.\n\nErst reproduziert (repro/bug_music_idle.py, 5 Befunde), dann behoben.\n\nWeitere Sorgfalt:\n  * Playlist-Abfragen filtern nach guild_id. Die IDs sind fortlaufend\n    und trivial zu raten -- ohne das koennte ein Server die Listen\n    eines anderen lesen und loeschen.\n  * Wird die Startliste geloescht, wird die Einstellung mit geleert.\n    Sonst suchte der Bot eine Nummer, die es nicht gibt, und spielte\n    stumm nichts.\n  * Ein Kanal, den der Bot nicht betreten oder in dem er nicht\n    sprechen darf, wird beim Speichern abgelehnt statt still\n    hingenommen.\n  * Kaputtes JSON in der Titelspalte gibt eine leere Liste statt\n    eines 500ers.\n  * Lautstaerke und Leerlaufzeit werden begrenzt.\n\nDie laufende Zeit zaehlt der Browser zwischen zwei Abfragen selbst\nweiter, sonst spraenge sie in Fuenf-Sekunden-Stufen. Der Bot schickt\n`measured_at` mit -- ohne den Zeitstempel liefe der Balken nach einem\nlangsamen Aufruf vor.\n\nTests: bot/tests/test_music_dashboard.py. Der Speicher wird gegen eine\nechte SQLite-Datei ausgefuehrt, nicht per Textsuche geprueft, und\n`_humans_in` gegen eine Attrappe mit ungecachtem Mitglied.\n\nMutationstest: 29 von 29 gefangen. Der erste Lauf fing nur 22 -- die\nLuecken lagen alle im selben Muster: \"das Wort kommt vor\" statt \"es\nwirkt\". `if False:` liess `perms.connect` stehen, `src=\"\"` liess\n\"artwork\" stehen, und das Playlist-Cover kommt zweimal vor, sodass\neine geleerte Stelle von der anderen gedeckt wurde.\n\nNicht gegen echtes Discord getestet -- kein Token, kein Browser, kein\nLavalink hier. Geprueft: tsc, next build, 75 Testdateien, Boot-Test\n(148 Cogs, 0 Fehler), ruff ohne neue Treffer.\n\nIn Railway noetig: LAVALINK_HOST und ein Volume fuer db/music.db."
+  },
+  {
    "commit": "8f928beee56a93e708d1765823d7d67b8ccb33d4",
    "at": "1786065739",
    "subject": "feat(texte): vorgefertigte Texte nutzen die eigenen Emojis des Bots",
@@ -231,12 +237,6 @@
   {
    "commit": "2c06ca21b07d6c2aae777524c7b4f3166ae29a88",
    "at": "1785633771",
-   "subject": "Update layout.tsx",
-   "body": ""
-  },
-  {
-   "commit": "61acbc7d45afefb9a6b26dd8b2ddc0d4d112c765",
-   "at": "1785633667",
    "subject": "Update layout.tsx",
    "body": ""
   }
