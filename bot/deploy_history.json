@@ -1,6 +1,12 @@
 {
  "commits": [
   {
+   "commit": "ddbe625856d37c31777f851f110c1c558ef4965e",
+   "at": "1786152938",
+   "subject": "fix(musik): Dashboard-Start wird nicht mehr sofort wieder pausiert",
+   "body": "Gemeldet: \">play geht. Ueber das Dashboard joint der Bot, im\nDashboard steht 'spielt', aber weiter und stopp bewirken nichts und\nes kommt kein Ton -- er ist nur im Call.\"\n\nDER UNTERSCHIED\n\n    >play      der Aufrufer steht IM Kanal  -> 1 Mensch\n    Dashboard  niemand steht im Kanal       -> 0 Menschen\n\nWer im Dashboard auf Play drueckt, sitzt selbst nicht im Sprachkanal.\nDer Bot betritt also einen leeren Kanal -- und genau darauf reagieren\nseit dem letzten Fix zwei Waechter:\n\n    check_inactivity      alle 5 Sekunden\n    music_pause_on_empty  am Voice-Ereignis\n\nBeide sahen null Menschen und pausierten. Der Bot spielte eine\nSekunde und war dann still.\n\nDass im Dashboard trotzdem \"spielt\" stand, liegt an wavelink:\n`playing` bleibt bei einem pausierten Spieler True. Steht so in der\nDokumentation der Eigenschaft.\n\nUnd der Weiter-Knopf wirkte folgenlos, weil er zwar `pause(False)`\nschickte -- aber fuenf Sekunden spaeter pausierte der Waechter wieder.\nSolange niemand im Kanal steht, gewinnt immer der Waechter.\n\nDIE LOESUNG\n\nEin Merker `_started_empty`: hier wurde ausdruecklich in einen leeren\nKanal gestartet, also nicht dazwischenfunken. Beide Waechter beachten\nihn.\n\nEr faellt weg, sobald\n\n  * jemand den Kanal betritt (ab dann gelten die normalen Regeln),\n  * jemand von Hand pausiert (wer anhaelt, will Ruhe),\n  * der Bot den Kanal verlaesst.\n\nUnd der Weiter-Knopf setzt ihn: fortsetzen, waehrend niemand da ist,\nist derselbe Wunsch wie der Dashboard-Start.\n\nDie Leerlaufzeit laeuft trotzdem weiter. Der Merker verhindert nur\ndas Pausieren, nicht das Verlassen -- kommt niemand, geht der Bot wie\ngehabt. Das ist ausgefuehrt geprueft, nicht nur behauptet: mit\nvorgespulter Uhr verlaesst er den Kanal nach der eingestellten Zeit.\n\nMutationstest: 9 von 9 gefangen. Der erste Lauf fing 7; eine Luecke\nwar echt (music_pause_on_empty wurde nicht geprueft), bei der anderen\nwar nur mein Suchtext falsch.\n\nGeprueft: 77 Testdateien, Boot-Test (148 Cogs, 0 Fehler), ruff ohne\nneue Treffer. Nicht gegen echtes Discord getestet -- kein Token, kein\nLavalink hier."
+  },
+  {
    "commit": "ee9c4d3a6deaa33589a5a89bc22b11a2f182a027",
    "at": "1786151505",
    "subject": "fix(musik): Playlist-Abspielen -- Rueckfall, Meldungen, sofortiger Start",
@@ -231,12 +237,6 @@
   {
    "commit": "dc536ab36c80d6a8b65f272b4845b9ef38cd23e8",
    "at": "1786136778",
-   "subject": "feat(phantom): EXACT full original Aleks ticket bot (5653 lines - every function kept, no removal, no shortening)",
-   "body": ""
-  },
-  {
-   "commit": "627f539e75ff720bf0079f357edae6e25493c5fc",
-   "at": "1786136771",
    "subject": "feat(phantom): EXACT full original Aleks ticket bot (5653 lines - every function kept, no removal, no shortening)",
    "body": ""
   }

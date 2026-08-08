@@ -1249,6 +1249,36 @@ export const api = {
       body: "{}",
     }),
 
+  // ── Community-Vorlagen ───────────────────────────────────────────
+  templateScan: (guildId: string) =>
+    request<any>(`/templates/${guildId}/scan`),
+  templateUpload: (guildId: string, data: any) =>
+    request<any>(`/templates/${guildId}/upload`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  templateList: (guildId: string, search = "", sort = "neu") =>
+    request<any>(
+      `/templates/${guildId}/list?search=${encodeURIComponent(search)}` +
+        `&sort=${encodeURIComponent(sort)}`
+    ),
+  templateDetail: (guildId: string, id: number, key = "") =>
+    request<any>(
+      `/templates/${guildId}/template/${id}?key=${encodeURIComponent(key)}`
+    ),
+  templateDelete: (guildId: string, id: number) =>
+    request<any>(`/templates/${guildId}/template/${id}`, { method: "DELETE" }),
+  templatePreview: (guildId: string, data: any) =>
+    request<any>(`/templates/${guildId}/preview`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  templateApply: (guildId: string, data: any) =>
+    request<any>(`/templates/${guildId}/apply`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
   // ── Musik ────────────────────────────────────────────────────────
   music: (guildId: string) => request<any>(`/music/${guildId}`),
   // Getrennt vom Rest: der Fortschrittsbalken fragt das im Sekundentakt

@@ -755,8 +755,13 @@ def test_the_sidebar_row_stands_out():
     # die Zeile deshalb aus wie jede andere, während dieser Test grün
     # blieb: „isSpeedrun kommt in der Datei vor“ sagt nichts darüber,
     # ob es an der Stelle steht, die zählt.
+    # Die Gruppe heisst inzwischen "Templates" -- der Speedrun ist
+    # dorthin gezogen, zu den anderen Vorlagen. Worauf es ankommt, ist
+    # unveraendert: er muss in IRGENDEINER Gruppe stehen, damit der
+    # zweite Renderpfad greift. Auf die oberste Ebene gehoert er
+    # nicht.
     in_group = bool(
-        re.search(r'name:\s*"Verwaltung",\s*items:\s*\[[^\]]*speedrun',
+        re.search(r'name:\s*"(?:Verwaltung|Templates)",\s*items:\s*\[[^\]]*speedrun',
                   layout, re.S)
     )
     check("der Reiter steht in einer Gruppe", in_group,

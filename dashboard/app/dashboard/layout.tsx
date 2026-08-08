@@ -29,7 +29,7 @@ import {
   Menu, X, Bell, User, Search, ChevronRight, Star, Sparkles, LogOut,
   Lock, PenLine, Gem, Pin, Moon, Calculator, Youtube, Cake,
   LifeBuoy, ChevronDown, Bot, Shield, UserCheck, Badge, Gauge, Headphones,
-  Music
+  Music, Upload
 } from "lucide-react";
 import { useSession, signIn, signOut } from "next-auth/react";
 import { cn, isAdmin } from "@/lib/utils";
@@ -227,11 +227,21 @@ export default function DashboardLayout({
           ],
         },
         {
+          // Alles, was einen Server aufsetzt oder umbaut, an einer
+          // Stelle. Der Speedrun stand vorher unter "Verwaltung" --
+          // er gehoert thematisch hierher.
+          name: "Templates",
+          items: [
+            { name: "Speedrun (Beta)", href: `/dashboard/guild/${currentGuildId}/speedrun`, icon: Gauge },
+            { name: "Hochladen (Experimentell)", href: `/dashboard/guild/${currentGuildId}/template-upload`, icon: Upload },
+            { name: "Community (Experimentell)", href: `/dashboard/guild/${currentGuildId}/templates`, icon: Sparkles },
+          ],
+        },
+        {
           name: "Verwaltung",
           items: [
             { name: "Logs", href: `/dashboard/guild/${currentGuildId}/logging`, icon: LayoutDashboard },
             { name: "Server-Werkzeuge", href: `/dashboard/guild/${currentGuildId}/admin-dashboard`, icon: Shield },
-            { name: "Speedrun (Beta)", href: `/dashboard/guild/${currentGuildId}/speedrun`, icon: Gauge },
             { name: "Support-Warteraum (Beta)", href: `/dashboard/guild/${currentGuildId}/supportqueue`, icon: Headphones },
           ],
         },

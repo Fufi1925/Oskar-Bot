@@ -71,6 +71,11 @@ NO_DRAFT = {
     # nothing to save -- the slider is the one place where a draft
     # exists, and it commits on release.
     "music",
+    # Die Vorlagen-Reiter kennen keinen Entwurf: hochladen und
+    # anwenden sind je ein einzelner, ausdruecklicher Knopf. Eine
+    # Speicherleiste haette nichts zu speichern.
+    "template-upload",
+    "templates",
     "leveling",
     "verification",
     "automod",

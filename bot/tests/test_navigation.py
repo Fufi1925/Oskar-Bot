@@ -218,7 +218,11 @@ def test_beta_marking():
             r'name:\s*"([^"]*)",\s*href:\s*`/dashboard/guild/\$\{currentGuildId\}/([a-z0-9-]+)`',
             sidebar,
         )
-        if "(Beta)" in label
+        # "(Experimentell)" zaehlt genauso: fuer die Reiterleiste ist
+        # beides `tag: "beta"`, und die Seitenleiste schreibt es aus.
+        # Ohne diese zweite Schreibweise meldete der Test einen
+        # Unterschied, den es nicht gibt.
+        if "(Beta)" in label or "(Experimentell)" in label
     }
 
     check("both navigations agree on what is beta",

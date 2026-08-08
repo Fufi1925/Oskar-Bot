@@ -8,7 +8,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from starlette.responses import Response
 from utils.config import *
-from api.routes import bot, guilds, admin, team, moderation, actions, access, servers, servertools, tickets, giveaways, leveling, vanity, broadcast, anonchat, diagnose, compose, nukealert, memberperks, extras, voice, verify, automod, logging_cfg, antinuke, pingreactions, premium, speedrun, supportqueue, tester, music
+from api.routes import bot, guilds, admin, team, moderation, actions, access, servers, servertools, tickets, giveaways, leveling, vanity, broadcast, anonchat, diagnose, compose, nukealert, memberperks, extras, voice, verify, automod, logging_cfg, antinuke, pingreactions, premium, speedrun, supportqueue, tester, music, templates
 from api.dependencies import verify_api_key, limiter, get_bot_loop
 from api.db_manager import db_manager
 from api.schema_guard import ensure_schema
@@ -343,6 +343,9 @@ def create_app() -> FastAPI:
         supportqueue.router, prefix="/supportqueue", tags=["Support Queue"]
     )
     api_app.include_router(music.router, prefix="/music", tags=["Music"])
+    api_app.include_router(
+        templates.router, prefix="/templates", tags=["Templates"]
+    )
     # Ping-Reaktionen. Unter /admin, weil der Reiter dort sitzt und die
     # Liste global gilt -- der Proxy laesst dorthin nur Admins und
     # Rollen mit der passenden Berechtigung.

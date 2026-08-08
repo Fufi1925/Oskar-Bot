@@ -46,6 +46,7 @@ import {
   Activity,
   BarChart4,
   Music,
+  Upload,
   Badge,
   Bot,
   Calculator,
@@ -171,6 +172,42 @@ function buildGroups(t: TranslateFn): Group[] {
       ],
     },
     {
+      // Dieselbe Gruppe wie in der Seitenleiste. Beide Navigationen
+      // muessen dieselben Namen benutzen -- sonst heisst "Schutz"
+      // an zwei Stellen etwas anderes.
+      name: "Templates",
+      icon: Sparkles,
+      tabs: [
+        {
+          name: "Speedrun",
+          slug: "speedrun",
+          icon: Gauge,
+          tag: "beta",
+          also: ["speedrun", "setup", "vorlage", "template", "aufsetzen"],
+        },
+        {
+          name: "Vorlage hochladen",
+          slug: "template-upload",
+          icon: Upload,
+          tag: "beta",
+          also: [
+            "template", "vorlage", "upload", "hochladen", "scan", "teilen",
+            "export", "sichern",
+          ],
+        },
+        {
+          name: "Community-Vorlagen",
+          slug: "templates",
+          icon: Sparkles,
+          tag: "beta",
+          also: [
+            "template", "templates", "vorlage", "vorlagen", "community",
+            "import", "uebernehmen", "aufsetzen",
+          ],
+        },
+      ],
+    },
+    {
       name: "Verwaltung",
       icon: Settings,
       tabs: [
@@ -180,13 +217,6 @@ function buildGroups(t: TranslateFn): Group[] {
         { name: "Logs", slug: "logging", icon: FileText,
           also: ["logging", "logs", "audit", "protokoll", "protokollierung"] },
         { name: "Server-Werkzeuge", slug: "admin-dashboard", icon: Shield, also: ["admin", "scan", "audit"] },
-        {
-          name: "Speedrun",
-          slug: "speedrun",
-          icon: Gauge,
-          tag: "beta",
-          also: ["speedrun", "setup", "vorlage", "template", "aufsetzen"],
-        },
         {
           name: "Musik",
           slug: "music",
