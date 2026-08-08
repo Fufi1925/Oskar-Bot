@@ -58,6 +58,28 @@ WIPE_DELAY_SECONDS = 10
 # dem Server steht.
 WIPE_WINDOW_SECONDS = 900
 
+# Rechte, bei denen ein Admin zweimal hinsehen sollte.
+#
+# Eine Vorlage, die eine Rolle mit »administrator« mitbringt, gibt
+# jedem, der sie anwendet, unbemerkt die volle Kontrolle ueber seinen
+# Server. Das ist der wichtigste Grund, eine Vorlage zu sperren --
+# also muss es in der Detailansicht sofort ins Auge fallen und darf
+# nicht in einer Liste von fuenfzig Rechtenamen untergehen.
+_DANGEROUS_PERMISSIONS = frozenset(
+    {
+        "administrator",
+        "manage_guild",
+        "manage_roles",
+        "manage_channels",
+        "manage_webhooks",
+        "ban_members",
+        "kick_members",
+        "mention_everyone",
+        "manage_messages",
+        "moderate_members",
+    }
+)
+
 
 async def _db():
     connection = await db_manager.get_connection(store.DB_PATH)
@@ -106,14 +128,32 @@ async def admin_list(search: str = "", sort: str = "neu",
     # Servernamen dazu. Eine Liste aus achtzehnstelligen Zahlen ist
     # zum Verwalten unbrauchbar -- welcher davon war noch gleich der,
     # der Aerger gemacht hat?
+    #
+    # Faellt der Bot-Cache aus, ist die ehrliche Antwort "weiss ich
+    # nicht" -- nicht "der Bot ist nicht mehr da". Das eine heisst:
+    # nachsehen. Das andere heisst: der Server ist weg. Ein
+    # Missverstaendnis hier fuehrt dazu, dass jemand eine Vorlage
+    # loescht, deren Server es noch gibt.
     for entry in entries:
         guild = None
+        known = True
         try:
             guild = bot.get_guild(int(entry["source_guild_id"]))
         except (TypeError, ValueError):
-            pass
+            # Keine brauchbare ID -- ueber den Bot ist dazu nichts zu
+            # sagen.
+            known = False
+
         entry["source_guild_name"] = getattr(guild, "name", "")
         entry["bot_present"] = guild is not None
+        entry["presence_known"] = known
+        entry["members"] = getattr(guild, "member_count", None)
+
+        # Was der Server hiess, ALS die Vorlage entstand. Steht im
+        # Payload und ueberlebt auch, wenn der Bot den Server laengst
+        # verlassen hat -- dann ist es die einzige Spur.
+        if not entry["source_guild_name"]:
+            entry["source_guild_name"] = entry.get("source_name_at_upload") or ""
 
     return {
         "templates": entries,
@@ -123,9 +163,27 @@ async def admin_list(search: str = "", sort: str = "neu",
 
 
 @router.get("/admin/{template_id}/history", summary="Wer hat sie angewendet")
-async def admin_history(template_id: int):
+async def admin_history(
+    template_id: int, bot: "universitybot" = Depends(get_bot)
+):
+    """Jede Anwendung, mit Servernamen statt nackter Zahlen.
+
+    Eine Liste aus achtzehnstelligen IDs ist zum Nachvollziehen
+    unbrauchbar. Wo der Bot den Server kennt, kommt der Name dazu.
+    """
+
     db = await _db()
-    return {"events": await store.history_for(db, template_id)}
+    events = await store.history_for(db, template_id)
+
+    for event in events:
+        guild = None
+        try:
+            guild = bot.get_guild(int(event["guild_id"]))
+        except (TypeError, ValueError):
+            pass
+        event["guild_name"] = getattr(guild, "name", "")
+
+    return {"events": events}
 
 
 @router.get("/admin/{template_id}/payload", summary="Der volle Inhalt")
@@ -138,23 +196,60 @@ async def admin_payload(template_id: int):
     """
 
     db = await _db()
-    found = await store.get_template(db, template_id, key=None, owner_guild_id=None)
+    # `as_admin=True` ist der Unterschied zwischen "zeigt etwas" und
+    # "bleibt leer". Ohne das Kennzeichen gilt eine Vorlage mit Code
+    # auch fuer den Admin als verschlossen -- und genau die will man
+    # pruefen. Der Proxy laesst hierher nur globale Admins.
+    found = await store.get_template(db, template_id, as_admin=True)
     if found is None:
         raise HTTPException(404, "Diese Vorlage gibt es nicht.")
 
     payload = found.get("payload") or {}
+    categories = payload.get("categories") or []
+    channels = payload.get("channels") or []
+    roles = payload.get("roles") or []
+
     return {
-        "categories": [c.get("name") for c in payload.get("categories") or []],
+        # Kategorien mit ihrer Reihenfolge, damit die Anzeige den
+        # Aufbau so zeigen kann, wie er auf dem Server aussaehe.
+        "categories": [
+            {"name": c.get("name"), "position": c.get("position", 0),
+             "overwrites": len(c.get("overwrites") or [])}
+            for c in categories
+        ],
         "channels": [
             {"name": c.get("name"), "kind": c.get("kind"),
-             "category": c.get("category")}
-            for c in payload.get("channels") or []
+             "category": c.get("category"),
+             "topic": c.get("topic") or "",
+             "nsfw": bool(c.get("nsfw")),
+             "slowmode": int(c.get("slowmode") or 0),
+             "overwrites": len(c.get("overwrites") or [])}
+            for c in channels
         ],
         "roles": [
-            {"name": r.get("name"), "colour": r.get("colour")}
-            for r in payload.get("roles") or []
+            {"name": r.get("name"), "colour": r.get("colour"),
+             "hoist": bool(r.get("hoist")),
+             "mentionable": bool(r.get("mentionable")),
+             # Nur die Anzahl und die heiklen Rechte. Eine Liste aller
+             # gesetzten Rechte waere bei 18 Rollen unlesbar -- was ein
+             # Admin wissen muss, ist: greift diese Vorlage nach
+             # Adminrechten?
+             "permissions": len(r.get("permissions") or []),
+             "dangerous": sorted(
+                 set(r.get("permissions") or []) & _DANGEROUS_PERMISSIONS
+             )}
+            for r in roles
         ],
         "features": scanner.describe_features(payload.get("features") or {}),
+        # Woher die Vorlage stammt, wie der Server damals hiess. Steht
+        # im Payload und war bisher nirgends sichtbar.
+        "source": payload.get("source") or {},
+        "counts": {
+            "categories": len(categories),
+            "channels": len(channels),
+            "roles": len(roles),
+            "features": len(payload.get("features") or {}),
+        },
     }
 
 
@@ -329,11 +424,25 @@ async def upload(
     if visibility not in ("public", "key", "private"):
         visibility = "public"
 
+    # Wer hochgeladen hat.
+    #
+    # Der Proxy setzt in JEDEN Schreibvorgang `actor` aus der Sitzung
+    # -- das ist die einzige ID, der man trauen kann. Vorher las diese
+    # Route nur `author_id`, das kein Aufrufer je mitschickt: das Feld
+    # blieb bei jeder einzelnen Vorlage leer, und der Admin-Reiter
+    # zeigte durchgehend "unbekannt". `author_id` bleibt als Rueckfall
+    # stehen, falls doch einmal jemand direkt gegen die API spricht.
+    author_id = (data or {}).get("actor") or (data or {}).get("author_id")
+    try:
+        author_id = int(author_id) if author_id else None
+    except (TypeError, ValueError):
+        author_id = None
+
     template_id, plain_key = await store.create_template(
         db,
         name=name,
         description=str((data or {}).get("description") or ""),
-        author_id=(data or {}).get("author_id"),
+        author_id=author_id,
         author_name=str((data or {}).get("author_name") or ""),
         source_guild_id=guild_id,
         payload=clean,
@@ -621,12 +730,22 @@ async def apply(guild_id: int, data: dict, bot: "universitybot" = Depends(get_bo
 
     report = await applier.apply_template(guild, found.get("payload") or {}, options)
 
+    # Dasselbe hier: `actor` kommt aus der Sitzung, `actor_id` wurde
+    # nie mitgeschickt. Der Verlauf im Admin-Reiter zeigte deshalb bei
+    # jedem Eintrag eine leere Spalte -- gerade beim Anwenden mit
+    # "alles loeschen" ist das die wichtigste Angabe ueberhaupt.
+    actor_id = (data or {}).get("actor") or (data or {}).get("actor_id")
+    try:
+        actor_id = int(actor_id) if actor_id else None
+    except (TypeError, ValueError):
+        actor_id = None
+
     await store.bump_uses(db, template_id)
     await store.log_apply(
         db,
         template_id=template_id,
         guild_id=guild_id,
-        actor_id=(data or {}).get("actor_id"),
+        actor_id=actor_id,
         options=options,
         wiped=options["wipe"],
     )

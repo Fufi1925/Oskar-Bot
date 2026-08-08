@@ -1,6 +1,12 @@
 {
  "commits": [
   {
+   "commit": "add4df517da1978a97d667c0d3486b335d6fae8b",
+   "at": "1786161438",
+   "subject": "feat(templates): Admin-Verwaltung, Code-Anzeige, 10s statt Servername",
+   "body": "Neuer Reiter \"Vorlagen\" im Admin-Panel (nur globale Admins):\njede hochgeladene Vorlage inkl. privater, Zugangscode im Klartext,\nHerkunft, Hochlader, Verlauf, Inhalt. Sperren mit Pflichtgrund\n(sichtbar fuer den Hochlader, ruecknehmbar) und endgueltiges\nLoeschen nach 10 Sekunden Wartezeit.\n\nNutzer-Dashboard: eigener Zugangscode laesst sich jederzeit wieder\nanzeigen. Bisher gab es ihn genau einmal -- nur der Hash lag in der\nDatenbank. Jetzt zusaetzlich verschluesselt daneben (SHA-256-Strom\nplus HMAC, Schluessel in db/template_secret.key oder\nTEMPLATE_KEY_SECRET). Geprueft wird weiter ueber den Hash, nie ueber\ndie Entschluesselung.\n\nAlles loeschen: Servername abtippen entfaellt, stattdessen 10\nSekunden Wartezeit ab der Pruefung. Der Bot rechnet selbst nach\n(armed_at aus /preview), eine Sperre nur im Browser waere keine.\nEine Pruefung verfaellt nach 15 Minuten.\n\nDrei echte Fehler behoben, alle vorher reproduziert:\n\n1. \"Alles loeschen\" leerte den Server und baute nichts wieder auf.\n   channel.delete() schickt nur die Anfrage; aus guild.channels\n   verschwindet der Kanal erst mit CHANNEL_DELETE vom Gateway. Der\n   naechste Schritt las den Cache sofort und hielt jeden geloeschten\n   Namen fuer bestehend. wipe_server gibt die IDs jetzt zurueck.\n   (repro/bug_templates_wipe.py)\n\n2. Gleichnamige Kanaele in zwei Kategorien: nur der erste entstand.\n   Verglichen wird jetzt Name UND Kategorie.\n   (repro/bug_templates_dupnames.py)\n\n3. Eine dem Ziel unbekannte Spalte liess den ganzen\n   Einstellungsblock scheitern. Die Zieltabelle wird jetzt vorher\n   gelesen, Unpassendes weggelassen und im Bericht benannt; eine\n   kaputte Zeile reisst die anderen nicht mehr mit.\n\nTests: test_templates.py um 12 Faelle erweitert.\nMutationstest mutate_templates2.py: 56/56 erkannt, Baum byteweise\nunveraendert. Alle 78 Testdateien gruen, Boot-Test 148 Cogs / 539\nPrefix / 58 App / 0 Fehler, tsc und next build sauber."
+  },
+  {
    "commit": "80ba7044111f0264d740b4247bf4be220905a0c3",
    "at": "1786156102",
    "subject": "feat(templates): Kategorie mit Speedrun, Hochladen und Community-Vorlagen",
@@ -231,12 +237,6 @@
   {
    "commit": "e9c7c5cb2e2dea3bebc74a8535d5f6efef37afd6",
    "at": "1786136800",
-   "subject": "feat(phantom): EXACT full original Aleks ticket bot (5653 lines - every function kept, no removal, no shortening)",
-   "body": ""
-  },
-  {
-   "commit": "38362a490386377147d43a78d5ab4c3ef6abd6fa",
-   "at": "1786136786",
    "subject": "feat(phantom): EXACT full original Aleks ticket bot (5653 lines - every function kept, no removal, no shortening)",
    "body": ""
   }

@@ -33,8 +33,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle, Ban, Check, ChevronDown, Copy, Eye, Hash, History,
-  Key, Loader2, Lock, Search, Server, Shield, Sparkles, Trash2,
-  Unlock, Users,
+  Key, Loader2, Lock, LogOut, RefreshCcw, Search, Server, Shield,
+  ShieldAlert, Sparkles, Trash2, Unlock, Users,
 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
@@ -49,6 +49,69 @@ const INPUT =
 
 /** Wie lange der Löschen-Knopf hier gesperrt bleibt. */
 const DELETE_DELAY_SECONDS = 10;
+
+/** Wiederkehrende Kästchen-Klassen, damit sie nicht achtmal dastehen. */
+const SUB = "rounded-2xl bg-[#0a1628] border border-slate-800 p-4";
+
+/** Welches Zeichen vor welchem Kanaltyp steht. */
+const KIND_ICON: Record<string, string> = {
+  text: "#",
+  voice: "🔊",
+  news: "📣",
+  forum: "💬",
+  stage: "🎙",
+};
+
+/**
+ * Rollen, die weitreichende Rechte mitbringen.
+ *
+ * Das ist die Angabe, wegen der ein Admin diesen Reiter überhaupt
+ * öffnet: eine Vorlage mit einer »administrator«-Rolle gibt jedem,
+ * der sie anwendet, unbemerkt die volle Kontrolle über seinen Server.
+ * Welche Rechte als weitreichend gelten, entscheidet der Bot
+ * (`_DANGEROUS_PERMISSIONS`) — nicht der Browser.
+ */
+function riskyRoles(content: any): any[] {
+  return (content?.roles || []).filter(
+    (role: any) => (role?.dangerous || []).length > 0
+  );
+}
+
+/**
+ * Kanäle nach ihrer Kategorie gruppieren.
+ *
+ * Eine flache Wolke aus 34 Kanälen sagt nichts über den Aufbau. Die
+ * Reihenfolge der Kategorien kommt aus der Vorlage; Kanäle ohne
+ * Kategorie kommen zuerst, so wie Discord sie auch anzeigt.
+ */
+function grouped(content: any): Array<{ name: string; items: any[] }> {
+  const order: string[] = (content?.categories || [])
+    .slice()
+    .sort((a: any, b: any) => (a.position ?? 0) - (b.position ?? 0))
+    .map((c: any) => c.name);
+
+  const buckets = new Map<string, any[]>();
+  for (const channel of content?.channels || []) {
+    const key = channel.category || "";
+    if (!buckets.has(key)) buckets.set(key, []);
+    buckets.get(key)!.push(channel);
+  }
+
+  const out: Array<{ name: string; items: any[] }> = [];
+  if (buckets.has("")) {
+    out.push({ name: "Ohne Kategorie", items: buckets.get("")! });
+  }
+  for (const name of order) {
+    if (buckets.has(name)) out.push({ name, items: buckets.get(name)! });
+  }
+  // Eine Kategorie, die es in der Liste nicht gibt — etwa weil sie
+  // abgewählt wurde, die Kanäle darin aber mitgingen. Ohne diese
+  // Schleife verschwänden sie aus der Anzeige.
+  for (const [name, items] of buckets) {
+    if (name && !order.includes(name)) out.push({ name, items });
+  }
+  return out;
+}
 
 function stamp(value: any): string {
   const seconds = Number(value || 0);
@@ -92,6 +155,12 @@ export function TemplatesAdmin() {
   const [openId, setOpenId] = useState<number | null>(null);
   const [detail, setDetail] = useState<Record<number, any>>({});
   const [history, setHistory] = useState<Record<number, any[]>>({});
+  // Warum das Nachladen scheiterte, je Vorlage.
+  //
+  // Vorher gab es das nicht: ein Fehlschlag beim Laden sah exakt aus
+  // wie eine leere Vorlage — nämlich nach gar nichts. Ein Toast, der
+  // nach fünf Sekunden weg ist, hilft dabei nicht.
+  const [failed, setFailed] = useState<Record<number, string>>({});
 
   // Sperren
   const [blockFor, setBlockFor] = useState<number | null>(null);
@@ -140,14 +209,13 @@ export function TemplatesAdmin() {
     return () => clearInterval(handle);
   }, [deleteFor]);
 
-  const toggleOpen = async (entry: any) => {
-    if (openId === entry.id) {
-      setOpenId(null);
-      return;
-    }
-    setOpenId(entry.id);
-    if (detail[entry.id]) return;
-
+  /**
+   * Inhalt und Verlauf einer Vorlage nachladen.
+   *
+   * Eigene Funktion, weil der Fehlerfall einen Knopf »Noch einmal«
+   * braucht — der muss dasselbe aufrufen können wie das Aufklappen.
+   */
+  const loadDetail = async (entry: any) => {
     setBusy(`open${entry.id}`);
     try {
       const [content, events] = await Promise.all([
@@ -156,11 +224,32 @@ export function TemplatesAdmin() {
       ]);
       setDetail((old) => ({ ...old, [entry.id]: content }));
       setHistory((old) => ({ ...old, [entry.id]: events?.events || [] }));
+      setFailed((old) => {
+        const next = { ...old };
+        delete next[entry.id];
+        return next;
+      });
     } catch (error: any) {
-      toast.error(error?.message || "Der Inhalt ließ sich nicht laden.");
+      const why = error?.message || "Unbekannter Fehler.";
+      // Beides: der Toast fällt auf, der Eintrag bleibt stehen.
+      // Ein Toast allein verschwindet nach fünf Sekunden und die
+      // Ansicht sähe danach aus wie eine leere Vorlage.
+      setFailed((old) => ({ ...old, [entry.id]: why }));
+      toast.error(`Der Inhalt ließ sich nicht laden: ${why}`);
     } finally {
       setBusy("");
     }
+  };
+
+  const toggleOpen = async (entry: any) => {
+    if (openId === entry.id) {
+      setOpenId(null);
+      return;
+    }
+    setOpenId(entry.id);
+    // Schon geladen und nicht gescheitert: nichts zu tun.
+    if (detail[entry.id] && !failed[entry.id]) return;
+    await loadDetail(entry);
   };
 
   const runBlock = async (entry: any, blocked: boolean) => {
@@ -499,13 +588,20 @@ export function TemplatesAdmin() {
                   <div className="px-4 sm:px-5 pb-5 space-y-4 border-t border-slate-800 pt-4">
                     {/* Herkunft und Code */}
                     <div className="grid sm:grid-cols-2 gap-3">
-                      <div className="rounded-2xl bg-[#0a1628] border border-slate-800 p-4 space-y-2">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-600 flex items-center gap-1.5">
+                      <div className={cn(SUB, "space-y-2")}>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-600 mb-2 flex items-center gap-1.5">
                           <Server className="h-3 w-3" />
                           Herkunft
                         </p>
                         <p className="text-[12.5px] text-slate-300">
                           {entry.source_guild_name || "Unbekannter Server"}
+                          {entry.members ? (
+                            <span className="text-slate-600">
+                              {" "}
+                              &middot; {entry.members.toLocaleString("de-DE")}{" "}
+                              Mitglieder
+                            </span>
+                          ) : null}
                         </p>
                         <button
                           onClick={() => copy(entry.source_guild_id)}
@@ -516,17 +612,41 @@ export function TemplatesAdmin() {
                         </button>
                         <p className="text-[11px] text-slate-600">
                           Hochgeladen von{" "}
-                          {entry.author_name || "unbekannt"}
-                          {entry.author_id ? ` (${entry.author_id})` : ""}
+                          {entry.author_name || entry.author_id ? (
+                            <>
+                              {entry.author_name || "unbenannt"}
+                              {entry.author_id ? ` (${entry.author_id})` : ""}
+                            </>
+                          ) : (
+                            <span className="text-slate-700">
+                              nicht erfasst
+                            </span>
+                          )}
                         </p>
-                        <p className="text-[11px] text-slate-600">
-                          Bot ist dort{" "}
-                          {entry.bot_present ? "noch drauf" : "nicht mehr"}.
+                        {/* Ehrlich statt raten: "weiss ich nicht" ist
+                            etwas anderes als "der Bot ist weg". */}
+                        <p className="text-[11px] flex items-center gap-1.5">
+                          {!entry.presence_known ? (
+                            <span className="text-slate-600">
+                              Ob der Bot dort ist, lässt sich nicht sagen
+                              &mdash; die gespeicherte ID ist unbrauchbar.
+                            </span>
+                          ) : entry.bot_present ? (
+                            <span className="text-emerald-400/80 flex items-center gap-1.5">
+                              <Check className="h-3 w-3" />
+                              Bot ist auf dem Server
+                            </span>
+                          ) : (
+                            <span className="text-slate-500 flex items-center gap-1.5">
+                              <LogOut className="h-3 w-3" />
+                              Bot ist dort nicht mehr
+                            </span>
+                          )}
                         </p>
                       </div>
 
-                      <div className="rounded-2xl bg-[#0a1628] border border-slate-800 p-4 space-y-2">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-600 flex items-center gap-1.5">
+                      <div className={cn(SUB, "space-y-2")}>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-600 mb-2 flex items-center gap-1.5">
                           <Key className="h-3 w-3" />
                           Zugangscode
                         </p>
@@ -566,34 +686,140 @@ export function TemplatesAdmin() {
                       <div className="flex items-center justify-center py-8">
                         <Loader2 className="h-5 w-5 text-primary animate-spin opacity-50" />
                       </div>
+                    ) : failed[entry.id] ? (
+                      /* Ein Fehlschlag muss sichtbar sein. Vorher sah
+                         ein Ladefehler genauso aus wie eine leere
+                         Vorlage: gar nichts. */
+                      <div className="rounded-2xl bg-red-500/[0.07] border border-red-500/25 p-4 flex gap-2.5 items-start">
+                        <AlertTriangle className="h-4 w-4 text-red-400 shrink-0 mt-0.5" />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[13px] font-bold text-red-200">
+                            Der Inhalt ließ sich nicht laden
+                          </p>
+                          <p className="text-[12px] text-red-200/70 leading-relaxed mt-0.5">
+                            {failed[entry.id]}
+                          </p>
+                          <button
+                            onClick={() => {
+                              setFailed((old) => {
+                                const next = { ...old };
+                                delete next[entry.id];
+                                return next;
+                              });
+                              loadDetail(entry);
+                            }}
+                            className="mt-2.5 flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white/[0.04] border border-white/10 text-[11px] font-black uppercase tracking-widest text-slate-300 hover:text-white transition-all"
+                          >
+                            <RefreshCcw className="h-3 w-3" />
+                            Noch einmal
+                          </button>
+                        </div>
+                      </div>
                     ) : (
                       content && (
                         <>
-                          <div className="rounded-2xl bg-[#0a1628] border border-slate-800 p-4 space-y-3 max-h-72 overflow-y-auto">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-600 flex items-center gap-1.5">
+                          {/* Zahlen aus der Vorlage selbst, nicht aus
+                              der Listenzeile: bei Code-Vorlagen waren
+                              die dort früher alle 0. */}
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                            {[
+                              ["Kategorien", content.counts?.categories],
+                              ["Kanäle", content.counts?.channels],
+                              ["Rollen", content.counts?.roles],
+                              ["Funktionen", content.counts?.features],
+                            ].map(([label, value]) => (
+                              <div
+                                key={String(label)}
+                                className="rounded-xl bg-[#0a1628] border border-slate-800 px-3 py-2"
+                              >
+                                <p className="text-[9px] font-black uppercase tracking-widest text-slate-600">
+                                  {label}
+                                </p>
+                                <p className="text-[15px] font-black text-white mt-0.5 tabular-nums">
+                                  {Number(value ?? 0)}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+
+                          {/* Die wichtigste Warnung überhaupt: greift
+                              die Vorlage nach Adminrechten? */}
+                          {riskyRoles(content).length > 0 && (
+                            <div className="rounded-2xl bg-amber-500/[0.07] border border-amber-500/30 p-4 flex gap-2.5 items-start">
+                              <ShieldAlert className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
+                              <div className="min-w-0">
+                                <p className="text-[13px] font-bold text-amber-200">
+                                  Diese Vorlage bringt Rollen mit weitreichenden
+                                  Rechten mit
+                                </p>
+                                <p className="text-[12px] text-amber-200/70 leading-relaxed mt-1">
+                                  Wer sie anwendet, legt sie auf seinem Server
+                                  an. Bitte vor dem Freigeben ansehen.
+                                </p>
+                                <div className="mt-2 flex flex-wrap gap-1.5">
+                                  {riskyRoles(content).map((role: any) => (
+                                    <span
+                                      key={role.name}
+                                      className="px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/25 text-[11px] text-amber-200"
+                                    >
+                                      {role.name}: {role.dangerous.join(", ")}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          <div className={cn(SUB, "space-y-3 max-h-[420px] overflow-y-auto")}>
+                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-600 mb-2 flex items-center gap-1.5">
                               <Eye className="h-3 w-3" />
                               Was drin steht
                             </p>
 
+                            {content.source?.name && (
+                              <p className="text-[11px] text-slate-600">
+                                Beim Hochladen hieß der Server &raquo;
+                                {content.source.name}&laquo;
+                                {content.source.member_count
+                                  ? ` und hatte ${Number(
+                                      content.source.member_count
+                                    ).toLocaleString("de-DE")} Mitglieder`
+                                  : ""}
+                                .
+                              </p>
+                            )}
+
                             {(content.roles || []).length > 0 && (
                               <div>
-                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-600 mb-2">
-                                  Rollen
-                                </p>
+                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-600 mb-2">Rollen</p>
                                 <div className="flex flex-wrap gap-1.5">
                                   {content.roles.map(
                                     (role: any, index: number) => (
                                       <span
                                         key={`${role.name}-${index}`}
-                                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.04] border border-white/10 text-[11px] text-slate-300"
+                                        className={cn(
+                                          "flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[11px]",
+                                          role.dangerous?.length
+                                            ? "bg-amber-500/10 border-amber-500/30 text-amber-200"
+                                            : "bg-white/[0.04] border-white/10 text-slate-300"
+                                        )}
+                                        title={
+                                          role.dangerous?.length
+                                            ? `Weitreichend: ${role.dangerous.join(", ")}`
+                                            : `${role.permissions} Rechte`
+                                        }
                                       >
                                         <span
                                           className="h-2 w-2 rounded-full shrink-0"
                                           style={{
-                                            background: role.colour || "#99aab5",
+                                            background:
+                                              role.colour || "#99aab5",
                                           }}
                                         />
                                         {role.name}
+                                        {role.dangerous?.length ? (
+                                          <ShieldAlert className="h-3 w-3" />
+                                        ) : null}
                                       </span>
                                     )
                                   )}
@@ -601,29 +827,44 @@ export function TemplatesAdmin() {
                               </div>
                             )}
 
+                            {/* Kanäle nach Kategorie gruppiert — so
+                                sieht man den Aufbau, statt einer
+                                ungeordneten Wolke. */}
                             {(content.channels || []).length > 0 && (
                               <div>
-                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-600 mb-2 mt-3">
-                                  Kanäle
-                                </p>
-                                <div className="flex flex-wrap gap-1.5">
-                                  {content.channels
-                                    .slice(0, 80)
-                                    .map((channel: any, index: number) => (
-                                      <span
-                                        key={`${channel.category}-${channel.name}-${index}`}
-                                        className="px-2.5 py-1 rounded-lg bg-white/[0.04] border border-white/10 text-[11px] text-slate-400"
-                                      >
-                                        {channel.kind === "voice" ? "🔊" : "#"}{" "}
-                                        {channel.name}
-                                      </span>
-                                    ))}
-                                  {content.channels.length > 80 && (
-                                    <span className="px-2.5 py-1 text-[11px] text-slate-600">
-                                      … und {content.channels.length - 80}{" "}
-                                      weitere
-                                    </span>
-                                  )}
+                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-600 mb-2 mt-3">Kanäle</p>
+                                <div className="space-y-2.5">
+                                  {grouped(content).map((group) => (
+                                    <div key={group.name}>
+                                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+                                        {group.name}
+                                        <span className="text-slate-700">
+                                          {" "}
+                                          ({group.items.length})
+                                        </span>
+                                      </p>
+                                      <div className="flex flex-wrap gap-1.5">
+                                        {group.items.map(
+                                          (channel: any, index: number) => (
+                                            <span
+                                              key={`${channel.name}-${index}`}
+                                              className="px-2.5 py-1 rounded-lg bg-white/[0.04] border border-white/10 text-[11px] text-slate-400"
+                                              title={channel.topic || undefined}
+                                            >
+                                              {KIND_ICON[channel.kind] || "#"}{" "}
+                                              {channel.name}
+                                              {channel.nsfw ? (
+                                                <span className="text-red-400/70">
+                                                  {" "}
+                                                  NSFW
+                                                </span>
+                                              ) : null}
+                                            </span>
+                                          )
+                                        )}
+                                      </div>
+                                    </div>
+                                  ))}
                                 </div>
                               </div>
                             )}
@@ -645,11 +886,25 @@ export function TemplatesAdmin() {
                                 </div>
                               </div>
                             )}
+
+                            {/* Eine Vorlage KANN wirklich leer sein.
+                                Dann muss das dastehen — sonst sieht es
+                                aus wie ein Ladefehler. */}
+                            {(content.roles || []).length === 0 &&
+                              (content.channels || []).length === 0 &&
+                              (content.features || []).length === 0 && (
+                                <p className="text-[12.5px] text-slate-500 leading-relaxed">
+                                  Diese Vorlage ist leer &mdash; sie enthält
+                                  weder Rollen noch Kanäle noch Einstellungen.
+                                  Das ist kein Anzeigefehler; sie würde beim
+                                  Anwenden nichts tun.
+                                </p>
+                              )}
                           </div>
 
                           {/* Verlauf */}
-                          <div className="rounded-2xl bg-[#0a1628] border border-slate-800 p-4 space-y-2 max-h-56 overflow-y-auto">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-600 flex items-center gap-1.5">
+                          <div className={cn(SUB, "space-y-2 max-h-56 overflow-y-auto")}>
+                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-600 mb-2 flex items-center gap-1.5">
                               <History className="h-3 w-3" />
                               Wer hat sie angewendet
                             </p>
@@ -663,10 +918,18 @@ export function TemplatesAdmin() {
                                   key={index}
                                   className="flex items-center gap-2 text-[11.5px] text-slate-500 flex-wrap"
                                 >
-                                  <span className="font-mono text-slate-400">
+                                  <span className="text-slate-300">
+                                    {event.guild_name || "Unbekannter Server"}
+                                  </span>
+                                  <span className="font-mono text-slate-600">
                                     {event.guild_id}
                                   </span>
                                   <span>{stamp(event.created_at)}</span>
+                                  {event.actor_id ? (
+                                    <span className="font-mono text-slate-600">
+                                      durch {event.actor_id}
+                                    </span>
+                                  ) : null}
                                   {event.wiped && (
                                     <span className="text-red-400/80 font-bold">
                                       Server vorher geleert

@@ -571,11 +571,29 @@ async def get_template(
     *,
     key: str | None = None,
     owner_guild_id: int | None = None,
+    as_admin: bool = False,
 ) -> dict | None:
     """Eine einzelne Vorlage, mit Vorschau wenn erlaubt.
 
     Erlaubt ist sie, wenn die Vorlage offen ist, der richtige Code
-    kommt, oder der fragende Server sie selbst hochgeladen hat.
+    kommt, der fragende Server sie selbst hochgeladen hat -- oder ein
+    Bot-Admin fragt.
+
+    Warum `as_admin` sein muss
+    --------------------------
+    Ohne dieses Kennzeichen war der Admin-Reiter bei genau den
+    Vorlagen leer, die man am ehesten pruefen will: bei einer Vorlage
+    mit Code ist `key_hash` gesetzt, `key` und `owner_guild_id` sind
+    beim Admin-Aufruf None -- also blieb `unlocked` False, und
+    `_row_to_template` lieferte ein leeres payload. Kein Fehler, keine
+    Meldung, nur eine leere Detailansicht.
+
+    Der Zugangscode ist eine Schranke gegen *fremde Server*, nicht
+    gegen das Bot-Team. Wer eine gemeldete Vorlage sperren soll, muss
+    hineinsehen koennen -- sonst entscheidet er blind.
+
+    Das Kennzeichen wird nur von den `/admin/*`-Routen gesetzt, und
+    dorthin laesst der Proxy ausschliesslich globale Admins durch.
     """
 
     db.row_factory = aiosqlite.Row
@@ -592,6 +610,8 @@ async def get_template(
         unlocked = hash_key(key) == row["key_hash"]
     if not unlocked and owner_guild_id is not None:
         unlocked = row["source_guild_id"] == owner_guild_id
+    if not unlocked and as_admin:
+        unlocked = True
 
     return _row_to_template(row, with_payload=True, unlocked=unlocked)
 
@@ -662,6 +682,13 @@ async def list_for_admin(
                 "author_id": str(row["author_id"] or ""),
                 "author_name": row["author_name"] or "",
                 "source_guild_id": str(row["source_guild_id"] or ""),
+                # Wie der Server hiess, ALS die Vorlage entstand.
+                # Ueberlebt auch, wenn der Bot den Server inzwischen
+                # verlassen hat -- dann ist es die einzige Spur, um die
+                # Vorlage noch zuzuordnen.
+                "source_name_at_upload": str(
+                    (raw.get("source") or {}).get("name") or ""
+                ),
                 "visibility": row["visibility"],
                 "uses": int(row["uses"] or 0),
                 "created_at": row["created_at"],

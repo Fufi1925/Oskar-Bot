@@ -1827,6 +1827,551 @@ def test_the_new_routes_are_registered():
     )
 
 
+# ------------------------------------------------------------------ #
+# 10. Der Admin-Reiter zeigt WIRKLICH etwas
+# ------------------------------------------------------------------ #
+def test_the_admin_detail_is_not_empty_for_locked_templates():
+    """Der Fehler, den der Nutzer gemeldet hat.
+
+    `admin_payload` rief `get_template` ohne Code und ohne
+    owner_guild_id. Bei einer Vorlage MIT Code blieb `unlocked` damit
+    False, und `_row_to_template` lieferte ein LEERES payload --
+    genau bei den Vorlagen, die ein Admin am ehesten pruefen will.
+
+    Keine Fehlermeldung, kein Hinweis: nur eine leere Detailansicht.
+
+    Reproduziert in `repro/bug_admin_templates.py`.
+    """
+    print("\nDie Detailansicht ist auch bei Code-Vorlagen gefuellt")
+
+    async def scenario(db, store):
+        payload = {
+            "source": {"name": "Quellserver", "member_count": 42},
+            "categories": [{"name": "Team", "position": 0, "overwrites": []}],
+            "channels": [{"name": "geheim", "kind": "text",
+                          "category": "Team"}],
+            "roles": [{"name": "Admin", "colour": "#00ff00",
+                       "permissions": ["administrator"]}],
+            "features": {},
+        }
+
+        offen, _ = await store.create_template(
+            db, name="Offen", description="", author_id=1, author_name="x",
+            source_guild_id=100, payload=payload, visibility="public")
+        mit_code, _ = await store.create_template(
+            db, name="Code", description="", author_id=1, author_name="x",
+            source_guild_id=100, payload=payload, visibility="key")
+        privat, _ = await store.create_template(
+            db, name="Privat", description="", author_id=1, author_name="x",
+            source_guild_id=100, payload=payload, visibility="private")
+
+        for label, tid in (("offen", offen), ("mit Code", mit_code),
+                           ("privat", privat)):
+            found = await store.get_template(db, tid, as_admin=True)
+            check(
+                f"»{label}«: der Admin sieht den Inhalt",
+                bool((found.get("payload") or {}).get("roles")),
+                "die Detailansicht bliebe leer",
+            )
+            check(
+                f"»{label}«: und die Zahlen stimmen",
+                found["summary"]["channels"] == 1,
+                f"-> {found['summary']}",
+            )
+
+        # OHNE das Kennzeichen bleibt eine Code-Vorlage verschlossen.
+        # Das ist der Sinn des Codes -- er darf nur fuer Admins fallen.
+        normal = await store.get_template(db, mit_code)
+        check(
+            "ohne Admin-Kennzeichen bleibt sie verschlossen",
+            normal["locked"] and not normal.get("payload"),
+            "der Zugangscode waere reine Zierde",
+        )
+
+    asyncio.run(_with_db(scenario))
+
+    # Und die Route muss das Kennzeichen auch WIRKLICH setzen.
+    route = strip_py(
+        open(os.path.join(BOT, "api", "routes", "templates.py"),
+             encoding="utf-8").read()
+    )
+    block = route.split("async def admin_payload")[1].split("@router")[0]
+    check(
+        "admin_payload fragt als Admin",
+        "as_admin=True" in block,
+        "sonst ist die Detailansicht bei Code-Vorlagen leer",
+    )
+    # Die normalen Routen duerfen es NICHT setzen.
+    for name in ("async def detail", "async def preview", "async def apply("):
+        part = route.split(name)[1].split("@router")[0]
+        check(
+            f"{name.split()[-1]} fragt NICHT als Admin",
+            "as_admin" not in part,
+            "der Zugangscode waere damit ausgehebelt",
+        )
+
+
+def test_the_detail_says_what_is_in_the_template():
+    """Mehr als Namen: Aufbau, Rechte, Herkunft."""
+    print("\nDie Detailansicht sagt, was drinsteht")
+
+    route = strip_py(
+        open(os.path.join(BOT, "api", "routes", "templates.py"),
+             encoding="utf-8").read()
+    )
+    block = route.split("async def admin_payload")[1].split("@router")[0]
+
+    for field in ('"counts"', '"source"', '"dangerous"', '"position"',
+                  '"topic"', '"nsfw"'):
+        check(f"{field} kommt mit", field in block)
+
+    check(
+        "es gibt eine Liste heikler Rechte",
+        "_DANGEROUS_PERMISSIONS" in route,
+        "eine Admin-Rolle in einer Vorlage muss auffallen",
+    )
+    check("administrator steht darauf", '"administrator"' in route)
+
+    # Und jetzt gegen die echte Route. Die Textsuchen oben blieben
+    # gruen, als "dangerous" fest auf [] und "counts" auf 0 standen --
+    # die Felder waren da, nur leer.
+    from api.routes import templates as api_route
+
+    handle, path = tempfile.mkstemp(suffix=".db")
+    os.close(handle)
+
+    async def build():
+        import aiosqlite
+
+        from utils import template_store as store
+
+        async with aiosqlite.connect(path) as db:
+            await store.ensure_schema(db)
+            tid, _ = await store.create_template(
+                db, name="Riskant", description="", author_id=1,
+                author_name="x", source_guild_id=100,
+                payload={
+                    "source": {"name": "Quelle", "member_count": 99},
+                    "categories": [
+                        {"name": "Zwei", "position": 1, "overwrites": []},
+                        {"name": "Eins", "position": 0, "overwrites": []},
+                    ],
+                    "channels": [
+                        {"name": "chat", "kind": "text", "category": "Eins",
+                         "topic": "Hallo", "nsfw": True, "slowmode": 30},
+                        {"name": "reden", "kind": "voice",
+                         "category": "Zwei"},
+                    ],
+                    "roles": [
+                        {"name": "Boss", "colour": "#ff0000",
+                         "permissions": ["administrator", "send_messages"]},
+                        {"name": "Gast", "colour": None,
+                         "permissions": ["send_messages"]},
+                    ],
+                    "features": {},
+                },
+                visibility="key")
+            return tid
+
+    tid = asyncio.run(build())
+    answer = _run_route(lambda: api_route.admin_payload(tid), path)
+
+    check("die Zahlen stimmen",
+          answer["counts"] == {"categories": 2, "channels": 2, "roles": 2,
+                               "features": 0},
+          f"-> {answer['counts']}")
+    check("die Herkunft kommt mit",
+          answer["source"].get("name") == "Quelle",
+          f"-> {answer['source']}")
+
+    roles = {r["name"]: r for r in answer["roles"]}
+    check(
+        "die riskante Rolle ist als riskant markiert",
+        roles["Boss"]["dangerous"] == ["administrator"],
+        f"-> {roles['Boss']['dangerous']}",
+    )
+    check(
+        "die harmlose nicht",
+        roles["Gast"]["dangerous"] == [],
+        f"-> {roles['Gast']['dangerous']}",
+    )
+    check("die Rechte werden gezaehlt", roles["Boss"]["permissions"] == 2)
+
+    channels = {c["name"]: c for c in answer["channels"]}
+    check("das Thema kommt mit", channels["chat"]["topic"] == "Hallo")
+    check("NSFW auch", channels["chat"]["nsfw"] is True)
+    check("und der Slowmode", channels["chat"]["slowmode"] == 30)
+    check("die Kanalart bleibt erhalten",
+          channels["reden"]["kind"] == "voice")
+
+    positions = [c["position"] for c in answer["categories"]]
+    check("die Kategorien behalten ihre Reihenfolge",
+          sorted(positions) == [0, 1], f"-> {positions}")
+
+    os.unlink(path)
+
+    # Die Warnung muss auf ECHTEN Daten beruhen, nicht auf einem
+    # Textvergleich im Browser.
+    panel = strip_ts(read_dash("components", "dashboard",
+                               "templates-admin.tsx"))
+    check(
+        "das Panel liest die Bewertung vom Bot",
+        "role?.dangerous || []" in panel,
+        "eine eigene Liste im Browser liefe auseinander",
+    )
+    check("und warnt sichtbar", "riskyRoles(content).length > 0" in panel)
+
+
+class _FakeGuild:
+    """Ein Server, wie der Bot-Cache ihn liefert."""
+
+    def __init__(self, gid, name, members=0):
+        self.id = gid
+        self.name = name
+        self.member_count = members
+
+
+class _FakeBot:
+    """Ein Bot, der genau die uebergebenen Server kennt.
+
+    `get_guild` verhaelt sich wie discord.py: ein String findet nichts,
+    auch wenn die Zahl darin stimmt.
+    """
+
+    def __init__(self, *guilds):
+        self._guilds = {int(g.id): g for g in guilds}
+
+    def get_guild(self, gid):
+        return self._guilds.get(gid)
+
+
+def _run_route(coroutine, db_path):
+    """Eine Route gegen eine eigene Datenbankdatei fahren.
+
+    Die Verbindung wird danach GESCHLOSSEN. Ohne das haelt der
+    `db_manager` sie offen, und der Testprozess endet nicht mehr: er
+    lief von zwei Sekunden auf ueber fuenf Minuten und wurde im
+    Mutationstest als Fehlschlag gewertet -- obwohl alle Pruefungen
+    gruen waren. Dieselbe Falle wie schon in `test_phantom.py`.
+
+    Geschlossen wird IM selben Ereignisschleifen-Lauf: eine
+    aiosqlite-Verbindung gehoert der Schleife, in der sie entstand,
+    und laesst sich aus einer neuen nicht mehr schliessen.
+    """
+
+    from api.db_manager import db_manager
+    from utils import template_store as store
+
+    before = store.DB_PATH
+    store.DB_PATH = db_path
+
+    async def wrapper():
+        try:
+            return await coroutine()
+        finally:
+            await db_manager.close_all()
+
+    try:
+        return asyncio.run(wrapper())
+    finally:
+        store.DB_PATH = before
+
+
+def test_the_admin_list_is_honest_about_the_bot():
+    """»Bot nicht auf dem Server« darf nicht geraten sein.
+
+    Drei Faelle, die sich unterscheiden muessen:
+      * der Bot ist dort            -> gruen
+      * der Bot ist dort nicht mehr -> grau
+      * die ID ist unbrauchbar      -> "weiss ich nicht"
+
+    Der dritte Fall lief vorher als "Bot ist weg" durch. Das ist ein
+    Unterschied, an dem jemand eine Entscheidung festmacht.
+
+    Geprueft wird die ANTWORT der Route, nicht ihr Quelltext. Eine
+    Suche nach »presence_known« blieb gruen, als das Feld fest auf
+    True stand -- der Wert war da, nur falsch.
+    """
+    print("\nDie Liste ist ehrlich, ob der Bot da ist")
+
+    from api.routes import templates as route
+
+    handle, path = tempfile.mkstemp(suffix=".db")
+    os.close(handle)
+
+    async def build():
+        import aiosqlite
+
+        from utils import template_store as store
+
+        async with aiosqlite.connect(path) as db:
+            await store.ensure_schema(db)
+            for name, gid in (("Da", 111111111111111111),
+                              ("Weg", 222222222222222222)):
+                await store.create_template(
+                    db, name=name, description="", author_id=1,
+                    author_name="x", source_guild_id=gid,
+                    payload={"source": {"name": f"{name}-Server",
+                                        "member_count": 7},
+                             "roles": [], "channels": [], "categories": [],
+                             "features": {}},
+                    visibility="public")
+
+    asyncio.run(build())
+
+    bot = _FakeBot(_FakeGuild(111111111111111111, "Noch dabei", 1284))
+    answer = _run_route(lambda: route.admin_list(bot=bot), path)
+    found = {e["name"]: e for e in answer["templates"]}
+
+    here = found["Da"]
+    check("der anwesende Server ist als anwesend gemeldet",
+          here["bot_present"] is True)
+    check("und das gilt als gesichert", here["presence_known"] is True)
+    check("mit Namen aus dem Cache",
+          here["source_guild_name"] == "Noch dabei",
+          f"-> {here['source_guild_name']!r}")
+    check("und Mitgliederzahl", here["members"] == 1284)
+
+    gone = found["Weg"]
+    check("der verlassene Server ist als verlassen gemeldet",
+          gone["bot_present"] is False)
+    check("auch das ist gesichert", gone["presence_known"] is True)
+    # Ohne Cache bleibt nur der Name aus der Vorlage. Ohne diesen
+    # Rueckfall stuende dort gar nichts.
+    check(
+        "und der Name von damals springt ein",
+        gone["source_guild_name"] == "Weg-Server",
+        f"-> {gone['source_guild_name']!r}",
+    )
+
+    # Der dritte Fall: eine ID, die keine Zahl ist.
+    async def broken():
+        import aiosqlite
+
+        from utils import template_store as store
+
+        async with aiosqlite.connect(path) as db:
+            await db.execute(
+                "UPDATE templates SET source_guild_id = 'kaputt' "
+                "WHERE name = 'Weg'"
+            )
+            await db.commit()
+
+    asyncio.run(broken())
+
+    answer2 = _run_route(lambda: route.admin_list(bot=bot), path)
+    odd = next(e for e in answer2["templates"] if e["name"] == "Weg")
+    check(
+        "eine unlesbare ID gilt als »weiss ich nicht«",
+        odd["presence_known"] is False,
+        "sonst laeuft sie als »Bot ist weg« durch",
+    )
+
+    os.unlink(path)
+
+    panel = strip_ts(read_dash("components", "dashboard",
+                               "templates-admin.tsx"))
+    check(
+        "das Panel unterscheidet die drei Faelle",
+        "!entry.presence_known" in panel,
+        "sonst zeigt es weiter »Bot ist weg«",
+    )
+
+
+def test_the_uploader_is_actually_recorded():
+    """Hochlader und Anwender kamen nie an.
+
+    Der Proxy setzt in jeden Schreibvorgang `actor` aus der Sitzung.
+    Die Route las aber `author_id` bzw. `actor_id` -- Felder, die kein
+    Aufrufer je mitschickt. Ergebnis: bei JEDER Vorlage stand
+    "unbekannt", und der Verlauf hatte eine leere Spalte.
+    """
+    print("\nDer Hochlader wird wirklich gespeichert")
+
+    route = strip_py(
+        open(os.path.join(BOT, "api", "routes", "templates.py"),
+             encoding="utf-8").read()
+    )
+
+    upload = route.split("async def upload")[1].split("@router")[0]
+    check(
+        "der Upload liest »actor«",
+        'get("actor")' in upload,
+        "nur das Feld setzt der Proxy aus der Sitzung",
+    )
+    check(
+        "und reicht es an den Store weiter",
+        "author_id=author_id" in upload,
+        "sonst landet es nicht in der Datenbank",
+    )
+
+    apply_block = route.split("async def apply(")[1]
+    check(
+        "das Anwenden liest »actor« ebenso",
+        'get("actor")' in apply_block,
+        "der Verlauf bliebe ohne Namen",
+    )
+    check("und schreibt es in den Verlauf", "actor_id=actor_id" in apply_block)
+
+    # Der Proxy muss es tatsaechlich setzen -- sonst ist alles obige
+    # umsonst.
+    proxy = strip_ts(read_dash("app", "api", "bot", "[...path]", "route.ts"))
+    check(
+        "der Proxy setzt actor aus der Sitzung",
+        "parsed.actor = actorId" in proxy,
+        "eine ID aus dem Browser waere faelschbar",
+    )
+
+    # Und der Store muss eine Zahl bekommen, keinen String: die Spalte
+    # ist INTEGER, ein String landete dort als Text und passte danach
+    # zu keinem Vergleich mehr.
+    check(
+        "die ID wird zur Zahl gemacht",
+        "int(author_id) if author_id else None" in upload,
+        "eine INTEGER-Spalte mit Text darin",
+    )
+
+
+def test_the_history_names_the_servers():
+    """Der Verlauf muss den Namen wirklich LIEFERN.
+
+    Eine Suche nach '"guild_name"' im Quelltext blieb gruen, als das
+    Feld fest auf "" stand.
+    """
+    print("\nDer Verlauf nennt Servernamen")
+
+    from api.routes import templates as route
+
+    handle, path = tempfile.mkstemp(suffix=".db")
+    os.close(handle)
+
+    async def build():
+        import aiosqlite
+
+        from utils import template_store as store
+
+        async with aiosqlite.connect(path) as db:
+            await store.ensure_schema(db)
+            tid, _ = await store.create_template(
+                db, name="X", description="", author_id=1, author_name="x",
+                source_guild_id=111111111111111111, payload={"roles": []},
+                visibility="public")
+            await store.log_apply(
+                db, template_id=tid, guild_id=333333333333333333,
+                actor_id=1303627964734246944, options={}, wiped=True)
+            await store.log_apply(
+                db, template_id=tid, guild_id=444444444444444444,
+                actor_id=None, options={}, wiped=False)
+            return tid
+
+    tid = asyncio.run(build())
+
+    bot = _FakeBot(_FakeGuild(333333333333333333, "Gaming-Treff"))
+    answer = _run_route(lambda: route.admin_history(tid, bot=bot), path)
+    events = {e["guild_id"]: e for e in answer["events"]}
+
+    known = events["333333333333333333"]
+    check(
+        "ein bekannter Server bekommt seinen Namen",
+        known["guild_name"] == "Gaming-Treff",
+        f"-> {known['guild_name']!r}",
+    )
+    check("wer es war, steht dabei",
+          known["actor_id"] == "1303627964734246944")
+    check("und ob geleert wurde", known["wiped"] is True)
+
+    unknown = events["444444444444444444"]
+    check("ein unbekannter Server bleibt namenlos, ohne zu stuerzen",
+          unknown["guild_name"] == "")
+
+    os.unlink(path)
+
+    panel = strip_ts(read_dash("components", "dashboard",
+                               "templates-admin.tsx"))
+    check("das Panel zeigt ihn", "event.guild_name" in panel)
+    check("und wer es war", "event.actor_id" in panel)
+
+
+def test_a_failed_load_is_visible():
+    """Ein Ladefehler sah aus wie eine leere Vorlage.
+
+    Beides zeigte gar nichts. Ein Toast verschwindet nach fuenf
+    Sekunden -- danach steht man wieder vor dem Nichts und weiss
+    nicht, ob die Vorlage leer ist oder die Anfrage scheiterte.
+    """
+    print("\nEin Fehlschlag beim Laden ist sichtbar")
+
+    panel = strip_ts(read_dash("components", "dashboard",
+                               "templates-admin.tsx"))
+
+    check("es gibt einen Fehlerzustand", "setFailed" in panel)
+    check("er wird angezeigt", "failed[entry.id] ?" in panel)
+    # Der Grund muss im Fehlerfall auch GESETZT werden. Eine Suche
+    # nach "setFailed" blieb gruen, als der catch-Zweig ihn wegwarf.
+    # Genau der catch-Zweig von loadDetail -- es gibt vier in der
+    # Datei, und der erste gehoert zur Listenabfrage.
+    detail_fn = panel.split("const loadDetail")[1].split("const toggleOpen")[0]
+    catch = detail_fn.split("} catch (error: any) {")[1].split("} finally")[0]
+    check(
+        "der Fehler wird im catch festgehalten",
+        "setFailed(" in catch,
+        "sonst bleibt die Ansicht leer wie zuvor",
+    )
+    check(
+        "und der Grund kommt aus der Meldung",
+        "error?.message" in catch,
+        "»ging nicht« allein hilft niemandem",
+    )
+    check(
+        "mit einem Knopf zum Wiederholen",
+        "loadDetail(entry)" in panel,
+        "sonst hilft nur neu laden",
+    )
+    check(
+        "und der Grund steht dabei",
+        "{failed[entry.id]}" in panel,
+        "»ging nicht« allein hilft niemandem",
+    )
+    # Eine wirklich leere Vorlage muss sich davon unterscheiden.
+    check(
+        "eine leere Vorlage sagt, dass sie leer ist",
+        "Diese Vorlage ist leer" in panel,
+        "sonst sieht Leere aus wie ein Fehler",
+    )
+    # Nach einem Fehlschlag muss ein erneutes Aufklappen es nochmal
+    # versuchen -- sonst haengt der Eintrag fuer immer im Fehler.
+    check(
+        "ein Fehlschlag wird erneut versucht",
+        "if (detail[entry.id] && !failed[entry.id]) return;" in panel,
+        "sonst bleibt der Eintrag fuer immer im Fehlerzustand",
+    )
+
+
+def test_channels_are_grouped_by_category():
+    print("\nKanaele stehen nach Kategorie gruppiert")
+
+    panel = strip_ts(read_dash("components", "dashboard",
+                               "templates-admin.tsx"))
+
+    check("es gibt die Gruppierung", "function grouped(" in panel)
+    check("sie wird benutzt", "grouped(content).map" in panel)
+    check(
+        "die Reihenfolge kommt aus der Vorlage",
+        "a.position ?? 0" in panel,
+        "alphabetisch waere nicht der Aufbau des Servers",
+    )
+    check(
+        "Kanaele ohne Kategorie kommen zuerst",
+        "Ohne Kategorie" in panel,
+        "Discord zeigt sie auch oben",
+    )
+    check(
+        "eine unbekannte Kategorie faellt nicht unter den Tisch",
+        "!order.includes(name)" in panel,
+        "sonst verschwaenden Kanaele aus der Anzeige",
+    )
+
+
 def main() -> int:
     test_secrets_never_reach_a_template()
     test_an_id_as_a_number_is_caught_too()
@@ -1861,6 +2406,13 @@ def main() -> int:
     test_the_admin_tab_is_wired_up()
     test_the_own_uploads_show_their_key()
     test_the_new_routes_are_registered()
+    test_the_admin_detail_is_not_empty_for_locked_templates()
+    test_the_detail_says_what_is_in_the_template()
+    test_the_admin_list_is_honest_about_the_bot()
+    test_the_uploader_is_actually_recorded()
+    test_the_history_names_the_servers()
+    test_a_failed_load_is_visible()
+    test_channels_are_grouped_by_category()
 
     print()
     if failures:
