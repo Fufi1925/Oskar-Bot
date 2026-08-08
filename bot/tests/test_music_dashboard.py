@@ -26,6 +26,7 @@ import os
 import re
 import sys
 import tempfile
+import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 BOT = os.path.dirname(HERE)
@@ -830,6 +831,260 @@ def _music_module():
     return importlib.import_module("cogs.commands.music")
 
 
+
+# ------------------------------------------------------------------ #
+# Start ueber das Dashboard: der Kanal ist dabei immer leer
+# ------------------------------------------------------------------ #
+def _fake_music_setup(module, *, idle_seconds=120, stay=0):
+    """Ein Cog mit Attrappen -- Player, Kanal, Server."""
+
+    class FakeTrack:
+        def __init__(self, title):
+            self.title = title
+
+    class FakeQueue:
+        def __init__(self):
+            self.items = []
+
+        def clear(self):
+            self.items.clear()
+
+        def put(self, track):
+            self.items.append(track)
+
+    class FakeGuild:
+        id = 1
+
+        def __init__(self):
+            self._voice_states = {}
+
+        def get_member(self, _uid):
+            return None
+
+    class FakeChannel:
+        id = 99
+
+        def __init__(self, guild):
+            self.guild = guild
+
+    class FakePlayer:
+        def __init__(self, channel, guild):
+            self.queue = FakeQueue()
+            self.channel = channel
+            self.guild = guild
+            self.playing = True
+            self.paused = False
+            self.connected = True
+            self.gone = False
+
+        async def play(self, _track):
+            self.playing = True
+
+        async def set_volume(self, _value):
+            pass
+
+        async def pause(self, value):
+            self.paused = value
+
+        async def disconnect(self, force=False):
+            self.gone = True
+
+    guild = FakeGuild()
+    channel = FakeChannel(guild)
+    player = FakePlayer(channel, guild)
+
+    cog = module.Music.__new__(module.Music)
+    cog._fill_tasks = set()
+    cog._started_empty = set()
+    cog._paused_empty = set()
+    cog._started_empty = set()
+    cog._idle_since = {}
+    cog._settings_cache = {}
+    cog._voice_locks = {}
+    cog.inactivity_timeout = 120
+
+    class FakeClient:
+        voice_clients = [player]
+
+        def get_guild(self, _gid):
+            return guild
+
+    cog.client = FakeClient()
+
+    async def fake_connect(_channel):
+        return player, None
+
+    async def fake_settings(_gid):
+        return {"stay_forever": stay, "idle_seconds": idle_seconds, "volume": 50}
+
+    async def fake_leave(_guild, pl, _limit):
+        await pl.disconnect(force=True)
+
+    cog._connect_to = fake_connect
+    cog._settings_for = fake_settings
+    cog._leave_idle = fake_leave
+
+    async def fake_search(query, **_kw):
+        return [FakeTrack(query[:20])]
+
+    module.wavelink.Playable.search = staticmethod(fake_search)
+    return cog, guild, channel, player
+
+
+def test_a_dashboard_start_keeps_playing():
+    """Wer im Dashboard auf Play drueckt, sitzt nicht im Kanal.
+
+    Gemeldet: "ueber das Dashboard joint er, im Dashboard steht
+    'spielt', aber man kann nicht weiter/stopp und es kommt kein Ton."
+
+    Der Grund: der Kanal ist beim Start leer, und die Leerlauf-Waechter
+    pausierten den Bot binnen fuenf Sekunden wieder. `playing` bleibt
+    bei einem pausierten Spieler True -- deshalb zeigte das Dashboard
+    weiter "spielt".
+    """
+    print("\nEin Start ueber das Dashboard bleibt am Laufen")
+
+    module = _music_module()
+    original = module.wavelink.Playable.search
+    try:
+        cog, guild, channel, player = _fake_music_setup(module)
+
+        async def go():
+            ok, message = await cog.start_playlist(
+                guild, channel, [{"uri": "https://a", "title": "A", "author": "B"}], 50
+            )
+            check("der Start meldet Erfolg", ok is True, message)
+            check("und der Bot spielt", player.paused is False)
+            check("die Ausnahme ist gesetzt", guild.id in cog._started_empty)
+
+            # Der Waechter laeuft mehrfach -- der Kanal bleibt leer.
+            for _ in range(3):
+                await cog.check_inactivity(guild.id)
+            check(
+                "auch nach mehreren Waechter-Laeufen",
+                player.paused is False,
+                "der Waechter pausiert den absichtlichen Start wieder",
+            )
+
+        asyncio.run(go())
+    finally:
+        module.wavelink.Playable.search = original
+
+
+def test_the_exception_ends_when_someone_arrives():
+    """Ab dann gelten wieder die normalen Regeln."""
+    print("\nSobald jemand da ist, faellt die Ausnahme weg")
+
+    module = _music_module()
+    original = module.wavelink.Playable.search
+    try:
+        cog, guild, channel, player = _fake_music_setup(module)
+
+        async def go():
+            await cog.start_playlist(
+                guild, channel, [{"uri": "https://a", "title": "A", "author": "B"}], 50
+            )
+            check("Ausnahme zuerst gesetzt", guild.id in cog._started_empty)
+
+            # Jemand betritt den Kanal.
+            guild._voice_states = {7: type("S", (), {"channel": channel})()}
+            await cog.check_inactivity(guild.id)
+
+            check(
+                "die Ausnahme ist weg",
+                guild.id not in cog._started_empty,
+                "sonst gaelte sie fuer immer",
+            )
+
+        asyncio.run(go())
+    finally:
+        module.wavelink.Playable.search = original
+
+
+def test_it_still_leaves_after_the_idle_time():
+    """Die Ausnahme darf den Bot nicht ewig sitzen lassen.
+
+    Sie verhindert nur das Pausieren -- die Leerlaufzeit laeuft
+    weiter. Kommt niemand, geht der Bot wie gehabt.
+    """
+    print("\nNach der Leerlaufzeit geht er trotzdem")
+
+    module = _music_module()
+    original = module.wavelink.Playable.search
+    try:
+        cog, guild, channel, player = _fake_music_setup(module, idle_seconds=30)
+
+        async def go():
+            await cog.start_playlist(
+                guild, channel, [{"uri": "https://a", "title": "A", "author": "B"}], 50
+            )
+            await cog.check_inactivity(guild.id)
+            check("er spielt noch", player.paused is False)
+            check("aber die Uhr laeuft", guild.id in cog._idle_since)
+
+            # Zeit vorspulen: 31 Sekunden bei 30 Sekunden Grenze.
+            cog._idle_since[guild.id] = time.monotonic() - 31
+            await cog.check_inactivity(guild.id)
+
+            check("er hat den Kanal verlassen", player.gone is True)
+            check(
+                "und die Ausnahme ist aufgeraeumt",
+                guild.id not in cog._started_empty,
+                "sonst bliebe sie beim naechsten Start haengen",
+            )
+
+        asyncio.run(go())
+    finally:
+        module.wavelink.Playable.search = original
+
+
+def test_pausing_by_hand_wins():
+    """Wer ausdruecklich pausiert, will Ruhe.
+
+    Sonst haette der Weiter-Knopf des Dashboards die Pause nach
+    fuenf Sekunden wieder aufgehoben.
+    """
+    print("\nPause von Hand setzt sich durch")
+
+    route = strip_py(
+        open(os.path.join(BOT, "api", "routes", "music.py"), encoding="utf-8").read()
+    )
+
+    block = route.split('if action == "pause":')[1].split('elif action == "skip"')[0]
+    check(
+        "Pause loescht die Ausnahme",
+        '_started_empty", set()).discard' in block,
+        "sonst laeuft der Bot in einem leeren Kanal weiter",
+    )
+    check(
+        "Weiter setzt sie",
+        "_started_empty.add(guild_id)" in block,
+        "sonst ueberstimmt der Waechter den Knopf nach fuenf Sekunden",
+    )
+
+    stop_block = route.split('elif action == "stop":')[1].split("elif action ==")[0]
+    check(
+        "Trennen raeumt beides auf",
+        "_started_empty" in stop_block and "_paused_empty" in stop_block,
+    )
+
+    # Und der zweite Waechter -- das Voice-Ereignis -- muss die
+    # Ausnahme ebenfalls beachten. Er greift, sobald jemand den Kanal
+    # verlaesst, und haette den Dashboard-Start sonst doch pausiert.
+    src = strip_py(open(MUSIC_COG, encoding="utf-8").read())
+    empty_block = src.split("async def music_pause_on_empty")[1].split(
+        "    async def "
+    )[0]
+    honoured = re.search(
+        r"if guild\.id in self\._started_empty:\s*\n\s*return", empty_block
+    )
+    check(
+        "auch music_pause_on_empty beachtet die Ausnahme",
+        bool(honoured),
+        "sonst pausiert es den Dashboard-Start beim naechsten Verlassen",
+    )
+
+
 def test_a_track_without_a_uri_is_not_lost():
     """`uri` ist bei Lavalink optional.
 
@@ -927,6 +1182,7 @@ def test_playing_starts_immediately():
     module = _music_module()
     cog = module.Music.__new__(module.Music)
     cog._fill_tasks = set()
+    cog._started_empty = set()
 
     class FakeTrack:
         def __init__(self, title):
@@ -1017,6 +1273,7 @@ def test_a_total_failure_says_why():
     module = _music_module()
     cog = module.Music.__new__(module.Music)
     cog._fill_tasks = set()
+    cog._started_empty = set()
 
     class FakeQueue:
         def clear(self):
@@ -1469,9 +1726,12 @@ def test_a_hand_paused_bot_stays_paused():
     # die ganze Funktion bleibt gruen, wenn genau die letzte fehlt --
     # und genau die zaehlt: ohne sie bleibt der Server in der Liste,
     # und nach dem naechsten Beitritt spielt nichts weiter.
+    # Zwischen dem Aufraeumen und dem Verlassen duerfen weitere
+    # Aufraeum-Zeilen stehen (etwa fuer _started_empty). Nur die
+    # Reihenfolge zaehlt: erst raeumen, dann gehen.
     ordered = re.search(
-        r"self\._paused_empty\.discard\(guild_id\)\s*\n"
-        r"\s*await self\._leave_idle",
+        r"self\._paused_empty\.discard\(guild_id\)"
+        r"[\s\S]{0,200}?await self\._leave_idle",
         src,
     )
     check(
@@ -1490,6 +1750,10 @@ def main() -> int:
     test_tracks_are_stored_with_their_cover()
     test_discord_ids_travel_as_text()
     test_the_idle_check_is_precise()
+    test_a_dashboard_start_keeps_playing()
+    test_the_exception_ends_when_someone_arrives()
+    test_it_still_leaves_after_the_idle_time()
+    test_pausing_by_hand_wins()
     test_a_track_without_a_uri_is_not_lost()
     test_playing_starts_immediately()
     test_a_total_failure_says_why()

@@ -544,10 +544,25 @@ async def control(
         )
 
     try:
+        cog = bot.get_cog("Music")
+
         if action == "pause":
             await player.pause(True)
+            # Von Hand pausiert: die Ausnahme fuer den Dashboard-Start
+            # faellt weg. Sonst wuerde der Waechter den Bot in einem
+            # leeren Kanal weiterlaufen lassen, obwohl jemand
+            # ausdruecklich angehalten hat.
+            if cog is not None:
+                getattr(cog, "_started_empty", set()).discard(guild_id)
         elif action == "resume":
             await player.pause(False)
+            # Von Hand fortgesetzt, waehrend niemand im Kanal ist:
+            # das ist derselbe Wunsch wie beim Dashboard-Start. Ohne
+            # den Merker pausierte der Waechter binnen fuenf Sekunden
+            # wieder -- der Knopf wirkte dann folgenlos.
+            if cog is not None and hasattr(cog, "_started_empty"):
+                cog._started_empty.add(guild_id)
+                getattr(cog, "_paused_empty", set()).discard(guild_id)
         elif action == "skip":
             await player.skip(force=True)
         elif action == "stop":
@@ -560,6 +575,9 @@ async def control(
                 except Exception:  # noqa: BLE001
                     pass
             await player.disconnect()
+            if cog is not None:
+                getattr(cog, "_started_empty", set()).discard(guild_id)
+                getattr(cog, "_paused_empty", set()).discard(guild_id)
         elif action == "volume":
             level = store.clamp_volume((data or {}).get("value"))
             await player.set_volume(level)
@@ -572,7 +590,6 @@ async def control(
             # naechsten Neustart wieder auf 60, obwohl sie sichtbar
             # anders eingestellt war.
             await store.save_settings(await _db(), guild_id, {"volume": level})
-            cog = bot.get_cog("Music")
             if cog is not None and hasattr(cog, "forget_settings"):
                 cog.forget_settings(guild_id)
         elif action == "seek":

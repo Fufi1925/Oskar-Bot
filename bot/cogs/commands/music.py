@@ -393,6 +393,15 @@ class Music(commands.Cog):
         # Referenz -- ohne diese Menge kann eine Aufgabe mitten im
         # Fuellen weggesammelt werden.
         self._fill_tasks: set = set()
+        # Server, in denen ausdruecklich gestartet wurde, obwohl der
+        # Kanal leer ist -- typisch fuer den Dashboard-Knopf: wer dort
+        # klickt, sitzt selbst nicht im Sprachkanal.
+        #
+        # Ohne diesen Merker pausierten die Leerlauf-Waechter den Bot
+        # binnen fuenf Sekunden wieder. Er stand im Kanal, das
+        # Dashboard zeigte "spielt" (wavelink meldet `playing` auch
+        # fuer einen pausierten Spieler), und es kam kein Ton.
+        self._started_empty: set[int] = set()
         self._node_task: asyncio.Task | None = None
         self._inactivity_task: asyncio.Task | None = None
         # One per Lavalink candidate tried. Kept referenced because
@@ -510,6 +519,7 @@ class Music(commands.Cog):
         if player is None:
             self._idle_since.pop(guild_id, None)
             self._paused_empty.discard(guild_id)
+            self._started_empty.discard(guild_id)
             return
 
         channel = getattr(player, "channel", None)
@@ -536,6 +546,10 @@ class Music(commands.Cog):
         # Der richtige Kanal, und Menschen statt Koepfe.
         if self._humans_in(channel) > 0:
             self._idle_since.pop(guild_id, None)
+            # Jemand ist da -- die Ausnahme fuer den Dashboard-Start
+            # wird nicht mehr gebraucht. Ab jetzt gelten wieder die
+            # normalen Regeln.
+            self._started_empty.discard(guild_id)
             # Jemand ist (wieder) da: weiterspielen, falls wir wegen
             # eines leeren Kanals pausiert hatten.
             #
@@ -559,7 +573,18 @@ class Music(commands.Cog):
         #
         # Pausieren statt stoppen: die Stelle bleibt erhalten, und beim
         # naechsten Beitritt geht es dort weiter.
-        if guild_id not in self._paused_empty:
+        #
+        # AUSSER es wurde ausdruecklich so gestartet. Wer im Dashboard
+        # auf Play drueckt, sitzt selbst nicht im Kanal -- der ist beim
+        # Start immer leer. Ohne diese Ausnahme pausierte der Waechter
+        # den Bot nach fuenf Sekunden wieder, und der Weiter-Knopf war
+        # wirkungslos: er wurde beim naechsten Durchlauf ueberstimmt.
+        #
+        # Die Leerlaufzeit laeuft trotzdem weiter -- kommt niemand,
+        # geht der Bot wie gehabt.
+        if guild_id in self._started_empty:
+            pass
+        elif guild_id not in self._paused_empty:
             try:
                 if getattr(player, "playing", False) and not getattr(
                     player, "paused", False
@@ -584,6 +609,7 @@ class Music(commands.Cog):
 
         self._idle_since.pop(guild_id, None)
         self._paused_empty.discard(guild_id)
+        self._started_empty.discard(guild_id)
         await self._leave_idle(guild, player, limit)
 
     async def _leave_idle(self, guild, player, limit: int):
@@ -1666,6 +1692,12 @@ class Music(commands.Cog):
         except Exception as error:
             return False, f"Das Abspielen schlug fehl: {error}"
 
+        # Merken, dass hier absichtlich in einen leeren Kanal gestartet
+        # wurde -- sonst pausieren die Leerlauf-Waechter binnen fuenf
+        # Sekunden wieder. Der Merker faellt weg, sobald jemand den
+        # Kanal betritt oder der Bot ihn verlaesst.
+        self._started_empty.add(guild.id)
+
         # Der Rest im Hintergrund. Die Referenz wird gehalten, weil
         # asyncio eine laufende Aufgabe sonst wegsammeln kann.
         remaining = entries[rest_from:]
@@ -1745,6 +1777,7 @@ class Music(commands.Cog):
                 return
 
             self._paused_empty.discard(guild.id)
+            self._started_empty.discard(guild.id)
             self._idle_since.pop(guild.id, None)
             try:
                 if getattr(player, "paused", False):
@@ -1792,6 +1825,10 @@ class Music(commands.Cog):
                 return
 
             if guild.id in self._paused_empty:
+                return
+            # Ausdruecklich in einen leeren Kanal gestartet: nicht
+            # dazwischenfunken. Siehe check_inactivity.
+            if guild.id in self._started_empty:
                 return
 
             try:

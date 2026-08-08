@@ -1,6 +1,12 @@
 {
  "commits": [
   {
+   "commit": "ee9c4d3a6deaa33589a5a89bc22b11a2f182a027",
+   "at": "1786151505",
+   "subject": "fix(musik): Playlist-Abspielen -- Rueckfall, Meldungen, sofortiger Start",
+   "body": "Gemeldet: \"Playlist abspielen ist kaputt, nix geht mehr.\"\n\nDie Ursache ist eine Kette, und sie beginnt bei einer Annahme, die\nnicht stimmt.\n\nDIE ADRESSE IST OPTIONAL\n\nBeim Anlegen einer Playlist wird von jedem Titel nur gespeichert, was\nsich in eine Datenbank schreiben laesst -- unter anderem `uri`. Beim\nAbspielen wurde jeder Titel ueber genau diese Adresse neu gesucht:\n\n    uri = str(entry.get(\"uri\") or \"\").strip()\n    if not uri:\n        continue\n\n`uri` ist bei Lavalink aber optional. wavelink schreibt es selbst so\nhin: \"Property returning the URL to this track. Could be ``None``.\"\nNachgelesen, nicht vermutet.\n\nEin Titel ohne Adresse wurde also als leerer String gespeichert und\nbeim Abspielen stillschweigend uebersprungen. War die ganze Liste so,\nkam nur \"Keiner der gespeicherten Titel liess sich abspielen\" -- ohne\nzu sagen, welcher woran scheiterte. Dasselbe passiert, sobald eine\nYouTube-Adresse ungueltig wird, weil das Video geloescht oder\ngesperrt wurde.\n\nWAS JETZT PASSIERT\n\n`_resolve_one` versucht zwei Wege, in dieser Reihenfolge:\n\n  1. ueber die Adresse -- genau, solange sie gilt\n  2. ueber Titel + Interpret -- der Rueckfall\n\nDer Interpret gehoert dazu: \"Bohemian Rhapsody\" allein findet zwanzig\nCoverversionen.\n\nEin 429 wird dabei nicht mehr mit \"nicht gefunden\" verwechselt. Die\noeffentlichen Lavalink-Knoten bremsen nach ein paar Suchen; wer dann\n\"Link ungueltig\" liest, sucht am falschen Ende. Weitersuchen bringt\nin dem Fall auch nichts, also wird abgebrochen.\n\nDER START DAUERTE ZU LANGE\n\nFrueher wurden alle Titel nacheinander aufgeloest, bevor ueberhaupt\netwas lief. Bei fuenfzig Titeln und je 200 Millisekunden sind das\nzehn Sekunden Stille. Jetzt startet der erste spielbare Titel sofort,\nder Rest kommt im Hintergrund nach -- und das Nachladen bricht ab,\nwenn der Bot inzwischen weg ist, statt die Warteschlange eines toten\nSpielers zu fuellen.\n\nDIE MELDUNGEN SAGEN JETZT ETWAS\n\n  vorher:  \"Keiner der gespeicherten Titel liess sich abspielen.\n            Vielleicht sind die Links nicht mehr gueltig.\"\n  jetzt:   \"Keiner der 2 Titel liess sich abspielen.\n            Alpha (nichts gefunden); Beta (nichts gefunden)\"\n\nUnd im Erfolgsfall: \"Laeuft: <Titel>. 1 uebersprungen.\" Eine leere\nPlaylist ist ein eigener Fall und wird als solcher benannt.\n\nGetestet wird ausgefuehrt, nicht gelesen: mit Attrappen fuer Player,\nQueue und Suche laufen alle vier Faelle durch (gueltige Adresse, tote\nAdresse mit Rueckfall, gar keine Adresse, nichts brauchbar).\n\nMutationstest: 13 von 13 gefangen.\n\nGeprueft: 77 Testdateien, Boot-Test (148 Cogs, 0 Fehler), ruff ohne\nneue Treffer. Nicht gegen echtes Discord getestet -- kein Token, kein\nLavalink hier. Ob das Abspielen live klappt, haengt weiter an\nLAVALINK_HOST."
+  },
+  {
    "commit": "7cd412bab8e55076e8cd522d2a9db25c8e109b7b",
    "at": "1786144907",
    "subject": "fix(musik): Bot bleibt bei 24/7, kein Absturz beim Titelwechsel",
@@ -231,12 +237,6 @@
   {
    "commit": "627f539e75ff720bf0079f357edae6e25493c5fc",
    "at": "1786136771",
-   "subject": "feat(phantom): EXACT full original Aleks ticket bot (5653 lines - every function kept, no removal, no shortening)",
-   "body": ""
-  },
-  {
-   "commit": "fe91080529bc4ffc5161bcd64d24efc90efd2161",
-   "at": "1786136763",
    "subject": "feat(phantom): EXACT full original Aleks ticket bot (5653 lines - every function kept, no removal, no shortening)",
    "body": ""
   }
