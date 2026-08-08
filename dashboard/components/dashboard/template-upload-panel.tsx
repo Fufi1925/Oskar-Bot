@@ -65,6 +65,38 @@ function Field({
   );
 }
 
+/**
+ * Kanäle nach Kategorie gruppieren, in der Reihenfolge des Servers.
+ *
+ * Der Scan liefert sie flach. Ohne Gruppierung ist die Vorschau bei
+ * einem großen Server eine Wand aus 200 Namen, und man sieht gerade
+ * das nicht, worum es geht: den Aufbau.
+ */
+function groupByCategory(preview: any): Array<{ name: string; items: any[] }> {
+  const order: string[] = preview?.categories || [];
+
+  const buckets = new Map<string, any[]>();
+  for (const channel of preview?.channels || []) {
+    const key = channel.category || "";
+    if (!buckets.has(key)) buckets.set(key, []);
+    buckets.get(key)!.push(channel);
+  }
+
+  const out: Array<{ name: string; items: any[] }> = [];
+  if (buckets.has("")) {
+    out.push({ name: "Ohne Kategorie", items: buckets.get("")! });
+  }
+  for (const name of order) {
+    if (buckets.has(name)) out.push({ name, items: buckets.get(name)! });
+  }
+  // Eine Kategorie, die nicht in der Liste steht — sonst verschwänden
+  // ihre Kanäle aus der Anzeige.
+  for (const [name, items] of buckets) {
+    if (name && !order.includes(name)) out.push({ name, items });
+  }
+  return out;
+}
+
 export function TemplateUploadPanel({ guildId }: { guildId: string }) {
   const [scan, setScan] = useState<any>(null);
   const [scanning, setScanning] = useState(false);
@@ -125,6 +157,18 @@ export function TemplateUploadPanel({ guildId }: { guildId: string }) {
       setScanning(false);
     }
   };
+
+  /** Ob veröffentlicht werden darf — und warum nicht. */
+  const canPublish = Boolean(
+    name.trim() &&
+      (scan?.already ?? 0) < (scan?.limits?.max_per_guild ?? 10) &&
+      (include.roles || include.channels || include.features)
+  );
+  const whyNotPublish = !name.trim()
+    ? "Die Vorlage braucht einen Namen."
+    : (scan?.already ?? 0) >= (scan?.limits?.max_per_guild ?? 10)
+    ? "Das Kontingent ist voll — bitte zuerst eine Vorlage löschen."
+    : "Es ist nichts ausgewählt, was mitgehen soll.";
 
   const publish = async () => {
     if (!name.trim()) {
@@ -278,20 +322,38 @@ export function TemplateUploadPanel({ guildId }: { guildId: string }) {
                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-600 mb-2 mt-3">
                     Kanäle
                   </p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {preview.channels.slice(0, 60).map((channel: any) => (
-                      <span
-                        key={`${channel.category}-${channel.name}`}
-                        className="px-2.5 py-1 rounded-lg bg-white/[0.04] border border-white/10 text-[11px] text-slate-400"
-                      >
-                        {channel.kind === "voice" ? "🔊" : "#"} {channel.name}
-                      </span>
+                  {/* Nach Kategorie gruppiert. Eine flache Wolke aus
+                      200 Namen sagt nichts darüber, wie der Server
+                      aufgebaut ist — und genau das ist der Sinn einer
+                      Vorlage. */}
+                  <div className="space-y-2.5">
+                    {groupByCategory(preview).map((group) => (
+                      <div key={group.name}>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+                          {group.name}
+                          <span className="text-slate-700">
+                            {" "}
+                            ({group.items.length})
+                          </span>
+                        </p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {group.items.slice(0, 40).map((channel: any, index: number) => (
+                            <span
+                              key={`${channel.name}-${index}`}
+                              className="px-2.5 py-1 rounded-lg bg-white/[0.04] border border-white/10 text-[11px] text-slate-400"
+                            >
+                              {channel.kind === "voice" ? "🔊" : "#"}{" "}
+                              {channel.name}
+                            </span>
+                          ))}
+                          {group.items.length > 40 && (
+                            <span className="px-2.5 py-1 text-[11px] text-slate-600">
+                              … und {group.items.length - 40} weitere
+                            </span>
+                          )}
+                        </div>
+                      </div>
                     ))}
-                    {preview.channels.length > 60 && (
-                      <span className="px-2.5 py-1 text-[11px] text-slate-600">
-                        … und {preview.channels.length - 60} weitere
-                      </span>
-                    )}
                   </div>
                 </div>
               )}
@@ -404,22 +466,43 @@ export function TemplateUploadPanel({ guildId }: { guildId: string }) {
                 {scan?.already ?? 0} von {scan?.limits?.max_per_guild ?? 10}{" "}
                 Vorlagen belegt.
               </p>
+              {(scan?.already ?? 0) >= (scan?.limits?.max_per_guild ?? 10) && (
+                <p className="text-[11px] text-amber-300/80 mt-1">
+                  Das Kontingent ist voll — bitte zuerst eine löschen.
+                </p>
+              )}
             </div>
           </div>
 
-          <Field label="Name">
+          <Field
+            label="Name"
+            hint={
+              name.trim()
+                ? `${name.length} von ${scan?.limits?.max_name ?? 80} Zeichen`
+                : "Pflichtfeld — ohne Namen findet die Vorlage niemand."
+            }
+          >
             <input
               value={name}
               onChange={(event) => setName(event.target.value)}
               maxLength={scan?.limits?.max_name ?? 80}
               placeholder="z. B. Gaming-Community"
-              className={INPUT}
+              className={cn(
+                INPUT,
+                !name.trim() && "border-amber-500/30"
+              )}
             />
           </Field>
 
           <Field
             label="Beschreibung"
-            hint="Wofür ist die Vorlage gedacht? Hilft anderen bei der Suche."
+            hint={
+              description
+                ? `${description.length} von ${
+                    scan?.limits?.max_description ?? 500
+                  } Zeichen`
+                : "Wofür ist die Vorlage gedacht? Hilft anderen bei der Suche."
+            }
           >
             <textarea
               value={description}
@@ -465,20 +548,34 @@ export function TemplateUploadPanel({ guildId }: { guildId: string }) {
                 </p>
               </button>
             </div>
+            {visibility === "key" && (
+              <p className="text-[11px] text-amber-200/70 leading-relaxed mt-2">
+                Der Code wird beim Veröffentlichen erzeugt und gleich
+                angezeigt. Er lässt sich später jederzeit hier wieder
+                nachschlagen.
+              </p>
+            )}
           </Field>
 
-          <button
-            disabled={!name.trim() || busy === "upload"}
-            onClick={publish}
-            className="flex items-center gap-2 px-5 py-3 rounded-xl bg-primary/15 border border-primary/40 text-primary text-xs font-black uppercase tracking-widest hover:bg-primary/20 disabled:opacity-40 transition-all"
-          >
-            {busy === "upload" ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Upload className="h-3.5 w-3.5" />
+          <div className="space-y-2">
+            <button
+              disabled={!canPublish || busy === "upload"}
+              onClick={publish}
+              className="flex items-center gap-2 px-5 py-3 rounded-xl bg-primary/15 border border-primary/40 text-primary text-xs font-black uppercase tracking-widest hover:bg-primary/20 disabled:opacity-40 transition-all"
+            >
+              {busy === "upload" ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Upload className="h-3.5 w-3.5" />
+              )}
+              Veröffentlichen
+            </button>
+            {/* Ein ausgegrauter Knopf ohne Begründung sieht nach einem
+                Fehler aus. */}
+            {!canPublish && (
+              <p className="text-[11px] text-slate-600">{whyNotPublish}</p>
             )}
-            Veröffentlichen
-          </button>
+          </div>
         </div>
       )}
 

@@ -28,6 +28,7 @@ import os
 import re
 import sys
 import tempfile
+import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 BOT = os.path.dirname(HERE)
@@ -3035,6 +3036,870 @@ def test_the_sort_bar_offers_both_orders():
     )
 
 
+# ------------------------------------------------------------------ #
+# 12. Live-Protokoll, Fortschritt, Abbruch
+# ------------------------------------------------------------------ #
+class _LiveRole:
+    def __init__(self, guild, name, position, default=False):
+        self.guild, self.name, self.position = guild, name, position
+        self.id = abs(hash((name, position))) % 10**18
+        self._default, self.managed = default, False
+
+    def is_default(self):
+        return self._default
+
+    async def delete(self, reason=None):
+        self.guild.touched.append(f"del role {self.name}")
+
+
+class _LiveChannel:
+    def __init__(self, guild, name):
+        self.guild, self.name, self.position = guild, name, 0
+        self.id = abs(hash(("c", name))) % 10**18
+        self.category, self.overwrites = None, {}
+
+    async def delete(self, reason=None):
+        self.guild.touched.append(f"del chan {self.name}")
+
+
+class _LiveGuild:
+    """Ein Server, an dem sich das Anwenden beobachten laesst."""
+
+    def __init__(self):
+        self.id, self.name = 100, "Testserver"
+        self.touched = []
+        self.default_role = _LiveRole(self, "@everyone", 0, True)
+        self._roles = [self.default_role,
+                       _LiveRole(self, "Alt1", 3), _LiveRole(self, "Alt2", 4)]
+        self._channels = [_LiveChannel(self, "alt-a"),
+                          _LiveChannel(self, "alt-b")]
+        self.rules_channel = None
+        self.public_updates_channel = None
+        self.system_channel = None
+        top = _LiveRole(self, "Bot", 50)
+        self.me = type("M", (), {
+            "guild_permissions": type("P", (), {
+                "manage_channels": True, "manage_roles": True})(),
+            "top_role": top})()
+
+    @property
+    def roles(self):
+        return list(self._roles)
+
+    @property
+    def channels(self):
+        return list(self._channels)
+
+    @property
+    def categories(self):
+        return []
+
+    async def create_role(self, **kw):
+        self.touched.append(f"new role {kw['name']}")
+        return _LiveRole(self, kw["name"], 3)
+
+    async def create_text_channel(self, **kw):
+        self.touched.append(f"new chan {kw['name']}")
+        return _LiveChannel(self, kw["name"])
+
+    async def create_voice_channel(self, **kw):
+        return await self.create_text_channel(**kw)
+
+    async def create_category(self, **kw):
+        self.touched.append(f"new cat {kw['name']}")
+        return _LiveChannel(self, kw["name"])
+
+
+_LIVE_PAYLOAD = {
+    "categories": [{"name": "Kat", "position": 0, "overwrites": []}],
+    "channels": [
+        {"name": f"k{i}", "kind": "text", "category": "Kat", "position": i}
+        for i in range(5)
+    ],
+    "roles": [{"name": f"r{i}", "colour": None, "permissions": []}
+              for i in range(3)],
+    "features": {},
+}
+
+_LIVE_OPTIONS = {"roles": True, "channels": True, "permissions": True,
+                 "features": False, "wipe": True}
+
+
+def test_every_action_writes_a_log_line():
+    """Ein Live-Protokoll, das Schritte verschweigt, ist keins."""
+    print("\nJede Aktion schreibt eine Protokollzeile")
+
+    from utils import template_apply as applier
+
+    applier.STEP_PAUSE = 0
+    lines = []
+
+    async def log(text, level="info"):
+        lines.append((level, text))
+
+    guild = _LiveGuild()
+    report = asyncio.run(
+        applier.apply_template(guild, _LIVE_PAYLOAD, _LIVE_OPTIONS, log=log)
+    )
+
+    check(
+        "mindestens eine Zeile je Aktion",
+        len(lines) >= len(guild.touched),
+        f"{len(lines)} Zeilen fuer {len(guild.touched)} Aktionen",
+    )
+
+    levels = {level for level, _ in lines}
+    for wanted in ("delete", "create", "step", "done"):
+        check(f"es gibt Zeilen der Stufe »{wanted}«", wanted in levels,
+              f"-> {sorted(levels)}")
+
+    # Jede EINZELNE Sache braucht ihre Zeile, nicht nur eine pro Art.
+    #
+    # Eine Suche nach der Stufe blieb gruen, als die Zeile fuer das
+    # Loeschen von Kanaelen wegfiel: die Rollen schrieben ja weiter
+    # "delete". Erst der Abgleich Name fuer Name zeigt es.
+    text = "\n".join(t for _, t in lines)
+    for name in ("alt-a", "alt-b"):
+        check(f"der geloeschte Kanal {name} steht im Protokoll",
+              name in text, "die Zeile fehlt")
+    for name in ("Alt1", "Alt2"):
+        check(f"die geloeschte Rolle {name} steht im Protokoll",
+              name in text, "die Zeile fehlt")
+    for name in ("r0", "r1", "r2"):
+        check(f"die angelegte Rolle {name} steht im Protokoll",
+              f"@{name}" in text, "die Zeile fehlt")
+    for name in ("k0", "k4"):
+        check(f"der angelegte Kanal {name} steht im Protokoll",
+              f"#{name}" in text, "die Zeile fehlt")
+    check("die Kategorie auch", "Kategorie angelegt: Kat" in text)
+
+    # Die Stufen muessen zum Inhalt passen -- sonst faerbt die
+    # Oberflaeche eine Loeschung gruen.
+    for level, text in lines:
+        if level == "delete":
+            check(f"»{text[:30]}« ist wirklich eine Loeschung",
+                  "gelöscht" in text, text)
+        if level == "create":
+            check(f"»{text[:30]}« ist wirklich ein Anlegen",
+                  "angelegt" in text or "übernommen" in text, text)
+
+    check("der Bericht ist ok", report["ok"], str(report["errors"]))
+
+
+def test_the_progress_adds_up():
+    """Der Balken braucht eine Gesamtzahl, die vorher feststeht."""
+    print("\nDer Fortschritt zaehlt richtig")
+
+    from utils import template_apply as applier
+
+    applier.STEP_PAUSE = 0
+    guild = _LiveGuild()
+    report = asyncio.run(
+        applier.apply_template(guild, _LIVE_PAYLOAD, _LIVE_OPTIONS)
+    )
+
+    # 2 Kanaele + 2 Rollen loeschen, 3 Rollen + 1 Kategorie + 5 Kanaele
+    # anlegen.
+    check("die geplante Zahl stimmt", report["total"] == 13,
+          f"-> {report['total']}")
+    check("am Ende ist alles erledigt",
+          report["done"] == report["total"],
+          f"-> {report['done']} von {report['total']}")
+
+    # Ohne Leeren muss die Zahl KLEINER sein -- sonst zaehlt sie
+    # etwas, das gar nicht passiert.
+    ohne = asyncio.run(
+        applier.apply_template(
+            _LiveGuild(), _LIVE_PAYLOAD, {**_LIVE_OPTIONS, "wipe": False}
+        )
+    )
+    check("ohne Leeren sind es weniger Schritte",
+          ohne["total"] < report["total"],
+          f"{ohne['total']} vs {report['total']}")
+
+    # Und die Zahl muss VOR dem ersten Anfassen feststehen: eine, die
+    # unterwegs waechst, ist kein Fortschritt.
+    src = strip_py(
+        open(os.path.join(BOT, "utils", "template_apply.py"),
+             encoding="utf-8").read()
+    )
+    block = src.split("async def apply_template")[1]
+    check(
+        "die Zahl wird vor dem ersten Schritt berechnet",
+        block.index("_count_steps") < block.index("wipe_server"),
+        "sonst waechst sie waehrend des Laufs",
+    )
+
+
+def test_a_run_can_be_stopped():
+    """Ein Abbruch, der erst am Ende wirkt, ist keiner."""
+    print("\nEin Lauf laesst sich anhalten")
+
+    from utils import template_apply as applier
+
+    applier.STEP_PAUSE = 0
+    seen = {"n": 0}
+
+    def stop():
+        seen["n"] += 1
+        return seen["n"] > 4
+
+    guild = _LiveGuild()
+    report = asyncio.run(
+        applier.apply_template(
+            guild, _LIVE_PAYLOAD, _LIVE_OPTIONS, stop=stop
+        )
+    )
+
+    check("der Abbruch wird gemeldet", report["cancelled"] is True)
+    check("und gilt nicht als Erfolg", report["ok"] is False)
+    check(
+        "es wurde wirklich frueher aufgehoert",
+        len(guild.touched) < 13,
+        f"-> {len(guild.touched)} Aktionen",
+    )
+    check(
+        "was bis dahin geschah, steht im Bericht",
+        bool(report["deleted"]),
+        "sonst weiss niemand, was schon weg ist",
+    )
+
+    # Sofortiger Abbruch: hoechstens die erste Aktion darf durch.
+    guild2 = _LiveGuild()
+    asyncio.run(
+        applier.apply_template(
+            guild2, _LIVE_PAYLOAD, _LIVE_OPTIONS, stop=lambda: True
+        )
+    )
+    check("ein sofortiger Abbruch fasst fast nichts an",
+          len(guild2.touched) <= 2, f"-> {len(guild2.touched)}")
+
+    # Ohne `stop` muss alles normal laufen.
+    guild3 = _LiveGuild()
+    normal = asyncio.run(
+        applier.apply_template(guild3, _LIVE_PAYLOAD, _LIVE_OPTIONS)
+    )
+    check("ohne Abbruch laeuft es durch", normal["ok"] is True)
+    check("und fasst alles an", len(guild3.touched) == 13,
+          f"-> {len(guild3.touched)}")
+
+    # JEDE Schleife muss auf den Abbruch hoeren, nicht nur die erste.
+    #
+    # Ein Test, der nur nach vier Schritten abbricht, trifft nur das
+    # Leeren -- die Kanal-Schleife koennte weiter durchlaufen, ohne
+    # dass es auffaellt. Deshalb der Abbruch spaet: dann steckt er
+    # mitten im Anlegen der Kanaele.
+    late = {"n": 0}
+
+    def stop_late():
+        late["n"] += 1
+        return late["n"] > 9
+
+    guild4 = _LiveGuild()
+    report4 = asyncio.run(
+        applier.apply_template(
+            guild4, _LIVE_PAYLOAD, _LIVE_OPTIONS, stop=stop_late
+        )
+    )
+    check("auch spaet greift der Abbruch", report4["cancelled"] is True)
+    check(
+        "die Kanal-Schleife hoert ebenfalls auf",
+        len(guild4.touched) < 13,
+        f"-> {len(guild4.touched)} von 13 Aktionen",
+    )
+    # Und ohne Leeren, damit die Rollen-Schleife allein dran ist.
+    early = {"n": 0}
+
+    def stop_early():
+        early["n"] += 1
+        return early["n"] > 1
+
+    guild5 = _LiveGuild()
+    report5 = asyncio.run(
+        applier.apply_template(
+            guild5, _LIVE_PAYLOAD, {**_LIVE_OPTIONS, "wipe": False},
+            stop=stop_early,
+        )
+    )
+    check("die Rollen-Schleife hoert auf", report5["cancelled"] is True)
+    check("und legt fast nichts an", len(guild5.touched) <= 2,
+          f"-> {len(guild5.touched)}")
+
+
+def test_the_log_takes_plain_and_async_functions():
+    """Der Live-Log ist asynchron, die Tests reichen eine Liste herein."""
+    print("\nDas Protokoll nimmt beide Arten von Funktionen")
+
+    from utils import template_apply as applier
+
+    applier.STEP_PAUSE = 0
+
+    plain = []
+    asyncio.run(
+        applier.apply_template(
+            _LiveGuild(), _LIVE_PAYLOAD, _LIVE_OPTIONS,
+            log=lambda text, level="info": plain.append(text),
+        )
+    )
+    check("eine gewoehnliche Funktion bekommt Zeilen", len(plain) > 5,
+          f"-> {len(plain)}")
+
+    modern = []
+
+    async def alog(text, level="info"):
+        modern.append(text)
+
+    asyncio.run(
+        applier.apply_template(
+            _LiveGuild(), _LIVE_PAYLOAD, _LIVE_OPTIONS, log=alog
+        )
+    )
+    check("eine asynchrone auch", len(modern) == len(plain),
+          f"{len(modern)} vs {len(plain)}")
+
+
+def test_the_job_route_streams_only_new_lines():
+    """`since` darf keine Zeile doppelt liefern.
+
+    Ein Fehler darin faellt in der Oberflaeche nicht auf -- die Zeilen
+    erschienen nur doppelt, und das sieht aus wie ein langsamer Bot.
+    """
+    print("\nDie Job-Route liefert nur neue Zeilen")
+
+    from api.routes import templates as route
+
+    job = {
+        "guild_id": 1, "template_id": 1, "template_name": "X",
+        "state": "running", "lines": [], "started": 0, "finished": None,
+        "report": None, "total": 3, "done": 0, "stop": False, "wipe": False,
+    }
+    for i in range(5):
+        job["lines"].append({"text": f"Zeile {i}", "level": "info", "at": 0})
+
+    first = route._public_job(job, since=0)
+    check("beim ersten Mal kommt alles", len(first["lines"]) == 5)
+    check("mit Gesamtzahl", first["line_count"] == 5)
+
+    second = route._public_job(job, since=5)
+    check("danach nichts mehr", second["lines"] == [])
+
+    job["lines"].append({"text": "Zeile 5", "level": "info", "at": 0})
+    third = route._public_job(job, since=5)
+    check("nur die neue Zeile", len(third["lines"]) == 1)
+    check("und zwar die richtige", third["lines"][0]["text"] == "Zeile 5")
+
+    # Der Job darf den internen Abbruchschalter NICHT ausliefern -- er
+    # geht den Browser nichts an.
+    check("der Abbruchschalter bleibt drinnen", "stop" not in first)
+
+
+def test_two_runs_at_once_are_refused():
+    """Der eine loescht, was der andere gerade anlegt."""
+    print("\nZwei Laeufe gleichzeitig werden abgewiesen")
+
+    route_src = strip_py(
+        open(os.path.join(BOT, "api", "routes", "templates.py"),
+             encoding="utf-8").read()
+    )
+    block = route_src.split("async def apply(")[1].split("async def ")[0]
+
+    check("es gibt die Pruefung", "_job(guild_id)" in block)
+    guarded = re.search(
+        r'running\["state"\] == "running"[\s\S]{0,200}?raise HTTPException',
+        block,
+    )
+    check("und sie bricht ab", bool(guarded), "die Pruefung tut nichts")
+    check("mit 409", "409" in block, "ein Konflikt ist kein 400")
+
+
+def test_the_apply_route_returns_immediately():
+    """Zehn Minuten in einer HTTP-Antwort gehen nicht.
+
+    Vorher lief der ganze Umbau IN der Antwort. Bei hundert Kanaelen
+    dauert das mit Discords Rate-Limits ueber zehn Minuten -- laenger
+    als jedes Zeitlimit zwischen Browser und Server.
+    """
+    print("\nDas Anwenden antwortet sofort")
+
+    route_src = strip_py(
+        open(os.path.join(BOT, "api", "routes", "templates.py"),
+             encoding="utf-8").read()
+    )
+    block = route_src.split("async def apply(")[1].split("async def ")[0]
+
+    check(
+        "der Umbau laeuft im Hintergrund",
+        "_spawn(" in block,
+        "sonst blockiert er die Antwort",
+    )
+    check(
+        "und wird NICHT abgewartet",
+        "await applier.apply_template" not in block,
+        "ein await hier macht den Hintergrundlauf zunichte",
+    )
+    check("die Antwort meldet »started«", '"started"' in block)
+
+    # Der Task muss festgehalten werden -- asyncio haelt auf Tasks nur
+    # eine schwache Referenz. Ein Blick auf "_TASKS" allein genuegt
+    # nicht: die Variable kann dastehen und trotzdem nie befuellt
+    # werden.
+    check(
+        "es gibt die Sammlung",
+        "_TASKS" in route_src,
+        "sonst kann der Lauf mitten drin eingesammelt werden",
+    )
+    spawn = route_src.split("def _spawn(")[1].split("def _prune_jobs")[0]
+    check(
+        "der Task landet wirklich darin",
+        "_TASKS.setdefault(guild_id, set())" in spawn
+        and "tasks.add(handle)" in spawn,
+        "die Sammlung wird angelegt und weggeworfen",
+    )
+    check(
+        "und wird nach dem Ende wieder geleert",
+        "add_done_callback" in spawn,
+        "sonst waechst sie mit jedem Lauf",
+    )
+
+
+def test_the_job_routes_exist():
+    print("\nDie Job-Routen sind angemeldet")
+
+    from fastapi.testclient import TestClient
+
+    from api.server import create_app
+
+    client = TestClient(create_app())
+    answer = client.get("/api/v1/openapi.json")
+    if answer.status_code == 200:
+        paths = set(answer.json()["paths"])
+        for path in ("/templates/{guild_id}/job",
+                     "/templates/{guild_id}/job/cancel"):
+            check(f"{path} gibt es", path in paths)
+
+    api_src = strip_ts(read_dash("lib", "api.ts"))
+    check("templateJob: gibt es", "templateJob:" in api_src)
+    check("templateJobCancel: gibt es", "templateJobCancel:" in api_src)
+    check(
+        "die Abfrage reicht »since« durch",
+        "since=${since}" in api_src,
+        "sonst kommen alle Zeilen jedes Mal neu",
+    )
+
+
+def test_the_wizard_has_five_steps():
+    print("\nDer Assistent hat fuenf Schritte")
+
+    panel = strip_ts(read_dash("components", "dashboard",
+                               "template-community-panel.tsx"))
+
+    check("es gibt die Schrittliste", "const STEPS = [" in panel)
+    block = panel.split("const STEPS = [")[1].split("];")[0]
+    for label in ("Vorschau", "Prüfung", "Auswahl", "Bestätigen", "Läuft"):
+        check(f"»{label}« steht darin", label in block)
+
+    for n in range(1, 6):
+        check(f"Schritt {n} wird gezeigt", f"step === {n}" in panel)
+
+    check("es gibt die Schrittanzeige", "function Stepper(" in panel)
+    check("und das Live-Protokoll", "function LiveLog(" in panel)
+
+    # Vorwaerts nur bis dorthin, wo man schon war -- sonst
+    # ueberspringt ein Klick die Rechtepruefung.
+    check(
+        "man kann nicht vorspringen",
+        "entry.n <= highest" in panel,
+        "ein Klick auf »4« uebersprang die Pruefung",
+    )
+    check(
+        "und der hoechste Schritt wird mitgeschrieben",
+        "Math.max(old, step)" in panel,
+    )
+
+    # Die Reihenfolge muss stimmen: erst Vorschau, dann Pruefung.
+    check(
+        "die Pruefung startet beim Wechsel zu Schritt 2",
+        re.search(r"setStep\(2\);\s*\n\s*runPreview\(\)", panel) is not None,
+        "sonst steht Schritt 2 leer da",
+    )
+
+
+def test_the_dangerous_option_is_last():
+    """»Alles löschen« steht ganz unten, nicht zwischen Kästchen."""
+    print("\nDie gefaehrliche Option steht am Ende")
+
+    panel = strip_ts(read_dash("components", "dashboard",
+                               "template-community-panel.tsx"))
+    block = panel.split("{step === 3 &&")[1].split("{step === 4 &&")[0]
+
+    check(
+        "sie kommt nach den harmlosen Schaltern",
+        block.index("Vorher alles löschen") > block.index("Kanalrechte"),
+        "sonst liegt sie mitten zwischen den anderen",
+    )
+    check("und ist abgesetzt", "border-t border-slate-800 pt-4" in block)
+    check("rot hinterlegt", "bg-red-500/[0.08]" in block)
+
+    # Der Startknopf darf erst in Schritt 4 auftauchen.
+    step3 = block
+    check(
+        "in Schritt 3 gibt es noch kein »Los geht's«",
+        "Los geht's" not in step3,
+        "sonst startet man, bevor man bestaetigt hat",
+    )
+
+    confirm = panel.split("{step === 4 &&")[1].split("{step === 5 &&")[0]
+    check("erst in Schritt 4", "Los geht's" in confirm)
+    check("mit Wartezeit", "countdown > 0" in confirm)
+    check("und rot bei »alles löschen«", "bg-red-500/15" in confirm)
+
+
+def test_the_live_log_scrolls_and_stops():
+    print("\nDas Live-Protokoll rollt mit und laesst sich anhalten")
+
+    panel = strip_ts(read_dash("components", "dashboard",
+                               "template-community-panel.tsx"))
+    block = panel.split("function LiveLog(")[1].split("function groupChannels")[0]
+
+    # Das AUTOMATISCHE Mitrollen -- nicht der Knopf »Nach unten«.
+    #
+    # Beide benutzen `scrollTop`; eine Suche ueber den ganzen Block
+    # blieb gruen, als das Mitrollen ausgebaut war und nur der Knopf
+    # uebrig blieb.
+    auto = re.search(
+        r"useEffect\(\(\) => \{([\s\S]{0,300}?)\}, \[lines\.length, stick\]\)",
+        block,
+    )
+    check("es gibt den Mitroll-Effekt", bool(auto),
+          "der Effekt an lines.length fehlt")
+    check(
+        "und er rollt wirklich",
+        bool(auto) and "scrollTop = box.current.scrollHeight" in auto.group(1),
+        "der Effekt laeuft leer",
+    )
+    check(
+        "aber nur, wenn man unten steht",
+        bool(auto) and "if (!stick" in auto.group(1),
+        "sonst reisst die naechste Zeile einen aus dem Lesen",
+    )
+    check("es gibt einen Weg zurueck nach unten", "Nach unten" in block)
+    check("einen Fortschrittsbalken", "percent" in block)
+    # Der Knopf muss `onCancel` auch AUFRUFEN. Ein Blick auf das Wort
+    # allein blieb gruen, als nur die Beschriftung entfernt war -- und
+    # er kommt ohnehin schon in der Parameterliste vor.
+    check(
+        "und einen Abbruchknopf, der etwas tut",
+        "onClick={onCancel}" in block,
+        "der Knopf steht da und ruft nichts auf",
+    )
+    check(
+        "der auch beschriftet ist",
+        ">\n              Abbrechen" in block or "Abbrechen" in block,
+        "ein Knopf ohne Text ist nicht bedienbar",
+    )
+    check(
+        "und waehrend des Abbruchs gesperrt",
+        "disabled={cancelling}" in block,
+        "sonst klickt man dreimal",
+    )
+    check(
+        "der ehrlich sagt, was er nicht kann",
+        "bleibt gelöscht" in block,
+        "»Abbrechen« klingt sonst nach »rueckgaengig machen«",
+    )
+
+    # Die Stufen brauchen eigene Farben, sonst ist das Protokoll eine
+    # graue Wand.
+    check("die Stufen sind eingefaerbt", "const LEVEL_STYLE" in panel)
+    for level in ("delete", "create", "error", "done"):
+        check(f"»{level}« hat eine Farbe", f'{level}:' in
+              panel.split("const LEVEL_STYLE")[1].split("};")[0])
+
+    # Der Takt muss aufhoeren, wenn der Lauf durch ist.
+    check(
+        "die Abfrage endet mit dem Lauf",
+        'job.state !== "running"' in panel,
+        "sonst fragt der Browser ewig weiter",
+    )
+
+
+def test_the_upload_tab_got_better():
+    print("\nDer Hochladen-Reiter ist besser geworden")
+
+    panel = strip_ts(read_dash("components", "dashboard",
+                               "template-upload-panel.tsx"))
+
+    check("Kanaele sind gruppiert", "function groupByCategory(" in panel)
+    check("und die Gruppierung wird benutzt",
+          "groupByCategory(preview).map" in panel)
+    check(
+        "der Knopf sagt, warum er aus ist",
+        "whyNotPublish" in panel,
+        "ein ausgegrauter Knopf ohne Grund sieht nach Fehler aus",
+    )
+    check("das Kontingent wird geprueft", "max_per_guild" in panel)
+    check(
+        "und ein volles Kontingent gemeldet",
+        "Kontingent ist voll" in panel,
+    )
+    check("die Zeichenzahl steht dabei", "Zeichen" in panel)
+
+
+def test_the_job_route_behaves():
+    """Starten, verfolgen, abbrechen -- gegen die echten Routen.
+
+    Alles hier blieb bei Textsuchen gruen: dass `_spawn` im Quelltext
+    steht, heisst nicht, dass die Antwort sofort kommt; dass
+    `job["stop"] = True` dasteht, heisst nicht, dass der Lauf endet.
+    """
+    print("\nDie Job-Routen tun wirklich, was sie sollen")
+
+    from api.routes import templates as route
+    from utils import template_apply as applier
+
+    applier.STEP_PAUSE = 0.02
+
+    handle, path = tempfile.mkstemp(suffix=".db")
+    os.close(handle)
+
+    payload = {
+        "categories": [{"name": "Kat", "position": 0, "overwrites": []}],
+        "channels": [
+            {"name": f"n{i}", "kind": "text", "category": "Kat", "position": i}
+            for i in range(8)
+        ],
+        "roles": [{"name": f"r{i}", "colour": None, "permissions": []}
+                  for i in range(4)],
+        "features": {},
+    }
+
+    async def build():
+        import aiosqlite
+
+        from utils import template_store as store
+
+        os.environ[store.SECRET_ENV] = "test-schluessel-fuer-den-test"
+        async with aiosqlite.connect(path) as db:
+            await store.ensure_schema(db)
+            tid, _ = await store.create_template(
+                db, name="Live", description="", author_id=1, author_name="x",
+                source_guild_id=999, payload=payload, visibility="public")
+            return tid
+
+    tid = asyncio.run(build())
+
+    class Bot:
+        def __init__(self, guild):
+            self._guild = guild
+            self.loop = None
+
+        def get_guild(self, gid):
+            return self._guild if int(gid) == 100 else None
+
+    # ── Voller Lauf ──────────────────────────────────────────
+    guild = _LiveGuild()
+    bot = Bot(guild)
+
+    async def full():
+        from utils import template_store as store
+
+        before = store.DB_PATH
+        store.DB_PATH = path
+        try:
+            started = await route.apply(
+                100,
+                {"template_id": tid, "wipe": True, "roles": True,
+                 "channels": True, "permissions": True, "features": False,
+                 "armed_at": time.time() - 11, "actor": 42},
+                bot=bot,
+            )
+            seen = 0
+            collected = []
+            job = None
+            for _ in range(200):
+                answer = await route.job_status(100, since=seen, bot=bot)
+                job = answer["job"]
+                if job is None:
+                    break
+                collected.extend(line["text"] for line in job["lines"])
+                seen = job["line_count"]
+                if job["state"] != "running":
+                    break
+                await asyncio.sleep(0.02)
+            return started, job, collected
+        finally:
+            store.DB_PATH = before
+            from api.db_manager import db_manager
+            await db_manager.close_all()
+
+    started, job, collected = asyncio.run(full())
+
+    check("der Start meldet »started«", started["status"] == "started",
+          f"-> {started.get('status')}")
+    # Die Antwort muss SOFORT kommen -- sie darf den Lauf nicht
+    # abwarten. Waere sie synchron, stuende hier schon "done".
+    check(
+        "die Antwort wartet den Lauf nicht ab",
+        started["job"]["state"] == "running",
+        "der Umbau lief in der Antwort -- bei 100 Kanaelen ein Zeitfehler",
+    )
+
+    check("am Ende ist er fertig", job["state"] == "done", f"-> {job['state']}")
+    check("der Fortschritt ist voll",
+          job["done"] == job["total"] and job["total"] > 0,
+          f"-> {job['done']}/{job['total']}")
+    check("es gibt einen Bericht", bool(job["report"]))
+
+    # `since` darf keine Zeile doppelt liefern.
+    check(
+        "keine Zeile kommt doppelt",
+        collected.count("Server wird geleert …") == 1,
+        f"-> {collected.count('Server wird geleert …')}x",
+    )
+    check(
+        "die Zeilen sind wirklich angekommen",
+        len(collected) > 10,
+        f"-> {len(collected)}",
+    )
+
+    # ── Abbrechen ────────────────────────────────────────────
+    guild2 = _LiveGuild()
+    bot2 = Bot(guild2)
+
+    async def cancel_run():
+        from utils import template_store as store
+
+        before = store.DB_PATH
+        store.DB_PATH = path
+        try:
+            await route.apply(
+                100,
+                {"template_id": tid, "wipe": True, "roles": True,
+                 "channels": True, "permissions": True, "features": False,
+                 "armed_at": time.time() - 11, "actor": 42},
+                bot=bot2,
+            )
+            await asyncio.sleep(0.05)
+            await route.job_cancel(100, bot=bot2)
+            for _ in range(200):
+                answer = await route.job_status(100, bot=bot2)
+                if answer["job"]["state"] != "running":
+                    return answer["job"]
+                await asyncio.sleep(0.02)
+            return answer["job"]
+        finally:
+            store.DB_PATH = before
+            from api.db_manager import db_manager
+            await db_manager.close_all()
+
+    stopped = asyncio.run(cancel_run())
+    check("der Abbruch wirkt", stopped["state"] == "cancelled",
+          f"-> {stopped['state']}")
+    check(
+        "und haelt den Lauf wirklich an",
+        stopped["done"] < stopped["total"],
+        f"-> {stopped['done']}/{stopped['total']} -- nichts gestoppt",
+    )
+    check(
+        "es wurden weniger Dinge angefasst",
+        len(guild2.touched) < len(guild.touched),
+        f"{len(guild2.touched)} vs {len(guild.touched)}",
+    )
+
+    # Abbruch ohne Lauf: 404.
+    async def cancel_nothing():
+        route._JOBS.pop(100, None)
+        try:
+            await route.job_cancel(100, bot=bot2)
+        except Exception as error:
+            return getattr(error, "status_code", 0)
+        return 0
+
+    check("ein Abbruch ohne Lauf gibt 404",
+          asyncio.run(cancel_nothing()) == 404,
+          "sonst meldet die Oberflaeche Erfolg fuer nichts")
+
+    os.unlink(path)
+
+
+def test_the_live_panel_is_wired():
+    """Die Oberflaeche muss die Zeilen wirklich anhaengen und anzeigen."""
+    print("\nDas Live-Panel ist verdrahtet")
+
+    panel = strip_ts(read_dash("components", "dashboard",
+                               "template-community-panel.tsx"))
+
+    # Die Zeilen ANHAENGEN, nicht ersetzen: der Bot schickt ab `since`
+    # nur den Rest. Ein Ersetzen liesse jede Sekunde nur die neuesten
+    # ein, zwei Zeilen stehen.
+    pull = panel.split("const pullJob")[1].split("useEffect(")[0]
+    check(
+        "die neuen Zeilen werden angehaengt",
+        "...(old?.lines || [])" in pull,
+        "ein Ersetzen liesse nur die letzten Zeilen stehen",
+    )
+    check(
+        "der Zaehler wird fortgeschrieben",
+        "seen.current = fresh.line_count" in pull,
+        "sonst kommen alle Zeilen jedes Mal neu",
+    )
+    check(
+        "ein Fehlschlag beendet die Abfrage nicht",
+        "} catch {" in pull,
+        "ein Wackler im Netz duerfte das Protokoll nicht abwuergen",
+    )
+
+    live = panel.split("function LiveLog(")[1].split("function groupChannels")[0]
+    check("das Protokoll wird gezeichnet", "lines.map(" in live)
+    check("mit Zeichen je Stufe", "LEVEL_MARK[line.level]" in live)
+    check("und Farbe je Stufe", "LEVEL_STYLE[line.level]" in live)
+    check("der Abbruchknopf ruft etwas auf", "onClick={onCancel}" in live)
+    check("der Fortschrittsbalken hat eine Breite",
+          "width: `${" in live)
+
+    # Die Farben muessen sich UNTERSCHEIDEN -- sonst ist das
+    # Protokoll eine graue Wand, und Loeschen sieht aus wie Anlegen.
+    styles = panel.split("const LEVEL_STYLE")[1].split("};")[0]
+    found = re.findall(r'(\w+): "([^"]+)"', styles)
+    colours = {key: value for key, value in found}
+    check("Loeschen ist rot", "red" in colours.get("delete", ""),
+          f"-> {colours.get('delete')}")
+    check("Anlegen ist gruen", "emerald" in colours.get("create", ""),
+          f"-> {colours.get('create')}")
+    check("Fehler sind rot", "red" in colours.get("error", ""))
+    check(
+        "die Stufen sehen nicht alle gleich aus",
+        len(set(colours.values())) >= 5,
+        f"nur {len(set(colours.values()))} verschiedene Farben",
+    )
+
+
+def test_the_upload_button_explains_itself():
+    """Ein ausgegrauter Knopf ohne Grund sieht nach einem Fehler aus."""
+    print("\nDer Hochladen-Knopf erklaert sich")
+
+    panel = strip_ts(read_dash("components", "dashboard",
+                               "template-upload-panel.tsx"))
+
+    # Der Grund muss WIRKLICH ausgegeben werden, nicht nur berechnet.
+    check(
+        "der Grund steht im Text",
+        ">{whyNotPublish}<" in panel,
+        "die Variable wird berechnet und dann weggeworfen",
+    )
+    check("und nur, wenn der Knopf aus ist", "{!canPublish && (" in panel)
+
+    # canPublish muss alle drei Gruende kennen.
+    block = panel.split("const canPublish")[1].split("const publish")[0]
+    check("ein leerer Name blockiert", "name.trim()" in block)
+    check(
+        "ein volles Kontingent blockiert",
+        "max_per_guild" in block and "<" in block,
+        "sonst laeuft man in die Ablehnung des Bots",
+    )
+    check("und nichts ausgewaehlt ebenso", "include.roles" in block)
+
+
 def main() -> int:
     test_secrets_never_reach_a_template()
     test_an_id_as_a_number_is_caught_too()
@@ -3087,6 +3952,21 @@ def main() -> int:
     test_the_vote_route_is_wired_up()
     test_the_panel_shows_the_votes()
     test_the_sort_bar_offers_both_orders()
+    test_every_action_writes_a_log_line()
+    test_the_progress_adds_up()
+    test_a_run_can_be_stopped()
+    test_the_log_takes_plain_and_async_functions()
+    test_the_job_route_streams_only_new_lines()
+    test_two_runs_at_once_are_refused()
+    test_the_apply_route_returns_immediately()
+    test_the_job_routes_exist()
+    test_the_wizard_has_five_steps()
+    test_the_dangerous_option_is_last()
+    test_the_live_log_scrolls_and_stops()
+    test_the_upload_tab_got_better()
+    test_the_job_route_behaves()
+    test_the_live_panel_is_wired()
+    test_the_upload_button_explains_itself()
 
     print()
     if failures:

@@ -1272,6 +1272,15 @@ export const api = {
   // Derselbe Daumen noch einmal nimmt sie ebenfalls zurück, das
   // entscheidet der Bot. Die Nutzer-ID setzt der Proxy aus der
   // Sitzung — sie steht bewusst NICHT in diesem Aufruf.
+  // Der Stand des laufenden Umbaus. `since` ist die Zahl der bereits
+  // gelesenen Protokollzeilen — zurück kommen nur die neuen.
+  templateJob: (guildId: string, since = 0) =>
+    request<any>(`/templates/${guildId}/job?since=${since}`),
+  templateJobCancel: (guildId: string) =>
+    request<any>(`/templates/${guildId}/job/cancel`, {
+      method: "POST",
+      body: "{}",
+    }),
   templateVote: (guildId: string, id: number, vote: number) =>
     request<any>(`/templates/${guildId}/template/${id}/vote`, {
       method: "POST",

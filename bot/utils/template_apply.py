@@ -27,6 +27,7 @@ halber Zustand.
 from __future__ import annotations
 
 import asyncio
+import inspect
 import re
 from typing import Any, Callable
 
@@ -47,6 +48,46 @@ STEP_PAUSE = 0.35
 _PLACEHOLDER = re.compile(r"\{(channel|role):([^}]{1,100})\}")
 
 
+class Cancelled(Exception):
+    """Der Lauf wurde von Hand abgebrochen.
+
+    Eigene Ausnahme statt eines Rueckgabewerts: der Abbruch muss aus
+    jeder Schleifentiefe sofort heraus, und ein Rueckgabewert muesste
+    dafuer durch fuenf Ebenen weitergereicht und ueberall geprueft
+    werden -- eine vergessene Stelle liefe stillschweigend weiter.
+    """
+
+
+async def _emit(log, text: str, level: str = "info") -> None:
+    """Eine Zeile ins Protokoll schreiben.
+
+    Nimmt sowohl gewoehnliche als auch asynchrone Funktionen an. Der
+    Live-Log der Route ist asynchron, die Tests reichen eine einfache
+    Liste herein -- ohne diese Weiche muesste es zwei Aufrufwege
+    geben, und einer davon waere irgendwann falsch.
+    """
+
+    if log is None:
+        return
+    result = log(text, level)
+    if inspect.isawaitable(result):
+        await result
+
+
+async def _breathe(stop) -> None:
+    """Kurz Luft holen -- und dabei auf den Abbruch hoeren.
+
+    `stop` ist eine Funktion, die True liefert, wenn abgebrochen
+    werden soll. Sie wird VOR jeder Discord-Aktion gefragt, nicht nur
+    einmal am Anfang: ein Lauf ueber hundert Kanaele dauert Minuten,
+    und ein Abbruch, der erst am Ende wirkt, ist keiner.
+    """
+
+    if stop is not None and stop():
+        raise Cancelled()
+    await asyncio.sleep(STEP_PAUSE)
+
+
 class Report:
     """Was beim Anwenden passiert ist.
 
@@ -59,6 +100,15 @@ class Report:
         self.deleted: list[str] = []
         self.skipped: list[str] = []
         self.errors: list[str] = []
+        # Wie viele Einzelschritte geplant sind und wie viele durch
+        # sind. Fuer den Fortschrittsbalken -- ohne Zahlen bliebe nur
+        # ein sich drehender Kreis, der nichts ueber die Dauer sagt.
+        self.total = 0
+        self.done = 0
+        self.cancelled = False
+
+    def step(self) -> None:
+        self.done = min(self.done + 1, self.total) if self.total else self.done + 1
 
     def as_dict(self) -> dict:
         return {
@@ -66,7 +116,10 @@ class Report:
             "deleted": self.deleted,
             "skipped": self.skipped,
             "errors": self.errors,
-            "ok": not self.errors,
+            "total": self.total,
+            "done": self.done,
+            "cancelled": self.cancelled,
+            "ok": not self.errors and not self.cancelled,
         }
 
 
@@ -171,7 +224,8 @@ def _protected_channels(guild) -> set[int]:
     return keep
 
 
-async def wipe_server(guild, report: Report, log: Callable | None = None) -> set[int]:
+async def wipe_server(guild, report: Report, log: Callable | None = None,
+                      stop: Callable | None = None) -> set[int]:
     """Kanaele und Rollen entfernen. Gibt die geloeschten IDs zurueck.
 
     Was stehen bleibt:
@@ -211,16 +265,20 @@ async def wipe_server(guild, report: Report, log: Callable | None = None) -> set
     for channel in list(getattr(guild, "channels", [])):
         if int(channel.id) in protected:
             report.skipped.append(f"Kanal {channel.name} (von Discord benötigt)")
+            await _emit(
+                log, f"Kanal {channel.name} bleibt (von Discord benötigt)", "warn"
+            )
             continue
         try:
             await channel.delete(reason="Vorlage: Server wird neu aufgesetzt")
             gone.add(int(channel.id))
             report.deleted.append(f"Kanal {channel.name}")
-            if log:
-                log(f"Kanal gelöscht: {channel.name}")
+            await _emit(log, f"Kanal gelöscht: #{channel.name}", "delete")
         except Exception as error:
             report.errors.append(f"Kanal {channel.name}: {error}")
-        await asyncio.sleep(STEP_PAUSE)
+            await _emit(log, f"Kanal {channel.name}: {error}", "error")
+        report.step()
+        await _breathe(stop)
 
     for role in list(getattr(guild, "roles", [])):
         if getattr(role, "is_default", lambda: False)():
@@ -229,23 +287,28 @@ async def wipe_server(guild, report: Report, log: Callable | None = None) -> set
             continue
         if int(getattr(role, "position", 0)) >= my_top:
             report.skipped.append(f"Rolle {role.name} (steht über dem Bot)")
+            await _emit(
+                log, f"Rolle {role.name} bleibt (steht über dem Bot)", "warn"
+            )
             continue
         try:
             await role.delete(reason="Vorlage: Server wird neu aufgesetzt")
             gone.add(int(role.id))
             report.deleted.append(f"Rolle {role.name}")
-            if log:
-                log(f"Rolle gelöscht: {role.name}")
+            await _emit(log, f"Rolle gelöscht: @{role.name}", "delete")
         except Exception as error:
             report.errors.append(f"Rolle {role.name}: {error}")
-        await asyncio.sleep(STEP_PAUSE)
+            await _emit(log, f"Rolle {role.name}: {error}", "error")
+        report.step()
+        await _breathe(stop)
 
     return gone
 
 
 async def apply_roles(guild, payload: dict, report: Report,
                       log: Callable | None = None,
-                      gone: set[int] | None = None) -> dict[str, Any]:
+                      gone: set[int] | None = None,
+                      stop: Callable | None = None) -> dict[str, Any]:
     """Rollen anlegen. Gibt Name -> Rolle zurueck.
 
     Die Zuordnung braucht der naechste Schritt: Kanalrechte verweisen
@@ -294,11 +357,12 @@ async def apply_roles(guild, payload: dict, report: Report,
             )
             made[name] = role
             report.created.append(f"Rolle {name}")
-            if log:
-                log(f"Rolle angelegt: {name}")
+            await _emit(log, f"Rolle angelegt: @{name}", "create")
         except Exception as error:
             report.errors.append(f"Rolle {name}: {error}")
-        await asyncio.sleep(STEP_PAUSE)
+            await _emit(log, f"Rolle {name}: {error}", "error")
+        report.step()
+        await _breathe(stop)
 
     return made
 
@@ -320,7 +384,8 @@ def _build_overwrites(entries: list[dict], roles: dict[str, Any], guild):
 
 async def apply_channels(guild, payload: dict, roles: dict[str, Any],
                          report: Report, log: Callable | None = None,
-                         gone: set[int] | None = None) -> dict:
+                         gone: set[int] | None = None,
+                         stop: Callable | None = None) -> dict:
     """Kategorien und Kanaele anlegen.
 
     `gone` sind die IDs aus `wipe_server` -- siehe die Erklaerung
@@ -350,11 +415,12 @@ async def apply_channels(guild, payload: dict, roles: dict[str, Any],
             )
             made_categories[name] = created
             report.created.append(f"Kategorie {name}")
-            if log:
-                log(f"Kategorie angelegt: {name}")
+            await _emit(log, f"Kategorie angelegt: {name}", "create")
         except Exception as error:
             report.errors.append(f"Kategorie {name}: {error}")
-        await asyncio.sleep(STEP_PAUSE)
+            await _emit(log, f"Kategorie {name}: {error}", "error")
+        report.step()
+        await _breathe(stop)
 
     # Ein Kanal ist durch Name **und Kategorie** bestimmt, nicht durch
     # den Namen allein.
@@ -431,12 +497,18 @@ async def apply_channels(guild, payload: dict, roles: dict[str, Any],
 
             existing.add((name, where))
             report.created.append(f"Kanal {name}")
-            if log:
-                log(f"Kanal angelegt: {name}")
+            await _emit(
+                log,
+                f"Kanal angelegt: {'🔊 ' if kind == 'voice' else '#'}{name}"
+                + (f" in {where}" if where else ""),
+                "create",
+            )
             _ = channel
         except Exception as error:
             report.errors.append(f"Kanal {name}: {error}")
-        await asyncio.sleep(STEP_PAUSE)
+            await _emit(log, f"Kanal {name}: {error}", "error")
+        report.step()
+        await _breathe(stop)
 
     return made_categories
 
@@ -488,7 +560,8 @@ def resolve_placeholders(value, guild):
 
 
 async def apply_features(guild, payload: dict, wanted: dict[str, bool],
-                         report: Report, log: Callable | None = None) -> None:
+                         report: Report, log: Callable | None = None,
+                         stop: Callable | None = None) -> None:
     """Die Dashboard-Einstellungen uebernehmen.
 
     Nur die ausgewaehlten. `wanted` kommt aus dem Reiter "Dashboard
@@ -583,10 +656,11 @@ async def apply_features(guild, payload: dict, wanted: dict[str, bool],
                     _ = written
                 await db.commit()
             report.created.append(f"Einstellungen: {label}")
-            if log:
-                log(f"Einstellungen übernommen: {label}")
+            await _emit(log, f"Einstellungen übernommen: {label}", "create")
         except Exception as error:
             report.errors.append(f"Einstellungen {label}: {error}")
+            await _emit(log, f"Einstellungen {label}: {error}", "error")
+        report.step()
 
 
 async def apply_template(
@@ -595,6 +669,7 @@ async def apply_template(
     options: dict,
     *,
     log: Callable | None = None,
+    stop: Callable | None = None,
 ) -> dict:
     """Alles zusammen. Gibt den Bericht zurueck.
 
@@ -613,49 +688,117 @@ async def apply_template(
     problems = await precheck(guild, payload, wipe=bool(options.get("wipe")))
     if problems:
         report.errors.extend(problems)
+        for problem in problems:
+            await _emit(log, problem, "error")
         return report.as_dict()
 
-    # Was geloescht wurde, aber vielleicht noch im Cache steht. Ohne
-    # diese Liste hielten die naechsten Schritte den geleerten Server
-    # fuer voll und legten nichts an -- siehe `wipe_server`.
-    gone: set[int] = set()
+    # Wie viele Einzelschritte insgesamt anstehen.
+    #
+    # Vorher gab es diese Zahl nicht, und der Fortschrittsbalken haette
+    # nur raten koennen. Sie wird VOR dem ersten Anfassen berechnet:
+    # danach aendert sich der Serverzustand, und eine Zahl, die
+    # unterwegs waechst, ist kein Fortschritt.
+    report.total = _count_steps(guild, payload, options)
+    await _emit(log, f"{report.total} Schritte geplant", "info")
+
+    try:
+        # Was geloescht wurde, aber vielleicht noch im Cache steht. Ohne
+        # diese Liste hielten die naechsten Schritte den geleerten Server
+        # fuer voll und legten nichts an -- siehe `wipe_server`.
+        gone: set[int] = set()
+        if options.get("wipe"):
+            await _emit(log, "Server wird geleert …", "step")
+            gone = await wipe_server(guild, report, log, stop)
+
+        roles: dict[str, Any] = {}
+        if options.get("roles", True):
+            await _emit(log, "Rollen werden angelegt …", "step")
+            roles = await apply_roles(guild, payload, report, log, gone, stop)
+        else:
+            for role in getattr(guild, "roles", []):
+                if int(getattr(role, "id", 0)) in gone:
+                    continue
+                roles.setdefault(role.name, role)
+
+        if options.get("channels", True):
+            await _emit(log, "Kanäle werden angelegt …", "step")
+            # Ohne Rechte-Übernahme die Overwrites vorher entfernen: so
+            # entstehen die Kanäle mit den Serverstandards.
+            working = payload
+            if not options.get("permissions", True):
+                working = dict(payload)
+                working["categories"] = [
+                    {**c, "overwrites": []} for c in payload.get("categories") or []
+                ]
+                working["channels"] = [
+                    {**c, "overwrites": []} for c in payload.get("channels") or []
+                ]
+            await apply_channels(guild, working, roles, report, log, gone, stop)
+
+        if options.get("features", False):
+            await _emit(log, "Einstellungen werden übernommen …", "step")
+            await apply_features(
+                guild, payload, options.get("feature_keys") or {}, report, log,
+                stop,
+            )
+
+    except Cancelled:
+        # Abgebrochen ist NICHT dasselbe wie fehlgeschlagen: alles bis
+        # hierher ist wirklich passiert und steht im Bericht. Was schon
+        # geloescht wurde, bleibt geloescht -- Discord kennt kein
+        # Zurueck, und das muss die Meldung auch sagen.
+        report.cancelled = True
+        await _emit(
+            log,
+            "Abgebrochen. Was bis hier geschah, bleibt bestehen — "
+            "Discord kennt kein Zurück.",
+            "warn",
+        )
+        return report.as_dict()
+
+    await _emit(
+        log,
+        f"Fertig. {len(report.created)} angelegt, {len(report.deleted)} gelöscht"
+        + (f", {len(report.errors)} Fehler" if report.errors else ""),
+        "error" if report.errors else "done",
+    )
+    return report.as_dict()
+
+
+def _count_steps(guild, payload: dict, options: dict) -> int:
+    """Wie viele Discord-Aufrufe der Lauf ungefaehr braucht.
+
+    Fuer den Fortschrittsbalken. Bewusst eine Schaetzung: was wirklich
+    passiert, haengt davon ab, was auf dem Server schon steht -- und
+    das kann sich zwischen Zaehlen und Anlegen aendern. Lieber eine
+    Zahl, die am Ende leicht danebenliegt, als gar keine.
+    """
+
+    total = 0
+
     if options.get("wipe"):
-        if log:
-            log("Server wird geleert …")
-        gone = await wipe_server(guild, report, log)
-
-    roles: dict[str, Any] = {}
-    if options.get("roles", True):
-        if log:
-            log("Rollen werden angelegt …")
-        roles = await apply_roles(guild, payload, report, log, gone)
-    else:
-        for role in getattr(guild, "roles", []):
-            if int(getattr(role, "id", 0)) in gone:
-                continue
-            roles.setdefault(role.name, role)
-
-    if options.get("channels", True):
-        if log:
-            log("Kanäle werden angelegt …")
-        # Ohne Rechte-Übernahme die Overwrites vorher entfernen: so
-        # entstehen die Kanäle mit den Serverstandards.
-        working = payload
-        if not options.get("permissions", True):
-            working = dict(payload)
-            working["categories"] = [
-                {**c, "overwrites": []} for c in payload.get("categories") or []
-            ]
-            working["channels"] = [
-                {**c, "overwrites": []} for c in payload.get("channels") or []
-            ]
-        await apply_channels(guild, working, roles, report, log, gone)
-
-    if options.get("features", False):
-        if log:
-            log("Einstellungen werden übernommen …")
-        await apply_features(
-            guild, payload, options.get("feature_keys") or {}, report, log
+        protected = _protected_channels(guild)
+        total += sum(
+            1
+            for c in getattr(guild, "channels", [])
+            if int(getattr(c, "id", 0)) not in protected
+        )
+        total += sum(
+            1
+            for r in getattr(guild, "roles", [])
+            if not getattr(r, "is_default", lambda: False)()
+            and not getattr(r, "managed", False)
         )
 
-    return report.as_dict()
+    if options.get("roles", True):
+        total += len(payload.get("roles") or [])
+    if options.get("channels", True):
+        total += len(payload.get("categories") or [])
+        total += len(payload.get("channels") or [])
+    if options.get("features", False):
+        wanted = options.get("feature_keys") or {}
+        total += sum(
+            1 for key in (payload.get("features") or {}) if wanted.get(key, False)
+        )
+
+    return total

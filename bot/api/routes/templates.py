@@ -815,10 +815,8 @@ async def apply(guild_id: int, data: dict, bot: "universitybot" = Depends(get_bo
                 "auf dem Server kann sich inzwischen etwas geändert haben.",
             )
 
-    report = await applier.apply_template(guild, found.get("payload") or {}, options)
-
-    # Dasselbe hier: `actor` kommt aus der Sitzung, `actor_id` wurde
-    # nie mitgeschickt. Der Verlauf im Admin-Reiter zeigte deshalb bei
+    # `actor` kommt aus der Sitzung, `actor_id` wurde nie
+    # mitgeschickt. Der Verlauf im Admin-Reiter zeigte deshalb bei
     # jedem Eintrag eine leere Spalte -- gerade beim Anwenden mit
     # "alles loeschen" ist das die wichtigste Angabe ueberhaupt.
     actor_id = (data or {}).get("actor") or (data or {}).get("actor_id")
@@ -826,6 +824,16 @@ async def apply(guild_id: int, data: dict, bot: "universitybot" = Depends(get_bo
         actor_id = int(actor_id) if actor_id else None
     except (TypeError, ValueError):
         actor_id = None
+
+    # Zwei Laeufe auf demselben Server gleichzeitig waeren ein
+    # Durcheinander: der eine loescht, was der andere gerade anlegt.
+    running = _job(guild_id)
+    if running and running["state"] == "running":
+        raise HTTPException(
+            409,
+            "Auf diesem Server läuft bereits eine Vorlage. Bitte warten "
+            "oder abbrechen.",
+        )
 
     await store.bump_uses(db, template_id)
     await store.log_apply(
@@ -842,4 +850,203 @@ async def apply(guild_id: int, data: dict, bot: "universitybot" = Depends(get_bo
         detail=f"{found['name']}{' (geleert)' if options['wipe'] else ''}",
     )
 
-    return {"status": "success", "report": report}
+    # Ab hier im Hintergrund.
+    #
+    # Vorher lief das Anwenden IN der HTTP-Antwort. Bei hundert
+    # Kanaelen dauert das mit Discords Rate-Limits ueber zehn Minuten
+    # -- laenger als jedes Zeitlimit zwischen Browser und Server. Der
+    # Nutzer sah einen Ladekreis, dann einen Netzwerkfehler, waehrend
+    # der Bot in Wahrheit weiterarbeitete. Und ein Live-Log war so
+    # ohnehin nicht moeglich: die Antwort kam erst, wenn alles vorbei
+    # war.
+    job = _start_job(guild_id, found, options)
+    _spawn(bot, _run_apply(guild, found.get("payload") or {}, options, job),
+           guild_id)
+
+    return {
+        "status": "started",
+        "job": _public_job(job),
+    }
+
+
+# ── Laufende Anwendungen ─────────────────────────────────────────────
+#
+# Der Zustand liegt im Arbeitsspeicher, nicht in der Datenbank: er ist
+# nur waehrend des Laufs interessant und nach einem Neustart des Bots
+# ohnehin bedeutungslos -- dann laeuft auch der Umbau nicht mehr.
+
+_JOBS: dict[int, dict] = {}
+
+# Laufende Tasks festhalten. asyncio haelt auf Tasks nur eine schwache
+# Referenz; ohne dieses Dict kann ein Lauf mitten drin eingesammelt
+# werden. Dieselbe Falle wie beim Speedrun.
+_TASKS: dict[int, set] = {}
+
+# Wie lange ein fertiger Lauf abrufbar bleibt. Lange genug, dass man
+# den Bericht in Ruhe liest, kurz genug, dass der Speicher nicht
+# volllaeuft.
+KEEP_FINISHED = 15 * 60
+
+# Mehr Zeilen liest ohnehin niemand, und eine unbegrenzte Liste waere
+# bei einem Server mit 500 Kanaelen ein Speicherleck.
+MAX_LINES = 800
+
+
+def _spawn(bot, coro, guild_id: int):
+    """Eine Coroutine auf der Bot-Schleife starten und festhalten.
+
+    Alles, was discord.py anfasst, gehoert auf die Schleife des Bots
+    -- die API laeuft in einem eigenen Thread. Dasselbe Muster wie in
+    `speedrun.py`.
+    """
+
+    import asyncio
+
+    loop = getattr(bot, "loop", None)
+    if loop is not None and not loop.is_closed():
+        handle = asyncio.run_coroutine_threadsafe(coro, loop)
+    else:  # Tests und lokaler Betrieb ohne laufenden Bot
+        handle = asyncio.ensure_future(coro)
+
+    tasks = _TASKS.setdefault(guild_id, set())
+    tasks.add(handle)
+    handle.add_done_callback(lambda finished: tasks.discard(finished))
+    return handle
+
+
+def _prune_jobs() -> None:
+    now = time.time()
+    for guild_id, job in list(_JOBS.items()):
+        if job["state"] == "running":
+            continue
+        if job.get("finished") and now - job["finished"] > KEEP_FINISHED:
+            del _JOBS[guild_id]
+
+
+def _job(guild_id: int) -> dict | None:
+    _prune_jobs()
+    return _JOBS.get(guild_id)
+
+
+def _start_job(guild_id: int, found: dict, options: dict) -> dict:
+    job = {
+        "guild_id": guild_id,
+        "template_id": found["id"],
+        "template_name": found["name"],
+        "state": "running",
+        "lines": [],
+        "started": time.time(),
+        "finished": None,
+        "report": None,
+        "total": 0,
+        "done": 0,
+        "stop": False,
+        "wipe": bool(options.get("wipe")),
+    }
+    _JOBS[guild_id] = job
+    return job
+
+
+def _public_job(job: dict, since: int = 0) -> dict:
+    """Was das Dashboard sehen darf.
+
+    `since` ist die Zahl der bereits gelesenen Zeilen. Nur der Rest
+    geht raus -- bei 800 Zeilen im Sekundentakt waere alles jedes Mal
+    komplett zu uebertragen unnoetig.
+    """
+
+    return {
+        "state": job["state"],
+        "template_name": job["template_name"],
+        "lines": job["lines"][since:],
+        "line_count": len(job["lines"]),
+        "total": job["total"],
+        "done": job["done"],
+        "started": job["started"],
+        "finished": job["finished"],
+        "report": job["report"],
+        "wipe": job["wipe"],
+    }
+
+
+async def _run_apply(guild, payload: dict, options: dict, job: dict) -> None:
+    """Der eigentliche Umbau, im Hintergrund."""
+
+    async def log(text: str, level: str = "info") -> None:
+        if len(job["lines"]) >= MAX_LINES:
+            return
+        job["lines"].append(
+            {"text": text, "level": level, "at": time.time()}
+        )
+        # Den Fortschritt gleich mitschreiben: so muss die Oberflaeche
+        # nur eine Quelle lesen.
+        job["total"] = max(job["total"], 0)
+
+    def stop() -> bool:
+        return bool(job.get("stop"))
+
+    try:
+        report = await applier.apply_template(
+            guild, payload, options, log=log, stop=stop
+        )
+        job["report"] = report
+        job["total"] = report.get("total", 0)
+        job["done"] = report.get("done", 0)
+        if report.get("cancelled"):
+            job["state"] = "cancelled"
+        elif report.get("errors"):
+            job["state"] = "partial"
+        else:
+            job["state"] = "done"
+    except Exception as error:  # pragma: no cover - Notnagel
+        # Ein unerwarteter Fehler darf den Job nicht ewig auf
+        # "running" stehen lassen -- dann liesse sich auf diesem
+        # Server nie wieder eine Vorlage anwenden.
+        job["state"] = "failed"
+        job["lines"].append(
+            {"text": f"Unerwarteter Fehler: {error}", "level": "error",
+             "at": time.time()}
+        )
+    finally:
+        job["finished"] = time.time()
+
+
+@router.get("/{guild_id}/job", summary="Stand des laufenden Umbaus")
+async def job_status(
+    guild_id: int, since: int = 0, bot: "universitybot" = Depends(get_bot)
+):
+    """Was der Bot gerade tut.
+
+    Wird im Sekundentakt abgefragt. `since` ist die Zahl der bereits
+    gelesenen Zeilen; zurueck kommen nur die neuen.
+    """
+
+    _guild_or_404(bot, guild_id)
+
+    job = _job(guild_id)
+    if job is None:
+        return {"job": None}
+
+    return {"job": _public_job(job, since=max(0, int(since)))}
+
+
+@router.post("/{guild_id}/job/cancel", summary="Laufenden Umbau abbrechen")
+async def job_cancel(guild_id: int, bot: "universitybot" = Depends(get_bot)):
+    """Anhalten, so weit es geht.
+
+    Was schon geloescht ist, bleibt geloescht -- Discord kennt kein
+    Zurueck. Der Abbruch verhindert nur, dass es weitergeht. Genau das
+    sagt auch die Meldung im Protokoll.
+    """
+
+    _guild_or_404(bot, guild_id)
+
+    job = _job(guild_id)
+    if job is None or job["state"] != "running":
+        raise HTTPException(404, "Auf diesem Server läuft gerade nichts.")
+
+    job["stop"] = True
+    job["lines"].append(
+        {"text": "Abbruch angefordert …", "level": "warn", "at": time.time()}
+    )
+    return {"status": "success"}

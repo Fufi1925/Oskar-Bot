@@ -1,6 +1,12 @@
 {
  "commits": [
   {
+   "commit": "a30c784a0423b39e2eac58f756a656491585e34a",
+   "at": "1786209155",
+   "subject": "feat(templates): Bewertungen, faire Rangfolge, neuer Community-Reiter",
+   "body": "Daumen hoch/runter je Vorlage. Eine Stimme pro NUTZER, erzwungen vom\nPrimaerschluessel (template_id, user_id) -- nicht vom\nAnwendungscode, sonst kaemen zwei gleichzeitige Klicks beide durch.\nDerselbe Daumen noch einmal nimmt die Stimme zurueck.\n\nZwei getrennte Sortierungen statt einer:\n  \"Beste\"        nach Bewertung (Wilson, 95 %)\n  \"Meist genutzt\" nach Anwendungen\nVorher hiess \"beliebt\" in Wahrheit \"oft angewendet\" -- das ist etwas\nanderes: eine Vorlage kann oft angewendet werden, weil sie oben\nsteht, und trotzdem niemandem gefallen.\n\nWarum Wilson und nicht hoch-minus-runter: 3/0 haette sonst denselben\nRang wie 300/297. Und nicht der reine Anteil: eine einzelne Stimme\nmit 100 % fuehrte die ganze Liste an. Die untere Grenze des\nKonfidenzintervalls loest beides.\n\nDer Reiter allgemein:\n- Sortierung als sichtbare Knopfleiste statt versteckt im <select>\n- Voreinstellung \"Beste\" statt \"Neueste\"\n- Filter \"Ohne Code\" / \"Bewertet\", Suche mit Loeschknopf\n- Neu laden von Hand\n- Karten zeigen Funktionen-Zahl, Prozent positiv, Platzhaltertext\n  ohne Beschreibung\n- Gesperrte Vorlagen immer unten, in JEDER Sortierung\n- Nur der Titel oeffnet; die Daumen sind eigene Knoepfe (vorher war\n  die ganze Karte ein <button>, verschachtelte Buttons sind in HTML\n  unzulaessig)\n- Bewerten geht auch in der Detailansicht -- man entscheidet sich\n  meist erst nach dem Ansehen\n\nZwei eigene Fehler beim Bauen gefunden und behoben:\n\n1. Die erste Fassung der Formel stand als SQL-Ausdruck und war\n   FALSCH: 0 hoch / 5 runter ergab 0.11 statt 0. Aufgefallen nur\n   durch repro/check_wilson.py, das gegen eine Referenzrechnung\n   prueft. Beim Korrigieren kam heraus, dass sie sqrt() braucht --\n   in SQLite ein OPTIONALES Modul, das im Zielcontainer fehlen kann;\n   dann waere die Liste nicht falsch sortiert, sondern ganz\n   ausgefallen. Die Rechnung steht jetzt in Python.\n\n2. Die Sperre gegen Selbstbewertung haette nie gegriffen:\n   _row_to_template lieferte gar kein author_id, der Vergleich waere\n   immer gegen einen leeren String gelaufen.\n\nLoeschen raeumt jetzt auch die Stimmen weg -- die IDs sind\nAUTOINCREMENT, sonst erbt eine spaetere Vorlage fremde Stimmen.\n\nTests: 11 neue Faelle. Acht Testluecken sind mir dabei selbst\naufgefallen (blieben gruen, obwohl die Mutation den Fehler wieder\neingebaut hatte) und wurden durch Verhaltenstests ersetzt.\nMutationstest: 108/108 erkannt, Baum byteweise unveraendert.\n78/78 Testdateien gruen, Boot-Test 148 Cogs / 539 Prefix / 58 App /\n0 Fehler, tsc und next build sauber."
+  },
+  {
    "commit": "4c60a3b33a90802474c2116c817a1f967e0562ea",
    "at": "1786202216",
    "subject": "fix(templates): Admin-Detailansicht war leer, Bot-Praesenz war geraten",
@@ -231,12 +237,6 @@
   {
    "commit": "471c8a238f55d2ae8e4656ca7fbf31143802f424",
    "at": "1786136815",
-   "subject": "feat(phantom): EXACT full original Aleks ticket bot (5653 lines - every function kept, no removal, no shortening)",
-   "body": ""
-  },
-  {
-   "commit": "3b14e1d91c9ffb938c1b8b58ca4b68c1d202e53b",
-   "at": "1786136809",
    "subject": "feat(phantom): EXACT full original Aleks ticket bot (5653 lines - every function kept, no removal, no shortening)",
    "body": ""
   }
