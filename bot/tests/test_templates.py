@@ -704,19 +704,78 @@ def test_wiping_spares_what_must_stay():
     )
 
 
-def test_deleting_needs_the_server_name():
-    """Ein Fehlklick darf nicht reichen."""
-    print("\nLoeschen verlangt den Servernamen")
+def test_deleting_waits_ten_seconds_server_side():
+    """Die Wartezeit muss im BOT stehen, nicht nur im Browser.
+
+    Das Abtippen des Servernamens ist auf Wunsch entfallen. Es sah nach
+    Sicherheit aus, war aber keine: der Name stand als Platzhalter
+    direkt im Feld darueber.
+
+    Was ihn ersetzt, muss dafuer echt sein. Eine Sperre, die nur im
+    `disabled` eines Knopfes lebt, umgeht man mit einem einzigen
+    `curl` -- deshalb rechnet der Bot selbst nach.
+    """
+    print("\nLoeschen wartet zehn Sekunden, serverseitig")
 
     route = strip_py(
         open(os.path.join(BOT, "api", "routes", "templates.py"), encoding="utf-8").read()
     )
 
+    found = re.search(r"WIPE_DELAY_SECONDS\s*=\s*(\d+)", route)
+    seconds = int(found.group(1)) if found else 0
+    check("die Wartezeit steht im Bot", bool(found))
+    check("sie betraegt 10 Sekunden", seconds == 10, f"-> {seconds}")
+
     block = route.split('if options["wipe"]:')[1].split("report =")[0]
-    check("der Name wird verlangt", "confirm" in block)
-    check("und verglichen", "guild.name" in block)
-    guarded = re.search(r"!=\s*guild\.name[\s\S]{0,200}?raise HTTPException", block)
-    check("bei Abweichung wird abgebrochen", bool(guarded))
+    check("der Zeitstempel wird gelesen", "armed_at" in block)
+
+    # Nicht nur erwaehnt -- verglichen, und bei zu frueh abgebrochen.
+    guarded = re.search(
+        r"waited\s*<\s*WIPE_DELAY_SECONDS[\s\S]{0,300}?raise HTTPException", block
+    )
+    check(
+        "zu frueh wird abgewiesen",
+        bool(guarded),
+        "die Wartezeit wird berechnet, aber nichts passiert",
+    )
+
+    # Ohne diese Pruefung reichte `armed_at: 0` -- dann waere
+    # `time.time() - 0` riesig und die Wartezeit immer erfuellt.
+    zero = re.search(r"started\s*<=\s*0[\s\S]{0,300}?raise HTTPException", block)
+    check(
+        "ein fehlender Zeitstempel wird abgewiesen",
+        bool(zero),
+        "»armed_at: 0« haette die Sperre ausgehebelt",
+    )
+
+    # Eine Vorschau von gestern beschreibt den Server von gestern.
+    stale = re.search(
+        r"waited\s*>\s*WIPE_WINDOW_SECONDS[\s\S]{0,300}?raise HTTPException", block
+    )
+    check("eine alte Pruefung verfaellt", bool(stale))
+
+    # Und die Pruefung muss den Stempel ueberhaupt ausliefern.
+    preview = route.split("async def preview")[1].split("async def ")[0]
+    check(
+        "die Pruefung liefert den Zeitstempel",
+        '"armed_at": time.time()' in preview,
+        "sonst kann das Dashboard ihn gar nicht mitschicken",
+    )
+    check("und die Wartezeit dazu", '"wipe_delay": WIPE_DELAY_SECONDS' in preview)
+
+    # Der Servername darf NICHT mehr verlangt werden -- sonst haengt
+    # der Knopf an einem Feld, das es nicht mehr gibt.
+    panel = strip_ts(read_dash("components", "dashboard", "template-community-panel.tsx"))
+    check(
+        "das Namensfeld ist weg",
+        "confirmName" not in panel,
+        "es steht noch da und blockiert den Knopf",
+    )
+    check(
+        "und wird auch nicht mehr mitgeschickt",
+        "confirm:" not in panel,
+        "der Bot erwartet es nicht mehr",
+    )
 
 
 def test_the_apply_survives_a_single_failure():
@@ -860,7 +919,7 @@ def test_both_tabs_are_marked_experimental():
 
 
 def test_the_delay_before_wiping():
-    """Acht Sekunden, in denen man noch einmal liest."""
+    """Zehn Sekunden, in denen man noch einmal liest."""
     print("\nDer Loesch-Knopf ist gesperrt")
 
     panel = strip_ts(read_dash("components", "dashboard", "template-community-panel.tsx"))
@@ -868,7 +927,22 @@ def test_the_delay_before_wiping():
     check("es gibt eine Wartezeit", "WIPE_DELAY_SECONDS" in panel)
     found = re.search(r"WIPE_DELAY_SECONDS\s*=\s*(\d+)", panel)
     seconds = int(found.group(1)) if found else 0
-    check("sie betraegt 8 Sekunden", seconds == 8, f"-> {seconds}")
+    check("sie betraegt 10 Sekunden", seconds == 10, f"-> {seconds}")
+
+    # Die Uhr muss an der PRUEFUNG haengen, nicht am Schalter.
+    #
+    # Lief sie ab dem Umlegen des Schalters, war sie abgelaufen, bevor
+    # die Pruefung zurueck war: der Knopf sah frei aus, der Bot wies
+    # trotzdem ab. Genau der Fall, der wie ein Fehler aussieht.
+    effect = re.search(
+        r"useEffect\(\(\) => \{[\s\S]{0,1400}?\}, \[wipe, preview\?\.armed_at",
+        panel,
+    )
+    check(
+        "die Wartezeit startet mit der Pruefung",
+        bool(effect),
+        "sie haengt noch am Schalter statt an der Pruefung",
+    )
 
     # Die Sperre muss im `disabled` des Knopfes stehen -- nicht bloss
     # irgendwo. Sie kommt auch in der Beschriftung vor; eine Suche
@@ -886,13 +960,871 @@ def test_the_delay_before_wiping():
         bool(disabled) and "!preview" in disabled.group(1),
         "sonst liesse sich ungeprueft loeschen",
     )
-    check("der Servername wird verlangt", "confirmName" in panel)
-    check(
-        "und geprueft",
-        "confirmName.trim().toLowerCase()" in panel,
-        "sonst waere das Feld Zierde",
-    )
     check("der Knopf ist rot", "bg-red-500/15" in panel)
+
+    # Der Zeitstempel muss beim Anwenden wirklich MITGESCHICKT werden.
+    # Ohne ihn weist der Bot jeden Loeschversuch ab -- die Funktion
+    # waere komplett tot, und zwar leise.
+    apply_block = panel.split("const runApply")[1].split("if (loading)")[0]
+    check(
+        "der Zeitstempel geht mit",
+        "armed_at: preview?.armed_at" in apply_block,
+        "der Bot weist sonst jeden Versuch ab",
+    )
+
+
+# ------------------------------------------------------------------ #
+# 7. Die drei echten Fehler, die beim Nachmessen auffielen
+# ------------------------------------------------------------------ #
+def test_wiping_then_building_actually_builds():
+    """Der schlimmste Fehler im ganzen System.
+
+    `channel.delete()` schickt nur die Anfrage. Aus `guild.channels`
+    verschwindet der Kanal erst, wenn das Gateway `CHANNEL_DELETE`
+    zurueckmeldet -- ein eigener Frame, Millisekunden bis Sekunden
+    spaeter.
+
+    `apply_channels` las danach sofort `{c.name for c in
+    guild.channels}` und uebersprang jeden Namen, der dort stand. Bei
+    "alles loeschen" standen dort ALLE gerade geloeschten Namen: der
+    Server wurde geleert und danach nichts wieder angelegt.
+
+    Reproduziert in `repro/bug_templates_wipe.py`. Dieser Test faehrt
+    denselben Ablauf mit einer Gilde, deren Cache sich beim Loeschen
+    NICHT aktualisiert -- genau wie der echte.
+    """
+    print("\nLeeren und neu bauen baut auch wirklich")
+
+    from utils import template_apply as applier
+
+    applier.STEP_PAUSE = 0
+
+    class Role:
+        def __init__(self, guild, name, position, default=False):
+            self.guild, self.name, self.position = guild, name, position
+            self.id = abs(hash((name, position))) % 10**18
+            self._default, self.managed = default, False
+
+        def is_default(self):
+            return self._default
+
+        async def delete(self, reason=None):
+            self.guild.killed.append(self.name)
+
+    class Channel:
+        def __init__(self, guild, name):
+            self.guild, self.name, self.position = guild, name, 0
+            self.id = abs(hash(("c", name))) % 10**18
+            self.category, self.overwrites = None, {}
+
+        async def delete(self, reason=None):
+            self.guild.killed.append(self.name)
+
+    class Guild:
+        def __init__(self):
+            self.id, self.name = 1, "T"
+            self.killed, self.built = [], []
+            self.default_role = Role(self, "@everyone", 0, True)
+            # Der Cache bleibt stehen -- das ist der springende Punkt.
+            self._roles = [self.default_role, Role(self, "Mod", 5)]
+            self._channels = [Channel(self, "allgemein")]
+            self.rules_channel = None
+            self.public_updates_channel = None
+            self.system_channel = None
+            top = Role(self, "Bot", 50)
+            self.me = type("M", (), {
+                "guild_permissions": type("P", (), {
+                    "manage_channels": True, "manage_roles": True})(),
+                "top_role": top})()
+
+        @property
+        def roles(self):
+            return list(self._roles)
+
+        @property
+        def channels(self):
+            return list(self._channels)
+
+        @property
+        def categories(self):
+            return []
+
+        async def create_role(self, **kw):
+            self.built.append(kw["name"])
+            return Role(self, kw["name"], 3)
+
+        async def create_text_channel(self, **kw):
+            self.built.append(kw["name"])
+            return Channel(self, kw["name"])
+
+        async def create_voice_channel(self, **kw):
+            return await self.create_text_channel(**kw)
+
+        async def create_category(self, **kw):
+            return Channel(self, kw["name"])
+
+    payload = {
+        "categories": [],
+        "channels": [{"name": "allgemein", "kind": "text", "category": None}],
+        "roles": [{"name": "Mod", "colour": None, "permissions": []}],
+        "features": {},
+    }
+
+    guild = Guild()
+    asyncio.run(applier.apply_template(
+        guild, payload,
+        {"roles": True, "channels": True, "permissions": True,
+         "features": False, "wipe": True}))
+
+    check("die alte Rolle wurde geloescht", "Mod" in guild.killed)
+    check("der alte Kanal wurde geloescht", "allgemein" in guild.killed)
+    check(
+        "die Rolle wurde neu angelegt",
+        "Mod" in guild.built,
+        "geloescht und nicht wieder da -- der Server bleibt leer",
+    )
+    check(
+        "der Kanal wurde neu angelegt",
+        "allgemein" in guild.built,
+        "geloescht und nicht wieder da -- der Server bleibt leer",
+    )
+
+    # Und ohne Leeren muss die Wiederverwendung WEITER greifen: zwei
+    # Rollen "Mod" waeren danach kaum auseinanderzuhalten.
+    guild2 = Guild()
+    asyncio.run(applier.apply_template(
+        guild2, payload,
+        {"roles": True, "channels": True, "permissions": True,
+         "features": False, "wipe": False}))
+    check(
+        "ohne Leeren wird nichts doppelt angelegt",
+        "Mod" not in guild2.built and "allgemein" not in guild2.built,
+        f"-> {guild2.built}",
+    )
+
+
+def test_same_name_in_two_categories():
+    """»chat« unter Team UND unter Community.
+
+    Discord erlaubt gleichnamige Kanaele in verschiedenen Kategorien;
+    das ist ein voellig gewoehnlicher Aufbau. Verglichen wurde aber nur
+    der Name, also entstand nur der erste.
+
+    Reproduziert in `repro/bug_templates_dupnames.py`.
+    """
+    print("\nGleichnamige Kanaele in zwei Kategorien")
+
+    from utils import template_apply as applier
+
+    applier.STEP_PAUSE = 0
+
+    class Cat:
+        def __init__(self, name):
+            self.name, self.position = name, 0
+            self.id = abs(hash(name)) % 10**18
+            self.overwrites = {}
+
+    class Guild:
+        def __init__(self):
+            self.id, self.name = 1, "T"
+            self.built, self._cats = [], []
+            self.roles, self.channels = [], []
+            self.default_role = None
+
+        @property
+        def categories(self):
+            return list(self._cats)
+
+        async def create_category(self, **kw):
+            made = Cat(kw["name"])
+            self._cats.append(made)
+            return made
+
+        async def create_text_channel(self, **kw):
+            self.built.append(
+                f"{getattr(kw.get('category'), 'name', '-')}/{kw['name']}")
+            return object()
+
+        async def create_voice_channel(self, **kw):
+            return await self.create_text_channel(**kw)
+
+    payload = {
+        "categories": [
+            {"name": "Team", "position": 0, "overwrites": []},
+            {"name": "Community", "position": 1, "overwrites": []},
+        ],
+        "channels": [
+            {"name": "chat", "kind": "text", "category": "Team", "position": 0},
+            {"name": "chat", "kind": "text", "category": "Community",
+             "position": 1},
+        ],
+        "roles": [],
+    }
+
+    guild = Guild()
+    report = applier.Report()
+    asyncio.run(applier.apply_channels(guild, payload, {}, report))
+
+    check(
+        "beide werden angelegt",
+        len(guild.built) == 2,
+        f"-> {guild.built}",
+    )
+    check("in Team", "Team/chat" in guild.built)
+    check("und in Community", "Community/chat" in guild.built)
+
+    # Der Merker muss die Kategorie MITSCHREIBEN, nicht nur lesen.
+    #
+    # Ohne diesen Fall blieb der Test gruen, obwohl `existing.add`
+    # die Kategorie wegwarf: die zwei Kanaele oben liegen in
+    # verschiedenen Kategorien, aber sie kommen aus derselben Liste
+    # und der zweite wurde ohnehin nicht gegen den ersten geprueft.
+    # Erst DREI Kanaele decken es auf -- der dritte trifft auf den
+    # Eintrag, den der erste hinterlassen hat.
+    payload3 = {
+        "categories": [
+            {"name": "Team", "position": 0, "overwrites": []},
+            {"name": "Community", "position": 1, "overwrites": []},
+        ],
+        "channels": [
+            {"name": "chat", "kind": "text", "category": "Team", "position": 0},
+            {"name": "info", "kind": "text", "category": "Team", "position": 1},
+            {"name": "chat", "kind": "text", "category": "Community",
+             "position": 2},
+        ],
+        "roles": [],
+    }
+    guild3 = Guild()
+    asyncio.run(applier.apply_channels(guild3, payload3, {}, applier.Report()))
+    check(
+        "der Merker behaelt die Kategorie",
+        "Community/chat" in guild3.built,
+        f"»existing.add« wirft die Kategorie weg -> {guild3.built}",
+    )
+
+    # Und andersherum: derselbe Kanal ZWEIMAL in derselben Kategorie
+    # darf nur einmal entstehen.
+    #
+    # Ohne diesen Fall blieb der Test gruen, obwohl `existing.add` die
+    # Kategorie wegwarf -- die drei Kanaele oben liegen alle in
+    # verschiedenen Paaren und stolpern nie ueber den Merker. Erst ein
+    # echtes Duplikat trifft ihn.
+    guild5 = Guild()
+    asyncio.run(applier.apply_channels(
+        guild5,
+        {"categories": [{"name": "Team", "position": 0, "overwrites": []}],
+         "channels": [
+             {"name": "chat", "kind": "text", "category": "Team", "position": 0},
+             {"name": "chat", "kind": "text", "category": "Team", "position": 1},
+         ], "roles": []},
+        {}, applier.Report()))
+    check(
+        "ein echtes Duplikat entsteht nur einmal",
+        guild5.built.count("Team/chat") == 1,
+        f"der Merker vergisst die Kategorie -> {guild5.built}",
+    )
+
+    # Und die KATEGORIEN selbst duerfen nach dem Leeren nicht als
+    # bestehend gelten. Ohne diesen Fall blieb der Test gruen, obwohl
+    # eine gerade geloeschte Kategorie im Cache jeden Kanal darin
+    # elternlos gemacht haette.
+    class Guild4(Guild):
+        def __init__(self):
+            super().__init__()
+            stale = Cat("Team")
+            self._cats.append(stale)
+            self.stale_id = stale.id
+
+    guild4 = Guild4()
+    report4 = applier.Report()
+    asyncio.run(applier.apply_channels(
+        guild4,
+        {"categories": [{"name": "Team", "position": 0, "overwrites": []}],
+         "channels": [{"name": "chat", "kind": "text", "category": "Team"}],
+         "roles": []},
+        {}, report4, None, {guild4.stale_id}))
+    # Auf den KANAL zu schauen genuegt nicht: er entsteht so oder so,
+    # nur haengt er sonst an der toten Kategorie aus dem Cache. Discord
+    # antwortet darauf mit "Unknown Channel". Geprueft wird deshalb, ob
+    # die Kategorie wirklich NEU angelegt wurde.
+    check(
+        "eine geloeschte Kategorie wird neu angelegt",
+        "Kategorie Team" in report4.created,
+        f"der Kanal haengt an der toten Kategorie -> {report4.created}",
+    )
+    check("und der Kanal darin", "Team/chat" in guild4.built)
+
+    # Der Vergleich muss wirklich das Paar sein, nicht nur der Name.
+    src = strip_py(
+        open(os.path.join(BOT, "utils", "template_apply.py"),
+             encoding="utf-8").read()
+    )
+    block = src.split("async def apply_channels")[1].split("def resolve_")[0]
+    check(
+        "verglichen wird Name UND Kategorie",
+        "(name, where) in existing" in block,
+        "nur der Name reicht nicht",
+    )
+
+
+def test_an_unknown_column_does_not_lose_the_block():
+    """Eine Spalte zu viel darf nicht alles mitnehmen.
+
+    Das INSERT wurde aus den Spalten der QUELLE gebaut. Kennt das Ziel
+    eine davon nicht, warf SQLite »has no column named x« und der ganze
+    Block ging verloren -- statt der einen unpassenden Spalte.
+    """
+    print("\nEine unbekannte Spalte kostet nicht den ganzen Block")
+
+    import sqlite3
+
+    from utils import template_apply as applier
+    from utils import template_scan
+
+    folder = tempfile.mkdtemp()
+    path = os.path.join(folder, "music.db")
+    with sqlite3.connect(path) as db:
+        db.execute(
+            "CREATE TABLE music_settings (guild_id INTEGER PRIMARY KEY, "
+            "dj_role_id INTEGER)"
+        )
+
+    class Guild:
+        id, name = 1530378233579704370, "T"
+        roles, channels = [], []
+        default_role = None
+
+    original = dict(template_scan.FEATURE_TABLES)
+    template_scan.FEATURE_TABLES["music"] = ("Musik", path, ("music_settings",))
+    try:
+        report = applier.Report()
+        payload = {"features": {"music": {"label": "Musik", "tables": {
+            "music_settings": [
+                {"guild_id": 1, "dj_role_id": None, "volume": 60}]}}}}
+        asyncio.run(applier.apply_features(
+            Guild(), payload, {"music": True}, report))
+    finally:
+        template_scan.FEATURE_TABLES.clear()
+        template_scan.FEATURE_TABLES.update(original)
+
+    with sqlite3.connect(path) as db:
+        rows = db.execute("SELECT * FROM music_settings").fetchall()
+
+    check(
+        "die passenden Spalten kommen an",
+        bool(rows),
+        f"alles verloren wegen einer Spalte -> {report.errors}",
+    )
+    check("und es gibt keinen Fehler", not report.errors, str(report.errors))
+    check(
+        "die unpassende wird benannt",
+        any("volume" in entry for entry in report.skipped),
+        "still weggeworfen waere schlechter als gemeldet",
+    )
+
+    # Eine Tabelle, die es gar nicht gibt, ist kein Fehler des Nutzers.
+    template_scan.FEATURE_TABLES["music"] = ("Musik", path, ("music_settings",))
+    try:
+        report2 = applier.Report()
+        payload2 = {"features": {"music": {"label": "Musik", "tables": {
+            "gibt_es_nicht": [{"guild_id": 1}]}}}}
+        asyncio.run(applier.apply_features(
+            Guild(), payload2, {"music": True}, report2))
+    finally:
+        template_scan.FEATURE_TABLES.clear()
+        template_scan.FEATURE_TABLES.update(original)
+
+    check(
+        "eine fehlende Tabelle wird uebersprungen, nicht geworfen",
+        not report2.errors,
+        str(report2.errors),
+    )
+
+    # Eine einzelne kaputte Zeile darf die anderen nicht mitnehmen.
+    #
+    # Ohne diesen Fall blieb der Test gruen, obwohl `raise` statt
+    # `report.errors.append` dort stand: alle Zeilen oben waren heil,
+    # der except-Zweig wurde nie betreten.
+    path2 = os.path.join(folder, "zwei.db")
+    with sqlite3.connect(path2) as db:
+        db.execute(
+            "CREATE TABLE music_settings (guild_id INTEGER, "
+            "dj_role_id INTEGER NOT NULL)"
+        )
+
+    template_scan.FEATURE_TABLES["music"] = ("Musik", path2, ("music_settings",))
+    try:
+        report3 = applier.Report()
+        payload3 = {"features": {"music": {"label": "Musik", "tables": {
+            "music_settings": [
+                # Die erste verletzt NOT NULL, die zweite ist heil.
+                {"guild_id": 1, "dj_role_id": None},
+                {"guild_id": 1, "dj_role_id": 42},
+            ]}}}}
+        asyncio.run(applier.apply_features(
+            Guild(), payload3, {"music": True}, report3))
+    finally:
+        template_scan.FEATURE_TABLES.clear()
+        template_scan.FEATURE_TABLES.update(original)
+
+    with sqlite3.connect(path2) as db:
+        rows2 = db.execute("SELECT dj_role_id FROM music_settings").fetchall()
+
+    check(
+        "die heile Zeile kommt trotzdem an",
+        rows2 == [(42,)],
+        f"eine kaputte Zeile riss alle mit -> {rows2}",
+    )
+    check(
+        "und die kaputte wird gemeldet",
+        len(report3.errors) == 1,
+        f"-> {report3.errors}",
+    )
+
+
+# ------------------------------------------------------------------ #
+# 8. Der eigene Code laesst sich wieder ansehen
+# ------------------------------------------------------------------ #
+def test_the_key_can_be_shown_again():
+    """Verschluesselt gespeichert -- und wieder lesbar.
+
+    Vorher gab es den Code genau einmal. Wer das Fenster schloss,
+    musste die Vorlage neu hochladen.
+
+    Wichtig dabei: der HASH bleibt die Pruefinstanz. Wuerde stattdessen
+    entschluesselt und verglichen, oeffnete ein Fehler in der Krypto
+    sofort jede Vorlage.
+    """
+    print("\nDer eigene Code laesst sich wieder ansehen")
+
+    from utils import template_store as store
+
+    # Fester Schluessel, damit der Test nicht davon abhaengt, ob eine
+    # Datei angelegt werden kann.
+    os.environ[store.SECRET_ENV] = "test-schluessel-fuer-den-test"
+
+    plain = store.make_key()
+    blob = store.encrypt_key(plain)
+
+    check("verschluesselt ist es nicht mehr lesbar", plain not in blob)
+    check("und wieder entschluesselbar", store.decrypt_key(blob) == plain)
+
+    # Ein veraenderter Chiffretext darf NICHT stillschweigend etwas
+    # anderes ergeben.
+    import base64 as _b64
+
+    raw = bytearray(_b64.urlsafe_b64decode(blob))
+    raw[-1] ^= 0x01
+    tampered = _b64.urlsafe_b64encode(bytes(raw)).decode("ascii")
+    check(
+        "eine Faelschung wird erkannt",
+        store.decrypt_key(tampered) is None,
+        "ohne Signatur kaeme unbemerkt etwas anderes heraus",
+    )
+
+    # Anderer Hauptschluessel -> nicht lesbar, aber auch kein Absturz.
+    os.environ[store.SECRET_ENV] = "ein-ganz-anderer-schluessel"
+    check("mit falschem Schluessel: None", store.decrypt_key(blob) is None)
+    os.environ[store.SECRET_ENV] = "test-schluessel-fuer-den-test"
+
+    check("Muell ergibt None", store.decrypt_key("nicht-base64!!!") is None)
+    check("leer ergibt None", store.decrypt_key("") is None)
+    # "nicht-base64!!!" dekodiert ohne Murren zu Bytes und faellt erst
+    # an der Laengenpruefung durch -- der except-Zweig wurde dabei nie
+    # betreten. "A" hat eine ungueltige Laenge und wirft wirklich.
+    check(
+        "ungueltiges Base64 wirft nicht, sondern gibt None",
+        store.decrypt_key("A") is None,
+        "ein raise hier liesse das Admin-Panel abstuerzen",
+    )
+    # Und Zeichen ausserhalb von ASCII: `.encode("ascii")` wirft dabei
+    # einen UnicodeEncodeError, einen anderen Typ als binascii.Error.
+    check(
+        "auch Nicht-ASCII gibt None",
+        store.decrypt_key("Ümlaut") is None,
+        "ein raise hier liesse das Admin-Panel abstuerzen",
+    )
+
+    async def scenario(db, store):
+        made, key = await store.create_template(
+            db, name="Mit Code", description="", author_id=1,
+            author_name="x", source_guild_id=100, payload={"roles": []},
+            visibility="key")
+
+        found, again = await store.reveal_key(db, made, owner_guild_id=100)
+        check("die eigene Vorlage gibt den Code her", found and again == key)
+
+        # Ein fremder Server nicht. Die IDs sind fortlaufend.
+        other, leaked = await store.reveal_key(db, made, owner_guild_id=999)
+        check(
+            "ein fremder Server bekommt ihn nicht",
+            not other and leaked is None,
+            "sonst reichte eine geratene Zahl",
+        )
+
+        # Der Hash prueft weiter -- unabhaengig von der Krypto.
+        opened = await store.get_template(db, made, key=key)
+        check("mit Code laesst sie sich oeffnen", not opened["locked"])
+        # Auch die Einzelansicht muss sagen, ob es einen Code gibt.
+        # Sie speist die eigene Liste im Upload-Reiter; stuende dort
+        # fest False, erschiene der Knopf »Code anzeigen« nirgends.
+        check(
+            "die Einzelansicht meldet den Code",
+            opened["has_key"] is True,
+            "ohne das faellt der Knopf »Code anzeigen« weg",
+        )
+        wrong = await store.get_template(db, made, key="FALSCH12")
+        check("mit falschem Code nicht", wrong["locked"])
+
+        # Eine offene Vorlage hat gar keinen Code.
+        plain_id, no_key = await store.create_template(
+            db, name="Offen", description="", author_id=1, author_name="x",
+            source_guild_id=100, payload={"roles": []}, visibility="public")
+        check("eine offene Vorlage hat keinen", no_key is None)
+        _, nothing = await store.reveal_key(db, plain_id, owner_guild_id=100)
+        check("und gibt auch keinen her", nothing is None)
+
+    asyncio.run(_with_db(scenario))
+
+    # Geprueft wird ueber den Hash, nicht ueber die Entschluesselung.
+    src = strip_py(
+        open(os.path.join(BOT, "utils", "template_store.py"),
+             encoding="utf-8").read()
+    )
+    block = src.split("async def get_template")[1].split("async def ")[0]
+    check(
+        "das Oeffnen prueft den Hash",
+        "hash_key(key) == row" in block,
+        "geprueft wird ueber den Hash, nie ueber die Entschluesselung",
+    )
+    check(
+        "und entschluesselt dabei nichts",
+        "decrypt_key" not in block,
+        "ein Fehler in der Krypto oeffnete sonst jede Vorlage",
+    )
+
+
+def test_the_schema_upgrades_itself():
+    """Eine bestehende Datenbank darf nicht von Hand angefasst werden."""
+    print("\nDas Schema waechst mit")
+
+    async def scenario(db, store):
+        # Zweiter Aufruf auf derselben Datei: ALTER TABLE darf nicht
+        # werfen, nur weil die Spalte schon da ist.
+        await store.ensure_schema(db)
+        await store.ensure_schema(db)
+
+        async with db.execute("PRAGMA table_info(templates)") as cursor:
+            have = {row[1] for row in await cursor.fetchall()}
+
+        for column in ("key_cipher", "blocked", "blocked_reason",
+                       "blocked_by", "blocked_at"):
+            check(f"{column} gibt es", column in have)
+
+    asyncio.run(_with_db(scenario))
+
+    src = strip_py(
+        open(os.path.join(BOT, "utils", "template_store.py"),
+             encoding="utf-8").read()
+    )
+    check(
+        "vorher wird nachgesehen",
+        "PRAGMA table_info(templates)" in src,
+        "SQLite kann ADD COLUMN nicht bedingt",
+    )
+
+
+# ------------------------------------------------------------------ #
+# 9. Der Admin-Reiter
+# ------------------------------------------------------------------ #
+def test_the_admin_sees_everything():
+    """Alles, auch die privaten -- und der Code im Klartext."""
+    print("\nDer Admin-Reiter zeigt alles")
+
+    from utils import template_store as store
+
+    os.environ[store.SECRET_ENV] = "test-schluessel-fuer-den-test"
+
+    async def scenario(db, store):
+        _, key = await store.create_template(
+            db, name="Geheim", description="", author_id=7,
+            author_name="Fufi", source_guild_id=100,
+            payload={"roles": [{"name": "A"}]}, visibility="key")
+        await store.create_template(
+            db, name="Privat", description="", author_id=7,
+            author_name="Fufi", source_guild_id=100,
+            payload={"roles": []}, visibility="private")
+        await store.create_template(
+            db, name="Offen", description="", author_id=7,
+            author_name="Fufi", source_guild_id=200,
+            payload={"roles": []}, visibility="public")
+
+        # Die oeffentliche Liste laesst die private aus.
+        public = await store.list_templates(db)
+        check(
+            "privat bleibt privat",
+            not any(e["name"] == "Privat" for e in public),
+            "die normale Liste zeigt sie",
+        )
+
+        entries = await store.list_for_admin(db)
+        names = {e["name"] for e in entries}
+        check("der Admin sieht alle drei", names == {"Geheim", "Privat", "Offen"},
+              str(sorted(names)))
+
+        secret = next(e for e in entries if e["name"] == "Geheim")
+        check("der Code steht im Klartext dabei", secret["key"] == key)
+        # Auch die Admin-Liste muss sagen, ob es ueberhaupt einen Code
+        # gibt. Ohne diesen Fall blieb der Test gruen, obwohl das Feld
+        # dort fest auf False stand -- im Panel waere der Abschnitt
+        # "Zugangscode" dann bei jeder Vorlage mit "ist offen"
+        # beschriftet gewesen, direkt neben dem Code.
+        check(
+            "und die Liste sagt, dass es einen gibt",
+            secret["has_key"] is True,
+            "das Panel schriebe sonst »ist offen« neben den Code",
+        )
+        offen = next(e for e in entries if e["name"] == "Offen")
+        check("bei einer offenen Vorlage nicht", offen["has_key"] is False)
+        check("die Herkunft auch", secret["source_guild_id"] == "100")
+        check("und der Hochlader", secret["author_name"] == "Fufi")
+        check(
+            "die Zahlen sind echt, nicht verschluesselt weggelassen",
+            secret["summary"]["roles"] == 1,
+            "bei Code-Vorlagen standen sonst ueberall Nullen",
+        )
+
+        # Suche ueber die Server-ID -- eine Zahl ist oft alles, was man
+        # aus einer Meldung hat.
+        by_id = await store.list_for_admin(db, search="200")
+        check("Suche nach der Server-ID findet sie", len(by_id) == 1)
+
+        stats = await store.admin_stats(db)
+        check("die Zahlen stimmen", stats["total"] == 3 and stats["with_key"] == 1,
+              str(stats))
+
+    asyncio.run(_with_db(scenario))
+
+
+def test_blocking_is_reversible_and_bites():
+    """Sperren muss wirken -- und sich zuruecknehmen lassen."""
+    print("\nSperren wirkt und laesst sich zuruecknehmen")
+
+    async def scenario(db, store):
+        made, _ = await store.create_template(
+            db, name="X", description="", author_id=1, author_name="x",
+            source_guild_id=100, payload={"roles": []}, visibility="public")
+
+        check("frisch ist sie frei",
+              not (await store.get_template(db, made))["blocked"])
+
+        await store.set_blocked(db, made, blocked=True, reason="Grund",
+                                actor="42")
+        found = await store.get_template(db, made)
+        check("gesperrt", found["blocked"])
+        check("mit Grund", found["blocked_reason"] == "Grund")
+
+        # Sie bleibt SICHTBAR -- Sperren ist nicht Loeschen.
+        listed = await store.list_templates(db)
+        check(
+            "sie steht weiter in der Liste",
+            any(e["id"] == made for e in listed),
+            "sonst waere Sperren dasselbe wie Loeschen",
+        )
+
+        await store.set_blocked(db, made, blocked=False)
+        after = await store.get_template(db, made)
+        check("wieder frei", not after["blocked"])
+        check("und der Grund ist weg", not after["blocked_reason"])
+
+        # Loeschen raeumt auch den Verlauf mit weg.
+        await store.log_apply(db, template_id=made, guild_id=5, actor_id=1,
+                              options={}, wiped=False)
+        check("der Verlauf ist da", len(await store.history_for(db, made)) == 1)
+        check("Admin-Loeschen geht", await store.force_delete(db, made))
+        check("und der Verlauf ist mit weg",
+              not await store.history_for(db, made))
+        check("ein zweites Mal geht nicht",
+              not await store.force_delete(db, made))
+
+    asyncio.run(_with_db(scenario))
+
+    # Der Riegel muss im BOT stehen, nicht nur im Knopf.
+    route = strip_py(
+        open(os.path.join(BOT, "api", "routes", "templates.py"),
+             encoding="utf-8").read()
+    )
+    apply_block = route.split("async def apply(")[1].split("report =")[0]
+    check(
+        "eine gesperrte Vorlage wird beim Anwenden abgewiesen",
+        'found.get("blocked")' in apply_block
+        and "raise HTTPException" in apply_block,
+        "ein direkter Aufruf umginge den ausgegrauten Knopf",
+    )
+
+    # Ein Grund ist Pflicht.
+    block_route = route.split("async def admin_block")[1].split("@router")[0]
+    check(
+        "sperren ohne Grund geht nicht",
+        "if blocked and not reason" in block_route,
+        "der Hochlader saehe sonst nur, dass etwas kaputt ist",
+    )
+
+
+def test_the_admin_routes_are_locked_down():
+    """/templates/admin/* nur fuer globale Admins."""
+    print("\nDie Admin-Routen sind dicht")
+
+    proxy = strip_ts(read_dash("app", "api", "bot", "[...path]", "route.ts"))
+    block = proxy.split('scope === "templates"')[1].split("if (scope ===")[0]
+
+    check("der Admin-Zweig existiert", 'first === "admin"' in block)
+    check(
+        "und laesst nur globale Admins durch",
+        "isGlobalAdmin" in block.split('first === "admin"')[1][:400],
+        "jeder Server-Moderator saehe sonst jeden fremden Code",
+    )
+
+    # Die Regel muss VOR der guild_id-Pruefung stehen: "admin" ist
+    # keine achtzehnstellige Zahl.
+    check(
+        "die Regel steht vor der guild_id-Pruefung",
+        block.index('first === "admin"') < block.index("verifyGuildAccess"),
+        "sonst liefe der Aufruf in verifyGuildAccess(\"admin\")",
+    )
+    check(
+        "eine echte Server-ID wird verlangt",
+        "/^\\d{17,20}$/.test(guildId)" in block,
+        "sonst geht jedes Wort als guild_id durch",
+    )
+
+    # Und der Reiter darf nur Ownern angezeigt werden.
+    admin = strip_ts(read_dash("components", "dashboard", "admin-content.tsx"))
+    check(
+        "der Reiter ist fuer Team-Rollen ausgeblendet",
+        'if (tab.id === "templates") return false;' in admin,
+        "er stuende sonst da und gaebe beim Klick nur Fehler",
+    )
+
+
+def test_the_admin_tab_is_wired_up():
+    print("\nDer Admin-Reiter ist verdrahtet")
+
+    admin = strip_ts(read_dash("components", "dashboard", "admin-content.tsx"))
+    check("der Reiter steht in der Liste",
+          '{ id: "templates", label: "Vorlagen"' in admin)
+    check("er wird gerendert",
+          'activeTab === "templates" && <TemplatesAdmin />' in admin)
+    check("das Bauteil ist eingebunden",
+          "import { TemplatesAdmin }" in admin)
+    check("er nimmt die volle Breite",
+          '"templates",\n]);' in admin or '"tester", "templates"' in admin)
+
+    api_src = strip_ts(read_dash("lib", "api.ts"))
+    for name in ("templateAdminList:", "templateAdminPayload:",
+                 "templateAdminHistory:", "templateAdminBlock:",
+                 "templateAdminDelete:", "templateKey:"):
+        check(f"{name} gibt es", name in api_src)
+
+    panel = strip_ts(read_dash("components", "dashboard", "templates-admin.tsx"))
+    check("es gibt eine Wartezeit vorm Loeschen",
+          "DELETE_DELAY_SECONDS" in panel)
+    found = re.search(r"DELETE_DELAY_SECONDS\s*=\s*(\d+)", panel)
+    check("sie betraegt 10 Sekunden",
+          bool(found) and int(found.group(1)) == 10)
+
+    # Die Sperre muss im disabled stehen, nicht nur in der Beschriftung.
+    disabled = re.search(
+        r"disabled=\{countdown > 0([\s\S]{0,120}?)\}\s*\n\s*onClick=\{\(\) => runDelete",
+        panel)
+    check("der Knopf ist so lange gesperrt", bool(disabled),
+          "die Wartezeit steht nur in der Beschriftung")
+
+    # Die Uhr muss beim Wechsel der Vorlage neu starten -- sonst wartet
+    # man einmal und kann danach alles wegklicken.
+    check(
+        "die Uhr startet je Vorlage neu",
+        "}, [deleteFor]);" in panel,
+        "sonst haette man einmal gewartet und koennte alles loeschen",
+    )
+
+
+def test_the_own_uploads_show_their_key():
+    print("\nEigene Uploads zeigen ihren Code")
+
+    panel = strip_ts(read_dash("components", "dashboard",
+                               "template-upload-panel.tsx"))
+    check("es gibt den Knopf", "api.templateKey(" in panel)
+    check("der Code wird angezeigt", "keys[entry.id]" in panel)
+    check(
+        "nur wenn es einen gibt",
+        "entry.has_key &&" in panel,
+        "bei offenen Vorlagen waere der Knopf sinnlos",
+    )
+    # `undefined` heisst zugeklappt, "" heisst aufgeklappt aber nicht
+    # mehr lesbar. Eine Pruefung auf Wahrheit verschluckte den Hinweis.
+    # Alle DREI Stellen muessen gegen `undefined` pruefen, nicht auf
+    # Wahrheit. Eine Suche ueber die ganze Datei blieb gruen, obwohl
+    # ausgerechnet die Anzeige auf Wahrheit pruefte -- der Hinweis
+    # "nicht mehr anzeigbar" waere unsichtbar geblieben, und der Knopf
+    # haette bei jedem Klick neu geladen statt zuzuklappen.
+    check(
+        "aufgeklappt und leer wird ueberall unterschieden",
+        panel.count("keys[entry.id] !== undefined") == 3,
+        f"nur {panel.count('keys[entry.id] !== undefined')} von 3 Stellen",
+    )
+    check(
+        "und nirgends auf Wahrheit geprueft",
+        "{keys[entry.id] && (" not in panel,
+        "ein leerer Code gilt in JavaScript als falsch",
+    )
+    check("eine Sperre wird angezeigt", "entry.blocked_reason" in panel)
+
+    store_src = strip_py(
+        open(os.path.join(BOT, "utils", "template_store.py"),
+             encoding="utf-8").read()
+    )
+    check(
+        "die eigene Liste sagt, ob es einen Code gibt",
+        '"has_key"' in store_src,
+        "sonst weiss die Oberflaeche nicht, ob sie den Knopf zeigen darf",
+    )
+
+
+def test_the_new_routes_are_registered():
+    print("\nDie neuen Routen sind angemeldet")
+
+    from fastapi.testclient import TestClient
+
+    from api.server import create_app
+
+    client = TestClient(create_app())
+    answer = client.get("/api/v1/openapi.json")
+    if answer.status_code != 200:
+        check("openapi ist lesbar", False)
+        return
+
+    paths = set(answer.json()["paths"])
+    for path in (
+        "/templates/admin/list",
+        "/templates/admin/{template_id}/payload",
+        "/templates/admin/{template_id}/history",
+        "/templates/admin/{template_id}/block",
+        "/templates/admin/{template_id}",
+        "/templates/{guild_id}/template/{template_id}/key",
+    ):
+        check(f"{path} gibt es", path in paths)
+
+    # Die Reihenfolge zaehlt: FastAPI prueft von oben nach unten.
+    # Stuende /admin/list hinter /{guild_id}/list, liefe der Aufruf in
+    # die guild_id-Regel und antwortete mit 422.
+    route = open(os.path.join(BOT, "api", "routes", "templates.py"),
+                 encoding="utf-8").read()
+    check(
+        "die Admin-Routen stehen vor den guild_id-Routen",
+        route.index('"/admin/list"') < route.index('"/{guild_id}/list"'),
+        "sonst faengt die guild_id-Regel /admin/list ab",
+    )
 
 
 def main() -> int:
@@ -910,7 +1842,7 @@ def main() -> int:
     test_the_precheck_actually_stops_the_run()
     test_it_checks_before_it_touches_anything()
     test_wiping_spares_what_must_stay()
-    test_deleting_needs_the_server_name()
+    test_deleting_waits_ten_seconds_server_side()
     test_the_apply_survives_a_single_failure()
     test_roles_come_before_channels()
     test_the_routes_are_registered()
@@ -918,6 +1850,17 @@ def main() -> int:
     test_the_dashboard_is_wired_up()
     test_both_tabs_are_marked_experimental()
     test_the_delay_before_wiping()
+    test_wiping_then_building_actually_builds()
+    test_same_name_in_two_categories()
+    test_an_unknown_column_does_not_lose_the_block()
+    test_the_key_can_be_shown_again()
+    test_the_schema_upgrades_itself()
+    test_the_admin_sees_everything()
+    test_blocking_is_reversible_and_bites()
+    test_the_admin_routes_are_locked_down()
+    test_the_admin_tab_is_wired_up()
+    test_the_own_uploads_show_their_key()
+    test_the_new_routes_are_registered()
 
     print()
     if failures:

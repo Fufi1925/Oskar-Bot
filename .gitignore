@@ -35,6 +35,13 @@ Thumbs.db
 *.db
 *.sqlite3
 
+# Der Schluessel, mit dem die Zugangscodes der Community-Vorlagen
+# verschluesselt werden. Er wird beim ersten Start neben der Datenbank
+# angelegt und gehoert genauso wenig ins Repo wie ein Token -- wer ihn
+# hat, kann jeden gespeicherten Code lesen.
+db/template_secret.key
+*.key
+
 # Build
 *.tsbuildinfo
 

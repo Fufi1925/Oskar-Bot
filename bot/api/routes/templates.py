@@ -28,6 +28,7 @@ nach Eingabe.
 
 from __future__ import annotations
 
+import time
 from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -44,6 +45,19 @@ if TYPE_CHECKING:
 
 router = APIRouter()
 
+# Wie lange der Loesch-Knopf gesperrt bleibt, in Sekunden.
+#
+# Die Zahl steht hier und nicht nur im Dashboard: die Oberflaeche
+# holt sie sich ueber `preview` ab, damit beide Seiten dieselbe
+# Wartezeit meinen. Zwei Konstanten waeren frueher oder spaeter
+# verschieden.
+WIPE_DELAY_SECONDS = 10
+
+# Wie lange eine Pruefung gilt. Danach muss neu geprueft werden --
+# eine Stunde alte Vorschau sagt nichts mehr darueber, was gerade auf
+# dem Server steht.
+WIPE_WINDOW_SECONDS = 900
+
 
 async def _db():
     connection = await db_manager.get_connection(store.DB_PATH)
@@ -58,6 +72,146 @@ def _guild_or_404(bot, guild_id: int):
             status_code=404, detail="Der Bot ist nicht auf diesem Server."
         )
     return guild
+
+
+# ── Verwaltung ───────────────────────────────────────────────────────
+#
+# Diese Routen liegen hinter /templates/admin/*. Der Proxy im
+# Dashboard laesst dorthin nur globale Admins durch -- dieselbe Regel
+# wie bei /speedrun/admin/*. Hier steht keine zweite Rechtepruefung,
+# weil der Bot die Dashboard-Sitzung des Aufrufers gar nicht kennt.
+#
+# Warum sie GANZ OBEN stehen
+# --------------------------
+# FastAPI prueft die Routen in der Reihenfolge, in der sie angemeldet
+# wurden. Weiter unten steht `/{guild_id}/list` mit `guild_id: int`.
+# Stuenden die Admin-Routen dahinter, liefe `/admin/list` zuerst in
+# diese Regel, wollte "admin" als Zahl lesen und antwortete mit 422 --
+# der Reiter waere kaputt, ohne dass jemand sieht, warum.
+
+
+@router.get("/admin/list", summary="Alle Vorlagen, mit Code")
+async def admin_list(search: str = "", sort: str = "neu",
+                     bot: "universitybot" = Depends(get_bot)):
+    """Jede hochgeladene Vorlage -- auch die privaten und die mit Code.
+
+    Der Zugangscode kommt im Klartext mit. Das ist der Sinn des
+    Reiters: das Bot-Team soll pruefen koennen, was auf den eigenen
+    Servern verteilt wird, ohne jeden Hochlader fragen zu muessen.
+    """
+
+    db = await _db()
+    entries = await store.list_for_admin(db, search=search, sort=sort)
+
+    # Servernamen dazu. Eine Liste aus achtzehnstelligen Zahlen ist
+    # zum Verwalten unbrauchbar -- welcher davon war noch gleich der,
+    # der Aerger gemacht hat?
+    for entry in entries:
+        guild = None
+        try:
+            guild = bot.get_guild(int(entry["source_guild_id"]))
+        except (TypeError, ValueError):
+            pass
+        entry["source_guild_name"] = getattr(guild, "name", "")
+        entry["bot_present"] = guild is not None
+
+    return {
+        "templates": entries,
+        "stats": await store.admin_stats(db),
+        "sorts": list(store.SORTS),
+    }
+
+
+@router.get("/admin/{template_id}/history", summary="Wer hat sie angewendet")
+async def admin_history(template_id: int):
+    db = await _db()
+    return {"events": await store.history_for(db, template_id)}
+
+
+@router.get("/admin/{template_id}/payload", summary="Der volle Inhalt")
+async def admin_payload(template_id: int):
+    """Was wirklich in der Vorlage steht -- ohne Zugangscode.
+
+    Ein Admin muss hineinsehen koennen, bevor er ueber eine Meldung
+    entscheidet. Der Code ist dafuer nicht noetig: die Route liest
+    direkt aus der Datenbank.
+    """
+
+    db = await _db()
+    found = await store.get_template(db, template_id, key=None, owner_guild_id=None)
+    if found is None:
+        raise HTTPException(404, "Diese Vorlage gibt es nicht.")
+
+    payload = found.get("payload") or {}
+    return {
+        "categories": [c.get("name") for c in payload.get("categories") or []],
+        "channels": [
+            {"name": c.get("name"), "kind": c.get("kind"),
+             "category": c.get("category")}
+            for c in payload.get("channels") or []
+        ],
+        "roles": [
+            {"name": r.get("name"), "colour": r.get("colour")}
+            for r in payload.get("roles") or []
+        ],
+        "features": scanner.describe_features(payload.get("features") or {}),
+    }
+
+
+@router.post("/admin/{template_id}/block", summary="Sperren oder freigeben")
+async def admin_block(template_id: int, data: dict):
+    """Sperren statt loeschen, wo es geht.
+
+    Eine gesperrte Vorlage bleibt sichtbar, laesst sich aber nicht
+    mehr anwenden, und ihr Hochlader sieht den Grund. Ein Irrtum ist
+    damit zuruecknehmbar -- geloescht ist geloescht.
+    """
+
+    db = await _db()
+    blocked = bool((data or {}).get("blocked", True))
+    reason = str((data or {}).get("reason") or "").strip()
+
+    if blocked and not reason:
+        raise HTTPException(
+            400,
+            "Bitte einen Grund angeben. Ohne ihn sieht der Hochlader nur, "
+            "dass etwas nicht mehr geht, und meldet es als Fehler.",
+        )
+
+    if not await store.set_blocked(
+        db,
+        template_id,
+        blocked=blocked,
+        reason=reason,
+        actor=str((data or {}).get("actor") or ""),
+    ):
+        raise HTTPException(404, "Diese Vorlage gibt es nicht.")
+
+    await feature_audit.log_action(
+        "template_block" if blocked else "template_unblock",
+        actor=str((data or {}).get("actor") or ""),
+        detail=f"{template_id}: {reason}" if reason else str(template_id),
+    )
+    return {"status": "success", "blocked": blocked}
+
+
+@router.delete("/admin/{template_id}", summary="Endgueltig loeschen")
+async def admin_delete(template_id: int, actor: str = ""):
+    """Loeschen, egal wem sie gehoert.
+
+    Getrennt von der normalen Loeschroute, damit der Besitzcheck dort
+    nicht aus Versehen umgangen werden kann: ein Aufruf von
+    `force_delete` ist im Quelltext sofort als Admin-Weg erkennbar.
+    """
+
+    db = await _db()
+    if not await store.force_delete(db, template_id):
+        raise HTTPException(404, "Diese Vorlage gibt es nicht.")
+
+    await feature_audit.log_action(
+        "template_admin_delete", actor=actor, detail=str(template_id)
+    )
+    return {"status": "success"}
 
 
 # ── Scannen ──────────────────────────────────────────────────────────
@@ -217,6 +371,11 @@ async def list_all(
         "templates": await store.list_templates(db, search=search, sort=sort),
         "own": await store.list_own(db, guild_id),
         "sorts": list(store.SORTS),
+        # Damit die eigene Liste weiss, ob sie den Knopf »Code
+        # anzeigen« ueberhaupt einblenden darf.
+        "limits": {
+            "max_per_guild": store.MAX_TEMPLATES_PER_GUILD,
+        },
     }
 
 
@@ -264,6 +423,50 @@ async def remove(
         "template_delete", guild_id=guild_id, detail=str(template_id)
     )
     return {"status": "success"}
+
+
+@router.get("/{guild_id}/template/{template_id}/key", summary="Eigenen Code anzeigen")
+async def show_key(
+    guild_id: int, template_id: int, bot: "universitybot" = Depends(get_bot)
+):
+    """Den Zugangscode der **eigenen** Vorlage noch einmal ansehen.
+
+    Bisher gab es ihn genau einmal, direkt nach dem Hochladen. Wer das
+    Fenster schloss, ohne ihn zu notieren, musste die Vorlage neu
+    hochladen -- der Code lag nur als Hash in der Datenbank.
+
+    Jetzt liegt er zusaetzlich verschluesselt daneben. Die Sperre ist
+    `owner_guild_id`: nur der Server, der hochgeladen hat, bekommt
+    ihn. Die IDs sind fortlaufend, ohne diese Bedingung reichte eine
+    geratene Zahl, um jeden fremden Code zu lesen.
+    """
+
+    _guild_or_404(bot, guild_id)
+    db = await _db()
+
+    found, plain = await store.reveal_key(db, template_id, owner_guild_id=guild_id)
+    if not found:
+        raise HTTPException(
+            404, "Diese Vorlage gibt es nicht — oder sie gehört einem anderen Server."
+        )
+
+    await feature_audit.log_action(
+        "template_key_shown", guild_id=guild_id, detail=str(template_id)
+    )
+
+    return {
+        "key": plain,
+        # Ehrlich statt raetselhaft: ohne Grund sieht ein leeres Feld
+        # nach einem Fehler aus.
+        "reason": (
+            ""
+            if plain
+            else "Der Code lässt sich nicht mehr anzeigen. Er stammt aus der "
+            "Zeit vor dieser Funktion, oder der Schlüssel des Bots hat "
+            "gewechselt. Die Vorlage funktioniert weiter — nur nachschlagen "
+            "geht nicht mehr."
+        ),
+    }
 
 
 # ── Anwenden ─────────────────────────────────────────────────────────
@@ -323,9 +526,15 @@ async def preview(
         },
         "will_delete": would_delete,
         "features": scanner.describe_features(payload.get("features") or {}),
-        # Der Name muss beim Loeschen abgetippt werden -- damit niemand
-        # aus Versehen den falschen Server ausraeumt.
         "guild_name": guild.name,
+        # Ab hier laeuft die Wartezeit. Der Wert geht beim Anwenden
+        # zurueck an den Server, der nachrechnet -- so kann ein
+        # direkter Aufruf der Route die Sperre nicht ueberspringen.
+        "armed_at": time.time(),
+        "wipe_delay": WIPE_DELAY_SECONDS,
+        "wipe_window": WIPE_WINDOW_SECONDS,
+        "blocked": bool(found.get("blocked")),
+        "blocked_reason": found.get("blocked_reason") or "",
     }
 
 
@@ -356,15 +565,58 @@ async def apply(guild_id: int, data: dict, bot: "universitybot" = Depends(get_bo
         "feature_keys": (data or {}).get("feature_keys") or {},
     }
 
-    # Beim Loeschen muss der Servername stimmen. Dieselbe Sicherung
-    # wie beim Verlassen eines Servers: ein Fehlklick soll nicht
-    # reichen.
+    # Eine gesperrte Vorlage laesst sich nicht mehr anwenden.
+    #
+    # Die Pruefung steht hier und nicht nur in der Oberflaeche: der
+    # Knopf im Dashboard ist ausgegraut, aber ein direkter Aufruf der
+    # Route umginge das mit einer Zeile.
+    if found.get("blocked"):
+        raise HTTPException(
+            403,
+            "Diese Vorlage wurde vom Bot-Team gesperrt"
+            + (f": {found.get('blocked_reason')}" if found.get("blocked_reason") else "")
+            + ".",
+        )
+
+    # Beim Loeschen entscheidet die Wartezeit, nicht das Abtippen.
+    #
+    # Der Servername war eine Huerde, die niemanden aufgehalten hat:
+    # er stand als Platzhalter direkt im Feld darueber, abtippen
+    # dauert drei Sekunden und man liest dabei nichts. Auf Wunsch
+    # ersetzt durch zehn Sekunden Wartezeit -- die vergehen, ob man
+    # will oder nicht, und in ihnen liest man tatsaechlich, was da
+    # steht.
+    #
+    # Der Zeitstempel kommt aus der `preview`. Die Oberflaeche sperrt
+    # den Knopf ohnehin; diese Pruefung ist die zweite Instanz, damit
+    # ein direkter Aufruf der Route nicht sofort loeschen kann.
     if options["wipe"]:
-        typed = str((data or {}).get("confirm") or "").strip()
-        if typed.lower() != guild.name.strip().lower():
+        try:
+            started = float((data or {}).get("armed_at") or 0)
+        except (TypeError, ValueError):
+            started = 0.0
+
+        waited = time.time() - started
+        if started <= 0:
             raise HTTPException(
                 400,
-                "Zum Löschen muss der Servername genau eingetippt werden.",
+                "Zum Löschen muss vorher geprüft werden — der Ablauf startet "
+                "mit »Prüfen«.",
+            )
+        if waited < WIPE_DELAY_SECONDS:
+            raise HTTPException(
+                400,
+                f"Bitte noch {WIPE_DELAY_SECONDS - int(waited)} Sekunden warten. "
+                "Die Wartezeit ist Absicht: gelöschte Kanäle sind samt Verlauf "
+                "endgültig weg.",
+            )
+        # Eine Vorschau von vorgestern ist keine Vorschau. In der Zeit
+        # kann sich auf dem Server alles geaendert haben.
+        if waited > WIPE_WINDOW_SECONDS:
+            raise HTTPException(
+                400,
+                "Die Prüfung ist zu alt. Bitte noch einmal »Prüfen« drücken — "
+                "auf dem Server kann sich inzwischen etwas geändert haben.",
             )
 
     report = await applier.apply_template(guild, found.get("payload") or {}, options)

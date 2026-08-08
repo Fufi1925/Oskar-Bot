@@ -28,8 +28,8 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import {
-  AlertTriangle, Check, Copy, Hash, Loader2, Lock, ScanLine, Shield,
-  Trash2, Upload, Users, Volume2,
+  AlertTriangle, Check, Copy, Eye, EyeOff, Hash, Loader2, Lock, ScanLine,
+  Shield, Trash2, Upload, Users, Volume2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
@@ -85,6 +85,13 @@ export function TemplateUploadPanel({ guildId }: { guildId: string }) {
   const [description, setDescription] = useState("");
   const [visibility, setVisibility] = useState<"public" | "key">("public");
   const [issuedKey, setIssuedKey] = useState("");
+
+  // Nachtraeglich geholte Zugangscodes, je Vorlage. Ein Eintrag heisst
+  // "aufgeklappt"; ein leerer String heisst "aufgeklappt, aber nicht
+  // mehr entschluesselbar". `undefined` heisst "zugeklappt" -- deshalb
+  // wird gegen `!== undefined` geprueft und nicht auf Wahrheit, sonst
+  // liesse sich der Hinweis gar nicht anzeigen.
+  const [keys, setKeys] = useState<Record<number, string>>({});
 
   const loadOwn = useCallback(async () => {
     try {
@@ -482,10 +489,11 @@ export function TemplateUploadPanel({ guildId }: { guildId: string }) {
             <div className="h-9 w-9 rounded-xl bg-primary/10 grid place-items-center shrink-0">
               <Users className="h-4 w-4 text-primary" />
             </div>
-            <div>
+            <div className="min-w-0">
               <h3 className="font-bold text-white">Eigene Vorlagen</h3>
               <p className="text-[12px] text-slate-500 mt-0.5">
-                Von diesem Server hochgeladen.
+                Von diesem Server hochgeladen. Bei Vorlagen mit Code lässt er
+                sich hier jederzeit wieder ansehen.
               </p>
             </div>
           </div>
@@ -494,40 +502,161 @@ export function TemplateUploadPanel({ guildId }: { guildId: string }) {
             {own.map((entry: any) => (
               <div
                 key={entry.id}
-                className="flex items-center gap-3 rounded-2xl bg-[#0a1628] border border-slate-800 p-4 flex-wrap"
+                className={cn(
+                  "rounded-2xl border p-4 transition-colors",
+                  entry.blocked
+                    ? "bg-red-500/[0.05] border-red-500/30"
+                    : "bg-[#0a1628] border-slate-800"
+                )}
               >
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <p className="text-[13px] font-bold text-white truncate">
-                      {entry.name}
+                <div className="flex items-center gap-3 flex-wrap">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-[13px] font-bold text-white truncate">
+                        {entry.name}
+                      </p>
+                      {entry.visibility === "key" && (
+                        <span className="flex items-center gap-1 text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md bg-amber-400/10 text-amber-400 border border-amber-400/20">
+                          <Lock className="h-2.5 w-2.5" />
+                          Code
+                        </span>
+                      )}
+                      {entry.blocked && (
+                        <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md bg-red-500/15 text-red-300 border border-red-500/30">
+                          Gesperrt
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      {entry.summary.channels} Kanäle &middot;{" "}
+                      {entry.summary.roles} Rollen &middot; {entry.uses}&times;
+                      verwendet
                     </p>
-                    {entry.visibility === "key" && (
-                      <Lock className="h-3 w-3 text-amber-400 shrink-0" />
+                  </div>
+
+                  {/* Code anzeigen — nur, wenn es einen gibt.
+                      Vorher gab es ihn genau einmal, direkt nach dem
+                      Hochladen. Wer das Fenster schloss, ohne ihn zu
+                      notieren, musste die Vorlage neu hochladen. */}
+                  {entry.has_key && (
+                    <button
+                      disabled={busy === `key${entry.id}`}
+                      onClick={async () => {
+                        if (keys[entry.id] !== undefined) {
+                          // Schon geholt: nur ein- und ausklappen.
+                          setKeys((old) => {
+                            const next = { ...old };
+                            delete next[entry.id];
+                            return next;
+                          });
+                          return;
+                        }
+                        setBusy(`key${entry.id}`);
+                        try {
+                          const answer = await api.templateKey(
+                            guildId,
+                            entry.id
+                          );
+                          setKeys((old) => ({
+                            ...old,
+                            [entry.id]: answer?.key || "",
+                          }));
+                          if (!answer?.key && answer?.reason) {
+                            toast.warning(answer.reason);
+                          }
+                        } catch (error: any) {
+                          toast.error(
+                            error?.message ||
+                              "Der Code ließ sich nicht abrufen."
+                          );
+                        } finally {
+                          setBusy("");
+                        }
+                      }}
+                      title="Zugangscode anzeigen"
+                      className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[11px] font-black uppercase tracking-widest hover:bg-amber-500/20 disabled:opacity-40 transition-all"
+                    >
+                      {busy === `key${entry.id}` ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : keys[entry.id] !== undefined ? (
+                        <EyeOff className="h-3.5 w-3.5" />
+                      ) : (
+                        <Eye className="h-3.5 w-3.5" />
+                      )}
+                      Code
+                    </button>
+                  )}
+
+                  <button
+                    onClick={async () => {
+                      setBusy(`del${entry.id}`);
+                      try {
+                        await api.templateDelete(guildId, entry.id);
+                        await loadOwn();
+                        toast.success("Gelöscht.");
+                      } catch (error: any) {
+                        toast.error(error?.message || "Das ging nicht.");
+                      } finally {
+                        setBusy("");
+                      }
+                    }}
+                    title="Vorlage löschen"
+                    className="p-2.5 rounded-xl text-slate-600 hover:text-red-400 hover:bg-red-500/10 transition-all"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+
+                {/* Der ausgeklappte Code */}
+                {keys[entry.id] !== undefined && (
+                  <div className="mt-3 pt-3 border-t border-slate-800">
+                    {keys[entry.id] ? (
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <code className="px-4 py-2.5 rounded-xl bg-[#10233f] border border-amber-500/25 text-[15px] font-black tracking-[0.3em] text-amber-300">
+                          {keys[entry.id]}
+                        </code>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard?.writeText(keys[entry.id]);
+                            toast.success("Kopiert.");
+                          }}
+                          className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-white/[0.04] border border-white/10 text-xs font-bold text-slate-300 hover:text-white transition-all"
+                        >
+                          <Copy className="h-3.5 w-3.5" />
+                          Kopieren
+                        </button>
+                        <p className="text-[11px] text-slate-600 basis-full">
+                          Diesen Code an alle weitergeben, die die Vorlage
+                          benutzen dürfen. Ohne ihn sehen sie nur Name und
+                          Beschreibung.
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="text-[12px] text-slate-500 leading-relaxed">
+                        Der Code lässt sich nicht mehr anzeigen. Er stammt aus
+                        der Zeit, als nur die Prüfsumme gespeichert wurde
+                        &mdash; die Vorlage funktioniert weiter, nur
+                        nachschlagen geht nicht. Wer ihn braucht, lädt sie
+                        einmal neu hoch.
+                      </p>
                     )}
                   </div>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    {entry.summary.channels} Kanäle · {entry.summary.roles}{" "}
-                    Rollen · {entry.uses}× verwendet
-                  </p>
-                </div>
-                <button
-                  onClick={async () => {
-                    setBusy(`del${entry.id}`);
-                    try {
-                      await api.templateDelete(guildId, entry.id);
-                      await loadOwn();
-                      toast.success("Gelöscht.");
-                    } catch (error: any) {
-                      toast.error(error?.message || "Das ging nicht.");
-                    } finally {
-                      setBusy("");
-                    }
-                  }}
-                  title="Vorlage löschen"
-                  className="p-2.5 rounded-xl text-slate-600 hover:text-red-400 hover:bg-red-500/10 transition-all"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
+                )}
+
+                {/* Wenn das Bot-Team gesperrt hat */}
+                {entry.blocked && entry.blocked_reason && (
+                  <div className="mt-3 rounded-xl bg-red-500/[0.07] border border-red-500/25 p-3 flex gap-2.5">
+                    <AlertTriangle className="h-4 w-4 text-red-400 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-[12px] font-bold text-red-200">
+                        Vom Bot-Team gesperrt
+                      </p>
+                      <p className="text-[12px] text-red-200/75 leading-relaxed mt-0.5">
+                        {entry.blocked_reason}
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>

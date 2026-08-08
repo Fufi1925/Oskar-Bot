@@ -171,19 +171,42 @@ def _protected_channels(guild) -> set[int]:
     return keep
 
 
-async def wipe_server(guild, report: Report, log: Callable | None = None) -> None:
-    """Kanaele und Rollen entfernen.
+async def wipe_server(guild, report: Report, log: Callable | None = None) -> set[int]:
+    """Kanaele und Rollen entfernen. Gibt die geloeschten IDs zurueck.
 
     Was stehen bleibt:
       * die Rolle des Bots und alles darueber (kann er nicht loeschen)
       * von Discord verwaltete Rollen (Bot-Rollen, Booster)
       * @everyone
       * die Pflichtkanaele eines Community-Servers
+
+    Warum die IDs zurueckkommen
+    ---------------------------
+    Das war ein echter Fehler, und zwar der schlimmste im ganzen
+    System: `channel.delete()` schickt nur die Anfrage an Discord.
+    Aus `guild.channels` verschwindet der Kanal erst, wenn das
+    Gateway `CHANNEL_DELETE` zurueckmeldet -- ein eigener Frame, der
+    Millisekunden bis Sekunden spaeter eintrifft, bei einem grossen
+    Server auch deutlich spaeter.
+
+    Der naechste Schritt, `apply_channels`, liest aber sofort:
+
+        existing = {c.name for c in guild.channels}
+
+    und ueberspringt jeden Namen, der dort steht. Bei »alles
+    loeschen« standen dort noch **alle gerade geloeschten Namen** --
+    also wurde geloescht und danach nichts wieder angelegt. Der
+    Nutzer sass vor einem leeren Server.
+
+    Reproduziert in `repro/bug_templates_wipe.py`. Die Loesung ist
+    diese Rueckgabe: die Folgeschritte wissen damit, was trotz Cache
+    nicht mehr existiert, statt sich auf den Cache zu verlassen.
     """
 
     me = getattr(guild, "me", None)
     my_top = int(getattr(getattr(me, "top_role", None), "position", 0))
     protected = _protected_channels(guild)
+    gone: set[int] = set()
 
     for channel in list(getattr(guild, "channels", [])):
         if int(channel.id) in protected:
@@ -191,6 +214,7 @@ async def wipe_server(guild, report: Report, log: Callable | None = None) -> Non
             continue
         try:
             await channel.delete(reason="Vorlage: Server wird neu aufgesetzt")
+            gone.add(int(channel.id))
             report.deleted.append(f"Kanal {channel.name}")
             if log:
                 log(f"Kanal gelöscht: {channel.name}")
@@ -208,6 +232,7 @@ async def wipe_server(guild, report: Report, log: Callable | None = None) -> Non
             continue
         try:
             await role.delete(reason="Vorlage: Server wird neu aufgesetzt")
+            gone.add(int(role.id))
             report.deleted.append(f"Rolle {role.name}")
             if log:
                 log(f"Rolle gelöscht: {role.name}")
@@ -215,23 +240,34 @@ async def wipe_server(guild, report: Report, log: Callable | None = None) -> Non
             report.errors.append(f"Rolle {role.name}: {error}")
         await asyncio.sleep(STEP_PAUSE)
 
+    return gone
+
 
 async def apply_roles(guild, payload: dict, report: Report,
-                      log: Callable | None = None) -> dict[str, Any]:
+                      log: Callable | None = None,
+                      gone: set[int] | None = None) -> dict[str, Any]:
     """Rollen anlegen. Gibt Name -> Rolle zurueck.
 
     Die Zuordnung braucht der naechste Schritt: Kanalrechte verweisen
     ueber den Namen auf eine Rolle.
+
+    `gone` sind die IDs, die `wipe_server` gerade geloescht hat. Sie
+    stehen unter Umstaenden noch im Cache -- siehe die Erklaerung
+    dort. Ohne diese Liste galt jede geloeschte Rolle als »gibt es
+    schon« und wurde nicht neu angelegt.
     """
 
     import discord
 
     made: dict[str, Any] = {}
+    dead = gone or set()
 
     # Bestehende gleichnamige Rollen wiederverwenden, statt ein
     # zweites "Moderator" anzulegen. Zwei Rollen mit demselben Namen
     # sind in Discord erlaubt und danach kaum auseinanderzuhalten.
     for role in getattr(guild, "roles", []):
+        if int(getattr(role, "id", 0)) in dead:
+            continue
         made.setdefault(role.name, role)
 
     for entry in payload.get("roles") or []:
@@ -283,11 +319,21 @@ def _build_overwrites(entries: list[dict], roles: dict[str, Any], guild):
 
 
 async def apply_channels(guild, payload: dict, roles: dict[str, Any],
-                         report: Report, log: Callable | None = None) -> dict:
-    """Kategorien und Kanaele anlegen."""
+                         report: Report, log: Callable | None = None,
+                         gone: set[int] | None = None) -> dict:
+    """Kategorien und Kanaele anlegen.
+
+    `gone` sind die IDs aus `wipe_server` -- siehe die Erklaerung
+    dort. Ohne sie hielt dieser Schritt jeden gerade geloeschten
+    Kanal fuer bestehend und legte ihn nicht wieder an.
+    """
+
+    dead = gone or set()
 
     made_categories: dict[str, Any] = {}
     for category in getattr(guild, "categories", []):
+        if int(getattr(category, "id", 0)) in dead:
+            continue
         made_categories.setdefault(category.name, category)
 
     for entry in sorted(
@@ -310,13 +356,38 @@ async def apply_channels(guild, payload: dict, roles: dict[str, Any],
             report.errors.append(f"Kategorie {name}: {error}")
         await asyncio.sleep(STEP_PAUSE)
 
-    existing = {c.name for c in getattr(guild, "channels", [])}
+    # Ein Kanal ist durch Name **und Kategorie** bestimmt, nicht durch
+    # den Namen allein.
+    #
+    # Auch das war ein echter Fehler: Discord erlaubt zwei Kanaele mit
+    # demselben Namen, solange sie in verschiedenen Kategorien liegen
+    # -- »chat« unter »Team« und »chat« unter »Community« ist ein
+    # voellig gewoehnlicher Aufbau. Verglichen wurde aber nur der
+    # Name, also entstand nur der erste, und der zweite fiel
+    # kommentarlos unter den Tisch.
+    #
+    # Reproduziert in `repro/bug_templates_dupnames.py`.
+    existing = {
+        (
+            c.name,
+            getattr(getattr(c, "category", None), "name", None),
+        )
+        for c in getattr(guild, "channels", [])
+        if int(getattr(c, "id", 0)) not in dead
+    }
 
     for entry in sorted(
         payload.get("channels") or [], key=lambda c: c.get("position", 0)
     ):
         name = str(entry.get("name") or "").strip()
-        if not name or name in existing:
+        where = entry.get("category") or None
+        if not name or (name, where) in existing:
+            if name:
+                report.skipped.append(
+                    f"Kanal {name}"
+                    + (f" in {where}" if where else "")
+                    + " (gibt es schon)"
+                )
             continue
 
         kind = entry.get("kind") or "text"
@@ -358,7 +429,7 @@ async def apply_channels(guild, payload: dict, roles: dict[str, Any],
                     reason="Vorlage angewendet",
                 )
 
-            existing.add(name)
+            existing.add((name, where))
             report.created.append(f"Kanal {name}")
             if log:
                 log(f"Kanal angelegt: {name}")
@@ -441,6 +512,40 @@ async def apply_features(guild, payload: dict, wanted: dict[str, bool],
         try:
             async with aiosqlite.connect(path) as db:
                 for table, rows in (block.get("tables") or {}).items():
+                    # Welche Spalten es in der ZIELtabelle wirklich
+                    # gibt.
+                    #
+                    # Auch das war ein echter Fehler: das INSERT wurde
+                    # aus den Spalten der Quelle gebaut. Kennt das Ziel
+                    # eine davon nicht -- weil die Vorlage aus einer
+                    # neueren Version stammt oder die Tabelle inzwischen
+                    # anders aussieht --, warf SQLite »has no column
+                    # named x« und der GANZE Block ging verloren, statt
+                    # der einen unpassenden Spalte.
+                    #
+                    # Reproduziert in `repro/bug_templates_dupnames.py`.
+                    try:
+                        async with db.execute(
+                            f"PRAGMA table_info({table})"
+                        ) as cursor:
+                            known = {r[1] for r in await cursor.fetchall()}
+                    except Exception:
+                        known = set()
+
+                    if not known:
+                        # Die Tabelle gibt es hier gar nicht. Das ist
+                        # kein Fehler des Nutzers -- die Vorlage bringt
+                        # eine Funktion mit, die dieser Bot (noch)
+                        # nicht kennt.
+                        report.skipped.append(
+                            f"Einstellungen {label}: Tabelle {table} "
+                            "gibt es hier nicht"
+                        )
+                        continue
+
+                    dropped: set[str] = set()
+                    written = 0
+
                     for row in rows:
                         clean = resolve_placeholders(dict(row), guild)
                         clean["guild_id"] = int(guild.id)
@@ -448,13 +553,34 @@ async def apply_features(guild, payload: dict, wanted: dict[str, bool],
                         # mit einer fremden Zeile kollidieren.
                         clean.pop("id", None)
 
+                        dropped |= set(clean) - known
+                        clean = {k: v for k, v in clean.items() if k in known}
+                        if not clean:
+                            continue
+
                         columns = ", ".join(clean)
                         marks = ", ".join("?" for _ in clean)
-                        await db.execute(
-                            f"INSERT OR REPLACE INTO {table} ({columns}) "
-                            f"VALUES ({marks})",
-                            tuple(clean.values()),
+                        try:
+                            await db.execute(
+                                f"INSERT OR REPLACE INTO {table} ({columns}) "
+                                f"VALUES ({marks})",
+                                tuple(clean.values()),
+                            )
+                            written += 1
+                        except Exception as error:
+                            # Eine kaputte Zeile darf die anderen nicht
+                            # mitnehmen.
+                            report.errors.append(
+                                f"Einstellungen {label} ({table}): {error}"
+                            )
+
+                    if dropped:
+                        report.skipped.append(
+                            f"Einstellungen {label}: "
+                            f"{', '.join(sorted(dropped))} "
+                            "(kennt dieser Bot nicht)"
                         )
+                    _ = written
                 await db.commit()
             report.created.append(f"Einstellungen: {label}")
             if log:
@@ -489,18 +615,24 @@ async def apply_template(
         report.errors.extend(problems)
         return report.as_dict()
 
+    # Was geloescht wurde, aber vielleicht noch im Cache steht. Ohne
+    # diese Liste hielten die naechsten Schritte den geleerten Server
+    # fuer voll und legten nichts an -- siehe `wipe_server`.
+    gone: set[int] = set()
     if options.get("wipe"):
         if log:
             log("Server wird geleert …")
-        await wipe_server(guild, report, log)
+        gone = await wipe_server(guild, report, log)
 
     roles: dict[str, Any] = {}
     if options.get("roles", True):
         if log:
             log("Rollen werden angelegt …")
-        roles = await apply_roles(guild, payload, report, log)
+        roles = await apply_roles(guild, payload, report, log, gone)
     else:
         for role in getattr(guild, "roles", []):
+            if int(getattr(role, "id", 0)) in gone:
+                continue
             roles.setdefault(role.name, role)
 
     if options.get("channels", True):
@@ -517,7 +649,7 @@ async def apply_template(
             working["channels"] = [
                 {**c, "overwrites": []} for c in payload.get("channels") or []
             ]
-        await apply_channels(guild, working, roles, report, log)
+        await apply_channels(guild, working, roles, report, log, gone)
 
     if options.get("features", False):
         if log:

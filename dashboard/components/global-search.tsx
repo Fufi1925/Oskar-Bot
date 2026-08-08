@@ -74,6 +74,7 @@ const ADMIN_TABS: SearchTarget[] = [
   { label: "Access", href: "/dashboard/admin#access", icon: Lock, group: "Admin", keywords: "owner admin access ids" },
   { label: "Features", href: "/dashboard/admin#features", icon: Settings, group: "Admin", keywords: "feature flags toggles rollout" },
   { label: "Health", href: "/dashboard/admin#health", icon: Activity, group: "Admin", keywords: "health shards lavalink status" },
+  { label: "Vorlagen-Verwaltung", href: "/dashboard/admin#templates", icon: Sparkles, group: "Admin", keywords: "template vorlagen community key code sperren loeschen upload verwaltung moderation" },
 ];
 
 /**

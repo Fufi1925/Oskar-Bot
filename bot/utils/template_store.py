@@ -40,8 +40,10 @@ hochgeladenen Vorlagen nach dem naechsten Deploy weg.
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
+import os
 import re
 import secrets
 import time
@@ -49,6 +51,17 @@ import time
 import aiosqlite
 
 DB_PATH = "db/templates.db"
+
+# Wo der Schluessel liegt, mit dem die Zugangscodes verschluesselt
+# werden. Liegt neben der Datenbank, damit dasselbe Railway-Volume
+# beides traegt -- ein Code, dessen Schluessel beim naechsten Deploy
+# weg ist, waere nicht wiederherstellbar.
+SECRET_FILE = "db/template_secret.key"
+
+# Umgebungsvariable hat Vorrang. Wer den Schluessel lieber selbst
+# verwaltet, setzt sie; sonst legt der Bot beim ersten Mal eine Datei
+# an.
+SECRET_ENV = "TEMPLATE_KEY_SECRET"
 
 # Grenzen. Sie stehen hier und nicht in der Route, damit das Dashboard
 # sie abfragen und dieselben Zahlen anzeigen kann.
@@ -201,9 +214,152 @@ def hash_key(key: str) -> str:
     Wer die Datenbank liest, soll damit keine fremden Vorlagen oeffnen
     koennen. Ein Salt ist hier unnoetig: die Codes sind zufaellig und
     haben genug Entropie, eine Regenbogentabelle bringt nichts.
+
+    Der Hash bleibt die Pruefinstanz: beim Oeffnen einer fremden
+    Vorlage wird gehasht und verglichen, nie entschluesselt.
     """
 
     return hashlib.sha256(key.strip().upper().encode("utf-8")).hexdigest()
+
+
+# ── Den eigenen Code wieder anzeigen ─────────────────────────────────
+#
+# Bisher war der Code nach dem Hochladen fuer immer weg -- nur der
+# Hash lag in der Datenbank, und ein Hash laesst sich nicht
+# zurueckrechnen. Wer ihn verlor, musste die Vorlage neu hochladen.
+#
+# Jetzt liegt zusaetzlich eine *verschluesselte* Kopie daneben. Zwei
+# Dinge sind dabei wichtig:
+#
+#   * Der Hash bleibt. Geprueft wird weiter ueber ihn, nie ueber die
+#     Entschluesselung -- sonst haette ein Fehler in der Krypto sofort
+#     jede Vorlage geoeffnet.
+#   * Entschluesselt wird nur fuer den Server, der die Vorlage
+#     hochgeladen hat, und fuer die Bot-Admins. Die Route prueft das,
+#     bevor sie hierher kommt.
+#
+# Warum keine Bibliothek
+# ----------------------
+# `cryptography` steht nicht in den Abhaengigkeiten des Bots, und
+# dafuer eine 10-MB-Abhaengigkeit mit C-Erweiterung nachzuziehen waere
+# unverhaeltnismaessig. Was hier gebraucht wird, ist genau ein kurzer
+# Text: AES-CTR von Hand ist gefaehrlich, ein Schluesselstrom aus
+# SHA-256 plus HMAC-Signatur dagegen ist mit der Standardbibliothek
+# vollstaendig und ohne Fussangeln zu bauen -- dasselbe Muster, das
+# Fernet innen verwendet.
+
+
+def _secret() -> bytes:
+    """Der Hauptschluessel. Wird beim ersten Aufruf angelegt.
+
+    Aus der Umgebung, wenn dort einer steht; sonst aus einer Datei
+    neben der Datenbank. Ohne beides waere jeder Neustart ein neuer
+    Schluessel und alle gespeicherten Codes Datenmuell.
+    """
+
+    from_env = os.environ.get(SECRET_ENV, "").strip()
+    if from_env:
+        return hashlib.sha256(from_env.encode("utf-8")).digest()
+
+    try:
+        if os.path.isfile(SECRET_FILE):
+            with open(SECRET_FILE, "rb") as handle:
+                raw = handle.read().strip()
+            if len(raw) >= 32:
+                return hashlib.sha256(raw).digest()
+    except OSError:
+        pass
+
+    raw = secrets.token_bytes(48)
+    try:
+        folder = os.path.dirname(SECRET_FILE)
+        if folder:
+            os.makedirs(folder, exist_ok=True)
+        # 0600: nur der Bot selbst. Auf Railway laeuft ohnehin nur ein
+        # Prozess, aber ein weltlesbarer Schluessel neben der Datenbank
+        # waere schlicht schlampig.
+        handle = os.open(SECRET_FILE, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(handle, "wb") as file:
+            file.write(raw)
+    except OSError:
+        # Kein Schreibrecht: dann eben nur fuer diesen Lauf. Die
+        # gespeicherten Codes lassen sich danach nicht mehr anzeigen,
+        # aber nichts geht kaputt -- der Hash prueft weiter.
+        pass
+    return hashlib.sha256(raw).digest()
+
+
+def _keystream(key: bytes, nonce: bytes, length: int) -> bytes:
+    """Schluesselstrom aus SHA-256 im Zaehlerbetrieb."""
+
+    out = bytearray()
+    counter = 0
+    while len(out) < length:
+        out += hashlib.sha256(
+            key + nonce + counter.to_bytes(4, "big")
+        ).digest()
+        counter += 1
+    return bytes(out[:length])
+
+
+def encrypt_key(plain: str) -> str:
+    """Den Code verschluesselt ablegen. Gibt einen Text fuer die DB."""
+
+    import hmac
+
+    if not plain:
+        return ""
+
+    key = _secret()
+    nonce = secrets.token_bytes(16)
+    data = plain.encode("utf-8")
+    cipher = bytes(a ^ b for a, b in zip(data, _keystream(key, nonce, len(data))))
+    # Signatur ueber Nonce UND Text: ohne sie liesse sich der
+    # Chiffretext bitweise veraendern, und beim Entschluesseln kaeme
+    # unbemerkt etwas anderes heraus.
+    tag = hmac.new(key, nonce + cipher, hashlib.sha256).digest()[:16]
+    return base64.urlsafe_b64encode(nonce + tag + cipher).decode("ascii")
+
+
+def decrypt_key(blob: str) -> str | None:
+    """Zurueck in Klartext. None, wenn das nicht geht.
+
+    »Geht nicht« heisst: der Hauptschluessel hat gewechselt, der
+    Eintrag stammt noch aus der Zeit ohne Verschluesselung, oder
+    jemand hat daran herumgeschraubt. In allen drei Faellen ist None
+    die richtige Antwort -- die Oberflaeche sagt dann ehrlich, dass
+    der Code nicht mehr anzeigbar ist.
+    """
+
+    import hmac
+
+    if not blob:
+        return None
+
+    try:
+        raw = base64.urlsafe_b64decode(blob.encode("ascii"))
+    except (ValueError, UnicodeEncodeError):
+        return None
+
+    if len(raw) < 32:
+        return None
+
+    nonce, tag, cipher = raw[:16], raw[16:32], raw[32:]
+    key = _secret()
+
+    expected = hmac.new(key, nonce + cipher, hashlib.sha256).digest()[:16]
+    # compare_digest statt ==: ein normaler Vergleich bricht beim
+    # ersten falschen Byte ab und verraet ueber die Laufzeit, wie weit
+    # ein geratener Tag stimmte.
+    if not hmac.compare_digest(tag, expected):
+        return None
+
+    try:
+        return bytes(
+            a ^ b for a, b in zip(cipher, _keystream(key, nonce, len(cipher)))
+        ).decode("utf-8")
+    except UnicodeDecodeError:
+        return None
 
 
 # ── Schema ───────────────────────────────────────────────────────────
@@ -228,6 +384,31 @@ async def ensure_schema(db: aiosqlite.Connection) -> None:
         )
         """
     )
+
+    # Nachtraeglich dazugekommene Spalten.
+    #
+    # ALTER TABLE ADD COLUMN wirft, wenn die Spalte schon da ist, und
+    # SQLite kann das nicht bedingt. Deshalb erst nachsehen: eine
+    # bestehende Datenbank soll weiterlaufen, ohne dass jemand sie von
+    # Hand anfasst.
+    async with db.execute("PRAGMA table_info(templates)") as cursor:
+        have = {row[1] for row in await cursor.fetchall()}
+
+    for column, definition in (
+        # Der Zugangscode, verschluesselt -- damit der eigene Server
+        # ihn wieder anzeigen kann.
+        ("key_cipher", "TEXT"),
+        # Wer gesperrt hat und warum. Eine gesperrte Vorlage bleibt
+        # sichtbar, laesst sich aber nicht mehr anwenden.
+        ("blocked", "INTEGER DEFAULT 0"),
+        ("blocked_reason", "TEXT DEFAULT ''"),
+        ("blocked_by", "TEXT DEFAULT ''"),
+        ("blocked_at", "REAL DEFAULT 0"),
+    ):
+        if column not in have:
+            await db.execute(
+                f"ALTER TABLE templates ADD COLUMN {column} {definition}"
+            )
     # Ohne Index liest jede Suche die ganze Tabelle.
     await db.execute(
         "CREATE INDEX IF NOT EXISTS idx_templates_visibility "
@@ -256,6 +437,22 @@ async def ensure_schema(db: aiosqlite.Connection) -> None:
 
 
 # ── Lesen ────────────────────────────────────────────────────────────
+
+
+def _column(row, name, fallback=None):
+    """Eine Spalte lesen, die es vielleicht noch nicht gibt.
+
+    `aiosqlite.Row` wirft bei einem unbekannten Namen einen IndexError.
+    Eine Datenbank aus der Zeit vor `ensure_schema` hat die neuen
+    Spalten erst nach dem naechsten Start -- bis dahin soll das Lesen
+    trotzdem funktionieren.
+    """
+
+    try:
+        value = row[name]
+    except (IndexError, KeyError):
+        return fallback
+    return fallback if value is None else value
 
 
 def _row_to_template(row, *, with_payload: bool, unlocked: bool) -> dict:
@@ -301,6 +498,15 @@ def _row_to_template(row, *, with_payload: bool, unlocked: bool) -> dict:
         "created_at": row["created_at"],
         "summary": summary,
         "payload": payload,
+        # Gesperrt heisst: sichtbar, aber nicht anwendbar. Der Grund
+        # steht dabei -- eine Vorlage, die kommentarlos nicht mehr
+        # geht, sieht nach einem Fehler aus statt nach einer
+        # Entscheidung.
+        "blocked": bool(_column(row, "blocked", 0)),
+        "blocked_reason": str(_column(row, "blocked_reason", "") or ""),
+        # Ob ueberhaupt ein Code hinterlegt ist. Damit weiss die
+        # Oberflaeche, ob sie den Knopf »Code anzeigen« zeigen darf.
+        "has_key": bool(row["key_hash"]),
     }
 
 
@@ -390,6 +596,236 @@ async def get_template(
     return _row_to_template(row, with_payload=True, unlocked=unlocked)
 
 
+async def list_for_admin(
+    db: aiosqlite.Connection,
+    *,
+    search: str = "",
+    sort: str = "neu",
+    limit: int = 500,
+) -> list[dict]:
+    """Alles, was hochgeladen wurde -- fuer den Admin-Reiter.
+
+    Anders als `list_templates`:
+
+      * auch **private** Vorlagen stehen drin,
+      * die Zahlen sind auch bei Code-Vorlagen echt (ein Admin soll
+        sehen, wie gross eine Vorlage ist, bevor er sie prueft),
+      * der Zugangscode kommt im Klartext mit, sofern er sich noch
+        entschluesseln laesst,
+      * dazu Herkunftsserver, Hochlader und wann zuletzt angewendet.
+
+    Das ist bewusst mehr, als ein normaler Nutzer sieht. Deshalb
+    laesst der Proxy hierher nur globale Admins durch -- dieselbe
+    Regel wie bei der Speedrun-Verwaltung.
+    """
+
+    order = {
+        "neu": "t.created_at DESC",
+        "beliebt": "t.uses DESC, t.created_at DESC",
+        "name": "t.name COLLATE NOCASE",
+    }.get(sort, "t.created_at DESC")
+
+    db.row_factory = aiosqlite.Row
+
+    where = ""
+    args: tuple = ()
+    if search.strip():
+        needle = f"%{search.strip()}%"
+        where = (
+            "WHERE t.name LIKE ? OR t.description LIKE ? "
+            "OR t.author_name LIKE ? OR CAST(t.source_guild_id AS TEXT) LIKE ?"
+        )
+        args = (needle, needle, needle, needle)
+
+    query = (
+        "SELECT t.*, "
+        "(SELECT MAX(created_at) FROM template_applies a "
+        " WHERE a.template_id = t.id) AS last_used "
+        f"FROM templates t {where} ORDER BY {order} LIMIT ?"
+    )
+
+    async with db.execute(query, (*args, int(limit))) as cursor:
+        rows = await cursor.fetchall()
+
+    out = []
+    for row in rows:
+        try:
+            raw = json.loads(row["payload"] or "{}")
+        except (TypeError, ValueError):
+            raw = {}
+
+        out.append(
+            {
+                "id": row["id"],
+                "name": row["name"],
+                "description": row["description"] or "",
+                "author_id": str(row["author_id"] or ""),
+                "author_name": row["author_name"] or "",
+                "source_guild_id": str(row["source_guild_id"] or ""),
+                "visibility": row["visibility"],
+                "uses": int(row["uses"] or 0),
+                "created_at": row["created_at"],
+                "last_used": _column(row, "last_used", None),
+                "blocked": bool(_column(row, "blocked", 0)),
+                "blocked_reason": str(_column(row, "blocked_reason", "") or ""),
+                "blocked_by": str(_column(row, "blocked_by", "") or ""),
+                "has_key": bool(row["key_hash"]),
+                # Klartext, wenn moeglich. None heisst: der
+                # Hauptschluessel hat gewechselt oder der Eintrag ist
+                # aelter als diese Funktion.
+                "key": decrypt_key(str(_column(row, "key_cipher", "") or "")),
+                # Groesse. Eine 4-MB-Vorlage ist ein Grund
+                # nachzusehen, was darin steht.
+                "size_bytes": len(row["payload"] or ""),
+                "summary": {
+                    "channels": len(raw.get("channels") or []),
+                    "roles": len(raw.get("roles") or []),
+                    "categories": len(raw.get("categories") or []),
+                    "features": len(raw.get("features") or {}),
+                },
+            }
+        )
+    return out
+
+
+async def admin_stats(db: aiosqlite.Connection) -> dict:
+    """Ein paar Zahlen fuer den Kopf des Admin-Reiters."""
+
+    async with db.execute(
+        "SELECT COUNT(*), "
+        "SUM(CASE WHEN visibility = 'key' THEN 1 ELSE 0 END), "
+        "SUM(CASE WHEN COALESCE(blocked, 0) = 1 THEN 1 ELSE 0 END), "
+        "SUM(uses) FROM templates"
+    ) as cursor:
+        row = await cursor.fetchone()
+
+    async with db.execute("SELECT COUNT(*) FROM template_applies") as cursor:
+        applies = await cursor.fetchone()
+
+    return {
+        "total": int((row or [0])[0] or 0),
+        "with_key": int((row or [0, 0])[1] or 0),
+        "blocked": int((row or [0, 0, 0])[2] or 0),
+        "uses": int((row or [0, 0, 0, 0])[3] or 0),
+        "applies": int((applies or [0])[0] or 0),
+    }
+
+
+async def reveal_key(
+    db: aiosqlite.Connection,
+    template_id: int,
+    *,
+    owner_guild_id: int | None = None,
+) -> tuple[bool, str | None]:
+    """Den eigenen Zugangscode wieder anzeigen.
+
+    Gibt `(gefunden, code)`. `code` ist None, wenn es keinen gibt oder
+    er sich nicht mehr entschluesseln laesst.
+
+    `owner_guild_id` ist die Sperre: nur der Server, der die Vorlage
+    hochgeladen hat, bekommt den Code. Ohne diese Bedingung im WHERE
+    reichte eine geratene ID -- sie sind fortlaufend --, um jeden
+    fremden Code zu lesen.
+    """
+
+    db.row_factory = aiosqlite.Row
+
+    if owner_guild_id is None:
+        query = "SELECT * FROM templates WHERE id = ?"
+        args: tuple = (template_id,)
+    else:
+        query = "SELECT * FROM templates WHERE id = ? AND source_guild_id = ?"
+        args = (template_id, owner_guild_id)
+
+    async with db.execute(query, args) as cursor:
+        row = await cursor.fetchone()
+
+    if row is None:
+        return False, None
+    if not row["key_hash"]:
+        return True, None
+
+    return True, decrypt_key(str(_column(row, "key_cipher", "") or ""))
+
+
+async def set_blocked(
+    db: aiosqlite.Connection,
+    template_id: int,
+    *,
+    blocked: bool,
+    reason: str = "",
+    actor: str = "",
+) -> bool:
+    """Eine Vorlage sperren oder wieder freigeben.
+
+    Sperren statt loeschen ist der mildere Eingriff: die Vorlage
+    bleibt sichtbar, ihr Hochlader sieht den Grund, und ein Irrtum
+    laesst sich zuruecknehmen. Geloescht wird nur, was wirklich weg
+    muss.
+    """
+
+    cursor = await db.execute(
+        "UPDATE templates SET blocked = ?, blocked_reason = ?, "
+        "blocked_by = ?, blocked_at = ? WHERE id = ?",
+        (
+            1 if blocked else 0,
+            str(reason or "")[:MAX_DESCRIPTION] if blocked else "",
+            str(actor or "") if blocked else "",
+            time.time() if blocked else 0,
+            template_id,
+        ),
+    )
+    await db.commit()
+    return bool(cursor.rowcount)
+
+
+async def force_delete(db: aiosqlite.Connection, template_id: int) -> bool:
+    """Loeschen ohne Ruecksicht auf den Besitzer -- nur fuer Admins.
+
+    Getrennt von `delete_template`, damit die normale Route den
+    Besitzcheck gar nicht erst umgehen kann. Ein Aufruf hiervon ist
+    im Quelltext sofort als Admin-Weg erkennbar.
+    """
+
+    cursor = await db.execute("DELETE FROM templates WHERE id = ?", (template_id,))
+    await db.execute(
+        "DELETE FROM template_applies WHERE template_id = ?", (template_id,)
+    )
+    await db.commit()
+    return bool(cursor.rowcount)
+
+
+async def history_for(
+    db: aiosqlite.Connection, template_id: int, limit: int = 50
+) -> list[dict]:
+    """Wer diese Vorlage wann angewendet hat."""
+
+    db.row_factory = aiosqlite.Row
+    async with db.execute(
+        "SELECT * FROM template_applies WHERE template_id = ? "
+        "ORDER BY created_at DESC LIMIT ?",
+        (template_id, int(limit)),
+    ) as cursor:
+        rows = await cursor.fetchall()
+
+    out = []
+    for row in rows:
+        try:
+            options = json.loads(row["options"] or "{}")
+        except (TypeError, ValueError):
+            options = {}
+        out.append(
+            {
+                "guild_id": str(row["guild_id"]),
+                "actor_id": str(row["actor_id"] or ""),
+                "wiped": bool(row["wiped"]),
+                "created_at": row["created_at"],
+                "options": options,
+            }
+        )
+    return out
+
+
 async def count_for_guild(db: aiosqlite.Connection, guild_id: int) -> int:
     async with db.execute(
         "SELECT COUNT(*) FROM templates WHERE source_guild_id = ?", (guild_id,)
@@ -415,26 +851,30 @@ async def create_template(
 ) -> tuple[int, str | None]:
     """Eine Vorlage anlegen. Gibt (id, Klartext-Code oder None).
 
-    Der Code wird genau einmal zurueckgegeben -- danach steht in der
-    Datenbank nur noch sein Hash. Wer ihn verliert, muss die Vorlage
-    neu hochladen; das ist unbequem, aber besser als ein Code, den
-    jeder mit Datenbankzugriff lesen kann.
+    Geprueft wird weiter ueber den Hash. Zusaetzlich liegt der Code
+    verschluesselt daneben, damit der eigene Server ihn spaeter noch
+    einmal anzeigen kann -- vorher war er nach dem Schliessen des
+    Fensters unwiederbringlich weg, was in der Praxis bedeutete: neu
+    hochladen.
     """
 
     now = time.time()
     plain_key = None
     key_hash = None
+    key_cipher = ""
 
     if visibility == "key":
         plain_key = (key or "").strip().upper() or make_key()
         key_hash = hash_key(plain_key)
+        key_cipher = encrypt_key(plain_key)
 
     cursor = await db.execute(
         """
         INSERT INTO templates
             (name, description, author_id, author_name, source_guild_id,
-             payload, visibility, key_hash, uses, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)
+             payload, visibility, key_hash, key_cipher, uses,
+             created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)
         """,
         (
             str(name or "Ohne Namen")[:MAX_NAME],
@@ -445,6 +885,7 @@ async def create_template(
             json.dumps(payload, ensure_ascii=False),
             visibility if visibility in ("public", "key", "private") else "public",
             key_hash,
+            key_cipher,
             now,
             now,
         ),

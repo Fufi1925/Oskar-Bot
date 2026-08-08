@@ -14,17 +14,23 @@
  *   4. Prüfen: der Bot sagt, was er anlegen würde und was ihm fehlt.
  *   5. Anwenden.
  *
- * ── Warum „alles löschen" so umständlich ist ────────────────────────
+ * ── Warum „alles löschen“ so umständlich ist ────────────────────────
  *
  * Discord kennt keinen Papierkorb. Ein gelöschter Kanal ist samt
- * Verlauf weg — endgültig. Deshalb drei Hürden statt einer:
+ * Verlauf weg — endgültig. Deshalb bleiben zwei Hürden:
  *
  *   * der Schalter ist rot und getrennt vom Rest,
- *   * der Servername muss abgetippt werden,
- *   * der Knopf ist acht Sekunden lang gesperrt.
+ *   * der Knopf ist zehn Sekunden lang gesperrt.
  *
- * Die Wartezeit ist der Punkt, an dem man noch einmal liest, was da
- * steht. Ohne sie klickt man weiter, wie man es gewohnt ist.
+ * Das Abtippen des Servernamens ist bewusst wieder verschwunden. Es
+ * sah nach Sicherheit aus, war aber keine: der Name stand als
+ * Platzhalter direkt im Feld darüber, abtippen dauert drei Sekunden
+ * und man liest dabei nichts. Die Wartezeit dagegen vergeht, ob man
+ * will oder nicht — und in ihr liest man tatsächlich, was da steht.
+ *
+ * Die Sperre steht doppelt: hier im `disabled` des Knopfes und noch
+ * einmal im Bot. Nur im Browser wäre sie eine Bitte, kein Riegel — ein
+ * direkter Aufruf der Route umginge sie mit einer Zeile.
  */
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
@@ -44,8 +50,15 @@ const INPUT =
   "text-white placeholder:text-slate-600 focus:outline-none " +
   "focus:border-primary/50 transition-colors";
 
-/** Wie lange der Löschen-Knopf gesperrt bleibt. */
-const WIPE_DELAY_SECONDS = 8;
+/**
+ * Wie lange der Löschen-Knopf gesperrt bleibt.
+ *
+ * Dieselbe Zahl steht im Bot (`WIPE_DELAY_SECONDS` in
+ * `api/routes/templates.py`) und wird von dort über die Prüfung
+ * mitgeliefert. Der Wert hier ist nur der Startwert, bis die Prüfung
+ * geantwortet hat — maßgeblich ist immer der Server.
+ */
+const WIPE_DELAY_SECONDS = 10;
 
 export function TemplateCommunityPanel({ guildId }: { guildId: string }) {
   const [list, setList] = useState<any[]>([]);
@@ -70,7 +83,6 @@ export function TemplateCommunityPanel({ guildId }: { guildId: string }) {
 
   // Die gefährliche Option
   const [wipe, setWipe] = useState(false);
-  const [confirmName, setConfirmName] = useState("");
   const [countdown, setCountdown] = useState(0);
   const [preview, setPreview] = useState<any>(null);
   const [report, setReport] = useState<any>(null);
@@ -94,14 +106,30 @@ export function TemplateCommunityPanel({ guildId }: { guildId: string }) {
     return () => clearTimeout(handle);
   }, [load]);
 
-  // Der Countdown für „alles löschen".
+  // Der Countdown für „alles löschen“.
+  //
+  // Er hängt an der Prüfung, nicht am Schalter. Das ist der
+  // Unterschied, auf den es ankommt: der Bot rechnet ab dem Zeitpunkt
+  // der Prüfung (`armed_at`) und weist ein zu frühes Anwenden ab. Liefe
+  // die Uhr hier schon ab dem Umlegen des Schalters, wäre sie fertig,
+  // bevor die Prüfung überhaupt zurück ist — der Knopf sähe frei aus
+  // und der Bot antwortete trotzdem mit „bitte noch warten“.
+  //
+  // `preview?.armed_at` in den Abhängigkeiten sorgt dafür, dass jede
+  // neue Prüfung die Uhr neu startet.
   useEffect(() => {
-    if (!wipe) {
+    if (timer.current) clearInterval(timer.current);
+
+    if (!wipe || !preview?.armed_at) {
       setCountdown(0);
-      if (timer.current) clearInterval(timer.current);
       return;
     }
-    setCountdown(WIPE_DELAY_SECONDS);
+
+    // Der Server bestimmt die Wartezeit. Ohne Angabe der hiesige
+    // Startwert — dann stimmen im schlimmsten Fall die Sekunden nicht
+    // ganz, aber der Bot weist trotzdem korrekt ab.
+    const total = Number(preview.wipe_delay) || WIPE_DELAY_SECONDS;
+    setCountdown(total);
     timer.current = setInterval(() => {
       setCountdown((old) => {
         if (old <= 1) {
@@ -114,7 +142,7 @@ export function TemplateCommunityPanel({ guildId }: { guildId: string }) {
     return () => {
       if (timer.current) clearInterval(timer.current);
     };
-  }, [wipe]);
+  }, [wipe, preview?.armed_at, preview?.wipe_delay]);
 
   const open = async (entry: any, key = "") => {
     setBusy(`open${entry.id}`);
@@ -128,7 +156,6 @@ export function TemplateCommunityPanel({ guildId }: { guildId: string }) {
       setPreview(null);
       setReport(null);
       setWipe(false);
-      setConfirmName("");
     } catch (error: any) {
       toast.error(error?.message || "Die Vorlage ließ sich nicht öffnen.");
     } finally {
@@ -163,7 +190,10 @@ export function TemplateCommunityPanel({ guildId }: { guildId: string }) {
         ...options,
         feature_keys: featureKeys,
         wipe,
-        confirm: confirmName,
+        // Der Zeitstempel aus der Prüfung. Der Bot rechnet damit nach,
+        // ob die zehn Sekunden wirklich um sind — die Sperre im Browser
+        // allein wäre keine.
+        armed_at: preview?.armed_at,
       });
       setReport(answer?.report || null);
       if (answer?.report?.ok) {
@@ -189,10 +219,10 @@ export function TemplateCommunityPanel({ guildId }: { guildId: string }) {
   // ── Eine Vorlage ist ausgewählt ──────────────────────────
   if (chosen) {
     const payload = chosen.payload || {};
-    const nameOk =
-      !wipe ||
-      confirmName.trim().toLowerCase() ===
-        (preview?.guild_name || "").trim().toLowerCase();
+    // Eine gesperrte Vorlage lässt sich nicht anwenden. Der Bot weist
+    // es ohnehin ab; hier steht es, damit der Knopf nicht klickbar
+    // aussieht und der Grund lesbar ist.
+    const blocked = Boolean(chosen.blocked || preview?.blocked);
 
     return (
       <div className="space-y-5">
@@ -222,6 +252,24 @@ export function TemplateCommunityPanel({ guildId }: { guildId: string }) {
               </p>
             </div>
           </div>
+
+          {/* Vom Bot-Team gesperrt */}
+          {blocked && (
+            <div className="rounded-2xl bg-red-500/[0.07] border border-red-500/30 p-4 flex gap-2.5">
+              <AlertTriangle className="h-4 w-4 text-red-400 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-[13px] font-bold text-red-200">
+                  Diese Vorlage wurde gesperrt
+                </p>
+                <p className="text-[12.5px] text-red-200/75 leading-relaxed mt-0.5">
+                  {chosen.blocked_reason ||
+                    preview?.blocked_reason ||
+                    "Das Bot-Team hat sie aus dem Verkehr gezogen."}{" "}
+                  Sie lässt sich nicht mehr anwenden.
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Verschlossen: erst der Code */}
           {chosen.locked ? (
@@ -425,26 +473,35 @@ export function TemplateCommunityPanel({ guildId }: { guildId: string }) {
                         </p>
                       </div>
 
-                      <div>
-                        <span className="text-[11px] font-black uppercase tracking-widest text-red-300/70">
-                          Zum Bestätigen den Servernamen eintippen
-                        </span>
-                        <input
-                          value={confirmName}
-                          onChange={(event) =>
-                            setConfirmName(event.target.value)
-                          }
-                          placeholder={preview?.guild_name || "Servername"}
-                          className={cn(
-                            INPUT,
-                            "mt-2 border-red-500/30 focus:border-red-500/60"
+                      <div className="rounded-xl bg-[#0a1628]/60 border border-red-500/20 p-3.5 space-y-2">
+                        <p className="text-[11px] font-black uppercase tracking-widest text-red-300/70">
+                          Was passiert
+                        </p>
+                        <p className="text-[12px] text-red-200/70 leading-relaxed">
+                          {preview ? (
+                            <>
+                              Auf <b>{preview.guild_name}</b> werden{" "}
+                              <b>{(preview.will_delete || []).length} Einträge</b>{" "}
+                              gelöscht und anschließend{" "}
+                              <b>
+                                {(preview.will_create?.roles || []).length} Rollen
+                              </b>{" "}
+                              und{" "}
+                              <b>
+                                {(preview.will_create?.channels || []).length}{" "}
+                                Kanäle
+                              </b>{" "}
+                              neu angelegt.
+                            </>
+                          ) : (
+                            <>
+                              Erst prüfen &mdash; danach steht hier genau, was
+                              gelöscht und was angelegt wird. Ab der Prüfung
+                              läuft die Wartezeit von {WIPE_DELAY_SECONDS}{" "}
+                              Sekunden.
+                            </>
                           )}
-                        />
-                        {!preview && (
-                          <p className="text-[11px] text-red-200/60 mt-1.5">
-                            Erst prüfen — danach steht hier der genaue Name.
-                          </p>
-                        )}
+                        </p>
                       </div>
                     </div>
                   )}
@@ -471,7 +528,7 @@ export function TemplateCommunityPanel({ guildId }: { guildId: string }) {
                     busy === "apply" ||
                     !preview ||
                     (preview?.problems || []).length > 0 ||
-                    !nameOk ||
+                    blocked ||
                     (wipe && countdown > 0)
                   }
                   onClick={runApply}
@@ -497,8 +554,19 @@ export function TemplateCommunityPanel({ guildId }: { guildId: string }) {
 
               {wipe && countdown > 0 && (
                 <p className="text-[11px] text-red-200/60">
-                  Der Knopf ist {WIPE_DELAY_SECONDS} Sekunden gesperrt — Zeit,
-                  noch einmal zu lesen, was oben steht.
+                  Der Knopf ist {preview?.wipe_delay || WIPE_DELAY_SECONDS}{" "}
+                  Sekunden gesperrt — Zeit, noch einmal zu lesen, was oben
+                  steht.
+                </p>
+              )}
+
+              {/* Warum der Knopf sonst noch aus sein kann. Ein
+                  ausgegrauter Knopf ohne Erklärung sieht nach einem
+                  Fehler aus. */}
+              {!preview && (
+                <p className="text-[11px] text-slate-600">
+                  Erst „Prüfen“ — der Bot sagt dann, was er anlegen würde und
+                  ob ihm etwas fehlt.
                 </p>
               )}
             </>
@@ -671,6 +739,11 @@ export function TemplateCommunityPanel({ guildId }: { guildId: string }) {
                     </p>
                     {entry.locked && (
                       <Lock className="h-3 w-3 text-amber-400 shrink-0" />
+                    )}
+                    {entry.blocked && (
+                      <span className="text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-red-500/15 text-red-300 border border-red-500/30 shrink-0">
+                        Gesperrt
+                      </span>
                     )}
                   </div>
                   {entry.description && (

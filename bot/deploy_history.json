@@ -1,6 +1,12 @@
 {
  "commits": [
   {
+   "commit": "80ba7044111f0264d740b4247bf4be220905a0c3",
+   "at": "1786156102",
+   "subject": "feat(templates): Kategorie mit Speedrun, Hochladen und Community-Vorlagen",
+   "body": "Neue Dashboard-Kategorie \"Templates\". Der Speedrun ist aus\n\"Verwaltung\" dorthin gezogen -- er gehoert thematisch dazu -- und zwei\nReiter kommen hinzu, beide als experimentell gekennzeichnet.\n\nDER ABLAUF\n\nHochladen: den eigenen Server scannen (Kanaele, Rollen, Rechte,\nDashboard-Einstellungen), auswaehlen was mit soll, benennen, offen\noder mit Zugangscode veroeffentlichen.\n\nCommunity: durchsuchen und sortieren, Vorschau ansehen, auswaehlen\nwas uebernommen wird -- Rollen, Kanaele, Kanalrechte,\nDashboard-Einstellungen, unter \"Dashboard erweitert\" jede Funktion\neinzeln -- pruefen lassen, anwenden.\n\nDREI STELLEN WAREN WIRKLICH GEFAEHRLICH\n\n1. Eine hochgeladene Vorlage ist oeffentlich.\n\nSteht darin eine Webhook-Adresse, kann jeder, der sie sieht, in\ndiesen Kanal schreiben -- eine Webhook-URL *ist* das Zugangsrecht.\nBereinigt wird deshalb beim Hochladen, nicht beim Anzeigen: was gar\nnicht erst gespeichert wird, kann auch nicht versehentlich\nausgeliefert werden.\n\nIDs werden zu lesbaren Platzhaltern ({channel:allgemein}), damit sie\nbeim Anwenden wieder auffindbar sind. Webhooks, Tokens, PATs und\nEinladungen fallen ganz heraus -- rekursiv, auch tief verschachtelt\nund auch, wenn eine ID als Zahl statt als Text gespeichert war.\nDanach laeuft eine Gegenprobe; findet sie noch etwas, wird der Upload\nabgelehnt statt stillschweigend veroeffentlicht.\n\n2. Ein Zugangscode, dessen Inhalt man auch ohne ihn sieht, ist keiner.\n\nOhne Code zeigt die Liste nur Name und Beschreibung -- keine Kanal-\noder Rollennamen, nicht einmal deren Anzahl. Der Code selbst liegt\nnur als SHA-256 in der Datenbank; wer sie liest, kann damit nichts\noeffnen. Das Alphabet laesst I/O/0/1 weg, weil man die beim Abtippen\nverwechselt.\n\n3. \"Alles loeschen\" ist endgueltig -- Discord kennt keinen Papierkorb.\n\nDrei Huerden: der Schalter ist rot und getrennt, der Servername muss\nabgetippt werden, und der Knopf ist acht Sekunden gesperrt. Die\nWartezeit ist der Moment, in dem man noch einmal liest.\n\nVerschont bleiben: die Rolle des Bots und alles darueber (er kann sie\nohnehin nicht loeschen), von Discord verwaltete Rollen, @everyone und\ndie Pflichtkanaele eines Community-Servers -- deren Loeschung\nverbietet Discord und wuerde mitten im Lauf fehlschlagen.\n\nWEITERE SORGFALT\n\n  * Erst pruefen, dann anfassen. Fehlen dem Bot Rechte oder steht\n    seine Rolle zu weit unten, wird gar nicht erst angefangen -- ein\n    halb aufgesetzter Server ist schlimmer als keiner.\n  * Rollen vor Kanaelen, weil Kanalrechte auf Rollen verweisen.\n  * Ein einzelner Fehlschlag beendet den Lauf nicht; am Ende steht\n    ein Bericht mit Angelegtem, Geloeschtem, Uebersprungenem und\n    Fehlern.\n  * Rechte stehen als Namen in der Vorlage, nicht als Bitfeld: eine\n    Zahl wie 137411140374080 kann niemand pruefen.\n  * Playlist- und Vorlagen-Abfragen filtern nach guild_id. Die IDs\n    sind fortlaufend und trivial zu raten.\n\nMutationstest: 33 von 33 gefangen. Der erste Lauf fing 26. Die\nLuecken lagen wieder im selben Muster:\n\n  * mein Beispiel-Token stand unter dem Schluessel \"bot_token\" -- der\n    faellt schon der Schluessel-Liste zum Opfer, die Muster wurden\n    also gar nicht geprueft\n  * `store.sanitise` kommt zweimal vor (Scan und Upload); eine Suche\n    ueber die Datei blieb gruen, als die eine durch `clean = payload`\n    ersetzt wurde\n  * geprueft wurde, DASS precheck gerufen wird, nicht dass sein\n    Ergebnis den Lauf stoppt\n  * die Wartezeit stand auch in der Beschriftung, nicht nur im\n    `disabled` des Knopfes\n\nDrei bestehende Tests schlugen durch den Umzug an und wurden\nmitgezogen: der Glow-Radius am neuen Kartentyp, die Gruppennamen in\nbeiden Navigationen, und die Pruefung, dass der Speedrun im\nGruppen-Renderpfad liegt.\n\nGeprueft: 78 Testdateien, Boot-Test (148 Cogs, 0 Fehler), tsc,\nnext build, ruff. Nicht gegen echtes Discord getestet -- kein Token\nhier; das Anlegen und Loeschen von Kanaelen ist in der Logik geprueft,\nnicht live.\n\nIn Railway noetig: ein Volume fuer db/templates.db, sonst sind alle\nhochgeladenen Vorlagen nach dem naechsten Deploy weg."
+  },
+  {
    "commit": "ddbe625856d37c31777f851f110c1c558ef4965e",
    "at": "1786152938",
    "subject": "fix(musik): Dashboard-Start wird nicht mehr sofort wieder pausiert",
@@ -231,12 +237,6 @@
   {
    "commit": "38362a490386377147d43a78d5ab4c3ef6abd6fa",
    "at": "1786136786",
-   "subject": "feat(phantom): EXACT full original Aleks ticket bot (5653 lines - every function kept, no removal, no shortening)",
-   "body": ""
-  },
-  {
-   "commit": "dc536ab36c80d6a8b65f272b4845b9ef38cd23e8",
-   "at": "1786136778",
    "subject": "feat(phantom): EXACT full original Aleks ticket bot (5653 lines - every function kept, no removal, no shortening)",
    "body": ""
   }

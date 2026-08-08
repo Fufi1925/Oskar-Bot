@@ -7,7 +7,7 @@ import {
   Hash, Volume2, FolderPlus, Pencil, Trash2, Copy,
   Unlock, Timer, MessageSquareX, Bell, BellOff, SearchCheck, Bot, UserCog,
   Webhook, Link, ScrollText, BarChart4, ClipboardList, Terminal, Gem, Gauge, Bug,
-  AtSign
+  AtSign, Sparkles
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
@@ -22,6 +22,7 @@ import { TeamPanel } from "@/components/dashboard/team-panel";
 import { PremiumAdmin } from "@/components/dashboard/premium-admin";
 import { SpeedrunAdmin } from "@/components/dashboard/speedrun-admin";
 import { TesterPanel } from "@/components/dashboard/tester-panel";
+import { TemplatesAdmin } from "@/components/dashboard/templates-admin";
 import { DataAge } from "@/components/ui/data-age";
 import { StatValue } from "@/components/ui/stat-value";
 import { Reveal } from "@/components/ui/reveal";
@@ -40,7 +41,7 @@ import { DashboardUsersPanel } from "@/components/dashboard/dashboard-users-pane
 import { ServersPanel } from "@/components/dashboard/servers-panel";
 
 
-type TabId = "members" | "channels" | "server" | "scans" | "broadcast" | "system" | "features" | "health" | "team" | "access" | "reports" | "audit" | "approvals" | "botsettings" | "backups" | "warnings" | "usage" | "dashusers" | "servers" | "premium" | "speedrun" | "tester" | "pingreactions";
+type TabId = "members" | "channels" | "server" | "scans" | "broadcast" | "system" | "features" | "health" | "team" | "access" | "reports" | "audit" | "approvals" | "botsettings" | "backups" | "warnings" | "usage" | "dashusers" | "servers" | "premium" | "speedrun" | "tester" | "pingreactions" | "templates";
 type MemberAction = "ban" | "kick" | "mute" | "unmute";
 
 type QuickAction = {
@@ -76,6 +77,7 @@ const tabs: Array<{ id: TabId; label: string; icon: any }> = [
   { id: "premium", label: "Premium", icon: Gem },
   { id: "speedrun", label: "Speedrun", icon: Gauge },
   { id: "tester", label: "Tester", icon: Bug },
+  { id: "templates", label: "Vorlagen", icon: Sparkles },
 ];
 
 /**
@@ -93,7 +95,7 @@ const TAB_GROUPS: Array<{ name: string; ids: TabId[] }> = [
   { name: "Server", ids: ["members", "channels", "server", "scans", "broadcast"] },
   { name: "Betrieb", ids: ["health", "system", "usage", "warnings", "reports", "audit"] },
   { name: "Zugriff", ids: ["team", "dashusers", "access", "approvals"] },
-  { name: "Verwaltung", ids: ["features", "botsettings", "backups", "pingreactions", "servers", "premium", "speedrun", "tester"] },
+  { name: "Verwaltung", ids: ["features", "botsettings", "backups", "pingreactions", "servers", "premium", "speedrun", "tester", "templates"] },
 ];
 
 const memberActions: Array<{ action: MemberAction; label: string; desc: string; icon: any }> = [
@@ -135,7 +137,7 @@ const quickActions: QuickAction[] = [
 const FULL_WIDTH_TABS = new Set<TabId>([
   "features", "health", "team", "access",
   "reports", "audit", "approvals", "botsettings", "backups", "warnings", "usage",
-  "dashusers", "servers", "premium", "speedrun", "tester",
+  "dashusers", "servers", "premium", "speedrun", "tester", "templates",
 ]);
 
 function TextInput({ label, value, setValue, placeholder, type = "text" }: { label: string; value: string; setValue: (value: string) => void; placeholder?: string; type?: string }) {
@@ -316,6 +318,12 @@ export function AdminContent() {
       // Owner/admin management is only for owners and admins, never for
       // people who merely hold a team role.
       if (tab.id === "access") return false;
+      // Die Vorlagen-Verwaltung ebenso. Sie zeigt jeden Zugangscode im
+      // Klartext, auch den von privaten Vorlagen fremder Server. Der
+      // Proxy laesst dorthin nur globale Admins durch -- ohne diese
+      // Zeile stuende der Reiter trotzdem in der Leiste und gaebe beim
+      // Klick nur eine Fehlermeldung.
+      if (tab.id === "templates") return false;
       const required = TAB_PERMISSION[tab.id];
       if (!required) return true;
       return access.permissions.includes(required);
@@ -599,6 +607,7 @@ export function AdminContent() {
       {activeTab === "access" && <OwnerAccessPanel currentUserId={(session?.user as any)?.id} />}
       {activeTab === "usage" && <CommandStatsPanel />}
       {activeTab === "pingreactions" && <PingReactionsPanel />}
+      {activeTab === "templates" && <TemplatesAdmin />}
       {activeTab === "dashusers" && <DashboardUsersPanel currentUserId={(session?.user as any)?.id} />}
       {activeTab === "servers" && <ServersPanel currentUserId={(session?.user as any)?.id} />}
       {activeTab === "reports" && <ReportsPanel />}

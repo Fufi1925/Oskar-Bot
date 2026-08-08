@@ -1278,6 +1278,29 @@ export const api = {
       method: "POST",
       body: JSON.stringify(data),
     }),
+  // Den eigenen Zugangscode noch einmal ansehen. Nur für den Server,
+  // der die Vorlage hochgeladen hat — das prüft der Bot, nicht diese
+  // Zeile.
+  templateKey: (guildId: string, id: number) =>
+    request<any>(`/templates/${guildId}/template/${id}/key`),
+
+  // ── Vorlagen-Verwaltung (nur globale Admins) ─────────────────────
+  templateAdminList: (search = "", sort = "neu") =>
+    request<any>(
+      `/templates/admin/list?search=${encodeURIComponent(search)}` +
+        `&sort=${encodeURIComponent(sort)}`
+    ),
+  templateAdminPayload: (id: number) =>
+    request<any>(`/templates/admin/${id}/payload`),
+  templateAdminHistory: (id: number) =>
+    request<any>(`/templates/admin/${id}/history`),
+  templateAdminBlock: (id: number, blocked: boolean, reason = "") =>
+    request<any>(`/templates/admin/${id}/block`, {
+      method: "POST",
+      body: JSON.stringify({ blocked, reason }),
+    }),
+  templateAdminDelete: (id: number) =>
+    request<any>(`/templates/admin/${id}`, { method: "DELETE" }),
 
   // ── Musik ────────────────────────────────────────────────────────
   music: (guildId: string) => request<any>(`/music/${guildId}`),

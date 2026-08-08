@@ -372,13 +372,44 @@ async function authorize(
   }
 
   if (scope === "templates") {
-    // Shape: /templates/<guildId>/...
+    // Shape: /templates/<guildId>/... oder /templates/admin/...
     //
     // Ohne diesen Zweig faellt der Reiter ans Ende der Funktion und
     // bekommt 404 "Unknown API scope" — derselbe Fehler wie zuletzt
     // bei command-stats, dem Warteraum und der Musik.
-    const guildId = rest[0];
-    if (!guildId) return { ok: false, response: deny(400, "guild_id missing.") };
+    const first = rest[0];
+    if (!first) return { ok: false, response: deny(400, "guild_id missing.") };
+
+    // Die Verwaltung: nur globale Admins.
+    //
+    // Diese Routen zeigen JEDE hochgeladene Vorlage, auch die
+    // privaten, samt Zugangscode im Klartext — und sie können jede
+    // davon sperren oder löschen. Das ist nichts, was ein
+    // Server-Moderator sehen darf, auch nicht für den eigenen Server.
+    //
+    // Die Regel steht VOR der guild_id-Prüfung: "admin" ist keine
+    // achtzehnstellige Zahl. Stünde sie danach, liefe der Aufruf in
+    // verifyGuildAccess("admin") und käme dort mit einer irreführenden
+    // Meldung heraus, statt sauber abgewiesen zu werden.
+    if (first === "admin") {
+      const session = await getServerSession(authOptions);
+      if (!session?.user?.id) return { ok: false, response: deny(401, "Not signed in.") };
+      if (!isGlobalAdmin(session.user.id)) {
+        return {
+          ok: false,
+          response: deny(403, "Only global admins can manage community templates."),
+        };
+      }
+      return { ok: true };
+    }
+
+    const guildId = first;
+    // Eine echte Server-ID, keine Ausrede. Ohne diese Prüfung würde
+    // jedes weitere Wort am Anfang des Pfads als guild_id
+    // durchgereicht.
+    if (!/^\d{17,20}$/.test(guildId)) {
+      return { ok: false, response: deny(400, "guild_id missing.") };
+    }
 
     const access = await verifyGuildAccess(guildId);
     if (!access.allowed) return { ok: false, response: deny(access.status, access.reason) };
