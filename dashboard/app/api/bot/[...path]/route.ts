@@ -1027,6 +1027,15 @@ async function handler(request: NextRequest, context: { params: { path?: string[
     url.searchParams.set("user_id", actorId);
   }
 
+  // Die Community-Vorlagen zeigen, wie DER ANGEMELDETE Nutzer
+  // abgestimmt hat. Die ID kommt aus der Sitzung, nie aus dem Browser
+  // -- sonst liest jeder die Stimmen eines anderen aus, indem er eine
+  // fremde ID in die URL schreibt. Ein mitgeschickter Wert wird
+  // überschrieben, nicht ergänzt.
+  if (segments[0] === "templates" && request.method === "GET") {
+    url.searchParams.set("user_id", actorId ?? "");
+  }
+
   // Die Befehls-Statistik zeigt die Namen jedes Servers, auf dem der
   // Bot ist. Der Bot maskiert sie für alle außer Ownern -- dafür muss
   // er wissen, wer fragt. Die ID kommt aus der Sitzung, nie aus dem

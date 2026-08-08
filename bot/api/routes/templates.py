@@ -471,13 +471,28 @@ async def list_all(
     guild_id: int,
     search: str = "",
     sort: str = "neu",
+    user_id: str = "",
     bot: "universitybot" = Depends(get_bot),
 ):
+    """Die Community-Liste, mit Bewertungen.
+
+    `user_id` setzt der Proxy aus der Sitzung -- nie der Browser.
+    Damit weiss die Liste, wie DIESER Nutzer bereits abgestimmt hat,
+    und kann seinen Daumen hervorheben.
+    """
+
     _guild_or_404(bot, guild_id)
     db = await _db()
 
+    try:
+        voter = int(user_id) if user_id else None
+    except (TypeError, ValueError):
+        voter = None
+
     return {
-        "templates": await store.list_templates(db, search=search, sort=sort),
+        "templates": await store.list_templates(
+            db, search=search, sort=sort, user_id=voter
+        ),
         "own": await store.list_own(db, guild_id),
         "sorts": list(store.SORTS),
         # Damit die eigene Liste weiss, ob sie den Knopf »Code
@@ -485,6 +500,10 @@ async def list_all(
         "limits": {
             "max_per_guild": store.MAX_TEMPLATES_PER_GUILD,
         },
+        # Ohne angemeldeten Nutzer laesst sich nicht abstimmen -- die
+        # Oberflaeche soll das sagen koennen, statt einen Knopf zu
+        # zeigen, der nur eine Fehlermeldung bringt.
+        "can_vote": voter is not None,
     }
 
 
@@ -493,13 +512,20 @@ async def detail(
     guild_id: int,
     template_id: int,
     key: str = "",
+    user_id: str = "",
     bot: "universitybot" = Depends(get_bot),
 ):
     _guild_or_404(bot, guild_id)
     db = await _db()
 
+    try:
+        voter = int(user_id) if user_id else None
+    except (TypeError, ValueError):
+        voter = None
+
     found = await store.get_template(
-        db, template_id, key=key or None, owner_guild_id=guild_id
+        db, template_id, key=key or None, owner_guild_id=guild_id,
+        voter_id=voter,
     )
     if found is None:
         raise HTTPException(404, "Diese Vorlage gibt es nicht.")
@@ -507,13 +533,74 @@ async def detail(
     if found["locked"]:
         # Bewusst 200 statt 403: die Vorlage existiert, sie ist nur
         # verschlossen. Ein Fehler waere hier die falsche Auskunft.
-        return {"template": found, "features": []}
+        return {"template": found, "features": [], "can_vote": voter is not None}
 
     payload = found.get("payload") or {}
     return {
         "template": found,
         "features": scanner.describe_features(payload.get("features") or {}),
+        "can_vote": voter is not None,
     }
+
+
+@router.post("/{guild_id}/template/{template_id}/vote", summary="Bewerten")
+async def vote(
+    guild_id: int,
+    template_id: int,
+    data: dict,
+    bot: "universitybot" = Depends(get_bot),
+):
+    """Daumen hoch oder runter.
+
+    Nochmal derselbe Daumen nimmt die Stimme zurueck -- das erledigt
+    `store.set_vote`.
+
+    Die Nutzer-ID kommt aus `actor`, das der Proxy aus der Sitzung
+    setzt. Eine ID aus dem Browser waere hier besonders heikel: damit
+    liesse sich mit einer Schleife beliebig oft abstimmen, jedes Mal
+    unter einer anderen erfundenen Nummer.
+    """
+
+    _guild_or_404(bot, guild_id)
+    db = await _db()
+
+    actor = (data or {}).get("actor")
+    try:
+        actor = int(actor) if actor else None
+    except (TypeError, ValueError):
+        actor = None
+
+    if actor is None:
+        raise HTTPException(401, "Zum Bewerten muss man angemeldet sein.")
+
+    # Ohne `as_admin`: gebraucht wird hier nur `author_id`, und das
+    # liefert `_row_to_template` unabhaengig davon, ob die Vorlage
+    # verschlossen ist. Mit dem Kennzeichen wuerde zusaetzlich das
+    # ganze payload geladen und wieder weggeworfen -- und es liesse
+    # aussehen, als haenge die Pruefung daran. Nachgemessen: die
+    # Sperre greift auch bei einer Vorlage mit Code.
+    found = await store.get_template(db, template_id)
+    if found is None:
+        raise HTTPException(404, "Diese Vorlage gibt es nicht.")
+
+    # Die eigene Vorlage zu bewerten waere sinnlos: jeder gaebe sich
+    # selbst einen Daumen hoch, und die Rangfolge saehe fuer alle
+    # gleich aus.
+    if str(found.get("author_id") or "") == str(actor):
+        raise HTTPException(400, "Die eigene Vorlage lässt sich nicht bewerten.")
+
+    try:
+        wanted = int((data or {}).get("vote", 0))
+    except (TypeError, ValueError):
+        wanted = 0
+    if wanted not in (store.VOTE_UP, store.VOTE_DOWN, 0):
+        raise HTTPException(400, "»vote« muss 1, -1 oder 0 sein.")
+
+    counts = await store.set_vote(db, template_id, actor, wanted)
+    counts["rating"] = round(
+        store.wilson_score(counts["up"], counts["down"]), 4
+    )
+    return {"status": "success", "votes": counts}
 
 
 @router.delete("/{guild_id}/template/{template_id}", summary="Eigene Vorlage loeschen")

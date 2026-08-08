@@ -43,6 +43,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import math
 import os
 import re
 import secrets
@@ -77,7 +78,18 @@ MAX_ROLES = 100
 KEY_LENGTH = 8
 KEY_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"  # ohne I/O/0/1
 
-SORTS = ("neu", "beliebt", "name")
+# Wonach sich die Liste ordnen laesst.
+#
+# "beliebt" und "genutzt" sind bewusst ZWEI Eintraege. Frueher war
+# "beliebt" gleichbedeutend mit "oft angewendet" -- das ist aber etwas
+# anderes: eine Vorlage kann oft angewendet werden, weil sie ganz oben
+# steht, und trotzdem niemandem gefallen. Umgekehrt kann eine sehr gute
+# Vorlage wenige Anwendungen haben, weil sie neu ist.
+SORTS = ("neu", "beliebt", "genutzt", "name")
+
+# Wie eine Bewertung aussieht: Daumen hoch oder runter.
+VOTE_UP = 1
+VOTE_DOWN = -1
 
 
 # ── Bereinigung ──────────────────────────────────────────────────────
@@ -433,6 +445,38 @@ async def ensure_schema(db: aiosqlite.Connection) -> None:
         )
         """
     )
+
+    # Bewertungen: Daumen hoch oder runter.
+    #
+    # Warum der Primaerschluessel aus (template_id, user_id) besteht
+    # -------------------------------------------------------------
+    # Damit kann jeder Nutzer je Vorlage genau EINE Stimme haben --
+    # die Datenbank erzwingt das, nicht der Anwendungscode. Ohne diese
+    # Regel liesse sich durch wiederholtes Klicken beliebig oft
+    # abstimmen, und keine noch so sorgfaeltige Pruefung in der Route
+    # koennte das zuverlaessig verhindern (zwei gleichzeitige Anfragen
+    # kaemen beide durch).
+    #
+    # Gezaehlt wird pro NUTZER, nicht pro Server: ein Server mit fuenf
+    # Admins haette sonst fuenf Stimmen, und wer viele kleine Server
+    # besitzt, koennte eine Vorlage beliebig hochstimmen.
+    await db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS template_votes (
+            template_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            vote INTEGER NOT NULL,
+            created_at REAL DEFAULT 0,
+            PRIMARY KEY (template_id, user_id)
+        )
+        """
+    )
+    # Ohne Index liest jede Auszaehlung die ganze Tabelle.
+    await db.execute(
+        "CREATE INDEX IF NOT EXISTS idx_votes_template "
+        "ON template_votes (template_id)"
+    )
+
     await db.commit()
 
 
@@ -492,6 +536,10 @@ def _row_to_template(row, *, with_payload: bool, unlocked: bool) -> dict:
         "name": row["name"],
         "description": row["description"] or "",
         "author_name": row["author_name"] or "",
+        # Wer sie hochgeladen hat. Wird gebraucht, um zu verhindern,
+        # dass jemand seine eigene Vorlage bewertet -- ohne dieses Feld
+        # liefe die Pruefung in der Route immer ins Leere.
+        "author_id": str(row["author_id"] or ""),
         "visibility": row["visibility"],
         "locked": locked,
         "uses": int(row["uses"] or 0),
@@ -510,59 +558,193 @@ def _row_to_template(row, *, with_payload: bool, unlocked: bool) -> dict:
     }
 
 
+# Die Rangfolge bei "beliebt".
+#
+# Warum nicht einfach `up - down`
+# -------------------------------
+# Eine Vorlage mit 3 hoch und 0 runter haette dann denselben Rang wie
+# eine mit 300 hoch und 297 runter. Die erste ist aber nur ungeprueft,
+# die zweite nachweislich umstritten.
+#
+# Warum nicht der Anteil `up / (up + down)`
+# -----------------------------------------
+# Dann stuende eine Vorlage mit genau einer Stimme (100 %) ueber einer
+# mit 200 von 210 (95 %) -- eine einzige Stimme wuerde die ganze Liste
+# anfuehren.
+#
+# Genommen wird die untere Grenze des Wilson-Konfidenzintervalls: der
+# Anteil, den man bei dieser Stimmenzahl mindestens erwarten darf.
+# Wenige Stimmen ziehen das Ergebnis Richtung Mitte, viele Stimmen
+# lassen es nah an den echten Anteil heran. Das ist dieselbe Formel,
+# die Reddit fuer "best" verwendet.
+#
+# Die Formel lautet, mit n = up + down und p = up / n:
+#
+#     ( p + z²/(2n) - z·sqrt( (p(1-p) + z²/(4n)) / n ) ) / (1 + z²/n)
+#
+# z = 1.96 entspricht 95 % Sicherheit.
+#
+# Warum das in Python steht und nicht im SQL
+# ------------------------------------------
+# Zwei Gruende, beide hart erarbeitet:
+#
+# 1. Eine erste Fassung als SQL-Ausdruck war schlicht FALSCH -- sie gab
+#    fuer 0 hoch / 5 runter den Wert 0.11 statt 0. Aufgefallen ist das
+#    nur, weil `repro/check_wilson.py` gegen eine Referenz rechnet;
+#    SQLite haette klaglos weiter falsch sortiert.
+#
+# 2. Die Formel braucht eine Quadratwurzel. `sqrt()` ist in SQLite ein
+#    OPTIONALES Modul (SQLITE_ENABLE_MATH_FUNCTIONS, erst ab 3.35). Hier
+#    ist es vorhanden, im Railway-Container vielleicht nicht -- und dann
+#    faellt die Liste mit "no such function: sqrt" aus, statt nur falsch
+#    sortiert zu sein.
+#
+# In Python ist sie lesbar, mit `math.sqrt` sicher und einzeln testbar.
+# Die Zahl der Vorlagen ist klein genug (zehn pro Server), dass das
+# Sortieren hier nichts kostet.
+def wilson_score(up: int, down: int) -> float:
+    """Untere Grenze des Wilson-Intervalls. 0.0 bei keiner Stimme."""
+
+    total = int(up) + int(down)
+    if total <= 0:
+        return 0.0
+
+    z = 1.96
+    phat = int(up) / total
+    return (
+        phat
+        + z * z / (2 * total)
+        - z * math.sqrt((phat * (1 - phat) + z * z / (4 * total)) / total)
+    ) / (1 + z * z / total)
+
+# Die Stimmen je Vorlage, als Unterabfrage unter dem Namen `v`.
+#
+# COALESCE dort, wo gelesen wird: eine Vorlage ohne Stimmen bekommt
+# damit 0 statt NULL -- NULL sortiert in SQLite ganz nach unten, auch
+# bei DESC, und stuende sonst ueber allem mit negativer Wertung.
+_VOTE_JOIN = """
+    LEFT JOIN (
+        SELECT template_id,
+               SUM(CASE WHEN vote = 1 THEN 1 ELSE 0 END) AS up,
+               SUM(CASE WHEN vote = -1 THEN 1 ELSE 0 END) AS down
+        FROM template_votes GROUP BY template_id
+    ) AS v ON v.template_id = t.id
+"""
+
+
 async def list_templates(
     db: aiosqlite.Connection,
     *,
     search: str = "",
     sort: str = "neu",
     limit: int = 50,
+    user_id: int | None = None,
 ) -> list[dict]:
-    """Die oeffentliche Liste.
+    """Die oeffentliche Liste, mit Bewertungen.
 
     Vorlagen mit Code stehen mit drin -- man soll ja sehen, dass es
     sie gibt -- aber ohne Vorschau.
+
+    Gesperrte Vorlagen stehen ganz unten, egal wie sortiert wird. Sie
+    ganz auszublenden waere falsch: ihr Hochlader soll sehen, dass es
+    sie noch gibt und warum sie nicht mehr geht.
     """
 
+    # "beliebt" wird in Python sortiert -- siehe `wilson_score`. Die
+    # Datenbank liefert dafuer nach Stimmenzahl vor, damit bei einem
+    # LIMIT nicht ausgerechnet die bestbewerteten wegfallen.
     order = {
-        "neu": "created_at DESC",
-        "beliebt": "uses DESC, created_at DESC",
-        "name": "name COLLATE NOCASE",
-    }.get(sort, "created_at DESC")
+        "neu": "t.created_at DESC",
+        "beliebt": "(COALESCE(v.up, 0) - COALESCE(v.down, 0)) DESC, "
+                   "t.created_at DESC",
+        "genutzt": "t.uses DESC, t.created_at DESC",
+        "name": "t.name COLLATE NOCASE",
+    }.get(sort, "t.created_at DESC")
 
     db.row_factory = aiosqlite.Row
 
+    where = "WHERE t.visibility != 'private'"
+    args: tuple = ()
     if search.strip():
         needle = f"%{search.strip()}%"
-        query = (
-            "SELECT * FROM templates WHERE visibility != 'private' "
-            "AND (name LIKE ? OR description LIKE ?) "
-            f"ORDER BY {order} LIMIT ?"
-        )
-        args = (needle, needle, int(limit))
-    else:
-        query = (
-            "SELECT * FROM templates WHERE visibility != 'private' "
-            f"ORDER BY {order} LIMIT ?"
-        )
-        args = (int(limit),)
+        where += " AND (t.name LIKE ? OR t.description LIKE ?)"
+        args = (needle, needle)
 
-    async with db.execute(query, args) as cursor:
+    query = (
+        "SELECT t.*, COALESCE(v.up, 0) AS up, COALESCE(v.down, 0) AS down "
+        "FROM templates t "
+        f"{_VOTE_JOIN} {where} "
+        # Gesperrtes immer ans Ende -- vor der eigentlichen Sortierung.
+        f"ORDER BY COALESCE(t.blocked, 0) ASC, {order} LIMIT ?"
+    )
+
+    async with db.execute(query, (*args, int(limit))) as cursor:
         rows = await cursor.fetchall()
 
-    return [_row_to_template(r, with_payload=False, unlocked=False) for r in rows]
+    mine = await own_votes(db, user_id)
+
+    out = []
+    for row in rows:
+        entry = _row_to_template(row, with_payload=False, unlocked=False)
+        up = int(_column(row, "up", 0) or 0)
+        down = int(_column(row, "down", 0) or 0)
+        entry["votes"] = {
+            "up": up,
+            "down": down,
+            "score": up - down,
+            # Wie DIESER Nutzer abgestimmt hat: 1, -1 oder 0.
+            "own": mine.get(int(row["id"]), 0),
+            "rating": round(wilson_score(up, down), 4),
+        }
+        out.append(entry)
+
+    if sort == "beliebt":
+        # Endgueltige Rangfolge in Python. Gesperrtes bleibt unten --
+        # deshalb steht es als erstes Kriterium im Schluessel, sonst
+        # zoege die Sortierung es wieder nach oben.
+        out.sort(
+            key=lambda e: (
+                1 if e.get("blocked") else 0,
+                -e["votes"]["rating"],
+                -e["votes"]["up"],
+                -(e.get("created_at") or 0),
+            )
+        )
+
+    return out
 
 
 async def list_own(db: aiosqlite.Connection, guild_id: int) -> list[dict]:
-    """Was dieser Server selbst hochgeladen hat -- immer sichtbar."""
+    """Was dieser Server selbst hochgeladen hat -- immer sichtbar.
+
+    Mit Bewertungen: wer etwas hochlaedt, will als Erstes wissen, wie
+    es ankommt.
+    """
 
     db.row_factory = aiosqlite.Row
     async with db.execute(
-        "SELECT * FROM templates WHERE source_guild_id = ? ORDER BY created_at DESC",
+        "SELECT t.*, COALESCE(v.up, 0) AS up, COALESCE(v.down, 0) AS down "
+        "FROM templates t "
+        f"{_VOTE_JOIN} "
+        "WHERE t.source_guild_id = ? ORDER BY t.created_at DESC",
         (guild_id,),
     ) as cursor:
         rows = await cursor.fetchall()
 
-    return [_row_to_template(r, with_payload=False, unlocked=True) for r in rows]
+    out = []
+    for row in rows:
+        entry = _row_to_template(row, with_payload=False, unlocked=True)
+        up = int(_column(row, "up", 0) or 0)
+        down = int(_column(row, "down", 0) or 0)
+        entry["votes"] = {
+            "up": up,
+            "down": down,
+            "score": up - down,
+            "own": 0,
+            "rating": round(wilson_score(up, down), 4),
+        }
+        out.append(entry)
+    return out
 
 
 async def get_template(
@@ -572,6 +754,7 @@ async def get_template(
     key: str | None = None,
     owner_guild_id: int | None = None,
     as_admin: bool = False,
+    voter_id: int | None = None,
 ) -> dict | None:
     """Eine einzelne Vorlage, mit Vorschau wenn erlaubt.
 
@@ -613,7 +796,17 @@ async def get_template(
     if not unlocked and as_admin:
         unlocked = True
 
-    return _row_to_template(row, with_payload=True, unlocked=unlocked)
+    found = _row_to_template(row, with_payload=True, unlocked=unlocked)
+
+    # Die Bewertungen gehoeren auch in die Einzelansicht -- dort steht
+    # der Knopf zum Abstimmen, und ohne die Zahlen wuesste er nicht,
+    # was er anzeigen soll.
+    counts = await vote_counts(db, template_id)
+    counts["own"] = (await own_votes(db, voter_id)).get(int(template_id), 0)
+    counts["rating"] = round(wilson_score(counts["up"], counts["down"]), 4)
+    found["votes"] = counts
+
+    return found
 
 
 async def list_for_admin(
@@ -641,7 +834,12 @@ async def list_for_admin(
 
     order = {
         "neu": "t.created_at DESC",
-        "beliebt": "t.uses DESC, t.created_at DESC",
+        # Im Admin-Reiter ist "beliebt" die Bewertung, "genutzt" die
+        # Anwendungen -- dieselbe Unterscheidung wie in der oeffentlichen
+        # Liste. Vorher meinten beide dasselbe.
+        "beliebt": "(COALESCE(v.up, 0) - COALESCE(v.down, 0)) DESC, "
+                   "t.created_at DESC",
+        "genutzt": "t.uses DESC, t.created_at DESC",
         "name": "t.name COLLATE NOCASE",
     }.get(sort, "t.created_at DESC")
 
@@ -660,8 +858,9 @@ async def list_for_admin(
     query = (
         "SELECT t.*, "
         "(SELECT MAX(created_at) FROM template_applies a "
-        " WHERE a.template_id = t.id) AS last_used "
-        f"FROM templates t {where} ORDER BY {order} LIMIT ?"
+        " WHERE a.template_id = t.id) AS last_used, "
+        "COALESCE(v.up, 0) AS up, COALESCE(v.down, 0) AS down "
+        f"FROM templates t {_VOTE_JOIN} {where} ORDER BY {order} LIMIT ?"
     )
 
     async with db.execute(query, (*args, int(limit))) as cursor:
@@ -704,6 +903,22 @@ async def list_for_admin(
                 # Groesse. Eine 4-MB-Vorlage ist ein Grund
                 # nachzusehen, was darin steht.
                 "size_bytes": len(row["payload"] or ""),
+                # Wie die Vorlage bewertet wurde. Eine mit vielen
+                # Daumen nach unten ist der erste Kandidat fuer einen
+                # Blick -- oft steht dahinter ein echtes Problem.
+                "votes": {
+                    "up": int(_column(row, "up", 0) or 0),
+                    "down": int(_column(row, "down", 0) or 0),
+                    "score": int(_column(row, "up", 0) or 0)
+                    - int(_column(row, "down", 0) or 0),
+                    "rating": round(
+                        wilson_score(
+                            int(_column(row, "up", 0) or 0),
+                            int(_column(row, "down", 0) or 0),
+                        ),
+                        4,
+                    ),
+                },
                 "summary": {
                     "channels": len(raw.get("channels") or []),
                     "roles": len(raw.get("roles") or []),
@@ -712,6 +927,12 @@ async def list_for_admin(
                 },
             }
         )
+
+    if sort == "beliebt":
+        # Wie in der oeffentlichen Liste: die Rangfolge kommt aus
+        # `wilson_score`, nicht aus der rohen Differenz.
+        out.sort(key=lambda e: (-e["votes"]["rating"], -e["votes"]["up"]))
+
     return out
 
 
@@ -729,12 +950,20 @@ async def admin_stats(db: aiosqlite.Connection) -> dict:
     async with db.execute("SELECT COUNT(*) FROM template_applies") as cursor:
         applies = await cursor.fetchone()
 
+    async with db.execute(
+        "SELECT SUM(CASE WHEN vote = 1 THEN 1 ELSE 0 END), "
+        "SUM(CASE WHEN vote = -1 THEN 1 ELSE 0 END) FROM template_votes"
+    ) as cursor:
+        votes = await cursor.fetchone()
+
     return {
         "total": int((row or [0])[0] or 0),
         "with_key": int((row or [0, 0])[1] or 0),
         "blocked": int((row or [0, 0, 0])[2] or 0),
         "uses": int((row or [0, 0, 0, 0])[3] or 0),
         "applies": int((applies or [0])[0] or 0),
+        "votes_up": int((votes or [0, 0])[0] or 0),
+        "votes_down": int((votes or [0, 0])[1] or 0),
     }
 
 
@@ -817,6 +1046,9 @@ async def force_delete(db: aiosqlite.Connection, template_id: int) -> bool:
     cursor = await db.execute("DELETE FROM templates WHERE id = ?", (template_id,))
     await db.execute(
         "DELETE FROM template_applies WHERE template_id = ?", (template_id,)
+    )
+    await db.execute(
+        "DELETE FROM template_votes WHERE template_id = ?", (template_id,)
     )
     await db.commit()
     return bool(cursor.rowcount)
@@ -935,8 +1167,125 @@ async def delete_template(
         "DELETE FROM templates WHERE id = ? AND source_guild_id = ?",
         (template_id, guild_id),
     )
+    # Stimmen und Verlauf mit wegraeumen. Bleiben sie liegen, bekaeme
+    # eine spaeter angelegte Vorlage ueber die wiederverwendete
+    # AUTOINCREMENT-Nummer fremde Stimmen zugeordnet.
+    if cursor.rowcount:
+        await db.execute(
+            "DELETE FROM template_votes WHERE template_id = ?", (template_id,)
+        )
+        await db.execute(
+            "DELETE FROM template_applies WHERE template_id = ?", (template_id,)
+        )
     await db.commit()
     return bool(cursor.rowcount)
+
+
+# ── Bewertungen ──────────────────────────────────────────────────────
+
+
+async def set_vote(
+    db: aiosqlite.Connection,
+    template_id: int,
+    user_id: int,
+    vote: int,
+) -> dict:
+    """Abstimmen. `vote` ist 1, -1 oder 0 (Stimme zuruecknehmen).
+
+    Nochmal auf denselben Daumen zu klicken nimmt die Stimme zurueck.
+    Das ist das Verhalten, das man von jeder Oberflaeche kennt -- und
+    ohne das gaebe es keinen Weg, eine versehentliche Stimme wieder
+    loszuwerden.
+
+    Gibt die neuen Zahlen zurueck, damit die Oberflaeche nicht sofort
+    noch einmal fragen muss.
+    """
+
+    user_id = int(user_id)
+
+    async with db.execute(
+        "SELECT vote FROM template_votes WHERE template_id = ? AND user_id = ?",
+        (template_id, user_id),
+    ) as cursor:
+        row = await cursor.fetchone()
+    current = int(row[0]) if row else 0
+
+    if vote not in (VOTE_UP, VOTE_DOWN):
+        vote = 0
+    # Derselbe Daumen noch einmal: Stimme zurueckziehen.
+    if vote != 0 and vote == current:
+        vote = 0
+
+    if vote == 0:
+        await db.execute(
+            "DELETE FROM template_votes WHERE template_id = ? AND user_id = ?",
+            (template_id, user_id),
+        )
+    else:
+        # INSERT OR REPLACE statt erst pruefen, dann schreiben: zwei
+        # gleichzeitige Klicks wuerden sonst zwei Zeilen anlegen.
+        await db.execute(
+            "INSERT OR REPLACE INTO template_votes "
+            "(template_id, user_id, vote, created_at) VALUES (?, ?, ?, ?)",
+            (template_id, user_id, vote, time.time()),
+        )
+
+    await db.commit()
+    counts = await vote_counts(db, template_id)
+    counts["own"] = vote
+    return counts
+
+
+async def vote_counts(db: aiosqlite.Connection, template_id: int) -> dict:
+    """Wie oft hoch, wie oft runter."""
+
+    async with db.execute(
+        "SELECT "
+        " SUM(CASE WHEN vote = 1 THEN 1 ELSE 0 END), "
+        " SUM(CASE WHEN vote = -1 THEN 1 ELSE 0 END) "
+        "FROM template_votes WHERE template_id = ?",
+        (template_id,),
+    ) as cursor:
+        row = await cursor.fetchone()
+
+    up = int((row or [0, 0])[0] or 0)
+    down = int((row or [0, 0])[1] or 0)
+    return {"up": up, "down": down, "score": up - down}
+
+
+async def own_votes(
+    db: aiosqlite.Connection, user_id: int | None
+) -> dict[int, int]:
+    """Wie dieser Nutzer bisher abgestimmt hat: id -> 1 oder -1.
+
+    In einem Rutsch fuer die ganze Liste. Eine Abfrage je Vorlage
+    waere bei fuenfzig Eintraegen fuenfzig Abfragen.
+    """
+
+    if not user_id:
+        return {}
+
+    async with db.execute(
+        "SELECT template_id, vote FROM template_votes WHERE user_id = ?",
+        (int(user_id),),
+    ) as cursor:
+        rows = await cursor.fetchall()
+
+    return {int(r[0]): int(r[1]) for r in rows}
+
+
+async def clear_votes(db: aiosqlite.Connection, template_id: int) -> None:
+    """Stimmen einer geloeschten Vorlage wegraeumen.
+
+    Ohne das bleiben sie liegen, und eine spaeter angelegte Vorlage
+    bekaeme durch die wiederverwendete AUTOINCREMENT-Nummer fremde
+    Stimmen zugeordnet.
+    """
+
+    await db.execute(
+        "DELETE FROM template_votes WHERE template_id = ?", (template_id,)
+    )
+    await db.commit()
 
 
 async def bump_uses(db: aiosqlite.Connection, template_id: int) -> None:

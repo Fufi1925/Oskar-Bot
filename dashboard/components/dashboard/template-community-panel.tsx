@@ -33,10 +33,11 @@
  * direkter Aufruf der Route umginge sie mit einer Zeile.
  */
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  AlertTriangle, ArrowLeft, Check, Hash, Loader2, Lock, Search,
-  Shield, Sparkles, Users, Volume2,
+  AlertTriangle, ArrowLeft, Check, Clock, Flame, Hash, Loader2, Lock,
+  RefreshCcw, Search, Shield, SortAsc, Sparkles, ThumbsDown, ThumbsUp,
+  TrendingUp, Users, Volume2, X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
@@ -60,11 +61,131 @@ const INPUT =
  */
 const WIPE_DELAY_SECONDS = 10;
 
+/**
+ * Wonach sich ordnen lässt.
+ *
+ * „Beliebt" und „Genutzt" sind bewusst zwei Einträge. Früher war
+ * „beliebt" gleichbedeutend mit „oft angewendet" — das ist aber etwas
+ * anderes: eine Vorlage kann oft angewendet werden, weil sie ganz oben
+ * steht, und trotzdem niemandem gefallen.
+ *
+ * Die Schlüssel müssen zu `SORTS` im Bot passen; ein unbekannter Wert
+ * fällt dort still auf „neu" zurück.
+ */
+const SORTS = [
+  {
+    id: "beliebt",
+    label: "Beste",
+    icon: Flame,
+    hint: "Nach Bewertung. Wenige Stimmen zählen weniger als viele.",
+  },
+  {
+    id: "genutzt",
+    label: "Meist genutzt",
+    icon: TrendingUp,
+    hint: "Wie oft die Vorlage auf einen Server geholt wurde.",
+  },
+  { id: "neu", label: "Neueste", icon: Clock, hint: "Zuletzt hochgeladen." },
+  { id: "name", label: "Name", icon: SortAsc, hint: "Alphabetisch." },
+];
+
+/** Was aus der Liste ausgeblendet werden kann. */
+const FILTERS = [
+  { id: "alle", label: "Alle" },
+  { id: "offen", label: "Ohne Code" },
+  { id: "bewertet", label: "Bewertet" },
+];
+
+/**
+ * Die zwei Daumen.
+ *
+ * Eigenes Bauteil, weil es zweimal gebraucht wird — in der Liste und
+ * in der Detailansicht. Zwei Kopien liefen garantiert auseinander.
+ *
+ * Der eigene Daumen ist farbig hinterlegt: ohne diese Rückmeldung
+ * weiß niemand, ob der Klick angekommen ist, und man klickt noch
+ * einmal — was die Stimme wieder zurücknimmt.
+ */
+function VoteButtons({
+  votes,
+  disabled,
+  busy,
+  hint,
+  mine,
+  onVote,
+  size = "sm",
+}: {
+  votes: { up: number; down: number; own: number };
+  disabled?: boolean;
+  busy?: boolean;
+  hint?: string;
+  mine?: boolean;
+  onVote: (value: number) => void;
+  size?: "sm" | "lg";
+}) {
+  const big = size === "lg";
+  const shape = big ? "px-3.5 py-2 text-[13px]" : "px-2.5 py-1.5 text-[12px]";
+  const icon = big ? "h-4 w-4" : "h-3.5 w-3.5";
+
+  return (
+    <div className="flex items-center gap-1.5" title={hint || undefined}>
+      <button
+        type="button"
+        disabled={disabled || mine}
+        aria-pressed={votes.own === 1}
+        aria-label="Gefällt mir"
+        onClick={() => onVote(1)}
+        className={cn(
+          "flex items-center gap-1.5 rounded-xl border font-bold transition-all tabular-nums",
+          shape,
+          votes.own === 1
+            ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-300"
+            : "bg-white/[0.03] border-white/10 text-slate-500 hover:text-emerald-300 hover:border-emerald-500/30",
+          (disabled || mine) && "opacity-40 cursor-not-allowed"
+        )}
+      >
+        {busy ? (
+          <Loader2 className={cn(icon, "animate-spin")} />
+        ) : (
+          <ThumbsUp className={icon} />
+        )}
+        {votes.up}
+      </button>
+
+      <button
+        type="button"
+        disabled={disabled || mine}
+        aria-pressed={votes.own === -1}
+        aria-label="Gefällt mir nicht"
+        onClick={() => onVote(-1)}
+        className={cn(
+          "flex items-center gap-1.5 rounded-xl border font-bold transition-all tabular-nums",
+          shape,
+          votes.own === -1
+            ? "bg-red-500/15 border-red-500/40 text-red-300"
+            : "bg-white/[0.03] border-white/10 text-slate-500 hover:text-red-300 hover:border-red-500/30",
+          (disabled || mine) && "opacity-40 cursor-not-allowed"
+        )}
+      >
+        <ThumbsDown className={icon} />
+        {votes.down}
+      </button>
+    </div>
+  );
+}
+
 export function TemplateCommunityPanel({ guildId }: { guildId: string }) {
   const [list, setList] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [sort, setSort] = useState("neu");
+  // Beste zuerst: das ist die Frage, mit der man herkommt.
+  // Vorher stand „neu" oben — dort landet, was gerade erst hochgeladen
+  // wurde und noch niemand angesehen hat.
+  const [sort, setSort] = useState("beliebt");
+  const [filter, setFilter] = useState("alle");
+  // Ob der angemeldete Nutzer überhaupt abstimmen darf. Sagt der Bot,
+  // nicht der Browser.
+  const [canVote, setCanVote] = useState(false);
 
   // Ausgewählte Vorlage
   const [chosen, setChosen] = useState<any>(null);
@@ -89,22 +210,96 @@ export function TemplateCommunityPanel({ guildId }: { guildId: string }) {
 
   const timer = useRef<any>(null);
 
-  const load = useCallback(async () => {
-    try {
-      const answer = await api.templateList(guildId, search, sort);
-      setList(answer?.templates || []);
-    } catch (error: any) {
-      toast.error(error?.message || "Die Vorlagen ließen sich nicht laden.");
-    } finally {
-      setLoading(false);
-    }
-  }, [guildId, search, sort]);
+  const load = useCallback(
+    async (manual = false) => {
+      if (manual) setBusy("reload");
+      try {
+        const answer = await api.templateList(guildId, search, sort);
+        const own: any[] = answer?.own || [];
+        // Welche Vorlagen von diesem Server stammen. Sie lassen sich
+        // nicht bewerten — die Daumen sind dann ausgegraut statt still
+        // eine Fehlermeldung zu erzeugen.
+        const mine = new Set(own.map((entry: any) => entry.id));
+        setList(
+          (answer?.templates || []).map((entry: any) => ({
+            ...entry,
+            mine: mine.has(entry.id),
+          }))
+        );
+        setCanVote(Boolean(answer?.can_vote));
+      } catch (error: any) {
+        toast.error(error?.message || "Die Vorlagen ließen sich nicht laden.");
+      } finally {
+        setLoading(false);
+        if (manual) setBusy("");
+      }
+    },
+    [guildId, search, sort]
+  );
 
   useEffect(() => {
     // Kurz warten, damit nicht bei jedem Tastendruck gesucht wird.
     const handle = setTimeout(load, 250);
     return () => clearTimeout(handle);
   }, [load]);
+
+  /**
+   * Abstimmen.
+   *
+   * Die neuen Zahlen kommen aus der Antwort des Bots und werden nicht
+   * im Browser hochgezählt: bei zwei offenen Fenstern liefen die
+   * Stände sonst auseinander, und ein abgelehnter Klick — etwa bei der
+   * eigenen Vorlage — sähe trotzdem nach Erfolg aus.
+   *
+   * Die Liste wird bewusst NICHT neu geladen. Bei der Sortierung
+   * „Beste" spränge die eben bewertete Karte sonst mitten unter dem
+   * Zeiger weg.
+   */
+  const runVote = async (entry: any, value: number) => {
+    if (!canVote || entry.mine) return;
+    setBusy(`vote${entry.id}`);
+    try {
+      const answer = await api.templateVote(guildId, entry.id, value);
+      const votes = answer?.votes;
+      if (!votes) return;
+
+      setList((old) =>
+        old.map((item) =>
+          item.id === entry.id ? { ...item, votes } : item
+        )
+      );
+      // Auch die geöffnete Vorlage mitziehen, falls es dieselbe ist.
+      setChosen((old: any) =>
+        old && old.id === entry.id ? { ...old, votes } : old
+      );
+    } catch (error: any) {
+      toast.error(error?.message || "Die Bewertung ging nicht durch.");
+    } finally {
+      setBusy("");
+    }
+  };
+
+  /** Die gefilterte Liste. Sortiert hat schon der Bot. */
+  const visible = useMemo(() => {
+    if (filter === "offen") return list.filter((entry) => !entry.locked);
+    if (filter === "bewertet") {
+      return list.filter(
+        (entry) => (entry.votes?.up || 0) + (entry.votes?.down || 0) > 0
+      );
+    }
+    return list;
+  }, [list, filter]);
+
+  /** Wie viele Stimmen insgesamt — für die Zeile unter der Überschrift. */
+  const stats = useMemo(() => {
+    let up = 0;
+    let down = 0;
+    for (const entry of list) {
+      up += entry.votes?.up || 0;
+      down += entry.votes?.down || 0;
+    }
+    return { up, down };
+  }, [list]);
 
   // Der Countdown für „alles löschen“.
   //
@@ -250,6 +445,27 @@ export function TemplateCommunityPanel({ guildId }: { guildId: string }) {
                 {chosen.author_name ? `von ${chosen.author_name} · ` : ""}
                 {chosen.uses}× verwendet
               </p>
+            </div>
+
+            {/* Bewerten geht auch hier — man entscheidet sich meist
+                erst, nachdem man die Vorlage angesehen hat, nicht
+                schon in der Liste. */}
+            <div className="shrink-0">
+              <VoteButtons
+                size="lg"
+                votes={
+                  chosen.votes || { up: 0, down: 0, own: 0 }
+                }
+                disabled={!canVote || busy === `vote${chosen.id}`}
+                busy={busy === `vote${chosen.id}`}
+                mine={Boolean(
+                  list.find((entry) => entry.id === chosen.id)?.mine
+                )}
+                hint={
+                  !canVote ? "Zum Bewerten anmelden" : ""
+                }
+                onVote={(value) => runVote(chosen, value)}
+              />
             </div>
           </div>
 
@@ -681,60 +897,163 @@ export function TemplateCommunityPanel({ guildId }: { guildId: string }) {
   return (
     <div className="space-y-5">
       <div className={cn(CARD, "space-y-4")}>
-        <div className="flex items-center gap-3">
+        <div className="flex items-start gap-3 flex-wrap">
           <div className="h-9 w-9 rounded-xl bg-primary/10 grid place-items-center shrink-0">
             <Sparkles className="h-4 w-4 text-primary" />
           </div>
-          <div>
+          <div className="min-w-0 flex-1">
             <h3 className="font-bold text-white">Community-Vorlagen</h3>
             <p className="text-[12px] text-slate-500 mt-0.5">
-              Von anderen Servern geteilt.
+              Von anderen Servern geteilt. {list.length}
+              {list.length === 1 ? " Vorlage" : " Vorlagen"}
+              {stats.up + stats.down > 0 && (
+                <>
+                  {" "}
+                  &middot; {stats.up + stats.down} Bewertungen
+                </>
+              )}
             </p>
           </div>
+          <button
+            onClick={() => load(true)}
+            disabled={busy === "reload"}
+            title="Neu laden"
+            className="p-2.5 rounded-xl text-slate-600 hover:text-white hover:bg-white/[0.06] transition-all disabled:opacity-40"
+          >
+            <RefreshCcw
+              className={cn(
+                "h-4 w-4",
+                busy === "reload" && "animate-spin"
+              )}
+            />
+          </button>
         </div>
 
-        <div className="flex gap-2 flex-wrap">
-          <div className="relative flex-1 min-w-[200px]">
-            <Search className="h-4 w-4 text-slate-600 absolute left-3.5 top-1/2 -translate-y-1/2" />
-            <input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Suchen …"
-              className={cn(INPUT, "pl-11")}
-            />
-          </div>
-          <select
-            value={sort}
-            onChange={(event) => setSort(event.target.value)}
-            className={cn(INPUT, "w-auto")}
-          >
-            <option value="neu">Neueste</option>
-            <option value="beliebt">Beliebteste</option>
-            <option value="name">Name</option>
-          </select>
+        <div className="relative">
+          <Search className="h-4 w-4 text-slate-600 absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Nach Name oder Beschreibung suchen …"
+            className={cn(INPUT, "pl-11 pr-11")}
+          />
+          {search && (
+            <button
+              onClick={() => setSearch("")}
+              title="Suche leeren"
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-lg text-slate-600 hover:text-white transition-colors"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
         </div>
+
+        {/* Sortierung als Knöpfe statt als Auswahlliste.
+            Ein <select> versteckt die Möglichkeiten hinter einem Klick;
+            hier sieht man sofort, wonach sich ordnen lässt — und
+            welche Ordnung gerade gilt. */}
+        <div className="flex gap-1.5 flex-wrap">
+          {SORTS.map((entry) => {
+            const active = sort === entry.id;
+            return (
+              <button
+                key={entry.id}
+                onClick={() => setSort(entry.id)}
+                title={entry.hint}
+                aria-current={active ? "true" : undefined}
+                className={cn(
+                  "flex items-center gap-1.5 px-3.5 py-2 rounded-xl border text-[11px] font-black uppercase tracking-widest transition-all",
+                  active
+                    ? "bg-primary/15 border-primary/40 text-primary"
+                    : "bg-white/[0.03] border-white/10 text-slate-500 hover:text-slate-300"
+                )}
+              >
+                <entry.icon className="h-3.5 w-3.5" />
+                {entry.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Filter. Bei drei Vorlagen unnötig, bei dreißig nicht mehr. */}
+        <div className="flex gap-1.5 flex-wrap items-center">
+          <span className="text-[10px] font-black uppercase tracking-widest text-slate-600 mr-1">
+            Zeigen
+          </span>
+          {FILTERS.map((entry) => {
+            const active = filter === entry.id;
+            return (
+              <button
+                key={entry.id}
+                onClick={() => setFilter(entry.id)}
+                aria-current={active ? "true" : undefined}
+                className={cn(
+                  "px-3 py-1.5 rounded-lg border text-[11px] font-bold transition-all",
+                  active
+                    ? "bg-white/[0.08] border-white/20 text-white"
+                    : "bg-transparent border-white/5 text-slate-600 hover:text-slate-400"
+                )}
+              >
+                {entry.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {!canVote && (
+          <p className="text-[11px] text-slate-600 leading-relaxed">
+            Zum Bewerten musst du angemeldet sein.
+          </p>
+        )}
       </div>
 
-      {list.length === 0 ? (
-        <div className={cn(CARD, "py-12 text-center")}>
+      {visible.length === 0 ? (
+        <div className={cn(CARD, "py-12 text-center space-y-3")}>
           <p className="text-[13px] text-slate-600">
             {search
               ? `Nichts gefunden für „${search}“.`
+              : filter !== "alle"
+              ? "Zu diesem Filter gibt es nichts."
               : "Noch keine Vorlagen. Lade als Erster deine hoch."}
           </p>
+          {(search || filter !== "alle") && (
+            <button
+              onClick={() => {
+                setSearch("");
+                setFilter("alle");
+              }}
+              className="text-[11px] font-black uppercase tracking-widest text-primary/70 hover:text-primary transition-colors"
+            >
+              Filter zurücksetzen
+            </button>
+          )}
         </div>
       ) : (
         <div className="grid sm:grid-cols-2 gap-3">
-          {list.map((entry: any) => (
-            <button
-              key={entry.id}
-              onClick={() => open(entry)}
-              className="text-left rounded-2xl bg-[#10233f] border border-slate-800 p-4 hover:border-primary/40 transition-all border-glow-card glow-r-2xl"
-            >
-              <div className="flex items-start gap-2">
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <p className="text-[13.5px] font-bold text-white truncate">
+          {visible.map((entry: any) => {
+            const votes = entry.votes || { up: 0, down: 0, own: 0 };
+            return (
+              <div
+                key={entry.id}
+                className={cn(
+                  "rounded-2xl border p-4 transition-all border-glow-card glow-r-2xl flex flex-col",
+                  entry.blocked
+                    ? "bg-red-500/[0.04] border-red-500/25"
+                    : "bg-[#10233f] border-slate-800 hover:border-primary/40"
+                )}
+              >
+                {/* Die Karte ist keine Schaltfläche mehr.
+                    Vorher war die ganze Karte ein <button> — dann
+                    lägen die Daumen als Schaltflächen darin, und ein
+                    Klick auf »hoch« hätte zusätzlich die Vorlage
+                    geöffnet. Verschachtelte Schaltflächen sind in HTML
+                    ohnehin unzulässig. */}
+                <button
+                  onClick={() => open(entry)}
+                  className="text-left min-w-0 group"
+                >
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-[13.5px] font-bold text-white truncate group-hover:text-primary transition-colors">
                       {entry.name}
                     </p>
                     {entry.locked && (
@@ -746,35 +1065,88 @@ export function TemplateCommunityPanel({ guildId }: { guildId: string }) {
                       </span>
                     )}
                   </div>
-                  {entry.description && (
+                  {entry.description ? (
                     <p className="text-[12px] text-slate-500 mt-1 line-clamp-2 leading-relaxed">
                       {entry.description}
                     </p>
+                  ) : (
+                    <p className="text-[12px] text-slate-700 mt-1 italic">
+                      Ohne Beschreibung.
+                    </p>
+                  )}
+                </button>
+
+                <div className="flex items-center gap-3 mt-3 text-[11px] text-slate-600 flex-wrap">
+                  {entry.locked ? (
+                    <span className="text-amber-400/70">
+                      Vorschau nur mit Code
+                    </span>
+                  ) : (
+                    <>
+                      <span
+                        className="flex items-center gap-1"
+                        title={`${entry.summary.channels} Kanäle`}
+                      >
+                        <Hash className="h-3 w-3" />
+                        {entry.summary.channels}
+                      </span>
+                      <span
+                        className="flex items-center gap-1"
+                        title={`${entry.summary.roles} Rollen`}
+                      >
+                        <Users className="h-3 w-3" />
+                        {entry.summary.roles}
+                      </span>
+                      {entry.summary.features > 0 && (
+                        <span
+                          className="flex items-center gap-1"
+                          title={`${entry.summary.features} Dashboard-Einstellungen`}
+                        >
+                          <Shield className="h-3 w-3" />
+                          {entry.summary.features}
+                        </span>
+                      )}
+                    </>
+                  )}
+                  <span
+                    className="ml-auto"
+                    title={`${entry.uses}× auf einen Server geholt`}
+                  >
+                    {entry.uses}&times; verwendet
+                  </span>
+                </div>
+
+                {/* Bewertung */}
+                <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-800/70">
+                  <VoteButtons
+                    votes={votes}
+                    disabled={!canVote || busy === `vote${entry.id}`}
+                    busy={busy === `vote${entry.id}`}
+                    hint={
+                      !canVote
+                        ? "Zum Bewerten anmelden"
+                        : entry.mine
+                        ? "Die eigene Vorlage lässt sich nicht bewerten"
+                        : ""
+                    }
+                    mine={Boolean(entry.mine)}
+                    onVote={(value) => runVote(entry, value)}
+                  />
+                  {votes.up + votes.down > 0 && (
+                    <span
+                      className="ml-auto text-[10px] text-slate-600 tabular-nums"
+                      title={`${votes.up} von ${votes.up + votes.down} Bewertungen positiv`}
+                    >
+                      {Math.round(
+                        (votes.up / (votes.up + votes.down)) * 100
+                      )}
+                      % positiv
+                    </span>
                   )}
                 </div>
               </div>
-
-              <div className="flex items-center gap-3 mt-3 text-[11px] text-slate-600">
-                {entry.locked ? (
-                  <span className="text-amber-400/70">
-                    Vorschau nur mit Code
-                  </span>
-                ) : (
-                  <>
-                    <span className="flex items-center gap-1">
-                      <Hash className="h-3 w-3" />
-                      {entry.summary.channels}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Users className="h-3 w-3" />
-                      {entry.summary.roles}
-                    </span>
-                  </>
-                )}
-                <span className="ml-auto">{entry.uses}× verwendet</span>
-              </div>
-            </button>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

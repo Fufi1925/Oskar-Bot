@@ -23,6 +23,7 @@ Run:  python3 tests/test_templates.py
 import ast
 import asyncio
 import json
+import math
 import os
 import re
 import sys
@@ -2372,6 +2373,668 @@ def test_channels_are_grouped_by_category():
     )
 
 
+# ------------------------------------------------------------------ #
+# 11. Bewertungen
+# ------------------------------------------------------------------ #
+def test_the_rating_formula_behaves():
+    """Die Rangfolge haengt an genau einer Funktion.
+
+    Ein Tippfehler darin faellt sonst nicht auf: die Liste waere
+    einfach falsch sortiert, ohne Fehlermeldung.
+
+    Der erste Anlauf schrieb die Formel als SQL-Ausdruck. Sie war
+    falsch -- 0 hoch / 5 runter ergab 0.11 statt 0 -- und haette
+    ausserdem `sqrt()` gebraucht, in SQLite ein OPTIONALES Modul, das
+    im Zielcontainer fehlen kann. Deshalb steht sie jetzt in Python.
+    """
+    print("\nDie Bewertungsformel verhaelt sich richtig")
+
+    from utils.template_store import wilson_score as rank
+
+    # Gegen eine unabhaengige Referenz.
+    def ref(up, down):
+        total = up + down
+        if total == 0:
+            return 0.0
+        z = 1.96
+        p = up / total
+        return (
+            p + z * z / (2 * total)
+            - z * math.sqrt((p * (1 - p) + z * z / (4 * total)) / total)
+        ) / (1 + z * z / total)
+
+    worst = 0.0
+    for up, down in ((0, 0), (1, 0), (3, 0), (10, 0), (5, 5), (300, 297),
+                     (200, 10), (2, 8), (0, 5), (1000, 100)):
+        worst = max(worst, abs(rank(up, down) - ref(up, down)))
+    check("sie stimmt mit der Referenz ueberein", worst < 1e-12,
+          f"max Abweichung {worst:.2e}")
+
+    check("keine Stimme ergibt 0", rank(0, 0) == 0.0)
+    check("reine Ablehnung ergibt 0", rank(0, 5) == 0.0)
+    check(
+        "eine Einzelstimme fuehrt die Liste nicht an",
+        rank(1, 0) < rank(200, 10),
+        "sonst gewinnt, wer sich selbst einen Daumen gibt",
+    )
+    check(
+        "mehr Stimmen bei gleichem Anteil zaehlen mehr",
+        rank(10, 0) > rank(3, 0),
+        "sonst waere die Stichprobengroesse egal",
+    )
+    check(
+        "klare Zustimmung schlaegt klare Ablehnung",
+        rank(200, 10) > rank(2, 8),
+    )
+    for up, down in ((0, 0), (1, 0), (300, 297), (1000, 100)):
+        value = rank(up, down)
+        check(f"{up}/{down} liegt in 0..1", 0.0 <= value <= 1.0, f"-> {value}")
+
+
+def test_voting_counts_once_per_user():
+    """Eine Stimme je Nutzer -- erzwungen von der Datenbank."""
+    print("\nJeder Nutzer hat genau eine Stimme")
+
+    async def scenario(db, store):
+        tid, _ = await store.create_template(
+            db, name="X", description="", author_id=1, author_name="x",
+            source_guild_id=100, payload={"roles": []}, visibility="public")
+
+        await store.set_vote(db, tid, 42, 1)
+        await store.set_vote(db, tid, 42, 1)
+        await store.set_vote(db, tid, 42, 1)
+        counts = await store.vote_counts(db, tid)
+        # Dreimal derselbe Daumen: an, aus, an.
+        check("dreimal klicken ergibt eine Stimme",
+              counts["up"] <= 1, f"-> {counts}")
+
+        # Der Primaerschluessel muss das erzwingen, nicht der Code.
+        async with db.execute("PRAGMA table_info(template_votes)") as cursor:
+            columns = {row[1]: row[5] for row in await cursor.fetchall()}
+        check(
+            "template_id ist Teil des Schluessels",
+            columns.get("template_id", 0) > 0,
+            "sonst kann derselbe Nutzer mehrfach abstimmen",
+        )
+        check("user_id auch", columns.get("user_id", 0) > 0)
+
+        # Zwei verschiedene Nutzer zaehlen getrennt.
+        #
+        # Auf einer FRISCHEN Vorlage: auf der obigen hat Nutzer 42
+        # schon mehrfach geklickt, und sein Stand haengt davon ab, wie
+        # oft. Genau diese Verwechslung hat den Test zweimal rot
+        # gemacht -- der Code war beide Male in Ordnung.
+        other, _ = await store.create_template(
+            db, name="Y", description="", author_id=1, author_name="x",
+            source_guild_id=100, payload={"roles": []}, visibility="public")
+        await store.set_vote(db, other, 101, 1)
+        await store.set_vote(db, other, 102, 1)
+        await store.set_vote(db, other, 103, -1)
+        counts = await store.vote_counts(db, other)
+        check("zwei hoch, eins runter",
+              counts["up"] == 2 and counts["down"] == 1, f"-> {counts}")
+        check("die Differenz stimmt", counts["score"] == 1)
+
+    asyncio.run(_with_db(scenario))
+
+
+def test_clicking_the_same_thumb_takes_the_vote_back():
+    """Ohne das gaebe es keinen Weg, sich zu korrigieren."""
+    print("\nDerselbe Daumen nimmt die Stimme zurueck")
+
+    async def scenario(db, store):
+        tid, _ = await store.create_template(
+            db, name="X", description="", author_id=1, author_name="x",
+            source_guild_id=100, payload={"roles": []}, visibility="public")
+
+        first = await store.set_vote(db, tid, 7, 1)
+        check("hoch zaehlt", first["up"] == 1 and first["own"] == 1,
+              f"-> {first}")
+
+        again = await store.set_vote(db, tid, 7, 1)
+        check("nochmal hoch nimmt zurueck",
+              again["up"] == 0 and again["own"] == 0, f"-> {again}")
+
+        switched = await store.set_vote(db, tid, 7, 1)
+        switched = await store.set_vote(db, tid, 7, -1)
+        check("umschalten auf runter",
+              switched["up"] == 0 and switched["down"] == 1
+              and switched["own"] == -1, f"-> {switched}")
+
+        cleared = await store.set_vote(db, tid, 7, 0)
+        check("die Null nimmt ebenfalls zurueck",
+              cleared["down"] == 0 and cleared["own"] == 0, f"-> {cleared}")
+
+        # Ein unsinniger Wert darf nichts anlegen -- und auch keine
+        # Zeile hinterlassen.
+        #
+        # Die Pruefung auf die Zahlen allein blieb gruen, als die
+        # Umwandlung auf 0 abgeschaltet war: die 99 landete dann in der
+        # Tabelle, zaehlte aber weder als hoch noch als runter. Erst
+        # der Blick in die Tabelle zeigt es.
+        weird = await store.set_vote(db, tid, 7, 99)
+        check("ein unbekannter Wert zaehlt nicht",
+              weird["up"] == 0 and weird["down"] == 0, f"-> {weird}")
+
+        async with db.execute(
+            "SELECT COUNT(*) FROM template_votes WHERE template_id = ? "
+            "AND vote NOT IN (1, -1)",
+            (tid,),
+        ) as cursor:
+            junk = (await cursor.fetchone())[0]
+        check(
+            "und hinterlaesst keine Zeile",
+            junk == 0,
+            f"{junk} Zeilen mit einem unmoeglichen Wert",
+        )
+
+    asyncio.run(_with_db(scenario))
+
+
+def test_the_list_sorts_by_rating():
+    """»Beste« ist etwas anderes als »meist genutzt«."""
+    print("\nDie Liste sortiert nach Bewertung")
+
+    async def scenario(db, store):
+        async def make(name, up, down, uses):
+            tid, _ = await store.create_template(
+                db, name=name, description="", author_id=1, author_name="x",
+                source_guild_id=100, payload={"roles": []},
+                visibility="public")
+            for i in range(up):
+                await store.set_vote(db, tid, 10_000 + i, 1)
+            for i in range(down):
+                await store.set_vote(db, tid, 90_000 + i, -1)
+            for _ in range(uses):
+                await store.bump_uses(db, tid)
+            return tid
+
+        await make("Gut", 20, 1, 0)
+        await make("Umstritten", 30, 29, 0)
+        await make("Ungewertet", 0, 0, 500)
+        await make("Schlecht", 1, 15, 0)
+
+        order = [e["name"] for e in await store.list_templates(db, sort="beliebt")]
+        check("die beste steht oben", order[0] == "Gut", f"-> {order}")
+
+        # Der entscheidende Fall: die Datenbank sortiert nach roher
+        # Differenz vor, Python nach Bewertung. Nur wenn sich beide
+        # UNTERSCHEIDEN, faellt ein fehlendes Nachsortieren auf.
+        #
+        # "Umstritten" hat mit 30-29=1 die kleinere Differenz als
+        # "Gut" mit 20-1=19, liegt aber bei der Bewertung klar
+        # dahinter. Ohne diesen Zusatzfall blieb der Test gruen, als
+        # das Nachsortieren in Python abgeschaltet war.
+        await make("Knapp", 3, 0, 0)
+        by_rating = [
+            e["name"] for e in await store.list_templates(db, sort="beliebt")
+        ]
+        raw = sorted(
+            await store.list_templates(db, sort="beliebt"),
+            key=lambda e: -(e["votes"]["up"] - e["votes"]["down"]),
+        )
+        check(
+            "die Bewertung schlaegt die rohe Differenz",
+            by_rating != [e["name"] for e in raw],
+            f"Python sortiert nicht nach -> {by_rating}",
+        )
+        check(
+            "»Knapp« (3/0) steht unter »Gut« (20/1)",
+            by_rating.index("Knapp") > by_rating.index("Gut"),
+            f"-> {by_rating}",
+        )
+        check(
+            "die schlechte nicht",
+            order.index("Schlecht") > order.index("Umstritten"),
+            f"-> {order}",
+        )
+
+        # "genutzt" muss etwas ANDERES liefern -- sonst waeren die
+        # beiden Sortierungen dasselbe und eine davon ueberfluessig.
+        used = [e["name"] for e in await store.list_templates(db, sort="genutzt")]
+        check("»genutzt« stellt die viel benutzte nach oben",
+              used[0] == "Ungewertet", f"-> {used}")
+        check("und ist nicht dieselbe Reihenfolge", used != order)
+
+        # Die Zahlen muessen mitkommen.
+        first = (await store.list_templates(db, sort="beliebt"))[0]
+        check("die Stimmen sind dabei", first["votes"]["up"] == 20,
+              f"-> {first.get('votes')}")
+        check("mit Bewertung", first["votes"]["rating"] > 0)
+
+        # Und wie DIESER Nutzer abgestimmt hat.
+        mine = await store.list_templates(db, sort="beliebt", user_id=10_000)
+        voted = [e for e in mine if e["votes"]["own"] == 1]
+        check("die eigene Stimme ist markiert", len(voted) >= 1)
+        fremd = await store.list_templates(db, sort="beliebt", user_id=555)
+        check("ein anderer Nutzer sieht seine eigene (keine)",
+              all(e["votes"]["own"] == 0 for e in fremd))
+
+    asyncio.run(_with_db(scenario))
+
+
+def test_blocked_templates_sink_to_the_bottom():
+    """Gesperrtes bleibt sichtbar, aber unten."""
+    print("\nGesperrte Vorlagen stehen unten")
+
+    async def scenario(db, store):
+        good, _ = await store.create_template(
+            db, name="Normal", description="", author_id=1, author_name="x",
+            source_guild_id=100, payload={"roles": []}, visibility="public")
+        bad, _ = await store.create_template(
+            db, name="Gesperrt", description="", author_id=1, author_name="x",
+            source_guild_id=100, payload={"roles": []}, visibility="public")
+
+        # Die gesperrte bekommt die BESSEREN Stimmen -- sie darf
+        # trotzdem nicht oben stehen.
+        for i in range(50):
+            await store.set_vote(db, bad, 20_000 + i, 1)
+        await store.set_vote(db, good, 1, 1)
+        await store.set_blocked(db, bad, blocked=True, reason="Grund")
+
+        for sort in ("beliebt", "neu", "genutzt", "name"):
+            order = [e["name"] for e in await store.list_templates(db, sort=sort)]
+            check(f"bei »{sort}« steht die gesperrte unten",
+                  order[-1] == "Gesperrt", f"-> {order}")
+
+        # Sichtbar bleibt sie trotzdem -- ihr Hochlader soll sehen,
+        # dass es sie noch gibt.
+        names = [e["name"] for e in await store.list_templates(db)]
+        check("sie verschwindet nicht", "Gesperrt" in names)
+        _ = good
+
+    asyncio.run(_with_db(scenario))
+
+
+def test_deleting_removes_the_votes():
+    """Sonst erbt die naechste Vorlage fremde Stimmen.
+
+    Die IDs sind AUTOINCREMENT. Bleiben Stimmen einer geloeschten
+    Vorlage liegen, bekommt eine spaeter angelegte mit derselben
+    Nummer sie zugeordnet.
+    """
+    print("\nLoeschen raeumt die Stimmen weg")
+
+    async def scenario(db, store):
+        tid, _ = await store.create_template(
+            db, name="X", description="", author_id=1, author_name="x",
+            source_guild_id=100, payload={"roles": []}, visibility="public")
+        await store.set_vote(db, tid, 5, 1)
+        await store.log_apply(db, template_id=tid, guild_id=1, actor_id=5,
+                              options={}, wiped=False)
+
+        async def left():
+            async with db.execute(
+                "SELECT COUNT(*) FROM template_votes WHERE template_id = ?",
+                (tid,),
+            ) as cursor:
+                return (await cursor.fetchone())[0]
+
+        check("die Stimme ist da", await left() == 1)
+        await store.delete_template(db, tid, 100)
+        check("nach dem Loeschen ist sie weg", await left() == 0,
+              "eine neue Vorlage erbte sie ueber dieselbe ID")
+
+        # Und ueber den Admin-Weg ebenso.
+        tid2, _ = await store.create_template(
+            db, name="Y", description="", author_id=1, author_name="x",
+            source_guild_id=100, payload={"roles": []}, visibility="public")
+        await store.set_vote(db, tid2, 5, 1)
+        await store.force_delete(db, tid2)
+        async with db.execute(
+            "SELECT COUNT(*) FROM template_votes WHERE template_id = ?",
+            (tid2,),
+        ) as cursor:
+            check("auch beim Admin-Loeschen", (await cursor.fetchone())[0] == 0)
+
+    asyncio.run(_with_db(scenario))
+
+
+def test_you_cannot_vote_on_your_own_template():
+    """Sonst gibt sich jeder selbst einen Daumen hoch."""
+    print("\nDie eigene Vorlage laesst sich nicht bewerten")
+
+    route = strip_py(
+        open(os.path.join(BOT, "api", "routes", "templates.py"),
+             encoding="utf-8").read()
+    )
+    block = route.split("async def vote")[1].split("@router")[0]
+
+    check("es gibt die Pruefung",
+          'found.get("author_id")' in block and "raise HTTPException" in block)
+    check(
+        "die Nutzer-ID kommt aus der Sitzung",
+        'get("actor")' in block,
+        "eine ID aus dem Browser liesse beliebig oft abstimmen",
+    )
+    check(
+        "ohne Anmeldung geht gar nichts",
+        "if actor is None" in block and "401" in block,
+    )
+
+    # Die Pruefung braucht author_id in der Antwort -- ohne das Feld
+    # liefe sie immer ins Leere.
+    store_src = strip_py(
+        open(os.path.join(BOT, "utils", "template_store.py"),
+             encoding="utf-8").read()
+    )
+    row_block = store_src.split("def _row_to_template")[1].split("async def")[0]
+    check(
+        "author_id kommt in der Einzelansicht mit",
+        '"author_id"' in row_block,
+        "sonst vergleicht die Route gegen einen leeren String",
+    )
+
+    # Und jetzt gegen die echte Route -- mit einer Vorlage MIT CODE.
+    #
+    # Das ist der Fall, der die Sperre aushebelt: ohne `as_admin=True`
+    # kaeme aus `get_template` ein verschlossener Eintrag zurueck, und
+    # `author_id` waere darin leer. Der Vergleich liefe gegen "" und
+    # der Hochlader duerfte seine eigene Vorlage doch bewerten.
+    from api.routes import templates as api_route
+
+    handle, path = tempfile.mkstemp(suffix=".db")
+    os.close(handle)
+
+    async def build():
+        import aiosqlite
+
+        from utils import template_store as store
+
+        os.environ[store.SECRET_ENV] = "test-schluessel-fuer-den-test"
+        async with aiosqlite.connect(path) as db:
+            await store.ensure_schema(db)
+            tid, _ = await store.create_template(
+                db, name="Meine", description="", author_id=4242,
+                author_name="Ich", source_guild_id=100,
+                payload={"roles": []}, visibility="key")
+            return tid
+
+    tid = asyncio.run(build())
+    bot = _FakeBot(_FakeGuild(100, "Server"))
+
+    denied = False
+    try:
+        _run_route(
+            lambda: api_route.vote(100, tid, {"actor": 4242, "vote": 1},
+                                   bot=bot),
+            path,
+        )
+    except Exception as error:  # HTTPException
+        denied = getattr(error, "status_code", 0) == 400
+    check(
+        "der Hochlader darf auch bei einer Code-Vorlage nicht abstimmen",
+        denied,
+        "ohne as_admin ist author_id leer und die Sperre greift nicht",
+    )
+
+    # Ein anderer darf sehr wohl.
+    answer = _run_route(
+        lambda: api_route.vote(100, tid, {"actor": 999, "vote": 1}, bot=bot),
+        path,
+    )
+    check("ein anderer Nutzer darf",
+          answer["votes"]["up"] == 1, f"-> {answer}")
+
+    os.unlink(path)
+
+
+def test_the_list_route_passes_the_voter_through():
+    """Die Route muss die Nutzer-ID an den Store WEITERGEBEN.
+
+    Eine Suche nach `user_id=voter` im Quelltext blieb gruen, als der
+    Parameter aus dem Aufruf entfernt war -- der Name stand ja weiter
+    oben in der Funktion. Geprueft wird deshalb die Antwort.
+    """
+    print("\nDie Liste reicht die Nutzer-ID durch")
+
+    from api.routes import templates as route
+
+    handle, path = tempfile.mkstemp(suffix=".db")
+    os.close(handle)
+
+    async def build():
+        import aiosqlite
+
+        from utils import template_store as store
+
+        async with aiosqlite.connect(path) as db:
+            await store.ensure_schema(db)
+            tid, _ = await store.create_template(
+                db, name="X", description="", author_id=1, author_name="x",
+                source_guild_id=100, payload={"roles": []},
+                visibility="public")
+            await store.set_vote(db, tid, 4242, 1)
+
+    asyncio.run(build())
+
+    bot = _FakeBot(_FakeGuild(100, "Server"))
+
+    with_voter = _run_route(
+        lambda: route.list_all(100, user_id="4242", bot=bot), path
+    )
+    own = with_voter["templates"][0]["votes"]["own"]
+    check(
+        "die eigene Stimme kommt an",
+        own == 1,
+        f"-> own={own}; die Nutzer-ID erreicht den Store nicht",
+    )
+    check("und Bewerten ist erlaubt", with_voter["can_vote"] is True)
+
+    other = _run_route(
+        lambda: route.list_all(100, user_id="9999", bot=bot), path
+    )
+    check(
+        "ein anderer Nutzer sieht keine fremde Stimme",
+        other["templates"][0]["votes"]["own"] == 0,
+    )
+
+    anon = _run_route(lambda: route.list_all(100, bot=bot), path)
+    check("ohne Anmeldung ist own 0",
+          anon["templates"][0]["votes"]["own"] == 0)
+    check(
+        "und Bewerten ist gesperrt",
+        anon["can_vote"] is False,
+        "sonst zeigt die Oberflaeche einen Knopf, der nur Fehler bringt",
+    )
+
+    os.unlink(path)
+
+
+def test_the_vote_route_is_wired_up():
+    print("\nDie Bewertung ist verdrahtet")
+
+    from fastapi.testclient import TestClient
+
+    from api.server import create_app
+
+    client = TestClient(create_app())
+    answer = client.get("/api/v1/openapi.json")
+    if answer.status_code == 200:
+        paths = set(answer.json()["paths"])
+        check("die Route gibt es",
+              "/templates/{guild_id}/template/{template_id}/vote" in paths)
+
+    api_src = strip_ts(read_dash("lib", "api.ts"))
+    check("templateVote: gibt es", "templateVote:" in api_src)
+    # Die Nutzer-ID darf NICHT aus dem Browser kommen.
+    # Nur der KOERPER der Anfrage. Ein Muster ueber den ganzen Aufruf
+    # traf den Pfad `${guildId}` -- darin steckt kein "user_id", aber
+    # die Pruefung war trotzdem unscharf und schlug fehl, sobald der
+    # Aufruf umbrochen wurde.
+    # Nur die body-Zeile. Ein Muster ueber den ganzen Aufruf traf den
+    # Pfad `${guildId}`, und ein Trennen an "})," schnitt mitten in
+    # JSON.stringify({ vote }) -- beide Male war der Test schuld, nicht
+    # der Code.
+    body = ""
+    for line in api_src.split("templateVote:")[1].split("\n"):
+        if "body:" in line:
+            body = line.strip()
+            break
+    check(
+        "der Aufruf schickt nur die Stimme mit",
+        body == "body: JSON.stringify({ vote }),",
+        f"-> {body!r}; die Nutzer-ID setzt der Proxy",
+    )
+
+    proxy = strip_ts(read_dash("app", "api", "bot", "[...path]", "route.ts"))
+    check(
+        "der Proxy setzt user_id bei GET",
+        'segments[0] === "templates" && request.method === "GET"' in proxy,
+        "sonst weiss die Liste nicht, wie man selbst abgestimmt hat",
+    )
+    check(
+        "und ueberschreibt einen mitgeschickten Wert",
+        'url.searchParams.set("user_id", actorId ?? "")' in proxy,
+        "sonst liest jeder fremde Stimmen aus",
+    )
+
+
+def test_the_panel_shows_the_votes():
+    print("\nDer Reiter zeigt die Bewertungen")
+
+    panel = strip_ts(read_dash("components", "dashboard",
+                               "template-community-panel.tsx"))
+
+    check("es gibt die Daumen", "function VoteButtons(" in panel)
+    check("beide Richtungen", "ThumbsUp" in panel and "ThumbsDown" in panel)
+    check("sie werden aufgerufen", "<VoteButtons" in panel)
+    check(
+        "in Liste UND Detailansicht",
+        panel.count("<VoteButtons") >= 2,
+        "einmal reicht nicht -- man entscheidet sich meist nach dem Ansehen",
+    )
+
+    # Die Liste muss die ECHTEN Stimmen durchreichen.
+    #
+    # Eine Suche nach "<VoteButtons" blieb gruen, als dort fest
+    # `{{ up: 0, down: 0, own: 0 }}` stand: das Bauteil war da, zeigte
+    # aber bei jeder Vorlage null.
+    check(
+        "die Liste reicht die echten Stimmen durch",
+        "votes={votes}" in panel,
+        "die Daumen zeigten sonst ueberall null",
+    )
+    check(
+        "und die Detailansicht ebenso",
+        "chosen.votes ||" in panel,
+        "dort staende sonst dauerhaft null",
+    )
+
+    # Die Hervorhebung muss am eigenen Stimmwert HAENGEN, nicht nur
+    # irgendwo vorkommen. `false ? ... : ...` liess den Text stehen.
+    for direction, colour in ((1, "emerald"), (-1, "red")):
+        pattern = re.search(
+            r"votes\.own === " + str(direction).replace("-", r"\-")
+            + r"\s*\n\s*\?\s*\"bg-" + colour,
+            panel,
+        )
+        check(
+            f"der Daumen {'hoch' if direction == 1 else 'runter'} "
+            "faerbt sich bei eigener Stimme",
+            bool(pattern),
+            "die Bedingung haengt nicht am eigenen Stimmwert",
+        )
+
+    check(
+        "und fuer Vorlesewerkzeuge ausgezeichnet",
+        "aria-pressed" in panel,
+    )
+    check(
+        "die Zahlen kommen vom Bot, nicht aus dem Browser",
+        "setList((old) =>" in panel and "votes }" in panel,
+        "hochzaehlen im Browser liefe bei zwei Fenstern auseinander",
+    )
+    # `mine` muss im `disabled` BEIDER Daumen stehen. Eine Suche nach
+    # "entry.mine" blieb gruen, als es dort fehlte -- der Name kommt
+    # auch beim Zusammenbauen der Liste vor.
+    for label in ("Gefällt mir", "Gefällt mir nicht"):
+        block = panel.split(f'aria-label="{label}"')[0]
+        last = block.rfind("disabled={")
+        line = block[last : last + 60] if last >= 0 else ""
+        check(
+            f"»{label}« ist bei eigener Vorlage gesperrt",
+            "mine" in line,
+            f"-> {line.strip()[:50]!r}",
+        )
+    check(
+        "die eigene Vorlage wird als solche erkannt",
+        "mine.has(entry.id)" in panel,
+        "sonst weiss die Liste gar nicht, welche die eigene ist",
+    )
+    check(
+        "ohne Anmeldung sagt es das",
+        "canVote" in panel and "Zum Bewerten" in panel,
+    )
+
+    # Nach dem Abstimmen darf die Liste NICHT neu geladen werden --
+    # sonst springt die Karte unter dem Zeiger weg.
+    vote_fn = panel.split("const runVote")[1].split("const visible")[0]
+    check(
+        "die Liste wird nicht neu geladen",
+        "load(" not in vote_fn,
+        "die Karte spraenge bei »Beste« mitten unter dem Zeiger weg",
+    )
+
+
+def test_the_sort_bar_offers_both_orders():
+    """»Beste« und »meist genutzt« sind zwei verschiedene Fragen."""
+    print("\nDie Sortierleiste bietet beides an")
+
+    panel = strip_ts(read_dash("components", "dashboard",
+                               "template-community-panel.tsx"))
+
+    check("es gibt eine Sortierleiste", "const SORTS = [" in panel)
+    block = panel.split("const SORTS = [")[1].split("];")[0]
+    for wanted in ('"beliebt"', '"genutzt"', '"neu"', '"name"'):
+        check(f"{wanted} steht darin", wanted in block)
+
+    check(
+        "die Voreinstellung ist die Bewertung",
+        'useState("beliebt")' in panel,
+        "»neu« zeigt oben, was noch niemand angesehen hat",
+    )
+
+    # Die Schluessel muessen zu denen im Bot passen -- ein Tippfehler
+    # faellt sonst auf »neu« zurueck, ohne Fehlermeldung.
+    from utils import template_store as store
+
+    import re as _re
+
+    ids = set(_re.findall(r'id: "(\w+)"', block))
+    check(
+        "alle Schluessel kennt der Bot",
+        ids <= set(store.SORTS),
+        f"unbekannt: {sorted(ids - set(store.SORTS))}",
+    )
+    check(
+        "und der Bot bietet nichts an, was fehlt",
+        set(store.SORTS) <= ids,
+        f"fehlt in der Leiste: {sorted(set(store.SORTS) - ids)}",
+    )
+
+    check("es gibt Filter", "const FILTERS = [" in panel)
+    check("nach Bewertung filtern", '"bewertet"' in panel)
+
+    # Die Filter muessen die Liste WIRKLICH einschraenken. `if (false)`
+    # liess die Knoepfe stehen und tat nichts.
+    block = panel.split("const visible = useMemo(")[1].split("}, [list")[0]
+    check(
+        "»ohne Code« blendet verschlossene aus",
+        "entry.locked" in block and 'filter === "offen"' in block,
+        "der Knopf tut sonst nichts",
+    )
+    check(
+        "»bewertet« blendet Unbewertete aus",
+        "votes?.up" in block and 'filter === "bewertet"' in block,
+    )
+    check(
+        "und der Filter haengt an seinem Zustand",
+        "[list, filter]" in panel,
+        "sonst rechnet er nach dem Umschalten nicht neu",
+    )
+
+
 def main() -> int:
     test_secrets_never_reach_a_template()
     test_an_id_as_a_number_is_caught_too()
@@ -2413,6 +3076,17 @@ def main() -> int:
     test_the_history_names_the_servers()
     test_a_failed_load_is_visible()
     test_channels_are_grouped_by_category()
+    test_the_rating_formula_behaves()
+    test_voting_counts_once_per_user()
+    test_clicking_the_same_thumb_takes_the_vote_back()
+    test_the_list_sorts_by_rating()
+    test_blocked_templates_sink_to_the_bottom()
+    test_deleting_removes_the_votes()
+    test_you_cannot_vote_on_your_own_template()
+    test_the_list_route_passes_the_voter_through()
+    test_the_vote_route_is_wired_up()
+    test_the_panel_shows_the_votes()
+    test_the_sort_bar_offers_both_orders()
 
     print()
     if failures:

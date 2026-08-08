@@ -1,6 +1,12 @@
 {
  "commits": [
   {
+   "commit": "4c60a3b33a90802474c2116c817a1f967e0562ea",
+   "at": "1786202216",
+   "subject": "fix(templates): Admin-Detailansicht war leer, Bot-Praesenz war geraten",
+   "body": "Vier echte Fehler im Admin-Reiter \"Vorlagen\", alle vorher\nreproduziert (repro/bug_admin_templates.py):\n\n1. Detailansicht bei Vorlagen MIT Zugangscode komplett leer -- der\n   gemeldete Fehler. admin_payload rief get_template ohne key und\n   ohne owner_guild_id, also blieb unlocked False und\n   _row_to_template lieferte ein leeres payload. Keine Meldung, kein\n   Hinweis, nur Leere -- ausgerechnet bei den Vorlagen, die man am\n   ehesten pruefen will. Neu: as_admin=True, das ausschliesslich die\n   /admin/*-Routen setzen; ein Test prueft, dass detail, preview und\n   apply es NICHT setzen.\n\n2. \"Bot nicht auf dem Server\" war geraten. Eine unlesbare ID sah\n   genauso aus wie ein tatsaechlich verlassener Server. Neu:\n   presence_known als dritter Zustand, dazu Mitgliederzahl und der\n   Servername von damals (source_name_at_upload) als Rueckfall.\n\n3. Hochlader und Anwender wurden NIE gespeichert. Der Proxy setzt\n   parsed.actor aus der Sitzung, die Route las aber author_id bzw.\n   actor_id -- Felder, die kein Aufrufer mitschickt. Bei jeder\n   Vorlage stand \"unbekannt\". Die ID wird jetzt auch zu int\n   gewandelt; die Spalte ist INTEGER.\n\n4. Ein Ladefehler war von einer leeren Vorlage nicht zu\n   unterscheiden -- beides zeigte nichts, der Toast war nach fuenf\n   Sekunden weg. Neu: der Fehler bleibt mit Grund stehen, hat einen\n   Knopf \"Noch einmal\", und eine wirklich leere Vorlage sagt das.\n\nAusserdem besser:\n- Warnung bei weitreichenden Rechten (administrator, ban_members\n  usw.). Die Bewertung macht der Bot (_DANGEROUS_PERMISSIONS), nicht\n  der Browser.\n- Kanaele nach Kategorie gruppiert, in der Reihenfolge der Vorlage.\n- Zahlen aus der Vorlage selbst -- bei Code-Vorlagen standen in der\n  Listenzeile vorher ueberall Nullen.\n- Thema, NSFW, Slowmode je Kanal; Farbe und Rechte-Anzahl je Rolle.\n- Verlauf mit Servernamen statt nackter IDs.\n\nTests: 7 neue Faelle, davon 4 als echte Verhaltenstests gegen die\nRouten -- die ersten Fassungen prueften nur, ob ein Wort im\nQuelltext steht, und blieben bei sechs Mutationen gruen.\nEin Test hing nach dem Durchlauf 5 Minuten, weil der db_manager\nVerbindungen offen haelt; _run_route schliesst sie jetzt.\n\nMutationstest: 79/79 erkannt, Baum byteweise unveraendert.\n78/78 Testdateien gruen, Boot-Test 148 Cogs / 539 Prefix / 58 App /\n0 Fehler, tsc und next build sauber."
+  },
+  {
    "commit": "add4df517da1978a97d667c0d3486b335d6fae8b",
    "at": "1786161438",
    "subject": "feat(templates): Admin-Verwaltung, Code-Anzeige, 10s statt Servername",
@@ -231,12 +237,6 @@
   {
    "commit": "3b14e1d91c9ffb938c1b8b58ca4b68c1d202e53b",
    "at": "1786136809",
-   "subject": "feat(phantom): EXACT full original Aleks ticket bot (5653 lines - every function kept, no removal, no shortening)",
-   "body": ""
-  },
-  {
-   "commit": "e9c7c5cb2e2dea3bebc74a8535d5f6efef37afd6",
-   "at": "1786136800",
    "subject": "feat(phantom): EXACT full original Aleks ticket bot (5653 lines - every function kept, no removal, no shortening)",
    "body": ""
   }

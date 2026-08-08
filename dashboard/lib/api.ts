@@ -1268,6 +1268,15 @@ export const api = {
     ),
   templateDelete: (guildId: string, id: number) =>
     request<any>(`/templates/${guildId}/template/${id}`, { method: "DELETE" }),
+  // Daumen hoch (1), runter (-1) oder Stimme zurückziehen (0).
+  // Derselbe Daumen noch einmal nimmt sie ebenfalls zurück, das
+  // entscheidet der Bot. Die Nutzer-ID setzt der Proxy aus der
+  // Sitzung — sie steht bewusst NICHT in diesem Aufruf.
+  templateVote: (guildId: string, id: number, vote: number) =>
+    request<any>(`/templates/${guildId}/template/${id}/vote`, {
+      method: "POST",
+      body: JSON.stringify({ vote }),
+    }),
   templatePreview: (guildId: string, data: any) =>
     request<any>(`/templates/${guildId}/preview`, {
       method: "POST",
