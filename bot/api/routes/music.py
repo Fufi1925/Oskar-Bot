@@ -139,7 +139,18 @@ def _player_for(bot, guild_id: int):
 
 
 def _track_dict(track) -> dict:
-    """Ein Lavalink-Titel in der Form, die das Dashboard braucht."""
+    """Ein Lavalink-Titel in der Form, die das Dashboard braucht.
+
+    `uri` ist bei Lavalink **optional** -- wavelink schreibt es selbst
+    so hin ("Could be ``None``"). Ein Titel ohne Adresse wurde hier
+    als leerer String gespeichert und beim Abspielen stillschweigend
+    uebersprungen.
+
+    Deshalb kommen Titel und Interpret mit: `start_playlist` kann
+    danach suchen, wenn die Adresse fehlt oder nicht mehr gilt. Eine
+    YouTube-Adresse wird ungueltig, sobald das Video geloescht oder
+    gesperrt wird.
+    """
 
     if track is None:
         return {}

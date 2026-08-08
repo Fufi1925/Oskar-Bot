@@ -818,6 +818,304 @@ def test_the_idle_check_is_precise():
 # ------------------------------------------------------------------ #
 # Der gemeldete Fall: 24/7 + Autoplay, Bot allein, jemand joint
 # ------------------------------------------------------------------ #
+
+# ------------------------------------------------------------------ #
+# Playlist abspielen -- der ganze Weg
+# ------------------------------------------------------------------ #
+def _music_module():
+    """Das Musik-Modul laden, ohne einen Bot zu starten."""
+    import importlib
+
+    sys.path.insert(0, BOT)
+    return importlib.import_module("cogs.commands.music")
+
+
+def test_a_track_without_a_uri_is_not_lost():
+    """`uri` ist bei Lavalink optional.
+
+    wavelink schreibt es selbst so hin: "Could be ``None``". Ein Titel
+    ohne Adresse wurde als leerer String gespeichert und beim
+    Abspielen stillschweigend uebersprungen -- war die ganze Liste so,
+    kam nur "Keiner der gespeicherten Titel liess sich abspielen".
+
+    Dasselbe passiert, wenn eine YouTube-Adresse ungueltig wird, weil
+    das Video geloescht oder gesperrt wurde.
+    """
+    print("\nEin Titel ohne Adresse geht nicht verloren")
+
+    # Erst belegen, dass uri wirklich optional ist.
+    try:
+        import inspect
+
+        import wavelink
+
+        doc = inspect.getsource(wavelink.Playable)
+        at = doc.find("def uri")
+        check(
+            "wavelink nennt uri optional",
+            "Could be ``None``" in doc[at : at + 200],
+            "sonst waere der Rueckfall unnoetig",
+        )
+    except ImportError:
+        print("  --   wavelink fehlt, uebersprungen")
+
+    module = _music_module()
+    cog = module.Music.__new__(module.Music)
+
+    class FakeTrack:
+        def __init__(self, title):
+            self.title = title
+
+    tried: list[str] = []
+
+    async def fake_search(query, **_kw):
+        tried.append(query)
+        # Eine tote Adresse liefert nichts zurueck.
+        if query.startswith("http") and "tot" in query:
+            return []
+        if query.startswith("http"):
+            return [FakeTrack("via-adresse")]
+        return [FakeTrack("via-suche")]
+
+    original = module.wavelink.Playable.search
+    module.wavelink.Playable.search = staticmethod(fake_search)
+    try:
+
+        async def go():
+            # Gueltige Adresse: direkt.
+            track, _ = await cog._resolve_one(
+                {"uri": "https://ok", "title": "A", "author": "B"}
+            )
+            check("gueltige Adresse wird benutzt", track.title == "via-adresse")
+
+            # Tote Adresse: Rueckfall auf Titel + Interpret.
+            tried.clear()
+            track, _ = await cog._resolve_one(
+                {"uri": "https://tot", "title": "Song", "author": "Band"}
+            )
+            check("tote Adresse faellt auf die Suche zurueck",
+                  track is not None and track.title == "via-suche")
+            check("und sucht mit Titel UND Interpret",
+                  tried == ["https://tot", "Song Band"], str(tried))
+
+            # Gar keine Adresse.
+            tried.clear()
+            track, _ = await cog._resolve_one(
+                {"uri": "", "title": "Nur Titel", "author": ""}
+            )
+            check("ohne Adresse wird der Titel gesucht",
+                  track is not None and tried == ["Nur Titel"], str(tried))
+
+            # Gar nichts brauchbar -- mit Grund.
+            track, why = await cog._resolve_one({"uri": "", "title": "", "author": ""})
+            check("leerer Eintrag gibt einen Grund", track is None and bool(why), why)
+
+        asyncio.run(go())
+    finally:
+        module.wavelink.Playable.search = original
+
+
+def test_playing_starts_immediately():
+    """Der erste Titel darf nicht auf die anderen warten.
+
+    Frueher wurden alle Titel nacheinander aufgeloest, bevor
+    ueberhaupt etwas lief. Bei fuenfzig Titeln und je 200 Millisekunden
+    sind das zehn Sekunden Stille.
+    """
+    print("\nDer erste Titel startet sofort")
+
+    module = _music_module()
+    cog = module.Music.__new__(module.Music)
+    cog._fill_tasks = set()
+
+    class FakeTrack:
+        def __init__(self, title):
+            self.title = title
+
+    class FakeQueue:
+        def __init__(self):
+            self.items = []
+
+        def clear(self):
+            self.items.clear()
+
+        def put(self, track):
+            self.items.append(track)
+
+    class FakePlayer:
+        def __init__(self):
+            self.queue = FakeQueue()
+            self.played = None
+            self.volume_set = None
+            self.connected = True
+
+        async def play(self, track):
+            self.played = track
+
+        async def set_volume(self, value):
+            self.volume_set = value
+
+    player = FakePlayer()
+
+    async def fake_connect(_channel):
+        return player, None
+
+    async def fake_search(query, **_kw):
+        if "kaputt" in query:
+            return []
+        return [FakeTrack(query[:24])]
+
+    cog._connect_to = fake_connect
+    original = module.wavelink.Playable.search
+    module.wavelink.Playable.search = staticmethod(fake_search)
+
+    class FakeGuild:
+        id = 1
+
+    try:
+
+        async def go():
+            ok, message = await cog.start_playlist(
+                FakeGuild(),
+                None,
+                [
+                    {"uri": "https://kaputt1", "title": "", "author": ""},
+                    {"uri": "https://gut", "title": "Erster", "author": "X"},
+                    {"uri": "https://zwei", "title": "Zweiter", "author": "Y"},
+                    {"uri": "", "title": "Dritter", "author": "Z"},
+                ],
+                55,
+            )
+            check("es laeuft", ok is True, message)
+            check("der erste spielbare Titel laeuft",
+                  player.played is not None and "gut" in player.played.title)
+            check("die Lautstaerke wurde gesetzt", player.volume_set == 55)
+            check("uebersprungene werden gemeldet", "übersprungen" in message, message)
+
+            # Der Rest kommt im Hintergrund.
+            await asyncio.sleep(0.3)
+            titles = [t.title for t in player.queue.items]
+            check("der Rest landet in der Warteschlange",
+                  len(titles) == 2, str(titles))
+            check("auch der Titel ohne Adresse",
+                  any("Dritter" in t for t in titles), str(titles))
+
+        asyncio.run(go())
+    finally:
+        module.wavelink.Playable.search = original
+
+
+def test_a_total_failure_says_why():
+    """"Nix geht" ist keine brauchbare Auskunft.
+
+    Frueher stand da nur "Keiner der gespeicherten Titel liess sich
+    abspielen. Vielleicht sind die Links nicht mehr gueltig." -- ohne
+    zu sagen, welcher Titel woran scheiterte.
+    """
+    print("\nEin Fehlschlag nennt den Grund")
+
+    module = _music_module()
+    cog = module.Music.__new__(module.Music)
+    cog._fill_tasks = set()
+
+    class FakeQueue:
+        def clear(self):
+            pass
+
+        def put(self, _track):
+            pass
+
+    class FakePlayer:
+        queue = FakeQueue()
+        connected = True
+
+        async def play(self, _track):
+            pass
+
+        async def set_volume(self, _value):
+            pass
+
+    async def fake_connect(_channel):
+        return FakePlayer(), None
+
+    async def nothing(_query, **_kw):
+        return []
+
+    cog._connect_to = fake_connect
+    original = module.wavelink.Playable.search
+    module.wavelink.Playable.search = staticmethod(nothing)
+
+    class FakeGuild:
+        id = 1
+
+    try:
+
+        async def go():
+            ok, message = await cog.start_playlist(
+                FakeGuild(),
+                None,
+                [
+                    {"uri": "https://a", "title": "Alpha", "author": "X"},
+                    {"uri": "https://b", "title": "Beta", "author": "Y"},
+                ],
+                None,
+            )
+            check("es schlaegt fehl", ok is False)
+            check("die Anzahl steht drin", "2 Titel" in message, message)
+            check("und die Namen", "Alpha" in message and "Beta" in message, message)
+
+            # Leere Liste ist ein eigener Fall.
+            ok2, message2 = await cog.start_playlist(FakeGuild(), None, [], None)
+            check("eine leere Liste wird als solche gemeldet",
+                  ok2 is False and "leer" in message2.lower(), message2)
+
+        asyncio.run(go())
+    finally:
+        module.wavelink.Playable.search = original
+
+
+def test_the_background_fill_stops_when_the_bot_leaves():
+    """Sonst fuellt es die Warteschlange eines toten Spielers."""
+    print("\nDas Nachladen bricht ab, wenn der Bot geht")
+
+    src = strip_py(open(MUSIC_COG, encoding="utf-8").read())
+    block = src.split("async def _fill_queue")[1].split("    async def ")[0]
+
+    check(
+        "es prueft, ob der Spieler noch verbunden ist",
+        'getattr(player, "connected", True)' in block,
+    )
+    check("und bricht dann ab", "return" in block)
+
+    # Die Aufgabe muss festgehalten werden.
+    play_block = src.split("async def start_playlist")[1].split("    async def ")[0]
+    check("die Nachlade-Aufgabe wird festgehalten",
+          "_fill_tasks.add(task)" in play_block,
+          "asyncio sammelt sie sonst mitten im Fuellen weg")
+    check("und danach freigegeben", "_fill_tasks.discard" in play_block)
+
+
+def test_rate_limiting_is_not_mistaken_for_a_bad_link():
+    """Ein 429 ist kein "nicht gefunden".
+
+    Die oeffentlichen Lavalink-Knoten bremsen nach ein paar Suchen.
+    Wer dann "Link ungueltig" liest, sucht am falschen Ende.
+    """
+    print("\nEin gebremster Dienst wird als solcher gemeldet")
+
+    src = strip_py(open(MUSIC_COG, encoding="utf-8").read())
+    block = src.split("async def _resolve_one")[1].split("    async def ")[0]
+
+    check("429 wird erkannt", '"429" in last' in block)
+    check("und benannt", "bremst" in block)
+    # Und danach wird nicht weiter probiert -- das waere sinnlos.
+    check(
+        "danach wird abgebrochen",
+        re.search(r'"429" in last[\s\S]{0,200}?return None', block) is not None,
+        "weitersuchen bringt nichts, solange der Knoten bremst",
+    )
+
+
 def test_the_queue_end_respects_stay_forever():
     """Bei 24/7 darf der Bot am Listenende NICHT gehen.
 
@@ -1192,6 +1490,11 @@ def main() -> int:
     test_tracks_are_stored_with_their_cover()
     test_discord_ids_travel_as_text()
     test_the_idle_check_is_precise()
+    test_a_track_without_a_uri_is_not_lost()
+    test_playing_starts_immediately()
+    test_a_total_failure_says_why()
+    test_the_background_fill_stops_when_the_bot_leaves()
+    test_rate_limiting_is_not_mistaken_for_a_bad_link()
     test_the_queue_end_respects_stay_forever()
     test_track_end_survives_a_dashboard_start()
     test_autostart_leaves_a_paused_player_alone()

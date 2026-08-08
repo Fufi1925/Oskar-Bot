@@ -389,6 +389,10 @@ class Music(commands.Cog):
         # Liste neu anwerfen. Ohne Schloss entscheidet, wer zuerst
         # fertig ist -- und das Ergebnis wechselt von Mal zu Mal.
         self._voice_locks: dict[int, asyncio.Lock] = {}
+        # Laufende Nachlade-Aufgaben. asyncio haelt nur eine schwache
+        # Referenz -- ohne diese Menge kann eine Aufgabe mitten im
+        # Fuellen weggesammelt werden.
+        self._fill_tasks: set = set()
         self._node_task: asyncio.Task | None = None
         self._inactivity_task: asyncio.Task | None = None
         # One per Lavalink candidate tried. Kept referenced because
@@ -1546,19 +1550,80 @@ class Music(commands.Cog):
         except Exception as error:
             return None, f"Der Bot kam nicht in den Kanal: {error}"
 
+    async def _resolve_one(self, entry: dict):
+        """Einen gespeicherten Eintrag zurueck in einen Lavalink-Titel.
+
+        In der Datenbank stehen nur Angaben, keine Track-Objekte -- die
+        lassen sich nicht ablegen. Beim Abspielen muss jeder Eintrag
+        also neu aufgeloest werden.
+
+        Zwei Wege, in dieser Reihenfolge:
+
+          1. Ueber die Adresse. Genau, solange sie gueltig ist.
+          2. Ueber Titel und Interpret. Eine YouTube-Adresse wird
+             ungueltig, sobald das Video geloescht oder gesperrt wird
+             -- und `uri` ist bei Lavalink ohnehin optional
+             ("Could be None" steht so in wavelink). Ohne diesen
+             Rueckfall waere der Titel dann fuer immer verloren,
+             obwohl er unter demselben Namen anderswo liegt.
+
+        Gibt (Track, None) oder (None, Grund) zurueck.
+        """
+
+        uri = str(entry.get("uri") or "").strip()
+        title = str(entry.get("title") or "").strip()
+        author = str(entry.get("author") or "").strip()
+
+        attempts: list[str] = []
+        if uri:
+            attempts.append(uri)
+        if title:
+            # Interpret dazu, wenn bekannt -- "Bohemian Rhapsody" allein
+            # findet zwanzig Coverversionen.
+            attempts.append(f"{title} {author}".strip())
+
+        if not attempts:
+            return None, "ohne Adresse und ohne Titel gespeichert"
+
+        last = ""
+        for query in attempts:
+            try:
+                found = await wavelink.Playable.search(query)
+            except Exception as error:
+                last = str(error)[:120]
+                if "429" in last or "rate" in last.lower():
+                    # Weitersuchen waere sinnlos, der Knoten bremst.
+                    return None, "der Musik-Dienst bremst gerade (429)"
+                continue
+
+            if not found:
+                last = "nichts gefunden"
+                continue
+
+            items = getattr(found, "tracks", None) or list(found)
+            if items:
+                return items[0], None
+
+        return None, last or "nichts gefunden"
+
     async def start_playlist(self, guild, channel, tracks, volume=None):
         """Eine gespeicherte Playlist im Kanal starten.
 
-        `tracks` sind die im Dashboard gespeicherten Angaben, keine
-        Lavalink-Objekte -- die lassen sich nicht in einer Datenbank
-        ablegen. Sie werden hier ueber ihre Adresse neu aufgeloest.
-
         Gibt (True, Meldung) oder (False, Grund) zurueck.
+
+        Der erste Titel wird zuerst aufgeloest und sofort gestartet.
+        Der Rest folgt im Hintergrund: bei fuenfzig Titeln und je
+        200 Millisekunden waeren das sonst zehn Sekunden Stille, bevor
+        ueberhaupt etwas passiert.
         """
 
         player, problem = await self._connect_to(channel)
         if player is None:
             return False, problem
+
+        entries = [e for e in (tracks or []) if isinstance(e, dict)]
+        if not entries:
+            return False, "Diese Playlist ist leer."
 
         queue = getattr(player, "queue", None)
         if queue is not None:
@@ -1567,27 +1632,27 @@ class Music(commands.Cog):
             except Exception:
                 pass
 
-        # Der erste Titel entscheidet, ob es ueberhaupt geht. Schlaegt
-        # er fehl, ist eine Meldung besser als ein stummer Kanal.
-        resolved = []
-        for entry in tracks:
-            uri = str(entry.get("uri") or "").strip()
-            if not uri:
-                continue
-            try:
-                found = await wavelink.Playable.search(uri)
-            except Exception:
-                continue
-            if not found:
-                continue
-            items = getattr(found, "tracks", None) or list(found)
-            if items:
-                resolved.append(items[0])
+        # Den ersten spielbaren Titel suchen. Erst wenn gar keiner
+        # geht, ist es ein Fehlschlag.
+        first = None
+        skipped: list[str] = []
+        rest_from = len(entries)
 
-        if not resolved:
+        for index, entry in enumerate(entries):
+            track, why = await self._resolve_one(entry)
+            if track is not None:
+                first = track
+                rest_from = index + 1
+                break
+            skipped.append(f"{entry.get('title') or 'Unbekannt'} ({why})")
+
+        if first is None:
+            # Jetzt sagen, WAS schiefging -- nicht nur, dass es das tat.
+            detail = "; ".join(skipped[:3])
+            more = f" und {len(skipped) - 3} weitere" if len(skipped) > 3 else ""
             return False, (
-                "Keiner der gespeicherten Titel ließ sich abspielen. "
-                "Vielleicht sind die Links nicht mehr gültig."
+                f"Keiner der {len(entries)} Titel ließ sich abspielen. "
+                f"{detail}{more}"
             )
 
         if volume is not None:
@@ -1597,13 +1662,45 @@ class Music(commands.Cog):
                 pass
 
         try:
-            for track in resolved[1:]:
-                queue.put(track)
-            await player.play(resolved[0])
+            await player.play(first)
         except Exception as error:
             return False, f"Das Abspielen schlug fehl: {error}"
 
-        return True, f"{len(resolved)} Titel gestartet."
+        # Der Rest im Hintergrund. Die Referenz wird gehalten, weil
+        # asyncio eine laufende Aufgabe sonst wegsammeln kann.
+        remaining = entries[rest_from:]
+        if remaining:
+            task = asyncio.create_task(
+                self._fill_queue(player, remaining),
+                name=f"music-fill-{guild.id}",
+            )
+            self._fill_tasks.add(task)
+            task.add_done_callback(self._fill_tasks.discard)
+
+        note = ""
+        if skipped:
+            note = f" {len(skipped)} übersprungen."
+        return True, f"Läuft: {first.title}.{note}"
+
+    async def _fill_queue(self, player, entries: list[dict]) -> None:
+        """Die restlichen Titel nachladen, waehrend der erste laeuft."""
+
+        queue = getattr(player, "queue", None)
+        if queue is None:
+            return
+
+        for entry in entries:
+            # Abbrechen, wenn der Bot inzwischen weg ist -- sonst
+            # fuellen wir die Warteschlange eines toten Spielers.
+            if not getattr(player, "connected", True):
+                return
+            track, _why = await self._resolve_one(entry)
+            if track is None:
+                continue
+            try:
+                queue.put(track)
+            except Exception:
+                return
 
     @commands.Cog.listener("on_voice_state_update")
     async def music_resume_on_join(self, member, before, after):

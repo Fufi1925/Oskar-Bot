@@ -1,6 +1,12 @@
 {
  "commits": [
   {
+   "commit": "7cd412bab8e55076e8cd522d2a9db25c8e109b7b",
+   "at": "1786144907",
+   "subject": "fix(musik): Bot bleibt bei 24/7, kein Absturz beim Titelwechsel",
+   "body": "Gemeldet: \"24 Stunden an, Autoplay an, Bot ist allein, man joint --\nund der Bot leavt.\" Drei Ursachen, jede nachgemessen.\n\n1. AM LISTENENDE GING DER BOT RAUS -- TROTZ 24/7\n\n`on_track_end` trennte die Verbindung, sobald die Warteschlange leer\nwar, ohne den Dauerbetrieb zu pruefen. Die Playlist lief durch, der\nBot ging, und der naechste Beitritt fand einen Kanal ohne Bot vor.\nGenau das ist das gemeldete \"Bot leavt\".\n\nBei stay_forever bleibt er jetzt im Kanal und wartet auf den naechsten\nStart.\n\n2. JEDER TITELWECHSEL STUERZTE AB\n\n`wavelink.Player` hat kein `ctx` -- das Attribut wird von Hand\ngesetzt, und zwar nur im Chat-Befehl `>play`. Startet die Musik ueber\ndas Dashboard, ist es nie gesetzt: `player.ctx.send(...)` warf einen\nAttributeError, und die Wiedergabe blieb stehen.\n\nNachgemessen statt vermutet: hasattr(wavelink.Player, \"ctx\") ist\nFalse. `ctx` wird jetzt ueber getattr geholt und vor jeder Benutzung\ngeprueft -- ohne Textkanal wird eben nichts geschrieben.\n\n3. ZWEI BEHANDLER STRITTEN SICH BEIM BEITRITT\n\ndiscord.py ruft jeden Listener mit `create_task` auf (geprueft in\ndiscord.Client._schedule_event) -- die drei Behandler an\n`on_voice_state_update` laufen also wirklich gleichzeitig.\n\nEin pausierter Spieler meldet `playing == False`. `music_autostart`\nhielt ihn deshalb fuer untaetig und rief `start_playlist()` -- die\nleert die Warteschlange und beginnt von vorne. Gleichzeitig wollte\n`music_resume_on_join` an der alten Stelle weitermachen. Wer zuerst\nfertig war, entschied; das Ergebnis wechselte von Mal zu Mal.\n\nJetzt ein Schloss je Server, und der Autostart prueft zusaetzlich auf\n`paused` und auf eine gefuellte Warteschlange -- zwischen zwei Titeln\nist `playing` kurz False.\n\nAUSSERDEM\n\nWird 24/7 eingeschaltet, waehrend der Bot pausiert ist, stieg\n`check_inactivity` sofort aus -- und dieser Ausstieg stand vor der\nStelle, die einen pausierten Spieler wieder anwirft. Er waere fuer\nimmer stumm geblieben. Im 24/7-Zweig nachgeholt.\n\nMutationstest: mutate_music4.py, 13 von 13 gefangen. Der erste Lauf\nfing nur 8. Die Luecken lagen wieder im selben Muster:\n\n  * \"if ctx is None\" gezaehlt, aber \"if ctx is not None\" uebersehen --\n    der Test meldete zu wenige Pruefungen, obwohl der Code stimmte\n  * das Schloss: geprueft wurde, DASS es eines gibt, nicht dass es\n    wiederverwendet wird. Ein frisches Lock je Aufruf sperrt nichts\n  * als Trennmarker fuers Suchfenster diente ein Kommentar -- den\n    entfernt strip_py vorher, das Fenster reichte in den naechsten\n    Abschnitt und blieb gruen\n  * die Reihenfolge disconnect/ctx-Pruefung braucht den Syntaxbaum;\n    eine Textsuche kennt sie nicht\n\nGeprueft: 77 Testdateien, Boot-Test (148 Cogs, 0 Fehler), ruff ohne\nneue Treffer. Nicht gegen echtes Discord getestet -- kein Token, kein\nLavalink hier."
+  },
+  {
    "commit": "bf915224400363a3631f91df3610cef3c8180c0b",
    "at": "1786141677",
    "subject": "fix(phantom): Bot startet, Daten bleiben, kein Fernschalter mehr",
@@ -231,12 +237,6 @@
   {
    "commit": "fe91080529bc4ffc5161bcd64d24efc90efd2161",
    "at": "1786136763",
-   "subject": "feat(phantom): EXACT full original Aleks ticket bot (5653 lines - every function kept, no removal, no shortening)",
-   "body": ""
-  },
-  {
-   "commit": "180fe96d3f4f558c480e8b612ffd87469f826cc2",
-   "at": "1786136755",
    "subject": "feat(phantom): EXACT full original Aleks ticket bot (5653 lines - every function kept, no removal, no shortening)",
    "body": ""
   }
