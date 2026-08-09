@@ -580,11 +580,36 @@ async def apply_features(guild, payload: dict, wanted: dict[str, bool],
         spec = template_scan.FEATURE_TABLES.get(key)
         if spec is None:
             continue
-        label, path, _tables = spec
+        label, path, allowed_tables = spec
 
         try:
             async with aiosqlite.connect(path) as db:
                 for table, rows in (block.get("tables") or {}).items():
+                    # Nur Tabellen, die zu DIESER Funktion gehoeren.
+                    #
+                    # Der Inhalt einer Vorlage kommt aus einer
+                    # Datenbank, die jeder befuellen kann, der eine
+                    # hochlaedt. Ohne diese Pruefung liesse sich eine
+                    # Vorlage von Hand basteln, die unter dem
+                    # harmlosen Schluessel "welcome" in die
+                    # Rollentabelle schreibt -- der Tabellenname geht
+                    # ungeprueft in das INSERT.
+                    #
+                    # Zwei Riegel: die erlaubte Liste je Funktion und
+                    # die Sperrliste. Der Scan filtert schon, aber der
+                    # Scan lief auf einem FREMDEN Server.
+                    if table not in allowed_tables:
+                        report.skipped.append(
+                            f"Einstellungen {label}: Tabelle {table} "
+                            "gehört nicht dazu"
+                        )
+                        continue
+                    if table in template_scan.NEVER_EXPORT:
+                        report.skipped.append(
+                            f"Einstellungen {label}: {table} enthält "
+                            "Nutzerdaten und wird nicht übernommen"
+                        )
+                        continue
                     # Welche Spalten es in der ZIELtabelle wirklich
                     # gibt.
                     #

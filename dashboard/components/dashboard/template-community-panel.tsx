@@ -641,6 +641,129 @@ function groupChannels(payload: any): Array<{ name: string; items: any[] }> {
   return out;
 }
 
+/**
+ * Die Dashboard-Einstellungen zum Abwählen, nach Gruppen sortiert.
+ *
+ * Der Bot liefert zu jeder Funktion eine `group` mit — dieselben
+ * Namen wie in der Seitenleiste, damit man nicht zweimal umdenken
+ * muss. Bei dreiundzwanzig Einträgen ist eine flache Liste
+ * unbrauchbar: man sucht darin und übersieht beim Abwählen etwas.
+ *
+ * „Alle" je Gruppe ist kein Beiwerk. Wer nur den Aufbau will und
+ * keine Einstellungen, klickt sonst dreiundzwanzigmal.
+ */
+function FeaturePicker({
+  features,
+  chosen,
+  onChange,
+  hint,
+}: {
+  features: any[];
+  chosen: Record<string, boolean>;
+  onChange: (next: Record<string, boolean>) => void;
+  hint?: string;
+}) {
+  // Nach Gruppe bündeln, in der Reihenfolge, die der Bot vorgibt.
+  const groups: Array<{ name: string; items: any[] }> = [];
+  for (const entry of features) {
+    const name = entry.group || "Sonstiges";
+    let bucket = groups.find((g) => g.name === name);
+    if (!bucket) {
+      bucket = { name, items: [] };
+      groups.push(bucket);
+    }
+    bucket.items.push(entry);
+  }
+
+  const on = (entry: any) => chosen[entry.key] ?? true;
+  const total = features.length;
+  const active = features.filter(on).length;
+
+  const setMany = (items: any[], value: boolean) => {
+    const next = { ...chosen };
+    for (const item of items) next[item.key] = value;
+    onChange(next);
+  };
+
+  return (
+    <div className="rounded-2xl bg-[#0a1628] border border-slate-800 p-4 space-y-4">
+      <div className="flex items-center gap-2 flex-wrap">
+        <p className="text-[10px] font-black uppercase tracking-widest text-slate-600">
+          Dashboard-Einstellungen — einzeln abwählbar
+        </p>
+        <span className="text-[11px] text-slate-600 ml-auto tabular-nums">
+          {active} von {total}
+        </span>
+        <button
+          type="button"
+          onClick={() => setMany(features, active < total)}
+          className="text-[10px] font-black uppercase tracking-widest text-primary/70 hover:text-primary transition-colors"
+        >
+          {active < total ? "Alle an" : "Alle aus"}
+        </button>
+      </div>
+
+      {hint && (
+        <p className="text-[11px] text-slate-600 leading-relaxed">{hint}</p>
+      )}
+
+      {groups.map((group) => {
+        const groupOn = group.items.filter(on).length;
+        return (
+          <div key={group.name}>
+            <div className="flex items-center gap-2 mb-1.5">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                {group.name}
+              </p>
+              <span className="text-[10px] text-slate-700 tabular-nums">
+                {groupOn}/{group.items.length}
+              </span>
+              <button
+                type="button"
+                onClick={() =>
+                  setMany(group.items, groupOn < group.items.length)
+                }
+                className="ml-auto text-[10px] font-bold text-slate-600 hover:text-slate-300 transition-colors"
+              >
+                {groupOn < group.items.length ? "alle" : "keine"}
+              </button>
+            </div>
+
+            <div className="space-y-0.5">
+              {group.items.map((entry: any) => (
+                <label
+                  key={entry.key}
+                  className="flex items-center gap-3 py-1.5 cursor-pointer rounded-lg hover:bg-white/[0.02] px-1.5 -mx-1.5"
+                  title={
+                    (entry.tables || []).length
+                      ? `Tabellen: ${(entry.tables || []).join(", ")}`
+                      : undefined
+                  }
+                >
+                  <input
+                    type="checkbox"
+                    checked={on(entry)}
+                    onChange={(event) =>
+                      onChange({ ...chosen, [entry.key]: event.target.checked })
+                    }
+                    className="accent-primary h-4 w-4 shrink-0"
+                  />
+                  <span className="text-[13px] text-slate-200 flex-1 min-w-0 truncate">
+                    {entry.label}
+                  </span>
+                  <span className="text-[11px] text-slate-600 shrink-0 tabular-nums">
+                    {entry.entries}
+                  </span>
+                </label>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export function TemplateCommunityPanel({ guildId }: { guildId: string }) {
   const [list, setList] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1372,35 +1495,12 @@ export function TemplateCommunityPanel({ guildId }: { guildId: string }) {
                 />
 
                 {options.features && features.length > 0 && (
-                  <div className={cn(SUB, "space-y-1")}>
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-600 mb-2">
-                      Dashboard erweitert — einzeln abwählbar
-                    </p>
-                    {features.map((entry: any) => (
-                      <label
-                        key={entry.key}
-                        className="flex items-center gap-3 py-1.5 cursor-pointer"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={featureKeys[entry.key] ?? true}
-                          onChange={(event) =>
-                            setFeatureKeys((old) => ({
-                              ...old,
-                              [entry.key]: event.target.checked,
-                            }))
-                          }
-                          className="accent-primary h-4 w-4"
-                        />
-                        <span className="text-[13px] text-slate-200 flex-1">
-                          {entry.label}
-                        </span>
-                        <span className="text-[11px] text-slate-600">
-                          {entry.entries}
-                        </span>
-                      </label>
-                    ))}
-                  </div>
+                  <FeaturePicker
+                    features={features}
+                    chosen={featureKeys}
+                    onChange={setFeatureKeys}
+                    hint="Überschreibt, was auf diesem Server bereits eingestellt ist."
+                  />
                 )}
 
                 {/* Die gefährliche Option — ganz unten, abgesetzt */}

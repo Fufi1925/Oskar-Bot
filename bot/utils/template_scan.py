@@ -57,14 +57,172 @@ CHANNEL_KINDS = {
 # so kann keine neue Tabelle versehentlich mitgehen, ohne dass jemand
 # geprueft hat, was darin steht.
 FEATURE_TABLES: dict[str, tuple[str, str, tuple[str, ...]]] = {
-    # Anzeigename            Datei                 Tabellen
-    "verify": ("Verifizierung", "db/verification.db", ("verification_config",)),
-    "leveling": ("Leveling", "db/leveling.db", ("leveling_settings", "level_rewards")),
-    "automod": ("Automod", "db/automod.db", ("automod", "automod_punishments")),
+    # Schluessel        Anzeigename          Datei                  Tabellen
+    #
+    # Die Reihenfolge hier bestimmt die Reihenfolge im Dashboard.
+    # Gruppiert nach dem, was im Reiter zusammengehoert.
+
+    # ── Begruessung und Eintritt ────────────────────────────────
+    "welcome": ("Willkommensnachricht", "db/welcome.db", ("welcome",)),
     "joindm": ("Willkommens-DM", "db/joindm.db", ("joindm",)),
-    "music": ("Musik", "db/music.db", ("music_settings",)),
-    "supportqueue": ("Support-Warteraum", "db/support_queue.db", ("support_queue",)),
+    "autorole": ("Autorolle", "db/autorole.db", ("autorole",)),
+    "verification": (
+        "Verifizierung", "db/verification.db", ("verification_config",)
+    ),
+
+    # ── Sicherheit ──────────────────────────────────────────────
+    "automod": (
+        "Automod", "db/automod.db",
+        ("automod", "automod_config", "automod_ignored", "automod_logging",
+         "automod_punishments", "automod_rules"),
+    ),
+    "antinuke": (
+        "Anti-Nuke", "db/anti.db", ("antinuke", "limit_settings", "punishment")
+    ),
+    "logging": ("Logs", "db/logging.db", ("logging",)),
+
+    # ── Mitmachen ───────────────────────────────────────────────
+    "leveling": (
+        "Leveling", "db/leveling.db",
+        ("leveling_settings", "level_rewards", "level_multipliers",
+         "level_excluded"),
+    ),
+    "autoreact": ("Auto-Reaktionen", "db/autoreact.db", ("autoreact",)),
+    "teamlist": (
+        "Teamliste", "db/teamlist.db", ("teamlist", "teamlist_groups")
+    ),
+
+    # ── Rollen ──────────────────────────────────────────────────
+    "vanityroles": ("Status-Rollen", "db/vanity.db", ("vanity_roles",)),
+    "customroles": ("Eigene Rollen", "db/customrole.db", ("roles",)),
+    "invcrole": ("Sprachkanal-Rollen", "db/invc.db", ("vcroles",)),
+    "noprefix": ("Ohne Praefix", "db/np.db", ("np_roles",)),
+    "nickname": ("Spitznamen-Regeln", "db/nickname.db", ("nickname_rules",)),
+
+    # ── Kanaele ─────────────────────────────────────────────────
+    "j2c": ("Join to Create", "db/j2c.db", ("j2c",)),
+    "anonchat": ("Anonymer Chat", "db/anonchat.db", ("anon_channels",)),
+    "tickets": (
+        "Tickets", "db/ticket.db", ("guild_configs", "ticket_categories")
+    ),
+    "supportqueue": (
+        "Support-Warteraum", "db/support_queue.db", ("support_queue",)
+    ),
+
+    # ── Sonstiges ───────────────────────────────────────────────
+    "music": (
+        "Musik", "db/music.db", ("music_settings", "music_playlists")
+    ),
+    "prefix": ("Befehls-Praefix", "db/prefix.db", ("prefixes",)),
+    "settings": (
+        "Server-Einstellungen", "db/settings.db", ("guild_extra_settings",)
+    ),
+    "invites": ("Einladungs-Logs", "db/invite.db", ("logging",)),
 }
+
+# Wozu eine Funktion gehoert -- fuer die Anzeige im Dashboard.
+#
+# Bei sechs Eintraegen war eine flache Liste in Ordnung. Bei
+# dreiundzwanzig sucht man darin, und beim Abwaehlen uebersieht man
+# etwas. Die Gruppen sind dieselben wie in der Seitenleiste, damit man
+# nicht zweimal umdenken muss.
+FEATURE_GROUPS: dict[str, str] = {
+    "welcome": "Begrüßung",
+    "joindm": "Begrüßung",
+    "autorole": "Begrüßung",
+    "verification": "Begrüßung",
+
+    "automod": "Sicherheit",
+    "antinuke": "Sicherheit",
+    "logging": "Sicherheit",
+
+    "leveling": "Mitmachen",
+    "autoreact": "Mitmachen",
+    "teamlist": "Mitmachen",
+
+    "vanityroles": "Rollen",
+    "customroles": "Rollen",
+    "invcrole": "Rollen",
+    "noprefix": "Rollen",
+    "nickname": "Rollen",
+
+    "j2c": "Kanäle",
+    "anonchat": "Kanäle",
+    "tickets": "Kanäle",
+    "supportqueue": "Kanäle",
+
+    "music": "Sonstiges",
+    "prefix": "Sonstiges",
+    "settings": "Sonstiges",
+    "invites": "Sonstiges",
+}
+
+# In welcher Reihenfolge die Gruppen erscheinen.
+GROUP_ORDER = (
+    "Begrüßung", "Sicherheit", "Mitmachen", "Rollen", "Kanäle", "Sonstiges"
+)
+
+
+# Was NIEMALS mitgeht, auch wenn es eine guild_id-Spalte hat.
+#
+# Das sind Nutzerdaten, keine Einstellungen: die XP jedes Mitglieds,
+# wer wann verwarnt wurde, welche Tickets offen sind, wer gerade eine
+# Status-Rolle traegt. Eine Vorlage gibt den *Aufbau* eines Servers
+# weiter -- nicht die Leute darin.
+#
+# Die Liste ist bewusst dieselbe wie in `api/config_transfer.py`: dort
+# steht sie seit Langem und ist geprueft. Zwei Listen fuer dieselbe
+# Frage liefen frueher oder spaeter auseinander, und ausgerechnet hier
+# waere das ein Datenleck -- eine hochgeladene Vorlage ist oeffentlich.
+#
+# `custom_roles` steht dort drin (Rolle je Mitglied), die Tabelle
+# `roles` desselben Bestands dagegen ist die Einstellung -- deshalb
+# geht oben nur `roles` mit.
+NEVER_EXPORT = frozenset(
+    {
+        "vanity_holders",
+        "anon_log",
+        "anon_blocked",
+        "levels",
+        "user_xp",
+        "warns",
+        "warn_log",
+        "open_tickets",
+        "user_ticket_counts",
+        "verification_logs",
+        "custom_roles",
+        "np",
+        "whitelisted_users",
+        "nuke_incidents",
+        "restore_roles",
+        "role_positions",
+        "command_usage",
+        "template_applies",
+        "template_votes",
+        # Global, nicht je Server.
+        "guild_blacklist",
+        "user_blacklist",
+        "broadcast_targets",
+    }
+)
+
+# Spalten, die beim Uebernehmen NICHT mitgeschrieben werden.
+#
+# Sie zeigen auf etwas, das es auf dem Zielserver nicht gibt: die ID
+# einer abgeschickten Nachricht, ein Zeitstempel von damals. Sie
+# blieben sonst stehen und der Bot suchte nach einer Nachricht, die
+# nie existierte -- das faellt erst auf, wenn eine Funktion still
+# nicht mehr geht.
+DROP_COLUMNS = frozenset(
+    {
+        "message_id",
+        "panel_message_id",
+        "created_at",
+        "updated_at",
+        "last_used",
+        "current_status",
+    }
+)
 
 
 def _permission_names(permissions) -> list[str]:
@@ -254,6 +412,16 @@ async def scan_features(guild_id: int) -> dict[str, Any]:
             async with aiosqlite.connect(path) as db:
                 db.row_factory = aiosqlite.Row
                 for table in tables:
+                    # Der Riegel gegen Nutzerdaten -- hier, nicht nur
+                    # in der Liste oben.
+                    #
+                    # Die Liste ist von Hand gepflegt; ein Tippfehler
+                    # oder eine spaeter dazugeschriebene Zeile brächte
+                    # sonst die XP jedes Mitglieds in eine
+                    # oeffentliche Vorlage. Zwei Stellen, die
+                    # unabhaengig voneinander dasselbe verhindern.
+                    if table in NEVER_EXPORT:
+                        continue
                     try:
                         async with db.execute(
                             f"SELECT * FROM {table} WHERE guild_id = ?", (guild_id,)
@@ -265,7 +433,16 @@ async def scan_features(guild_id: int) -> dict[str, Any]:
                         # ganzen Scan abzubrechen.
                         continue
                     if found:
-                        rows[table] = [dict(r) for r in found]
+                        # Spalten, die auf dem Zielserver ins Leere
+                        # zeigen, gar nicht erst mitnehmen.
+                        rows[table] = [
+                            {
+                                column: value
+                                for column, value in dict(entry).items()
+                                if column not in DROP_COLUMNS
+                            }
+                            for entry in found
+                        ]
         except Exception:
             continue
 
@@ -292,9 +469,28 @@ def describe_features(features: dict) -> list[dict]:
                 "key": key,
                 "label": block.get("label") or key,
                 "entries": count,
+                # Wozu die Funktion gehoert. Bei sechs Eintraegen war
+                # eine flache Liste in Ordnung; bei dreiundzwanzig
+                # sucht man darin.
+                "group": FEATURE_GROUPS.get(key, "Sonstiges"),
+                # Welche Tabellen dahinterstecken -- fuer den Fall,
+                # dass jemand genau wissen will, was uebernommen wird.
+                "tables": sorted(tables),
             }
         )
-    return sorted(out, key=lambda item: item["label"].lower())
+
+    # Nach Gruppe, dann nach Name. Die Reihenfolge der Gruppen kommt
+    # aus `GROUP_ORDER`, nicht alphabetisch: "Begruessung" gehoert
+    # nach oben, "Sonstiges" nach unten.
+    return sorted(
+        out,
+        key=lambda item: (
+            GROUP_ORDER.index(item["group"])
+            if item["group"] in GROUP_ORDER
+            else len(GROUP_ORDER),
+            item["label"].lower(),
+        ),
+    )
 
 
 async def build_payload(guild, *, include_features: bool = True) -> dict:

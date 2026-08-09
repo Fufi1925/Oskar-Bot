@@ -1,6 +1,12 @@
 {
  "commits": [
   {
+   "commit": "863e6f088529bfa8ea3f9f94a490464e18cc47e0",
+   "at": "1786242457",
+   "subject": "feat(teamlist): neuer Reiter -- Team nach Rollen, live im Kanal",
+   "body": "Rollen einstellen, Mitglieder erscheinen darunter. Je Gruppe ein\neigenes Emoji und eine eigene Ueberschrift, Reihenfolge per Pfeil.\nWird in einen Kanal gesendet und haelt sich dort selbst aktuell.\n\nFormat wie gewuenscht:\n\n    <:krone:123> **Inhaber** `2`\n    > <@111>\n    > <@222>\n\nDas \">\" ist Discords Zitat-Strich -- die senkrechte Linie neben der\nZeile. Mitglieder stehen als Erwaehnung, nicht als abgeschriebener\nName: Discord zeigt sie in ihrer Rollenfarbe, und sie bleiben\nrichtig, wenn sich jemand umbenennt. Gepingt wird niemand\n(allowed_mentions leer, beim Senden UND beim Bearbeiten).\n\nAktuell bleibt sie auf zwei Wegen -- beide, wie besprochen:\n  * vier Listener (Rolle bekommen/verloren, Server verlassen, Rolle\n    geloescht, Rolle umbenannt), Aenderungen 3 s gesammelt\n  * zusaetzlich alle 15 Minuten als Netz darunter\n\nDie Nachricht wird BEARBEITET, nicht neu gesendet -- sonst ist der\nKanal nach einer Woche voller Teamlisten. Wurde sie geloescht, kommt\neine neue.\n\nIm Dashboard: Live-Vorschau, die Discord nachbildet (Zitat-Strich als\nLinie, Erwaehnungen als Blase). Sie kommt vom Bot, nicht aus dem\nBrowser -- sonst gaebe es das Format zweimal und beide liefen\nauseinander. Dazu Warnung bei ueber 2000 Zeichen, Hinweis auf\nMitglieder in mehreren Gruppen, fuenf Zeilenformen, Zaehler, leere\nGruppen, Embed-Modus.\n\nEin echter Fehler beim Bauen gefunden und behoben\n(repro/bug_teamlist_debounce.py): die Sammelpause fasste NICHT\nzusammen -- fuenf Aenderungen ergaben verlaesslich drei\nSchreibvorgaenge. Das `finally` eines abgebrochenen Tasks laeuft erst\nim naechsten Schleifendurchlauf, also nachdem der neue Task schon in\n`_pending` steht, und loeschte dessen Eintrag. Genau die\nBearbeitungsgrenze, die die Pause vermeiden sollte.\n\nUmgangene Fallen: `role.members` filtert still ueber den\nZwischenspeicher (Rueckfall auf guild.members); `on_member_update`\nfeuert auch bei Spitznamen (Rollen werden vorher verglichen); IDs\ngehen als Text raus (17-20 Ziffern > MAX_SAFE_INTEGER); der\nStatus-Schalter ist gesperrt, wenn der presences-Intent fehlt.\n\nDer Cog musste in cogs/__init__.py eingetragen werden -- das Paket\nimportiert jeden Cog einzeln. Ohne den Eintrag existierte die Datei\nund lief nie; der Boot-Test zaehlte weiter 148.\n\nTests: neue Datei test_teamlist.py mit 23 Faellen. Zehn eigene\nTestluecken sind mir dabei aufgefallen und wurden durch\nVerhaltenstests ersetzt.\nMutationstest mutate_teamlist.py: 75/75 erkannt, Baum byteweise\nunveraendert. 79/79 Testdateien gruen, Boot-Test 149 Cogs / 539\nPrefix / 58 App / 0 Fehler, tsc und next build sauber."
+  },
+  {
    "commit": "dd2183bf46edc246f386f67d6b3bcc43c69bfbc0",
    "at": "1786221192",
    "subject": "feat(templates): Assistent in fuenf Schritten mit Live-Protokoll",
@@ -231,12 +237,6 @@
   {
    "commit": "977a918058fa4452a0366e264ffb66f4f42cc567",
    "at": "1786136829",
-   "subject": "feat(phantom): EXACT full original Aleks ticket bot (5653 lines - every function kept, no removal, no shortening)",
-   "body": ""
-  },
-  {
-   "commit": "e9131c908e2f8b608fc25c884bf90e6e4fae7d96",
-   "at": "1786136822",
    "subject": "feat(phantom): EXACT full original Aleks ticket bot (5653 lines - every function kept, no removal, no shortening)",
    "body": ""
   }

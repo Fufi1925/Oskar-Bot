@@ -3900,6 +3900,436 @@ def test_the_upload_button_explains_itself():
     check("und nichts ausgewaehlt ebenso", "include.roles" in block)
 
 
+# ------------------------------------------------------------------ #
+# 13. Alles, was im Dashboard einstellbar ist
+# ------------------------------------------------------------------ #
+def test_every_dashboard_tab_is_covered():
+    """Eine Vorlage soll den ganzen Server weitergeben.
+
+    Vorher waren sechs Funktionen erfasst -- Verifizierung, Leveling,
+    Automod, Willkommens-DM, Musik, Warteraum. Alles andere, was man
+    im Dashboard einstellt, blieb beim Umzug zurueck: Willkommens-
+    nachricht, Autorolle, Anti-Nuke, Tickets, Logs, Teamliste und ein
+    Dutzend mehr.
+    """
+    print("\nJeder Dashboard-Reiter ist erfasst")
+
+    from utils import template_scan as scan
+
+    check(
+        "es sind deutlich mehr als die urspruenglichen sechs",
+        len(scan.FEATURE_TABLES) >= 20,
+        f"-> {len(scan.FEATURE_TABLES)}",
+    )
+
+    # Die Reiter, die es wirklich gibt.
+    tabs = {
+        name
+        for name in os.listdir(
+            os.path.join(DASH, "app", "dashboard", "guild", "[guildId]")
+        )
+        if os.path.isdir(
+            os.path.join(DASH, "app", "dashboard", "guild", "[guildId]", name)
+        )
+    }
+
+    # Reiter ohne eigene Einstellung: sie zeigen nur an, handeln
+    # sofort, oder ihre Daten sind Nutzerdaten.
+    #
+    # Die Liste steht hier ausgeschrieben, damit ein NEUER Reiter
+    # auffaellt: er ist weder erfasst noch hier vermerkt, und der Test
+    # wird rot. Genau das soll er.
+    ohne_einstellung = {
+        "admin-dashboard",   # Berichte
+        "compose",           # einmal senden
+        "emergency",         # Knoepfe, die sofort handeln
+        "invites",           # Statistik
+        "tracking",          # Statistik
+        "speedrun",          # eigener Ablauf
+        "template-upload",   # die Vorlage selbst
+        "templates",
+        "counting",          # Zaehlstand ist ein Nutzerdatum
+        "giveaways",         # laufende Gewinnspiele
+        "sticky",            # Nachrichten, keine Einstellung
+        "notify",            # YouTube-Abos
+        "reactionroles",     # haengt an Nachrichten-IDs
+        "autoresponder",
+        "booster", "jail", "nightmode", "settings",
+    }
+
+    missing = tabs - set(scan.FEATURE_TABLES) - ohne_einstellung
+    check(
+        "kein Reiter faellt durch",
+        not missing,
+        f"nicht erfasst: {sorted(missing)}",
+    )
+
+    # Und andersherum: kein Eintrag fuer einen Reiter, den es nicht
+    # gibt. Ein Tippfehler im Schluessel faellt sonst nie auf.
+    stale = set(scan.FEATURE_TABLES) - tabs - {
+        "prefix", "antinuke", "verification", "logging", "welcome",
+        "autorole", "joindm", "leveling", "automod", "music",
+        "supportqueue", "teamlist", "anonchat", "tickets", "j2c",
+        "nickname", "noprefix", "invcrole", "customroles", "vanityroles",
+        "autoreact", "invites", "settings",
+    }
+    check("kein Eintrag ins Leere", not stale, f"-> {sorted(stale)}")
+
+    # Die wichtigsten namentlich -- sie waren vorher alle nicht dabei.
+    for key in ("welcome", "autorole", "antinuke", "tickets", "logging",
+                "teamlist", "j2c", "vanityroles", "nickname"):
+        check(f"»{key}« geht mit", key in scan.FEATURE_TABLES)
+
+
+def test_user_data_never_leaves_the_server():
+    """Der wichtigste Test hier.
+
+    Eine hochgeladene Vorlage ist oeffentlich. Ginge die XP-Tabelle
+    mit, stuenden die Punktestaende jedes Mitglieds fuer jeden lesbar
+    im Netz -- und beim Anwenden auf einem fremden Server waeren sie
+    dort auf einmal drin.
+    """
+    print("\nNutzerdaten verlassen den Server nie")
+
+    import sqlite3
+
+    from utils import template_scan as scan
+
+    check("es gibt eine Sperrliste", bool(scan.NEVER_EXPORT))
+
+    # Nichts Gesperrtes darf in der Erfassung stehen.
+    overlap = [
+        (key, table)
+        for key, spec in scan.FEATURE_TABLES.items()
+        for table in spec[2]
+        if table in scan.NEVER_EXPORT
+    ]
+    check("und nichts davon steht in der Erfassung", not overlap,
+          f"-> {overlap}")
+
+    # Die Namen, auf die es ankommt.
+    for table in ("levels", "user_xp", "warns", "open_tickets",
+                  "verification_logs", "anon_log", "vanity_holders"):
+        check(f"»{table}« ist gesperrt", table in scan.NEVER_EXPORT)
+
+    # Und jetzt gegen eine echte Datenbank: die Sperre muss WIRKEN,
+    # nicht nur dastehen.
+    folder = tempfile.mkdtemp()
+    here = os.getcwd()
+    os.chdir(folder)
+    try:
+        os.makedirs("db", exist_ok=True)
+        with sqlite3.connect("db/leveling.db") as db:
+            db.execute(
+                "CREATE TABLE leveling_settings "
+                "(guild_id INTEGER, enabled INTEGER)"
+            )
+            db.execute(
+                "CREATE TABLE levels "
+                "(guild_id INTEGER, user_id INTEGER, xp INTEGER)"
+            )
+            db.execute("INSERT INTO leveling_settings VALUES (42, 1)")
+            db.execute("INSERT INTO levels VALUES (42, 999, 5000)")
+
+        found = asyncio.run(scan.scan_features(42))
+        tables = found.get("leveling", {}).get("tables", {})
+
+        check("die Einstellung geht mit", "leveling_settings" in tables,
+              f"-> {sorted(tables)}")
+        check(
+            "die XP-Tabelle nicht",
+            "levels" not in tables,
+            "die Punktestaende jedes Mitglieds waeren oeffentlich",
+        )
+        # Die Gegenprobe im ganzen Ergebnis: nirgends eine user_id.
+        blob = json.dumps(found)
+        check("und nirgends eine Nutzer-ID", "999" not in blob, blob[:120])
+
+        # Und jetzt die Sperre ALLEIN.
+        #
+        # Zwei Riegel halten die XP-Tabelle draussen: die Liste der
+        # erlaubten Tabellen je Funktion UND die Sperrliste. Sie decken
+        # sich gegenseitig ab -- nimmt man einen heraus, faengt der
+        # andere den Fall, und der Test bleibt gruen. Genau das ist
+        # passiert.
+        #
+        # Deshalb hier ein Fall, den nur die Sperrliste abfangen kann:
+        # eine gesperrte Tabelle, die in der erlaubten Liste steht.
+        original = dict(scan.FEATURE_TABLES)
+        scan.FEATURE_TABLES["leveling"] = (
+            "Leveling", "db/leveling.db", ("leveling_settings", "levels")
+        )
+        try:
+            second = asyncio.run(scan.scan_features(42))
+            got = second.get("leveling", {}).get("tables", {})
+        finally:
+            scan.FEATURE_TABLES.clear()
+            scan.FEATURE_TABLES.update(original)
+
+        check(
+            "die Sperrliste greift auch allein",
+            "levels" not in got,
+            "nur die Tabellenliste haelt die XP draussen -- "
+            "ein Tippfehler dort waere ein Datenleck",
+        )
+        check("und die Einstellung kommt trotzdem",
+              "leveling_settings" in got, f"-> {sorted(got)}")
+    finally:
+        os.chdir(here)
+
+
+def test_a_forged_template_cannot_write_anywhere():
+    """Der Inhalt einer Vorlage kommt von einem Fremden.
+
+    Der Tabellenname geht in ein INSERT. Ohne Pruefung liesse sich
+    eine Vorlage von Hand basteln, die unter dem harmlosen Schluessel
+    »welcome« irgendwohin schreibt.
+    """
+    print("\nEine gebastelte Vorlage schreibt nicht ueberallhin")
+
+    import sqlite3
+
+    from utils import template_apply as applier
+
+    folder = tempfile.mkdtemp()
+    here = os.getcwd()
+    os.chdir(folder)
+    try:
+        os.makedirs("db", exist_ok=True)
+        with sqlite3.connect("db/welcome.db") as db:
+            db.execute(
+                "CREATE TABLE welcome (guild_id INTEGER, welcome_type TEXT)"
+            )
+            db.execute("CREATE TABLE geheim (guild_id INTEGER, wert TEXT)")
+
+        class Guild:
+            id = 1
+            roles = []
+            channels = []
+            default_role = None
+
+        # (a) Eine fremde Tabelle unter bekanntem Schluessel.
+        report = applier.Report()
+        asyncio.run(applier.apply_features(
+            Guild(),
+            {"features": {"welcome": {"label": "W", "tables": {
+                "geheim": [{"guild_id": 1, "wert": "x"}]}}}},
+            {"welcome": True}, report,
+        ))
+        with sqlite3.connect("db/welcome.db") as db:
+            count = db.execute("SELECT COUNT(*) FROM geheim").fetchone()[0]
+        check(
+            "in eine fremde Tabelle wird nicht geschrieben",
+            count == 0,
+            f"-> {count} Zeilen eingeschleust",
+        )
+        check("und es wird gemeldet",
+              any("gehört nicht dazu" in s for s in report.skipped),
+              str(report.skipped))
+
+        # (b) Nutzerdaten unter dem richtigen Schluessel.
+        with sqlite3.connect("db/leveling.db") as db:
+            db.execute(
+                "CREATE TABLE leveling_settings "
+                "(guild_id INTEGER, enabled INTEGER)"
+            )
+            db.execute(
+                "CREATE TABLE levels "
+                "(guild_id INTEGER, user_id INTEGER, xp INTEGER)"
+            )
+
+        report2 = applier.Report()
+        asyncio.run(applier.apply_features(
+            Guild(),
+            {"features": {"leveling": {"label": "L", "tables": {
+                "levels": [{"guild_id": 1, "user_id": 7, "xp": 99}]}}}},
+            {"leveling": True}, report2,
+        ))
+        with sqlite3.connect("db/leveling.db") as db:
+            count = db.execute("SELECT COUNT(*) FROM levels").fetchone()[0]
+        check(
+            "fremde Nutzerdaten kommen nicht durch",
+            count == 0,
+            f"-> {count} Zeilen; die Sperre greift beim Anwenden nicht",
+        )
+
+        # Auch hier die Sperre ALLEIN pruefen: ein Fall, den die Liste
+        # der erlaubten Tabellen durchliesse.
+        from utils import template_scan as scan
+
+        original = dict(scan.FEATURE_TABLES)
+        scan.FEATURE_TABLES["leveling"] = (
+            "Leveling", "db/leveling.db", ("leveling_settings", "levels")
+        )
+        try:
+            report3 = applier.Report()
+            asyncio.run(applier.apply_features(
+                Guild(),
+                {"features": {"leveling": {"label": "L", "tables": {
+                    "levels": [{"guild_id": 1, "user_id": 8, "xp": 77}]}}}},
+                {"leveling": True}, report3,
+            ))
+        finally:
+            scan.FEATURE_TABLES.clear()
+            scan.FEATURE_TABLES.update(original)
+
+        with sqlite3.connect("db/leveling.db") as db:
+            count = db.execute(
+                "SELECT COUNT(*) FROM levels WHERE user_id = 8"
+            ).fetchone()[0]
+        check(
+            "die Sperrliste greift auch beim Anwenden allein",
+            count == 0,
+            f"-> {count} Zeilen fremder XP eingeschleust",
+        )
+        check(
+            "und wird gemeldet",
+            any("Nutzerdaten" in entry for entry in report3.skipped),
+            str(report3.skipped),
+        )
+    finally:
+        os.chdir(here)
+
+
+def test_columns_that_point_nowhere_are_dropped():
+    """Eine Nachrichten-ID vom Quellserver zeigt ins Leere.
+
+    Sie bliebe sonst stehen, und der Bot suchte nach einer Nachricht,
+    die es auf diesem Server nie gab -- das faellt erst auf, wenn eine
+    Funktion still nicht mehr geht.
+    """
+    print("\nSpalten, die ins Leere zeigen, gehen nicht mit")
+
+    import sqlite3
+
+    from utils import template_scan as scan
+
+    check("es gibt die Liste", bool(scan.DROP_COLUMNS))
+    for column in ("message_id", "panel_message_id"):
+        check(f"»{column}« steht darauf", column in scan.DROP_COLUMNS)
+
+    folder = tempfile.mkdtemp()
+    here = os.getcwd()
+    os.chdir(folder)
+    try:
+        os.makedirs("db", exist_ok=True)
+        with sqlite3.connect("db/teamlist.db") as db:
+            db.execute(
+                "CREATE TABLE teamlist (guild_id INTEGER, enabled INTEGER, "
+                "channel_id INTEGER, message_id INTEGER, updated_at REAL)"
+            )
+            db.execute("INSERT INTO teamlist VALUES (42, 1, 500, 9001, 1.0)")
+
+        found = asyncio.run(scan.scan_features(42))
+        row = found["teamlist"]["tables"]["teamlist"][0]
+
+        check("die Einstellung selbst bleibt", "enabled" in row)
+        check("der Kanal auch", "channel_id" in row)
+        check(
+            "die Nachrichten-ID nicht",
+            "message_id" not in row,
+            "der Bot suchte eine Nachricht, die es nie gab",
+        )
+        check("der Zeitstempel ebenso wenig", "updated_at" not in row)
+    finally:
+        os.chdir(here)
+
+
+def test_the_features_are_grouped_for_the_eye():
+    """Dreiundzwanzig Eintraege als flache Liste sind unbrauchbar."""
+    print("\nDie Funktionen sind gruppiert")
+
+    from utils import template_scan as scan
+
+    check("es gibt Gruppen", bool(scan.FEATURE_GROUPS))
+    check("und eine Reihenfolge", bool(scan.GROUP_ORDER))
+
+    missing = set(scan.FEATURE_TABLES) - set(scan.FEATURE_GROUPS)
+    check("jede Funktion hat eine Gruppe", not missing, f"-> {sorted(missing)}")
+
+    stale = set(scan.FEATURE_GROUPS) - set(scan.FEATURE_TABLES)
+    check("keine Gruppe ohne Funktion", not stale, f"-> {sorted(stale)}")
+
+    unknown = {g for g in scan.FEATURE_GROUPS.values() if g not in scan.GROUP_ORDER}
+    check("keine unbekannte Gruppe", not unknown, f"-> {sorted(unknown)}")
+
+    # `describe_features` muss die Gruppe mitliefern und danach
+    # sortieren -- sonst nuetzt die Einteilung nichts.
+    described = scan.describe_features({
+        "music": {"label": "Musik", "tables": {"music_settings": [{}]}},
+        "welcome": {"label": "Willkommen", "tables": {"welcome": [{}]}},
+        "automod": {"label": "Automod", "tables": {"automod": [{}]}},
+    })
+    check("die Gruppe kommt mit", all("group" in e for e in described))
+    check(
+        "und wird zum Sortieren benutzt",
+        [e["key"] for e in described] == ["welcome", "automod", "music"],
+        f"-> {[e['key'] for e in described]}",
+    )
+    # Die Tabellen muessen auch INHALT haben -- eine leere Liste
+    # stuende in der Oberflaeche als leerer Hinweistext da.
+    check("die Tabellen stehen dabei", all("tables" in e for e in described))
+    check(
+        "und sie sind nicht leer",
+        all(e["tables"] for e in described),
+        f"-> {[(e['key'], e['tables']) for e in described]}",
+    )
+    check(
+        "sie nennen die echten Namen",
+        next(e for e in described if e["key"] == "welcome")["tables"]
+        == ["welcome"],
+        "die Anzeige zeigt sonst irgendetwas",
+    )
+
+
+def test_the_picker_groups_them_too():
+    print("\nDas Dashboard zeigt sie gruppiert")
+
+    for name in ("template-upload-panel.tsx", "template-community-panel.tsx"):
+        panel = strip_ts(read_dash("components", "dashboard", name))
+        check(f"{name}: es gibt den Auswaehler",
+              "function FeaturePicker(" in panel)
+        check(f"{name}: er wird benutzt", "<FeaturePicker" in panel)
+        check(
+            f"{name}: nach Gruppen gebuendelt",
+            'entry.group || "Sonstiges"' in panel,
+            "sonst ist es weiter eine flache Liste",
+        )
+        check(
+            f"{name}: es gibt »alle an/aus«",
+            "Alle an" in panel and "setMany(" in panel,
+            "sonst klickt man dreiundzwanzigmal",
+        )
+        # `setMany` muss die Werte auch WIRKLICH setzen. Eine Suche
+        # nach dem Namen blieb gruen, als der Rumpf `void items;` war.
+        # Bis zur schliessenden Klammer der FUNKTION, nicht bis zum
+        # ersten "};" -- das steht schon hinter `{ ...chosen };`.
+        body = panel.split("const setMany =")[1].split("\n  };")[0]
+        check(
+            f"{name}: und es tut wirklich etwas",
+            "next[item.key] = value" in body,
+            "der Knopf ist da und bewirkt nichts",
+        )
+        # Der Auswaehler muss sichtbar eingebunden sein -- nicht in
+        # einem versteckten Kasten.
+        check(
+            f"{name}: der Auswaehler ist sichtbar",
+            "<div hidden><FeaturePicker" not in panel,
+            "er steht in einem hidden-Kasten",
+        )
+        check(
+            f"{name}: und bekommt die Auswahl gereicht",
+            "chosen={featureKeys}" in panel and "onChange={setFeatureKeys}" in panel,
+            "sonst laesst sich nichts abwaehlen",
+        )
+        # Die alte flache Liste darf nicht daneben stehenbleiben.
+        check(
+            f"{name}: die alte Liste ist weg",
+            "Dashboard erweitert — einzeln abwählbar" not in panel,
+            "beide Fassungen nebeneinander",
+        )
+
+
 def main() -> int:
     test_secrets_never_reach_a_template()
     test_an_id_as_a_number_is_caught_too()
@@ -3967,6 +4397,12 @@ def main() -> int:
     test_the_job_route_behaves()
     test_the_live_panel_is_wired()
     test_the_upload_button_explains_itself()
+    test_every_dashboard_tab_is_covered()
+    test_user_data_never_leaves_the_server()
+    test_a_forged_template_cannot_write_anywhere()
+    test_columns_that_point_nowhere_are_dropped()
+    test_the_features_are_grouped_for_the_eye()
+    test_the_picker_groups_them_too()
 
     print()
     if failures:
