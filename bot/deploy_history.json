@@ -1,6 +1,12 @@
 {
  "commits": [
   {
+   "commit": "52fc61b791546905be584b102e9b31ff49b8d64d",
+   "at": "1786312665",
+   "subject": "feat(antinuke): Regeln neu -- still, wenn nichts auszurichten ist",
+   "body": "Das System war laut. Eine DM, weil dem Bot ein Recht fehlte. Ein\nneuer Kanal, weil jemand eine Rolle vergeben hatte. Ein Alarm,\nobwohl es ausgeschaltet war und gar nichts getan wurde. Jedes der\nsiebzehn Module entschied das selbst.\n\nJetzt entscheidet eine Stelle: utils/nuke_policy.py.\n\nDie sechs geforderten Regeln, alle vorher gegen den echten Code\nnachgemessen (repro/bug_antinuke_noise.py, alle fuenf bestaetigt):\n\n1. Konnte der Bot nichts ausrichten -> GAR NICHTS. Kein Log, keine\n   DM, kein Kanal. Bei no_perms, blind und disabled schweigt er\n   vollstaendig. Auch der Verlaufseintrag faellt weg: ein Verlauf\n   voller \"konnte nicht\" verdeckt die Eintraege, auf die es ankommt.\n\n2. Wiederherstellung nur nach einem ECHTEN Nuke -- also wenn\n   Kanaele oder Rollen geloescht, Mitglieder rausgeworfen oder der\n   Server umbenannt wurde. NUKE_ACTIONS gegen INCIDENT_ONLY, alle 17\n   Modul-Aktionen sind eingeordnet (ein Test prueft, dass keine\n   fehlt).\n\n3. + 5. DM nur bei einem Nuke UND nur, wenn wirklich jemand gebannt\n   wurde. Beides muss zutreffen. handle_partial meldet jetzt\n   banned=False -- der Bann ging dort ja gerade nicht durch.\n\n4. Nie ein Kanal ohne Nuke. Eine Rollenvergabe ergibt einen\n   Logeintrag, sonst nichts. Der Backup-Kanal prueft ausserdem kurz\n   vor dem Anlegen noch einmal nach: zwischen Anstossen und Anlegen\n   liegen zwanzig Sekunden, und ein Kanal namens \"backup\" auf einem\n   heilen Server ist Muell.\n\n6. Dazu: ein einzelner geloeschter Kanal gilt nicht mehr als\n   Angriff. Erst zwei zerstoerende Aktionen in 60 Sekunden --\n   Rollenvergaben zaehlen nicht mit. Zwei neue Schalter\n   (offer_rebuild, post_incidents), Schema zieht sie per ALTER TABLE\n   nach. Im Dashboard erklaert eine Uebersicht, wann der Bot was tut\n   -- Schweigen sieht sonst wie ein Ausfall aus.\n\nBeim Bauen aufgefallen: zwei meiner Regeln waren doppelt geprueft\n(der Mutationstest zeigte sie als aequivalent). Kein Fehler, aber\nunnoetig verschachtelt -- jetzt steht jede Regel genau einmal da.\n\nTests: neue Datei test_nuke_policy.py mit 12 Faellen.\ntest_nuke_alert, test_nuke_report und test_partner_rescue pruefen\nteils das alte Verhalten und wurden umgeschrieben -- sie bauten auf\nOUTCOME_NO_PERMS auf, das jetzt bewusst schweigt.\nVier eigene Testluecken sind mir aufgefallen und wurden geschlossen,\ndarunter das Zeitfenster der Angriffserkennung: Ereignisse von\ngestern haetten heute noch als laufender Angriff gegolten.\nMutationstest mutate_nuke.py: 42/42 erkannt, Baum byteweise\nunveraendert. 80/80 Testdateien gruen, Boot-Test 149 Cogs / 539\nPrefix / 58 App / 0 Fehler, tsc und next build sauber."
+  },
+  {
    "commit": "c2ca1c398d0990c180064ff0cce029cd44870192",
    "at": "1786247822",
    "subject": "feat(templates): alle Dashboard-Einstellungen gehen mit, inkl. Teamliste",
@@ -231,12 +237,6 @@
   {
    "commit": "dc2e700e58ae36c6a32d9dea71fd3a6d658f56d0",
    "at": "1786136845",
-   "subject": "feat(phantom): EXACT full original Aleks ticket bot (5653 lines - every function kept, no removal, no shortening)",
-   "body": ""
-  },
-  {
-   "commit": "3cc3a85deb0b2c801f3c0421c9c4d0dd7268756a",
-   "at": "1786136836",
    "subject": "feat(phantom): EXACT full original Aleks ticket bot (5653 lines - every function kept, no removal, no shortening)",
    "body": ""
   }

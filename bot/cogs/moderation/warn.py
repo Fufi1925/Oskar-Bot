@@ -16,10 +16,10 @@ import discord
 from utils.emoji import DELETE, TICK
 from discord.ext import commands
 from discord import ui
-import aiosqlite
 import asyncio
 from utils.Tools import *
 from utils.panels import from_embed
+from utils import warn_store
 
 
 #class WarnView(ui.View):
@@ -61,37 +61,30 @@ class Warn(commands.Cog):
     def get_user_avatar(self, user):
         return user.avatar.url if user.avatar else user.default_avatar.url
 
-    async def add_warn(self, guild_id: int, user_id: int):
-        async with aiosqlite.connect(self.db_path) as db:
-            await db.execute("INSERT OR IGNORE INTO warns (guild_id, user_id, warns) VALUES (?, ?, 0)", (guild_id, user_id))
-            await db.execute("UPDATE warns SET warns = warns + 1 WHERE guild_id = ? AND user_id = ?", (guild_id, user_id))
-            await db.commit()
+    # Alle vier Methoden gehen ueber utils/warn_store.py. Vorher stand das
+    # SQL hier und eine zweite, abweichende Fassung in
+    # api/routes/moderation.py -- der Cog kannte nur den Zaehler, das
+    # Dashboard zusaetzlich das Protokoll mit Grund und Moderator. Beide
+    # schrieben in dieselbe Datei, also zeigte das Dashboard Warnungen
+    # ohne Grund an und behielt geloeschte Warnungen bei. Eine gemeinsame
+    # Schicht kann nicht mehr auseinanderlaufen.
+
+    async def add_warn(self, guild_id: int, user_id: int, *, reason: str = "",
+                       moderator_id: int | None = None):
+        return await warn_store.add(
+            guild_id, user_id, reason=reason, moderator_id=moderator_id
+        )
 
     async def get_total_warns(self, guild_id: int, user_id: int):
-        async with aiosqlite.connect(self.db_path) as db:
-            async with db.execute("SELECT warns FROM warns WHERE guild_id = ? AND user_id = ?", (guild_id, user_id)) as cursor:
-                row = await cursor.fetchone()
-                if row:
-                    return row[0]
-                return 0
+        return await warn_store.count_of(guild_id, user_id)
 
     async def reset_warns(self, guild_id: int, user_id: int):
-        async with aiosqlite.connect(self.db_path) as db:
-            await db.execute("UPDATE warns SET warns = 0 WHERE guild_id = ? AND user_id = ?", (guild_id, user_id))
-            await db.commit()
+        return await warn_store.clear(guild_id, user_id)
 
     async def setup(self):
         try:
-            async with aiosqlite.connect(self.db_path) as db:
-                await db.execute("""
-                CREATE TABLE IF NOT EXISTS warns (
-                    guild_id INTEGER,
-                    user_id INTEGER,
-                    warns INTEGER,
-                    PRIMARY KEY (guild_id, user_id)
-                )
-                """)
-                await db.commit()
+            async with warn_store.db_paths.connect(warn_store.WARN_DB) as db:
+                await warn_store.ensure_schema(db)
         except Exception as e:
             print(f"Error during database setup: {e}")
 
@@ -128,11 +121,18 @@ class Warn(commands.Cog):
             return await ctx.reply("The user is not a member of this server.")
         try:
             
-            await self.add_warn(ctx.guild.id, user.id)
-            total_warns = await self.get_total_warns(ctx.guild.id, user.id)
-
-            
             reason_to_send = reason or "No reason provided"
+
+            # Grund und Moderator gehen mit in die Datenbank. Vorher kannte
+            # nur die DM an den Betroffenen den Grund -- im Dashboard stand
+            # danach eine nackte Zahl.
+            total_warns = await self.add_warn(
+                ctx.guild.id,
+                user.id,
+                reason=reason_to_send,
+                moderator_id=ctx.author.id,
+            )
+
             try:
                 await user.send(f"You have been warned in **{ctx.guild.name}** by **{ctx.author}**. Reason: {reason_to_send}")
                 dm_status = "Yes"
@@ -170,8 +170,16 @@ class Warn(commands.Cog):
     @commands.has_permissions(moderate_members=True)
     async def clearwarns(self, ctx, user: discord.Member):
         try:
-            await self.reset_warns(ctx.guild.id, user.id)
-            embed = discord.Embed(description=f"{TICK} | All warnings have been cleared for **{user}** in this guild.", color=self.color)
+            # reset_warns nimmt jetzt auch die Protokolleintraege zurueck.
+            # Vorher blieben die auf active = 1 stehen, also zeigte das
+            # Dashboard die geloeschten Warnungen munter weiter an.
+            entfernt = await self.reset_warns(ctx.guild.id, user.id)
+            anzahl = (
+                f" ({entfernt} " + ("Eintrag" if entfernt == 1 else "Eintraege") + ")"
+                if entfernt
+                else ""
+            )
+            embed = discord.Embed(description=f"{TICK} | All warnings have been cleared for **{user}** in this guild.{anzahl}", color=self.color)
             embed.set_author(name=f"Warnings Cleared", icon_url=self.get_user_avatar(user))
             embed.set_footer(text=f"Requested by {ctx.author}", icon_url=self.get_user_avatar(ctx.author))
             embed.timestamp = discord.utils.utcnow()

@@ -318,8 +318,10 @@ SCHEMA: dict[str, tuple[str, ...]] = {
             warns INTEGER,
             PRIMARY KEY (guild_id, user_id)
         )""",
-        # The cog only keeps a counter. This table records the detail the
-        # dashboard shows: who warned whom, when and why.
+        # Who warned whom, when and why. Both the >warn command and the
+        # dashboard write here through utils/warn_store.py -- they used to
+        # keep separate SQL, which is why warnings issued in Discord showed
+        # up without a reason.
         """CREATE TABLE IF NOT EXISTS warn_log (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             guild_id INTEGER NOT NULL,
@@ -329,6 +331,24 @@ SCHEMA: dict[str, tuple[str, ...]] = {
             created_at INTEGER NOT NULL,
             active INTEGER DEFAULT 1
         )""",
+        """CREATE INDEX IF NOT EXISTS idx_warn_log_guild_user
+            ON warn_log (guild_id, user_id, active)""",
+    ),
+    "db/timer.db": (
+        # Running timers. Without this table a redeploy silently dropped
+        # every timer -- the countdown lived only in a Python loop.
+        """CREATE TABLE IF NOT EXISTS timers (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            guild_id INTEGER NOT NULL,
+            channel_id INTEGER NOT NULL,
+            message_id INTEGER,
+            user_id INTEGER NOT NULL,
+            title TEXT DEFAULT '',
+            ends_at INTEGER NOT NULL,
+            done INTEGER DEFAULT 0
+        )""",
+        """CREATE INDEX IF NOT EXISTS idx_timers_due
+            ON timers (done, ends_at)""",
     ),
     "db/invite.db": (
         # The tracking endpoints store the invite log channel in a table
