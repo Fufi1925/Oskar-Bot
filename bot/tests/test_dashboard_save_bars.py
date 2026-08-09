@@ -76,6 +76,11 @@ NO_DRAFT = {
     # Speicherleiste haette nichts zu speichern.
     "template-upload",
     "templates",
+    # Die Teamliste sichert sofort: jeder Schalter, jede Gruppe und
+    # jedes Textfeld sind eine eigene Anfrage. Eine Speicherleiste
+    # haette nichts zu speichern -- und waere irrefuehrend, weil die
+    # Aenderung ja schon beim Bot ist.
+    "teamlist",
     "leveling",
     "verification",
     "automod",

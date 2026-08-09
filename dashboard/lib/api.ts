@@ -1320,6 +1320,33 @@ export const api = {
   templateAdminDelete: (id: number) =>
     request<any>(`/templates/admin/${id}`, { method: "DELETE" }),
 
+  // ── Teamliste ────────────────────────────────────────────────────
+  teamlist: (guildId: string) => request<any>(`/teamlist/${guildId}`),
+  teamlistSave: (guildId: string, data: any) =>
+    request<any>(`/teamlist/${guildId}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+  teamlistGroups: (guildId: string, groups: any[]) =>
+    request<any>(`/teamlist/${guildId}/groups`, {
+      method: "PUT",
+      body: JSON.stringify({ groups }),
+    }),
+  // Die Vorschau kommt vom Bot, nicht aus dem Browser: sonst gäbe es
+  // das Format zweimal und beide liefen auseinander.
+  teamlistPreview: (guildId: string) =>
+    request<any>(`/teamlist/${guildId}/preview`),
+  teamlistPublish: (guildId: string, channelId?: string) =>
+    request<any>(`/teamlist/${guildId}/publish`, {
+      method: "POST",
+      body: JSON.stringify(channelId ? { channel_id: channelId } : {}),
+    }),
+  teamlistRemove: (guildId: string, deleteMessage = true) =>
+    request<any>(
+      `/teamlist/${guildId}?delete_message=${deleteMessage}`,
+      { method: "DELETE" }
+    ),
+
   // ── Musik ────────────────────────────────────────────────────────
   music: (guildId: string) => request<any>(`/music/${guildId}`),
   // Getrennt vom Rest: der Fortschrittsbalken fragt das im Sekundentakt

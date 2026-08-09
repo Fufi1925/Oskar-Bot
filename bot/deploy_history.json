@@ -1,6 +1,12 @@
 {
  "commits": [
   {
+   "commit": "dd2183bf46edc246f386f67d6b3bcc43c69bfbc0",
+   "at": "1786221192",
+   "subject": "feat(templates): Assistent in fuenf Schritten mit Live-Protokoll",
+   "body": "Wer eine Community-Vorlage anwendet, geht jetzt durch:\n\n  1 Vorschau     was ist drin (Kanaele nach Kategorie gruppiert)\n  2 Pruefung     Rechte, Rollenposition, Discords Grenzen -- als\n                 Terminal-Ausgabe mit Haken je Punkt\n  3 Auswahl      was uebernommen wird; \"alles loeschen\" ganz unten,\n                 abgesetzt und rot\n  4 Bestaetigen  Zusammenfassung, roter Knopf, 10 Sekunden gesperrt\n  5 Live         was der Bot gerade macht, Zeile fuer Zeile\n\nVorwaerts nur bis dorthin, wo man schon war -- sonst ueberspringt\nein Klick die Rechtepruefung.\n\nDas Anwenden laeuft jetzt im HINTERGRUND. Vorher lief es in der\nHTTP-Antwort: bei hundert Kanaelen dauert das mit Discords\nRate-Limits ueber zehn Minuten, laenger als jedes Zeitlimit zwischen\nBrowser und Server. Man sah einen Ladekreis, dann einen\nNetzwerkfehler, waehrend der Bot in Wahrheit weiterarbeitete. Und\nein Live-Protokoll war so ohnehin unmoeglich.\n\nNeu in template_apply.py:\n- _emit(): nimmt gewoehnliche UND asynchrone Log-Funktionen\n- _breathe(): fragt VOR jeder Discord-Aktion, ob abgebrochen wurde --\n  ein Abbruch, der erst am Ende wirkt, ist keiner\n- Cancelled: eigene Ausnahme statt Rueckgabewert durch fuenf Ebenen\n- _count_steps(): Gesamtzahl VOR dem ersten Anfassen, sonst waechst\n  der Fortschrittsbalken waehrend des Laufs\n- report.total/done/cancelled\n\nNeu in der Route:\n- /templates/{guild}/job         Stand abholen, `since` liefert nur\n                                 neue Zeilen\n- /templates/{guild}/job/cancel  anhalten\n- zwei Laeufe auf demselben Server gleichzeitig -> 409\n- Tasks in _TASKS festhalten (asyncio haelt nur schwache Referenzen)\n\nDas Live-Protokoll rollt mit, solange man nicht selbst hochgescrollt\nhat, faerbt Loeschen rot und Anlegen gruen, und der Abbruchknopf sagt\nehrlich: was schon geloescht wurde, bleibt geloescht.\n\nHochladen-Reiter: Kanaele nach Kategorie gruppiert statt Wolke aus\n200 Namen, Zeichenzahl bei Name und Beschreibung, der Knopf nennt den\nGrund, warum er ausgegraut ist, volles Kontingent wird gemeldet.\n\nTests: 16 neue Faelle. 17 eigene Testluecken sind mir dabei\naufgefallen -- sie blieben gruen, obwohl die Mutation den Fehler\nwieder eingebaut hatte -- und wurden durch Verhaltenstests ersetzt.\nMutationstest: 145/145 erkannt, Baum byteweise unveraendert.\n78/78 Testdateien gruen, Boot-Test 148 Cogs / 539 Prefix / 58 App /\n0 Fehler, tsc und next build sauber."
+  },
+  {
    "commit": "a30c784a0423b39e2eac58f756a656491585e34a",
    "at": "1786209155",
    "subject": "feat(templates): Bewertungen, faire Rangfolge, neuer Community-Reiter",
@@ -231,12 +237,6 @@
   {
    "commit": "e9131c908e2f8b608fc25c884bf90e6e4fae7d96",
    "at": "1786136822",
-   "subject": "feat(phantom): EXACT full original Aleks ticket bot (5653 lines - every function kept, no removal, no shortening)",
-   "body": ""
-  },
-  {
-   "commit": "471c8a238f55d2ae8e4656ca7fbf31143802f424",
-   "at": "1786136815",
    "subject": "feat(phantom): EXACT full original Aleks ticket bot (5653 lines - every function kept, no removal, no shortening)",
    "body": ""
   }

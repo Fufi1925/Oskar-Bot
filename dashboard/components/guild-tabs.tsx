@@ -77,6 +77,7 @@ import {
   Sword,
   Ticket,
   UserCheck,
+  Users,
   Volume2,
   X,
   Youtube,
@@ -214,6 +215,15 @@ function buildGroups(t: TranslateFn): Group[] {
         // The tab was called "Protokollierung" until now, so both
         // spellings stay searchable -- renaming it must not hide it
         // from anybody who learned the old name.
+        {
+          name: "Teamliste",
+          slug: "teamlist",
+          icon: Users,
+          also: [
+            "team", "teamliste", "staff", "mitarbeiter", "rollen", "liste",
+            "moderatoren", "supporter", "wer ist wer",
+          ],
+        },
         { name: "Logs", slug: "logging", icon: FileText,
           also: ["logging", "logs", "audit", "protokoll", "protokollierung"] },
         { name: "Server-Werkzeuge", slug: "admin-dashboard", icon: Shield, also: ["admin", "scan", "audit"] },

@@ -50,6 +50,7 @@ const TARGETS: SearchTarget[] = [
   { label: "Tickets", href: "/dashboard/guild/{g}/tickets", icon: Ticket, group: "Support", keywords: "support ticket panel", guildScoped: true },
   { label: "Vorlage hochladen", href: "/dashboard/guild/{g}/template-upload", icon: Upload, group: "Server", keywords: "template vorlage upload hochladen scan teilen export", guildScoped: true },
   { label: "Community-Vorlagen", href: "/dashboard/guild/{g}/templates", icon: Sparkles, group: "Server", keywords: "template templates vorlage community import aufsetzen", guildScoped: true },
+  { label: "Teamliste", href: "/dashboard/guild/{g}/teamlist", icon: Users, group: "Server", keywords: "team teamliste staff mitarbeiter rollen liste moderatoren supporter wer ist wer", guildScoped: true },
   { label: "Musik", href: "/dashboard/guild/{g}/music", icon: Music, group: "Engagement", keywords: "music musik playlist song 247 24/7 dauerbetrieb lautstaerke volume voice sprachkanal", guildScoped: true },
   { label: "Join to Create", href: "/dashboard/guild/{g}/j2c", icon: Mic, group: "Voice", keywords: "temporary voice channel j2c", guildScoped: true },
   { label: "Auto Reactions", href: "/dashboard/guild/{g}/autoreact", icon: Zap, group: "Utility", keywords: "auto react emoji trigger", guildScoped: true },
