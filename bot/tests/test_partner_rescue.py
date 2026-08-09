@@ -432,7 +432,8 @@ async def test_panel_posted_once(na):
     for _ in range(5):
         na._last_alert.clear()
         await na.report(None, guild, "channel_delete",
-                        na.OUTCOME_NO_PERMS, executor=attacker)
+                        na.OUTCOME_STOPPED, executor=attacker,
+                        banned=True)
 
     check("every event is logged to the channel",
           len(channel.sent) == 5, str(len(channel.sent)))
@@ -486,8 +487,21 @@ async def test_backup_channel(na):
         guild.default_role = type("R", (), {"id": 0})()
 
         attacker = type("E", (), {"id": ATTACKER, "mention": f"<@{ATTACKER}>"})()
-        await na.report(None, guild, "channel_delete",
-                        na.OUTCOME_NO_PERMS, executor=attacker)
+
+        # Ein ECHTER Nuke, zweimal gemeldet.
+        #
+        # Vorher stand hier OUTCOME_NO_PERMS. Nach Regel 1 passiert
+        # dabei jetzt gar nichts mehr -- der Bot hat den Angriff nicht
+        # gestoppt, also schweigt er. Und zweimal, weil erst zwei
+        # zerstoerende Aktionen in einer Minute als Angriff gelten:
+        # ein einzelner geloeschter Kanal ist ein Fehlklick.
+        from utils import nuke_policy as policy
+
+        policy.forget(guild.id)
+        for _ in range(2):
+            await na.report(None, guild, "channel_delete",
+                            na.OUTCOME_STOPPED, executor=attacker,
+                            banned=True)
 
         check("nothing is created while the attack is still running",
               guild.created == [], str(guild.created))
@@ -516,7 +530,8 @@ async def test_backup_channel(na):
         for _ in range(10):
             na._last_alert.clear()
             await na.report(None, guild, "channel_delete",
-                            na.OUTCOME_NO_PERMS, executor=attacker)
+                            na.OUTCOME_STOPPED, executor=attacker,
+                        banned=True)
         await asyncio.sleep(0.3)
         check("an existing backup channel is reused, not duplicated",
               guild.created == [], str(guild.created))

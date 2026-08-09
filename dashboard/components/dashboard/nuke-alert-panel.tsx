@@ -59,6 +59,40 @@ function Field({ label, hint, children }: any) {
   );
 }
 
+/**
+ * Eine Zeile der Übersicht „wann tut der Bot was".
+ *
+ * Die neuen Regeln sind bewusst still — und genau das ist
+ * erklärungsbedürftig: Schweigen sieht leicht nach einem Ausfall aus.
+ * Wer hier nachliest, soll verstehen, dass nichts kaputt ist.
+ */
+function Rule({
+  when,
+  what,
+  tone,
+}: {
+  when: string;
+  what: string;
+  tone: "bad" | "mid" | "off";
+}) {
+  const colour =
+    tone === "bad"
+      ? "bg-red-400"
+      : tone === "mid"
+      ? "bg-amber-400"
+      : "bg-slate-600";
+
+  return (
+    <div className="flex gap-2.5">
+      <span className={cn("h-2 w-2 rounded-full shrink-0 mt-1.5", colour)} />
+      <p className="text-[12px] leading-relaxed">
+        <span className="text-slate-300">{when}</span>
+        <span className="text-slate-600"> — {what}</span>
+      </p>
+    </div>
+  );
+}
+
 export function NukeAlertPanel({ guildId }: { guildId: string }) {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -214,6 +248,12 @@ export function NukeAlertPanel({ guildId }: { guildId: string }) {
             hint="Nur Kanäle, die laut Audit-Log wirklich von ihm stammen — was ihr kurz vorher angelegt habt, bleibt."
           />
           <InlineToggle
+            checked={value("offer_rebuild")}
+            onCheckedChange={(v: boolean) => set("offer_rebuild", v)}
+            label="Wiederherstellung anbieten"
+            hint="Nur nach einem echten Nuke — also wenn Kanäle oder Rollen gelöscht wurden. Bei allem anderen passiert nichts."
+          />
+          <InlineToggle
             checked={value("ping_owner")}
             onCheckedChange={(v: boolean) => set("ping_owner", v)}
             label="Server-Inhaber pingen"
@@ -222,8 +262,38 @@ export function NukeAlertPanel({ guildId }: { guildId: string }) {
           <InlineToggle
             checked={value("dm_owner")}
             onCheckedChange={(v: boolean) => set("dm_owner", v)}
-            label="Zusätzlich per DM benachrichtigen"
-            hint="Falls während des Angriffs kein Kanal mehr erreichbar ist."
+            label="Bei einem Nuke per DM benachrichtigen"
+            hint="Nur bei einem echten Nuke und nur, wenn der Bot jemanden gebannt hat. Sonst nie."
+          />
+          <InlineToggle
+            checked={value("post_incidents")}
+            onCheckedChange={(v: boolean) => set("post_incidents", v)}
+            label="Auch kleine Vorfälle in den Kanal posten"
+            hint="Rollenvergaben, Webhooks, einzelne Banns. Aus empfohlen: sonst geht der echte Nuke in der Menge unter — im Verlauf stehen sie trotzdem."
+          />
+        </div>
+
+        {/* Was das System tut — und was nicht.
+            Die Regeln sind bewusst still: das ist erklärungsbedürftig,
+            weil Schweigen leicht wie ein Ausfall aussieht. */}
+        <div className="rounded-2xl bg-[#0a1628] border border-slate-800 p-4 space-y-2.5">
+          <p className="text-[10px] font-black uppercase tracking-widest text-slate-600">
+            Wann der Bot was tut
+          </p>
+          <Rule
+            when="Kanäle oder Rollen werden gelöscht"
+            what="Alarm im Kanal, Wiederherstellung angeboten — und eine DM, sobald der Angreifer gebannt ist."
+            tone="bad"
+          />
+          <Rule
+            when="Jemand vergibt eine Rolle, legt einen Webhook an, bannt jemanden"
+            what="Nur ein Eintrag im Verlauf. Kein Kanal, kein Alarm, keine DM."
+            tone="mid"
+          />
+          <Rule
+            when="Dem Bot fehlt ein Recht, oder er darf das Audit-Log nicht lesen"
+            what="Gar nichts. Er hat den Angriff nicht gestoppt — dann ist eine Meldung darüber nur Lärm."
+            tone="off"
           />
         </div>
 

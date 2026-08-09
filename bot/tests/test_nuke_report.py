@@ -216,7 +216,8 @@ async def test_dm_spam(na):
             if guild.id in book:
                 book[guild.id] -= 21.0
         await na.report(None, guild, "channel_delete",
-                        na.OUTCOME_NO_PERMS, executor=attacker)
+                        na.OUTCOME_STOPPED, executor=attacker,
+                        banned=True)
 
     check("the channel keeps a full log",
           len(reports_only(guild.channel)) == 15,
@@ -239,29 +240,53 @@ async def test_dm_spam(na):
     guild = FakeGuild()
     for _ in range(40):
         await na.report(None, guild, "channel_delete",
-                        na.OUTCOME_NO_PERMS, executor=attacker)
+                        na.OUTCOME_STOPPED, executor=attacker,
+                        banned=True)
     check("a burst of forty events is one channel post",
           len(reports_only(guild.channel)) == 1,
           str(len(reports_only(guild.channel))))
     check("and one DM", len(guild.owner.dms) == 1, str(len(guild.owner.dms)))
 
-    # Nothing is asked of the owner, so nothing is sent.
+    # Ein angelegter Kanal ist kein Nuke.
+    #
+    # Nach Regel 4 gehoert er in den Verlauf, sonst nirgendwohin: kein
+    # Alarm, keine DM. Ein Angreifer legt beim Spammen hunderte Kanaele
+    # an, aber es geht dabei nichts verloren -- das Aufraeumen erledigt
+    # `clean_created_channels`.
     reset(na)
     guild = FakeGuild()
     await na.report(None, guild, "channel_create",
-                    na.OUTCOME_STOPPED, executor=attacker)
-    check("a stopped attack does not wake the owner at all",
+                    na.OUTCOME_STOPPED, executor=attacker, banned=True)
+    check("ein angelegter Kanal weckt den Inhaber nicht",
           len(guild.owner.dms) == 0, str(len(guild.owner.dms)))
-    check("but is still written to the channel",
+    check("und loest keinen Alarm aus",
+          len(reports_only(guild.channel)) == 0,
+          str(len(reports_only(guild.channel))))
+
+    # Ein geloeschter Kanal dagegen schon.
+    reset(na)
+    guild = FakeGuild()
+    await na.report(None, guild, "channel_delete",
+                    na.OUTCOME_STOPPED, executor=attacker, banned=True)
+    check("ein geloeschter Kanal steht im Alarmkanal",
           len(reports_only(guild.channel)) == 1,
           str(len(reports_only(guild.channel))))
 
     reset(na)
     guild = FakeGuild()
     await na.report(None, guild, "channel_delete",
-                    na.OUTCOME_PARTIAL, executor=attacker)
-    check("a partial stop does reach the owner",
-          len(guild.owner.dms) == 1, str(len(guild.owner.dms)))
+                    na.OUTCOME_PARTIAL, executor=attacker,
+                    banned=False)
+    # Regel 5: Schaden behoben, aber NICHT gebannt -> keine DM.
+    #
+    # Vorher ging hier eine raus. Die Begruendung war "der Inhaber muss
+    # eingreifen" -- nur steht das auch im Alarmkanal, und eine DM
+    # laesst sich nicht stummschalten.
+    check("ohne Bann keine DM, auch bei behobenem Schaden",
+          len(guild.owner.dms) == 0, str(len(guild.owner.dms)))
+    check("aber der Alarmkanal bekommt es",
+          len(reports_only(guild.channel)) == 1,
+          str(len(reports_only(guild.channel))))
 
     # A closed DM must not be retried on every single event.
     reset(na)
@@ -269,7 +294,8 @@ async def test_dm_spam(na):
     for _ in range(5):
         na._last_alert.clear()
         await na.report(None, guild, "channel_delete",
-                        na.OUTCOME_NO_PERMS, executor=attacker)
+                        na.OUTCOME_STOPPED, executor=attacker,
+                        banned=True)
     check("closed DMs do not break the channel report",
           len(reports_only(guild.channel)) == 5,
           str(len(reports_only(guild.channel))))
@@ -278,7 +304,7 @@ async def test_dm_spam(na):
     guild = FakeGuild()
     await na.save_settings(GUILD, {"dm_owner": 0})
     await na.report(None, guild, "channel_delete",
-                    na.OUTCOME_NO_PERMS, executor=attacker)
+                    na.OUTCOME_STOPPED, executor=attacker, banned=True)
     check("switching DMs off is respected", len(guild.owner.dms) == 0)
     await na.save_settings(GUILD, {"dm_owner": 1})
 
@@ -294,7 +320,8 @@ async def test_incident_grouping(na):
     for action in ("channel_delete", "channel_delete", "role_delete", "ban"):
         na._last_alert.clear()
         await na.report(None, guild, action,
-                        na.OUTCOME_NO_PERMS, executor=attacker)
+                        na.OUTCOME_STOPPED, executor=attacker,
+                        banned=True)
 
     summary = na._incident_summary(GUILD)
     check("the running total counts each action",
@@ -775,7 +802,7 @@ async def test_buttons_in_report(na):
     guild = FakeGuild()
     attacker = type("E", (), {"id": ATTACKER, "mention": f"<@{ATTACKER}>"})()
     await na.report(None, guild, "channel_delete",
-                    na.OUTCOME_NO_PERMS, executor=attacker)
+                    na.OUTCOME_STOPPED, executor=attacker, banned=True)
 
     check("the channel got a message",
           len(reports_only(guild.channel)) == 1,
@@ -808,7 +835,7 @@ async def test_buttons_in_report(na):
     reset(na)
     guild = FakeGuild()
     await na.report(None, guild, "channel_delete",
-                    na.OUTCOME_NO_PERMS, executor=attacker)
+                    na.OUTCOME_STOPPED, executor=attacker, banned=True)
     check("an unconfigured bot still reports the attack",
           len(reports_only(guild.channel)) == 1,
           str(len(reports_only(guild.channel))))

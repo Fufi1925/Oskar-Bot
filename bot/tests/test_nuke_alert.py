@@ -236,14 +236,8 @@ def run():
         bot = FakeBot(guild)
         attacker = FakeMember(50, "Angreifer")
 
-        reset_cooldown()
-        asyncio.run(nuke_alert.report(
-            bot, guild, "channel_create", nuke_alert.OUTCOME_NO_PERMS,
-            executor=attacker,
-        ))
-        # The recovery panel is a second, deliberate message per attack,
-        # so the reports have to be counted rather than the messages.
         def reports(channel):
+            """Beitraege ohne die Wiederherstellungs-Karte."""
             out = []
             for entry in channel.sent:
                 view = entry.get("view")
@@ -256,50 +250,101 @@ def run():
                     out.append(entry)
             return out
 
-        posted = reports(guild.text_channels[0])
-        check("a report reaches the channel", len(posted) == 1, str(len(posted)))
-        # The recovery panel is no longer posted alongside the report:
-        # it goes into a dedicated #backup channel twenty seconds later,
-        # once the attack has had time to finish.
-        check("the alert channel carries the report only",
-              len(guild.text_channels[0].sent) == 1,
-              str(len(guild.text_channels[0].sent)))
-        check("the owner is pinged when the defence failed",
-              bool(posted) and "99" in str(posted[0]["content"]),
-              str(posted[0]["content"]) if posted else "nothing was posted")
-        check("the owner also gets a DM", len(guild.owner.dms) == 1,
-              str(len(guild.owner.dms)))
-
-        # A nuke fires dozens of events; one report is enough.
-        asyncio.run(nuke_alert.report(
-            bot, guild, "channel_create", nuke_alert.OUTCOME_NO_PERMS,
-            executor=attacker,
-        ))
-        check("a second event within the cooldown does not spam",
-              len(reports(guild.text_channels[0])) == 1,
+        # ── Regel 1: nichts ausgerichtet -> gar nichts ────────────
+        #
+        # Frueher meldete der Bot auch dann, wenn ihm ein Recht fehlte
+        # oder er die Audit-Logs nicht lesen konnte. Genau in dem
+        # Moment ist eine Meldung aber nur Laerm: der Angriff laeuft
+        # weiter, und niemand wird geschuetzt.
+        reset_cooldown()
+        for outcome in (nuke_alert.OUTCOME_NO_PERMS,
+                        nuke_alert.OUTCOME_BLIND,
+                        nuke_alert.OUTCOME_DISABLED):
+            asyncio.run(nuke_alert.report(
+                bot, guild, "channel_create", outcome, executor=attacker,
+            ))
+        check("machtlos: nichts im Kanal",
+              len(reports(guild.text_channels[0])) == 0,
               str(len(reports(guild.text_channels[0]))))
+        check("machtlos: keine DM", len(guild.owner.dms) == 0,
+              str(len(guild.owner.dms)))
+        stumm = asyncio.run(nuke_alert.incidents(GUILD, 10))
+        check("machtlos: nicht einmal ein Logeintrag",
+              len(stumm) == 0, str(len(stumm)))
 
-        # A success should not ping the owner at 3am.
+        # ── Regel 4: eine Rollenvergabe ist kein Nuke ─────────────
+        #
+        # Sie gehoert in den Verlauf -- aber sie rechtfertigt keinen
+        # Kanal, keinen Alarm und keine DM.
+        reset_cooldown()
+        asyncio.run(nuke_alert.report(
+            bot, guild, "member_update", nuke_alert.OUTCOME_STOPPED,
+            executor=attacker, banned=True,
+        ))
+        check("Rollenvergabe: kein Alarm im Kanal",
+              len(reports(guild.text_channels[0])) == 0,
+              str(len(reports(guild.text_channels[0]))))
+        check("Rollenvergabe: keine DM", len(guild.owner.dms) == 0,
+              str(len(guild.owner.dms)))
+        rows = asyncio.run(nuke_alert.incidents(GUILD, 10))
+        check("Rollenvergabe: aber ein Logeintrag", len(rows) == 1,
+              str(len(rows)))
+
+        # ── Ein echter Nuke wird gemeldet ─────────────────────────
         reset_cooldown()
         guild2 = FakeGuild()
         bot2 = FakeBot(guild2)
         asyncio.run(nuke_alert.report(
-            bot2, guild2, "role_delete", nuke_alert.OUTCOME_STOPPED,
-            executor=attacker,
+            bot2, guild2, "channel_delete", nuke_alert.OUTCOME_STOPPED,
+            executor=attacker, banned=True,
         ))
-        sent = guild2.text_channels[0].sent
-        check("a successful defence is reported too", len(sent) == 1)
-        check("but it does not ping the owner",
-              bool(sent) and sent[0]["content"] is None,
-              str(sent[0]["content"]) if sent else "nothing was posted")
-        check("and it does not DM them either", len(guild2.owner.dms) == 0)
+        sent = reports(guild2.text_channels[0])
+        check("echter Nuke: Meldung im Kanal", len(sent) == 1, str(len(sent)))
 
-        # Every incident is written down regardless.
+        # ── Regel 3 + 5: die DM ───────────────────────────────────
+        #
+        # Nur bei einem echten Nuke UND nur, wenn wirklich jemand
+        # gebannt wurde.
+        check("Nuke mit Bann: DM geht raus", len(guild2.owner.dms) == 1,
+              str(len(guild2.owner.dms)))
+
+        reset_cooldown()
+        guild3 = FakeGuild()
+        bot3 = FakeBot(guild3)
+        asyncio.run(nuke_alert.report(
+            bot3, guild3, "channel_delete", nuke_alert.OUTCOME_PARTIAL,
+            executor=attacker, banned=False,
+        ))
+        check("Nuke ohne Bann: keine DM", len(guild3.owner.dms) == 0,
+              str(len(guild3.owner.dms)))
+        check("aber im Kanal steht es",
+              len(reports(guild3.text_channels[0])) == 1)
+
+        # Ein Nuke feuert Dutzende Ereignisse; eine Meldung genuegt.
+        asyncio.run(nuke_alert.report(
+            bot3, guild3, "channel_delete", nuke_alert.OUTCOME_PARTIAL,
+            executor=attacker, banned=False,
+        ))
+        check("ein zweites Ereignis spammt nicht",
+              len(reports(guild3.text_channels[0])) == 1,
+              str(len(reports(guild3.text_channels[0]))))
+
+        # Jeder Vorfall, der ueberhaupt gemeldet wird, steht im Verlauf.
         rows = asyncio.run(nuke_alert.incidents(GUILD, 10))
-        check("incidents are recorded", len(rows) >= 3, str(len(rows)))
+        check("incidents are recorded", len(rows) >= 1, str(len(rows)))
+        # Was der Bot ausgerichtet hat, steht dabei.
+        #
+        # "no_perms" kommt hier bewusst NICHT mehr vor: nach Regel 1
+        # wird gar nichts vermerkt, wenn der Bot nichts ausrichten
+        # konnte. Ein Verlauf voller "konnte nicht" ist kein Verlauf,
+        # sondern eine Fehlerliste -- und sie verdeckt die Eintraege,
+        # auf die es ankommt.
+        outcomes = {r["outcome"] for r in rows}
         check("the outcome is stored",
-              {r["outcome"] for r in rows} >= {"no_perms", "stopped"},
-              str({r["outcome"] for r in rows}))
+              outcomes >= {"stopped", "partial"}, str(outcomes))
+        check("und Machtlosigkeit steht NICHT darin",
+              "no_perms" not in outcomes and "blind" not in outcomes,
+              str(outcomes))
         check("the attacker is recorded",
               any(r["executor_id"] == 50 for r in rows), str(rows[:1]))
 

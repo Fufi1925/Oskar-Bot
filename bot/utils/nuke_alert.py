@@ -99,6 +99,30 @@ async def ensure_schema(db: aiosqlite.Connection) -> None:
         )
         """
     )
+    # Nachtraeglich dazugekommene Spalten.
+    #
+    # ALTER TABLE ADD COLUMN wirft, wenn es die Spalte schon gibt, und
+    # SQLite kann das nicht bedingt. Deshalb erst nachsehen: eine
+    # bestehende Datenbank soll weiterlaufen, ohne dass jemand sie von
+    # Hand anfasst.
+    async with db.execute("PRAGMA table_info(nuke_alerts)") as cursor:
+        have = {row[1] for row in await cursor.fetchall()}
+
+    for column, definition in (
+        # Wiederherstellung nach einem Nuke anbieten. Getrennt von
+        # `create_channel`: das eine legt den Alarmkanal an, das andere
+        # den Rettungskanal nach einem Angriff.
+        ("offer_rebuild", "INTEGER DEFAULT 1"),
+        # Auch Vorfaelle ohne Nuke in den Alarmkanal posten.
+        # Standardmaessig AUS -- sonst ist der Kanal voll mit
+        # "jemand hat eine Rolle vergeben".
+        ("post_incidents", "INTEGER DEFAULT 0"),
+    ):
+        if column not in have:
+            await db.execute(
+                f"ALTER TABLE nuke_alerts ADD COLUMN {column} {definition}"
+            )
+
     await db.execute(
         """
         CREATE TABLE IF NOT EXISTS nuke_incidents (
@@ -127,6 +151,11 @@ DEFAULTS = {
     "clean_channels": 1,
     "ping_owner": 1,
     "dm_owner": 1,
+    "offer_rebuild": 1,
+    # Aus: ein Alarmkanal voller "jemand hat eine Rolle vergeben" ist
+    # kein Alarmkanal mehr -- man liest ihn nach zwei Tagen nicht mehr,
+    # und dann uebersieht man auch den echten Nuke.
+    "post_incidents": 0,
 }
 
 
@@ -156,7 +185,8 @@ async def save_settings(guild_id: int, updates: dict) -> dict:
     current = await get_settings(guild_id)
     merged = {**current, **{k: v for k, v in updates.items() if k in DEFAULTS}}
 
-    for key in ("enabled", "create_channel", "clean_channels", "ping_owner", "dm_owner"):
+    for key in ("enabled", "create_channel", "clean_channels", "ping_owner",
+                "dm_owner", "offer_rebuild", "post_incidents"):
         merged[key] = 1 if merged.get(key) else 0
     channel = merged.get("channel_id")
     merged["channel_id"] = int(channel) if str(channel or "").isdigit() else None
@@ -552,15 +582,54 @@ def _track_incident(guild_id: int, action: str, outcome: str) -> dict:
 async def report(
     bot, guild, action: str, outcome: str,
     executor: Any = None, detail: str = "", cleaned: int = 0,
+    banned: bool = False,
 ) -> None:
     """
-    Tell the server what happened.
+    Sagen, was passiert ist -- soweit es die Regeln erlauben.
 
-    Never raises: this runs inside the anti-nuke handlers, and an error
-    here must not stop them from doing their actual job.
+    Was wirklich geschieht, entscheidet `nuke_policy.decide`. Diese
+    Funktion fuehrt nur aus.
+
+    `banned` sagt, ob tatsaechlich jemand gebannt wurde. Ohne die
+    Angabe koennte die Regel "DM nur bei einem Bann" nicht greifen --
+    der Aufrufer weiss es, diese Funktion nicht.
+
+    Wirft nie: das laeuft mitten in der Abwehr, und ein Fehler beim
+    Melden darf sie nicht aufhalten.
     """
     try:
+        from utils import nuke_policy as policy
+
         settings = await get_settings(guild.id)
+
+        # Erst fragen, was ueberhaupt geschehen darf.
+        #
+        # Vorher entschied das jede Stelle fuer sich, und das Ergebnis
+        # war Laerm: eine DM, weil dem Bot ein Recht fehlte; ein neuer
+        # Kanal, weil jemand eine Rolle vergeben hatte; ein Alarm,
+        # obwohl das System aus war und gar nichts getan wurde.
+        #
+        # `banned` sagt, ob wirklich jemand gebannt wurde. Ohne diese
+        # Angabe koennte die Regel "DM nur bei einem Bann" nicht
+        # greifen -- sie ist der Grund, warum `report` sie ueberhaupt
+        # entgegennimmt.
+        decision = policy.decide(
+            action, outcome,
+            banned=banned,
+            enabled=bool(settings.get("enabled")),
+            settings=settings,
+        )
+
+        # Zaehlen, ob gerade ein echter Angriff laeuft. Nur
+        # zerstoerende Aktionen zaehlen mit.
+        policy.note_action(guild.id, action)
+
+        if not decision.log:
+            # Punkt 1: der Bot konnte nichts ausrichten. Dann passiert
+            # gar nichts -- kein Log, keine DM, kein Kanal. Eine
+            # Meldung waere hier nur Laerm in einem Moment, in dem
+            # ohnehin nichts geschuetzt wird.
+            return
 
         await record(
             guild.id, action, outcome,
@@ -568,9 +637,6 @@ async def report(
             executor_name=str(executor) if executor else "",
             detail=detail,
         )
-
-        if not settings.get("enabled"):
-            return
 
         incident = _track_incident(guild.id, action, outcome)
         now = time.time()
@@ -597,9 +663,9 @@ async def report(
 
         buttons = recovery_buttons(guild, getattr(guild, "owner_id", 0) or 0)
 
-        # ── the channel post ────────────────────────────────────────
-        # One per cooldown. Noisy is acceptable here: it is a log.
-        if _last_alert.get(guild.id, 0) + COOLDOWN <= now:
+        # ── der Beitrag im Alarmkanal ───────────────────────────────
+        # Einer je Abkuehlzeit. Laut darf es hier sein: es ist ein Log.
+        if decision.post and _last_alert.get(guild.id, 0) + COOLDOWN <= now:
             _last_alert[guild.id] = now
 
             channel = await alert_channel(guild, settings)
@@ -625,22 +691,34 @@ async def report(
                 except Exception:
                     pass
 
-        # The recovery card goes into its own channel once per incident,
-        # after the attack has had time to finish. Posting it here and
-        # now would drop it into a channel that may not survive the next
-        # few seconds.
-        if not incident.get("panel_sent"):
+        # ── die Wiederherstellung ───────────────────────────────────
+        #
+        # Punkt 2 und 4: nur nach einem ECHTEN Nuke. Vorher legte der
+        # Bot auch dann einen Kanal an, wenn jemand nur eine Rolle
+        # vergeben hatte -- ein neuer Kanal auf einem Server, dem nichts
+        # fehlt, ist schlicht Muell.
+        #
+        # Die Karte kommt in einen eigenen Kanal, nachdem der Angriff
+        # Zeit hatte zu enden: hier und jetzt landete sie in einem
+        # Kanal, der die naechsten Sekunden vielleicht nicht ueberlebt.
+        if decision.rebuild and not incident.get("panel_sent"):
             incident["panel_sent"] = True
             asyncio.create_task(schedule_backup_channel(bot, guild, cleaned))
 
-        # ── the DM ──────────────────────────────────────────────────
-        # On its own, much longer timer. The owner cannot mute a DM, and
-        # a five minute attack used to arrive as fifteen separate
-        # messages saying nearly the same thing.
-        if not settings.get("dm_owner"):
-            return
-        if outcome == OUTCOME_STOPPED:
-            # Nothing is required of the owner, so nothing is sent.
+        # ── die DM ──────────────────────────────────────────────────
+        #
+        # Punkt 3 und 5: nur bei einem echten Nuke UND nur, wenn
+        # wirklich jemand gebannt wurde. Beides zusammen -- eine DM ist
+        # die lauteste Meldung, die es gibt, sie erreicht den Inhaber
+        # auch nachts.
+        #
+        # Vorher haing sie nur an einem Schalter und ging auch dann
+        # raus, wenn dem Bot bloss ein Recht fehlte.
+        #
+        # Eigene, viel laengere Abkuehlzeit: eine DM laesst sich nicht
+        # stummschalten, und ein fuenf Minuten langer Angriff kam
+        # vorher als fuenfzehn fast gleiche Nachrichten an.
+        if not decision.dm:
             return
         if _last_dm.get(guild.id, 0) + DM_COOLDOWN > now:
             return
@@ -789,6 +867,22 @@ async def schedule_backup_channel(bot, guild, cleaned: int = 0) -> None:
     try:
         await asyncio.sleep(BACKUP_DELAY)
 
+        # Punkt 2 und 4, zweite Absicherung.
+        #
+        # Der Aufrufer prueft schon (`decision.rebuild`), aber zwischen
+        # dem Anstossen und hier liegen zwanzig Sekunden. In der Zeit
+        # kann sich herausstellen, dass es doch kein Angriff war --
+        # etwa weil nur ein einzelner Kanal geloescht wurde und sonst
+        # nichts folgte.
+        #
+        # Ein Kanal namens "backup" auf einem Server, dem nichts fehlt,
+        # ist Muell, den jemand von Hand wegraeumen muss. Lieber
+        # zweimal pruefen.
+        from utils import nuke_policy as policy
+
+        if not policy.is_under_attack(guild.id):
+            return
+
         channel = await ensure_backup_channel(guild, await get_settings(guild.id))
         if channel is None:
             return
@@ -859,7 +953,12 @@ async def handle_partial(bot, guild, action: str, executor=None, detail="",
     for the case where nothing was fixed at all.
     """
     outcome = OUTCOME_PARTIAL if repaired else OUTCOME_NO_PERMS
-    await report(bot, guild, action, outcome, executor=executor, detail=detail)
+    # `banned=False`: genau das ist der Fall hier -- der Schaden ist
+    # behoben, der Bann ging nicht durch. Nach Punkt 5 also keine DM.
+    await report(
+        bot, guild, action, outcome, executor=executor, detail=detail,
+        banned=False,
+    )
 
 
 async def handle_blind(bot, guild, action: str, detail="") -> None:
@@ -874,9 +973,16 @@ async def handle_blind(bot, guild, action: str, detail="") -> None:
 
 
 async def handle_stopped(
-    bot, guild, action: str, executor=None, detail="", clean: bool = False
+    bot, guild, action: str, executor=None, detail="", clean: bool = False,
+    banned: bool = True,
 ) -> None:
-    """Shorthand for a successful defence, optionally cleaning up first."""
+    """Kurzform fuer eine erfolgreiche Abwehr, auf Wunsch mit Aufraeumen.
+
+    `banned` ist hier standardmaessig True: wer `handle_stopped` ruft,
+    hat den Angreifer gebannt -- das ist die Bedeutung von "gestoppt"
+    in allen siebzehn Modulen. Wer nur Schaden behoben hat, ohne zu
+    bannen, ruft `handle_partial`.
+    """
     cleaned = 0
     if clean and executor is not None:
         settings = await get_settings(guild.id)
@@ -887,7 +993,7 @@ async def handle_stopped(
             cleaned = await clean_created_channels(guild, executor.id)
     await report(
         bot, guild, action, OUTCOME_STOPPED,
-        executor=executor, detail=detail, cleaned=cleaned,
+        executor=executor, detail=detail, cleaned=cleaned, banned=banned,
     )
 
 
