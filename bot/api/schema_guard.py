@@ -334,6 +334,49 @@ SCHEMA: dict[str, tuple[str, ...]] = {
         """CREATE INDEX IF NOT EXISTS idx_warn_log_guild_user
             ON warn_log (guild_id, user_id, active)""",
     ),
+    "db/ticket_notify.db": (
+        # Settings for the ticket DM notifications, per guild.
+        """CREATE TABLE IF NOT EXISTS notify_settings (
+            guild_id INTEGER PRIMARY KEY,
+            user_dm_enabled INTEGER DEFAULT 0,
+            staff_dm_enabled INTEGER DEFAULT 0,
+            user_delay INTEGER DEFAULT 300,
+            staff_delay INTEGER DEFAULT 300,
+            user_cooldown INTEGER DEFAULT 3600,
+            staff_cooldown INTEGER DEFAULT 3600,
+            quiet_enabled INTEGER DEFAULT 0,
+            quiet_start INTEGER DEFAULT 22,
+            quiet_end INTEGER DEFAULT 8
+        )""",
+        # Who last wrote in which ticket, and what is still pending.
+        """CREATE TABLE IF NOT EXISTS ticket_state (
+            channel_id INTEGER PRIMARY KEY,
+            guild_id INTEGER NOT NULL,
+            creator_id INTEGER NOT NULL,
+            last_user_msg INTEGER DEFAULT 0,
+            last_staff_msg INTEGER DEFAULT 0,
+            last_staff_id INTEGER,
+            staff_has_written INTEGER DEFAULT 0,
+            sleeping INTEGER DEFAULT 0,
+            sleep_by INTEGER,
+            pending_user INTEGER DEFAULT 0,
+            pending_staff INTEGER DEFAULT 0
+        )""",
+        # Backs the cooldown: nobody gets a second DM for the same
+        # ticket within the configured window.
+        """CREATE TABLE IF NOT EXISTS notify_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            channel_id INTEGER NOT NULL,
+            guild_id INTEGER NOT NULL,
+            target_id INTEGER NOT NULL,
+            kind TEXT NOT NULL,
+            sent_at INTEGER NOT NULL
+        )""",
+        """CREATE INDEX IF NOT EXISTS idx_notify_log_lookup
+            ON notify_log (channel_id, target_id, kind, sent_at)""",
+        """CREATE INDEX IF NOT EXISTS idx_state_pending
+            ON ticket_state (pending_user, pending_staff)""",
+    ),
     "db/timer.db": (
         # Running timers. Without this table a redeploy silently dropped
         # every timer -- the countdown lived only in a Python loop.

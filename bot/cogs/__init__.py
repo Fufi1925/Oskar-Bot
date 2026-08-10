@@ -89,6 +89,7 @@ from .commands.youtube import Youtube
 from .events.nightmode_schedule import NightmodeSchedule
 from .events.partner_handoff import PartnerHandoff
 from .events.teamlist import TeamList
+from .events.ticket_notify import TicketNotify
 from .events.Errors import Errors
 from .events.on_guild import Guild
 from .events.autorole import Autorole2
@@ -306,6 +307,7 @@ async def setup(bot: universitybot):
   await bot.add_cog(NightmodeSchedule(bot))
   await bot.add_cog(PartnerHandoff(bot))
   await bot.add_cog(TeamList(bot))
+  await bot.add_cog(TicketNotify(bot))
   await bot.add_cog(greet(bot))
   await bot.add_cog(SelfRoles(bot))
   await bot.add_cog(AutoResponder(bot))

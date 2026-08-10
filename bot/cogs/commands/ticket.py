@@ -26,6 +26,7 @@ import os
 import re
 from utils.config import *
 from utils.panels import from_embed
+from utils import ticket_notify
 
 # --- Configurable Variables ---
 EMBED_COLOR = 0xFF0000
@@ -386,6 +387,15 @@ class TicketCog(commands.Cog, name="Ticket System"):
         self.db.execute('INSERT INTO open_tickets VALUES (?,?,?,?,?,?,?,?,?,?,?)', (ch.id,t_num,guild.id,user.id,cat_id,datetime.now().isoformat(),None,None,False,False,None))
         self.db.execute('INSERT INTO user_ticket_counts VALUES (?,?,1) ON CONFLICT(guild_id,user_id) DO UPDATE SET ticket_count=ticket_count+1', (guild.id,user.id))
         await log_ticket_action(self.db, guild, user, "Ticket Created", f"Ticket {ch.mention} by {user.mention} (Category: {cat_info['name']}).")
+
+        # Das Ticket bei den Benachrichtigungen anmelden. Ohne diese
+        # Zeile kennt der Zustand den Ersteller nicht und der erste
+        # Hinweis ginge an niemanden.
+        try:
+            await ticket_notify.register_ticket(ch.id, guild.id, user.id)
+        except Exception:
+            # Eine fehlende Benachrichtigung darf kein Ticket verhindern.
+            pass
         
         # Die Begruessung im frischen Ticket.
         #
@@ -537,6 +547,14 @@ class TicketActionsView(discord.ui.View):
         
         self.cog.db.execute("UPDATE open_tickets SET closed_by_id=?, closed_at=? WHERE channel_id=?", (i.user.id, datetime.now().isoformat(), self.ch_id))
         await log_ticket_action(self.cog.db, i.guild, i.user, "Closed", f"Ticket {i.channel.mention} (Category: {category_name})")
+
+        # Geschlossen heisst: keine offenen Erinnerungen mehr, und ein
+        # etwaiges >sleep endet hier. Ohne das kaeme nach dem Schliessen
+        # noch eine DM zu einer Nachricht, die niemanden mehr betrifft.
+        try:
+            await ticket_notify.forget(self.ch_id)
+        except Exception:
+            pass
         
         closed_embed = discord.Embed(
             title="Ticket Closed",
@@ -619,6 +637,10 @@ class ClosedTicketActionsView(discord.ui.View):
             await asyncio.sleep(10)
             await ch.delete()
             self.cog.db.execute("DELETE FROM open_tickets WHERE channel_id=?", (self.ch_id,))
+            try:
+                await ticket_notify.forget(self.ch_id)
+            except Exception:
+                pass
 
 async def setup(bot):
     await bot.add_cog(TicketCog(bot))

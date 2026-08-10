@@ -1,6 +1,12 @@
 {
  "commits": [
   {
+   "commit": "0b291837c39d6c509c614d21528d41cfda68fba2",
+   "at": "1786316815",
+   "subject": "fix(warn,timer): Warnungen mit Grund, Timer ohne Rate-Limit",
+   "body": "Warnsystem: Befehl und Dashboard hatten je eigenes SQL auf db/warn.db.\nDer Cog kannte nur den Zaehler in warns, das Dashboard zusaetzlich\nwarn_log mit Grund und Moderator -- und schrieb als Einziges hinein.\nFolge 1: >warn @user Spam zeigte im Dashboard eine nackte Zahl, der\nGrund war weg. Folge 2: >clearwarns setzte den Zaehler auf 0, liess\nwarn_log aber auf active = 1, also blieben geloeschte Warnungen\nsichtbar. Beide Seiten gehen jetzt ueber utils/warn_store.py. Alte\nWarnungen ohne Protokolleintrag zaehlen weiter (max aus beiden).\n\nTimer: fuenf Fehler. Eine Schleife bearbeitete die Nachricht alle\nsechs Sekunden -- 14400 Bearbeitungen bei den erlaubten 24 Stunden,\nDiscord erlaubt grob 5 pro 5 s je Kanal. Am Ende griff der Code auf\nself.client zu (gibt es nicht, __init__ setzt self.bot), rief\nchannel.get_message() und users().flatten() auf (beide seit\ndiscord.py 2.0 entfernt) -- und ein nacktes except: break verschluckte\nalle drei Abstuerze still. Ausserdem verlor jeder Neustart die\nlaufenden Timer.\n\nJetzt traegt die Nachricht Discords Zeitstempel <t:...:R>, den der\nClient des Betrachters selbst herunterzaehlt: zwei Bearbeitungen statt\n14400. Die Faelligkeit steht in db/timer.db, ein Hintergrundlauf\nschliesst ab was faellig ist. Dauer versteht 1h30m und 2d12h, maximal\nsieben Tage. Neu: >timers und >timerstop.\n\n31 von 31 Mutationen erwischt, 82 Testdateien bestanden, Boot-Test\n149 Cogs / 541 Prefix / 60 Slash."
+  },
+  {
    "commit": "52fc61b791546905be584b102e9b31ff49b8d64d",
    "at": "1786312665",
    "subject": "feat(antinuke): Regeln neu -- still, wenn nichts auszurichten ist",
@@ -231,12 +237,6 @@
   {
    "commit": "733e4500c59673638297bd25980b6646cbf7b80a",
    "at": "1786136853",
-   "subject": "feat(phantom): EXACT full original Aleks ticket bot (5653 lines - every function kept, no removal, no shortening)",
-   "body": ""
-  },
-  {
-   "commit": "dc2e700e58ae36c6a32d9dea71fd3a6d658f56d0",
-   "at": "1786136845",
    "subject": "feat(phantom): EXACT full original Aleks ticket bot (5653 lines - every function kept, no removal, no shortening)",
    "body": ""
   }

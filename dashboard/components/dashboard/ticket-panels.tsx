@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import {
-  ChevronDown, Loader2, Plus, Send, Settings2, Ticket, Trash2, X,
+  BellRing, ChevronDown, Loader2, Plus, Send, Settings2, Ticket, Trash2, X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { ChannelPicker, MultiRolePicker } from "@/components/dashboard/pickers";
 import { EmojiPicker } from "@/components/dashboard/emoji-picker";
 import { EmojiDraftField } from "@/components/dashboard/emoji-field";
+import { TicketNotifyPanel } from "@/components/dashboard/ticket-notify-panel";
 
 interface Category {
   category_id?: number;
@@ -682,6 +683,17 @@ export function TicketPanels({ guildId }: { guildId: string }) {
             placeholder="Rollen wählen"
           />
         </Field>
+      </div>
+
+      {/* ── Benachrichtigungen ──────────────────────────── */}
+      <div>
+        <div className="flex items-center gap-2.5 mb-3 px-1">
+          <BellRing className="h-4 w-4 text-slate-400" />
+          <h2 className="font-black text-white text-sm uppercase tracking-wider">
+            Benachrichtigungen
+          </h2>
+        </div>
+        <TicketNotifyPanel guildId={guildId} />
       </div>
     </div>
   );

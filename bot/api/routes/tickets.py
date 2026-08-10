@@ -22,7 +22,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from api import ticket_panels as panels
 from api.db_manager import db_manager
 from api.dependencies import get_bot
-from utils import feature_audit
+from utils import feature_audit, ticket_notify
 
 if TYPE_CHECKING:
     from core.universitybot import universitybot
@@ -315,3 +315,51 @@ async def send_panel(
         "url": message.jump_url,
         "result": f"Panel posted in #{channel.name}.",
     }
+
+
+# ══════════════════════════════════════════════════════════════════════
+#  Benachrichtigungen
+# ══════════════════════════════════════════════════════════════════════
+
+
+@router.get("/{guild_id}/notify", summary="DM-Benachrichtigungen: Einstellungen")
+async def get_notify(guild_id: int):
+    """
+    Die Einstellungen plus eine Uebersicht, was gerade ansteht.
+
+    Die offenen Erinnerungen stehen mit dabei, damit im Dashboard
+    sichtbar ist, dass das System arbeitet -- sonst ist ein Schalter,
+    der stumm bleibt, nicht von einem kaputten Schalter zu
+    unterscheiden.
+    """
+    settings = await ticket_notify.get_settings(guild_id)
+    offen = [t for t in await ticket_notify.due_tickets() if t["guild_id"] == guild_id]
+
+    return {
+        "guild_id": str(guild_id),
+        "settings": settings,
+        "pending": {
+            "user": sum(1 for t in offen if t["pending_user"]),
+            "staff": sum(1 for t in offen if t["pending_staff"]),
+        },
+        "limits": {
+            key: {"min": lo, "max": hi}
+            for key, (lo, hi) in ticket_notify.LIMITS.items()
+        },
+    }
+
+
+@router.patch("/{guild_id}/notify", summary="DM-Benachrichtigungen speichern")
+async def save_notify(guild_id: int, data: dict, actor: str = ""):
+    settings = await ticket_notify.save_settings(guild_id, data or {})
+
+    await feature_audit.log_action(
+        "ticket_notify_updated",
+        actor=actor,
+        guild_id=guild_id,
+        detail=(
+            f"Nutzer-DM {'an' if settings['user_dm_enabled'] else 'aus'}, "
+            f"Team-DM {'an' if settings['staff_dm_enabled'] else 'aus'}"
+        ),
+    )
+    return {"status": "success", "settings": settings}

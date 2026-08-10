@@ -1149,6 +1149,13 @@ export const api = {
   // never blank another.
   getTicketPanels: (guildId: string) =>
     request<any>(`/tickets/${guildId}/panels`),
+  getTicketNotify: (guildId: string) =>
+    request<any>(`/tickets/${guildId}/notify`),
+  saveTicketNotify: (guildId: string, data: any) =>
+    request<any>(`/tickets/${guildId}/notify`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
   updateTicketServer: (guildId: string, data: any) =>
     request<any>(`/tickets/${guildId}/server`, {
       method: "PATCH",
