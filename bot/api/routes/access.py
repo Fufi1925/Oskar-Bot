@@ -529,8 +529,33 @@ async def check_user(user_id: str):
 
 
 def _require_global(bot, actor: str, was: str) -> None:
+    """
+    Die Rechtepruefung -- mit einer Meldung, die weiterhilft.
+
+    Vorher stand hier nur "Du darfst ... nicht.". Das war bei einem
+    fehlenden ``actor`` irrefuehrend: die Meldung klang nach fehlender
+    Berechtigung, tatsaechlich war ueberhaupt kein Aufrufer angekommen,
+    weil der Dashboard-Proxy ihn bei GET nicht mitgeschickt hat. Die
+    beiden Faelle sehen im Betrieb voellig verschieden aus und muessen
+    deshalb verschieden heissen.
+    """
+    if not str(actor or "").strip():
+        raise HTTPException(
+            status_code=401,
+            detail=(
+                "Es kam kein angemeldeter Nutzer an. Bitte neu anmelden — "
+                "wenn das bleibt, ist es ein Fehler im Dashboard, nicht bei dir."
+            ),
+        )
+
     if not authority.may_act_globally(bot, actor, "blacklist.manage"):
-        raise HTTPException(status_code=403, detail=f"Du darfst {was} nicht.")
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                f"Du darfst {was} nicht. Dafuer braucht es die Berechtigung "
+                f"'blacklist.manage' oder Inhaberschaft am Bot."
+            ),
+        )
 
 
 def _valid_id(user_id: str) -> int:

@@ -16,9 +16,23 @@ import { authOptions } from "@/lib/auth";
 const MANAGE_GUILD = BigInt(0x20);
 const ADMINISTRATOR = BigInt(0x8);
 
-/** Discord user IDs that may access the global admin panel. */
+/**
+ * Discord user IDs that may access the global admin panel.
+ *
+ * `OWNER_IDS` steht bewusst mit in der Liste. Der Bot liest beide Namen
+ * (`utils/dashboard_roles.py`), das Dashboard las lange nur `ADMIN_IDS` --
+ * und auf einer Installation, die nur `OWNER_IDS` setzt, hielt der Bot
+ * den Betreiber für einen Inhaber, der Proxy aber nicht. Jede
+ * Admin-Anfrage wurde dann abgewiesen, bevor sie den Bot überhaupt
+ * erreichte. Beide Hälften müssen dieselbe Liste sehen.
+ */
 export function getAdminIds(): string[] {
-  return (process.env.ADMIN_IDS || process.env.NEXT_PUBLIC_ADMIN_IDS || "")
+  const raw =
+    process.env.ADMIN_IDS ||
+    process.env.OWNER_IDS ||
+    process.env.NEXT_PUBLIC_ADMIN_IDS ||
+    "";
+  return raw
     .split(",")
     .map((id) => id.trim())
     .filter(Boolean);

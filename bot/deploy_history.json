@@ -1,6 +1,12 @@
 {
  "commits": [
   {
+   "commit": "f6827209f0078129bf78be8cd21cb260594e3229",
+   "at": "1786394061",
+   "subject": "feat(admin): Nutzer nachschlagen, sperren, ueberall bannen, Inhaber warnen",
+   "body": "Neuer Reiter unter Zugriff. Eine Discord-ID eingeben und man sieht das\nProfil und JEDEN gemeinsamen Server -- auch die, auf die der Betrachter\nselbst keinen Zugriff hat. Die bestehende Nutzeransicht listete nur\nServer, in denen die Person eigene Rechte hat; das ist etwas anderes\nals die Frage, wo jemand ueberhaupt auftaucht.\n\nZu jedem Server steht dabei, ob der Bot dort bannen KANN. Nicht bannbar\nheisst konkret: die Person ist Inhaberin, dem Bot fehlt das Recht, oder\nihre Rolle steht ueber seiner. Sonst verspricht die Oberflaeche etwas,\ndas hinterher scheitert.\n\nDrei Massnahmen, absichtlich unterschiedlich schwer:\n\n1. Vom Bot sperren -- umkehrbar, ein Klick mit Grund.\n2. Inhaber warnen -- DM an jeden Server-Inhaber, es wird niemand\n   gebannt. Die betroffene Person selbst bekommt nichts.\n3. Bann auf allen Servern -- 10 Sekunden Countdown, der Name muss\n   abgetippt werden, und die Zahl im Dialog stammt aus einer Probe\n   (dry_run) statt aus einer Schaetzung.\n\nVorher gemessen (repro/check_blacklist_reach.py), wie weit die\nbestehende user_blacklist reicht: sie blockte NUR Befehle. Der\nDashboard-Login lief durch, eine offene Sitzung blieb gueltig, und ein\ngesperrter Nutzer konnte den Bot weiterhin woanders einladen. Alle drei\nTore sind jetzt zu. Eintraege werden zusaetzlich in user_blacklist\ngespiegelt, damit blacklist_check() in allen 175 Befehlen unveraendert\nweiterarbeitet.\n\nGeschuetzt: ohne blacklist.manage geht nichts, man kann sich nicht\nselbst sperren, Bot-Inhaber sind ausgenommen, ein Bann ohne Grund wird\nabgelehnt, IDs werden geprueft. Nach jeder Aenderung wird der\nBlacklist-Zwischenspeicher neu geladen -- sonst greift die Sperre erst\nnach einem Neustart.\n\nDazu bei Dashboard Users ein Knopf 'Alle Server ansehen', der die\nvollstaendige Liste nachlaedt.\n\n36 von 36 Mutationen erwischt. Vier Testluecken dabei geschlossen: die\nRollenpruefung deckte die Inhaberpruefung zu, die Attrappen lagen schon\nsortiert vor, und drei Schutzregeln waren nur per Textsuche geprueft --\ndie faellt mit der Regel weg. Sie werden jetzt wirklich aufgerufen.\n\n83 Testdateien bestanden, Boot-Test 150 Cogs / 543 Prefix / 60 Slash."
+  },
+  {
    "commit": "0d6ec6c1a5c52512436fe1304dd16b692276d4fb",
    "at": "1786321502",
    "subject": "feat(tickets): DM-Benachrichtigungen mit Regeln und >sleep",
@@ -231,12 +237,6 @@
   {
    "commit": "95408f3726afad1097bed27b241aca7380445428",
    "at": "1786136869",
-   "subject": "feat(phantom): EXACT full original Aleks ticket bot (5653 lines - every function kept, no removal, no shortening)",
-   "body": ""
-  },
-  {
-   "commit": "c514b927c14e0b8c52788b1af1adf3aea23864db",
-   "at": "1786136860",
    "subject": "feat(phantom): EXACT full original Aleks ticket bot (5653 lines - every function kept, no removal, no shortening)",
    "body": ""
   }

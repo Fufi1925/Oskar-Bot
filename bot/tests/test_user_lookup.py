@@ -496,6 +496,116 @@ async def test_schutz_wirkt():
         authority.is_owner = echte_owner
 
 
+def test_actor_kommt_an():
+    """
+    Der Aufrufer muss die Route ueberhaupt erreichen.
+
+    Der Fehler, der das ausgeloest hat: der Dashboard-Proxy haengte die
+    ID des Angemeldeten nur bei POST/PATCH (im Koerper) und bei DELETE
+    (als Parameter) an. Eine **lesende** Route mit Rechtepruefung fiel
+    durch beide Raster, bekam ``actor=""`` und antwortete zuverlaessig
+    mit 403 -- fuer jeden, auch fuer den Inhaber.
+
+    Deshalb wird hier nicht nur der Proxy geprueft, sondern der
+    Abgleich: **jede** GET-Route, die eine Rechtepruefung macht, muss
+    einen actor bekommen koennen. Das faengt auch die naechste solche
+    Route ab, die jemand anlegt.
+    """
+    print("\n5c. Der Aufrufer erreicht auch lesende Routen")
+    proxy_pfad = os.path.join(
+        BOT, "..", "dashboard", "app", "api", "bot", "[...path]", "route.ts"
+    )
+    proxy = open(proxy_pfad, encoding="utf-8").read()
+    proxy_ohne_kommentare = "\n".join(
+        z for z in re.sub(r"/\*.*?\*/", "", proxy, flags=re.S).splitlines()
+        if not z.strip().startswith("//")
+    )
+
+    # Der actor darf nicht mehr an der Methode haengen.
+    nur_delete = bool(re.search(
+        r'request\.method === "DELETE" && actorId', proxy_ohne_kommentare))
+    check("actor haengt nicht mehr an DELETE", not nur_delete,
+          "-> lesende Routen bekaemen sonst nie einen")
+    check("actor wird gesetzt, sobald jemand angemeldet ist",
+          bool(re.search(r'if \(actorId\) \{\s*url\.searchParams\.set\("actor", actorId\)',
+                         proxy_ohne_kommentare)))
+    # Und ohne Sitzung darf kein Wert aus dem Browser durchrutschen.
+    check("ohne Sitzung wird ein mitgeschickter actor verworfen",
+          'url.searchParams.delete("actor")' in proxy_ohne_kommentare,
+          "-> sonst schreibt sich jeder eine fremde ID in die URL")
+
+    # Jede GET-Route mit Rechtepruefung -- auch kuenftige.
+    baum = ast.parse(read("api/routes/access.py"))
+    lesend_mit_pruefung = []
+    for knoten in ast.walk(baum):
+        if not isinstance(knoten, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        ist_get = any(
+            isinstance(d, ast.Call) and getattr(d.func, "attr", "") == "get"
+            for d in knoten.decorator_list
+        )
+        prueft = any(
+            isinstance(u, ast.Call) and getattr(u.func, "id", "") == "_require_global"
+            for u in ast.walk(knoten)
+        )
+        if ist_get and prueft:
+            hat_parameter = any(a.arg == "actor" for a in knoten.args.args)
+            lesend_mit_pruefung.append((knoten.name, hat_parameter))
+
+    check("es gibt solche Routen (sonst prueft das hier nichts)",
+          len(lesend_mit_pruefung) >= 2, f"({lesend_mit_pruefung})")
+    ohne = [n for n, hat in lesend_mit_pruefung if not hat]
+    check("jede nimmt einen actor entgegen", not ohne, f"({ohne})")
+
+    # Und die Meldung muss die beiden Faelle trennen -- wirklich
+    # ausgefuehrt, nicht im Text gesucht: eine Textsuche traefe auch den
+    # Kommentar, der die Regel beschreibt, und bliebe gruen, wenn nur
+    # die Regel selbst wegfaellt.
+    from fastapi import HTTPException
+
+    from api.routes import access as route_mod
+
+    for leerer_actor in ("", "   ", None):
+        try:
+            route_mod._require_global(None, leerer_actor, "etwas tun")
+        except HTTPException as exc:
+            check(f"leerer actor ({leerer_actor!r}) ergibt 401",
+                  exc.status_code == 401, f"(war {exc.status_code})")
+        else:
+            check(f"leerer actor ({leerer_actor!r}) wird abgelehnt", False,
+                  "-> lief einfach durch")
+
+    # Die Prueflogik selbst muss aber weiter greifen: ein vorhandener,
+    # aber unberechtigter Aufrufer bekommt 403 -- nicht 401.
+    import utils.dashboard_authority as authority
+
+    echt = authority.may_act_globally
+    authority.may_act_globally = lambda b, a, p: False
+    route_mod.authority = authority
+    try:
+        route_mod._require_global(None, "123456789012345678", "etwas tun")
+    except HTTPException as exc:
+        check("unberechtigter Aufrufer ergibt 403", exc.status_code == 403,
+              f"(war {exc.status_code})")
+    else:
+        check("unberechtigter Aufrufer wird abgelehnt", False)
+    finally:
+        authority.may_act_globally = echt
+
+    # Proxy und Bot muessen dieselbe Inhaberliste sehen. Auch das per
+    # Wirkung: der Kommentar darueber nennt OWNER_IDS ebenfalls.
+    ga = open(os.path.join(BOT, "..", "dashboard", "lib", "guild-auth.ts"),
+              encoding="utf-8").read()
+    rumpf = ga[ga.index("export function getAdminIds"):]
+    rumpf = rumpf[: rumpf.index("\n}")]
+    check("getAdminIds liest OWNER_IDS", "process.env.OWNER_IDS" in rumpf,
+          "-> der Bot liest beide Namen; las der Proxy nur ADMIN_IDS, "
+          "war der Betreiber fuer den Bot Inhaber und fuer den Proxy nicht")
+    startsh = open(os.path.join(BOT, "..", "start.sh"), encoding="utf-8").read()
+    check("start.sh fuellt ADMIN_IDS aus OWNER_IDS",
+          'ADMIN_IDS="$OWNER_IDS"' in startsh)
+
+
 def test_schutz():
     print("\n5b. Oberflaeche und Verdrahtung")
 
@@ -567,6 +677,7 @@ async def main():
             os.chdir(alt)
 
     test_ban_wirkt_auf_login_und_invite()
+    test_actor_kommt_an()
     test_schutz()
 
     print("\n" + "=" * 64)

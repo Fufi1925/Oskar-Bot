@@ -57,8 +57,19 @@ if [ -n "${NEXT_PUBLIC_DASHBOARD_API_KEY:-}" ]; then
 fi
 
 # Admin IDs are needed server-side for authorization checks.
+#
+# The bot reads OWNER_IDS *and* ADMIN_IDS (utils/dashboard_roles.py), the
+# dashboard proxy only ever read ADMIN_IDS. On a deployment that sets just
+# OWNER_IDS — which is what the Railway setup does — the two disagreed:
+# the bot considered the deployer an owner, the proxy did not, and every
+# admin request was rejected before it ever reached the bot. Filling the
+# gap here keeps both halves on the same list.
 if [ -z "${ADMIN_IDS:-}" ] && [ -n "${NEXT_PUBLIC_ADMIN_IDS:-}" ]; then
   export ADMIN_IDS="$NEXT_PUBLIC_ADMIN_IDS"
+fi
+if [ -z "${ADMIN_IDS:-}" ] && [ -n "${OWNER_IDS:-}" ]; then
+  export ADMIN_IDS="$OWNER_IDS"
+  echo "🔑 ADMIN_IDS taken from OWNER_IDS so the dashboard agrees with the bot"
 fi
 
 echo "=========================================="

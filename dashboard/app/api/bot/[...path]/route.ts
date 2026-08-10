@@ -1041,9 +1041,27 @@ async function handler(request: NextRequest, context: { params: { path?: string[
     }
   }
 
-  // Same for DELETE, where the actor travels as a query parameter.
-  if (request.method === "DELETE" && actorId) {
+  // Der `actor` als Abfrageparameter -- für JEDE Methode, nicht nur
+  // DELETE.
+  //
+  // Vorher stand hier `request.method === "DELETE"`. Das reichte genau
+  // so lange, wie ausschließlich schreibende Routen den Aufrufer
+  // brauchten: POST und PATCH bekommen ihn im JSON-Körper, DELETE hat
+  // keinen Körper und deshalb diesen Zweig. Eine **lesende** Route, die
+  // eine Rechteprüfung macht, fiel durch beide Raster — sie bekam
+  // `actor=""` und antwortete zuverlässig mit 403. Genau das ist beim
+  // Nutzer-Nachschlag passiert: "Du darfst Nutzer nachschlagen nicht.",
+  // egal wer angemeldet war.
+  //
+  // `set` statt `append`: ein aus dem Browser mitgeschickter Wert wird
+  // überschrieben, nicht ergänzt. Sonst könnte jemand eine fremde ID in
+  // die URL schreiben und damit fremde Rechte erben.
+  if (actorId) {
     url.searchParams.set("actor", actorId);
+  } else {
+    // Ohne Sitzung darf erst recht kein Wert aus dem Browser
+    // durchrutschen.
+    url.searchParams.delete("actor");
   }
 
   // Der Tester-Bereich liest die user_id auch bei GET. Sie kommt
