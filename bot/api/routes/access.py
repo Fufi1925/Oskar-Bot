@@ -27,6 +27,9 @@ from utils import dashboard_access as access
 from utils import dashboard_authority as authority
 from utils import dashboard_roles as roles
 from utils import feature_audit
+from utils import feature_gates
+from utils import user_actions
+from utils import user_lookup
 
 if TYPE_CHECKING:
     from core.universitybot import universitybot
@@ -443,6 +446,18 @@ async def create_login(data: dict):
 
     await access.load()
     banned = access.is_banned(user_id)
+    grund = ""
+
+    # Die Bot-Sperre aus dem Admin-Dashboard sperrt auch hier aus.
+    # Vorher waren das zwei getrennte Systeme: die user_blacklist
+    # blockte nur Befehle im Discord, der Login lief weiter durch --
+    # ein gesperrter Nutzer konnte sich also weiter einloggen. Gemessen
+    # in repro/check_blacklist_reach.py.
+    if not banned:
+        bot_ban = await user_lookup.get_ban(user_id)
+        if bot_ban:
+            banned = True
+            grund = bot_ban.get("reason", "")
 
     if not banned:
         await access.record_login(
@@ -453,7 +468,11 @@ async def create_login(data: dict):
             path=str(data.get("path", ""))[:200],
         )
 
-    return {"status": "success", "banned": banned, "ban": access.get_ban(user_id)}
+    return {
+        "status": "success",
+        "banned": banned,
+        "ban": access.get_ban(user_id) or ({"reason": grund} if grund else None),
+    }
 
 
 @router.delete("/logins/{user_id}", summary="Forget a sign-in record")
@@ -475,6 +494,21 @@ async def check_user(user_id: str):
     """Cheap endpoint used by the dashboard middleware on every request."""
     await access.load()
     ban = access.get_ban(user_id)
+
+    # Auch hier die Bot-Sperre mitpruefen. Ohne das kaeme jemand mit
+    # einer bestehenden Sitzung weiter ins Dashboard -- der Login wird
+    # ja nur einmal geprueft, diese Route bei jedem Aufruf.
+    if ban is None:
+        bot_ban = await user_lookup.get_ban(user_id)
+        if bot_ban:
+            return {
+                "user_id": str(user_id),
+                "banned": True,
+                "reason": bot_ban.get("reason", "") or "Vom Bot gesperrt.",
+                "expires_at": 0,
+                "checked_at": int(time.time()),
+            }
+
     return {
         "user_id": str(user_id),
         "banned": ban is not None,
@@ -482,3 +516,154 @@ async def check_user(user_id: str):
         "expires_at": (ban or {}).get("expires_at", 0),
         "checked_at": int(time.time()),
     }
+
+
+# ══════════════════════════════════════════════════════════════════════
+#  Nutzer nachschlagen und Massnahmen ergreifen
+# ══════════════════════════════════════════════════════════════════════
+#
+#  Alles hier verlangt `blacklist.manage` oder Inhaberschaft. Die
+#  Uebersicht zeigt JEDEN gemeinsamen Server einer Person, auch die, auf
+#  die der Betrachter sonst keinen Zugriff hat -- das ist der Sinn der
+#  Sache und zugleich der Grund fuer die strenge Pruefung.
+
+
+def _require_global(bot, actor: str, was: str) -> None:
+    if not authority.may_act_globally(bot, actor, "blacklist.manage"):
+        raise HTTPException(status_code=403, detail=f"Du darfst {was} nicht.")
+
+
+def _valid_id(user_id: str) -> int:
+    uid = str(user_id).strip()
+    if not uid.isdigit() or not 15 <= len(uid) <= 20:
+        raise HTTPException(
+            status_code=400, detail="Das ist keine gueltige Discord-ID."
+        )
+    return int(uid)
+
+
+@router.get("/lookup/{user_id}", summary="Alles zu einer Nutzer-ID")
+async def lookup_user(
+    user_id: str, actor: str = "", bot: "universitybot" = Depends(get_bot)
+):
+    await roles.load()
+    _require_global(bot, actor, "Nutzer nachschlagen")
+    return await user_lookup.lookup(bot, _valid_id(user_id))
+
+
+@router.get("/bot-bans", summary="Wer ist vom Bot gesperrt")
+async def list_bot_bans(actor: str = "", bot: "universitybot" = Depends(get_bot)):
+    await roles.load()
+    _require_global(bot, actor, "die Sperrliste sehen")
+
+    eintraege = await user_lookup.list_bans()
+    for eintrag in eintraege:
+        eintrag.update(_decorate_user(bot, eintrag["user_id"]))
+    return {"bans": eintraege, "count": len(eintraege)}
+
+
+@router.post("/bot-bans", summary="Jemanden komplett vom Bot sperren")
+async def create_bot_ban(data: dict, bot: "universitybot" = Depends(get_bot)):
+    actor = str(data.get("actor", "")).strip()
+    await roles.load()
+    _require_global(bot, actor, "jemanden sperren")
+
+    uid = _valid_id(str(data.get("user_id", "")))
+
+    # Sich selbst oder einen Inhaber auszusperren waere ein Fehler, den
+    # man nicht mehr rueckgaengig machen kann, wenn es der letzte war.
+    if str(uid) == actor:
+        raise HTTPException(status_code=400, detail="Du kannst dich nicht selbst sperren.")
+    if authority.is_owner(bot, str(uid)):
+        raise HTTPException(
+            status_code=400, detail="Inhaber des Bots lassen sich nicht sperren."
+        )
+
+    ergebnis = await user_lookup.ban_from_bot(
+        uid,
+        reason=str(data.get("reason", "")),
+        actor=actor,
+        note=str(data.get("note", "")),
+    )
+
+    # Der Zwischenspeicher der Befehlspruefung muss neu geladen werden,
+    # sonst greift die Sperre erst nach einem Neustart.
+    feature_gates.invalidate_blacklist()
+    await feature_gates.refresh_blacklist()
+
+    await feature_audit.log_action(
+        "bot_ban_added", actor=actor, detail=f"{uid}: {ergebnis['reason']}"
+    )
+    return {"status": "success", **ergebnis}
+
+
+@router.delete("/bot-bans/{user_id}", summary="Bot-Sperre aufheben")
+async def delete_bot_ban(
+    user_id: str, actor: str = "", bot: "universitybot" = Depends(get_bot)
+):
+    await roles.load()
+    _require_global(bot, actor, "Sperren aufheben")
+
+    entfernt = await user_lookup.unban_from_bot(_valid_id(user_id))
+    if not entfernt:
+        raise HTTPException(status_code=404, detail="Diese Person ist nicht gesperrt.")
+
+    feature_gates.invalidate_blacklist()
+    await feature_gates.refresh_blacklist()
+
+    await feature_audit.log_action("bot_ban_removed", actor=actor, detail=str(user_id))
+    return {"status": "success", "user_id": str(user_id)}
+
+
+@router.post("/mass-action", summary="Bann auf allen Servern oder Warnung an die Inhaber")
+async def mass_action(data: dict, bot: "universitybot" = Depends(get_bot)):
+    """
+    Zwei Massnahmen, beide bewusst umstaendlich auszuloesen.
+
+    ``dry_run`` fuehrt nichts aus und meldet nur, was passieren wuerde.
+    Die Oberflaeche fragt das zuerst ab, damit die Zahl im
+    Bestaetigungsdialog stimmt statt geschaetzt zu sein.
+    """
+    actor = str(data.get("actor", "")).strip()
+    await roles.load()
+    _require_global(bot, actor, "diese Massnahme ausfuehren")
+
+    uid = _valid_id(str(data.get("user_id", "")))
+    kind = str(data.get("kind", "")).strip()
+    if kind not in {"ban_all", "warn_owners"}:
+        raise HTTPException(
+            status_code=400, detail="kind muss 'ban_all' oder 'warn_owners' sein."
+        )
+
+    dry_run = bool(data.get("dry_run", False))
+    reason = str(data.get("reason", "")).strip()
+
+    # Ein Bann ohne Begruendung ist spaeter nicht mehr nachvollziehbar --
+    # und steht so auch im Auditlog von Discord.
+    if not dry_run and not reason:
+        raise HTTPException(status_code=400, detail="Ein Grund ist erforderlich.")
+
+    if kind == "ban_all":
+        if str(uid) == actor:
+            raise HTTPException(
+                status_code=400, detail="Du kannst dich nicht selbst ueberall bannen."
+            )
+        if authority.is_owner(bot, str(uid)):
+            raise HTTPException(
+                status_code=400, detail="Inhaber des Bots lassen sich nicht bannen."
+            )
+        ergebnis = await user_actions.ban_everywhere(
+            bot, uid, reason=reason, actor=actor, dry_run=dry_run
+        )
+    else:
+        ergebnis = await user_actions.warn_owners(
+            bot, uid, reason=reason, actor=actor, dry_run=dry_run
+        )
+
+    if not dry_run:
+        await feature_audit.log_action(
+            f"mass_{kind}", actor=actor,
+            detail=f"{uid}: {ergebnis['ok_count']} ok, {ergebnis['fail_count']} fehlgeschlagen",
+        )
+
+    return {"status": "success", "kind": kind, **ergebnis}

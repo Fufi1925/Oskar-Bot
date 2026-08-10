@@ -1040,6 +1040,20 @@ export const api = {
   }) => request<any>("/access/bans", { method: "POST", body: JSON.stringify(data) }),
   unbanDashboardUser: (userId: string) =>
     request<any>(`/access/bans/${userId}`, { method: "DELETE" }),
+  // ── Nutzer nachschlagen und Massnahmen (Admin) ───────────────────────
+  lookupUser: (userId: string) => request<any>(`/access/lookup/${userId}`),
+  getBotBans: () => request<{ bans: any[]; count: number }>("/access/bot-bans"),
+  addBotBan: (data: { user_id: string; reason?: string; note?: string }) =>
+    request<any>("/access/bot-bans", { method: "POST", body: JSON.stringify(data) }),
+  removeBotBan: (userId: string) =>
+    request<any>(`/access/bot-bans/${userId}`, { method: "DELETE" }),
+  userMassAction: (data: {
+    user_id: string;
+    kind: "ban_all" | "warn_owners";
+    reason?: string;
+    dry_run?: boolean;
+  }) => request<any>("/access/mass-action", { method: "POST", body: JSON.stringify(data) }),
+
   getDashboardLogins: (limit = 200) =>
     request<{ logins: any[]; count: number }>(`/access/logins?limit=${limit}`),
   forgetDashboardLogin: (userId: string) =>

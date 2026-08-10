@@ -17,7 +17,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle, Ban, Check, Clock, Copy, Crown, Loader2, LogIn, RefreshCw,
-  Search, Shield, ShieldCheck, Trash2, UserX, Users, X,
+  Globe, Search, Shield, ShieldCheck, Trash2, UserX, Users, X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
@@ -109,6 +109,31 @@ export function DashboardUsersPanel({ currentUserId }: { currentUserId?: string 
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("all");
   const [expanded, setExpanded] = useState<string | null>(null);
+
+  /**
+   * Alle Server einer Person -- pro Nutzer nachgeladen.
+   *
+   * Nicht im Listenaufruf enthalten: dafuer muesste der Bot fuer jeden
+   * Eintrag jeden Server durchgehen, und bei hunderten Konten waere das
+   * eine sehr teure Abfrage fuer eine Angabe, die man selten braucht.
+   * "loading" steht drin, solange die Anfrage laeuft.
+   */
+  const [allGuilds, setAllGuilds] = useState<Record<string, any[] | "loading">>({});
+
+  const loadAllGuilds = async (userId: string) => {
+    setAllGuilds((old) => ({ ...old, [userId]: "loading" }));
+    try {
+      const res = await api.lookupUser(userId);
+      setAllGuilds((old) => ({ ...old, [userId]: res.guilds || [] }));
+    } catch (err: any) {
+      setAllGuilds((old) => {
+        const next = { ...old };
+        delete next[userId];
+        return next;
+      });
+      toast.error(err?.message || "Server konnten nicht geladen werden.");
+    }
+  };
 
   // Ban dialog
   // Two ways to ban, and they used to share one set of fields.
@@ -567,6 +592,56 @@ export function DashboardUsersPanel({ currentUserId }: { currentUserId?: string 
                             </li>
                           )}
                         </ul>
+                      )}
+
+                      {/*
+                        Die Liste oben zeigt nur Server, auf denen die Person
+                        Rechte hat. Das ist etwas anderes als "wo ist die
+                        Person ueberhaupt" -- dafuer wird nachgeladen.
+                      */}
+                      <button
+                        onClick={() => loadAllGuilds(user.user_id)}
+                        disabled={allGuilds[user.user_id] === "loading"}
+                        className="mt-3 inline-flex items-center gap-2 text-[11px] font-bold px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-slate-400 hover:text-white transition-colors disabled:opacity-40"
+                      >
+                        {allGuilds[user.user_id] === "loading" ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <Globe className="h-3 w-3" />
+                        )}
+                        Alle Server ansehen
+                      </button>
+
+                      {Array.isArray(allGuilds[user.user_id]) && (
+                        <div className="mt-3">
+                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
+                            Ist Mitglied auf ({(allGuilds[user.user_id] as any[]).length})
+                          </p>
+                          {(allGuilds[user.user_id] as any[]).length === 0 ? (
+                            <p className="text-sm text-slate-500">Kein gemeinsamer Server</p>
+                          ) : (
+                            <ul className="space-y-1.5 max-h-52 overflow-y-auto pr-1">
+                              {(allGuilds[user.user_id] as any[]).map((guild) => (
+                                <li
+                                  key={guild.guild_id}
+                                  className="text-sm text-slate-300 flex items-center gap-2"
+                                >
+                                  {guild.is_owner ? (
+                                    <Crown className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+                                  ) : guild.is_admin ? (
+                                    <ShieldCheck className="h-3.5 w-3.5 text-indigo-300 shrink-0" />
+                                  ) : (
+                                    <span className="h-1.5 w-1.5 rounded-full bg-slate-600 shrink-0 ml-1 mr-1" />
+                                  )}
+                                  <span className="truncate">{guild.guild_name}</span>
+                                  <span className="text-[10px] text-slate-600 shrink-0">
+                                    {guild.member_count?.toLocaleString("de-DE")}
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
                       )}
                     </div>
 

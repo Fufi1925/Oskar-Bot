@@ -334,6 +334,34 @@ SCHEMA: dict[str, tuple[str, ...]] = {
         """CREATE INDEX IF NOT EXISTS idx_warn_log_guild_user
             ON warn_log (guild_id, user_id, active)""",
     ),
+    "db/user_lookup.db": (
+        # Users banned from the bot entirely -- not just from commands.
+        # The old user_blacklist only gated command invocations; it let
+        # the dashboard login through and did not stop anyone from
+        # inviting the bot. Entries here are mirrored into that table so
+        # the existing blacklist_check() in every command keeps working.
+        """CREATE TABLE IF NOT EXISTS bot_bans (
+            user_id TEXT PRIMARY KEY,
+            reason TEXT DEFAULT '',
+            banned_by TEXT,
+            banned_at INTEGER NOT NULL,
+            note TEXT DEFAULT ''
+        )""",
+        # What a mass ban or owner warning actually achieved.
+        """CREATE TABLE IF NOT EXISTS mass_actions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id TEXT NOT NULL,
+            kind TEXT NOT NULL,
+            actor TEXT,
+            reason TEXT DEFAULT '',
+            ok_count INTEGER DEFAULT 0,
+            fail_count INTEGER DEFAULT 0,
+            detail TEXT DEFAULT '',
+            created_at INTEGER NOT NULL
+        )""",
+        """CREATE INDEX IF NOT EXISTS idx_mass_actions_user
+            ON mass_actions (user_id, created_at)""",
+    ),
     "db/ticket_notify.db": (
         # Settings for the ticket DM notifications, per guild.
         """CREATE TABLE IF NOT EXISTS notify_settings (

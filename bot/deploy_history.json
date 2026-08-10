@@ -1,6 +1,12 @@
 {
  "commits": [
   {
+   "commit": "0d6ec6c1a5c52512436fe1304dd16b692276d4fb",
+   "at": "1786321502",
+   "subject": "feat(tickets): DM-Benachrichtigungen mit Regeln und >sleep",
+   "body": "Zwei Richtungen, im Dashboard einzeln schaltbar. Antwortet das Team,\nbekommt der Ersteller nach einer Wartezeit eine DM. Wartet umgekehrt\nder Ersteller, bekommt das Teammitglied eine, das zuletzt im Ticket\ngeschrieben hat.\n\nDie Regeln in der Reihenfolge, in der sie greifen:\n1. Nur wenn der Schalter im Dashboard an ist, pro Richtung getrennt.\n2. Nie in einem frischen Ticket -- solange nur der Ersteller\n   geschrieben hat, passiert nichts.\n3. Danach die eingestellte Wartezeit, Vorgabe fuenf Minuten.\n4. Hat die Gegenseite inzwischen geschrieben, entfaellt die DM.\n5. Sperrzeit pro Ticket und Person, Vorgabe eine Stunde.\n6. >sleep legt ein Ticket still, in beide Richtungen, bis >wake kommt\n   oder das Ticket geschlossen wird. Nur fuer das Team, nur im Ticket.\n7. Optionale Ruhezeit, in der ueberhaupt niemand angeschrieben wird.\n\nAlle Zeiten sind einstellbar und begrenzt: ohne Untergrenze koennte\neine Null bei jeder Nachricht eine DM ausloesen.\n\nDie Entscheidung steht in utils/ticket_notify.py und nirgends sonst.\nSie muss beim Schreiben, im Hintergrundlauf und im Dashboard identisch\ngelten -- drei Kopien derselben Bedingung laufen auseinander.\n\nDie DM ist Components V2: Container mit farbigem Balken, Link-Knopf\nzum Kanal. Ein Interaktionsknopf waere falsch, weil eine DM jeden\nNeustart ueberlebt und eine custom_id danach niemanden mehr faende.\nKein content= -- damit lehnt Discord eine V2-Ansicht mit 50035 ab.\n\nKorrektur waehrend der Arbeit: der Knopf sass zuerst ausserhalb des\nContainers, weil die Vorlage so aussieht. test_v2_buttons.py hat das\nabgelehnt, zu Recht -- eine ActionRow direkt in der LayoutView rendert\nausserhalb der Karte. Ebenso das Unicode-Emoji, jetzt das eigene.\n\nNur eine angekommene DM startet die Sperrzeit. Wer seine DMs zu hat,\nbleibt sonst eine Stunde gesperrt fuer etwas, das er nie bekam.\n\n36 von 36 Mutationen erwischt, 83 Testdateien bestanden, Boot-Test\n150 Cogs / 543 Prefix / 60 Slash."
+  },
+  {
    "commit": "0b291837c39d6c509c614d21528d41cfda68fba2",
    "at": "1786316815",
    "subject": "fix(warn,timer): Warnungen mit Grund, Timer ohne Rate-Limit",
@@ -231,12 +237,6 @@
   {
    "commit": "c514b927c14e0b8c52788b1af1adf3aea23864db",
    "at": "1786136860",
-   "subject": "feat(phantom): EXACT full original Aleks ticket bot (5653 lines - every function kept, no removal, no shortening)",
-   "body": ""
-  },
-  {
-   "commit": "733e4500c59673638297bd25980b6646cbf7b80a",
-   "at": "1786136853",
    "subject": "feat(phantom): EXACT full original Aleks ticket bot (5653 lines - every function kept, no removal, no shortening)",
    "body": ""
   }

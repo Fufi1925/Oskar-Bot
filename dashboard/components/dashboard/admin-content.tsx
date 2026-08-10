@@ -5,7 +5,7 @@ import {
   Shield, Users, Server, Activity, Database, Cpu, Globe, Lock, Settings,
   RefreshCw, Ban, UserX, Clock, VolumeX, Send, Megaphone, Wrench, AlertTriangle,
   Hash, Volume2, FolderPlus, Pencil, Trash2, Copy,
-  Unlock, Timer, MessageSquareX, Bell, BellOff, SearchCheck, Bot, UserCog,
+  Unlock, Timer, MessageSquareX, Bell, BellOff, SearchCheck, Bot, UserCog, UserSearch,
   Webhook, Link, ScrollText, BarChart4, ClipboardList, Terminal, Gem, Gauge, Bug,
   AtSign, Sparkles
 } from "lucide-react";
@@ -38,10 +38,11 @@ import { WarningsPanel } from "@/components/dashboard/warnings-panel";
 import { CommandStatsPanel } from "@/components/dashboard/command-stats-panel";
 import { PingReactionsPanel } from "@/components/dashboard/ping-reactions-panel";
 import { DashboardUsersPanel } from "@/components/dashboard/dashboard-users-panel";
+import { UserLookupPanel } from "@/components/dashboard/user-lookup-panel";
 import { ServersPanel } from "@/components/dashboard/servers-panel";
 
 
-type TabId = "members" | "channels" | "server" | "scans" | "broadcast" | "system" | "features" | "health" | "team" | "access" | "reports" | "audit" | "approvals" | "botsettings" | "backups" | "warnings" | "usage" | "dashusers" | "servers" | "premium" | "speedrun" | "tester" | "pingreactions" | "templates";
+type TabId = "members" | "channels" | "server" | "scans" | "broadcast" | "system" | "features" | "health" | "team" | "access" | "reports" | "audit" | "approvals" | "botsettings" | "backups" | "warnings" | "usage" | "dashusers" | "servers" | "premium" | "speedrun" | "tester" | "pingreactions" | "templates" | "userlookup";
 type MemberAction = "ban" | "kick" | "mute" | "unmute";
 
 type QuickAction = {
@@ -64,6 +65,7 @@ const tabs: Array<{ id: TabId; label: string; icon: any }> = [
   { id: "health", label: "Health", icon: Activity },
   { id: "team", label: "Team", icon: Users },
   { id: "dashusers", label: "Dashboard Users", icon: UserCog },
+  { id: "userlookup", label: "Nutzer suchen", icon: UserSearch },
   { id: "servers", label: "Servers", icon: Globe },
   { id: "warnings", label: "Warnings", icon: AlertTriangle },
   { id: "usage", label: "Usage", icon: Terminal },
@@ -94,7 +96,7 @@ const tabs: Array<{ id: TabId; label: string; icon: any }> = [
 const TAB_GROUPS: Array<{ name: string; ids: TabId[] }> = [
   { name: "Server", ids: ["members", "channels", "server", "scans", "broadcast"] },
   { name: "Betrieb", ids: ["health", "system", "usage", "warnings", "reports", "audit"] },
-  { name: "Zugriff", ids: ["team", "dashusers", "access", "approvals"] },
+  { name: "Zugriff", ids: ["team", "dashusers", "userlookup", "access", "approvals"] },
   { name: "Verwaltung", ids: ["features", "botsettings", "backups", "pingreactions", "servers", "premium", "speedrun", "tester", "templates"] },
 ];
 
@@ -137,7 +139,7 @@ const quickActions: QuickAction[] = [
 const FULL_WIDTH_TABS = new Set<TabId>([
   "features", "health", "team", "access",
   "reports", "audit", "approvals", "botsettings", "backups", "warnings", "usage",
-  "dashusers", "servers", "premium", "speedrun", "tester", "templates",
+  "dashusers", "userlookup", "servers", "premium", "speedrun", "tester", "templates",
 ]);
 
 function TextInput({ label, value, setValue, placeholder, type = "text" }: { label: string; value: string; setValue: (value: string) => void; placeholder?: string; type?: string }) {
@@ -609,6 +611,7 @@ export function AdminContent() {
       {activeTab === "pingreactions" && <PingReactionsPanel />}
       {activeTab === "templates" && <TemplatesAdmin />}
       {activeTab === "dashusers" && <DashboardUsersPanel currentUserId={(session?.user as any)?.id} />}
+      {activeTab === "userlookup" && <UserLookupPanel />}
       {activeTab === "servers" && <ServersPanel currentUserId={(session?.user as any)?.id} />}
       {activeTab === "reports" && <ReportsPanel />}
       {activeTab === "audit" && <AuditPanel />}

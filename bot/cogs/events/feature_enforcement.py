@@ -18,6 +18,7 @@ from core import Cog
 from utils import feature_flags as flags
 from utils import feature_audit as audit
 from utils import feature_gates
+from utils import user_lookup
 from utils.feature_services import runtime, record_command_error
 from utils import command_stats
 
@@ -108,6 +109,34 @@ class FeatureEnforcement(Cog):
             await feature_gates.refresh_blacklist()
         if guild.id in feature_gates._blacklist_guilds:
             return "guild is blacklisted"
+
+        # Wer den Bot geholt hat, zaehlt auch.
+        #
+        # Vorher wurde nur der Server geprueft. Eine gesperrte Person
+        # konnte den Bot also weiterhin auf einen frischen Server
+        # einladen -- dort liefen zwar ihre Befehle nicht, aber der Bot
+        # war da. Der Eintrag im Auditlog nennt, wer eingeladen hat;
+        # ohne View Audit Log gibt es ihn nicht, dann greift wenigstens
+        # die Pruefung auf den Inhaber.
+        einlader = None
+        if guild.me and guild.me.guild_permissions.view_audit_log:
+            try:
+                async for eintrag in guild.audit_logs(
+                    limit=5, action=discord.AuditLogAction.bot_add
+                ):
+                    if eintrag.target and eintrag.target.id == self.bot.user.id:
+                        einlader = eintrag.user
+                        break
+            except (discord.Forbidden, discord.HTTPException):
+                einlader = None
+
+        for kandidat, rolle in ((einlader, "inviter"), (guild.owner, "owner")):
+            if kandidat is None:
+                continue
+            if kandidat.id in feature_gates._blacklist_users:
+                return f"{rolle} is blacklisted"
+            if await user_lookup.is_banned(kandidat.id):
+                return f"{rolle} is banned from the bot"
 
         members = guild.member_count or len(guild.members)
         if members >= BOT_FARM_MIN_MEMBERS:
