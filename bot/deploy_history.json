@@ -1,6 +1,12 @@
 {
  "commits": [
   {
+   "commit": "6b7b613a085ca59227499fe073dcbefe01f9dfe8",
+   "at": "1786486992",
+   "subject": "fix(tickets): Schreibrechte im eigenen Ticket; fix(ui): verrutschte Schalter; feat: Abschied-Reiter",
+   "body": "Tickets: wer ein Ticket erstellte, sah seinen Kanal und konnte nichts\nhineinschreiben. Ein Rechte-Eintrag in Discord kennt drei Zustaende --\nja, nein und nichts gesagt. Es stand ueberall nur view_channel=True,\nalso darf sehen; ueber das Schreiben sagte es nichts. Damit galt\nweiter, was die Ticket-Kategorie vorgibt, und die wird mit\nview_channel=False angelegt.\n\nDas traf nicht nur den Ersteller: Team-Rolle und Bot hatten dieselbe\nZeile. Dass die Begruessung im Ticket ueberhaupt ankam, lag an einer\nAdministrator-Rolle. Alle drei bekommen jetzt ausdrueckliche Rechte --\nsend_messages, read_message_history, attach_files, embed_links,\nadd_reactions; Team und Bot zusaetzlich manage_messages. @everyone\nbleibt ausgesperrt.\n\nSchalter: der weisse Knopf hing rechts ueber die Bahn hinaus. Er war\nabsolute ohne left und fiel damit auf seine statische Position zurueck\n-- und die zentriert ein button: (48-20)/2 = 14px statt 2px.\ntranslate-x-6 schob ihn auf 38px, er endete bei 58px auf einer 48px\nbreiten Bahn. Genau das war auf dem Bild zu sehen.\n\nDieser Fehler stand schon zweimal als Warnung in form-elements.tsx,\nund ich hatte ihn in meinen eigenen Schaltern trotzdem wiederholt.\nStatt ihn ein viertes Mal einzeln zu flicken, gibt es jetzt\nSwitchToggle als gemeinsamen Baustein. Das ganze Dashboard nach\ndemselben Muster durchsucht: keine weitere Stelle betroffen.\n\nAbschied: hing unten auf der Begruessungsseite und hat jetzt einen\neigenen Reiter, eingetragen in Reiterleiste, Suche und Seitenleiste.\nBeide Teile teilen sich weiterhin eine Route -- getrennte Komponenten\nhaetten denselben Ladevorgang zweimal gemacht und koennten beim\nSpeichern auseinanderlaufen; ein Umschalter entscheidet, welcher Teil\ngezeichnet wird.\n\ntest_templates schlug danach an, zu Recht: ein neuer Reiter muss in\nVorlagen uebertragbar sein. Dabei kam heraus, dass greet_extras\nueberhaupt noch nicht erfasst war -- der Bild-Schalter ging bisher bei\nkeiner Vorlage mit.\n\n21 von 21 Mutationen erwischt. Eine entwischte zuerst, weil die\nPruefung nach der ganzen Zeichenkette suchte: die aendert sich mit,\nwenn jemand False zu True macht, und dann findet die Suche nichts und\nbleibt still. Sie fragt jetzt den Syntaxbaum.\n\n87 Testdateien bestanden, Boot-Test 150 Cogs / 543 Prefix / 60 Slash."
+  },
+  {
    "commit": "f82d21928439e6429cf2a746ad41da5b875aa704",
    "at": "1786478569",
    "subject": "fix(music): toter Player, fehlende Rechte, kuerzere Wartezeit",
@@ -231,12 +237,6 @@
   {
    "commit": "8ffccf489c7432153bca6e52f7c8fd8bbd701dde",
    "at": "1786136908",
-   "subject": "feat(phantom): EXACT full original Aleks ticket bot (5653 lines - every function kept, no removal, no shortening)",
-   "body": ""
-  },
-  {
-   "commit": "9e53bff5bead04a0106cb66a64296768e32188af",
-   "at": "1786136901",
    "subject": "feat(phantom): EXACT full original Aleks ticket bot (5653 lines - every function kept, no removal, no shortening)",
    "body": ""
   }

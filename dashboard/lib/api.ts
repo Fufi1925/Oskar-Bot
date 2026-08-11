@@ -1169,6 +1169,48 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
+  // ── Bewerbungen ──────────────────────────────────────────────────────
+  getApplicationPanels: (guildId: string) =>
+    request<any>(`/applications/${guildId}/panels`),
+  createApplicationPanel: (guildId: string, name: string) =>
+    request<any>(`/applications/${guildId}/panels`, {
+      method: "POST",
+      body: JSON.stringify({ name }),
+    }),
+  updateApplicationPanel: (guildId: string, panelId: number, data: any) =>
+    request<any>(`/applications/${guildId}/panels/${panelId}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+  deleteApplicationPanel: (guildId: string, panelId: number) =>
+    request<any>(`/applications/${guildId}/panels/${panelId}`, { method: "DELETE" }),
+  saveApplicationCategory: (guildId: string, panelId: number, data: any) =>
+    request<any>(`/applications/${guildId}/panels/${panelId}/categories`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+  deleteApplicationCategory: (guildId: string, categoryId: number) =>
+    request<any>(`/applications/${guildId}/categories/${categoryId}`, {
+      method: "DELETE",
+    }),
+  sendApplicationPanel: (guildId: string, panelId: number) =>
+    request<any>(`/applications/${guildId}/panels/${panelId}/send`, {
+      method: "POST",
+      body: JSON.stringify({}),
+    }),
+  getApplicationEntries: (guildId: string, status = "") =>
+    request<any>(`/applications/${guildId}/entries?status=${status}`),
+  decideApplication: (
+    guildId: string,
+    applicationId: number,
+    status: "accepted" | "denied",
+    reason: string,
+  ) =>
+    request<any>(`/applications/${guildId}/entries/${applicationId}/decide`, {
+      method: "POST",
+      body: JSON.stringify({ status, reason }),
+    }),
+
   getTicketPanels: (guildId: string) =>
     request<any>(`/tickets/${guildId}/panels`),
   getTicketNotify: (guildId: string) =>

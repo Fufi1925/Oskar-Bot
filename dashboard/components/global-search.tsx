@@ -50,6 +50,7 @@ const TARGETS: SearchTarget[] = [
   { label: "Voice Role", href: "/dashboard/guild/{g}/invcrole", icon: Volume2, group: "Roles", keywords: "voice channel role invc", guildScoped: true },
 
   { label: "Tickets", href: "/dashboard/guild/{g}/tickets", icon: Ticket, group: "Support", keywords: "support ticket panel", guildScoped: true },
+  { label: "Bewerbungen", href: "/dashboard/guild/{g}/applications", icon: ClipboardList, group: "Engagement", keywords: "bewerbung application apply team moderator", guildScoped: true },
   { label: "Vorlage hochladen", href: "/dashboard/guild/{g}/template-upload", icon: Upload, group: "Server", keywords: "template vorlage upload hochladen scan teilen export", guildScoped: true },
   { label: "Community-Vorlagen", href: "/dashboard/guild/{g}/templates", icon: Sparkles, group: "Server", keywords: "template templates vorlage community import aufsetzen", guildScoped: true },
   { label: "Teamliste", href: "/dashboard/guild/{g}/teamlist", icon: Users, group: "Server", keywords: "team teamliste staff mitarbeiter rollen liste moderatoren supporter wer ist wer", guildScoped: true },

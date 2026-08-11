@@ -64,6 +64,12 @@ FEATURE_TABLES: dict[str, tuple[str, str, tuple[str, ...]]] = {
 
     # ── Begruessung und Eintritt ────────────────────────────────
     "welcome": ("Willkommensnachricht", "db/welcome.db", ("welcome",)),
+    # Panels, Kategorien und Fragen gehen mit. Die eingereichten
+    # Bewerbungen und laufenden Gespraeche NICHT: das sind Daten
+    # von Menschen, keine Einstellungen -- sie haetten auf einem
+    # fremden Server nichts verloren.
+    "applications": ("Bewerbungen", "db/applications.db",
+                     ("app_panels", "app_categories")),
     # Der Abschied liegt in greet_extras -- zusammen mit dem
     # Bild-Schalter der Begruessung, die teilen sich eine Zeile.
     # Beim Uebertragen einer Vorlage gehen sie deshalb gemeinsam mit.
@@ -136,6 +142,7 @@ FEATURE_TABLES: dict[str, tuple[str, str, tuple[str, ...]]] = {
 # nicht zweimal umdenken muss.
 FEATURE_GROUPS: dict[str, str] = {
     "welcome": "Begrüßung",
+    "applications": "Begrüßung",
     "leave": "Begrüßung",
     "joindm": "Begrüßung",
     "autorole": "Begrüßung",

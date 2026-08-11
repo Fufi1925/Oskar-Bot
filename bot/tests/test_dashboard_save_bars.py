@@ -65,6 +65,10 @@ NO_DRAFT = {
     "jail",
     "counting",
     "tickets",       # dialogs with an explicit save
+    # Bewerbungen: Panel-Felder sichern beim Verlassen, Kategorien
+    # haben einen eigenen Speichern-Knopf, Entscheidungen sind je
+    # ein ausdruecklicher Klick. Eine Leiste haette nichts zu tun.
+    "applications",
     "anonchat",      # a bar per channel card
     # Music saves on the spot: every switch, the channel and the
     # playlists are each their own request. A bar would sit there with

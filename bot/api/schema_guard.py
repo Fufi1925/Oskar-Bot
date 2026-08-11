@@ -379,6 +379,67 @@ SCHEMA: dict[str, tuple[str, ...]] = {
         """CREATE INDEX IF NOT EXISTS idx_mass_actions_user
             ON mass_actions (user_id, created_at)""",
     ),
+    "db/applications.db": (
+        # Application panels: a dropdown in a channel, questions asked by
+        # DM, and the decision buttons under the summary.
+        """CREATE TABLE IF NOT EXISTS app_panels (
+            panel_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            guild_id INTEGER NOT NULL,
+            name TEXT NOT NULL DEFAULT 'Bewerbungen',
+            channel_id INTEGER,
+            message_id INTEGER,
+            results_channel_id INTEGER,
+            embed_title TEXT DEFAULT 'Bewerbungen',
+            embed_description TEXT DEFAULT '',
+            embed_color INTEGER DEFAULT 3447003,
+            embed_image_url TEXT,
+            embed_thumbnail_url TEXT,
+            placeholder TEXT DEFAULT 'Wofuer moechtest du dich bewerben?',
+            deny_cooldown_enabled INTEGER DEFAULT 0,
+            deny_cooldown_days INTEGER DEFAULT 7
+        )""",
+        """CREATE TABLE IF NOT EXISTS app_categories (
+            category_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            panel_id INTEGER NOT NULL,
+            guild_id INTEGER NOT NULL,
+            name TEXT NOT NULL,
+            emoji TEXT DEFAULT '',
+            description TEXT DEFAULT '',
+            questions TEXT DEFAULT '[]',
+            results_channel_id INTEGER,
+            accept_role_id INTEGER,
+            staff_roles TEXT DEFAULT '',
+            position INTEGER DEFAULT 0
+        )""",
+        # One row per person -- the primary key is what stops anyone
+        # from running two applications at once, across every server.
+        """CREATE TABLE IF NOT EXISTS active_sessions (
+            user_id INTEGER PRIMARY KEY,
+            guild_id INTEGER NOT NULL,
+            category_id INTEGER NOT NULL,
+            question_index INTEGER DEFAULT 0,
+            answers TEXT DEFAULT '[]',
+            started_at INTEGER NOT NULL,
+            last_prompt_at INTEGER NOT NULL
+        )""",
+        """CREATE TABLE IF NOT EXISTS applications (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            guild_id INTEGER NOT NULL,
+            category_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            answers TEXT DEFAULT '[]',
+            status TEXT DEFAULT 'open',
+            decided_by INTEGER,
+            decided_at INTEGER,
+            reason TEXT DEFAULT '',
+            message_id INTEGER,
+            created_at INTEGER NOT NULL
+        )""",
+        """CREATE INDEX IF NOT EXISTS idx_apps_lookup
+            ON applications (guild_id, user_id, status)""",
+        """CREATE INDEX IF NOT EXISTS idx_app_cats_panel
+            ON app_categories (panel_id, position)""",
+    ),
     "db/ticket_notify.db": (
         # Settings for the ticket DM notifications, per guild.
         """CREATE TABLE IF NOT EXISTS notify_settings (

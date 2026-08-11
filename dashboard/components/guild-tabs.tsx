@@ -73,6 +73,7 @@ import {
   ShieldAlert,
   ShieldCheck,
   SmilePlus,
+  ClipboardList,
   DoorOpen,
   Sparkles,
   Sword,
@@ -167,6 +168,7 @@ function buildGroups(t: TranslateFn): Group[] {
       icon: Ticket,
       tabs: [
         { name: t("tickets"), slug: "tickets", icon: Ticket, also: ["ticket", "support"] },
+        { name: "Bewerbungen", slug: "applications", icon: ClipboardList, also: ["bewerbung", "application", "apply", "team", "moderator"] },
         { name: "Eigene Nachricht", slug: "compose", icon: PenLine, also: ["compose", "embed"] },
         { name: "Sticky-Nachricht", slug: "sticky", icon: Pin, also: ["sticky"] },
         { name: "Einladungen", slug: "invites", icon: LinkIcon, also: ["invites", "einladung"] },
