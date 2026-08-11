@@ -46,6 +46,20 @@ const BUTTON_STYLES = [
 
 const PRESET_COLORS = ["#5865f2", "#2ecc71", "#e74c3c", "#f1c40f", "#9b59b6"];
 
+/**
+ * Sieht das nach einer Bildadresse aus?
+ *
+ * Dieselbe Regel wie im Bot (`utils/greet_extras.valid_image_url`):
+ * nur https, und die Endung wird ohne Abfrageteil geprüft — Discords
+ * eigene CDN-Adressen tragen eine Signatur hinter dem `?`.
+ */
+function isImageUrl(url: string) {
+  const wert = (url || "").trim();
+  if (!/^https:\/\/[^\s<>"']{5,500}$/i.test(wert)) return false;
+  const pfad = wert.split("?")[0].split("#")[0].toLowerCase();
+  return [".png", ".jpg", ".jpeg", ".gif", ".webp"].some((e) => pfad.endsWith(e));
+}
+
 function hexOf(color: number | null) {
   return `#${Number(color ?? 0x5865f2).toString(16).padStart(6, "0")}`;
 }
@@ -533,6 +547,78 @@ export function TicketPanels({ guildId }: { guildId: string }) {
                       placeholder="Klicke unten, um ein Ticket zu öffnen."
                     />
                   </Field>
+
+                  {/* Eigenes Bild unter der Beschreibung. Das Feld gab es
+                      im Typ und im Bot schon lange -- nur im Dashboard
+                      konnte es niemand ausfüllen. */}
+                  <div className="grid md:grid-cols-2 gap-5">
+                    <Field
+                      label="Bild"
+                      hint="Wird groß unter der Beschreibung angezeigt. Leer lassen für kein Bild."
+                    >
+                      <input
+                        defaultValue={panel.embed_image_url || ""}
+                        onBlur={(e) => {
+                          const next = e.target.value.trim();
+                          if (next === (panel.embed_image_url || "")) return;
+                          if (next && !isImageUrl(next)) {
+                            toast.error(
+                              "Das muss eine https-Adresse sein, die auf .png, .jpg, .gif oder .webp endet.",
+                            );
+                            e.target.value = panel.embed_image_url || "";
+                            return;
+                          }
+                          patchPanel(panel.panel_id, { embed_image_url: next });
+                        }}
+                        placeholder="https://…/bild.png"
+                        className="w-full bg-slate-900/60 border border-slate-700 rounded-2xl px-4 py-3 text-sm text-white outline-none focus:border-blue-500"
+                      />
+                    </Field>
+
+                    <Field
+                      label="Kleines Bild (Thumbnail)"
+                      hint="Erscheint klein oben rechts."
+                    >
+                      <input
+                        defaultValue={panel.embed_thumbnail_url || ""}
+                        onBlur={(e) => {
+                          const next = e.target.value.trim();
+                          if (next === (panel.embed_thumbnail_url || "")) return;
+                          if (next && !isImageUrl(next)) {
+                            toast.error(
+                              "Das muss eine https-Adresse sein, die auf .png, .jpg, .gif oder .webp endet.",
+                            );
+                            e.target.value = panel.embed_thumbnail_url || "";
+                            return;
+                          }
+                          patchPanel(panel.panel_id, { embed_thumbnail_url: next });
+                        }}
+                        placeholder="https://…/logo.png"
+                        className="w-full bg-slate-900/60 border border-slate-700 rounded-2xl px-4 py-3 text-sm text-white outline-none focus:border-blue-500"
+                      />
+                    </Field>
+                  </div>
+
+                  {(panel.embed_image_url || panel.embed_thumbnail_url) && (
+                    <div className="flex gap-3 flex-wrap">
+                      {panel.embed_image_url && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={panel.embed_image_url}
+                          alt="Vorschau des Panel-Bildes"
+                          className="max-h-36 rounded-xl border border-slate-700"
+                        />
+                      )}
+                      {panel.embed_thumbnail_url && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={panel.embed_thumbnail_url}
+                          alt="Vorschau des kleinen Bildes"
+                          className="h-16 w-16 rounded-xl border border-slate-700 object-cover"
+                        />
+                      )}
+                    </div>
+                  )}
 
                   {/* categories */}
                   <div>

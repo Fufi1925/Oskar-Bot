@@ -14,13 +14,19 @@
 
 import contextlib
 
+import aiohttp
 import discord
 import aiosqlite
 import asyncio
 from discord.ext import commands
 
-from utils import greet_render, welcome_card
+from utils import greet_extras, greet_render, welcome_card
 from utils.panels import Panel, from_embed
+
+# Groessengrenze fuer ein eigenes Hintergrundbild. Acht Megabyte sind
+# grosszuegig fuer ein Banner und klein genug, dass ein Versehen den
+# Speicher nicht sprengt.
+MAX_BACKGROUND_BYTES = 8 * 1024 * 1024
 
 class greet(commands.Cog):
     def __init__(self, bot):
@@ -37,14 +43,56 @@ class greet(commands.Cog):
             self.processing.add(member.guild.id)
             await self.process_queue(member.guild)
 
-    async def build_banner(self, member) -> discord.File | None:
-        """Das Willkommens-Bild, oder None wenn es nicht geht.
+    async def _fetch_image(self, url: str) -> bytes | None:
+        """Ein eigenes Hintergrundbild laden.
+
+        Mit Groessen- und Zeitgrenze: eine Adresse, die 80 MB liefert
+        oder nie antwortet, darf die Begruessung nicht aufhalten.
+        """
+        if not url:
+            return None
+        try:
+            timeout = aiohttp.ClientTimeout(total=6)
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                async with session.get(url) as antwort:
+                    if antwort.status != 200:
+                        return None
+                    laenge = antwort.headers.get("Content-Length")
+                    if laenge and int(laenge) > MAX_BACKGROUND_BYTES:
+                        return None
+                    daten = await antwort.content.read(MAX_BACKGROUND_BYTES + 1)
+                    if len(daten) > MAX_BACKGROUND_BYTES:
+                        return None
+                    return daten
+        except Exception:
+            return None
+
+    async def build_banner(
+        self, member, *, kind: str = "welcome", extras: dict | None = None
+    ) -> discord.File | None:
+        """Das Bild zur Begruessung oder zum Abschied, oder None.
 
         Jeder Schritt kann scheitern -- Pillow fehlt, der Avatar-Download
         laeuft in einen Timeout, das Bild ist kaputt -- und keiner davon
         darf die Begruessung verhindern. Deshalb faengt jede Stufe fuer
         sich ab statt einmal ganz aussen.
+
+        ``extras`` kommt aus ``utils/greet_extras.py``: dort steht, ob
+        das Bild ueberhaupt gewuenscht ist und ob ein eigener
+        Hintergrund hinterlegt wurde.
         """
+
+        if extras is None:
+            extras = await greet_extras.get(member.guild.id)
+
+        # Der Schalter. Vorher ging das Banner immer mit, sobald eine
+        # Begruessung eingestellt war -- abstellen ging nicht.
+        an = extras.get(
+            "welcome_image_enabled" if kind == "welcome" else "leave_image_enabled",
+            True,
+        )
+        if not an:
+            return None
 
         avatar_bytes = None
         try:
@@ -73,20 +121,42 @@ class greet(commands.Cog):
             # Pillow rechnet ein paar hundert Millisekunden und blockiert
             # dabei die Event-Loop. Bei einer Beitrittswelle stockt sonst
             # der ganze Bot, also in einen Thread damit.
+            hintergrund = await self._fetch_image(
+                extras.get(
+                    "welcome_image_url" if kind == "welcome" else "leave_image_url",
+                    "",
+                )
+            )
+
+            anzahl = guild.member_count or len(guild.members)
+            if kind == "welcome":
+                beschriftung = "WILLKOMMEN"
+                unterzeile = None
+                zaehler = None
+            else:
+                beschriftung = "TSCHUESS"
+                unterzeile = f"hat {guild.name} verlassen"
+                zaehler = f"Noch {anzahl:,} Mitglieder".replace(",", ".")
+
             buffer = await asyncio.to_thread(
                 welcome_card.render,
                 name=member.display_name,
                 avatar_bytes=avatar_bytes,
                 guild_name=guild.name,
-                member_count=guild.member_count or len(guild.members),
+                member_count=anzahl,
                 accent=accent,
+                background_bytes=hintergrund,
+                label=beschriftung,
+                subtitle=unterzeile,
+                counter_text=zaehler,
             )
         except Exception:
             return None
 
         if buffer is None:
             return None
-        return discord.File(buffer, filename="willkommen.png")
+        dateiname = "willkommen.png" if kind == "welcome" else "tschuess.png"
+        return discord.File(buffer, filename=dateiname)
 
     async def process_queue(self, guild):
         while self.join_queue[guild.id]:
@@ -160,3 +230,65 @@ class greet(commands.Cog):
             await asyncio.sleep(2)
         self.processing.remove(guild.id)
 
+    # ── Abschied ─────────────────────────────────────────────────────
+    #
+    # Den gab es bisher nicht: `on_member_remove` wurde in diesem Cog
+    # nirgends behandelt. Aufgebaut wie die Begruessung, damit sich
+    # beides gleich verhaelt -- gleiche Platzhalter, gleiche Karte,
+    # gleicher Schalter fuers Bild.
+
+    @commands.Cog.listener()
+    async def on_member_remove(self, member):
+        # Bots kommen und gehen staendig; darueber will niemand eine
+        # Nachricht im Kanal.
+        if getattr(member, "bot", False):
+            return
+
+        guild = member.guild
+        if guild is None:
+            return
+
+        try:
+            extras = await greet_extras.get(guild.id)
+        except Exception:
+            return
+
+        if not extras.get("leave_enabled"):
+            return
+
+        kanal_id = extras.get("leave_channel_id") or 0
+        if not kanal_id:
+            return
+        kanal = self.bot.get_channel(int(kanal_id))
+        if kanal is None:
+            return
+
+        text = greet_extras.render_text(
+            extras.get("leave_message") or "**{user.display}** hat den Server verlassen.",
+            member,
+            guild,
+        )
+
+        banner = await self.build_banner(member, kind="leave", extras=extras)
+
+        # Wie bei der Begruessung: bei Components V2 muss das Bild *in*
+        # die View. Eine Datei danebenzulegen laedt sie hoch, zeigt sie
+        # aber nicht an.
+        view = None
+        if banner is not None:
+            view = Panel("", text, image_url=f"attachment://{banner.filename}")
+            inhalt = None
+        else:
+            inhalt = text
+
+        try:
+            await kanal.send(
+                content=inhalt,
+                view=view,
+                **({"file": banner} if banner is not None else {}),
+            )
+        except (discord.Forbidden, discord.HTTPException):
+            # Kein Recht im Kanal oder Discord lehnt ab -- ein
+            # Abschiedsgruss ist das nicht wert, den Listener platzen zu
+            # lassen.
+            return

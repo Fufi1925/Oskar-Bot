@@ -178,7 +178,10 @@ class SearchResultView(LayoutView):
                 )
                 return
 
+            frisch = self.ctx.voice_client is None
             vc = self.ctx.voice_client or await self.ctx.author.voice.channel.connect(cls=wavelink.Player)
+            if frisch:
+                self.ctx.cog.mark_joined(self.ctx.guild.id)
             vc.ctx = self.ctx
 
             if not vc.playing:
@@ -363,6 +366,17 @@ class Music(commands.Cog):
     class RateLimited(Exception):
         """The Lavalink node turned the search away with a 429."""
 
+    # Wie lange nach dem Betreten eines Sprachkanals nicht auf
+    # Leerlauf geprueft wird.
+    #
+    # Zehn Sekunden klingt viel fuer einen Gateway-Frame, der
+    # ueblicherweise in Millisekunden da ist. Der Wert ist trotzdem so
+    # gewaehlt: falsch zu warten kostet nichts -- der Bot steht ein paar
+    # Sekunden laenger in einem wirklich leeren Kanal. Falsch zu gehen
+    # kostet den Befehl. Bei einer langsamen Verbindung oder einem
+    # ausgelasteten Gateway sind zwei Sekunden zu knapp.
+    JOIN_GRACE_SECONDS = 10
+
     def __init__(self, client: universitybot):
         self.client = client
         self.inactivity_timeout = 120
@@ -402,6 +416,22 @@ class Music(commands.Cog):
         # Dashboard zeigte "spielt" (wavelink meldet `playing` auch
         # fuer einen pausierten Spieler), und es kam kein Ton.
         self._started_empty: set[int] = set()
+
+        # Wann der Bot einen Sprachkanal betreten hat.
+        #
+        # Discord schickt den Voice-State des Nutzers erst kurz NACH
+        # dem eigenen Verbinden. In dem Moment ist
+        # ``guild._voice_states`` fuer diesen Kanal noch leer, der
+        # Waechter haelt ihn fuer verwaist und trennt sofort wieder --
+        # gemessen in repro/bug_play_leave.py. Fuer den Nutzer sah das
+        # so aus: ">play" laesst den Bot kurz joinen, dann geht er
+        # wieder, und zwar "nur manchmal". Genau dieses Manchmal ist
+        # der Wettlauf mit dem Gateway-Frame.
+        #
+        # In den ersten Sekunden nach dem Betreten wird deshalb nicht
+        # geprueft. Verlaesst danach wirklich jeder den Kanal, greift
+        # der Waechter wie gehabt.
+        self._joined_at: dict[int, float] = {}
         self._node_task: asyncio.Task | None = None
         self._inactivity_task: asyncio.Task | None = None
         # One per Lavalink candidate tried. Kept referenced because
@@ -452,6 +482,20 @@ class Music(commands.Cog):
             lock = asyncio.Lock()
             self._voice_locks[guild_id] = lock
         return lock
+
+    def mark_joined(self, guild_id: int) -> None:
+        """
+        Merken, dass der Bot gerade einen Sprachkanal betreten hat.
+
+        Muss nach JEDEM Verbinden aufgerufen werden. Eine Stelle, die
+        es vergisst, holt sich den alten Fehler zurueck -- der Waechter
+        prueft dann sofort und findet einen scheinbar leeren Kanal.
+        """
+        # Anlegen, falls __init__ nicht gelaufen ist: mehrere Tests
+        # bauen den Cog ueber Music.__new__(Music).
+        if getattr(self, "_joined_at", None) is None:
+            self._joined_at = {}
+        self._joined_at[guild_id] = time.monotonic()
 
     @staticmethod
     def _humans_in(channel) -> int:
@@ -526,6 +570,28 @@ class Music(commands.Cog):
         if channel is None:
             self._idle_since.pop(guild_id, None)
             return
+
+        # Schonfrist direkt nach dem Betreten.
+        #
+        # Der eigene Verbindungsaufbau ist frueher fertig als der
+        # Voice-State-Frame fuer den Nutzer, der den Befehl gegeben
+        # hat. Bis der eintrifft, meldet `_humans_in` null Zuhoerer,
+        # obwohl jemand im Kanal sitzt -- und der Bot ginge sofort
+        # wieder raus.
+        # getattr statt direktem Zugriff: mehrere Tests bauen den Cog
+        # ueber `Music.__new__(Music)` und umgehen damit `__init__` --
+        # dann gibt es das Attribut nicht. Ein AttributeError hier
+        # wuerde den Waechter fuer den ganzen Server anhalten.
+        joined_at = getattr(self, "_joined_at", None)
+        joined = joined_at.get(guild_id) if joined_at else None
+        if joined is not None:
+            if time.monotonic() - joined < self.JOIN_GRACE_SECONDS:
+                # Auch die Leerlaufuhr zuruecksetzen: sie darf in
+                # dieser Zeit nicht anfangen zu laufen.
+                self._idle_since.pop(guild_id, None)
+                return
+            # Vorbei -- der Eintrag wird nicht mehr gebraucht.
+            joined_at.pop(guild_id, None)
 
         # Dauerbetrieb: der Bot bleibt, egal ob jemand zuhoert.
         settings = await self._settings_for(guild_id)
@@ -963,7 +1029,45 @@ class Music(commands.Cog):
         if not await self.require_music(ctx):
             return
 
-        vc = ctx.voice_client or await ctx.author.voice.channel.connect(cls=wavelink.Player)
+        # Merken, BEVOR irgendetwas den Waechter anwerfen kann.
+        frisch_verbunden = ctx.voice_client is None
+        try:
+            vc = ctx.voice_client or await ctx.author.voice.channel.connect(
+                cls=wavelink.Player
+            )
+        except asyncio.TimeoutError:
+            # Discord hat die Sprachverbindung nicht bestaetigt. Ohne
+            # diesen Zweig endete der Befehl als Traceback im Log und
+            # der Nutzer bekam gar keine Antwort -- der zweite Teil der
+            # Meldung "auch keine Antwort auf Command".
+            await ctx.send(view=CV2(
+                f"{WARNING} Discord hat die Sprachverbindung nicht bestaetigt. "
+                "Bitte gleich noch einmal versuchen."
+            ))
+            return
+        except discord.ClientException as exc:
+            # Schon verbunden, aber ctx.voice_client war None -- kommt
+            # nach einem Neustart vor, wenn der alte Player weg ist.
+            await ctx.send(view=CV2(
+                f"{WARNING} Ich haenge noch in einer alten Sprachverbindung "
+                f"fest. Mit `{ctx.prefix}disconnect` loesen, dann klappt es "
+                f"wieder. (`{exc}`)"
+            ))
+            return
+        except discord.Forbidden:
+            await ctx.send(view=CV2(
+                f"{WARNING} Mir fehlt die Berechtigung, diesem Sprachkanal "
+                "beizutreten."
+            ))
+            return
+        except Exception as exc:
+            await ctx.send(view=CV2(
+                f"{WARNING} Ich konnte dem Sprachkanal nicht beitreten: `{exc}`"
+            ))
+            return
+
+        if frisch_verbunden:
+            self.mark_joined(ctx.guild.id)
         vc.ctx = ctx
         
         
@@ -1016,8 +1120,13 @@ class Music(commands.Cog):
             if not vc.playing:
                 await vc.play(await vc.queue.get_wait())
                 await self.display_player_embed(vc, track, ctx)
-            asyncio.create_task(self.check_inactivity(ctx.guild.id))
-           # await interaction.response.defer()
+            # Kein Sofortaufruf des Waechters mehr.
+            #
+            # `monitor_inactivity` laeuft ohnehin alle fuenf Sekunden
+            # ueber jeden Server -- der Aufruf hier brachte nichts
+            # ausser dem Risiko, genau in dem Moment zu pruefen, in dem
+            # Discord den Voice-State noch nicht geschickt hatte. Der
+            # Kanal galt dann als leer und der Bot ging sofort wieder.
 
 
     
@@ -1462,6 +1571,7 @@ class Music(commands.Cog):
             return
 
         await ctx.author.voice.channel.connect(cls=wavelink.Player)
+        self.mark_joined(ctx.guild.id)
         await ctx.send(view=CV2("Joined the voice channel."))
 
     # Prefix-only. This was the *only* music command in the slash menu:
@@ -1572,6 +1682,9 @@ class Music(commands.Cog):
                     await existing.move_to(channel)
                 return existing, None
             player = await channel.connect(cls=wavelink.Player)
+            # Auch hier: der Waechter darf nicht pruefen, bevor Discord
+            # den Kanal bestaetigt hat.
+            self.mark_joined(guild.id)
             return player, None
         except Exception as error:
             return None, f"Der Bot kam nicht in den Kanal: {error}"

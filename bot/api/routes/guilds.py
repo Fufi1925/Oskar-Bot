@@ -1178,3 +1178,43 @@ async def patch_guild_behaviour(guild_id: int, data: dict):
         )
 
     return {"status": "success", "changed": changed}
+
+
+# ══════════════════════════════════════════════════════════════════════
+#  Bild bei Begruessung und Abschied
+# ══════════════════════════════════════════════════════════════════════
+#
+#  Getrennt von /welcome, weil die alte welcome-Tabelle mit festen
+#  SELECT-Reihenfolgen gelesen wird -- an zwei Stellen, die beide
+#  genau sechs Werte entpacken. Eine weitere Spalte haette sie still
+#  verschoben.
+
+
+@router.get("/{guild_id}/greet-extras", summary="Bild-Schalter und Abschied")
+async def get_greet_extras(guild_id: int):
+    from utils import greet_extras
+
+    return {"guild_id": str(guild_id), **(await greet_extras.get(guild_id))}
+
+
+@router.patch("/{guild_id}/greet-extras", summary="Bild-Schalter und Abschied speichern")
+async def patch_greet_extras(guild_id: int, data: dict, actor: str = ""):
+    from utils import feature_audit, greet_extras
+
+    try:
+        settings = await greet_extras.save(guild_id, data or {})
+    except ValueError as exc:
+        # Eine unbrauchbare Bildadresse ist ein Eingabefehler, kein
+        # Serverfehler -- sonst steht im Dashboard nur "500".
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    await feature_audit.log_action(
+        "greet_extras_updated",
+        actor=actor,
+        guild_id=guild_id,
+        detail=(
+            f"Willkommensbild {'an' if settings['welcome_image_enabled'] else 'aus'}, "
+            f"Abschied {'an' if settings['leave_enabled'] else 'aus'}"
+        ),
+    )
+    return {"status": "success", **settings}

@@ -1,6 +1,12 @@
 {
  "commits": [
   {
+   "commit": "d719644f26fa5083743d5f1d77e6f84897826b12",
+   "at": "1786395303",
+   "subject": "fix(admin): 'Du darfst Nutzer nachschlagen nicht' -- actor kam nie an",
+   "body": "Drei Ursachen, alle von mir eingebaut.\n\n1. Der Dashboard-Proxy haengte die ID des Angemeldeten nur bei\n   POST/PATCH an (im JSON-Koerper) und bei DELETE (als Parameter). Das\n   reichte, solange nur schreibende Routen den Aufrufer brauchten. Die\n   beiden neuen LESENDEN Routen -- lookup_user und list_bot_bans --\n   fielen durch beide Raster, bekamen actor='' und antworteten\n   zuverlaessig mit 403, fuer jeden, auch fuer den Inhaber. Der actor\n   wird jetzt fuer jede Methode gesetzt; ohne Sitzung wird ein aus dem\n   Browser mitgeschickter Wert geloescht statt uebernommen.\n\n2. Der Proxy las nur ADMIN_IDS, der Bot liest OWNER_IDS UND ADMIN_IDS.\n   Auf einer Installation, die nur OWNER_IDS setzt -- genau die\n   Railway-Konfiguration --, hielt der Bot den Betreiber fuer einen\n   Inhaber und der Proxy nicht. getAdminIds() kennt jetzt beide Namen,\n   und start.sh fuellt ADMIN_IDS aus OWNER_IDS, falls es fehlt.\n\n3. Die Meldung selbst war irrefuehrend. 'Du darfst ... nicht' klang\n   nach fehlender Berechtigung, tatsaechlich war ueberhaupt kein\n   Aufrufer angekommen. Ein leerer actor ergibt jetzt 401 mit einem\n   Hinweis, dass das ein Fehler im Dashboard ist und nicht am Nutzer\n   liegt; fehlende Rechte weiterhin 403, nun mit dem Namen der noetigen\n   Berechtigung.\n\nDer Test prueft nicht nur diese zwei Routen, sondern JEDE lesende Route\nmit Rechtepruefung -- damit faellt die naechste nicht wieder in\ndieselbe Luecke. Die Pruefungen fuer 401/403 und die Inhaberliste rufen\nden Code auf, statt im Text zu suchen: eine Textsuche traf den\nKommentar, der die Regel beschreibt, und blieb gruen, wenn nur die\nRegel wegfiel. Beide entwischten im ersten Mutationslauf genau deshalb.\n\n41 von 41 Mutationen erwischt, 84 Testdateien bestanden."
+  },
+  {
    "commit": "f6827209f0078129bf78be8cd21cb260594e3229",
    "at": "1786394061",
    "subject": "feat(admin): Nutzer nachschlagen, sperren, ueberall bannen, Inhaber warnen",
@@ -231,12 +237,6 @@
   {
    "commit": "9c6661d9ffda3ccdf21ffe5bf1f35839bd94cf58",
    "at": "1786136879",
-   "subject": "feat(phantom): EXACT full original Aleks ticket bot (5653 lines - every function kept, no removal, no shortening)",
-   "body": ""
-  },
-  {
-   "commit": "95408f3726afad1097bed27b241aca7380445428",
-   "at": "1786136869",
    "subject": "feat(phantom): EXACT full original Aleks ticket bot (5653 lines - every function kept, no removal, no shortening)",
    "body": ""
   }

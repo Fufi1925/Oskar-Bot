@@ -334,6 +334,23 @@ SCHEMA: dict[str, tuple[str, ...]] = {
         """CREATE INDEX IF NOT EXISTS idx_warn_log_guild_user
             ON warn_log (guild_id, user_id, active)""",
     ),
+    "db/greet_extras.db": (
+        # The image toggle for welcome/leave and the goodbye message.
+        # Deliberately not extra columns on db/welcome.db: that table is
+        # read with a fixed SELECT order in two places, both unpacking
+        # exactly six values, so a seventh column would silently shift
+        # them.
+        """CREATE TABLE IF NOT EXISTS greet_extras (
+            guild_id INTEGER PRIMARY KEY,
+            welcome_image_enabled INTEGER DEFAULT 1,
+            welcome_image_url TEXT DEFAULT '',
+            leave_enabled INTEGER DEFAULT 0,
+            leave_channel_id INTEGER DEFAULT 0,
+            leave_message TEXT DEFAULT '',
+            leave_image_enabled INTEGER DEFAULT 1,
+            leave_image_url TEXT DEFAULT ''
+        )""",
+    ),
     "db/user_lookup.db": (
         # Users banned from the bot entirely -- not just from commands.
         # The old user_blacklist only gated command invocations; it let

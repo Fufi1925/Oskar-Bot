@@ -77,6 +77,42 @@ def _fit(draw, text: str, font_for, start: int, limit: int, minimum: int):
     return font, 0
 
 
+def _background(background_bytes: bytes | None):
+    """
+    Der Hintergrund: eigenes Bild, sonst die Grundfarbe.
+
+    Das eigene Bild wird beschnitten statt verzerrt -- ein gestrecktes
+    Foto sieht immer nach Fehler aus. Darueber liegt ein dunkler
+    Schleier, ohne den heller Text auf einem hellen Bild unlesbar ist.
+    """
+    if not background_bytes:
+        return Image.new("RGB", (WIDTH, HEIGHT), BACKGROUND)
+
+    try:
+        bild = Image.open(io.BytesIO(background_bytes)).convert("RGB")
+        # Seitenverhaeltnis wahren, Ueberstand abschneiden.
+        ziel = WIDTH / HEIGHT
+        quelle = bild.width / bild.height
+        if quelle > ziel:
+            neue_breite = int(bild.height * ziel)
+            links = (bild.width - neue_breite) // 2
+            bild = bild.crop((links, 0, links + neue_breite, bild.height))
+        elif quelle < ziel:
+            neue_hoehe = int(bild.width / ziel)
+            oben = (bild.height - neue_hoehe) // 2
+            bild = bild.crop((0, oben, bild.width, oben + neue_hoehe))
+        bild = bild.resize((WIDTH, HEIGHT), Image.LANCZOS)
+
+        # Der Schleier. 55 % Deckung ist der Punkt, an dem das Bild noch
+        # zu erkennen ist und weisse Schrift darauf sicher liest.
+        schleier = Image.new("RGB", (WIDTH, HEIGHT), (5, 12, 24))
+        return Image.blend(bild, schleier, 0.55)
+    except Exception:
+        # Kaputtes oder fremdes Format: lieber die Grundfarbe als gar
+        # keine Karte.
+        return Image.new("RGB", (WIDTH, HEIGHT), BACKGROUND)
+
+
 def render(
     *,
     name: str,
@@ -84,8 +120,19 @@ def render(
     guild_name: str,
     member_count: int,
     accent: int = 0x3B82F6,
+    background_bytes: bytes | None = None,
+    label: str = "WILLKOMMEN",
+    subtitle: str | None = None,
+    counter_text: str | None = None,
 ) -> io.BytesIO | None:
-    """The banner as PNG bytes, or None when it cannot be drawn."""
+    """
+    The banner as PNG bytes, or None when it cannot be drawn.
+
+    ``background_bytes`` legt ein eigenes Bild darunter, ``label``,
+    ``subtitle`` und ``counter_text`` machen dieselbe Karte fuer den
+    Abschied brauchbar -- sonst stuende dort "WILLKOMMEN", wenn jemand
+    geht.
+    """
 
     if not PIL_AVAILABLE:
         return None
@@ -93,7 +140,8 @@ def render(
     try:
         accent_rgb = ((accent >> 16) & 0xFF, (accent >> 8) & 0xFF, accent & 0xFF)
 
-        card = Image.new("RGB", (WIDTH, HEIGHT), BACKGROUND)
+        eigenes_bild = background_bytes is not None
+        card = _background(background_bytes)
 
         avatar_x = 72
         avatar_y = (HEIGHT - AVATAR) // 2
@@ -117,7 +165,11 @@ def render(
 
         # The panel goes on top of the glow, so the halo only shows
         # around the avatar and not across the whole card.
-        _rounded(draw, (28, 28, WIDTH - 28, HEIGHT - 28), 32, PANEL)
+        #
+        # Bei einem eigenen Hintergrund entfaellt es: die Flaeche wuerde
+        # genau das Bild verdecken, das jemand eingestellt hat.
+        if not eigenes_bild:
+            _rounded(draw, (28, 28, WIDTH - 28, HEIGHT - 28), 32, PANEL)
 
         # Re-draw the tight halo above the panel, otherwise the panel
         # covers exactly the part that should be lit.
@@ -162,7 +214,7 @@ def render(
 
         label_font = _font(22, bold=False)
         if label_font is not None:
-            draw.text((left, 84), "WILLKOMMEN", font=label_font, fill=accent_rgb)
+            draw.text((left, 84), label, font=label_font, fill=accent_rgb)
 
         name_font, _width = _fit(draw, name, _font, 54, room, 26)
         if name_font is not None:
@@ -170,19 +222,21 @@ def render(
 
         sub_font = _font(24, bold=False)
         if sub_font is not None:
-            server, _ = _fit(draw, f"auf {guild_name}", lambda s: _font(s, bold=False),
+            zeile = subtitle if subtitle is not None else f"auf {guild_name}"
+            server, _ = _fit(draw, zeile, lambda s: _font(s, bold=False),
                              24, room, 16)
-            draw.text((left, 190), f"auf {guild_name}",
+            draw.text((left, 190), zeile,
                       font=server or sub_font, fill=MUTED)
             # Ausgeschrieben mit Tausenderpunkt, nicht "1.2K": bei einer
             # Mitgliedsnummer will man die genaue Zahl sehen -- sie ist
             # der ganze Reiz an der Zeile. compact() ist fuer
             # Nachrichtenzaehler da, wo die Groessenordnung reicht.
-            draw.text(
-                (left, 226),
-                f"Mitglied Nr. {member_count:,}".replace(",", "."),
-                font=sub_font, fill=FAINT,
+            zaehler = (
+                counter_text
+                if counter_text is not None
+                else f"Mitglied Nr. {member_count:,}".replace(",", ".")
             )
+            draw.text((left, 226), zaehler, font=sub_font, fill=FAINT)
 
         buffer = io.BytesIO()
         card.save(buffer, format="PNG")

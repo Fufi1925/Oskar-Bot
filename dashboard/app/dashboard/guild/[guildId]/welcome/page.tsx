@@ -14,6 +14,14 @@ const WelcomeForm = dynamicImport(
   { loading: () => <div className="h-96 w-full animate-pulse bg-slate-800/20 rounded-3xl" /> }
 );
 
+const GreetExtrasPanel = dynamicImport(
+  () =>
+    import("@/components/dashboard/greet-extras-panel").then(
+      (m) => m.GreetExtrasPanel,
+    ),
+  { loading: () => <div className="h-64 w-full animate-pulse bg-slate-800/20 rounded-3xl" /> }
+);
+
 export default async function WelcomePage({ params }: { params: { guildId: string } }) {
   const welcomeData = await api.getWelcome(params.guildId);
 
@@ -33,6 +41,11 @@ export default async function WelcomePage({ params }: { params: { guildId: strin
         initialConfig={welcomeData || { guild_id: Number(params.guildId) }}
         guildId={params.guildId}
       />
+
+      {/* Bild-Schalter und Abschied. Eigene Karte darunter, weil sie
+          über eine getrennte Route gespeichert werden — die alte
+          welcome-Tabelle verträgt keine weitere Spalte. */}
+      <GreetExtrasPanel guildId={params.guildId} />
     </div>
   );
 }
