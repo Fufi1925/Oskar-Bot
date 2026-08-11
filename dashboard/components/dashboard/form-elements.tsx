@@ -133,6 +133,63 @@ interface InlineToggleProps {
   className?: string;
 }
 
+/* ------------------------------------------------------------------ *
+ * SwitchToggle
+ *
+ * Der nackte Schalter, ohne Beschriftung daneben — für Kopfzeilen, wo
+ * der Text links steht und der Schalter rechts außen sitzt.
+ *
+ * Es gab davon drei handgeschriebene Kopien, und alle drei hatten
+ * denselben Fehler wie die weiter oben beschriebenen: der Knopf war
+ * `absolute` ohne `left`, fiel damit auf seine statische Position
+ * zurück, und die zentriert ein <button>. Bei einer 48px-Bahn mit
+ * 20px-Knopf sind das 14px statt 2px — `translate-x-6` schob ihn dann
+ * auf 38px, also endete er bei 58px und hing 10px über den rechten
+ * Rand hinaus. Genau so sah es auf dem gemeldeten Bild aus.
+ *
+ * `left-0.5` verankert ihn, und 48 − 20 − 2 − 2 = 24px = `translate-x-6`
+ * lässt links wie rechts 2px stehen.
+ * ------------------------------------------------------------------ */
+
+interface SwitchToggleProps {
+  checked: boolean;
+  onCheckedChange: (checked: boolean) => void;
+  disabled?: boolean;
+  label?: string;
+  className?: string;
+}
+
+export const SwitchToggle = ({
+  checked,
+  onCheckedChange,
+  disabled,
+  label,
+  className,
+}: SwitchToggleProps) => (
+  <button
+    type="button"
+    role="switch"
+    aria-checked={!!checked}
+    aria-label={label}
+    disabled={disabled}
+    onClick={() => !disabled && onCheckedChange(!checked)}
+    className={cn(
+      "relative h-6 w-12 rounded-full transition-colors shrink-0",
+      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60",
+      checked ? "bg-emerald-500" : "bg-slate-700",
+      disabled && "opacity-40 cursor-not-allowed",
+      className
+    )}
+  >
+    <span
+      className={cn(
+        "absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform",
+        checked ? "translate-x-6" : "translate-x-0"
+      )}
+    />
+  </button>
+);
+
 export const InlineToggle = ({
   checked,
   onCheckedChange,

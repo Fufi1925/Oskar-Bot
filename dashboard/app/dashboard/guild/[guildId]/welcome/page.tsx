@@ -42,10 +42,14 @@ export default async function WelcomePage({ params }: { params: { guildId: strin
         guildId={params.guildId}
       />
 
-      {/* Bild-Schalter und Abschied. Eigene Karte darunter, weil sie
-          über eine getrennte Route gespeichert werden — die alte
-          welcome-Tabelle verträgt keine weitere Spalte. */}
-      <GreetExtrasPanel guildId={params.guildId} />
+      {/* Nur der Bild-Schalter. Eigene Karte, weil er über eine
+          getrennte Route gespeichert wird — die alte welcome-Tabelle
+          verträgt keine weitere Spalte.
+
+          Der Abschied hat einen eigenen Reiter bekommen: er ist eine
+          eigene Nachricht in einem eigenen Kanal und hatte auf einer
+          Seite namens „Begrüßung" nichts verloren. */}
+      <GreetExtrasPanel guildId={params.guildId} show="welcome" />
     </div>
   );
 }

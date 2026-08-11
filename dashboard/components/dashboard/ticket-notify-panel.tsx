@@ -19,6 +19,7 @@ import {
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { SwitchToggle } from "@/components/dashboard/form-elements";
 
 interface Settings {
   user_dm_enabled: boolean;
@@ -44,28 +45,20 @@ function humanize(seconds: number) {
   return `${gerundet} ${gerundet === 1 ? "Stunde" : "Stunden"}`;
 }
 
+/**
+ * Der Schalter kommt aus form-elements.
+ *
+ * Hier stand eine eigene Kopie, und die hatte den Fehler, den
+ * form-elements.tsx schon zweimal beschreibt: der Knopf war `absolute`
+ * ohne `left` und rutschte deshalb über den rechten Rand der Bahn.
+ * Eine vierte Kopie zu reparieren hätte den nächsten Fehler nur
+ * vertagt.
+ */
 function Toggle({
   checked, onChange, disabled,
 }: { checked: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
   return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      disabled={disabled}
-      onClick={() => onChange(!checked)}
-      className={cn(
-        "relative w-12 h-6 rounded-full transition-colors shrink-0 disabled:opacity-40",
-        checked ? "bg-emerald-500" : "bg-slate-700",
-      )}
-    >
-      <span
-        className={cn(
-          "absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform",
-          checked ? "translate-x-6" : "translate-x-0.5",
-        )}
-      />
-    </button>
+    <SwitchToggle checked={checked} onCheckedChange={onChange} disabled={disabled} />
   );
 }
 

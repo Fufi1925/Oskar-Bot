@@ -85,6 +85,10 @@ NO_DRAFT = {
     "verification",
     "automod",
     "welcome",
+    # Der Abschied speichert sofort: jeder Schalter und jedes Feld
+    # sind eine eigene Anfrage. Eine Speicherleiste haette nichts
+    # zu speichern.
+    "leave",
     "settings",
     "joindm",
     "logging",

@@ -186,6 +186,7 @@ export default function DashboardLayout({
           name: "Mitglieder",
           items: [
             { name: "Begrüßung", href: `/dashboard/guild/${currentGuildId}/welcome`, icon: Bell },
+            { name: "Abschied", href: `/dashboard/guild/${currentGuildId}/leave`, icon: LogOut },
             { name: "Beitritts-DM", href: `/dashboard/guild/${currentGuildId}/joindm`, icon: User },
             { name: "Auto-Rolle", href: `/dashboard/guild/${currentGuildId}/autorole`, icon: Search },
             { name: "Reaktions-Rollen", href: `/dashboard/guild/${currentGuildId}/reactionroles`, icon: Search },

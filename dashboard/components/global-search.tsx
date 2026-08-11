@@ -6,6 +6,7 @@ import {
   Activity, BarChart4, Bot, ClipboardList, Command, Database, FileText, Hash,
   Layers, Link2, Lock, Mail, Mic, Music, Search, Upload, Settings, Shield, ShieldCheck,
   SmilePlus, Sparkles, Ticket, UserCheck, Users, Volume2, Wrench, Zap,
+  DoorOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
@@ -35,6 +36,7 @@ const TARGETS: SearchTarget[] = [
   { label: "Verification", href: "/dashboard/guild/{g}/verification", icon: UserCheck, group: "Security", keywords: "captcha verify gate", guildScoped: true },
 
   { label: "Welcome", href: "/dashboard/guild/{g}/welcome", icon: SmilePlus, group: "Engagement", keywords: "greet join message", guildScoped: true },
+  { label: "Abschied", href: "/dashboard/guild/{g}/leave", icon: DoorOpen, group: "Engagement", keywords: "leave goodbye abschied tschuess verlassen", guildScoped: true },
   { label: "Join DM", href: "/dashboard/guild/{g}/joindm", icon: Mail, group: "Engagement", keywords: "direct message private", guildScoped: true },
   { label: "Leveling", href: "/dashboard/guild/{g}/leveling", icon: BarChart4, group: "Engagement", keywords: "xp rank level rewards", guildScoped: true },
   { label: "Leaderboard", href: "/dashboard/guild/{g}/leveling/leaderboard", icon: BarChart4, group: "Engagement", keywords: "top ranking xp", guildScoped: true },

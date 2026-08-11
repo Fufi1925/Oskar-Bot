@@ -1,6 +1,12 @@
 {
  "commits": [
   {
+   "commit": "f82d21928439e6429cf2a746ad41da5b875aa704",
+   "at": "1786478569",
+   "subject": "fix(music): toter Player, fehlende Rechte, kuerzere Wartezeit",
+   "body": "Ergaenzt den Fix davor an drei Stellen, die er offen liess. Der\nWettlauf mit dem Voice-State-Frame war die Hauptursache und ist dort\nbehoben; diese drei erklaeren den Rest des gemeldeten Verhaltens.\n\nEine tote Verbindung. Bricht ein frueherer Aufbau ab, bleibt\nctx.voice_client gesetzt, obwohl nichts mehr steht.\n'ctx.voice_client or connect(...)' nimmt dann diesen Player und spielt\nins Leere, bis Discord ihn irgendwann aufraeumt -- der zweite Grund,\nwarum es manchmal ging und manchmal nicht. Wird jetzt erkannt und\nvorher getrennt.\n\nFehlende Rechte. Discord meldet die erst nach Ablauf des Timeouts.\nVorher nachsehen kostet nichts, spart die volle Wartezeit und nennt\ndie fehlende Berechtigung beim Namen statt den Betreiber raten zu\nlassen.\n\nDie Wartezeit selbst. Discords Vorgabe sind 30 Sekunden, und so lange\nsteht der Befehl stumm da. Zwoelf reichen fuer einen gesunden Aufbau.\n\ntest_music_node schlug danach an, zu Recht -- aber aus dem falschen\nGrund: es sucht die Node-Pruefung in einem festen Fenster von 25\nZeilen vor dem Aufruf, und durch die zwei neuen Pruefungen davor ist\nder Abstand groesser geworden. Es durchsucht jetzt die umschliessende\nFunktion; das ist ohnehin die Frage, um die es geht.\n\nDrei Mutationen entwischten zuerst: die Attrappe fuer den toten Player\nwar zugleich getrennt UND ohne Kanal, sodass jede der beiden\nPruefungen die andere zudeckte, und die Rechtepruefung war nur per\nTextsuche belegt -- 'permissions_for' bleibt stehen, auch wenn der\nZweig nichts mehr tut. Beide pruefen jetzt die Wirkung.\n\n8 von 8 Mutationen erwischt, 86 Testdateien bestanden, Boot-Test\n150 Cogs / 543 Prefix / 60 Slash."
+  },
+  {
    "commit": "12bc9b50f0a38a3dc7fcdd0927a66395fff59c14",
    "at": "1786449595",
    "subject": "fix(music): Bot ging nach >play sofort wieder raus; feat: Bilder",
@@ -231,12 +237,6 @@
   {
    "commit": "9e53bff5bead04a0106cb66a64296768e32188af",
    "at": "1786136901",
-   "subject": "feat(phantom): EXACT full original Aleks ticket bot (5653 lines - every function kept, no removal, no shortening)",
-   "body": ""
-  },
-  {
-   "commit": "84082122d309289facd49227cdfc5edc7e26b1d1",
-   "at": "1786136888",
    "subject": "feat(phantom): EXACT full original Aleks ticket bot (5653 lines - every function kept, no removal, no shortening)",
    "body": ""
   }

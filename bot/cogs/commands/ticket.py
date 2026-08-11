@@ -372,13 +372,59 @@ class TicketCog(commands.Cog, name="Ticket System"):
         
         t_num = (self.db.fetchone("SELECT MAX(ticket_number) as n FROM open_tickets WHERE guild_id=?", (guild.id,))['n'] or 0) + 1
         
-        overwrites = {guild.default_role:discord.PermissionOverwrite(view_channel=False), user:discord.PermissionOverwrite(view_channel=True), guild.me:discord.PermissionOverwrite(view_channel=True, manage_channels=True)}
-        
+        # Die Rechte im frischen Ticket.
+        #
+        # Vorher stand hier ueberall nur `view_channel=True` -- also
+        # "darf den Kanal sehen". Ueber das Schreiben sagte das nichts,
+        # und ein PermissionOverwrite kennt drei Zustaende: ja, nein und
+        # "nichts gesagt". Bei "nichts gesagt" gilt weiter, was die
+        # Kategorie oder @everyone vorgibt, und die Ticket-Kategorie
+        # wird mit `view_channel=False` angelegt. Ergebnis: der Ersteller
+        # sah sein eigenes Ticket und konnte nichts hineinschreiben.
+        #
+        # Deshalb jetzt ausdruecklich. `read_message_history` gehoert
+        # dazu, sonst ist der Kanal beim Oeffnen leer, und `attach_files`
+        # auch -- ein Screenshot ist bei einem Ticket der Normalfall.
+        teilnehmer_rechte = discord.PermissionOverwrite(
+            view_channel=True,
+            send_messages=True,
+            read_message_history=True,
+            attach_files=True,
+            embed_links=True,
+            add_reactions=True,
+        )
+
+        overwrites = {
+            guild.default_role: discord.PermissionOverwrite(view_channel=False),
+            user: teilnehmer_rechte,
+            # Ohne send_messages scheitert schon die Begruessung, die der
+            # Bot als Erstes in den Kanal schreibt.
+            guild.me: discord.PermissionOverwrite(
+                view_channel=True,
+                send_messages=True,
+                read_message_history=True,
+                attach_files=True,
+                embed_links=True,
+                manage_channels=True,
+                manage_messages=True,
+            ),
+        }
+
         pings = [user.mention]
         if cat_info['notified_roles']:
             for role_id in cat_info['notified_roles'].split(','):
                 if role := guild.get_role(int(role_id)):
-                    overwrites[role] = discord.PermissionOverwrite(view_channel=True)
+                    # Das Team braucht dieselben Rechte wie der Ersteller,
+                    # sonst kann es nur zusehen.
+                    overwrites[role] = discord.PermissionOverwrite(
+                        view_channel=True,
+                        send_messages=True,
+                        read_message_history=True,
+                        attach_files=True,
+                        embed_links=True,
+                        add_reactions=True,
+                        manage_messages=True,
+                    )
                     pings.append(role.mention)
         
         try: ch = await disc_cat.create_text_channel(name=f"ticket-{t_num:04d}-{user.name.lower()}", overwrites=overwrites)

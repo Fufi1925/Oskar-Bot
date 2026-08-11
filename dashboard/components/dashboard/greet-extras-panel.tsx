@@ -14,6 +14,7 @@ import { DoorOpen, Image as ImageIcon, Loader2, LogIn } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { SwitchToggle } from "@/components/dashboard/form-elements";
 import { ChannelPicker } from "@/components/dashboard/pickers";
 
 interface Extras {
@@ -34,28 +35,20 @@ function isImageUrl(url: string) {
   return [".png", ".jpg", ".jpeg", ".gif", ".webp"].some((e) => pfad.endsWith(e));
 }
 
+/**
+ * Der Schalter kommt aus form-elements.
+ *
+ * Hier stand eine eigene Kopie, und die hatte den Fehler, den
+ * form-elements.tsx schon zweimal beschreibt: der Knopf war `absolute`
+ * ohne `left` und rutschte deshalb über den rechten Rand der Bahn.
+ * Eine vierte Kopie zu reparieren hätte den nächsten Fehler nur
+ * vertagt.
+ */
 function Toggle({
   checked, onChange, disabled,
 }: { checked: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
   return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      disabled={disabled}
-      onClick={() => onChange(!checked)}
-      className={cn(
-        "relative w-12 h-6 rounded-full transition-colors shrink-0 disabled:opacity-40",
-        checked ? "bg-emerald-500" : "bg-slate-700",
-      )}
-    >
-      <span
-        className={cn(
-          "absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform",
-          checked ? "translate-x-6" : "translate-x-0.5",
-        )}
-      />
-    </button>
+    <SwitchToggle checked={checked} onCheckedChange={onChange} disabled={disabled} />
   );
 }
 
@@ -105,7 +98,20 @@ function ImageField({
   );
 }
 
-export function GreetExtrasPanel({ guildId }: { guildId: string }) {
+/**
+ * Beide Teile teilen sich eine Route und einen Datensatz, aber nicht
+ * mehr dieselbe Seite: der Abschied hat inzwischen einen eigenen
+ * Reiter. `show` entscheidet, welcher Teil gezeichnet wird -- getrennte
+ * Komponenten haetten denselben Ladevorgang zweimal gemacht und
+ * koennten beim Speichern auseinanderlaufen.
+ */
+export function GreetExtrasPanel({
+  guildId,
+  show = "both",
+}: {
+  guildId: string;
+  show?: "welcome" | "leave" | "both";
+}) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [data, setData] = useState<Extras | null>(null);
@@ -155,6 +161,7 @@ export function GreetExtrasPanel({ guildId }: { guildId: string }) {
   return (
     <div className="space-y-5">
       {/* ── Willkommensbild ───────────────────────────────────── */}
+      {show !== "leave" && (
       <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5 border-glow-card">
         <div className="flex items-start justify-between gap-4">
           <div className="flex gap-3">
@@ -183,8 +190,10 @@ export function GreetExtrasPanel({ guildId }: { guildId: string }) {
           hint="Wird zugeschnitten und abgedunkelt, damit die Schrift lesbar bleibt. Leer lassen für den gezeichneten Hintergrund."
         />
       </div>
+      )}
 
       {/* ── Abschied ──────────────────────────────────────────── */}
+      {show !== "welcome" && (
       <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5 border-glow-card">
         <div className="flex items-start justify-between gap-4">
           <div className="flex gap-3">
@@ -274,6 +283,7 @@ export function GreetExtrasPanel({ guildId }: { guildId: string }) {
           />
         </div>
       </div>
+      )}
     </div>
   );
 }

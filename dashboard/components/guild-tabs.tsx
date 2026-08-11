@@ -73,6 +73,7 @@ import {
   ShieldAlert,
   ShieldCheck,
   SmilePlus,
+  DoorOpen,
   Sparkles,
   Sword,
   Ticket,
@@ -124,6 +125,7 @@ function buildGroups(t: TranslateFn): Group[] {
       icon: SmilePlus,
       tabs: [
         { name: "Begrüßung", slug: "welcome", icon: SmilePlus, also: ["welcome", "willkommen"] },
+        { name: "Abschied", slug: "leave", icon: DoorOpen, also: ["leave", "goodbye", "abschied", "tschuess", "verlassen"] },
         { name: "Beitritts-DM", slug: "joindm", icon: Mail, also: ["joindm", "dm"] },
         { name: "Auto-Rolle", slug: "autorole", icon: Bot, also: ["autorole"] },
         { name: "Reaktions-Rollen", slug: "reactionroles", icon: Activity, also: ["reactionroles", "reaction"] },

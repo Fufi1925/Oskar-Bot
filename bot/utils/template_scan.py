@@ -64,6 +64,14 @@ FEATURE_TABLES: dict[str, tuple[str, str, tuple[str, ...]]] = {
 
     # ── Begruessung und Eintritt ────────────────────────────────
     "welcome": ("Willkommensnachricht", "db/welcome.db", ("welcome",)),
+    # Der Abschied liegt in greet_extras -- zusammen mit dem
+    # Bild-Schalter der Begruessung, die teilen sich eine Zeile.
+    # Beim Uebertragen einer Vorlage gehen sie deshalb gemeinsam mit.
+    # Bild-Schalter und Abschied liegen zusammen in einer Zeile von
+    # greet_extras. Beide Reiter zeigen auf dieselbe Tabelle: sie
+    # teilen sich den Datensatz, und beim Uebertragen einer Vorlage
+    # gehen sie deshalb gemeinsam mit.
+    "leave": ("Abschied", "db/greet_extras.db", ("greet_extras",)),
     "joindm": ("Willkommens-DM", "db/joindm.db", ("joindm",)),
     "autorole": ("Autorolle", "db/autorole.db", ("autorole",)),
     "verification": (
@@ -128,6 +136,7 @@ FEATURE_TABLES: dict[str, tuple[str, str, tuple[str, ...]]] = {
 # nicht zweimal umdenken muss.
 FEATURE_GROUPS: dict[str, str] = {
     "welcome": "Begrüßung",
+    "leave": "Begrüßung",
     "joindm": "Begrüßung",
     "autorole": "Begrüßung",
     "verification": "Begrüßung",
