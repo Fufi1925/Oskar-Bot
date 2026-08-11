@@ -871,6 +871,36 @@ class Music(commands.Cog):
             # CONNECTED. Either way: not ready.
             return False
 
+    # Wie lange auf den Sprachkanal gewartet wird.
+    #
+    # Discords Vorgabe sind 30 Sekunden. So lange stand der Befehl
+    # stumm da -- der Bot war im Kanal zu sehen und verschwand wieder,
+    # ohne dass im Chat etwas ankam. Zwoelf Sekunden reichen fuer einen
+    # gesunden Aufbau bequem und sind kurz genug, dass niemand glaubt,
+    # der Bot sei tot.
+    CONNECT_TIMEOUT = 12.0
+
+    @staticmethod
+    def _player_alive(player) -> bool:
+        """
+        Steht die Verbindung dieses Players wirklich noch?
+
+        ``ctx.voice_client`` bleibt nach einem abgebrochenen
+        Verbindungsaufbau gesetzt. Wer ihn ungeprueft weiterbenutzt,
+        spielt in eine tote Verbindung -- so lange, bis Discord sie
+        irgendwann aufraeumt.
+        """
+        if player is None:
+            return False
+        try:
+            if not player.connected:
+                return False
+        except AttributeError:
+            # Aeltere wavelink-Fassungen kennen `connected` nicht.
+            if not getattr(player, "channel", None):
+                return False
+        return getattr(player, "channel", None) is not None
+
     async def require_music(self, ctx) -> bool:
         """
         Tell the user music is unavailable, rather than dying silently.
@@ -1029,11 +1059,48 @@ class Music(commands.Cog):
         if not await self.require_music(ctx):
             return
 
+        # Drei Dinge vor dem Verbinden, die der Fix davor offen liess.
+        #
+        # **Eine tote Verbindung.** Bricht ein frueherer Aufbau ab,
+        # bleibt `ctx.voice_client` gesetzt, obwohl nichts mehr steht.
+        # `ctx.voice_client or connect(...)` nimmt dann diesen Player
+        # und spielt ins Leere -- bis Discord ihn irgendwann aufraeumt.
+        # Das ist der zweite Grund, warum es *manchmal* ging.
+        bestehend = ctx.voice_client
+        if bestehend is not None and not self._player_alive(bestehend):
+            try:
+                await bestehend.disconnect(force=True)
+            except Exception:
+                pass
+            bestehend = None
+
+        # **Fehlende Rechte.** Discord meldet die erst nach Ablauf des
+        # Timeouts. Vorher nachsehen kostet nichts und nennt die
+        # Berechtigung beim Namen, statt den Nutzer raten zu lassen.
+        if bestehend is None:
+            kanal = ctx.author.voice.channel
+            rechte = kanal.permissions_for(ctx.guild.me)
+            if not rechte.connect:
+                await ctx.send(view=CV2(
+                    f"{WARNING} Ich darf {kanal.mention} nicht betreten — "
+                    "mir fehlt die Berechtigung **Verbinden**."
+                ))
+                return
+            if not rechte.speak:
+                await ctx.send(view=CV2(
+                    f"{WARNING} Ich darf in {kanal.mention} nicht sprechen — "
+                    "mir fehlt die Berechtigung **Sprechen**."
+                ))
+                return
+
         # Merken, BEVOR irgendetwas den Waechter anwerfen kann.
-        frisch_verbunden = ctx.voice_client is None
+        frisch_verbunden = bestehend is None
         try:
-            vc = ctx.voice_client or await ctx.author.voice.channel.connect(
-                cls=wavelink.Player
+            # **Der Timeout.** Discords Vorgabe sind 30 Sekunden, und so
+            # lange steht der Befehl stumm da. Zwoelf reichen fuer einen
+            # gesunden Aufbau bequem.
+            vc = bestehend or await ctx.author.voice.channel.connect(
+                cls=wavelink.Player, timeout=self.CONNECT_TIMEOUT, self_deaf=True
             )
         except asyncio.TimeoutError:
             # Discord hat die Sprachverbindung nicht bestaetigt. Ohne

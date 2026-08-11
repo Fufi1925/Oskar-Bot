@@ -125,11 +125,30 @@ def test_every_connect_is_guarded():
     check("the connect calls were found", len(connects) >= 3,
           f"found {len(connects)}, expected the three player connects")
 
+    # Die Pruefung muss irgendwo in derselben Funktion VOR dem Aufruf
+    # stehen -- ein festes Fenster von 25 Zeilen ist zu eng, sobald vor
+    # dem Verbinden noch etwas anderes passiert (Rechte, alte
+    # Verbindung). Die Frage ist ohnehin eine andere: kann dieser
+    # Aufruf ohne Node ausgefuehrt werden?
     lines = source().split("\n")
+    funktionen = [
+        node for node in ast.walk(tree)
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+    ]
+
+    def enclosing(lineno):
+        treffer = [
+            f for f in funktionen
+            if f.lineno <= lineno <= (f.end_lineno or f.lineno)
+        ]
+        return min(treffer, key=lambda f: (f.end_lineno or f.lineno) - f.lineno) \
+            if treffer else None
+
     unguarded = []
     for lineno in connects:
-        # Look back over the enclosing block for a guard.
-        window = "\n".join(lines[max(0, lineno - 25):lineno])
+        funktion = enclosing(lineno)
+        start = (funktion.lineno - 1) if funktion else max(0, lineno - 25)
+        window = "\n".join(lines[start:lineno])
         if "require_music" not in window and "music_ready" not in window:
             unguarded.append(lineno)
 

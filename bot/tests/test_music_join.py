@@ -268,7 +268,7 @@ def test_antwortet_immer():
     for knoten in ast.walk(ast.parse(quelle.lstrip())):
         if not isinstance(knoten, ast.Try):
             continue
-        if "connect(cls=wavelink.Player)" in ast.unparse(knoten):
+        if "connect(cls=wavelink.Player" in ast.unparse(knoten):
             in_try = True
     check("das Verbinden ist abgesichert", in_try,
           "-> sonst endet der Befehl als Traceback ohne Antwort")
@@ -277,6 +277,107 @@ def test_antwortet_immer():
         check(f"{name} wird beantwortet", name in quelle)
     check("und jeder andere Fehler auch",
           re.search(r"except Exception as exc:", quelle) is not None)
+
+
+# ── 4b. Was vor dem Verbinden passiert ───────────────────────────────
+
+def test_vor_dem_verbinden():
+    """
+    Drei Faelle, die der Timeout allein nicht abdeckt.
+
+    Ein abgesichertes ``connect()`` faengt den Fehler -- aber es fragt
+    nicht, ob die alte Verbindung noch steht, ob der Bot den Kanal
+    ueberhaupt betreten darf, und es wartet die volle Vorgabe von
+    dreissig Sekunden ab.
+    """
+    print("\n4b. Tote Verbindung, Rechte und Wartezeit")
+
+    quelle = None
+    for knoten in ast.walk(BAUM):
+        if isinstance(knoten, ast.AsyncFunctionDef) and knoten.name == "play_source":
+            quelle = ast.get_source_segment(ROH, knoten)
+    if quelle is None:
+        check("play_source gefunden", False)
+        return
+
+    # 1. Ein eigener, kuerzerer Timeout.
+    check("ein eigener Timeout ist gesetzt",
+          bool(re.search(r"connect\([^)]*timeout\s*=", quelle)),
+          "-> sonst gelten Discords 30 s, in denen der Chat stumm bleibt")
+
+    import inspect
+
+    import discord
+    vorgabe = inspect.signature(discord.VoiceChannel.connect).parameters["timeout"].default
+    check("und er ist wirklich kuerzer als die Vorgabe",
+          getattr(__import__("cogs.commands.music", fromlist=["Music"]).Music,
+                  "CONNECT_TIMEOUT", 999) < vorgabe,
+          f"(Vorgabe {vorgabe}s)")
+
+    # 2. Eine tote Verbindung darf nicht weiterbenutzt werden.
+    check("eine tote Verbindung wird erkannt", "_player_alive" in quelle,
+          "-> der naechste >play spielt sonst ins Leere")
+    check("und vorher getrennt", "disconnect(force=True)" in quelle)
+
+    # Die Pruefung selbst muss auch stimmen -- also ausfuehren.
+    from cogs.commands.music import Music
+
+    # Zwei getrennte Faelle: einer, bei dem NUR `connected` falsch ist
+    # (der Kanal steht noch), und einer ohne Kanal. Mit einer Attrappe,
+    # die beides zugleich ist, deckt jede der zwei Pruefungen die andere
+    # zu -- und eine davon koennte ersatzlos wegfallen.
+    class NurGetrennt:
+        connected = False
+        channel = object()
+
+    class OhneKanal:
+        connected = True
+        channel = None
+
+    class Tot:
+        connected = False
+        channel = None
+
+    class Lebt:
+        connected = True
+        channel = object()
+
+    check("_player_alive: None ist tot", Music._player_alive(None) is False)
+    check("_player_alive: getrennt ist tot", Music._player_alive(Tot()) is False)
+    check("_player_alive: nur getrennt reicht schon",
+          Music._player_alive(NurGetrennt()) is False,
+          "-> die connected-Pruefung ist wirkungslos")
+    check("_player_alive: ohne Kanal ist tot",
+          Music._player_alive(OhneKanal()) is False)
+    check("_player_alive: verbunden lebt", Music._player_alive(Lebt()) is True)
+
+    # 3. Rechte vor dem Verbinden.
+    check("die Rechte werden vorab geprueft", "permissions_for" in quelle,
+          "-> Discord meldet sie sonst erst nach dem Timeout")
+
+    # Und die beiden Zweige muessen wirklich abbrechen. "if False:"
+    # laesst `permissions_for` stehen und pruefte trotzdem nichts mehr,
+    # deshalb wird hier der Syntaxbaum befragt.
+    baum_ps = ast.parse(quelle.lstrip())
+    getestet = set()
+    for knoten in ast.walk(baum_ps):
+        if not isinstance(knoten, ast.If):
+            continue
+        bedingung = ast.unparse(knoten.test)
+        # Nur Zweige, die auch aussteigen -- ein if ohne return
+        # verhindert den Verbindungsversuch nicht.
+        steigt_aus = any(isinstance(u, ast.Return) for u in ast.walk(knoten))
+        if steigt_aus and "rechte.connect" in bedingung:
+            getestet.add("connect")
+        if steigt_aus and "rechte.speak" in bedingung:
+            getestet.add("speak")
+    check("fehlendes Verbinden-Recht bricht ab", "connect" in getestet,
+          "-> der Bot laeuft sonst in den vollen Timeout")
+    check("fehlendes Sprechen-Recht bricht ab", "speak" in getestet,
+          "-> der Bot sitzt sonst stumm im Kanal")
+    check("und die fehlende Berechtigung wird benannt",
+          "**Verbinden**" in quelle and "**Sprechen**" in quelle,
+          "-> sonst sucht der Betreiber an der falschen Stelle")
 
 
 # ── 5. Die Zaehlung bleibt robust ────────────────────────────────────
@@ -334,6 +435,7 @@ def main():
     test_schonfrist()
     test_alle_stellen()
     test_antwortet_immer()
+    test_vor_dem_verbinden()
     test_zaehlung()
 
     print("\n" + "=" * 64)
