@@ -84,8 +84,20 @@ def render(
     guild_name: str,
     member_count: int,
     accent: int = 0x3B82F6,
+    label: str = "WILLKOMMEN",
+    preposition: str = "auf",
+    counter_text: str | None = None,
 ) -> io.BytesIO | None:
-    """The banner as PNG bytes, or None when it cannot be drawn."""
+    """
+    The banner as PNG bytes, or None when it cannot be drawn.
+
+    ``label``, ``preposition`` und ``counter_text`` sind der einzige
+    Unterschied zwischen Begruessung und Verabschiedung. Eine zweite
+    Datei mit denselben zweihundert Zeilen waere die naheliegende
+    Loesung gewesen und genau deshalb falsch: jede Aenderung am Aussehen
+    muesste man dann an zwei Stellen machen, und beim dritten Mal
+    vergisst es jemand.
+    """
 
     if not PIL_AVAILABLE:
         return None
@@ -162,7 +174,7 @@ def render(
 
         label_font = _font(22, bold=False)
         if label_font is not None:
-            draw.text((left, 84), "WILLKOMMEN", font=label_font, fill=accent_rgb)
+            draw.text((left, 84), label, font=label_font, fill=accent_rgb)
 
         name_font, _width = _fit(draw, name, _font, 54, room, 26)
         if name_font is not None:
@@ -170,9 +182,10 @@ def render(
 
         sub_font = _font(24, bold=False)
         if sub_font is not None:
-            server, _ = _fit(draw, f"auf {guild_name}", lambda s: _font(s, bold=False),
+            zeile = f"{preposition} {guild_name}"
+            server, _ = _fit(draw, zeile, lambda s: _font(s, bold=False),
                              24, room, 16)
-            draw.text((left, 190), f"auf {guild_name}",
+            draw.text((left, 190), zeile,
                       font=server or sub_font, fill=MUTED)
             # Ausgeschrieben mit Tausenderpunkt, nicht "1.2K": bei einer
             # Mitgliedsnummer will man die genaue Zahl sehen -- sie ist
@@ -180,7 +193,8 @@ def render(
             # Nachrichtenzaehler da, wo die Groessenordnung reicht.
             draw.text(
                 (left, 226),
-                f"Mitglied Nr. {member_count:,}".replace(",", "."),
+                counter_text
+                or f"Mitglied Nr. {member_count:,}".replace(",", "."),
                 font=sub_font, fill=FAINT,
             )
 

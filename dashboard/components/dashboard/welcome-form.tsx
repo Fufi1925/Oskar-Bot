@@ -314,6 +314,73 @@ export function WelcomeForm({
           </Field>
         </div>
 
+        {/*
+          Das Bild.
+
+          Es war vorher fest an — wer es nicht wollte, konnte es nicht
+          abschalten, und wer ein eigenes Banner hatte, konnte es nicht
+          einsetzen. Beides geht jetzt.
+        */}
+        <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5 border-glow-card">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="font-bold text-white">Bild mitschicken</p>
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                Der Bot zeichnet eine Karte mit Profilbild, Name und
+                Mitgliedsnummer.
+              </p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={config.card_enabled !== false}
+              onClick={() =>
+                setConfig({ ...config, card_enabled: config.card_enabled === false })
+              }
+              className={cn(
+                "relative w-12 h-6 rounded-full transition-colors shrink-0",
+                config.card_enabled !== false ? "bg-emerald-500" : "bg-slate-700",
+              )}
+            >
+              <span
+                className={cn(
+                  "absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform",
+                  config.card_enabled !== false ? "translate-x-6" : "translate-x-0.5",
+                )}
+              />
+            </button>
+          </div>
+
+          <div className={config.card_enabled === false ? "opacity-40" : ""}>
+            <Field
+              label="Eigenes Bild statt der gezeichneten Karte"
+              hint="Leer lassen für die gezeichnete Karte. Direkter Link auf eine Bilddatei."
+            >
+              <input
+                type="url"
+                value={config.card_image_url || ""}
+                disabled={config.card_enabled === false}
+                onChange={(e) =>
+                  setConfig({ ...config, card_image_url: e.target.value })
+                }
+                placeholder="https://…/willkommen.png"
+                className={INPUT}
+              />
+            </Field>
+            {config.card_image_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={config.card_image_url}
+                alt=""
+                className="mt-2 rounded-xl border border-slate-700 max-h-36 object-cover w-full"
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).style.display = "none";
+                }}
+              />
+            ) : null}
+          </div>
+        </div>
+
         {/* Placeholders */}
         <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-3 border-glow-card">
           <div>

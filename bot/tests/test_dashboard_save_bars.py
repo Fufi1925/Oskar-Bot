@@ -85,6 +85,10 @@ NO_DRAFT = {
     "verification",
     "automod",
     "welcome",
+    # Die Verabschiedung hat einen ausdruecklichen Speichern-Knopf
+    # unten auf der Seite -- eine zweite Leiste daneben waere
+    # doppelt gemoppelt.
+    "leave",
     "settings",
     "joindm",
     "logging",

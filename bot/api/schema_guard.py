@@ -130,7 +130,25 @@ SCHEMA: dict[str, tuple[str, ...]] = {
             welcome_message TEXT,
             channel_id INTEGER,
             embed_data TEXT,
-            auto_delete_duration INTEGER
+            auto_delete_duration INTEGER,
+            card_enabled INTEGER DEFAULT 1,
+            card_image_url TEXT
+        )""",
+    ),
+    "db/leave.db": (
+        # Saying goodbye. Mirrors the welcome table on purpose: same
+        # placeholders, same shape, so anyone who can configure one can
+        # configure the other.
+        """CREATE TABLE IF NOT EXISTS leave (
+            guild_id INTEGER PRIMARY KEY,
+            enabled INTEGER DEFAULT 0,
+            leave_type TEXT DEFAULT 'simple',
+            leave_message TEXT,
+            channel_id INTEGER,
+            embed_data TEXT,
+            auto_delete_duration INTEGER,
+            card_enabled INTEGER DEFAULT 1,
+            card_image_url TEXT
         )""",
     ),
     "db/anti.db": (
@@ -467,6 +485,11 @@ ADDED_COLUMNS = (
     # leaving a dead one behind next to the new message.
     ("db/verification.db", "verification_config", "panel_message_id", "INTEGER"),
     ("db/verification.db", "verification_config", "panel_channel_id", "INTEGER"),
+    # The welcome banner used to be permanently on -- there was no way to
+    # turn it off, and no way to use a ready-made image instead of the
+    # drawn one. Default 1 so existing servers keep the banner they have.
+    ("db/welcome.db", "welcome", "card_enabled", "INTEGER DEFAULT 1"),
+    ("db/welcome.db", "welcome", "card_image_url", "TEXT"),
 )
 
 

@@ -1161,6 +1161,14 @@ export const api = {
 
   // Ticket panels — one endpoint per section, so saving one part can
   // never blank another.
+  // ── Verabschiedung ───────────────────────────────────────────────────
+  getLeave: (guildId: string) => request<any>(`/guilds/${guildId}/leave`),
+  updateLeave: (guildId: string, data: any) =>
+    request<any>(`/guilds/${guildId}/leave`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+
   getTicketPanels: (guildId: string) =>
     request<any>(`/tickets/${guildId}/panels`),
   getTicketNotify: (guildId: string) =>

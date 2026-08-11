@@ -152,6 +152,10 @@ class WelcomeConfig(BaseModel):
     channel_id: Optional[str] = None
     embed_data: Optional[WelcomeEmbedData] = None
     auto_delete_duration: Optional[int] = None
+    # Das gezeichnete Banner war vorher fest an und liess sich weder
+    # abschalten noch durch ein eigenes Bild ersetzen.
+    card_enabled: bool = True
+    card_image_url: Optional[str] = None
 
 class AntiNukeConfig(BaseModel):
     guild_id: int
@@ -292,6 +296,8 @@ class WelcomeUpdate(BaseModel):
     channel_id: Optional[str] = None
     embed_data: Optional[WelcomeEmbedData] = None
     auto_delete_duration: Optional[int] = None
+    card_enabled: Optional[bool] = None
+    card_image_url: Optional[str] = None
 
 class PrefixUpdate(BaseModel):
     prefix: str

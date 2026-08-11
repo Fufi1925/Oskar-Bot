@@ -28,6 +28,7 @@ import io
 import aiohttp
 from typing import cast
 import asyncio
+import logging
 import time
 from utils.Tools import *
 from utils.cv2 import CV2, build_container, CV2Embed
@@ -178,7 +179,14 @@ class SearchResultView(LayoutView):
                 )
                 return
 
-            vc = self.ctx.voice_client or await self.ctx.author.voice.channel.connect(cls=wavelink.Player)
+            # Dieselbe abgesicherte Verbindung wie bei >play. Die
+            # Meldung geht hier in den Kanal, nicht in die Interaktion --
+            # ensure_player kennt nur ctx.
+            vc = await self.ctx.cog.ensure_player(self.ctx)
+            if vc is None:
+                if not interaction.response.is_done():
+                    await interaction.response.defer()
+                return
             vc.ctx = self.ctx
 
             if not vc.playing:
@@ -832,6 +840,156 @@ class Music(commands.Cog):
             pass
 
 
+    # Wie lange auf den Sprachkanal gewartet wird.
+    #
+    # Discords Vorgabe sind 30 Sekunden. So lange stand der Befehl still
+    # da: der Bot war im Kanal zu sehen, verschwand wieder, und im Chat
+    # kam nichts -- die Antwort haette es erst nach dem Verbinden
+    # gegeben. Zwoelf Sekunden reichen fuer einen gesunden Aufbau
+    # bequem und sind kurz genug, dass niemand glaubt, der Bot sei tot.
+    CONNECT_TIMEOUT = 12.0
+
+    @staticmethod
+    def _player_alive(player) -> bool:
+        """
+        Steht die Verbindung dieses Players wirklich noch?
+
+        ``ctx.voice_client`` bleibt nach einem abgebrochenen
+        Verbindungsaufbau gesetzt. Der naechste ``>play`` nahm dann
+        diesen toten Player und spielte ins Leere -- so lange, bis
+        Discord ihn irgendwann aufraeumte. Genau das war das
+        "manchmal geht es, manchmal nicht".
+        """
+        if player is None:
+            return False
+        try:
+            if not player.connected:
+                return False
+        except AttributeError:
+            # Aeltere wavelink-Fassungen kennen `connected` nicht.
+            if not getattr(player, "channel", None):
+                return False
+        return getattr(player, "channel", None) is not None
+
+    async def ensure_player(self, ctx):
+        """
+        Einen benutzbaren Player besorgen -- oder ehrlich sagen, warum nicht.
+
+        Gibt den Player zurueck, oder ``None``; im zweiten Fall wurde im
+        Chat bereits erklaert, was los ist. Alle vier Stellen, die
+        vorher selbst ``connect()`` aufgerufen haben, gehen hier durch.
+        """
+        vorhanden = ctx.voice_client
+        if self._player_alive(vorhanden):
+            return vorhanden
+
+        # Eine Leiche zuerst wegraeumen, sonst lehnt Discord den neuen
+        # Aufbau mit "already connected" ab.
+        if vorhanden is not None:
+            try:
+                await vorhanden.disconnect(force=True)
+            except Exception:
+                pass
+
+        kanal = ctx.author.voice.channel if ctx.author.voice else None
+        if kanal is None:
+            await ctx.send(view=CV2(
+                f"{WARNING} Du musst in einem Sprachkanal sein."
+            ))
+            return None
+
+        # Die Node-Pruefung gehoert hierher, nicht nur in die Aufrufer.
+        #
+        # wavelink loest den Knoten in `Player.__init__` auf -- ohne
+        # verbundene Node wirft schon `connect()` eine
+        # InvalidNodeException, bevor eigener Code laeuft. Die Aufrufer
+        # pruefen das zwar alle, aber wer spaeter eine neue
+        # Musikfunktion baut, geht ueber ensure_player und soll die
+        # Pruefung nicht vergessen koennen. test_music_node.py besteht
+        # zu Recht darauf.
+        if not await self.require_music(ctx):
+            return None
+
+        # Fehlt das Recht, sagt Discord das erst nach dem Timeout. Vorher
+        # nachsehen kostet nichts und spart zwoelf Sekunden Warten.
+        rechte = kanal.permissions_for(ctx.guild.me)
+        if not rechte.connect:
+            await ctx.send(view=CV2(
+                f"{WARNING} Ich darf {kanal.mention} nicht betreten — "
+                "mir fehlt die Berechtigung **Verbinden**."
+            ))
+            return None
+        if not rechte.speak:
+            await ctx.send(view=CV2(
+                f"{WARNING} Ich darf in {kanal.mention} nicht sprechen — "
+                "mir fehlt die Berechtigung **Sprechen**."
+            ))
+            return None
+
+        # Der Waechter laeuft alle 30 Sekunden und pausiert Player in
+        # leeren Kanaelen. Waehrend des Verbindens ist der Kanal aus
+        # seiner Sicht leer, weil es den Player noch nicht gibt -- ohne
+        # diesen Vermerk funkt er in den eigenen Start hinein.
+        self._started_empty.add(ctx.guild.id)
+
+        try:
+            spieler = await kanal.connect(
+                cls=wavelink.Player, timeout=self.CONNECT_TIMEOUT, self_deaf=True
+            )
+        except asyncio.TimeoutError:
+            self._started_empty.discard(ctx.guild.id)
+            await self._cleanup_failed_connect(ctx.guild)
+            await ctx.send(view=CV2(
+                f"{WARNING} Ich komme gerade nicht in den Sprachkanal — "
+                "Discord hat nicht geantwortet. Versuch es in ein paar "
+                "Sekunden noch einmal."
+            ))
+            return None
+        except discord.ClientException:
+            # "Already connected" -- der alte Player ist noch nicht ganz
+            # weg. Nach dem Aufraeumen einmal nachfassen.
+            self._started_empty.discard(ctx.guild.id)
+            await self._cleanup_failed_connect(ctx.guild)
+            await ctx.send(view=CV2(
+                f"{WARNING} Meine alte Sprachverbindung haengt noch. "
+                "Sie wurde jetzt getrennt — bitte den Befehl noch einmal "
+                "schicken."
+            ))
+            return None
+        except Exception as exc:
+            self._started_empty.discard(ctx.guild.id)
+            await self._cleanup_failed_connect(ctx.guild)
+            logging.error(
+                f"Sprachverbindung fehlgeschlagen in {ctx.guild.id}: "
+                f"{type(exc).__name__}: {exc}"
+            )
+            await ctx.send(view=CV2(
+                f"{WARNING} Ich konnte dem Sprachkanal nicht beitreten "
+                f"(`{type(exc).__name__}`). Versuch es gleich noch einmal."
+            ))
+            return None
+
+        return spieler
+
+    async def _cleanup_failed_connect(self, guild):
+        """
+        Nach einem gescheiterten Aufbau aufraeumen.
+
+        Bleibt eine halbe Verbindung stehen, scheitert auch jeder
+        weitere Versuch -- und der Nutzer sieht nur, dass es "manchmal"
+        nicht geht.
+        """
+        rest = guild.voice_client
+        if rest is not None:
+            try:
+                await rest.disconnect(force=True)
+            except Exception:
+                pass
+        try:
+            await guild.change_voice_state(channel=None)
+        except Exception:
+            pass
+
     async def display_player_embed(self, player, track, ctx, autoplay=False):
         await ctx.send(view=MusicControlView(player, ctx, track, autoplay))
 
@@ -963,7 +1121,12 @@ class Music(commands.Cog):
         if not await self.require_music(ctx):
             return
 
-        vc = ctx.voice_client or await ctx.author.voice.channel.connect(cls=wavelink.Player)
+        # Ueber ensure_player statt direkt: das faengt den Timeout ab,
+        # erkennt eine tote Verbindung aus einem frueheren Versuch und
+        # sagt im Chat Bescheid, statt still zu haengen.
+        vc = await self.ensure_player(ctx)
+        if vc is None:
+            return
         vc.ctx = ctx
         
         
@@ -1461,7 +1624,10 @@ class Music(commands.Cog):
         if not await self.require_music(ctx):
             return
 
-        await ctx.author.voice.channel.connect(cls=wavelink.Player)
+        # Ueber ensure_player: sonst haengt auch >join bis zu 30 Sekunden
+        # still, wenn Discord den Aufbau nicht durchlaesst.
+        if await self.ensure_player(ctx) is None:
+            return
         await ctx.send(view=CV2("Joined the voice channel."))
 
     # Prefix-only. This was the *only* music command in the slash menu:

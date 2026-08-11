@@ -215,6 +215,23 @@ export interface WelcomeConfig {
   channel_id?: string | null;
   embed_data?: WelcomeEmbedData | null;
   auto_delete_duration?: number | null;
+  /** Ob das gezeichnete Banner mitgeschickt wird. */
+  card_enabled?: boolean | null;
+  /** Ein eigenes Bild statt der gezeichneten Karte. */
+  card_image_url?: string | null;
+}
+
+/** Die Verabschiedung -- gleicher Aufbau wie die Begruessung. */
+export interface LeaveConfig {
+  guild_id: string;
+  enabled?: boolean;
+  leave_type?: string | null;
+  leave_message?: string | null;
+  channel_id?: string | null;
+  embed_data?: string | null;
+  auto_delete_duration?: number | null;
+  card_enabled?: boolean;
+  card_image_url?: string | null;
 }
 
 export interface WelcomeUpdate {

@@ -88,16 +88,25 @@ def test_the_greeting_wires_the_attachment_to_the_view():
         line for line in source.splitlines() if not line.strip().startswith("#")
     )
 
-    check("das Banner wird in die View gehängt",
-          "add_image(f\"attachment://{banner.filename}\")" in code,
+    # Der Verweis wird inzwischen einmal berechnet und in beiden Faellen
+    # benutzt -- seit es neben dem gezeichneten Banner auch ein eigenes
+    # Bild geben kann. Geprueft wird deshalb die Wirkung, nicht mehr die
+    # frueher woertlich dastehende Zeile.
+    check("der Verweis auf die Datei wird gebildet",
+          'f"attachment://{banner.filename}"' in code,
           "sonst lädt Discord die Datei hoch und zeigt sie nicht")
     check("die Datei wird auch mitgeschickt",
           '"file": banner' in code)
 
-    # Ohne Embed gibt from_embed None zurück -- dann braucht es ein
-    # eigenes Panel, sonst hat das Bild wieder keinen Platz.
+    # Beide Wege muessen das Bild tragen: mit Embed haengt es in der
+    # View, ohne Embed traegt es ein eigenes Panel. Faellt einer weg,
+    # verschwindet das Banner in genau diesem Fall -- und das faellt
+    # erst im Betrieb auf.
+    check("mit Embed wird es in die View gehängt",
+          "view.add_image(bild_quelle)" in code,
+          "bei einer Embed-Begrüßung fiele das Banner sonst weg")
     check("auch der Nur-Text-Fall trägt das Bild",
-          "image_url=f\"attachment://{banner.filename}\"" in code,
+          "image_url=bild_quelle" in code,
           "bei einer Text-Begrüßung fiele das Banner sonst weg")
 
 

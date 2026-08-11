@@ -122,19 +122,62 @@ def test_every_connect_is_guarded():
         if "cls" in kw:
             connects.append(node.lineno)
 
-    check("the connect calls were found", len(connects) >= 3,
-          f"found {len(connects)}, expected the three player connects")
+    # Es gibt sie noch -- ohne diese Pruefung wuerde der Rest gruen
+    # bleiben, wenn jemand alle Verbindungsaufrufe entfernt.
+    check("the connect calls were found", len(connects) >= 1,
+          f"found {len(connects)}, expected at least the central one")
 
+    # Frueher standen die Aufrufe verstreut, und jeder brauchte seine
+    # eigene Pruefung davor. Inzwischen gehen alle durch
+    # `ensure_player`; das Fenster von 25 Zeilen greift dort nicht mehr,
+    # weil die Pruefung weiter oben in derselben Funktion steht. Also
+    # wird die *umschliessende Funktion* durchsucht -- das ist die
+    # Frage, um die es geht: kann dieser Aufruf ohne Node ausgefuehrt
+    # werden?
     lines = source().split("\n")
+    funktionen = [
+        node for node in ast.walk(tree)
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+    ]
+
+    def enclosing(lineno):
+        treffer = [
+            f for f in funktionen
+            if f.lineno <= lineno <= (f.end_lineno or f.lineno)
+        ]
+        # Die engste Funktion um die Zeile herum.
+        return min(treffer, key=lambda f: (f.end_lineno or f.lineno) - f.lineno) \
+            if treffer else None
+
     unguarded = []
     for lineno in connects:
-        # Look back over the enclosing block for a guard.
-        window = "\n".join(lines[max(0, lineno - 25):lineno])
-        if "require_music" not in window and "music_ready" not in window:
+        funktion = enclosing(lineno)
+        if funktion is None:
+            fenster = "\n".join(lines[max(0, lineno - 25):lineno])
+        else:
+            fenster = "\n".join(lines[funktion.lineno - 1:lineno])
+        if "require_music" not in fenster and "music_ready" not in fenster:
             unguarded.append(lineno)
 
     check("none of them connects unchecked", not unguarded,
           f"lines {unguarded} would raise InvalidNodeException")
+
+    # Jeder Verbindungsaufruf gehoert in eine Funktion, die den
+    # Fehlerfall auch behandelt.
+    #
+    # `ensure_player` ist der Weg fuer Befehle: sie hat ein ctx und kann
+    # im Chat antworten. `_connect_to` ist der Weg fuers
+    # Dashboard: kein ctx, dafuer gibt sie den Fehlertext zurueck, den
+    # die Route anzeigt. Beide sind in Ordnung -- ein Aufruf irgendwo
+    # sonst waere der Rueckfall, den dieser Test verhindern soll.
+    ERLAUBT = {"ensure_player", "_connect_to"}
+    ausserhalb = []
+    for lineno in connects:
+        funktion = enclosing(lineno)
+        if funktion is None or funktion.name not in ERLAUBT:
+            ausserhalb.append((lineno, getattr(funktion, "name", "?")))
+    check("connects only happen in the two prepared places", not ausserhalb,
+          f"{ausserhalb} bypass both guarded paths")
 
     # The search command opens a picker; without a node every choice in
     # it fails, so it is refused up front rather than after two clicks.

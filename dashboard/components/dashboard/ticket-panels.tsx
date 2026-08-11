@@ -534,6 +534,75 @@ export function TicketPanels({ guildId }: { guildId: string }) {
                     />
                   </Field>
 
+                  {/*
+                    Bilder. Die Spalten gab es in der Datenbank schon,
+                    im Dashboard fehlten die Felder — man konnte also
+                    kein Bild setzen, obwohl der Bot eines anzeigen kann.
+                  */}
+                  <div className="grid md:grid-cols-2 gap-5">
+                    <Field
+                      label="Großes Bild"
+                      hint="Wird unter dem Text angezeigt. Direkter Link auf eine Bilddatei (.png, .jpg, .gif)."
+                    >
+                      <input
+                        type="url"
+                        defaultValue={panel.embed_image_url || ""}
+                        onBlur={(e) => {
+                          const next = e.target.value.trim();
+                          if (next !== (panel.embed_image_url || "")) {
+                            patchPanel(panel.panel_id, { embed_image_url: next || null });
+                          }
+                        }}
+                        placeholder="https://…/banner.png"
+                        className="w-full bg-slate-900/60 border border-slate-700 rounded-2xl px-4 py-3 text-sm text-white outline-none focus:border-blue-500"
+                      />
+                      {panel.embed_image_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={panel.embed_image_url}
+                          alt=""
+                          className="mt-2 rounded-xl border border-slate-700 max-h-32 object-cover w-full"
+                          onError={(e) => {
+                            // Ein toter Link soll als solcher zu sehen
+                            // sein, statt ein kaputtes Symbol zu zeigen.
+                            (e.currentTarget as HTMLImageElement).style.display = "none";
+                          }}
+                        />
+                      ) : null}
+                    </Field>
+
+                    <Field
+                      label="Kleines Bild (oben rechts)"
+                      hint="Das Vorschaubild in der Ecke. Meist das Server-Logo."
+                    >
+                      <input
+                        type="url"
+                        defaultValue={panel.embed_thumbnail_url || ""}
+                        onBlur={(e) => {
+                          const next = e.target.value.trim();
+                          if (next !== (panel.embed_thumbnail_url || "")) {
+                            patchPanel(panel.panel_id, {
+                              embed_thumbnail_url: next || null,
+                            });
+                          }
+                        }}
+                        placeholder="https://…/logo.png"
+                        className="w-full bg-slate-900/60 border border-slate-700 rounded-2xl px-4 py-3 text-sm text-white outline-none focus:border-blue-500"
+                      />
+                      {panel.embed_thumbnail_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={panel.embed_thumbnail_url}
+                          alt=""
+                          className="mt-2 h-16 w-16 rounded-xl border border-slate-700 object-cover"
+                          onError={(e) => {
+                            (e.currentTarget as HTMLImageElement).style.display = "none";
+                          }}
+                        />
+                      ) : null}
+                    </Field>
+                  </div>
+
                   {/* categories */}
                   <div>
                     <div className="flex items-center justify-between mb-3">

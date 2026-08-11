@@ -64,6 +64,7 @@ FEATURE_TABLES: dict[str, tuple[str, str, tuple[str, ...]]] = {
 
     # ── Begruessung und Eintritt ────────────────────────────────
     "welcome": ("Willkommensnachricht", "db/welcome.db", ("welcome",)),
+    "leave": ("Verabschiedung", "db/leave.db", ("leave",)),
     "joindm": ("Willkommens-DM", "db/joindm.db", ("joindm",)),
     "autorole": ("Autorolle", "db/autorole.db", ("autorole",)),
     "verification": (
@@ -128,6 +129,7 @@ FEATURE_TABLES: dict[str, tuple[str, str, tuple[str, ...]]] = {
 # nicht zweimal umdenken muss.
 FEATURE_GROUPS: dict[str, str] = {
     "welcome": "Begrüßung",
+    "leave": "Begrüßung",
     "joindm": "Begrüßung",
     "autorole": "Begrüßung",
     "verification": "Begrüßung",

@@ -278,7 +278,7 @@ async def get_guild_welcome(guild_id: int):
     import json
     
     async with aiosqlite.connect("db/welcome.db") as db:
-        async with db.execute("SELECT welcome_type, welcome_message, channel_id, embed_data, auto_delete_duration FROM welcome WHERE guild_id = ?", (guild_id,)) as cursor:
+        async with db.execute("SELECT welcome_type, welcome_message, channel_id, embed_data, auto_delete_duration, card_enabled, card_image_url FROM welcome WHERE guild_id = ?", (guild_id,)) as cursor:
             row = await cursor.fetchone()
             
     if not row:
@@ -286,7 +286,8 @@ async def get_guild_welcome(guild_id: int):
             guild_id=guild_id,
         )
         
-    welcome_type, welcome_message, channel_id, embed_data, auto_delete_duration = row
+    (welcome_type, welcome_message, channel_id, embed_data,
+     auto_delete_duration, card_enabled, card_image_url) = row
     
     embed_parsed = None
     if embed_data:
@@ -303,7 +304,11 @@ async def get_guild_welcome(guild_id: int):
         # Pydantic raised and turned the whole welcome page into a 500.
         channel_id=str(channel_id) if channel_id not in (None, 0) else None,
         embed_data=embed_parsed,
-        auto_delete_duration=auto_delete_duration
+        auto_delete_duration=auto_delete_duration,
+        # NULL heisst "an": die Spalte kam spaeter dazu, und bis dahin
+        # kam das Banner immer.
+        card_enabled=True if card_enabled is None else bool(card_enabled),
+        card_image_url=card_image_url,
     )
 
 @router.patch("/{guild_id}/welcome", summary="Update Welcome config", description="Updates welcome/greet configuration.")
@@ -313,18 +318,20 @@ async def patch_guild_welcome(guild_id: int, data: WelcomeUpdate):
     
     async with aiosqlite.connect("db/welcome.db") as db:
         # Get existing or create
-        async with db.execute("SELECT welcome_type, welcome_message, channel_id, embed_data, auto_delete_duration FROM welcome WHERE guild_id = ?", (guild_id,)) as cursor:
+        async with db.execute("SELECT welcome_type, welcome_message, channel_id, embed_data, auto_delete_duration, card_enabled, card_image_url FROM welcome WHERE guild_id = ?", (guild_id,)) as cursor:
             row = await cursor.fetchone()
             
         if not row:
             await db.execute(
-                "INSERT INTO welcome (guild_id, welcome_type, welcome_message, channel_id, embed_data, auto_delete_duration) VALUES (?, ?, ?, ?, ?, ?)",
-                (guild_id, data.welcome_type or "simple", data.welcome_message, data.channel_id, json.dumps(data.embed_data.dict()) if data.embed_data else None, data.auto_delete_duration)
+                "INSERT INTO welcome (guild_id, welcome_type, welcome_message, channel_id, embed_data, auto_delete_duration, card_enabled, card_image_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (guild_id, data.welcome_type or "simple", data.welcome_message, data.channel_id, json.dumps(data.embed_data.dict()) if data.embed_data else None, data.auto_delete_duration,
+                 1 if data.card_enabled is None else int(data.card_enabled), data.card_image_url)
             )
         else:
             current = dict(zip(
                 ("welcome_type", "welcome_message", "channel_id",
-                 "embed_data", "auto_delete_duration"),
+                 "embed_data", "auto_delete_duration",
+                 "card_enabled", "card_image_url"),
                 row,
             ))
 
@@ -336,13 +343,15 @@ async def patch_guild_welcome(guild_id: int, data: WelcomeUpdate):
             merged = merge_partial(current, updates)
 
             await db.execute(
-                "UPDATE welcome SET welcome_type = ?, welcome_message = ?, channel_id = ?, embed_data = ?, auto_delete_duration = ? WHERE guild_id = ?",
+                "UPDATE welcome SET welcome_type = ?, welcome_message = ?, channel_id = ?, embed_data = ?, auto_delete_duration = ?, card_enabled = ?, card_image_url = ? WHERE guild_id = ?",
                 (
                     merged["welcome_type"],
                     merged["welcome_message"],
                     merged["channel_id"],
                     merged["embed_data"],
                     merged["auto_delete_duration"],
+                    1 if merged["card_enabled"] is None else int(bool(merged["card_enabled"])),
+                    merged["card_image_url"],
                     guild_id,
                 ),
             )
@@ -1178,3 +1187,25 @@ async def patch_guild_behaviour(guild_id: int, data: dict):
         )
 
     return {"status": "success", "changed": changed}
+
+
+# ══════════════════════════════════════════════════════════════════════
+#  Verabschiedung
+# ══════════════════════════════════════════════════════════════════════
+#
+#  Gegenstueck zur Begruessung weiter oben. Eigene Routen statt eines
+#  Schalters in /welcome: die beiden haben getrennte Kanaele, getrennte
+#  Texte und werden getrennt ein- und ausgeschaltet.
+
+
+@router.get("/{guild_id}/leave", summary="Get leave config")
+async def get_guild_leave(guild_id: int):
+    from utils import leave_store
+    return await leave_store.get(guild_id)
+
+
+@router.patch("/{guild_id}/leave", summary="Update leave config")
+async def patch_guild_leave(guild_id: int, data: dict):
+    from utils import leave_store
+    aktuell = await leave_store.save(guild_id, data or {})
+    return {"status": "success", "guild_id": str(guild_id), **aktuell}

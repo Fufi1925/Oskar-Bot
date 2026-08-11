@@ -92,11 +92,16 @@ class greet(commands.Cog):
         while self.join_queue[guild.id]:
             member = self.join_queue[guild.id].pop(0)
             async with aiosqlite.connect("db/welcome.db") as db:
-                async with db.execute("SELECT welcome_type, welcome_message, channel_id, embed_data, auto_delete_duration FROM welcome WHERE guild_id = ?", (guild.id,)) as cursor:
+                async with db.execute("SELECT welcome_type, welcome_message, channel_id, embed_data, auto_delete_duration, card_enabled, card_image_url FROM welcome WHERE guild_id = ?", (guild.id,)) as cursor:
                     row = await cursor.fetchone()
             if row is None:
                 continue
-            welcome_type, welcome_message, channel_id, embed_data, auto_delete_duration = row
+            (welcome_type, welcome_message, channel_id, embed_data,
+             auto_delete_duration, card_enabled, card_image_url) = row
+            # Die Spalte kam spaeter dazu. Bei einer Zeile von vorher
+            # steht dort NULL -- und "kein Wert" heisst hier "an", weil
+            # das Bild bis dahin immer kam.
+            card_enabled = True if card_enabled is None else bool(card_enabled)
             welcome_channel = self.bot.get_channel(channel_id)
             if not welcome_channel:
                 continue
@@ -120,7 +125,18 @@ class greet(commands.Cog):
             # geht die Begruessung trotzdem raus -- nur eben ohne Bild.
             # Ein Willkommensgruss, der an einem Bild scheitert, ist
             # schlimmer als einer ohne.
-            banner = await self.build_banner(member)
+            # Der Schalter aus dem Dashboard. Vorher wurde das Bild
+            # immer gezeichnet -- wer es nicht wollte, konnte es nicht
+            # abstellen.
+            banner = None
+            eigenes_bild = None
+            if card_enabled:
+                if card_image_url:
+                    # Ein eigenes Banner ersetzt das gezeichnete. Discord
+                    # holt es selbst; der Bot laedt keine fremde Datei.
+                    eigenes_bild = card_image_url
+                else:
+                    banner = await self.build_banner(member)
 
             # Bei Components V2 muss das Bild *in* die View, nicht
             # daneben. Eine Datei einfach mitzuschicken laedt sie zwar
@@ -130,16 +146,16 @@ class greet(commands.Cog):
             #
             # attachment:// verweist auf die Datei derselben Nachricht.
             view = from_embed(embed)
-            if banner is not None:
+            bild_quelle = (
+                f"attachment://{banner.filename}" if banner is not None
+                else eigenes_bild
+            )
+            if bild_quelle:
                 if view is not None:
-                    view.add_image(f"attachment://{banner.filename}")
+                    view.add_image(bild_quelle)
                 else:
                     # Reiner Text: dann traegt das Panel das Bild allein.
-                    view = Panel(
-                        "",
-                        content or "",
-                        image_url=f"attachment://{banner.filename}",
-                    )
+                    view = Panel("", content or "", image_url=bild_quelle)
                     content = None
 
             try:
