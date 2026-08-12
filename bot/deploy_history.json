@@ -1,6 +1,12 @@
 {
  "commits": [
   {
+   "commit": "18f77a8545584e9880e652d52d295ae36353ffaf",
+   "at": "1786570212",
+   "subject": "feat(website): schlichter Look in Schwarz-Blau, Startseite neu, eine Navbar",
+   "body": "Farben\n------\nDer Marineton zog sich durch die ganze Seite. Er ist raus:\n\n  #071527 -> #0a0a0c   Seitenhintergrund\n  #10233f -> #131318   Karten\n  #0d1b31 -> #0e0e12   Eingabefelder\n  #3b82f6 -> #5865f2   Akzent (Discord-Blurple)\n\n473 Ersetzungen in 87 Dateien. Zusaetzlich ist Tailwinds Slate-Palette\nin tailwind.config.ts neutralisiert: sie ist deutlich blau (#1e293b hat\n29 Punkte Abstand zwischen Rot und Blau) und faerbte ueber 536 Raender\nund hunderte Textfarben alles marineblau ein. Die neuen Werte liegen\nbei hoechstens 12 -- genau der Hauch Blau, den die Vorlage hat\n(nachgemessen an deren Navigationslinks #b5bac1).\n\nDamit mussten die Klassen in den Komponenten nicht angefasst werden:\nborder-slate-800 heisst weiterhin so, ist jetzt aber #1e1f22.\n\nNavigationsleiste\n-----------------\nNeu: components/site-nav.tsx -- eine Leiste fuer alle oeffentlichen\nSeiten. Aufbau 1:1 nach der Vorlage: Markenname als reiner Text,\nBefehle und Ueber als Aufklappmenues, Support Server, Dashboard,\nTeam beitreten (gruen), Bot hinzufuegen, rechts Sprache und Konto.\nHoehe 76px, Rand #1e1f22 -- beides aus dem Screenshot gemessen.\n\nVorher gab es drei Fassungen: Startseite, Rechtstexte und Doku, mit\nunterschiedlichem Logo und teils englischer Beschriftung (\"Exit Docs\").\n\nStartseite\n----------\nKomplett neu, Aufbau wie die Vorlage, Inhalte aus unserem Bot:\nHero mit Kartenstapel, 20 Funktionen im Dreierraster, Zahlen,\nCommunity-Stimmen, FAQ zum Ausklappen, Fusszeile.\n\nDer alte Text ist weg -- er war halb englisch und sprach von einem\n\"Neural Core\", den es nie gab. Die Serverzahl kommt jetzt aus\n/api/bot/bot/stats statt aus dem Quelltext; antwortet der Bot nicht,\nsteht dort ein Strich statt einer erfundenen Zahl.\n\nDrei Fehler, mit echtem Browser gemessen und behoben\n----------------------------------------------------\n1. Auf 375px ragte die Leiste 19px heraus -- Marke, Sprachschalter,\n   Anmelden und Menueknopf passten nicht nebeneinander.\n2. Die Doku-Spalte ragte 191px heraus: flex-1 ohne min-w-0 schrumpft\n   nie unter die Breite seines laengsten Inhalts.\n3. Der dekorative Schein auf den Rechtstexten ragte 91px heraus;\n   overflow-hidden am inneren Container half nicht, da der Rand\n   right-[-5%] am aeusseren haengt.\n\nDanach 42 Kombinationen aus 6 Breiten und 7 Seiten ohne Querscrollen.\n\nGeprueft\n--------\n91/91 Testdateien, Boot-Test 152 Cogs / 543 Prefix / 65 Slash / 0 Fehler,\ntsc sauber, next build erfolgreich, ruff ohne neue Treffer,\nMutationstest 46/46 gefangen. Startseite in einem echten Browser\ngerendert und nachgemessen: Navbar 77px, Rand rgb(30,31,34),\nHintergrund rgb(10,10,12)."
+  },
+  {
    "commit": "1bbe4e2fc52b8efff944dddc0e00c66901505254",
    "at": "1786504644",
    "subject": "feat(team-update): neuer Dashboard-Reiter mit fuenf Slash-Befehlen",
@@ -231,12 +237,6 @@
   {
    "commit": "55223fd1cdff1b29839fc13fe92d82074db87520",
    "at": "1786136945",
-   "subject": "feat(phantom): EXACT full original Aleks ticket bot (5653 lines - every function kept, no removal, no shortening)",
-   "body": ""
-  },
-  {
-   "commit": "7807be23c4919f532c7479585681f1bdea67bbbb",
-   "at": "1786136937",
    "subject": "feat(phantom): EXACT full original Aleks ticket bot (5653 lines - every function kept, no removal, no shortening)",
    "body": ""
   }

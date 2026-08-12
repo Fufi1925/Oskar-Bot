@@ -323,72 +323,55 @@ def test_tab_names_are_consistent():
 
 def test_admin_link_style():
     """
-    The Admin entry in the sidebar looks like admin, not like Premium.
+    Die Seitenleiste ist ruhig -- ein Stil fuer alle Eintraege.
 
-    Premium glows gold because it sells something. Admin leads somewhere
-    consequential and is clicked daily, so it gets a steady steel plate
-    and deliberately no pulse -- a permanent animation on a link people
-    use constantly is just fatigue.
+    Bis zuletzt hatte Admin eine Stahlplatte, Premium ein goldenes
+    Pulsieren und der Speedrun ein wanderndes Licht. Drei Ausnahmen
+    in einer Liste von fuenf Eintraegen heisst: nichts sticht mehr
+    hervor, weil alles hervorsticht. Genau der Look, der weg sollte.
+
+    Premium bleibt farblich abgesetzt -- es verkauft etwas --, aber
+    ohne Animation.
     """
-    print("\nAdmin link in the sidebar")
+    print("\nDie Seitenleiste ist ruhig")
 
     layout = strip_comments(read(os.path.join(DASH, "app", "dashboard", "layout.tsx")))
 
-    check("the admin link has its own class", "admin-link" in layout)
-    # Keyed off the href: the label is translated, so matching the word
-    # "Admin" would silently lose the styling in another language.
-    check("it is matched by href, not by label",
-          'item.href === "/dashboard/admin"' in layout,
-          "matching on the label breaks under translation")
-    check("the active state reaches the CSS",
-          'data-active={isActive ? "true" : undefined}' in layout,
-          "the edge marker cannot know which link is open")
-    check("it does not reuse the premium glow",
-          "premium-link" in layout and layout.count("admin-link") >= 1
-          and "admin-link premium-link" not in layout,
-          "admin would pulse like a sales link")
+    # Die alten Sonderstile sind raus.
+    for laut, was in (
+        ("admin-badge", "Stahlplatte am Admin"),
+        ("admin-link", "eigene Admin-Klasse"),
+        ("premium-link", "goldenes Pulsieren"),
+        ("speedrun-link", "wanderndes Licht"),
+        ("speedrun-badge", "eigenes Symbolfeld"),
+        ("speedrun-beta", "eigenes Beta-Zeichen"),
+        ("scale-110", "wachsendes Symbol"),
+        ("drop-shadow-[0_0_6px", "Leuchten unter dem Symbol"),
+    ):
+        check(f"kein {was}", laut not in layout, laut)
 
-    css = read(os.path.join(DASH, "app", "globals.css"))
-    check("the class is defined", ".admin-link" in css)
-    # A grey plate on a dark navy sidebar read as disabled. The tile has
-    # to be filled to look like the most powerful link in the list.
-    # Both parts, and both inside their own rule: checking the words
-    # separately passed even with the badge rule renamed away, because
-    # "linear-gradient" appears elsewhere in the stylesheet.
-    link_rule = css[css.index(".admin-link {"):] if ".admin-link {" in css else ""
-    link_rule = link_rule[: link_rule.index("}")] if "}" in link_rule else ""
-    check("the link itself is filled",
-          "linear-gradient" in link_rule,
-          "a low-contrast outline reads as a disabled item")
-    # The name also appears inside the reduced-motion block, so a plain
-    # "is it mentioned" check passed with the real rule renamed away.
-    # Look for what the badge actually needs to be a tile.
-    badge_rule = ""
-    for chunk in css.split(".admin-badge {")[1:]:
-        candidate = chunk[: chunk.index("}")] if "}" in chunk else ""
-        if "background" in candidate:
-            badge_rule = candidate
-            break
-    check("the badge is a real tile",
-          "background" in badge_rule and "border-radius" in badge_rule,
-          "the icon has no filled tile to sit in")
-    # In JSX it is a class name without the dot; in CSS it has one.
-    check("the icon sits in its own badge",
-          'className="admin-badge' in layout,
-          "a bare glyph looks like every other row")
-    check("the open link is marked",
-          '.admin-link[data-active="true"]' in css)
-    # The point of the difference: the *link* must not pulse. Taking
-    # everything from ".admin-link" to the end of the file swept in the
-    # header's background wash, which is a different element entirely.
-    link_rules = [
-        chunk[: chunk.index("}")]
-        for chunk in css.split(".admin-link")[1:]
-        if "}" in chunk
-    ]
-    check("admin has no endless pulse",
-          not any("infinite" in rule for rule in link_rules),
-          "the admin link animates like premium")
+    # Ein Stil fuer den aktiven Eintrag, in beiden Ebenen.
+    check("ein einheitlicher aktiver Zustand",
+          layout.count('bg-white/[0.06] text-white font-semibold') >= 2,
+          "Haupt- und Untereintraege muessen gleich aussehen")
+
+    # Die Zuordnung laeuft weiter ueber die Adresse, nicht ueber die
+    # Beschriftung -- die ist uebersetzt.
+    check("Premium wird ueber die Adresse erkannt",
+          'item.href === "/dashboard/premium"' in layout,
+          "auf die Beschriftung zu pruefen bricht in der zweiten Sprache")
+    check("der aktive Zustand erreicht das CSS",
+          'data-active={isActive ? "true" : undefined}' in layout)
+
+    # Beta steht als ruhiges Zeichen da, nicht als Klammer im Text.
+    check("Beta ist ein Zeichen, kein Text",
+          '(Beta)", "")' in layout and "BETA" in layout)
+
+    # Und die Leiste sitzt am Rand statt zu schweben.
+    check("die Leiste sitzt am Rand",
+          "fixed left-0 top-0 bottom-0" in layout)
+    check("der Inhalt weicht ihr aus", "lg:pl-64" in layout,
+          "sonst liegt der Inhalt unter der Leiste")
 
 
 def test_admin_tab_groups():

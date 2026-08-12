@@ -482,6 +482,54 @@ async function authorize(
     return { ok: false, response: deny(403, `This requires the '${required}' permission.`) };
   }
 
+  if (scope === "commands") {
+    // Das oeffentliche Befehlsverzeichnis. Jeder Angemeldete darf es
+    // lesen -- es steht ohnehin in jeder Hilfe des Bots und verraet
+    // nichts ueber einen konkreten Server.
+    if (request.method !== "GET") {
+      return { ok: false, response: deny(405, "Read-only.") };
+    }
+    return { ok: true };
+  }
+
+  if (scope === "webapply") {
+    // Team-Bewerbungen ueber die Website.
+    //
+    // Zwei Klassen von Routen, und der Unterschied ist wichtig:
+    //
+    //   * eigene Bewerbung (abgeben, ansehen, zurueckziehen) — jeder
+    //     Angemeldete, aber ausschliesslich fuer sich selbst. Die
+    //     Nutzer-ID kommt aus der Sitzung, NICHT aus dem Rumpf:
+    //     sonst koennte jeder im Namen anderer bewerben oder deren
+    //     Bewerbung zurueckziehen.
+    //   * alles andere (Liste, Entscheidung, Einstellungen) — nur
+    //     globale Admins oder wer die Berechtigung traegt.
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) return { ok: false, response: deny(401, "Not signed in.") };
+
+    const erste = rest[0] ?? "";
+    const eigen = erste === "submit" || erste === "me" || erste === "withdraw"
+      || erste === "roles";
+
+    if (eigen) {
+      // Bei "me" und "withdraw" steht die ID im Pfad. Sie muss die
+      // eigene sein -- sonst liest jemand fremde Bewerbungen.
+      if ((erste === "me" || erste === "withdraw") && rest[1] !== session.user.id) {
+        return { ok: false, response: deny(403, "Nur die eigene Bewerbung.") };
+      }
+      return { ok: true };
+    }
+
+    if (isGlobalAdmin(session.user.id)) return { ok: true };
+    if (await hasTeamPermission(session.user.id, "approvals.resolve")) {
+      return { ok: true };
+    }
+    return {
+      ok: false,
+      response: deny(403, "This requires the 'approvals.resolve' permission."),
+    };
+  }
+
   if (scope === "teamupdate") {
     // Shape: /teamupdate/<guildId>/...
     //
@@ -1089,6 +1137,23 @@ async function handler(request: NextRequest, context: { params: { path?: string[
           // jeder eine fremde ID hinein.
           if (segments[0] === "tester") {
             parsed.user_id = actorId;
+          }
+          // Team-Bewerbungen: die Bewerbung gehoert der angemeldeten
+          // Person. Kaeme die user_id aus dem Browser, koennte jeder
+          // im Namen anderer bewerben -- und die Regel "eine
+          // Bewerbung pro Person" waere mit einer erfundenen ID
+          // beliebig oft zu umgehen.
+          //
+          // Name und Bild kommen aus derselben Quelle, damit im
+          // Admin-Dashboard nicht steht, was jemand sich selbst
+          // ausgedacht hat.
+          if (segments[0] === "webapply" && segments[1] === "submit") {
+            parsed.user_id = actorId;
+            parsed.user_name = session?.user?.name ?? "";
+            parsed.avatar = session?.user?.image ?? "";
+          }
+          if (segments[0] === "webapply" && segments[1] === "decide") {
+            parsed.actor_name = session?.user?.name ?? "";
           }
           body = JSON.stringify(parsed);
         }

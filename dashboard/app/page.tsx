@@ -59,7 +59,13 @@ const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || "University Bot";
 const CARD =
   "rounded-2xl border border-slate-800 bg-[#0f0f13] p-5 transition-colors hover:border-slate-700";
 
-/** Die Karten im Hero, die von selbst weiterblättern. */
+/**
+ * Die Karten im Hero, die von selbst weiterblättern.
+ *
+ * Dreizehn Stück — eine je grosser Funktionsbereich. Sie zeigen,
+ * was der Bot kann, ohne dass jemand scrollen muss; die Punkte
+ * darunter erlauben das direkte Anspringen.
+ */
 const HERO_KARTEN = [
   {
     icon: Lock,
@@ -84,6 +90,86 @@ const HERO_KARTEN = [
     zahl: "∞",
     label: "Tickets",
     ton: "from-sky-500 to-blue-600",
+  },
+  {
+    icon: ShieldAlert,
+    titel: "Anti-Nuke",
+    text: "Massenlöschungen, Massenbann und feindliche Bots werden gestoppt, bevor Schaden entsteht.",
+    zahl: "12",
+    label: "Wächter",
+    ton: "from-red-500 to-rose-700",
+  },
+  {
+    icon: ClipboardList,
+    titel: "Bewerbungen",
+    text: "Fragen per Direktnachricht, Entscheidung per Knopf, Rollen automatisch — bis zu fünf auf einmal.",
+    zahl: "8",
+    label: "Kategorien",
+    ton: "from-amber-500 to-orange-600",
+  },
+  {
+    icon: BarChart4,
+    titel: "Level-System",
+    text: "XP, Ränge und Belohnungen mit eigenem Rangbild — Aktivität sichtbar machen statt behaupten.",
+    zahl: "100+",
+    label: "Level",
+    ton: "from-emerald-500 to-teal-600",
+  },
+  {
+    icon: Music,
+    titel: "Musik",
+    text: "Wiedergabe, Playlists und Dauerbetrieb im Sprachkanal — auch nach einem Neustart.",
+    zahl: "24/7",
+    label: "Betrieb",
+    ton: "from-fuchsia-500 to-purple-600",
+  },
+  {
+    icon: ShieldCheck,
+    titel: "AutoMod",
+    text: "Filter, Strafen und Ausnahmen — greift, bevor jemand aus dem Team überhaupt online ist.",
+    zahl: "9",
+    label: "Filter",
+    ton: "from-cyan-500 to-sky-600",
+  },
+  {
+    icon: Sparkles,
+    titel: "Server-Vorlagen",
+    text: "Struktur als Vorlage sichern und auf dem nächsten Server in Minuten anwenden.",
+    zahl: "1-Klick",
+    label: "Aufbau",
+    ton: "from-violet-500 to-indigo-600",
+  },
+  {
+    icon: Mic,
+    titel: "Join to Create",
+    text: "Temporäre Sprachkanäle, die sich selbst aufräumen, wenn der Letzte gegangen ist.",
+    zahl: "Auto",
+    label: "Kanäle",
+    ton: "from-blue-500 to-indigo-600",
+  },
+  {
+    icon: Gift,
+    titel: "Gewinnspiele",
+    text: "Teilnahme per Knopf, Bedingungen nach Rolle oder Level, Auslosung durch den Bot.",
+    zahl: "∞",
+    label: "Preise",
+    ton: "from-rose-500 to-pink-600",
+  },
+  {
+    icon: Users,
+    titel: "Teamliste",
+    text: "Wer im Team ist, nach Rollen geordnet — hält sich selbst aktuell, ohne dass jemand nachträgt.",
+    zahl: "Live",
+    label: "Übersicht",
+    ton: "from-teal-500 to-emerald-600",
+  },
+  {
+    icon: Brain,
+    titel: "KI-Funktionen",
+    text: "Antworten, Zusammenfassungen und Übersetzungen direkt im Chat deines Servers.",
+    zahl: "Neu",
+    label: "KI",
+    ton: "from-purple-500 to-fuchsia-600",
   },
 ];
 
@@ -199,7 +285,7 @@ export default function LandingPage() {
   // die drei Zeilen zu lesen, kurz genug, dass man die zweite Karte
   // noch sieht, bevor man weiterscrollt.
   React.useEffect(() => {
-    const t = setInterval(() => setKarte((k) => (k + 1) % HERO_KARTEN.length), 5000);
+    const t = setInterval(() => setKarte((k) => (k + 1) % HERO_KARTEN.length), 4500);
     return () => clearInterval(t);
   }, []);
 
@@ -292,7 +378,7 @@ export default function LandingPage() {
 
             {/* Der Kartenstapel. */}
             <div className="relative hidden lg:block">
-              <div className="relative mx-auto h-[420px] max-w-[430px]">
+              <div className="relative mx-auto h-[430px] max-w-[430px]">
                 {/* Zwei angedeutete Karten dahinter, damit es nach
                     einem Stapel aussieht statt nach einer Karte. */}
                 <div className="absolute inset-x-8 top-5 bottom-5 rounded-3xl border border-slate-800/50 bg-[#0f0f13]/50" />
@@ -326,19 +412,27 @@ export default function LandingPage() {
                 </div>
               </div>
 
-              <div className="mt-7 flex items-center justify-center gap-2">
+              {/* Dreizehn Punkte, nicht dreizehn Striche: Striche
+                  waeren zusammen breiter als die Karte. */}
+              <div className="mt-7 flex flex-wrap items-center justify-center gap-1.5">
                 {HERO_KARTEN.map((k, i) => (
                   <button
                     key={k.titel}
                     type="button"
                     aria-label={k.titel}
+                    title={k.titel}
                     onClick={() => setKarte(i)}
                     className={cn(
                       "h-1.5 rounded-full transition-all",
-                      i === karte ? "w-7 bg-indigo-500" : "w-1.5 bg-slate-700",
+                      i === karte
+                        ? "w-6 bg-indigo-500"
+                        : "w-1.5 bg-slate-700 hover:bg-slate-600",
                     )}
                   />
                 ))}
+              </div>
+              <div className="mt-2.5 text-center text-[12px] text-slate-600">
+                {karte + 1} von {HERO_KARTEN.length}
               </div>
             </div>
           </div>

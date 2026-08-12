@@ -1211,6 +1211,37 @@ export const api = {
       body: JSON.stringify({ status, reason }),
     }),
 
+  // ── Befehlsverzeichnis ───────────────────────────────────────────────
+  getCommands: () => request<any>("/commands/"),
+
+  // ── Team-Bewerbungen (Website) ───────────────────────────────────────
+  getApplyRoles: () => request<any>("/webapply/roles"),
+  getMyApplication: (userId: string) => request<any>(`/webapply/me/${userId}`),
+  submitApplication: (roleKey: string, answers: string[]) =>
+    // user_id, Name und Bild setzt der Proxy aus der Sitzung ein --
+    // aus dem Browser waeren sie faelschbar.
+    request<any>("/webapply/submit", {
+      method: "POST",
+      body: JSON.stringify({ role_key: roleKey, answers }),
+    }),
+  withdrawApplication: (userId: string) =>
+    request<any>(`/webapply/withdraw/${userId}`, { method: "POST" }),
+  listApplications: (status = "") =>
+    request<any>(`/webapply/list?status=${status}`),
+  decideApplication2: (userId: string, status: string, reason: string) =>
+    request<any>(`/webapply/decide/${userId}`, {
+      method: "POST",
+      body: JSON.stringify({ status, reason }),
+    }),
+  reopenApplication: (userId: string) =>
+    request<any>(`/webapply/${userId}`, { method: "DELETE" }),
+  getApplyConfig: () => request<any>("/webapply/config"),
+  saveApplyConfig: (data: any) =>
+    request<any>("/webapply/config", {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+
   // ── Team-Update ──────────────────────────────────────────────────────
   getTeamUpdate: (guildId: string) => request<any>(`/teamupdate/${guildId}`),
   saveTeamUpdate: (guildId: string, data: any) =>

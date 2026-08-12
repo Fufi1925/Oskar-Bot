@@ -7,7 +7,7 @@ import {
   Hash, Volume2, FolderPlus, Pencil, Trash2, Copy,
   Unlock, Timer, MessageSquareX, Bell, BellOff, SearchCheck, Bot, UserCog, UserSearch,
   Webhook, Link, ScrollText, BarChart4, ClipboardList, Terminal, Gem, Gauge, Bug,
-  AtSign, Sparkles
+  AtSign, Sparkles, Inbox
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
@@ -22,6 +22,7 @@ import { TeamPanel } from "@/components/dashboard/team-panel";
 import { PremiumAdmin } from "@/components/dashboard/premium-admin";
 import { SpeedrunAdmin } from "@/components/dashboard/speedrun-admin";
 import { TesterPanel } from "@/components/dashboard/tester-panel";
+import { ApplicationsAdmin } from "@/components/dashboard/applications-admin";
 import { TemplatesAdmin } from "@/components/dashboard/templates-admin";
 import { DataAge } from "@/components/ui/data-age";
 import { StatValue } from "@/components/ui/stat-value";
@@ -42,7 +43,7 @@ import { UserLookupPanel } from "@/components/dashboard/user-lookup-panel";
 import { ServersPanel } from "@/components/dashboard/servers-panel";
 
 
-type TabId = "members" | "channels" | "server" | "scans" | "broadcast" | "system" | "features" | "health" | "team" | "access" | "reports" | "audit" | "approvals" | "botsettings" | "backups" | "warnings" | "usage" | "dashusers" | "servers" | "premium" | "speedrun" | "tester" | "pingreactions" | "templates" | "userlookup";
+type TabId = "members" | "channels" | "server" | "scans" | "broadcast" | "system" | "features" | "health" | "team" | "access" | "reports" | "audit" | "approvals" | "botsettings" | "backups" | "warnings" | "usage" | "dashusers" | "servers" | "premium" | "speedrun" | "tester" | "pingreactions" | "templates" | "userlookup" | "webapply";
 type MemberAction = "ban" | "kick" | "mute" | "unmute";
 
 type QuickAction = {
@@ -67,18 +68,19 @@ const tabs: Array<{ id: TabId; label: string; icon: any }> = [
   { id: "dashusers", label: "Dashboard Users", icon: UserCog },
   { id: "userlookup", label: "Nutzer suchen", icon: UserSearch },
   { id: "servers", label: "Servers", icon: Globe },
-  { id: "warnings", label: "Warnings", icon: AlertTriangle },
-  { id: "usage", label: "Usage", icon: Terminal },
-  { id: "reports", label: "Reports", icon: BarChart4 },
-  { id: "audit", label: "Audit", icon: ScrollText },
-  { id: "approvals", label: "Approvals", icon: ClipboardList },
-  { id: "backups", label: "Backups", icon: Database },
-  { id: "pingreactions", label: "Ping", icon: AtSign },
-  { id: "botsettings", label: "Bot Config", icon: Wrench },
-  { id: "access", label: "Access", icon: Lock },
+  { id: "warnings", label: "Warnungen", icon: AlertTriangle },
+  { id: "usage", label: "Nutzung", icon: Terminal },
+  { id: "reports", label: "Berichte", icon: BarChart4 },
+  { id: "audit", label: "Protokoll", icon: ScrollText },
+  { id: "approvals", label: "Freigaben", icon: ClipboardList },
+  { id: "backups", label: "Sicherungen", icon: Database },
+  { id: "pingreactions", label: "Ping-Reaktionen", icon: AtSign },
+  { id: "botsettings", label: "Bot-Einstellungen", icon: Wrench },
+  { id: "access", label: "Zugriff", icon: Lock },
   { id: "premium", label: "Premium", icon: Gem },
   { id: "speedrun", label: "Speedrun", icon: Gauge },
   { id: "tester", label: "Tester", icon: Bug },
+  { id: "webapply", label: "Bewerbungen", icon: Inbox },
   { id: "templates", label: "Vorlagen", icon: Sparkles },
 ];
 
@@ -96,7 +98,7 @@ const tabs: Array<{ id: TabId; label: string; icon: any }> = [
 const TAB_GROUPS: Array<{ name: string; ids: TabId[] }> = [
   { name: "Server", ids: ["members", "channels", "server", "scans", "broadcast"] },
   { name: "Betrieb", ids: ["health", "system", "usage", "warnings", "reports", "audit"] },
-  { name: "Zugriff", ids: ["team", "dashusers", "userlookup", "access", "approvals"] },
+  { name: "Zugriff", ids: ["team", "webapply", "dashusers", "userlookup", "access", "approvals"] },
   { name: "Verwaltung", ids: ["features", "botsettings", "backups", "pingreactions", "servers", "premium", "speedrun", "tester", "templates"] },
 ];
 
@@ -140,6 +142,7 @@ const FULL_WIDTH_TABS = new Set<TabId>([
   "features", "health", "team", "access",
   "reports", "audit", "approvals", "botsettings", "backups", "warnings", "usage",
   "dashusers", "userlookup", "servers", "premium", "speedrun", "tester", "templates",
+  "webapply",
 ]);
 
 function TextInput({ label, value, setValue, placeholder, type = "text" }: { label: string; value: string; setValue: (value: string) => void; placeholder?: string; type?: string }) {
@@ -292,6 +295,7 @@ export function AdminContent() {
     backups: "health.view",
     botsettings: "maintenance.toggle",
     tester: "tester.access",
+    webapply: "approvals.resolve",
     // Lesen darf jede Team-Rolle; aendern gated der Proxy separat
     // ueber maintenance.toggle.
     pingreactions: "dashboard.access",
@@ -606,6 +610,7 @@ export function AdminContent() {
       {activeTab === "premium" && <PremiumAdmin />}
       {activeTab === "speedrun" && <SpeedrunAdmin />}
       {activeTab === "tester" && <TesterPanel />}
+      {activeTab === "webapply" && <ApplicationsAdmin />}
       {activeTab === "access" && <OwnerAccessPanel currentUserId={(session?.user as any)?.id} />}
       {activeTab === "usage" && <CommandStatsPanel />}
       {activeTab === "pingreactions" && <PingReactionsPanel />}

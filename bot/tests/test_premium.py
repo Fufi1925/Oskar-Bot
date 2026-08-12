@@ -840,44 +840,25 @@ def test_dashboard_page():
           '"/dashboard/premium"' in tail,
           "it landed in the per-guild menu instead")
 
-    print("\nThe Premium link glows")
-    check("the link gets its own class", "premium-link" in lbody,
-          "no glow class on the sidebar entry")
-    # Keyed off the href, because the label is translated and a German
-    # UI would silently lose the styling.
-    check("it is matched by href, not by label",
+    print("\nDer Premium-Eintrag ist abgesetzt, aber ruhig")
+
+    # Premium bleibt farblich hervorgehoben -- es verkauft etwas --
+    # aber ohne goldenes Pulsieren. Eine Dauer-Animation auf einem
+    # Link, den man taeglich sieht, ermuedet nur; und in einer Liste,
+    # in der drei Eintraege blinken, sticht keiner mehr hervor.
+    check("der Eintrag ist farblich abgesetzt",
+          "text-amber-300/80" in lbody or "text-amber-200" in lbody,
+          "sonst sieht Premium aus wie jeder andere Eintrag")
+    check("das Symbol traegt die Farbe", "text-amber-400" in lbody)
+    check("aber ohne Pulsieren", "premium-link" not in lbody,
+          "die Klasse traegt die Dauer-Animation")
+
+    # Weiter ueber die Adresse zugeordnet: die Beschriftung ist
+    # uebersetzt, ein Treffer auf das Wort "Premium" ginge in der
+    # zweiten Sprache verloren.
+    check("es wird ueber die Adresse erkannt, nicht ueber den Text",
           'item.href === "/dashboard/premium"' in lbody,
           "matching on the label breaks under translation")
-
-    css = open(os.path.join(dash, "app", "globals.css"), encoding="utf-8").read()
-
-    # Every animation the class asks for must actually be defined, or the
-    # browser silently ignores it and the link just sits there.
-    import re as _re
-
-    defined = set(_re.findall(r"@keyframes\s+([A-Za-z0-9_-]+)", css))
-    used = set(_re.findall(r"animation:\s*([A-Za-z0-9_-]+)", css))
-
-    check("the glow animation is defined", "premium-glow" in defined,
-          f"defined: {sorted(defined)}")
-    check("the sweep animation is defined", "premium-sweep" in defined,
-          f"defined: {sorted(defined)}")
-    check("the class uses the glow",
-          ".premium-link" in css and "premium-glow" in used)
-    check("no animation is used without being defined",
-          not (used - defined - {"none"}),
-          f"missing keyframes for: {sorted(used - defined - {'none'})}")
-    # An endlessly pulsing element is a genuine accessibility problem.
-    # Check every reduced-motion block, not just the last one: adding a
-    # second block moved the goalposts and this passed for the wrong
-    # reason until it did not.
-    blocks = css.split("prefers-reduced-motion")[1:]
-    check("the sidebar pulse can be switched off",
-          any("premium-link" in b and "animation: none" in b for b in blocks),
-          "the pulse ignores prefers-reduced-motion")
-    check("the redeem celebration can be switched off",
-          any("premium-celebrate" in b for b in blocks),
-          "the success sweep ignores prefers-reduced-motion")
 
 
 def test_mount_animation():

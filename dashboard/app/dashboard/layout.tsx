@@ -279,9 +279,9 @@ export default function DashboardLayout({
   return (
     <div className="min-h-screen bg-[#0a0a0c] text-slate-200">
       {/* Liquid Background Elements */}
+      {/* Ein ruhiger Schein statt zwei pulsierender Flaechen. */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
-        <div className="absolute top-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-500/5 blur-[120px] rounded-full animate-pulse" />
-        <div className="absolute bottom-[10%] left-[-5%] w-[30%] h-[30%] bg-indigo-500/5 blur-[100px] rounded-full animate-pulse [animation-delay:2s]" />
+        <div className="absolute top-[-15%] right-[-10%] h-[45%] w-[45%] rounded-full bg-indigo-600/[0.05] blur-[140px]" />
       </div>
 
       {/* Mobile Sidebar Overlay */}
@@ -295,23 +295,22 @@ export default function DashboardLayout({
       {/* Sidebar - now using flex column */}
       <aside
         className={cn(
-          "fixed left-4 top-4 bottom-4 z-50 w-64 transform transition-all duration-500 ease-in-out lg:translate-x-0 glass border border-white/10 rounded-[2.5rem] shadow-2xl shadow-black/40 overflow-hidden flex flex-col",
+          // Sitzt am Rand statt zu schweben: eine 2.5rem-Rundung mit
+          // Schlagschatten sieht aus wie eine Karte auf einer Karte.
+          "fixed left-0 top-0 bottom-0 z-50 w-64 transform transition-transform duration-300 lg:translate-x-0",
+          "border-r border-slate-800 bg-[#0c0c0f] overflow-hidden flex flex-col",
           isSidebarOpen ? "translate-x-0" : "-translate-x-[110%]"
         )}
       >
         {/* Header */}
         <div className="flex h-16 items-center px-6 mt-4 flex-shrink-0">
           <div className="flex items-center gap-3 group">
-            <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-blue-500 to-blue-800 flex items-center justify-center shadow-lg shadow-blue-500/20 group-hover:scale-110 transition-transform border border-white/10">
-              <Bot className="h-5 w-5 text-white" />
-            </div>
+            <Bot className="h-5 w-5 text-indigo-400" />
             <div className="flex flex-col">
-              <h1 className="text-lg font-bold tracking-tight text-white font-outfit leading-none">
+              <h1 className="text-[16px] font-bold tracking-tight text-white leading-none">
                 {process.env.NEXT_PUBLIC_BRAND_NAME || "University Bot"}
               </h1>
-              <span className="text-[9px] font-black uppercase tracking-[0.2em] text-blue-500/80 mt-1">
-                Dashboard
-              </span>
+              <span className="mt-1 text-[11px] text-slate-500">Dashboard</span>
             </div>
           </div>
           <button
@@ -345,7 +344,7 @@ export default function DashboardLayout({
             if (item.items) {
               return (
                 <div key={item.name} className="space-y-2">
-                  <p className="px-4 text-[10px] font-black uppercase tracking-[0.3em] text-slate-600 mb-3">
+                  <p className="px-3 text-[11px] font-semibold text-slate-600 mb-1.5">
                     {item.name}
                   </p>
                   <div className="space-y-1">
@@ -375,50 +374,44 @@ export default function DashboardLayout({
                           href={subItem.href}
                           data-active={isActive ? "true" : undefined}
                           {...proximity.itemProps(subIndex)}
+                          // Ein Stil fuer jede Zeile.
+                          //
+                          // Vorher hatte der Speedrun einen eigenen
+                          // (cyan, wanderndes Licht), der aktive
+                          // Eintrag ein blaues Leuchten und einen
+                          // pulsierenden Punkt. Vier Sonderfaelle in
+                          // einer Liste heisst: nichts sticht mehr
+                          // hervor, weil alles hervorsticht.
                           className={cn(
                             "prox-row prox-row-sm",
-                            "flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-300 group text-[13px] font-bold",
-                            isSpeedrun
-                              ? cn(
-                                  "speedrun-link",
-                                  isActive
-                                    ? "text-cyan-100"
-                                    : "text-cyan-200/90 hover:text-white"
-                                )
-                              : isActive
-                              ? "bg-blue-500/10 text-blue-500 border border-blue-500/20 shadow-[0_0_20px_rgba(59,130,246,0.1)]"
+                            "flex items-center gap-3 px-3 py-2 rounded-lg transition-colors group text-[13px]",
+                            isActive
+                              ? "bg-white/[0.06] text-white font-semibold"
                               : "text-slate-400 hover:bg-white/[0.03] hover:text-slate-200"
                           )}
                         >
-                          {isSpeedrun ? (
-                            <span className="speedrun-badge shrink-0">
-                              <subItem.icon className="h-3.5 w-3.5 text-cyan-200" />
-                            </span>
-                          ) : (
-                            <subItem.icon
-                              className={cn(
-                                "h-4 w-4 transition-all duration-300",
-                                isActive
-                                  ? "text-blue-500 scale-110"
-                                  : "text-slate-600 group-hover:text-slate-400"
-                              )}
-                            />
-                          )}
+                          <subItem.icon
+                            className={cn(
+                              "h-4 w-4 shrink-0 transition-colors",
+                              isActive
+                                ? "text-indigo-400"
+                                : "text-slate-600 group-hover:text-slate-400"
+                            )}
+                          />
                           {/* "(Beta)" als Zeichen statt als Text: in
                               einer Untereintrag-Zeile ist der Platz
                               knapp, und die Klammer ist lauter als
                               das, was sie sagt. */}
-                          {isSpeedrun
-                            ? subItem.name.replace(" (Beta)", "")
-                            : subItem.name}
-                          {isSpeedrun && (
-                            <span className="speedrun-beta">BETA</span>
-                          )}
-                          {isActive && !isSpeedrun && (
-                            <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse shadow-[0_0_10px_rgba(59,130,246,0.5)]" />
-                          )}
-                          {isActive && isSpeedrun && (
-                            <div className="ml-auto w-1.5 h-1.5 rounded-full bg-cyan-300 shadow-[0_0_10px_rgba(34,211,238,0.6)]" />
+                          <span className="min-w-0 truncate">
+                            {subItem.name.replace(" (Beta)", "")}
+                          </span>
+                          {/* "(Beta)" als ruhiges Zeichen statt als
+                              Klammer im Text -- und in derselben
+                              Farbe wie ueberall sonst. */}
+                          {subItem.name.includes("(Beta)") && (
+                            <span className="ml-auto shrink-0 rounded bg-white/[0.06] px-1.5 py-0.5 text-[9px] font-bold tracking-wide text-slate-400">
+                              BETA
+                            </span>
                           )}
                         </Link>
                       );
@@ -457,28 +450,23 @@ export default function DashboardLayout({
                 // original component renders <li onClick>, which loses
                 // every one of those.
                 {...proximity.itemProps(proxIndex)}
+                // Ein Stil, drei Zustaende.
+                //
+                // Premium hatte ein goldenes Pulsieren, Admin eine
+                // Stahlplatte, der Speedrun ein wanderndes Licht --
+                // drei Ausnahmen in einer Liste von fuenf Eintraegen.
+                // Premium bleibt farblich hervorgehoben, weil es
+                // etwas verkauft; alles andere ist jetzt gleich
+                // ruhig.
                 className={cn(
                   "prox-row",
-                  "flex items-center gap-4 px-4 py-3 rounded-2xl transition-all duration-300 group text-[14px] font-bold",
+                  "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors group text-[14px]",
                   isPremium
-                    ? cn(
-                        "premium-link border border-amber-400/30",
-                        isActive
-                          ? "bg-amber-400/[0.14] text-amber-200"
-                          : "bg-amber-400/[0.06] text-amber-200/90 hover:bg-amber-400/[0.12] hover:text-amber-100"
-                      )
-                    : isAdmin
-                    ? cn(
-                        "admin-link",
-                        isActive ? "text-indigo-100" : "text-indigo-200/90 hover:text-white"
-                      )
-                    : isSpeedrun
-                    ? cn(
-                        "speedrun-link",
-                        isActive ? "text-cyan-100" : "text-cyan-200/90 hover:text-white"
-                      )
+                    ? isActive
+                      ? "bg-amber-400/10 text-amber-200 font-semibold"
+                      : "text-amber-300/80 hover:bg-amber-400/[0.07] hover:text-amber-200"
                     : isActive
-                    ? "bg-blue-500/10 text-blue-500 border border-blue-500/20 shadow-[0_0_20px_rgba(59,130,246,0.1)]"
+                    ? "bg-white/[0.06] text-white font-semibold"
                     : "text-slate-400 hover:bg-white/[0.03] hover:text-slate-200"
                 )}
               >
@@ -487,49 +475,27 @@ export default function DashboardLayout({
                     thing in a sidebar that is read by label, and the
                     line was a second signal for what the movement
                     already says. The shift alone carries the effect. */}
-                {isAdmin ? (
-                  // A filled tile rather than a bare glyph: that is what
-                  // makes this row read as a destination at a glance.
-                  <span className="admin-badge shrink-0">
-                    <item.icon className="h-4 w-4 text-indigo-200" />
-                  </span>
-                ) : isSpeedrun ? (
-                  <span className="speedrun-badge shrink-0">
-                    <item.icon className="h-4 w-4 text-cyan-200" />
-                  </span>
-                ) : (
-                  <item.icon
-                    className={cn(
-                      "h-5 w-5 transition-all duration-300",
-                      isPremium
-                        ? cn("text-amber-300 drop-shadow-[0_0_6px_rgba(250,166,26,0.55)]", isActive && "scale-110")
-                        : isActive
-                        ? "text-blue-500 scale-110"
-                        : "text-slate-600 group-hover:text-slate-400"
-                    )}
-                  />
-                )}
+                <item.icon
+                  className={cn(
+                    "h-[18px] w-[18px] shrink-0 transition-colors",
+                    isPremium
+                      ? "text-amber-400"
+                      : isActive
+                      ? "text-indigo-400"
+                      : "text-slate-600 group-hover:text-slate-400"
+                  )}
+                />
                 {/* Der Reiter heißt in der Navigation "Speedrun (Beta)".
                     Das Wort in Klammern mitzuschleppen macht die Zeile
                     lang und die Klammer laut; als kleines Zeichen sagt
                     es dasselbe und stört nicht beim Lesen. */}
-                {isSpeedrun ? item.name.replace(" (Beta)", "") : item.name}
-                {isSpeedrun && <span className="speedrun-beta">BETA</span>}
-                {isActive ? (
-                  <ChevronRight
-                    className={cn(
-                      "ml-auto h-4 w-4",
-                      isPremium
-                        ? "text-amber-300"
-                        : isAdmin
-                        ? "text-indigo-300"
-                        : isSpeedrun
-                        ? "text-cyan-300"
-                        : "text-blue-500"
-                    )}
-                  />
-                ) : (
-                  <ChevronRight className="ml-auto h-4 w-4 opacity-0 group-hover:opacity-30 transition-opacity" />
+                <span className="min-w-0 truncate">
+                  {item.name.replace(" (Beta)", "")}
+                </span>
+                {item.name.includes("(Beta)") && (
+                  <span className="ml-auto shrink-0 rounded bg-white/[0.06] px-1.5 py-0.5 text-[9px] font-bold tracking-wide text-slate-400">
+                    BETA
+                  </span>
                 )}
               </Link>
             );
@@ -544,17 +510,17 @@ export default function DashboardLayout({
             <Link
               href={backLinkItem.href || "/dashboard/guilds"}
               className={cn(
-                "flex items-center gap-4 px-4 py-3 rounded-2xl transition-all duration-300 group text-[14px] font-bold",
+                "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors group text-[14px]",
                 pathname === backLinkItem.href
-                  ? "bg-blue-500/10 text-blue-500 border border-blue-500/20 shadow-[0_0_20px_rgba(59,130,246,0.1)]"
+                  ? "bg-white/[0.06] text-white font-semibold"
                   : "text-slate-400 hover:bg-white/[0.03] hover:text-slate-200"
               )}
             >
               <BackLinkIcon
                 className={cn(
-                  "h-5 w-5 transition-all duration-300",
+                  "h-[18px] w-[18px] shrink-0 transition-colors",
                   pathname === backLinkItem.href
-                    ? "text-blue-500 scale-110"
+                    ? "text-indigo-400"
                     : "text-slate-600 group-hover:text-slate-400"
                 )}
               />
@@ -613,7 +579,7 @@ export default function DashboardLayout({
       </aside>
 
       {/* Main Content Area (unchanged) */}
-      <div className="lg:pl-72 flex flex-col min-h-screen relative z-10">
+      <div className="lg:pl-64 flex flex-col min-h-screen relative z-10">
         {/* Top Navbar (unchanged) */}
         <header className="h-16 lg:h-20 sticky top-2 lg:top-4 z-30 mx-3 lg:mx-10 flex items-center justify-between gap-2 border border-white/10 glass bg-white/[0.01] backdrop-blur-3xl px-3 lg:px-8 rounded-[1.5rem] lg:rounded-[2rem] shadow-xl shadow-black/20 mb-4 lg:mb-6 mt-3 lg:mt-4">
           <button

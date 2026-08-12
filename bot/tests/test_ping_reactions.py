@@ -735,8 +735,13 @@ def test_the_tab_is_wired_up():
         encoding="utf-8",
     ).read()
 
+    # Auf die Kennung pruefen, nicht auf die Beschriftung: die hiess
+    # frueher "Ping" und heisst jetzt "Ping-Reaktionen". Der Name
+    # darf sich aendern, die Kennung nicht -- an ihr haengt alles
+    # andere.
     check("der Reiter steht in der Liste",
-          '{ id: "pingreactions", label: "Ping"' in admin)
+          re.search(r'\{\s*id:\s*"pingreactions",\s*label:\s*"[^"]+"', admin)
+          is not None)
     check("und in einer Gruppe",
           re.search(r'ids: \[[^\]]*"pingreactions"', admin) is not None,
           "ein Reiter ausserhalb jeder Gruppe wird nie gerendert")

@@ -694,127 +694,42 @@ def test_motion_respects_the_system_setting():
 
 
 def test_the_sidebar_row_stands_out():
-    """Der Speedrun baut einen ganzen Server -- er darf nicht aussehen
-    wie „Nickname“ drei Zeilen darüber.
+    """
+    Die Speedrun-Zeile ist jetzt eine Zeile wie jede andere.
 
-    Premium ist bernstein und pulst, Admin ist indigo mit Kachel. Dieser
-    hier nimmt cyan und das, was keiner der beiden hat: ein Licht, das
-    über die Oberkante läuft.
+    Sie hatte einen eigenen Stil: cyan, eigenes Symbol-Feld und ein
+    Licht, das ueber die Oberkante lief. Zusammen mit dem goldenen
+    Premium-Pulsieren und der indigo Admin-Kachel waren das drei
+    Ausnahmen in einer kurzen Liste -- und damit stach keine mehr
+    hervor.
+
+    Was bleibt: der Reiter ist als Beta gekennzeichnet, und er steht
+    in einer Gruppe, damit der richtige Renderpfad greift.
     """
 
-    print("\nDie Sidebar-Zeile hebt sich ab")
+    print("\nDie Speedrun-Zeile ist ruhig wie alle anderen")
 
-    css = read("app/globals.css")
     layout = strip_comments(read("app/dashboard/layout.tsx"))
 
-    check("es gibt einen eigenen Stil", ".speedrun-link {" in css)
-    check("mit eigenem Symbol-Feld", ".speedrun-badge {" in css)
-    # Der Keyframe muss existieren *und* benutzt werden. Nur nach dem
-    # Namen zu suchen hat eine Mutation durchgelassen, die ihn
-    # umbenannte: die Regel stand noch da, die animation-Zeile zeigte
-    # ins Leere, und der Streif war weg.
-    check("es gibt einen Keyframe", "@keyframes speedrun-sweep" in css)
-    before_block = css.split(".speedrun-link::before {")
-    check("es gibt eine Streif-Regel", len(before_block) > 1)
-    if len(before_block) > 1:
-        rule = before_block[1].split("}")[0]
-        check("der Streif ist animiert",
-              "animation: speedrun-sweep " in rule,
-              f"animation-Zeile: {rule.strip()[:100]}")
+    for laut in ("speedrun-link", "speedrun-badge", "speedrun-beta"):
+        check(f"kein {laut} mehr", laut not in layout,
+              "drei Sonderstile in einer Liste heben nichts mehr hervor")
 
-        # Und der Name muss auf einen Keyframe zeigen, den es gibt.
-        import re as _re
-
-        used = _re.search(r"animation:\s*([\w-]+)", rule)
-        if used:
-            name = used.group(1)
-            check("der Keyframe existiert wirklich",
-                  f"@keyframes {name} " in css or f"@keyframes {name}{{" in css,
-                  f"animation: {name} zeigt ins Leere")
-
-    # Die Farbe muss sich von den beiden anderen unterscheiden -- sonst
-    # ist die Hervorhebung keine.
-    check("die Farbe ist nicht die von Premium",
-          "rgba(34, 211, 238" in css and "amber" not in css.split(".speedrun-link {")[1][:400])
-    check("und nicht die von Admin",
-          "99, 102, 241" not in css.split(".speedrun-link {")[1][:400])
-
-    # Und das Ganze muss auch verdrahtet sein, nicht nur im CSS stehen.
-    check("die Sidebar erkennt die Zeile", "isSpeedrun" in layout)
-    check("sie vergibt die Klasse", '"speedrun-link"' in layout)
-    check("und das Symbol-Feld", "speedrun-badge" in layout)
-
-    # Der Stil muss in dem Zweig stehen, der die Zeile wirklich
-    # rendert.
-    #
-    # Hier lag ein Fehler, den dieser Test nicht gesehen hat: die
-    # Sidebar hat zwei Renderpfade -- einen für Einträge der obersten
-    # Ebene (Premium, Admin) und einen für Untereinträge einer Gruppe.
-    # „Speedrun (Beta)“ steht in der Gruppe „Verwaltung“, läuft also
-    # durch den zweiten. Der Stil stand nur im ersten. Im Dashboard sah
-    # die Zeile deshalb aus wie jede andere, während dieser Test grün
-    # blieb: „isSpeedrun kommt in der Datei vor“ sagt nichts darüber,
-    # ob es an der Stelle steht, die zählt.
-    # Die Gruppe heisst inzwischen "Templates" -- der Speedrun ist
-    # dorthin gezogen, zu den anderen Vorlagen. Worauf es ankommt, ist
-    # unveraendert: er muss in IRGENDEINER Gruppe stehen, damit der
-    # zweite Renderpfad greift. Auf die oberste Ebene gehoert er
-    # nicht.
+    # Er steht weiter in einer Gruppe -- daran haengt, welcher
+    # Renderpfad ihn zeichnet.
     in_group = bool(
         re.search(r'name:\s*"(?:Verwaltung|Templates)",\s*items:\s*\[[^\]]*speedrun',
                   layout, re.S)
     )
-    check("der Reiter steht in einer Gruppe", in_group,
-          "wenn er auf die oberste Ebene wandert, muss dieser Test angepasst "
-          "werden -- dann greift der andere Zweig")
+    check("der Reiter steht in einer Gruppe", in_group)
 
-    if in_group and "item.items.map((subItem: any) =>" in layout:
-        branch = layout.split("item.items.map((subItem: any) =>")[1]
-        # Der Zweig endet, wo die Gruppe geschlossen wird.
-        branch = branch.split("})}")[0]
-        check("der Gruppen-Zweig kennt den Speedrun",
-              "isSpeedrun" in branch,
-              "der Stil steht im falschen Zweig und wird nie vergeben")
-
-        # Und er muss ihn am Pfad erkennen, nicht an einer Konstanten.
-        #
-        # `const isSpeedrun = false` ließe alle Prüfungen oben grün:
-        # die Wörter stehen weiter da, die Zeile bekommt trotzdem nie
-        # einen eigenen Stil. Ein Mutationstest hat genau das
-        # durchgelassen.
-        # Seit dem Support-Warteraum teilen sich zwei Beta-Reiter
-        # denselben Stil, und die Erkennung läuft über eine Liste:
-        #
-        #     ["/speedrun", "/supportqueue"].some((p) => href.endsWith(p))
-        #
-        # Geprüft wird deshalb beides -- die alte direkte Form und die
-        # Liste. Was die Prüfung weiterhin ausschließt, ist der Fall,
-        # der sie ursprünglich nötig machte: eine feste Konstante
-        # (`const isSpeedrun = false`), die alle Wortsuchen grün lässt
-        # und trotzdem nie einen Stil vergibt.
-        by_path = (
-            'subItem.href.endsWith("/speedrun")' in branch
-            or (
-                '"/speedrun"' in branch
-                and "subItem.href.endsWith(path)" in branch
-            )
-        )
-        check("er erkennt ihn am Pfad",
-              by_path,
-              "die Erkennung hängt an einer Konstanten statt am Link")
-        check("er vergibt dort die Klasse",
-              "speedrun-link" in branch,
-              "die Zeile bekommt im Dashboard keine eigene Gestaltung")
-        check("und dort das Symbol-Feld",
-              "speedrun-badge" in branch)
-        check("und das BETA-Zeichen",
-              "speedrun-beta" in branch)
-
-    # Wer Bewegung abgestellt hat, bekommt keine.
-    reduced = css.split("prefers-reduced-motion: reduce")
-    check("der Streif achtet auf prefers-reduced-motion",
-          any(".speedrun-link::before" in block for block in reduced[1:]),
-          "eine stehende helle Linie sieht nach Darstellungsfehler aus")
+    # Und er ist als Beta gekennzeichnet, jetzt ueber den Namen
+    # statt ueber eine eigene Klasse.
+    check("er ist als Beta gekennzeichnet",
+          "Speedrun (Beta)" in layout)
+    check("das Beta-Zeichen wird gerendert",
+          'BETA' in layout and '(Beta)", "")' in layout,
+          "die Klammer soll nicht im Text stehen bleiben")
 
 
 def test_the_console_does_not_fight_the_reader():

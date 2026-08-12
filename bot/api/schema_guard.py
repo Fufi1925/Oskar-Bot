@@ -576,6 +576,39 @@ SCHEMA: dict[str, tuple[str, ...]] = {
         """CREATE INDEX IF NOT EXISTS idx_team_warns_lookup
             ON team_warns (guild_id, user_id, active)""",
     ),
+    "db/web_apply.db": (
+        # Team-Bewerbungen ueber die Website. Der Store legt dieselben
+        # Tabellen an; hier stehen sie, damit die API sie auch dann
+        # findet, wenn noch niemand eine Bewerbung abgegeben hat.
+        """CREATE TABLE IF NOT EXISTS web_applications (
+            user_id INTEGER PRIMARY KEY,
+            user_name TEXT DEFAULT '',
+            avatar TEXT DEFAULT '',
+            role_key TEXT NOT NULL,
+            answers TEXT DEFAULT '[]',
+            status TEXT DEFAULT 'open',
+            decided_by TEXT DEFAULT '',
+            decided_by_name TEXT DEFAULT '',
+            decided_at INTEGER DEFAULT 0,
+            reason TEXT DEFAULT '',
+            created_at INTEGER NOT NULL DEFAULT 0,
+            updated_at INTEGER DEFAULT 0,
+            granted_role_id TEXT DEFAULT ''
+        )""",
+        """CREATE TABLE IF NOT EXISTS web_apply_config (
+            role_key TEXT PRIMARY KEY,
+            discord_role_id TEXT DEFAULT '',
+            open INTEGER DEFAULT 1
+        )""",
+        """CREATE TABLE IF NOT EXISTS web_apply_settings (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            guild_id TEXT DEFAULT '',
+            channel_id TEXT DEFAULT '',
+            dm_applicant INTEGER DEFAULT 1
+        )""",
+        """CREATE INDEX IF NOT EXISTS idx_web_apply_status
+            ON web_applications (status, created_at)""",
+    ),
     "db/invite.db": (
         # The tracking endpoints store the invite log channel in a table
         # called "logging" inside invite.db (not to be confused with
@@ -649,7 +682,22 @@ def _team_update_columns():
     )
 
 
-ADDED_COLUMNS = ADDED_COLUMNS + _team_update_columns()
+def _web_apply_columns():
+    """Die Spalten von web_applications -- aus dem Store."""
+    try:
+        from utils.web_apply_store import COLUMNS
+    except Exception:  # pragma: no cover - defensiver Import
+        return ()
+    out = []
+    for name, typ in COLUMNS:
+        sauber = typ.split(" PRIMARY KEY")[0].replace(" NOT NULL", "")
+        out.append(("db/web_apply.db", "web_applications", name, sauber))
+    return tuple(out)
+
+
+ADDED_COLUMNS = (
+    ADDED_COLUMNS + _team_update_columns() + _web_apply_columns()
+)
 
 
 async def _ensure_columns() -> None:

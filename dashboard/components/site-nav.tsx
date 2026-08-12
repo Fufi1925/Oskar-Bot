@@ -41,10 +41,23 @@ export const INVITE_URL = CLIENT_ID
 type Eintrag = { label: string; href: string; hint?: string };
 
 const BEFEHLE: Eintrag[] = [
-  { label: "Alle Befehle", href: "/docs#befehle", hint: "543 Prefix, 65 Slash" },
-  { label: "Moderation", href: "/docs#moderation", hint: "Bann, Timeout, Warnungen" },
-  { label: "Team-Update", href: "/docs#team", hint: "/uprank, /downrank & Co." },
-  { label: "Musik", href: "/docs#musik", hint: "Wiedergabe und Playlists" },
+  { label: "Alle Befehle", href: "/commands", hint: "Durchsuchbar, mit Beschreibung" },
+  { label: "Die wichtigsten", href: "/commands", hint: "Die 100 meistgenutzten zuerst" },
+  { label: "Dokumentation", href: "/docs", hint: "Anleitungen und Einrichtung" },
+];
+
+/**
+ * Die vier Rollen, fuer die man sich bewerben kann.
+ *
+ * Sie stehen hier UND im Bot (``web_apply_store.ROLES``). Ein Test
+ * vergleicht beide Seiten: eine Rolle, die es hier gibt und dort
+ * nicht, fuehrt zu einem Fragebogen, den der Bot ablehnt.
+ */
+const TEAM_ROLLEN: Eintrag[] = [
+  { label: "Content Creator", href: "/team/apply?rolle=content", hint: "Videos, Clips und Beiträge" },
+  { label: "Designer", href: "/team/apply?rolle=designer", hint: "Grafiken, Banner, Aussehen" },
+  { label: "Moderator", href: "/team/apply?rolle=moderator", hint: "Support-Server betreuen" },
+  { label: "Tester", href: "/team/apply?rolle=tester", hint: "Neues vor allen anderen testen" },
 ];
 
 const UEBER: Eintrag[] = [
@@ -54,8 +67,26 @@ const UEBER: Eintrag[] = [
   { label: "Impressum", href: "/imprint" },
 ];
 
-/** Ein Aufklapp-Menü in der Leiste. */
-function Dropdown({ label, items }: { label: string; items: Eintrag[] }) {
+/**
+ * Ein Aufklapp-Menü in der Leiste.
+ *
+ * `tone` faerbt die Beschriftung -- „Team beitreten“ ist in der
+ * Vorlage der einzige gruene Punkt. `footer` haengt einen Link ans
+ * Ende, damit man auch ohne Rollenwahl auf die Seite kommt.
+ */
+function Dropdown({
+  label,
+  items,
+  tone,
+  icon: Icon,
+  footer,
+}: {
+  label: string;
+  items: Eintrag[];
+  tone?: "emerald";
+  icon?: React.ComponentType<{ className?: string }>;
+  footer?: { label: string; href: string };
+}) {
   const [open, setOpen] = React.useState(false);
   const box = React.useRef<HTMLDivElement>(null);
 
@@ -82,12 +113,19 @@ function Dropdown({ label, items }: { label: string; items: Eintrag[] }) {
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
-        className="flex items-center gap-1.5 text-[15px] text-slate-300 hover:text-white transition-colors py-2"
+        className={cn(
+          "flex items-center gap-1.5 text-[15px] transition-colors py-2",
+          tone === "emerald"
+            ? "text-emerald-400 hover:text-emerald-300"
+            : "text-slate-300 hover:text-white",
+        )}
       >
+        {Icon && <Icon className="h-4 w-4" />}
         {label}
         <ChevronDown
           className={cn(
-            "h-4 w-4 text-slate-500 transition-transform duration-200",
+            "h-4 w-4 transition-transform duration-200",
+            tone === "emerald" ? "text-emerald-500/70" : "text-slate-500",
             open && "rotate-180",
           )}
         />
@@ -113,6 +151,16 @@ function Dropdown({ label, items }: { label: string; items: Eintrag[] }) {
                 )}
               </Link>
             ))}
+
+            {footer && (
+              <Link
+                href={footer.href}
+                onClick={() => setOpen(false)}
+                className="mt-1 block border-t border-slate-800 px-3 pt-2.5 pb-1 text-[13px] text-slate-500 hover:text-white transition-colors"
+              >
+                {footer.label} &rarr;
+              </Link>
+            )}
           </div>
         </div>
       )}
@@ -153,15 +201,13 @@ export function SiteNav() {
           >
             Dashboard
           </Link>
-          <a
-            href={SUPPORT_INVITE}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1.5 text-[15px] text-emerald-400 hover:text-emerald-300 transition-colors"
-          >
-            <UserPlus className="h-4 w-4" />
-            Team beitreten
-          </a>
+          <Dropdown
+            label="Team beitreten"
+            items={TEAM_ROLLEN}
+            tone="emerald"
+            icon={UserPlus}
+            footer={{ label: "Alle Rollen ansehen", href: "/team/apply" }}
+          />
           <a
             href={INVITE_URL}
             target="_blank"
