@@ -85,6 +85,11 @@ NO_DRAFT = {
     # haette nichts zu speichern -- und waere irrefuehrend, weil die
     # Aenderung ja schon beim Bot ist.
     "teamlist",
+    # Team-Update sichert sofort: jeder Schalter, jeder Kanal und jede
+    # Rolle sind eine eigene Anfrage. Nur die Vorlagen haben einen
+    # eigenen Speichern-Knopf direkt darunter -- bei einem
+    # mehrzeiligen Text waere eine Anfrage pro Tastendruck unsinnig.
+    "teamupdate",
     "leveling",
     "verification",
     "automod",

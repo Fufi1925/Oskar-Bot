@@ -1,6 +1,12 @@
 {
  "commits": [
   {
+   "commit": "a911d000d61def6478785ab0ec6155a2a8eda0cb",
+   "at": "1786498976",
+   "subject": "feat(applications): bis zu fuenf Rollen beim Annehmen, fuenf Schwachstellen behoben",
+   "body": "Mehrere Rollen: statt einer jetzt bis zu fuenf, im Dashboard ueber die\nMehrfachauswahl. Doppelte fliegen raus, die Reihenfolge bleibt, mehr\nals fuenf werden gekappt statt abgelehnt. Die alte Spalte\naccept_role_id bleibt stehen und wird weiter gelesen -- eine Kategorie\nvon vorher verliert ihre Rolle sonst still, und das faellt erst auf,\nwenn jemand angenommen wird.\n\nDie Vergabe steht in utils/application_store.py, weil zwei Wege\nannehmen koennen: die Knoepfe in Discord und das Dashboard. Zwei\nFassungen davon laufen frueher oder spaeter auseinander -- eine\nvergisst die Rolle. Sie prueft die Rollenordnung vorher: eine Rolle\nueber der des Bots kann er nicht vergeben, und Discord meldet das erst\nmit 403. Was nicht geht, wird gemeldet statt verschwiegen, sonst\nglaubt das Team, die Rollen seien durch.\n\nBeim Nachmessen fielen fuenf weitere Schwachstellen auf:\n\n1. Das Team erfuhr nichts. Die Bewerbung landete im Kanal und niemand\n   wurde erwaehnt. Jetzt werden die Team-Rollen der Kategorie gepingt --\n   die Erwaehnung steht IN der Karte, nicht daneben: mit dem V2-Flag\n   gibt es kein content-Feld, Discord antwortet sonst mit 50035.\n   allowed_mentions begrenzt es auf die Team-Rollen; eine Antwort des\n   Bewerbers koennte sonst @everyone enthalten.\n\n2. Eine laufende Bewerbung hing nach einem Deploy fuer immer. Die\n   Sitzung stand in der Datenbank, aber die naechste Frage kommt nur\n   als Antwort auf eine Nachricht -- der Bewerber antwortet nicht, weil\n   er auf eine Frage wartet. Und die offene Sitzung blockierte ihn auf\n   allen Servern. on_ready stellt die offene Frage jetzt neu.\n\n3. Kein Zurueckziehen. Wer sich vertippt hatte, war bis zur\n   Entscheidung blockiert. Jetzt mit dem Wort zurueckziehen in der DM; die\n   Nachricht im Team-Kanal wird dabei entwertet.\n\n4. Man sah nicht, wie lange eine Bewerbung schon liegt -- jetzt steht\n   der Zeitpunkt in der Karte.\n\n5. Eine nicht vergebbare Rolle verschwand still im Log.\n\nDabei ein Fund, der den ganzen Reiter betroffen haette: CREATE TABLE IF\nNOT EXISTS aendert an einer bestehenden Tabelle nichts. Auf einer\nlaufenden Installation haette die neue Spalte gefehlt und jede Abfrage\nwaere mit no such column gescheitert. Nachgemessen und an zwei Stellen\nbehoben -- schema_guard und der Store selbst, damit er nicht davon\nabhaengt, dass vorher jemand aufgeraeumt hat.\n\n51 von 51 Mutationen erwischt. Sieben entwischten zuerst, weil die\nPruefungen im Repro-Skript standen und nicht im dauerhaften Test. Eine\nachte ist aequivalent und bleibt bewusst gruen -- sie ist im\nMutationsskript als solche vermerkt statt versteckt.\n\n89 Testdateien bestanden, Boot-Test 151 Cogs / 543 Prefix / 60 Slash."
+  },
+  {
    "commit": "d3450b4634b08ef1abf1a3f7c5d6e35a6e5fd327",
    "at": "1786493062",
    "subject": "fix(tickets): Knoepfe ueberleben Deploy, Zaehler stimmt; fix(proxy): Unknown API scope",
@@ -231,12 +237,6 @@
   {
    "commit": "6ae81101b07c1dbb6ebcffd84afb2183bfa347d4",
    "at": "1786136931",
-   "subject": "feat(phantom): EXACT full original Aleks ticket bot (5653 lines - every function kept, no removal, no shortening)",
-   "body": ""
-  },
-  {
-   "commit": "918d36b40c82624d666a42e971a72c851f771ecc",
-   "at": "1786136921",
    "subject": "feat(phantom): EXACT full original Aleks ticket bot (5653 lines - every function kept, no removal, no shortening)",
    "body": ""
   }

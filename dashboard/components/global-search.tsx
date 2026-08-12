@@ -7,6 +7,7 @@ import {
   Layers, Link2, Lock, Mail, Mic, Music, Search, Upload, Settings, Shield, ShieldCheck,
   SmilePlus, Sparkles, Ticket, UserCheck, Users, Volume2, Wrench, Zap,
   DoorOpen,
+  UserCog,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
@@ -53,6 +54,7 @@ const TARGETS: SearchTarget[] = [
   { label: "Bewerbungen", href: "/dashboard/guild/{g}/applications", icon: ClipboardList, group: "Engagement", keywords: "bewerbung application apply team moderator", guildScoped: true },
   { label: "Vorlage hochladen", href: "/dashboard/guild/{g}/template-upload", icon: Upload, group: "Server", keywords: "template vorlage upload hochladen scan teilen export", guildScoped: true },
   { label: "Community-Vorlagen", href: "/dashboard/guild/{g}/templates", icon: Sparkles, group: "Server", keywords: "template templates vorlage community import aufsetzen", guildScoped: true },
+  { label: "Team-Update", href: "/dashboard/guild/{g}/teamupdate", icon: UserCog, group: "Server", keywords: "team update uprank downrank teamkick teamwarn teamanfang befoerderung beförderung rang rueckstufung rückstufung verwarnung aufnahme unterschrift", guildScoped: true },
   { label: "Teamliste", href: "/dashboard/guild/{g}/teamlist", icon: Users, group: "Server", keywords: "team teamliste staff mitarbeiter rollen liste moderatoren supporter wer ist wer", guildScoped: true },
   { label: "Musik", href: "/dashboard/guild/{g}/music", icon: Music, group: "Engagement", keywords: "music musik playlist song 247 24/7 dauerbetrieb lautstaerke volume voice sprachkanal", guildScoped: true },
   { label: "Join to Create", href: "/dashboard/guild/{g}/j2c", icon: Mic, group: "Voice", keywords: "temporary voice channel j2c", guildScoped: true },

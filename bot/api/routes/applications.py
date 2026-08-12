@@ -9,6 +9,7 @@ Interaktion danach bei ihm ankommen muss.
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -16,6 +17,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from api.dependencies import get_bot
 from utils import application_store as store
 from utils import feature_audit
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from core.universitybot import universitybot
@@ -292,6 +295,22 @@ async def decide_entry(
         if vergeben:
             wort = "die Rolle" if len(vergeben) == 1 else "die Rollen"
             rollen_hinweis = f"\nDu hast {wort} **{', '.join(vergeben)}** bekommen."
+
+        # Ins Team uebernehmen, wenn eingeschaltet -- ueber denselben
+        # Dienst wie die Knoepfe in Discord. Zwei Fassungen davon
+        # liefen frueher oder spaeter auseinander, und eine vergaesse
+        # den Akteneintrag.
+        try:
+            from utils import team_update as team_service
+
+            uebernahme = await team_service.from_application(
+                bot, guild, mitglied, kategorie,
+                actor_id=int(actor) if str(actor).isdigit() else None,
+            )
+            if uebernahme is not None and uebernahme.failed:
+                nicht_vergeben = list(nicht_vergeben) + uebernahme.failed
+        except Exception as exc:
+            logger.warning(f"Team-Uebernahme fehlgeschlagen: {exc}")
 
     # Die Nachricht im Kanal entwerten, damit dort niemand mehr klickt.
     if bewerbung.get("message_id") and kategorie:

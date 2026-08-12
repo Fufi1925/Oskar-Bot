@@ -500,6 +500,82 @@ SCHEMA: dict[str, tuple[str, ...]] = {
         """CREATE INDEX IF NOT EXISTS idx_timers_due
             ON timers (done, ends_at)""",
     ),
+    "db/team_update.db": (
+        # Team-Update: Befoerderungen, Rueckstufungen, Rauswuerfe,
+        # Verwarnungen. Der Store legt dieselben Tabellen an; hier
+        # stehen sie, damit die API sie auch dann findet, wenn der
+        # Cog noch nichts geschrieben hat.
+        """CREATE TABLE IF NOT EXISTS team_settings (
+            guild_id INTEGER PRIMARY KEY,
+            enabled INTEGER DEFAULT 0,
+            channel_id INTEGER,
+            uprank_channel_id INTEGER,
+            downrank_channel_id INTEGER,
+            kick_channel_id INTEGER,
+            warn_channel_id INTEGER,
+            join_channel_id INTEGER,
+            free_channel INTEGER DEFAULT 1,
+            command_channel_id INTEGER,
+            staff_roles TEXT DEFAULT '',
+            require_reason INTEGER DEFAULT 1,
+            dm_user INTEGER DEFAULT 1,
+            ping_user INTEGER DEFAULT 0,
+            warn_threshold INTEGER DEFAULT 0,
+            warn_action TEXT DEFAULT 'none',
+            warn_downrank_role_id INTEGER,
+            warn_expire_days INTEGER DEFAULT 0,
+            team_roles TEXT DEFAULT '',
+            app_enabled INTEGER DEFAULT 0,
+            updated_at INTEGER DEFAULT 0
+        )""",
+        """CREATE TABLE IF NOT EXISTS team_templates (
+            guild_id INTEGER NOT NULL,
+            action TEXT NOT NULL,
+            title TEXT DEFAULT '',
+            body TEXT DEFAULT '',
+            dm_body TEXT DEFAULT '',
+            colour INTEGER DEFAULT 0,
+            enabled INTEGER DEFAULT 1,
+            PRIMARY KEY (guild_id, action)
+        )""",
+        """CREATE TABLE IF NOT EXISTS team_members (
+            guild_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            role_id INTEGER,
+            joined_at INTEGER DEFAULT 0,
+            left_at INTEGER DEFAULT 0,
+            active INTEGER DEFAULT 1,
+            source TEXT DEFAULT 'command',
+            PRIMARY KEY (guild_id, user_id)
+        )""",
+        """CREATE TABLE IF NOT EXISTS team_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            guild_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            action TEXT NOT NULL,
+            old_role_id INTEGER,
+            new_role_id INTEGER,
+            reason TEXT DEFAULT '',
+            signers TEXT DEFAULT '[]',
+            actor_id INTEGER,
+            source TEXT DEFAULT 'command',
+            created_at INTEGER NOT NULL
+        )""",
+        """CREATE TABLE IF NOT EXISTS team_warns (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            guild_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            reason TEXT DEFAULT '',
+            actor_id INTEGER,
+            signers TEXT DEFAULT '[]',
+            active INTEGER DEFAULT 1,
+            created_at INTEGER NOT NULL
+        )""",
+        """CREATE INDEX IF NOT EXISTS idx_team_events_lookup
+            ON team_events (guild_id, created_at)""",
+        """CREATE INDEX IF NOT EXISTS idx_team_warns_lookup
+            ON team_warns (guild_id, user_id, active)""",
+    ),
     "db/invite.db": (
         # The tracking endpoints store the invite log channel in a table
         # called "logging" inside invite.db (not to be confused with
@@ -553,6 +629,27 @@ ADDED_COLUMNS = (
     # nichts, dafuer braucht es diesen ALTER.
     ("db/applications.db", "app_categories", "accept_roles", "TEXT DEFAULT ''"),
 )
+
+
+def _team_update_columns():
+    """Die Spalten von team_settings -- aus dem Store, nicht abgetippt.
+
+    Zwei handgepflegte Listen fuer dieselbe Frage liefen hier schon
+    auseinander: ``updated_at`` stand im CREATE TABLE, aber nicht im
+    Nachtrag, und auf einer Installation, die vorher lief, scheiterte
+    jedes Sichern mit "no such column". Der Store ist die eine Quelle.
+    """
+    try:
+        from utils.team_update_store import SETTINGS_COLUMNS
+    except Exception:  # pragma: no cover - defensiver Import
+        return ()
+    return tuple(
+        ("db/team_update.db", "team_settings", name, typ)
+        for name, typ in SETTINGS_COLUMNS
+    )
+
+
+ADDED_COLUMNS = ADDED_COLUMNS + _team_update_columns()
 
 
 async def _ensure_columns() -> None:

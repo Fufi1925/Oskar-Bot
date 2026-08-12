@@ -29,7 +29,7 @@ import {
   Menu, X, Bell, User, Search, ChevronRight, Star, Sparkles, LogOut,
   Lock, PenLine, Gem, Pin, Moon, Calculator, Youtube, Cake,
   LifeBuoy, ChevronDown, Bot, Shield, UserCheck, Badge, Gauge, Headphones,
-  Music, Upload, Users
+  Music, Upload, Users, UserCog
 } from "lucide-react";
 import { useSession, signIn, signOut } from "next-auth/react";
 import { cn, isAdmin } from "@/lib/utils";
@@ -243,6 +243,7 @@ export default function DashboardLayout({
           name: "Verwaltung",
           items: [
             { name: "Teamliste", href: `/dashboard/guild/${currentGuildId}/teamlist`, icon: Users },
+            { name: "Team-Update (Beta)", href: `/dashboard/guild/${currentGuildId}/teamupdate`, icon: UserCog },
             { name: "Logs", href: `/dashboard/guild/${currentGuildId}/logging`, icon: LayoutDashboard },
             { name: "Server-Werkzeuge", href: `/dashboard/guild/${currentGuildId}/admin-dashboard`, icon: Shield },
             { name: "Support-Warteraum (Beta)", href: `/dashboard/guild/${currentGuildId}/supportqueue`, icon: Headphones },

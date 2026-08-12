@@ -1211,6 +1211,35 @@ export const api = {
       body: JSON.stringify({ status, reason }),
     }),
 
+  // ── Team-Update ──────────────────────────────────────────────────────
+  getTeamUpdate: (guildId: string) => request<any>(`/teamupdate/${guildId}`),
+  saveTeamUpdate: (guildId: string, data: any) =>
+    request<any>(`/teamupdate/${guildId}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+  saveTeamUpdateTemplate: (guildId: string, action: string, data: any) =>
+    request<any>(`/teamupdate/${guildId}/templates/${action}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+  teamUpdatePreview: (guildId: string, action: string) =>
+    request<any>(`/teamupdate/${guildId}/preview?action=${action}`),
+  teamUpdateHistory: (guildId: string, action = "", userId = "") =>
+    request<any>(
+      `/teamupdate/${guildId}/history?action=${action}&user_id=${userId}`,
+    ),
+  teamUpdateMembers: (guildId: string, includeFormer = false) =>
+    request<any>(`/teamupdate/${guildId}/members?include_former=${includeFormer}`),
+  teamUpdateWarns: (guildId: string, userId: string) =>
+    request<any>(`/teamupdate/${guildId}/warns/${userId}`),
+  clearTeamWarn: (guildId: string, warnId: number) =>
+    request<any>(`/teamupdate/${guildId}/warns/${warnId}`, { method: "DELETE" }),
+  clearAllTeamWarns: (guildId: string, userId: string) =>
+    request<any>(`/teamupdate/${guildId}/warns/user/${userId}`, {
+      method: "DELETE",
+    }),
+
   getTicketPanels: (guildId: string) =>
     request<any>(`/tickets/${guildId}/panels`),
   getTicketNotify: (guildId: string) =>

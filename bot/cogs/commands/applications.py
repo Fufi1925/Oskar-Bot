@@ -723,6 +723,27 @@ class Applications(commands.Cog):
                     f"— bitte von Hand nachtragen."
                 )
 
+            # Ins Team uebernehmen, wenn das im Dashboard eingeschaltet
+            # ist. Der Dienst entscheidet selbst, ob etwas zu tun ist,
+            # und kuemmert sich um Akte, Ankuendigung und DM.
+            #
+            # In einem eigenen try: eine Ankuendigung, die scheitert,
+            # darf die Annahme nicht zurueckdrehen -- die Rollen sind
+            # zu dem Zeitpunkt schon vergeben.
+            try:
+                from utils import team_update as team_service
+
+                uebernahme = await team_service.from_application(
+                    self.bot, guild, mitglied, kategorie,
+                    actor_id=interaction.user.id,
+                )
+                if uebernahme is not None and uebernahme.failed:
+                    problem_hinweis += (
+                        f"\n{CROSS} Team-Update: {', '.join(uebernahme.failed)}"
+                    )
+            except Exception as exc:
+                logger.warning(f"Team-Uebernahme fehlgeschlagen: {exc}")
+
         # Und die Person benachrichtigen.
         nutzer = self.bot.get_user(int(bewerbung["user_id"]))
         if nutzer is None:

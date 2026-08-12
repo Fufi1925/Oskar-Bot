@@ -105,6 +105,12 @@ FEATURE_TABLES: dict[str, tuple[str, str, tuple[str, ...]]] = {
     "teamlist": (
         "Teamliste", "db/teamlist.db", ("teamlist", "teamlist_groups")
     ),
+    # Team-Update: Einstellungen und Vorlagen gehen mit. Die Akte
+    # NICHT -- wer wann befoerdert oder verwarnt wurde, sind Daten von
+    # Menschen und haetten auf einem fremden Server nichts verloren.
+    "teamupdate": (
+        "Team-Update", "db/team_update.db", ("team_settings", "team_templates")
+    ),
 
     # ── Rollen ──────────────────────────────────────────────────
     "vanityroles": ("Status-Rollen", "db/vanity.db", ("vanity_roles",)),
@@ -155,6 +161,7 @@ FEATURE_GROUPS: dict[str, str] = {
     "leveling": "Mitmachen",
     "autoreact": "Mitmachen",
     "teamlist": "Mitmachen",
+    "teamupdate": "Mitmachen",
 
     "vanityroles": "Rollen",
     "customroles": "Rollen",
@@ -215,6 +222,13 @@ NEVER_EXPORT = frozenset(
         "command_usage",
         "template_applies",
         "template_votes",
+        # Die Team-Akte: wer wann befoerdert, verwarnt oder aus dem
+        # Team genommen wurde. Personenbezogen -- eine hochgeladene
+        # Vorlage ist oeffentlich, und auf einem fremden Server
+        # staenden diese Leute ploetzlich in dessen Team.
+        "team_members",
+        "team_events",
+        "team_warns",
         # Global, nicht je Server.
         "guild_blacklist",
         "user_blacklist",

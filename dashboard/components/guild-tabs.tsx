@@ -47,6 +47,7 @@ import {
   BarChart4,
   Music,
   Upload,
+  UserCog,
   Badge,
   Bot,
   Calculator,
@@ -226,6 +227,18 @@ function buildGroups(t: TranslateFn): Group[] {
           also: [
             "team", "teamliste", "staff", "mitarbeiter", "rollen", "liste",
             "moderatoren", "supporter", "wer ist wer",
+          ],
+        },
+        {
+          name: "Team-Update",
+          slug: "teamupdate",
+          icon: UserCog,
+          tag: "beta",
+          also: [
+            "team", "uprank", "downrank", "teamkick", "teamwarn",
+            "teamanfang", "befoerderung", "beförderung", "rang",
+            "rueckstufung", "rückstufung", "verwarnung", "rollen",
+            "aufnahme", "unterschrift",
           ],
         },
         { name: "Logs", slug: "logging", icon: FileText,
