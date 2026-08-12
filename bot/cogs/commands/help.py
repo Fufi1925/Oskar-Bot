@@ -6,7 +6,7 @@
 # ║                                                                  ║
 # ║            © 2026 UniversityBot Devs — All Rights Reserved              ║
 # ║                                                                  ║
-# ║   discord  ──  https://discord.gg/MG3rYnUZJV                      ║
+# ║   discord  ──  https://discord.gg/F3TedBAVZT                      ║
 # ║   youtube  ──  https://youtube.com/@UniversityBotDevs                   ║
 # ║   github   ──  https://github.com/UniversityBot                        ║
 # ║                                                                  ║
@@ -180,7 +180,7 @@ class HelpCommand(commands.HelpCommand):
     )
 
     embed.set_footer(
-      text=f"Requested By {self.context.author} | [Support](https://discord.gg/MG3rYnUZJV)",
+      text=f"Requested By {self.context.author} | [Support](https://discord.gg/F3TedBAVZT)",
     )
     
     view = vhelp.View(mapping=mapping, ctx=self.context, homeembed=embed, ui=2)

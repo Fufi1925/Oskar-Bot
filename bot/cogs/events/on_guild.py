@@ -6,7 +6,7 @@
 # ║                                                                  ║
 # ║            © 2026 UniversityBot Devs — All Rights Reserved              ║
 # ║                                                                  ║
-# ║   discord  ──  https://discord.gg/MG3rYnUZJV                      ║
+# ║   discord  ──  https://discord.gg/F3TedBAVZT                      ║
 # ║   youtube  ──  https://youtube.com/@UniversityBotDevs                   ║
 # ║   github   ──  https://github.com/UniversityBot                        ║
 # ║                                                                  ║
@@ -116,7 +116,7 @@ Threads : {len(guild.threads)}
                 await guild.chunk()
 
             embed = discord.Embed(
-                description=f"{ARROWRED} Prefix For This Server is `>`\n{ARROWRED} Get Started with `>help`\n{ARROWRED} For detailed guides, FAQ & information, visit our **[Support Server](https://discord.gg/MG3rYnUZJV)**",
+                description=f"{ARROWRED} Prefix For This Server is `>`\n{ARROWRED} Get Started with `>help`\n{ARROWRED} For detailed guides, FAQ & information, visit our **[Support Server](https://discord.gg/F3TedBAVZT)**",
                 color=0xFF0000,
             )
             embed.set_author(
@@ -131,7 +131,7 @@ Threads : {len(guild.threads)}
             support = Button(
                 label="Support", emoji=HANDSHAKE,
                 style=discord.ButtonStyle.link,
-                url=f"https://discord.gg/MG3rYnUZJV",
+                url=f"https://discord.gg/F3TedBAVZT",
             )
 
             view = View()

@@ -6,7 +6,7 @@
 # ║                                                                  ║
 # ║            © 2026 UniversityBot Devs — All Rights Reserved              ║
 # ║                                                                  ║
-# ║   discord  ──  https://discord.gg/MG3rYnUZJV                      ║
+# ║   discord  ──  https://discord.gg/F3TedBAVZT                      ║
 # ║   youtube  ──  https://youtube.com/@UniversityBotDevs                   ║
 # ║   github   ──  https://github.com/UniversityBot                        ║
 # ║                                                                  ║
@@ -1057,33 +1057,33 @@ async def get_module_status(guild_id: int, bot: "universitybot" = Depends(get_bo
 
     # (key, label, database, table, extra condition, dashboard path)
     checks = [
-        ("welcome", "Welcome", "welcome.db", "welcome", "", "welcome"),
-        ("automod", "Automod", "automod.db", "automod", "enabled = 1", "automod"),
+        ("welcome", "Begrüßung", "welcome.db", "welcome", "", "welcome"),
+        ("automod", "AutoMod", "automod.db", "automod", "enabled = 1", "automod"),
         ("antinuke", "Anti-Nuke", "anti.db", "antinuke", "", "antinuke"),
-        ("verification", "Verification", "verification.db", "verification_config", "enabled = 1", "verification"),
-        ("leveling", "Leveling", "leveling.db", "leveling_settings", "enabled = 1", "leveling"),
+        ("verification", "Verifizierung", "verification.db", "verification_config", "enabled = 1", "verification"),
+        ("leveling", "Level-System", "leveling.db", "leveling_settings", "enabled = 1", "leveling"),
         ("tickets", "Tickets", "ticket.db", "guild_configs", "", "tickets"),
-        ("autorole", "Auto Role", "autorole.db", "autorole", "", "autorole"),
-        ("reactionroles", "Reaction Roles", "autoreact.db", "autoreact", "", "reactionroles"),
-        ("vanityroles", "Vanity Roles", "vanity.db", "vanity_roles", "", "vanityroles"),
+        ("autorole", "Auto-Rolle", "autorole.db", "autorole", "", "autorole"),
+        ("reactionroles", "Reaktions-Rollen", "autoreact.db", "autoreact", "", "reactionroles"),
+        ("vanityroles", "Vanity-Rollen", "vanity.db", "vanity_roles", "", "vanityroles"),
         # custom_roles, not roles: the "roles" table also holds the
         # reqrole, so a server with only a reqrole set looked configured.
-        ("customroles", "Custom Roles", "customrole.db", "custom_roles", "", "customroles"),
-        ("invcrole", "Voice Roles", "invc.db", "vcrole_roles", "", "invcrole"),
+        ("customroles", "Eigene Rollen", "customrole.db", "custom_roles", "", "customroles"),
+        ("invcrole", "Sprach-Rollen", "invc.db", "vcrole_roles", "", "invcrole"),
         # This pointed at block.db -- the blacklist database, which has
         # no j2c table -- so Join to Create was reported as "not set up"
         # on every server no matter what. The data lives in j2c_data.db.
         ("j2c", "Join to Create", "j2c_data.db", "guild_setup",
          "join_channel_id IS NOT NULL", "j2c"),
-        ("nickname", "Nicknames", "nickname.db", "nickname_rules", "", "nickname"),
-        ("noprefix", "No Prefix", "np.db", "np_roles", "", "noprefix"),
-        ("tracking", "Invite Tracking", "invite.db", "logging", "", "tracking"),
+        ("nickname", "Spitznamen", "nickname.db", "nickname_rules", "", "nickname"),
+        ("noprefix", "Ohne Präfix", "np.db", "np_roles", "", "noprefix"),
+        ("tracking", "Einladungs-Log", "invite.db", "logging", "", "tracking"),
     ]
 
     # (key, label, JSON-Datei, Bedingung, Dashboard-Pfad)
     json_checks = [
-        ("logging", "Logging", "logging_config.json", _has_log_channel, "logging"),
-        ("counting", "Counting", "counting.json",
+        ("logging", "Logs", "logging_config.json", _has_log_channel, "logging"),
+        ("counting", "Zählspiel", "counting.json",
          lambda e: bool(e.get("enabled")) and bool(e.get("channel")), "counting"),
     ]
 

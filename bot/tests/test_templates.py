@@ -130,7 +130,7 @@ def test_secrets_never_reach_a_template():
         # damit prueft man die Muster gar nicht. Genau daran ist diese
         # Pruefung beim Mutationstest vorbeigelaufen.
         "notiz": "Zugang: MTUzMDM0OTIwNTM3MjE0NTcxNQ.GFBveZ.2Sf2aje1G6wgGpcs1VxuZHOMfuI-irq4y-YIas",
-        "einladung": "https://discord.gg/MG3rYnUZJV",
+        "einladung": "https://discord.gg/F3TedBAVZT",
         "nested": {"api_key": "geheim123", "harmlos": "bleibt"},
         "liste": ["https://discord.com/api/webhooks/9/zzz", "normaler Text"],
         "level": 5,
@@ -151,7 +151,7 @@ def test_secrets_never_reach_a_template():
         "2Sf2aje1G6wgGpcs1VxuZHOMfuI" not in blob,
         "das Muster muss greifen, nicht nur die Schluessel-Liste",
     )
-    check("die Einladung ist weg", "discord.gg/MG3rYnUZJV" not in blob)
+    check("die Einladung ist weg", "discord.gg/F3TedBAVZT" not in blob)
     check("der api_key ist weg", "geheim123" not in blob)
 
     check(

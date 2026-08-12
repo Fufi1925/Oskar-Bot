@@ -198,12 +198,27 @@ async def ensure_schema(db) -> None:
 
     # Die Einstellungen des Teams: welche Discord-Rolle eine
     # angenommene Bewerbung vergibt, wohin die Meldung geht.
+    # Je Bewerbungsrolle: welcher Server, welche Rolle.
+    #
+    # Frueher gab es genau einen Server fuer alle vier. Das reicht
+    # nicht: Tester gehoeren auf den Test-Server, Moderatoren auf den
+    # Support-Server. Ein leeres ``guild_id`` faellt weiterhin auf den
+    # allgemeinen Server zurueck -- wer nur einen hat, muss nichts
+    # doppelt eintragen.
     await db.execute(
         "CREATE TABLE IF NOT EXISTS web_apply_config ("
         " role_key TEXT PRIMARY KEY,"
         " discord_role_id TEXT DEFAULT '',"
+        " guild_id TEXT DEFAULT '',"
         " open INTEGER DEFAULT 1)"
     )
+    # Nachtragen, was auf einer aelteren Installation fehlt.
+    async with db.execute("PRAGMA table_info(web_apply_config)") as cursor:
+        spalten = {r[1] for r in await cursor.fetchall()}
+    if spalten and "guild_id" not in spalten:
+        await db.execute(
+            "ALTER TABLE web_apply_config ADD COLUMN guild_id TEXT DEFAULT ''"
+        )
     await db.execute(
         "CREATE TABLE IF NOT EXISTS web_apply_settings ("
         " id INTEGER PRIMARY KEY CHECK (id = 1),"
@@ -460,7 +475,8 @@ async def get_config() -> dict:
     import aiosqlite
 
     rollen = {
-        k: {"discord_role_id": "", "open": True} for k in ROLE_KEYS
+        k: {"discord_role_id": "", "guild_id": "", "open": True}
+        for k in ROLE_KEYS
     }
     einstellungen = {"guild_id": "", "channel_id": "", "dm_applicant": True}
 
@@ -472,6 +488,10 @@ async def get_config() -> dict:
                 if zeile["role_key"] in rollen:
                     rollen[zeile["role_key"]] = {
                         "discord_role_id": zeile["discord_role_id"] or "",
+                        "guild_id": (
+                            zeile["guild_id"]
+                            if "guild_id" in zeile.keys() else ""
+                        ) or "",
                         "open": bool(zeile["open"]),
                     }
         async with db.execute(
@@ -488,6 +508,25 @@ async def get_config() -> dict:
     return {"roles": rollen, **einstellungen}
 
 
+def guild_for(config: dict, role_key: str) -> str:
+    """
+    Auf welchem Server die Rolle vergeben wird.
+
+    Erst der eigene Server der Bewerbungsrolle, sonst der allgemeine.
+    Ein leerer Rueckgabewert heisst: keiner eingestellt -- dann wird
+    keine Rolle vergeben, die Bewerbung laesst sich aber trotzdem
+    annehmen. Eine Zusage darf nicht daran scheitern, dass niemand
+    einen Server ausgesucht hat.
+    """
+    eigener = str(
+        (config.get("roles") or {}).get(role_key, {}).get("guild_id") or ""
+    ).strip()
+    if eigener.isdigit():
+        return eigener
+    allgemein = str(config.get("guild_id") or "").strip()
+    return allgemein if allgemein.isdigit() else ""
+
+
 async def save_config(data: dict) -> dict:
     async with db_paths.connect(DB_PATH) as db:
         await ensure_schema(db)
@@ -496,13 +535,17 @@ async def save_config(data: dict) -> dict:
             if schluessel not in ROLE_KEYS:
                 continue
             rolle = str((wert or {}).get("discord_role_id") or "").strip()
+            server = str((wert or {}).get("guild_id") or "").strip()
             await db.execute(
-                "INSERT INTO web_apply_config (role_key, discord_role_id, open)"
-                " VALUES (?, ?, ?)"
+                "INSERT INTO web_apply_config"
+                " (role_key, discord_role_id, guild_id, open)"
+                " VALUES (?, ?, ?, ?)"
                 " ON CONFLICT(role_key) DO UPDATE SET"
                 " discord_role_id = excluded.discord_role_id,"
+                " guild_id = excluded.guild_id,"
                 " open = excluded.open",
                 (schluessel, rolle if rolle.isdigit() else "",
+                 server if server.isdigit() else "",
                  int(bool((wert or {}).get("open", True)))),
             )
 

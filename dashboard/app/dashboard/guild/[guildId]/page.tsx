@@ -1,11 +1,36 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+/**
+ * Die Übersicht eines Servers.
+ *
+ * ── Was hier steht ──────────────────────────────────────────────────
+ *
+ *   1. Kopfzeile: Fortschritt der Einrichtung, vier Kennzahlen.
+ *   2. Nächste Schritte — die drei wichtigsten Module, die noch
+ *      fehlen. Nicht irgendwelche: nach Wichtigkeit geordnet.
+ *   3. Eingerichtet / Noch offen, jeweils als schlichte Liste.
+ *   4. Sicherung & Wiederherstellung im zweiten Reiter.
+ *
+ * ── Warum „nächste Schritte“ ────────────────────────────────────────
+ *
+ * Die alte Seite warf 17 gleich aussehende Kacheln aus, davon 14
+ * grau. Wer neu ist, sieht daran nicht, womit er anfangen soll —
+ * Begrüßung und Anti-Nuke sind wichtiger als Spitznamen. Die
+ * Reihenfolge steht in `WICHTIGKEIT`.
+ *
+ * ── Warum Listen statt Kacheln ──────────────────────────────────────
+ *
+ * 17 Kacheln à 3 Spalten sind sechs Reihen, die man absuchen muss.
+ * Eine Liste liest man von oben nach unten, und der Name steht immer
+ * an derselben Stelle.
+ */
+
+import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
-  Activity, ArrowRight, BarChart4, Bot, Check, CheckCircle2, FileJson, FileText,
-  Hash, Link2, Loader2, Mail, Mic, Settings, Shield, ShieldCheck, SmilePlus,
-  Sparkles, Ticket, UserCheck, Users, Volume2, Zap,
+  Activity, ArrowRight, BarChart4, Bot, Check, ChevronRight, FileJson,
+  FileText, Hash, Link2, Loader2, Mic, Settings, Shield, ShieldCheck,
+  SmilePlus, Sparkles, Ticket, UserCheck, Users, Volume2, Zap,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -28,7 +53,58 @@ const MODULE_ICONS: Record<string, any> = {
   nickname: UserCheck,
   noprefix: Hash,
   tracking: Link2,
+  counting: Hash,
 };
+
+/**
+ * Womit man anfangen sollte.
+ *
+ * Kleinere Zahl heißt wichtiger. Begrüßung und Schutz zuerst — sie
+ * wirken vom ersten Tag an; Spitznamen und Vanity-Rollen sind
+ * Feinschliff. Module ohne Eintrag landen hinten.
+ */
+const WICHTIGKEIT: Record<string, number> = {
+  antinuke: 0,
+  automod: 1,
+  verification: 2,
+  welcome: 3,
+  logging: 4,
+  tickets: 5,
+  autorole: 6,
+  leveling: 7,
+  reactionroles: 8,
+  j2c: 9,
+  counting: 10,
+  tracking: 11,
+  customroles: 12,
+  invcrole: 13,
+  noprefix: 14,
+  vanityroles: 15,
+  nickname: 16,
+};
+
+/** Ein kurzer Satz, was das Modul bringt. */
+const WOZU: Record<string, string> = {
+  antinuke: "Schützt vor Massenlöschungen und feindlichen Bots.",
+  automod: "Filtert Spam, Links und Beleidigungen automatisch.",
+  verification: "Hält Raids fern, bevor sie den Server erreichen.",
+  welcome: "Begrüßt neue Mitglieder mit Nachricht und Bild.",
+  logging: "Schreibt mit, wer was wann geändert hat.",
+  tickets: "Support-Anfragen in eigenen Kanälen, geordnet.",
+  autorole: "Gibt neuen Mitgliedern automatisch eine Rolle.",
+  leveling: "Belohnt aktive Mitglieder mit XP und Rängen.",
+  reactionroles: "Rollen per Klick auf ein Emoji.",
+  j2c: "Temporäre Sprachkanäle, die sich selbst aufräumen.",
+  counting: "Gemeinsam zählen — ein Spiel für den ganzen Server.",
+  tracking: "Zeigt, wer wen eingeladen hat.",
+  customroles: "Mitglieder gestalten ihre eigene Rolle.",
+  invcrole: "Rolle, solange jemand im Sprachkanal ist.",
+  noprefix: "Befehle ohne Präfix für ausgewählte Personen.",
+  vanityroles: "Rolle für alle mit deinem Link im Status.",
+  nickname: "Regeln für Spitznamen, etwa ein fester Vorsatz.",
+};
+
+const CARD = "rounded-2xl border border-slate-800 bg-[#131318]";
 
 interface ModuleState {
   key: string;
@@ -57,10 +133,64 @@ interface StatusPayload {
   };
 }
 
-export default function GuildOverviewPage({ params }: { params: { guildId: string } }) {
+/** Eine Zeile in einer der beiden Listen. */
+function Zeile({
+  mod,
+  guildId,
+  fertig,
+}: {
+  mod: ModuleState;
+  guildId: string;
+  fertig: boolean;
+}) {
+  const Icon = MODULE_ICONS[mod.key] || Settings;
+  return (
+    <Link
+      href={`/dashboard/guild/${guildId}/${mod.path}`}
+      className="group flex items-center gap-3.5 rounded-xl border border-slate-800 bg-[#0f0f13] px-4 py-3 transition-colors hover:border-slate-700"
+    >
+      <Icon
+        className={cn(
+          "h-[18px] w-[18px] shrink-0",
+          fertig ? "text-emerald-400" : "text-slate-600",
+        )}
+      />
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <span className="text-[14px] font-semibold text-white">
+            {mod.label}
+          </span>
+          {fertig && mod.entries > 0 && (
+            <span className="text-[11px] text-slate-600">
+              {mod.entries} {mod.entries === 1 ? "Eintrag" : "Einträge"}
+            </span>
+          )}
+        </div>
+        <p className="mt-0.5 truncate text-[12px] text-slate-500">
+          {WOZU[mod.key] || "Im Dashboard einstellbar."}
+        </p>
+      </div>
+      {fertig ? (
+        <span className="flex shrink-0 items-center gap-1 rounded-md border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-400">
+          <Check className="h-2.5 w-2.5" />
+          Aktiv
+        </span>
+      ) : (
+        <ChevronRight className="h-4 w-4 shrink-0 text-slate-700 transition-colors group-hover:text-slate-400" />
+      )}
+    </Link>
+  );
+}
+
+export default function GuildOverviewPage({
+  params,
+}: {
+  params: { guildId: string };
+}) {
   const [data, setData] = useState<StatusPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<"overview" | "backup">("overview");
+  const [alleOffenen, setAlleOffenen] = useState(false);
 
   useEffect(() => {
     api
@@ -70,45 +200,81 @@ export default function GuildOverviewPage({ params }: { params: { guildId: strin
       .finally(() => setLoading(false));
   }, [params.guildId]);
 
+  const sortiert = useMemo(() => {
+    const rang = (m: ModuleState) => WICHTIGKEIT[m.key] ?? 99;
+    // Nicht `module` nennen: der Name ist im Bundle reserviert und
+    // Next bricht den Build ab (no-assign-module-variable).
+    const liste = data?.modules || [];
+    return {
+      aktiv: liste.filter((m) => m.configured).sort((a, b) => rang(a) - rang(b)),
+      offen: liste.filter((m) => !m.configured).sort((a, b) => rang(a) - rang(b)),
+    };
+  }, [data]);
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="h-8 w-8 text-primary animate-spin opacity-40" />
+      <div className="flex min-h-[400px] items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-indigo-400 opacity-50" />
       </div>
     );
   }
 
   if (!data) {
     return (
-      <p className="text-center text-slate-500 py-16">
-        Could not load this server&apos;s status.
-      </p>
+      <div className={cn(CARD, "p-8 text-center")}>
+        <p className="text-[15px] text-slate-300">
+          Der Status dieses Servers ließ sich nicht laden.
+        </p>
+        <p className="mt-2 text-[13px] text-slate-500">
+          Der Bot antwortet gerade nicht. Die Einstellungen sind trotzdem
+          gespeichert — versuch es in einem Moment erneut.
+        </p>
+      </div>
     );
   }
 
-  const active = data.modules.filter((m) => m.configured);
-  const inactive = data.modules.filter((m) => !m.configured);
+  const naechste = sortiert.offen.slice(0, 3);
+  const restOffen = sortiert.offen.slice(3);
 
-  const stats = [
-    { label: "Members", value: data.guild.member_count.toLocaleString(), icon: Users, color: "text-blue-400" },
-    { label: "Channels", value: data.guild.channel_count, icon: Hash, color: "text-purple-400" },
-    { label: "Roles", value: data.guild.role_count, icon: Shield, color: "text-emerald-400" },
-    { label: "Bots", value: data.guild.bot_count, icon: Bot, color: "text-amber-400" },
+  const kennzahlen = [
+    { label: "Mitglieder", wert: data.guild.member_count.toLocaleString("de-DE"), icon: Users },
+    { label: "Kanäle", wert: data.guild.channel_count, icon: Hash },
+    { label: "Rollen", wert: data.guild.role_count, icon: Shield },
+    { label: "Bots", wert: data.guild.bot_count, icon: Bot },
   ];
 
+  const farbe =
+    data.completion >= 70
+      ? "text-emerald-400"
+      : data.completion >= 35
+        ? "text-amber-400"
+        : "text-slate-400";
+  const balken =
+    data.completion >= 70
+      ? "bg-emerald-500"
+      : data.completion >= 35
+        ? "bg-amber-500"
+        : "bg-slate-600";
+
   return (
-    <div className="space-y-8">
-      <div className="flex gap-2 p-1.5 bg-[#131318]/70 border border-slate-800 rounded-2xl w-fit">
-        {([
-          ["overview", "Overview", Activity],
-          ["backup", "Backup & Restore", FileJson],
-        ] as const).map(([id, label, Icon]) => (
+    <div className="space-y-5">
+      {/* Reiter */}
+      <div className="flex gap-1 rounded-xl border border-slate-800 bg-[#131318] p-1 w-fit">
+        {(
+          [
+            ["overview", "Übersicht", Activity],
+            ["backup", "Sicherung", FileJson],
+          ] as const
+        ).map(([id, label, Icon]) => (
           <button
             key={id}
+            type="button"
             onClick={() => setTab(id)}
             className={cn(
-              "flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all",
-              tab === id ? "bg-primary text-white" : "text-slate-400 hover:text-white"
+              "flex items-center gap-2 rounded-lg px-4 py-2 text-[13px] transition-colors",
+              tab === id
+                ? "bg-white/[0.07] text-white font-semibold"
+                : "text-slate-400 hover:text-white",
             )}
           >
             <Icon className="h-3.5 w-3.5" />
@@ -121,157 +287,175 @@ export default function GuildOverviewPage({ params }: { params: { guildId: strin
         <ConfigTransferPanel guildId={params.guildId} />
       ) : (
         <>
-          {/* Setup progress */}
-          <div className="bg-[#131318] border border-slate-800 rounded-3xl p-8 border-glow-card">
-            <div className="flex items-center justify-between gap-6 flex-wrap mb-6">
+          {/* Fortschritt und Kennzahlen */}
+          <div className={cn(CARD, "p-5 sm:p-6")}>
+            <div className="flex flex-wrap items-end justify-between gap-4">
               <div>
-                <h2 className="text-xl font-black text-white">Setup progress</h2>
-                <p className="text-sm text-slate-400 mt-1">
-                  {data.active_count} of {data.total_count} modules configured
+                <h2 className="text-[18px] font-bold text-white">
+                  Einrichtung
+                </h2>
+                <p className="mt-1 text-[13px] text-slate-500">
+                  {data.active_count} von {data.total_count} Modulen sind
+                  eingerichtet
                 </p>
               </div>
-              <div className="text-right">
-                <span
-                  className={cn(
-                    "text-4xl font-black",
-                    data.completion >= 70
-                      ? "text-emerald-400"
-                      : data.completion >= 35
-                      ? "text-amber-400"
-                      : "text-slate-500"
-                  )}
-                >
-                  {data.completion}%
-                </span>
-              </div>
+              <span className={cn("text-[32px] font-extrabold leading-none", farbe)}>
+                {data.completion}%
+              </span>
             </div>
 
-            <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
+            <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-slate-800">
               <div
-                className={cn(
-                  "h-full rounded-full transition-all duration-700",
-                  data.completion >= 70
-                    ? "bg-emerald-400"
-                    : data.completion >= 35
-                    ? "bg-amber-400"
-                    : "bg-slate-600"
-                )}
+                className={cn("h-full rounded-full transition-all duration-500", balken)}
                 style={{ width: `${data.completion}%` }}
               />
             </div>
 
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-8">
-              {stats.map((stat) => (
+            <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+              {kennzahlen.map((k) => (
                 <div
-                  key={stat.label}
-                  className="bg-white/[0.02] border border-white/5 rounded-2xl p-4"
+                  key={k.label}
+                  className="rounded-xl border border-slate-800 bg-[#0f0f13] px-4 py-3"
                 >
-                  <stat.icon className={cn("h-5 w-5 mb-2", stat.color)} />
-                  <p className="text-2xl font-black text-white">{stat.value}</p>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mt-0.5">
-                    {stat.label}
+                  <k.icon className="h-4 w-4 text-slate-600" />
+                  <p className="mt-2 text-[20px] font-bold leading-none text-white">
+                    {k.wert}
                   </p>
+                  <p className="mt-1.5 text-[11px] text-slate-500">{k.label}</p>
                 </div>
               ))}
             </div>
 
-            <div className="flex flex-wrap gap-4 mt-6 pt-6 border-t border-white/5">
-              <div className="text-xs">
-                <span className="text-slate-500">Prefix </span>
-                <code className="px-2 py-0.5 rounded-lg bg-white/[0.05] text-primary font-mono font-bold">
+            <div className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-slate-800 pt-4 text-[12px]">
+              <span className="text-slate-500">
+                Präfix{" "}
+                <code className="rounded bg-white/[0.06] px-1.5 py-0.5 font-mono text-slate-300">
                   {data.prefix}
                 </code>
-              </div>
+              </span>
               {data.guild.boost_level > 0 && (
-                <div className="text-xs">
-                  <span className="text-slate-500">Boost </span>
-                  <span className="text-pink-400 font-bold">
-                    Level {data.guild.boost_level} · {data.guild.boost_count} boosts
+                <span className="text-slate-500">
+                  Boost{" "}
+                  <span className="text-pink-400">
+                    Stufe {data.guild.boost_level} &middot; {data.guild.boost_count}
                   </span>
-                </div>
+                </span>
               )}
-              <div className="text-xs">
-                <span className="text-slate-500">Verification </span>
-                <span className="text-slate-300 font-bold capitalize">
+              <span className="text-slate-500">
+                Sicherheitsstufe{" "}
+                <span className="text-slate-300 capitalize">
                   {data.guild.verification_level}
                 </span>
-              </div>
+              </span>
             </div>
           </div>
 
-          {/* Active modules */}
-          {active.length > 0 && (
-            <section>
-              <div className="flex items-center gap-3 mb-5">
-                <CheckCircle2 className="h-5 w-5 text-emerald-400" />
-                <h2 className="text-lg font-black text-white">Configured</h2>
-                <span className="text-xs font-black text-slate-600">{active.length}</span>
-                <div className="h-px flex-1 bg-slate-800" />
-              </div>
+          {/* Nächste Schritte */}
+          {naechste.length > 0 && (
+            <div className={cn(CARD, "p-5 sm:p-6")}>
+              <h2 className="text-[16px] font-bold text-white">
+                Als Nächstes
+              </h2>
+              <p className="mt-1 text-[13px] text-slate-500">
+                Die drei Module, die am meisten bringen und noch fehlen.
+              </p>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-                {active.map((mod) => {
+              <div className="mt-4 grid gap-3 lg:grid-cols-3">
+                {naechste.map((mod) => {
                   const Icon = MODULE_ICONS[mod.key] || Settings;
                   return (
                     <Link
                       key={mod.key}
                       href={`/dashboard/guild/${params.guildId}/${mod.path}`}
-                      className="group bg-[#131318] border border-emerald-500/20 rounded-3xl p-5 hover:border-emerald-500/40 transition-all border-glow-card"
+                      className="group rounded-xl border border-slate-800 bg-[#0f0f13] p-4 transition-colors hover:border-indigo-500/40"
                     >
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="h-10 w-10 bg-emerald-500/10 rounded-xl flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform">
-                          <Icon className="h-5 w-5" />
-                        </div>
-                        <span className="flex items-center gap-1 text-[10px] font-black uppercase text-emerald-500 bg-emerald-500/10 px-2 py-1 rounded-lg border border-emerald-500/20">
-                          <Check className="h-2.5 w-2.5" />
-                          on
+                      <div className="flex items-center gap-2.5">
+                        <Icon className="h-[18px] w-[18px] text-indigo-400" />
+                        <span className="text-[15px] font-semibold text-white">
+                          {mod.label}
                         </span>
                       </div>
-                      <h3 className="font-black text-white">{mod.label}</h3>
-                      <p className="text-xs text-slate-500 mt-1">
-                        {mod.entries} {mod.entries === 1 ? "entry" : "entries"}
+                      <p className="mt-2 text-[13px] leading-relaxed text-slate-400">
+                        {WOZU[mod.key] || "Im Dashboard einstellbar."}
                       </p>
+                      <span className="mt-3 inline-flex items-center gap-1.5 text-[13px] text-indigo-400">
+                        Einrichten
+                        <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+                      </span>
                     </Link>
                   );
                 })}
               </div>
-            </section>
+            </div>
           )}
 
-          {/* Not configured yet */}
-          {inactive.length > 0 && (
-            <section>
-              <div className="flex items-center gap-3 mb-5">
-                <Sparkles className="h-5 w-5 text-slate-600" />
-                <h2 className="text-lg font-black text-white">Not set up yet</h2>
-                <span className="text-xs font-black text-slate-600">{inactive.length}</span>
-                <div className="h-px flex-1 bg-slate-800" />
+          {/* Eingerichtet */}
+          {sortiert.aktiv.length > 0 && (
+            <div className={cn(CARD, "p-5 sm:p-6")}>
+              <div className="mb-4 flex items-baseline gap-2.5">
+                <h2 className="text-[16px] font-bold text-white">
+                  Eingerichtet
+                </h2>
+                <span className="text-[13px] text-slate-600">
+                  {sortiert.aktiv.length}
+                </span>
+              </div>
+              <div className="space-y-2">
+                {sortiert.aktiv.map((mod) => (
+                  <Zeile key={mod.key} mod={mod} guildId={params.guildId} fertig />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Noch offen */}
+          {restOffen.length > 0 && (
+            <div className={cn(CARD, "p-5 sm:p-6")}>
+              <div className="mb-4 flex items-baseline gap-2.5">
+                <h2 className="text-[16px] font-bold text-white">Noch offen</h2>
+                <span className="text-[13px] text-slate-600">
+                  {restOffen.length}
+                </span>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-                {inactive.map((mod) => {
-                  const Icon = MODULE_ICONS[mod.key] || Settings;
-                  return (
-                    <Link
-                      key={mod.key}
-                      href={`/dashboard/guild/${params.guildId}/${mod.path}`}
-                      className="group bg-[#131318]/50 border border-slate-800 rounded-3xl p-5 hover:border-primary/40 hover:bg-[#131318] transition-all border-glow-card"
-                    >
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="h-10 w-10 bg-slate-800/60 rounded-xl flex items-center justify-center text-slate-500 group-hover:text-primary group-hover:scale-110 transition-all">
-                          <Icon className="h-5 w-5" />
-                        </div>
-                        <ArrowRight className="h-4 w-4 text-slate-700 group-hover:text-primary group-hover:translate-x-1 transition-all" />
-                      </div>
-                      <h3 className="font-bold text-slate-300 group-hover:text-white transition-colors">
-                        {mod.label}
-                      </h3>
-                      <p className="text-xs text-slate-600 mt-1">Set up now</p>
-                    </Link>
-                  );
-                })}
+              <div className="space-y-2">
+                {(alleOffenen ? restOffen : restOffen.slice(0, 5)).map((mod) => (
+                  <Zeile
+                    key={mod.key}
+                    mod={mod}
+                    guildId={params.guildId}
+                    fertig={false}
+                  />
+                ))}
               </div>
-            </section>
+
+              {restOffen.length > 5 && (
+                <button
+                  type="button"
+                  onClick={() => setAlleOffenen((a) => !a)}
+                  className="mt-3 text-[13px] text-slate-500 transition-colors hover:text-white"
+                >
+                  {alleOffenen
+                    ? "Weniger anzeigen"
+                    : `Alle ${restOffen.length} anzeigen`}
+                </button>
+              )}
+            </div>
+          )}
+
+          {sortiert.offen.length === 0 && (
+            <div
+              className={cn(
+                CARD,
+                "flex items-center gap-3 border-emerald-500/25 p-5",
+              )}
+            >
+              <Check className="h-5 w-5 shrink-0 text-emerald-400" />
+              <p className="text-[14px] text-slate-300">
+                Alles eingerichtet. Feinheiten stellst du in den einzelnen
+                Reitern ein.
+              </p>
+            </div>
           )}
         </>
       )}

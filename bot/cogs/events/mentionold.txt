@@ -57,7 +57,7 @@ class Mention(commands.Cog):
 
                 buttons = [
                     discord.ui.Button(label="Invite", style=discord.ButtonStyle.link, url="https://discord.com/oauth2/authorize?client_id=1396114795102470196&permissions=8&integration_type=0&scope=bot+applications.commands"),
-                    discord.ui.Button(label="Support", style=discord.ButtonStyle.link, url="https://discord.gg/codexdev"),
+                    discord.ui.Button(label="Support", style=discord.ButtonStyle.link, url="https://discord.gg/F3TedBAVZT"),
                 ]
 
                 view = discord.ui.View()

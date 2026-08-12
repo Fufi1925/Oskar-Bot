@@ -19,7 +19,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-red?style=for-the-badge"/></a>
 </p>
 <p>
-  <a href="https://discord.gg/MG3rYnUZJV"><img src="https://img.shields.io/badge/Discord-Join_Server-5865F2?style=for-the-badge&logo=discord&logoColor=white"/></a>
+  <a href="https://discord.gg/F3TedBAVZT"><img src="https://img.shields.io/badge/Discord-Join_Server-5865F2?style=for-the-badge&logo=discord&logoColor=white"/></a>
   <a href="https://youtube.com/@University BotDevs"><img src="https://img.shields.io/badge/YouTube-University BotDevs-FF0000?style=for-the-badge&logo=youtube&logoColor=white"/></a>
   <a href="https://github.com/University Bot"><img src="https://img.shields.io/badge/GitHub-University Bot-181717?style=for-the-badge&logo=github&logoColor=white"/></a>
 </p>
@@ -211,10 +211,10 @@ This URL is permanent — it never changes between restarts as long as the Cloud
 
 *Built for protection. Designed for style.*
 
-<a href="https://discord.gg/MG3rYnUZJV"><img src="https://discord.com/api/guilds/1301573144817045524/widget.png?style=banner2" alt="University Bot Development Discord Server" width="480"/></a>
+<a href="https://discord.gg/F3TedBAVZT"><img src="https://discord.com/api/guilds/1301573144817045524/widget.png?style=banner2" alt="University Bot Development Discord Server" width="480"/></a>
 
 <p>
-  <a href="https://discord.gg/MG3rYnUZJV"><img src="https://img.shields.io/badge/Discord-Join_Server-5865F2?style=for-the-badge&logo=discord&logoColor=white"/></a>
+  <a href="https://discord.gg/F3TedBAVZT"><img src="https://img.shields.io/badge/Discord-Join_Server-5865F2?style=for-the-badge&logo=discord&logoColor=white"/></a>
   <a href="https://youtube.com/@University BotDevs"><img src="https://img.shields.io/badge/YouTube-University BotDevs-FF0000?style=for-the-badge&logo=youtube&logoColor=white"/></a>
   <a href="https://github.com/University Bot"><img src="https://img.shields.io/badge/GitHub-University Bot-181717?style=for-the-badge&logo=github&logoColor=white"/></a>
 </p>

@@ -6,7 +6,7 @@
 # ║                                                                  ║
 # ║            © 2026 UniversityBot Devs — All Rights Reserved              ║
 # ║                                                                  ║
-# ║   discord  ──  https://discord.gg/MG3rYnUZJV                      ║
+# ║   discord  ──  https://discord.gg/F3TedBAVZT                      ║
 # ║   youtube  ──  https://youtube.com/@UniversityBotDevs                   ║
 # ║   github   ──  https://github.com/UniversityBot                        ║
 # ║                                                                  ║
@@ -157,7 +157,7 @@ class Tracking(commands.Cog):
             f"**Fake:** `{fake}`\n"
             f"**Left:** `{left}`\n"
             f"**Rejoins:** `{rejoin}`\n\n"
-            f"{EMOJI_INVITE} **Get {BotName} Premium Lifetime [Join Support Here](https://discord.gg/MG3rYnUZJV)**"
+            f"{EMOJI_INVITE} **Get {BotName} Premium Lifetime [Join Support Here](https://discord.gg/F3TedBAVZT)**"
         )
         await ctx.send(view=CV2(f"Invite Log - {member.name}", desc))
 

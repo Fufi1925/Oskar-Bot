@@ -61,7 +61,7 @@ function read(value: string | undefined): string {
 export const BRAND = read(env("BRAND_NAME")) || "University Bot";
 
 export const SUPPORT_INVITE =
-  read(env("SUPPORT_INVITE")) || "https://discord.gg/MG3rYnUZJV";
+  read(env("SUPPORT_INVITE")) || "https://discord.gg/F3TedBAVZT";
 
 /** § 5 DDG: the operator's name. No fallback on purpose. */
 export const OPERATOR = read(env("IMPRINT_NAME"));

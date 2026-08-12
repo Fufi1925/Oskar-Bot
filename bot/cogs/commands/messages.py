@@ -6,7 +6,7 @@
 # ║                                                                  ║
 # ║            © 2026 UniversityBot Devs — All Rights Reserved              ║
 # ║                                                                  ║
-# ║   discord  ──  https://discord.gg/MG3rYnUZJV                      ║
+# ║   discord  ──  https://discord.gg/F3TedBAVZT                      ║
 # ║   youtube  ──  https://youtube.com/@UniversityBotDevs                   ║
 # ║   github   ──  https://github.com/UniversityBot                        ║
 # ║                                                                  ║
@@ -34,7 +34,7 @@ class MessagesView(LayoutView):
                     f"**Daily Messages**: {daily_average}\n"
                     f"**Today Messages**: {today_count}\n"
                     f"**Total Messages**: {total}\n\n"
-                    f"**{ARROWRED}Upgrade Your Experience With [{BRAND_NAME} Noprefix](https://discord.gg/MG3rYnUZJV)**"
+                    f"**{ARROWRED}Upgrade Your Experience With [{BRAND_NAME} Noprefix](https://discord.gg/F3TedBAVZT)**"
                 ),
             )
         )

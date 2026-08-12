@@ -9,7 +9,7 @@ Lücke geschlossen ist.
 Stattdessen:
 
 1. **Direktnachricht** an einen der Entwickler im
-   [Support-Server](https://discord.gg/MG3rYnUZJV), oder
+   [Support-Server](https://discord.gg/F3TedBAVZT), oder
 2. **E-Mail** an die Adresse im Impressum der Website.
 
 Hilfreich in der Meldung: was passiert, wie man es auslöst, und was

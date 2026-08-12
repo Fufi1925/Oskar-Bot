@@ -6,7 +6,7 @@
 # ║                                                                  ║
 # ║            © 2026 UniversityBot Devs — All Rights Reserved              ║
 # ║                                                                  ║
-# ║   discord  ──  https://discord.gg/MG3rYnUZJV                      ║
+# ║   discord  ──  https://discord.gg/F3TedBAVZT                      ║
 # ║   youtube  ──  https://youtube.com/@UniversityBotDevs                   ║
 # ║   github   ──  https://github.com/UniversityBot                        ║
 # ║                                                                  ║
@@ -45,7 +45,7 @@ class Nitro(commands.Cog):
         claim_button = Button(
             style=discord.ButtonStyle.primary,
             label="Click me!",
-            url="https://discord.gg/MG3rYnUZJV",
+            url="https://discord.gg/F3TedBAVZT",
             disabled=False,
         )
 

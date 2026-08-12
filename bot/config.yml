@@ -10,7 +10,7 @@ AI_NSFW_CONTENT_FILTER: true
 LANGUAGE: en 
 DEFAULT_INSTRUCTION: soniye 
 
-Discord: https://discord.gg/University Botdev
+Discord: https://discord.gg/F3TedBAVZT
 
 TRIGGER:
   - chatbot
@@ -23,7 +23,7 @@ DISABLE_PRESENCE: false
 PRESENCES:
   - How can I assist you?
   - Currently in {guild_count} guilds
-  - Support at https://discord.gg/University Botdev
+  - Support at https://discord.gg/F3TedBAVZT
 
 
 BLACKLIST_WORDS: #changed to cogs/imagine.py

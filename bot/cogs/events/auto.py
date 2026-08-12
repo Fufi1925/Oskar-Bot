@@ -6,7 +6,7 @@
 # ║                                                                  ║
 # ║            © 2026 UniversityBot Devs — All Rights Reserved              ║
 # ║                                                                  ║
-# ║   discord  ──  https://discord.gg/MG3rYnUZJV                      ║
+# ║   discord  ──  https://discord.gg/F3TedBAVZT                      ║
 # ║   youtube  ──  https://youtube.com/@UniversityBotDevs                   ║
 # ║   github   ──  https://github.com/UniversityBot                        ║
 # ║                                                                  ║
@@ -92,7 +92,7 @@ class Autorole(Cog):
                         url=dashboard,
                     ))
 
-                support = links.support_url() or 'https://discord.gg/MG3rYnUZJV'
+                support = links.support_url() or 'https://discord.gg/F3TedBAVZT'
                 view.add_item(Button(
                     label='Support',
                     emoji=HANDSHAKE,

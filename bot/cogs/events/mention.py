@@ -6,7 +6,7 @@
 # ║                                                                  ║
 # ║            © 2026 UniversityBot Devs — All Rights Reserved              ║
 # ║                                                                  ║
-# ║   discord  ──  https://discord.gg/MG3rYnUZJV                      ║
+# ║   discord  ──  https://discord.gg/F3TedBAVZT                      ║
 # ║   youtube  ──  https://youtube.com/@UniversityBotDevs                   ║
 # ║   github   ──  https://github.com/UniversityBot                        ║
 # ║                                                                  ║
@@ -95,7 +95,7 @@ class MentionSelectView(LayoutView):
                 f"**[Invite {BotName}](https://discord.com/oauth2/authorize"
                 f"?client_id={self.message.guild.me.id}&permissions=8"
                 "&scope=bot+applications.commands)**\n"
-                "**[Join Support Server](https://discord.gg/MG3rYnUZJV)**"
+                "**[Join Support Server](https://discord.gg/F3TedBAVZT)**"
             )
 
         new_container = Container(

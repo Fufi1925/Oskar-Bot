@@ -178,69 +178,145 @@ export function ApplicationsAdmin() {
             Welche Rolle eine Annahme vergibt
           </h3>
           <p className="text-[13px] text-slate-500">
-            Server-ID und Kanal für die Meldung stehen darunter. Ohne
-            Server wird keine Rolle vergeben — die Bewerbung lässt sich
-            trotzdem annehmen.
+            Je Bewerbungsrolle ein eigener Server und eine eigene Rolle —
+            Tester etwa auf den Test-Server, Moderatoren auf den
+            Support-Server. Wer nur einen Server hat, lässt das Feld leer
+            und stellt ihn unten einmal ein. Ohne Server wird keine Rolle
+            vergeben; die Bewerbung lässt sich trotzdem annehmen.
           </p>
 
           <div className="grid gap-3 sm:grid-cols-2">
-            {(config.role_catalog || []).map((r: any) => (
-              <div key={r.key} className="rounded-xl bg-[#0a0a0c] border border-slate-800 p-3.5">
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-[14px] font-semibold text-white">
-                    {r.label}
-                  </span>
-                  <InlineToggle
-                    checked={config.roles?.[r.key]?.open ?? true}
-                    onCheckedChange={(v) =>
-                      configSpeichern({
-                        roles: {
-                          ...config.roles,
-                          [r.key]: { ...config.roles?.[r.key], open: v },
-                        },
-                      })
-                    }
-                    label=""
-                  />
-                </div>
-                <select
-                  value={config.roles?.[r.key]?.discord_role_id || ""}
-                  onChange={(e) =>
-                    configSpeichern({
-                      roles: {
-                        ...config.roles,
-                        [r.key]: {
-                          ...config.roles?.[r.key],
-                          discord_role_id: e.target.value,
-                        },
-                      },
-                    })
-                  }
-                  className={cn(INPUT, "mt-2.5 py-2 text-[13px]")}
+            {(config.role_catalog || []).map((r: any) => {
+              // Welcher Server fuer diese Rolle gilt: der eigene,
+              // sonst der allgemeine. Der Bot rechnet dasselbe aus
+              // (`guild_for`) und schickt das Ergebnis mit -- hier
+              // wird es nur angezeigt, nicht ein zweites Mal
+              // hergeleitet.
+              const eigen = config.roles?.[r.key]?.guild_id || "";
+              const ziel = config.effective_guild?.[r.key] || "";
+              const rollenDesServers = ziel
+                ? config.roles_by_guild?.[ziel] || []
+                : config.available_roles || [];
+              const zielName =
+                (config.guilds || []).find((g: any) => g.id === ziel)?.name || "";
+
+              return (
+                <div
+                  key={r.key}
+                  className="rounded-xl bg-[#0a0a0c] border border-slate-800 p-3.5"
                 >
-                  <option value="">Keine Rolle vergeben</option>
-                  {(config.available_roles || []).map((ar: any) => (
-                    <option key={ar.id} value={ar.id} disabled={!ar.assignable}>
-                      {ar.name}
-                      {!ar.assignable ? " (steht über dem Bot)" : ""}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ))}
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-[14px] font-semibold text-white">
+                      {r.label}
+                    </span>
+                    <InlineToggle
+                      checked={config.roles?.[r.key]?.open ?? true}
+                      onCheckedChange={(v) =>
+                        configSpeichern({
+                          roles: {
+                            ...config.roles,
+                            [r.key]: { ...config.roles?.[r.key], open: v },
+                          },
+                        })
+                      }
+                      label=""
+                    />
+                  </div>
+
+                  <label className="mt-3 block">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-600">
+                      Server
+                    </span>
+                    <select
+                      value={eigen}
+                      onChange={(e) =>
+                        configSpeichern({
+                          roles: {
+                            ...config.roles,
+                            [r.key]: {
+                              ...config.roles?.[r.key],
+                              guild_id: e.target.value,
+                              // Die bisherige Rolle gehoert zum alten
+                              // Server und gibt es dort nicht mehr.
+                              discord_role_id: "",
+                            },
+                          },
+                        })
+                      }
+                      className={cn(INPUT, "mt-1.5 py-2 text-[13px]")}
+                    >
+                      <option value="">
+                        Allgemeiner Server
+                        {zielName && !eigen ? ` (${zielName})` : ""}
+                      </option>
+                      {(config.guilds || []).map((g: any) => (
+                        <option key={g.id} value={g.id}>
+                          {g.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label className="mt-2.5 block">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-600">
+                      Rolle
+                    </span>
+                    <select
+                      value={config.roles?.[r.key]?.discord_role_id || ""}
+                      onChange={(e) =>
+                        configSpeichern({
+                          roles: {
+                            ...config.roles,
+                            [r.key]: {
+                              ...config.roles?.[r.key],
+                              discord_role_id: e.target.value,
+                            },
+                          },
+                        })
+                      }
+                      disabled={!ziel}
+                      className={cn(INPUT, "mt-1.5 py-2 text-[13px]")}
+                    >
+                      <option value="">Keine Rolle vergeben</option>
+                      {rollenDesServers.map((ar: any) => (
+                        <option key={ar.id} value={ar.id} disabled={!ar.assignable}>
+                          {ar.name}
+                          {!ar.assignable ? " (steht über dem Bot)" : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  {!ziel && (
+                    <p className="mt-2 text-[11px] text-amber-500">
+                      Kein Server gewählt — es wird keine Rolle vergeben.
+                    </p>
+                  )}
+                </div>
+              );
+            })}
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="block">
               <span className="text-[10px] font-black uppercase tracking-widest text-slate-600">
-                Server-ID
+                Allgemeiner Server
               </span>
-              <input
-                defaultValue={config.guild_id || ""}
-                onBlur={(e) => configSpeichern({ guild_id: e.target.value })}
-                placeholder="z. B. 1530378233579704370"
+              <select
+                value={config.guild_id || ""}
+                onChange={(e) => configSpeichern({ guild_id: e.target.value })}
                 className={cn(INPUT, "mt-2")}
-              />
+              >
+                <option value="">Keiner</option>
+                {(config.guilds || []).map((g: any) => (
+                  <option key={g.id} value={g.id}>
+                    {g.name}
+                  </option>
+                ))}
+              </select>
+              <span className="mt-1.5 block text-[11px] text-slate-500">
+                Gilt für jede Rolle ohne eigenen Server.
+              </span>
             </label>
             <label className="block">
               <span className="text-[10px] font-black uppercase tracking-widest text-slate-600">

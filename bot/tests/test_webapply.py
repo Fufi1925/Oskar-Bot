@@ -354,6 +354,51 @@ async def test_config():
           config["roles"]["designer"]["discord_role_id"] == "")
 
 
+async def test_server_pro_rolle():
+    print("\nJede Bewerbungsrolle kann einen eigenen Server haben")
+
+    # Tester gehoeren auf den Test-Server, Moderatoren auf den
+    # Support-Server. Vorher gab es genau einen fuer alle vier.
+    await store.save_config({
+        "guild_id": "1000",
+        "roles": {
+            "tester": {"guild_id": "2000", "discord_role_id": "77"},
+            "moderator": {"guild_id": "", "discord_role_id": "88"},
+        },
+    })
+    config = await store.get_config()
+
+    check("eigener Server gespeichert",
+          config["roles"]["tester"]["guild_id"] == "2000")
+    check("und gewinnt",
+          store.guild_for(config, "tester") == "2000")
+    check("ohne eigenen faellt es auf den allgemeinen zurueck",
+          store.guild_for(config, "moderator") == "1000",
+          "sonst muesste jeder Server viermal eingetragen werden")
+    check("eine unberuehrte Rolle ebenfalls",
+          store.guild_for(config, "designer") == "1000")
+
+    # Gar kein Server: keine Rolle, aber auch kein Absturz.
+    check("ohne jeden Server bleibt es leer",
+          store.guild_for({"roles": {}}, "tester") == "")
+    check("Buchstaben zaehlen nicht als Server",
+          store.guild_for({"roles": {"tester": {"guild_id": "abc"}},
+                           "guild_id": "1000"}, "tester") == "1000")
+
+    # Muell darf auch hier nicht durch.
+    await store.save_config({"roles": {"designer": {"guild_id": "keine-zahl"}}})
+    config = await store.get_config()
+    check("ungueltige Server-ID faellt raus",
+          config["roles"]["designer"]["guild_id"] == "")
+
+    # Zuruecksetzen.
+    await store.save_config({
+        "guild_id": "1530378233579704370",
+        "roles": {"tester": {"guild_id": "", "discord_role_id": "555",
+                             "open": False}},
+    })
+
+
 async def test_altes_schema():
     print("\nEine alte Installation bekommt die neuen Spalten")
 
@@ -441,6 +486,48 @@ def test_proxy_setzt_die_id():
     )
     check("und weist sonst ab", "deny(403" in zweig)
     check("globale Admins duerfen immer", "isGlobalAdmin" in zweig)
+
+
+def test_route_nutzt_den_richtigen_server():
+    print("\nDie Route vergibt auf dem richtigen Server")
+
+    route = read("api", "routes", "webapply.py")
+
+    check("sie fragt guild_for", "store.guild_for(config," in route,
+          "sonst landet jede Rolle auf demselben Server")
+    check("und benutzt das Ergebnis beim Vergeben",
+          "_rolle_geben(\n            bot, server_id," in route
+          or "bot, server_id," in route)
+    check("der globale Server wird nicht mehr direkt durchgereicht",
+          'config.get("guild_id", ""), user_id, rollen_id' not in route)
+
+    # Und das Dashboard braucht die Auswahl.
+    check("die Server-Liste kommt mit", '"guilds": server' in route)
+    check("die Rollen je Server auch", '"roles_by_guild"' in route)
+    check("und wohin jede Rolle wirklich vergibt",
+          '"effective_guild"' in route,
+          "sonst muesste das Dashboard die Regel nachbauen")
+
+
+def test_admin_waehlt_server():
+    print("\nDer Admin-Reiter laesst den Server waehlen")
+
+    panel = strip_ts(read_dash("components", "dashboard",
+                               "applications-admin.tsx"))
+
+    check("je Rolle eine Server-Auswahl", "guild_id: e.target.value" in panel)
+    check("die Rollen richten sich nach dem Server",
+          "config.roles_by_guild?.[ziel]" in panel)
+    check("beim Serverwechsel wird die Rolle geleert",
+          'discord_role_id: ""' in panel,
+          "sonst zeigt sie auf eine Rolle, die es dort nicht gibt")
+    check("es zeigt an, wohin vergeben wird",
+          "config.effective_guild?.[r.key]" in panel)
+    check("und warnt, wenn nirgendwohin",
+          "Kein Server gewählt" in panel)
+    check("der allgemeine Server ist eine Auswahl, kein Zahlenfeld",
+          'onChange={(e) => configSpeichern({ guild_id: e.target.value })}'
+          in panel)
 
 
 def test_schema_guard():
@@ -618,6 +705,111 @@ def test_sidebar_ist_ruhig():
           "sonst liegt der Inhalt unter der Leiste")
 
 
+def test_serveruebersicht():
+    print("\nDie Server-Uebersicht")
+
+    seite = strip_ts(read_dash("app", "dashboard", "guild", "[guildId]",
+                               "page.tsx"))
+
+    # Sie war komplett englisch -- mitten in einem deutschen
+    # Dashboard.
+    # Nur sichtbarer Text. "overview" bleibt als interne Kennung des
+    # Reiters und im Funktionsnamen -- das sieht niemand, und eine
+    # Kennung zu uebersetzen bringt nur Verwirrung.
+    for englisch in ("Setup progress", ">Configured<", "Not set up yet",
+                     "Set up now", '"Members"', '"Channels"', '"Roles"',
+                     "Backup & Restore", '"Overview"',
+                     "Could not load this server"):
+        check(f"»{englisch}« ist uebersetzt", englisch not in seite)
+
+    check("auf Deutsch", "Einrichtung" in seite and "Übersicht" in seite)
+
+    # Der Kern der neuen Seite: sie sagt, womit man anfangen soll.
+    #
+    # Geprueft wird die Benutzung, nicht das blosse Vorhandensein:
+    # eine umbenannte Tabelle (WICHTIGKEIT_AUS) stand weiter in der
+    # Datei, wurde aber nirgends mehr gelesen -- und der Test blieb
+    # gruen. Im Mutationstest aufgefallen.
+    check("es gibt eine Wichtigkeitstabelle",
+          "const WICHTIGKEIT: Record<string, number>" in seite)
+    check("und sie wird auch gelesen",
+          "WICHTIGKEIT[m.key]" in seite,
+          "eine Tabelle, die niemand abfragt, sortiert nichts")
+    check("die drei naechsten Schritte",
+          "sortiert.offen.slice(0, 3)" in seite,
+          "17 graue Kacheln sagen niemandem, wo er anfangen soll")
+    check("jedes Modul hat eine Erklaerung",
+          "const WOZU: Record<string, string>" in seite)
+    check("und sie wird angezeigt",
+          seite.count("WOZU[mod.key]") >= 2,
+          "in der Liste UND bei den naechsten Schritten")
+    check("die Listen sind sortiert",
+          "sort((a, b) => rang(a) - rang(b))" in seite)
+    check("und zwar beide", seite.count("rang(a) - rang(b)") == 2,
+          "eingerichtet und offen -- eine unsortierte Liste faellt auf")
+
+    # Lange Listen werden gekuerzt.
+    check("die offenen werden gekuerzt", "restOffen.slice(0, 5)" in seite)
+    check("und lassen sich aufklappen", "alleOffenen" in seite)
+
+    # Und ein Fehler wird beim Namen genannt.
+    check("ein Ladefehler wird erklaert",
+          "Der Bot antwortet gerade nicht" in seite)
+
+    # Die Modulnamen kommen vom Bot -- auch die muessen deutsch sein.
+    guilds = read("api", "routes", "guilds.py")
+    for englisch in ('"Welcome"', '"Verification"', '"Leveling"',
+                     '"Auto Role"', '"Reaction Roles"', '"Custom Roles"',
+                     '"Voice Roles"', '"Nicknames"', '"No Prefix"',
+                     '"Invite Tracking"', '"Logging"', '"Counting"'):
+        check(f"Modulname {englisch} ist uebersetzt", englisch not in guilds)
+    check("sie heissen jetzt deutsch",
+          '"Begrüßung"' in guilds and '"Verifizierung"' in guilds)
+
+
+def test_bewerbungsseite_neu():
+    print("\nDie Bewerbungsseite")
+
+    seite = strip_ts(read_dash("app", "team", "apply", "page.tsx"))
+
+    # Alle Fragen auf einer Seite statt eine nach der anderen.
+    check("kein Weiter-Knopf mehr", "Weiter\n" not in seite,
+          "eine Frage pro Bildschirm las sich wie ein Behoerdenformular")
+    check("alle Fragen untereinander",
+          "gewaehlt.question_list.map((frage, i)" in seite)
+
+    # Der Entwurf ueberlebt einen Reload.
+    check("der Entwurf wird gesichert",
+          "localStorage.setItem" in seite and "entwurfSchluessel" in seite,
+          "sechs Fragen sind eine halbe Stunde Arbeit")
+    check("und beim Waehlen wiederhergestellt",
+          "localStorage.getItem" in seite)
+    check("nach dem Abschicken geloescht",
+          "localStorage.removeItem" in seite,
+          "sonst steht der alte Entwurf beim naechsten Mal wieder da")
+    check("ein kaputter Eintrag bricht nichts",
+          "try {" in seite and "catch" in seite)
+
+    # Beim Abschicken zur ersten Luecke springen.
+    check("springt zur ersten fehlenden Antwort",
+          "antworten.findIndex" in seite and "springeZu(erste)" in seite,
+          "»es fehlt etwas« allein hilft bei sieben Fragen nicht")
+    check("erst nach dem Absenden rot", "gepruept" in seite)
+
+    # Und die Rollen haben Symbole statt vier farbiger Punkte.
+    check("es gibt eine Symbol-Tabelle",
+          "const ROLLEN_ICON: Record<string, any>" in seite)
+    check("und sie wird benutzt", "ROLLEN_ICON[r.key]" in seite,
+          "eine Tabelle ohne Abfrage zeichnet nichts")
+
+    # Nach dem ersten Absenden werden fehlende Antworten markiert --
+    # vorher nicht, sonst ist alles rot, bevor man angefangen hat.
+    check("es gibt den Zustand", "const [gepruept, setGepruept]" in seite)
+    check("er wird beim Absenden gesetzt", "setGepruept(true)" in seite,
+          "sonst bleibt die Luecke unmarkiert")
+    check("und er faerbt wirklich", "gepruept && !ok" in seite)
+
+
 def test_hero_hat_dreizehn():
     print("\nDreizehn Karten auf der Startseite")
 
@@ -652,6 +844,7 @@ async def run_async():
         await test_liste()
         await test_nummer()
         await test_config()
+        await test_server_pro_rolle()
         await test_altes_schema()
     finally:
         os.chdir(alt)
@@ -662,6 +855,8 @@ def main() -> int:
 
     test_route_haengt()
     test_proxy_setzt_die_id()
+    test_route_nutzt_den_richtigen_server()
+    test_admin_waehlt_server()
     test_schema_guard()
     test_seiten_existieren()
     test_admin_reiter()
@@ -670,6 +865,8 @@ def main() -> int:
     test_befehlsseite()
     test_kategorien_decken_ab()
     test_sidebar_ist_ruhig()
+    test_serveruebersicht()
+    test_bewerbungsseite_neu()
     test_hero_hat_dreizehn()
 
     print()

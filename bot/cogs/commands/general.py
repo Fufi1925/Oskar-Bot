@@ -6,7 +6,7 @@
 # ║                                                                  ║
 # ║            © 2026 UniversityBot Devs — All Rights Reserved              ║
 # ║                                                                  ║
-# ║   discord  ──  https://discord.gg/MG3rYnUZJV                      ║
+# ║   discord  ──  https://discord.gg/F3TedBAVZT                      ║
 # ║   youtube  ──  https://youtube.com/@UniversityBotDevs                   ║
 # ║   github   ──  https://github.com/UniversityBot                        ║
 # ║                                                                  ║
@@ -406,6 +406,6 @@ class General(commands.Cog):
           f">>> **[Invite {BotName}](https://discord.com/oauth2/authorize"
           f"?client_id={self.bot.user.id}&permissions=8"
           "&scope=bot+applications.commands)**\n"
-          "**[Support Server](https://discord.gg/MG3rYnUZJV)**"
+          "**[Support Server](https://discord.gg/F3TedBAVZT)**"
       )
       await ctx.send(view=CV2(f"{universitybotCONNECTION} {BotName} Integration Hub!", invite_text))

@@ -169,6 +169,9 @@ async def decide(
 
     config = await store.get_config()
     rollen_id = config["roles"].get(vorher["role_key"], {}).get("discord_role_id", "")
+    # Der Server kann je Bewerbungsrolle ein anderer sein -- Tester
+    # auf den Test-Server, Moderatoren auf den Support-Server.
+    server_id = store.guild_for(config, vorher["role_key"])
 
     bewerbung = await store.decide(
         user_id, status,
@@ -187,7 +190,7 @@ async def decide(
     vergeben, problem = False, ""
     if status == store.STATUS_ACCEPTED and rollen_id.isdigit():
         vergeben, problem = await _rolle_geben(
-            bot, config.get("guild_id", ""), user_id, rollen_id
+            bot, server_id, user_id, rollen_id
         )
 
     zugestellt = False
@@ -287,30 +290,60 @@ async def freigeben(user_id: int, actor: str = ""):
 async def get_config(bot: "universitybot" = Depends(get_bot)):
     config = await store.get_config()
 
-    # Die Rollen des eingestellten Servers dazu, damit das Dashboard
-    # eine Auswahl anbieten kann statt eines Zahlenfeldes.
+    def rollen_von(guild) -> list[dict]:
+        """Die vergebbaren Rollen eines Servers, von oben nach unten."""
+        out = []
+        ich = getattr(guild, "me", None)
+        oben = getattr(ich, "top_role", None) if ich else None
+        for rolle in sorted(getattr(guild, "roles", []),
+                            key=lambda r: getattr(r, "position", 0),
+                            reverse=True):
+            if rolle.is_default() or rolle.managed:
+                continue
+            out.append({
+                "id": str(rolle.id),
+                "name": rolle.name,
+                # Steht sie ueber der Bot-Rolle, laesst sie sich nicht
+                # vergeben. Das Dashboard zeigt es an, statt es beim
+                # ersten Annehmen herauszufinden.
+                "assignable": bool(oben is None or rolle < oben),
+            })
+        return out
+
+    # Jeder Server, auf dem der Bot ist -- damit sich je
+    # Bewerbungsrolle ein anderer auswaehlen laesst.
+    server: list[dict] = []
+    rollen_je_server: dict[str, list[dict]] = {}
+    for guild in getattr(bot, "guilds", []) or []:
+        gid = str(guild.id)
+        server.append({
+            "id": gid,
+            "name": guild.name,
+            "members": getattr(guild, "member_count", 0) or 0,
+        })
+        rollen_je_server[gid] = rollen_von(guild)
+    server.sort(key=lambda g: -g["members"])
+
+    # Der allgemeine Server: seine Rollen und Kanaele wie bisher,
+    # damit ein Server, der nichts Eigenes eingestellt hat, weiter
+    # funktioniert.
     rollen: list[dict] = []
     kanaele: list[dict] = []
     guild_id = config.get("guild_id") or ""
     if guild_id.isdigit():
         guild = bot.get_guild(int(guild_id))
         if guild is not None:
-            ich = getattr(guild, "me", None)
-            oben = getattr(ich, "top_role", None) if ich else None
-            for rolle in sorted(getattr(guild, "roles", []),
-                                key=lambda r: r.position, reverse=True):
-                if rolle.is_default() or rolle.managed:
-                    continue
-                rollen.append({
-                    "id": str(rolle.id),
-                    "name": rolle.name,
-                    "assignable": bool(oben is None or rolle < oben),
-                })
+            rollen = rollen_je_server.get(guild_id, rollen_von(guild))
             for kanal in getattr(guild, "text_channels", []):
                 kanaele.append({"id": str(kanal.id), "name": kanal.name})
 
+    # Wohin jede Bewerbungsrolle tatsaechlich vergibt -- damit das
+    # Dashboard es anzeigen kann, ohne dieselbe Regel nachzubauen.
+    ziel = {k: store.guild_for(config, k) for k in store.ROLE_KEYS}
+
     return {**config, "available_roles": rollen, "available_channels": kanaele,
-            "role_catalog": store.role_list()}
+            "role_catalog": store.role_list(), "guilds": server,
+            "roles_by_guild": rollen_je_server, "effective_guild": ziel}
 
 
 @router.patch("/config", summary="Einstellungen sichern")

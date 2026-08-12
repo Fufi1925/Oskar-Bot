@@ -137,4 +137,4 @@ siehe [.github/SECURITY.md](.github/SECURITY.md).
 
 Dies ist kein offenes Projekt; Pull Requests von außen werden nicht
 angenommen. Fehlerberichte und Vorschläge sind trotzdem willkommen, am
-besten im [Support-Server](https://discord.gg/MG3rYnUZJV).
+besten im [Support-Server](https://discord.gg/F3TedBAVZT).

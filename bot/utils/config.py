@@ -6,7 +6,7 @@
 # ║                                                                  ║
 # ║            © 2026 UniversityBot Devs — All Rights Reserved              ║
 # ║                                                                  ║
-# ║   discord  ──  https://discord.gg/MG3rYnUZJV                      ║
+# ║   discord  ──  https://discord.gg/F3TedBAVZT                      ║
 # ║   youtube  ──  https://youtube.com/@UniversityBotDevs                   ║
 # ║   github   ──  https://github.com/UniversityBot                        ║
 # ║                                                                  ║
@@ -22,8 +22,8 @@ BRAND_NAME = os.environ.get("brand_name", "universitybot X")
 NAME       = BRAND_NAME
 BotName    = BRAND_NAME
 
-server     = "https://discord.gg/MG3rYnUZJV"
-serverLink = "https://discord.gg/MG3rYnUZJV"
+server     = "https://discord.gg/F3TedBAVZT"
+serverLink = "https://discord.gg/F3TedBAVZT"
 ch         = "https://discord.com/channels/699587669059174461/1271825678710476911"
 
 CMD_WEBHOOK_URL = os.getenv("CMD_WEBHOOK_URL")

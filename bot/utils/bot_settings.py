@@ -81,7 +81,7 @@ SETTINGS: tuple[Setting, ...] = (
     Setting(
         "support_server_invite", "Support Server", "Branding",
         "Invite link shown in help messages and the dashboard footer.",
-        "text", default="https://discord.gg/MG3rYnUZJV",
+        "text", default="https://discord.gg/F3TedBAVZT",
     ),
     Setting(
         "bot_invite_url", "Bot Invite URL", "Branding",
