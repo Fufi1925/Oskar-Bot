@@ -52,7 +52,7 @@ export function AutomodStatus({ guildId }: { guildId: string }) {
 
   if (loading) {
     return (
-      <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 flex items-center justify-center border-glow-card">
+      <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 flex items-center justify-center border-glow-card">
         <Loader2 className="h-6 w-6 text-primary animate-spin opacity-40" />
       </div>
     );
@@ -63,7 +63,7 @@ export function AutomodStatus({ guildId }: { guildId: string }) {
   return (
     <div
       className={cn(
-        "bg-[#10233f] border rounded-3xl p-4 sm:p-6",
+        "bg-[#131318] border rounded-3xl p-4 sm:p-6",
         data.master_enabled ? "border-emerald-500/25" : "border-slate-800"
       )}
     >

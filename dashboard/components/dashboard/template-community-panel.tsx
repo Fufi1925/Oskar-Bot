@@ -45,9 +45,9 @@ import { cn } from "@/lib/utils";
 import { InlineToggle } from "@/components/dashboard/form-elements";
 
 const CARD =
-  "bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 border-glow-card";
+  "bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 border-glow-card";
 const INPUT =
-  "w-full bg-[#0a1628] border border-slate-800 rounded-xl px-4 py-3 text-sm " +
+  "w-full bg-[#0e0e12] border border-slate-800 rounded-xl px-4 py-3 text-sm " +
   "text-white placeholder:text-slate-600 focus:outline-none " +
   "focus:border-primary/50 transition-colors";
 
@@ -175,7 +175,7 @@ function VoteButtons({
 }
 
 /** Wiederkehrende Kästchen-Klassen. */
-const SUB = "rounded-2xl bg-[#0a1628] border border-slate-800 p-4";
+const SUB = "rounded-2xl bg-[#0e0e12] border border-slate-800 p-4";
 
 /** Die fünf Schritte des Assistenten. */
 const STEPS = [
@@ -242,7 +242,7 @@ function Stepper({
                 className={cn(
                   "h-5 w-5 rounded-full grid place-items-center text-[9px] font-black shrink-0",
                   active
-                    ? "bg-primary text-[#0a1628]"
+                    ? "bg-primary text-[#0e0e12]"
                     : done
                     ? "bg-emerald-500/20 text-emerald-300"
                     : "bg-slate-800 text-slate-600"
@@ -686,7 +686,7 @@ function FeaturePicker({
   };
 
   return (
-    <div className="rounded-2xl bg-[#0a1628] border border-slate-800 p-4 space-y-4">
+    <div className="rounded-2xl bg-[#0e0e12] border border-slate-800 p-4 space-y-4">
       <div className="flex items-center gap-2 flex-wrap">
         <p className="text-[10px] font-black uppercase tracking-widest text-slate-600">
           Dashboard-Einstellungen — einzeln abwählbar
@@ -1510,7 +1510,7 @@ export function TemplateCommunityPanel({ guildId }: { guildId: string }) {
                       "rounded-2xl border p-4 transition-colors",
                       wipe
                         ? "bg-red-500/[0.08] border-red-500/40"
-                        : "bg-[#0a1628] border-slate-800"
+                        : "bg-[#0e0e12] border-slate-800"
                     )}
                   >
                     <InlineToggle
@@ -1825,7 +1825,7 @@ export function TemplateCommunityPanel({ guildId }: { guildId: string }) {
                   "rounded-2xl border p-4 transition-all border-glow-card glow-r-2xl flex flex-col",
                   entry.blocked
                     ? "bg-red-500/[0.04] border-red-500/25"
-                    : "bg-[#10233f] border-slate-800 hover:border-primary/40"
+                    : "bg-[#131318] border-slate-800 hover:border-primary/40"
                 )}
               >
                 {/* Die Karte ist keine Schaltfläche mehr.

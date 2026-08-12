@@ -18,6 +18,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { SiteNav } from "@/components/site-nav";
 import { 
   Bot, 
   ChevronLeft, 
@@ -67,51 +68,43 @@ export default function DocsPage() {
   const [activeTab, setActiveTab] = useState("Introduction");
 
   return (
-    <div className="min-h-screen bg-[#071527] text-slate-200 font-sans">
+    <div className="min-h-screen bg-[#0a0a0c] text-slate-200 font-sans">
       {/* Background Decor */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
-        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-blue-500/[0.02] blur-[150px] rounded-full" />
+        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-indigo-600/[0.05] blur-[150px] rounded-full" />
       </div>
 
-      {/* Nav */}
-      <nav className="fixed top-0 w-full z-50 border-b border-white/[0.03] bg-[#071527]/80 backdrop-blur-3xl px-6 h-20 flex items-center justify-between">
-        <div className="flex items-center gap-8">
-          <Link href="/" className="flex items-center gap-4 group">
-            <div className="h-8 w-8 rounded-lg bg-blue-600 flex items-center justify-center mr-3">
-              <Bot className="h-5 w-5 text-white" />
-            </div>
-            <span className="text-xl font-bold text-white font-outfit uppercase tracking-tighter hidden md:block">University Bot Docs</span>
-          </Link>
-          
-          <div className="hidden lg:flex items-center w-80 relative group">
-            <SearchIcon className="absolute left-4 h-4 w-4 text-slate-500 group-focus-within:text-blue-500 transition-colors" />
-            <input 
-              type="text" 
-              placeholder="Search documentation..."
-              className="w-full bg-white/[0.03] border border-white/5 rounded-2xl py-2.5 pl-12 pr-4 text-xs font-bold text-slate-300 focus:outline-none focus:ring-1 focus:ring-blue-500/30 focus:bg-white/[0.05] transition-all"
+      {/* Dieselbe Leiste wie auf der Startseite -- vorher stand hier
+          eine eigene mit anderem Logo und englischem "Exit Docs". */}
+      <SiteNav />
+
+      {/* Die Suche der Dokumentation, jetzt unter der Leiste statt
+          darin: in der gemeinsamen Leiste ist dafuer kein Platz. */}
+      <div className="border-b border-slate-800 px-5 lg:px-8 py-3">
+        <div className="mx-auto max-w-[1400px] flex items-center gap-3">
+          <button
+            type="button"
+            className="lg:hidden p-2 text-slate-400"
+            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            aria-label="Inhaltsverzeichnis"
+          >
+            {isSidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
+          <div className="relative flex-1 max-w-md group">
+            <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 group-focus-within:text-indigo-400 transition-colors" />
+            <input
+              type="text"
+              placeholder="Dokumentation durchsuchen …"
+              className="w-full rounded-xl border border-slate-800 bg-[#131318] py-2.5 pl-11 pr-4 text-[14px] text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-slate-700 transition-colors"
             />
           </div>
         </div>
+      </div>
 
-        <div className="flex items-center gap-4">
-           <button 
-             className="lg:hidden p-2 text-slate-400"
-             onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-           >
-             {isSidebarOpen ? <X /> : <Menu />}
-           </button>
-           <Link href="/">
-            <Button variant="ghost" className="text-slate-400 hover:text-white gap-2 text-xs font-black uppercase tracking-widest">
-              Exit Docs
-            </Button>
-          </Link>
-        </div>
-      </nav>
-
-      <div className="max-w-7xl mx-auto flex pt-20">
+      <div className="max-w-7xl mx-auto flex">
         {/* Sidebar */}
         <aside className={cn(
-          "fixed inset-y-0 left-0 z-40 w-80 bg-[#071527] border-r border-white/5 pt-20 transition-transform lg:translate-x-0 lg:static lg:bg-transparent",
+          "fixed inset-y-0 left-0 z-40 w-80 bg-[#0a0a0c] border-r border-slate-800 pt-24 lg:pt-8 transition-transform lg:translate-x-0 lg:static lg:bg-transparent",
           isSidebarOpen ? "translate-x-0" : "-translate-x-full"
         )}>
           <div className="h-full p-8 overflow-y-auto no-scrollbar">
@@ -144,14 +137,14 @@ export default function DocsPage() {
         </aside>
 
         {/* Content */}
-        <main className="flex-1 p-8 lg:p-16 relative z-10 max-w-4xl">
+        <main className="flex-1 min-w-0 p-6 sm:p-8 lg:p-16 relative z-10 max-w-4xl">
            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-500 text-[10px] font-black uppercase tracking-widest mb-8">
             <BookOpen className="h-3 w-3" />
             V2.4 Runtime Environment
           </div>
 
-          <h1 className="text-6xl font-bold text-white font-outfit tracking-tighter uppercase mb-8 italic">
-            {activeTab}<span className="text-blue-500 not-italic">.</span>
+          <h1 className="text-[34px] sm:text-[44px] font-extrabold text-white tracking-tight mb-8">
+            {activeTab}<span className="text-indigo-400">.</span>
           </h1>
 
           <div className="prose prose-invert max-w-none">

@@ -82,7 +82,7 @@ export default function NicknamePage({ params }: { params: { guildId: string } }
         <p className="text-slate-400 mt-1">Lege fest, was vor oder nach dem Namen stehen soll, wenn ein User eine bestimmte Rolle hat.</p>
       </div>
 
-      <section className="bg-[#10233f] border border-slate-800 rounded-3xl p-8 space-y-6 shadow-xl border-glow-card">
+      <section className="bg-[#131318] border border-slate-800 rounded-3xl p-8 space-y-6 shadow-xl border-glow-card">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Select value={selectedRole} onValueChange={setSelectedRole} options={roleOptions} placeholder="Rolle auswählen" />
           <Input value={prefix} onChange={(e) => setPrefix(e.target.value)} placeholder="Vor dem Namen, z.B. [VIP] " maxLength={16} />
@@ -91,7 +91,7 @@ export default function NicknamePage({ params }: { params: { guildId: string } }
         <Button onClick={addRule} className="gap-2"><Plus className="h-4 w-4" />Regel hinzufügen</Button>
       </section>
 
-      <section className="bg-[#10233f] border border-slate-800 rounded-3xl overflow-hidden shadow-xl border-glow-card is-clipped">
+      <section className="bg-[#131318] border border-slate-800 rounded-3xl overflow-hidden shadow-xl border-glow-card is-clipped">
         <div className="p-6 border-b border-slate-800"><h3 className="font-black text-white">Aktive Regeln</h3></div>
         <div className="divide-y divide-slate-800">
           {rules.length === 0 ? <p className="p-6 text-slate-500">Keine Nickname-Regeln konfiguriert.</p> : rules.map((rule) => (

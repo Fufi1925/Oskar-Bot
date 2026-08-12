@@ -37,7 +37,7 @@ function Card({ icon: Icon, title, subtitle, children, tone }: any) {
         "border rounded-3xl p-4 sm:p-6 space-y-5",
         tone === "danger"
           ? "bg-red-500/[0.04] border-red-500/25"
-          : "bg-[#10233f] border-slate-800"
+          : "bg-[#131318] border-slate-800"
       )}
     >
       <div className="flex gap-3 min-w-0">
@@ -101,7 +101,7 @@ function WhitelistEditor({
   const all = count === actions.length;
 
   return (
-    <div className="rounded-2xl bg-[#0d1b31] border border-slate-800 p-4 space-y-4">
+    <div className="rounded-2xl bg-[#0e0e12] border border-slate-800 p-4 space-y-4">
       <div className="flex items-center justify-between gap-3">
         <p className="text-xs font-black uppercase tracking-widest text-slate-400">
           {title}
@@ -132,7 +132,7 @@ function WhitelistEditor({
                 "flex items-start gap-2.5 text-left rounded-xl border px-3 py-2.5 transition-all",
                 on
                   ? "bg-red-500/10 border-red-500/40"
-                  : "bg-[#0a1628] border-slate-800 hover:border-slate-700"
+                  : "bg-[#0e0e12] border-slate-800 hover:border-slate-700"
               )}
             >
               <span
@@ -222,7 +222,7 @@ export function AntiNukePanel({ guildId }: { guildId: string }) {
             "rounded-2xl border p-4 flex items-center justify-between gap-4",
             status
               ? "bg-emerald-500/[0.06] border-emerald-500/25"
-              : "bg-[#0d1b31] border-slate-800"
+              : "bg-[#0e0e12] border-slate-800"
           )}
         >
           <div className="min-w-0">
@@ -257,7 +257,7 @@ export function AntiNukePanel({ guildId }: { guildId: string }) {
 
         <button
           onClick={() => setShowModules((o) => !o)}
-          className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-[#0d1b31] border border-slate-800"
+          className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-[#0e0e12] border border-slate-800"
         >
           <span className="text-[11px] font-black uppercase tracking-widest text-slate-500">
             Was genau überwacht wird ({actions.length} Bereiche)
@@ -280,8 +280,8 @@ export function AntiNukePanel({ guildId }: { guildId: string }) {
                   !action.loaded
                     ? "bg-red-500/[0.05] border-red-500/25"
                     : status
-                    ? "bg-[#0d1b31] border-slate-800"
-                    : "bg-[#0d1b31]/50 border-slate-800/60"
+                    ? "bg-[#0e0e12] border-slate-800"
+                    : "bg-[#0e0e12]/50 border-slate-800/60"
                 )}
               >
                 <p
@@ -378,7 +378,7 @@ export function AntiNukePanel({ guildId }: { guildId: string }) {
                     "rounded-2xl border",
                     everything
                       ? "bg-red-500/[0.05] border-red-500/30"
-                      : "bg-[#0d1b31] border-slate-800"
+                      : "bg-[#0e0e12] border-slate-800"
                   )}
                 >
                   <div className="flex items-center gap-3 px-4 py-3">

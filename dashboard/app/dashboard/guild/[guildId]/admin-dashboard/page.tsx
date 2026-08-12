@@ -43,7 +43,7 @@ const SEVERITY = {
 
 function Card({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={cn("bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6", className)}>
+    <div className={cn("bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6", className)}>
       {children}
     </div>
   );
@@ -178,7 +178,7 @@ export default function ServerToolsPage({ params }: { params: { guildId: string 
               "flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-black uppercase tracking-widest border transition-all",
               tab === t.id
                 ? "bg-primary/15 border-primary/40 text-primary"
-                : "bg-[#10233f] border-slate-800 text-slate-400 hover:text-slate-200"
+                : "bg-[#131318] border-slate-800 text-slate-400 hover:text-slate-200"
             )}
           >
             <t.icon className="h-3.5 w-3.5" />
@@ -425,7 +425,7 @@ export default function ServerToolsPage({ params }: { params: { guildId: string 
                 ) : (
                   current.roles.map((r: any) => (
                     <div key={r.id}
-                         className="bg-[#10233f] border border-slate-800 rounded-2xl px-5 py-4 flex items-center gap-4 flex-wrap border-glow-card glow-r-2xl">
+                         className="bg-[#131318] border border-slate-800 rounded-2xl px-5 py-4 flex items-center gap-4 flex-wrap border-glow-card glow-r-2xl">
                       <span className="h-3 w-3 rounded-full shrink-0"
                             style={{ background: r.colour }} />
                       <span className="font-bold text-white truncate flex-1 min-w-[120px]">
@@ -526,7 +526,7 @@ export default function ServerToolsPage({ params }: { params: { guildId: string 
               <div className="space-y-2">
                 {current.channels.map((c: any) => (
                   <div key={c.id}
-                       className="bg-[#10233f] border border-slate-800 rounded-2xl px-5 py-4 flex items-center gap-4 flex-wrap border-glow-card glow-r-2xl">
+                       className="bg-[#131318] border border-slate-800 rounded-2xl px-5 py-4 flex items-center gap-4 flex-wrap border-glow-card glow-r-2xl">
                     <Hash className="h-4 w-4 text-slate-500 shrink-0" />
                     <span className="font-bold text-white truncate flex-1 min-w-[120px]">
                       {c.name}
@@ -560,7 +560,7 @@ export default function ServerToolsPage({ params }: { params: { guildId: string 
                           []
                         )
                       }
-                      className="shrink-0 bg-[#0d1b31] border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-300 focus:outline-none focus:border-primary/50 disabled:opacity-50"
+                      className="shrink-0 bg-[#0e0e12] border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-300 focus:outline-none focus:border-primary/50 disabled:opacity-50"
                       title="Slowmode"
                     >
                       {[0, 5, 10, 30, 60, 300, 900].map((sec) => (
@@ -583,7 +583,7 @@ export default function ServerToolsPage({ params }: { params: { guildId: string 
               ) : (
                 current.invites.map((i: any) => (
                   <div key={i.code}
-                       className="bg-[#10233f] border border-slate-800 rounded-2xl px-5 py-4 flex items-center gap-4 flex-wrap border-glow-card glow-r-2xl">
+                       className="bg-[#131318] border border-slate-800 rounded-2xl px-5 py-4 flex items-center gap-4 flex-wrap border-glow-card glow-r-2xl">
                     <code className="font-mono font-bold text-white">{i.code}</code>
                     <span className="text-xs text-slate-500 flex-1 min-w-[100px]">
                       {i.channel ? `#${i.channel}` : "—"}
@@ -626,7 +626,7 @@ export default function ServerToolsPage({ params }: { params: { guildId: string 
               ) : (
                 current.webhooks.map((w: any) => (
                   <div key={w.id}
-                       className="bg-[#10233f] border border-slate-800 rounded-2xl px-5 py-4 flex items-center gap-4 flex-wrap border-glow-card glow-r-2xl">
+                       className="bg-[#131318] border border-slate-800 rounded-2xl px-5 py-4 flex items-center gap-4 flex-wrap border-glow-card glow-r-2xl">
                     <Webhook className="h-4 w-4 text-slate-500 shrink-0" />
                     <span className="font-bold text-white truncate flex-1 min-w-[120px]">
                       {w.name}

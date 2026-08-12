@@ -24,7 +24,7 @@ import { cn } from "@/lib/utils";
 import { EmojiPicker } from "@/components/dashboard/emoji-picker";
 
 const INPUT =
-  "w-full bg-[#0d1b31] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-primary/50 transition-colors";
+  "w-full bg-[#0e0e12] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-primary/50 transition-colors";
 
 const TONES = [
   { id: "info", label: "Neutral", colour: "#3d7cff" },
@@ -194,7 +194,7 @@ export function BroadcastPanel({ guilds }: { guilds?: any[] }) {
       {/* ── Result dialog ────────────────────────────── */}
       {openResult && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-[#10233f] border border-slate-800 rounded-3xl w-full max-w-lg shadow-2xl max-h-[85vh] flex flex-col border-glow-card">
+          <div className="bg-[#131318] border border-slate-800 rounded-3xl w-full max-w-lg shadow-2xl max-h-[85vh] flex flex-col border-glow-card">
             <div className="p-5 border-b border-slate-800 flex items-center justify-between gap-3">
               <div className="min-w-0">
                 <h3 className="font-black text-white truncate">
@@ -263,7 +263,7 @@ export function BroadcastPanel({ guilds }: { guilds?: any[] }) {
       )}
 
       {/* ── Compose ──────────────────────────────────── */}
-      <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5 border-glow-card">
+      <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5 border-glow-card">
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-2xl bg-primary/15 grid place-items-center shrink-0">
@@ -341,7 +341,7 @@ export function BroadcastPanel({ guilds }: { guilds?: any[] }) {
                     "flex items-center gap-2 px-3 h-11 rounded-xl text-xs font-bold border transition-all",
                     tone === t.id
                       ? "border-primary/40 bg-primary/10 text-white"
-                      : "bg-[#0d1b31] border-slate-800 text-slate-400 hover:text-slate-200"
+                      : "bg-[#0e0e12] border-slate-800 text-slate-400 hover:text-slate-200"
                   )}
                 >
                   <span
@@ -374,7 +374,7 @@ export function BroadcastPanel({ guilds }: { guilds?: any[] }) {
                   "text-left rounded-2xl border p-4 transition-all",
                   target === t.id
                     ? "bg-primary/10 border-primary/40"
-                    : "bg-[#0d1b31] border-slate-800 hover:border-slate-700"
+                    : "bg-[#0e0e12] border-slate-800 hover:border-slate-700"
                 )}
               >
                 <Server className={cn(
@@ -509,7 +509,7 @@ export function BroadcastPanel({ guilds }: { guilds?: any[] }) {
             {data.broadcasts.map((b: any) => (
               <div
                 key={b.id}
-                className="bg-[#10233f] border border-slate-800 rounded-2xl px-5 py-3.5 flex items-center gap-4 flex-wrap"
+                className="bg-[#131318] border border-slate-800 rounded-2xl px-5 py-3.5 flex items-center gap-4 flex-wrap"
               >
                 <button
                   onClick={() => openDetail(b.id)}

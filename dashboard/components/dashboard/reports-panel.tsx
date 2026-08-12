@@ -106,7 +106,7 @@ export function ReportsPanel() {
                 onClick={() => run(report.id)}
                 disabled={loading}
                 className={cn(
-                  "text-left bg-[#10233f] border rounded-3xl p-5 transition-all disabled:opacity-50",
+                  "text-left bg-[#131318] border rounded-3xl p-5 transition-all disabled:opacity-50",
                   active === report.id
                     ? "border-primary/50 bg-primary/5"
                     : "border-slate-800 hover:border-primary/30"
@@ -128,7 +128,7 @@ export function ReportsPanel() {
       )}
 
       {data && !loading && (
-        <div className="bg-[#10233f] border border-slate-800 rounded-3xl overflow-hidden border-glow-card is-clipped">
+        <div className="bg-[#131318] border border-slate-800 rounded-3xl overflow-hidden border-glow-card is-clipped">
           <div className="p-6 border-b border-white/5 flex items-center justify-between gap-4 flex-wrap">
             <h4 className="font-black text-white">
               {REPORTS.find((r) => r.id === active)?.label}

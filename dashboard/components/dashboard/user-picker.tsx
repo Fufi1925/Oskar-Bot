@@ -120,7 +120,7 @@ export function UserPicker({
             open={open && !!guildId}
             onClose={() => setOpen(false)}
             maxHeight={288}
-            className="bg-[#0b1f3a] border border-white/10 rounded-2xl shadow-2xl shadow-black/50"
+            className="bg-[#0a0a0c] border border-white/10 rounded-2xl shadow-2xl shadow-black/50"
           >
             <div className="flex-1 min-h-0 overflow-y-auto">
               {loading ? (

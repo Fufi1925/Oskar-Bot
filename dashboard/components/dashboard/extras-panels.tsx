@@ -29,7 +29,7 @@ import {
 import { EmojiPicker } from "@/components/dashboard/emoji-picker";
 
 const INPUT =
-  "w-full bg-[#0d1b31] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-primary/50 transition-colors";
+  "w-full bg-[#0e0e12] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-primary/50 transition-colors";
 
 function Field({ label, hint, children }: any) {
   return (
@@ -45,7 +45,7 @@ function Field({ label, hint, children }: any) {
 
 function Card({ icon: Icon, title, subtitle, children, onReload }: any) {
   return (
-    <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5 border-glow-card">
+    <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5 border-glow-card">
       <div className="flex items-start justify-between gap-4">
         <div className="flex gap-3 min-w-0">
           <div className="h-10 w-10 rounded-2xl bg-primary/15 grid place-items-center shrink-0">
@@ -122,11 +122,11 @@ export function BoosterPanel({ guildId }: { guildId: string }) {
         onReload={p.reload}
       >
         <div className="grid grid-cols-2 gap-3">
-          <div className="bg-[#0d1b31] border border-slate-800 rounded-2xl px-4 py-3">
+          <div className="bg-[#0e0e12] border border-slate-800 rounded-2xl px-4 py-3">
             <p className="text-lg font-black text-white">{p.data?.boost_count ?? 0}</p>
             <p className="text-[11px] text-slate-500">Boosts gerade</p>
           </div>
-          <div className="bg-[#0d1b31] border border-slate-800 rounded-2xl px-4 py-3">
+          <div className="bg-[#0e0e12] border border-slate-800 rounded-2xl px-4 py-3">
             <p className="text-lg font-black text-white">Level {p.data?.boost_level ?? 0}</p>
             <p className="text-[11px] text-slate-500">Server-Stufe</p>
           </div>
@@ -141,7 +141,7 @@ export function BoosterPanel({ guildId }: { guildId: string }) {
               {p.data.boosters.map((b: any) => (
                 <span
                   key={b.user_id}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#0d1b31] border border-slate-800 text-sm text-slate-300"
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#0e0e12] border border-slate-800 text-sm text-slate-300"
                 >
                   {b.avatar && (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -348,7 +348,7 @@ export function StickyPanel({ guildId }: { guildId: string }) {
             <div
               key={entry.channel_id}
               className={cn(
-                "bg-[#10233f] border rounded-2xl p-4 space-y-2",
+                "bg-[#131318] border rounded-2xl p-4 space-y-2",
                 entry.missing || !entry.can_post
                   ? "border-amber-500/25" : "border-slate-800"
               )}
@@ -490,7 +490,7 @@ export function NightmodePanel({ guildId }: { guildId: string }) {
               return (
                 <span
                   key={cid}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#0d1b31] border border-slate-800 text-sm text-slate-300"
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#0e0e12] border border-slate-800 text-sm text-slate-300"
                 >
                   #{info?.name || cid}
                   <button
@@ -638,7 +638,7 @@ export function JailPanel({ guildId }: { guildId: string }) {
             {p.data.inmates.map((inmate: any) => (
               <div
                 key={inmate.user_id}
-                className="flex items-center gap-3 bg-[#10233f] border border-slate-800 rounded-2xl px-4 py-3"
+                className="flex items-center gap-3 bg-[#131318] border border-slate-800 rounded-2xl px-4 py-3"
               >
                 {inmate.avatar ? (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -726,19 +726,19 @@ export function CountingPanel({ guildId }: { guildId: string }) {
         onReload={p.reload}
       >
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          <div className="bg-[#0d1b31] border border-slate-800 rounded-2xl px-4 py-3">
+          <div className="bg-[#0e0e12] border border-slate-800 rounded-2xl px-4 py-3">
             <p className="text-2xl font-black text-white tabular-nums">
               {p.data?.current ?? 0}
             </p>
             <p className="text-[11px] text-slate-500 mt-0.5">Aktueller Stand</p>
           </div>
-          <div className="bg-[#0d1b31] border border-slate-800 rounded-2xl px-4 py-3">
+          <div className="bg-[#0e0e12] border border-slate-800 rounded-2xl px-4 py-3">
             <p className="text-2xl font-black text-primary tabular-nums">
               {p.data?.next_number ?? 1}
             </p>
             <p className="text-[11px] text-slate-500 mt-0.5">Als Nächstes</p>
           </div>
-          <div className="bg-[#0d1b31] border border-slate-800 rounded-2xl px-4 py-3">
+          <div className="bg-[#0e0e12] border border-slate-800 rounded-2xl px-4 py-3">
             <p className="text-2xl font-black text-amber-400 flex items-center gap-1.5 tabular-nums">
               <Trophy className="h-4 w-4 shrink-0" />
               {p.data?.high_score ?? 0}
@@ -748,7 +748,7 @@ export function CountingPanel({ guildId }: { guildId: string }) {
         </div>
 
         {p.data?.last_user_name && (
-          <div className="flex items-center gap-2.5 rounded-xl bg-[#0d1b31] border border-slate-800 px-4 py-2.5">
+          <div className="flex items-center gap-2.5 rounded-xl bg-[#0e0e12] border border-slate-800 px-4 py-2.5">
             {p.data?.last_user_avatar && (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -813,7 +813,7 @@ export function CountingPanel({ guildId }: { guildId: string }) {
                   "text-left rounded-2xl border p-4 transition-all",
                   mode === o.id
                     ? "bg-primary/10 border-primary/40"
-                    : "bg-[#0d1b31] border-slate-800 hover:border-slate-700"
+                    : "bg-[#0e0e12] border-slate-800 hover:border-slate-700"
                 )}
               >
                 <p className="text-sm font-bold text-white">{o.label}</p>
@@ -823,7 +823,7 @@ export function CountingPanel({ guildId }: { guildId: string }) {
           </div>
         </Field>
 
-        <details className="group rounded-2xl bg-[#0d1b31] border border-slate-800 overflow-hidden">
+        <details className="group rounded-2xl bg-[#0e0e12] border border-slate-800 overflow-hidden">
           <summary className="cursor-pointer list-none px-4 py-3 flex items-center justify-between">
             <span className="text-xs font-black uppercase tracking-widest text-slate-400">
               Pro Fehlerart einstellen
@@ -859,7 +859,7 @@ export function CountingPanel({ guildId }: { guildId: string }) {
                         "rounded-xl border px-3 py-2.5 text-xs font-bold transition-all",
                         row.value === o.id
                           ? "bg-primary/10 border-primary/40 text-white"
-                          : "bg-[#0a1628] border-slate-800 text-slate-400 hover:border-slate-700"
+                          : "bg-[#0e0e12] border-slate-800 text-slate-400 hover:border-slate-700"
                       )}
                     >
                       {o.label}
@@ -1126,20 +1126,20 @@ export function NotifyPanel({ guildId }: { guildId: string }) {
         onReload={p.reload}
       >
         <div className="grid grid-cols-2 gap-3">
-          <div className="bg-[#0d1b31] border border-slate-800 rounded-2xl px-4 py-3">
+          <div className="bg-[#0e0e12] border border-slate-800 rounded-2xl px-4 py-3">
             <p className="text-lg font-black text-white">
               {entries.length} / {p.data?.max ?? 3}
             </p>
             <p className="text-[11px] text-slate-500">Kanäle beobachtet</p>
           </div>
-          <div className="bg-[#0d1b31] border border-slate-800 rounded-2xl px-4 py-3">
+          <div className="bg-[#0e0e12] border border-slate-800 rounded-2xl px-4 py-3">
             <p className="text-lg font-black text-white">{left}</p>
             <p className="text-[11px] text-slate-500">Plätze frei</p>
           </div>
         </div>
 
         {left > 0 ? (
-          <div className="rounded-2xl bg-[#0d1b31] border border-slate-800 p-4 space-y-4">
+          <div className="rounded-2xl bg-[#0e0e12] border border-slate-800 p-4 space-y-4">
             <p className="text-xs font-black uppercase tracking-widest text-slate-400">
               Kanal hinzufügen
             </p>

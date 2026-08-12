@@ -151,7 +151,7 @@ export function TeamPanel() {
             </div>
           </div>
 
-          <div className="flex gap-2 p-1.5 bg-[#10233f]/70 border border-slate-800 rounded-2xl">
+          <div className="flex gap-2 p-1.5 bg-[#131318]/70 border border-slate-800 rounded-2xl">
             {(["team", "roles"] as const).map((id) => (
               <button
                 key={id}
@@ -171,7 +171,7 @@ export function TeamPanel() {
       {tab === "team" && (
         <>
           {/* Assign */}
-          <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-8 border-glow-card">
+          <div className="bg-[#131318] border border-slate-800 rounded-3xl p-8 border-glow-card">
             <h4 className="font-black text-white flex items-center gap-2 mb-6">
               <UserPlus className="h-5 w-5 text-primary" /> Grant a role
             </h4>
@@ -196,7 +196,7 @@ export function TeamPanel() {
                 <select
                   value={roleKey}
                   onChange={(e) => setRoleKey(e.target.value)}
-                  className="w-full appearance-none bg-[#0b1f3a] border border-white/10 rounded-2xl px-4 py-3 pr-9 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2024%2024%22%20stroke%3D%22%2394a3b8%22%20stroke-width%3D%222%22%3E%3Cpath%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20d%3D%22M19%209l-7%207-7-7%22/%3E%3C/svg%3E')] bg-[length:1.1rem] bg-[right_0.6rem_center] bg-no-repeat cursor-pointer"
+                  className="w-full appearance-none bg-[#0a0a0c] border border-white/10 rounded-2xl px-4 py-3 pr-9 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2024%2024%22%20stroke%3D%22%2394a3b8%22%20stroke-width%3D%222%22%3E%3Cpath%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20d%3D%22M19%209l-7%207-7-7%22/%3E%3C/svg%3E')] bg-[length:1.1rem] bg-[right_0.6rem_center] bg-no-repeat cursor-pointer"
                 >
                   <option value="">Pick a role...</option>
                   {categories.map((category) => (
@@ -282,7 +282,7 @@ export function TeamPanel() {
             {members.map((member) => (
               <div
                 key={member.user_id}
-                className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 border-glow-card"
+                className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 border-glow-card"
               >
                 <div className="flex items-start justify-between gap-4 flex-wrap">
                   <div className="flex items-center gap-4">
@@ -393,7 +393,7 @@ export function TeamPanel() {
             {visibleRoles.map((role) => (
               <div
                 key={role.key}
-                className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 hover:border-white/10 transition-all border-glow-card"
+                className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 hover:border-white/10 transition-all border-glow-card"
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">

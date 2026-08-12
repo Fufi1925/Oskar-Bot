@@ -188,7 +188,7 @@ export function TicketPanels({ guildId }: { guildId: string }) {
       {/* ── Category editor ─────────────────────────────── */}
       {editing && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-[#10233f] border border-slate-800 rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden border-glow-card is-clipped">
+          <div className="bg-[#131318] border border-slate-800 rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden border-glow-card is-clipped">
             <div className="p-6 border-b border-slate-800 flex items-center justify-between">
               <h3 className="font-bold text-white">
                 {editing.cat.category_id ? "Kategorie bearbeiten" : "Neue Kategorie"}
@@ -211,7 +211,7 @@ export function TicketPanels({ guildId }: { guildId: string }) {
                     }
                     placeholder="z. B. Support"
                     maxLength={100}
-                    className="w-full bg-[#0d1b31] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-primary/50"
+                    className="w-full bg-[#0e0e12] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-primary/50"
                   />
                   <div className="mt-2">
                     <EmojiPicker
@@ -233,7 +233,7 @@ export function TicketPanels({ guildId }: { guildId: string }) {
                       setEditing({ ...editing, cat: { ...editing.cat, emoji: e.target.value } })
                     }
                     placeholder="🎫"
-                    className="w-full bg-[#0d1b31] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white text-center focus:outline-none focus:border-primary/50"
+                    className="w-full bg-[#0e0e12] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white text-center focus:outline-none focus:border-primary/50"
                   />
                   {/* Ersetzen statt anhaengen: eine Kategorie traegt
                       genau ein Symbol, im Dropdown wie auf dem Knopf. */}
@@ -302,7 +302,7 @@ export function TicketPanels({ guildId }: { guildId: string }) {
                         "px-4 py-2.5 rounded-xl text-xs font-bold border transition-all",
                         editing.cat.button_style === s.value
                           ? "bg-primary/15 border-primary/40 text-primary"
-                          : "bg-[#0d1b31] border-slate-800 text-slate-400 hover:text-slate-200"
+                          : "bg-[#0e0e12] border-slate-800 text-slate-400 hover:text-slate-200"
                       )}
                     >
                       {s.label}
@@ -339,7 +339,7 @@ export function TicketPanels({ guildId }: { guildId: string }) {
       )}
 
       {/* ── Intro ───────────────────────────────────────── */}
-      <div className="bg-[#10233f] border border-primary/20 rounded-3xl p-4 sm:p-6 border-glow-card">
+      <div className="bg-[#131318] border border-primary/20 rounded-3xl p-4 sm:p-6 border-glow-card">
         <div className="flex items-start gap-4">
           <div className="p-2.5 rounded-xl bg-primary/10 text-primary shrink-0">
             <Ticket className="h-5 w-5" />
@@ -372,7 +372,7 @@ export function TicketPanels({ guildId }: { guildId: string }) {
           return (
             <div
               key={panel.panel_id}
-              className="bg-[#10233f] border border-slate-800 rounded-3xl overflow-hidden border-glow-card is-clipped"
+              className="bg-[#131318] border border-slate-800 rounded-3xl overflow-hidden border-glow-card is-clipped"
             >
               {/* header */}
               <div className="p-5 flex items-center gap-4 flex-wrap">
@@ -448,7 +448,7 @@ export function TicketPanels({ guildId }: { guildId: string }) {
                           e.target.value !== panel.name &&
                           patchPanel(panel.panel_id, { name: e.target.value })
                         }
-                        className="w-full bg-[#0d1b31] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-primary/50"
+                        className="w-full bg-[#0e0e12] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-primary/50"
                       />
                     </Field>
 
@@ -497,7 +497,7 @@ export function TicketPanels({ guildId }: { guildId: string }) {
                               "flex-1 px-4 py-3 rounded-xl text-xs font-bold border transition-all",
                               (panel.panel_type || "button") === o.value
                                 ? "bg-primary/15 border-primary/40 text-primary"
-                                : "bg-[#0d1b31] border-slate-800 text-slate-400 hover:text-slate-200"
+                                : "bg-[#0e0e12] border-slate-800 text-slate-400 hover:text-slate-200"
                             )}
                           >
                             {o.label}
@@ -660,7 +660,7 @@ export function TicketPanels({ guildId }: { guildId: string }) {
                         {panel.categories.map((cat) => (
                           <div
                             key={cat.category_id}
-                            className="bg-[#0d1b31] border border-slate-800 rounded-2xl px-4 py-3 flex items-center gap-3 flex-wrap"
+                            className="bg-[#0e0e12] border border-slate-800 rounded-2xl px-4 py-3 flex items-center gap-3 flex-wrap"
                           >
                             <span className="text-lg shrink-0">{cat.emoji || "🎫"}</span>
                             <span className="font-bold text-white truncate flex-1 min-w-[100px]">
@@ -731,7 +731,7 @@ export function TicketPanels({ guildId }: { guildId: string }) {
       </div>
 
       {/* ── Server-wide ─────────────────────────────────── */}
-      <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5 border-glow-card">
+      <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5 border-glow-card">
         <div>
           <h3 className="font-bold text-white">Für alle Panels</h3>
           <p className="text-[11px] text-slate-500 mt-0.5">

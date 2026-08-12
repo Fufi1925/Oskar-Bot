@@ -186,7 +186,7 @@ export function EmojiPicker({
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="Suchen"
-                className="w-full bg-[#0a1628] border border-slate-800 rounded-lg pl-8 pr-2 py-1.5 text-[12px] text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-slate-700"
+                className="w-full bg-[#0e0e12] border border-slate-800 rounded-lg pl-8 pr-2 py-1.5 text-[12px] text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-slate-700"
               />
             </div>
             <button

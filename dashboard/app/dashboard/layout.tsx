@@ -149,7 +149,7 @@ export default function DashboardLayout({
 
   if (status === "loading" || status === "unauthenticated") {
     return (
-      <div className="min-h-screen bg-[#0b1f3a] flex items-center justify-center">
+      <div className="min-h-screen bg-[#0a0a0c] flex items-center justify-center">
         <div className="animate-pulse flex flex-col items-center gap-4">
           <div className="h-12 w-12 rounded-xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20">
             <span className="font-black text-white italic text-xl">{process.env.NEXT_PUBLIC_BRAND_NAME_WORD || "UB"}</span>
@@ -277,7 +277,7 @@ export default function DashboardLayout({
   const BackLinkIcon = backLinkItem?.icon || Server;
 
   return (
-    <div className="min-h-screen bg-[#071527] text-slate-200">
+    <div className="min-h-screen bg-[#0a0a0c] text-slate-200">
       {/* Liquid Background Elements */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
         <div className="absolute top-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-500/5 blur-[120px] rounded-full animate-pulse" />
@@ -633,7 +633,7 @@ export default function DashboardLayout({
               >
                 <Bell className="h-5 w-5" />
                 {globalNotification && (
-                  <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-blue-500 border-2 border-[#071527] shadow-[0_0_10px_rgba(59,130,246,0.5)]"></span>
+                  <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-blue-500 border-2 border-[#0a0a0c] shadow-[0_0_10px_rgba(59,130,246,0.5)]"></span>
                 )}
               </button>
 
@@ -704,7 +704,7 @@ export default function DashboardLayout({
                     style={{
                       color: teamAccess?.is_owner
                         ? "#fbbf24"
-                        : teamAccess?.roles?.[0]?.color ?? "#64748b",
+                        : teamAccess?.roles?.[0]?.color ?? "#63666f",
                     }}
                   >
                     {teamAccess?.is_owner

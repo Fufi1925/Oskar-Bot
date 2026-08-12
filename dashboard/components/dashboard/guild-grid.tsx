@@ -126,7 +126,7 @@ export function GuildGrid({
         ].map((s) => (
           <div
             key={s.label}
-            className="bg-[#10233f] border border-slate-800 rounded-2xl p-5 flex items-center justify-between gap-3 border-glow-card glow-r-2xl"
+            className="bg-[#131318] border border-slate-800 rounded-2xl p-5 flex items-center justify-between gap-3 border-glow-card glow-r-2xl"
           >
             <div className="min-w-0">
               <p className="text-2xl font-black text-white tabular-nums truncate">
@@ -158,7 +158,7 @@ export function GuildGrid({
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Server suchen…"
-              className="w-full bg-[#10233f] border border-slate-800 rounded-2xl pl-11 pr-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-blue-500/50 transition-colors"
+              className="w-full bg-[#131318] border border-slate-800 rounded-2xl pl-11 pr-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-blue-500/50 transition-colors"
             />
           </div>
           <div className="flex gap-2">
@@ -175,7 +175,7 @@ export function GuildGrid({
                   "px-4 py-3 rounded-2xl text-xs font-black uppercase tracking-widest border transition-all",
                   sort === id
                     ? "bg-blue-500/15 border-blue-500/40 text-blue-400"
-                    : "bg-[#10233f] border-slate-800 text-slate-400 hover:text-slate-200"
+                    : "bg-[#131318] border-slate-800 text-slate-400 hover:text-slate-200"
                 )}
               >
                 {label}
@@ -206,14 +206,14 @@ export function GuildGrid({
             {shownConnected.map((guild) => (
               <div
                 key={guild.id}
-                className="bg-[#10233f] border border-emerald-500/10 rounded-3xl group hover:border-emerald-500/30 hover:bg-[#17375f] transition-all duration-300 overflow-hidden shadow-sm flex flex-col border-glow-card is-clipped"
+                className="bg-[#131318] border border-emerald-500/10 rounded-3xl group hover:border-emerald-500/30 hover:bg-[#17375f] transition-all duration-300 overflow-hidden shadow-sm flex flex-col border-glow-card is-clipped"
               >
                 <div className="p-6 flex-grow">
                   <div className="flex items-start justify-between mb-6">
                     <div className="relative">
                       <Avatar guild={guild} />
                       <div
-                        className="absolute -bottom-1 -right-1 h-4 w-4 rounded-full bg-emerald-500 border-2 border-[#10233f]"
+                        className="absolute -bottom-1 -right-1 h-4 w-4 rounded-full bg-emerald-500 border-2 border-[#131318]"
                         title="Bot online"
                       />
                     </div>
@@ -277,14 +277,14 @@ export function GuildGrid({
             {shownMissing.map((guild) => (
               <div
                 key={guild.id}
-                className="bg-[#10233f]/50 border border-slate-800/50 rounded-3xl group hover:border-slate-700 transition-all duration-300 overflow-hidden opacity-75 hover:opacity-100 flex flex-col border-glow-card is-clipped"
+                className="bg-[#131318]/50 border border-slate-800/50 rounded-3xl group hover:border-slate-700 transition-all duration-300 overflow-hidden opacity-75 hover:opacity-100 flex flex-col border-glow-card is-clipped"
               >
                 <div className="p-6 flex-grow">
                   <div className="flex items-start justify-between mb-6">
                     <div className="relative">
                       <Avatar guild={guild} muted />
                       <div
-                        className="absolute -bottom-1 -right-1 h-4 w-4 rounded-full bg-slate-600 border-2 border-[#10233f]"
+                        className="absolute -bottom-1 -right-1 h-4 w-4 rounded-full bg-slate-600 border-2 border-[#131318]"
                         title="Bot nicht verbunden"
                       />
                     </div>

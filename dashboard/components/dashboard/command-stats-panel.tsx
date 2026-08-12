@@ -46,7 +46,7 @@ interface StatsPayload {
 }
 
 const CARD =
-  "bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 border-glow-card";
+  "bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 border-glow-card";
 
 /** Slash-Befehle werden mit führendem Schrägstrich gezählt. */
 function isSlash(command: string) {
@@ -161,7 +161,7 @@ export function CommandStatsPanel() {
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="flex gap-1.5 p-1.5 bg-[#10233f]/70 border border-slate-800 rounded-2xl">
+            <div className="flex gap-1.5 p-1.5 bg-[#131318]/70 border border-slate-800 rounded-2xl">
               {[7, 30, 90].map((value) => (
                 <button
                   key={value}
@@ -276,7 +276,7 @@ export function CommandStatsPanel() {
               ohne beides eine Wand aus Zeilen sind. */}
           <div
             className={cn(
-              "bg-[#10233f] border border-slate-800 rounded-3xl overflow-hidden",
+              "bg-[#131318] border border-slate-800 rounded-3xl overflow-hidden",
               "border-glow-card is-clipped"
             )}
           >
@@ -286,7 +286,7 @@ export function CommandStatsPanel() {
                 Am meisten benutzt
               </h4>
 
-              <div className="flex gap-1 ml-auto p-1 bg-[#0d1b31] border border-slate-800 rounded-xl">
+              <div className="flex gap-1 ml-auto p-1 bg-[#0e0e12] border border-slate-800 rounded-xl">
                 {(
                   [
                     ["all", "Alle", null],
@@ -316,7 +316,7 @@ export function CommandStatsPanel() {
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
                   placeholder="Befehl suchen"
-                  className="w-full bg-[#0d1b31] border border-slate-800 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder:text-slate-600 outline-none focus:border-primary/50 transition-colors"
+                  className="w-full bg-[#0e0e12] border border-slate-800 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder:text-slate-600 outline-none focus:border-primary/50 transition-colors"
                 />
               </div>
             </div>

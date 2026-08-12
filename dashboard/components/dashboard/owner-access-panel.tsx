@@ -144,7 +144,7 @@ export function OwnerAccessPanel({ currentUserId }: { currentUserId?: string }) 
 
       {/* Add */}
       {canManage && (
-      <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-8 border-glow-card">
+      <div className="bg-[#131318] border border-slate-800 rounded-3xl p-8 border-glow-card">
         <h4 className="font-black text-white flex items-center gap-2 mb-6">
           <ShieldPlus className="h-5 w-5 text-primary" /> Grant full access
         </h4>
@@ -169,7 +169,7 @@ export function OwnerAccessPanel({ currentUserId }: { currentUserId?: string }) 
             <select
               value={kind}
               onChange={(e) => setKind(e.target.value as "owner" | "admin")}
-              className="w-full appearance-none bg-[#0b1f3a] border border-white/10 rounded-2xl px-4 py-3 pr-9 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2024%2024%22%20stroke%3D%22%2394a3b8%22%20stroke-width%3D%222%22%3E%3Cpath%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20d%3D%22M19%209l-7%207-7-7%22/%3E%3C/svg%3E')] bg-[length:1.1rem] bg-[right_0.6rem_center] bg-no-repeat cursor-pointer"
+              className="w-full appearance-none bg-[#0a0a0c] border border-white/10 rounded-2xl px-4 py-3 pr-9 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2024%2024%22%20stroke%3D%22%2394a3b8%22%20stroke-width%3D%222%22%3E%3Cpath%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20d%3D%22M19%209l-7%207-7-7%22/%3E%3C/svg%3E')] bg-[length:1.1rem] bg-[right_0.6rem_center] bg-no-repeat cursor-pointer"
             >
               <option value="admin">Admin — full dashboard access</option>
               <option value="owner">Owner — full access, may add others</option>
@@ -213,7 +213,7 @@ export function OwnerAccessPanel({ currentUserId }: { currentUserId?: string }) 
           <div
             key={entry.user_id}
             className={cn(
-              "bg-[#10233f] border rounded-3xl p-4 sm:p-6 flex items-center justify-between gap-4 flex-wrap",
+              "bg-[#131318] border rounded-3xl p-4 sm:p-6 flex items-center justify-between gap-4 flex-wrap",
               entry.kind === "owner" ? "border-amber-400/25" : "border-slate-800"
             )}
           >

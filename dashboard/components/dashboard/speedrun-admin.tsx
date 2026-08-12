@@ -47,7 +47,7 @@ import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 const CARD =
-  "bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 border-glow-card";
+  "bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 border-glow-card";
 
 /** Wie ein Ereignis im Verlauf heißt und aussieht. */
 const EVENTS: Record<string, { label: string; tone: string }> = {
@@ -82,7 +82,7 @@ function Stat({
   tone?: string;
 }) {
   return (
-    <div className="rounded-2xl border border-slate-800 bg-[#0d1b31] p-4">
+    <div className="rounded-2xl border border-slate-800 bg-[#0e0e12] p-4">
       <Icon className={cn("h-4 w-4 mb-2", tone || "text-slate-500")} />
       <p className="text-xl font-black text-white tabular-nums">{value}</p>
       <p className="text-[11px] text-slate-500 mt-0.5">{label}</p>
@@ -276,7 +276,7 @@ export function SpeedrunAdmin() {
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Name oder ID"
-              className="w-44 sm:w-60 bg-[#0d1b31] border border-slate-800 rounded-xl pl-8 pr-3 py-2 text-[12px] text-slate-300 placeholder:text-slate-600 focus:outline-none focus:border-slate-700"
+              className="w-44 sm:w-60 bg-[#0e0e12] border border-slate-800 rounded-xl pl-8 pr-3 py-2 text-[12px] text-slate-300 placeholder:text-slate-600 focus:outline-none focus:border-slate-700"
             />
           </label>
         </div>
@@ -299,7 +299,7 @@ export function SpeedrunAdmin() {
                     "rounded-2xl border p-4 transition-colors",
                     guild.banned
                       ? "border-red-500/25 bg-red-500/[0.04]"
-                      : "border-slate-800 bg-[#0d1b31]"
+                      : "border-slate-800 bg-[#0e0e12]"
                   )}
                 >
                   <div className="flex items-start gap-3 flex-wrap">

@@ -42,7 +42,7 @@ function Card({ title, icon: Icon, children, tone = "neutral" }: {
 }) {
   return (
     <div className={cn(
-      "bg-[#10233f] border rounded-3xl p-4 sm:p-6",
+      "bg-[#131318] border rounded-3xl p-4 sm:p-6",
       tone === "good" && "border-emerald-500/25",
       tone === "warn" && "border-amber-500/30",
       tone === "neutral" && "border-slate-800",
@@ -240,7 +240,7 @@ export function SystemHealthPanel() {
       )}
 
       {logs.length > 0 && (
-        <div className="bg-[#10233f] border border-slate-800 rounded-3xl overflow-hidden border-glow-card is-clipped">
+        <div className="bg-[#131318] border border-slate-800 rounded-3xl overflow-hidden border-glow-card is-clipped">
           <div className="p-6 border-b border-white/5 flex items-center gap-3">
             <ScrollText className="h-5 w-5 text-primary" />
             <h4 className="font-black text-white text-sm uppercase tracking-wider">

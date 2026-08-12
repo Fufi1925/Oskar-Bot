@@ -127,7 +127,7 @@ type Phase =
 const POLL_MS = 1200;
 
 const CARD =
-  "bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 border-glow-card";
+  "bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 border-glow-card";
 
 const STAGES = ["Voraussetzungen", "Vorlage", "Umfang", "Lauf"];
 
@@ -1100,7 +1100,7 @@ export function SpeedrunPanel({ guildId }: { guildId: string }) {
                     }}
                     placeholder="Code eingeben"
                     className={cn(
-                      "flex-1 bg-[#0d1b31] border rounded-xl px-3.5 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none transition-colors",
+                      "flex-1 bg-[#0e0e12] border rounded-xl px-3.5 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none transition-colors",
                       codeError
                         ? "border-red-500/50 focus:border-red-500/70"
                         : "border-slate-800 focus:border-cyan-400/50"
@@ -1392,13 +1392,13 @@ export function SpeedrunPanel({ guildId }: { guildId: string }) {
                     <div
                       className={cn(
                         "h-full rounded-2xl border transition-all duration-200",
-                        locked && "opacity-45 border-slate-800/60 bg-[#0d1b31]",
+                        locked && "opacity-45 border-slate-800/60 bg-[#0e0e12]",
                         !locked &&
                           active &&
                           "border-primary/60 bg-primary/[0.08] shadow-lg shadow-primary/10",
                         !locked &&
                           !active &&
-                          "border-slate-800 bg-[#0d1b31] hover:border-slate-700"
+                          "border-slate-800 bg-[#0e0e12] hover:border-slate-700"
                       )}
                     >
                       <button
@@ -1575,7 +1575,7 @@ export function SpeedrunPanel({ guildId }: { guildId: string }) {
             {/* Was gleich passiert, in Zahlen -- direkt vor dem Knopf,
                 der es auslöst. */}
             {chosenTemplate && (
-              <div className="rounded-2xl border border-slate-800 bg-[#0d1b31] p-4">
+              <div className="rounded-2xl border border-slate-800 bg-[#0e0e12] p-4">
                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-600 mb-3">
                   Das entsteht
                 </p>
@@ -1638,7 +1638,7 @@ export function SpeedrunPanel({ guildId }: { guildId: string }) {
 
             <button
               onClick={() => setExpanded((open) => !open)}
-              className="w-full flex items-center gap-2.5 px-4 py-3 rounded-2xl border border-slate-800 bg-[#0d1b31] hover:border-slate-700 transition-colors"
+              className="w-full flex items-center gap-2.5 px-4 py-3 rounded-2xl border border-slate-800 bg-[#0e0e12] hover:border-slate-700 transition-colors"
             >
               <span className="text-[11px] font-black uppercase tracking-wider text-slate-400">
                 Erweitert — einzeln einstellen
@@ -1653,7 +1653,7 @@ export function SpeedrunPanel({ guildId }: { guildId: string }) {
 
             {expanded && (
               <Rise>
-                <div className="space-y-3.5 rounded-2xl border border-slate-800 bg-[#0d1b31] p-4">
+                <div className="space-y-3.5 rounded-2xl border border-slate-800 bg-[#0e0e12] p-4">
                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-600">
                     Template-Bot
                   </p>
@@ -1714,7 +1714,7 @@ export function SpeedrunPanel({ guildId }: { guildId: string }) {
                                 setWipeConfirm(event.target.value)
                               }
                               placeholder={pre?.guild_name || "Servername"}
-                              className="mt-1.5 w-full bg-[#0d1b31] border border-red-500/30 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-red-500/60 transition-colors"
+                              className="mt-1.5 w-full bg-[#0e0e12] border border-red-500/30 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-red-500/60 transition-colors"
                             />
                             {pre?.guild_name && (
                               <span className="block text-[10px] text-slate-600 mt-1.5">
@@ -1990,7 +1990,7 @@ export function SpeedrunPanel({ guildId }: { guildId: string }) {
                 Server ist fertig, aber die Regeln sind Platzhalter und
                 die Bot-Rolle sollte nach oben. */}
             {(phase === "done" || phase === "partial") && (
-              <div className="rounded-2xl border border-slate-800 bg-[#0d1b31] p-4 space-y-2">
+              <div className="rounded-2xl border border-slate-800 bg-[#0e0e12] p-4 space-y-2">
                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-600">
                   Was du noch tun solltest
                 </p>

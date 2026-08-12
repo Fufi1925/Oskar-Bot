@@ -110,7 +110,7 @@ export function ApprovalsPanel({ currentUserId }: { currentUserId?: string }) {
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="flex gap-1.5 p-1.5 bg-[#10233f]/70 border border-slate-800 rounded-2xl">
+            <div className="flex gap-1.5 p-1.5 bg-[#131318]/70 border border-slate-800 rounded-2xl">
               {(["pending", "approved", "rejected"] as const).map((s) => (
                 <button
                   key={s}
@@ -154,7 +154,7 @@ export function ApprovalsPanel({ currentUserId }: { currentUserId?: string }) {
             return (
               <div
                 key={entry.id}
-                className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 border-glow-card"
+                className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 border-glow-card"
               >
                 <div className="flex items-start justify-between gap-4 flex-wrap">
                   <div className="min-w-0">

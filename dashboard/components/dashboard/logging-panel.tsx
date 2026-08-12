@@ -151,7 +151,7 @@ const PRESETS = [
 
 function Card({ icon: Icon, title, subtitle, children, onReload }: any) {
   return (
-    <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-4 border-glow-card">
+    <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-4 border-glow-card">
       <div className="flex items-start gap-3">
         {Icon && (
           <div className="h-10 w-10 rounded-2xl bg-primary/15 grid place-items-center shrink-0">
@@ -201,10 +201,10 @@ function CategoryRow({ cat, draft, onChange, onTest, busy, guildId }: any) {
       className={cn(
         "rounded-2xl border transition-colors",
         enabled && channel && !missing && !cannotPost
-          ? "bg-[#0d1b31] border-primary/30"
+          ? "bg-[#0e0e12] border-primary/30"
           : enabled && (missing || cannotPost || !channel)
-          ? "bg-[#0d1b31] border-red-500/30"
-          : "bg-[#0d1b31]/60 border-slate-800"
+          ? "bg-[#0e0e12] border-red-500/30"
+          : "bg-[#0e0e12]/60 border-slate-800"
       )}
     >
       <div className="flex items-start gap-3 p-3.5">
@@ -434,7 +434,7 @@ export function LoggingPanel({ guildId }: { guildId: string }) {
         onReload={p.reload}
       >
         <div className="grid grid-cols-3 gap-3">
-          <div className="bg-[#0d1b31] border border-slate-800 rounded-2xl px-4 py-3">
+          <div className="bg-[#0e0e12] border border-slate-800 rounded-2xl px-4 py-3">
             <p className="text-lg font-black text-white">
               {active.length}
               <span className="text-slate-600 text-sm"> / {categories.length}</span>
@@ -446,7 +446,7 @@ export function LoggingPanel({ guildId }: { guildId: string }) {
               "border rounded-2xl px-4 py-3",
               broken.length
                 ? "bg-red-500/[0.06] border-red-500/25"
-                : "bg-[#0d1b31] border-slate-800"
+                : "bg-[#0e0e12] border-slate-800"
             )}
           >
             <p
@@ -466,7 +466,7 @@ export function LoggingPanel({ guildId }: { guildId: string }) {
               {broken.length === 1 ? "Problem" : "Probleme"}
             </p>
           </div>
-          <div className="bg-[#0d1b31] border border-slate-800 rounded-2xl px-4 py-3">
+          <div className="bg-[#0e0e12] border border-slate-800 rounded-2xl px-4 py-3">
             <p className="text-lg font-black text-white">{exceptionCount}</p>
             <p className="text-[11px] text-slate-500">Ausnahmen</p>
           </div>
@@ -505,8 +505,8 @@ export function LoggingPanel({ guildId }: { guildId: string }) {
                 className={cn(
                   "text-left rounded-2xl border p-3.5 transition-all",
                   allChannel
-                    ? "border-slate-800 bg-[#0d1b31] hover:border-primary/40 hover:-translate-y-0.5"
-                    : "border-slate-800/60 bg-[#0d1b31]/60 opacity-50 cursor-not-allowed"
+                    ? "border-slate-800 bg-[#0e0e12] hover:border-primary/40 hover:-translate-y-0.5"
+                    : "border-slate-800/60 bg-[#0e0e12]/60 opacity-50 cursor-not-allowed"
                 )}
               >
                 <p className="text-sm font-black text-white">{preset.label}</p>
@@ -549,8 +549,8 @@ export function LoggingPanel({ guildId }: { guildId: string }) {
                 className={cn(
                   "rounded-2xl border transition-colors",
                   on > 0
-                    ? "bg-[#0d1b31] border-slate-700"
-                    : "bg-[#0d1b31]/60 border-slate-800"
+                    ? "bg-[#0e0e12] border-slate-700"
+                    : "bg-[#0e0e12]/60 border-slate-800"
                 )}
               >
                 <div className="flex items-center gap-3 p-3.5">
@@ -642,7 +642,7 @@ export function LoggingPanel({ guildId }: { guildId: string }) {
       >
         <button
           onClick={() => setExceptions((open) => !open)}
-          className="w-full flex items-center gap-2.5 px-4 py-3 rounded-2xl border border-slate-800 bg-[#0d1b31] hover:border-slate-700 transition-colors"
+          className="w-full flex items-center gap-2.5 px-4 py-3 rounded-2xl border border-slate-800 bg-[#0e0e12] hover:border-slate-700 transition-colors"
         >
           <span className="text-[11px] font-black uppercase tracking-wider text-slate-400">
             {exceptionCount === 0
@@ -658,7 +658,7 @@ export function LoggingPanel({ guildId }: { guildId: string }) {
         </button>
 
         {exceptions && (
-          <div className="space-y-4 rounded-2xl border border-slate-800 bg-[#0d1b31] p-4">
+          <div className="space-y-4 rounded-2xl border border-slate-800 bg-[#0e0e12] p-4">
             <div className="space-y-2">
               <span className="text-xs font-black uppercase tracking-widest text-slate-500">
                 Kanäle

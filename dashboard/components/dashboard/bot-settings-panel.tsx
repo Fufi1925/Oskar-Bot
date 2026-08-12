@@ -111,7 +111,7 @@ export function BotSettingsPanel() {
       </div>
 
       {groups.map((group) => (
-        <div key={group} className="bg-[#10233f] border border-slate-800 rounded-3xl p-8 border-glow-card">
+        <div key={group} className="bg-[#131318] border border-slate-800 rounded-3xl p-8 border-glow-card">
           <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-600 mb-6">
             {group}
           </p>

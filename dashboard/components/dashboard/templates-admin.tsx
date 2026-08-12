@@ -41,9 +41,9 @@ import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 const CARD =
-  "bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 border-glow-card";
+  "bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 border-glow-card";
 const INPUT =
-  "w-full bg-[#0a1628] border border-slate-800 rounded-xl px-4 py-3 text-sm " +
+  "w-full bg-[#0e0e12] border border-slate-800 rounded-xl px-4 py-3 text-sm " +
   "text-white placeholder:text-slate-600 focus:outline-none " +
   "focus:border-primary/50 transition-colors";
 
@@ -51,7 +51,7 @@ const INPUT =
 const DELETE_DELAY_SECONDS = 10;
 
 /** Wiederkehrende Kästchen-Klassen, damit sie nicht achtmal dastehen. */
-const SUB = "rounded-2xl bg-[#0a1628] border border-slate-800 p-4";
+const SUB = "rounded-2xl bg-[#0e0e12] border border-slate-800 p-4";
 
 /** Welches Zeichen vor welchem Kanaltyp steht. */
 const KIND_ICON: Record<string, string> = {
@@ -134,7 +134,7 @@ function bytes(value: number): string {
 
 function Stat({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="rounded-2xl bg-[#0a1628] border border-slate-800 px-4 py-3">
+    <div className="rounded-2xl bg-[#0e0e12] border border-slate-800 px-4 py-3">
       <p className="text-[9px] font-black uppercase tracking-widest text-slate-600">
         {label}
       </p>
@@ -373,7 +373,7 @@ export function TemplatesAdmin() {
                   "rounded-3xl border transition-colors",
                   entry.blocked
                     ? "bg-red-500/[0.05] border-red-500/30"
-                    : "bg-[#10233f] border-slate-800"
+                    : "bg-[#131318] border-slate-800"
                 )}
               >
                 {/* Kopfzeile */}
@@ -656,7 +656,7 @@ export function TemplatesAdmin() {
                           </p>
                         ) : entry.key ? (
                           <div className="flex items-center gap-2 flex-wrap">
-                            <code className="px-3 py-2 rounded-xl bg-[#10233f] border border-amber-500/25 text-[15px] font-black tracking-[0.25em] text-amber-300">
+                            <code className="px-3 py-2 rounded-xl bg-[#131318] border border-amber-500/25 text-[15px] font-black tracking-[0.25em] text-amber-300">
                               {entry.key}
                             </code>
                             <button
@@ -730,7 +730,7 @@ export function TemplatesAdmin() {
                             ].map(([label, value]) => (
                               <div
                                 key={String(label)}
-                                className="rounded-xl bg-[#0a1628] border border-slate-800 px-3 py-2"
+                                className="rounded-xl bg-[#0e0e12] border border-slate-800 px-3 py-2"
                               >
                                 <p className="text-[9px] font-black uppercase tracking-widest text-slate-600">
                                   {label}

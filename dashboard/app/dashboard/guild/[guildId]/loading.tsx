@@ -29,12 +29,12 @@ export default function GuildLoading() {
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
         <div className="lg:col-span-3 space-y-4">
            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="h-32 w-full bg-[#10233f] border border-slate-800 rounded-[40px] animate-pulse" />
+              <div key={i} className="h-32 w-full bg-[#131318] border border-slate-800 rounded-[40px] animate-pulse" />
            ))}
         </div>
         <div className="space-y-6">
-           <div className="h-64 w-full bg-[#10233f] border border-slate-800 rounded-[40px] animate-pulse" />
-           <div className="h-48 w-full bg-[#10233f] border border-slate-800 rounded-[40px] animate-pulse" />
+           <div className="h-64 w-full bg-[#131318] border border-slate-800 rounded-[40px] animate-pulse" />
+           <div className="h-48 w-full bg-[#131318] border border-slate-800 rounded-[40px] animate-pulse" />
         </div>
       </div>
     </div>

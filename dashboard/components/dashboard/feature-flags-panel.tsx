@@ -156,7 +156,7 @@ export function FeatureFlagsPanel() {
             <div
               key={flag.key}
               className={cn(
-                "bg-[#10233f] border rounded-3xl p-4 sm:p-6 transition-all",
+                "bg-[#131318] border rounded-3xl p-4 sm:p-6 transition-all",
                 flag.active ? "border-primary/25" : "border-slate-800"
               )}
             >

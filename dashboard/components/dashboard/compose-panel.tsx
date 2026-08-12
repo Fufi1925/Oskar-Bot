@@ -26,7 +26,7 @@ import { InlineToggle } from "@/components/dashboard/form-elements";
 import { announcementsFor } from "@/lib/announcements";
 
 const INPUT =
-  "w-full bg-[#0d1b31] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-primary/50 transition-colors";
+  "w-full bg-[#0e0e12] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-primary/50 transition-colors";
 
 type Kind = "text" | "embed" | "v2";
 
@@ -260,7 +260,7 @@ export function ComposePanel({ guildId }: { guildId: string }) {
       {/* ══ Editor ═══════════════════════════════════ */}
       <div className="xl:col-span-3 space-y-5">
         {announcements.length > 0 && (
-          <div className="bg-[#10233f] border border-primary/25 rounded-3xl p-4 sm:p-6 space-y-4 border-glow-card">
+          <div className="bg-[#131318] border border-primary/25 rounded-3xl p-4 sm:p-6 space-y-4 border-glow-card">
             <div className="flex gap-3">
               <div className="h-10 w-10 rounded-2xl bg-primary/15 grid place-items-center shrink-0">
                 <Sparkles className="h-5 w-5 text-primary" />
@@ -279,7 +279,7 @@ export function ComposePanel({ guildId }: { guildId: string }) {
                 <button
                   key={entry.id}
                   onClick={() => loadAnnouncement(entry)}
-                  className="w-full text-left rounded-2xl border border-slate-800 bg-[#0d1b31] px-4 py-3 hover:border-primary/40 transition-colors"
+                  className="w-full text-left rounded-2xl border border-slate-800 bg-[#0e0e12] px-4 py-3 hover:border-primary/40 transition-colors"
                 >
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="text-sm font-bold text-white">{entry.label}</p>
@@ -296,7 +296,7 @@ export function ComposePanel({ guildId }: { guildId: string }) {
           </div>
         )}
 
-        <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5 border-glow-card">
+        <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5 border-glow-card">
           <Field label="Art der Nachricht">
             <div className="grid md:grid-cols-3 gap-2">
               {[
@@ -311,7 +311,7 @@ export function ComposePanel({ guildId }: { guildId: string }) {
                     "text-left rounded-2xl border p-4 transition-all",
                     kind === o.id
                       ? "bg-primary/10 border-primary/40"
-                      : "bg-[#0d1b31] border-slate-800 hover:border-slate-700"
+                      : "bg-[#0e0e12] border-slate-800 hover:border-slate-700"
                   )}
                 >
                   <o.icon className={cn(
@@ -328,7 +328,7 @@ export function ComposePanel({ guildId }: { guildId: string }) {
 
         {/* ── Text ─────────────────────────────────── */}
         {kind === "text" && (
-          <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 border-glow-card">
+          <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 border-glow-card">
             <Field
               label="Nachricht"
               hint="Discord-Formatierung geht: **fett**, *kursiv*, `Code`, > Zitat."
@@ -371,7 +371,7 @@ export function ComposePanel({ guildId }: { guildId: string }) {
 
         {/* ── Embed ────────────────────────────────── */}
         {kind === "embed" && (
-          <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5 border-glow-card">
+          <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5 border-glow-card">
             <Field
               label="Text über dem Embed"
               hint="Nur hier funktionieren Erwähnungen — ein Ping im Embed benachrichtigt niemanden."
@@ -494,7 +494,7 @@ export function ComposePanel({ guildId }: { guildId: string }) {
               </div>
 
               {embed.fields.map((field: any, index: number) => (
-                <div key={index} className="bg-[#0d1b31] border border-slate-800 rounded-2xl p-4 space-y-3">
+                <div key={index} className="bg-[#0e0e12] border border-slate-800 rounded-2xl p-4 space-y-3">
                   <div className="flex gap-2">
                     <input
                       value={field.name}
@@ -546,7 +546,7 @@ export function ComposePanel({ guildId }: { guildId: string }) {
 
         {/* ── V2 blocks ────────────────────────────── */}
         {kind === "v2" && (
-          <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5 border-glow-card">
+          <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5 border-glow-card">
             <div className="flex items-center justify-between gap-4 flex-wrap">
               <p className="text-xs font-black uppercase tracking-widest text-slate-500">
                 Bausteine ({blocks.length})
@@ -572,7 +572,7 @@ export function ComposePanel({ guildId }: { guildId: string }) {
                 <button
                   key={o.type}
                   onClick={() => addBlock(o.type as Block["type"])}
-                  className="flex items-center gap-1.5 px-3 h-10 rounded-xl bg-[#0d1b31] border border-slate-800 text-xs font-bold text-slate-300 hover:text-primary hover:border-primary/30 transition-all"
+                  className="flex items-center gap-1.5 px-3 h-10 rounded-xl bg-[#0e0e12] border border-slate-800 text-xs font-bold text-slate-300 hover:text-primary hover:border-primary/30 transition-all"
                 >
                   <o.icon className="h-3.5 w-3.5" />
                   {o.label}
@@ -589,7 +589,7 @@ export function ComposePanel({ guildId }: { guildId: string }) {
                 {blocks.map((block, index) => (
                   <div
                     key={block.id}
-                    className="bg-[#0d1b31] border border-slate-800 rounded-2xl p-4 space-y-3"
+                    className="bg-[#0e0e12] border border-slate-800 rounded-2xl p-4 space-y-3"
                   >
                     <div className="flex items-center gap-2">
                       <span className="text-[10px] font-black uppercase tracking-widest text-slate-600 flex-1">
@@ -762,7 +762,7 @@ export function ComposePanel({ guildId }: { guildId: string }) {
       {/* ══ Preview + send ═══════════════════════════ */}
       <div className="xl:col-span-2 space-y-5">
         <div className="xl:sticky xl:top-6 space-y-5">
-          <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-4 border-glow-card">
+          <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-4 border-glow-card">
             <p className="text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
               <Eye className="h-3.5 w-3.5" /> Vorschau
             </p>
@@ -930,7 +930,7 @@ export function ComposePanel({ guildId }: { guildId: string }) {
           )}
 
           {/* Send */}
-          <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-4 border-glow-card">
+          <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-4 border-glow-card">
             {/* Only rendered where there is an actual choice. A picker
                 with one option is noise. */}
             {senders.length > 1 && (
@@ -947,7 +947,7 @@ export function ComposePanel({ guildId }: { guildId: string }) {
                         "text-left rounded-2xl border p-3 transition-all",
                         sender === option.id
                           ? "bg-primary/10 border-primary/40"
-                          : "bg-[#0d1b31] border-slate-800 hover:border-slate-700"
+                          : "bg-[#0e0e12] border-slate-800 hover:border-slate-700"
                       )}
                     >
                       <p className="text-sm font-bold text-white">{option.name}</p>

@@ -45,7 +45,7 @@ import { cn } from "@/lib/utils";
 import { EmojiPicker } from "@/components/dashboard/emoji-picker";
 
 const CARD =
-  "bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 border-glow-card";
+  "bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 border-glow-card";
 
 /** Wie ein Änderungstyp aussieht. */
 const TONES: Record<string, { border: string; text: string; icon: any }> = {
@@ -378,7 +378,7 @@ export function TesterPanel() {
                     <div
                       key={entry.commit}
                       className={cn(
-                        "rounded-2xl border bg-[#0d1b31] p-4",
+                        "rounded-2xl border bg-[#0e0e12] p-4",
                         tone.border
                       )}
                     >
@@ -476,7 +476,7 @@ export function TesterPanel() {
               ? "Was geht nicht? In einem Satz."
               : "Was schlägst du vor?"
           }
-          className="w-full bg-[#0d1b31] border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-violet-500/50 transition-colors"
+          className="w-full bg-[#0e0e12] border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-violet-500/50 transition-colors"
         />
 
         {/* Warnung vor Dubletten -- noch vor dem Abschicken.
@@ -504,7 +504,7 @@ export function TesterPanel() {
             onChange={(event) => setArea(event.target.value)}
             maxLength={60}
             placeholder="Wo? z. B. Speedrun, Tickets"
-            className="w-full bg-[#0d1b31] border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-violet-500/50 transition-colors"
+            className="w-full bg-[#0e0e12] border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-violet-500/50 transition-colors"
           />
 
           {/* Dringlichkeit nur bei Fehlern: ein Vorschlag ist ein
@@ -513,7 +513,7 @@ export function TesterPanel() {
             <select
               value={priority}
               onChange={(event) => setPriority(event.target.value)}
-              className="w-full bg-[#0d1b31] border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-violet-500/50 transition-colors"
+              className="w-full bg-[#0e0e12] border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-violet-500/50 transition-colors"
             >
               <option value="low">Kleinigkeit</option>
               <option value="normal">Normal</option>
@@ -533,7 +533,7 @@ export function TesterPanel() {
               ? "Was hast du getan, was ist passiert, was hättest du erwartet?"
               : "Wofür wäre das gut?"
           }
-          className="w-full bg-[#0d1b31] border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-violet-500/50 transition-colors resize-y"
+          className="w-full bg-[#0e0e12] border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-violet-500/50 transition-colors resize-y"
         />
         <div className="mt-2">
           <EmojiPicker
@@ -593,7 +593,7 @@ export function TesterPanel() {
           <select
             value={filterState}
             onChange={(event) => setFilterState(event.target.value)}
-            className="ml-auto bg-[#0d1b31] border border-slate-800 rounded-lg px-2.5 py-1.5 text-[11px] text-slate-300 focus:outline-none"
+            className="ml-auto bg-[#0e0e12] border border-slate-800 rounded-lg px-2.5 py-1.5 text-[11px] text-slate-300 focus:outline-none"
           >
             <option value="">Alle Stände</option>
             <option value="open">offen</option>
@@ -622,7 +622,7 @@ export function TesterPanel() {
                 <div
                   key={entry.id}
                   className={cn(
-                    "rounded-2xl border bg-[#0d1b31] p-4 transition-colors",
+                    "rounded-2xl border bg-[#0e0e12] p-4 transition-colors",
                     entry.closed
                       ? "border-slate-800/60 opacity-60"
                       : entry.priority === "critical"
@@ -758,7 +758,7 @@ export function TesterPanel() {
                             if (event.key === "Enter") sendReply(entry.id);
                           }}
                           placeholder="Antworten …"
-                          className="flex-1 bg-[#0a1628] border border-slate-800 rounded-lg px-3 py-2 text-[12px] text-white placeholder:text-slate-600 focus:outline-none focus:border-slate-700"
+                          className="flex-1 bg-[#0e0e12] border border-slate-800 rounded-lg px-3 py-2 text-[12px] text-white placeholder:text-slate-600 focus:outline-none focus:border-slate-700"
                         />
                         <button
                           onClick={() => sendReply(entry.id)}

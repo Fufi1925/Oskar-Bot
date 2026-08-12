@@ -37,9 +37,9 @@ import { cn } from "@/lib/utils";
 import { InlineToggle } from "@/components/dashboard/form-elements";
 
 const CARD =
-  "bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 border-glow-card";
+  "bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 border-glow-card";
 const INPUT =
-  "w-full bg-[#0a1628] border border-slate-800 rounded-xl px-4 py-3 text-sm " +
+  "w-full bg-[#0e0e12] border border-slate-800 rounded-xl px-4 py-3 text-sm " +
   "text-white placeholder:text-slate-600 focus:outline-none " +
   "focus:border-primary/50 transition-colors";
 
@@ -142,7 +142,7 @@ function FeaturePicker({
   };
 
   return (
-    <div className="rounded-2xl bg-[#0a1628] border border-slate-800 p-4 space-y-4">
+    <div className="rounded-2xl bg-[#0e0e12] border border-slate-800 p-4 space-y-4">
       <div className="flex items-center gap-2 flex-wrap">
         <p className="text-[10px] font-black uppercase tracking-widest text-slate-600">
           Dashboard-Einstellungen — einzeln abwählbar
@@ -338,7 +338,7 @@ export function TemplateUploadPanel({ guildId }: { guildId: string }) {
             </p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-            <code className="px-4 py-2.5 rounded-xl bg-[#0a1628] border border-emerald-500/25 text-lg font-black tracking-[0.3em] text-emerald-300">
+            <code className="px-4 py-2.5 rounded-xl bg-[#0e0e12] border border-emerald-500/25 text-lg font-black tracking-[0.3em] text-emerald-300">
               {issuedKey}
             </code>
             <button
@@ -405,7 +405,7 @@ export function TemplateUploadPanel({ guildId }: { guildId: string }) {
               ].map((entry) => (
                 <div
                   key={entry.label}
-                  className="rounded-2xl bg-[#0a1628] border border-slate-800 px-4 py-3"
+                  className="rounded-2xl bg-[#0e0e12] border border-slate-800 px-4 py-3"
                 >
                   <p className="text-[9px] font-black uppercase tracking-widest text-slate-600">
                     {entry.label}
@@ -417,7 +417,7 @@ export function TemplateUploadPanel({ guildId }: { guildId: string }) {
               ))}
             </div>
 
-            <div className="rounded-2xl bg-[#0a1628] border border-slate-800 p-4 space-y-3 max-h-72 overflow-y-auto">
+            <div className="rounded-2xl bg-[#0e0e12] border border-slate-800 p-4 space-y-3 max-h-72 overflow-y-auto">
               {preview.roles?.length > 0 && (
                 <div>
                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-600 mb-2">
@@ -622,7 +622,7 @@ export function TemplateUploadPanel({ guildId }: { guildId: string }) {
                   "rounded-xl border px-4 py-3 text-left transition-all",
                   visibility === "public"
                     ? "bg-primary/10 border-primary/40"
-                    : "bg-[#0a1628] border-slate-800 hover:border-slate-700"
+                    : "bg-[#0e0e12] border-slate-800 hover:border-slate-700"
                 )}
               >
                 <p className="text-[13px] font-bold text-white">Offen</p>
@@ -636,7 +636,7 @@ export function TemplateUploadPanel({ guildId }: { guildId: string }) {
                   "rounded-xl border px-4 py-3 text-left transition-all",
                   visibility === "key"
                     ? "bg-primary/10 border-primary/40"
-                    : "bg-[#0a1628] border-slate-800 hover:border-slate-700"
+                    : "bg-[#0e0e12] border-slate-800 hover:border-slate-700"
                 )}
               >
                 <p className="text-[13px] font-bold text-white">
@@ -703,7 +703,7 @@ export function TemplateUploadPanel({ guildId }: { guildId: string }) {
                   "rounded-2xl border p-4 transition-colors",
                   entry.blocked
                     ? "bg-red-500/[0.05] border-red-500/30"
-                    : "bg-[#0a1628] border-slate-800"
+                    : "bg-[#0e0e12] border-slate-800"
                 )}
               >
                 <div className="flex items-center gap-3 flex-wrap">
@@ -809,7 +809,7 @@ export function TemplateUploadPanel({ guildId }: { guildId: string }) {
                   <div className="mt-3 pt-3 border-t border-slate-800">
                     {keys[entry.id] ? (
                       <div className="flex items-center gap-2 flex-wrap">
-                        <code className="px-4 py-2.5 rounded-xl bg-[#10233f] border border-amber-500/25 text-[15px] font-black tracking-[0.3em] text-amber-300">
+                        <code className="px-4 py-2.5 rounded-xl bg-[#131318] border border-amber-500/25 text-[15px] font-black tracking-[0.3em] text-amber-300">
                           {keys[entry.id]}
                         </code>
                         <button

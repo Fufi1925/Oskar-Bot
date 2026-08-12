@@ -3,20 +3,27 @@
 @tailwind utilities;
 
 :root {
-  --background: #071527;
+  --background: #0a0a0c;
   --foreground: #f8fafc;
   --font-inter: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-outfit: Outfit, Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --primary: #3b82f6;
-  --primary-glow: rgba(59, 130, 246, 0.15);
-  --glass-bg: rgba(15, 23, 42, 0.6);
-  --glass-border: rgba(255, 255, 255, 0.05);
-  --glass-blue-border: rgba(59, 130, 246, 0.2);
+  --primary: #5865f2;
+  --primary-glow: rgba(88, 101, 242, 0.15);
+  --glass-bg: rgba(19, 19, 24, 0.72);
+  --glass-border: rgba(255, 255, 255, 0.06);
+  --glass-blue-border: rgba(88, 101, 242, 0.22);
+  /* Kartenrand und Kartenflaeche -- aus den Screenshots gemessen:
+     #1e1f22 fuer den Rand, die Flaeche fast so dunkel wie der
+     Seitengrund. Beides mit einem Hauch Blau, damit die Seite
+     nicht tot grau wirkt. */
+  --card: #131318;
+  --card-border: #1e1f22;
+  --surface: #0e0e12;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #071527;
+    --background: #0a0a0c;
     --foreground: #f8fafc;
   }
 }
@@ -34,23 +41,23 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: #071527;
+  background: #0a0a0c;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #1e293b;
+  background: #26262c;
   border-radius: 10px;
-  border: 2px solid #071527;
+  border: 2px solid #0a0a0c;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #3b82f6; /* Primary Blue */
+  background: #5865f2; /* Blurple */
 }
 
 /* Firefox */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #1e293b #071527;
+  scrollbar-color: #26262c #0a0a0c;
 }
 
 @layer utilities {
@@ -92,18 +99,18 @@ select {
 
 select option,
 select optgroup {
-  background-color: #10233f;
+  background-color: #131318;
   color: #e2e8f0;
 }
 
 select option:checked,
 select option:hover {
-  background-color: #2563eb;
+  background-color: #4752c4;
   color: #ffffff;
 }
 
 select optgroup {
-  color: #64748b;
+  color: #63666f;
   font-weight: 800;
   font-size: 0.7rem;
   text-transform: uppercase;
@@ -600,7 +607,7 @@ input[type="number"] {
    Four things differ from the original, each for a reason:
 
    1. **No background of its own.** The original paints #120F17 on the
-      card. Ours already have `bg-[#10233f]`, and a second background
+      card. Ours already have `bg-[#131318]`, and a second background
       behind the first would break every bg-* override in the codebase.
       `--card-bg` exists only for the padding-box knockout that keeps
       the gradient in the border rather than flooding the card, so it
@@ -630,7 +637,7 @@ input[type="number"] {
   --color-sensitivity: calc(var(--edge-sensitivity) + 20);
   --glow-padding: 40px;
   --cone-spread: 25;
-  --card-bg: #10233f;
+  --card-bg: #131318;
   /* The card's own corner radius. It has to be stated, not inherited:
      see the note on ::after. Tailwind's rounded-3xl is the default
      because 113 of the 121 cards use it; .glow-r-* below covers the

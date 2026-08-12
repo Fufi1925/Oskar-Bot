@@ -34,9 +34,9 @@ import { cn } from "@/lib/utils";
 import { InlineToggle } from "@/components/dashboard/form-elements";
 
 const CARD =
-  "bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 border-glow-card";
+  "bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 border-glow-card";
 const INPUT =
-  "w-full bg-[#0a1628] border border-slate-800 rounded-xl px-4 py-3 text-sm " +
+  "w-full bg-[#0e0e12] border border-slate-800 rounded-xl px-4 py-3 text-sm " +
   "text-white placeholder:text-slate-600 focus:outline-none " +
   "focus:border-primary/50 transition-colors";
 
@@ -252,7 +252,7 @@ export function MusicPanel({ guildId }: { guildId: string }) {
         bleibt der Bot dauerhaft im Kanal.
       */}
       <div className="grid grid-cols-3 gap-3">
-        <div className="rounded-2xl bg-[#10233f] border border-slate-800 px-4 py-3.5">
+        <div className="rounded-2xl bg-[#131318] border border-slate-800 px-4 py-3.5">
           <p className="text-[9px] font-black uppercase tracking-widest text-slate-600">
             Zustand
           </p>
@@ -279,7 +279,7 @@ export function MusicPanel({ guildId }: { guildId: string }) {
           </div>
         </div>
 
-        <div className="rounded-2xl bg-[#10233f] border border-slate-800 px-4 py-3.5">
+        <div className="rounded-2xl bg-[#131318] border border-slate-800 px-4 py-3.5">
           <p className="text-[9px] font-black uppercase tracking-widest text-slate-600">
             Playlists
           </p>
@@ -288,7 +288,7 @@ export function MusicPanel({ guildId }: { guildId: string }) {
           </p>
         </div>
 
-        <div className="rounded-2xl bg-[#10233f] border border-slate-800 px-4 py-3.5">
+        <div className="rounded-2xl bg-[#131318] border border-slate-800 px-4 py-3.5">
           <p className="text-[9px] font-black uppercase tracking-widest text-slate-600">
             Dauerbetrieb
           </p>
@@ -477,7 +477,7 @@ export function MusicPanel({ guildId }: { guildId: string }) {
         </div>
 
         {/* Anlegen */}
-        <div className="rounded-2xl bg-[#0a1628] border border-slate-800 p-4 space-y-3">
+        <div className="rounded-2xl bg-[#0e0e12] border border-slate-800 p-4 space-y-3">
           <p className="text-[11px] font-black uppercase tracking-widest text-slate-500">
             Neue Playlist
           </p>
@@ -536,7 +536,7 @@ export function MusicPanel({ guildId }: { guildId: string }) {
             {playlists.map((list: any) => (
               <div
                 key={list.id}
-                className="rounded-2xl bg-[#0a1628] border border-slate-800 overflow-hidden"
+                className="rounded-2xl bg-[#0e0e12] border border-slate-800 overflow-hidden"
               >
                 <div className="flex items-center gap-3 p-4 flex-wrap">
                   <button
@@ -834,7 +834,7 @@ export function MusicPanel({ guildId }: { guildId: string }) {
                 war verwirrend: zwei Regler für dieselbe Zahl, wobei
                 der obere erst beim nächsten Titel wirkte. Dieser hier
                 wirkt sofort und wird zugleich gespeichert. */}
-            <div className="rounded-2xl bg-[#0a1628] border border-slate-800 px-4 py-3.5">
+            <div className="rounded-2xl bg-[#0e0e12] border border-slate-800 px-4 py-3.5">
               <div className="flex items-center justify-between mb-2.5">
                 <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">
                   Lautstärke

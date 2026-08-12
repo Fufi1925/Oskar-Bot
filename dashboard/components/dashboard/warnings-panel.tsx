@@ -109,7 +109,7 @@ export function WarningsPanel({ guildId }: { guildId: string }) {
 
   return (
     <section className="space-y-6">
-      <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-8 border-glow-card">
+      <div className="bg-[#131318] border border-slate-800 rounded-3xl p-8 border-glow-card">
         <div className="flex items-center justify-between gap-4 mb-6 flex-wrap">
           <h4 className="font-black text-white flex items-center gap-2">
             <Plus className="h-5 w-5 text-primary" /> Warn a member
@@ -175,7 +175,7 @@ export function WarningsPanel({ guildId }: { guildId: string }) {
 
           <div className="space-y-3">
             {users.map((user) => (
-              <div key={user.user_id} className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 border-glow-card">
+              <div key={user.user_id} className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 border-glow-card">
                 <div className="flex items-center justify-between gap-4 flex-wrap">
                   <div className="min-w-0">
                     <p className="font-black text-white truncate">

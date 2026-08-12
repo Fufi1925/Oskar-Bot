@@ -103,7 +103,7 @@ export function FullBackupPanel() {
   };
 
   return (
-    <div className="bg-[#10233f] border border-primary/25 rounded-3xl p-8 border-glow-card">
+    <div className="bg-[#131318] border border-primary/25 rounded-3xl p-8 border-glow-card">
       <div className="flex items-center gap-3 mb-3">
         <Globe className="h-5 w-5 text-primary" />
         <h4 className="font-black text-white">Complete backup — everything at once</h4>

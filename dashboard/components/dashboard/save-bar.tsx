@@ -71,8 +71,8 @@ export function StickySaveBar({
           shake
             ? "bg-red-500/15 border-red-500/60 animate-[verify-shake_0.4s_ease-in-out]"
             : blocked
-            ? "bg-[#10233f] border-red-500/40"
-            : "bg-[#10233f] border-amber-500/40"
+            ? "bg-[#131318] border-red-500/40"
+            : "bg-[#131318] border-amber-500/40"
         )}
       >
         <p className={cn("text-sm min-w-0", shake ? "text-red-200" : "text-slate-300")}>

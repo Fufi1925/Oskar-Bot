@@ -257,7 +257,7 @@ export function UserLookupPanel() {
   return (
     <div className="space-y-5">
       {/* ── Suche ─────────────────────────────────────────────── */}
-      <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-4 border-glow-card">
+      <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-4 border-glow-card">
         <div>
           <h3 className="font-bold text-white">Nutzer nachschlagen</h3>
           <p className="text-[11px] text-slate-500 mt-0.5">
@@ -289,7 +289,7 @@ export function UserLookupPanel() {
       {/* ── Ergebnis ──────────────────────────────────────────── */}
       {data && (
         <>
-          <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5 border-glow-card">
+          <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5 border-glow-card">
             <div className="flex items-start gap-4 flex-wrap">
               {data.avatar ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -359,7 +359,7 @@ export function UserLookupPanel() {
           </div>
 
           {/* ── Maßnahmen ───────────────────────────────────── */}
-          <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-4 border-glow-card">
+          <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-4 border-glow-card">
             <div>
               <h3 className="font-bold text-white">Maßnahmen</h3>
               <p className="text-[11px] text-slate-500 mt-0.5">
@@ -440,7 +440,7 @@ export function UserLookupPanel() {
           </div>
 
           {/* ── Die Server ──────────────────────────────────── */}
-          <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-3 border-glow-card">
+          <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-3 border-glow-card">
             <h3 className="font-bold text-white">
               Server ({data.guild_count})
             </h3>

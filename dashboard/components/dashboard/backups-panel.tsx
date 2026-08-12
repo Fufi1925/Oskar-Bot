@@ -211,7 +211,7 @@ export function BackupsPanel({
       <FullBackupPanel />
 
       {/* Still useful for cloning one server's setup onto another. */}
-      <div className="bg-[#10233f] border border-primary/25 rounded-3xl p-8 border-glow-card">
+      <div className="bg-[#131318] border border-primary/25 rounded-3xl p-8 border-glow-card">
         <div className="flex items-center gap-3 mb-3">
           <FileJson className="h-5 w-5 text-primary" />
           <h4 className="font-black text-white">Single server</h4>
@@ -247,7 +247,7 @@ export function BackupsPanel({
       </div>
 
       {live && (
-        <div className="bg-[#10233f] border border-primary/25 rounded-3xl p-4 sm:p-6 flex items-center justify-between gap-4 flex-wrap border-glow-card">
+        <div className="bg-[#131318] border border-primary/25 rounded-3xl p-4 sm:p-6 flex items-center justify-between gap-4 flex-wrap border-glow-card">
           <div className="flex items-center gap-4">
             <HardDrive className="h-5 w-5 text-primary" />
             <div>
@@ -281,7 +281,7 @@ export function BackupsPanel({
           snapshots.map((snapshot) => (
             <div
               key={snapshot.name}
-              className="bg-[#10233f] border border-slate-800 rounded-3xl p-5 flex items-center justify-between gap-4 flex-wrap border-glow-card"
+              className="bg-[#131318] border border-slate-800 rounded-3xl p-5 flex items-center justify-between gap-4 flex-wrap border-glow-card"
             >
               <div className="min-w-0">
                 <code className="font-black text-white font-mono text-sm">{snapshot.name}</code>

@@ -45,7 +45,7 @@ import { EmojiPicker, insertAtCursor } from "@/components/dashboard/emoji-picker
 
 /** Der Feldrahmen, wie ihn die Panels benutzen. */
 const INPUT =
-  "w-full bg-[#0a1628] border border-slate-800 rounded-xl px-4 py-3 " +
+  "w-full bg-[#0e0e12] border border-slate-800 rounded-xl px-4 py-3 " +
   "text-sm text-white placeholder:text-slate-600 focus:outline-none " +
   "focus:border-primary/50 transition-colors";
 
@@ -211,7 +211,7 @@ export function EmojiDraftField({
       if (event.target.value !== defaultValue) onCommit(event.target.value);
     },
     className: cn(
-      "w-full bg-[#0d1b31] border border-slate-800 rounded-xl px-4 py-3",
+      "w-full bg-[#0e0e12] border border-slate-800 rounded-xl px-4 py-3",
       "text-sm text-white focus:outline-none focus:border-primary/50",
       rows ? "resize-y" : "",
       className

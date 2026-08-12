@@ -485,7 +485,7 @@ export function ApplicationsPanel({ guildId }: { guildId: string }) {
             return (
               <div
                 key={panel.panel_id}
-                className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5 border-glow-card"
+                className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5 border-glow-card"
               >
                 <div className="flex items-start justify-between gap-4 flex-wrap">
                   <div className="flex gap-3">
@@ -745,7 +745,7 @@ export function ApplicationsPanel({ guildId }: { guildId: string }) {
       {reiter === "entries" && (
         <div className="space-y-3">
           {eintraege.length === 0 ? (
-            <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-10 text-center">
+            <div className="bg-[#131318] border border-slate-800 rounded-3xl p-10 text-center">
               <ClipboardList className="h-10 w-10 text-slate-700 mx-auto mb-3" />
               <p className="text-sm text-slate-500">
                 Noch keine Bewerbung eingegangen.
@@ -755,7 +755,7 @@ export function ApplicationsPanel({ guildId }: { guildId: string }) {
             eintraege.map((eintrag) => (
               <div
                 key={eintrag.id}
-                className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-4 border-glow-card"
+                className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-4 border-glow-card"
               >
                 <div className="flex items-start justify-between gap-4 flex-wrap">
                   <div className="flex gap-3 min-w-0">

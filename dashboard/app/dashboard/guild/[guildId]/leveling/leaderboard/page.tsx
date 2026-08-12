@@ -121,7 +121,7 @@ export default function LeaderboardPage({ params }: { params: { guildId: string 
                <div className="h-20 w-20 rounded-full bg-slate-800 border-4 border-slate-700 mb-4 flex items-center justify-center relative shadow-2xl">
                   <User className="h-10 w-10 text-slate-500" />
                   <div className={cn(
-                    "absolute -bottom-1 -right-1 h-8 w-8 rounded-full border-4 border-[#10233f] flex items-center justify-center text-[10px] font-black",
+                    "absolute -bottom-1 -right-1 h-8 w-8 rounded-full border-4 border-[#131318] flex items-center justify-center text-[10px] font-black",
                     i === 0 ? "bg-amber-500 text-black" : i === 1 ? "bg-slate-300 text-black" : "bg-amber-800 text-white"
                   )}>
                     #{i + 1}
@@ -142,7 +142,7 @@ export default function LeaderboardPage({ params }: { params: { guildId: string 
       </div>
 
       {/* Main Leaderboard Table */}
-      <div className="bg-[#10233f] border border-slate-800 rounded-[40px] overflow-hidden shadow-2xl">
+      <div className="bg-[#131318] border border-slate-800 rounded-[40px] overflow-hidden shadow-2xl">
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>

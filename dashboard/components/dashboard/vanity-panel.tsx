@@ -24,7 +24,7 @@ import { ChannelPicker, RolePicker } from "@/components/dashboard/pickers";
 import { InlineToggle } from "@/components/dashboard/form-elements";
 
 const INPUT =
-  "w-full bg-[#0d1b31] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-primary/50 transition-colors";
+  "w-full bg-[#0e0e12] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-primary/50 transition-colors";
 
 function Field({ label, hint, children }: any) {
   return (
@@ -40,7 +40,7 @@ function Field({ label, hint, children }: any) {
 
 function Stat({ label, value }: any) {
   return (
-    <div className="bg-[#0d1b31] border border-slate-800 rounded-2xl px-4 py-3">
+    <div className="bg-[#0e0e12] border border-slate-800 rounded-2xl px-4 py-3">
       <p className="text-lg font-black text-white">{value}</p>
       <p className="text-[11px] text-slate-500 mt-0.5">{label}</p>
     </div>
@@ -151,7 +151,7 @@ export function VanityPanel({ guildId }: { guildId: string }) {
       {/* ── Holders dialog ───────────────────────────── */}
       {holdersOf && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-[#10233f] border border-slate-800 rounded-3xl w-full max-w-md shadow-2xl border-glow-card">
+          <div className="bg-[#131318] border border-slate-800 rounded-3xl w-full max-w-md shadow-2xl border-glow-card">
             <div className="p-5 border-b border-slate-800 flex items-center justify-between">
               <div className="min-w-0">
                 <h3 className="font-black text-white truncate">
@@ -192,7 +192,7 @@ export function VanityPanel({ guildId }: { guildId: string }) {
       )}
 
       {/* ── What this does ───────────────────────────── */}
-      <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-4 border-glow-card">
+      <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-4 border-glow-card">
         <div className="flex gap-3">
           <div className="h-10 w-10 rounded-2xl bg-primary/15 grid place-items-center shrink-0">
             <Link2 className="h-5 w-5 text-primary" />
@@ -228,7 +228,7 @@ export function VanityPanel({ guildId }: { guildId: string }) {
       </div>
 
       {/* ── Add ──────────────────────────────────────── */}
-      <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5 border-glow-card">
+      <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5 border-glow-card">
         <div className="flex items-center justify-between gap-4">
           <p className="text-xs font-black uppercase tracking-widest text-slate-500">
             Neuer Auslöser
@@ -310,7 +310,7 @@ export function VanityPanel({ guildId }: { guildId: string }) {
             <div
               key={setup.vanity}
               className={cn(
-                "bg-[#10233f] border rounded-3xl p-5 space-y-4",
+                "bg-[#131318] border rounded-3xl p-5 space-y-4",
                 setup.problem
                   ? "border-red-500/30"
                   : setup.enabled

@@ -61,7 +61,7 @@ export default function BypassPage({
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          background: "#071527",
+          background: "#0a0a0c",
           color: "#e2e8f0",
           fontFamily:
             'ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif',
@@ -92,7 +92,7 @@ export default function BypassPage({
             style={{
               margin: "0 0 22px",
               fontSize: "13px",
-              color: "#64748b",
+              color: "#63666f",
               lineHeight: 1.6,
             }}
           >

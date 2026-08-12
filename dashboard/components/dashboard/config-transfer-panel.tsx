@@ -122,7 +122,7 @@ export function ConfigTransferPanel({ guildId, guildName }: { guildId: string; g
       </div>
 
       {/* Export */}
-      <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-8 border-glow-card">
+      <div className="bg-[#131318] border border-slate-800 rounded-3xl p-8 border-glow-card">
         <h4 className="font-black text-white flex items-center gap-2 mb-3">
           <Download className="h-5 w-5 text-primary" /> Export
         </h4>
@@ -158,7 +158,7 @@ export function ConfigTransferPanel({ guildId, guildName }: { guildId: string; g
       </div>
 
       {/* Import */}
-      <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-8 border-glow-card">
+      <div className="bg-[#131318] border border-slate-800 rounded-3xl p-8 border-glow-card">
         <h4 className="font-black text-white flex items-center gap-2 mb-3">
           <Upload className="h-5 w-5 text-primary" /> Import
         </h4>
@@ -292,7 +292,7 @@ export function ConfigTransferPanel({ guildId, guildName }: { guildId: string; g
       </div>
 
       {/* Reset */}
-      <div className="bg-[#10233f] border border-red-500/20 rounded-3xl p-8 border-glow-card">
+      <div className="bg-[#131318] border border-red-500/20 rounded-3xl p-8 border-glow-card">
         <h4 className="font-black text-white flex items-center gap-2 mb-3">
           <RotateCcw className="h-5 w-5 text-red-400" /> Reset
         </h4>

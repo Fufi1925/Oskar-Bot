@@ -434,7 +434,7 @@ export function GuildTabs({ guildId }: { guildId: string }) {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Einstellung suchen…"
-            className="w-full bg-[#10233f]/60 border border-slate-800/40 rounded-xl pl-10 pr-9 py-2.5 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-primary/50 transition-colors"
+            className="w-full bg-[#131318]/60 border border-slate-800/40 rounded-xl pl-10 pr-9 py-2.5 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-primary/50 transition-colors"
           />
           {query && (
             <button
@@ -450,7 +450,7 @@ export function GuildTabs({ guildId }: { guildId: string }) {
 
       {/* ── Search results ────────────────────────────── */}
       {matches !== null ? (
-        <div className="bg-[#10233f]/40 border border-slate-800/40 rounded-[20px] p-3 border-glow-card glow-r-20">
+        <div className="bg-[#131318]/40 border border-slate-800/40 rounded-[20px] p-3 border-glow-card glow-r-20">
           {matches.length === 0 ? (
             <p className="text-sm text-slate-500 py-4 text-center">
               Nichts gefunden für &bdquo;{query}&ldquo;.
@@ -471,8 +471,8 @@ export function GuildTabs({ guildId }: { guildId: string }) {
                 className={cn(
                   "rounded-[20px] border transition-colors",
                   holdsActive
-                    ? "bg-[#10233f]/60 border-primary/25"
-                    : "bg-[#10233f]/40 border-slate-800/40"
+                    ? "bg-[#131318]/60 border-primary/25"
+                    : "bg-[#131318]/40 border-slate-800/40"
                 )}
               >
                 <button

@@ -39,7 +39,7 @@ import { cn } from "@/lib/utils";
 import { CountUp, Reveal, useReducedMotion } from "@/components/ui/reveal";
 
 const INPUT =
-  "w-full bg-[#0a1628] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white " +
+  "w-full bg-[#0e0e12] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white " +
   "placeholder:text-slate-600 focus:border-primary/50 focus:outline-none transition-colors";
 
 function formatDate(seconds?: number | null): string {
@@ -88,8 +88,8 @@ function Card({
       className={cn(
         "rounded-3xl border p-6 space-y-5",
         tone === "muted"
-          ? "border-slate-800/70 bg-[#0d1b31]/40"
-          : "border-slate-800 bg-[#0d1b31]/60"
+          ? "border-slate-800/70 bg-[#0e0e12]/40"
+          : "border-slate-800 bg-[#0e0e12]/60"
       )}
     >
       <header className="flex items-start gap-3">
@@ -112,7 +112,7 @@ function Card({
 function Skeleton() {
   return (
     <div className="space-y-5" aria-busy="true" aria-label="Wird geladen">
-      <div className="rounded-3xl border border-slate-800 bg-[#0d1b31]/60 p-6">
+      <div className="rounded-3xl border border-slate-800 bg-[#0e0e12]/60 p-6">
         <div className="flex items-center gap-4">
           <div className="h-14 w-14 rounded-2xl bg-slate-800/60 animate-pulse" />
           <div className="space-y-2 flex-1">
@@ -121,7 +121,7 @@ function Skeleton() {
           </div>
         </div>
       </div>
-      <div className="rounded-3xl border border-slate-800 bg-[#0d1b31]/60 p-6 space-y-4">
+      <div className="rounded-3xl border border-slate-800 bg-[#0e0e12]/60 p-6 space-y-4">
         <div className="h-4 w-48 rounded bg-slate-800/60 animate-pulse" />
         <div className="h-11 w-full rounded-xl bg-slate-800/40 animate-pulse" />
       </div>
@@ -219,7 +219,7 @@ export function PremiumPanel() {
             "relative overflow-hidden rounded-3xl border p-6 transition-colors duration-700",
             active
               ? "border-amber-500/30 bg-gradient-to-br from-amber-500/[0.12] via-amber-500/[0.03] to-transparent"
-              : "border-slate-800 bg-[#0d1b31]/60"
+              : "border-slate-800 bg-[#0e0e12]/60"
           )}
         >
           {/* A single sweep on the moment of success. Not a loop: this
@@ -417,7 +417,7 @@ export function PremiumPanel() {
           subtitle="Zusatzfunktionen für diesen Bot."
           tone="muted"
         >
-          <div className="flex items-center gap-3 rounded-2xl border border-dashed border-slate-700/70 bg-[#0a1628]/60 px-5 py-4">
+          <div className="flex items-center gap-3 rounded-2xl border border-dashed border-slate-700/70 bg-[#0e0e12]/60 px-5 py-4">
             <Clock className="h-5 w-5 text-slate-500 shrink-0" />
             <div>
               <p className="text-sm font-bold text-slate-300">Coming Soon</p>

@@ -21,7 +21,7 @@ import { cn } from "@/lib/utils";
 import { EmojiPicker } from "@/components/dashboard/emoji-picker";
 
 const CARD =
-  "bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 border-glow-card";
+  "bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 border-glow-card";
 
 interface VoiceChannel {
   id: string;
@@ -224,7 +224,7 @@ export function SupportQueuePanel({ guildId }: { guildId: string }) {
         <select
           value={channelId}
           onChange={(event) => setChannelId(event.target.value)}
-          className="w-full bg-[#0d1b31] border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-white outline-none focus:border-primary/50 transition-colors"
+          className="w-full bg-[#0e0e12] border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-white outline-none focus:border-primary/50 transition-colors"
         >
           <option value="">— kein Kanal gewählt —</option>
           {channels.map((channel) => (
@@ -291,7 +291,7 @@ export function SupportQueuePanel({ guildId }: { guildId: string }) {
           rows={4}
           maxLength={defaults.max_greeting ?? 300}
           placeholder={defaults.greeting}
-          className="w-full bg-[#0d1b31] border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-white placeholder:text-slate-600 outline-none focus:border-primary/50 transition-colors resize-none leading-relaxed"
+          className="w-full bg-[#0e0e12] border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-white placeholder:text-slate-600 outline-none focus:border-primary/50 transition-colors resize-none leading-relaxed"
         />
         <div className="mt-2">
           <EmojiPicker
@@ -354,7 +354,7 @@ export function SupportQueuePanel({ guildId }: { guildId: string }) {
           value={musicUrl}
           onChange={(event) => setMusicUrl(event.target.value)}
           placeholder="Link oder Suchbegriff — leer = mitgelieferte Musik"
-          className="w-full bg-[#0d1b31] border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-white placeholder:text-slate-600 outline-none focus:border-primary/50 transition-colors mt-2"
+          className="w-full bg-[#0e0e12] border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-white placeholder:text-slate-600 outline-none focus:border-primary/50 transition-colors mt-2"
         />
       </div>
 
@@ -378,7 +378,7 @@ export function SupportQueuePanel({ guildId }: { guildId: string }) {
             <select
               value={notifyId}
               onChange={(event) => setNotifyId(event.target.value)}
-              className="w-full bg-[#0d1b31] border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-white outline-none focus:border-primary/50 transition-colors mt-2"
+              className="w-full bg-[#0e0e12] border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-white outline-none focus:border-primary/50 transition-colors mt-2"
             >
               <option value="">— keine Nachricht —</option>
               {(data.text_channels ?? []).map((channel: any) => (
@@ -395,7 +395,7 @@ export function SupportQueuePanel({ guildId }: { guildId: string }) {
             <select
               value={roleId}
               onChange={(event) => setRoleId(event.target.value)}
-              className="w-full bg-[#0d1b31] border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-white outline-none focus:border-primary/50 transition-colors mt-2"
+              className="w-full bg-[#0e0e12] border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-white outline-none focus:border-primary/50 transition-colors mt-2"
             >
               <option value="">— niemanden —</option>
               {(data.roles ?? []).map((role: any) => (

@@ -32,7 +32,7 @@ import { StickySaveBar, useSaveGuard } from "@/components/dashboard/save-bar";
 import { EmojiPicker } from "@/components/dashboard/emoji-picker";
 
 const INPUT =
-  "w-full bg-[#0d1b31] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-primary/50 transition-colors";
+  "w-full bg-[#0e0e12] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-primary/50 transition-colors";
 
 /** Every text the giveaway can send, with an explanation of when. */
 const MESSAGE_FIELDS = [
@@ -315,7 +315,7 @@ export function GiveawayDetail({
 
       {/* ── Quick actions ────────────────────────────── */}
       {data.running && (
-        <div className="bg-[#10233f] border border-slate-800 rounded-2xl p-5 space-y-4 border-glow-card glow-r-2xl">
+        <div className="bg-[#131318] border border-slate-800 rounded-2xl p-5 space-y-4 border-glow-card glow-r-2xl">
           <p className="text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
             <Clock className="h-3.5 w-3.5" /> Laufzeit verlängern
           </p>
@@ -325,7 +325,7 @@ export function GiveawayDetail({
                 key={e.minutes}
                 disabled={busy}
                 onClick={() => save({ extend_minutes: e.minutes }, "Verlängert.")}
-                className="px-4 h-11 rounded-xl bg-[#0d1b31] border border-slate-800 text-sm font-bold text-slate-300 hover:text-primary hover:border-primary/40 transition-all disabled:opacity-40"
+                className="px-4 h-11 rounded-xl bg-[#0e0e12] border border-slate-800 text-sm font-bold text-slate-300 hover:text-primary hover:border-primary/40 transition-all disabled:opacity-40"
               >
                 {e.label}
               </button>
@@ -335,7 +335,7 @@ export function GiveawayDetail({
                 type="number"
                 placeholder="Min"
                 id="extend-custom"
-                className="h-11 w-24 bg-[#0d1b31] border border-slate-800 rounded-xl px-3 text-sm text-white text-center focus:outline-none focus:border-primary/50"
+                className="h-11 w-24 bg-[#0e0e12] border border-slate-800 rounded-xl px-3 text-sm text-white text-center focus:outline-none focus:border-primary/50"
               />
               <button
                 disabled={busy}
@@ -373,7 +373,7 @@ export function GiveawayDetail({
               "flex items-center gap-2 px-4 h-11 rounded-xl text-xs font-black uppercase tracking-widest border transition-all",
               tab === t.id
                 ? "bg-primary/15 border-primary/40 text-primary"
-                : "bg-[#0d1b31] border-slate-800 text-slate-400 hover:text-slate-200"
+                : "bg-[#0e0e12] border-slate-800 text-slate-400 hover:text-slate-200"
             )}
           >
             <t.icon className="h-3.5 w-3.5" />
@@ -384,7 +384,7 @@ export function GiveawayDetail({
 
       {/* ══ Entrants ══════════════════════════════════ */}
       {tab === "entries" && (
-        <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5 border-glow-card">
+        <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5 border-glow-card">
           <div className="flex items-center gap-3 flex-wrap">
             <div className="relative flex-1 min-w-[200px]">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-600" />
@@ -424,7 +424,7 @@ export function GiveawayDetail({
                       ? "bg-amber-500/[0.07] border-amber-500/30"
                       : p.weight > 1
                         ? "bg-primary/[0.05] border-primary/25"
-                        : "bg-[#0d1b31] border-slate-800"
+                        : "bg-[#0e0e12] border-slate-800"
                   )}
                 >
                   <div className="min-w-0 flex-1">
@@ -471,7 +471,7 @@ export function GiveawayDetail({
       {/* ══ Texts ═════════════════════════════════════ */}
       {tab === "texts" && (
         <div className="space-y-5">
-          <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5 border-glow-card">
+          <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5 border-glow-card">
             <p className="text-xs font-black uppercase tracking-widest text-slate-500">
               Die Nachricht im Kanal
             </p>
@@ -500,7 +500,7 @@ export function GiveawayDetail({
                     value={value("button_emoji")}
                     onChange={(e) => set("button_emoji", e.target.value)}
                     placeholder="🎉"
-                    className="w-16 bg-[#0d1b31] border border-slate-800 rounded-xl px-3 py-3 text-sm text-white text-center focus:outline-none focus:border-primary/50"
+                    className="w-16 bg-[#0e0e12] border border-slate-800 rounded-xl px-3 py-3 text-sm text-white text-center focus:outline-none focus:border-primary/50"
                   />
                   {/* Ersetzen statt anhaengen: ein Knopf traegt genau
                       ein Emoji, zwei lehnt Discord ab. */}
@@ -550,7 +550,7 @@ export function GiveawayDetail({
             />
           </div>
 
-          <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-6 border-glow-card">
+          <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-6 border-glow-card">
             <div>
               <p className="text-xs font-black uppercase tracking-widest text-slate-500">
                 Antworten an die Teilnehmer
@@ -615,7 +615,7 @@ export function GiveawayDetail({
 
       {/* ══ Requirements ══════════════════════════════ */}
       {tab === "rules" && (
-        <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-6 border-glow-card">
+        <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-6 border-glow-card">
           <div>
             <p className="text-xs font-black uppercase tracking-widest text-slate-500">
               Wer darf teilnehmen
@@ -774,7 +774,7 @@ function BoostDialog({ guildId, messageId, person, onClose, onDone }: any) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="bg-[#10233f] border border-slate-800 rounded-3xl w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto border-glow-card">
+      <div className="bg-[#131318] border border-slate-800 rounded-3xl w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto border-glow-card">
         <div className="p-5 border-b border-slate-800 flex items-center justify-between gap-3">
           <div className="min-w-0">
             <h3 className="font-black text-white truncate">{person.name}</h3>
@@ -822,7 +822,7 @@ function BoostDialog({ guildId, messageId, person, onClose, onDone }: any) {
                   "w-full text-left flex gap-3 rounded-2xl border p-4 transition-all",
                   mode === o.id
                     ? "bg-primary/10 border-primary/40"
-                    : "bg-[#0d1b31] border-slate-800 hover:border-slate-700"
+                    : "bg-[#0e0e12] border-slate-800 hover:border-slate-700"
                 )}
               >
                 <o.icon className={cn(
@@ -854,7 +854,7 @@ function BoostDialog({ guildId, messageId, person, onClose, onDone }: any) {
                         "h-11 px-4 rounded-xl text-sm font-bold border transition-all",
                         weight === n
                           ? "bg-primary/15 border-primary/40 text-primary"
-                          : "bg-[#0d1b31] border-slate-800 text-slate-400 hover:text-slate-200"
+                          : "bg-[#0e0e12] border-slate-800 text-slate-400 hover:text-slate-200"
                       )}
                     >
                       {n}
@@ -865,7 +865,7 @@ function BoostDialog({ guildId, messageId, person, onClose, onDone }: any) {
                     min={2}
                     value={weight}
                     onChange={(e) => setWeight(Math.max(2, Number(e.target.value) || 2))}
-                    className="h-11 w-24 bg-[#0d1b31] border border-slate-800 rounded-xl px-3 text-sm text-white text-center focus:outline-none focus:border-primary/50"
+                    className="h-11 w-24 bg-[#0e0e12] border border-slate-800 rounded-xl px-3 text-sm text-white text-center focus:outline-none focus:border-primary/50"
                   />
                 </div>
               </Field>

@@ -121,7 +121,7 @@ export default function AutoReactPage({ params }: { params: { guildId: string } 
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
         <div className="lg:col-span-3 space-y-6">
-          <div className="bg-[#10233f] border border-slate-800 rounded-3xl overflow-hidden shadow-xl p-8 space-y-6 border-glow-card is-clipped">
+          <div className="bg-[#131318] border border-slate-800 rounded-3xl overflow-hidden shadow-xl p-8 space-y-6 border-glow-card is-clipped">
             
             {config.triggers.length === 0 ? (
               <div className="text-center p-12 bg-slate-900/20 rounded-2xl border border-dashed border-slate-700">

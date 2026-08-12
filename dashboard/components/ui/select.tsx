@@ -78,7 +78,7 @@ const Select = ({ children, value, onValueChange, options, placeholder, classNam
           open={isOpen}
           onClose={() => setIsOpen(false)}
           maxHeight={260}
-          className="rounded-xl border border-slate-800 bg-[#10233f] p-1 shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+          className="rounded-xl border border-slate-800 bg-[#131318] p-1 shadow-2xl animate-in fade-in zoom-in-95 duration-200"
         >
             <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden no-scrollbar">
               {options.map((option) => (
@@ -156,7 +156,7 @@ const SelectContent = ({ children, className }: { children: React.ReactNode, cla
       open={context.isOpen}
       onClose={() => context.setIsOpen(false)}
       maxHeight={260}
-      className={cn("rounded-xl border border-slate-800 bg-[#10233f] p-1 shadow-2xl animate-in fade-in zoom-in-95 duration-200", className)}
+      className={cn("rounded-xl border border-slate-800 bg-[#131318] p-1 shadow-2xl animate-in fade-in zoom-in-95 duration-200", className)}
     >
       <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden no-scrollbar">
         {children}

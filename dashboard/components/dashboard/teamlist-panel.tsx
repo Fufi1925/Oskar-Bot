@@ -42,10 +42,10 @@ import { EmojiOnly, EmojiText } from "@/components/dashboard/emoji-field";
 import { Select } from "@/components/ui/select";
 
 const CARD =
-  "bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 border-glow-card";
-const SUB = "rounded-2xl bg-[#0a1628] border border-slate-800 p-4";
+  "bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 border-glow-card";
+const SUB = "rounded-2xl bg-[#0e0e12] border border-slate-800 p-4";
 const INPUT =
-  "w-full bg-[#0a1628] border border-slate-800 rounded-xl px-4 py-3 text-sm " +
+  "w-full bg-[#0e0e12] border border-slate-800 rounded-xl px-4 py-3 text-sm " +
   "text-white placeholder:text-slate-600 focus:outline-none " +
   "focus:border-primary/50 transition-colors";
 const LBL =
@@ -481,7 +481,7 @@ export function TeamlistPanel({ guildId }: { guildId: string }) {
                     "rounded-xl border px-4 py-3 text-left transition-all",
                     active
                       ? "bg-primary/10 border-primary/40"
-                      : "bg-[#0a1628] border-slate-800 hover:border-slate-700"
+                      : "bg-[#0e0e12] border-slate-800 hover:border-slate-700"
                   )}
                 >
                   <p className="text-[13px] font-bold text-white">
@@ -534,7 +534,7 @@ export function TeamlistPanel({ guildId }: { guildId: string }) {
                 type="color"
                 value={config?.colour || "#5865f2"}
                 onChange={(event) => patch({ colour: event.target.value })}
-                className="h-11 w-16 rounded-xl bg-[#0a1628] border border-slate-800 cursor-pointer"
+                className="h-11 w-16 rounded-xl bg-[#0e0e12] border border-slate-800 cursor-pointer"
               />
               <span className="text-[12px] text-slate-500 font-mono">
                 {config?.colour || "#5865f2"}

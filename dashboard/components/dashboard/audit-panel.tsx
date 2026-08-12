@@ -77,7 +77,7 @@ export function AuditPanel() {
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="flex gap-1.5 p-1.5 bg-[#10233f]/70 border border-slate-800 rounded-2xl">
+            <div className="flex gap-1.5 p-1.5 bg-[#131318]/70 border border-slate-800 rounded-2xl">
               {([
                 ["audit", "Actions", FileText],
                 ["timeline", "Timeline", Clock],
@@ -128,7 +128,7 @@ export function AuditPanel() {
       ) : (
         <>
           {tab === "audit" && (
-            <div className="bg-[#10233f] border border-slate-800 rounded-3xl overflow-hidden border-glow-card is-clipped">
+            <div className="bg-[#131318] border border-slate-800 rounded-3xl overflow-hidden border-glow-card is-clipped">
               {entries.length === 0 ? (
                 <p className="text-sm text-slate-500 py-12 text-center">
                   No actions recorded yet.
@@ -187,7 +187,7 @@ export function AuditPanel() {
           )}
 
           {tab === "timeline" && (
-            <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 border-glow-card">
+            <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 border-glow-card">
               {timeline.length === 0 ? (
                 <p className="text-sm text-slate-500 py-8 text-center">No events yet.</p>
               ) : (
@@ -197,7 +197,7 @@ export function AuditPanel() {
                     <div key={index} className="relative">
                       <div
                         className={cn(
-                          "absolute -left-[22px] top-1.5 h-3.5 w-3.5 rounded-full border-2 border-[#10233f]",
+                          "absolute -left-[22px] top-1.5 h-3.5 w-3.5 rounded-full border-2 border-[#131318]",
                           event.severity === "warning" || event.severity === "error"
                             ? "bg-amber-400"
                             : event.severity === "critical"
@@ -220,7 +220,7 @@ export function AuditPanel() {
           )}
 
           {tab === "broadcasts" && (
-            <div className="bg-[#10233f] border border-slate-800 rounded-3xl overflow-hidden border-glow-card is-clipped">
+            <div className="bg-[#131318] border border-slate-800 rounded-3xl overflow-hidden border-glow-card is-clipped">
               {broadcasts.length === 0 ? (
                 <p className="text-sm text-slate-500 py-12 text-center">
                   No broadcasts sent yet.

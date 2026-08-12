@@ -115,7 +115,7 @@ function SinglePicker({
         onClick={() => setOpen((o) => !o)}
         className={cn(
           "w-full flex items-center justify-between gap-2 rounded-xl border px-4 py-3 text-left transition-colors",
-          "bg-[#0d1b31] border-slate-800 hover:border-slate-700",
+          "bg-[#0e0e12] border-slate-800 hover:border-slate-700",
           (disabled || !guildId) && "opacity-50 cursor-not-allowed"
         )}
       >
@@ -179,7 +179,7 @@ function SinglePicker({
         anchor={box}
         open={open}
         onClose={() => setOpen(false)}
-        className="rounded-xl border border-slate-800 bg-[#0d1b31] shadow-2xl"
+        className="rounded-xl border border-slate-800 bg-[#0e0e12] shadow-2xl"
       >
           {items.length > 8 && (
             <div className="relative border-b border-slate-800 shrink-0">
@@ -313,7 +313,7 @@ function MultiPicker({
         onClick={() => !disabled && guildId && setOpen((o) => !o)}
         className={cn(
           "w-full min-h-[48px] flex items-center gap-2 flex-wrap rounded-xl border px-3 py-2 cursor-pointer transition-colors",
-          "bg-[#0d1b31] border-slate-800 hover:border-slate-700",
+          "bg-[#0e0e12] border-slate-800 hover:border-slate-700",
           (disabled || !guildId) && "opacity-50 cursor-not-allowed"
         )}
       >
@@ -359,7 +359,7 @@ function MultiPicker({
         anchor={box}
         open={open}
         onClose={() => setOpen(false)}
-        className="rounded-xl border border-slate-800 bg-[#0d1b31] shadow-2xl"
+        className="rounded-xl border border-slate-800 bg-[#0e0e12] shadow-2xl"
       >
           {items.length > 8 && (
             <div className="relative border-b border-slate-800 shrink-0">

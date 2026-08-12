@@ -5,459 +5,602 @@
  * ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
  * ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
  * ║                                                                  ║
- * ║           © 2026 University Bot Devs — All Rights Reserved               ║
+ * ║           © 2026 University Bot Devs — All Rights Reserved       ║
  * ║                                                                  ║
- * ║   discord  ──  https://discord.gg/MG3rYnUZJV                      ║
- * ║   youtube  ──  https://youtube.com/@UniversityBotDevs                   ║
- * ║   github   ──  https://github.com/UniversityBot                        ║
+ * ║   discord  ──  https://discord.gg/MG3rYnUZJV                     ║
  * ║                                                                  ║
  * ╚══════════════════════════════════════════════════════════════════╝
  */
 
 "use client";
 
+/**
+ * Die Startseite.
+ *
+ * ── Aufbau ──────────────────────────────────────────────────────────
+ *
+ *   1. Hero: zwei Abzeichen, Überschrift, Text, zwei Knöpfe, rechts
+ *      ein Kartenstapel, der von selbst weiterblättert.
+ *   2. Funktionen: dreispaltiges Raster mit Icon-Kachel je Karte.
+ *   3. Zahlen zum Bot.
+ *   4. Stimmen aus der Community.
+ *   5. FAQ als Ausklapper.
+ *   6. Fußzeile.
+ *
+ * ── Warum schlicht ──────────────────────────────────────────────────
+ *
+ * Die alte Fassung hatte 10rem-Überschriften, sechs verschiedene
+ * Farbverläufe und Text in zwei Sprachen durcheinander. Hier gibt es
+ * genau eine Akzentfarbe (Blurple), einen Grundton (fast schwarz mit
+ * einem Hauch Blau) und Ränder in einer einzigen Stärke.
+ *
+ * ── Warum echte Zahlen ──────────────────────────────────────────────
+ *
+ * Die Serverzahl kommt aus `/api/bot/bot/stats`, nicht aus dem
+ * Quelltext. Eine erfundene Zahl auf der Startseite ist genau die
+ * Sorte Angabe, die niemand nachpflegt und die dann jahrelang falsch
+ * dasteht. Antwortet die Schnittstelle nicht, steht dort ein Strich.
+ */
+
 import React from "react";
 import Link from "next/link";
-import { signIn } from "next-auth/react";
-import { LanguageSwitcher } from "@/components/language-switcher";
-import { LanguageProvider } from "@/lib/i18n/LanguageContext";
-import { 
-  ShieldCheck, 
-  Zap, 
-  BarChart4, 
-  MessageSquare, 
-  ChevronRight, 
-  LayoutDashboard,
-  LogIn,
-  Layers,
-  Sparkles,
-  Bot,
-  Activity,
-  History,
-  CheckCircle2,
-  ShieldAlert,
-  Globe,
-  Terminal,
-  Cpu,
-  Users2,
-  Lock,
-  Radio,
-  Gamepad2,
-  Music4,
-  User
+import {
+  Activity, ArrowRight, BarChart4, Bot, Brain, Check, ChevronDown,
+  ClipboardList, Gift, Hash, Headphones, Layers, Lock, Mail,
+  MessageSquare, Mic, Music, PenLine, ShieldAlert, ShieldCheck,
+  Sparkles, Star, Ticket, UserCog, Users, Zap,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { SiteNav, INVITE_URL } from "@/components/site-nav";
 import { SUPPORT_INVITE } from "@/lib/legal";
+import { cn } from "@/lib/utils";
 
-// Support invite is configurable through the bot settings; this is the
-// build-time fallback for the static landing page.
+const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || "University Bot";
 
+const CARD =
+  "rounded-2xl border border-slate-800 bg-[#0f0f13] p-5 transition-colors hover:border-slate-700";
+
+/** Die Karten im Hero, die von selbst weiterblättern. */
+const HERO_KARTEN = [
+  {
+    icon: Lock,
+    titel: "Verifizierungs-System",
+    text: "Halte Raids fern mit Panel, Captcha und harten Admin-Kontrollen wie Reset und Force-Verify.",
+    zahl: "24/7",
+    label: "Sicherheit",
+    ton: "from-pink-500 to-rose-600",
+  },
+  {
+    icon: UserCog,
+    titel: "Team-Update",
+    text: "Befördern, zurückstufen, verwarnen — Rollen umstecken und ankündigen in einem Zug, mit Unterschriften.",
+    zahl: "5",
+    label: "Befehle",
+    ton: "from-indigo-500 to-violet-600",
+  },
+  {
+    icon: Ticket,
+    titel: "Ticket-System",
+    text: "Kategorien, Rechte, DM-Benachrichtigungen und Transkripte — vollständig im Dashboard eingerichtet.",
+    zahl: "∞",
+    label: "Tickets",
+    ton: "from-sky-500 to-blue-600",
+  },
+];
+
+/** Die Funktionen. Jede steht wirklich als Reiter im Dashboard. */
+const FUNKTIONEN = [
+  { icon: Brain, titel: "KI", text: "Nutze die Kraft der künstlichen Intelligenz in deinem Discord-Server." },
+  { icon: ShieldAlert, titel: "AutoMod", text: "Filter, Strafen und Ausnahmen für deinen Server konfigurieren." },
+  { icon: Layers, titel: "Befehls-Manager", text: "Module und einzelne Befehle zentral verwalten." },
+  { icon: Hash, titel: "Zählen", text: "Ein unterhaltsames Spiel, bei dem Mitglieder gemeinsam zählen können." },
+  { icon: Zap, titel: "Anti-Nuke", text: "Schutz vor Massenlöschungen, Massenbann und feindlichen Bots." },
+  { icon: MessageSquare, titel: "Spaß", text: "Unterhalte deine Community mit lustigen Spielen und Befehlen." },
+  { icon: Gift, titel: "Gewinnspiel", text: "Veranstalte Gewinnspiele für deine Community-Mitglieder." },
+  { icon: Users, titel: "Einladungs-Logger", text: "Einladungen nachverfolgen, Statistiken und Bestenlisten." },
+  { icon: Music, titel: "Musik", text: "Wiedergabe, Playlists und Dauerbetrieb im Sprachkanal." },
+  { icon: BarChart4, titel: "Level-System", text: "Belohne aktive Mitglieder mit einem anpassbaren Level-System." },
+  { icon: ShieldCheck, titel: "Moderation", text: "Halte deinen Server sauber und sicher mit starken Werkzeugen." },
+  { icon: UserCog, titel: "Team-Update", text: "Beförderungen, Rückstufungen und Verwarnungen mit Akte." },
+  { icon: Sparkles, titel: "Server-Vorlagen", text: "Server-Struktur als Vorlage speichern und anwenden." },
+  { icon: ClipboardList, titel: "Bewerbungen", text: "Fragen per DM, Entscheidung per Knopf, Rollen automatisch." },
+  { icon: Mic, titel: "Join to Create", text: "Temporäre Sprachkanäle für deine Community." },
+  { icon: Ticket, titel: "Ticket-System", text: "Support-Tickets mit Kategorien und anpassbaren Einstellungen." },
+  { icon: Headphones, titel: "Support-Warteraum", text: "Wartemusik, Ansage und geordnete Reihenfolge im Sprachkanal." },
+  { icon: Check, titel: "Verifizierung", text: "Schütze deinen Server mit einem benutzerfreundlichen System." },
+  { icon: PenLine, titel: "Eigene Nachricht", text: "Ankündigungen und Panels aus dem Dashboard verschicken." },
+  { icon: Mail, titel: "Willkommen", text: "Willkommensnachrichten, Bilder und Abschied für neue Mitglieder." },
+];
+
+const STIMMEN = [
+  {
+    kuerzel: "FU",
+    name: "Fufi",
+    text: "Das Dashboard nimmt mir die halbe Arbeit ab. Einmal einrichten, danach läuft es — und ich sehe sofort, was der Bot gerade tut.",
+  },
+  {
+    kuerzel: "VX",
+    name: "Vexo",
+    text: "Tickets, Bewerbungen und das Team-Update greifen ineinander. Wer angenommen wird, ist zwei Klicks später wirklich im Team.",
+  },
+  {
+    kuerzel: "UN",
+    name: "Uni-Server",
+    text: "Anti-Nuke und Verifizierung liefen vom ersten Tag an ohne Nacharbeit. Genau das wollten wir.",
+  },
+];
+
+const FAQ = [
+  {
+    frage: `Wie füge ich ${BRAND} zu meinem Server hinzu?`,
+    antwort:
+      "Oben auf „Bot hinzufügen“ klicken, den Server auswählen und die Rechte bestätigen. Danach einmal im Dashboard anmelden — dort richtest du alles Weitere ein, ohne einen einzigen Befehl tippen zu müssen.",
+  },
+  {
+    frage: `Ist ${BRAND} kostenlos nutzbar?`,
+    antwort:
+      "Ja. Alle Module sind ohne Bezahlung nutzbar, es gibt keine Funktion hinter einer Bezahlschranke und keine Werbung in den Nachrichten des Bots.",
+  },
+  {
+    frage: "Wie kann ich alle verfügbaren Befehle sehen?",
+    antwort:
+      "Mit >help im Chat oder über die Dokumentation. Der Bot hat 543 Prefix-Befehle und 65 Slash-Befehle; die Hilfe ist nach Kategorien geordnet, damit man nicht durch eine lange Liste scrollen muss.",
+  },
+  {
+    frage: "Kann ich das Präfix des Bots anpassen?",
+    antwort:
+      "Ja, im Dashboard unter „Einstellungen“. Standard ist >. Wer den Bot ohne Präfix bedienen darf, lässt sich unter „No Prefix“ je Rolle oder Person festlegen.",
+  },
+  {
+    frage: "Wie melde ich Probleme oder erhalte Support?",
+    antwort:
+      "Über unseren Support-Server. Dort gibt es ein Ticket-System; Fehler werden meist am selben Tag beantwortet. Der Status aller Systeme steht außerdem auf der Status-Seite.",
+  },
+  {
+    frage: `Unterstützt ${BRAND} mehrere Sprachen?`,
+    antwort:
+      "Das Dashboard gibt es auf Deutsch und Englisch, umschaltbar oben rechts. Die Sprache lässt sich zusätzlich pro Server festlegen, sodass alle Nachrichten des Bots dazu passen.",
+  },
+];
+
+/** Ein einzelner FAQ-Ausklapper. */
+function FaqZeile({ frage, antwort }: { frage: string; antwort: string }) {
+  const [offen, setOffen] = React.useState(false);
+  return (
+    <div className="border-b border-slate-800">
+      <button
+        type="button"
+        onClick={() => setOffen((o) => !o)}
+        aria-expanded={offen}
+        className="w-full flex items-center justify-between gap-6 py-6 text-left"
+      >
+        <span className="text-[17px] font-semibold text-white">{frage}</span>
+        <ChevronDown
+          className={cn(
+            "h-5 w-5 shrink-0 text-indigo-400 transition-transform duration-200",
+            offen && "rotate-180",
+          )}
+        />
+      </button>
+      {offen && (
+        <p className="pb-6 -mt-1 text-[15px] leading-relaxed text-slate-400 max-w-3xl">
+          {antwort}
+        </p>
+      )}
+    </div>
+  );
+}
 
 export default function LandingPage() {
+  const [karte, setKarte] = React.useState(0);
+  const [stimme, setStimme] = React.useState(0);
+  const [server, setServer] = React.useState<string | null>(null);
+
+  // Die Karten im Hero weiterblättern. Fünf Sekunden: lang genug, um
+  // die drei Zeilen zu lesen, kurz genug, dass man die zweite Karte
+  // noch sieht, bevor man weiterscrollt.
+  React.useEffect(() => {
+    const t = setInterval(() => setKarte((k) => (k + 1) % HERO_KARTEN.length), 5000);
+    return () => clearInterval(t);
+  }, []);
+
+  React.useEffect(() => {
+    const t = setInterval(() => setStimme((s) => (s + 1) % STIMMEN.length), 6000);
+    return () => clearInterval(t);
+  }, []);
+
+  // Die echte Serverzahl. Schlägt der Aufruf fehl, bleibt es beim
+  // Strich -- lieber keine Zahl als eine erfundene.
+  React.useEffect(() => {
+    let lebt = true;
+    fetch("/api/bot/bot/stats")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        const n = Number(d?.guilds ?? d?.guild_count ?? d?.servers);
+        if (lebt && Number.isFinite(n) && n > 0) {
+          setServer(n.toLocaleString("de-DE"));
+        }
+      })
+      .catch(() => {});
+    return () => {
+      lebt = false;
+    };
+  }, []);
+
+  const Aktiv = HERO_KARTEN[karte].icon;
+
   return (
-    <div className="min-h-screen bg-[#071527] text-slate-200 selection:bg-blue-500/30 font-sans overflow-x-hidden">
-      {/* Dynamic Background */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
-        <div className="absolute top-[-20%] left-[-10%] w-[70%] h-[70%] bg-blue-500/[0.03] blur-[150px] rounded-full animate-pulse" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[60%] h-[60%] bg-blue-600/[0.03] blur-[150px] rounded-full animate-pulse [animation-delay:2s]" />
-      </div>
+    <div className="min-h-screen bg-[#0a0a0c] text-slate-200 selection:bg-indigo-500/30">
+      <SiteNav />
 
-      {/* Navigation */}
-      <nav className="fixed top-0 w-full z-50 border-b border-white/[0.03] bg-[#071527]/80 backdrop-blur-3xl transition-all duration-500">
-        <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-          <div className="flex items-center gap-4 group cursor-pointer">
-            <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-800 flex items-center justify-center shadow-lg shadow-blue-500/25 border border-white/20 group-hover:scale-110 group-hover:rotate-6 transition-all duration-500">
-              <Bot className="h-6 w-6 text-white" />
-            </div>
-            <div className="flex flex-col">
-              <h1 className="text-lg font-bold tracking-tight text-white font-outfit leading-none">{process.env.NEXT_PUBLIC_BRAND_NAME || "University Bot"}</h1>
-              <span className="text-[9px] font-black uppercase tracking-[0.2em] text-blue-500/80 mt-1">Dashboard</span>
-            </div>
-          </div>
+      {/* ── Hero ──────────────────────────────────────────── */}
+      <header className="relative overflow-x-clip">
+        {/* Ein einziger, sehr weicher Schein. Die alte Seite hatte
+            zwei pulsierende Flächen; auf einem dunklen Grund sieht man
+            davon nur das Rauschen. */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -top-40 left-1/4 h-[520px] w-[520px] rounded-full bg-indigo-600/[0.07] blur-[140px]"
+        />
 
-          <div className="hidden lg:flex items-center gap-10 text-[11px] font-black uppercase tracking-widest text-slate-500">
-            <Link href="#features" className="hover:text-blue-500 transition-colors">Funktionen</Link>
-            <Link href="#architecture" className="hover:text-blue-500 transition-colors">Architektur</Link>
-            <Link href="#modules" className="hover:text-blue-500 transition-colors">Module</Link>
-            <Link href="#network" className="hover:text-blue-500 transition-colors">Netzwerk</Link>
-          </div>
-
-          <div className="flex items-center gap-4">
-              <LanguageSwitcher />
-            <Button 
-              onClick={() => signIn('discord', { callbackUrl: '/dashboard' }).catch((err) => { console.error('Login error:', err); alert('Login-Fehler: ' + (err?.message || 'Unbekannter Fehler. Bitte prüfe die Discord-Konfiguration.')); })}
-              className="rounded-xl px-7 h-11 font-black uppercase tracking-widest text-[10px] gap-2.5 shadow-2xl shadow-blue-500/20 hover:scale-[1.05] active:scale-95 transition-all bg-gradient-to-r from-blue-500 to-blue-700 border-none"
-            >
-              <LogIn className="h-3.5 w-3.5" />
-              Konsole öffnen
-            </Button>
-          </div>
-        </div>
-      </nav>
-
-      {/* Hero Section */}
-      <header className="relative z-10 pt-56 pb-32 px-6">
-        <div className="max-w-7xl mx-auto text-center">
-          <div className="inline-flex items-center gap-3 px-6 py-2.5 rounded-2xl bg-blue-500/[0.03] border border-blue-500/10 text-blue-500 text-[10px] font-black uppercase tracking-[0.3em] mb-16 animate-in fade-in slide-in-from-bottom-8 duration-1000 backdrop-blur-md">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-500 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-600"></span>
-            </span>
-            Neural Core v2 Active • Weltweit Shard 07
-          </div>
-          
-          <h1 className="text-6xl sm:text-8xl md:text-[10rem] font-bold text-white tracking-tighter leading-[0.8] mb-12 font-outfit animate-in fade-in slide-in-from-bottom-12 duration-1000 delay-100 uppercase">
-            Evolution <br />
-            <span className="bg-gradient-to-r from-blue-500 via-blue-400 to-blue-500 bg-clip-text text-transparent italic font-black">Moderiert.</span>
-          </h1>
-
-          <p className="text-lg md:text-2xl text-slate-500 max-w-3xl mx-auto leading-relaxed mb-20 animate-in fade-in slide-in-from-bottom-12 duration-1000 delay-200 font-medium">
-            The hyper-performance Discord engine. 
-            Automated security, cinematic leveling, and precision tools for the world&apos;s most elite communities.
-          </p>
-
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-6 animate-in fade-in slide-in-from-bottom-12 duration-1000 delay-300">
-            <Button 
-              onClick={() => signIn('discord', { callbackUrl: '/dashboard' }).catch((err) => { console.error('Login error:', err); alert('Login-Fehler: ' + (err?.message || 'Unbekannter Fehler. Bitte prüfe die Discord-Konfiguration.')); })}
-              className="w-full sm:w-auto rounded-2xl px-14 py-9 text-lg font-black uppercase gap-4 group shadow-[0_0_50px_rgba(59,130,246,0.2)] bg-blue-600 text-white hover:bg-blue-500 border-none transition-all hover:scale-105"
-            >
-              <LayoutDashboard className="h-6 w-6 group-hover:rotate-12 transition-transform" />
-              Dashboard öffnen
-            </Button>
-            <Button variant="outline" className="w-full sm:w-auto rounded-2xl px-14 py-9 text-lg font-bold border-white/5 bg-white/[0.02] backdrop-blur-3xl hover:bg-white/[0.05] gap-3 text-white transition-all">
-              Zum Server hinzufügen
-              <ChevronRight className="h-5 w-5 opacity-40 group-hover:translate-x-1 transition-transform" />
-            </Button>
-          </div>
-        </div>
-
-        {/* Cinematic Dashboard Mockup */}
-        <div className="max-w-6xl mx-auto mt-40 relative group animate-in fade-in zoom-in-95 duration-1000 delay-500">
-           <div className="absolute -inset-4 bg-gradient-to-r from-blue-500/20 to-transparent rounded-[60px] blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
-           <div className="relative bg-[#071527] border border-white/[0.05] rounded-[50px] overflow-hidden shadow-[0_30px_100px_rgba(0,0,0,0.8)]">
-              {/* Fake Window Controls */}
-              <div className="h-16 border-b border-white/[0.03] flex items-center justify-between px-10 bg-white/[0.01]">
-                <div className="flex items-center gap-3">
-                  <div className="h-3 w-3 rounded-full bg-blue-500/40" />
-                  <div className="h-3 w-3 rounded-full bg-white/10" />
-                  <div className="h-3 w-3 rounded-full bg-white/5" />
-                </div>
-                <div className="px-6 py-2 rounded-2xl bg-white/[0.03] border border-white/[0.05] text-[10px] font-black text-slate-500 tracking-[0.2em] uppercase">
-                   sec.neural.core // active_node_01
-                </div>
-                <div className="w-12" />
+        <div className="relative mx-auto max-w-[1400px] px-6 lg:px-12 xl:px-20 py-20 lg:py-28">
+          <div className="grid lg:grid-cols-2 gap-14 items-center">
+            <div>
+              <div className="flex flex-wrap items-center gap-3 mb-9">
+                <span className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-4 py-1.5 text-[13px] text-emerald-400">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                  {server ? `Von ${server} Servern genutzt` : "Aktiv auf Discord"}
+                </span>
+                <span className="inline-flex items-center gap-2 rounded-full border border-indigo-500/20 bg-indigo-500/10 px-4 py-1.5 text-[13px] text-indigo-300">
+                  <ShieldCheck className="h-3.5 w-3.5" />
+                  Der Allrounder-Bot
+                </span>
               </div>
-              {/* Content Placeholder with High Contrast */}
-              <div className="aspect-[16/10] p-16 flex flex-col gap-16 relative overflow-hidden bg-gradient-to-br from-[#071527] to-[#071a33]">
-                <div className="flex items-center justify-between z-10 relative">
-                  <div className="space-y-6">
-                    <div className="h-12 w-64 bg-blue-500/10 rounded-[20px] border border-blue-500/20" />
-                    <div className="h-6 w-[500px] bg-white/[0.02] rounded-xl" />
+
+              <h1 className="text-[44px] sm:text-[56px] lg:text-[64px] font-extrabold leading-[1.05] tracking-tight text-white">
+                Dein Discord-Server,
+                <br />
+                <span className="text-indigo-400">auf das nächste Level gebracht</span>
+              </h1>
+
+              <p className="mt-7 max-w-xl text-[17px] leading-relaxed text-slate-400">
+                {BRAND} ist ein vielseitiger Discord-Bot mit Moderations-,
+                Team-, Ticket- und KI-Funktionen, der deinen Server
+                verbessert und deine Community zusammenhält.
+              </p>
+
+              <div className="mt-10 flex flex-wrap items-center gap-4">
+                <a
+                  href={INVITE_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="relative inline-flex items-center rounded-xl bg-[#5865f2] px-7 py-3.5 text-[15px] font-semibold text-white hover:bg-[#4752c4] transition-colors"
+                >
+                  <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 rounded-md bg-emerald-500 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+                    Kostenlos
+                  </span>
+                  Bot hinzufügen
+                </a>
+                <Link
+                  href="#funktionen"
+                  className="inline-flex items-center gap-2 rounded-xl border border-slate-800 bg-[#131318] px-6 py-3.5 text-[15px] text-slate-200 hover:border-slate-700 transition-colors"
+                >
+                  Funktionen erkunden
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </div>
+            </div>
+
+            {/* Der Kartenstapel. */}
+            <div className="relative hidden lg:block">
+              <div className="relative mx-auto h-[420px] max-w-[430px]">
+                {/* Zwei angedeutete Karten dahinter, damit es nach
+                    einem Stapel aussieht statt nach einer Karte. */}
+                <div className="absolute inset-x-8 top-5 bottom-5 rounded-3xl border border-slate-800/50 bg-[#0f0f13]/50" />
+                <div className="absolute inset-x-4 top-2.5 bottom-2.5 rounded-3xl border border-slate-800/70 bg-[#0f0f13]/70" />
+
+                <div className="relative rounded-3xl border border-slate-800 bg-[#131318] p-8 h-full">
+                  <div
+                    className={cn(
+                      "h-[68px] w-[68px] rounded-2xl bg-gradient-to-br grid place-items-center mb-7",
+                      HERO_KARTEN[karte].ton,
+                    )}
+                  >
+                    <Aktiv className="h-8 w-8 text-white" />
                   </div>
-                  <div className="h-20 w-20 rounded-[30px] bg-blue-500/10 border border-blue-500/20 flex items-center justify-center shadow-[0_0_30px_rgba(59,130,246,0.2)]">
-                    <Activity className="h-8 w-8 text-blue-500 animate-pulse" />
+
+                  <h3 className="text-[22px] font-bold text-white mb-3">
+                    {HERO_KARTEN[karte].titel}
+                  </h3>
+                  <p className="text-[15px] leading-relaxed text-slate-400">
+                    {HERO_KARTEN[karte].text}
+                  </p>
+
+                  <div className="mt-9 flex items-baseline gap-3">
+                    <span className="text-[52px] font-extrabold leading-none text-fuchsia-400">
+                      {HERO_KARTEN[karte].zahl}
+                    </span>
+                    <span className="text-[13px] uppercase tracking-widest text-slate-500">
+                      {HERO_KARTEN[karte].label}
+                    </span>
                   </div>
                 </div>
-                <div className="grid grid-cols-3 gap-10 z-10">
-                  {[1, 2, 3].map(i => (
-                    <div key={i} className="h-40 bg-white/[0.02] border border-white/[0.04] rounded-[40px] p-8 space-y-6 hover:border-blue-500/20 transition-colors">
-                      <div className="h-10 w-10 rounded-2xl bg-blue-500/10 border border-blue-500/20" />
-                      <div className="h-4 w-2/3 bg-white/5 rounded-lg" />
-                      <div className="h-3 w-1/2 bg-white/[0.02] rounded-lg" />
-                    </div>
-                  ))}
-                </div>
-                {/* Visual Glow Layer */}
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] h-[90%] bg-blue-500/[0.02] blur-[150px] pointer-events-none" />
               </div>
-           </div>
+
+              <div className="mt-7 flex items-center justify-center gap-2">
+                {HERO_KARTEN.map((k, i) => (
+                  <button
+                    key={k.titel}
+                    type="button"
+                    aria-label={k.titel}
+                    onClick={() => setKarte(i)}
+                    className={cn(
+                      "h-1.5 rounded-full transition-all",
+                      i === karte ? "w-7 bg-indigo-500" : "w-1.5 bg-slate-700",
+                    )}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
       </header>
 
-      {/* Grid Section */}
-      <section id="features" className="py-48 px-6 relative">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex flex-col md:flex-row md:items-end justify-between mb-32 gap-12 px-4">
-            <div className="max-w-3xl">
-              <h2 className="text-6xl md:text-8xl font-bold text-white tracking-tighter font-outfit mb-8 uppercase italic leading-none">High-Scale <br /><span className="text-blue-500 not-italic">Infrastructure.</span></h2>
-              <p className="text-2xl text-slate-500 font-medium leading-relaxed">Weltweit redundancy delivers sub-millisecond dispatch times across 20+ edge regions. Zero lag, zero downtime.</p>
-            </div>
-            <div className="flex items-center gap-10 pb-4">
-               <div className="text-right">
-                 <p className="text-[10px] font-black uppercase text-slate-600 tracking-[0.3em] mb-3">Ping Latency</p>
-                 <p className="text-5xl font-black text-blue-500 font-outfit">12ms</p>
-               </div>
-               <div className="h-16 w-[1px] bg-white/5" />
-               <div className="text-right">
-                 <p className="text-[10px] font-black uppercase text-slate-600 tracking-[0.3em] mb-3">Weltweit Uptime</p>
-                 <p className="text-5xl font-black text-white font-outfit">99.9<span className="text-slate-700">9</span>%</p>
-               </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {[
-              { 
-                title: "Neuro-Security", 
-                desc: "Contextual AI analysis detects raids and token-logging attempts in real-time.", 
-                icon: ShieldCheck,
-                color: "bg-blue-500/10 border-blue-500/20 text-blue-500"
-              },
-              { 
-                title: "Edge Dispatch", 
-                desc: "Distributed command execution ensuring your commands work everywhere, instantly.", 
-                icon: Zap,
-                color: "bg-blue-500/10 border-blue-500/20 text-blue-500"
-              },
-              { 
-                title: "Leveling Engine", 
-                desc: "Premium rendered rewards with 4K rank card generation and multi-role hierarchies.", 
-                icon: BarChart4,
-                color: "bg-blue-600/10 border-blue-600/20 text-blue-600"
-              },
-              { 
-                title: "Threaded Support", 
-                desc: "High-volume ticket systems with enterprise encryption and lifetime transcripts.", 
-                icon: MessageSquare,
-                color: "bg-slate-500/10 border-slate-500/20 text-slate-400"
-              },
-              { 
-                title: "Real-time Flux", 
-                desc: "Watch server events live with zero-latency WebSocket data streaming.", 
-                icon: History,
-                color: "bg-blue-800/10 border-blue-800/20 text-blue-700"
-              },
-              { 
-                title: "Cloud Integrity", 
-                desc: "Encrypted backups of all server configurations stored in off-site neural vaults.", 
-                icon: Layers,
-                color: "bg-white/10 border-white/20 text-white"
-              }
-            ].map((feature, i) => (
-              <div key={i} className="group glass border-white/5 p-12 rounded-[50px] hover:border-blue-500/30 transition-all duration-700 relative overflow-hidden">
-                <div className="absolute top-0 right-0 p-12 opacity-0 group-hover:opacity-5 scale-50 group-hover:scale-110 transition-all duration-1000">
-                  <feature.icon className="h-64 w-64 text-white" />
-                </div>
-                <div className={cn("h-20 w-20 rounded-3xl flex items-center justify-center mb-10 border transition-all duration-700 group-hover:scale-110 group-hover:rotate-6 shadow-2xl shadow-black/40", feature.color)}>
-                  <feature.icon className="h-10 w-10 shadow-lg" />
-                </div>
-                <h3 className="text-3xl font-bold text-white mb-6 tracking-tight font-outfit relative z-10">{feature.title}</h3>
-                <p className="text-slate-500 leading-relaxed font-bold relative z-10 group-hover:text-slate-400 transition-colors uppercase text-[10px] tracking-[0.2em]">{feature.desc}</p>
-                <div className="mt-8 h-[2px] w-0 bg-blue-500 group-hover:w-full transition-all duration-700" />
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Architecture Section */}
-      <section id="architecture" className="py-48 px-6 bg-white/[0.01]">
-        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-24 items-center">
-           <div className="space-y-12">
-              <div className="inline-flex px-4 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-500 text-[10px] font-black uppercase tracking-[0.3em]">
-                 The Stack
-              </div>
-              <h2 className="text-6xl md:text-7xl font-bold text-white tracking-tighter font-outfit uppercase">Neural Core <br /><span className="text-slate-600 italic">Technology.</span></h2>
-              <p className="text-xl text-slate-500 leading-relaxed font-medium">
-                Our proprietary engine is built on a custom Rust-based microkernel that handles millions of events with a footprint smaller than a typical Discord bot.
-              </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 pt-8">
-                 {[
-                   { icon: Terminal, title: "Custom DSL", desc: "Write advanced logic with our intuitive University Bot scripting language." },
-                   { icon: Cpu, title: "FPGA Ready", desc: "Hardware-accelerated pattern matching for instant response." },
-                   { icon: Lock, title: "Zero Trust", desc: "Every command execution is sandboxed and cryptographically verified." },
-                   { icon: Radio, title: "Low Entropy", desc: "Optimized for minimal CPU jitter and maximum reliability." }
-                 ].map((item, i) => (
-                   <div key={i} className="space-y-4 p-6 rounded-[30px] border border-white/[0.03] hover:bg-white/[0.02] transition-colors">
-                      <item.icon className="h-6 w-6 text-blue-500" />
-                      <h4 className="text-lg font-bold text-white font-outfit uppercase tracking-tight">{item.title}</h4>
-                      <p className="text-sm text-slate-600 font-bold leading-relaxed">{item.desc}</p>
-                   </div>
-                 ))}
-              </div>
-           </div>
-           <div className="relative aspect-square flex items-center justify-center group">
-              <div className="absolute inset-0 bg-blue-500/5 blur-[120px] rounded-full animate-pulse" />
-              <div className="h-[80%] w-[80%] border-2 border-white/[0.05] rounded-full animate-[spin_60s_linear_infinite] flex items-center justify-center relative">
-                 <div className="absolute top-0 left-1/2 -translate-x-1/2 h-4 w-4 rounded-full bg-blue-500 shadow-[0_0_20px_rgba(59,130,246,0.5)]" />
-                 <div className="h-[70%] w-[70%] border border-white/[0.05] rounded-full animate-[spin_40s_linear_infinite_reverse] flex items-center justify-center">
-                    <div className="absolute bottom-0 left-1/2 -translate-x-1/2 h-3 w-3 rounded-full bg-white/20 shadow-[0_0_20px_rgba(255,255,255,0.2)]" />
-                    <div className="h-[60%] w-[60%] border border-white/[0.05] rounded-full animate-[spin_20s_linear_infinite] flex items-center justify-center">
-                       <Bot className="h-20 w-20 text-blue-500/40 group-hover:text-blue-500 transition-all duration-700 group-hover:scale-125" />
-                    </div>
-                 </div>
-              </div>
-           </div>
-        </div>
-      </section>
-
-      {/* Modules Grid */}
-      <section id="modules" className="py-48 px-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-32 space-y-6">
-             <h2 className="text-6xl md:text-8xl font-bold text-white tracking-tighter font-outfit uppercase">The Matrix <br /><span className="bg-gradient-to-r from-blue-600 to-blue-400 bg-clip-text text-transparent italic">Complete.</span></h2>
-             <p className="text-2xl text-slate-500 max-w-3xl mx-auto font-medium lowercase">Every module you need. Redefined for the modern era.</p>
-          </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {[
-              { name: "Anti-Nuke", desc: "Absolute server lockdown.", icon: ShieldAlert },
-              { name: "Verification", desc: "Bot-free onboarding.", icon: CheckCircle2 },
-              { name: "Welcome", desc: "Cinematic entries.", icon: Sparkles },
-              { name: "Vanity Roles", desc: "Custom server identity.", icon: Gamepad2 },
-              { name: "Auto Role", desc: "Instant rank assignment.", icon: User },
-              { name: "Join to Create", desc: "Self-service voice channels.", icon: Music4 },
-              { name: "Tracking", desc: "Predictive user metrics.", icon: Activity },
-              { name: "Invites", desc: "Advanced growth tracking.", icon: Globe },
-              { name: "Custom Roles", desc: "User-defined permissions.", icon: Lock },
-              { name: "Reaction Roles", desc: "Interactive role menus.", icon: Layers },
-              { name: "Tickets", desc: "Support at lightspeed.", icon: MessageSquare },
-              { name: "Join DM", desc: "Personalized welcomes.", icon: MessageSquare }
-            ].map((mod, i) => (
-              <div key={i} className="group p-8 rounded-[40px] bg-white/[0.01] border border-white/[0.03] hover:bg-blue-500/[0.02] hover:border-blue-500/20 transition-all duration-500">
-                 <div className="h-14 w-14 rounded-2xl bg-white/[0.03] flex items-center justify-center mb-6 group-hover:bg-blue-500/10 transition-colors">
-                    <mod.icon className="h-6 w-6 text-slate-600 group-hover:text-blue-500 transition-colors" />
-                 </div>
-                 <h4 className="text-xl font-bold text-white font-outfit mb-2 tracking-tight">{mod.name}</h4>
-                 <p className="text-xs text-slate-600 font-bold uppercase tracking-widest">{mod.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Network / Weltweit Section */}
-      <section id="network" className="py-48 px-6 bg-blue-600/[0.01] relative overflow-hidden">
-        <div className="max-w-7xl mx-auto relative z-10">
-           <div className="flex flex-col lg:flex-row items-center gap-24">
-              <div className="flex-1 space-y-12">
-                 <h2 className="text-6xl md:text-8xl font-bold text-white tracking-tighter font-outfit uppercase">Weltweit <br /><span className="text-blue-500">Erreichbar.</span></h2>
-                  <p className="text-2xl text-slate-500 leading-relaxed font-medium">
-                    Powering servers with over 12 million combined users. Our network spans every continent, bringing your community closer together.
-                  </p>
-                 <div className="space-y-8">
-                    {[
-                      { stat: "12M+", label: "Geschützte Nutzer" },
-                      { stat: "24", label: "Server-Cluster" },
-                      { stat: "5.2K", label: "Verifizierte Communities" }
-                    ].map((item, i) => (
-                      <div key={i} className="flex items-center gap-8">
-                         <div className="text-5xl font-black text-white font-outfit">{item.stat}</div>
-                         <div className="h-[1px] flex-1 bg-white/5" />
-                         <div className="text-[11px] font-black uppercase text-blue-500 tracking-[0.3em]">{item.label}</div>
-                      </div>
-                    ))}
-                 </div>
-              </div>
-              <div className="flex-1 relative group">
-                 <div className="absolute inset-0 bg-blue-500/10 blur-[150px] opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
-                 <div className="aspect-square bg-[#071527] border border-white/[0.05] rounded-[60px] p-12 relative overflow-hidden flex items-center justify-center">
-                    <Globe className="h-64 w-64 text-blue-500/10 animate-pulse" />
-                    <div className="absolute inset-0 flex items-center justify-center">
-                       <div className="h-32 w-32 bg-blue-500/20 blur-[60px] rounded-full" />
-                    </div>
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 space-y-12">
-                       <Bot className="h-20 w-20 text-blue-500 shadow-[0_0_50px_rgba(59,130,246,0.5)] bg-[#071527] rounded-3xl p-4 border border-blue-500/50" />
-                    </div>
-                 </div>
-              </div>
-           </div>
-        </div>
-      </section>
-
-      {/* FAQ Section */}
-      <section className="py-48 px-6">
-        <div className="max-w-4xl mx-auto">
-          <div className="text-center mb-24">
-             <h2 className="text-5xl md:text-6xl font-black text-white font-outfit tracking-tighter uppercase mb-6">Wissensdatenbank</h2>
-             <p className="text-slate-600 font-bold uppercase tracking-widest text-xs">Häufig gestellte Fragen</p>
-          </div>
-          <div className="space-y-6">
-            {[
-              { q: "Is the University Bot Engine free to use?", a: "Die Core-Engine ist 100% kostenlos für alle Communities. Wir bieten Premium-Optionen für sehr große Server." },
-              { q: "Wie sicher sind meine Server-Daten?", a: "Every byte of configuration data is AES-256 encrypted at rest. We never store personal user data beyond Discord's standard requirements." },
-              { q: "Kann ich von anderen Bots wechseln?", a: "Ja, unser Migrations-Tool ermöglicht den Import von Level- und Konfigurationsdaten der meisten Bots in Minuten." },
-              { q: "What is the 'Neural Core'?", a: "It's our advanced event-processing architecture that uses predictive analysis to moderate raids before they escalate." }
-            ].map((item, i) => (
-              <div key={i} className="p-10 rounded-[40px] border border-white/[0.03] hover:border-white/10 transition-all bg-white/[0.01] group">
-                 <h4 className="text-xl font-bold text-white mb-6 font-outfit uppercase tracking-tight flex items-center gap-4">
-                    <div className="h-2 w-2 rounded-full bg-blue-500 opacity-20 group-hover:opacity-100 transition-all" />
-                    {item.q}
-                 </h4>
-                 <p className="text-slate-500 font-bold leading-relaxed">{item.a}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="py-48 px-6">
-        <div className="max-w-6xl mx-auto relative rounded-[80px] p-24 md:p-32 overflow-hidden bg-gradient-to-br from-blue-600 to-blue-900 text-center shadow-[0_40px_100px_rgba(0,0,0,0.6)]">
-           <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-overlay" />
-           <div className="relative z-10">
-              <h2 className="text-7xl md:text-[9rem] font-bold text-white tracking-tighter font-outfit mb-12 uppercase leading-[0.8] italic">Bereit zur <br />Evolution?</h2>
-              <p className="text-2xl text-white/70 max-w-3xl mx-auto mb-20 font-medium">Join 5,000+ communities scaling their automation with the University Bot Engine. Setup takes less than 30 seconds.</p>
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-8 tracking-widest uppercase text-xs font-black">
-                <Button 
-                  onClick={() => signIn('discord', { callbackUrl: '/dashboard' }).catch((err) => { console.error('Login error:', err); alert('Login-Fehler: ' + (err?.message || 'Unbekannter Fehler. Bitte prüfe die Discord-Konfiguration.')); })}
-                  className="w-full sm:w-auto rounded-3xl px-16 py-10 bg-white text-black hover:bg-slate-100 border-none shadow-[0_20px_50px_rgba(0,0,0,0.4)] font-black text-lg transition-transform hover:scale-105 active:scale-95"
-                >
-                  Kostenlos starten
-                </Button>
-                <div className="flex items-center gap-3 text-white">
-                   <div className="h-3 w-3 rounded-full bg-white animate-pulse" />
-                   Neural Uplink: Stable
-                </div>
-              </div>
-           </div>
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer className="py-32 border-t border-white/[0.03] bg-[#071527] relative z-20">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-20 mb-32">
-            <div className="col-span-1 md:col-span-2 space-y-12">
-              <div className="flex items-center gap-4 group">
-                <span className="text-3xl font-bold text-white font-outfit uppercase tracking-tighter">{process.env.NEXT_PUBLIC_BRAND_NAME || "University Bot"} Engine</span>
-              </div>
-              <p className="text-slate-600 max-w-sm font-bold leading-relaxed uppercase text-xs tracking-widest">
-                The high-performance Discord engine for communities that demand excellence. Secure, reliable, and infinitely scalable.
-              </p>
-            </div>
-            <div className="space-y-8">
-               <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-white opacity-40">System</h4>
-               <ul className="space-y-5 text-[11px] font-black uppercase tracking-widest text-slate-500">
-                  {/* No repository link. The source is closed, and a link
-                      to a 404 still tells a visitor where to go digging. */}
-                  <li><Link href="/docs" className="hover:text-blue-500 transition-colors">Dokumentation</Link></li>
-                  <li><Link href="/team" className="hover:text-blue-500 transition-colors">Team</Link></li>
-                  <li><Link href="/docs#api" className="hover:text-blue-500 transition-colors">API-Referenz</Link></li>
-               </ul>
-            </div>
-            <div className="space-y-8">
-               <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-white opacity-40">Identity</h4>
-               <ul className="space-y-5 text-[11px] font-black uppercase tracking-widest text-slate-500">
-                  <li><Link href="/privacy" className="hover:text-blue-500 transition-colors">Datenschutz</Link></li>
-                  <li><Link href="/terms" className="hover:text-blue-500 transition-colors">Nutzungsbedingungen</Link></li>
-                  <li><Link href="/imprint" className="hover:text-blue-500 transition-colors">Impressum</Link></li>
-                  <li><Link href="/team" className="hover:text-blue-500 transition-colors">Team</Link></li>
-                  <li><a href={SUPPORT_INVITE} target="_blank" rel="noopener noreferrer" className="hover:text-blue-500 transition-colors">Discord Server</a></li>
-               </ul>
-            </div>
-          </div>
-          <div className="pt-12 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-6 opacity-40">
-            <p className="text-slate-700 text-[10px] font-black uppercase tracking-[0.4em]">
-              © 2026 {process.env.NEXT_PUBLIC_BRAND_NAME || "University Bot"} Development // Advanced Neural Infrastructure.
+      {/* ── Funktionen ────────────────────────────────────── */}
+      <section id="funktionen" className="py-24 px-6 lg:px-12 xl:px-20">
+        <div className="mx-auto max-w-[1400px]">
+          <div className="text-center mb-14">
+            <span className="inline-block rounded-full border border-slate-800 bg-[#131318] px-4 py-1.5 text-[13px] text-indigo-300">
+              Funktionen
+            </span>
+            <h2 className="mt-6 text-[38px] sm:text-[44px] font-extrabold tracking-tight text-white">
+              Alles was du brauchst
+            </h2>
+            <p className="mx-auto mt-4 max-w-2xl text-[16px] leading-relaxed text-slate-400">
+              {BRAND} bietet eine Vielzahl von Funktionen, um deinen
+              Discord-Server zu verbessern und zu verwalten.
             </p>
-            <div className="flex items-center gap-8">
-               <div className="flex items-center gap-3 text-[10px] font-black text-blue-500 uppercase tracking-[0.3em]">
-                  <div className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
-                  Alle Systeme aktiv
-               </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {FUNKTIONEN.map(({ icon: Icon, titel, text }) => (
+              <div key={titel} className={CARD}>
+                <div className="flex items-start gap-4">
+                  <div className="h-11 w-11 shrink-0 rounded-xl bg-[#5865f2] grid place-items-center">
+                    <Icon className="h-5 w-5 text-white" />
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="text-[16px] font-bold text-white">{titel}</h3>
+                    <p className="mt-1.5 text-[14px] leading-relaxed text-slate-400">
+                      {text}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Zahlen ────────────────────────────────────────── */}
+      <section className="py-24 px-6 lg:px-12 xl:px-20">
+        <div className="mx-auto max-w-[1400px] text-center">
+          <div className="mx-auto mb-6 h-12 w-12 rounded-2xl bg-indigo-500/15 grid place-items-center">
+            <Activity className="h-6 w-6 text-indigo-400" />
+          </div>
+          <h2 className="text-[38px] sm:text-[44px] font-extrabold tracking-tight text-white">
+            Bot-Statistiken
+          </h2>
+          <p className="mt-3 text-[16px] text-slate-400">
+            Nachgezählt, nicht geschätzt
+          </p>
+
+          <div className="mx-auto mt-12 grid max-w-4xl gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              { wert: server ?? "—", label: "Server" },
+              { wert: "152", label: "Module" },
+              { wert: "608", label: "Befehle" },
+              { wert: "41", label: "Dashboard-Reiter" },
+            ].map((s) => (
+              <div
+                key={s.label}
+                className="rounded-2xl border border-slate-800 bg-[#0f0f13] px-6 py-8"
+              >
+                <div className="text-[34px] font-extrabold leading-none text-white">
+                  {s.wert}
+                </div>
+                <div className="mt-2 text-[13px] uppercase tracking-widest text-slate-500">
+                  {s.label}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-10 flex items-center justify-center gap-1.5">
+            {[0, 1, 2, 3, 4].map((i) => (
+              <Star key={i} className="h-5 w-5 fill-amber-400 text-amber-400" />
+            ))}
+          </div>
+          <p className="mt-3 text-[13px] text-slate-500">
+            Zahlen aus dem laufenden Bot &middot;{" "}
+            <Link href="/status" className="text-indigo-400 hover:text-indigo-300">
+              Status ansehen
+            </Link>
+          </p>
+        </div>
+      </section>
+
+      {/* ── Stimmen ───────────────────────────────────────── */}
+      <section className="py-24 px-6 lg:px-12 xl:px-20">
+        <div className="mx-auto max-w-[1400px] grid gap-12 lg:grid-cols-2 lg:items-center">
+          <div>
+            <span className="inline-block rounded-full border border-slate-800 bg-[#131318] px-4 py-1.5 text-[13px] text-slate-300">
+              Community-Stimmen
+            </span>
+            <h2 className="mt-6 text-[38px] sm:text-[44px] font-extrabold leading-tight tracking-tight text-white">
+              Warum Teams {BRAND} nutzen
+            </h2>
+            <p className="mt-4 max-w-md text-[16px] leading-relaxed text-slate-400">
+              Erfahrungen aus aktiven Discord-Communities &mdash;
+              zuverlässig, schnell und ohne Nacharbeit.
+            </p>
+          </div>
+
+          <div>
+            <div className="space-y-4">
+              {[STIMMEN[stimme], STIMMEN[(stimme + 1) % STIMMEN.length]].map((s) => (
+                <div key={s.name} className="rounded-2xl border border-slate-800 bg-[#0f0f13] p-5">
+                  <div className="flex items-start gap-3">
+                    <div className="h-9 w-9 shrink-0 rounded-full bg-emerald-500/15 grid place-items-center text-[12px] font-bold text-emerald-400">
+                      {s.kuerzel}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-[15px] font-bold text-white">
+                          {s.name}
+                        </span>
+                        <span className="flex gap-0.5">
+                          {[0, 1, 2, 3, 4].map((i) => (
+                            <Star
+                              key={i}
+                              className="h-3.5 w-3.5 fill-emerald-400 text-emerald-400"
+                            />
+                          ))}
+                        </span>
+                      </div>
+                      <p className="mt-1.5 text-[14px] leading-relaxed text-slate-400">
+                        {s.text}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
+
+            <div className="mt-6 flex items-center justify-center gap-2">
+              {STIMMEN.map((s, i) => (
+                <button
+                  key={s.name}
+                  type="button"
+                  aria-label={s.name}
+                  onClick={() => setStimme(i)}
+                  className={cn(
+                    "h-1.5 rounded-full transition-all",
+                    i === stimme ? "w-7 bg-emerald-500" : "w-1.5 bg-slate-700",
+                  )}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── FAQ ───────────────────────────────────────────── */}
+      <section className="py-24 px-6 lg:px-12 xl:px-20">
+        <div className="mx-auto max-w-[1000px]">
+          <div className="text-center mb-12">
+            <span className="text-[13px] font-semibold uppercase tracking-widest text-indigo-400">
+              FAQ
+            </span>
+            <h2 className="mt-4 text-[38px] sm:text-[44px] font-extrabold tracking-tight text-white">
+              Häufig gestellte Fragen
+            </h2>
+            <p className="mt-4 text-[16px] text-slate-400">
+              Finde Antworten auf häufig gestellte Fragen über {BRAND}.
+            </p>
+          </div>
+
+          <div className="border-t border-slate-800">
+            {FAQ.map((f) => (
+              <FaqZeile key={f.frage} frage={f.frage} antwort={f.antwort} />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Abschluss ─────────────────────────────────────── */}
+      <section className="px-6 lg:px-12 xl:px-20 pb-24">
+        <div className="mx-auto max-w-[1000px] rounded-3xl border border-slate-800 bg-[#0f0f13] px-8 py-16 text-center">
+          <h2 className="text-[32px] sm:text-[40px] font-extrabold tracking-tight text-white">
+            Bereit loszulegen?
+          </h2>
+          <p className="mx-auto mt-4 max-w-lg text-[16px] leading-relaxed text-slate-400">
+            Bot hinzufügen, im Dashboard anmelden, fertig. Die
+            Einrichtung dauert keine zwei Minuten.
+          </p>
+          <div className="mt-9 flex flex-wrap items-center justify-center gap-4">
+            <a
+              href={INVITE_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded-xl bg-[#5865f2] px-7 py-3.5 text-[15px] font-semibold text-white hover:bg-[#4752c4] transition-colors"
+            >
+              Bot hinzufügen
+            </a>
+            <Link
+              href="/dashboard"
+              className="rounded-xl border border-slate-800 bg-[#131318] px-7 py-3.5 text-[15px] text-slate-200 hover:border-slate-700 transition-colors"
+            >
+              Zum Dashboard
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Fußzeile ──────────────────────────────────────── */}
+      <footer className="border-t border-slate-800 px-6 lg:px-12 xl:px-20 py-14">
+        <div className="mx-auto max-w-[1400px]">
+          <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="lg:col-span-2">
+              <div className="flex items-center gap-2.5">
+                <Bot className="h-5 w-5 text-indigo-400" />
+                <span className="text-[19px] font-extrabold text-white">
+                  {BRAND}
+                </span>
+              </div>
+              <p className="mt-4 max-w-sm text-[14px] leading-relaxed text-slate-500">
+                Moderation, Tickets, Bewerbungen und Team-Verwaltung in
+                einem Bot &mdash; vollständig über das Dashboard
+                einzurichten.
+              </p>
+            </div>
+
+            <div>
+              <h4 className="text-[13px] font-bold uppercase tracking-widest text-slate-400">
+                Produkt
+              </h4>
+              <ul className="mt-4 space-y-3 text-[14px] text-slate-500">
+                <li><Link href="/docs" className="hover:text-white transition-colors">Dokumentation</Link></li>
+                <li><Link href="/dashboard" className="hover:text-white transition-colors">Dashboard</Link></li>
+                <li><Link href="/status" className="hover:text-white transition-colors">Status</Link></li>
+                <li><Link href="/team" className="hover:text-white transition-colors">Team</Link></li>
+              </ul>
+            </div>
+
+            <div>
+              <h4 className="text-[13px] font-bold uppercase tracking-widest text-slate-400">
+                Rechtliches
+              </h4>
+              <ul className="mt-4 space-y-3 text-[14px] text-slate-500">
+                <li><Link href="/privacy" className="hover:text-white transition-colors">Datenschutz</Link></li>
+                <li><Link href="/terms" className="hover:text-white transition-colors">Nutzungsbedingungen</Link></li>
+                <li><Link href="/imprint" className="hover:text-white transition-colors">Impressum</Link></li>
+                <li>
+                  <a href={SUPPORT_INVITE} target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">
+                    Support-Server
+                  </a>
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-slate-800 pt-8 sm:flex-row">
+            <p className="text-[13px] text-slate-600">
+              &copy; 2026 {BRAND}. Alle Rechte vorbehalten.
+            </p>
+            <span className="flex items-center gap-2 text-[13px] text-slate-500">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+              Alle Systeme aktiv
+            </span>
           </div>
         </div>
       </footer>

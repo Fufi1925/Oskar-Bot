@@ -41,7 +41,7 @@ const DURATIONS = [
 const PRESET_COLORS = ["#f59e0b", "#5865f2", "#2ecc71", "#e74c3c", "#9b59b6"];
 
 const INPUT =
-  "w-full bg-[#0d1b31] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-primary/50 transition-colors";
+  "w-full bg-[#0e0e12] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-primary/50 transition-colors";
 
 /** Placeholders the user can drop into their own text. */
 const TOKENS = [
@@ -224,7 +224,7 @@ export function GiveawaysPanel({ guildId }: { guildId: string }) {
   return (
     <section className="space-y-6">
       {/* ── Create ───────────────────────────────────── */}
-      <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-8 border-glow-card">
+      <div className="bg-[#131318] border border-slate-800 rounded-3xl p-8 border-glow-card">
         <div className="flex items-center justify-between gap-4 mb-6 flex-wrap">
           <h3 className="font-black text-white flex items-center gap-2">
             <Gift className="h-5 w-5 text-primary" />
@@ -278,7 +278,7 @@ export function GiveawaysPanel({ guildId }: { guildId: string }) {
                     "h-11 w-11 rounded-xl text-sm font-bold border transition-all",
                     winners === n
                       ? "bg-primary/15 border-primary/40 text-primary"
-                      : "bg-[#0d1b31] border-slate-800 text-slate-400 hover:text-slate-200"
+                      : "bg-[#0e0e12] border-slate-800 text-slate-400 hover:text-slate-200"
                   )}
                 >
                   {n}
@@ -292,7 +292,7 @@ export function GiveawaysPanel({ guildId }: { guildId: string }) {
                 onChange={(e) =>
                   setWinners(Math.max(1, Math.min(20, Number(e.target.value) || 1)))
                 }
-                className="h-11 w-20 bg-[#0d1b31] border border-slate-800 rounded-xl px-3 text-sm text-white text-center focus:outline-none focus:border-primary/50"
+                className="h-11 w-20 bg-[#0e0e12] border border-slate-800 rounded-xl px-3 text-sm text-white text-center focus:outline-none focus:border-primary/50"
               />
             </div>
           </Field>
@@ -307,7 +307,7 @@ export function GiveawaysPanel({ guildId }: { guildId: string }) {
                     "px-3 h-11 rounded-xl text-xs font-bold border transition-all",
                     !customMinutes && minutes === d.minutes
                       ? "bg-primary/15 border-primary/40 text-primary"
-                      : "bg-[#0d1b31] border-slate-800 text-slate-400 hover:text-slate-200"
+                      : "bg-[#0e0e12] border-slate-800 text-slate-400 hover:text-slate-200"
                   )}
                 >
                   {d.label}
@@ -319,7 +319,7 @@ export function GiveawaysPanel({ guildId }: { guildId: string }) {
                 value={customMinutes}
                 onChange={(e) => setCustomMinutes(e.target.value)}
                 placeholder="Min"
-                className="h-11 w-20 bg-[#0d1b31] border border-slate-800 rounded-xl px-3 text-sm text-white text-center focus:outline-none focus:border-primary/50"
+                className="h-11 w-20 bg-[#0e0e12] border border-slate-800 rounded-xl px-3 text-sm text-white text-center focus:outline-none focus:border-primary/50"
               />
             </div>
           </Field>
@@ -362,7 +362,7 @@ export function GiveawaysPanel({ guildId }: { guildId: string }) {
                     value={buttonEmoji}
                     onChange={(e) => setButtonEmoji(e.target.value)}
                     placeholder="🎉"
-                    className="w-16 bg-[#0d1b31] border border-slate-800 rounded-xl px-3 py-3 text-sm text-white text-center focus:outline-none focus:border-primary/50"
+                    className="w-16 bg-[#0e0e12] border border-slate-800 rounded-xl px-3 py-3 text-sm text-white text-center focus:outline-none focus:border-primary/50"
                   />
                   {/* Ersetzen, nicht anhaengen: auf einem Knopf ist
                       genau ein Emoji erlaubt. Zwei lehnt Discord ab,
@@ -552,7 +552,7 @@ export function GiveawaysPanel({ guildId }: { guildId: string }) {
         {/* Preview */}
         {prize.trim() && (
           <div
-            className="mt-6 rounded-2xl border-l-4 bg-[#0d1b31] p-5"
+            className="mt-6 rounded-2xl border-l-4 bg-[#0e0e12] p-5"
             style={{ borderLeftColor: colour }}
           >
             <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
@@ -597,7 +597,7 @@ export function GiveawaysPanel({ guildId }: { guildId: string }) {
             {running.map((g) => (
               <div
                 key={g.message_id}
-                className="bg-[#10233f] border border-emerald-500/20 rounded-2xl p-5 flex items-center gap-4 flex-wrap border-glow-card glow-r-2xl"
+                className="bg-[#131318] border border-emerald-500/20 rounded-2xl p-5 flex items-center gap-4 flex-wrap border-glow-card glow-r-2xl"
               >
                 <button
                   onClick={() => setOpenId(g.message_id)}
@@ -682,7 +682,7 @@ export function GiveawaysPanel({ guildId }: { guildId: string }) {
             {finished.map((g) => (
               <div
                 key={g.message_id}
-                className="bg-[#10233f] border border-slate-800 rounded-2xl px-5 py-3.5 flex items-center gap-4 flex-wrap"
+                className="bg-[#131318] border border-slate-800 rounded-2xl px-5 py-3.5 flex items-center gap-4 flex-wrap"
               >
                 <button
                   onClick={() => setOpenId(g.message_id)}

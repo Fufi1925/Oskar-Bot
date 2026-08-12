@@ -29,7 +29,7 @@ import {
 import { EmojiText } from "@/components/dashboard/emoji-field";
 
 const INPUT =
-  "w-full bg-[#0d1b31] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-primary/50 transition-colors";
+  "w-full bg-[#0e0e12] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-primary/50 transition-colors";
 
 function Field({ label, hint, children }: any) {
   return (
@@ -45,7 +45,7 @@ function Field({ label, hint, children }: any) {
 
 function Card({ icon: Icon, title, subtitle, children, onReload }: any) {
   return (
-    <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5 border-glow-card">
+    <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5 border-glow-card">
       <div className="flex items-start justify-between gap-4">
         <div className="flex gap-3 min-w-0">
           <div className="h-10 w-10 rounded-2xl bg-primary/15 grid place-items-center shrink-0">
@@ -134,7 +134,7 @@ function TextField({ label, hint, value, onChange, rows = 3, role, server, max }
         </p>
       )}
       {String(value ?? "").trim() && (
-        <div className="rounded-xl bg-[#0a1628] border border-slate-800 px-3.5 py-2.5">
+        <div className="rounded-xl bg-[#0e0e12] border border-slate-800 px-3.5 py-2.5">
           <p className="text-[10px] uppercase tracking-widest text-slate-600 mb-1">
             Vorschau
           </p>
@@ -225,13 +225,13 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
         onReload={p.reload}
       >
         <div className="grid grid-cols-2 gap-3">
-          <div className="bg-[#0d1b31] border border-slate-800 rounded-2xl px-4 py-3">
+          <div className="bg-[#0e0e12] border border-slate-800 rounded-2xl px-4 py-3">
             <p className="text-lg font-black text-white">
               {p.data?.configured ? "Bereit" : "Unvollständig"}
             </p>
             <p className="text-[11px] text-slate-500">Status</p>
           </div>
-          <div className="bg-[#0d1b31] border border-slate-800 rounded-2xl px-4 py-3">
+          <div className="bg-[#0e0e12] border border-slate-800 rounded-2xl px-4 py-3">
             <p className="text-lg font-black text-white flex items-center gap-1.5">
               <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
               {p.data?.verified_count ?? 0}
@@ -281,7 +281,7 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
                   "text-left rounded-2xl border p-4 transition-all",
                   method === o.id
                     ? "bg-primary/10 border-primary/40"
-                    : "bg-[#0d1b31] border-slate-800 hover:border-slate-700"
+                    : "bg-[#0e0e12] border-slate-800 hover:border-slate-700"
                 )}
               >
                 <p className="text-sm font-bold text-white">{o.label}</p>
@@ -306,7 +306,7 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
             <span
               key={token}
               title={String(desc)}
-              className="px-2 py-1 rounded-lg bg-[#0d1b31] border border-slate-800 text-[11px] font-mono text-slate-400"
+              className="px-2 py-1 rounded-lg bg-[#0e0e12] border border-slate-800 text-[11px] font-mono text-slate-400"
             >
               {token}
             </span>
@@ -424,7 +424,7 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
                     "rounded-xl border py-2.5 text-sm font-bold transition-all",
                     (p.value("captcha_choices") ?? 5) === n
                       ? "bg-primary/10 border-primary/40 text-white"
-                      : "bg-[#0d1b31] border-slate-800 text-slate-400 hover:border-slate-700"
+                      : "bg-[#0e0e12] border-slate-800 text-slate-400 hover:border-slate-700"
                   )}
                 >
                   {n}
@@ -489,7 +489,7 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
       </Card>
 
       {/* ── Advanced ───────────────────────────────────────────── */}
-      <div className="bg-[#10233f] border border-slate-800 rounded-3xl overflow-hidden border-glow-card is-clipped">
+      <div className="bg-[#131318] border border-slate-800 rounded-3xl overflow-hidden border-glow-card is-clipped">
         <button
           onClick={() => setAdvanced((a) => !a)}
           className="w-full flex items-center justify-between px-6 py-5"
@@ -616,8 +616,8 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
                   className={cn(
                     "rounded-xl border transition-colors",
                     open
-                      ? "bg-[#0a1628] border-primary/40"
-                      : "bg-[#0d1b31] border-slate-800"
+                      ? "bg-[#0e0e12] border-primary/40"
+                      : "bg-[#0e0e12] border-slate-800"
                   )}
                 >
                   <button

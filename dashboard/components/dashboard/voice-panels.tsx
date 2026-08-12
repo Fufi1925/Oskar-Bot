@@ -31,7 +31,7 @@ import {
 } from "@/components/dashboard/save-bar";
 
 const INPUT =
-  "w-full bg-[#0d1b31] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-primary/50 transition-colors";
+  "w-full bg-[#0e0e12] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-primary/50 transition-colors";
 
 function Field({ label, hint, children }: any) {
   return (
@@ -47,7 +47,7 @@ function Field({ label, hint, children }: any) {
 
 function Card({ icon: Icon, title, subtitle, children, onReload }: any) {
   return (
-    <div className="bg-[#10233f] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5 border-glow-card">
+    <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5 border-glow-card">
       <div className="flex items-start justify-between gap-4">
         <div className="flex gap-3 min-w-0">
           <div className="h-10 w-10 rounded-2xl bg-primary/15 grid place-items-center shrink-0">
@@ -277,7 +277,7 @@ export function CustomRolesPanel({ guildId }: { guildId: string }) {
                   "flex items-center gap-3 rounded-xl border px-4 py-3",
                   entry.problem
                     ? "bg-amber-500/[0.04] border-amber-500/20"
-                    : "bg-[#0d1b31] border-slate-800"
+                    : "bg-[#0e0e12] border-slate-800"
                 )}
               >
                 <code className="text-sm font-bold text-primary shrink-0">
@@ -392,13 +392,13 @@ export function J2CPanel({ guildId }: { guildId: string }) {
         onReload={p.reload}
       >
         <div className="grid grid-cols-2 gap-3">
-          <div className="bg-[#0d1b31] border border-slate-800 rounded-2xl px-4 py-3">
+          <div className="bg-[#0e0e12] border border-slate-800 rounded-2xl px-4 py-3">
             <p className="text-lg font-black text-white">
               {p.data?.configured ? "Bereit" : "Unvollständig"}
             </p>
             <p className="text-[11px] text-slate-500">Status</p>
           </div>
-          <div className="bg-[#0d1b31] border border-slate-800 rounded-2xl px-4 py-3">
+          <div className="bg-[#0e0e12] border border-slate-800 rounded-2xl px-4 py-3">
             <p className="text-lg font-black text-white">
               {p.data?.active_channels ?? 0}
             </p>
@@ -462,7 +462,7 @@ export function J2CPanel({ guildId }: { guildId: string }) {
           />
         </Field>
 
-        <div className="rounded-xl bg-[#0d1b31] border border-slate-800 px-4 py-3">
+        <div className="rounded-xl bg-[#0e0e12] border border-slate-800 px-4 py-3">
           <p className="text-[11px] text-slate-500 mb-1">Vorschau</p>
           <p className="text-sm text-white flex items-center gap-1.5">
             <Volume2 className="h-3.5 w-3.5 text-slate-500" />
