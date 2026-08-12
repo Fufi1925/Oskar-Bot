@@ -454,6 +454,34 @@ async function authorize(
     return { ok: false, response: deny(403, `This requires the '${required}' permission.`) };
   }
 
+  if (scope === "applications") {
+    // Shape: /applications/<guildId>/...
+    //
+    // Ohne diesen Zweig faellt der Reiter ans Ende der Funktion und
+    // bekommt 404 "Unknown API scope" — derselbe Fehler wie zuletzt bei
+    // command-stats, dem Warteraum, der Musik, den Vorlagen und der
+    // Teamliste. Jeder neue Bereich braucht hier einen Eintrag; das ist
+    // inzwischen der sechste Fall.
+    const guildId = rest[0];
+    if (!guildId) return { ok: false, response: deny(400, "guild_id missing.") };
+
+    const access = await verifyGuildAccess(guildId);
+    if (!access.allowed) return { ok: false, response: deny(access.status, access.reason) };
+
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) return { ok: false, response: deny(401, "Not signed in.") };
+    if (isGlobalAdmin(session.user.id)) return { ok: true };
+
+    const team = await fetchTeamAccess(session.user.id);
+    if (!team || team.roles.length === 0) return { ok: true };
+
+    // Ein Bewerbungs-Panel postet als Bot in einen Kanal und entscheidet
+    // über Rollen — dieselbe Messlatte wie bei den Tickets.
+    const required = request.method === "GET" ? "guild.view" : "settings.edit";
+    if (await hasTeamPermission(session.user.id, required, guildId)) return { ok: true };
+    return { ok: false, response: deny(403, `This requires the '${required}' permission.`) };
+  }
+
   if (scope === "music") {
     // Shape: /music/<guildId>/...
     //

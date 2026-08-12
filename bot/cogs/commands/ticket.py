@@ -306,6 +306,23 @@ class TicketCog(commands.Cog, name="Ticket System"):
             if view:
                 self.bot.add_view(view, message_id=panel['message_id'])
 
+        # Die Knoepfe IN den Tickets brauchen hier nichts.
+        #
+        # Sie werden vom on_interaction-Listener weiter unten bedient.
+        # `add_view` waere hier der naheliegende Weg und genau deshalb
+        # falsch: die IDs (`t_lock`, `c_reopen`, ...) sind fuer alle
+        # Tickets gleich, und ein View ohne message_id landet im
+        # ViewStore unter dem Schluessel None. Der zweite ueberschreibt
+        # damit den ersten, der dritte den zweiten -- am Ende reagiert
+        # genau ein Ticket, und zwar ein zufaelliges. Nachgeprueft in
+        # discord/ui/view.py: `dispatch_info = self._views.get(message_id)`.
+        #
+        # Die Nachrichten-ID, mit der es ginge, steht nirgends: die
+        # Begruessung im Ticket wird gesendet und nicht gespeichert.
+
+        # Und den Zaehler gegen die echten Kanaele abgleichen.
+        await self.reconcile_counts()
+
     def create_panel_view(self, guild_id, panel_id=None):
         """
         Build the view for a panel.
@@ -341,10 +358,119 @@ class TicketCog(commands.Cog, name="Ticket System"):
     def cog_unload(self): self.db.close()
 
     @commands.Cog.listener()
+    async def on_guild_channel_delete(self, channel):
+        """
+        Ein Ticketkanal wurde geloescht -- aufraeumen.
+
+        Vorher sank ``user_ticket_counts`` nur beim Schliessen ueber den
+        Knopf. Wer den Kanal von Hand loescht, liess den Zaehler stehen:
+        nach drei solchen Tickets meldete der Bot "3 von 3 offen",
+        obwohl es keinen einzigen Kanal mehr gab, und niemand konnte ein
+        neues aufmachen.
+
+        Dass das jemand tun musste, lag am Fehler daneben: die Knoepfe
+        im Ticket funktionierten nach einem Deploy nicht mehr. Die
+        Ursache ist behoben, aber der falsche Stand bliebe sonst fuer
+        immer stehen.
+        """
+        ticket = self.db.fetchone(
+            "SELECT creator_id, closed_at FROM open_tickets WHERE channel_id=?",
+            (channel.id,),
+        )
+        if ticket is None:
+            return
+
+        # Nur zaehlen, was noch als offen galt. Ein geschlossenes Ticket
+        # hat den Zaehler bereits gesenkt -- sonst ginge er ins Minus,
+        # beziehungsweise MAX(0, ...) verschluckte einen echten Eintrag.
+        if not ticket["closed_at"]:
+            self.db.execute(
+                "UPDATE user_ticket_counts SET ticket_count=MAX(0, ticket_count-1)"
+                " WHERE guild_id=? AND user_id=?",
+                (channel.guild.id, ticket["creator_id"]),
+            )
+
+        self.db.execute("DELETE FROM open_tickets WHERE channel_id=?", (channel.id,))
+
+        try:
+            from utils import ticket_notify
+            await ticket_notify.forget(channel.id)
+        except Exception:
+            pass
+
+    async def reconcile_counts(self):
+        """
+        Den Zaehler gegen die Wirklichkeit abgleichen.
+
+        Laeuft einmal beim Start. Wer schon einen falschen Stand hat --
+        etwa weil vor diesem Fix ein Kanal von Hand geloescht wurde --
+        kommt sonst nie wieder auf null. Der Listener oben verhindert
+        nur, dass es erneut passiert.
+        """
+        try:
+            tickets = self.db.fetchall(
+                "SELECT channel_id, guild_id, creator_id FROM open_tickets"
+                " WHERE closed_at IS NULL"
+            )
+        except Exception:
+            return
+
+        verwaist = []
+        for ticket in tickets:
+            if self.bot.get_channel(ticket["channel_id"]) is None:
+                verwaist.append(ticket)
+
+        for ticket in verwaist:
+            self.db.execute(
+                "UPDATE user_ticket_counts SET ticket_count=MAX(0, ticket_count-1)"
+                " WHERE guild_id=? AND user_id=?",
+                (ticket["guild_id"], ticket["creator_id"]),
+            )
+            self.db.execute(
+                "DELETE FROM open_tickets WHERE channel_id=?",
+                (ticket["channel_id"],),
+            )
+
+        if verwaist:
+            print(f"[tickets] {len(verwaist)} verwaiste Tickets aufgeraeumt.")
+
+    # Welcher Knopf im Ticket ruft welche Methode auf. Die Zuordnung
+    # steht hier, damit der Listener unten nach einem Neustart genau das
+    # tun kann, was der View im laufenden Betrieb taete.
+    TICKET_BUTTONS = {
+        "t_lock": ("open", "b_lock"),
+        "t_unlock": ("open", "b_unlock"),
+        "t_claim": ("open", "b_claim"),
+        "t_close": ("open", "b_close"),
+        "c_reopen": ("closed", "b_reopen"),
+        "c_transcript": ("closed", "b_transcript"),
+        "c_delete": ("closed", "b_delete"),
+    }
+
+    @commands.Cog.listener()
     async def on_interaction(self, inter):
         if inter.type != discord.InteractionType.component:
             return
         cid = inter.data.get("custom_id", "")
+
+        # Die Knoepfe IM Ticket, nach einem Neustart.
+        #
+        # Vorher fing dieser Listener nur `create_ticket_` ab. Die
+        # Knoepfe im Ticket selbst haengen an einem View, den es nach
+        # einem Deploy nicht mehr gibt -- also passierte beim Klicken
+        # gar nichts, und das Ticket liess sich nur noch von Hand
+        # loeschen. Genau das hat dann den Zaehler ruiniert.
+        #
+        # Hier wird der View neu gebaut. Die Kanal-ID steht in der
+        # Interaktion, die Kategorie in der Datenbank -- mehr braucht er
+        # nicht.
+        if cid in self.TICKET_BUTTONS:
+            # Hat schon jemand geantwortet, laeuft der urspruengliche
+            # View noch: dann nicht dazwischenfunken.
+            if inter.response.is_done():
+                return
+            return await self._dispatch_ticket_button(inter, cid)
+
         if not cid.startswith("create_ticket_"):
             return
 
@@ -360,6 +486,65 @@ class TicketCog(commands.Cog, name="Ticket System"):
         suffix = cid.split("_")[-1]
         if suffix.isdigit():
             await self.create_ticket_flow(inter, int(suffix))
+
+    async def _dispatch_ticket_button(self, inter, cid):
+        """
+        Einen Ticket-Knopf bedienen, dessen View nicht mehr existiert.
+
+        Der View wird frisch gebaut und seine Methode aufgerufen -- also
+        genau derselbe Weg wie im laufenden Betrieb. Eine zweite Fassung
+        der Logik waere die Alternative gewesen und genau deshalb
+        falsch: sie waere beim naechsten Umbau vergessen worden.
+        """
+        art, methode = self.TICKET_BUTTONS[cid]
+
+        ticket = self.db.fetchone(
+            "SELECT channel_id, category_db_id, closed_at FROM open_tickets"
+            " WHERE channel_id=?",
+            (inter.channel_id,),
+        )
+        if ticket is None:
+            return await inter.response.send_message(
+                "Dieses Ticket steht nicht mehr in der Datenbank. "
+                "Der Kanal kann gelöscht werden.",
+                ephemeral=True,
+            )
+
+        # Ein geschlossenes Ticket hat andere Knoepfe als ein offenes.
+        # Passt beides nicht zusammen, steht eine alte Nachricht im
+        # Kanal -- dann lieber sagen, was los ist, als etwas Falsches
+        # zu tun.
+        geschlossen = bool(ticket["closed_at"])
+        if (art == "closed") != geschlossen:
+            return await inter.response.send_message(
+                "Diese Nachricht gehört zu einem anderen Stand des Tickets. "
+                "Bitte die neueste Nachricht im Kanal benutzen.",
+                ephemeral=True,
+            )
+
+        if geschlossen:
+            view = ClosedTicketActionsView(
+                self, ticket["channel_id"], ticket["category_db_id"]
+            )
+        else:
+            view = TicketActionsView(
+                self, ticket["channel_id"], ticket["category_db_id"]
+            )
+
+        # Die Rollenpruefung des Views gilt weiter -- sonst duerfte nach
+        # einem Neustart jeder das Ticket schliessen.
+        if not await view.interaction_check(inter):
+            return
+
+        knopf = getattr(view, methode, None)
+        if knopf is None:
+            return
+
+        # `view.b_lock` ist ein Button-Objekt, keine Methode -- der
+        # Dekorator ersetzt sie. Die eigentliche Funktion haengt an
+        # `.callback` und nimmt nur die Interaktion; sie ist bereits an
+        # den View gebunden. Nachgeprueft mit inspect.signature.
+        await knopf.callback(inter)
 
     async def create_ticket_flow(self, inter, cat_id):
         await inter.response.defer(ephemeral=True)
@@ -632,7 +817,7 @@ class ClosedTicketActionsView(discord.ui.View):
             return False
         return True
 
-    @discord.ui.button(label="Reopen", emoji=REOPEN_EMOJI, style=discord.ButtonStyle.success)
+    @discord.ui.button(label="Reopen", emoji=REOPEN_EMOJI, style=discord.ButtonStyle.success, custom_id="c_reopen")
     async def b_reopen(self, i: discord.Interaction, button: discord.ui.Button):
         await i.response.defer(ephemeral=True)
         t = self.cog.db.fetchone("SELECT * FROM open_tickets WHERE channel_id=?", (self.ch_id,))
@@ -654,10 +839,10 @@ class ClosedTicketActionsView(discord.ui.View):
         await log_ticket_action(self.cog.db, i.guild, i.user, "Reopened", f"{i.channel.mention}")
         self.stop()
         
-    @discord.ui.button(label="Transcript", emoji=TRANSCRIPT_EMOJI, style=discord.ButtonStyle.primary)
+    @discord.ui.button(label="Transcript", emoji=TRANSCRIPT_EMOJI, style=discord.ButtonStyle.primary, custom_id="c_transcript")
     async def b_transcript(self, i, b): await self._generate_transcript(i, False)
 
-    @discord.ui.button(label="Delete", emoji=DELETE_EMOJI, style=discord.ButtonStyle.danger)
+    @discord.ui.button(label="Delete", emoji=DELETE_EMOJI, style=discord.ButtonStyle.danger, custom_id="c_delete")
     async def b_delete(self, i, b): await self._generate_transcript(i, True)
 
     async def _generate_transcript(self, i, delete_after):

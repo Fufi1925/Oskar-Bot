@@ -1,6 +1,12 @@
 {
  "commits": [
   {
+   "commit": "156cacd34a7b580318f153fc0c98754ed7ae12e3",
+   "at": "1786491599",
+   "subject": "feat(applications): Bewerbungen mit Auswahlmenue, Fragen per DM und Entscheidung",
+   "body": "Neuer Reiter. Im Dashboard legt man bis zu zwei Panels an, darin je bis\nzu acht Kategorien mit eigenen Fragen -- drei bis zwanzig. Das Panel\ngeht als Auswahlmenue in einen Kanal.\n\nWer eine Kategorie waehlt, bekommt eine DM. Der Bot stellt die Fragen\neinzeln und wartet auf die Antwort. Am Ende landet die Zusammenfassung\nin einem eingestellten Kanal, mit Annehmen und Ablehnen -- beide mit\nBegruendung als Pflichtfeld, die per DM beim Bewerber ankommt. Beim\nAnnehmen wird optional eine Rolle vergeben. Dieselben zwei Knoepfe gibt\nes im Dashboard unter Eingegangen; beide Wege rufen denselben Code auf,\ndamit nicht einer irgendwann die Rolle vergisst.\n\nNur eine offene Bewerbung pro Person, ueber alle Server hinweg. Der Bot\nfragt in der DM, also im selben Gespraechsfenster -- zwei Bewerbungen\ngleichzeitig hiessen, dass niemand mehr weiss, welche Antwort wohin\ngehoert. Der Primaerschluessel der Sitzungstabelle ist die Nutzer-ID\nund sonst nichts.\n\nEine Stunde Zeit pro Frage, Ausstieg mit abbrechen. Wer zu lange nicht\nantwortet, dessen Bewerbung verfaellt: eine vergessene Bewerbung darf\nniemanden dauerhaft blockieren. Optional eine Sperre nach einer\nAblehnung, an/aus und Tage einstellbar -- sie trifft nur die eine\nKategorie, eine Absage als Moderator soll niemanden als Supporter\nblockieren.\n\nDer Fortschritt liegt in der Datenbank, nicht in einem wait_for.\nRailway startet den Container bei jedem Deploy neu; ein wartender Task\nwaere danach weg und der Bewerber saesse vor einer Frage, die nie\nbeantwortet wird. Die Entscheidungsknoepfe tragen die Nummer in der\ncustom_id, damit auch ein frisch gestarteter Bot weiss, worum es geht.\n\nBeim Posten lehnt die Route frueh ab statt etwas Unbrauchbares zu\nschicken: ohne Kanal, ohne Kategorie, ohne Ergebniskanal oder ohne\nSchreibrechte. Der fehlende Ergebniskanal faellt sonst erst auf, wenn\ndie erste Bewerbung im Nichts landet.\n\ntest_templates schlug an, zu Recht -- ein neuer Reiter muss\nuebertragbar sein. Panels, Kategorien und Fragen gehen mit; die\neingereichten Bewerbungen und laufenden Gespraeche nicht, das sind\nDaten von Menschen.\n\n35 von 35 Mutationen erwischt. Sieben entwischten im ersten Lauf, weil\nzu viel per Textsuche geprueft war: ein Name bleibt stehen, auch wenn\nein if False davorsteht. Sie fragen jetzt den Syntaxbaum. Eine achte\nfaengt TypeScript statt des Tests ab -- nachgeprueft und im\nMutationsskript vermerkt.\n\n88 Testdateien bestanden, Boot-Test 151 Cogs / 543 Prefix / 60 Slash."
+  },
+  {
    "commit": "6b7b613a085ca59227499fe073dcbefe01f9dfe8",
    "at": "1786486992",
    "subject": "fix(tickets): Schreibrechte im eigenen Ticket; fix(ui): verrutschte Schalter; feat: Abschied-Reiter",
@@ -231,12 +237,6 @@
   {
    "commit": "db2c39a51010840c1efc3dbcf0cba30205f44cca",
    "at": "1786136914",
-   "subject": "feat(phantom): EXACT full original Aleks ticket bot (5653 lines - every function kept, no removal, no shortening)",
-   "body": ""
-  },
-  {
-   "commit": "8ffccf489c7432153bca6e52f7c8fd8bbd701dde",
-   "at": "1786136908",
    "subject": "feat(phantom): EXACT full original Aleks ticket bot (5653 lines - every function kept, no removal, no shortening)",
    "body": ""
   }
