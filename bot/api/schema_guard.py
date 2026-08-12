@@ -408,6 +408,7 @@ SCHEMA: dict[str, tuple[str, ...]] = {
             questions TEXT DEFAULT '[]',
             results_channel_id INTEGER,
             accept_role_id INTEGER,
+            accept_roles TEXT DEFAULT '',
             staff_roles TEXT DEFAULT '',
             position INTEGER DEFAULT 0
         )""",
@@ -545,6 +546,12 @@ ADDED_COLUMNS = (
     # leaving a dead one behind next to the new message.
     ("db/verification.db", "verification_config", "panel_message_id", "INTEGER"),
     ("db/verification.db", "verification_config", "panel_channel_id", "INTEGER"),
+    # Mehrere Rollen beim Annehmen einer Bewerbung. Die alte
+    # accept_role_id bleibt stehen und wird weiter gelesen, damit
+    # bestehende Kategorien ihre Rolle nicht still verlieren --
+    # CREATE TABLE IF NOT EXISTS aendert an einer vorhandenen Tabelle
+    # nichts, dafuer braucht es diesen ALTER.
+    ("db/applications.db", "app_categories", "accept_roles", "TEXT DEFAULT ''"),
 )
 
 

@@ -1,6 +1,12 @@
 {
  "commits": [
   {
+   "commit": "d3450b4634b08ef1abf1a3f7c5d6e35a6e5fd327",
+   "at": "1786493062",
+   "subject": "fix(tickets): Knoepfe ueberleben Deploy, Zaehler stimmt; fix(proxy): Unknown API scope",
+   "body": "Drei gemeldete Fehler, die zusammenhaengen.\n\n1. Nach einem Deploy taten die Knoepfe in offenen Tickets nichts mehr.\nload_persistent_views stellte nur die Panels wieder her; die Knoepfe im\nTicket selbst -- Sperren, Claim, Schliessen und im geschlossenen Ticket\nWiederoeffnen, Transkript, Loeschen -- kamen dort gar nicht vor. Discord\nschickt die Interaktion an einen View, den es nach dem Neustart nicht\nmehr gibt, also passierte nichts. Die drei Knoepfe im geschlossenen\nTicket hatten ausserdem ueberhaupt keine custom_id und konnten einen\nNeustart damit nie ueberleben.\n\nadd_view waere der naheliegende Weg gewesen und ist genau deshalb\nfalsch: die IDs sind fuer alle Tickets gleich, und ein View ohne\nmessage_id landet im ViewStore unter dem Schluessel None -- der zweite\nueberschreibt den ersten, am Ende reagiert ein zufaelliges Ticket.\nNachgeprueft in discord/ui/view.py. Die Nachrichten-ID, mit der es\nginge, steht nirgends. Stattdessen faengt on_interaction die Knoepfe ab,\nbaut den View aus Kanal-ID und Kategorie neu und ruft dieselbe Methode\nauf wie im laufenden Betrieb -- inklusive Rollenpruefung.\n\n2. Drei von drei Tickets offen, obwohl es die Kanaele nicht mehr gab.\nuser_ticket_counts sank nur beim Schliessen ueber den Knopf. Wer den\nKanal von Hand loescht -- was nach Fehler 1 die einzige Moeglichkeit\nwar -- liess den Zaehler stehen. Jetzt raeumt on_guild_channel_delete\nauf, und beim Start gleicht reconcile_counts den Stand gegen die\nwirklich vorhandenen Kanaele ab; ein bereits verzaehlter Stand kaeme\nsonst nie wieder auf null. Geschlossene Tickets werden dabei nicht\ndoppelt abgezogen.\n\n3. Unknown API scope beim Bewerbungs-Panel. Der Dashboard-Proxy kennt\njeden Bereich einzeln, /applications stand nicht darin und fiel ans\nEnde der Funktion. Das ist der sechste Fall dieser Art, deshalb prueft\nder Test jetzt jeden Reiter mit eigener Route gegen die Liste im Proxy.\n\n18 von 18 Mutationen erwischt. Fuenf entwischten zuerst: die Listener\nwurden nur gelesen statt ausgefuehrt, und im Testdatensatz fehlte ein\ngeschlossenes Ticket -- ohne das faellt ein fehlendes\nWHERE closed_at IS NULL nicht auf. Beides ist behoben.\n\n89 Testdateien bestanden, Boot-Test 151 Cogs / 543 Prefix / 60 Slash."
+  },
+  {
    "commit": "156cacd34a7b580318f153fc0c98754ed7ae12e3",
    "at": "1786491599",
    "subject": "feat(applications): Bewerbungen mit Auswahlmenue, Fragen per DM und Entscheidung",
@@ -231,12 +237,6 @@
   {
    "commit": "918d36b40c82624d666a42e971a72c851f771ecc",
    "at": "1786136921",
-   "subject": "feat(phantom): EXACT full original Aleks ticket bot (5653 lines - every function kept, no removal, no shortening)",
-   "body": ""
-  },
-  {
-   "commit": "db2c39a51010840c1efc3dbcf0cba30205f44cca",
-   "at": "1786136914",
    "subject": "feat(phantom): EXACT full original Aleks ticket bot (5653 lines - every function kept, no removal, no shortening)",
    "body": ""
   }

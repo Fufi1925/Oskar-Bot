@@ -37,6 +37,7 @@ async def get_panels(guild_id: int, bot: "universitybot" = Depends(get_bot)):
             "categories": store.MAX_CATEGORIES,
             "min_questions": store.MIN_QUESTIONS,
             "max_questions": store.MAX_QUESTIONS,
+            "accept_roles": store.MAX_ACCEPT_ROLES,
         },
     }
 
@@ -278,17 +279,19 @@ async def decide_entry(
     kategorie = await store.get_category(bewerbung["category_id"])
     angenommen = status == store.STATUS_ACCEPTED
 
-    # Rolle vergeben, wenn eingestellt.
+    # Rollen vergeben, wenn eingestellt -- ueber dieselbe Funktion, die
+    # auch die Knoepfe in Discord benutzen. Zwei Fassungen davon liefen
+    # frueher oder spaeter auseinander.
     rollen_hinweis = ""
-    if angenommen and guild and kategorie and kategorie.get("accept_role_id"):
-        rolle = guild.get_role(int(kategorie["accept_role_id"]))
+    nicht_vergeben: list[str] = []
+    if angenommen and guild and kategorie:
         mitglied = guild.get_member(int(bewerbung["user_id"]))
-        if rolle and mitglied:
-            try:
-                await mitglied.add_roles(rolle, reason="Bewerbung angenommen")
-                rollen_hinweis = f"\nDu hast die Rolle **{rolle.name}** bekommen."
-            except discord.HTTPException:
-                pass
+        vergeben, nicht_vergeben = await store.grant_accept_roles(
+            guild, mitglied, kategorie
+        )
+        if vergeben:
+            wort = "die Rolle" if len(vergeben) == 1 else "die Rollen"
+            rollen_hinweis = f"\nDu hast {wort} **{', '.join(vergeben)}** bekommen."
 
     # Die Nachricht im Kanal entwerten, damit dort niemand mehr klickt.
     if bewerbung.get("message_id") and kategorie:
@@ -360,5 +363,11 @@ async def decide_entry(
         f"application_{status}", actor=actor, guild_id=guild_id,
         detail=f"#{application_id}: {grund[:200]}",
     )
-    return {"status": "success", "dm_delivered": zugestellt,
-            "application": bewerbung}
+    return {
+        "status": "success",
+        "dm_delivered": zugestellt,
+        # Was nicht vergeben werden konnte, muss das Dashboard anzeigen --
+        # sonst glaubt das Team, die Rollen seien durch.
+        "roles_failed": nicht_vergeben,
+        "application": bewerbung,
+    }

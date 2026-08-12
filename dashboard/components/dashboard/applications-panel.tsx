@@ -21,7 +21,7 @@ import {
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { ChannelPicker, MultiRolePicker, RolePicker } from "@/components/dashboard/pickers";
+import { ChannelPicker, MultiRolePicker } from "@/components/dashboard/pickers";
 import { SwitchToggle } from "@/components/dashboard/form-elements";
 
 const INPUT =
@@ -34,7 +34,8 @@ interface Category {
   description: string;
   questions: string[];
   results_channel_id: string | null;
-  accept_role_id: string | null;
+  /** Bis zu fuenf Rollen, die beim Annehmen vergeben werden. */
+  accept_roles: string[];
   staff_roles: string[];
 }
 
@@ -278,17 +279,27 @@ function CategoryCard({
               />
             </Field>
             <Field
-              label="Rolle beim Annehmen"
-              hint="Wird automatisch vergeben. Optional."
+              label={`Rollen beim Annehmen (max. ${limits.accept_roles ?? 5})`}
+              hint="Werden automatisch vergeben. Optional."
             >
-              <RolePicker
+              <MultiRolePicker
                 guildId={guildId}
-                value={entwurf.accept_role_id || ""}
-                onChange={(id) =>
-                  setEntwurf({ ...entwurf, accept_role_id: id || null })
+                value={entwurf.accept_roles || []}
+                onChange={(ids) =>
+                  // Die Grenze hier UND im Bot: wer sie im Browser
+                  // umgeht, wird serverseitig trotzdem gekappt.
+                  setEntwurf({
+                    ...entwurf,
+                    accept_roles: ids.slice(0, limits.accept_roles ?? 5),
+                  })
                 }
-                placeholder="Rolle wählen (optional)"
+                placeholder="Rollen wählen (optional)"
               />
+              {(entwurf.accept_roles || []).length >= (limits.accept_roles ?? 5) && (
+                <span className="block text-[11px] text-amber-400 mt-1">
+                  Mehr als {limits.accept_roles ?? 5} Rollen gehen nicht.
+                </span>
+              )}
             </Field>
           </div>
 
@@ -415,9 +426,17 @@ export function ApplicationsPanel({ guildId }: { guildId: string }) {
     try {
       const res = await api.decideApplication(guildId, id, status, text);
       toast.success(
-        status === "accepted" ? "Angenommen." : "Abgelehnt." +
-        (res?.dm_delivered ? "" : " (DM konnte nicht zugestellt werden.)"),
+        (status === "accepted" ? "Angenommen." : "Abgelehnt.") +
+          (res?.dm_delivered ? "" : " (DM konnte nicht zugestellt werden.)"),
       );
+      // Rollen, die der Bot nicht vergeben konnte, muss jemand von Hand
+      // nachtragen — das darf nicht in einer Erfolgsmeldung untergehen.
+      if (res?.roles_failed?.length) {
+        toast.error(
+          `Nicht vergeben: ${res.roles_failed.join(", ")} — bitte von Hand nachtragen.`,
+          { duration: 10000 },
+        );
+      }
       setGrund({ ...grund, [id]: "" });
       await ladeEintraege();
     } catch (err: any) {
@@ -692,7 +711,7 @@ export function ApplicationsPanel({ guildId }: { guildId: string }) {
                             description: "",
                             questions: ["", "", ""],
                             results_channel_id: null,
-                            accept_role_id: null,
+                            accept_roles: [],
                             staff_roles: [],
                           },
                         ],

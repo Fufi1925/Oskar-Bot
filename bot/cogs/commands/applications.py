@@ -30,6 +30,7 @@ worum es geht.
 """
 
 import logging
+import time
 
 import discord
 from discord.ext import commands, tasks
@@ -206,6 +207,59 @@ class Applications(commands.Cog):
                 except Exception:
                     pass
 
+        await self._resume_sessions()
+
+    async def _resume_sessions(self):
+        """
+        Laufende Bewerbungen nach einem Neustart wieder anstossen.
+
+        Der Fehler, den das behebt: die Sitzung steht in der Datenbank,
+        aber der Bot stellt die naechste Frage nur als Antwort auf eine
+        Nachricht. Wer beim Deploy gerade auf eine Frage wartete,
+        wartete danach fuer immer -- er antwortet nicht, weil er auf
+        eine Frage wartet, und die kommt nicht, weil er nicht antwortet.
+
+        Deshalb wird die offene Frage einmal neu gestellt. Dass sie
+        doppelt ankommt, ist der deutlich kleinere Schaden.
+        """
+        try:
+            offen = await store.all_sessions()
+        except Exception as exc:
+            logger.debug(f"Laufende Bewerbungen nicht lesbar: {exc}")
+            return
+
+        for sitzung in offen:
+            kategorie = await store.get_category(sitzung["category_id"])
+            if kategorie is None:
+                # Die Kategorie wurde geloescht -- die Sitzung kann
+                # nicht mehr weitergehen und blockiert die Person sonst.
+                await store.end_session(sitzung["user_id"])
+                continue
+
+            index = sitzung["question_index"]
+            if index >= len(kategorie["questions"]):
+                # Alle Fragen beantwortet, aber das Absenden hat den
+                # Neustart nicht ueberlebt. Jetzt nachholen.
+                nutzer = self.bot.get_user(sitzung["user_id"])
+                if nutzer is not None:
+                    await self._submit(nutzer, sitzung["guild_id"], kategorie,
+                                       sitzung["answers"])
+                continue
+
+            nutzer = self.bot.get_user(sitzung["user_id"])
+            if nutzer is None:
+                continue
+            try:
+                dm = await nutzer.create_dm()
+                await dm.send(view=CV2(
+                    "Weiter geht's",
+                    "Der Bot wurde neu gestartet. Hier ist deine offene "
+                    "Frage noch einmal:",
+                ))
+            except (discord.Forbidden, discord.HTTPException):
+                continue
+            await self._ask_next(nutzer, kategorie, index)
+
     # ── Der Einstieg ─────────────────────────────────────────────────
 
     async def start_application(self, interaction: discord.Interaction,
@@ -318,6 +372,14 @@ class Applications(commands.Cog):
 
         sitzung = await store.get_session(message.author.id)
         if sitzung is None:
+            # Kein laufendes Gespraech -- aber vielleicht eine
+            # abgeschickte Bewerbung, die zurueckgezogen werden soll.
+            # Ohne das ist blockiert, wer sich vertippt hat: eine offene
+            # Bewerbung laesst keine zweite zu, und bis das Team
+            # entscheidet koennen Tage vergehen.
+            if message.content.strip().lower() in ("zurückziehen", "zurueckziehen",
+                                                   "withdraw"):
+                await self._withdraw(message.author, message.channel)
             return
 
         if message.content.strip().lower() in ("abbrechen", "cancel", "stop"):
@@ -353,6 +415,54 @@ class Applications(commands.Cog):
         await self._submit(message.author, sitzung["guild_id"], kategorie,
                            aktualisiert["answers"])
 
+    async def _withdraw(self, user, kanal):
+        """Eine abgeschickte Bewerbung zurueckziehen."""
+        bewerbung = await store.withdraw(user.id)
+        if bewerbung is None:
+            return await kanal.send(view=CV2(
+                "Nichts zurueckzuziehen",
+                "Du hast gerade keine offene Bewerbung.",
+            ))
+
+        # Die Nachricht im Team-Kanal entwerten, sonst entscheidet
+        # jemand ueber eine Bewerbung, die es nicht mehr gibt.
+        kategorie = await store.get_category(bewerbung["category_id"])
+        if bewerbung.get("message_id") and kategorie:
+            kanal_id = kategorie.get("results_channel_id")
+            if not kanal_id:
+                panel = await store.get_panel(kategorie["panel_id"])
+                kanal_id = (panel or {}).get("results_channel_id")
+            ziel = self.bot.get_channel(int(kanal_id)) if kanal_id else None
+            if ziel is not None:
+                try:
+                    nachricht = await ziel.fetch_message(int(bewerbung["message_id"]))
+                    alt_embed = nachricht.embeds[0] if nachricht.embeds else None
+                    embed = discord.Embed(
+                        title=(alt_embed.title if alt_embed else "Bewerbung"),
+                        description=(alt_embed.description if alt_embed else ""),
+                        color=0x64748B,
+                    )
+                    for feld in (alt_embed.fields if alt_embed else []):
+                        embed.add_field(name=feld.name, value=feld.value,
+                                        inline=feld.inline)
+                    embed.add_field(
+                        name="Zurueckgezogen",
+                        value="Der Bewerber hat die Bewerbung selbst zurueckgezogen.",
+                        inline=False,
+                    )
+                    embed.set_footer(text=f"Bewerbung #{bewerbung['id']}")
+                    await nachricht.edit(
+                        view=from_embed(embed, DecisionView(self, entschieden=True))
+                    )
+                except (discord.NotFound, discord.Forbidden, discord.HTTPException):
+                    pass
+
+        await kanal.send(view=CV2(
+            f"{TICK} Zurueckgezogen",
+            "Deine Bewerbung wurde zurueckgezogen. Du kannst dich jetzt "
+            "wieder neu bewerben.",
+        ))
+
     async def _submit(self, user, guild_id: int, kategorie: dict,
                       antworten: list[str]):
         await store.end_session(user.id)
@@ -383,9 +493,45 @@ class Applications(commands.Cog):
 
         embed = self._build_embed(user, guild, kategorie, antworten,
                                   bewerbung_id)
+
+        # Das Team erwaehnen.
+        #
+        # Ohne das landet die Bewerbung im Kanal und niemand merkt es --
+        # wer nicht zufaellig hinsieht, laesst den Bewerber tagelang
+        # warten. Nur Rollen, die es noch gibt, und nur solche, die der
+        # Bot auch erwaehnen darf; sonst steht dort eine tote ID.
+        erwaehnungen = []
+        for rollen_id in kategorie.get("staff_roles") or []:
+            if not str(rollen_id).isdigit():
+                continue
+            rolle = guild.get_role(int(rollen_id))
+            if rolle is not None:
+                erwaehnungen.append(rolle.mention)
+
+        # Die Erwaehnung gehoert IN die Karte, nicht daneben.
+        #
+        # `from_embed` baut eine Components-V2-Ansicht, und mit dem
+        # V2-Flag gibt es kein content-Feld mehr -- Discord antwortet
+        # mit 50035. Nachgeprueft: utils.panels.Panel ist eine
+        # LayoutView. Also wird die Zeile an die Beschreibung gehaengt.
+        if erwaehnungen:
+            embed.description = f"{' '.join(erwaehnungen)}\n{embed.description}"
+
+        # allowed_mentions ausdruecklich: der Bot soll die Team-Rollen
+        # anpingen duerfen, aber nichts anderes -- eine Antwort des
+        # Bewerbers koennte sonst @everyone enthalten.
+        erlaubt = discord.AllowedMentions(
+            everyone=False, users=False,
+            roles=[r for r in (guild.get_role(int(x))
+                               for x in (kategorie.get("staff_roles") or [])
+                               if str(x).isdigit())
+                   if r is not None],
+        )
+
         try:
             nachricht = await kanal.send(
-                view=from_embed(embed, DecisionView(self, bewerbung_id))
+                view=from_embed(embed, DecisionView(self, bewerbung_id)),
+                allowed_mentions=erlaubt,
             )
             await store.attach_message(bewerbung_id, nachricht.id)
         except discord.Forbidden:
@@ -397,7 +543,8 @@ class Applications(commands.Cog):
             f"{TICK} Bewerbung abgeschickt",
             f"Deine Bewerbung für **{kategorie['name']}** auf "
             f"**{guild.name}** ist eingegangen.\n"
-            f"Du bekommst hier Bescheid, sobald das Team entschieden hat.",
+            f"Du bekommst hier Bescheid, sobald das Team entschieden hat.\n\n"
+            f"-# Mit `zurückziehen` kannst du sie hier wieder zurücknehmen.",
         ))
 
     def _build_embed(self, user, guild, kategorie: dict,
@@ -417,6 +564,13 @@ class Applications(commands.Cog):
                 value=(antwort or "—")[:1024],
                 inline=False,
             )
+        # Wann sie eingegangen ist -- sonst sieht man nicht, ob eine
+        # Bewerbung von heute oder von letzter Woche ist.
+        embed.add_field(
+            name="Eingegangen",
+            value=f"<t:{int(time.time())}:R>",
+            inline=False,
+        )
         embed.set_footer(text=f"Bewerbung #{bewerbung_id}")
         try:
             embed.set_thumbnail(url=user.display_avatar.url)
@@ -540,22 +694,34 @@ class Applications(commands.Cog):
         except (discord.Forbidden, discord.HTTPException, AttributeError):
             pass
 
-        # Die Rolle vergeben, falls eingestellt.
+        # Die Rollen vergeben, falls eingestellt. Bis zu fünf.
         rollen_hinweis = ""
-        if angenommen and kategorie and kategorie.get("accept_role_id"):
+        problem_hinweis = ""
+        if angenommen and kategorie:
             guild = interaction.guild
-            rolle = guild.get_role(int(kategorie["accept_role_id"])) if guild else None
             mitglied = guild.get_member(int(bewerbung["user_id"])) if guild else None
-            if rolle and mitglied:
-                try:
-                    await mitglied.add_roles(rolle, reason="Bewerbung angenommen")
-                    rollen_hinweis = f"\nDu hast die Rolle **{rolle.name}** bekommen."
-                except discord.Forbidden:
-                    rollen_hinweis = ""
-                    logger.warning(
-                        f"Rolle {rolle.id} konnte nicht vergeben werden — "
-                        f"fehlende Rechte oder zu niedrige Bot-Rolle."
-                    )
+            vergeben, gescheitert = await store.grant_accept_roles(
+                guild, mitglied, kategorie
+            )
+            if vergeben:
+                wort = "die Rolle" if len(vergeben) == 1 else "die Rollen"
+                rollen_hinweis = (
+                    f"\nDu hast {wort} **{', '.join(vergeben)}** bekommen."
+                )
+            if gescheitert:
+                # Nicht verschweigen: was der Bot nicht vergeben konnte,
+                # muss jemand von Hand nachtragen. Der Hinweis wird
+                # gesammelt und unten an die Antwort gehaengt -- ein
+                # followup ginge hier ins Leere, weil auf die Interaktion
+                # noch gar nicht geantwortet wurde.
+                logger.warning(
+                    f"Bewerbung #{application_id}: nicht vergeben — "
+                    f"{', '.join(gescheitert)}"
+                )
+                problem_hinweis = (
+                    f"\n{CROSS} Nicht vergeben: {', '.join(gescheitert)} "
+                    f"— bitte von Hand nachtragen."
+                )
 
         # Und die Person benachrichtigen.
         nutzer = self.bot.get_user(int(bewerbung["user_id"]))
@@ -587,7 +753,7 @@ class Applications(commands.Cog):
 
         await interaction.response.send_message(
             f"{TICK} Bewerbung #{application_id} "
-            f"{'angenommen' if angenommen else 'abgelehnt'}.",
+            f"{'angenommen' if angenommen else 'abgelehnt'}.{problem_hinweis}",
             ephemeral=True,
         )
 

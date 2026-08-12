@@ -41,6 +41,9 @@ APP_DB = "db/applications.db"
 MAX_PANELS = 2
 MAX_CATEGORIES = 8
 MIN_QUESTIONS = 3
+# Beim Annehmen vergebene Rollen. Fuenf reicht fuer jede Staffelung,
+# die man von Hand pflegen will -- darueber wird es unuebersichtlich.
+MAX_ACCEPT_ROLES = 5
 MAX_QUESTIONS = 20
 
 # Eine Stunde pro Frage. Wer nachdenken will, soll das koennen; laenger
@@ -89,6 +92,7 @@ async def ensure_schema(db) -> None:
         " questions TEXT DEFAULT '[]',"
         " results_channel_id INTEGER,"
         " accept_role_id INTEGER,"
+        " accept_roles TEXT DEFAULT '',"
         " staff_roles TEXT DEFAULT '',"
         " position INTEGER DEFAULT 0)"
     )
@@ -126,6 +130,26 @@ async def ensure_schema(db) -> None:
         "CREATE INDEX IF NOT EXISTS idx_app_cats_panel"
         " ON app_categories (panel_id, position)"
     )
+
+    # Spalten, die spaeter dazugekommen sind.
+    #
+    # CREATE TABLE IF NOT EXISTS aendert an einer bestehenden Tabelle
+    # nichts. Auf einer Installation, die vor dieser Aenderung lief,
+    # fehlt `accept_roles` deshalb -- und jede Abfrage scheitert mit
+    # "no such column: accept_roles", also ist der ganze Reiter tot.
+    # Nachgemessen, nicht vermutet.
+    #
+    # schema_guard traegt die Spalte beim Start ebenfalls nach; hier
+    # steht es zusaetzlich, damit der Store fuer sich allein
+    # funktioniert und nicht davon abhaengt, dass vorher jemand anderes
+    # aufgeraeumt hat.
+    async with db.execute("PRAGMA table_info(app_categories)") as cursor:
+        spalten = {r[1] for r in await cursor.fetchall()}
+    if spalten and "accept_roles" not in spalten:
+        await db.execute(
+            "ALTER TABLE app_categories ADD COLUMN accept_roles TEXT DEFAULT ''"
+        )
+
     await db.commit()
 
 
@@ -148,7 +172,8 @@ async def list_panels(guild_id: int) -> list[dict]:
         for r in zeilen:
             async with db.execute(
                 "SELECT category_id, name, emoji, description, questions,"
-                " results_channel_id, accept_role_id, staff_roles, position"
+                " results_channel_id, accept_role_id, accept_roles,"
+                " staff_roles, position"
                 " FROM app_categories WHERE panel_id = ?"
                 " ORDER BY position, category_id",
                 (r[0],),
@@ -181,6 +206,16 @@ def _category_row(c) -> dict:
         fragen = json.loads(c[4] or "[]")
     except (ValueError, TypeError):
         fragen = []
+    # Mehrere Rollen beim Annehmen.
+    #
+    # Frueher war es genau eine, in `accept_role_id`. Die Spalte bleibt
+    # stehen und wird mitgelesen: eine Kategorie, die vor dieser
+    # Aenderung eingerichtet wurde, verlaere sonst still ihre Rolle, und
+    # das faellt erst auf, wenn jemand angenommen wird.
+    rollen = [x for x in (c[7] or "").split(",") if x]
+    if not rollen and c[6]:
+        rollen = [str(c[6])]
+
     return {
         "category_id": int(c[0]),
         "name": c[1],
@@ -188,9 +223,11 @@ def _category_row(c) -> dict:
         "description": c[3] or "",
         "questions": fragen if isinstance(fragen, list) else [],
         "results_channel_id": str(c[5]) if c[5] else None,
-        "accept_role_id": str(c[6]) if c[6] else None,
-        "staff_roles": [x for x in (c[7] or "").split(",") if x],
-        "position": int(c[8] or 0),
+        # Bleibt fuer alte Aufrufer erhalten -- die erste der Rollen.
+        "accept_role_id": rollen[0] if rollen else None,
+        "accept_roles": rollen,
+        "staff_roles": [x for x in (c[8] or "").split(",") if x],
+        "position": int(c[9] or 0),
     }
 
 
@@ -327,10 +364,27 @@ async def upsert_category(guild_id: int, panel_id: int, data: dict) -> dict:
         )
 
     ergebnis_kanal = str(data.get("results_channel_id") or "").strip()
-    rolle = str(data.get("accept_role_id") or "").strip()
     team = ",".join(
         str(r) for r in (data.get("staff_roles") or []) if str(r).isdigit()
     )
+
+    # Die Rollen beim Annehmen. `accept_role_id` bleibt als Eingabe
+    # erlaubt, damit ein alter Aufrufer nichts kaputtmacht -- doppelte
+    # werden entfernt, ohne die Reihenfolge zu verlieren.
+    roh = data.get("accept_roles")
+    if roh is None and data.get("accept_role_id"):
+        roh = [data["accept_role_id"]]
+    rollen: list[str] = []
+    for r in (roh or []):
+        text = str(r).strip()
+        if text.isdigit() and text not in rollen:
+            rollen.append(text)
+        if len(rollen) >= MAX_ACCEPT_ROLES:
+            break
+    accept_roles = ",".join(rollen)
+    # Die alte Spalte mitschreiben: sonst zeigt eine Fassung des Bots,
+    # die diese Aenderung noch nicht kennt, gar keine Rolle mehr an.
+    erste = int(rollen[0]) if rollen else None
 
     async with db_paths.connect(APP_DB) as db:
         await ensure_schema(db)
@@ -339,13 +393,14 @@ async def upsert_category(guild_id: int, panel_id: int, data: dict) -> dict:
             await db.execute(
                 "UPDATE app_categories SET name = ?, emoji = ?, description = ?,"
                 " questions = ?, results_channel_id = ?, accept_role_id = ?,"
-                " staff_roles = ? WHERE category_id = ? AND guild_id = ?",
+                " accept_roles = ?, staff_roles = ?"
+                " WHERE category_id = ? AND guild_id = ?",
                 (
                     name, str(data.get("emoji", ""))[:80],
                     str(data.get("description", ""))[:100],
                     json.dumps(fragen),
                     int(ergebnis_kanal) if ergebnis_kanal.isdigit() else None,
-                    int(rolle) if rolle.isdigit() else None,
+                    erste, accept_roles,
                     team, int(kategorie_id), guild_id,
                 ),
             )
@@ -362,13 +417,13 @@ async def upsert_category(guild_id: int, panel_id: int, data: dict) -> dict:
         cursor = await db.execute(
             "INSERT INTO app_categories (panel_id, guild_id, name, emoji,"
             " description, questions, results_channel_id, accept_role_id,"
-            " staff_roles, position)"
-            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            " accept_roles, staff_roles, position)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 panel_id, guild_id, name, str(data.get("emoji", ""))[:80],
                 str(data.get("description", ""))[:100], json.dumps(fragen),
                 int(ergebnis_kanal) if ergebnis_kanal.isdigit() else None,
-                int(rolle) if rolle.isdigit() else None,
+                erste, accept_roles,
                 team, int(row[0] or 0),
             ),
         )
@@ -392,8 +447,8 @@ async def get_category(category_id: int) -> dict | None:
         await ensure_schema(db)
         async with db.execute(
             "SELECT category_id, name, emoji, description, questions,"
-            " results_channel_id, accept_role_id, staff_roles, position,"
-            " panel_id, guild_id"
+            " results_channel_id, accept_role_id, accept_roles,"
+            " staff_roles, position, panel_id, guild_id"
             " FROM app_categories WHERE category_id = ?",
             (category_id,),
         ) as cursor:
@@ -418,6 +473,50 @@ async def get_panel(panel_id: int) -> dict | None:
         return None
     alle = await list_panels(int(row[0]))
     return next((p for p in alle if p["panel_id"] == panel_id), None)
+
+
+async def grant_accept_roles(guild, member, kategorie: dict) -> tuple[list, list]:
+    """
+    Die Rollen beim Annehmen vergeben.
+
+    Gibt ``(vergeben, gescheitert)`` zurueck -- beides Listen von Namen.
+    Was scheitert, wird nicht verschwiegen: eine Rolle, die der Bot
+    nicht vergeben darf, muss jemand von Hand nachtragen, und dafuer
+    muss er davon wissen.
+
+    Steht hier und nicht im Cog, weil zwei Wege annehmen koennen: die
+    Knoepfe in Discord und das Dashboard. Zwei Fassungen davon liefen
+    frueher oder spaeter auseinander -- eine vergisst die Rolle.
+    """
+    import discord
+
+    if guild is None or member is None:
+        return [], []
+
+    vergeben, gescheitert = [], []
+    for rollen_id in kategorie.get("accept_roles") or []:
+        if not str(rollen_id).isdigit():
+            continue
+        rolle = guild.get_role(int(rollen_id))
+        if rolle is None:
+            gescheitert.append(f"Unbekannte Rolle ({rollen_id})")
+            continue
+        # Die eigene Rollenordnung vorher pruefen: Discord lehnt sonst
+        # mit 403 ab, und der Grund steht nur im Log.
+        if guild.me is not None and rolle >= guild.me.top_role:
+            gescheitert.append(f"{rolle.name} (steht ueber der Bot-Rolle)")
+            continue
+        if rolle in member.roles:
+            continue
+        try:
+            await member.add_roles(rolle, reason="Bewerbung angenommen")
+            vergeben.append(rolle.name)
+        except discord.Forbidden:
+            gescheitert.append(f"{rolle.name} (keine Berechtigung)")
+        except discord.HTTPException as exc:
+            gescheitert.append(f"{rolle.name} ({exc})")
+
+    return vergeben, gescheitert
 
 
 # ── Laufende Gespraeche ──────────────────────────────────────────────
@@ -497,6 +596,70 @@ async def end_session(user_id: int) -> None:
         await ensure_schema(db)
         await db.execute("DELETE FROM active_sessions WHERE user_id = ?", (user_id,))
         await db.commit()
+
+
+async def all_sessions() -> list[dict]:
+    """
+    Jedes laufende Gespraech.
+
+    Wird nach einem Neustart gebraucht: die offene Frage muss noch
+    einmal gestellt werden, sonst wartet der Bewerber auf eine
+    Nachricht, die nie wieder kommt.
+    """
+    async with db_paths.connect(APP_DB) as db:
+        await ensure_schema(db)
+        async with db.execute(
+            "SELECT user_id, guild_id, category_id, question_index, answers,"
+            " started_at, last_prompt_at FROM active_sessions"
+        ) as cursor:
+            zeilen = await cursor.fetchall()
+
+    ergebnis = []
+    for r in zeilen:
+        try:
+            antworten = json.loads(r[4] or "[]")
+        except (ValueError, TypeError):
+            antworten = []
+        ergebnis.append({
+            "user_id": int(r[0]),
+            "guild_id": int(r[1]),
+            "category_id": int(r[2]),
+            "question_index": int(r[3] or 0),
+            "answers": antworten,
+            "started_at": int(r[5]),
+            "last_prompt_at": int(r[6]),
+        })
+    return ergebnis
+
+
+async def withdraw(user_id: int) -> dict | None:
+    """
+    Eine abgeschickte Bewerbung zurueckziehen.
+
+    Ohne das ist blockiert, wer sich vertippt hat: eine offene
+    Bewerbung laesst keine zweite zu, und bis das Team entscheidet
+    koennen Tage vergehen. Gibt die Bewerbung zurueck, damit der
+    Aufrufer die Nachricht im Kanal entwerten kann.
+    """
+    async with db_paths.connect(APP_DB) as db:
+        await ensure_schema(db)
+        async with db.execute(
+            "SELECT id FROM applications WHERE user_id = ? AND status = 'open'"
+            " ORDER BY created_at DESC LIMIT 1",
+            (user_id,),
+        ) as cursor:
+            row = await cursor.fetchone()
+        if row is None:
+            return None
+        bewerbung_id = int(row[0])
+        await db.execute(
+            "UPDATE applications SET status = ?, decided_at = ?"
+            " WHERE id = ? AND status = 'open'",
+            (STATUS_CANCELLED, int(time.time()), bewerbung_id),
+        )
+        await db.commit()
+
+    return await get_application(bewerbung_id)
 
 
 async def stale_sessions(now: int | None = None) -> list[dict]:
