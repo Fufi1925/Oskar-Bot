@@ -35,6 +35,7 @@ import {
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { ConfigTransferPanel } from "@/components/dashboard/config-transfer-panel";
+import { HistoryCharts } from "@/components/dashboard/history-charts";
 
 const MODULE_ICONS: Record<string, any> = {
   welcome: SmilePlus,
@@ -349,6 +350,12 @@ export default function GuildOverviewPage({
               </span>
             </div>
           </div>
+
+          {/* Der Verlauf. Steht direkt unter den Kennzahlen, weil er
+              dieselbe Frage in der Zeit beantwortet: die Kopfzeile
+              sagt, wie viele Mitglieder es sind, das Diagramm sagt,
+              ob es mehr werden. */}
+          <HistoryCharts guildId={params.guildId} />
 
           {/* Nächste Schritte */}
           {naechste.length > 0 && (

@@ -106,6 +106,7 @@ from .events.ai import AIResponses
 from .events.stickymessage import StickyMessageListener
 from .events.feature_enforcement import FeatureEnforcement
 from .events.guild_settings_enforcement import GuildSettingsEnforcement
+from .events.guild_history import GuildHistory
 
 ########-------HELP-------########
 from .universitybot.antinuke import _antinuke
@@ -325,6 +326,7 @@ async def setup(bot: universitybot):
   await bot.add_cog(AIResponses(bot))
   await bot.add_cog(FeatureEnforcement(bot))
   await bot.add_cog(GuildSettingsEnforcement(bot))
+  await bot.add_cog(GuildHistory(bot))
 
 
   await bot.add_cog(AntiMemberUpdate(bot))

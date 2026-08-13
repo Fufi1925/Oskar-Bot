@@ -39,6 +39,7 @@ import { PingReactionsPanel } from "@/components/dashboard/ping-reactions-panel"
 import { DashboardUsersPanel } from "@/components/dashboard/dashboard-users-panel";
 import { UserLookupPanel } from "@/components/dashboard/user-lookup-panel";
 import { ServersPanel } from "@/components/dashboard/servers-panel";
+import { OverviewCharts } from "@/components/dashboard/overview-charts";
 
 
 type TabId = "members" | "channels" | "server" | "scans" | "broadcast" | "system" | "features" | "health" | "team" | "access" | "reports" | "audit" | "approvals" | "botsettings" | "backups" | "warnings" | "usage" | "dashusers" | "servers" | "premium" | "speedrun" | "tester" | "pingreactions" | "templates" | "userlookup" | "webapply";
@@ -54,18 +55,18 @@ type QuickAction = {
 };
 
 const tabs: Array<{ id: TabId; label: string; icon: any }> = [
-  { id: "members", label: "Members", icon: Users },
-  { id: "channels", label: "Channels", icon: Hash },
+  { id: "members", label: "Mitglieder", icon: Users },
+  { id: "channels", label: "Kanäle", icon: Hash },
   { id: "server", label: "Server", icon: Server },
   { id: "scans", label: "Scans", icon: SearchCheck },
-  { id: "broadcast", label: "Broadcast", icon: Megaphone },
+  { id: "broadcast", label: "Rundruf", icon: Megaphone },
   { id: "system", label: "System", icon: Wrench },
-  { id: "features", label: "Features", icon: Settings },
-  { id: "health", label: "Health", icon: Activity },
+  { id: "features", label: "Funktionen", icon: Settings },
+  { id: "health", label: "Zustand", icon: Activity },
   { id: "team", label: "Team", icon: Users },
-  { id: "dashusers", label: "Dashboard Users", icon: UserCog },
+  { id: "dashusers", label: "Dashboard-Nutzer", icon: UserCog },
   { id: "userlookup", label: "Nutzer suchen", icon: UserSearch },
-  { id: "servers", label: "Servers", icon: Globe },
+  { id: "servers", label: "Alle Server", icon: Globe },
   { id: "warnings", label: "Warnungen", icon: AlertTriangle },
   { id: "usage", label: "Nutzung", icon: Terminal },
   { id: "reports", label: "Berichte", icon: BarChart4 },
@@ -101,39 +102,39 @@ const TAB_GROUPS: Array<{ name: string; ids: TabId[] }> = [
 ];
 
 const memberActions: Array<{ action: MemberAction; label: string; desc: string; icon: any }> = [
-  { action: "mute", label: "Mute", desc: "Timeout a member for a selected duration.", icon: Clock },
-  { action: "unmute", label: "Unmute", desc: "Remove a member timeout.", icon: VolumeX },
-  { action: "kick", label: "Kick", desc: "Remove a member from the server.", icon: UserX },
-  { action: "ban", label: "Ban", desc: "Ban a user from the server.", icon: Ban },
+  { action: "mute", label: "Stummschalten", desc: "Sperrt einen Nutzer für die gewählte Dauer.", icon: Clock },
+  { action: "unmute", label: "Entstummen", desc: "Hebt die Zeitsperre wieder auf.", icon: VolumeX },
+  { action: "kick", label: "Kicken", desc: "Wirft jemanden vom Server — er darf zurück.", icon: UserX },
+  { action: "ban", label: "Bannen", desc: "Sperrt jemanden dauerhaft aus.", icon: Ban },
 ];
 
 const quickActions: QuickAction[] = [
-  { tab: "channels", action: "create_text_channel", label: "Create Text Channel", desc: "Create a text channel with the given name.", icon: Hash, needs: ["name"] },
-  { tab: "channels", action: "create_voice_channel", label: "Create Voice Channel", desc: "Create a voice channel with the given name.", icon: Volume2, needs: ["name"] },
-  { tab: "channels", action: "create_category", label: "Create Category", desc: "Create a category with the given name.", icon: FolderPlus, needs: ["name"] },
-  { tab: "channels", action: "rename_channel", label: "Rename Channel", desc: "Rename the selected channel.", icon: Pencil, needs: ["channel", "name"] },
-  { tab: "channels", action: "delete_channel", label: "Delete Channel", desc: "Delete the selected channel.", icon: Trash2, needs: ["channel"] },
-  { tab: "channels", action: "clone_channel", label: "Clone Channel", desc: "Clone selected channel and permissions.", icon: Copy, needs: ["channel"] },
-  { tab: "channels", action: "lock_channel", label: "Lock Channel", desc: "Disable @everyone sending messages.", icon: Lock, needs: ["channel"] },
-  { tab: "channels", action: "unlock_channel", label: "Unlock Channel", desc: "Restore @everyone send messages.", icon: Unlock, needs: ["channel"] },
-  { tab: "channels", action: "slowmode", label: "Set Slowmode", desc: "Set slowmode seconds in selected channel.", icon: Timer, needs: ["channel", "seconds"] },
-  { tab: "channels", action: "purge", label: "Purge Messages", desc: "Delete recent messages in selected channel.", icon: MessageSquareX, needs: ["channel", "amount"] },
+  { tab: "channels", action: "create_text_channel", label: "Textkanal anlegen", desc: "Legt einen Textkanal mit dem Namen an.", icon: Hash, needs: ["name"] },
+  { tab: "channels", action: "create_voice_channel", label: "Sprachkanal anlegen", desc: "Legt einen Sprachkanal mit dem Namen an.", icon: Volume2, needs: ["name"] },
+  { tab: "channels", action: "create_category", label: "Kategorie anlegen", desc: "Legt eine Kategorie mit dem Namen an.", icon: FolderPlus, needs: ["name"] },
+  { tab: "channels", action: "rename_channel", label: "Kanal umbenennen", desc: "Benennt den gewählten Kanal um.", icon: Pencil, needs: ["channel", "name"] },
+  { tab: "channels", action: "delete_channel", label: "Kanal löschen", desc: "Löscht den gewählten Kanal endgültig.", icon: Trash2, needs: ["channel"] },
+  { tab: "channels", action: "clone_channel", label: "Kanal klonen", desc: "Kopiert Kanal samt Rechten.", icon: Copy, needs: ["channel"] },
+  { tab: "channels", action: "lock_channel", label: "Kanal sperren", desc: "Niemand außer dem Team darf noch schreiben.", icon: Lock, needs: ["channel"] },
+  { tab: "channels", action: "unlock_channel", label: "Kanal entsperren", desc: "Alle dürfen wieder schreiben.", icon: Unlock, needs: ["channel"] },
+  { tab: "channels", action: "slowmode", label: "Langsam-Modus", desc: "Wartezeit zwischen zwei Nachrichten.", icon: Timer, needs: ["channel", "seconds"] },
+  { tab: "channels", action: "purge", label: "Nachrichten löschen", desc: "Räumt die letzten Nachrichten weg.", icon: MessageSquareX, needs: ["channel", "amount"] },
 
-  { tab: "server", action: "server_name", label: "Rename Server", desc: "Change server name.", icon: Pencil, needs: ["name"] },
-  { tab: "server", action: "verification_level_low", label: "Verification Low", desc: "Set verification level to low.", icon: Shield },
-  { tab: "server", action: "verification_level_medium", label: "Verification Medium", desc: "Set verification level to medium.", icon: Shield },
-  { tab: "server", action: "default_notifications_mentions", label: "Notifications Mentions", desc: "Default notifications: only mentions.", icon: BellOff },
-  { tab: "server", action: "default_notifications_all", label: "Notifications All", desc: "Default notifications: all messages.", icon: Bell },
+  { tab: "server", action: "server_name", label: "Server umbenennen", desc: "Ändert den Namen des Servers.", icon: Pencil, needs: ["name"] },
+  { tab: "server", action: "verification_level_low", label: "Sicherheit niedrig", desc: "Setzt die Sicherheitsstufe auf niedrig.", icon: Shield },
+  { tab: "server", action: "verification_level_medium", label: "Sicherheit mittel", desc: "Setzt die Sicherheitsstufe auf mittel.", icon: Shield },
+  { tab: "server", action: "default_notifications_mentions", label: "Nur bei Erwähnung", desc: "Standard-Hinweise nur bei Erwähnungen.", icon: BellOff },
+  { tab: "server", action: "default_notifications_all", label: "Bei allem", desc: "Standard-Hinweise bei jeder Nachricht.", icon: Bell },
 
-  { tab: "scans", action: "scan_admin_roles", label: "Scan Admin Roles", desc: "List roles with administrator.", icon: Shield },
-  { tab: "scans", action: "scan_dangerous_roles", label: "Scan Dangerous Roles", desc: "List roles with risky permissions.", icon: AlertTriangle },
-  { tab: "scans", action: "list_bots", label: "List Bots", desc: "List cached bots in the guild.", icon: Bot },
-  { tab: "scans", action: "list_staff", label: "List Staff", desc: "List members with staff-like permissions.", icon: UserCog },
-  { tab: "scans", action: "server_stats", label: "Server Stats", desc: "Show member/role/channel counts.", icon: Activity },
-  { tab: "scans", action: "scan_public_channels", label: "Public Channels", desc: "List public text channels.", icon: Hash },
-  { tab: "scans", action: "scan_webhooks", label: "Scan Webhooks", desc: "Find webhooks in text channels.", icon: Webhook },
-  { tab: "scans", action: "scan_invites", label: "Scan Invites", desc: "List active invite codes.", icon: Link },
-  { tab: "scans", action: "audit_summary", label: "Audit Summary", desc: "Show recent audit log entries.", icon: ScrollText },
+  { tab: "scans", action: "scan_admin_roles", label: "Admin-Rollen prüfen", desc: "Zeigt alle Rollen mit Administrator.", icon: Shield },
+  { tab: "scans", action: "scan_dangerous_roles", label: "Riskante Rollen", desc: "Zeigt Rollen mit gefährlichen Rechten.", icon: AlertTriangle },
+  { tab: "scans", action: "list_bots", label: "Bots auflisten", desc: "Zeigt alle Bots auf dem Server.", icon: Bot },
+  { tab: "scans", action: "list_staff", label: "Team auflisten", desc: "Zeigt alle mit Team-Rechten.", icon: UserCog },
+  { tab: "scans", action: "server_stats", label: "Server-Zahlen", desc: "Mitglieder, Rollen und Kanäle gezählt.", icon: Activity },
+  { tab: "scans", action: "scan_public_channels", label: "Offene Kanäle", desc: "Zeigt alle öffentlichen Textkanäle.", icon: Hash },
+  { tab: "scans", action: "scan_webhooks", label: "Webhooks prüfen", desc: "Sucht Webhooks in allen Textkanälen.", icon: Webhook },
+  { tab: "scans", action: "scan_invites", label: "Einladungen prüfen", desc: "Zeigt alle gültigen Einladungslinks.", icon: Link },
+  { tab: "scans", action: "audit_summary", label: "Protokoll-Auszug", desc: "Die letzten Einträge aus dem Discord-Protokoll.", icon: ScrollText },
 ];
 /** Tabs that render on their own, without the input sidebar. */
 const FULL_WIDTH_TABS = new Set<TabId>([
@@ -145,6 +146,21 @@ const FULL_WIDTH_TABS = new Set<TabId>([
 
 /** Beschriftung über einem Eingabefeld. */
 const LBL = "block text-[10px] font-black uppercase tracking-widest text-slate-600";
+
+/**
+ * Wie die Pflichtfelder heißen, wenn man sie jemandem zeigt.
+ *
+ * `needs` trägt die technischen Schlüssel — die stehen so im
+ * Formular-Zustand und dürfen nicht übersetzt werden. Unter der Karte
+ * stand deshalb wörtlich „Braucht: channel, amount“ auf einer sonst
+ * deutschen Seite.
+ */
+const BRAUCHT: Record<NonNullable<QuickAction["needs"]>[number], string> = {
+  channel: "Kanal",
+  name: "Name",
+  amount: "Anzahl",
+  seconds: "Sekunden",
+};
 
 function TextInput({ label, value, setValue, placeholder, type = "text" }: { label: string; value: string; setValue: (value: string) => void; placeholder?: string; type?: string }) {
   return (
@@ -194,7 +210,10 @@ export function AdminContent() {
   const [amount, setAmount] = useState("10");
   const [seconds, setSeconds] = useState("5");
   const [duration, setDuration] = useState("60");
-  const [reason, setReason] = useState("Dashboard admin action");
+  // Dieser Text landet im Discord-Auditlog und steht dort dauerhaft
+  // neben dem Bann. Er stand auf Englisch da -- auf einem deutschen
+  // Server liest sich das wie ein fremder Eingriff.
+  const [reason, setReason] = useState("Über das Dashboard");
   const [memberAction, setMemberAction] = useState<MemberAction>("mute");
 
   const fetchData = async (isRefresh = false) => {
@@ -221,7 +240,7 @@ export function AdminContent() {
       setLastLoaded(Date.now());
     } catch (err) {
       console.error("Failed to fetch admin data:", err);
-      toast.error("Failed to load real-time data");
+      toast.error("Die Zahlen ließen sich nicht laden.");
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -275,10 +294,13 @@ export function AdminContent() {
   const channelOptions = channels.map((channel) => ({ value: String(channel.id), label: `#${channel.name}` }));
 
   const statItems = [
-    { name: "Gesamte Nutzer", value: stats?.total_users || "0", icon: Users, color: "text-blue-500" },
-    { name: "Active Servers", value: stats?.active_servers || "0", icon: Server, color: "text-emerald-500" },
-    { name: "API Latency", value: stats?.api_latency || "0ms", icon: Activity, color: "text-amber-500" },
-    { name: "Database Size", value: stats?.db_size || "0 MB", icon: Database, color: "text-purple-500" },
+    // Deutsch, wie der Rest der Seite. Drei dieser vier Zeilen
+    // standen auf Englisch da -- direkt neben "Server wählen, dann
+    // Moderation und Verwaltung erledigen."
+    { name: "Nutzer gesamt", value: stats?.total_users || "0", icon: Users, color: "text-blue-500" },
+    { name: "Aktive Server", value: stats?.active_servers || "0", icon: Server, color: "text-emerald-500" },
+    { name: "Antwortzeit", value: stats?.api_latency || "0ms", icon: Activity, color: "text-amber-500" },
+    { name: "Datenbank", value: stats?.db_size || "0 MB", icon: Database, color: "text-purple-500" },
   ];
 
   // Which permission each tab needs. Tabs without an entry are always shown.
@@ -370,7 +392,7 @@ export function AdminContent() {
 
   const requireGuild = () => {
     if (!guildId) {
-      toast.error("Please select a server first.");
+      toast.error("Wähle zuerst einen Server.");
       return false;
     }
     return true;
@@ -378,21 +400,21 @@ export function AdminContent() {
 
   const runMemberModeration = async () => {
     if (!requireGuild()) return;
-    if (!/^\d{15,25}$/.test(userId.trim())) return toast.error("Please enter a valid User ID.");
-    if (!reason.trim()) return toast.error("Please enter a reason.");
+    if (!/^\d{15,25}$/.test(userId.trim())) return toast.error("Das ist keine gültige Nutzer-ID.");
+    if (!reason.trim()) return toast.error("Ohne Grund geht das nicht.");
     setSaving(true);
     const promise = api.runAdminMemberAction({ ...basePayload(), action: memberAction });
-    toast.promise(promise, { loading: `Running ${memberAction}...`, success: (data) => data.result, error: (err) => err.message || "Action failed." });
+    toast.promise(promise, { loading: "Wird ausgeführt …", success: (data) => data.result, error: (err) => err.message || "Das hat nicht geklappt." });
     try { const data = await promise; setResult(data.result); } finally { setSaving(false); }
   };
 
   const runQuickAction = async (action: QuickAction) => {
     if (!requireGuild()) return;
-    if (action.needs?.includes("channel") && !channelId) return toast.error("Please select a channel.");
-    if (action.needs?.includes("name") && !name.trim()) return toast.error("Please enter a name.");
+    if (action.needs?.includes("channel") && !channelId) return toast.error("Wähle zuerst einen Kanal.");
+    if (action.needs?.includes("name") && !name.trim()) return toast.error("Es fehlt noch ein Name.");
     setSaving(true);
     const promise = api.runAdminQuickAction({ ...basePayload(), action: action.action });
-    toast.promise(promise, { loading: `Running ${action.label}...`, success: (data) => data.result, error: (err) => err.message || "Action failed." });
+    toast.promise(promise, { loading: `${action.label} …`, success: (data) => data.result, error: (err) => err.message || "Das hat nicht geklappt." });
     try { const data = await promise; setResult(data.result); } finally { setSaving(false); }
   };
 
@@ -403,8 +425,8 @@ export function AdminContent() {
       const newStatus = !config.maintenance_mode;
       await api.updateAdminConfig({ maintenance_mode: newStatus });
       setConfig({ ...config, maintenance_mode: newStatus });
-      toast.success(`Maintenance mode ${newStatus ? "enabled" : "disabled"}`);
-    } catch { toast.error("Failed to update maintenance mode"); } finally { setSaving(false); }
+      toast.success(newStatus ? "Wartungsmodus ist an." : "Wartungsmodus ist aus.");
+    } catch { toast.error("Der Wartungsmodus ließ sich nicht umstellen."); } finally { setSaving(false); }
   };
 
   const handleBroadcast = async () => {
@@ -414,7 +436,7 @@ export function AdminContent() {
       if (config) setConfig({ ...config, global_notification: notification });
       savedNotification.current = notification;
       toast.success("Dashboard-Hinweis gespeichert.");
-    } catch { toast.error("Failed to update broadcast message"); } finally { setSaving(false); }
+    } catch { toast.error("Der Hinweis ließ sich nicht speichern."); } finally { setSaving(false); }
   };
 
   // The notice is the only free-text field on this page, and it sits at
@@ -445,13 +467,15 @@ export function AdminContent() {
         Jetzt: eine Zeile. Titel, Untertitel, ein Knopf, der sagt,
         was er tut.
       */}
-      <div className="flex flex-wrap items-center gap-4">
-        <Shield className="h-6 w-6 shrink-0 text-indigo-400" />
+      <div className="flex flex-wrap items-center gap-4 rounded-2xl border border-slate-800 bg-[#131318] px-5 py-4">
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-indigo-500/25 bg-indigo-500/10">
+          <Shield className="h-[18px] w-[18px] text-indigo-400" />
+        </span>
         <div className="min-w-0 flex-1">
-          <h1 className="text-[24px] font-bold tracking-tight text-white">
+          <h1 className="text-[22px] font-bold tracking-tight text-white">
             Admin-Bereich
           </h1>
-          <p className="mt-0.5 text-[14px] text-slate-500">
+          <p className="mt-0.5 text-[13px] text-slate-500">
             Server wählen, dann Moderation und Verwaltung erledigen.
           </p>
         </div>
@@ -460,7 +484,7 @@ export function AdminContent() {
           type="button"
           onClick={() => fetchData(true)}
           disabled={refreshing}
-          className="flex shrink-0 items-center gap-2 rounded-lg border border-slate-800 bg-[#131318] px-4 py-2 text-[13px] text-slate-300 transition-colors hover:border-slate-700 hover:text-white disabled:opacity-50"
+          className="flex shrink-0 items-center gap-2 rounded-lg border border-slate-800 bg-[#0f0f13] px-4 py-2 text-[13px] text-slate-300 transition-colors hover:border-slate-700 hover:text-white disabled:opacity-50"
         >
           <RefreshCw className={cn("h-3.5 w-3.5", refreshing && "animate-spin")} />
           {refreshing ? "Lädt …" : "Aktualisieren"}
@@ -471,20 +495,31 @@ export function AdminContent() {
       {/*
         Die Zahlen.
 
-        Vier Glaskarten mit Symbolrahmen, die beim Überfahren
-        wuchsen, und einer Reveal-Animation je Karte. Auf einer Seite,
-        die man täglich öffnet, ist das jedes Mal dieselbe Show.
-        Jetzt eine Zeile, die man überfliegt.
+        Erst waren es vier Glaskarten mit wachsenden Symbolen und
+        einer Einblend-Animation je Karte -- auf einer Seite, die man
+        täglich öffnet, jedes Mal dieselbe Show. Dann eine einzige
+        Textzeile, und die war zu wenig: vier Zahlen dicht
+        nebeneinander lesen sich als ein Satz, nicht als vier Angaben.
+
+        Jetzt vier ruhige Felder mit eigener Fläche. Die Farbe steckt
+        nur im Symbol -- sie ordnet zu, ohne dass etwas leuchtet.
       */}
-      <div className="flex flex-wrap gap-x-8 gap-y-3 rounded-2xl border border-slate-800 bg-[#131318] px-5 py-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {statItems.map((stat) => (
-          <div key={stat.name} className="flex items-center gap-2.5">
-            <stat.icon className="h-4 w-4 shrink-0 text-slate-600" />
-            <div>
-              <span className="text-[17px] font-semibold tabular-nums text-white">
+          <div
+            key={stat.name}
+            className="flex items-center gap-3 rounded-2xl border border-slate-800 bg-[#131318] px-4 py-3.5"
+          >
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white/[0.04]">
+              <stat.icon className={cn("h-4 w-4", stat.color)} />
+            </span>
+            <div className="min-w-0">
+              <p className="truncate text-[19px] font-bold leading-none tabular-nums text-white">
                 <StatValue value={stat.value} />
-              </span>{" "}
-              <span className="text-[13px] text-slate-500">{stat.name}</span>
+              </p>
+              <p className="mt-1.5 truncate text-[12px] text-slate-500">
+                {stat.name}
+              </p>
             </div>
           </div>
         ))}
@@ -503,8 +538,12 @@ export function AdminContent() {
         weg -- Knöpfe, die vor dem Zeiger ausweichen, sind ein Effekt,
         kein Hinweis.
       */}
-      <div className="rounded-2xl border border-slate-800 bg-[#131318]">
-        <div className="flex flex-wrap gap-1 border-b border-slate-800 p-2">
+      <div className="overflow-hidden rounded-2xl border border-slate-800 bg-[#131318]">
+        {/* Die Gruppen. Sie tragen die Unterscheidung als Linie
+            darunter, nicht als Fläche: sonst sähen Gruppe und Reiter
+            gleich aus, und zwei gleich aussehende Zeilen übereinander
+            lesen sich nicht als Ebene und Unterebene. */}
+        <div className="flex flex-wrap gap-x-1 border-b border-slate-800 px-2 pt-1.5">
           {TAB_GROUPS.map((group) => {
             const count = group.ids.filter((id) =>
               visibleTabs.some((tab) => tab.id === id),
@@ -527,20 +566,29 @@ export function AdminContent() {
                 }}
                 aria-current={open ? "true" : undefined}
                 className={cn(
-                  "rounded-lg px-3.5 py-2 text-[13px] transition-colors",
+                  "-mb-px border-b-2 px-3.5 pb-2.5 pt-1.5 text-[13px] transition-colors",
                   open
-                    ? "bg-white/[0.06] font-semibold text-white"
-                    : "text-slate-500 hover:text-slate-300",
+                    ? "border-indigo-500 font-semibold text-white"
+                    : "border-transparent text-slate-500 hover:text-slate-300",
                 )}
               >
                 {group.name}
-                <span className="ml-1.5 text-[11px] text-slate-600">{count}</span>
+                <span
+                  className={cn(
+                    "ml-1.5 text-[11px]",
+                    open ? "text-indigo-400/70" : "text-slate-600",
+                  )}
+                >
+                  {count}
+                </span>
               </button>
             );
           })}
         </div>
 
-        <div className="flex flex-wrap gap-x-1 gap-y-0.5 p-2">
+        {/* Die Reiter der offenen Gruppe. Fläche statt Linie -- die
+            zweite Ebene ist die, in der man wählt. */}
+        <div className="flex flex-wrap gap-1 bg-[#0f0f13] p-2">
           {shownTabs.map((tab) => {
             const active = activeTab === tab.id;
             const Icon = tab.icon;
@@ -554,10 +602,10 @@ export function AdminContent() {
                 }}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "flex items-center gap-2 rounded-lg px-3 py-2 text-[13px] transition-colors",
+                  "flex items-center gap-2 rounded-lg border px-3 py-2 text-[13px] transition-colors",
                   active
-                    ? "bg-white/[0.06] font-semibold text-white"
-                    : "text-slate-500 hover:bg-white/[0.03] hover:text-slate-300",
+                    ? "border-indigo-500/30 bg-indigo-500/10 font-semibold text-white"
+                    : "border-transparent text-slate-500 hover:bg-white/[0.03] hover:text-slate-300",
                 )}
               >
                 <Icon
@@ -582,7 +630,15 @@ export function AdminContent() {
       {activeTab === "tester" && <TesterPanel />}
       {activeTab === "webapply" && <ApplicationsAdmin />}
       {activeTab === "access" && <OwnerAccessPanel currentUserId={(session?.user as any)?.id} />}
-      {activeTab === "usage" && <CommandStatsPanel />}
+      {/* Nutzung: erst der Verlauf über alle Server, dann die
+          Aufschlüsselung nach Befehl. Die Reihenfolge ist die der
+          Fragen -- "läuft es?" kommt vor "welcher Befehl?". */}
+      {activeTab === "usage" && (
+        <div className="space-y-4">
+          <OverviewCharts />
+          <CommandStatsPanel />
+        </div>
+      )}
       {activeTab === "pingreactions" && <PingReactionsPanel />}
       {activeTab === "templates" && <TemplatesAdmin />}
       {activeTab === "dashusers" && <DashboardUsersPanel currentUserId={(session?.user as any)?.id} />}
@@ -763,7 +819,7 @@ export function AdminContent() {
                     </p>
                     {action.needs?.length ? (
                       <p className="mt-2.5 text-[11px] text-slate-600">
-                        Braucht: {action.needs.join(", ")}
+                        Braucht: {action.needs.map((n) => BRAUCHT[n]).join(", ")}
                       </p>
                     ) : null}
                   </button>

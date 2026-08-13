@@ -417,11 +417,33 @@ def test_admin_tab_groups():
           "if (count === 0) return null" in body,
           "a section the user cannot use would still show")
     check("the section shows how many tabs it holds", "{count}" in body)
-    # Farbe allein genuegt nicht. Frueher ein Unterstrich unter dem
-    # Text; jetzt eine gefuellte Flaeche und fettere Schrift -- zwei
-    # Signale statt einem.
+    # Farbe allein genuegt nicht -- wer Farben schlecht unterscheidet,
+    # sieht sonst nicht, welcher Bereich offen ist. Es braucht ein
+    # zweites Signal.
+    #
+    # WIE das aussieht, ist Geschmack und hat sich schon zweimal
+    # geaendert (Unterstrich -> Flaeche -> Linie + Flaeche). Geprueft
+    # wird deshalb die Anforderung: der offene Bereich traegt neben
+    # der Farbe auch fettere Schrift, und die zwei Ebenen -- Gruppe
+    # und Reiter -- unterscheiden sich voneinander.
+    # Der Ausschnitt muss der GRUPPEN-Knopf sein, nicht irgendeine
+    # Stelle der Datei: "font-semibold text-white" steht auch an den
+    # Reitern darunter. Wird nur die Datei durchsucht, bleibt der Test
+    # gruen, obwohl die Gruppe ihr zweites Signal verloren hat --
+    # genau so ist eine Mutation hier durchgerutscht.
+    gruppen_zweig = ""
+    marke = 'aria-current={open ? "true" : undefined}'
+    if marke in body:
+        # Von der Gruppen-Markierung bis zum Ende ihres className.
+        rest = body.split(marke, 1)[1]
+        gruppen_zweig = rest[:600]
+
+    gruppe_fett = "font-semibold" in gruppen_zweig
+    # Zwei Ebenen muessen unterscheidbar bleiben: Linie oben, Flaeche
+    # unten. Sehen beide gleich aus, liest man sie nicht als Ebenen.
+    zwei_ebenen = "border-b-2" in gruppen_zweig and "bg-indigo-500/10" in body
     check("the open section is filled, not just tinted",
-          "bg-white/[0.06] font-semibold text-white" in body,
+          gruppe_fett and zwei_ebenen,
           "only colour marks the open section")
     check("the open tab is announced to screen readers",
           'aria-current={active ? "page" : undefined}' in body)

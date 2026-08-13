@@ -1283,3 +1283,54 @@ async def get_command_stats(
     # eine Gesamtzahl, in der die Slash-Befehle fehlten.
     data["registered_commands"] = len(command_stats.all_command_names(bot))
     return data
+
+
+@router.get("/history", summary="Taeglicher Verlauf ueber alle Server")
+async def get_admin_history(
+    days: int = 30,
+    actor: str = "",
+    bot: "universitybot" = Depends(get_bot),
+):
+    """
+    Reichweite, Beitritte, Austritte und Befehle -- ein Wert pro Tag.
+
+    Dieselben Reihen wie in der Server-Uebersicht, nur ueber alle
+    Server zusammengezaehlt. Der Admin-Bereich zeigte bisher vier
+    Momentaufnahmen -- 4.714 Nutzer, 52 Server, 15 ms, 2,44 MB -- und
+    keine davon beantwortete, ob es aufwaerts oder abwaerts geht.
+
+    ``null`` heisst "an dem Tag wurde nicht gemessen", nicht "null".
+    Ein Deploy-Tag ohne Volume saehe sonst aus wie ein Tag, an dem
+    jeder Server verschwunden ist.
+    """
+    from utils import command_stats, guild_history
+
+    days = max(2, min(int(days or 30), 365))
+    verlauf = await guild_history.totals(days)
+    tage = verlauf["days"]
+    gemessen = {t for t, w in zip(tage, verlauf["joins"]) if w is not None}
+
+    befehle: list[int | None] = []
+    try:
+        stats = await command_stats.summary(None, days)
+        pro_tag = {str(e["day"]): int(e["uses"] or 0) for e in stats.get("daily", [])}
+    except Exception:
+        pro_tag = {}
+
+    for tag in tage:
+        if tag in pro_tag:
+            befehle.append(pro_tag[tag])
+        elif tag in gemessen:
+            befehle.append(0)
+        else:
+            befehle.append(None)
+
+    return {
+        "days": tage,
+        "members": verlauf["members"],
+        "joins": verlauf["joins"],
+        "leaves": verlauf["leaves"],
+        "commands": befehle,
+        "guild_count": len(bot.guilds),
+        "has_data": verlauf["has_data"],
+    }

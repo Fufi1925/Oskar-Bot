@@ -90,7 +90,14 @@ def test_flache_reihe():
     check("die Nachkommastellen richten sich nach der Spanne",
           "function stellenFuer(" in src,
           "sonst steht bei einer flachen Reihe fuenfmal dieselbe Zahl")
-    check("und werden auch benutzt", "kurz(wert, achsStellen)" in src)
+    # Seit dem Achsen-Fix laeuft die Beschriftung ueber
+    # `achsenBeschriftung()`, das `achsStellen` weiterreicht und ab
+    # 10.000 zusaetzlich genug Stellen erzwingt, damit nicht zwei
+    # Gitterwerte dieselbe Zahl tragen.
+    check("und werden auch benutzt",
+          "achsenBeschriftung(spanne, achsStellen)" in src
+          and "{yText(wert)}" in src,
+          "sonst rechnet stellenFuer() ins Leere")
 
 
 def test_luecke_bleibt_luecke():
@@ -127,8 +134,11 @@ def test_beschriftung_passt_ins_bild():
     check("erste und letzte werden an der Kante ausgerichtet",
           'i === 0 ? "start" : i === daten.length - 1 ? "end" : "middle"' in src,
           "mittig zentriert ragte »11. Aug« ueber den Rand")
+    # Ausgeduennt wird jetzt in `sichtbareMarken()` -- und dort faellt
+    # zusaetzlich die vorletzte Marke weg, wenn sie der letzten zu nahe
+    # kommt. Im Bild klebten sonst "12. Aug." und "13. Aug." aneinander.
     check("bei vielen Werten wird ausgeduennt",
-          "Math.ceil(daten.length / 8)" in src,
+          "Math.ceil(anzahl / 8)" in src and "marken.has(i)" in src,
           "90 Tage nebeneinander ueberlappen")
 
 
@@ -177,11 +187,16 @@ def test_admin_ist_ruhig():
     check("der Knopf sagt, was er tut",
           "Aktualisieren" in src and "Real-time Mode" not in src,
           "»Real-time Mode« war ein Versprechen, kein Zustand")
-    check("die Zahlen stehen in einer Zeile",
-          "flex flex-wrap gap-x-8" in src)
-    check("die Reiter sind schlicht",
-          'active\n                    ? "bg-white/[0.06] font-semibold text-white"' in src
-          or 'bg-white/[0.06] font-semibold text-white' in src)
+    # Die Zahlen standen zwischenzeitlich als eine einzige Textzeile
+    # da. Das war zu wenig: vier Angaben dicht nebeneinander lesen
+    # sich als ein Satz. Jetzt vier ruhige Felder -- ruhig heisst hier
+    # eigene Flaeche, aber kein Leuchten und kein Wachsen.
+    check("die Zahlen stehen in vier Feldern",
+          "grid grid-cols-2 gap-3 lg:grid-cols-4" in src,
+          "eine einzige Zeile las sich als ein Satz statt als vier Angaben")
+    check("die Reiter heben sich ab, ohne zu leuchten",
+          "border-indigo-500/30 bg-indigo-500/10" in src
+          and "shadow-primary/25" not in src)
 
     # Eine gemeinsame Beschriftung statt Versalien ueberall.
     check("es gibt eine gemeinsame Feldbeschriftung", "const LBL =" in src)

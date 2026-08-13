@@ -992,6 +992,70 @@ async def reset_guild_config(guild_id: int, actor: str = "", bot: "universitybot
     return {"status": "success", "rows_deleted": removed}
 
 
+@router.get("/{guild_id}/history", summary="Taeglicher Verlauf eines Servers")
+async def get_guild_history(
+    guild_id: int, days: int = 30, bot: "universitybot" = Depends(get_bot)
+):
+    """
+    Mitglieder, Beitritte, Austritte und Befehle -- ein Wert pro Tag.
+
+    Vier Reihen aus zwei Quellen, bewusst in einer Antwort: das
+    Dashboard zeichnet sie untereinander, und zwei Anfragen haetten
+    bedeutet, dass die Diagramme nacheinander erscheinen.
+
+    ``null`` heisst "an dem Tag wurde nicht gemessen", nicht "null".
+    Ohne diese Unterscheidung saehe ein Tag, an dem der Bot aus war,
+    aus wie ein Tag ohne einen einzigen Beitritt -- und ein Ausfall
+    der Messung wie ein Einbruch der Zahl.
+
+    Die Befehlsreihe kommt aus ``command_stats`` und kennt diese
+    Unterscheidung nicht: dort gibt es nur Zeilen fuer Tage, an denen
+    etwas passiert ist. Sie wird deshalb an den Tagen, an denen der
+    Verlauf eine Messung hat, mit 0 aufgefuellt -- und nur dort. An
+    Tagen ohne Messung bleibt auch sie ``null``.
+    """
+    from utils import command_stats, guild_history
+
+    days = max(2, min(int(days or 30), 365))
+    verlauf = await guild_history.series(guild_id, days)
+    tage = verlauf["days"]
+    gemessen = set(verlauf.get("measured") or [])
+
+    # Befehle pro Tag, auf dieselbe Tagesachse gelegt.
+    befehle: list[int | None] = []
+    try:
+        stats = await command_stats.summary(guild_id, days)
+        pro_tag = {str(e["day"]): int(e["uses"] or 0) for e in stats.get("daily", [])}
+    except Exception:
+        pro_tag = {}
+
+    for tag in tage:
+        if tag in pro_tag:
+            befehle.append(pro_tag[tag])
+        elif tag in gemessen:
+            # Der Bot lief, es kam nur kein Befehl. Das ist eine Null.
+            befehle.append(0)
+        else:
+            befehle.append(None)
+
+    guild = bot.get_guild(guild_id)
+
+    return {
+        "guild_id": str(guild_id),
+        "days": tage,
+        "members": verlauf["members"],
+        "joins": verlauf["joins"],
+        "leaves": verlauf["leaves"],
+        "commands": befehle,
+        # Der Stand von jetzt. Der letzte Tageswert kann ein paar
+        # Minuten alt sein; die Kopfzeile soll trotzdem stimmen.
+        "member_count": _member_count(guild),
+        # Damit die Oberflaeche "noch keine Daten" von "alles null"
+        # unterscheiden kann, ohne die Reihen selbst zu durchsuchen.
+        "has_data": bool(gemessen),
+    }
+
+
 @router.get("/{guild_id}/module-status", summary="Which modules are actually configured")
 async def get_module_status(guild_id: int, bot: "universitybot" = Depends(get_bot)):
     """

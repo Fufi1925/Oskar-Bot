@@ -775,6 +775,8 @@ export const api = {
 
   // Admin
   getAdminStats: () => request<AdminStats>("/admin/stats"),
+  // Der Verlauf über alle Server, für die Diagramme im Admin-Bereich.
+  getAdminHistory: (days = 30) => request<any>(`/admin/history?days=${days}`),
   getAdminConfig: () => request<AdminConfig>("/admin/config"),
   updateAdminConfig: (data: AdminConfigUpdate) => 
     request<{ status: string }>("/admin/config", {
@@ -928,6 +930,9 @@ export const api = {
 
   // Server overview + full config transfer
   getModuleStatus: (guildId: string) => request<any>(`/guilds/${guildId}/module-status`),
+  // Der tägliche Verlauf für die Diagramme in der Server-Übersicht.
+  getGuildHistory: (guildId: string, days = 30) =>
+    request<any>(`/guilds/${guildId}/history?days=${days}`),
   previewConfig: (guildId: string, config: any) =>
     request<any>(`/guilds/${guildId}/config/preview`, {
       method: "POST",

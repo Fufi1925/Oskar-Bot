@@ -17,6 +17,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { api } from "@/lib/api";
 import { SUPPORT_INVITE } from "@/lib/legal";
+import { MyServersChart } from "@/components/dashboard/my-servers-chart";
 
 export const dynamic = "force-dynamic";
 
@@ -321,6 +322,26 @@ export default async function DashboardPage() {
           </p>
         )}
       </section>
+
+      {/* ── Verlauf ───────────────────────────────────────── */}
+      {/*
+        Steht unter der Serverliste, nicht darüber: die Liste ist der
+        Grund, warum jemand hier ist. Der Verlauf ist die Antwort auf
+        die zweite Frage — "und wie läuft es?".
+
+        Nur verbundene Server: für einen Server ohne Bot gibt es
+        nichts zu messen, und ein leeres Diagramm mit "noch keine
+        Daten" wäre die falsche Erklärung dafür.
+      */}
+      {connected.length > 0 && (
+        <MyServersChart
+          guilds={connected.map((g) => ({
+            id: g.id,
+            name: g.name,
+            memberCount: g.memberCount,
+          }))}
+        />
+      )}
 
       {/* ── Schnellzugriff ────────────────────────────────── */}
       <div className="grid gap-3 sm:grid-cols-3">

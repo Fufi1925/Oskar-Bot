@@ -73,6 +73,12 @@ const ADMIN_PERMISSIONS: Record<string, { GET?: string; WRITE?: string }> = {
   // aber "Admin access required." Die Servernamen darin maskiert der
   // Bot selbst für alle außer Ownern.
   "command-stats": { GET: "metrics.view" },
+  // Der Verlauf über alle Server. Reine Zahlenreihen -- keine
+  // Servernamen, keine IDs --, deshalb dieselbe Schwelle wie bei den
+  // übrigen Kennzahlen und nicht die strengere der Berichte. Ohne
+  // diesen Eintrag fiele er auf verifyAdminAccess() zurück und wäre
+  // für jede Team-Rolle ein leeres Diagramm mit Fehlermeldung.
+  history: { GET: "metrics.view" },
   // Ping-Reaktionen: wer beim Erwähnen welche Emojis bekommt. Lesen
   // darf jede Team-Rolle, ändern nur, wer Bot-Einstellungen ändern
   // darf — die Regel gilt global, nicht für einen Server.
