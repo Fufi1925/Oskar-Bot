@@ -1,6 +1,12 @@
 {
  "commits": [
   {
+   "commit": "62b0d199dcbbf5b598cc54dfec5e7de024a78b5f",
+   "at": "1786659126",
+   "subject": "style(admin): alle Reiter auf den Stil von \"Alle Server\" bringen",
+   "body": "Der Admin-Bereich war in zwei Stilen gebaut, und man sah es beim\nUmschalten sofort:\n\n  \"Alle Server\", \"Dashboard-Nutzer\"  ->  Glaskarten: glass,\n      border-white/5, Ecken rounded-[2rem], Flaechen bg-white/[0.03]\n  die uebrigen 19 Reiter             ->  bg-[#131318], border-slate-800,\n      Ecken rounded-3xl\n\nAusgemessen: 23 glass, 101 border-white/5, 20 rounded-[2rem] gegen 113\nKarten im anderen Stil.\n\nVereinheitlicht auf die Vorlage (121 Stellen in 21 Dateien)\n- Kartenecke, Randfarbe, Flaechen und Knopfformen kommen jetzt vom\n  Reiter \"Alle Server\".\n- backdrop-blur wurde bewusst NICHT uebernommen: hinter jeder dieser\n  Karten liegt eine einfarbige Flaeche, der Weichzeichner kostet also\n  Rechenzeit auf jedem Bildlauf fuer ein Ergebnis, das exakt #131318\n  entspricht. Nachgemessen, nicht vermutet.\n- Kein Rand-Schimmer im Admin-Bereich, wie in der Vorlage und auf\n  Nachfrage vom Nutzer bestaetigt. Mit ihm fliegen is-clipped und\n  glow-r-* raus, die nur zu ihm gehoeren. overflow-hidden bleibt --\n  es beschneidet den Inhalt, sonst laufen Listen aus der Kartenecke.\n- Ausserhalb des Admin-Bereichs bleibt alles: 114 Karten in 46 Dateien\n  behalten ihren Schimmer.\n- 35 Knoepfe und Reiter aus den Versalien geholt. Die Vorlage nutzt\n  text-sm font-bold; Versalien stehen dort nur ueber Eingabefeldern.\n  Gefahr-Knoepfe bleiben laut -- bei etwas Endgueltigem ist das richtig.\n\nDrei Fehler im gerenderten Bild gefunden und behoben\n- Freigaben zeigten kleingeschrieben \"pending\" statt \"Ausstehend\":\n  der Reiter rendert den rohen Schluessel, vorher kaschierte das\n  uppercase.\n- Warnungen standen noch auf Englisch (\"Warn a member\", \"5m ago\",\n  \"Show 1 entries\") -- 20 Stellen uebersetzt.\n- Eine eigene Aufraeum-Regel fraß die Einrueckung vor Zeilen, die mit\n  einem Anfuehrungszeichen beginnen: 74 Zeilen wieder eingerueckt,\n  Regel korrigiert.\n\nNeu: components/dashboard/admin-ui.tsx\nDer Stil steht jetzt an einer Stelle statt an 130. Zwei handgepflegte\nListen laufen auseinander -- in diesem Repo schon passiert.\n\nAbgesichert\n- tests/test_admin_stil.py\n- mutate_admin_stil.py: 16 von 16 Mutationen erwischt\n- test_emoji_picker.py: der Beleg fuer die Stapelkontext-Falle zeigte\n  auf ping-reactions-panel, das jetzt keinen Schimmer mehr hat. Er\n  sucht die Falle jetzt, statt sie an einer Datei festzumachen.\n- Alle 97 Testdateien gruen, 153 Cogs laden, tsc und Next-Build ok"
+  },
+  {
    "commit": "10fc02fcf3a644f5c8a3c96045f8c181a14b3bc0",
    "at": "1786655339",
    "subject": "feat(dashboard): Verlaufs-Diagramme ueberall, Admin-Optik mit mehr Form",
@@ -231,12 +237,6 @@
   {
    "commit": "f6ea1b7cc4ec41f6156947d72b06836b5b99212d",
    "at": "1786136987",
-   "subject": "feat(phantom): EXACT full original Aleks ticket bot (5653 lines - every function kept, no removal, no shortening)",
-   "body": ""
-  },
-  {
-   "commit": "3b58856161ea70831fcef0c3639ae8a96af11885",
-   "at": "1786136981",
    "subject": "feat(phantom): EXACT full original Aleks ticket bot (5653 lines - every function kept, no removal, no shortening)",
    "body": ""
   }

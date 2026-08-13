@@ -65,8 +65,14 @@ def dashboard_source(*parts) -> str:
 
 def strip_ts_comments(src: str) -> str:
     """Sonst treffen die Suchen die eigenen Kommentare statt des Codes."""
-    src = re.sub(r"/\*.*?\*/", "", src, flags=re.S)
-    return re.sub(r"^\s*//.*$", "", src, flags=re.M)
+    # Reihenfolge: erst die Zeilenkommentare, dann die Bloecke.
+    # Steht ein Pfad mit Sternchen in einem //-Kommentar, eroeffnet
+    # das darin enthaltene /* sonst einen Schein-Block, der den
+    # halben Quelltext verschluckt -- in test_dashboard_rollen.py
+    # genau so passiert: fuenf Pruefungen meldeten »fehlt«,
+    # obwohl alles da war.
+    src = re.sub(r"^\s*//.*$", "", src, flags=re.M)
+    return re.sub(r"/\*.*?\*/", "", src, flags=re.S)
 
 
 def strip_py_comments(src: str) -> str:

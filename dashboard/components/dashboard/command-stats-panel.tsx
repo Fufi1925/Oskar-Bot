@@ -54,9 +54,21 @@ function isSlash(command: string) {
   return command.startsWith("/");
 }
 
-/** Eine Zahl mit deutschem Tausenderpunkt. */
-function num(value: number) {
-  return value.toLocaleString("de-DE");
+/**
+ * Eine Zahl mit deutschem Tausenderpunkt.
+ *
+ * `?? 0` ist kein Zierrat: fehlt ein Feld in der Antwort — etwa weil
+ * der Bot beim Zusammenstellen der Statistik in einen Fehler lief und
+ * nur einen Teil liefert —, warf `undefined.toLocaleString()` und riss
+ * die **ganze Seite** in den weißen Fehlerbildschirm. Im Browser
+ * nachgemessen, nicht vermutet: „Application error: a client-side
+ * exception has occurred“.
+ *
+ * Eine fehlende Zahl als 0 zu zeigen ist nicht ideal. Eine leere Seite
+ * statt des Dashboards ist deutlich schlechter.
+ */
+function num(value: number | null | undefined) {
+  return (value ?? 0).toLocaleString("de-DE");
 }
 
 /**
@@ -248,7 +260,7 @@ export function CommandStatsPanel() {
             </div>
           </div>
 
-          {data.daily.length > 1 && (
+          {(data.daily?.length ?? 0) > 1 && (
             <div className={CARD}>
               <p className="mb-3 text-[13px] font-semibold text-slate-300">
                 Aufrufe pro Tag
@@ -257,7 +269,7 @@ export function CommandStatsPanel() {
                   Verlauf -- und beim Überfahren steht der Wert des
                   Tages daneben statt nur im Tooltip des Browsers. */}
               <LineChart
-                daten={data.daily.map((e) => ({
+                daten={(data.daily ?? []).map((e) => ({
                   label: new Date(e.day).toLocaleDateString("de-DE", {
                     day: "numeric",
                     month: "short",
@@ -400,7 +412,7 @@ export function CommandStatsPanel() {
             )}
           </div>
 
-          {data.guilds.length > 0 && (
+          {(data.guilds?.length ?? 0) > 0 && (
             <div className={CARD}>
               <div className="flex items-center gap-3 mb-4">
                 <p className="text-xs font-black uppercase tracking-widest text-slate-500">
@@ -415,7 +427,7 @@ export function CommandStatsPanel() {
               </div>
 
               <div className="space-y-2">
-                {data.guilds.slice(0, 8).map((guild, index) => (
+                {(data.guilds ?? []).slice(0, 8).map((guild, index) => (
                   <div
                     key={guild.guild_id || `masked-${index}`}
                     className="flex items-center gap-3"
@@ -458,7 +470,7 @@ export function CommandStatsPanel() {
         </>
       )}
 
-      {data.unused.length > 0 && (
+      {(data.unused?.length ?? 0) > 0 && (
         <div className={CARD}>
           <button
             onClick={() => setShowUnused(!showUnused)}
@@ -467,7 +479,7 @@ export function CommandStatsPanel() {
             <AlertTriangle className="h-5 w-5 text-slate-600 shrink-0" />
             <div className="flex-1 min-w-0">
               <p className="font-black text-white text-sm">
-                {data.unused.length} Befehle nie benutzt
+                {data.unused?.length ?? 0} Befehle nie benutzt
               </p>
               <p className="text-xs text-slate-500 mt-0.5">
                 Kandidaten zum Entfernen — oder dafür, sie bekannter zu machen
@@ -480,7 +492,7 @@ export function CommandStatsPanel() {
 
           {showUnused && (
             <div className="flex flex-wrap gap-1.5 mt-4">
-              {data.unused.map((command) => (
+              {(data.unused ?? []).map((command) => (
                 <code
                   key={command}
                   className={cn(

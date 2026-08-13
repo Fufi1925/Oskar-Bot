@@ -62,8 +62,14 @@ def strip_comments(src: str) -> str:
     (`absolute z-50`, `max-h-64`). Genau dieser Fehler ist bei der
     Emoji-Auswahl mehrfach hintereinander passiert.
     """
-    without_block = re.sub(r"/\*.*?\*/", "", src, flags=re.S)
-    return re.sub(r"^\s*//.*$", "", without_block, flags=re.M)
+    # Reihenfolge: erst die Zeilenkommentare, dann die Bloecke.
+    # Steht ein Pfad mit Sternchen in einem //-Kommentar, eroeffnet
+    # das darin enthaltene /* sonst einen Schein-Block, der den
+    # halben Quelltext verschluckt -- in test_dashboard_rollen.py
+    # genau so passiert: fuenf Pruefungen meldeten »fehlt«,
+    # obwohl alles da war.
+    without_lines = re.sub(r"^\s*//.*$", "", src, flags=re.M)
+    return re.sub(r"/\*.*?\*/", "", without_lines, flags=re.S)
 
 
 LAYER = "components/ui/popover-layer.tsx"

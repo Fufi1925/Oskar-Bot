@@ -100,6 +100,51 @@ export function hasManagePermission(guild: DiscordPartialGuild): boolean {
   }
 }
 
+/**
+ * Verwaltet dieser Nutzer den Server auf **Discord** selbst?
+ *
+ * ── Warum es diese Frage braucht ────────────────────────────────────
+ *
+ * Der Proxy prüfte bisher in jedem Server-Bereich so:
+ *
+ *     const team = await fetchTeamAccess(userId);
+ *     if (!team || team.roles.length === 0) return { ok: true };
+ *     if (await hasTeamPermission(...)) return { ok: true };
+ *     return deny(403);
+ *
+ * Ohne Dashboard-Rolle kam man also durch — die Discord-Prüfung lief
+ * ja darüber. **Mit** Rolle zählte ab da nur noch die Rolle. Die Rolle
+ * hat die Discord-Rechte nicht ergänzt, sondern **ersetzt**.
+ *
+ * Wer sich als Server-Inhaber selbst eine Rolle wie „Ticket Support“
+ * gab, konnte auf dem eigenen Server nichts mehr einstellen: „missing
+ * permission“, bei jeder Einstellung. Rolle weg — ging wieder. Genau
+ * so hat der Nutzer es gemeldet, und genau so ist es nachgemessen.
+ *
+ * Eine Rolle ist eine **Zusatzbefugnis** für Leute ohne Discord-Rechte.
+ * Sie darf niemandem etwas wegnehmen. Diese Funktion beantwortet
+ * deshalb die eine Frage, die dafür fehlte: hat der Nutzer die Rechte
+ * schon von Discord? Dann gilt das weiter, ganz gleich welche Rolle er
+ * sonst noch trägt.
+ *
+ * `false` ist die sichere Antwort: ohne Sitzung, ohne Token oder bei
+ * einer fehlgeschlagenen Anfrage an Discord wird die Rollenprüfung
+ * angewandt — die ist enger, nicht weiter.
+ */
+export async function managesGuildOnDiscord(guildId: string): Promise<boolean> {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id || !session.accessToken) return false;
+  if (!/^\d{17,20}$/.test(String(guildId))) return false;
+
+  try {
+    const guilds = await fetchUserGuilds(session.accessToken);
+    const guild = guilds.find((g) => String(g.id) === String(guildId));
+    return Boolean(guild && hasManagePermission(guild));
+  } catch {
+    return false;
+  }
+}
+
 export interface GuildAccessResult {
   allowed: boolean;
   /** HTTP status to answer with when `allowed` is false. */

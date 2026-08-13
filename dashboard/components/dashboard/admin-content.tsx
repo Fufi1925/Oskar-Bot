@@ -101,6 +101,69 @@ const TAB_GROUPS: Array<{ name: string; ids: TabId[] }> = [
   { name: "Verwaltung", ids: ["features", "botsettings", "backups", "pingreactions", "servers", "premium", "speedrun", "tester", "templates"] },
 ];
 
+/**
+ * Welches Recht eine Aktion braucht.
+ *
+ * Die Werte sind nicht ausgedacht: sie stehen genauso in
+ * `app/api/bot/[...path]/route.ts` (`permissionFor`). Zwei Listen,
+ * die dasselbe bedeuten, laufen auseinander -- deshalb steht hier
+ * eine Notiz statt einer zweiten Wahrheit.
+ *
+ * Ohne diese Angabe zeigte die Oberfläche jedem alles: ein
+ * Trial-Moderator, der nur verwarnen darf, sah „Kicken“ und
+ * „Bannen“ und bekam beim Klick eine Fehlermeldung. Im Screenshot
+ * nachgemessen, nicht vermutet.
+ */
+const AKTION_RECHT: Record<string, string> = {
+  mute: "moderation.mute",
+  unmute: "moderation.mute",
+  kick: "moderation.kick",
+  ban: "moderation.ban",
+  purge: "moderation.purge",
+  nickname: "members.manage",
+  clear_nickname: "members.manage",
+  add_role: "members.manage",
+  remove_role: "members.manage",
+  member_info: "members.view",
+  create_role: "roles.manage",
+  delete_role: "roles.manage",
+  rename_role: "roles.manage",
+  color_role: "roles.manage",
+  toggle_role_hoist: "roles.manage",
+  toggle_role_mentionable: "roles.manage",
+  create_text_channel: "channels.manage",
+  create_voice_channel: "channels.manage",
+  create_category: "channels.manage",
+  rename_channel: "channels.manage",
+  delete_channel: "channels.manage",
+  clone_channel: "channels.manage",
+  lock_channel: "channels.manage",
+  unlock_channel: "channels.manage",
+  slowmode: "channels.manage",
+  server_name: "server.manage",
+  verification_level_low: "server.manage",
+  verification_level_medium: "server.manage",
+  default_notifications_mentions: "server.manage",
+  default_notifications_all: "server.manage",
+};
+
+/**
+ * Das Recht zu einer Aktion, inklusive der Sammelregel des Proxys:
+ * alles, was mit `scan_`/`list_` anfängt, verlangt `security.scan`.
+ */
+function rechtFuer(action: string): string | null {
+  if (AKTION_RECHT[action]) return AKTION_RECHT[action];
+  if (
+    action.startsWith("scan_") ||
+    action.startsWith("list_") ||
+    action === "audit_summary" ||
+    action === "server_stats"
+  ) {
+    return "security.scan";
+  }
+  return null;
+}
+
 const memberActions: Array<{ action: MemberAction; label: string; desc: string; icon: any }> = [
   { action: "mute", label: "Stummschalten", desc: "Sperrt einen Nutzer für die gewählte Dauer.", icon: Clock },
   { action: "unmute", label: "Entstummen", desc: "Hebt die Zeitsperre wieder auf.", icon: VolumeX },
@@ -325,16 +388,47 @@ export function AdminContent() {
     botsettings: "maintenance.toggle",
     tester: "tester.access",
     webapply: "approvals.resolve",
+    // Diese drei hatten hier gar keinen Eintrag -- und ein Reiter ohne
+    // Eintrag wird JEDEM gezeigt, auch einem Trial-Moderator. Beim
+    // Klick kam dann die Fehlermeldung des Proxys. Nachgemessen: 39
+    // von 41 Rollen sahen "Nutzer suchen", obwohl der Proxy dort
+    // team.view verlangt.
+    //
+    // Die Werte sind nicht ausgedacht, sondern das, was der Proxy
+    // wirklich prueft:
+    //   userlookup -> die /access-Routen verlangen team.view (GET)
+    //   premium    -> /premium/keys verlangt eine Team-Rolle
+    //   speedrun   -> die eingreifendste Aktion ueberhaupt: sie legt
+    //                 Dutzende Rollen und Kanaele an
+    userlookup: "team.view",
+    premium: "premium.manage",
+    speedrun: "server.manage",
     // Lesen darf jede Team-Rolle; aendern gated der Proxy separat
     // ueber maintenance.toggle.
     pingreactions: "dashboard.access",
   };
 
   const visibleTabs = useMemo(() => {
-    // Before the permissions arrive, show everything: the API rejects
-    // anything the user may not do anyway.
-    if (!access) return tabs;
+    // Solange die Rechte nicht da sind: NICHTS zeigen.
+    //
+    // Hier stand „alles zeigen, die API weist ohnehin ab“. Das war aus
+    // zwei Gründen falsch. Erstens sah jeder für einen Moment die
+    // vollständige Leiste — einundzwanzig Reiter, von denen ihm die
+    // meisten nichts sagen; klickte er schnell, bekam er eine
+    // Fehlermeldung statt einer Antwort. Zweitens ist „die API weist
+    // ab“ keine Begründung für eine Anzeige: was auf dem Bildschirm
+    // steht, ist eine Aussage darüber, was jemand darf.
+    //
+    // Ein leerer Zustand ist die ehrlichere Zwischenstufe: er sagt
+    // „wird geprüft“ statt „du darfst das alles“.
+    if (!access) return [];
     if (access.is_owner) return tabs;
+
+    // Wer gar keine Rolle hat, sieht keinen einzigen Reiter. Die Seite
+    // selbst leitet solche Leute schon weg (`app/dashboard/admin/
+    // page.tsx`), aber diese Prüfung darf sich nicht darauf verlassen:
+    // Rollen können entzogen werden, während die Seite offen ist.
+    if (!access.is_owner && (access.roles?.length ?? 0) === 0) return [];
 
     // Tester sehen genau einen Reiter -- ihren.
     //
@@ -385,7 +479,48 @@ export function AdminContent() {
   );
 
 
-  const currentActions = useMemo(() => quickActions.filter((action) => action.tab === activeTab), [activeTab]);
+  /**
+   * Darf der Nutzer diese Aktion überhaupt?
+   *
+   * Owner dürfen alles. Solange die Rechte noch nicht da sind, wird
+   * NICHTS gezeigt — sonst blitzt kurz die volle Liste auf, und wer
+   * schnell klickt, bekommt eine Fehlermeldung statt einer Antwort.
+   */
+  const darf = React.useCallback(
+    (action: string) => {
+      if (!access) return false;
+      if (access.is_owner) return true;
+      const noetig = rechtFuer(action);
+      if (!noetig) return true;
+      return access.permissions.includes(noetig);
+    },
+    [access],
+  );
+
+  // Nur die Aktionen, die der Nutzer auch ausführen darf. Vorher
+  // sah ein Trial-Moderator „Kicken“ und „Bannen“ — beides gab beim
+  // Klick 403.
+  const sichtbareMemberActions = useMemo(
+    () => memberActions.filter((card) => darf(card.action)),
+    [darf],
+  );
+
+  const currentActions = useMemo(
+    () => quickActions.filter((action) => action.tab === activeTab && darf(action.action)),
+    [activeTab, darf],
+  );
+
+  // Faellt die gewaehlte Moderations-Aktion weg, auf eine erlaubte
+  // wechseln. Sonst steht auf dem Knopf „Bannen ausfuehren“, obwohl
+  // die Karte dazu gar nicht mehr da ist -- und der Klick gibt 403.
+  useEffect(() => {
+    if (
+      sichtbareMemberActions.length &&
+      !sichtbareMemberActions.some((a) => a.action === memberAction)
+    ) {
+      setMemberAction(sichtbareMemberActions[0].action);
+    }
+  }, [sichtbareMemberActions, memberAction]);
   const currentNeeds = useMemo(() => new Set(currentActions.flatMap((action) => action.needs || [])), [currentActions]);
 
   const basePayload = () => ({ guild_id: guildId, user_id: userId.trim(), channel_id: channelId, name: name.trim(), amount: Number(amount) || 10, seconds: Number(seconds) || 5, duration_minutes: Number(duration) || 60, reason: reason.trim() });
@@ -449,6 +584,48 @@ export function AdminContent() {
     return (
       <div className="flex min-h-[400px] items-center justify-center">
         <RefreshCw className="h-6 w-6 animate-spin text-indigo-400 opacity-50" />
+      </div>
+    );
+  }
+
+  // Die Rechte sind noch unterwegs.
+  //
+  // Vorher wurde in diesem Moment die volle Reiterleiste gezeigt.
+  // Jetzt steht hier, was tatsächlich passiert — das ist eine
+  // Zehntelsekunde ehrlicher als einundzwanzig Reiter, die gleich
+  // wieder verschwinden.
+  if (!access) {
+    return (
+      <div className="flex min-h-[400px] flex-col items-center justify-center gap-3">
+        <RefreshCw className="h-5 w-5 animate-spin text-indigo-400 opacity-50" />
+        <p className="text-[13px] text-slate-500">Berechtigungen werden geprüft …</p>
+      </div>
+    );
+  }
+
+  // Angemeldet, aber ohne jede Dashboard-Rolle.
+  //
+  // Normalerweise kommt hier niemand an: `app/dashboard/admin/page.tsx`
+  // leitet solche Leute zurück. Wird eine Rolle aber entzogen, während
+  // die Seite offen ist, steht der Betreffende genau hier — und soll
+  // dann einen Satz lesen statt einer leeren Fläche.
+  if (!access.is_owner && (access.roles?.length ?? 0) === 0) {
+    return (
+      <div className="mx-auto max-w-lg rounded-2xl border border-slate-800 bg-[#131318] px-6 py-10 text-center">
+        <Lock className="mx-auto mb-3 h-7 w-7 text-slate-700" />
+        <p className="text-[15px] text-slate-300">
+          Für den Admin-Bereich fehlt dir eine Rolle.
+        </p>
+        <p className="mx-auto mt-1.5 max-w-md text-[13px] leading-relaxed text-slate-500">
+          Deine eigenen Server kannst du weiterhin ganz normal verwalten —
+          dieser Bereich ist nur für das Team des Bots.
+        </p>
+        <a
+          href="/dashboard"
+          className="mt-5 inline-flex items-center gap-2 rounded-xl bg-[#5865f2] px-5 py-2.5 text-[14px] font-semibold text-white transition-colors hover:bg-[#4752c4]"
+        >
+          Zurück zum Dashboard
+        </a>
       </div>
     );
   }
@@ -756,8 +933,23 @@ export function AdminContent() {
           <main className="space-y-4 xl:col-span-3">
             {activeTab === "members" && (
               <section className="space-y-3">
+                {/* Keine einzige erlaubte Aktion: dann auch keinen
+                    toten Knopf. Ein Satz sagt mehr als ein grauer
+                    Balken, den man nicht drücken kann. */}
+                {sichtbareMemberActions.length === 0 ? (
+                  <div className="rounded-2xl border border-slate-800 bg-[#131318] px-6 py-8 text-center">
+                    <p className="text-[14px] text-slate-300">
+                      Deine Rolle erlaubt hier keine Aktion.
+                    </p>
+                    <p className="mx-auto mt-1.5 max-w-md text-[13px] leading-relaxed text-slate-500">
+                      Zum Stummschalten, Kicken oder Bannen fehlt dir die
+                      Berechtigung. Ein Owner kann sie dir geben.
+                    </p>
+                  </div>
+                ) : (
+                  <>
                 <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-                  {memberActions.map((card) => {
+                  {sichtbareMemberActions.map((card) => {
                     const active = memberAction === card.action;
                     return (
                       <button
@@ -797,6 +989,8 @@ export function AdminContent() {
                     "Ausführen"}{" "}
                   ausführen
                 </button>
+                </>
+                )}
               </section>
             )}
 

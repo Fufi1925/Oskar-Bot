@@ -19,6 +19,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import {
   verifyGuildAccess,
+  managesGuildOnDiscord,
   verifyAdminAccess,
   isGlobalAdmin,
   fetchTeamAccess,
@@ -228,6 +229,13 @@ async function authorize(
       };
       const required = permissionFor[wanted] ?? (wanted.startsWith("scan_") || wanted.startsWith("list_") || wanted === "audit_summary" || wanted === "server_stats" ? "security.scan" : null);
 
+      // Wer den Server auf Discord verwaltet, behaelt seine Rechte.
+      // Dieselbe Regel wie in den Server-Bereichen weiter unten: eine
+      // Dashboard-Rolle ergaenzt, sie ersetzt nicht. Ohne diese Zeile
+      // konnte ein Server-Inhaber, der sich selbst eine beliebige
+      // Rolle gab, auf seinem eigenen Server nicht mehr moderieren.
+      if (await managesGuildOnDiscord(guildId)) return { ok: true };
+
       const team = await fetchTeamAccess(session.user.id);
       const holdsRole = Boolean(team && team.roles.length > 0);
 
@@ -280,6 +288,13 @@ async function authorize(
     if (!session?.user?.id) return { ok: false, response: deny(401, "Not signed in.") };
     if (isGlobalAdmin(session.user.id)) return { ok: true };
 
+    // Wer den Server auf Discord verwaltet, behaelt seine Rechte.
+    // Eine Dashboard-Rolle ist eine Zusatzbefugnis fuer Leute
+    // OHNE solche Rechte -- sie darf niemandem etwas wegnehmen.
+    // Ohne diese Zeile sperrte sich ein Server-Inhaber aus,
+    // sobald er sich selbst irgendeine Rolle gab.
+    if (await managesGuildOnDiscord(guildId)) return { ok: true };
+
     const team = await fetchTeamAccess(session.user.id);
     // Reached here through Manage Server on Discord: keep the usual rights.
     if (!team || team.roles.length === 0) return { ok: true };
@@ -304,6 +319,13 @@ async function authorize(
     if (!session?.user?.id) return { ok: false, response: deny(401, "Not signed in.") };
     if (isGlobalAdmin(session.user.id)) return { ok: true };
 
+    // Wer den Server auf Discord verwaltet, behaelt seine Rechte.
+    // Eine Dashboard-Rolle ist eine Zusatzbefugnis fuer Leute
+    // OHNE solche Rechte -- sie darf niemandem etwas wegnehmen.
+    // Ohne diese Zeile sperrte sich ein Server-Inhaber aus,
+    // sobald er sich selbst irgendeine Rolle gab.
+    if (await managesGuildOnDiscord(guildId)) return { ok: true };
+
     const team = await fetchTeamAccess(session.user.id);
     if (!team || team.roles.length === 0) return { ok: true };
 
@@ -324,6 +346,13 @@ async function authorize(
     if (!session?.user?.id) return { ok: false, response: deny(401, "Not signed in.") };
     if (isGlobalAdmin(session.user.id)) return { ok: true };
 
+    // Wer den Server auf Discord verwaltet, behaelt seine Rechte.
+    // Eine Dashboard-Rolle ist eine Zusatzbefugnis fuer Leute
+    // OHNE solche Rechte -- sie darf niemandem etwas wegnehmen.
+    // Ohne diese Zeile sperrte sich ein Server-Inhaber aus,
+    // sobald er sich selbst irgendeine Rolle gab.
+    if (await managesGuildOnDiscord(guildId)) return { ok: true };
+
     const team = await fetchTeamAccess(session.user.id);
     if (!team || team.roles.length === 0) return { ok: true };
 
@@ -343,6 +372,13 @@ async function authorize(
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) return { ok: false, response: deny(401, "Not signed in.") };
     if (isGlobalAdmin(session.user.id)) return { ok: true };
+
+    // Wer den Server auf Discord verwaltet, behaelt seine Rechte.
+    // Eine Dashboard-Rolle ist eine Zusatzbefugnis fuer Leute
+    // OHNE solche Rechte -- sie darf niemandem etwas wegnehmen.
+    // Ohne diese Zeile sperrte sich ein Server-Inhaber aus,
+    // sobald er sich selbst irgendeine Rolle gab.
+    if (await managesGuildOnDiscord(guildId)) return { ok: true };
 
     const team = await fetchTeamAccess(session.user.id);
     if (!team || team.roles.length === 0) return { ok: true };
@@ -367,6 +403,13 @@ async function authorize(
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) return { ok: false, response: deny(401, "Not signed in.") };
     if (isGlobalAdmin(session.user.id)) return { ok: true };
+
+    // Wer den Server auf Discord verwaltet, behaelt seine Rechte.
+    // Eine Dashboard-Rolle ist eine Zusatzbefugnis fuer Leute
+    // OHNE solche Rechte -- sie darf niemandem etwas wegnehmen.
+    // Ohne diese Zeile sperrte sich ein Server-Inhaber aus,
+    // sobald er sich selbst irgendeine Rolle gab.
+    if (await managesGuildOnDiscord(guildId)) return { ok: true };
 
     const team = await fetchTeamAccess(session.user.id);
     // Über Manage Server auf Discord hereingekommen: übliche Rechte.
@@ -424,6 +467,13 @@ async function authorize(
     if (!session?.user?.id) return { ok: false, response: deny(401, "Not signed in.") };
     if (isGlobalAdmin(session.user.id)) return { ok: true };
 
+    // Wer den Server auf Discord verwaltet, behaelt seine Rechte.
+    // Eine Dashboard-Rolle ist eine Zusatzbefugnis fuer Leute
+    // OHNE solche Rechte -- sie darf niemandem etwas wegnehmen.
+    // Ohne diese Zeile sperrte sich ein Server-Inhaber aus,
+    // sobald er sich selbst irgendeine Rolle gab.
+    if (await managesGuildOnDiscord(guildId)) return { ok: true };
+
     const team = await fetchTeamAccess(session.user.id);
     if (!team || team.roles.length === 0) return { ok: true };
 
@@ -449,6 +499,13 @@ async function authorize(
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) return { ok: false, response: deny(401, "Not signed in.") };
     if (isGlobalAdmin(session.user.id)) return { ok: true };
+
+    // Wer den Server auf Discord verwaltet, behaelt seine Rechte.
+    // Eine Dashboard-Rolle ist eine Zusatzbefugnis fuer Leute
+    // OHNE solche Rechte -- sie darf niemandem etwas wegnehmen.
+    // Ohne diese Zeile sperrte sich ein Server-Inhaber aus,
+    // sobald er sich selbst irgendeine Rolle gab.
+    if (await managesGuildOnDiscord(guildId)) return { ok: true };
 
     const team = await fetchTeamAccess(session.user.id);
     if (!team || team.roles.length === 0) return { ok: true };
@@ -477,6 +534,13 @@ async function authorize(
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) return { ok: false, response: deny(401, "Not signed in.") };
     if (isGlobalAdmin(session.user.id)) return { ok: true };
+
+    // Wer den Server auf Discord verwaltet, behaelt seine Rechte.
+    // Eine Dashboard-Rolle ist eine Zusatzbefugnis fuer Leute
+    // OHNE solche Rechte -- sie darf niemandem etwas wegnehmen.
+    // Ohne diese Zeile sperrte sich ein Server-Inhaber aus,
+    // sobald er sich selbst irgendeine Rolle gab.
+    if (await managesGuildOnDiscord(guildId)) return { ok: true };
 
     const team = await fetchTeamAccess(session.user.id);
     if (!team || team.roles.length === 0) return { ok: true };
@@ -554,6 +618,13 @@ async function authorize(
     if (!session?.user?.id) return { ok: false, response: deny(401, "Not signed in.") };
     if (isGlobalAdmin(session.user.id)) return { ok: true };
 
+    // Wer den Server auf Discord verwaltet, behaelt seine Rechte.
+    // Eine Dashboard-Rolle ist eine Zusatzbefugnis fuer Leute
+    // OHNE solche Rechte -- sie darf niemandem etwas wegnehmen.
+    // Ohne diese Zeile sperrte sich ein Server-Inhaber aus,
+    // sobald er sich selbst irgendeine Rolle gab.
+    if (await managesGuildOnDiscord(guildId)) return { ok: true };
+
     const team = await fetchTeamAccess(session.user.id);
     if (!team || team.roles.length === 0) return { ok: true };
 
@@ -581,6 +652,13 @@ async function authorize(
     if (!session?.user?.id) return { ok: false, response: deny(401, "Not signed in.") };
     if (isGlobalAdmin(session.user.id)) return { ok: true };
 
+    // Wer den Server auf Discord verwaltet, behaelt seine Rechte.
+    // Eine Dashboard-Rolle ist eine Zusatzbefugnis fuer Leute
+    // OHNE solche Rechte -- sie darf niemandem etwas wegnehmen.
+    // Ohne diese Zeile sperrte sich ein Server-Inhaber aus,
+    // sobald er sich selbst irgendeine Rolle gab.
+    if (await managesGuildOnDiscord(guildId)) return { ok: true };
+
     const team = await fetchTeamAccess(session.user.id);
     if (!team || team.roles.length === 0) return { ok: true };
 
@@ -600,6 +678,13 @@ async function authorize(
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) return { ok: false, response: deny(401, "Not signed in.") };
     if (isGlobalAdmin(session.user.id)) return { ok: true };
+
+    // Wer den Server auf Discord verwaltet, behaelt seine Rechte.
+    // Eine Dashboard-Rolle ist eine Zusatzbefugnis fuer Leute
+    // OHNE solche Rechte -- sie darf niemandem etwas wegnehmen.
+    // Ohne diese Zeile sperrte sich ein Server-Inhaber aus,
+    // sobald er sich selbst irgendeine Rolle gab.
+    if (await managesGuildOnDiscord(guildId)) return { ok: true };
 
     const team = await fetchTeamAccess(session.user.id);
     if (!team || team.roles.length === 0) return { ok: true };
@@ -621,6 +706,13 @@ async function authorize(
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) return { ok: false, response: deny(401, "Not signed in.") };
     if (isGlobalAdmin(session.user.id)) return { ok: true };
+
+    // Wer den Server auf Discord verwaltet, behaelt seine Rechte.
+    // Eine Dashboard-Rolle ist eine Zusatzbefugnis fuer Leute
+    // OHNE solche Rechte -- sie darf niemandem etwas wegnehmen.
+    // Ohne diese Zeile sperrte sich ein Server-Inhaber aus,
+    // sobald er sich selbst irgendeine Rolle gab.
+    if (await managesGuildOnDiscord(guildId)) return { ok: true };
 
     const team = await fetchTeamAccess(session.user.id);
     if (!team || team.roles.length === 0) return { ok: true };
@@ -680,6 +772,13 @@ async function authorize(
 
     if (isGlobalAdmin(session.user.id)) return { ok: true };
 
+    // Wer den Server auf Discord verwaltet, behaelt seine Rechte.
+    // Eine Dashboard-Rolle ist eine Zusatzbefugnis fuer Leute
+    // OHNE solche Rechte -- sie darf niemandem etwas wegnehmen.
+    // Ohne diese Zeile sperrte sich ein Server-Inhaber aus,
+    // sobald er sich selbst irgendeine Rolle gab.
+    if (await managesGuildOnDiscord(guildId)) return { ok: true };
+
     const team = await fetchTeamAccess(session.user.id);
     // Über Discords eigenes "Server verwalten" hereingekommen.
     if (!team || team.roles.length === 0) return { ok: true };
@@ -701,6 +800,13 @@ async function authorize(
     if (!session?.user?.id) return { ok: false, response: deny(401, "Not signed in.") };
     if (isGlobalAdmin(session.user.id)) return { ok: true };
 
+    // Wer den Server auf Discord verwaltet, behaelt seine Rechte.
+    // Eine Dashboard-Rolle ist eine Zusatzbefugnis fuer Leute
+    // OHNE solche Rechte -- sie darf niemandem etwas wegnehmen.
+    // Ohne diese Zeile sperrte sich ein Server-Inhaber aus,
+    // sobald er sich selbst irgendeine Rolle gab.
+    if (await managesGuildOnDiscord(guildId)) return { ok: true };
+
     const team = await fetchTeamAccess(session.user.id);
     if (!team || team.roles.length === 0) return { ok: true };
 
@@ -720,6 +826,13 @@ async function authorize(
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) return { ok: false, response: deny(401, "Not signed in.") };
     if (isGlobalAdmin(session.user.id)) return { ok: true };
+
+    // Wer den Server auf Discord verwaltet, behaelt seine Rechte.
+    // Eine Dashboard-Rolle ist eine Zusatzbefugnis fuer Leute
+    // OHNE solche Rechte -- sie darf niemandem etwas wegnehmen.
+    // Ohne diese Zeile sperrte sich ein Server-Inhaber aus,
+    // sobald er sich selbst irgendeine Rolle gab.
+    if (await managesGuildOnDiscord(guildId)) return { ok: true };
 
     const team = await fetchTeamAccess(session.user.id);
     if (!team || team.roles.length === 0) return { ok: true };
@@ -741,6 +854,13 @@ async function authorize(
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) return { ok: false, response: deny(401, "Not signed in.") };
     if (isGlobalAdmin(session.user.id)) return { ok: true };
+
+    // Wer den Server auf Discord verwaltet, behaelt seine Rechte.
+    // Eine Dashboard-Rolle ist eine Zusatzbefugnis fuer Leute
+    // OHNE solche Rechte -- sie darf niemandem etwas wegnehmen.
+    // Ohne diese Zeile sperrte sich ein Server-Inhaber aus,
+    // sobald er sich selbst irgendeine Rolle gab.
+    if (await managesGuildOnDiscord(guildId)) return { ok: true };
 
     const team = await fetchTeamAccess(session.user.id);
     if (!team || team.roles.length === 0) return { ok: true };
@@ -828,6 +948,13 @@ async function authorize(
     if (!session?.user?.id) return { ok: false, response: deny(401, "Not signed in.") };
     if (isGlobalAdmin(session.user.id)) return { ok: true };
 
+    // Wer den Server auf Discord verwaltet, behaelt seine Rechte.
+    // Eine Dashboard-Rolle ist eine Zusatzbefugnis fuer Leute
+    // OHNE solche Rechte -- sie darf niemandem etwas wegnehmen.
+    // Ohne diese Zeile sperrte sich ein Server-Inhaber aus,
+    // sobald er sich selbst irgendeine Rolle gab.
+    if (await managesGuildOnDiscord(guildId)) return { ok: true };
+
     const team = await fetchTeamAccess(session.user.id);
     if (!team || team.roles.length === 0) return { ok: true };
 
@@ -849,6 +976,13 @@ async function authorize(
     if (!session?.user?.id) return { ok: false, response: deny(401, "Not signed in.") };
     if (isGlobalAdmin(session.user.id)) return { ok: true };
 
+    // Wer den Server auf Discord verwaltet, behaelt seine Rechte.
+    // Eine Dashboard-Rolle ist eine Zusatzbefugnis fuer Leute
+    // OHNE solche Rechte -- sie darf niemandem etwas wegnehmen.
+    // Ohne diese Zeile sperrte sich ein Server-Inhaber aus,
+    // sobald er sich selbst irgendeine Rolle gab.
+    if (await managesGuildOnDiscord(guildId)) return { ok: true };
+
     const team = await fetchTeamAccess(session.user.id);
     if (!team || team.roles.length === 0) return { ok: true };
 
@@ -867,6 +1001,13 @@ async function authorize(
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) return { ok: false, response: deny(401, "Not signed in.") };
     if (isGlobalAdmin(session.user.id)) return { ok: true };
+
+    // Wer den Server auf Discord verwaltet, behaelt seine Rechte.
+    // Eine Dashboard-Rolle ist eine Zusatzbefugnis fuer Leute
+    // OHNE solche Rechte -- sie darf niemandem etwas wegnehmen.
+    // Ohne diese Zeile sperrte sich ein Server-Inhaber aus,
+    // sobald er sich selbst irgendeine Rolle gab.
+    if (await managesGuildOnDiscord(guildId)) return { ok: true };
 
     const team = await fetchTeamAccess(session.user.id);
     if (!team || team.roles.length === 0) return { ok: true };
@@ -889,6 +1030,13 @@ async function authorize(
     if (!session?.user?.id) return { ok: false, response: deny(401, "Not signed in.") };
     if (isGlobalAdmin(session.user.id)) return { ok: true };
 
+    // Wer den Server auf Discord verwaltet, behaelt seine Rechte.
+    // Eine Dashboard-Rolle ist eine Zusatzbefugnis fuer Leute
+    // OHNE solche Rechte -- sie darf niemandem etwas wegnehmen.
+    // Ohne diese Zeile sperrte sich ein Server-Inhaber aus,
+    // sobald er sich selbst irgendeine Rolle gab.
+    if (await managesGuildOnDiscord(guildId)) return { ok: true };
+
     const team = await fetchTeamAccess(session.user.id);
     if (!team || team.roles.length === 0) return { ok: true };
 
@@ -909,6 +1057,13 @@ async function authorize(
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) return { ok: false, response: deny(401, "Not signed in.") };
     if (isGlobalAdmin(session.user.id)) return { ok: true };
+
+    // Wer den Server auf Discord verwaltet, behaelt seine Rechte.
+    // Eine Dashboard-Rolle ist eine Zusatzbefugnis fuer Leute
+    // OHNE solche Rechte -- sie darf niemandem etwas wegnehmen.
+    // Ohne diese Zeile sperrte sich ein Server-Inhaber aus,
+    // sobald er sich selbst irgendeine Rolle gab.
+    if (await managesGuildOnDiscord(guildId)) return { ok: true };
 
     const team = await fetchTeamAccess(session.user.id);
     if (!team || team.roles.length === 0) return { ok: true };
@@ -931,6 +1086,13 @@ async function authorize(
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) return { ok: false, response: deny(401, "Not signed in.") };
     if (isGlobalAdmin(session.user.id)) return { ok: true };
+
+    // Wer den Server auf Discord verwaltet, behaelt seine Rechte.
+    // Eine Dashboard-Rolle ist eine Zusatzbefugnis fuer Leute
+    // OHNE solche Rechte -- sie darf niemandem etwas wegnehmen.
+    // Ohne diese Zeile sperrte sich ein Server-Inhaber aus,
+    // sobald er sich selbst irgendeine Rolle gab.
+    if (await managesGuildOnDiscord(guildId)) return { ok: true };
 
     const team = await fetchTeamAccess(session.user.id);
     if (!team || team.roles.length === 0) return { ok: true };
@@ -956,6 +1118,13 @@ async function authorize(
     if (!session?.user?.id) return { ok: false, response: deny(401, "Not signed in.") };
     if (isGlobalAdmin(session.user.id)) return { ok: true };
 
+    // Wer den Server auf Discord verwaltet, behaelt seine Rechte.
+    // Eine Dashboard-Rolle ist eine Zusatzbefugnis fuer Leute
+    // OHNE solche Rechte -- sie darf niemandem etwas wegnehmen.
+    // Ohne diese Zeile sperrte sich ein Server-Inhaber aus,
+    // sobald er sich selbst irgendeine Rolle gab.
+    if (await managesGuildOnDiscord(guildId)) return { ok: true };
+
     const team = await fetchTeamAccess(session.user.id);
     // Reached here through Discord's own Manage Server permission.
     if (!team || team.roles.length === 0) return { ok: true };
@@ -979,6 +1148,13 @@ async function authorize(
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) return { ok: false, response: deny(401, "Not signed in.") };
     if (isGlobalAdmin(session.user.id)) return { ok: true };
+
+    // Wer den Server auf Discord verwaltet, behaelt seine Rechte.
+    // Eine Dashboard-Rolle ist eine Zusatzbefugnis fuer Leute
+    // OHNE solche Rechte -- sie darf niemandem etwas wegnehmen.
+    // Ohne diese Zeile sperrte sich ein Server-Inhaber aus,
+    // sobald er sich selbst irgendeine Rolle gab.
+    if (await managesGuildOnDiscord(guildId)) return { ok: true };
 
     const team = await fetchTeamAccess(session.user.id);
     // Someone who reached this point through Manage Server on Discord (and
