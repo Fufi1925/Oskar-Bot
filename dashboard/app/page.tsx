@@ -36,7 +36,7 @@
  *
  * ── Warum echte Zahlen ──────────────────────────────────────────────
  *
- * Die Serverzahl kommt aus `/api/bot/bot/stats`, nicht aus dem
+ * Die Zahlen kommen aus `/api/bot/bot/numbers`, nicht aus dem
  * Quelltext. Eine erfundene Zahl auf der Startseite ist genau die
  * Sorte Angabe, die niemand nachpflegt und die dann jahrelang falsch
  * dasteht. Antwortet die Schnittstelle nicht, steht dort ein Strich.
@@ -48,7 +48,7 @@ import {
   Activity, ArrowRight, BarChart4, Bot, Brain, Check, ChevronDown,
   ClipboardList, Gift, Hash, Headphones, Layers, Lock, Mail,
   MessageSquare, Mic, Music, PenLine, ShieldAlert, ShieldCheck,
-  Sparkles, Star, Ticket, UserCog, Users, Zap,
+  Sparkles, Ticket, UserCog, Users, Zap,
 } from "lucide-react";
 import { SiteNav, INVITE_URL } from "@/components/site-nav";
 import { SUPPORT_INVITE } from "@/lib/legal";
@@ -229,7 +229,7 @@ const FAQ = [
   {
     frage: "Wie kann ich alle verfügbaren Befehle sehen?",
     antwort:
-      "Mit >help im Chat oder über die Dokumentation. Der Bot hat 543 Prefix-Befehle und 65 Slash-Befehle; die Hilfe ist nach Kategorien geordnet, damit man nicht durch eine lange Liste scrollen muss.",
+      "Mit >help im Chat oder auf der Seite „Alle Befehle“ — dort stehen sie durchsuchbar und mit Beschreibung. Die Hilfe im Discord ist nach Kategorien geordnet, damit man nicht durch eine lange Liste scrollen muss.",
   },
   {
     frage: "Kann ich das Präfix des Bots anpassen?",
@@ -279,7 +279,7 @@ function FaqZeile({ frage, antwort }: { frage: string; antwort: string }) {
 export default function LandingPage() {
   const [karte, setKarte] = React.useState(0);
   const [stimme, setStimme] = React.useState(0);
-  const [server, setServer] = React.useState<string | null>(null);
+  const [zahlen, setZahlen] = React.useState<any>(null);
 
   // Die Karten im Hero weiterblättern. Fünf Sekunden: lang genug, um
   // die drei Zeilen zu lesen, kurz genug, dass man die zweite Karte
@@ -294,23 +294,29 @@ export default function LandingPage() {
     return () => clearInterval(t);
   }, []);
 
-  // Die echte Serverzahl. Schlägt der Aufruf fehl, bleibt es beim
-  // Strich -- lieber keine Zahl als eine erfundene.
+  // Alle Zahlen aus dem laufenden Bot.
+  //
+  // Vorher standen Module, Befehle und Dashboard-Reiter fest im
+  // Quelltext -- und waren falsch: 608 Befehle behauptet, 623
+  // gezaehlt. Eine Zahl, die niemand nachpflegt, steht irgendwann
+  // jahrelang falsch da. Antwortet der Bot nicht, bleibt ein Strich.
   React.useEffect(() => {
     let lebt = true;
-    fetch("/api/bot/bot/stats")
+    fetch("/api/bot/bot/numbers")
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
-        const n = Number(d?.guilds ?? d?.guild_count ?? d?.servers);
-        if (lebt && Number.isFinite(n) && n > 0) {
-          setServer(n.toLocaleString("de-DE"));
-        }
+        if (lebt && d) setZahlen(d);
       })
       .catch(() => {});
     return () => {
       lebt = false;
     };
   }, []);
+
+  /** Eine Zahl, oder ein Strich, solange sie nicht da ist. */
+  const zeig = (wert: any) =>
+    typeof wert === "number" && wert > 0 ? wert.toLocaleString("de-DE") : "—";
+  const server = zahlen?.guilds > 0 ? zeig(zahlen.guilds) : null;
 
   const Aktiv = HERO_KARTEN[karte].icon;
 
@@ -478,22 +484,19 @@ export default function LandingPage() {
       {/* ── Zahlen ────────────────────────────────────────── */}
       <section className="py-24 px-6 lg:px-12 xl:px-20">
         <div className="mx-auto max-w-[1400px] text-center">
-          <div className="mx-auto mb-6 h-12 w-12 rounded-2xl bg-indigo-500/15 grid place-items-center">
-            <Activity className="h-6 w-6 text-indigo-400" />
-          </div>
-          <h2 className="text-[38px] sm:text-[44px] font-extrabold tracking-tight text-white">
-            Bot-Statistiken
+          <h2 className="text-[32px] sm:text-[38px] font-extrabold tracking-tight text-white">
+            In Zahlen
           </h2>
           <p className="mt-3 text-[16px] text-slate-400">
-            Nachgezählt, nicht geschätzt
+            Direkt aus dem laufenden Bot — nicht geschätzt.
           </p>
 
           <div className="mx-auto mt-12 grid max-w-4xl gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {[
               { wert: server ?? "—", label: "Server" },
-              { wert: "152", label: "Module" },
-              { wert: "608", label: "Befehle" },
-              { wert: "41", label: "Dashboard-Reiter" },
+              { wert: zeig(zahlen?.modules), label: "Module" },
+              { wert: zeig(zahlen?.commands), label: "Befehle" },
+              { wert: zeig(zahlen?.users), label: "Mitglieder" },
             ].map((s) => (
               <div
                 key={s.label}
@@ -502,19 +505,17 @@ export default function LandingPage() {
                 <div className="text-[34px] font-extrabold leading-none text-white">
                   {s.wert}
                 </div>
-                <div className="mt-2 text-[13px] uppercase tracking-widest text-slate-500">
+                <div className="mt-2 text-[13px] text-slate-500">
                   {s.label}
                 </div>
               </div>
             ))}
           </div>
 
-          <div className="mt-10 flex items-center justify-center gap-1.5">
-            {[0, 1, 2, 3, 4].map((i) => (
-              <Star key={i} className="h-5 w-5 fill-amber-400 text-amber-400" />
-            ))}
-          </div>
-          <p className="mt-3 text-[13px] text-slate-500">
+          {/* Die fünf goldenen Sterne hier sind weg: über echten
+              Zahlen sahen sie aus wie eine Bewertung, waren aber
+              reine Dekoration. */}
+          <p className="mt-10 text-[13px] text-slate-500">
             Zahlen aus dem laufenden Bot &middot;{" "}
             <Link href="/status" className="text-indigo-400 hover:text-indigo-300">
               Status ansehen
@@ -548,19 +549,9 @@ export default function LandingPage() {
                       {s.kuerzel}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="text-[15px] font-bold text-white">
-                          {s.name}
-                        </span>
-                        <span className="flex gap-0.5">
-                          {[0, 1, 2, 3, 4].map((i) => (
-                            <Star
-                              key={i}
-                              className="h-3.5 w-3.5 fill-emerald-400 text-emerald-400"
-                            />
-                          ))}
-                        </span>
-                      </div>
+                      <span className="text-[15px] font-bold text-white">
+                        {s.name}
+                      </span>
                       <p className="mt-1.5 text-[14px] leading-relaxed text-slate-400">
                         {s.text}
                       </p>

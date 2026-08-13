@@ -23,7 +23,7 @@ import React from "react";
 import Link from "next/link";
 import { signIn, useSession } from "next-auth/react";
 import {
-  ChevronDown, CirclePlus, Globe, LayoutDashboard, LogIn, UserPlus,
+  ChevronDown, CirclePlus, Globe, LayoutDashboard, LogIn, UserPlus, X,
 } from "lucide-react";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { SUPPORT_INVITE } from "@/lib/legal";
@@ -267,37 +267,87 @@ export function SiteNav() {
             aria-label="Menü"
             className="lg:hidden h-9 w-9 grid place-items-center rounded-xl border border-slate-800 text-slate-300"
           >
-            <span className="space-y-1">
-              <span className="block h-0.5 w-4 bg-current" />
-              <span className="block h-0.5 w-4 bg-current" />
-              <span className="block h-0.5 w-4 bg-current" />
-            </span>
+            {offen ? (
+              <X className="h-4 w-4" />
+            ) : (
+              <span className="space-y-1">
+                <span className="block h-0.5 w-4 bg-current" />
+                <span className="block h-0.5 w-4 bg-current" />
+                <span className="block h-0.5 w-4 bg-current" />
+              </span>
+            )}
           </button>
         </div>
       </div>
 
-      {/* Ausgeklapptes Menü auf dem Telefon. */}
+      {/*
+        Das Menü auf Telefon und Tablet.
+
+        Es zeigte nur die Aufklapp-Einträge und „Bot hinzufügen“ --
+        Dashboard, Support-Server und „Team beitreten“ fehlten
+        komplett. Wer auf dem Handy ins Dashboard wollte, kam gar
+        nicht hin: die Hauptleiste ist erst ab lg sichtbar.
+
+        Jetzt in Abschnitten, damit die Liste bei elf Einträgen
+        lesbar bleibt, und das Dashboard steht als Knopf oben.
+      */}
       {offen && (
-        <div className="lg:hidden border-t border-slate-800 bg-[#0a0a0c] px-6 py-4 space-y-1">
-          {[...BEFEHLE, ...UEBER].map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={() => setOffen(false)}
-              className="block rounded-xl px-3 py-2.5 text-[15px] text-slate-300 hover:bg-white/[0.04] hover:text-white transition-colors"
-            >
-              {item.label}
-            </Link>
-          ))}
+        <div className="lg:hidden border-t border-slate-800 bg-[#0a0a0c] px-6 py-4">
+          <Link
+            href="/dashboard"
+            onClick={() => setOffen(false)}
+            className="flex items-center justify-center gap-2 rounded-xl bg-[#5865f2] px-4 py-3 text-[15px] font-semibold text-white transition-colors hover:bg-[#4752c4]"
+          >
+            <LayoutDashboard className="h-4 w-4" />
+            Zum Dashboard
+          </Link>
+
           <a
             href={INVITE_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="block rounded-xl px-3 py-2.5 text-[15px] text-slate-300 hover:bg-white/[0.04] hover:text-white transition-colors"
+            onClick={() => setOffen(false)}
+            className="mt-2 flex items-center justify-center gap-2 rounded-xl border border-slate-800 bg-[#131318] px-4 py-3 text-[15px] text-slate-200 transition-colors hover:border-slate-700"
           >
+            <CirclePlus className="h-4 w-4" />
             Bot hinzufügen
           </a>
-          <div className="pt-2 sm:hidden">
+
+          {[
+            { titel: "Befehle", eintraege: BEFEHLE },
+            { titel: "Team beitreten", eintraege: TEAM_ROLLEN },
+            { titel: "Über", eintraege: UEBER },
+          ].map((gruppe) => (
+            <div key={gruppe.titel} className="mt-4">
+              <p className="px-3 text-[11px] font-semibold text-slate-600">
+                {gruppe.titel}
+              </p>
+              <div className="mt-1 space-y-0.5">
+                {gruppe.eintraege.map((item) => (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setOffen(false)}
+                    className="block rounded-lg px-3 py-2.5 text-[15px] text-slate-300 transition-colors hover:bg-white/[0.04] hover:text-white"
+                  >
+                    {item.label}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          ))}
+
+          <a
+            href={SUPPORT_INVITE}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => setOffen(false)}
+            className="mt-4 block rounded-lg px-3 py-2.5 text-[15px] text-slate-300 transition-colors hover:bg-white/[0.04] hover:text-white"
+          >
+            Support-Server
+          </a>
+
+          <div className="mt-4 border-t border-slate-800 pt-4 sm:hidden">
             <LanguageSwitcher />
           </div>
         </div>

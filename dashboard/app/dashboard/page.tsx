@@ -33,7 +33,7 @@ function iconUrl(id: string, icon: string | null) {
 
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
-  const firstName = (session?.user?.name || "").split(" ")[0] || "there";
+  const firstName = (session?.user?.name || "").split(" ")[0] || "du";
 
   let botInfo: any = null;
   let botStatus: any = null;
@@ -42,7 +42,7 @@ export default async function DashboardPage() {
   try {
     botInfo = await api.getBotInfo();
   } catch (err: any) {
-    error = err?.message || "Could not reach the bot API.";
+    error = err?.message || "Die Bot-API antwortet nicht.";
     botInfo = { name: "Bot", guilds: 0, users: 0, commands: 0, latency: "0ms" };
   }
 
@@ -117,173 +117,186 @@ export default async function DashboardPage() {
   }
 
   const connected = myGuilds.filter((g) => g.hasBot);
-  const preview = myGuilds.slice(0, 6);
+  const ohneBot = myGuilds.filter((g) => !g.hasBot);
+  const vorschau = myGuilds.slice(0, 6);
+  const erreichte = connected.reduce((s, g) => s + (g.memberCount ?? 0), 0);
 
-  const stats = [
-    {
-      name: "Your servers",
-      value: connected.length.toLocaleString("en-US"),
-      hint: `${myGuilds.length} manageable`,
-      icon: ServerIcon,
-    },
-    {
-      name: "Members reached",
-      value: connected
-        .reduce((sum, g) => sum + (g.memberCount ?? 0), 0)
-        .toLocaleString("en-US"),
-      hint: "across your servers",
-      icon: Users,
-    },
-    {
-      name: "Bot servers",
-      value: (botInfo?.guilds ?? 0).toLocaleString("en-US"),
-      hint: "total",
-      icon: Bot,
-    },
-    {
-      name: "Latency",
-      value: botStatus ? `${Math.round(botStatus.latency)}ms` : botInfo?.latency || "—",
-      hint: botStatus ? "gateway" : error ? "offline" : "unknown",
-      icon: Activity,
-    },
-  ];
+  const zahl = (n: number) => n.toLocaleString("de-DE");
 
   return (
-    <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
-      {/* ── Greeting ─────────────────────────────────────────── */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-        <div className="flex items-center gap-4">
-          {session?.user?.image && (
-            <Image
-              src={session.user.image}
-              alt=""
-              width={56}
-              height={56}
-              unoptimized
-              className="rounded-2xl border-2 border-slate-800"
-            />
-          )}
-          <div>
-            <h1 className="text-3xl md:text-4xl font-bold text-white tracking-tight">
-              Welcome back, <span className="text-blue-500">{firstName}</span>
-            </h1>
-            <p className="text-slate-400 mt-1.5 text-sm">
-              {connected.length > 0
-                ? `You manage ${connected.length} server${connected.length === 1 ? "" : "s"} with ${botInfo?.name || "the bot"}.`
-                : "Add the bot to a server to get started."}
-            </p>
-          </div>
+    <div className="space-y-5">
+      {/* ── Begrüßung ─────────────────────────────────────── */}
+      <div className="flex flex-wrap items-center gap-4">
+        {session?.user?.image && (
+          <Image
+            src={session.user.image}
+            alt=""
+            width={48}
+            height={48}
+            unoptimized
+            className="rounded-xl"
+          />
+        )}
+        <div className="min-w-0 flex-1">
+          <h1 className="text-[24px] sm:text-[28px] font-bold tracking-tight text-white">
+            Hallo, {firstName}
+          </h1>
+          <p className="mt-0.5 text-[14px] text-slate-500">
+            {connected.length > 0
+              ? `Du verwaltest ${zahl(connected.length)} ${
+                  connected.length === 1 ? "Server" : "Server"
+                } mit dem Bot.`
+              : "Füge den Bot zu einem Server hinzu, um loszulegen."}
+          </p>
         </div>
 
         {error && (
-          <div className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-amber-500/10 border border-amber-500/25 text-amber-300 text-xs font-bold">
+          <span className="flex items-center gap-2 rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-[13px] text-amber-300">
             <ShieldAlert className="h-4 w-4 shrink-0" />
-            <span>Bot offline — values may be incomplete.</span>
-          </div>
+            Bot offline — Zahlen unvollständig
+          </span>
         )}
       </div>
 
-      {/* ── Stats ────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {stats.map((stat) => (
-          <div
-            key={stat.name}
-            className="group glass border-white/5 p-6 rounded-[28px] relative overflow-hidden hover:border-blue-500/30 transition-all duration-500"
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.18em]">
-                  {stat.name}
-                </p>
-                <p className="text-3xl font-bold text-white tracking-tight mt-2 tabular-nums truncate">
-                  {stat.value}
-                </p>
-                <p className="text-[11px] text-slate-600 mt-1">{stat.hint}</p>
-              </div>
-              <div className="p-3 bg-blue-500/10 rounded-2xl border border-blue-500/20 group-hover:bg-blue-500/20 transition-all shrink-0">
-                <stat.icon className="h-5 w-5 text-blue-500" />
-              </div>
+      {/* ── Zahlen ────────────────────────────────────────── */}
+      {/*
+        Vier Kacheln mit Symbolrahmen und 0.18em Sperrung waren das
+        Lauteste auf der Seite -- dabei ist die Serverliste der Grund,
+        warum jemand hier ist. Jetzt eine Zeile, die man überfliegt.
+      */}
+      <div className="flex flex-wrap gap-x-8 gap-y-3 rounded-2xl border border-slate-800 bg-[#131318] px-5 py-4">
+        {[
+          {
+            wert: zahl(connected.length),
+            label: "deiner Server",
+            hint: myGuilds.length > connected.length
+              ? `${zahl(myGuilds.length)} verwaltbar`
+              : null,
+            icon: ServerIcon,
+          },
+          {
+            wert: erreichte > 0 ? zahl(erreichte) : "—",
+            label: "Mitglieder erreicht",
+            hint: null,
+            icon: Users,
+          },
+          {
+            wert: zahl(botInfo?.guilds ?? 0),
+            label: "Server insgesamt",
+            hint: null,
+            icon: Bot,
+          },
+          {
+            wert: botStatus
+              ? `${Math.round(botStatus.latency)} ms`
+              : botInfo?.latency || "—",
+            label: "zu Discord",
+            hint: null,
+            icon: Activity,
+          },
+        ].map((k) => (
+          <div key={k.label} className="flex items-center gap-2.5">
+            <k.icon className="h-4 w-4 shrink-0 text-slate-600" />
+            <div>
+              <span className="text-[17px] font-semibold tabular-nums text-white">
+                {k.wert}
+              </span>{" "}
+              <span className="text-[13px] text-slate-500">{k.label}</span>
+              {k.hint && (
+                <span className="ml-1.5 text-[12px] text-slate-600">
+                  ({k.hint})
+                </span>
+              )}
             </div>
           </div>
         ))}
       </div>
 
-      {/* ── Your servers ─────────────────────────────────────── */}
-      <section className="glass border-white/5 rounded-[32px] p-8">
-        <div className="flex items-center justify-between mb-6 gap-4">
-          <h2 className="text-xl font-bold text-white tracking-tight">Your servers</h2>
-          {myGuilds.length > preview.length && (
+      {/* ── Deine Server ──────────────────────────────────── */}
+      <section className="rounded-2xl border border-slate-800 bg-[#131318] p-5 sm:p-6">
+        <div className="mb-4 flex items-baseline justify-between gap-4">
+          <h2 className="text-[16px] font-bold text-white">Deine Server</h2>
+          {myGuilds.length > vorschau.length && (
             <Link
               href="/dashboard/guilds"
-              className="flex items-center gap-1.5 text-xs font-black uppercase tracking-widest text-blue-400 hover:text-blue-300 transition-colors shrink-0"
+              className="flex shrink-0 items-center gap-1.5 text-[13px] text-indigo-400 transition-colors hover:text-indigo-300"
             >
-              All {myGuilds.length}
+              Alle {zahl(myGuilds.length)}
               <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           )}
         </div>
 
-        {preview.length === 0 ? (
-          <div className="text-center py-10">
-            <ServerIcon className="h-12 w-12 text-slate-700 mx-auto mb-4" />
-            <p className="text-slate-400 font-medium">No servers yet</p>
-            <p className="text-sm text-slate-600 mt-1 mb-6">
-              You need Manage Server or Administrator on a Discord server.
+        {vorschau.length === 0 ? (
+          <div className="py-10 text-center">
+            <ServerIcon className="mx-auto mb-3 h-8 w-8 text-slate-700" />
+            <p className="text-[15px] text-slate-300">Noch keine Server</p>
+            <p className="mx-auto mt-1.5 max-w-sm text-[13px] leading-relaxed text-slate-500">
+              Du brauchst auf einem Discord-Server das Recht „Server
+              verwalten“ oder „Administrator“, damit er hier auftaucht.
             </p>
             <a
               href={BOT_INVITE_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-blue-500 text-white text-xs font-black uppercase tracking-widest hover:brightness-110 transition-all"
+              className="mt-5 inline-flex items-center gap-2 rounded-xl bg-[#5865f2] px-5 py-2.5 text-[14px] font-semibold text-white transition-colors hover:bg-[#4752c4]"
             >
               <Plus className="h-4 w-4" />
-              Invite the bot
+              Bot hinzufügen
             </a>
           </div>
         ) : (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {preview.map((guild) => {
+          <div className="space-y-2">
+            {vorschau.map((guild) => {
               const url = iconUrl(guild.id, guild.icon);
-              const card = (
+              const inhalt = (
                 <>
                   {url ? (
                     <Image
                       src={url}
                       alt=""
-                      width={44}
-                      height={44}
+                      width={36}
+                      height={36}
                       unoptimized
-                      className="rounded-xl border border-slate-800 shrink-0"
+                      className="shrink-0 rounded-lg"
                     />
                   ) : (
-                    <div className="h-11 w-11 rounded-xl bg-blue-500/15 border border-slate-800 flex items-center justify-center text-blue-400 font-black shrink-0">
+                    <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-indigo-500/15 text-[14px] font-bold text-indigo-300">
                       {guild.name.charAt(0).toUpperCase()}
                     </div>
                   )}
                   <div className="min-w-0 flex-1">
-                    <p className="font-bold text-white text-sm truncate">{guild.name}</p>
-                    <p className="text-[11px] text-slate-500 mt-0.5">
+                    <p className="truncate text-[14px] font-semibold text-white">
+                      {guild.name}
+                    </p>
+                    <p className="mt-0.5 text-[12px] text-slate-500">
                       {guild.hasBot
                         ? guild.memberCount !== null
-                          ? `${guild.memberCount.toLocaleString("en-US")} members`
-                          : "Connected"
-                        : "Bot not added"}
+                          ? `${zahl(guild.memberCount)} Mitglieder`
+                          : "Verbunden"
+                        : "Bot noch nicht hinzugefügt"}
                     </p>
                   </div>
                   {guild.hasBot ? (
-                    <ChevronRight className="h-4 w-4 text-slate-600 group-hover:text-blue-400 group-hover:translate-x-0.5 transition-all shrink-0" />
+                    <ChevronRight className="h-4 w-4 shrink-0 text-slate-700 transition-colors group-hover:text-slate-400" />
                   ) : (
-                    <Plus className="h-4 w-4 text-slate-600 group-hover:text-blue-400 shrink-0" />
+                    <span className="shrink-0 rounded-md border border-slate-800 px-2 py-0.5 text-[11px] text-slate-500">
+                      Hinzufügen
+                    </span>
                   )}
                 </>
               );
 
-              const className =
-                "group flex items-center gap-3 p-4 rounded-2xl bg-white/[0.02] border border-white/5 hover:bg-white/[0.05] hover:border-blue-500/25 transition-all";
+              const klasse =
+                "group flex items-center gap-3 rounded-xl border border-slate-800 bg-[#0f0f13] px-4 py-3 transition-colors hover:border-slate-700";
 
               return guild.hasBot ? (
-                <Link key={guild.id} href={`/dashboard/guild/${guild.id}`} className={className}>
-                  {card}
+                <Link
+                  key={guild.id}
+                  href={`/dashboard/guild/${guild.id}`}
+                  className={klasse}
+                >
+                  {inhalt}
                 </Link>
               ) : (
                 <a
@@ -291,71 +304,75 @@ export default async function DashboardPage() {
                   href={BOT_INVITE_URL}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className={className}
+                  className={klasse}
                 >
-                  {card}
+                  {inhalt}
                 </a>
               );
             })}
           </div>
         )}
+
+        {ohneBot.length > 0 && vorschau.length > 0 && (
+          <p className="mt-4 border-t border-slate-800 pt-4 text-[13px] text-slate-500">
+            Auf {zahl(ohneBot.length)}{" "}
+            {ohneBot.length === 1 ? "Server" : "Servern"} fehlt der Bot noch —
+            ein Klick auf den Eintrag lädt ihn ein.
+          </p>
+        )}
       </section>
 
-      {/* ── Shortcuts ────────────────────────────────────────── */}
-      <div className="grid gap-4 sm:grid-cols-3">
+      {/* ── Schnellzugriff ────────────────────────────────── */}
+      <div className="grid gap-3 sm:grid-cols-3">
         {[
           {
-            title: "All servers",
-            desc: "Search and configure",
+            titel: "Alle Server",
+            text: "Suchen und einrichten",
             icon: ServerIcon,
             href: "/dashboard/guilds",
           },
           {
-            title: "Add the bot",
-            desc: "Invite it to a server",
+            titel: "Bot hinzufügen",
+            text: "Auf einen weiteren Server",
             icon: Plus,
             href: BOT_INVITE_URL,
-            external: true,
+            extern: true,
           },
           {
-            title: "Support",
-            desc: "Ask us on Discord",
+            titel: "Support",
+            text: "Frag uns auf Discord",
             icon: LifeBuoy,
-            // Was hard-coded, so setting NEXT_PUBLIC_SUPPORT_INVITE did
-            // nothing here while it worked everywhere else.
             href: SUPPORT_INVITE,
-            external: true,
+            extern: true,
           },
         ].map((item) => {
-          const inner = (
+          const inhalt = (
             <>
-              <div className="h-11 w-11 rounded-2xl bg-blue-500/5 border border-blue-500/10 flex items-center justify-center group-hover:bg-blue-500/15 transition-colors shrink-0">
-                <item.icon className="h-5 w-5 text-blue-500/70 group-hover:text-blue-400 transition-colors" />
-              </div>
+              <item.icon className="h-[18px] w-[18px] shrink-0 text-slate-600 transition-colors group-hover:text-indigo-400" />
               <div className="min-w-0">
-                <p className="text-sm font-bold text-white group-hover:text-blue-400 transition-colors">
-                  {item.title}
+                <p className="text-[14px] font-semibold text-white">
+                  {item.titel}
                 </p>
-                <p className="text-[11px] text-slate-500 mt-0.5">{item.desc}</p>
+                <p className="mt-0.5 text-[12px] text-slate-500">{item.text}</p>
               </div>
             </>
           );
-          const className =
-            "group flex items-center gap-4 p-5 rounded-[24px] glass border-white/5 hover:border-blue-500/25 transition-all";
+          const klasse =
+            "group flex items-center gap-3 rounded-xl border border-slate-800 bg-[#131318] px-4 py-3.5 transition-colors hover:border-slate-700";
 
-          return item.external ? (
+          return item.extern ? (
             <a
-              key={item.title}
+              key={item.titel}
               href={item.href}
               target="_blank"
               rel="noopener noreferrer"
-              className={className}
+              className={klasse}
             >
-              {inner}
+              {inhalt}
             </a>
           ) : (
-            <Link key={item.title} href={item.href} className={className}>
-              {inner}
+            <Link key={item.titel} href={item.href} className={klasse}>
+              {inhalt}
             </Link>
           );
         })}

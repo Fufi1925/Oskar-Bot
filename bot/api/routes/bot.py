@@ -75,6 +75,57 @@ _profile_cache: dict[str, tuple[float, dict]] = {}
 _PROFILE_TTL = 900.0
 
 
+@router.get("/numbers", summary="Zahlen fuer die oeffentliche Startseite")
+async def get_numbers(bot: "universitybot" = Depends(get_bot)):
+    """
+    Was der Bot wirklich kann -- fuer die Startseite.
+
+    Warum eine eigene Route und nicht ``/info``: dessen ``commands``
+    zaehlt ``bot.commands``, also nur die oberste Ebene. ``>ticket
+    add`` und ``>ticket remove`` fallen dort unter einen einzigen
+    Eintrag, und die Slash-Befehle fehlen ganz. Auf der Startseite
+    stand deshalb eine von Hand gepflegte Zahl -- die war beim
+    naechsten neuen Befehl falsch und hat es niemandem gesagt.
+
+    Ohne Anmeldung erreichbar. Sie verraet nichts, was nicht ohnehin
+    in jeder Hilfe des Bots steht.
+    """
+    from discord import app_commands
+
+    # Prefix-Befehle, Untergruppen eingeschlossen.
+    prefix = sum(1 for c in bot.walk_commands() if not c.hidden)
+
+    # Slash-Befehle, ebenfalls mit Untergruppen.
+    slash = 0
+
+    def zaehle(befehl):
+        nonlocal slash
+        if isinstance(befehl, app_commands.Group):
+            for kind in befehl.commands:
+                zaehle(kind)
+        else:
+            slash += 1
+
+    baum = getattr(bot, "tree", None)
+    if baum is not None:
+        try:
+            for befehl in baum.get_commands():
+                zaehle(befehl)
+        except Exception:  # pragma: no cover - defensiv
+            slash = 0
+
+    return {
+        "guilds": len(bot.guilds),
+        "users": sum(g.member_count or 0 for g in bot.guilds),
+        # Module = geladene Cogs.
+        "modules": len(bot.cogs),
+        "prefix_commands": prefix,
+        "slash_commands": slash,
+        "commands": prefix + slash,
+        "latency_ms": round(bot.latency * 1000, 1),
+    }
+
+
 @router.get("/profiles", summary="Public Discord profiles by id")
 async def get_profiles(ids: str, bot: "universitybot" = Depends(get_bot)):
     """

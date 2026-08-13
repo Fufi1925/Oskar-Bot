@@ -76,19 +76,15 @@ function health(latency: number | null) {
   };
 }
 
-function Stat({ icon: Icon, label, value, tint }: any) {
+function Stat({ icon: Icon, label, value }: any) {
   return (
-    <div className="flex items-center gap-3 bg-slate-800/50 px-5 py-3 rounded-2xl border border-white/5 shadow-inner">
-      <div className={cn("p-2 rounded-lg bg-slate-900/50", tint)}>
-        <Icon className="h-5 w-5" />
-      </div>
-      <div>
-        <p className="text-[10px] uppercase font-bold text-slate-500 tracking-wider leading-none mb-1">
-          {label}
-        </p>
-        <p className="text-xl font-bold text-white leading-none">
+    <div className="flex items-center gap-2.5">
+      <Icon className="h-4 w-4 shrink-0 text-slate-600" />
+      <div className="min-w-0">
+        <span className="text-[15px] font-semibold text-white">
           {Number(value ?? 0).toLocaleString("de-DE")}
-        </p>
+        </span>{" "}
+        <span className="text-[13px] text-slate-500">{label}</span>
       </div>
     </div>
   );
@@ -159,87 +155,82 @@ export function GuildHeader({
   const state = health(checked ? latency : null);
 
   return (
-    <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 lg:p-8 shadow-xl shadow-black/20 border-glow-card">
-      <div className="flex flex-col lg:flex-row lg:items-center gap-5 lg:gap-8">
+    <div className="rounded-2xl border border-slate-800 bg-[#131318] p-4 sm:p-5">
+      <div className="flex items-start gap-4">
+        {/* Das Serverbild. 56px statt 120 -- es ist eine Kennung,
+            kein Titelbild, und auf dem Telefon nahm es ein Drittel
+            der Breite ein. */}
         <div className="relative shrink-0">
           {guild.icon ? (
             <Image
               src={guild.icon}
-              alt={guild.name}
-              width={120}
-              height={120}
-              className="h-20 w-20 lg:h-[120px] lg:w-[120px] rounded-2xl lg:rounded-3xl border-4 border-slate-800 shadow-2xl object-cover"
+              alt=""
+              width={56}
+              height={56}
+              className="h-14 w-14 rounded-xl object-cover"
             />
           ) : (
-            <div className="h-20 w-20 lg:h-[120px] lg:w-[120px] bg-primary rounded-2xl lg:rounded-3xl flex items-center justify-center text-2xl lg:text-4xl font-bold text-white shadow-2xl border-4 border-slate-800">
+            <div className="grid h-14 w-14 place-items-center rounded-xl bg-indigo-500/15 text-[20px] font-bold text-indigo-300">
               {guild.name.charAt(0)}
             </div>
           )}
-
-          {/* The dot now says something. It used to be green always. */}
-          <div
+          <span
             title={state.hint}
             className={cn(
-              "absolute -bottom-2 -right-2 p-2 rounded-xl shadow-lg border-2 border-[#131318] ring-4",
+              "absolute -bottom-1 -right-1 h-4 w-4 rounded-full border-2 border-[#131318]",
               state.tone,
-              state.ring
             )}
-          >
-            <div
-              className={cn(
-                "h-3 w-3 rounded-full bg-white",
-                state.label === "Online" && "animate-pulse"
-              )}
-            />
+          />
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <h1 className="truncate text-[20px] sm:text-[24px] font-bold tracking-tight text-white">
+            {guild.name}
+          </h1>
+
+          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-slate-500">
+            <span className="text-slate-400">{state.label}</span>
+            <span className="text-slate-700">·</span>
+            <span>
+              {isOwner ? "Du bist Serverinhaber" : "Du verwaltest diesen Server"}
+            </span>
+            <span className="text-slate-700">·</span>
+            <button
+              type="button"
+              onClick={copyId}
+              title="Server-ID kopieren"
+              className="font-mono transition-colors hover:text-slate-300"
+            >
+              {copied ? "ID kopiert" : guild.id}
+            </button>
           </div>
         </div>
 
-        <div className="flex-1 min-w-0 space-y-4">
-          <div>
-            <div className="flex items-center gap-3 flex-wrap">
-              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black text-white tracking-tight break-words">
-                {guild.name}
-              </h1>
-              <button
-                onClick={copyId}
-                title="ID kopieren"
-                className="px-3 py-1 bg-slate-800 rounded-lg text-[10px] uppercase font-black text-slate-500 tracking-tighter border border-white/5 hover:text-slate-300 hover:border-white/10 transition-colors"
-              >
-                {copied ? "Kopiert" : `ID: ${guild.id}`}
-              </button>
-            </div>
+        {/* Nur ein Symbol: „Aktualisieren“ ausgeschrieben in
+            Versalien war der lauteste Knopf auf der Seite, obwohl er
+            am seltensten gebraucht wird. */}
+        <button
+          type="button"
+          onClick={refresh}
+          disabled={busy}
+          title="Zahlen und Status neu laden"
+          aria-label="Aktualisieren"
+          className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-slate-800 text-slate-500 transition-colors hover:border-slate-700 hover:text-white disabled:opacity-40"
+        >
+          {busy ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <RefreshCw className="h-4 w-4" />
+          )}
+        </button>
+      </div>
 
-            <p className="text-slate-400 mt-1.5 text-sm flex items-center gap-2 flex-wrap">
-              <span className={cn("h-1.5 w-1.5 rounded-full", state.tone)} />
-              <span className="text-slate-300 font-medium">{state.label}</span>
-              <span className="text-slate-600">·</span>
-              {/* Said correctly: a team member is not the owner. */}
-              <span>{isOwner ? "Du bist Serverinhaber" : "Du verwaltest diesen Server"}</span>
-            </p>
-          </div>
-
-          <div className="flex flex-wrap gap-4">
-            <Stat icon={Users} label="Mitglieder" value={guild.member_count} tint="text-blue-400" />
-            <Stat icon={Shield} label="Rollen" value={guild.role_count} tint="text-emerald-400" />
-            <Stat icon={Hash} label="Kanäle" value={guild.channel_count} tint="text-purple-400" />
-          </div>
-        </div>
-
-        <div className="flex lg:flex-col gap-3 shrink-0">
-          <button
-            onClick={refresh}
-            disabled={busy}
-            title="Zahlen und Status neu laden"
-            className="flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-primary text-xs font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:brightness-110 disabled:opacity-40 transition-all"
-          >
-            {busy ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <RefreshCw className="h-4 w-4" />
-            )}
-            Aktualisieren
-          </button>
-        </div>
+      {/* Die drei Zahlen. Auf dem Telefon untereinander statt in
+          drei Kästen nebeneinander, die dort ohnehin umbrechen. */}
+      <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 border-t border-slate-800 pt-4">
+        <Stat icon={Users} label="Mitglieder" value={guild.member_count} />
+        <Stat icon={Shield} label="Rollen" value={guild.role_count} />
+        <Stat icon={Hash} label="Kanäle" value={guild.channel_count} />
       </div>
     </div>
   );

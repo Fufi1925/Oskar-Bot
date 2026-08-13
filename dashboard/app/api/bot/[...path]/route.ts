@@ -1088,6 +1088,12 @@ async function authorize(
   }
 
   if (scope === "bot") {
+    // Die Zahlen der Startseite: ohne Anmeldung lesbar. Sie stehen
+    // ohnehin auf jeder oeffentlichen Bot-Liste, und die Startseite
+    // ist nun einmal oeffentlich.
+    if (rest[0] === "numbers" && request.method === "GET") {
+      return { ok: true };
+    }
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) return { ok: false, response: deny(401, "Not signed in.") };
     return { ok: true };

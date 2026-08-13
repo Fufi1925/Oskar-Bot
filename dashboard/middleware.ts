@@ -147,8 +147,24 @@ const authGate = withAuth(
   }
 );
 
+/**
+ * Ohne Anmeldung erreichbar, obwohl sie unter /api/bot liegen.
+ *
+ * Die Startseite ist oeffentlich und zeigt Zahlen zum Bot -- wie
+ * viele Server, wie viele Module, wie viele Befehle. Bisher lief der
+ * Aufruf gegen die Anmeldepflicht: fuer jeden Nichtangemeldeten kam
+ * eine Weiterleitung zurueck, und auf der Seite stand ein Strich.
+ * Gemerkt hat das niemand, weil ein Strich auch der Zustand ist,
+ * wenn der Bot offline ist.
+ *
+ * Diese eine Route verraet nichts, was nicht ohnehin auf jeder
+ * Bot-Liste steht.
+ */
+const OEFFENTLICH = ["/api/bot/bot/numbers"];
+
 /** Paths that still need a session once maintenance is off. */
 function needsAuth(pathname: string): boolean {
+  if (OEFFENTLICH.some((p) => pathname === p)) return false;
   return pathname.startsWith("/dashboard") || pathname.startsWith("/api/bot");
 }
 

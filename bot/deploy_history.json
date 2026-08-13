@@ -1,6 +1,12 @@
 {
  "commits": [
   {
+   "commit": "8ae8808ed9f9be9a03af49c501d5cb07ef74e19e",
+   "at": "1786577084",
+   "subject": "feat(web): Server-Uebersicht und Bewerbungsseite neu, Support-Link getauscht",
+   "body": "Support-Server\n--------------\nDer alte Link stand an 261 Stellen -- in Befehlen, Karten, Kopfzeilen,\nREADME und GitHub-Vorlagen. Alle auf discord.gg/F3TedBAVZT umgestellt.\n\nDer neue Test hat dabei drei Altlasten gefunden, die eine reine Suche\nnach dem alten Code verfehlt haette:\n\n  * bot/config.yml hatte zweimal \"discord.gg/University Botdev\" --\n    ein Umbenennungsschaden, der Link war mit dem Leerzeichen darin\n    ohnehin kaputt\n  * zwei .txt-Sicherungen zeigten noch auf discord.gg/codexdev, einen\n    noch aelteren Server\n\ntest_support_link.py haelt das fest: kein alter Code mehr, der neue\nan den drei Stellen, die alles andere speisen, und kein zweiter\nechter Einladungscode im Repo.\n\nServer-Uebersicht\n-----------------\nKomplett neu. Sie war englisch mitten in einem deutschen Dashboard\n(\"Setup progress\", \"Not set up yet\") und warf 17 gleich aussehende\nKacheln aus, davon 14 grau -- wer neu ist, sieht daran nicht, womit\ner anfangen soll.\n\nJetzt: Fortschritt und vier Kennzahlen oben, darunter \"Als Naechstes\"\nmit den drei wichtigsten fehlenden Modulen, dann zwei schlichte\nListen. Die Reihenfolge steht in einer Wichtigkeitstabelle -- Anti-Nuke\nund Automod vor Spitznamen und Vanity-Rollen. Jedes Modul erklaert in\neinem Satz, was es bringt. Lange Listen werden auf fuenf gekuerzt.\n\nDie Modulnamen kamen englisch aus der API und stehen so auf der\nSeite -- ebenfalls uebersetzt.\n\nBewerbungen: Server pro Rolle\n-----------------------------\nBisher galt ein Server fuer alle vier Bewerbungsrollen. Jetzt hat\njede ihren eigenen -- Tester auf den Test-Server, Moderatoren auf den\nSupport-Server. Leer bedeutet weiterhin \"allgemeiner Server\", damit\nwer nur einen hat nichts viermal eintraegt.\n\nDie Regel steht in store.guild_for() und wird vom Bot mitgeliefert,\nstatt sie im Dashboard ein zweites Mal nachzubauen. Beim Serverwechsel\nwird die gewaehlte Rolle geleert: sie gehoert zum alten Server und\ngibt es dort nicht mehr. Das Feld fuer den allgemeinen Server ist\njetzt eine Auswahl statt eines Zahlenfeldes.\n\nBewerbungsseite neu\n-------------------\nDie erste Fassung zeigte eine Frage pro Bildschirm mit Weiter-Knopf --\ndas las sich wie ein Behoerdenformular: man sah nie, was noch kommt,\nund fuer einen Blick auf die vorige Antwort brauchte es zwei Klicks.\n\nJetzt stehen alle Fragen untereinander, die Leiste links springt hin.\nDazu: der Entwurf ueberlebt einen Reload (localStorage, je Rolle\neiner, nach dem Abschicken geloescht), jede Frage sagt beim Tippen,\nwie viele Zeichen noch fehlen, und beim Abschicken wird zur ersten\nunfertigen Frage gesprungen statt nur \"es fehlt etwas\" zu melden.\nRot markiert wird erst nach dem ersten Absenden -- sonst ist alles\nrot, bevor man angefangen hat.\n\nEin Build-Fehler gefunden\n-------------------------\nEine lokale Variable hiess `module`. Der Name ist im Next-Bundle\nreserviert, der Build brach ab (no-assign-module-variable). Umbenannt.\n\nGeprueft\n--------\n93/93 Testdateien, Boot-Test 152 Cogs / 543 Prefix / 65 Slash /\n0 Fehler, tsc sauber, next build erfolgreich, ruff ohne neue Treffer,\nMutationstest 86/86 gefangen. Alle Seiten im Browser gerendert:\n18 Kombinationen ohne Querscrollen, keine Laufzeitfehler, und der\nneue Link steht wirklich im ausgelieferten HTML."
+  },
+  {
    "commit": "a2c86db57b5ef40354f5b133ba083ca8b0102744",
    "at": "1786574118",
    "subject": "feat(web): Befehlsseite, Team-Bewerbungen, 13 Karten, ruhigere Seitenleiste",
@@ -231,12 +237,6 @@
   {
    "commit": "e0576d3761f975a0844d16bc89733de46e4ef107",
    "at": "1786136965",
-   "subject": "feat(phantom): EXACT full original Aleks ticket bot (5653 lines - every function kept, no removal, no shortening)",
-   "body": ""
-  },
-  {
-   "commit": "3486eba7e865f42b98ae88bc00fc827055a0e548",
-   "at": "1786136954",
    "subject": "feat(phantom): EXACT full original Aleks ticket bot (5653 lines - every function kept, no removal, no shortening)",
    "body": ""
   }

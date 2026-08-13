@@ -155,13 +155,17 @@ def test_no_desktop_only_padding():
           "p-3 sm:p-6 lg:p-10" in header)
 
     guild = read("components/dashboard/guild-header.tsx")
-    check("the guild header padding scales",
-          "p-4 sm:p-6 lg:p-8" in guild)
-    check("the server icon shrinks on a phone",
-          "h-20 w-20 lg:h-[120px]" in guild,
+    # Der Kopf ist neu und braucht die Staffelung nicht mehr: er ist
+    # von vornherein klein. Das Bild war 120px -- ein Drittel eines
+    # 375px-Telefons fuer eine Kennung -- und ist jetzt ueberall 56px.
+    check("the guild header padding is small everywhere",
+          "p-4 sm:p-5" in guild)
+    check("the server icon is small everywhere",
+          "h-14 w-14" in guild and "lg:h-[120px]" not in guild,
           "120px of a 375px screen is a third of the width, for an icon")
-    check("a long server name does not need 4xl on a phone",
-          "text-2xl sm:text-3xl lg:text-4xl" in guild)
+    check("the server name fits on a phone",
+          "text-[20px] sm:text-[24px]" in guild,
+          "4xl wrapped a long name onto three lines")
 
     # The bulk change across the panels. Spot-checked rather than
     # counted exactly, so adding a panel does not fail the test.
@@ -173,18 +177,22 @@ def test_no_desktop_only_padding():
     check("most panels scale their card padding", scaled >= 25, str(scaled))
 
 
-def test_tab_bar_on_a_phone():
-    print("\nTab bar")
+def test_no_duplicate_tab_bar():
+    """
+    Die Reiterleiste ueber jeder Serverseite ist weg.
 
-    src = read("components/guild-tabs.tsx")
+    Sie listete dieselben 41 Eintraege wie die Seitenleiste links.
+    Auf einem Telefon hiess das: sieben zugeklappte Gruppen und ein
+    Suchfeld, bevor der Inhalt anfing -- fuer eine Navigation, die
+    es schon gibt.
+    """
+    print("\nKeine doppelte Reiterleiste")
 
-    check("the search box gets its own row on a phone",
-          "w-full sm:flex-1" in src,
-          "beside the Übersicht button its placeholder was cut off")
-    check("the tabs are tall enough to hit",
-          "py-3 sm:py-2.5" in src)
-    check("the group headers are tall enough too",
-          "py-3.5 sm:py-3" in src)
+    layout = read("app/dashboard/guild/[guildId]/layout.tsx")
+    check("die Serverseiten binden sie nicht mehr ein",
+          "<GuildTabs" not in layout)
+    check("und importieren sie nicht mehr",
+          "guild-tabs" not in layout)
 
 
 def main():
@@ -196,7 +204,7 @@ def main():
     test_save_bar()
     test_stat_grids()
     test_no_desktop_only_padding()
-    test_tab_bar_on_a_phone()
+    test_no_duplicate_tab_bar()
 
     print(f"\n{len(failures)} failures")
     for line in failures:

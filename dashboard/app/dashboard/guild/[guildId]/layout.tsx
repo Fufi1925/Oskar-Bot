@@ -37,7 +37,6 @@ import { verifyGuildAccess } from "@/lib/guild-auth";
 export const revalidate = 0; // Never cache any guild dashboard page
 
 import { Button } from "@/components/ui/button";
-import { GuildTabs } from "@/components/guild-tabs";
 import { GuildHeader } from "@/components/dashboard/guild-header";
 
 interface GuildLayoutProps {
@@ -83,11 +82,14 @@ export default async function GuildLayout({
   }
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-      {/* Breadcrumb / Back button */}
-      <Link href="/dashboard/guilds" className="inline-flex items-center gap-2 text-slate-500 hover:text-white transition-colors text-sm font-medium group">
-        <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" />
-        Back to all servers
+    <div className="space-y-5">
+      {/* Zurueck zur Serverliste. */}
+      <Link
+        href="/dashboard/guilds"
+        className="group inline-flex items-center gap-2 text-[14px] text-slate-500 transition-colors hover:text-white"
+      >
+        <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" />
+        Alle Server
       </Link>
 
       <GuildHeader
@@ -95,13 +97,20 @@ export default async function GuildLayout({
         isOwner={String(guild.owner_id) === String(access.userId ?? "")}
       />
 
-      {/* Modern Tab Navigation */}
-      <GuildTabs guildId={guildId} />
+      {/*
+        Die Reiterleiste ist weg.
 
-      {/* Tab Content */}
-      <div className="min-h-[400px]">
-        {children}
-      </div>
+        Sie listete dieselben 41 Einträge wie die Seitenleiste links --
+        nachgezählt, beide Listen waren deckungsgleich. Sieben
+        zugeklappte Gruppen über jeder Seite hießen: zwei Wege zum
+        selben Ziel, doppelte Pflege bei jedem neuen Reiter, und auf
+        dem Telefon ein halber Bildschirm voll Navigation, bevor der
+        Inhalt anfängt.
+
+        Die Suche darin ist nicht verloren: die globale Suche oben
+        (⌘K) findet dieselben Seiten und dazu die Server.
+      */}
+      <div className="min-h-[400px]">{children}</div>
     </div>
   );
 }

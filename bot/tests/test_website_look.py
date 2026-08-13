@@ -180,8 +180,14 @@ def test_eine_navigationsleiste():
                          "Team beitreten", "Bot hinzufügen"):
         check(f"»{beschriftung}« steht in der Leiste", beschriftung in nav)
 
-    check("»Team beitreten« ist gruen hervorgehoben",
-          "text-emerald-400" in nav,
+    # Es muss die Beschriftung des Aufklappmenues sein, nicht
+    # irgendein Vorkommen des Wortes: im Handy-Menue steht es ein
+    # zweites Mal, und die blosse Wortsuche blieb gruen, als das
+    # Dropdown umbenannt war.
+    check("»Team beitreten« ist ein Aufklappmenue",
+          'label="Team beitreten"' in nav)
+    check("und gruen hervorgehoben",
+          'tone="emerald"' in nav and "text-emerald-400" in nav,
           "in der Vorlage ist genau dieser eine Punkt gruen")
     check("die Hoehe stimmt", "h-[76px]" in nav)
     check("die Leiste bleibt oben stehen", "sticky top-0" in nav)
@@ -247,7 +253,7 @@ def test_startseite_hat_die_abschnitte():
         ("Bot hinzufügen", "Hauptknopf"),
         ("Funktionen erkunden", "zweiter Knopf"),
         ("Alles was du brauchst", "Funktionen-Abschnitt"),
-        ("Bot-Statistiken", "Zahlen"),
+        ("In Zahlen", "Zahlen"),
         ("Community-Stimmen", "Stimmen"),
         ("Häufig gestellte Fragen", "FAQ"),
         ("Alle Rechte vorbehalten", "Fußzeile"),
@@ -259,9 +265,11 @@ def test_startseite_hat_die_abschnitte():
     for wort in ("Neural", "Evolution", "hyper-performance", "Moderiert."):
         check(f"»{wort}« steht nicht mehr drin", wort not in seite)
 
-    # Keine erfundene Serverzahl im Quelltext: sie kommt aus dem Bot.
-    check("die Serverzahl wird geladen, nicht behauptet",
-          "/api/bot/bot/stats" in seite,
+    # Keine erfundenen Zahlen im Quelltext: sie kommen aus dem Bot.
+    # Die Adresse hat sich geaendert -- /bot/stats lieferte nur die
+    # Serverzahl, /bot/numbers zaehlt auch Module und Befehle.
+    check("die Zahlen werden geladen, nicht behauptet",
+          "/api/bot/bot/numbers" in seite,
           "eine feste Zahl pflegt niemand nach")
 
 

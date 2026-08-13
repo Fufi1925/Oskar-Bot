@@ -110,9 +110,16 @@ def test_header_component():
         check(f"the dot can read {label!r}", f'"{label}"' in src)
     check("the dot no longer hardcodes Active",
           'title="Active"' not in src and "bg-emerald-500 text-white p-2" not in src)
-    check("only a healthy bot gets the pulse",
-          'state.label === "Online" && "animate-pulse"' in src,
-          "a pulsing dot on a dead bot is the reported problem")
+    # Der Punkt pulst gar nicht mehr -- auch nicht bei "Online".
+    # Eine Dauer-Animation neben dem Servernamen zieht das Auge auf
+    # die eine Stelle, an der sich nie etwas aendert. Was zaehlt,
+    # bleibt: die Farbe kommt aus der echten Latenz, nicht aus einem
+    # festen Gruen.
+    check("nothing pulses any more",
+          "animate-pulse" not in src,
+          "a permanent animation next to the server name is noise")
+    check("the dot takes its colour from the measurement",
+          "state.tone" in src)
     # A latency of 0 means "no heartbeat yet", not "instant".
     check("zero latency counts as offline, not as perfect",
           "latency <= 0" in src)

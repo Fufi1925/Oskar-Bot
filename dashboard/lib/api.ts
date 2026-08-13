@@ -1213,6 +1213,7 @@ export const api = {
 
   // ── Befehlsverzeichnis ───────────────────────────────────────────────
   getCommands: () => request<any>("/commands/"),
+  getBotNumbers: () => request<any>("/bot/numbers"),
 
   // ── Team-Bewerbungen (Website) ───────────────────────────────────────
   getApplyRoles: () => request<any>("/webapply/roles"),
