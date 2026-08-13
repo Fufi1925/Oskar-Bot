@@ -417,74 +417,53 @@ def test_admin_tab_groups():
           "if (count === 0) return null" in body,
           "a section the user cannot use would still show")
     check("the section shows how many tabs it holds", "{count}" in body)
-    # Colour alone is not enough to say which section is open.
-    check("the open section is underlined",
-          "absolute inset-x-3 bottom-0" in body,
+    # Farbe allein genuegt nicht. Frueher ein Unterstrich unter dem
+    # Text; jetzt eine gefuellte Flaeche und fettere Schrift -- zwei
+    # Signale statt einem.
+    check("the open section is filled, not just tinted",
+          "bg-white/[0.06] font-semibold text-white" in body,
           "only colour marks the open section")
     check("the open tab is announced to screen readers",
           'aria-current={active ? "page" : undefined}' in body)
     check("the open section is announced too",
           'aria-current={open ? "true" : undefined}' in body)
-    check("the bar is a landmark", "<nav" in body and "aria-label" in body)
+    # Frueher ein eigenes <nav aria-label>. Die Seite hat links schon
+    # eine Navigation; ein zweites Landmark fuer eine Reiterleiste
+    # INNERHALB einer Seite meldet eine Ebene, die es nicht gibt.
+    # Was zaehlt, ist aria-current -- und das steht direkt darueber.
+    check("the open tab is still announced",
+          'aria-current={active ? "page" : undefined}' in body)
 
 
 def test_admin_glass_surfaces():
     """
-    The admin panel is glass, not flat navy boxes.
+    Der Admin-Bereich ist nicht mehr aus Glas.
 
-    Real glass needs three things at once and the old version had none:
-    a blur behind it, an edge brighter at the top than the bottom, and a
-    highlight where light would fall.
+    Er hatte Glaskarten mit Unschaerfe, Randlicht und Innenhighlight,
+    dazu einen langsam wandernden Farbverlauf im Kopf, Schlagschatten
+    unter den Reitern und eine Einblend-Animation je Karte. Viel
+    Bewegung fuer eine Seite, die man taeglich oeffnet.
+
+    Jetzt dieselben ruhigen Karten wie im uebrigen Dashboard.
     """
-    print("\nAdmin glass")
+    print("\nAdmin surfaces")
 
-    css = read(os.path.join(DASH, "app", "globals.css"))
-    body = strip_comments(read(
-        os.path.join(DASH, "components", "dashboard", "admin-content.tsx")
-    ))
+    body = strip_comments(read(os.path.join(
+        DASH, "components/dashboard/admin-content.tsx")))
 
-    check("the surface class exists", ".admin-glass {" in css)
+    for laut, was in (
+        ("admin-glass", "Glasflaechen"),
+        ("admin-hero", "wandernder Farbverlauf"),
+        ("<Reveal", "Einblend-Animation"),
+        ("shadow-primary/25", "Schlagschatten unter den Reitern"),
+        ("group-hover:scale-110", "wachsende Symbole"),
+        ("font-outfit", "zweite Schriftart"),
+    ):
+        check(f"no {was}", laut not in body, laut)
 
-    rule = ""
-    for chunk in css.split(".admin-glass {")[1:]:
-        candidate = chunk[: chunk.index("}")] if "}" in chunk else ""
-        if "backdrop-filter" in candidate:
-            rule = candidate
-            break
-    # The unprefixed property specifically: "-webkit-backdrop-filter"
-    # contains the string "backdrop-filter", so a loose check passed
-    # with the standard property deleted -- and every non-Safari browser
-    # would have shown a flat box.
-    check("it actually blurs what is behind it",
-          any(line.strip().startswith("backdrop-filter:")
-              for line in rule.splitlines()),
-          "without the unprefixed property only Safari blurs")
-    check("the blur is prefixed for Safari",
-          "-webkit-backdrop-filter" in rule,
-          "Safari would render a flat panel")
-    check("there is an inner highlight", "inset 0 1px 0" in rule)
-    check("there is a rim light", ".admin-glass::before" in css)
-    # An overlay across the whole card would swallow every click on it.
-    before = css[css.index(".admin-glass::before"):]
-    before = before[: before.index("}")]
-    check("the rim does not eat clicks",
-          "pointer-events: none" in before,
-          "the overlay would block the buttons underneath")
-    # Firefox and older Safari have no backdrop-filter; without a
-    # fallback the text sits on almost nothing.
-    check("browsers without backdrop-filter get a solid fill",
-          "@supports not (backdrop-filter" in css)
-
-    check("the header uses it", "admin-hero admin-glass" in body)
-    check("the cards use it", body.count("admin-glass") >= 3)
-    check("the tab bar uses it",
-          'className="admin-glass rounded-3xl overflow-hidden"' in body)
-
-    # The drift is decoration on a page people keep open.
-    check("the background wash can be switched off",
-          any("admin-hero" in block for block in
-              css.split("prefers-reduced-motion")[1:]),
-          "the header animates regardless of the system setting")
+    check("the cards match the rest of the dashboard",
+          body.count("border border-slate-800 bg-[#131318]") >= 3,
+          "eine eigene Formensprache nur fuer den Admin-Bereich")
 
 
 def test_admin_live_badge():
@@ -830,7 +809,15 @@ def test_proximity_effect():
           "Math.abs(y - cy)" in hook,
           "using 2D on a full-width list would dim rows toward the edges")
 
-    for label, src in (("admin", admin), ("guild", tabs)):
+    # Der Admin-Bereich hat den Effekt nicht mehr: Knoepfe, die vor
+    # dem Zeiger ausweichen, sind ein Effekt und kein Hinweis. In der
+    # Seitenleiste bleibt er -- dort ist die Liste lang, und das
+    # Mitwandern hilft beim Zielen.
+    check("the admin tabs no longer dodge the pointer",
+          "useProximity" not in admin,
+          "eine Reiterleiste mit 26 Eintraegen soll ruhig stehen")
+
+    for label, src in (("guild", tabs),):
         check(f"the {label} tab row asks for both axes",
               'axis: "both"' in src,
               "every tab in a line would light at once")

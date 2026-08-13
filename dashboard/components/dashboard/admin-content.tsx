@@ -15,7 +15,6 @@ import { AdminStats, AdminConfig } from "@/types/api";
 import { toast } from "sonner";
 import { StickySaveBar, useSaveGuard } from "@/components/dashboard/save-bar";
 import { Select } from "@/components/ui/select";
-import { useProximity } from "@/components/ui/proximity";
 import { FeatureFlagsPanel } from "@/components/dashboard/feature-flags-panel";
 import { SystemHealthPanel } from "@/components/dashboard/system-health-panel";
 import { TeamPanel } from "@/components/dashboard/team-panel";
@@ -26,7 +25,6 @@ import { ApplicationsAdmin } from "@/components/dashboard/applications-admin";
 import { TemplatesAdmin } from "@/components/dashboard/templates-admin";
 import { DataAge } from "@/components/ui/data-age";
 import { StatValue } from "@/components/ui/stat-value";
-import { Reveal } from "@/components/ui/reveal";
 import { OwnerAccessPanel } from "@/components/dashboard/owner-access-panel";
 import { useSession } from "next-auth/react";
 import { ReportsPanel } from "@/components/dashboard/reports-panel";
@@ -145,11 +143,20 @@ const FULL_WIDTH_TABS = new Set<TabId>([
   "webapply",
 ]);
 
+/** Beschriftung über einem Eingabefeld. */
+const LBL = "block text-[10px] font-black uppercase tracking-widest text-slate-600";
+
 function TextInput({ label, value, setValue, placeholder, type = "text" }: { label: string; value: string; setValue: (value: string) => void; placeholder?: string; type?: string }) {
   return (
     <label className="block space-y-2">
-      <span className="text-xs font-black uppercase tracking-widest text-slate-500">{label}</span>
-      <input value={value} onChange={(e) => setValue(e.target.value)} type={type} placeholder={placeholder || label} className="w-full bg-white/[0.03] border border-white/5 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary" />
+      <span className={LBL}>{label}</span>
+      <input
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        type={type}
+        placeholder={placeholder || label}
+        className="w-full rounded-xl border border-slate-800 bg-[#0a0a0c] px-4 py-3 text-[14px] text-white placeholder:text-slate-600 transition-colors focus:border-slate-700 focus:outline-none"
+      />
     </label>
   );
 }
@@ -355,27 +362,6 @@ export function AdminContent() {
     [activeTab, visibleTabs]
   );
 
-  // Your LineSidebar settings, with one change that the layout forces:
-  // axis "both". The tabs wrap onto several lines and every button in a
-  // line shares an offsetTop, so measuring the vertical distance alone
-  // would light a whole line at once -- a switch, not a proximity
-  // effect. radius 85, smoothing 120 and the smooth falloff are as
-  // given.
-  const tabProximity = useProximity({
-    radius: 85,
-    smoothing: 120,
-    falloff: "smooth",
-    axis: "both",
-    activeIndex: shownTabs.findIndex((tab) => tab.id === activeTab),
-  });
-
-  // Switching groups changes how many buttons exist. Without this the
-  // rows from a longer group keep being eased against elements that
-  // have left the page.
-  const { setCount: setTabCount } = tabProximity;
-  useEffect(() => {
-    setTabCount(shownTabs.length);
-  }, [shownTabs.length, setTabCount]);
 
   const currentActions = useMemo(() => quickActions.filter((action) => action.tab === activeTab), [activeTab]);
   const currentNeeds = useMemo(() => new Set(currentActions.flatMap((action) => action.needs || [])), [currentActions]);
@@ -437,108 +423,102 @@ export function AdminContent() {
   const noticeDirty = notification === savedNotification.current ? 0 : 1;
   const noticeGuard = useSaveGuard(noticeDirty, "admin-notice-save-bar");
 
-  if (loading) return <div className="flex items-center justify-center min-h-[400px]"><RefreshCw className="h-10 w-10 text-blue-500 animate-spin opacity-20" /></div>;
+  if (loading) {
+    return (
+      <div className="flex min-h-[400px] items-center justify-center">
+        <RefreshCw className="h-6 w-6 animate-spin text-indigo-400 opacity-50" />
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-10 animate-in fade-in duration-500">
-      {/* The header sat on a flat navy box. It is now glass over a slow
-          colour wash, so the top of the page has depth without anything
-          moving in the foreground. */}
-      <Reveal>
-        <div className="relative isolate admin-hero admin-glass rounded-[28px] p-8 lg:p-11 overflow-hidden">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8">
-            <div className="flex items-center gap-6">
-              <div className="h-16 w-16 rounded-2xl bg-blue-500/15 grid place-items-center border border-blue-400/25 shadow-lg shadow-blue-500/10 shrink-0">
-                <Shield className="h-8 w-8 text-blue-400" />
-              </div>
-              <div>
-                <h1 className="text-4xl font-black text-white tracking-tight font-outfit">
-                  Admin Control Panel
-                </h1>
-                <p className="text-slate-400 mt-2 font-medium">
-                  Select a server, then run moderation and management actions quickly.
-                </p>
-              </div>
-            </div>
+    <div className="space-y-5">
+      {/*
+        Der Kopf.
 
-            <button
-              onClick={() => fetchData(true)}
-              disabled={refreshing}
-              className="admin-glass admin-glass-hover shrink-0 flex items-center gap-3 px-6 py-3 rounded-2xl disabled:opacity-60"
-            >
-              <RefreshCw
-                className={cn(
-                  "h-4 w-4 text-blue-400 transition-all",
-                  refreshing && "animate-spin"
-                )}
-              />
-              <span className="text-xs font-black uppercase tracking-widest text-blue-300">
-                {refreshing ? "Refreshing..." : "Real-time Mode"}
-              </span>
-            </button>
-          </div>
+        Er war eine Glaskarte mit Farbverlauf, 64px-Symbolkachel,
+        4xl-Ueberschrift in Versalien und einem Knopf, auf dem
+        "Real-time Mode" stand -- obwohl die Daten alle 30 Sekunden
+        geholt werden. Das war keine Beschreibung, sondern ein
+        Versprechen.
+
+        Jetzt: eine Zeile. Titel, Untertitel, ein Knopf, der sagt,
+        was er tut.
+      */}
+      <div className="flex flex-wrap items-center gap-4">
+        <Shield className="h-6 w-6 shrink-0 text-indigo-400" />
+        <div className="min-w-0 flex-1">
+          <h1 className="text-[24px] font-bold tracking-tight text-white">
+            Admin-Bereich
+          </h1>
+          <p className="mt-0.5 text-[14px] text-slate-500">
+            Server wählen, dann Moderation und Verwaltung erledigen.
+          </p>
         </div>
-      </Reveal>
 
-      {/* Cards arrive one after another and their figures animate to
-          the new value on every refresh — that is how a change gets
-          noticed without staring at the screen. */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-        {statItems.map((stat, index) => (
-          <Reveal key={stat.name} delay={60 + index * 70}>
-            <div className="admin-glass admin-glass-hover rounded-3xl p-5 sm:p-6 h-full group">
-              <div className="flex items-center justify-between mb-4">
-                <div
-                  className={cn(
-                    "p-3 rounded-xl bg-white/[0.04] border border-white/[0.06] transition-transform duration-300 group-hover:scale-110",
-                    stat.color
-                  )}
-                >
-                  <stat.icon className="h-6 w-6" />
-                </div>
-                {/* Was a green "LIVE" on all four. The data refreshes
-                    every 30s, so that was a small lie and told nobody
-                    anything; the real age does. */}
-                <DataAge since={lastLoaded} />
-              </div>
-              <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">
-                {stat.name}
-              </p>
-              <h3 className="text-2xl font-black text-white mt-1 font-outfit">
+        <button
+          type="button"
+          onClick={() => fetchData(true)}
+          disabled={refreshing}
+          className="flex shrink-0 items-center gap-2 rounded-lg border border-slate-800 bg-[#131318] px-4 py-2 text-[13px] text-slate-300 transition-colors hover:border-slate-700 hover:text-white disabled:opacity-50"
+        >
+          <RefreshCw className={cn("h-3.5 w-3.5", refreshing && "animate-spin")} />
+          {refreshing ? "Lädt …" : "Aktualisieren"}
+          <DataAge since={lastLoaded} />
+        </button>
+      </div>
+
+      {/*
+        Die Zahlen.
+
+        Vier Glaskarten mit Symbolrahmen, die beim Überfahren
+        wuchsen, und einer Reveal-Animation je Karte. Auf einer Seite,
+        die man täglich öffnet, ist das jedes Mal dieselbe Show.
+        Jetzt eine Zeile, die man überfliegt.
+      */}
+      <div className="flex flex-wrap gap-x-8 gap-y-3 rounded-2xl border border-slate-800 bg-[#131318] px-5 py-4">
+        {statItems.map((stat) => (
+          <div key={stat.name} className="flex items-center gap-2.5">
+            <stat.icon className="h-4 w-4 shrink-0 text-slate-600" />
+            <div>
+              <span className="text-[17px] font-semibold tabular-nums text-white">
                 <StatValue value={stat.value} />
-              </h3>
+              </span>{" "}
+              <span className="text-[13px] text-slate-500">{stat.name}</span>
             </div>
-          </Reveal>
+          </div>
         ))}
       </div>
 
-      {/* One group at a time.
+      {/*
+        Die Bereiche.
 
-          First attempt showed all four groups stacked, each a different
-          length — four ragged rows that looked worse than the twenty
-          buttons they replaced. Now the group is a choice: pick a
-          section, see only its tabs. One tidy row instead of four
-          uneven ones, and the active section stays obvious. */}
-      <nav
-        className="admin-glass rounded-3xl overflow-hidden"
-        aria-label="Admin-Bereiche"
-      >
-        <div className="flex border-b border-white/[0.07]">
+        Vorher: eine Leiste mit Versalien und 0.12em Sperrung, darunter
+        die Reiter als gefüllte Knöpfe mit Schlagschatten und einem
+        Näherungseffekt, der sie beim Zeigen verschiebt. Zwei
+        Navigationsebenen, beide laut.
+
+        Jetzt: die Gruppe als schlichte Zeile, die Reiter darunter als
+        Text mit Unterstrich für den aktiven. Der Näherungseffekt ist
+        weg -- Knöpfe, die vor dem Zeiger ausweichen, sind ein Effekt,
+        kein Hinweis.
+      */}
+      <div className="rounded-2xl border border-slate-800 bg-[#131318]">
+        <div className="flex flex-wrap gap-1 border-b border-slate-800 p-2">
           {TAB_GROUPS.map((group) => {
             const count = group.ids.filter((id) =>
-              visibleTabs.some((tab) => tab.id === id)
+              visibleTabs.some((tab) => tab.id === id),
             ).length;
-            // A section the user has no permission for is not shown at
-            // all — an empty tab promises something that is not there.
             if (count === 0) return null;
 
             const open = group.ids.includes(activeTab);
             return (
               <button
                 key={group.name}
+                type="button"
                 onClick={() => {
                   const first = group.ids.find((id) =>
-                    visibleTabs.some((tab) => tab.id === id)
+                    visibleTabs.some((tab) => tab.id === id),
                   );
                   if (first) {
                     setActiveTab(first);
@@ -547,61 +527,51 @@ export function AdminContent() {
                 }}
                 aria-current={open ? "true" : undefined}
                 className={cn(
-                  "relative flex-1 px-4 py-3.5 text-[12px] font-black uppercase tracking-[0.12em] transition-colors",
+                  "rounded-lg px-3.5 py-2 text-[13px] transition-colors",
                   open
-                    ? "text-white bg-white/[0.04]"
-                    : "text-slate-500 hover:text-slate-300 hover:bg-white/[0.02]"
+                    ? "bg-white/[0.06] font-semibold text-white"
+                    : "text-slate-500 hover:text-slate-300",
                 )}
               >
                 {group.name}
-                <span className="ml-2 text-[10px] font-bold text-slate-600">
-                  {count}
-                </span>
-                {/* The underline is what carries "you are here" — colour
-                    alone is not enough to read at a glance. */}
-                {open && (
-                  <span className="absolute inset-x-3 bottom-0 h-0.5 rounded-t bg-primary" />
-                )}
+                <span className="ml-1.5 text-[11px] text-slate-600">{count}</span>
               </button>
             );
           })}
         </div>
 
-        {/* `relative` is what makes the maths work: useProximity
-            measures the pointer against this box and the buttons
-            against their offsetParent, and the two have to be the
-            same element. */}
-        <div
-          className="flex flex-wrap gap-1.5 p-3 relative"
-          {...tabProximity.containerProps}
-        >
-          {shownTabs.map((tab, index) => {
+        <div className="flex flex-wrap gap-x-1 gap-y-0.5 p-2">
+          {shownTabs.map((tab) => {
             const active = activeTab === tab.id;
             const Icon = tab.icon;
             return (
               <button
                 key={tab.id}
+                type="button"
                 onClick={() => {
                   setActiveTab(tab.id);
                   window.history.replaceState(null, "", `#${tab.id}`);
                 }}
                 aria-current={active ? "page" : undefined}
-                {...tabProximity.itemProps(index)}
                 className={cn(
-                  "prox-tab",
-                  "flex items-center gap-2 px-4 py-2.5 rounded-xl text-[12.5px] font-bold transition-all",
+                  "flex items-center gap-2 rounded-lg px-3 py-2 text-[13px] transition-colors",
                   active
-                    ? "bg-primary text-white shadow-lg shadow-primary/25"
-                    : "text-slate-400 bg-white/[0.02] hover:bg-slate-800/70 hover:text-white"
+                    ? "bg-white/[0.06] font-semibold text-white"
+                    : "text-slate-500 hover:bg-white/[0.03] hover:text-slate-300",
                 )}
               >
-                <Icon className="h-3.5 w-3.5 shrink-0" />
+                <Icon
+                  className={cn(
+                    "h-3.5 w-3.5 shrink-0",
+                    active ? "text-indigo-400" : "text-slate-600",
+                  )}
+                />
                 {tab.label}
               </button>
             );
           })}
         </div>
-      </nav>
+      </div>
 
       {/* Features and Health are full-width: they have no input sidebar. */}
       {activeTab === "features" && <FeatureFlagsPanel />}
@@ -624,22 +594,23 @@ export function AdminContent() {
       {activeTab === "backups" && <BackupsPanel guilds={guilds} />}
       {activeTab === "botsettings" && <BotSettingsPanel />}
       {activeTab === "warnings" && (
-        <div className="space-y-6">
-          <div className="glass border border-white/5 rounded-[2rem] p-5 sm:p-8">
-            <div className="flex items-center gap-4 mb-6">
-              <div className="h-12 w-12 rounded-2xl bg-primary/15 border border-primary/25 flex items-center justify-center">
-                <AlertTriangle className="h-6 w-6 text-primary" />
-              </div>
-              <div>
-                <h3 className="text-xl font-black text-white">Warnings</h3>
-                <p className="text-sm text-slate-400 mt-1">Who was warned, by whom and why.</p>
-              </div>
-            </div>
-            <div className="max-w-md">
-              <span className="text-xs font-black uppercase tracking-widest text-slate-500">Server</span>
-              <div className="mt-2">
-                <Select value={guildId} onValueChange={setGuildId} options={guildOptions} placeholder="Select server" />
-              </div>
+        <div className="space-y-4">
+          <div className="rounded-2xl border border-slate-800 bg-[#131318] p-5">
+            <h3 className="flex items-center gap-2 text-[15px] font-bold text-white">
+              <AlertTriangle className="h-4 w-4 text-amber-400" />
+              Warnungen
+            </h3>
+            <p className="mt-1 text-[13px] text-slate-500">
+              Wer wurde von wem und warum verwarnt.
+            </p>
+            <div className="mt-4 max-w-md space-y-1.5">
+              <span className={LBL}>Server</span>
+              <Select
+                value={guildId}
+                onValueChange={setGuildId}
+                options={guildOptions}
+                placeholder="Server wählen"
+              />
             </div>
           </div>
           <WarningsPanel guildId={guildId} />
@@ -647,44 +618,269 @@ export function AdminContent() {
       )}
 
       {!FULL_WIDTH_TABS.has(activeTab) && (
-      <div className="grid grid-cols-1 xl:grid-cols-4 gap-8">
-        <aside className="xl:col-span-1 glass border border-white/5 rounded-[2rem] p-6 space-y-4 h-fit">
-          <h3 className="font-black text-white flex items-center gap-2"><SearchCheck className="h-5 w-5 text-primary" /> Inputs</h3>
-          <div className="space-y-2"><span className="text-xs font-black uppercase tracking-widest text-slate-500">Server</span><Select value={guildId} onValueChange={setGuildId} options={guildOptions} placeholder="Select server" /></div>
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-4">
+          {/* Die Eingabespalte. War eine Glaskarte mit 2rem-Rundung
+              und Versal-Beschriftungen; jetzt dieselbe Karte wie
+              überall sonst. */}
+          <aside className="h-fit space-y-3 rounded-2xl border border-slate-800 bg-[#131318] p-5 xl:col-span-1">
+            <h3 className="text-[15px] font-bold text-white">Eingaben</h3>
 
-          {activeTab === "members" && <TextInput label="User ID" value={userId} setValue={setUserId} placeholder="Only user ID needed" />}
-          {currentNeeds.has("channel") && <div className="space-y-2"><span className="text-xs font-black uppercase tracking-widest text-slate-500">Channel</span><Select value={channelId} onValueChange={setChannelId} options={channelOptions} placeholder="Select channel" /></div>}
-          {currentNeeds.has("name") && <TextInput label="Name" value={name} setValue={setName} />}
-          {currentNeeds.has("amount") && <TextInput label="Amount" value={amount} setValue={setAmount} type="number" />}
-          {currentNeeds.has("seconds") && <TextInput label="Seconds" value={seconds} setValue={setSeconds} type="number" />}
-          {activeTab === "members" && <TextInput label="Timeout minutes" value={duration} setValue={setDuration} type="number" />}
-          {(activeTab === "members" || ["channels", "server"].includes(activeTab)) && <label className="block space-y-2"><span className="text-xs font-black uppercase tracking-widest text-slate-500">Reason</span><textarea value={reason} onChange={(e) => setReason(e.target.value)} className="w-full h-24 bg-white/[0.03] border border-white/5 rounded-2xl p-4 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary" /></label>}
-          {result && <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl text-emerald-300 text-sm leading-relaxed">{result}</div>}
-        </aside>
+            <div className="space-y-1.5">
+              <span className={LBL}>Server</span>
+              <Select
+                value={guildId}
+                onValueChange={setGuildId}
+                options={guildOptions}
+                placeholder="Server wählen"
+              />
+            </div>
 
-        <main className="xl:col-span-3 space-y-6">
-          {activeTab === "members" && <section className="space-y-5"><div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">{memberActions.map((card) => { const active = memberAction === card.action; return <button key={card.action} onClick={() => setMemberAction(card.action)} className={cn("text-left p-5 rounded-3xl border transition-all", active ? "bg-primary/10 border-primary/40" : "bg-white/[0.02] border-white/5 hover:border-white/10")}><card.icon className={cn("h-6 w-6 mb-3", active ? "text-primary" : "text-slate-500")} /><p className="font-black text-white">{card.label}</p><p className="text-xs text-slate-500 mt-1">{card.desc}</p></button>; })}</div><button onClick={runMemberModeration} disabled={saving} className="w-full py-4 bg-primary rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-primary/20 hover:brightness-110 disabled:opacity-50">Run {memberAction}</button></section>}
+            {activeTab === "members" && (
+              <TextInput
+                label="Nutzer-ID"
+                value={userId}
+                setValue={setUserId}
+                placeholder="Nur die ID"
+              />
+            )}
+            {currentNeeds.has("channel") && (
+              <div className="space-y-1.5">
+                <span className={LBL}>Kanal</span>
+                <Select
+                  value={channelId}
+                  onValueChange={setChannelId}
+                  options={channelOptions}
+                  placeholder="Kanal wählen"
+                />
+              </div>
+            )}
+            {currentNeeds.has("name") && (
+              <TextInput label="Name" value={name} setValue={setName} />
+            )}
+            {currentNeeds.has("amount") && (
+              <TextInput label="Anzahl" value={amount} setValue={setAmount} type="number" />
+            )}
+            {currentNeeds.has("seconds") && (
+              <TextInput label="Sekunden" value={seconds} setValue={setSeconds} type="number" />
+            )}
+            {activeTab === "members" && (
+              <TextInput
+                label="Timeout in Minuten"
+                value={duration}
+                setValue={setDuration}
+                type="number"
+              />
+            )}
+            {(activeTab === "members" ||
+              ["channels", "server"].includes(activeTab)) && (
+              <label className="block space-y-1.5">
+                <span className={LBL}>Grund</span>
+                <textarea
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  rows={3}
+                  className="w-full resize-none rounded-xl border border-slate-800 bg-[#0a0a0c] px-4 py-3 text-[14px] text-white transition-colors focus:border-slate-700 focus:outline-none"
+                />
+              </label>
+            )}
 
-          {(activeTab === "members" || activeTab === "channels" || activeTab === "server" || activeTab === "scans") && <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">{currentActions.map((action) => <button key={action.action} onClick={() => runQuickAction(action)} disabled={saving} className="text-left bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 hover:border-primary/40 hover:bg-primary/5 transition-all disabled:opacity-50 border-glow-card"><action.icon className="h-6 w-6 text-primary mb-4" /><h4 className="font-black text-white">{action.label}</h4><p className="text-sm text-slate-500 mt-2">{action.desc}</p>{action.needs?.length ? <p className="text-[10px] uppercase tracking-widest text-slate-600 mt-4">Needs: {action.needs.join(", ")}</p> : null}</button>)}</section>}
+            {result && (
+              <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 p-3.5 text-[13px] leading-relaxed text-emerald-300">
+                {result}
+              </div>
+            )}
 
-          {activeTab === "broadcast" && <BroadcastPanel guilds={guilds} />}
+            <p className="flex gap-2 border-t border-slate-800 pt-3 text-[12px] leading-relaxed text-slate-500">
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-500" />
+              Erst den Server wählen. Für Kick, Bann, Mute und Unmute
+              genügen Nutzer-ID, Dauer und Grund.
+            </p>
+          </aside>
 
-          {activeTab === "system" && <section className="grid grid-cols-1 lg:grid-cols-3 gap-8"><div className="lg:col-span-2 glass border border-white/5 rounded-[2rem] overflow-hidden"><div className="p-8 border-b border-white/5 flex items-center justify-between bg-white/[0.01]"><div className="flex items-center gap-4"><Activity className="h-5 w-5 text-blue-500" /><h3 className="text-lg font-bold text-white">System Nodes Status</h3></div><span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Auto-Polling Active</span></div><div className="p-8 space-y-6">{stats?.nodes.map((node) => { const Icon = node.icon === "Globe" ? Globe : node.icon === "Database" ? Database : node.icon === "Cpu" ? Cpu : Lock; const healthy = node.status === "Healthy"; return <div key={node.name} className="flex items-center justify-between p-4 bg-white/[0.02] rounded-2xl border border-white/5"><div className="flex items-center gap-4"><div className="h-10 w-10 rounded-xl bg-slate-800 flex items-center justify-center"><Icon className="h-5 w-5 text-slate-400" /></div><div><h4 className="text-sm font-bold text-white">{node.name}</h4><p className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Load: {node.load}</p></div></div><span className={cn("text-[10px] font-bold uppercase px-3 py-1.5 rounded-full border", healthy ? "text-emerald-500 bg-emerald-500/10 border-emerald-500/20" : "text-amber-500 bg-amber-500/10 border-amber-500/20")}>{node.status}</span></div>; })}</div></div><div className="glass border border-white/5 rounded-[2rem] p-5 sm:p-8"><Settings className="h-5 w-5 text-indigo-500 mb-4" /><h3 className="text-lg font-bold text-white mb-4">System Controls</h3><button onClick={handleToggleMaintenance} disabled={saving} className={cn("w-full flex items-center justify-between p-4 rounded-2xl border transition-all", config?.maintenance_mode ? "bg-blue-500/10 border-blue-500/30 text-blue-500" : "bg-white/[0.03] border-white/5 text-slate-300 hover:bg-white/[0.05]")}><span className="text-sm font-medium">{config?.maintenance_mode ? "Restricting Access" : "Standard Operations"}</span></button>
-            {/* The dashboard's own banner. This used to sit under a tab
-                called "Global Broadcast", which is what it is not: it
-                never reaches Discord, only people who open the dashboard. */}
-            <div className="mt-6 pt-6 border-t border-white/5 space-y-3">
-              <h4 className="text-sm font-bold text-white">Dashboard-Hinweis</h4>
-              <p className="text-[11px] text-slate-500 leading-relaxed">Wird oben im Dashboard angezeigt. Geht <b>nicht</b> an Discord — dafür ist der Broadcast-Tab da.</p>
-              <textarea value={notification} onChange={(e) => setNotification(e.target.value)} className="w-full h-24 bg-white/[0.03] border border-white/5 rounded-2xl p-3 text-sm text-slate-300 focus:outline-none focus:ring-1 focus:ring-blue-500/30" placeholder="Leer lassen, um den Hinweis zu entfernen" />
-              <button onClick={handleBroadcast} disabled={saving || !noticeDirty} className="w-full py-3 bg-white/[0.05] border border-white/10 rounded-2xl font-black uppercase tracking-widest text-[11px] text-slate-300 hover:text-white disabled:opacity-50 transition-all">Hinweis speichern</button>
-            </div></div></section>}
-        </main>
-      </div>
-      )}
+          <main className="space-y-4 xl:col-span-3">
+            {activeTab === "members" && (
+              <section className="space-y-3">
+                <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+                  {memberActions.map((card) => {
+                    const active = memberAction === card.action;
+                    return (
+                      <button
+                        key={card.action}
+                        type="button"
+                        onClick={() => setMemberAction(card.action)}
+                        className={cn(
+                          "rounded-xl border p-4 text-left transition-colors",
+                          active
+                            ? "border-indigo-500/40 bg-indigo-500/10"
+                            : "border-slate-800 bg-[#0f0f13] hover:border-slate-700",
+                        )}
+                      >
+                        <card.icon
+                          className={cn(
+                            "mb-2.5 h-[18px] w-[18px]",
+                            active ? "text-indigo-400" : "text-slate-600",
+                          )}
+                        />
+                        <p className="text-[14px] font-semibold text-white">
+                          {card.label}
+                        </p>
+                        <p className="mt-0.5 text-[12px] leading-relaxed text-slate-500">
+                          {card.desc}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+                <button
+                  type="button"
+                  onClick={runMemberModeration}
+                  disabled={saving}
+                  className="w-full rounded-xl bg-[#5865f2] py-3 text-[14px] font-semibold text-white transition-colors hover:bg-[#4752c4] disabled:opacity-50"
+                >
+                  {memberActions.find((a) => a.action === memberAction)?.label ??
+                    "Ausführen"}{" "}
+                  ausführen
+                </button>
+              </section>
+            )}
 
-      {!FULL_WIDTH_TABS.has(activeTab) && (
-        <div className="glass border border-white/5 rounded-3xl p-5 flex gap-3 text-sm text-slate-400"><AlertTriangle className="h-5 w-5 text-amber-500 shrink-0" />Select a server first. For kick, ban, mute and unmute you only need the user ID, timeout duration (for mute) and reason. Channels can be selected from dropdowns.</div>
+            {["members", "channels", "server", "scans"].includes(activeTab) && (
+              <section className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {currentActions.map((action) => (
+                  <button
+                    key={action.action}
+                    type="button"
+                    onClick={() => runQuickAction(action)}
+                    disabled={saving}
+                    className="rounded-xl border border-slate-800 bg-[#0f0f13] p-4 text-left transition-colors hover:border-slate-700 disabled:opacity-50"
+                  >
+                    <action.icon className="mb-2.5 h-[18px] w-[18px] text-slate-600" />
+                    <h4 className="text-[14px] font-semibold text-white">
+                      {action.label}
+                    </h4>
+                    <p className="mt-1 text-[12px] leading-relaxed text-slate-500">
+                      {action.desc}
+                    </p>
+                    {action.needs?.length ? (
+                      <p className="mt-2.5 text-[11px] text-slate-600">
+                        Braucht: {action.needs.join(", ")}
+                      </p>
+                    ) : null}
+                  </button>
+                ))}
+              </section>
+            )}
+
+            {activeTab === "broadcast" && <BroadcastPanel guilds={guilds} />}
+
+            {activeTab === "system" && (
+              <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+                <div className="rounded-2xl border border-slate-800 bg-[#131318] p-5 lg:col-span-2">
+                  <div className="mb-4 flex items-center justify-between gap-3">
+                    <h3 className="flex items-center gap-2 text-[15px] font-bold text-white">
+                      <Activity className="h-4 w-4 text-indigo-400" />
+                      Systemzustand
+                    </h3>
+                    <span className="text-[12px] text-slate-600">
+                      alle 30 Sekunden
+                    </span>
+                  </div>
+                  <div className="space-y-2">
+                    {stats?.nodes.map((node) => {
+                      const Icon =
+                        node.icon === "Globe"
+                          ? Globe
+                          : node.icon === "Database"
+                            ? Database
+                            : node.icon === "Cpu"
+                              ? Cpu
+                              : Lock;
+                      const healthy = node.status === "Healthy";
+                      return (
+                        <div
+                          key={node.name}
+                          className="flex items-center gap-3 rounded-xl border border-slate-800 bg-[#0f0f13] px-4 py-3"
+                        >
+                          <Icon className="h-4 w-4 shrink-0 text-slate-600" />
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[14px] font-semibold text-white">
+                              {node.name}
+                            </p>
+                            <p className="mt-0.5 text-[12px] text-slate-500">
+                              Auslastung: {node.load}
+                            </p>
+                          </div>
+                          <span
+                            className={cn(
+                              "shrink-0 rounded-md border px-2 py-0.5 text-[11px] font-semibold",
+                              healthy
+                                ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-400"
+                                : "border-amber-500/25 bg-amber-500/10 text-amber-400",
+                            )}
+                          >
+                            {healthy ? "In Ordnung" : node.status}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="space-y-4 rounded-2xl border border-slate-800 bg-[#131318] p-5">
+                  <h3 className="flex items-center gap-2 text-[15px] font-bold text-white">
+                    <Settings className="h-4 w-4 text-indigo-400" />
+                    Steuerung
+                  </h3>
+
+                  <button
+                    type="button"
+                    onClick={handleToggleMaintenance}
+                    disabled={saving}
+                    className={cn(
+                      "w-full rounded-xl border px-4 py-3 text-left text-[14px] transition-colors",
+                      config?.maintenance_mode
+                        ? "border-amber-500/30 bg-amber-500/10 text-amber-300"
+                        : "border-slate-800 bg-[#0f0f13] text-slate-300 hover:border-slate-700",
+                    )}
+                  >
+                    {config?.maintenance_mode
+                      ? "Wartungsmodus ist an"
+                      : "Normalbetrieb"}
+                  </button>
+
+                  {/* Der Hinweis im Dashboard. Er stand einmal unter
+                      "Global Broadcast" -- was er nicht ist: er
+                      erreicht nie Discord, nur wer das Dashboard
+                      öffnet. */}
+                  <div className="space-y-2.5 border-t border-slate-800 pt-4">
+                    <h4 className="text-[14px] font-semibold text-white">
+                      Dashboard-Hinweis
+                    </h4>
+                    <p className="text-[12px] leading-relaxed text-slate-500">
+                      Steht oben im Dashboard. Geht <b>nicht</b> an
+                      Discord — dafür ist der Broadcast-Bereich da.
+                    </p>
+                    <textarea
+                      value={notification}
+                      onChange={(e) => setNotification(e.target.value)}
+                      rows={3}
+                      placeholder="Leer lassen, um den Hinweis zu entfernen"
+                      className="w-full resize-none rounded-xl border border-slate-800 bg-[#0a0a0c] px-4 py-3 text-[14px] text-slate-200 placeholder:text-slate-600 transition-colors focus:border-slate-700 focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleBroadcast}
+                      disabled={saving || !noticeDirty}
+                      className="w-full rounded-xl border border-slate-800 py-2.5 text-[13px] text-slate-300 transition-colors hover:border-slate-700 hover:text-white disabled:opacity-50"
+                    >
+                      Hinweis speichern
+                    </button>
+                  </div>
+                </div>
+              </section>
+            )}
+          </main>
+        </div>
       )}
 
       <StickySaveBar

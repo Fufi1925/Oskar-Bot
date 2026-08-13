@@ -16,6 +16,7 @@ import {
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { LineChart } from "@/components/ui/line-chart";
 
 interface CommandEntry {
   command: string;
@@ -136,7 +137,6 @@ export function CommandStatsPanel() {
   if (!data) return null;
 
   const maxUses = Math.max(...shown.map((entry) => entry.uses), 1);
-  const maxDaily = Math.max(...data.daily.map((entry) => entry.uses), 1);
   const prefixUses = data.total_uses - slashUses;
   const slashShare = data.total_uses
     ? Math.round((slashUses / data.total_uses) * 100)
@@ -250,25 +250,24 @@ export function CommandStatsPanel() {
 
           {data.daily.length > 1 && (
             <div className={CARD}>
-              <p className="text-xs font-black uppercase tracking-widest text-slate-500 mb-4">
-                Pro Tag
+              <p className="mb-3 text-[13px] font-semibold text-slate-300">
+                Aufrufe pro Tag
               </p>
-              <div className="flex items-end gap-1 h-28">
-                {data.daily.map((entry) => (
-                  <div
-                    key={entry.day}
-                    className="flex-1 bg-primary/60 hover:bg-primary rounded-t transition-colors min-w-[3px]"
-                    style={{
-                      height: `${Math.max((entry.uses / maxDaily) * 100, 3)}%`,
-                    }}
-                    title={`${entry.day}: ${num(entry.uses)}`}
-                  />
-                ))}
-              </div>
-              <div className="flex justify-between mt-2 text-[10px] text-slate-600 tabular-nums">
-                <span>{data.daily[0]?.day}</span>
-                <span>{data.daily[data.daily.length - 1]?.day}</span>
-              </div>
+              {/* Balken zeigten nur die Höhe. Eine Linie zeigt den
+                  Verlauf -- und beim Überfahren steht der Wert des
+                  Tages daneben statt nur im Tooltip des Browsers. */}
+              <LineChart
+                daten={data.daily.map((e) => ({
+                  label: new Date(e.day).toLocaleDateString("de-DE", {
+                    day: "numeric",
+                    month: "short",
+                  }),
+                  wert: e.uses,
+                }))}
+                name="Aufrufe"
+                farbe="#f59e0b"
+                hoehe={180}
+              />
             </div>
           )}
 

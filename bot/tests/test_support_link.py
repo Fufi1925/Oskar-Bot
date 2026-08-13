@@ -49,6 +49,16 @@ def check(name, ok, extra=""):
 
 SELBST = os.path.abspath(__file__)
 
+# Der eingefrorene Commit-Verlauf. Er enthaelt die Beschreibungen
+# vergangener Aenderungen -- also auch den Satz "der alte Link stand
+# an 261 Stellen" samt der alten Codes. Das ist eine Erzaehlung, kein
+# Link: niemand klickt in einer JSON-Datei auf eine Zeichenkette.
+#
+# Ohne diese Ausnahme meldet der Test genau die Aufraeumarbeit, die
+# er selbst ausgeloest hat -- und zwar bei jedem weiteren Commit
+# erneut.
+AUSGENOMMEN = {os.path.abspath(os.path.join(BOT, "deploy_history.json"))}
+
 
 def dateien():
     """Jede Quelldatei des Projekts -- ausser dieser hier.
@@ -63,7 +73,8 @@ def dateien():
             if not name.endswith(ENDUNGEN):
                 continue
             pfad = os.path.join(root, name)
-            if os.path.abspath(pfad) == SELBST:
+            voll = os.path.abspath(pfad)
+            if voll == SELBST or voll in AUSGENOMMEN:
                 continue
             yield pfad
 
