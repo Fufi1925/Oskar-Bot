@@ -80,7 +80,7 @@ export function ReportsPanel() {
 
   return (
     <section className="space-y-6">
-      <div className="glass border border-white/5 rounded-[2rem] p-5 sm:p-8">
+      <div className="bg-[#131318] border border-slate-800 rounded-3xl p-5 sm:p-8">
         <div className="flex items-center gap-4">
           <div className="h-12 w-12 rounded-2xl bg-primary/15 border border-primary/25 flex items-center justify-center">
             <BarChart3 className="h-6 w-6 text-primary" />
@@ -106,7 +106,7 @@ export function ReportsPanel() {
                 onClick={() => run(report.id)}
                 disabled={loading}
                 className={cn(
-                  "text-left bg-[#131318] border rounded-3xl p-5 transition-all disabled:opacity-50",
+  "text-left bg-[#131318] border rounded-3xl p-5 transition-all disabled:opacity-50",
                   active === report.id
                     ? "border-primary/50 bg-primary/5"
                     : "border-slate-800 hover:border-primary/30"
@@ -128,14 +128,14 @@ export function ReportsPanel() {
       )}
 
       {data && !loading && (
-        <div className="bg-[#131318] border border-slate-800 rounded-3xl overflow-hidden border-glow-card is-clipped">
-          <div className="p-6 border-b border-white/5 flex items-center justify-between gap-4 flex-wrap">
+        <div className="bg-[#131318] border border-slate-800 rounded-3xl overflow-hidden">
+          <div className="p-6 border-b border-slate-800 flex items-center justify-between gap-4 flex-wrap">
             <h4 className="font-black text-white">
               {REPORTS.find((r) => r.id === active)?.label}
             </h4>
             <button
               onClick={exportReport}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/[0.03] border border-white/5 hover:bg-white/[0.06] transition-all text-xs font-black uppercase tracking-widest text-slate-400"
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#0e0e12] border border-slate-800 hover:bg-white/[0.06] transition-all text-sm font-semibold text-slate-400"
             >
               <Download className="h-3.5 w-3.5" />
               JSON
@@ -172,7 +172,7 @@ function ReportBody({ id, data }: { id: ReportId; data: any }) {
     return (
       <div className="space-y-3">
         {guilds.map((g: any) => (
-          <div key={g.guild_id} className="bg-white/[0.02] border border-white/5 rounded-2xl p-5">
+          <div key={g.guild_id} className="bg-[#0e0e12] border border-slate-800 rounded-2xl p-5">
             <div className="flex items-center justify-between gap-4 mb-3">
               <p className="font-bold text-white truncate">{g.guild_name}</p>
               <span className={cn("text-2xl font-black shrink-0", scoreColor(g.score))}>
@@ -209,7 +209,7 @@ function ReportBody({ id, data }: { id: ReportId; data: any }) {
     return (
       <div className="space-y-3">
         {guilds.map((g: any) => (
-          <div key={g.guild_id} className="bg-white/[0.02] border border-white/5 rounded-2xl p-5">
+          <div key={g.guild_id} className="bg-[#0e0e12] border border-slate-800 rounded-2xl p-5">
             <p className="font-bold text-white">{g.guild_name}</p>
             <div className="flex flex-wrap gap-1.5 mt-3">
               {g.missing_modules.map((m: string) => (
@@ -234,7 +234,7 @@ function ReportBody({ id, data }: { id: ReportId; data: any }) {
     return (
       <div className="space-y-3">
         {guilds.map((g: any) => (
-          <div key={g.guild_id} className="bg-white/[0.02] border border-white/5 rounded-2xl p-5">
+          <div key={g.guild_id} className="bg-[#0e0e12] border border-slate-800 rounded-2xl p-5">
             <div className="flex items-center justify-between gap-4">
               <p className="font-bold text-white truncate">{g.guild_name}</p>
               <span className="text-xs font-black text-primary shrink-0">
@@ -246,10 +246,10 @@ function ReportBody({ id, data }: { id: ReportId; data: any }) {
                 <span
                   key={m.id}
                   className={cn(
-                    "text-[10px] font-bold px-2 py-1 rounded-lg border",
+  "text-[10px] font-bold px-2 py-1 rounded-lg border",
                     m.level === "administrator"
                       ? "bg-red-400/10 text-red-400 border-red-400/20"
-                      : "bg-white/[0.04] text-slate-400 border-white/5"
+                      : "bg-white/[0.04] text-slate-400 border-slate-800"
                   )}
                 >
                   {m.name}
@@ -269,7 +269,7 @@ function ReportBody({ id, data }: { id: ReportId; data: any }) {
     return (
       <div className="space-y-3">
         {guilds.map((g: any) => (
-          <div key={g.guild_id} className="bg-white/[0.02] border border-white/5 rounded-2xl p-5">
+          <div key={g.guild_id} className="bg-[#0e0e12] border border-slate-800 rounded-2xl p-5">
             <div className="flex items-center justify-between gap-4">
               <p className="font-bold text-white truncate">{g.guild_name}</p>
               {g.open_channel_count !== undefined && (
@@ -283,10 +283,10 @@ function ReportBody({ id, data }: { id: ReportId; data: any }) {
                 <span
                   key={item.id}
                   className={cn(
-                    "text-[10px] font-bold px-2 py-1 rounded-lg border",
+  "text-[10px] font-bold px-2 py-1 rounded-lg border",
                     item.risk === "administrator"
                       ? "bg-red-400/10 text-red-400 border-red-400/20"
-                      : "bg-white/[0.04] text-slate-400 border-white/5"
+                      : "bg-white/[0.04] text-slate-400 border-slate-800"
                   )}
                 >
                   {item.name}
@@ -313,10 +313,10 @@ function ReportBody({ id, data }: { id: ReportId; data: any }) {
           <div
             key={g.guild_id}
             className={cn(
-              "flex items-center justify-between gap-4 p-4 rounded-2xl border",
+  "flex items-center justify-between gap-4 p-4 rounded-2xl border",
               g.flagged
                 ? "bg-amber-400/5 border-amber-400/20"
-                : "bg-white/[0.02] border-white/5"
+                : "bg-white/[0.02] border-slate-800"
             )}
           >
             <p className="font-bold text-white truncate">{g.guild_name}</p>
@@ -369,7 +369,7 @@ function ReportBody({ id, data }: { id: ReportId; data: any }) {
               <th className="text-right pb-3">Inviters</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-white/5">
+          <tbody className="divide-y divide-slate-800">
             {guilds.map((g: any) => (
               <tr key={g.guild_id}>
                 <td className="py-3 font-bold text-white truncate max-w-[200px]">{g.guild_name}</td>
@@ -392,7 +392,7 @@ function ReportBody({ id, data }: { id: ReportId; data: any }) {
     return (
       <div className="space-y-3">
         {guilds.map((g: any) => (
-          <div key={g.guild_id} className="bg-white/[0.02] border border-white/5 rounded-2xl p-5">
+          <div key={g.guild_id} className="bg-[#0e0e12] border border-slate-800 rounded-2xl p-5">
             <div className="flex items-center justify-between gap-4 mb-3">
               <p className="font-bold text-white truncate">{g.guild_name}</p>
               <span className={cn("text-lg font-black shrink-0", scoreColor(g.retention_percent))}>
@@ -423,7 +423,7 @@ function ReportBody({ id, data }: { id: ReportId; data: any }) {
         {guilds.map((g: any) => (
           <div
             key={g.guild_id}
-            className="flex items-center justify-between gap-4 p-4 bg-white/[0.02] border border-white/5 rounded-2xl"
+            className="flex items-center justify-between gap-4 p-4 bg-[#0e0e12] border border-slate-800 rounded-2xl"
           >
             <code className="text-xs text-slate-400 font-mono">{g.guild_id}</code>
             <span className="text-sm font-black text-primary">{g.total_minutes} min</span>

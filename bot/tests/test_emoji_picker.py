@@ -496,12 +496,33 @@ def test_the_popup_escapes_the_card():
           re.search(r"\.border-glow-card\s*\{[^}]*isolation:\s*isolate", css)
           is not None)
 
-    panel = open(
-        os.path.join(DASH, "components", "dashboard", "ping-reactions-panel.tsx"),
-        encoding="utf-8",
-    ).read()
+    # Und die Auswahl steht wirklich in einer solchen Karte -- sonst
+    # waere der ganze Portal-Umbau eine Loesung ohne Problem.
+    #
+    # Frueher stand hier `ping-reactions-panel`. Seit der Admin-Bereich
+    # auf den Stil des Reiters „Alle Server“ vereinheitlicht wurde, hat
+    # der keinen Schimmer mehr -- der Beleg zeigte also ins Leere,
+    # ohne dass die Falle verschwunden waere. Deshalb wird jetzt
+    # gesucht statt geraten: **irgendeine** Datei, die beides hat.
+    traeger = []
+    ordner = os.path.join(DASH, "components", "dashboard")
+    for name in sorted(os.listdir(ordner)):
+        if not name.endswith(".tsx"):
+            continue
+        src = open(os.path.join(ordner, name), encoding="utf-8").read()
+        if "border-glow-card" not in src:
+            continue
+        # Die Auswahl muss NACH einer Schimmer-Karte kommen, sonst
+        # liegt sie nicht darin.
+        glow = [m.start() for m in re.finditer(r"border-glow-card", src)]
+        emoji = [m.start() for m in re.finditer(r"<Emoji\w+", src)]
+        if glow and emoji and any(e > g for g in glow for e in emoji):
+            traeger.append(name)
+
     check("und die Auswahl steht in einer solchen Karte",
-          "border-glow-card" in panel)
+          bool(traeger),
+          "keine Datei hat Schimmer-Karte und Emoji-Auswahl zusammen -- "
+          "dann braeuchte es das Portal nicht mehr")
 
 
 def test_the_popup_fits_the_screen():

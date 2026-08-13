@@ -41,7 +41,7 @@ import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 const CARD =
-  "bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 border-glow-card";
+  "bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6";
 const INPUT =
   "w-full bg-[#0e0e12] border border-slate-800 rounded-xl px-4 py-3 text-sm " +
   "text-white placeholder:text-slate-600 focus:outline-none " +
@@ -370,7 +370,7 @@ export function TemplatesAdmin() {
               <div
                 key={entry.id}
                 className={cn(
-                  "rounded-3xl border transition-colors",
+  "rounded-3xl border transition-colors",
                   entry.blocked
                     ? "bg-red-500/[0.05] border-red-500/30"
                     : "bg-[#131318] border-slate-800"
@@ -385,7 +385,7 @@ export function TemplatesAdmin() {
                     <div className="flex items-center gap-2 flex-wrap">
                       <ChevronDown
                         className={cn(
-                          "h-4 w-4 text-slate-600 transition-transform shrink-0",
+  "h-4 w-4 text-slate-600 transition-transform shrink-0",
                           open && "rotate-180"
                         )}
                       />
@@ -508,7 +508,7 @@ export function TemplatesAdmin() {
                         maxLength={500}
                         className={cn(
                           INPUT,
-                          "border-amber-500/30 focus:border-amber-500/60"
+  "border-amber-500/30 focus:border-amber-500/60"
                         )}
                       />
                       <div className="flex gap-2 flex-wrap">
@@ -517,7 +517,7 @@ export function TemplatesAdmin() {
                             !blockReason.trim() || busy === `block${entry.id}`
                           }
                           onClick={() => runBlock(entry, true)}
-                          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-300 text-xs font-black uppercase tracking-widest hover:bg-amber-500/25 disabled:opacity-40 transition-all"
+                          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-300 text-sm font-semibold hover:bg-amber-500/25 disabled:opacity-40 transition-all"
                         >
                           {busy === `block${entry.id}` ? (
                             <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -528,7 +528,7 @@ export function TemplatesAdmin() {
                         </button>
                         <button
                           onClick={() => setBlockFor(null)}
-                          className="px-4 py-2.5 rounded-xl bg-white/[0.04] border border-white/10 text-slate-400 text-xs font-black uppercase tracking-widest hover:text-white transition-all"
+                          className="px-4 py-2.5 rounded-xl bg-white/[0.04] border border-white/10 text-slate-400 text-sm font-semibold hover:text-white transition-all"
                         >
                           Abbrechen
                         </button>
@@ -798,7 +798,7 @@ export function TemplatesAdmin() {
                                       <span
                                         key={`${role.name}-${index}`}
                                         className={cn(
-                                          "flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[11px]",
+  "flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[11px]",
                                           role.dangerous?.length
                                             ? "bg-amber-500/10 border-amber-500/30 text-amber-200"
                                             : "bg-white/[0.04] border-white/10 text-slate-300"

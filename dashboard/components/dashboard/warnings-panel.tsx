@@ -26,9 +26,9 @@ interface WarnUser {
 function timeAgo(unix: number) {
   if (!unix) return "";
   const s = Math.floor(Date.now() / 1000) - unix;
-  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
-  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
-  return `${Math.floor(s / 86400)}d ago`;
+  if (s < 3600) return `vor ${Math.floor(s / 60)} Min.`;
+  if (s < 86400) return `vor ${Math.floor(s / 3600)} Std.`;
+  return `vor ${Math.floor(s / 86400)} Tagen`;
 }
 
 export function WarningsPanel({ guildId }: { guildId: string }) {
@@ -49,7 +49,7 @@ export function WarningsPanel({ guildId }: { guildId: string }) {
       setUsers(data.users || []);
       setTotal(data.total || 0);
     } catch (err: any) {
-      toast.error(err?.message || "Could not load warnings.");
+      toast.error(err?.message || "Die Verwarnungen ließen sich nicht laden.");
     } finally {
       setLoading(false);
     }
@@ -61,17 +61,17 @@ export function WarningsPanel({ guildId }: { guildId: string }) {
   }, [guildId]);
 
   const addWarning = async () => {
-    if (!targetId) return toast.error("Pick a member first.");
-    if (!reason.trim()) return toast.error("A reason is required.");
+    if (!targetId) return toast.error("Wähle zuerst ein Mitglied.");
+    if (!reason.trim()) return toast.error("Ohne Grund geht das nicht.");
     setBusy(true);
     try {
       await api.addWarning(guildId, targetId, reason.trim());
-      toast.success("Warning added.");
+      toast.success("Verwarnung eingetragen.");
       setTargetId("");
       setReason("");
       await load();
     } catch (err: any) {
-      toast.error(err?.message || "Could not add the warning.");
+      toast.error(err?.message || "Die Verwarnung ließ sich nicht eintragen.");
     } finally {
       setBusy(false);
     }
@@ -81,10 +81,10 @@ export function WarningsPanel({ guildId }: { guildId: string }) {
     setBusy(true);
     try {
       await api.removeWarning(guildId, entryId);
-      toast.success("Warning removed.");
+      toast.success("Verwarnung entfernt.");
       await load();
     } catch (err: any) {
-      toast.error(err?.message || "Could not remove.");
+      toast.error(err?.message || "Die Verwarnung ließ sich nicht entfernen.");
     } finally {
       setBusy(false);
     }
@@ -94,29 +94,29 @@ export function WarningsPanel({ guildId }: { guildId: string }) {
     setBusy(true);
     try {
       await api.clearWarnings(guildId, userId);
-      toast.success("All warnings cleared.");
+      toast.success("Alle Verwarnungen entfernt.");
       await load();
     } catch (err: any) {
-      toast.error(err?.message || "Could not clear.");
+      toast.error(err?.message || "Das Löschen hat nicht geklappt.");
     } finally {
       setBusy(false);
     }
   };
 
   if (!guildId) {
-    return <p className="text-center text-slate-500 py-12">Select a server first.</p>;
+    return <p className="text-center text-slate-500 py-12">Wähle zuerst einen Server.</p>;
   }
 
   return (
     <section className="space-y-6">
-      <div className="bg-[#131318] border border-slate-800 rounded-3xl p-8 border-glow-card">
+      <div className="bg-[#131318] border border-slate-800 rounded-3xl p-8">
         <div className="flex items-center justify-between gap-4 mb-6 flex-wrap">
           <h4 className="font-black text-white flex items-center gap-2">
-            <Plus className="h-5 w-5 text-primary" /> Warn a member
+            <Plus className="h-5 w-5 text-primary" /> Mitglied verwarnen
           </h4>
           <button
             onClick={load}
-            className="p-2.5 rounded-xl bg-white/[0.03] border border-white/5 hover:bg-white/[0.06] transition-all"
+            className="p-2.5 rounded-xl bg-[#0e0e12] border border-slate-800 hover:bg-white/[0.06] transition-all"
           >
             <RefreshCw className={cn("h-4 w-4 text-primary", loading && "animate-spin")} />
           </button>
@@ -133,7 +133,7 @@ export function WarningsPanel({ guildId }: { guildId: string }) {
               onChange={(e) => setReason(e.target.value)}
               placeholder="What happened?"
               maxLength={500}
-              className="w-full bg-white/[0.03] border border-white/5 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full bg-[#0e0e12] border border-slate-800 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
             />
             {/* Der Grund geht dem Mitglied per DM zu -- also echter
                 Discord-Text. Die Grenze 500 kommt aus der Route. */}
@@ -150,14 +150,14 @@ export function WarningsPanel({ guildId }: { guildId: string }) {
         <button
           onClick={addWarning}
           disabled={busy}
-          className="mt-6 w-full py-4 bg-primary rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-primary/20 hover:brightness-110 disabled:opacity-50"
+          className="mt-6 w-full py-4 bg-primary rounded-2xl font-semibold text-sm shadow-xl shadow-primary/20 hover:brightness-110 disabled:opacity-50"
         >
-          {busy ? "Working..." : "Add warning"}
+          {busy ? "Läuft …" : "Verwarnung hinzufügen"}
         </button>
 
         <p className="text-[11px] text-slate-600 mt-3">
-          The member is notified by DM when possible, and the counter stays in sync with
-          the bot&apos;s own warn command.
+          Das Mitglied bekommt nach Möglichkeit eine Direktnachricht. Der Zähler
+          bleibt mit dem <code>&gt;warn</code>-Befehl des Bots im Gleichstand.
         </p>
       </div>
 
@@ -166,16 +166,17 @@ export function WarningsPanel({ guildId }: { guildId: string }) {
           <Loader2 className="h-7 w-7 text-primary animate-spin opacity-40" />
         </div>
       ) : users.length === 0 ? (
-        <p className="text-center text-slate-500 py-12">No warnings in this server.</p>
+        <p className="text-center text-slate-500 py-12">Auf diesem Server gibt es keine Verwarnungen.</p>
       ) : (
         <>
           <p className="text-xs font-black uppercase tracking-widest text-slate-600">
-            {users.length} members · {total} warnings
+            {users.length} {users.length === 1 ? "Mitglied" : "Mitglieder"} · {total}{" "}
+            {total === 1 ? "Verwarnung" : "Verwarnungen"}
           </p>
 
           <div className="space-y-3">
             {users.map((user) => (
-              <div key={user.user_id} className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 border-glow-card">
+              <div key={user.user_id} className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6">
                 <div className="flex items-center justify-between gap-4 flex-wrap">
                   <div className="min-w-0">
                     <p className="font-black text-white truncate">
@@ -187,7 +188,7 @@ export function WarningsPanel({ guildId }: { guildId: string }) {
                   <div className="flex items-center gap-3 shrink-0">
                     <span
                       className={cn(
-                        "flex items-center gap-1.5 text-sm font-black px-3 py-1.5 rounded-xl border",
+  "flex items-center gap-1.5 text-sm font-black px-3 py-1.5 rounded-xl border",
                         user.count >= 3
                           ? "text-red-400 bg-red-400/10 border-red-400/20"
                           : "text-amber-400 bg-amber-400/10 border-amber-400/20"
@@ -199,7 +200,7 @@ export function WarningsPanel({ guildId }: { guildId: string }) {
                     <button
                       onClick={() => clearUser(user.user_id)}
                       disabled={busy}
-                      className="p-2.5 rounded-xl bg-white/[0.03] border border-white/5 text-slate-500 hover:text-red-400 hover:bg-red-400/10 transition-all disabled:opacity-40"
+                      className="p-2.5 rounded-xl bg-[#0e0e12] border border-slate-800 text-slate-500 hover:text-red-400 hover:bg-red-400/10 transition-all disabled:opacity-40"
                       title="Clear all warnings"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -216,8 +217,8 @@ export function WarningsPanel({ guildId }: { guildId: string }) {
                       className="mt-4 text-xs font-bold text-slate-500 hover:text-white transition-colors"
                     >
                       {expanded === user.user_id
-                        ? "Hide history"
-                        : `Show ${user.entries.length} entries`}
+                        ? "Verlauf ausblenden"
+                        : `${user.entries.length} ${user.entries.length === 1 ? "Eintrag" : "Einträge"} zeigen`}
                     </button>
 
                     {expanded === user.user_id && (
@@ -225,7 +226,7 @@ export function WarningsPanel({ guildId }: { guildId: string }) {
                         {user.entries.map((entry) => (
                           <div
                             key={entry.id}
-                            className="flex items-start justify-between gap-3 p-3 bg-white/[0.02] border border-white/5 rounded-2xl"
+                            className="flex items-start justify-between gap-3 p-3 bg-[#0e0e12] border border-slate-800 rounded-2xl"
                           >
                             <div className="min-w-0">
                               <p className="text-sm text-slate-300 break-words">{entry.reason}</p>

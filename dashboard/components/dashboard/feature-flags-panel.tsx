@@ -106,7 +106,7 @@ export function FeatureFlagsPanel() {
 
   return (
     <section className="space-y-6">
-      <div className="glass border border-white/5 rounded-[2rem] p-5 sm:p-8">
+      <div className="bg-[#131318] border border-slate-800 rounded-3xl p-5 sm:p-8">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="flex items-center gap-4">
             <div className="h-12 w-12 rounded-2xl bg-primary/15 border border-primary/25 flex items-center justify-center">
@@ -126,7 +126,7 @@ export function FeatureFlagsPanel() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search features..."
-              className="w-full bg-white/[0.03] border border-white/5 rounded-2xl pl-11 pr-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full bg-[#0e0e12] border border-slate-800 rounded-2xl pl-11 pr-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </label>
         </div>
@@ -137,10 +137,10 @@ export function FeatureFlagsPanel() {
               key={category}
               onClick={() => setActiveCategory(category)}
               className={cn(
-                "px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all",
+                "px-4 py-2 rounded-xl text-sm font-semibold transition-all",
                 activeCategory === category
                   ? "bg-primary text-white"
-                  : "bg-white/[0.03] text-slate-400 hover:text-white hover:bg-white/[0.06]"
+                  : "bg-[#0e0e12] text-slate-400 hover:text-white hover:bg-white/[0.06]"
               )}
             >
               {category === "all" ? `All (${features.length})` : category}
@@ -204,7 +204,7 @@ export function FeatureFlagsPanel() {
               </div>
 
               {rolloutsEnabled && flag.active && (
-                <div className="mt-5 pt-5 border-t border-white/5">
+                <div className="mt-5 pt-5 border-t border-slate-800">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">
                       Rollout

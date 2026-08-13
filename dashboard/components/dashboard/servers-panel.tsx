@@ -298,7 +298,7 @@ export function ServersPanel({ currentUserId }: { currentUserId?: string }) {
 
   if (loading) {
     return (
-      <div className="glass border border-white/5 rounded-[2rem] p-16 flex items-center justify-center">
+      <div className="bg-[#131318] border border-slate-800 rounded-3xl p-16 flex items-center justify-center">
         <Loader2 className="h-6 w-6 text-primary animate-spin" />
       </div>
     );
@@ -315,7 +315,7 @@ export function ServersPanel({ currentUserId }: { currentUserId?: string }) {
           { label: "Premium", value: totals?.premium_count ?? 0, icon: Diamond, color: "text-amber-400" },
           { label: "Needs attention", value: totals?.missing_permissions_count ?? 0, icon: ShieldAlert, color: "text-rose-400" },
         ].map((card) => (
-          <div key={card.label} className="glass border border-white/5 rounded-3xl p-5">
+          <div key={card.label} className="bg-[#131318] border border-slate-800 rounded-3xl p-5">
             <card.icon className={cn("h-5 w-5 mb-3", card.color)} />
             <p className="text-3xl font-black text-white">{card.value}</p>
             <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mt-1">{card.label}</p>
@@ -324,14 +324,14 @@ export function ServersPanel({ currentUserId }: { currentUserId?: string }) {
       </div>
 
       {/* Controls */}
-      <div className="glass border border-white/5 rounded-[2rem] p-6 flex flex-col lg:flex-row gap-4 lg:items-center">
+      <div className="bg-[#131318] border border-slate-800 rounded-3xl p-6 flex flex-col lg:flex-row gap-4 lg:items-center">
         <div className="flex-1 relative">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search by server name, ID or owner"
-            className="w-full bg-white/[0.03] border border-white/5 rounded-2xl pl-11 pr-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
+            className="w-full bg-[#0e0e12] border border-slate-800 rounded-2xl pl-11 pr-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
           />
         </div>
         <div className="w-full lg:w-52">
@@ -343,7 +343,7 @@ export function ServersPanel({ currentUserId }: { currentUserId?: string }) {
             "px-5 py-3 rounded-2xl text-sm font-bold border transition-all whitespace-nowrap",
             onlyProblems
               ? "bg-rose-500/15 border-rose-500/30 text-rose-300"
-              : "bg-white/[0.03] border-white/5 text-slate-300 hover:bg-white/[0.06]"
+              : "bg-[#0e0e12] border-slate-800 text-slate-300 hover:bg-white/[0.06]"
           )}
         >
           <AlertTriangle className="h-4 w-4 inline mr-2" />
@@ -358,7 +358,7 @@ export function ServersPanel({ currentUserId }: { currentUserId?: string }) {
         </button>
         <button
           onClick={() => load()}
-          className="px-5 py-3 rounded-2xl bg-white/[0.03] border border-white/5 text-sm font-bold text-slate-300 hover:bg-white/[0.06]"
+          className="px-5 py-3 rounded-2xl bg-[#0e0e12] border border-slate-800 text-sm font-bold text-slate-300 hover:bg-white/[0.06]"
         >
           <RefreshCw className="h-4 w-4 inline mr-2" />
           Refresh
@@ -368,7 +368,7 @@ export function ServersPanel({ currentUserId }: { currentUserId?: string }) {
       {/* Server list */}
       <div className="space-y-2">
         {visible.length === 0 && (
-          <div className="glass border border-white/5 rounded-[2rem] p-12 text-center text-slate-500">
+          <div className="bg-[#131318] border border-slate-800 rounded-3xl p-12 text-center text-slate-500">
             No server matches this filter.
           </div>
         )}
@@ -382,12 +382,12 @@ export function ServersPanel({ currentUserId }: { currentUserId?: string }) {
             <div
               key={server.id}
               className={cn(
-                "glass border rounded-2xl overflow-hidden transition-colors",
+                "bg-[#131318] border rounded-2xl overflow-hidden transition-colors",
                 server.blacklisted
                   ? "border-rose-500/30 bg-rose-500/[0.03]"
                   : warn
                   ? "border-amber-500/20"
-                  : "border-white/5"
+                  : "border-slate-800"
               )}
             >
               {/* Compact row: everything important on one line. */}
@@ -439,7 +439,7 @@ export function ServersPanel({ currentUserId }: { currentUserId?: string }) {
                   <button
                     onClick={() => openRoleDialog(server)}
                     title="Give somebody a role here"
-                    className="p-2.5 rounded-xl bg-white/[0.03] border border-white/5 text-slate-300 hover:bg-white/[0.06]"
+                    className="p-2.5 rounded-xl bg-[#0e0e12] border border-slate-800 text-slate-300 hover:bg-white/[0.06]"
                   >
                     <UserPlus className="h-4 w-4" />
                   </button>
@@ -447,7 +447,7 @@ export function ServersPanel({ currentUserId }: { currentUserId?: string }) {
                   <Link
                     href={`/dashboard/guild/${server.id}`}
                     title="Open this server's settings"
-                    className="p-2.5 rounded-xl bg-white/[0.03] border border-white/5 text-slate-300 hover:bg-white/[0.06] inline-flex"
+                    className="p-2.5 rounded-xl bg-[#0e0e12] border border-slate-800 text-slate-300 hover:bg-white/[0.06] inline-flex"
                   >
                     <ArrowUpRight className="h-4 w-4" />
                   </Link>
@@ -455,7 +455,7 @@ export function ServersPanel({ currentUserId }: { currentUserId?: string }) {
                   <button
                     onClick={() => setExpanded(open ? null : server.id)}
                     title={open ? "Show less" : "Show details"}
-                    className="p-2.5 rounded-xl bg-white/[0.03] border border-white/5 text-slate-400 hover:bg-white/[0.06]"
+                    className="p-2.5 rounded-xl bg-[#0e0e12] border border-slate-800 text-slate-400 hover:bg-white/[0.06]"
                   >
                     <ChevronDown className={cn("h-4 w-4 transition-transform", open && "rotate-180")} />
                   </button>
@@ -464,7 +464,7 @@ export function ServersPanel({ currentUserId }: { currentUserId?: string }) {
 
               {/* Details only when asked for, so the list stays short. */}
               {open && (
-                <div className="border-t border-white/5 p-4 bg-white/[0.01] space-y-4">
+                <div className="border-t border-slate-800 p-4 bg-[#0e0e12]/60 space-y-4">
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                     {[
                       { label: "Members", value: server.member_count.toLocaleString() },
@@ -472,7 +472,7 @@ export function ServersPanel({ currentUserId }: { currentUserId?: string }) {
                       { label: "Channels", value: server.channel_count },
                       { label: "Roles", value: server.role_count },
                     ].map((stat) => (
-                      <div key={stat.label} className="bg-white/[0.02] rounded-xl py-2 px-2 border border-white/5 text-center">
+                      <div key={stat.label} className="bg-[#0e0e12] rounded-xl py-2 px-2 border border-slate-800 text-center">
                         <p className="text-base font-black text-white">{stat.value}</p>
                         <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">{stat.label}</p>
                       </div>
@@ -545,8 +545,8 @@ export function ServersPanel({ currentUserId }: { currentUserId?: string }) {
       {/* Leave dialog */}
       {leaveTarget && (
         <div className="fixed inset-0 z-[60] overflow-y-auto bg-black/70 backdrop-blur-sm p-4 sm:p-6">
-          <div className="w-full max-w-lg mx-auto my-8 glass border border-white/10 rounded-[2rem] overflow-hidden">
-            <div className="p-6 border-b border-white/5 flex items-center justify-between">
+          <div className="w-full max-w-lg mx-auto my-8 bg-[#131318] border border-slate-800 rounded-3xl overflow-hidden">
+            <div className="p-6 border-b border-slate-800 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="h-10 w-10 rounded-2xl bg-rose-500/15 border border-rose-500/25 flex items-center justify-center">
                   <DoorOpen className="h-5 w-5 text-rose-400" />
@@ -576,7 +576,7 @@ export function ServersPanel({ currentUserId }: { currentUserId?: string }) {
                   value={leaveConfirm}
                   onChange={(e) => setLeaveConfirm(e.target.value)}
                   placeholder={leaveTarget.name}
-                  className="w-full bg-white/[0.03] border border-white/5 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-rose-500/40"
+                  className="w-full bg-[#0e0e12] border border-slate-800 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-rose-500/40"
                 />
               </label>
 
@@ -588,7 +588,7 @@ export function ServersPanel({ currentUserId }: { currentUserId?: string }) {
                   value={leaveMessage}
                   onChange={(e) => setLeaveMessage(e.target.value)}
                   placeholder="Sent to the system channel before leaving"
-                  className="w-full h-20 bg-white/[0.03] border border-white/5 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="w-full h-20 bg-[#0e0e12] border border-slate-800 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
                 />
               </label>
 
@@ -599,7 +599,7 @@ export function ServersPanel({ currentUserId }: { currentUserId?: string }) {
                 <input
                   value={leaveReason}
                   onChange={(e) => setLeaveReason(e.target.value)}
-                  className="w-full bg-white/[0.03] border border-white/5 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="w-full bg-[#0e0e12] border border-slate-800 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
                 />
               </label>
 
@@ -614,10 +614,10 @@ export function ServersPanel({ currentUserId }: { currentUserId?: string }) {
               </label>
             </div>
 
-            <div className="p-6 border-t border-white/5 flex gap-3">
+            <div className="p-6 border-t border-slate-800 flex gap-3">
               <button
                 onClick={closeLeaveDialog}
-                className="flex-1 py-3 rounded-2xl bg-white/[0.03] border border-white/5 text-sm font-bold text-slate-300 hover:bg-white/[0.06]"
+                className="flex-1 py-3 rounded-2xl bg-[#0e0e12] border border-slate-800 text-sm font-bold text-slate-300 hover:bg-white/[0.06]"
               >
                 Cancel
               </button>
@@ -636,8 +636,8 @@ export function ServersPanel({ currentUserId }: { currentUserId?: string }) {
       {/* Role dialog */}
       {roleTarget && (
         <div className="fixed inset-0 z-[60] overflow-y-auto bg-black/70 backdrop-blur-sm p-4 sm:p-6">
-          <div className="w-full max-w-xl mx-auto my-8 glass border border-white/10 rounded-[2rem] overflow-hidden">
-            <div className="p-6 border-b border-white/5 flex items-center justify-between">
+          <div className="w-full max-w-xl mx-auto my-8 bg-[#131318] border border-slate-800 rounded-3xl overflow-hidden">
+            <div className="p-6 border-b border-slate-800 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="h-10 w-10 rounded-2xl bg-primary/15 border border-primary/25 flex items-center justify-center">
                   <UserPlus className="h-5 w-5 text-primary" />
@@ -660,7 +660,7 @@ export function ServersPanel({ currentUserId }: { currentUserId?: string }) {
                     value={roleUserId}
                     onChange={(e) => setRoleUserId(e.target.value)}
                     placeholder="Discord user ID"
-                    className="flex-1 bg-white/[0.03] border border-white/5 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
+                    className="flex-1 bg-[#0e0e12] border border-slate-800 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
                   />
                   {currentUserId && (
                     <button
@@ -671,7 +671,7 @@ export function ServersPanel({ currentUserId }: { currentUserId?: string }) {
                           setMemberRoles(member.in_guild ? member.roles : null);
                         } catch { /* ignore */ }
                       }}
-                      className="px-4 rounded-2xl bg-white/[0.03] border border-white/5 text-xs font-bold text-slate-300 hover:bg-white/[0.06] whitespace-nowrap"
+                      className="px-4 rounded-2xl bg-[#0e0e12] border border-slate-800 text-xs font-bold text-slate-300 hover:bg-white/[0.06] whitespace-nowrap"
                     >
                       Me
                     </button>
@@ -707,13 +707,13 @@ export function ServersPanel({ currentUserId }: { currentUserId?: string }) {
                 </div>
               )}
 
-              <div className="flex gap-2 p-1.5 bg-white/[0.02] border border-white/5 rounded-2xl">
+              <div className="flex gap-2 p-1.5 bg-[#0e0e12] border border-slate-800 rounded-2xl">
                 {(["existing", "new"] as const).map((mode) => (
                   <button
                     key={mode}
                     onClick={() => setRoleMode(mode)}
                     className={cn(
-                      "flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all",
+                      "flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all",
                       roleMode === mode ? "bg-primary text-white" : "text-slate-400 hover:text-white"
                     )}
                   >
@@ -775,7 +775,7 @@ export function ServersPanel({ currentUserId }: { currentUserId?: string }) {
                       value={newRoleName}
                       onChange={(e) => setNewRoleName(e.target.value)}
                       placeholder="e.g. Bot Owner"
-                      className="w-full bg-white/[0.03] border border-white/5 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
+                      className="w-full bg-[#0e0e12] border border-slate-800 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
                     />
                   </label>
                   <label className="flex items-center gap-3 text-sm text-slate-300 cursor-pointer">
@@ -805,17 +805,17 @@ export function ServersPanel({ currentUserId }: { currentUserId?: string }) {
               )}
             </div>
 
-            <div className="p-6 border-t border-white/5 flex gap-3">
+            <div className="p-6 border-t border-slate-800 flex gap-3">
               <button
                 onClick={closeRoleDialog}
-                className="flex-1 py-3 rounded-2xl bg-white/[0.03] border border-white/5 text-sm font-bold text-slate-300 hover:bg-white/[0.06]"
+                className="flex-1 py-3 rounded-2xl bg-[#0e0e12] border border-slate-800 text-sm font-bold text-slate-300 hover:bg-white/[0.06]"
               >
                 Close
               </button>
               <button
                 onClick={grantRole}
                 disabled={busy === "role"}
-                className="flex-1 py-3 rounded-2xl bg-primary text-sm font-black uppercase tracking-widest hover:brightness-110 disabled:opacity-40"
+                className="flex-1 py-3 rounded-2xl bg-primary text-sm font-semibold hover:brightness-110 disabled:opacity-40"
               >
                 {busy === "role" ? <Loader2 className="h-4 w-4 inline animate-spin" /> : "Grant a role"}
               </button>

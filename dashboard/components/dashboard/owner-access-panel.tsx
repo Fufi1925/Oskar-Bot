@@ -118,7 +118,7 @@ export function OwnerAccessPanel({ currentUserId }: { currentUserId?: string }) 
 
   return (
     <section className="space-y-6">
-      <div className="glass border border-white/5 rounded-[2rem] p-5 sm:p-8">
+      <div className="bg-[#131318] border border-slate-800 rounded-3xl p-5 sm:p-8">
         <div className="flex items-center gap-4">
           <div className="h-12 w-12 rounded-2xl bg-amber-400/15 border border-amber-400/25 flex items-center justify-center">
             <Crown className="h-6 w-6 text-amber-400" />
@@ -133,7 +133,7 @@ export function OwnerAccessPanel({ currentUserId }: { currentUserId?: string }) 
       </div>
 
       {!canManage && (
-        <div className="bg-white/[0.02] border border-white/5 rounded-3xl p-5 flex gap-3">
+        <div className="bg-[#0e0e12] border border-slate-800 rounded-3xl p-5 flex gap-3">
           <Lock className="h-5 w-5 text-slate-500 shrink-0" />
           <p className="text-sm text-slate-400">
             You can see this list because you are an admin, but only owners may
@@ -144,7 +144,7 @@ export function OwnerAccessPanel({ currentUserId }: { currentUserId?: string }) 
 
       {/* Add */}
       {canManage && (
-      <div className="bg-[#131318] border border-slate-800 rounded-3xl p-8 border-glow-card">
+      <div className="bg-[#131318] border border-slate-800 rounded-3xl p-8">
         <h4 className="font-black text-white flex items-center gap-2 mb-6">
           <ShieldPlus className="h-5 w-5 text-primary" /> Grant full access
         </h4>
@@ -158,7 +158,7 @@ export function OwnerAccessPanel({ currentUserId }: { currentUserId?: string }) 
               value={userId}
               onChange={(e) => setUserId(e.target.value)}
               placeholder="123456789012345678"
-              className="w-full bg-white/[0.03] border border-white/5 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full bg-[#0e0e12] border border-slate-800 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </label>
 
@@ -184,7 +184,7 @@ export function OwnerAccessPanel({ currentUserId }: { currentUserId?: string }) 
               value={note}
               onChange={(e) => setNote(e.target.value)}
               placeholder="e.g. second account"
-              className="w-full bg-white/[0.03] border border-white/5 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full bg-[#0e0e12] border border-slate-800 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </label>
         </div>
@@ -200,7 +200,7 @@ export function OwnerAccessPanel({ currentUserId }: { currentUserId?: string }) 
         <button
           onClick={add}
           disabled={busy}
-          className="mt-6 w-full py-4 bg-primary rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-primary/20 hover:brightness-110 disabled:opacity-50"
+          className="mt-6 w-full py-4 bg-primary rounded-2xl font-semibold text-sm shadow-xl shadow-primary/20 hover:brightness-110 disabled:opacity-50"
         >
           {busy ? "Working..." : "Grant full access"}
         </button>
@@ -213,7 +213,7 @@ export function OwnerAccessPanel({ currentUserId }: { currentUserId?: string }) 
           <div
             key={entry.user_id}
             className={cn(
-              "bg-[#131318] border rounded-3xl p-4 sm:p-6 flex items-center justify-between gap-4 flex-wrap",
+  "bg-[#131318] border rounded-3xl p-4 sm:p-6 flex items-center justify-between gap-4 flex-wrap",
               entry.kind === "owner" ? "border-amber-400/25" : "border-slate-800"
             )}
           >
@@ -237,7 +237,7 @@ export function OwnerAccessPanel({ currentUserId }: { currentUserId?: string }) 
                   </p>
                   <span
                     className={cn(
-                      "text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md border",
+  "text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md border",
                       entry.kind === "owner"
                         ? "text-amber-400 border-amber-400/30 bg-amber-400/10"
                         : "text-blue-400 border-blue-400/30 bg-blue-400/10"

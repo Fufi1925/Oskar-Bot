@@ -257,7 +257,7 @@ export function UserLookupPanel() {
   return (
     <div className="space-y-5">
       {/* ── Suche ─────────────────────────────────────────────── */}
-      <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-4 border-glow-card">
+      <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-4">
         <div>
           <h3 className="font-bold text-white">Nutzer nachschlagen</h3>
           <p className="text-[11px] text-slate-500 mt-0.5">
@@ -289,7 +289,7 @@ export function UserLookupPanel() {
       {/* ── Ergebnis ──────────────────────────────────────────── */}
       {data && (
         <>
-          <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5 border-glow-card">
+          <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
             <div className="flex items-start gap-4 flex-wrap">
               {data.avatar ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -359,7 +359,7 @@ export function UserLookupPanel() {
           </div>
 
           {/* ── Maßnahmen ───────────────────────────────────── */}
-          <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-4 border-glow-card">
+          <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-4">
             <div>
               <h3 className="font-bold text-white">Maßnahmen</h3>
               <p className="text-[11px] text-slate-500 mt-0.5">
@@ -440,7 +440,7 @@ export function UserLookupPanel() {
           </div>
 
           {/* ── Die Server ──────────────────────────────────── */}
-          <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-3 border-glow-card">
+          <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-3">
             <h3 className="font-bold text-white">
               Server ({data.guild_count})
             </h3>
@@ -453,7 +453,7 @@ export function UserLookupPanel() {
                 {data.guilds.map((g) => (
                   <div
                     key={g.guild_id}
-                    className="flex items-center gap-3 p-3 rounded-2xl bg-white/[0.02] border border-white/5"
+                    className="flex items-center gap-3 p-3 rounded-2xl bg-[#0e0e12] border border-slate-800"
                   >
                     {g.guild_icon ? (
                       // eslint-disable-next-line @next/next/no-img-element
@@ -485,7 +485,7 @@ export function UserLookupPanel() {
                     </div>
                     <span
                       className={cn(
-                        "text-[10px] font-black px-2 py-1 rounded-lg shrink-0",
+  "text-[10px] font-black px-2 py-1 rounded-lg shrink-0",
                         g.bot_can_ban
                           ? "bg-red-500/15 text-red-300"
                           : "bg-slate-700/40 text-slate-500",
@@ -535,7 +535,7 @@ export function UserLookupPanel() {
             {bans.map((b) => (
               <div
                 key={b.user_id}
-                className="flex items-center gap-3 p-3 rounded-2xl bg-white/[0.02] border border-white/5"
+                className="flex items-center gap-3 p-3 rounded-2xl bg-[#0e0e12] border border-slate-800"
               >
                 <div className="min-w-0 flex-1">
                   <p className="text-sm text-white font-bold truncate">

@@ -42,14 +42,14 @@ function Card({ title, icon: Icon, children, tone = "neutral" }: {
 }) {
   return (
     <div className={cn(
-      "bg-[#131318] border rounded-3xl p-4 sm:p-6",
+  "bg-[#131318] border rounded-3xl p-4 sm:p-6",
       tone === "good" && "border-emerald-500/25",
       tone === "warn" && "border-amber-500/30",
       tone === "neutral" && "border-slate-800",
     )}>
       <div className="flex items-center gap-3 mb-4">
         <Icon className={cn(
-          "h-5 w-5",
+  "h-5 w-5",
           tone === "good" ? "text-emerald-400" : tone === "warn" ? "text-amber-400" : "text-primary",
         )} />
         <h4 className="font-black text-white text-sm uppercase tracking-wider">{title}</h4>
@@ -118,7 +118,7 @@ export function SystemHealthPanel() {
         </div>
         <button
           onClick={() => load(true)}
-          className="flex items-center gap-2 bg-white/[0.03] px-5 py-3 rounded-2xl border border-white/5 hover:bg-white/[0.06] transition-all"
+          className="flex items-center gap-2 bg-[#0e0e12] px-5 py-3 rounded-2xl border border-slate-800 hover:bg-white/[0.06] transition-all"
         >
           <RefreshCw className={cn("h-4 w-4 text-primary", refreshing && "animate-spin")} />
           <span className="text-xs font-black uppercase tracking-widest text-primary">Refresh</span>
@@ -135,7 +135,7 @@ export function SystemHealthPanel() {
                 <div key={id} className="flex justify-between text-sm">
                   <span className="text-slate-400">Shard {id}</span>
                   <span className={cn(
-                    "font-bold",
+  "font-bold",
                     latency < 200 ? "text-emerald-400" : latency < 500 ? "text-amber-400" : "text-red-400",
                   )}>
                     {latency} ms
@@ -240,19 +240,19 @@ export function SystemHealthPanel() {
       )}
 
       {logs.length > 0 && (
-        <div className="bg-[#131318] border border-slate-800 rounded-3xl overflow-hidden border-glow-card is-clipped">
-          <div className="p-6 border-b border-white/5 flex items-center gap-3">
+        <div className="bg-[#131318] border border-slate-800 rounded-3xl overflow-hidden">
+          <div className="p-6 border-b border-slate-800 flex items-center gap-3">
             <ScrollText className="h-5 w-5 text-primary" />
             <h4 className="font-black text-white text-sm uppercase tracking-wider">
               Recent Warnings &amp; Errors
             </h4>
           </div>
-          <div className="max-h-80 overflow-y-auto divide-y divide-white/5">
+          <div className="max-h-80 overflow-y-auto divide-y divide-slate-800">
             {logs.map((entry, index) => (
               <div key={index} className="px-6 py-3 flex gap-4 text-xs">
                 <span className="text-slate-600 shrink-0 font-mono">{entry.time}</span>
                 <span className={cn(
-                  "font-black uppercase shrink-0 w-16",
+  "font-black uppercase shrink-0 w-16",
                   entry.level === "ERROR" || entry.level === "CRITICAL"
                     ? "text-red-400"
                     : "text-amber-400",

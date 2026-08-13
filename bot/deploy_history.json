@@ -1,6 +1,12 @@
 {
  "commits": [
   {
+   "commit": "10fc02fcf3a644f5c8a3c96045f8c181a14b3bc0",
+   "at": "1786655339",
+   "subject": "feat(dashboard): Verlaufs-Diagramme ueberall, Admin-Optik mit mehr Form",
+   "body": "Diagramme\n- Neu: taeglicher Verlauf pro Server (Mitglieder, Beitritte, Austritte,\n  Befehle). Bisher gab es nur den Jetzt-Zustand, also keine Antwort auf\n  \"wird es mehr oder weniger\".\n- utils/guild_history.py speichert eine Zeile pro Server und Tag; ein\n  Cog zaehlt Ereignisse und misst alle 30 Minuten nach. Ein fehlender\n  Tag bleibt None -- eine Luecke ist keine Null.\n- MultiLineChart: mehrere Linien auf EINER Achse. Beitritte und\n  Austritte gehoeren verglichen, nicht nacheinander gelesen.\n- Eingebaut in Server-Uebersicht, Admin-Bereich (Reiter Nutzung) und\n  die Einstiegsseite mit Serverauswahl.\n\nZwei Fehler im gerenderten Bild gefunden und behoben\n- Y-Achse zeigte zweimal \"50k\": kurz() rundet ab 10.000 ohne\n  Nachkommastelle, 49.400 und 50.000 wurden dieselbe Zahl.\n- \"12. Aug.\" und \"13. Aug.\" klebten aneinander: die vorletzte Marke\n  faellt jetzt weg, wenn sie der letzten zu nahe kommt.\n\nAdmin-Optik\n- Kopf und Zahlen bekommen wieder Form: vier ruhige Felder statt einer\n  Textzeile, Farbe nur im Symbol. Gruppen tragen eine Linie, Reiter\n  eine Flaeche -- zwei Ebenen, die sich unterscheiden lassen.\n- 39 englische Beschriftungen und Meldungen uebersetzt, darunter der\n  voreingestellte Bann-Grund, der im Discord-Auditlog stehen bleibt.\n  Die action-Schluessel bleiben unveraendert.\n\nAbgesichert\n- tests/test_guild_history.py, Verhalten gegen echtes SQLite\n- mutate_history.py: 37 von 37 Mutationen erwischt\n- test_navigation.py schaerfer: prueft jetzt den Gruppen-Knopf statt\n  irgendeine Stelle der Datei (eine Mutation war durchgerutscht)\n- Alle 96 Testdateien gruen, 153 Cogs laden, Next-Build ok\n\nVolume noetig fuer db/guild_history.db -- sonst faengt der Verlauf\nnach jedem Deploy von vorn an."
+  },
+  {
    "commit": "a429dc64c6b91b4ba200ceaf4830c2c86af3b0a7",
    "at": "1786582637",
    "subject": "feat(dashboard): Liniendiagramm nach Vorlage, Admin-Optik komplett neu",
@@ -231,12 +237,6 @@
   {
    "commit": "3b58856161ea70831fcef0c3639ae8a96af11885",
    "at": "1786136981",
-   "subject": "feat(phantom): EXACT full original Aleks ticket bot (5653 lines - every function kept, no removal, no shortening)",
-   "body": ""
-  },
-  {
-   "commit": "4c64d759a6d678d6872ae5319ac0e342f8f04969",
-   "at": "1786136977",
    "subject": "feat(phantom): EXACT full original Aleks ticket bot (5653 lines - every function kept, no removal, no shortening)",
    "body": ""
   }

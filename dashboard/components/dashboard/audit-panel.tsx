@@ -62,7 +62,7 @@ export function AuditPanel() {
 
   return (
     <section className="space-y-6">
-      <div className="glass border border-white/5 rounded-[2rem] p-5 sm:p-8">
+      <div className="bg-[#131318] border border-slate-800 rounded-3xl p-5 sm:p-8">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="flex items-center gap-4">
             <div className="h-12 w-12 rounded-2xl bg-primary/15 border border-primary/25 flex items-center justify-center">
@@ -87,7 +87,7 @@ export function AuditPanel() {
                   key={id}
                   onClick={() => setTab(id)}
                   className={cn(
-                    "flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all",
+  "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all",
                     tab === id ? "bg-primary text-white" : "text-slate-400 hover:text-white"
                   )}
                 >
@@ -98,7 +98,7 @@ export function AuditPanel() {
             </div>
             <button
               onClick={load}
-              className="p-3 rounded-2xl bg-white/[0.03] border border-white/5 hover:bg-white/[0.06] transition-all"
+              className="p-3 rounded-2xl bg-[#0e0e12] border border-slate-800 hover:bg-white/[0.06] transition-all"
               title="Refresh"
             >
               <RefreshCw className={cn("h-4 w-4 text-primary", loading && "animate-spin")} />
@@ -128,24 +128,24 @@ export function AuditPanel() {
       ) : (
         <>
           {tab === "audit" && (
-            <div className="bg-[#131318] border border-slate-800 rounded-3xl overflow-hidden border-glow-card is-clipped">
+            <div className="bg-[#131318] border border-slate-800 rounded-3xl overflow-hidden">
               {entries.length === 0 ? (
                 <p className="text-sm text-slate-500 py-12 text-center">
                   No actions recorded yet.
                 </p>
               ) : (
-                <div className="divide-y divide-white/5">
+                <div className="divide-y divide-slate-800">
                   {entries.map((entry) => (
                     <div
                       key={entry.id}
                       className={cn(
-                        "px-6 py-4 flex items-start gap-4",
+  "px-6 py-4 flex items-start gap-4",
                         entry.suspicious && "bg-amber-400/[0.04]"
                       )}
                     >
                       <div
                         className={cn(
-                          "h-8 w-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5",
+  "h-8 w-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5",
                           entry.suspicious ? "bg-amber-400/10" : "bg-white/[0.04]"
                         )}
                       >
@@ -187,7 +187,7 @@ export function AuditPanel() {
           )}
 
           {tab === "timeline" && (
-            <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 border-glow-card">
+            <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6">
               {timeline.length === 0 ? (
                 <p className="text-sm text-slate-500 py-8 text-center">No events yet.</p>
               ) : (
@@ -197,7 +197,7 @@ export function AuditPanel() {
                     <div key={index} className="relative">
                       <div
                         className={cn(
-                          "absolute -left-[22px] top-1.5 h-3.5 w-3.5 rounded-full border-2 border-[#131318]",
+  "absolute -left-[22px] top-1.5 h-3.5 w-3.5 rounded-full border-2 border-[#131318]",
                           event.severity === "warning" || event.severity === "error"
                             ? "bg-amber-400"
                             : event.severity === "critical"
@@ -220,13 +220,13 @@ export function AuditPanel() {
           )}
 
           {tab === "broadcasts" && (
-            <div className="bg-[#131318] border border-slate-800 rounded-3xl overflow-hidden border-glow-card is-clipped">
+            <div className="bg-[#131318] border border-slate-800 rounded-3xl overflow-hidden">
               {broadcasts.length === 0 ? (
                 <p className="text-sm text-slate-500 py-12 text-center">
                   No broadcasts sent yet.
                 </p>
               ) : (
-                <div className="divide-y divide-white/5">
+                <div className="divide-y divide-slate-800">
                   {broadcasts.map((item) => (
                     <div key={item.id} className="px-6 py-4 flex items-start gap-4">
                       <Megaphone className="h-4 w-4 text-primary shrink-0 mt-1" />

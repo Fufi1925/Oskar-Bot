@@ -47,7 +47,7 @@ import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 const CARD =
-  "bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 border-glow-card";
+  "bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6";
 
 /** Wie ein Ereignis im Verlauf heißt und aussieht. */
 const EVENTS: Record<string, { label: string; tone: string }> = {
@@ -177,8 +177,8 @@ export function SpeedrunAdmin() {
     if (
       confirm(
         `Zugang für „${name}“ entziehen?\n\n` +
-          "Der Code muss danach neu eingegeben werden. " +
-          "Ein laufender Speedrun wird sofort abgebrochen."
+  "Der Code muss danach neu eingegeben werden. " +
+  "Ein laufender Speedrun wird sofort abgebrochen."
       )
     ) {
       act(guild.guild_id, "revoke");
@@ -189,8 +189,8 @@ export function SpeedrunAdmin() {
     const name = guild.name || guild.guild_id;
     const reason = prompt(
       `„${name}“ dauerhaft sperren?\n\n` +
-        "Danach hilft kein Code mehr. Ein laufender Speedrun wird sofort " +
-        "abgebrochen.\n\nBegründung (wird dem Server angezeigt):"
+  "Danach hilft kein Code mehr. Ein laufender Speedrun wird sofort " +
+  "abgebrochen.\n\nBegründung (wird dem Server angezeigt):"
     );
     // Abbrechen im Dialog gibt null zurück -- ein leerer Text ist
     // dagegen eine bewusste Eingabe und geht durch.
@@ -296,7 +296,7 @@ export function SpeedrunAdmin() {
                 <div
                   key={guild.guild_id}
                   className={cn(
-                    "rounded-2xl border p-4 transition-colors",
+  "rounded-2xl border p-4 transition-colors",
                     guild.banned
                       ? "border-red-500/25 bg-red-500/[0.04]"
                       : "border-slate-800 bg-[#0e0e12]"
@@ -372,7 +372,7 @@ export function SpeedrunAdmin() {
                     <div className="flex items-center gap-2 flex-wrap shrink-0">
                       <button
                         onClick={() => setOpenLog(open ? "" : guild.guild_id)}
-                        className="px-3 py-1.5 rounded-lg border border-slate-800 text-slate-400 text-[10px] font-black uppercase tracking-wider hover:text-white hover:border-slate-700 transition-colors inline-flex items-center gap-1.5"
+                        className="px-3 py-1.5 rounded-lg border border-slate-800 text-slate-400 text-[13px] font-semibold hover:text-white hover:border-slate-700 transition-colors inline-flex items-center gap-1.5"
                       >
                         <History className="h-3 w-3" />
                         Verlauf
@@ -382,7 +382,7 @@ export function SpeedrunAdmin() {
                         <button
                           onClick={() => act(guild.guild_id, "unban")}
                           disabled={busyId === guild.guild_id + "unban"}
-                          className="px-3 py-1.5 rounded-lg border border-sky-500/30 text-sky-300/90 text-[10px] font-black uppercase tracking-wider hover:bg-sky-500/10 transition-colors inline-flex items-center gap-1.5 disabled:opacity-50"
+                          className="px-3 py-1.5 rounded-lg border border-sky-500/30 text-sky-300/90 text-[13px] font-semibold hover:bg-sky-500/10 transition-colors inline-flex items-center gap-1.5 disabled:opacity-50"
                         >
                           {busyId === guild.guild_id + "unban" ? (
                             <Loader2 className="h-3 w-3 animate-spin" />

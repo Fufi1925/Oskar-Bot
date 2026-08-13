@@ -137,7 +137,7 @@ export function TeamPanel() {
   return (
     <section className="space-y-6">
       {/* Header */}
-      <div className="glass border border-white/5 rounded-[2rem] p-5 sm:p-8">
+      <div className="bg-[#131318] border border-slate-800 rounded-3xl p-5 sm:p-8">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="flex items-center gap-4">
             <div className="h-12 w-12 rounded-2xl bg-primary/15 border border-primary/25 flex items-center justify-center">
@@ -157,7 +157,7 @@ export function TeamPanel() {
                 key={id}
                 onClick={() => setTab(id)}
                 className={cn(
-                  "px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all",
+  "px-5 py-2.5 rounded-xl text-sm font-semibold transition-all",
                   tab === id ? "bg-primary text-white" : "text-slate-400 hover:text-white"
                 )}
               >
@@ -171,7 +171,7 @@ export function TeamPanel() {
       {tab === "team" && (
         <>
           {/* Assign */}
-          <div className="bg-[#131318] border border-slate-800 rounded-3xl p-8 border-glow-card">
+          <div className="bg-[#131318] border border-slate-800 rounded-3xl p-8">
             <h4 className="font-black text-white flex items-center gap-2 mb-6">
               <UserPlus className="h-5 w-5 text-primary" /> Grant a role
             </h4>
@@ -185,7 +185,7 @@ export function TeamPanel() {
                   value={userId}
                   onChange={(e) => setUserId(e.target.value)}
                   placeholder="123456789012345678"
-                  className="w-full bg-white/[0.03] border border-white/5 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="w-full bg-[#0e0e12] border border-slate-800 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
                 />
               </label>
 
@@ -221,7 +221,7 @@ export function TeamPanel() {
                   value={guildScope}
                   onChange={(e) => setGuildScope(e.target.value)}
                   placeholder="Empty = all servers. Otherwise IDs separated by commas"
-                  className="w-full bg-white/[0.03] border border-white/5 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="w-full bg-[#0e0e12] border border-slate-800 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
                 />
               </label>
 
@@ -233,13 +233,13 @@ export function TeamPanel() {
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
                   placeholder="e.g. trial until end of month"
-                  className="w-full bg-white/[0.03] border border-white/5 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="w-full bg-[#0e0e12] border border-slate-800 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
                 />
               </label>
             </div>
 
             {roleKey && (
-              <div className="mt-5 p-4 bg-white/[0.02] border border-white/5 rounded-2xl">
+              <div className="mt-5 p-4 bg-[#0e0e12] border border-slate-800 rounded-2xl">
                 {(() => {
                   const role = roles.find((r) => r.key === roleKey);
                   if (!role) return null;
@@ -265,7 +265,7 @@ export function TeamPanel() {
             <button
               onClick={assign}
               disabled={busy}
-              className="mt-6 w-full py-4 bg-primary rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-primary/20 hover:brightness-110 disabled:opacity-50"
+              className="mt-6 w-full py-4 bg-primary rounded-2xl font-semibold text-sm shadow-xl shadow-primary/20 hover:brightness-110 disabled:opacity-50"
             >
               {busy ? "Working..." : "Grant role"}
             </button>
@@ -282,7 +282,7 @@ export function TeamPanel() {
             {members.map((member) => (
               <div
                 key={member.user_id}
-                className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 border-glow-card"
+                className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6"
               >
                 <div className="flex items-start justify-between gap-4 flex-wrap">
                   <div className="flex items-center gap-4">
@@ -367,7 +367,7 @@ export function TeamPanel() {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search roles..."
-                className="w-full bg-white/[0.03] border border-white/5 rounded-2xl pl-11 pr-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
+                className="w-full bg-[#0e0e12] border border-slate-800 rounded-2xl pl-11 pr-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
               />
             </label>
           </div>
@@ -378,10 +378,10 @@ export function TeamPanel() {
                 key={category}
                 onClick={() => setActiveCategory(category)}
                 className={cn(
-                  "px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all",
+  "px-4 py-2 rounded-xl text-sm font-semibold transition-all",
                   activeCategory === category
                     ? "bg-primary text-white"
-                    : "bg-white/[0.03] text-slate-400 hover:text-white hover:bg-white/[0.06]"
+                    : "bg-[#0e0e12] text-slate-400 hover:text-white hover:bg-white/[0.06]"
                 )}
               >
                 {category === "all" ? `All (${roles.length})` : category}
@@ -393,7 +393,7 @@ export function TeamPanel() {
             {visibleRoles.map((role) => (
               <div
                 key={role.key}
-                className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 hover:border-white/10 transition-all border-glow-card"
+                className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 hover:border-white/10 transition-all"
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">

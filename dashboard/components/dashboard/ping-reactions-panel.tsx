@@ -31,7 +31,7 @@ import { cn } from "@/lib/utils";
 import { EmojiPicker } from "@/components/dashboard/emoji-picker";
 
 const CARD =
-  "bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 border-glow-card";
+  "bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6";
 
 interface EmojiInfo {
   raw: string;
@@ -59,7 +59,7 @@ interface Rule {
 function Emoji({ info, onRemove }: { info: EmojiInfo; onRemove?: () => void }) {
   return (
     <span
-      className="relative inline-flex items-center justify-center h-8 w-8 rounded-lg bg-white/[0.04] border border-white/5 group"
+      className="relative inline-flex items-center justify-center h-8 w-8 rounded-lg bg-white/[0.04] border border-slate-800 group"
       title={`:${info.name}:`}
     >
       {info.url ? (
@@ -295,7 +295,7 @@ export function PingReactionsPanel() {
 
         <div
           className={cn(
-            "flex flex-wrap gap-2 min-h-[3rem] rounded-xl border p-2.5",
+  "flex flex-wrap gap-2 min-h-[3rem] rounded-xl border p-2.5",
             picked.length
               ? "border-slate-800 bg-[#0e0e12]"
               : "border-dashed border-slate-800 bg-transparent"
@@ -362,7 +362,7 @@ export function PingReactionsPanel() {
               <div
                 key={rule.user_id}
                 className={cn(
-                  "flex flex-wrap items-center gap-3 rounded-xl border px-3 py-2.5 transition-colors",
+  "flex flex-wrap items-center gap-3 rounded-xl border px-3 py-2.5 transition-colors",
                   rule.enabled
                     ? "bg-[#0e0e12] border-slate-800"
                     : "bg-[#0e0e12]/50 border-slate-800/50 opacity-55"
@@ -414,7 +414,7 @@ export function PingReactionsPanel() {
                     onClick={() => toggle(rule)}
                     disabled={busy}
                     title={rule.enabled ? "Pausieren" : "Wieder aktivieren"}
-                    className="p-2 rounded-lg bg-white/[0.03] border border-white/5 hover:bg-white/[0.07] transition-all disabled:opacity-40"
+                    className="p-2 rounded-lg bg-[#0e0e12] border border-slate-800 hover:bg-white/[0.07] transition-all disabled:opacity-40"
                   >
                     {rule.enabled ? (
                       <Pause className="h-3.5 w-3.5 text-amber-400" />
@@ -426,7 +426,7 @@ export function PingReactionsPanel() {
                     onClick={() => edit(rule)}
                     disabled={busy}
                     title="Bearbeiten"
-                    className="p-2 rounded-lg bg-white/[0.03] border border-white/5 hover:bg-white/[0.07] transition-all disabled:opacity-40"
+                    className="p-2 rounded-lg bg-[#0e0e12] border border-slate-800 hover:bg-white/[0.07] transition-all disabled:opacity-40"
                   >
                     <Save className="h-3.5 w-3.5 text-slate-400" />
                   </button>
@@ -441,7 +441,7 @@ export function PingReactionsPanel() {
                         ? `Zurücksetzen auf ${rule.default_emojis.length} Emojis`
                         : "Steht schon auf dem Originalstand"
                     }
-                    className="p-2 rounded-lg bg-white/[0.03] border border-white/5 hover:bg-white/[0.07] transition-all disabled:opacity-25"
+                    className="p-2 rounded-lg bg-[#0e0e12] border border-slate-800 hover:bg-white/[0.07] transition-all disabled:opacity-25"
                   >
                     <RotateCcw className="h-3.5 w-3.5 text-slate-400" />
                   </button>
@@ -474,7 +474,7 @@ export function PingReactionsPanel() {
               <div
                 key={rule.user_id}
                 className={cn(
-                  "flex flex-wrap items-center gap-3 rounded-xl border px-3 py-2.5 transition-colors",
+  "flex flex-wrap items-center gap-3 rounded-xl border px-3 py-2.5 transition-colors",
                   rule.enabled
                     ? "bg-[#0e0e12] border-slate-800"
                     : "bg-[#0e0e12]/50 border-slate-800/50 opacity-55"
@@ -515,7 +515,7 @@ export function PingReactionsPanel() {
                     onClick={() => toggle(rule)}
                     disabled={busy}
                     title={rule.enabled ? "Pausieren" : "Wieder aktivieren"}
-                    className="p-2 rounded-lg bg-white/[0.03] border border-white/5 hover:bg-white/[0.07] transition-all disabled:opacity-40"
+                    className="p-2 rounded-lg bg-[#0e0e12] border border-slate-800 hover:bg-white/[0.07] transition-all disabled:opacity-40"
                   >
                     {rule.enabled ? (
                       <Pause className="h-3.5 w-3.5 text-amber-400" />
@@ -527,7 +527,7 @@ export function PingReactionsPanel() {
                     onClick={() => edit(rule)}
                     disabled={busy}
                     title="Bearbeiten"
-                    className="p-2 rounded-lg bg-white/[0.03] border border-white/5 hover:bg-white/[0.07] transition-all disabled:opacity-40"
+                    className="p-2 rounded-lg bg-[#0e0e12] border border-slate-800 hover:bg-white/[0.07] transition-all disabled:opacity-40"
                   >
                     <Save className="h-3.5 w-3.5 text-slate-400" />
                   </button>

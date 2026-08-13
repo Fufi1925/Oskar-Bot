@@ -550,7 +550,7 @@ export function PremiumAdmin() {
         right={
           <button
             onClick={() => setShowMint((v) => !v)}
-            className="px-4 py-2 rounded-xl bg-primary text-[11px] font-black uppercase tracking-widest hover:brightness-110 transition-all"
+            className="px-4 py-2 rounded-xl bg-primary text-[13px] font-semibold hover:brightness-110 transition-all"
           >
             {showMint ? "Schließen" : "Neuer Key"}
           </button>
@@ -659,7 +659,7 @@ export function PremiumAdmin() {
             <button
               onClick={mint}
               disabled={busy || !setup.pepper}
-              className="w-full py-2.5 rounded-xl bg-primary text-[11px] font-black uppercase tracking-widest hover:brightness-110 disabled:opacity-40 transition-all"
+              className="w-full py-2.5 rounded-xl bg-primary text-[13px] font-semibold hover:brightness-110 disabled:opacity-40 transition-all"
             >
               {busy ? "Wird erstellt …" : "Erstellen"}
             </button>
@@ -693,7 +693,7 @@ export function PremiumAdmin() {
                     navigator.clipboard?.writeText(k);
                     toast.success("Kopiert.");
                   }}
-                  className="p-2.5 rounded-lg bg-white/[0.03] border border-white/10 text-slate-400 hover:text-white transition-colors"
+                  className="p-2.5 rounded-lg bg-[#0e0e12] border border-slate-800 text-slate-400 hover:text-white transition-colors"
                   aria-label="Key kopieren"
                 >
                   <Copy className="h-4 w-4" />
@@ -815,7 +815,7 @@ export function PremiumAdmin() {
             <button
               onClick={() => runBulk("revoke")}
               disabled={busy}
-              className="px-3 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-widest bg-amber-500/10 border border-amber-500/25 text-amber-200 hover:bg-amber-500/20 disabled:opacity-40 transition-all"
+              className="px-3 py-1.5 rounded-lg text-[13px] font-semibold bg-amber-500/10 border border-amber-500/25 text-amber-200 hover:bg-amber-500/20 disabled:opacity-40 transition-all"
             >
               Sperren
             </button>

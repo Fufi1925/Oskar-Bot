@@ -45,7 +45,7 @@ import { cn } from "@/lib/utils";
 import { EmojiPicker } from "@/components/dashboard/emoji-picker";
 
 const CARD =
-  "bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 border-glow-card";
+  "bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6";
 
 /** Wie ein Änderungstyp aussieht. */
 const TONES: Record<string, { border: string; text: string; icon: any }> = {
@@ -364,7 +364,7 @@ export function TesterPanel() {
                 <div key={group.tone} className="space-y-2">
                   <p
                     className={cn(
-                      "text-[10px] font-black uppercase tracking-widest",
+  "text-[10px] font-black uppercase tracking-widest",
                       tone.text
                     )}
                   >
@@ -378,7 +378,7 @@ export function TesterPanel() {
                     <div
                       key={entry.commit}
                       className={cn(
-                        "rounded-2xl border bg-[#0e0e12] p-4",
+  "rounded-2xl border bg-[#0e0e12] p-4",
                         tone.border
                       )}
                     >
@@ -429,7 +429,7 @@ export function TesterPanel() {
               key={option.id}
               onClick={() => setKind(option.id)}
               className={cn(
-                "px-3.5 py-2 rounded-xl text-[11px] font-black uppercase tracking-wider transition-colors inline-flex items-center gap-2 border",
+  "px-3.5 py-2 rounded-xl text-[13px] font-semibold transition-colors inline-flex items-center gap-2 border",
                 kind === option.id
                   ? "border-violet-500/50 text-violet-200 bg-violet-500/10"
                   : "border-slate-800 text-slate-500 hover:text-slate-300"
@@ -551,7 +551,7 @@ export function TesterPanel() {
             onClick={submit}
             disabled={sending || title.trim().length < 5}
             className={cn(
-              "ml-auto px-4 py-2 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all inline-flex items-center gap-2",
+  "ml-auto px-4 py-2 rounded-xl text-[13px] font-semibold transition-all inline-flex items-center gap-2",
               title.trim().length >= 5 && !sending
                 ? "bg-violet-500 text-white hover:bg-violet-400"
                 : "bg-slate-800 text-slate-600 cursor-not-allowed"
@@ -622,7 +622,7 @@ export function TesterPanel() {
                 <div
                   key={entry.id}
                   className={cn(
-                    "rounded-2xl border bg-[#0e0e12] p-4 transition-colors",
+  "rounded-2xl border bg-[#0e0e12] p-4 transition-colors",
                     entry.closed
                       ? "border-slate-800/60 opacity-60"
                       : entry.priority === "critical"
@@ -645,7 +645,7 @@ export function TesterPanel() {
                       <div className="flex items-center gap-2 flex-wrap mt-1.5">
                         <span
                           className={cn(
-                            "px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest",
+  "px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest",
                             meta.tone
                           )}
                         >
@@ -654,7 +654,7 @@ export function TesterPanel() {
                         {entry.kind === "bug" && entry.priority !== "normal" && (
                           <span
                             className={cn(
-                              "px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest",
+  "px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest",
                               prio.tone
                             )}
                           >
@@ -689,7 +689,7 @@ export function TesterPanel() {
                       onClick={() => toggleVote(entry.id)}
                       title="Betrifft mich auch"
                       className={cn(
-                        "shrink-0 px-2.5 py-1.5 rounded-lg border text-[11px] font-black inline-flex items-center gap-1.5 transition-colors",
+  "shrink-0 px-2.5 py-1.5 rounded-lg border text-[11px] font-black inline-flex items-center gap-1.5 transition-colors",
                         entry.voted
                           ? "border-violet-500/50 text-violet-200 bg-violet-500/10"
                           : "border-slate-800 text-slate-500 hover:text-slate-300"
@@ -702,7 +702,7 @@ export function TesterPanel() {
 
                   <button
                     onClick={() => openDetail(entry.id)}
-                    className="mt-3 text-[10px] font-black uppercase tracking-wider text-slate-500 hover:text-slate-300 transition-colors inline-flex items-center gap-1.5"
+                    className="mt-3 text-[13px] font-semibold text-slate-500 hover:text-slate-300 transition-colors inline-flex items-center gap-1.5"
                   >
                     <MessageSquare className="h-3 w-3" />
                     {open ? "Weniger" : "Verlauf und Antworten"}
@@ -725,7 +725,7 @@ export function TesterPanel() {
                             <div
                               key={item.id}
                               className={cn(
-                                "text-[11px] leading-relaxed",
+  "text-[11px] leading-relaxed",
                                 item.kind === "state"
                                   ? "text-slate-500"
                                   : "text-slate-300"
@@ -764,7 +764,7 @@ export function TesterPanel() {
                           onClick={() => sendReply(entry.id)}
                           disabled={!reply.trim()}
                           className={cn(
-                            "px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider transition-colors",
+  "px-3 py-2 rounded-lg text-[13px] font-semibold transition-colors",
                             reply.trim()
                               ? "bg-slate-700 text-white hover:bg-slate-600"
                               : "bg-slate-800 text-slate-600 cursor-not-allowed"
@@ -784,7 +784,7 @@ export function TesterPanel() {
                                 onClick={() => patch(entry.id, { state: key })}
                                 disabled={entry.state === key}
                                 className={cn(
-                                  "px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border transition-colors",
+  "px-2.5 py-1 rounded-lg text-[13px] font-semibold border transition-colors",
                                   entry.state === key
                                     ? "border-slate-700 text-slate-600 cursor-default"
                                     : "border-slate-800 text-slate-500 hover:text-white hover:border-slate-700"
@@ -805,7 +805,7 @@ export function TesterPanel() {
                                   }
                                   disabled={entry.priority === key}
                                   className={cn(
-                                    "px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border transition-colors",
+  "px-2.5 py-1 rounded-lg text-[13px] font-semibold border transition-colors",
                                     entry.priority === key
                                       ? "border-slate-700 text-slate-600 cursor-default"
                                       : "border-slate-800 text-slate-500 hover:text-white hover:border-slate-700"
@@ -823,7 +823,7 @@ export function TesterPanel() {
                                 assignee: entry.assignee ? "" : "me",
                               })
                             }
-                            className="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border border-slate-800 text-slate-500 hover:text-white hover:border-slate-700 transition-colors"
+                            className="px-2.5 py-1 rounded-lg text-[13px] font-semibold border border-slate-800 text-slate-500 hover:text-white hover:border-slate-700 transition-colors"
                           >
                             {entry.assignee
                               ? "Bearbeiter entfernen"

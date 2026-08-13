@@ -47,7 +47,7 @@ interface StatsPayload {
 }
 
 const CARD =
-  "bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 border-glow-card";
+  "bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6";
 
 /** Slash-Befehle werden mit führendem Schrägstrich gezählt. */
 function isSlash(command: string) {
@@ -145,7 +145,7 @@ export function CommandStatsPanel() {
   return (
     <section className="space-y-6">
       {/* Kopf: worum es geht, und der Zeitraum */}
-      <div className="glass border border-white/5 rounded-[2rem] p-5 sm:p-8">
+      <div className="bg-[#131318] border border-slate-800 rounded-3xl p-5 sm:p-8">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="flex items-center gap-4">
             <div className="h-12 w-12 rounded-2xl bg-primary/15 border border-primary/25 flex items-center justify-center shrink-0">
@@ -167,7 +167,7 @@ export function CommandStatsPanel() {
                   key={value}
                   onClick={() => setDays(value)}
                   className={cn(
-                    "px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all",
+  "px-4 py-2 rounded-xl text-sm font-semibold transition-all",
                     days === value
                       ? "bg-primary text-white"
                       : "text-slate-400 hover:text-white"
@@ -180,7 +180,7 @@ export function CommandStatsPanel() {
             <button
               onClick={load}
               title="Neu laden"
-              className="p-3 rounded-2xl bg-white/[0.03] border border-white/5 hover:bg-white/[0.06] transition-all"
+              className="p-3 rounded-2xl bg-[#0e0e12] border border-slate-800 hover:bg-white/[0.06] transition-all"
             >
               <RefreshCw className="h-4 w-4 text-primary" />
             </button>
@@ -275,11 +275,10 @@ export function CommandStatsPanel() {
               ohne beides eine Wand aus Zeilen sind. */}
           <div
             className={cn(
-              "bg-[#131318] border border-slate-800 rounded-3xl overflow-hidden",
-              "border-glow-card is-clipped"
+  "bg-[#131318] border border-slate-800 rounded-3xl overflow-hidden"
             )}
           >
-            <div className="px-4 sm:px-6 py-4 border-b border-white/5 flex flex-wrap items-center gap-3">
+            <div className="px-4 sm:px-6 py-4 border-b border-slate-800 flex flex-wrap items-center gap-3">
               <TrendingUp className="h-5 w-5 text-primary shrink-0" />
               <h4 className="font-black text-white text-sm uppercase tracking-wider">
                 Am meisten benutzt
@@ -297,7 +296,7 @@ export function CommandStatsPanel() {
                     key={value}
                     onClick={() => setKind(value)}
                     className={cn(
-                      "px-3 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5",
+  "px-3 py-1.5 rounded-lg text-[13px] font-semibold transition-all flex items-center gap-1.5",
                       kind === value
                         ? "bg-primary/20 text-primary"
                         : "text-slate-500 hover:text-slate-300"
@@ -325,7 +324,7 @@ export function CommandStatsPanel() {
                 Kein Befehl passt zu dieser Suche.
               </p>
             ) : (
-              <div className="divide-y divide-white/5 max-h-[28rem] overflow-y-auto">
+              <div className="divide-y divide-slate-800 max-h-[28rem] overflow-y-auto">
                 {shown.slice(0, 60).map((entry) => (
                   <div
                     key={entry.command}
@@ -333,7 +332,7 @@ export function CommandStatsPanel() {
                   >
                     <span
                       className={cn(
-                        "shrink-0 h-6 w-6 rounded-lg flex items-center justify-center",
+  "shrink-0 h-6 w-6 rounded-lg flex items-center justify-center",
                         isSlash(entry.command)
                           ? "bg-primary/15 text-primary"
                           : "bg-amber-500/10 text-amber-400/80"
@@ -358,7 +357,7 @@ export function CommandStatsPanel() {
                     <div className="flex-1 h-5 bg-slate-800/60 rounded-lg overflow-hidden min-w-[2rem]">
                       <div
                         className={cn(
-                          "h-full rounded-lg transition-all duration-500",
+  "h-full rounded-lg transition-all duration-500",
                           isSlash(entry.command)
                             ? "bg-primary"
                             : "bg-amber-500/70"
@@ -379,7 +378,7 @@ export function CommandStatsPanel() {
                     {entry.failures > 0 && (
                       <span
                         className={cn(
-                          "text-[10px] font-black w-12 text-right shrink-0 tabular-nums",
+  "text-[10px] font-black w-12 text-right shrink-0 tabular-nums",
                           entry.failure_rate > 25
                             ? "text-red-400"
                             : "text-amber-400"
@@ -395,7 +394,7 @@ export function CommandStatsPanel() {
             )}
 
             {shown.length > 60 && (
-              <p className="px-6 py-3 text-[11px] text-slate-600 border-t border-white/5">
+              <p className="px-6 py-3 text-[11px] text-slate-600 border-t border-slate-800">
                 {shown.length - 60} weitere ausgeblendet — such nach dem Namen.
               </p>
             )}
@@ -408,7 +407,7 @@ export function CommandStatsPanel() {
                   Aktivste Server
                 </p>
                 {data.guilds_masked && (
-                  <span className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 bg-white/[0.04] border border-white/5 rounded-full px-2.5 py-1">
+                  <span className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 bg-white/[0.04] border border-slate-800 rounded-full px-2.5 py-1">
                     <EyeOff className="h-3 w-3" />
                     verborgen
                   </span>
@@ -423,7 +422,7 @@ export function CommandStatsPanel() {
                   >
                     <span
                       className={cn(
-                        "h-7 w-7 rounded-lg shrink-0 flex items-center justify-center text-[10px] font-black",
+  "h-7 w-7 rounded-lg shrink-0 flex items-center justify-center text-[10px] font-black",
                         guild.masked
                           ? "bg-slate-800/80 text-slate-600"
                           : "bg-primary/15 text-primary"
@@ -433,7 +432,7 @@ export function CommandStatsPanel() {
                     </span>
                     <span
                       className={cn(
-                        "text-sm truncate",
+  "text-sm truncate",
                         guild.masked
                           ? "text-slate-500 tracking-[0.2em]"
                           : "text-slate-300"
@@ -485,7 +484,7 @@ export function CommandStatsPanel() {
                 <code
                   key={command}
                   className={cn(
-                    "text-[10px] font-mono px-2 py-1 rounded-lg",
+  "text-[10px] font-mono px-2 py-1 rounded-lg",
                     isSlash(command)
                       ? "bg-primary/[0.07] text-slate-500"
                       : "bg-white/[0.04] text-slate-500"
