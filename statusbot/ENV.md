@@ -93,6 +93,12 @@ STATUS_BOT_URL="https://<url-des-status-service>.up.railway.app"
 Fehlt sie, funktioniert alles wie bisher — nur die Auswahl „mit welchem
 Bot senden" erscheint dann nicht.
 
+**Und die Status-Seite auf der Website bleibt leer.** Sie holt ihre
+Zahlen über `/api/status` von genau diesem Dienst; ohne die Variable
+steht dort „Status nicht abrufbar". Ein Railway-interner Name
+(`…​.railway.internal`) genügt — die Seite fragt serverseitig an, nicht
+aus dem Browser.
+
 ---
 
 ## ⚠️ Zwei Sachen, die beim Hauptbot nicht stimmen

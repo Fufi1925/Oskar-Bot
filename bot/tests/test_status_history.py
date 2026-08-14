@@ -483,40 +483,65 @@ def test_status_page():
           'export const dynamic = "force-dynamic"' in page
           and "revalidate = 0" in page,
           "a five minute old status says 'fine' during an outage")
+    # Die Seite holt die Zahlen nicht mehr selbst -- das macht seit dem
+    # Umbau der Browser ueber /api/status, damit sie sich waehrend
+    # einer Stoerung selbst aktualisiert. Die Anforderungen sind
+    # dieselben geblieben, sie gelten jetzt nur an zwei anderen
+    # Stellen. Genau die werden hier geprueft, statt den Test zu
+    # loeschen: die Regeln sind wichtiger als die Datei, in der sie
+    # zufaellig standen.
+    live = read(os.path.join(DASHBOARD, "components/status-live.tsx"))
+    route = read(os.path.join(DASHBOARD, "app/api/status/route.ts"))
+
+    check("the page renders the live component",
+          "<StatusLive" in page,
+          "otherwise nothing fetches anything")
+
     check("it asks the status bot, not the main bot",
-          "STATUS_BOT_URL" in page,
+          "STATUS_BOT_URL" in route,
           "asking the broken thing whether it is broken always answers "
           "'fine' or nothing")
     check("the fetch cannot hang the page",
-          "AbortSignal.timeout" in page, "")
+          "AbortSignal.timeout" in route, "")
 
     # The failure that matters most. Checked on the branch, not just
     # the string: the message can sit in the file while the `if` that
     # reaches it has been removed, which is exactly what slipped past
     # the first version of this test.
     check("an unreachable service says so",
-          "nicht abrufbar" in page,
+          "Status nicht abrufbar" in live,
           "a status page that claims 'all fine' because it reached "
           "nothing is the one thing it must never do")
     check("and there is a branch that actually reaches that message",
-          re.search(r"if\s*\(\s*!\s*data\s*\)", page) is not None,
+          re.search(r"if\s*\(\s*!\s*erreichbar\s*\|\|\s*!\s*zustand\s*\)", live)
+          is not None,
           "the text is worthless if nothing renders it")
     # Whitespace collapsed before searching: the formatter breaks lines
     # wherever it likes, so a phrase search fails on prose that is
-    # perfectly correct. Third time this has bitten in this project.
-    prose = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", page))
+    # perfectly correct. Fourth time this has bitten in this project --
+    # and this time with a new twist: the sentence is split across
+    # concatenated JS strings (`"..." + "..."`), so the join has to be
+    # undone as well or half the phrase is never adjacent to the other.
+    zusammen = re.sub(r'"\s*\+\s*"', "", live)
+    prose = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", zusammen))
     check("and does not blame the bot for it",
           "kann auch der Wächter selbst sein" in prose,
           "the watcher being down says nothing about the bot")
 
     check("unchecked rows are grey, not red",
-          'tone="unknown"' in page or '"unknown"' in page,
+          '"unbekannt"' in live,
           "red claims we looked; we did not")
     check("the uptime section is conditional",
-          "uptime?.known" in page,
+          "uptime?.known" in live,
           "no record means no percentage")
     check("a partial record is labelled",
-          "seit Beginn der Aufzeichnung" in page, "")
+          "seit Beginn der Aufzeichnung" in live, "")
+
+    # Neu und der eigentliche Grund fuer den Umbau: eine Statusseite,
+    # die man waehrend einer Stoerung offen laesst, muss mitlaufen.
+    check("and it keeps itself up to date",
+          "setInterval(() => ladeZustand(), INTERVALL_MS)" in live,
+          "a page that stands still still says 'outage' an hour later")
 
 
 def main():

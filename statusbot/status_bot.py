@@ -1427,6 +1427,10 @@ async def start_web(bot: "StatusBot") -> None:
                 # generated figure must never be mistaken for a measured
                 # one. A website reading this must be able to tell.
                 "partner": bot.partner,
+                # Wie lange schon aufgezeichnet wird. Ohne diese Angabe
+                # kann die Website einen leeren 30-Tage-Graphen nicht
+                # von einer Stoerung unterscheiden.
+                "history_persistent": history.storage_is_persistent(),
             },
             headers={
                 "Access-Control-Allow-Origin": "*",
@@ -1434,10 +1438,53 @@ async def start_web(bot: "StatusBot") -> None:
             },
         )
 
+    async def handle_public_history(request):
+        """
+        Der Verlauf als JSON, fuer die Graphen auf der Website.
+
+        Getrennt von ``status.json``: der Zustand wird alle 30 Sekunden
+        geholt, der Verlauf nur beim Wechsel des Zeitraums. Beides in
+        eine Antwort zu packen hiesse, bei jeder Aktualisierung ein
+        paar hundert Messpunkte mitzuschicken, die sich nicht geaendert
+        haben.
+
+        Ohne Schluessel, aus demselben Grund wie ``status.json``: eine
+        Statusseite, die niemand lesen kann, ist keine.
+        """
+        try:
+            hours = int(request.query.get("hours", "24"))
+        except (TypeError, ValueError):
+            hours = 24
+        # Nicht mehr als aufbewahrt wird -- sonst zeichnet die Website
+        # eine Achse ueber Wochen, die es nie gab.
+        hours = max(1, min(hours, history.KEEP_DAYS * 24))
+
+        # Bei 24 Stunden eine Saeule je Stunde, bei laengeren Zeitraeumen
+        # nicht mehr: 30 Tage waeren 720 Saeulen auf einem Handybildschirm.
+        count = 24 if hours <= 24 else (28 if hours <= 24 * 7 else 30)
+
+        return web.json_response(
+            {
+                "hours": hours,
+                "slots": history.buckets(hours=hours, count=count),
+                "uptime": history.summary(),
+                "errors": history.error_summary(hours=hours),
+                "persistent": history.storage_is_persistent(),
+                "keep_days": history.KEEP_DAYS,
+            },
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                # Etwas laenger als der Zustand: der Verlauf aendert
+                # sich hoechstens im Takt der Messungen.
+                "Cache-Control": "public, max-age=60",
+            },
+        )
+
     app = web.Application()
     app.router.add_post("/send", handle_send)
     app.router.add_get("/health", handle_health)
     app.router.add_get("/status.json", handle_public_status)
+    app.router.add_get("/history.json", handle_public_history)
 
     runner = web.AppRunner(app)
     await runner.setup()

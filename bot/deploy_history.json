@@ -1,6 +1,12 @@
 {
  "commits": [
   {
+   "commit": "48b39071289dd7efb4ba9ece7c7375be548866f6",
+   "at": "1786743163",
+   "subject": "feat(status): kein doppeltes Panel mehr, plus Partner-Server",
+   "body": "1. Der gemeldete Fehler: \"manchmal neues Panel, altes bleibt\"\n\nDer normale Weg raeumte auf -- es gab aber zwei Wege daran vorbei,\nbeide reproduziert in repro/bug_statusbot_panel.py:\n\n  * publish() setzte nach einem fehlgeschlagenen edit() (Discord 500,\n    Verbindungsabbruch) den Merker auf None und sendete neu. Die alte\n    Nachricht kannte danach niemand mehr. refresh_panel() haette sie\n    geloescht, aber der Hintergrundlauf ruft refresh_panel() gar nicht\n    -- daher das \"manchmal\".\n  * find_message() nahm nach einem Neustart die erste eigene Nachricht\n    und brach ab. Lagen zwei tote Panels im Kanal, blieb eines fuer\n    immer stehen.\n\nJetzt loescht publish() die verwaiste Nachricht dort, wo sie verloren\ngeht, und find_message() behaelt das neueste Panel und raeumt alle\naelteren weg. Eine 404 loest keinen Loeschversuch mehr aus.\n\n2. Neu: PARTNER_SERVER\n\nEine oder mehrere Server-IDs, getrennt durch Komma, Leerzeichen oder\nZeilenumbruch. Auf diesen Servern:\n\n  * darf JEDER /status benutzen\n  * landet das Panel in dem Kanal, in dem der Befehl kam -- nicht in\n    STATUS_CHANNEL_ID, auf den der Partner keinen Zugriff hat\n  * wird es live nachgefuehrt, im selben Takt wie das eigene\n  * steht in der Fusszeile \"gesendet von <Servername>\"\n\nEin zweites /status im selben Kanal ersetzt das Panel, statt zu\nstapeln. Panels werden in db/panels (STATUS_DATA_DIR) gemerkt, damit\nsie einen Neustart ueberleben -- sonst waeren sie danach verwaist und\nder naechste Aufruf setzte ein zweites daneben.\n\nDer Befehl wird auf jedem Partner-Server einzeln registriert. Ist der\nBot dort nicht, steht das im Log statt den Start abzubrechen.\n\nAbgesichert\n- tests/test_status_partner.py: Wirkung an den echten Methoden, nicht\n  an einem Nachbau\n- mutate_status_partner.py: 24 Mutationen, zwei sind zuerst entwischt\n  (\"and True:\" statt der Bedingung, \"raise\" statt der Meldung) --\n  beide Tests nachgeschaerft und einzeln gegengeprueft\n- Alle 100 Testdateien gruen, 153 Cogs\n\nVolume noetig fuer STATUS_DATA_DIR -- ohne das vergisst der Bot nach\njedem Deploy, wo Panels haengen."
+  },
+  {
    "commit": "678161aaf3db6ed3413721948258eb352fbcf601",
    "at": "1786669482",
    "subject": "fix(premium): POST /premium/grant kam nie an der Schluesselpruefung vorbei",
@@ -231,12 +237,6 @@
   {
    "commit": "cd27e6ac1afc34fcbb7e66076e09492b29f1b8da",
    "at": "1786137017",
-   "subject": "feat(phantom): EXACT full original Aleks ticket bot (5653 lines - every function kept, no removal, no shortening)",
-   "body": ""
-  },
-  {
-   "commit": "ce0b5c1260442764d6db51a08d869138bb8345c1",
-   "at": "1786137009",
    "subject": "feat(phantom): EXACT full original Aleks ticket bot (5653 lines - every function kept, no removal, no shortening)",
    "body": ""
   }
