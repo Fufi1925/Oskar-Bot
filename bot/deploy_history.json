@@ -1,6 +1,12 @@
 {
  "commits": [
   {
+   "commit": "678161aaf3db6ed3413721948258eb352fbcf601",
+   "at": "1786669482",
+   "subject": "fix(premium): POST /premium/grant kam nie an der Schluesselpruefung vorbei",
+   "body": "Der gemeldete Fehler: die Variablen stehen auf beiden Seiten identisch,\ntrotzdem steht beim Einloesen der 7 Tage im Railway-Log des\nTemplate-Bots \"Premium-Meldung abgelehnt ... stimmt\nPREMIUM_PARTNER_TOKEN auf beiden Seiten?\".\n\nDas Token stimmte. Die Ursache lag eine Ebene frueher und ist mein\neigener Fehler aus cb31f45: die ganze API haengt hinter\nDepends(verify_api_key), und die Ausnahme fuer den Template-Bot war auf\nGET /premium/check/ festgenagelt. /premium/grant ist ein POST auf einen\nanderen Pfad -- die Anfrage wurde mit HTTP 401 abgewiesen, bevor die\nRoute lief. Route gebaut, Tuersteher vergessen.\n\nReproduziert in repro/bug_grant_401.py: echte FastAPI-App,\nDASHBOARD_API_KEY gesetzt wie in der Produktion, HTTP 401 vor dem Fix.\n\nFix\n- Die erlaubten Partner-Routen stehen jetzt als Liste PARTNER_ROUTES in\n  api/dependencies.py, je Eintrag mit Methode UND Pfad. GET /grant\n  bleibt zu, POST /check bleibt zu.\n- Alles andere braucht weiter den Dashboard-Schluessel: mit dem\n  Partner-Token kommt man weder an /premium/keys noch an /admin/*.\n\nWarum es durchgerutscht ist\nEs gab einen Test fuer genau diese Falle -- er deckte nur `check` ab.\nEine Ausnahmeliste braucht einen Test JE Eintrag. Neu ist deshalb auch\neine Pruefung, dass jeder Eintrag in PARTNER_ROUTES oben wirklich\ngeprueft wurde: waechst die Liste und der Test nicht, faellt es auf.\n\nAbgesichert\n- mutate_probewoche.py ueber beide Repos: 25 von 25 erwischt\n- Eine Mutation war WIRKUNGSLOS und wurde ersetzt statt \"gefixt\":\n  faellt der fruehe Ausstieg bei fehlendem Token weg, vergleicht\n  compare_digest weiterhin gegen einen leeren String. Von Hand\n  nachgemessen, beide Faelle geben False.\n- 98 Testdateien gruen (test_speedrun_ui scheitert an fehlendem DNS in\n  der Sandbox, auch ohne diese Aenderung), 153 Cogs"
+  },
+  {
    "commit": "cb31f452babfbec4de35c419e493b3896ed6da97",
    "at": "1786667350",
    "subject": "feat(premium): 7 Tage kostenlos - gespeichert, sichtbar, verwaltbar",
@@ -231,12 +237,6 @@
   {
    "commit": "ce0b5c1260442764d6db51a08d869138bb8345c1",
    "at": "1786137009",
-   "subject": "feat(phantom): EXACT full original Aleks ticket bot (5653 lines - every function kept, no removal, no shortening)",
-   "body": ""
-  },
-  {
-   "commit": "9e5553ea33673807ac65dec5769b0aad38ee71a6",
-   "at": "1786137001",
    "subject": "feat(phantom): EXACT full original Aleks ticket bot (5653 lines - every function kept, no removal, no shortening)",
    "body": ""
   }

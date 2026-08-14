@@ -29,6 +29,16 @@ MAIN_BOT_CLIENT_ID="1530349205372145715"
 # Variable war hier nie gesetzt, und der Block verschwand kommentarlos.
 # Nur falls sein Einladungslink abweicht:
 # PARTNER_BOT_INVITE_URL="<Einladungslink des Template-Bots>"
+# Partner-Server: dort darf JEDER /status benutzen, und das Panel
+# landet in dem Kanal, in dem der Befehl abgeschickt wurde -- nicht in
+# STATUS_CHANNEL_ID. Es wird genauso live nachgefuehrt wie das eigene
+# und traegt in der Fusszeile "gesendet von <Servername>".
+#
+# Mehrere IDs mit Komma trennen. Leer lassen = keine Partner.
+# Der Bot muss auf dem Server sein, sonst kann er dort nichts
+# registrieren -- im Log steht dann "no access to guild ...".
+PARTNER_SERVER=""
+
 STATUS_POLL_SECONDS="30"
 STATUS_FAILURES_BEFORE_DOWN="3"
 

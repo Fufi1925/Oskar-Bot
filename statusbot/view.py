@@ -203,6 +203,7 @@ class StatusView(LayoutView):
         uptime=None,
         maintenance: bool = False,
         maintenance_note: str = "",
+        partner_server: str = "",
     ):
         super().__init__(timeout=None)
 
@@ -395,7 +396,13 @@ class StatusView(LayoutView):
         if uptime and uptime.get("known"):
             parts.append(TextDisplay(_uptime_line(uptime)))
 
-        parts.append(TextDisplay(f"-# {FOOTER_NAME} · <t:{stamp}:R>"))
+        # Steht das Panel auf einem Partner-Server, gehoert das in die
+        # Fusszeile. Sonst sieht es aus wie eine offizielle Meldung des
+        # Support-Servers -- und wer dort nachfragt, ist falsch.
+        fuss = f"-# {FOOTER_NAME} · <t:{stamp}:R>"
+        if partner_server:
+            fuss += f" · gesendet von {partner_server}"
+        parts.append(TextDisplay(fuss))
 
         self.add_item(Container(*parts, accent_colour=colour))
 

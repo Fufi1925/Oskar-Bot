@@ -84,11 +84,101 @@ def _connect() -> sqlite3.Connection | None:
             )
             """
         )
+        # Wo ueberall ein Panel haengt.
+        #
+        # Ohne diese Tabelle waeren die Panels der Partner-Server nach
+        # jedem Neustart verwaist: der Bot wuesste nichts von ihnen,
+        # wuerde sie nicht mehr nachfuehren und beim naechsten /status
+        # ein zweites daneben setzen. Genau der Fehler, der beim
+        # eigenen Panel gemeldet wurde -- nur schlimmer, weil es
+        # beliebig viele sein koennen.
+        #
+        # Ein Panel je Kanal: derselbe Kanal soll nicht zwei bekommen.
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS panels (
+                channel_id TEXT PRIMARY KEY,
+                guild_id   TEXT NOT NULL,
+                message_id TEXT NOT NULL,
+                created_at REAL NOT NULL
+            )
+            """
+        )
         connection.commit()
         return connection
     except Exception as err:  # noqa: BLE001
         print(f"[status] history unavailable ({err}) — running without it.")
         return None
+
+
+# ══════════════════════════════════════════════════════════════════════
+#  Panels auf Partner-Servern
+# ══════════════════════════════════════════════════════════════════════
+
+
+def remember_panel(guild_id: int, channel_id: int, message_id: int) -> None:
+    """Ein Panel merken -- oder das eines Kanals ersetzen.
+
+    ``INSERT OR REPLACE`` ist hier genau richtig: pro Kanal gibt es
+    hoechstens ein Panel. Wird in demselben Kanal ein neues gesendet,
+    ersetzt es den Eintrag, und der Aufrufer loescht die alte Nachricht.
+    """
+    connection = _connect()
+    if connection is None:
+        return
+    try:
+        with connection:
+            connection.execute(
+                "INSERT OR REPLACE INTO panels"
+                " (channel_id, guild_id, message_id, created_at)"
+                " VALUES (?, ?, ?, ?)",
+                (str(channel_id), str(guild_id), str(message_id), time.time()),
+            )
+    except Exception as err:  # noqa: BLE001
+        print(f"[status] could not remember the panel: {err}")
+    finally:
+        connection.close()
+
+
+def forget_panel(channel_id: int) -> None:
+    """Ein Panel vergessen -- der Kanal ist weg oder gesperrt."""
+    connection = _connect()
+    if connection is None:
+        return
+    try:
+        with connection:
+            connection.execute(
+                "DELETE FROM panels WHERE channel_id = ?", (str(channel_id),)
+            )
+    except Exception as err:  # noqa: BLE001
+        print(f"[status] could not forget the panel: {err}")
+    finally:
+        connection.close()
+
+
+def all_panels() -> list[dict]:
+    """Alle gemerkten Panels, aeltestes zuerst."""
+    connection = _connect()
+    if connection is None:
+        return []
+    try:
+        rows = connection.execute(
+            "SELECT guild_id, channel_id, message_id FROM panels"
+            " ORDER BY created_at"
+        ).fetchall()
+        return [
+            {
+                "guild_id": int(g),
+                "channel_id": int(c),
+                "message_id": int(m),
+            }
+            for g, c, m in rows
+        ]
+    except Exception as err:  # noqa: BLE001
+        print(f"[status] could not read the panels: {err}")
+        return []
+    finally:
+        connection.close()
 
 
 def storage_is_persistent() -> bool:

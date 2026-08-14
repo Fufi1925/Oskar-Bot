@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import re
 import random
 import sys
 import time
@@ -59,6 +60,44 @@ STATUS_CHANNEL_ID = int(os.getenv("STATUS_CHANNEL_ID") or 0)
 
 # The support guild. Used only to sanity-check the channel is ours.
 HOME_GUILD_ID = int(os.getenv("HOME_GUILD_ID") or 1530378233579704370)
+
+
+def _ids(rohwert: str) -> tuple[int, ...]:
+    """Eine Liste von Server-IDs aus einer Variablen lesen.
+
+    Getrennt wird an Komma, Leerzeichen oder Zeilenumbruch -- wer eine
+    Liste in ein Railway-Feld tippt, benutzt irgendeins davon, und an
+    einem einzelnen erlaubten Trennzeichen zu scheitern waere eine
+    Fehlerquelle ohne Gegenwert.
+
+    Alles, was keine Zahl ist, faellt still weg: eine ID mit einem
+    vergessenen Anfuehrungszeichen soll nicht den ganzen Start
+    verhindern.
+    """
+    gefunden: list[int] = []
+    for stueck in re.split(r"[,\s]+", (rohwert or "").strip()):
+        stueck = stueck.strip().strip('"').strip("'")
+        if stueck.isdigit():
+            wert = int(stueck)
+            if wert and wert not in gefunden:
+                gefunden.append(wert)
+    return tuple(gefunden)
+
+
+# ── Partner-Server ────────────────────────────────────────────────────
+#
+# Server, die den Status ebenfalls anzeigen duerfen. Auf ihnen ist
+# `/status` fuer **jeden** benutzbar, und das Panel landet in dem Kanal,
+# in dem der Befehl abgeschickt wurde -- nicht im STATUS_CHANNEL_ID des
+# Support-Servers.
+#
+# Mehrere IDs durch Komma trennen:
+#
+#     PARTNER_SERVER="1530378233579704370,1530349205372145715"
+#
+# Diese Panels werden genauso live nachgefuehrt wie das eigene: der
+# Hintergrundlauf aktualisiert bei jeder Runde alle bekannten Panels.
+PARTNER_SERVER_IDS = _ids(os.getenv("PARTNER_SERVER", ""))
 
 BRAND = os.getenv("NEXT_PUBLIC_BRAND_NAME", "University Bot")
 
@@ -260,6 +299,21 @@ class StatusBot(discord.Client):
             # Ephemeral: the panel goes to the status channel, and the
             # confirmation is only of interest to whoever asked.
             await interaction.response.defer(ephemeral=True)
+
+            guild = interaction.guild
+
+            # Auf einem Partner-Server landet das Panel dort, wo der
+            # Befehl kam -- der Partner hat keinen Zugriff auf unseren
+            # Status-Kanal, und ein Panel im Support-Server nuetzt ihm
+            # nichts. Auf dem eigenen Server bleibt alles wie gehabt.
+            if guild is not None and self.is_partner_guild(guild.id) \
+                    and guild.id != HOME_GUILD_ID:
+                ok, note = await self.post_partner_panel(
+                    interaction.channel, guild
+                )
+                await interaction.followup.send(note, ephemeral=True)
+                return
+
             ok, note = await self.refresh_panel()
             await interaction.followup.send(note, ephemeral=True)
 
@@ -339,16 +393,36 @@ class StatusBot(discord.Client):
                 note = "Wartungsmodus ist **aus**. Normale Überwachung läuft wieder."
             await interaction.followup.send(note, ephemeral=True)
 
-        if HOME_GUILD_ID:
-            # Copied to the one guild rather than published globally:
-            # a guild command appears immediately, a global one can take
-            # an hour, and this bot has no business anywhere else.
-            guild = discord.Object(id=HOME_GUILD_ID)
+        # Je Server einzeln registriert statt global: ein Server-Befehl
+        # erscheint sofort, ein globaler kann eine Stunde brauchen.
+        #
+        # Die Partner-Server gehoeren dazu -- ohne diese Zeile gibt es
+        # dort kein /status, und der ganze Rest laeuft ins Leere. Genau
+        # so ein vergessener Eintrag hat in diesem Projekt schon
+        # mehrfach dafuer gesorgt, dass etwas Fertiges unsichtbar blieb.
+        ziele = list(dict.fromkeys(
+            ([HOME_GUILD_ID] if HOME_GUILD_ID else []) + list(PARTNER_SERVER_IDS)
+        ))
+        for guild_id in ziele:
+            guild = discord.Object(id=guild_id)
             self.tree.copy_global_to(guild=guild)
             try:
                 await self.tree.sync(guild=guild)
+            except discord.Forbidden:
+                # Der Bot ist nicht auf dem Server oder hat dort keine
+                # Befehlsrechte. Kein Grund, den Start abzubrechen.
+                print(
+                    f"[status] no access to guild {guild_id} — /status is "
+                    "not available there."
+                )
             except Exception as err:  # noqa: BLE001
-                print(f"[status] could not register /status: {err}")
+                print(f"[status] could not register /status on {guild_id}: {err}")
+
+        if PARTNER_SERVER_IDS:
+            print(
+                f"[status] partner servers: "
+                f"{', '.join(str(g) for g in PARTNER_SERVER_IDS)}"
+            )
         try:
             await start_web(self)
         except Exception as err:  # noqa: BLE001
@@ -724,7 +798,7 @@ class StatusBot(discord.Client):
         self._main_avatar = user.display_avatar.replace(size=128).url
         return self._main_avatar
 
-    def build_view(self) -> discord.ui.LayoutView:
+    def build_view(self, partner_server: str = "") -> discord.ui.LayoutView:
         from view import StatusView
 
         return StatusView(
@@ -739,7 +813,99 @@ class StatusBot(discord.Client):
             uptime=history.summary(),
             maintenance=self.maintenance,
             maintenance_note=self.maintenance_note,
+            partner_server=partner_server,
         )
+
+    # ── Panels auf Partner-Servern ───────────────────────────────
+
+    def is_partner_guild(self, guild_id: int | None) -> bool:
+        """Darf dieser Server ein eigenes Panel haben?"""
+        return bool(guild_id) and int(guild_id) in PARTNER_SERVER_IDS
+
+    async def post_partner_panel(
+        self, channel: discord.abc.Messageable, guild: discord.Guild
+    ) -> tuple[bool, str]:
+        """Ein Panel in den Kanal setzen, in dem der Befehl kam.
+
+        Anders als beim Support-Server landet es **hier** und nicht in
+        STATUS_CHANNEL_ID -- das ist der ganze Sinn der Sache: der
+        Partner hat keinen Zugriff auf unseren Kanal.
+
+        Ein bereits vorhandenes Panel in demselben Kanal wird ersetzt,
+        nicht ergaenzt. Sonst sammeln sich bei jedem Aufruf weitere an,
+        und alle bis auf eins waeren tot.
+        """
+        # Erst pruefen, ob dort schon eins haengt.
+        vorher = None
+        for eintrag in history.all_panels():
+            if eintrag["channel_id"] == channel.id:
+                vorher = eintrag
+                break
+
+        try:
+            neu = await channel.send(view=self.build_view(partner_server=guild.name))
+        except discord.Forbidden:
+            return False, "Ich darf in diesem Kanal nicht schreiben."
+        except Exception as err:  # noqa: BLE001
+            return False, f"Das Panel ließ sich nicht senden: {err}"
+
+        history.remember_panel(guild.id, channel.id, neu.id)
+
+        # Das alte weg -- erst jetzt, wenn das neue wirklich steht.
+        if vorher is not None and vorher["message_id"] != neu.id:
+            try:
+                alt = await channel.fetch_message(vorher["message_id"])
+                await alt.delete()
+            except discord.NotFound:
+                pass
+            except Exception as err:  # noqa: BLE001
+                print(f"[status] could not remove the old partner panel: {err}")
+
+        return True, f"Status-Panel gesetzt: {neu.jump_url}"
+
+    async def refresh_partner_panels(self) -> None:
+        """Alle Partner-Panels nachfuehren -- live, wie das eigene.
+
+        Laeuft in derselben Runde wie die eigene Aktualisierung. Ein
+        Panel, das nicht mehr erreichbar ist (Kanal geloescht, Bot
+        rausgeworfen, Nachricht entfernt), wird vergessen statt bei
+        jeder Runde erneut zu scheitern.
+        """
+        for eintrag in history.all_panels():
+            guild = self.get_guild(eintrag["guild_id"])
+
+            # Der Server hat den Partner-Status verloren: Panel weg.
+            if not self.is_partner_guild(eintrag["guild_id"]):
+                history.forget_panel(eintrag["channel_id"])
+                continue
+
+            channel = self.get_channel(eintrag["channel_id"])
+            if channel is None:
+                try:
+                    channel = await self.fetch_channel(eintrag["channel_id"])
+                except discord.NotFound:
+                    history.forget_panel(eintrag["channel_id"])
+                    continue
+                except Exception:
+                    # Vielleicht nur ein Aussetzer -- nicht vergessen.
+                    continue
+
+            name = guild.name if guild is not None else ""
+            try:
+                message = await channel.fetch_message(eintrag["message_id"])
+                await message.edit(view=self.build_view(partner_server=name))
+            except discord.NotFound:
+                # Jemand hat das Panel geloescht. Kein neues aufdraengen:
+                # wer es zurueck will, tippt /status.
+                history.forget_panel(eintrag["channel_id"])
+            except discord.Forbidden:
+                history.forget_panel(eintrag["channel_id"])
+                print(
+                    f"[status] lost access to the panel in "
+                    f"{eintrag['channel_id']} — forgotten."
+                )
+            except Exception as err:  # noqa: BLE001
+                print(f"[status] could not refresh a partner panel: {err}")
 
     async def find_message(self) -> None:
         """
@@ -766,33 +932,92 @@ class StatusBot(discord.Client):
             )
             return
 
+        # Das neueste eigene Panel weiterverwenden -- und jedes aeltere
+        # wegraeumen.
+        #
+        # Vorher wurde beim ersten Treffer abgebrochen. Lagen schon zwei
+        # tote Panels im Kanal (etwa nach einem Absturz mitten im
+        # Senden), blieb das zweite fuer immer stehen: gefunden wurde
+        # nur eins, geloescht wurde keins. Genau das hat der Nutzer
+        # gemeldet.
+        #
+        # `history` liefert das Neueste zuerst, deshalb ist der erste
+        # Treffer der richtige zum Behalten.
+        veraltet: list[discord.Message] = []
         try:
-            async for message in channel.history(limit=30):
-                if message.author.id == self.user.id:
+            async for message in channel.history(limit=50):
+                if message.author.id != self.user.id:
+                    continue
+                if self.message is None:
                     self.message = message
-                    return
+                else:
+                    veraltet.append(message)
         except discord.Forbidden:
             print("[status] no permission to read the status channel history.")
+            return
         except Exception as err:
             print(f"[status] could not look for an old message: {err}")
+            return
+
+        for leiche in veraltet:
+            try:
+                await leiche.delete()
+            except discord.NotFound:
+                pass
+            except discord.Forbidden:
+                print("[status] not allowed to delete an old panel.")
+                break
+            except Exception as err:
+                print(f"[status] could not delete an old panel: {err}")
+
+        if veraltet:
+            print(f"[status] removed {len(veraltet)} stale panel(s).")
 
     async def publish(self) -> None:
+        """
+        Das Panel auf den neuesten Stand bringen.
+
+        Bevorzugt wird bearbeitet. Geht das nicht, wird neu gesendet --
+        und **die alte Nachricht muss dann weg**. Genau daran hing der
+        gemeldete Fehler: "manchmal kommt ein neues Panel, das alte
+        bleibt stehen".
+
+        Das "manchmal" war ein fehlgeschlagenes `edit()`. Discord
+        antwortet gelegentlich mit 500, oder die Verbindung bricht
+        mitten im Aufruf weg. Der Code setzte dann `self.message = None`
+        und sendete direkt darunter neu -- die alte Nachricht kannte
+        danach niemand mehr. `refresh_panel()` raeumt zwar auf, aber es
+        vergleicht nur seinen eigenen Merker mit dem Ergebnis; die
+        zwischendurch verlorene Nachricht taucht dort nicht auf. Und der
+        Hintergrundlauf ruft `refresh_panel()` gar nicht.
+
+        Deshalb wird die verwaiste Nachricht hier geloescht, unmittelbar
+        wo sie verloren geht -- nicht in einem Aufrufer, der es
+        vielleicht tut.
+        """
         if not STATUS_CHANNEL_ID:
             return
 
         view = self.build_view()
+
+        # Was beim Bearbeiten verloren ging und noch im Kanal steht.
+        verwaist: discord.Message | None = None
 
         if self.message is not None:
             try:
                 await self.message.edit(view=view)
                 return
             except discord.NotFound:
+                # Schon weg -- nichts zu loeschen.
                 self.message = None
             except discord.Forbidden:
                 print("[status] not allowed to edit the status message.")
                 return
             except Exception as err:
                 print(f"[status] editing failed: {err}")
+                # Sie existiert vermutlich noch. Merken, damit sie nach
+                # dem Neusenden verschwindet.
+                verwaist = self.message
                 self.message = None
 
         channel = self.get_channel(STATUS_CHANNEL_ID)
@@ -802,8 +1027,19 @@ class StatusBot(discord.Client):
             self.message = await channel.send(view=view)
         except discord.Forbidden:
             print("[status] not allowed to post in the status channel.")
+            return
         except Exception as err:
             print(f"[status] posting failed: {err}")
+            return
+
+        if verwaist is not None and verwaist.id != self.message.id:
+            try:
+                await verwaist.delete()
+            except discord.NotFound:
+                pass
+            except Exception as err:
+                # Ein liegengebliebenes Panel ist unschoen, kein Ausfall.
+                print(f"[status] could not remove the stale panel: {err}")
 
     # ── the loop ─────────────────────────────────────────────────
 
@@ -880,6 +1116,11 @@ class StatusBot(discord.Client):
                 )
 
                 await self.publish()
+                # Die Partner-Panels laufen im selben Takt mit -- der
+                # Nutzer hat ausdruecklich "auch live aktualisieren"
+                # verlangt. Ein eigener Timer waere eine zweite Stelle,
+                # die man beim naechsten Umbau vergisst.
+                await self.refresh_partner_panels()
                 await self.set_presence()
             except asyncio.CancelledError:
                 raise
