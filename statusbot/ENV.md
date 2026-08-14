@@ -3,7 +3,7 @@
 Der Status-Bot ist ein **eigener Railway-Service** und hat deshalb seine
 eigenen Variablen. Er erbt nichts vom Hauptbot — Railway trennt das pro
 Service.
-
+o
 ## Die Liste zum Kopieren
 
 Beim **Status-Service** eintragen (Variables → Raw Editor):
