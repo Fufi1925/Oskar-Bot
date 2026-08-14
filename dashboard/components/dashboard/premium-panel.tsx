@@ -198,6 +198,11 @@ export function PremiumPanel() {
   const template = status?.template_bot;
   const active = Boolean(template?.premium);
   const left = daysLeft(template?.expires_at);
+  // Läuft das Premium über die kostenlose Probewoche des
+  // Template-Bots? Dann muss das auch dastehen: „Premium ist aktiv“
+  // allein liest sich wie etwas Bezahltes, und der Nutzer wundert
+  // sich, wenn es nach sieben Tagen weg ist.
+  const trial = Boolean(template?.via_trial);
   const complete = key.replace(/-/g, "").length === 16;
 
   // How much of the licence is left, as a bar. Only meaningful when the
@@ -256,12 +261,36 @@ export function PremiumPanel() {
                   active ? "text-amber-200" : "text-white"
                 )}
               >
-                {active ? "Premium ist aktiv" : "Kein Premium"}
+                {active
+                  ? trial
+                    ? `${template?.trial?.duration_days ?? 7} Tage Premium – kostenlos`
+                    : "Premium ist aktiv"
+                  : "Kein Premium"}
               </p>
 
               {active ? (
                 <p className="text-[13px] text-slate-300 mt-1">
-                  {template?.lifetime ? (
+                  {trial ? (
+                    <>
+                      Deine Probewoche läuft noch bis{" "}
+                      <span className="font-bold text-white">
+                        {formatDate(template?.expires_at)}
+                      </span>
+                      {left !== null && (
+                        <span className="text-slate-400">
+                          {" "}
+                          &middot;{" "}
+                          <CountUp
+                            value={left}
+                            className="font-bold text-white tabular-nums"
+                          />{" "}
+                          {left === 1 ? "Tag" : "Tage"} übrig
+                        </span>
+                      )}
+                      . Danach brauchst du einen Key — die Probewoche gibt
+                      es nur einmal pro Konto.
+                    </>
+                  ) : template?.lifetime ? (
                     <>Unbegrenzt gültig &mdash; läuft nicht ab.</>
                   ) : (
                     <>

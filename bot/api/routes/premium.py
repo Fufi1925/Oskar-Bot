@@ -84,6 +84,78 @@ async def check_premium(
     return store.status(user_id, product=product)
 
 
+@router.post("/grant", summary="Der Template-Bot meldet eine Probewoche")
+async def grant_trial(
+    data: dict,
+    x_partner_token: Optional[str] = Header(default=None),
+):
+    """
+    Die Gegenrichtung zu ``/check``: der Template-Bot **meldet** hier.
+
+    Er vergibt persoenliche Keys, die sieben Tage gelten. Der
+    University Bot weiss davon nichts -- er kennt nur seine eigenen
+    verkauften Keys. Ohne diese Meldung stuende im Dashboard „kein
+    Premium", obwohl der Nutzer welches hat.
+
+    Vertrag (so schickt es ``core/licence.py`` des Template-Bots):
+
+        POST /api/v1/premium/grant
+        X-Partner-Token: <PREMIUM_PARTNER_TOKEN>
+        {user_id, guild_id, expires_at, duration_days}
+
+    **Eine Probewoche pro Konto.** Hatte es schon eine -- auch eine
+    laengst abgelaufene --, kommt ``already_used`` zurueck. Der
+    Template-Bot sagt das dann dem Nutzer, statt ihm stillschweigend
+    eine zweite zu geben. Der Status ist trotzdem HTTP 200: es ist
+    kein Fehler, sondern eine Antwort.
+    """
+    _require_partner_token(x_partner_token)
+
+    from utils import premium_trial
+
+    user_id = str(data.get("user_id") or "").strip()
+    if not user_id.isdigit():
+        raise HTTPException(status_code=400, detail="Keine gültige Benutzer-ID.")
+
+    guild_id = data.get("guild_id")
+    guild_id = str(guild_id).strip() if guild_id else None
+
+    try:
+        expires_at = int(data.get("expires_at") or 0)
+    except (TypeError, ValueError):
+        expires_at = 0
+    try:
+        duration_days = int(data.get("duration_days") or premium_trial.TRIAL_DAYS)
+    except (TypeError, ValueError):
+        duration_days = premium_trial.TRIAL_DAYS
+
+    ergebnis = premium_trial.grant(
+        user_id,
+        guild_id=guild_id,
+        expires_at=expires_at or None,
+        duration_days=duration_days,
+    )
+
+    if not ergebnis["ok"]:
+        vorher = ergebnis["trial"]
+        await feature_audit.log_action(
+            "premium_trial_refused", actor=user_id,
+            detail=f"schon am {vorher['granted_at']} vergeben",
+        )
+        return {
+            "status": "already_used",
+            "granted": False,
+            "detail": "Dieses Konto hatte seine Probewoche bereits.",
+            "trial": vorher,
+        }
+
+    await feature_audit.log_action(
+        "premium_trial_granted", actor=user_id,
+        detail=f"{duration_days} Tage, guild={guild_id or '-'}",
+    )
+    return {"status": "success", "granted": True, "trial": ergebnis["trial"]}
+
+
 # ══════════════════════════════════════════════════════════════════════
 #  For the dashboard
 # ══════════════════════════════════════════════════════════════════════
@@ -546,3 +618,108 @@ async def _tell_partner(endpoint: str, user_id: str) -> Optional[bool]:
                 return response.status == 200
     except Exception:  # noqa: BLE001 - the revoke must not fail on this
         return False
+
+
+# ══════════════════════════════════════════════════════════════════════
+#  Probewoche -- fuer den Admin-Bereich
+# ══════════════════════════════════════════════════════════════════════
+
+
+@router.get("/trials", summary="Alle Probewochen")
+async def list_trials(limit: int = 200, bot: "universitybot" = Depends(get_bot)):
+    """
+    Wer hat eine 7-Tage-Probewoche -- laufend und abgelaufen.
+
+    Die abgelaufenen bleiben bewusst in der Liste: sie sind der Beleg
+    dafuer, dass ein Konto seine Probewoche schon hatte. Verschwaenden
+    sie, koennte sich jeder nach sieben Tagen eine neue holen.
+    """
+    from utils import premium_trial
+
+    eintraege = premium_trial.list_all(limit)
+
+    # IDs allein helfen im Support nicht weiter. Was der Bot schon
+    # zwischengespeichert hat, wird aufgeloest; der Rest bleibt eine ID.
+    for zeile in eintraege:
+        zeile["user_name"] = ""
+        try:
+            nutzer = bot.get_user(int(zeile["user_id"]))
+        except (TypeError, ValueError):
+            nutzer = None
+        if nutzer is not None:
+            zeile["user_name"] = nutzer.display_name or nutzer.name
+
+        zeile["guild_name"] = ""
+        if zeile["guild_id"]:
+            try:
+                gilde = bot.get_guild(int(zeile["guild_id"]))
+            except (TypeError, ValueError):
+                gilde = None
+            if gilde is not None:
+                zeile["guild_name"] = gilde.name
+
+    return {
+        "trials": eintraege,
+        "stats": premium_trial.stats(),
+        "trial_days": premium_trial.TRIAL_DAYS,
+    }
+
+
+@router.post("/trials/reset", summary="Probewoche freigeben")
+async def reset_trial(data: dict):
+    """
+    Das Konto darf noch einmal sieben Tage.
+
+    Der Unterschied zu ``/trials/revoke``: Zuruecksetzen gibt den Weg
+    frei, Beenden nicht. Wer sich vertan hat oder einen Support-Fall
+    hat, bekommt so eine zweite Probewoche -- absichtlich und
+    nachvollziehbar, nicht durch eine Luecke.
+    """
+    from utils import premium_trial
+
+    user_id = str(data.get("user_id") or "").strip()
+    actor = str(data.get("actor") or "").strip()
+    if not user_id.isdigit():
+        raise HTTPException(status_code=400, detail="Keine gültige Benutzer-ID.")
+
+    ok = premium_trial.reset(user_id, actor=actor)
+    if not ok:
+        raise HTTPException(
+            status_code=404,
+            detail="Für dieses Konto ist keine Probewoche eingetragen.",
+        )
+
+    await feature_audit.log_action(
+        "premium_trial_reset", actor=actor or "dashboard",
+        detail=f"user={user_id}",
+    )
+    return {"status": "success", "result": "Die Probewoche ist wieder frei."}
+
+
+@router.post("/trials/revoke", summary="Probewoche sofort beenden")
+async def revoke_trial(data: dict):
+    """
+    Beendet eine laufende Probewoche auf der Stelle.
+
+    Der Eintrag bleibt stehen: das Konto hat seine Probewoche
+    verbraucht. Wer sie zurueckgeben will, nimmt ``/trials/reset``.
+    """
+    from utils import premium_trial
+
+    user_id = str(data.get("user_id") or "").strip()
+    actor = str(data.get("actor") or "").strip()
+    if not user_id.isdigit():
+        raise HTTPException(status_code=400, detail="Keine gültige Benutzer-ID.")
+
+    ok = premium_trial.revoke(user_id)
+    if not ok:
+        raise HTTPException(
+            status_code=404,
+            detail="Für dieses Konto ist keine Probewoche eingetragen.",
+        )
+
+    await feature_audit.log_action(
+        "premium_trial_revoked", actor=actor or "dashboard",
+        detail=f"user={user_id}",
+    )
+    return {"status": "success", "result": "Die Probewoche wurde beendet."}

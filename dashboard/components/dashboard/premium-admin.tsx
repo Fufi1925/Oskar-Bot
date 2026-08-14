@@ -32,6 +32,7 @@ import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { CountUp, Reveal } from "@/components/ui/reveal";
+import { PremiumTrials } from "@/components/dashboard/premium-trials";
 
 /* ── types ─────────────────────────────────────────────────────────── */
 
@@ -999,6 +1000,11 @@ export function PremiumAdmin() {
         )}
       </Panel>
       </Reveal>
+
+      {/* Die Probewochen stehen unter den Keys, nicht daneben: sie sind
+          eine andere Sache. Ein Key wird verkauft, eine Probewoche
+          verschenkt -- und zwar einmal pro Konto. */}
+      <PremiumTrials />
     </div>
   );
 }

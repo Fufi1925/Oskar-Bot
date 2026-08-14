@@ -471,6 +471,19 @@ export const api = {
    * that is actually signed in.
    */
   getMyPremium: (userId: string) => request<any>(`/premium/me/${userId}`),
+  // Die 7-Tage-Probewochen, die der Template-Bot gemeldet hat.
+  listPremiumTrials: (limit = 200) =>
+    request<any>(`/premium/trials?limit=${limit}`),
+  resetPremiumTrial: (userId: string) =>
+    request<any>("/premium/trials/reset", {
+      method: "POST",
+      body: JSON.stringify({ user_id: userId }),
+    }),
+  revokePremiumTrial: (userId: string) =>
+    request<any>("/premium/trials/revoke", {
+      method: "POST",
+      body: JSON.stringify({ user_id: userId }),
+    }),
   redeemKey: (key: string) =>
     request<any>(`/premium/redeem`, { method: "POST", body: JSON.stringify({ key }) }),
   listPremiumKeys: (limit = 100) =>

@@ -241,6 +241,36 @@ def status(user_id: int | str, product: str = "template_bot") -> dict[str, Any]:
 
     active = lifetime or best is not None
 
+    # Die Probewoche des Template-Bots zaehlt mit.
+    #
+    # Sie steht in einer eigenen Tabelle, weil sie kein Key ist: sie
+    # wird nicht verkauft, nicht gesperrt und gilt genau einmal pro
+    # Konto. Beantwortet wird die Frage aber hier -- `status()` ist die
+    # eine Stelle, die „hat dieser Nutzer Premium?" beantwortet.
+    # Dashboard, Speedrun und der Template-Bot fragen alle darueber.
+    #
+    # Der Import steht in der Funktion: utils/__init__ laedt diese
+    # Datei, oben stuende ein Ringschluss.
+    trial: Optional[dict[str, Any]] = None
+    if product == "template_bot":
+        try:
+            from utils import premium_trial
+
+            eintrag = premium_trial.get(user_id)
+            if eintrag and eintrag["active"]:
+                trial = eintrag
+                active = True
+                # Ein gekaufter Key laeuft laenger? Dann bleibt dessen
+                # Datum stehen -- sonst verkuerzte die Probewoche eine
+                # bezahlte Lizenz.
+                if not lifetime and (best is None or eintrag["expires_at"] > best):
+                    best = eintrag["expires_at"]
+                    duration = eintrag["duration_days"]
+        except Exception:
+            # Eine kaputte Probewochen-Tabelle darf niemandem Premium
+            # wegnehmen, den er bezahlt hat.
+            trial = None
+
     # Tester bekommen Premium ohne Key.
     #
     # Die Pruefung sitzt hier und nicht bei den Aufrufern: `status()`
@@ -275,6 +305,10 @@ def status(user_id: int | str, product: str = "template_bot") -> dict[str, Any]:
         # anzeigen kann -- und der Nutzer nicht glaubt, er haette
         # bezahlt.
         "via_tester": tester,
+        # Damit die Oberflaeche „7 Tage kostenlos" statt „Premium"
+        # schreiben kann -- und der Nutzer weiss, dass es endet.
+        "via_trial": trial is not None,
+        "trial": trial,
         # None means "forever" when active, and nothing at all when not.
         "expires_at": None if lifetime else best,
         "lifetime": lifetime,

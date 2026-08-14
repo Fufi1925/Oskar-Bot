@@ -69,6 +69,77 @@ class Premium(commands.Cog):
         except Exception as exc:  # noqa: BLE001 - a loop must not die
             print(f"[premium] role sync failed: {exc}")
 
+        # Die Probewoche laeuft im selben Takt mit. Ein zweiter Timer
+        # fuer eine Handvoll Nachrichten am Tag waere Verschwendung --
+        # und eine zweite Stelle, die man beim Aufraeumen vergisst.
+        try:
+            await self._notify_expired_trials()
+        except Exception as exc:  # noqa: BLE001
+            print(f"[premium] trial notice failed: {exc}")
+
+    async def _notify_expired_trials(self) -> None:
+        """Eine Nachricht, wenn die Probewoche vorbei ist.
+
+        Genau eine: `mark_dm_sent` setzt den Riegel, sonst schickt
+        dieser Lauf sie alle zehn Minuten erneut. Der Riegel wird auch
+        gesetzt, wenn die DM **nicht** ankommt -- wer seine DMs zu hat,
+        soll nicht dauerhaft in der Warteschlange stehen und bei jedem
+        Durchgang einen Zustellversuch ausloesen.
+        """
+        from utils import premium_trial
+
+        faellig = premium_trial.due_for_expiry_dm()
+        if not faellig:
+            return
+
+        for eintrag in faellig:
+            user_id = eintrag["user_id"]
+            try:
+                nutzer = self.bot.get_user(int(user_id))
+                if nutzer is None:
+                    nutzer = await self.bot.fetch_user(int(user_id))
+            except Exception:
+                nutzer = None
+
+            if nutzer is not None:
+                try:
+                    await nutzer.send(view=self._trial_over_card())
+                except discord.HTTPException:
+                    # DMs zu, Bot blockiert, keinen gemeinsamen Server:
+                    # alles moeglich und keins davon ein Fehler hier.
+                    pass
+
+            # Auch nach einem Fehlschlag: siehe Docstring.
+            premium_trial.mark_dm_sent(user_id)
+
+    def _trial_over_card(self) -> discord.ui.LayoutView:
+        """Die Nachricht selbst.
+
+        Components V2, wie alles andere im Bot. **Kein** `content=`
+        daneben -- die Kombination ist Discord-Fehler 50035, und
+        Erwaehnungen muessen deshalb in die Karte.
+        """
+        url = (os.getenv("NEXTAUTH_URL") or "").strip().rstrip("/")
+        ziel = f"{url}/dashboard/premium" if url else "das Dashboard"
+
+        view = discord.ui.LayoutView()
+        container = discord.ui.Container(accent_colour=discord.Colour(0x5865F2))
+        container.add_item(
+            discord.ui.TextDisplay(
+                "### Deine 7 Tage Premium sind vorbei\n"
+                "-# Die Probewoche laeuft nur einmal pro Konto."
+            )
+        )
+        container.add_item(discord.ui.Separator())
+        container.add_item(
+            discord.ui.TextDisplay(
+                "> Die Premium-Vorlagen sind wieder gesperrt.\n"
+                f"> Verlaengern kannst du hier: {ziel}"
+            )
+        )
+        view.add_item(container)
+        return view
+
     @sync_roles.before_loop
     async def _before_sync(self) -> None:
         await self.bot.wait_until_ready()

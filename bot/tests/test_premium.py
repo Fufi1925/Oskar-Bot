@@ -20,6 +20,7 @@ abused rather than the happy path:
 
 import asyncio
 import os
+import re
 import sys
 import tempfile
 import warnings
@@ -382,10 +383,20 @@ def test_proxy_binding():
           "a browser could redeem onto another account")
     check("the template bot's check is not reachable from a browser",
           'rest[0] === "check"' in body)
+    # Nicht die Liste woertlich vergleichen -- sie waechst. Geprueft
+    # wird, dass jeder dieser Pfade drinsteht: eine exakte Zeichenkette
+    # schlug fehl, sobald „trials" dazukam, obwohl der Schutz gerade
+    # erweitert wurde.
+    gate = re.search(r'\[((?:\s*"[a-z]+",?)+)\]\.includes\(rest\[0\]', body)
+    geschuetzt = set(re.findall(r'"([a-z]+)"', gate.group(1))) if gate else set()
+    fehlt = {"keys", "revoke", "delete", "purge"} - geschuetzt
     check("key management is staff only",
-          '["keys", "revoke", "delete", "purge"]' in body
-          and "Admins only." in body,
-          "deleting keys is not behind the staff gate")
+          not fehlt and "Admins only." in body,
+          f"nicht hinter dem staff gate: {sorted(fehlt)}")
+    # Die Probewochen gehoeren dazu: „zuruecksetzen" verschenkt Tage.
+    check("trial management is staff only too",
+          "trials" in geschuetzt,
+          "resetting a trial hands out another free week")
 
 
 def test_partner_reaches_the_api(store):

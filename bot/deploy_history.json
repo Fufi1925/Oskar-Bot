@@ -1,6 +1,12 @@
 {
  "commits": [
   {
+   "commit": "e6aaef88fcfcf8a6bac5133d026752a1274892da",
+   "at": "1786662487",
+   "subject": "fix(dashboard): Rollen ergaenzen Discord-Rechte, statt sie zu ersetzen",
+   "body": "Der gemeldete Fehler\nSobald jemand eine Dashboard-Rolle hatte, ging auf dem eigenen Server\nnichts mehr: \"missing permission\", egal was eingestellt wurde. Rolle\nweg, ging wieder.\n\nUrsache, in 24 Server-Bereichen des Proxys identisch:\n\n    const team = await fetchTeamAccess(userId);\n    if (!team || team.roles.length === 0) return { ok: true };\n    if (await hasTeamPermission(...)) return { ok: true };\n    return deny(403);\n\nOHNE Rolle kam man durch, weil die Discord-Pruefung darueber lief. MIT\nRolle zaehlte ab da nur noch die Rolle. Wer sich als Server-Inhaber\nselbst eine enge Rolle gab, verlor jedes Recht, das sie nicht enthielt.\n\nFix\n- Neue Pruefung managesGuildOnDiscord(): wer den Server auf Discord\n  verwaltet, behaelt seine Rechte. Eine Rolle ist eine Zusatzbefugnis\n  fuer Leute OHNE solche Rechte -- sie darf niemandem etwas wegnehmen.\n- In allen 24 Bereichen plus dem admin-Bereich eingesetzt, immer VOR\n  der Rollenpruefung. Danach waere sie wirkungslos.\n- Im Zweifel NEIN: ohne Sitzung, bei ungueltiger ID oder wenn Discord\n  nicht antwortet. Ein Ausfall darf kein Freifahrtschein sein.\n\nRechte je Rolle\n- userlookup, premium und speedrun hatten GAR KEIN Recht hinterlegt --\n  ein Reiter ohne Eintrag wird jedem gezeigt. \"Nutzer suchen\" kann\n  jeden Nutzer auf allen Servern bannen und war fuer alle 41 Rollen\n  sichtbar; jetzt fuer 6.\n- Auch die Karten INNERHALB eines Reiters richten sich nach den\n  Rechten: ein Trial-Moderator sah \"Kicken\" und \"Bannen\", obwohl er\n  nur verwarnen darf. Im Browser nachgemessen.\n- Jede der 41 Rollen sieht weiterhin mindestens einen Reiter.\n\nOhne Rolle wirklich nichts\n- Waehrend die Rechte laden, wird NICHTS gezeigt statt alles.\n- Ohne Rolle: kein Link, keine Reiter, kein Zugang -- plus ein Satz,\n  der das erklaert, statt einer leeren Flaeche.\n\nWeiterer Fehler, dabei gefunden\nnum() in der Befehls-Statistik warf bei einem fehlenden Feld\nundefined.toLocaleString() und riss die ganze Seite in den weissen\nFehlerbildschirm. Sieben Stellen abgesichert.\n\n404-Seite neu\nWar komplett auf Englisch, hatte einen eigenen Hintergrund (#070c18)\nund eigene Blautoene. Jetzt deutsch, im Stil der Seite, und sie nennt\ndie drei tatsaechlichen Gruende statt einer Riesenzahl.\n\nAbgesichert\n- tests/test_dashboard_rollen.py\n- mutate_rollen.py: 31 von 31 Mutationen erwischt\n- repro/bug_rollen.js (Nachbau) und repro/bug_rollen_echt.mjs (echte\n  Datei, je Bereich)\n- 22 Testdateien gehaertet: ein /* in einem //-Kommentar eroeffnete\n  fuer strip_ts einen Schein-Block und verschluckte 12.000 Zeichen --\n  fuenf Pruefungen meldeten \"fehlt\", obwohl alles da war\n- Alle 98 Testdateien gruen, 153 Cogs, tsc und Next-Build ok"
+  },
+  {
    "commit": "62b0d199dcbbf5b598cc54dfec5e7de024a78b5f",
    "at": "1786659126",
    "subject": "style(admin): alle Reiter auf den Stil von \"Alle Server\" bringen",
@@ -231,12 +237,6 @@
   {
    "commit": "a2aabf750b3b9200d86491515910c080d4bdbd04",
    "at": "1786136995",
-   "subject": "feat(phantom): EXACT full original Aleks ticket bot (5653 lines - every function kept, no removal, no shortening)",
-   "body": ""
-  },
-  {
-   "commit": "f6ea1b7cc4ec41f6156947d72b06836b5b99212d",
-   "at": "1786136987",
    "subject": "feat(phantom): EXACT full original Aleks ticket bot (5653 lines - every function kept, no removal, no shortening)",
    "body": ""
   }

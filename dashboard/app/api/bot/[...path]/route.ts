@@ -888,9 +888,20 @@ async function authorize(
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) return { ok: false, response: deny(401, "Not signed in.") };
 
+    // `grant` gehoert dem Template-Bot, nicht dem Browser.
+    //
+    // Die Route traegt sich selbst mit dem Partner-Token ab; erreichbar
+    // ueber den Proxy waere sie ein Weg, sich per Klick eine Probewoche
+    // auf ein beliebiges Konto zu schreiben. Derselbe Grund wie bei
+    // `check` weiter unten.
+    if (rest[0] === "grant") {
+      return { ok: false, response: deny(403, "Not available through the dashboard.") };
+    }
+
     // Listing, revoking and deleting keys is staff work. Deleting most
-    // of all: it cannot be undone.
-    if (["keys", "revoke", "delete", "purge"].includes(rest[0] ?? "")) {
+    // of all: it cannot be undone. Die Probewochen gehoeren dazu --
+    // „zuruecksetzen" verschenkt sieben Tage.
+    if (["keys", "revoke", "delete", "purge", "trials"].includes(rest[0] ?? "")) {
       if (isGlobalAdmin(session.user.id)) return { ok: true };
       const team = await fetchTeamAccess(session.user.id);
       const staff = Boolean(team && (team.is_owner || team.roles.length > 0));
