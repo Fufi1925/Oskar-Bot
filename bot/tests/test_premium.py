@@ -476,6 +476,22 @@ def test_partner_reaches_the_api(store):
         r = client.get(f"{base}/check/5150", headers={"X-Partner-Token": ""})
         check("an unconfigured token grants nothing", r.status_code == 401,
               str(r.status_code))
+
+        # Und mit IRGENDEINEM Wert ebenso wenig.
+        #
+        # Der leere Header oben wird schon von der spaeteren
+        # "kein Token"-Pruefung gefangen; faellt der Riegel fuer die
+        # unkonfigurierte Seite weg, faellt das daran nicht auf --
+        # im Mutationstest genau so durchgerutscht. Ohne den Riegel
+        # koennte auf einer Installation OHNE PREMIUM_PARTNER_TOKEN
+        # jeder mit einem beliebigen Header am Dashboard-Schluessel
+        # vorbei.
+        r = client.get(f"{base}/check/5150",
+                       headers={"X-Partner-Token": "irgendwas"})
+        check("nor does any value when none is configured",
+              r.status_code == 401,
+              f"{r.status_code} — ohne konfiguriertes Token darf die "
+              "Ausnahme gar nicht greifen")
         os.environ["PREMIUM_PARTNER_TOKEN"] = "partner-secret"
 
         # The gate is also tested on its own. Through the API a wrong
@@ -504,6 +520,60 @@ def test_partner_reaches_the_api(store):
               gate(FakeRequest("/api/v1/premium/check/1",
                                {"x-partner-token": "partner-secret"},
                                method="POST")) is False)
+
+        # ── Die Meldung der Probewoche ────────────────────────────
+        #
+        # Derselbe Tuersteher, dieselbe Falle: die Route /premium/grant
+        # wurde gebaut, die Ausnahme aber nicht erweitert. Der
+        # Template-Bot bekam HTTP 401 auf ein voellig korrektes Token
+        # und schrieb ins Log "stimmt PREMIUM_PARTNER_TOKEN auf beiden
+        # Seiten?" -- eine falsche Faehrte, denn das Token stimmte.
+        #
+        # Dieser Block existiert, weil der Test darueber nur `check`
+        # abdeckte. Eine Ausnahmeliste braucht einen Test JE Eintrag.
+        from utils import premium_trial
+        import tempfile as _tf
+
+        premium_trial.DB_PATH = os.path.join(_tf.mkdtemp(), "trial.db")
+        rumpf = {"user_id": "5151", "guild_id": "1", "expires_at": 1893456000,
+                 "duration_days": 7}
+
+        r = client.post(f"{base}/grant", json=rumpf,
+                        headers={"X-Partner-Token": "partner-secret"})
+        check("the trial report gets through", r.status_code == 200,
+              f"{r.status_code} {r.text[:140]} — the template bot logs "
+              "'Premium-Meldung abgelehnt' when this is 401")
+        if r.status_code == 200:
+            check("and the trial is granted", r.json().get("granted") is True,
+                  r.text[:140])
+
+        r = client.post(f"{base}/grant", json=rumpf,
+                        headers={"X-Partner-Token": "wrong"})
+        check("a wrong token cannot grant a trial", r.status_code == 401,
+              str(r.status_code))
+
+        r = client.post(f"{base}/grant", json=rumpf)
+        check("and no token cannot either", r.status_code == 401,
+              str(r.status_code))
+
+        check("the gate accepts the grant route",
+              gate(FakeRequest("/api/v1/premium/grant",
+                               {"x-partner-token": "partner-secret"},
+                               method="POST")) is True)
+        # GET auf grant ist nicht vorgesehen -- die Liste bindet die
+        # Methode mit, sonst oeffnet ein Eintrag mehr als gemeint.
+        check("but not with the wrong method",
+              gate(FakeRequest("/api/v1/premium/grant",
+                               {"x-partner-token": "partner-secret"},
+                               method="GET")) is False)
+
+        # Jede Route in der Liste muss oben wirklich geprueft worden
+        # sein. Ohne diese Zeile waechst die Liste, der Test nicht --
+        # genau so ist `grant` durchgerutscht.
+        geprueft = {("GET", "/premium/check/"), ("POST", "/premium/grant")}
+        check("every partner route is covered by a test",
+              set(dep.PARTNER_ROUTES) == geprueft,
+              f"nicht geprueft: {set(dep.PARTNER_ROUTES) - geprueft}")
     finally:
         if saved_key is None:
             os.environ.pop("DASHBOARD_API_KEY", None)

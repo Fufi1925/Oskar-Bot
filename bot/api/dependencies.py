@@ -85,24 +85,49 @@ def _allow_keyless() -> bool:
     return not os.getenv("DASHBOARD_API_KEY")
 
 
-def _is_partner_licence_check(request: Request) -> bool:
-    """
-    Whether this is the template bot asking about a licence.
+# Die Routen, die der Template-Bot mit seinem eigenen Token erreichen
+# darf. (Methode, Pfadstueck) -- beides muss passen.
+#
+# Die Liste steht hier oben und nicht als `if` im Rumpf, weil sie schon
+# einmal auseinandergelaufen ist: `/premium/grant` wurde als Route
+# gebaut, die Ausnahme aber nicht erweitert. Ergebnis war HTTP 401 auf
+# ein voellig korrektes Token -- und im Log des Template-Bots die
+# irrefuehrende Meldung "stimmt PREMIUM_PARTNER_TOKEN auf beiden
+# Seiten?", die auf eine falsche Faehrte fuehrt.
+#
+# Wer hier eine Route ergaenzt, muss sich bewusst sein: sie ist damit
+# ohne Dashboard-Schluessel erreichbar, allein mit dem Partner-Token.
+PARTNER_ROUTES: tuple[tuple[str, str], ...] = (
+    # Fragt: "hat dieses Konto Premium?" -- nur lesen.
+    ("GET", "/premium/check/"),
+    # Meldet: "dieses Konto hat gerade seine Probewoche eingeloest."
+    # Schreibend, aber eng: die Route selbst laesst genau eine
+    # Probewoche pro Konto zu und prueft das Token ein zweites Mal.
+    ("POST", "/premium/grant"),
+)
 
-    That one endpoint carries its own credential (X-Partner-Token) and is
+
+def _is_partner_request(request: Request) -> bool:
+    """
+    Whether this is the template bot talking to us with its own token.
+
+    Those endpoints carry their own credential (X-Partner-Token) and are
     called by a different program, which has no reason to know the
     dashboard key. Without this exception the route answered 401 to a
     correct token and premium never activated anywhere.
 
-    Narrow on purpose: only GET, only /premium/check/..., and only when a
-    partner token is actually configured and matches. Everything else
-    still needs the dashboard key.
+    Narrow on purpose: only the routes in PARTNER_ROUTES, only with the
+    matching method, and only when a partner token is actually
+    configured and matches. Everything else still needs the dashboard
+    key -- listing keys with the partner token stays forbidden.
     """
-    if request.method != "GET":
-        return False
-
     path = request.url.path.rstrip("/")
-    if "/premium/check/" not in path:
+
+    passt = any(
+        request.method == methode and stueck.rstrip("/") in path
+        for methode, stueck in PARTNER_ROUTES
+    )
+    if not passt:
         return False
 
     expected = os.getenv("PREMIUM_PARTNER_TOKEN", "").strip()
@@ -114,6 +139,10 @@ def _is_partner_licence_check(request: Request) -> bool:
         return False
 
     return hmac.compare_digest(supplied, expected)
+
+
+# Der alte Name bleibt als Verweis: er stand in Tests und Kommentaren.
+_is_partner_licence_check = _is_partner_request
 
 
 def verify_api_key(
@@ -133,9 +162,9 @@ def verify_api_key(
     the source address. Comparison is constant-time to avoid leaking the key
     through timing differences.
     """
-    # The template bot authenticates with its own token on exactly one
-    # read-only route; see _is_partner_licence_check.
-    if _is_partner_licence_check(request):
+    # The template bot authenticates with its own token on the routes
+    # listed in PARTNER_ROUTES; see _is_partner_request.
+    if _is_partner_request(request):
         return "partner-token"
 
     api_key = os.getenv("DASHBOARD_API_KEY")

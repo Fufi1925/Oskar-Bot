@@ -1,6 +1,12 @@
 {
  "commits": [
   {
+   "commit": "cb31f452babfbec4de35c419e493b3896ed6da97",
+   "at": "1786667350",
+   "subject": "feat(premium): 7 Tage kostenlos - gespeichert, sichtbar, verwaltbar",
+   "body": "Der Template-Bot (Branch arena/019ffd1a) vergibt persoenliche Keys, die\ngenau sieben Tage gelten, und meldet das an den University Bot:\n\n    POST /api/v1/premium/grant\n    X-Partner-Token: <PREMIUM_PARTNER_TOKEN>\n    {user_id, guild_id, expires_at, duration_days}\n\nDiese Route gab es hier nicht -- der Template-Bot meldete ins Leere.\nIm Dashboard stand \"kein Premium\", obwohl der Nutzer welches hatte.\n\nNeu\n- utils/premium_trial.py: eine Zeile pro Konto, db/premium_trial.db\n- /premium/grant nimmt die Meldung an, /premium/trials{,/reset,/revoke}\n  fuer den Admin-Bereich\n- premium_store.status() zaehlt die Probewoche mit und meldet\n  via_trial, verkuerzt aber nie eine laengere bezahlte Lizenz\n\nEine pro Konto, fuer immer\nDie Zeile bleibt beim Ablauf stehen -- sie ist der Beleg. Wuerde sie\ngeloescht, koennte sich jeder nach sieben Tagen eine neue holen. Der\nUniversity Bot fuehrt die Liste ueber alle Server hinweg; der\nTemplate-Bot sieht nur seinen eigenen Speicher, und der ist nach einem\nNeustart ohne Volume leer.\n\nBeenden ist nicht Zuruecksetzen\nBeenden stoppt die laufende Woche, der Eintrag bleibt. Zuruecksetzen\ngibt den Weg frei -- fuer Support-Faelle. Der Unterschied steht auf dem\nBildschirm, nicht nur im Kommentar.\n\nSichtbar\n- Nutzer: \"7 Tage Premium - kostenlos\", Restzeit, und der Hinweis dass\n  es die Probewoche nur einmal gibt\n- Admin: Liste mit laufend/abgelaufen, Suche, Beenden, Zuruecksetzen\n- DM bei Ablauf mit Verlaengerungs-Link, genau einmal -- auch wenn die\n  Zustellung scheitert, sonst laeuft der Versuch alle zehn Minuten neu\n\nSicherheit\n/premium/grant ist ueber den Browser gesperrt (wie /check): sonst\nschreibt sich jeder per Klick eine Probewoche auf ein fremdes Konto.\nDie Verwaltung verlangt eine Team-Rolle.\n\nAbgesichert\n- tests/test_premium_trial.py, Verhalten gegen echtes SQLite\n- mutate_probewoche.py ueber BEIDE Repos: 21 von 21 erwischt\n- repro/bug_probewoche.py\n- test_premium.py: pruefte die Schutzliste woertlich und schlug fehl,\n  sobald \"trials\" dazukam -- prueft jetzt die Absicht\n- 98 Testdateien gruen, 153 Cogs, tsc und Next-Build ok\n\nVolume noetig fuer db/premium_trial.db -- ohne das ist nach jedem\nDeploy jede Probewoche vergessen und jeder kann sich neue holen."
+  },
+  {
    "commit": "e6aaef88fcfcf8a6bac5133d026752a1274892da",
    "at": "1786662487",
    "subject": "fix(dashboard): Rollen ergaenzen Discord-Rechte, statt sie zu ersetzen",
@@ -231,12 +237,6 @@
   {
    "commit": "9e5553ea33673807ac65dec5769b0aad38ee71a6",
    "at": "1786137001",
-   "subject": "feat(phantom): EXACT full original Aleks ticket bot (5653 lines - every function kept, no removal, no shortening)",
-   "body": ""
-  },
-  {
-   "commit": "a2aabf750b3b9200d86491515910c080d4bdbd04",
-   "at": "1786136995",
    "subject": "feat(phantom): EXACT full original Aleks ticket bot (5653 lines - every function kept, no removal, no shortening)",
    "body": ""
   }
