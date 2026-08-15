@@ -417,6 +417,69 @@ def test_mitmachen():
           "sonst klickt jemand und steht vor einer Anmeldemaske")
 
 
+def test_rollen_ohne_anmeldung_lesbar():
+    """
+    Der Aushang muss ohne Anmeldung lesbar sein.
+
+    `GET /webapply/roles` lag hinter der Anmeldepflicht. Im Proxy galt
+    `roles` zwar als „eigene“ Route -- aber die Anmeldeprüfung stand
+    eine Zeile darüber, also kam der Zweig nie an. Nachgemessen mit
+    curl ohne Sitzungs-Cookie:
+
+        /api/bot/webapply/roles -> HTTP 307
+        location: /?callbackUrl=%2Fapi%2Fbot%2Fwebapply%2Froles
+
+    Gemerkt hat das niemand, weil eine fehlgeschlagene Abfrage und eine
+    leere Liste gleich aussehen: die Team-Seite hätte dauerhaft „gerade
+    nichts frei“ gezeigt.
+
+    Nach dem Fix, ebenfalls gemessen:
+
+        GET  /webapply/roles  -> 200
+        POST /webapply/submit -> 307   (Abgeben braucht eine Sitzung)
+        GET  /webapply/list   -> 307   (die Admin-Liste erst recht)
+    """
+    print("\nDer Aushang ist ohne Anmeldung lesbar")
+
+    mw = strip_comments(read(DASHBOARD, "middleware.ts"))
+    check("die Middleware lässt die Rollenliste durch",
+          "/api/bot/webapply/roles" in mw,
+          "sonst kommt HTTP 307 statt der Rollen")
+
+    proxy = strip_comments(
+        read(DASHBOARD, "app/api/bot/[...path]/route.ts")
+    )
+
+    # Den webapply-Zweig isolieren: „roles“ steht auch anderswo.
+    zweig = re.search(
+        r'if \(scope === "webapply"\) \{(.*?)\n  \}', proxy, re.S
+    )
+    check("der webapply-Zweig ist gefunden", zweig is not None)
+    if zweig:
+        rumpf = zweig.group(1)
+        ausnahme = re.search(
+            r'if \(request\.method === "GET" && rest\[0\] === "roles"\)',
+            rumpf,
+        )
+        check("der Proxy kennt die Ausnahme", ausnahme is not None)
+
+        # Und sie muss VOR der Anmeldeprüfung stehen. Genau daran ist
+        # die alte Fassung gescheitert: die Ausnahme war da, wurde aber
+        # nie erreicht.
+        anmeldung = rumpf.find("getServerSession")
+        if ausnahme and anmeldung != -1:
+            check("und zwar VOR der Anmeldeprüfung",
+                  ausnahme.start() < anmeldung,
+                  "eine Ausnahme unterhalb der Prüfung wird nie erreicht "
+                  "-- das war der Fehler")
+
+        # Nur GET. Ein Bewerbungseingang ohne Anmeldung wäre schlimmer
+        # als der Fehler, den das hier behebt.
+        check("nur Lesen ist frei, nicht Abgeben",
+              'request.method === "GET"' in (ausnahme.group(0) if ausnahme else ""),
+              "ohne Methodenprüfung könnte jeder anonym bewerben")
+
+
 def test_kein_alter_glasstil():
     """
     Die Seite sah aus wie von einer anderen Website.
@@ -488,6 +551,7 @@ def main():
     test_no_open_source_claims()
     test_team_members()
     test_mitmachen()
+    test_rollen_ohne_anmeldung_lesbar()
     test_kein_alter_glasstil()
     test_id_ist_ein_link()
     asyncio.run(test_profiles_endpoint())

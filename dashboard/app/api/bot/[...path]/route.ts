@@ -565,8 +565,12 @@ async function authorize(
   if (scope === "webapply") {
     // Team-Bewerbungen ueber die Website.
     //
-    // Zwei Klassen von Routen, und der Unterschied ist wichtig:
+    // Drei Klassen von Routen, und die Unterschiede sind wichtig:
     //
+    //   * die Rollenliste — OHNE Anmeldung. Sie ist der Aushang „wir
+    //     suchen Leute": welche Rollen offen sind, wie viele Fragen
+    //     dazugehoeren. Nichts davon ist persoenlich, und sie steht
+    //     auf der oeffentlichen Team-Seite.
     //   * eigene Bewerbung (abgeben, ansehen, zurueckziehen) — jeder
     //     Angemeldete, aber ausschliesslich fuer sich selbst. Die
     //     Nutzer-ID kommt aus der Sitzung, NICHT aus dem Rumpf:
@@ -574,6 +578,21 @@ async function authorize(
     //     Bewerbung zurueckziehen.
     //   * alles andere (Liste, Entscheidung, Einstellungen) — nur
     //     globale Admins oder wer die Berechtigung traegt.
+    //
+    // Die Ausnahme steht VOR der Anmeldepruefung, und das ist der
+    // ganze Punkt: `roles` galt schon vorher als „eigene" Route, kam
+    // dort aber nie an, weil die Pruefung darueber stand. Nachgemessen
+    // mit curl ohne Sitzungs-Cookie:
+    //
+    //     /api/bot/webapply/roles -> HTTP 307
+    //     location: /?callbackUrl=%2Fapi%2Fbot%2Fwebapply%2Froles
+    //
+    // Nur GET: das Abgeben einer Bewerbung braucht weiterhin eine
+    // Sitzung.
+    if (request.method === "GET" && rest[0] === "roles") {
+      return { ok: true };
+    }
+
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) return { ok: false, response: deny(401, "Not signed in.") };
 

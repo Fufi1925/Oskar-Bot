@@ -1,6 +1,12 @@
 {
  "commits": [
   {
+   "commit": "e8ea29fd268c1a92210e63aac31bbe42beadd824",
+   "at": "1786828483",
+   "subject": "feat(web): Team-Seite neu -- man kommt von dort jetzt auch ins Team",
+   "body": "Vier Maengel, alle nachgemessen und nicht vermutet:\n\n  1. Man kam von hier nicht ins Team. Die Seite verlinkte die\n     Bewerbung genau null Mal (grep -c \"team/apply\" -> 0). Wer\n     mitmachen wollte, musste in der Navigationsleiste ein\n     Aufklappmenue finden -- ausgerechnet auf der Seite, auf der\n     jemand landet, der ueberlegt dazuzugehoeren.\n  2. Sie sah aus wie von einer anderen Website: bg-white/[0.02] mit\n     border-white/[0.05], der alte Glas-Stil. Der Rest der\n     oeffentlichen Seiten benutzt #0f0f13 mit border-slate-800.\n  3. Unter jedem Namen stand eine 19-stellige Zahl. Fuer einen\n     Besucher ohne Bedeutung und nicht anklickbar. Jetzt ein Link\n     aufs Discord-Profil; die Zahl bleibt im Tooltip.\n  4. Kein Wort dazu, was das Team eigentlich sucht.\n\nNeu ist der Abschnitt \"Mitmachen\": die vier Rollen mit Kurztext,\nAnzahl der Fragen und einem Link, der die Rolle schon vorwaehlt.\n\nDie Rollen kommen vom Bot (/webapply/roles), nicht aus dieser Datei.\nEine zweite gepflegte Liste hiesse: eine geschlossene Rolle steht auf\nder Website weiter offen, und wer klickt, bekommt vom Bot eine Absage\nohne zu erfahren warum. Antwortet der Bot nicht, faellt der Abschnitt\nganz weg statt vier Rollen zu behaupten, die vielleicht zu sind --\ngemessen mit beendetem Bot: HTTP 200, Rollen weg, Team und Kontakt\nbleiben.\n\nDas gemeinsame <Section> aus legal-page.tsx habe ich bewusst NICHT\numgestellt: daran haengen noch Impressum, Datenschutz, Status und AGB.\nDeren Aussehen mitzuaendern waere eine Aenderung an vier Seiten, die\nniemand bestellt hat. Diese Seite bringt deshalb einen eigenen\nAbschnitt mit.\n\nZwei Dinge im Screenshot geprueft, die wie Fehler aussahen und keine\nwaren: \"6.Fragen\" war ein Rendering-Artefakt (der Text ist \"6 Fragen\"),\nund die Rollenkarten sind reihenweise exakt gleich hoch (109/109,\n130/130).\n\nGeprueft: test_team_page.py um drei Testgruppen erweitert,\nMutationstest 21/21, Browser-Test mit 24 Pruefungen, alle 102\nTestdateien gruen, 153 Cogs / 543 Prefix / 65 App, tsc und next build\nsauber.\n\nDrei Pruefungen waren zu schwach und haben Mutationen durchgelassen:\n\"profile?.avatar\" blieb bei {false ? ( stehen, \"SUPPORT\" bei href=\"#\",\nund \"return [];\" traf auch den !response.ok-Zweig. Alle drei pruefen\njetzt die Wirkung statt das Vorkommen eines Wortes."
+  },
+  {
    "commit": "08534f8f077d734d8c345d362c64ebac30c6cebc",
    "at": "1786764995",
    "subject": "feat(web): Cookie-Hinweis als Popup, Bestaetigung wird gespeichert",
@@ -231,12 +237,6 @@
   {
    "commit": "a6a9bfdeec34e9150d1ac455acba768d1968eb0f",
    "at": "1786137055",
-   "subject": "feat(phantom): EXACT full original Aleks ticket bot (5653 lines - every function kept, no removal, no shortening)",
-   "body": ""
-  },
-  {
-   "commit": "2dea6320a9d1a88ff14fb9adb453be772366608a",
-   "at": "1786137044",
    "subject": "feat(phantom): EXACT full original Aleks ticket bot (5653 lines - every function kept, no removal, no shortening)",
    "body": ""
   }

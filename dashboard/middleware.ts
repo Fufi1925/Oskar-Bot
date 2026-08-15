@@ -171,6 +171,23 @@ const OEFFENTLICH = [
   // Der Proxy laesst hier trotzdem nur POST ohne Anmeldung durch; die
   // Nachweisliste verlangt weiterhin ein Recht.
   "/api/bot/cookies/consent",
+  // Der Aushang „wir suchen Leute": welche Rollen offen sind und wie
+  // viele Fragen dazugehoeren. Er steht auf der oeffentlichen
+  // Team-Seite, also muss er ohne Anmeldung lesbar sein.
+  //
+  // Vorher lief er gegen die Anmeldepflicht. Nachgemessen mit curl
+  // ohne Sitzungs-Cookie:
+  //
+  //     /api/bot/webapply/roles -> HTTP 307
+  //     location: /?callbackUrl=%2Fapi%2Fbot%2Fwebapply%2Froles
+  //
+  // Gemerkt hat das niemand, weil eine fehlgeschlagene Abfrage und
+  // eine leere Liste gleich aussehen: die Seite haette dauerhaft
+  // „gerade nichts frei" gezeigt.
+  //
+  // Der Proxy laesst hier nur GET durch; das Abgeben einer Bewerbung
+  // braucht weiterhin eine Sitzung.
+  "/api/bot/webapply/roles",
 ];
 
 /** Paths that still need a session once maintenance is off. */
