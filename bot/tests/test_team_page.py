@@ -170,13 +170,34 @@ def test_team_members():
 
     # The avatar path: an <img> from the profile, initials when there is
     # none. A broken image on a public page looks worse than initials.
+    #
+    # Diese drei stehen seit dem Umbau der Team-Seite in der
+    # Kartenkomponente, nicht mehr in page.tsx. Die ANFORDERUNG gilt
+    # unveraendert weiter -- deshalb wandert die Pruefung mit, statt
+    # gestrichen zu werden. Die Seite reicht die Profile als
+    # `liveName`/`avatar` an die Karten durch.
+    karten = read(DASHBOARD, "components/team-mitglieder.tsx")
+
+    # Both halves, separately. `avatar:` also appears in the Profil
+    # interface further up, so the loose check stayed green with the
+    # hand-over deleted -- the cards would have shown initials for ever.
+    check("the page passes the fetched avatar on",
+          re.search(r"avatar:\s*profile\[person\.id\]\?\.avatar", team)
+          is not None,
+          "the cards can only render what they are given")
+    check("and the fetched name",
+          re.search(r"liveName:\s*profile\[person\.id\]\?\.name", team)
+          is not None, "")
+    # The <img> has to hang off the avatar, not merely exist: the
+    # element stayed in the file when the condition was disabled.
     check("real avatars are rendered when available",
-          "profile?.avatar" in team and "<img" in team, "")
+          re.search(r"person\.avatar \?", karten) is not None
+          and re.search(r"src=\{person\.avatar\}", karten) is not None, "")
     check("with initials as the fallback",
-          "initials(name)" in team,
+          "initialen(name)" in karten,
           "the bot may be restarting; that must not leave a grey box")
     check("the alt text names the person",
-          "Profilbild von" in team, "")
+          "Profilbild von" in karten, "")
 
     check("the page is rendered per request",
           'export const dynamic = "force-dynamic"' in team,

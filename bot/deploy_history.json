@@ -1,6 +1,12 @@
 {
  "commits": [
   {
+   "commit": "08534f8f077d734d8c345d362c64ebac30c6cebc",
+   "at": "1786764995",
+   "subject": "feat(web): Cookie-Hinweis als Popup, Bestaetigung wird gespeichert",
+   "body": "Beim Betreten der Seite erscheint ein Fenster in der Bildschirmmitte,\nalles dahinter abgedunkelt und unscharf. Zwei Knoepfe: \"Verstanden\"\nund ein Ausklapper \"Details\" mit der Liste der Cookies, die wirklich\ngesetzt werden.\n\nJede Bestaetigung wird gespeichert (db/cookie_consent.db) -- mit\nDiscord-Konto, wenn jemand angemeldet ist. Art. 7 Abs. 1 DSGVO\nverlangt, dass sich eine Einwilligung nachweisen laesst; ein Haekchen\nallein im Browser ist kein Nachweis.\n\nIm Admin-Bereich gibt es dafuer einen eigenen Reiter \"Cookie-Hinweis\":\nZahlen, eine Tageskurve und die Liste, mit zwei Loeschwegen -- eine\neinzelne Zeile oder alles zu einem Discord-Konto (Art. 17 DSGVO).\n\nDie wichtigsten Entscheidungen:\n\n  * Die Discord-ID kommt aus der Sitzung, nie aus dem Browser. Der\n    Proxy setzt sie -- und leert sie ausdruecklich, wenn niemand\n    angemeldet ist. Vorher lief der Ueberschreib-Block nur MIT\n    Sitzung, und ohne Anmeldung rutschte ein mitgeschicktes user_id\n    unveraendert durch.\n  * Eine Zeile pro Browser, nicht pro Klick. Abmelden loescht die\n    bekannte Discord-ID nicht.\n  * Keine IP-Adresse, kein Browser-Kennzeichen -- weder gespeichert\n    noch ausgelesen. Die Datenschutzerklaerung sagt das zu.\n  * Das Speichern haelt das Schliessen nicht auf. Scheitert es, wird\n    beim naechsten Besuch nachgetragen.\n  * Kein Ablehnen-Knopf: alle Cookies sind technisch notwendig\n    (§ 25 Abs. 2 TDDDG), er koennte nichts abschalten ohne die\n    Anmeldung mit abzuschalten. Das steht auch so auf der Seite.\n  * Die Cookie-Liste steht EINMAL, in lib/cookie-consent.ts. Fenster\n    und Datenschutzerklaerung lesen dieselbe Quelle.\n\nZwei Fehler im echten Browser gefunden und behoben: die Laufzeit stand\ndurch \"uppercase\" als \"30 TAGE\" statt \"30 Tage\" (und damit anders als\nin der Datenschutzerklaerung), und die Tabellenspalten sprangen von\nZeile zu Zeile, weil \"min-w\" sich am Inhalt der jeweiligen Zeile\nausrichtet.\n\nGeprueft: neuer Test test_cookie_hinweis.py, Mutationstest 66/66,\nBrowser-Test mit 24 Pruefungen, alle 102 Testdateien gruen,\n153 Cogs / 543 Prefix / 65 App, tsc und next build sauber."
+  },
+  {
    "commit": "e3b76b76c5b0df855d337bed9e9ba8878b80a27d",
    "at": "1786748158",
    "subject": "feat(status): die Statusseite komplett neu, live und mit Verlauf",
@@ -231,12 +237,6 @@
   {
    "commit": "2dea6320a9d1a88ff14fb9adb453be772366608a",
    "at": "1786137044",
-   "subject": "feat(phantom): EXACT full original Aleks ticket bot (5653 lines - every function kept, no removal, no shortening)",
-   "body": ""
-  },
-  {
-   "commit": "8af24996658fa74c06037857662090cf28846bf1",
-   "at": "1786137036",
    "subject": "feat(phantom): EXACT full original Aleks ticket bot (5653 lines - every function kept, no removal, no shortening)",
    "body": ""
   }

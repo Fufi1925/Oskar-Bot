@@ -565,8 +565,13 @@ async function authorize(
   if (scope === "webapply") {
     // Team-Bewerbungen ueber die Website.
     //
-    // Zwei Klassen von Routen, und der Unterschied ist wichtig:
+    // Drei Klassen von Routen:
     //
+    //   * **die Rollenliste** — ohne Anmeldung. Sie ist der Aushang
+    //     „wir suchen Leute": welche Rollen offen sind und welche
+    //     Fragen gestellt werden. Nichts davon ist persoenlich, und
+    //     ohne Anmeldung lesbar MUSS sie sein, weil sie auf der
+    //     oeffentlichen Team-Seite steht.
     //   * eigene Bewerbung (abgeben, ansehen, zurueckziehen) — jeder
     //     Angemeldete, aber ausschliesslich fuer sich selbst. Die
     //     Nutzer-ID kommt aus der Sitzung, NICHT aus dem Rumpf:
@@ -574,6 +579,25 @@ async function authorize(
     //     Bewerbung zurueckziehen.
     //   * alles andere (Liste, Entscheidung, Einstellungen) — nur
     //     globale Admins oder wer die Berechtigung traegt.
+    //
+    // Die Rollenliste stand vorher hinter der Anmeldepflicht, und die
+    // Pruefung lief VOR der Fallunterscheidung -- `roles` galt zwar
+    // als „eigene" Route, kam dort aber nie an. Nachgemessen mit
+    // curl ohne Sitzungs-Cookie: HTTP 307 auf die Anmeldeseite.
+    //
+    // Aufgefallen ist es beim Bau der oeffentlichen Team-Seite: die
+    // haette dauerhaft „gerade nichts frei" gezeigt, weil eine
+    // fehlgeschlagene Abfrage und eine leere Liste gleich aussehen.
+    //
+    // Was das NICHT aendert: /team/apply blendet die Rollen zusaetzlich
+    // hinter der eigenen Anmeldepruefung aus und zeigt sie einem
+    // Nichtangemeldeten weiterhin nicht. Das ist dort Absicht -- ohne
+    // Konto laesst sich ohnehin nicht bewerben --, und die Seite sagt
+    // es auch. Der Aushang steht jetzt auf /team.
+    if (request.method === "GET" && rest[0] === "roles") {
+      return { ok: true };
+    }
+
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) return { ok: false, response: deny(401, "Not signed in.") };
 

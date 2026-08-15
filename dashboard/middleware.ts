@@ -171,6 +171,15 @@ const OEFFENTLICH = [
   // Der Proxy laesst hier trotzdem nur POST ohne Anmeldung durch; die
   // Nachweisliste verlangt weiterhin ein Recht.
   "/api/bot/cookies/consent",
+  // Der Aushang „wir suchen Leute": welche Rollen offen sind und
+  // welche Fragen gestellt werden. Er steht auf der oeffentlichen
+  // Team-Seite, also muss er ohne Anmeldung lesbar sein.
+  //
+  // Vorher lief er gegen die Anmeldepflicht und kam als HTTP 307
+  // zurueck. Gemerkt hat das niemand, weil die Bewerbungsseite dann
+  // einfach eine leere Rollenliste zeigte -- und eine leere Liste
+  // sieht aus wie „gerade nichts frei".
+  "/api/bot/webapply/roles",
 ];
 
 /** Paths that still need a session once maintenance is off. */

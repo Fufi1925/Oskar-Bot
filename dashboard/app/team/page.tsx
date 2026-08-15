@@ -1,45 +1,71 @@
 import React from "react";
-import { Globe, MessageCircle, Users } from "lucide-react";
+import { MessageSquare, Users } from "lucide-react";
 import { LegalPage, Section } from "@/components/legal-page";
 import { SUPPORT_INVITE } from "@/lib/legal";
+import { TeamMitglieder, type Mitglied } from "@/components/team-mitglieder";
+import { TeamRollen } from "@/components/team-rollen";
 
 export const metadata = {
   title: "Team",
-  description: "Die Menschen hinter dem Bot.",
+  description: "Die Menschen hinter dem Bot — und wie du mitmachst.",
 };
 
-// Rendered per request rather than at build time: the avatars are
-// fetched from the running bot, which is not up while the image builds.
+// Pro Aufruf gerendert, nicht beim Bauen: die Avatare kommen vom
+// laufenden Bot, und der läuft während des Docker-Builds nicht.
 export const dynamic = "force-dynamic";
 
-const SUPPORT = SUPPORT_INVITE;
+/**
+ * Die Team-Seite.
+ *
+ * ── Was an der alten Fassung fehlte ─────────────────────────────────
+ *
+ * Sie beantwortete „wer macht das?" und hörte dann auf. Die Frage
+ * „kann ich mitmachen?" beantwortete sie nicht — dass es vier offene
+ * Rollen gibt, stand ausschließlich in einem Aufklapp-Menü der
+ * Navigationsleiste. Also genau dort, wo niemand sucht, der gerade
+ * „Team" angeklickt hat. Eine Seite mit zwei Karten und ohne Weg nach
+ * vorn.
+ *
+ * Dazu kamen zwei kleinere Sachen, die im Bild auffielen:
+ *
+ *   * Die Discord-ID stand als toter Text da. Achtzehn Ziffern, die
+ *     man abschreiben durfte — das tippt niemand fehlerfrei ab.
+ *   * Die Karten trugen `bg-white/[0.02]` und `border-white/[0.05]`,
+ *     einen Stil, den es sonst nirgends mehr gibt. Der Rest der Seite
+ *     ist auf `#131318` mit `border-slate-800` vereinheitlicht.
+ *
+ * ── Was jetzt drinsteht ─────────────────────────────────────────────
+ *
+ *   1. Wer dahintersteckt, mit kopierbarer ID.
+ *   2. **Die offenen Rollen**, live vom Bot geholt — mit den Fragen
+ *      zum Aufklappen und einem Knopf, der direkt ins Formular führt.
+ *   3. Wie man uns erreicht.
+ *
+ * ── Warum die Rollen nicht hier geladen werden ──────────────────────
+ *
+ * Diese Datei ist eine Server-Komponente und könnte sie mitliefern.
+ * Sie tut es nicht: dann würde ein langsamer oder toter Bot die ganze
+ * Seite aufhalten, samt Impressum-Fußzeile. So kommt die Seite sofort,
+ * und der Rollen-Abschnitt füllt sich nach. Die Namen und Avatare
+ * dagegen holt der Server — sie stehen in der ersten Auslieferung
+ * drin, mit einer knappen Zeitgrenze.
+ */
 
 const API_BASE_URL =
   process.env.API_BASE_URL ||
   `http://127.0.0.1:${process.env.PORT || 8080}/api/v1`;
 
-interface Member {
-  /** Discord id. Used for the avatar and as the profile link. */
-  id: string;
-  /** Fallback name, shown until the live one arrives. */
-  name: string;
-  role: string;
-  description?: string;
-  website?: string;
-}
-
 /**
- * The team.
+ * Das Team, als reine Daten.
  *
- * Kept as plain data so the list can be edited without touching markup.
- * NEXT_PUBLIC_TEAM_JSON overrides it at deploy time.
+ * `NEXT_PUBLIC_TEAM_JSON` überschreibt die Liste beim Deploy, ohne dass
+ * jemand die Datei anfassen muss.
  *
- * Note there are no GitHub fields. The repository is private and stays
- * private -- a link to a 404 tells a visitor the project exists on
- * GitHub and invites them to go looking, which is the opposite of the
- * point.
+ * Keine GitHub-Felder: das Repository ist privat und bleibt es. Ein
+ * Link auf eine 404-Seite verrät, dass es das Projekt auf GitHub gibt,
+ * und lädt zum Suchen ein — das Gegenteil des Zwecks.
  */
-const DEFAULT_TEAM: Member[] = [
+const DEFAULT_TEAM: Mitglied[] = [
   {
     id: "1303627964734246944",
     name: "Fufi",
@@ -58,152 +84,100 @@ const DEFAULT_TEAM: Member[] = [
   },
 ];
 
-interface Profile {
+interface Profil {
   id: string;
   name: string | null;
   avatar: string | null;
 }
 
 /**
- * Real Discord names and avatars for the team.
+ * Echte Discord-Namen und Avatare.
  *
- * An avatar URL cannot be built from an id: the CDN path needs the
- * avatar hash, so only the bot can produce a working one. If the bot is
- * not reachable -- during a deploy, say -- this returns nothing and the
- * cards fall back to initials. A team page is not worth a 500.
+ * Eine Avatar-Adresse lässt sich aus einer ID nicht bauen: der
+ * CDN-Pfad braucht den Avatar-Hash, den nur der Bot kennt. Antwortet
+ * er nicht — etwa während eines Deploys —, kommt hier nichts zurück
+ * und die Karten zeigen Initialen. Eine Team-Seite ist keinen
+ * Serverfehler wert.
  */
-async function loadProfiles(ids: string[]): Promise<Record<string, Profile>> {
+async function ladeProfile(ids: string[]): Promise<Record<string, Profil>> {
   try {
     const headers: Record<string, string> = {};
     const key = process.env.DASHBOARD_API_KEY || "";
     if (key) headers.Authorization = `Bearer ${key}`;
 
-    const response = await fetch(
+    const antwort = await fetch(
       `${API_BASE_URL}/bot/profiles?ids=${ids.join(",")}`,
-      { headers, cache: "no-store", signal: AbortSignal.timeout(4000) }
+      { headers, cache: "no-store", signal: AbortSignal.timeout(4000) },
     );
-    if (!response.ok) return {};
-    const data = await response.json();
-    return data?.profiles || {};
+    if (!antwort.ok) return {};
+    const daten = await antwort.json();
+    return daten?.profiles || {};
   } catch {
     return {};
   }
 }
 
-function loadTeam(): Member[] {
-  const raw = process.env.NEXT_PUBLIC_TEAM_JSON;
-  if (!raw) return DEFAULT_TEAM;
+function ladeTeam(): Mitglied[] {
+  const roh = process.env.NEXT_PUBLIC_TEAM_JSON;
+  if (!roh) return DEFAULT_TEAM;
   try {
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) && parsed.length ? parsed : DEFAULT_TEAM;
+    const gelesen = JSON.parse(roh);
+    return Array.isArray(gelesen) && gelesen.length ? gelesen : DEFAULT_TEAM;
   } catch {
-    // A malformed variable should not take the page down.
+    // Eine kaputte Variable darf die Seite nicht mitnehmen.
     return DEFAULT_TEAM;
   }
 }
 
-function initials(name: string) {
-  return name
-    .split(/[\s_-]+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join("");
-}
-
 export default async function TeamPage() {
-  const team = loadTeam();
-  const profiles = await loadProfiles(
-    team.map((member) => member.id).filter(Boolean)
+  const team = ladeTeam();
+  const profile = await ladeProfile(
+    team.map((person) => person.id).filter(Boolean),
   );
+
+  // Die Live-Daten werden hier angehängt, nicht in der Komponente:
+  // die Karten sollen in der ersten Auslieferung schon fertig sein.
+  const mitgliederMitProfil: Mitglied[] = team.map((person) => ({
+    ...person,
+    liveName: profile[person.id]?.name ?? null,
+    avatar: profile[person.id]?.avatar ?? null,
+  }));
 
   return (
     <LegalPage
       title="Team"
-      subtitle="Die Menschen, die den Bot bauen und betreiben."
+      subtitle="Die Menschen, die den Bot bauen und betreiben — und die Rollen, für die wir Verstärkung suchen."
       icon={Users}
     >
-      <div className="grid gap-4 sm:grid-cols-2">
-        {team.map((member) => {
-          const profile = profiles[member.id];
-          const name = profile?.name || member.name;
-          const avatar = profile?.avatar;
+      <Section title="Wer dahintersteckt">
+        <TeamMitglieder mitglieder={mitgliederMitProfil} />
+      </Section>
 
-          return (
-            <div
-              key={member.id || member.name}
-              className="bg-white/[0.02] border border-white/[0.05] rounded-3xl p-7 hover:border-blue-500/25 transition-colors"
-            >
-              <div className="flex items-start gap-4">
-                {avatar ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={avatar}
-                    alt={`Profilbild von ${name}`}
-                    width={56}
-                    height={56}
-                    className="h-14 w-14 rounded-2xl border border-white/10 object-cover shrink-0"
-                  />
-                ) : (
-                  // Initials, not a broken image: the bot may be
-                  // restarting, and that should not leave a grey box.
-                  <div className="h-14 w-14 rounded-2xl bg-blue-500/15 border border-blue-500/25 flex items-center justify-center text-blue-300 font-black text-lg shrink-0">
-                    {initials(name)}
-                  </div>
-                )}
-                <div className="min-w-0">
-                  <h3 className="font-bold text-white text-lg truncate">
-                    {name}
-                  </h3>
-                  <p className="text-[11px] font-black uppercase tracking-widest text-blue-400 mt-0.5">
-                    {member.role}
-                  </p>
-                </div>
-              </div>
-
-              {member.description && (
-                <p className="text-slate-400 text-sm leading-relaxed mt-5">
-                  {member.description}
-                </p>
-              )}
-
-              <div className="flex items-center gap-3 mt-5 pt-5 border-t border-white/[0.05]">
-                <span
-                  className="flex items-center gap-1.5 text-slate-500 text-xs"
-                  title="Discord-ID"
-                >
-                  <MessageCircle className="h-4 w-4" />
-                  <span className="font-mono">{member.id}</span>
-                </span>
-                {member.website && (
-                  <a
-                    href={member.website}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-slate-500 hover:text-blue-400 transition-colors ml-auto"
-                    aria-label={`Website von ${name}`}
-                  >
-                    <Globe className="h-4 w-4" />
-                  </a>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
+      <Section title="Mitmachen">
+        <p>
+          Das Team ist klein, und deshalb suchen wir Leute. Vorkenntnisse
+          in Programmierung braucht keine der Rollen — Zeit und
+          Verlässlichkeit schon. Die Bewerbung läuft über ein kurzes
+          Formular; du brauchst dafür nur deinen Discord-Login.
+        </p>
+        <TeamRollen />
+      </Section>
 
       <Section title="Kontakt">
         <p>
           Fehler gefunden, Frage oder ein Vorschlag? Am schnellsten geht es
-          über den Support-Server — dort sind wir beide erreichbar.
+          über den Support-Server — dort sind wir beide erreichbar. Für
+          etwas Persönliches kannst du auch direkt schreiben; die
+          Discord-IDs stehen oben auf den Karten zum Kopieren.
         </p>
         <p className="pt-2">
           <a
-            href={SUPPORT}
+            href={SUPPORT_INVITE}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-blue-400 hover:underline"
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-800 bg-[#131318] px-4 py-2.5 text-[14px] font-semibold text-slate-300 transition-colors hover:border-slate-700 hover:text-white"
           >
+            <MessageSquare className="h-4 w-4 text-indigo-400" />
             Support-Server beitreten
           </a>
         </p>

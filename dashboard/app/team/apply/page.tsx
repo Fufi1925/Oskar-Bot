@@ -125,6 +125,8 @@ function ApplyInner() {
   const felder = React.useRef<Array<HTMLTextAreaElement | null>>([]);
   const angemeldet = Boolean(session?.user?.id);
   const min = grenzen.min_answer ?? 10;
+  /** Wie viele Rollen wirklich offen sind — gezaehlt, nicht behauptet. */
+  const offeneRollen = rollen.filter((r) => r.open).length;
 
   React.useEffect(() => {
     api
@@ -280,9 +282,19 @@ function ApplyInner() {
         <h1 className="mt-6 text-[36px] sm:text-[42px] font-extrabold tracking-tight text-white">
           Team beitreten
         </h1>
+        {/* Die Anzahl wird gezaehlt, nicht behauptet. Hier stand fest
+            „Vier Rollen" -- eine Zahl, die falsch wird, sobald das Team
+            im Admin-Bereich eine Rolle schliesst. Solange die Liste
+            noch laedt, steht die Zahl gar nicht da: eine kurz
+            aufblitzende Null waere schlimmer als eine Luecke. */}
         <p className="mt-3 max-w-2xl text-[16px] leading-relaxed text-slate-400">
-          Vier Rollen, je eigene Fragen. Lass dir Zeit — dein Entwurf
-          bleibt erhalten, auch wenn du die Seite schließt.
+          {laden
+            ? "Je Rolle eigene Fragen."
+            : offeneRollen === 1
+              ? "Eine offene Rolle mit eigenen Fragen."
+              : `${offeneRollen} offene Rollen, je eigene Fragen.`}{" "}
+          Lass dir Zeit — dein Entwurf bleibt erhalten, auch wenn du die
+          Seite schließt.
         </p>
 
         {/* ── Nicht angemeldet ──────────────────────────── */}
@@ -299,13 +311,26 @@ function ApplyInner() {
               nur so wissen wir, wem wir die Rolle geben. Es gilt eine
               Bewerbung pro Person.
             </p>
-            <button
-              type="button"
-              onClick={() => signIn("discord", { callbackUrl: "/team/apply" })}
-              className="mt-6 rounded-xl bg-[#5865f2] px-7 py-3.5 text-[15px] font-semibold text-white transition-colors hover:bg-[#4752c4]"
-            >
-              Mit Discord anmelden
-            </button>
+            <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
+              <button
+                type="button"
+                onClick={() => signIn("discord", { callbackUrl: "/team/apply" })}
+                className="rounded-xl bg-[#5865f2] px-7 py-3.5 text-[15px] font-semibold text-white transition-colors hover:bg-[#4752c4]"
+              >
+                Mit Discord anmelden
+              </button>
+              {/* Ein Ausweg, der vorher fehlte. Wer hier ohne Konto
+                  landete, sah eine Seite, die „Rollen" verspricht und
+                  keine einzige zeigt -- und die einzige Antwort darauf
+                  war „melde dich an, dann erfaehrst du wofuer". Die
+                  Uebersicht auf /team braucht keinen Login. */}
+              <Link
+                href="/team"
+                className="rounded-xl border border-slate-800 bg-[#0e0e12] px-6 py-3.5 text-[15px] font-semibold text-slate-300 transition-colors hover:border-slate-700 hover:text-white"
+              >
+                Erst die Rollen ansehen
+              </Link>
+            </div>
           </div>
         )}
 
