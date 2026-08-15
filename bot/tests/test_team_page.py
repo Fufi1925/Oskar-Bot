@@ -172,6 +172,12 @@ def test_team_members():
     # none. A broken image on a public page looks worse than initials.
     check("real avatars are rendered when available",
           "profile?.avatar" in team and "<img" in team, "")
+    # Und die Bedingung muss den Avatar wirklich abfragen. `{false ? (`
+    # laesst beide Woerter stehen und zeigt trotzdem nie ein Bild --
+    # genau daran ist diese Pruefung im Mutationstest vorbeigelaufen.
+    check("and the condition really tests the avatar",
+          re.search(r"\{\s*avatar\s*\?\s*\(", strip_comments(team)) is not None,
+          "`{false ? (` keeps both words and never shows a picture")
     check("with initials as the fallback",
           "initials(name)" in team,
           "the bot may be restarting; that must not leave a grey box")
@@ -191,8 +197,13 @@ def test_team_members():
           "an unbounded fetch to a bot that is starting up blocks the "
           "whole render")
 
+    # Nicht "kommt das Wort SUPPORT vor": die Konstante bleibt bei
+    # href="#" stehen, und der Test blieb gruen, obwohl der Link ins
+    # Leere zeigte. Geprueft wird das href.
     check("the support server is still linked",
-          "SUPPORT" in team and "discord" in team.lower(), "")
+          re.search(r"href=\{SUPPORT\}", strip_comments(team)) is not None,
+          "the constant survives an href=\"#\"; only the href says "
+          "where the link goes")
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -319,10 +330,166 @@ async def test_profiles_endpoint():
           len(fake.fetched) == before, "")
 
 
+# ══════════════════════════════════════════════════════════════════════
+#  Der Weg ins Team führt über diese Seite
+# ══════════════════════════════════════════════════════════════════════
+
+
+def test_mitmachen():
+    """
+    Die Team-Seite muss ins Team führen.
+
+    Vorher tat sie das nicht: `grep -c "team/apply"` ergab **0**. Wer
+    mitmachen wollte, musste in der Navigationsleiste ein Aufklappmenü
+    finden -- ausgerechnet auf der Seite, auf der jemand landet, der
+    überlegt dazuzugehören.
+
+    Die Rollen kommen dabei vom Bot und nicht aus dieser Datei. Eine
+    zweite gepflegte Liste hieße: eine geschlossene Rolle steht auf der
+    Website weiter offen, und wer klickt, bekommt vom Bot eine Absage,
+    ohne zu erfahren warum.
+    """
+    print("\nDer Weg ins Team")
+
+    team = read(DASHBOARD, "app/team/page.tsx")
+    body = strip_comments(team)
+
+    check("die Seite verlinkt die Bewerbung",
+          "/team/apply" in body,
+          "vorher kam man von hier gar nicht ins Team")
+    check("es gibt einen Abschnitt dafür",
+          "Mitmachen" in body, "")
+
+    # Die Rollen müssen vom Bot kommen.
+    check("die offenen Rollen werden beim Bot geholt",
+          "/webapply/roles" in body,
+          "eine zweite Liste hier liefe der des Bots davon")
+    check("und die Liste stammt aus der Antwort",
+          re.search(r"offen\s*=\s*rollen\.filter", body) is not None,
+          "sonst steht hier eine erfundene Auswahl")
+
+    # Nur die offenen. Eine geschlossene Rolle zu verlinken führt zu
+    # einem Fragebogen, den der Bot ablehnt.
+    check("geschlossene Rollen werden ausgefiltert",
+          re.search(r"filter\(\s*\(\s*rolle\s*\)\s*=>\s*rolle\.open\s*\)", body)
+          is not None,
+          "sonst bewirbt sich jemand auf etwas, das zu ist")
+
+    # Der Link muss den Schlüssel der Rolle tragen, sonst landet man
+    # auf einer leeren Auswahl.
+    check("der Link trägt den Schlüssel der Rolle",
+          "/team/apply?rolle=${rolle.key}" in body,
+          "ohne ihn öffnet sich die Bewerbung ohne Vorauswahl")
+
+    # Kein Rückfall auf eine fest verdrahtete Liste: lieber nichts
+    # zeigen als vier Rollen behaupten, die vielleicht zu sind.
+    #
+    # Nicht »kommt `return [];` irgendwo vor«: dieselbe Zeile steht
+    # auch im `!response.ok`-Zweig, und damit blieb die Prüfung grün,
+    # obwohl der catch-Block eine erfundene Rolle zurückgab. Geprüft
+    # wird deshalb der catch-Block von `loadRollen` selbst.
+    laden = re.search(
+        r"async function loadRollen\(\)[\s\S]*?\n\}", body
+    )
+    check("die Rollen-Funktion ist gefunden", laden is not None)
+    if laden:
+        fang = re.search(r"\}\s*catch\s*\{(.*?)\n  \}", laden.group(0), re.S)
+        check("sie fängt Fehler ab", fang is not None)
+        if fang:
+            check("bei einem Ausfall gibt es keine erfundenen Rollen",
+                  fang.group(1).strip() == "return [];",
+                  f"gibt {fang.group(1).strip()[:70]!r} zurück -- ein "
+                  "Rückfall auf eine feste Liste wäre eine Behauptung")
+    check("und der Abschnitt fällt dann ganz weg",
+          re.search(r"\{offen\.length > 0 &&", body) is not None,
+          "ein leerer Kasten »Mitmachen« ohne Rollen ist schlimmer als "
+          "keiner")
+
+    # Auch dieser Aufruf darf die Seite nicht hängen lassen.
+    check("der Rollen-Abruf hat eine Zeitgrenze",
+          body.count("AbortSignal.timeout") >= 2,
+          "zwei Abrufe, zwei Grenzen -- ein unbegrenzter blockiert den "
+          "ganzen Render")
+
+    # Und der Hinweis, dass es ohne Anmeldung nicht geht.
+    check("die Anmeldepflicht wird genannt",
+          "angemeldet" in body.lower(),
+          "sonst klickt jemand und steht vor einer Anmeldemaske")
+
+
+def test_kein_alter_glasstil():
+    """
+    Die Seite sah aus wie von einer anderen Website.
+
+    `bg-white/[0.02]` mit `border-white/[0.05]` ist der alte Glas-Stil.
+    Der Rest der öffentlichen Seiten benutzt `#0f0f13` mit
+    `border-slate-800`.
+    """
+    print("\nDer Stil passt zum Rest")
+
+    body = strip_comments(read(DASHBOARD, "app/team/page.tsx"))
+
+    check("kein Glas-Stil mehr", "bg-white/[0.02]" not in body, "")
+    check("und kein weißer Rand", "border-white/[0.05]" not in body, "")
+    check("die Karten tragen den Ton der übrigen Seiten",
+          "bg-[#0f0f13]" in body and "border-slate-800" in body, "")
+
+    # Das gemeinsame <Section> trägt den alten Stil noch und hängt an
+    # vier weiteren Seiten. Diese Seite bringt deshalb einen eigenen
+    # Abschnitt mit, statt vier fremde Seiten mitzuändern.
+    check("die Seite benutzt einen eigenen Abschnitt",
+          "function Block(" in body,
+          "das gemeinsame <Section> hängt an Impressum, Datenschutz, "
+          "Status und AGB")
+
+
+def test_id_ist_ein_link():
+    """
+    Unter jedem Namen stand eine 19-stellige Zahl.
+
+    Für einen Besucher ohne Bedeutung und nicht anklickbar. Dasselbe
+    Datum als Link auf das Discord-Profil ist benutzbar -- und die Zahl
+    selbst bleibt im Tooltip erhalten.
+    """
+    print("\nDie Discord-ID")
+
+    body = strip_comments(read(DASHBOARD, "app/team/page.tsx"))
+
+    check("die ID ist ein Link aufs Profil",
+          "https://discord.com/users/${member.id}" in body, "")
+    # Den Rumpf des Links isolieren. "Discord-Profil" steht auch im
+    # title-Attribut -- damit blieb die Pruefung gruen, obwohl die
+    # sichtbare Beschriftung wieder auf {member.id} stand. Die Wirkung
+    # zaehlt, nicht das Vorkommen des Wortes.
+    link = re.search(
+        r"href=\{`https://discord\.com/users/\$\{member\.id\}`\}(.*?)</a>",
+        body, re.S,
+    )
+    check("der Profil-Link ist gefunden", link is not None)
+    if link:
+        beschriftung = link.group(1).split(">")[-1].strip()
+        check("der Link heißt nach dem, was er tut",
+              "Discord-Profil" in beschriftung,
+              f"steht auf {beschriftung[:60]!r} -- »1303627964734246944« "
+              "als Beschriftung sagt niemandem etwas")
+
+    # Die Zahl darf nicht mehr als Fließtext gerendert werden. Im
+    # Tooltip ist sie weiterhin da -- deshalb nur die gerenderte Form
+    # prüfen, nicht die bloße Anwesenheit.
+    check("sie steht nicht mehr roh im Text",
+          '<span className="font-mono">{member.id}</span>' not in body,
+          "eine nackte ID im Fließtext ist keine Auskunft")
+    check("aber sie ist nicht verloren -- sie steckt im Tooltip",
+          "ID ${member.id}" in body, "")
+
+
 def main():
     test_no_repository_links()
     test_no_open_source_claims()
     test_team_members()
+    test_mitmachen()
+    test_kein_alter_glasstil()
+    test_id_ist_ein_link()
     asyncio.run(test_profiles_endpoint())
 
     print(f"\n{len(failures)} failures")
