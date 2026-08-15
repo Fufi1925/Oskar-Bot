@@ -19,6 +19,7 @@ import "./globals.css";
 
 import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/components/auth-provider";
+import { CookieHinweis } from "@/components/cookie-hinweis";
 import { LanguageProvider } from "@/lib/i18n/LanguageContext";
 import { BorderGlowProvider } from "@/components/ui/border-glow";
 
@@ -55,6 +56,15 @@ export default function RootLayout({
         <AuthProvider>
           <LanguageProvider>{children}</LanguageProvider>
           <Toaster />
+          {/* Der Cookie-Hinweis. Hier und nicht auf der Startseite:
+              er gilt für jede Seite, und wer über einen Link direkt
+              im Impressum landet, hat ihn sonst nie gesehen.
+
+              INNERHALB von AuthProvider, weil er die Sitzung liest --
+              ist jemand angemeldet, wandert die Discord-ID mit in den
+              Nachweis. Außerhalb wäre useSession() ein Fehler beim
+              Rendern. */}
+          <CookieHinweis />
         </AuthProvider>
         {/* One pointer listener for every card on the page. Mounted here
             rather than per card: 132 listeners and 132 rAF loops for

@@ -1292,6 +1292,32 @@ async function authorize(
     return { ok: true };
   }
 
+  if (scope === "cookies") {
+    // Genau EINE Route ist ohne Anmeldung erreichbar: das Festhalten
+    // der Bestaetigung. Sie muss es sein -- der Hinweis erscheint auf
+    // der oeffentlichen Startseite, lange bevor sich jemand anmeldet.
+    // Wer angemeldet ist, dessen Discord-ID haengt der Handler weiter
+    // unten aus der Sitzung an; aus dem Browser wird sie nie
+    // uebernommen.
+    if (request.method === "POST" && rest[0] === "consent") {
+      return { ok: true };
+    }
+
+    // Alles Uebrige ist die Nachweisliste. Sie nennt Discord-Konten
+    // und Zeitpunkte, also gilt dieselbe Schwelle wie fuer die
+    // Dashboard-Nutzer: team.view zum Lesen, team.assign zum Loeschen.
+    // Ein Loeschen ist hier keine Kleinigkeit -- es entfernt den
+    // Nachweis einer Einwilligung.
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) return { ok: false, response: deny(401, "Not signed in.") };
+    if (isGlobalAdmin(session.user.id)) return { ok: true };
+
+    const required = request.method === "GET" ? "team.view" : "team.assign";
+    if (await hasTeamPermission(session.user.id, required)) return { ok: true };
+
+    return { ok: false, response: deny(403, `This requires the '${required}' permission.`) };
+  }
+
   return { ok: false, response: deny(404, "Unknown API scope.") };
 }
 
@@ -1316,6 +1342,31 @@ async function handler(request: NextRequest, context: { params: { path?: string[
   let body: string | undefined;
   if (!["GET", "HEAD"].includes(request.method)) {
     body = await request.text();
+
+    // ── Ohne Sitzung: die Konto-Felder ausdruecklich leeren ──────────
+    //
+    // Der Block darunter laeuft nur MIT `actorId`. Das reichte, solange
+    // jede schreibende Route eine Anmeldung verlangte. Die
+    // Cookie-Bestaetigung tut das nicht -- sie kommt von der
+    // oeffentlichen Startseite --, und damit rutschte ein aus dem
+    // Browser mitgeschicktes `user_id` unveraendert durch: der
+    // „Nachweis" haette behauptet, ein fremdes Konto habe bestaetigt.
+    //
+    // Nachgemessen mit einer POST-Anfrage ohne Sitzungs-Cookie, bevor
+    // diese Zeilen hier standen.
+    if (body && !actorId) {
+      try {
+        const parsed = JSON.parse(body);
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+          delete parsed.actor;
+          parsed.user_id = "";
+          parsed.user_name = "";
+          body = JSON.stringify(parsed);
+        }
+      } catch {
+        // kein JSON, unveraendert weiterreichen
+      }
+    }
 
     // The `actor` must come from the session, never from the client — a
     // forged actor would bypass the rank check when assigning roles.
@@ -1353,6 +1404,19 @@ async function handler(request: NextRequest, context: { params: { path?: string[
           }
           if (segments[0] === "webapply" && segments[1] === "decide") {
             parsed.actor_name = session?.user?.name ?? "";
+          }
+          // Die Cookie-Bestaetigung. Sie ist der Nachweis nach Art. 7
+          // Abs. 1 DSGVO -- und ein Nachweis, in den der Browser eine
+          // beliebige Discord-ID schreiben darf, belegt nichts.
+          // Deshalb kommen Konto und Name ausschliesslich aus der
+          // Sitzung; ein mitgeschickter Wert wird ueberschrieben.
+          //
+          // Ist niemand angemeldet, stehen hier leere Zeichenketten.
+          // Das ist der Normalfall: der Hinweis erscheint auf der
+          // oeffentlichen Startseite.
+          if (segments[0] === "cookies" && segments[1] === "consent") {
+            parsed.user_id = actorId ?? "";
+            parsed.user_name = session?.user?.name ?? "";
           }
           body = JSON.stringify(parsed);
         }

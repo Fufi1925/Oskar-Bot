@@ -1,6 +1,11 @@
 import React from "react";
 import { ShieldCheck } from "lucide-react";
 import { LegalPage, Section } from "@/components/legal-page";
+// Die Cookie-Liste steht EINMAL, in `lib/cookie-consent.ts`. Stünde sie
+// hier ein zweites Mal, könnte das Hinweisfenster zwei Cookies nennen,
+// während diese Seite drei aufzählt -- und beide Angaben wären belegbar
+// falsch.
+import { COOKIES } from "@/lib/cookie-consent";
 import {
   ADDRESS,
   BRAND,
@@ -161,6 +166,41 @@ export default function PrivacyPage() {
           Anmeldung dient. Beim Abmelden endet die Sitzung; das Cookie
           läuft spätestens nach 30 Tagen ab. Es findet keine Auswertung
           eures Verhaltens statt.
+        </p>
+      </Section>
+
+      <Section title="Cookies">
+        <p>
+          Es werden ausschließlich technisch notwendige Cookies gesetzt —
+          keine Werbe-, Tracking- oder Analyse-Cookies. Für solche Cookies
+          ist nach § 25 Abs. 2 TDDDG keine Einwilligung nötig; der Hinweis
+          beim ersten Besuch ist deshalb eine Information und keine
+          Abfrage. Aus demselben Grund gibt es dort keinen
+          Ablehnen-Knopf: er könnte nichts abschalten, ohne die Anmeldung
+          mit abzuschalten.
+        </p>
+        <ul className="list-disc pl-5 space-y-2 text-slate-400">
+          {COOKIES.map((eintrag) => (
+            <li key={eintrag.name}>
+              <code className="text-slate-300">{eintrag.name}</code> —{" "}
+              {eintrag.zweck} <em>Laufzeit: {eintrag.dauer}.</em>
+            </li>
+          ))}
+        </ul>
+        <p>
+          <strong className="text-slate-300">
+            Warum die Bestätigung gespeichert wird:
+          </strong>{" "}
+          Art. 7 Abs. 1 DSGVO verlangt, dass sich eine Einwilligung
+          nachweisen lässt. Festgehalten werden dafür die vom Browser
+          erzeugte Zufallskennung, der Zeitpunkt, die Fassung des
+          Hinweistextes und die Seite, auf der er stand — sowie eure
+          Discord-ID, falls ihr zu dem Zeitpunkt angemeldet wart.{" "}
+          <strong className="text-slate-300">
+            Keine IP-Adresse, kein Browser-Kennzeichen.
+          </strong>{" "}
+          Nach 400 Tagen wird der Eintrag automatisch gelöscht, auf Anfrage
+          sofort.
         </p>
       </Section>
 

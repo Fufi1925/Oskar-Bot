@@ -160,7 +160,18 @@ const authGate = withAuth(
  * Diese eine Route verraet nichts, was nicht ohnehin auf jeder
  * Bot-Liste steht.
  */
-const OEFFENTLICH = ["/api/bot/bot/numbers"];
+const OEFFENTLICH = [
+  "/api/bot/bot/numbers",
+  // Die Cookie-Bestaetigung. Der Hinweis erscheint auf der
+  // oeffentlichen Startseite, lange bevor sich jemand anmeldet --
+  // stuende diese Route hinter der Anmeldepflicht, bekaeme jeder
+  // Nichtangemeldete eine Weiterleitung zurueck und das Fenster
+  // liesse sich nicht wegklicken.
+  //
+  // Der Proxy laesst hier trotzdem nur POST ohne Anmeldung durch; die
+  // Nachweisliste verlangt weiterhin ein Recht.
+  "/api/bot/cookies/consent",
+];
 
 /** Paths that still need a session once maintenance is off. */
 function needsAuth(pathname: string): boolean {

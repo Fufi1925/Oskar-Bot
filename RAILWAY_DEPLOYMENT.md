@@ -51,6 +51,17 @@ auf `bot/db` hätte die stillschweigend liegen lassen — der Bot wäre
 sauber gestartet und die Reaktions-Rollen wären trotzdem weg gewesen.
 Deshalb liegt alles unter `/data`.
 
+### Was besonders schmerzt, wenn das Volume fehlt
+
+Bei den meisten Datenbanken heißt „weg“ nur: neu einstellen. Bei diesen
+dreien heißt es mehr:
+
+| Datei | Ohne Volume passiert |
+|---|---|
+| `db/premium_trial.db` | Jeder kann sich nach jedem Deploy erneut 7 Tage Premium holen — die Regel „eine Probewoche pro Konto“ ist wirkungslos. |
+| `db/cookie_consent.db` | Der Nachweis nach Art. 7 Abs. 1 DSGVO ist weg. Die Besucher sehen den Hinweis trotzdem nicht wieder (ihr Cookie liegt in ihrem Browser) — es lässt sich dann nur nicht mehr belegen, dass sie ihn gesehen haben. |
+| `db/guild_history.db` | Der Verlauf beginnt bei null; die Diagramme sind nach jedem Deploy leer. |
+
 ### Ein Volume ist kein Backup
 
 Es überlebt Deploys, aber nicht ein gelöschtes Volume und keinen

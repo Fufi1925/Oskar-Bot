@@ -7,7 +7,7 @@ import {
   Hash, Volume2, FolderPlus, Pencil, Trash2, Copy,
   Unlock, Timer, MessageSquareX, Bell, BellOff, SearchCheck, Bot, UserCog, UserSearch,
   Webhook, Link, ScrollText, BarChart4, ClipboardList, Terminal, Gem, Gauge, Bug,
-  AtSign, Sparkles, Inbox
+  AtSign, Sparkles, Inbox, Cookie
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
@@ -40,9 +40,10 @@ import { DashboardUsersPanel } from "@/components/dashboard/dashboard-users-pane
 import { UserLookupPanel } from "@/components/dashboard/user-lookup-panel";
 import { ServersPanel } from "@/components/dashboard/servers-panel";
 import { OverviewCharts } from "@/components/dashboard/overview-charts";
+import { CookieConsentsPanel } from "@/components/dashboard/cookie-consents-panel";
 
 
-type TabId = "members" | "channels" | "server" | "scans" | "broadcast" | "system" | "features" | "health" | "team" | "access" | "reports" | "audit" | "approvals" | "botsettings" | "backups" | "warnings" | "usage" | "dashusers" | "servers" | "premium" | "speedrun" | "tester" | "pingreactions" | "templates" | "userlookup" | "webapply";
+type TabId = "members" | "channels" | "server" | "scans" | "broadcast" | "system" | "features" | "health" | "team" | "access" | "reports" | "audit" | "approvals" | "botsettings" | "backups" | "warnings" | "usage" | "dashusers" | "servers" | "premium" | "speedrun" | "tester" | "pingreactions" | "templates" | "userlookup" | "webapply" | "cookies";
 type MemberAction = "ban" | "kick" | "mute" | "unmute";
 
 type QuickAction = {
@@ -81,6 +82,7 @@ const tabs: Array<{ id: TabId; label: string; icon: any }> = [
   { id: "tester", label: "Tester", icon: Bug },
   { id: "webapply", label: "Bewerbungen", icon: Inbox },
   { id: "templates", label: "Vorlagen", icon: Sparkles },
+  { id: "cookies", label: "Cookie-Hinweis", icon: Cookie },
 ];
 
 /**
@@ -98,7 +100,7 @@ const TAB_GROUPS: Array<{ name: string; ids: TabId[] }> = [
   { name: "Server", ids: ["members", "channels", "server", "scans", "broadcast"] },
   { name: "Betrieb", ids: ["health", "system", "usage", "warnings", "reports", "audit"] },
   { name: "Zugriff", ids: ["team", "webapply", "dashusers", "userlookup", "access", "approvals"] },
-  { name: "Verwaltung", ids: ["features", "botsettings", "backups", "pingreactions", "servers", "premium", "speedrun", "tester", "templates"] },
+  { name: "Verwaltung", ids: ["features", "botsettings", "backups", "pingreactions", "servers", "premium", "speedrun", "tester", "templates", "cookies"] },
 ];
 
 /**
@@ -204,7 +206,7 @@ const FULL_WIDTH_TABS = new Set<TabId>([
   "features", "health", "team", "access",
   "reports", "audit", "approvals", "botsettings", "backups", "warnings", "usage",
   "dashusers", "userlookup", "servers", "premium", "speedrun", "tester", "templates",
-  "webapply",
+  "webapply", "cookies",
 ]);
 
 /** Beschriftung über einem Eingabefeld. */
@@ -406,6 +408,12 @@ export function AdminContent() {
     // Lesen darf jede Team-Rolle; aendern gated der Proxy separat
     // ueber maintenance.toggle.
     pingreactions: "dashboard.access",
+    // Die Cookie-Bestaetigungen. Die Liste nennt Discord-Konten und
+    // Zeitpunkte, also dieselbe Schwelle wie bei den
+    // Dashboard-Nutzern. Genau das prueft auch der Proxy (`scope ===
+    // "cookies"`); stuende hier weniger, waere der Reiter sichtbar
+    // und gaebe beim Klick nur eine Fehlermeldung.
+    cookies: "team.view",
   };
 
   const visibleTabs = useMemo(() => {
@@ -817,6 +825,7 @@ export function AdminContent() {
         </div>
       )}
       {activeTab === "pingreactions" && <PingReactionsPanel />}
+      {activeTab === "cookies" && <CookieConsentsPanel />}
       {activeTab === "templates" && <TemplatesAdmin />}
       {activeTab === "dashusers" && <DashboardUsersPanel currentUserId={(session?.user as any)?.id} />}
       {activeTab === "userlookup" && <UserLookupPanel />}

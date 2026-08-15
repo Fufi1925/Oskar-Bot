@@ -1,6 +1,18 @@
 {
  "commits": [
   {
+   "commit": "e3b76b76c5b0df855d337bed9e9ba8878b80a27d",
+   "at": "1786748158",
+   "subject": "feat(status): die Statusseite komplett neu, live und mit Verlauf",
+   "body": "Vorher holte die Seite den Zustand einmal beim Rendern auf dem Server\nund zeichnete ihn als feste Liste. Zwei Nachteile, und beide fielen\ngenau dann auf, wenn man die Seite braucht:\n\n  * Sie blieb stehen. Wer sie waehrend einer Stoerung offen liess, las\n    eine halbe Stunde spaeter immer noch \"Stoerung\".\n  * Sie zeigte nur den Moment. Keine Antwort auf \"war das nur kurz?\"\n    oder \"wie oft passiert das?\".\n\nNeu\n- Der Browser holt den Zustand alle 30 Sekunden selbst.\n  STATUS_BOT_URL zeigt auf einen Railway-internen Namen, den ein\n  Browser nicht aufloesen kann -- dafuer gibt es jetzt /api/status.\n- Verlauf mit drei Zeitraeumen: 24 Stunden, 7 Tage, 30 Tage. Ein\n  Balken je Abschnitt, dazu die Antwortzeit als Linie.\n- Neuer Endpunkt /history.json am Waechter. Die Daten lagen schon in\n  der Datenbank -- die Website kam nur nicht dran.\n- Verfuegbarkeit, Stoerungen und Befehlsfehler als Zahlen darueber.\n\nDie Regel, die den Aufbau erklaert\nEin grauer Balken ist keine gute Nachricht. \"Nicht gemessen\" heisst:\nder Waechter war selbst aus. Das gruen zu zeichnen waere eine\nBehauptung ohne Messung -- dieselbe Regel wie beim Discord-Panel. Grau\nsteht deshalb in der Legende, und eine Luecke laeuft als null in die\nKurve, nicht als 0 ms.\n\nAntwortet der Waechter gar nicht, steht das da: kein falsches Gruen,\nund die Seite sagt dazu, dass der Waechter selbst das Problem sein\nkann.\n\nZwei Fehler im gerenderten Bild gefunden\n- \"99.62 %\" mit Punkt auf einer deutschen Seite: toFixed liefert immer\n  einen Punkt. Jetzt ueber toLocaleString.\n- Die Achse zeigte \"4.813\" -- der deutsche Tausenderpunkt fuer 4813\n  ms, aber neben \"ms\" leicht als vier Komma acht zu lesen. Die Einheit\n  steht jetzt in der Ueberschrift.\n\nAbgesichert\n- tests/test_status_website.py\n- mutate_status_web.py: 23 von 23 erwischt. Fuenf waren zuerst\n  entwischt, alle nach demselben Muster: geprueft war, ob ein Wort\n  vorkommt, nicht ob es wirkt (setInterval steht auch in der\n  Uhr-Anzeige, abgebrochen.current auch im Aufraeumen).\n- test_status_history.py angepasst: seine Anforderungen gelten\n  weiterhin, nur in anderen Dateien. Dabei eine alte Falle zum\n  vierten Mal getroffen -- diesmal mit neuer Wendung: der Satz war\n  ueber \"...\" + \"...\" getrennt, also muss der Test auch die\n  Verkettung aufloesen.\n- Alle 101 Testdateien gruen, 153 Cogs, tsc und Next-Build ok"
+  },
+  {
+   "commit": "e69fce1f19738a15ae29289d32b89ea3a6639a26",
+   "at": "1786746024",
+   "subject": "Clean up ENV.md by removing extra line",
+   "body": "Removed unnecessary line in ENV.md"
+  },
+  {
    "commit": "48b39071289dd7efb4ba9ece7c7375be548866f6",
    "at": "1786743163",
    "subject": "feat(status): kein doppeltes Panel mehr, plus Partner-Server",
@@ -225,18 +237,6 @@
   {
    "commit": "8af24996658fa74c06037857662090cf28846bf1",
    "at": "1786137036",
-   "subject": "feat(phantom): EXACT full original Aleks ticket bot (5653 lines - every function kept, no removal, no shortening)",
-   "body": ""
-  },
-  {
-   "commit": "6d8f2101bafb50d0fd03c24f0ef17d0915769f74",
-   "at": "1786137027",
-   "subject": "feat(phantom): EXACT full original Aleks ticket bot (5653 lines - every function kept, no removal, no shortening)",
-   "body": ""
-  },
-  {
-   "commit": "cd27e6ac1afc34fcbb7e66076e09492b29f1b8da",
-   "at": "1786137017",
    "subject": "feat(phantom): EXACT full original Aleks ticket bot (5653 lines - every function kept, no removal, no shortening)",
    "body": ""
   }

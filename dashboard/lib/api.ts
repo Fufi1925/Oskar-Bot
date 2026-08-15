@@ -1385,6 +1385,24 @@ export const api = {
       body: JSON.stringify({ enabled }),
     }),
 
+  // ── Cookie-Bestätigungen ─────────────────────────────────────────
+  //
+  // Der Nachweis nach Art. 7 Abs. 1 DSGVO. Das Festhalten selbst
+  // steht bewusst NICHT hier: es passiert im Hinweisfenster mit einem
+  // eigenen `fetch`, weil es `keepalive` braucht -- wer sofort
+  // weiterklickt, bräche die Anfrage sonst selbst ab.
+  cookieConsents: (limit = 300, nurKonto = false) =>
+    request<any>(`/cookies/consents?limit=${limit}&nur_konto=${nurKonto}`),
+  cookieConsentStats: (tage = 30) =>
+    request<any>(`/cookies/consents/stats?tage=${tage}`),
+  cookieConsentDelete: (besucherId: string) =>
+    request<any>(`/cookies/consents/${besucherId}`, { method: "DELETE" }),
+  cookieConsentDeleteUser: (userId: string) =>
+    request<any>(`/cookies/consents/user`, {
+      method: "POST",
+      body: JSON.stringify({ user_id: userId }),
+    }),
+
   // ── Support-Warteraum ────────────────────────────────────────────
   supportQueue: (guildId: string) =>
     request<any>(`/supportqueue/${guildId}`),

@@ -8,7 +8,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from starlette.responses import Response
 from utils.config import *
-from api.routes import bot, guilds, admin, team, moderation, actions, access, servers, servertools, tickets, giveaways, leveling, vanity, broadcast, anonchat, diagnose, compose, nukealert, memberperks, extras, voice, verify, automod, logging_cfg, antinuke, pingreactions, premium, speedrun, supportqueue, tester, music, templates, teamlist, applications, teamupdate, webapply, commands as commands_route
+from api.routes import bot, guilds, admin, team, moderation, actions, access, servers, servertools, tickets, giveaways, leveling, vanity, broadcast, anonchat, diagnose, compose, nukealert, memberperks, extras, voice, verify, automod, logging_cfg, antinuke, pingreactions, premium, cookies, speedrun, supportqueue, tester, music, templates, teamlist, applications, teamupdate, webapply, commands as commands_route
 from api.dependencies import verify_api_key, limiter, get_bot_loop
 from api.db_manager import db_manager
 from api.schema_guard import ensure_schema
@@ -364,6 +364,14 @@ def create_app() -> FastAPI:
     # Rollen mit der passenden Berechtigung.
     api_app.include_router(
         pingreactions.router, prefix="/admin/ping-reactions", tags=["Admin"]
+    )
+    # Die Cookie-Bestaetigungen. Bewusst NICHT unter /admin: dort laesst
+    # der Dashboard-Proxy nur Angemeldete durch, und `POST /consent`
+    # kommt von der oeffentlichen Startseite -- lange bevor sich jemand
+    # anmeldet. Das eigene Praefix hat im Proxy eine eigene Regel: die
+    # eine schreibende Route ist offen, jedes Lesen verlangt ein Recht.
+    api_app.include_router(
+        cookies.router, prefix="/cookies", tags=["Cookies"]
     )
 
     @api_app.get("/health")
