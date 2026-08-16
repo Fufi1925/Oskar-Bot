@@ -377,9 +377,20 @@ def test_kein_layoutbruch_auf_dem_telefon():
     check("der Hero schneidet den Schein ab", "overflow-x-clip" in seite)
     check("die Rechtstexte auch", "overflow-x-clip" in legal)
 
-    # Ein flex-1 ohne min-w-0 schrumpft nie unter seinen Inhalt.
+    # Die Doku-Spalte darf schrumpfen.
+    #
+    # Frueher war die Seite eine Flexbox, und ein `flex-1` ohne
+    # `min-w-0` schrumpft nie unter seinen Inhalt -- der Text ragte
+    # 191px heraus. Die Seite ist inzwischen ein Grid; dort entsteht
+    # dasselbe Problem, wenn die Inhaltsspalte kein `min-w-0`
+    # bekommt.
+    #
+    # Geprueft wird deshalb weiter auf `min-w-0`, aber ohne die
+    # Flexbox vorauszusetzen. Nachgemessen bei 320, 360 und 390px:
+    # kein seitliches Scrollen, auch nicht im Abschnitt mit dem
+    # laengsten Text.
     check("die Doku-Spalte darf schrumpfen",
-          "flex-1 min-w-0" in docs,
+          "min-w-0" in docs,
           "ohne min-w-0 ragte der Text 191px heraus -- gemessen")
 
     # Die Innenabstaende muessen mitwachsen -- und zwar in JEDEM
