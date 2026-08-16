@@ -98,29 +98,34 @@ export default async function GuildsPage() {
   const error = botError || userDiscordError;
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+    <div className="space-y-6">
+      <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-end">
         <div>
-          <h1 className="text-3xl font-bold text-white">Deine Server</h1>
-          <p className="text-slate-400 mt-2">
-            Wähle einen Server um Einstellungen und Module zu verwalten.
+          <h1 className="text-2xl font-bold text-white">Deine Server</h1>
+          <p className="mt-1.5 text-[14px] text-slate-400">
+            {connected.length > 0
+              ? "Wähle einen Server, um seine Einstellungen zu verwalten."
+              : "Füge den Bot auf einem Server hinzu, um loszulegen."}
           </p>
         </div>
         <LanguageSwitcher />
       </div>
 
       {error && !userGuilds.length && (
-        <div className="bg-blue-500/10 border border-blue-500/20 p-8 rounded-2xl text-center">
-          <ShieldCheck className="h-12 w-12 text-blue-500 mx-auto mb-4 opacity-50" />
-          <h3 className="text-white font-bold text-lg">Verbindungsfehler</h3>
-          <p className="text-slate-400 mt-2">{error}</p>
+        <div className="rounded-2xl border border-slate-800 bg-[#131318] px-6 py-10 text-center">
+          <ShieldCheck className="mx-auto mb-3 h-7 w-7 text-slate-700" />
+          <h3 className="text-[15px] font-bold text-white">Verbindungsfehler</h3>
+          <p className="mx-auto mt-1.5 max-w-md text-[13px] leading-relaxed text-slate-500">
+            {error}
+          </p>
         </div>
       )}
 
       {botError && userGuilds.length > 0 && (
-        <div className="bg-amber-500/10 border border-amber-500/25 p-4 rounded-2xl text-sm text-amber-200/90">
-          Der Bot ist gerade nicht erreichbar — Mitgliederzahlen und der
-          Verbunden-Status können unvollständig sein.
+        <div className="rounded-2xl border border-amber-500/25 bg-amber-500/10 px-4 py-3 text-[13px] leading-relaxed text-amber-200/90">
+          Der Bot ist gerade nicht erreichbar. Welche Server verbunden sind,
+          lässt sich deshalb nicht sicher sagen — die Mitgliederzahlen unten
+          sind Schätzungen von Discord.
         </div>
       )}
 
@@ -133,21 +138,27 @@ export default async function GuildsPage() {
       )}
 
       {!error && adminUserGuilds.length === 0 && userGuilds.length > 0 && (
-        <div className="bg-slate-800/30 border border-slate-800 border-dashed p-16 rounded-3xl text-center">
-          <ShieldCheck className="h-16 w-16 text-slate-600 mx-auto mb-6 opacity-50" />
-          <h3 className="text-white font-bold text-xl">Keine Admin-Rechte</h3>
-          <p className="text-slate-400 mt-2">
-            Du hast auf keinem Server Administrator- oder Server-verwalten Rechte.
+        <div className="rounded-2xl border border-slate-800 bg-[#131318] px-6 py-12 text-center">
+          <ShieldCheck className="mx-auto mb-3 h-7 w-7 text-slate-700" />
+          <h3 className="text-[15px] font-bold text-white">
+            Kein Server zum Verwalten
+          </h3>
+          <p className="mx-auto mt-1.5 max-w-md text-[13px] leading-relaxed text-slate-500">
+            Hier erscheinen nur Server, auf denen du „Server verwalten“ oder
+            Administrator bist. Auf deinen Servern hast du diese Rechte
+            gerade nicht.
           </p>
         </div>
       )}
 
       {!error && userGuilds.length === 0 && (
-        <div className="bg-slate-800/30 border border-slate-800 border-dashed p-16 rounded-3xl text-center">
-          <Users className="h-16 w-16 text-slate-600 mx-auto mb-6 opacity-50" />
-          <h3 className="text-white font-bold text-xl">Keine Server gefunden</h3>
-          <p className="text-slate-400 mt-2">
-            Du bist auf keinem Discord-Server Mitglied.
+        <div className="rounded-2xl border border-slate-800 bg-[#131318] px-6 py-12 text-center">
+          <Users className="mx-auto mb-3 h-7 w-7 text-slate-700" />
+          <h3 className="text-[15px] font-bold text-white">
+            Keine Server gefunden
+          </h3>
+          <p className="mx-auto mt-1.5 max-w-md text-[13px] leading-relaxed text-slate-500">
+            Discord meldet keinen einzigen Server für dein Konto.
           </p>
         </div>
       )}

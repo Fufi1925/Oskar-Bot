@@ -1,6 +1,12 @@
 {
  "commits": [
   {
+   "commit": "1b01736c5236c95b20010fbf1083513bda9301bf",
+   "at": "1786829630",
+   "subject": "fix(web): der Rollen-Aushang lag hinter der Anmeldepflicht (HTTP 307)",
+   "body": "Beim Bauen der Team-Seite aufgefallen, dann nachgemessen. curl ohne\nSitzungs-Cookie gegen den bisherigen Stand:\n\n    /api/bot/webapply/roles -> HTTP 307\n    location: /?callbackUrl=%2Fapi%2Fbot%2Fwebapply%2Froles\n\nIm Proxy galt `roles` zwar als \"eigene\" Route -- aber die\nAnmeldepruefung stand eine Zeile darueber, der Zweig kam also nie an.\nGemerkt hat das niemand, weil eine fehlgeschlagene Abfrage und eine\nleere Liste gleich aussehen: die Team-Seite haette dauerhaft \"gerade\nnichts frei\" gezeigt.\n\nBehoben an beiden Stellen: die Middleware laesst die Route durch, und\nim Proxy steht die Ausnahme jetzt VOR der Anmeldepruefung. Eng\ngehalten und nachgemessen:\n\n    GET  /webapply/roles  -> 200\n    POST /webapply/submit -> 307   (Abgeben braucht eine Sitzung)\n    GET  /webapply/list   -> 307   (die Admin-Liste erst recht)\n\nEhrliche Einordnung: den Fehler habe ich beim ersten Bauen der\nTeam-Seite uebersehen. Aufgefallen ist er in einer parallel\nentstandenen Fassung derselben Seite (35e160b), die auf main lag --\nmein serverseitiges Laden der Rollen hatte ihn sogar verdeckt, weil\nder Server die Middleware umgeht und ein echter Besucher trotzdem\nnichts gesehen haette. Der Fix ist von dort uebernommen; ihn\nwegzuwerfen, weil er von woanders kommt, waere falsch.\n\nGeprueft: test_team_page.py um die Pruefung erweitert -- inklusive\n\"die Ausnahme steht VOR der Anmeldepruefung\", denn genau daran ist die\nalte Fassung gescheitert. Mutationstest 25/25, alle 102 Testdateien\ngruen, tsc und next build sauber."
+  },
+  {
    "commit": "e8ea29fd268c1a92210e63aac31bbe42beadd824",
    "at": "1786828483",
    "subject": "feat(web): Team-Seite neu -- man kommt von dort jetzt auch ins Team",
@@ -231,12 +237,6 @@
   {
    "commit": "bb1973ee39257d192de965275986d8d2fc731ac3",
    "at": "1786137109",
-   "subject": "feat(phantom): EXACT full original Aleks ticket bot (5653 lines - every function kept, no removal, no shortening)",
-   "body": ""
-  },
-  {
-   "commit": "a6a9bfdeec34e9150d1ac455acba768d1968eb0f",
-   "at": "1786137055",
    "subject": "feat(phantom): EXACT full original Aleks ticket bot (5653 lines - every function kept, no removal, no shortening)",
    "body": ""
   }
