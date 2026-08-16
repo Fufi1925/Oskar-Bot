@@ -56,8 +56,6 @@ import { cn } from "@/lib/utils";
 
 const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || "University Bot";
 
-const CARD =
-  "rounded-2xl border border-slate-800 bg-[#0f0f13] p-5 transition-colors hover:border-slate-700";
 
 /**
  * Die Karten im Hero, die von selbst weiterblättern.
@@ -71,105 +69,66 @@ const HERO_KARTEN = [
     icon: Lock,
     titel: "Verifizierungs-System",
     text: "Halte Raids fern mit Panel, Captcha und harten Admin-Kontrollen wie Reset und Force-Verify.",
-    zahl: "24/7",
-    label: "Sicherheit",
-    ton: "from-pink-500 to-rose-600",
   },
   {
     icon: UserCog,
     titel: "Team-Update",
     text: "Befördern, zurückstufen, verwarnen — Rollen umstecken und ankündigen in einem Zug, mit Unterschriften.",
-    zahl: "5",
-    label: "Befehle",
-    ton: "from-indigo-500 to-violet-600",
   },
   {
     icon: Ticket,
     titel: "Ticket-System",
     text: "Kategorien, Rechte, DM-Benachrichtigungen und Transkripte — vollständig im Dashboard eingerichtet.",
-    zahl: "∞",
-    label: "Tickets",
-    ton: "from-sky-500 to-blue-600",
   },
   {
     icon: ShieldAlert,
     titel: "Anti-Nuke",
     text: "Massenlöschungen, Massenbann und feindliche Bots werden gestoppt, bevor Schaden entsteht.",
-    zahl: "12",
-    label: "Wächter",
-    ton: "from-red-500 to-rose-700",
   },
   {
     icon: ClipboardList,
     titel: "Bewerbungen",
     text: "Fragen per Direktnachricht, Entscheidung per Knopf, Rollen automatisch — bis zu fünf auf einmal.",
-    zahl: "8",
-    label: "Kategorien",
-    ton: "from-amber-500 to-orange-600",
   },
   {
     icon: BarChart4,
     titel: "Level-System",
     text: "XP, Ränge und Belohnungen mit eigenem Rangbild — Aktivität sichtbar machen statt behaupten.",
-    zahl: "100+",
-    label: "Level",
-    ton: "from-emerald-500 to-teal-600",
   },
   {
     icon: Music,
     titel: "Musik",
     text: "Wiedergabe, Playlists und Dauerbetrieb im Sprachkanal — auch nach einem Neustart.",
-    zahl: "24/7",
-    label: "Betrieb",
-    ton: "from-fuchsia-500 to-purple-600",
   },
   {
     icon: ShieldCheck,
     titel: "AutoMod",
     text: "Filter, Strafen und Ausnahmen — greift, bevor jemand aus dem Team überhaupt online ist.",
-    zahl: "9",
-    label: "Filter",
-    ton: "from-cyan-500 to-sky-600",
   },
   {
     icon: Sparkles,
     titel: "Server-Vorlagen",
     text: "Struktur als Vorlage sichern und auf dem nächsten Server in Minuten anwenden.",
-    zahl: "1-Klick",
-    label: "Aufbau",
-    ton: "from-violet-500 to-indigo-600",
   },
   {
     icon: Mic,
     titel: "Join to Create",
     text: "Temporäre Sprachkanäle, die sich selbst aufräumen, wenn der Letzte gegangen ist.",
-    zahl: "Auto",
-    label: "Kanäle",
-    ton: "from-blue-500 to-indigo-600",
   },
   {
     icon: Gift,
     titel: "Gewinnspiele",
     text: "Teilnahme per Knopf, Bedingungen nach Rolle oder Level, Auslosung durch den Bot.",
-    zahl: "∞",
-    label: "Preise",
-    ton: "from-rose-500 to-pink-600",
   },
   {
     icon: Users,
     titel: "Teamliste",
     text: "Wer im Team ist, nach Rollen geordnet — hält sich selbst aktuell, ohne dass jemand nachträgt.",
-    zahl: "Live",
-    label: "Übersicht",
-    ton: "from-teal-500 to-emerald-600",
   },
   {
     icon: Brain,
     titel: "KI-Funktionen",
     text: "Antworten, Zusammenfassungen und Übersetzungen direkt im Chat deines Servers.",
-    zahl: "Neu",
-    label: "KI",
-    ton: "from-purple-500 to-fuchsia-600",
   },
 ];
 
@@ -197,23 +156,6 @@ const FUNKTIONEN = [
   { icon: Mail, titel: "Willkommen", text: "Willkommensnachrichten, Bilder und Abschied für neue Mitglieder." },
 ];
 
-const STIMMEN = [
-  {
-    kuerzel: "FU",
-    name: "Fufi",
-    text: "Das Dashboard nimmt mir die halbe Arbeit ab. Einmal einrichten, danach läuft es — und ich sehe sofort, was der Bot gerade tut.",
-  },
-  {
-    kuerzel: "VX",
-    name: "Vexo",
-    text: "Tickets, Bewerbungen und das Team-Update greifen ineinander. Wer angenommen wird, ist zwei Klicks später wirklich im Team.",
-  },
-  {
-    kuerzel: "UN",
-    name: "Uni-Server",
-    text: "Anti-Nuke und Verifizierung liefen vom ersten Tag an ohne Nacharbeit. Genau das wollten wir.",
-  },
-];
 
 const FAQ = [
   {
@@ -278,7 +220,6 @@ function FaqZeile({ frage, antwort }: { frage: string; antwort: string }) {
 
 export default function LandingPage() {
   const [karte, setKarte] = React.useState(0);
-  const [stimme, setStimme] = React.useState(0);
   const [zahlen, setZahlen] = React.useState<any>(null);
 
   // Die Karten im Hero weiterblättern. Fünf Sekunden: lang genug, um
@@ -286,11 +227,6 @@ export default function LandingPage() {
   // noch sieht, bevor man weiterscrollt.
   React.useEffect(() => {
     const t = setInterval(() => setKarte((k) => (k + 1) % HERO_KARTEN.length), 4500);
-    return () => clearInterval(t);
-  }, []);
-
-  React.useEffect(() => {
-    const t = setInterval(() => setStimme((s) => (s + 1) % STIMMEN.length), 6000);
     return () => clearInterval(t);
   }, []);
 
@@ -337,108 +273,118 @@ export default function LandingPage() {
         <div className="relative mx-auto max-w-[1400px] px-6 lg:px-12 xl:px-20 py-20 lg:py-28">
           <div className="grid lg:grid-cols-2 gap-14 items-center">
             <div>
-              <div className="flex flex-wrap items-center gap-3 mb-9">
-                <span className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-4 py-1.5 text-[13px] text-emerald-400">
+              {/* EIN Abzeichen, nicht zwei.
+                  Vorher standen „Aktiv auf Discord" und „Der
+                  Allrounder-Bot" nebeneinander. Das zweite ist eine
+                  Selbstbeschreibung ohne Inhalt -- „Allrounder" sagt
+                  nichts, was der Absatz darunter nicht besser sagt.
+                  Das erste nennt eine Zahl, sobald der Bot sie
+                  liefert. */}
+              <div className="mb-8">
+                <span className="inline-flex items-center gap-2 rounded-full border border-slate-800 bg-[#131318] px-3.5 py-1.5 text-[13px] text-slate-400">
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                  {server ? `Von ${server} Servern genutzt` : "Aktiv auf Discord"}
-                </span>
-                <span className="inline-flex items-center gap-2 rounded-full border border-indigo-500/20 bg-indigo-500/10 px-4 py-1.5 text-[13px] text-indigo-300">
-                  <ShieldCheck className="h-3.5 w-3.5" />
-                  Der Allrounder-Bot
+                  {server ? `Läuft auf ${server} Servern` : "Läuft auf Discord"}
                 </span>
               </div>
 
-              <h1 className="text-[44px] sm:text-[56px] lg:text-[64px] font-extrabold leading-[1.05] tracking-tight text-white">
-                Dein Discord-Server,
+              {/* Kein Farbwechsel mitten in der Überschrift.
+                  „Dein Discord-Server, auf das nächste Level
+                  gebracht" -- die halbe Zeile in Indigo -- ist die
+                  Bauform, die auf jeder zweiten Landingpage steht.
+                  Sie verspricht etwas, das sich nicht prüfen lässt.
+                  Der Satz sagt jetzt, was das Ding ist. */}
+              <h1 className="text-[40px] sm:text-[52px] lg:text-[58px] font-bold leading-[1.08] tracking-tight text-white">
+                Ein Discord-Bot,
                 <br />
-                <span className="text-indigo-400">auf das nächste Level gebracht</span>
+                der den Server führt
               </h1>
 
-              <p className="mt-7 max-w-xl text-[17px] leading-relaxed text-slate-400">
-                {BRAND} ist ein vielseitiger Discord-Bot mit Moderations-,
-                Team-, Ticket- und KI-Funktionen, der deinen Server
-                verbessert und deine Community zusammenhält.
+              <p className="mt-6 max-w-lg text-[17px] leading-relaxed text-slate-400">
+                Moderation, Tickets, Bewerbungen, Verifizierung — in einem
+                Bot, eingerichtet über ein Dashboard statt über Befehle.
               </p>
 
-              <div className="mt-10 flex flex-wrap items-center gap-4">
+              <div className="mt-9 flex flex-wrap items-center gap-3">
+                {/* Der Aufkleber „KOSTENLOS" über dem Knopf ist weg.
+                    Er hing halb darüber hinaus und sah aus wie ein
+                    Preisschild im Schlussverkauf. Dass es nichts
+                    kostet, steht jetzt als ruhiger Satz daneben --
+                    dieselbe Aussage, ohne Marktschreier. */}
                 <a
                   href={INVITE_URL}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="relative inline-flex items-center rounded-xl bg-[#5865f2] px-7 py-3.5 text-[15px] font-semibold text-white hover:bg-[#4752c4] transition-colors"
+                  className="inline-flex items-center rounded-lg bg-[#5865f2] px-6 py-3 text-[15px] font-semibold text-white transition-colors hover:bg-[#4752c4]"
                 >
-                  <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 rounded-md bg-emerald-500 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
-                    Kostenlos
-                  </span>
                   Bot hinzufügen
                 </a>
                 <Link
                   href="#funktionen"
-                  className="inline-flex items-center gap-2 rounded-xl border border-slate-800 bg-[#131318] px-6 py-3.5 text-[15px] text-slate-200 hover:border-slate-700 transition-colors"
+                  className="inline-flex items-center gap-2 rounded-lg border border-slate-800 px-5 py-3 text-[15px] text-slate-300 transition-colors hover:border-slate-700 hover:text-white"
                 >
-                  Funktionen erkunden
+                  Funktionen ansehen
                   <ArrowRight className="h-4 w-4" />
                 </Link>
               </div>
+
+              <p className="mt-5 text-[13px] text-slate-500">
+                Kostenlos · Keine Anmeldung nötig, um ihn hinzuzufügen
+              </p>
             </div>
 
-            {/* Der Kartenstapel. */}
+            {/* Die Karte rechts.
+                Drei Dinge sind hier weggefallen:
+
+                  * **Der Stapel.** Zwei angedeutete Karten dahinter
+                    sollten Tiefe vortäuschen. Sie zeigten nichts und
+                    kosteten nur Kanten.
+                  * **Die Farbverlauf-Kachel** für das Symbol. Ein
+                    pink-violetter Verlauf auf einer sonst blauen
+                    Seite -- die Sorte Farbe, die zufällig wirkt.
+                  * **Die 52px große Zahl in Fuchsia.** „24/7" ist
+                    keine Messung, sondern eine Behauptung; groß und
+                    bunt gesetzt sah sie nach Kennzahl aus.
+
+                Übrig bleibt, was die Karte eigentlich soll: zeigen,
+                was der Bot kann, eins nach dem anderen. */}
             <div className="relative hidden lg:block">
-              <div className="relative mx-auto h-[430px] max-w-[430px]">
-                {/* Zwei angedeutete Karten dahinter, damit es nach
-                    einem Stapel aussieht statt nach einer Karte. */}
-                <div className="absolute inset-x-8 top-5 bottom-5 rounded-3xl border border-slate-800/50 bg-[#0f0f13]/50" />
-                <div className="absolute inset-x-4 top-2.5 bottom-2.5 rounded-3xl border border-slate-800/70 bg-[#0f0f13]/70" />
-
-                <div className="relative rounded-3xl border border-slate-800 bg-[#131318] p-8 h-full">
-                  <div
-                    className={cn(
-                      "h-[68px] w-[68px] rounded-2xl bg-gradient-to-br grid place-items-center mb-7",
-                      HERO_KARTEN[karte].ton,
-                    )}
-                  >
-                    <Aktiv className="h-8 w-8 text-white" />
-                  </div>
-
-                  <h3 className="text-[22px] font-bold text-white mb-3">
-                    {HERO_KARTEN[karte].titel}
-                  </h3>
-                  <p className="text-[15px] leading-relaxed text-slate-400">
-                    {HERO_KARTEN[karte].text}
-                  </p>
-
-                  <div className="mt-9 flex items-baseline gap-3">
-                    <span className="text-[52px] font-extrabold leading-none text-fuchsia-400">
-                      {HERO_KARTEN[karte].zahl}
-                    </span>
-                    <span className="text-[13px] uppercase tracking-widest text-slate-500">
-                      {HERO_KARTEN[karte].label}
-                    </span>
-                  </div>
+              <div className="rounded-2xl border border-slate-800 bg-[#131318] p-7">
+                <div className="grid h-11 w-11 place-items-center rounded-xl border border-slate-800 bg-[#0f0f13]">
+                  <Aktiv className="h-5 w-5 text-indigo-400" />
                 </div>
-              </div>
 
-              {/* Dreizehn Punkte, nicht dreizehn Striche: Striche
-                  waeren zusammen breiter als die Karte. */}
-              <div className="mt-7 flex flex-wrap items-center justify-center gap-1.5">
-                {HERO_KARTEN.map((k, i) => (
-                  <button
-                    key={k.titel}
-                    type="button"
-                    aria-label={k.titel}
-                    title={k.titel}
-                    onClick={() => setKarte(i)}
-                    className={cn(
-                      "h-1.5 rounded-full transition-all",
-                      i === karte
-                        ? "w-6 bg-indigo-500"
-                        : "w-1.5 bg-slate-700 hover:bg-slate-600",
-                    )}
-                  />
-                ))}
-              </div>
-              <div className="mt-2.5 text-center text-[12px] text-slate-600">
-                {karte + 1} von {HERO_KARTEN.length}
+                <h3 className="mt-5 text-[19px] font-semibold text-white">
+                  {HERO_KARTEN[karte].titel}
+                </h3>
+                <p className="mt-2.5 min-h-[72px] text-[15px] leading-relaxed text-slate-400">
+                  {HERO_KARTEN[karte].text}
+                </p>
+
+                {/* Die Punkte in die Karte statt darunter: sie
+                    gehören zu ihr, und darunter standen sie wie eine
+                    zweite, leere Zeile im Layout. */}
+                <div className="mt-6 flex items-center gap-3 border-t border-slate-800 pt-5">
+                  <div className="flex flex-1 flex-wrap items-center gap-1.5">
+                    {HERO_KARTEN.map((k, i) => (
+                      <button
+                        key={k.titel}
+                        type="button"
+                        aria-label={k.titel}
+                        title={k.titel}
+                        onClick={() => setKarte(i)}
+                        className={cn(
+                          "h-1.5 rounded-full transition-colors",
+                          i === karte
+                            ? "w-5 bg-indigo-500"
+                            : "w-1.5 bg-slate-700 hover:bg-slate-600",
+                        )}
+                      />
+                    ))}
+                  </div>
+                  <span className="shrink-0 text-[12px] tabular-nums text-slate-600">
+                    {karte + 1}/{HERO_KARTEN.length}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
@@ -446,152 +392,184 @@ export default function LandingPage() {
       </header>
 
       {/* ── Funktionen ────────────────────────────────────── */}
-      <section id="funktionen" className="py-24 px-6 lg:px-12 xl:px-20">
+      {/*
+          Was hier anders ist:
+
+            * **Kein Abzeichen „Funktionen" über der Überschrift
+              „Funktionen".** Zweimal dasselbe Wort übereinander, das
+              obere in einer Pille -- eine Bauform, die auf jeder
+              Landingpage steht und nichts hinzufügt.
+            * **Kein Werbesatz.** „Alles was du brauchst" ist eine
+              Behauptung über fremde Bedürfnisse. Die Überschrift sagt
+              jetzt, was die Liste ist.
+            * **Keine 34 gleich lauten Kacheln.** Alle trugen ein
+              blaues Quadrat mit weißem Symbol; nebeneinander ergaben
+              sie eine Wand aus Blau, in der kein Eintrag heraussticht.
+              Das Symbol steht jetzt ruhig neben dem Titel. */}
+      <section id="funktionen" className="px-6 py-20 lg:px-12 xl:px-20">
         <div className="mx-auto max-w-[1400px]">
-          <div className="text-center mb-14">
-            <span className="inline-block rounded-full border border-slate-800 bg-[#131318] px-4 py-1.5 text-[13px] text-indigo-300">
-              Funktionen
-            </span>
-            <h2 className="mt-6 text-[38px] sm:text-[44px] font-extrabold tracking-tight text-white">
-              Alles was du brauchst
+          <div className="max-w-xl">
+            <h2 className="text-[28px] font-bold tracking-tight text-white sm:text-[32px]">
+              Was der Bot mitbringt
             </h2>
-            <p className="mx-auto mt-4 max-w-2xl text-[16px] leading-relaxed text-slate-400">
-              {BRAND} bietet eine Vielzahl von Funktionen, um deinen
-              Discord-Server zu verbessern und zu verwalten.
+            <p className="mt-3 text-[16px] leading-relaxed text-slate-400">
+              {FUNKTIONEN.length} Bereiche, einzeln zuschaltbar. Du
+              brauchst nur, was du einschaltest.
             </p>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {/* Ein Raster aus Linien statt aus Kästen: die Karten
+              teilen sich ihre Ränder, statt jede einen eigenen zu
+              ziehen. Das ergibt ein ruhiges Gitter statt 34
+              schwebender Kacheln. */}
+          {/* `bg-slate-800` faerbt die Fugen -- und bei 20 Karten auf
+              3 Spalten bleibt eine Zelle leer, die dann als grauer
+              Block dasteht. Im Bild aufgefallen, nicht im Quelltext.
+              Der Hintergrund der Fugen wird deshalb ueber
+              `[&>*]:bg-[#0f0f13]` von den Kindern getragen, und die
+              Luecke bekommt am Ende eine leere Fuellzelle in
+              Kartenfarbe. */}
+          <div className="mt-10 grid gap-px overflow-hidden rounded-2xl border border-slate-800 bg-slate-800 sm:grid-cols-2 lg:grid-cols-3">
             {FUNKTIONEN.map(({ icon: Icon, titel, text }) => (
-              <div key={titel} className={CARD}>
-                <div className="flex items-start gap-4">
-                  <div className="h-11 w-11 shrink-0 rounded-xl bg-[#5865f2] grid place-items-center">
-                    <Icon className="h-5 w-5 text-white" />
-                  </div>
-                  <div className="min-w-0">
-                    <h3 className="text-[16px] font-bold text-white">{titel}</h3>
-                    <p className="mt-1.5 text-[14px] leading-relaxed text-slate-400">
-                      {text}
-                    </p>
-                  </div>
+              <div
+                key={titel}
+                className="bg-[#0f0f13] p-5 transition-colors hover:bg-[#131318]"
+              >
+                <div className="flex items-center gap-2.5">
+                  <Icon className="h-4 w-4 shrink-0 text-indigo-400" />
+                  <h3 className="text-[15px] font-semibold text-white">
+                    {titel}
+                  </h3>
                 </div>
+                <p className="mt-2 text-[14px] leading-relaxed text-slate-400">
+                  {text}
+                </p>
               </div>
             ))}
+
+            {/* Fuellzellen fuer die letzte Reihe. Ohne sie zeigt das
+                Raster dort seinen eigenen grauen Hintergrund. */}
+            {Array.from({ length: (3 - (FUNKTIONEN.length % 3)) % 3 }).map((_, i) => (
+              <div key={`luecke-${i}`} aria-hidden className="hidden bg-[#0f0f13] lg:block" />
+            ))}
+            {FUNKTIONEN.length % 2 === 1 && (
+              <div aria-hidden className="hidden bg-[#0f0f13] sm:block lg:hidden" />
+            )}
           </div>
         </div>
       </section>
 
       {/* ── Zahlen ────────────────────────────────────────── */}
-      <section className="py-24 px-6 lg:px-12 xl:px-20">
-        <div className="mx-auto max-w-[1400px] text-center">
-          <h2 className="text-[32px] sm:text-[38px] font-extrabold tracking-tight text-white">
-            In Zahlen
-          </h2>
-          <p className="mt-3 text-[16px] text-slate-400">
-            Direkt aus dem laufenden Bot — nicht geschätzt.
-          </p>
+      {/*
+          Vorher: vier große Kästen, mittig, unter der Überschrift
+          „In Zahlen". Solange der Bot nicht antwortet, standen dort
+          vier Striche in 34px -- eine leere Bühne für nichts.
 
-          <div className="mx-auto mt-12 grid max-w-4xl gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          Jetzt eine schlichte Zeile. Sind die Zahlen da, liest man
+          sie; sind sie es nicht, fällt eine Zeile weniger auf als
+          eine Kachelwand. Die Aussage „direkt aus dem laufenden Bot"
+          bleibt, weil sie den Unterschied zu erfundenen Zahlen
+          macht. */}
+      <section className="px-6 py-16 lg:px-12 xl:px-20">
+        <div className="mx-auto max-w-[1400px]">
+          <div className="flex flex-wrap items-end justify-between gap-x-10 gap-y-8 rounded-2xl border border-slate-800 bg-[#0f0f13] px-7 py-7">
             {[
               { wert: server ?? "—", label: "Server" },
               { wert: zeig(zahlen?.modules), label: "Module" },
               { wert: zeig(zahlen?.commands), label: "Befehle" },
               { wert: zeig(zahlen?.users), label: "Mitglieder" },
             ].map((s) => (
-              <div
-                key={s.label}
-                className="rounded-2xl border border-slate-800 bg-[#0f0f13] px-6 py-8"
-              >
-                <div className="text-[34px] font-extrabold leading-none text-white">
+              <div key={s.label}>
+                <div className="text-[26px] font-bold leading-none tabular-nums text-white">
                   {s.wert}
                 </div>
-                <div className="mt-2 text-[13px] text-slate-500">
+                <div className="mt-1.5 text-[13px] text-slate-500">
                   {s.label}
                 </div>
               </div>
             ))}
-          </div>
 
-          {/* Die fünf goldenen Sterne hier sind weg: über echten
-              Zahlen sahen sie aus wie eine Bewertung, waren aber
-              reine Dekoration. */}
-          <p className="mt-10 text-[13px] text-slate-500">
-            Zahlen aus dem laufenden Bot &middot;{" "}
-            <Link href="/status" className="text-indigo-400 hover:text-indigo-300">
-              Status ansehen
-            </Link>
-          </p>
+            <p className="text-[13px] text-slate-500">
+              Live aus dem Bot ·{" "}
+              <Link href="/status" className="text-slate-400 underline decoration-slate-700 underline-offset-4 hover:text-white">
+                Status
+              </Link>
+            </p>
+          </div>
         </div>
       </section>
 
-      {/* ── Stimmen ───────────────────────────────────────── */}
-      <section className="py-24 px-6 lg:px-12 xl:px-20">
-        <div className="mx-auto max-w-[1400px] grid gap-12 lg:grid-cols-2 lg:items-center">
-          <div>
-            <span className="inline-block rounded-full border border-slate-800 bg-[#131318] px-4 py-1.5 text-[13px] text-slate-300">
-              Community-Stimmen
-            </span>
-            <h2 className="mt-6 text-[38px] sm:text-[44px] font-extrabold leading-tight tracking-tight text-white">
-              Warum Teams {BRAND} nutzen
-            </h2>
-            <p className="mt-4 max-w-md text-[16px] leading-relaxed text-slate-400">
-              Erfahrungen aus aktiven Discord-Communities &mdash;
-              zuverlässig, schnell und ohne Nacharbeit.
-            </p>
-          </div>
+      {/* ── Wie es läuft ──────────────────────────────────── */}
+      {/*
+          Hier standen „Community-Stimmen": drei Zitate unter der
+          Überschrift „Warum Teams University Bot nutzen", eingeleitet
+          mit „Erfahrungen aus aktiven Discord-Communities".
 
-          <div>
-            <div className="space-y-4">
-              {[STIMMEN[stimme], STIMMEN[(stimme + 1) % STIMMEN.length]].map((s) => (
-                <div key={s.name} className="rounded-2xl border border-slate-800 bg-[#0f0f13] p-5">
-                  <div className="flex items-start gap-3">
-                    <div className="h-9 w-9 shrink-0 rounded-full bg-emerald-500/15 grid place-items-center text-[12px] font-bold text-emerald-400">
-                      {s.kuerzel}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <span className="text-[15px] font-bold text-white">
-                        {s.name}
-                      </span>
-                      <p className="mt-1.5 text-[14px] leading-relaxed text-slate-400">
-                        {s.text}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ))}
+          Zwei davon stammten von Fufi und Vexo — den beiden
+          Entwicklern (siehe app/team/page.tsx). Das dritte von einem
+          „Uni-Server", den es so nicht gibt. Eigenlob als Empfehlung
+          zu verkleiden ist genau die Sorte Fake, die eine Seite billig
+          wirken lässt, und es ist schlicht nicht wahr.
+
+          An die Stelle tritt etwas, das nachprüfbar ist: die drei
+          Schritte bis zum laufenden Bot. Sobald es echte Stimmen
+          gibt, können sie hier stehen. */}
+      <section className="border-y border-slate-800/70 px-6 py-20 lg:px-12 xl:px-20">
+        <div className="mx-auto max-w-[1400px]">
+          <div className="grid gap-12 lg:grid-cols-[minmax(0,360px)_1fr] lg:gap-20">
+            <div>
+              <h2 className="text-[28px] font-bold leading-tight tracking-tight text-white sm:text-[32px]">
+                In drei Schritten eingerichtet
+              </h2>
+              <p className="mt-4 max-w-sm text-[16px] leading-relaxed text-slate-400">
+                Kein Handbuch, keine Konfigurationsdatei. Was der Bot
+                können soll, stellst du im Dashboard ein.
+              </p>
             </div>
 
-            <div className="mt-6 flex items-center justify-center gap-2">
-              {STIMMEN.map((s, i) => (
-                <button
-                  key={s.name}
-                  type="button"
-                  aria-label={s.name}
-                  onClick={() => setStimme(i)}
-                  className={cn(
-                    "h-1.5 rounded-full transition-all",
-                    i === stimme ? "w-7 bg-emerald-500" : "w-1.5 bg-slate-700",
-                  )}
-                />
+            <ol className="grid gap-px overflow-hidden rounded-2xl border border-slate-800 bg-slate-800 sm:grid-cols-3">
+              {[
+                {
+                  titel: "Hinzufügen",
+                  text: "Über Discord autorisieren. Der Bot ist sofort auf dem Server.",
+                },
+                {
+                  titel: "Einstellen",
+                  text: "Im Dashboard anmelden und die Module wählen, die du brauchst.",
+                },
+                {
+                  titel: "Läuft",
+                  text: "Moderation, Tickets und Verifizierung arbeiten ab dem Speichern.",
+                },
+              ].map((schritt, i) => (
+                <li key={schritt.titel} className="bg-[#0f0f13] p-6">
+                  <span className="text-[13px] font-semibold tabular-nums text-indigo-400">
+                    {String(i + 1).padStart(2, "0")}
+                  </span>
+                  <h3 className="mt-3 text-[16px] font-semibold text-white">
+                    {schritt.titel}
+                  </h3>
+                  <p className="mt-2 text-[14px] leading-relaxed text-slate-400">
+                    {schritt.text}
+                  </p>
+                </li>
               ))}
-            </div>
+            </ol>
           </div>
         </div>
       </section>
 
       {/* ── FAQ ───────────────────────────────────────────── */}
-      <section className="py-24 px-6 lg:px-12 xl:px-20">
-        <div className="mx-auto max-w-[1000px]">
-          <div className="text-center mb-12">
-            <span className="text-[13px] font-semibold uppercase tracking-widest text-indigo-400">
-              FAQ
-            </span>
-            <h2 className="mt-4 text-[38px] sm:text-[44px] font-extrabold tracking-tight text-white">
-              Häufig gestellte Fragen
+      <section className="px-6 py-20 lg:px-12 xl:px-20">
+        <div className="mx-auto max-w-[900px]">
+          {/* Vorher stand hier dreimal dasselbe untereinander: das
+              Kürzel „FAQ", die Überschrift „Häufig gestellte Fragen"
+              und der Satz „Finde Antworten auf häufig gestellte
+              Fragen". Einmal reicht. */}
+          <div className="mb-8">
+            <h2 className="text-[28px] font-bold tracking-tight text-white sm:text-[32px]">
+              Häufige Fragen
             </h2>
-            <p className="mt-4 text-[16px] text-slate-400">
-              Finde Antworten auf häufig gestellte Fragen über {BRAND}.
-            </p>
           </div>
 
           <div className="border-t border-slate-800">
@@ -603,27 +581,37 @@ export default function LandingPage() {
       </section>
 
       {/* ── Abschluss ─────────────────────────────────────── */}
-      <section className="px-6 lg:px-12 xl:px-20 pb-24">
-        <div className="mx-auto max-w-[1000px] rounded-3xl border border-slate-800 bg-[#0f0f13] px-8 py-16 text-center">
-          <h2 className="text-[32px] sm:text-[40px] font-extrabold tracking-tight text-white">
-            Bereit loszulegen?
-          </h2>
-          <p className="mx-auto mt-4 max-w-lg text-[16px] leading-relaxed text-slate-400">
-            Bot hinzufügen, im Dashboard anmelden, fertig. Die
-            Einrichtung dauert keine zwei Minuten.
-          </p>
-          <div className="mt-9 flex flex-wrap items-center justify-center gap-4">
+      {/*
+          „Bereit loszulegen?" in 40px, mittig, in einem eigenen
+          Kasten -- die Schlussformel jeder Landingpage. Der Satz
+          fragt etwas, worauf niemand antwortet, und
+          „Einrichtung dauert keine zwei Minuten" ist eine Zusage, die
+          niemand gemessen hat.
+
+          Stattdessen eine Zeile mit dem, was man hier tun kann. */}
+      <section className="px-6 pb-20 lg:px-12 xl:px-20">
+        <div className="mx-auto flex max-w-[1400px] flex-wrap items-center justify-between gap-6 rounded-2xl border border-slate-800 bg-[#0f0f13] px-7 py-8">
+          <div>
+            <h2 className="text-[20px] font-bold tracking-tight text-white">
+              {BRAND} zu deinem Server hinzufügen
+            </h2>
+            <p className="mt-1.5 text-[15px] text-slate-400">
+              Kostenlos. Was der Bot tun soll, entscheidest du danach im
+              Dashboard.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
             <a
               href={INVITE_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="rounded-xl bg-[#5865f2] px-7 py-3.5 text-[15px] font-semibold text-white hover:bg-[#4752c4] transition-colors"
+              className="rounded-lg bg-[#5865f2] px-6 py-3 text-[15px] font-semibold text-white transition-colors hover:bg-[#4752c4]"
             >
               Bot hinzufügen
             </a>
             <Link
               href="/dashboard"
-              className="rounded-xl border border-slate-800 bg-[#131318] px-7 py-3.5 text-[15px] text-slate-200 hover:border-slate-700 transition-colors"
+              className="rounded-lg border border-slate-800 px-5 py-3 text-[15px] text-slate-300 transition-colors hover:border-slate-700 hover:text-white"
             >
               Zum Dashboard
             </Link>

@@ -244,26 +244,98 @@ def test_alle_seiten_nutzen_sie():
 
 
 def test_startseite_hat_die_abschnitte():
+    """Die Startseite ist vollstaendig -- geprueft an ihrer Substanz.
+
+    Hier standen woertliche Werbetexte: „auf das nächste Level
+    gebracht", „Alles was du brauchst", „Community-Stimmen". Damit war
+    nicht die Struktur festgenagelt, sondern die Formulierung -- und
+    jede Ueberarbeitung der Texte liess den Test scheitern, obwohl die
+    Seite vollstaendig blieb.
+
+    Geprueft wird deshalb, WAS es geben muss, nicht WIE es heisst:
+    eine Ueberschrift, die beiden Knoepfe, die Abschnitte an ihren
+    Ankern und Listen, die Fusszeile.
+    """
     print("\nDie Startseite ist vollstaendig")
 
     seite = strip_ts(read("app", "page.tsx"))
 
-    for text, was in (
-        ("auf das nächste Level gebracht", "Hero-Überschrift"),
-        ("Bot hinzufügen", "Hauptknopf"),
-        ("Funktionen erkunden", "zweiter Knopf"),
-        ("Alles was du brauchst", "Funktionen-Abschnitt"),
-        ("In Zahlen", "Zahlen"),
-        ("Community-Stimmen", "Stimmen"),
-        ("Häufig gestellte Fragen", "FAQ"),
-        ("Alle Rechte vorbehalten", "Fußzeile"),
-    ):
-        check(f"{was} vorhanden", text in seite)
+    # Struktur statt Wortlaut.
+    check("es gibt eine Hero-Ueberschrift", "<h1" in seite)
+    check("der Einladungsknopf ist da", "Bot hinzufügen" in seite)
+    check("und fuehrt wirklich zur Einladung", "href={INVITE_URL}" in seite)
+    check("ein zweiter Knopf fuehrt zu den Funktionen",
+          'href="#funktionen"' in seite)
+    check("der Funktionen-Abschnitt hat seinen Anker",
+          'id="funktionen"' in seite)
+    check("und rendert die Liste", "FUNKTIONEN.map(" in seite)
+    check("die Zahlen kommen aus dem Bot",
+          "zahlen?.modules" in seite and "zahlen?.commands" in seite)
+    check("das FAQ rendert seine Liste", "FAQ.map(" in seite)
+    check("die Fusszeile steht", "Alle Rechte vorbehalten" in seite)
 
     # Der alte Text ist weg. Er war zur Haelfte englisch und sprach
     # von einem "Neural Core", den es nie gab.
     for wort in ("Neural", "Evolution", "hyper-performance", "Moderiert."):
         check(f"»{wort}« steht nicht mehr drin", wort not in seite)
+
+
+def test_keine_werbesprache():
+    """Die Startseite soll nicht nach Landingpage-Baukasten klingen.
+
+    Der Nutzer hat es ausdruecklich verlangt: „modern simple und
+    keinen tupischen ki look". Was hier steht, ist genau das, was
+    dafuer entfernt wurde -- namentlich, damit es nicht beim naechsten
+    Umbau zurueckkehrt.
+    """
+    print("\nKeine Werbesprache, keine Bauklotz-Optik")
+
+    seite = strip_ts(read("app", "page.tsx"))
+
+    # Floskeln, die nichts aussagen.
+    for floskel in (
+        "auf das nächste Level",
+        "Alles was du brauchst",
+        "Bereit loszulegen",
+        "Der Allrounder-Bot",
+    ):
+        check(f"»{floskel}« ist raus", floskel not in seite,
+              "eine Behauptung, die sich nicht pruefen laesst")
+
+    # Der Farbverlauf in der Ueberschrift und die bunte Kachel.
+    check("kein Farbverlauf mehr", "bg-gradient" not in seite,
+          "ein pink-violetter Verlauf auf blauer Seite wirkt zufaellig")
+    check("keine Fuchsia-Riesenzahl", "fuchsia" not in seite,
+          "»24/7« gross und bunt sah aus wie eine Messung")
+
+    # Und die erfundenen Kundenstimmen.
+    check("keine erfundenen Stimmen mehr", "STIMMEN" not in seite,
+          "zwei der drei »Community-Stimmen« waren die Entwickler "
+          "selbst, die dritte ein Server, den es nicht gibt")
+
+
+def test_keine_toten_daten():
+    """Was nicht mehr gerendert wird, gehoert geloescht.
+
+    Beim Umbau der Hero-Karte fielen `zahl`, `label` und `ton` weg.
+    Bleiben solche Felder stehen, pflegt sie irgendwann jemand mit --
+    fuer eine Anzeige, die es nicht gibt. Dasselbe gilt fuer den
+    Timer, der die Stimmen weiterschaltete: er lief alle sechs
+    Sekunden fuer nichts.
+    """
+    print("\nKeine toten Daten")
+
+    seite = strip_ts(read("app", "page.tsx"))
+
+    check("die Hero-Karten haben keine toten Felder",
+          "ton:" not in seite and "zahl:" not in seite,
+          "sie werden nicht mehr gerendert")
+    check("kein Timer fuer die entfernten Stimmen",
+          "setStimme" not in seite,
+          "er lief alle 6 Sekunden fuer eine Anzeige, die es nicht "
+          "mehr gibt")
+    check("keine ungenutzte Kartenkonstante",
+          "const CARD =" not in seite)
 
     # Keine erfundenen Zahlen im Quelltext: sie kommen aus dem Bot.
     # Die Adresse hat sich geaendert -- /bot/stats lieferte nur die
@@ -353,6 +425,8 @@ def main() -> int:
     test_eine_navigationsleiste()
     test_alle_seiten_nutzen_sie()
     test_startseite_hat_die_abschnitte()
+    test_keine_werbesprache()
+    test_keine_toten_daten()
     test_faq_ist_bedienbar()
     test_kein_layoutbruch_auf_dem_telefon()
     test_h4_5_gibt_es_nicht()

@@ -827,8 +827,19 @@ def test_hero_hat_dreizehn():
     anzahl = block.count("titel:")
     check("genau dreizehn", anzahl == 13, str(anzahl))
     check("jede hat ein Symbol", block.count("icon:") == anzahl)
-    check("jede hat eine Zahl", block.count("zahl:") == anzahl)
-    check("die Punkte zeigen die Stelle", "von {HERO_KARTEN.length}" in seite)
+    check("jede hat einen Text", block.count("text:") == anzahl)
+
+    # Frueher: `zahl:` und „von {HERO_KARTEN.length}". Beides ist beim
+    # Aufraeumen der Startseite weggefallen -- die Karte zeigte eine
+    # 52px grosse Zahl in Fuchsia („24/7"), die keine Messung war,
+    # sondern eine Behauptung. Die Positionsanzeige steht jetzt
+    # kompakt in der Karte statt darunter.
+    check("die Karten tragen keine erfundene Kennzahl mehr",
+          "zahl:" not in block,
+          "»24/7« gross und bunt sah aus wie ein gemessener Wert")
+    check("die Punkte zeigen die Stelle",
+          "{HERO_KARTEN.length}" in seite,
+          "sonst weiss niemand, wie viele Karten es gibt")
 
 
 # ══════════════════════════════════════════════════════════════════════
