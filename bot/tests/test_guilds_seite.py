@@ -255,22 +255,23 @@ def test_stil():
     for laut in ("border-dashed", "p-16", "rounded-3xl"):
         check(f"die Seite hat kein {laut} mehr", laut not in seite, laut)
 
-    # Der Rand-Schimmer MUSS hier bleiben.
+    # Der Rand-Schimmer ist inzwischen UEBERALL entfernt.
     #
-    # Beim ersten Anlauf hatte ich ihn entfernt -- mit der Begruendung,
-    # die Karte habe jetzt einen eigenen Hover. Das war eine
-    # Entscheidung, die mir nicht zusteht: der Nutzer wollte den
-    # Schimmer ausdruecklich nur im ADMIN-Bereich nirgends, und diese
-    # Seite gehoert nicht dazu. `test_admin_stil.py` hat es gemeldet
-    # (111 Karten in 45 Dateien vorher, 108 in 44 danach) -- deshalb
-    # steht die Erwartung jetzt auch hier, damit der naechste Umbau
-    # nicht dieselbe stille Aenderung macht.
-    check("der Rand-Schimmer bleibt erhalten",
-          "border-glow-card" in grid,
-          "er wurde nur im Admin-Bereich entfernt, nicht hier")
-    check("mit passendem Eckradius",
-          "glow-r-2xl" in grid,
-          "ohne das sitzt der Lichtbogen an einer eckigen Bahn")
+    # Hier stand das Gegenteil: „der Rand-Schimmer bleibt erhalten".
+    # Das war richtig, solange er nur im Admin-Bereich weg sein
+    # sollte -- ich hatte ihn beim Umbau dieser Seite eigenmaechtig
+    # entfernt, und der Test hielt das fest. Der Nutzer hat die Regel
+    # danach umgekehrt und ihn ueberall abbestellt.
+    #
+    # Die Pruefung bleibt stehen und dreht sich um, statt zu
+    # verschwinden: an dieser Stelle ist schon einmal etwas still
+    # gekippt worden.
+    check("kein Rand-Schimmer mehr",
+          "border-glow-card" not in grid,
+          "er ist ueberall entfernt, nicht nur im Admin-Bereich")
+    check("und keine Glow-Hilfsklasse",
+          "glow-r-2xl" not in grid and "is-clipped" not in grid,
+          "sie gehoeren zum Schimmer und haetten nichts mehr zu tun")
 
 
 # ══════════════════════════════════════════════════════════════════════

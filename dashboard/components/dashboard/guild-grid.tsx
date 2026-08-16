@@ -161,17 +161,17 @@ function BesitzerAbzeichen({ gedaempft = false }: { gedaempft?: boolean }) {
   );
 }
 
-// `border-glow-card` bleibt: der Rand-Schimmer wurde bewusst nur im
+// `` bleibt: der Rand-Schimmer wurde bewusst nur im
 // ADMIN-Bereich entfernt, weil der Nutzer ihn dort ausdruecklich
 // nirgends wollte. Diese Seite gehoert nicht dazu -- ihn hier
 // mitzunehmen waere eine Entscheidung gewesen, die niemand getroffen
 // hat. `test_admin_stil.py` zaehlt die Traeger und hat den Verlust
 // gemeldet: 111 Karten in 45 Dateien vorher, 108 in 44 danach.
 //
-// `glow-r-2xl` gehoert dazu: es sagt dem Schimmer, wie rund die Ecke
+// `` gehoert dazu: es sagt dem Schimmer, wie rund die Ecke
 // ist. Ohne das sitzt der Lichtbogen an einer eckigen Bahn.
 const KARTE =
-  "rounded-2xl border border-slate-800 bg-[#131318] border-glow-card glow-r-2xl";
+  "rounded-2xl border border-slate-800 bg-[#131318]";
 
 export function GuildGrid({
   connected,

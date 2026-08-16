@@ -21,7 +21,7 @@ import { cn } from "@/lib/utils";
 import { EmojiPicker } from "@/components/dashboard/emoji-picker";
 
 const CARD =
-  "bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 border-glow-card";
+  "bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6";
 
 interface VoiceChannel {
   id: string;

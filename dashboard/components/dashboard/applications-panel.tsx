@@ -485,7 +485,7 @@ export function ApplicationsPanel({ guildId }: { guildId: string }) {
             return (
               <div
                 key={panel.panel_id}
-                className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5 border-glow-card"
+                className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5"
               >
                 <div className="flex items-start justify-between gap-4 flex-wrap">
                   <div className="flex gap-3">
@@ -755,7 +755,7 @@ export function ApplicationsPanel({ guildId }: { guildId: string }) {
             eintraege.map((eintrag) => (
               <div
                 key={eintrag.id}
-                className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-4 border-glow-card"
+                className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-4"
               >
                 <div className="flex items-start justify-between gap-4 flex-wrap">
                   <div className="flex gap-3 min-w-0">

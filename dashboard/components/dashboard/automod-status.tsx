@@ -52,7 +52,7 @@ export function AutomodStatus({ guildId }: { guildId: string }) {
 
   if (loading) {
     return (
-      <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 flex items-center justify-center border-glow-card">
+      <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 flex items-center justify-center">
         <Loader2 className="h-6 w-6 text-primary animate-spin opacity-40" />
       </div>
     );

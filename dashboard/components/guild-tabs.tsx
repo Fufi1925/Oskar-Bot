@@ -450,7 +450,7 @@ export function GuildTabs({ guildId }: { guildId: string }) {
 
       {/* ── Search results ────────────────────────────── */}
       {matches !== null ? (
-        <div className="bg-[#131318]/40 border border-slate-800/40 rounded-[20px] p-3 border-glow-card glow-r-20">
+        <div className="bg-[#131318]/40 border border-slate-800/40 rounded-[20px] p-3">
           {matches.length === 0 ? (
             <p className="text-sm text-slate-500 py-4 text-center">
               Nichts gefunden für &bdquo;{query}&ldquo;.

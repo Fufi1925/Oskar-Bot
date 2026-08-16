@@ -595,197 +595,30 @@ input[type="number"] {
   .prox-row { transform: none; }
 }
 
-/* ── BorderGlow (adapted from React Bits) ────────────────────────────
+/* ── Kein Rand-Schimmer mehr ─────────────────────────────────────────
 
-   A rim light that follows the pointer around the edge of a card.
-   BorderGlowProvider writes two custom properties on whichever card the
-   cursor is over -- the angle to it, and how close it is to the edge --
-   and everything here is CSS reading those two numbers. The conic masks
-   keyed to the angle are what make the light travel around the rim
-   instead of lighting the whole box at once.
+   Hier stand der BorderGlow: ein Lichtrand, der dem Zeiger um die
+   Kartenkante folgte. Er ist auf Wunsch des Nutzers entfernt worden --
+   ueberall, nicht nur im Admin-Bereich, wo er zuvor schon weg war.
 
-   Four things differ from the original, each for a reason:
+   Was mit ihm verschwunden ist und woanders ersetzt werden musste:
 
-   1. **No background of its own.** The original paints #120F17 on the
-      card. Ours already have `bg-[#131318]`, and a second background
-      behind the first would break every bg-* override in the codebase.
-      `--card-bg` exists only for the padding-box knockout that keeps
-      the gradient in the border rather than flooding the card, so it
-      has to match -- hence a variable and not a literal.
+     position: relative   Die Klasse setzte es nebenbei. Fuenf Karten
+                          hatten ein absolut positioniertes Kind und
+                          verliessen sich darauf; dort steht `relative`
+                          jetzt ausdruecklich in der Klassenliste.
 
-   2. **No inner mesh wash.** The original draws three layers, and an
-      element has two pseudos; the third is why it needs an extra
-      `<span>` in the markup. Adding a span to 132 cards is the change
-      this whole approach exists to avoid, so the weakest layer goes:
-      soft-light at low opacity under body text, which Firefox does not
-      render at all for want of `mask-composite: subtract`.
+     isolation: isolate   Sie eroeffnete an jeder Karte einen eigenen
+                          Stapelkontext. Genau deshalb haengen die
+                          Aufklappmenues per `createPortal` an
+                          `document.body` -- siehe popover-layer.tsx.
+                          Diese Loesung bleibt richtig: `.prox-row`
+                          (transform) und `.admin-glass`
+                          (backdrop-filter) eroeffnen weiterhin welche.
 
-   3. **The rounding is inherited.** The original sets
-      `border-radius: var(--border-radius)`. Our cards round themselves
-      with Tailwind -- 3xl, 2xl, [20px] -- and forcing 28px would
-      reshape all of them.
-
-   4. **Colours are the dashboard's blue and indigo**, not the
-      original's purple and pink. Geometry, sensitivity, cone spread and
-      easing are unchanged. */
-.border-glow-card {
-  --edge-proximity: 0;
-  --cursor-angle: 45deg;
-  --edge-sensitivity: 30;
-  /* The rim needs the pointer nearer than the halo does, or the colour
-     washes over the whole edge the moment the cursor is anywhere near. */
-  --color-sensitivity: calc(var(--edge-sensitivity) + 20);
-  --glow-padding: 40px;
-  --cone-spread: 25;
-  --card-bg: #131318;
-  /* The card's own corner radius. It has to be stated, not inherited:
-     see the note on ::after. Tailwind's rounded-3xl is the default
-     because 113 of the 121 cards use it; .glow-r-* below covers the
-     rest. */
-  --card-radius: 1.5rem;
-  --glow-color: hsl(213deg 94% 68% / 100%);
-  --glow-color-60: hsl(213deg 94% 68% / 60%);
-  --glow-color-50: hsl(213deg 94% 68% / 50%);
-  --glow-color-40: hsl(213deg 94% 68% / 40%);
-  --glow-color-30: hsl(213deg 94% 68% / 30%);
-  --glow-color-20: hsl(213deg 94% 68% / 20%);
-  --glow-color-10: hsl(213deg 94% 68% / 10%);
-  --gradient-one: radial-gradient(at 80% 55%, #3b82f6 0px, transparent 50%);
-  --gradient-two: radial-gradient(at 69% 34%, #6366f1 0px, transparent 50%);
-  --gradient-three: radial-gradient(at 8% 6%, #38bdf8 0px, transparent 50%);
-  --gradient-four: radial-gradient(at 41% 38%, #3b82f6 0px, transparent 50%);
-  --gradient-five: radial-gradient(at 86% 85%, #6366f1 0px, transparent 50%);
-  --gradient-six: radial-gradient(at 82% 18%, #38bdf8 0px, transparent 50%);
-  --gradient-seven: radial-gradient(at 51% 4%, #6366f1 0px, transparent 50%);
-  --gradient-base: linear-gradient(#3b82f6 0 100%);
-
-  position: relative;
-  /* Contains the z-index: -1 layers. Without it they slide behind the
-     page background and vanish. */
-  isolation: isolate;
-}
-
-.border-glow-card::before,
-.border-glow-card::after {
-  content: "";
-  position: absolute;
-  border-radius: inherit;
-  transition: opacity 0.25s ease-out;
-  z-index: -1;
-  pointer-events: none;
-}
-
-/* Dark until hovered. The slower fade out is deliberate -- the light
-   should trail off rather than snap. */
-.border-glow-card:not(:hover)::before,
-.border-glow-card:not(:hover)::after {
-  opacity: 0;
-  transition: opacity 0.75s ease-in-out;
-}
-
-/* The mesh-gradient rim. The first two layers knock the middle out --
-   padding-box in the card colour over a transparent border-box -- so
-   the gradient shows only in the 1px border. */
-.border-glow-card::before {
-  inset: 0;
-  border: 1px solid transparent;
-  background:
-    linear-gradient(var(--card-bg) 0 100%) padding-box,
-    linear-gradient(rgb(255 255 255 / 0%) 0% 100%) border-box,
-    var(--gradient-one) border-box,
-    var(--gradient-two) border-box,
-    var(--gradient-three) border-box,
-    var(--gradient-four) border-box,
-    var(--gradient-five) border-box,
-    var(--gradient-six) border-box,
-    var(--gradient-seven) border-box,
-    var(--gradient-base) border-box;
-  opacity: calc(
-    (var(--edge-proximity) - var(--color-sensitivity)) /
-    (100 - var(--color-sensitivity))
-  );
-  -webkit-mask-image: conic-gradient(
-    from var(--cursor-angle) at center,
-    black calc(var(--cone-spread) * 1%),
-    transparent calc((var(--cone-spread) + 15) * 1%),
-    transparent calc((100 - var(--cone-spread) - 15) * 1%),
-    black calc((100 - var(--cone-spread)) * 1%)
-  );
-  mask-image: conic-gradient(
-    from var(--cursor-angle) at center,
-    black calc(var(--cone-spread) * 1%),
-    transparent calc((var(--cone-spread) + 15) * 1%),
-    transparent calc((100 - var(--cone-spread) - 15) * 1%),
-    black calc((100 - var(--cone-spread)) * 1%)
-  );
-}
-
-/* The halo outside the card. Reaches past the edge by --glow-padding,
-   and is masked to the same cone so it stays on the cursor's side. */
-.border-glow-card::after {
-  inset: calc(var(--glow-padding) * -1);
-  box-shadow:
-    inset 0 0 0 1px var(--glow-color),
-    inset 0 0 1px 0 var(--glow-color-60),
-    inset 0 0 3px 0 var(--glow-color-50),
-    inset 0 0 6px 0 var(--glow-color-40),
-    inset 0 0 15px 0 var(--glow-color-30),
-    inset 0 0 25px 2px var(--glow-color-20),
-    inset 0 0 50px 2px var(--glow-color-10);
-  /* The box-shadow is drawn on a box inset by --glow-padding, so the
-     ring lands on the card's edge rather than the layer's own. */
-  border: var(--glow-padding) solid transparent;
-  background-clip: padding-box;
-  /* Not `inherit`. An inset shadow is drawn on the padding box, and CSS
-     derives that radius by subtracting the border width -- here the
-     40px used to push the ring back onto the card. Inheriting the
-     card's 24px gives 24 - 40, clamped to 0: a square corner around a
-     rounded card, which is exactly what it looked like.
-
-     Adding the padding back cancels the subtraction, so the ring lands
-     on the card's real radius. See repro/glow_radius.py. */
-  border-radius: calc(var(--card-radius) + var(--glow-padding));
-  -webkit-mask-image: conic-gradient(
-    from var(--cursor-angle) at center,
-    black 2.5%, transparent 10%, transparent 90%, black 97.5%
-  );
-  mask-image: conic-gradient(
-    from var(--cursor-angle) at center,
-    black 2.5%, transparent 10%, transparent 90%, black 97.5%
-  );
-  opacity: calc(
-    (var(--edge-proximity) - var(--edge-sensitivity)) /
-    (100 - var(--edge-sensitivity))
-  );
-  mix-blend-mode: plus-lighter;
-}
-
-/* A card that clips its own content would cut the halo off square,
-   leaving a hard straight line where a soft edge should be. For those
-   the glow is drawn inside instead: a rim light rather than a halo, but
-   not a truncated one. */
-.border-glow-card.is-clipped::after {
-  inset: 0;
-  border-width: 0;
-  /* No border to subtract here, so the plain radius is correct. */
-  border-radius: var(--card-radius);
-}
-
-/* Cards that are not rounded-3xl. The glow ring is built from the
-   radius, so it has to be told which one -- a value it cannot read off
-   the element itself. */
-.glow-r-2xl { --card-radius: 1rem; }
-.glow-r-20 { --card-radius: 20px; }
-
-@media (prefers-reduced-motion: reduce) {
-  /* The rim is a hover state, not an animation, so it stays -- removing
-     it would drop the affordance. What goes is the fade, which is the
-     only thing here that moves on its own. */
-  .border-glow-card::before,
-  .border-glow-card::after {
-    transition: none;
-  }
-}
+   Die Karten sehen ihre Umrandung jetzt allein aus `border-slate-800`,
+   und wo eine Rueckmeldung beim Ueberfahren gewuenscht ist, steht ein
+   schlichtes `hover:border-slate-700`. */
 
 /* ── Proximity on the tab rows ───────────────────────────────────────
 

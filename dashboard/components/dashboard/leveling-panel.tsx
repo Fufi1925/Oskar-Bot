@@ -171,7 +171,7 @@ export function LevelingPanel({ guildId }: { guildId: string }) {
   return (
     <section className="space-y-6">
       {/* ── Master switch + stats ────────────────────── */}
-      <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5 border-glow-card">
+      <div className="relative bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-3">
             <div className={cn(
@@ -254,7 +254,7 @@ export function LevelingPanel({ guildId }: { guildId: string }) {
       {/* ══ Settings ═════════════════════════════════ */}
       {tab === "settings" && (
         <div className="space-y-5">
-          <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5 border-glow-card">
+          <div className="relative bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
             <p className="text-xs font-black uppercase tracking-widest text-slate-500">
               XP verdienen
             </p>
@@ -311,7 +311,7 @@ export function LevelingPanel({ guildId }: { guildId: string }) {
             )}
           </div>
 
-          <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5 border-glow-card">
+          <div className="relative bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
             <p className="text-xs font-black uppercase tracking-widest text-slate-500">
               Level-Up-Nachricht
             </p>
@@ -452,7 +452,7 @@ export function LevelingPanel({ guildId }: { guildId: string }) {
           </div>
 
           {/* Auto delete */}
-          <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5 border-glow-card">
+          <div className="relative bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
             <div>
               <p className="text-xs font-black uppercase tracking-widest text-slate-500">
                 Automatisch aufräumen
@@ -522,7 +522,7 @@ export function LevelingPanel({ guildId }: { guildId: string }) {
             />
           </div>
 
-          <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5 border-glow-card">
+          <div className="relative bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
             <p className="text-xs font-black uppercase tracking-widest text-slate-500">
               Rangkarte
             </p>
@@ -613,7 +613,7 @@ function RewardsTab({ guildId, data, busy, act, stack, onStack, reload }: any) {
       {/* Build the whole ladder in one go */}
       <LadderWizard guildId={guildId} onDone={reload} />
 
-      <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5 border-glow-card">
+      <div className="relative bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
         <div>
           <p className="text-xs font-black uppercase tracking-widest text-slate-500">
             Einzelne Belohnung
@@ -658,7 +658,7 @@ function RewardsTab({ guildId, data, busy, act, stack, onStack, reload }: any) {
         </div>
       </div>
 
-      <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5 border-glow-card">
+      <div className="relative bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <p className="text-xs font-black uppercase tracking-widest text-slate-500">
             Belohnungen ({data.rewards?.length || 0})
@@ -756,7 +756,7 @@ function TuningTab({ guildId, data, busy, act }: any) {
   return (
     <div className="space-y-5">
       {/* Multipliers */}
-      <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5 border-glow-card">
+      <div className="relative bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
         <div>
           <p className="text-xs font-black uppercase tracking-widest text-slate-500">
             XP-Multiplikatoren
@@ -857,7 +857,7 @@ function TuningTab({ guildId, data, busy, act }: any) {
       </div>
 
       {/* Exclusions */}
-      <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5 border-glow-card">
+      <div className="relative bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
         <div>
           <p className="text-xs font-black uppercase tracking-widest text-slate-500">
             Kein XP für
@@ -973,7 +973,7 @@ function MembersTab({ guildId, busy, act }: any) {
   const pages = Math.max(1, Math.ceil((board?.total || 0) / (board?.per_page || 25)));
 
   return (
-    <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5 border-glow-card">
+    <div className="relative bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
       {editing && (
         <EditMember
           guildId={guildId}
@@ -1134,7 +1134,7 @@ function EditMember({ guildId, member, onClose, onDone }: any) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="bg-[#131318] border border-slate-800 rounded-3xl w-full max-w-md shadow-2xl border-glow-card">
+      <div className="relative bg-[#131318] border border-slate-800 rounded-3xl w-full max-w-md shadow-2xl">
         <div className="p-5 border-b border-slate-800 flex items-center justify-between gap-3">
           <div className="min-w-0">
             <h3 className="font-black text-white truncate">{member.name}</h3>
@@ -1241,7 +1241,7 @@ function CurveTab({ guildId }: { guildId: string }) {
   const peak = levels.length ? levels[levels.length - 1].step_xp : 1;
 
   return (
-    <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5 border-glow-card">
+    <div className="relative bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div className="min-w-0">
           <p className="text-xs font-black uppercase tracking-widest text-slate-500">
@@ -1420,7 +1420,7 @@ function LadderWizard({ guildId, onDone }: { guildId: string; onDone: () => void
     return (
       <button
         onClick={() => setOpen(true)}
-        className="w-full flex items-center gap-4 bg-[#131318] border border-dashed border-primary/30 rounded-3xl p-4 sm:p-6 text-left hover:border-primary/60 transition-all group border-glow-card"
+        className="relative w-full flex items-center gap-4 bg-[#131318] border border-dashed border-primary/30 rounded-3xl p-4 sm:p-6 text-left hover:border-primary/60 transition-all group"
       >
         <div className="h-11 w-11 rounded-2xl bg-primary/15 grid place-items-center shrink-0">
           <Wand2 className="h-5 w-5 text-primary" />
@@ -1438,7 +1438,7 @@ function LadderWizard({ guildId, onDone }: { guildId: string; onDone: () => void
   }
 
   return (
-    <div className="bg-[#131318] border border-primary/30 rounded-3xl p-4 sm:p-6 space-y-5 border-glow-card">
+    <div className="relative bg-[#131318] border border-primary/30 rounded-3xl p-4 sm:p-6 space-y-5">
       {/* The follow-up question, once they press create */}
       {askSetup && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">

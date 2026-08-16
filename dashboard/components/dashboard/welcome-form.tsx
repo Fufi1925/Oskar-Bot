@@ -257,7 +257,7 @@ export function WelcomeForm({
     <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
       {/* ══ Form ═══════════════════════════════════════ */}
       <div className="xl:col-span-3 space-y-6">
-        <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5 border-glow-card">
+        <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
           <Field label="Kanal" hint="Hier landet die Begrüßung.">
             <ChannelPicker
               guildId={guildId}
@@ -315,7 +315,7 @@ export function WelcomeForm({
         </div>
 
         {/* Placeholders */}
-        <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-3 border-glow-card">
+        <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-3">
           <div>
             <p className="text-xs font-black uppercase tracking-widest text-slate-500">
               Platzhalter
@@ -341,7 +341,7 @@ export function WelcomeForm({
 
         {/* Text */}
         {!isEmbed && (
-          <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 border-glow-card">
+          <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6">
             <Field label="Nachricht">
               <EmojiText
                 {...track}
@@ -363,7 +363,7 @@ export function WelcomeForm({
 
         {/* Embed */}
         {isEmbed && (
-          <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5 border-glow-card">
+          <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
             <Field
               label="Text über der Karte"
               hint="Optional. Nützlich, um jemanden zu pingen — in der Karte selbst gibt es keine Benachrichtigung."
@@ -520,7 +520,7 @@ export function WelcomeForm({
       {/* ══ Preview + actions ══════════════════════════ */}
       <div className="xl:col-span-2 space-y-5">
         <div className="xl:sticky xl:top-6 space-y-5">
-          <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-4 border-glow-card">
+          <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-4">
             <p className="text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
               <Eye className="h-3.5 w-3.5" /> Vorschau
             </p>
@@ -603,7 +603,7 @@ export function WelcomeForm({
 
           {/* The save button used to live here, four screens below the
               field you were editing. It is one bar at the bottom now. */}
-          <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-3 border-glow-card">
+          <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-3">
             <button
               onClick={sendTest}
               disabled={testing}
@@ -617,7 +617,7 @@ export function WelcomeForm({
             </p>
           </div>
 
-          <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-3 border-glow-card">
+          <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-3">
             <p className="text-xs font-black uppercase tracking-widest text-slate-500">
               Vorlagen
             </p>

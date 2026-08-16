@@ -101,7 +101,7 @@ export function EmergencyPanel({ guildId }: { guildId: string }) {
         </div>
       </div>
 
-      <div className="bg-[#131318] border border-slate-800 rounded-3xl p-8 border-glow-card">
+      <div className="bg-[#131318] border border-slate-800 rounded-3xl p-8">
         <p className="text-sm text-slate-400 leading-relaxed mb-6">
           A lockdown removes Administrator, Ban, Kick, Manage Channels, Manage Roles,
           Manage Server, Manage Webhooks, Mention Everyone, Manage Messages and Timeout
@@ -153,7 +153,7 @@ export function EmergencyPanel({ guildId }: { guildId: string }) {
       </div>
 
       {state.locked_roles.length > 0 && (
-        <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 border-glow-card">
+        <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6">
           <p className="text-xs font-black uppercase tracking-widest text-slate-500 mb-3">
             Affected roles
           </p>

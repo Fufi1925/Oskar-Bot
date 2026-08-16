@@ -77,9 +77,10 @@ export function EmojiPicker({
   const [query, setQuery] = useState("");
   // Warum das Feld per Portal an `document.body` haengt
   // ---------------------------------------------------
-  // Die Karten tragen `.border-glow-card`, und die setzt
-  // `isolation: isolate` -- fuer ihre eigenen `z-index: -1`-Ebenen
-  // noetig, aber sie eroeffnet damit einen Stapelkontext.
+  // Mehrere Bausteine eroeffnen einen eigenen Stapelkontext:
+  // `.prox-row` (transform) und `.admin-glass` (backdrop-filter).
+  // Frueher tat es auch der Rand-Schimmer der Karten; der ist weg,
+  // die beiden anderen sind geblieben.
   //
   // Ein Element kann seinen Stapelkontext nicht verlassen. Egal wie
   // hoch sein z-index ist, es konkurriert nur mit Geschwistern

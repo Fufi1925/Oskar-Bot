@@ -175,9 +175,19 @@ def test_the_stacking_trap_is_real():
     print("\nDie Falle ist echt")
 
     css = read("app", "globals.css")
+    # Hier stand `.border-glow-card setzt isolation: isolate`. Die
+    # Klasse gibt es nicht mehr -- der Rand-Schimmer ist auf Wunsch
+    # des Nutzers ueberall entfernt worden. Die Falle besteht
+    # trotzdem: `.prox-row` und `.admin-glass` eroeffnen weiterhin
+    # Stapelkontexte, und genau darum bleiben die Portale noetig.
+    #
+    # Der Beleg wandert also auf die verbliebenen Quellen, statt zu
+    # verschwinden. Faellt eines Tages auch die letzte weg, schlaegt
+    # das hier an -- dann ist der Aufwand mit den Portalen wirklich
+    # unnoetig geworden.
     check(
-        ".border-glow-card setzt isolation: isolate",
-        bool(re.search(r"\.border-glow-card\s*\{[^}]*isolation:\s*isolate", css)),
+        ".border-glow-card ist weg und wird nicht mehr gebraucht",
+        ".border-glow-card" not in re.sub(r"/\*.*?\*/", "", css, flags=re.S),
     )
     check(
         ".prox-row setzt transform",

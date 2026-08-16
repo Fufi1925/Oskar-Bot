@@ -35,13 +35,12 @@
  * man an keiner Stelle sieht. Gemessen, nicht vermutet: hinter jeder
  * dieser Karten liegt eine einfarbige Fläche.
  *
- * ── Der Rand-Schimmer ───────────────────────────────────────────────
+ * ── Kein Rand-Schimmer mehr ─────────────────────────────────────────
  *
- * `` baut seinen Ring aus der Ecke der Karte und muss
- * sie deshalb kennen. Für `rounded-3xl` (1.5rem) ist das der
- * Standardwert; jede andere Ecke braucht ihre `glow-r-*`-Klasse. Ein
- * Test prüft das, weil ein fehlendes `glow-r-2xl` einen Ring an der
- * falschen Rundung zeichnet.
+ * Hier stand eine Erklärung, wie der Lichtrand seinen Ring aus der
+ * Ecke der Karte baut. Den gibt es nicht mehr: er ist auf Wunsch des
+ * Nutzers überall entfernt worden, nicht nur im Admin-Bereich. Die
+ * Karten zeigen ihre Kante jetzt allein über `border-slate-800`.
  */
 
 import React from "react";
@@ -64,10 +63,10 @@ export const KARTE_P = cn(KARTE, "p-4 sm:p-6");
 /**
  * Eine Karte, die ihren Inhalt beschneidet (Listen mit Trennlinien).
  *
- * `is-clipped` gehört zwingend dazu: ohne sie liegt der Schein-Ring
+ * `` gehört zwingend dazu: ohne sie liegt der Schein-Ring
  * außerhalb von `overflow-hidden` und wird abgeschnitten.
  */
-export const KARTE_LISTE = cn(KARTE, "overflow-hidden is-clipped");
+export const KARTE_LISTE = cn(KARTE, "overflow-hidden");
 
 /** Eine Fläche INNERHALB einer Karte — eine Stufe dunkler. */
 export const FELD = "bg-[#0e0e12] border border-slate-800 rounded-xl";

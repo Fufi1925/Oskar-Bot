@@ -497,38 +497,22 @@ def test_the_popup_escapes_the_card():
 
     # Gegenprobe: die Falle ist wirklich da. Ohne diesen Nachweis
     # wuesste niemand, warum der Umbau noetig war.
-    css = open(os.path.join(DASH, "app", "globals.css"), encoding="utf-8").read()
-    check("die Karte eroeffnet wirklich einen Stapelkontext",
-          re.search(r"\.border-glow-card\s*\{[^}]*isolation:\s*isolate", css)
-          is not None)
-
-    # Und die Auswahl steht wirklich in einer solchen Karte -- sonst
-    # waere der ganze Portal-Umbau eine Loesung ohne Problem.
     #
-    # Frueher stand hier `ping-reactions-panel`. Seit der Admin-Bereich
-    # auf den Stil des Reiters „Alle Server“ vereinheitlicht wurde, hat
-    # der keinen Schimmer mehr -- der Beleg zeigte also ins Leere,
-    # ohne dass die Falle verschwunden waere. Deshalb wird jetzt
-    # gesucht statt geraten: **irgendeine** Datei, die beides hat.
-    traeger = []
-    ordner = os.path.join(DASH, "components", "dashboard")
-    for name in sorted(os.listdir(ordner)):
-        if not name.endswith(".tsx"):
-            continue
-        src = open(os.path.join(ordner, name), encoding="utf-8").read()
-        if "border-glow-card" not in src:
-            continue
-        # Die Auswahl muss NACH einer Schimmer-Karte kommen, sonst
-        # liegt sie nicht darin.
-        glow = [m.start() for m in re.finditer(r"border-glow-card", src)]
-        emoji = [m.start() for m in re.finditer(r"<Emoji\w+", src)]
-        if glow and emoji and any(e > g for g in glow for e in emoji):
-            traeger.append(name)
-
-    check("und die Auswahl steht in einer solchen Karte",
-          bool(traeger),
-          "keine Datei hat Schimmer-Karte und Emoji-Auswahl zusammen -- "
-          "dann braeuchte es das Portal nicht mehr")
+    # Belegt wurde sie frueher ueber `.border-glow-card`. Die Klasse
+    # gibt es nicht mehr -- der Rand-Schimmer ist ueberall entfernt --,
+    # die Falle aber schon: `.prox-row` (transform) und `.admin-glass`
+    # (backdrop-filter) eroeffnen weiterhin Stapelkontexte. Der Beleg
+    # wandert deshalb mit, statt ersatzlos zu verschwinden.
+    css = open(os.path.join(DASH, "app", "globals.css"), encoding="utf-8").read()
+    quellen = [
+        (".prox-row", r"\.prox-row\s*\{[^}]*transform:"),
+        (".admin-glass", r"\.admin-glass\s*\{[^}]*backdrop-filter:"),
+    ]
+    vorhanden = [name for name, muster in quellen if re.search(muster, css)]
+    check("es gibt weiterhin Stapelkontexte auf der Seite",
+          bool(vorhanden),
+          "ohne einen einzigen waere der Portal-Umbau eine Loesung "
+          "ohne Problem")
 
 
 def test_the_popup_fits_the_screen():
@@ -731,8 +715,15 @@ def test_the_trap_is_documented():
           "hoeheren z-index -- so sind hier zwei Anlaeufe gescheitert")
     check("und nennt ihn beim Namen",
           "Stapelkontext" in layer)
-    check("und die Klasse, die ihn eroeffnet",
-          "border-glow-card" in layer)
+    # Frueher: „nennt die Klasse `border-glow-card`". Die gibt es
+    # nicht mehr; der Kommentar muss jetzt eine der verbliebenen
+    # Quellen nennen, sonst steht dort ein Grund, den niemand
+    # nachpruefen kann.
+    check("und mindestens eine Quelle, die ihn eroeffnet",
+          "prox-row" in layer or "admin-glass" in layer
+          or "transform" in layer or "backdrop-filter" in layer,
+          "ein Kommentar, der eine geloeschte Klasse als Grund nennt, "
+          "fuehrt den naechsten Leser in die Irre")
     check("und dass z-index darin nicht hilft",
           "hilft" in layer or "zaehlt nur" in layer)
     # Die Eigenschaft beim Namen nennen, nicht nur umschreiben: wer

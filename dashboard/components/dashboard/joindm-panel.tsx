@@ -147,7 +147,7 @@ export function JoinDMPanel({ guildId }: { guildId: string }) {
     <section className="grid xl:grid-cols-5 gap-6">
       <div className="xl:col-span-3 space-y-5">
         {/* ── Status ─────────────────────────────────── */}
-        <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5 border-glow-card">
+        <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <div className="flex items-center gap-3">
               <div className={cn(
@@ -219,7 +219,7 @@ export function JoinDMPanel({ guildId }: { guildId: string }) {
         </div>
 
         {/* ── Content ────────────────────────────────── */}
-        <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5 border-glow-card">
+        <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
           <p className="text-xs font-black uppercase tracking-widest text-slate-500">
             Die Nachricht
           </p>
@@ -336,7 +336,7 @@ export function JoinDMPanel({ guildId }: { guildId: string }) {
         </div>
 
         {/* ── Guards ─────────────────────────────────── */}
-        <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5 border-glow-card">
+        <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
           <div>
             <p className="text-xs font-black uppercase tracking-widest text-slate-500">
               Wann verschickt wird
@@ -379,7 +379,7 @@ export function JoinDMPanel({ guildId }: { guildId: string }) {
       {/* ── Preview ──────────────────────────────────── */}
       <div className="xl:col-span-2 space-y-5">
         <div className="xl:sticky xl:top-6 space-y-5">
-          <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-4 border-glow-card">
+          <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-4">
             <p className="text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
               <Eye className="h-3.5 w-3.5" /> Vorschau
             </p>

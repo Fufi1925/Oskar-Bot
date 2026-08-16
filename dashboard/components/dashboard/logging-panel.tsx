@@ -151,7 +151,7 @@ const PRESETS = [
 
 function Card({ icon: Icon, title, subtitle, children, onReload }: any) {
   return (
-    <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-4 border-glow-card">
+    <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-4">
       <div className="flex items-start gap-3">
         {Icon && (
           <div className="h-10 w-10 rounded-2xl bg-primary/15 grid place-items-center shrink-0">

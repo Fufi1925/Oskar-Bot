@@ -45,7 +45,7 @@ import { cn } from "@/lib/utils";
 import { InlineToggle } from "@/components/dashboard/form-elements";
 
 const CARD =
-  "bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 border-glow-card";
+  "bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6";
 const INPUT =
   "w-full bg-[#0e0e12] border border-slate-800 rounded-xl px-4 py-3 text-sm " +
   "text-white placeholder:text-slate-600 focus:outline-none " +
@@ -1822,7 +1822,7 @@ export function TemplateCommunityPanel({ guildId }: { guildId: string }) {
               <div
                 key={entry.id}
                 className={cn(
-                  "rounded-2xl border p-4 transition-all border-glow-card glow-r-2xl flex flex-col",
+                  "rounded-2xl border p-4 transition-all flex flex-col",
                   entry.blocked
                     ? "bg-red-500/[0.04] border-red-500/25"
                     : "bg-[#131318] border-slate-800 hover:border-primary/40"

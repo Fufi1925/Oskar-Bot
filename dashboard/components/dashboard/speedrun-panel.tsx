@@ -127,7 +127,7 @@ type Phase =
 const POLL_MS = 1200;
 
 const CARD =
-  "bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 border-glow-card";
+  "bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6";
 
 const STAGES = ["Voraussetzungen", "Vorlage", "Umfang", "Lauf"];
 

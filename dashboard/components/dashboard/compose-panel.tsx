@@ -260,7 +260,7 @@ export function ComposePanel({ guildId }: { guildId: string }) {
       {/* ══ Editor ═══════════════════════════════════ */}
       <div className="xl:col-span-3 space-y-5">
         {announcements.length > 0 && (
-          <div className="bg-[#131318] border border-primary/25 rounded-3xl p-4 sm:p-6 space-y-4 border-glow-card">
+          <div className="bg-[#131318] border border-primary/25 rounded-3xl p-4 sm:p-6 space-y-4">
             <div className="flex gap-3">
               <div className="h-10 w-10 rounded-2xl bg-primary/15 grid place-items-center shrink-0">
                 <Sparkles className="h-5 w-5 text-primary" />
@@ -296,7 +296,7 @@ export function ComposePanel({ guildId }: { guildId: string }) {
           </div>
         )}
 
-        <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5 border-glow-card">
+        <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
           <Field label="Art der Nachricht">
             <div className="grid md:grid-cols-3 gap-2">
               {[
@@ -328,7 +328,7 @@ export function ComposePanel({ guildId }: { guildId: string }) {
 
         {/* ── Text ─────────────────────────────────── */}
         {kind === "text" && (
-          <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 border-glow-card">
+          <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6">
             <Field
               label="Nachricht"
               hint="Discord-Formatierung geht: **fett**, *kursiv*, `Code`, > Zitat."
@@ -371,7 +371,7 @@ export function ComposePanel({ guildId }: { guildId: string }) {
 
         {/* ── Embed ────────────────────────────────── */}
         {kind === "embed" && (
-          <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5 border-glow-card">
+          <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
             <Field
               label="Text über dem Embed"
               hint="Nur hier funktionieren Erwähnungen — ein Ping im Embed benachrichtigt niemanden."
@@ -546,7 +546,7 @@ export function ComposePanel({ guildId }: { guildId: string }) {
 
         {/* ── V2 blocks ────────────────────────────── */}
         {kind === "v2" && (
-          <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5 border-glow-card">
+          <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
             <div className="flex items-center justify-between gap-4 flex-wrap">
               <p className="text-xs font-black uppercase tracking-widest text-slate-500">
                 Bausteine ({blocks.length})
@@ -762,7 +762,7 @@ export function ComposePanel({ guildId }: { guildId: string }) {
       {/* ══ Preview + send ═══════════════════════════ */}
       <div className="xl:col-span-2 space-y-5">
         <div className="xl:sticky xl:top-6 space-y-5">
-          <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-4 border-glow-card">
+          <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-4">
             <p className="text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
               <Eye className="h-3.5 w-3.5" /> Vorschau
             </p>
@@ -930,7 +930,7 @@ export function ComposePanel({ guildId }: { guildId: string }) {
           )}
 
           {/* Send */}
-          <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-4 border-glow-card">
+          <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-4">
             {/* Only rendered where there is an actual choice. A picker
                 with one option is noise. */}
             {senders.length > 1 && (

@@ -332,7 +332,7 @@ export function GuildSettingsForm({
         const Icon = GROUP_ICONS[group] || Command;
 
         return (
-          <div key={group} className="bg-[#131318] border border-slate-800 rounded-3xl overflow-hidden border-glow-card is-clipped">
+          <div key={group} className="bg-[#131318] border border-slate-800 rounded-3xl overflow-hidden">
             <div className="px-8 py-5 border-b border-white/5 flex items-center justify-between gap-4">
               <div className="flex items-center gap-3">
                 <Icon className="h-5 w-5 text-primary" />

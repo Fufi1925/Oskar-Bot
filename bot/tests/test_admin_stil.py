@@ -179,51 +179,50 @@ def test_kein_schimmer_im_admin():
           f"nur {behalten} -- Listen liefen sonst aus der Kartenecke")
 
 
-def test_schimmer_ausserhalb_bleibt():
-    print("\nAusserhalb des Admin-Bereichs bleibt alles")
+def test_schimmer_ist_ueberall_weg():
+    """Der Schimmer ist inzwischen UEBERALL weg, nicht nur hier.
+
+    Diese Pruefung stand einmal auf dem Kopf: sie verlangte, dass die
+    uebrige Seite ihn behaelt (mindestens 110 Karten in 45 Dateien).
+    Das war richtig, solange die Regel nur fuer den Admin-Bereich galt.
+
+    Der Nutzer hat sie umgekehrt -- „enfer überall den glow effet" --,
+    also dreht sich die Pruefung mit. Sie bleibt hier stehen und wird
+    nicht geloescht: eine Zahl, die einmal falsch herum abgesichert
+    war, verdient eine Pruefung in die andere Richtung.
+
+    Die ausfuehrliche Fassung steht in `test_border_glow.py`.
+    """
+    print("\nDer Schimmer ist ueberall weg, nicht nur im Admin-Bereich")
 
     treffer = 0
-    dateien = 0
+    dateien = []
     for wurzel, ordner, namen in os.walk(DASH):
         ordner[:] = [o for o in ordner if o not in {"node_modules", ".next", ".git"}]
         for name in namen:
-            if not name.endswith(".tsx"):
+            if not name.endswith((".tsx", ".ts")):
                 continue
-            if name[:-4] in PANELS:
-                continue
-            with open(os.path.join(wurzel, name), encoding="utf-8") as f:
-                n = f.read().count("border-glow-card")
-            if n:
-                treffer += n
-                dateien += 1
+            pfad = os.path.join(wurzel, name)
+            with open(pfad, encoding="utf-8") as f:
+                src = f.read()
+            # Nur Klassenlisten zaehlen. Ein Kommentar, der erklaert,
+            # dass der Schimmer entfernt wurde, MUSS das Wort nennen
+            # duerfen -- sonst zwingt der Test zum Loeschen der
+            # Begruendung.
+            for m in re.finditer(
+                r'className=\{?\s*(?:cn\()?\s*["`]([^"`]*)["`]', src
+            ):
+                if "border-glow-card" in m.group(1):
+                    treffer += 1
+                    dateien.append(os.path.relpath(pfad, DASH))
 
-    # Die Server-Seiten und die Startseite behalten ihren Schimmer.
-    check("die uebrige Seite hat ihn noch", treffer >= 110,
-          f"nur noch {treffer} Karten")
-    check("und zwar breit gestreut", dateien >= 45, f"nur {dateien} Dateien")
+    check("keine einzige Karte traegt ihn noch", treffer == 0,
+          f"{treffer} in {sorted(set(dateien))[:4]}")
 
-    # Eine Gesamtzahl allein merkt nicht, wenn eine einzelne Datei ihn
-    # verliert -- im Mutationstest genau so durchgerutscht. Die
-    # groessten Traeger werden deshalb einzeln geprueft.
-    TRAEGER = {
-        "leveling-panel": 10,
-        "welcome-form": 5,
-        "compose-panel": 5,
-        "giveaway-detail": 4,
-        "guild-settings-form": 1,
-    }
-    verloren = []
-    for name, mindestens in TRAEGER.items():
-        pfad = os.path.join(PANEL_DIR, f"{name}.tsx")
-        if not os.path.isfile(pfad):
-            verloren.append(f"{name}(fehlt)")
-            continue
-        with open(pfad, encoding="utf-8") as f:
-            n = f.read().count("border-glow-card")
-        if n < mindestens:
-            verloren.append(f"{name}({n}<{mindestens})")
-    check("die grossen Traeger haben ihn einzeln noch",
-          not verloren, ", ".join(verloren))
+    # Und die Maschinerie dahinter ebenso.
+    check("die Komponente ist geloescht",
+          not os.path.isfile(os.path.join(DASH, "components", "ui", "border-glow.tsx")),
+          "sie war der Zeiger-Beobachter")
 
 
 def test_knoepfe_schreien_nicht():
@@ -349,7 +348,7 @@ def main() -> int:
     test_kein_zweiter_stil()
     test_karten_sehen_gleich_aus()
     test_kein_schimmer_im_admin()
-    test_schimmer_ausserhalb_bleibt()
+    test_schimmer_ist_ueberall_weg()
     test_knoepfe_schreien_nicht()
     test_kein_roher_schluessel()
     test_gemeinsame_bausteine()

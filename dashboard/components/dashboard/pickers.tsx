@@ -37,9 +37,10 @@ export function invalidatePickerCache(guildId?: string) {
 /* ------------------------------------------------------------------ *
  * Warum die Menues per `PopoverLayer` gezeichnet werden
  *
- * Vorher stand hier `absolute z-50`. Das reichte nicht: fast jede
- * Karte im Dashboard traegt `.border-glow-card` mit
- * `isolation: isolate` und ist damit ein Stapelkontext. Ein Kind kann
+ * Vorher stand hier `absolute z-50`. Das reichte nicht: mehrere
+ * Bausteine eroeffnen einen Stapelkontext -- `.prox-row` per
+ * `transform`, `.admin-glass` per `backdrop-filter`, frueher auch der
+ * Rand-Schimmer der Karten (der ist inzwischen weg). Ein Kind kann
  * seinen Stapelkontext nicht verlassen -- der z-index zaehlt nur
  * innerhalb der Karte. Die naechste Karte im Dokument lag also immer
  * darueber, und auf dem Handy lief das Menue zusaetzlich unten aus

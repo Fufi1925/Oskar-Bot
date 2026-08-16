@@ -162,7 +162,7 @@ export function GreetExtrasPanel({
     <div className="space-y-5">
       {/* ── Willkommensbild ───────────────────────────────────── */}
       {show !== "leave" && (
-      <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5 border-glow-card">
+      <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
         <div className="flex items-start justify-between gap-4">
           <div className="flex gap-3">
             <div className="shrink-0 h-10 w-10 rounded-2xl bg-emerald-500/15 border border-emerald-500/25 grid place-items-center">
@@ -194,7 +194,7 @@ export function GreetExtrasPanel({
 
       {/* ── Abschied ──────────────────────────────────────────── */}
       {show !== "welcome" && (
-      <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5 border-glow-card">
+      <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
         <div className="flex items-start justify-between gap-4">
           <div className="flex gap-3">
             <div className="shrink-0 h-10 w-10 rounded-2xl bg-rose-500/15 border border-rose-500/25 grid place-items-center">

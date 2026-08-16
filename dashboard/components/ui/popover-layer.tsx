@@ -11,9 +11,11 @@
  *
  * ── Warum ein höherer z-index nicht hilft ───────────────────────────
  *
- * Die Karten tragen `.border-glow-card`, und die setzt
- * `isolation: isolate` -- nötig für ihre eigenen `z-index: -1`-Ebenen,
- * aber damit ist die Karte ein **Stapelkontext**.
+ * Mehrere Bausteine eröffnen einen **Stapelkontext**: `.prox-row`
+ * per `transform`, `.admin-glass` per `backdrop-filter`. Früher tat es
+ * auch der Rand-Schimmer der Karten mit `isolation: isolate` — der ist
+ * entfernt, die beiden anderen sind geblieben, und damit bleibt auch
+ * das Problem.
  *
  * Ein Element kann seinen Stapelkontext **nicht verlassen**. Sein
  * z-index zählt nur gegenüber Geschwistern *innerhalb* der Karte, nie
