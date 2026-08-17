@@ -126,6 +126,32 @@ def _lavalink_state() -> dict:
     return {"ready": True, "detail": f"{len(nodes)} Knoten verbunden."}
 
 
+def _ping_limits() -> dict:
+    """Die Grenzen, damit das Dashboard sie nicht doppelt pflegt.
+
+    Stuenden sie im Browser noch einmal, waere die naechste Aenderung
+    an einer der beiden Stellen still falsch -- der Nutzer bekaeme
+    einen Wert angeboten, den der Server abschneidet.
+    """
+    return {
+        "ping_cooldown": {
+            "min": store.MIN_PING_COOLDOWN,
+            "max": store.MAX_PING_COOLDOWN,
+            "default": store.DEFAULT_PING_COOLDOWN,
+        },
+        "reminder_seconds": {
+            "min": store.MIN_REMINDER_SECONDS,
+            "max": store.MAX_REMINDER_SECONDS,
+            "default": store.DEFAULT_REMINDER_SECONDS,
+        },
+        "max_reminders": {
+            "min": 0,
+            "max": store.MAX_MAX_REMINDERS,
+            "default": store.DEFAULT_MAX_REMINDERS,
+        },
+    }
+
+
 @router.get("/{guild_id}", summary="Einstellungen des Warteraums")
 async def get_settings(guild_id: int, bot: "universitybot" = Depends(get_bot)):
     guild = _guild_or_404(bot, guild_id)
@@ -180,6 +206,13 @@ async def get_settings(guild_id: int, bot: "universitybot" = Depends(get_bot)):
             "max_seconds": store.MAX_MUSIC_SECONDS,
             "max_greeting": store.MAX_GREETING,
         },
+        # Die Grenzen des Ping-Systems -- damit der Browser sie nicht
+        # noch einmal fuehrt und dabei irgendwann abweicht.
+        "ping_limits": _ping_limits(),
+        # Wie oft in diesem Wartelauf schon erinnert wurde. Steht im
+        # Reiter, damit "es kam nichts mehr" nicht wie ein Fehler
+        # aussieht, wenn nur die Obergrenze erreicht ist.
+        "reminders_sent": store.reminders_sent(guild_id),
     }
 
 
@@ -246,6 +279,18 @@ async def save_settings(
         fields["music_url"] = str(data.get("music_url") or "").strip()
     if "music_seconds" in data:
         fields["music_seconds"] = data.get("music_seconds")
+
+    # ── Das Ping-System ──────────────────────────────────────────────
+    #
+    # Die Grenzen setzt `store.save` durch -- hier wird nur
+    # weitergereicht, was ankam. Zweimal dieselbe Regel zu pflegen
+    # heisst, dass sie irgendwann auseinanderlaeuft.
+    for schalter in ("ping_enabled", "ping_when_staff_present"):
+        if schalter in data:
+            fields[schalter] = bool(data.get(schalter))
+    for zahl in ("ping_cooldown", "reminder_seconds", "max_reminders"):
+        if zahl in data:
+            fields[zahl] = data.get(zahl)
 
     # Anschalten ohne Kanal ergibt nichts.
     merged = {**(await store.get(db, guild_id)), **fields}

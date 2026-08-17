@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import {
   AlertTriangle,
+  Check,
   CheckCircle2,
   Clock,
   Headphones,
@@ -61,6 +62,13 @@ export function SupportQueuePanel({ guildId }: { guildId: string }) {
   const [notifyId, setNotifyId] = useState("");
   const [roleId, setRoleId] = useState("");
 
+  // ── Das Ping-System ────────────────────────────────────────────
+  const [pingEnabled, setPingEnabled] = useState(true);
+  const [pingCooldown, setPingCooldown] = useState(120);
+  const [reminderSeconds, setReminderSeconds] = useState(300);
+  const [maxReminders, setMaxReminders] = useState(3);
+  const [pingWhenStaff, setPingWhenStaff] = useState(false);
+
   const load = useCallback(async () => {
     try {
       const answer = await api.supportQueue(guildId);
@@ -72,6 +80,15 @@ export function SupportQueuePanel({ guildId }: { guildId: string }) {
       setMusicUrl(answer.music_url || "");
       setNotifyId(answer.notify_channel_id || "");
       setRoleId(answer.staff_role_id || "");
+      // `!== false` statt `Boolean(...)`: fehlt das Feld (alter
+      // Server, der noch nicht gespeichert hat), soll der Ping AN
+      // sein -- so war es vorher, und ein Update darf die Meldung
+      // nicht stillschweigend abschalten.
+      setPingEnabled(answer.ping_enabled !== false);
+      setPingCooldown(Number(answer.ping_cooldown ?? 120));
+      setReminderSeconds(Number(answer.reminder_seconds ?? 300));
+      setMaxReminders(Number(answer.max_reminders ?? 3));
+      setPingWhenStaff(Boolean(answer.ping_when_staff_present));
     } catch (err: any) {
       toast.error(err?.message || "Der Warteraum ließ sich nicht laden.");
     } finally {
@@ -112,6 +129,11 @@ export function SupportQueuePanel({ guildId }: { guildId: string }) {
         music_url: musicUrl,
         notify_channel_id: notifyId,
         staff_role_id: roleId,
+        ping_enabled: pingEnabled,
+        ping_cooldown: pingCooldown,
+        reminder_seconds: reminderSeconds,
+        max_reminders: maxReminders,
+        ping_when_staff_present: pingWhenStaff,
       });
       setData((old: any) => ({ ...old, ...answer }));
       toast.success("Gespeichert.");
@@ -406,6 +428,150 @@ export function SupportQueuePanel({ guildId }: { guildId: string }) {
             </select>
           </div>
         </div>
+      </div>
+
+      {/* ── Das Ping-System ─────────────────────────────────────────
+          Vorher gab es hier nur "Kanal" und "Rolle" -- und die Regel
+          dahinter war: bei JEDEM Beitritt eine Nachricht. Wer zweimal
+          verbindet oder ein wackliges Netz hat, löste zwei Pings aus;
+          sah niemand die Meldung, kam nie eine zweite. */}
+      <div className="rounded-3xl border border-slate-800 bg-[#131318] p-4 sm:p-6 space-y-5">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-0">
+            <h3 className="text-[15px] font-bold text-white">
+              Wann das Team gepingt wird
+            </h3>
+            <p className="mt-1 text-[13px] leading-relaxed text-slate-500">
+              Ohne Pause wird bei jedem Verbindungsabbruch erneut
+              erwähnt — und ein Team, das im Sekundentakt gepingt wird,
+              schaltet die Erwähnung ab.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setPingEnabled((v) => !v)}
+            aria-pressed={pingEnabled}
+            className={cn(
+              "shrink-0 rounded-xl border px-4 py-2.5 text-sm font-semibold transition-colors",
+              pingEnabled
+                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+                : "border-slate-800 bg-[#0e0e12] text-slate-400"
+            )}
+          >
+            {pingEnabled ? "Pings an" : "Pings aus"}
+          </button>
+        </div>
+
+        {pingEnabled && (
+          <>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div>
+                <label className="text-[11px] font-black uppercase tracking-wider text-slate-500">
+                  Pause zwischen Pings
+                </label>
+                <div className="mt-2 flex items-center gap-2">
+                  <input
+                    type="number"
+                    min={0}
+                    max={3600}
+                    value={pingCooldown}
+                    onChange={(e) => setPingCooldown(Number(e.target.value))}
+                    className="w-full rounded-xl border border-slate-800 bg-[#0e0e12] px-3 py-2.5 text-sm text-white outline-none transition-colors focus:border-primary/50"
+                  />
+                  <span className="shrink-0 text-[13px] text-slate-500">Sek.</span>
+                </div>
+                <p className="mt-1.5 text-[12px] leading-relaxed text-slate-600">
+                  {pingCooldown === 0
+                    ? "Bei jedem Beitritt — auch bei Verbindungsabbrüchen."
+                    : `Frühestens alle ${pingCooldown} Sekunden.`}
+                </p>
+              </div>
+
+              <div>
+                <label className="text-[11px] font-black uppercase tracking-wider text-slate-500">
+                  Erinnerung nach
+                </label>
+                <div className="mt-2 flex items-center gap-2">
+                  <input
+                    type="number"
+                    min={0}
+                    max={3600}
+                    value={reminderSeconds}
+                    onChange={(e) => setReminderSeconds(Number(e.target.value))}
+                    className="w-full rounded-xl border border-slate-800 bg-[#0e0e12] px-3 py-2.5 text-sm text-white outline-none transition-colors focus:border-primary/50"
+                  />
+                  <span className="shrink-0 text-[13px] text-slate-500">Sek.</span>
+                </div>
+                <p className="mt-1.5 text-[12px] leading-relaxed text-slate-600">
+                  {reminderSeconds === 0
+                    ? "Keine Erinnerung — es wird nur einmal gemeldet."
+                    : `Wenn nach ${reminderSeconds} Sekunden niemand da ist.`}
+                </p>
+              </div>
+
+              <div>
+                <label className="text-[11px] font-black uppercase tracking-wider text-slate-500">
+                  Höchstens Erinnerungen
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  max={10}
+                  value={maxReminders}
+                  onChange={(e) => setMaxReminders(Number(e.target.value))}
+                  className="mt-2 w-full rounded-xl border border-slate-800 bg-[#0e0e12] px-3 py-2.5 text-sm text-white outline-none transition-colors focus:border-primary/50"
+                />
+                <p className="mt-1.5 text-[12px] leading-relaxed text-slate-600">
+                  Danach ist Ruhe. Ohne Grenze pingt der Bot ewig weiter,
+                  wenn gerade niemand da ist.
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setPingWhenStaff((v) => !v)}
+              aria-pressed={pingWhenStaff}
+              className="flex w-full items-start gap-3 rounded-xl border border-slate-800 bg-[#0e0e12] p-3.5 text-left transition-colors hover:border-slate-700"
+            >
+              <span
+                className={cn(
+                  "mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded border",
+                  pingWhenStaff
+                    ? "border-primary bg-primary text-white"
+                    : "border-slate-700"
+                )}
+              >
+                {pingWhenStaff && <Check className="h-3 w-3" />}
+              </span>
+              <span className="min-w-0">
+                <span className="block text-[14px] font-semibold text-white">
+                  Auch pingen, wenn schon jemand vom Team da ist
+                </span>
+                <span className="mt-0.5 block text-[13px] leading-relaxed text-slate-500">
+                  Normalerweise nicht: sitzt ein Teammitglied im Warteraum,
+                  ist die Meldung überflüssig. Braucht die eingestellte
+                  Team-Rolle, sonst lässt sich die Frage nicht beantworten.
+                </span>
+              </span>
+            </button>
+
+            {!notifyId && (
+              <p className="rounded-xl border border-amber-500/25 bg-amber-500/10 px-3.5 py-3 text-[13px] leading-relaxed text-amber-200/90">
+                Es ist kein Meldekanal gewählt — es wird nichts gepingt,
+                egal was hier eingestellt ist.
+              </p>
+            )}
+
+            {typeof data.reminders_sent === "number" &&
+              data.reminders_sent > 0 && (
+                <p className="text-[12px] text-slate-600">
+                  In diesem Wartelauf schon {data.reminders_sent} Erinnerung
+                  {data.reminders_sent === 1 ? "" : "en"} geschickt.
+                </p>
+              )}
+          </>
+        )}
       </div>
 
       {/* Speichern */}

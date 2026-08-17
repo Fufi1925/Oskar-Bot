@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 
 import discord
 import wavelink
@@ -103,6 +104,9 @@ class SupportQueue(Cog):
         # dieses Dict kann die Schleife mitten im Lauf eingesammelt
         # werden -- der Bot sitzt dann stumm im Kanal.
         self._loops: dict[int, asyncio.Task] = {}
+        # guild_id -> Task, die ans Warten erinnert. Getrennt von der
+        # Musikschleife, damit sie auch ohne Lavalink laeuft.
+        self._reminders: dict[int, asyncio.Task] = {}
 
     async def cog_load(self) -> None:
         import aiosqlite
@@ -114,6 +118,9 @@ class SupportQueue(Cog):
         for task in list(self._loops.values()):
             task.cancel()
         self._loops.clear()
+        for task in list(self._reminders.values()):
+            task.cancel()
+        self._reminders.clear()
         store.reset()
         if self._connection is not None:
             await self._connection.close()
@@ -182,16 +189,188 @@ class SupportQueue(Cog):
         task = asyncio.create_task(self._run_loop(guild, channel, record))
         self._loops[guild.id] = task
         task.add_done_callback(
-            lambda _t, gid=guild.id: self._loops.pop(gid, None)
+            lambda beendete, gid=guild.id: self._forget_loop(gid, beendete)
         )
 
+        # Die Erinnerungen laufen getrennt von der Musik.
+        #
+        # Warum nicht in derselben Schleife: die haengt an der
+        # Musikdauer und wartet zwischen Ansage und Stueck. Eine
+        # Erinnerung nach fuenf Minuten kaeme dann irgendwann
+        # dazwischen -- oder gar nicht, wenn Lavalink fehlt und die
+        # Musikschleife nie startet. Gerade dann ist die Erinnerung
+        # aber das Einzige, was noch funktioniert.
+        if guild.id not in self._reminders or self._reminders[guild.id].done():
+            erinnerer = asyncio.create_task(
+                self._reminder_loop(guild, channel)
+            )
+            self._reminders[guild.id] = erinnerer
+            erinnerer.add_done_callback(
+                lambda beendete, gid=guild.id: self._forget_reminder(gid, beendete)
+            )
+
+    def _forget_reminder(self, guild_id: int, beendete: asyncio.Task) -> None:
+        """Wie `_forget_loop`, fuer die Erinnerungen."""
+        if self._reminders.get(guild_id) is beendete:
+            self._reminders.pop(guild_id, None)
+
+    async def _reminder_loop(self, guild, channel) -> None:
+        """Erinnern, solange jemand wartet und niemand kommt.
+
+        Prueft jede halbe Minute. Haeufiger waere sinnlos -- die
+        kleinste einstellbare Erinnerung liegt bei einer Minute --,
+        seltener wuerde die Einstellung ungenau.
+
+        Die Einstellungen werden bei jedem Durchgang neu gelesen: wer
+        die Erinnerung waehrend einer laufenden Wartezeit abschaltet,
+        soll nicht bis zum naechsten Neustart warten muessen.
+        """
+        try:
+            while True:
+                await asyncio.sleep(30)
+
+                if not self._humans_present(channel):
+                    return
+
+                record = await self.settings(guild.id)
+                if not record.get("enabled"):
+                    return
+
+                if not store.due_for_reminder(record, guild.id):
+                    continue
+
+                # Sitzt inzwischen jemand vom Team drin, ist die
+                # Erinnerung erledigt -- ohne sie zu schicken.
+                if not record.get("ping_when_staff_present"):
+                    if self._staff_present(guild, channel, record):
+                        return
+
+                if await self._send_notice(
+                    guild, None, record, channel, erinnerung=True
+                ):
+                    store.mark_reminded(guild.id)
+                    LOGGER.info(
+                        "Erinnerung %s in %s geschickt",
+                        store.reminders_sent(guild.id), guild.id,
+                    )
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # noqa: BLE001
+            LOGGER.warning("Erinnerungsschleife in %s: %s", guild.id, exc)
+
+    def _forget_loop(self, guild_id: int, beendete: asyncio.Task) -> None:
+        """Den Eintrag loeschen -- aber nur den eigenen.
+
+        ── Der Fehler, den das behebt ──────────────────────────────
+
+        Hier stand `self._loops.pop(gid, None)`. Das loeschte, was
+        auch immer gerade unter der Server-ID stand -- auch eine
+        **andere, gerade gestartete** Schleife.
+
+        Der Ablauf, nachgestellt in `repro/bug_warteraum.py`:
+
+          1. Jemand verlaesst den Warteraum. `_maybe_stop` ruft
+             `task.cancel()` und nimmt den Eintrag heraus.
+          2. `cancel()` beendet eine Task **nicht sofort** -- der
+             Abbruch wird erst zugestellt, wenn sie das naechste Mal
+             wartet.
+          3. Dieselbe Person kommt sofort wieder rein. `_on_arrival`
+             sieht ein leeres `_loops`, startet eine zweite Schleife
+             und traegt sie ein.
+          4. Jetzt erst kommt der Abbruch der ERSTEN an, ihr Callback
+             feuert -- und loescht den Eintrag der ZWEITEN.
+
+        Ergebnis: die zweite Schleife laeuft verwaist weiter, und beim
+        naechsten Beitritt haelt der Bot sie fuer tot. Aus Sicht des
+        Wartenden: **beim zweiten Mal kommt der Bot nicht.**
+
+        Gemessen, nicht vermutet: ohne Wartezeit zwischen Verlassen
+        und Wiedereintritt schlaegt die Pruefung fehl, mit Wartezeit
+        nicht. Genau das ist der Unterschied zwischen einem echten
+        Nutzer und einem geduldigen Test.
+        """
+        if self._loops.get(guild_id) is beendete:
+            self._loops.pop(guild_id, None)
+
     async def _notify_staff(self, guild, member, record: dict, channel) -> None:
+        """Dem Team sagen, dass jemand wartet.
+
+        ── Was am alten Ping falsch war ────────────────────────────
+
+        Eine einzige Regel: "Kanal eingestellt -> bei jedem Beitritt
+        eine Nachricht". Drei Loecher, und jedes fuehrt dazu, dass die
+        Erwaehnung am Ende abgeschaltet wird:
+
+          * **Kein Cooldown.** Wer zweimal verbindet -- oder dessen
+            Netz kurz wackelt -- loeste zwei Pings aus. Bei einer
+            instabilen Leitung wird das Team im Sekundentakt
+            erwaehnt.
+          * **Keine Erinnerung.** Sah niemand die erste Meldung,
+            wartete die Person, bis sie aufgab.
+          * **Kein Blick auf den Kanal.** Sass schon ein Teammitglied
+            im Warteraum, wurde trotzdem gepingt.
+
+        Jetzt entscheidet `support_queue.may_ping` -- mit Cooldown,
+        und die Erinnerungen laufen als eigene Schleife.
+        """
+        if not store.may_ping(record, guild.id):
+            return
+
+        # Sitzt schon jemand vom Team im Warteraum? Dann ist der Ping
+        # ueberfluessig -- es ist ja bereits jemand da. Abschaltbar,
+        # weil manche Teams die Meldung trotzdem im Log haben wollen.
+        if not record.get("ping_when_staff_present"):
+            if self._staff_present(guild, channel, record):
+                LOGGER.info(
+                    "Kein Ping in %s: es ist schon jemand vom Team da",
+                    guild.id,
+                )
+                return
+
+        if await self._send_notice(guild, member, record, channel):
+            store.mark_pinged(guild.id)
+
+    @staticmethod
+    def _staff_present(guild, channel, record: dict) -> bool:
+        """Sitzt jemand mit der Team-Rolle im Warteraum?
+
+        Ohne eingestellte Rolle nicht beantwortbar -- dann lieber
+        pingen als schweigen: eine Meldung zu viel ist harmloser als
+        ein Wartender, den niemand bemerkt.
+        """
+        role_id = record.get("staff_role_id")
+        if not role_id:
+            return False
+
+        try:
+            rolle = guild.get_role(int(role_id))
+        except (TypeError, ValueError):
+            return False
+        if rolle is None:
+            return False
+
+        for mitglied in getattr(channel, "members", []) or []:
+            if getattr(mitglied, "bot", False):
+                continue
+            if rolle in getattr(mitglied, "roles", []):
+                return True
+        return False
+
+    async def _send_notice(
+        self, guild, member, record: dict, channel, *, erinnerung: bool = False
+    ) -> bool:
+        """Die Nachricht wirklich abschicken. True, wenn sie rausging."""
+
         target_id = record.get("notify_channel_id")
         if not target_id:
-            return
+            return False
         target = guild.get_channel(int(target_id))
         if target is None or not hasattr(target, "send"):
-            return
+            LOGGER.warning(
+                "Meldekanal %s nicht erreichbar -- niemand erfaehrt vom "
+                "Wartenden", target_id,
+            )
+            return False
 
         mention = ""
         role_id = record.get("staff_role_id")
@@ -200,20 +379,34 @@ class SupportQueue(Cog):
             if role is not None:
                 mention = role.mention
 
+        if erinnerung:
+            wartende = store.waiting(guild.id)
+            anzahl = len(wartende)
+            seit = 0
+            if wartende:
+                seit = int(time.time() - min(wartende.values())) // 60
+            titel = "Es wartet immer noch jemand"
+            text = (
+                f"{anzahl} {'Person' if anzahl == 1 else 'Personen'} "
+                f"in {channel.mention}"
+                + (f" — seit {seit} Minuten." if seit else ".")
+            )
+        else:
+            titel = "Jemand wartet im Support"
+            text = f"{member.mention} wartet in {channel.mention}."
+
         try:
             from utils.panels import StatusCard
 
             await target.send(
                 content=mention or None,
-                view=StatusCard(
-                    "Jemand wartet im Support",
-                    f"{member.mention} wartet in {channel.mention}.",
-                    tone="info",
-                ),
+                view=StatusCard(titel, text, tone="info"),
                 allowed_mentions=discord.AllowedMentions(roles=True),
             )
+            return True
         except Exception as exc:  # noqa: BLE001 - Hinweis darf nie den Rest kippen
             LOGGER.warning("Support-Hinweis fehlgeschlagen: %s", exc)
+            return False
 
     # ── Die Schleife ─────────────────────────────────────────────────
 
@@ -499,10 +692,30 @@ class SupportQueue(Cog):
         if channel is not None and self._humans_present(channel):
             return
 
+        # `store.reset` nimmt den Ping-Zustand mit: der naechste
+        # Wartende soll sofort gemeldet werden und nicht in einem
+        # Cooldown haengen, der noch dem Vorgaenger galt.
         store.reset(guild.id)
+
+        erinnerer = self._reminders.pop(guild.id, None)
+        if erinnerer is not None:
+            erinnerer.cancel()
+
         task = self._loops.pop(guild.id, None)
         if task is not None:
             task.cancel()
+            # Auf das Ende warten, bevor hier weitergemacht wird.
+            #
+            # Sonst laeuft die alte Schleife noch, waehrend schon eine
+            # neue startet -- zwei Schleifen auf demselben Player, und
+            # das `finally` der alten trennt die Verbindung der neuen.
+            # Der Bot kaeme dann rein und sofort wieder raus.
+            try:
+                await asyncio.wait_for(asyncio.shield(task), timeout=5)
+            except (asyncio.CancelledError, asyncio.TimeoutError):
+                pass
+            except Exception:  # noqa: BLE001
+                pass
 
         voice = guild.voice_client
         if voice is not None:
