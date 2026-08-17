@@ -159,6 +159,15 @@ async def _ensure_schema(db):
         "CREATE TABLE IF NOT EXISTS antinuke ("
         "guild_id INTEGER PRIMARY KEY, status BOOLEAN)"
     )
+    # Die Einzelschalter. Fehlt eine Zeile, gilt die Wache als AN --
+    # so war es, als es nur den Gesamtschalter gab, und ein Update
+    # darf keinem Server stillschweigend den Schutz nehmen.
+    await db.execute(
+        "CREATE TABLE IF NOT EXISTS antinuke_modules ("
+        "guild_id INTEGER, action TEXT, "
+        "enabled BOOLEAN NOT NULL DEFAULT 1, "
+        "PRIMARY KEY (guild_id, action))"
+    )
     columns = ", ".join(f"{name} BOOLEAN DEFAULT FALSE" for name in COLUMNS)
     await db.execute(
         "CREATE TABLE IF NOT EXISTS whitelisted_users ("
@@ -281,6 +290,17 @@ async def get_antinuke(guild_id: int, bot: "universitybot" = Depends(get_bot)):
         for name in spec["cogs"]
     }
 
+    # Welche der vierzehn Wachen einzeln abgeschaltet sind.
+    modul_status: dict[str, bool] = {}
+    async with aiosqlite.connect(DB_PATH) as db:
+        await _ensure_schema(db)
+        async with db.execute(
+            "SELECT action, enabled FROM antinuke_modules WHERE guild_id = ?",
+            (guild_id,),
+        ) as cursor:
+            async for zeile in cursor:
+                modul_status[str(zeile[0])] = bool(zeile[1])
+
     return {
         "guild_id": str(guild_id),
         "status": status,
@@ -293,6 +313,8 @@ async def get_antinuke(guild_id: int, bot: "universitybot" = Depends(get_bot)):
                 # tab used to claim otherwise.
                 "loaded": all(loaded.get(name) for name in spec["cogs"]),
                 "modules": spec["cogs"],
+                # Ob diese eine Wache laeuft. Ohne Eintrag: an.
+                "enabled": modul_status.get(key, True),
             }
             for key, spec in ACTIONS.items()
         ],
@@ -321,7 +343,14 @@ def _trusted_bot_info(bot) -> list[dict]:
 
     out = []
     for kennung in sorted(nuke_guard.trusted_bot_ids()):
-        user = bot.get_user(kennung)
+        # `get_user` kann fehlen oder werfen -- etwa solange der Bot
+        # noch startet. Das darf nicht den ganzen Reiter mit einem
+        # HTTP 500 abschiessen: die Namen sind eine Nebenangabe, die
+        # Liste selbst ist die Auskunft.
+        try:
+            user = bot.get_user(kennung)
+        except Exception:  # noqa: BLE001
+            user = None
         out.append({
             # Als Zeichenkette: eine Discord-ID ist groesser als das,
             # was JavaScript unfallfrei als Zahl haelt.
@@ -436,3 +465,143 @@ async def delete_whitelist(
     if not cursor.rowcount:
         raise HTTPException(status_code=404, detail="Dieser Eintrag existiert nicht.")
     return {"result": "Von der Ausnahmeliste entfernt."}
+
+
+@router.patch("/{guild_id}/modules", summary="Eine einzelne Wache an- oder abschalten")
+async def patch_module(
+    guild_id: int, data: dict, bot: "universitybot" = Depends(get_bot)
+):
+    """Einen der vierzehn Bereiche einzeln umlegen.
+
+    Erwartet ``{"action": "chdl", "enabled": false}``.
+
+    Warum das nicht Teil des Hauptschalters ist: der schaltet den
+    ganzen Anti-Nuke, und wer eine einzelne Wache stoert -- etwa weil
+    ein Bot staendig Kanaele anlegt --, soll nicht alles abschalten
+    muessen. Genau das ist bisher passiert.
+    """
+    _guild_or_404(bot, guild_id)
+
+    action = str(data.get("action") or "").strip()
+    if action not in ACTIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unbekannter Bereich: {action!r}.",
+        )
+    if "enabled" not in data:
+        raise HTTPException(status_code=400, detail="„enabled“ fehlt.")
+    enabled = bool(data["enabled"])
+
+    async with aiosqlite.connect(DB_PATH) as db:
+        await _ensure_schema(db)
+        await db.execute(
+            "INSERT INTO antinuke_modules (guild_id, action, enabled)"
+            " VALUES (?, ?, ?)"
+            " ON CONFLICT(guild_id, action) DO UPDATE SET"
+            "   enabled = excluded.enabled",
+            (guild_id, action, enabled),
+        )
+        await db.commit()
+
+    await feature_audit.log_action(
+        "antinuke_module_toggled",
+        actor=str(data.get("actor", "dashboard")),
+        guild_id=guild_id,
+        detail=f"{action}={'an' if enabled else 'aus'}",
+    )
+
+    return {
+        "result": (
+            f"„{ACTIONS[action]['label']}“ ist jetzt "
+            f"{'an' if enabled else 'aus'}."
+        ),
+        "action": action,
+        "enabled": enabled,
+    }
+
+
+# ══════════════════════════════════════════════════════════════════════
+#  Vertraute Bots -- global, nur fuer Admins
+# ══════════════════════════════════════════════════════════════════════
+
+
+@router.get("/trusted/list", summary="Die vertrauten Bots")
+async def list_trusted(bot: "universitybot" = Depends(get_bot)):
+    """Alle Bots, die der Anti-Nuke nie angreift.
+
+    Die Liste gilt fuer **alle** Server. Server-Inhaber sehen sie im
+    eigenen Anti-Nuke-Reiter, aendern kann sie nur das Team -- sonst
+    traegt jeder seinen Zweitbot ein und der Schutz ist ausgehebelt.
+    """
+    from utils import trusted_bots
+
+    return {
+        "bots": trusted_bots.list_all(bot),
+        "builtin_count": len(trusted_bots.ALWAYS),
+        "env_name": trusted_bots.TRUSTED_ENV,
+    }
+
+
+@router.post("/trusted", summary="Einen Bot eintragen")
+async def add_trusted(data: dict, bot: "universitybot" = Depends(get_bot)):
+    from utils import trusted_bots
+
+    ergebnis = trusted_bots.add(
+        data.get("bot_id"),
+        note=str(data.get("note") or ""),
+        actor=str(data.get("actor") or ""),
+    )
+
+    if not ergebnis["ok"]:
+        meldungen = {
+            "invalid_id": "Das ist keine gültige Discord-ID — nur Ziffern.",
+            "builtin": "Dieser Bot steht fest auf der Liste und ist "
+                       "immer geschützt.",
+            "exists": "Dieser Bot steht schon auf der Liste.",
+        }
+        raise HTTPException(
+            status_code=400,
+            detail=meldungen.get(ergebnis["error"], "Das hat nicht geklappt."),
+        )
+
+    await feature_audit.log_action(
+        "trusted_bot_added",
+        actor=str(data.get("actor", "dashboard")),
+        detail=str(ergebnis["bot_id"]),
+    )
+    return {"result": "Der Bot wird vom Anti-Nuke nicht mehr angegriffen.",
+            "bots": trusted_bots.list_all(bot)}
+
+
+@router.delete("/trusted/{bot_id}", summary="Einen Bot austragen")
+async def remove_trusted(
+    bot_id: str, actor: str = "", bot: "universitybot" = Depends(get_bot)
+):
+    from utils import trusted_bots
+
+    ergebnis = trusted_bots.remove(bot_id)
+
+    if not ergebnis["ok"]:
+        meldungen = {
+            "invalid_id": "Das ist keine gültige Discord-ID.",
+            "builtin": "Dieser Bot lässt sich nicht entfernen — ohne ihn "
+                       "würde der Anti-Nuke den eigenen Rettungsbot bannen.",
+            "from_env": f"Dieser Bot steht in der Variablen "
+                        f"{trusted_bots.TRUSTED_ENV} und lässt sich nur dort "
+                        "entfernen.",
+            "unknown": "Dieser Bot steht nicht auf der Liste.",
+        }
+        # `builtin` und `from_env` sind keine Fehler des Aufrufers,
+        # sondern Auskuenfte -- trotzdem 400: die Aktion ist nicht
+        # ausgefuehrt worden, und ein 200 wuerde das Gegenteil sagen.
+        raise HTTPException(
+            status_code=400,
+            detail=meldungen.get(ergebnis["error"], "Das hat nicht geklappt."),
+        )
+
+    await feature_audit.log_action(
+        "trusted_bot_removed", actor=actor or "dashboard",
+        detail=str(ergebnis["bot_id"]),
+    )
+    return {"result": "Der Bot ist nicht mehr geschützt.",
+            "bots": trusted_bots.list_all(bot)}

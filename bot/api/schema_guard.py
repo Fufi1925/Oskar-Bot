@@ -138,6 +138,17 @@ SCHEMA: dict[str, tuple[str, ...]] = {
             guild_id INTEGER PRIMARY KEY,
             status BOOLEAN
         )""",
+        # Welche der vierzehn Wachen einzeln laufen.
+        #
+        # Fehlt eine Zeile, gilt die Wache als AN -- das ist der
+        # Zustand, den jeder Server bisher hatte, und ein Update darf
+        # den Schutz nicht stillschweigend abschalten.
+        """CREATE TABLE IF NOT EXISTS antinuke_modules (
+            guild_id INTEGER,
+            action TEXT,
+            enabled BOOLEAN NOT NULL DEFAULT 1,
+            PRIMARY KEY (guild_id, action)
+        )""",
         """CREATE TABLE IF NOT EXISTS whitelisted_users (
             guild_id INTEGER,
             user_id INTEGER,

@@ -48,42 +48,42 @@ falsch -- genau deshalb wird hier verglichen und nicht bloss auf
 
 from __future__ import annotations
 
-import os
-from functools import lru_cache
-
 from utils import partner_bot
 
 #: Die Umgebungsvariable mit den vertrauten Bots.
 TRUSTED_ENV = "TRUSTED_BOTS"
 
 
-@lru_cache(maxsize=1)
-def _trusted_raw() -> str:
-    return os.getenv(TRUSTED_ENV, "") or ""
-
-
 def trusted_bot_ids() -> frozenset[int]:
-    """Die IDs aus ``TRUSTED_BOTS``.
+    """Alle vertrauten Bot-IDs.
 
-    Format: Komma-getrennt, Leerzeichen egal --
-    ``TRUSTED_BOTS="155149108183695360, 235148962103951360"``.
+    Drei Quellen, und `trusted_bots.all_ids` fuehrt sie zusammen:
 
-    Alles, was keine Zahl ist, wird stillschweigend uebersprungen. Ein
-    Tippfehler in der Variablen darf nicht dazu fuehren, dass der
-    Anti-Nuke beim Start abstuerzt und der Server ungeschuetzt ist --
-    das waere ein schlimmerer Ausgang als ein ignorierter Eintrag.
+      1. **Fest eingebaut** -- Hauptbot, Template-Bot, Statusbot. Nicht
+         entfernbar: der Template-Bot baut nach einem Angriff Server
+         wieder auf, was aussieht wie ein Nuke.
+      2. **`TRUSTED_BOTS`** -- die Umgebungsvariable, komma-getrennt.
+      3. **Die Liste im Admin-Dashboard** -- damit ein Bot ohne Deploy
+         dazukommen kann.
+
+    Bewusst **ohne** Zwischenspeicher: ein neu eingetragener Bot waere
+    sonst erst nach einem Neustart geschuetzt, und genau darum ging es
+    bei der Dashboard-Liste. Der Aufruf liest eine kleine SQLite-Datei;
+    das passiert nur, wenn ohnehin gerade ein Angriff geprueft wird.
     """
-    ids: set[int] = set()
-    for teil in _trusted_raw().replace(";", ",").split(","):
-        teil = teil.strip()
-        if teil.isdigit():
-            ids.add(int(teil))
-    return frozenset(ids)
+    from utils import trusted_bots
+
+    return trusted_bots.all_ids()
 
 
 def reset_cache() -> None:
-    """Den Zwischenspeicher leeren -- fuer Tests."""
-    _trusted_raw.cache_clear()
+    """Frueher noetig, heute ein Nichtstuer.
+
+    `trusted_bot_ids` hat keinen Zwischenspeicher mehr. Die Funktion
+    bleibt, weil Tests sie rufen -- und weil ein Aufruf, der ins Leere
+    laeuft, harmloser ist als ein Importfehler.
+    """
+    return None
 
 
 def is_trusted_bot(user_or_id) -> bool:
@@ -201,3 +201,46 @@ def should_skip(guild, executor, bot_user_id: int | None = None) -> bool:
     if is_exempt(guild, executor, bot_user_id):
         return True
     return not can_act_on(guild, executor)
+
+
+# ══════════════════════════════════════════════════════════════════════
+#  Einzelne Wachen an- und abschalten
+# ══════════════════════════════════════════════════════════════════════
+
+#: Wo die Schalter liegen. Dieselbe Datei wie der Hauptschalter.
+_MODULE_DB = "db/anti.db"
+
+
+async def action_enabled(guild_id: int, action: str) -> bool:
+    """Laeuft diese eine Wache auf diesem Server?
+
+    ``action`` ist einer der vierzehn Schluessel aus
+    ``api/routes/antinuke.py`` -- ``chdl`` fuer Kanal-Loeschungen,
+    ``rldl`` fuer Rollen und so weiter.
+
+    **Fehlt die Zeile, gilt AN.** Das ist der Zustand, den jeder
+    Server bisher hatte: es gab nur einen Gesamtschalter, und wer den
+    umlegte, wollte alles. Ein Update darf keinem Server
+    stillschweigend den Schutz nehmen -- der Fehler faellt erst auf,
+    wenn er ausgenutzt wurde.
+
+    Gibt bei jedem Fehler ``True`` zurueck. Eine kaputte oder
+    gesperrte Datenbank darf nicht dazu fuehren, dass der Anti-Nuke
+    aufhoert zu arbeiten.
+    """
+    try:
+        import aiosqlite
+
+        async with aiosqlite.connect(_MODULE_DB) as db:
+            async with db.execute(
+                "SELECT enabled FROM antinuke_modules"
+                " WHERE guild_id = ? AND action = ?",
+                (int(guild_id), str(action)),
+            ) as cursor:
+                zeile = await cursor.fetchone()
+    except Exception:  # noqa: BLE001
+        return True
+
+    if zeile is None:
+        return True
+    return bool(zeile[0])

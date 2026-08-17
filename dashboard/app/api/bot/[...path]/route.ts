@@ -335,6 +335,33 @@ async function authorize(
   }
 
   if (scope === "antinuke") {
+    // ── Die vertrauten Bots: /antinuke/trusted/... ──────────────────
+    //
+    // Muss VOR der Guild-Pruefung stehen: die liest `rest[0]` als
+    // Server-ID, und „trusted" ist keine. Ohne diesen Zweig liefe die
+    // Anfrage in `verifyGuildAccess("trusted")` und scheiterte mit
+    // einer irrefuehrenden Meldung.
+    //
+    // Die Liste gilt global. Lesen darf jede Team-Rolle -- sie steht
+    // auch im Server-Reiter, damit niemand raetselt, warum ein Bot
+    // ungestraft Kanaele anlegt. Aendern darf nur, wer Bot-weite
+    // Einstellungen aendern darf: wer sie pro Server pflegen duerfte,
+    // traegt seinen Zweitbot ein und hebelt den Schutz aus.
+    if (rest[0] === "trusted") {
+      const session = await getServerSession(authOptions);
+      if (!session?.user?.id) return { ok: false, response: deny(401, "Not signed in.") };
+      if (isGlobalAdmin(session.user.id)) return { ok: true };
+
+      const required =
+        request.method === "GET" ? "dashboard.access" : "maintenance.toggle";
+      if (await hasTeamPermission(session.user.id, required)) return { ok: true };
+
+      return {
+        ok: false,
+        response: deny(403, `This requires the '${required}' permission.`),
+      };
+    }
+
     // Shape: /antinuke/<guildId>/...
     const guildId = rest[0];
     if (!guildId) return { ok: false, response: deny(400, "guild_id missing.") };

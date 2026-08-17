@@ -234,14 +234,36 @@ export function AntiNukePanel({ guildId }: { guildId: string }) {
                 aussehen wie ein Angriff. Die Liste gilt für alle Server und
                 lässt sich nur vom Betreiber ändern.
               </p>
-              <div className="mt-3 flex flex-wrap gap-1.5">
+              {/* Mit Profilbild und Namen, nicht nur der ID.
+                  Eine 19-stellige Zahl sagt niemandem, welcher Bot da
+                  geschützt ist — und genau das ist die Frage, die man
+                  sich hier stellt. Kennt der Bot das Konto nicht,
+                  bleibt die ID stehen: ehrlicher als ein erfundener
+                  Name. */}
+              <div className="mt-3 flex flex-wrap gap-2">
                 {trustedBots.map((b: any) => (
                   <span
                     key={b.id}
-                    title={b.id}
-                    className="rounded-md border border-slate-800 bg-[#0e0e12] px-2 py-1 text-[12px] text-slate-400"
+                    title={`${b.name || "Unbekannt"} · ${b.id}`}
+                    className="flex items-center gap-2 rounded-lg border border-slate-800 bg-[#0e0e12] py-1 pl-1 pr-2.5"
                   >
-                    {b.name || b.id}
+                    {b.avatar ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={b.avatar}
+                        alt=""
+                        width={20}
+                        height={20}
+                        className="h-5 w-5 rounded-full object-cover"
+                      />
+                    ) : (
+                      <span className="grid h-5 w-5 place-items-center rounded-full bg-slate-800">
+                        <Bot className="h-3 w-3 text-slate-500" />
+                      </span>
+                    )}
+                    <span className="text-[12px] text-slate-300">
+                      {b.name || b.id}
+                    </span>
                   </span>
                 ))}
               </div>
@@ -310,33 +332,68 @@ export function AntiNukePanel({ guildId }: { guildId: string }) {
 
         {showModules && (
           <div className="grid sm:grid-cols-2 gap-2">
-            {actions.map((action) => (
-              <div
-                key={action.key}
-                className={cn(
-                  "rounded-xl border px-3 py-2.5",
-                  !action.loaded
-                    ? "bg-red-500/[0.05] border-red-500/25"
-                    : status
-                    ? "bg-[#0e0e12] border-slate-800"
-                    : "bg-[#0e0e12]/50 border-slate-800/60"
-                )}
-              >
-                <p
+            {/* Jeder Bereich ist jetzt ein eigener Schalter.
+                Vorher war das eine reine Anzeige: wer wollte, dass der
+                Bot Kanal-Löschungen ignoriert (weil ein anderer Bot
+                dauernd welche anlegt), musste den ganzen Anti-Nuke
+                ausschalten — und stand dann komplett ohne Schutz da.
+
+                Die Schalter sind grau, solange der Hauptschalter aus
+                ist: sie hätten dann keine Wirkung, und ein bedienbarer
+                Schalter ohne Wirkung ist eine Lüge. */}
+            {actions.map((action) => {
+              const an = action.enabled !== false;
+              const nutzbar = status && action.loaded;
+              return (
+                <div
+                  key={action.key}
                   className={cn(
-                    "text-[12px] font-bold",
-                    status && action.loaded ? "text-white" : "text-slate-500"
+                    "rounded-xl border px-3 py-2.5 flex items-start justify-between gap-3",
+                    !action.loaded
+                      ? "bg-red-500/[0.05] border-red-500/25"
+                      : !status
+                      ? "bg-[#0e0e12]/50 border-slate-800/60"
+                      : an
+                      ? "bg-[#0e0e12] border-slate-800"
+                      : "bg-[#0e0e12]/50 border-slate-800/60"
                   )}
                 >
-                  {action.label}
-                </p>
-                <p className="text-[10px] text-slate-600 leading-relaxed mt-0.5">
-                  {action.loaded
-                    ? action.description
-                    : "Dieses Modul ist nicht geladen — es schützt gerade nichts."}
-                </p>
-              </div>
-            ))}
+                  <div className="min-w-0">
+                    <p
+                      className={cn(
+                        "text-[12px] font-bold",
+                        nutzbar && an ? "text-white" : "text-slate-500"
+                      )}
+                    >
+                      {action.label}
+                    </p>
+                    <p className="text-[10px] text-slate-600 leading-relaxed mt-0.5">
+                      {!action.loaded
+                        ? "Dieses Modul ist nicht geladen — es schützt gerade nichts."
+                        : !status
+                        ? "Der Hauptschalter ist aus."
+                        : an
+                        ? action.description
+                        : "Abgeschaltet — dieser Bereich wird nicht überwacht."}
+                    </p>
+                  </div>
+
+                  <InlineToggle
+                    checked={an && nutzbar}
+                    onCheckedChange={(v: boolean) =>
+                      p.act(
+                        () => api.setAntiNukeModule(guildId, action.key, v),
+                        v
+                          ? undefined
+                          : `„${action.label}“ wirklich abschalten? Dieser Bereich wird dann nicht mehr überwacht.`
+                      )
+                    }
+                    label=""
+                    disabled={p.busy || !nutzbar}
+                  />
+                </div>
+              );
+            })}
           </div>
         )}
 

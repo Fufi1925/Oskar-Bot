@@ -142,10 +142,24 @@ def test_rolle_ersetzt_nicht():
 
     # Die Reihenfolge entscheidet: steht die Discord-Pruefung hinter
     # der Rollenpruefung, kommt sie nie zum Zug.
+    # Gemessen wird der SERVERBEZOGENE Teil des Blocks.
+    #
+    # Manche Bereiche haben davor noch einen globalen Zweig, der gar
+    # keine Server-ID kennt -- `antinuke` etwa die Liste der
+    # vertrauten Bots, die fuer alle Server gilt. Der prueft
+    # zwangslaeufig nur eine Rolle, und ein Vergleich ueber den
+    # ganzen Block meldete deshalb einen Fehler, den es nicht gibt:
+    # nachgemessen steht `managesGuildOnDiscord` im Server-Teil
+    # weiterhin vor `hasTeamPermission`.
+    #
+    # Der Schnitt liegt dort, wo die Server-ID gelesen wird -- ab da
+    # geht es um einen bestimmten Server.
     falsch = []
     for name, text in mit_rollen:
-        d = text.find("managesGuildOnDiscord")
-        r = text.find("hasTeamPermission")
+        schnitt = text.find("const guildId =")
+        teil = text[schnitt:] if schnitt != -1 else text
+        d = teil.find("managesGuildOnDiscord")
+        r = teil.find("hasTeamPermission")
         if d != -1 and r != -1 and d > r:
             falsch.append(name)
     check("und zwar VOR der Rollenpruefung", not falsch, ", ".join(falsch))

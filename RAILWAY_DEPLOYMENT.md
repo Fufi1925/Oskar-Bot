@@ -61,6 +61,7 @@ dreien heißt es mehr:
 | `db/premium_trial.db` | Jeder kann sich nach jedem Deploy erneut 7 Tage Premium holen — die Regel „eine Probewoche pro Konto“ ist wirkungslos. |
 | `db/cookie_consent.db` | Der Nachweis nach Art. 7 Abs. 1 DSGVO ist weg. Die Besucher sehen den Hinweis trotzdem nicht wieder (ihr Cookie liegt in ihrem Browser) — es lässt sich dann nur nicht mehr belegen, dass sie ihn gesehen haben. |
 | `db/guild_history.db` | Der Verlauf beginnt bei null; die Diagramme sind nach jedem Deploy leer. |
+| `db/trusted_bots.db` | Die im Dashboard eingetragenen vertrauten Bots sind weg — der Anti-Nuke bannt sie beim nächsten Mal wieder. Die drei eingebauten und alles aus `TRUSTED_BOTS` bleiben. |
 
 ### Ein Volume ist kein Backup
 
@@ -171,9 +172,19 @@ TRUSTED_BOTS="159985870458322944,155149108183695360"
 Komma-getrennt, Leerzeichen sind egal. Was keine Zahl ist, wird
 übersprungen — ein Tippfehler legt den Anti-Nuke nicht lahm.
 
-**Die Liste gilt global und kann nur hier gesetzt werden**, nicht im
-Dashboard. Das ist Absicht: wer sie pro Server pflegen dürfte, könnte
-seinen eigenen Zweitbot eintragen und damit den Schutz aushebeln.
+**Die Liste gilt global.** Sie lässt sich an zwei Stellen pflegen:
+hier in Railway (dann gilt sie ab dem nächsten Deploy) und im
+Admin-Dashboard unter **Vertraute Bots** (dann sofort). Was hier
+steht, lässt sich im Dashboard nicht löschen — dafür ist es die
+Variable.
+
+Nicht im Server-Dashboard: wer die Liste pro Server pflegen dürfte,
+könnte seinen eigenen Zweitbot eintragen und damit den Schutz
+aushebeln. Server-Inhaber **sehen** die Liste in ihrem
+Anti-Nuke-Reiter, ändern können sie sie nicht.
+
+Hauptbot, Vorlagen-Bot und Statusbot stehen fest in der Liste und
+lassen sich nirgends entfernen.
 
 Für einzelne *Menschen* gibt es stattdessen die Whitelist im
 Dashboard-Reiter „Anti-Nuke“ — dort pro Aktion einstellbar.

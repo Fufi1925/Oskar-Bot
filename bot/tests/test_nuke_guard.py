@@ -329,14 +329,24 @@ def test_trusted_bots():
 
     from utils import nuke_guard
 
+    from utils import trusted_bots as tb
+
+    # Die Liste hat inzwischen DREI Quellen: fest eingebaut, die
+    # Variable und die Eintraege im Admin-Dashboard. Frueher pruefte
+    # dieser Test auf Gleichheit mit der Variablen -- seit die drei
+    # eingebauten immer dabei sind, war das nicht mehr richtig.
+    # Geprueft wird jetzt „ist enthalten", plus die drei Eingebauten
+    # ausdruecklich.
     vorher = os.environ.get("TRUSTED_BOTS")
     try:
         os.environ["TRUSTED_BOTS"] = "155149108183695360, 235148962103951360"
         nuke_guard.reset_cache()
+        ids = nuke_guard.trusted_bot_ids()
         check("beide IDs werden gelesen",
-              nuke_guard.trusted_bot_ids()
-              == {155149108183695360, 235148962103951360},
-              str(nuke_guard.trusted_bot_ids()))
+              {155149108183695360, 235148962103951360} <= ids, str(ids))
+        check("die eingebauten sind immer dabei",
+              set(tb.ALWAYS) <= ids,
+              "ohne sie wuerde der Rettungsbot gebannt")
         check("ein eingetragener Bot ist vertraut",
               nuke_guard.is_trusted_bot(155149108183695360))
         check("ein fremder nicht", not nuke_guard.is_trusted_bot(123))
@@ -351,14 +361,15 @@ def test_trusted_bots():
         # Schutz da.
         os.environ["TRUSTED_BOTS"] = "abc, , 42 ; 77"
         nuke_guard.reset_cache()
+        ids = nuke_guard.trusted_bot_ids()
         check("Schrott wird uebersprungen, Zahlen bleiben",
-              nuke_guard.trusted_bot_ids() == {42, 77},
-              str(nuke_guard.trusted_bot_ids()))
+              {42, 77} <= ids and 0 not in ids, str(ids))
 
         os.environ["TRUSTED_BOTS"] = ""
         nuke_guard.reset_cache()
-        check("ohne Variable ist niemand vertraut",
-              nuke_guard.trusted_bot_ids() == frozenset())
+        ids = nuke_guard.trusted_bot_ids()
+        check("ohne Variable bleiben nur die eingebauten",
+              ids == frozenset(tb.ALWAYS), str(ids))
     finally:
         if vorher is None:
             os.environ.pop("TRUSTED_BOTS", None)
@@ -388,10 +399,36 @@ def test_trusted_ist_global():
           "nur vom Betreiber" in panel or "für alle Server" in panel, "")
 
     route = read(os.path.join(BOT, "api", "routes", "antinuke.py"))
-    check("die API liefert sie", "trusted_bots" in route)
-    check("und nimmt sie nicht entgegen",
-          "trusted_bots" not in route.split("async def patch_antinuke")[-1],
-          "ein PATCH darauf waere die Hintertuer")
+    # Nicht „kommt trusted_bots vor": das Wort steht inzwischen auch
+    # in den Verwaltungs-Routen. Geprueft wird, dass der
+    # Server-Reiter die Liste WIRKLICH mitgeliefert bekommt -- sonst
+    # sieht ein Server-Inhaber nicht, welcher Bot geschuetzt ist.
+    check("die API liefert sie an den Server-Reiter",
+          re.search(r'"trusted_bots": _trusted_bot_info\(bot\)', route)
+          is not None,
+          "ein leeres Feld sieht aus wie „keine vertrauten Bots\"")
+    # Der Punkt ist: es darf kein PATCH auf die Liste geben, mit dem
+    # ein Server-Inhaber sie umschreibt. Der erste Anlauf schnitt
+    # dafuer alles NACH `patch_antinuke` heraus -- dort stehen aber
+    # inzwischen auch die (erlaubten) Trusted-Routen, und der Test
+    # meldete eine Hintertuer, die es nicht gibt.
+    #
+    # Geprueft wird jetzt die Route selbst: `patch_antinuke` darf die
+    # Liste nicht anfassen, und es darf kein PATCH auf `/trusted`
+    # geben.
+    import re as _re
+    rumpf = _re.search(
+        r"async def patch_antinuke\(.*?\n(?=@router\.|\Z)", route, _re.S
+    )
+    check("patch_antinuke ist lesbar", rumpf is not None)
+    if rumpf:
+        check("der Server-PATCH fasst die Liste nicht an",
+              "trusted_bots" not in rumpf.group(0),
+              "sonst schriebe sie jeder Server-Inhaber um")
+    check("es gibt keinen PATCH auf die Liste",
+          not _re.search(r'@router\.patch\("/trusted', route),
+          "aendern geht nur ueber POST und DELETE -- die der Proxy "
+          "auf maintenance.toggle beschraenkt")
 
     # Die IDs muessen als Zeichenkette gehen: eine Discord-ID ist
     # groesser als Number.MAX_SAFE_INTEGER.

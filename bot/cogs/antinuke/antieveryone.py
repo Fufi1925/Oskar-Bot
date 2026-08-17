@@ -55,6 +55,11 @@ class AntiEveryone(commands.Cog):
             if not antinuke_status or not antinuke_status[0]:
                 return
 
+            # Und laeuft DIESE Wache? Die vierzehn Bereiche lassen
+            # sich einzeln abschalten -- fehlt die Zeile, gilt AN.
+            if not await nuke_guard.action_enabled(guild.id, "meneve"):
+                return
+
             # The template bot rebuilds servers after an attack, which
             # looks exactly like a nuke. Muting it mid-rescue would
             # leave the server half-restored.

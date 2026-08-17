@@ -53,6 +53,11 @@ class AntiPrune(commands.Cog):
             if not antinuke_status or not antinuke_status[0]:
                 return
 
+            # Und laeuft DIESE Wache? Die vierzehn Bereiche lassen
+            # sich einzeln abschalten -- fehlt die Zeile, gilt AN.
+            if not await nuke_guard.action_enabled(guild.id, "prune"):
+                return
+
             log_entry = await self.fetch_audit_logs(guild, discord.AuditLogAction.member_prune)
             if log_entry is None:
                 return

@@ -313,6 +313,28 @@ export const api = {
    * and did nothing at all when the table did not exist yet.
    */
   getAntiNuke: (guildId: string) => request<any>(`/antinuke/${guildId}`),
+
+  // Eine einzelne Wache an- oder abschalten. Der Hauptschalter legt
+  // alles um; hier geht es um einen der vierzehn Bereiche.
+  setAntiNukeModule: (guildId: string, action: string, enabled: boolean) =>
+    request<any>(`/antinuke/${guildId}/modules`, {
+      method: "PATCH",
+      body: JSON.stringify({ action, enabled }),
+    }),
+
+  // ── Vertraute Bots ───────────────────────────────────────────────
+  //
+  // Die Liste gilt fuer alle Server. Lesen darf jede Team-Rolle,
+  // aendern nur wer Bot-Einstellungen aendern darf -- der Proxy
+  // prueft das.
+  trustedBots: () => request<any>(`/antinuke/trusted/list`),
+  addTrustedBot: (botId: string, note = "") =>
+    request<any>(`/antinuke/trusted`, {
+      method: "POST",
+      body: JSON.stringify({ bot_id: botId, note }),
+    }),
+  removeTrustedBot: (botId: string) =>
+    request<any>(`/antinuke/trusted/${botId}`, { method: "DELETE" }),
   updateAntiNuke: (guildId: string, data: any) =>
     request<any>(`/antinuke/${guildId}`, {
       method: "PATCH",

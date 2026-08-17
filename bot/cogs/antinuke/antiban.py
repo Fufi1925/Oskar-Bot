@@ -73,6 +73,11 @@ class AntiBan(commands.Cog):
             if not antinuke_status or not antinuke_status[0]:
                 return
 
+            # Und laeuft DIESE Wache? Die vierzehn Bereiche lassen
+            # sich einzeln abschalten -- fehlt die Zeile, gilt AN.
+            if not await nuke_guard.action_enabled(guild.id, "ban"):
+                return
+
             if not self.can_fetch_audit(guild.id, "member_ban"):
                 return
 
