@@ -98,11 +98,68 @@ const tabs: Array<{ id: TabId; label: string; icon: any }> = [
  * Every tab appears exactly once; a tab missing from here would vanish
  * from the UI entirely, which is why a test counts them.
  */
+/**
+ * Die Gruppen der Reiterleiste.
+ *
+ * ── Was daran neu ist ───────────────────────────────────────────────
+ *
+ * Vorher waren es vier Gruppen, und eine davon hiess „Verwaltung" und
+ * enthielt eher, was in den anderen dreien keinen Platz fand: elf von
+ * achtundzwanzig Reitern -- Sicherungen neben Premium neben Speedrun
+ * neben dem Cookie-Hinweis.
+ *
+ * Zwei Dinge waren daran falsch:
+ *
+ *   * **Sie passte nicht in eine Zeile.** Nachgemessen bei 1400px
+ *     Fensterbreite: die Reiterzeile brach auf 95px um, „Vertraute
+ *     Bots" stand allein in der zweiten Zeile.
+ *   * **Der Name sagte nichts.** „Verwaltung" trifft auf jeden Reiter
+ *     im Admin-Bereich zu. Wer Premium sucht, hat keinen Grund, dort
+ *     eher nachzusehen als unter „Betrieb".
+ *
+ * ── Wonach jetzt sortiert ist ───────────────────────────────────────
+ *
+ * Nach der Frage, die jemand im Kopf hat, wenn er den Reiter sucht --
+ * nicht nach der technischen Verwandtschaft:
+ *
+ *   Moderation   „Ich muss auf einem Server eingreifen."
+ *   Server       „Was ist mit den Servern los?"
+ *   Betrieb      „Läuft der Bot?"
+ *   Team         „Wer darf was?"
+ *   Bewerbungen  „Wer will zu uns?"
+ *   Einstellungen„Wie verhält sich der Bot?"
+ *   Sicherheit   „Wer wird nicht angefasst?"
+ *   Angebote     „Was gibt es für Nutzer?"
+ *
+ * Acht Gruppen statt vier, keine mit mehr als fünf Reitern. Die
+ * Gruppenzeile wird dadurch länger, die Reiterzeile kürzer -- und die
+ * Gruppenzeile liest man einmal, die Reiterzeile bei jedem Wechsel.
+ *
+ * ── Die Regel, die dabei einzuhalten ist ────────────────────────────
+ *
+ * **Jeder Reiter steht in genau einer Gruppe.** Wer beim Aufräumen
+ * einen vergisst, macht ihn nicht bloss schwer auffindbar -- er
+ * verschwindet vollständig aus der Oberfläche, weil die Leiste
+ * ausschliesslich über die Gruppen rendert. `test_navigation.py`
+ * prüft das.
+ */
 const TAB_GROUPS: Array<{ name: string; ids: TabId[] }> = [
-  { name: "Server", ids: ["members", "channels", "server", "scans", "broadcast"] },
-  { name: "Betrieb", ids: ["health", "system", "usage", "warnings", "reports", "audit"] },
-  { name: "Zugriff", ids: ["team", "webapply", "dashusers", "userlookup", "access", "approvals"] },
-  { name: "Verwaltung", ids: ["features", "botsettings", "backups", "pingreactions", "servers", "premium", "speedrun", "tester", "templates", "cookies", "trustedbots"] },
+  // Was man tut, wenn gerade etwas passiert.
+  { name: "Moderation", ids: ["members", "warnings", "scans", "channels"] },
+  // Die Server selbst -- Übersicht, Einstellungen, Ansagen.
+  { name: "Server", ids: ["servers", "server", "broadcast"] },
+  // Läuft alles? Zahlen und Protokolle.
+  { name: "Betrieb", ids: ["health", "usage", "reports", "audit", "system"] },
+  // Wer darf was -- im Dashboard wie im Bot.
+  { name: "Team", ids: ["team", "dashusers", "access", "userlookup"] },
+  // Alles, was hereinkommt und entschieden werden will.
+  { name: "Bewerbungen", ids: ["webapply", "approvals", "tester"] },
+  // Wie sich der Bot verhält.
+  { name: "Einstellungen", ids: ["botsettings", "features", "pingreactions"] },
+  // Was geschützt wird und was nachweisbar sein muss.
+  { name: "Sicherheit", ids: ["trustedbots", "backups", "cookies"] },
+  // Was Nutzern angeboten wird.
+  { name: "Angebote", ids: ["premium", "templates", "speedrun"] },
 ];
 
 /**

@@ -423,6 +423,41 @@ def test_admin_tab_groups():
           "if (count === 0) return null" in body,
           "a section the user cannot use would still show")
     check("the section shows how many tabs it holds", "{count}" in body)
+
+    # ── Wie gross eine Gruppe werden darf ────────────────────────────
+    #
+    # Vorher gab es vier Gruppen, und „Verwaltung" enthielt elf von
+    # achtundzwanzig Reitern -- alles, was in den anderen dreien
+    # keinen Platz fand. Nachgemessen bei 1400px Fensterbreite: die
+    # Reiterzeile brach auf 95px um, „Vertraute Bots" stand allein in
+    # der zweiten Zeile.
+    #
+    # Jetzt sind es acht Gruppen mit hoechstens fuenf Reitern; alle
+    # bleiben einzeilig (54px, gemessen). Die Grenze steht hier,
+    # damit der naechste neue Reiter nicht wieder in die groesste
+    # Gruppe wandert, weil das am wenigsten Arbeit macht.
+    gruppen = re.findall(r'name: "([^"]+)", ids: \[(.*?)\]', block, re.S)
+    check("es gibt mehrere Gruppen", len(gruppen) >= 6, str(len(gruppen)))
+
+    zu_gross = [
+        f"{name}({len(re.findall(chr(34) + r'(\w+)' + chr(34), ids))})"
+        for name, ids in gruppen
+        if len(re.findall(chr(34) + r"(\w+)" + chr(34), ids)) > 6
+    ]
+    check("keine Gruppe ist eine Restekiste", not zu_gross,
+          f"{zu_gross} -- ueber sechs Reitern bricht die Zeile um")
+
+    # Und keine leere: eine Gruppe ohne Reiter ist ein Knopf, der
+    # nichts oeffnet.
+    leer = [name for name, ids in gruppen if not re.findall(r'"(\w+)"', ids)]
+    check("keine Gruppe ist leer", not leer, str(leer))
+
+    # Die Namen muessen sagen, was drinsteht. „Verwaltung" traf auf
+    # jeden Reiter im Admin-Bereich zu -- wer Premium suchte, hatte
+    # keinen Grund, dort eher nachzusehen als unter „Betrieb".
+    check("keine Gruppe heisst mehr »Verwaltung«",
+          "Verwaltung" not in [n for n, _ in gruppen],
+          "der Name galt fuer alles und half deshalb bei nichts")
     # Farbe allein genuegt nicht -- wer Farben schlecht unterscheidet,
     # sieht sonst nicht, welcher Bereich offen ist. Es braucht ein
     # zweites Signal.

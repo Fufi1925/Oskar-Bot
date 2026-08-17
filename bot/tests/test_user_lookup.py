@@ -628,16 +628,35 @@ def test_schutz():
     check("schema_guard kennt mass_actions", "mass_actions" in guard)
 
     # Der Reiter muss auch erreichbar sein.
+    #
+    # Frueher standen hier die Nachbarn woertlich drin
+    # (`"userlookup", "access"`). Das nagelte die Reihenfolge innerhalb
+    # der Gruppe fest -- eine Umsortierung der Leiste liess den Test
+    # scheitern, obwohl der Reiter vollstaendig eingetragen war.
+    # Geprueft wird deshalb, DASS er in einer Gruppe steht, nicht
+    # neben wem.
     admin = read("../dashboard/components/dashboard/admin-content.tsx")
     for stelle, text in (
         ("TabId", '"userlookup"'),
         ("Reiterliste", 'id: "userlookup"'),
-        ("Gruppe", '"userlookup", "access"'),
-        ("volle Breite", '"dashusers", "userlookup"'),
         ("Anzeige", 'activeTab === "userlookup"'),
         ("Import", "UserLookupPanel"),
     ):
         check(f"Reiter eingetragen: {stelle}", text in admin)
+
+    # In einer Gruppe -- sonst verschwindet er ganz aus der Leiste,
+    # weil sie ausschliesslich ueber die Gruppen rendert.
+    import re as _re
+    block = _re.search(r"const TAB_GROUPS[^=]*=\s*\[(.*?)\n\];", admin, _re.S)
+    check("Reiter eingetragen: Gruppe",
+          block is not None and '"userlookup"' in block.group(1),
+          "ohne Gruppe waere er unsichtbar")
+
+    # Und ueber die volle Breite, sonst quetscht ihn die
+    # Eingabe-Seitenleiste zusammen.
+    voll = _re.search(r"FULL_WIDTH_TABS = new Set<TabId>\(\[(.*?)\]\)", admin, _re.S)
+    check("Reiter eingetragen: volle Breite",
+          voll is not None and '"userlookup"' in voll.group(1))
 
 
 # ── 6. Protokoll ─────────────────────────────────────────────────────
