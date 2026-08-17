@@ -13,7 +13,7 @@
 # ╚══════════════════════════════════════════════════════════════════╝
 
 import discord
-from utils import nuke_alert, partner_bot
+from utils import nuke_alert, partner_bot, nuke_guard
 from discord.ext import commands
 import aiosqlite
 import asyncio
@@ -93,11 +93,17 @@ class AntiMemberUpdate(commands.Cog):
             return
 
         executor = log_entry.user
-        # The template bot rebuilds servers after an attack, which
-        # looks exactly like a nuke. Banning it mid-rescue would
-        # leave the server half-restored.
-        if executor.id in {guild.owner_id, self.bot.user.id} \
-                or partner_bot.is_partner(executor):
+        # Aussteigen, wenn der Bot nicht darf ODER nicht kann.
+        #
+        # Frueher stand hier nur die Freigabe-Liste (Inhaber,
+        # eigener Bot, Partner-Bot). Was fehlte: die Frage, ob die
+        # eigene Rolle ueberhaupt ueber der des Angreifers steht.
+        # Stand sie darunter, lief der Bot in den Ban, bekam ein
+        # Forbidden und meldete das -- bei einem Angriff mit vierzig
+        # Kanaelen vierzigmal. Jetzt: nichts tun, nichts melden.
+        #
+        # `TRUSTED_BOTS` ist hier ebenfalls abgedeckt.
+        if nuke_guard.should_skip(guild, executor, self.bot.user.id):
             return
 
         async with aiosqlite.connect('db/anti.db') as db:
@@ -118,6 +124,44 @@ class AntiMemberUpdate(commands.Cog):
         except StopIteration:
             return
 
+        # ── Sonderfall: jemand hebt sich SELBST auf Administrator ────
+        #
+        # Vom Nutzer genau so bestellt, und die Regel ist enger als
+        # sie zuerst klingt:
+        #
+        #   * Wer **schon** Administrator hat, darf alles. Da wird
+        #     nichts angefasst -- er koennte sich die Rechte ohnehin
+        #     jederzeit selbst geben, ein Eingriff waere Theater.
+        #   * Wer **keinen** Administrator hat und sich selbst eine
+        #     Rolle **mit** Administrator gibt: zehn Minuten Timeout,
+        #     Rolle weg, Eintrag im Log-Kanal. **Keine DM an den
+        #     Inhaber** -- ausdruecklich so gewollt.
+        #   * Gibt er sich selbst eine Rolle mit anderen Rechten
+        #     (bannen, kicken, Kanaele): **gar nichts**. Das ist die
+        #     ausdrueckliche Ansage „nie nie reagiren".
+        #
+        # Der Unterschied zur Fremdvergabe weiter unten: dort greift
+        # der Anti-Nuke bei jedem gefaehrlichen Recht. Hier geht es um
+        # die eigene Person, und da zaehlt allein der Sprung auf
+        # Administrator.
+        if executor.id == after.id:
+            if not new_role.permissions.administrator:
+                # Selbstvergabe ohne Administrator: nicht unsere Sache.
+                return
+
+            # Hatte er den Administrator schon vorher -- ueber eine
+            # andere Rolle? Dann ist nichts dazugekommen, was er nicht
+            # ohnehin haette.
+            hatte_admin = any(
+                rolle.permissions.administrator
+                for rolle in before.roles
+            )
+            if hatte_admin:
+                return
+
+            await self.handle_self_escalation(after, new_role)
+            return
+
         if any([
             new_role.permissions.ban_members,
             new_role.permissions.administrator,
@@ -129,6 +173,44 @@ class AntiMemberUpdate(commands.Cog):
         ]):
             await self.take_action_and_revert(after, executor, new_role)
             await asyncio.sleep(3)
+
+    async def handle_self_escalation(self, member, new_role):
+        """Jemand hat sich selbst auf Administrator gehoben.
+
+        Zehn Minuten Timeout, Rolle wieder weg, ein Satz in den
+        Log-Kanal. Kein Bann: der Fall ist ein anderer als ein Nuke --
+        hier versucht meist ein Moderator, seine eigenen Rechte
+        auszuweiten. Das gehoert gestoppt und protokolliert, nicht mit
+        dem groessten Hammer beantwortet.
+
+        Reihenfolge: **erst die Rolle weg, dann der Timeout.** Ein
+        Timeout hindert niemanden daran, Administrator zu sein -- die
+        Rechte wirken weiter. Andersherum waere die gefaehrliche Rolle
+        zehn Minuten laenger aktiv.
+        """
+        guild = member.guild
+        grund = "Selbst Administrator-Rolle vergeben"
+
+        rolle_weg = False
+        try:
+            await member.remove_roles(new_role, reason=grund)
+            rolle_weg = True
+        except (discord.Forbidden, discord.HTTPException):
+            pass
+
+        getimeoutet = False
+        try:
+            await member.timeout(
+                datetime.timedelta(minutes=10), reason=grund
+            )
+            getimeoutet = True
+        except (discord.Forbidden, discord.HTTPException):
+            pass
+
+        await nuke_alert.report_self_escalation(
+            self.bot, guild, member, new_role,
+            role_removed=rolle_weg, timed_out=getimeoutet,
+        )
 
     async def take_action_and_revert(self, member, executor, new_role):
         # The reporting helpers need the guild; this function only

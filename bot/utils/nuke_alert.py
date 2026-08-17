@@ -23,6 +23,7 @@ one if the attacker deleted everything.
 from __future__ import annotations
 
 import asyncio
+import datetime
 import time
 from typing import Any
 
@@ -1005,3 +1006,93 @@ async def handle_disabled(bot, guild, action: str, executor=None) -> None:
     without anti-nuke is not nagged constantly.
     """
     await report(bot, guild, action, OUTCOME_DISABLED, executor=executor)
+
+
+async def report_self_escalation(
+    bot, guild, member, role, *,
+    role_removed: bool = False, timed_out: bool = False,
+) -> None:
+    """Jemand hat sich selbst auf Administrator gehoben.
+
+    ── Warum das eine eigene Meldung ist ────────────────────────────
+
+    Weil es kein Nuke ist. Ein Nuke loescht Kanaele; das hier ist ein
+    Moderator, der seine eigenen Rechte ausweitet. Beides gehoert
+    gestoppt, aber nur eines rechtfertigt einen Bann und eine
+    Direktnachricht mitten in der Nacht.
+
+    ── Warum ausdruecklich KEINE DM ─────────────────────────────────
+
+    Vom Nutzer so bestellt: „kein dm an owner aber in log channel
+    sagen". Die DM ist fuer den Fall gedacht, dass der Server gerade
+    zerlegt wird -- hier ist er das nicht: die Rolle ist wieder weg
+    und die Person zehn Minuten stumm.
+
+    Deshalb geht das auch **nicht** ueber `report()`: die Funktion
+    entscheidet ueber `nuke_policy`, ob eine DM faellig ist, und
+    genau die soll hier nie kommen. Ein Sonderfall in `report()` waere
+    eine Ausnahme in einer Regel, die andere Faelle mitregelt.
+
+    ── Wenn es keinen Log-Kanal gibt ────────────────────────────────
+
+    Dann doch eine DM an den Inhaber -- ebenfalls so bestellt: „wenn
+    kein log kanel dm". Ohne diesen Rueckweg bliebe der Vorfall
+    unbemerkt, und das ist der einzige Fall, in dem Stille schadet.
+
+    Wirft nie: das laeuft direkt nach dem Eingriff, und ein Fehler
+    beim Melden darf ihn nicht nachtraeglich zunichtemachen.
+    """
+    try:
+        settings = await get_settings(guild.id)
+
+        wer = f"{member} (`{member.id}`)"
+        was = (
+            f"{wer} hat sich selbst die Rolle **{role.name}** gegeben — "
+            "und die traegt **Administrator**."
+        )
+
+        massnahmen = []
+        if role_removed:
+            massnahmen.append("Rolle wieder entzogen")
+        else:
+            massnahmen.append("Rolle konnte **nicht** entzogen werden")
+        if timed_out:
+            massnahmen.append("10 Minuten Timeout")
+        else:
+            massnahmen.append("Timeout **nicht** moeglich")
+
+        embed = discord.Embed(
+            title="Rechte-Ausweitung gestoppt",
+            description=(
+                f"{was}\n\n"
+                "Das ist kein Angriff auf den Server, sondern der Versuch, "
+                "die **eigenen** Rechte zu erweitern — von Moderator auf "
+                "Administrator.\n\n"
+                f"**Getan:** {' · '.join(massnahmen)}"
+            ),
+            colour=discord.Colour.orange(),
+            timestamp=datetime.datetime.now(datetime.timezone.utc),
+        )
+        embed.set_footer(text="Kein Bann — die Rolle ist weg, das genuegt.")
+
+        channel = await alert_channel(guild, settings)
+        if channel is not None:
+            await channel.send(embed=embed)
+            return
+
+        # Kein Kanal erreichbar: dann doch der Inhaber, sonst merkt es
+        # niemand.
+        owner = guild.owner
+        if owner is not None:
+            try:
+                await owner.send(
+                    content=(
+                        f"**{guild.name}** — kein Log-Kanal erreichbar, "
+                        "deshalb hier:"
+                    ),
+                    embed=embed,
+                )
+            except discord.Forbidden:
+                pass
+    except Exception as exc:  # noqa: BLE001
+        print(f"nuke_alert: report_self_escalation failed: {exc}")

@@ -151,16 +151,40 @@ def test_every_module_whitelists():
     missing = []
     unimported = []
 
+    # Die Pruefung ist umgezogen.
+    #
+    # Frueher rief jedes Modul `partner_bot.is_partner` selbst auf --
+    # siebzehnmal dieselbe Zeile. Inzwischen fragen alle
+    # `nuke_guard.should_skip`, und der prueft den Partner-Bot mit.
+    #
+    # Der Schutz besteht also weiter, nur an einer Stelle statt an
+    # siebzehn. Nachgemessen mit Attrappen: `should_skip` gibt fuer
+    # die Partner-ID True zurueck, fuer eine fremde False.
+    #
+    # Geprueft wird deshalb beides: dass jedes Modul den Waechter
+    # fragt, UND dass der Waechter den Partner-Bot kennt. Faellt eines
+    # von beiden weg, ist der Rettungsbot wieder in Gefahr.
     for name in sorted(os.listdir(folder)):
         if not name.endswith(".py"):
             continue
         src = open(os.path.join(folder, name)).read()
-        if "partner_bot.is_partner" not in src:
+        eigen = "partner_bot.is_partner" in src
+        ueber_waechter = "nuke_guard.should_skip" in src
+        if not (eigen or ueber_waechter):
             missing.append(name)
-        elif "partner_bot" not in src.split("class ")[0]:
+        elif eigen and "partner_bot" not in src.split("class ")[0]:
+            unimported.append(name)
+        elif ueber_waechter and "nuke_guard" not in src.split("class ")[0]:
             unimported.append(name)
 
     check("every anti-nuke module checks for it", not missing, str(missing))
+
+    # Und der Waechter muss ihn wirklich kennen -- sonst haben alle
+    # siebzehn nur eine leere Huelse gefragt.
+    guard = open(os.path.join(HERE, "..", "utils", "nuke_guard.py")).read()
+    check("the guard itself knows the partner bot",
+          "partner_bot.is_partner" in guard,
+          "every module now delegates to it")
     check("and each one imports it properly", not unimported, str(unimported))
 
     # The bot-add module needs a second check: the one above looks at

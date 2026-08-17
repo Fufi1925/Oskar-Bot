@@ -13,7 +13,7 @@
 # ╚══════════════════════════════════════════════════════════════════╝
 
 import discord
-from utils import nuke_alert, partner_bot
+from utils import nuke_alert, partner_bot, nuke_guard
 from discord.ext import commands
 import aiosqlite
 import asyncio
@@ -89,11 +89,17 @@ class AntiBotAdd(commands.Cog):
                 return
 
             executor = logs.user
-            # The template bot rebuilds servers after an attack, which
-            # looks exactly like a nuke. Banning it mid-rescue would
-            # leave the server half-restored.
-            if executor.id in {guild.owner_id, self.bot.user.id} \
-                    or partner_bot.is_partner(executor):
+            # Aussteigen, wenn der Bot nicht darf ODER nicht kann.
+            #
+            # Frueher stand hier nur die Freigabe-Liste (Inhaber,
+            # eigener Bot, Partner-Bot). Was fehlte: die Frage, ob die
+            # eigene Rolle ueberhaupt ueber der des Angreifers steht.
+            # Stand sie darunter, lief der Bot in den Ban, bekam ein
+            # Forbidden und meldete das -- bei einem Angriff mit vierzig
+            # Kanaelen vierzigmal. Jetzt: nichts tun, nichts melden.
+            #
+            # `TRUSTED_BOTS` ist hier ebenfalls abgedeckt.
+            if nuke_guard.should_skip(guild, executor, self.bot.user.id):
                 return
 
             async with db.execute("SELECT botadd FROM whitelisted_users WHERE guild_id = ? AND user_id = ?", (guild.id, executor.id)) as cursor:

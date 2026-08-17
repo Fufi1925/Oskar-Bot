@@ -156,6 +156,27 @@ Gehe zu deinem Service → **Variables** und füge ALLE Variablen aus `.env.exam
 | `GOOGLE_API_KEY` / `GROQ_API_KEY` | Für die KI-Commands | Optional |
 | `API_ENABLED` | `true` | ✅ |
 | `brand_name` | `University Bot` | ✅ |
+| `TRUSTED_BOTS` | Discord-IDs bekannter Bots, die der Anti-Nuke nie angreift — komma-getrennt | Optional |
+
+### `TRUSTED_BOTS` — Bots, die der Anti-Nuke in Ruhe lässt
+
+Bekannte Bots wie MEE6 oder Dyno legen Kanäle an, vergeben Rollen und
+löschen Nachrichten — also genau das, was der Anti-Nuke als Angriff
+liest. Ohne Eintrag bannt er sie beim ersten Mal.
+
+```
+TRUSTED_BOTS="159985870458322944,155149108183695360"
+```
+
+Komma-getrennt, Leerzeichen sind egal. Was keine Zahl ist, wird
+übersprungen — ein Tippfehler legt den Anti-Nuke nicht lahm.
+
+**Die Liste gilt global und kann nur hier gesetzt werden**, nicht im
+Dashboard. Das ist Absicht: wer sie pro Server pflegen dürfte, könnte
+seinen eigenen Zweitbot eintragen und damit den Schutz aushebeln.
+
+Für einzelne *Menschen* gibt es stattdessen die Whitelist im
+Dashboard-Reiter „Anti-Nuke“ — dort pro Aktion einstellbar.
 
 > ⚠️ **Setze niemals `NEXT_PUBLIC_DASHBOARD_API_KEY`.**
 > Variablen mit `NEXT_PUBLIC_` werden beim Build in das JavaScript eingebettet,

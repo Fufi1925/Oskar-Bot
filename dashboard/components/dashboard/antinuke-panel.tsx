@@ -20,7 +20,7 @@
 
 import React, { useCallback, useState } from "react";
 import {
-  AlertTriangle, Check, ChevronDown, Pencil, Shield, ShieldAlert,
+  AlertTriangle, Bot, Check, ChevronDown, Pencil, Shield, ShieldAlert,
   ShieldCheck, Trash2, UserPlus,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -207,10 +207,48 @@ export function AntiNukePanel({ guildId }: { guildId: string }) {
   const status = !!p.data?.status;
   const actions: any[] = p.data?.actions || [];
   const whitelist: any[] = p.data?.whitelist || [];
+  const trustedBots: any[] = p.data?.trusted_bots || [];
 
   return (
     <section className="space-y-5">
       <Warnings items={p.data?.warnings} />
+
+      {/* Die vertrauten Bots aus `TRUSTED_BOTS`.
+          Nur zum Anschauen -- die Liste gilt global und wird in
+          Railway gesetzt, nicht hier. Sie steht trotzdem im Reiter,
+          weil sonst niemand nachvollziehen kann, warum ein
+          bestimmter Bot ungestraft Kanäle anlegt. Von außen sieht
+          das aus wie ein kaputter Anti-Nuke. */}
+      {trustedBots.length > 0 && (
+        <div className="rounded-2xl border border-slate-800 bg-[#131318] p-4">
+          <div className="flex items-start gap-3">
+            <Bot className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" />
+            <div className="min-w-0 flex-1">
+              <p className="text-[14px] font-semibold text-white">
+                {trustedBots.length}{" "}
+                {trustedBots.length === 1 ? "Bot wird" : "Bots werden"} nie
+                angegriffen
+              </p>
+              <p className="mt-1 text-[13px] leading-relaxed text-slate-500">
+                Bekannte Bots, die Kanäle anlegen und Rollen vergeben — also
+                aussehen wie ein Angriff. Die Liste gilt für alle Server und
+                lässt sich nur vom Betreiber ändern.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {trustedBots.map((b: any) => (
+                  <span
+                    key={b.id}
+                    title={b.id}
+                    className="rounded-md border border-slate-800 bg-[#0e0e12] px-2 py-1 text-[12px] text-slate-400"
+                  >
+                    {b.name || b.id}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <Card
         icon={status ? ShieldCheck : ShieldAlert}

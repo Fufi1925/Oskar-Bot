@@ -299,7 +299,41 @@ async def get_antinuke(guild_id: int, bot: "universitybot" = Depends(get_bot)):
         "module_count": sum(len(spec["cogs"]) for spec in ACTIONS.values()),
         "whitelist": entries,
         "warnings": _warnings(guild, status, entries),
+        # Die vertrauten Bots aus `TRUSTED_BOTS`.
+        #
+        # Nur zum Anschauen: die Liste gilt global und laesst sich hier
+        # nicht aendern. Sie steht trotzdem im Reiter, weil sonst
+        # niemand nachvollziehen kann, warum ein bestimmter Bot
+        # ungestraft Kanaele anlegt -- und das sieht von aussen aus
+        # wie ein kaputter Anti-Nuke.
+        "trusted_bots": _trusted_bot_info(bot),
     }
+
+
+def _trusted_bot_info(bot) -> list[dict]:
+    """Namen zu den IDs aus ``TRUSTED_BOTS``, soweit der Bot sie kennt.
+
+    Kennt er einen nicht, bleibt die ID stehen. Das ist ehrlicher als
+    ein erfundener Name -- und ein Hinweis darauf, dass der Bot
+    vielleicht gar nicht auf dem Server ist.
+    """
+    from utils import nuke_guard
+
+    out = []
+    for kennung in sorted(nuke_guard.trusted_bot_ids()):
+        user = bot.get_user(kennung)
+        out.append({
+            # Als Zeichenkette: eine Discord-ID ist groesser als das,
+            # was JavaScript unfallfrei als Zahl haelt.
+            "id": str(kennung),
+            "name": getattr(user, "display_name", "") or getattr(user, "name", ""),
+            "avatar": (
+                str(user.display_avatar.url)
+                if user is not None and getattr(user, "display_avatar", None)
+                else None
+            ),
+        })
+    return out
 
 
 @router.patch("/{guild_id}", summary="Switch anti-nuke on or off")
