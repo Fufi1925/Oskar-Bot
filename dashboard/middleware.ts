@@ -55,6 +55,30 @@ function maintenanceGate(request: NextRequest): NextResponse | null {
     return null;
   }
 
+  // Nachweisdateien unter /.well-known/ bleiben immer erreichbar.
+  //
+  // Dort liegen keine Seiten, sondern Belege fuer Maschinen: die
+  // Besitzbestaetigung fuer den Sicherheitsscanner
+  // (/.well-known/strix-verify.txt), spaeter moeglicherweise die
+  // Zertifikatspruefung von Let's Encrypt oder eine security.txt.
+  //
+  // Ohne diese Ausnahme schrieb die Zeile unten auch sie auf
+  // /wartung um. Nachgemessen mit WARTUNG=true:
+  //
+  //     GET /.well-known/strix-verify.txt
+  //     -> HTTP 200, x-middleware-rewrite: /wartung
+  //     -> Content-Type: text/html   statt   text/plain
+  //
+  // Der Pruefdienst bekommt also die Wartungsseite und meldet
+  // „Verification not detected" -- und das faellt niemandem auf,
+  // weil 200 zurueckkommt und die Seite im Browser normal aussieht.
+  //
+  // Ein Leak ist das nicht: in dem Ordner steht nur, was ohnehin
+  // oeffentlich sein muss, damit die Pruefung funktioniert.
+  if (pathname.startsWith("/.well-known/")) {
+    return null;
+  }
+
   // API callers get JSON; a rewritten HTML page would be parsed as a
   // failed request and produce a confusing error in the client.
   if (pathname.startsWith("/api/")) {
