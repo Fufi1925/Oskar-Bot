@@ -12,7 +12,7 @@
 # ║                                                                  ║
 # ╚══════════════════════════════════════════════════════════════════╝
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from api.dependencies import get_bot
 from api.schemas import AdminStats, AdminNodeStatus, AdminConfig, AdminConfigUpdate
 from typing import TYPE_CHECKING, List
@@ -1333,4 +1333,170 @@ async def get_admin_history(
         "commands": befehle,
         "guild_count": len(bot.guilds),
         "has_data": verlauf["has_data"],
+    }
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#  Kontowechsel — alles mitnehmen, anderswo wieder einspielen
+# ══════════════════════════════════════════════════════════════════════════
+#
+# Der Unterschied zu /backups/export-all: dort werden Tabellenzeilen
+# ausgelesen und als JSON abgelegt. Das laesst sich nur zurueckspielen,
+# wenn Datei und Tabelle auf der Gegenseite schon existieren -- auf
+# einem frischen Konto ist das nicht der Fall, und die Zeilen werden
+# still uebersprungen (nachgemessen in repro/bug_umzug_leer.py:
+# 4 Zeilen exportiert, 0 angekommen, kein Fehler gemeldet).
+#
+# Hier wandern die Dateien selbst ins Archiv. Eine SQLite-Datei bringt
+# ihr Schema mit, also ist auch alles dabei, was zeilenweise nie
+# erfasst wurde: offene Tickets, Panel-Nachrichten, der Schluessel
+# db/template_secret.key.
+
+
+@router.get("/umzug/uebersicht", summary="Was steckt in einem Umzugsarchiv?")
+async def umzug_uebersicht():
+    """Auflistung ohne Download, damit man vorher sieht, was mitkommt."""
+    from api import umzug
+
+    return umzug.baue_uebersicht()
+
+
+@router.get("/umzug/download", summary="Alles herunterladen")
+async def umzug_download():
+    """
+    Das komplette Archiv.
+
+    Es wird in eine temporaere Datei geschrieben und von dort
+    gestreamt, nicht im Speicher gehalten: bei mehreren Gigabyte
+    wuerde der Container sonst abgeraeumt.
+    """
+    import tempfile
+
+    from fastapi.responses import StreamingResponse
+
+    from api import umzug
+
+    puffer = tempfile.NamedTemporaryFile(suffix=".zip", delete=False)
+    try:
+        umzug.schreibe_archiv_nach(puffer)
+        puffer.flush()
+        groesse = puffer.tell()
+    finally:
+        puffer.close()
+
+    stempel = time.strftime("%Y%m%d-%H%M%S")
+    name = f"umzug-komplett-{stempel}.zip"
+
+    await feature_audit.log_action(
+        "umzug_export", actor="dashboard", detail=f"{groesse} Bytes"
+    )
+
+    def _haeppchen():
+        try:
+            with open(puffer.name, "rb") as f:
+                while True:
+                    stueck = f.read(1024 * 1024)
+                    if not stueck:
+                        break
+                    yield stueck
+        finally:
+            try:
+                os.remove(puffer.name)
+            except OSError:
+                pass
+
+    return StreamingResponse(
+        _haeppchen(),
+        media_type="application/zip",
+        headers={
+            "Content-Disposition": f'attachment; filename="{name}"',
+            "Content-Length": str(groesse),
+        },
+    )
+
+
+async def _hochgeladenes_archiv(request: Request) -> str:
+    """
+    Den Rumpf der Anfrage auf die Platte schreiben und den Pfad
+    zurueckgeben.
+
+    Ausdruecklich NICHT `await request.body()`: das haelt die ganze
+    Datei im Arbeitsspeicher. Ein Umzugsarchiv kann mehrere Gigabyte
+    gross sein, und der Container hat davon deutlich weniger -- er
+    wuerde wortlos abgeraeumt (OOM), und im Dashboard erschiene nur
+    "Bot API is unreachable".
+
+    Der Aufrufer ist fuer das Loeschen zustaendig.
+    """
+    import tempfile
+
+    ziel = tempfile.NamedTemporaryFile(suffix=".zip", delete=False)
+    geschrieben = 0
+    try:
+        async for stueck in request.stream():
+            if stueck:
+                ziel.write(stueck)
+                geschrieben += len(stueck)
+    finally:
+        ziel.close()
+
+    if geschrieben == 0:
+        try:
+            os.remove(ziel.name)
+        except OSError:
+            pass
+        raise HTTPException(status_code=400, detail="Es kam keine Datei an.")
+
+    return ziel.name
+
+
+@router.post("/umzug/pruefen", summary="Hochgeladenes Archiv ansehen")
+async def umzug_pruefen(request: Request):
+    """Sagt, was drin ist -- ohne irgendetwas zu veraendern."""
+    from api import umzug
+
+    pfad = await _hochgeladenes_archiv(request)
+    try:
+        return umzug.pruefe_archiv_datei(pfad)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    finally:
+        try:
+            os.remove(pfad)
+        except OSError:
+            pass
+
+
+@router.post("/umzug/einspielen", summary="Archiv zurueckschreiben")
+async def umzug_einspielen(request: Request, sicherung: bool = True):
+    """
+    Das Archiv wird zurueckgeschrieben; der bisherige Stand landet
+    vorher in db/backups/vor-umzug-<zeit>/.
+
+    Danach muss der Bot neu starten -- die Cogs halten Verbindungen
+    auf die alten Dateien offen.
+    """
+    from api import umzug
+
+    pfad = await _hochgeladenes_archiv(request)
+    try:
+        ergebnis = umzug.spiele_datei_ein(pfad, sicherung=sicherung)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    finally:
+        try:
+            os.remove(pfad)
+        except OSError:
+            pass
+
+    await feature_audit.log_action(
+        "umzug_import",
+        actor="dashboard",
+        detail=f"{ergebnis['geschrieben']} Dateien",
+    )
+
+    return {
+        "status": "success",
+        "neustart_noetig": True,
+        **ergebnis,
     }

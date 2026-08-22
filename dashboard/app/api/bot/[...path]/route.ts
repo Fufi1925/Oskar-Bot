@@ -87,6 +87,16 @@ const ADMIN_PERMISSIONS: Record<string, { GET?: string; WRITE?: string }> = {
   notifications: { GET: "audit.view" },
   settings: { GET: "health.view", WRITE: "maintenance.toggle" },
   backups: { GET: "health.view", WRITE: "maintenance.toggle" },
+  // Der Kontowechsel. Bewusst NICHT hier eingetragen: er faellt
+  // absichtlich auf verifyAdminAccess() zurueck, und die laesst
+  // ausschliesslich globale Admins durch.
+  //
+  // Begruendung: `POST /admin/umzug/einspielen` ueberschreibt saemtliche
+  // Datenbankdateien auf einen Schlag -- jeden Server, jede
+  // Einstellung, die Dashboard-Rollen inbegriffen. Wer das darf, kann
+  // sich anschliessend selbst zum Eigentuemer machen. Eine Team-Rolle
+  // wie `maintenance.toggle`, die sonst fuer Sicherungen reicht, ist
+  // dafuer eine zu niedrige Schwelle.
 };
 
 /** Which permission an /actions/* endpoint requires. */
@@ -1384,6 +1394,47 @@ async function handler(request: NextRequest, context: { params: { path?: string[
 
   const session = await getServerSession(authOptions);
   const actorId = session?.user?.id;
+
+  // ── Binaerer Upload: unveraendert durchreichen ─────────────────────
+  //
+  // Der Umzug schickt eine ZIP-Datei. `request.text()` weiter unten
+  // dekodiert den Rumpf als UTF-8, und jedes Byte, das keine gueltige
+  // UTF-8-Folge ist, wird dabei durch U+FFFD ersetzt. Bei einem Archiv
+  // ist das die Mehrzahl der Bytes -- es kaeme unbrauchbar an, und der
+  // Fehler ("keine gueltige ZIP-Datei") entstuende erst im Bot, weit
+  // weg von der Ursache.
+  //
+  // Deshalb hier vorher abbiegen und den Datenstrom unangetastet
+  // weiterreichen. Die JSON-Behandlung darunter bleibt, wie sie war.
+  const istBinaer = (request.headers.get("content-type") || "")
+    .toLowerCase()
+    .includes("zip");
+
+  if (istBinaer && !["GET", "HEAD"].includes(request.method)) {
+    try {
+      const upstream = await fetch(url.toString(), {
+        method: request.method,
+        headers: {
+          "Content-Type": "application/zip",
+          ...(API_KEY ? { Authorization: `Bearer ${API_KEY}` } : {}),
+        },
+        body: await request.arrayBuffer(),
+        cache: "no-store",
+      });
+
+      return new NextResponse(upstream.body, {
+        status: upstream.status,
+        headers: {
+          "Content-Type":
+            upstream.headers.get("content-type") || "application/json",
+          "Cache-Control": "no-store",
+        },
+      });
+    } catch (error: any) {
+      console.error(`[BFF] Upload fehlgeschlagen fuer ${url}:`, error?.message ?? error);
+      return deny(502, "Bot API is unreachable. Is the bot running?");
+    }
+  }
 
   let body: string | undefined;
   if (!["GET", "HEAD"].includes(request.method)) {

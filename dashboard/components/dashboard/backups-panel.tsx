@@ -10,6 +10,7 @@ import { api } from "@/lib/api";
 import { cn, downloadFile } from "@/lib/utils";
 import { ConfigTransferPanel } from "@/components/dashboard/config-transfer-panel";
 import { FullBackupPanel } from "@/components/dashboard/full-backup-panel";
+import { UmzugPanel } from "@/components/dashboard/umzug-panel";
 import { Select } from "@/components/ui/select";
 
 interface Snapshot {
@@ -134,6 +135,16 @@ export function BackupsPanel({
 
   return (
     <section className="space-y-6">
+      {/* Der Kontowechsel steht bewusst ganz oben.
+       *
+       * Er ist der einzige Weg, der eine Installation vollstaendig
+       * mitnimmt: Dateien statt ausgelesener Zeilen. Alles darunter
+       * arbeitet zeilenweise und laesst auf einem frischen Konto
+       * genau das liegen, was man am dringendsten braucht --
+       * gemessen in repro/bug_umzug_leer.py (4 Zeilen exportiert,
+       * 0 angekommen, kein Fehler gemeldet). */}
+      <UmzugPanel />
+
       <div className="bg-[#131318] border border-slate-800 rounded-3xl p-5 sm:p-8">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="flex items-center gap-4">
