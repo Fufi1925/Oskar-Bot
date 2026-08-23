@@ -128,6 +128,7 @@ FEATURE_TABLES: dict[str, tuple[str, str, tuple[str, ...]]] = {
     "supportqueue": (
         "Support-Warteraum", "db/support_queue.db", ("support_queue",)
     ),
+    "honeypot": ("Honeypot", "db/honeypot.db", ("honeypot",)),
 
     # ── Sonstiges ───────────────────────────────────────────────
     "music": (
@@ -173,6 +174,7 @@ FEATURE_GROUPS: dict[str, str] = {
     "anonchat": "Kanäle",
     "tickets": "Kanäle",
     "supportqueue": "Kanäle",
+    "honeypot": "Kanäle",
 
     "music": "Sonstiges",
     "prefix": "Sonstiges",

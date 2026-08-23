@@ -425,6 +425,35 @@ async function authorize(
     return { ok: false, response: deny(403, `This requires the '${required}' permission.`) };
   }
 
+  if (scope === "honeypot") {
+    // Shape: /honeypot/<guildId>/...
+    //
+    // Gleiche Schwelle wie der Warteraum: wer den Server verwaltet,
+    // darf ihn einstellen. Der Honeypot bannt Leute, ist also keine
+    // Kleinigkeit -- aber er wirkt nur auf diesem einen Server, und
+    // "Server verwalten" ist genau die Berechtigung, die das abdeckt.
+    const guildId = rest[0];
+    if (!guildId) return { ok: false, response: deny(400, "guild_id missing.") };
+
+    const access = await verifyGuildAccess(guildId);
+    if (!access.allowed) return { ok: false, response: deny(access.status, access.reason) };
+
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) return { ok: false, response: deny(401, "Not signed in.") };
+    if (isGlobalAdmin(session.user.id)) return { ok: true };
+
+    // Wer den Server auf Discord verwaltet, behaelt seine Rechte.
+    if (await managesGuildOnDiscord(guildId)) return { ok: true };
+
+    const team = await fetchTeamAccess(session.user.id);
+    if (!team || team.roles.length === 0) return { ok: true };
+
+    const required = request.method === "GET" ? "guild.view" : "server.manage";
+    if (await hasTeamPermission(session.user.id, required, guildId)) return { ok: true };
+
+    return { ok: false, response: deny(403, `This requires the '${required}' permission.`) };
+  }
+
   if (scope === "supportqueue") {
     // Shape: /supportqueue/<guildId>/...
     //

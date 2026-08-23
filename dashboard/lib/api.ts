@@ -1439,6 +1439,25 @@ export const api = {
       body: "{}",
     }),
 
+  // ── Honeypot ─────────────────────────────────────────────────────
+  honeypot: (guildId: string) =>
+    request<any>(`/honeypot/${guildId}`),
+  honeypotSave: (guildId: string, data: any) =>
+    request<any>(`/honeypot/${guildId}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+  honeypotToggle: (guildId: string, enabled: boolean) =>
+    request<any>(`/honeypot/${guildId}/toggle`, {
+      method: "POST",
+      body: JSON.stringify({ enabled }),
+    }),
+  honeypotResend: (guildId: string) =>
+    request<any>(`/honeypot/${guildId}/resend`, {
+      method: "POST",
+      body: "{}",
+    }),
+
   // ── Community-Vorlagen ───────────────────────────────────────────
   templateScan: (guildId: string) =>
     request<any>(`/templates/${guildId}/scan`),

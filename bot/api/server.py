@@ -8,7 +8,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from starlette.responses import Response
 from utils.config import *
-from api.routes import bot, guilds, admin, team, moderation, actions, access, servers, servertools, tickets, giveaways, leveling, vanity, broadcast, anonchat, diagnose, compose, nukealert, memberperks, extras, voice, verify, automod, logging_cfg, antinuke, pingreactions, premium, cookies, speedrun, supportqueue, tester, music, templates, teamlist, applications, teamupdate, webapply, commands as commands_route
+from api.routes import bot, guilds, admin, team, moderation, actions, access, servers, servertools, tickets, giveaways, leveling, vanity, broadcast, anonchat, diagnose, compose, nukealert, memberperks, extras, voice, verify, automod, logging_cfg, antinuke, pingreactions, premium, cookies, speedrun, supportqueue, honeypot, tester, music, templates, teamlist, applications, teamupdate, webapply, commands as commands_route
 from api.dependencies import verify_api_key, limiter, get_bot_loop
 from api.db_manager import db_manager
 from api.schema_guard import ensure_schema
@@ -351,6 +351,11 @@ def create_app() -> FastAPI:
     # anhand der guild_id im Pfad.
     api_app.include_router(
         supportqueue.router, prefix="/supportqueue", tags=["Support Queue"]
+    )
+    # Der Honeypot. Eigenes Praefix mit guild_id im Pfad -- der
+    # Dashboard-Proxy prueft die Rechte daran.
+    api_app.include_router(
+        honeypot.router, prefix="/honeypot", tags=["Honeypot"]
     )
     api_app.include_router(music.router, prefix="/music", tags=["Music"])
     api_app.include_router(

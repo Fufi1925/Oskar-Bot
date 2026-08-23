@@ -116,6 +116,7 @@ function buildGroups(t: TranslateFn): Group[] {
       tabs: [
         { name: "Anti-Nuke", slug: "antinuke", icon: Sword, also: ["nuke", "raid"] },
         { name: t("automod"), slug: "automod", icon: ShieldCheck, also: ["spam", "caps", "links", "automod"] },
+        { name: "Honeypot", slug: "honeypot", icon: ShieldAlert, also: ["honeypot", "koeder", "köder", "spambot", "falle"] },
         { name: "Verifizierung", slug: "verification", icon: Shield, also: ["verify", "captcha"] },
         { name: "Notfall", slug: "emergency", icon: ShieldAlert, also: ["lockdown", "emergency", "panik"] },
         { name: "Jail", slug: "jail", icon: Lock, also: ["isolation", "knast"] },

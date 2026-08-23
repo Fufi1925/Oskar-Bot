@@ -116,6 +116,11 @@ NO_DRAFT = {
     # Scrollen sichtbar bleibt -- eine eingeblendete Leiste am unteren
     # Rand wäre ein zweiter Knopf für dieselbe Sache.
     "supportqueue",
+    # Der Honeypot ebenso: ein Speichern-Knopf am Ende der Seite. Das
+    # Ein- und Ausschalten wirkt ohnehin sofort und ist kein Entwurf --
+    # eine Leiste "ungespeicherte Aenderungen" waere dort schlicht
+    # falsch.
+    "honeypot",
 }
 
 
