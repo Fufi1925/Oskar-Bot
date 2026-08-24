@@ -27,6 +27,7 @@ import {
   Loading, StickySaveBar, usePanel, useSaveGuard,
 } from "@/components/dashboard/save-bar";
 import { EmojiText } from "@/components/dashboard/emoji-field";
+import { LogUmgezogen } from "@/components/dashboard/log-umgezogen";
 
 const INPUT =
   "w-full bg-[#0e0e12] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-primary/50 transition-colors";
@@ -515,18 +516,15 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
 
         {advanced && (
           <div className="px-6 pb-6 space-y-5 border-t border-slate-800 pt-5">
-            <Field
-              label="Log-Kanal"
-              hint="Jede Verifizierung wird hier protokolliert. Leer = kein Log."
-            >
-              <ChannelPicker
-                guildId={guildId}
-                value={p.value("log_channel_id") || ""}
-                onChange={(id) => p.set("log_channel_id", id)}
-                placeholder="Kein Log"
-                channelTypes={["0", "5"]}
-              />
-            </Field>
+            {/* Der Log-Kanal liegt jetzt gesammelt unter Bot-Logs.
+                Ihn hier stehen zu lassen hiesse zwei Felder fuer
+                denselben Wert -- und eines zeigt nach dem Speichern
+                am anderen Ort etwas Veraltetes. */}
+            <LogUmgezogen
+              guildId={guildId}
+              logKey="verification"
+              was="Wer sich verifiziert hat"
+            />
 
             <Field
               label="Unverifiziert-Rolle"

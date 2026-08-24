@@ -30,6 +30,7 @@ from typing import TYPE_CHECKING
 from fastapi import APIRouter, Depends, HTTPException
 
 from api.dependencies import get_bot
+from utils import feature_audit
 from utils.panels import from_embed
 
 if TYPE_CHECKING:
@@ -450,3 +451,159 @@ async def set_all(
     await _save(cog, guild_id, config)
     count = len(CATEGORIES) - (0 if include_noisy else 1)
     return {"result": f"{count} Kategorien posten jetzt in #{channel.name}."}
+
+
+# ══════════════════════════════════════════════════════════════════════
+#  Bot-Logs: alles, was der Bot protokolliert, an einer Stelle
+# ══════════════════════════════════════════════════════════════════════
+#
+# Die neun Kategorien oben sind das, was auf DISCORD passiert:
+# Nachrichten, Rollen, Kanäle. Daneben protokollieren einzelne Module
+# das, was der BOT selbst tut -- ein Softban durch den Honeypot, eine
+# bestandene Verifizierung, eine Automod-Strafe.
+#
+# Diese Einstellungen lagen über acht Seiten verstreut. Wer wissen
+# wollte, wohin der Bot eigentlich überall schreibt, musste sie
+# einzeln durchklicken. Die Registrierung in utils/bot_logs.py sammelt
+# sie ein -- ohne sie zu kopieren: jedes Modul bleibt die Quelle der
+# Wahrheit für seinen eigenen Kanal.
+
+
+@router.get("/{guild_id}/bot", summary="Was der Bot selbst protokolliert")
+async def bot_logs_overview(
+    guild_id: int, bot: "universitybot" = Depends(get_bot)
+):
+    from utils import bot_logs
+
+    guild = _guild_or_404(bot, guild_id)
+    quellen = await bot_logs.uebersicht(guild_id, guild)
+
+    # Wo darf der Bot nicht schreiben? Ein eingestellter Kanal ohne
+    # Schreibrecht ist der häufigste Grund für "es kommt nichts an",
+    # und man sieht es der Einstellung nicht an.
+    me = getattr(guild, "me", None)
+    for eintrag in quellen:
+        eintrag["can_send"] = True
+        if not eintrag["channel_id"] or me is None:
+            continue
+        kanal = guild.get_channel(int(eintrag["channel_id"]))
+        if kanal is None:
+            continue
+        try:
+            rechte = kanal.permissions_for(me)
+            eintrag["can_send"] = bool(
+                rechte.view_channel and rechte.send_messages
+            )
+        except Exception:  # noqa: BLE001
+            pass
+
+    gruppen: dict[str, list] = {}
+    for eintrag in quellen:
+        gruppen.setdefault(eintrag["gruppe"], []).append(eintrag)
+
+    return {
+        "sources": quellen,
+        "groups": [
+            {"name": name, "items": eintraege}
+            for name, eintraege in gruppen.items()
+        ],
+        "active": sum(1 for q in quellen if q["aktiv"]),
+        "total": len(quellen),
+        "excluded": [
+            {"label": label, "reason": grund}
+            for label, grund in bot_logs.AUSGENOMMEN
+        ],
+        "channels": [
+            {"id": str(k.id), "name": k.name}
+            for k in getattr(guild, "text_channels", [])
+        ],
+    }
+
+
+@router.patch("/{guild_id}/bot/{key}", summary="Einen Bot-Log umstellen")
+async def bot_log_patch(
+    guild_id: int, key: str, data: dict,
+    bot: "universitybot" = Depends(get_bot),
+):
+    """Kanal setzen oder das Protokoll dieses Moduls abschalten.
+
+    Geschrieben wird in die Tabelle des jeweiligen Moduls, nicht in
+    eine eigene: sonst gäbe es zwei Wahrheiten, und sie liefen
+    auseinander, sobald jemand die alte Seite benutzt.
+    """
+    import aiosqlite
+
+    from utils import bot_logs
+
+    guild = _guild_or_404(bot, guild_id)
+
+    quelle = next((q for q in bot_logs.QUELLEN if q["key"] == key), None)
+    if quelle is None:
+        raise HTTPException(status_code=404, detail="Unbekannte Protokollquelle.")
+
+    felder: dict[str, object] = {}
+
+    if "channel_id" in data:
+        roh = data["channel_id"]
+        if roh in (None, "", "0"):
+            felder[quelle["spalte"]] = None
+        else:
+            if not str(roh).isdigit():
+                raise HTTPException(status_code=400, detail="Keine gültige Kanal-ID.")
+            if guild.get_channel(int(roh)) is None:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Diesen Kanal gibt es auf dem Server nicht.",
+                )
+            felder[quelle["spalte"]] = int(roh)
+
+    if "enabled" in data:
+        if not quelle.get("schalter"):
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"„{quelle['label']}“ hat keinen eigenen Schalter — "
+                    "leere stattdessen den Kanal."
+                ),
+            )
+        felder[quelle["schalter"]] = 1 if data["enabled"] else 0
+
+    if not felder:
+        raise HTTPException(status_code=400, detail="Nichts zu ändern.")
+
+    schluessel = str(guild_id) if quelle.get("id_als_text") else guild_id
+
+    try:
+        async with aiosqlite.connect(quelle["db"]) as db:
+            # Die Zeile kann fehlen, wenn das Modul auf diesem Server
+            # noch nie benutzt wurde. INSERT OR IGNORE legt sie an,
+            # ohne eine vorhandene zu überschreiben.
+            await db.execute(
+                f"INSERT OR IGNORE INTO [{quelle['tabelle']}] (guild_id) VALUES (?)",
+                (schluessel,),
+            )
+            zuweisung = ", ".join(f"[{name}] = ?" for name in felder)
+            await db.execute(
+                f"UPDATE [{quelle['tabelle']}] SET {zuweisung} WHERE guild_id = ?",
+                (*felder.values(), schluessel),
+            )
+            await db.commit()
+    except HTTPException:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"„{quelle['label']}“ wurde auf diesem Server noch nie "
+                f"eingerichtet. Stelle es einmal auf seiner eigenen Seite "
+                f"ein. ({exc})"
+            ),
+        ) from exc
+
+    await feature_audit.log_action(
+        "bot_log_updated",
+        actor=str(data.get("actor", "dashboard")),
+        detail=f"guild {guild_id}, {key}",
+    )
+
+    return await bot_logs_overview(guild_id, bot)

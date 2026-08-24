@@ -25,6 +25,7 @@ import {
   ChannelPicker, MultiChannelPicker, MultiRolePicker,
 } from "@/components/dashboard/pickers";
 import { InlineToggle } from "@/components/dashboard/form-elements";
+import { LogUmgezogen } from "@/components/dashboard/log-umgezogen";
 import {
   Loading, StickySaveBar, usePanel, useSaveGuard,
 } from "@/components/dashboard/save-bar";
@@ -428,18 +429,13 @@ export function AutomodPanel({ guildId }: { guildId: string }) {
               />
             </Field>
 
-            <Field
-              label="Log-Kanal"
-              hint="Jede Aktion wird hier festgehalten. Leer = kein Log."
-            >
-              <ChannelPicker
-                guildId={guildId}
-                value={p.value("log_channel") || ""}
-                onChange={(id) => p.set("log_channel", id)}
-                placeholder="Kein Log"
-                channelTypes={["0", "5"]}
-              />
-            </Field>
+            {/* Siehe verify-panel: der Log-Kanal steht jetzt unter
+                Bot-Logs, damit es ihn nur einmal gibt. */}
+            <LogUmgezogen
+              guildId={guildId}
+              logKey="automod"
+              was="Gelöschte Nachrichten und Strafen"
+            />
 
             <button
               onClick={() =>

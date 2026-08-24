@@ -34,7 +34,7 @@
  *
  * ── Was jetzt hier steht ────────────────────────────────────────────
  *
- * Nur Dinge, die im Projekt nachweisbar sind: die 42 Bereiche des
+ * Nur Dinge, die im Projekt nachweisbar sind: die 43 Bereiche des
  * Dashboards (`app/dashboard/guild/[guildId]/`), das Präfix `>`, die
  * Rechte, die der Bot bei der Einladung anfragt. Jede Zahl hier ist
  * abgezählt, keine geschätzt.
@@ -117,7 +117,7 @@ const DASHBOARD_BEREICHE = [
 ];
 
 /** Wie viele Bereiche es wirklich gibt. */
-const BEREICHE_GESAMT = 42;
+const BEREICHE_GESAMT = 43;
 
 const ABSCHNITTE: Abschnitt[] = [
   {

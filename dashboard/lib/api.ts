@@ -286,6 +286,14 @@ export const api = {
       body: JSON.stringify({ channel, include_noisy: includeNoisy }),
     }),
 
+  // ── Bot-Logs: was der Bot selbst protokolliert ────────────────────
+  botLogs: (guildId: string) => request<any>(`/logging/${guildId}/bot`),
+  botLogSave: (guildId: string, key: string, data: any) =>
+    request<any>(`/logging/${guildId}/bot/${key}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+
   /**
    * The leaderboard as a flat array, for the standalone page.
    *

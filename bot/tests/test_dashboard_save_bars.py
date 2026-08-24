@@ -121,6 +121,11 @@ NO_DRAFT = {
     # eine Leiste "ungespeicherte Aenderungen" waere dort schlicht
     # falsch.
     "honeypot",
+    # Bot-Logs speichert sofort: eine Auswahl im Aufklappmenue geht
+    # direkt an den Server. Es gibt keinen Zwischenstand, den man
+    # verlieren koennte -- eine Leiste "ungespeicherte Aenderungen"
+    # haette dort nichts anzuzeigen.
+    "botlogs",
 }
 
 

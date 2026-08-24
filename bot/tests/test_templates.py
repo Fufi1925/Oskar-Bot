@@ -3961,6 +3961,12 @@ def test_every_dashboard_tab_is_covered():
         "reactionroles",     # haengt an Nachrichten-IDs
         "autoresponder",
         "booster", "jail", "nightmode", "settings",
+        # Bot-Logs speichert nichts Eigenes: der Reiter zeigt die
+        # Log-Kanaele der anderen Module und schreibt beim Aendern in
+        # deren Tabellen zurueck. Eine eigene Zeile in der
+        # Uebertragung gaebe es nur doppelt -- die Werte kommen ueber
+        # honeypot, verification, automod usw. ohnehin mit.
+        "botlogs",
     }
 
     missing = tabs - set(scan.FEATURE_TABLES) - ohne_einstellung

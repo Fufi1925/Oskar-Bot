@@ -25,7 +25,7 @@ import { useProximity } from "@/components/ui/proximity";
 import { PopoverLayer } from "@/components/ui/popover-layer";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 import {
-  LayoutDashboard, Server, ShieldCheck, ShieldAlert, Ticket, BarChart4, FileText, Settings,
+  LayoutDashboard, ScrollText, Server, ShieldCheck, ShieldAlert, Ticket, BarChart4, FileText, Settings,
   Menu, X, Bell, User, Search, ChevronRight, Star, Sparkles, LogOut,
   Lock, PenLine, Gem, Pin, Moon, Calculator, Youtube, Cake,
   LifeBuoy, ChevronDown, Bot, Shield, UserCheck, Badge, Gauge, Headphones,
@@ -246,6 +246,7 @@ export default function DashboardLayout({
             { name: "Teamliste", href: `/dashboard/guild/${currentGuildId}/teamlist`, icon: Users },
             { name: "Team-Update (Beta)", href: `/dashboard/guild/${currentGuildId}/teamupdate`, icon: UserCog },
             { name: "Logs", href: `/dashboard/guild/${currentGuildId}/logging`, icon: LayoutDashboard },
+            { name: "Bot-Logs", href: `/dashboard/guild/${currentGuildId}/botlogs`, icon: ScrollText },
             { name: "Server-Werkzeuge", href: `/dashboard/guild/${currentGuildId}/admin-dashboard`, icon: Shield },
             { name: "Support-Warteraum (Beta)", href: `/dashboard/guild/${currentGuildId}/supportqueue`, icon: Headphones },
           ],

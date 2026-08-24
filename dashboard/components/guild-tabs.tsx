@@ -71,6 +71,7 @@ import {
   Search,
   Settings,
   Shield,
+  ScrollText,
   ShieldAlert,
   ShieldCheck,
   SmilePlus,
@@ -244,6 +245,7 @@ function buildGroups(t: TranslateFn): Group[] {
         },
         { name: "Logs", slug: "logging", icon: FileText,
           also: ["logging", "logs", "audit", "protokoll", "protokollierung"] },
+        { name: "Bot-Logs", slug: "botlogs", icon: ScrollText, also: ["botlogs", "bot-logs", "protokoll", "honeypot-log", "verify-log"] },
         { name: "Server-Werkzeuge", slug: "admin-dashboard", icon: Shield, also: ["admin", "scan", "audit"] },
         {
           name: "Musik",
