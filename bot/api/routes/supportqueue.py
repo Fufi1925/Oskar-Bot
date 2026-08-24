@@ -3,17 +3,23 @@
 # ╚══════════════════════════════════════════════════════════════════╝
 
 """
-Der Warteraum im Dashboard: Kanal waehlen, Ansage schreiben, fertig.
+Der Warteraum im Dashboard: vier Einstellungen, mehr nicht.
+
+    an/aus · Warteraum-Kanal · Meldekanal · Team-Rolle
+
+Alles Uebrige steht fest in `utils/support_queue.py`: die Musik, ihre
+Laenge, der Cooldown, die Erinnerungen. Auch der Text der Meldung ist
+nicht mehr bearbeitbar.
 
 Warum die Kanalliste hier entsteht und nicht im Browser
 -------------------------------------------------------
-Das Dashboard koennte die Kanaele ueber Discords API selbst holen, aber
-dann braeuchte der Browser ein Token mit Leserechten auf den Server.
-Der Bot kennt sie ohnehin -- er ist drin.
+Das Dashboard koennte die Kanaele ueber Discords API selbst holen,
+aber dann braeuchte der Browser ein Token mit Leserechten auf den
+Server. Der Bot kennt sie ohnehin -- er ist drin.
 
 Geprueft wird dabei gleich mit, ob der Bot den Kanal ueberhaupt
 betreten darf. Ein Warteraum, den der Bot nicht betreten kann, ist der
-haeufigste Fall von "es passiert nichts", und man sieht ihn der
+haeufigste Fall von „es passiert nichts", und man sieht ihn der
 Einstellung sonst nicht an.
 """
 
@@ -52,11 +58,9 @@ def _guild_or_404(bot, guild_id: int):
 def _voice_channels(guild) -> list[dict]:
     """Alle Sprachkanaele -- mit der Frage, ob der Bot hinein darf."""
 
-    import discord
-
-    entries = []
+    eintraege = []
+    me = getattr(guild, "me", None)
     for channel in getattr(guild, "voice_channels", []):
-        me = getattr(guild, "me", None)
         can_join = False
         can_speak = False
         if me is not None:
@@ -67,45 +71,67 @@ def _voice_channels(guild) -> list[dict]:
             except Exception:  # noqa: BLE001
                 pass
 
-        entries.append({
+        eintraege.append({
             "id": str(channel.id),
             "name": channel.name,
             "category": (
                 channel.category.name if channel.category is not None else None
             ),
-            "user_limit": getattr(channel, "user_limit", 0),
             "can_join": can_join,
             "can_speak": can_speak,
         })
 
     # Kanaele, in die der Bot darf, zuerst: die anderen taugen nicht.
-    entries.sort(key=lambda entry: (not entry["can_join"], entry["name"].lower()))
-    _ = discord  # nur fuer den Import-Check
-    return entries
+    eintraege.sort(key=lambda e: (not e["can_join"], e["name"].lower()))
+    return eintraege
 
 
 def _text_channels(guild) -> list[dict]:
-    entries = []
+    """Textkanaele -- mit der Frage, ob der Bot dort schreiben darf.
+
+    Ein Meldekanal ohne Schreibrecht ist der haeufigste Grund dafuer,
+    dass das Team nichts mitbekommt, und man sieht es der Einstellung
+    nicht an.
+    """
+    eintraege = []
+    me = getattr(guild, "me", None)
     for channel in getattr(guild, "text_channels", []):
-        entries.append({"id": str(channel.id), "name": channel.name})
-    return entries
+        darf = False
+        if me is not None:
+            try:
+                rechte = channel.permissions_for(me)
+                darf = bool(rechte.view_channel and rechte.send_messages)
+            except Exception:  # noqa: BLE001
+                pass
+        eintraege.append({
+            "id": str(channel.id),
+            "name": channel.name,
+            "can_send": darf,
+        })
+    return eintraege
 
 
 def _roles(guild) -> list[dict]:
-    entries = []
+    eintraege = []
     for role in getattr(guild, "roles", []):
         if getattr(role, "is_default", lambda: False)():
             continue
-        entries.append({"id": str(role.id), "name": role.name})
-    return entries
+        eintraege.append({
+            "id": str(role.id),
+            "name": role.name,
+            "position": getattr(role, "position", 0),
+        })
+    eintraege.sort(key=lambda e: -e["position"])
+    return eintraege
 
 
 def _lavalink_state() -> dict:
     """Gibt es einen Audio-Knoten?
 
-    Ohne ihn bleibt der Bot stumm. Das steht im Dashboard, weil es
+    Ohne ihn bleibt der Bot draussen. Das steht im Dashboard, weil es
     sonst wie ein Fehler des Warteraums aussieht -- dabei fehlt nur
-    die Verbindung zum Audio-Dienst.
+    die Verbindung zum Audio-Dienst. Die Meldung an das Team geht
+    trotzdem raus.
     """
 
     try:
@@ -119,55 +145,29 @@ def _lavalink_state() -> dict:
         return {
             "ready": False,
             "detail": (
-                "Kein Lavalink-Knoten verbunden. Ohne ihn betritt der Bot den "
-                "Kanal nicht — setze LAVALINK_HOST in Railway."
+                "Kein Lavalink-Knoten verbunden. Ohne ihn spielt der Bot keine "
+                "Wartemusik — setze LAVALINK_HOST in Railway. Die Meldung an "
+                "das Team funktioniert trotzdem."
             ),
         }
     return {"ready": True, "detail": f"{len(nodes)} Knoten verbunden."}
 
 
-def _ping_limits() -> dict:
-    """Die Grenzen, damit das Dashboard sie nicht doppelt pflegt.
+def _antwort(guild, record: dict) -> dict:
+    """Die Einstellungen, angereichert um das, was der Browser braucht."""
 
-    Stuenden sie im Browser noch einmal, waere die naechste Aenderung
-    an einer der beiden Stellen still falsch -- der Nutzer bekaeme
-    einen Wert angeboten, den der Server abschneidet.
-    """
-    return {
-        "ping_cooldown": {
-            "min": store.MIN_PING_COOLDOWN,
-            "max": store.MAX_PING_COOLDOWN,
-            "default": store.DEFAULT_PING_COOLDOWN,
-        },
-        "reminder_seconds": {
-            "min": store.MIN_REMINDER_SECONDS,
-            "max": store.MAX_REMINDER_SECONDS,
-            "default": store.DEFAULT_REMINDER_SECONDS,
-        },
-        "max_reminders": {
-            "min": 0,
-            "max": store.MAX_MAX_REMINDERS,
-            "default": store.DEFAULT_MAX_REMINDERS,
-        },
-    }
+    from cogs.commands.supportqueue import MUSIC_FILE, _music_url
 
-
-@router.get("/{guild_id}", summary="Einstellungen des Warteraums")
-async def get_settings(guild_id: int, bot: "universitybot" = Depends(get_bot)):
-    guild = _guild_or_404(bot, guild_id)
-    db = await _db()
-    record = await store.get(db, guild_id)
-
-    channel = None
+    kanal_name = None
     if record.get("channel_id"):
-        found = guild.get_channel(int(record["channel_id"]))
-        channel = found.name if found is not None else None
+        gefunden = guild.get_channel(int(record["channel_id"]))
+        kanal_name = gefunden.name if gefunden is not None else None
 
     # Wer wartet gerade -- mit Namen, damit das Team etwas anfangen kann.
-    people = []
-    for user_id, since in store.waiting(guild_id).items():
+    wartende = []
+    for user_id, seit in store.waiting(guild.id).items():
         member = guild.get_member(int(user_id))
-        people.append({
+        wartende.append({
             "user_id": str(user_id),
             "name": getattr(member, "display_name", str(user_id)),
             "avatar": (
@@ -175,13 +175,15 @@ async def get_settings(guild_id: int, bot: "universitybot" = Depends(get_bot)):
                 if member is not None and member.display_avatar
                 else None
             ),
-            "since": since,
+            "since": seit,
         })
-    people.sort(key=lambda entry: entry["since"])
+    wartende.sort(key=lambda e: e["since"])
 
     return {
-        **record,
-        "guild_id": str(guild_id),
+        "guild_id": str(guild.id),
+        "enabled": bool(record.get("enabled")),
+        # IDs immer als Zeichenkette: eine Discord-ID ist groesser als
+        # das, was JavaScript als Zahl noch genau darstellen kann.
         "channel_id": (
             str(record["channel_id"]) if record.get("channel_id") else None
         ),
@@ -192,175 +194,127 @@ async def get_settings(guild_id: int, bot: "universitybot" = Depends(get_bot)):
         "staff_role_id": (
             str(record["staff_role_id"]) if record.get("staff_role_id") else None
         ),
-        "channel_name": channel,
-        "channel_missing": bool(record.get("channel_id")) and channel is None,
-        "waiting": people,
+        "channel_name": kanal_name,
+        "channel_missing": bool(record.get("channel_id")) and kanal_name is None,
         "voice_channels": _voice_channels(guild),
         "text_channels": _text_channels(guild),
         "roles": _roles(guild),
-        "audio": _lavalink_state(),
-        "defaults": {
-            "greeting": store.DEFAULT_GREETING,
-            "music_seconds": store.DEFAULT_MUSIC_SECONDS,
-            "min_seconds": store.MIN_MUSIC_SECONDS,
-            "max_seconds": store.MAX_MUSIC_SECONDS,
-            "max_greeting": store.MAX_GREETING,
+        "waiting": wartende,
+        "lavalink": _lavalink_state(),
+        # Was fest eingestellt ist. Steht in der Antwort, damit es im
+        # Dashboard nachlesbar ist, ohne dass man es aendern kann.
+        "fixed": {
+            "music_file": MUSIC_FILE,
+            "music_url": _music_url(),
+            "music_seconds": store.MUSIC_SECONDS,
+            "ping_cooldown": store.PING_COOLDOWN,
+            "reminder_seconds": store.REMINDER_SECONDS,
+            "max_reminders": store.MAX_REMINDERS,
         },
-        # Die Grenzen des Ping-Systems -- damit der Browser sie nicht
-        # noch einmal fuehrt und dabei irgendwann abweicht.
-        "ping_limits": _ping_limits(),
-        # Wie oft in diesem Wartelauf schon erinnert wurde. Steht im
-        # Reiter, damit "es kam nichts mehr" nicht wie ein Fehler
-        # aussieht, wenn nur die Obergrenze erreicht ist.
-        "reminders_sent": store.reminders_sent(guild_id),
     }
+
+
+@router.get("/{guild_id}", summary="Einstellungen des Warteraums")
+async def get_settings(guild_id: int, bot: "universitybot" = Depends(get_bot)):
+    guild = _guild_or_404(bot, guild_id)
+    record = await store.get(await _db(), guild_id)
+    return _antwort(guild, record)
 
 
 @router.post("/{guild_id}", summary="Warteraum einstellen")
 async def save_settings(
     guild_id: int, data: dict, bot: "universitybot" = Depends(get_bot)
 ):
+    """Die vier Felder speichern.
+
+    Mehr gibt es nicht: Musik, Dauer, Cooldown und Erinnerungen stehen
+    fest, und der Text der Meldung ist nicht bearbeitbar.
+    """
     guild = _guild_or_404(bot, guild_id)
     db = await _db()
 
-    fields: dict = {}
-
-    if "channel_id" in data:
-        raw = str(data.get("channel_id") or "").strip()
-        if raw:
-            if not raw.isdigit():
-                raise HTTPException(status_code=400, detail="Ungültige Kanal-ID.")
-            channel = guild.get_channel(int(raw))
-            if channel is None:
-                raise HTTPException(
-                    status_code=404, detail="Diesen Kanal gibt es nicht mehr."
-                )
-            if not hasattr(channel, "connect"):
-                raise HTTPException(
-                    status_code=400, detail="Bitte einen Sprachkanal wählen."
-                )
-
-            # Darf der Bot da rein? Wird hier geprueft und nicht erst,
-            # wenn der erste Mensch wartet -- dann faellt es niemandem
-            # auf ausser dem, der vergeblich wartet.
-            me = getattr(guild, "me", None)
-            if me is not None:
-                perms = channel.permissions_for(me)
-                if not (perms.view_channel and perms.connect):
-                    raise HTTPException(
-                        status_code=400,
-                        detail=(
-                            f"Der Bot darf »{channel.name}« nicht betreten. "
-                            "Er braucht »Kanal ansehen« und »Verbinden«."
-                        ),
-                    )
-                if not perms.speak:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=(
-                            f"Der Bot darf in »{channel.name}« nicht sprechen. "
-                            "Ohne »Sprechen« gibt es weder Ansage noch Musik."
-                        ),
-                    )
-            fields["channel_id"] = int(raw)
-        else:
-            fields["channel_id"] = None
-
-    for key in ("notify_channel_id", "staff_role_id"):
-        if key in data:
-            raw = str(data.get(key) or "").strip()
-            fields[key] = int(raw) if raw.isdigit() else None
+    felder: dict = {}
 
     if "enabled" in data:
-        fields["enabled"] = bool(data.get("enabled"))
-    if "greeting" in data:
-        fields["greeting"] = str(data.get("greeting") or "")
-    if "music_url" in data:
-        fields["music_url"] = str(data.get("music_url") or "").strip()
-    if "music_seconds" in data:
-        fields["music_seconds"] = data.get("music_seconds")
+        felder["enabled"] = bool(data["enabled"])
 
-    # ── Das Ping-System ──────────────────────────────────────────────
-    #
-    # Die Grenzen setzt `store.save` durch -- hier wird nur
-    # weitergereicht, was ankam. Zweimal dieselbe Regel zu pflegen
-    # heisst, dass sie irgendwann auseinanderlaeuft.
-    for schalter in ("ping_enabled", "ping_when_staff_present"):
-        if schalter in data:
-            fields[schalter] = bool(data.get(schalter))
-    for zahl in ("ping_cooldown", "reminder_seconds", "max_reminders"):
-        if zahl in data:
-            fields[zahl] = data.get(zahl)
+    if "channel_id" in data:
+        roh = data["channel_id"]
+        if roh in (None, "", "0"):
+            felder["channel_id"] = None
+        else:
+            if not str(roh).isdigit():
+                raise HTTPException(
+                    status_code=400, detail="Der Kanal ist keine gültige ID."
+                )
+            kanal = guild.get_channel(int(roh))
+            if kanal is None:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Diesen Kanal gibt es auf dem Server nicht.",
+                )
+            # Ein Textkanal als Warteraum waere ein stiller Fehlschlag:
+            # gespeichert, aber der Bot kann ihn nie betreten.
+            if not hasattr(kanal, "connect"):
+                raise HTTPException(
+                    status_code=400,
+                    detail="Der Warteraum muss ein Sprachkanal sein.",
+                )
+            felder["channel_id"] = int(roh)
 
-    # Anschalten ohne Kanal ergibt nichts.
-    merged = {**(await store.get(db, guild_id)), **fields}
-    if merged.get("enabled") and not merged.get("channel_id"):
-        raise HTTPException(
-            status_code=400,
-            detail="Wähle erst einen Sprachkanal, dann kannst du einschalten.",
-        )
+    if "notify_channel_id" in data:
+        roh = data["notify_channel_id"]
+        if roh in (None, "", "0"):
+            felder["notify_channel_id"] = None
+        else:
+            if not str(roh).isdigit():
+                raise HTTPException(
+                    status_code=400, detail="Der Meldekanal ist keine gültige ID."
+                )
+            kanal = guild.get_channel(int(roh))
+            if kanal is None:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Diesen Kanal gibt es auf dem Server nicht.",
+                )
+            if not hasattr(kanal, "send"):
+                raise HTTPException(
+                    status_code=400,
+                    detail="Der Meldekanal muss ein Textkanal sein.",
+                )
+            felder["notify_channel_id"] = int(roh)
 
-    record = await store.save(db, guild_id, **fields)
+    if "staff_role_id" in data:
+        roh = data["staff_role_id"]
+        if roh in (None, "", "0"):
+            felder["staff_role_id"] = None
+        else:
+            if not str(roh).isdigit():
+                raise HTTPException(
+                    status_code=400, detail="Die Rolle ist keine gültige ID."
+                )
+            if guild.get_role(int(roh)) is None:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Diese Rolle gibt es auf dem Server nicht.",
+                )
+            felder["staff_role_id"] = int(roh)
+
+    # Einschalten ohne Kanal ist kein Warteraum, sondern eine
+    # Einstellung, die nie greift -- und niemand sieht warum.
+    if felder.get("enabled"):
+        kuenftig = felder.get("channel_id", (await store.get(db, guild_id)).get("channel_id"))
+        if not kuenftig:
+            raise HTTPException(
+                status_code=400,
+                detail="Wähle zuerst einen Warteraum-Kanal aus.",
+            )
+
+    record = await store.save(db, guild_id, **felder) if felder else await store.get(db, guild_id)
 
     await feature_audit.log_action(
-        "support_queue_saved",
+        "supportqueue_updated",
         actor=str(data.get("actor", "dashboard")),
-        guild_id=guild_id,
-        detail=("an" if record["enabled"] else "aus")
-        + f", Kanal {record.get('channel_id')}",
+        detail=f"guild {guild_id}",
     )
-
-    return {"status": "success", "result": "Gespeichert.", **record}
-
-
-@router.post("/{guild_id}/test", summary="Ansage einmal abspielen")
-async def test_greeting(
-    guild_id: int, data: dict | None = None, bot: "universitybot" = Depends(get_bot)
-):
-    """Den Ablauf einmal starten, ohne auf einen Wartenden zu warten.
-
-    Sonst muss zum Ausprobieren jemand in den Kanal gehen -- und wenn
-    es nicht klappt, weiss man nicht, ob die Einstellung falsch ist
-    oder der Ton fehlt.
-    """
-
-    guild = _guild_or_404(bot, guild_id)
-    db = await _db()
-    record = await store.get(db, guild_id)
-
-    if not record.get("channel_id"):
-        raise HTTPException(status_code=400, detail="Es ist kein Kanal gewählt.")
-
-    channel = guild.get_channel(int(record["channel_id"]))
-    if channel is None:
-        raise HTTPException(status_code=404, detail="Der Kanal existiert nicht mehr.")
-
-    audio = _lavalink_state()
-    if not audio["ready"]:
-        raise HTTPException(status_code=503, detail=audio["detail"])
-
-    cog = bot.get_cog("SupportQueue")
-    if cog is None:
-        raise HTTPException(
-            status_code=503, detail="Der Warteraum ist gerade nicht geladen."
-        )
-
-    import asyncio
-
-    async def once():
-        player = await cog._join(channel)
-        if player is None:
-            return
-        try:
-            await cog._speak_greeting(player, guild, record)
-        finally:
-            try:
-                await player.disconnect()
-            except Exception:  # noqa: BLE001
-                pass
-
-    asyncio.create_task(once())
-    return {
-        "status": "success",
-        "result": f"Der Bot kommt gleich in »{channel.name}« und sagt es einmal auf.",
-    }
+    return _antwort(guild, record)

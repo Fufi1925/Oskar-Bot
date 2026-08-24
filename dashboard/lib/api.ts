@@ -1441,11 +1441,6 @@ export const api = {
       method: "POST",
       body: JSON.stringify(data),
     }),
-  supportQueueTest: (guildId: string) =>
-    request<any>(`/supportqueue/${guildId}/test`, {
-      method: "POST",
-      body: "{}",
-    }),
 
   // ── Honeypot ─────────────────────────────────────────────────────
   honeypot: (guildId: string) =>

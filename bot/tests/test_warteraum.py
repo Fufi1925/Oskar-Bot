@@ -1,38 +1,29 @@
 #!/usr/bin/env python3
 """
-Der Support-Warteraum: der Zweitbeitritt-Bug und das neue Ping-System.
+Der Support-Warteraum, nach dem Umbau auf vier Einstellungen.
 
-── Der Fehler, der gemeldet wurde ───────────────────────────────────
+Was sich geaendert hat
+----------------------
+Vorher acht Felder im Dashboard: eigene Ansage, Musik-URL, Dauer,
+Cooldown, Erinnerungsabstand, Zahl der Erinnerungen,
+Ping-trotz-Team, Meldekanal. Jetzt vier:
 
-"wenn man das 2 mal in den call joint kommt bot nicht".
+    an/aus · Warteraum-Kanal · Meldekanal · Team-Rolle
 
-Nachgestellt in `repro/bug_warteraum.py` und hier: `task.cancel()`
-beendet eine Task **nicht sofort**. Der Abbruch wird erst zugestellt,
-wenn sie das naechste Mal wartet. In der Zwischenzeit:
+Alles Uebrige steht fest in `utils/support_queue.py`. Die Ansage per
+Sprachausgabe ist ganz entfallen -- es laeuft nur noch die
+mitgelieferte Wartemusik.
 
-  1. `_maybe_stop` nimmt den Eintrag aus `_loops` und ruft `cancel()`.
-  2. Dieselbe Person kommt sofort wieder rein.
-  3. `_on_arrival` sieht ein leeres `_loops` und startet eine zweite
-     Schleife.
-  4. **Jetzt erst** kommt der Abbruch der ersten an, ihr Callback
-     feuert -- und loescht mit `_loops.pop(gid)` den Eintrag der
-     ZWEITEN.
-
-Die zweite Schleife laeuft verwaist weiter, und beim naechsten
-Beitritt haelt der Bot sie fuer tot. Der Callback prueft jetzt, ob
-dort noch seine eigene Task steht.
-
-Entscheidend am Nachweis: **ohne Wartezeit** zwischen Verlassen und
-Wiedereintritt. Mit Wartezeit tritt der Fehler nicht auf -- genau das
-ist der Unterschied zwischen einem echten Nutzer und einem geduldigen
-Test.
-
-── Das Ping-System ──────────────────────────────────────────────────
-
-Vorher eine Regel: "Kanal eingestellt -> bei jedem Beitritt eine
-Nachricht". Drei Loecher, und jedes fuehrt dazu, dass die Erwaehnung
-am Ende abgeschaltet wird -- kein Cooldown, keine Erinnerung, kein
-Blick darauf, ob schon jemand vom Team da ist.
+Was hier geprueft wird
+----------------------
+1. Der Beitritt, auch beim zweiten und dritten Mal ohne Pause.
+   Das war der gemeldete Fehler: `_loops.pop(gid)` im done_callback
+   loeschte den Eintrag einer *anderen* Task.
+2. Die vier Einstellungen -- und dass die alten Felder nicht mehr
+   gespeichert werden.
+3. Das Ping-System: Cooldown, Erinnerungen, Obergrenze.
+4. Die Wartemusik: gueltige MP3, ueber HTTP erreichbar, im Image.
+5. Das Dashboard zeigt genau vier Einstellungen.
 
 Run:  python3 tests/test_warteraum.py
 """
@@ -49,598 +40,614 @@ ROOT = os.path.dirname(BOT)
 DASH = os.path.join(ROOT, "dashboard")
 sys.path.insert(0, BOT)
 
-COG = os.path.join(BOT, "cogs", "commands", "supportqueue.py")
-STORE = os.path.join(BOT, "utils", "support_queue.py")
-ROUTE = os.path.join(BOT, "api", "routes", "supportqueue.py")
-PANEL = os.path.join(DASH, "components", "dashboard", "support-queue-panel.tsx")
-
 failures: list[str] = []
+START = os.getcwd()
+
+GILDE = 1530378233579704370
+KANAL = 900001
 
 
-def check(name, ok, extra=""):
+def check(name: str, ok: bool, hinweis: str = "") -> None:
     if ok:
-        print(f"  ok   {name}")
+        print(f"  OK   {name}")
     else:
-        print(f"  FAIL {name} {extra}")
-        failures.append(f"{name} {extra}")
+        print(f"  FAIL {name}" + (f" -- {hinweis}" if hinweis else ""))
+        failures.append(name)
 
 
-def read(pfad: str) -> str:
-    if not os.path.exists(pfad):
-        return ""
-    with open(pfad, encoding="utf-8") as f:
-        return f.read()
+def linie(t: str) -> None:
+    print()
+    print("=" * 66)
+    print(t)
+    print("=" * 66)
 
 
-# ══════════════════════════════════════════════════════════════════════
-#  Attrappen
-# ══════════════════════════════════════════════════════════════════════
+def strip_ts(src: str) -> str:
+    """Kommentare raus. ERST Zeilen-, DANN Blockkommentare."""
+    ohne = re.sub(r"(?<!:)//[^\n]*", "", src)
+    return re.sub(r"/\*.*?\*/", "", ohne, flags=re.S)
 
 
-class Zustand:
+def strip_py(src: str) -> str:
+    ohne_doc = re.sub(r'"""[\s\S]*?"""', "", src)
+    return re.sub(r"#[^\n]*", "", ohne_doc)
+
+
+# ── Attrappen ────────────────────────────────────────────────────────
+
+class FakeState:
     def __init__(self, channel):
         self.channel = channel
 
 
-class Mitglied:
-    def __init__(self, uid, bot=False, roles=None):
-        self.id = uid
+class FakeMember:
+    def __init__(self, mid, bot=False, rollen=None):
+        self.id = mid
         self.bot = bot
-        self.mention = f"<@{uid}>"
-        self.roles = roles or []
+        self.roles = rollen or []
+        self.mention = f"<@{mid}>"
+        self.display_name = f"User{mid}"
+        self.display_avatar = None
         self.guild = None
 
 
-class Kanal:
-    def __init__(self, kid, guild, name="warteraum"):
-        self.id = kid
+class FakeChannel:
+    def __init__(self, cid, guild, name="warteraum"):
+        self.id = cid
         self.guild = guild
         self.name = name
-        self.mention = f"<#{kid}>"
-        self.verbindungen = 0
-        self.members = []
+        self.mention = f"<#{cid}>"
 
-    async def connect(self, cls=None, self_deaf=False):
-        self.verbindungen += 1
-        self.guild.voice_client = Player(self)
-        return self.guild.voice_client
-
-
-class Player:
-    def __init__(self, channel):
-        self.channel = channel
-        self.playing = False
-
-    async def play(self, track, volume=100, end=None):
-        self.playing = False
-
-    async def disconnect(self):
-        self.channel.guild.voice_client = None
+    @property
+    def members(self):
+        raus = []
+        for uid, st in self.guild._voice_states.items():
+            if st.channel is not None and st.channel.id == self.id:
+                m = self.guild.get_member(uid)
+                if m is not None:
+                    raus.append(m)
+        return raus
 
 
-class Server:
-    def __init__(self, gid=1):
-        self.id = gid
+class FakeGuild:
+    def __init__(self):
+        self.id = GILDE
         self.name = "Testserver"
-        self.me = Mitglied(999, bot=True)
-        self.voice_client = None
         self._voice_states = {}
-        self._kanaele = {}
-        self._rollen = {}
-
-    def get_channel(self, cid):
-        return self._kanaele.get(cid)
+        self._members = {}
+        self._channels = {}
+        self.me = FakeMember(999999, bot=True)
+        self.voice_client = None
 
     def get_member(self, uid):
-        return None
+        return self._members.get(uid)
+
+    def get_channel(self, cid):
+        return self._channels.get(cid)
 
     def get_role(self, rid):
-        return self._rollen.get(rid)
-
-
-def _sofort(wert):
-    async def _f():
-        return wert
-    return _f()
+        return None
 
 
 def baue_cog():
-    from cogs.commands import supportqueue as modul
+    """Der Cog mit abgeschaltetem Audio."""
+    from cogs.commands.supportqueue import SupportQueue
 
-    guild = Server()
-    kanal = Kanal(50, guild)
-    guild._kanaele[50] = kanal
-
-    cog = modul.SupportQueue.__new__(modul.SupportQueue)
+    cog = SupportQueue.__new__(SupportQueue)
     cog.client = None
     cog._connection = None
     cog._loops = {}
     cog._reminders = {}
+    cog.beitritte = 0
 
-    einstellung = {
-        "enabled": True, "channel_id": 50, "greeting": "Hallo",
-        "music_url": "", "music_seconds": 10,
-        "notify_channel_id": None, "staff_role_id": None,
-        "ping_enabled": True, "ping_cooldown": 120,
-        "reminder_seconds": 0, "max_reminders": 3,
-        "ping_when_staff_present": False,
-    }
-    cog.settings = lambda gid: _sofort(einstellung)
+    class FakePlayer:
+        def __init__(self):
+            self.playing = False
 
-    async def join(channel):
-        return await channel.connect()
+        async def play(self, *a, **kw):
+            self.playing = False
 
-    cog._join = join
-    cog._speak_greeting = lambda p, g, r: _sofort(None)
-    cog._play_music = lambda p, r, s: asyncio.sleep(0.05)
-    return cog, guild, kanal, einstellung
+        async def disconnect(self):
+            pass
+
+    async def fake_join(channel):
+        cog.beitritte += 1
+        p = FakePlayer()
+        channel.guild.voice_client = p
+        return p
+
+    async def fake_track():
+        return None
+
+    cog._join = fake_join
+    cog._find_track = fake_track
+    return cog
 
 
-# ══════════════════════════════════════════════════════════════════════
-#  1. Der Zweitbeitritt
-# ══════════════════════════════════════════════════════════════════════
+# ── 1. Der Beitritt ──────────────────────────────────────────────────
 
+def test_beitritt() -> None:
+    linie("1  Der Beitritt -- auch beim zweiten und dritten Mal")
 
-def test_zweiter_beitritt():
-    print("\nBeim zweiten Mal kommt der Bot wieder")
+    import aiosqlite
+
+    from utils import support_queue as store
+
+    ordner = tempfile.mkdtemp(prefix="wr-")
+    os.chdir(ordner)
+    os.makedirs("db", exist_ok=True)
 
     async def lauf():
-        from utils import support_queue as store
-
-        cog, guild, kanal, _ = baue_cog()
-        user = Mitglied(7)
-        user.guild = guild
-
-        # Erster Beitritt.
-        guild._voice_states[7] = Zustand(kanal)
-        await cog.on_voice_state_update(user, Zustand(None), Zustand(kanal))
-        await asyncio.sleep(0.15)
-        check("erster Beitritt: der Bot verbindet sich",
-              kanal.verbindungen == 1, str(kanal.verbindungen))
-
-        # Raus und OHNE Pause sofort wieder rein. Die Pause ist der
-        # ganze Unterschied: mit ihr raeumt die alte Task auf, ohne
-        # sie ueberholt sie die neue.
-        guild._voice_states.pop(7, None)
-        await cog.on_voice_state_update(user, Zustand(kanal), Zustand(None))
-        guild._voice_states[7] = Zustand(kanal)
-        await cog.on_voice_state_update(user, Zustand(None), Zustand(kanal))
-        await asyncio.sleep(0.4)
-
-        check("zweiter Beitritt: der Bot verbindet sich ERNEUT",
-              kanal.verbindungen == 2,
-              f"nur {kanal.verbindungen} -- der Bot kam nicht wieder")
-        check("und die Schleife ist eingetragen",
-              guild.id in cog._loops,
-              "der Callback der alten Task hat den neuen Eintrag geloescht")
-
-        for t in list(cog._loops.values()) + list(cog._reminders.values()):
-            t.cancel()
-        store.reset()
-
-    asyncio.run(lauf())
-
-
-def test_callback_loescht_nur_sich_selbst():
-    print("\nDer Aufraeum-Callback fasst nur die eigene Task an")
-
-    quelle = read(COG)
-    check("es gibt eine eigene Funktion dafuer",
-          "def _forget_loop" in quelle,
-          "ein lambda mit pop() loescht, was gerade dasteht")
-    check("sie vergleicht die Task",
-          re.search(r"if self\._loops\.get\(guild_id\) is beendete:", quelle)
-          is not None,
-          "`is` und nicht `==`: es geht um dieselbe Task, nicht um "
-          "Gleichheit")
-    check("das alte lambda mit pop ist weg",
-          "lambda _t, gid=guild.id: self._loops.pop(gid, None)" not in quelle)
-
-    # Dasselbe fuer die Erinnerungen.
-    check("auch die Erinnerungen haben so einen Callback",
-          "def _forget_reminder" in quelle)
-
-    # Und `_maybe_stop` muss auf das Ende warten, bevor eine neue
-    # Schleife starten kann.
-    check("beim Leeren wird auf das Ende gewartet",
-          "asyncio.wait_for(asyncio.shield(task)" in quelle,
-          "sonst laufen zwei Schleifen auf demselben Player")
-
-
-# ══════════════════════════════════════════════════════════════════════
-#  2. Das Ping-System
-# ══════════════════════════════════════════════════════════════════════
-
-
-def test_cooldown():
-    print("\nDer Ping hat eine Pause")
-
-    from utils import support_queue as store
-
-    store.reset_pings()
-    r = {
-        "ping_enabled": True, "notify_channel_id": 99,
-        "ping_cooldown": 120,
-    }
-    check("der erste Ping geht durch", store.may_ping(r, 1, now=1000))
-    store.mark_pinged(1, now=1000)
-    check("der zweite sofort danach nicht",
-          not store.may_ping(r, 1, now=1010),
-          "sonst pingt jeder Verbindungsabbruch erneut")
-    check("nach 119 Sekunden noch nicht",
-          not store.may_ping(r, 1, now=1119))
-    check("nach 120 Sekunden wieder", store.may_ping(r, 1, now=1120))
-
-    aus = {**r, "ping_enabled": False}
-    check("abgeschaltet heisst abgeschaltet",
-          not store.may_ping(aus, 1, now=99999))
-    ohne = {**r, "notify_channel_id": None}
-    check("ohne Meldekanal passiert nichts",
-          not store.may_ping(ohne, 1, now=99999))
-
-    # Cooldown 0 heisst: jedes Mal. Das muss moeglich bleiben, sonst
-    # laesst sich das alte Verhalten nicht wiederherstellen.
-    null = {**r, "ping_cooldown": 0}
-    store.mark_pinged(1, now=99999)
-    check("Pause 0 -> immer erlaubt", store.may_ping(null, 1, now=99999))
-    store.reset_pings()
-
-
-def test_erinnerungen():
-    print("\nErinnerungen, solange niemand kommt")
-
-    from utils import support_queue as store
-
-    store.reset()
-    store.reset_pings()
-    r = {
-        "ping_enabled": True, "notify_channel_id": 99,
-        "reminder_seconds": 300, "max_reminders": 3,
-    }
-
-    check("ohne Wartende keine Erinnerung",
-          not store.due_for_reminder(r, 1, now=99999))
-
-    store.mark_waiting(1, 7)
-    seit = store.waiting(1)[7]
-    check("kurz nach der Ankunft noch nicht",
-          not store.due_for_reminder(r, 1, now=seit + 10))
-    check("nach 300 Sekunden faellig",
-          store.due_for_reminder(r, 1, now=seit + 300))
-
-    for i in range(3):
-        store.mark_reminded(1, now=seit + 300 + i)
-    check("nach drei Erinnerungen ist Schluss",
-          not store.due_for_reminder(r, 1, now=seit + 99999),
-          "ohne Grenze pingt der Bot ewig weiter")
-
-    store.reset_pings(1)
-    aus = {**r, "reminder_seconds": 0}
-    check("Erinnerung 0 -> nie",
-          not store.due_for_reminder(aus, 1, now=seit + 99999))
-
-    # Der aelteste Wartende zaehlt, nicht der neueste: wer am
-    # laengsten wartet, ist der Grund fuer die Erinnerung.
-    store.reset(1)
-    store.reset_pings(1)
-    store.mark_waiting(1, 7)
-    alt = store.waiting(1)[7]
-    store._waiting[1][8] = alt + 250      # jemand kam spaeter dazu
-    check("der aelteste Wartende gibt den Takt vor",
-          store.due_for_reminder(r, 1, now=alt + 300),
-          "sonst verlaengert jeder Neuankoemmling die Wartezeit der "
-          "anderen")
-    store.reset()
-    store.reset_pings()
-
-
-def test_leerer_raum_setzt_zurueck():
-    print("\nEin leerer Warteraum vergisst den Cooldown")
-
-    from utils import support_queue as store
-
-    store.reset()
-    store.reset_pings()
-    r = {"ping_enabled": True, "notify_channel_id": 99, "ping_cooldown": 120}
-
-    store.mark_pinged(1, now=1000)
-    check("gesperrt", not store.may_ping(r, 1, now=1010))
-    store.reset(1)
-    check("nach dem Leeren wieder frei",
-          store.may_ping(r, 1, now=1010),
-          "sonst wird der naechste Wartende verschluckt -- der Cooldown "
-          "galt einem anderen Menschen")
-
-    check("reset nimmt den Ping-Zustand mit",
-          "reset_pings(guild_id)" in read(STORE))
-    store.reset_pings()
-
-
-def test_team_schon_da():
-    print("\nKein Ping, wenn schon jemand vom Team da ist")
-
-    quelle = read(COG)
-    check("es gibt die Pruefung", "_staff_present" in quelle)
-    # Die Pruefung steht an ZWEI Stellen: beim ersten Ping und in der
-    # Erinnerungsschleife. Ein Muster, das irgendeine davon findet,
-    # bleibt gruen, wenn die andere ausgehebelt wird -- genau so ist
-    # die Mutation zuerst entwischt. Also beide einzeln.
-    treffer = re.findall(
-        r'if not record\.get\("ping_when_staff_present"\):\s*\n'
-        r'\s*if self\._staff_present\(guild, channel, record\):\s*\n'
-        r'(?:\s*LOGGER[^\n]*\n(?:\s+[^\n]*\n)*?)?\s*return',
-        quelle,
-    )
-    check("beide Stellen steigen wirklich aus, wenn das Team da ist",
-          len(treffer) == 2,
-          f"nur {len(treffer)} von 2 -- `if False:` laesst die Namen "
-          "stehen und pingt trotzdem")
-    check("und sie ist abschaltbar",
-          "ping_when_staff_present" in quelle,
-          "manche Teams wollen die Meldung trotzdem im Log")
-
-    # Ohne eingestellte Rolle nicht beantwortbar -- dann lieber pingen.
-    from cogs.commands import supportqueue as modul
-
-    guild = Server()
-    kanal = Kanal(50, guild)
-    check("ohne Team-Rolle gilt: niemand da",
-          not modul.SupportQueue._staff_present(guild, kanal, {}),
-          "eine Meldung zu viel ist harmloser als ein uebersehener "
-          "Wartender")
-
-    class Rolle:
-        def __init__(self, rid):
-            self.id = rid
-
-    rolle = Rolle(77)
-    guild._rollen[77] = rolle
-    kanal.members = [Mitglied(7, roles=[])]
-    check("Wartender ohne Team-Rolle zaehlt nicht",
-          not modul.SupportQueue._staff_present(
-              guild, kanal, {"staff_role_id": 77}))
-
-    kanal.members = [Mitglied(8, roles=[rolle])]
-    check("Teammitglied wird erkannt",
-          modul.SupportQueue._staff_present(
-              guild, kanal, {"staff_role_id": 77}))
-
-    kanal.members = [Mitglied(9, bot=True, roles=[rolle])]
-    check("ein Bot mit der Rolle zaehlt nicht",
-          not modul.SupportQueue._staff_present(
-              guild, kanal, {"staff_role_id": 77}),
-          "sonst haelt sich der Bot selbst fuer das Team")
-
-
-def test_erinnerungsschleife_ist_getrennt():
-    print("\nDie Erinnerungen laufen unabhaengig von der Musik")
-
-    quelle = read(COG)
-    check("es gibt eine eigene Schleife", "_reminder_loop" in quelle)
-    check("mit eigenem Dict", "self._reminders" in quelle)
-    check("sie liest die Einstellungen bei jedem Durchgang neu",
-          re.search(r"while True:.*?await self\.settings\(guild\.id\)",
-                    quelle, re.S) is not None,
-          "wer die Erinnerung abschaltet, soll nicht bis zum Neustart "
-          "warten")
-    schleife = re.search(
-        r"async def _reminder_loop\(.*?\n(?=    def |    async def |\Z)",
-        quelle, re.S,
-    )
-    check("die Schleife ist lesbar", schleife is not None)
-    if schleife:
-        rumpf = schleife.group(0)
-        # Die Wirkung, nicht das Wort: `if False:` liesse den Namen
-        # stehen und die Schleife ewig laufen.
-        check("sie endet, wenn niemand mehr da ist",
-              re.search(
-                  r"if not self\._humans_present\(channel\):\s*\n\s*return",
-                  rumpf,
-              ) is not None,
-              "sonst erinnert der Bot an einen leeren Raum")
-    check("beim Leeren wird sie abgebrochen",
-          "self._reminders.pop(guild.id, None)" in quelle)
-
-
-# ══════════════════════════════════════════════════════════════════════
-#  3. Speicher, API, Oberflaeche
-# ══════════════════════════════════════════════════════════════════════
-
-
-def test_schema_wird_nachgeruestet():
-    print("\nDie neuen Spalten kommen auf alte Tabellen")
-
-    async def lauf():
-        import aiosqlite
-        from utils import support_queue as store
-
-        ordner = tempfile.mkdtemp()
-        pfad = os.path.join(ordner, "alt.db")
-        db = await aiosqlite.connect(pfad)
-        # Eine Tabelle im alten Zustand -- genau der Fall, an dem
-        # `team_update` schon einmal gescheitert ist.
-        await db.execute(
-            "CREATE TABLE support_queue (guild_id INTEGER PRIMARY KEY,"
-            " channel_id INTEGER, enabled INTEGER, greeting TEXT,"
-            " music_url TEXT, music_seconds INTEGER,"
-            " notify_channel_id INTEGER, staff_role_id INTEGER,"
-            " updated_at REAL)"
-        )
-        await db.execute(
-            "INSERT INTO support_queue (guild_id, enabled) VALUES (5, 1)"
-        )
-        await db.commit()
-
+        db = await aiosqlite.connect(store.DB_PATH)
         await store.ensure_schema(db)
-        record = await store.get(db, 5)
+        await store.save(db, GILDE, enabled=True, channel_id=KANAL)
 
-        check("die alte Zeile bleibt lesbar", record["enabled"] is True)
-        for feld in ("ping_enabled", "ping_cooldown", "reminder_seconds",
-                     "max_reminders", "ping_when_staff_present"):
-            check(f"{feld} ist da", feld in record)
-        check("und traegt einen Vorgabewert",
-              record["ping_cooldown"] == store.DEFAULT_PING_COOLDOWN,
-              str(record.get("ping_cooldown")))
-        check("Ping ist dabei AN",
-              record["ping_enabled"] is True,
-              "ein Update darf die Meldung nicht stillschweigend "
-              "abschalten")
+        cog = baue_cog()
+        cog._connection = db
 
-        # Und der Fall, den `ALTER TABLE ... DEFAULT 1` NICHT abdeckt:
-        # eine Zeile, in der die Spalte wirklich NULL ist.
+        g = FakeGuild()
+        k = FakeChannel(KANAL, g)
+        g._channels[KANAL] = k
+        person = FakeMember(111)
+        person.guild = g
+        g._members[111] = person
+
+        rec = await store.get(db, GILDE)
+
+        for runde in (1, 2, 3):
+            # Beitritt
+            g._voice_states[111] = FakeState(k)
+            await cog._on_arrival(g, person, rec)
+            await asyncio.sleep(0.35)
+
+            check(f"Runde {runde}: der Bot kommt",
+                  cog.beitritte == runde,
+                  f"Beitritte: {cog.beitritte}, erwartet {runde}")
+            check(f"Runde {runde}: die Schleife lebt",
+                  GILDE in cog._loops and not cog._loops[GILDE].done(),
+                  str(list(cog._loops)))
+
+            # Sofort wieder raus -- OHNE Wartezeit. Genau daran ist
+            # die alte Fassung gescheitert.
+            g._voice_states.pop(111, None)
+            await cog._maybe_stop(g, KANAL)
+
+        check("nach dem Letzten ist die Schleife weg",
+              GILDE not in cog._loops, str(list(cog._loops)))
+
+        # Zwei Personen: der Bot darf nicht zweimal kommen.
+        cog.beitritte = 0
+        p2 = FakeMember(222)
+        p2.guild = g
+        g._members[222] = p2
+
+        g._voice_states[111] = FakeState(k)
+        await cog._on_arrival(g, person, rec)
+        await asyncio.sleep(0.3)
+        g._voice_states[222] = FakeState(k)
+        await cog._on_arrival(g, p2, rec)
+        await asyncio.sleep(0.2)
+
+        check("bei zwei Wartenden kommt der Bot nur einmal",
+              cog.beitritte == 1, f"Beitritte: {cog.beitritte}")
+
+        # Einer geht, der andere bleibt.
+        g._voice_states.pop(111, None)
+        await cog._maybe_stop(g, KANAL)
+        check("der Bot bleibt, solange noch jemand da ist",
+              GILDE in cog._loops,
+              "die Schleife wurde beendet, obwohl noch jemand wartet")
+
+        # `_maybe_stop` muss auf das Ende der alten Schleife WARTEN.
         #
-        # Gemessen: das Nachruesten fuellt bestehende Zeilen mit 1,
-        # der Wert ist also nie None -- solange niemand ihn
-        # ausdruecklich auf NULL setzt. Genau das passiert aber, wenn
-        # eine aeltere Fassung des Bots dieselbe Datei beschreibt.
-        # Ohne die Behandlung in `get()` waere `bool(None)` dann
-        # False, und die Meldung waere still abgeschaltet.
-        await db.execute(
-            "UPDATE support_queue SET ping_enabled = NULL WHERE guild_id = 5"
-        )
-        await db.commit()
-        record = await store.get(db, 5)
-        check("auch eine NULL-Spalte bedeutet AN",
-              record["ping_enabled"] is True,
-              "bool(None) waere False -- die Meldung waere stumm")
+        # Ohne das laeuft sie noch, waehrend schon eine neue startet
+        # -- zwei Schleifen auf demselben Player, und das `finally`
+        # der alten trennt die Verbindung der neuen. Der Bot kaeme
+        # rein und sofort wieder raus.
+        #
+        # Nachweisbar am Zustand der Task direkt nach dem Aufruf: ist
+        # sie danach noch nicht beendet, wurde nicht gewartet.
+        g._voice_states.clear()
+        laufende = cog._loops.get(GILDE)
+        await cog._maybe_stop(g, KANAL)
+        check("_maybe_stop wartet, bis die alte Schleife wirklich aus ist",
+              laufende is None or laufende.done(),
+              "sonst treffen zwei Schleifen auf denselben Player")
 
-        await db.execute(
-            "UPDATE support_queue SET ping_cooldown = NULL WHERE guild_id = 5"
-        )
-        await db.commit()
-        record = await store.get(db, 5)
-        check("und eine NULL-Zahl faellt auf die Vorgabe",
-              record["ping_cooldown"] == store.DEFAULT_PING_COOLDOWN,
-              "int(None) wuerde werfen und den Warteraum stilllegen")
         await db.close()
 
     asyncio.run(lauf())
-
-    # Die Spalten stehen an EINER Stelle.
-    quelle = read(STORE)
-    check("die Spaltenliste steht einmal", "PING_COLUMNS" in quelle,
-          "zwei Listen laufen auseinander")
+    os.chdir(START)
 
 
-def test_grenzen():
-    print("\nGrenzen gelten auch ohne Browser")
+def test_callback_loescht_nur_sich_selbst() -> None:
+    """Der eigentliche Fix, isoliert.
+
+    `_forget_loop` darf nur den EIGENEN Eintrag entfernen. Sonst
+    loescht der verspaetete Abbruch der ersten Schleife den Eintrag
+    der zweiten -- und beim naechsten Beitritt haelt der Bot sie fuer
+    tot.
+    """
+    linie("2  Der Callback loescht nur seinen eigenen Eintrag")
 
     async def lauf():
-        import aiosqlite
-        from utils import support_queue as store
+        cog = baue_cog()
 
-        ordner = tempfile.mkdtemp()
-        db = await aiosqlite.connect(os.path.join(ordner, "x.db"))
-        await store.ensure_schema(db)
+        async def nichts():
+            await asyncio.sleep(3600)
 
-        r = await store.save(
-            db, 1, ping_cooldown=99999, reminder_seconds=-5,
-            max_reminders=500,
-        )
-        check("Pause gedeckelt",
-              r["ping_cooldown"] == store.MAX_PING_COOLDOWN,
-              str(r["ping_cooldown"]))
-        check("Erinnerung nicht negativ", r["reminder_seconds"] == 0,
-              str(r["reminder_seconds"]))
-        check("Anzahl gedeckelt",
-              r["max_reminders"] == store.MAX_MAX_REMINDERS,
-              str(r["max_reminders"]))
+        erste = asyncio.create_task(nichts())
+        zweite = asyncio.create_task(nichts())
 
-        # Unsinn darf nicht durchrutschen -- die Route ist per HTTP
-        # erreichbar, und curl fuellt kein Formular aus.
-        r = await store.save(db, 1, ping_cooldown="abc")
-        check("Text statt Zahl faellt auf die Vorgabe zurueck",
-              r["ping_cooldown"] == store.DEFAULT_PING_COOLDOWN,
-              str(r["ping_cooldown"]))
-        await db.close()
+        # Die zweite steht drin -- die erste ist Vergangenheit.
+        cog._loops[GILDE] = zweite
+
+        cog._forget_loop(GILDE, erste)
+        check("ein fremder Callback loescht nichts",
+              cog._loops.get(GILDE) is zweite,
+              "der Eintrag der zweiten Schleife wurde entfernt")
+
+        cog._forget_loop(GILDE, zweite)
+        check("der eigene Callback loescht", GILDE not in cog._loops)
+
+        erste.cancel()
+        zweite.cancel()
 
     asyncio.run(lauf())
 
 
-def test_api():
-    print("\nDie Schnittstelle")
+# ── 3. Die vier Einstellungen ────────────────────────────────────────
 
-    quelle = read(ROUTE)
+def test_einstellungen() -> None:
+    linie("3  Nur noch vier Einstellungen")
 
-    # Nur den Speichern-Teil ansehen. Die Feldnamen stehen auch in
-    # `_ping_limits` -- eine Suche ueber die ganze Datei fand sie
-    # dort und blieb gruen, obwohl die Route nichts mehr annahm.
-    speichern = re.search(
-        r"async def save_settings\(.*?\n(?=@router\.|\Z)", quelle, re.S
-    )
-    check("die Speicher-Route ist lesbar", speichern is not None)
-    if speichern:
-        rumpf = speichern.group(0)
-        for feld in ("ping_enabled", "ping_cooldown", "reminder_seconds",
-                     "max_reminders", "ping_when_staff_present"):
-            check(f"{feld} wird entgegengenommen", feld in rumpf,
-                  "sonst laesst es sich nicht speichern")
+    import aiosqlite
 
-    # Und die Grenzen muessen in der ANTWORT stehen, nicht nur als
-    # Funktion existieren.
-    antwort = re.search(
-        r"async def get_settings\(.*?\n(?=@router\.|\Z)", quelle, re.S
-    )
-    check("die Lese-Route ist lesbar", antwort is not None)
-    if antwort:
-        check("die Grenzen kommen mit",
-              '"ping_limits"' in antwort.group(0),
-              "sonst pflegt der Browser sie noch einmal und weicht ab")
-    if antwort:
-        check("die Zahl der Erinnerungen steht drin",
-              '"reminders_sent"' in antwort.group(0),
-              "sonst sieht die erreichte Obergrenze wie ein Fehler aus")
+    from utils import support_queue as store
 
-    # Die Grenzen selbst gehoeren in den Speicher, nicht in die Route.
-    check("die Route setzt die Grenzen nicht selbst durch",
-          "MAX_PING_COOLDOWN" not in quelle.split("def _ping_limits")[-1]
-          .split("@router.post")[-1],
-          "zweimal dieselbe Regel laeuft auseinander")
+    ordner = tempfile.mkdtemp(prefix="wrset-")
+    os.chdir(ordner)
+    os.makedirs("db", exist_ok=True)
+
+    async def lauf():
+        db = await aiosqlite.connect(store.DB_PATH)
+        await store.ensure_schema(db)
+
+        leer = await store.get(db, GILDE)
+        check("ein unbekannter Server liefert Voreinstellungen",
+              leer["enabled"] is False and leer["channel_id"] is None)
+
+        rec = await store.save(
+            db, GILDE, enabled=True, channel_id=KANAL,
+            notify_channel_id=777, staff_role_id=888,
+        )
+        check("die vier Felder werden gespeichert",
+              rec["enabled"] and rec["channel_id"] == KANAL
+              and rec["notify_channel_id"] == 777
+              and rec["staff_role_id"] == 888,
+              str(rec))
+
+        # Die alten Felder darf es nicht mehr geben.
+        for alt in ("greeting", "music_url", "music_seconds",
+                    "ping_cooldown", "reminder_seconds", "max_reminders",
+                    "ping_enabled", "ping_when_staff_present"):
+            check(f"'{alt}' ist aus der Antwort verschwunden",
+                  alt not in rec,
+                  "es soll nicht mehr einstellbar sein")
+
+        # Und sie duerfen sich auch nicht mehr setzen lassen.
+        vorher = dict(rec)
+        rec2 = await store.save(db, GILDE, greeting="Hallo", music_url="x",
+                                music_seconds=999)
+        check("unbekannte Felder werden ignoriert",
+              rec2["channel_id"] == vorher["channel_id"]
+              and "greeting" not in rec2)
+
+        # Ein Feld aendern laesst die anderen stehen.
+        rec3 = await store.save(db, GILDE, staff_role_id=None)
+        check("ein einzelnes Feld aendern loescht nichts anderes",
+              rec3["channel_id"] == KANAL and rec3["notify_channel_id"] == 777
+              and rec3["staff_role_id"] is None)
+
+        await db.close()
+
+    asyncio.run(lauf())
+    os.chdir(START)
 
 
-def test_panel():
-    print("\nDer Reiter im Dashboard")
+# ── 4. Das Ping-System ───────────────────────────────────────────────
 
-    quelle = read(PANEL)
-    for feld in ("pingEnabled", "pingCooldown", "reminderSeconds",
-                 "maxReminders", "pingWhenStaff"):
-        check(f"{feld} ist da", feld in quelle)
+def test_ping() -> None:
+    linie("4  Das Ping-System")
 
-    check("alles wird mitgespeichert",
-          "ping_cooldown: pingCooldown" in quelle
-          and "reminder_seconds: reminderSeconds" in quelle)
+    from utils import support_queue as store
 
-    # Ohne gespeicherten Wert muss der Ping AN sein.
-    check("fehlender Wert heisst AN",
-          "answer.ping_enabled !== false" in quelle,
-          "`Boolean(undefined)` waere false -- das Update haette die "
-          "Meldung stillschweigend abgeschaltet")
+    store.reset(GILDE)
 
-    # Ein Warnhinweis, wenn kein Meldekanal gewaehlt ist: sonst stellt
-    # jemand die Pausen ein und wundert sich, dass nichts kommt.
-    check("es warnt ohne Meldekanal",
-          "kein Meldekanal" in quelle,
-          "sonst stellt man Pausen ein, die nie greifen")
+    check("die erste Meldung darf sofort raus", store.may_ping(GILDE))
+
+    store.mark_pinged(GILDE, now=1000.0)
+    check("direkt danach nicht noch einmal",
+          not store.may_ping(GILDE, now=1000.0 + 1))
+    check("kurz vor Ablauf immer noch nicht",
+          not store.may_ping(GILDE, now=1000.0 + store.PING_COOLDOWN - 1))
+    check("nach dem Cooldown wieder",
+          store.may_ping(GILDE, now=1000.0 + store.PING_COOLDOWN))
+
+    # Erinnerungen.
+    store.reset(GILDE)
+    check("ohne erste Meldung gibt es nichts zu erinnern",
+          not store.due_for_reminder(GILDE, now=99999.0),
+          "sonst erinnert der Bot an etwas, das nie gemeldet wurde")
+
+    store.mark_pinged(GILDE, now=1000.0)
+    check("kurz danach ist nichts faellig",
+          not store.due_for_reminder(GILDE, now=1000.0 + 10))
+    check("nach der Wartezeit schon",
+          store.due_for_reminder(GILDE, now=1000.0 + store.REMINDER_SECONDS))
+
+    # Obergrenze.
+    jetzt = 1000.0
+    for i in range(store.MAX_REMINDERS):
+        jetzt += store.REMINDER_SECONDS
+        check(f"Erinnerung {i + 1} ist faellig",
+              store.due_for_reminder(GILDE, now=jetzt))
+        store.mark_reminded(GILDE, now=jetzt)
+
+    jetzt += store.REMINDER_SECONDS
+    check("nach der Obergrenze ist Ruhe",
+          not store.due_for_reminder(GILDE, now=jetzt),
+          f"{store.reminders_sent(GILDE)} von {store.MAX_REMINDERS} geschickt")
+
+    # Der Ping-Zustand muss beim Leeren mitgehen.
+    store.reset(GILDE)
+    check("nach dem Zuruecksetzen darf sofort wieder gemeldet werden",
+          store.may_ping(GILDE),
+          "sonst haengt der naechste Wartende im Cooldown des Vorgaengers")
+    check("und der Erinnerungszaehler steht auf null",
+          store.reminders_sent(GILDE) == 0)
+
+
+# ── 5. Die Wartemusik ────────────────────────────────────────────────
+
+def test_musik() -> None:
+    linie("5  Die Wartemusik")
+
+    pfad = os.path.join(DASH, "public", "warteraum.mp3")
+    check("die Datei liegt in dashboard/public/", os.path.isfile(pfad))
+    if not os.path.isfile(pfad):
+        return
+
+    daten = open(pfad, "rb").read()
+    check("sie ist nicht leer", len(daten) > 10000, f"{len(daten)} Bytes")
+
+    # Ein echter MPEG-Rahmen faengt mit 0xFF 0xEx an, eine Datei mit
+    # ID3-Kopf mit "ID3". Alles andere ist keine MP3.
+    ist_mpeg = daten[:2] == b"\xff\xfb" or daten[0] == 0xFF and (daten[1] & 0xE0) == 0xE0
+    ist_id3 = daten[:3] == b"ID3"
+    check("sie ist eine echte MP3", ist_mpeg or ist_id3,
+          f"Anfang: {daten[:4].hex()}")
+
+    # Rahmen zaehlen -- eine abgeschnittene Datei haette keine
+    # durchgehende Kette.
+    BITRATE = [0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 0]
+    RATE = [44100, 48000, 32000, 0]
+    i, rahmen = 0, 0
+    while i < len(daten) - 4:
+        if daten[i] == 0xFF and (daten[i + 1] & 0xE0) == 0xE0:
+            br = BITRATE[(daten[i + 2] >> 4) & 0xF]
+            sr = RATE[(daten[i + 2] >> 2) & 0x3]
+            if br and sr:
+                i += int(144000 * br / sr) + ((daten[i + 2] >> 1) & 1)
+                rahmen += 1
+                continue
+        i += 1
+
+    dauer = rahmen * 1152 / 44100
+    check("sie ist abspielbar (durchgehende Rahmenkette)",
+          rahmen > 500, f"{rahmen} Rahmen")
+    check("sie ist etwa so lang wie ein Durchgang",
+          20 < dauer < 60, f"{dauer:.1f}s")
+
+    # Der Weg ins Image.
+    dockerfile = open(os.path.join(ROOT, "Dockerfile"), encoding="utf-8").read()
+    check("das Dockerfile kopiert public/ in den Container",
+          re.search(r"COPY\s+--from=dashboard-builder\s+\S*dashboard/public",
+                    dockerfile) is not None,
+          "ohne das fehlt die Musik im Betrieb")
+
+    # .gitignore darf sie nicht schlucken.
+    ignore = open(os.path.join(ROOT, ".gitignore"), encoding="utf-8").read()
+    zeilen = [z.strip() for z in ignore.splitlines()
+              if z.strip() and not z.strip().startswith("#")]
+    check("keine .gitignore-Regel schluckt die MP3",
+          not any(z in ("*.mp3", "public/", "dashboard/public/") for z in zeilen),
+          str([z for z in zeilen if "mp3" in z or "public" in z]))
+
+    # Der Cog muss sie ueber HTTP holen -- Lavalink laeuft als eigener
+    # Dienst und sieht das Dateisystem des Bots nicht.
+    quelle = open(os.path.join(BOT, "cogs", "commands", "supportqueue.py"),
+                  encoding="utf-8").read()
+    ohne = strip_py(quelle)
+    check("der Cog kennt die Datei", "warteraum.mp3" in quelle)
+    # Auf die Benutzung zielen, nicht auf das Vorkommen: die Funktion
+    # muss auch AUFGERUFEN werden. Wird sie nur definiert und nie
+    # benutzt, sucht der Bot die Datei nirgends -- und Lavalink kann
+    # sie ohnehin nicht lokal lesen (local: false).
+    check("die Adresse wird gebaut", "def _music_url" in ohne)
+
+    # Und der Name muss wirklich aufloesbar sein.
+    #
+    # Eine Umbenennung der Definition -- ohne den Aufruf mitzuziehen
+    # -- liesse den Text oben unveraendert aussehen, waere zur
+    # Laufzeit aber ein NameError beim ersten Wartenden. Der Import
+    # allein faengt das nicht: die Funktion wird erst beim Abspielen
+    # gerufen. Also ausdruecklich nachsehen, ob es sie gibt.
+    from cogs.commands import supportqueue as cog_modul
+
+    check("_music_url ist im Modul wirklich vorhanden",
+          callable(getattr(cog_modul, "_music_url", None)),
+          "der Aufruf liefe sonst in einen NameError")
+
+    adresse = cog_modul._music_url()
+    check("sie liefert eine HTTP-Adresse auf die Datei",
+          adresse.startswith("http") and adresse.endswith(cog_modul.MUSIC_FILE),
+          adresse)
+    check("und auch benutzt",
+          re.search(r"=\s*_music_url\(\)", ohne) is not None,
+          "sonst wird die feste Datei nie abgerufen")
+    check("die Adresse ist eine HTTP-Adresse",
+          re.search(r"https?://", ohne) is not None,
+          "local: false in application.yml -- Lavalink kann keine "
+          "Datei aus dem Bot-Container lesen")
+
+    yml = os.path.join(ROOT, "lavalink", "application.yml")
+    if os.path.isfile(yml):
+        inhalt = open(yml, encoding="utf-8").read()
+        check("Lavalink darf HTTP-Quellen abspielen",
+              re.search(r"http:\s*true", inhalt) is not None,
+              "sonst kann es die MP3 nicht laden")
+
+
+# ── 6. Keine eigene Musik, keine eigene Nachricht ────────────────────
+
+def test_nichts_mehr_einstellbar() -> None:
+    linie("6  Musik und Nachricht sind nicht mehr einstellbar")
+
+    cog = open(os.path.join(BOT, "cogs", "commands", "supportqueue.py"),
+               encoding="utf-8").read()
+    ohne_cog = strip_py(cog)
+
+    check("keine Sprachausgabe mehr",
+          "_speak_greeting" not in ohne_cog and "_tts_track" not in ohne_cog,
+          "die Ansage ist entfallen")
+    check("keine translate-URL mehr",
+          "translate.google" not in ohne_cog)
+
+    # Die Musik darf nicht mehr aus dem Datensatz kommen.
+    check("die Musik kommt nicht aus den Einstellungen",
+          'record.get("music_url")' not in ohne_cog
+          and "record.get('music_url')" not in ohne_cog,
+          "sie soll fest sein")
+    check("die Dauer kommt aus dem Modul, nicht aus dem Datensatz",
+          "store.MUSIC_SECONDS" in ohne_cog
+          and 'record.get("music_seconds")' not in ohne_cog)
+
+    routen = open(os.path.join(BOT, "api", "routes", "supportqueue.py"),
+                  encoding="utf-8").read()
+    ohne_routen = strip_py(routen)
+
+    for feld in ("greeting", "music_url", "music_seconds", "ping_cooldown",
+                 "reminder_seconds", "max_reminders", "ping_enabled"):
+        check(f"die Route nimmt '{feld}' nicht mehr entgegen",
+              f'"{feld}" in data' not in ohne_routen,
+              "es soll nicht mehr einstellbar sein")
+
+    check("es gibt keine Probe-Route mehr",
+          "/test" not in ohne_routen,
+          "ohne Ansage gibt es nichts probezuhoeren")
+
+    store_py = open(os.path.join(BOT, "utils", "support_queue.py"),
+                    encoding="utf-8").read()
+    ohne_store = strip_py(store_py)
+    spalten = re.search(r"COLUMNS[^=]*=\s*\((.*?)\n\)", ohne_store, re.S)
+    check("die Spaltenliste ist auffindbar", spalten is not None)
+    if spalten:
+        namen = re.findall(r'\("(\w+)"', spalten.group(1))
+        check("genau die vier Felder plus Zeitstempel",
+              set(namen) == {"channel_id", "enabled", "notify_channel_id",
+                             "staff_role_id", "updated_at"},
+              str(namen))
+
+
+# ── 7. Das Dashboard ─────────────────────────────────────────────────
+
+def test_dashboard() -> None:
+    linie("7  Das Dashboard")
+
+    panel = os.path.join(DASH, "components", "dashboard",
+                         "support-queue-panel.tsx")
+    check("das Panel gibt es", os.path.isfile(panel))
+    if not os.path.isfile(panel):
+        return
+
+    p = strip_ts(open(panel, encoding="utf-8").read())
+
+    # Die vier Felder muessen da sein.
+    for feld in ("enabled", "channel_id", "notify_channel_id", "staff_role_id"):
+        check(f"das Panel kennt {feld}", feld in p)
+
+    # Und die alten duerfen nicht mehr EINSTELLBAR sein.
+    #
+    # Auf die Wirkung zielen, nicht auf das Wort: `music_seconds`
+    # steht weiterhin im Panel -- aber nur als Anzeige im Block
+    # „Fest eingestellt" (`fest.music_seconds`). Eine Pruefung auf
+    # blosses Vorkommen schlug deshalb faelschlich an. Entscheidend
+    # ist, ob es einen Zustand dafuer gibt oder ob es mitgespeichert
+    # wird.
+    for alt in ("greeting", "music_url", "musicUrl", "music_seconds",
+                "ping_cooldown", "reminder_seconds", "max_reminders"):
+        hat_zustand = re.search(rf"useState[^\n]*\b{re.escape(alt)}\b", p) \
+            or re.search(rf"set[A-Z]\w*\s*\]\s*=\s*useState[^\n]*{re.escape(alt)}", p)
+        wird_gesendet = re.search(rf"^\s*{re.escape(alt)}\s*[,:]", p, re.M)
+        check(f"'{alt}' ist nicht mehr einstellbar",
+              not hat_zustand and not wird_gesendet,
+              "es darf hoechstens als Anzeige vorkommen")
+
+    # Kein Eingabefeld darf an einen der alten Werte gebunden sein.
+    check("keine Eingabefelder fuer die festen Werte",
+          not re.search(r"<input[^>]*value=\{(greeting|musicUrl|seconds)", p),
+          "sie sollen nicht mehr aenderbar sein")
+
+    # Und es darf ueberhaupt keinen Zustand fuer Musik oder Ansage
+    # geben. Die Pruefung oben sucht nach dem Namen des alten Feldes;
+    # jemand koennte ihn aber anders nennen. Deshalb hier auf die
+    # Sache zielen: kein useState, in dem "music" oder "greeting"
+    # vorkommt.
+    zustaende = re.findall(r"const \[(\w+),\s*set\w+\]\s*=\s*useState", p)
+    verboten = [z for z in zustaende
+                if re.search(r"music|greeting|ansage|sekund|cooldown|remind",
+                             z, re.I)]
+    check("kein Zustand fuer Musik, Ansage oder Zeiten",
+          not verboten, f"gefunden: {verboten}")
+
+    erlaubt = {"daten", "laedt", "beschaeftigt", "an", "kanal",
+               "meldeKanal", "rolle"}
+    check("nur die vier Einstellungen haben einen Zustand",
+          set(zustaende) <= erlaubt,
+          f"unerwartet: {sorted(set(zustaende) - erlaubt)}")
+
+    check("es gibt kein Textfeld fuer die Nachricht",
+          "<textarea" not in p,
+          "die Meldung ist nicht bearbeitbar")
+
+    check("das Panel nennt die feste Musikdatei",
+          "music_file" in p or "warteraum.mp3" in p)
+
+    api_ts = open(os.path.join(DASH, "lib", "api.ts"), encoding="utf-8").read()
+    check("die tote Probe-Route ist aus api.ts raus",
+          "supportQueueTest" not in api_ts)
+    check("Laden und Speichern gibt es noch",
+          "supportQueue:" in api_ts and "supportQueueSave:" in api_ts)
 
 
 def main() -> int:
-    test_zweiter_beitritt()
-    test_callback_loescht_nur_sich_selbst()
-    test_cooldown()
-    test_erinnerungen()
-    test_leerer_raum_setzt_zurueck()
-    test_team_schon_da()
-    test_erinnerungsschleife_ist_getrennt()
-    test_schema_wird_nachgeruestet()
-    test_grenzen()
-    test_api()
-    test_panel()
+    try:
+        test_beitritt()
+        test_callback_loescht_nur_sich_selbst()
+        test_einstellungen()
+        test_ping()
+        test_musik()
+        test_nichts_mehr_einstellbar()
+        test_dashboard()
+    finally:
+        os.chdir(START)
 
     print()
     if failures:
         print(f"FAILED: {len(failures)}")
-        for eintrag in failures:
-            print(f"  - {eintrag}")
+        for f in failures:
+            print(f"  - {f}")
         return 1
     print("Alles gruen.")
     return 0

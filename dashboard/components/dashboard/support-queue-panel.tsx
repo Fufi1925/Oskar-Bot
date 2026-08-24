@@ -1,39 +1,62 @@
 "use client";
 
+/**
+ * Support-Warteraum: vier Einstellungen, mehr nicht.
+ *
+ *     an/aus · Warteraum-Kanal · Meldekanal · Team-Rolle
+ *
+ * Warum so wenig
+ * --------------
+ * Vorher standen hier acht Felder: eigene Ansage, Musik-URL, Dauer,
+ * Cooldown, Erinnerungsabstand, Zahl der Erinnerungen,
+ * Ping-trotz-Team, Meldekanal. Jedes davon war ein Weg, das System
+ * kaputt einzustellen — eine Musik-URL, die Lavalink nicht findet;
+ * ein Cooldown von einer Stunde, nach dem sich niemand mehr meldet.
+ *
+ * Jetzt steht alles Übrige fest. Was genau, ist unten nachlesbar —
+ * aber nicht änderbar.
+ */
+
 import React, { useCallback, useEffect, useState } from "react";
 import {
   AlertTriangle,
-  Check,
+  Bell,
   CheckCircle2,
   Clock,
   Headphones,
+  Info,
   Loader2,
-  Mic,
   Music,
-  Play,
   Save,
   Users,
   Volume2,
-  XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { EmojiPicker } from "@/components/dashboard/emoji-picker";
 
-const CARD =
-  "bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6";
+const CARD = "bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6";
 
 interface VoiceChannel {
   id: string;
   name: string;
   category: string | null;
-  user_limit: number;
   can_join: boolean;
   can_speak: boolean;
 }
 
-interface Waiting {
+interface TextChannel {
+  id: string;
+  name: string;
+  can_send: boolean;
+}
+
+interface Rolle {
+  id: string;
+  name: string;
+}
+
+interface Wartend {
   user_id: string;
   name: string;
   avatar: string | null;
@@ -41,577 +64,366 @@ interface Waiting {
 }
 
 /** Wie lange jemand schon wartet. */
-function waitedFor(since: number) {
-  const seconds = Math.max(0, Math.floor(Date.now() / 1000 - since));
-  if (seconds < 60) return `${seconds}s`;
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes} min`;
-  return `${Math.floor(minutes / 60)} h ${minutes % 60} min`;
+function wartetSeit(since: number) {
+  const sekunden = Math.max(0, Math.floor(Date.now() / 1000 - since));
+  if (sekunden < 60) return `${sekunden}s`;
+  const minuten = Math.floor(sekunden / 60);
+  if (minuten < 60) return `${minuten} min`;
+  return `${Math.floor(minuten / 60)} h ${minuten % 60} min`;
 }
 
 export function SupportQueuePanel({ guildId }: { guildId: string }) {
-  const [data, setData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState(false);
+  const [daten, setDaten] = useState<any>(null);
+  const [laedt, setLaedt] = useState(true);
+  const [beschaeftigt, setBeschaeftigt] = useState(false);
 
-  const [enabled, setEnabled] = useState(false);
-  const [channelId, setChannelId] = useState("");
-  const [greeting, setGreeting] = useState("");
-  const [seconds, setSeconds] = useState(30);
-  const [musicUrl, setMusicUrl] = useState("");
-  const [notifyId, setNotifyId] = useState("");
-  const [roleId, setRoleId] = useState("");
+  const [an, setAn] = useState(false);
+  const [kanal, setKanal] = useState("");
+  const [meldeKanal, setMeldeKanal] = useState("");
+  const [rolle, setRolle] = useState("");
 
-  // ── Das Ping-System ────────────────────────────────────────────
-  const [pingEnabled, setPingEnabled] = useState(true);
-  const [pingCooldown, setPingCooldown] = useState(120);
-  const [reminderSeconds, setReminderSeconds] = useState(300);
-  const [maxReminders, setMaxReminders] = useState(3);
-  const [pingWhenStaff, setPingWhenStaff] = useState(false);
+  const uebernehmen = useCallback((antwort: any) => {
+    setDaten(antwort);
+    setAn(Boolean(antwort.enabled));
+    setKanal(antwort.channel_id || "");
+    setMeldeKanal(antwort.notify_channel_id || "");
+    setRolle(antwort.staff_role_id || "");
+  }, []);
 
-  const load = useCallback(async () => {
+  const laden = useCallback(async () => {
     try {
-      const answer = await api.supportQueue(guildId);
-      setData(answer);
-      setEnabled(Boolean(answer.enabled));
-      setChannelId(answer.channel_id || "");
-      setGreeting(answer.greeting || "");
-      setSeconds(Number(answer.music_seconds) || 30);
-      setMusicUrl(answer.music_url || "");
-      setNotifyId(answer.notify_channel_id || "");
-      setRoleId(answer.staff_role_id || "");
-      // `!== false` statt `Boolean(...)`: fehlt das Feld (alter
-      // Server, der noch nicht gespeichert hat), soll der Ping AN
-      // sein -- so war es vorher, und ein Update darf die Meldung
-      // nicht stillschweigend abschalten.
-      setPingEnabled(answer.ping_enabled !== false);
-      setPingCooldown(Number(answer.ping_cooldown ?? 120));
-      setReminderSeconds(Number(answer.reminder_seconds ?? 300));
-      setMaxReminders(Number(answer.max_reminders ?? 3));
-      setPingWhenStaff(Boolean(answer.ping_when_staff_present));
+      uebernehmen(await api.supportQueue(guildId));
     } catch (err: any) {
-      toast.error(err?.message || "Der Warteraum ließ sich nicht laden.");
+      toast.error(err?.message || "Konnte die Einstellungen nicht laden.");
     } finally {
-      setLoading(false);
+      setLaedt(false);
     }
-  }, [guildId]);
+  }, [guildId, uebernehmen]);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    laden();
+  }, [laden]);
 
-  // Die Warteliste im Blick behalten. Nur sie, nicht das ganze
-  // Formular -- sonst überschreibt die Aktualisierung, was gerade
-  // getippt wird.
+  // Wer wartet, ändert sich laufend. Alle 15 Sekunden nachsehen —
+  // häufiger wäre für eine Liste mit selten mehr als drei Einträgen
+  // verschwendet.
   useEffect(() => {
+    if (!an) return;
     const timer = setInterval(async () => {
       try {
-        const answer = await api.supportQueue(guildId);
-        setData((old: any) =>
-          old ? { ...old, waiting: answer.waiting, audio: answer.audio } : answer
-        );
+        const frisch = await api.supportQueue(guildId);
+        setDaten((alt: any) => ({ ...alt, waiting: frisch.waiting }));
       } catch {
-        // Still bleiben: ein Aussetzer soll nicht die Seite volllaufen
-        // lassen mit Fehlermeldungen.
+        /* still — ein Aussetzer darf die Seite nicht stören */
       }
-    }, 10000);
+    }, 15000);
     return () => clearInterval(timer);
-  }, [guildId]);
+  }, [an, guildId]);
 
-  const save = async () => {
-    setBusy(true);
+  const speichern = async (zusatz: Record<string, unknown> = {}) => {
+    setBeschaeftigt(true);
     try {
-      const answer = await api.supportQueueSave(guildId, {
-        enabled,
-        channel_id: channelId,
-        greeting,
-        music_seconds: seconds,
-        music_url: musicUrl,
-        notify_channel_id: notifyId,
-        staff_role_id: roleId,
-        ping_enabled: pingEnabled,
-        ping_cooldown: pingCooldown,
-        reminder_seconds: reminderSeconds,
-        max_reminders: maxReminders,
-        ping_when_staff_present: pingWhenStaff,
-      });
-      setData((old: any) => ({ ...old, ...answer }));
+      uebernehmen(
+        await api.supportQueueSave(guildId, {
+          enabled: an,
+          channel_id: kanal || null,
+          notify_channel_id: meldeKanal || null,
+          staff_role_id: rolle || null,
+          ...zusatz,
+        })
+      );
       toast.success("Gespeichert.");
     } catch (err: any) {
       toast.error(err?.message || "Speichern fehlgeschlagen.");
     } finally {
-      setBusy(false);
+      setBeschaeftigt(false);
     }
   };
 
-  const test = async () => {
-    setBusy(true);
-    try {
-      const answer = await api.supportQueueTest(guildId);
-      toast.success(answer?.result || "Der Bot kommt gleich.");
-    } catch (err: any) {
-      toast.error(err?.message || "Der Test ist fehlgeschlagen.");
-    } finally {
-      setBusy(false);
-    }
+  const umschalten = async () => {
+    const neu = !an;
+    setAn(neu);
+    await speichern({ enabled: neu });
   };
 
-  if (loading) {
+  if (laedt) {
     return (
-      <div className="flex items-center justify-center min-h-[300px]">
-        <Loader2 className="h-8 w-8 text-primary animate-spin opacity-40" />
+      <div className={cn(CARD, "flex items-center gap-3 text-slate-400")}>
+        <Loader2 className="h-4 w-4 animate-spin" />
+        Wird geladen …
       </div>
     );
   }
 
-  if (!data) return null;
+  const sprachKanaele: VoiceChannel[] = daten?.voice_channels || [];
+  const textKanaele: TextChannel[] = daten?.text_channels || [];
+  const rollen: Rolle[] = daten?.roles || [];
+  const wartende: Wartend[] = daten?.waiting || [];
+  const fest = daten?.fixed || {};
+  const lavalink = daten?.lavalink || { ready: true, detail: "" };
 
-  const channels: VoiceChannel[] = data.voice_channels ?? [];
-  const chosen = channels.find((c) => c.id === channelId);
-  const waiting: Waiting[] = data.waiting ?? [];
-  const audioReady = Boolean(data.audio?.ready);
-  const defaults = data.defaults ?? {};
+  const gewaehlterKanal = sprachKanaele.find((k) => k.id === kanal);
 
   return (
-    <section className="space-y-6">
-      {/* Ohne Audio-Knoten bleibt der Bot stumm — das gehört nach oben,
-          nicht in eine Fußnote. */}
-      {!audioReady && (
-        <div className="rounded-2xl bg-amber-500/[0.07] border border-amber-500/25 p-4 flex gap-3">
-          <AlertTriangle className="h-5 w-5 text-amber-400 shrink-0 mt-0.5" />
-          <div className="min-w-0">
-            <p className="text-sm font-bold text-amber-200">
-              Kein Ton möglich
-            </p>
-            <p className="text-[12px] text-amber-200/75 mt-1 leading-relaxed">
-              {data.audio?.detail}
-            </p>
-            <p className="text-[12px] text-amber-200/60 mt-2 leading-relaxed">
-              Der Warteraum meldet dem Team trotzdem, wer wartet — nur Ansage
-              und Musik fallen aus.
-            </p>
+    <div className="space-y-4">
+      {/* ── Kein Lavalink: das muss ganz oben stehen ──────────────── */}
+      {!lavalink.ready && (
+        <div className="flex gap-3 rounded-3xl border border-amber-500/25 bg-amber-500/5 p-4">
+          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-400" />
+          <div>
+            <div className="font-semibold text-white">Keine Wartemusik</div>
+            <p className="mt-1 text-sm text-amber-200/80">{lavalink.detail}</p>
           </div>
         </div>
       )}
 
-      {/* Wer gerade wartet */}
+      {/* ── 1. An oder aus ────────────────────────────────────────── */}
       <div className={CARD}>
-        <div className="flex items-center gap-3 mb-4">
-          <Users className="h-5 w-5 text-primary shrink-0" />
-          <h3 className="font-black text-white text-sm uppercase tracking-wider">
-            Wartet gerade
-          </h3>
-          <span className="ml-auto text-sm font-bold text-primary tabular-nums">
-            {waiting.length}
-          </span>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <div className="rounded-2xl bg-primary/15 p-2.5">
+              <Headphones className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <h3 className="font-bold text-white">Support-Warteraum</h3>
+              <p className="mt-1 max-w-lg text-sm leading-relaxed text-slate-400">
+                Betritt jemand den Warteraum, kommt der Bot dazu und spielt
+                Wartemusik. Das Team bekommt gleichzeitig eine Meldung.
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={umschalten}
+            disabled={beschaeftigt || (!an && !kanal)}
+            title={!an && !kanal ? "Wähle zuerst einen Warteraum-Kanal" : ""}
+            className={cn(
+              "shrink-0 rounded-2xl px-5 py-3 text-sm font-semibold transition disabled:opacity-40",
+              an
+                ? "bg-red-500/15 text-red-300 hover:bg-red-500/25"
+                : "bg-primary text-white hover:brightness-110"
+            )}
+          >
+            {beschaeftigt ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : an ? (
+              "Ausschalten"
+            ) : (
+              "Einschalten"
+            )}
+          </button>
         </div>
 
-        {waiting.length === 0 ? (
-          <p className="text-sm text-slate-500">
-            Im Moment wartet niemand.
+        {an && (
+          <div className="mt-4 flex flex-wrap items-center gap-3 rounded-2xl border border-slate-800 bg-[#0f0f13] p-3">
+            <span className="flex items-center gap-1.5 text-sm text-emerald-300">
+              <CheckCircle2 className="h-4 w-4" />
+              Läuft
+            </span>
+            <span className="font-mono text-sm text-slate-300">
+              {daten?.channel_name ? `#${daten.channel_name}` : "—"}
+            </span>
+            <span className="text-sm text-slate-500">
+              {wartende.length === 0
+                ? "niemand wartet"
+                : `${wartende.length} ${wartende.length === 1 ? "Person wartet" : "Personen warten"}`}
+            </span>
+          </div>
+        )}
+
+        {daten?.channel_missing && (
+          <div className="mt-3 flex gap-2 rounded-2xl border border-amber-500/25 bg-amber-500/5 p-3">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
+            <p className="text-xs text-amber-200/80">
+              Der eingestellte Kanal existiert nicht mehr. Wähle unten einen
+              neuen.
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* ── 2. Warteraum-Kanal ────────────────────────────────────── */}
+      <div className={CARD}>
+        <div className="mb-3 flex items-center gap-2">
+          <Volume2 className="h-4 w-4 text-slate-500" />
+          <h4 className="text-sm font-semibold text-white">Warteraum-Kanal</h4>
+        </div>
+        <select
+          value={kanal}
+          onChange={(e) => setKanal(e.target.value)}
+          className="w-full rounded-2xl border border-slate-800 bg-[#0f0f13] px-4 py-3 text-sm text-white outline-none focus:border-primary/50"
+        >
+          <option value="">Keiner ausgewählt</option>
+          {sprachKanaele.map((k) => (
+            <option key={k.id} value={k.id}>
+              {k.name}
+              {k.category ? ` — ${k.category}` : ""}
+              {k.can_join ? "" : "  (Bot darf nicht hinein)"}
+            </option>
+          ))}
+        </select>
+        {gewaehlterKanal && !gewaehlterKanal.can_join && (
+          <p className="mt-2 flex items-start gap-1.5 text-xs text-red-300">
+            <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
+            Dem Bot fehlt das Recht, diesen Kanal zu betreten — er wird nie
+            erscheinen.
           </p>
+        )}
+        {gewaehlterKanal?.can_join && !gewaehlterKanal.can_speak && (
+          <p className="mt-2 flex items-start gap-1.5 text-xs text-amber-300">
+            <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
+            Der Bot darf hinein, aber nicht sprechen — es bleibt still.
+          </p>
+        )}
+      </div>
+
+      {/* ── 3. Meldekanal ─────────────────────────────────────────── */}
+      <div className={CARD}>
+        <div className="mb-3 flex items-center gap-2">
+          <Bell className="h-4 w-4 text-slate-500" />
+          <h4 className="text-sm font-semibold text-white">Meldekanal</h4>
+        </div>
+        <select
+          value={meldeKanal}
+          onChange={(e) => setMeldeKanal(e.target.value)}
+          className="w-full rounded-2xl border border-slate-800 bg-[#0f0f13] px-4 py-3 text-sm text-white outline-none focus:border-primary/50"
+        >
+          <option value="">Keine Meldung</option>
+          {textKanaele.map((k) => (
+            <option key={k.id} value={k.id}>
+              #{k.name}
+              {k.can_send ? "" : "  (Bot darf hier nicht schreiben)"}
+            </option>
+          ))}
+        </select>
+        <p className="mt-2 text-xs text-slate-600">
+          Hier meldet der Bot, wenn jemand wartet. Ohne Meldekanal merkt das
+          Team nichts davon.
+        </p>
+      </div>
+
+      {/* ── 4. Team-Rolle ─────────────────────────────────────────── */}
+      <div className={CARD}>
+        <div className="mb-3 flex items-center gap-2">
+          <Users className="h-4 w-4 text-slate-500" />
+          <h4 className="text-sm font-semibold text-white">Team-Rolle</h4>
+        </div>
+        <select
+          value={rolle}
+          onChange={(e) => setRolle(e.target.value)}
+          className="w-full rounded-2xl border border-slate-800 bg-[#0f0f13] px-4 py-3 text-sm text-white outline-none focus:border-primary/50"
+        >
+          <option value="">Keine Erwähnung</option>
+          {rollen.map((r) => (
+            <option key={r.id} value={r.id}>
+              @{r.name}
+            </option>
+          ))}
+        </select>
+        <p className="mt-2 text-xs text-slate-600">
+          Diese Rolle wird in der Meldung erwähnt. Sitzt bereits jemand mit
+          ihr im Warteraum, bleibt die Meldung aus — es ist ja schon jemand
+          da.
+        </p>
+      </div>
+
+      <button
+        onClick={() => speichern()}
+        disabled={beschaeftigt}
+        className="inline-flex items-center gap-2 rounded-2xl bg-primary px-5 py-3 text-sm font-semibold text-white transition hover:brightness-110 disabled:opacity-50"
+      >
+        {beschaeftigt ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
         ) : (
+          <Save className="h-4 w-4" />
+        )}
+        Speichern
+      </button>
+
+      {/* ── Wer wartet gerade ─────────────────────────────────────── */}
+      {an && wartende.length > 0 && (
+        <div className={CARD}>
+          <div className="mb-3 flex items-center gap-2">
+            <Clock className="h-4 w-4 text-slate-500" />
+            <h4 className="text-sm font-semibold text-white">
+              Wartet gerade ({wartende.length})
+            </h4>
+          </div>
           <div className="space-y-2">
-            {waiting.map((person) => (
-              <div key={person.user_id} className="flex items-center gap-3">
-                <div className="h-8 w-8 rounded-full bg-primary/15 border border-primary/25 flex items-center justify-center text-[11px] font-black text-primary shrink-0">
-                  {person.name.slice(0, 2).toUpperCase()}
-                </div>
-                <span className="text-sm text-slate-300 truncate">
-                  {person.name}
+            {wartende.map((w) => (
+              <div
+                key={w.user_id}
+                className="flex items-center gap-3 rounded-2xl border border-slate-800 bg-[#0f0f13] p-3"
+              >
+                {w.avatar ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={w.avatar}
+                    alt=""
+                    className="h-7 w-7 rounded-full"
+                  />
+                ) : (
+                  <div className="h-7 w-7 rounded-full bg-slate-800" />
+                )}
+                <span className="flex-1 truncate text-sm text-white">
+                  {w.name}
                 </span>
-                <span className="ml-auto flex items-center gap-1.5 text-xs text-slate-500 shrink-0">
-                  <Clock className="h-3 w-3" />
-                  {waitedFor(person.since)}
+                <span className="text-xs text-slate-500">
+                  {wartetSeit(w.since)}
                 </span>
               </div>
             ))}
           </div>
-        )}
-      </div>
-
-      {/* Der Kanal */}
-      <div className={CARD}>
-        <div className="flex items-center gap-3 mb-1">
-          <Volume2 className="h-5 w-5 text-primary shrink-0" />
-          <h3 className="font-black text-white text-sm uppercase tracking-wider">
-            Warteraum
-          </h3>
         </div>
-        <p className="text-[12px] text-slate-500 mb-4 leading-relaxed">
-          Betritt jemand diesen Sprachkanal, kommt der Bot dazu, begrüßt ihn und
-          spielt Wartemusik.
-        </p>
+      )}
 
-        <select
-          value={channelId}
-          onChange={(event) => setChannelId(event.target.value)}
-          className="w-full bg-[#0e0e12] border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-white outline-none focus:border-primary/50 transition-colors"
-        >
-          <option value="">— kein Kanal gewählt —</option>
-          {channels.map((channel) => (
-            <option key={channel.id} value={channel.id} disabled={!channel.can_join}>
-              {channel.category ? `${channel.category} / ` : ""}
-              {channel.name}
-              {!channel.can_join ? "  (Bot darf nicht rein)" : ""}
-              {channel.can_join && !channel.can_speak ? "  (darf nicht sprechen)" : ""}
-            </option>
-          ))}
-        </select>
-
-        {chosen && !chosen.can_speak && (
-          <p className="text-[12px] text-amber-300/80 mt-2.5 flex gap-2">
-            <XCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-            In diesem Kanal fehlt dem Bot „Sprechen“ — er käme herein, bliebe
-            aber stumm.
-          </p>
-        )}
-
-        {data.channel_missing && (
-          <p className="text-[12px] text-red-300/80 mt-2.5 flex gap-2">
-            <XCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-            Der gespeicherte Kanal existiert nicht mehr.
-          </p>
-        )}
-
-        <label className="flex items-center gap-3 mt-4 cursor-pointer">
-          <button
-            type="button"
-            onClick={() => setEnabled(!enabled)}
-            className={cn(
-              "h-6 w-11 rounded-full transition-colors relative shrink-0",
-              enabled ? "bg-primary" : "bg-slate-700"
-            )}
-          >
-            <span
-              className={cn(
-                "absolute top-1 h-4 w-4 rounded-full bg-white transition-all",
-                enabled ? "left-6" : "left-1"
-              )}
-            />
-          </button>
-          <span className="text-sm text-slate-300">Warteraum aktiv</span>
-        </label>
-      </div>
-
-      {/* Die Ansage */}
-      <div className={CARD}>
-        <div className="flex items-center gap-3 mb-1">
-          <Mic className="h-5 w-5 text-primary shrink-0" />
-          <h3 className="font-black text-white text-sm uppercase tracking-wider">
-            Was der Bot sagt
-          </h3>
-        </div>
-        <p className="text-[12px] text-slate-500 mb-3 leading-relaxed">
-          Wird vorgelesen, sobald jemand den Kanal betritt — und nach jeder
-          Runde Musik erneut.
-        </p>
-
-        <textarea
-          value={greeting}
-          onChange={(event) => setGreeting(event.target.value)}
-          rows={4}
-          maxLength={defaults.max_greeting ?? 300}
-          placeholder={defaults.greeting}
-          className="w-full bg-[#0e0e12] border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-white placeholder:text-slate-600 outline-none focus:border-primary/50 transition-colors resize-none leading-relaxed"
-        />
-        <div className="mt-2">
-          <EmojiPicker
-            onPick={(raw) => {
-              const cap = defaults.max_greeting ?? 300;
-              setGreeting((old) => ((old + raw).length > cap ? old : old + raw));
-            }}
-          />
-        </div>
-        <div className="flex items-center justify-between mt-2">
-          <span className="text-[11px] text-slate-600">
-            Platzhalter: <code className="text-slate-500">{"{server}"}</code>
-          </span>
-          <span className="text-[11px] text-slate-600 tabular-nums">
-            {greeting.length} / {defaults.max_greeting ?? 300}
-          </span>
-        </div>
-
-        {!greeting && (
-          <p className="text-[12px] text-slate-500 mt-3 leading-relaxed">
-            Leer heißt: der voreingestellte Satz oben wird gesprochen.
-          </p>
-        )}
-      </div>
-
-      {/* Musik */}
-      <div className={CARD}>
-        <div className="flex items-center gap-3 mb-1">
-          <Music className="h-5 w-5 text-primary shrink-0" />
-          <h3 className="font-black text-white text-sm uppercase tracking-wider">
-            Wartemusik
-          </h3>
-        </div>
-        <p className="text-[12px] text-slate-500 mb-4 leading-relaxed">
-          Läuft nach der Ansage. Danach beginnt alles von vorn.
-        </p>
-
-        <label className="text-[11px] font-black uppercase tracking-wider text-slate-500">
-          Wie lange am Stück
-        </label>
-        <div className="flex items-center gap-3 mt-2">
-          <input
-            type="range"
-            min={defaults.min_seconds ?? 10}
-            max={180}
-            step={5}
-            value={seconds}
-            onChange={(event) => setSeconds(Number(event.target.value))}
-            className="flex-1 accent-blue-500"
-          />
-          <span className="text-sm font-bold text-white w-16 text-right tabular-nums shrink-0">
-            {seconds} s
-          </span>
-        </div>
-
-        <label className="text-[11px] font-black uppercase tracking-wider text-slate-500 block mt-5">
-          Eigene Musik (optional)
-        </label>
-        <input
-          value={musicUrl}
-          onChange={(event) => setMusicUrl(event.target.value)}
-          placeholder="Link oder Suchbegriff — leer = mitgelieferte Musik"
-          className="w-full bg-[#0e0e12] border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-white placeholder:text-slate-600 outline-none focus:border-primary/50 transition-colors mt-2"
-        />
-      </div>
-
-      {/* Benachrichtigung */}
-      <div className={CARD}>
-        <div className="flex items-center gap-3 mb-1">
-          <Headphones className="h-5 w-5 text-primary shrink-0" />
-          <h3 className="font-black text-white text-sm uppercase tracking-wider">
-            Team benachrichtigen
-          </h3>
-        </div>
-        <p className="text-[12px] text-slate-500 mb-4 leading-relaxed">
-          Optional: eine Nachricht in einen Textkanal, sobald jemand wartet.
-        </p>
-
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div>
-            <label className="text-[11px] font-black uppercase tracking-wider text-slate-500">
-              Kanal
-            </label>
-            <select
-              value={notifyId}
-              onChange={(event) => setNotifyId(event.target.value)}
-              className="w-full bg-[#0e0e12] border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-white outline-none focus:border-primary/50 transition-colors mt-2"
-            >
-              <option value="">— keine Nachricht —</option>
-              {(data.text_channels ?? []).map((channel: any) => (
-                <option key={channel.id} value={channel.id}>
-                  #{channel.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="text-[11px] font-black uppercase tracking-wider text-slate-500">
-              Rolle pingen
-            </label>
-            <select
-              value={roleId}
-              onChange={(event) => setRoleId(event.target.value)}
-              className="w-full bg-[#0e0e12] border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-white outline-none focus:border-primary/50 transition-colors mt-2"
-            >
-              <option value="">— niemanden —</option>
-              {(data.roles ?? []).map((role: any) => (
-                <option key={role.id} value={role.id}>
-                  @{role.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-      </div>
-
-      {/* ── Das Ping-System ─────────────────────────────────────────
-          Vorher gab es hier nur "Kanal" und "Rolle" -- und die Regel
-          dahinter war: bei JEDEM Beitritt eine Nachricht. Wer zweimal
-          verbindet oder ein wackliges Netz hat, löste zwei Pings aus;
-          sah niemand die Meldung, kam nie eine zweite. */}
-      <div className="rounded-3xl border border-slate-800 bg-[#131318] p-4 sm:p-6 space-y-5">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="min-w-0">
-            <h3 className="text-[15px] font-bold text-white">
-              Wann das Team gepingt wird
-            </h3>
-            <p className="mt-1 text-[13px] leading-relaxed text-slate-500">
-              Ohne Pause wird bei jedem Verbindungsabbruch erneut
-              erwähnt — und ein Team, das im Sekundentakt gepingt wird,
-              schaltet die Erwähnung ab.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setPingEnabled((v) => !v)}
-            aria-pressed={pingEnabled}
-            className={cn(
-              "shrink-0 rounded-xl border px-4 py-2.5 text-sm font-semibold transition-colors",
-              pingEnabled
-                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
-                : "border-slate-800 bg-[#0e0e12] text-slate-400"
-            )}
-          >
-            {pingEnabled ? "Pings an" : "Pings aus"}
-          </button>
-        </div>
-
-        {pingEnabled && (
-          <>
-            <div className="grid gap-4 sm:grid-cols-3">
-              <div>
-                <label className="text-[11px] font-black uppercase tracking-wider text-slate-500">
-                  Pause zwischen Pings
-                </label>
-                <div className="mt-2 flex items-center gap-2">
-                  <input
-                    type="number"
-                    min={0}
-                    max={3600}
-                    value={pingCooldown}
-                    onChange={(e) => setPingCooldown(Number(e.target.value))}
-                    className="w-full rounded-xl border border-slate-800 bg-[#0e0e12] px-3 py-2.5 text-sm text-white outline-none transition-colors focus:border-primary/50"
-                  />
-                  <span className="shrink-0 text-[13px] text-slate-500">Sek.</span>
-                </div>
-                <p className="mt-1.5 text-[12px] leading-relaxed text-slate-600">
-                  {pingCooldown === 0
-                    ? "Bei jedem Beitritt — auch bei Verbindungsabbrüchen."
-                    : `Frühestens alle ${pingCooldown} Sekunden.`}
-                </p>
-              </div>
-
-              <div>
-                <label className="text-[11px] font-black uppercase tracking-wider text-slate-500">
-                  Erinnerung nach
-                </label>
-                <div className="mt-2 flex items-center gap-2">
-                  <input
-                    type="number"
-                    min={0}
-                    max={3600}
-                    value={reminderSeconds}
-                    onChange={(e) => setReminderSeconds(Number(e.target.value))}
-                    className="w-full rounded-xl border border-slate-800 bg-[#0e0e12] px-3 py-2.5 text-sm text-white outline-none transition-colors focus:border-primary/50"
-                  />
-                  <span className="shrink-0 text-[13px] text-slate-500">Sek.</span>
-                </div>
-                <p className="mt-1.5 text-[12px] leading-relaxed text-slate-600">
-                  {reminderSeconds === 0
-                    ? "Keine Erinnerung — es wird nur einmal gemeldet."
-                    : `Wenn nach ${reminderSeconds} Sekunden niemand da ist.`}
-                </p>
-              </div>
-
-              <div>
-                <label className="text-[11px] font-black uppercase tracking-wider text-slate-500">
-                  Höchstens Erinnerungen
-                </label>
-                <input
-                  type="number"
-                  min={0}
-                  max={10}
-                  value={maxReminders}
-                  onChange={(e) => setMaxReminders(Number(e.target.value))}
-                  className="mt-2 w-full rounded-xl border border-slate-800 bg-[#0e0e12] px-3 py-2.5 text-sm text-white outline-none transition-colors focus:border-primary/50"
-                />
-                <p className="mt-1.5 text-[12px] leading-relaxed text-slate-600">
-                  Danach ist Ruhe. Ohne Grenze pingt der Bot ewig weiter,
-                  wenn gerade niemand da ist.
-                </p>
-              </div>
+      {/* ── Was fest eingestellt ist ──────────────────────────────── */}
+      <div className={cn(CARD, "border-slate-800/60")}>
+        <div className="flex gap-3">
+          <Info className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" />
+          <div className="min-w-0 flex-1">
+            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+              Fest eingestellt
             </div>
-
-            <button
-              type="button"
-              onClick={() => setPingWhenStaff((v) => !v)}
-              aria-pressed={pingWhenStaff}
-              className="flex w-full items-start gap-3 rounded-xl border border-slate-800 bg-[#0e0e12] p-3.5 text-left transition-colors hover:border-slate-700"
-            >
-              <span
-                className={cn(
-                  "mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded border",
-                  pingWhenStaff
-                    ? "border-primary bg-primary text-white"
-                    : "border-slate-700"
-                )}
-              >
-                {pingWhenStaff && <Check className="h-3 w-3" />}
-              </span>
-              <span className="min-w-0">
-                <span className="block text-[14px] font-semibold text-white">
-                  Auch pingen, wenn schon jemand vom Team da ist
+            <p className="mt-1.5 text-xs leading-relaxed text-slate-500">
+              Diese Werte lassen sich nicht ändern — sie sind erprobt, und
+              jede Einstellung mehr war bisher ein Weg, den Warteraum kaputt
+              zu konfigurieren.
+            </p>
+            <ul className="mt-3 space-y-1.5 text-xs text-slate-500">
+              <li className="flex items-start gap-2">
+                <Music className="mt-0.5 h-3 w-3 shrink-0 text-slate-600" />
+                <span>
+                  Wartemusik:{" "}
+                  <code className="rounded bg-black/30 px-1 text-slate-400">
+                    {fest.music_file || "warteraum.mp3"}
+                  </code>{" "}
+                  — zum Austauschen die Datei in{" "}
+                  <code className="rounded bg-black/30 px-1 text-slate-400">
+                    dashboard/public/
+                  </code>{" "}
+                  ersetzen.
                 </span>
-                <span className="mt-0.5 block text-[13px] leading-relaxed text-slate-500">
-                  Normalerweise nicht: sitzt ein Teammitglied im Warteraum,
-                  ist die Meldung überflüssig. Braucht die eingestellte
-                  Team-Rolle, sonst lässt sich die Frage nicht beantworten.
-                </span>
-              </span>
-            </button>
-
-            {!notifyId && (
-              <p className="rounded-xl border border-amber-500/25 bg-amber-500/10 px-3.5 py-3 text-[13px] leading-relaxed text-amber-200/90">
-                Es ist kein Meldekanal gewählt — es wird nichts gepingt,
-                egal was hier eingestellt ist.
-              </p>
-            )}
-
-            {typeof data.reminders_sent === "number" &&
-              data.reminders_sent > 0 && (
-                <p className="text-[12px] text-slate-600">
-                  In diesem Wartelauf schon {data.reminders_sent} Erinnerung
-                  {data.reminders_sent === 1 ? "" : "en"} geschickt.
-                </p>
-              )}
-          </>
-        )}
+              </li>
+              <li>
+                Ein Durchgang dauert {fest.music_seconds ?? 30} Sekunden, dann
+                beginnt sie von vorn.
+              </li>
+              <li>
+                Nach einer Meldung ist{" "}
+                {Math.round((fest.ping_cooldown ?? 120) / 60)} Minuten Ruhe —
+                sonst löst jedes Verbindungswackeln eine neue aus.
+              </li>
+              <li>
+                Reagiert niemand, wird nach{" "}
+                {Math.round((fest.reminder_seconds ?? 300) / 60)} Minuten
+                erinnert, höchstens {fest.max_reminders ?? 3} Mal.
+              </li>
+              <li>Der Text der Meldung ist nicht bearbeitbar.</li>
+            </ul>
+          </div>
+        </div>
       </div>
-
-      {/* Speichern */}
-      <div className="flex flex-wrap gap-3">
-        <button
-          onClick={save}
-          disabled={busy}
-          className="flex items-center gap-2 bg-primary hover:bg-primary/90 disabled:opacity-50 text-white text-sm font-bold px-5 py-2.5 rounded-xl transition-all"
-        >
-          {busy ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Save className="h-4 w-4" />
-          )}
-          Speichern
-        </button>
-
-        <button
-          onClick={test}
-          disabled={busy || !channelId || !audioReady}
-          title={
-            !audioReady
-              ? "Ohne Audio-Knoten geht kein Test."
-              : !channelId
-              ? "Erst einen Kanal wählen."
-              : ""
-          }
-          className="flex items-center gap-2 bg-white/[0.04] border border-white/10 hover:bg-white/[0.07] disabled:opacity-40 text-slate-200 text-sm font-bold px-5 py-2.5 rounded-xl transition-all"
-        >
-          <Play className="h-4 w-4" />
-          Einmal anhören
-        </button>
-
-        {data.enabled && data.channel_name && (
-          <span className="flex items-center gap-2 text-[12px] text-emerald-300/80 ml-auto self-center">
-            <CheckCircle2 className="h-3.5 w-3.5" />
-            Aktiv in {data.channel_name}
-          </span>
-        )}
-      </div>
-    </section>
+    </div>
   );
 }

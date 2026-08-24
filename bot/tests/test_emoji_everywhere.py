@@ -101,7 +101,6 @@ MUST_HAVE = {
     "giveaway-detail.tsx": "Gewinnspiel bearbeiten",
     "ticket-panels.tsx": "Ticket-Panels",
     "leveling-panel.tsx": "Level-Aufstieg",
-    "support-queue-panel.tsx": "Support-Warteraum",
     "extras-panels.tsx": "Boost und Sticky",
     "broadcast-panel.tsx": "Rundnachricht",
     "reactionroles-panel.tsx": "Reaktionsrollen",
@@ -149,7 +148,9 @@ SINGLE_FIELDS = [
     ("giveaway-detail.tsx", 'value={value("title")}', "Gewinnspiel bearb.: Ueberschrift"),
     ("autoresponder-panel.tsx", "value={response}", "Autoresponder: Antwort"),
     ("leveling-panel.tsx", 'value={value("level_message") ?? ""}', "Level-Aufstieg"),
-    ("support-queue-panel.tsx", "value={greeting}", "Warteraum: Ansage"),
+    # Der Warteraum hat kein Textfeld mehr: die Ansage ist
+    # entfallen und die Meldung an das Team ist fest. Ohne Feld
+    # gibt es nichts, wo ein Emoji hineingehoerte.
     ("broadcast-panel.tsx", "value={message}", "Rundnachricht: Text"),
     ("extras-panels.tsx", 'value={boost.message ?? ""}', "Boost-Nachricht"),
     ("tester-panel.tsx", "value={body}", "Tester: Meldungstext"),
