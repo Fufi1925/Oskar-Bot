@@ -197,7 +197,9 @@ class SupportQueue(Cog):
             await self._on_arrival(guild, member, record)
         elif left:
             store.clear_waiting(guild.id, member.id)
-            await self._maybe_stop(guild, watched)
+            # Die ID mitgeben: der Voice-Cache kennt die Person hier
+            # noch als anwesend -- siehe _maybe_stop.
+            await self._maybe_stop(guild, watched, ausser=member.id)
 
     async def _on_arrival(self, guild, member, record: dict) -> None:
         """Jemand wartet. Team benachrichtigen, Bot dazu, Musik."""
@@ -363,16 +365,47 @@ class SupportQueue(Cog):
             titel = "Jemand wartet im Support"
             text = f"{member.mention} wartet in {channel.mention}."
 
+        # ── Warum die Erwaehnung IN die Karte gehoert ──────────────
+        #
+        # Hier stand `content=mention` neben `view=StatusCard(...)`.
+        # Das hat NIE funktioniert -- keine einzige Meldung kam an,
+        # und im Log stand nichts.
+        #
+        # Der Grund steckt in discord.py 2.7.1 (discord/http.py,
+        # handle_message_parameters):
+        #
+        #     if view.has_components_v2():
+        #         flags = MessageFlags(components_v2=True)
+        #
+        # `StatusCard` erbt von `LayoutView`, hat also
+        # V2-Komponenten. Discord verbietet bei gesetztem
+        # `components_v2` aber jedes `content` und antwortet mit
+        # HTTP 400. Nachgemessen in repro/bug_ping_v2.py: der Payload
+        # enthaelt content UND flags=32768 gleichzeitig.
+        #
+        # Gemerkt hat das niemand, weil der Fehler unten abgefangen
+        # wird und die Warnung am Root-Logger ohne Handler
+        # verschwindet.
+        #
+        # Die Erwaehnung steht deshalb jetzt im Text der Karte.
+        # Discord wertet sie dort genauso aus -- `allowed_mentions`
+        # entscheidet weiterhin, ob wirklich gepingt wird.
+        if mention:
+            text = f"{mention}\n{text}"
+
         try:
             from utils.panels import StatusCard
 
             await target.send(
-                content=mention or None,
                 view=StatusCard(titel, text, tone="info"),
                 allowed_mentions=discord.AllowedMentions(roles=True),
             )
             return True
         except Exception as exc:  # noqa: BLE001 - darf nie den Rest kippen
+            # Mit print, nicht nur ueber den Logger: am Root-Logger
+            # haengt kein Handler, und genau deshalb ist dieser
+            # Fehler monatelang unbemerkt geblieben.
+            print(f"[supportqueue] Meldung fehlgeschlagen: {exc!r}")
             LOGGER.warning("Support-Hinweis fehlgeschlagen: %s", exc)
             return False
 
@@ -447,8 +480,8 @@ class SupportQueue(Cog):
                 return
 
             LOGGER.info(
-                "Warteraum #%s: Wartemusik (%ss je Durchgang)",
-                getattr(channel, "name", channel.id), store.MUSIC_SECONDS,
+                "Warteraum #%s: Wartemusik laeuft",
+                getattr(channel, "name", channel.id),
             )
 
             while self._humans_present(channel):
@@ -466,8 +499,12 @@ class SupportQueue(Cog):
                     pass
 
     @staticmethod
-    def _humans_present(channel) -> bool:
+    def _humans_present(channel, *, ausser: int | None = None) -> bool:
         """Sitzt noch jemand drin, der kein Bot ist?
+
+        `ausser` blendet eine bestimmte Person aus. Gebraucht beim
+        Verlassen: der Voice-Cache ist zu diesem Zeitpunkt noch nicht
+        aktualisiert und zeigt sie faelschlich als anwesend.
 
         Ohne diese Frage laeuft die Schleife weiter, wenn der letzte
         Mensch gegangen ist -- der Bot spielt dann sich selbst etwas
@@ -507,6 +544,8 @@ class SupportQueue(Cog):
                     continue
                 if bot_id is not None and user_id == bot_id:
                     continue
+                if ausser is not None and user_id == ausser:
+                    continue
 
                 # Ist es ein Bot? Nur beantwortbar, wenn der Member
                 # bekannt ist. Im Zweifel als Mensch zaehlen: lieber
@@ -523,7 +562,10 @@ class SupportQueue(Cog):
 
         # Kein Voice-Zustand verfuegbar (Attrappen im Test, aeltere
         # Bibliothek): dann eben die uebliche Liste.
-        return any(not m.bot for m in getattr(channel, "members", []))
+        return any(
+            not m.bot and (ausser is None or m.id != ausser)
+            for m in getattr(channel, "members", [])
+        )
 
     async def _join(self, channel):
         """In den Kanal, ueber Lavalink. None, wenn kein Knoten da ist."""
@@ -584,29 +626,62 @@ class SupportQueue(Cog):
             return None
         return gefunden[0] if gefunden else None
 
-    async def _play_music(self, player) -> None:
-        """Ein Durchgang Wartemusik."""
+    @staticmethod
+    def _track_seconds(track) -> int:
+        """Wie lang ist das Stueck? In Sekunden.
 
-        sekunden = store.MUSIC_SECONDS
+        Lavalink liefert die Laenge in Millisekunden. Fehlt die
+        Angabe oder ist sie unsinnig (Livestreams melden 0 oder
+        etwas sehr Grosses), wird auf die Obergrenze
+        zurueckgefallen.
+        """
+        roh = getattr(track, "length", None)
+        try:
+            sekunden = int(roh) // 1000
+        except (TypeError, ValueError):
+            return store.MAX_TRACK_SECONDS
+        if sekunden <= 0 or sekunden > store.MAX_TRACK_SECONDS:
+            return store.MAX_TRACK_SECONDS
+        return sekunden
+
+    async def _play_music(self, player) -> None:
+        """Ein Durchgang Wartemusik -- das Stueck einmal ganz.
+
+        ── Was hier vorher falsch war ──────────────────────────────
+
+        Die Dauer war fest auf 30 Sekunden gesetzt und das Stueck
+        wurde mit `end=30000` hart abgeschnitten. Bei der jetzt
+        hochgeladenen Datei (85 Sekunden) hiess das: nach einem
+        Drittel Abbruch, dann von vorn. Man hoert nie mehr als den
+        Anfang.
+
+        Jetzt bestimmt der Track selbst, wie lange gespielt wird.
+        Die Obergrenze bleibt als Notausgang: ein Livestream hat
+        keine Laenge, und ohne Grenze koennte die Schleife den Kanal
+        nie wieder pruefen.
+        """
+
         track = await self._find_track()
 
         if track is None:
             # Keine Musik? Dann eben Stille -- aber die Schleife muss
             # trotzdem warten, sonst dreht sie bei voller Last durch.
-            await asyncio.sleep(sekunden)
+            await asyncio.sleep(store.SILENCE_SECONDS)
             return
 
+        sekunden = self._track_seconds(track)
+
         try:
-            # `end` schneidet das Stueck hart auf die Dauer. Ohne diese
-            # Angabe liefe ein zehnminuetiger Track durch, und die
-            # Schleife koennte den Kanal nicht mehr pruefen.
+            # `end` nur als Notausgang, auf die echte Laenge gesetzt.
+            # Ein Stueck, das laenger ist als die Obergrenze, wird
+            # dort abgeschnitten -- alles andere laeuft ganz durch.
             await player.play(track, volume=45, end=sekunden * 1000)
             await self._wait_until_idle(
-                player, limit=sekunden + 5, floor=float(sekunden)
+                player, limit=sekunden + 5, floor=min(float(sekunden), 5.0)
             )
         except Exception as exc:  # noqa: BLE001
             LOGGER.warning("Wartemusik fehlgeschlagen: %s", exc)
-            await asyncio.sleep(sekunden)
+            await asyncio.sleep(store.SILENCE_SECONDS)
 
     @staticmethod
     async def _wait_until_idle(player, *, limit: int, floor: float = 0.0) -> None:
@@ -638,11 +713,30 @@ class SupportQueue(Cog):
             await asyncio.sleep(0.5)
             waited += 0.5
 
-    async def _maybe_stop(self, guild, channel_id: int) -> None:
-        """Der Letzte macht das Licht aus."""
+    async def _maybe_stop(self, guild, channel_id: int, *,
+                          ausser: int | None = None) -> None:
+        """Der Letzte macht das Licht aus.
+
+        ── Warum `ausser` noetig ist ───────────────────────────────
+
+        `on_voice_state_update` feuert, BEVOR discord.py
+        `guild._voice_states` nachgezogen hat. Die Person, die gerade
+        gegangen ist, steht dort also noch drin -- `_humans_present`
+        meldet "es ist noch jemand da", und diese Funktion bricht
+        sofort ab.
+
+        Ergebnis: der Bot bleibt im Kanal sitzen, spielt weiter, und
+        geht nie mehr raus. Genau das war gemeldet: "manchmal joint
+        Bot, leavt nicht". Nachgestellt in repro/bug_leave.py.
+
+        Die ID der gehenden Person wird deshalb ausdruecklich
+        uebergeben und beim Zaehlen uebersprungen. Auf den Cache zu
+        warten waere die schlechtere Loesung: wie lange, weiss
+        niemand.
+        """
 
         channel = guild.get_channel(channel_id)
-        if channel is not None and self._humans_present(channel):
+        if channel is not None and self._humans_present(channel, ausser=ausser):
             return
 
         # `store.reset` nimmt den Ping-Zustand mit: der naechste

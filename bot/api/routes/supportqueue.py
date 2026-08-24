@@ -206,7 +206,9 @@ def _antwort(guild, record: dict) -> dict:
         "fixed": {
             "music_file": MUSIC_FILE,
             "music_url": _music_url(),
-            "music_seconds": store.MUSIC_SECONDS,
+            # Keine feste Dauer mehr: das Stueck laeuft ganz durch,
+            # die Zahl ist nur der Notausgang fuer haengende Tracks.
+            "max_track_seconds": store.MAX_TRACK_SECONDS,
             "ping_cooldown": store.PING_COOLDOWN,
             "reminder_seconds": store.REMINDER_SECONDS,
             "max_reminders": store.MAX_REMINDERS,

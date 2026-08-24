@@ -47,10 +47,27 @@ DB_PATH = "db/support_queue.db"
 # klar ist, was gilt -- und damit ein spaeteres Nachjustieren an einer
 # Stelle passiert und nicht auf jedem Server einzeln.
 
-#: Wie lange ein Stueck Wartemusik am Stueck laeuft, bevor die
-#: Schleife neu ansetzt. Bei der Platzhalter-Datei ist das genau ihre
-#: Laenge, also spielt sie einmal durch.
-MUSIC_SECONDS = 30
+#: Obergrenze fuer einen Durchgang Wartemusik, in Sekunden.
+#:
+#: Das ist ausdruecklich eine GRENZE, keine feste Dauer. Wie lange
+#: wirklich gespielt wird, sagt der Track selbst -- Lavalink kennt
+#: seine Laenge.
+#:
+#: Vorher stand hier 30, und die Schleife schnitt jedes Stueck hart
+#: nach 30 Sekunden ab (`end=sekunden * 1000`). Bei der jetzt
+#: hochgeladenen Datei (85 Sekunden) hiess das: nach einem Drittel
+#: bricht sie ab und faengt von vorn an -- man hoert nie mehr als den
+#: Anfang. Nachgemessen in repro/bug_leave.py.
+#:
+#: Zehn Minuten sind hoch genug fuer jede uebliche Warteschleife und
+#: niedrig genug, dass ein haengender Track die Schleife nicht fuer
+#: immer blockiert.
+MAX_TRACK_SECONDS = 600
+
+#: Wie lange gewartet wird, wenn gar keine Musik geladen werden kann.
+#: Ohne diese Pause wiederholte die Schleife den Versuch im
+#: Sekundentakt und liefe bei voller Last durch.
+SILENCE_SECONDS = 30
 
 #: Wie lange nach einer Meldung nicht erneut gemeldet wird.
 #:

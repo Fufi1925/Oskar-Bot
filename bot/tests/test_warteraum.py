@@ -446,8 +446,13 @@ def test_musik() -> None:
     dauer = rahmen * 1152 / 44100
     check("sie ist abspielbar (durchgehende Rahmenkette)",
           rahmen > 500, f"{rahmen} Rahmen")
-    check("sie ist etwa so lang wie ein Durchgang",
-          20 < dauer < 60, f"{dauer:.1f}s")
+    # Keine feste Erwartung an die Laenge mehr: der Nutzer tauscht
+    # die Datei aus, und sie laeuft jetzt ganz durch statt nach einer
+    # festen Zeit abgeschnitten zu werden. Nur die Obergrenze zaehlt.
+    from utils import support_queue as _sq
+    check("sie ist laenger als ein Augenblick und kuerzer als die Obergrenze",
+          5 < dauer <= _sq.MAX_TRACK_SECONDS,
+          f"{dauer:.1f}s gegen Obergrenze {_sq.MAX_TRACK_SECONDS}s")
 
     # Der Weg ins Image.
     dockerfile = open(os.path.join(ROOT, "Dockerfile"), encoding="utf-8").read()
@@ -529,9 +534,25 @@ def test_nichts_mehr_einstellbar() -> None:
           'record.get("music_url")' not in ohne_cog
           and "record.get('music_url')" not in ohne_cog,
           "sie soll fest sein")
-    check("die Dauer kommt aus dem Modul, nicht aus dem Datensatz",
-          "store.MUSIC_SECONDS" in ohne_cog
+    # Die Dauer kommt jetzt vom Track selbst -- eine feste Zahl
+    # schnitt die 85-Sekunden-Datei nach 30 Sekunden ab.
+    check("die Dauer kommt vom Track, nicht aus dem Datensatz",
+          "_track_seconds" in ohne_cog
           and 'record.get("music_seconds")' not in ohne_cog)
+
+    # Und `_play_music` muss sie auch BENUTZEN. Ein fest verdrahtetes
+    # `sekunden = 30` haette die Pruefung oben ueberlebt -- die
+    # Funktion existiert ja weiterhin.
+    rumpf_play = ohne_cog[ohne_cog.find("async def _play_music"):]
+    rumpf_play = rumpf_play[:rumpf_play.find("@staticmethod\n    async def _wait_until_idle")]
+    check("_play_music fragt den Track nach seiner Laenge",
+          "self._track_seconds(track)" in rumpf_play,
+          "sonst wird die Datei wieder nach fester Zeit abgeschnitten")
+    check("keine fest verdrahtete Sekundenzahl in _play_music",
+          not re.search(r"sekunden\s*=\s*\d+", rumpf_play),
+          "die Laenge muss vom Stueck kommen")
+    check("es gibt nur noch eine Obergrenze",
+          "store.MAX_TRACK_SECONDS" in ohne_cog)
 
     routen = open(os.path.join(BOT, "api", "routes", "supportqueue.py"),
                   encoding="utf-8").read()
@@ -631,6 +652,265 @@ def test_dashboard() -> None:
           "supportQueue:" in api_ts and "supportQueueSave:" in api_ts)
 
 
+
+def test_ping_kommt_wirklich_an() -> None:
+    """Die Meldung darf `content` NICHT neben einer V2-View benutzen.
+
+    ── Der Fehler, den das absichert ───────────────────────────────
+
+    Es kam keine einzige Ping-Nachricht an, und im Log stand nichts.
+    Der Grund steckt in discord.py 2.7.1 (discord/http.py,
+    handle_message_parameters):
+
+        if view.has_components_v2():
+            flags = MessageFlags(components_v2=True)
+
+    `StatusCard` erbt von `LayoutView`, hat also V2-Komponenten.
+    Discord verbietet bei gesetztem `components_v2` jedes `content`
+    und antwortet mit HTTP 400. Der Fehler wurde abgefangen, und die
+    Warnung verschwand am Root-Logger ohne Handler.
+
+    Geprueft wird hier am ECHTEN Payload, den discord.py abschicken
+    wuerde -- nicht am Quelltext.
+    """
+    linie("8  Die Ping-Nachricht kommt wirklich an")
+
+    import discord
+    import discord.http as dhttp
+
+    from utils.panels import StatusCard
+
+    karte = StatusCard("Jemand wartet", "<@&123>\n<@1> wartet in <#2>.")
+    check("StatusCard ist eine V2-Ansicht", karte.has_components_v2(),
+          "sonst greift die ganze Ueberlegung nicht")
+
+    # So sendet der Warteraum jetzt: ohne content.
+    params = dhttp.handle_message_parameters(
+        view=karte, allowed_mentions=discord.AllowedMentions(roles=True)
+    )
+    flags = discord.MessageFlags._from_value(params.payload.get("flags", 0))
+    check("kein content im Payload",
+          "content" not in params.payload or not params.payload["content"],
+          "content + components_v2 wird von Discord mit 400 abgelehnt")
+    check("die V2-Kennzeichnung ist gesetzt", flags.components_v2)
+
+    import json
+    check("die Erwaehnung steckt in den Komponenten",
+          "<@&123>" in json.dumps(params.payload.get("components", [])),
+          "sonst pingt die Nachricht niemanden")
+
+    # Und der Beweis andersherum: MIT content waere es kaputt.
+    kaputt = dhttp.handle_message_parameters(content="<@&123>", view=StatusCard("T", "B"))
+    kaputt_flags = discord.MessageFlags._from_value(kaputt.payload.get("flags", 0))
+    check("der alte Weg waere nachweislich kaputt",
+          bool(kaputt.payload.get("content")) and kaputt_flags.components_v2,
+          "wenn das nicht mehr stimmt, hat discord.py sich geaendert")
+
+    # Der Cog darf content nicht mehr benutzen.
+    quelle = open(os.path.join(BOT, "cogs", "commands", "supportqueue.py"),
+                  encoding="utf-8").read()
+    ohne = strip_py(quelle)
+    versand = ohne[ohne.find("async def _send_notice"):]
+    versand = versand[:versand.find("async def _reminder_loop")]
+    check("der Versand benutzt kein content=",
+          "content=" not in versand,
+          "genau das war der Fehler")
+    # Auf die Wirkung zielen, nicht auf das Vorkommen der Woerter:
+    # `_send_notice` wirklich aufrufen und nachsehen, was an
+    # `target.send` uebergeben wird. Eine Pruefung auf "mention kommt
+    # im Quelltext vor" blieb gruen, als die Zeile entfernt wurde --
+    # im Mutationstest nachgestellt.
+    import asyncio as _asyncio
+
+    gesendet = {}
+
+    class _Ziel:
+        async def send(self, **kw):
+            gesendet.update(kw)
+
+    class _Rolle:
+        mention = "<@&555>"
+
+    class _Guild:
+        id = GILDE
+
+        def get_channel(self, cid):
+            return _Ziel()
+
+        def get_role(self, rid):
+            return _Rolle()
+
+    class _Kanal:
+        mention = "<#900001>"
+
+    class _Wer:
+        mention = "<@111>"
+
+    from cogs.commands.supportqueue import SupportQueue
+
+    cog_pruef = SupportQueue.__new__(SupportQueue)
+    ok = _asyncio.run(cog_pruef._send_notice(
+        _Guild(), _Wer(), {"notify_channel_id": 1, "staff_role_id": 555},
+        _Kanal(),
+    ))
+
+    check("die Meldung geht raus", ok is True)
+    check("sie wird OHNE content gesendet",
+          "content" not in gesendet or not gesendet.get("content"),
+          f"gesendet: {sorted(gesendet)}")
+
+    inhalt = str(gesendet.get("view"))
+    import json as _json
+    try:
+        roh = _json.dumps(gesendet["view"].to_components())
+    except Exception:
+        roh = inhalt
+    check("die Rollen-Erwaehnung steckt wirklich in der Nachricht",
+          "<@&555>" in roh,
+          "ohne sie pingt die Meldung niemanden")
+    check("allowed_mentions erlaubt Rollen",
+          getattr(gesendet.get("allowed_mentions"), "roles", False) is True,
+          "sonst wird die Erwaehnung nicht zugestellt")
+
+
+def test_leave_bei_hinkendem_cache() -> None:
+    """Der Bot muss gehen, auch wenn der Voice-Cache hinterherhinkt.
+
+    `on_voice_state_update` feuert, BEVOR discord.py
+    `guild._voice_states` nachgezogen hat. Die gerade gegangene
+    Person steht dort noch -- ohne Gegenmassnahme meldet
+    `_humans_present` "es ist noch jemand da" und der Bot bleibt fuer
+    immer sitzen. Das war gemeldet als "joint, leavt nicht".
+    """
+    linie("9  Verlassen trotz hinkendem Voice-Cache")
+
+    import aiosqlite
+
+    from utils import support_queue as store
+
+    ordner = tempfile.mkdtemp(prefix="wrleave-")
+    os.chdir(ordner)
+    os.makedirs("db", exist_ok=True)
+
+    async def lauf():
+        db = await aiosqlite.connect(store.DB_PATH)
+        await store.ensure_schema(db)
+        await store.save(db, GILDE, enabled=True, channel_id=KANAL)
+        rec = await store.get(db, GILDE)
+
+        cog = baue_cog()
+        cog._connection = db
+
+        g = FakeGuild()
+        k = FakeChannel(KANAL, g)
+        g._channels[KANAL] = k
+        person = FakeMember(111)
+        person.guild = g
+        g._members[111] = person
+
+        g._voice_states[111] = FakeState(k)
+        await cog._on_arrival(g, person, rec)
+        await asyncio.sleep(0.35)
+        check("der Bot ist drin", GILDE in cog._loops)
+
+        # Das Ereignis feuern, OHNE den Cache zu leeren -- genau so
+        # verhaelt sich discord.py.
+        class VS:
+            def __init__(self, ch):
+                self.channel = ch
+
+        await cog.on_voice_state_update(person, VS(k), VS(None))
+        await asyncio.sleep(0.3)
+
+        check("der Bot geht trotzdem raus",
+              GILDE not in cog._loops,
+              "der Cache zeigte die Person noch -- der Bot blieb sitzen")
+
+        # Gegenprobe: sitzt WIRKLICH noch jemand drin, bleibt er.
+        cog2 = baue_cog()
+        cog2._connection = db
+        g2 = FakeGuild()
+        k2 = FakeChannel(KANAL, g2)
+        g2._channels[KANAL] = k2
+        a = FakeMember(111)
+        b = FakeMember(222)
+        a.guild = b.guild = g2
+        g2._members[111] = a
+        g2._members[222] = b
+        g2._voice_states[111] = FakeState(k2)
+        g2._voice_states[222] = FakeState(k2)
+
+        await cog2._on_arrival(g2, a, rec)
+        await asyncio.sleep(0.35)
+        await cog2.on_voice_state_update(a, VS(k2), VS(None))
+        await asyncio.sleep(0.2)
+
+        check("mit einer zweiten Person bleibt er",
+              GILDE in cog2._loops,
+              "er ging, obwohl noch jemand wartet")
+
+        g2._voice_states.clear()
+        await cog2._maybe_stop(g2, KANAL)
+        await db.close()
+
+    asyncio.run(lauf())
+    os.chdir(START)
+
+
+def test_musik_laeuft_ganz_durch() -> None:
+    """Die Laenge kommt vom Track, nicht aus einer festen Zahl.
+
+    Vorher war sie auf 30 Sekunden festgenagelt und das Stueck wurde
+    hart abgeschnitten. Bei der hochgeladenen Datei (85 Sekunden)
+    hiess das: nach einem Drittel Abbruch, dann von vorn.
+    """
+    linie("10  Die Musik laeuft ganz durch")
+
+    from cogs.commands.supportqueue import SupportQueue
+    from utils import support_queue as store
+
+    class Track:
+        def __init__(self, ms):
+            self.length = ms
+
+    check("eine 85-Sekunden-Datei wird nicht gekuerzt",
+          SupportQueue._track_seconds(Track(85_300)) == 85,
+          str(SupportQueue._track_seconds(Track(85_300))))
+    check("eine kurze Datei ebenso",
+          SupportQueue._track_seconds(Track(30_000)) == 30)
+    check("ein Livestream (Laenge 0) faellt auf die Obergrenze",
+          SupportQueue._track_seconds(Track(0)) == store.MAX_TRACK_SECONDS)
+    check("eine absurde Laenge ebenfalls",
+          SupportQueue._track_seconds(Track(99_999_999)) == store.MAX_TRACK_SECONDS)
+    check("eine fehlende Angabe ebenfalls",
+          SupportQueue._track_seconds(object()) == store.MAX_TRACK_SECONDS)
+
+    # Die echte Datei muss unter der Obergrenze liegen.
+    pfad = os.path.join(DASH, "public", "warteraum.mp3")
+    if os.path.isfile(pfad):
+        d = open(pfad, "rb").read()
+        BITRATE = [0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 0]
+        RATE = [44100, 48000, 32000, 0]
+        i = 0
+        if d[:3] == b"ID3":
+            i = 10 + ((d[6] << 21) | (d[7] << 14) | (d[8] << 7) | d[9])
+        rahmen, sr = 0, 44100
+        while i < len(d) - 4:
+            if d[i] == 0xFF and (d[i + 1] & 0xE0) == 0xE0:
+                br = BITRATE[(d[i + 2] >> 4) & 0xF]
+                s = RATE[(d[i + 2] >> 2) & 0x3]
+                if br and s:
+                    sr = s
+                    i += int(144000 * br / s) + ((d[i + 2] >> 1) & 1)
+                    rahmen += 1
+                    continue
+            i += 1
+        laenge = rahmen * 1152 / sr
+        check("die hochgeladene Datei passt unter die Obergrenze",
+              laenge <= store.MAX_TRACK_SECONDS,
+              f"{laenge:.0f}s gegen {store.MAX_TRACK_SECONDS}s")
+
+
 def main() -> int:
     try:
         test_beitritt()
@@ -640,6 +920,9 @@ def main() -> int:
         test_musik()
         test_nichts_mehr_einstellbar()
         test_dashboard()
+        test_ping_kommt_wirklich_an()
+        test_leave_bei_hinkendem_cache()
+        test_musik_laeuft_ganz_durch()
     finally:
         os.chdir(START)
 

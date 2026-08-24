@@ -406,8 +406,8 @@ export function SupportQueuePanel({ guildId }: { guildId: string }) {
                 </span>
               </li>
               <li>
-                Ein Durchgang dauert {fest.music_seconds ?? 30} Sekunden, dann
-                beginnt sie von vorn.
+                Sie läuft einmal ganz durch und beginnt dann von vorn — die
+                Länge bestimmt die Datei selbst.
               </li>
               <li>
                 Nach einer Meldung ist{" "}
