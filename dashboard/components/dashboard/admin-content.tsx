@@ -7,7 +7,7 @@ import {
   Hash, Volume2, FolderPlus, Pencil, Trash2, Copy,
   Unlock, Timer, MessageSquareX, Bell, BellOff, SearchCheck, Bot, UserCog, UserSearch,
   Webhook, Link, ScrollText, BarChart4, ClipboardList, Terminal, Gem, Gauge, Bug,
-  AtSign, Sparkles, Inbox, Cookie, BotMessageSquare
+  AtSign, Sparkles, Inbox, Cookie, BotMessageSquare, KeyRound,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
@@ -33,6 +33,7 @@ import { ApprovalsPanel } from "@/components/dashboard/approvals-panel";
 import { BotSettingsPanel } from "@/components/dashboard/bot-settings-panel";
 import { BroadcastPanel } from "@/components/dashboard/broadcast-panel";
 import { BackupsPanel } from "@/components/dashboard/backups-panel";
+import { DesignUnlockPanel } from "@/components/dashboard/design-unlock-panel";
 import { WarningsPanel } from "@/components/dashboard/warnings-panel";
 import { CommandStatsPanel } from "@/components/dashboard/command-stats-panel";
 import { PingReactionsPanel } from "@/components/dashboard/ping-reactions-panel";
@@ -44,7 +45,7 @@ import { CookieConsentsPanel } from "@/components/dashboard/cookie-consents-pane
 import { TrustedBotsPanel } from "@/components/dashboard/trusted-bots-panel";
 
 
-type TabId = "members" | "channels" | "server" | "scans" | "broadcast" | "system" | "features" | "health" | "team" | "access" | "reports" | "audit" | "approvals" | "botsettings" | "backups" | "warnings" | "usage" | "dashusers" | "servers" | "premium" | "speedrun" | "tester" | "pingreactions" | "templates" | "userlookup" | "webapply" | "cookies" | "trustedbots";
+type TabId = "members" | "channels" | "server" | "scans" | "broadcast" | "system" | "features" | "health" | "team" | "access" | "reports" | "audit" | "approvals" | "botsettings" | "backups" | "warnings" | "usage" | "dashusers" | "servers" | "premium" | "speedrun" | "tester" | "pingreactions" | "templates" | "userlookup" | "webapply" | "cookies" | "trustedbots" | "designunlock";
 type MemberAction = "ban" | "kick" | "mute" | "unmute";
 
 type QuickAction = {
@@ -75,6 +76,7 @@ const tabs: Array<{ id: TabId; label: string; icon: any }> = [
   { id: "audit", label: "Protokoll", icon: ScrollText },
   { id: "approvals", label: "Freigaben", icon: ClipboardList },
   { id: "backups", label: "Sicherungen", icon: Database },
+  { id: "designunlock", label: "Design-Freigabe", icon: KeyRound },
   { id: "pingreactions", label: "Ping-Reaktionen", icon: AtSign },
   { id: "botsettings", label: "Bot-Einstellungen", icon: Wrench },
   { id: "access", label: "Zugriff", icon: Lock },
@@ -157,7 +159,7 @@ const TAB_GROUPS: Array<{ name: string; ids: TabId[] }> = [
   // Wie sich der Bot verhält.
   { name: "Einstellungen", ids: ["botsettings", "features", "pingreactions"] },
   // Was geschützt wird und was nachweisbar sein muss.
-  { name: "Sicherheit", ids: ["trustedbots", "backups", "cookies"] },
+  { name: "Sicherheit", ids: ["trustedbots", "backups", "cookies", "designunlock"] },
   // Was Nutzern angeboten wird.
   { name: "Angebote", ids: ["premium", "templates", "speedrun"] },
 ];
@@ -446,6 +448,7 @@ export function AdminContent() {
     audit: "audit.view",
     approvals: "approvals.view",
     backups: "health.view",
+    designunlock: "health.view",
     botsettings: "maintenance.toggle",
     tester: "tester.access",
     webapply: "approvals.resolve",
@@ -898,6 +901,7 @@ export function AdminContent() {
       {activeTab === "audit" && <AuditPanel />}
       {activeTab === "approvals" && <ApprovalsPanel currentUserId={(session?.user as any)?.id} />}
       {activeTab === "backups" && <BackupsPanel guilds={guilds} />}
+      {activeTab === "designunlock" && <DesignUnlockPanel guilds={guilds} />}
       {activeTab === "botsettings" && <BotSettingsPanel />}
       {activeTab === "warnings" && (
         <div className="space-y-4">

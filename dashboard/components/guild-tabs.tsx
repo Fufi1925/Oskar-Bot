@@ -71,6 +71,7 @@ import {
   Search,
   Settings,
   Shield,
+  Palette,
   ScrollText,
   ShieldAlert,
   ShieldCheck,
@@ -111,6 +112,15 @@ interface Group {
  */
 function buildGroups(t: TranslateFn): Group[] {
   return [
+    {
+      // Ganz vorn: das Design ist die Premium-Funktion, die man
+      // sehen soll, bevor man sie hat.
+      name: "Design",
+      icon: Palette,
+      tabs: [
+        { name: "Design", slug: "design", icon: Palette, also: ["design", "aussehen", "name", "banner", "avatar", "profilbild", "premium"] },
+      ],
+    },
     {
       name: "Schutz",
       icon: Sword,

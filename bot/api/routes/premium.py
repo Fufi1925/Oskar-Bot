@@ -180,9 +180,15 @@ async def my_premium(user_id: int):
 
     return {
         "template_bot": store.status(user_id, product="template_bot"),
-        # The main bot has nothing to sell yet. Saying so here keeps the
-        # dashboard from inventing an answer.
-        "main_bot": {"premium": False, "coming_soon": True},
+        # Der Hauptbot hat jetzt ebenfalls Premium: es schaltet den
+        # Design-Reiter frei (Server-Nickname, -Avatar, -Banner).
+        #
+        # Vorher stand hier fest `{"premium": False, "coming_soon":
+        # True}`. Das war richtig, solange es nichts zu kaufen gab --
+        # aber es haette auch dann noch "demnaechst" gemeldet, wenn
+        # laengst Keys im Umlauf sind. Die Frage beantwortet jetzt
+        # dieselbe Stelle wie beim Template-Bot.
+        "main_bot": store.status(user_id, product="main_bot"),
         "template_invite": invite,
     }
 
@@ -405,7 +411,23 @@ async def create_key(data: dict, bot: "universitybot" = Depends(get_bot)):
     actor = str(data.get("actor") or "dashboard")
     recipient = str(data.get("user_id") or "").strip()
 
-    created = store.create_key(created_by=actor, duration_days=days, note=note)
+    # Fuer welches Produkt gilt der Key?
+    #
+    # Vorher war das fest auf den Template-Bot gesetzt -- der
+    # Hauptbot hatte nichts zu verkaufen. Jetzt schaltet sein Premium
+    # den Design-Reiter frei, also muss man auch Keys dafuer
+    # ausstellen koennen. Die Voreinstellung bleibt der Template-Bot,
+    # damit bestehende Ablaeufe unveraendert weiterlaufen.
+    produkt = str(data.get("product") or "template_bot").strip()
+    if produkt not in ("template_bot", "main_bot"):
+        raise HTTPException(
+            status_code=400,
+            detail="product muss 'template_bot' oder 'main_bot' sein.",
+        )
+
+    created = store.create_key(
+        created_by=actor, duration_days=days, product=produkt, note=note
+    )
     laufzeit = "unbegrenzt" if days == 0 else f"{days} Tage ab Einlösung"
 
     # Delivery is best effort and reported honestly: the key exists

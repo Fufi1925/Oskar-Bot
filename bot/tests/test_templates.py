@@ -3967,6 +3967,11 @@ def test_every_dashboard_tab_is_covered():
         # Uebertragung gaebe es nur doppelt -- die Werte kommen ueber
         # honeypot, verification, automod usw. ohnehin mit.
         "botlogs",
+        # Das Design gehoert zu EINEM Server: Nickname, Server-Avatar
+        # und Banner auf einen anderen zu uebertragen waere falsch --
+        # dort soll der Bot ja anders heissen. Ausserdem haengt es an
+        # Premium des jeweiligen Inhabers.
+        "design",
     }
 
     missing = tabs - set(scan.FEATURE_TABLES) - ohne_einstellung

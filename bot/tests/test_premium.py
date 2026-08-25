@@ -232,9 +232,21 @@ def test_api(store):
     check("the invite does not preselect a server",
           "guild_id" not in invite,
           "the buyer could only add the bot to one place")
-    check("the main bot is honestly marked coming soon",
-          body["main_bot"]["coming_soon"] is True
-          and body["main_bot"]["premium"] is False, r.text[:160])
+    # Der Hauptbot hat jetzt echtes Premium: es schaltet den
+    # Design-Reiter frei (Server-Nickname, -Avatar, -Banner).
+    #
+    # Vorher stand hier fest `{"premium": False, "coming_soon": True}`.
+    # Das war richtig, solange es nichts zu kaufen gab -- es haette
+    # aber auch dann noch "demnaechst" gemeldet, wenn laengst Keys im
+    # Umlauf sind.
+    check("the main bot reports a real premium state",
+          "coming_soon" not in body["main_bot"]
+          and body["main_bot"]["premium"] is False,
+          r.text[:160])
+    check("and it is answered by the same place as the template bot",
+          "product" in body["main_bot"]
+          and body["main_bot"]["product"] == "main_bot",
+          str(body["main_bot"])[:160])
 
     print("\nMinting from the dashboard")
 

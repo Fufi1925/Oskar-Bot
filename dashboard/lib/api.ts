@@ -1442,6 +1442,22 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
+  // ── Design: wie der Bot auf diesem Server aussieht ───────────────
+  design: (guildId: string) => request<any>(`/design/${guildId}`),
+  designSave: (guildId: string, data: any) =>
+    request<any>(`/design/${guildId}`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  designUnlocked: () => request<any>("/design/admin/unlocked"),
+  designUnlock: (guildId: string, note = "") =>
+    request<any>("/design/admin/unlocked", {
+      method: "POST",
+      body: JSON.stringify({ guild_id: guildId, note }),
+    }),
+  designLock: (guildId: string) =>
+    request<any>(`/design/admin/unlocked/${guildId}`, { method: "DELETE" }),
+
   // ── Honeypot ─────────────────────────────────────────────────────
   honeypot: (guildId: string) =>
     request<any>(`/honeypot/${guildId}`),

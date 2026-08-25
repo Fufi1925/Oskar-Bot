@@ -126,6 +126,11 @@ NO_DRAFT = {
     # verlieren koennte -- eine Leiste "ungespeicherte Aenderungen"
     # haette dort nichts anzuzeigen.
     "botlogs",
+    # Der Design-Reiter hat einen eigenen Speichern-Knopf direkt unter
+    # den drei Feldern. Eine eingeblendete Leiste waere ein zweiter
+    # Knopf fuer dieselbe Sache -- und ohne Premium gibt es ohnehin
+    # nichts zu speichern.
+    "design",
 }
 
 

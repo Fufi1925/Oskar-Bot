@@ -25,7 +25,7 @@ import { useProximity } from "@/components/ui/proximity";
 import { PopoverLayer } from "@/components/ui/popover-layer";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 import {
-  LayoutDashboard, ScrollText, Server, ShieldCheck, ShieldAlert, Ticket, BarChart4, FileText, Settings,
+  LayoutDashboard, Palette, ScrollText, Server, ShieldCheck, ShieldAlert, Ticket, BarChart4, FileText, Settings,
   Menu, X, Bell, User, Search, ChevronRight, Star, Sparkles, LogOut,
   Lock, PenLine, Gem, Pin, Moon, Calculator, Youtube, Cake,
   LifeBuoy, ChevronDown, Bot, Shield, UserCheck, Badge, Gauge, Headphones,
@@ -169,6 +169,24 @@ export default function DashboardLayout({
   const allSidebarItems = currentGuildId
     ? [
         { name: "Übersicht", href: `/dashboard/guild/${currentGuildId}`, icon: LayoutDashboard },
+        // Ganz oben und gelb hervorgehoben: das Design ist die
+        // Premium-Funktion, die man sehen soll, bevor man sie hat.
+        //
+        // Als eigene Gruppe, nicht als einzelner Eintrag: die
+        // Reiterleiste darueber hat ebenfalls eine Gruppe "Design",
+        // und test_navigation besteht zu Recht darauf, dass beide
+        // Navigationen dieselben Gruppennamen benutzen.
+        {
+          name: "Design",
+          items: [
+            {
+              name: "Design",
+              href: `/dashboard/guild/${currentGuildId}/design`,
+              icon: Palette,
+              highlight: true,
+            },
+          ],
+        },
         {
           // Same grouping as the tab bar. Two navigations that disagree
           // about where something lives is worse than one.
@@ -387,7 +405,20 @@ export default function DashboardLayout({
                           className={cn(
                             "prox-row prox-row-sm",
                             "flex items-center gap-3 px-3 py-2 rounded-lg transition-colors group text-[13px]",
-                            isActive
+                            // Gelb auch in einer Gruppe.
+                            //
+                            // Genau der Fall, vor dem der Kommentar
+                            // oben warnt: `isPremium` gibt es nur auf
+                            // der obersten Ebene. Der Design-Reiter
+                            // steht in einer Gruppe, also haette er
+                            // den Stil sonst nie bekommen -- der
+                            // gelbe Rahmen waere im Code gestanden
+                            // und auf dem Bildschirm nicht zu sehen.
+                            (subItem as any).highlight
+                              ? isActive
+                                ? "bg-amber-400/10 text-amber-200 font-semibold"
+                                : "text-amber-300/80 hover:bg-amber-400/[0.07] hover:text-amber-200"
+                              : isActive
                               ? "bg-white/[0.06] text-white font-semibold"
                               : "text-slate-400 hover:bg-white/[0.03] hover:text-slate-200"
                           )}
@@ -395,7 +426,9 @@ export default function DashboardLayout({
                           <subItem.icon
                             className={cn(
                               "h-4 w-4 shrink-0 transition-colors",
-                              isActive
+                              (subItem as any).highlight
+                                ? "text-amber-400"
+                                : isActive
                                 ? "text-indigo-400"
                                 : "text-slate-600 group-hover:text-slate-400"
                             )}
@@ -428,7 +461,14 @@ export default function DashboardLayout({
             // it is read, so it glows gold instead of using the flat
             // blue every other link shares. Keyed off the href, not the
             // label, because the label is translated.
-            const isPremium = item.href === "/dashboard/premium";
+            // Golden wird alles, was Premium verkauft oder braucht.
+            //
+            // Der Design-Reiter haengt sich hier an, statt einen
+            // vierten Sonderfall zu bauen: er ist die
+            // Premium-Funktion, die man sehen soll, bevor man sie
+            // hat -- und `highlight` am Eintrag sagt genau das.
+            const isPremium =
+              item.href === "/dashboard/premium" || Boolean((item as any).highlight);
             // Admin gets its own treatment: a steel plate rather than the
             // flat blue, but deliberately without Premium's pulse — this
             // one is clicked daily and a permanent animation would wear
