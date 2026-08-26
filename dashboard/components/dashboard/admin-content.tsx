@@ -34,6 +34,7 @@ import { BotSettingsPanel } from "@/components/dashboard/bot-settings-panel";
 import { BroadcastPanel } from "@/components/dashboard/broadcast-panel";
 import { BackupsPanel } from "@/components/dashboard/backups-panel";
 import { DesignUnlockPanel } from "@/components/dashboard/design-unlock-panel";
+import { BetaAdmin } from "@/components/dashboard/beta-admin";
 import { WarningsPanel } from "@/components/dashboard/warnings-panel";
 import { CommandStatsPanel } from "@/components/dashboard/command-stats-panel";
 import { PingReactionsPanel } from "@/components/dashboard/ping-reactions-panel";
@@ -45,7 +46,7 @@ import { CookieConsentsPanel } from "@/components/dashboard/cookie-consents-pane
 import { TrustedBotsPanel } from "@/components/dashboard/trusted-bots-panel";
 
 
-type TabId = "members" | "channels" | "server" | "scans" | "broadcast" | "system" | "features" | "health" | "team" | "access" | "reports" | "audit" | "approvals" | "botsettings" | "backups" | "warnings" | "usage" | "dashusers" | "servers" | "premium" | "speedrun" | "tester" | "pingreactions" | "templates" | "userlookup" | "webapply" | "cookies" | "trustedbots" | "designunlock";
+type TabId = "members" | "channels" | "server" | "scans" | "broadcast" | "system" | "features" | "health" | "team" | "access" | "reports" | "audit" | "approvals" | "botsettings" | "backups" | "warnings" | "usage" | "dashusers" | "servers" | "premium" | "speedrun" | "tester" | "pingreactions" | "templates" | "userlookup" | "webapply" | "cookies" | "trustedbots" | "designunlock" | "beta";
 type MemberAction = "ban" | "kick" | "mute" | "unmute";
 
 type QuickAction = {
@@ -77,6 +78,7 @@ const tabs: Array<{ id: TabId; label: string; icon: any }> = [
   { id: "approvals", label: "Freigaben", icon: ClipboardList },
   { id: "backups", label: "Sicherungen", icon: Database },
   { id: "designunlock", label: "Design-Freigabe", icon: KeyRound },
+  { id: "beta", label: "Beta-Anträge", icon: Sparkles },
   { id: "pingreactions", label: "Ping-Reaktionen", icon: AtSign },
   { id: "botsettings", label: "Bot-Einstellungen", icon: Wrench },
   { id: "access", label: "Zugriff", icon: Lock },
@@ -161,7 +163,7 @@ const TAB_GROUPS: Array<{ name: string; ids: TabId[] }> = [
   // Was geschützt wird und was nachweisbar sein muss.
   { name: "Sicherheit", ids: ["trustedbots", "backups", "cookies", "designunlock"] },
   // Was Nutzern angeboten wird.
-  { name: "Angebote", ids: ["premium", "templates", "speedrun"] },
+  { name: "Angebote", ids: ["premium", "templates", "speedrun", "beta"] },
 ];
 
 /**
@@ -449,6 +451,7 @@ export function AdminContent() {
     approvals: "approvals.view",
     backups: "health.view",
     designunlock: "health.view",
+    beta: "premium.manage",
     botsettings: "maintenance.toggle",
     tester: "tester.access",
     webapply: "approvals.resolve",
@@ -902,6 +905,7 @@ export function AdminContent() {
       {activeTab === "approvals" && <ApprovalsPanel currentUserId={(session?.user as any)?.id} />}
       {activeTab === "backups" && <BackupsPanel guilds={guilds} />}
       {activeTab === "designunlock" && <DesignUnlockPanel guilds={guilds} />}
+      {activeTab === "beta" && <BetaAdmin />}
       {activeTab === "botsettings" && <BotSettingsPanel />}
       {activeTab === "warnings" && (
         <div className="space-y-4">

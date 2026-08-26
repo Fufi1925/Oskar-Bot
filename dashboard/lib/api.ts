@@ -1442,6 +1442,26 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
+  // ── Beta-Antraege fuer Hauptbot-Premium ──────────────────────────
+  betaForm: () => request<any>("/beta/form"),
+  betaApply: (data: any) =>
+    request<any>("/beta/apply", { method: "POST", body: JSON.stringify(data) }),
+  betaNotice: () => request<any>("/beta/notice"),
+  betaNoticeSeen: () =>
+    request<any>("/beta/notice/seen", { method: "POST", body: "{}" }),
+  betaList: (status = "") =>
+    request<any>(`/beta/admin/list${status ? `?status=${status}` : ""}`),
+  betaDecide: (id: number, accept: boolean, reason = "") =>
+    request<any>("/beta/admin/decide", {
+      method: "POST",
+      body: JSON.stringify({ id, accept, reason }),
+    }),
+  betaRevoke: (userId: string) =>
+    request<any>("/beta/admin/revoke", {
+      method: "POST",
+      body: JSON.stringify({ user_id: userId }),
+    }),
+
   // ── Design: wie der Bot auf diesem Server aussieht ───────────────
   design: (guildId: string) => request<any>(`/design/${guildId}`),
   designSave: (guildId: string, data: any) =>

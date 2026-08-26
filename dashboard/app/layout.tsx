@@ -20,6 +20,7 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/components/auth-provider";
 import { CookieHinweis } from "@/components/cookie-hinweis";
+import { PremiumHinweis } from "@/components/premium-hinweis";
 import { LanguageProvider } from "@/lib/i18n/LanguageContext";
 
 const brandName = process.env.NEXT_PUBLIC_BRAND_NAME || "University Bot";
@@ -64,6 +65,8 @@ export default function RootLayout({
               Nachweis. Außerhalb wäre useSession() ein Fehler beim
               Rendern. */}
           <CookieHinweis />
+          {/* Erscheint einmal, wenn jemand Premium hat. */}
+          <PremiumHinweis />
         </AuthProvider>
       </body>
     </html>

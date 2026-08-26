@@ -186,6 +186,23 @@ export function DesignPanel({ guildId }: { guildId: string }) {
     laden();
   }, [laden]);
 
+  // Wurde etwas geaendert?
+  //
+  // Der Vergleich laeuft gegen den ECHTEN Zustand aus Discord, nicht
+  // gegen den zuletzt gespeicherten: aendert jemand den Nickname von
+  // Hand in Discord, laufen beide auseinander, und der Knopf soll
+  // das anzeigen, was man wirklich sieht.
+  const urNickname = daten?.current?.nickname || "";
+  const geaendert =
+    nickname.trim() !== urNickname.trim() || avatar !== null || banner !== null;
+
+  /** Alles zurueck auf den Stand, der gerade in Discord steht. */
+  const zurueck = () => {
+    setNickname(urNickname);
+    setAvatar(null);
+    setBanner(null);
+  };
+
   const speichern = async () => {
     setBeschaeftigt(true);
     try {
@@ -301,18 +318,42 @@ export function DesignPanel({ guildId }: { guildId: string }) {
               onWechsel={setBanner}
             />
 
-            <button
-              onClick={speichern}
-              disabled={gesperrt}
-              className="inline-flex items-center gap-2 rounded-2xl bg-primary px-5 py-3 text-sm font-semibold text-white transition hover:brightness-110 disabled:opacity-40"
-            >
-              {beschaeftigt ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Save className="h-4 w-4" />
+            {/* Speichern und Zuruecksetzen nebeneinander.
+                
+                Der zweite Knopf erscheint erst, wenn es etwas
+                zurueckzusetzen gibt -- ein dauerhaft sichtbarer,
+                meist wirkungsloser Knopf ist nur Rauschen. */}
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={speichern}
+                disabled={gesperrt}
+                className="inline-flex items-center gap-2 rounded-2xl bg-primary px-5 py-3 text-sm font-semibold text-white transition hover:brightness-110 disabled:opacity-40"
+              >
+                {beschaeftigt ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4" />
+                )}
+                Speichern
+              </button>
+
+              {geaendert && (
+                <button
+                  onClick={zurueck}
+                  disabled={beschaeftigt}
+                  className="inline-flex items-center gap-2 rounded-2xl border border-slate-800 bg-[#0f0f13] px-4 py-3 text-sm text-slate-300 transition hover:bg-white/[0.04] disabled:opacity-40"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  Auf Original
+                </button>
               )}
-              Speichern
-            </button>
+
+              {geaendert && (
+                <span className="text-xs text-amber-300/80">
+                  ungespeicherte Änderungen
+                </span>
+              )}
+            </div>
           </div>
         </div>
 

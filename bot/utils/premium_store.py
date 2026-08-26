@@ -503,3 +503,64 @@ def list_keys(limit: int = 100) -> list[dict[str, Any]]:
             (max(1, min(500, int(limit))),),
         ).fetchall()
     return [dict(row) for row in rows]
+
+
+# ── Premium ohne Key: die Beta ────────────────────────────────────────
+#
+# Wer in die Beta aufgenommen wird, bekommt Premium ohne einen Key
+# eintippen zu muessen. Technisch ist es trotzdem ein Key -- er wird
+# nur sofort erzeugt und gleich dem Konto zugeschrieben, statt in
+# einer DM zu landen.
+#
+# Warum kein zweiter Weg: `status()` beantwortet die Frage „hat dieser
+# Nutzer Premium?" fuer Dashboard, Speedrun und den Template-Bot. Ein
+# zweiter Speicherort waere eine zweite Wahrheit, und die laeuft
+# auseinander.
+
+
+def grant_direct(user_id: int | str, *, duration_days: int = 0,
+                 product: str = "main_bot", note: str = "") -> dict[str, Any]:
+    """Einem Konto Premium geben, ohne dass es einen Key eintippt.
+
+    Gibt es fuer dieses Produkt schon eine gueltige Lizenz, passiert
+    nichts -- zwei parallele Lizenzen waeren nicht falsch, aber sie
+    machen jede spaetere Frage „wann laeuft es ab?" mehrdeutig.
+    """
+    ensure()
+    user_id = str(user_id)
+
+    vorhanden = status(user_id, product=product)
+    if vorhanden.get("premium"):
+        return {"ok": True, "already": True, **vorhanden}
+
+    key = generate_key()
+    now = int(time.time())
+    expires = None if duration_days <= 0 else now + duration_days * 86400
+
+    with _connect() as conn:
+        conn.execute(
+            "INSERT INTO premium_keys "
+            "(key_hash, product, duration, created_at, created_by, note, "
+            " redeemed_by, redeemed_at, expires_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (hash_key(key), product, max(0, int(duration_days)), now,
+             "beta", str(note or "")[:200], user_id, now, expires),
+        )
+
+    return {"ok": True, "already": False, **status(user_id, product=product)}
+
+
+def revoke_user(user_id: int | str, product: str = "main_bot") -> int:
+    """Jede Lizenz dieses Kontos fuer dieses Produkt sperren.
+
+    Die Zeilen bleiben stehen und werden nur als gesperrt markiert --
+    so bleibt nachvollziehbar, dass jemand einmal Premium hatte.
+    """
+    ensure()
+    with _connect() as conn:
+        cur = conn.execute(
+            "UPDATE premium_keys SET revoked = 1 "
+            "WHERE redeemed_by = ? AND product = ? AND revoked = 0",
+            (str(user_id), product),
+        )
+        return cur.rowcount or 0

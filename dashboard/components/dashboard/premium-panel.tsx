@@ -28,6 +28,7 @@
  */
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import {
   Check, Clock, ExternalLink, Gem, KeyRound, RefreshCw, Sparkles,
 } from "lucide-react";
@@ -364,6 +365,47 @@ export function PremiumPanel() {
             </Reveal>
           )}
         </section>
+      </Reveal>
+
+      {/* ── Hauptbot-Premium: die Beta ──────────────────────────────
+          
+          Hier stand vorher „demnächst“. Das war ehrlich, solange es
+          nichts zu kaufen gab -- jetzt gibt es die Beta, und der
+          Platzhalter waere schlicht falsch. */}
+      <Reveal delay={60}>
+        <div className="rounded-3xl border-2 border-amber-400/30 bg-gradient-to-br from-amber-400/[0.07] to-transparent p-5 sm:p-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-3">
+              <div className="rounded-2xl bg-amber-400/15 p-2.5">
+                <Sparkles className="h-5 w-5 text-amber-400" />
+              </div>
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="font-bold text-white">
+                    Premium für den Hauptbot
+                  </h3>
+                  <span className="rounded-lg bg-amber-400 px-2 py-0.5 text-xs font-bold text-black">
+                    Beta &middot; 20&nbsp;% Rabatt
+                  </span>
+                </div>
+                <p className="mt-1.5 max-w-xl text-sm leading-relaxed text-slate-400">
+                  Gib dem Bot auf deinem Server einen eigenen Namen, ein
+                  eigenes Bild und ein eigenes Banner. Noch in der Beta:
+                  beantworte fünf kurze Fragen, und wir melden uns innerhalb
+                  von 1&ndash;7 Tagen per Direktnachricht.
+                </p>
+              </div>
+            </div>
+
+            <Link
+              href="/dashboard/premium/beta"
+              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-2xl bg-amber-400 px-5 py-3 text-sm font-bold text-black transition hover:brightness-110"
+            >
+              <Sparkles className="h-4 w-4" />
+              Jetzt bewerben
+            </Link>
+          </div>
+        </div>
       </Reveal>
 
       {/* Gone once there is nothing left to redeem. */}

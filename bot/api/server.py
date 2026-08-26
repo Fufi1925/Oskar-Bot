@@ -8,7 +8,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from starlette.responses import Response
 from utils.config import *
-from api.routes import bot, guilds, admin, team, moderation, actions, access, servers, servertools, tickets, giveaways, leveling, vanity, broadcast, anonchat, diagnose, compose, nukealert, memberperks, extras, voice, verify, automod, logging_cfg, antinuke, pingreactions, premium, cookies, speedrun, supportqueue, honeypot, design, tester, music, templates, teamlist, applications, teamupdate, webapply, commands as commands_route
+from api.routes import bot, guilds, admin, team, moderation, actions, access, servers, servertools, tickets, giveaways, leveling, vanity, broadcast, anonchat, diagnose, compose, nukealert, memberperks, extras, voice, verify, automod, logging_cfg, antinuke, pingreactions, premium, cookies, speedrun, supportqueue, honeypot, design, beta, tester, music, templates, teamlist, applications, teamupdate, webapply, commands as commands_route
 from api.dependencies import verify_api_key, limiter, get_bot_loop
 from api.db_manager import db_manager
 from api.schema_guard import ensure_schema
@@ -361,6 +361,12 @@ def create_app() -> FastAPI:
     # Pfad -- der Dashboard-Proxy prueft die Rechte daran.
     api_app.include_router(
         design.router, prefix="/design", tags=["Design"]
+    )
+    # Die Beta-Antraege fuer Hauptbot-Premium. Bewusst NICHT unter
+    # /admin: die Antragsseite steht jedem Angemeldeten offen, nur
+    # /beta/admin/* verlangt Admin-Rechte -- das prueft der Proxy.
+    api_app.include_router(
+        beta.router, prefix="/beta", tags=["Beta"]
     )
     api_app.include_router(music.router, prefix="/music", tags=["Music"])
     api_app.include_router(

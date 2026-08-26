@@ -425,6 +425,24 @@ async function authorize(
     return { ok: false, response: deny(403, `This requires the '${required}' permission.`) };
   }
 
+  if (scope === "beta") {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) return { ok: false, response: deny(401, "Not signed in.") };
+
+    // Alles unter /beta/admin/* gehoert dem Admin-Bereich: dort wird
+    // ueber Antraege entschieden und Premium vergeben oder entzogen.
+    if (rest[0] === "admin") {
+      if (!isGlobalAdmin(session.user.id)) {
+        return { ok: false, response: deny(404, "Not found.") };
+      }
+      return { ok: true };
+    }
+
+    // Der Rest steht jedem Angemeldeten offen: das Formular, der
+    // eigene Antrag, das Premium-Fenster.
+    return { ok: true };
+  }
+
   if (scope === "design") {
     // Shape: /design/<guildId>/...  bzw.  /design/admin/unlocked
     //
@@ -1585,6 +1603,23 @@ async function handler(request: NextRequest, context: { params: { path?: string[
             parsed.user_id = actorId ?? "";
             parsed.user_name = session?.user?.name ?? "";
           }
+          // Beta-Antraege: die erste der fuenf Fragen ist das
+          // Discord-Konto, und sie laesst sich im Formular
+          // ausdruecklich nicht ausfuellen. Damit das auch stimmt,
+          // wird sie hier aus der Sitzung gesetzt.
+          //
+          // Kaeme sie aus dem Browser, koennte jeder einen Antrag auf
+          // ein fremdes Konto stellen -- und bei Annahme bekaeme das
+          // fremde Konto Premium.
+          //
+          // Name und Bild aus derselben Quelle, damit im
+          // Admin-Dashboard nicht steht, was jemand sich selbst
+          // ausgedacht hat.
+          if (segments[0] === "beta") {
+            parsed.user_id = actorId;
+            parsed.user_name = session?.user?.name ?? "";
+            parsed.avatar = session?.user?.image ?? "";
+          }
           body = JSON.stringify(parsed);
         }
       } catch {
@@ -1639,6 +1674,19 @@ async function handler(request: NextRequest, context: { params: { path?: string[
   // sich jeder eine Owner-ID in die URL.
   if (segments[0] === "admin" && segments[1] === "command-stats") {
     url.searchParams.set("actor", actorId ?? "");
+  }
+
+  // Der Beta-Bereich beim LESEN. Die Antwort haengt daran, wer fragt:
+  // welchen Antrag jemand hat, ob sein Premium-Fenster erscheint.
+  //
+  // Aus der Sitzung, nie aus dem Browser -- sonst liest jeder den
+  // Antrag eines anderen aus, indem er eine fremde ID in die Adresse
+  // schreibt. Name und Bild kommen mit, damit das Formular das echte
+  // Discord-Konto anzeigt und nicht eines, das jemand hineinschreibt.
+  if (segments[0] === "beta" && request.method === "GET") {
+    url.searchParams.set("user_id", actorId ?? "");
+    url.searchParams.set("user_name", session?.user?.name ?? "");
+    url.searchParams.set("avatar", session?.user?.image ?? "");
   }
 
   const targetUrl = url.toString();

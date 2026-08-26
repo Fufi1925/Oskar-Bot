@@ -1063,9 +1063,23 @@ def test_mount_animation():
 
     # Leftovers from when this file also held the admin tab. Unused
     # imports are the kind of thing that quietly rots.
+    #
+    # Nur den IMPORT-Block ansehen, nicht die ganze Datei.
+    #
+    # Vorher lief die Suche ueber den kompletten Quelltext, und
+    # "Ban" ist ein Teilstring von "Banner" -- das Wort steht seit
+    # dem Beta-Abschnitt im Fliesstext ("ein eigenes Banner"). Der
+    # Test schlug also an, obwohl kein einziger Import dazugekommen
+    # war. Dieselbe Falle traefe "Plus" in "Pluspunkt" oder "Copy"
+    # in "Copyright".
+    import re as _re
+    _block = _re.search(r'import \{([^}]*)\} from "lucide-react";', pb)
+    _importiert = {
+        n.strip() for n in (_block.group(1).split(",") if _block else [])
+    }
     for gone in ("Trash2", "Undo2", "AlertTriangle", "ShieldCheck",
                  "Plus", "Ban", "Search", "Copy"):
-        check(f"'{gone}' is no longer imported here", gone not in pb,
+        check(f"'{gone}' is no longer imported here", gone not in _importiert,
               "dead import left over from the admin split")
 
 
