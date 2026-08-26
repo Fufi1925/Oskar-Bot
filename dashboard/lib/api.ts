@@ -1469,6 +1469,13 @@ export const api = {
       method: "POST",
       body: JSON.stringify(data),
     }),
+  // Zurueck auf das Profil aus dem Developer Portal: Server-Nickname,
+  // -Avatar und -Banner werden bei Discord entfernt.
+  designReset: (guildId: string) =>
+    request<any>(`/design/${guildId}/standard`, {
+      method: "POST",
+      body: JSON.stringify({}),
+    }),
   designUnlocked: () => request<any>("/design/admin/unlocked"),
   designUnlock: (guildId: string, note = "") =>
     request<any>("/design/admin/unlocked", {

@@ -365,23 +365,30 @@ def main():
         pruefe(f"api.ts kennt {name.rstrip(':')}", name in api_ts)
 
     # Der Zuruecksetzen-Knopf im Design-Tab.
+    #
+    # Er hiess frueher „Auf Original" und verwarf nur die Eingaben im
+    # Formular. Auf Wunsch heisst er jetzt „Auf Standard" und loescht
+    # das Server-Profil wirklich bei Discord -- Einzelheiten und die
+    # Route stehen in test_premium_seite.py. Hier bleibt nur, was
+    # dieser Test schon immer festhielt: dass es genau einen solchen
+    # Knopf gibt und dass er an einer echten Bedingung haengt.
     dp = strip_ts(open(os.path.join(DASH, "components", "dashboard",
                                     "design-panel.tsx"), encoding="utf-8").read())
     pruefe("das Design-Panel hat einen Zuruecksetzen-Knopf",
-           "Auf Original" in dp)
-    # Auf die Wirkung zielen: der Knopf selbst muss an `geaendert`
+           "Auf Standard" in dp)
+    # Auf die Wirkung zielen: der Knopf selbst muss an der Bedingung
     # haengen, nicht irgendein Block in der Datei. Eine Suche nach
-    # "{geaendert && (" allein blieb gruen, als die Bedingung des
-    # Knopfes auf `true` gesetzt wurde -- der zweite Block (der
-    # Hinweistext) trug sie ja weiterhin.
+    # "{weichtAb && (" allein bliebe gruen, wenn die Bedingung des
+    # Knopfes auf `true` gesetzt wuerde und ein zweiter Block sie
+    # weiterhin truege.
     knopf_block = re.search(
-        r"\{([^}]*)\s*&&\s*\(\s*<button\s+onClick=\{zur[^}]*\}", dp
+        r"\{([^}]*)\s*&&\s*\(\s*<button\s+onClick=\{aufStandard[^}]*\}", dp
     )
     pruefe("der Zuruecksetzen-Knopf haengt an einer Bedingung",
            knopf_block is not None, "er steht ohne Bedingung da")
     if knopf_block:
-        pruefe("und zwar an 'geaendert'",
-               knopf_block.group(1).strip() == "geaendert",
+        pruefe("und zwar an 'weichtAb'",
+               knopf_block.group(1).strip() == "weichtAb",
                f"Bedingung: {knopf_block.group(1).strip()!r} -- ein "
                "dauerhaft wirkungsloser Knopf ist Rauschen")
     pruefe("er vergleicht gegen den echten Stand",

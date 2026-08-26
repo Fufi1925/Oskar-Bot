@@ -164,6 +164,7 @@ export function DesignPanel({ guildId }: { guildId: string }) {
   const [nickname, setNickname] = useState("");
   const [avatar, setAvatar] = useState<string | null>(null);
   const [banner, setBanner] = useState<string | null>(null);
+  const [setztZurueck, setSetztZurueck] = useState(false);
 
   const uebernehmen = useCallback((antwort: any) => {
     setDaten(antwort);
@@ -203,6 +204,36 @@ export function DesignPanel({ guildId }: { guildId: string }) {
     setBanner(null);
   };
 
+  /**
+   * Zurueck auf das Profil aus dem Developer Portal.
+   *
+   * Loescht Server-Nickname, Server-Avatar und Server-Banner bei
+   * Discord. Danach sieht der Bot hier wieder genauso aus wie
+   * ueberall sonst.
+   *
+   * Bewusst mit Rueckfrage: der Knopf wirkt sofort auf Discord und
+   * laesst sich nicht rueckgaengig machen -- die hochgeladenen Bilder
+   * sind danach weg.
+   */
+  const aufStandard = async () => {
+    const sicher = window.confirm(
+      "Der Bot bekommt hier wieder sein normales Aussehen aus dem " +
+        "Developer Portal.\n\nName, Profilbild und Banner für diesen " +
+        "Server werden gelöscht. Das lässt sich nicht rückgängig machen."
+    );
+    if (!sicher) return;
+
+    setSetztZurueck(true);
+    try {
+      uebernehmen(await api.designReset(guildId));
+      toast.success("Zurückgesetzt — der Bot sieht hier wieder normal aus.");
+    } catch (err: any) {
+      toast.error(err?.message || "Zurücksetzen fehlgeschlagen.");
+    } finally {
+      setSetztZurueck(false);
+    }
+  };
+
   const speichern = async () => {
     setBeschaeftigt(true);
     try {
@@ -235,6 +266,11 @@ export function DesignPanel({ guildId }: { guildId: string }) {
   const premium = Boolean(daten?.premium);
   const gesperrt = !darf || beschaeftigt;
   const rechte = daten?.permissions || { ok: true, detail: "" };
+
+  // Weicht das Server-Profil vom Developer Portal ab? Nur dann gibt
+  // es überhaupt etwas zurückzusetzen. Die Antwort kommt vom Bot, der
+  // den echten Zustand aus Discord liest.
+  const weichtAb = Boolean(daten?.deviates?.abweichung);
 
   // Was die Vorschau zeigt: der Entwurf, sonst der echte Zustand.
   const zeigtName = nickname.trim() || jetzt.name || "University Bot";
@@ -318,15 +354,22 @@ export function DesignPanel({ guildId }: { guildId: string }) {
               onWechsel={setBanner}
             />
 
-            {/* Speichern und Zuruecksetzen nebeneinander.
+            {/* Speichern und „Auf Standard“ nebeneinander.
                 
-                Der zweite Knopf erscheint erst, wenn es etwas
-                zurueckzusetzen gibt -- ein dauerhaft sichtbarer,
-                meist wirkungsloser Knopf ist nur Rauschen. */}
+                Der zweite Knopf erscheint NUR, wenn der Bot hier
+                wirklich anders aussieht als im Developer Portal.
+                Steht ohnehin schon das Portal-Profil, gäbe es nichts
+                zurückzusetzen -- ein Knopf, der nichts tut, ist nur
+                Rauschen.
+
+                Die Bedingung kommt vom Bot (`deviates`), nicht aus
+                dem Formular: wer den Nickname von Hand in Discord
+                setzt, hat auch eine Abweichung, obwohl hier niemand
+                etwas getippt hat. */}
             <div className="flex flex-wrap items-center gap-2">
               <button
                 onClick={speichern}
-                disabled={gesperrt}
+                disabled={gesperrt || setztZurueck}
                 className="inline-flex items-center gap-2 rounded-2xl bg-primary px-5 py-3 text-sm font-semibold text-white transition hover:brightness-110 disabled:opacity-40"
               >
                 {beschaeftigt ? (
@@ -337,14 +380,18 @@ export function DesignPanel({ guildId }: { guildId: string }) {
                 Speichern
               </button>
 
-              {geaendert && (
+              {weichtAb && (
                 <button
-                  onClick={zurueck}
-                  disabled={beschaeftigt}
+                  onClick={aufStandard}
+                  disabled={gesperrt || setztZurueck}
                   className="inline-flex items-center gap-2 rounded-2xl border border-slate-800 bg-[#0f0f13] px-4 py-3 text-sm text-slate-300 transition hover:bg-white/[0.04] disabled:opacity-40"
                 >
-                  <RotateCcw className="h-4 w-4" />
-                  Auf Original
+                  {setztZurueck ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <RotateCcw className="h-4 w-4" />
+                  )}
+                  Auf Standard
                 </button>
               )}
 
@@ -354,6 +401,25 @@ export function DesignPanel({ guildId }: { guildId: string }) {
                 </span>
               )}
             </div>
+
+            {/* Warum die Bio hier fehlt.
+                
+                Discord bietet keine Schnittstelle, um die
+                Beschreibung einer Anwendung zu ändern -- weder global
+                noch pro Server. Ohne diesen Hinweis sucht man sie
+                hier vergeblich. */}
+            <p className="text-xs leading-relaxed text-slate-600">
+              Die Bio des Bots lässt sich hier nicht ändern. Discord
+              erlaubt das nur im Developer Portal unter „Description“,
+              und sie gilt dann auf allen Servern gleichzeitig.
+              {weichtAb && (
+                <>
+                  {" "}
+                  „Auf Standard“ entfernt Name, Profilbild und Banner für
+                  diesen Server — die Bio bleibt davon unberührt.
+                </>
+              )}
+            </p>
           </div>
         </div>
 

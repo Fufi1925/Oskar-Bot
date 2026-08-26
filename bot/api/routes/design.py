@@ -145,6 +145,33 @@ def _aktuelles_aussehen(guild) -> dict:
     }
 
 
+def _weicht_ab(guild) -> dict:
+    """Sieht der Bot hier anders aus als im Developer Portal?
+
+    Das Portal-Profil ist das GLOBALE Profil: Name, globaler Avatar,
+    kein Server-Banner. Alles, was ein Server-Profil zusaetzlich
+    setzt, ist eine Abweichung -- und genau dann soll der Knopf
+    „Auf Standard“ erscheinen.
+
+    Gemessen wird am echten Zustand aus Discord, nicht an der eigenen
+    Tabelle. Wer den Nickname von Hand in Discord setzt, hat auch
+    eine Abweichung, obwohl in der Datenbank nichts steht.
+    """
+    me = getattr(guild, "me", None)
+    if me is None:
+        return {"abweichung": False, "felder": []}
+
+    felder = []
+    if getattr(me, "nick", None):
+        felder.append("nickname")
+    if getattr(me, "guild_avatar", None) is not None:
+        felder.append("avatar")
+    if getattr(me, "guild_banner", None) is not None:
+        felder.append("banner")
+
+    return {"abweichung": bool(felder), "felder": felder}
+
+
 def _rechte(guild) -> dict:
     """Kann der Bot sein eigenes Profil ueberhaupt aendern?
 
@@ -190,6 +217,9 @@ async def _antwort(db, guild, record: dict, user_id: str) -> dict:
         "banner_url": record.get("banner_url"),
         "updated_at": record.get("updated_at") or 0,
         "current": _aktuelles_aussehen(guild),
+        # Woran das Dashboard erkennt, ob „Auf Standard“ ueberhaupt
+        # etwas zu tun haette.
+        "deviates": _weicht_ab(guild),
         "permissions": _rechte(guild),
         "limits": {
             "nickname": store.MAX_NICK,
@@ -255,6 +285,72 @@ async def remove_unlocked(guild_id: int, actor: str = ""):
         "design_locked", actor=actor or "dashboard", detail=f"guild {guild_id}"
     )
     return {"servers": await store.unlocked_list(db)}
+
+
+@router.post("/{guild_id}/standard", summary="Zurück auf das Portal-Profil")
+async def reset_design(
+    guild_id: int, data: dict, bot: "universitybot" = Depends(get_bot)
+):
+    """Server-Nickname, -Avatar und -Banner entfernen.
+
+    Danach sieht der Bot hier wieder genau so aus wie im Developer
+    Portal: globaler Name, globaler Avatar, kein Server-Banner.
+
+    Warum eine eigene Route und nicht `POST /{guild_id}` mit lauter
+    `null`: dort heisst ein fehlendes Feld „nicht anfassen“, und ein
+    `null` im Bildfeld kam im Dashboard nie an -- gemessen in
+    `repro/bug_design_reset.py`. Eine Route, deren einziger Zweck das
+    Loeschen ist, kann man nicht versehentlich halb ausfuehren.
+
+    Die Bio bleibt aussen vor: Discord bietet keine API, um die
+    Beschreibung einer Anwendung zu aendern -- weder global noch pro
+    Server. Sie steht nur im Developer Portal.
+    """
+    import discord
+
+    guild = _guild_or_404(bot, guild_id)
+    db = await _db()
+    actor = str(data.get("actor") or "")
+
+    if not _hat_premium(actor):
+        raise HTTPException(status_code=403, detail="Dafür wird Premium benötigt.")
+
+    if not await store.may_edit(db, guild, actor):
+        raise HTTPException(
+            status_code=403,
+            detail="Das Design darf hier nur der Server-Inhaber ändern.",
+        )
+
+    me = getattr(guild, "me", None)
+    if me is None:
+        raise HTTPException(status_code=400, detail="Der Bot ist nicht erreichbar.")
+
+    # Alle drei auf einmal: ein halb zurueckgesetztes Profil waere
+    # schlimmer als gar keins.
+    try:
+        await me.edit(
+            nick=None, avatar=None, banner=None,
+            reason=f"Auf Standard zurückgesetzt von {actor}",
+        )
+    except discord.Forbidden as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Discord hat abgelehnt. Meist fehlt dem Bot das Recht "
+                f"„Nickname ändern“. ({exc.text or exc})"
+            ),
+        ) from exc
+    except discord.HTTPException as exc:
+        raise HTTPException(
+            status_code=400, detail=f"Discord hat abgelehnt: {exc.text or exc}"
+        ) from exc
+
+    record = await store.clear(db, guild_id, actor=actor)
+
+    await feature_audit.log_action(
+        "design_reset", actor=actor, detail=f"guild {guild_id}"
+    )
+    return await _antwort(db, guild, record, actor)
 
 
 @router.get("/{guild_id}", summary="Design dieses Servers")

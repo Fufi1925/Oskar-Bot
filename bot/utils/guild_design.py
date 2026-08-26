@@ -160,6 +160,29 @@ async def save(db: aiosqlite.Connection, guild_id: int, *,
     return await get(db, guild_id)
 
 
+async def clear(db: aiosqlite.Connection, guild_id: int, *,
+                actor: str | None = None) -> dict:
+    """Alle gespeicherten Design-Felder loeschen.
+
+    Wird beim Knopf „Auf Standard“ gebraucht. Die Zeile selbst bleibt
+    stehen -- `updated_at` und `updated_by` sollen zeigen, WANN und von
+    WEM zurueckgesetzt wurde. Eine geloeschte Zeile koennte das nicht.
+
+    Die Freischaltung bleibt unberuehrt: sie liegt in einer eigenen
+    Tabelle, damit ein Zuruecksetzen sie nicht mitnimmt.
+    """
+    await db.execute(
+        "INSERT OR IGNORE INTO guild_design (guild_id) VALUES (?)", (guild_id,)
+    )
+    await db.execute(
+        "UPDATE guild_design SET nickname = NULL, avatar_url = NULL, "
+        "banner_url = NULL, updated_at = ?, updated_by = ? WHERE guild_id = ?",
+        (time.time(), str(actor or ""), guild_id),
+    )
+    await db.commit()
+    return await get(db, guild_id)
+
+
 # ── Die Freischaltliste ──────────────────────────────────────────────
 #
 # Gepflegt im Admin-Dashboard. Im Nutzer-Dashboard darf sie nirgends

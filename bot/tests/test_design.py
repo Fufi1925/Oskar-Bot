@@ -75,10 +75,20 @@ class FakeMe:
         if "nick" in kw:
             self.nick = kw["nick"]
             self.display_name = kw["nick"] or self.name
-        if kw.get("avatar"):
-            self.guild_avatar = FakeAsset("https://cdn.example/guild-av.png")
-        if kw.get("banner"):
-            self.guild_banner = FakeAsset("https://cdn.example/guild-bn.png")
+        # Wie discord.py: `avatar=None` LOESCHT das Bild, ein
+        # fehlender Schluessel laesst es stehen. Der Unterschied ist
+        # der ganze Punkt beim Knopf „Auf Standard“ -- deshalb wird
+        # hier auf `in kw` geprueft und nicht auf Wahrheitswert.
+        if "avatar" in kw:
+            self.guild_avatar = (
+                FakeAsset("https://cdn.example/guild-av.png")
+                if kw["avatar"] else None
+            )
+        if "banner" in kw:
+            self.guild_banner = (
+                FakeAsset("https://cdn.example/guild-bn.png")
+                if kw["banner"] else None
+            )
 
 
 class FakeGuild:
@@ -230,6 +240,106 @@ async def main():
 
     r = client.get("/design/999999999999999999?actor=1")
     pruefe("ein fremder Server gibt 404", r.status_code == 404, str(r.status_code))
+
+    linie("6b  Auf Standard -- zurueck auf das Developer Portal")
+
+    # Der Ausgangspunkt: auf GILDE hat der Inhaber weiter oben einen
+    # Namen und ein Bild gesetzt. Beides muss der Knopf wegbekommen.
+    r = client.post(f"/design/{GILDE}", json={
+        "actor": str(INHABER), "nickname": "Umbenannt", "avatar": PNG,
+        "banner": PNG,
+    })
+    pruefe("Vorbereitung: Design gesetzt", r.status_code == 200, r.text[:150])
+
+    d = r.json()
+    pruefe("das Dashboard erfaehrt von der Abweichung",
+           d["deviates"]["abweichung"] is True, str(d.get("deviates")))
+    for feld in ("nickname", "avatar", "banner"):
+        pruefe(f"'{feld}' wird als abweichend gemeldet",
+               feld in d["deviates"]["felder"], str(d["deviates"]))
+
+    # Ohne Premium darf niemand zuruecksetzen -- sonst koennte jeder
+    # das Aussehen eines fremden Servers platt machen.
+    r = client.post(f"/design/{GILDE}/standard", json={"actor": "424242424242424242"})
+    pruefe("ohne Premium abgelehnt", r.status_code == 403, str(r.status_code))
+
+    # Der wichtige Fall: INHABER eines Servers, aber KEIN Premium.
+    #
+    # `may_edit` sagt hier Ja -- er ist ja der Inhaber. Nur die
+    # Premium-Pruefung haelt ihn auf. Ohne diesen Fall bliebe der Test
+    # gruen, selbst wenn die Premium-Pruefung ganz herausfaellt:
+    # nachgemessen im Mutationstest, das war eine echte Luecke.
+    ARM = 424242424242424242
+    GILDE_ARM = 1530742522589089954
+    guilds[GILDE_ARM] = FakeGuild(GILDE_ARM, ARM)
+
+    r = client.get(f"/design/{GILDE_ARM}?actor={ARM}")
+    d = r.json()
+    pruefe("Vorbedingung: er ist Inhaber, hat aber kein Premium",
+           d["premium"] is False, str(d.get("premium")))
+
+    r = client.post(f"/design/{GILDE_ARM}/standard", json={"actor": str(ARM)})
+    pruefe("Inhaber OHNE Premium wird abgelehnt", r.status_code == 403,
+           f"HTTP {r.status_code} -- nur die Premium-Pruefung haelt ihn auf")
+    pruefe("die Meldung nennt Premium", "Premium" in r.text, r.text[:120])
+
+    # Premium, aber weder Inhaber noch freigeschaltet.
+    #
+    # Ein dritter Server, eigens dafuer: GILDE gehoert INHABER, und
+    # GILDE2 wurde weiter oben freigeschaltet -- an beiden liesse sich
+    # nicht zeigen, dass Premium allein zu wenig ist.
+    GILDE3 = 1530742522589089953
+    guilds[GILDE3] = FakeGuild(GILDE3, FREMDER)
+    r = client.post(f"/design/{GILDE3}/standard", json={"actor": str(INHABER)})
+    pruefe("Premium allein reicht nicht", r.status_code == 403,
+           str(r.status_code))
+    pruefe("die Freischaltliste wird dabei nicht erwaehnt",
+           "freischalt" not in r.text.lower() and "unlock" not in r.text.lower(),
+           r.text[:150])
+
+    # Jetzt der echte Fall.
+    r = client.post(f"/design/{GILDE}/standard", json={"actor": str(INHABER)})
+    pruefe("Zuruecksetzen geht", r.status_code == 200, r.text[:200])
+
+    me = guilds[GILDE].me
+    pruefe("der Nickname ist WEG", me.nick is None, repr(me.nick))
+    pruefe("der Server-Avatar ist WEG", me.guild_avatar is None,
+           "genau das ging vorher nicht -- repro/bug_design_reset.py")
+    pruefe("das Server-Banner ist WEG", me.guild_banner is None,
+           "genau das ging vorher nicht -- repro/bug_design_reset.py")
+
+    d = r.json()
+    pruefe("die Antwort meldet keine Abweichung mehr",
+           d["deviates"]["abweichung"] is False, str(d.get("deviates")))
+    pruefe("und keine Felder", d["deviates"]["felder"] == [],
+           str(d["deviates"]))
+
+    # Auch die eigene Tabelle muss leer sein, sonst zeigt das
+    # Dashboard nach einem Neuladen wieder alte Werte an.
+    for feld in ("nickname", "avatar_url", "banner_url"):
+        pruefe(f"gespeichertes '{feld}' ist geleert", d[feld] is None,
+               repr(d[feld]))
+
+    # Die Freischaltung darf ein Zuruecksetzen ueberleben: sie liegt
+    # in einer eigenen Tabelle und hat mit dem Aussehen nichts zu tun.
+    #
+    # Gefragt wird als INHABER: er hat Premium, ist auf GILDE2 aber
+    # NICHT Inhaber -- sein `may_edit` haengt dort allein an der
+    # Freischaltung aus Abschnitt 4. FREMDER taugt dafuer nicht, der
+    # hat gar kein Premium und waere immer `false`.
+    r = client.get(f"/design/{GILDE2}?actor={INHABER}")
+    pruefe("die Freischaltung ueberlebt das Zuruecksetzen",
+           r.json()["may_edit"] is True)
+
+    # Nichts mehr da, aber der Aufruf darf trotzdem nicht scheitern.
+    r = client.post(f"/design/{GILDE}/standard", json={"actor": str(INHABER)})
+    pruefe("zweimal zuruecksetzen ist harmlos", r.status_code == 200,
+           r.text[:150])
+
+    r = client.post("/design/999999999999999999/standard",
+                    json={"actor": str(INHABER)})
+    pruefe("ein fremder Server gibt 404", r.status_code == 404,
+           str(r.status_code))
 
     linie("7  Die Freischaltliste selbst")
     r = client.get("/design/admin/unlocked")
