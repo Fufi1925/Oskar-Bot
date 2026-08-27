@@ -18,11 +18,12 @@
  * ehrlich sagt „kommt nach der Testphase“. Deshalb sind sie
  * `disabled` und tragen den Grund direkt daneben.
  *
- * ── Warum sechs der zehn Punkte als „geplant“ stehen ────────────────
+ * ── Warum fünf der zehn Punkte als „geplant“ stehen ─────────────────
  *
- * Vier Punkte wirken heute schon: das gemeinsame Premium für beide
- * Bots, das Design, der Speedrun und die Premium-Vorlagen. Die
- * übrigen sechs sind beschlossen, aber noch nicht scharf geschaltet.
+ * Fünf Punkte wirken heute schon: das gemeinsame Premium für beide
+ * Bots, das Design, der Speedrun, die Premium-Vorlagen und die
+ * Backups. Die übrigen fünf sind beschlossen, aber noch nicht scharf
+ * geschaltet.
  * Sie hier als fertig zu verkaufen, wäre gelogen — jede Zeile trägt
  * deshalb sichtbar, ob sie schon läuft. Ein Test in
  * `bot/tests/test_premium_seite.py` vergleicht die Tabelle mit dem,
@@ -115,10 +116,10 @@ const TARIFE: Tarif[] = [
 /**
  * Die zehn Punkte.
  *
- * `live` heißt: der Bot sperrt das heute schon wirklich. Vier Zeilen
- * tragen `live: true` — gemeinsames Premium, Design, Speedrun und die
- * Premium-Vorlagen. Alles andere ist beschlossen und kommt, ist aber
- * noch nicht scharf.
+ * `live` heißt: der Bot sperrt das heute schon wirklich. Fünf Zeilen
+ * tragen `live: true` — gemeinsames Premium, Design, Speedrun, die
+ * Premium-Vorlagen und die Backups. Alles andere ist beschlossen und
+ * kommt, ist aber noch nicht scharf.
  */
 type Zeile = {
   titel: string;
@@ -196,10 +197,13 @@ const VERGLEICH: Zeile[] = [
     premium: "100 Regeln",
   },
   {
-    titel: "Support",
-    text: "Wie schnell wir bei Problemen antworten.",
-    gratis: "Normale Warteschlange",
-    premium: "Bevorzugt, eigener Kanal",
+    titel: "Backups",
+    text:
+      "Kanäle, Rollen, Rechte und alle Dashboard-Einstellungen sichern " +
+      "und mit einem Klick zurückspielen.",
+    gratis: "1 Backup",
+    premium: "10 Backups, automatisch, mit Nachrichten",
+    live: true,
   },
   {
     titel: "Neues zuerst",
@@ -235,12 +239,13 @@ const FRAGEN: { frage: string; antwort: string }[] = [
       "aus der Gratis-Spalte. Gelöscht wird nichts.",
   },
   {
-    frage: "Warum stehen sechs Punkte auf „geplant“?",
+    frage: "Warum stehen fünf Punkte auf „geplant“?",
     antwort:
-      "Weil sie es sind. Vier Punkte wirken heute: das gemeinsame Premium " +
-      "für beide Bots, das eigene Aussehen, der Speedrun und die " +
-      "Premium-Vorlagen. Die übrigen sechs kommen nach der Testphase — wir " +
-      "schreiben sie lieber ehrlich hin, als sie als fertig zu verkaufen.",
+      "Weil sie es sind. Fünf Punkte wirken heute: das gemeinsame Premium " +
+      "für beide Bots, das eigene Aussehen, der Speedrun, die " +
+      "Premium-Vorlagen und die Backups. Die übrigen fünf kommen nach der " +
+      "Testphase — wir schreiben sie lieber ehrlich hin, als sie als " +
+      "fertig zu verkaufen.",
   },
 ];
 

@@ -28,6 +28,7 @@ import {
   LayoutDashboard, Palette, ScrollText, Server, ShieldCheck, ShieldAlert, Ticket, BarChart4, FileText, Settings,
   Menu, X, Bell, User, Search, ChevronRight, Star, Sparkles, LogOut,
   Lock, PenLine, Gem, Pin, Moon, Calculator, Youtube, Cake, Crown,
+  Database,
   LifeBuoy, ChevronDown, Bot, Shield, UserCheck, Badge, Gauge, Headphones,
   Music, Upload, Users, UserCog
 } from "lucide-react";
@@ -213,6 +214,14 @@ export default function DashboardLayout({
               name: "Design",
               href: `/dashboard/guild/${currentGuildId}/design`,
               icon: Palette,
+              highlight: true,
+            },
+            {
+              // Golden wie Design: die Automatik und zehn Plaetze
+              // sind Premium. Das Erstellen selbst geht auch ohne.
+              name: "Backup",
+              href: `/dashboard/guild/${currentGuildId}/backup`,
+              icon: Database,
               highlight: true,
             },
           ],

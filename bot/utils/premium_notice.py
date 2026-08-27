@@ -3,17 +3,18 @@ Wer hat den Premium-Hinweis schon gesehen?
 
 Das Fenster
 -----------
-Wer Premium hat und die Seite betritt, bekommt ein goldenes Fenster:
-„Denk dran — du hast Premium." Danach kommt es **alle sieben Tage**
-wieder.
-
-Vorher erschien es genau einmal und nie wieder. So gewuenscht
-geaendert: es soll an Premium erinnern, ohne bei jedem Seitenaufruf im
-Weg zu stehen. Sieben Tage sind der Abstand, bei dem es auffaellt,
-aber nicht nervt.
+Wer Premium hat und das Dashboard betritt, bekommt EINMAL ein
+goldenes Fenster: „Denk dran — du hast Premium." Danach nie wieder.
 
 Wird das Premium entzogen und spaeter neu vergeben, erscheint es
-sofort -- diesmal als „Willkommen zurück".
+erneut -- diesmal als „Willkommen zurück".
+
+Der Sieben-Tage-Rhythmus gehoert nicht hierher
+----------------------------------------------
+Er war kurzzeitig hier eingebaut und ist wieder raus: alle sieben
+Tage erscheint das **Support-Popup** (`utils/support_notice.py`), und
+das trifft jeden, nicht nur Premium-Konten. Zwei Fenster im selben
+Takt waeren zwei Fenster hintereinander.
 
 Warum das serverseitig steht und nicht im Cookie
 ------------------------------------------------
@@ -23,11 +24,9 @@ jedes Mal neu. Und der entscheidende Fall liesse sich damit gar nicht
 loesen: „nach einem Entzug wieder zeigen" muss wissen, dass es
 dazwischen einen Entzug gab.
 
-Deshalb steht hier pro Konto, welchen *Abschnitt* jemand gesehen hat
-und **wann zuletzt**. Ein Abschnitt beginnt, wenn Premium vergeben
-wird, und endet mit dem Entzug. Innerhalb eines Abschnitts entscheidet
-der Zeitpunkt: liegt er laenger als :data:`ABSTAND_TAGE` zurueck,
-kommt das Fenster wieder.
+Deshalb steht hier pro Konto, welchen *Abschnitt* jemand gesehen hat.
+Ein Abschnitt beginnt, wenn Premium vergeben wird, und endet mit dem
+Entzug. Solange die Nummer gleich bleibt, ist das Fenster erledigt.
 
 Speicher
 --------
@@ -44,13 +43,6 @@ from typing import Any, Optional
 
 DB_PATH = os.path.join("db", "premium_notice.db")
 
-#: Wie lange Ruhe ist, nachdem jemand „Verstanden" gedrueckt hat.
-#:
-#: Ausdrueckliche Vorgabe: das Fenster soll immer wieder kommen, aber
-#: hoechstens alle sieben Tage. Bei jedem Seitenaufruf waere es eine
-#: Zumutung, einmalig verpufft der Hinweis.
-ABSTAND_TAGE = 7
-ABSTAND_SEKUNDEN = ABSTAND_TAGE * 24 * 3600
 
 
 def _connect() -> sqlite3.Connection:
@@ -123,8 +115,7 @@ def zustand(user_id: str, hat_premium: bool) -> dict[str, Any]:
                     "WHERE user_id = ?",
                     (int(time.time()), user_id),
                 )
-            return {"zeigen": False, "rueckkehr": False,
-                    "abstand_tage": ABSTAND_TAGE}
+            return {"zeigen": False, "rueckkehr": False}
 
         if row is None:
             # Erstes Premium ueberhaupt.
@@ -133,8 +124,7 @@ def zustand(user_id: str, hat_premium: bool) -> dict[str, Any]:
                 "zuletzt_at) VALUES (?, 1, 0, 0, ?)",
                 (user_id, int(time.time())),
             )
-            return {"zeigen": True, "rueckkehr": False,
-                    "abstand_tage": ABSTAND_TAGE}
+            return {"zeigen": True, "rueckkehr": False}
 
         if row["war_weg"]:
             # Premium war weg und ist wieder da: neuer Abschnitt.
@@ -147,28 +137,13 @@ def zustand(user_id: str, hat_premium: bool) -> dict[str, Any]:
                 "WHERE user_id = ?",
                 (int(time.time()), user_id),
             )
-            return {"zeigen": True, "rueckkehr": True,
-                    "abstand_tage": ABSTAND_TAGE}
+            return {"zeigen": True, "rueckkehr": True}
 
-        # Unveraendert: nach sieben Tagen wieder zeigen.
-        #
-        # Frueher stand hier `not bool(row["gesehen"])` -- einmal
-        # weggeklickt, nie wieder. Jetzt entscheidet der Abstand.
-        if not row["gesehen"]:
-            faellig = True
-        else:
-            # `gesehen_at` kann 0 sein: bei Zeilen aus der Zeit vor
-            # dieser Spalte. Dann ist das Fenster faellig -- lieber
-            # einmal zu viel als eine Zeile, die nie wieder meldet.
-            zuletzt = int(row["gesehen_at"] or 0)
-            faellig = (int(time.time()) - zuletzt) >= ABSTAND_SEKUNDEN
-
+        # Unveraendert: nur zeigen, wenn noch nicht gesehen.
         return {
-            "zeigen": faellig,
+            "zeigen": not bool(row["gesehen"]),
             # Ab dem zweiten Abschnitt ist es eine Rueckkehr.
             "rueckkehr": int(row["epoche"] or 1) > 1,
-            # Damit die Oberflaeche den Abstand nicht doppelt kennt.
-            "abstand_tage": ABSTAND_TAGE,
         }
 
 

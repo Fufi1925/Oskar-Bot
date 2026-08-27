@@ -46,6 +46,7 @@ def read(path):
 # Tabs whose page is a list of actions with no draft state: nothing is
 # ever "unsaved", so a save bar would never appear.
 NO_DRAFT = {
+    "backup",        # ein Knopf; Wiederherstellen fragt in einem Fenster
     "invites",       # read-only statistics
     "giveaways",     # a dialog per giveaway, saved on confirm
     "compose",       # one-shot send

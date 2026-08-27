@@ -69,7 +69,17 @@ def entkette(src: str) -> str:
 
 
 def test_fenster_kommt_wieder():
-    linie("1  Das Fenster kommt alle sieben Tage")
+    """Das goldene Fenster kommt EINMAL -- der 7-Tage-Takt ist woanders.
+
+    Kurzzeitig kam es alle sieben Tage. Das ist zurueckgebaut: den
+    Takt hat jetzt das Support-Fenster, und das trifft jeden. Zwei
+    Fenster im selben Rhythmus waeren zwei Fenster hintereinander.
+
+    Die Pruefungen dazu stehen in `test_backup.py`. Hier bleibt, was
+    diese Datei schon immer festhielt: dass es ueberhaupt erscheint
+    und nach einem Entzug wiederkommt.
+    """
+    linie("1  Das goldene Fenster -- einmal, nicht alle sieben Tage")
 
     arbeit = tempfile.mkdtemp(prefix="sichtbar-")
     os.chdir(arbeit)
@@ -77,77 +87,35 @@ def test_fenster_kommt_wieder():
 
     from utils import premium_notice as pn
 
-    pruefe("der Abstand ist sieben Tage", pn.ABSTAND_TAGE == 7,
-           str(pn.ABSTAND_TAGE))
+    pruefe("kein Sieben-Tage-Abstand mehr",
+           not hasattr(pn, "ABSTAND_TAGE"),
+           "der Takt gehoert dem Support-Fenster")
 
     A = "1303627964734246944"
-
-    def zurueckdrehen(tage):
-        with sqlite3.connect(pn.DB_PATH) as conn:
-            conn.execute(
-                "UPDATE premium_notice SET gesehen_at = ? WHERE user_id = ?",
-                (int(time.time()) - int(tage * 86400), A),
-            )
 
     pruefe("beim ersten Premium erscheint es",
            pn.zustand(A, True)["zeigen"] is True)
 
     pn.als_gesehen(A)
-    pruefe("nach dem Wegklicken ist Ruhe",
-           pn.zustand(A, True)["zeigen"] is False)
+    pruefe("danach nie wieder", pn.zustand(A, True)["zeigen"] is False)
 
-    # Mehrere Seitenaufrufe duerfen nichts aendern.
+    # Mehrere Seitenaufrufe aendern nichts.
     for _ in range(5):
         pn.zustand(A, True)
-    pruefe("auch nach fuenf Aufrufen",
+    pruefe("auch nach fuenf Aufrufen nicht",
            pn.zustand(A, True)["zeigen"] is False)
 
-    zurueckdrehen(6)
-    pruefe("sechs Tage reichen nicht",
-           pn.zustand(A, True)["zeigen"] is False,
-           "sonst kaeme es zu frueh")
-
-    zurueckdrehen(7)
-    pruefe("nach sieben Tagen kommt es wieder",
-           pn.zustand(A, True)["zeigen"] is True,
-           "genau das war vorher nicht so -- es kam nur einmal")
-
-    # Und der Zyklus laeuft weiter.
-    pn.als_gesehen(A)
-    pruefe("danach wieder Ruhe", pn.zustand(A, True)["zeigen"] is False)
-    zurueckdrehen(8)
-    pruefe("und acht Tage spaeter erneut",
-           pn.zustand(A, True)["zeigen"] is True)
-
-    # Ohne Premium bleibt es weg -- egal wie lange her.
+    # Ohne Premium bleibt es weg.
     B = "1033826242270609449"
     pn.zustand(B, True)
     pn.als_gesehen(B)
-    with sqlite3.connect(pn.DB_PATH) as conn:
-        conn.execute(
-            "UPDATE premium_notice SET gesehen_at = ? WHERE user_id = ?",
-            (int(time.time()) - 90 * 86400, B),
-        )
     pruefe("ohne Premium kein Fenster",
            pn.zustand(B, False)["zeigen"] is False)
 
-    # Nach Entzug und Neuvergabe sofort, nicht erst in sieben Tagen.
+    # Nach Entzug und Neuvergabe wieder -- als Rueckkehr.
     z = pn.zustand(B, True)
-    pruefe("nach einer Rueckkehr sofort", z["zeigen"] is True)
-    pruefe("und als Rueckkehr gekennzeichnet", z["rueckkehr"] is True,
-           "der alte Abstand darf das nicht aufhalten")
-
-    # Alte Zeilen ohne die neue Spalte.
-    C = "999888777666555444"
-    pn.zustand(C, True)
-    pn.als_gesehen(C)
-    with sqlite3.connect(pn.DB_PATH) as conn:
-        conn.execute(
-            "UPDATE premium_notice SET gesehen_at = 0 WHERE user_id = ?", (C,)
-        )
-    pruefe("eine Zeile ohne Zeitpunkt gilt als faellig",
-           pn.zustand(C, True)["zeigen"] is True,
-           "lieber einmal zu viel als eine, die nie wieder meldet")
+    pruefe("nach einer Rueckkehr erscheint es", z["zeigen"] is True)
+    pruefe("und ist als Rueckkehr gekennzeichnet", z["rueckkehr"] is True)
 
     os.chdir(START)
 

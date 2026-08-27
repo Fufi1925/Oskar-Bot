@@ -203,26 +203,27 @@ def test_tabelle():
            len(re.findall(r"premium:", rumpf)) == len(titel),
            f"{len(re.findall(r'premium:', rumpf))} von {len(titel)}")
 
-    # Vier wirken heute: gemeinsames Premium, Design, Speedrun und die
-    # Premium-Vorlagen. Alles davon sperrt der Bot wirklich.
+    # Fuenf wirken heute: gemeinsames Premium, Design, Speedrun, die
+    # Premium-Vorlagen und die Backups. Alles davon sperrt der Bot
+    # wirklich.
     live = re.findall(r"live:\s*true", rumpf)
-    pruefe("genau vier Punkte sind als aktiv markiert", len(live) == 4,
+    pruefe("genau fuenf Punkte sind als aktiv markiert", len(live) == 5,
            f"gefunden: {len(live)}")
 
     # Und zwar diese vier -- namentlich, nicht nur der Zahl nach.
     for name in ("Gilt für beide Bots", "Eigenes Aussehen pro Server",
-                 "Speedrun", "Premium-Vorlagen"):
+                 "Speedrun", "Premium-Vorlagen", "Backups"):
         eintrag = re.search(
             r"titel:\s*\"" + re.escape(name) + r"\".*?(?=\n\s*\{|\Z)",
             rumpf, re.S,
         )
         pruefe(f"„{name}“ ist als aktiv markiert",
                eintrag is not None and "live: true" in eintrag.group(0),
-               "diese vier sind gebaut")
+               "diese fuenf sind gebaut")
 
-    # Die sechs anderen duerfen NICHT als aktiv gelten.
-    pruefe("die sechs uebrigen gelten als geplant", len(titel) - len(live) == 6,
-           f"{len(titel) - len(live)} statt 6")
+    # Die fuenf anderen duerfen NICHT als aktiv gelten.
+    pruefe("die fuenf uebrigen gelten als geplant", len(titel) - len(live) == 5,
+           f"{len(titel) - len(live)} statt 5")
 
     # Die Kennzeichnung muss auch angezeigt werden, nicht nur in den
     # Daten stehen.

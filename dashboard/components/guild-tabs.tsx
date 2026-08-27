@@ -51,6 +51,7 @@ import {
   Badge,
   Bot,
   Calculator,
+  Database,
   ChevronDown,
   FileText,
   Gauge,
@@ -119,6 +120,13 @@ function buildGroups(t: TranslateFn): Group[] {
       icon: Palette,
       tabs: [
         { name: "Design", slug: "design", icon: Palette, also: ["design", "aussehen", "name", "banner", "avatar", "profilbild", "premium"] },
+        {
+          name: "Backup",
+          slug: "backup",
+          icon: Database,
+          also: ["backup", "sicherung", "sichern", "wiederherstellen",
+                 "restore", "premium"],
+        },
       ],
     },
     {

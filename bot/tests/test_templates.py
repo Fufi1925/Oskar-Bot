@@ -3946,6 +3946,7 @@ def test_every_dashboard_tab_is_covered():
     # auffaellt: er ist weder erfasst noch hier vermerkt, und der Test
     # wird rot. Genau das soll er.
     ohne_einstellung = {
+        "backup",            # eigener Speicher, keine Feature-Tabelle
         "admin-dashboard",   # Berichte
         "compose",           # einmal senden
         "emergency",         # Knoepfe, die sofort handeln

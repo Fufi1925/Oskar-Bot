@@ -117,7 +117,7 @@ const DASHBOARD_BEREICHE = [
 ];
 
 /** Wie viele Bereiche es wirklich gibt. */
-const BEREICHE_GESAMT = 44;
+const BEREICHE_GESAMT = 45;
 
 const ABSCHNITTE: Abschnitt[] = [
   {

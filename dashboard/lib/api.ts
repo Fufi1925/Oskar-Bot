@@ -1490,6 +1490,36 @@ export const api = {
       method: "POST",
       body: JSON.stringify({}),
     }),
+  // Sicherungen. `actor` setzt der Proxy aus der Sitzung.
+  backupList: (guildId: string) => request<any>(`/backup/${guildId}`),
+  backupCreate: (guildId: string, mitNachrichten = false) =>
+    request<any>(`/backup/${guildId}/create`, {
+      method: "POST",
+      body: JSON.stringify({ mit_nachrichten: mitNachrichten }),
+    }),
+  backupDelete: (guildId: string, kennung: string) =>
+    request<any>(`/backup/${guildId}/${kennung}`, { method: "DELETE" }),
+  backupRestore: (
+    guildId: string,
+    kennung: string,
+    optionen: {
+      alles_loeschen: boolean;
+      mit_einstellungen: boolean;
+      mit_nachrichten?: boolean;
+    }
+  ) =>
+    request<any>(`/backup/${guildId}/${kennung}/restore`, {
+      method: "POST",
+      body: JSON.stringify(optionen),
+    }),
+  backupStatus: (guildId: string) =>
+    request<any>(`/backup/${guildId}/status`),
+  backupAuto: (guildId: string, daten: any) =>
+    request<any>(`/backup/${guildId}/auto`, {
+      method: "POST",
+      body: JSON.stringify(daten),
+    }),
+
   designUnlocked: () => request<any>("/design/admin/unlocked"),
   designUnlock: (guildId: string, note = "") =>
     request<any>("/design/admin/unlocked", {

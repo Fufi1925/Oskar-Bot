@@ -31,6 +31,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from api.dependencies import get_bot
 from utils import beta_applications as store
 from utils import feature_audit
+from utils import links
 from utils import premium_notice
 from utils import premium_store
 
@@ -186,6 +187,54 @@ async def notice_seen(data: dict):
     if not user_id.isdigit():
         raise HTTPException(status_code=401, detail="Nicht angemeldet.")
     premium_notice.als_gesehen(user_id)
+    return {"status": "ok"}
+
+
+# ══════════════════════════════════════════════════════════════════════
+#  Das Support-Server-Fenster -- alle sieben Tage, fuer jeden
+# ══════════════════════════════════════════════════════════════════════
+#
+# Liegt hier und nicht in einer eigenen Datei: es ist dieselbe Art
+# Frage wie oben („soll ein Fenster erscheinen?"), und der
+# Dashboard-Proxy kennt `/beta` bereits als Bereich, der jedem
+# Angemeldeten offensteht. Ein zweites Praefix haette eine zweite
+# Rechtepruefung gebraucht.
+
+
+@router.get("/support-notice", summary="Soll das Support-Fenster erscheinen?")
+async def support_notice(user_id: str = ""):
+    """Alle sieben Tage einmal -- unabhaengig von Premium.
+
+    Anders als das goldene Fenster trifft dieses JEDEN, der sich
+    anmeldet. Deshalb wird hier nichts ueber Premium abgefragt.
+    """
+    from utils import support_notice as store_sn
+
+    if not str(user_id).isdigit():
+        return {"zeigen": False, "abstand_tage": store_sn.ABSTAND_TAGE,
+                "beigetreten": False}
+
+    zustand = store_sn.zustand(user_id)
+    zustand["invite"] = links.support_url()
+    return zustand
+
+
+@router.post("/support-notice/seen", summary="Support-Fenster geschlossen")
+async def support_notice_seen(data: dict):
+    """Weggeklickt -- ab jetzt sieben Tage Ruhe.
+
+    `beigetreten` kommt von „Ja, beitreten": dann erscheint es gar
+    nicht mehr. Ob die Person wirklich beigetreten ist, wissen wir
+    nicht -- aber sie hat den Link geoeffnet, und weiter zu fragen
+    waere aufdringlich.
+    """
+    from utils import support_notice as store_sn
+
+    user_id = str(data.get("user_id") or "").strip()
+    if not user_id.isdigit():
+        raise HTTPException(status_code=401, detail="Nicht angemeldet.")
+
+    store_sn.weggeklickt(user_id, beigetreten=bool(data.get("beigetreten")))
     return {"status": "ok"}
 
 

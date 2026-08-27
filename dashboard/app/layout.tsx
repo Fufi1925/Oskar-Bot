@@ -21,6 +21,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/components/auth-provider";
 import { CookieHinweis } from "@/components/cookie-hinweis";
 import { PremiumHinweis } from "@/components/premium-hinweis";
+import { SupportHinweis } from "@/components/support-hinweis";
 import { LanguageProvider } from "@/lib/i18n/LanguageContext";
 
 const brandName = process.env.NEXT_PUBLIC_BRAND_NAME || "University Bot";
@@ -65,8 +66,7 @@ export default function RootLayout({
               Nachweis. Außerhalb wäre useSession() ein Fehler beim
               Rendern. */}
           <CookieHinweis />
-          {/* Erscheint im Dashboard, wenn jemand Premium hat --
-              danach alle sieben Tage wieder.
+          {/* Erscheint EINMAL im Dashboard, wenn jemand Premium hat.
 
               Die Beschränkung auf /dashboard steckt in der Komponente
               selbst: sie liest den Pfad. Hier zu filtern hieße, das
@@ -74,6 +74,10 @@ export default function RootLayout({
               der Hinweis gehört ohnehin dorthin, wo man mit Premium
               auch etwas anfangen kann. */}
           <PremiumHinweis />
+          {/* Die Einladung in den Support-Server: nach der Anmeldung
+              im Dashboard, danach sieben Tage Ruhe. Trifft jeden,
+              nicht nur Premium-Konten. */}
+          <SupportHinweis />
         </AuthProvider>
       </body>
     </html>

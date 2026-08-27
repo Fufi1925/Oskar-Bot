@@ -34,6 +34,7 @@ from .commands.Invc import Invcrole
 from .commands.anonchat import AnonChat
 from .commands.giveaway import Giveaway
 from .commands.honeypot import Honeypot
+from .commands.backup_auto import BackupAuto
 from .commands.supportqueue import SupportQueue
 from .commands.Embed import Embed
 from .commands.steal import Steal
@@ -227,6 +228,7 @@ async def setup(bot: universitybot):
   await bot.add_cog(AnonChat(bot))
   await bot.add_cog(Giveaway(bot))
   await bot.add_cog(Honeypot(bot))
+  await bot.add_cog(BackupAuto(bot))
   await bot.add_cog(SupportQueue(bot))
   await bot.add_cog(Steal(bot))
   await bot.add_cog(Booster(bot))
