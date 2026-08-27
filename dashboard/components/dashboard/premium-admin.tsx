@@ -1,31 +1,40 @@
 "use client";
 
 /**
- * Premium — the admin view.
+ * Premium — der Admin-Bereich.
  *
- * Rebuilt from nothing. The previous version was a column of cards you
- * had to read top to bottom, and the list underneath showed four fields
- * out of the eleven the API returns. Answering "when did this person
- * buy, and when did they redeem it" meant looking in the database.
+ * ── Was hier vorher stand ───────────────────────────────────────────
  *
- * What drove this layout:
+ * Eine Liste von **Keys**. Das war die falsche Einheit: ein Konto kann
+ * mehrere Keys haben (verlängert, nachgelegt, ausgeglichen), und dann
+ * stand dieselbe Person dreimal da — einmal abgelaufen, zweimal
+ * gültig. Wer wissen wollte „hat diese Person Premium und bis wann“,
+ * musste die Zeilen im Kopf zusammenrechnen.
  *
- *   * The list is the tab. Everything else is either a number above it
- *     or a form you open when you need it — minting is rare, looking
- *     something up is constant.
- *   * Every field the API sends is reachable. Dates and the hash live
- *     in a row you expand, so the common case stays one line per key.
- *   * Bulk work is selection-based. Fifty expired keys used to be fifty
- *     confirmations, or one purge button with no way to look first.
- *   * Nothing is invented. Every value here comes from the API; where
- *     something is unknown it says so instead of guessing.
+ * Dazu kam: seit der Zusammenlegung werden gar keine Keys mehr
+ * ausgegeben. Premium kommt aus dem Beta-Antrag. Ein Reiter, dessen
+ * Hauptfunktion „Key prägen“ ist, zeigt damit auf einen Weg, den
+ * niemand mehr geht.
+ *
+ * ── Was jetzt hier steht ────────────────────────────────────────────
+ *
+ * Eine Liste von **Konten**. Eine Zeile je Person, mit dem Datum, das
+ * auch sie selbst im Dashboard sieht. Sortiert nach „läuft als
+ * Nächstes ab“ — das ist die Frage, wegen der man den Reiter öffnet.
+ *
+ * Die Zahlen oben sind keine Zierde: „läuft bald ab“ ist die einzige,
+ * bei der man handeln muss, und sie steht deshalb zuerst und in Gold.
+ *
+ * Die Key-Verwaltung ist nicht verschwunden, sondern in einen eigenen
+ * Abschnitt gewandert, den man aufklappt. Bestehende Keys müssen
+ * sperrbar bleiben — aber sie sind nicht mehr der Alltag.
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  AlertTriangle, ArrowUpDown, Ban, CheckCircle2, ChevronDown, Copy,
-  Download, KeyRound, Plus, RefreshCw, Search, ShieldCheck, Trash2,
-  Undo2, X,
+  AlertTriangle, Ban, CheckCircle2, ChevronDown, Clock, Crown, Gift,
+  Infinity as InfinityIcon, KeyRound, Plus, RefreshCw, Search,
+  Sparkles, Timer, Users, X,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -33,978 +42,626 @@ import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { CountUp, Reveal } from "@/components/ui/reveal";
 import { PremiumTrials } from "@/components/dashboard/premium-trials";
+import { PremiumKeys } from "@/components/dashboard/premium-keys";
 
-/* ── types ─────────────────────────────────────────────────────────── */
+/* ── Typen ─────────────────────────────────────────────────────────── */
 
-type KeyState = "active" | "unclaimed" | "expired" | "revoked";
-type Filter = "all" | KeyState;
-type SortBy = "created" | "expires" | "state";
-
-interface KeyRow {
-  key_hash: string;
-  product: string;
-  duration: number;
-  created_at: number | null;
-  created_by: string | null;
-  created_name: string;
-  note: string;
-  redeemed_by: string | null;
-  redeemed_name: string;
-  redeemed_at: number | null;
+interface Konto {
+  user_id: string;
+  user_name: string;
+  avatar: string;
+  premium: boolean;
+  lifetime: boolean;
   expires_at: number | null;
+  duration_days: number;
+  since: number | null;
+  keys_total: number;
+  keys_active: number;
   revoked: number;
+  note: string;
+  via_trial: boolean;
+  source: string;
 }
 
-/* ── helpers ───────────────────────────────────────────────────────── */
+type Filter = "alle" | "aktiv" | "bald" | "probewoche" | "beendet";
+
+/* ── Hilfen ────────────────────────────────────────────────────────── */
 
 const INPUT =
   "w-full bg-[#0e0e12] border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white " +
   "placeholder:text-slate-600 focus:border-primary/50 focus:outline-none transition-colors";
 
-const STATES: Record<KeyState, { label: string; dot: string; chip: string }> = {
-  active: {
-    label: "Aktiv",
-    dot: "bg-emerald-400",
-    chip: "text-emerald-300 bg-emerald-500/10 border-emerald-500/20",
-  },
-  unclaimed: {
-    label: "Offen",
-    dot: "bg-sky-400",
-    chip: "text-sky-300 bg-sky-500/10 border-sky-500/20",
-  },
-  expired: {
-    label: "Abgelaufen",
-    dot: "bg-slate-500",
-    chip: "text-slate-400 bg-slate-500/10 border-slate-600/20",
-  },
-  revoked: {
-    label: "Gesperrt",
-    dot: "bg-red-400",
-    chip: "text-red-300 bg-red-500/10 border-red-500/20",
-  },
-};
+const CARD = "bg-[#131318] border border-slate-800 rounded-3xl";
 
-function stateOf(row: KeyRow, now: number): KeyState {
-  if (row.revoked) return "revoked";
-  if (!row.redeemed_by) return "unclaimed";
-  if (row.expires_at && row.expires_at * 1000 <= now) return "expired";
-  return "active";
-}
-
-function fmtDate(seconds?: number | null): string {
-  if (!seconds) return "—";
-  return new Date(seconds * 1000).toLocaleDateString("de-DE", {
+/** Deutsche Schreibweise. `toFixed`/`toString` liefern einen Punkt. */
+function datum(sekunden?: number | null): string {
+  if (!sekunden) return "—";
+  return new Date(sekunden * 1000).toLocaleDateString("de-DE", {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
   });
 }
 
-function fmtDateTime(seconds?: number | null): string {
-  if (!seconds) return "—";
-  return new Date(seconds * 1000).toLocaleString("de-DE", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+/** Verbleibende Tage. `null`, wenn es nie abläuft. */
+function tageUebrig(sekunden?: number | null): number | null {
+  if (!sekunden) return null;
+  return Math.max(0, Math.ceil((sekunden * 1000 - Date.now()) / 86_400_000));
 }
 
-/** "noch 12 Tage", or null when it never ends. */
-function remaining(seconds?: number | null): number | null {
-  if (!seconds) return null;
-  return Math.max(0, Math.ceil((seconds * 1000 - Date.now()) / 86_400_000));
+/** Läuft in den nächsten sieben Tagen ab. Dieselbe Grenze wie im Bot. */
+function laeuftBaldAb(k: Konto): boolean {
+  if (!k.premium || k.lifetime || !k.expires_at) return false;
+  const uebrig = tageUebrig(k.expires_at);
+  return uebrig !== null && uebrig <= 7;
 }
 
-/** Who this key belongs to, in the most useful form available. */
-function ownerLabel(row: KeyRow): string {
-  if (!row.redeemed_by) return "—";
-  return row.redeemed_name
-    ? `${row.redeemed_name} · ${row.redeemed_by}`
-    : row.redeemed_by;
-}
-
-/* ── small pieces ──────────────────────────────────────────────────── */
-
-function Stat({
-  label,
-  value,
-  hint,
-  tone,
-  active,
-  onClick,
-}: {
-  label: string;
-  value: number;
-  hint: string;
-  tone: string;
-  active?: boolean;
-  onClick?: () => void;
-}) {
-  // The numbers double as filters — seeing "7 expired" and having to
-  // then find the filter for it is a step nobody should need.
-  const Tag = onClick ? "button" : "div";
-  return (
-    <Tag
-      onClick={onClick}
-      className={cn(
-        "text-left rounded-2xl border px-4 py-3.5 transition-all",
-        active
-          ? "border-primary/40 bg-primary/[0.08]"
-          : "border-slate-800 bg-[#0e0e12]/60",
-        onClick && "hover:border-slate-700"
-      )}
-    >
-      <p className={cn("text-2xl font-black tabular-nums", tone)}>
-        <CountUp value={value} />
-      </p>
-      <p className="text-[11px] text-slate-400 mt-0.5">{label}</p>
-      <p className="text-[10px] text-slate-600 mt-0.5">{hint}</p>
-    </Tag>
-  );
-}
-
-function Panel({
+function Zahl({
   icon: Icon,
-  title,
-  subtitle,
-  right,
-  children,
-  tone = "plain",
+  wert,
+  label,
+  ton = "normal",
 }: {
   icon: any;
-  title: string;
-  subtitle?: string;
-  right?: React.ReactNode;
-  children?: React.ReactNode;
-  tone?: "plain" | "muted";
+  wert: number;
+  label: string;
+  ton?: "normal" | "gold" | "still";
 }) {
   return (
-    <section
+    <div
       className={cn(
-        "rounded-3xl border p-5 space-y-4",
-        tone === "muted"
-          ? "border-slate-800/70 bg-[#0e0e12]/40"
-          : "border-slate-800 bg-[#0e0e12]/60"
+        "rounded-2xl border p-4",
+        ton === "gold"
+          ? "border-amber-400/30 bg-amber-400/[0.06]"
+          : "border-slate-800 bg-[#0f0f13]"
       )}
     >
-      <header className="flex items-center gap-3">
-        <div className="h-9 w-9 rounded-xl bg-primary/10 grid place-items-center shrink-0">
-          <Icon className="h-4 w-4 text-primary" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <h3 className="text-sm font-bold text-white">{title}</h3>
-          {subtitle && (
-            <p className="text-[11px] text-slate-500 mt-0.5">{subtitle}</p>
+      <div className="flex items-center gap-2">
+        <Icon
+          className={cn(
+            "h-3.5 w-3.5",
+            ton === "gold"
+              ? "text-amber-400"
+              : ton === "still"
+                ? "text-slate-600"
+                : "text-primary"
           )}
-        </div>
-        {right}
-      </header>
-      {children}
-    </section>
+        />
+        <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+          {label}
+        </span>
+      </div>
+      <div
+        className={cn(
+          "mt-1 text-2xl font-black tabular-nums",
+          ton === "gold" ? "text-amber-300" : "text-white"
+        )}
+      >
+        <CountUp value={wert} />
+      </div>
+    </div>
   );
 }
 
-/* ── the tab ───────────────────────────────────────────────────────── */
+/* ── Der Reiter ────────────────────────────────────────────────────── */
 
 export function PremiumAdmin() {
-  const [rows, setRows] = useState<KeyRow[]>([]);
-  const [role, setRole] = useState<any>(null);
-  const [stats, setStats] = useState<any>(null);
-  const [setup, setSetup] = useState({ pepper: true, token: true, url: true });
-  const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState(false);
+  const [konten, setKonten] = useState<Konto[]>([]);
+  const [zahlen, setZahlen] = useState<any>(null);
+  const [laedt, setLaedt] = useState(true);
+  const [beschaeftigt, setBeschaeftigt] = useState(false);
 
-  const [filter, setFilter] = useState<Filter>("all");
-  const [query, setQuery] = useState("");
-  const [sortBy, setSortBy] = useState<SortBy>("created");
-  const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [expanded, setExpanded] = useState<string | null>(null);
+  const [filter, setFilter] = useState<Filter>("alle");
+  const [suche, setSuche] = useState("");
+  const [offen, setOffen] = useState<string | null>(null);
 
-  const [showMint, setShowMint] = useState(false);
-  const [days, setDays] = useState("30");
-  const [count, setCount] = useState("1");
-  const [recipient, setRecipient] = useState("");
-  const [note, setNote] = useState("");
-  const [fresh, setFresh] = useState<string[]>([]);
+  // Das Vergabe-Formular. Zu, bis man es braucht: vergeben wird
+  // selten, nachgesehen ständig.
+  const [zeigeVergabe, setZeigeVergabe] = useState(false);
+  const [empfaenger, setEmpfaenger] = useState("");
+  const [tage, setTage] = useState("30");
+  const [notiz, setNotiz] = useState("");
 
-  const load = useCallback(async () => {
+  // Die Key-Verwaltung. Ebenfalls zu: seit der Zusammenlegung werden
+  // keine neuen Keys mehr ausgegeben, bestehende müssen aber
+  // sperrbar bleiben.
+  const [zeigeKeys, setZeigeKeys] = useState(false);
+
+  const laden = useCallback(async (still = false) => {
+    if (!still) setLaedt(true);
     try {
-      const res = await api.listPremiumKeys(500);
-      setRows(res?.keys || []);
-      setRole(res?.role || null);
-      setStats(res?.stats || null);
-      setSetup({
-        pepper: Boolean(res?.pepper_set),
-        token: Boolean(res?.partner_token_set),
-        url: Boolean(res?.template_url_set),
-      });
-      // A key that vanished must not stay selected, or a bulk action
-      // would try to touch a row that is no longer there.
-      setSelected((old) => {
-        const alive = new Set((res?.keys || []).map((k: KeyRow) => k.key_hash));
-        return new Set([...old].filter((h) => alive.has(h)));
-      });
+      const antwort = await api.listPremiumAccounts(300);
+      setKonten(antwort?.accounts ?? []);
+      setZahlen(antwort?.stats ?? null);
     } catch (err: any) {
-      toast.error(err?.message || "Keys konnten nicht geladen werden.");
+      toast.error(err?.message || "Die Konten ließen sich nicht laden.");
     } finally {
-      setLoading(false);
+      setLaedt(false);
     }
   }, []);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    laden();
+  }, [laden]);
 
-  const now = Date.now();
+  const gefiltert = useMemo(() => {
+    const suchbegriff = suche.trim().toLowerCase();
+    return konten.filter((k) => {
+      if (filter === "aktiv" && !k.premium) return false;
+      if (filter === "bald" && !laeuftBaldAb(k)) return false;
+      if (filter === "probewoche" && !(k.premium && k.via_trial)) return false;
+      if (filter === "beendet" && k.premium) return false;
 
-  const visible = useMemo(() => {
-    const needle = query.trim().toLowerCase();
-    const list = rows.filter((row) => {
-      if (filter !== "all" && stateOf(row, now) !== filter) return false;
-      if (!needle) return true;
-      return [row.redeemed_by, row.redeemed_name, row.note, row.key_hash]
-        .filter(Boolean)
-        .some((f) => String(f).toLowerCase().includes(needle));
+      if (!suchbegriff) return true;
+      return (
+        k.user_id.includes(suchbegriff) ||
+        (k.user_name || "").toLowerCase().includes(suchbegriff) ||
+        (k.note || "").toLowerCase().includes(suchbegriff)
+      );
     });
+  }, [konten, filter, suche]);
 
-    const order: KeyState[] = ["active", "unclaimed", "expired", "revoked"];
-    return [...list].sort((a, b) => {
-      if (sortBy === "state") {
-        return order.indexOf(stateOf(a, now)) - order.indexOf(stateOf(b, now));
-      }
-      if (sortBy === "expires") {
-        // Never-expiring keys last: they are not "soonest".
-        const av = a.expires_at ?? Number.MAX_SAFE_INTEGER;
-        const bv = b.expires_at ?? Number.MAX_SAFE_INTEGER;
-        return av - bv;
-      }
-      return (b.created_at ?? 0) - (a.created_at ?? 0);
-    });
-  }, [rows, filter, query, sortBy, now]);
-
-  const allShownSelected =
-    visible.length > 0 && visible.every((r) => selected.has(r.key_hash));
-
-  const toggleAll = () => {
-    setSelected((old) => {
-      const next = new Set(old);
-      if (allShownSelected) visible.forEach((r) => next.delete(r.key_hash));
-      else visible.forEach((r) => next.add(r.key_hash));
-      return next;
-    });
-  };
-
-  const toggleOne = (hash: string) => {
-    setSelected((old) => {
-      const next = new Set(old);
-      next.has(hash) ? next.delete(hash) : next.add(hash);
-      return next;
-    });
-  };
-
-  /* ── actions ─────────────────────────────────────────────────────── */
-
-  const mint = async () => {
-    const duration = Number(days);
-    if (Number.isNaN(duration) || duration < 0 || duration > 3650) {
-      toast.error("Laufzeit: 0 (unbegrenzt) bis 3650 Tage.");
+  const vergeben = async () => {
+    const id = empfaenger.trim();
+    if (!/^\d{15,25}$/.test(id)) {
+      toast.error("Das sieht nicht nach einer Discord-ID aus.");
       return;
     }
-    const amount = Math.max(1, Math.min(25, Number(count) || 1));
-    if (amount > 1 && recipient.trim()) {
-      toast.error("Mehrere Keys lassen sich nicht an eine Person schicken.");
-      return;
-    }
-    if (recipient.trim() && !/^\d{15,25}$/.test(recipient.trim())) {
-      toast.error("Die Discord-ID besteht nur aus Ziffern.");
+    const t = Number(tage);
+    if (!Number.isFinite(t) || t < 0) {
+      toast.error("Die Laufzeit muss eine Zahl sein. 0 heißt unbegrenzt.");
       return;
     }
 
-    setBusy(true);
+    setBeschaeftigt(true);
     try {
-      const made: string[] = [];
-      for (let i = 0; i < amount; i++) {
-        const res = await api.createPremiumKey({
-          days: duration,
-          user_id: recipient.trim() || undefined,
-          note: note.trim() || undefined,
-        });
-        made.push(res.key);
-        if (res.delivery && !["sent", "none"].includes(res.delivery)) {
-          toast.warning(res.result);
-        } else if (res.delivery === "sent") {
-          toast.success(res.result);
-        }
-      }
-      setFresh(made);
-      if (amount > 1) toast.success(`${amount} Keys erstellt.`);
-      setRecipient("");
-      setNote("");
-      setCount("1");
-      await load();
+      await api.grantPremiumAccount(id, t, notiz.trim());
+      toast.success(
+        t === 0
+          ? "Premium vergeben — unbegrenzt."
+          : `Premium vergeben — ${t} Tage.`
+      );
+      setEmpfaenger("");
+      setNotiz("");
+      setZeigeVergabe(false);
+      await laden(true);
     } catch (err: any) {
-      toast.error(err?.message || "Key konnte nicht erstellt werden.");
+      toast.error(err?.message || "Das Vergeben ist fehlgeschlagen.");
     } finally {
-      setBusy(false);
+      setBeschaeftigt(false);
     }
   };
 
-  const runOne = async (
-    hash: string,
-    what: "revoke" | "unrevoke" | "delete"
-  ) => {
-    if (what === "delete" && !confirm("Diesen Key endgültig löschen?")) return;
+  const entziehen = async (k: Konto) => {
+    const name = k.user_name || k.user_id;
     if (
-      what === "revoke" &&
-      !confirm("Sperren? Premium wird sofort entzogen, auch im Template-Bot.")
+      !window.confirm(
+        `${name} verliert damit Premium — auf beiden Bots.\n\n` +
+          "Eine laufende Probewoche wird ebenfalls beendet."
+      )
     ) {
       return;
     }
-    setBusy(true);
+
+    setBeschaeftigt(true);
     try {
-      const res =
-        what === "delete"
-          ? await api.deletePremiumKey(hash)
-          : await api.revokePremiumKey(hash, what === "unrevoke");
-      toast.success(res?.result || "Erledigt.");
-      await load();
+      const res = await api.revokePremiumAccount(k.user_id);
+      toast.success(
+        res?.trial_ended
+          ? "Premium entzogen, Probewoche beendet."
+          : "Premium entzogen."
+      );
+      await laden(true);
     } catch (err: any) {
-      toast.error(err?.message || "Fehlgeschlagen.");
+      toast.error(err?.message || "Das Entziehen ist fehlgeschlagen.");
     } finally {
-      setBusy(false);
+      setBeschaeftigt(false);
     }
   };
 
-  const runBulk = async (what: "revoke" | "delete") => {
-    const hashes = [...selected];
-    if (hashes.length === 0) return;
-    const word = what === "delete" ? "endgültig löschen" : "sperren";
-    if (!confirm(`${hashes.length} Keys ${word}?`)) return;
-
-    setBusy(true);
-    let done = 0;
-    let failed = 0;
-    try {
-      for (const hash of hashes) {
-        try {
-          if (what === "delete") await api.deletePremiumKey(hash);
-          else await api.revokePremiumKey(hash, false);
-          done++;
-        } catch {
-          // Keep going: one bad row must not strand the other forty.
-          failed++;
-        }
-      }
-      if (failed) toast.warning(`${done} erledigt, ${failed} fehlgeschlagen.`);
-      else toast.success(`${done} Keys ${what === "delete" ? "gelöscht" : "gesperrt"}.`);
-      setSelected(new Set());
-      await load();
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  /** Everything currently shown, as CSV. Never the keys — only hashes. */
-  const exportCsv = () => {
-    const header = [
-      "status", "besitzer_id", "besitzer_name", "laufzeit_tage",
-      "erstellt", "eingeloest", "laeuft_ab", "notiz", "hash",
-    ];
-    const lines = visible.map((row) =>
-      [
-        STATES[stateOf(row, now)].label,
-        row.redeemed_by ?? "",
-        row.redeemed_name ?? "",
-        row.duration === 0 ? "unbegrenzt" : row.duration,
-        fmtDateTime(row.created_at),
-        fmtDateTime(row.redeemed_at),
-        row.expires_at ? fmtDateTime(row.expires_at) : "nie",
-        row.note ?? "",
-        row.key_hash,
-      ]
-        // Quotes doubled and the field wrapped: a note with a comma or a
-        // quote in it would otherwise shift every later column.
-        .map((cell) => `"${String(cell).replace(/"/g, '""')}"`)
-        .join(",")
-    );
-
-    const blob = new Blob(["\uFEFF" + [header.join(","), ...lines].join("\n")], {
-      type: "text/csv;charset=utf-8",
-    });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `premium-keys-${new Date().toISOString().slice(0, 10)}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
-    toast.success(`${visible.length} Zeilen exportiert.`);
-  };
-
-  /* ── render ──────────────────────────────────────────────────────── */
-
-  const problems = [
-    !setup.pepper && {
-      code: "PREMIUM_KEY_PEPPER",
-      text: "Ohne diesen Wert lassen sich keine Keys erstellen. Wird er " +
-            "später gesetzt, verfallen alle vorher erstellten Keys.",
-    },
-    !setup.token && {
-      code: "PREMIUM_PARTNER_TOKEN",
-      text: "Der Template-Bot kann nicht nachfragen, wer Premium hat.",
-    },
-    !setup.url && {
-      code: "TEMPLATE_BOT_URL",
-      text: "Sperren und Freigeben wirken erst nach bis zu 5 Minuten " +
-            "statt sofort.",
-    },
-  ].filter(Boolean) as { code: string; text: string }[];
+  const FILTER: Array<{ id: Filter; label: string }> = [
+    { id: "alle", label: "Alle" },
+    { id: "aktiv", label: "Mit Premium" },
+    { id: "bald", label: "Läuft bald ab" },
+    { id: "probewoche", label: "Probewoche" },
+    { id: "beendet", label: "Beendet" },
+  ];
 
   return (
     <div className="space-y-5">
-      {/* Anything broken belongs at the top, not buried under the list. */}
-      {problems.length > 0 && (
-        <Reveal className="rounded-2xl border border-amber-500/30 bg-amber-500/[0.06] px-5 py-4">
-          <p className="text-sm font-bold text-amber-300 flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4" />
-            Einrichtung unvollständig
-          </p>
-          <ul className="mt-2 space-y-1.5">
-            {problems.map((p) => (
-              <li key={p.code} className="text-[12px] text-slate-400">
-                <code className="text-amber-200/90">{p.code}</code> fehlt
-                &nbsp;&mdash;&nbsp;{p.text}
-              </li>
-            ))}
-          </ul>
-        </Reveal>
-      )}
-
-      <Reveal delay={60} className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <Stat
-          label="Aktive Lizenzen"
-          value={stats?.active ?? 0}
-          hint={`${stats?.lifetime ?? 0} davon unbegrenzt`}
-          tone="text-emerald-300"
-          active={filter === "active"}
-          onClick={() => setFilter(filter === "active" ? "all" : "active")}
-        />
-        <Stat
-          label="Nicht eingelöst"
-          value={stats?.unclaimed ?? 0}
-          hint="warten auf einen Käufer"
-          tone="text-sky-300"
-          active={filter === "unclaimed"}
-          onClick={() => setFilter(filter === "unclaimed" ? "all" : "unclaimed")}
-        />
-        <Stat
-          label="Läuft bald ab"
-          value={stats?.expiring_soon ?? 0}
-          hint="in den nächsten 7 Tagen"
-          tone="text-amber-300"
-          active={sortBy === "expires"}
-          onClick={() => setSortBy(sortBy === "expires" ? "created" : "expires")}
-        />
-        <Stat
-          label="Neu (30 Tage)"
-          value={stats?.created_30d ?? 0}
-          hint={`${stats?.total ?? 0} Keys insgesamt`}
-          tone="text-slate-200"
-        />
+      {/* ── Die Zahlen ──────────────────────────────────────────── */}
+      <Reveal>
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+          {/* Zuerst und in Gold: die einzige Zahl, bei der man etwas
+              tun muss. */}
+          <Zahl
+            icon={Timer}
+            wert={zahlen?.expiring_soon ?? 0}
+            label="Läuft bald ab"
+            ton="gold"
+          />
+          <Zahl icon={Crown} wert={zahlen?.active ?? 0} label="Mit Premium" />
+          <Zahl
+            icon={InfinityIcon}
+            wert={zahlen?.lifetime ?? 0}
+            label="Unbegrenzt"
+          />
+          <Zahl icon={Gift} wert={zahlen?.trials ?? 0} label="Probewoche" />
+          <Zahl
+            icon={Users}
+            wert={zahlen?.expired ?? 0}
+            label="Beendet"
+            ton="still"
+          />
+        </div>
       </Reveal>
 
-      <Reveal delay={120}>
-      <Panel
-        icon={ShieldCheck}
-        title="Premium-Rolle"
-        subtitle="Wird alle 10 Minuten mit den gültigen Lizenzen abgeglichen."
-        tone="muted"
-      >
-        {!role?.configured ? (
-          <p className="text-[12px] text-slate-500">
-            Keine Rolle eingestellt. Unter <b>Bot Config &rarr; Premium Role</b>{" "}
-            eine Rollen-ID eintragen.
-          </p>
-        ) : role?.ok ? (
-          <p className="text-[12px] text-emerald-300 flex items-center gap-2">
-            <CheckCircle2 className="h-4 w-4 shrink-0" />
-            <span>
-              <b>{role.name}</b> &mdash; {role.members ?? 0} Mitglieder
-            </span>
-          </p>
-        ) : (
-          <p className="text-[12px] text-amber-300 flex items-start gap-2">
-            <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
-            {role?.problem}
-          </p>
-        )}
-      </Panel>
-      </Reveal>
+      {/* ── Werkzeugleiste ──────────────────────────────────────── */}
+      <Reveal>
+        <div className={cn(CARD, "p-4")}>
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+            <div className="relative flex-1">
+              <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-600" />
+              <input
+                value={suche}
+                onChange={(e) => setSuche(e.target.value)}
+                placeholder="Name, Konto-ID oder Notiz"
+                className={cn(INPUT, "pl-10")}
+                aria-label="Konten durchsuchen"
+              />
+            </div>
 
-      {/* Minting is occasional, so it stays folded away by default. */}
-      <Reveal delay={180}>
-      <Panel
-        icon={Plus}
-        title="Key erstellen"
-        subtitle="Ersetzt den früheren /key-Befehl."
-        right={
-          <button
-            onClick={() => setShowMint((v) => !v)}
-            className="px-4 py-2 rounded-xl bg-primary text-[13px] font-semibold hover:brightness-110 transition-all"
-          >
-            {showMint ? "Schließen" : "Neuer Key"}
-          </button>
-        }
-      >
-        {showMint && (
-          <div className="space-y-4 pt-1">
-            <div className="grid sm:grid-cols-3 gap-3">
-              <div className="space-y-1.5">
-                <label
-                  htmlFor="pk-days"
-                  className="text-[11px] font-black uppercase tracking-widest text-slate-400"
+            <div className="flex flex-wrap gap-1.5">
+              {FILTER.map((f) => (
+                <button
+                  key={f.id}
+                  onClick={() => setFilter(f.id)}
+                  className={cn(
+                    "rounded-xl px-3 py-2 text-xs font-bold transition",
+                    filter === f.id
+                      ? "bg-primary text-white"
+                      : "border border-slate-800 bg-[#0f0f13] text-slate-400 hover:bg-white/[0.04]"
+                  )}
                 >
-                  Laufzeit (Tage)
-                </label>
-                <input
-                  id="pk-days"
-                  type="number"
-                  min={0}
-                  max={3650}
-                  className={INPUT}
-                  value={days}
-                  onChange={(e) => setDays(e.target.value)}
-                />
-                <div className="flex flex-wrap gap-1.5">
-                  {[
-                    ["30", "30 T"],
-                    ["90", "90 T"],
-                    ["365", "1 Jahr"],
-                    ["0", "∞"],
-                  ].map(([value, label]) => (
-                    <button
-                      key={value}
-                      onClick={() => setDays(value)}
-                      className={cn(
-                        "px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-colors",
-                        days === value
-                          ? "bg-primary/15 border-primary/40 text-white"
-                          : "bg-[#0e0e12] border-slate-800 text-slate-400 hover:border-slate-700"
-                      )}
-                    >
-                      {label}
-                    </button>
-                  ))}
+                  {f.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => laden()}
+                disabled={laedt}
+                className="rounded-xl border border-slate-800 bg-[#0f0f13] p-2.5 text-slate-400 transition hover:bg-white/[0.04] disabled:opacity-40"
+                title="Neu laden"
+              >
+                <RefreshCw className={cn("h-4 w-4", laedt && "animate-spin")} />
+              </button>
+              <button
+                onClick={() => setZeigeVergabe((v) => !v)}
+                className="inline-flex items-center gap-2 rounded-xl bg-amber-400 px-4 py-2.5 text-xs font-bold text-black transition hover:brightness-110"
+              >
+                {zeigeVergabe ? (
+                  <X className="h-3.5 w-3.5" />
+                ) : (
+                  <Plus className="h-3.5 w-3.5" />
+                )}
+                Premium vergeben
+              </button>
+            </div>
+          </div>
+
+          {/* Das Vergabe-Formular. */}
+          {zeigeVergabe && (
+            <div className="mt-4 space-y-3 rounded-2xl border border-amber-400/25 bg-amber-400/[0.04] p-4">
+              <p className="text-xs leading-relaxed text-slate-400">
+                Der übliche Weg ist der Beta-Antrag. Hier vergibst du
+                Premium von Hand — für Support-Fälle und Zusagen außerhalb
+                des Formulars. Es gilt sofort für{" "}
+                <strong className="text-slate-300">beide Bots</strong>.
+              </p>
+
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div className="sm:col-span-2">
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500">
+                    Discord-ID
+                  </label>
+                  <input
+                    value={empfaenger}
+                    onChange={(e) => setEmpfaenger(e.target.value)}
+                    placeholder="1303627964734246944"
+                    className={cn(INPUT, "mt-1.5")}
+                    inputMode="numeric"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500">
+                    Tage — 0 = unbegrenzt
+                  </label>
+                  <input
+                    value={tage}
+                    onChange={(e) => setTage(e.target.value)}
+                    className={cn(INPUT, "mt-1.5")}
+                    inputMode="numeric"
+                  />
                 </div>
               </div>
 
-              <div className="space-y-1.5">
-                <label
-                  htmlFor="pk-count"
-                  className="text-[11px] font-black uppercase tracking-widest text-slate-400"
-                >
-                  Anzahl
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500">
+                  Notiz — warum
                 </label>
                 <input
-                  id="pk-count"
-                  type="number"
-                  min={1}
-                  max={25}
-                  className={INPUT}
-                  value={count}
-                  onChange={(e) => setCount(e.target.value)}
+                  value={notiz}
+                  onChange={(e) => setNotiz(e.target.value)}
+                  placeholder="z. B. Ausgleich für den Ausfall am 12."
+                  className={cn(INPUT, "mt-1.5")}
                 />
-                <p className="text-[11px] text-slate-500">
-                  Bis 25 auf einmal, z.B. für ein Gewinnspiel.
-                </p>
               </div>
 
-              <div className="space-y-1.5">
-                <label
-                  htmlFor="pk-user"
-                  className="text-[11px] font-black uppercase tracking-widest text-slate-400"
-                >
-                  Discord-ID (optional)
-                </label>
-                <input
-                  id="pk-user"
-                  className={INPUT}
-                  value={recipient}
-                  onChange={(e) => setRecipient(e.target.value)}
-                  placeholder="Für DM-Versand"
-                  inputMode="numeric"
-                />
-                <p className="text-[11px] text-slate-500">
-                  Leer lassen, um selbst weiterzugeben.
-                </p>
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <label
-                htmlFor="pk-note"
-                className="text-[11px] font-black uppercase tracking-widest text-slate-400"
-              >
-                Notiz (optional)
-              </label>
-              <input
-                id="pk-note"
-                className={INPUT}
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                placeholder="z.B. Bestellung #42"
-              />
-            </div>
-
-            <button
-              onClick={mint}
-              disabled={busy || !setup.pepper}
-              className="w-full py-2.5 rounded-xl bg-primary text-[13px] font-semibold hover:brightness-110 disabled:opacity-40 transition-all"
-            >
-              {busy ? "Wird erstellt …" : "Erstellen"}
-            </button>
-          </div>
-        )}
-
-        {/* Shown once. Keys are stored hashed — this is the only moment
-            they can ever be read. */}
-        {fresh.length > 0 && (
-          <div className="rounded-2xl border border-amber-500/30 bg-amber-500/[0.06] p-4 space-y-2">
-            <div className="flex items-center justify-between">
-              <p className="text-[12px] font-bold text-amber-200">
-                {fresh.length === 1 ? "Neuer Key" : `${fresh.length} neue Keys`}
-                {" "}&mdash; jetzt notieren
-              </p>
               <button
-                onClick={() => setFresh([])}
-                className="p-1 rounded-lg text-slate-500 hover:text-white transition-colors"
-                aria-label="Ausblenden"
+                onClick={vergeben}
+                disabled={beschaeftigt || !empfaenger.trim()}
+                className="inline-flex items-center gap-2 rounded-xl bg-amber-400 px-4 py-2.5 text-xs font-bold text-black transition hover:brightness-110 disabled:opacity-40"
               >
-                <X className="h-4 w-4" />
+                <Sparkles className="h-3.5 w-3.5" />
+                Vergeben
               </button>
             </div>
-            {fresh.map((k) => (
-              <div key={k} className="flex items-center gap-2">
-                <code className="flex-1 font-mono text-sm text-white tracking-widest bg-[#0e0e12] rounded-lg px-3 py-2 select-all">
-                  {k}
-                </code>
-                <button
-                  onClick={() => {
-                    navigator.clipboard?.writeText(k);
-                    toast.success("Kopiert.");
-                  }}
-                  className="p-2.5 rounded-lg bg-[#0e0e12] border border-slate-800 text-slate-400 hover:text-white transition-colors"
-                  aria-label="Key kopieren"
-                >
-                  <Copy className="h-4 w-4" />
-                </button>
-              </div>
-            ))}
-            {fresh.length > 1 && (
-              <button
-                onClick={() => {
-                  navigator.clipboard?.writeText(fresh.join("\n"));
-                  toast.success("Alle kopiert.");
-                }}
-                className="text-[11px] font-bold text-amber-200 hover:text-white transition-colors"
-              >
-                Alle {fresh.length} kopieren
-              </button>
-            )}
-            <p className="text-[11px] text-amber-300/80">
-              Keys werden nur verschlüsselt gespeichert und lassen sich
-              später nicht mehr anzeigen.
-            </p>
-          </div>
-        )}
-      </Panel>
+          )}
+        </div>
       </Reveal>
 
-      {/* The list is the tab. */}
-      <Reveal delay={240}>
-      <Panel
-        icon={KeyRound}
-        title="Alle Keys"
-        subtitle={`${visible.length} von ${rows.length} angezeigt`}
-        right={
-          <div className="flex items-center gap-1">
-            <button
-              onClick={exportCsv}
-              disabled={visible.length === 0}
-              className="p-2 rounded-lg text-slate-500 hover:text-white hover:bg-white/[0.04] disabled:opacity-30 transition-colors"
-              aria-label="Als CSV exportieren"
-              title="Angezeigte Zeilen als CSV"
-            >
-              <Download className="h-4 w-4" />
-            </button>
-            <button
-              onClick={load}
-              className="p-2 rounded-lg text-slate-500 hover:text-white hover:bg-white/[0.04] transition-colors"
-              aria-label="Neu laden"
-            >
-              <RefreshCw className="h-4 w-4" />
-            </button>
-          </div>
-        }
-      >
-        <div className="flex flex-col lg:flex-row gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-600" />
-            <input
-              className={cn(INPUT, "pl-10")}
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Name, Discord-ID, Notiz oder Hash"
-              aria-label="Keys durchsuchen"
-            />
-          </div>
-
-          <div className="flex flex-wrap items-center gap-1.5">
-            {(
-              [
-                ["all", "Alle"],
-                ["active", "Aktiv"],
-                ["unclaimed", "Offen"],
-                ["expired", "Abgelaufen"],
-                ["revoked", "Gesperrt"],
-              ] as [Filter, string][]
-            ).map(([id, label]) => (
-              <button
-                key={id}
-                onClick={() => setFilter(id)}
-                className={cn(
-                  "px-3 py-2 rounded-lg text-[11px] font-bold border transition-colors",
-                  filter === id
-                    ? "bg-primary/15 border-primary/40 text-white"
-                    : "bg-[#0e0e12] border-slate-800 text-slate-400 hover:border-slate-700"
-                )}
-              >
-                {label}
-              </button>
-            ))}
-            <button
-              onClick={() =>
-                setSortBy(
-                  sortBy === "created"
-                    ? "expires"
-                    : sortBy === "expires"
-                    ? "state"
-                    : "created"
-                )
-              }
-              className="px-3 py-2 rounded-lg text-[11px] font-bold border bg-[#0e0e12] border-slate-800 text-slate-400 hover:border-slate-700 transition-colors flex items-center gap-1.5"
-              title="Sortierung wechseln"
-            >
-              <ArrowUpDown className="h-3.5 w-3.5" />
-              {sortBy === "created"
-                ? "Neueste"
-                : sortBy === "expires"
-                ? "Ablauf"
-                : "Status"}
-            </button>
-          </div>
-        </div>
-
-        {/* Bulk bar appears only when something is picked. */}
-        {selected.size > 0 && (
-          <div className="flex flex-wrap items-center gap-2 rounded-xl border border-primary/30 bg-primary/[0.07] px-4 py-2.5">
-            <span className="text-[12px] font-bold text-white">
-              {selected.size} ausgewählt
+      {/* ── Die Liste ───────────────────────────────────────────── */}
+      <Reveal>
+        <div className={cn(CARD, "overflow-hidden")}>
+          <div className="flex items-center justify-between border-b border-slate-800 bg-[#0f0f13] px-5 py-3">
+            <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+              {gefiltert.length}{" "}
+              {gefiltert.length === 1 ? "Konto" : "Konten"}
             </span>
-            <div className="flex-1" />
-            <button
-              onClick={() => runBulk("revoke")}
-              disabled={busy}
-              className="px-3 py-1.5 rounded-lg text-[13px] font-semibold bg-amber-500/10 border border-amber-500/25 text-amber-200 hover:bg-amber-500/20 disabled:opacity-40 transition-all"
-            >
-              Sperren
-            </button>
-            <button
-              onClick={() => runBulk("delete")}
-              disabled={busy}
-              className="px-3 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-widest bg-red-500/10 border border-red-500/25 text-red-200 hover:bg-red-500/20 disabled:opacity-40 transition-all"
-            >
-              Löschen
-            </button>
-            <button
-              onClick={() => setSelected(new Set())}
-              className="px-3 py-1.5 rounded-lg text-[11px] font-bold text-slate-400 hover:text-white transition-colors"
-            >
-              Auswahl aufheben
-            </button>
+            <span className="text-[10px] text-slate-600">
+              Was zuerst abläuft, steht oben
+            </span>
           </div>
-        )}
 
-        {loading ? (
-          <p className="text-[12px] text-slate-500">Wird geladen …</p>
-        ) : visible.length === 0 ? (
-          <p className="text-[12px] text-slate-500">
-            {rows.length === 0
-              ? "Noch keine Keys erstellt."
-              : "Zu dieser Suche gibt es nichts."}
-          </p>
-        ) : (
-          <div className="space-y-1.5">
-            <label className="flex items-center gap-2.5 px-3 text-[11px] text-slate-500 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={allShownSelected}
-                onChange={toggleAll}
-                className="accent-primary h-3.5 w-3.5"
-              />
-              Alle {visible.length} angezeigten auswählen
-            </label>
-
-            {visible.map((row, index) => {
-              const state = stateOf(row, now);
-              const meta = STATES[state];
-              const left = remaining(row.expires_at);
-              const isOpen = expanded === row.key_hash;
+          {laedt ? (
+            <div className="space-y-2 p-4">
+              {[0, 1, 2].map((i) => (
+                <div
+                  key={i}
+                  className="h-16 animate-pulse rounded-2xl bg-[#0f0f13]"
+                />
+              ))}
+            </div>
+          ) : gefiltert.length === 0 ? (
+            <div className="px-5 py-12 text-center">
+              <div className="mx-auto mb-3 w-fit rounded-2xl bg-[#0f0f13] p-3">
+                <Crown className="h-5 w-5 text-slate-700" />
+              </div>
+              <p className="text-sm font-bold text-slate-400">
+                {suche || filter !== "alle"
+                  ? "Nichts gefunden."
+                  : "Noch hat niemand Premium."}
+              </p>
+              {!suche && filter === "alle" && (
+                <p className="mt-1 text-xs text-slate-600">
+                  Sobald ein Beta-Antrag angenommen wird, steht die Person
+                  hier.
+                </p>
+              )}
+            </div>
+          ) : (
+            gefiltert.map((k, i) => {
+              const uebrig = tageUebrig(k.expires_at);
+              const bald = laeuftBaldAb(k);
+              const auf = offen === k.user_id;
 
               return (
-                <Reveal
-                  key={row.key_hash}
-                  // Capped at ten rows' worth: with two hundred keys a
-                  // per-row delay would take half a minute to finish.
-                  delay={Math.min(index, 10) * 35}
-                  className={cn(
-                    "rounded-xl border bg-[#0e0e12] transition-colors",
-                    selected.has(row.key_hash)
-                      ? "border-primary/40"
-                      : "border-slate-800"
-                  )}
+                <div
+                  key={k.user_id}
+                  className={cn(i > 0 && "border-t border-slate-800")}
                 >
-                  <div className="flex items-center gap-3 px-3 py-2.5">
-                    <input
-                      type="checkbox"
-                      checked={selected.has(row.key_hash)}
-                      onChange={() => toggleOne(row.key_hash)}
-                      className="accent-primary h-3.5 w-3.5 shrink-0"
-                      aria-label={`Key von ${ownerLabel(row)} auswählen`}
-                    />
-
-                    <span
-                      className={cn("h-2 w-2 rounded-full shrink-0", meta.dot)}
-                      title={meta.label}
-                    />
-
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[12.5px] text-slate-200 truncate">
-                        {ownerLabel(row)}
-                      </p>
-                      <p className="text-[11px] text-slate-500 truncate">
-                        {meta.label}
-                        {" · "}
-                        {row.duration === 0
-                          ? "unbegrenzt"
-                          : `${row.duration} Tage`}
-                        {state === "active" && left !== null
-                          ? ` · noch ${left} ${left === 1 ? "Tag" : "Tage"}`
-                          : ""}
-                        {row.note ? ` · ${row.note}` : ""}
-                      </p>
-                    </div>
-
-                    <div className="flex items-center gap-0.5 shrink-0">
-                      <button
-                        onClick={() =>
-                          setExpanded(isOpen ? null : row.key_hash)
-                        }
-                        className="p-1.5 rounded-lg text-slate-600 hover:text-white hover:bg-white/[0.04] transition-colors"
-                        aria-label="Details anzeigen"
-                      >
-                        <ChevronDown
-                          className={cn(
-                            "h-4 w-4 transition-transform",
-                            isOpen && "rotate-180"
-                          )}
+                  <button
+                    onClick={() => setOffen(auf ? null : k.user_id)}
+                    className="flex w-full items-center gap-3 px-5 py-3.5 text-left transition hover:bg-white/[0.02]"
+                  >
+                    {/* Bild */}
+                    <div className="h-9 w-9 shrink-0 overflow-hidden rounded-full border border-slate-800 bg-[#0f0f13]">
+                      {k.avatar ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={k.avatar}
+                          alt=""
+                          className="h-full w-full object-cover"
                         />
-                      </button>
-                      <button
-                        onClick={() =>
-                          runOne(
-                            row.key_hash,
-                            row.revoked ? "unrevoke" : "revoke"
-                          )
-                        }
-                        disabled={busy}
-                        className={cn(
-                          "p-1.5 rounded-lg transition-colors disabled:opacity-40",
-                          row.revoked
-                            ? "text-slate-600 hover:text-emerald-300 hover:bg-emerald-500/10"
-                            : "text-slate-600 hover:text-amber-300 hover:bg-amber-500/10"
-                        )}
-                        aria-label={row.revoked ? "Sperre aufheben" : "Sperren"}
-                        title={row.revoked ? "Sperre aufheben" : "Sperren"}
-                      >
-                        {row.revoked ? (
-                          <Undo2 className="h-4 w-4" />
-                        ) : (
-                          <Ban className="h-4 w-4" />
-                        )}
-                      </button>
-                      <button
-                        onClick={() => runOne(row.key_hash, "delete")}
-                        disabled={busy}
-                        className="p-1.5 rounded-lg text-slate-600 hover:text-red-300 hover:bg-red-500/10 disabled:opacity-40 transition-colors"
-                        aria-label="Endgültig löschen"
-                        title="Endgültig löschen"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Everything the API knows, without cluttering the row. */}
-                  {isOpen && (
-                    <Reveal className="border-t border-slate-800/70 px-3 py-3 grid sm:grid-cols-2 gap-x-6 gap-y-2">
-                      {[
-                        ["Status", meta.label],
-                        ["Erstellt", fmtDateTime(row.created_at)],
-                        [
-                          "Erstellt von",
-                          row.created_name || row.created_by || "—",
-                        ],
-                        ["Eingelöst", fmtDateTime(row.redeemed_at)],
-                        [
-                          "Läuft ab",
-                          row.expires_at ? fmtDate(row.expires_at) : "nie",
-                        ],
-                        ["Produkt", row.product],
-                        ["Notiz", row.note || "—"],
-                      ].map(([label, value]) => (
-                        <div key={label} className="flex gap-2 text-[11.5px]">
-                          <span className="text-slate-500 w-28 shrink-0">
-                            {label}
-                          </span>
-                          <span className="text-slate-300 break-words min-w-0">
-                            {value}
-                          </span>
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center">
+                          <Users className="h-4 w-4 text-slate-700" />
                         </div>
-                      ))}
-                      <div className="sm:col-span-2 flex gap-2 text-[11.5px]">
-                        <span className="text-slate-500 w-28 shrink-0">
-                          Hash
+                      )}
+                    </div>
+
+                    {/* Name */}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="truncate text-sm font-bold text-white">
+                          {k.user_name || "Unbekannt"}
                         </span>
-                        <code className="text-slate-500 font-mono break-all min-w-0">
-                          {row.key_hash}
-                        </code>
+                        {k.premium ? (
+                          k.lifetime ? (
+                            <span className="rounded-md border border-amber-400/20 bg-amber-400/10 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-amber-400">
+                              Unbegrenzt
+                            </span>
+                          ) : k.via_trial ? (
+                            <span className="rounded-md border border-sky-500/20 bg-sky-500/10 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-sky-300">
+                              Probewoche
+                            </span>
+                          ) : (
+                            <span className="rounded-md border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-emerald-300">
+                              Aktiv
+                            </span>
+                          )
+                        ) : (
+                          <span className="rounded-md border border-slate-600/20 bg-slate-500/10 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-slate-500">
+                            Beendet
+                          </span>
+                        )}
                       </div>
-                    </Reveal>
+                      <div className="mt-0.5 truncate font-mono text-[11px] text-slate-600">
+                        {k.user_id}
+                      </div>
+                    </div>
+
+                    {/* Ablauf */}
+                    <div className="shrink-0 text-right">
+                      {k.premium ? (
+                        k.lifetime ? (
+                          <span className="text-xs text-slate-500">
+                            läuft nicht ab
+                          </span>
+                        ) : (
+                          <>
+                            <div
+                              className={cn(
+                                "text-xs font-bold tabular-nums",
+                                bald ? "text-amber-300" : "text-slate-300"
+                              )}
+                            >
+                              {uebrig} {uebrig === 1 ? "Tag" : "Tage"}
+                            </div>
+                            <div className="text-[10px] text-slate-600">
+                              bis {datum(k.expires_at)}
+                            </div>
+                          </>
+                        )
+                      ) : (
+                        <span className="text-xs text-slate-600">—</span>
+                      )}
+                    </div>
+
+                    <ChevronDown
+                      className={cn(
+                        "h-4 w-4 shrink-0 text-slate-600 transition-transform",
+                        auf && "rotate-180"
+                      )}
+                    />
+                  </button>
+
+                  {/* Aufgeklappt */}
+                  {auf && (
+                    <div className="space-y-3 border-t border-slate-800 bg-[#0f0f13] px-5 py-4">
+                      <div className="grid gap-3 text-xs sm:grid-cols-3">
+                        <div>
+                          <div className="text-[10px] font-black uppercase tracking-widest text-slate-600">
+                            Seit
+                          </div>
+                          <div className="mt-0.5 text-slate-300">
+                            {datum(k.since)}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-[10px] font-black uppercase tracking-widest text-slate-600">
+                            Laufzeit
+                          </div>
+                          <div className="mt-0.5 text-slate-300">
+                            {k.lifetime
+                              ? "unbegrenzt"
+                              : k.duration_days
+                                ? `${k.duration_days} Tage`
+                                : "—"}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-[10px] font-black uppercase tracking-widest text-slate-600">
+                            Lizenzen
+                          </div>
+                          <div className="mt-0.5 text-slate-300">
+                            {k.keys_active} aktiv
+                            {k.revoked > 0 && (
+                              <span className="text-slate-600">
+                                {" "}
+                                · {k.revoked} gesperrt
+                              </span>
+                            )}
+                            {k.keys_total === 0 && k.via_trial && (
+                              <span className="text-slate-600">
+                                nur Probewoche
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {k.note && (
+                        <div>
+                          <div className="text-[10px] font-black uppercase tracking-widest text-slate-600">
+                            Notiz
+                          </div>
+                          <div className="mt-0.5 text-xs text-slate-400">
+                            {k.note}
+                          </div>
+                        </div>
+                      )}
+
+                      {k.premium && (
+                        <button
+                          onClick={() => entziehen(k)}
+                          disabled={beschaeftigt}
+                          className="inline-flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-3.5 py-2 text-xs font-bold text-red-300 transition hover:bg-red-500/20 disabled:opacity-40"
+                        >
+                          <Ban className="h-3.5 w-3.5" />
+                          Premium entziehen
+                        </button>
+                      )}
+                    </div>
                   )}
-                </Reveal>
+                </div>
               );
-            })}
-          </div>
-        )}
-      </Panel>
+            })
+          )}
+        </div>
       </Reveal>
 
-      {/* Die Probewochen stehen unter den Keys, nicht daneben: sie sind
-          eine andere Sache. Ein Key wird verkauft, eine Probewoche
-          verschenkt -- und zwar einmal pro Konto. */}
-      <PremiumTrials />
+      {/* ── Probewochen ─────────────────────────────────────────── */}
+      <Reveal>
+        <PremiumTrials />
+      </Reveal>
+
+      {/* ── Keys: zugeklappt ────────────────────────────────────── */}
+      <Reveal>
+        <div className={cn(CARD, "overflow-hidden")}>
+          <button
+            onClick={() => setZeigeKeys((v) => !v)}
+            className="flex w-full items-center gap-3 px-5 py-4 text-left transition hover:bg-white/[0.02]"
+          >
+            <div className="rounded-xl bg-[#0f0f13] p-2">
+              <KeyRound className="h-4 w-4 text-slate-500" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-bold text-white">
+                Lizenz-Keys
+              </div>
+              <div className="mt-0.5 text-xs text-slate-500">
+                Aus der Zeit vor der Zusammenlegung. Neue werden nicht mehr
+                ausgegeben — bestehende bleiben sperrbar.
+              </div>
+            </div>
+            <ChevronDown
+              className={cn(
+                "h-4 w-4 shrink-0 text-slate-600 transition-transform",
+                zeigeKeys && "rotate-180"
+              )}
+            />
+          </button>
+
+          {zeigeKeys && (
+            <div className="border-t border-slate-800 p-4">
+              <PremiumKeys />
+            </div>
+          )}
+        </div>
+      </Reveal>
     </div>
   );
 }

@@ -79,8 +79,13 @@ def test_the_tab_and_the_page_exist_together():
 
     tabs = strip_comments(read(TABS))
     check("der Reiter ist eingetragen", '"speedrun"' in tabs)
-    check("er ist als Beta markiert",
-          bool(re.search(r'slug:\s*"speedrun"[^}]*tag:\s*"beta"', tabs, re.S)))
+    # KEIN Beta-Zeichen mehr: der Speedrun ist eine Premium-Funktion.
+    #
+    # Auf Abwesenheit geprueft, sonst schleicht es sich beim naechsten
+    # Umbau zurueck.
+    check("er ist NICHT mehr als Beta markiert",
+          not re.search(r'slug:\s*"speedrun"[^}]*tag:\s*"beta"', tabs, re.S),
+          "der Speedrun ist Premium, keine Beta")
 
     # Der Reiter muss auf denselben Ordner zeigen, der auch existiert.
     page_dir = os.path.join(DASH, "app", "dashboard", "guild", "[guildId]", "speedrun")
@@ -709,8 +714,9 @@ def test_the_sidebar_row_stands_out():
     Ausnahmen in einer kurzen Liste -- und damit stach keine mehr
     hervor.
 
-    Was bleibt: der Reiter ist als Beta gekennzeichnet, und er steht
-    in einer Gruppe, damit der richtige Renderpfad greift.
+    Was bleibt: der Reiter steht in einer Gruppe, damit der richtige
+    Renderpfad greift. Das Beta-Zeichen ist weg -- er ist golden wie
+    Design, weil er eine Premium-Funktion ist.
     """
 
     print("\nDie Speedrun-Zeile ist ruhig wie alle anderen")
@@ -729,10 +735,29 @@ def test_the_sidebar_row_stands_out():
     )
     check("der Reiter steht in einer Gruppe", in_group)
 
-    # Und er ist als Beta gekennzeichnet, jetzt ueber den Namen
-    # statt ueber eine eigene Klasse.
-    check("er ist als Beta gekennzeichnet",
-          "Speedrun (Beta)" in layout)
+    # Golden wie Design, nicht mehr Beta.
+    #
+    # Auf die WIRKUNG zielen: `highlight: true` am Eintrag ist das
+    # Feld, an dem `isPremium` in der Seitenleiste haengt. Nur zu
+    # pruefen, dass „Speedrun" vorkommt, saehe die Farbe nicht.
+    check("das Beta-Zeichen ist weg",
+          "Speedrun (Beta)" not in layout,
+          "der Speedrun ist keine Beta mehr")
+    # Den Eintrag isolieren, dann darin suchen.
+    #
+    # `[^}]*` taugt hier NICHT: der href ist ein Template-String
+    # (`${currentGuildId}`) und enthaelt selbst eine schliessende
+    # Klammer -- der Ausdruck bricht mitten im Eintrag ab und findet
+    # `highlight` nie. Nachgemessen, nicht vermutet.
+    eintrag = re.search(r'name:\s*"Speedrun",(.*?)\n\s{12}\},',
+                        layout, re.S)
+    check("der Eintrag ist auffindbar", eintrag is not None)
+    check("er ist golden markiert",
+          eintrag is not None and "highlight: true" in eintrag.group(1),
+          "ohne highlight ist er ein grauer Eintrag wie jeder andere")
+    check("und haengt am selben Feld wie Design",
+          "Boolean((item as any).highlight)" in layout,
+          "sonst gaebe es zwei Sonderfaelle statt einem")
     check("das Beta-Zeichen wird gerendert",
           'BETA' in layout and '(Beta)", "")' in layout,
           "die Klammer soll nicht im Text stehen bleiben")

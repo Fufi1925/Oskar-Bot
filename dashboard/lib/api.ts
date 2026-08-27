@@ -501,6 +501,20 @@ export const api = {
    * that is actually signed in.
    */
   getMyPremium: (userId: string) => request<any>(`/premium/me/${userId}`),
+  // Die Kontenuebersicht des Admin-Bereichs: eine Zeile je KONTO,
+  // nicht je Key. Ein Konto kann mehrere Keys haben.
+  listPremiumAccounts: (limit = 300) =>
+    request<any>(`/premium/accounts?limit=${limit}`),
+  grantPremiumAccount: (userId: string, days: number, note = "") =>
+    request<any>("/premium/accounts/grant", {
+      method: "POST",
+      body: JSON.stringify({ user_id: userId, days, note }),
+    }),
+  revokePremiumAccount: (userId: string) =>
+    request<any>("/premium/accounts/revoke", {
+      method: "POST",
+      body: JSON.stringify({ user_id: userId }),
+    }),
   // Die 7-Tage-Probewochen, die der Template-Bot gemeldet hat.
   listPremiumTrials: (limit = 200) =>
     request<any>(`/premium/trials?limit=${limit}`),

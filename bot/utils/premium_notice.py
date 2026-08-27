@@ -3,11 +3,17 @@ Wer hat den Premium-Hinweis schon gesehen?
 
 Das Fenster
 -----------
-Wer Premium hat und die Seite betritt, bekommt einmal ein goldenes
-Fenster: „Denk dran — du hast Premium." Danach nie wieder.
+Wer Premium hat und die Seite betritt, bekommt ein goldenes Fenster:
+„Denk dran — du hast Premium." Danach kommt es **alle sieben Tage**
+wieder.
+
+Vorher erschien es genau einmal und nie wieder. So gewuenscht
+geaendert: es soll an Premium erinnern, ohne bei jedem Seitenaufruf im
+Weg zu stehen. Sieben Tage sind der Abstand, bei dem es auffaellt,
+aber nicht nervt.
 
 Wird das Premium entzogen und spaeter neu vergeben, erscheint es
-erneut -- diesmal als „Willkommen zurück".
+sofort -- diesmal als „Willkommen zurück".
 
 Warum das serverseitig steht und nicht im Cookie
 ------------------------------------------------
@@ -17,9 +23,11 @@ jedes Mal neu. Und der entscheidende Fall liesse sich damit gar nicht
 loesen: „nach einem Entzug wieder zeigen" muss wissen, dass es
 dazwischen einen Entzug gab.
 
-Deshalb steht hier pro Konto, welchen *Abschnitt* jemand gesehen hat.
-Ein Abschnitt beginnt, wenn Premium vergeben wird, und endet mit dem
-Entzug. Solange die Nummer gleich bleibt, ist das Fenster erledigt.
+Deshalb steht hier pro Konto, welchen *Abschnitt* jemand gesehen hat
+und **wann zuletzt**. Ein Abschnitt beginnt, wenn Premium vergeben
+wird, und endet mit dem Entzug. Innerhalb eines Abschnitts entscheidet
+der Zeitpunkt: liegt er laenger als :data:`ABSTAND_TAGE` zurueck,
+kommt das Fenster wieder.
 
 Speicher
 --------
@@ -35,6 +43,14 @@ import time
 from typing import Any, Optional
 
 DB_PATH = os.path.join("db", "premium_notice.db")
+
+#: Wie lange Ruhe ist, nachdem jemand „Verstanden" gedrueckt hat.
+#:
+#: Ausdrueckliche Vorgabe: das Fenster soll immer wieder kommen, aber
+#: hoechstens alle sieben Tage. Bei jedem Seitenaufruf waere es eine
+#: Zumutung, einmalig verpufft der Hinweis.
+ABSTAND_TAGE = 7
+ABSTAND_SEKUNDEN = ABSTAND_TAGE * 24 * 3600
 
 
 def _connect() -> sqlite3.Connection:
@@ -57,6 +73,24 @@ def ensure() -> None:
             )
             """
         )
+
+        # Wann wurde zuletzt weggeklickt?
+        #
+        # `zuletzt_at` taugt dafuer nicht: es wird bei JEDER Aenderung
+        # gesetzt, auch beim Entzug. Fuer den Sieben-Tage-Abstand
+        # braucht es den Zeitpunkt des Wegklickens und sonst nichts.
+        #
+        # `CREATE TABLE IF NOT EXISTS` aendert an einer bestehenden
+        # Tabelle NICHTS -- die Spalte muss per ALTER nachgezogen
+        # werden, sonst kommt auf jeder bestehenden Installation
+        # „no such column".
+        try:
+            conn.execute(
+                "ALTER TABLE premium_notice "
+                "ADD COLUMN gesehen_at INTEGER NOT NULL DEFAULT 0"
+            )
+        except Exception:  # noqa: BLE001 - Spalte existiert bereits
+            pass
 
 
 def _hole(conn, user_id: str) -> Optional[sqlite3.Row]:
@@ -89,7 +123,8 @@ def zustand(user_id: str, hat_premium: bool) -> dict[str, Any]:
                     "WHERE user_id = ?",
                     (int(time.time()), user_id),
                 )
-            return {"zeigen": False, "rueckkehr": False}
+            return {"zeigen": False, "rueckkehr": False,
+                    "abstand_tage": ABSTAND_TAGE}
 
         if row is None:
             # Erstes Premium ueberhaupt.
@@ -98,34 +133,60 @@ def zustand(user_id: str, hat_premium: bool) -> dict[str, Any]:
                 "zuletzt_at) VALUES (?, 1, 0, 0, ?)",
                 (user_id, int(time.time())),
             )
-            return {"zeigen": True, "rueckkehr": False}
+            return {"zeigen": True, "rueckkehr": False,
+                    "abstand_tage": ABSTAND_TAGE}
 
         if row["war_weg"]:
             # Premium war weg und ist wieder da: neuer Abschnitt.
+            # `gesehen_at` mit zuruecksetzen: sonst haelt der
+            # Sieben-Tage-Abstand aus dem vorigen Abschnitt das
+            # „Willkommen zurück" auf.
             conn.execute(
                 "UPDATE premium_notice SET epoche = epoche + 1, gesehen = 0, "
-                "war_weg = 0, zuletzt_at = ? WHERE user_id = ?",
+                "war_weg = 0, zuletzt_at = ?, gesehen_at = 0 "
+                "WHERE user_id = ?",
                 (int(time.time()), user_id),
             )
-            return {"zeigen": True, "rueckkehr": True}
+            return {"zeigen": True, "rueckkehr": True,
+                    "abstand_tage": ABSTAND_TAGE}
 
-        # Unveraendert: nur zeigen, wenn noch nicht gesehen.
+        # Unveraendert: nach sieben Tagen wieder zeigen.
+        #
+        # Frueher stand hier `not bool(row["gesehen"])` -- einmal
+        # weggeklickt, nie wieder. Jetzt entscheidet der Abstand.
+        if not row["gesehen"]:
+            faellig = True
+        else:
+            # `gesehen_at` kann 0 sein: bei Zeilen aus der Zeit vor
+            # dieser Spalte. Dann ist das Fenster faellig -- lieber
+            # einmal zu viel als eine Zeile, die nie wieder meldet.
+            zuletzt = int(row["gesehen_at"] or 0)
+            faellig = (int(time.time()) - zuletzt) >= ABSTAND_SEKUNDEN
+
         return {
-            "zeigen": not bool(row["gesehen"]),
+            "zeigen": faellig,
             # Ab dem zweiten Abschnitt ist es eine Rueckkehr.
             "rueckkehr": int(row["epoche"] or 1) > 1,
+            # Damit die Oberflaeche den Abstand nicht doppelt kennt.
+            "abstand_tage": ABSTAND_TAGE,
         }
 
 
 def als_gesehen(user_id: str) -> None:
-    """Der Nutzer hat „Verstanden" gedrueckt."""
+    """Der Nutzer hat „Verstanden" gedrueckt.
+
+    Haelt den ZEITPUNKT fest, nicht nur das Ja/Nein: davon haengt ab,
+    wann das Fenster wieder faellig ist.
+    """
     ensure()
+    jetzt = int(time.time())
     with _connect() as conn:
         conn.execute(
             "INSERT INTO premium_notice (user_id, epoche, gesehen, war_weg, "
-            "zuletzt_at) VALUES (?, 1, 1, 0, ?) "
-            "ON CONFLICT(user_id) DO UPDATE SET gesehen = 1, zuletzt_at = ?",
-            (str(user_id), int(time.time()), int(time.time())),
+            "zuletzt_at, gesehen_at) VALUES (?, 1, 1, 0, ?, ?) "
+            "ON CONFLICT(user_id) DO UPDATE SET gesehen = 1, "
+            "zuletzt_at = ?, gesehen_at = ?",
+            (str(user_id), jetzt, jetzt, jetzt, jetzt),
         )
 
 

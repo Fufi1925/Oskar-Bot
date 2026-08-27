@@ -1027,8 +1027,14 @@ def test_dashboard_page():
           "createPremiumKey" not in pbody,
           "staff controls are still on the customer page")
 
+    # Die Key-Verwaltung ist in eine eigene Datei gewandert.
+    #
+    # `premium-admin.tsx` zeigt seit der Zusammenlegung KONTEN, nicht
+    # Keys -- ein Konto kann mehrere haben, und dann stand dieselbe
+    # Person mehrfach da. Die Key-Werkzeuge leben unveraendert
+    # weiter, nur eine Ebene tiefer.
     admin = open(os.path.join(dash, "components", "dashboard",
-                              "premium-admin.tsx"), encoding="utf-8").read()
+                              "premium-keys.tsx"), encoding="utf-8").read()
     abody = "\n".join(l for l in admin.splitlines() if not l.lstrip().startswith("//"))
 
     print("\nThe admin tab")
@@ -1143,7 +1149,7 @@ def test_mount_animation():
           "if (reduced || animated.current)" in rbody)
 
     admin = open(os.path.join(dash, "components", "dashboard",
-                              "premium-admin.tsx"), encoding="utf-8").read()
+                              "premium-keys.tsx"), encoding="utf-8").read()
     abody = "\n".join(l for l in admin.splitlines() if not l.lstrip().startswith("//"))
 
     check("the admin tab uses it", "<Reveal" in abody)
@@ -1155,6 +1161,24 @@ def test_mount_animation():
     check("the row stagger is capped",
           "Math.min(index, 10)" in abody,
           "a long list would animate for far too long")
+
+    # Der neue Reiter selbst: Konten statt Keys.
+    konten = open(os.path.join(dash, "components", "dashboard",
+                               "premium-admin.tsx"), encoding="utf-8").read()
+    kbody = "\n".join(
+        l for l in konten.splitlines() if not l.lstrip().startswith("//")
+    )
+    check("the admin tab lists accounts",
+          "listPremiumAccounts" in kbody,
+          "es soll je Konto eine Zeile geben, nicht je Key")
+    check("and can grant premium directly",
+          "grantPremiumAccount" in kbody)
+    check("and revoke it per account",
+          "revokePremiumAccount" in kbody,
+          "ein Entzug muss beide Bots treffen")
+    check("the key tools are still reachable",
+          "<PremiumKeys />" in kbody,
+          "bestehende Keys muessen sperrbar bleiben")
 
     page = open(os.path.join(dash, "app", "dashboard", "premium", "page.tsx"),
                 encoding="utf-8").read()

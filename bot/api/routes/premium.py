@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import hmac
 import os
+import time
 from typing import TYPE_CHECKING, Optional
 
 import aiohttp
@@ -250,6 +251,140 @@ async def redeem_key(data: dict):
 # ══════════════════════════════════════════════════════════════════════
 #  For the admin panel
 # ══════════════════════════════════════════════════════════════════════
+
+
+@router.get("/accounts", summary="Alle Konten mit Premium")
+async def list_accounts(limit: int = 300,
+                        bot: "universitybot" = Depends(get_bot)):
+    """Die Uebersicht des Admin-Bereichs -- eine Zeile je Konto.
+
+    Frueher listete der Reiter Keys. Das ist die falsche Einheit: ein
+    Konto kann mehrere haben, und dann stand dieselbe Person dreimal
+    da. Gefragt ist „wer hat Premium und bis wann".
+
+    Namen werden aufgeloest, soweit der Bot sie kennt. Eine nackte ID
+    hilft im Support niemandem.
+    """
+    eintraege = store.list_accounts(limit)
+
+    for zeile in eintraege:
+        zeile["user_name"] = ""
+        zeile["avatar"] = ""
+        try:
+            nutzer = bot.get_user(int(zeile["user_id"]))
+        except (TypeError, ValueError):
+            nutzer = None
+        if nutzer is not None:
+            zeile["user_name"] = nutzer.display_name or nutzer.name
+            avatar = getattr(nutzer, "display_avatar", None)
+            if avatar is not None:
+                zeile["avatar"] = str(avatar.url)
+
+    jetzt = int(time.time())
+    aktive = [e for e in eintraege if e["premium"]]
+    return {
+        "accounts": eintraege,
+        "stats": {
+            "total": len(eintraege),
+            "active": len(aktive),
+            "lifetime": len([e for e in aktive if e["lifetime"]]),
+            "trials": len([e for e in aktive if e["via_trial"]]),
+            # Wer laeuft in den naechsten sieben Tagen ab? Das ist die
+            # Zahl, wegen der man den Reiter ueberhaupt oeffnet.
+            #
+            # `<=`, nicht `<`: eine frisch vergebene 7-Tage-Probewoche
+            # liegt exakt auf der Grenze und laeuft sehr wohl
+            # innerhalb von sieben Tagen ab. Mit `<` fiele
+            # ausgerechnet der haeufigste Fall heraus.
+            "expiring_soon": len([
+                e for e in aktive
+                if e["expires_at"] and e["expires_at"] - jetzt <= 7 * 86400
+            ]),
+            "expired": len([e for e in eintraege if not e["premium"]]),
+        },
+    }
+
+
+@router.post("/accounts/grant", summary="Premium direkt vergeben")
+async def grant_account(data: dict, bot: "universitybot" = Depends(get_bot)):
+    """Einem Konto Premium geben, ohne Umweg ueber einen Key.
+
+    Der uebliche Weg ist der Beta-Antrag. Diese Route ist fuer die
+    Faelle daneben: ein Support-Fall, eine Zusage ausserhalb des
+    Formulars, ein Ausgleich nach einer Panne.
+
+    `days = 0` heisst unbegrenzt.
+    """
+    from utils import premium_notice
+
+    user_id = str(data.get("user_id") or "").strip()
+    if not user_id.isdigit():
+        raise HTTPException(status_code=400, detail="Keine gültige Konto-ID.")
+
+    try:
+        days = max(0, int(data.get("days") or 0))
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="days muss eine Zahl sein.")
+
+    ergebnis = store.grant_direct(
+        user_id,
+        duration_days=days,
+        note=str(data.get("note") or "Vom Admin vergeben")[:200],
+    )
+
+    # Damit das goldene Fenster beim naechsten Besuch erscheint.
+    try:
+        premium_notice.zuruecksetzen(user_id)
+    except Exception:  # noqa: BLE001 - der Hinweis ist kein Grund zu scheitern
+        pass
+
+    await feature_audit.log_action(
+        "premium_granted",
+        actor=str(data.get("actor") or "dashboard"),
+        detail=f"user {user_id}, {days or 'unbegrenzt'} Tage",
+    )
+    return {"status": "ok", **ergebnis}
+
+
+@router.post("/accounts/revoke", summary="Premium eines Kontos entziehen")
+async def revoke_account(data: dict):
+    """Jede Lizenz dieses Kontos sperren -- und die Probewoche beenden.
+
+    Beides zusammen, sonst bleibt eine laufende Probewoche stehen und
+    das Konto haette weiter Premium, obwohl im Admin-Bereich
+    „entzogen" steht. Genau diese Halbheit ist der Grund, warum es
+    diese Route gibt und nicht zwei einzelne Klicks.
+    """
+    from utils import premium_trial
+
+    user_id = str(data.get("user_id") or "").strip()
+    if not user_id.isdigit():
+        raise HTTPException(status_code=400, detail="Keine gültige Konto-ID.")
+
+    anzahl = store.revoke_user(user_id)
+
+    probewoche_beendet = False
+    try:
+        probewoche_beendet = bool(premium_trial.revoke(user_id))
+    except Exception:  # noqa: BLE001
+        probewoche_beendet = False
+
+    if not anzahl and not probewoche_beendet:
+        raise HTTPException(
+            status_code=404, detail="Dieses Konto hat kein Premium."
+        )
+
+    await feature_audit.log_action(
+        "premium_revoked",
+        actor=str(data.get("actor") or "dashboard"),
+        detail=f"user {user_id}: {anzahl} Lizenzen"
+               + (", Probewoche beendet" if probewoche_beendet else ""),
+    )
+    return {
+        "status": "ok",
+        "revoked": anzahl,
+        "trial_ended": probewoche_beendet,
+    }
 
 
 @router.get("/keys", summary="List issued keys")

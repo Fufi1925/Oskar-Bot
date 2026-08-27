@@ -575,6 +575,138 @@ def list_keys(limit: int = 100) -> list[dict[str, Any]]:
     return [dict(row) for row in rows]
 
 
+def list_accounts(limit: int = 300) -> list[dict[str, Any]]:
+    """Alle Konten mit Premium -- eine Zeile je KONTO, nicht je Key.
+
+    Warum nicht `list_keys()`
+    -------------------------
+    Der Admin-Bereich zeigte bisher Keys. Das ist die falsche Einheit:
+    ein Konto kann mehrere Keys haben (verlaengert, nachgelegt), und
+    dann stand dieselbe Person dreimal in der Liste -- einmal
+    abgelaufen, zweimal gueltig. Die Frage im Betrieb lautet aber
+    „wer hat Premium und bis wann", nicht „welche Keys gibt es".
+
+    Zusammengefasst wird nach `redeemed_by`. Massgeblich ist die Zeile,
+    die am laengsten laeuft -- dieselbe Regel wie in `status()`, sonst
+    stuende in der Liste ein anderes Datum als im Dashboard des
+    Nutzers.
+
+    Nicht eingeloeste Keys tauchen hier NICHT auf: sie gehoeren zu
+    niemandem. Dafuer gibt es weiterhin `list_keys()`.
+    """
+    ensure()
+    now = int(time.time())
+
+    with _connect() as conn:
+        rows = conn.execute(
+            "SELECT key_hash, duration, created_at, created_by, note, "
+            "redeemed_by, redeemed_at, expires_at, revoked "
+            "FROM premium_keys WHERE redeemed_by IS NOT NULL "
+            "ORDER BY redeemed_at DESC"
+        ).fetchall()
+
+    konten: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        wer = str(row["redeemed_by"])
+        eintrag = konten.setdefault(wer, {
+            "user_id": wer,
+            "premium": False,
+            "lifetime": False,
+            "expires_at": None,
+            "duration_days": 0,
+            "since": None,
+            "keys_total": 0,
+            "keys_active": 0,
+            "revoked": 0,
+            "note": "",
+            "via_trial": False,
+            "source": "key",
+        })
+
+        eintrag["keys_total"] += 1
+        if row["revoked"]:
+            eintrag["revoked"] += 1
+            continue
+
+        laeuft = row["expires_at"] is None or int(row["expires_at"]) > now
+        if not laeuft:
+            continue
+
+        eintrag["keys_active"] += 1
+        eintrag["premium"] = True
+
+        # Wann hat es angefangen? Die frueheste Einloesung.
+        eingeloest = int(row["redeemed_at"] or 0)
+        if eingeloest and (eintrag["since"] is None
+                           or eingeloest < eintrag["since"]):
+            eintrag["since"] = eingeloest
+
+        # Die Notiz der Zeile, die zaehlt -- meist "Beta-Antrag 12".
+        if row["note"] and not eintrag["note"]:
+            eintrag["note"] = str(row["note"])
+
+        if row["expires_at"] is None:
+            eintrag["lifetime"] = True
+            eintrag["expires_at"] = None
+            eintrag["duration_days"] = 0
+        elif not eintrag["lifetime"]:
+            ablauf = int(row["expires_at"])
+            if eintrag["expires_at"] is None or ablauf > eintrag["expires_at"]:
+                eintrag["expires_at"] = ablauf
+                eintrag["duration_days"] = int(row["duration"] or 0)
+
+    # Die Probewochen dazu. Sie sind keine Keys, zaehlen aber als
+    # Premium -- genau wie in `status()`. Ohne sie fehlten in der
+    # Uebersicht ausgerechnet die Konten, bei denen etwas ablaeuft.
+    try:
+        from utils import premium_trial
+
+        for probe in premium_trial.list_all(500):
+            wer = str(probe["user_id"])
+            eintrag = konten.setdefault(wer, {
+                "user_id": wer,
+                "premium": False,
+                "lifetime": False,
+                "expires_at": None,
+                "duration_days": 0,
+                "since": None,
+                "keys_total": 0,
+                "keys_active": 0,
+                "revoked": 0,
+                "note": "",
+                "via_trial": False,
+                "source": "trial",
+            })
+            eintrag["via_trial"] = True
+            if not probe.get("active"):
+                continue
+            eintrag["premium"] = True
+            if eintrag["since"] is None:
+                eintrag["since"] = int(probe.get("granted_at") or 0)
+            # Ein gekaufter Key laeuft laenger? Dann bleibt dessen
+            # Datum stehen -- dieselbe Regel wie in `status()`.
+            if not eintrag["lifetime"]:
+                ablauf = int(probe.get("expires_at") or 0)
+                if eintrag["expires_at"] is None or ablauf > eintrag["expires_at"]:
+                    eintrag["expires_at"] = ablauf
+                    eintrag["duration_days"] = int(probe.get("duration_days") or 0)
+                    eintrag["source"] = "trial"
+    except Exception:  # noqa: BLE001 - eine kaputte Tabelle darf die Liste nicht kippen
+        pass
+
+    # Aktive zuerst, danach das naechste Ablaufdatum.
+    #
+    # Lifetime ans Ende der aktiven: dort ist nichts zu tun. Wer
+    # naechste Woche ablaeuft, steht oben.
+    ergebnis = list(konten.values())
+    ergebnis.sort(key=lambda e: (
+        not e["premium"],
+        e["expires_at"] is None,
+        e["expires_at"] or 0,
+    ))
+    return ergebnis[:max(1, min(1000, int(limit)))]
+
+
 # ── Premium ohne Key: die Beta ────────────────────────────────────────
 #
 # Wer in die Beta aufgenommen wird, bekommt Premium ohne einen Key

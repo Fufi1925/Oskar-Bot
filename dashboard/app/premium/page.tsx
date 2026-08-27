@@ -43,15 +43,29 @@ const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || "University Bot";
 /**
  * Die Preise.
  *
- * Der Jahrespreis ist nicht getippt, sondern gerechnet: zwölf Monate
- * minus zehn Prozent. Eine getippte Zahl läuft beim nächsten
+ * ── Warum Lifetime teurer ist als ein Jahr ──────────────────────────
+ *
+ * Vorher: Jahr 21,49 €, Lifetime 20 €. Damit war das Jahresabo
+ * sinnlos — für 1,49 € weniger bekam man dasselbe für immer. Kein
+ * Mensch hätte je das Jahr gekauft, und wer es doch getan hätte,
+ * wäre zu Recht verärgert gewesen.
+ *
+ * Jetzt liegt Lifetime über dem Jahrespreis und rechnet sich ab dem
+ * zweiten Jahr. Das ist die übliche Staffelung: je länger die
+ * Bindung, desto günstiger der Monat — aber der Einmalpreis liegt
+ * über einer einzelnen Periode.
+ *
+ * Gerechnet, nicht getippt: eine feste Zahl läuft beim nächsten
  * Preiswechsel auseinander, und dann steht auf der Seite ein Rabatt,
  * den es nicht gibt.
  */
 const PREIS_MONAT = 1.99;
-const RABATT_JAHR = 0.1;
+const RABATT_JAHR = 0.15;
 const PREIS_JAHR = PREIS_MONAT * 12 * (1 - RABATT_JAHR);
-const PREIS_LIFETIME = 20;
+
+/** Lifetime = zwei Jahre. Ab dem dritten Jahr hat es sich gelohnt. */
+const LIFETIME_JAHRE = 2;
+const PREIS_LIFETIME = Math.round(PREIS_JAHR * LIFETIME_JAHRE) - 0.01;
 
 /** Deutsche Schreibweise: Komma, nicht Punkt. `toFixed` liefert immer
  *  einen Punkt — deshalb der Umweg über `toLocaleString`. */
@@ -92,7 +106,9 @@ const TARIFE: Tarif[] = [
     name: "Lifetime",
     preis: `${euro(PREIS_LIFETIME)} €`,
     einheit: "einmalig",
-    hinweis: "Einmal zahlen, dauerhaft behalten.",
+    hinweis:
+      `Rechnet sich nach ${LIFETIME_JAHRE} Jahren. Danach zahlst du nie ` +
+      "wieder etwas.",
   },
 ];
 

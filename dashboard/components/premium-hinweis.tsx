@@ -3,9 +3,15 @@
 /**
  * Das goldene Premium-Fenster.
  *
- * Wer Premium hat, bekommt es einmal zu sehen: „Denk dran — du hast
- * Premium.“ Danach nie wieder. Wird Premium entzogen und später neu
- * vergeben, erscheint es erneut, dann als „Willkommen zurück“.
+ * Wer Premium hat, bekommt es zu sehen: „Denk dran — du hast
+ * Premium.“ Danach kommt es **alle sieben Tage** wieder. Wird Premium
+ * entzogen und später neu vergeben, erscheint es sofort, dann als
+ * „Willkommen zurück“.
+ *
+ * Der Abstand steht im Bot (`premium_notice.ABSTAND_TAGE`), nicht
+ * hier. Zwei Stellen mit derselben Zahl laufen auseinander, und die
+ * Entscheidung „ist es fällig?“ gehört ohnehin auf den Server: sie
+ * hängt am Konto, nicht am Browser.
  *
  * Warum der Knopf fünf Sekunden wartet
  * ------------------------------------
@@ -28,6 +34,7 @@
 import React from "react";
 import Link from "next/link";
 import { Crown, Palette, Sparkles } from "lucide-react";
+import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 
 /** Wie lange der Knopf beim ersten Mal gesperrt bleibt. */
@@ -35,6 +42,14 @@ const WARTEN_SEKUNDEN = 5;
 
 export function PremiumHinweis() {
   const { data: session, status } = useSession();
+  const pathname = usePathname();
+
+  // Nur im Dashboard.
+  //
+  // Auf dem Impressum oder der Startseite nützt der Hinweis nichts --
+  // dort gibt es nichts freizuschalten. Ausdrückliche Vorgabe: „immer
+  // wenn man im Dashboard ist".
+  const imDashboard = Boolean(pathname?.startsWith("/dashboard"));
 
   const [offen, setOffen] = React.useState(false);
   const [rueckkehr, setRueckkehr] = React.useState(false);
@@ -46,6 +61,7 @@ export function PremiumHinweis() {
   // bekäme ohnehin nur ein Nein.
   React.useEffect(() => {
     if (status !== "authenticated" || !session?.user?.id) return;
+    if (!imDashboard) return;
 
     let abgebrochen = false;
     (async () => {
@@ -69,7 +85,7 @@ export function PremiumHinweis() {
     return () => {
       abgebrochen = true;
     };
-  }, [status, session?.user?.id]);
+  }, [status, session?.user?.id, imDashboard]);
 
   // Der Countdown.
   React.useEffect(() => {

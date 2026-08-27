@@ -27,7 +27,7 @@ import { useLanguage } from "@/lib/i18n/LanguageContext";
 import {
   LayoutDashboard, Palette, ScrollText, Server, ShieldCheck, ShieldAlert, Ticket, BarChart4, FileText, Settings,
   Menu, X, Bell, User, Search, ChevronRight, Star, Sparkles, LogOut,
-  Lock, PenLine, Gem, Pin, Moon, Calculator, Youtube, Cake,
+  Lock, PenLine, Gem, Pin, Moon, Calculator, Youtube, Cake, Crown,
   LifeBuoy, ChevronDown, Bot, Shield, UserCheck, Badge, Gauge, Headphones,
   Music, Upload, Users, UserCog
 } from "lucide-react";
@@ -56,6 +56,14 @@ export default function DashboardLayout({
   const [teamAccess, setTeamAccess] = useState<{
     is_owner: boolean;
     roles: Array<{ key: string; label: string; color: string; rank: number }>;
+  } | null>(null);
+  // Hat dieses Konto Premium? Steht als goldenes Abzeichen unten
+  // links, neben der Team-Rolle. Beides kann gleichzeitig gelten:
+  // eine Team-Rolle sagt, was jemand DARF, Premium sagt, was er HAT.
+  const [premium, setPremium] = useState<{
+    aktiv: boolean;
+    probewoche: boolean;
+    tester: boolean;
   } | null>(null);
   // Support link comes from the bot settings so it is configurable.
   // The initial value is the shared default, not a second hard-coded
@@ -122,6 +130,28 @@ export default function DashboardLayout({
       }
     };
     fetchTeamRole();
+
+    // Premium-Status fuers Abzeichen unten links.
+    //
+    // Eigener Aufruf statt eines Felds in getOwnAccess: Premium haengt
+    // am Konto, die Team-Rolle am Dashboard -- zwei Fragen, zwei
+    // Quellen. Ein Fehler darf die Seitenleiste nicht aufhalten.
+    const fetchPremium = async () => {
+      const userId = (session?.user as any)?.id;
+      if (!userId) return;
+      try {
+        const zustand = await api.getMyPremium(userId);
+        const p = zustand?.premium ?? zustand?.template_bot;
+        setPremium({
+          aktiv: Boolean(p?.premium),
+          probewoche: Boolean(p?.via_trial),
+          tester: Boolean(p?.via_tester),
+        });
+      } catch {
+        setPremium(null);
+      }
+    };
+    fetchPremium();
 
     // Support invite is a bot setting; fall back to the default on error.
     api
@@ -253,7 +283,16 @@ export default function DashboardLayout({
           // er gehoert thematisch hierher.
           name: "Templates",
           items: [
-            { name: "Speedrun (Beta)", href: `/dashboard/guild/${currentGuildId}/speedrun`, icon: Gauge },
+            {
+              // Golden wie Design: der Speedrun ist eine
+              // Premium-Funktion, keine Beta mehr. `highlight` ist
+              // dasselbe Feld, an dem der Design-Reiter haengt --
+              // kein zweiter Sonderfall.
+              name: "Speedrun",
+              href: `/dashboard/guild/${currentGuildId}/speedrun`,
+              icon: Gauge,
+              highlight: true,
+            },
             { name: "Hochladen (Experimentell)", href: `/dashboard/guild/${currentGuildId}/template-upload`, icon: Upload },
             { name: "Community (Experimentell)", href: `/dashboard/guild/${currentGuildId}/templates`, icon: Sparkles },
           ],
@@ -616,7 +655,41 @@ export default function DashboardLayout({
                 </p>
               )}
             </div>
+
+            {/* Das Premium-Abzeichen.
+                
+                Steht NEBEN der Rolle, nicht statt ihr: eine Team-Rolle
+                sagt, was jemand darf, Premium sagt, was er hat. Beides
+                kann gleichzeitig gelten, und wer beides hat, soll auch
+                beides sehen.
+
+                Nur wenn wirklich Premium besteht -- ein graues
+                „kein Premium" wäre eine Dauerwerbung an der Stelle,
+                an der sonst der eigene Name steht. */}
+            {premium?.aktiv && (
+              <span
+                className="ml-auto shrink-0 rounded-lg border border-amber-400/30 bg-amber-400/10 px-1.5 py-1 text-amber-400"
+                title={
+                  premium.probewoche
+                    ? "Premium über die Probewoche"
+                    : premium.tester
+                      ? "Premium über den Tester-Zugang"
+                      : "Premium ist aktiv"
+                }
+              >
+                <Crown className="h-3.5 w-3.5" />
+              </span>
+            )}
           </div>
+
+          {/* Was das Premium gerade ist -- eine Zeile, nur wenn es
+              etwas zu sagen gibt. Eine laufende Probewoche endet, und
+              das soll man sehen, bevor sie weg ist. */}
+          {premium?.aktiv && (premium.probewoche || premium.tester) && (
+            <p className="mt-1.5 px-2 text-[10px] font-bold uppercase tracking-widest text-amber-400/70">
+              {premium.probewoche ? "Probewoche läuft" : "Tester-Zugang"}
+            </p>
+          )}
         </div>
       </aside>
 
@@ -739,8 +812,22 @@ export default function DashboardLayout({
                     <div className="px-4 py-3 border-b border-white/5 mb-2">
                       <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] mb-1">Authenticated As</p>
                       <p className="text-sm font-bold text-white truncate">{session?.user?.name || "Administrator"}</p>
-                      {(teamAccess?.is_owner || (teamAccess?.roles?.length ?? 0) > 0) && (
+                      {(premium?.aktiv ||
+                        teamAccess?.is_owner ||
+                        (teamAccess?.roles?.length ?? 0) > 0) && (
                         <div className="flex flex-wrap gap-1 mt-2">
+                          {/* Premium zuerst: es ist das, was sich
+                              ändern kann. Eine Team-Rolle hat man
+                              oder hat man nicht. */}
+                          {premium?.aktiv && (
+                            <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md bg-amber-400/10 text-amber-400 border border-amber-400/20">
+                              {premium.probewoche
+                                ? "Premium · Probewoche"
+                                : premium.tester
+                                  ? "Premium · Tester"
+                                  : "Premium"}
+                            </span>
+                          )}
                           {teamAccess?.is_owner ? (
                             <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md bg-amber-400/10 text-amber-400 border border-amber-400/20">
                               Owner

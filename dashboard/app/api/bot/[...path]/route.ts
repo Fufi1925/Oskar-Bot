@@ -1045,7 +1045,14 @@ async function authorize(
     // Listing, revoking and deleting keys is staff work. Deleting most
     // of all: it cannot be undone. Die Probewochen gehoeren dazu --
     // „zuruecksetzen" verschenkt sieben Tage.
-    if (["keys", "revoke", "delete", "purge", "trials"].includes(rest[0] ?? "")) {
+    //
+    // `accounts` steht mit in der Liste, und das ist wichtig: die
+    // Route zeigt JEDES Konto mit Premium samt Namen und Ablaufdatum.
+    // Ohne diesen Eintrag fiele sie in den offenen Zweig unten und
+    // waere fuer jeden Angemeldeten lesbar. Dort haengen auch
+    // `accounts/grant` und `accounts/revoke` -- wer die erreicht,
+    // koennte sich selbst Premium geben.
+    if (["keys", "revoke", "delete", "purge", "trials", "accounts"].includes(rest[0] ?? "")) {
       if (isGlobalAdmin(session.user.id)) return { ok: true };
       const team = await fetchTeamAccess(session.user.id);
       const staff = Boolean(team && (team.is_owner || team.roles.length > 0));

@@ -197,11 +197,13 @@ function buildGroups(t: TranslateFn): Group[] {
       icon: Sparkles,
       tabs: [
         {
+          // Kein Beta-Zeichen mehr: der Speedrun ist eine
+          // Premium-Funktion.
           name: "Speedrun",
           slug: "speedrun",
           icon: Gauge,
-          tag: "beta",
-          also: ["speedrun", "setup", "vorlage", "template", "aufsetzen"],
+          also: ["speedrun", "setup", "vorlage", "template", "aufsetzen",
+                 "premium"],
         },
         {
           name: "Vorlage hochladen",

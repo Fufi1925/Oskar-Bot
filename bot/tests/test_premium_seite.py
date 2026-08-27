@@ -99,8 +99,36 @@ def test_preise():
     koerper = strip_ts(lies("app", "premium", "page.tsx"))
 
     pruefe("Monatspreis 1,99", "PREIS_MONAT = 1.99" in koerper)
-    pruefe("Lifetime 20", "PREIS_LIFETIME = 20" in koerper)
-    pruefe("Jahresrabatt 10 Prozent", "RABATT_JAHR = 0.1" in koerper)
+    pruefe("Jahresrabatt 15 Prozent", "RABATT_JAHR = 0.15" in koerper)
+
+    # Lifetime wird GERECHNET: zwei Jahre.
+    #
+    # Vorher stand hier eine feste 20, und die war kleiner als der
+    # Jahrespreis von 21,49 -- fuer 1,49 weniger bekam man dasselbe
+    # fuer immer. Das Jahresabo war damit sinnlos.
+    pruefe("Lifetime wird gerechnet, nicht getippt",
+           "const PREIS_LIFETIME = Math.round(PREIS_JAHR * LIFETIME_JAHRE)"
+           in koerper,
+           "eine feste Zahl laeuft beim naechsten Preiswechsel auseinander")
+
+    # Die entscheidende Pruefung: die Staffelung muss stimmen.
+    #
+    # Nachgerechnet statt im Quelltext gesucht -- ein Test auf das
+    # Wort „Math.round" saehe nicht, ob dabei ein sinnvoller Preis
+    # herauskommt.
+    monat = 1.99
+    rabatt = 0.15
+    jahr = monat * 12 * (1 - rabatt)
+    lifetime = round(jahr * 2) - 0.01
+
+    pruefe("das Jahr ist guenstiger als 12 Einzelmonate",
+           jahr < monat * 12, f"{jahr:.2f} vs {monat * 12:.2f}")
+    pruefe("Lifetime ist TEURER als ein Jahr",
+           lifetime > jahr, f"Lifetime {lifetime:.2f}, Jahr {jahr:.2f}")
+    pruefe("Lifetime rechnet sich ab dem zweiten Jahr",
+           1.5 < lifetime / jahr < 3,
+           f"Faktor {lifetime / jahr:.2f} -- darunter ist das Jahresabo "
+           "sinnlos, darueber kauft es niemand")
 
     # Der Jahrespreis muss GERECHNET sein. Eine getippte Zahl laeuft
     # beim naechsten Preiswechsel auseinander, und dann steht auf der

@@ -65,7 +65,14 @@ export default function RootLayout({
               Nachweis. Außerhalb wäre useSession() ein Fehler beim
               Rendern. */}
           <CookieHinweis />
-          {/* Erscheint einmal, wenn jemand Premium hat. */}
+          {/* Erscheint im Dashboard, wenn jemand Premium hat --
+              danach alle sieben Tage wieder.
+
+              Die Beschränkung auf /dashboard steckt in der Komponente
+              selbst: sie liest den Pfad. Hier zu filtern hieße, das
+              Root-Layout bei jedem Pfadwechsel neu zu bewerten, und
+              der Hinweis gehört ohnehin dorthin, wo man mit Premium
+              auch etwas anfangen kann. */}
           <PremiumHinweis />
         </AuthProvider>
       </body>
