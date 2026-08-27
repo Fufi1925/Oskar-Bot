@@ -402,21 +402,23 @@ def _install(speedrun, templates, premium: bool):
     speedrun._has_premium = lambda _user: premium
 
 
-def test_the_beta_code_is_the_only_hurdle():
+def test_premium_is_the_hurdle():
     """
-    Im Speedrun reicht der Beta-Code -- auch für Premium-Vorlagen.
+    Im Speedrun ist PREMIUM die Hürde -- der Beta-Code ist weg.
 
-    Ausdrücklich so gewünscht: wer den Code hat, darf alle
-    freigegebenen Vorlagen bauen. Der Code wird einzeln vergeben, und
-    wer ihn bekommen hat, soll nicht an einer zweiten Schranke
-    hängenbleiben.
+    Vorher schaltete ein Code EINEN Server frei, und Premium spielte
+    keine Rolle. Jetzt gibt es genau ein Premium, es hängt am Konto
+    und gilt für beide Bots.
 
-    Im `!start`-Menü des Template-Bots bleibt `clan` weiterhin
-    Premium -- dort gilt die Trennung unverändert. Nur dieser Weg ist
-    offen.
+    Zwei Dinge werden hier festgehalten:
+
+      * Ohne Premium prallt der Start mit 403 ab -- auch bei einer
+        Vorlage, die in der Beta freigegeben ist.
+      * Mit Premium läuft er durch, scheitert aber später am fehlenden
+        Template-Bot. Wichtig ist nur: nicht an 403.
     """
 
-    print("\nDer Beta-Code ist die einzige Hürde")
+    print("\nPremium ist die Hürde")
 
     from fastapi import HTTPException
 
@@ -427,8 +429,8 @@ def test_the_beta_code_is_the_only_hurdle():
     original_premium = speedrun._has_premium
     original_state = access.state
 
-    # Der Server ist freigeschaltet -- sonst greift die Code-Sperre
-    # zuerst und der Test prüfte etwas anderes.
+    # Der Server ist nicht gebannt -- ein Bann sticht Premium und der
+    # Test prüfte sonst etwas anderes.
     access.state = lambda _g: {"unlocked": True, "banned": False,
                                "ban_reason": ""}
 
@@ -446,11 +448,12 @@ def test_the_beta_code_is_the_only_hurdle():
         # 1. Die Liste bietet die Premium-Vorlage an.
         listed = asyncio.run(speedrun.templates(user_id="123"))
         by_key = {t["key"]: t for t in listed["templates"]}
-        check("clan ist ohne Premium wählbar",
-              by_key["clan"]["available"] is True,
-              f"gesperrt mit: {by_key['clan']['locked_reason']!r}")
-        check("und trägt keinen Sperrgrund",
-              not by_key["clan"]["locked_reason"])
+        check("clan ist ohne Premium gesperrt",
+              by_key["clan"]["available"] is False,
+              "eine Premium-Vorlage darf ohne Premium nicht offenstehen")
+        check("und trägt einen Sperrgrund",
+              bool(by_key["clan"]["locked_reason"]),
+              "ohne Grund weiss niemand, warum sie zu ist")
 
         # 2. Was nicht in der Beta ist, bleibt gesperrt.
         check("gaming bleibt gesperrt",
@@ -460,8 +463,10 @@ def test_the_beta_code_is_the_only_hurdle():
               "beta" in by_key["gaming"]["locked_reason"].lower(),
               by_key["gaming"]["locked_reason"])
 
-        # 3. Der Start lässt die Premium-Vorlage durch.
-        #    Er scheitert später am fehlenden Bot -- aber nicht an 403.
+        # 3. Ohne Premium prallt der Start ab -- mit 403.
+        #
+        #    Das ist der Kern der Umstellung: frueher genuegte der
+        #    Beta-Code, und Premium wurde hier gar nicht geprueft.
         try:
             asyncio.run(
                 speedrun.start(
@@ -470,11 +475,13 @@ def test_the_beta_code_is_the_only_hurdle():
                     _FakeBot(),
                 )
             )
-            check("clan lässt sich ohne Premium starten", True)
+            check("clan prallt ohne Premium ab", False,
+                  "der Bau lief ohne Premium los")
         except HTTPException as exc:
-            check("clan lässt sich ohne Premium starten",
-                  exc.status_code != 403,
+            check("clan prallt ohne Premium ab", exc.status_code == 403,
                   f"HTTP {exc.status_code}: {exc.detail}")
+            check("die Meldung nennt Premium",
+                  "premium" in str(exc.detail).lower(), str(exc.detail))
 
         # 4. Eine Vorlage außerhalb der Beta prallt weiter ab.
         try:
@@ -487,7 +494,10 @@ def test_the_beta_code_is_the_only_hurdle():
             )
             check("gaming prallt ab", False, "eine gesperrte Vorlage lief los")
         except HTTPException as exc:
-            check("gaming prallt ab", exc.status_code == 400,
+            # 403 statt 400: die Premium-Pruefung steht jetzt VOR der
+            # Beta-Liste. Beides ist ein Abprallen -- entscheidend ist,
+            # dass nichts losläuft.
+            check("gaming prallt ab", exc.status_code in (400, 403),
                   f"HTTP {exc.status_code}")
 
         # 5. Eine Vorlage, die der Template-Bot nicht kennt, muss
@@ -495,6 +505,11 @@ def test_the_beta_code_is_the_only_hurdle():
         #    nur in der Hilfsfunktion. Ein Mutationstest hat gezeigt,
         #    dass die Prüfung ganz entfallen konnte, ohne dass ein Test
         #    rot wurde: sie war nur einzeln geprüft.
+        #
+        #    MIT Premium, sonst prallt der Start schon an der
+        #    Premium-Pruefung ab und ueber die Vorlage waere nichts
+        #    gesagt.
+        speedrun._has_premium = lambda _u: True
         speedrun.BETA_TEMPLATES.add("gibtsnicht")
         try:
             asyncio.run(
@@ -586,7 +601,7 @@ def main():
     test_the_tree_has_something_to_sync()
     test_the_presence_loop_keeps_the_status()
     test_the_status_is_defined_once()
-    test_the_beta_code_is_the_only_hurdle()
+    test_premium_is_the_hurdle()
     test_an_unknown_template_is_refused()
     test_the_beta_list_has_five_templates()
 

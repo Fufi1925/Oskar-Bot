@@ -638,7 +638,13 @@ def _fake_templates() -> list[dict]:
 
 
 def test_clan_is_buildable_and_near_the_top():
-    """Der Clan Server soll auswaehlbar sein -- ohne Premium."""
+    """Der Clan Server soll auswaehlbar sein -- MIT Premium.
+
+    Frueher stand hier `ohne Premium`: der Zugang lief ueber einen
+    Beta-Code, und Premium spielte im Speedrun keine Rolle. Der Code
+    ist weg, es gibt genau ein Premium fuer beide Bots -- also wird
+    hier mit Premium geprueft.
+    """
 
     print("\nClan ist waehlbar und steht weit oben")
 
@@ -651,7 +657,7 @@ def test_clan_is_buildable_and_near_the_top():
         return 200, {"templates": _fake_templates()}
 
     speedrun._call_template = fake_call
-    speedrun._has_premium = lambda _user: False
+    speedrun._has_premium = lambda _user: True
 
     try:
         answer = asyncio.run(speedrun.templates(user_id="123"))
@@ -660,12 +666,12 @@ def test_clan_is_buildable_and_near_the_top():
         order = [entry["key"] for entry in items]
 
         check("clan ist dabei", "clan" in by_key)
-        check("und ohne Premium waehlbar",
+        check("und mit Premium waehlbar",
               by_key["clan"]["available"] is True,
               f"gesperrt mit: {by_key['clan']['locked_reason']!r}")
         check("es bleibt eine Premium-Vorlage",
               by_key["clan"]["premium"] is True,
-              "im Menue des Template-Bots gilt die Trennung weiter")
+              "die Kennzeichnung des Template-Bots bleibt")
 
         # Die Position: der Template-Bot liefert clan an neunter
         # Stelle, hinter sieben gesperrten Kacheln.

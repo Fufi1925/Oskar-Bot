@@ -3,19 +3,20 @@
 /**
  * Speedrun-Zugänge verwalten.
  *
- * Der Speedrun-Reiter ist gesperrt, bis jemand den Beta-Code eingibt.
+ * Der Speedrun-Reiter braucht Premium am Konto. Der frühere Beta-Code
+ * ist weg -- es gibt nur noch ein Premium, und das gilt für beide Bots.
  * Freigeschaltet wird damit ein *Server*, nicht ein Konto. Hier steht,
  * welche Server das getan haben, wer es war und wann — und hier lässt
  * sich der Zugang wieder nehmen.
  *
  * Zwei Handgriffe, die absichtlich verschieden sind:
  *
- *   **Entziehen**  Der Code muss neu eingegeben werden. Für den Fall,
- *                  dass ein Server den Besitzer wechselt oder jemand
- *                  den Code weitergegeben hat.
+ *   **Entziehen**  Der Eintrag wird zurückgesetzt. Mit Premium geht es
+ *                  sofort wieder — für den Fall, dass ein Server den
+ *                  Besitzer wechselt.
  *
- *   **Sperren**    Kein Code hilft mehr. Für den Fall, dass jemand
- *                  Unsinn treibt.
+ *   **Sperren**    Auch Premium hilft nicht mehr. Für den Fall, dass
+ *                  jemand Unsinn treibt.
  *
  * Beides bricht einen laufenden Speedrun sofort ab. Wer jemandem den
  * Zugang nimmt, will nicht, dass der angefangene Umbau trotzdem noch
@@ -151,18 +152,18 @@ export function SpeedrunAdmin() {
         toast.success(
           answer?.run_cancelled
             ? "Entzogen — ein laufender Speedrun wurde abgebrochen."
-            : "Entzogen. Der Code muss neu eingegeben werden."
+            : "Entzogen. Der Eintrag ist zurückgesetzt."
         );
       } else if (what === "ban") {
         const answer = await api.speedrunAdminBan(guildId, actorId, reason);
         toast.success(
           answer?.run_cancelled
             ? "Gesperrt — ein laufender Speedrun wurde abgebrochen."
-            : "Gesperrt. Kein Code hilft mehr."
+            : "Gesperrt. Auch Premium hilft nicht mehr."
         );
       } else {
         await api.speedrunAdminUnban(guildId, actorId);
-        toast.success("Entsperrt. Der Code muss neu eingegeben werden.");
+        toast.success("Entsperrt. Mit Premium geht es wieder.");
       }
       await load();
     } catch (err: any) {
@@ -177,7 +178,7 @@ export function SpeedrunAdmin() {
     if (
       confirm(
         `Zugang für „${name}“ entziehen?\n\n` +
-  "Der Code muss danach neu eingegeben werden. " +
+  "Der Eintrag wird zurückgesetzt. Mit Premium geht es sofort wieder. " +
   "Ein laufender Speedrun wird sofort abgebrochen."
       )
     ) {
@@ -189,7 +190,7 @@ export function SpeedrunAdmin() {
     const name = guild.name || guild.guild_id;
     const reason = prompt(
       `„${name}“ dauerhaft sperren?\n\n` +
-  "Danach hilft kein Code mehr. Ein laufender Speedrun wird sofort " +
+  "Danach hilft auch Premium nicht mehr. Ein laufender Speedrun wird sofort " +
   "abgebrochen.\n\nBegründung (wird dem Server angezeigt):"
     );
     // Abbrechen im Dialog gibt null zurück -- ein leerer Text ist
@@ -220,8 +221,9 @@ export function SpeedrunAdmin() {
           <div className="min-w-0">
             <p className="font-black text-white">Speedrun-Zugänge</p>
             <p className="text-[12px] text-slate-400 mt-1 leading-relaxed">
-              Welche Server den Beta-Code eingegeben haben. Entziehen heißt:
-              neu eingeben. Sperren heißt: kein Code hilft mehr. Beides bricht
+              Welche Server den Speedrun benutzt haben. Entziehen setzt den
+              Eintrag zurück. Sperren heißt: auch Premium hilft nicht mehr.
+              Beides bricht
               einen laufenden Speedrun ab.
             </p>
           </div>
@@ -284,7 +286,7 @@ export function SpeedrunAdmin() {
         {shown.length === 0 ? (
           <p className="text-[12px] text-slate-500 py-6 text-center">
             {guilds.length === 0
-              ? "Noch hat kein Server den Code eingegeben."
+              ? "Noch hat kein Server den Speedrun benutzt."
               : "Nichts gefunden."}
           </p>
         ) : (

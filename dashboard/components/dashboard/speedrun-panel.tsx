@@ -57,6 +57,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useSession } from "next-auth/react";
 import {
   AlertTriangle,
@@ -68,10 +69,10 @@ import {
   ChevronDown,
   CircleDashed,
   Clock,
+  Crown,
   Gauge,
   Hash,
   Info,
-  KeyRound,
   Layers,
   Loader2,
   Lock,
@@ -84,7 +85,6 @@ import {
   Square,
   Terminal,
   Trash2,
-  Unlock,
   TriangleAlert,
   Users,
   Volume2,
@@ -524,8 +524,8 @@ export function SpeedrunPanel({ guildId }: { guildId: string }) {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
 
-  // Die Code-Sperre. `loading: true` bis die erste Antwort da ist --
-  // sonst blitzt das Eingabefeld auch bei einem längst freien Server
+  // Die Premium-Sperre. `loading: true` bis die erste Antwort da ist
+  // -- sonst blitzt der Hinweis auch bei einem Konto mit Premium
   // kurz auf.
   const [gate, setGate] = useState({
     loading: true,
@@ -534,9 +534,6 @@ export function SpeedrunPanel({ guildId }: { guildId: string }) {
     reason: "",
     error: "",
   });
-  const [code, setCode] = useState("");
-  const [codeError, setCodeError] = useState("");
-  const [unlocking, setUnlocking] = useState(false);
 
   const [pre, setPre] = useState<any>(null);
   // Getrennte Fehler pro Aufruf: scheitert die Vorlagenliste, heißt das
@@ -720,12 +717,11 @@ export function SpeedrunPanel({ guildId }: { guildId: string }) {
 
   /* -- Laden ----------------------------------------------------- */
 
-  /* -- Die Code-Sperre ------------------------------------------- */
+  /* -- Die Premium-Sperre ----------------------------------------- */
   //
-  // Der Reiter bleibt zu, bis jemand den Beta-Code eingegeben hat.
-  // Freigeschaltet wird der *Server*, nicht das Konto: der Speedrun
-  // baut einen konkreten Server um, und wer zwei Server aufsetzen
-  // will, gibt ihn zweimal ein.
+  // Der Reiter bleibt zu, bis das Konto Premium hat. Frueher stand
+  // hier ein Beta-Code, der EINEN Server freischaltete; jetzt haengt
+  // es am Konto und gilt fuer beide Bots.
   //
   // Das hier ist die Anzeige. Die Sperre selbst sitzt im Bot -- jeder
   // Schritt, der etwas bewirkt, prüft sie noch einmal. Ein Overlay im
@@ -757,27 +753,6 @@ export function SpeedrunPanel({ guildId }: { guildId: string }) {
   useEffect(() => {
     checkAccess();
   }, [checkAccess]);
-
-  const submitCode = async () => {
-    const typed = code.trim();
-    if (!typed) return;
-    setUnlocking(true);
-    setCodeError("");
-    try {
-      await api.speedrunUnlock(guildId, typed, userId);
-      setGate((old) => ({ ...old, unlocked: true, error: "" }));
-      setCode("");
-      toast.success("Speedrun freigeschaltet.");
-      // Erst jetzt die eigentlichen Daten holen: vor der Freischaltung
-      // wären es lauter 403er gewesen.
-      setLoading(true);
-      load();
-    } catch (err: any) {
-      setCodeError(err?.message || "Der Code stimmt nicht.");
-    } finally {
-      setUnlocking(false);
-    }
-  };
 
   const load = useCallback(async () => {
     // allSettled, nicht all: `Promise.all` wirft, sobald *einer* der
@@ -1046,7 +1021,12 @@ export function SpeedrunPanel({ guildId }: { guildId: string }) {
     );
   }
 
-  // Zu, aber freischaltbar.
+  // Kein Premium.
+  //
+  // Hier stand ein Eingabefeld fuer den Beta-Code: ein Code schaltete
+  // EINEN Server frei. Den gibt es nicht mehr. Stattdessen haengt der
+  // Speedrun am selben Premium wie alles andere -- ein Zugang fuer
+  // beide Bots statt zweier Systeme nebeneinander.
   if (!gate.unlocked) {
     return (
       <section className="space-y-6">
@@ -1054,21 +1034,20 @@ export function SpeedrunPanel({ guildId }: { guildId: string }) {
         <Rise>
           <div className={cn(CARD, "space-y-5")}>
             <div className="flex gap-3">
-              <div className="h-10 w-10 rounded-2xl bg-cyan-400/15 grid place-items-center shrink-0 sr-pulse">
-                <KeyRound className="h-5 w-5 text-cyan-300" />
+              <div className="h-10 w-10 rounded-2xl bg-amber-400/15 grid place-items-center shrink-0 sr-pulse">
+                <Crown className="h-5 w-5 text-amber-300" />
               </div>
               <div className="min-w-0">
                 <p className="font-black text-white flex items-center gap-2 flex-wrap">
-                  Geschlossene Beta
+                  Premium erforderlich
                   <span className="px-1.5 py-0.5 rounded text-[9px] font-black tracking-widest bg-amber-400/15 text-amber-300/90">
                     BETA
                   </span>
                 </p>
                 <p className="text-[12px] text-slate-400 mt-1 leading-relaxed">
-                  Der Speedrun setzt einen ganzen Server auf. Er ist noch nicht
-                  für alle offen — mit dem Beta-Code schaltest du ihn{" "}
-                  <strong className="text-slate-300">für diesen Server</strong>{" "}
-                  frei.
+                  Der Speedrun setzt einen ganzen Server auf — Kanäle, Rollen
+                  und Rechte in einem Durchgang. Das gibt es mit{" "}
+                  <strong className="text-slate-300">Premium</strong>.
                 </p>
               </div>
             </div>
@@ -1082,60 +1061,31 @@ export function SpeedrunPanel({ guildId }: { guildId: string }) {
               </div>
             )}
 
-            <div className="space-y-2.5">
-              <label className="block">
-                <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">
-                  Beta-Code
-                </span>
-                <div className="mt-1.5 flex flex-col sm:flex-row gap-2">
-                  <input
-                    value={code}
-                    autoFocus
-                    onChange={(event) => {
-                      setCode(event.target.value);
-                      if (codeError) setCodeError("");
-                    }}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") submitCode();
-                    }}
-                    placeholder="Code eingeben"
-                    className={cn(
-                      "flex-1 bg-[#0e0e12] border rounded-xl px-3.5 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none transition-colors",
-                      codeError
-                        ? "border-red-500/50 focus:border-red-500/70"
-                        : "border-slate-800 focus:border-cyan-400/50"
-                    )}
-                  />
-                  <button
-                    onClick={submitCode}
-                    disabled={unlocking || !code.trim()}
-                    className={cn(
-                      "px-4 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all inline-flex items-center justify-center gap-2 shrink-0",
-                      code.trim() && !unlocking
-                        ? "bg-cyan-500 text-white hover:bg-cyan-400"
-                        : "bg-slate-800 text-slate-600 cursor-not-allowed"
-                    )}
-                  >
-                    {unlocking ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <Unlock className="h-3.5 w-3.5" />
-                    )}
-                    Freischalten
-                  </button>
-                </div>
-              </label>
-
-              {codeError && (
-                <p className="text-[11px] text-red-300/80 leading-relaxed">
-                  {codeError}
-                </p>
-              )}
-
-              <p className="text-[11px] text-slate-600 leading-relaxed">
-                Groß- und Kleinschreibung spielt keine Rolle. Den Code
-                bekommst du vom Team.
+            {/* Ein Premium gilt für beide Bots -- das ist der Punkt,
+                den man hier verstanden haben muss. */}
+            <div className="rounded-xl bg-[#0e0e12] border border-slate-800 p-3.5">
+              <p className="text-[12px] text-slate-400 leading-relaxed">
+                Premium hängt an deinem Discord-Konto und gilt für{" "}
+                <strong className="text-slate-300">beide Bots</strong>: den
+                University Bot und den Template-Bot. Während der Testphase
+                bekommst du es über einen Beta-Antrag.
               </p>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Link
+                href="/dashboard/premium/beta"
+                className="px-4 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all inline-flex items-center justify-center gap-2 bg-amber-400 text-black hover:brightness-110"
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                Beta-Antrag stellen
+              </Link>
+              <Link
+                href="/premium"
+                className="px-4 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all inline-flex items-center justify-center gap-2 border border-slate-800 bg-[#0e0e12] text-slate-300 hover:bg-white/[0.04]"
+              >
+                Was Premium kann
+              </Link>
             </div>
           </div>
         </Rise>

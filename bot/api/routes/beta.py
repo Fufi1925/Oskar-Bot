@@ -116,7 +116,7 @@ async def form(user_id: str = "", user_name: str = "", avatar: str = ""):
     if str(user_id).isdigit():
         try:
             premium = bool(
-                premium_store.status(user_id, product="main_bot").get("premium")
+                premium_store.status(user_id).get("premium")
             )
         except Exception:  # noqa: BLE001
             premium = False
@@ -172,7 +172,7 @@ async def notice(user_id: str = ""):
 
     try:
         premium = bool(
-            premium_store.status(user_id, product="main_bot").get("premium")
+            premium_store.status(user_id).get("premium")
         )
     except Exception:  # noqa: BLE001
         premium = False
@@ -230,7 +230,9 @@ async def admin_decide(data: dict, bot: "universitybot" = Depends(get_bot)):
         premium_store.grant_direct(
             antrag["user_id"],
             duration_days=store.BETA_DURATION_DAYS,
-            product="main_bot",
+            # Kein `product` mehr: es gibt nur noch eins, und es gilt
+            # fuer beide Bots. Ein Antrag schaltet also University Bot
+            # UND Template-Bot frei.
             note=f"Beta-Antrag {antrag['id']}",
         )
         # Damit das goldene Fenster beim naechsten Besuch erscheint.
@@ -269,7 +271,9 @@ async def admin_revoke(data: dict, bot: "universitybot" = Depends(get_bot)):
         raise HTTPException(status_code=400, detail="Keine gültige Discord-ID.")
 
     admin = str(data.get("actor") or "dashboard")
-    anzahl = premium_store.revoke_user(user_id, product="main_bot")
+    # Ohne `product`: das eine Premium wird entzogen, damit auch
+    # der Zugang zum Template-Bot.
+    anzahl = premium_store.revoke_user(user_id)
     store.widerrufen(user_id, admin=admin)
 
     # Damit das Fenster bei einer spaeteren Neuvergabe wieder kommt.

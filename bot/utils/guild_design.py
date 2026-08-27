@@ -14,7 +14,8 @@ bestimmen.
 
 Wer darf das
 ------------
-Premium haengt am Discord-Konto (`product="main_bot"`). Zusaetzlich
+Premium haengt am Discord-Konto -- es gibt nur eins, und es gilt
+fuer beide Bots. Zusaetzlich
 muss eine von zwei Bedingungen erfuellt sein:
 
   * die Person ist **Inhaber** des Servers, oder

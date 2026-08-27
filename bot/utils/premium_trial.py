@@ -52,9 +52,24 @@ from typing import Any, Optional
 
 DB_PATH = os.path.join("db", "premium_trial.db")
 
-#: Wie lange die Probewoche läuft. Der Template-Bot schickt sein eigenes
+#: Wie lange die Probewoche laeuft. Sie gilt fuer BEIDE Bots -- es
+#: gibt nur noch ein Premium. Der Template-Bot schickt sein eigenes
 #: `expires_at` mit; dieser Wert greift nur, wenn keins ankommt.
 TRIAL_DAYS = 7
+
+
+def _produkt(wert: str | None = None) -> str:
+    """Immer das eine Produkt.
+
+    Alte Zeilen tragen noch `template_bot`. Sie hier abzubilden statt
+    sie in der Tabelle umzuschreiben hat einen Grund: die Probewoche
+    gilt genau einmal pro Konto, und ein UPDATE ueber alle Zeilen
+    waere die eine Gelegenheit, diese Sperre aus Versehen
+    zurueckzusetzen.
+    """
+    from utils import premium_store
+
+    return premium_store.PRODUCT
 
 # Die Spalten stehen **einmal** hier. CREATE TABLE und die Nachrüstung
 # fehlender Spalten leiten sich beide daraus ab.
@@ -65,7 +80,9 @@ TRIAL_DAYS = 7
 COLUMNS: tuple[tuple[str, str], ...] = (
     ("user_id", "TEXT PRIMARY KEY"),
     ("guild_id", "TEXT"),
-    ("product", "TEXT NOT NULL DEFAULT 'template_bot'"),
+    # Das eine Produkt. Frueher stand hier 'template_bot'; die
+    # Probewoche galt dann auch nur dort.
+    ("product", "TEXT NOT NULL DEFAULT 'premium'"),
     ("granted_at", "INTEGER NOT NULL DEFAULT 0"),
     ("expires_at", "INTEGER NOT NULL DEFAULT 0"),
     ("duration_days", "INTEGER NOT NULL DEFAULT 7"),
@@ -127,7 +144,7 @@ def _row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
     return {
         "user_id": str(row["user_id"]),
         "guild_id": str(row["guild_id"]) if row["guild_id"] else None,
-        "product": row["product"] or "template_bot",
+        "product": _produkt(row["product"]),
         "granted_at": int(row["granted_at"] or 0),
         "expires_at": ablauf,
         "duration_days": int(row["duration_days"] or TRIAL_DAYS),
@@ -173,7 +190,7 @@ def grant(
     guild_id: int | str | None = None,
     expires_at: int | float | None = None,
     duration_days: int = TRIAL_DAYS,
-    product: str = "template_bot",
+    product: str = "",
 ) -> dict[str, Any]:
     """Eine Probewoche eintragen.
 
@@ -208,7 +225,9 @@ def grant(
             (
                 str(user_id),
                 str(guild_id) if guild_id else None,
-                product,
+                # Immer das eine Produkt -- auch wenn ein alter
+                # Aufrufer noch "template_bot" mitschickt.
+                _produkt(product),
                 jetzt,
                 ablauf,
                 tage,

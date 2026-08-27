@@ -232,21 +232,25 @@ def test_api(store):
     check("the invite does not preselect a server",
           "guild_id" not in invite,
           "the buyer could only add the bot to one place")
-    # Der Hauptbot hat jetzt echtes Premium: es schaltet den
-    # Design-Reiter frei (Server-Nickname, -Avatar, -Banner).
+    # EIN Premium fuer beide Bots.
     #
-    # Vorher stand hier fest `{"premium": False, "coming_soon": True}`.
-    # Das war richtig, solange es nichts zu kaufen gab -- es haette
-    # aber auch dann noch "demnaechst" gemeldet, wenn laengst Keys im
-    # Umlauf sind.
+    # BOB hat oben einen Key eingeloest. Frueher galt der nur fuer den
+    # Template-Bot, und `main_bot` meldete `premium: False` -- man
+    # konnte das eine haben und das andere nicht. Jetzt gibt es nur
+    # noch einen Bestand, also muss hier `True` stehen. Genau das ist
+    # der Kern der Zusammenlegung.
     check("the main bot reports a real premium state",
           "coming_soon" not in body["main_bot"]
-          and body["main_bot"]["premium"] is False,
+          and body["main_bot"]["premium"] is True,
           r.text[:160])
-    check("and it is answered by the same place as the template bot",
-          "product" in body["main_bot"]
-          and body["main_bot"]["product"] == "main_bot",
+    # Ein Produkt fuer beide Bots: `main_bot` und `template_bot`
+    # zeigen auf denselben Zustand, und `premium` ist der neue Name.
+    check("there is only one product now",
+          body["main_bot"]["product"] == "premium",
           str(body["main_bot"])[:160])
+    check("both old keys point at the same state",
+          body["main_bot"] == body["template_bot"] == body["premium"],
+          "sonst gibt es doch wieder zwei Bestaende")
 
     print("\nMinting from the dashboard")
 
@@ -688,6 +692,146 @@ def test_revoke_reaches_the_template_bot(store):
               store.create_key(created_by=1, duration_days=0)["key"])) is None)
 
 
+def test_old_rows_are_migrated(store):
+    """Bestehende Lizenzen ueberleben die Zusammenlegung.
+
+    Vor dem Umbau trugen die Zeilen `main_bot` oder `template_bot`.
+    Bleiben sie so stehen, findet `status()` sie nicht mehr -- die
+    Leute haetten von einem Deploy auf den naechsten ihr Premium
+    verloren, ohne dass irgendwo etwas dazu stuende.
+
+    Ausdrueckliche Ausnahme: `template_bot` wird NICHT mitgenommen.
+    So beschlossen. Die Zeile bleibt aber erhalten, damit lesbar
+    bleibt, wer einmal was hatte.
+    """
+    print("\nAlte Zeilen ziehen um")
+
+    import sqlite3
+    import time as _time
+
+    jetzt = int(_time.time())
+    spaeter = jetzt + 90 * 86400
+
+    with sqlite3.connect(store.DB_PATH) as conn:
+        for wer, produkt, h in (
+            (9510, "main_bot", "hash-mig-main"),
+            (9520, "template_bot", "hash-mig-tpl"),
+        ):
+            conn.execute(
+                "INSERT INTO premium_keys (key_hash, product, duration, "
+                "created_at, created_by, note, redeemed_by, redeemed_at, "
+                "expires_at, revoked) VALUES (?, ?, 90, ?, 'test', '', ?, ?, ?, 0)",
+                (h, produkt, jetzt, str(wer), jetzt, spaeter),
+            )
+
+    # ensure() fuehrt den Umzug aus.
+    store.ensure()
+
+    with sqlite3.connect(store.DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        zeilen = {
+            r["key_hash"]: dict(r)
+            for r in conn.execute(
+                "SELECT key_hash, product, revoked FROM premium_keys "
+                "WHERE key_hash IN ('hash-mig-main', 'hash-mig-tpl')"
+            )
+        }
+
+    check("a main_bot licence moves to the one product",
+          zeilen["hash-mig-main"]["product"] == store.PRODUCT,
+          str(zeilen["hash-mig-main"]))
+    check("and stays valid",
+          zeilen["hash-mig-main"]["revoked"] == 0
+          and store.status(9510)["premium"] is True,
+          "wer bezahlt hat, darf nichts verlieren")
+
+    check("a template_bot licence is revoked",
+          zeilen["hash-mig-tpl"]["revoked"] == 1,
+          str(zeilen["hash-mig-tpl"]))
+    check("so that account has no premium any more",
+          store.status(9520)["premium"] is False,
+          "so ausdruecklich beschlossen")
+    check("but the row is kept for the record",
+          "hash-mig-tpl" in zeilen)
+
+
+def test_beta_grants_the_one_product(store):
+    """Ein angenommener Beta-Antrag schaltet BEIDE Bots frei.
+
+    `beta.py` ruft `grant_direct` ohne `product`. Stuende dort noch
+    `product="template_bot"`, bekaeme der Antragsteller Premium fuer
+    einen Bot und fuer den anderen nicht -- genau die Trennung, die
+    weg sollte.
+    """
+    print("\nEin Beta-Antrag gilt fuer beide Bots")
+
+    import re
+
+    quelle = open(
+        os.path.join(BOT, "api", "routes", "beta.py"), encoding="utf-8"
+    ).read()
+    ohne_docstring = re.sub(r'"""(?:.|\n)*?"""', "", quelle)
+    ohne_kommentar = re.sub(r"#[^\n]*", "", ohne_docstring)
+
+    # Auf die Wirkung zielen: der Aufruf darf KEIN product setzen.
+    aufruf = re.search(
+        r"premium_store\.grant_direct\((?:.|\n)*?\)", ohne_kommentar
+    )
+    check("beta.py grants premium", aufruf is not None)
+    if aufruf:
+        check("without pinning a product",
+              "product=" not in aufruf.group(0),
+              f"ein Produkt waere wieder eine Trennung: {aufruf.group(0)!r}")
+
+    entzug = re.search(
+        r"premium_store\.revoke_user\((?:.|\n)*?\)", ohne_kommentar
+    )
+    check("and revoking works the same way",
+          entzug is not None and "product=" not in entzug.group(0),
+          "sonst bliebe beim Entzug ein halbes Premium stehen")
+
+    # Und das Verhalten selbst.
+    store.grant_direct(9600, duration_days=7, note="Beta")
+    check("after a grant both bots see premium",
+          store.status(9600, product="template_bot")["premium"] is True
+          and store.status(9600, product="main_bot")["premium"] is True,
+          str(store.status(9600)))
+
+    store.revoke_user(9600)
+    check("after a revoke both are gone",
+          store.status(9600, product="template_bot")["premium"] is False
+          and store.status(9600, product="main_bot")["premium"] is False)
+
+
+def test_speedrun_reads_the_right_field():
+    """`_has_premium` muss `premium` lesen, nicht `active`.
+
+    Hier stand `state.get("active")`. Diesen Schluessel liefert
+    `status()` nicht -- `dict.get` ergab None, also galt JEDER als
+    Nicht-Premium, auch wer bezahlt hatte. Nachgemessen in
+    `repro/bug_speedrun_premium.py`.
+
+    Geprueft wird das VERHALTEN mit einem echten Zustand, nicht das
+    Wort im Quelltext: ein Test auf `"premium" in quelle` bliebe
+    gruen, wenn jemand `active` daneben schreibt.
+    """
+    print("\nDer Speedrun liest das richtige Feld")
+
+    from api.routes import speedrun
+    from utils import premium_store as ps
+
+    ps.ensure()
+    ps.grant_direct(9700, duration_days=30, note="Test")
+
+    check("somebody with premium is recognised",
+          speedrun._has_premium("9700") is True,
+          "state.get('active') gibt immer None -- der Bug von vorher")
+    check("and somebody without is not",
+          speedrun._has_premium("9701") is False)
+    check("an empty id is not premium",
+          speedrun._has_premium("") is False)
+
+
 def test_status_reports_the_duration(store):
     """
     The dashboard draws "how much of the licence is left" as a bar, and
@@ -1036,11 +1180,20 @@ def test_mount_animation():
     check("there is a loading skeleton",
           "function Skeleton()" in pb and "return <Skeleton />" in pb,
           "the page jumps from nothing to content")
-    check("the key is formatted while typing", "tidyKey" in pb)
-    check("a wrong length is caught before the request",
-          "cleaned.length !== 16" in pb,
-          "a typo costs a round trip to find out")
-    check("success is acknowledged", "justRedeemed" in pb)
+    # Das Key-Feld ist weg.
+    #
+    # Premium gibt es nur noch ueber den Beta-Antrag; ein Eingabefeld
+    # fuer Keys, die niemand mehr ausstellt, waere eine Sackgasse mit
+    # Cursor. Geprueft wird auf Abwesenheit -- sonst schleicht es sich
+    # beim naechsten Umbau zurueck.
+    check("there is no key field any more",
+          "tidyKey" not in pb and "redeemKey" not in pb,
+          "Keys werden nicht mehr ausgegeben")
+    check("the way to premium is the beta application",
+          "/dashboard/premium/beta" in pb,
+          "ohne Weg dorthin ist die Seite eine Sackgasse")
+    check("and it says premium covers both bots",
+          "beide Bots" in pb)
 
     styles = open(os.path.join(dash, "app", "globals.css"), encoding="utf-8").read()
     # The name appears four times (keyframes, rule, animation, and the
@@ -1058,7 +1211,7 @@ def test_mount_animation():
     # A bar dividing by an absent number renders NaN%, which silently
     # collapses to nothing.
     check("the progress bar needs a real duration",
-          "template?.duration_days" in pb,
+          "zustand?.duration_days" in pb,
           "the bar would divide by undefined")
 
     # Leftovers from when this file also held the admin tab. Unused
@@ -1094,6 +1247,9 @@ def run():
     test_partner_reaches_the_api(store)
     test_key_dm_is_components_v2()
     test_revoke_reaches_the_template_bot(store)
+    test_old_rows_are_migrated(store)
+    test_beta_grants_the_one_product(store)
+    test_speedrun_reads_the_right_field()
     test_status_reports_the_duration(store)
     test_unrevoke_restores_access(store)
     test_delete_and_purge(store)

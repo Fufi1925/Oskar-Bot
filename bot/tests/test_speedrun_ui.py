@@ -749,23 +749,35 @@ def test_the_console_does_not_fight_the_reader():
     check("Scrollen setzt sie zurück", "onScroll" in panel)
 
 
-def test_the_locked_tab_shows_nothing_but_the_code_field():
+def test_the_locked_tab_shows_nothing_but_the_premium_hint():
     """
     Ein gesperrter Reiter darf nicht bedienbar sein.
 
     Die eigentliche Sperre sitzt im Bot -- ein Overlay im Browser hält
     niemanden auf, der curl bedienen kann. Trotzdem muss die Anzeige
-    stimmen: wer nicht freigeschaltet ist, soll das Eingabefeld sehen
-    und sonst nichts, nicht einen voll bedienbaren Reiter, dessen
-    Knöpfe alle in 403 laufen.
+    stimmen: wer kein Premium hat, soll den Hinweis sehen und sonst
+    nichts, nicht einen voll bedienbaren Reiter, dessen Knöpfe alle in
+    403 laufen.
+
+    Hiess frueher `..._shows_nothing_but_the_code_field`. Das Feld fuer
+    den Beta-Code ist weg: der Zugang laeuft ueber Premium.
     """
 
-    print("\nOhne Code zeigt der Reiter nur das Eingabefeld")
+    print("\nOhne Premium zeigt der Reiter nur den Hinweis")
 
     panel = strip_comments(read(PANEL))
 
     check("der Reiter fragt den Zustand ab", "api.speedrunAccess" in panel)
-    check("es gibt ein Eingabefeld", "api.speedrunUnlock" in panel)
+    # Das Code-Feld muss WEG sein -- sonst schleicht es sich beim
+    # naechsten Umbau zurueck.
+    check("es gibt kein Code-Feld mehr",
+          "api.speedrunUnlock" not in panel and "submitCode" not in panel,
+          "Beta-Codes werden nicht mehr vergeben")
+    check("stattdessen fuehrt der Weg zum Beta-Antrag",
+          "/dashboard/premium/beta" in panel,
+          "ohne Weg dorthin ist der Reiter eine Sackgasse")
+    check("und es steht da, dass Premium gebraucht wird",
+          "Premium erforderlich" in panel)
 
     # Die frühe Rückgabe muss an den Zustand gebunden sein. Nur zu
     # prüfen, dass das Wort vorkommt, wäre wertlos: ein `if (false)`
@@ -916,7 +928,7 @@ def test_only_admins_reach_the_access_management():
 
 def main():
     test_the_tab_and_the_page_exist_together()
-    test_the_locked_tab_shows_nothing_but_the_code_field()
+    test_the_locked_tab_shows_nothing_but_the_premium_hint()
     test_the_switches_follow_the_chosen_template()
     test_the_template_bot_reports_what_it_can_build()
     test_only_admins_reach_the_access_management()

@@ -320,7 +320,18 @@ def test_oberflaeche():
     # Der Nutzer sieht, dass es eine Probewoche ist.
     panel = strip_ts(read_dash("components", "dashboard", "premium-panel.tsx"))
     check("das Nutzer-Panel kennt die Probewoche",
-          "template?.via_trial" in panel)
+          "zustand?.via_trial" in panel,
+          "frueher hiess das Feld template?.via_trial -- es gibt nur "
+          "noch ein Produkt")
+    # Das Panel muss den NEUEN Schluessel bevorzugen.
+    #
+    # Ohne diese Pruefung bliebe der Test gruen, wenn jemand wieder
+    # `status?.template_bot` allein liest: `via_trial` stuende dann
+    # immer noch in der Datei. Der Mutationstest hat genau das
+    # durchgelassen.
+    check("und liest den neuen Schluessel zuerst",
+          "status?.premium ?? status?.template_bot" in panel,
+          "sonst haengt die Anzeige wieder am alten Produkt")
     check("und schreibt es hin",
           "Tage Premium – kostenlos" in panel,
           "'Premium ist aktiv' liest sich wie etwas Bezahltes")

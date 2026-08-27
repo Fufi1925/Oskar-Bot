@@ -18,14 +18,15 @@
  * ehrlich sagt „kommt nach der Testphase“. Deshalb sind sie
  * `disabled` und tragen den Grund direkt daneben.
  *
- * ── Warum neun der zehn Punkte als „geplant“ stehen ─────────────────
+ * ── Warum sechs der zehn Punkte als „geplant“ stehen ────────────────
  *
- * Nur das Design ist gebaut und wirkt schon. Die anderen neun sind
- * beschlossen, aber noch nicht scharf geschaltet. Sie hier als
- * fertig zu verkaufen, wäre gelogen — jede Zeile trägt deshalb
- * sichtbar, ob sie schon läuft. Die Wahrheit steht auch in
- * `bot/tests/test_premium_seite.py`: der Test vergleicht die Tabelle
- * mit dem, was der Bot wirklich sperrt.
+ * Vier Punkte wirken heute schon: das gemeinsame Premium für beide
+ * Bots, das Design, der Speedrun und die Premium-Vorlagen. Die
+ * übrigen sechs sind beschlossen, aber noch nicht scharf geschaltet.
+ * Sie hier als fertig zu verkaufen, wäre gelogen — jede Zeile trägt
+ * deshalb sichtbar, ob sie schon läuft. Ein Test in
+ * `bot/tests/test_premium_seite.py` vergleicht die Tabelle mit dem,
+ * was der Bot wirklich sperrt.
  */
 
 import React from "react";
@@ -98,9 +99,10 @@ const TARIFE: Tarif[] = [
 /**
  * Die zehn Punkte.
  *
- * `live` heißt: der Bot sperrt das heute schon wirklich. Genau eine
- * Zeile trägt `live: true` — das Design. Alles andere ist beschlossen
- * und kommt, ist aber noch nicht scharf.
+ * `live` heißt: der Bot sperrt das heute schon wirklich. Vier Zeilen
+ * tragen `live: true` — gemeinsames Premium, Design, Speedrun und die
+ * Premium-Vorlagen. Alles andere ist beschlossen und kommt, ist aber
+ * noch nicht scharf.
  */
 type Zeile = {
   titel: string;
@@ -112,6 +114,15 @@ type Zeile = {
 
 const VERGLEICH: Zeile[] = [
   {
+    titel: "Gilt für beide Bots",
+    text:
+      "Ein Premium für den University Bot und den Template-Bot. Es hängt " +
+      "an deinem Discord-Konto, nicht an einem Server.",
+    gratis: false,
+    premium: "Beide Bots mit einem Zugang",
+    live: true,
+  },
+  {
     titel: "Eigenes Aussehen pro Server",
     text:
       "Der Bot bekommt auf deinem Server einen eigenen Namen, ein eigenes " +
@@ -121,11 +132,22 @@ const VERGLEICH: Zeile[] = [
     live: true,
   },
   {
-    titel: "Vorlagen pro Server",
+    titel: "Speedrun",
     text:
-      "Fertige Server-Aufbauten speichern und auf andere Server übertragen.",
-    gratis: "10 Vorlagen",
-    premium: "50 Vorlagen",
+      "Einen ganzen Server in einem Durchgang aufsetzen — Kanäle, Rollen " +
+      "und Rechte aus einer Vorlage.",
+    gratis: false,
+    premium: "Voller Zugriff",
+    live: true,
+  },
+  {
+    titel: "Premium-Vorlagen",
+    text:
+      "Die gesperrten Vorlagen des Template-Bots, etwa Clan- und " +
+      "Community-Server mit fertigem Aufbau.",
+    gratis: "Die offenen Vorlagen",
+    premium: "Alle Vorlagen",
+    live: true,
   },
   {
     titel: "Bot-Logs: wie weit zurück",
@@ -158,20 +180,6 @@ const VERGLEICH: Zeile[] = [
     premium: "100 Regeln",
   },
   {
-    titel: "Bewerbungs-Formulare",
-    text: "Eigene Formulare für Team-Bewerbungen, direkt auf dem Server.",
-    gratis: "2 Formulare",
-    premium: "10 Formulare",
-  },
-  {
-    titel: "Anti-Nuke: Rückmeldung",
-    text:
-      "Wie schnell der Schutz eine Auffälligkeit meldet und wie viele " +
-      "Aktionen er rückwirkend prüft.",
-    gratis: "Standard-Prüfung",
-    premium: "Erweiterte Prüfung + sofortige Meldung",
-  },
-  {
     titel: "Support",
     text: "Wie schnell wir bei Problemen antworten.",
     gratis: "Normale Warteschlange",
@@ -194,8 +202,8 @@ const FRAGEN: { frage: string; antwort: string }[] = [
   {
     frage: "Gilt Premium für mich oder für meinen Server?",
     antwort:
-      "Für dein Discord-Konto. Um es auf einem Server einzusetzen, musst du " +
-      "dort Inhaber sein.",
+      "Für dein Discord-Konto — und für beide Bots gleichzeitig. Um das " +
+      "Aussehen auf einem Server zu ändern, musst du dort Inhaber sein.",
   },
   {
     frage: "Kann ich schon kaufen?",
@@ -211,10 +219,11 @@ const FRAGEN: { frage: string; antwort: string }[] = [
       "aus der Gratis-Spalte. Gelöscht wird nichts.",
   },
   {
-    frage: "Warum stehen neun Punkte auf „geplant“?",
+    frage: "Warum stehen sechs Punkte auf „geplant“?",
     antwort:
-      "Weil sie es sind. Nur das eigene Aussehen wirkt heute schon. Die " +
-      "anderen neun sind beschlossen und kommen nach der Testphase — wir " +
+      "Weil sie es sind. Vier Punkte wirken heute: das gemeinsame Premium " +
+      "für beide Bots, das eigene Aussehen, der Speedrun und die " +
+      "Premium-Vorlagen. Die übrigen sechs kommen nach der Testphase — wir " +
       "schreiben sie lieber ehrlich hin, als sie als fertig zu verkaufen.",
   },
 ];
@@ -238,9 +247,9 @@ export default function PremiumSeite() {
             {BRAND} Premium
           </h1>
           <p className="mx-auto mt-3 max-w-2xl text-slate-400">
-            Höhere Grenzen, ein eigenes Aussehen für deinen Server und neue
-            Funktionen zuerst. Solange die Testphase läuft, kommst du über das
-            Beta-Formular an einen Zugang.
+            Ein Zugang für beide Bots: eigenes Aussehen, Speedrun,
+            Premium-Vorlagen und höhere Grenzen. Solange die Testphase läuft,
+            kommst du über das Beta-Formular daran.
           </p>
 
           <div className="mt-6 flex flex-wrap items-center justify-center gap-3">

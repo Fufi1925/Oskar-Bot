@@ -178,17 +178,23 @@ async def my_premium(user_id: int):
             "&scope=bot%20applications.commands"
         )
 
+    # EIN Premium fuer beide Bots.
+    #
+    # Hier standen frueher zwei getrennte Antworten, `template_bot` und
+    # `main_bot`. Das Dashboard zeigte zwei Kacheln, und man konnte das
+    # eine haben und das andere nicht. Jetzt gibt es nur noch einen
+    # Zustand.
+    zustand = store.status(user_id)
+
     return {
-        "template_bot": store.status(user_id, product="template_bot"),
-        # Der Hauptbot hat jetzt ebenfalls Premium: es schaltet den
-        # Design-Reiter frei (Server-Nickname, -Avatar, -Banner).
+        "premium": zustand,
+        # Die alten Schluessel zeigen bewusst auf DENSELBEN Zustand.
         #
-        # Vorher stand hier fest `{"premium": False, "coming_soon":
-        # True}`. Das war richtig, solange es nichts zu kaufen gab --
-        # aber es haette auch dann noch "demnaechst" gemeldet, wenn
-        # laengst Keys im Umlauf sind. Die Frage beantwortet jetzt
-        # dieselbe Stelle wie beim Template-Bot.
-        "main_bot": store.status(user_id, product="main_bot"),
+        # Sie stehen hier nur, damit nichts bricht, was sie noch liest
+        # -- nicht, weil es zwei Produkte gaebe. Wer sie liest, bekommt
+        # in beiden Faellen dieselbe Antwort.
+        "template_bot": zustand,
+        "main_bot": zustand,
         "template_invite": invite,
     }
 
@@ -411,19 +417,17 @@ async def create_key(data: dict, bot: "universitybot" = Depends(get_bot)):
     actor = str(data.get("actor") or "dashboard")
     recipient = str(data.get("user_id") or "").strip()
 
-    # Fuer welches Produkt gilt der Key?
+    # Es gibt nur noch EIN Produkt.
     #
-    # Vorher war das fest auf den Template-Bot gesetzt -- der
-    # Hauptbot hatte nichts zu verkaufen. Jetzt schaltet sein Premium
-    # den Design-Reiter frei, also muss man auch Keys dafuer
-    # ausstellen koennen. Die Voreinstellung bleibt der Template-Bot,
-    # damit bestehende Ablaeufe unveraendert weiterlaufen.
-    produkt = str(data.get("product") or "template_bot").strip()
-    if produkt not in ("template_bot", "main_bot"):
-        raise HTTPException(
-            status_code=400,
-            detail="product muss 'template_bot' oder 'main_bot' sein.",
-        )
+    # Frueher standen hier `template_bot` und `main_bot` nebeneinander,
+    # und man musste sich bei jedem Key entscheiden. Ein Key fuer das
+    # eine schaltete das andere nicht frei -- eine Quelle fuer
+    # Rueckfragen, die es jetzt nicht mehr gibt.
+    #
+    # Ein mitgeschicktes `product` wird angenommen und ignoriert:
+    # bestehende Aufrufer sollen keinen 400 bekommen, nur weil sie den
+    # alten Namen kennen.
+    produkt = store.PRODUCT
 
     created = store.create_key(
         created_by=actor, duration_days=days, product=produkt, note=note

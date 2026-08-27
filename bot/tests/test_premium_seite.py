@@ -175,21 +175,26 @@ def test_tabelle():
            len(re.findall(r"premium:", rumpf)) == len(titel),
            f"{len(re.findall(r'premium:', rumpf))} von {len(titel)}")
 
-    # Genau EINER wirkt heute: das Design.
+    # Vier wirken heute: gemeinsames Premium, Design, Speedrun und die
+    # Premium-Vorlagen. Alles davon sperrt der Bot wirklich.
     live = re.findall(r"live:\s*true", rumpf)
-    pruefe("genau ein Punkt ist als aktiv markiert", len(live) == 1,
+    pruefe("genau vier Punkte sind als aktiv markiert", len(live) == 4,
            f"gefunden: {len(live)}")
 
-    design = re.search(
-        r"titel:\s*\"Eigenes Aussehen pro Server\".*?(?=\n\s*\{|\Z)", rumpf, re.S
-    )
-    pruefe("und zwar das Design", design is not None
-           and "live: true" in design.group(0),
-           "nur das Design ist gebaut")
+    # Und zwar diese vier -- namentlich, nicht nur der Zahl nach.
+    for name in ("Gilt für beide Bots", "Eigenes Aussehen pro Server",
+                 "Speedrun", "Premium-Vorlagen"):
+        eintrag = re.search(
+            r"titel:\s*\"" + re.escape(name) + r"\".*?(?=\n\s*\{|\Z)",
+            rumpf, re.S,
+        )
+        pruefe(f"„{name}“ ist als aktiv markiert",
+               eintrag is not None and "live: true" in eintrag.group(0),
+               "diese vier sind gebaut")
 
-    # Die neun anderen duerfen NICHT als aktiv gelten.
-    pruefe("die neun uebrigen gelten als geplant", len(titel) - len(live) == 9,
-           f"{len(titel) - len(live)} statt 9")
+    # Die sechs anderen duerfen NICHT als aktiv gelten.
+    pruefe("die sechs uebrigen gelten als geplant", len(titel) - len(live) == 6,
+           f"{len(titel) - len(live)} statt 6")
 
     # Die Kennzeichnung muss auch angezeigt werden, nicht nur in den
     # Daten stehen.

@@ -436,27 +436,47 @@ def test_the_lock_is_enforced_by_the_bot():
                   "gesperrt" in str(exc.detail).lower(), str(exc.detail))
 
 
-def test_the_unlock_route_refuses_a_banned_server():
-    print("\nDie Freischalt-Route lehnt einen gebannten Server ab")
+def test_a_ban_beats_premium():
+    """Ein Bann sticht Premium.
+
+    Hiess frueher `test_the_unlock_route_refuses_a_banned_server` und
+    rief `access_unlock` -- die Route zum Eintippen des Codes. Die gibt
+    es nicht mehr: der Zugang laeuft ueber Premium am Konto.
+
+    Der Punkt bleibt derselbe und ist wichtiger als vorher: koennte
+    Premium einen Bann aufheben, liesse sich eine Sperre mit einem
+    Beta-Antrag umgehen.
+    """
+
+    print("\nEin Bann sticht Premium")
 
     from fastapi import HTTPException
 
     from api.routes import speedrun
 
+    original = speedrun._has_premium
     with TempDB() as sa:
         speedrun.access = sa
         sa.ban(GUILD, "999", "Grund")
+        speedrun._has_premium = lambda _u: True
 
         try:
-            asyncio.run(
-                speedrun.access_unlock(
-                    GUILD, {"code": "University beta v1", "user_id": "123"}
-                )
-            )
-            check("der richtige Code wird abgelehnt", False,
-                  "ein gebannter Server hat sich selbst freigeschaltet")
-        except HTTPException as exc:
-            check("der richtige Code wird abgelehnt", exc.status_code == 403)
+            body = asyncio.run(speedrun.access_state(GUILD, actor="123"))
+            check("mit Premium, aber gebannt: nicht offen",
+                  body["unlocked"] is False, str(body))
+            check("und der Bann steht in der Antwort",
+                  body["banned"] is True, str(body))
+
+            try:
+                speedrun._require_unlocked(GUILD, "123")
+                check("der Start wird abgelehnt", False,
+                      "ein gebannter Server konnte bauen")
+            except HTTPException as exc:
+                check("der Start wird abgelehnt", exc.status_code == 403)
+                check("die Meldung nennt die Sperre",
+                      "gesperrt" in str(exc.detail).lower(), str(exc.detail))
+        finally:
+            speedrun._has_premium = original
 
 
 def test_the_access_route_never_leaks_the_code():
@@ -470,7 +490,13 @@ def test_the_access_route_never_leaks_the_code():
         speedrun.access = sa
         sa.unlock(GUILD, "University beta v1", "123")
 
-        body = asyncio.run(speedrun.access_state(GUILD))
+        original = speedrun._has_premium
+        speedrun._has_premium = lambda _u: True
+        try:
+            body = asyncio.run(speedrun.access_state(GUILD, actor="123"))
+        finally:
+            speedrun._has_premium = original
+
         text = repr(body).lower()
         check("kein Code in der Antwort",
               "university beta" not in text and "univertiy" not in text,
@@ -624,7 +650,7 @@ def main():
     test_runs_are_counted()
     test_the_overview_lists_everything()
     test_the_lock_is_enforced_by_the_bot()
-    test_the_unlock_route_refuses_a_banned_server()
+    test_a_ban_beats_premium()
     test_the_access_route_never_leaks_the_code()
     test_revoking_stops_a_running_speedrun()
     test_banning_also_stops_a_running_speedrun()

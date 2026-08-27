@@ -166,11 +166,22 @@ def _why_unreachable(exc: Exception, url: str) -> str:
 
 
 def _has_premium(user_id: str) -> bool:
+    """Hat dieses Konto Premium?
+
+    Hier stand `state.get("active")`. Diesen Schluessel liefert
+    `status()` nicht -- er heisst `premium`. `dict.get` auf einen
+    fehlenden Schluessel ergibt None, also galt JEDER als
+    Nicht-Premium, auch wer bezahlt hatte. Nachgemessen in
+    `repro/bug_speedrun_premium.py`.
+
+    Seit der Zusammenlegung gibt es nur noch ein Produkt: dasselbe
+    Premium gilt fuer Haupt- und Template-Bot.
+    """
     if not user_id:
         return False
     try:
-        state = store.status(user_id, product="template_bot")
-        return bool(state.get("active"))
+        state = store.status(user_id)
+        return bool(state.get("premium"))
     except Exception:
         # Im Zweifel kein Premium: eine kaputte Abfrage darf niemandem
         # etwas freischalten, das er nicht bezahlt hat.
@@ -290,21 +301,21 @@ async def templates(user_id: str = ""):
         key = str(entry.get("key") or "")
         in_beta = key in BETA_TEMPLATES
 
-        # Im Speedrun entscheidet allein die Beta-Freigabe.
+        # Zwei Huerden, in dieser Reihenfolge.
         #
-        # Wer den Beta-Code eingegeben hat, darf alle freigegebenen
-        # Vorlagen bauen -- auch die, die im `!start`-Menü des
-        # Template-Bots Premium verlangen. Die Beta ist die Huerde,
-        # nicht Premium: der Code wird einzeln vergeben, und wer ihn
-        # hat, soll nicht an einer zweiten Schranke haengenbleiben.
+        # 1. Die Beta-Freigabe: was nicht freigegeben ist, laesst sich
+        #    gar nicht bauen -- auch nicht mit Premium.
+        # 2. Premium: der Speedrun ist eine Premium-Funktion.
         #
-        # Im Template-Bot bleibt `clan` weiterhin Premium -- dort gilt
-        # die Trennung unveraendert. Nur dieser Weg ist offen.
+        # Frueher entschied hier allein die Beta-Freigabe, weil der
+        # Zugang ueber einen Code lief. Den gibt es nicht mehr.
         if not in_beta:
             reason = (
                 f"In der Beta sind erst {len(BETA_TEMPLATES)} Vorlagen "
                 "freigegeben."
             )
+        elif not premium:
+            reason = "Dafür wird Premium benötigt."
         else:
             reason = ""
 
@@ -341,42 +352,35 @@ async def templates(user_id: str = ""):
 # curl fragt nicht nach einem Overlay.
 
 
-@router.get("/{guild_id}/access", summary="Ist der Reiter für diesen Server offen?")
-async def access_state(guild_id: int):
-    """Der Zustand -- das Erste, was der Reiter beim Öffnen fragt."""
+@router.get("/{guild_id}/access", summary="Darf hier gebaut werden?")
+async def access_state(guild_id: int, actor: str = ""):
+    """Der Zustand -- das Erste, was der Reiter beim Öffnen fragt.
+
+    Der Zugangscode ist weg. Frueher schaltete ein Code **einen
+    Server** frei; jetzt entscheidet **Premium am Konto**. Damit gibt
+    es fuer beide Bots genau eine Huerde statt zweier
+    nebeneinanderlaufender.
+
+    `unlocked` bleibt als Feldname stehen, damit das Dashboard nicht
+    an drei Stellen gleichzeitig umgebaut werden muss -- die Bedeutung
+    ist jetzt „darf bauen".
+    """
 
     state = access.state(guild_id)
-    # Der Code selbst wird hier nicht mitgeschickt, auch nicht gehasht:
-    # er steht auf der Seite im Klartext daneben, sobald er gilt, aber
-    # eine Antwort, die ihn verraet, waere eine Vorlage zum Raten.
+    premium = _has_premium(str(actor or ""))
+
     return {
-        "unlocked": state["unlocked"],
+        # Ein Bann sticht Premium: sonst koennte sich ein gesperrter
+        # Server ueber einen Beta-Antrag zurueckkaufen.
+        "unlocked": bool(premium and not state["banned"]),
+        "premium": premium,
         "banned": state["banned"],
         "ban_reason": state.get("ban_reason", ""),
         "unlocked_at": state.get("unlocked_at"),
         "runs": state.get("runs", 0),
+        # Damit der Reiter auf die richtige Seite verweisen kann.
+        "premium_url": "/dashboard/premium",
     }
-
-
-@router.post("/{guild_id}/access", summary="Reiter mit dem Code freischalten")
-async def access_unlock(guild_id: int, data: dict):
-    """Den Code prüfen und den Server freischalten.
-
-    Falsche Eingaben werden mitgeschrieben. Nicht um Leute zu
-    verfolgen, sondern weil ein Server mit vierzig Fehlversuchen etwas
-    anderes ist als einer mit einem Vertipper -- und das sieht man im
-    Admin-Panel sonst nicht.
-    """
-
-    result = access.unlock(
-        guild_id,
-        str(data.get("code") or ""),
-        str(data.get("user_id") or ""),
-    )
-    if not result["ok"]:
-        raise HTTPException(status_code=403, detail=result["reason"])
-
-    return {"unlocked": True, "already": result.get("already", False)}
 
 
 async def _template_exists(template_key: str) -> bool:
@@ -411,8 +415,17 @@ async def _template_exists(template_key: str) -> bool:
     )
 
 
-def _require_unlocked(guild_id: int) -> None:
-    """Abbrechen, wenn der Server nicht frei ist.
+def _require_unlocked(guild_id: int, user_id: str = "") -> None:
+    """Abbrechen, wenn hier nicht gebaut werden darf.
+
+    Zwei Huerden, in dieser Reihenfolge:
+
+    1. **Bann.** Ein Admin kann einen Server sperren. Das sticht alles
+       -- auch Premium. Sonst koennte sich ein gesperrter Server per
+       Beta-Antrag zurueckkaufen.
+    2. **Premium.** Der Zugangscode ist ersatzlos weg; stattdessen
+       braucht es Premium am Konto. Dasselbe Premium wie ueberall
+       sonst, es gibt nur noch eins.
 
     Steht vor jedem Schritt, der etwas bewirkt. Ohne diese Zeile waere
     die Sperre eine Anzeige und keine Sperre.
@@ -427,10 +440,14 @@ def _require_unlocked(guild_id: int) -> None:
                 + (state.get("ban_reason") or "Melde dich beim Team.")
             ),
         )
-    if not state["unlocked"]:
+
+    if not _has_premium(str(user_id or "")):
         raise HTTPException(
             status_code=403,
-            detail="Der Speedrun ist für diesen Server nicht freigeschaltet.",
+            detail=(
+                "Der Speedrun braucht Premium. Du bekommst es über einen "
+                "Beta-Antrag im Dashboard."
+            ),
         )
 
 
@@ -447,11 +464,15 @@ async def start(
 ):
     """Startet den Bau beim Template-Bot. Antwortet sofort."""
 
-    # Zuerst: darf dieser Server überhaupt?
-    _require_unlocked(guild_id)
-
     template_key = str(data.get("template") or "").strip()
     user_id = str(data.get("user_id") or "").strip()
+
+    # Zuerst: darf hier überhaupt gebaut werden?
+    #
+    # `user_id` wird dafür gebraucht (Premium hängt am Konto), deshalb
+    # steht das Auslesen davor. Der Proxy setzt es aus der Sitzung --
+    # ein mitgeschickter Wert aus dem Browser käme hier nie an.
+    _require_unlocked(guild_id, user_id)
 
     if template_key not in BETA_TEMPLATES:
         raise HTTPException(

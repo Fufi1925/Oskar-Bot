@@ -1642,14 +1642,14 @@ export const api = {
       method: "DELETE",
     }),
 
-  // Die Code-Sperre. Freigeschaltet wird ein Server, nicht ein Nutzer.
+  // Die Premium-Sperre.
+  //
+  // Frueher gab es hier zwei Aufrufe: einen zum Fragen und einen zum
+  // Freischalten mit einem Code. Der Code ist weg -- freigeschaltet
+  // wird ueber Premium am Konto, und das kommt aus dem Beta-Antrag.
+  // `actor` setzt der Proxy aus der Sitzung.
   speedrunAccess: (guildId: string) =>
     request<any>(`/speedrun/${guildId}/access`),
-  speedrunUnlock: (guildId: string, code: string, userId: string) =>
-    request<any>(`/speedrun/${guildId}/access`, {
-      method: "POST",
-      body: JSON.stringify({ code, user_id: userId }),
-    }),
 
   // Verwaltung (nur globale Admins -- der Proxy prüft das).
   speedrunAdminGuilds: () => request<any>(`/speedrun/admin/guilds`),

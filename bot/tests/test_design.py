@@ -378,12 +378,12 @@ async def main():
            pfade.index("/admin/unlocked") < pfade.index("/{guild_id}"),
            f"Reihenfolge: {pfade}")
 
-    # Premium fuer den Hauptbot ist aktiv.
+    # Premium gilt fuer beide Bots -- es gibt nur eins.
     prem = open(os.path.join(BOT, "api", "routes", "premium.py"),
                 encoding="utf-8").read()
     pruefe("der Hauptbot hat echtes Premium",
-           'store.status(user_id, product="main_bot")' in prem,
-           "vorher stand hier fest coming_soon")
+           "zustand = store.status(user_id)" in prem,
+           "vorher stand hier fest coming_soon, dann zwei Produkte")
     pruefe("Keys lassen sich fuer den Hauptbot ausstellen",
            '"main_bot"' in prem and "product=produkt" in prem)
 

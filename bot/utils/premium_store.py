@@ -13,17 +13,38 @@
 # ╚══════════════════════════════════════════════════════════════════╝
 
 """
-Licence keys for the template bot's premium features.
+Premium -- EIN Produkt fuer beide Bots.
 
-The shape of it:
+Wie es frueher war
+------------------
+Es gab zwei getrennte Produkte: `template_bot` und `main_bot`. Wer
+Template-Premium hatte, hatte deswegen noch lange kein Design im
+Hauptbot, und umgekehrt. Das Dashboard zeigte zwei Kacheln, der
+Admin-Bereich zwei Bestaende, und bei jedem neuen Aufrufer musste man
+sich entscheiden, welches der beiden gemeint ist -- eine
+Fehlerquelle, die genau einmal zu oft zugeschlagen hat.
 
-  1. Someone buys premium in Discord.
-  2. A team member runs /key on the support server. That mints a
-     16-character key with a chosen duration and DMs it to them.
-  3. The buyer types the key into the dashboard. It is bound to *their*
-     Discord account at that moment and cannot be moved.
-  4. The template bot asks us "does user X have premium?" and gets a
-     yes/no plus an expiry.
+Wie es jetzt ist
+----------------
+Es gibt **ein** Produkt: :data:`PRODUCT`. Wer Premium hat, hat es fuer
+beide Bots. `status()` beantwortet die Frage fuer alles.
+
+Der Parameter `product` bleibt in den Signaturen stehen, damit
+bestehende Aufrufer nicht brechen -- er wird aber auf
+:data:`PRODUCT` normalisiert. Ein Aufruf mit `product="template_bot"`
+bekommt also dieselbe Antwort wie einer mit `product="main_bot"`. Das
+ist Absicht: es soll unmoeglich sein, versehentlich zwei Bestaende zu
+erzeugen.
+
+Wie man Premium bekommt
+-----------------------
+Ueber den **Beta-Antrag**. Wird er angenommen, vergibt
+`beta.py` Premium direkt (:func:`grant_direct`). Ein Kaufweg ueber
+PayPal ist vorgesehen, aber noch nicht angebunden.
+
+Die Key-Funktionen bleiben erhalten -- Admins vergeben damit von Hand,
+und der Bestand aus der Zeit davor bleibt lesbar. Im Nutzer-Dashboard
+taucht kein Einloesefeld mehr auf.
 
 Keys are stored hashed, never in the clear. A leaked database still
 cannot be used to activate anything, the same reason passwords are not
@@ -45,6 +66,26 @@ import time
 from typing import Any, Optional
 
 DB_PATH = os.path.join("db", "premium.db")
+
+#: Das eine Produkt. Frueher gab es `template_bot` und `main_bot`
+#: nebeneinander; jetzt schaltet ein Premium beide Bots frei.
+PRODUCT = "premium"
+
+#: Die alten Namen. Sie stehen noch in bestehenden Datenbankzeilen und
+#: koennen aus alten Aufrufen kommen -- beides wird auf
+#: :data:`PRODUCT` abgebildet, damit niemand aus Versehen einen
+#: zweiten Bestand aufmacht.
+LEGACY_PRODUCTS = ("template_bot", "main_bot")
+
+
+def normalise_product(product: str | None) -> str:
+    """Jeden Produktnamen auf das eine Produkt abbilden.
+
+    Bewusst ohne Fehlermeldung bei Unbekanntem: diese Funktion sitzt in
+    jedem Lesepfad, und ein Tippfehler in einem alten Aufruf soll kein
+    Premium wegnehmen, sondern schlicht das eine Produkt meinen.
+    """
+    return PRODUCT
 
 # No I, O, 0, 1, U — visually ambiguous or awkward when read aloud.
 ALPHABET = "ABCDEFGHJKLMNPQRSTVWXYZ23456789"
@@ -126,9 +167,31 @@ def ensure() -> None:
             "ON premium_keys (redeemed_by)"
         )
 
+        # Umzug auf das eine Produkt.
+        #
+        # Bestehende Zeilen tragen noch `template_bot` oder `main_bot`.
+        # Wuerden sie so stehen bleiben, faende `status()` sie nicht
+        # mehr -- die Leute haetten von einem Deploy auf den naechsten
+        # ihr Premium verloren, ohne dass irgendwo etwas dazu stuende.
+        #
+        # Ausdrueckliche Ausnahme: `template_bot` wird NICHT
+        # mitgenommen. Wer bisher nur Template-Premium hatte, verliert
+        # es -- so beschlossen. Die Zeile bleibt aber erhalten und wird
+        # nur als widerrufen markiert, damit die Geschichte lesbar
+        # bleibt und man nachvollziehen kann, wer was hatte.
+        conn.execute(
+            "UPDATE premium_keys SET product = ? WHERE product = ?",
+            (PRODUCT, "main_bot"),
+        )
+        conn.execute(
+            "UPDATE premium_keys SET revoked = 1 "
+            "WHERE product = ? AND revoked = 0",
+            ("template_bot",),
+        )
+
 
 def create_key(created_by: int | str, duration_days: int = 0,
-               product: str = "template_bot", note: str = "") -> dict[str, Any]:
+               product: str = PRODUCT, note: str = "") -> dict[str, Any]:
     """
     Mint a key.
 
@@ -137,6 +200,7 @@ def create_key(created_by: int | str, duration_days: int = 0,
     own duration.
     """
     ensure()
+    product = normalise_product(product)
     key = generate_key()
     with _connect() as conn:
         conn.execute(
@@ -206,7 +270,7 @@ def redeem(key: str, user_id: int | str) -> dict[str, Any]:
             "product": row["product"]}
 
 
-def status(user_id: int | str, product: str = "template_bot") -> dict[str, Any]:
+def status(user_id: int | str, product: str = PRODUCT) -> dict[str, Any]:
     """
     Whether this Discord account currently has premium.
 
@@ -214,6 +278,7 @@ def status(user_id: int | str, product: str = "template_bot") -> dict[str, Any]:
     as no premium, but the row stays so history is not lost.
     """
     ensure()
+    product = normalise_product(product)
     user_id = str(user_id)
     now = int(time.time())
 
@@ -251,25 +316,28 @@ def status(user_id: int | str, product: str = "template_bot") -> dict[str, Any]:
     #
     # Der Import steht in der Funktion: utils/__init__ laedt diese
     # Datei, oben stuende ein Ringschluss.
+    # Sie galt frueher NUR fuer den Template-Bot (`if product ==
+    # "template_bot"`). Jetzt gibt es nur noch ein Produkt, und die
+    # Probewoche gilt damit fuer beide Bots -- die Abfrage laeuft
+    # deshalb immer.
     trial: Optional[dict[str, Any]] = None
-    if product == "template_bot":
-        try:
-            from utils import premium_trial
+    try:
+        from utils import premium_trial
 
-            eintrag = premium_trial.get(user_id)
-            if eintrag and eintrag["active"]:
-                trial = eintrag
-                active = True
-                # Ein gekaufter Key laeuft laenger? Dann bleibt dessen
-                # Datum stehen -- sonst verkuerzte die Probewoche eine
-                # bezahlte Lizenz.
-                if not lifetime and (best is None or eintrag["expires_at"] > best):
-                    best = eintrag["expires_at"]
-                    duration = eintrag["duration_days"]
-        except Exception:
-            # Eine kaputte Probewochen-Tabelle darf niemandem Premium
-            # wegnehmen, den er bezahlt hat.
-            trial = None
+        eintrag = premium_trial.get(user_id)
+        if eintrag and eintrag["active"]:
+            trial = eintrag
+            active = True
+            # Ein gekaufter Key laeuft laenger? Dann bleibt dessen
+            # Datum stehen -- sonst verkuerzte die Probewoche eine
+            # bezahlte Lizenz.
+            if not lifetime and (best is None or eintrag["expires_at"] > best):
+                best = eintrag["expires_at"]
+                duration = eintrag["duration_days"]
+    except Exception:
+        # Eine kaputte Probewochen-Tabelle darf niemandem Premium
+        # wegnehmen, den er bezahlt hat.
+        trial = None
 
     # Tester bekommen Premium ohne Key.
     #
@@ -407,9 +475,10 @@ def purge(what: str = "revoked") -> int:
         return cur.rowcount
 
 
-def stats(product: str = "template_bot") -> dict[str, int]:
+def stats(product: str = PRODUCT) -> dict[str, int]:
     """Counts for the admin overview, computed in one pass."""
     ensure()
+    product = normalise_product(product)
     now = int(time.time())
     with _connect() as conn:
         rows = conn.execute(
@@ -464,7 +533,7 @@ def owner_of_hash(key_hash: str) -> Optional[str]:
     return str(row["redeemed_by"])
 
 
-def premium_user_ids(product: str = "template_bot") -> set[str]:
+def premium_user_ids(product: str = PRODUCT) -> set[str]:
     """
     Everyone whose premium is currently valid.
 
@@ -472,6 +541,7 @@ def premium_user_ids(product: str = "template_bot") -> set[str]:
     rows drop out here, which is what makes the role come off again.
     """
     ensure()
+    product = normalise_product(product)
     now = int(time.time())
     with _connect() as conn:
         rows = conn.execute(
@@ -519,7 +589,7 @@ def list_keys(limit: int = 100) -> list[dict[str, Any]]:
 
 
 def grant_direct(user_id: int | str, *, duration_days: int = 0,
-                 product: str = "main_bot", note: str = "") -> dict[str, Any]:
+                 product: str = PRODUCT, note: str = "") -> dict[str, Any]:
     """Einem Konto Premium geben, ohne dass es einen Key eintippt.
 
     Gibt es fuer dieses Produkt schon eine gueltige Lizenz, passiert
@@ -527,6 +597,7 @@ def grant_direct(user_id: int | str, *, duration_days: int = 0,
     machen jede spaetere Frage „wann laeuft es ab?" mehrdeutig.
     """
     ensure()
+    product = normalise_product(product)
     user_id = str(user_id)
 
     vorhanden = status(user_id, product=product)
@@ -550,13 +621,14 @@ def grant_direct(user_id: int | str, *, duration_days: int = 0,
     return {"ok": True, "already": False, **status(user_id, product=product)}
 
 
-def revoke_user(user_id: int | str, product: str = "main_bot") -> int:
+def revoke_user(user_id: int | str, product: str = PRODUCT) -> int:
     """Jede Lizenz dieses Kontos fuer dieses Produkt sperren.
 
     Die Zeilen bleiben stehen und werden nur als gesperrt markiert --
     so bleibt nachvollziehbar, dass jemand einmal Premium hatte.
     """
     ensure()
+    product = normalise_product(product)
     with _connect() as conn:
         cur = conn.execute(
             "UPDATE premium_keys SET revoked = 1 "

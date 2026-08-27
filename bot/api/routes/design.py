@@ -14,7 +14,8 @@ gleichzeitig.
 
 Wer darf
 --------
-Premium am Discord-Konto (`product="main_bot"`) UND eine von zwei
+Premium am Discord-Konto -- es gibt nur eins, und es gilt fuer
+beide Bots -- UND eine von zwei
 Bedingungen:
 
   * Inhaber des Servers, oder
@@ -66,7 +67,7 @@ def _hat_premium(user_id: str) -> bool:
     if not str(user_id).isdigit():
         return False
     try:
-        zustand = premium_store.status(user_id, product="main_bot")
+        zustand = premium_store.status(user_id)
     except Exception:  # noqa: BLE001 - eine kaputte Tabelle gibt kein Premium
         return False
     return bool(zustand.get("premium"))

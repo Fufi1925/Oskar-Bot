@@ -1,36 +1,36 @@
 "use client";
 
 /**
- * Premium — what the customer sees.
+ * Premium — was der Kunde sieht.
  *
- * Rebuilt. The previous version was three cards of the same weight, so
- * the one thing that matters ("do I have premium, until when") had to be
- * hunted for among equally loud boxes, and nothing moved when the page
- * opened.
+ * ── Was hier vorher stand ───────────────────────────────────────────
  *
- * The shape now follows the state, because there are only two:
+ * Zwei Kacheln nebeneinander: eine für den Template-Bot, eine für den
+ * Hauptbot. Man konnte das eine haben und das andere nicht, und die
+ * Seite musste beides gleichzeitig erklären. Dazu ein Eingabefeld für
+ * einen 16-stelligen Lizenz-Key.
  *
- *   no licence  → a hero that says so, then the redeem field
- *   licence     → a gold hero with the expiry and a progress bar, then
- *                 the invite link that makes the licence useful
+ * ── Was jetzt hier steht ────────────────────────────────────────────
  *
- * The redeem form disappears once there is nothing to redeem, and the
- * invite link does not exist before there is. Showing either at the
- * wrong moment is how a page ends up saying the same thing to everyone.
+ * Ein Zustand, eine Aussage: **habe ich Premium, und bis wann?**
+ * Dasselbe Premium gilt für beide Bots — es gibt nur noch eins.
  *
- * The main bot has nothing to sell, so it gets an honest placeholder
- * instead of a disabled form pretending otherwise.
+ * Das Key-Feld ist weg. Premium bekommt man während der Testphase über
+ * den Beta-Antrag; ein Kaufweg über PayPal ist vorgesehen, aber noch
+ * nicht angebunden. Ein Eingabefeld für Keys, die niemand mehr
+ * ausgibt, wäre eine Sackgasse mit Cursor.
  *
- * The account id is never sent from here. The proxy fills it in from the
- * session, so a key can only ever be bound to whoever is signed in.
+ * Die Konto-ID wird von hier nie mitgeschickt. Der Proxy setzt sie aus
+ * der Sitzung ein.
  *
- * Staff tooling lives in premium-admin.tsx.
+ * Werkzeuge fürs Team liegen in premium-admin.tsx.
  */
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import {
-  Check, Clock, ExternalLink, Gem, KeyRound, RefreshCw, Sparkles,
+  ArrowRight, Bot, Check, Clock, Crown, ExternalLink, Gem, RefreshCw,
+  Sparkles,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
@@ -38,10 +38,6 @@ import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { CountUp, Reveal, useReducedMotion } from "@/components/ui/reveal";
-
-const INPUT =
-  "w-full bg-[#0e0e12] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white " +
-  "placeholder:text-slate-600 focus:border-primary/50 focus:outline-none transition-colors";
 
 function formatDate(seconds?: number | null): string {
   if (!seconds) return "";
@@ -52,98 +48,52 @@ function formatDate(seconds?: number | null): string {
   });
 }
 
-/** Days left, or null when it never expires. */
+/** Verbleibende Tage, oder null wenn es nie abläuft. */
 function daysLeft(seconds?: number | null): number | null {
   if (!seconds) return null;
   return Math.max(0, Math.ceil((seconds * 1000 - Date.now()) / 86_400_000));
 }
 
 /**
- * Format a key as the user types: uppercase, in blocks of four.
+ * Was Premium freischaltet.
  *
- * People paste these from a DM on a phone, where autocorrect and stray
- * spaces are the norm. Fixing it while typing means the field always
- * looks like the key in the message, so a mistake is visible before the
- * button is pressed rather than after.
+ * Nur Dinge, die der Bot heute wirklich sperrt. Die Liste der geplanten
+ * Funktionen steht auf `/premium` und ist dort als geplant markiert —
+ * hier hätte sie nichts zu suchen, weil diese Seite den *eigenen
+ * Zustand* zeigt und nicht das Angebot.
  */
-function tidyKey(raw: string): string {
-  const clean = (raw || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 16);
-  return clean.replace(/(.{4})(?=.)/g, "$1-");
-}
+const ENTHALTEN = [
+  {
+    titel: "Eigenes Aussehen pro Server",
+    text: "Name, Profilbild und Banner des Bots auf deinem Server.",
+  },
+  {
+    titel: "Speedrun",
+    text: "Einen ganzen Server in einem Durchgang aufsetzen.",
+  },
+  {
+    titel: "Premium-Vorlagen",
+    text: "Die gesperrten Vorlagen des Template-Bots.",
+  },
+];
 
-function Card({
-  icon: Icon,
-  title,
-  subtitle,
-  children,
-  tone = "plain",
-}: {
-  icon: any;
-  title: string;
-  subtitle?: string;
-  children?: React.ReactNode;
-  tone?: "plain" | "muted";
-}) {
-  return (
-    <section
-      className={cn(
-        "rounded-3xl border p-6 space-y-5",
-        tone === "muted"
-          ? "border-slate-800/70 bg-[#0e0e12]/40"
-          : "border-slate-800 bg-[#0e0e12]/60"
-      )}
-    >
-      <header className="flex items-start gap-3">
-        <div className="h-10 w-10 rounded-2xl bg-primary/10 grid place-items-center shrink-0">
-          <Icon className="h-5 w-5 text-primary" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <h3 className="text-base font-bold text-white">{title}</h3>
-          {subtitle && (
-            <p className="text-[12px] text-slate-400 mt-0.5">{subtitle}</p>
-          )}
-        </div>
-      </header>
-      {children}
-    </section>
-  );
-}
-
-/** A skeleton, so the page has the same shape before and after loading. */
 function Skeleton() {
   return (
-    <div className="space-y-5" aria-busy="true" aria-label="Wird geladen">
-      <div className="rounded-3xl border border-slate-800 bg-[#0e0e12]/60 p-6">
-        <div className="flex items-center gap-4">
-          <div className="h-14 w-14 rounded-2xl bg-slate-800/60 animate-pulse" />
-          <div className="space-y-2 flex-1">
-            <div className="h-4 w-40 rounded bg-slate-800/60 animate-pulse" />
-            <div className="h-3 w-64 rounded bg-slate-800/40 animate-pulse" />
-          </div>
-        </div>
-      </div>
-      <div className="rounded-3xl border border-slate-800 bg-[#0e0e12]/60 p-6 space-y-4">
-        <div className="h-4 w-48 rounded bg-slate-800/60 animate-pulse" />
-        <div className="h-11 w-full rounded-xl bg-slate-800/40 animate-pulse" />
-      </div>
+    <div className="space-y-5">
+      <div className="h-40 rounded-3xl border border-slate-800 bg-[#0e0e12]/60 animate-pulse" />
+      <div className="h-32 rounded-3xl border border-slate-800 bg-[#0e0e12]/60 animate-pulse" />
     </div>
   );
 }
 
 export function PremiumPanel() {
   const { data: session } = useSession();
-  const userId = session?.user?.id;
+  const userId = session?.user?.id ?? "";
   const reduced = useReducedMotion();
 
   const [status, setStatus] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [key, setKey] = useState("");
-  const [busy, setBusy] = useState(false);
-  // Set for one beat right after a successful redeem, so the hero can
-  // celebrate instead of silently swapping colour.
-  const [justRedeemed, setJustRedeemed] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(
     async (quiet = false) => {
@@ -165,60 +115,35 @@ export function PremiumPanel() {
     load();
   }, [load]);
 
-  const redeem = async () => {
-    const cleaned = key.replace(/-/g, "");
-    if (!cleaned) {
-      toast.error("Bitte einen Key eingeben.");
-      inputRef.current?.focus();
-      return;
-    }
-    // Say it here rather than after a round trip: the length is the one
-    // mistake we can catch without asking the server.
-    if (cleaned.length !== 16) {
-      toast.error(`Ein Key hat 16 Zeichen — dieser hat ${cleaned.length}.`);
-      inputRef.current?.focus();
-      return;
-    }
+  // Ein Zustand für beide Bots. `premium` ist der neue Schlüssel;
+  // `template_bot` steht nur als Rückfalloption da, falls eine ältere
+  // Antwort im Zwischenspeicher liegt.
+  const zustand = status?.premium ?? status?.template_bot;
+  const active = Boolean(zustand?.premium);
+  const left = daysLeft(zustand?.expires_at);
 
-    setBusy(true);
-    try {
-      const res = await api.redeemKey(key.trim());
-      toast.success(res?.result || "Key eingelöst.");
-      setKey("");
-      setJustRedeemed(true);
-      await load();
-      window.setTimeout(() => setJustRedeemed(false), 2200);
-    } catch (err: any) {
-      toast.error(err?.message || "Der Key konnte nicht eingelöst werden.");
-      inputRef.current?.focus();
-    } finally {
-      setBusy(false);
-    }
-  };
+  // Läuft es über die kostenlose Probewoche? Dann muss das dastehen:
+  // „Premium ist aktiv“ allein liest sich wie etwas Bezahltes, und
+  // dann wundert man sich, wenn es nach sieben Tagen weg ist.
+  const trial = Boolean(zustand?.via_trial);
+  const tester = Boolean(zustand?.via_tester);
 
-  const template = status?.template_bot;
-  const active = Boolean(template?.premium);
-  const left = daysLeft(template?.expires_at);
-  // Läuft das Premium über die kostenlose Probewoche des
-  // Template-Bots? Dann muss das auch dastehen: „Premium ist aktiv“
-  // allein liest sich wie etwas Bezahltes, und der Nutzer wundert
-  // sich, wenn es nach sieben Tagen weg ist.
-  const trial = Boolean(template?.via_trial);
-  const complete = key.replace(/-/g, "").length === 16;
-
-  // How much of the licence is left, as a bar. Only meaningful when the
-  // duration is known, so a lifetime licence gets no bar at all rather
-  // than a full one that never moves.
+  // Wie viel der Laufzeit übrig ist, als Balken. Nur sinnvoll, wenn die
+  // Dauer bekannt ist — eine unbefristete Lizenz bekommt gar keinen
+  // Balken statt eines vollen, der sich nie bewegt.
   let progress: number | null = null;
-  if (active && !template?.lifetime && left !== null && template?.duration_days) {
-    progress = Math.max(0, Math.min(100, (left / template.duration_days) * 100));
+  if (active && !zustand?.lifetime && left !== null && zustand?.duration_days) {
+    progress = Math.max(
+      0,
+      Math.min(100, (left / zustand.duration_days) * 100)
+    );
   }
 
   if (loading) return <Skeleton />;
 
   return (
     <div className="space-y-5">
-      {/* One card, two possible statements. Nothing else competes. */}
+      {/* ── Eine Karte, zwei mögliche Aussagen ─────────────────── */}
       <Reveal>
         <section
           className={cn(
@@ -228,23 +153,11 @@ export function PremiumPanel() {
               : "border-slate-800 bg-[#0e0e12]/60"
           )}
         >
-          {/* A single sweep on the moment of success. Not a loop: this
-              is a one-off event, and a permanent shimmer would just be
-              noise on a page people leave open. */}
-          {justRedeemed && !reduced && (
-            <span
-              aria-hidden
-              className="pointer-events-none absolute inset-y-0 -left-1/3 w-1/3 premium-celebrate"
-            />
-          )}
-
           <div className="flex items-start gap-4">
             <div
               className={cn(
                 "h-14 w-14 rounded-2xl grid place-items-center shrink-0 transition-all duration-700",
-                active
-                  ? "bg-amber-500/20 scale-100"
-                  : "bg-slate-800/60 scale-95"
+                active ? "bg-amber-500/20 scale-100" : "bg-slate-800/60 scale-95"
               )}
             >
               <Gem
@@ -264,8 +177,10 @@ export function PremiumPanel() {
               >
                 {active
                   ? trial
-                    ? `${template?.trial?.duration_days ?? 7} Tage Premium – kostenlos`
-                    : "Premium ist aktiv"
+                    ? `${zustand?.trial?.duration_days ?? 7} Tage Premium – kostenlos`
+                    : tester
+                      ? "Premium über den Tester-Zugang"
+                      : "Premium ist aktiv"
                   : "Kein Premium"}
               </p>
 
@@ -275,7 +190,7 @@ export function PremiumPanel() {
                     <>
                       Deine Probewoche läuft noch bis{" "}
                       <span className="font-bold text-white">
-                        {formatDate(template?.expires_at)}
+                        {formatDate(zustand?.expires_at)}
                       </span>
                       {left !== null && (
                         <span className="text-slate-400">
@@ -288,42 +203,46 @@ export function PremiumPanel() {
                           {left === 1 ? "Tag" : "Tage"} übrig
                         </span>
                       )}
-                      . Danach brauchst du einen Key — die Probewoche gibt
-                      es nur einmal pro Konto.
+                      . Sie gilt für beide Bots und nur einmal pro Konto.
                     </>
-                  ) : template?.lifetime ? (
+                  ) : zustand?.lifetime ? (
                     <>Unbegrenzt gültig &mdash; läuft nicht ab.</>
                   ) : (
                     <>
                       Gültig bis{" "}
                       <span className="font-bold text-white">
-                        {formatDate(template?.expires_at)}
+                        {formatDate(zustand?.expires_at)}
                       </span>
                       {left !== null && (
                         <span className="text-slate-400">
                           {" "}
-                          &middot; noch{" "}
+                          &middot;{" "}
                           <CountUp
                             value={left}
                             className="font-bold text-white tabular-nums"
                           />{" "}
-                          {left === 1 ? "Tag" : "Tage"}
+                          {left === 1 ? "Tag" : "Tage"} übrig
                         </span>
                       )}
+                      .
                     </>
                   )}
                 </p>
               ) : (
-                <p className="text-[13px] text-slate-400 mt-1">
-                  Kauf dir im Support-Server einen Lizenz-Key und trage ihn
-                  unten ein.
+                <p className="text-[13px] text-slate-400 mt-1 leading-relaxed">
+                  Während der Testphase bekommst du Premium über einen
+                  Beta-Antrag. Es gilt dann für beide Bots.
                 </p>
               )}
 
+              {/* Der Balken nur, wenn er etwas aussagt. */}
               {progress !== null && (
-                <div className="mt-3 h-1.5 rounded-full bg-slate-800/80 overflow-hidden">
+                <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-slate-800">
                   <div
-                    className="h-full rounded-full bg-gradient-to-r from-amber-400 to-amber-300 transition-[width] duration-1000 ease-out"
+                    className={cn(
+                      "h-full rounded-full bg-amber-400",
+                      !reduced && "transition-[width] duration-1000"
+                    )}
                     style={{ width: `${progress}%` }}
                   />
                 </div>
@@ -333,173 +252,124 @@ export function PremiumPanel() {
             <button
               onClick={() => load(true)}
               disabled={refreshing}
-              className="p-2 rounded-lg text-slate-500 hover:text-white hover:bg-white/[0.04] transition-colors shrink-0 disabled:opacity-50"
-              aria-label="Status neu laden"
-              title="Status neu laden"
+              title="Neu laden"
+              className="shrink-0 rounded-xl border border-slate-800 bg-[#0e0e12] p-2 text-slate-400 transition hover:bg-white/[0.04] disabled:opacity-40"
             >
               <RefreshCw
                 className={cn("h-4 w-4", refreshing && "animate-spin")}
               />
             </button>
           </div>
-
-          {/* Only once active: the link that makes the licence useful. */}
-          {active && status?.template_invite && (
-            <Reveal delay={120}>
-              <div className="mt-5 pt-5 border-t border-amber-500/15 space-y-2">
-                <a
-                  href={status.template_invite}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="group w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-amber-500/15 border border-amber-500/30 text-xs font-black uppercase tracking-widest text-amber-100 hover:bg-amber-500/25 hover:border-amber-500/50 transition-all"
-                >
-                  <ExternalLink className="h-3.5 w-3.5 transition-transform group-hover:-translate-y-0.5" />
-                  Template-Bot zum Server hinzufügen
-                </a>
-                <p className="text-[11px] text-slate-400">
-                  Premium hängt an deinem Konto, nicht an einem Server. Du
-                  kannst den Bot auf jeden Server holen &mdash; er erkennt
-                  dich dort sofort, ohne dass du den Key erneut eingibst.
-                </p>
-              </div>
-            </Reveal>
-          )}
         </section>
       </Reveal>
 
-      {/* ── Hauptbot-Premium: die Beta ──────────────────────────────
-          
-          Hier stand vorher „demnächst“. Das war ehrlich, solange es
-          nichts zu kaufen gab -- jetzt gibt es die Beta, und der
-          Platzhalter waere schlicht falsch. */}
-      <Reveal delay={60}>
-        <div className="rounded-3xl border-2 border-amber-400/30 bg-gradient-to-br from-amber-400/[0.07] to-transparent p-5 sm:p-6">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-start gap-3">
-              <div className="rounded-2xl bg-amber-400/15 p-2.5">
-                <Sparkles className="h-5 w-5 text-amber-400" />
-              </div>
-              <div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="font-bold text-white">
-                    Premium für den Hauptbot
-                  </h3>
-                  <span className="rounded-lg bg-amber-400 px-2 py-0.5 text-xs font-bold text-black">
-                    Beta &middot; 20&nbsp;% Rabatt
-                  </span>
-                </div>
-                <p className="mt-1.5 max-w-xl text-sm leading-relaxed text-slate-400">
-                  Gib dem Bot auf deinem Server einen eigenen Namen, ein
-                  eigenes Bild und ein eigenes Banner. Noch in der Beta:
-                  beantworte fünf kurze Fragen, und wir melden uns innerhalb
-                  von 1&ndash;7 Tagen per Direktnachricht.
-                </p>
-              </div>
-            </div>
-
-            <Link
-              href="/dashboard/premium/beta"
-              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-2xl bg-amber-400 px-5 py-3 text-sm font-bold text-black transition hover:brightness-110"
-            >
-              <Sparkles className="h-4 w-4" />
-              Jetzt bewerben
-            </Link>
+      {/* ── Ein Premium, beide Bots ───────────────────────────── */}
+      <Reveal>
+        <section className="rounded-3xl border border-slate-800 bg-[#0e0e12]/60 p-6">
+          <div className="flex items-center gap-2">
+            <Bot className="h-4 w-4 text-primary" />
+            <h3 className="font-bold text-white">Gilt für beide Bots</h3>
           </div>
-        </div>
-      </Reveal>
+          <p className="mt-1.5 text-[13px] leading-relaxed text-slate-400">
+            Premium hängt an deinem Discord-Konto — nicht an einem Server
+            und nicht an einem der beiden Bots. Es schaltet den University
+            Bot und den Template-Bot gleichzeitig frei.
+          </p>
 
-      {/* Gone once there is nothing left to redeem. */}
-      {!active && (
-        <Reveal delay={80}>
-          <Card
-            icon={KeyRound}
-            title="Lizenz-Key einlösen"
-            subtitle="Für die Premium-Vorlagen des Template-Bots."
-          >
-            <div className="flex flex-col sm:flex-row gap-2">
-              <div className="relative flex-1">
-                <input
-                  ref={inputRef}
-                  className={cn(
-                    INPUT,
-                    "font-mono tracking-[0.25em] uppercase pr-11",
-                    complete && "border-emerald-500/40"
-                  )}
-                  value={key}
-                  onChange={(e) => setKey(tidyKey(e.target.value))}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") redeem();
-                  }}
-                  placeholder="XXXX-XXXX-XXXX-XXXX"
-                  maxLength={19}
-                  spellCheck={false}
-                  autoComplete="off"
-                  aria-label="Lizenz-Key eingeben"
-                />
-                {complete && (
-                  <Check className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-emerald-400" />
-                )}
-              </div>
-              <button
-                onClick={redeem}
-                disabled={busy || !userId}
-                className="px-7 py-3 rounded-xl bg-primary text-xs font-black uppercase tracking-widest shrink-0 hover:brightness-110 active:scale-[0.98] disabled:opacity-40 transition-all"
+          <div className="mt-4 grid gap-2.5 sm:grid-cols-3">
+            {ENTHALTEN.map((e) => (
+              <div
+                key={e.titel}
+                className="rounded-2xl border border-slate-800 bg-[#131318] p-3.5"
               >
-                {busy ? "Prüfen …" : "Einlösen"}
-              </button>
-            </div>
-
-            {/* Sixteen dots that fill as you type. Better than a counter:
-                you see at a glance whether the key is complete. */}
-            <div className="flex items-center gap-2">
-              <div className="flex gap-1" aria-hidden>
-                {Array.from({ length: 16 }).map((_, index) => (
-                  <span
-                    key={index}
+                <div className="flex items-start gap-2">
+                  <Check
                     className={cn(
-                      "h-1 w-3 rounded-full transition-colors duration-200",
-                      index < key.replace(/-/g, "").length
-                        ? complete
-                          ? "bg-emerald-400"
-                          : "bg-primary"
-                        : "bg-slate-800"
+                      "mt-0.5 h-3.5 w-3.5 shrink-0",
+                      active ? "text-amber-400" : "text-slate-600"
                     )}
                   />
-                ))}
+                  <div className="min-w-0">
+                    <div className="text-[13px] font-semibold text-white">
+                      {e.titel}
+                    </div>
+                    <div className="mt-0.5 text-[11px] leading-relaxed text-slate-500">
+                      {e.text}
+                    </div>
+                  </div>
+                </div>
               </div>
-              <span className="text-[11px] text-slate-500 tabular-nums">
-                {key.replace(/-/g, "").length}/16
-              </span>
-            </div>
+            ))}
+          </div>
 
-            <p className="text-[11px] text-slate-500">
-              Groß- und Kleinschreibung sowie Bindestriche sind egal. Der Key
-              wird beim Einlösen fest mit deinem Discord-Konto verbunden.
+          <Link
+            href="/premium"
+            className="mt-4 inline-flex items-center gap-1.5 text-[12px] font-semibold text-primary transition hover:brightness-125"
+          >
+            Alle Unterschiede zu Gratis ansehen
+            <ArrowRight className="h-3.5 w-3.5" />
+          </Link>
+        </section>
+      </Reveal>
+
+      {/* ── Ohne Premium: der Weg dahin ───────────────────────── */}
+      {!active && (
+        <Reveal>
+          <section className="rounded-3xl border border-amber-500/25 bg-amber-500/[0.04] p-6">
+            <div className="flex items-center gap-2">
+              <Crown className="h-4 w-4 text-amber-400" />
+              <h3 className="font-bold text-white">So bekommst du Premium</h3>
+            </div>
+            <p className="mt-1.5 text-[13px] leading-relaxed text-slate-400">
+              Die Testphase läuft, ein Kauf ist noch nicht möglich. Stell
+              einen Beta-Antrag — wir schauen ihn uns an und melden uns
+              per Direktnachricht.
             </p>
-          </Card>
+
+            <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+              <Link
+                href="/dashboard/premium/beta"
+                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-amber-400 px-5 py-3 text-sm font-bold text-black transition hover:brightness-110"
+              >
+                <Sparkles className="h-4 w-4" />
+                Beta-Antrag stellen
+              </Link>
+              <Link
+                href="/premium"
+                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-800 bg-[#0e0e12] px-5 py-3 text-sm font-semibold text-slate-200 transition hover:bg-white/[0.04]"
+              >
+                Preise ansehen
+              </Link>
+            </div>
+          </section>
         </Reveal>
       )}
 
-      {/* Nothing to sell yet, so nothing is offered. */}
-      <Reveal delay={active ? 80 : 160}>
-        <Card
-          icon={Sparkles}
-          title="University Bot Premium"
-          subtitle="Zusatzfunktionen für diesen Bot."
-          tone="muted"
-        >
-          <div className="flex items-center gap-3 rounded-2xl border border-dashed border-slate-700/70 bg-[#0e0e12]/60 px-5 py-4">
-            <Clock className="h-5 w-5 text-slate-500 shrink-0" />
-            <div>
-              <p className="text-sm font-bold text-slate-300">Coming Soon</p>
-              <p className="text-[11px] text-slate-500 mt-0.5">
-                Hier gibt es noch nichts zu kaufen. Sobald es so weit ist,
-                steht es an dieser Stelle.
-              </p>
+      {/* ── Mit Premium: der Template-Bot muss auf den Server ── */}
+      {active && status?.template_invite && (
+        <Reveal>
+          <section className="rounded-3xl border border-slate-800 bg-[#0e0e12]/60 p-6">
+            <div className="flex items-center gap-2">
+              <Clock className="h-4 w-4 text-primary" />
+              <h3 className="font-bold text-white">Template-Bot einladen</h3>
             </div>
-          </div>
-        </Card>
-      </Reveal>
+            <p className="mt-1.5 text-[13px] leading-relaxed text-slate-400">
+              Für die Premium-Vorlagen muss der Template-Bot auf dem Server
+              sein. Dein Premium erkennt er sofort — du musst dort nichts
+              erneut eingeben.
+            </p>
+            <a
+              href={status.template_invite}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-4 inline-flex items-center gap-2 rounded-2xl bg-primary px-5 py-3 text-sm font-semibold text-white transition hover:brightness-110"
+            >
+              Template-Bot hinzufügen
+              <ExternalLink className="h-4 w-4" />
+            </a>
+          </section>
+        </Reveal>
+      )}
     </div>
   );
 }
