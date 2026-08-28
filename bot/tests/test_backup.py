@@ -253,6 +253,49 @@ async def _routen():
         pruefe("unbekannte Kennung gibt 404", r.status_code == 404,
                str(r.status_code))
 
+        linie("5b  Die Vorschau zeigt, was drinsteckt")
+        r = await c.get(f"/backup/{GILDE}/{kennungen[0]}/vorschau")
+        pruefe("die Vorschau antwortet", r.status_code == 200, r.text[:150])
+        v = r.json()
+        pruefe("Kategorien sind dabei", "kategorien" in v, str(list(v))[:150])
+        pruefe("Rollen sind dabei", "rollen" in v)
+        pruefe("Einstellungen sind dabei", "einstellungen" in v)
+        pruefe("die Rohdaten NICHT", "daten" not in v,
+               "der ganze Inhalt waere Hunderte Kilobyte")
+
+        r = await c.get(f"/backup/{GILDE}/BK-GIBTSNICHT/vorschau")
+        pruefe("unbekannte Kennung gibt 404", r.status_code == 404,
+               str(r.status_code))
+
+        # Kein Kanal darf aus der Vorschau fallen.
+        #
+        # Eine Sicherung kann Kanaele mit einer Kategorie tragen, die
+        # in der Kategorienliste fehlt. Wer nur ueber `categories`
+        # laeuft, unterschlaegt sie -- und eine Vorschau, die einen
+        # Kanal verschweigt, ist schlimmer als gar keine.
+        eigen = store.speichere(GILDE, {
+            "version": 1,
+            "categories": [{"name": "Bekannt", "position": 0}],
+            "channels": [
+                {"name": "a", "kind": "text", "category": "Bekannt"},
+                {"name": "b", "kind": "text", "category": "Verwaist"},
+                {"name": "c", "kind": "text", "category": None},
+            ],
+            "roles": [],
+            "features": {},
+        }, erstellt_von="test")
+
+        r = await c.get(f"/backup/{GILDE}/{eigen['kennung']}/vorschau")
+        v2 = r.json()
+        namen = {k["name"] for k in v2["kategorien"]}
+        pruefe("eine verwaiste Kategorie taucht auf", "Verwaist" in namen,
+               str(namen))
+        gesamt = (sum(len(k["channels"]) for k in v2["kategorien"])
+                  + len(v2["ohne_kategorie"]))
+        pruefe("kein Kanal geht verloren", gesamt == 3, f"{gesamt} von 3")
+
+        store.loesche(GILDE, eigen["kennung"])
+
         linie("6  Fremde Server und fremde Kennungen")
         r = await c.get(f"/backup/999999999999999999?actor={REICH}")
         pruefe("ein fremder Server gibt 404", r.status_code == 404,
@@ -426,9 +469,54 @@ def test_oberflaeche():
 
     # Die Premium-Sperre haengt am Zustand, nicht an einer festen
     # Bedingung.
-    pruefe("die Automatik ist ohne Premium gesperrt",
-           re.search(r"\{!premium && \(", panel) is not None,
-           "sonst ist die Sperre Zierde")
+    # ── Die Trennung Gratis / Premium ──────────────────────────
+    #
+    # Der Vorgaenger legte ein `absolute inset-0`-Overlay ueber die
+    # Automatik-Karte. Ohne Premium ist die Karte aber kurz und die
+    # Sperr-Box darin hoeher -- sie stand oben und unten ueber und
+    # ueberlappte die Karte darunter. Im Screenshot des Nutzers gut
+    # zu sehen.
+    #
+    # Auf ABWESENHEIT pruefen: sonst schleicht es sich beim naechsten
+    # Umbau zurueck.
+    pruefe("kein Overlay ueber der Automatik",
+           "absolute inset-0" not in panel,
+           "ein Overlay ueber einer kurzen Karte laeuft ueber")
+
+    # Stattdessen: die Automatik-Karte gibt es ohne Premium GAR NICHT.
+    pruefe("die Automatik-Karte haengt an Premium",
+           re.search(r"\{premium && \(\s*<div className=\{cn\(CARD", panel)
+           is not None,
+           "gesperrte Schalter laden zum Klicken ein und tun nichts")
+
+    # Und an ihrer Stelle steht ein Angebot mit Gegenueberstellung.
+    pruefe("ohne Premium steht dort ein Angebot",
+           re.search(r"\{!premium && \(", panel) is not None)
+    pruefe("mit einer Gegenueberstellung",
+           "const VERGLEICH" in panel and "Gratis" in panel,
+           "zwei Spalten nebeneinander, nicht zwei Absaetze")
+    pruefe("die Tabelle wird auch gerendert",
+           "VERGLEICH.map(" in panel,
+           "sonst sind die Daten da und niemand sieht sie")
+
+    # Der eigene Stand muss oben stehen -- vor allem anderen.
+    pruefe("der Premium-Stand steht ganz oben",
+           panel.index("Gratis-Version") < panel.index("Sicherung erstellen"),
+           "sonst raet man aus gesperrten Schaltern zusammen, was man hat")
+
+    # Ohne Premium darf der Nachrichten-Schalter gar nicht erscheinen.
+    pruefe("der Nachrichten-Schalter haengt an Premium",
+           re.search(r"\{premium && \(\s*<label", panel) is not None,
+           "ein ausgegrautes Kaestchen lockt zum Klicken")
+
+    # ── Die Vorschau ───────────────────────────────────────────
+    pruefe("es gibt eine Vorschau", "api.backupVorschau(" in panel)
+    pruefe("sie laedt erst beim Aufklappen",
+           re.search(r"\{auf && <Vorschau", panel) is not None,
+           "eine Sicherung mit 99 Kanaelen holt man nicht auf Vorrat")
+    pruefe("sie zeigt Kanaele", "kategorien" in panel)
+    pruefe("und Rollen", "daten.rollen" in panel)
+    pruefe("und die Einstellungen", "daten.einstellungen" in panel)
 
     # Und der Hinweis, was NICHT geht.
     pruefe("es steht da, dass Mitglieder fehlen",
@@ -483,6 +571,10 @@ def test_registrierung():
            f"Reihenfolge: {pfade}")
     pruefe("/auto steht vor /{kennung}",
            pfade.index("/{guild_id}/auto") < pfade.index("/{guild_id}/{kennung}"),
+           f"Reihenfolge: {pfade}")
+    pruefe("/{kennung}/vorschau steht vor /{kennung}",
+           pfade.index("/{guild_id}/{kennung}/vorschau")
+           < pfade.index("/{guild_id}/{kennung}"),
            f"Reihenfolge: {pfade}")
 
     # Der Proxy muss den Bereich kennen -- sonst laeuft alles ins Leere.

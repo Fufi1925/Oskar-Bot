@@ -260,6 +260,98 @@ async def auto(guild_id: int, data: dict,
     return {"status": "ok", "auto": zustand}
 
 
+@router.get("/{guild_id}/{kennung}/vorschau", summary="Was steckt drin?")
+async def vorschau(guild_id: int, kennung: str,
+                   bot: "universitybot" = Depends(get_bot)):
+    """Der Inhalt einer Sicherung -- zum Ansehen, bevor man sie einspielt.
+
+    Wiederherstellen ist nicht rueckgaengig zu machen. Wer nur eine
+    Kennung und ein Datum sieht, weiss nicht, ob er die richtige
+    erwischt -- und merkt es erst, wenn der Server umgebaut ist.
+
+    Gekuerzt auf das, was man ueberblicken kann: die Namen. Die
+    vollstaendigen Rechte-Ueberschreibungen waeren mehrere hundert
+    Zeilen und helfen beim Wiedererkennen nicht.
+    """
+    _guild_or_404(bot, guild_id)
+
+    eintrag = store.hole(guild_id, kennung, mit_daten=True)
+    if eintrag is None:
+        raise HTTPException(status_code=404, detail="Diese Sicherung gibt es nicht.")
+
+    daten = eintrag.pop("daten", {}) or {}
+
+    # Kanaele nach Kategorie gruppieren -- so, wie Discord sie zeigt.
+    nach_kategorie: dict[str, list[dict]] = {}
+    ohne = []
+    for kanal in (daten.get("channels") or []):
+        eintragk = {
+            "name": str(kanal.get("name") or ""),
+            "kind": str(kanal.get("kind") or "text"),
+        }
+        kat = kanal.get("category")
+        if kat:
+            nach_kategorie.setdefault(str(kat), []).append(eintragk)
+        else:
+            ohne.append(eintragk)
+
+    kategorien = [
+        {
+            "name": str(k.get("name") or ""),
+            "channels": nach_kategorie.get(str(k.get("name") or ""), []),
+        }
+        for k in (daten.get("categories") or [])
+    ]
+
+    # Kategorien, die nur in den Kanaelen vorkommen -- etwa weil die
+    # Kategorienliste leer war. Sonst fielen deren Kanaele unter den
+    # Tisch, und die Vorschau zeigte weniger, als drin ist.
+    bekannt = {k["name"] for k in kategorien}
+    for name, kanaele in nach_kategorie.items():
+        if name not in bekannt:
+            kategorien.append({"name": name, "channels": kanaele})
+
+    rollen = [
+        {
+            "name": str(r.get("name") or ""),
+            "colour": r.get("colour") or r.get("color"),
+            # Wie viele Rechte -- die Liste selbst waere zu lang.
+            "rechte": len(r.get("permissions") or []),
+        }
+        for r in (daten.get("roles") or [])
+    ]
+
+    # Welche Einstellungen sind dabei? Nur die Bereiche, mit den
+    # Namen, die auch im Dashboard stehen.
+    from utils import template_scan
+
+    einstellungen = []
+    for schluessel, inhalt in (daten.get("features") or {}).items():
+        eintrag_ft = template_scan.FEATURE_TABLES.get(schluessel)
+        label = eintrag_ft[0] if eintrag_ft else schluessel
+        zeilen = sum(len(v or []) for v in (inhalt or {}).values())
+        if zeilen:
+            einstellungen.append({"key": schluessel, "label": label,
+                                  "zeilen": zeilen})
+    einstellungen.sort(key=lambda e: e["label"].lower())
+
+    nachrichten = [
+        {"kanal": name, "anzahl": len(eintraege or [])}
+        for name, eintraege in (daten.get("messages") or {}).items()
+    ]
+    nachrichten.sort(key=lambda e: e["anzahl"], reverse=True)
+
+    return {
+        **eintrag,
+        "guild_name": str((daten.get("guild") or {}).get("name") or ""),
+        "kategorien": kategorien,
+        "ohne_kategorie": ohne,
+        "rollen": rollen,
+        "einstellungen": einstellungen,
+        "nachrichten_kanaele": nachrichten,
+    }
+
+
 @router.delete("/{guild_id}/{kennung}", summary="Sicherung löschen")
 async def entfernen(guild_id: int, kennung: str, actor: str = "",
                     bot: "universitybot" = Depends(get_bot)):

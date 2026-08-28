@@ -3,35 +3,50 @@
 /**
  * Backup — Sicherungen dieses Servers.
  *
- * ── Warum ein Knopf und keine Auswahlfelder ─────────────────────────
+ * ── Was am Vorgänger falsch war ─────────────────────────────────────
  *
- * Ausdrückliche Vorgabe: „einfach ein Knopf, Backup wird erstellt,
- * keine Fragen“. Was hineingehört, steht fest — Aufbau des Servers
- * und die Dashboard-Einstellungen. Eine Auswahl, die niemand ändert,
- * ist nur ein Klick mehr vor dem eigentlichen Klick.
+ * Die Premium-Sperre lag als `absolute inset-0` über der Automatik-
+ * Karte. Ohne Premium ist diese Karte aber kurz (Überschrift, ein
+ * Satz, ein Schalter) und die Sperr-Box darin höher — sie stand oben
+ * und unten über den Kartenrand hinaus und überlappte die Karte
+ * darunter. Im Screenshot gut zu sehen.
  *
- * Einzige Ausnahme: Nachrichten. Die kosten Minuten statt Sekunden,
- * und das muss man wollen.
+ * Zwei Fehler auf einmal: erstens ein Overlay über etwas, das ohnehin
+ * niemand bedienen darf, zweitens eine feste Höhe, die von der
+ * Textmenge abhängt.
  *
- * ── Warum kein Live-Protokoll ───────────────────────────────────────
+ * ── Wie es jetzt gelöst ist ─────────────────────────────────────────
  *
- * Auch Vorgabe. Statt einer Zeilenflut steht ein Satz da, woran
- * gerade gearbeitet wird. Wer wissen will, was schiefging, findet den
- * Bericht danach.
+ * Kein Overlay mehr. Ohne Premium wird die Automatik-Karte gar nicht
+ * erst als bedienbare Karte gerendert, sondern als **Angebot**: eine
+ * eigene Karte, die sagt, was es gäbe. Nichts liegt über etwas
+ * anderem, also kann auch nichts überstehen.
  *
- * ── Die zwei Fragen beim Wiederherstellen ───────────────────────────
+ * ── Trennung Gratis / Premium ───────────────────────────────────────
  *
- * Erst „alles löschen?“, dann „Einstellungen auch?“. In dieser
- * Reihenfolge, weil die erste die folgenreichere ist: sie entfernt
- * Kanäle samt Nachrichten und lässt sich nicht rückgängig machen.
+ * Ausdrückliche Vorgabe: niemand ohne Premium soll denken, er könne
+ * die Premium-Sachen benutzen. Deshalb:
+ *
+ *   * Ganz oben steht in einer Zeile, welchen Stand man hat.
+ *   * Was mit Premium ginge, steht in einem eigenen Block mit einer
+ *     Gegenüberstellung — nicht als gesperrter Schalter dazwischen.
+ *   * Gesperrte Bedienelemente werden gar nicht erst gezeigt. Ein
+ *     ausgegrauter Schalter lädt zum Klicken ein und tut dann nichts.
+ *
+ * ── Die Vorschau ────────────────────────────────────────────────────
+ *
+ * Wiederherstellen lässt sich nicht rückgängig machen. Wer nur eine
+ * Kennung und ein Datum sieht, weiß nicht, ob er die richtige
+ * erwischt. Deshalb lässt sich jede Sicherung aufklappen: Kategorien
+ * mit ihren Kanälen, Rollen, Einstellungen, Nachrichten je Kanal.
  */
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
-  AlertTriangle, ArrowRight, Check, Clock, Crown, Database, Hash,
-  Loader2, MessageSquare, Plus, RefreshCw, RotateCcw, Shield, Timer,
-  Trash2, Users, X,
+  AlertTriangle, ArrowRight, Check, ChevronDown, Clock, Crown,
+  Database, Eye, Hash, Loader2, Lock, MessageSquare, Mic, Plus,
+  RefreshCw, RotateCcw, Settings, Shield, Timer, Trash2, Users, X,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -83,6 +98,238 @@ function zeitpunkt(sekunden: number): string {
 }
 
 /**
+ * Was Gratis kann und was Premium kann.
+ *
+ * Steht hier als Daten, nicht als Fließtext: so lässt es sich als
+ * Tabelle zeigen, und beide Spalten stehen zwangsläufig nebeneinander
+ * statt in zwei Absätzen, die auseinanderlaufen.
+ */
+const VERGLEICH = [
+  { was: "Sicherungen gleichzeitig", gratis: "1", premium: "10" },
+  { was: "Selbst sichern", gratis: true, premium: true },
+  { was: "Wiederherstellen", gratis: true, premium: true },
+  { was: "Dashboard-Einstellungen", gratis: true, premium: true },
+  { was: "Automatisch sichern", gratis: false, premium: "Ab 6 Stunden" },
+  { was: "Nachrichten mitsichern", gratis: false, premium: "500 je Kanal" },
+];
+
+function JaNein({ wert }: { wert: string | boolean }) {
+  if (wert === true) return <Check className="h-4 w-4 text-emerald-400" />;
+  if (wert === false)
+    return <X className="h-4 w-4 text-slate-700" aria-label="nicht enthalten" />;
+  return <span className="text-sm text-slate-300">{wert}</span>;
+}
+
+/** Ein Kanalsymbol nach Art. */
+function KanalIcon({ kind }: { kind: string }) {
+  if (kind === "voice" || kind === "stage")
+    return <Mic className="h-3 w-3 shrink-0 text-slate-600" />;
+  return <Hash className="h-3 w-3 shrink-0 text-slate-600" />;
+}
+
+/**
+ * Die Vorschau einer Sicherung.
+ *
+ * Lädt erst beim Aufklappen: eine Sicherung mit 99 Kanälen ist nichts,
+ * was man für zehn Einträge auf Vorrat holt.
+ */
+function Vorschau({
+  guildId,
+  kennung,
+}: {
+  guildId: string;
+  kennung: string;
+}) {
+  const [daten, setDaten] = useState<any>(null);
+  const [fehler, setFehler] = useState("");
+
+  useEffect(() => {
+    let abgebrochen = false;
+    (async () => {
+      try {
+        const antwort = await api.backupVorschau(guildId, kennung);
+        if (!abgebrochen) setDaten(antwort);
+      } catch (err: any) {
+        if (!abgebrochen)
+          setFehler(err?.message || "Die Vorschau ließ sich nicht laden.");
+      }
+    })();
+    return () => {
+      abgebrochen = true;
+    };
+  }, [guildId, kennung]);
+
+  if (fehler) {
+    return (
+      <div className="border-t border-slate-800 bg-[#0f0f13] px-5 py-4">
+        <p className="text-xs text-red-300">{fehler}</p>
+      </div>
+    );
+  }
+
+  if (!daten) {
+    return (
+      <div className="flex items-center gap-2 border-t border-slate-800 bg-[#0f0f13] px-5 py-4 text-xs text-slate-500">
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        Wird geladen …
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4 border-t border-slate-800 bg-[#0f0f13] px-5 py-4">
+      {daten.guild_name && (
+        <p className="text-xs text-slate-500">
+          Server hieß damals:{" "}
+          <span className="font-medium text-slate-300">
+            {daten.guild_name}
+          </span>
+        </p>
+      )}
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        {/* ── Kanäle ────────────────────────────────────────────── */}
+        <div>
+          <div className="text-[10px] font-black uppercase tracking-widest text-slate-600">
+            Kanäle
+          </div>
+          <div className="mt-2 max-h-64 space-y-2.5 overflow-y-auto pr-1">
+            {daten.ohne_kategorie?.length > 0 && (
+              <div>
+                <div className="text-[11px] font-semibold text-slate-500">
+                  Ohne Kategorie
+                </div>
+                <div className="mt-1 space-y-0.5">
+                  {daten.ohne_kategorie.map((k: any) => (
+                    <div
+                      key={k.name}
+                      className="flex items-center gap-1.5 text-xs text-slate-400"
+                    >
+                      <KanalIcon kind={k.kind} />
+                      <span className="truncate">{k.name}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {daten.kategorien?.map((kat: any) => (
+              <div key={kat.name}>
+                <div className="truncate text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                  {kat.name}
+                </div>
+                {kat.channels.length === 0 ? (
+                  <div className="mt-1 text-xs italic text-slate-700">
+                    leer
+                  </div>
+                ) : (
+                  <div className="mt-1 space-y-0.5">
+                    {kat.channels.map((k: any) => (
+                      <div
+                        key={k.name}
+                        className="flex items-center gap-1.5 text-xs text-slate-400"
+                      >
+                        <KanalIcon kind={k.kind} />
+                        <span className="truncate">{k.name}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+
+            {!daten.kategorien?.length && !daten.ohne_kategorie?.length && (
+              <p className="text-xs italic text-slate-700">Keine Kanäle.</p>
+            )}
+          </div>
+        </div>
+
+        {/* ── Rollen ────────────────────────────────────────────── */}
+        <div>
+          <div className="text-[10px] font-black uppercase tracking-widest text-slate-600">
+            Rollen
+          </div>
+          <div className="mt-2 flex max-h-64 flex-wrap gap-1.5 overflow-y-auto pr-1">
+            {daten.rollen?.length ? (
+              daten.rollen.map((r: any) => (
+                <span
+                  key={r.name}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-800 bg-[#131318] px-2 py-1 text-xs"
+                  title={`${r.rechte} Rechte`}
+                >
+                  <span
+                    className="h-2 w-2 shrink-0 rounded-full"
+                    style={{ backgroundColor: r.colour || "#4b5563" }}
+                  />
+                  <span className="max-w-[140px] truncate text-slate-300">
+                    {r.name}
+                  </span>
+                </span>
+              ))
+            ) : (
+              <p className="text-xs italic text-slate-700">Keine Rollen.</p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Einstellungen ───────────────────────────────────────── */}
+      <div>
+        <div className="text-[10px] font-black uppercase tracking-widest text-slate-600">
+          Dashboard-Einstellungen
+        </div>
+        {daten.einstellungen?.length ? (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {daten.einstellungen.map((e: any) => (
+              <span
+                key={e.key}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-800 bg-[#131318] px-2 py-1 text-xs text-slate-300"
+              >
+                <Settings className="h-3 w-3 text-slate-600" />
+                {e.label}
+                <span className="text-slate-600">{e.zeilen}</span>
+              </span>
+            ))}
+          </div>
+        ) : (
+          <p className="mt-1 text-xs italic text-slate-700">
+            Keine Einstellungen gesichert.
+          </p>
+        )}
+      </div>
+
+      {/* ── Nachrichten ─────────────────────────────────────────── */}
+      {daten.nachrichten_kanaele?.length > 0 && (
+        <div>
+          <div className="text-[10px] font-black uppercase tracking-widest text-slate-600">
+            Nachrichten
+          </div>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {daten.nachrichten_kanaele.slice(0, 12).map((n: any) => (
+              <span
+                key={n.kanal}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-800 bg-[#131318] px-2 py-1 text-xs text-slate-300"
+              >
+                <Hash className="h-3 w-3 text-slate-600" />
+                {n.kanal}
+                <span className="text-amber-400/70">
+                  {n.anzahl.toLocaleString("de-DE")}
+                </span>
+              </span>
+            ))}
+            {daten.nachrichten_kanaele.length > 12 && (
+              <span className="inline-flex items-center rounded-lg px-2 py-1 text-xs text-slate-600">
+                +{daten.nachrichten_kanaele.length - 12} weitere
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
  * Die Rückfragen beim Wiederherstellen.
  *
  * Ein eigenes Fenster statt `window.confirm`: es sind zwei Fragen mit
@@ -115,9 +362,9 @@ function WiederherstellenFenster({
       role="dialog"
       aria-modal="true"
       aria-labelledby="wiederherstellen-titel"
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm"
     >
-      <div className="w-full max-w-lg overflow-hidden rounded-3xl border border-slate-700 bg-[#131318] shadow-2xl">
+      <div className="my-auto w-full max-w-lg overflow-hidden rounded-3xl border border-slate-700 bg-[#131318] shadow-2xl">
         <div className="border-b border-slate-800 px-6 py-5">
           <h2
             id="wiederherstellen-titel"
@@ -286,6 +533,7 @@ export function BackupPanel({ guildId }: { guildId: string }) {
   const [laedt, setLaedt] = useState(true);
   const [beschaeftigt, setBeschaeftigt] = useState(false);
   const [gewaehlt, setGewaehlt] = useState<Sicherung | null>(null);
+  const [offen, setOffen] = useState<string | null>(null);
   const [mitNachrichten, setMitNachrichten] = useState(false);
   const timer = useRef<number | undefined>(undefined);
 
@@ -308,9 +556,6 @@ export function BackupPanel({ guildId }: { guildId: string }) {
   const laeuft = Boolean(lauf?.aktiv);
 
   // Solange etwas läuft, alle zwei Sekunden nachfragen.
-  //
-  // Kein Dauerstrom: ein Satz alle zwei Sekunden reicht, um zu
-  // zeigen, dass sich etwas tut, und kostet fast nichts.
   useEffect(() => {
     if (!laeuft) {
       if (timer.current) window.clearInterval(timer.current);
@@ -327,6 +572,7 @@ export function BackupPanel({ guildId }: { guildId: string }) {
   const grenze = Number(daten?.grenze ?? 1);
   const voll = sicherungen.length >= grenze;
   const auto = daten?.auto ?? {};
+  const maxPremium = Number(daten?.limits?.premium ?? 10);
 
   const erstellen = async () => {
     setBeschaeftigt(true);
@@ -403,6 +649,42 @@ export function BackupPanel({ guildId }: { guildId: string }) {
         />
       )}
 
+      {/* ── Welchen Stand habe ich? ─────────────────────────────── */}
+      {/*
+          Ganz oben und in einer Zeile. Ohne diese Zeile rät man aus
+          gesperrten Schaltern zusammen, was man hat — und das ist
+          genau die Verwirrung, die weg soll.
+      */}
+      <div
+        className={cn(
+          "flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl border px-4 py-3",
+          premium
+            ? "border-amber-400/30 bg-amber-400/[0.05]"
+            : "border-slate-800 bg-[#0f0f13]"
+        )}
+      >
+        {premium ? (
+          <>
+            <Crown className="h-4 w-4 shrink-0 text-amber-400" />
+            <span className="text-sm font-bold text-amber-300">
+              Premium aktiv
+            </span>
+            <span className="text-sm text-slate-400">
+              Bis zu {maxPremium} Sicherungen, Automatik und Nachrichten.
+            </span>
+          </>
+        ) : (
+          <>
+            <Database className="h-4 w-4 shrink-0 text-slate-500" />
+            <span className="text-sm font-bold text-white">Gratis-Version</span>
+            <span className="text-sm text-slate-400">
+              Eine Sicherung, von Hand erstellt. Alles Weitere gibt es mit
+              Premium.
+            </span>
+          </>
+        )}
+      </div>
+
       {/* ── Läuft gerade etwas? ─────────────────────────────────── */}
       {laeuft && (
         <div className="flex items-center gap-3 rounded-3xl border border-primary/30 bg-primary/[0.06] p-4">
@@ -431,29 +713,23 @@ export function BackupPanel({ guildId }: { guildId: string }) {
               Sekunden.
             </p>
 
-            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+            <div className="mt-2">
               <span
                 className={cn(
-                  "rounded-lg px-2 py-1 font-bold",
+                  "rounded-lg px-2 py-1 text-xs font-bold",
                   voll
                     ? "bg-amber-400/10 text-amber-300"
                     : "bg-[#0f0f13] text-slate-400"
                 )}
               >
-                {sicherungen.length} von {grenze}
+                {sicherungen.length} von {grenze} belegt
               </span>
-              {!premium && (
-                <Link
-                  href="/premium"
-                  className="inline-flex items-center gap-1 rounded-lg bg-amber-400/10 px-2 py-1 font-bold text-amber-300 transition hover:bg-amber-400/20"
-                >
-                  <Crown className="h-3 w-3" />
-                  Mit Premium bis {daten?.limits?.premium ?? 10}
-                </Link>
-              )}
             </div>
 
-            {/* Nachrichten: die einzige Entscheidung vor dem Klick. */}
+            {/* Nachrichten: nur mit Premium, und dann als echte Wahl.
+                Ohne Premium steht der Schalter gar nicht erst da —
+                ein ausgegrautes Kästchen lädt zum Klicken ein und tut
+                dann nichts. */}
             {premium && (
               <label className="mt-3 flex cursor-pointer items-start gap-2.5">
                 <input
@@ -493,8 +769,7 @@ export function BackupPanel({ guildId }: { guildId: string }) {
           <p className="mt-3 rounded-2xl border border-amber-400/25 bg-amber-400/[0.05] p-3 text-xs leading-relaxed text-amber-200/80">
             {premium
               ? `Alle ${grenze} Plätze belegt. Lösche eine alte Sicherung, dann geht es weiter.`
-              : "Ohne Premium ist eine Sicherung möglich. Lösche die vorhandene — oder hol dir Premium für bis zu " +
-                `${daten?.limits?.premium ?? 10}.`}
+              : `Der eine Platz ist belegt. Lösche die vorhandene Sicherung — oder hol dir Premium für bis zu ${maxPremium}.`}
           </p>
         )}
       </div>
@@ -527,103 +802,102 @@ export function BackupPanel({ guildId }: { guildId: string }) {
             </p>
           </div>
         ) : (
-          sicherungen.map((s, i) => (
-            <div
-              key={s.kennung}
-              className={cn(
-                "flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center",
-                i > 0 && "border-t border-slate-800"
-              )}
-            >
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-mono text-sm font-bold text-white">
-                    {s.kennung}
-                  </span>
-                  {s.quelle === "auto" && (
-                    <span className="rounded-md border border-sky-500/20 bg-sky-500/10 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-sky-300">
-                      Automatisch
-                    </span>
-                  )}
-                  {s.mit_nachrichten && (
-                    <span className="rounded-md border border-amber-400/20 bg-amber-400/10 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-amber-400">
-                      Mit Nachrichten
-                    </span>
-                  )}
+          sicherungen.map((s, i) => {
+            const auf = offen === s.kennung;
+            return (
+              <div
+                key={s.kennung}
+                className={cn(i > 0 && "border-t border-slate-800")}
+              >
+                <div className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-mono text-sm font-bold text-white">
+                        {s.kennung}
+                      </span>
+                      {s.quelle === "auto" && (
+                        <span className="rounded-md border border-sky-500/20 bg-sky-500/10 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-sky-300">
+                          Automatisch
+                        </span>
+                      )}
+                      {s.mit_nachrichten && (
+                        <span className="rounded-md border border-amber-400/20 bg-amber-400/10 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-amber-400">
+                          Mit Nachrichten
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
+                      <span className="inline-flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        {zeitpunkt(s.erstellt_at)}
+                      </span>
+                      <span className="inline-flex items-center gap-1">
+                        <Hash className="h-3 w-3" />
+                        {s.kanaele} Kanäle
+                      </span>
+                      <span className="inline-flex items-center gap-1">
+                        <Users className="h-3 w-3" />
+                        {s.rollen} Rollen
+                      </span>
+                      {s.nachrichten > 0 && (
+                        <span className="inline-flex items-center gap-1">
+                          <MessageSquare className="h-3 w-3" />
+                          {s.nachrichten.toLocaleString("de-DE")}
+                        </span>
+                      )}
+                      <span>{groesse(s.groesse)}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex shrink-0 flex-wrap gap-2">
+                    <button
+                      onClick={() => setOffen(auf ? null : s.kennung)}
+                      className="inline-flex items-center gap-1.5 rounded-xl border border-slate-800 bg-[#0f0f13] px-3 py-2 text-xs font-bold text-slate-300 transition hover:bg-white/[0.04]"
+                    >
+                      <Eye className="h-3.5 w-3.5" />
+                      Vorschau
+                      <ChevronDown
+                        className={cn(
+                          "h-3 w-3 transition-transform",
+                          auf && "rotate-180"
+                        )}
+                      />
+                    </button>
+                    <button
+                      onClick={() => setGewaehlt(s)}
+                      disabled={beschaeftigt || laeuft}
+                      className="inline-flex items-center gap-1.5 rounded-xl border border-slate-800 bg-[#0f0f13] px-3 py-2 text-xs font-bold text-slate-200 transition hover:bg-white/[0.04] disabled:opacity-40"
+                    >
+                      <RotateCcw className="h-3.5 w-3.5" />
+                      Wiederherstellen
+                    </button>
+                    <button
+                      onClick={() => loeschen(s)}
+                      disabled={beschaeftigt || laeuft}
+                      className="inline-flex items-center justify-center rounded-xl border border-red-500/25 bg-red-500/[0.06] p-2 text-red-300 transition hover:bg-red-500/15 disabled:opacity-40"
+                      title="Löschen"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 </div>
 
-                <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
-                  <span className="inline-flex items-center gap-1">
-                    <Clock className="h-3 w-3" />
-                    {zeitpunkt(s.erstellt_at)}
-                  </span>
-                  <span className="inline-flex items-center gap-1">
-                    <Hash className="h-3 w-3" />
-                    {s.kanaele} Kanäle
-                  </span>
-                  <span className="inline-flex items-center gap-1">
-                    <Users className="h-3 w-3" />
-                    {s.rollen} Rollen
-                  </span>
-                  {s.nachrichten > 0 && (
-                    <span className="inline-flex items-center gap-1">
-                      <MessageSquare className="h-3 w-3" />
-                      {s.nachrichten.toLocaleString("de-DE")}
-                    </span>
-                  )}
-                  <span>{groesse(s.groesse)}</span>
-                </div>
+                {auf && <Vorschau guildId={guildId} kennung={s.kennung} />}
               </div>
-
-              <div className="flex shrink-0 gap-2">
-                <button
-                  onClick={() => setGewaehlt(s)}
-                  disabled={beschaeftigt || laeuft}
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-slate-800 bg-[#0f0f13] px-3.5 py-2 text-xs font-bold text-slate-200 transition hover:bg-white/[0.04] disabled:opacity-40"
-                >
-                  <RotateCcw className="h-3.5 w-3.5" />
-                  Wiederherstellen
-                </button>
-                <button
-                  onClick={() => loeschen(s)}
-                  disabled={beschaeftigt || laeuft}
-                  className="inline-flex items-center justify-center rounded-xl border border-red-500/25 bg-red-500/[0.06] p-2 text-red-300 transition hover:bg-red-500/15 disabled:opacity-40"
-                  title="Löschen"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
 
-      {/* ── Automatik ───────────────────────────────────────────── */}
-      <div className={cn(CARD, "relative p-5 sm:p-6")}>
-        {!premium && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center rounded-3xl bg-[#0a0a0c]/75 backdrop-blur-[2px]">
-            <div className="mx-4 max-w-sm rounded-2xl border-2 border-amber-400 bg-[#131318] p-5 text-center shadow-2xl">
-              <div className="mx-auto mb-3 w-fit rounded-2xl bg-amber-400/15 p-3">
-                <Crown className="h-6 w-6 text-amber-400" />
-              </div>
-              <div className="text-lg font-bold text-amber-400">
-                Premium erforderlich
-              </div>
-              <p className="mt-2 text-sm leading-relaxed text-slate-400">
-                Mit Premium sichert der Bot automatisch — in einem Abstand,
-                den du festlegst.
-              </p>
-              <Link
-                href="/dashboard/premium/beta"
-                className="mt-4 inline-flex items-center gap-2 rounded-2xl bg-amber-400 px-4 py-2.5 text-sm font-bold text-black transition hover:brightness-110"
-              >
-                Premium holen
-              </Link>
-            </div>
-          </div>
-        )}
-
-        <div className={cn(!premium && "select-none")}>
+      {/* ── Automatik ───────────────────────────────────────────────
+          MIT Premium: eine ganz normale Karte mit Schaltern.
+          OHNE Premium: gar keine Karte, sondern das Angebot weiter
+          unten. Kein Overlay über einer kurzen Karte — genau das ist
+          im Screenshot übergelaufen.
+      */}
+      {premium && (
+        <div className={cn(CARD, "p-5 sm:p-6")}>
           <div className="flex items-center gap-2">
             <Timer className="h-4 w-4 text-amber-400" />
             <h3 className="font-bold text-white">Automatisch sichern</h3>
@@ -636,7 +910,7 @@ export function BackupPanel({ guildId }: { guildId: string }) {
             <input
               type="checkbox"
               checked={Boolean(auto.aktiv)}
-              disabled={!premium || beschaeftigt}
+              disabled={beschaeftigt}
               onChange={(e) => autoSetzen({ aktiv: e.target.checked })}
               className="h-4 w-4 accent-amber-400"
             />
@@ -653,7 +927,7 @@ export function BackupPanel({ guildId }: { guildId: string }) {
                 </label>
                 <select
                   value={String(auto.stunden ?? 24)}
-                  disabled={!premium || beschaeftigt}
+                  disabled={beschaeftigt}
                   onChange={(e) =>
                     autoSetzen({ stunden: Number(e.target.value) })
                   }
@@ -672,7 +946,7 @@ export function BackupPanel({ guildId }: { guildId: string }) {
                 <input
                   type="checkbox"
                   checked={Boolean(auto.alte_loeschen)}
-                  disabled={!premium || beschaeftigt}
+                  disabled={beschaeftigt}
                   onChange={(e) =>
                     autoSetzen({ alte_loeschen: e.target.checked })
                   }
@@ -691,7 +965,7 @@ export function BackupPanel({ guildId }: { guildId: string }) {
                 <input
                   type="checkbox"
                   checked={Boolean(auto.mit_nachrichten)}
-                  disabled={!premium || beschaeftigt}
+                  disabled={beschaeftigt}
                   onChange={(e) =>
                     autoSetzen({ mit_nachrichten: e.target.checked })
                   }
@@ -721,7 +995,84 @@ export function BackupPanel({ guildId }: { guildId: string }) {
             </div>
           )}
         </div>
-      </div>
+      )}
+
+      {/* ── Ohne Premium: was es gäbe ───────────────────────────────
+          Eine eigene Karte, kein Overlay. Sie steht am Ende, weil sie
+          ein Angebot ist und keine Bedienung — und weil dort niemand
+          versehentlich hineinklickt.
+      */}
+      {!premium && (
+        <div className="overflow-hidden rounded-3xl border border-amber-400/30 bg-gradient-to-br from-amber-400/[0.08] to-transparent">
+          <div className="flex items-start gap-3 border-b border-amber-400/15 px-5 py-4">
+            <div className="shrink-0 rounded-2xl bg-amber-400/15 p-2.5">
+              <Crown className="h-5 w-5 text-amber-400" />
+            </div>
+            <div className="min-w-0">
+              <h3 className="font-bold text-amber-300">Mit Premium</h3>
+              <p className="mt-0.5 text-sm leading-relaxed text-slate-400">
+                Alles hier oben funktioniert auch ohne. Das hier kommt
+                dazu.
+              </p>
+            </div>
+          </div>
+
+          {/* Die Gegenüberstellung. Zwei Spalten nebeneinander statt
+              zweier Absätze — so sieht man den Unterschied, statt ihn
+              sich zusammenzureimen. */}
+          <div className="px-5 py-4">
+            <div className="overflow-hidden rounded-2xl border border-slate-800">
+              <div className="grid grid-cols-[1.4fr_1fr_1fr] border-b border-slate-800 bg-[#0f0f13]">
+                <div className="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600">
+                  Funktion
+                </div>
+                <div className="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600">
+                  Gratis
+                </div>
+                <div className="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-amber-400">
+                  Premium
+                </div>
+              </div>
+
+              {VERGLEICH.map((z, i) => (
+                <div
+                  key={z.was}
+                  className={cn(
+                    "grid grid-cols-[1.4fr_1fr_1fr] items-center bg-[#131318]",
+                    i > 0 && "border-t border-slate-800"
+                  )}
+                >
+                  <div className="px-3 py-2.5 text-xs text-slate-300">
+                    {z.was}
+                  </div>
+                  <div className="px-3 py-2.5">
+                    <JaNein wert={z.gratis} />
+                  </div>
+                  <div className="px-3 py-2.5">
+                    <JaNein wert={z.premium} />
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+              <Link
+                href="/dashboard/premium/beta"
+                className="inline-flex flex-1 items-center justify-center gap-2 rounded-2xl bg-amber-400 px-4 py-2.5 text-sm font-bold text-black transition hover:brightness-110"
+              >
+                Premium holen
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+              <Link
+                href="/premium"
+                className="inline-flex flex-1 items-center justify-center rounded-2xl border border-slate-800 bg-[#0f0f13] px-4 py-2.5 text-sm font-semibold text-slate-300 transition hover:bg-white/[0.04]"
+              >
+                Was Premium sonst kann
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Was nicht geht ──────────────────────────────────────── */}
       <div className="flex gap-3 rounded-3xl border border-slate-800 bg-[#0f0f13] p-4">

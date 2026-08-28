@@ -1512,6 +1512,8 @@ export const api = {
       method: "POST",
       body: JSON.stringify(optionen),
     }),
+  backupVorschau: (guildId: string, kennung: string) =>
+    request<any>(`/backup/${guildId}/${kennung}/vorschau`),
   backupStatus: (guildId: string) =>
     request<any>(`/backup/${guildId}/status`),
   backupAuto: (guildId: string, daten: any) =>
