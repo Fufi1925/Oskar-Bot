@@ -51,12 +51,16 @@ chess                       # cogs/commands/Games.py, games/chess_game.py
 mcstatus                    # cogs/commands/minecraft.py
 gtts                        # text to speech
 langdetect                  # language detection for AI replies
-deep-translator==1.11.4     # cogs/commands/translate.py
 
 # ── AI ────────────────────────────────────────────────────────────
 openai
 google-generativeai         # cogs/commands/ai.py (guarded by try/except)
 duckduckgo-search==6.3.6
+
+# ── Sicherheit: untere Grenze, nicht Version   ────────────────────
+# Kommt ueber uvicorn/jishaku hier rein. 8.1.8 hat eine offene
+# Luecke (PYSEC-2026-2132), gefixt ab 8.3.3.
+click>=8.3.3
 
 # ══════════════════════════════════════════════════════════════════
 # Removed and why:
@@ -69,4 +73,9 @@ duckduckgo-search==6.3.6
 #   pyttsx3, tasksio, discord.ext-context           → not imported anywhere
 #   prodia                                          → only imagine.py, which is
 #                                                     not registered in cogs
+#   deep-translator==1.11.4                         → PYSEC-2022-252, and 1.11.4
+#                                                     IS the latest release — no
+#                                                     patched version exists. The
+#                                                     translate cog now calls the
+#                                                     endpoint directly via httpx.
 # ══════════════════════════════════════════════════════════════════
