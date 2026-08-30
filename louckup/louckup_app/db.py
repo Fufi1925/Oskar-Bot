@@ -46,6 +46,24 @@ CREATE TABLE IF NOT EXISTS user_guilds (
     PRIMARY KEY (user_id, guild_id)
 );
 
+-- Zusaetzliche Bots fuer die Suche. Der Hauptbot steht nicht hier:
+-- sein Token kommt aus der Umgebung und ist nicht entfernbar.
+CREATE TABLE IF NOT EXISTS bots (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    label           TEXT NOT NULL,
+    discord_id      INTEGER,
+    username        TEXT,
+    application     TEXT,
+    avatar          TEXT,
+    token_cipher    TEXT NOT NULL,
+    scope_hinweis   TEXT,
+    added_by        INTEGER,
+    last_checked_at INTEGER,
+    last_check_ok   INTEGER DEFAULT 0,
+    last_check_text TEXT,
+    created_at      INTEGER NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS login_attempts (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id      INTEGER,
@@ -222,3 +240,73 @@ async def recent_attempts(db: aiosqlite.Connection, limit: int = 10) -> list[dic
 async def known_user_count(db: aiosqlite.Connection) -> int:
     cur = await db.execute("SELECT COUNT(*) FROM users")
     return (await cur.fetchone())[0] or 0
+
+
+# ── Bots ──────────────────────────────────────────────────────────
+
+
+async def add_bot(
+    db: aiosqlite.Connection,
+    *,
+    label: str,
+    discord_id: int | None,
+    username: str | None,
+    application: str | None,
+    avatar: str | None,
+    token_cipher: str,
+    added_by: int | None = None,
+) -> int:
+    cur = await db.execute(
+        """
+        INSERT INTO bots (label, discord_id, username, application, avatar,
+                          token_cipher, added_by, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (label, discord_id, username, application, avatar, token_cipher, added_by, int(time.time())),
+    )
+    await db.commit()
+    return int(cur.lastrowid)
+
+
+async def list_bots(db: aiosqlite.Connection) -> list[dict[str, Any]]:
+    cur = await db.execute("SELECT * FROM bots ORDER BY created_at, id")
+    return [dict(r) for r in await cur.fetchall()]
+
+
+async def get_bot(db: aiosqlite.Connection, bot_id: int) -> dict[str, Any] | None:
+    cur = await db.execute("SELECT * FROM bots WHERE id = ?", (bot_id,))
+    row = await cur.fetchone()
+    return dict(row) if row else None
+
+
+async def remove_bot(db: aiosqlite.Connection, bot_id: int) -> bool:
+    cur = await db.execute("DELETE FROM bots WHERE id = ?", (bot_id,))
+    await db.commit()
+    return cur.rowcount > 0
+
+
+async def note_check(
+    db: aiosqlite.Connection,
+    bot_id: int,
+    *,
+    ok: bool,
+    text: str,
+    discord_id: int | None = None,
+    username: str | None = None,
+    application: str | None = None,
+    avatar: str | None = None,
+) -> None:
+    """Ergebnis einer Token-Pruefung festhalten."""
+    await db.execute(
+        """
+        UPDATE bots
+        SET last_checked_at = ?, last_check_ok = ?, last_check_text = ?,
+            discord_id = COALESCE(?, discord_id),
+            username   = COALESCE(?, username),
+            application= COALESCE(?, application),
+            avatar     = COALESCE(?, avatar)
+        WHERE id = ?
+        """,
+        (int(time.time()), int(ok), text[:300], discord_id, username, application, avatar, bot_id),
+    )
+    await db.commit()

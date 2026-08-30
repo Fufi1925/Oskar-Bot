@@ -21,6 +21,7 @@ pydantic-settings (siehe louckup/requirements.txt).
 """
 
 import os
+import re
 import sys
 import tempfile
 from pathlib import Path
@@ -51,6 +52,8 @@ from fastapi.testclient import TestClient  # noqa: E402
 
 from louckup_app import auth  # noqa: E402
 from louckup_app.config import get_settings  # noqa: E402
+from louckup_app import discord_api as api  # noqa: E402
+from louckup_app import krypto  # noqa: E402
 from louckup_app.main import create_app  # noqa: E402
 
 OWNER = {
@@ -176,10 +179,14 @@ def main() -> int:
         check("eigener Login als erfolgreich vermerkt", "erfolgreich" in r.text)
 
         print("\n6b) Platzhalter-Reiter")
-        for slug, label in (("discord-ids", "Discord IDs"), ("roblox", "Roblox User"), ("ip", "IP")):
+        for slug, label in (("roblox", "Roblox User"), ("ip", "IP")):
             r = client.get(f"/louckup/dashboard/{slug}")
             check(f"Reiter {label} erreichbar", r.status_code == 200, str(r.status_code))
-            check(f"Reiter {label} ist leer", "<div class=\"leer\">" in r.text)
+            check(f"Reiter {label} ist leer", '<div class="leer">' in r.text)
+
+        r = client.get("/louckup/dashboard/discord-ids")
+        check("Reiter Discord IDs erreichbar", r.status_code == 200, str(r.status_code))
+        check("Reiter Discord IDs hat Suchfeld", 'name="id"' in r.text)
 
         print("\n6c) Unbekannter Reiter")
         r = client.get("/louckup/dashboard/quatsch", follow_redirects=True)
@@ -334,6 +341,137 @@ def main() -> int:
         codes = [c.get("/louckup/auth/discord", follow_redirects=False).status_code for _ in range(3)]
         check("die ersten beiden gehen durch", codes[:2] == [302, 302], str(codes))
         check("die dritte wird gebremst", codes[2] == 429, str(codes))
+
+    print("\n17) Reiter Einstellungen")
+    # Owner-Liste zuruecksetzen — Schritt 10 hatte sie geaendert — und
+    # das Login-Rate-Limit aus Schritt 16 wieder hochdrehen, sonst
+    # blockt es hier jeden weiteren Login.
+    os.environ["LOUCKUP_OWNER_IDS"] = "111111111111111111,222222222222222222"
+    os.environ["LOUCKUP_LOGIN_RATE_LIMIT"] = "10"
+    os.environ.setdefault("TOKEN", "HAUPTBOT.TOKEN.AUS.UMGEBUNG")
+    get_settings.cache_clear()
+    from louckup_app.main import _rate
+
+    _rate.clear()
+
+    def csrf_aus(html: str) -> str:
+        treffer = re.search(r'name="csrf" value="([0-9a-f]{32})"', html)
+        return treffer.group(1) if treffer else ""
+
+    with mounted_client() as c:
+        c.get("/louckup/auth/discord", follow_redirects=False)
+        state = c.cookies.get("louckup_oauth_state")
+        fake_user.who = "owner"
+        c.get("/louckup/auth/callback", params={"code": "abc", "state": state}, follow_redirects=False)
+
+        r = c.get("/louckup/dashboard/einstellungen")
+        check("Seite erreichbar", r.status_code == 200, str(r.status_code))
+        check("Hauptbot-Zeile vorhanden", "Hauptbot" in r.text)
+        check("Hauptbot kommt aus TOKEN", "TOKEN" in r.text)
+        check("Formular mit CSRF-Feld", 'name="csrf"' in r.text)
+        form_csrf = csrf_aus(r.text)
+        check("CSRF-Wert auslesbar", len(form_csrf) == 32, form_csrf)
+
+        # Ohne CSRF darf nichts passieren.
+        r = c.post(
+            "/louckup/dashboard/einstellungen/bots",
+            data={"label": "Boese", "token": "x"},
+            follow_redirects=True,
+        )
+        check("ohne CSRF abgelehnt", "Formular abgelaufen" in r.text, r.text[:200])
+
+        # Discord wird hier nicht wirklich gefragt.
+        async def bot_selbst(token, zeitlimit=12.0):
+            return {"id": "555000111222333444", "username": "zweitbot"}
+
+        async def anwendung(token, zeitlimit=12.0):
+            return {"name": "Zweitbot"}
+
+        api.bot_selbst = bot_selbst
+        api.anwendung = anwendung
+
+        r = c.post(
+            "/louckup/dashboard/einstellungen/bots",
+            data={"csrf": form_csrf, "label": "Zweitbot", "token": "GEHEIM.TOKEN.123456"},
+            follow_redirects=True,
+        )
+        check("Bot angenommen", "eingetragen" in r.text, r.text[:200])
+
+        # Token darf nicht im Klartext in der Datenbank stehen.
+        import asyncio
+
+        from louckup_app import db as dbmod2
+
+        async def lies():
+            db = await dbmod2.connect()
+            reihen = await dbmod2.list_bots(db)
+            await db.close()
+            return reihen
+
+        reihen = asyncio.run(lies())
+        check("ein Bot gespeichert", len(reihen) == 1, str(len(reihen)))
+        if reihen:
+            check(
+                "Token nicht im Klartext",
+                "GEHEIM.TOKEN.123456" not in (reihen[0]["token_cipher"] or ""),
+                reihen[0]["token_cipher"][:40],
+            )
+            entschluesselt = krypto.entschluesseln(
+                reihen[0]["token_cipher"], get_settings().secret_key
+            )
+            check("Token laesst sich zuruecklesen", entschluesselt == "GEHEIM.TOKEN.123456")
+            check("Maske statt Token in der Seite", "GEHEIM.TOKEN.123456" not in r.text)
+
+        # Entfernen — wieder mit CSRF.
+        r2 = c.get("/louckup/dashboard/einstellungen")
+        form_csrf = csrf_aus(r2.text)
+        bot_id = reihen[0]["id"] if reihen else 0
+        r = c.post(
+            f"/louckup/dashboard/einstellungen/bots/{bot_id}/entfernen",
+            data={"csrf": form_csrf},
+            follow_redirects=True,
+        )
+        check("Bot entfernt", "entfernt" in r.text, r.text[:200])
+        check("Liste ist leer", len(asyncio.run(lies())) == 0)
+
+    print("\n18) Suche nach einer Discord-ID")
+    with mounted_client() as c:
+        c.get("/louckup/auth/discord", follow_redirects=False)
+        state = c.cookies.get("louckup_oauth_state")
+        c.get("/louckup/auth/callback", params={"code": "abc", "state": state}, follow_redirects=False)
+
+        async def profil(token, uid, zeitlimit=12.0):
+            return {"id": str(uid), "username": "zielperson", "global_name": "Ziel", "public_flags": 0}
+
+        async def server(token, zeitlimit=12.0):
+            return [{"id": "9001", "name": "Server A"}, {"id": "9002", "name": "Server B"}]
+
+        async def mitglied(token, gid, uid, zeitlimit=12.0):
+            if gid == 9001:
+                return {"nick": "Spitzname", "joined_at": "2024-05-06T07:08:09", "roles": ["7001"]}
+            return None
+
+        async def rollen(token, gid, zeitlimit=12.0):
+            return {7001: "Moderator"}
+
+        api.profil = profil
+        api.bot_server = server
+        api.mitglied = mitglied
+        api.rollen = rollen
+
+        r = c.get("/louckup/dashboard/discord-ids?id=123456789012345678")
+        check("Seite erreichbar", r.status_code == 200, str(r.status_code))
+        check("Profil gefunden", "Ziel" in r.text)
+        check("ID angezeigt", "123456789012345678" in r.text)
+        check("Treffer-Server genannt", "Server A" in r.text)
+        check("kein Server ohne Mitgliedschaft", "Server B" not in r.text)
+        check("Rollen aufgeloest", "Moderator" in r.text)
+        check("Nickname gezeigt", "Spitzname" in r.text)
+        check("Beitrittsdatum gezeigt", "2024-05-06" in r.text)
+        check("keine E-Mail erfunden", "@" not in r.text.replace("&#64;", "@") or "example.com" not in r.text)
+
+        r = c.get("/louckup/dashboard/discord-ids?id=keinzahl")
+        check("Unsinn wird abgewiesen", "keine Zahl" in r.text, r.text[:200])
 
     print("\n" + "=" * 60)
     if FAILURES:

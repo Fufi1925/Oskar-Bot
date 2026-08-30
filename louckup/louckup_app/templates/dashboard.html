@@ -31,13 +31,15 @@
     <h1 class="page-title">{{ tab_title }}</h1>
 
     {% if tab == "discord-ids" %}
-      {% include "partials/platzhalter.html" %}
+      {% include "partials/discord-ids.html" %}
     {% elif tab == "roblox" %}
       {% include "partials/platzhalter.html" %}
     {% elif tab == "ip" %}
       {% include "partials/platzhalter.html" %}
     {% elif tab == "self" %}
       {% include "partials/self.html" %}
+    {% elif tab == "einstellungen" %}
+      {% include "partials/einstellungen.html" %}
     {% endif %}
   </main>
 

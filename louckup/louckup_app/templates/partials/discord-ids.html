@@ -1,0 +1,80 @@
+<div class="card">
+  <form method="get" action="" class="formular suche">
+    <label>
+      <span>Discord-ID</span>
+      <input type="text" name="id" value="{{ gesucht or '' }}" placeholder="z. B. 870179991462236170"
+             inputmode="numeric" autocomplete="off">
+    </label>
+    <button type="submit" class="knopf">Suchen</button>
+  </form>
+</div>
+
+{% if ergebnis %}
+  {% if ergebnis.user %}
+    <div class="card">
+      <div class="self-top">
+        {% if ergebnis.avatar %}
+          <img class="self-avatar" src="{{ ergebnis.avatar }}" alt="">
+        {% endif %}
+        <div>
+          <div class="self-name">{{ ergebnis.user.global_name or ergebnis.user.username }}</div>
+          <div class="self-sub">@{{ ergebnis.user.username }} · <code>{{ ergebnis.user.id }}</code></div>
+        </div>
+      </div>
+
+      <dl class="daten">
+        <div><dt>Konto erstellt</dt><dd>{{ ergebnis.erstellt }}</dd></div>
+        <div><dt>Abzeichen</dt><dd>
+          {% if ergebnis.abzeichen %}
+            {% for a in ergebnis.abzeichen %}<span class="chip">{{ a }}</span>{% endfor %}
+          {% else %}
+            —
+          {% endif %}
+        </dd></div>
+        <div><dt>Bot</dt><dd>{{ "ja" if ergebnis.user.bot else "nein" }}</dd></div>
+      </dl>
+    </div>
+
+    {% for fund in ergebnis.treffer %}
+      <div class="card">
+        <div class="daten-label">{{ fund.bot }} <span class="count">{{ fund.treffer | length }} von {{ fund.server }}</span></div>
+        {% if fund.treffer %}
+          {% for t in fund.treffer %}
+            <div class="treffer">
+              <div class="treffer-kopf">
+                <span class="server-name">{{ t.server }}</span>
+                {% if t.nick %}<span class="muted">· {{ t.nick }}</span>{% endif %}
+              </div>
+              <div class="muted klein">Beitritt {{ t.beitritt }}{% if t.stumm_bis %} · stumm bis {{ t.stumm_bis }}{% endif %}</div>
+              {% if t.rollen %}
+                <div class="chips">{% for r in t.rollen %}<span class="chip">{{ r }}</span>{% endfor %}</div>
+              {% endif %}
+            </div>
+          {% endfor %}
+        {% else %}
+          <div class="leer">—</div>
+        {% endif %}
+      </div>
+    {% endfor %}
+
+    {% if ergebnis.fehler %}
+      <div class="card">
+        <div class="daten-label">Nicht erreichbar</div>
+        {% for f in ergebnis.fehler %}<div class="klein schlecht">{{ f }}</div>{% endfor %}
+      </div>
+    {% endif %}
+
+    {% if ergebnis.gebremst %}
+      <div class="hinweis">
+        Abgebrochen nach {{ ergebnis.anfragen }} Anfragen (Obergrenze erreicht).
+      </div>
+    {% endif %}
+  {% else %}
+    <div class="card">
+      <div class="leer">—</div>
+      {% if ergebnis.fehler %}
+        <div class="hinweis">{{ ergebnis.fehler | join(" · ") }}</div>
+      {% endif %}
+    </div>
+  {% endif %}
+{% endif %}

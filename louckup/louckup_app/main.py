@@ -17,6 +17,9 @@ Der Bereich ist gemountet, nicht eingebunden: er importiert nichts aus
 
 from __future__ import annotations
 
+import asyncio
+import hashlib
+import hmac
 import logging
 import time
 from contextlib import asynccontextmanager
@@ -29,6 +32,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from louckup_app import auth, db as dbmod
+from louckup_app import discord_api as api
+from louckup_app import krypto
 from louckup_app.config import get_settings
 
 log = logging.getLogger("louckup")
@@ -92,6 +97,18 @@ async def lifespan(app: FastAPI):
         except Exception:
             pass
         _db_conn = None
+
+
+# Ergebnis der letzten Pruefung des Hauptbots. Er steht nicht in der
+# Datenbank, also auch sein Pruefergebnis nicht.
+_primaer_status: dict[str, Any] = {}
+
+
+def _token_lesen(reihe: dict[str, Any], settings) -> str | None:
+    try:
+        return krypto.entschluesseln(reihe["token_cipher"], settings.secret_key)
+    except Exception:
+        return None
 
 
 # Anfaenge von Logins pro Adresse. Bewusst im Speicher und bewusst
@@ -406,8 +423,146 @@ def create_app() -> FastAPI:
         ("roblox", "Roblox User"),
         ("ip", "IP"),
         ("self", "Self"),
+        ("einstellungen", "Einstellungen"),
     )
     TAB_TITEL = dict(TABS)
+
+    # ── Schutz gegen fremd ausgeloeste Formulare ────────────────────
+    #
+    # Die Formulare hier wirken: sie tragen Bot-Tokens ein und loeschen
+    # sie wieder. Ohne diesen Vergleich koennte jede fremde Seite, auf
+    # der ein eingeloggter Owner gerade ist, im Hintergrund einen
+    # Bot hinzufuegen. Der Wert steht verschluesselt im Session-Cookie
+    # und zusaetzlich im Formular — eine fremde Seite kann das Cookie
+    # nicht lesen, also kann sie den Wert nicht mitliefern.
+
+    def csrf(request: Request) -> str:
+        roh = request.cookies.get(settings.louckup_cookie_name) or ""
+        return hashlib.sha256(f"louckup-csrf|{roh}".encode()).hexdigest()[:32]
+
+    def csrf_stimmt(request: Request, wert: str | None) -> bool:
+        return hmac.compare_digest(str(wert or ""), csrf(request))
+
+    # ── Bots ───────────────────────────────────────────────────────
+
+    async def bots_mit_token() -> list[dict[str, Any]]:
+        """Hauptbot (aus TOKEN) plus alle gespeicherten Bots."""
+        liste: list[dict[str, Any]] = []
+
+        if settings.louckup_primary_bot_enabled and settings.primary_bot_token:
+            liste.append(
+                {
+                    "id": 0,
+                    "label": settings.louckup_primary_bot_label,
+                    "token": settings.primary_bot_token,
+                    "primary": True,
+                }
+            )
+
+        db = await get_db()
+        for reihe in await dbmod.list_bots(db):
+            try:
+                token = krypto.entschluesseln(reihe["token_cipher"], settings.secret_key)
+            except Exception as exc:
+                # Ein kaputter Eintrag darf die Suche nicht stoppen.
+                log.error("Bot %s: Token nicht lesbar: %s", reihe.get("id"), exc)
+                continue
+            liste.append({**reihe, "token": token, "primary": False})
+        return liste
+
+    async def suchen(user_id: int) -> dict[str, Any]:
+        """Eine Discord-ID ueber alle eingetragenen Bots suchen.
+
+        Ergebnis sind oeffentliche Profildaten und — fuer die Server,
+        in denen die eigenen Bots stecken — Mitgliedschaft, Rollen,
+        Nickname und Beitrittsdatum. Keine E-Mail-Adressen: die gibt
+        Discord ausschliesslich ueber das OAuth-Token der jeweiligen
+        Person heraus, und das steht uns nicht zu.
+        """
+        bots = await bots_mit_token()
+        ergebnis: dict[str, Any] = {
+            "user": None,
+            "treffer": [],
+            "fehler": [],
+            "anfragen": 0,
+            "gebremst": False,
+            "bots": len(bots),
+        }
+        if not bots:
+            ergebnis["fehler"].append("Kein Bot eingetragen.")
+            return ergebnis
+
+        # Profil: erster Bot, der etwas liefert.
+        for bot in bots:
+            try:
+                ergebnis["anfragen"] += 1
+                profil = await api.profil(bot["token"], user_id, settings.louckup_lookup_timeout)
+                if profil:
+                    ergebnis["user"] = profil
+                    ergebnis["avatar"] = await api.avatar_url(profil)
+                    ergebnis["abzeichen"] = api.abzeichen(profil.get("public_flags"))
+                    erstellt = api.kontostand_aus_snowflake(profil.get("id"))
+                    ergebnis["erstellt"] = (
+                        erstellt.strftime("%d.%m.%Y %H:%M") if erstellt else "—"
+                    )
+                    break
+            except api.AnfrageFehler as exc:
+                ergebnis["fehler"].append(f"{bot['label']}: {exc}")
+        if not ergebnis["user"]:
+            return ergebnis
+
+        grenze = settings.louckup_lookup_max_requests
+        sema = asyncio.Semaphore(5)
+
+        for bot in bots:
+            try:
+                server = await api.bot_server(bot["token"], settings.louckup_lookup_timeout)
+            except api.AnfrageFehler as exc:
+                ergebnis["fehler"].append(f"{bot['label']}: {exc}")
+                continue
+
+            async def pruefe(guild: dict[str, Any]) -> dict[str, Any] | None:
+                if ergebnis["anfragen"] >= grenze:
+                    ergebnis["gebremst"] = True
+                    return None
+                try:
+                    gid = int(guild.get("id"))
+                except (TypeError, ValueError):
+                    return None
+                async with sema:
+                    ergebnis["anfragen"] += 1
+                    try:
+                        mitglied = await api.mitglied(
+                            bot["token"], gid, user_id, settings.louckup_lookup_timeout
+                        )
+                    except api.AnfrageFehler:
+                        return None
+                if not mitglied:
+                    return None
+                namen = (
+                    await api.rollen(bot["token"], gid, settings.louckup_lookup_timeout)
+                    if mitglied.get("roles")
+                    else {}
+                )
+                return {
+                    "server": guild.get("name") or str(gid),
+                    "server_id": str(gid),
+                    "nick": mitglied.get("nick"),
+                    "beitritt": (mitglied.get("joined_at") or "")[:10],
+                    "stumm_bis": (mitglied.get("communication_disabled_until") or "")[:10],
+                    "rollen": [
+                        namen.get(int(r), str(r))
+                        for r in (mitglied.get("roles") or [])
+                        if str(r).isdigit()
+                    ],
+                }
+
+            gefunden = [t for t in await asyncio.gather(*[pruefe(g) for g in server]) if t]
+            ergebnis["treffer"].append(
+                {"bot": bot["label"], "server": len(server), "treffer": gefunden}
+            )
+
+        return ergebnis
 
     @app.get("/dashboard", response_class=HTMLResponse)
     async def dashboard(request: Request):
@@ -442,6 +597,34 @@ def create_app() -> FastAPI:
         guilds = await dbmod.list_user_guilds(db, uid) if tab == "self" else []
         logins = await dbmod.own_attempts(db, uid, limit=10) if tab == "self" else []
 
+        extra: dict[str, Any] = {"csrf": csrf(request)}
+
+        if tab == "einstellungen":
+            reihen = await dbmod.list_bots(db)
+            for reihe in reihen:
+                # Der Token selbst kommt nie ins HTML, nur die Maske.
+                reihe["maske"] = krypto.maske(_token_lesen(reihe, settings) or "")
+            extra["bots"] = reihen
+            extra["hauptbot"] = {
+                "label": settings.louckup_primary_bot_label,
+                "aktiv": bool(settings.primary_bot_token) and settings.louckup_primary_bot_enabled,
+                "status": _primaer_status or None,
+            }
+
+        if tab == "discord-ids":
+            gesucht = (request.query_params.get("id") or "").strip()
+            extra["gesucht"] = gesucht
+            if gesucht and gesucht.isdigit():
+                extra["ergebnis"] = await suchen(int(gesucht))
+            elif gesucht:
+                extra["ergebnis"] = {
+                    "user": None,
+                    "treffer": [],
+                    "anfragen": 0,
+                    "gebremst": False,
+                    "fehler": ["Das ist keine Zahl — eine Discord-ID besteht nur aus Ziffern."],
+                }
+
         resp = render(
             request,
             "dashboard.html",
@@ -454,12 +637,164 @@ def create_app() -> FastAPI:
                 guilds=guilds,
                 logins=logins,
                 scopes=(record or {}).get("scopes") or settings.scopes,
+                **extra,
             ),
         )
         # Nichts hier darf im Browser-Cache landen, auch nicht auf
         # geteilten Rechnern.
         clear_flash(resp)
         return resp
+
+    # ── Einstellungen: Bots verwalten ──────────────────────────────
+
+    def _flash_zurueck(request: Request, text: str) -> RedirectResponse:
+        antwort = RedirectResponse(url=href("/dashboard/einstellungen", request), status_code=303)
+        flash(antwort, text, request)
+        return antwort
+
+    def _nur_owner(request: Request) -> bool:
+        user = auth.get_session_user(request)
+        return bool(user) and int(user["uid"]) in settings.owner_ids
+
+    @app.post("/dashboard/einstellungen/bots")
+    async def bot_hinzufuegen(request: Request):
+        if not _nur_owner(request):
+            return RedirectResponse(url=href("/login", request), status_code=302)
+
+        formular = await request.form()
+        if not csrf_stimmt(request, formular.get("csrf")):
+            return _flash_zurueck(request, "Formular abgelaufen. Bitte nochmal.")
+
+        label = str(formular.get("label") or "").strip()
+        token = str(formular.get("token") or "").strip()
+        if not token:
+            return _flash_zurueck(request, "Kein Token eingegeben.")
+
+        try:
+            info = await api.bot_selbst(token, settings.louckup_lookup_timeout)
+        except api.AnfrageFehler as exc:
+            return _flash_zurueck(request, f"Token abgelehnt: {exc}")
+        except Exception as exc:
+            return _flash_zurueck(request, f"Token nicht pruefbar: {type(exc).__name__}: {exc}")
+
+        if not info or not info.get("id"):
+            return _flash_zurueck(request, "Token gilt, liefert aber kein Bot-Konto.")
+
+        anwendung = await api.anwendung(token, settings.louckup_lookup_timeout) or {}
+        db = await get_db()
+        try:
+            geheim = krypto.verschluesseln(token, settings.secret_key)
+        except krypto.KryptoFehler as exc:
+            return _flash_zurueck(request, str(exc))
+
+        name = label or anwendung.get("name") or info.get("username") or "Bot"
+        user = auth.get_session_user(request)
+        try:
+            await dbmod.add_bot(
+                db,
+                label=name,
+                discord_id=int(info["id"]),
+                username=info.get("username"),
+                application=anwendung.get("name"),
+                avatar=info.get("avatar"),
+                token_cipher=geheim,
+                added_by=int(user["uid"]),
+            )
+        except Exception as exc:
+            return _flash_zurueck(request, f"Speichern fehlgeschlagen: {exc}")
+
+        await dbmod.record_attempt(
+            db, user_id=int(user["uid"]), username=user.get("username"),
+            is_owner=True, outcome="bot_added", detail=name,
+        )
+        return _flash_zurueck(request, f"{name} eingetragen.")
+
+    @app.post("/dashboard/einstellungen/bots/{bot_id}/pruefen")
+    async def bot_pruefen(request: Request, bot_id: int):
+        if not _nur_owner(request):
+            return RedirectResponse(url=href("/login", request), status_code=302)
+
+        formular = await request.form()
+        if not csrf_stimmt(request, formular.get("csrf")):
+            return _flash_zurueck(request, "Formular abgelaufen. Bitte nochmal.")
+
+        db = await get_db()
+        reihe = await dbmod.get_bot(db, bot_id)
+        if not reihe:
+            return _flash_zurueck(request, "Dieser Eintrag existiert nicht mehr.")
+
+        token = _token_lesen(reihe, settings)
+        if not token:
+            return _flash_zurueck(request, "Token nicht lesbar (Schluessel geaendert?)")
+
+        try:
+            info = await api.bot_selbst(token, settings.louckup_lookup_timeout)
+            anwendung = await api.anwendung(token, settings.louckup_lookup_timeout) or {}
+            await dbmod.note_check(
+                db, bot_id, ok=True, text="Token gilt.",
+                discord_id=int(info["id"]) if info and info.get("id") else None,
+                username=(info or {}).get("username"),
+                application=anwendung.get("name"),
+                avatar=(info or {}).get("avatar"),
+            )
+            return _flash_zurueck(request, f"{reihe['label']}: Token gilt.")
+        except api.AnfrageFehler as exc:
+            await dbmod.note_check(db, bot_id, ok=False, text=str(exc))
+            return _flash_zurueck(request, f"{reihe['label']}: {exc}")
+        except Exception as exc:
+            await dbmod.note_check(db, bot_id, ok=False, text=f"{type(exc).__name__}: {exc}")
+            return _flash_zurueck(request, f"{reihe['label']}: {type(exc).__name__}: {exc}")
+
+    @app.post("/dashboard/einstellungen/bots/{bot_id}/entfernen")
+    async def bot_entfernen(request: Request, bot_id: int):
+        if not _nur_owner(request):
+            return RedirectResponse(url=href("/login", request), status_code=302)
+
+        formular = await request.form()
+        if not csrf_stimmt(request, formular.get("csrf")):
+            return _flash_zurueck(request, "Formular abgelaufen. Bitte nochmal.")
+
+        db = await get_db()
+        reihe = await dbmod.get_bot(db, bot_id)
+        weg = await dbmod.remove_bot(db, bot_id)
+        user = auth.get_session_user(request)
+        if reihe and weg:
+            await dbmod.record_attempt(
+                db, user_id=int(user["uid"]), username=user.get("username"),
+                is_owner=True, outcome="bot_removed", detail=str(reihe.get("label")),
+            )
+        return _flash_zurueck(request, f"{reihe['label'] if reihe else 'Eintrag'} entfernt.")
+
+    @app.post("/dashboard/einstellungen/hauptbot/pruefen")
+    async def hauptbot_pruefen(request: Request):
+        global _primaer_status
+        if not _nur_owner(request):
+            return RedirectResponse(url=href("/login", request), status_code=302)
+
+        formular = await request.form()
+        if not csrf_stimmt(request, formular.get("csrf")):
+            return _flash_zurueck(request, "Formular abgelaufen. Bitte nochmal.")
+
+        token = settings.primary_bot_token
+        if not token:
+            _primaer_status = {"ok": False, "text": "In TOKEN steht kein Token.", "ts": int(time.time())}
+            return _flash_zurueck(request, _primaer_status["text"])
+
+        try:
+            info = await api.bot_selbst(token, settings.louckup_lookup_timeout)
+            anwendung = await api.anwendung(token, settings.louckup_lookup_timeout) or {}
+            _primaer_status = {
+                "ok": True,
+                "text": f"{anwendung.get('name') or info.get('username')} — Token gilt.",
+                "ts": int(time.time()),
+            }
+        except api.AnfrageFehler as exc:
+            _primaer_status = {"ok": False, "text": str(exc), "ts": int(time.time())}
+        except Exception as exc:
+            _primaer_status = {
+                "ok": False, "text": f"{type(exc).__name__}: {exc}", "ts": int(time.time())
+            }
+        return _flash_zurueck(request, _primaer_status["text"])
 
     @app.get("/logout")
     async def logout(request: Request):

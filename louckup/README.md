@@ -29,10 +29,11 @@ gültiges Cookie damit sofort seine Wirkung.
 
 | Reiter | Inhalt |
 |---|---|
-| Discord IDs | Platzhalter |
+| Discord IDs | Suche nach einer Discord-ID über alle eingetragenen Bots |
 | Roblox User | Platzhalter |
 | IP | Platzhalter |
 | Self | die eigenen Daten des eingeloggten Kontos |
+| Einstellungen | Bots eintragen, prüfen, entfernen |
 
 **Self** zeigt ausschließlich die Daten des Accounts, der gerade
 eingeloggt ist — Discord-ID, Namen, E-Mail, Verifiziert-Status,
@@ -72,6 +73,45 @@ louckup/
 6. Redeploy — `start.sh` setzt `LOUCKUP_BASE_URL` automatisch aus
    `RAILWAY_PUBLIC_DOMAIN`
 
+## Bots und Suche
+
+### Einstellungen
+
+* Der **Hauptbot** ist fest eingebaut: sein Token kommt aus der Umgebung
+  (`TOKEN`) — es gibt keine zweite Variable und keinen Datenbankeintrag.
+  Er lässt sich nicht entfernen.
+* Weitere Bots lassen sich **beliebig viele** eintragen. Beim Hinzufügen
+  wird der Token gegen Discord geprüft; erst wenn er gilt, wird er
+  gespeichert. Über „Prüfen" lässt sich das später wiederholen.
+* Tokens liegen **verschlüsselt** in `louckup.db` (Fernet, Schlüssel aus
+  `LOUCKUP_SECRET_KEY`) und werden auf der Seite nur maskiert angezeigt.
+* Jede Aktion steht hinter einem **CSRF-Token**, damit keine fremde
+  Seite im Namen eines eingeloggten Owners Bots hinzufügen oder löschen
+  kann.
+
+### Discord IDs
+
+Eine Discord-ID eingeben → der Bereich fragt **alle** eingetragenen Bots
+ab und zeigt:
+
+* öffentliches Profil (Name, Anzeigename, Avatar, Erstellungsdatum,
+  Abzeichen)
+* für jeden Bot: auf welchen seiner Server der User ist — mit Nickname,
+  Beitrittsdatum, Rollen und Stumm-Schaltung
+
+**Was die Suche nicht kann, und warum:** E-Mail-Adressen und die Frage,
+wo der User einem Bot den Scope `guilds` bestätigt hat, sind über
+Bot-Tokens technisch nicht erreichbar — dafür bräuchte es das
+OAuth-Token der betroffenen Person. Solche Daten für fremde Zwecke
+auszulesen verstößt gegen die DSGVO und gegen Discords
+Entwicklerrichtlinien. E-Mail-Adressen bleiben deshalb auf den
+Self-Reiter beschränkt: dort sieht jede Person ausschließlich ihre
+eigene.
+
+Technische Bremsen: höchstens `LOUCKUP_LOOKUP_MAX_REQUESTS` (Standard
+250) Anfragen pro Suche, 5 gleichzeitig, 12 Sekunden Zeitlimit je
+Anfrage.
+
 ## Datenschutz-Hinweis
 
 Weil `email` und `guilds` angefragt werden, liegen E-Mail-Adresse und
@@ -92,6 +132,45 @@ Serverliste wird für Nicht-Owner **nicht einmal geladen**.
   Adresse, danach HTTP 429.
 * **OAuth-State** wird geprüft, bevor der Code getauscht wird.
 * **Owner-Prüfung zweimal**: beim Login und bei jedem Reiter-Aufruf.
+
+## Bots und Suche
+
+### Einstellungen
+
+* Der **Hauptbot** ist fest eingebaut: sein Token kommt aus der Umgebung
+  (`TOKEN`) — es gibt keine zweite Variable und keinen Datenbankeintrag.
+  Er lässt sich nicht entfernen.
+* Weitere Bots lassen sich **beliebig viele** eintragen. Beim Hinzufügen
+  wird der Token gegen Discord geprüft; erst wenn er gilt, wird er
+  gespeichert. Über „Prüfen" lässt sich das später wiederholen.
+* Tokens liegen **verschlüsselt** in `louckup.db` (Fernet, Schlüssel aus
+  `LOUCKUP_SECRET_KEY`) und werden auf der Seite nur maskiert angezeigt.
+* Jede Aktion steht hinter einem **CSRF-Token**, damit keine fremde
+  Seite im Namen eines eingeloggten Owners Bots hinzufügen oder löschen
+  kann.
+
+### Discord IDs
+
+Eine Discord-ID eingeben → der Bereich fragt **alle** eingetragenen Bots
+ab und zeigt:
+
+* öffentliches Profil (Name, Anzeigename, Avatar, Erstellungsdatum,
+  Abzeichen)
+* für jeden Bot: auf welchen seiner Server der User ist — mit Nickname,
+  Beitrittsdatum, Rollen und Stumm-Schaltung
+
+**Was die Suche nicht kann, und warum:** E-Mail-Adressen und die Frage,
+wo der User einem Bot den Scope `guilds` bestätigt hat, sind über
+Bot-Tokens technisch nicht erreichbar — dafür bräuchte es das
+OAuth-Token der betroffenen Person. Solche Daten für fremde Zwecke
+auszulesen verstößt gegen die DSGVO und gegen Discords
+Entwicklerrichtlinien. E-Mail-Adressen bleiben deshalb auf den
+Self-Reiter beschränkt: dort sieht jede Person ausschließlich ihre
+eigene.
+
+Technische Bremsen: höchstens `LOUCKUP_LOOKUP_MAX_REQUESTS` (Standard
+250) Anfragen pro Suche, 5 gleichzeitig, 12 Sekunden Zeitlimit je
+Anfrage.
 
 ## Datenschutz-Hinweis
 

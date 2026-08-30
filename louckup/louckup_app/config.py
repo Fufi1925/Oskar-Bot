@@ -65,6 +65,19 @@ class Settings(BaseSettings):
     louckup_owner_ids: str = ""
     louckup_fallback_url: str = "/"
 
+    # ── Bot-Verwaltung & Suche ─────────────────────────────────────
+    # Der Hauptbot. Sein Token steht schon in TOKEN (die Variable, mit
+    # der der Bot startet) — es gibt dafuer keine zweite Variable und
+    # keinen Eintrag in der Datenbank. Hier steht nur, wie er heisst.
+    louckup_primary_bot_label: str = "University Bot"
+    louckup_primary_bot_enabled: bool = True
+
+    # Obergrenze fuer Anfragen an Discord bei einer Suche. Eine Suche
+    # kann ueber viele Bots und Server gehen; ohne Bremse wuerde sie im
+    # Zweifel ins Rate-Limit laufen und am Ende den Bot selbst treffen.
+    louckup_lookup_max_requests: int = 250
+    louckup_lookup_timeout: float = 12.0
+
     # ── Optik ──────────────────────────────────────────────────────
     louckup_brand_name: str = "Louckup"
     louckup_footer: str = "Louckup — abgetrennter Bereich"
@@ -111,6 +124,11 @@ class Settings(BaseSettings):
             if part.isdigit():
                 out.add(int(part))
         return out
+
+    @property
+    def primary_bot_token(self) -> str:
+        """Token des Hauptbots, aus der vorhandenen Variable."""
+        return os.getenv("TOKEN", "").strip()
 
     @property
     def scopes(self) -> str:

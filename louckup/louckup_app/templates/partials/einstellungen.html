@@ -1,0 +1,79 @@
+<div class="card">
+  <div class="daten-label">Hauptbot</div>
+  <div class="bot-zeile">
+    <div>
+      <div class="bot-name">{{ hauptbot.label }}</div>
+      <div class="muted klein">
+        {% if hauptbot.aktiv %}
+          Token kommt aus der Variable TOKEN
+        {% else %}
+          In TOKEN steht kein Token
+        {% endif %}
+      </div>
+      {% if hauptbot.status %}
+        <div class="klein {{ 'gut' if hauptbot.status.ok else 'schlecht' }}">
+          {{ hauptbot.status.text }}
+        </div>
+      {% endif %}
+    </div>
+    <div class="bot-knopf">
+      <form method="post" action="{{ root_path }}/dashboard/einstellungen/hauptbot/pruefen">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <button type="submit" class="knopf klein">Prüfen</button>
+      </form>
+    </div>
+  </div>
+  <div class="hinweis">Dieser Eintrag ist fest und lässt sich nicht entfernen.</div>
+</div>
+
+<div class="card">
+  <div class="daten-label">Bot hinzufügen</div>
+  <form method="post" action="{{ root_path }}/dashboard/einstellungen/bots" class="formular">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label>
+      <span>Name</span>
+      <input type="text" name="label" placeholder="z. B. Zweitbot" autocomplete="off">
+    </label>
+    <label>
+      <span>Token</span>
+      <input type="password" name="token" placeholder="Bot-Token" autocomplete="off" required>
+    </label>
+    <button type="submit" class="knopf">Hinzufügen</button>
+  </form>
+</div>
+
+<div class="card">
+  <div class="daten-label">Eingetragene Bots <span class="count">{{ bots | length }}</span></div>
+
+  {% if not bots %}
+    <div class="leer">—</div>
+  {% else %}
+    {% for bot in bots %}
+      <div class="bot-zeile">
+        <div>
+          <div class="bot-name">{{ bot.label }}</div>
+          <div class="muted klein">
+            {% if bot.username %}@{{ bot.username }}{% endif %}
+            {% if bot.discord_id %}· <code>{{ bot.discord_id }}</code>{% endif %}
+            · Token <code>{{ bot.maske }}</code>
+          </div>
+          {% if bot.last_checked_at %}
+            <div class="klein {{ 'gut' if bot.last_check_ok else 'schlecht' }}">
+              {{ bot.last_check_text }} · {{ bot.last_checked_at | timestamp }}
+            </div>
+          {% endif %}
+        </div>
+        <div class="bot-knopf">
+          <form method="post" action="{{ root_path }}/dashboard/einstellungen/bots/{{ bot.id }}/pruefen">
+            <input type="hidden" name="csrf" value="{{ csrf }}">
+            <button type="submit" class="knopf klein">Prüfen</button>
+          </form>
+          <form method="post" action="{{ root_path }}/dashboard/einstellungen/bots/{{ bot.id }}/entfernen">
+            <input type="hidden" name="csrf" value="{{ csrf }}">
+            <button type="submit" class="knopf klein gefahr">Entfernen</button>
+          </form>
+        </div>
+      </div>
+    {% endfor %}
+  {% endif %}
+</div>
