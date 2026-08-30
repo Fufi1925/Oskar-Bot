@@ -1,19 +1,11 @@
 {% extends "base.html" %}
-{% block title %}Login — {{ brand }}{% endblock %}
+{% block title %}{{ brand }}{% endblock %}
 
-{% block content %}
-<div class="centered">
-  <div class="card login-card">
+{% block body %}
+<div class="login-wrap">
+  <div class="login-card">
+    <div class="login-mark"></div>
     <h1>{{ brand }}</h1>
-    <p class="sub">Abgetrennter Bereich. Anmelden nur mit Discord.</p>
-
-    {% if missing %}
-      <div class="warn">
-        <strong>Noch nicht konfiguriert:</strong>
-        <ul>{% for m in missing %}<li><code>{{ m }}</code></li>{% endfor %}</ul>
-        <span class="small">Solange das fehlt, funktioniert der Login nicht.</span>
-      </div>
-    {% endif %}
 
     <a class="discord-btn" href="{{ root_path }}/auth/discord">
       <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
@@ -21,27 +13,6 @@
       </svg>
       Mit Discord anmelden
     </a>
-
-    <details class="scopes">
-      <summary>Folgende Berechtigungen werden angefragt</summary>
-      <ul>
-        {% for s in scopes.split() %}
-          <li><code>{{ s }}</code>
-            {% if s == 'identify' %}<span>— wer du bist</span>{% endif %}
-            {% if s == 'email' %}<span>— deine E-Mail-Adresse</span>{% endif %}
-            {% if s == 'guilds' %}<span>— deine Server sehen</span>{% endif %}
-            {% if s == 'guilds.join' %}<span>— dich in einen Server holen</span>{% endif %}
-            {% if s == 'gdm.join' %}<span>— direkte Nachrichten</span>{% endif %}
-          </li>
-        {% endfor %}
-      </ul>
-      <p class="small">Redirect-URI: <code>{{ redirect_uri }}</code></p>
-    </details>
-
-    <p class="small muted">
-      Wer nicht auf der Owner-Liste steht, wird nach dem Login automatisch
-      auf das normale Dashboard weitergeleitet.
-    </p>
   </div>
 </div>
 {% endblock %}

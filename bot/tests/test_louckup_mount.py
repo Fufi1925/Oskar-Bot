@@ -225,6 +225,36 @@ def test_routes():
     check("OAuth-State wird geprueft", "louckup_oauth_state" in src)
 
 
+def test_reiter():
+    print("\nReiter")
+    src = read(os.path.join(LOUCKUP, "louckup_app", "main.py"))
+    login = read(os.path.join(LOUCKUP, "louckup_app", "templates", "login.html"))
+    basis = read(os.path.join(LOUCKUP, "louckup_app", "templates", "base.html"))
+    selbst = read(os.path.join(LOUCKUP, "louckup_app", "templates", "partials", "self.html"))
+
+    for slug, label in (
+        ("discord-ids", "Discord IDs"),
+        ("roblox", "Roblox User"),
+        ("ip", "IP"),
+        ("self", "Self"),
+    ):
+        check(f"Reiter {label}", f'("{slug}", "{label}")' in src)
+
+    check("ein Reiter-Route mit {tab}", '"/dashboard/{tab}"' in src)
+    check("Serverliste wird beim Login gespeichert", "replace_user_guilds" in src)
+    check("Serverliste nur fuer den eigenen User", "list_user_guilds(db, uid)" in src)
+
+    # Der Login besteht nur aus dem Knopf.
+    check("Login ohne Fusszeile", "footer" not in basis.lower())
+    check("Login ohne Scope-Erklaerung", "redirect_uri" not in login and "scopes" not in login)
+    check("Login hat den Discord-Knopf", "Mit Discord anmelden" in login)
+
+    # Self zeigt nur die eigenen Daten, keine Erklaerungen dazu.
+    check("Self zeigt E-Mail", "record.email" in selbst)
+    check("Self zeigt Discord-ID", "user.uid" in selbst)
+    check("Self ohne Erklaertexte", "Redirect-URI" not in selbst and "Datenbank" not in selbst)
+
+
 def main():
     test_files_exist()
     test_mount_in_server()
@@ -233,6 +263,7 @@ def main():
     test_isolation()
     test_owner_gate()
     test_routes()
+    test_reiter()
 
     print(f"\n{len(failures)} failures")
     for line in failures:

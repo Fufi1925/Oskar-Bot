@@ -32,6 +32,20 @@ CREATE TABLE IF NOT EXISTS users (
     updated_at       INTEGER NOT NULL
 );
 
+-- Die Server, die der User beim Login mit `guilds` freigegeben hat.
+-- Pro User getrennt: auf dem Self-Reiter sieht jeder nur seine eigenen.
+CREATE TABLE IF NOT EXISTS user_guilds (
+    user_id      INTEGER NOT NULL,
+    guild_id     INTEGER NOT NULL,
+    name         TEXT,
+    icon         TEXT,
+    owner        INTEGER DEFAULT 0,
+    permissions  TEXT,
+    member_count INTEGER,
+    updated_at   INTEGER NOT NULL,
+    PRIMARY KEY (user_id, guild_id)
+);
+
 CREATE TABLE IF NOT EXISTS login_attempts (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id      INTEGER,
@@ -117,6 +131,50 @@ async def get_user(db: aiosqlite.Connection, user_id: int) -> dict[str, Any] | N
     cur = await db.execute("SELECT * FROM users WHERE user_id = ?", (user_id,))
     row = await cur.fetchone()
     return dict(row) if row else None
+
+
+async def replace_user_guilds(
+    db: aiosqlite.Connection, user_id: int, guilds: list[dict[str, Any]]
+) -> int:
+    now = int(time.time())
+    await db.execute("DELETE FROM user_guilds WHERE user_id = ?", (user_id,))
+    saved = 0
+    for g in guilds:
+        try:
+            gid = int(g.get("id"))
+        except (TypeError, ValueError):
+            continue
+        await db.execute(
+            """
+            INSERT INTO user_guilds (user_id, guild_id, name, icon, owner, permissions, member_count, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(user_id, guild_id) DO UPDATE SET
+                name=excluded.name, icon=excluded.icon, owner=excluded.owner,
+                permissions=excluded.permissions, member_count=excluded.member_count,
+                updated_at=excluded.updated_at
+            """,
+            (
+                user_id,
+                gid,
+                g.get("name"),
+                g.get("icon"),
+                1 if g.get("owner") else 0,
+                str(g.get("permissions") or "0"),
+                g.get("approximate_member_count"),
+                now,
+            ),
+        )
+        saved += 1
+    await db.commit()
+    return saved
+
+
+async def list_user_guilds(db: aiosqlite.Connection, user_id: int) -> list[dict[str, Any]]:
+    cur = await db.execute(
+        "SELECT * FROM user_guilds WHERE user_id = ? ORDER BY name COLLATE NOCASE",
+        (user_id,),
+    )
+    return [dict(r) for r in await cur.fetchall()]
 
 
 async def record_attempt(

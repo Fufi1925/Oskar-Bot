@@ -8,24 +8,7 @@
   <link rel="stylesheet" href="{{ root_path }}/static/css/louckup.css">
 </head>
 <body>
-  <header class="topbar">
-    <div class="topbar-inner">
-      <a class="brand" href="{{ root_path }}/">
-        <span class="dot"></span>{{ brand }}
-      </a>
-      <nav class="topnav">
-        <a href="{{ root_path }}/dashboard">Dashboard</a>
-        {% if user %}<a href="{{ root_path }}/logout">Abmelden</a>{% endif %}
-        <a class="muted" href="/">Zum Haupt-Dashboard</a>
-      </nav>
-    </div>
-  </header>
-
-  <main class="page">
-    {% if flash %}<div class="flash">{{ flash }}</div>{% endif %}
-    {% block content %}{% endblock %}
-  </main>
-
-  <footer class="footer">{{ footer }}</footer>
+  {% if flash %}<div class="flash">{{ flash }}</div>{% endif %}
+  {% block body %}{% endblock %}
 </body>
 </html>

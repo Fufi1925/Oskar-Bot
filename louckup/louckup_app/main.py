@@ -6,7 +6,8 @@ Ablauf, wie besprochen:
     <url>/louckup/auth/...     -> OAuth2 mit identify, email, guilds,
                                   guilds.join, gdm.join
     danach:
-      Owner  -> <url>/louckup/dashboard
+      Owner  -> <url>/louckup/dashboard  (Reiter: Discord IDs,
+                Roblox User, IP, Self)
       sonst  -> sofort weiter auf <url>/  (das normale Dashboard),
                 ohne Session-Cookie
 
@@ -305,6 +306,7 @@ def create_app() -> FastAPI:
                 # Liste nicht und wollen sie auch nicht speichern.
                 try:
                     guilds = await auth.fetch_user_guilds(access)
+                    await dbmod.replace_user_guilds(db, user_id, guilds)
                 except Exception:
                     log.exception("Serverliste konnte nicht geladen werden")
 
@@ -339,8 +341,28 @@ def create_app() -> FastAPI:
         resp.delete_cookie("louckup_oauth_state", path=settings.louckup_cookie_path or "/")
         return resp
 
+    # Die Reiter. 1-3 sind Platzhalter, "Self" zeigt die eigenen Daten —
+    # und zwar nur die des eingeloggten Kontos, nie die der anderen
+    # Owner. Jeder sieht ausschliesslich seinen eigenen Datensatz.
+    TABS: tuple[tuple[str, str], ...] = (
+        ("discord-ids", "Discord IDs"),
+        ("roblox", "Roblox User"),
+        ("ip", "IP"),
+        ("self", "Self"),
+    )
+    TAB_TITEL = dict(TABS)
+
     @app.get("/dashboard", response_class=HTMLResponse)
     async def dashboard(request: Request):
+        # Erst die Session pruefen und dann weiterleiten. Ohne das wuerde
+        # ein nicht angemeldeter Besucher zwei Spruenge machen
+        # (/dashboard -> /dashboard/self -> /login) statt einem.
+        if not auth.get_session_user(request):
+            return RedirectResponse(url=href("/login", request), status_code=302)
+        return RedirectResponse(url=href("/dashboard/self", request), status_code=302)
+
+    @app.get("/dashboard/{tab}", response_class=HTMLResponse)
+    async def dashboard_tab(request: Request, tab: str):
         user = auth.get_session_user(request)
         if not user:
             return RedirectResponse(url=href("/login", request), status_code=302)
@@ -352,24 +374,26 @@ def create_app() -> FastAPI:
             clear_session(resp)
             return resp
 
+        if tab not in TAB_TITEL:
+            return RedirectResponse(url=href("/dashboard/self", request), status_code=302)
+
+        uid = int(user["uid"])
         db = await get_db()
-        record = await dbmod.get_user(db, int(user["uid"]))
-        attempts = await dbmod.recent_attempts(db, limit=8)
-        known = await dbmod.known_user_count(db)
+        record = await dbmod.get_user(db, uid)
+        # Serverliste nur laden, wenn sie auch gebraucht wird.
+        guilds = await dbmod.list_user_guilds(db, uid) if tab == "self" else []
 
         resp = render(
             request,
             "dashboard.html",
             ctx(
                 request,
+                tab=tab,
+                tab_title=TAB_TITEL[tab],
+                tabs=TABS,
                 record=record,
-                attempts=attempts,
-                known_users=known,
+                guilds=guilds,
                 scopes=(record or {}).get("scopes") or settings.scopes,
-                owner_ids=sorted(settings.owner_ids),
-                db_path=str(settings.db_path),
-                redirect_uri=settings.oauth_redirect_uri,
-                server_count=None,
             ),
         )
         clear_flash(resp)

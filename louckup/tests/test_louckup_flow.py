@@ -134,7 +134,7 @@ def main() -> int:
         r = client.get("/louckup/login")
         check("HTTP 200", r.status_code == 200, str(r.status_code))
         check("Discord-Knopf vorhanden", "Mit Discord anmelden" in r.text)
-        check("Redirect-URI sichtbar", settings.oauth_redirect_uri in r.text)
+        check("keine Erklaerung auf der Loginseite", settings.oauth_redirect_uri not in r.text)
 
         print("\n3) /louckup/auth/discord")
         r = client.get("/louckup/auth/discord", follow_redirects=False)
@@ -164,9 +164,29 @@ def main() -> int:
         print("\n6) Dashboard als Owner")
         r = client.get("/louckup/dashboard")
         check("HTTP 200", r.status_code == 200, str(r.status_code))
-        check("Begruesst den User", "Chef" in r.text, r.text[:200])
-        check("Zeigt E-Mail", "chef@example.com" in r.text)
-        check("Geruest vorhanden", "Platzhalter" in r.text)
+        check("leitet auf den Reiter Self", r.url.path.endswith("/dashboard/self"), r.url.path)
+        check("Seitenreiter vorhanden", all(
+            label in r.text for label in ("Discord IDs", "Roblox User", "IP", "Self")
+        ))
+        check("Eigener Name", "Chef" in r.text, r.text[:200])
+        check("Eigene E-Mail", "chef@example.com" in r.text)
+        check("Eigene Discord-ID", "111111111111111111" in r.text)
+        check("Eigene Server", "Testserver" in r.text)
+
+        print("\n6b) Platzhalter-Reiter")
+        for slug, label in (("discord-ids", "Discord IDs"), ("roblox", "Roblox User"), ("ip", "IP")):
+            r = client.get(f"/louckup/dashboard/{slug}")
+            check(f"Reiter {label} erreichbar", r.status_code == 200, str(r.status_code))
+            check(f"Reiter {label} ist leer", "<div class=\"leer\">" in r.text)
+
+        print("\n6c) Unbekannter Reiter")
+        r = client.get("/louckup/dashboard/quatsch", follow_redirects=True)
+        check("faellt auf Self zurueck", r.url.path.endswith("/dashboard/self"), r.url.path)
+
+        print("\n6d) Keine Erklaerungen auf der Seite")
+        r = client.get("/louckup/dashboard/self")
+        for wort in ("Redirect-URI", "Datenbank:", "Owner-IDs", "Protokoll"):
+            check(f"kein '{wort}'", wort not in r.text)
 
         print("\n7) Abmelden")
         r = client.get("/louckup/logout", follow_redirects=False)
@@ -195,7 +215,7 @@ def main() -> int:
 
         token = auth.create_session_token(OWNER, gs())
         client2.cookies.set("louckup_session", token, path="/louckup")
-        r = client2.get("/louckup/dashboard", follow_redirects=False)
+        r = client2.get("/louckup/dashboard/self", follow_redirects=False)
         check("Rauswurf aufs Dashboard", r.headers.get("location") == "/", r.headers.get("location", ""))
         check("Session wird geloescht", clears_cookie(r, "louckup_session"), str(r.headers.get_list("set-cookie")))
 
@@ -260,6 +280,8 @@ def main() -> int:
         )
         r = c.get("/louckup/login")
         check("Loginseite mit richtigem CSS-Pfad", "/louckup/static/css/louckup.css" in r.text)
+        check("Login nur mit Knopf, ohne Erklaerung", "gdm.join" not in r.text and "Mit Discord anmelden" in r.text)
+        check("kein Footer mehr", "footer" not in r.text)
 
     print("\n" + "=" * 60)
     if FAILURES:

@@ -1,0 +1,39 @@
+<div class="card">
+  <div class="self-top">
+    {% if avatar_url %}<img class="self-avatar" src="{{ avatar_url }}" alt="">{% endif %}
+    <div>
+      <div class="self-name">{{ record.global_name if record and record.global_name else (user.global_name or user.username) }}</div>
+      <div class="self-sub">@{{ record.username if record else user.username }}</div>
+    </div>
+  </div>
+
+  <dl class="daten">
+    <div><dt>Discord-ID</dt><dd><code>{{ user.uid }}</code></dd></div>
+    <div><dt>Benutzername</dt><dd>{{ record.username if record else user.username }}</dd></div>
+    <div><dt>Anzeigename</dt><dd>{{ record.global_name if record and record.global_name else "—" }}</dd></div>
+    <div><dt>E-Mail</dt><dd>{{ record.email if record and record.email else "—" }}</dd></div>
+    <div><dt>Verifiziert</dt><dd>{{ "ja" if record and record.verified else "nein" }}</dd></div>
+    <div><dt>Erster Login</dt><dd>{{ (record.updated_at if record else None) | timestamp }}</dd></div>
+    <div><dt>Letzter Login</dt><dd>{{ (record.last_login_at if record else None) | timestamp }}</dd></div>
+  </dl>
+
+  <div class="daten-label">Scopes</div>
+  <div class="chips">
+    {% for s in scopes.split() %}<span class="chip">{{ s }}</span>{% endfor %}
+  </div>
+
+  <div class="daten-label">Server <span class="count">{{ guilds | length }}</span></div>
+  {% if guilds %}
+    <ul class="server-liste">
+      {% for g in guilds %}
+        <li>
+          <span class="server-name">{{ g.name }}</span>
+          {% if g.owner %}<span class="pill ok">Owner</span>{% endif %}
+          {% if g.member_count %}<span class="muted">{{ g.member_count }}</span>{% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <div class="leer">—</div>
+  {% endif %}
+</div>
