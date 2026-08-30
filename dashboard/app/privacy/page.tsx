@@ -140,7 +140,11 @@ export default function PrivacyPage() {
         <ul className="list-disc pl-5 space-y-2 text-slate-400">
           <li>Keine Nachrichteninhalte aus euren Kanälen.</li>
           <li>Keine E-Mail-Adressen, Telefonnummern oder Passwörter.</li>
-          <li>Keine IP-Adressen zu Werbe- oder Analysezwecken.</li>
+          <li>
+            Keine IP-Adressen zu Werbe-, Analyse- oder Ortungszwecken. Die
+            eine Ausnahme steht unten im Abschnitt{" "}
+            <strong className="text-slate-300">IP-Adressen</strong>.
+          </li>
           <li>Keine Daten von Servern, auf denen der Bot nicht ist.</li>
         </ul>
         <p>
@@ -167,6 +171,99 @@ export default function PrivacyPage() {
           läuft spätestens nach 30 Tagen ab. Es findet keine Auswertung
           eures Verhaltens statt.
         </p>
+        <p>
+          Für den geschlossenen Inhaber-Bereich gilt das{" "}
+          <strong className="text-slate-300">nicht</strong> — dort werden
+          zusätzlich E-Mail-Adresse, Serverliste und IP-Adresse
+          verarbeitet. Das steht im Abschnitt{" "}
+          <strong className="text-slate-300">
+            Geschlossener Inhaber-Bereich
+          </strong>
+          .
+        </p>
+      </Section>
+
+      <Section title="IP-Adressen">
+        <p>
+          <strong className="text-slate-300">Ja, wir speichern sie —</strong>{" "}
+          und zwar genau eine: die Adresse, mit der eine Anmeldung am
+          geschlossenen Inhaber-Bereich erfolgt. Sie landet neben dem
+          Zeitpunkt im Anmelde-Verlauf.
+        </p>
+        <ul className="list-disc pl-5 space-y-2 text-slate-400">
+          <li>
+            <strong className="text-slate-300">Wozu:</strong> um
+            ungewöhnliche Anmeldungen zu bemerken, Angriffe auf den
+            Anmeldeweg abzuwehren und nachvollziehen zu können, von wo aus
+            der Bot und der Bereich benutzt werden.
+          </li>
+          <li>
+            <strong className="text-slate-300">Wie lange:</strong> 90 Tage,
+            danach wird die Adresse automatisch entfernt. Der Eintrag selbst
+            bleibt ohne Adresse stehen.
+          </li>
+          <li>
+            <strong className="text-slate-300">
+              Wozu ausdrücklich nicht:
+            </strong>{" "}
+            keine Ortung, keine Zusammenführung mit anderen Diensten, keine
+            Werbung, keine Analyse, keine Weitergabe an Dritte.
+          </li>
+        </ul>
+        <p>
+          Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO — das berechtigte
+          Interesse, einen Dienst zu betreiben, der gegen Missbrauch
+          geschützt ist und dessen Nutzung sich zurückverfolgen lässt.
+        </p>
+        <p>
+          Einschränkung, die dazugehört: eine IP-Adresse sagt, welche
+          Leitung eine Anfrage geschickt hat — nicht, wer davor saß. Sie ist
+          ein Hinweis, kein Beweis.
+        </p>
+      </Section>
+
+      <Section title="Geschlossener Inhaber-Bereich">
+        <p>
+          Neben diesem Dashboard gibt es einen Bereich, der nur für
+          eingetragene Inhaber erreichbar ist. Wer nicht auf dieser Liste
+          steht, bekommt dort keine Sitzung und wird ohne Umweg
+          zurückgeschickt.
+        </p>
+        <p>
+          Der Anmeldeweg dort ist derselbe wie hier, übergibt aber mehr:
+          zusätzlich die E-Mail-Adresse und die Serverliste des
+          Discord-Kontos. Beides liegt in der Datenbank des Bereichs,
+          gemeinsam mit den oben genannten IP-Adressen.
+        </p>
+        <ul className="list-disc pl-5 space-y-2 text-slate-400">
+          <li>
+            <strong className="text-slate-300">Wozu:</strong> nachvollziehen,
+            wer Zugriff hatte und von wo, und im Störungsfall sehen können,
+            wo der Bot überall läuft.
+          </li>
+          <li>
+            <strong className="text-slate-300">Wer es sieht:</strong> nur die
+            eingetragenen Inhaber. Jeder sieht im Reiter „Self“
+            ausschließlich seine eigenen Daten.
+          </li>
+          <li>
+            <strong className="text-slate-300">
+              Was daraus nicht folgt:
+            </strong>{" "}
+            E-Mail-Adressen <em>fremder</em> Konten können damit nicht
+            abgefragt werden. Discord gibt eine Adresse ausschließlich dem
+            Konto selbst und nur bei dessen eigener Anmeldung heraus — für
+            eine fremde ID gibt es keinen Weg, auch nicht mit einem
+            Bot-Token.
+          </li>
+          <li>
+            <strong className="text-slate-300">
+              Zugangs- und Auffrisch-Token
+            </strong>{" "}
+            werden gespeichert, weil der Bereich sonst nicht funktioniert,
+            aber auf keiner Seite ausgegeben — auch nicht auszugsweise.
+          </li>
+        </ul>
       </Section>
 
       <Section title="Cookies">

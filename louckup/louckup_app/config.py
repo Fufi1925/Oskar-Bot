@@ -78,6 +78,11 @@ class Settings(BaseSettings):
     louckup_lookup_max_requests: int = 250
     louckup_lookup_timeout: float = 12.0
 
+    # Wie viele Tage eine IP-Adresse im Login-Verlauf stehen bleibt.
+    # Danach wird sie geleert — nicht die Zeile, nur die Adresse.
+    # 0 oder weniger heisst: nie aufraeumen.
+    louckup_ip_aufbewahren_tage: int = 90
+
     # ── Optik ──────────────────────────────────────────────────────
     louckup_brand_name: str = "Louckup"
     louckup_footer: str = "Louckup — abgetrennter Bereich"

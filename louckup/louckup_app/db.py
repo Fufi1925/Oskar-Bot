@@ -65,6 +65,11 @@ CREATE TABLE IF NOT EXISTS bots (
     created_at      INTEGER NOT NULL
 );
 
+-- Die Adresse, von der aus eine Anmeldung kam. Sie steht hier, damit
+-- nachvollziehbar bleibt, von wo der Bereich benutzt wird und ob sich
+-- jemand von ungewohnten Wegen anmeldet. Sie wird nach
+-- LOUCKUP_IP_AUFBEWAHREN_TAGE Tagen automatisch geloescht und nie
+-- an Dritte weitergegeben.
 CREATE TABLE IF NOT EXISTS login_attempts (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id      INTEGER,
@@ -72,6 +77,7 @@ CREATE TABLE IF NOT EXISTS login_attempts (
     is_owner     INTEGER DEFAULT 0,
     outcome      TEXT NOT NULL,
     detail       TEXT,
+    ip           TEXT,
     created_at   INTEGER NOT NULL
 );
 
@@ -105,6 +111,12 @@ async def _nachziehen(db: aiosqlite.Connection) -> None:
         await db.execute(
             "UPDATE users SET first_login_at = COALESCE(last_login_at, updated_at)"
         )
+        await db.commit()
+
+    cur = await db.execute("PRAGMA table_info(login_attempts)")
+    spalten = {zeile[1] for zeile in await cur.fetchall()}
+    if "ip" not in spalten:
+        await db.execute("ALTER TABLE login_attempts ADD COLUMN ip TEXT")
         await db.commit()
 
 
@@ -224,13 +236,17 @@ async def record_attempt(
     is_owner: bool,
     outcome: str,
     detail: str | None = None,
+    ip: str | None = None,
 ) -> None:
     await db.execute(
         """
-        INSERT INTO login_attempts (user_id, username, is_owner, outcome, detail, created_at)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO login_attempts (user_id, username, is_owner, outcome, detail, ip, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
         """,
-        (user_id, username, int(is_owner), outcome, (detail or "")[:300], int(time.time())),
+        (
+            user_id, username, int(is_owner), outcome, (detail or "")[:300],
+            (ip or None), int(time.time()),
+        ),
     )
     await db.commit()
 
@@ -248,6 +264,56 @@ async def own_attempts(
         (user_id, limit),
     )
     return [dict(r) for r in await cur.fetchall()]
+
+
+async def adressen_von(
+    db: aiosqlite.Connection,
+    user_id: int,
+    *,
+    nur_erfolgreich: bool = False,
+    limit: int = 20,
+) -> list[dict[str, Any]]:
+    """Die Adressen, von denen aus dieses Konto hier war.
+
+    Zurück kommen zusammengefasste Zeilen: eine je Adresse, mit Anzahl,
+    erstem und letztem Vorkommen. `nur_erfolgreich` lässt die Versuche
+    weg, die keine Sitzung bekommen haben.
+    """
+    bedingung = "AND outcome = 'granted'" if nur_erfolgreich else ""
+    cur = await db.execute(
+        f"""
+        SELECT ip,
+               COUNT(*)            AS mal,
+               MIN(created_at)     AS zuerst,
+               MAX(created_at)     AS zuletzt
+        FROM login_attempts
+        WHERE user_id = ? AND ip IS NOT NULL AND ip != '' {bedingung}
+        GROUP BY ip
+        ORDER BY zuletzt DESC
+        LIMIT ?
+        """,
+        (user_id, limit),
+    )
+    return [dict(r) for r in await cur.fetchall()]
+
+
+async def adressen_aufraeumen(db: aiosqlite.Connection, tage: int) -> int:
+    """Alte Adressen vergessen.
+
+    Eine Adresse verliert mit der Zeit jeden Nutzen: nach ein paar
+    Monaten sagt sie nichts mehr darüber, wer gerade vor dem Rechner
+    sitzt. Was bleibt, ist nur das Risiko. Die Zeile selbst bleibt
+    stehen, nur die Adresse wird geleert.
+    """
+    if tage <= 0:
+        return 0
+    grenze = int(time.time()) - tage * 86400
+    cur = await db.execute(
+        "UPDATE login_attempts SET ip = NULL WHERE ip IS NOT NULL AND created_at < ?",
+        (grenze,),
+    )
+    await db.commit()
+    return cur.rowcount or 0
 
 
 async def recent_attempts(db: aiosqlite.Connection, limit: int = 10) -> list[dict[str, Any]]:

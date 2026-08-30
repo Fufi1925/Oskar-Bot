@@ -61,6 +61,10 @@ from louckup_app.main import create_app  # noqa: E402
 HAUPTBOT_TOKEN = "MTExMTEyMjIzMzM0NDQ1NTUuQUJDREVG.R0hJSktMTU5PUFFSLTEyMzQ1Ng"
 ZWEITBOT_TOKEN = "OTk5OTg4ODc3NjY1NTQ0MzMuWllYV1ZVVFNS.cXRlc3QtdG9rZW4tbjg4Nzc3"
 
+# Der Testclient meldet sich selbst als Absender; genau diese Adresse
+# muss spaeter im Verlauf auftauchen.
+TESTADRESSE = "testclient"
+
 OWNER = {
     "id": "111111111111111111",
     "username": "chef",
@@ -183,11 +187,15 @@ def main() -> int:
         check("Eigene Logins auf Self", "Eigene Logins" in r.text)
         check("eigener Login als erfolgreich vermerkt", "erfolgreich" in r.text)
 
-        print("\n6b) Platzhalter-Reiter")
+        print("\n6b) Reiter Roblox und IP")
         for slug, label in (("roblox", "Roblox User"), ("ip", "IP")):
             r = client.get(f"/louckup/dashboard/{slug}")
             check(f"Reiter {label} erreichbar", r.status_code == 200, str(r.status_code))
-            check(f"Reiter {label} ist leer", '<div class="leer">' in r.text)
+        r = client.get("/louckup/dashboard/roblox")
+        check("Reiter Roblox ist noch leer", '<div class="leer">' in r.text)
+        r = client.get("/louckup/dashboard/ip")
+        check("Reiter IP zeigt Adressen", "Adressen" in r.text and 'name="id"' in r.text, r.text[:300])
+        check("Reiter IP zeigt die eigene Adresse", TESTADRESSE in r.text, r.text[:300])
 
         r = client.get("/louckup/dashboard/discord-ids")
         check("Reiter Discord IDs erreichbar", r.status_code == 200, str(r.status_code))
@@ -563,33 +571,72 @@ def main() -> int:
         # Die eigene ID des eingeloggten Owners.
         r = c.get("/louckup/dashboard/discord-ids?id=111111111111111111")
         check("Seite erreichbar", r.status_code == 200, str(r.status_code))
-        check("Autorisierung wird gezeigt", "Autorisierung" in r.text, r.text[:400])
+        check("eigene Angaben werden gezeigt", "Angaben aus diesem Bereich" in r.text, r.text[:400])
         check("E-Mail aus der eigenen Datenbank", "chef@example.com" in r.text, r.text[:600])
         check("E-Mail steht auch im Profilblock", r.text.count("chef@example.com") >= 2,
               str(r.text.count("chef@example.com")))
-        check("Scope email vermerkt", "Scope email" in r.text, r.text[:600])
-        check("Scope guilds vermerkt", "guilds" in r.text)
         check(
             "Serverliste vom Zeitpunkt der Anmeldung",
-            "Testserver" in r.text and "Zeitpunkt der Autorisierung" in r.text,
+            "Testserver" in r.text and "Zeitpunkt der Anmeldung" in r.text,
             r.text[:600],
         )
-        check("Zeitpunkt der Autorisierung genannt", "Autorisierung bei" in r.text)
 
         # Das Wichtigste: kein Token auf der Seite.
         check("kein Zugangs-Token im Text", "fake-access-token" not in r.text)
         check("kein Auffrisch-Token im Text", "fake-refresh" not in r.text)
-        check("nur gesagt, dass es einen gibt", "wird hier nie angezeigt" in r.text, r.text[:600])
+        check("nur gesagt, dass es einen gibt", "nie angezeigt" in r.text, r.text[:600])
 
         # Eine fremde ID hat hier nichts liegen.
         r = c.get("/louckup/dashboard/discord-ids?id=123456789012345678")
-        check("fremde ID ohne Autorisierung", "Autorisierung bei" not in r.text, r.text[:400])
+        check("fremde ID ohne eigene Angaben", "Angaben aus diesem Bereich" not in r.text, r.text[:400])
         check("fremde ID ohne E-Mail", "chef@example.com" not in r.text)
         check("Hinweis, warum die Zeile leer bleibt", "nicht abrufbar" in r.text, r.text[:600])
 
         # Erster Login ist nicht mehr die letzte Aktualisierung.
         r = c.get("/louckup/dashboard/self")
         check("Self zeigt den ersten Login", "Erster Login" in r.text)
+
+    print("\n20) Adressen und Regeln")
+    with mounted_client() as c:
+        c.get("/louckup/auth/discord", follow_redirects=False)
+        state = c.cookies.get("louckup_oauth_state")
+        fake_user.who = "owner"
+        c.get("/louckup/auth/callback", params={"code": "abc", "state": state}, follow_redirects=False)
+
+        r = c.get("/louckup/dashboard/ip")
+        check("Reiter IP erreichbar", r.status_code == 200, str(r.status_code))
+        check("eigene Adresse steht da", TESTADRESSE in r.text, r.text[:400])
+        check("Aufbewahrungsdauer genannt", "Tagen entfernt" in r.text, r.text[:400])
+
+        # Nur Adressen von Sitzungen, wenn es um ein anderes Konto geht.
+        r = c.get("/louckup/dashboard/ip?id=111111111111111111")
+        check("eigene ID gilt als eigene Adressen", TESTADRESSE in r.text, r.text[:400])
+        r = c.get("/louckup/dashboard/ip?id=999999999999999999")
+        check("fremde ID bleibt ohne Adresse", "Keine Adresse gespeichert" in r.text, r.text[:400])
+
+        r = c.get("/louckup/dashboard/self")
+        check("Self nennt die Regeln", "Regeln" in r.text)
+        check("Regeln sind nummeriert", "<ol class=\"regeln\">" in r.text, r.text[:400])
+        check("Self nennt die letzte Adresse", "Letzte Adresse" in r.text and TESTADRESSE in r.text, r.text[:400])
+        check("Self zeigt die eigenen Server", "Testserver" in r.text)
+
+        # Kein Wort mehr ueber Rechte, die man uns „einfach gibt".
+        seiten = [
+            c.get("/louckup/dashboard/self").text,
+            c.get("/louckup/dashboard/ip").text,
+            c.get("/louckup/dashboard/discord-ids?id=111111111111111111").text,
+        ]
+        check(
+            "kein Wort von Rechten oder Genehmigungen",
+            not any(wort in seite.lower() for seite in seiten for wort in ("scope", "genehmigt")),
+            " ".join(w for seite in seiten for w in ("scope", "genehmigt") if w in seite.lower()),
+        )
+
+        # Die Adresse steht auch in der Suche, wenn das Konto hier war.
+        r = c.get("/louckup/dashboard/discord-ids?id=111111111111111111")
+        check("Suche nennt die Adresse", TESTADRESSE in r.text, r.text[:400])
+        check("Suche nennt die E-Mail", "chef@example.com" in r.text)
+        check("Suche ohne Scope-Sprache", "Autorisierung bei" not in r.text)
 
     print("\n" + "=" * 60)
     if FAILURES:

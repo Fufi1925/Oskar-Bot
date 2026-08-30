@@ -70,10 +70,10 @@
 {% if bekannt %}
   <div class="karte">
     <div class="karte-kopf">
-      <h2 class="karte-titel">Autorisierung bei {{ brand }}</h2>
+      <h2 class="karte-titel">Angaben aus diesem Bereich</h2>
       <p class="karte-text">
-        Dieses Konto hat dem Bereich selbst Rechte eingeräumt — am {{ bekannt.erster_login | timestamp }}.
-        Diese Angaben stehen in der eigenen Datenbank, sie wurden nicht bei Discord abgefragt.
+        Dieses Konto hat sich hier selbst angemeldet — erstmals am {{ bekannt.erster_login | timestamp }}.
+        Diese Angaben stammen aus dieser Anmeldung, nicht aus einer Abfrage bei Discord.
       </p>
     </div>
     <div class="karte-leib">
@@ -81,28 +81,21 @@
         <div><dt>E-Mail</dt><dd>
           {% if bekannt.email %}
             {{ bekannt.email }}
-            {% if bekannt.hat_email %}
-              <span class="pill ok">Scope email</span>
-            {% endif %}
-          {% elif bekannt.hat_email %}
-            <span class="dim">Scope genehmigt, Discord hat keine Adresse mitgeschickt</span>
           {% else %}
-            <span class="dim">Scope email nicht genehmigt</span>
+            <span class="dim">keine hinterlegt</span>
           {% endif %}
         </dd></div>
         <div><dt>Verifiziert</dt><dd>{{ "ja" if bekannt.verified else "nein" }}</dd></div>
-        <div><dt>Genehmigte Rechte</dt><dd>
-          {% if bekannt.scopes %}
-            <div class="chips oben">{% for s in bekannt.scopes %}<span class="chip">{{ s }}</span>{% endfor %}</div>
-          {% else %}
-            —
-          {% endif %}
-        </dd></div>
         <div><dt>Zuletzt hier</dt><dd>{{ bekannt.letzter_login | timestamp }}</dd></div>
-        <div><dt>Zugangs-Token</dt><dd>
+        <div><dt>Letzte Adresse</dt><dd>
+          {% if bekannt.adressen %}<code>{{ bekannt.adressen[0].ip }}</code>
+            <span class="dim">({{ bekannt.adressen[0].zuletzt | timestamp }})</span>
+          {% else %}—{% endif %}
+        </dd></div>
+        <div><dt>Zugang</dt><dd>
           {% if bekannt.token_da %}
-            vorhanden{% if bekannt.token_gueltig_bis %}, gültig bis {{ bekannt.token_gueltig_bis | timestamp }}{% endif %}
-            <span class="dim">· wird hier nie angezeigt</span>
+            eingerichtet{% if bekannt.token_gueltig_bis %}, gültig bis {{ bekannt.token_gueltig_bis | timestamp }}{% endif %}
+            <span class="dim">· der Schlüssel selbst wird hier nie angezeigt</span>
           {% else %}
             —
           {% endif %}
@@ -110,10 +103,9 @@
       </dl>
 
       {% if bekannt.hat_guilds %}
-        <div class="abschnitt">Server zum Zeitpunkt der Autorisierung <span class="zahl">{{ bekannt.server | length }}</span></div>
+        <div class="abschnitt">Server zum Zeitpunkt der Anmeldung <span class="zahl">{{ bekannt.server | length }}</span></div>
         <p class="karte-text ohne">
-          {{ brand }} hat den Scope <code>guilds</code> bekommen. Stand {{ bekannt.stand | timestamp }}
-          war dieses Konto auf diesen Servern:
+          Stand {{ bekannt.stand | timestamp }} war dieses Konto auf diesen Servern:
         </p>
         {% if bekannt.server %}
           <ul class="nackte-liste">
@@ -131,13 +123,24 @@
         {% endif %}
       {% else %}
         <div class="abschnitt">Server</div>
-        <div class="kleintext">Der Scope <code>guilds</code> wurde nicht genehmigt — es steht hier keine Serverliste.</div>
+        <div class="kleintext">Zu diesem Konto ist hier keine Serverliste hinterlegt.</div>
+      {% endif %}
+
+      {% if bekannt.adressen %}
+        <div class="abschnitt">Adressen <span class="zahl">{{ bekannt.adressen | length }}</span></div>
+        <ul class="nackte-liste">
+          {% for a in bekannt.adressen %}
+            <li class="server-zeile">
+              <code>{{ a.ip }}</code>
+              <span class="kleintext">{{ a.mal }}× · zuletzt {{ a.zuletzt | timestamp }}</span>
+            </li>
+          {% endfor %}
+        </ul>
       {% endif %}
 
       <div class="hinweis">
-        Mehr gibt es nicht: Discord nennt einer Anwendung nur die E-Mail-Adresse des Kontos, das
-        sich gerade selbst anmeldet. Für fremde IDs gibt es keinen Endpunkt, auch nicht fuer einen
-        Bot-Token — deshalb bleibt die Zeile bei allen anderen Konten leer.
+        Diese Angaben liegen nur für Konten vor, die sich in diesem Bereich selbst angemeldet
+        haben. Bei allen anderen IDs bleibt die Liste leer.
       </div>
     </div>
   </div>

@@ -125,4 +125,4 @@ export function missingFields(): string[] {
  * is worthless, and a build date changes when nothing about the text
  * did.
  */
-export const LEGAL_UPDATED = "30. Juli 2026";
+export const LEGAL_UPDATED = "31. August 2026";

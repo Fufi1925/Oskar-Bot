@@ -200,6 +200,43 @@ def create_app() -> FastAPI:
             path = "/" + path
         return f"{pref}{path}" if pref else path
 
+    def konto_kurz(reihe: dict[str, Any] | None, user_id: int) -> dict[str, Any]:
+        """Nur die drei Felder, die eine Seite zum Anzeigen braucht.
+
+        Die vollstaendige Zeile enthaelt Zugangs- und Auffrisch-Token.
+        Die gehen keine Vorlage etwas an — wer sie nicht bekommt, kann
+        sie auch nicht versehentlich ausgeben.
+        """
+        return {
+            "user_id": user_id,
+            "username": (reihe or {}).get("username"),
+            "global_name": (reihe or {}).get("global_name"),
+        }
+
+    def adresse(request: Request) -> str:
+        """Die Adresse, von der die Anfrage kam.
+
+        Der Bereich haengt hinter einem Proxy (Railway, nginx, ...). Von
+        dort kommt `X-Forwarded-For`, und dessen linker Eintrag ist die
+        Adresse, von der die Anfrage urspruenglich losging. Fehlt die
+        Zeile, gilt die Adresse, mit der sich der Proxy gemeldet hat.
+
+        Einschraenkung, die man kennen muss: wer selbst einen Proxy
+        dazwischenklemmt, kann die Zeile setzen, wie er will. Die
+        Adresse ist also ein Hinweis und kein Beweis — gut genug, um
+        ungewoehnliche Wege zu bemerken, nicht gut genug, um jemanden
+        darauf festzunageln.
+        """
+        kette = request.headers.get("x-forwarded-for") or ""
+        for teil in kette.split(","):
+            teil = teil.strip()
+            if teil:
+                return teil[:64]
+        einzeln = (request.headers.get("x-real-ip") or "").strip()
+        if einzeln:
+            return einzeln[:64]
+        return request.client.host if request.client else ""
+
     def cookie_secure(request: Request) -> bool:
         proto = (request.headers.get("x-forwarded-proto") or request.url.scheme or "").lower()
         return proto == "https"
@@ -391,7 +428,13 @@ def create_app() -> FastAPI:
                 is_owner=is_owner,
                 outcome="granted" if is_owner else "not_owner",
                 detail=granted,
+                ip=adresse(request),
             )
+            # Alte Adressen fallen weg, solange der Bereich laeuft.
+            try:
+                await dbmod.adressen_aufraeumen(db, settings.louckup_ip_aufbewahren_tage)
+            except Exception:
+                log.debug("Adressen konnten nicht aufgeraeumt werden", exc_info=True)
         except HTTPException as exc:
             log.exception("Louckup OAuth fehlgeschlagen")
             resp = RedirectResponse(url=href("/login", request), status_code=302)
@@ -432,7 +475,7 @@ def create_app() -> FastAPI:
     TAB_UNTERTITEL = {
         "discord-ids": "Eine Discord-ID eingeben. Alle eingetragenen Bots suchen mit.",
         "roblox": "Noch leer.",
-        "ip": "Noch leer.",
+        "ip": "Adressen, von denen aus ein Konto diesen Bereich benutzt hat.",
         "self": "Deine eigenen Daten aus diesem Bereich.",
         "einstellungen": "Bots eintragen, prüfen und entfernen.",
     }
@@ -728,8 +771,7 @@ def create_app() -> FastAPI:
             "global_name": reihe.get("global_name"),
             "email": reihe.get("email"),
             "verified": bool(reihe.get("verified")),
-            "scopes": scopes,
-            "hat_email": "email" in scopes,
+            "hat_guilds": "guilds" in scopes,
             "hat_guilds": "guilds" in scopes,
             "letzter_login": reihe.get("last_login_at"),
             "erster_login": reihe.get("first_login_at") or reihe.get("last_login_at"),
@@ -737,6 +779,7 @@ def create_app() -> FastAPI:
             "token_gueltig_bis": reihe.get("token_expires_at"),
             "server": server,
             "stand": max(zeiten) if zeiten else reihe.get("last_login_at"),
+            "adressen": await dbmod.adressen_von(db, user_id, nur_erfolgreich=True, limit=10),
         }
 
     @app.get("/dashboard", response_class=HTMLResponse)
@@ -767,10 +810,11 @@ def create_app() -> FastAPI:
         uid = int(user["uid"])
         db = await get_db()
         record = await dbmod.get_user(db, uid)
-        # Serverliste nur laden, wenn sie auch gebraucht wird.
+        # Serverliste und Adressen nur laden, wenn sie gebraucht werden.
         # Auf Self nur die eigenen Daten — inklusive der eigenen Logins.
         guilds = await dbmod.list_user_guilds(db, uid) if tab == "self" else []
-        logins = await dbmod.own_attempts(db, uid, limit=10) if tab == "self" else []
+        logins = await dbmod.own_attempts(db, uid, limit=12) if tab == "self" else []
+        adressen = await dbmod.adressen_von(db, uid, limit=8) if tab in ("self", "ip") else []
 
         extra: dict[str, Any] = {
             "csrf": csrf(request),
@@ -778,7 +822,27 @@ def create_app() -> FastAPI:
             "tab_gruppen": TAB_GRUPPEN,
             "tab_symbol": TAB_SYMBOL,
             "tab_titel": TAB_TITEL,
+            "ip_tage": settings.louckup_ip_aufbewahren_tage,
         }
+
+        if tab == "ip":
+            gesucht_ip = (request.query_params.get("id") or "").strip()
+            if gesucht_ip and gesucht_ip.isdigit() and int(gesucht_ip) != uid:
+                # Ein anderes Konto. Adressen nur von Anmeldungen, die
+                # hier wirklich eine Sitzung bekommen haben.
+                ziel = int(gesucht_ip)
+                fremd = await dbmod.get_user(db, ziel)
+                extra["ip_gesucht"] = gesucht_ip
+                extra["ip_konto"] = konto_kurz(fremd, ziel)
+                extra["ip_adressen"] = await dbmod.adressen_von(
+                    db, ziel, nur_erfolgreich=True, limit=25
+                )
+                extra["ip_fremd"] = True
+            else:
+                extra["ip_gesucht"] = gesucht_ip or str(uid)
+                extra["ip_konto"] = konto_kurz(record, uid)
+                extra["ip_adressen"] = await dbmod.adressen_von(db, uid, limit=25)
+                extra["ip_fremd"] = False
 
         if tab == "einstellungen":
             reihen = await dbmod.list_bots(db)
@@ -819,7 +883,7 @@ def create_app() -> FastAPI:
                 record=record,
                 guilds=guilds,
                 logins=logins,
-                scopes=(record or {}).get("scopes") or settings.scopes,
+                adressen=adressen,
                 **extra,
             ),
         )
@@ -897,7 +961,7 @@ def create_app() -> FastAPI:
 
         await dbmod.record_attempt(
             db, user_id=int(user["uid"]), username=user.get("username"),
-            is_owner=True, outcome="bot_added", detail=name,
+            is_owner=True, outcome="bot_added", detail=name, ip=adresse(request),
         )
         return _flash_zurueck(request, f"{name} eingetragen.")
 
@@ -965,6 +1029,7 @@ def create_app() -> FastAPI:
             await dbmod.record_attempt(
                 db, user_id=int(user["uid"]), username=user.get("username"),
                 is_owner=True, outcome="bot_removed", detail=str(reihe.get("label")),
+                ip=adresse(request),
             )
         return _flash_zurueck(request, f"{reihe['label'] if reihe else 'Eintrag'} entfernt.")
 

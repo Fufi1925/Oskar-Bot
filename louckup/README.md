@@ -31,17 +31,36 @@ gültiges Cookie damit sofort seine Wirkung.
 |---|---|
 | Discord IDs | Suche nach einer Discord-ID über alle eingetragenen Bots |
 | Roblox User | Platzhalter |
-| IP | Platzhalter |
-| Self | die eigenen Daten des eingeloggten Kontos |
+| IP | Adressen, von denen aus ein Konto hier war — eigene oder per ID |
+| Self | die eigenen Daten, die eigenen Adressen, die eigenen Logins und die Regeln des Bereichs |
 | Einstellungen | Bots eintragen, prüfen, entfernen — nur mit Token, Name und Bild kommen von selbst |
 
 **Self** zeigt ausschließlich die Daten des Accounts, der gerade
 eingeloggt ist — Discord-ID, Namen, E-Mail, Verifiziert-Status,
-genehmigte Scopes, Zeitpunkte des ersten und letzten Logins, die eigene
-Serverliste und die eigenen Logins. Jeder Owner sieht nur seinen eigenen
-Datensatz, nie den der anderen: die Loginversuche der anderen stehen
-zwar in derselben Tabelle, werden aber für den Self-Reiter gar nicht
-erst abgefragt.
+Zeitpunkte des ersten und letzten Logins, die letzte Adresse, die
+eigenen Adressen, die eigene Serverliste und die eigenen Logins. Dazu
+stehen die **Regeln des Bereichs** auf der Seite: wer hier hineinkommt,
+was die Suche darf und dass jeder Vorgang festgehalten wird. Jeder Owner
+sieht nur seinen eigenen Datensatz, nie den der anderen: die
+Loginversuche der anderen stehen zwar in derselben Tabelle, werden aber
+für den Self-Reiter gar nicht erst abgefragt.
+
+## Adressen
+
+Zu jeder Anmeldung wird die Adresse festgehalten, von der sie kam
+(`X-Forwarded-For`, sonst die Adresse des Proxys). Zweck: ungewöhnliche
+Anmeldungen bemerken, den Anmeldeweg gegen Missbrauch schützen und
+sehen, von wo der Bot und der Bereich benutzt werden. Nach
+`LOUCKUP_IP_AUFBEWAHREN_TAGE` Tagen (Standard 90) wird die Adresse
+entfernt — nicht die Zeile, nur die Adresse.
+
+Zu sehen sind sie im Reiter **IP** (eigene oder per ID), auf **Self**
+und in der Suche bei Konten, die sich hier angemeldet haben. Bei
+anderen Konten nur die Adressen von Anmeldungen, die hier wirklich eine
+Sitzung bekommen haben.
+
+Eine Adresse sagt, welche Leitung eine Anfrage geschickt hat — nicht,
+wer davor saß. Sie ist ein Hinweis, kein Beweis.
 
 ## Optik
 
@@ -81,7 +100,7 @@ louckup/
 │   │   └── partials/  platzhalter.html, self.html, discord-ids.html,
 │   │                  einstellungen.html, symbole.html (SVG-Makros)
 │   └── static/css/    eigenes Styling nach Dashboard-Vorbild
-├── tests/             test_louckup_flow.py (121 Pruefungen)
+├── tests/             test_louckup_flow.py (132 Pruefungen)
 ├── requirements.txt
 ├── .env.example
 └── run_louckup.py     nur für den Standalone-Betrieb
@@ -177,9 +196,10 @@ Serverliste in `louckup.db`. Die Serverliste wird für Nicht-Owner nicht
 einmal geladen.
 
 Die Suche zeigt zu einer ID, was dieser Bereich über sie gespeichert
-hat — E-Mail, Rechte, Serverstand. Das sind ausschließlich Angaben, die
-das betroffene Konto diesem Bereich bei seinem eigenen Login selbst
-übergeben hat; für alle anderen IDs bleibt die Zeile leer.
+hat — E-Mail, Serverstand und die Adressen ihrer Anmeldungen. Das sind
+ausschließlich Angaben, die das betroffene Konto diesem Bereich bei
+seinem eigenen Login selbst übergeben hat; für alle anderen IDs bleibt
+die Zeile leer.
 
 **Nie** ausgegeben werden der Zugangs- und der Auffrisch-Token. Sie
 stehen in der Datenbank, damit der Bereich funktioniert, erscheinen

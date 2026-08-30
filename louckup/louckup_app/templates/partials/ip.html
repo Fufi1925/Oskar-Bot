@@ -1,0 +1,69 @@
+{# IP — die Adressen, von denen aus ein Konto hier war.
+
+   Ohne Angabe gilt das eigene Konto. Mit einer ID dahinter das Konto,
+   das dort eingetragen ist — soweit es sich hier je angemeldet hat. #}
+
+<div class="karte">
+  <div class="karte-kopf">
+    <h2 class="karte-titel">Adressen</h2>
+    <p class="karte-text">
+      Von wo aus ein Konto diesen Bereich benutzt hat. Ohne Angabe siehst du deine eigenen.
+    </p>
+  </div>
+  <div class="karte-leib">
+    <form method="get" action="" class="formular">
+      <label class="feld">
+        <span>Discord-ID</span>
+        <input type="text" name="id" value="{{ ip_gesucht or '' }}" placeholder="eigene Adressen, wenn leer"
+               inputmode="numeric" autocomplete="off" spellcheck="false">
+      </label>
+      <button type="submit" class="knopf">Zeigen</button>
+    </form>
+  </div>
+</div>
+
+{% if ip_konto %}
+  <div class="karte">
+    <div class="karte-kopf">
+      <h2 class="karte-titel">
+        {% if ip_fremd %}{{ ip_konto.global_name or ip_konto.username or ip_konto.user_id }}
+        {% else %}Deine Adressen{% endif %}
+      </h2>
+      <p class="karte-text">
+        {% if ip_konto.username %}@{{ ip_konto.username }} · {% endif %}<code>{{ ip_konto.user_id }}</code>
+      </p>
+    </div>
+    <div class="karte-leib">
+      {% if ip_adressen %}
+        <ul class="nackte-liste">
+          {% for a in ip_adressen %}
+            <li class="server-zeile">
+              <code>{{ a.ip }}</code>
+              <span class="kleintext">
+                {{ a.mal }}× · zuerst {{ a.zuerst | timestamp }} · zuletzt {{ a.zuletzt | timestamp }}
+              </span>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <div class="leer">Keine Adresse gespeichert</div>
+        <div class="hinweis">
+          {% if ip_fremd %}
+            Zu diesem Konto liegt keine Adresse vor — es hat sich hier noch nicht angemeldet,
+            oder die Adressen sind schon entfernt.
+          {% else %}
+            Sobald du dich von einer anderen Leitung aus anmeldest, steht sie hier.
+          {% endif %}
+        </div>
+      {% endif %}
+
+      <div class="hinweis">
+        Adressen werden nach {{ ip_tage if ip_tage else 90 }} Tagen entfernt. Sie dienen dazu,
+        ungewoehnliche Anmeldungen zu bemerken und zu sehen, von wo der Bereich benutzt wird —
+        nicht zur Ortung, nicht fuer Werbung, und sie gehen nicht an Dritte.
+        {% if ip_fremd %}Bei anderen Konten stehen nur Adressen von Anmeldungen, die hier
+        wirklich eine Sitzung bekommen haben.{% endif %}
+      </div>
+    </div>
+  </div>
+{% endif %}

@@ -1,8 +1,9 @@
-{% from "partials/symbole.html" import symbol %}
+{# Self — nur die eigenen Daten, und die Regeln, die hier gelten. #}
+
 <div class="karte">
   <div class="karte-kopf">
     <h2 class="karte-titel">Dein Konto</h2>
-    <p class="karte-text">Was dieser Bereich ueber dich gespeichert hat — und sonst nichts.</p>
+    <p class="karte-text">Was dieser Bereich über dich gespeichert hat — und sonst nichts.</p>
   </div>
   <div class="karte-leib">
 
@@ -18,7 +19,7 @@
       </div>
     </div>
 
-    <div class="abschnitt">Daten</div>
+    <div class="abschnitt">Angaben</div>
     <dl class="daten">
       <div><dt>Discord-ID</dt><dd><code>{{ user.uid }}</code></dd></div>
       <div><dt>Benutzername</dt><dd>{{ record.username if record else user.username }}</dd></div>
@@ -27,29 +28,83 @@
       <div><dt>Verifiziert</dt><dd>{{ "ja" if record and record.verified else "nein" }}</dd></div>
       <div><dt>Erster Login</dt><dd>{{ (record.first_login_at if record else None) | timestamp }}</dd></div>
       <div><dt>Letzter Login</dt><dd>{{ (record.last_login_at if record else None) | timestamp }}</dd></div>
+      <div><dt>Letzte Adresse</dt><dd>
+        {% if adressen %}<code>{{ adressen[0].ip }}</code> <span class="dim">({{ adressen[0].zuletzt | timestamp }})</span>
+        {% else %}—{% endif %}
+      </dd></div>
     </dl>
 
-    <div class="abschnitt">Rechte <span class="zahl">{{ scopes.split() | length }}</span></div>
-    <div class="chips oben">
-      {% for s in scopes.split() %}<span class="chip">{{ s }}</span>{% endfor %}
-    </div>
+  </div>
+</div>
 
-    <div class="abschnitt">Server <span class="zahl">{{ guilds | length }}</span></div>
-    {% if guilds %}
+<div class="karte">
+  <div class="karte-kopf">
+    <h2 class="karte-titel">Regeln für diesen Bereich</h2>
+    <p class="karte-text">Kurz und verbindlich — sie gelten für jeden, der hier hineinkommt.</p>
+  </div>
+  <div class="karte-leib">
+    <ol class="regeln">
+      <li>
+        <strong>Zugang nur für eingetragene Inhaber.</strong>
+        Wer nicht auf der Liste steht, bekommt keine Sitzung und wird ohne Umweg
+        auf das Dashboard zurückgeschickt.
+      </li>
+      <li>
+        <strong>Jeder sieht nur seine eigenen Daten.</strong>
+        Der Reiter Self zeigt ausschließlich das Konto, das gerade eingeloggt ist.
+        Die Einträge der anderen liegen in derselben Tabelle und werden hier nicht abgefragt.
+      </li>
+      <li>
+        <strong>Die Suche zeigt, was die Bots sehen — nicht mehr.</strong>
+        Abgefragt wird über Bot-Tokens. Diese sehen öffentliche Profile und die eigenen
+        Server. E-Mail-Adressen fremder Konten gibt es darüber nicht, und es wird auch
+        kein Weg darum herum gesucht.
+      </li>
+      <li>
+        <strong>Jeder Vorgang wird festgehalten.</strong>
+        Anmeldungen, Suchen und jede Änderung an den eingetragenen Bots stehen mit
+        Zeitpunkt und Adresse im Verlauf. Wer hier etwas tut, hinterlässt eine Spur.
+      </li>
+      <li>
+        <strong>Bot-Tokens sind verschlüsselt und bleiben unsichtbar.</strong>
+        Einmal eingetragen wird nur noch die Maske angezeigt. Niemand liest einen Token
+        aus diesem Bereich wieder heraus.
+      </li>
+      <li>
+        <strong>Ergebnisse bleiben hier.</strong>
+        Nichts davon geht in einen Discord-Kanal, in eine Nachricht oder nach außen.
+        Wer etwas daraus weitergibt, handelt außerhalb dieses Bereichs.
+      </li>
+      <li>
+        <strong>Inhaberschaft kann sofort enden.</strong>
+        Wer von der Liste gestrichen wird, verliert den Zugang beim nächsten Klick —
+        auch mit einem noch gültigen Cookie.
+      </li>
+    </ol>
+  </div>
+</div>
+
+<div class="karte">
+  <div class="karte-kopf">
+    <h2 class="karte-titel">Deine Adressen</h2>
+    <p class="karte-text">
+      Von wo aus du dich hier angemeldet hast. Adressen werden nach
+      {{ ip_tage if ip_tage else 90 }} Tagen entfernt.
+    </p>
+  </div>
+  <div class="karte-leib">
+    {% if adressen %}
       <ul class="nackte-liste">
-        {% for g in guilds %}
+        {% for a in adressen %}
           <li class="server-zeile">
-            <span class="server-platz" aria-hidden="true">{{ (g.name or "?")[:1] | upper }}</span>
-            <span class="name">{{ g.name }}</span>
-            {% if g.owner %}<span class="pill ok">Owner</span>{% endif %}
-            {% if g.member_count %}<span class="kleintext">{{ g.member_count }} Mitglieder</span>{% endif %}
+            <code>{{ a.ip }}</code>
+            <span class="kleintext">{{ a.mal }}× · zuletzt {{ a.zuletzt | timestamp }}</span>
           </li>
         {% endfor %}
       </ul>
     {% else %}
-      <div class="leer">Keine Server geladen</div>
+      <div class="leer">Keine Adresse gespeichert</div>
     {% endif %}
-
   </div>
 </div>
 
@@ -67,12 +122,35 @@
             <span class="pill {% if l.outcome == 'granted' %}ok{% else %}nein{% endif %}">
               {{ "erfolgreich" if l.outcome == "granted" else "abgewiesen" }}
             </span>
-            {% if l.detail %}<span class="kleintext">{{ l.detail }}</span>{% endif %}
+            {% if l.ip %}<code>{{ l.ip }}</code>{% endif %}
           </li>
         {% endfor %}
       </ul>
     {% else %}
-      <div class="leer">Keine Eintraege</div>
+      <div class="leer">Keine Einträge</div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="karte">
+  <div class="karte-kopf">
+    <h2 class="karte-titel">Server <span class="zahl">{{ guilds | length }}</span></h2>
+    <p class="karte-text">Die Liste, die dein Konto diesem Bereich beim Login übergeben hat.</p>
+  </div>
+  <div class="karte-leib">
+    {% if guilds %}
+      <ul class="nackte-liste">
+        {% for g in guilds %}
+          <li class="server-zeile">
+            <span class="server-platz" aria-hidden="true">{{ (g.name or "?")[:1] | upper }}</span>
+            <span class="name">{{ g.name }}</span>
+            {% if g.owner %}<span class="pill ok">Owner</span>{% endif %}
+            {% if g.member_count %}<span class="kleintext">{{ g.member_count }} Mitglieder</span>{% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <div class="leer">Keine Server geladen</div>
     {% endif %}
   </div>
 </div>
