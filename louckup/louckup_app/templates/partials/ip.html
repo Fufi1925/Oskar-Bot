@@ -1,16 +1,108 @@
-{# IP — die Adressen, von denen aus ein Konto hier war.
+{% from "partials/symbole.html" import symbol %}
+{# IP — eine Adresse eingeben, die Karte zeigt, wo sie liegt.
 
-   Ohne Angabe gilt das eigene Konto. Mit einer ID dahinter das Konto,
-   das dort eingetragen ist — soweit es sich hier je angemeldet hat. #}
+   Die Karte liegt als eigene Datei im Bereich (static/welt.svg) und
+   kommt von keinem fremden Server. Die Markierung sitzt in einer
+   zweiten Ebene darueber, damit die grosse Karte im Browser liegen
+   bleibt und nicht bei jeder Suche mitgeschickt wird. #}
 
 <div class="karte">
   <div class="karte-kopf">
-    <h2 class="karte-titel">Adressen</h2>
-    <p class="karte-text">
-      Von wo aus ein Konto diesen Bereich benutzt hat. Ohne Angabe siehst du deine eigenen.
-    </p>
+    <h2 class="karte-titel">Adresse suchen</h2>
+    <p class="karte-text">Eine IP-Adresse eingeben. Stadt, Land und Netz kommen aus einem Geodienst.</p>
   </div>
   <div class="karte-leib">
+    <form method="get" action="" class="formular">
+      <label class="feld">
+        <span>IP-Adresse</span>
+        <input type="text" name="ip" value="{{ ip_suche or '' }}" placeholder="z. B. 8.8.8.8"
+               autocomplete="off" spellcheck="false" required>
+      </label>
+      <button type="submit" class="knopf">Suchen</button>
+    </form>
+    <div class="hinweis">
+      Adressen aus dem eigenen Netz (10.x, 192.168.x, 127.x …) gehen an keinen fremden Dienst.
+    </div>
+  </div>
+</div>
+
+{% if ip_ort %}
+  <div class="karte">
+    <div class="karte-kopf">
+      <h2 class="karte-titel">
+        {{ ip_ort.stadt or ip_ort.region or ip_ort.land or ip_ort.ip }}
+        {% if ip_ort.land and ip_ort.stadt %}· {{ ip_ort.land }}{% endif %}
+      </h2>
+      <p class="karte-text">
+        <code>{{ ip_ort.ip }}</code>
+        {% if ip_ort.land_code %}· {{ ip_ort.land_code }}{% endif %}
+        {% if ip_ort.asn %}· {{ ip_ort.asn }}{% endif %}
+      </p>
+    </div>
+    <div class="karte-leib">
+
+      <div class="mappe">
+        <img class="mappe-bild" src="{{ root_path }}/static/welt.svg" alt="Weltkarte">
+        {% if ip_punkt %}
+          <svg class="mappe-deck" viewBox="0 0 1000 500" preserveAspectRatio="none" aria-hidden="true">
+            <line x1="{{ ip_punkt[0] }}" y1="0" x2="{{ ip_punkt[0] }}" y2="500"
+                  stroke="#5865f2" stroke-width="1" opacity=".35"/>
+            <line x1="0" y1="{{ ip_punkt[1] }}" x2="1000" y2="{{ ip_punkt[1] }}"
+                  stroke="#5865f2" stroke-width="1" opacity=".35"/>
+            <circle cx="{{ ip_punkt[0] }}" cy="{{ ip_punkt[1] }}" r="14"
+                    fill="#5865f2" opacity=".18"/>
+            <circle cx="{{ ip_punkt[0] }}" cy="{{ ip_punkt[1] }}" r="7"
+                    fill="#5865f2" opacity=".35"/>
+            <circle cx="{{ ip_punkt[0] }}" cy="{{ ip_punkt[1] }}" r="3.5"
+                    fill="#ffffff" stroke="#5865f2" stroke-width="1.5"/>
+          </svg>
+        {% endif %}
+      </div>
+      {% if ip_punkt %}
+        <div class="kleintext mappe-notiz">
+          Markierung bei {{ "%.4f"|format(ip_ort.breite) }}° Breite,
+          {{ "%.4f"|format(ip_ort.laenge) }}° Länge.
+        </div>
+      {% endif %}
+
+      <div class="abschnitt">Daten</div>
+      <dl class="daten">
+        <div><dt>Stadt</dt><dd>{{ ip_ort.stadt or "—" }}</dd></div>
+        <div><dt>Region</dt><dd>{{ ip_ort.region or "—" }}</dd></div>
+        <div><dt>Land</dt><dd>{{ ip_ort.land or "—" }}{% if ip_ort.land_code %} ({{ ip_ort.land_code }}){% endif %}</dd></div>
+        <div><dt>Kontinent</dt><dd>{{ ip_ort.kontinent or "—" }}</dd></div>
+        <div><dt>Koordinaten</dt><dd><code>{{ ip_ort.breite }}, {{ ip_ort.laenge }}</code></dd></div>
+        <div><dt>Zeitzone</dt><dd>
+          {{ ip_ort.zeitzone or "—" }}{% if ip_ort.uhrzeit %} <span class="dim">({{ ip_ort.uhrzeit }})</span>{% endif %}
+        </dd></div>
+        <div><dt>Netz</dt><dd>{{ ip_ort.netz or "—" }}</dd></div>
+      </dl>
+      <div class="hinweis">
+        Stand aus einem öffentlichen Geodienst ({{ ip_ort.dienst }}). Solche Dienste arbeiten mit
+        Schätzungen auf Stadtebene — genau wird es selten genauer als der Ortsteil, und hinter einem
+        Mobilfunk- oder VPN-Anschluss liegt der Ort nicht dort, wo jemand sitzt.
+      </div>
+
+    </div>
+  </div>
+{% elif ip_fehler %}
+  <div class="karte karte-fehler">
+    <div class="karte-kopf">
+      <h2 class="karte-titel">Nichts gefunden</h2>
+    </div>
+    <div class="karte-leib">
+      <div class="kleintext schlecht">{{ ip_fehler }}</div>
+    </div>
+  </div>
+{% endif %}
+
+<details class="karte aufklapp">
+  <summary>
+    <span class="pfeil" aria-hidden="true">{{ symbol("pfeil") }}</span>
+    <span>Adressen aus dem Verlauf</span>
+    <span class="summe">eigene oder per Discord-ID</span>
+  </summary>
+  <div class="leib">
     <form method="get" action="" class="formular">
       <label class="feld">
         <span>Discord-ID</span>
@@ -19,21 +111,12 @@
       </label>
       <button type="submit" class="knopf">Zeigen</button>
     </form>
-  </div>
-</div>
 
-{% if ip_konto %}
-  <div class="karte">
-    <div class="karte-kopf">
-      <h2 class="karte-titel">
+    {% if ip_konto %}
+      <div class="abschnitt">
         {% if ip_fremd %}{{ ip_konto.global_name or ip_konto.username or ip_konto.user_id }}
         {% else %}Deine Adressen{% endif %}
-      </h2>
-      <p class="karte-text">
-        {% if ip_konto.username %}@{{ ip_konto.username }} · {% endif %}<code>{{ ip_konto.user_id }}</code>
-      </p>
-    </div>
-    <div class="karte-leib">
+      </div>
       {% if ip_adressen %}
         <ul class="nackte-liste">
           {% for a in ip_adressen %}
@@ -47,23 +130,10 @@
         </ul>
       {% else %}
         <div class="leer">Keine Adresse gespeichert</div>
-        <div class="hinweis">
-          {% if ip_fremd %}
-            Zu diesem Konto liegt keine Adresse vor — es hat sich hier noch nicht angemeldet,
-            oder die Adressen sind schon entfernt.
-          {% else %}
-            Sobald du dich von einer anderen Leitung aus anmeldest, steht sie hier.
-          {% endif %}
-        </div>
       {% endif %}
-
       <div class="hinweis">
-        Adressen werden nach {{ ip_tage if ip_tage else 90 }} Tagen entfernt. Sie dienen dazu,
-        ungewoehnliche Anmeldungen zu bemerken und zu sehen, von wo der Bereich benutzt wird —
-        nicht zur Ortung, nicht fuer Werbung, und sie gehen nicht an Dritte.
-        {% if ip_fremd %}Bei anderen Konten stehen nur Adressen von Anmeldungen, die hier
-        wirklich eine Sitzung bekommen haben.{% endif %}
+        Adressen werden nach {{ ip_tage if ip_tage else 90 }} Tagen entfernt.
       </div>
-    </div>
+    {% endif %}
   </div>
-{% endif %}
+</details>

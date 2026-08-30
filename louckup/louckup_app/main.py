@@ -33,6 +33,7 @@ from fastapi.templating import Jinja2Templates
 
 from louckup_app import auth, db as dbmod
 from louckup_app import discord_api as api
+from louckup_app import geo
 from louckup_app import krypto
 from louckup_app.config import get_settings
 
@@ -827,6 +828,37 @@ def create_app() -> FastAPI:
 
         if tab == "ip":
             gesucht_ip = (request.query_params.get("id") or "").strip()
+
+            # Die Ortssuche ist ein eigener Weg: eine Adresse rein, ein
+            # Ort raus. Sie haengt an keinem Bot und an keinem Konto.
+            gesuchte_ip = (request.query_params.get("ip") or "").strip()
+            extra["ip_eingabe"] = gesuchte_ip
+            extra["ip_suche"] = gesuchte_ip
+            if gesuchte_ip:
+                if not rate_ok(f"geo:{adresse(request)}", settings.louckup_ip_suchen_limit):
+                    extra["ip_fehler"] = "Zu viele Abfragen. Bitte einen Moment warten."
+                else:
+                    try:
+                        fundort = await geo.ort(gesuchte_ip, settings.louckup_ip_zeitlimit)
+                        extra["ip_ort"] = fundort
+                        if fundort.get("breite") is not None and fundort.get("laenge") is not None:
+                            extra["ip_punkt"] = geo.karten_punkt(
+                                fundort["breite"], fundort["laenge"]
+                            )
+                        await dbmod.record_attempt(
+                            db,
+                            user_id=uid,
+                            username=user.get("username"),
+                            is_owner=True,
+                            outcome="ip_lookup",
+                            detail=gesuchte_ip[:60],
+                            ip=adresse(request),
+                        )
+                    except geo.GeoFehler as exc:
+                        extra["ip_fehler"] = str(exc)
+                    except Exception as exc:
+                        log.warning("Ortssuche fehlgeschlagen: %s", exc)
+                        extra["ip_fehler"] = f"Abfrage fehlgeschlagen: {type(exc).__name__}"
             if gesucht_ip and gesucht_ip.isdigit() and int(gesucht_ip) != uid:
                 # Ein anderes Konto. Adressen nur von Anmeldungen, die
                 # hier wirklich eine Sitzung bekommen haben.

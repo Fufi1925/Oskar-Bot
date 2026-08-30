@@ -78,6 +78,11 @@ class Settings(BaseSettings):
     louckup_lookup_max_requests: int = 250
     louckup_lookup_timeout: float = 12.0
 
+    # Der Reiter IP: wie viele Ortsabfragen pro Minute von einer Adresse
+    # aus erlaubt sind und wie lange eine Abfrage warten darf.
+    louckup_ip_suchen_limit: int = 30
+    louckup_ip_zeitlimit: float = 8.0
+
     # Wie viele Tage eine IP-Adresse im Login-Verlauf stehen bleibt.
     # Danach wird sie geleert — nicht die Zeile, nur die Adresse.
     # 0 oder weniger heisst: nie aufraeumen.

@@ -638,6 +638,63 @@ def main() -> int:
         check("Suche nennt die E-Mail", "chef@example.com" in r.text)
         check("Suche ohne Scope-Sprache", "Autorisierung bei" not in r.text)
 
+    print("\n21) Reiter IP: Karte und Ort")
+    # Der Geodienst wird hier nicht wirklich gefragt.
+    from louckup_app import geo
+
+    async def ort(ip, zeitlimit=8.0):
+        if not geo.weltweit(ip):
+            raise geo.GeoFehler("Diese Adresse liegt im eigenen Netz.")
+        return {
+            "ip": ip, "stadt": "Berlin", "region": "Berlin", "land": "Deutschland",
+            "land_code": "DE", "kontinent": "Europa", "breite": 52.52, "laenge": 13.40,
+            "zeitzone": "Europe/Berlin", "uhrzeit": "2026-08-31T22:00:00",
+            "netz": "Muster-Netz", "asn": "AS12345", "dienst": "testdienst",
+        }
+
+    geo.ort = ort
+
+    # Die Projektion der Karte: 1000 x 500 Punkte fuer die ganze Welt.
+    check("Berlin liegt bei 537.2 / 104.1", geo.karten_punkt(52.52, 13.40) == (537.2, 104.1),
+          str(geo.karten_punkt(52.52, 13.40)))
+    check("privat bleibt privat", geo.weltweit("192.168.1.1") is None)
+    check("Schleife bleibt Schleife", geo.weltweit("127.0.0.1") is None)
+    check("oeffentlich geht raus", geo.weltweit("8.8.8.8") == "8.8.8.8")
+    check("Unsinn ist keine Adresse", geo.ist_adresse("zwei drei vier") is False)
+
+    with mounted_client() as c:
+        c.get("/louckup/auth/discord", follow_redirects=False)
+        state = c.cookies.get("louckup_oauth_state")
+        fake_user.who = "owner"
+        c.get("/louckup/auth/callback", params={"code": "abc", "state": state}, follow_redirects=False)
+
+        r = c.get("/louckup/dashboard/ip")
+        check("Reiter erreichbar", r.status_code == 200, str(r.status_code))
+        check("Eingabefeld fuer die Adresse", 'name="ip"' in r.text, r.text[:300])
+        check("keine Karte ohne Suche", "welt.svg" not in r.text)
+
+        r = c.get("/louckup/dashboard/ip?ip=8.8.8.8")
+        check("Karte ist eingebettet", "welt.svg" in r.text, r.text[:400])
+        check("Markierung sitzt auf der Karte", 'cx="537.2" cy="104.1"' in r.text, r.text[:600])
+        check("Stadt und Land genannt", "Berlin" in r.text and "Deutschland" in r.text)
+        check("Netz genannt", "Muster-Netz" in r.text)
+        check("Koordinaten genannt", "52.52" in r.text)
+        check(
+            "keine fremden Kacheln",
+            "openstreetmap" not in r.text.lower() and "tile." not in r.text.lower(),
+            r.text[:600],
+        )
+        check(
+            "kein Wort ueber den Anlass",
+            not any(w in r.text.lower() for w in ("angriff", "aufklaer", "ermittl")),
+            "verbotenes Wort im Text",
+        )
+
+        # Interne Adressen loesen keine Anfrage aus.
+        r = c.get("/louckup/dashboard/ip?ip=192.168.1.1")
+        check("interne Adresse bleibt innen", "eigenen Netz" in r.text, r.text[:600])
+        check("interne Adresse ohne Karte", "welt.svg" not in r.text)
+
     print("\n" + "=" * 60)
     if FAILURES:
         print(f"{len(FAILURES)} von {CHECKS} Pruefungen fehlgeschlagen:")

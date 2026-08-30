@@ -31,7 +31,7 @@ gültiges Cookie damit sofort seine Wirkung.
 |---|---|
 | Discord IDs | Suche nach einer Discord-ID über alle eingetragenen Bots |
 | Roblox User | Platzhalter |
-| IP | Adressen, von denen aus ein Konto hier war — eigene oder per ID |
+| IP | Adresse eingeben, Karte zeigt Stadt, Land und Netz — dazu Adressen aus dem Verlauf |
 | Self | die eigenen Daten, die eigenen Adressen, die eigenen Logins und die Regeln des Bereichs |
 | Einstellungen | Bots eintragen, prüfen, entfernen — nur mit Token, Name und Bild kommen von selbst |
 
@@ -61,6 +61,28 @@ Sitzung bekommen haben.
 
 Eine Adresse sagt, welche Leitung eine Anfrage geschickt hat — nicht,
 wer davor saß. Sie ist ein Hinweis, kein Beweis.
+
+### Ort zu einer Adresse
+
+Im Reiter IP lässt sich eine Adresse eingeben; die Antwort zeigt Stadt,
+Region, Land, Koordinaten, Zeitzone und das Netz dahinter, dazu eine
+Karte mit Markierung. Dafür gilt:
+
+* **Eigenes Modul, eigener Weg.** `louckup_app/geo.py` importiert nichts
+  aus dem Projekt — nicht `bot`, nicht `phantom`, nicht `dashboard`,
+  nicht einmal die eigene Konfiguration. Es kennt eine Adresse, eine
+  Anfrage und eine Antwort.
+* **Die Karte kommt von niemandem.** Sie liegt als `static/welt.svg`
+  im Bereich (Küstenlinie aus Natural Earth, Public Domain). Keine
+  Kartenkacheln von fremden Servern, keine Anfrage an einen
+  Kartendienst beim Öffnen der Seite.
+* **Interne Adressen bleiben innen.** Was nicht weltweit routebar ist
+  (10.x, 192.168.x, 127.x …), wird nicht an den Geodienst geschickt,
+  sondern gleich mit einer Meldung beantwortet.
+* **Ergebnisse werden nicht gespeichert**, nur dass jemand nach einer
+  Adresse gefragt hat (Zeitpunkt, Konto, Adresse des Fragenden).
+* **Bremse:** höchstens `LOUCKUP_IP_SUCHEN_LIMIT` (Standard 30)
+  Abfragen pro Minute und Absender.
 
 ## Optik
 
@@ -92,6 +114,8 @@ louckup/
 │   │                  login_attempts
 │   ├── discord_api.py die paar Bot-Token-Endpunkte, Avatar- und
 │   │                  Symbol-URLs, Zeitangaben
+│   ├── geo.py         Ort zu einer Adresse — eigenes Modul, ohne
+│   │                  Verbindung zum Rest des Projekts
 │   ├── krypto.py      Bot-Tokens verschlüsselt ablegen
 │   ├── main.py        Routen: / /login /auth/discord /auth/callback
 │   │                           /dashboard /logout /healthz
@@ -99,8 +123,9 @@ louckup/
 │   ├── templates/     base, login, dashboard
 │   │   └── partials/  platzhalter.html, self.html, discord-ids.html,
 │   │                  einstellungen.html, symbole.html (SVG-Makros)
-│   └── static/css/    eigenes Styling nach Dashboard-Vorbild
-├── tests/             test_louckup_flow.py (132 Pruefungen)
+│   ├── static/css/    eigenes Styling nach Dashboard-Vorbild
+│   └── static/welt.svg  Karte fuer den Reiter IP (Natural Earth)
+├── tests/             test_louckup_flow.py (149 Pruefungen)
 ├── requirements.txt
 ├── .env.example
 └── run_louckup.py     nur für den Standalone-Betrieb
