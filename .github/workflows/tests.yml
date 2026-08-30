@@ -132,6 +132,46 @@ jobs:
           NO_NETWORK: ${{ inputs.network && '0' || '1' }}
         run: python tests/run_all.py
 
+  louckup:
+    name: Louckup
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    # Eigener Job, weil Louckup eigene Abhaengigkeiten hat: jinja2 und
+    # itsdangerous stehen nicht in bot/requirements.txt, und nur fuer
+    # diesen einen Bereich gehoeren sie da auch nicht hin.
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          # 3.11 ist die Version im Container — siehe Dockerfile.
+          python-version: "3.11"
+
+      - name: Install dependencies
+        working-directory: louckup
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Compile everything
+        working-directory: louckup
+        # Syntaxfehler in Dateien, die kein Test importiert.
+        run: python -m compileall -q .
+
+      - name: Ablauf (Login, Owner-Pruefung, Weiterleitung)
+        working-directory: louckup
+        # Kein Netz: Discord wird hier nicht angerufen, der OAuth-Teil
+        # ist hinterlegte Antwort.
+        run: python tests/test_louckup_flow.py
+
+      - name: Einbau im Bot
+        working-directory: bot
+        # Reine Textpruefung, braucht keine Abhaengigkeiten: Mount vor
+        # dem Dashboard-Proxy, richtiger Paketname, Dockerfile, start.sh.
+        run: python tests/test_louckup_mount.py
+
   dashboard:
     name: Dashboard
     runs-on: ubuntu-latest
