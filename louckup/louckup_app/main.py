@@ -427,6 +427,28 @@ def create_app() -> FastAPI:
     )
     TAB_TITEL = dict(TABS)
 
+    # Ein Satz unter dem Seitentitel, gruppierte Reiter und ein Symbol
+    # je Reiter — so sieht die Seitenleiste aus wie im Dashboard.
+    TAB_UNTERTITEL = {
+        "discord-ids": "Eine Discord-ID eingeben. Alle eingetragenen Bots suchen mit.",
+        "roblox": "Noch leer.",
+        "ip": "Noch leer.",
+        "self": "Deine eigenen Daten aus diesem Bereich.",
+        "einstellungen": "Bots eintragen, prüfen und entfernen.",
+    }
+    TAB_GRUPPEN: tuple[tuple[str, tuple[str, ...]], ...] = (
+        ("Suche", ("discord-ids", "roblox", "ip")),
+        ("Konto", ("self",)),
+        ("Bereich", ("einstellungen",)),
+    )
+    TAB_SYMBOL = {
+        "discord-ids": "ausweis",
+        "roblox": "baustein",
+        "ip": "globus",
+        "self": "person",
+        "einstellungen": "zahnrad",
+    }
+
     # ── Schutz gegen fremd ausgeloeste Formulare ────────────────────
     #
     # Die Formulare hier wirken: sie tragen Bot-Tokens ein und loeschen
@@ -444,6 +466,73 @@ def create_app() -> FastAPI:
         return hmac.compare_digest(str(wert or ""), csrf(request))
 
     # ── Bots ───────────────────────────────────────────────────────
+
+    # Wie lange das Ergebnis einer Hauptbot-Abfrage gilt. Der Hauptbot
+    # wird beim Oeffnen der Einstellungen von selbst geholt — ohne
+    # diese Frist wuerde jeder Seitenaufruf Discord anfragen.
+    PRIMAER_CACHE = 300
+
+    async def hauptbot_info(erzwingen: bool = False) -> dict[str, Any]:
+        """Name, Bild und Zustand des Hauptbots — von Discord geholt.
+
+        Der Token steht in `TOKEN`, der Name nicht. Also wird er geholt,
+        damit der Hauptbot in der Liste aussieht wie die anderen: Bild,
+        Name, Anwendungsname. Schlaegt die Abfrage fehl, bleibt der alte
+        Stand stehen und der Fehler erscheint daneben.
+        """
+        global _primaer_status
+
+        jetzt = time.time()
+        alt = _primaer_status or {}
+        if (
+            not erzwingen
+            and alt.get("ts")
+            and (jetzt - float(alt["ts"])) < PRIMAER_CACHE
+            and not alt.get("nur_fehler")
+        ):
+            return alt
+
+        token = settings.primary_bot_token
+        if not token:
+            _primaer_status = {
+                "ok": False,
+                "text": "In TOKEN steht kein Token.",
+                "ts": int(jetzt),
+            }
+            return _primaer_status
+
+        try:
+            info = await api.bot_selbst(token, settings.louckup_lookup_timeout)
+            anwendung = await api.anwendung(token, settings.louckup_lookup_timeout) or {}
+        except Exception as exc:
+            _primaer_status = {
+                "ok": False,
+                "text": f"{type(exc).__name__}: {exc}",
+                "ts": int(jetzt),
+                "nur_fehler": True,
+            }
+            return _primaer_status
+
+        if not info or not info.get("id"):
+            _primaer_status = {
+                "ok": False,
+                "text": "Token gilt, liefert aber kein Bot-Konto.",
+                "ts": int(jetzt),
+                "nur_fehler": True,
+            }
+            return _primaer_status
+
+        _primaer_status = {
+            "ok": True,
+            "text": "Token gilt.",
+            "ts": int(jetzt),
+            "discord_id": info.get("id"),
+            "username": info.get("username"),
+            "name": anwendung.get("name") or info.get("global_name") or info.get("username"),
+            "application": anwendung.get("name"),
+            "bild": api.bot_bild(info.get("id"), info.get("avatar"), 64),
+        }
+        return _primaer_status
 
     async def bots_mit_token() -> list[dict[str, Any]]:
         """Hauptbot (aus TOKEN) plus alle gespeicherten Bots."""
@@ -467,7 +556,14 @@ def create_app() -> FastAPI:
                 # Ein kaputter Eintrag darf die Suche nicht stoppen.
                 log.error("Bot %s: Token nicht lesbar: %s", reihe.get("id"), exc)
                 continue
-            liste.append({**reihe, "token": token, "primary": False})
+            liste.append(
+                {
+                    **reihe,
+                    "token": token,
+                    "primary": False,
+                    "bild": api.bot_bild(reihe.get("discord_id"), reihe.get("avatar"), 64),
+                }
+            )
         return liste
 
     async def suchen(user_id: int) -> dict[str, Any]:
@@ -487,6 +583,8 @@ def create_app() -> FastAPI:
             "anfragen": 0,
             "gebremst": False,
             "bots": len(bots),
+            "summe_treffer": 0,
+            "summe_server": 0,
         }
         if not bots:
             ergebnis["fehler"].append("Kein Bot eingetragen.")
@@ -499,12 +597,14 @@ def create_app() -> FastAPI:
                 profil = await api.profil(bot["token"], user_id, settings.louckup_lookup_timeout)
                 if profil:
                     ergebnis["user"] = profil
-                    ergebnis["avatar"] = await api.avatar_url(profil)
+                    ergebnis["avatar"] = api.avatar_url(profil)
                     ergebnis["abzeichen"] = api.abzeichen(profil.get("public_flags"))
                     erstellt = api.kontostand_aus_snowflake(profil.get("id"))
                     ergebnis["erstellt"] = (
                         erstellt.strftime("%d.%m.%Y %H:%M") if erstellt else "—"
                     )
+                    ergebnis["seit"] = api.alter(erstellt)
+                    ergebnis["farbe"] = api.farbe_als_hex(profil.get("accent_color"))
                     break
             except api.AnfrageFehler as exc:
                 ergebnis["fehler"].append(f"{bot['label']}: {exc}")
@@ -521,46 +621,81 @@ def create_app() -> FastAPI:
                 ergebnis["fehler"].append(f"{bot['label']}: {exc}")
                 continue
 
-            async def pruefe(guild: dict[str, Any]) -> dict[str, Any] | None:
-                if ergebnis["anfragen"] >= grenze:
-                    ergebnis["gebremst"] = True
-                    return None
+            eintrag: dict[str, Any] = {
+                "bot": bot["label"],
+                "bild": bot.get("bild"),
+                "server": len(server),
+                "treffer": [],
+                "ohne": [],
+                "hauptbot": bool(bot.get("primary")),
+            }
+            ergebnis["summe_server"] += len(server)
+
+            async def pruefe(guild: dict[str, Any]) -> tuple[dict, str, Any]:
+                """Server -> (Server, Zustand, Mitgliedsdaten).
+
+                Drei Zustaende: „dabei", „nicht dabei" und „nicht geprueft"
+                — das letzte, wenn die Obergrenze erreicht war. Die Liste
+                zeigt alle Server, also muss sie auch sagen duerfen, wo
+                sie nichts weiss.
+                """
                 try:
                     gid = int(guild.get("id"))
                 except (TypeError, ValueError):
-                    return None
+                    return guild, "nicht geprueft", None
+                if ergebnis["anfragen"] >= grenze:
+                    ergebnis["gebremst"] = True
+                    return guild, "nicht geprueft", None
                 async with sema:
                     ergebnis["anfragen"] += 1
                     try:
                         mitglied = await api.mitglied(
                             bot["token"], gid, user_id, settings.louckup_lookup_timeout
                         )
-                    except api.AnfrageFehler:
-                        return None
+                    except api.AnfrageFehler as exc:
+                        return guild, "fehler", str(exc)
                 if not mitglied:
-                    return None
+                    return guild, "nicht dabei", None
                 namen = (
                     await api.rollen(bot["token"], gid, settings.louckup_lookup_timeout)
                     if mitglied.get("roles")
                     else {}
                 )
-                return {
-                    "server": guild.get("name") or str(gid),
-                    "server_id": str(gid),
-                    "nick": mitglied.get("nick"),
-                    "beitritt": (mitglied.get("joined_at") or "")[:10],
-                    "stumm_bis": (mitglied.get("communication_disabled_until") or "")[:10],
-                    "rollen": [
-                        namen.get(int(r), str(r))
-                        for r in (mitglied.get("roles") or [])
-                        if str(r).isdigit()
-                    ],
-                }
+                return guild, "dabei", (mitglied, namen)
 
-            gefunden = [t for t in await asyncio.gather(*[pruefe(g) for g in server]) if t]
-            ergebnis["treffer"].append(
-                {"bot": bot["label"], "server": len(server), "treffer": gefunden}
-            )
+            geprueft = await asyncio.gather(*[pruefe(g) for g in server])
+
+            for guild, zustand, daten in geprueft:
+                if zustand != "dabei":
+                    eintrag["ohne"].append(
+                        {
+                            "server": guild.get("name") or str(guild.get("id")),
+                            "server_id": str(guild.get("id")),
+                            "symbol": api.server_bild(guild),
+                            "zustand": zustand,
+                        }
+                    )
+                    continue
+
+                mitglied, namen = daten
+                eintrag["treffer"].append(
+                    {
+                        "server": guild.get("name") or str(guild.get("id")),
+                        "server_id": str(guild.get("id")),
+                        "symbol": api.server_bild(guild),
+                        "nick": mitglied.get("nick"),
+                        "beitritt": api.zeitpunkt(mitglied.get("joined_at")),
+                        "stumm_bis": api.zeitpunkt(
+                            mitglied.get("communication_disabled_until")
+                        ),
+                        "boost_seit": api.zeitpunkt(mitglied.get("premium_since")),
+                        "ausstehend": bool(mitglied.get("pending")),
+                        "rollen": api.rollen_zeigen(mitglied, namen),
+                    }
+                )
+
+            ergebnis["summe_treffer"] += len(eintrag["treffer"])
+            ergebnis["treffer"].append(eintrag)
 
         return ergebnis
 
@@ -597,18 +732,25 @@ def create_app() -> FastAPI:
         guilds = await dbmod.list_user_guilds(db, uid) if tab == "self" else []
         logins = await dbmod.own_attempts(db, uid, limit=10) if tab == "self" else []
 
-        extra: dict[str, Any] = {"csrf": csrf(request)}
+        extra: dict[str, Any] = {
+            "csrf": csrf(request),
+            "tab_untertitel": TAB_UNTERTITEL.get(tab, ""),
+            "tab_gruppen": TAB_GRUPPEN,
+            "tab_symbol": TAB_SYMBOL,
+            "tab_titel": TAB_TITEL,
+        }
 
         if tab == "einstellungen":
             reihen = await dbmod.list_bots(db)
             for reihe in reihen:
                 # Der Token selbst kommt nie ins HTML, nur die Maske.
                 reihe["maske"] = krypto.maske(_token_lesen(reihe, settings) or "")
+                reihe["bild"] = api.bot_bild(reihe.get("discord_id"), reihe.get("avatar"), 64)
             extra["bots"] = reihen
             extra["hauptbot"] = {
                 "label": settings.louckup_primary_bot_label,
                 "aktiv": bool(settings.primary_bot_token) and settings.louckup_primary_bot_enabled,
-                "status": _primaer_status or None,
+                "status": await hauptbot_info(),
             }
 
         if tab == "discord-ids":
@@ -665,10 +807,16 @@ def create_app() -> FastAPI:
         if not csrf_stimmt(request, formular.get("csrf")):
             return _flash_zurueck(request, "Formular abgelaufen. Bitte nochmal.")
 
-        label = str(formular.get("label") or "").strip()
+        # Nur der Token. Name und Bild holt der Bereich selbst bei
+        # Discord — zweimal tippen, was dort schon steht, waere eine
+        # Fehlerquelle mehr (und ein Name, der nicht zum Konto passt).
         token = str(formular.get("token") or "").strip()
         if not token:
             return _flash_zurueck(request, "Kein Token eingegeben.")
+        if len(token) < 30:
+            return _flash_zurueck(
+                request, "Das ist zu kurz fuer einen Bot-Token. Bitte vollstaendig einfuegen."
+            )
 
         try:
             info = await api.bot_selbst(token, settings.louckup_lookup_timeout)
@@ -687,7 +835,10 @@ def create_app() -> FastAPI:
         except krypto.KryptoFehler as exc:
             return _flash_zurueck(request, str(exc))
 
-        name = label or anwendung.get("name") or info.get("username") or "Bot"
+        # Der Anwendungsname ist das, was man im Entwicklerportal sieht
+        # und damit das, wonach man den Bot in der Liste sucht. Erst
+        # danach kommt der Kontoname.
+        name = anwendung.get("name") or info.get("global_name") or info.get("username") or "Bot"
         user = auth.get_session_user(request)
         try:
             await dbmod.add_bot(
@@ -728,14 +879,25 @@ def create_app() -> FastAPI:
             return _flash_zurueck(request, "Token nicht lesbar (Schluessel geaendert?)")
 
         try:
-            info = await api.bot_selbst(token, settings.louckup_lookup_timeout)
+            info = (await api.bot_selbst(token, settings.louckup_lookup_timeout)) or {}
             anwendung = await api.anwendung(token, settings.louckup_lookup_timeout) or {}
+            anwendungsname = anwendung.get("name")
+            # Der Name folgt dem Konto, solange er von selbst kam. Stand
+            # dort schon etwas Eigenes, bleibt es stehen.
+            alter_name = reihe.get("label")
+            automatisch = alter_name in (
+                None, "", reihe.get("application"), reihe.get("username"),
+            )
             await dbmod.note_check(
                 db, bot_id, ok=True, text="Token gilt.",
-                discord_id=int(info["id"]) if info and info.get("id") else None,
-                username=(info or {}).get("username"),
-                application=anwendung.get("name"),
-                avatar=(info or {}).get("avatar"),
+                discord_id=int(info["id"]) if info.get("id") else None,
+                username=info.get("username"),
+                application=anwendungsname,
+                avatar=info.get("avatar"),
+                label=(
+                    anwendungsname or info.get("global_name") or info.get("username")
+                    if automatisch else None
+                ),
             )
             return _flash_zurueck(request, f"{reihe['label']}: Token gilt.")
         except api.AnfrageFehler as exc:
@@ -775,26 +937,10 @@ def create_app() -> FastAPI:
         if not csrf_stimmt(request, formular.get("csrf")):
             return _flash_zurueck(request, "Formular abgelaufen. Bitte nochmal.")
 
-        token = settings.primary_bot_token
-        if not token:
-            _primaer_status = {"ok": False, "text": "In TOKEN steht kein Token.", "ts": int(time.time())}
-            return _flash_zurueck(request, _primaer_status["text"])
-
-        try:
-            info = await api.bot_selbst(token, settings.louckup_lookup_timeout)
-            anwendung = await api.anwendung(token, settings.louckup_lookup_timeout) or {}
-            _primaer_status = {
-                "ok": True,
-                "text": f"{anwendung.get('name') or info.get('username')} — Token gilt.",
-                "ts": int(time.time()),
-            }
-        except api.AnfrageFehler as exc:
-            _primaer_status = {"ok": False, "text": str(exc), "ts": int(time.time())}
-        except Exception as exc:
-            _primaer_status = {
-                "ok": False, "text": f"{type(exc).__name__}: {exc}", "ts": int(time.time())
-            }
-        return _flash_zurueck(request, _primaer_status["text"])
+        zustand = await hauptbot_info(erzwingen=True)
+        if zustand.get("ok"):
+            return _flash_zurueck(request, f"{zustand.get('name')}: Token gilt.")
+        return _flash_zurueck(request, zustand.get("text") or "Unbekannter Zustand.")
 
     @app.get("/logout")
     async def logout(request: Request):

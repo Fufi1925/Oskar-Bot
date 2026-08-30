@@ -33,7 +33,7 @@ gültiges Cookie damit sofort seine Wirkung.
 | Roblox User | Platzhalter |
 | IP | Platzhalter |
 | Self | die eigenen Daten des eingeloggten Kontos |
-| Einstellungen | Bots eintragen, prüfen, entfernen |
+| Einstellungen | Bots eintragen, prüfen, entfernen — nur mit Token, Name und Bild kommen von selbst |
 
 **Self** zeigt ausschließlich die Daten des Accounts, der gerade
 eingeloggt ist — Discord-ID, Namen, E-Mail, Verifiziert-Status,
@@ -43,6 +43,20 @@ Datensatz, nie den der anderen: die Loginversuche der anderen stehen
 zwar in derselben Tabelle, werden aber für den Self-Reiter gar nicht
 erst abgefragt.
 
+## Optik
+
+Der Bereich sieht aus wie das Haupt-Dashboard: gleicher Grundton
+(`#0a0a0c`), gleiche Karten (`#131318`, Rand `#1e1f22`, Radius 24px),
+gleiches Blurple (`#5865f2`), 48px hohe Eingabefelder, gruppierte
+Seitenleiste mit Symbolen. Umgesetzt ist es in einem eigenen
+Stylesheet (`louckup_app/static/css/louckup.css`) — drüben ist
+Tailwind, hier nicht, deshalb sind die Werte von Hand nachgezogen.
+
+Aufgeklappt wird ohne Skript: die Serverlisten sind native
+`<details>`-Elemente, die Seitenleiste auf dem Handy ein verstecktes
+Feld mit CSS dahinter. Die Content-Security-Policy des Bereichs lässt
+kein Skript zu, und so bleibt sie es auch.
+
 ## Struktur
 
 ```text
@@ -50,13 +64,19 @@ louckup/
 ├── louckup_app/
 │   ├── config.py
 │   ├── auth.py        OAuth + eigener Session-Signer (eigener Salt)
-│   ├── db.py          eigene SQLite: users, login_attempts
+│   ├── db.py          eigene SQLite: users, user_guilds, bots,
+│   │                  login_attempts
+│   ├── discord_api.py die paar Bot-Token-Endpunkte, Avatar- und
+│   │                  Symbol-URLs, Zeitangaben
+│   ├── krypto.py      Bot-Tokens verschlüsselt ablegen
 │   ├── main.py        Routen: / /login /auth/discord /auth/callback
 │   │                           /dashboard /logout /healthz
+│   │                  Einstellungen: Bots anlegen, prüfen, entfernen
 │   ├── templates/     base, login, dashboard
-│   │   └── partials/  platzhalter.html, self.html
-│   └── static/css/    eigenes Styling
-├── tests/             test_louckup_flow.py (65 Pruefungen)
+│   │   └── partials/  platzhalter.html, self.html, discord-ids.html,
+│   │                  einstellungen.html, symbole.html (SVG-Makros)
+│   └── static/css/    eigenes Styling nach Dashboard-Vorbild
+├── tests/             test_louckup_flow.py (106 Pruefungen)
 ├── requirements.txt
 ├── .env.example
 └── run_louckup.py     nur für den Standalone-Betrieb
@@ -72,51 +92,6 @@ louckup/
 5. `LOUCKUP_SECRET_KEY` setzen (sonst: `DASHBOARD_API_KEY`)
 6. Redeploy — `start.sh` setzt `LOUCKUP_BASE_URL` automatisch aus
    `RAILWAY_PUBLIC_DOMAIN`
-
-## Bots und Suche
-
-### Einstellungen
-
-* Der **Hauptbot** ist fest eingebaut: sein Token kommt aus der Umgebung
-  (`TOKEN`) — es gibt keine zweite Variable und keinen Datenbankeintrag.
-  Er lässt sich nicht entfernen.
-* Weitere Bots lassen sich **beliebig viele** eintragen. Beim Hinzufügen
-  wird der Token gegen Discord geprüft; erst wenn er gilt, wird er
-  gespeichert. Über „Prüfen" lässt sich das später wiederholen.
-* Tokens liegen **verschlüsselt** in `louckup.db` (Fernet, Schlüssel aus
-  `LOUCKUP_SECRET_KEY`) und werden auf der Seite nur maskiert angezeigt.
-* Jede Aktion steht hinter einem **CSRF-Token**, damit keine fremde
-  Seite im Namen eines eingeloggten Owners Bots hinzufügen oder löschen
-  kann.
-
-### Discord IDs
-
-Eine Discord-ID eingeben → der Bereich fragt **alle** eingetragenen Bots
-ab und zeigt:
-
-* öffentliches Profil (Name, Anzeigename, Avatar, Erstellungsdatum,
-  Abzeichen)
-* für jeden Bot: auf welchen seiner Server der User ist — mit Nickname,
-  Beitrittsdatum, Rollen und Stumm-Schaltung
-
-**Was die Suche nicht kann, und warum:** E-Mail-Adressen und die Frage,
-wo der User einem Bot den Scope `guilds` bestätigt hat, sind über
-Bot-Tokens technisch nicht erreichbar — dafür bräuchte es das
-OAuth-Token der betroffenen Person. Solche Daten für fremde Zwecke
-auszulesen verstößt gegen die DSGVO und gegen Discords
-Entwicklerrichtlinien. E-Mail-Adressen bleiben deshalb auf den
-Self-Reiter beschränkt: dort sieht jede Person ausschließlich ihre
-eigene.
-
-Technische Bremsen: höchstens `LOUCKUP_LOOKUP_MAX_REQUESTS` (Standard
-250) Anfragen pro Suche, 5 gleichzeitig, 12 Sekunden Zeitlimit je
-Anfrage.
-
-## Datenschutz-Hinweis
-
-Weil `email` und `guilds` angefragt werden, liegen E-Mail-Adresse und
-Serverliste in `louckup.db`. Aktuell wird die E-Mail nur angezeigt; die
-Serverliste wird für Nicht-Owner **nicht einmal geladen**.
 
 ## Absicherung
 
@@ -140,9 +115,13 @@ Serverliste wird für Nicht-Owner **nicht einmal geladen**.
 * Der **Hauptbot** ist fest eingebaut: sein Token kommt aus der Umgebung
   (`TOKEN`) — es gibt keine zweite Variable und keinen Datenbankeintrag.
   Er lässt sich nicht entfernen.
-* Weitere Bots lassen sich **beliebig viele** eintragen. Beim Hinzufügen
-  wird der Token gegen Discord geprüft; erst wenn er gilt, wird er
-  gespeichert. Über „Prüfen" lässt sich das später wiederholen.
+* Weitere Bots: **nur den Token einfügen.** Name und Bild holt der
+  Bereich beim Eintragen selbst bei Discord — der Anwendungsname aus dem
+  Entwicklerportal, sonst der Kontoname. Für den Hauptbot gilt dasselbe,
+  er wird beim Öffnen der Seite abgefragt (Ergebnis gilt fünf Minuten).
+* Beim Hinzufügen wird der Token gegen Discord geprüft; erst wenn er
+  gilt, wird er gespeichert. „Neu abfragen" und „Prüfen" holen Name und
+  Bild erneut.
 * Tokens liegen **verschlüsselt** in `louckup.db` (Fernet, Schlüssel aus
   `LOUCKUP_SECRET_KEY`) und werden auf der Seite nur maskiert angezeigt.
 * Jede Aktion steht hinter einem **CSRF-Token**, damit keine fremde
@@ -154,10 +133,14 @@ Serverliste wird für Nicht-Owner **nicht einmal geladen**.
 Eine Discord-ID eingeben → der Bereich fragt **alle** eingetragenen Bots
 ab und zeigt:
 
-* öffentliches Profil (Name, Anzeigename, Avatar, Erstellungsdatum,
-  Abzeichen)
-* für jeden Bot: auf welchen seiner Server der User ist — mit Nickname,
-  Beitrittsdatum, Rollen und Stumm-Schaltung
+* öffentliches Profil: Name, Anzeigename, Avatar, Erstellungsdatum samt
+  Alter, Abzeichen, Profilfarbe, Bot ja/nein
+* **alle** Server jedes Bots, aufklappbar — und zwar nicht nur die
+  Treffer: zu jedem Server steht dabei, ob die Person dort ist, ob nicht,
+  oder ob die Obergrenze erreicht war, bevor er drankam
+* zu jedem Treffer: Server-ID, Nickname, Beitritt mit Uhrzeit und
+  „vor wie vielen Tagen", Stumm-Schaltung, Boost seit, Freigabestatus
+  und alle Rollen beim Namen
 
 **Was die Suche nicht kann, und warum:** E-Mail-Adressen und die Frage,
 wo der User einem Bot den Scope `guilds` bestätigt hat, sind über

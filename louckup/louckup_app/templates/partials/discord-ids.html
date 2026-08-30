@@ -1,80 +1,205 @@
-<div class="card">
-  <form method="get" action="" class="formular suche">
-    <label>
-      <span>Discord-ID</span>
-      <input type="text" name="id" value="{{ gesucht or '' }}" placeholder="z. B. 870179991462236170"
-             inputmode="numeric" autocomplete="off">
-    </label>
-    <button type="submit" class="knopf">Suchen</button>
-  </form>
+{% from "partials/symbole.html" import symbol %}
+<div class="karte">
+  <div class="karte-kopf">
+    <h2 class="karte-titel">Discord-ID suchen</h2>
+    <p class="karte-text">Alle eingetragenen Bots suchen mit und sagen, auf welchen ihrer Server die Person ist.</p>
+  </div>
+  <div class="karte-leib">
+    <form method="get" action="" class="formular">
+      <label class="feld">
+        <span>Discord-ID</span>
+        <input type="text" name="id" value="{{ gesucht or '' }}" placeholder="z. B. 870179991462236170"
+               inputmode="numeric" autocomplete="off" spellcheck="false" required>
+      </label>
+      <button type="submit" class="knopf">Suchen</button>
+    </form>
+  </div>
 </div>
 
 {% if ergebnis %}
-  {% if ergebnis.user %}
-    <div class="card">
-      <div class="self-top">
-        {% if ergebnis.avatar %}
-          <img class="self-avatar" src="{{ ergebnis.avatar }}" alt="">
-        {% endif %}
-        <div>
-          <div class="self-name">{{ ergebnis.user.global_name or ergebnis.user.username }}</div>
-          <div class="self-sub">@{{ ergebnis.user.username }} · <code>{{ ergebnis.user.id }}</code></div>
-        </div>
-      </div>
 
-      <dl class="daten">
-        <div><dt>Konto erstellt</dt><dd>{{ ergebnis.erstellt }}</dd></div>
-        <div><dt>Abzeichen</dt><dd>
-          {% if ergebnis.abzeichen %}
-            {% for a in ergebnis.abzeichen %}<span class="chip">{{ a }}</span>{% endfor %}
+  {% if ergebnis.user %}
+
+    <div class="karte">
+      <div class="karte-leib">
+        <div class="profil">
+          {% if ergebnis.avatar %}
+            <img class="profil-bild" src="{{ ergebnis.avatar }}" alt="">
           {% else %}
-            —
+            <div class="profil-platz" aria-hidden="true">{{ (ergebnis.user.global_name or ergebnis.user.username or "?")[:1] | upper }}</div>
           {% endif %}
-        </dd></div>
-        <div><dt>Bot</dt><dd>{{ "ja" if ergebnis.user.bot else "nein" }}</dd></div>
-      </dl>
+          <div>
+            <div class="profil-name">{{ ergebnis.user.global_name or ergebnis.user.username }}</div>
+            <div class="profil-unter">
+              @{{ ergebnis.user.username }} · <code>{{ ergebnis.user.id }}</code>
+            </div>
+          </div>
+        </div>
+
+        <div class="abschnitt">Profil</div>
+        <dl class="daten">
+          <div><dt>Konto erstellt</dt><dd>{{ ergebnis.erstellt }}{% if ergebnis.seit %} <span class="dim">({{ ergebnis.seit }})</span>{% endif %}</dd></div>
+          <div><dt>Abzeichen</dt><dd>
+            {% if ergebnis.abzeichen %}
+              <div class="chips oben">{% for a in ergebnis.abzeichen %}<span class="chip">{{ a }}</span>{% endfor %}</div>
+            {% else %}
+              —
+            {% endif %}
+          </dd></div>
+          <div><dt>Bot</dt><dd>{{ "ja" if ergebnis.user.bot else "nein" }}</dd></div>
+          {% if ergebnis.farbe %}
+            <div><dt>Profilfarbe</dt><dd><code>{{ ergebnis.farbe }}</code></dd></div>
+          {% endif %}
+        </dl>
+
+        <div class="abschnitt">Ergebnis</div>
+        <p class="karte-text ohne">
+          <strong>{{ ergebnis.summe_treffer }}</strong> gemeinsame Server in
+          {{ ergebnis.treffer | length }} von {{ ergebnis.bots }} Bots ·
+          {{ ergebnis.summe_server }} Server durchsucht · {{ ergebnis.anfragen }} Anfragen an Discord.
+        </p>
+      </div>
     </div>
 
     {% for fund in ergebnis.treffer %}
-      <div class="card">
-        <div class="daten-label">{{ fund.bot }} <span class="count">{{ fund.treffer | length }} von {{ fund.server }}</span></div>
-        {% if fund.treffer %}
-          {% for t in fund.treffer %}
-            <div class="treffer">
-              <div class="treffer-kopf">
-                <span class="server-name">{{ t.server }}</span>
-                {% if t.nick %}<span class="muted">· {{ t.nick }}</span>{% endif %}
+      <details class="karte aufklapp" open>
+        <summary>
+          <span class="pfeil" aria-hidden="true">{{ symbol("pfeil") }}</span>
+          {% if fund.bild %}
+            <img class="server-symbol" src="{{ fund.bild }}" alt="">
+          {% else %}
+            <span class="server-platz" aria-hidden="true">{{ fund.bot[:1] | upper }}</span>
+          {% endif %}
+          <span>{{ fund.bot }}</span>
+          {% if fund.hauptbot %}<span class="pill ruhig">Hauptbot</span>{% endif %}
+          <span class="summe">{{ fund.treffer | length }} von {{ fund.server }} Servern</span>
+        </summary>
+        <div class="leib">
+
+          {% if fund.treffer %}
+            {% for t in fund.treffer %}
+              <details class="aufklapp treffer-klapp">
+                <summary>
+                  <span class="pfeil" aria-hidden="true">{{ symbol("pfeil") }}</span>
+                  {% if t.symbol %}
+                    <img class="server-symbol" src="{{ t.symbol }}" alt="">
+                  {% else %}
+                    <span class="server-platz" aria-hidden="true">{{ t.server[:1] | upper }}</span>
+                  {% endif %}
+                  <span class="name">{{ t.server }}</span>
+                  {% if t.nick %}<span class="kleintext">· {{ t.nick }}</span>{% endif %}
+                  <span class="summe">{% if t.beitritt %}dabei seit {{ t.beitritt.datum }}{% endif %}</span>
+                </summary>
+                <div class="leib">
+                  <dl class="daten">
+                    <div><dt>Server-ID</dt><dd><code>{{ t.server_id }}</code></dd></div>
+                    <div><dt>Nickname</dt><dd>{{ t.nick or "—" }}</dd></div>
+                    <div><dt>Beitritt</dt><dd>
+                      {% if t.beitritt %}
+                        {{ t.beitritt.datum }} {{ t.beitritt.uhrzeit }}
+                        <span class="dim">(vor {{ t.beitritt.tagen }} Tagen)</span>
+                      {% else %}—{% endif %}
+                    </dd></div>
+                    <div><dt>Stumm bis</dt><dd>
+                      {% if t.stumm_bis %}{{ t.stumm_bis.datum }} {{ t.stumm_bis.uhrzeit }}{% else %}—{% endif %}
+                    </dd></div>
+                    <div><dt>Boost seit</dt><dd>
+                      {% if t.boost_seit %}{{ t.boost_seit.datum }} <span class="dim">({{ t.boost_seit.tagen }} Tage)</span>{% else %}—{% endif %}
+                    </dd></div>
+                    <div><dt>Freigabe</dt><dd>
+                      {% if t.ausstehend %}<span class="pill nein">ausstehend</span>{% else %}voll{% endif %}
+                    </dd></div>
+                  </dl>
+
+                  <div class="abschnitt">Rollen <span class="zahl">{{ t.rollen | length }}</span></div>
+                  {% if t.rollen %}
+                    <div class="chips oben">
+                      {% for r in t.rollen %}<span class="chip">{{ r.name }}</span>{% endfor %}
+                    </div>
+                  {% else %}
+                    <div class="kleintext">Keine Rollen ausser der Standardrolle.</div>
+                  {% endif %}
+                </div>
+              </details>
+            {% endfor %}
+          {% else %}
+            <div class="leer">Auf keinem Server dieses Bots gefunden</div>
+          {% endif %}
+
+          {% if fund.ohne %}
+            <details class="aufklapp weitere-klapp">
+              <summary>
+                <span class="pfeil" aria-hidden="true">{{ symbol("pfeil") }}</span>
+                <span class="server-platz" aria-hidden="true">{{ fund.ohne | length }}</span>
+                <span>Weitere Server dieses Bots</span>
+                <span class="summe">ohne diese Person</span>
+              </summary>
+              <div class="leib">
+                {% for o in fund.ohne %}
+                  <div class="server-zeile">
+                    {% if o.symbol %}
+                      <img class="server-symbol" src="{{ o.symbol }}" alt="">
+                    {% else %}
+                      <span class="server-platz" aria-hidden="true">{{ o.server[:1] | upper }}</span>
+                    {% endif %}
+                    <span class="name">{{ o.server }}</span>
+                    {% if o.zustand == "nicht dabei" %}
+                      <span class="kleintext">· nicht Mitglied</span>
+                    {% elif o.zustand == "nicht geprueft" %}
+                      <span class="kleintext">· nicht geprüft</span>
+                    {% else %}
+                      <span class="kleintext schlecht">· Abfrage fehlgeschlagen</span>
+                    {% endif %}
+                  </div>
+                {% endfor %}
+                <div class="hinweis">
+                  Diese Server gehoeren zum Bot, aber die gesuchte Person ist dort nicht.
+                  Mehr verrät ein Bot-Token darüber nicht — und ein Bot darf nicht mehr sehen.
+                </div>
               </div>
-              <div class="muted klein">Beitritt {{ t.beitritt }}{% if t.stumm_bis %} · stumm bis {{ t.stumm_bis }}{% endif %}</div>
-              {% if t.rollen %}
-                <div class="chips">{% for r in t.rollen %}<span class="chip">{{ r }}</span>{% endfor %}</div>
-              {% endif %}
-            </div>
-          {% endfor %}
-        {% else %}
-          <div class="leer">—</div>
-        {% endif %}
-      </div>
+            </details>
+          {% endif %}
+
+        </div>
+      </details>
     {% endfor %}
 
     {% if ergebnis.fehler %}
-      <div class="card">
-        <div class="daten-label">Nicht erreichbar</div>
-        {% for f in ergebnis.fehler %}<div class="klein schlecht">{{ f }}</div>{% endfor %}
+      <div class="karte karte-fehler">
+        <div class="karte-kopf"><h2 class="karte-titel">Nicht erreichbar</h2></div>
+        <div class="karte-leib">
+          {% for f in ergebnis.fehler %}<div class="kleintext schlecht">{{ f }}</div>{% endfor %}
+        </div>
       </div>
     {% endif %}
 
     {% if ergebnis.gebremst %}
-      <div class="hinweis">
-        Abgebrochen nach {{ ergebnis.anfragen }} Anfragen (Obergrenze erreicht).
+      <div class="karte">
+        <div class="karte-leib">
+          <div class="kleintext">
+            Abgebrochen nach {{ ergebnis.anfragen }} Anfragen — die Obergrenze ist erreicht.
+            Server, die danach kamen, stehen unter „nicht geprüft".
+          </div>
+        </div>
       </div>
     {% endif %}
+
   {% else %}
-    <div class="card">
-      <div class="leer">—</div>
-      {% if ergebnis.fehler %}
-        <div class="hinweis">{{ ergebnis.fehler | join(" · ") }}</div>
-      {% endif %}
+
+    <div class="karte">
+      <div class="karte-kopf">
+        <h2 class="karte-titel">Nichts gefunden</h2>
+        <p class="karte-text">Zu <code>{{ gesucht }}</code> gibt es kein Konto, das einer der Bots sehen darf.</p>
+      </div>
+      <div class="karte-leib">
+        {% if ergebnis.fehler %}
+          {% for f in ergebnis.fehler %}<div class="kleintext schlecht">{{ f }}</div>{% endfor %}
+        {% else %}
+          <div class="leer">Kein Treffer</div>
+        {% endif %}
+      </div>
     </div>
+
   {% endif %}
+
 {% endif %}

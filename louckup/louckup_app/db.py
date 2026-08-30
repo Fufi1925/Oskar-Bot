@@ -295,18 +295,33 @@ async def note_check(
     username: str | None = None,
     application: str | None = None,
     avatar: str | None = None,
+    label: str | None = None,
 ) -> None:
-    """Ergebnis einer Token-Pruefung festhalten."""
+    """Ergebnis einer Token-Pruefung festhalten.
+
+    Name und Bild kommen von selbst mit — wer den Bot umbenennt, hat
+    ihn ja gerade geprueft. `label` wird nur geschrieben, wenn einer
+    uebergeben wird; so bleibt ein von Hand vergebener Name unangetastet,
+    waehrend ein automatisch geholter sich mit dem Konto mitaendert.
+    """
+    # `COALESCE` heisst hier: was Discord nicht liefert, bleibt, wie es
+    # war. Nur der Avatar wird ersetzt, auch durch „keiner", damit ein
+    # geloeschtes Bild nicht als altes weiter angezeigt wird.
     await db.execute(
         """
         UPDATE bots
         SET last_checked_at = ?, last_check_ok = ?, last_check_text = ?,
-            discord_id = COALESCE(?, discord_id),
-            username   = COALESCE(?, username),
-            application= COALESCE(?, application),
-            avatar     = COALESCE(?, avatar)
+            discord_id  = COALESCE(?, discord_id),
+            username    = COALESCE(?, username),
+            application = COALESCE(?, application),
+            avatar      = ?,
+            label       = COALESCE(?, label)
         WHERE id = ?
         """,
-        (int(time.time()), int(ok), text[:300], discord_id, username, application, avatar, bot_id),
+        (
+            int(time.time()), int(ok), text[:300],
+            discord_id, username, application, avatar,
+            (label[:120] if label else None), bot_id,
+        ),
     )
     await db.commit()

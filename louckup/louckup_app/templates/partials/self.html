@@ -1,55 +1,78 @@
-<div class="card">
-  <div class="self-top">
-    {% if avatar_url %}<img class="self-avatar" src="{{ avatar_url }}" alt="">{% endif %}
-    <div>
-      <div class="self-name">{{ record.global_name if record and record.global_name else (user.global_name or user.username) }}</div>
-      <div class="self-sub">@{{ record.username if record else user.username }}</div>
+{% from "partials/symbole.html" import symbol %}
+<div class="karte">
+  <div class="karte-kopf">
+    <h2 class="karte-titel">Dein Konto</h2>
+    <p class="karte-text">Was dieser Bereich ueber dich gespeichert hat — und sonst nichts.</p>
+  </div>
+  <div class="karte-leib">
+
+    <div class="profil">
+      {% if avatar_url %}
+        <img class="profil-bild" src="{{ avatar_url }}" alt="">
+      {% else %}
+        <div class="profil-platz" aria-hidden="true">{{ (user.global_name or user.username)[:1] | upper }}</div>
+      {% endif %}
+      <div>
+        <div class="profil-name">{{ record.global_name if record and record.global_name else (user.global_name or user.username) }}</div>
+        <div class="profil-unter">@{{ record.username if record else user.username }}</div>
+      </div>
     </div>
+
+    <div class="abschnitt">Daten</div>
+    <dl class="daten">
+      <div><dt>Discord-ID</dt><dd><code>{{ user.uid }}</code></dd></div>
+      <div><dt>Benutzername</dt><dd>{{ record.username if record else user.username }}</dd></div>
+      <div><dt>Anzeigename</dt><dd>{{ record.global_name if record and record.global_name else "—" }}</dd></div>
+      <div><dt>E-Mail</dt><dd>{{ record.email if record and record.email else "—" }}</dd></div>
+      <div><dt>Verifiziert</dt><dd>{{ "ja" if record and record.verified else "nein" }}</dd></div>
+      <div><dt>Erster Login</dt><dd>{{ (record.updated_at if record else None) | timestamp }}</dd></div>
+      <div><dt>Letzter Login</dt><dd>{{ (record.last_login_at if record else None) | timestamp }}</dd></div>
+    </dl>
+
+    <div class="abschnitt">Rechte <span class="zahl">{{ scopes.split() | length }}</span></div>
+    <div class="chips oben">
+      {% for s in scopes.split() %}<span class="chip">{{ s }}</span>{% endfor %}
+    </div>
+
+    <div class="abschnitt">Server <span class="zahl">{{ guilds | length }}</span></div>
+    {% if guilds %}
+      <ul class="nackte-liste">
+        {% for g in guilds %}
+          <li class="server-zeile">
+            <span class="server-platz" aria-hidden="true">{{ (g.name or "?")[:1] | upper }}</span>
+            <span class="name">{{ g.name }}</span>
+            {% if g.owner %}<span class="pill ok">Owner</span>{% endif %}
+            {% if g.member_count %}<span class="kleintext">{{ g.member_count }} Mitglieder</span>{% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <div class="leer">Keine Server geladen</div>
+    {% endif %}
+
   </div>
-
-  <dl class="daten">
-    <div><dt>Discord-ID</dt><dd><code>{{ user.uid }}</code></dd></div>
-    <div><dt>Benutzername</dt><dd>{{ record.username if record else user.username }}</dd></div>
-    <div><dt>Anzeigename</dt><dd>{{ record.global_name if record and record.global_name else "—" }}</dd></div>
-    <div><dt>E-Mail</dt><dd>{{ record.email if record and record.email else "—" }}</dd></div>
-    <div><dt>Verifiziert</dt><dd>{{ "ja" if record and record.verified else "nein" }}</dd></div>
-    <div><dt>Erster Login</dt><dd>{{ (record.updated_at if record else None) | timestamp }}</dd></div>
-    <div><dt>Letzter Login</dt><dd>{{ (record.last_login_at if record else None) | timestamp }}</dd></div>
-  </dl>
-
-  <div class="daten-label">Scopes</div>
-  <div class="chips">
-    {% for s in scopes.split() %}<span class="chip">{{ s }}</span>{% endfor %}
-  </div>
-
-  <div class="daten-label">Server <span class="count">{{ guilds | length }}</span></div>
-  {% if guilds %}
-    <ul class="server-liste">
-      {% for g in guilds %}
-        <li>
-          <span class="server-name">{{ g.name }}</span>
-          {% if g.owner %}<span class="pill ok">Owner</span>{% endif %}
-          {% if g.member_count %}<span class="muted">{{ g.member_count }}</span>{% endif %}
-        </li>
-      {% endfor %}
-    </ul>
-  {% else %}
-    <div class="leer">—</div>
-  {% endif %}
 </div>
 
-  <div class="daten-label">Eigene Logins</div>
-  {% if logins %}
-    <ul class="login-liste">
-      {% for l in logins %}
-        <li>
-          <span>{{ l.created_at | timestamp }}</span>
-          <span class="pill {% if l.outcome == 'granted' %}ok{% else %}no{% endif %}">
-            {{ "erfolgreich" if l.outcome == "granted" else "abgewiesen" }}
-          </span>
-        </li>
-      {% endfor %}
-    </ul>
-  {% else %}
-    <div class="leer">—</div>
-  {% endif %}
+<div class="karte">
+  <div class="karte-kopf">
+    <h2 class="karte-titel">Eigene Logins</h2>
+    <p class="karte-text">Die letzten Anmeldungen an diesem Bereich — deine eigenen.</p>
+  </div>
+  <div class="karte-leib">
+    {% if logins %}
+      <ul class="nackte-liste">
+        {% for l in logins %}
+          <li class="server-zeile">
+            <span class="name">{{ l.created_at | timestamp }}</span>
+            <span class="pill {% if l.outcome == 'granted' %}ok{% else %}nein{% endif %}">
+              {{ "erfolgreich" if l.outcome == "granted" else "abgewiesen" }}
+            </span>
+            {% if l.detail %}<span class="kleintext">{{ l.detail }}</span>{% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <div class="leer">Keine Eintraege</div>
+    {% endif %}
+  </div>
+</div>

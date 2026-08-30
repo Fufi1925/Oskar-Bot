@@ -1,16 +1,18 @@
 {% extends "base.html" %}
+{% from "partials/symbole.html" import symbol %}
 {% block title %}{{ brand }}{% endblock %}
 
 {% block body %}
-<div class="login-wrap">
-  <div class="login-card">
-    <div class="login-mark"></div>
-    <h1>{{ brand }}</h1>
+<div class="glow" aria-hidden="true"></div>
 
-    <a class="discord-btn" href="{{ root_path }}/auth/discord">
-      <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
-        <path fill="currentColor" d="M20.3 4.5A16.6 16.6 0 0 0 16.2 3.2l-.3.6a12.4 12.4 0 0 1 3.6 1.8 12 12 0 0 0-10.9 0A12.4 12.4 0 0 1 12.2 3.8L11.9 3.2A16.6 16.6 0 0 0 7.7 4.5C4.8 8.7 4 12.8 4.4 16.9a16.4 16.4 0 0 0 5 2.5l.6-1a10.7 10.7 0 0 1-1.9-.9l.4-.3a11.7 11.7 0 0 0 10.9 0l.4.3a10.7 10.7 0 0 1-1.9.9l.6 1a16.4 16.4 0 0 0 5-2.5c.5-4.8-.7-8.9-2.2-12.4ZM9.7 14.7c-1 0-1.8-.9-1.8-2s.8-2 1.8-2 1.8.9 1.8 2-.8 2-1.8 2Zm4.6 0c-1 0-1.8-.9-1.8-2s.8-2 1.8-2 1.8.9 1.8 2-.8 2-1.8 2Z"/>
-      </svg>
+<div class="login-wrap">
+  <div class="login-karte">
+    <div class="login-bild" aria-hidden="true">{{ symbol("bot") }}</div>
+    <h1>{{ brand }}</h1>
+    <p>Geschlossener Bereich. Nur eingetragene Inhaber kommen weiter.</p>
+
+    <a class="discord-knopf" href="{{ root_path }}/auth/discord">
+      {{ symbol("discord") }}
       Mit Discord anmelden
     </a>
   </div>

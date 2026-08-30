@@ -56,6 +56,11 @@ from louckup_app import discord_api as api  # noqa: E402
 from louckup_app import krypto  # noqa: E402
 from louckup_app.main import create_app  # noqa: E402
 
+# Kein echter Token — lang genug, damit die Laengenpruefung ihn
+# durchlaesst, und nur in diesem Prozess bekannt.
+HAUPTBOT_TOKEN = "MTExMTEyMjIzMzM0NDQ1NTUuQUJDREVG.R0hJSktMTU5PUFFSLTEyMzQ1Ng"
+ZWEITBOT_TOKEN = "OTk5OTg4ODc3NjY1NTQ0MzMuWllYV1ZVVFNS.cXRlc3QtdG9rZW4tbjg4Nzc3"
+
 OWNER = {
     "id": "111111111111111111",
     "username": "chef",
@@ -348,11 +353,34 @@ def main() -> int:
     # blockt es hier jeden weiteren Login.
     os.environ["LOUCKUP_OWNER_IDS"] = "111111111111111111,222222222222222222"
     os.environ["LOUCKUP_LOGIN_RATE_LIMIT"] = "10"
-    os.environ.setdefault("TOKEN", "HAUPTBOT.TOKEN.AUS.UMGEBUNG")
+    os.environ["TOKEN"] = HAUPTBOT_TOKEN
     get_settings.cache_clear()
+    import louckup_app.main as louckup_main
     from louckup_app.main import _rate
 
     _rate.clear()
+    # Der Zustand des Hauptbots wird im Modul gehalten und gilt danach
+    # eine Weile. Fuer den Test faengt er bei null an.
+    louckup_main._primaer_status = {}
+
+    # Discord wird hier nicht wirklich gefragt. Der Hauptbot und ein
+    # zusaetzlicher Bot bekommen verschiedene Konten, damit klar ist,
+    # welcher Name woher kommt.
+    async def bot_selbst(token, zeitlimit=12.0):
+        if token == HAUPTBOT_TOKEN:
+            return {
+                "id": "100000000000000001",
+                "username": "universitybot",
+                "global_name": "University Bot",
+                "avatar": "aa11bb22",
+            }
+        return {"id": "555000111222333444", "username": "zweitbot", "avatar": "cc33dd44"}
+
+    async def anwendung(token, zeitlimit=12.0):
+        return {"name": "University Bot Dev"} if token == HAUPTBOT_TOKEN else {"name": "Zweitbot"}
+
+    api.bot_selbst = bot_selbst
+    api.anwendung = anwendung
 
     def csrf_aus(html: str) -> str:
         treffer = re.search(r'name="csrf" value="([0-9a-f]{32})"', html)
@@ -368,34 +396,39 @@ def main() -> int:
         check("Seite erreichbar", r.status_code == 200, str(r.status_code))
         check("Hauptbot-Zeile vorhanden", "Hauptbot" in r.text)
         check("Hauptbot kommt aus TOKEN", "TOKEN" in r.text)
+        check("Hauptbot-Name von Discord geholt", "universitybot" in r.text, r.text[:400])
+        check(
+            "Hauptbot-Bild von Discord geholt",
+            "cdn.discordapp.com/avatars/100000000000000001/aa11bb22.png" in r.text,
+            r.text[:400],
+        )
         check("Formular mit CSRF-Feld", 'name="csrf"' in r.text)
+        check("nur ein Token-Feld, kein Namensfeld", 'name="token"' in r.text and 'name="label"' not in r.text)
         form_csrf = csrf_aus(r.text)
         check("CSRF-Wert auslesbar", len(form_csrf) == 32, form_csrf)
 
         # Ohne CSRF darf nichts passieren.
         r = c.post(
             "/louckup/dashboard/einstellungen/bots",
-            data={"label": "Boese", "token": "x"},
+            data={"token": ZWEITBOT_TOKEN},
             follow_redirects=True,
         )
         check("ohne CSRF abgelehnt", "Formular abgelaufen" in r.text, r.text[:200])
 
-        # Discord wird hier nicht wirklich gefragt.
-        async def bot_selbst(token, zeitlimit=12.0):
-            return {"id": "555000111222333444", "username": "zweitbot"}
-
-        async def anwendung(token, zeitlimit=12.0):
-            return {"name": "Zweitbot"}
-
-        api.bot_selbst = bot_selbst
-        api.anwendung = anwendung
+        # Zu kurzer Kram wird gar nicht erst an Discord geschickt.
+        r = c.post(
+            "/louckup/dashboard/einstellungen/bots",
+            data={"csrf": form_csrf, "token": "vielzukurz"},
+            follow_redirects=True,
+        )
+        check("zu kurzer Token abgelehnt", "zu kurz" in r.text, r.text[:200])
 
         r = c.post(
             "/louckup/dashboard/einstellungen/bots",
-            data={"csrf": form_csrf, "label": "Zweitbot", "token": "GEHEIM.TOKEN.123456"},
+            data={"csrf": form_csrf, "token": ZWEITBOT_TOKEN},
             follow_redirects=True,
         )
-        check("Bot angenommen", "eingetragen" in r.text, r.text[:200])
+        check("Bot angenommen", "Zweitbot eingetragen" in r.text, r.text[:400])
 
         # Token darf nicht im Klartext in der Datenbank stehen.
         import asyncio
@@ -413,25 +446,43 @@ def main() -> int:
         if reihen:
             check(
                 "Token nicht im Klartext",
-                "GEHEIM.TOKEN.123456" not in (reihen[0]["token_cipher"] or ""),
+                ZWEITBOT_TOKEN not in (reihen[0]["token_cipher"] or ""),
                 reihen[0]["token_cipher"][:40],
             )
             entschluesselt = krypto.entschluesseln(
                 reihen[0]["token_cipher"], get_settings().secret_key
             )
-            check("Token laesst sich zuruecklesen", entschluesselt == "GEHEIM.TOKEN.123456")
-            check("Maske statt Token in der Seite", "GEHEIM.TOKEN.123456" not in r.text)
+            check("Token laesst sich zuruecklesen", entschluesselt == ZWEITBOT_TOKEN)
+            check("Name selbst von Discord geholt", reihen[0]["label"] == "Zweitbot", str(reihen[0]["label"]))
+            check("Kontoname gespeichert", reihen[0]["username"] == "zweitbot", str(reihen[0]["username"]))
+            check("Bild gespeichert", reihen[0]["avatar"] == "cc33dd44", str(reihen[0]["avatar"]))
+            check("Maske statt Token in der Seite", ZWEITBOT_TOKEN not in r.text)
+            check(
+                "Bild des Bots in der Seite",
+                "cdn.discordapp.com/avatars/555000111222333444/cc33dd44.png" in r.text,
+                r.text[:400],
+            )
+
+        # Pruefen — aktualisiert Name und Bild.
+        r2 = c.get("/louckup/dashboard/einstellungen")
+        form_csrf = csrf_aus(r2.text)
+        bot_id = reihen[0]["id"] if reihen else 0
+        r = c.post(
+            f"/louckup/dashboard/einstellungen/bots/{bot_id}/pruefen",
+            data={"csrf": form_csrf},
+            follow_redirects=True,
+        )
+        check("Pruefen meldet Erfolg", "Token gilt" in r.text, r.text[:300])
 
         # Entfernen — wieder mit CSRF.
         r2 = c.get("/louckup/dashboard/einstellungen")
         form_csrf = csrf_aus(r2.text)
-        bot_id = reihen[0]["id"] if reihen else 0
         r = c.post(
             f"/louckup/dashboard/einstellungen/bots/{bot_id}/entfernen",
             data={"csrf": form_csrf},
             follow_redirects=True,
         )
-        check("Bot entfernt", "entfernt" in r.text, r.text[:200])
+        check("Bot entfernt", "entfernt" in r.text, r.text[:300])
         check("Liste ist leer", len(asyncio.run(lies())) == 0)
 
     print("\n18) Suche nach einer Discord-ID")
@@ -441,18 +492,28 @@ def main() -> int:
         c.get("/louckup/auth/callback", params={"code": "abc", "state": state}, follow_redirects=False)
 
         async def profil(token, uid, zeitlimit=12.0):
-            return {"id": str(uid), "username": "zielperson", "global_name": "Ziel", "public_flags": 0}
+            return {
+                "id": str(uid),
+                "username": "zielperson",
+                "global_name": "Ziel",
+                "public_flags": 0,
+                "accent_color": 16738740,
+            }
 
         async def server(token, zeitlimit=12.0):
             return [{"id": "9001", "name": "Server A"}, {"id": "9002", "name": "Server B"}]
 
         async def mitglied(token, gid, uid, zeitlimit=12.0):
             if gid == 9001:
-                return {"nick": "Spitzname", "joined_at": "2024-05-06T07:08:09", "roles": ["7001"]}
+                return {
+                    "nick": "Spitzname",
+                    "joined_at": "2024-05-06T07:08:09.000000+00:00",
+                    "roles": ["7001"],
+                }
             return None
 
         async def rollen(token, gid, zeitlimit=12.0):
-            return {7001: "Moderator"}
+            return {7001: {"name": "Moderator", "farbe": "#ff0000"}}
 
         api.profil = profil
         api.bot_server = server
@@ -464,14 +525,29 @@ def main() -> int:
         check("Profil gefunden", "Ziel" in r.text)
         check("ID angezeigt", "123456789012345678" in r.text)
         check("Treffer-Server genannt", "Server A" in r.text)
-        check("kein Server ohne Mitgliedschaft", "Server B" not in r.text)
         check("Rollen aufgeloest", "Moderator" in r.text)
         check("Nickname gezeigt", "Spitzname" in r.text)
-        check("Beitrittsdatum gezeigt", "2024-05-06" in r.text)
-        check("keine E-Mail erfunden", "@" not in r.text.replace("&#64;", "@") or "example.com" not in r.text)
+        check("Beitrittsdatum gezeigt", "06.05.2024" in r.text, r.text[:400])
+        check("Alter des Kontos gezeigt", "seit" in r.text)
+        check("keine E-Mail erfunden", "example.com" not in r.text)
+
+        # Alle Server des Bots stehen da — auch die ohne die Person.
+        check("Server ohne Mitgliedschaft ist gelistet", "Server B" in r.text)
+        check("und als solcher gekennzeichnet", "nicht Mitglied" in r.text, r.text[:400])
+
+        # Aufklappen ohne Skript.
+        check("Server sind aufklappbar", "<details" in r.text)
+        check("Treffer ist aufklappbar", r.text.count("<details") >= 2, str(r.text.count("<details")))
+
+        # Mehr als vorher: Server-ID, Stumm, Boost, Freigabe, Rollenanzahl.
+        for feld in ("Server-ID", "Stumm bis", "Boost seit"):
+            check(f"Feld '{feld}' vorhanden", feld in r.text, r.text[:400])
+
+        check("Hauptbot erscheint in der Suche", "University Bot" in r.text, r.text[:400])
+        check("Zusammenfassung genannt", "gemeinsame Server" in r.text)
 
         r = c.get("/louckup/dashboard/discord-ids?id=keinzahl")
-        check("Unsinn wird abgewiesen", "keine Zahl" in r.text, r.text[:200])
+        check("Unsinn wird abgewiesen", "keine Zahl" in r.text, r.text[:300])
 
     print("\n" + "=" * 60)
     if FAILURES:

@@ -1,46 +1,76 @@
 {% extends "base.html" %}
+{% from "partials/symbole.html" import symbol %}
 {% block title %}{{ tab_title }} — {{ brand }}{% endblock %}
 
 {% block body %}
+<div class="glow" aria-hidden="true"></div>
+
+{# Auf- und Zuklappen der Seitenleiste ohne Skript: ein verstecktes
+   Feld, das die CSS darunter sieht. Auf dem Schirm ab 1024px ist die
+   Leiste ohnehin immer da. #}
+<input type="checkbox" id="nav-auf" class="nav-schalter" aria-hidden="true">
+<label for="nav-auf" class="nav-schatten" aria-hidden="true"></label>
+
 <div class="shell">
 
   <aside class="sidebar">
-    <div class="side-head">
-      <span class="mark"></span>
-      <span class="side-brand">{{ brand }}</span>
+    <div class="marke">
+      <span class="marke-bild" aria-hidden="true">{{ symbol("bot") }}</span>
+      <span class="marke-text">
+        <strong>{{ brand }}</strong>
+        <span>Bereich</span>
+      </span>
+      <label for="nav-auf" class="nav-zu" aria-label="Leiste schliessen">{{ symbol("kreuz") }}</label>
     </div>
 
-    <nav class="side-nav">
-      {% for slug, label in tabs %}
-        <a class="side-link{% if slug == tab %} active{% endif %}" href="{{ root_path }}/dashboard/{{ slug }}">
-          {{ label }}
-        </a>
+    <nav class="nav">
+      {% for gruppe, slugs in tab_gruppen %}
+        <div class="nav-gruppe">
+          <p class="nav-titel">{{ gruppe }}</p>
+          {% for slug in slugs %}
+            <a class="nav-link{% if slug == tab %} aktiv{% endif %}" href="{{ root_path }}/dashboard/{{ slug }}">
+              <span class="nav-symbol" aria-hidden="true">{{ symbol(tab_symbol.get(slug, "person")) }}</span>
+              <span>{{ tab_titel.get(slug, slug) }}</span>
+            </a>
+          {% endfor %}
+        </div>
       {% endfor %}
     </nav>
 
-    <div class="side-foot">
-      {% if avatar_url %}<img class="side-avatar" src="{{ avatar_url }}" alt="">{% endif %}
-      <div class="side-user">
-        <div class="side-name">{{ user.global_name or user.username }}</div>
-        <a class="side-out" href="{{ root_path }}/logout">Abmelden</a>
-      </div>
+    <div class="konto">
+      {% if avatar_url %}<img class="konto-bild" src="{{ avatar_url }}" alt="">{% endif %}
+      <span class="konto-text">
+        <strong>{{ user.global_name or user.username }}</strong>
+        <span>Inhaber</span>
+      </span>
+      <a class="konto-raus" href="{{ root_path }}/logout" title="Abmelden" aria-label="Abmelden">{{ symbol("raus") }}</a>
     </div>
   </aside>
 
-  <main class="content">
-    <h1 class="page-title">{{ tab_title }}</h1>
+  <main class="inhalt">
+    <div class="inhalt-breit">
 
-    {% if tab == "discord-ids" %}
-      {% include "partials/discord-ids.html" %}
-    {% elif tab == "roblox" %}
-      {% include "partials/platzhalter.html" %}
-    {% elif tab == "ip" %}
-      {% include "partials/platzhalter.html" %}
-    {% elif tab == "self" %}
-      {% include "partials/self.html" %}
-    {% elif tab == "einstellungen" %}
-      {% include "partials/einstellungen.html" %}
-    {% endif %}
+      <header class="kopf">
+        <div>
+          <h1>{{ tab_title }}</h1>
+          <p>{{ tab_untertitel }}</p>
+        </div>
+        <label for="nav-auf" class="nav-oeffner">{{ symbol("menue") }} Reiter</label>
+      </header>
+
+      {% if tab == "discord-ids" %}
+        {% include "partials/discord-ids.html" %}
+      {% elif tab == "roblox" %}
+        {% include "partials/platzhalter.html" %}
+      {% elif tab == "ip" %}
+        {% include "partials/platzhalter.html" %}
+      {% elif tab == "self" %}
+        {% include "partials/self.html" %}
+      {% elif tab == "einstellungen" %}
+        {% include "partials/einstellungen.html" %}
+      {% endif %}
+
+    </div>
   </main>
 
 </div>
