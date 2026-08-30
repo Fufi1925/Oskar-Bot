@@ -44,6 +44,8 @@ class Settings(BaseSettings):
     louckup_secret_key: str = ""
     louckup_cookie_name: str = "louckup_session"
     louckup_session_max_age: int = 60 * 60 * 24 * 7  # 7 Tage
+    # Anfaenge von "Mit Discord anmelden" pro Minute und Adresse.
+    louckup_login_rate_limit: int = 10
 
     # ── Discord OAuth2 (EIGENE Application, nicht die vom Phantom) ──
     louckup_discord_client_id: str = ""

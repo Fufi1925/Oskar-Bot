@@ -37,3 +37,19 @@
     <div class="leer">—</div>
   {% endif %}
 </div>
+
+  <div class="daten-label">Eigene Logins</div>
+  {% if logins %}
+    <ul class="login-liste">
+      {% for l in logins %}
+        <li>
+          <span>{{ l.created_at | timestamp }}</span>
+          <span class="pill {% if l.outcome == 'granted' %}ok{% else %}no{% endif %}">
+            {{ "erfolgreich" if l.outcome == "granted" else "abgewiesen" }}
+          </span>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <div class="leer">—</div>
+  {% endif %}

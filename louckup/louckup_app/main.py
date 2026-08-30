@@ -24,7 +24,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, Request, Response
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -94,6 +94,47 @@ async def lifespan(app: FastAPI):
         _db_conn = None
 
 
+# Anfaenge von Logins pro Adresse. Bewusst im Speicher und bewusst
+# einfach: es geht nicht darum, einen Angriff von tausend Rechnern
+# abzuwehren, sondern darum, dass ein einzelner Rechner den Bereich
+# nicht mit Login-Anfragen zuschuettet.
+_rate: dict[str, list[float]] = {}
+
+
+def rate_ok(key: str, limit: int, window: float = 60.0) -> bool:
+    """True, wenn noch innerhalb des Limits."""
+    jetzt = time.time()
+    treffer = [t for t in _rate.get(key, []) if jetzt - t < window]
+    treffer.append(jetzt)
+    _rate[key] = treffer
+
+    # Aufraeumen kostet Zeit, also nicht bei jedem Aufruf, sondern nur
+    # wenn die Kiste unuebersichtlich wird.
+    if len(_rate) > 512:
+        for k in [k for k, v in _rate.items() if not v or jetzt - v[-1] > window]:
+            _rate.pop(k, None)
+
+    return len(treffer) <= limit
+
+
+# Der Bereich kennt keine eingebetteten Skripte und kein fremdes CSS,
+# deshalb darf die Richtlinie so eng sein. Bilder kommen nur von Discord.
+SICHERHEITS_HEADER = {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "no-referrer",
+    "Permissions-Policy": "geolocation=(), microphone=(), camera=()",
+    "Content-Security-Policy": (
+        "default-src 'self'; "
+        "img-src 'self' https://cdn.discordapp.com; "
+        "style-src 'self'; "
+        "form-action 'self'; "
+        "frame-ancestors 'none'; "
+        "base-uri 'none'"
+    ),
+}
+
+
 def create_app() -> FastAPI:
     settings = get_settings()
     app = FastAPI(
@@ -106,6 +147,17 @@ def create_app() -> FastAPI:
     )
 
     app.mount("/static", StaticFiles(directory=str(APP_DIR / "static")), name="static")
+
+    @app.middleware("http")
+    async def sicherheits_header(request: Request, call_next):
+        antwort = await call_next(request)
+        for name, wert in SICHERHEITS_HEADER.items():
+            antwort.headers.setdefault(name, wert)
+        # Keine Seite hier darf im Browser-Cache landen, schon gar nicht
+        # auf einem geteilten Rechner.
+        if (antwort.headers.get("content-type") or "").startswith("text/html"):
+            antwort.headers["Cache-Control"] = "no-store, private"
+        return antwort
 
     # ── Helfer ────────────────────────────────────────────────────
 
@@ -219,6 +271,11 @@ def create_app() -> FastAPI:
 
     @app.get("/auth/discord")
     async def auth_discord(request: Request, force: int = 0):
+        adresse = request.client.host if request.client else "unbekannt"
+        if not rate_ok(f"login:{adresse}", settings.louckup_login_rate_limit):
+            log.warning("Login-Rate-Limit griff fuer %s", adresse)
+            return PlainTextResponse("Zu viele Versuche. Bitte warte einen Moment.", status_code=429)
+
         if not settings.oauth_configured:
             resp = RedirectResponse(url=href("/login", request), status_code=302)
             flash(resp, "OAuth ist nicht konfiguriert (CLIENT_ID / CLIENT_SECRET).", request)
@@ -381,7 +438,9 @@ def create_app() -> FastAPI:
         db = await get_db()
         record = await dbmod.get_user(db, uid)
         # Serverliste nur laden, wenn sie auch gebraucht wird.
+        # Auf Self nur die eigenen Daten — inklusive der eigenen Logins.
         guilds = await dbmod.list_user_guilds(db, uid) if tab == "self" else []
+        logins = await dbmod.own_attempts(db, uid, limit=10) if tab == "self" else []
 
         resp = render(
             request,
@@ -393,9 +452,12 @@ def create_app() -> FastAPI:
                 tabs=TABS,
                 record=record,
                 guilds=guilds,
+                logins=logins,
                 scopes=(record or {}).get("scopes") or settings.scopes,
             ),
         )
+        # Nichts hier darf im Browser-Cache landen, auch nicht auf
+        # geteilten Rechnern.
         clear_flash(resp)
         return resp
 

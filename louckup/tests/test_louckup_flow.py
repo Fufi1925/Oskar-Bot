@@ -172,6 +172,8 @@ def main() -> int:
         check("Eigene E-Mail", "chef@example.com" in r.text)
         check("Eigene Discord-ID", "111111111111111111" in r.text)
         check("Eigene Server", "Testserver" in r.text)
+        check("Eigene Logins auf Self", "Eigene Logins" in r.text)
+        check("eigener Login als erfolgreich vermerkt", "erfolgreich" in r.text)
 
         print("\n6b) Platzhalter-Reiter")
         for slug, label in (("discord-ids", "Discord IDs"), ("roblox", "Roblox User"), ("ip", "IP")):
@@ -201,8 +203,33 @@ def main() -> int:
         check("Weiter aufs normale Dashboard", r.headers.get("location") == "/", r.headers.get("location", ""))
         check("KEIN Session-Cookie", "louckup_session" not in client.cookies, str(list(client.cookies.keys())))
 
-        print("\n9) Healthz")
-        data = client.get("/louckup/healthz").json()
+        print("\n8b) Loginprotokoll: nur die eigenen Zeilen")
+    import asyncio
+
+    from louckup_app import db as dbmod
+
+    async def protokoll():
+        db = await dbmod.connect()
+        eigene = await dbmod.own_attempts(db, 111111111111111111)
+        alle = await dbmod.recent_attempts(db, 50)
+        await db.close()
+        return eigene, alle
+
+    eigene, alle = asyncio.run(protokoll())
+    check(
+        "nur Zeilen der eigenen ID",
+        bool(eigene) and all(r["user_id"] == 111111111111111111 for r in eigene),
+        str([r["user_id"] for r in eigene]),
+    )
+    check(
+        "fremder Versuch liegt in der Tabelle, aber nicht im eigenen Blick",
+        any(r["user_id"] == 999999999999999999 for r in alle)
+        and not any(r["user_id"] == 999999999999999999 for r in eigene),
+    )
+
+    print("\n9) Healthz")
+    with mounted_client() as c9:
+        data = c9.get("/louckup/healthz").json()
         check("ok", data.get("ok") is True, str(data))
         check("oauth konfiguriert", data.get("oauth_configured") is True, str(data))
         check("zwei Owner eingetragen", data.get("owners") == 2, str(data))
@@ -282,6 +309,31 @@ def main() -> int:
         check("Loginseite mit richtigem CSS-Pfad", "/louckup/static/css/louckup.css" in r.text)
         check("Login nur mit Knopf, ohne Erklaerung", "gdm.join" not in r.text and "Mit Discord anmelden" in r.text)
         check("kein Footer mehr", "footer" not in r.text)
+
+    print("\n15) Sicherheits-Header")
+    with mounted_client() as c:
+        r = c.get("/louckup/login")
+        check("Content-Security-Policy", "Content-Security-Policy" in r.headers, str(list(r.headers))[:120])
+        check("X-Frame-Options DENY", r.headers.get("X-Frame-Options") == "DENY")
+        check("X-Content-Type-Options", r.headers.get("X-Content-Type-Options") == "nosniff")
+        check("Referrer-Policy", r.headers.get("Referrer-Policy") == "no-referrer")
+        check("Bilder nur von Discord erlaubt", "cdn.discordapp.com" in r.headers.get("Content-Security-Policy", ""))
+
+        r = c.get("/louckup/login")
+        check("Seiten ohne Browser-Cache", "no-store" in (r.headers.get("Cache-Control") or ""), r.headers.get("Cache-Control", ""))
+
+    print("\n16) Login-Rate-Limit")
+    os.environ["LOUCKUP_LOGIN_RATE_LIMIT"] = "2"
+    get_settings.cache_clear()
+    # Der Zaehler lebt im Modul und damit ueber alle Apps dieses
+    # Prozesses hinweg — fuer den Test faengt er bei null an.
+    from louckup_app.main import _rate
+
+    _rate.clear()
+    with mounted_client() as c:
+        codes = [c.get("/louckup/auth/discord", follow_redirects=False).status_code for _ in range(3)]
+        check("die ersten beiden gehen durch", codes[:2] == [302, 302], str(codes))
+        check("die dritte wird gebremst", codes[2] == 429, str(codes))
 
     print("\n" + "=" * 60)
     if FAILURES:

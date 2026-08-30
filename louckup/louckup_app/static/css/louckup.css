@@ -277,3 +277,21 @@ code {
   .content { padding: 24px 18px; }
   .daten > div { grid-template-columns: 1fr; gap: 2px; }
 }
+
+.login-liste { list-style: none; margin: 0; padding: 0; }
+.login-liste li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--card-border);
+  font-size: 13.5px;
+  color: var(--muted);
+}
+.login-liste li:last-child { border-bottom: 0; }
+
+.pill.no {
+  background: rgba(248, 113, 113, .1);
+  color: #f87171;
+  border: 1px solid rgba(248, 113, 113, .35);
+}

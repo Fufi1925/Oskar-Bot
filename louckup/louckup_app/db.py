@@ -196,6 +196,21 @@ async def record_attempt(
     await db.commit()
 
 
+async def own_attempts(
+    db: aiosqlite.Connection, user_id: int, limit: int = 10
+) -> list[dict[str, Any]]:
+    """Nur die Loginversuche dieses einen Kontos.
+
+    Die Tabelle enthaelt auch die der anderen Owner — die gehen
+    niemanden etwas an und werden hier gar nicht erst geholt.
+    """
+    cur = await db.execute(
+        "SELECT * FROM login_attempts WHERE user_id = ? ORDER BY created_at DESC, id DESC LIMIT ?",
+        (user_id, limit),
+    )
+    return [dict(r) for r in await cur.fetchall()]
+
+
 async def recent_attempts(db: aiosqlite.Connection, limit: int = 10) -> list[dict[str, Any]]:
     cur = await db.execute(
         "SELECT * FROM login_attempts ORDER BY created_at DESC, id DESC LIMIT ?",
