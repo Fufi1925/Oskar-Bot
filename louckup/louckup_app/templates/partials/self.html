@@ -25,7 +25,7 @@
       <div><dt>Anzeigename</dt><dd>{{ record.global_name if record and record.global_name else "—" }}</dd></div>
       <div><dt>E-Mail</dt><dd>{{ record.email if record and record.email else "—" }}</dd></div>
       <div><dt>Verifiziert</dt><dd>{{ "ja" if record and record.verified else "nein" }}</dd></div>
-      <div><dt>Erster Login</dt><dd>{{ (record.updated_at if record else None) | timestamp }}</dd></div>
+      <div><dt>Erster Login</dt><dd>{{ (record.first_login_at if record else None) | timestamp }}</dd></div>
       <div><dt>Letzter Login</dt><dd>{{ (record.last_login_at if record else None) | timestamp }}</dd></div>
     </dl>
 

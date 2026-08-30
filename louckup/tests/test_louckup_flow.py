@@ -549,6 +549,48 @@ def main() -> int:
         r = c.get("/louckup/dashboard/discord-ids?id=keinzahl")
         check("Unsinn wird abgewiesen", "keine Zahl" in r.text, r.text[:300])
 
+    print("\n19) Eigene Aufzeichnung in der Suche")
+    # Fuer Konten, die sich hier selbst eingeloggt haben, steht in der
+    # eigenen Datenbank mehr als bei Discord abrufbar ist: E-Mail,
+    # genehmigte Rechte und die Serverliste vom Zeitpunkt der
+    # Anmeldung. Fuer alle anderen bleibt die Zeile leer.
+    with mounted_client() as c:
+        c.get("/louckup/auth/discord", follow_redirects=False)
+        state = c.cookies.get("louckup_oauth_state")
+        fake_user.who = "owner"
+        c.get("/louckup/auth/callback", params={"code": "abc", "state": state}, follow_redirects=False)
+
+        # Die eigene ID des eingeloggten Owners.
+        r = c.get("/louckup/dashboard/discord-ids?id=111111111111111111")
+        check("Seite erreichbar", r.status_code == 200, str(r.status_code))
+        check("Autorisierung wird gezeigt", "Autorisierung" in r.text, r.text[:400])
+        check("E-Mail aus der eigenen Datenbank", "chef@example.com" in r.text, r.text[:600])
+        check("E-Mail steht auch im Profilblock", r.text.count("chef@example.com") >= 2,
+              str(r.text.count("chef@example.com")))
+        check("Scope email vermerkt", "Scope email" in r.text, r.text[:600])
+        check("Scope guilds vermerkt", "guilds" in r.text)
+        check(
+            "Serverliste vom Zeitpunkt der Anmeldung",
+            "Testserver" in r.text and "Zeitpunkt der Autorisierung" in r.text,
+            r.text[:600],
+        )
+        check("Zeitpunkt der Autorisierung genannt", "Autorisierung bei" in r.text)
+
+        # Das Wichtigste: kein Token auf der Seite.
+        check("kein Zugangs-Token im Text", "fake-access-token" not in r.text)
+        check("kein Auffrisch-Token im Text", "fake-refresh" not in r.text)
+        check("nur gesagt, dass es einen gibt", "wird hier nie angezeigt" in r.text, r.text[:600])
+
+        # Eine fremde ID hat hier nichts liegen.
+        r = c.get("/louckup/dashboard/discord-ids?id=123456789012345678")
+        check("fremde ID ohne Autorisierung", "Autorisierung bei" not in r.text, r.text[:400])
+        check("fremde ID ohne E-Mail", "chef@example.com" not in r.text)
+        check("Hinweis, warum die Zeile leer bleibt", "nicht abrufbar" in r.text, r.text[:600])
+
+        # Erster Login ist nicht mehr die letzte Aktualisierung.
+        r = c.get("/louckup/dashboard/self")
+        check("Self zeigt den ersten Login", "Erster Login" in r.text)
+
     print("\n" + "=" * 60)
     if FAILURES:
         print(f"{len(FAILURES)} von {CHECKS} Pruefungen fehlgeschlagen:")

@@ -16,50 +16,136 @@
   </div>
 </div>
 
+{% if ergebnis and ergebnis.user %}
+
+  <div class="karte">
+    <div class="karte-leib">
+      <div class="profil">
+        {% if ergebnis.avatar %}
+          <img class="profil-bild" src="{{ ergebnis.avatar }}" alt="">
+        {% else %}
+          <div class="profil-platz" aria-hidden="true">{{ (ergebnis.user.global_name or ergebnis.user.username or "?")[:1] | upper }}</div>
+        {% endif %}
+        <div>
+          <div class="profil-name">{{ ergebnis.user.global_name or ergebnis.user.username }}</div>
+          <div class="profil-unter">
+            @{{ ergebnis.user.username }} · <code>{{ ergebnis.user.id }}</code>
+          </div>
+        </div>
+      </div>
+
+      <div class="abschnitt">Profil</div>
+      <dl class="daten">
+        <div><dt>Konto erstellt</dt><dd>{{ ergebnis.erstellt }}{% if ergebnis.seit %} <span class="dim">({{ ergebnis.seit }})</span>{% endif %}</dd></div>
+        <div><dt>Abzeichen</dt><dd>
+          {% if ergebnis.abzeichen %}
+            <div class="chips oben">{% for a in ergebnis.abzeichen %}<span class="chip">{{ a }}</span>{% endfor %}</div>
+          {% else %}
+            —
+          {% endif %}
+        </dd></div>
+        <div><dt>Bot</dt><dd>{{ "ja" if ergebnis.user.bot else "nein" }}</dd></div>
+        {% if ergebnis.farbe %}
+          <div><dt>Profilfarbe</dt><dd><code>{{ ergebnis.farbe }}</code></dd></div>
+        {% endif %}
+        {% if bekannt %}
+          <div><dt>E-Mail</dt><dd>{{ bekannt.email or "keine hinterlegt" }}</dd></div>
+          <div><dt>E-Mail verifiziert</dt><dd>{{ "ja" if bekannt.verified else "nein" }}</dd></div>
+        {% else %}
+          <div><dt>E-Mail</dt><dd><span class="dim">nicht abrufbar — siehe Hinweis unter der Serverliste</span></dd></div>
+        {% endif %}
+      </dl>
+
+      <div class="abschnitt">Ergebnis</div>
+      <p class="karte-text ohne">
+        <strong>{{ ergebnis.summe_treffer }}</strong> gemeinsame Server in
+        {{ ergebnis.treffer | length }} von {{ ergebnis.bots }} Bots ·
+        {{ ergebnis.summe_server }} Server durchsucht · {{ ergebnis.anfragen }} Anfragen an Discord.
+      </p>
+    </div>
+  </div>
+
+{% endif %}
+
+{% if bekannt %}
+  <div class="karte">
+    <div class="karte-kopf">
+      <h2 class="karte-titel">Autorisierung bei {{ brand }}</h2>
+      <p class="karte-text">
+        Dieses Konto hat dem Bereich selbst Rechte eingeräumt — am {{ bekannt.erster_login | timestamp }}.
+        Diese Angaben stehen in der eigenen Datenbank, sie wurden nicht bei Discord abgefragt.
+      </p>
+    </div>
+    <div class="karte-leib">
+      <dl class="daten">
+        <div><dt>E-Mail</dt><dd>
+          {% if bekannt.email %}
+            {{ bekannt.email }}
+            {% if bekannt.hat_email %}
+              <span class="pill ok">Scope email</span>
+            {% endif %}
+          {% elif bekannt.hat_email %}
+            <span class="dim">Scope genehmigt, Discord hat keine Adresse mitgeschickt</span>
+          {% else %}
+            <span class="dim">Scope email nicht genehmigt</span>
+          {% endif %}
+        </dd></div>
+        <div><dt>Verifiziert</dt><dd>{{ "ja" if bekannt.verified else "nein" }}</dd></div>
+        <div><dt>Genehmigte Rechte</dt><dd>
+          {% if bekannt.scopes %}
+            <div class="chips oben">{% for s in bekannt.scopes %}<span class="chip">{{ s }}</span>{% endfor %}</div>
+          {% else %}
+            —
+          {% endif %}
+        </dd></div>
+        <div><dt>Zuletzt hier</dt><dd>{{ bekannt.letzter_login | timestamp }}</dd></div>
+        <div><dt>Zugangs-Token</dt><dd>
+          {% if bekannt.token_da %}
+            vorhanden{% if bekannt.token_gueltig_bis %}, gültig bis {{ bekannt.token_gueltig_bis | timestamp }}{% endif %}
+            <span class="dim">· wird hier nie angezeigt</span>
+          {% else %}
+            —
+          {% endif %}
+        </dd></div>
+      </dl>
+
+      {% if bekannt.hat_guilds %}
+        <div class="abschnitt">Server zum Zeitpunkt der Autorisierung <span class="zahl">{{ bekannt.server | length }}</span></div>
+        <p class="karte-text ohne">
+          {{ brand }} hat den Scope <code>guilds</code> bekommen. Stand {{ bekannt.stand | timestamp }}
+          war dieses Konto auf diesen Servern:
+        </p>
+        {% if bekannt.server %}
+          <ul class="nackte-liste">
+            {% for g in bekannt.server %}
+              <li class="server-zeile">
+                <span class="server-platz" aria-hidden="true">{{ (g.name or "?")[:1] | upper }}</span>
+                <span class="name">{{ g.name }}</span>
+                {% if g.owner %}<span class="pill ok">Owner</span>{% endif %}
+                {% if g.member_count %}<span class="kleintext">{{ g.member_count }} Mitglieder</span>{% endif %}
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <div class="leer">Keine Server gespeichert</div>
+        {% endif %}
+      {% else %}
+        <div class="abschnitt">Server</div>
+        <div class="kleintext">Der Scope <code>guilds</code> wurde nicht genehmigt — es steht hier keine Serverliste.</div>
+      {% endif %}
+
+      <div class="hinweis">
+        Mehr gibt es nicht: Discord nennt einer Anwendung nur die E-Mail-Adresse des Kontos, das
+        sich gerade selbst anmeldet. Für fremde IDs gibt es keinen Endpunkt, auch nicht fuer einen
+        Bot-Token — deshalb bleibt die Zeile bei allen anderen Konten leer.
+      </div>
+    </div>
+  </div>
+{% endif %}
+
 {% if ergebnis %}
 
   {% if ergebnis.user %}
-
-    <div class="karte">
-      <div class="karte-leib">
-        <div class="profil">
-          {% if ergebnis.avatar %}
-            <img class="profil-bild" src="{{ ergebnis.avatar }}" alt="">
-          {% else %}
-            <div class="profil-platz" aria-hidden="true">{{ (ergebnis.user.global_name or ergebnis.user.username or "?")[:1] | upper }}</div>
-          {% endif %}
-          <div>
-            <div class="profil-name">{{ ergebnis.user.global_name or ergebnis.user.username }}</div>
-            <div class="profil-unter">
-              @{{ ergebnis.user.username }} · <code>{{ ergebnis.user.id }}</code>
-            </div>
-          </div>
-        </div>
-
-        <div class="abschnitt">Profil</div>
-        <dl class="daten">
-          <div><dt>Konto erstellt</dt><dd>{{ ergebnis.erstellt }}{% if ergebnis.seit %} <span class="dim">({{ ergebnis.seit }})</span>{% endif %}</dd></div>
-          <div><dt>Abzeichen</dt><dd>
-            {% if ergebnis.abzeichen %}
-              <div class="chips oben">{% for a in ergebnis.abzeichen %}<span class="chip">{{ a }}</span>{% endfor %}</div>
-            {% else %}
-              —
-            {% endif %}
-          </dd></div>
-          <div><dt>Bot</dt><dd>{{ "ja" if ergebnis.user.bot else "nein" }}</dd></div>
-          {% if ergebnis.farbe %}
-            <div><dt>Profilfarbe</dt><dd><code>{{ ergebnis.farbe }}</code></dd></div>
-          {% endif %}
-        </dl>
-
-        <div class="abschnitt">Ergebnis</div>
-        <p class="karte-text ohne">
-          <strong>{{ ergebnis.summe_treffer }}</strong> gemeinsame Server in
-          {{ ergebnis.treffer | length }} von {{ ergebnis.bots }} Bots ·
-          {{ ergebnis.summe_server }} Server durchsucht · {{ ergebnis.anfragen }} Anfragen an Discord.
-        </p>
-      </div>
-    </div>
 
     {% for fund in ergebnis.treffer %}
       <details class="karte aufklapp" open>
@@ -152,10 +238,6 @@
                     {% endif %}
                   </div>
                 {% endfor %}
-                <div class="hinweis">
-                  Diese Server gehoeren zum Bot, aber die gesuchte Person ist dort nicht.
-                  Mehr verrät ein Bot-Token darüber nicht — und ein Bot darf nicht mehr sehen.
-                </div>
               </div>
             </details>
           {% endif %}
@@ -188,8 +270,8 @@
 
     <div class="karte">
       <div class="karte-kopf">
-        <h2 class="karte-titel">Nichts gefunden</h2>
-        <p class="karte-text">Zu <code>{{ gesucht }}</code> gibt es kein Konto, das einer der Bots sehen darf.</p>
+        <h2 class="karte-titel">Kein Discord-Profil</h2>
+        <p class="karte-text">Zu <code>{{ gesucht }}</code> hat keiner der Bots ein Konto sehen dürfen.</p>
       </div>
       <div class="karte-leib">
         {% if ergebnis.fehler %}

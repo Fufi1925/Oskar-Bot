@@ -113,7 +113,7 @@ code {
   top: 0;
   display: flex;
   flex-direction: column;
-  background: rgba(10, 10, 12, .92);
+  background: var(--bg);
   border-right: 1px solid var(--border);
   z-index: 30;
 }
@@ -647,60 +647,46 @@ code {
 }
 .discord-knopf:hover { background: var(--primary-hover); }
 
-/* ── Mobil: Seitenleiste auf- und zuklappen ──────────────────── */
+/* ── Schmale Schirme ──────────────────────────────────────────
 
-.nav-schalter { position: absolute; opacity: 0; pointer-events: none; }
-.nav-oeffner, .nav-zu, .nav-schatten { display: none; }
+   Die Leiste bleibt stehen, es gibt nichts aufzuklappen: oben die
+   Marke und das Konto, darunter die Reiter in einer Reihe zum
+   Wischen. Kein Overlay, kein Weichzeichner, kein Feld, das erst
+   angeklickt werden muss. */
 
 @media (max-width: 1023px) {
+  .shell { flex-direction: column; }
+
   .sidebar {
-    position: fixed;
-    top: 0;
-    left: 0;
-    transform: translateX(-100%);
-    transition: transform .2s ease;
-    background: #0a0a0c;
-  }
-  .nav-schalter:checked ~ .shell .sidebar { transform: translateX(0); }
-
-  .nav-schatten {
-    display: block;
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, .6);
-    backdrop-filter: blur(2px);
-    z-index: 20;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity .2s ease;
-  }
-  .nav-schalter:checked ~ .nav-schatten { opacity: 1; pointer-events: auto; }
-
-  .nav-oeffner {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    height: 40px;
-    padding: 0 14px;
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    color: var(--muted);
-    font-size: 13px;
-    cursor: pointer;
+    width: auto;
     flex: 0 0 auto;
-    background: var(--card);
+    height: auto;
+    position: static;
+    display: flex;
+    flex-flow: row wrap;
+    align-items: center;
+    gap: 6px 12px;
+    padding: 10px 14px 6px;
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
   }
-  .nav-zu {
-    display: grid;
-    place-items: center;
-    margin-left: auto;
-    width: 32px;
-    height: 32px;
-    border-radius: 10px;
-    color: var(--dim);
-    cursor: pointer;
+
+  .marke { flex: 1 1 auto; order: 1; height: auto; margin: 0; padding: 0; }
+  .konto { flex: 0 0 auto; order: 2; border-top: 0; padding: 0; }
+
+  .nav {
+    order: 3;
+    flex: 1 1 100%;
+    flex-direction: row;
+    gap: 14px;
+    margin: 2px 0 0;
+    padding: 0 0 4px;
+    overflow-x: auto;
+    overflow-y: hidden;
   }
-  .nav-zu:hover { background: rgba(255, 255, 255, .05); color: #fff; }
+  .nav-gruppe { flex-direction: row; align-items: center; gap: 6px; }
+  .nav-titel { display: none; }
+  .nav-link { white-space: nowrap; padding: 7px 11px; }
 }
 
 @media (min-width: 1024px) {

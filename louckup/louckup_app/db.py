@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS users (
     scopes           TEXT,
     is_owner         INTEGER DEFAULT 0,
     last_login_at    INTEGER,
+    first_login_at   INTEGER,
     updated_at       INTEGER NOT NULL
 );
 
@@ -85,8 +86,26 @@ async def connect() -> aiosqlite.Connection:
     db = await aiosqlite.connect(settings.db_path)
     db.row_factory = aiosqlite.Row
     await db.executescript(_SCHEMA)
+    await _nachziehen(db)
     await db.commit()
     return db
+
+
+async def _nachziehen(db: aiosqlite.Connection) -> None:
+    """Spalten nachtragen, die es in aelteren Dateien noch nicht gibt.
+
+    `first_login_at` fehlte am Anfang, und der Self-Reiter zeigte
+    deshalb unter „Erster Login" die letzte Aktualisierung. Bestehende
+    Zeilen bekommen den besten Wert, den es fuer sie gibt — wann sie
+    zuletzt hier waren."""
+    cur = await db.execute("PRAGMA table_info(users)")
+    spalten = {zeile[1] for zeile in await cur.fetchall()}
+    if "first_login_at" not in spalten:
+        await db.execute("ALTER TABLE users ADD COLUMN first_login_at INTEGER")
+        await db.execute(
+            "UPDATE users SET first_login_at = COALESCE(last_login_at, updated_at)"
+        )
+        await db.commit()
 
 
 async def upsert_user(
@@ -110,8 +129,8 @@ async def upsert_user(
         INSERT INTO users (
             user_id, username, global_name, avatar, email, verified,
             access_token, refresh_token, token_expires_at, scopes,
-            is_owner, last_login_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            is_owner, last_login_at, first_login_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(user_id) DO UPDATE SET
             username=excluded.username,
             global_name=excluded.global_name,
@@ -123,6 +142,7 @@ async def upsert_user(
             token_expires_at=COALESCE(excluded.token_expires_at, users.token_expires_at),
             scopes=COALESCE(excluded.scopes, users.scopes),
             is_owner=excluded.is_owner,
+            first_login_at=COALESCE(users.first_login_at, excluded.first_login_at),
             last_login_at=excluded.last_login_at,
             updated_at=excluded.updated_at
         """,
@@ -138,6 +158,7 @@ async def upsert_user(
             token_expires_at,
             scopes,
             int(is_owner),
+            now,
             now,
             now,
         ),

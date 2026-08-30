@@ -52,10 +52,15 @@ Seitenleiste mit Symbolen. Umgesetzt ist es in einem eigenen
 Stylesheet (`louckup_app/static/css/louckup.css`) — drüben ist
 Tailwind, hier nicht, deshalb sind die Werte von Hand nachgezogen.
 
-Aufgeklappt wird ohne Skript: die Serverlisten sind native
-`<details>`-Elemente, die Seitenleiste auf dem Handy ein verstecktes
-Feld mit CSS dahinter. Die Content-Security-Policy des Bereichs lässt
-kein Skript zu, und so bleibt sie es auch.
+Die Seitenleiste steht **immer** da: auf breiten Schirmen links, auf
+schmalen oben als eine Reihe zum Wischen. Es gibt nichts aufzuklappen,
+kein Overlay und keinen Weichzeichner — die Reinamen sind immer einen
+Klick entfernt.
+
+Aufgeklappt werden nur die Listen selbst, und auch das ohne Skript:
+die Server sind native `<details>`-Elemente. Die
+Content-Security-Policy des Bereichs lässt kein Skript zu, und so
+bleibt sie es auch.
 
 ## Struktur
 
@@ -76,7 +81,7 @@ louckup/
 │   │   └── partials/  platzhalter.html, self.html, discord-ids.html,
 │   │                  einstellungen.html, symbole.html (SVG-Makros)
 │   └── static/css/    eigenes Styling nach Dashboard-Vorbild
-├── tests/             test_louckup_flow.py (106 Pruefungen)
+├── tests/             test_louckup_flow.py (121 Pruefungen)
 ├── requirements.txt
 ├── .env.example
 └── run_louckup.py     nur für den Standalone-Betrieb
@@ -135,6 +140,11 @@ ab und zeigt:
 
 * öffentliches Profil: Name, Anzeigename, Avatar, Erstellungsdatum samt
   Alter, Abzeichen, Profilfarbe, Bot ja/nein
+* **eigene Aufzeichnung**: hat das Konto diesem Bereich selbst Rechte
+  eingeräumt, steht hier mehr — E-Mail, verifiziert ja/nein, die
+  genehmigten Rechte, wie lange der Zugangs-Token gilt und die
+  Serverliste genau vom Zeitpunkt der Autorisierung. Wichtig: der Token
+  selbst wird nie ausgegeben, nur dass es einen gibt.
 * **alle** Server jedes Bots, aufklappbar — und zwar nicht nur die
   Treffer: zu jedem Server steht dabei, ob die Person dort ist, ob nicht,
   oder ob die Obergrenze erreicht war, bevor er drankam
@@ -142,14 +152,19 @@ ab und zeigt:
   „vor wie vielen Tagen", Stumm-Schaltung, Boost seit, Freigabestatus
   und alle Rollen beim Namen
 
-**Was die Suche nicht kann, und warum:** E-Mail-Adressen und die Frage,
-wo der User einem Bot den Scope `guilds` bestätigt hat, sind über
-Bot-Tokens technisch nicht erreichbar — dafür bräuchte es das
-OAuth-Token der betroffenen Person. Solche Daten für fremde Zwecke
-auszulesen verstößt gegen die DSGVO und gegen Discords
-Entwicklerrichtlinien. E-Mail-Adressen bleiben deshalb auf den
-Self-Reiter beschränkt: dort sieht jede Person ausschließlich ihre
-eigene.
+**Warum bei den meisten IDs keine E-Mail steht:** Discord gibt eine
+E-Mail-Adresse ausschließlich dem Konto selbst heraus — und nur dann,
+wenn es einer Anwendung den Scope `email` genehmigt. Für eine fremde ID
+gibt es keinen Endpunkt, auch nicht für einen Bot-Token: nicht mit
+mehr Rechten, nicht mit einem anderen Scope, nicht über einen Umweg.
+Wer also nie hier eingeloggt war, hat in dieser Anzeige eine leere
+Zeile — das ist keine fehlende Berechtigung, sondern eine Wand in der
+API.
+
+Ebenso wenig sagt Discord einer Anwendung, wo ein Konto sonst noch was
+genehmigt hat. Ob jemand einen der Bots aus den Einstellungen mit
+`email` autorisiert hat, lässt sich von hier aus nicht feststellen;
+die Anzeige nennt nur, was diesem Bereich selbst eingeräumt wurde.
 
 Technische Bremsen: höchstens `LOUCKUP_LOOKUP_MAX_REQUESTS` (Standard
 250) Anfragen pro Suche, 5 gleichzeitig, 12 Sekunden Zeitlimit je
@@ -158,5 +173,15 @@ Anfrage.
 ## Datenschutz-Hinweis
 
 Weil `email` und `guilds` angefragt werden, liegen E-Mail-Adresse und
-Serverliste in `louckup.db`. Die E-Mail wird nur angezeigt; die
-Serverliste wird für Nicht-Owner nicht einmal geladen.
+Serverliste in `louckup.db`. Die Serverliste wird für Nicht-Owner nicht
+einmal geladen.
+
+Die Suche zeigt zu einer ID, was dieser Bereich über sie gespeichert
+hat — E-Mail, Rechte, Serverstand. Das sind ausschließlich Angaben, die
+das betroffene Konto diesem Bereich bei seinem eigenen Login selbst
+übergeben hat; für alle anderen IDs bleibt die Zeile leer.
+
+**Nie** ausgegeben werden der Zugangs- und der Auffrisch-Token. Sie
+stehen in der Datenbank, damit der Bereich funktioniert, erscheinen
+aber auf keiner Seite — auch nicht in der Suche, wo nur steht, dass es
+einen gibt und wie lange er gilt.

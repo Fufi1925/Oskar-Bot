@@ -5,12 +5,6 @@
 {% block body %}
 <div class="glow" aria-hidden="true"></div>
 
-{# Auf- und Zuklappen der Seitenleiste ohne Skript: ein verstecktes
-   Feld, das die CSS darunter sieht. Auf dem Schirm ab 1024px ist die
-   Leiste ohnehin immer da. #}
-<input type="checkbox" id="nav-auf" class="nav-schalter" aria-hidden="true">
-<label for="nav-auf" class="nav-schatten" aria-hidden="true"></label>
-
 <div class="shell">
 
   <aside class="sidebar">
@@ -20,7 +14,6 @@
         <strong>{{ brand }}</strong>
         <span>Bereich</span>
       </span>
-      <label for="nav-auf" class="nav-zu" aria-label="Leiste schliessen">{{ symbol("kreuz") }}</label>
     </div>
 
     <nav class="nav">
@@ -55,7 +48,6 @@
           <h1>{{ tab_title }}</h1>
           <p>{{ tab_untertitel }}</p>
         </div>
-        <label for="nav-auf" class="nav-oeffner">{{ symbol("menue") }} Reiter</label>
       </header>
 
       {% if tab == "discord-ids" %}

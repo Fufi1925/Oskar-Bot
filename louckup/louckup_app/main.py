@@ -699,6 +699,46 @@ def create_app() -> FastAPI:
 
         return ergebnis
 
+    async def eigene_aufzeichnung(db, user_id: int) -> dict[str, Any] | None:
+        """Was dieser Bereich selbst ueber die gesuchte ID gespeichert hat.
+
+        Das ist der einzige Ort, an dem eine E-Mail-Adresse herkommen
+        kann, und der Grund ist einfach: Discord gibt sie ausschliesslich
+        dem Konto selbst heraus, wenn es einer Anwendung den Scope
+        `email` genehmigt. Wer sich hier einloggt, tut genau das — und
+        nur fuer diese Konten steht unten etwas. Fuer alle anderen bleibt
+        das Feld leer, weil es dafuer schlicht keinen Weg gibt: auch ein
+        Bot-Token hat keinen Endpunkt dafuer, und Discord erzaehlt einer
+        Anwendung nicht, wo ein Konto sonst noch was genehmigt hat.
+
+        Tokens kommen hier nie heraus. Nicht der Zugangs-, nicht der
+        Auffrisch-Token — nur die Tatsache, dass es einen gibt und wie
+        lange er gilt.
+        """
+        reihe = await dbmod.get_user(db, user_id)
+        if not reihe:
+            return None
+
+        server = await dbmod.list_user_guilds(db, user_id)
+        zeiten = [int(g["updated_at"]) for g in server if g.get("updated_at")]
+        scopes = (reihe.get("scopes") or "").split()
+
+        return {
+            "username": reihe.get("username"),
+            "global_name": reihe.get("global_name"),
+            "email": reihe.get("email"),
+            "verified": bool(reihe.get("verified")),
+            "scopes": scopes,
+            "hat_email": "email" in scopes,
+            "hat_guilds": "guilds" in scopes,
+            "letzter_login": reihe.get("last_login_at"),
+            "erster_login": reihe.get("first_login_at") or reihe.get("last_login_at"),
+            "token_da": bool(reihe.get("access_token")),
+            "token_gueltig_bis": reihe.get("token_expires_at"),
+            "server": server,
+            "stand": max(zeiten) if zeiten else reihe.get("last_login_at"),
+        }
+
     @app.get("/dashboard", response_class=HTMLResponse)
     async def dashboard(request: Request):
         # Erst die Session pruefen und dann weiterleiten. Ohne das wuerde
@@ -758,6 +798,7 @@ def create_app() -> FastAPI:
             extra["gesucht"] = gesucht
             if gesucht and gesucht.isdigit():
                 extra["ergebnis"] = await suchen(int(gesucht))
+                extra["bekannt"] = await eigene_aufzeichnung(db, int(gesucht))
             elif gesucht:
                 extra["ergebnis"] = {
                     "user": None,
