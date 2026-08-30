@@ -220,6 +220,31 @@ def main() -> int:
     )
     check("Phantom-Cookie wird abgelehnt", auth.read_session_token(foreign, s) is None)
 
+    print("\n13) Nackte Adresse /louckup (ohne Slash)")
+    # Seit Starlette 1.x greift ein Mount nur auf Pfade MIT Slash. Die
+    # nackte Adresse faellt sonst durch bis zum Catch-All-Proxy des
+    # Dashboards und der Browser zeigt dessen 404. bot/api/server.py
+    # faengt das mit einer eigenen Route ab — die wird hier nachgebaut.
+    from fastapi.responses import PlainTextResponse, RedirectResponse
+
+    parent = FastAPI()
+    parent.mount("/louckup", create_app())
+
+    @parent.get("/louckup", include_in_schema=False)
+    async def louckup_root():
+        return RedirectResponse(url="/louckup/", status_code=307)
+
+    @parent.api_route("/{path:path}", methods=["GET"])
+    async def catchall(path: str):
+        return PlainTextResponse("DASHBOARD-PROXY", status_code=404)
+
+    with TestClient(parent) as c:
+        r = c.get("/louckup", follow_redirects=False)
+        check("trifft nicht den Dashboard-Proxy", "DASHBOARD-PROXY" not in r.text, r.text[:60])
+        check("leitet auf /louckup/ weiter", r.headers.get("location") == "/louckup/", r.headers.get("location", ""))
+        r = c.get("/louckup", follow_redirects=True)
+        check("landet am Ende auf der Loginseite", r.status_code == 200 and "Mit Discord anmelden" in r.text, str(r.status_code))
+
     print("\n" + "=" * 60)
     if FAILURES:
         print(f"{len(FAILURES)} von {CHECKS} Pruefungen fehlgeschlagen:")

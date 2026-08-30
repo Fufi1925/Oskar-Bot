@@ -161,6 +161,27 @@ def test_isolation():
     check("liest louckup/.env", '"utf-8"' in config and "ROOT / \".env\"" in config)
 
 
+def test_trailing_slash():
+    print("\nNackte Adresse ohne Slash")
+    # Seit Starlette 1.x passt ein Mount nur noch auf "<pfad>/". Ohne
+    # eigene Route faellt "/louckup" bis zum Catch-All-Proxy durch, und
+    # der Browser bekommt die 404-Seite von Next.js — waehrend
+    # "/louckup/healthz" ganz normal funktioniert. Genau so war es.
+    src = read(os.path.join(BOT, "api", "server.py"))
+
+    check('Route fuer "/louckup"', '@app.get("/louckup", include_in_schema=False)' in src)
+    check('Route fuer "/phantom"', '@app.get("/phantom", include_in_schema=False)' in src)
+    check(
+        "leitet auf die Slash-Variante",
+        'RedirectResponse(url="/louckup/"' in src and 'RedirectResponse(url="/phantom/"' in src,
+    )
+    check("RedirectResponse importiert", "RedirectResponse" in src.splitlines()[8] or "from starlette.responses import Response, RedirectResponse" in src)
+
+    route_at = src.find('@app.get("/louckup", include_in_schema=False)')
+    proxy_at = src.find('@app.api_route("/{path:path}"')
+    check("Route vor dem Catch-All-Proxy", -1 < route_at < proxy_at, f"{route_at} / {proxy_at}")
+
+
 def test_owner_gate():
     print("\nOwner-Pruefung")
     main_src = read(os.path.join(LOUCKUP, "louckup_app", "main.py"))
@@ -203,6 +224,7 @@ def test_routes():
 def main():
     test_files_exist()
     test_mount_in_server()
+    test_trailing_slash()
     test_deployment_wiring()
     test_isolation()
     test_owner_gate()

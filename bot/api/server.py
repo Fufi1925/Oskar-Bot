@@ -6,7 +6,7 @@ import os, time, json, logging, httpx
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
-from starlette.responses import Response
+from starlette.responses import Response, RedirectResponse
 from utils.config import *
 from api.routes import bot, guilds, admin, team, moderation, actions, access, servers, servertools, tickets, giveaways, leveling, vanity, broadcast, anonchat, diagnose, compose, nukealert, memberperks, extras, voice, verify, automod, logging_cfg, antinuke, pingreactions, premium, cookies, speedrun, supportqueue, honeypot, design, beta, backup, tester, music, templates, teamlist, applications, teamupdate, webapply, commands as commands_route
 from api.dependencies import verify_api_key, limiter, get_bot_loop
@@ -447,6 +447,29 @@ def create_app() -> FastAPI:
             logger.warning("Louckup directory missing at %s — /louckup will 404", _louckup_root)
     except Exception as exc:
         logger.error("Failed to mount Louckup at /louckup: %s", exc)
+
+    # Mounts ohne abschliessenden Slash.
+    #
+    # Seit Starlette 1.x greift ein Mount nur noch auf Pfade, die mit
+    # "<mount>/" anfangen. Die nackte Adresse "/louckup" passt also in
+    # keinen Mount mehr, und weil der Catch-All-Proxy unten auf alles
+    # passt, greift auch die RedirectSlashes-Middleware nicht:
+    #
+    #     /louckup        -> Catch-All -> Next.js -> 404-Seite
+    #     /louckup/healthz-> Mount     -> Louckup -> 200
+    #
+    # Genau das war der Fehler: healthz ging, die Startseite nicht.
+    # Diese zwei Routen fangen die nackten Adressen ab. Sie muessen VOR
+    # dem Catch-All stehen, deshalb stehen sie hier.
+    @app.get("/louckup", include_in_schema=False)
+    async def louckup_root():
+        return RedirectResponse(url="/louckup/", status_code=307)
+
+    @app.get("/phantom", include_in_schema=False)
+    async def phantom_root():
+        # Gleicher Fall, schon vorher: /phantom ohne Slash landete im
+        # Dashboard-Proxy statt in Phantom.
+        return RedirectResponse(url="/phantom/", status_code=307)
 
 
     # Dashboard proxy — handles everything else (including /api/auth/*)
