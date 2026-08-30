@@ -217,7 +217,11 @@ def test_routes():
     for route in ('"/"', '"/login"', '"/auth/discord"', '"/auth/callback"', '"/dashboard"', '"/logout"', '"/healthz"'):
         check(f"Route {route}", f'@app.get({route}' in src)
 
-    check("Redirect von / auf login", 'href("/login")' in src)
+    check("Redirect von / auf login", 'href("/login", request)' in src)
+    check(
+        "Mount-Pfad kommt aus request.scope (Rueckfall)",
+        'request.scope.get("root_path")' in src,
+    )
     check("OAuth-State wird geprueft", "louckup_oauth_state" in src)
 
 

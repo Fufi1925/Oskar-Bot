@@ -245,6 +245,22 @@ def main() -> int:
         r = c.get("/louckup", follow_redirects=True)
         check("landet am Ende auf der Loginseite", r.status_code == 200 and "Mit Discord anmelden" in r.text, str(r.status_code))
 
+    print("\n14) Pfade stimmen auch ohne LOUCKUP_BASE_URL")
+    # Ist die Variable leer oder falsch gesetzt, duerfen die internen
+    # Links nicht aus dem Bereich herausfallen. Der Mount-Pfad steht in
+    # request.scope["root_path"] — der ist die Wahrheit, nicht die Config.
+    os.environ["LOUCKUP_BASE_URL"] = ""
+    get_settings.cache_clear()
+    with mounted_client() as c:
+        r = c.get("/louckup/", follow_redirects=False)
+        check(
+            "/louckup/ bleibt im Bereich",
+            r.headers.get("location", "").endswith("/louckup/login"),
+            r.headers.get("location", ""),
+        )
+        r = c.get("/louckup/login")
+        check("Loginseite mit richtigem CSS-Pfad", "/louckup/static/css/louckup.css" in r.text)
+
     print("\n" + "=" * 60)
     if FAILURES:
         print(f"{len(FAILURES)} von {CHECKS} Pruefungen fehlgeschlagen:")

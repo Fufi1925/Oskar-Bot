@@ -108,12 +108,27 @@ def create_app() -> FastAPI:
 
     # ── Helfer ────────────────────────────────────────────────────
 
-    def href(path: str) -> str:
-        """Pfad innerhalb von /louckup, damit Links auch gemountet stimmen."""
-        prefix = settings.root_path.rstrip("/")
+    def prefix(request: Request | None = None) -> str:
+        """Mount-Pfad, z. B. "/louckup".
+
+        Der Root-Path, den Starlette beim Mounten setzt, ist die Wahrheit
+        darueber, wo die App gerade haengt. LOUCKUP_BASE_URL bleibt fuer
+        absolute Adressen zustaendig (die OAuth-Redirect-URI), aber fuer
+        die internen Links gilt, was der Mount sagt: ist die Variable
+        leer oder falsch gesetzt, landen Redirects sonst ausserhalb des
+        Bereichs und der Browser zeigt die 404-Seite des Dashboards.
+        """
+        scope_prefix = ""
+        if request is not None:
+            scope_prefix = (request.scope.get("root_path") or "").rstrip("/")
+        return scope_prefix or settings.root_path.rstrip("/")
+
+    def href(path: str, request: Request | None = None) -> str:
+        """Pfad innerhalb des Mounts, damit Links auch gemountet stimmen."""
+        pref = prefix(request)
         if not path.startswith("/"):
             path = "/" + path
-        return f"{prefix}{path}" if prefix else path
+        return f"{pref}{path}" if pref else path
 
     def cookie_secure(request: Request) -> bool:
         proto = (request.headers.get("x-forwarded-proto") or request.url.scheme or "").lower()
@@ -126,7 +141,7 @@ def create_app() -> FastAPI:
             "brand": settings.louckup_brand_name,
             "footer": settings.louckup_footer,
             "base_url": settings.base_url,
-            "root_path": settings.root_path,
+            "root_path": prefix(request),
             "user": user,
             "avatar_url": auth.avatar_url(user["uid"], user.get("avatar")) if user else None,
             "flash": request.cookies.get("louckup_flash"),
@@ -181,13 +196,13 @@ def create_app() -> FastAPI:
     @app.get("/", response_class=HTMLResponse)
     async def home(request: Request):
         if auth.get_session_user(request):
-            return RedirectResponse(url=href("/dashboard"), status_code=302)
-        return RedirectResponse(url=href("/login"), status_code=302)
+            return RedirectResponse(url=href("/dashboard", request), status_code=302)
+        return RedirectResponse(url=href("/login", request), status_code=302)
 
     @app.get("/login", response_class=HTMLResponse)
     async def login_page(request: Request):
         if auth.get_session_user(request):
-            return RedirectResponse(url=href("/dashboard"), status_code=302)
+            return RedirectResponse(url=href("/dashboard", request), status_code=302)
         resp = render(
             request,
             "login.html",
@@ -204,7 +219,7 @@ def create_app() -> FastAPI:
     @app.get("/auth/discord")
     async def auth_discord(request: Request, force: int = 0):
         if not settings.oauth_configured:
-            resp = RedirectResponse(url=href("/login"), status_code=302)
+            resp = RedirectResponse(url=href("/login", request), status_code=302)
             flash(resp, "OAuth ist nicht konfiguriert (CLIENT_ID / CLIENT_SECRET).", request)
             return resp
         state = auth.make_oauth_state()
@@ -233,17 +248,17 @@ def create_app() -> FastAPI:
         error_description: str | None = None,
     ):
         if error:
-            resp = RedirectResponse(url=href("/login"), status_code=302)
+            resp = RedirectResponse(url=href("/login", request), status_code=302)
             flash(resp, f"Discord-Login abgebrochen: {error_description or error}", request)
             return resp
 
         expected = request.cookies.get("louckup_oauth_state")
         if not code:
-            resp = RedirectResponse(url=href("/login"), status_code=302)
+            resp = RedirectResponse(url=href("/login", request), status_code=302)
             flash(resp, "Kein OAuth-Code von Discord erhalten.", request)
             return resp
         if not state or not expected or state != expected:
-            resp = RedirectResponse(url=href("/login"), status_code=302)
+            resp = RedirectResponse(url=href("/login", request), status_code=302)
             flash(
                 resp,
                 "OAuth-State ungültig oder abgelaufen. Bitte nochmal über "
@@ -303,12 +318,12 @@ def create_app() -> FastAPI:
             )
         except HTTPException as exc:
             log.exception("Louckup OAuth fehlgeschlagen")
-            resp = RedirectResponse(url=href("/login"), status_code=302)
+            resp = RedirectResponse(url=href("/login", request), status_code=302)
             flash(resp, f"Login fehlgeschlagen: {exc.detail}", request)
             return resp
         except Exception as exc:
             log.exception("Louckup OAuth Fehler")
-            resp = RedirectResponse(url=href("/login"), status_code=302)
+            resp = RedirectResponse(url=href("/login", request), status_code=302)
             flash(resp, f"Login-Fehler: {type(exc).__name__}: {exc}"[:140], request)
             return resp
 
@@ -319,7 +334,7 @@ def create_app() -> FastAPI:
             clear_session(resp)
             return resp
 
-        resp = RedirectResponse(url=href("/dashboard"), status_code=302)
+        resp = RedirectResponse(url=href("/dashboard", request), status_code=302)
         set_session(resp, auth.create_session_token(duser, settings), request)
         resp.delete_cookie("louckup_oauth_state", path=settings.louckup_cookie_path or "/")
         return resp
@@ -328,7 +343,7 @@ def create_app() -> FastAPI:
     async def dashboard(request: Request):
         user = auth.get_session_user(request)
         if not user:
-            return RedirectResponse(url=href("/login"), status_code=302)
+            return RedirectResponse(url=href("/login", request), status_code=302)
 
         # Zweite Prüfung: die Owner-Liste kann sich geändert haben, während
         # jemand eingeloggt war. Ein Cookie allein ist keine Berechtigung.
@@ -362,7 +377,7 @@ def create_app() -> FastAPI:
 
     @app.get("/logout")
     async def logout(request: Request):
-        resp = RedirectResponse(url=href("/login"), status_code=302)
+        resp = RedirectResponse(url=href("/login", request), status_code=302)
         clear_session(resp)
         return resp
 
