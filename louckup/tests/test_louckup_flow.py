@@ -675,7 +675,19 @@ def main() -> int:
 
         r = c.get("/louckup/dashboard/ip?ip=8.8.8.8")
         check("Karte ist eingebettet", "welt.svg" in r.text, r.text[:400])
-        check("Markierung sitzt auf der Karte", 'cx="537.2" cy="104.1"' in r.text, r.text[:600])
+        # Der Punkt sitzt in allen drei Ebenen an derselben Stelle,
+        # nur unterschiedlich verkleinert, damit er gleich gross bleibt.
+        check("Markierung sitzt auf der Karte", r.text.count("translate(537.2 104.1)") == 3,
+              str(r.text.count("translate(537.2 104.1)")))
+        check("Punkt bleibt auf jeder Stufe gleich gross",
+              'scale(1.0)' in r.text and 'scale(0.25)' in r.text and 'scale(0.0714)' in r.text)
+        check("ganze Welt als unterste Ebene", 'viewBox="0.0 0.0 1000.0 500.0"' in r.text, r.text[:800])
+        check("nahe Stufe um den Punkt herum", 'viewBox="412.2 41.6 250.0 125.0"' in r.text, r.text[:800])
+        check("dichte Stufe um den Punkt herum", 'viewBox="501.5 86.2 71.4 35.7"' in r.text, r.text[:800])
+        check("Zoomknopf Welt", '<label for="z-welt">Welt</label>' in r.text)
+        check("Zoomknopf Nah", '<label for="z-nah">Nah</label>' in r.text)
+        check("Zoomknopf Ganz nah", '<label for="z-dran">Ganz nah</label>' in r.text)
+        check("kein Skript fuer den Zoom", "<script" not in r.text.lower())
         check("Stadt und Land genannt", "Berlin" in r.text and "Deutschland" in r.text)
         check("Netz genannt", "Muster-Netz" in r.text)
         check("Koordinaten genannt", "52.52" in r.text)

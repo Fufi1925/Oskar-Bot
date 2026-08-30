@@ -627,32 +627,92 @@ code {
    Die Markierung liegt als eigene Ebene darueber, damit sie sich
    verschieben laesst, ohne die Karte neu zu laden. */
 
+.mappe-werkzeug { position: relative; }
+
+.zoom-schalter { position: absolute; opacity: 0; pointer-events: none; }
+
 .mappe {
   position: relative;
-  width: 100%;
-  aspect-ratio: 2 / 1;
   border: 1px solid var(--border);
   border-radius: 16px;
   overflow: hidden;
   background: #0b0e14;
 }
 
-.mappe-bild {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: fill;
+.mappe-svg { display: block; width: 100%; height: auto; }
+
+/* Drei Ebenen liegen uebereinander. Die Welt bleibt immer stehen,
+   die naehere legt sich beim Umschalten animiert darueber — dadurch
+   sieht es aus, als fahre die Karte auf den Punkt zu. */
+.ebene {
+  display: none;
+  transform-box: view-box;
+  transform-origin: 50% 50%;
 }
 
-.mappe-deck {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
+.ebene-welt { display: block; }
+
+#z-nah:checked ~ .mappe .ebene-nah,
+#z-dran:checked ~ .mappe .ebene-dran { display: block; }
+
+.ebene-nah,
+.ebene-dran { animation: heran 1.05s cubic-bezier(.22, .68, .3, 1) both; }
+
+@keyframes heran {
+  from { opacity: 0; transform: scale(.55); }
+  60%  { opacity: 1; }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* Der Punkt soll auffallen, auch wenn die Karte klein ist. */
+.ping {
+  animation: ping 2.8s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+@keyframes ping {
+  0%, 100% { opacity: .12; transform: scale(.8); }
+  50%      { opacity: .30; transform: scale(1.15); }
+}
+
+.mappe-schild {
+  fill: #ffffff;
+  stroke: #0b0e14;
+  stroke-width: 4;
+  paint-order: stroke;
+  font-family: var(--font);
+  font-size: 15px;
+  font-weight: 600;
 }
 
 .mappe-notiz { margin-top: 10px; }
+
+.mappe-knopf { display: flex; gap: 6px; margin-top: 10px; }
+
+.mappe-knopf label {
+  height: 34px;
+  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, .02);
+  color: var(--muted);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background-color .15s ease, color .15s ease, border-color .15s ease;
+}
+.mappe-knopf label:hover { color: #fff; border-color: var(--dim); }
+
+#z-welt:checked ~ .mappe-knopf label[for="z-welt"],
+#z-nah:checked ~ .mappe-knopf label[for="z-nah"],
+#z-dran:checked ~ .mappe-knopf label[for="z-dran"] {
+  background: var(--primary);
+  border-color: transparent;
+  color: #ffffff;
+  font-weight: 600;
+}
 
 .login-wrap {
   min-height: 100vh;

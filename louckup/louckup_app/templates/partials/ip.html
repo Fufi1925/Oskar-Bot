@@ -2,9 +2,12 @@
 {# IP — eine Adresse eingeben, die Karte zeigt, wo sie liegt.
 
    Die Karte liegt als eigene Datei im Bereich (static/welt.svg) und
-   kommt von keinem fremden Server. Die Markierung sitzt in einer
-   zweiten Ebene darueber, damit die grosse Karte im Browser liegen
-   bleibt und nicht bei jeder Suche mitgeschickt wird. #}
+   kommt von keinem fremden Server. Gezoomt wird ohne Skript: drei
+   Ausschnitte derselben Karte, zwischen denen ein verstecktes Feld
+   umschaltet. Die unterste Ebene (die ganze Welt) bleibt immer
+   sichtbar, die naehere legt sich beim Einschalten mit einer kurzen
+   Bewegung darueber — so sieht es aus, als fahre die Karte auf den
+   Punkt zu. #}
 
 <div class="karte">
   <div class="karte-kopf">
@@ -41,24 +44,43 @@
     </div>
     <div class="karte-leib">
 
-      <div class="mappe">
-        <img class="mappe-bild" src="{{ root_path }}/static/welt.svg" alt="Weltkarte">
-        {% if ip_punkt %}
-          <svg class="mappe-deck" viewBox="0 0 1000 500" preserveAspectRatio="none" aria-hidden="true">
-            <line x1="{{ ip_punkt[0] }}" y1="0" x2="{{ ip_punkt[0] }}" y2="500"
-                  stroke="#5865f2" stroke-width="1" opacity=".35"/>
-            <line x1="0" y1="{{ ip_punkt[1] }}" x2="1000" y2="{{ ip_punkt[1] }}"
-                  stroke="#5865f2" stroke-width="1" opacity=".35"/>
-            <circle cx="{{ ip_punkt[0] }}" cy="{{ ip_punkt[1] }}" r="14"
-                    fill="#5865f2" opacity=".18"/>
-            <circle cx="{{ ip_punkt[0] }}" cy="{{ ip_punkt[1] }}" r="7"
-                    fill="#5865f2" opacity=".35"/>
-            <circle cx="{{ ip_punkt[0] }}" cy="{{ ip_punkt[1] }}" r="3.5"
-                    fill="#ffffff" stroke="#5865f2" stroke-width="1.5"/>
-          </svg>
-        {% endif %}
-      </div>
-      {% if ip_punkt %}
+      {% if ip_stufen %}
+        <div class="mappe-werkzeug">
+          <input type="radio" name="kartenzoom" id="z-welt" class="zoom-schalter">
+          <input type="radio" name="kartenzoom" id="z-nah" class="zoom-schalter" checked>
+          <input type="radio" name="kartenzoom" id="z-dran" class="zoom-schalter">
+
+          <div class="mappe">
+            <svg class="mappe-svg" viewBox="0 0 1000 500" xmlns="http://www.w3.org/2000/svg"
+                 xmlns:xlink="http://www.w3.org/1999/xlink" role="img"
+                 aria-label="Weltkarte mit Markierung bei {{ ip_ort.stadt or ip_ort.land or ip_ort.ip }}">
+              {% for s in ip_stufen %}
+                <svg class="ebene ebene-{{ s.name }}" viewBox="{{ s.x }} {{ s.y }} {{ s.w }} {{ s.h }}">
+                  <image href="{{ root_path }}/static/welt.svg" xlink:href="{{ root_path }}/static/welt.svg"
+                         x="0" y="0" width="1000" height="500"/>
+
+                  <line x1="-1000" y1="{{ ip_punkt[1] }}" x2="2000" y2="{{ ip_punkt[1] }}"
+                        stroke="#5865f2" stroke-width="{{ 1 * s.gegen }}" opacity=".35"/>
+                  <line x1="{{ ip_punkt[0] }}" y1="-1000" x2="{{ ip_punkt[0] }}" y2="2000"
+                        stroke="#5865f2" stroke-width="{{ 1 * s.gegen }}" opacity=".35"/>
+
+                  <g transform="translate({{ ip_punkt[0] }} {{ ip_punkt[1] }}) scale({{ s.gegen }})">
+                    <circle class="ping" r="18" fill="#5865f2" opacity=".16"/>
+                    <circle r="10" fill="#5865f2" opacity=".30"/>
+                    <circle r="4.5" fill="#ffffff" stroke="#5865f2" stroke-width="2"/>
+                    <text class="mappe-schild" y="-22" text-anchor="middle">{{ ip_ort.stadt or ip_ort.land or ip_ort.ip }}</text>
+                  </g>
+                </svg>
+              {% endfor %}
+            </svg>
+          </div>
+
+          <div class="mappe-knopf">
+            <label for="z-welt">Welt</label>
+            <label for="z-nah">Nah</label>
+            <label for="z-dran">Ganz nah</label>
+          </div>
+        </div>
         <div class="kleintext mappe-notiz">
           Markierung bei {{ "%.4f"|format(ip_ort.breite) }}° Breite,
           {{ "%.4f"|format(ip_ort.laenge) }}° Länge.

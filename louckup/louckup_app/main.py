@@ -578,6 +578,39 @@ def create_app() -> FastAPI:
         }
         return _primaer_status
 
+    # Drei Stufen fuer die Karte im Reiter IP. Jede Stufe ist ein
+    # eigener Ausschnitt derselben Karte; umgeschaltet wird per CSS,
+    # weil der Bereich kein Skript zulaesst.
+    KARTEN_STUFEN = (("welt", 1.0), ("nah", 4.0), ("dran", 14.0))
+
+    def karten_stufen(px: float, py: float) -> list[dict[str, Any]]:
+        """Ausschnitte um einen Kartenpunkt herum.
+
+        `gegen` ist der Kehrwert der Vergroesserung: die Markierung
+        wird damit verkleinert, damit sie auf dem Schirm immer gleich
+        gross bleibt und nicht mitwaechst.
+        """
+        stufen = []
+        for name, faktor in KARTEN_STUFEN:
+            breite, hoehe = 1000.0 / faktor, 500.0 / faktor
+            # Der Ausschnitt bleibt auf der Karte. Ohne diese Klammer
+            # rutscht bei einer Markierung am Rand leerer Raum in den
+            # Rahmen — bei ganzer Welt waere sie sogar ganz verschoben.
+            x = min(max(px - breite / 2, 0.0), 1000.0 - breite)
+            y = min(max(py - hoehe / 2, 0.0), 500.0 - hoehe)
+            stufen.append(
+                {
+                    "name": name,
+                    "zoom": faktor,
+                    "x": round(x, 1),
+                    "y": round(y, 1),
+                    "w": round(breite, 1),
+                    "h": round(hoehe, 1),
+                    "gegen": round(1.0 / faktor, 4),
+                }
+            )
+        return stufen
+
     async def bots_mit_token() -> list[dict[str, Any]]:
         """Hauptbot (aus TOKEN) plus alle gespeicherten Bots."""
         liste: list[dict[str, Any]] = []
@@ -845,6 +878,7 @@ def create_app() -> FastAPI:
                             extra["ip_punkt"] = geo.karten_punkt(
                                 fundort["breite"], fundort["laenge"]
                             )
+                            extra["ip_stufen"] = karten_stufen(*extra["ip_punkt"])
                         await dbmod.record_attempt(
                             db,
                             user_id=uid,

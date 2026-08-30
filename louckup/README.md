@@ -76,6 +76,12 @@ Karte mit Markierung. Dafür gilt:
   im Bereich (Küstenlinie aus Natural Earth, Public Domain). Keine
   Kartenkacheln von fremden Servern, keine Anfrage an einen
   Kartendienst beim Öffnen der Seite.
+* **Zoomen ohne Skript.** Drei Ausschnitte derselben Karte liegen
+  übereinander, umgeschaltet wird über ein verstecktes Feld und CSS —
+  `Welt`, `Nah` (beim Fund vorbelegt) und `Ganz nah`. Beim Einschalten
+  fährt die Ebene kurz auf den Punkt zu. Die Markierung wird auf jeder
+  Stufe gegengerechnet, damit sie immer gleich groß bleibt und mit
+  einem weichen Puls auf sich aufmerksam macht.
 * **Interne Adressen bleiben innen.** Was nicht weltweit routebar ist
   (10.x, 192.168.x, 127.x …), wird nicht an den Geodienst geschickt,
   sondern gleich mit einer Meldung beantwortet.
@@ -125,7 +131,7 @@ louckup/
 │   │                  einstellungen.html, symbole.html (SVG-Makros)
 │   ├── static/css/    eigenes Styling nach Dashboard-Vorbild
 │   └── static/welt.svg  Karte fuer den Reiter IP (Natural Earth)
-├── tests/             test_louckup_flow.py (149 Pruefungen)
+├── tests/             test_louckup_flow.py (157 Pruefungen)
 ├── requirements.txt
 ├── .env.example
 └── run_louckup.py     nur für den Standalone-Betrieb
