@@ -20,6 +20,34 @@ if [ -n "${DATA_DIR:-}" ]; then
   export PHANTOM_DB_PATH="${PHANTOM_DB_PATH:-$DATA_DIR/phantom/phantom.db}"
 fi
 
+# ── Louckup (isolated under /louckup, same domain) ────────────────
+# Eigener Bereich mit eigener Discord-Application. Nichts davon haengt
+# an Phantom — nur die Domain teilen sie sich.
+if [ -z "${LOUCKUP_BASE_URL:-}" ]; then
+  if [ -n "${RAILWAY_PUBLIC_DOMAIN:-}" ]; then
+    export LOUCKUP_BASE_URL="https://$RAILWAY_PUBLIC_DOMAIN/louckup"
+  else
+    export LOUCKUP_BASE_URL="http://localhost:$PORT/louckup"
+  fi
+  echo "🔒 LOUCKUP_BASE_URL set to: $LOUCKUP_BASE_URL"
+fi
+export LOUCKUP_COOKIE_PATH="${LOUCKUP_COOKIE_PATH:-/louckup}"
+if [ -n "${DATA_DIR:-}" ]; then
+  mkdir -p "$DATA_DIR/louckup"
+  export LOUCKUP_DB_PATH="${LOUCKUP_DB_PATH:-$DATA_DIR/louckup/louckup.db}"
+fi
+# Wer hier rein darf: LOUCKUP_OWNER_IDS hat Vorrang, sonst gilt die
+# Owner-Liste des Bots. Beides leer heisst: niemand kommt auf
+# /louckup/dashboard — die Loginseite weist darauf hin.
+if [ -z "${LOUCKUP_OWNER_IDS:-}" ] && [ -n "${OWNER_IDS:-}" ]; then
+  export LOUCKUP_OWNER_IDS="$OWNER_IDS"
+fi
+# Wie NEXTAUTH_SECRET: ohne festen Wert sind nach jedem Neustart alle
+# Louckup-Sessions ungueltig.
+if [ -z "${LOUCKUP_SECRET_KEY:-}" ] && [ -n "${DASHBOARD_API_KEY:-}" ]; then
+  export LOUCKUP_SECRET_KEY="$DASHBOARD_API_KEY"
+fi
+
 # Set NEXTAUTH_URL automatically if not set
 if [ -z "${NEXTAUTH_URL:-}" ]; then
   if [ -n "${RAILWAY_PUBLIC_DOMAIN:-}" ]; then

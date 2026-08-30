@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}{{ brand }} — Dashboard{% endblock %}
+
+{% block content %}
+
+<div class="hero">
+  {% if avatar_url %}<img class="avatar" src="{{ avatar_url }}" alt="">{% endif %}
+  <div>
+    <h1>Hallo, {{ user.global_name or user.username }}</h1>
+    <p class="sub">Angemeldet als <code>@{{ user.username }}</code> · ID <code>{{ user.uid }}</code></p>
+  </div>
+  <span class="badge">Owner</span>
+</div>
+
+{% if not record.email %}
+  <div class="warn small">
+    Keine E-Mail im Profil gespeichert — Discord liefert sie nur, wenn das
+    Konto eine bestätigte Adresse hat und <code>email</code> genehmigt wurde.
+  </div>
+{% endif %}
+
+<section class="grid">
+  <div class="card">
+    <h2>Konto</h2>
+    <dl class="kv">
+      <dt>Anzeigename</dt><dd>{{ record.global_name if record else user.global_name }}</dd>
+      <dt>Benutzername</dt><dd>{{ record.username if record else user.username }}</dd>
+      <dt>E-Mail</dt><dd>{{ record.email if record and record.email else "—" }}</dd>
+      <dt>Verifiziert</dt><dd>{{ "ja" if record and record.verified else "nein" }}</dd>
+      <dt>User-ID</dt><dd><code>{{ user.uid }}</code></dd>
+    </dl>
+  </div>
+
+  <div class="card">
+    <h2>Genehmigte Scopes</h2>
+    <div class="chips">
+      {% for s in scopes.split() %}<span class="chip">{{ s }}</span>{% endfor %}
+    </div>
+    <p class="small muted">Redirect-URI: <code>{{ redirect_uri }}</code></p>
+  </div>
+
+  <div class="card">
+    <h2>Zugriff</h2>
+    <p class="small">Owner-IDs mit Zugriff auf diesen Bereich:</p>
+    <div class="chips">
+      {% for oid in owner_ids %}<span class="chip">{{ oid }}</span>{% endfor %}
+    </div>
+    <p class="small muted">Datenbank: <code>{{ db_path }}</code></p>
+  </div>
+</section>
+
+<section class="card">
+  <h2>Platzhalter</h2>
+  <p class="small muted">
+    Das hier ist absichtlich nur ein Gerüst — hier entsteht später der
+    eigentliche Inhalt. Es hängt an nichts: keine Verbindung zu Phantom,
+    keinerlei Zugriff auf den Hauptbot.
+  </p>
+  <div class="skeleton-grid">
+    <div class="skeleton-card"><div class="sk-line w70"></div><div class="sk-line w40"></div><div class="sk-block"></div></div>
+    <div class="skeleton-card"><div class="sk-line w60"></div><div class="sk-line w80"></div><div class="sk-block"></div></div>
+    <div class="skeleton-card"><div class="sk-line w50"></div><div class="sk-line w30"></div><div class="sk-block"></div></div>
+  </div>
+</section>
+
+<section class="card">
+  <h2>Letzte Loginversuche</h2>
+  {% if attempts %}
+    <table class="table">
+      <thead><tr><th>Zeit</th><th>Konto</th><th>Ergebnis</th></tr></thead>
+      <tbody>
+        {% for a in attempts %}
+          <tr>
+            <td class="small">{{ a.created_at | timestamp }}</td>
+            <td class="small">{{ a.username or "—" }} <code>{{ a.user_id }}</code></td>
+            <td>
+              {% if a.outcome == 'granted' %}
+                <span class="pill ok">Owner</span>
+              {% else %}
+                <span class="pill no">weitergeleitet</span>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="small muted">Noch keine Versuche protokolliert.</p>
+  {% endif %}
+</section>
+
+{% endblock %}

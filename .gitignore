@@ -69,3 +69,11 @@ phantom/.env
 phantom/.venv/
 phantom/data/*.db
 phantom/**/__pycache__/
+
+# Louckup local secrets/runtime
+# .env muss ignoriert bleiben: dort stehen die OAuth-Daten der eigenen
+# Discord-Application und der Session-Schluessel.
+louckup/.env
+louckup/.venv/
+louckup/data/*.db
+louckup/**/__pycache__/

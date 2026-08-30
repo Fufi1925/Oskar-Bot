@@ -1,0 +1,385 @@
+"""Louckup — die App.
+
+Ablauf, wie besprochen:
+
+    <url>/louckup              -> Loginseite (Knopf „Mit Discord anmelden")
+    <url>/louckup/auth/...     -> OAuth2 mit identify, email, guilds,
+                                  guilds.join, gdm.join
+    danach:
+      Owner  -> <url>/louckup/dashboard
+      sonst  -> sofort weiter auf <url>/  (das normale Dashboard),
+                ohne Session-Cookie
+
+Der Bereich ist gemountet, nicht eingebunden: er importiert nichts aus
+`phantom`, `bot` oder `dashboard` und hat seine eigene Datenbank.
+"""
+
+from __future__ import annotations
+
+import logging
+import time
+from contextlib import asynccontextmanager
+from pathlib import Path
+from typing import Any
+
+from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+
+from louckup_app import auth, db as dbmod
+from louckup_app.config import get_settings
+
+log = logging.getLogger("louckup")
+
+APP_DIR = Path(__file__).resolve().parent
+TEMPLATES = Jinja2Templates(directory=str(APP_DIR / "templates"))
+
+
+def _format_timestamp(ts: int | None) -> str:
+    if not ts:
+        return "—"
+    try:
+        from datetime import datetime
+
+        return datetime.fromtimestamp(int(ts)).strftime("%d.%m.%Y %H:%M")
+    except Exception:
+        return str(ts)
+
+
+TEMPLATES.env.filters["timestamp"] = _format_timestamp
+
+# Modul-globale Verbindung: bei einem Mount ist `request.app` die
+# Eltern-App, `app.state` der Unter-App also nicht verlässlich.
+_db_conn = None
+_db_lock = None
+
+
+async def get_db():
+    """Lazy geteilte SQLite-Verbindung für Louckup."""
+    global _db_conn, _db_lock
+    import asyncio
+
+    if _db_lock is None:
+        _db_lock = asyncio.Lock()
+    async with _db_lock:
+        if _db_conn is None:
+            try:
+                get_settings().db_path.parent.mkdir(parents=True, exist_ok=True)
+            except Exception:
+                pass
+            _db_conn = await dbmod.connect()
+            log.info("Louckup DB ready at %s", get_settings().db_path)
+        return _db_conn
+
+
+def render(request: Request, template_name: str, context: dict[str, Any]) -> HTMLResponse:
+    return HTMLResponse(TEMPLATES.env.get_template(template_name).render(context))
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    try:
+        await get_db()
+    except Exception as exc:  # nie den Start des Hauptbots blockieren
+        log.error("Louckup DB init failed: %s", exc)
+    yield
+    global _db_conn
+    if _db_conn is not None:
+        try:
+            await _db_conn.close()
+        except Exception:
+            pass
+        _db_conn = None
+
+
+def create_app() -> FastAPI:
+    settings = get_settings()
+    app = FastAPI(
+        title="Louckup",
+        docs_url=None,
+        redoc_url=None,
+        openapi_url=None,
+        lifespan=lifespan,
+        root_path="",
+    )
+
+    app.mount("/static", StaticFiles(directory=str(APP_DIR / "static")), name="static")
+
+    # ── Helfer ────────────────────────────────────────────────────
+
+    def href(path: str) -> str:
+        """Pfad innerhalb von /louckup, damit Links auch gemountet stimmen."""
+        prefix = settings.root_path.rstrip("/")
+        if not path.startswith("/"):
+            path = "/" + path
+        return f"{prefix}{path}" if prefix else path
+
+    def cookie_secure(request: Request) -> bool:
+        proto = (request.headers.get("x-forwarded-proto") or request.url.scheme or "").lower()
+        return proto == "https"
+
+    def ctx(request: Request, **extra: Any) -> dict[str, Any]:
+        user = auth.get_session_user(request)
+        base = {
+            "request": request,
+            "brand": settings.louckup_brand_name,
+            "footer": settings.louckup_footer,
+            "base_url": settings.base_url,
+            "root_path": settings.root_path,
+            "user": user,
+            "avatar_url": auth.avatar_url(user["uid"], user.get("avatar")) if user else None,
+            "flash": request.cookies.get("louckup_flash"),
+        }
+        base.update(extra)
+        return base
+
+    def flash(response: Response, message: str, request: Request | None = None) -> None:
+        secure = cookie_secure(request) if request is not None else True
+        safe = (
+            str(message)
+            .replace("„", "'")
+            .replace("“", "'")
+            .replace("”", "'")
+            .replace("–", "-")
+            .replace("—", "-")
+            .encode("latin-1", errors="replace")
+            .decode("latin-1")
+        )[:180]
+        response.set_cookie(
+            "louckup_flash",
+            safe,
+            max_age=30,
+            path=settings.louckup_cookie_path or "/",
+            httponly=False,
+            samesite="lax",
+            secure=secure,
+        )
+
+    def clear_flash(response: Response) -> None:
+        response.delete_cookie("louckup_flash", path=settings.louckup_cookie_path or "/")
+
+    def set_session(response: Response, token: str, request: Request) -> None:
+        response.set_cookie(
+            settings.louckup_cookie_name,
+            token,
+            max_age=settings.louckup_session_max_age,
+            path=settings.louckup_cookie_path or "/",
+            httponly=True,
+            samesite="lax",
+            secure=cookie_secure(request),
+        )
+
+    def clear_session(response: Response) -> None:
+        response.delete_cookie(
+            settings.louckup_cookie_name, path=settings.louckup_cookie_path or "/"
+        )
+        response.delete_cookie("louckup_oauth_state", path=settings.louckup_cookie_path or "/")
+
+    # ── Seiten ────────────────────────────────────────────────────
+
+    @app.get("/", response_class=HTMLResponse)
+    async def home(request: Request):
+        if auth.get_session_user(request):
+            return RedirectResponse(url=href("/dashboard"), status_code=302)
+        return RedirectResponse(url=href("/login"), status_code=302)
+
+    @app.get("/login", response_class=HTMLResponse)
+    async def login_page(request: Request):
+        if auth.get_session_user(request):
+            return RedirectResponse(url=href("/dashboard"), status_code=302)
+        resp = render(
+            request,
+            "login.html",
+            ctx(
+                request,
+                missing=settings.missing_config,
+                redirect_uri=settings.oauth_redirect_uri,
+                scopes=settings.scopes,
+            ),
+        )
+        clear_flash(resp)
+        return resp
+
+    @app.get("/auth/discord")
+    async def auth_discord(request: Request, force: int = 0):
+        if not settings.oauth_configured:
+            resp = RedirectResponse(url=href("/login"), status_code=302)
+            flash(resp, "OAuth ist nicht konfiguriert (CLIENT_ID / CLIENT_SECRET).", request)
+            return resp
+        state = auth.make_oauth_state()
+        resp = RedirectResponse(
+            url=auth.oauth_authorize_url(state, settings, force=bool(force)), status_code=302
+        )
+        # Pfad muss /louckup sein, sonst schickt der Browser den Cookie
+        # beim Callback nicht mit.
+        resp.set_cookie(
+            "louckup_oauth_state",
+            state,
+            max_age=600,
+            path=settings.louckup_cookie_path or "/",
+            httponly=True,
+            samesite="lax",
+            secure=cookie_secure(request),
+        )
+        return resp
+
+    @app.get("/auth/callback")
+    async def auth_callback(
+        request: Request,
+        code: str | None = None,
+        state: str | None = None,
+        error: str | None = None,
+        error_description: str | None = None,
+    ):
+        if error:
+            resp = RedirectResponse(url=href("/login"), status_code=302)
+            flash(resp, f"Discord-Login abgebrochen: {error_description or error}", request)
+            return resp
+
+        expected = request.cookies.get("louckup_oauth_state")
+        if not code:
+            resp = RedirectResponse(url=href("/login"), status_code=302)
+            flash(resp, "Kein OAuth-Code von Discord erhalten.", request)
+            return resp
+        if not state or not expected or state != expected:
+            resp = RedirectResponse(url=href("/login"), status_code=302)
+            flash(
+                resp,
+                "OAuth-State ungültig oder abgelaufen. Bitte nochmal über "
+                "„Mit Discord anmelden“ starten.",
+                request,
+            )
+            return resp
+
+        try:
+            token_data = await auth.exchange_code(code, settings)
+            access = token_data.get("access_token")
+            if not access:
+                raise HTTPException(status_code=400, detail="no_access_token")
+            duser = await auth.fetch_discord_user(access)
+            if not duser.get("id"):
+                raise HTTPException(status_code=400, detail="no_user_id")
+
+            user_id = int(duser["id"])
+            username = duser.get("username") or "user"
+            is_owner = user_id in settings.owner_ids
+            expires_in = int(token_data.get("expires_in") or 0)
+            granted = token_data.get("scope") or settings.scopes
+            granted = granted if isinstance(granted, str) else " ".join(granted)
+
+            db = await get_db()
+            await dbmod.upsert_user(
+                db,
+                user_id=user_id,
+                username=username,
+                global_name=duser.get("global_name"),
+                avatar=duser.get("avatar"),
+                email=duser.get("email"),
+                verified=duser.get("verified"),
+                access_token=access,
+                refresh_token=token_data.get("refresh_token"),
+                token_expires_at=int(time.time()) + expires_in if expires_in else None,
+                scopes=granted,
+                is_owner=is_owner,
+            )
+
+            guilds: list[dict[str, Any]] = []
+            if is_owner:
+                # Nur für Owner laden — für alle anderen brauchen wir die
+                # Liste nicht und wollen sie auch nicht speichern.
+                try:
+                    guilds = await auth.fetch_user_guilds(access)
+                except Exception:
+                    log.exception("Serverliste konnte nicht geladen werden")
+
+            await dbmod.record_attempt(
+                db,
+                user_id=user_id,
+                username=username,
+                is_owner=is_owner,
+                outcome="granted" if is_owner else "not_owner",
+                detail=granted,
+            )
+        except HTTPException as exc:
+            log.exception("Louckup OAuth fehlgeschlagen")
+            resp = RedirectResponse(url=href("/login"), status_code=302)
+            flash(resp, f"Login fehlgeschlagen: {exc.detail}", request)
+            return resp
+        except Exception as exc:
+            log.exception("Louckup OAuth Fehler")
+            resp = RedirectResponse(url=href("/login"), status_code=302)
+            flash(resp, f"Login-Fehler: {type(exc).__name__}: {exc}"[:140], request)
+            return resp
+
+        # Nicht-Owner: kein Session-Cookie, sofort zurück aufs Dashboard.
+        if not is_owner:
+            log.info("Louckup: %s (%s) ist kein Owner — weiter aufs Dashboard", username, user_id)
+            resp = RedirectResponse(url=settings.louckup_fallback_url or "/", status_code=302)
+            clear_session(resp)
+            return resp
+
+        resp = RedirectResponse(url=href("/dashboard"), status_code=302)
+        set_session(resp, auth.create_session_token(duser, settings), request)
+        resp.delete_cookie("louckup_oauth_state", path=settings.louckup_cookie_path or "/")
+        return resp
+
+    @app.get("/dashboard", response_class=HTMLResponse)
+    async def dashboard(request: Request):
+        user = auth.get_session_user(request)
+        if not user:
+            return RedirectResponse(url=href("/login"), status_code=302)
+
+        # Zweite Prüfung: die Owner-Liste kann sich geändert haben, während
+        # jemand eingeloggt war. Ein Cookie allein ist keine Berechtigung.
+        if int(user["uid"]) not in settings.owner_ids:
+            resp = RedirectResponse(url=settings.louckup_fallback_url or "/", status_code=302)
+            clear_session(resp)
+            return resp
+
+        db = await get_db()
+        record = await dbmod.get_user(db, int(user["uid"]))
+        attempts = await dbmod.recent_attempts(db, limit=8)
+        known = await dbmod.known_user_count(db)
+
+        resp = render(
+            request,
+            "dashboard.html",
+            ctx(
+                request,
+                record=record,
+                attempts=attempts,
+                known_users=known,
+                scopes=(record or {}).get("scopes") or settings.scopes,
+                owner_ids=sorted(settings.owner_ids),
+                db_path=str(settings.db_path),
+                redirect_uri=settings.oauth_redirect_uri,
+                server_count=None,
+            ),
+        )
+        clear_flash(resp)
+        return resp
+
+    @app.get("/logout")
+    async def logout(request: Request):
+        resp = RedirectResponse(url=href("/login"), status_code=302)
+        clear_session(resp)
+        return resp
+
+    @app.get("/healthz")
+    async def healthz():
+        return JSONResponse(
+            {
+                "ok": True,
+                "area": "louckup",
+                "oauth_configured": settings.oauth_configured,
+                "owners": len(settings.owner_ids),
+                "secret_is_dev": settings.secret_is_dev,
+                "base_url": settings.base_url,
+            }
+        )
+
+    return app
+
+
+app = create_app()

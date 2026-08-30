@@ -51,6 +51,12 @@ COPY bot/ ./bot/
 COPY phantom/ ./phantom/
 RUN pip install --no-cache-dir -r ./phantom/requirements.txt
 
+# Louckup — eigener Bereich unter /louckup (eigene OAuth-App, eigene DB).
+# Eigene requirements, damit der Bereich auch allein laufen kann; die
+# Pakete landen im selben Interpreter wie Bot und Phantom.
+COPY louckup/ ./louckup/
+RUN pip install --no-cache-dir -r ./louckup/requirements.txt
+
 # Die Deploy-Historie fuer den Tester-Reiter.
 #
 # Im fertigen Image gibt es kein .git -- oben wird nur bot/ und

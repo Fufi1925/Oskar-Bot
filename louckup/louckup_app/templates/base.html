@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>{% block title %}{{ brand }}{% endblock %}</title>
+  <link rel="stylesheet" href="{{ root_path }}/static/css/louckup.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="{{ root_path }}/">
+        <span class="dot"></span>{{ brand }}
+      </a>
+      <nav class="topnav">
+        <a href="{{ root_path }}/dashboard">Dashboard</a>
+        {% if user %}<a href="{{ root_path }}/logout">Abmelden</a>{% endif %}
+        <a class="muted" href="/">Zum Haupt-Dashboard</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="page">
+    {% if flash %}<div class="flash">{{ flash }}</div>{% endif %}
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="footer">{{ footer }}</footer>
+</body>
+</html>

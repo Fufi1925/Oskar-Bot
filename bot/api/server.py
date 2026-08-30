@@ -419,6 +419,35 @@ def create_app() -> FastAPI:
     except Exception as exc:
         logger.error("Failed to mount Phantom at /phantom: %s", exc)
 
+    # Louckup — eigener, komplett abgetrennter Bereich unter /louckup.
+    #
+    # Bewusst ein zweiter, unabhaengiger Block und keine Erweiterung von
+    # Phantom: Louckup importiert nichts aus phantom/, bot/ oder
+    # dashboard/, hat seine eigene OAuth-Application, seine eigene
+    # Datenbank und seine eigenen Cookies. Ein Fehler hier darf den Start
+    # des Bots genauso wenig verhindern wie ein fehlendes Phantom.
+    #
+    # Das Paket heisst absichtlich `louckup_app` und nicht `app`: Phantom
+    # traegt sein Wurzelverzeichnis weiter oben in sys.path ein und
+    # belegt den Namen `app` bereits. Ein gemeinsamer Paketname wuerde
+    # dazu fuehren, dass hier still die Phantom-App gebaut wird.
+    #
+    # Auch dieser Mount muss VOR dem Catch-All-Dashboard-Proxy stehen.
+    try:
+        import sys as _sys
+
+        _louckup_root = _Path(__file__).resolve().parents[2] / "louckup"
+        if _louckup_root.is_dir():
+            _sys.path.insert(0, str(_louckup_root))
+            from louckup_app.main import create_app as create_louckup_app
+
+            app.mount("/louckup", create_louckup_app())
+            logger.info("Louckup mounted at /louckup")
+        else:
+            logger.warning("Louckup directory missing at %s — /louckup will 404", _louckup_root)
+    except Exception as exc:
+        logger.error("Failed to mount Louckup at /louckup: %s", exc)
+
 
     # Dashboard proxy — handles everything else (including /api/auth/*)
     @app.api_route("/{path:path}", methods=["GET","POST","PUT","DELETE","PATCH","OPTIONS","HEAD"])
