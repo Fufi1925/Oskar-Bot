@@ -14,7 +14,7 @@ discord-ext-menus
 
 # ── Web / API ─────────────────────────────────────────────────────
 fastapi>=0.115.0
-uvicorn==0.46.0
+uvicorn==0.52.4
 slowapi
 pydantic>=2.0.0
 httpx
