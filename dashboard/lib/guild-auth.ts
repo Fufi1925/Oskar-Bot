@@ -59,6 +59,29 @@ interface DiscordPartialGuild {
 const guildCache = new Map<string, { guilds: DiscordPartialGuild[]; expires: number }>();
 const CACHE_TTL_MS = 60_000;
 
+/**
+ * Läuft für ein Token gerade schon eine Anfrage, hängen sich weitere
+ * Aufrufer an *dieselbe* Zusage statt eine zweite Anfrage zu stellen.
+ *
+ * ── Warum das nötig ist ─────────────────────────────────────────────
+ *
+ * Eine einzige Serverseite löst ein Bündel gleichzeitiger Prüfungen aus:
+ * `layout.tsx` ruft `verifyGuildAccess`, und jeder Datenabruf der Seite
+ * geht durch `/api/bot/[...path]`, das noch einmal `verifyGuildAccess`
+ * bzw. `managesGuildOnDiscord` aufruft. Alle starten praktisch
+ * gleichzeitig, alle finden den Cache leer -- denn geschrieben wird er
+ * erst *nach* der Antwort -- und alle fragen Discord.
+ *
+ * `/users/@me/guilds` erlaubt aber nur eine Anfrage pro Sekunde und
+ * Token. Die erste kommt durch, der Rest bekommt 429. Und weil ein
+ * Fehlschlag ohne Cache eine leere Liste liefert, ist der Server "nicht
+ * gefunden" und der Nutzer sieht "Access Denied" -- obwohl er
+ * Administrator ist. Neu laden half, weil der Cache dann warm war.
+ *
+ * Mit dem Sammelpunkt hier stellt ein Bündel nur noch *eine* Anfrage.
+ */
+const guildInFlight = new Map<string, Promise<DiscordPartialGuild[]>>();
+
 function pruneCache() {
   const now = Date.now();
   for (const [key, entry] of guildCache.entries()) {
@@ -74,20 +97,50 @@ export async function fetchUserGuilds(accessToken: string): Promise<DiscordParti
     return cached.guilds;
   }
 
-  const res = await fetch("https://discord.com/api/users/@me/guilds", {
-    headers: { Authorization: `Bearer ${accessToken}` },
-    cache: "no-store",
-  });
+  // Ein Bündel gleichzeitiger Prüfungen teilt sich eine Anfrage.
+  const laufend = guildInFlight.get(accessToken);
+  if (laufend) return laufend;
 
-  if (!res.ok) {
-    // On failure return an empty list: "fail closed" is the safe default here.
-    if (cached) return cached.guilds;
-    return [];
+  const anfrage = (async (): Promise<DiscordPartialGuild[]> => {
+    // Ein 429 ist hier der Normalfall, nicht die Ausnahme: mehrere
+    // Seitenaufrufe kurz hintereinander reichen schon. Discord sagt in
+    // `Retry-After`, wie lange zu warten ist -- das ist billiger als
+    // einen berechtigten Nutzer auszusperren.
+    for (let versuch = 0; versuch < 3; versuch++) {
+      const res = await fetch("https://discord.com/api/users/@me/guilds", {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        cache: "no-store",
+      });
+
+      if (res.ok) {
+        const guilds = (await res.json()) as DiscordPartialGuild[];
+        guildCache.set(accessToken, { guilds, expires: Date.now() + CACHE_TTL_MS });
+        return guilds;
+      }
+
+      if (res.status === 429 && versuch < 2) {
+        const kopf = Number(res.headers?.get?.("Retry-After"));
+        const wartenMs = Number.isFinite(kopf) && kopf > 0 ? kopf * 1000 : 1000;
+        await new Promise((r) => setTimeout(r, Math.min(wartenMs, 5_000)));
+        continue;
+      }
+
+      // Aufgeben. Eine abgelaufene Liste ist immer noch besser als gar
+      // keine: sie ist Sekunden alt, und die Alternative wäre, jemanden
+      // aus seinem eigenen Server auszusperren.
+      const alt = guildCache.get(accessToken) ?? cached;
+      return alt ? alt.guilds : [];
+    }
+    const alt = guildCache.get(accessToken) ?? cached;
+    return alt ? alt.guilds : [];
+  })();
+
+  guildInFlight.set(accessToken, anfrage);
+  try {
+    return await anfrage;
+  } finally {
+    guildInFlight.delete(accessToken);
   }
-
-  const guilds = (await res.json()) as DiscordPartialGuild[];
-  guildCache.set(accessToken, { guilds, expires: Date.now() + CACHE_TTL_MS });
-  return guilds;
 }
 
 export function hasManagePermission(guild: DiscordPartialGuild): boolean {
