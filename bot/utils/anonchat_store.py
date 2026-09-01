@@ -411,10 +411,22 @@ def clean_content(text: str, settings: dict) -> str:
 
 
 async def why_not(
-    db: aiosqlite.Connection, settings: dict, member, content: str
+    db: aiosqlite.Connection, settings: dict, member, content: str,
+    *, has_files: bool = False,
 ) -> str | None:
     """
     Why this member may not post here, in plain German. None = allowed.
+
+    `has_files` is passed in rather than read off `member`. It used to be
+    smuggled across as `member._has_files`, which works on a plain test
+    double but not on the real thing: `discord.Member` defines
+    `__slots__` and has no `__dict__`, so the assignment raised
+
+        AttributeError: 'Member' object has no attribute '_has_files'
+                        and no __dict__ for setting new attributes
+
+    and took the whole relay down with it before the original message was
+    even deleted -- the channel then behaved as if the feature was off.
     """
     import datetime as _dt
 
@@ -452,7 +464,7 @@ async def why_not(
         if days < min_member:
             return f"Du musst {min_member} Tage auf dem Server sein (du bist {days})."
 
-    if not settings.get("allow_attachments") and getattr(member, "_has_files", False):
+    if not settings.get("allow_attachments") and has_files:
         return "In diesem Kanal sind keine Anhänge erlaubt."
 
     if not str(content or "").strip():

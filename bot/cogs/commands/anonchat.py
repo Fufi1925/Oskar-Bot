@@ -105,8 +105,12 @@ class AnonChat(commands.Cog):
             return
 
         member = message.author
-        # why_not() looks at this to decide about attachments.
-        member._has_files = bool(message.attachments)
+        # Whether there are attachments is handed to why_not() as an
+        # argument. Do NOT set an attribute on `member` for this:
+        # discord.Member has __slots__ and no __dict__, so the
+        # assignment raises AttributeError and kills the relay before
+        # the original message is deleted.
+        has_files = bool(message.attachments)
 
         # Delete first, no matter what happens next. Leaving the original
         # up while working out that it is not allowed would defeat the
@@ -123,7 +127,8 @@ class AnonChat(commands.Cog):
             pass
 
         problem = await store.why_not(
-            self.connection, settings, member, message.content
+            self.connection, settings, member, message.content,
+            has_files=has_files,
         )
         if problem:
             return await self._tell(member, problem)

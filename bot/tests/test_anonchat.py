@@ -126,6 +126,21 @@ class FakeChannel:
 
 
 class FakeMember:
+    # __slots__ on purpose, with no __dict__ -- exactly like the real
+    # discord.Member. A plain test double accepts any attribute you care
+    # to invent, which is how the relay shipped with
+    #
+    #     member._has_files = bool(message.attachments)
+    #
+    # It passed every test here and raised AttributeError against the
+    # real object, killing the relay before the original message was even
+    # deleted: an anonymous channel that quietly stayed a normal one.
+    # Keep the slots, and that class of bug fails here first.
+    __slots__ = (
+        "id", "name", "display_name", "mention", "bot", "roles",
+        "guild", "dms", "created_at", "joined_at",
+    )
+
     def __init__(self, uid, name, *, days_old=1000, days_member=500):
         self.id, self.name = uid, name
         self.display_name = name
