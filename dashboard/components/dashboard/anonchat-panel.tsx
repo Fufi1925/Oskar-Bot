@@ -320,24 +320,39 @@ function ChannelCard({ guildId, channel, modes, busy, act, open, onToggleOpen }:
       return res;
     });
 
+  const currentTestSettings = () => ({
+    ...channel,
+    ...draft,
+    alias: value("alias"),
+    avatar_url: value("avatar_url"),
+    mode: value("mode"),
+    allow_links: value("allow_links"),
+    allow_mentions: value("allow_mentions"),
+    max_length: value("max_length"),
+  });
+
   const runPreview = async () => {
     try {
       setPreview(
         await api.previewAnonMessage(guildId, {
           content: sample,
-          settings: {
-            alias: value("alias"),
-            avatar_url: value("avatar_url"),
-            allow_links: value("allow_links"),
-            allow_mentions: value("allow_mentions"),
-            max_length: value("max_length"),
-          },
+          settings: currentTestSettings(),
         })
       );
-    } catch {
+    } catch (error: any) {
       setPreview(null);
+      toast.error(error?.message || "Vorschau konnte nicht erstellt werden.");
     }
   };
+
+  const runDiscordTest = () =>
+    act(() =>
+      api.testAnonMessage(guildId, {
+        channel_id: channel.channel_id,
+        content: sample,
+        settings: currentTestSettings(),
+      })
+    );
 
   return (
     <div
@@ -487,9 +502,17 @@ function ChannelCard({ guildId, channel, modes, busy, act, open, onToggleOpen }:
               />
               <button
                 onClick={runPreview}
-                className="px-5 rounded-xl bg-primary/15 border border-primary/40 text-primary text-xs font-black uppercase tracking-widest hover:bg-primary/25 transition-all"
+                disabled={busy || !sample.trim()}
+                className="px-5 py-3 rounded-xl bg-white/[0.03] border border-white/10 text-slate-300 text-xs font-black uppercase tracking-widest hover:text-white disabled:opacity-40 transition-all"
               >
-                Prüfen
+                Vorschau
+              </button>
+              <button
+                onClick={runDiscordTest}
+                disabled={busy || !sample.trim()}
+                className="px-5 py-3 rounded-xl bg-primary/15 border border-primary/40 text-primary text-xs font-black uppercase tracking-widest hover:bg-primary/25 disabled:opacity-40 transition-all"
+              >
+                In Discord testen
               </button>
             </div>
             {preview && (

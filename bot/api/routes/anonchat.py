@@ -40,19 +40,20 @@ def _guild_or_404(bot, guild_id: int):
     return guild
 
 
-async def _refresh(bot, guild_id: int) -> None:
-    """
-    Tell the cog to reload.
+async def _refresh(bot, guild_id: int) -> str | None:
+    """Tell the running cog to reload and report when that did not happen.
 
-    Without this the bot keeps relaying with the old settings until it
-    restarts, and the dashboard looks like it saved nothing.
+    This must not fail silently: a saved database row with a stale runtime
+    cache produces a green dashboard toast while Discord does nothing.
     """
     cog = bot.get_cog("AnonChat")
-    if cog is not None and hasattr(cog, "refresh"):
-        try:
-            await cog.refresh(guild_id)
-        except Exception:
-            pass
+    if cog is None or not hasattr(cog, "refresh"):
+        return "Das Anonym-Chat-Modul ist im laufenden Bot nicht geladen."
+    try:
+        await cog.refresh(guild_id)
+    except Exception as exc:
+        return f"Gespeichert, aber der Bot konnte die Einstellung nicht laden: {exc}"
+    return None
 
 
 def _permission_problem(guild, channel, mode: str) -> str | None:
@@ -188,14 +189,17 @@ async def save_anonchat(
         updates = {"enabled": 1}
 
     merged = await store.save_channel(db, guild_id, int(channel_id), updates)
-    await _refresh(bot, guild_id)
+    runtime_warning = await _refresh(bot, guild_id)
 
     await feature_audit.log_action(
         "anonchat_saved", actor=str(data.get("actor", "dashboard")),
         guild_id=guild_id, detail=f"#{channel.name}: {', '.join(sorted(updates))}",
     )
 
-    warning = _permission_problem(guild, channel, merged.get("mode"))
+    permission_warning = _permission_problem(guild, channel, merged.get("mode"))
+    warning = " ".join(
+        text for text in (permission_warning, runtime_warning) if text
+    ) or None
     return {
         "status": "success",
         "result": f"#{channel.name} ist anonym." if merged["enabled"]
@@ -334,6 +338,76 @@ async def unblock_user(
         guild_id=guild_id, detail=str(user_id),
     )
     return {"status": "success", "result": "Darf wieder anonym schreiben."}
+
+
+@router.post("/{guild_id}/test", summary="Send a real anonymous test message")
+async def send_test(
+    guild_id: int, data: dict, bot: "universitybot" = Depends(get_bot)
+):
+    """Send the dashboard sample through the real Discord relay.
+
+    The old button only rendered a local preview. That looked like a send
+    button, but Discord was never contacted, so selecting a channel and
+    "testing" appeared to do nothing.
+    """
+    guild = _guild_or_404(bot, guild_id)
+    channel_id = str(data.get("channel_id") or "")
+    if not channel_id.isdigit():
+        raise HTTPException(status_code=400, detail="Für den Test fehlt der Kanal.")
+
+    channel = guild.get_channel(int(channel_id))
+    if channel is None or not hasattr(channel, "send"):
+        raise HTTPException(status_code=404, detail="Den ausgewählten Kanal gibt es nicht mehr.")
+
+    me = guild.me
+    if me is not None:
+        permissions = channel.permissions_for(me)
+        if not permissions.send_messages:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Der Bot darf in #{channel.name} keine Nachrichten senden.",
+            )
+
+    settings = store.normalise(data.get("settings") or {})
+    text = store.clean_content(str(data.get("content") or ""), settings)
+    if not text:
+        raise HTTPException(status_code=400, detail="Die Testnachricht ist leer.")
+
+    cog = bot.get_cog("AnonChat")
+    if cog is None or not hasattr(cog, "_post"):
+        raise HTTPException(
+            status_code=503,
+            detail="Das Anonym-Chat-Modul ist im laufenden Bot nicht geladen.",
+        )
+
+    posted = await cog._post(channel, settings, text, [])
+    if posted is None:
+        mode = settings.get("mode")
+        if mode == store.MODE_WEBHOOK and me is not None:
+            permissions = channel.permissions_for(me)
+            if not permissions.manage_webhooks:
+                detail = (
+                    "Der Webhook-Test ist fehlgeschlagen. Dem Bot fehlt in "
+                    f"#{channel.name} „Webhooks verwalten“."
+                )
+            else:
+                detail = "Discord hat die Testnachricht abgelehnt. Details stehen im Bot-Log."
+        else:
+            detail = "Discord hat die Testnachricht abgelehnt. Details stehen im Bot-Log."
+        raise HTTPException(status_code=502, detail=detail)
+
+    await feature_audit.log_action(
+        "anonchat_test_sent",
+        actor=str(data.get("actor") or "dashboard"),
+        guild_id=guild_id,
+        detail=f"#{channel.name}",
+    )
+    return {
+        "status": "success",
+        "result": f"Testnachricht in #{channel.name} gesendet.",
+        "message_id": str(getattr(posted, "id", "")),
+        "url": getattr(posted, "jump_url", None),
+    }
 
 
 @router.post("/{guild_id}/preview", summary="How a message would look")

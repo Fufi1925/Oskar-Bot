@@ -696,9 +696,15 @@ export const api = {
     }),
   unblockAnonUser: (guildId: string, userId: string) =>
     request<any>(`/anonchat/${guildId}/blocked/${userId}`, { method: "DELETE" }),
-  /** Run text through the same filters the relay uses. */
+  /** Run text through the same filters without contacting Discord. */
   previewAnonMessage: (guildId: string, data: any) =>
     request<any>(`/anonchat/${guildId}/preview`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  /** Send a real test message to the configured Discord channel. */
+  testAnonMessage: (guildId: string, data: any) =>
+    request<any>(`/anonchat/${guildId}/test`, {
       method: "POST",
       body: JSON.stringify(data),
     }),

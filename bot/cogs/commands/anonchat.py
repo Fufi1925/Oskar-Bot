@@ -180,6 +180,9 @@ class AnonChat(commands.Cog):
                     accent=ACCENT["brand"],
                 ), files=files or None)
             except Exception:
+                logger.exception(
+                    "Anon chat bot-mode send failed in channel %s", channel.id
+                )
                 return None
 
         webhook = await self._webhook_for(channel)
@@ -193,6 +196,9 @@ class AnonChat(commands.Cog):
                     allowed_mentions=discord.AllowedMentions.none(),
                 )
             except Exception:
+                logger.exception(
+                    "Anon chat fallback send failed in channel %s", channel.id
+                )
                 return None
 
         try:
@@ -213,6 +219,9 @@ class AnonChat(commands.Cog):
             self._webhooks.pop(channel.id, None)
             return None
         except Exception:
+            logger.exception(
+                "Anon chat webhook send failed in channel %s", channel.id
+            )
             return None
 
     async def _webhook_for(self, channel):
@@ -238,6 +247,9 @@ class AnonChat(commands.Cog):
             self._webhooks[channel.id] = hook
             return hook
         except Exception:
+            logger.exception(
+                "Anon chat webhook lookup/create failed in channel %s", channel.id
+            )
             return None
 
     async def _tell(self, member, text: str) -> None:

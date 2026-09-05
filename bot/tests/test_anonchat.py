@@ -203,12 +203,13 @@ class FakeBot:
 
     def __init__(self):
         self.guilds = [FakeGuild()]
+        self.cogs = {}
 
     def get_guild(self, gid):
         return self.guilds[0] if int(gid) == GUILD else None
 
-    def get_cog(self, _n):
-        return None
+    def get_cog(self, name):
+        return self.cogs.get(name)
 
     def add_view(self, *a, **k):
         pass
@@ -348,6 +349,21 @@ def run():
 
     cog = AnonChat(bot)
     asyncio.run(cog.cog_load())
+    bot.cogs["AnonChat"] = cog
+
+    # The old dashboard button only calculated a preview in the browser.
+    # A successful click never contacted Discord, which looked exactly like
+    # a broken feature. The live test must go through the real posting path.
+    r = client.post(f"{base}/test", json={
+        "channel_id": CHANNEL,
+        "content": "Echte Testnachricht",
+        "settings": {"mode": "webhook", "alias": "Anonym"},
+    })
+    check("the dashboard test really posts to Discord", r.status_code == 200, r.text[:160])
+    check("the live test returns the posted message", bool(r.json().get("message_id")), r.text[:160])
+    # Start the relay assertions below with an empty outbox while keeping
+    # the webhook itself, so reuse is still covered.
+    guild.channel.hooks[0].sent.clear()
 
     alice = guild.add(FakeMember(10, "Alice"))
     bob = guild.add(FakeMember(11, "Bob"))
