@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from api.dependencies import get_bot
 from utils import feature_audit
+from utils import premium_store
 from utils import server_stats_store as store
 
 if TYPE_CHECKING:
@@ -23,10 +24,29 @@ def _guild_or_404(bot, guild_id: int):
     return guild
 
 
-def _payload(guild, settings: dict) -> dict:
+def _has_premium(user_id: str) -> bool:
+    if not str(user_id).isdigit():
+        return False
+    try:
+        return bool(premium_store.status(user_id).get("premium"))
+    except Exception:
+        return False
+
+
+def _payload(guild, settings: dict, *, premium: bool) -> dict:
     members = list(getattr(guild, "members", ()) or ())
     bots = sum(1 for member in members if member.bot)
-    counts = {"humans": len(members) - bots, "bots": bots, "total": len(members)}
+    counts = {
+        "humans": len(members) - bots,
+        "bots": bots,
+        "boosts": int(getattr(guild, "premium_subscription_count", 0) or 0),
+        "online": sum(
+            1 for member in members
+            if not member.bot and str(getattr(member, "status", "offline")) != "offline"
+        ),
+        "roles": max(0, len(getattr(guild, "roles", ()) or ()) - 1),
+        "channels": len(getattr(guild, "channels", ()) or ()),
+    }
 
     channels = {}
     for kind in store.KINDS:
@@ -42,9 +62,8 @@ def _payload(guild, settings: dict) -> dict:
     can_manage = bool(me and me.guild_permissions.manage_channels)
     return {
         "guild_id": str(guild.id),
-        "humans_enabled": settings["humans_enabled"],
-        "bots_enabled": settings["bots_enabled"],
-        "total_enabled": settings["total_enabled"],
+        "premium": premium,
+        **{f"{kind}_enabled": settings[f"{kind}_enabled"] for kind in store.KINDS},
         "counts": counts,
         "channels": channels,
         "can_manage_channels": can_manage,
@@ -54,10 +73,11 @@ def _payload(guild, settings: dict) -> dict:
 
 @router.get("/{guild_id}", summary="Server-Stats Einstellungen")
 async def get_settings(
-    guild_id: int, bot: "universitybot" = Depends(get_bot)
+    guild_id: int, actor: str = "", bot: "universitybot" = Depends(get_bot)
 ):
     guild = _guild_or_404(bot, guild_id)
-    return _payload(guild, await store.get(guild_id))
+    premium = _has_premium(actor)
+    return _payload(guild, await store.get(guild_id), premium=premium)
 
 
 @router.patch("/{guild_id}", summary="Server-Stats einstellen")
@@ -69,6 +89,16 @@ async def patch_settings(
     updates = {key: bool(value) for key, value in data.items() if key in allowed}
     if not updates:
         raise HTTPException(400, "Keine Server-Stats-Einstellung übermittelt.")
+
+    actor = str(data.get("actor") or "")
+    premium = _has_premium(actor)
+    if not premium and any(
+        updates.get(f"{kind}_enabled") for kind in store.PREMIUM_KINDS
+    ):
+        raise HTTPException(
+            403,
+            "Online-Nutzer, Rollen und Kanäle sind nur mit Premium verfügbar.",
+        )
 
     me = guild.me
     if me is None or not me.guild_permissions.manage_channels:
@@ -84,10 +114,10 @@ async def patch_settings(
     except Exception as exc:
         raise HTTPException(502, f"Die Statistikkanäle konnten nicht aktualisiert werden: {exc}")
 
-    result = _payload(guild, await store.get(guild_id))
+    result = _payload(guild, await store.get(guild_id), premium=premium)
     await feature_audit.log_action(
         "server_stats_changed",
-        actor=str(data.get("actor") or ""),
+        actor=actor,
         detail=f"guild {guild_id}: {updates}",
     )
     return result

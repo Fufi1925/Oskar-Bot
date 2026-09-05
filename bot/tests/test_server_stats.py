@@ -51,7 +51,11 @@ def wiring() -> None:
 
     check("API router is mounted", 'prefix="/server-stats"' in server)
     check("event cog is loaded", "add_cog(ServerStats(bot))" in cogs)
+    route = (BOT / "api/routes/server_stats.py").read_text(encoding="utf-8")
+    panel = (DASH / "components/dashboard/server-stats-panel.tsx").read_text(encoding="utf-8")
     check("BFF authorizes the new scope", 'scope === "server-stats"' in proxy)
+    check("premium is enforced by the API", "store.PREMIUM_KINDS" in route and "_has_premium" in route)
+    check("premium cards are blurred and locked", "blur-[3px]" in panel and "Premium erforderlich" in panel)
     check("tab sits in the user sidebar", "/server-stats`" in sidebar)
     check("tab is in guild navigation", 'slug: "server-stats"' in tabs)
     check("dashboard page exists", page.is_file())
@@ -61,15 +65,26 @@ def counting() -> None:
     from cogs.events.server_stats import ServerStats
 
     class Member:
-        def __init__(self, bot: bool):
+        def __init__(self, bot: bool, status: str = "offline"):
             self.bot = bot
+            self.status = status
 
     class Guild:
-        members = [Member(False), Member(False), Member(True)]
+        members = [Member(False, "online"), Member(False), Member(True, "online")]
+        premium_subscription_count = 6
+        roles = [object(), object(), object(), object()]  # @everyone + drei
+        channels = [object(), object()]
 
     check(
-        "humans, bots and total are split correctly",
-        ServerStats.counts(Guild()) == {"humans": 2, "bots": 1, "total": 3},
+        "all six statistics are counted correctly",
+        ServerStats.counts(Guild()) == {
+            "humans": 2,
+            "bots": 1,
+            "boosts": 6,
+            "online": 1,
+            "roles": 3,
+            "channels": 2,
+        },
     )
 
 

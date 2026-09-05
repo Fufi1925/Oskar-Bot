@@ -19,7 +19,10 @@ from utils import server_stats_store as store
 NAMES = {
     "humans": "👤 Nutzer: {count}",
     "bots": "🤖 Bots: {count}",
-    "total": "👥 Mitglieder: {count}",
+    "boosts": "🚀 Boosts: {count}",
+    "online": "🟢 Online: {count}",
+    "roles": "🎭 Rollen: {count}",
+    "channels": "📚 Kanäle: {count}",
 }
 
 
@@ -41,8 +44,25 @@ class ServerStats(Cog):
         bots = sum(1 for member in members if member.bot)
         humans = len(members) - bots
         # Mit aktiviertem Members-Intent ist der Cache vollständig und gibt
-        # zugleich die einzige belastbare Aufteilung Mensch/Bot her.
-        return {"humans": humans, "bots": bots, "total": humans + bots}
+        # zugleich die einzige belastbare Aufteilung Mensch/Bot her. Die
+        # Boost-Zahl kommt direkt aus dem Guild-Objekt von Discord.
+        boosts = int(getattr(guild, "premium_subscription_count", 0) or 0)
+        online = sum(
+            1 for member in members
+            if not member.bot and str(getattr(member, "status", "offline")) != "offline"
+        )
+        # @everyone ist technisch eine Rolle, wird Nutzern aber nicht als
+        # eigene Serverrolle angezeigt und deshalb nicht mitgezählt.
+        roles = max(0, len(getattr(guild, "roles", ()) or ()) - 1)
+        channels = len(getattr(guild, "channels", ()) or ())
+        return {
+            "humans": humans,
+            "bots": bots,
+            "boosts": boosts,
+            "online": online,
+            "roles": roles,
+            "channels": channels,
+        }
 
     async def sync_guild(self, guild: discord.Guild) -> dict:
         settings = await store.get(guild.id)
@@ -75,6 +95,10 @@ class ServerStats(Cog):
                     await store.set_channel(guild.id, kind, None)
                 continue
 
+            # Beim Kanal-Zähler gehört der Zählerkanal selbst zur späteren
+            # Gesamtzahl. Vor dem Erstellen rechnen wir ihn deshalb bereits ein.
+            if kind == "channels":
+                counts[kind] = len(guild.channels) + (1 if channel is None else 0)
             wanted = NAMES[kind].format(count=counts[kind])
             if channel is None:
                 channel = await guild.create_voice_channel(
@@ -115,6 +139,29 @@ class ServerStats(Cog):
     @commands.Cog.listener()
     async def on_member_remove(self, member: discord.Member):
         self.schedule(member.guild)
+
+    @commands.Cog.listener()
+    async def on_member_update(self, before: discord.Member, after: discord.Member):
+        # Ein neuer oder entfernter Boost ändert premium_since. Andere
+        # Mitgliederänderungen sollen keinen unnötigen Kanal-Edit auslösen.
+        if before.premium_since != after.premium_since:
+            self.schedule(after.guild)
+
+    @commands.Cog.listener()
+    async def on_guild_role_create(self, role: discord.Role):
+        self.schedule(role.guild)
+
+    @commands.Cog.listener()
+    async def on_guild_role_delete(self, role: discord.Role):
+        self.schedule(role.guild)
+
+    @commands.Cog.listener()
+    async def on_guild_channel_create(self, channel: discord.abc.GuildChannel):
+        self.schedule(channel.guild)
+
+    @commands.Cog.listener()
+    async def on_guild_channel_delete(self, channel: discord.abc.GuildChannel):
+        self.schedule(channel.guild)
 
     @tasks.loop(minutes=10)
     async def refresh_loop(self):
