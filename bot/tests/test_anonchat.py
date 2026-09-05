@@ -222,7 +222,7 @@ def run():
     import api.dependencies as dep
     from api.db_manager import db_manager
     from api.server import create_app
-    from cogs.commands.anonchat import AnonChat
+    from cogs.events.anonchat_service import AnonymousChatService
     from fastapi.testclient import TestClient
     from utils import anonchat_store as store
 
@@ -347,9 +347,9 @@ def run():
         "allow_mentions": False,
     })
 
-    cog = AnonChat(bot)
+    cog = AnonymousChatService(bot)
     asyncio.run(cog.cog_load())
-    bot.cogs["AnonChat"] = cog
+    bot.cogs["AnonymousChatService"] = cog
 
     # The old dashboard button only calculated a preview in the browser.
     # A successful click never contacted Discord, which looked exactly like
@@ -558,7 +558,6 @@ def run():
     r = client.delete(f"{base}/{CHANNEL}")
     check("deleting it twice gives 404", r.status_code == 404)
 
-    asyncio.run(cog.cog_unload())
     asyncio.run(db_manager.close_all())
 
     print(f"\n{len(failures)} failures")

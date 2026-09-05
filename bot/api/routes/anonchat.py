@@ -46,7 +46,7 @@ async def _refresh(bot, guild_id: int) -> str | None:
     This must not fail silently: a saved database row with a stale runtime
     cache produces a green dashboard toast while Discord does nothing.
     """
-    cog = bot.get_cog("AnonChat")
+    cog = bot.get_cog("AnonymousChatService")
     if cog is None or not hasattr(cog, "refresh"):
         return "Das Anonym-Chat-Modul ist im laufenden Bot nicht geladen."
     try:
@@ -197,18 +197,18 @@ async def save_anonchat(
     # gets one real setup message through the same path as later anonymous
     # messages; failure is reported in the dashboard response.
     if not existed and merged.get("enabled") and runtime_warning is None:
-        cog = bot.get_cog("AnonChat")
-        posted = await cog._post(
-            channel,
-            merged,
-            "✅ Der anonyme Chat ist eingerichtet. Nachrichten in diesem Kanal "
-            "werden ohne den Namen des Absenders neu gepostet.",
-            [],
-        )
-        if posted is None:
+        cog = bot.get_cog("AnonymousChatService")
+        try:
+            await cog.send_test(
+                channel,
+                merged,
+                "✅ Der anonyme Chat ist eingerichtet. Nachrichten in diesem Kanal "
+                "werden ohne den Namen des Absenders neu gepostet.",
+            )
+        except Exception as exc:
             runtime_warning = (
                 "Gespeichert, aber die Einrichtungsnachricht konnte nicht an "
-                "Discord gesendet werden. Prüfe die Bot-Rechte und das Bot-Log."
+                f"Discord gesendet werden: {exc}"
             )
 
     await feature_audit.log_action(
@@ -393,14 +393,20 @@ async def send_test(
     if not text:
         raise HTTPException(status_code=400, detail="Die Testnachricht ist leer.")
 
-    cog = bot.get_cog("AnonChat")
-    if cog is None or not hasattr(cog, "_post"):
+    cog = bot.get_cog("AnonymousChatService")
+    if cog is None or not hasattr(cog, "send_test"):
         raise HTTPException(
             status_code=503,
             detail="Das Anonym-Chat-Modul ist im laufenden Bot nicht geladen.",
         )
 
-    posted = await cog._post(channel, settings, text, [])
+    try:
+        posted = await cog.send_test(channel, settings, text)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Discord hat die Testnachricht abgelehnt: {exc}",
+        ) from exc
     if posted is None:
         mode = settings.get("mode")
         if mode == store.MODE_WEBHOOK and me is not None:
