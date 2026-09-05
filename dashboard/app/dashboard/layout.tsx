@@ -224,6 +224,11 @@ export default function DashboardLayout({
               icon: Database,
               highlight: true,
             },
+            {
+              name: "Server Stats",
+              href: `/dashboard/guild/${currentGuildId}/server-stats`,
+              icon: BarChart4,
+            },
           ],
         },
         {

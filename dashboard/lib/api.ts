@@ -1490,6 +1490,15 @@ export const api = {
       method: "POST",
       body: JSON.stringify({}),
     }),
+  // Server-Stats: gesperrte Sprachkanäle mit aktuellen Mitgliederzahlen.
+  getServerStats: (guildId: string) =>
+    request<any>(`/server-stats/${guildId}`),
+  updateServerStats: (guildId: string, data: any) =>
+    request<any>(`/server-stats/${guildId}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+
   // Sicherungen. `actor` setzt der Proxy aus der Sitzung.
   backupList: (guildId: string) => request<any>(`/backup/${guildId}`),
   backupCreate: (guildId: string, mitNachrichten = false) =>

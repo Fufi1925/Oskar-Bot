@@ -127,6 +127,12 @@ function buildGroups(t: TranslateFn): Group[] {
           also: ["backup", "sicherung", "sichern", "wiederherstellen",
                  "restore", "premium"],
         },
+        {
+          name: "Server Stats",
+          slug: "server-stats",
+          icon: BarChart4,
+          also: ["server stats", "mitglieder", "nutzer", "bots", "member count", "voice channel"],
+        },
       ],
     },
     {
