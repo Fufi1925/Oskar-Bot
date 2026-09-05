@@ -188,8 +188,28 @@ async def save_anonchat(
     if not updates:
         updates = {"enabled": 1}
 
+    existed = await store.get_channel(db, guild_id, int(channel_id)) is not None
     merged = await store.save_channel(db, guild_id, int(channel_id), updates)
     runtime_warning = await _refresh(bot, guild_id)
+
+    # Selecting a channel used to change only a database row. From Discord it
+    # looked like absolutely nothing happened. A newly enabled channel now
+    # gets one real setup message through the same path as later anonymous
+    # messages; failure is reported in the dashboard response.
+    if not existed and merged.get("enabled") and runtime_warning is None:
+        cog = bot.get_cog("AnonChat")
+        posted = await cog._post(
+            channel,
+            merged,
+            "✅ Der anonyme Chat ist eingerichtet. Nachrichten in diesem Kanal "
+            "werden ohne den Namen des Absenders neu gepostet.",
+            [],
+        )
+        if posted is None:
+            runtime_warning = (
+                "Gespeichert, aber die Einrichtungsnachricht konnte nicht an "
+                "Discord gesendet werden. Prüfe die Bot-Rechte und das Bot-Log."
+            )
 
     await feature_audit.log_action(
         "anonchat_saved", actor=str(data.get("actor", "dashboard")),

@@ -12,6 +12,8 @@
 # ║                                                                  ║
 # ╚══════════════════════════════════════════════════════════════════╝
 
+import asyncio
+
 import discord
 from utils.emoji import ARROWRED
 from discord.ext import commands
@@ -27,6 +29,11 @@ class Tracking(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.invites = {}
+        self._startup_loader = None
+
+    def cog_unload(self):
+        if self._startup_loader is not None:
+            self._startup_loader.cancel()
 
     async def ensure_tables(self, guild_id):
         async with aiosqlite.connect(INVITE_DB) as db:
@@ -49,16 +56,33 @@ class Tracking(commands.Cog):
 
     @commands.Cog.listener()
     async def on_ready(self):
-        import asyncio
-        async def fetch_invites(guild):
+        # The old code fired guild.invites() for every guild concurrently.
+        # With 77 guilds that immediately hit Discord's GLOBAL rate limit and
+        # delayed unrelated sends — including anonymous-chat test messages.
+        # Load gently in the background and do not restart the wave on every
+        # gateway reconnect.
+        if self._startup_loader is None:
+            self._startup_loader = asyncio.create_task(self._load_invites_gently())
+
+    async def _load_invites_gently(self):
+        loaded = 0
+        for guild in list(self.bot.guilds):
             try:
                 self.invites[guild.id] = await guild.invites()
+                loaded += 1
             except discord.Forbidden:
                 pass
-            except Exception:
-                pass
-
-        await asyncio.gather(*(fetch_invites(guild) for guild in self.bot.guilds))
+            except discord.HTTPException as exc:
+                # discord.py already honours Retry-After. Log non-rate-limit
+                # failures, but never start another concurrent request wave.
+                if getattr(exc, "status", 0) != 429:
+                    print(f"[tracking] Einladungen {guild.id}: {exc}")
+            except Exception as exc:
+                print(f"[tracking] Einladungen {guild.id}: {exc}")
+            # Two requests per second is deliberately conservative. Invite
+            # tracking is background bookkeeping, not worth starving messages.
+            await asyncio.sleep(0.5)
+        print(f"[tracking] Invite cache loaded gently for {loaded} guilds")
 
     @commands.Cog.listener()
     async def on_invite_create(self, invite):

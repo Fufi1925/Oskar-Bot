@@ -85,17 +85,26 @@ class AnonChat(commands.Cog):
         if not channels or message.channel.id not in channels:
             return
 
-        # A command in an anonymous channel should stay a command.
-        prefixes = await self.bot.get_prefix(message)
-        if isinstance(prefixes, str):
-            prefixes = [prefixes]
+        # A command in an anonymous channel should stay a command. A prefix
+        # lookup opens legacy databases and may fail independently; that must
+        # not switch the whole anonymous channel off without a trace.
+        try:
+            prefixes = await self.bot.get_prefix(message)
+            if isinstance(prefixes, str):
+                prefixes = [prefixes]
+        except Exception:
+            logger.exception(
+                "Anon chat prefix lookup failed in channel %s; relaying as text",
+                message.channel.id,
+            )
+            prefixes = []
         if any(message.content.startswith(p) for p in prefixes or []):
             return
 
         try:
             await self._relay(message)
-        except Exception as exc:
-            logger.error(f"Anon chat relay failed in {message.channel.id}: {exc}")
+        except Exception:
+            logger.exception("Anon chat relay failed in channel %s", message.channel.id)
 
     async def _relay(self, message: discord.Message) -> None:
         settings = await store.get_channel(
