@@ -70,10 +70,12 @@ export default function MaintenancePage() {
           </h1>
 
           <p style={{ margin: "0 0 16px", fontSize: "15px", lineHeight: 1.7, color: "#cbd5e1" }}>
-            Wir schließen gerade eine Sicherheitslücke. Voraussichtlich sind
-            wir <strong style={{ color: "#fff" }}>heute um 0 Uhr</strong> wieder
-            da.
-          </p>
+  Wir upgraden gerade unser Dashboard von{" "}
+  <strong style={{ color: "#fff" }}>Node.js 16 auf Node.js 24 LTS</strong>.
+  Aufgrund der umfangreichen Aktualisierungen wird das Dashboard
+  voraussichtlich in <strong style={{ color: "#fff" }}>2 Wochen</strong>{" "}
+  wieder für euch erreichbar sein.
+</p>
 
           <p style={{ margin: "0 0 22px", fontSize: "15px", lineHeight: 1.7, color: "#cbd5e1" }}>
             Unser Entwickler <strong style={{ color: "#fff" }}>Fufi</strong>{" "}
