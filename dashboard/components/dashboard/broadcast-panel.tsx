@@ -21,7 +21,7 @@ import {
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { EmojiPicker } from "@/components/dashboard/emoji-picker";
+import { EmojiText } from "@/components/dashboard/emoji-field";
 import { DiscordEmojiText } from "@/components/dashboard/discord-emoji";
 
 const INPUT =
@@ -294,38 +294,11 @@ export function BroadcastPanel({ guilds }: { guilds?: any[] }) {
         </div>
 
         <Field label="Überschrift" hint="Leer = „Nachricht vom Bot-Team“">
-          <input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Wartungsarbeiten am Sonntag"
-            maxLength={200}
-            className={INPUT}
-          />
-          <div className="mt-2">
-            <EmojiPicker
-              onPick={(raw) =>
-                setTitle((old) => ((old + raw).length > 200 ? old : old + raw))
-              }
-            />
-          </div>
+          <EmojiText value={title} onChange={setTitle} placeholder="Wartungsarbeiten am Sonntag" limit={200} />
         </Field>
 
         <Field label="Nachricht">
-          <textarea
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            rows={6}
-            placeholder="Was alle Server wissen sollen …"
-            maxLength={3500}
-            className={cn(INPUT, "resize-y")}
-          />
-          <div className="mt-2">
-            <EmojiPicker
-              onPick={(raw) =>
-                setMessage((old) => ((old + raw).length > 3500 ? old : old + raw))
-              }
-            />
-          </div>
+          <EmojiText value={message} onChange={setMessage} rows={6} placeholder="Was alle Server wissen sollen …" limit={3500} />
           <p className="text-[11px] text-slate-600 text-right">
             {message.length} / 3500
           </p>

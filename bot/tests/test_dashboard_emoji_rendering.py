@@ -34,6 +34,9 @@ for filename in panels:
 
 emoji_field = (DASH / "emoji-field.tsx").read_text(encoding="utf-8")
 check("single emoji fields show the image after selection", "<DiscordEmoji value={value}" in emoji_field)
+check("message fields use a rich editor instead of a plain textarea", "contentEditable={!disabled}" in emoji_field)
+check("rich fields preserve the raw value for Discord", "dataset.emojiRaw" in emoji_field)
+check("the picker inserts into the rich field", 'new CustomEvent("rich-text-insert"' in emoji_field)
 
 print(f"\n{len(failures)} failures")
 raise SystemExit(1 if failures else 0)

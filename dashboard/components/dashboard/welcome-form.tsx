@@ -184,6 +184,10 @@ export function WelcomeForm({
   const insert = (token: string) => {
     const el = lastFocused.current;
     if (!el) return toast.info("Erst in ein Textfeld klicken, dann den Platzhalter.");
+    if (el.isContentEditable) {
+      el.dispatchEvent(new CustomEvent("rich-text-insert", { detail: token }));
+      return;
+    }
     const start = el.selectionStart ?? el.value.length;
     const end = el.selectionEnd ?? start;
     const next = el.value.slice(0, start) + token + el.value.slice(end);

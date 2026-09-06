@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 import { ChannelPicker, RolePicker } from "@/components/dashboard/pickers";
 import { GiveawayDetail } from "@/components/dashboard/giveaway-detail";
 import { InlineToggle } from "@/components/dashboard/form-elements";
-import { EmojiPicker } from "@/components/dashboard/emoji-picker";
+import { EmojiOnly, EmojiText } from "@/components/dashboard/emoji-field";
 import { DiscordEmoji, DiscordEmojiText } from "@/components/dashboard/discord-emoji";
 
 interface Giveaway {
@@ -241,22 +241,7 @@ export function GiveawaysPanel({ guildId }: { guildId: string }) {
 
         <div className="grid lg:grid-cols-2 gap-5">
           <Field label="Preis">
-            <input
-              value={prize}
-              onChange={(e) => setPrize(e.target.value)}
-              placeholder="z. B. Discord Nitro"
-              maxLength={200}
-              className={INPUT}
-            />
-            <div className="mt-2">
-              <EmojiPicker
-                onPick={(raw) =>
-                  setPrize((old) =>
-                    (old + raw).length > 200 ? old : old + raw
-                  )
-                }
-              />
-            </div>
+            <EmojiText value={prize} onChange={setPrize} placeholder="z. B. Discord Nitro" limit={200} />
           </Field>
 
           <Field label="Kanal">
@@ -339,38 +324,15 @@ export function GiveawaysPanel({ guildId }: { guildId: string }) {
           <div className="mt-5 space-y-5 border-t border-slate-800 pt-5">
             <div className="grid lg:grid-cols-2 gap-5">
               <Field label="Überschrift" hint="Leer = 🎉 Gewinnspiel">
-                <input
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="🎉 Gewinnspiel"
-                  maxLength={256}
-                  className={INPUT}
-                />
-                <div className="mt-2">
-                  <EmojiPicker
-                    onPick={(raw) =>
-                      setTitle((old) =>
-                        (old + raw).length > 256 ? old : old + raw
-                      )
-                    }
-                  />
-                </div>
+                <EmojiText value={title} onChange={setTitle} placeholder="🎉 Gewinnspiel" limit={256} />
               </Field>
 
               <Field label="Knopf-Text" hint="Leer = Teilnehmen">
                 <div className="flex gap-2">
-                  <input
+                  <EmojiOnly
                     value={buttonEmoji}
-                    onChange={(e) => setButtonEmoji(e.target.value)}
-                    placeholder="🎉"
-                    className="w-16 bg-[#0e0e12] border border-slate-800 rounded-xl px-3 py-3 text-sm text-white text-center focus:outline-none focus:border-primary/50"
-                  />
-                  {/* Ersetzen, nicht anhaengen: auf einem Knopf ist
-                      genau ein Emoji erlaubt. Zwei lehnt Discord ab,
-                      und der Fehler kaeme erst beim Absenden. */}
-                  <EmojiPicker
+                    onChange={setButtonEmoji}
                     label="Emoji für den Knopf"
-                    onPick={(raw) => setButtonEmoji(raw)}
                   />
                   <input
                     value={buttonLabel}
@@ -383,23 +345,14 @@ export function GiveawaysPanel({ guildId }: { guildId: string }) {
             </div>
 
             <Field label="Beschreibung">
-              <textarea
+              <EmojiText
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
+                onChange={setDescription}
                 rows={4}
-                maxLength={4096}
-                placeholder="**{prize}**&#10;&#10;Drücke den Knopf, um teilzunehmen.&#10;**Gewinner:** {winners}&#10;**Endet:** {ends}"
-                className={cn(INPUT, "resize-y font-mono text-[13px]")}
+                limit={4096}
+                placeholder={"**{prize}**\n\nDrücke den Knopf, um teilzunehmen.\n**Gewinner:** {winners}\n**Endet:** {ends}"}
+                className="font-mono text-[13px]"
               />
-              <div className="mt-2">
-                <EmojiPicker
-                  onPick={(raw) =>
-                    setDescription((old) =>
-                      (old + raw).length > 4096 ? old : old + raw
-                    )
-                  }
-                />
-              </div>
               <div className="flex flex-wrap gap-1.5 pt-1">
                 {TOKENS.map((t) => (
                   <button

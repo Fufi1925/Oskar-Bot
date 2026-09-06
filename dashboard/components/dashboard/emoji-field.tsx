@@ -41,7 +41,7 @@
 
 import React from "react";
 import { cn } from "@/lib/utils";
-import { EmojiPicker, insertAtCursor } from "@/components/dashboard/emoji-picker";
+import { EmojiPicker } from "@/components/dashboard/emoji-picker";
 import { DiscordEmoji } from "@/components/dashboard/discord-emoji";
 
 /** Der Feldrahmen, wie ihn die Panels benutzen. */
@@ -49,6 +49,161 @@ const INPUT =
   "w-full bg-[#0e0e12] border border-slate-800 rounded-xl px-4 py-3 " +
   "text-sm text-white placeholder:text-slate-600 focus:outline-none " +
   "focus:border-primary/50 transition-colors";
+
+const CUSTOM = /<(a?):([A-Za-z0-9_]+):(\d{5,22})>|<emoji:(\d{5,22})>/g;
+
+function serialiseRich(root: HTMLElement): string {
+  let out = "";
+  for (const node of Array.from(root.childNodes)) {
+    if (node.nodeType === Node.TEXT_NODE) out += node.textContent || "";
+    else if (node instanceof HTMLImageElement && node.dataset.emojiRaw) out += node.dataset.emojiRaw;
+    else if (node instanceof HTMLBRElement) out += "\n";
+    else if (node instanceof HTMLElement) out += serialiseRich(node);
+  }
+  return out;
+}
+
+function drawRich(root: HTMLElement, raw: string) {
+  const fragment = document.createDocumentFragment();
+  let cursor = 0;
+  let match: RegExpExecArray | null;
+  CUSTOM.lastIndex = 0;
+  while ((match = CUSTOM.exec(raw)) !== null) {
+    if (match.index > cursor) fragment.append(document.createTextNode(raw.slice(cursor, match.index)));
+    const img = document.createElement("img");
+    const id = match[3] || match[4];
+    const name = match[2] || "emoji";
+    img.src = `https://cdn.discordapp.com/emojis/${id}.${match[1] === "a" ? "gif" : "png"}?size=48&quality=lossless`;
+    img.alt = `:${name}:`;
+    img.title = `:${name}:`;
+    img.dataset.emojiRaw = match[0];
+    img.contentEditable = "false";
+    img.draggable = false;
+    img.className = "inline-block h-[1.35em] w-[1.35em] object-contain align-[-0.22em] mx-0.5";
+    fragment.append(img);
+    cursor = match.index + match[0].length;
+  }
+  if (cursor < raw.length) fragment.append(document.createTextNode(raw.slice(cursor)));
+  root.replaceChildren(fragment);
+  root.dataset.empty = raw ? "false" : "true";
+}
+
+/** A contenteditable field is required here: textarea/input elements can only
+ * paint characters, never Discord emoji images. The raw Discord syntax still
+ * lives in React state and is what gets saved. */
+function RichEmojiEditor({
+  value, onChange, limit, rows, placeholder, disabled, className, onLimitReached, onFocus, onBlur,
+}: {
+  value: string; onChange: (next: string) => void; limit: number; rows?: number;
+  placeholder?: string; disabled?: boolean; className?: string;
+  onLimitReached?: (limit: number) => void; onFocus?: (event: any) => void;
+  onBlur?: (event: React.FocusEvent<HTMLDivElement>) => void;
+}) {
+  const ref = React.useRef<HTMLDivElement>(null);
+  const range = React.useRef<Range | null>(null);
+
+  React.useLayoutEffect(() => {
+    const root = ref.current;
+    if (root && serialiseRich(root) !== value) drawRich(root, value);
+  }, [value]);
+
+  const remember = () => {
+    const selection = window.getSelection();
+    if (selection?.rangeCount && ref.current?.contains(selection.anchorNode)) {
+      range.current = selection.getRangeAt(0).cloneRange();
+    }
+  };
+
+  const commit = () => {
+    const root = ref.current;
+    if (!root) return;
+    const raw = serialiseRich(root);
+    root.dataset.empty = raw ? "false" : "true";
+    if (raw.length > limit) {
+      drawRich(root, value);
+      onLimitReached?.(limit);
+      return;
+    }
+    onChange(raw);
+    remember();
+  };
+
+  const insertRaw = React.useCallback((raw: string) => {
+    const root = ref.current;
+    if (!root || disabled) return;
+    root.focus();
+    const selection = window.getSelection();
+    const saved = range.current;
+    if (saved && root.contains(saved.commonAncestorContainer)) {
+      selection?.removeAllRanges(); selection?.addRange(saved);
+    }
+    let active = selection?.rangeCount ? selection.getRangeAt(0) : null;
+    if (!active || !root.contains(active.commonAncestorContainer)) {
+      active = document.createRange();
+      active.selectNodeContents(root);
+      active.collapse(false);
+      selection?.removeAllRanges();
+      selection?.addRange(active);
+    }
+    const current = serialiseRich(root);
+    if (current.length + raw.length > limit) return onLimitReached?.(limit);
+    const holder = document.createElement("span");
+    drawRich(holder, raw);
+    const nodes = Array.from(holder.childNodes);
+    if (active) {
+      active.deleteContents();
+      for (const node of nodes) { active.insertNode(node); active.setStartAfter(node); active.collapse(true); }
+      selection?.removeAllRanges(); selection?.addRange(active);
+    } else {
+      nodes.forEach((node) => root.append(node));
+    }
+    commit();
+  }, [disabled, limit, onLimitReached, value]);
+
+  React.useEffect(() => {
+    const root = ref.current;
+    if (!root) return;
+    const handler = (event: Event) => insertRaw(String((event as CustomEvent).detail || ""));
+    root.addEventListener("rich-text-insert", handler);
+    return () => root.removeEventListener("rich-text-insert", handler);
+  }, [insertRaw]);
+
+  return (
+    <div
+      ref={ref}
+      contentEditable={!disabled}
+      role="textbox"
+      aria-multiline={Boolean(rows)}
+      data-placeholder={placeholder || ""}
+      data-empty={value ? "false" : "true"}
+      suppressContentEditableWarning
+      onFocus={onFocus}
+      onInput={commit}
+      onKeyUp={remember}
+      onMouseUp={remember}
+      onBlur={(event) => { remember(); onBlur?.(event); }}
+      onPaste={(event) => {
+        event.preventDefault();
+        insertRaw(event.clipboardData.getData("text/plain"));
+      }}
+      onKeyDown={(event) => {
+        if (event.key === "Enter") {
+          if (!rows) return event.preventDefault();
+          event.preventDefault(); insertRaw("\n");
+        }
+      }}
+      className={cn(
+        INPUT,
+        "min-h-[46px] h-auto whitespace-pre-wrap break-words cursor-text",
+        "[data-empty=true]:before:content-[attr(data-placeholder)] [data-empty=true]:before:text-slate-600",
+        rows && "overflow-y-auto",
+        disabled && "opacity-50 cursor-not-allowed",
+        className
+      )}
+      style={rows ? { minHeight: `${Math.max(3, rows) * 24 + 26}px` } : undefined}
+    />
+  );
+}
 
 /**
  * Ein Textfeld mit Emoji-Auswahl darunter.
@@ -96,65 +251,26 @@ export function EmojiText({
    */
   onFocus?: (event: React.FocusEvent<HTMLTextAreaElement | HTMLInputElement>) => void;
 }) {
-  // Ein Ref auf das Feld, damit `insertAtCursor` weiß, wo der Cursor
-  // steht. Ohne das landet jedes Emoji am Ende -- wer mitten im Satz
-  // eines braucht, müsste es von Hand dorthin schieben.
-  const fieldRef = React.useRef<HTMLTextAreaElement | HTMLInputElement | null>(
-    null
-  );
-
+  const wrapper = React.useRef<HTMLDivElement>(null);
   const insert = (raw: string) => {
-    const field = fieldRef.current;
-    const { text, caret } = insertAtCursor(field, value, raw);
-
-    // Vorher prüfen, nicht nachher. Schneidet erst Discord ab, trifft
-    // es mitten in den Emoji-Code, und übrig bleibt eine kaputte Zahl
-    // im Text.
-    if (text.length > limit) {
-      onLimitReached?.(limit);
-      return;
-    }
-
-    onChange(text);
-
-    // Den Cursor hinter das Emoji setzen, damit man weitertippen kann.
-    // Erst im nächsten Bild -- vorher hat React den neuen Wert noch
-    // nicht geschrieben und die Position würde überschrieben.
-    requestAnimationFrame(() => {
-      field?.focus();
-      field?.setSelectionRange(caret, caret);
-    });
-  };
-
-  const shared = {
-    value,
-    onChange: (event: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>) =>
-      onChange(event.target.value),
-    onFocus,
-    maxLength: limit,
-    placeholder,
-    disabled,
-    className: cn(INPUT, rows ? "resize-y" : "", className),
+    wrapper.current?.querySelector<HTMLElement>("[contenteditable]")?.dispatchEvent(
+      new CustomEvent("rich-text-insert", { detail: raw })
+    );
   };
 
   return (
-    <div className="space-y-2">
-      {rows ? (
-        <textarea
-          {...shared}
-          ref={(node) => {
-            fieldRef.current = node;
-          }}
-          rows={rows}
-        />
-      ) : (
-        <input
-          {...shared}
-          ref={(node) => {
-            fieldRef.current = node;
-          }}
-        />
-      )}
+    <div className="space-y-2" ref={wrapper}>
+      <RichEmojiEditor
+        value={value}
+        onChange={onChange}
+        limit={limit}
+        rows={rows}
+        placeholder={placeholder}
+        disabled={disabled}
+        className={className}
+        onLimitReached={onLimitReached}
+        onFocus={onFocus}
+      />
 
       <div className="flex items-center gap-2">
         <EmojiPicker onPick={insert} label={label} />
@@ -172,15 +288,9 @@ export function EmojiText({
  * Emoji-Auswahl für ein Feld, das React *nicht* steuert.
  *
  * Die Ticket-Panels arbeiten mit `defaultValue` und speichern erst
- * beim Verlassen des Feldes (`onBlur`). Der Wert lebt dort im DOM,
- * nicht im Zustand -- `setState` hat also nichts, was es ändern
- * könnte.
- *
- * Deshalb wird hier direkt am Element gearbeitet: einfügen, den
- * Cursor setzen und dann selbst melden, dass sich etwas geändert hat.
- * Ohne diese Meldung bliebe die Änderung im Feld stehen und würde nie
- * gespeichert -- der Nutzer sähe sein Emoji und verlöre es beim
- * Neuladen.
+ * beim Verlassen des Feldes (`onBlur`). Ein lokaler Entwurf hält deshalb
+ * den Rich-Text während des Tippens fest; erst beim Verlassen geht der
+ * unveränderte Discord-Rohtext an den bisherigen Speicherpfad.
  */
 export function EmojiDraftField({
   defaultValue,
@@ -200,64 +310,29 @@ export function EmojiDraftField({
   className?: string;
   label?: string;
 }) {
-  const fieldRef = React.useRef<HTMLTextAreaElement | HTMLInputElement | null>(
-    null
-  );
-
-  const shared = {
-    defaultValue,
-    placeholder,
-    maxLength: limit,
-    onBlur: (event: React.FocusEvent<HTMLTextAreaElement | HTMLInputElement>) => {
-      if (event.target.value !== defaultValue) onCommit(event.target.value);
-    },
-    className: cn(
-      "w-full bg-[#0e0e12] border border-slate-800 rounded-xl px-4 py-3",
-      "text-sm text-white focus:outline-none focus:border-primary/50",
-      rows ? "resize-y" : "",
-      className
-    ),
-  };
+  const [draft, setDraft] = React.useState(defaultValue);
+  const wrapper = React.useRef<HTMLDivElement>(null);
+  React.useEffect(() => setDraft(defaultValue), [defaultValue]);
 
   return (
-    <div className="space-y-2">
-      {rows ? (
-        <textarea
-          {...shared}
-          ref={(node) => {
-            fieldRef.current = node;
-          }}
-          rows={rows}
-        />
-      ) : (
-        <input
-          {...shared}
-          ref={(node) => {
-            fieldRef.current = node;
-          }}
-        />
-      )}
-
+    <div className="space-y-2" ref={wrapper}>
+      <RichEmojiEditor
+        value={draft}
+        onChange={setDraft}
+        limit={limit}
+        rows={rows}
+        placeholder={placeholder}
+        className={className}
+        onBlur={() => { if (draft !== defaultValue) onCommit(draft); }}
+      />
       <EmojiPicker
         label={label}
         onPick={(raw) => {
-          const field = fieldRef.current;
-          if (!field) return;
-
-          const { text, caret } = insertAtCursor(field, field.value, raw);
-          if (text.length > limit) return;
-
-          // Direkt ins Element schreiben: der Wert lebt hier im DOM,
-          // ein `setState` hätte nichts, was es ändern könnte.
-          field.value = text;
-          // Und selbst melden -- sonst stünde das Emoji im Feld, würde
-          // aber nie gespeichert. Beim Neuladen wäre es weg.
-          onCommit(text);
-
-          requestAnimationFrame(() => {
-            field.focus();
-            field.setSelectionRange(caret, caret);
-          });
+          wrapper.current?.querySelector<HTMLElement>("[contenteditable]")?.dispatchEvent(
+            new CustomEvent("rich-text-insert", { detail: raw })
+          );
+          // The rich editor updates draft synchronously through its input path;
+          // committing on blur keeps the previous API behaviour.
         }}
       />
     </div>
