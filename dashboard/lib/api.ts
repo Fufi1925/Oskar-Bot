@@ -992,10 +992,15 @@ export const api = {
   // Custom Commands (maximum three per server)
   getCustomCommands: (guildId: string) =>
     request<{ commands: any[]; count: number; limit: number }>(`/actions/${guildId}/custom-commands`),
-  saveCustomCommand: (guildId: string, name: string, response: string) =>
+  saveCustomCommand: (
+    guildId: string,
+    name: string,
+    response: string,
+    modes: { use_prefix: boolean; use_exact: boolean; use_contains: boolean; use_slash: boolean }
+  ) =>
     request<any>(`/actions/${guildId}/custom-commands`, {
       method: "POST",
-      body: JSON.stringify({ name, response }),
+      body: JSON.stringify({ name, response, ...modes }),
     }),
   deleteCustomCommand: (guildId: string, name: string) =>
     request<any>(`/actions/${guildId}/custom-commands/${encodeURIComponent(name)}`, {

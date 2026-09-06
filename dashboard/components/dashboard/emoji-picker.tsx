@@ -126,6 +126,14 @@ export function EmojiPicker({
     if (open) load();
   }, [open, load]);
 
+  // Especially on mobile, the search input otherwise keeps the software
+  // keyboard focus when the user taps back into the rich-text field.
+  useEffect(() => {
+    const close = () => setOpen(false);
+    window.addEventListener("close-emoji-pickers", close);
+    return () => window.removeEventListener("close-emoji-pickers", close);
+  }, []);
+
   // Klick daneben und Escape erledigt `PopoverLayer`. Ein eigener
   // Haken auf `boxRef` waere hier falsch: das Feld haengt per Portal
   // an `document.body`, liegt also nicht mehr im Knopf-Element. Jeder

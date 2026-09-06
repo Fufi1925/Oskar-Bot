@@ -770,13 +770,21 @@ async def save_custom_command(
     name = custom_command_store.normalise_name(data.get("name", ""))
     response = str(data.get("response", "")).strip()
     actor = str(data.get("actor", "dashboard"))
+    use_prefix = bool(data.get("use_prefix", True))
+    use_exact = bool(data.get("use_exact", False))
+    use_contains = bool(data.get("use_contains", False))
+    use_slash = bool(data.get("use_slash", False))
+    if not any((use_prefix, use_exact, use_contains, use_slash)):
+        raise HTTPException(status_code=400, detail="Wähle mindestens eine Erkennungsart aus.")
     if not custom_command_store.valid_name(name):
         raise HTTPException(
             status_code=400,
             detail="Der Name darf nur Buchstaben, Zahlen, - und _ enthalten (maximal 32).",
         )
-    if bot.get_command(name) is not None:
+    if use_prefix and bot.get_command(name) is not None:
         raise HTTPException(status_code=409, detail="Dieser Name gehört bereits zu einem Bot-Befehl.")
+    if use_slash and bot.tree.get_command(name) is not None:
+        raise HTTPException(status_code=409, detail="Dieser Name gehört bereits zu einem Slash-Befehl.")
     if not response:
         raise HTTPException(status_code=400, detail="Die Antwort darf nicht leer sein.")
     if len(response) > 1900:
@@ -784,7 +792,11 @@ async def save_custom_command(
 
     db = await custom_command_store.connect()
     try:
-        saved = await custom_command_store.save(db, guild_id, name, response, actor)
+        saved = await custom_command_store.save(
+            db, guild_id, name, response, actor,
+            use_prefix=use_prefix, use_exact=use_exact,
+            use_contains=use_contains, use_slash=use_slash,
+        )
     finally:
         await db.close()
     if not saved:

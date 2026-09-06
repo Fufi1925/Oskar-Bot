@@ -28,13 +28,17 @@ async def main():
  try:
   assert await store.save(db,77,'eins','1','test')
   assert await store.save(db,77,'zwei','2','test')
-  assert await store.save(db,77,'drei','Hallo {user} in {server}: {args}','test')
+  assert await store.save(db,77,'drei','Hallo {user} in {server}: {args}','test', use_exact=True, use_contains=True, use_slash=True)
   assert not await store.save(db,77,'vier','4','test')
-  assert await store.save(db,77,'drei','Hi {user_name}: {args}','test')
+  assert await store.save(db,77,'drei','Hi {user_name}: {args}','test', use_exact=True, use_contains=True, use_slash=True)
  finally:await db.close()
  service=CustomCommandsService(Bot());await service.refresh()
  channel=Sent();await service.on_message(Message('>drei Welt',channel))
- assert channel.items==['Hi Alex: Welt'],channel.items
+ await service.on_message(Message('drei',channel))
+ await service.on_message(Message('Wo ist drei bitte',channel))
+ assert channel.items==['Hi Alex: Welt','Hi Alex: ','Hi Alex: bitte'],channel.items
+ slash=service._make_slash_command(77,'drei')
+ assert slash.name=='drei' and slash.parameters[0].name=='args'
  assert store.valid_name('regeln') and not store.valid_name('bad command')
  print('custom commands: all checks passed')
 asyncio.run(main())

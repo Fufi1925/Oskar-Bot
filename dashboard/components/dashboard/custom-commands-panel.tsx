@@ -12,6 +12,10 @@ interface CustomCommand {
   response: string;
   created_at: number;
   updated_at: number;
+  use_prefix: number;
+  use_exact: number;
+  use_contains: number;
+  use_slash: number;
 }
 
 export function CustomCommandsPanel({ guildId, prefix }: { guildId: string; prefix: string }) {
@@ -21,6 +25,9 @@ export function CustomCommandsPanel({ guildId, prefix }: { guildId: string; pref
   const [name, setName] = useState("");
   const [response, setResponse] = useState("");
   const [editing, setEditing] = useState<string | null>(null);
+  const [modes, setModes] = useState({
+    use_prefix: true, use_exact: false, use_contains: false, use_slash: false,
+  });
   const limit = 3;
 
   const load = async () => {
@@ -34,9 +41,16 @@ export function CustomCommandsPanel({ guildId, prefix }: { guildId: string; pref
 
   useEffect(() => { load(); }, [guildId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const reset = () => { setName(""); setResponse(""); setEditing(null); };
+  const reset = () => {
+    setName(""); setResponse(""); setEditing(null);
+    setModes({ use_prefix: true, use_exact: false, use_contains: false, use_slash: false });
+  };
   const edit = (entry: CustomCommand) => {
     setName(entry.name); setResponse(entry.response); setEditing(entry.name);
+    setModes({
+      use_prefix: Boolean(entry.use_prefix), use_exact: Boolean(entry.use_exact),
+      use_contains: Boolean(entry.use_contains), use_slash: Boolean(entry.use_slash),
+    });
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -46,10 +60,11 @@ export function CustomCommandsPanel({ guildId, prefix }: { guildId: string; pref
       return toast.error("Der Name darf nur Buchstaben, Zahlen, - und _ enthalten.");
     }
     if (!response.trim()) return toast.error("Schreibe eine Antwort für den Befehl.");
+    if (!Object.values(modes).some(Boolean)) return toast.error("Wähle mindestens eine Erkennungsart aus.");
     if (!editing && commands.length >= limit) return toast.error("Du hast bereits alle 3 Plätze benutzt.");
     setBusy(true);
     try {
-      await api.saveCustomCommand(guildId, clean, response.trim());
+      await api.saveCustomCommand(guildId, clean, response.trim(), modes);
       toast.success(editing ? "Custom Command aktualisiert." : "Custom Command erstellt.");
       reset(); await load();
     } catch (error: any) { toast.error(error?.message || "Speichern fehlgeschlagen."); }
@@ -86,10 +101,28 @@ export function CustomCommandsPanel({ guildId, prefix }: { guildId: string; pref
             </div>
           </label>
 
-          <label className="block space-y-2">
-            <span className="text-xs font-black uppercase tracking-widest text-slate-500">Antwort</span>
+          <div className="block space-y-2">
+            <span className="text-xs font-black uppercase tracking-widest text-slate-500">Antwort des Bots</span>
             <EmojiText value={response} onChange={setResponse} rows={4} limit={1900} showCount placeholder="Hier stehen unsere Regeln, {user}!" onLimitReached={() => toast.error("Höchstens 1900 Zeichen.")} />
-          </label>
+          </div>
+
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-600 mb-2">Erkennung – mehrere gleichzeitig möglich</p>
+            <div className="grid sm:grid-cols-2 gap-2">
+              {[
+                ["use_prefix", "Server-Präfix", `${prefix}${name || "code"} Text`],
+                ["use_slash", "Echter Slash-Command", `/${name || "code"} args: Text`],
+                ["use_exact", "Ohne Präfix, exakt", name || "code"],
+                ["use_contains", "Wort im Text erkennen", `Wie lautet der ${name || "code"}?`],
+              ].map(([key, title, example]) => {
+                const active = modes[key as keyof typeof modes];
+                return <button key={key} type="button" onClick={() => setModes((old) => ({ ...old, [key]: !active }))} className={`text-left rounded-xl border p-3 transition-colors ${active ? "border-primary/50 bg-primary/10" : "border-slate-800 bg-white/[0.02]"}`}>
+                  <span className={`block text-xs font-bold ${active ? "text-primary" : "text-slate-400"}`}>{active ? "✓ " : ""}{title}</span>
+                  <code className="block mt-1 text-[10px] text-slate-600 break-all">{example}</code>
+                </button>;
+              })}
+            </div>
+          </div>
 
           <div>
             <p className="text-[10px] font-black uppercase tracking-widest text-slate-600 mb-2">Platzhalter</p>
@@ -111,7 +144,16 @@ export function CustomCommandsPanel({ guildId, prefix }: { guildId: string; pref
         <section className="space-y-3">{commands.map((entry) => (
           <div key={entry.name} className="rounded-2xl border border-slate-800 bg-[#131318] p-4 sm:p-5 flex items-start gap-4">
             <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0"><Command className="h-5 w-5 text-primary" /></div>
-            <div className="min-w-0 flex-1"><code className="text-sm font-bold text-white">{prefix}{entry.name}</code><p className="mt-2 text-sm text-slate-400 whitespace-pre-wrap break-words"><DiscordEmojiText text={entry.response} /></p></div>
+            <div className="min-w-0 flex-1">
+              <code className="text-sm font-bold text-white">{entry.use_prefix ? prefix : entry.use_slash ? "/" : ""}{entry.name}</code>
+              <div className="flex flex-wrap gap-1 mt-1.5">
+                {entry.use_prefix ? <span className="text-[9px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">PRÄFIX</span> : null}
+                {entry.use_slash ? <span className="text-[9px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">SLASH</span> : null}
+                {entry.use_exact ? <span className="text-[9px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">EXAKT</span> : null}
+                {entry.use_contains ? <span className="text-[9px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">IM TEXT</span> : null}
+              </div>
+              <p className="mt-2 text-sm text-slate-400 whitespace-pre-wrap break-words"><DiscordEmojiText text={entry.response} /></p>
+            </div>
             <button onClick={() => edit(entry)} disabled={busy} className="p-2 rounded-lg text-slate-500 hover:text-primary hover:bg-primary/10" title="Bearbeiten"><Pencil className="h-4 w-4" /></button>
             <button onClick={() => remove(entry)} disabled={busy} className="p-2 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-400/10" title="Löschen"><Trash2 className="h-4 w-4" /></button>
           </div>

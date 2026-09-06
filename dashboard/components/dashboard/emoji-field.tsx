@@ -177,7 +177,11 @@ function RichEmojiEditor({
       data-placeholder={placeholder || ""}
       data-empty={value ? "false" : "true"}
       suppressContentEditableWarning
-      onFocus={onFocus}
+      onFocus={(event) => {
+        window.dispatchEvent(new Event("close-emoji-pickers"));
+        onFocus?.(event);
+      }}
+      onPointerDown={() => window.dispatchEvent(new Event("close-emoji-pickers"))}
       onInput={commit}
       onKeyUp={remember}
       onMouseUp={remember}

@@ -21,8 +21,21 @@ async def connect() -> aiosqlite.Connection:
         "guild_id INTEGER NOT NULL, name TEXT NOT NULL COLLATE NOCASE, "
         "response TEXT NOT NULL, created_by TEXT DEFAULT '', "
         "created_at INTEGER DEFAULT 0, updated_at INTEGER DEFAULT 0, "
+        "use_prefix INTEGER NOT NULL DEFAULT 1, "
+        "use_exact INTEGER NOT NULL DEFAULT 0, "
+        "use_contains INTEGER NOT NULL DEFAULT 0, "
+        "use_slash INTEGER NOT NULL DEFAULT 0, "
         "PRIMARY KEY (guild_id, name))"
     )
+    columns = {row[1] for row in await (await db.execute("PRAGMA table_info(custom_commands)")).fetchall()}
+    for column, default in (
+        ("use_prefix", 1), ("use_exact", 0),
+        ("use_contains", 0), ("use_slash", 0),
+    ):
+        if column not in columns:
+            await db.execute(
+                f"ALTER TABLE custom_commands ADD COLUMN {column} INTEGER NOT NULL DEFAULT {default}"
+            )
     await db.commit()
     return db
 
@@ -39,29 +52,40 @@ async def list_all(db: aiosqlite.Connection, guild_id: int | None = None) -> lis
     db.row_factory = aiosqlite.Row
     if guild_id is None:
         rows = await (await db.execute(
-            "SELECT guild_id, name, response, created_by, created_at, updated_at "
+            "SELECT guild_id, name, response, created_by, created_at, updated_at, "
+            "use_prefix, use_exact, use_contains, use_slash "
             "FROM custom_commands ORDER BY guild_id, name"
         )).fetchall()
     else:
         rows = await (await db.execute(
-            "SELECT guild_id, name, response, created_by, created_at, updated_at "
+            "SELECT guild_id, name, response, created_by, created_at, updated_at, "
+            "use_prefix, use_exact, use_contains, use_slash "
             "FROM custom_commands WHERE guild_id = ? ORDER BY name", (guild_id,)
         )).fetchall()
     return [dict(row) for row in rows]
 
 
-async def save(db: aiosqlite.Connection, guild_id: int, name: str, response: str, actor: str) -> bool:
+async def save(
+    db: aiosqlite.Connection, guild_id: int, name: str, response: str, actor: str,
+    *, use_prefix: bool = True, use_exact: bool = False,
+    use_contains: bool = False, use_slash: bool = False,
+) -> bool:
     now = int(time.time())
     # The limit check and insert are one SQLite statement, so concurrent
     # dashboard requests cannot both claim the final available slot.
     cursor = await db.execute(
-        "INSERT INTO custom_commands (guild_id, name, response, created_by, created_at, updated_at) "
-        "SELECT ?, ?, ?, ?, ?, ? WHERE "
+        "INSERT INTO custom_commands "
+        "(guild_id, name, response, created_by, created_at, updated_at, "
+        "use_prefix, use_exact, use_contains, use_slash) "
+        "SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ? WHERE "
         "(SELECT COUNT(*) FROM custom_commands WHERE guild_id = ?) < ? OR "
         "EXISTS (SELECT 1 FROM custom_commands WHERE guild_id = ? AND name = ? COLLATE NOCASE) "
         "ON CONFLICT(guild_id, name) DO UPDATE SET "
-        "response = excluded.response, updated_at = excluded.updated_at",
+        "response = excluded.response, updated_at = excluded.updated_at, "
+        "use_prefix = excluded.use_prefix, use_exact = excluded.use_exact, "
+        "use_contains = excluded.use_contains, use_slash = excluded.use_slash",
         (guild_id, name, response, actor, now, now,
+         int(use_prefix), int(use_exact), int(use_contains), int(use_slash),
          guild_id, MAX_COMMANDS, guild_id, name),
     )
     await db.commit()
