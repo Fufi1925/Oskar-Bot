@@ -768,6 +768,9 @@ async def list_custom_commands(guild_id: int, actor: str = ""):
     db = await custom_command_store.connect()
     try:
         rows = await custom_command_store.list_all(db, guild_id)
+        published = await custom_command_store.published_names(db, guild_id)
+        for row in rows:
+            row["published"] = row["name"].lower() in published
     finally:
         await db.close()
     premium = _custom_commands_premium(guild_id, actor)
@@ -777,6 +780,102 @@ async def list_custom_commands(guild_id: int, actor: str = ""):
         "guild_id": str(guild_id), "commands": rows,
         "count": len(rows), "limit": limit, "premium": premium,
     }
+
+
+MARKETPLACE_CATEGORIES = {"Utility", "Moderation", "Fun & Games", "Rollen", "Information", "Community", "Sonstiges"}
+
+
+@router.get("/{guild_id}/custom-commands/marketplace", summary="Browse published commands")
+async def browse_custom_command_marketplace(guild_id: int, category: str = "", q: str = ""):
+    db = await custom_command_store.connect()
+    try:
+        listings = await custom_command_store.marketplace_list(db, category, q)
+    finally:
+        await db.close()
+    return {"listings": listings, "categories": sorted(MARKETPLACE_CATEGORIES)}
+
+
+@router.post("/{guild_id}/custom-commands/{name}/publish", summary="Publish a command")
+async def publish_custom_command(guild_id: int, name: str, data: dict,
+                                 bot: "universitybot" = Depends(get_bot)):
+    description = str(data.get("description", "")).strip()
+    category = str(data.get("category", "Sonstiges"))
+    screenshots = [str(url).strip() for url in data.get("screenshots", []) if str(url).strip()][:4]
+    if not 10 <= len(description) <= 300:
+        raise HTTPException(status_code=400, detail="Die Beschreibung muss 10 bis 300 Zeichen lang sein.")
+    if category not in MARKETPLACE_CATEGORIES:
+        raise HTTPException(status_code=400, detail="Ungültige Kategorie.")
+    if any(not re.match(r"^https://", url, re.I) for url in screenshots):
+        raise HTTPException(status_code=400, detail="Screenshots müssen gültige HTTPS-URLs sein.")
+    guild = bot.get_guild(guild_id)
+    db = await custom_command_store.connect()
+    try:
+        found = await custom_command_store.publish(
+            db, guild_id, custom_command_store.normalise_name(name), description,
+            category, screenshots, guild.name if guild else str(guild_id),
+        )
+    finally:
+        await db.close()
+    if not found:
+        raise HTTPException(status_code=404, detail="Custom Command nicht gefunden.")
+    return {"status": "success"}
+
+
+@router.delete("/{guild_id}/custom-commands/{name}/publish", summary="Remove a marketplace listing")
+async def unpublish_custom_command(guild_id: int, name: str):
+    db = await custom_command_store.connect()
+    try:
+        cursor = await db.execute(
+            "DELETE FROM custom_command_marketplace WHERE source_guild_id=? AND command_name=? COLLATE NOCASE",
+            (guild_id, custom_command_store.normalise_name(name)),
+        )
+        await db.commit()
+    finally:
+        await db.close()
+    if cursor.rowcount == 0:
+        raise HTTPException(status_code=404, detail="Veröffentlichung nicht gefunden.")
+    return {"status": "success"}
+
+
+@router.post("/{guild_id}/custom-commands/marketplace/{listing_id}/import", summary="Import a marketplace command")
+async def import_marketplace_command(guild_id: int, listing_id: int, data: dict,
+                                     bot: "universitybot" = Depends(get_bot)):
+    actor = str(data.get("actor", "dashboard"))
+    db = await custom_command_store.connect()
+    try:
+        db.row_factory = aiosqlite.Row
+        listing = await (await db.execute(
+            "SELECT payload_json FROM custom_command_marketplace WHERE id=?", (listing_id,)
+        )).fetchone()
+        if listing is None:
+            raise HTTPException(status_code=404, detail="Marketplace-Command nicht gefunden.")
+        payload = json.loads(listing["payload_json"])
+        name = custom_command_store.normalise_name(payload.get("name", ""))
+        exists = await (await db.execute(
+            "SELECT 1 FROM custom_commands WHERE guild_id=? AND name=? COLLATE NOCASE", (guild_id, name)
+        )).fetchone()
+        if exists:
+            raise HTTPException(status_code=409, detail="Auf diesem Server existiert bereits ein Command mit diesem Namen.")
+        if bot.get_command(name) is not None or bot.tree.get_command(name) is not None:
+            raise HTTPException(status_code=409, detail="Dieser Name gehört bereits zu einem Bot-Befehl.")
+        premium = _custom_commands_premium(guild_id, actor)
+        imported_config = payload.get("config") if isinstance(payload.get("config"), dict) else {}
+        imported_config["imported"] = True
+        saved = await custom_command_store.save(
+            db, guild_id, name, str(payload.get("response", "Command ausgeführt.")), actor,
+            use_prefix=bool(payload.get("use_prefix")), use_exact=bool(payload.get("use_exact")),
+            use_contains=bool(payload.get("use_contains")), use_slash=bool(payload.get("use_slash")),
+            config=imported_config,
+            max_commands=(custom_command_store.PREMIUM_MAX_COMMANDS if premium else custom_command_store.FREE_MAX_COMMANDS),
+        )
+        if not saved:
+            raise HTTPException(status_code=409, detail="Dein Command-Limit ist erreicht.")
+        await db.execute("UPDATE custom_command_marketplace SET downloads=downloads+1 WHERE id=?", (listing_id,))
+        await db.commit()
+    finally:
+        await db.close()
+    await _refresh_custom_commands(bot, guild_id)
+    return {"status": "success", "name": name}
 
 
 @router.post("/{guild_id}/custom-commands", summary="Create or update a custom command")

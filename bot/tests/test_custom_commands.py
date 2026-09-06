@@ -34,6 +34,9 @@ async def main():
   for index in range(20):
    assert await store.save(db,78,f'premium-{index}','ok','test',max_commands=20)
   assert not await store.save(db,78,'premium-20','no','test',max_commands=20)
+  assert await store.publish(db,77,'drei','Ein hilfreicher Test-Command','Utility',['https://example.com/one.png'],'Testserver')
+  market=await store.marketplace_list(db,'Utility','hilfreich')
+  assert len(market)==1 and market[0]['command_name']=='drei' and 'drei' in await store.published_names(db,77)
  finally:await db.close()
  service=CustomCommandsService(Bot());await service.refresh()
  channel=Sent();await service.on_message(Message('>drei Welt',channel))

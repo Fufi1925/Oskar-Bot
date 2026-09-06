@@ -1007,6 +1007,14 @@ export const api = {
     request<any>(`/actions/${guildId}/custom-commands/${encodeURIComponent(name)}`, {
       method: "DELETE",
     }),
+  getCustomCommandMarketplace: (guildId: string, category = "", query = "") =>
+    request<any>(`/actions/${guildId}/custom-commands/marketplace?category=${encodeURIComponent(category)}&q=${encodeURIComponent(query)}`),
+  publishCustomCommand: (guildId: string, name: string, data: { description: string; category: string; screenshots: string[] }) =>
+    request<any>(`/actions/${guildId}/custom-commands/${encodeURIComponent(name)}/publish`, { method: "POST", body: JSON.stringify(data) }),
+  unpublishCustomCommand: (guildId: string, name: string) =>
+    request<any>(`/actions/${guildId}/custom-commands/${encodeURIComponent(name)}/publish`, { method: "DELETE" }),
+  importCustomCommand: (guildId: string, listingId: number) =>
+    request<any>(`/actions/${guildId}/custom-commands/marketplace/${listingId}/import`, { method: "POST", body: "{}" }),
 
   // Emergency lockdown
   getEmergency: (guildId: string) => request<any>(`/actions/${guildId}/emergency`),
