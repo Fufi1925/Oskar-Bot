@@ -1,20 +1,34 @@
 {% extends "base.html" %}
 {% from "partials/symbole.html" import symbol %}
-{% block title %}{{ brand }}{% endblock %}
+{% block title %}Anmelden — {{ brand }}{% endblock %}
 
 {% block body %}
 <div class="glow" aria-hidden="true"></div>
 
-<div class="login-wrap">
-  <div class="login-karte">
-    <div class="login-bild" aria-hidden="true">{{ symbol("bot") }}</div>
-    <h1>{{ brand }}</h1>
-    <p>Geschlossener Bereich. Nur eingetragene Inhaber kommen weiter.</p>
+<main class="login-wrap">
+  <div class="login-shell">
+    <section class="login-info">
+      <div class="login-marke">
+        <span class="login-bild" aria-hidden="true">{{ symbol("bot") }}</span>
+        <span>{{ brand }}</span>
+      </div>
+      <div>
+        <h1>Informationen.<br><span>Klar verbunden.</span></h1>
+        <p>Ein geschützter Arbeitsbereich für Discord-, Netzwerk- und Kontodaten — übersichtlich an einem Ort.</p>
+      </div>
+      <div class="login-meta">Private Intelligence Workspace</div>
+    </section>
 
-    <a class="discord-knopf" href="{{ root_path }}/auth/discord">
-      {{ symbol("discord") }}
-      Mit Discord anmelden
-    </a>
+    <section class="login-karte">
+      <span class="login-bild" aria-hidden="true">{{ symbol("bot") }}</span>
+      <h2>Willkommen zurück</h2>
+      <p>Melde dich mit deinem freigeschalteten Discord-Konto an, um fortzufahren.</p>
+      <a class="discord-knopf" href="{{ root_path }}/auth/discord">
+        {{ symbol("discord") }}
+        Mit Discord anmelden
+      </a>
+      <div class="login-note">Zugang nur für autorisierte Inhaber</div>
+    </section>
   </div>
-</div>
+</main>
 {% endblock %}
