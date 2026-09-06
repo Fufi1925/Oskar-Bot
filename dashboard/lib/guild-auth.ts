@@ -206,6 +206,52 @@ export interface GuildAccessResult {
   userId?: string;
 }
 
+/** Ask the trusted bot whether this member has a per-server role/user grant. */
+export async function hasDelegatedGuildAccess(guildId: string, userId: string): Promise<boolean> {
+  try {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    const key = process.env.DASHBOARD_API_KEY || "";
+    if (key) headers.Authorization = `Bearer ${key}`;
+    const res = await fetch(
+      `${API_BASE_URL}/guild-access/${guildId}/check/${userId}`,
+      { headers, cache: "no-store" }
+    );
+    if (!res.ok) return false;
+    const data = (await res.json()) as { allowed?: boolean };
+    return Boolean(data.allowed);
+  } catch {
+    // Fail closed: a backend outage must never manufacture dashboard access.
+    return false;
+  }
+}
+
+export interface DelegatedGuild {
+  id: string;
+  name: string;
+  icon: string | null;
+  owner: boolean;
+  member_count: number | null;
+  source: "user" | "role";
+}
+
+/** Guild cards added through the new per-server access list. */
+export async function fetchDelegatedGuilds(userId: string): Promise<DelegatedGuild[]> {
+  try {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    const key = process.env.DASHBOARD_API_KEY || "";
+    if (key) headers.Authorization = `Bearer ${key}`;
+    const res = await fetch(`${API_BASE_URL}/guild-access/user/${userId}/guilds`, {
+      headers,
+      cache: "no-store",
+    });
+    if (!res.ok) return [];
+    const data = (await res.json()) as { guilds?: DelegatedGuild[] };
+    return data.guilds || [];
+  } catch {
+    return [];
+  }
+}
+
 /* ────────────────────────────────────────────────────────────────────────
    Dashboard team roles
 
@@ -347,6 +393,10 @@ export async function hasTeamPermission(
   permission: string,
   guildId?: string
 ): Promise<boolean> {
+  // A per-server grant means full access inside that one server. It must not
+  // accidentally inherit restrictions from an unrelated global team role.
+  if (guildId && await hasDelegatedGuildAccess(guildId, userId)) return true;
+
   const access = await fetchTeamAccess(userId);
   if (!access) return false;
   if (access.is_owner) return true;
@@ -387,12 +437,19 @@ export async function verifyGuildAccess(guildId: string): Promise<GuildAccessRes
     return { allowed: true, status: 200, reason: "Global admin.", userId };
   }
 
-  if (!session.accessToken) {
-    return { allowed: false, status: 401, reason: "Discord session expired. Please sign in again.", userId };
-  }
-
   if (!/^\d{17,20}$/.test(guildId)) {
     return { allowed: false, status: 400, reason: "Invalid guild id.", userId };
+  }
+
+  // A server owner can delegate access through a selected Discord role or to
+  // one member directly. The bot verifies current guild membership and roles;
+  // stale grants therefore do not open a server after somebody leaves.
+  if (await hasDelegatedGuildAccess(guildId, userId)) {
+    return { allowed: true, status: 200, reason: "Delegated dashboard access.", userId };
+  }
+
+  if (!session.accessToken) {
+    return { allowed: false, status: 401, reason: "Discord session expired. Please sign in again.", userId };
   }
 
   // A dashboard team role can grant access even without Manage Server on

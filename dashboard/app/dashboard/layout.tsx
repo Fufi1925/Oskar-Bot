@@ -30,7 +30,7 @@ import {
   Lock, PenLine, Gem, Pin, Moon, Calculator, Youtube, Cake, Crown,
   Database,
   LifeBuoy, ChevronDown, Bot, Shield, UserCheck, Badge, Gauge, Headphones,
-  Music, Upload, Users, UserCog
+  KeyRound, Music, Upload, Users, UserCog
 } from "lucide-react";
 import { useSession, signIn, signOut } from "next-auth/react";
 import { cn, isAdmin } from "@/lib/utils";
@@ -319,6 +319,7 @@ export default function DashboardLayout({
             { name: "Logs", href: `/dashboard/guild/${currentGuildId}/logging`, icon: LayoutDashboard },
             { name: "Bot-Logs", href: `/dashboard/guild/${currentGuildId}/botlogs`, icon: ScrollText },
             { name: "Server-Werkzeuge", href: `/dashboard/guild/${currentGuildId}/admin-dashboard`, icon: Shield },
+            { name: "Dashboard Access", href: `/dashboard/guild/${currentGuildId}/dashboard-access`, icon: KeyRound },
             { name: "Support-Warteraum (Beta)", href: `/dashboard/guild/${currentGuildId}/supportqueue`, icon: Headphones },
           ],
         },

@@ -59,6 +59,7 @@ import {
   Gem,
   Gift,
   Hash,
+  KeyRound,
   Layers,
   Link as LinkIcon,
   Link2,
@@ -273,6 +274,12 @@ function buildGroups(t: TranslateFn): Group[] {
           also: ["logging", "logs", "audit", "protokoll", "protokollierung"] },
         { name: "Bot-Logs", slug: "botlogs", icon: ScrollText, also: ["botlogs", "bot-logs", "protokoll", "honeypot-log", "verify-log"] },
         { name: "Server-Werkzeuge", slug: "admin-dashboard", icon: Shield, also: ["admin", "scan", "audit"] },
+        {
+          name: "Dashboard Access",
+          slug: "dashboard-access",
+          icon: KeyRound,
+          also: ["dashboard", "access", "zugang", "rollen", "nutzer", "freigabe"],
+        },
         {
           name: "Musik",
           slug: "music",

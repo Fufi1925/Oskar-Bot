@@ -7,6 +7,7 @@ import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { GuildGrid, type GuildEntry } from "@/components/dashboard/guild-grid";
+import { fetchDelegatedGuilds, type DelegatedGuild } from "@/lib/guild-auth";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -24,11 +25,15 @@ export default async function GuildsPage() {
 
   let botGuilds: GuildSummary[] = [];
   let userGuilds: any[] = [];
+  let delegatedGuilds: DelegatedGuild[] = [];
   let userDiscordError: string | null = null;
   let botError: string | null = null;
 
   try {
     botGuilds = await api.listGuilds();
+    if (session.user?.id) {
+      delegatedGuilds = await fetchDelegatedGuilds(session.user.id);
+    }
   } catch (err: any) {
     botError = err.message || "Bot-Server konnten nicht geladen werden.";
   }
@@ -92,6 +97,22 @@ export default async function GuildsPage() {
           : null,
     };
   });
+
+  // Role/user grants are additive. Do not duplicate a server somebody already
+  // manages through Discord; append only the delegated cards.
+  const known = new Set(entries.map((guild) => guild.id));
+  for (const guild of delegatedGuilds) {
+    if (known.has(guild.id)) continue;
+    entries.push({
+      id: guild.id,
+      name: guild.name,
+      icon: guild.icon,
+      owner: guild.owner,
+      hasBot: true,
+      memberCount: guild.member_count,
+    });
+    known.add(guild.id);
+  }
 
   const connected = entries.filter((g) => g.hasBot);
   const missing = entries.filter((g) => !g.hasBot);

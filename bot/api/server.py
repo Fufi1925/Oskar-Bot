@@ -8,7 +8,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from starlette.responses import Response, RedirectResponse
 from utils.config import *
-from api.routes import bot, guilds, admin, team, moderation, actions, access, servers, servertools, server_stats, tickets, giveaways, leveling, vanity, broadcast, anonchat, diagnose, compose, nukealert, memberperks, extras, voice, verify, automod, logging_cfg, antinuke, pingreactions, premium, cookies, speedrun, supportqueue, honeypot, design, beta, backup, tester, music, templates, teamlist, applications, teamupdate, webapply, commands as commands_route
+from api.routes import bot, guilds, admin, team, moderation, actions, access, guild_access, servers, servertools, server_stats, tickets, giveaways, leveling, vanity, broadcast, anonchat, diagnose, compose, nukealert, memberperks, extras, voice, verify, automod, logging_cfg, antinuke, pingreactions, premium, cookies, speedrun, supportqueue, honeypot, design, beta, backup, tester, music, templates, teamlist, applications, teamupdate, webapply, commands as commands_route
 from api.dependencies import verify_api_key, limiter, get_bot_loop
 from api.db_manager import db_manager
 from api.schema_guard import ensure_schema
@@ -285,6 +285,9 @@ def create_app() -> FastAPI:
     api_app.include_router(moderation.router, prefix="/moderation", tags=["Moderation"])
     api_app.include_router(actions.router, prefix="/actions", tags=["Actions"])
     api_app.include_router(access.router, prefix="/access", tags=["Access"])
+    api_app.include_router(
+        guild_access.router, prefix="/guild-access", tags=["Guild Dashboard Access"]
+    )
     api_app.include_router(servers.router, prefix="/servers", tags=["Servers"])
     api_app.include_router(
         servertools.router, prefix="/servertools", tags=["Server Tools"]

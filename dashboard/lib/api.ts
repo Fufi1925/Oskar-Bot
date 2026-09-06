@@ -141,6 +141,24 @@ export const api = {
   getGuildDetails: (guildId: string) => request<any>(`/guilds/${guildId}`),
   getChannels: (guildId: string) => request<DiscordChannel[]>(`/guilds/${guildId}/channels`),
   getRoles: (guildId: string) => request<DiscordRole[]>(`/guilds/${guildId}/roles`),
+
+  // Per-server dashboard access
+  getGuildAccess: (guildId: string) =>
+    request<{ roles: any[]; users: any[] }>(`/guild-access/${guildId}`),
+  addGuildAccessRole: (guildId: string, roleId: string) =>
+    request<any>(`/guild-access/${guildId}/roles`, {
+      method: "POST",
+      body: JSON.stringify({ role_id: roleId }),
+    }),
+  removeGuildAccessRole: (guildId: string, roleId: string) =>
+    request<any>(`/guild-access/${guildId}/roles/${roleId}`, { method: "DELETE" }),
+  addGuildAccessUser: (guildId: string, userId: string) =>
+    request<any>(`/guild-access/${guildId}/users`, {
+      method: "POST",
+      body: JSON.stringify({ user_id: userId }),
+    }),
+  removeGuildAccessUser: (guildId: string, userId: string) =>
+    request<any>(`/guild-access/${guildId}/users/${userId}`, { method: "DELETE" }),
   
   // Module Configs
   getPrefix: (guildId: string) => request<PrefixConfig>(`/guilds/${guildId}/prefix`),
