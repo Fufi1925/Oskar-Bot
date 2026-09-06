@@ -135,7 +135,7 @@ class CustomCommandsService(Cog):
             async def send(text, action=None):
                 nonlocal sent
                 kwargs = self._reply_options(action or {}, interaction.user, interaction.guild, interaction.channel, arguments, values)
-                kwargs["allowed_mentions"] = discord.AllowedMentions(users=True, roles=False, everyone=False)
+                kwargs["allowed_mentions"] = discord.AllowedMentions(users=True, roles=True, everyone=False)
                 ephemeral = bool((action or {}).get("ephemeral"))
                 if not sent: await interaction.response.send_message(text or None, ephemeral=ephemeral, **kwargs); sent = True
                 else: await interaction.followup.send(text or None, ephemeral=ephemeral, **kwargs)
@@ -183,14 +183,17 @@ class CustomCommandsService(Cog):
         )
         for key, value in (variables or {}).items():
             natural = getattr(value, "mention", str(value))
-            display_name = getattr(value, "display_name", getattr(value, "name", str(value)))
-            object_name = getattr(value, "name", str(value))
             replacements = {
                 "{" + key + "}": natural,
                 "{option." + key + "}": natural,
-                "{" + key + ":Username}": display_name,
-                "{" + key + ":Channel}": object_name,
-                "{" + key + ":Role}": object_name,
+                "{" + key + ":UserPing}": natural,
+                "{" + key + ":ChannelPing}": natural,
+                "{" + key + ":RolePing}": natural,
+                # Older saved flows used these names. They now intentionally
+                # resolve to mentions too, so every object parameter pings.
+                "{" + key + ":Username}": natural,
+                "{" + key + ":Channel}": natural,
+                "{" + key + ":Role}": natural,
                 "{" + key + ":Text}": str(value),
                 "{" + key + ":Number}": str(value),
                 "{" + key + ":Boolean}": "Ja" if value is True else "Nein" if value is False else str(value),
@@ -254,7 +257,7 @@ class CustomCommandsService(Cog):
                 async def send(text, action=None):
                     nonlocal sent
                     kwargs = self._reply_options(action or {}, interaction.user, guild, channel, arguments, variables)
-                    kwargs["allowed_mentions"] = discord.AllowedMentions(users=True, roles=False, everyone=False)
+                    kwargs["allowed_mentions"] = discord.AllowedMentions(users=True, roles=True, everyone=False)
                     if not sent and not interaction.response.is_done():
                         await interaction.response.send_message(text or None, ephemeral=bool((action or {}).get("ephemeral")), **kwargs); sent = True
                     else:
@@ -284,7 +287,7 @@ class CustomCommandsService(Cog):
                 elif kind == "send_channel" and text:
                     target = guild.get_channel(int(action.get("channel_id", 0) or 0))
                     if target is not None:
-                        await target.send(text, allowed_mentions=discord.AllowedMentions.none())
+                        await target.send(text, allowed_mentions=discord.AllowedMentions(users=True, roles=True, everyone=False))
                 elif kind in ("add_role", "remove_role"):
                     role = guild.get_role(int(action.get("role_id", 0) or 0))
                     if role is not None:
@@ -356,7 +359,7 @@ class CustomCommandsService(Cog):
                 await message.channel.send(
                     text or None,
                     allowed_mentions=discord.AllowedMentions(
-                        users=True, roles=False, everyone=False, replied_user=False
+                        users=True, roles=True, everyone=False, replied_user=False
                     ), **kwargs,
                 )
             await self._run_actions(

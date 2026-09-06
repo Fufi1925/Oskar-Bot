@@ -48,8 +48,10 @@ async def main():
  options=service._reply_options({'embed':{'enabled':True,'title':'Test','description':'Hallo','color':'#2563eb'},'buttons':[{'label':'Klick','style':'blue','actions':[]}]},Author(),Guild(),channel,'')
  assert options['embed'].title=='Test' and len(options['view'].children)==1
  named=types.SimpleNamespace(mention='<@9>',display_name='Mira',name='mira')
- rendered=service._render('{target:Username} {count:Number} {enabled:Boolean}',Author(),Guild(),channel,'',{'target':named,'count':5,'enabled':True})
- assert rendered=='Mira 5 Ja',rendered
+ role=types.SimpleNamespace(mention='<@&8>',name='Team')
+ target_channel=types.SimpleNamespace(mention='<#7>',name='chat')
+ rendered=service._render('{target:UserPing} {role:RolePing} {room:ChannelPing} {count:Number} {enabled:Boolean}',Author(),Guild(),channel,'',{'target':named,'role':role,'room':target_channel,'count':5,'enabled':True})
+ assert rendered=='<@9> <@&8> <#7> 5 Ja',rendered
  assert store.valid_name('regeln') and not store.valid_name('bad command')
  print('custom commands: all checks passed')
 asyncio.run(main())
