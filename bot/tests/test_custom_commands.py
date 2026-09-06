@@ -44,6 +44,9 @@ async def main():
  assert slash.name=='drei' and slash.parameters[0].name=='args'
  options=service._reply_options({'embed':{'enabled':True,'title':'Test','description':'Hallo','color':'#2563eb'},'buttons':[{'label':'Klick','style':'blue','actions':[]}]},Author(),Guild(),channel,'')
  assert options['embed'].title=='Test' and len(options['view'].children)==1
+ named=types.SimpleNamespace(mention='<@9>',display_name='Mira',name='mira')
+ rendered=service._render('{target:Username} {count:Number} {enabled:Boolean}',Author(),Guild(),channel,'',{'target':named,'count':5,'enabled':True})
+ assert rendered=='Mira 5 Ja',rendered
  assert store.valid_name('regeln') and not store.valid_name('bad command')
  print('custom commands: all checks passed')
 asyncio.run(main())

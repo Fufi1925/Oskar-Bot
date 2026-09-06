@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import datetime
 import logging
 import re
 import time
@@ -178,10 +179,24 @@ class CustomCommandsService(Cog):
             .replace("{server}", guild.name)
             .replace("{channel}", channel_text)
             .replace("{args}", arguments.strip())
+            .replace("{date}", datetime.now().strftime("%d.%m.%Y"))
         )
         for key, value in (variables or {}).items():
-            rendered = rendered.replace("{" + key + "}", getattr(value, "mention", str(value)))
-            rendered = rendered.replace("{option." + key + "}", getattr(value, "mention", str(value)))
+            natural = getattr(value, "mention", str(value))
+            display_name = getattr(value, "display_name", getattr(value, "name", str(value)))
+            object_name = getattr(value, "name", str(value))
+            replacements = {
+                "{" + key + "}": natural,
+                "{option." + key + "}": natural,
+                "{" + key + ":Username}": display_name,
+                "{" + key + ":Channel}": object_name,
+                "{" + key + ":Role}": object_name,
+                "{" + key + ":Text}": str(value),
+                "{" + key + ":Number}": str(value),
+                "{" + key + ":Boolean}": "Ja" if value is True else "Nein" if value is False else str(value),
+            }
+            for token, result in replacements.items():
+                rendered = rendered.replace(token, result)
         return rendered
 
     def _allowed(self, entry: dict, member) -> bool:
