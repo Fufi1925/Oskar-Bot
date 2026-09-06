@@ -787,6 +787,29 @@ async def save_custom_command(
     parameters = config.get("parameters", [])
     if not isinstance(actions, list) or len(actions) > 25:
         raise HTTPException(status_code=400, detail="Der Flow darf höchstens 25 Schritte enthalten.")
+    allowed_actions = {"reply", "dm", "send_channel", "add_role", "remove_role", "condition_role"}
+    total_steps = 0
+    def validate_steps(items, depth=0):
+        nonlocal total_steps
+        if not isinstance(items, list) or depth > 4:
+            raise HTTPException(status_code=400, detail="Der Command-Flow ist ungültig oder zu tief verschachtelt.")
+        for action in items:
+            if not isinstance(action, dict) or action.get("type") not in allowed_actions:
+                raise HTTPException(status_code=400, detail="Der Command enthält einen ungültigen Schritt.")
+            total_steps += 1
+            if total_steps > 50:
+                raise HTTPException(status_code=400, detail="Der Command darf insgesamt höchstens 50 Schritte enthalten.")
+            buttons = action.get("buttons", [])
+            if not isinstance(buttons, list) or len(buttons) > 5:
+                raise HTTPException(status_code=400, detail="Eine Antwort darf höchstens 5 Buttons enthalten.")
+            for button in buttons:
+                if not isinstance(button, dict):
+                    raise HTTPException(status_code=400, detail="Ungültiger Button.")
+                validate_steps(button.get("actions", []), depth + 1)
+            if action.get("type") == "condition_role":
+                validate_steps(action.get("then", []), depth + 1)
+                validate_steps(action.get("else", []), depth + 1)
+    validate_steps(actions)
     if not isinstance(parameters, list) or len(parameters) > 10:
         raise HTTPException(status_code=400, detail="Es sind höchstens 10 Parameter möglich.")
     parameter_names = []

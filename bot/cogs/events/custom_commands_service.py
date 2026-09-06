@@ -131,11 +131,13 @@ class CustomCommandsService(Cog):
             values = {key: value for key, value in values.items() if key != "interaction" and value is not None}
             arguments = " ".join(getattr(value, "mention", str(value)) for value in values.values())
             sent = False
-            async def send(text):
+            async def send(text, action=None):
                 nonlocal sent
-                kwargs = {"allowed_mentions": discord.AllowedMentions(users=True, roles=False, everyone=False)}
-                if not sent: await interaction.response.send_message(text, **kwargs); sent = True
-                else: await interaction.followup.send(text, **kwargs)
+                kwargs = self._reply_options(action or {}, interaction.user, interaction.guild, interaction.channel, arguments, values)
+                kwargs["allowed_mentions"] = discord.AllowedMentions(users=True, roles=False, everyone=False)
+                ephemeral = bool((action or {}).get("ephemeral"))
+                if not sent: await interaction.response.send_message(text or None, ephemeral=ephemeral, **kwargs); sent = True
+                else: await interaction.followup.send(text or None, ephemeral=ephemeral, **kwargs)
             await self._run_actions(current, interaction.user, interaction.guild, interaction.channel, arguments, send, values)
             if not sent and not interaction.response.is_done():
                 await interaction.response.send_message("Command ausgeführt.", ephemeral=True)
@@ -205,6 +207,51 @@ class CustomCommandsService(Cog):
         self._cooldowns[key] = now + seconds
         return False
 
+    def _reply_options(self, action: dict, member, guild, channel, arguments: str, variables=None) -> dict:
+        options: dict = {}
+        embed_data = action.get("embed")
+        if isinstance(embed_data, dict) and embed_data.get("enabled"):
+            title = self._render(str(embed_data.get("title", "")), member, guild, channel, arguments, variables)
+            description = self._render(str(embed_data.get("description", "")), member, guild, channel, arguments, variables)
+            try:
+                color = int(str(embed_data.get("color", "#2563eb")).lstrip("#"), 16)
+            except ValueError:
+                color = 0x2563EB
+            embed = discord.Embed(title=title or None, description=description or None, color=color)
+            if embed_data.get("image_url"): embed.set_image(url=str(embed_data["image_url"]))
+            if embed_data.get("footer"): embed.set_footer(text=str(embed_data["footer"])[:2048])
+            options["embed"] = embed
+        buttons = action.get("buttons", [])
+        if isinstance(buttons, list) and buttons:
+            options["view"] = self._make_button_view(buttons[:5], guild, channel, arguments, variables)
+        return options
+
+    def _make_button_view(self, buttons: list, guild, channel, arguments: str, variables=None):
+        view = discord.ui.View(timeout=900)
+        styles = {"blue": discord.ButtonStyle.primary, "gray": discord.ButtonStyle.secondary,
+                  "green": discord.ButtonStyle.success, "red": discord.ButtonStyle.danger}
+        for definition in buttons:
+            emoji = str(definition.get("emoji", "")).strip() or None
+            button = discord.ui.Button(label=str(definition.get("label", "Klick mich"))[:80],
+                                       emoji=emoji, style=styles.get(definition.get("style"), discord.ButtonStyle.primary))
+            async def clicked(interaction: discord.Interaction, data=definition):
+                sent = False
+                async def send(text, action=None):
+                    nonlocal sent
+                    kwargs = self._reply_options(action or {}, interaction.user, guild, channel, arguments, variables)
+                    kwargs["allowed_mentions"] = discord.AllowedMentions(users=True, roles=False, everyone=False)
+                    if not sent and not interaction.response.is_done():
+                        await interaction.response.send_message(text or None, ephemeral=bool((action or {}).get("ephemeral")), **kwargs); sent = True
+                    else:
+                        await interaction.followup.send(text or None, ephemeral=bool((action or {}).get("ephemeral")), **kwargs); sent = True
+                child = {"response": "", "config": {"actions": data.get("actions", [])}}
+                await self._run_actions(child, interaction.user, guild, channel, arguments, send, variables)
+                if not sent and not interaction.response.is_done():
+                    await interaction.response.send_message("Aktion ausgeführt.", ephemeral=True)
+            button.callback = clicked
+            view.add_item(button)
+        return view
+
     async def _run_actions(self, entry: dict, member, guild, channel, arguments: str, send, variables: dict | None = None):
         config = entry.get("config", {})
         actions = config.get("actions") or [{"type": "reply", "text": entry["response"]}]
@@ -215,8 +262,8 @@ class CustomCommandsService(Cog):
             for action in items[:25]:
                 kind = action.get("type")
                 text = self._render(str(action.get("text", "")), member, guild, channel, arguments, variables)
-                if kind == "reply" and text:
-                    await send(text)
+                if kind == "reply" and (text or action.get("embed")):
+                    await send(text, action)
                 elif kind == "dm" and text:
                     await member.send(text)
                 elif kind == "send_channel" and text:
@@ -289,12 +336,13 @@ class CustomCommandsService(Cog):
             name, arguments, entry = found
             if self._on_cooldown(message.guild.id, name, message.author.id, entry):
                 return
-            async def send(text):
+            async def send(text, action=None):
+                kwargs = self._reply_options(action or {}, message.author, message.guild, message.channel, arguments)
                 await message.channel.send(
-                    text,
+                    text or None,
                     allowed_mentions=discord.AllowedMentions(
                         users=True, roles=False, everyone=False, replied_user=False
-                    ),
+                    ), **kwargs,
                 )
             await self._run_actions(
                 entry, message.author, message.guild, message.channel, arguments, send

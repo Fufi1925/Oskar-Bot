@@ -42,6 +42,8 @@ async def main():
  assert channel.items==['Hi Alex: Welt','Hi Alex: ','Hi Alex: bitte'],channel.items
  slash=service._make_slash_command(77,'drei')
  assert slash.name=='drei' and slash.parameters[0].name=='args'
+ options=service._reply_options({'embed':{'enabled':True,'title':'Test','description':'Hallo','color':'#2563eb'},'buttons':[{'label':'Klick','style':'blue','actions':[]}]},Author(),Guild(),channel,'')
+ assert options['embed'].title=='Test' and len(options['view'].children)==1
  assert store.valid_name('regeln') and not store.valid_name('bad command')
  print('custom commands: all checks passed')
 asyncio.run(main())
