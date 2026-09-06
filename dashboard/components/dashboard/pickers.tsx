@@ -69,6 +69,8 @@ function SinglePicker({
   disabled,
   allowClear = true,
   channelTypes,
+  excludeIds = [],
+  excludeManaged = false,
 }: {
   kind: "roles" | "channels";
   guildId?: string;
@@ -78,6 +80,10 @@ function SinglePicker({
   disabled?: boolean;
   allowClear?: boolean;
   channelTypes?: string[];
+  /** Hide entries that are already selected elsewhere. */
+  excludeIds?: string[];
+  /** Managed Discord roles cannot be assigned manually. */
+  excludeManaged?: boolean;
 }) {
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -99,12 +105,16 @@ function SinglePicker({
       list = list.filter((c) => channelTypes.includes(String(c.type)));
     }
     if (kind === "roles") {
-      // @everyone is never a useful choice here.
+      // @everyone is never a useful choice here. Some security-sensitive
+      // pickers also hide integration/bot roles, which Discord manages itself.
       list = list.filter((r) => r.name !== "@everyone");
+      if (excludeManaged) list = list.filter((r) => !r.managed);
     }
+    const excluded = new Set(excludeIds.map(String));
+    list = list.filter((item) => !excluded.has(String(item.id)));
     const q = query.trim().toLowerCase();
     return q ? list.filter((i) => String(i.name).toLowerCase().includes(q)) : list;
-  }, [items, query, kind, channelTypes]);
+  }, [items, query, kind, channelTypes, excludeIds, excludeManaged]);
 
   const current = items.find((i) => String(i.id) === String(value ?? ""));
 

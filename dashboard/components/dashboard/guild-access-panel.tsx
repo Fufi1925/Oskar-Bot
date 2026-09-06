@@ -1,12 +1,13 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Check, KeyRound, Loader2, Plus, ShieldCheck, Trash2, UserRound, UsersRound,
 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { UserPicker } from "@/components/dashboard/user-picker";
+import { RolePicker } from "@/components/dashboard/pickers";
 
 interface RoleGrant {
   role_id: string;
@@ -22,17 +23,9 @@ interface UserGrant {
   avatar: string | null;
   member: boolean;
 }
-interface RoleOption {
-  id: string;
-  name: string;
-  color: number;
-  managed?: boolean;
-}
-
 export function GuildAccessPanel({ guildId }: { guildId: string }) {
   const [roles, setRoles] = useState<RoleGrant[]>([]);
   const [users, setUsers] = useState<UserGrant[]>([]);
-  const [availableRoles, setAvailableRoles] = useState<RoleOption[]>([]);
   const [selectedRole, setSelectedRole] = useState("");
   const [selectedUser, setSelectedUser] = useState("");
   const [loading, setLoading] = useState(true);
@@ -41,15 +34,9 @@ export function GuildAccessPanel({ guildId }: { guildId: string }) {
 
   const load = async () => {
     try {
-      const [access, discordRoles] = await Promise.all([
-        api.getGuildAccess(guildId),
-        api.getRoles(guildId),
-      ]);
+      const access = await api.getGuildAccess(guildId);
       setRoles(access.roles || []);
       setUsers(access.users || []);
-      setAvailableRoles(
-        (discordRoles || []).filter((role: any) => role.name !== "@everyone" && !role.managed)
-      );
       setDenied(false);
     } catch (error: any) {
       if (error?.status === 403 || String(error?.message || "").includes("Only the server")) {
@@ -63,11 +50,6 @@ export function GuildAccessPanel({ guildId }: { guildId: string }) {
   };
 
   useEffect(() => { load(); }, [guildId]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const roleChoices = useMemo(() => {
-    const used = new Set(roles.map((role) => role.role_id));
-    return availableRoles.filter((role) => !used.has(String(role.id)));
-  }, [availableRoles, roles]);
 
   const addRole = async () => {
     if (!selectedRole) return toast.error("Wähle zuerst eine Rolle aus.");
@@ -159,17 +141,21 @@ export function GuildAccessPanel({ guildId }: { guildId: string }) {
                 <p className="text-xs text-slate-500 mt-1">Alle Mitglieder einer Rolle freischalten.</p>
               </div>
             </div>
-            <div className="mt-5 flex gap-2">
-              <select
+            <div className="mt-5 space-y-2">
+              <RolePicker
+                guildId={guildId}
                 value={selectedRole}
-                onChange={(event) => setSelectedRole(event.target.value)}
-                className="min-w-0 flex-1 bg-[#0a0a0c] border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-white outline-none focus:border-primary/60"
-              >
-                <option value="">Rolle auswählen…</option>
-                {roleChoices.map((role) => <option key={role.id} value={role.id}>{role.name}</option>)}
-              </select>
-              <button onClick={addRole} disabled={busy || !selectedRole} className="h-11 px-4 rounded-xl bg-primary text-white font-semibold text-sm disabled:opacity-40 hover:brightness-110">
-                <Plus className="h-4 w-4" />
+                onChange={(id) => setSelectedRole(id || "")}
+                placeholder="Rolle auswählen…"
+                allowClear
+                excludeManaged
+                excludeIds={roles.map((role) => role.role_id)}
+              />
+              <p className="text-[11px] text-slate-600">
+                Die Rollen stehen in derselben Reihenfolge wie auf Discord — höchste zuerst.
+              </p>
+              <button onClick={addRole} disabled={busy || !selectedRole} className="w-full h-11 rounded-xl bg-primary text-white font-semibold text-sm disabled:opacity-40 hover:brightness-110 flex items-center justify-center gap-2">
+                <Plus className="h-4 w-4" /> Rolle freischalten
               </button>
             </div>
           </header>
