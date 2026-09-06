@@ -95,6 +95,7 @@ import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { InlineToggle } from "@/components/dashboard/form-elements";
+import { DiscordEmoji } from "@/components/dashboard/discord-emoji";
 
 /* ── Typen ──────────────────────────────────────────────────────── */
 
@@ -1360,7 +1361,7 @@ export function SpeedrunPanel({ guildId }: { guildId: string }) {
                         )}
                       >
                         <div className="flex items-start gap-2.5">
-                          <span className="text-lg shrink-0">{template.emoji}</span>
+                          <DiscordEmoji value={template.emoji} className="h-6 w-6 shrink-0" />
                           <div className="min-w-0 flex-1">
                             <p className="font-black text-white text-sm flex items-center gap-2">
                               {template.name}
@@ -1454,9 +1455,7 @@ export function SpeedrunPanel({ guildId }: { guildId: string }) {
                                       key={entry.label}
                                       className="flex items-center gap-2 text-[11px]"
                                     >
-                                      <span className="shrink-0">
-                                        {entry.emoji}
-                                      </span>
+                                      <DiscordEmoji value={entry.emoji} className="h-4 w-4 shrink-0" />
                                       <span className="text-slate-400 truncate">
                                         {entry.label}
                                       </span>

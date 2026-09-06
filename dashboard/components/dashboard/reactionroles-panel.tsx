@@ -24,6 +24,7 @@ import { cn } from "@/lib/utils";
 import { ChannelPicker, RolePicker } from "@/components/dashboard/pickers";
 import { InlineToggle } from "@/components/dashboard/form-elements";
 import { EmojiPicker } from "@/components/dashboard/emoji-picker";
+import { DiscordEmoji } from "@/components/dashboard/discord-emoji";
 
 const INPUT =
   "w-full bg-[#0e0e12] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-primary/50 transition-colors";
@@ -333,7 +334,7 @@ export function ReactionRolesPanel({ guildId }: { guildId: string }) {
                         : "bg-[#0e0e12] border-slate-800"
                     )}
                   >
-                    <span className="text-lg shrink-0">{entry.emoji}</span>
+                    <DiscordEmoji value={entry.emoji} className="h-6 w-6 shrink-0" />
                     <span className="text-slate-600">→</span>
                     <span
                       className={cn(
@@ -357,7 +358,7 @@ export function ReactionRolesPanel({ guildId }: { guildId: string }) {
                             api.removeReactionRoleV2(
                               guildId, message.message_id, entry.emoji, channelId
                             ),
-                          `${entry.emoji} → @${entry.role_name} entfernen?`
+                          `Reaktionsrolle @${entry.role_name} entfernen?`
                         )
                       }
                       disabled={busy}

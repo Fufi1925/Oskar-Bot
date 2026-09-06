@@ -24,6 +24,7 @@ import { cn } from "@/lib/utils";
 import { InlineToggle } from "@/components/dashboard/form-elements";
 import { StickySaveBar, useSaveGuard } from "@/components/dashboard/save-bar";
 import { EmojiText } from "@/components/dashboard/emoji-field";
+import { DiscordEmojiText } from "@/components/dashboard/discord-emoji";
 
 const INPUT =
   "w-full bg-[#0e0e12] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-primary/50 transition-colors";
@@ -390,19 +391,21 @@ export function JoinDMPanel({ guildId }: { guildId: string }) {
                 style={{ borderLeftColor: colourHex }}
               >
                 <p className="text-[15px] font-bold text-white break-words">
-                  {preview.title || "Willkommen"}
+                  <DiscordEmojiText text={preview.title || "Willkommen"} />
                 </p>
                 <p className="text-sm text-[#dbdee1] whitespace-pre-line break-words">
-                  {preview.message || (
+                  {preview.message ? (
+                    <DiscordEmojiText text={preview.message} />
+                  ) : (
                     <span className="italic text-slate-600">Noch kein Text.</span>
                   )}
                 </p>
                 {preview.footer && (
-                  <p className="text-[11px] text-[#949ba4]">{preview.footer}</p>
+                  <p className="text-[11px] text-[#949ba4]"><DiscordEmojiText text={preview.footer} /></p>
                 )}
                 {value("button_label") && value("button_url") && (
                   <span className="inline-block px-3 py-1.5 rounded bg-[#4e5058] text-white text-[13px] font-medium">
-                    {value("button_label")}
+                    <DiscordEmojiText text={String(value("button_label"))} />
                   </span>
                 )}
               </div>

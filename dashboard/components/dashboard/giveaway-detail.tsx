@@ -30,6 +30,7 @@ import { RolePicker } from "@/components/dashboard/pickers";
 import { InlineToggle } from "@/components/dashboard/form-elements";
 import { StickySaveBar, useSaveGuard } from "@/components/dashboard/save-bar";
 import { EmojiPicker } from "@/components/dashboard/emoji-picker";
+import { DiscordEmojiText } from "@/components/dashboard/discord-emoji";
 
 const INPUT =
   "w-full bg-[#0e0e12] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-primary/50 transition-colors";
@@ -138,7 +139,7 @@ function Preview({ text, fallback, values }: any) {
         <Eye className="h-3 w-3" /> So sieht es aus
       </p>
       <p className="text-sm text-slate-200 whitespace-pre-line break-words">
-        {filled || <span className="italic text-slate-600">leer</span>}
+        {filled ? <DiscordEmojiText text={filled} /> : <span className="italic text-slate-600">leer</span>}
       </p>
     </div>
   );

@@ -36,6 +36,7 @@ import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { InlineToggle, SwitchToggle } from "@/components/dashboard/form-elements";
+import { DiscordEmojiText } from "@/components/dashboard/discord-emoji";
 import { ChannelPicker, MultiRolePicker, RolePicker } from "@/components/dashboard/pickers";
 
 const CARD =
@@ -727,10 +728,10 @@ export function TeamUpdatePanel({ guildId }: { guildId: string }) {
               }}
             >
               <div className="font-bold text-white text-sm mb-1.5">
-                {preview.title}
+                <DiscordEmojiText text={preview.title} />
               </div>
               <div className="text-[12px] text-slate-300 whitespace-pre-wrap leading-relaxed">
-                {preview.text}
+                <DiscordEmojiText text={preview.text} />
               </div>
             </div>
             <p className="text-[11px] text-slate-500 italic mt-2">

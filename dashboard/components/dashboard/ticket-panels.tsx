@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { ChannelPicker, MultiRolePicker } from "@/components/dashboard/pickers";
 import { EmojiPicker } from "@/components/dashboard/emoji-picker";
 import { EmojiDraftField } from "@/components/dashboard/emoji-field";
+import { DiscordEmoji } from "@/components/dashboard/discord-emoji";
 import { TicketNotifyPanel } from "@/components/dashboard/ticket-notify-panel";
 
 interface Category {
@@ -662,7 +663,7 @@ export function TicketPanels({ guildId }: { guildId: string }) {
                             key={cat.category_id}
                             className="bg-[#0e0e12] border border-slate-800 rounded-2xl px-4 py-3 flex items-center gap-3 flex-wrap"
                           >
-                            <span className="text-lg shrink-0">{cat.emoji || "🎫"}</span>
+                            <DiscordEmoji value={cat.emoji || "🎫"} className="h-6 w-6 shrink-0" />
                             <span className="font-bold text-white truncate flex-1 min-w-[100px]">
                               {cat.name}
                             </span>

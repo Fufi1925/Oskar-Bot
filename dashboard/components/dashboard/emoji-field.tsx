@@ -42,6 +42,7 @@
 import React from "react";
 import { cn } from "@/lib/utils";
 import { EmojiPicker, insertAtCursor } from "@/components/dashboard/emoji-picker";
+import { DiscordEmoji } from "@/components/dashboard/discord-emoji";
 
 /** Der Feldrahmen, wie ihn die Panels benutzen. */
 const INPUT =
@@ -289,19 +290,38 @@ export function EmojiOnly({
   disabled?: boolean;
   label?: string;
 }) {
+  const custom = /^(?:<a?:[A-Za-z0-9_]+:\d{5,22}>|<emoji:\d{5,22}>)$/.test(value);
+
   return (
     <div className={cn("flex items-center gap-2", className)}>
-      <input
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        placeholder={placeholder}
-        disabled={disabled}
-        className={cn(
-          "w-16 bg-[#0b1626] border border-slate-800 rounded-xl px-2 py-3",
-          "text-sm text-white text-center focus:outline-none",
-          "focus:border-primary/50 transition-colors"
-        )}
-      />
+      {custom ? (
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={() => onChange("")}
+          title="Emoji entfernen"
+          className={cn(
+            "relative w-16 h-[46px] bg-[#0b1626] border border-primary/30 rounded-xl",
+            "flex items-center justify-center hover:border-primary/60 transition-colors",
+            disabled && "opacity-50 cursor-not-allowed"
+          )}
+        >
+          <DiscordEmoji value={value} className="h-7 w-7" />
+          <span className="absolute right-1 top-0.5 text-[10px] text-slate-600">×</span>
+        </button>
+      ) : (
+        <input
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder={placeholder}
+          disabled={disabled}
+          className={cn(
+            "w-16 bg-[#0b1626] border border-slate-800 rounded-xl px-2 py-3",
+            "text-sm text-white text-center focus:outline-none",
+            "focus:border-primary/50 transition-colors"
+          )}
+        />
+      )}
       <EmojiPicker label={label} onPick={(raw) => onChange(raw)} />
     </div>
   );

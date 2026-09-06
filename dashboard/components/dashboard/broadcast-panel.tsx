@@ -22,6 +22,7 @@ import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { EmojiPicker } from "@/components/dashboard/emoji-picker";
+import { DiscordEmojiText } from "@/components/dashboard/discord-emoji";
 
 const INPUT =
   "w-full bg-[#0e0e12] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-primary/50 transition-colors";
@@ -397,10 +398,10 @@ export function BroadcastPanel({ guilds }: { guilds?: any[] }) {
             style={{ borderLeftColor: toneColour }}
           >
             <p className="font-bold text-white text-[15px]">
-              {title || "Nachricht vom Bot-Team"}
+              <DiscordEmojiText text={title || "Nachricht vom Bot-Team"} />
             </p>
             <p className="text-sm text-[#dbdee1] whitespace-pre-line break-words mt-1.5">
-              {message || <span className="italic text-slate-600">leer</span>}
+              {message ? <DiscordEmojiText text={message} /> : <span className="italic text-slate-600">leer</span>}
             </p>
           </div>
         </div>

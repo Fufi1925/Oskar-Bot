@@ -26,6 +26,7 @@ import { ChannelPicker } from "@/components/dashboard/pickers";
 import { WelcomeConfig } from "@/types/api";
 import { StickySaveBar, useSaveGuard } from "@/components/dashboard/save-bar";
 import { EmojiText } from "@/components/dashboard/emoji-field";
+import { DiscordEmojiText } from "@/components/dashboard/discord-emoji";
 
 const INPUT =
   "w-full bg-[#0e0e12] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-primary/50 transition-colors";
@@ -528,7 +529,7 @@ export function WelcomeForm({
             <div className="rounded-2xl bg-[#313338] p-4 space-y-2">
               {preview.content && (
                 <p className="text-sm text-[#dbdee1] whitespace-pre-line break-words">
-                  {preview.content}
+                  <DiscordEmojiText text={preview.content} />
                 </p>
               )}
 
@@ -545,17 +546,17 @@ export function WelcomeForm({
                     <div className="min-w-0 flex-1 space-y-1.5">
                       {preview.author && (
                         <p className="text-xs font-semibold text-white">
-                          {preview.author}
+                          <DiscordEmojiText text={preview.author} />
                         </p>
                       )}
                       {preview.title && (
                         <p className="text-[15px] font-bold text-white break-words">
-                          {preview.title}
+                          <DiscordEmojiText text={preview.title} />
                         </p>
                       )}
                       {preview.description && (
                         <p className="text-sm text-[#dbdee1] whitespace-pre-line break-words">
-                          {preview.description}
+                          <DiscordEmojiText text={preview.description} />
                         </p>
                       )}
                     </div>
@@ -582,7 +583,7 @@ export function WelcomeForm({
 
                   {preview.footer && (
                     <p className="text-[11px] text-[#949ba4] break-words">
-                      {preview.footer}
+                      <DiscordEmojiText text={preview.footer} />
                     </p>
                   )}
                 </div>

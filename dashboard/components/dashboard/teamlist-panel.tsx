@@ -39,6 +39,7 @@ import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { InlineToggle } from "@/components/dashboard/form-elements";
 import { EmojiOnly, EmojiText } from "@/components/dashboard/emoji-field";
+import { DiscordEmoji } from "@/components/dashboard/discord-emoji";
 import { Select } from "@/components/ui/select";
 
 const CARD =
@@ -745,18 +746,7 @@ function renderInline(line: string): React.ReactNode[] {
         </b>
       );
     } else if (token.startsWith("<a:") || token.startsWith("<:")) {
-      // Das Bild lässt sich hier nicht laden (die Vorschau läuft ohne
-      // Netz), aber der Name sagt, welches Emoji gemeint ist.
-      const name = token.split(":")[1] || "emoji";
-      out.push(
-        <span
-          key={key++}
-          className="inline-block px-1 rounded bg-white/10 text-[12px] align-middle"
-          title={token}
-        >
-          :{name}:
-        </span>
-      );
+      out.push(<DiscordEmoji key={key++} value={token} />);
     } else if (token.startsWith("<@")) {
       out.push(
         <span

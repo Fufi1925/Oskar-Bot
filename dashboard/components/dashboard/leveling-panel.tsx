@@ -24,6 +24,7 @@ import { ChannelPicker, RolePicker } from "@/components/dashboard/pickers";
 import { InlineToggle } from "@/components/dashboard/form-elements";
 import { StickySaveBar, useSaveGuard } from "@/components/dashboard/save-bar";
 import { EmojiPicker } from "@/components/dashboard/emoji-picker";
+import { DiscordEmojiText } from "@/components/dashboard/discord-emoji";
 
 const INPUT =
   "w-full bg-[#0e0e12] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-primary/50 transition-colors";
@@ -395,7 +396,7 @@ export function LevelingPanel({ guildId }: { guildId: string }) {
               >
                 <p className="text-xs font-bold text-white mb-1">Level aufgestiegen</p>
                 <p className="text-sm text-[#dbdee1] whitespace-pre-line break-words">
-                  {preview || <span className="italic text-slate-600">leer</span>}
+                  {preview ? <DiscordEmojiText text={preview} /> : <span className="italic text-slate-600">leer</span>}
                 </p>
               </div>
             </div>

@@ -21,6 +21,7 @@ import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { EmojiPicker, insertAtCursor } from "@/components/dashboard/emoji-picker";
+import { DiscordEmoji, customEmojiHtml } from "@/components/dashboard/discord-emoji";
 import { ChannelPicker } from "@/components/dashboard/pickers";
 import { InlineToggle } from "@/components/dashboard/form-elements";
 import { announcementsFor } from "@/lib/announcements";
@@ -66,7 +67,7 @@ function markdown(text: string) {
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
-  return escaped
+  return customEmojiHtml(escaped)
     .replace(/```([\s\S]*?)```/g, '<pre class="bg-black/40 rounded p-2 my-1 text-[12px] overflow-x-auto">$1</pre>')
     .replace(/`([^`]+)`/g, '<code class="bg-black/40 rounded px-1">$1</code>')
     // Headings first: they are line-anchored, and running them after
@@ -902,7 +903,7 @@ export function ComposePanel({ guildId }: { guildId: string }) {
                               key={i}
                               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded bg-[#4e5058] text-white text-[13px] font-medium"
                             >
-                              {b.emoji && <span>{b.emoji}</span>}
+                              {b.emoji && <DiscordEmoji value={b.emoji} />}
                               {b.label || "Knopf"}
                               <Link2 className="h-3 w-3 opacity-60" />
                             </span>

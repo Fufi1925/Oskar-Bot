@@ -12,6 +12,7 @@ import { ChannelPicker, RolePicker } from "@/components/dashboard/pickers";
 import { GiveawayDetail } from "@/components/dashboard/giveaway-detail";
 import { InlineToggle } from "@/components/dashboard/form-elements";
 import { EmojiPicker } from "@/components/dashboard/emoji-picker";
+import { DiscordEmoji, DiscordEmojiText } from "@/components/dashboard/discord-emoji";
 
 interface Giveaway {
   message_id: string;
@@ -558,13 +559,15 @@ export function GiveawaysPanel({ guildId }: { guildId: string }) {
             <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
               Vorschau
             </p>
-            <p className="font-black text-white">{previewText.title}</p>
+            <p className="font-black text-white">
+              <DiscordEmojiText text={previewText.title} />
+            </p>
             <p className="text-slate-300 mt-2 text-sm whitespace-pre-line">
-              {previewText.body}
+              <DiscordEmojiText text={previewText.body} />
             </p>
             <div className="mt-3 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-bold">
-              <span>{previewText.emoji}</span>
-              {previewText.button}
+              <DiscordEmoji value={previewText.emoji} />
+              <DiscordEmojiText text={previewText.button} />
             </div>
           </div>
         )}

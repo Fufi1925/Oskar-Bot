@@ -21,6 +21,7 @@ import {
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { DiscordEmoji } from "@/components/dashboard/discord-emoji";
 import { ChannelPicker, MultiRolePicker } from "@/components/dashboard/pickers";
 import { SwitchToggle } from "@/components/dashboard/form-elements";
 
@@ -212,8 +213,8 @@ function CategoryCard({
             offen && "rotate-180",
           )}
         />
-        <span className="text-sm font-bold text-white truncate">
-          {entwurf.emoji ? `${entwurf.emoji} ` : ""}
+        <span className="text-sm font-bold text-white truncate flex items-center gap-1.5">
+          {entwurf.emoji && <DiscordEmoji value={entwurf.emoji} />}
           {entwurf.name || "Neue Kategorie"}
         </span>
         <span className="ml-auto text-[11px] text-slate-500 shrink-0">

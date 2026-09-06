@@ -27,6 +27,7 @@ import {
   Loading, StickySaveBar, usePanel, useSaveGuard,
 } from "@/components/dashboard/save-bar";
 import { EmojiText } from "@/components/dashboard/emoji-field";
+import { DiscordEmojiText } from "@/components/dashboard/discord-emoji";
 import { LogUmgezogen } from "@/components/dashboard/log-umgezogen";
 
 const INPUT =
@@ -140,7 +141,7 @@ function TextField({ label, hint, value, onChange, rows = 3, role, server, max }
             Vorschau
           </p>
           <p className="text-[13px] text-slate-200 whitespace-pre-wrap leading-relaxed">
-            {fill(value, role, server)}
+            <DiscordEmojiText text={fill(value, role, server)} />
           </p>
         </div>
       )}
