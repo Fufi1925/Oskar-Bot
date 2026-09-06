@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
 
@@ -20,6 +21,7 @@ class CustomCommandsService(Cog):
         self.bot = bot
         self._commands: dict[int, dict[str, dict]] = {}
         self._slash_names: dict[int, set[str]] = {}
+        self._slash_sync_tasks: dict[int, asyncio.Task] = {}
 
     async def cog_load(self):
         # Existing guild commands remain registered at Discord across restarts.
@@ -27,7 +29,40 @@ class CustomCommandsService(Cog):
         await self.refresh(sync_slash=False)
         logger.info("Custom command service loaded for %s guilds", len(self._commands))
 
-    async def refresh(self, guild_id: int | None = None, *, sync_slash: bool = True):
+    def cog_unload(self):
+        for task in self._slash_sync_tasks.values():
+            task.cancel()
+        self._slash_sync_tasks.clear()
+
+    def schedule_slash_sync(self, guild_id: int):
+        """Sync Discord in the background so dashboard saves never hang.
+
+        Repeated edits within a moment are collapsed into one guild sync. The
+        database and local command tree have already been updated by refresh.
+        """
+        guild_id = int(guild_id)
+        previous = self._slash_sync_tasks.pop(guild_id, None)
+        if previous is not None:
+            previous.cancel()
+        task = asyncio.create_task(self._sync_slash_later(guild_id))
+        self._slash_sync_tasks[guild_id] = task
+        task.add_done_callback(
+            lambda finished, current=guild_id: self._slash_sync_tasks.pop(current, None)
+            if self._slash_sync_tasks.get(current) is finished else None
+        )
+
+    async def _sync_slash_later(self, guild_id: int):
+        try:
+            await asyncio.sleep(0.75)
+            tree = getattr(self.bot, "tree", None)
+            if tree is not None:
+                await tree.sync(guild=discord.Object(id=guild_id))
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("Could not sync custom slash commands for guild %s", guild_id)
+
+    async def refresh(self, guild_id: int | None = None, *, sync_slash: bool = False):
         db = await store.connect()
         try:
             rows = await store.list_all(db, guild_id)

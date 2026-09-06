@@ -747,7 +747,11 @@ async def _refresh_custom_commands(bot, guild_id: int):
     service = bot.get_cog("CustomCommandsService")
     if service is None:
         raise HTTPException(status_code=503, detail="Custom-Command-Dienst ist nicht geladen.")
-    await service.refresh(guild_id)
+    # Updating the in-process listener is fast. Discord's guild slash sync can
+    # take seconds (or wait on a rate limit), so it must never hold the
+    # dashboard request open after the database has already been committed.
+    await service.refresh(guild_id, sync_slash=False)
+    service.schedule_slash_sync(guild_id)
 
 
 @router.get("/{guild_id}/custom-commands", summary="List custom commands")
