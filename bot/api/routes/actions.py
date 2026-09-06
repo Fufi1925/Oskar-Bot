@@ -24,6 +24,7 @@ from api.dependencies import get_bot
 from utils.panels import Panel, ACCENT
 from utils import feature_audit, feature_gates
 from utils import custom_commands as custom_command_store
+from utils import premium_store
 from utils.panels import from_embed
 
 if TYPE_CHECKING:
@@ -744,6 +745,13 @@ async def cancel_giveaway(guild_id: int, message_id: int, actor: str = ""):
 # ══════════════════════════════════════════════════════════════════════════
 
 
+def _custom_commands_premium(guild_id: int, actor: str = "") -> bool:
+    """Premium may come from the server grant or the signed-in account."""
+    if feature_gates.is_premium_guild(guild_id):
+        return True
+    return bool(actor and actor.isdigit() and premium_store.status(actor).get("premium"))
+
+
 async def _refresh_custom_commands(bot, guild_id: int):
     service = bot.get_cog("CustomCommandsService")
     if service is None:
@@ -756,13 +764,13 @@ async def _refresh_custom_commands(bot, guild_id: int):
 
 
 @router.get("/{guild_id}/custom-commands", summary="List custom commands")
-async def list_custom_commands(guild_id: int):
+async def list_custom_commands(guild_id: int, actor: str = ""):
     db = await custom_command_store.connect()
     try:
         rows = await custom_command_store.list_all(db, guild_id)
     finally:
         await db.close()
-    premium = feature_gates.is_premium_guild(guild_id)
+    premium = _custom_commands_premium(guild_id, actor)
     limit = (custom_command_store.PREMIUM_MAX_COMMANDS
              if premium else custom_command_store.FREE_MAX_COMMANDS)
     return {
@@ -843,14 +851,14 @@ async def save_custom_command(
             use_prefix=use_prefix, use_exact=use_exact,
             use_contains=use_contains, use_slash=use_slash, config=config,
             max_commands=(custom_command_store.PREMIUM_MAX_COMMANDS
-                          if feature_gates.is_premium_guild(guild_id)
+                          if _custom_commands_premium(guild_id, actor)
                           else custom_command_store.FREE_MAX_COMMANDS),
         )
     finally:
         await db.close()
     if not saved:
         limit = (custom_command_store.PREMIUM_MAX_COMMANDS
-                 if feature_gates.is_premium_guild(guild_id)
+                 if _custom_commands_premium(guild_id, actor)
                  else custom_command_store.FREE_MAX_COMMANDS)
         raise HTTPException(status_code=409, detail=f"Für diesen Server sind höchstens {limit} Custom Commands möglich.")
     await _refresh_custom_commands(bot, guild_id)
