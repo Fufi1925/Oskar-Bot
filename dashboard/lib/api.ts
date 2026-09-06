@@ -996,11 +996,12 @@ export const api = {
     guildId: string,
     name: string,
     response: string,
-    modes: { use_prefix: boolean; use_exact: boolean; use_contains: boolean; use_slash: boolean }
+    modes: { use_prefix: boolean; use_exact: boolean; use_contains: boolean; use_slash: boolean },
+    config?: Record<string, any>
   ) =>
     request<any>(`/actions/${guildId}/custom-commands`, {
       method: "POST",
-      body: JSON.stringify({ name, response, ...modes }),
+      body: JSON.stringify({ name, response, ...modes, config }),
     }),
   deleteCustomCommand: (guildId: string, name: string) =>
     request<any>(`/actions/${guildId}/custom-commands/${encodeURIComponent(name)}`, {

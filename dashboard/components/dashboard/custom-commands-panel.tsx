@@ -1,164 +1,65 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Command, Loader2, Pencil, Plus, Trash2, Zap } from "lucide-react";
+import { Braces, Check, ChevronDown, Crown, GitBranch, Loader2, MessageSquare, Pencil, Plus, Save, Send, Settings, Shield, Terminal, Trash2, UserMinus, UserPlus, X, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { EmojiText } from "@/components/dashboard/emoji-field";
 import { DiscordEmojiText } from "@/components/dashboard/discord-emoji";
+import { ChannelPicker, MultiRolePicker, RolePicker } from "@/components/dashboard/pickers";
+import { UserPicker } from "@/components/dashboard/user-picker";
 
-interface CustomCommand {
-  name: string;
-  response: string;
-  created_at: number;
-  updated_at: number;
-  use_prefix: number;
-  use_exact: number;
-  use_contains: number;
-  use_slash: number;
+type Action = { id:string; type:string; text?:string; role_id?:string; channel_id?:string; then?:Action[]; else?:Action[] };
+type Parameter = { id:string; name:string; description:string; type:string; required:boolean };
+type Config = { description:string; actions:Action[]; parameters:Parameter[]; enabled:boolean; cooldown:number; allowed_roles:string[]; allowed_users:string[]; deny_without_role:boolean };
+type Modes = { use_prefix:boolean; use_exact:boolean; use_contains:boolean; use_slash:boolean };
+interface CustomCommand { name:string; response:string; use_prefix:number; use_exact:number; use_contains:number; use_slash:number; config?:Partial<Config>; }
+const emptyConfig=():Config=>({description:"",actions:[],parameters:[],enabled:true,cooldown:0,allowed_roles:[],allowed_users:[],deny_without_role:false});
+const uid=()=>Math.random().toString(36).slice(2,10);
+const actionKinds=[
+  ["reply","Antworten",MessageSquare,"text-blue-400"],["add_role","Rolle geben",UserPlus,"text-emerald-400"],
+  ["remove_role","Rolle entfernen",UserMinus,"text-rose-400"],["send_channel","Nachricht senden",Send,"text-fuchsia-400"],
+  ["dm","DM senden",MessageSquare,"text-amber-400"],["condition_role","Bedingung",GitBranch,"text-orange-400"],
+] as const;
+
+export function CustomCommandsPanel({guildId,prefix}:{guildId:string;prefix:string}){
+ const [commands,setCommands]=useState<CustomCommand[]>([]),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false);
+ const [editing,setEditing]=useState(false),[original,setOriginal]=useState<string|null>(null),[tab,setTab]=useState<"flow"|"parameters"|"settings">("flow");
+ const [name,setName]=useState(""),[response,setResponse]=useState(""),[config,setConfig]=useState<Config>(emptyConfig());
+ const [modes,setModes]=useState<Modes>({use_prefix:true,use_exact:false,use_contains:false,use_slash:true});
+ const [actionMenu,setActionMenu]=useState<string|null>(null),[newUser,setNewUser]=useState("");
+ const load=async()=>{try{const d=await api.getCustomCommands(guildId);setCommands(d.commands||[])}catch(e:any){toast.error(e?.message||"Commands konnten nicht geladen werden.")}finally{setLoading(false)}};
+ useEffect(()=>{load()},[guildId]); // eslint-disable-line
+ const close=()=>{setEditing(false);setOriginal(null);setName("");setResponse("");setConfig(emptyConfig());setTab("flow")};
+ const open=(entry?:CustomCommand)=>{setEditing(true);setOriginal(entry?.name||null);setName(entry?.name||"");setResponse(entry?.response||"");setConfig({...emptyConfig(),...(entry?.config||{}),actions:entry?.config?.actions||[],parameters:entry?.config?.parameters||[],allowed_roles:entry?.config?.allowed_roles||[],allowed_users:entry?.config?.allowed_users||[]});setModes(entry?{use_prefix:!!entry.use_prefix,use_exact:!!entry.use_exact,use_contains:!!entry.use_contains,use_slash:!!entry.use_slash}:{use_prefix:true,use_exact:false,use_contains:false,use_slash:true})};
+ const save=async()=>{const clean=name.trim().toLowerCase().replace(/\s+/g,"-").replace(/^[!>?./]+/,"");if(!/^[a-z0-9][a-z0-9_-]{0,31}$/.test(clean))return toast.error("Bitte einen gültigen Command-Namen eingeben.");if(!Object.values(modes).some(Boolean))return toast.error("Wähle mindestens eine Erkennungsart.");if(!config.actions.length)return toast.error("Füge mindestens einen Flow-Schritt hinzu.");const fallback=config.actions.find(a=>a.type==="reply")?.text||"Command ausgeführt.";setBusy(true);try{await api.saveCustomCommand(guildId,clean,fallback,modes,config);toast.success("Command gespeichert.");close();await load()}catch(e:any){toast.error(e?.message||"Speichern fehlgeschlagen.")}finally{setBusy(false)}};
+ const remove=async(entry:CustomCommand)=>{if(!confirm(`Command „${entry.name}“ wirklich löschen?`))return;setBusy(true);try{await api.deleteCustomCommand(guildId,entry.name);toast.success("Command gelöscht.");await load()}catch(e:any){toast.error(e?.message||"Löschen fehlgeschlagen.")}finally{setBusy(false)}};
+ const patchAction=(id:string,patch:Partial<Action>,list=config.actions):Action[]=>list.map(a=>a.id===id?{...a,...patch}:{...a,then:a.then?patchAction(id,patch,a.then):a.then,else:a.else?patchAction(id,patch,a.else):a.else});
+ const deleteAction=(id:string,list=config.actions):Action[]=>list.filter(a=>a.id!==id).map(a=>({...a,then:a.then?deleteAction(id,a.then):a.then,else:a.else?deleteAction(id,a.else):a.else}));
+ const append=(type:string,parent="root",branch="then")=>{const item:Action={id:uid(),type,...(type==="condition_role"?{then:[],else:[]}:{})};if(parent==="root")setConfig(c=>({...c,actions:[...c.actions,item]}));else setConfig(c=>({...c,actions:patchAction(parent,{[branch]:[...((findAction(c.actions,parent)?.[branch as "then"]||[])),item]} as any,c.actions)}));setActionMenu(null)};
+ const findAction=(list:Action[],id:string):Action|undefined=>{for(const a of list){if(a.id===id)return a;const x=findAction([...(a.then||[]),...(a.else||[])],id);if(x)return x}};
+ const addParam=()=>config.parameters.length<10&&setConfig(c=>({...c,parameters:[...c.parameters,{id:uid(),name:"",description:"",type:"string",required:false}]}));
+ if(loading)return <div className="py-20 flex justify-center"><Loader2 className="animate-spin text-fuchsia-500"/></div>;
+ if(!editing)return <div className="space-y-6">
+   <section className="border border-fuchsia-900/30 bg-[#09090d] p-6 sm:p-8 rounded-2xl">
+    <div className="flex flex-wrap items-center justify-between gap-5"><div><div className="flex items-center gap-3"><Terminal className="text-fuchsia-500"/><h2 className="text-2xl font-black text-white">Command Creator</h2><span className="rounded-full bg-white/10 px-3 py-1 text-sm text-slate-400">Free</span></div><p className="mt-3 text-slate-400">Erstelle eigene Slash Commands mit Aktionen, Rollen und Bedingungen – nur für diesen Server.</p></div><button disabled={commands.length>=3} onClick={()=>open()} className="rounded-xl bg-fuchsia-600 hover:bg-fuchsia-500 disabled:opacity-40 px-6 py-3 font-bold text-white flex gap-2"><Plus/>Command erstellen</button></div>
+    <div className="mt-6 flex justify-between text-sm text-slate-400"><span>{commands.length} / 3 Commands</span><span className="text-fuchsia-400">Maximal 3 pro Server</span></div><div className="mt-2 h-2 rounded-full bg-slate-800"><div className="h-full rounded-full bg-fuchsia-600" style={{width:`${commands.length/3*100}%`}}/></div>
+   </section>
+   {!commands.length?<section className="border border-fuchsia-900/30 bg-fuchsia-950/5 min-h-72 rounded-2xl grid place-items-center text-center"><div><Terminal className="mx-auto h-16 w-16 text-slate-600"/><h3 className="mt-4 text-xl font-bold text-slate-300">Noch keine Commands</h3><p className="mt-2 text-slate-500">Erstelle deinen ersten eigenen Command.</p><button onClick={()=>open()} className="mt-6 rounded-xl bg-fuchsia-600 px-6 py-3 font-bold text-white">+ Jetzt erstellen</button></div></section>:
+   <div className="space-y-3">{commands.map(c=><div key={c.name} className="rounded-2xl border border-fuchsia-900/30 bg-[#111116] p-5 flex gap-4 items-start"><Terminal className="text-fuchsia-500"/><div className="flex-1 min-w-0"><code className="font-bold text-white">/{c.name}</code><p className="text-sm text-slate-500 mt-1">{c.config?.description||"Eigener Server-Command"}</p><div className="mt-3 text-sm text-slate-400 line-clamp-2"><DiscordEmojiText text={c.response}/></div></div><button onClick={()=>open(c)} className="p-2 text-slate-400"><Pencil/></button><button onClick={()=>remove(c)} className="p-2 text-rose-400"><Trash2/></button></div>)}</div>}
+ </div>;
+ const renderActions=(items:Action[],nested=false)=>items.map(a=><ActionCard key={a.id} action={a} guildId={guildId} patch={p=>setConfig(c=>({...c,actions:patchAction(a.id,p,c.actions)}))} remove={()=>setConfig(c=>({...c,actions:deleteAction(a.id,c.actions)}))} childrenThen={a.then?renderActions(a.then,true):null} childrenElse={a.else?renderActions(a.else,true):null} add={(branch)=>setActionMenu(`${a.id}:${branch}`)}/>);
+ return <div className="space-y-6 pb-24">
+  <div className="flex items-center justify-between gap-3"><button onClick={close} className="flex items-center gap-3 text-white font-black text-xl"><X className="text-slate-400"/>Command {original?"bearbeiten":"erstellen"}</button><button onClick={save} disabled={busy} className="rounded-xl bg-fuchsia-600 px-5 py-3 font-bold text-white flex gap-2">{busy?<Loader2 className="animate-spin"/>:<Save/>}Speichern</button></div>
+  <section className="border border-fuchsia-900/20 p-5 sm:p-7 space-y-4"><Field label="Command Name"><input value={name} disabled={!!original} onChange={e=>setName(e.target.value)} placeholder="mein-command" className="w-full bg-[#29292d] border border-slate-600 rounded-xl px-4 py-3 text-white outline-none"/></Field><Field label="Beschreibung"><input value={config.description} onChange={e=>setConfig(c=>({...c,description:e.target.value}))} placeholder="Was macht dieser Command?" className="w-full bg-[#29292d] border border-slate-600 rounded-xl px-4 py-3 text-white outline-none"/></Field><p className="text-sm text-slate-500 overflow-hidden whitespace-nowrap">Variablen: <b className="text-fuchsia-500">{"{user}  {user_name}  {server}  {channel}  {args}"}</b></p></section>
+  <div className="grid grid-cols-3 border border-fuchsia-900/20 p-2 gap-2">{[["flow","Flow",Zap],["parameters","Parameter",Terminal],["settings","Einstellungen",Crown]].map(([id,label,Icon]:any)=><button key={id} onClick={()=>setTab(id)} className={`rounded-xl py-3 flex justify-center gap-2 font-bold ${tab===id?"bg-fuchsia-600 text-white":"text-slate-400"}`}><Icon/>{label}</button>)}</div>
+  {tab==="flow"&&<section className="border border-fuchsia-900/20 p-5 space-y-4">{renderActions(config.actions)}<AddButton onClick={()=>setActionMenu("root")}/>{actionMenu&&<ActionMenu onPick={type=>{const [parent,branch]=actionMenu.split(":");append(type,parent,branch)}} onClose={()=>setActionMenu(null)}/>}</section>}
+  {tab==="parameters"&&<section className="border border-fuchsia-900/30 bg-fuchsia-950/5 p-5 space-y-4"><div className="flex justify-between"><b className="text-slate-300">Parameter ({config.parameters.length}/10)</b><button onClick={addParam} className="text-fuchsia-400">+ Parameter</button></div>{config.parameters.map((p,i)=><div key={p.id} className="rounded-2xl border border-slate-700 bg-[#17171d] p-5 space-y-4"><div className="flex justify-between text-white">neu<button onClick={()=>setConfig(c=>({...c,parameters:c.parameters.filter(x=>x.id!==p.id)}))}><Trash2 className="text-slate-500"/></button></div><Field label="Name"><input className="w-full bg-[#29292d] border border-slate-600 rounded-xl px-4 py-3 text-white outline-none" value={p.name} placeholder="mein_parameter" onChange={e=>setConfig(c=>({...c,parameters:c.parameters.map(x=>x.id===p.id?{...x,name:e.target.value.toLowerCase().replace(/\W/g,"_")}:x)}))}/></Field><Field label="Beschreibung"><input className="w-full bg-[#29292d] border border-slate-600 rounded-xl px-4 py-3 text-white outline-none" value={p.description} placeholder="Was ist dieser Parameter?" onChange={e=>setConfig(c=>({...c,parameters:c.parameters.map(x=>x.id===p.id?{...x,description:e.target.value}:x)}))}/></Field><div className="grid grid-cols-[1fr_auto] gap-4"><Field label="Typ"><select className="w-full bg-[#29292d] border border-slate-600 rounded-xl px-4 py-3 text-white outline-none" value={p.type} onChange={e=>setConfig(c=>({...c,parameters:c.parameters.map(x=>x.id===p.id?{...x,type:e.target.value}:x)}))}><option value="string">Text</option><option value="integer">Zahl</option><option value="user">User</option><option value="channel">Kanal</option><option value="role">Rolle</option><option value="boolean">Ja/Nein</option></select></Field><Toggle label="Pflicht" value={p.required} onChange={v=>setConfig(c=>({...c,parameters:c.parameters.map(x=>x.id===p.id?{...x,required:v}:x)}))}/></div></div>)}</section>}
+  {tab==="settings"&&<section className="border border-fuchsia-900/20 p-6 space-y-6"><Toggle label="Command aktiviert" value={config.enabled} onChange={v=>setConfig(c=>({...c,enabled:v}))}/><Field label="Cooldown pro User (Sekunden)"><input type="number" min="0" max="86400" value={config.cooldown} onChange={e=>setConfig(c=>({...c,cooldown:Number(e.target.value)}))} className="w-full bg-[#29292d] border border-slate-600 rounded-xl px-4 py-3 text-white outline-none max-w-60"/></Field><Toggle label="Keine Rolle erlaubt" value={config.deny_without_role} onChange={v=>setConfig(c=>({...c,deny_without_role:v}))}/><Field label="Erlaubte Rollen (leer = alle)"><MultiRolePicker guildId={guildId} value={config.allowed_roles} onChange={v=>setConfig(c=>({...c,allowed_roles:v}))} placeholder="Rollen auswählen…"/></Field><Field label="Erlaubte User"><UserPicker guildId={guildId} value={newUser} onChange={id=>{if(id&&!config.allowed_users.includes(id))setConfig(c=>({...c,allowed_users:[...c.allowed_users,id]}));setNewUser("")}} placeholder="User auswählen…"/><div className="flex flex-wrap gap-2 mt-2">{config.allowed_users.map(id=><button key={id} onClick={()=>setConfig(c=>({...c,allowed_users:c.allowed_users.filter(x=>x!==id)}))} className="px-3 py-1 rounded bg-white/5 text-xs text-slate-300">{id} ×</button>)}</div></Field><div><p className="text-xs font-black uppercase text-slate-500 mb-2">Erkennung</p>{[["use_prefix",`Server-Präfix (${prefix}${name||"command"})`],["use_slash",`Slash (/${name||"command"})`],["use_exact","Ohne Präfix, exakt"],["use_contains","Wort im Text"]].map(([k,l])=><Toggle key={k} label={l} value={modes[k as keyof Modes]} onChange={v=>setModes(m=>({...m,[k]:v}))}/>)}</div></section>}
+ </div>;
 }
-
-export function CustomCommandsPanel({ guildId, prefix }: { guildId: string; prefix: string }) {
-  const [commands, setCommands] = useState<CustomCommand[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState(false);
-  const [name, setName] = useState("");
-  const [response, setResponse] = useState("");
-  const [editing, setEditing] = useState<string | null>(null);
-  const [modes, setModes] = useState({
-    use_prefix: true, use_exact: false, use_contains: false, use_slash: false,
-  });
-  const limit = 3;
-
-  const load = async () => {
-    try {
-      const data = await api.getCustomCommands(guildId);
-      setCommands(data.commands || []);
-    } catch (error: any) {
-      toast.error(error?.message || "Custom Commands konnten nicht geladen werden.");
-    } finally { setLoading(false); }
-  };
-
-  useEffect(() => { load(); }, [guildId]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const reset = () => {
-    setName(""); setResponse(""); setEditing(null);
-    setModes({ use_prefix: true, use_exact: false, use_contains: false, use_slash: false });
-  };
-  const edit = (entry: CustomCommand) => {
-    setName(entry.name); setResponse(entry.response); setEditing(entry.name);
-    setModes({
-      use_prefix: Boolean(entry.use_prefix), use_exact: Boolean(entry.use_exact),
-      use_contains: Boolean(entry.use_contains), use_slash: Boolean(entry.use_slash),
-    });
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
-
-  const save = async () => {
-    const clean = name.trim().toLowerCase().replace(/^[!>?.]+/, "");
-    if (!/^[a-z0-9][a-z0-9_-]{0,31}$/.test(clean)) {
-      return toast.error("Der Name darf nur Buchstaben, Zahlen, - und _ enthalten.");
-    }
-    if (!response.trim()) return toast.error("Schreibe eine Antwort für den Befehl.");
-    if (!Object.values(modes).some(Boolean)) return toast.error("Wähle mindestens eine Erkennungsart aus.");
-    if (!editing && commands.length >= limit) return toast.error("Du hast bereits alle 3 Plätze benutzt.");
-    setBusy(true);
-    try {
-      await api.saveCustomCommand(guildId, clean, response.trim(), modes);
-      toast.success(editing ? "Custom Command aktualisiert." : "Custom Command erstellt.");
-      reset(); await load();
-    } catch (error: any) { toast.error(error?.message || "Speichern fehlgeschlagen."); }
-    finally { setBusy(false); }
-  };
-
-  const remove = async (entry: CustomCommand) => {
-    setBusy(true);
-    try {
-      await api.deleteCustomCommand(guildId, entry.name);
-      if (editing === entry.name) reset();
-      toast.success("Custom Command gelöscht."); await load();
-    } catch (error: any) { toast.error(error?.message || "Löschen fehlgeschlagen."); }
-    finally { setBusy(false); }
-  };
-
-  return (
-    <div className="space-y-6">
-      <section className="rounded-3xl border border-slate-800 bg-[#131318] overflow-hidden">
-        <div className="p-5 sm:p-7 border-b border-slate-800 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="h-11 w-11 rounded-2xl bg-primary/15 flex items-center justify-center"><Zap className="h-5 w-5 text-primary" /></div>
-            <div><h3 className="font-bold text-white">{editing ? `„${editing}“ bearbeiten` : "Neuer Custom Command"}</h3><p className="text-xs text-slate-500 mt-1">{commands.length} von {limit} Plätzen belegt</p></div>
-          </div>
-          <div className="flex gap-1.5">{[0,1,2].map((slot) => <span key={slot} className={`h-2.5 w-7 rounded-full ${slot < commands.length ? "bg-primary" : "bg-slate-800"}`} />)}</div>
-        </div>
-
-        <div className="p-5 sm:p-7 space-y-5">
-          <label className="block space-y-2">
-            <span className="text-xs font-black uppercase tracking-widest text-slate-500">Befehlsname</span>
-            <div className="flex rounded-xl border border-slate-800 bg-[#0e0e12] overflow-hidden focus-within:border-primary/50">
-              <span className="px-4 flex items-center border-r border-slate-800 text-primary font-mono">{prefix}</span>
-              <input value={name} onChange={(event) => setName(event.target.value.toLowerCase().replace(/\s/g, "-"))} disabled={Boolean(editing)} maxLength={32} placeholder="regeln" className="min-w-0 flex-1 bg-transparent px-4 py-3 text-sm text-white outline-none disabled:opacity-60" />
-            </div>
-          </label>
-
-          <div className="block space-y-2">
-            <span className="text-xs font-black uppercase tracking-widest text-slate-500">Antwort des Bots</span>
-            <EmojiText value={response} onChange={setResponse} rows={4} limit={1900} showCount placeholder="Hier stehen unsere Regeln, {user}!" onLimitReached={() => toast.error("Höchstens 1900 Zeichen.")} />
-          </div>
-
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-600 mb-2">Erkennung – mehrere gleichzeitig möglich</p>
-            <div className="grid sm:grid-cols-2 gap-2">
-              {[
-                ["use_prefix", "Server-Präfix", `${prefix}${name || "code"} Text`],
-                ["use_slash", "Echter Slash-Command", `/${name || "code"} args: Text`],
-                ["use_exact", "Ohne Präfix, exakt", name || "code"],
-                ["use_contains", "Wort im Text erkennen", `Wie lautet der ${name || "code"}?`],
-              ].map(([key, title, example]) => {
-                const active = modes[key as keyof typeof modes];
-                return <button key={key} type="button" onClick={() => setModes((old) => ({ ...old, [key]: !active }))} className={`text-left rounded-xl border p-3 transition-colors ${active ? "border-primary/50 bg-primary/10" : "border-slate-800 bg-white/[0.02]"}`}>
-                  <span className={`block text-xs font-bold ${active ? "text-primary" : "text-slate-400"}`}>{active ? "✓ " : ""}{title}</span>
-                  <code className="block mt-1 text-[10px] text-slate-600 break-all">{example}</code>
-                </button>;
-              })}
-            </div>
-          </div>
-
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-600 mb-2">Platzhalter</p>
-            <div className="flex flex-wrap gap-2">{["{user}","{user_name}","{server}","{channel}","{args}"].map((token) => <button key={token} type="button" onClick={() => setResponse((old) => old + token)} className="px-2.5 py-1.5 rounded-lg border border-slate-800 bg-white/[0.02] text-xs font-mono text-slate-400 hover:text-primary">{token}</button>)}</div>
-          </div>
-
-          {response && <div className="rounded-2xl bg-[#313338] p-4"><p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Vorschau</p><p className="text-sm text-[#dbdee1] whitespace-pre-wrap"><DiscordEmojiText text={response.replaceAll("{user}", "@Alex").replaceAll("{user_name}", "Alex").replaceAll("{server}", "Dein Server").replaceAll("{channel}", "#allgemein").replaceAll("{args}", "Beispieltext")} /></p></div>}
-
-          <div className="flex gap-3">
-            {editing && <button onClick={reset} className="h-12 px-5 rounded-xl border border-slate-800 text-sm font-semibold text-slate-400 hover:text-white">Abbrechen</button>}
-            <button onClick={save} disabled={busy || (!editing && commands.length >= limit)} className="h-12 flex-1 rounded-xl bg-primary text-white font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-40 hover:brightness-110">
-              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}{editing ? "Änderungen speichern" : commands.length >= limit ? "Alle 3 Plätze belegt" : "Custom Command erstellen"}
-            </button>
-          </div>
-        </div>
-      </section>
-
-      {loading ? <div className="py-12 flex justify-center"><Loader2 className="h-6 w-6 text-primary animate-spin" /></div> : commands.length === 0 ? <div className="py-12 rounded-3xl border border-dashed border-slate-800 text-center text-sm text-slate-500">Noch kein Custom Command erstellt.</div> : (
-        <section className="space-y-3">{commands.map((entry) => (
-          <div key={entry.name} className="rounded-2xl border border-slate-800 bg-[#131318] p-4 sm:p-5 flex items-start gap-4">
-            <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0"><Command className="h-5 w-5 text-primary" /></div>
-            <div className="min-w-0 flex-1">
-              <code className="text-sm font-bold text-white">{entry.use_prefix ? prefix : entry.use_slash ? "/" : ""}{entry.name}</code>
-              <div className="flex flex-wrap gap-1 mt-1.5">
-                {entry.use_prefix ? <span className="text-[9px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">PRÄFIX</span> : null}
-                {entry.use_slash ? <span className="text-[9px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">SLASH</span> : null}
-                {entry.use_exact ? <span className="text-[9px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">EXAKT</span> : null}
-                {entry.use_contains ? <span className="text-[9px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">IM TEXT</span> : null}
-              </div>
-              <p className="mt-2 text-sm text-slate-400 whitespace-pre-wrap break-words"><DiscordEmojiText text={entry.response} /></p>
-            </div>
-            <button onClick={() => edit(entry)} disabled={busy} className="p-2 rounded-lg text-slate-500 hover:text-primary hover:bg-primary/10" title="Bearbeiten"><Pencil className="h-4 w-4" /></button>
-            <button onClick={() => remove(entry)} disabled={busy} className="p-2 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-400/10" title="Löschen"><Trash2 className="h-4 w-4" /></button>
-          </div>
-        ))}</section>
-      )}
-    </div>
-  );
-}
+function Field({label,children}:{label:string;children:React.ReactNode}){return <label className="block space-y-2"><span className="text-sm text-slate-400">{label}</span>{children}</label>}
+function Toggle({label,value,onChange}:{label:string;value:boolean;onChange:(v:boolean)=>void}){return <button type="button" onClick={()=>onChange(!value)} className="w-full flex justify-between items-center py-3 text-left text-slate-200"><b>{label}</b><span className={`w-14 h-8 rounded-full p-1 ${value?"bg-fuchsia-600":"bg-slate-800"}`}><span className={`block h-6 w-6 rounded-full bg-white transition-transform ${value?"translate-x-6":""}`}/></span></button>}
+function AddButton({onClick,label="Schritt hinzufügen"}:{onClick:()=>void;label?:string}){return <button onClick={onClick} className="w-full border border-dashed border-slate-700 rounded-xl py-4 text-slate-500 hover:text-fuchsia-400">+ {label}</button>}
+function ActionMenu({onPick,onClose}:{onPick:(t:string)=>void;onClose:()=>void}){return <div className="fixed inset-0 z-[100] bg-black/50 grid place-items-center p-5" onClick={onClose}><div onClick={e=>e.stopPropagation()} className="w-full max-w-xl rounded-2xl bg-[#222228] border border-slate-600 p-3 shadow-2xl">{actionKinds.map(([id,label,Icon,color])=><button key={id} onClick={()=>onPick(id)} className="w-full flex gap-4 p-4 rounded-xl hover:bg-white/5 text-left text-slate-200"><Icon className={color}/>{label}</button>)}</div></div>}
+function ActionCard({action,guildId,patch,remove,childrenThen,childrenElse,add}:{action:Action;guildId:string;patch:(p:Partial<Action>)=>void;remove:()=>void;childrenThen:any;childrenElse:any;add:(b:string)=>void}){const meta=actionKinds.find(x=>x[0]===action.type)||actionKinds[0],Icon=meta[2];return <div className="rounded-2xl border border-slate-700 bg-[#202027] overflow-hidden"><div className="p-4 flex gap-3 items-center"><Icon className={meta[3]}/><b className="text-white flex-1">{meta[1]}</b><button onClick={remove}><Trash2 className="text-slate-500"/></button><ChevronDown className="text-slate-500"/></div><div className="p-5 border-t border-slate-700 space-y-4">{["reply","dm"].includes(action.type)&&<EmojiText value={action.text||""} onChange={text=>patch({text})} limit={1900} rows={3} placeholder="Nachricht des Bots…"/>}{action.type==="send_channel"&&<><ChannelPicker guildId={guildId} value={action.channel_id} onChange={v=>patch({channel_id:v||""})} placeholder="Kanal wählen…"/><EmojiText value={action.text||""} onChange={text=>patch({text})} limit={1900} rows={3}/></>}{["add_role","remove_role","condition_role"].includes(action.type)&&<RolePicker guildId={guildId} value={action.role_id} onChange={v=>patch({role_id:v||""})} placeholder="Rolle wählen…"/>}{action.type==="condition_role"&&<><div className="border-l-4 border-emerald-600 pl-5 space-y-3"><b className="text-emerald-400">✓ Dann</b>{childrenThen}<AddButton onClick={()=>add("then")}/></div><div className="border-l-4 border-rose-700 pl-5 space-y-3"><b className="text-rose-400">✗ Sonst</b>{childrenElse}<AddButton onClick={()=>add("else")}/></div></>}</div></div>}

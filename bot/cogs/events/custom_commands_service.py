@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
+import time
 
 import discord
 from discord import app_commands
@@ -22,6 +23,7 @@ class CustomCommandsService(Cog):
         self._commands: dict[int, dict[str, dict]] = {}
         self._slash_names: dict[int, set[str]] = {}
         self._slash_sync_tasks: dict[int, asyncio.Task] = {}
+        self._cooldowns: dict[tuple[int, str, int], float] = {}
 
     async def cog_load(self):
         # Existing guild commands remain registered at Discord across restarts.
@@ -91,7 +93,7 @@ class CustomCommandsService(Cog):
         guild = discord.Object(id=guild_id)
         desired = {
             name for name, entry in self._commands.get(guild_id, {}).items()
-            if entry.get("use_slash")
+            if entry.get("use_slash") and entry.get("config", {}).get("enabled", True)
         }
         for old_name in self._slash_names.get(guild_id, set()):
             tree.remove_command(old_name, guild=guild)
@@ -105,32 +107,69 @@ class CustomCommandsService(Cog):
                 logger.exception("Could not sync custom slash commands for guild %s", guild_id)
 
     def _make_slash_command(self, guild_id: int, name: str) -> app_commands.Command:
-        async def callback(interaction: discord.Interaction, args: str = ""):
-            entry = self._commands.get(guild_id, {}).get(name)
-            if entry is None or not entry.get("use_slash"):
-                await interaction.response.send_message(
-                    "Dieser Custom Command ist nicht mehr verfügbar.", ephemeral=True
-                )
-                return
-            rendered = self._render(entry["response"], interaction.user, interaction.guild,
-                                    interaction.channel, args)
-            await interaction.response.send_message(
-                rendered,
-                allowed_mentions=discord.AllowedMentions(
-                    users=True, roles=False, everyone=False, replied_user=False
-                ),
-            )
+        entry = self._commands.get(guild_id, {}).get(name, {})
+        configured = entry.get("config", {}).get("parameters", [])
+        valid = []
+        seen = set()
+        type_names = {
+            "string": "str", "integer": "int", "boolean": "bool",
+            "user": "discord.Member", "channel": "discord.TextChannel", "role": "discord.Role",
+        }
+        for parameter in configured[:10]:
+            option = str(parameter.get("name", ""))
+            if re.fullmatch(r"[a-z][a-z0-9_]{0,31}", option) and option not in seen:
+                seen.add(option); valid.append(parameter)
 
-        return app_commands.Command(
+        async def runner(interaction: discord.Interaction, values: dict):
+            current = self._commands.get(guild_id, {}).get(name)
+            if current is None or not current.get("use_slash"):
+                await interaction.response.send_message("Dieser Custom Command ist nicht mehr verfügbar.", ephemeral=True); return
+            if not self._allowed(current, interaction.user):
+                await interaction.response.send_message("Du darfst diesen Command nicht verwenden.", ephemeral=True); return
+            if self._on_cooldown(guild_id, name, interaction.user.id, current):
+                await interaction.response.send_message("Dieser Command hat für dich noch Cooldown.", ephemeral=True); return
+            values = {key: value for key, value in values.items() if key != "interaction" and value is not None}
+            arguments = " ".join(getattr(value, "mention", str(value)) for value in values.values())
+            sent = False
+            async def send(text):
+                nonlocal sent
+                kwargs = {"allowed_mentions": discord.AllowedMentions(users=True, roles=False, everyone=False)}
+                if not sent: await interaction.response.send_message(text, **kwargs); sent = True
+                else: await interaction.followup.send(text, **kwargs)
+            await self._run_actions(current, interaction.user, interaction.guild, interaction.channel, arguments, send, values)
+            if not sent and not interaction.response.is_done():
+                await interaction.response.send_message("Command ausgeführt.", ephemeral=True)
+
+        if valid:
+            declarations = []
+            for parameter in valid:
+                annotation = type_names.get(parameter.get("type"), "str")
+                suffix = "" if parameter.get("required") else " = None"
+                declarations.append(f"{parameter['name']}: {annotation}{suffix}")
+            source = "async def callback(interaction: discord.Interaction, *, " + ", ".join(declarations) + "):\n    return await runner(interaction, locals())"
+            namespace = {"discord": discord, "runner": runner}
+            exec(source, namespace)
+            callback = namespace["callback"]
+        else:
+            async def callback(interaction: discord.Interaction, args: str = ""):
+                await runner(interaction, {"args": args})
+
+        command = app_commands.Command(
             name=name,
-            description=f"Custom Command: {name}"[:100],
+            description=str(entry.get("config", {}).get("description") or f"Custom Command: {name}")[:100],
             callback=callback,
         )
+        descriptions = {p["name"]: str(p.get("description") or p["name"])[:100] for p in valid}
+        if descriptions:
+            command._params.update({key: value for key, value in command._params.items()})
+            for key, description in descriptions.items():
+                command._params[key].description = description
+        return command
 
     @staticmethod
-    def _render(response: str, user, guild, channel, arguments: str) -> str:
+    def _render(response: str, user, guild, channel, arguments: str, variables: dict | None = None) -> str:
         channel_text = getattr(channel, "mention", "#unbekannt")
-        return (
+        rendered = (
             response
             .replace("{user}", user.mention)
             .replace("{user_name}", user.display_name)
@@ -138,6 +177,64 @@ class CustomCommandsService(Cog):
             .replace("{channel}", channel_text)
             .replace("{args}", arguments.strip())
         )
+        for key, value in (variables or {}).items():
+            rendered = rendered.replace("{" + key + "}", getattr(value, "mention", str(value)))
+            rendered = rendered.replace("{option." + key + "}", getattr(value, "mention", str(value)))
+        return rendered
+
+    def _allowed(self, entry: dict, member) -> bool:
+        config = entry.get("config", {})
+        if not config.get("enabled", True):
+            return False
+        users = {str(value) for value in config.get("allowed_users", [])}
+        roles = {str(value) for value in config.get("allowed_roles", [])}
+        if str(member.id) in users:
+            return True
+        if roles and any(str(role.id) in roles for role in getattr(member, "roles", [])):
+            return True
+        return not users and not roles and not config.get("deny_without_role", False)
+
+    def _on_cooldown(self, guild_id: int, name: str, user_id: int, entry: dict) -> bool:
+        seconds = max(0, min(86400, int(entry.get("config", {}).get("cooldown", 0) or 0)))
+        if not seconds:
+            return False
+        key = (guild_id, name, user_id)
+        now = time.monotonic()
+        if now < self._cooldowns.get(key, 0):
+            return True
+        self._cooldowns[key] = now + seconds
+        return False
+
+    async def _run_actions(self, entry: dict, member, guild, channel, arguments: str, send, variables: dict | None = None):
+        config = entry.get("config", {})
+        actions = config.get("actions") or [{"type": "reply", "text": entry["response"]}]
+
+        async def run(items, depth=0):
+            if depth > 4:
+                return
+            for action in items[:25]:
+                kind = action.get("type")
+                text = self._render(str(action.get("text", "")), member, guild, channel, arguments, variables)
+                if kind == "reply" and text:
+                    await send(text)
+                elif kind == "dm" and text:
+                    await member.send(text)
+                elif kind == "send_channel" and text:
+                    target = guild.get_channel(int(action.get("channel_id", 0) or 0))
+                    if target is not None:
+                        await target.send(text, allowed_mentions=discord.AllowedMentions.none())
+                elif kind in ("add_role", "remove_role"):
+                    role = guild.get_role(int(action.get("role_id", 0) or 0))
+                    if role is not None:
+                        if kind == "add_role":
+                            await member.add_roles(role, reason="Custom Command")
+                        else:
+                            await member.remove_roles(role, reason="Custom Command")
+                elif kind == "condition_role":
+                    role_id = int(action.get("role_id", 0) or 0)
+                    has_role = any(role.id == role_id for role in getattr(member, "roles", []))
+                    await run(action.get("then", []) if has_role else action.get("else", []), depth + 1)
+        await run(actions)
 
     async def invocation(self, message: discord.Message):
         """Return (name, arguments, entry), or None when this is not ours."""
@@ -159,7 +256,7 @@ class CustomCommandsService(Cog):
             body = message.content[len(prefix):].strip()
             name, _, arguments = body.partition(" ")
             entry = configured.get(name.lower())
-            if (entry is not None and entry.get("use_prefix")
+            if (entry is not None and entry.get("use_prefix") and self._allowed(entry, message.author)
                     and self.bot.get_command(name.lower()) is None):
                 return name.lower(), arguments.strip(), entry
             return None
@@ -167,10 +264,10 @@ class CustomCommandsService(Cog):
         plain = message.content.strip()
         lowered = plain.lower()
         for name, entry in configured.items():
-            if entry.get("use_exact") and lowered == name:
+            if entry.get("use_exact") and lowered == name and self._allowed(entry, message.author):
                 return name, "", entry
         for name, entry in configured.items():
-            if not entry.get("use_contains"):
+            if not entry.get("use_contains") or not self._allowed(entry, message.author):
                 continue
             match = re.search(rf"(?<!\w){re.escape(name)}(?!\w)", plain, re.IGNORECASE)
             if match:
@@ -189,15 +286,18 @@ class CustomCommandsService(Cog):
             found = await self.invocation(message)
             if found is None:
                 return
-            _name, arguments, entry = found
-            rendered = self._render(
-                entry["response"], message.author, message.guild, message.channel, arguments
-            )
-            await message.channel.send(
-                rendered,
-                allowed_mentions=discord.AllowedMentions(
-                    users=True, roles=False, everyone=False, replied_user=False
-                ),
+            name, arguments, entry = found
+            if self._on_cooldown(message.guild.id, name, message.author.id, entry):
+                return
+            async def send(text):
+                await message.channel.send(
+                    text,
+                    allowed_mentions=discord.AllowedMentions(
+                        users=True, roles=False, everyone=False, replied_user=False
+                    ),
+                )
+            await self._run_actions(
+                entry, message.author, message.guild, message.channel, arguments, send
             )
         except Exception:
             logger.exception(

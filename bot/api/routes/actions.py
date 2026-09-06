@@ -13,6 +13,7 @@ happened instead of silently succeeding.
 from __future__ import annotations
 
 import json
+import re
 from typing import TYPE_CHECKING
 
 import aiosqlite
@@ -778,6 +779,21 @@ async def save_custom_command(
     use_exact = bool(data.get("use_exact", False))
     use_contains = bool(data.get("use_contains", False))
     use_slash = bool(data.get("use_slash", False))
+    config = data.get("config") if isinstance(data.get("config"), dict) else {}
+    actions = config.get("actions", [])
+    parameters = config.get("parameters", [])
+    if not isinstance(actions, list) or len(actions) > 25:
+        raise HTTPException(status_code=400, detail="Der Flow darf höchstens 25 Schritte enthalten.")
+    if not isinstance(parameters, list) or len(parameters) > 10:
+        raise HTTPException(status_code=400, detail="Es sind höchstens 10 Parameter möglich.")
+    parameter_names = []
+    for parameter in parameters:
+        parameter_name = str(parameter.get("name", "")) if isinstance(parameter, dict) else ""
+        if not re.fullmatch(r"[a-z][a-z0-9_]{0,31}", parameter_name):
+            raise HTTPException(status_code=400, detail="Jeder Parameter braucht einen gültigen Namen.")
+        if parameter_name in parameter_names:
+            raise HTTPException(status_code=400, detail="Parameternamen dürfen nicht doppelt vorkommen.")
+        parameter_names.append(parameter_name)
     if not any((use_prefix, use_exact, use_contains, use_slash)):
         raise HTTPException(status_code=400, detail="Wähle mindestens eine Erkennungsart aus.")
     if not custom_command_store.valid_name(name):
@@ -799,7 +815,7 @@ async def save_custom_command(
         saved = await custom_command_store.save(
             db, guild_id, name, response, actor,
             use_prefix=use_prefix, use_exact=use_exact,
-            use_contains=use_contains, use_slash=use_slash,
+            use_contains=use_contains, use_slash=use_slash, config=config,
         )
     finally:
         await db.close()

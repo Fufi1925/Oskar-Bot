@@ -14,7 +14,7 @@ class Sent:
  def __init__(self): self.items=[];self.id=55;self.mention='<#55>'
  async def send(self,text,**kw): self.items.append(text)
 class Author:
- bot=False;mention='<@42>';display_name='Alex'
+ id=42;bot=False;mention='<@42>';display_name='Alex';roles=[]
 class Guild:id=77;name='Testserver'
 class Message:
  def __init__(self,text,ch):self.guild=Guild();self.author=Author();self.channel=ch;self.content=text
