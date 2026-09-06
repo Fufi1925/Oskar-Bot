@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import {
-  Check, KeyRound, Loader2, Plus, ShieldCheck, Trash2, UserRound, UsersRound,
+  Check, KeyRound, Loader2, Plus, Trash2, UserRound, UsersRound,
 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
@@ -104,14 +104,46 @@ export function GuildAccessPanel({ guildId }: { guildId: string }) {
   );
 
   if (denied) return (
-    <div className="rounded-3xl border border-amber-400/25 bg-amber-400/[0.06] p-6 flex gap-4">
-      <ShieldCheck className="h-6 w-6 text-amber-300 shrink-0" />
-      <div>
-        <h3 className="font-bold text-white">Server-Verwaltung erforderlich</h3>
-        <p className="mt-1 text-sm text-amber-100/70">
-          Nur der Server-Inhaber oder Mitglieder mit „Server verwalten“ dürfen
-          Dashboard-Zugänge vergeben und entfernen.
-        </p>
+    <div className="relative overflow-hidden rounded-3xl border border-blue-400/25 bg-[#10141d] min-h-[430px]">
+      {/* A real preview of the page remains visible underneath, like the
+          Premium lock. It cannot be clicked and contains no access data. */}
+      <div aria-hidden="true" className="pointer-events-none select-none p-6 blur-[7px] opacity-35">
+        <div className="mb-6 rounded-2xl border border-blue-400/20 bg-blue-400/[0.06] p-5">
+          <div className="h-4 w-48 rounded bg-blue-300/30" />
+          <div className="mt-3 h-3 w-3/4 rounded bg-slate-500/30" />
+        </div>
+        <div className="grid gap-5 md:grid-cols-2">
+          {[0, 1].map((column) => (
+            <div key={column} className="rounded-2xl border border-slate-700 bg-[#131318] p-5">
+              <div className="h-4 w-36 rounded bg-slate-400/30" />
+              <div className="mt-5 h-11 rounded-xl border border-slate-700 bg-black/30" />
+              <div className="mt-4 space-y-3">
+                {[0, 1, 2].map((row) => (
+                  <div key={row} className="flex items-center gap-3 rounded-xl border border-slate-800 p-3">
+                    <div className="h-8 w-8 rounded-lg bg-blue-400/20" />
+                    <div className="h-3 flex-1 rounded bg-slate-500/30" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="absolute inset-0 flex items-center justify-center bg-[#090b0f]/55 backdrop-blur-[2px] p-6">
+        <div className="max-w-md text-center">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-blue-400/35 bg-blue-500/15 shadow-xl shadow-blue-500/10">
+            <KeyRound className="h-7 w-7 text-blue-300" />
+          </div>
+          <div className="mt-5 inline-flex rounded-full border border-blue-400/25 bg-blue-400/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-blue-300">
+            Nur Server-Inhaber
+          </div>
+          <h3 className="mt-4 text-xl font-black text-white">Dashboard Access ist geschützt</h3>
+          <p className="mt-2 text-sm leading-relaxed text-blue-100/65">
+            Ausschließlich der tatsächliche Discord-Server-Inhaber darf Nutzer
+            und Rollen für dieses Dashboard freischalten oder entfernen.
+          </p>
+        </div>
       </div>
     </div>
   );

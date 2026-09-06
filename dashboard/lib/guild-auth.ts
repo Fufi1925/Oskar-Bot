@@ -198,6 +198,21 @@ export async function managesGuildOnDiscord(guildId: string): Promise<boolean> {
   }
 }
 
+/** True only for Discord's actual server owner — administrator is not enough. */
+export async function ownsGuildOnDiscord(guildId: string): Promise<boolean> {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id || !session.accessToken) return false;
+  if (!/^\d{17,20}$/.test(String(guildId))) return false;
+
+  try {
+    const guilds = await fetchUserGuilds(session.accessToken);
+    const guild = guilds.find((item) => String(item.id) === String(guildId));
+    return guild?.owner === true;
+  } catch {
+    return false;
+  }
+}
+
 export interface GuildAccessResult {
   allowed: boolean;
   /** HTTP status to answer with when `allowed` is false. */

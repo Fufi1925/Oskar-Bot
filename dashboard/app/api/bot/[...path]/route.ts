@@ -20,6 +20,7 @@ import { authOptions } from "@/lib/auth";
 import {
   verifyGuildAccess,
   managesGuildOnDiscord,
+  ownsGuildOnDiscord,
   verifyAdminAccess,
   isGlobalAdmin,
   fetchTeamAccess,
@@ -171,21 +172,19 @@ async function authorize(
   }
 
   if (scope === "guild-access") {
-    // Delegating entry to an entire server is security-sensitive. Only a
-    // Discord server manager (or a global bot admin) may view or change this
-    // list. A person who merely received delegated access cannot widen it.
+    // This list controls who may enter the entire server dashboard. Not even
+    // Administrator / Manage Server or a global bot admin may widen it: only
+    // Discord's actual server owner can view and change the grants.
     const guildId = rest[0] ?? "";
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) return { ok: false, response: deny(401, "Not signed in.") };
     if (!/^\d{17,20}$/.test(guildId)) {
       return { ok: false, response: deny(400, "Invalid guild id.") };
     }
-    if (isGlobalAdmin(session.user.id) || await managesGuildOnDiscord(guildId)) {
-      return { ok: true };
-    }
+    if (await ownsGuildOnDiscord(guildId)) return { ok: true };
     return {
       ok: false,
-      response: deny(403, "Only the server owner or a member with Manage Server may change dashboard access."),
+      response: deny(403, "Only the Discord server owner may manage dashboard access."),
     };
   }
 
