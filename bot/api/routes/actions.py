@@ -22,7 +22,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from api.dependencies import get_bot
 from utils.panels import Panel, ACCENT
-from utils import feature_audit
+from utils import feature_audit, feature_gates
 from utils import custom_commands as custom_command_store
 from utils.panels import from_embed
 
@@ -762,9 +762,12 @@ async def list_custom_commands(guild_id: int):
         rows = await custom_command_store.list_all(db, guild_id)
     finally:
         await db.close()
+    premium = feature_gates.is_premium_guild(guild_id)
+    limit = (custom_command_store.PREMIUM_MAX_COMMANDS
+             if premium else custom_command_store.FREE_MAX_COMMANDS)
     return {
         "guild_id": str(guild_id), "commands": rows,
-        "count": len(rows), "limit": custom_command_store.MAX_COMMANDS,
+        "count": len(rows), "limit": limit, "premium": premium,
     }
 
 
@@ -816,11 +819,17 @@ async def save_custom_command(
             db, guild_id, name, response, actor,
             use_prefix=use_prefix, use_exact=use_exact,
             use_contains=use_contains, use_slash=use_slash, config=config,
+            max_commands=(custom_command_store.PREMIUM_MAX_COMMANDS
+                          if feature_gates.is_premium_guild(guild_id)
+                          else custom_command_store.FREE_MAX_COMMANDS),
         )
     finally:
         await db.close()
     if not saved:
-        raise HTTPException(status_code=409, detail="Pro Server sind höchstens 3 Custom Commands möglich.")
+        limit = (custom_command_store.PREMIUM_MAX_COMMANDS
+                 if feature_gates.is_premium_guild(guild_id)
+                 else custom_command_store.FREE_MAX_COMMANDS)
+        raise HTTPException(status_code=409, detail=f"Für diesen Server sind höchstens {limit} Custom Commands möglich.")
     await _refresh_custom_commands(bot, guild_id)
     await feature_audit.log_action(
         "custom_command_saved", actor=actor, guild_id=guild_id, detail=name

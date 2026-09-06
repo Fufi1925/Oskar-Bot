@@ -991,7 +991,7 @@ export const api = {
 
   // Custom Commands (maximum three per server)
   getCustomCommands: (guildId: string) =>
-    request<{ commands: any[]; count: number; limit: number }>(`/actions/${guildId}/custom-commands`),
+    request<{ commands: any[]; count: number; limit: number; premium: boolean }>(`/actions/${guildId}/custom-commands`),
   saveCustomCommand: (
     guildId: string,
     name: string,

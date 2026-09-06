@@ -11,7 +11,10 @@ import aiosqlite
 from utils import db_open
 
 DB_PATH = "db/custom_commands.db"
-MAX_COMMANDS = 3
+FREE_MAX_COMMANDS = 3
+PREMIUM_MAX_COMMANDS = 20
+# Kept for callers/tests that explicitly mean the free plan.
+MAX_COMMANDS = FREE_MAX_COMMANDS
 NAME_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,31}$")
 
 
@@ -80,7 +83,7 @@ async def save(
     db: aiosqlite.Connection, guild_id: int, name: str, response: str, actor: str,
     *, use_prefix: bool = True, use_exact: bool = False,
     use_contains: bool = False, use_slash: bool = False,
-    config: dict | None = None,
+    config: dict | None = None, max_commands: int = FREE_MAX_COMMANDS,
 ) -> bool:
     now = int(time.time())
     # The limit check and insert are one SQLite statement, so concurrent
@@ -100,7 +103,7 @@ async def save(
         (guild_id, name, response, actor, now, now,
          int(use_prefix), int(use_exact), int(use_contains), int(use_slash),
          json.dumps(config or {}, ensure_ascii=False),
-         guild_id, MAX_COMMANDS, guild_id, name),
+         guild_id, max(1, int(max_commands)), guild_id, name),
     )
     await db.commit()
     return cursor.rowcount > 0

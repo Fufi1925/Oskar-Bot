@@ -31,6 +31,9 @@ async def main():
   assert await store.save(db,77,'drei','Hallo {user} in {server}: {args}','test', use_exact=True, use_contains=True, use_slash=True)
   assert not await store.save(db,77,'vier','4','test')
   assert await store.save(db,77,'drei','Hi {user_name}: {args}','test', use_exact=True, use_contains=True, use_slash=True)
+  for index in range(20):
+   assert await store.save(db,78,f'premium-{index}','ok','test',max_commands=20)
+  assert not await store.save(db,78,'premium-20','no','test',max_commands=20)
  finally:await db.close()
  service=CustomCommandsService(Bot());await service.refresh()
  channel=Sent();await service.on_message(Message('>drei Welt',channel))
