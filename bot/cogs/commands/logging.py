@@ -2394,6 +2394,15 @@ class Logging(commands.Cog):
             if not message.guild or message.author.bot:
                 return
 
+            # Der anonyme Chat löscht jede Originalnachricht absichtlich.
+            # Diese Löschung darf nicht den Autor im allgemeinen Log-System
+            # offenlegen; dafür besitzt Anonchat sein eigenes, geschütztes Log.
+            anonchat = self.bot.get_cog("AnonymousChatService")
+            if anonchat is not None and anonchat.is_active(
+                message.guild.id, message.channel.id
+            ):
+                return
+
             embed = self._create_modern_embed("Message Deleted")
             embed.set_author(
                 name=message.author.display_name,
@@ -2962,6 +2971,12 @@ class Logging(commands.Cog):
                 return
             first = messages[0]
             if first.guild is None:
+                return
+
+            anonchat = self.bot.get_cog("AnonymousChatService")
+            if anonchat is not None and anonchat.is_active(
+                first.guild.id, first.channel.id
+            ):
                 return
 
             embed = self._create_modern_embed("Messages Purged")

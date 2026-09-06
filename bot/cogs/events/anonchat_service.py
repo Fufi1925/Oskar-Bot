@@ -19,6 +19,7 @@ from discord.ext import commands
 from core import Cog
 from utils import anonchat_store as store
 from utils import db_open
+from utils.emoji import CROSS
 
 logger = logging.getLogger("anonymous_chat")
 
@@ -185,6 +186,19 @@ class AnonymousChatService(Cog):
             raise ValueError("Die Testnachricht ist leer.")
         return await self._send(channel, normal, cleaned, [])
 
+    async def send_disabled_notice(self, channel: discord.TextChannel):
+        """Kurze Components-V2-Meldung, sobald der Kanal wieder normal ist."""
+        view = discord.ui.LayoutView(timeout=None)
+        view.add_item(discord.ui.Container(
+            discord.ui.TextDisplay(
+                f"## {CROSS} Anonymer Chat ist aus\n"
+                "Ab sofort werden Nachrichten wieder normal mit dem Namen des "
+                "Absenders angezeigt und vom allgemeinen Log-System erfasst."
+            ),
+            accent_color=discord.Color.red(),
+        ))
+        return await channel.send(view=view)
+
     async def _send(self, channel, settings: dict, content: str, files: list):
         allowed_mentions = (
             discord.AllowedMentions.all()
@@ -341,6 +355,14 @@ class AnonymousChatService(Cog):
         finally:
             await db.close()
         await self.refresh(ctx.guild.id)
+        if removed:
+            try:
+                await self.send_disabled_notice(channel)
+            except Exception:
+                logger.exception(
+                    "Could not send disabled notice to anonymous channel %s",
+                    channel.id,
+                )
         await ctx.send(
             f"✅ {channel.mention} ist wieder normal."
             if removed else "Dieser Kanal war nicht als anonym gespeichert."

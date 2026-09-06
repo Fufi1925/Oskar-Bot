@@ -234,16 +234,30 @@ async def delete_anonchat(
     guild_id: int, channel_id: int, actor: str = "",
     bot: "universitybot" = Depends(get_bot),
 ):
+    guild = _guild_or_404(bot, guild_id)
+    channel = guild.get_channel(channel_id)
     db = await _db()
     if not await store.delete_channel(db, guild_id, channel_id):
         raise HTTPException(status_code=404, detail="Dieser Kanal war nicht anonym.")
 
     await _refresh(bot, guild_id)
+    warning = None
+    cog = bot.get_cog("AnonymousChatService")
+    if channel is not None and cog is not None:
+        try:
+            await cog.send_disabled_notice(channel)
+        except Exception as exc:
+            warning = f"Deaktiviert, aber die Discord-Meldung schlug fehl: {exc}"
+
     await feature_audit.log_action(
         "anonchat_removed", actor=actor or "dashboard",
         guild_id=guild_id, detail=str(channel_id),
     )
-    return {"status": "success", "result": "Der Kanal ist wieder normal."}
+    return {
+        "status": "success",
+        "result": "Der Kanal ist wieder normal.",
+        "warning": warning,
+    }
 
 
 # ══════════════════════════════════════════════════════════════════════

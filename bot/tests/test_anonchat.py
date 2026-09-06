@@ -223,6 +223,7 @@ def run():
     from api.db_manager import db_manager
     from api.server import create_app
     from cogs.events.anonchat_service import AnonymousChatService
+    from cogs.commands.logging import Logging
     from fastapi.testclient import TestClient
     from utils import anonchat_store as store
 
@@ -552,9 +553,35 @@ def run():
     check("recent entries survive the prune",
           all("uralt" not in e["content"] for e in remaining), str(len(remaining)))
 
+    # The general deletion logger must not expose authors while this channel
+    # is anonymous; Anonchat already keeps its own protected moderation log.
+    async def check_general_log_is_skipped():
+        logger_cog = object.__new__(Logging)
+        logger_cog.bot = bot
+        called = False
+
+        async def unexpected_log(*_args, **_kwargs):
+            nonlocal called
+            called = True
+
+        logger_cog._send_log = unexpected_log
+        await Logging.on_message_delete(
+            logger_cog, FakeMessage(alice, guild.channel, "geheim")
+        )
+        return not called
+
+    check("the general deletion logger skips active anonymous channels",
+          asyncio.run(check_general_log_is_skipped()))
+
     # Removing the channel again.
+    sent_before_disable = len(guild.channel.sent)
     r = client.delete(f"{base}/{CHANNEL}")
     check("a channel can be made normal again", r.status_code == 200, r.text[:140])
+    check("disabling posts a Components V2 notice in Discord",
+          len(guild.channel.sent) == sent_before_disable + 1
+          and isinstance(guild.channel.sent[-1], discord.ui.LayoutView))
+    check("the normal logger takes over immediately after disabling",
+          not cog.is_active(GUILD, int(CHANNEL)))
     r = client.delete(f"{base}/{CHANNEL}")
     check("deleting it twice gives 404", r.status_code == 404)
 
