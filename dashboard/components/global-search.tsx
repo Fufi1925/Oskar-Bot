@@ -34,6 +34,7 @@ const TARGETS: SearchTarget[] = [
   { label: "Server Overview", href: "/dashboard/guild/{g}", icon: Layers, group: "Server", keywords: "stats info", guildScoped: true },
   { label: "Anti-Nuke", href: "/dashboard/guild/{g}/antinuke", icon: ShieldCheck, group: "Security", keywords: "protection raid nuke whitelist", guildScoped: true },
   { label: "Dashboard Access", href: "/dashboard/guild/{g}/dashboard-access", icon: Users, group: "Verwaltung", keywords: "zugang rollen user nutzer freigabe", guildScoped: true },
+  { label: "Custom Commands", href: "/dashboard/guild/{g}/custom-commands", icon: Command, group: "Aktivität", keywords: "eigene befehle command antwort", guildScoped: true },
   { label: "Automod", href: "/dashboard/guild/{g}/automod", icon: ShieldCheck, group: "Security", keywords: "spam caps links invites filter", guildScoped: true },
   { label: "Verification", href: "/dashboard/guild/{g}/verification", icon: UserCheck, group: "Security", keywords: "captcha verify gate", guildScoped: true },
 

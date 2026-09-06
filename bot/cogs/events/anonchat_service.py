@@ -81,6 +81,9 @@ class AnonymousChatService(Cog):
                         prefixes = [prefixes]
                     if any(message.content.startswith(p) for p in prefixes or []):
                         return
+                custom_commands = self.bot.get_cog("CustomCommandsService")
+                if custom_commands is not None and await custom_commands.matches(message):
+                    return
             except Exception:
                 logger.exception(
                     "Command detection failed in anonymous channel %s; relaying as text",

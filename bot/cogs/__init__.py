@@ -32,6 +32,7 @@ from .commands.ignore import Ignore
 from .commands.Media import Media
 from .commands.Invc import Invcrole
 from .events.anonchat_service import AnonymousChatService
+from .events.custom_commands_service import CustomCommandsService
 from .commands.giveaway import Giveaway
 from .commands.honeypot import Honeypot
 from .commands.backup_auto import BackupAuto
@@ -227,6 +228,7 @@ async def setup(bot: universitybot):
   await bot.add_cog(Ignore(bot))
   await bot.add_cog(Invcrole(bot))
   await bot.add_cog(AnonymousChatService(bot))
+  await bot.add_cog(CustomCommandsService(bot))
   await bot.add_cog(Giveaway(bot))
   await bot.add_cog(Honeypot(bot))
   await bot.add_cog(BackupAuto(bot))

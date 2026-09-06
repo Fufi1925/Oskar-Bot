@@ -22,6 +22,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from api.dependencies import get_bot
 from utils.panels import Panel, ACCENT
 from utils import feature_audit
+from utils import custom_commands as custom_command_store
 from utils.panels import from_embed
 
 if TYPE_CHECKING:
@@ -735,6 +736,88 @@ async def cancel_giveaway(guild_id: int, message_id: int, actor: str = ""):
         "giveaway_cancelled", actor=actor, guild_id=guild_id, detail=str(message_id)
     )
     return {"status": "success", "result": "Giveaway cancelled."}
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#  Custom commands — deliberately limited to three per server
+# ══════════════════════════════════════════════════════════════════════════
+
+
+async def _refresh_custom_commands(bot, guild_id: int):
+    service = bot.get_cog("CustomCommandsService")
+    if service is None:
+        raise HTTPException(status_code=503, detail="Custom-Command-Dienst ist nicht geladen.")
+    await service.refresh(guild_id)
+
+
+@router.get("/{guild_id}/custom-commands", summary="List custom commands")
+async def list_custom_commands(guild_id: int):
+    db = await custom_command_store.connect()
+    try:
+        rows = await custom_command_store.list_all(db, guild_id)
+    finally:
+        await db.close()
+    return {
+        "guild_id": str(guild_id), "commands": rows,
+        "count": len(rows), "limit": custom_command_store.MAX_COMMANDS,
+    }
+
+
+@router.post("/{guild_id}/custom-commands", summary="Create or update a custom command")
+async def save_custom_command(
+    guild_id: int, data: dict, bot: "universitybot" = Depends(get_bot)
+):
+    name = custom_command_store.normalise_name(data.get("name", ""))
+    response = str(data.get("response", "")).strip()
+    actor = str(data.get("actor", "dashboard"))
+    if not custom_command_store.valid_name(name):
+        raise HTTPException(
+            status_code=400,
+            detail="Der Name darf nur Buchstaben, Zahlen, - und _ enthalten (maximal 32).",
+        )
+    if bot.get_command(name) is not None:
+        raise HTTPException(status_code=409, detail="Dieser Name gehört bereits zu einem Bot-Befehl.")
+    if not response:
+        raise HTTPException(status_code=400, detail="Die Antwort darf nicht leer sein.")
+    if len(response) > 1900:
+        raise HTTPException(status_code=400, detail="Die Antwort darf höchstens 1900 Zeichen haben.")
+
+    db = await custom_command_store.connect()
+    try:
+        saved = await custom_command_store.save(db, guild_id, name, response, actor)
+    finally:
+        await db.close()
+    if not saved:
+        raise HTTPException(status_code=409, detail="Pro Server sind höchstens 3 Custom Commands möglich.")
+    await _refresh_custom_commands(bot, guild_id)
+    await feature_audit.log_action(
+        "custom_command_saved", actor=actor, guild_id=guild_id, detail=name
+    )
+    return {"status": "success", "name": name}
+
+
+@router.delete("/{guild_id}/custom-commands/{name}", summary="Delete a custom command")
+async def delete_custom_command(
+    guild_id: int, name: str, actor: str = "", bot: "universitybot" = Depends(get_bot)
+):
+    clean = custom_command_store.normalise_name(name)
+    db = await custom_command_store.connect()
+    try:
+        cursor = await db.execute(
+            "DELETE FROM custom_commands WHERE guild_id = ? AND name = ? COLLATE NOCASE",
+            (guild_id, clean),
+        )
+        await db.commit()
+        if cursor.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Custom Command nicht gefunden.")
+    finally:
+        await db.close()
+    await _refresh_custom_commands(bot, guild_id)
+    await feature_audit.log_action(
+        "custom_command_deleted", actor=actor or "dashboard",
+        guild_id=guild_id, detail=clean,
+    )
+    return {"status": "success"}
 
 
 # ══════════════════════════════════════════════════════════════════════════

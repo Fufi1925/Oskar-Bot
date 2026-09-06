@@ -989,6 +989,19 @@ export const api = {
       method: "DELETE",
     }),
 
+  // Custom Commands (maximum three per server)
+  getCustomCommands: (guildId: string) =>
+    request<{ commands: any[]; count: number; limit: number }>(`/actions/${guildId}/custom-commands`),
+  saveCustomCommand: (guildId: string, name: string, response: string) =>
+    request<any>(`/actions/${guildId}/custom-commands`, {
+      method: "POST",
+      body: JSON.stringify({ name, response }),
+    }),
+  deleteCustomCommand: (guildId: string, name: string) =>
+    request<any>(`/actions/${guildId}/custom-commands/${encodeURIComponent(name)}`, {
+      method: "DELETE",
+    }),
+
   // Emergency lockdown
   getEmergency: (guildId: string) => request<any>(`/actions/${guildId}/emergency`),
   setEmergency: (guildId: string, enable: boolean) =>

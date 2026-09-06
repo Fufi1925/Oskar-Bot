@@ -109,6 +109,7 @@ const ACTION_PERMISSIONS: Record<string, { GET?: string; WRITE?: string }> = {
   automod: { GET: "automod.view" },
   giveaways: { GET: "guild.view", WRITE: "settings.edit" },
   autoresponder: { GET: "guild.view", WRITE: "settings.edit" },
+  "custom-commands": { GET: "guild.view", WRITE: "settings.edit" },
   emergency: { GET: "antinuke.view", WRITE: "antinuke.edit" },
 };
 

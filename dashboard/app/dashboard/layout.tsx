@@ -25,7 +25,7 @@ import { useProximity } from "@/components/ui/proximity";
 import { PopoverLayer } from "@/components/ui/popover-layer";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 import {
-  LayoutDashboard, Palette, ScrollText, Server, ShieldCheck, ShieldAlert, Ticket, BarChart4, FileText, Settings,
+  LayoutDashboard, Palette, ScrollText, Server, ShieldCheck, ShieldAlert, Ticket, BarChart4, Command, FileText, Settings,
   Menu, X, Bell, User, Search, ChevronRight, Star, Sparkles, LogOut,
   Lock, PenLine, Gem, Pin, Moon, Calculator, Youtube, Cake, Crown,
   Database,
@@ -269,6 +269,7 @@ export default function DashboardLayout({
             { name: "Benachrichtigungen", href: `/dashboard/guild/${currentGuildId}/notify`, icon: Youtube },
             { name: "Auto-Reaktion", href: `/dashboard/guild/${currentGuildId}/autoreact`, icon: Settings },
             { name: "Autoresponder", href: `/dashboard/guild/${currentGuildId}/autoresponder`, icon: PenLine },
+            { name: "Custom Commands", href: `/dashboard/guild/${currentGuildId}/custom-commands`, icon: Command },
             { name: "Anonymer Chat (Beta)", href: `/dashboard/guild/${currentGuildId}/anonchat`, icon: Lock },
           ],
         },

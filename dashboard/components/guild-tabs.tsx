@@ -79,6 +79,7 @@ import {
   ShieldCheck,
   SmilePlus,
   ClipboardList,
+  Command,
   DoorOpen,
   Sparkles,
   Sword,
@@ -174,6 +175,7 @@ function buildGroups(t: TranslateFn): Group[] {
         { name: "Benachrichtigungen", slug: "notify", icon: Youtube, also: ["youtube", "notify", "live", "video"] },
         { name: "Auto-Reaktion", slug: "autoreact", icon: Zap, also: ["autoreact", "emoji"] },
         { name: "Autoresponder", slug: "autoresponder", icon: MessageSquare, also: ["autoresponder", "antwort"] },
+        { name: "Custom Commands", slug: "custom-commands", icon: Command, also: ["custom command", "eigene befehle", "befehl"] },
         {
           name: "Anonymer Chat",
           slug: "anonchat",
