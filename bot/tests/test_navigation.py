@@ -973,6 +973,9 @@ def test_public_mobile_drawer():
           'embedded ? "relative"' in theme)
     check("desktop navigation remains available",
           "hidden lg:flex items-center" in src)
+    check("the complete drawer also opens on desktop",
+          'aria-label="Komplettmenü"' in src
+          and 'h-dvh lg:hidden' not in src)
 
 
 def main():

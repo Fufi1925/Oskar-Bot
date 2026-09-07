@@ -296,12 +296,14 @@ export function SiteNav() {
             </button>
           )}
 
-          {/* Menüknopf für schmale Bildschirme. */}
+          {/* Zusätzliches Komplettmenü – auch am PC rechts neben dem Konto. */}
           <button
             type="button"
             onClick={() => setOffen((o) => !o)}
-            aria-label="Menü"
-            className="lg:hidden h-9 w-9 grid place-items-center rounded-xl border border-slate-800 text-slate-300"
+            aria-label="Komplettmenü"
+            aria-expanded={offen}
+            aria-controls="public-navigation-drawer"
+            className="h-9 w-9 grid place-items-center rounded-xl border border-slate-800 text-slate-300 hover:border-slate-700 hover:text-white transition-colors"
           >
             {offen ? (
               <X className="h-4 w-4" />
@@ -320,7 +322,7 @@ export function SiteNav() {
           so bezieht sich position:fixed zuverlässig auf den Viewport. */}
     </nav>
       {offen && (
-        <div className="fixed inset-0 top-0 z-[100] h-dvh lg:hidden" role="dialog" aria-modal="true" aria-label="Hauptmenü">
+        <div id="public-navigation-drawer" className="fixed inset-0 top-0 z-[100] h-dvh" role="dialog" aria-modal="true" aria-label="Hauptmenü">
           <button aria-label="Menü schließen" onClick={() => setOffen(false)} className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
           <aside className="absolute right-0 top-0 flex h-full w-[min(82vw,530px)] flex-col border-l border-slate-700 bg-[#101113] shadow-2xl shadow-black/70">
             <div className="flex items-center gap-4 border-b border-slate-700 px-6 py-7">
