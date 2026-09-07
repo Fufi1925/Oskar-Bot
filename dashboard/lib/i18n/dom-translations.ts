@@ -4161,6 +4161,24 @@ export const phrasePairs: Array<[de: string, en: string]> = [
   // Generator neu laufen lassen.
   // ════════════════════════════════════════════════════════════════
   ["Die letzte Aktualisierung des Verlaufs ist fehlgeschlagen. Angezeigt werden die zuletzt erfolgreich geladenen Messwerte; ein neuer Versuch läuft automatisch.", "The latest history update failed. The most recently loaded measurements are being displayed; another attempt will run automatically."],
+
+  // ════════════════════════════════════════════════════════════════
+  // Vollstaendige Abdeckung der Dashboard-Oberflaeche. Diese Eintraege
+  // stammen aus tools/build_dom_translations.py — nicht von Hand hier
+  // pflegen, sondern die Batches in tools/i18n_work/ anpassen und den
+  // Generator neu laufen lassen.
+  // ════════════════════════════════════════════════════════════════
+  ["Der Discord-Bot für Moderation, Tickets, Bewerbungen, Verifizierung und eine starke Community.", "The Discord bot for moderation, tickets, applications, verification, and a strong community."],
+  ["Discord Support-Server", "Discord support server"],
+  ["E-Mail", "Email"],
+  ["Erstellt mit", "Made with"],
+  ["Folge uns auf TikTok", "Follow us on TikTok"],
+  ["Links in der Fußzeile", "Footer links"],
+  ["Status prüfen", "Check status"],
+  ["Status wird geprüft …", "Checking status …"],
+  ["TikTok-Kanal", "TikTok channel"],
+  ["Unserem Discord beitreten", "Join our Discord"],
+  ["vom University-Team", "by University Team"],
 ];
 
 /**

@@ -158,7 +158,16 @@ def create_app() -> FastAPI:
         title=f"{BRAND_NAME} Bot API",
         description=f"REST API + Dashboard for {BRAND_NAME}",
         version="1.0",
-        lifespan=lifespan
+        lifespan=lifespan,
+        # Die öffentliche Website besitzt selbst /docs. FastAPIs automatisch
+        # erzeugte Swagger-Seite fing diesen Pfad vor dem Dashboard-Proxy ab:
+        # Navigation und Fußzeile verlinkten dadurch versehentlich die rohe
+        # API-Dokumentation. Die Bot-API behält ihre eigene Dokumentation unter
+        # /api/v1/docs; nur die drei Routen der übergeordneten Proxy-App werden
+        # abgeschaltet.
+        docs_url=None,
+        redoc_url=None,
+        openapi_url=None,
     )
 
     @app.middleware("http")

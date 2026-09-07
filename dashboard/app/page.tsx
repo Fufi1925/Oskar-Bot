@@ -45,13 +45,12 @@
 import React from "react";
 import Link from "next/link";
 import {
-  Activity, ArrowRight, BarChart4, Bot, Brain, Check, ChevronDown,
+  Activity, ArrowRight, BarChart4, Brain, Check, ChevronDown,
   ClipboardList, Gift, Hash, Headphones, Layers, Lock, Mail,
   MessageSquare, Mic, Music, PenLine, ShieldAlert, ShieldCheck,
   Sparkles, Ticket, UserCog, Users, Zap,
 } from "lucide-react";
 import { SiteNav, INVITE_URL } from "@/components/site-nav";
-import { SUPPORT_INVITE } from "@/lib/legal";
 import { cn } from "@/lib/utils";
 
 const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || "University Bot";
@@ -619,64 +618,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── Fußzeile ──────────────────────────────────────── */}
-      <footer className="border-t border-slate-800 px-6 lg:px-12 xl:px-20 py-14">
-        <div className="mx-auto max-w-[1400px]">
-          <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="lg:col-span-2">
-              <div className="flex items-center gap-2.5">
-                <Bot className="h-5 w-5 text-indigo-400" />
-                <span className="text-[19px] font-extrabold text-white">
-                  {BRAND}
-                </span>
-              </div>
-              <p className="mt-4 max-w-sm text-[14px] leading-relaxed text-slate-500">
-                Moderation, Tickets, Bewerbungen und Team-Verwaltung in
-                einem Bot &mdash; vollständig über das Dashboard
-                einzurichten.
-              </p>
-            </div>
 
-            <div>
-              <h4 className="text-[13px] font-bold uppercase tracking-widest text-slate-400">
-                Produkt
-              </h4>
-              <ul className="mt-4 space-y-3 text-[14px] text-slate-500">
-                <li><Link href="/docs" className="hover:text-white transition-colors">Dokumentation</Link></li>
-                <li><Link href="/dashboard" className="hover:text-white transition-colors">Dashboard</Link></li>
-                <li><Link href="/status" className="hover:text-white transition-colors">Status</Link></li>
-                <li><Link href="/team" className="hover:text-white transition-colors">Team</Link></li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="text-[13px] font-bold uppercase tracking-widest text-slate-400">
-                Rechtliches
-              </h4>
-              <ul className="mt-4 space-y-3 text-[14px] text-slate-500">
-                <li><Link href="/privacy" className="hover:text-white transition-colors">Datenschutz</Link></li>
-                <li><Link href="/terms" className="hover:text-white transition-colors">Nutzungsbedingungen</Link></li>
-                <li><Link href="/imprint" className="hover:text-white transition-colors">Impressum</Link></li>
-                <li>
-                  <a href={SUPPORT_INVITE} target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">
-                    Support-Server
-                  </a>
-                </li>
-              </ul>
-            </div>
-          </div>
-
-          <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-slate-800 pt-8 sm:flex-row">
-            <p className="text-[13px] text-slate-600">
-              &copy; 2026 {BRAND}. Alle Rechte vorbehalten.
-            </p>
-            <span className="flex items-center gap-2 text-[13px] text-slate-500">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-              Alle Systeme aktiv
-            </span>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 }

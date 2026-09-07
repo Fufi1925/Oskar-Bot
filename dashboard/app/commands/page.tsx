@@ -32,8 +32,6 @@ import { SiteNav } from "@/components/site-nav";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
-const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || "University Bot";
-
 interface Befehl {
   name: string;
   category: string;
@@ -334,18 +332,7 @@ export default function CommandsPage() {
         </div>
       </main>
 
-      <footer className="border-t border-slate-800 px-6 lg:px-12 py-10">
-        <div className="mx-auto max-w-[1100px] flex flex-wrap items-center justify-between gap-4">
-          <p className="text-[13px] text-slate-600">
-            &copy; 2026 {BRAND}
-          </p>
-          <div className="flex gap-6 text-[13px] text-slate-500">
-            <Link href="/" className="hover:text-white transition-colors">Start</Link>
-            <Link href="/docs" className="hover:text-white transition-colors">Dokumentation</Link>
-            <Link href="/dashboard" className="hover:text-white transition-colors">Dashboard</Link>
-          </div>
-        </div>
-      </footer>
+
     </div>
   );
 }

@@ -21,9 +21,12 @@ import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/components/auth-provider";
 import { GlobalPopups } from "@/components/global-popups";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { PublicFooter } from "@/components/public-footer";
 import { LanguageProvider } from "@/lib/i18n/LanguageContext";
+import { SUPPORT_INVITE } from "@/lib/legal";
 
 const brandName = process.env.NEXT_PUBLIC_BRAND_NAME || "University Bot";
+const footerEmail = process.env.FOOTER_EMAIL || "fufi1925@proton.me";
 
 export const metadata: Metadata = {
   title: `${brandName} - Ultimate Discord Bot`,
@@ -70,7 +73,10 @@ export default function RootLayout({
       </head>
       <body className="font-sans antialiased text-slate-200">
         <AuthProvider>
-          <LanguageProvider>{children}</LanguageProvider>
+          <LanguageProvider>
+            {children}
+            <PublicFooter supportInvite={SUPPORT_INVITE} email={footerEmail} />
+          </LanguageProvider>
           <Toaster />
           {/* Globale Hinweise bleiben während der wichtigen
               Login-Erfolgsanzeige geschlossen. Erst nach der Weiterleitung

@@ -4,6 +4,22 @@
 
 ---
 
+## 🧭 Einheitliche Fußzeile auf allen öffentlichen Seiten
+
+Startseite, Befehle, Dokumentation, Status, Team, Premium, Konto und die
+Rechtstexte verwenden jetzt dieselbe responsive Fußzeile. Auf dem Handy stehen
+Marke, Schnellzugriff und Kontakt übersichtlich untereinander; auf großen
+Bildschirmen bilden sie drei ruhige Spalten. Das Dashboard bleibt bewusst davon
+ausgenommen.
+
+Unten stehen „Made with ♥ by University Team · © 2026“ und rechts ein echter
+Live-Status. Er fragt den unabhängigen Statusdienst mit fünf Sekunden Timeout
+ab, aktualisiert sich alle 60 Sekunden und führt direkt zum vollständigen
+Verlauf. Kontakt, Discord und das gewünschte TikTok-Profil sind verlinkt;
+Instagram wird nicht angezeigt. Außerdem führt `/docs` jetzt wirklich zur
+Website-Dokumentation; vorher fing FastAPIs automatisch erzeugte Swagger-Seite
+diesen Pfad vor dem Dashboard ab.
+
 ## 📈 Status-Verlauf wieder sichtbar
 
 Der Statusdienst startet seinen öffentlichen HTTP-Server jetzt **vor** dem

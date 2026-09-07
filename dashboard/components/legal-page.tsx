@@ -1,5 +1,4 @@
 import React from "react";
-import Link from "next/link";
 import { SiteNav } from "@/components/site-nav";
 
 /**
@@ -56,21 +55,6 @@ export function LegalPage({
         </header>
 
         <div className="space-y-10">{children}</div>
-
-        <footer className="mt-24 pt-10 border-t border-slate-800 flex flex-wrap gap-x-8 gap-y-3 text-[14px] text-slate-500">
-          <Link href="/terms" className="hover:text-white transition-colors">
-            Nutzungsbedingungen
-          </Link>
-          <Link href="/privacy" className="hover:text-white transition-colors">
-            Datenschutz
-          </Link>
-          <Link href="/imprint" className="hover:text-white transition-colors">
-            Impressum
-          </Link>
-          <Link href="/team" className="hover:text-white transition-colors">
-            Team
-          </Link>
-        </footer>
       </main>
     </div>
   );
