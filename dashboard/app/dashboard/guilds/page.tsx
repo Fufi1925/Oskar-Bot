@@ -1,5 +1,6 @@
 import React from "react";
-import { ShieldCheck, Users } from "lucide-react";
+import Link from "next/link";
+import { Home, ShieldCheck, Users } from "lucide-react";
 import { api } from "@/lib/api";
 import { GuildSummary } from "@/types/api";
 import { getServerSession } from "next-auth/next";
@@ -120,6 +121,13 @@ export default async function GuildsPage() {
 
   return (
     <div className="space-y-6">
+      <Link
+        href="/"
+        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-800 bg-[#131318] px-3 py-1.5 text-[12px] font-semibold text-slate-400 transition-colors hover:border-slate-700 hover:text-white"
+      >
+        <Home className="h-3.5 w-3.5 text-sky-400" />
+        Zur Startseite
+      </Link>
       <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-end">
         <div>
           <h1 className="text-2xl font-bold text-white">Deine Server</h1>

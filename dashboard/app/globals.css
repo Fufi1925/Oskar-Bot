@@ -591,6 +591,9 @@ input[type="number"] {
 .prox-row {
   position: relative;
   transform: translateX(calc(var(--effect, 0) * var(--prox-shift, 37px)));
+  /* Eigene Compositor-Ebene: der alte Rechtslauf bleibt auch bei einer
+     großen, scrollenden Navigation flüssig und wird nicht wegoptimiert. */
+  will-change: transform;
 }
 
 /* Reaching a little past the row means it reacts just before the

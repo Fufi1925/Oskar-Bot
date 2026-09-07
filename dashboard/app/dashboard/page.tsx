@@ -6,6 +6,7 @@ import {
   ArrowRight,
   Bot,
   ChevronRight,
+  Home,
   LifeBuoy,
   Plus,
   Server as ServerIcon,
@@ -126,6 +127,13 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-5">
+      <Link
+        href="/"
+        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-800 bg-[#131318] px-3 py-1.5 text-[12px] font-semibold text-slate-400 transition-colors hover:border-slate-700 hover:text-white"
+      >
+        <Home className="h-3.5 w-3.5 text-sky-400" />
+        Zur Startseite
+      </Link>
       {/* ── Begrüßung ─────────────────────────────────────── */}
       <div className="flex flex-wrap items-center gap-4">
         {session?.user?.image && (

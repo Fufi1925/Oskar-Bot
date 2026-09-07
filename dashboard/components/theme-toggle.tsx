@@ -12,13 +12,13 @@ function applyTheme(theme: DashboardTheme) {
   if (meta) meta.content = theme === "light" ? "#f4f5f7" : "#0a0a0c";
 }
 
-/** Global, persistent light/dark switch. Light is the default for new users. */
+/** Global, persistent light/dark switch. Dark is the default for new users. */
 export function ThemeToggle() {
-  const [theme, setTheme] = useState<DashboardTheme>("light");
+  const [theme, setTheme] = useState<DashboardTheme>("dark");
 
   useEffect(() => {
     const saved = window.localStorage.getItem("dashboard-theme");
-    const selected: DashboardTheme = saved === "dark" ? "dark" : "light";
+    const selected: DashboardTheme = saved === "light" ? "light" : "dark";
     setTheme(selected);
     applyTheme(selected);
   }, []);

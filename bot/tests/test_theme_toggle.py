@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Light is the default and the global theme switch stays persistent."""
+"""Dark is the default and the global theme switch stays persistent."""
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -7,8 +7,8 @@ layout = (ROOT / "dashboard/app/layout.tsx").read_text()
 toggle = (ROOT / "dashboard/components/theme-toggle.tsx").read_text()
 css = (ROOT / "dashboard/app/globals.css").read_text()
 checks = {
-    "light is the server-rendered default": 'data-theme="light"' in layout,
-    "saved dark mode is restored before paint": "localStorage.getItem('dashboard-theme')" in layout,
+    "dark is the server-rendered default": 'data-theme="dark"' in layout,
+    "saved theme is restored before paint": "localStorage.getItem('dashboard-theme')" in layout and "t==='light'?'light':'dark'" in layout,
     "toggle is mounted globally": "<ThemeToggle />" in layout,
     "toggle sits at the lower right": "fixed bottom-5 right-5" in toggle,
     "choice is persisted": 'localStorage.setItem("dashboard-theme"' in toggle,
