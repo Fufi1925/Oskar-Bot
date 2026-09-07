@@ -358,7 +358,7 @@ def test_admin_link_style():
 
     # Ein Stil fuer den aktiven Eintrag, in beiden Ebenen.
     check("ein einheitlicher aktiver Zustand",
-          layout.count('bg-white/[0.06] text-white font-semibold') >= 2,
+          layout.count('bg-blue-500/10 text-white font-semibold shadow-[inset_3px_0_0_0_rgba(96,165,250,0.9)]') >= 2,
           "Haupt- und Untereintraege muessen gleich aussehen")
 
     # Die Zuordnung laeuft weiter ueber die Adresse, nicht ueber die

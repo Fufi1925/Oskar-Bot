@@ -38,6 +38,30 @@ import { api } from "@/lib/api";
 import { AdminConfig } from "@/types/api";
 import { SUPPORT_INVITE } from "@/lib/legal";
 
+// Farbige Funktionssymbole wie im Referenz-Dashboard. Die Farbe beschreibt
+// den Bereich; der aktive Zustand bleibt für alle Einträge einheitlich blau.
+const SIDEBAR_ICON_COLORS: Record<string, string> = {
+  "Allgemein": "text-sky-400", "Übersicht": "text-sky-400", "Design": "text-amber-400", "Premium": "text-amber-400", "Admin": "text-red-400",
+  "Dashboard Access": "text-blue-400", "Server Einstellungen": "text-slate-300",
+  "Backup": "text-amber-400", "Server Stats": "text-sky-400",
+  "Anti-Nuke": "text-rose-400", "Automod": "text-pink-400", "Honeypot": "text-orange-400",
+  "Verifizierung": "text-emerald-400", "Notfall": "text-red-400", "Jail": "text-violet-400", "Nachtmodus": "text-indigo-400",
+  "Begrüßung": "text-pink-400", "Bewerbungen": "text-violet-300", "Abschied": "text-orange-400",
+  "Beitritts-DM": "text-cyan-400", "Auto-Rolle": "text-emerald-400", "Reaktions-Rollen": "text-fuchsia-400",
+  "Eigene Rollen": "text-blue-400", "Vanity-Rollen": "text-amber-400", "Nickname": "text-purple-400", "Level-System": "text-orange-400",
+  "Giveaways": "text-pink-400", "Counting": "text-teal-400", "Booster": "text-fuchsia-400",
+  "Benachrichtigungen": "text-red-400", "Auto-Reaktion": "text-yellow-400", "Autoresponder": "text-cyan-400",
+  "Custom Commands": "text-blue-400", "Anonymer Chat (Beta)": "text-violet-400",
+  "Musik": "text-purple-400", "Join to Create": "text-sky-400", "Sprach-Rolle": "text-violet-400",
+  "Tickets": "text-cyan-400", "Eigene Nachricht": "text-blue-400", "Sticky-Nachricht": "text-amber-400",
+  "Einladungen": "text-emerald-400", "Einladungs-Log": "text-teal-400", "No Prefix": "text-lime-400",
+  "Speedrun": "text-amber-400", "Hochladen (Experimentell)": "text-sky-400", "Community (Experimentell)": "text-fuchsia-400",
+  "Teamliste": "text-emerald-400", "Team-Update (Beta)": "text-cyan-400", "Logs": "text-slate-300",
+  "Bot-Logs": "text-indigo-300", "Server-Werkzeuge": "text-rose-400", "Support-Warteraum (Beta)": "text-cyan-400",
+  "Einstellungen": "text-slate-300", "Zurück zur Serverliste": "text-sky-400",
+};
+const sidebarIconColor = (name: string) => SIDEBAR_ICON_COLORS[name] || "text-cyan-400";
+
 export default function DashboardLayout({
   children,
 }: {
@@ -474,7 +498,7 @@ export default function DashboardLayout({
                                 ? "bg-amber-400/10 text-amber-200 font-semibold"
                                 : "text-amber-300/80 hover:bg-amber-400/[0.07] hover:text-amber-200"
                               : isActive
-                              ? "bg-white/[0.06] text-white font-semibold"
+                              ? "bg-blue-500/10 text-white font-semibold shadow-[inset_3px_0_0_0_rgba(96,165,250,0.9)]"
                               : "text-slate-400 hover:bg-white/[0.03] hover:text-slate-200"
                           )}
                         >
@@ -483,9 +507,7 @@ export default function DashboardLayout({
                               "h-4 w-4 shrink-0 transition-colors",
                               (subItem as any).highlight
                                 ? "text-amber-400"
-                                : isActive
-                                ? "text-indigo-400"
-                                : "text-slate-600 group-hover:text-slate-400"
+                                : sidebarIconColor(subItem.name)
                             )}
                           />
                           {/* "(Beta)" als Zeichen statt als Text: in
@@ -563,7 +585,7 @@ export default function DashboardLayout({
                       ? "bg-amber-400/10 text-amber-200 font-semibold"
                       : "text-amber-300/80 hover:bg-amber-400/[0.07] hover:text-amber-200"
                     : isActive
-                    ? "bg-white/[0.06] text-white font-semibold"
+                    ? "bg-blue-500/10 text-white font-semibold shadow-[inset_3px_0_0_0_rgba(96,165,250,0.9)]"
                     : "text-slate-400 hover:bg-white/[0.03] hover:text-slate-200"
                 )}
               >
@@ -577,9 +599,7 @@ export default function DashboardLayout({
                     "h-[18px] w-[18px] shrink-0 transition-colors",
                     isPremium
                       ? "text-amber-400"
-                      : isActive
-                      ? "text-indigo-400"
-                      : "text-slate-600 group-hover:text-slate-400"
+                      : sidebarIconColor(item.name)
                   )}
                 />
                 {/* Der Reiter heißt in der Navigation "Speedrun (Beta)".
@@ -609,16 +629,14 @@ export default function DashboardLayout({
               className={cn(
                 "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors group text-[14px]",
                 pathname === backLinkItem.href
-                  ? "bg-white/[0.06] text-white font-semibold"
+                  ? "bg-blue-500/10 text-white font-semibold shadow-[inset_3px_0_0_0_rgba(96,165,250,0.9)]"
                   : "text-slate-400 hover:bg-white/[0.03] hover:text-slate-200"
               )}
             >
               <BackLinkIcon
                 className={cn(
                   "h-[18px] w-[18px] shrink-0 transition-colors",
-                  pathname === backLinkItem.href
-                    ? "text-indigo-400"
-                    : "text-slate-600 group-hover:text-slate-400"
+                  sidebarIconColor(backLinkItem.name)
                 )}
               />
               {backLinkItem.name}
