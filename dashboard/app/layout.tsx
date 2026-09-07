@@ -19,9 +19,7 @@ import "./globals.css";
 
 import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/components/auth-provider";
-import { CookieHinweis } from "@/components/cookie-hinweis";
-import { PremiumHinweis } from "@/components/premium-hinweis";
-import { SupportHinweis } from "@/components/support-hinweis";
+import { GlobalPopups } from "@/components/global-popups";
 import { LanguageProvider } from "@/lib/i18n/LanguageContext";
 
 const brandName = process.env.NEXT_PUBLIC_BRAND_NAME || "University Bot";
@@ -66,27 +64,12 @@ export default function RootLayout({
         <AuthProvider>
           <LanguageProvider>{children}</LanguageProvider>
           <Toaster />
-          {/* Der Cookie-Hinweis. Hier und nicht auf der Startseite:
-              er gilt für jede Seite, und wer über einen Link direkt
-              im Impressum landet, hat ihn sonst nie gesehen.
-
-              INNERHALB von AuthProvider, weil er die Sitzung liest --
-              ist jemand angemeldet, wandert die Discord-ID mit in den
-              Nachweis. Außerhalb wäre useSession() ein Fehler beim
-              Rendern. */}
-          <CookieHinweis />
-          {/* Erscheint EINMAL im Dashboard, wenn jemand Premium hat.
-
-              Die Beschränkung auf /dashboard steckt in der Komponente
-              selbst: sie liest den Pfad. Hier zu filtern hieße, das
-              Root-Layout bei jedem Pfadwechsel neu zu bewerten, und
-              der Hinweis gehört ohnehin dorthin, wo man mit Premium
-              auch etwas anfangen kann. */}
-          <PremiumHinweis />
-          {/* Die Einladung in den Support-Server: nach der Anmeldung
-              im Dashboard, danach sieben Tage Ruhe. Trifft jeden,
-              nicht nur Premium-Konten. */}
-          <SupportHinweis />
+          {/* Globale Hinweise bleiben während der wichtigen
+              Login-Erfolgsanzeige geschlossen. Erst nach der Weiterleitung
+              ins Dashboard dürfen Cookie-, Premium- und Supportdialoge
+              erscheinen. Innerhalb des AuthProviders, weil sie die Sitzung
+              des angemeldeten Discord-Kontos benötigen. */}
+          <GlobalPopups />
         </AuthProvider>
       </body>
     </html>

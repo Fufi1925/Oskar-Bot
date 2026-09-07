@@ -252,7 +252,7 @@ export function SiteNav() {
             <button
               type="button"
               onClick={() =>
-                signIn("discord", { callbackUrl: "/dashboard" }).catch(() => {})
+                signIn("discord", { callbackUrl: "/auth/success?next=%2Fdashboard" }).catch(() => {})
               }
               className="flex items-center gap-2 rounded-full border border-slate-800 bg-[#131318] px-3 sm:px-4 py-2 text-[14px] text-slate-200 hover:border-slate-700 transition-colors"
             >

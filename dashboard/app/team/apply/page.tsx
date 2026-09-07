@@ -301,7 +301,7 @@ function ApplyInner() {
             </p>
             <button
               type="button"
-              onClick={() => signIn("discord", { callbackUrl: "/team/apply" })}
+              onClick={() => signIn("discord", { callbackUrl: "/auth/success?next=%2Fteam%2Fapply" })}
               className="mt-6 rounded-xl bg-[#5865f2] px-7 py-3.5 text-[15px] font-semibold text-white transition-colors hover:bg-[#4752c4]"
             >
               Mit Discord anmelden

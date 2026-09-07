@@ -114,7 +114,7 @@ export default function DashboardLayout({
 
   React.useEffect(() => {
     if (status === "unauthenticated") {
-      signIn("discord");
+      signIn("discord", { callbackUrl: "/auth/success?next=%2Fdashboard" });
     }
     
     // Fetch global notification + maintenance state
