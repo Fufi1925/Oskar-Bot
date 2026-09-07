@@ -4,6 +4,21 @@
 
 ---
 
+## 📈 Status-Verlauf wieder sichtbar
+
+Der Statusdienst startet seinen öffentlichen HTTP-Server jetzt **vor** dem
+Discord-Login. Ein fehlender Token, eine Discord-Sperre (429) oder eine
+vorübergehend gestörte Gateway-Verbindung darf `/status.json` und
+`/history.json` nicht mehr mit einem dauerhaften Railway-502 abschalten. Der
+Discord-Login wird im selben Prozess erneut versucht, während die API und der
+bereits gespeicherte Verlauf erreichbar bleiben.
+
+Die Website lädt den Verlauf nach einem Fehler automatisch alle 60 Sekunden
+neu. Ein einmaliger Fehler beim Öffnen bleibt daher nicht mehr bis zum nächsten
+kompletten Seiten-Reload stehen. Fehler werden ausdrücklich angezeigt und
+nicht mehr fälschlich als „noch keine Aufzeichnung“ behandelt; vorhandene alte
+Messwerte bleiben während eines fehlgeschlagenen Updates sichtbar.
+
 ## 🌍 Sprachumschalter: Deutsch/English, überall, komplett
 
 ### Der Schalter fehlte im Dashboard

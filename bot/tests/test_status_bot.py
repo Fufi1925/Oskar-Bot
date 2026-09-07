@@ -963,10 +963,9 @@ def test_rate_limited_login():
     about six seconds and the limit lasted longer than it had to.
 
     The fix is counter-intuitive and worth stating: the right response
-    to "you are being rate limited" is to *stop trying*, not to try
-    again. So the bot waits in-process for as long as Discord asked, and
-    then exits 0 -- because a non-zero exit is what makes Railway
-    restart it.
+    to "you are being rate limited" is to wait in the same process, not
+    to hand another immediate attempt to Railway. The public API remains
+    alive during that wait, then the Discord login is retried in-process.
     """
     print("\nA rate-limited login")
 
@@ -1000,75 +999,95 @@ def test_rate_limited_login():
     check("so does a malformed one",
           sb._retry_after(error(429, {"Retry-After": "soon"})) > 0, "")
 
-    # The behaviour that matters. Patched to a short wait so the test
-    # does not sit here for a minute.
-    # main() returns early when there is no token, so without this the
-    # test never reaches the login at all -- and "exit 0" would pass for
-    # entirely the wrong reason. Caught exactly that way: the 429 case
-    # looked fine while the 500 case revealed nothing had run.
-    original_token = sb.TOKEN
-    sb.TOKEN = "test-token"
+    # Der Dienst kehrt im korrekten Betrieb absichtlich nicht zurück. Deshalb
+    # bekommt jedes Warten im Test eine harte Zeitgrenze: Ein Fehler soll als
+    # verständlicher Testfehler enden und nie wieder den ganzen Testlauf hängen
+    # lassen.
+    async def lifecycle_scenario():
+        original_token = sb.TOKEN
+        original_bot = sb.StatusBot
+        original_web = sb.start_web
+        original_retry = sb._retry_after
 
-    original_bot = sb.StatusBot
-    original_wait = sb._retry_after
-    sb._retry_after = lambda err: 0.01
+        async def stop(task):
+            task.cancel()
+            try:
+                await asyncio.wait_for(task, timeout=0.5)
+            except (asyncio.CancelledError, TimeoutError):
+                pass
 
-    class RateLimited:
-        def run(self, *args, **kwargs):
-            raise error(429, {"Retry-After": "60"})
+        try:
+            # Ohne Token muss der Webserver gestartet sein und der Prozess
+            # weiterleben, statt Railway wieder einen 502 zu überlassen.
+            no_token_web = asyncio.Event()
 
-    class ServerError:
-        def run(self, *args, **kwargs):
-            raise error(500)
+            class NoTokenBot:
+                pass
+
+            async def no_token_start_web(bot):
+                no_token_web.set()
+
+            sb.TOKEN = ""
+            sb.StatusBot = NoTokenBot
+            sb.start_web = no_token_start_web
+            no_token_task = asyncio.create_task(sb.run_service())
+            await asyncio.wait_for(no_token_web.wait(), timeout=0.5)
+            await asyncio.sleep(0)
+            check("der öffentliche Server startet auch ohne Token",
+                  not no_token_task.done())
+            await stop(no_token_task)
+
+            # Beim ersten Login kommt ein 429, der zweite Versuch bleibt als
+            # erfolgreiche, langlebige Verbindung offen. Die Events beweisen
+            # Reihenfolge und Retry, ohne echte Wartezeit oder Netzwerkzugriff.
+            order = []
+            retried = asyncio.Event()
+            keep_connected = asyncio.Event()
+
+            class RateLimitedBot:
+                def __init__(self):
+                    self.attempts = 0
+
+                async def start(self, *args, **kwargs):
+                    self.attempts += 1
+                    order.append(f"login-{self.attempts}")
+                    if self.attempts == 1:
+                        raise error(429, {"Retry-After": "60"})
+                    retried.set()
+                    await keep_connected.wait()
+
+            async def rate_limit_start_web(bot):
+                order.append("web")
+
+            sb.TOKEN = "test-token"
+            sb.StatusBot = RateLimitedBot
+            sb.start_web = rate_limit_start_web
+            sb._retry_after = lambda err: 0
+            rate_limit_task = asyncio.create_task(sb.run_service())
+            await asyncio.wait_for(retried.wait(), timeout=0.5)
+            check("der öffentliche Server startet vor dem Login",
+                  order[:2] == ["web", "login-1"], str(order))
+            check("ein 429 wird im selben Prozess erneut versucht",
+                  order == ["web", "login-1", "login-2"], str(order))
+            check("waehrenddessen bleibt der Dienst aktiv",
+                  not rate_limit_task.done())
+            await stop(rate_limit_task)
+        finally:
+            sb.TOKEN = original_token
+            sb.StatusBot = original_bot
+            sb.start_web = original_web
+            sb._retry_after = original_retry
 
     try:
-        sb.StatusBot = lambda: RateLimited()
-        code = sb.main()
-        check("a 429 exits zero, so Railway does not restart",
-              code == 0,
-              f"exit {code} -- a non-zero exit is what caused the loop")
-
-        # Anything else is a real fault and must not be swallowed: a
-        # bot that exits quietly on every error never gets looked at.
-        sb.StatusBot = lambda: ServerError()
-        raised = False
-        try:
-            sb.main()
-        except discord.HTTPException:
-            raised = True
-        check("other HTTP errors still propagate", raised,
-              "swallowing every failure hides real ones")
-
-        # Proof that the two cases above actually reached bot.run().
-        # Without a token main() returns before that, and both checks
-        # would pass while testing nothing.
-        reached = []
-
-        class Records:
-            def run(self, *args, **kwargs):
-                reached.append(True)
-                raise error(429, {"Retry-After": "60"})
-
-        sb.StatusBot = lambda: Records()
-        sb.main()
-        check("the login was actually attempted", reached == [True],
-              "main() returns early without a token; these checks would "
-              "otherwise pass without running anything")
-    finally:
-        sb.StatusBot = original_bot
-        sb._retry_after = original_wait
-        sb.TOKEN = original_token
+        asyncio.run(asyncio.wait_for(lifecycle_scenario(), timeout=2.0))
+    except TimeoutError:
+        check("der Lebenszyklus-Test beendet sich innerhalb von zwei Sekunden",
+              False, "run_service() oder ein Test-Event hing")
 
     source = open(os.path.join(STATUS, "status_bot.py"), encoding="utf-8").read()
-    check("it waits before giving up",
-          "time.sleep(wait)" in source,
-          "exiting immediately just hands the next attempt to Railway")
-    check("and only treats 429 this way",
-          "if err.status != 429:" in source and "raise" in source, "")
-    check("the log explains that restarting makes it worse",
-          "makes the block last longer" in source,
-          "the obvious reaction to a crash-looping service is to "
-          "restart it, which is the wrong one here")
+    service = source.split("async def run_service", 1)[1]
+    check("nur 429 bekommt die besondere Wartezeit",
+          "if err.status != 429:" in service and "raise" in service)
 
 
 def test_no_name_clashes_with_discord():
@@ -1385,8 +1404,9 @@ def test_deployment():
     check("it explains why it is a separate service",
           "separate Railway service" in source or "separate service" in source,
           "the next person will otherwise merge it into the main container")
-    check("an unconfigured service exits quietly instead of crash-looping",
-          "return 0" in source.split("STATUS_BOT_TOKEN is not set")[1][:400],
+    check("an unconfigured service keeps the public API online without crash-looping",
+          "await asyncio.Event().wait()" in
+          source.split("STATUS_BOT_TOKEN is not set")[1][:500],
           "burning restarts on a missing token helps nobody")
     check("it asks for no intents it does not need",
           "discord.Intents.none()" in source,

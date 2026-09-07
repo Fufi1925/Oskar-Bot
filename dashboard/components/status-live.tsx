@@ -142,6 +142,7 @@ export function StatusLive({ marke }: { marke: string }) {
   const [stunden, setStunden] = useState(24);
   const [laedt, setLaedt] = useState(true);
   const [verlaufLaedt, setVerlaufLaedt] = useState(true);
+  const [verlaufFehler, setVerlaufFehler] = useState(false);
   const [erreichbar, setErreichbar] = useState(true);
   const [zuletzt, setZuletzt] = useState<number | null>(null);
   const [aktualisiert, setAktualisiert] = useState(false);
@@ -179,27 +180,39 @@ export function StatusLive({ marke }: { marke: string }) {
     return () => clearInterval(t);
   }, [ladeZustand]);
 
-  // Der Verlauf hängt am Zeitraum, nicht am Takt: er ändert sich
-  // höchstens im Rhythmus der Messungen, und ein paar hundert
-  // Messpunkte alle 30 Sekunden neu zu laden wäre Verschwendung.
-  const abgebrochen = useRef(false);
-  useEffect(() => {
-    abgebrochen.current = false;
-    setVerlaufLaedt(true);
-    hole(`/api/status?was=history&stunden=${stunden}`)
-      .then((daten) => {
-        if (!abgebrochen.current) setVerlauf(daten);
-      })
-      .catch(() => {
-        if (!abgebrochen.current) setVerlauf(null);
-      })
-      .finally(() => {
-        if (!abgebrochen.current) setVerlaufLaedt(false);
-      });
-    return () => {
-      abgebrochen.current = true;
-    };
+  // Der Verlauf wird ebenfalls nachgeladen. Vorher geschah das nur einmal:
+  // war der Wächter beim Öffnen gerade im Deploy, blieb die Karte bis zum
+  // Neuladen der ganzen Seite leer — selbst nachdem der Dienst wieder lief.
+  // Eine laufende Nummer verhindert außerdem, dass eine langsame alte Antwort
+  // nach einem Zeitraumwechsel die neuere überschreibt.
+  const verlaufAnfrage = useRef(0);
+  const ladeVerlauf = useCallback(async (mitLadeanzeige = false) => {
+    const anfrage = ++verlaufAnfrage.current;
+    if (mitLadeanzeige) setVerlaufLaedt(true);
+    try {
+      const daten = await hole(`/api/status?was=history&stunden=${stunden}`);
+      if (anfrage !== verlaufAnfrage.current) return;
+      if (daten?.slots && Array.isArray(daten.slots)) {
+        setVerlauf(daten);
+        setVerlaufFehler(false);
+      } else {
+        setVerlaufFehler(true);
+      }
+    } catch {
+      if (anfrage === verlaufAnfrage.current) setVerlaufFehler(true);
+    } finally {
+      if (anfrage === verlaufAnfrage.current) setVerlaufLaedt(false);
+    }
   }, [stunden]);
+
+  useEffect(() => {
+    ladeVerlauf(true);
+    const t = setInterval(() => ladeVerlauf(false), 60_000);
+    return () => {
+      clearInterval(t);
+      verlaufAnfrage.current += 1;
+    };
+  }, [ladeVerlauf]);
 
   // ── Der Kopf ──────────────────────────────────────────────────
 
@@ -370,7 +383,10 @@ export function StatusLive({ marke }: { marke: string }) {
 
           <button
             type="button"
-            onClick={() => ladeZustand(true)}
+            onClick={() => {
+              ladeZustand(true);
+              ladeVerlauf(false);
+            }}
             disabled={aktualisiert}
             className="flex shrink-0 items-center gap-2 rounded-xl border border-slate-800 bg-[#0e0e12] px-4 py-2.5 text-[13px] font-semibold text-slate-300 transition-colors hover:border-slate-700 hover:text-white disabled:opacity-40"
           >
@@ -468,6 +484,24 @@ export function StatusLive({ marke }: { marke: string }) {
           <div className="mt-5 flex h-[120px] items-center justify-center">
             <Loader2 className="h-5 w-5 animate-spin text-indigo-400 opacity-50" />
           </div>
+        ) : verlaufFehler && !verlauf ? (
+          <div className="mt-5 rounded-xl border border-rose-500/25 bg-rose-500/[0.05] p-5">
+            <p className="flex items-center gap-2 text-[14px] text-rose-200">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              Der Verlauf konnte nicht geladen werden.
+            </p>
+            <p className="mt-1.5 text-[13px] leading-relaxed text-slate-500">
+              Die Seite versucht es automatisch erneut. Du kannst die
+              Aufzeichnung auch sofort noch einmal abrufen.
+            </p>
+            <button
+              type="button"
+              onClick={() => ladeVerlauf(true)}
+              className="mt-3 rounded-lg border border-slate-700 px-3 py-1.5 text-[12px] font-semibold text-slate-300 hover:border-slate-600 hover:text-white"
+            >
+              Verlauf erneut laden
+            </button>
+          </div>
         ) : !verlauf || verlauf.slots.length === 0 ? (
           <div className="mt-5 rounded-xl border border-slate-800 bg-[#0f0f13] p-5">
             <p className="text-[14px] text-slate-300">
@@ -536,6 +570,15 @@ export function StatusLive({ marke }: { marke: string }) {
                   hoehe={170}
                 />
               </div>
+            )}
+
+            {verlaufFehler && (
+              <p className="flex gap-2 rounded-xl border border-rose-500/25 bg-rose-500/[0.05] p-3.5 text-[13px] leading-relaxed text-rose-200/90">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-rose-400" />
+                Die letzte Aktualisierung des Verlaufs ist fehlgeschlagen.
+                Angezeigt werden die zuletzt erfolgreich geladenen Messwerte;
+                ein neuer Versuch läuft automatisch.
+              </p>
             )}
 
             {verlauf.persistent === false && (

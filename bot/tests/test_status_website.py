@@ -108,6 +108,16 @@ def test_der_endpunkt():
     check("status.json sagt es auch",
           '"history_persistent"' in quelle)
 
+    # Die API darf nicht am Discord-Login haengen. Genau das fuehrte in
+    # Produktion zu Railway-502: bei fehlendem Token oder einem 429 endete der
+    # Prozess, obwohl der vorhandene Verlauf weiterhin lesbar gewesen waere.
+    check("der Webserver startet vor dem Discord-Login",
+          quelle.index("await start_web(bot)") < quelle.index("await bot.start(TOKEN"))
+    check("ein Discord-Problem laesst die API weiterlaufen",
+          "public API stays online" in quelle)
+    check("ein fehlender Token beendet den Webserver nicht",
+          "await asyncio.Event().wait()" in quelle)
+
 
 def test_die_proxy_route():
     print("\nDie Route, die der Browser erreichen kann")
@@ -185,15 +195,23 @@ def test_der_live_baustein():
 
     # Eine spaet eintreffende alte Antwort darf die neue nicht
     # ueberschreiben -- sonst steht nach schnellem Klicken der falsche
-    # Zeitraum im Bild.
-    # `abgebrochen.current` steht auch in der Aufraeumfunktion --
-    # allein das Vorkommen sagt nichts darueber, ob der Riegel VOR
-    # setVerlauf sitzt. Im Mutationstest genau so durchgerutscht.
+    # Zeitraum im Bild. Eine laufende Anfragenummer ist robuster als ein
+    # gemeinsames Boolean: beim Start der neuen Anfrage wurde das alte
+    # `abgebrochen.current` wieder auf false gesetzt und die alte Antwort
+    # dadurch versehentlich erneut freigegeben.
     check("eine veraltete Antwort wird verworfen",
-          "if (!abgebrochen.current) setVerlauf(daten);" in quelle,
+          "anfrage !== verlaufAnfrage.current" in quelle,
           "sonst steht nach schnellem Klicken der falsche Zeitraum im Bild")
-    check("und der Riegel wird beim Aufraeumen gesetzt",
-          "abgebrochen.current = true;" in quelle)
+    check("und alte Anfragen werden beim Aufraeumen ungueltig",
+          "verlaufAnfrage.current += 1;" in quelle)
+
+    # War der Statusdienst beim ersten Laden gerade im Deploy, blieb der
+    # Verlauf vorher bis zu einem kompletten Seiten-Reload leer.
+    check("der Verlauf versucht es automatisch erneut",
+          "setInterval(() => ladeVerlauf(false), 60_000)" in quelle)
+    check("ein Ladefehler wird nicht als leere Aufzeichnung ausgegeben",
+          "Der Verlauf konnte nicht geladen werden." in quelle
+          and "verlaufFehler && !verlauf" in quelle)
 
     check("ein toter Waechter wird gemeldet",
           "Status nicht abrufbar" in quelle)

@@ -4143,6 +4143,24 @@ export const phrasePairs: Array<[de: string, en: string]> = [
   ["Cookies", "Cookies"],
   ["Top", "Top"],
   ["ban @user", "ban @user"],
+
+  // ════════════════════════════════════════════════════════════════
+  // Vollstaendige Abdeckung der Dashboard-Oberflaeche. Diese Eintraege
+  // stammen aus tools/build_dom_translations.py — nicht von Hand hier
+  // pflegen, sondern die Batches in tools/i18n_work/ anpassen und den
+  // Generator neu laufen lassen.
+  // ════════════════════════════════════════════════════════════════
+  ["Der Verlauf konnte nicht geladen werden.", "The history could not be loaded."],
+  ["Die Seite versucht es automatisch erneut. Du kannst die Aufzeichnung auch sofort noch einmal abrufen.", "The page will retry automatically. You can also fetch the history again immediately."],
+  ["Verlauf erneut laden", "Reload history"],
+
+  // ════════════════════════════════════════════════════════════════
+  // Vollstaendige Abdeckung der Dashboard-Oberflaeche. Diese Eintraege
+  // stammen aus tools/build_dom_translations.py — nicht von Hand hier
+  // pflegen, sondern die Batches in tools/i18n_work/ anpassen und den
+  // Generator neu laufen lassen.
+  // ════════════════════════════════════════════════════════════════
+  ["Die letzte Aktualisierung des Verlaufs ist fehlgeschlagen. Angezeigt werden die zuletzt erfolgreich geladenen Messwerte; ein neuer Versuch läuft automatisch.", "The latest history update failed. The most recently loaded measurements are being displayed; another attempt will run automatically."],
 ];
 
 /**

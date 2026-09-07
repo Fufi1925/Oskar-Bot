@@ -423,12 +423,10 @@ class StatusBot(discord.Client):
                 f"[status] partner servers: "
                 f"{', '.join(str(g) for g in PARTNER_SERVER_IDS)}"
             )
-        try:
-            await start_web(self)
-        except Exception as err:  # noqa: BLE001
-            # Watching matters more than the send endpoint; losing one
-            # must not take the other down with it.
-            print(f"[status] the send endpoint failed to start: {err}")
+        # Der öffentliche Webserver läuft bereits: main() startet ihn vor
+        # dem Discord-Login. Dadurch bleiben /status.json und /history.json
+        # selbst dann erreichbar, wenn Discord den Login verzögert oder
+        # vorübergehend mit 429 ablehnt.
 
     async def close(self) -> None:
         if self._task:
@@ -1494,52 +1492,68 @@ async def start_web(bot: "StatusBot") -> None:
     print(f"[status] send endpoint listening on {port}")
 
 
-def main() -> int:
-    if not TOKEN:
-        print(
-            "[status] STATUS_BOT_TOKEN is not set. This service has "
-            "nothing to log in with — set it in Railway."
-        )
-        # Exit 0 rather than crash-looping: an unconfigured service
-        # should sit still, not burn restarts.
-        return 0
+async def run_service() -> int:
+    """Webserver und Discord-Verbindung mit getrennten Lebenszyklen.
 
+    Früher wurde der HTTP-Server erst in ``setup_hook`` gestartet. Fehlte der
+    Token oder blockierte Discord den Login mit 429, beendete sich der Prozess
+    mit Code 0. Railway zeigte dann dauerhaft 502 und die Website konnte auch
+    den bereits gespeicherten Verlauf nicht mehr lesen.
+
+    Der öffentliche Server startet jetzt zuerst. Ein Discord-Problem darf die
+    Status- und Verlaufsendpunkte nicht mit abschalten.
+    """
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     bot = StatusBot()
-    try:
-        bot.run(TOKEN, log_handler=None)
-    except discord.LoginFailure:
-        print("[status] Discord refused the token.")
-        return 1
-    except discord.HTTPException as err:
-        # 429 during login is the one failure that a restart makes
-        # worse. Discord blocks the whole application, not the request;
-        # every attempt while blocked extends the block, and Railway
-        # restarts on a non-zero exit -- so returning 1 here produced a
-        # login attempt roughly once a second, which is exactly how the
-        # limit got hit in the first place and why it would not clear.
-        #
-        # Observed in production: the service crash-looped through its
-        # five retries in about six seconds.
-        #
-        # So: wait it out in-process. Discord sends Retry-After; when it
-        # does not, back off by a growing amount rather than guessing a
-        # single figure.
-        if err.status != 429:
-            raise
 
-        wait = _retry_after(err)
+    try:
+        await start_web(bot)
+    except Exception as err:  # noqa: BLE001
+        print(f"[status] public web server failed to start: {err}")
+        return 1
+
+    if not TOKEN:
         print(
-            f"[status] Discord is rate limiting the login (429). "
-            f"Waiting {int(wait)}s before trying again. Restarting the "
-            "service does not help -- it makes the block last longer."
+            "[status] STATUS_BOT_TOKEN is not set. The public status API "
+            "remains online, but Discord monitoring cannot start."
         )
-        time.sleep(wait)
-        # Exit 0 so Railway does not count this as a crash. The next
-        # deploy or manual restart tries again with a clean slate; a
-        # restart loop is the thing being avoided.
+        await asyncio.Event().wait()
         return 0
-    return 0
+
+    while True:
+        try:
+            await bot.start(TOKEN, reconnect=True)
+            return 0
+        except discord.LoginFailure:
+            # Die Konfiguration lässt sich ohne Redeploy nicht ändern. API und
+            # vorhandener Verlauf bleiben trotzdem erreichbar statt 502 zu
+            # liefern.
+            print("[status] Discord refused the token; public API stays online.")
+            await asyncio.sleep(300)
+        except discord.HTTPException as err:
+            if err.status != 429:
+                raise
+            wait = _retry_after(err)
+            print(
+                f"[status] Discord is rate limiting the login (429). "
+                f"Public API stays online; retrying in {int(wait)}s."
+            )
+            await asyncio.sleep(wait)
+        except asyncio.CancelledError:
+            raise
+        except Exception as err:  # noqa: BLE001
+            print(
+                f"[status] Discord connection failed: {type(err).__name__}: "
+                f"{err}; public API stays online, retrying in 60s."
+            )
+            await asyncio.sleep(60)
+
+
+def main() -> int:
+    try:
+        return asyncio.run(run_service())
+    except KeyboardInterrupt:
+        return 0
 
 
 if __name__ == "__main__":
