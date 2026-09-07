@@ -1,8 +1,5 @@
-"use client";
-
 import Link from "next/link";
-import { signOut } from "next-auth/react";
-import { ChevronRight, Gem, LayoutDashboard, LifeBuoy, LogOut, Server } from "lucide-react";
+import { ChevronRight, Gem, LayoutDashboard, LifeBuoy, Server } from "lucide-react";
 import { SUPPORT_INVITE } from "@/lib/legal";
 
 const actions = [
@@ -25,11 +22,6 @@ export function AccountActions() {
           const classes = "flex items-center gap-4 px-5 py-4 transition-colors hover:bg-white/[0.025] sm:px-6";
           return "external" in action && action.external ? <a key={label} href={href} target="_blank" rel="noopener noreferrer" className={classes}>{content}</a> : <Link key={label} href={href} className={classes}>{content}</Link>;
         })}
-        <button type="button" onClick={() => signOut({ callbackUrl: "/" })} className="flex w-full items-center gap-4 px-5 py-4 text-left transition-colors hover:bg-red-500/[0.04] sm:px-6">
-          <span className="grid h-10 w-10 place-items-center rounded-xl bg-red-500/10"><LogOut className="h-5 w-5 text-red-400" /></span>
-          <span className="min-w-0 flex-1"><span className="block font-semibold text-red-300">Abmelden</span><span className="mt-0.5 block text-sm text-slate-500">Discord-Sitzung auf diesem Gerät beenden</span></span>
-          <ChevronRight className="h-5 w-5 text-red-500/60" />
-        </button>
       </div>
     </section>
   );

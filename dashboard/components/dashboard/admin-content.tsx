@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useState, useRef } from "react";
 import {
   Shield, Users, Server, Activity, Database, Cpu, Globe, Lock, Settings,
-  RefreshCw, Ban, UserX, Clock, VolumeX, Send, Megaphone, Wrench, AlertTriangle,
+  RefreshCw, Ban, UserX, Clock, VolumeX, Send, Megaphone, Wrench, AlertTriangle, ShieldAlert,
   Hash, Volume2, FolderPlus, Pencil, Trash2, Copy,
   Unlock, Timer, MessageSquareX, Bell, BellOff, SearchCheck, Bot, UserCog, UserSearch,
   Webhook, Link, ScrollText, BarChart4, ClipboardList, Terminal, Gem, Gauge, Bug,
@@ -44,9 +44,10 @@ import { ServersPanel } from "@/components/dashboard/servers-panel";
 import { OverviewCharts } from "@/components/dashboard/overview-charts";
 import { CookieConsentsPanel } from "@/components/dashboard/cookie-consents-panel";
 import { TrustedBotsPanel } from "@/components/dashboard/trusted-bots-panel";
+import { PrivacyErasureAdmin } from "@/components/dashboard/privacy-erasure-admin";
 
 
-type TabId = "members" | "channels" | "server" | "scans" | "broadcast" | "system" | "features" | "health" | "team" | "access" | "reports" | "audit" | "approvals" | "botsettings" | "backups" | "warnings" | "usage" | "dashusers" | "servers" | "premium" | "speedrun" | "tester" | "pingreactions" | "templates" | "userlookup" | "webapply" | "cookies" | "trustedbots" | "designunlock" | "beta";
+type TabId = "members" | "channels" | "server" | "scans" | "broadcast" | "system" | "features" | "health" | "team" | "access" | "reports" | "audit" | "approvals" | "botsettings" | "backups" | "warnings" | "usage" | "dashusers" | "servers" | "premium" | "speedrun" | "tester" | "pingreactions" | "templates" | "userlookup" | "webapply" | "cookies" | "privacy" | "trustedbots" | "designunlock" | "beta";
 type MemberAction = "ban" | "kick" | "mute" | "unmute";
 
 type QuickAction = {
@@ -88,6 +89,7 @@ const tabs: Array<{ id: TabId; label: string; icon: any }> = [
   { id: "webapply", label: "Bewerbungen", icon: Inbox },
   { id: "templates", label: "Vorlagen", icon: Sparkles },
   { id: "cookies", label: "Cookie-Hinweis", icon: Cookie },
+  { id: "privacy", label: "Datenlöschung", icon: ShieldAlert },
   { id: "trustedbots", label: "Vertraute Bots", icon: BotMessageSquare },
 ];
 
@@ -161,7 +163,7 @@ const TAB_GROUPS: Array<{ name: string; ids: TabId[] }> = [
   // Wie sich der Bot verhält.
   { name: "Einstellungen", ids: ["botsettings", "features", "pingreactions"] },
   // Was geschützt wird und was nachweisbar sein muss.
-  { name: "Sicherheit", ids: ["trustedbots", "backups", "cookies", "designunlock"] },
+  { name: "Sicherheit", ids: ["privacy", "trustedbots", "backups", "cookies", "designunlock"] },
   // Was Nutzern angeboten wird.
   { name: "Angebote", ids: ["premium", "templates", "speedrun", "beta"] },
 ];
@@ -269,7 +271,7 @@ const FULL_WIDTH_TABS = new Set<TabId>([
   "features", "health", "team", "access",
   "reports", "audit", "approvals", "botsettings", "backups", "warnings", "usage",
   "dashusers", "userlookup", "servers", "premium", "speedrun", "tester", "templates",
-  "webapply", "cookies", "trustedbots",
+  "webapply", "cookies", "privacy", "trustedbots",
 ]);
 
 /** Beschriftung über einem Eingabefeld. */
@@ -895,6 +897,7 @@ export function AdminContent() {
       )}
       {activeTab === "pingreactions" && <PingReactionsPanel />}
       {activeTab === "cookies" && <CookieConsentsPanel />}
+      {activeTab === "privacy" && <PrivacyErasureAdmin />}
       {activeTab === "trustedbots" && <TrustedBotsPanel />}
       {activeTab === "templates" && <TemplatesAdmin />}
       {activeTab === "dashusers" && <DashboardUsersPanel currentUserId={(session?.user as any)?.id} />}

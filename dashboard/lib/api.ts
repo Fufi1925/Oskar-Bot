@@ -143,6 +143,21 @@ export const api = {
     last_active: number;
   }>(`/bot/account/${userId}`),
 
+  // Reviewed erasure requests. User and actor IDs are injected by the BFF.
+  getMyErasureRequest: (userId: string) =>
+    request<any>(`/privacy/status/${userId}`),
+  requestErasure: () => request<any>("/privacy/request", {
+    method: "POST", body: JSON.stringify({}),
+  }),
+  cancelErasure: (requestId: string) => request<any>("/privacy/cancel", {
+    method: "POST", body: JSON.stringify({ request_id: requestId }),
+  }),
+  listErasureRequests: () => request<any>("/privacy/admin/requests"),
+  decideErasure: (requestId: string, action: "approve" | "reject", reason = "") =>
+    request<any>("/privacy/admin/decide", {
+      method: "POST", body: JSON.stringify({ request_id: requestId, action, reason }),
+    }),
+
   // Guilds
   listGuilds: () => request<GuildSummary[]>("/guilds/"),
   getGuildDetails: (guildId: string) => request<any>(`/guilds/${guildId}`),

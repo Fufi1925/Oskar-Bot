@@ -8,8 +8,8 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from starlette.responses import Response, RedirectResponse
 from utils.config import *
-from api.routes import bot, guilds, admin, team, moderation, actions, access, guild_access, servers, servertools, server_stats, tickets, giveaways, leveling, vanity, broadcast, anonchat, diagnose, compose, nukealert, memberperks, extras, voice, verify, automod, logging_cfg, antinuke, pingreactions, premium, cookies, speedrun, supportqueue, honeypot, design, beta, backup, tester, music, templates, teamlist, applications, teamupdate, webapply, commands as commands_route
-from api.dependencies import verify_api_key, limiter, get_bot_loop
+from api.routes import bot, guilds, admin, team, moderation, actions, access, guild_access, servers, servertools, server_stats, tickets, giveaways, leveling, vanity, broadcast, anonchat, diagnose, compose, nukealert, memberperks, extras, voice, verify, automod, logging_cfg, antinuke, pingreactions, premium, privacy, cookies, speedrun, supportqueue, honeypot, design, beta, backup, tester, music, templates, teamlist, applications, teamupdate, webapply, commands as commands_route
+from api.dependencies import verify_api_key, limiter, get_bot_loop, get_bot, run_on_bot_loop
 from api.db_manager import db_manager
 from api.schema_guard import ensure_schema
 from utils import feature_flags
@@ -57,8 +57,27 @@ async def lifespan(app: FastAPI):
     except Exception as exc:
         logger.warning(f"Dashboard access preload failed: {exc}")
 
-    yield
-    await db_manager.close_all()
+    # A request spends ten seconds in its undo window. The durable worker
+    # matures it and sends Fufi exactly one DM; it also recovers requests when
+    # the process restarted during those ten seconds.
+    async def privacy_worker():
+        while True:
+            try:
+                await run_on_bot_loop(privacy.notify_pending(get_bot()))
+            except Exception as exc:
+                logger.warning(f"Privacy request notification failed: {exc}")
+            await asyncio.sleep(5)
+
+    privacy_task = asyncio.create_task(privacy_worker())
+    try:
+        yield
+    finally:
+        privacy_task.cancel()
+        try:
+            await privacy_task
+        except asyncio.CancelledError:
+            pass
+        await db_manager.close_all()
 
 
 # api_rate_limit_boost: authenticated dashboard traffic gets a much higher
@@ -318,6 +337,7 @@ def create_app() -> FastAPI:
         nukealert.router, prefix="/nukealert", tags=["Anti-Nuke Alerts"]
     )
     api_app.include_router(premium.router, prefix="/premium", tags=["Premium"])
+    api_app.include_router(privacy.router, prefix="/privacy", tags=["Privacy"])
     api_app.include_router(
         memberperks.router, prefix="/perks", tags=["Member Perks"]
     )

@@ -205,6 +205,16 @@ def grant(
     ensure()
     jetzt = int(time.time())
 
+    # A GDPR erasure removes the direct Discord identifier, not the fact that
+    # the one-time trial was consumed. Keep only a keyed digest so deleting an
+    # account cannot be used to mint a fresh trial every time.
+    try:
+        from utils import privacy_erasure
+        if privacy_erasure.trial_already_used(user_id):
+            return {"ok": False, "error": "already_used", "trial": None}
+    except Exception:
+        pass
+
     vorhanden = get(user_id)
     if vorhanden is not None:
         return {

@@ -8,6 +8,7 @@ import { api } from "@/lib/api";
 import { SiteNav } from "@/components/site-nav";
 import { AccountLoginGate } from "@/components/account-login-gate";
 import { AccountActions } from "@/components/account-actions";
+import { AccountDangerZone } from "@/components/account-danger-zone";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -141,6 +142,7 @@ export default async function AccountPage() {
         </section>
 
         <AccountActions />
+        <AccountDangerZone userId={userId} username={username} />
       </main>
     </div>
   );

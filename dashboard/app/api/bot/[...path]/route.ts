@@ -1504,6 +1504,30 @@ async function authorize(
     return { ok: false, response: deny(403, `This requires the '${required}' permission.`) };
   }
 
+  if (scope === "privacy") {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) return { ok: false, response: deny(401, "Not signed in.") };
+
+    if (rest[0] === "admin") {
+      if (!isGlobalAdmin(session.user.id)) {
+        return { ok: false, response: deny(403, "Owner access required.") };
+      }
+      return { ok: true };
+    }
+
+    if (rest[0] === "status") {
+      if (request.method !== "GET" || rest[1] !== session.user.id) {
+        return { ok: false, response: deny(403, "Only your own request is available.") };
+      }
+      return { ok: true };
+    }
+
+    if (request.method === "POST" && ["request", "cancel"].includes(rest[0] ?? "")) {
+      return { ok: true };
+    }
+    return { ok: false, response: deny(404, "Unknown privacy action.") };
+  }
+
   if (scope === "bot") {
     // Persönliche Kontostatistiken dürfen ausschließlich für die ID der
     // eigenen Sitzung gelesen werden. Ein bloßes „angemeldet“ würde sonst
@@ -1664,6 +1688,17 @@ async function handler(request: NextRequest, context: { params: { path?: string[
           // jeder eine fremde ID hinein.
           if (segments[0] === "tester") {
             parsed.user_id = actorId;
+          }
+          // Datenschutzanträge gehören immer zur aktuellen Sitzung. Weder
+          // Nutzer-ID noch Prüfer dürfen aus einem Browserfeld stammen.
+          if (segments[0] === "privacy") {
+            if (segments[1] === "request" || segments[1] === "cancel") {
+              parsed.user_id = actorId;
+              parsed.username = session?.user?.name ?? "";
+            }
+            if (segments[1] === "admin" && segments[2] === "decide") {
+              parsed.actor = actorId;
+            }
           }
           // Team-Bewerbungen: die Bewerbung gehoert der angemeldeten
           // Person. Kaeme die user_id aus dem Browser, koennte jeder
