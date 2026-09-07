@@ -247,12 +247,15 @@ einzelne Anfrage — jeder weitere Login-Versuch verlängert die Sperre.
 Genau das ist passiert: Der Bot stürzte ab, Railway startete neu, der
 nächste Versuch verlängerte die Sperre, im Sekundentakt.
 
-Der Bot wartet jetzt selbst ab und beendet sich danach mit Code 0,
-damit Railway ihn **nicht** automatisch neu startet.
+Der Bot wartet jetzt im selben Prozess ab und versucht den Discord-Login
+danach erneut. Während dieser Wartezeit bleiben `/status.json` und
+`/history.json` erreichbar; Railway darf den bereits gespeicherten Verlauf
+nicht mehr nur wegen eines Discord-Loginproblems mit 502 abschalten.
 
-**Was zu tun ist:** ein paar Minuten warten, dann den Service einmal
-von Hand starten. Optional `STATUS_RATELIMIT_WAIT="300"` setzen, falls
-Discord keinen `Retry-After`-Wert mitschickt.
+**Was zu tun ist:** nicht wiederholt von Hand neu starten. Der Dienst wartet
+selbst und meldet im Log, wann er den nächsten Versuch ausführt. Optional
+`STATUS_RATELIMIT_WAIT="300"` setzen, falls Discord keinen
+`Retry-After`-Wert mitschickt.
 
 **Häufige Ursache:** zwei Dienste mit demselben Token, oder viele
 Deploys kurz hintereinander.
