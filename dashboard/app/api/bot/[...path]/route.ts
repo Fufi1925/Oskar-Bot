@@ -1505,6 +1505,18 @@ async function authorize(
   }
 
   if (scope === "bot") {
+    // Persönliche Kontostatistiken dürfen ausschließlich für die ID der
+    // eigenen Sitzung gelesen werden. Ein bloßes „angemeldet“ würde sonst
+    // das Durchprobieren fremder Discord-IDs erlauben.
+    if (rest[0] === "account") {
+      const session = await getServerSession(authOptions);
+      if (!session?.user?.id) return { ok: false, response: deny(401, "Not signed in.") };
+      if (request.method !== "GET" || rest[1] !== session.user.id) {
+        return { ok: false, response: deny(403, "Only your own account is available.") };
+      }
+      return { ok: true };
+    }
+
     // Die Zahlen der Startseite: ohne Anmeldung lesbar. Sie stehen
     // ohnehin auf jeder oeffentlichen Bot-Liste, und die Startseite
     // ist nun einmal oeffentlich.

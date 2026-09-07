@@ -26,7 +26,7 @@ import { signIn, useSession } from "next-auth/react";
 import {
   Activity, BookOpen, ChevronDown, ChevronRight, CircleHelp, CirclePlus,
   FileText, Globe, Grid2X2, Home, LayoutDashboard, LogIn, Shield,
-  UserPlus, Users, X,
+  UserPlus, UserRound, Users, X,
 } from "lucide-react";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -263,7 +263,7 @@ export function SiteNav() {
 
           {session?.user ? (
             <Link
-              href="/dashboard"
+              href="/konto"
               className="flex items-center gap-2 rounded-full border border-slate-800 bg-[#131318] pl-1.5 pr-3 py-1.5 hover:border-slate-700 transition-colors"
             >
               {session.user.image ? (
@@ -336,6 +336,7 @@ export function SiteNav() {
 
             <div className="flex-1 space-y-3 overflow-y-auto px-5 py-6">
               <MobileNavLink href="/" label="Home" icon={Home} active={pathname === "/"} onClick={() => setOffen(false)} />
+              <MobileNavLink href="/konto" label="Mein Konto" icon={UserRound} active={pathname === "/konto"} onClick={() => setOffen(false)} />
 
               <MobileNavGroup label="Commands" icon={Grid2X2} open={mobileGroup === "commands"} onClick={() => setMobileGroup(mobileGroup === "commands" ? null : "commands")}>
                 <MobileSubLink href="/commands" label="Alle Befehle" icon={Grid2X2} close={() => setOffen(false)} />
@@ -370,7 +371,7 @@ export function SiteNav() {
               </div>
 
               {session?.user ? (
-                <Link href="/dashboard" onClick={() => setOffen(false)} className="flex items-center gap-4 rounded-2xl bg-[#27282d] px-5 py-4 text-slate-100">
+                <Link href="/konto" onClick={() => setOffen(false)} className="flex items-center gap-4 rounded-2xl bg-[#27282d] px-5 py-4 text-slate-100">
                   {session.user.image ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={session.user.image} alt="" className="h-9 w-9 rounded-full" />

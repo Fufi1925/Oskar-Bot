@@ -946,7 +946,7 @@ def test_public_mobile_drawer():
 
     for route in ("/commands", "/docs", "/premium", "/status", "/team",
                   "/team/apply", "/imprint", "/privacy", "/terms",
-                  "/dashboard"):
+                  "/dashboard", "/konto"):
         check(f"the drawer links {route}", route in src)
 
     check("support and bot invitations are linked",

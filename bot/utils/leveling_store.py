@@ -409,6 +409,27 @@ async def get_user(db: aiosqlite.Connection, guild_id: int, user_id: int) -> dic
     }
 
 
+async def account_summary(db: aiosqlite.Connection, user_id: int) -> dict:
+    """Real leveling totals for one account across every shared server."""
+    await ensure_schema(db)
+    async with db.execute(
+        "SELECT COUNT(*), COALESCE(SUM(xp), 0), COALESCE(SUM(messages), 0),"
+        " COALESCE(MAX(xp), 0), COALESCE(MAX(last_message), 0)"
+        " FROM levels WHERE user_id = ?",
+        (user_id,),
+    ) as cursor:
+        row = await cursor.fetchone()
+
+    guilds, total_xp, messages, highest_xp, last_active = row or (0, 0, 0, 0, 0)
+    return {
+        "guilds": int(guilds),
+        "total_xp": int(total_xp),
+        "messages": int(messages),
+        "highest_level": level_from_xp(int(highest_xp)),
+        "last_active": float(last_active),
+    }
+
+
 async def get_rank(db: aiosqlite.Connection, guild_id: int, user_id: int) -> int:
     """Position on the leaderboard, 1 being the top."""
     async with db.execute(

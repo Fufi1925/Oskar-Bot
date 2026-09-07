@@ -135,6 +135,13 @@ export const api = {
   // Bot 
   getBotStatus: () => request<BotStatus>("/bot/status"),
   getBotInfo: () => request<BotInfo>("/bot/info"),
+  getMyAccountStats: (userId: string) => request<{
+    guilds: number;
+    total_xp: number;
+    messages: number;
+    highest_level: number;
+    last_active: number;
+  }>(`/bot/account/${userId}`),
 
   // Guilds
   listGuilds: () => request<GuildSummary[]>("/guilds/"),

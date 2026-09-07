@@ -126,6 +126,21 @@ async def get_numbers(bot: "universitybot" = Depends(get_bot)):
     }
 
 
+@router.get("/account/{user_id}", summary="Eigene kontoübergreifende Bot-Statistik")
+async def get_account(user_id: int):
+    """Leveling-Werte des angemeldeten Kontos über alle Server hinweg.
+
+    Die API liefert nur Bot-Daten. Discord-Profil, Serverrechte und Premium
+    ergänzt die Website aus ihren jeweils maßgeblichen Quellen. Im BFF wird
+    die angefragte ID fest an die eingeloggte Sitzung gebunden.
+    """
+    from api.db_manager import db_manager
+    from utils import leveling_store
+
+    db = await db_manager.get_connection(leveling_store.DB_PATH)
+    return await leveling_store.account_summary(db, user_id)
+
+
 @router.get("/profiles", summary="Public Discord profiles by id")
 async def get_profiles(ids: str, bot: "universitybot" = Depends(get_bot)):
     """
