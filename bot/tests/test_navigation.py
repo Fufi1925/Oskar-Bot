@@ -938,6 +938,43 @@ def test_proximity_effect():
           "a CSS transition on top of the loop lags behind the cursor")
 
 
+def test_public_mobile_drawer():
+    """The public navigation remains complete and usable on narrow screens."""
+    print("\nPublic mobile drawer")
+    src = read(os.path.join(DASH, "components/site-nav.tsx"))
+    theme = read(os.path.join(DASH, "components/theme-toggle.tsx"))
+
+    for route in ("/commands", "/docs", "/premium", "/status", "/team",
+                  "/team/apply", "/imprint", "/privacy", "/terms",
+                  "/dashboard"):
+        check(f"the drawer links {route}", route in src)
+
+    check("support and bot invitations are linked",
+          "SUPPORT_INVITE" in src and "INVITE_URL" in src)
+    check("the drawer covers the viewport from the right",
+          'fixed inset-0 top-0 z-[100] h-dvh' in src
+          and 'absolute right-0 top-0' in src)
+    check("the page behind the drawer is dimmed",
+          "bg-black/70 backdrop-blur-sm" in src)
+    check("the drawer scrolls on short screens",
+          "flex-1 space-y-3 overflow-y-auto" in src)
+    check("opening the drawer locks page scrolling",
+          'document.body.style.overflow = "hidden"' in src)
+    check("escape closes the drawer",
+          'event.key === "Escape"' in src)
+    check("the three mobile groups are collapsible",
+          all(f'mobileGroup === "{group}"' in src
+              for group in ("commands", "about", "team")))
+    check("theme, language and account controls are included",
+          "<ThemeToggle embedded />" in src
+          and "<LanguageSwitcher />" in src
+          and 'signIn("discord"' in src)
+    check("the embedded theme control is not fixed",
+          'embedded ? "relative"' in theme)
+    check("desktop navigation remains available",
+          "hidden lg:flex items-center" in src)
+
+
 def main():
     check("the dashboard folder was found", os.path.isdir(DASH), DASH)
     if not os.path.isdir(DASH):
@@ -955,6 +992,7 @@ def main():
     test_admin_live_badge()
     test_admin_stat_values()
     test_proximity_effect()
+    test_public_mobile_drawer()
 
     print(f"\n{len(failures)} failures")
     for line in failures:

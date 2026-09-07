@@ -21,11 +21,15 @@
 
 import React from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { signIn, useSession } from "next-auth/react";
 import {
-  ChevronDown, CirclePlus, Globe, LayoutDashboard, LogIn, UserPlus, X,
+  Activity, BookOpen, ChevronDown, ChevronRight, CircleHelp, CirclePlus,
+  FileText, Globe, Grid2X2, Home, LayoutDashboard, LogIn, Shield,
+  UserPlus, Users, X,
 } from "lucide-react";
 import { LanguageSwitcher } from "@/components/language-switcher";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { SUPPORT_INVITE } from "@/lib/legal";
 import { cn } from "@/lib/utils";
 
@@ -169,11 +173,42 @@ function Dropdown({
   );
 }
 
+type MobileIcon = React.ComponentType<{ className?: string }>;
+
+function MobileNavLink({ href, label, icon: Icon, onClick, external, active, primary }: { href: string; label: string; icon: MobileIcon; onClick: () => void; external?: boolean; active?: boolean; primary?: boolean }) {
+  const style = cn(
+    "flex w-full items-center gap-4 rounded-2xl px-5 py-4 text-[18px] transition-colors",
+    primary ? "bg-[#5865f2] text-white" : active ? "bg-[#23242a] text-white" : "bg-[#1d1e22] text-slate-200 hover:bg-[#25262b]"
+  );
+  const content = <><Icon className={cn("h-6 w-6", primary ? "text-white" : active ? "text-blue-400" : "text-slate-400")} /><span className="flex-1 text-left">{label}</span><ChevronRight className={cn("h-5 w-5", primary ? "text-white" : "text-blue-500")} /></>;
+  return external ? <a href={href} target="_blank" rel="noopener noreferrer" onClick={onClick} className={style}>{content}</a> : <Link href={href} onClick={onClick} className={style}>{content}</Link>;
+}
+
+function MobileNavGroup({ label, icon: Icon, open, onClick, green, children }: { label: string; icon: MobileIcon; open: boolean; onClick: () => void; green?: boolean; children: React.ReactNode }) {
+  return <div><button type="button" onClick={onClick} aria-expanded={open} className="flex w-full items-center gap-4 rounded-2xl bg-[#1d1e22] px-5 py-4 text-[18px] text-slate-200 hover:bg-[#25262b]"><Icon className={cn("h-6 w-6", green ? "text-emerald-400" : "text-slate-400")} /><span className={cn("flex-1 text-left", green && "text-emerald-400")}>{label}</span><ChevronDown className={cn("h-5 w-5 transition-transform", green ? "text-emerald-400" : "text-slate-300", open && "rotate-180")} /></button>{open && <div className="mt-2 space-y-1 rounded-2xl border border-slate-800 bg-[#15161a] p-2">{children}</div>}</div>;
+}
+
+function MobileSubLink({ href, label, icon: Icon, close }: { href: string; label: string; icon: MobileIcon; close: () => void }) {
+  return <Link href={href} onClick={close} className="flex items-center gap-3 rounded-xl px-4 py-3 text-[15px] text-slate-400 hover:bg-white/[0.04] hover:text-white"><Icon className="h-4 w-4 text-blue-400" />{label}</Link>;
+}
+
 export function SiteNav() {
   const { data: session } = useSession();
+  const pathname = usePathname();
   const [offen, setOffen] = React.useState(false);
+  const [mobileGroup, setMobileGroup] = React.useState<"commands" | "about" | "team" | null>(null);
+
+  React.useEffect(() => {
+    if (!offen) return;
+    const old = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const close = (event: KeyboardEvent) => event.key === "Escape" && setOffen(false);
+    window.addEventListener("keydown", close);
+    return () => { document.body.style.overflow = old; window.removeEventListener("keydown", close); };
+  }, [offen]);
 
   return (
+    <>
     <nav className="sticky top-0 z-50 w-full border-b border-slate-800 bg-[#0a0a0c]/90 backdrop-blur-xl">
       <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-12 xl:px-20 h-[76px] flex items-center gap-4 lg:gap-8">
         {/* Marke — reiner Text, kein Kästchen davor. */}
@@ -281,78 +316,74 @@ export function SiteNav() {
         </div>
       </div>
 
-      {/*
-        Das Menü auf Telefon und Tablet.
-
-        Es zeigte nur die Aufklapp-Einträge und „Bot hinzufügen“ --
-        Dashboard, Support-Server und „Team beitreten“ fehlten
-        komplett. Wer auf dem Handy ins Dashboard wollte, kam gar
-        nicht hin: die Hauptleiste ist erst ab lg sichtbar.
-
-        Jetzt in Abschnitten, damit die Liste bei elf Einträgen
-        lesbar bleibt, und das Dashboard steht als Knopf oben.
-      */}
+      {/* Der mobile Drawer liegt bewusst außerhalb der gefilterten Nav:
+          so bezieht sich position:fixed zuverlässig auf den Viewport. */}
+    </nav>
       {offen && (
-        <div className="lg:hidden border-t border-slate-800 bg-[#0a0a0c] px-6 py-4">
-          <Link
-            href="/dashboard"
-            onClick={() => setOffen(false)}
-            className="flex items-center justify-center gap-2 rounded-xl bg-[#5865f2] px-4 py-3 text-[15px] font-semibold text-white transition-colors hover:bg-[#4752c4]"
-          >
-            <LayoutDashboard className="h-4 w-4" />
-            Zum Dashboard
-          </Link>
-
-          <a
-            href={INVITE_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={() => setOffen(false)}
-            className="mt-2 flex items-center justify-center gap-2 rounded-xl border border-slate-800 bg-[#131318] px-4 py-3 text-[15px] text-slate-200 transition-colors hover:border-slate-700"
-          >
-            <CirclePlus className="h-4 w-4" />
-            Bot hinzufügen
-          </a>
-
-          {[
-            { titel: "Befehle", eintraege: BEFEHLE },
-            { titel: "Team beitreten", eintraege: TEAM_ROLLEN },
-            { titel: "Über", eintraege: UEBER },
-          ].map((gruppe) => (
-            <div key={gruppe.titel} className="mt-4">
-              <p className="px-3 text-[11px] font-semibold text-slate-600">
-                {gruppe.titel}
-              </p>
-              <div className="mt-1 space-y-0.5">
-                {gruppe.eintraege.map((item) => (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    onClick={() => setOffen(false)}
-                    className="block rounded-lg px-3 py-2.5 text-[15px] text-slate-300 transition-colors hover:bg-white/[0.04] hover:text-white"
-                  >
-                    {item.label}
-                  </Link>
-                ))}
+        <div className="fixed inset-0 top-0 z-[100] h-dvh lg:hidden" role="dialog" aria-modal="true" aria-label="Hauptmenü">
+          <button aria-label="Menü schließen" onClick={() => setOffen(false)} className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+          <aside className="absolute right-0 top-0 flex h-full w-[min(82vw,530px)] flex-col border-l border-slate-700 bg-[#101113] shadow-2xl shadow-black/70">
+            <div className="flex items-center gap-4 border-b border-slate-700 px-6 py-7">
+              <div className="grid h-11 w-11 place-items-center overflow-hidden rounded-xl border border-blue-500/20 bg-blue-500/10">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/icon-192.png" alt="" className="h-full w-full object-cover" />
               </div>
+              <span className="min-w-0 flex-1 truncate text-[22px] font-extrabold text-white">{BRAND}</span>
+              <button type="button" onClick={() => setOffen(false)} className="rounded-xl p-2 text-slate-400 hover:bg-white/5 hover:text-white" aria-label="Menü schließen"><X className="h-6 w-6" /></button>
             </div>
-          ))}
 
-          <a
-            href={SUPPORT_INVITE}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={() => setOffen(false)}
-            className="mt-4 block rounded-lg px-3 py-2.5 text-[15px] text-slate-300 transition-colors hover:bg-white/[0.04] hover:text-white"
-          >
-            Support-Server
-          </a>
+            <div className="flex-1 space-y-3 overflow-y-auto px-5 py-6">
+              <MobileNavLink href="/" label="Home" icon={Home} active={pathname === "/"} onClick={() => setOffen(false)} />
 
-          <div className="mt-4 border-t border-slate-800 pt-4 sm:hidden">
-            <LanguageSwitcher />
-          </div>
+              <MobileNavGroup label="Commands" icon={Grid2X2} open={mobileGroup === "commands"} onClick={() => setMobileGroup(mobileGroup === "commands" ? null : "commands")}>
+                <MobileSubLink href="/commands" label="Alle Befehle" icon={Grid2X2} close={() => setOffen(false)} />
+                <MobileSubLink href="/docs" label="Dokumentation" icon={BookOpen} close={() => setOffen(false)} />
+              </MobileNavGroup>
+
+              <MobileNavGroup label="Über" icon={Globe} open={mobileGroup === "about"} onClick={() => setMobileGroup(mobileGroup === "about" ? null : "about")}>
+                <MobileSubLink href="/premium" label="Premium" icon={Shield} close={() => setOffen(false)} />
+                <MobileSubLink href="/status" label="Status" icon={Activity} close={() => setOffen(false)} />
+                <MobileSubLink href="/team" label="Team" icon={Users} close={() => setOffen(false)} />
+                <MobileSubLink href="/imprint" label="Impressum" icon={FileText} close={() => setOffen(false)} />
+                <MobileSubLink href="/privacy" label="Datenschutz" icon={Shield} close={() => setOffen(false)} />
+                <MobileSubLink href="/terms" label="Nutzungsbedingungen" icon={FileText} close={() => setOffen(false)} />
+              </MobileNavGroup>
+
+              <div className="my-5 h-px bg-slate-700" />
+              <MobileNavLink href={SUPPORT_INVITE} label="Support Server" icon={CircleHelp} external onClick={() => setOffen(false)} />
+
+              <MobileNavGroup label="Team beitreten" icon={UserPlus} green open={mobileGroup === "team"} onClick={() => setMobileGroup(mobileGroup === "team" ? null : "team")}>
+                {TEAM_ROLLEN.map(item => <MobileSubLink key={item.href} href={item.href} label={item.label} icon={UserPlus} close={() => setOffen(false)} />)}
+                <MobileSubLink href="/team/apply" label="Alle Bewerbungen" icon={Users} close={() => setOffen(false)} />
+              </MobileNavGroup>
+
+              <MobileNavLink href="/dashboard" label="Dashboard" icon={LayoutDashboard} primary onClick={() => setOffen(false)} />
+              <MobileNavLink href={INVITE_URL} label="Bot hinzufügen" icon={CirclePlus} external onClick={() => setOffen(false)} />
+
+              <div className="flex items-center gap-3 rounded-2xl border border-slate-700 bg-[#1d1e22] p-4">
+                <span className="flex-1 text-[15px] font-semibold text-slate-300">Design</span>
+                <ThemeToggle embedded />
+                <div className="h-9 w-px bg-slate-700" />
+                <LanguageSwitcher />
+              </div>
+
+              {session?.user ? (
+                <Link href="/dashboard" onClick={() => setOffen(false)} className="flex items-center gap-4 rounded-2xl bg-[#27282d] px-5 py-4 text-slate-100">
+                  {session.user.image ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={session.user.image} alt="" className="h-9 w-9 rounded-full" />
+                  ) : <LayoutDashboard className="h-6 w-6" />}
+                  <span className="min-w-0 flex-1 truncate">{session.user.name}</span><ChevronRight className="h-5 w-5" />
+                </Link>
+              ) : (
+                <button onClick={() => signIn("discord", { callbackUrl: "/auth/success?next=%2Fdashboard" })} className="flex w-full items-center gap-4 rounded-2xl bg-[#27282d] px-5 py-4 text-left text-slate-100">
+                  <LogIn className="h-6 w-6" /><span className="flex-1 text-[17px]">Anmelden</span><ChevronRight className="h-5 w-5" />
+                </button>
+              )}
+            </div>
+          </aside>
         </div>
       )}
-    </nav>
+    </>
   );
 }

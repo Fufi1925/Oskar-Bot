@@ -13,7 +13,7 @@ function applyTheme(theme: DashboardTheme) {
 }
 
 /** Global, persistent light/dark switch. Dark is the default for new users. */
-export function ThemeToggle() {
+export function ThemeToggle({ embedded = false }: { embedded?: boolean }) {
   const [theme, setTheme] = useState<DashboardTheme>("dark");
 
   useEffect(() => {
@@ -21,17 +21,24 @@ export function ThemeToggle() {
     const selected: DashboardTheme = saved === "light" ? "light" : "dark";
     setTheme(selected);
     applyTheme(selected);
+    const sync = (event: Event) => {
+      const next = (event as CustomEvent<DashboardTheme>).detail;
+      if (next === "light" || next === "dark") setTheme(next);
+    };
+    window.addEventListener("dashboard-theme-change", sync);
+    return () => window.removeEventListener("dashboard-theme-change", sync);
   }, []);
 
   const choose = (next: DashboardTheme) => {
     setTheme(next);
     window.localStorage.setItem("dashboard-theme", next);
     applyTheme(next);
+    window.dispatchEvent(new CustomEvent("dashboard-theme-change", { detail: next }));
   };
 
   return (
     <div
-      className="theme-filter-reset fixed bottom-5 right-5 z-[10020] flex items-center rounded-full border border-white/10 bg-[#151519]/95 p-1 shadow-2xl shadow-black/40 backdrop-blur-xl"
+      className={`theme-filter-reset flex items-center rounded-full border border-white/10 bg-[#151519]/95 p-1 shadow-2xl shadow-black/40 backdrop-blur-xl ${embedded ? "relative" : "fixed bottom-5 right-5 z-40"}`}
       role="group"
       aria-label="Farbschema"
     >
