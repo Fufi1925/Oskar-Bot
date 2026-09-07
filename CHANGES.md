@@ -4,6 +4,58 @@
 
 ---
 
+## 🌍 Sprachumschalter: Deutsch/English, überall, komplett
+
+### Der Schalter fehlte im Dashboard
+`LanguageSwitcher` war in `app/dashboard/layout.tsx` **importiert, aber nie
+gerendert** — wer im Dashboard war, konnte die Sprache nicht wechseln, obwohl
+Umschalter und Wörterbuch existierten. Er steht jetzt oben rechts, direkt
+neben dem Profil (auf schmalen Bildschirmen nur als Flagge, damit Glocke,
+Profil und Suche Platz behalten). Die öffentlichen Seiten hatten ihn schon.
+
+### Flaggen vor den Namen
+Der Knopf zeigt die Flagge der aktiven Sprache vor ihrem Namen („🇩🇪 Deutsch“ /
+„🇬🇧 English“), die Liste beide Flaggen vor den Namen — vorher stand da ein
+Globus-Symbol mit „DE“/„EN“.
+
+### „Übersetze alles“ — das Wörterbuch war zu ~⅓ gefüllt
+Von rund 2.000 deutschen UI-Texten (Panels, Formulare, Dialoge, Toasts,
+Landing-, Premium-, Docs-, Team-Seite) standen nur 626 im Wörterbuch; beim
+Umschalten blieb der größte Teil Deutsch. Jetzt:
+
+- **+2.014 exakte Paare** in `phrasePairs` (Stand: 2.640).
+- **+140 Vorlagen-Paare** (`patternPairs`, neu) für Texte, in die React zur
+  Laufzeit Werte einsetzt — „12 Titel hinzugefügt.“ stand nie wortgleich im
+  Quelltext. `{1}`, `{2}` … werden zu ankervollen Regexen mit Fanggruppen,
+  sortiert nach Spezifität (sonst fängt „{1} Tage“ zuerst „noch 5 Tage“).
+- Bewusst **nicht** übersetzt: Changelog-Archiv (`lib/announcements.ts`,
+  historisches Protokoll) und Rechtsseiten (Impressum muss deutsch bleiben;
+  Datenschutz/AGB brauchen eine geprüfte Übersetzung, keine automatische).
+
+### 140 Kaputte Rück-Übersetzungen gefixt
+Das alte Wörterbuch enthielt Identitäten wie
+`["Authenticated As", "Authenticated As"]` *zusätzlich* zu
+`["Authentifiziert als", "Authenticated As"]`. `buildMap` setzt
+`map[en] = de` der Reihe nach — die spätere Identität überschrieb die
+Rückübersetzung: Beim Zurückschalten auf Deutsch blieben diese 140 Texte
+englisch. Die Identitäten sind entfernt; die deutschen Paare übernehmen
+beide Richtungen.
+
+### Nachvollziehbar gebaut, nicht von Hand gepflegt
+`tools/find_missing_translations.py` extrahiert alle deutschen UI-Texte und
+meldet Lücken; die Übersetzungen liegen in reviewbaren Batches unter
+`tools/i18n_work/`; `tools/build_dom_translations.py` merged sie ins
+TypeScript-Wörterbuch und prüft dabei Konflikte (doppelte Schlüssel,
+Identitäts-Kollisionen, Drift-Ketten). Im Wörterbuch steht ein Hinweis,
+dass es aus dem Generator kommt.
+
+**Verifiziert:** `npx tsc --noEmit` sauber, `npm run build` durch, neuer Test
+`bot/tests/test_sprachwechsel.py` (Platzierung, Flaggen-Reihenfolge,
+Wörterbuch-Invarianten, Rundreise der Vorlagen in Python nachgebaut),
+komplette Suite: keine neuen Fehler.
+
+---
+
 ## 🔴 Sicherheit
 
 ### API-Key im Browser-Bundle

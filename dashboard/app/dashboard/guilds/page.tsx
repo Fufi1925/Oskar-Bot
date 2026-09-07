@@ -6,7 +6,6 @@ import { GuildSummary } from "@/types/api";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { LanguageSwitcher } from "@/components/language-switcher";
 import { GuildGrid, type GuildEntry } from "@/components/dashboard/guild-grid";
 import { fetchDelegatedGuilds, type DelegatedGuild } from "@/lib/guild-auth";
 
@@ -137,7 +136,9 @@ export default async function GuildsPage() {
               : "Füge den Bot auf einem Server hinzu, um loszulegen."}
           </p>
         </div>
-        <LanguageSwitcher />
+      {/* Sprachumschalter steht nicht mehr hier: er haengt seitdem in
+          der Kopfzeile des Dashboard-Layouts, direkt neben dem Profil —
+          auf dieser Seite waere er sonst doppelt. */}
       </div>
 
       {error && !userGuilds.length && (
