@@ -20,6 +20,7 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/components/auth-provider";
 import { GlobalPopups } from "@/components/global-popups";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { LanguageProvider } from "@/lib/i18n/LanguageContext";
 
 const brandName = process.env.NEXT_PUBLIC_BRAND_NAME || "University Bot";
@@ -59,7 +60,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" data-theme="light" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem('dashboard-theme');var v=t==='dark'?'dark':'light';document.documentElement.dataset.theme=v;document.documentElement.style.colorScheme=v}catch(e){}})();`,
+          }}
+        />
+      </head>
       <body className="font-sans antialiased text-slate-200">
         <AuthProvider>
           <LanguageProvider>{children}</LanguageProvider>
@@ -70,6 +78,7 @@ export default function RootLayout({
               erscheinen. Innerhalb des AuthProviders, weil sie die Sitzung
               des angemeldeten Discord-Kontos benötigen. */}
           <GlobalPopups />
+          <ThemeToggle />
         </AuthProvider>
       </body>
     </html>
