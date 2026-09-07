@@ -797,6 +797,14 @@ export default function DashboardLayout({
             </div>
             <div className="h-8 w-[1px] bg-white/5 hidden sm:block"></div>
 
+            {/* Sprachumschalter — direkt neben dem Profil. Der Import
+                stand schon lange hier, gerendert wurde er nie: im
+                Dashboard gab es also keine Möglichkeit, die Sprache zu
+                wechseln, obwohl der Umschalter und das Wörterbuch da
+                sind. Auf schmalen Bildschirmen zeigt der Knopf nur die
+                Flagge, damit Glocke, Profil und Suche Platz behalten. */}
+            <LanguageSwitcher />
+
             {/* Profil Dropdown (unchanged) */}
             <div className="relative" ref={profileRef}>
               <button
