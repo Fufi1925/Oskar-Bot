@@ -33,6 +33,7 @@ Run:  python3 tests/test_sprachwechsel.py
 import json
 import os
 import re
+import subprocess
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -251,7 +252,7 @@ def test_vorlagen_rundreise():
 # 5. Stichproben aus allen Bereichen
 # ---------------------------------------------------------------- #
 def test_stichproben():
-    print("\nStichproben aus allen Dashboard-Bereichen")
+    print("\nStichproben aus allen Website-Bereichen")
 
     # Je Bereich ein deutscher Text, der vorher unuebersetzt blieb.
     stichproben = [
@@ -264,6 +265,12 @@ def test_stichproben():
         ("Verfügbarkeit in Echtzeit", "Availability in real time"),
         ("Zähler verwalten", "Manage counter"),                   # Counting
         ("Support-Server", "Support Server"),                     # Navi
+        ("Datenlöschung", "Data deletion"),                       # Konto
+        ("Konto & Aktivität", "Account & Activity"),              # Konto
+        ("Anträge nach Art. 17 DSGVO prüfen, genehmigen oder begründet ablehnen.",
+         "Check, approve or reject applications in accordance with Art. 17 GDPR."),
+        ("Kurzfassung", "Summary"),                               # Datenschutz
+        ("Nutzungsbedingungen", "Terms of Service"),              # Rechtstexte
     ]
     mapping = {norm(de): en for de, en in phrase_pairs}
     for de, en in stichproben:
@@ -279,12 +286,29 @@ def test_stichproben():
           "text-base" in src and name_span is not None)
 
 
+def test_vollstaendige_abdeckung():
+    print("\nAlle sichtbaren Website-Texte sind abgedeckt")
+    root = os.path.abspath(os.path.join(DASH, ".."))
+    result = subprocess.run(
+        [sys.executable, os.path.join(root, "tools", "find_missing_translations.py"), "--check"],
+        cwd=root,
+        capture_output=True,
+        text=True,
+    )
+    check(
+        "Extraktor findet keine fehlende Übersetzung",
+        result.returncode == 0,
+        (result.stdout + result.stderr).strip()[-500:],
+    )
+
+
 if __name__ == "__main__":
     test_schalter_im_dashboard()
     test_flaggen_vor_dem_namen()
     test_woerterbuch_invarianten()
     test_vorlagen_rundreise()
     test_stichproben()
+    test_vollstaendige_abdeckung()
 
     print()
     if failures:

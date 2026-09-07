@@ -33,6 +33,12 @@ def unescape(s: str) -> str:
     i = 0
     while i < len(s):
         c = s[i]
+        if c == "\\" and i + 5 < len(s) and s[i + 1] == "u":
+            digits = s[i + 2:i + 6]
+            if re.fullmatch(r"[0-9a-fA-F]{4}", digits):
+                out.append(chr(int(digits, 16)))
+                i += 6
+                continue
         if c == "\\" and i + 1 < len(s):
             nxt = s[i + 1]
             if nxt == "n":
@@ -195,6 +201,28 @@ def ts_str(s: str) -> str:
     out = out.replace("\n", "\\n").replace("\t", "\\t").replace("\r", "\\r")
     return '"' + out + '"'
 
+# ── Korrigierte Batch-Werte im Bestand aktualisieren ──────────────
+# Frühere Versionen konnten nur anhängen. Dadurch blieb eine später im
+# reviewbaren JSON-Batch korrigierte Übersetzung in der TS-Datei unverändert.
+# Da die Batches jetzt dedupliziert sind, darf der jeweils aktuelle Wert einen
+# bereits generierten Eintrag mit demselben deutschen Schlüssel ersetzen.
+static_by_norm = {norm(de): (de, en) for de, en in static.items()}
+updated_existing = 0
+for old_de, old_en in existing_pairs:
+    replacement_pair = static_by_norm.get(norm(old_de))
+    if not replacement_pair:
+        continue
+    new_de, new_en = replacement_pair
+    if old_de == new_de and old_en == new_en:
+        continue
+    old_line = f"  [{ts_str(old_de)}, {ts_str(old_en)}],"
+    new_line = f"  [{ts_str(new_de)}, {ts_str(new_en)}],"
+    if old_line in src:
+        src = src.replace(old_line, new_line, 1)
+        updated_existing += 1
+if updated_existing:
+    print(f"Bestehende Batch-Eintraege aktualisiert: {updated_existing}")
+
 # ── Konflikt-Identitaeten aus der Datei loeschen ──────────────────
 konflikt_zeilen = {f"  [{ts_str(de)}, {ts_str(en)}]," for de, en in konflikt_identitaeten}
 for zeile in konflikt_zeilen:
@@ -214,10 +242,18 @@ block = (
     + "\n"
 )
 
-# Einfuegen vor dem schliessenden `];` von phrasePairs.
-anchor = "\n];\n\nfunction normalise"
+# Einfuegen vor dem schliessenden `];` von phrasePairs. Beim ersten Lauf
+# folgt direkt normalise(), bei späteren Läufen der bereits generierte
+# patternPairs-Block. Der Generator muss inkrementell erneut ausführbar sein.
+already_generated = "export const patternPairs" in src
+if already_generated:
+    anchor = "\n];\n\n/**\n * Vorlagen fuer Texte"
+    replacement = "\n" + block + "];\n\n/**\n * Vorlagen fuer Texte"
+else:
+    anchor = "\n];\n\nfunction normalise"
+    replacement = "\n" + block + "];\n\nfunction normalise"
 assert anchor in src, "Einfuegepunkt (phrasePairs-Ende) nicht gefunden"
-new_src = src.replace(anchor, "\n" + block + "];\n\nfunction normalise", 1)
+new_src = src.replace(anchor, replacement, 1) if final_static else src
 
 # ── patternPairs + Mechanik einfuegen ─────────────────────────────
 pat_lines = [f"  [{ts_str(de)}, {ts_str(en)}]," for de, en in dyn_pairs]
@@ -263,10 +299,22 @@ pat_block = (
     "}\n"
 )
 
-# patternPairs hinter phrasePairs definieren (nach dessen `];`).
-pp_end = new_src.index("];", new_src.index("export const phrasePairs"))
-insert_at = new_src.index("\n", pp_end) + 1
-new_src = new_src[:insert_at] + pat_block + new_src[insert_at:]
+if already_generated:
+    # Nur den Datenblock ersetzen; die darunterliegende Laufzeitmechanik bleibt
+    # unverändert. So lassen sich neue Batches jederzeit reproduzierbar bauen.
+    pattern_start = new_src.index("export const patternPairs")
+    pattern_end = new_src.index("\n];", pattern_start) + len("\n];")
+    data_only = (
+        "export const patternPairs: Array<[de: string, en: string]> = [\n"
+        + "\n".join(pat_lines)
+        + "\n];"
+    )
+    new_src = new_src[:pattern_start] + data_only + new_src[pattern_end:]
+else:
+    # patternPairs beim ersten Lauf hinter phrasePairs definieren.
+    pp_end = new_src.index("];", new_src.index("export const phrasePairs"))
+    insert_at = new_src.index("\n", pp_end) + 1
+    new_src = new_src[:insert_at] + pat_block + new_src[insert_at:]
 
 # ── buildMap & translateValue & translateDashboardDom anpassen ────
 old_buildmap = """function buildMap(language: Language) {
@@ -298,8 +346,10 @@ function buildTranslator(language: Language) {
     patterns: buildPatternMatchers(language),
   };
 }"""
-assert old_buildmap in new_src, "buildMap nicht gefunden"
-new_src = new_src.replace(old_buildmap, new_buildmap, 1)
+if not already_generated:
+    if old_buildmap not in new_src:
+        raise AssertionError("buildMap nicht gefunden")
+    new_src = new_src.replace(old_buildmap, new_buildmap, 1)
 
 old_translate = """function translateValue(value: string, map: Map<string, string>) {
   const key = normalise(value);
@@ -326,8 +376,10 @@ new_translate = """function translateValue(
   }
   return value;
 }"""
-assert old_translate in new_src, "translateValue nicht gefunden"
-new_src = new_src.replace(old_translate, new_translate, 1)
+if not already_generated:
+    if old_translate not in new_src:
+        raise AssertionError("translateValue nicht gefunden")
+    new_src = new_src.replace(old_translate, new_translate, 1)
 
 old_dom = """export function translateDashboardDom(language: Language, root: ParentNode = document) {
   if (typeof document === "undefined") return;
@@ -335,8 +387,10 @@ old_dom = """export function translateDashboardDom(language: Language, root: Par
 new_dom = """export function translateDashboardDom(language: Language, root: ParentNode = document) {
   if (typeof document === "undefined") return;
   const { map, patterns } = buildTranslator(language);"""
-assert old_dom in new_src, "translateDashboardDom nicht gefunden"
-new_src = new_src.replace(old_dom, new_dom, 1)
+if not already_generated:
+    if old_dom not in new_src:
+        raise AssertionError("translateDashboardDom nicht gefunden")
+    new_src = new_src.replace(old_dom, new_dom, 1)
 
 new_src = new_src.replace(
     "const translated = translateValue(current, map);",

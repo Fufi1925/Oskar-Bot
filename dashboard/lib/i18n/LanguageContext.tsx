@@ -50,10 +50,13 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     // responses, or client component state updates.
     const observer = new MutationObserver((mutations) => {
       if (
-        mutations.some((mutation) =>
-          Array.from(mutation.addedNodes).some(
-            (node) => node.nodeType === Node.TEXT_NODE || node.nodeType === Node.ELEMENT_NODE,
-          ),
+        mutations.some(
+          (mutation) =>
+            mutation.type === "characterData" ||
+            mutation.type === "attributes" ||
+            Array.from(mutation.addedNodes).some(
+              (node) => node.nodeType === Node.TEXT_NODE || node.nodeType === Node.ELEMENT_NODE,
+            ),
         )
       ) {
         scheduleTranslations();
@@ -62,6 +65,9 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
     observer.observe(document.body, {
       childList: true,
+      characterData: true,
+      attributes: true,
+      attributeFilter: ["placeholder", "title", "aria-label", "alt"],
       subtree: true,
     });
 

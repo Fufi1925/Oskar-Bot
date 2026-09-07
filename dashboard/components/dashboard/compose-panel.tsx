@@ -253,7 +253,7 @@ export function ComposePanel({ guildId }: { guildId: string }) {
     setAccent(entry.accent);
     setBlocks(entry.blocks.map((block) => ({ ...block, id: nextId++ })));
     setSent(null);
-    toast.success(`„${entry.label}" geladen — Kanal wählen und senden.`);
+    toast.success(`„${entry.label}“ geladen — Kanal wählen und senden.`);
   };
 
   return (

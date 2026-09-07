@@ -414,7 +414,7 @@ export function LoggingPanel({ guildId }: { guildId: string }) {
     }
     p.set("categories", next);
     toast.success(
-      `„${preset.label}" vorbereitet — unten speichern, dann gilt es.`
+      `„${preset.label}“ vorbereitet — unten speichern, dann gilt es.`
     );
   };
 

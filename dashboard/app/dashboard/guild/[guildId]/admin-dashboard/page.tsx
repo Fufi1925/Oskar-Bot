@@ -130,11 +130,11 @@ export default function ServerToolsPage({ params }: { params: { guildId: string 
   };
 
   const removeWebhook = async (id: string, name: string) => {
-    if (!confirm(`Webhook „${name}" wirklich löschen?`)) return;
+    if (!confirm(`Webhook „${name}“ wirklich löschen?`)) return;
     setBusy(true);
     try {
       await api.deleteWebhook(guildId, id);
-      toast.success(`Webhook „${name}" gelöscht.`);
+      toast.success(`Webhook „${name}“ gelöscht.`);
       await load("webhooks", true);
       setData((d) => ({ ...d, security: undefined }));
     } catch (err: any) {
@@ -489,7 +489,7 @@ export default function ServerToolsPage({ params }: { params: { guildId: string 
                                 "Rolle gelöscht.",
                                 () => api.deleteGuildRole(guildId, r.id),
                                 ["security"],
-                                `Rolle „${r.name}" wirklich löschen?` +
+                                `Rolle „${r.name}“ wirklich löschen?` +
                                   (r.members > 0
                                     ? `\n\n${r.members} Mitglied(er) verlieren sie.`
                                     : "")

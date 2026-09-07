@@ -28,9 +28,11 @@ Umschalten blieb der größte Teil Deutsch. Jetzt:
   Laufzeit Werte einsetzt — „12 Titel hinzugefügt.“ stand nie wortgleich im
   Quelltext. `{1}`, `{2}` … werden zu ankervollen Regexen mit Fanggruppen,
   sortiert nach Spezifität (sonst fängt „{1} Tage“ zuerst „noch 5 Tage“).
-- Bewusst **nicht** übersetzt: Changelog-Archiv (`lib/announcements.ts`,
-  historisches Protokoll) und Rechtsseiten (Impressum muss deutsch bleiben;
-  Datenschutz/AGB brauchen eine geprüfte Übersetzung, keine automatische).
+- **Nachprüfung September 2026:** Das Wörterbuch deckt jetzt 4.007 feste
+  Wort-/Textpaare und 169 dynamische Vorlagen ab. Konto, Datenschutz,
+  Nutzungsbedingungen, Impressum, Changelog, kurze Feldnamen, Tooltips,
+  Platzhalter und nachträglich gerenderte API-Texte sind einbezogen. Der
+  Abdeckungsprüfer meldet für alle 219 Website-Quelldateien keine Lücke mehr.
 
 ### 140 Kaputte Rück-Übersetzungen gefixt
 Das alte Wörterbuch enthielt Identitäten wie
@@ -49,10 +51,11 @@ TypeScript-Wörterbuch und prüft dabei Konflikte (doppelte Schlüssel,
 Identitäts-Kollisionen, Drift-Ketten). Im Wörterbuch steht ein Hinweis,
 dass es aus dem Generator kommt.
 
-**Verifiziert:** `npx tsc --noEmit` sauber, `npm run build` durch, neuer Test
+**Verifiziert:** `npx tsc --noEmit` sauber, `npm run build` durch, Test
 `bot/tests/test_sprachwechsel.py` (Platzierung, Flaggen-Reihenfolge,
-Wörterbuch-Invarianten, Rundreise der Vorlagen in Python nachgebaut),
-komplette Suite: keine neuen Fehler.
+Wörterbuch-Invarianten, Rundreise der Vorlagen und vollständiger Quellscan).
+Der Übersetzungs-Generator ist wiederholt ausführbar und erzeugt beim zweiten
+Lauf keinen Diff; die komplette geprüfte Suite meldet keine neuen Fehler.
 
 ---
 
