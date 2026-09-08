@@ -65,6 +65,7 @@ interface Konto {
 }
 
 type Filter = "alle" | "aktiv" | "bald" | "probewoche" | "beendet";
+type Bereich = "codes" | "konten" | "probewochen" | "archiv";
 
 /* ── Hilfen ────────────────────────────────────────────────────────── */
 
@@ -152,6 +153,7 @@ export function PremiumAdmin() {
   const [laedt, setLaedt] = useState(true);
   const [beschaeftigt, setBeschaeftigt] = useState(false);
 
+  const [bereich, setBereich] = useState<Bereich>("codes");
   const [filter, setFilter] = useState<Filter>("alle");
   const [suche, setSuche] = useState("");
   const [offen, setOffen] = useState<string | null>(null);
@@ -268,12 +270,43 @@ export function PremiumAdmin() {
     { id: "beendet", label: "Beendet" },
   ];
 
+  const BEREICHE: Array<{ id: Bereich; label: string; text: string; icon: any; color: string; active: string }> = [
+    { id: "codes", label: "Codes", text: "Verlosungen", icon: KeyRound, color: "text-amber-400", active: "border-amber-400/25 bg-amber-400/10" },
+    { id: "konten", label: "Konten", text: "Premium verwalten", icon: Crown, color: "text-violet-400", active: "border-violet-400/25 bg-violet-400/10" },
+    { id: "probewochen", label: "Probewochen", text: "Testzugänge", icon: Gift, color: "text-sky-400", active: "border-sky-400/25 bg-sky-400/10" },
+    { id: "archiv", label: "Lizenz-Keys", text: "Altes System", icon: Clock, color: "text-slate-400", active: "border-slate-600 bg-slate-700/20" },
+  ];
+
   return (
     <div className="space-y-5">
-      {/* Giveaway-Codes stehen oben, weil Erstellen und Einlösungen prüfen
-          die häufigsten zeitkritischen Premium-Aktionen sind. */}
-      <PremiumCodes />
+      <section className="overflow-hidden rounded-3xl border border-slate-800 bg-[#111116]">
+        <div className="flex flex-col gap-4 border-b border-slate-800 px-5 py-5 sm:flex-row sm:items-center sm:px-6">
+          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl border border-amber-400/20 bg-amber-400/10">
+            <Crown className="h-5 w-5 text-amber-300" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h2 className="text-lg font-black text-white">Premium-Zentrale</h2>
+            <p className="mt-1 text-xs text-slate-500">Codes, Konten und Testzugänge an einem übersichtlichen Ort.</p>
+          </div>
+          <button onClick={() => laden()} disabled={laedt} className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-800 bg-[#0b0b0f] px-3.5 py-2.5 text-xs font-bold text-slate-400 transition hover:border-slate-700 hover:text-white disabled:opacity-40">
+            <RefreshCw className={cn("h-3.5 w-3.5", laedt && "animate-spin")} /> Daten aktualisieren
+          </button>
+        </div>
+        <nav className="grid grid-cols-2 gap-2 p-2 sm:grid-cols-4" aria-label="Premium-Bereiche">
+          {BEREICHE.map((item) => {
+            const active = bereich === item.id;
+            const Icon = item.icon;
+            return <button key={item.id} onClick={() => setBereich(item.id)} aria-current={active ? "page" : undefined} className={cn("flex min-w-0 items-center gap-3 rounded-2xl border px-3 py-3 text-left transition", active ? cn(item.active, "text-white") : "border-transparent text-slate-500 hover:bg-white/[0.03] hover:text-slate-300")}>
+              <span className={cn("grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-black/20", item.color)}><Icon className="h-4 w-4" /></span>
+              <span className="min-w-0"><span className="block truncate text-xs font-bold">{item.label}</span><span className="mt-0.5 hidden truncate text-[10px] opacity-60 lg:block">{item.text}</span></span>
+            </button>;
+          })}
+        </nav>
+      </section>
 
+      {bereich === "codes" && <PremiumCodes />}
+
+      {bereich === "konten" && <>
       {/* ── Die Zahlen ──────────────────────────────────────────── */}
       <Reveal>
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
@@ -627,14 +660,15 @@ export function PremiumAdmin() {
           )}
         </div>
       </Reveal>
+      </>}
 
       {/* ── Probewochen ─────────────────────────────────────────── */}
-      <Reveal>
+      {bereich === "probewochen" && <Reveal>
         <PremiumTrials />
-      </Reveal>
+      </Reveal>}
 
-      {/* ── Keys: zugeklappt ────────────────────────────────────── */}
-      <Reveal>
+      {/* ── Historische Lizenz-Keys ──────────────────────────────── */}
+      {bereich === "archiv" && <Reveal>
         <div className={cn(CARD, "overflow-hidden")}>
           <button
             onClick={() => setZeigeKeys((v) => !v)}
@@ -666,7 +700,7 @@ export function PremiumAdmin() {
             </div>
           )}
         </div>
-      </Reveal>
+      </Reveal>}
     </div>
   );
 }
