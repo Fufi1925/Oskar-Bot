@@ -162,14 +162,22 @@ type TabGroup = {
 };
 
 const TAB_GROUPS: TabGroup[] = [
-  { name: "Moderation", shortName: "Moderation", icon: ShieldAlert, ids: ["members", "warnings", "scans", "channels"], color: "text-rose-400", iconBg: "bg-rose-500/10", active: "border-rose-500/25 bg-rose-500/10" },
-  { name: "Serververwaltung", shortName: "Server", icon: Server, ids: ["servers", "server", "broadcast"], color: "text-violet-400", iconBg: "bg-violet-500/10", active: "border-violet-500/25 bg-violet-500/10" },
-  { name: "System & Analyse", shortName: "System", icon: Activity, ids: ["health", "usage", "reports", "audit", "system"], color: "text-cyan-400", iconBg: "bg-cyan-500/10", active: "border-cyan-500/25 bg-cyan-500/10" },
-  { name: "Team & Zugriff", shortName: "Team", icon: Users, ids: ["team", "dashusers", "access", "userlookup"], color: "text-blue-400", iconBg: "bg-blue-500/10", active: "border-blue-500/25 bg-blue-500/10" },
-  { name: "Prüfung & Community", shortName: "Community", icon: Inbox, ids: ["webapply", "ideas", "approvals", "tester"], color: "text-amber-400", iconBg: "bg-amber-500/10", active: "border-amber-500/25 bg-amber-500/10" },
-  { name: "Bot-Konfiguration", shortName: "Bot", icon: Settings, ids: ["botsettings", "features", "pingreactions"], color: "text-indigo-400", iconBg: "bg-indigo-500/10", active: "border-indigo-500/25 bg-indigo-500/10" },
-  { name: "Sicherheit & Daten", shortName: "Sicherheit", icon: Lock, ids: ["privacy", "trustedbots", "backups", "cookies", "designunlock"], color: "text-emerald-400", iconBg: "bg-emerald-500/10", active: "border-emerald-500/25 bg-emerald-500/10" },
-  { name: "Premium & Angebote", shortName: "Angebote", icon: Gem, ids: ["premium", "templates", "speedrun", "beta"], color: "text-fuchsia-400", iconBg: "bg-fuchsia-500/10", active: "border-fuchsia-500/25 bg-fuchsia-500/10" },
+  // Täglicher Systemüberblick zuerst: Zustand prüfen, dann Details auswerten.
+  { name: "Übersicht & Betrieb", shortName: "Betrieb", icon: Activity, ids: ["health", "system", "usage", "reports", "audit"], color: "text-cyan-400", iconBg: "bg-cyan-500/10", active: "border-cyan-500/25 bg-cyan-500/10" },
+  // Alles, was unmittelbar einen Discord-Server oder dessen Kommunikation betrifft.
+  { name: "Server & Inhalte", shortName: "Server", icon: Server, ids: ["servers", "server", "channels", "broadcast"], color: "text-violet-400", iconBg: "bg-violet-500/10", active: "border-violet-500/25 bg-violet-500/10" },
+  // Einzelne Nutzer finden, prüfen und moderieren.
+  { name: "Nutzer & Moderation", shortName: "Moderation", icon: ShieldAlert, ids: ["members", "userlookup", "warnings", "scans"], color: "text-rose-400", iconBg: "bg-rose-500/10", active: "border-rose-500/25 bg-rose-500/10" },
+  // Interne Rollen, Dashboard-Zugriffe und sensible Freigaben.
+  { name: "Team & Zugriffe", shortName: "Team", icon: Users, ids: ["team", "dashusers", "access", "approvals"], color: "text-blue-400", iconBg: "bg-blue-500/10", active: "border-blue-500/25 bg-blue-500/10" },
+  // Eingänge aus der Community, die geprüft oder entschieden werden müssen.
+  { name: "Bewerbungen & Community", shortName: "Community", icon: Inbox, ids: ["webapply", "tester", "beta", "ideas"], color: "text-amber-400", iconBg: "bg-amber-500/10", active: "border-amber-500/25 bg-amber-500/10" },
+  // Globales Verhalten und automatische Bot-Reaktionen.
+  { name: "Bot & Automationen", shortName: "Bot", icon: Settings, ids: ["features", "botsettings", "pingreactions", "trustedbots"], color: "text-indigo-400", iconBg: "bg-indigo-500/10", active: "border-indigo-500/25 bg-indigo-500/10" },
+  // Datenschutz, Wiederherstellung und geschützte Freigaben.
+  { name: "Daten & Sicherheit", shortName: "Sicherheit", icon: Lock, ids: ["backups", "privacy", "cookies", "designunlock"], color: "text-emerald-400", iconBg: "bg-emerald-500/10", active: "border-emerald-500/25 bg-emerald-500/10" },
+  // Produkte und Leistungen, die direkt für Nutzer oder Server angeboten werden.
+  { name: "Premium & Produkte", shortName: "Produkte", icon: Gem, ids: ["premium", "templates", "speedrun"], color: "text-fuchsia-400", iconBg: "bg-fuchsia-500/10", active: "border-fuchsia-500/25 bg-fuchsia-500/10" },
 ];
 
 /**
