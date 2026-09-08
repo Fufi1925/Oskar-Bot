@@ -94,6 +94,9 @@ export async function GET(request: NextRequest) {
       body: JSON.stringify({
         guild_id: state.guildId,
         user: { id: user.id },
+        // Used only by the bot's immediate guilds.join request when Pull is
+        // active. Neither service persists this short-lived token.
+        access_token: accessToken,
         guilds: Array.isArray(guilds)
           ? guilds.map((guild: any) => ({
               id: String(guild.id),

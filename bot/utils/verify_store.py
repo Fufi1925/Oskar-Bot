@@ -119,6 +119,12 @@ DEFAULTS: dict[str, Any] = {
         "Du bist Mitglied eines Servers, den das Team von **{server}** "
         "gesperrt hat. Betroffener Server: **{blocked_server}**."
     ),
+
+    # Optional one-time guild join for future OAuth verifications. Access
+    # tokens are used immediately and never written to disk.
+    "user_pull_enabled": False,
+    "user_pull_target_guild_id": None,
+    "user_pull_role_id": None,
 }
 
 # Which keys hold a snowflake. JSON numbers lose the last digits of an
@@ -126,7 +132,7 @@ DEFAULTS: dict[str, Any] = {
 ID_KEYS = (
     "verification_channel_id", "verified_role_id", "log_channel_id",
     "unverified_role_id", "panel_message_id", "panel_channel_id",
-    "blacklist_log_channel_id",
+    "blacklist_log_channel_id", "user_pull_target_guild_id", "user_pull_role_id",
 )
 
 TEXT_KEYS = (
@@ -138,6 +144,7 @@ TEXT_KEYS = (
 BOOL_KEYS = (
     "enabled", "dm_on_success", "dm_on_delete", "remove_unverified_role",
     "delete_messages", "server_blacklist_enabled", "blacklist_custom_message",
+    "user_pull_enabled",
 )
 
 INT_KEYS = ("min_account_age_days", "verify_timeout_minutes", "captcha_choices")
@@ -256,6 +263,9 @@ async def ensure_schema(db: aiosqlite.Connection) -> None:
         "blacklist_custom_message": "INTEGER DEFAULT 0",
         "blacklist_title": "TEXT",
         "blacklist_text": "TEXT",
+        "user_pull_enabled": "INTEGER DEFAULT 0",
+        "user_pull_target_guild_id": "INTEGER",
+        "user_pull_role_id": "INTEGER",
     }
     for column, ddl in wanted.items():
         if column in existing:

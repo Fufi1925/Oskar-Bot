@@ -30,6 +30,7 @@ Run:  python3 tests/test_verify.py
 
 import asyncio
 import os
+import re
 import sqlite3
 import sys
 import tempfile
@@ -160,10 +161,17 @@ class Guild:
         self.name = "Test Server"
         self.icon = None
         self.member_count = 1204
+        self.owner_id = 777
+        self.owner = Member(self.owner_id)
+        self.system_channel = None
         self.me = Member(1)
         self._roles = {}
         self._channels = {}
         self._members = {}
+
+    @property
+    def roles(self):
+        return list(self._roles.values())
 
     def get_role(self, rid):
         return self._roles.get(int(rid))
@@ -742,9 +750,17 @@ async def test_api(store):
         def __init__(self):
             self.reloaded: list = []
             self.cog = None
+            self.guilds = [guild]
+            self.http_calls: list = []
+            bot_ref = self
+            class HTTP:
+                async def request(self, route, **kwargs):
+                    bot_ref.http_calls.append({"route": route, **kwargs})
+                    return {}
+            self.http = HTTP()
 
         def get_guild(self, gid):
-            return guild if int(gid) == GUILD else None
+            return next((item for item in self.guilds if item.id == int(gid)), None)
 
         def get_cog(self, name):
             self.reloaded.append(name)
@@ -783,6 +799,10 @@ async def test_api(store):
     r = client.patch(base, json={"min_account_age_days": -3})
     check("a negative age is refused", r.status_code == 400, r.text[:120])
 
+    r = client.patch(base, json={"user_pull_enabled": True})
+    check("Pull cannot bypass the owner challenge through normal settings",
+          r.status_code == 403, r.text[:120])
+
     bot.reloaded.clear()
     r = client.patch(base, json={
         "verification_channel_id": str(CHANNEL),
@@ -807,6 +827,60 @@ async def test_api(store):
           "{server}" in data["placeholders"], str(data.get("placeholders")))
     check("the blacklist placeholder is documented",
           "{blocked_server}" in data["placeholders"], str(data.get("placeholders")))
+
+    # User Pull: both servers belong to the same real owner and the bot is
+    # already present on the target. The active challenge is reused so a
+    # reload cannot create a second Discord message.
+    target = Guild(GUILD + 1)
+    target.name = "Zielserver"
+    target.me.top_role = Role(9998, "bot", 100)
+    target_role = Role(8801, "Pull-Mitglied", 5)
+    target._roles[target_role.id] = target_role
+    target_channel = Channel(CHANNEL + 1, "system")
+    target_channel.guild = target
+    target.system_channel = target_channel
+    bot.guilds.append(target)
+
+    r = client.get(f"{base}/pull/targets?actor=123")
+    check("a non-owner cannot list Pull targets", r.status_code == 403, r.text[:120])
+    r = client.get(f"{base}/pull/targets?actor={guild.owner_id}")
+    check("the real owner sees only owned bot guilds",
+          r.status_code == 200 and r.json()["targets"][0]["id"] == str(target.id),
+          r.text[:180])
+
+    pull_body = {"target_guild_id": str(target.id), "role_id": str(target_role.id)}
+    r = client.post(f"{base}/pull/challenge?actor={guild.owner_id}", json=pull_body)
+    first_challenge = r.json()
+    check("the four-digit challenge is sent to the system channel",
+          r.status_code == 200 and first_challenge.get("status") == "sent"
+          and len(target_channel.sent) == 1, r.text[:180])
+    payload = str(target_channel.sent[0]["view"].to_components())
+    code_match = re.search(r"`(\d{4})`", payload)
+    check("the challenge is Components V2 with owner ping and custom emoji",
+          code_match is not None and f"<@{target.owner_id}>" in payload
+          and bot_emoji.WARNING in payload, payload[:500])
+
+    r = client.post(f"{base}/pull/challenge?actor={guild.owner_id}", json=pull_body)
+    check("an active challenge is reused without a duplicate message",
+          r.status_code == 200 and r.json().get("status") == "already_sent"
+          and len(target_channel.sent) == 1, r.text[:180])
+    r = client.get(f"{base}/pull/targets?actor={guild.owner_id}")
+    check("a reload can reopen the already-sent code popup",
+          r.status_code == 200
+          and r.json().get("active_challenge", {}).get("target_guild_id") == str(target.id),
+          r.text[:180])
+
+    r = client.post(f"{base}/pull/confirm?actor={guild.owner_id}", json={
+        "target_guild_id": str(target.id), "code": code_match.group(1) if code_match else "0000",
+    })
+    check("the matching owner code activates Pull",
+          r.status_code == 200 and r.json().get("status") == "confirmed", r.text[:180])
+    pull_settings = client.get(base).json()
+    check("Pull stores target and optional role, but no OAuth token",
+          pull_settings.get("user_pull_enabled") is True
+          and pull_settings.get("user_pull_target_guild_id") == str(target.id)
+          and pull_settings.get("user_pull_role_id") == str(target_role.id)
+          and "access_token" not in pull_settings, str(pull_settings)[:300])
 
     # Public OAuth completion: first a server-list hit, then success. The
     # browser does not choose a role; the API loads it from the saved config.
@@ -857,6 +931,30 @@ async def test_api(store):
     check("a browser-supplied role cannot override configuration",
           not any(role.id == ROLE_HIGH for role in oauth_member.roles),
           str([role.id for role in oauth_member.roles]))
+
+    pulled_member = Member(334)
+    guild._members[pulled_member.id] = pulled_member
+    bot.http_calls.clear()
+    r = client.post("/api/v1/verify/oauth/complete", json={
+        "guild_id": str(GUILD), "user": {"id": str(pulled_member.id)},
+        "guilds": [], "access_token": "one-time-test-token",
+    })
+    outcome = r.json()
+    check("a future consenting verification is immediately added to the target",
+          r.status_code == 200 and outcome.get("pull_status") == "joined"
+          and len(bot.http_calls) == 1
+          and bot.http_calls[0]["json"]["access_token"] == "one-time-test-token"
+          and bot.http_calls[0]["json"]["roles"] == [str(target_role.id)],
+          r.text[:220])
+    with sqlite3.connect(store.DB_PATH) as pull_db:
+        serialized_db = " ".join(
+            str(value) for row in pull_db.execute(
+                "SELECT source_guild_id, user_id, target_guild_id, status, created_at "
+                "FROM verification_pull_events"
+            ) for value in row
+        )
+    check("the one-time OAuth token is not persisted",
+          "one-time-test-token" not in serialized_db, serialized_db[:240])
 
     client.patch(base, json={"panel_title": "Mein Titel"})
     data = client.get(base).json()

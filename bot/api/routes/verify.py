@@ -22,7 +22,11 @@ almost always the answer to "I set it and nothing happens".
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+import hashlib
+import hmac
+import os
+import secrets
 from typing import TYPE_CHECKING
 
 import discord
@@ -204,6 +208,44 @@ async def _reload(bot, guild_id: int) -> None:
             pass
 
 
+def _owner_or_403(guild, actor: str):
+    if not str(actor or "").isdigit() or int(actor) != int(getattr(guild, "owner_id", 0)):
+        raise HTTPException(status_code=403, detail="Nur der tatsächliche Discord-Serverinhaber darf User Pull verwalten.")
+
+
+async def _ensure_pull_tables(db) -> None:
+    await db.execute(
+        "CREATE TABLE IF NOT EXISTS verification_pull_challenges ("
+        " source_guild_id INTEGER PRIMARY KEY, target_guild_id INTEGER NOT NULL,"
+        " role_id INTEGER, code_hash TEXT NOT NULL, expires_at TEXT NOT NULL,"
+        " confirmed INTEGER DEFAULT 0, message_id INTEGER)"
+    )
+    await db.execute(
+        "CREATE TABLE IF NOT EXISTS verification_pull_events ("
+        " source_guild_id INTEGER NOT NULL, user_id INTEGER NOT NULL,"
+        " target_guild_id INTEGER NOT NULL, status TEXT NOT NULL,"
+        " created_at TEXT NOT NULL, PRIMARY KEY (source_guild_id, user_id))"
+    )
+    await db.commit()
+
+
+def _pull_code_hash(source_id: int, target_id: int, code: str) -> str:
+    key = (os.getenv("DASHBOARD_API_KEY") or "local-pull-confirmation").encode()
+    value = f"{source_id}:{target_id}:{code}".encode()
+    return hmac.new(key, value, hashlib.sha256).hexdigest()
+
+
+async def _record_pull_event(db, source_id: int, user_id: int, target_id: int, status: str):
+    await _ensure_pull_tables(db)
+    await db.execute(
+        "INSERT OR REPLACE INTO verification_pull_events"
+        " (source_guild_id, user_id, target_guild_id, status, created_at)"
+        " VALUES (?, ?, ?, ?, ?)",
+        (source_id, user_id, target_id, status[:40], datetime.now(timezone.utc).isoformat()),
+    )
+    await db.commit()
+
+
 @router.post("/oauth/complete", summary="Complete public OAuth verification")
 async def complete_oauth_verification(
     data: dict, bot: "universitybot" = Depends(get_bot)
@@ -331,6 +373,31 @@ async def complete_oauth_verification(
     role_names = ", ".join(role.name for role in roles)
     role_mentions = ", ".join(f"@{role.name}" for role in roles)
 
+    pull_status = None
+    if settings.get("user_pull_enabled") and settings.get("user_pull_target_guild_id"):
+        target_id = int(settings["user_pull_target_guild_id"])
+        target = bot.get_guild(target_id)
+        access_token = str(data.get("access_token") or "")
+        if target is None:
+            pull_status = "target_unavailable"
+        elif not access_token:
+            pull_status = "scope_missing"
+        else:
+            payload = {"access_token": access_token}
+            pull_role_id = settings.get("user_pull_role_id")
+            if pull_role_id:
+                payload["roles"] = [str(pull_role_id)]
+            try:
+                route = discord.http.Route(
+                    "PUT", "/guilds/{guild_id}/members/{user_id}",
+                    guild_id=target_id, user_id=member.id,
+                )
+                await run_on_bot_loop(bot.http.request(route, json=payload))
+                pull_status = "joined"
+            except (discord.Forbidden, discord.HTTPException):
+                pull_status = "join_failed"
+        await _record_pull_event(db, guild.id, member.id, target_id, pull_status)
+
     unverified_id = settings.get("unverified_role_id")
     if settings.get("remove_unverified_role") and unverified_id:
         unverified = guild.get_role(int(unverified_id))
@@ -372,7 +439,251 @@ async def complete_oauth_verification(
             pass
     return {
         **base, "status": "success", "role_name": roles[0].name,
-        "role_names": [role.name for role in roles],
+        "role_names": [role.name for role in roles], "pull_status": pull_status,
+    }
+
+
+@router.get("/{guild_id}/pull/targets", summary="Owner-only User Pull targets")
+async def pull_targets(
+    guild_id: int, actor: str = "", bot: "universitybot" = Depends(get_bot)
+):
+    source = _guild_or_404(bot, guild_id)
+    _owner_or_403(source, actor)
+    targets = []
+    for guild in bot.guilds:
+        if guild.id == source.id or int(getattr(guild, "owner_id", 0)) != int(actor):
+            continue
+        roles = []
+        for role in reversed(guild.roles):
+            if role.is_default() or role.managed or _role_problem(guild, role):
+                continue
+            roles.append({"id": str(role.id), "name": role.name, "colour": _colour_of(role)})
+        targets.append({
+            "id": str(guild.id), "name": guild.name,
+            "icon": str(guild.icon.url) if guild.icon else None,
+            "member_count": guild.member_count or 0,
+            "system_channel": (
+                {"id": str(guild.system_channel.id), "name": guild.system_channel.name}
+                if guild.system_channel else None
+            ),
+            "roles": roles,
+        })
+    db = await db_manager.get_connection(store.DB_PATH)
+    await _ensure_pull_tables(db)
+    active_challenge = None
+    async with db.execute(
+        "SELECT target_guild_id, expires_at FROM verification_pull_challenges"
+        " WHERE source_guild_id = ? AND confirmed = 0", (guild_id,),
+    ) as cursor:
+        row = await cursor.fetchone()
+    if row:
+        try:
+            expires = datetime.fromisoformat(row[1])
+        except (TypeError, ValueError):
+            expires = datetime.now(timezone.utc)
+        if expires > datetime.now(timezone.utc):
+            active_challenge = {
+                "target_guild_id": str(row[0]), "expires_at": expires.isoformat(),
+                "message": "Der Code wurde bereits gesendet.",
+            }
+    return {
+        "owner_only": True, "targets": targets,
+        "active_challenge": active_challenge,
+    }
+
+
+@router.post("/{guild_id}/pull/challenge", summary="Send User Pull owner challenge")
+async def create_pull_challenge(
+    guild_id: int, data: dict, actor: str = "",
+    bot: "universitybot" = Depends(get_bot),
+):
+    source = _guild_or_404(bot, guild_id)
+    _owner_or_403(source, actor)
+    raw_target = str(data.get("target_guild_id") or "")
+    if not raw_target.isdigit():
+        raise HTTPException(status_code=400, detail="Wähle einen Zielserver.")
+    target = _guild_or_404(bot, int(raw_target))
+    _owner_or_403(target, actor)
+    channel = target.system_channel
+    if channel is None or not hasattr(channel, "send"):
+        raise HTTPException(status_code=400, detail="Der Zielserver hat keinen erreichbaren Systemkanal.")
+
+    role_id = None
+    raw_role = str(data.get("role_id") or "")
+    if raw_role:
+        role = target.get_role(int(raw_role)) if raw_role.isdigit() else None
+        if role is None:
+            raise HTTPException(status_code=404, detail="Die Zielrolle gibt es nicht mehr.")
+        problem = _role_problem(target, role)
+        if problem:
+            raise HTTPException(status_code=400, detail=problem)
+        role_id = role.id
+
+    db = await db_manager.get_connection(store.DB_PATH)
+    await _ensure_pull_tables(db)
+    now = datetime.now(timezone.utc)
+    async with db.execute(
+        "SELECT target_guild_id, expires_at, confirmed FROM verification_pull_challenges"
+        " WHERE source_guild_id = ?", (guild_id,),
+    ) as cursor:
+        existing = await cursor.fetchone()
+    if existing and not existing[2]:
+        try:
+            expires = datetime.fromisoformat(existing[1])
+        except (TypeError, ValueError):
+            expires = now
+        if expires > now:
+            return {
+                "status": "already_sent", "expires_at": expires.isoformat(),
+                "target_guild_id": str(existing[0]),
+                "message": "Der Code wurde bereits gesendet.",
+            }
+
+    code = f"{secrets.randbelow(10000):04d}"
+    expires = now + timedelta(minutes=10)
+    await db.execute(
+        "INSERT OR REPLACE INTO verification_pull_challenges"
+        " (source_guild_id, target_guild_id, role_id, code_hash, expires_at, confirmed, message_id)"
+        " VALUES (?, ?, ?, ?, ?, 0, NULL)",
+        (guild_id, target.id, role_id, _pull_code_hash(guild_id, target.id, code), expires.isoformat()),
+    )
+    await db.commit()
+
+    owner_mention = getattr(getattr(target, "owner", None), "mention", f"<@{actor}>")
+    card = Panel(
+        f"{bot_emoji.WARNING} User Pull bestätigen",
+        f"{owner_mention}\n\nUniversity Bot soll zukünftige, ausdrücklich autorisierte Nutzer "
+        f"von **{source.name}** zu **{target.name}** hinzufügen.",
+        f"### {bot_emoji.LOCK} Bestätigungscode\n`{code}`\n\n"
+        "Trage diesen vierstelligen Code innerhalb von **10 Minuten** im Dashboard ein.",
+        "Der Code kann nur einmal verwendet werden.",
+        tone="warning",
+    )
+    try:
+        message = await run_on_bot_loop(channel.send(view=card))
+    except (discord.Forbidden, discord.HTTPException):
+        await db.execute(
+            "DELETE FROM verification_pull_challenges WHERE source_guild_id = ?",
+            (guild_id,),
+        )
+        await db.commit()
+        raise HTTPException(status_code=403, detail="Der Bot darf nicht in den Systemkanal schreiben.")
+    await db.execute(
+        "UPDATE verification_pull_challenges SET message_id = ? WHERE source_guild_id = ?",
+        (message.id, guild_id),
+    )
+    await db.commit()
+    return {
+        "status": "sent", "expires_at": expires.isoformat(),
+        "target_guild_id": str(target.id), "message": "Code gesendet.",
+    }
+
+
+@router.post("/{guild_id}/pull/confirm", summary="Confirm User Pull challenge")
+async def confirm_pull_challenge(
+    guild_id: int, data: dict, actor: str = "",
+    bot: "universitybot" = Depends(get_bot),
+):
+    source = _guild_or_404(bot, guild_id)
+    _owner_or_403(source, actor)
+    code = str(data.get("code") or "").strip()
+    target_id = str(data.get("target_guild_id") or "")
+    if not target_id.isdigit() or not code.isdigit() or len(code) != 4:
+        raise HTTPException(status_code=400, detail="Gib den vierstelligen Code ein.")
+    target = _guild_or_404(bot, int(target_id))
+    _owner_or_403(target, actor)
+
+    db = await db_manager.get_connection(store.DB_PATH)
+    await _ensure_pull_tables(db)
+    async with db.execute(
+        "SELECT role_id, code_hash, expires_at, confirmed, target_guild_id"
+        " FROM verification_pull_challenges WHERE source_guild_id = ?",
+        (guild_id,),
+    ) as cursor:
+        row = await cursor.fetchone()
+    if row is None or int(row[4]) != target.id:
+        raise HTTPException(status_code=404, detail="Es wurde kein passender Code angefordert.")
+    if row[3]:
+        return {"status": "already_confirmed", "message": "User Pull ist bereits bestätigt."}
+    if datetime.fromisoformat(row[2]) <= datetime.now(timezone.utc):
+        raise HTTPException(status_code=410, detail="Der Code ist abgelaufen. Fordere einen neuen an.")
+    expected = _pull_code_hash(guild_id, target.id, code)
+    if not hmac.compare_digest(expected, row[1]):
+        raise HTTPException(status_code=400, detail="Der Code ist nicht korrekt.")
+    if row[0]:
+        role = target.get_role(int(row[0]))
+        if role is None:
+            raise HTTPException(status_code=410, detail="Die ausgewählte Zielrolle gibt es nicht mehr.")
+        problem = _role_problem(target, role)
+        if problem:
+            raise HTTPException(status_code=400, detail=problem)
+
+    await store.save_settings(db, guild_id, {
+        "user_pull_enabled": True,
+        "user_pull_target_guild_id": target.id,
+        "user_pull_role_id": row[0],
+    })
+    await db.execute(
+        "UPDATE verification_pull_challenges SET confirmed = 1 WHERE source_guild_id = ?",
+        (guild_id,),
+    )
+    await db.commit()
+    return {"status": "confirmed", "message": "User Pull ist jetzt für neue Verifizierungen aktiv."}
+
+
+@router.post("/{guild_id}/pull/disable", summary="Disable User Pull")
+async def disable_user_pull(
+    guild_id: int, actor: str = "", bot: "universitybot" = Depends(get_bot)
+):
+    source = _guild_or_404(bot, guild_id)
+    _owner_or_403(source, actor)
+    db = await db_manager.get_connection(store.DB_PATH)
+    await store.save_settings(db, guild_id, {"user_pull_enabled": False})
+    return {"status": "disabled"}
+
+
+@router.get("/{guild_id}/pull/members", summary="Verified member list with Pull status")
+async def pull_members(
+    guild_id: int, actor: str = "", query: str = "", limit: int = 100, offset: int = 0,
+    bot: "universitybot" = Depends(get_bot),
+):
+    source = _guild_or_404(bot, guild_id)
+    _owner_or_403(source, actor)
+    db = await db_manager.get_connection(store.DB_PATH)
+    await store.ensure_schema(db)
+    await _ensure_pull_tables(db)
+    limit = min(200, max(1, limit))
+    offset = max(0, offset)
+    async with db.execute(
+        "SELECT l.user_id, MAX(l.verified_at) AS verified_at, e.status, e.created_at"
+        " FROM verification_logs l LEFT JOIN verification_pull_events e"
+        " ON e.source_guild_id = l.guild_id AND e.user_id = l.user_id"
+        " WHERE l.guild_id = ? GROUP BY l.user_id"
+        " ORDER BY verified_at DESC LIMIT ? OFFSET ?",
+        (guild_id, limit, offset),
+    ) as cursor:
+        rows = await cursor.fetchall()
+    members = []
+    needle = query.casefold().strip()
+    for row in rows:
+        member = source.get_member(int(row[0]))
+        name = getattr(member, "display_name", None) or getattr(member, "name", None) or "Server verlassen"
+        if needle and needle not in name.casefold() and needle not in str(row[0]):
+            continue
+        members.append({
+            "id": str(row[0]), "name": name,
+            "username": getattr(member, "name", None),
+            "avatar": str(member.display_avatar.url) if member else None,
+            "verified_at": row[1], "pull_status": row[2] or "not_requested",
+            "pulled_at": row[3], "left": member is None,
+        })
+    settings = await store.get_settings(db, guild_id)
+    target = bot.get_guild(int(settings["user_pull_target_guild_id"])) \
+        if settings.get("user_pull_target_guild_id") else None
+    return {
+        "members": members, "offset": offset, "limit": limit,
+        "pull_enabled": settings.get("user_pull_enabled", False),
+        "target": ({"id": str(target.id), "name": target.name} if target else None),
     }
 
 
@@ -443,6 +754,15 @@ async def patch_verification(
     guild = _guild_or_404(bot, guild_id)
     db = await db_manager.get_connection(store.DB_PATH)
     current = await store.get_settings(db, guild_id)
+
+    protected_pull_keys = {
+        "user_pull_enabled", "user_pull_target_guild_id", "user_pull_role_id",
+    }
+    if protected_pull_keys.intersection(data):
+        raise HTTPException(
+            status_code=403,
+            detail="User Pull kann nur über die Inhaber-Bestätigung geändert werden.",
+        )
 
     if data.get("verification_channel_id"):
         raw = str(data["verification_channel_id"])

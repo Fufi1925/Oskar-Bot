@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useState } from "react";
+import Link from "next/link";
 import {
   AlertTriangle,
   Check,
@@ -11,6 +12,7 @@ import {
   History,
   Info,
   ListChecks,
+  Link2,
   Mail,
   MessageSquareText,
   Plus,
@@ -485,6 +487,28 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
                     </div>
                   )}
                 </div>
+
+                <div className="flex flex-col gap-4 rounded-xl border border-blue-500/20 bg-blue-500/[0.06] p-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-start gap-3">
+                    <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-blue-500/10 text-blue-400">
+                      <Link2 className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-white">User Pull</p>
+                      <p className="mt-1 text-xs leading-5 text-slate-400">
+                        Zukünftige OAuth2-Verifizierungen mit einem eigenen
+                        Zielserver verbinden.
+                      </p>
+                    </div>
+                  </div>
+                  <Link
+                    href={`/dashboard/guild/${guildId}/verification/pull`}
+                    className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-500"
+                  >
+                    Einrichten
+                  </Link>
+                </div>
+
                 <div className="grid gap-2 sm:grid-cols-3">
                   {[
                     [hasChannel, "1", "Kanal gewählt"],

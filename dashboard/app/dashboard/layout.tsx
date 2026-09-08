@@ -45,7 +45,7 @@ const SIDEBAR_ICON_COLORS: Record<string, string> = {
   "Dashboard Access": "text-blue-400", "Server Einstellungen": "text-slate-300",
   "Backup": "text-amber-400", "Server Stats": "text-sky-400",
   "Anti-Nuke": "text-rose-400", "Automod": "text-pink-400", "Honeypot": "text-orange-400",
-  "Verifizierung": "text-emerald-400", "Notfall": "text-red-400", "Jail": "text-violet-400", "Nachtmodus": "text-indigo-400",
+  "Verifizierung": "text-emerald-400", "Pull": "text-blue-400", "Notfall": "text-red-400", "Jail": "text-violet-400", "Nachtmodus": "text-indigo-400",
   "Begrüßung": "text-pink-400", "Bewerbungen": "text-violet-300", "Abschied": "text-orange-400",
   "Beitritts-DM": "text-cyan-400", "Auto-Rolle": "text-emerald-400", "Reaktions-Rollen": "text-fuchsia-400",
   "Eigene Rollen": "text-blue-400", "Vanity-Rollen": "text-amber-400", "Nickname": "text-purple-400", "Level-System": "text-orange-400",
@@ -70,6 +70,9 @@ export default function DashboardLayout({
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isProfilOpen, setIsProfilOpen] = useState(false);
   const pathname = usePathname();
+  const [verificationOpen, setVerificationOpen] = useState(
+    pathname.includes("/verification")
+  );
   const { data: session, status } = useSession();
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [globalNotification, setGlobalNotification] = useState<string | null>(null);
@@ -263,10 +266,17 @@ export default function DashboardLayout({
             { name: "Anti-Nuke", href: `/dashboard/guild/${currentGuildId}/antinuke`, icon: ShieldCheck },
             { name: "Automod", href: `/dashboard/guild/${currentGuildId}/automod`, icon: ShieldCheck },
             { name: "Honeypot", href: `/dashboard/guild/${currentGuildId}/honeypot`, icon: ShieldAlert },
-            { name: "Verifizierung", href: `/dashboard/guild/${currentGuildId}/verification`, icon: User },
             { name: "Notfall", href: `/dashboard/guild/${currentGuildId}/emergency`, icon: Shield },
             { name: "Jail", href: `/dashboard/guild/${currentGuildId}/jail`, icon: Lock },
             { name: "Nachtmodus", href: `/dashboard/guild/${currentGuildId}/nightmode`, icon: Moon },
+          ],
+        },
+        {
+          name: "Verifizierung",
+          collapsible: true,
+          items: [
+            { name: "Einstellungen", href: `/dashboard/guild/${currentGuildId}/verification`, icon: ShieldCheck },
+            { name: "Pull", href: `/dashboard/guild/${currentGuildId}/verification/pull`, icon: Users },
           ],
         },
         {
@@ -443,10 +453,22 @@ export default function DashboardLayout({
             if (item.items) {
               return (
                 <div key={item.name} className="space-y-2">
-                  <p className="px-3 text-[11px] font-semibold text-slate-600 mb-1.5">
-                    {item.name}
-                  </p>
-                  <div className="space-y-1">
+                  {item.collapsible ? (
+                    <button
+                      type="button"
+                      onClick={() => setVerificationOpen((open) => !open)}
+                      aria-expanded={verificationOpen}
+                      className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-[11px] font-semibold text-slate-500 transition hover:bg-white/[0.03] hover:text-slate-300"
+                    >
+                      <span>{item.name}</span>
+                      <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", verificationOpen && "rotate-180")} />
+                    </button>
+                  ) : (
+                    <p className="px-3 text-[11px] font-semibold text-slate-600 mb-1.5">
+                      {item.name}
+                    </p>
+                  )}
+                  <div className={cn("space-y-1", item.collapsible && !verificationOpen && "hidden")}>
                     {item.items.map((subItem: any) => {
                       const isActive = pathname === subItem.href;
                       const subIndex = nextIndex();

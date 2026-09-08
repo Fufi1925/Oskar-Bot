@@ -889,6 +889,22 @@ async function authorize(
     const guildId = rest[0];
     if (!guildId) return { ok: false, response: deny(400, "guild_id missing.") };
 
+    // User Pull moves an expressly consenting account into another server.
+    // Every Pull read/write is therefore reserved for Discord's actual owner.
+    // Global admins, Administrator, Manage Server and team roles do not bypass
+    // this check. The bot independently verifies the target owner as well.
+    if (rest[1] === "pull") {
+      const session = await getServerSession(authOptions);
+      if (!session?.user?.id) {
+        return { ok: false, response: deny(401, "Not signed in.") };
+      }
+      if (await ownsGuildOnDiscord(guildId)) return { ok: true };
+      return {
+        ok: false,
+        response: deny(403, "Nur der tatsächliche Discord-Serverinhaber darf User Pull verwalten."),
+      };
+    }
+
     const access = await verifyGuildAccess(guildId);
     if (!access.allowed) return { ok: false, response: deny(access.status, access.reason) };
 

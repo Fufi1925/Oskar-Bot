@@ -428,6 +428,21 @@ export const api = {
   // five columns and wrote 0 for "not set", which the read side then
   // handed back as if it were a real channel id.
   getVerify: (g: string) => request<any>(`/verify/${g}`),
+  getPullTargets: (g: string) => request<any>(`/verify/${g}/pull/targets`),
+  getPullMembers: (g: string, query = "") =>
+    request<any>(`/verify/${g}/pull/members?query=${encodeURIComponent(query)}`),
+  createPullChallenge: (g: string, targetGuildId: string, roleId?: string) =>
+    request<any>(`/verify/${g}/pull/challenge`, {
+      method: "POST",
+      body: JSON.stringify({ target_guild_id: targetGuildId, role_id: roleId || null }),
+    }),
+  confirmPullChallenge: (g: string, targetGuildId: string, code: string) =>
+    request<any>(`/verify/${g}/pull/confirm`, {
+      method: "POST",
+      body: JSON.stringify({ target_guild_id: targetGuildId, code }),
+    }),
+  disableUserPull: (g: string) =>
+    request<any>(`/verify/${g}/pull/disable`, { method: "POST", body: "{}" }),
   updateVerify: (g: string, data: any) =>
     request<any>(`/verify/${g}`, { method: "PATCH", body: JSON.stringify(data) }),
   postVerifyPanel: (g: string) =>
