@@ -45,16 +45,32 @@
 import React from "react";
 import Link from "next/link";
 import {
-  Activity, ArrowRight, BarChart4, Brain, Check, ChevronDown,
-  ClipboardList, Gift, Hash, Headphones, Layers, Lock, Mail,
-  MessageSquare, Mic, Music, PenLine, ShieldAlert, ShieldCheck,
-  Sparkles, Ticket, UserCog, Users, Zap,
+  ArrowRight,
+  BarChart4,
+  Brain,
+  ChevronDown,
+  ClipboardList,
+  Crown,
+  Database,
+  Gift,
+  KeyRound,
+  Lock,
+  Mic,
+  Music,
+  Palette,
+  Server,
+  ShieldAlert,
+  ShieldCheck,
+  Sparkles,
+  Ticket,
+  UserCog,
+  Users,
+  Zap,
 } from "lucide-react";
 import { SiteNav, INVITE_URL } from "@/components/site-nav";
 import { cn } from "@/lib/utils";
 
 const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || "University Bot";
-
 
 /**
  * Die Karten im Hero, die von selbst weiterblättern.
@@ -82,12 +98,12 @@ const HERO_KARTEN = [
   {
     icon: ShieldAlert,
     titel: "Anti-Nuke",
-    text: "Massenlöschungen, Massenbann und feindliche Bots werden gestoppt, bevor Schaden entsteht.",
+    text: "Grenzen, Warnungen und Gegenmaßnahmen für Massenlöschungen, Massenbann und feindliche Bots.",
   },
   {
     icon: ClipboardList,
     titel: "Bewerbungen",
-    text: "Fragen per Direktnachricht, Entscheidung per Knopf, Rollen automatisch — bis zu fünf auf einmal.",
+    text: "Eigene Panels und Fragen, Entscheidungen im Dashboard und automatische Rollen bei Annahme.",
   },
   {
     icon: BarChart4,
@@ -131,61 +147,280 @@ const HERO_KARTEN = [
   },
 ];
 
-/** Die Funktionen. Jede steht wirklich als Reiter im Dashboard. */
-const FUNKTIONEN = [
-  { icon: Brain, titel: "KI", text: "Nutze die Kraft der künstlichen Intelligenz in deinem Discord-Server." },
-  { icon: ShieldAlert, titel: "AutoMod", text: "Filter, Strafen und Ausnahmen für deinen Server konfigurieren." },
-  { icon: Layers, titel: "Befehls-Manager", text: "Module und einzelne Befehle zentral verwalten." },
-  { icon: Hash, titel: "Zählen", text: "Ein unterhaltsames Spiel, bei dem Mitglieder gemeinsam zählen können." },
-  { icon: Zap, titel: "Anti-Nuke", text: "Schutz vor Massenlöschungen, Massenbann und feindlichen Bots." },
-  { icon: MessageSquare, titel: "Spaß", text: "Unterhalte deine Community mit lustigen Spielen und Befehlen." },
-  { icon: Gift, titel: "Gewinnspiel", text: "Veranstalte Gewinnspiele für deine Community-Mitglieder." },
-  { icon: Users, titel: "Einladungs-Logger", text: "Einladungen nachverfolgen, Statistiken und Bestenlisten." },
-  { icon: Music, titel: "Musik", text: "Wiedergabe, Playlists und Dauerbetrieb im Sprachkanal." },
-  { icon: BarChart4, titel: "Level-System", text: "Belohne aktive Mitglieder mit einem anpassbaren Level-System." },
-  { icon: ShieldCheck, titel: "Moderation", text: "Halte deinen Server sauber und sicher mit starken Werkzeugen." },
-  { icon: UserCog, titel: "Team-Update", text: "Beförderungen, Rückstufungen und Verwarnungen mit Akte." },
-  { icon: Sparkles, titel: "Server-Vorlagen", text: "Server-Struktur als Vorlage speichern und anwenden." },
-  { icon: ClipboardList, titel: "Bewerbungen", text: "Fragen per DM, Entscheidung per Knopf, Rollen automatisch." },
-  { icon: Mic, titel: "Join to Create", text: "Temporäre Sprachkanäle für deine Community." },
-  { icon: Ticket, titel: "Ticket-System", text: "Support-Tickets mit Kategorien und anpassbaren Einstellungen." },
-  { icon: Headphones, titel: "Support-Warteraum", text: "Wartemusik, Ansage und geordnete Reihenfolge im Sprachkanal." },
-  { icon: Check, titel: "Verifizierung", text: "Schütze deinen Server mit einem benutzerfreundlichen System." },
-  { icon: PenLine, titel: "Eigene Nachricht", text: "Ankündigungen und Panels aus dem Dashboard verschicken." },
-  { icon: Mail, titel: "Willkommen", text: "Willkommensnachrichten, Bilder und Abschied für neue Mitglieder." },
-];
+/** Alle nutzerseitigen Module, gruppiert wie im Dashboard. */
+const FUNKTIONS_GRUPPEN = [
+  {
+    titel: "Design & Daten",
+    text: "Aussehen, Sicherungen und messbare Serverdaten.",
+    icon: Palette,
+    module: [
+      [
+        "Server-Design",
+        "Name, Profilbild und Banner pro Server; diese Anpassung benötigt Premium.",
+      ],
+      [
+        "Backups",
+        "Kanäle, Rollen, Rechte und Dashboard-Einstellungen sichern und wiederherstellen.",
+      ],
+      [
+        "Server-Statistiken",
+        "Boosts anzeigen; Rollen, Kanäle und Online-Nutzer sind Premium-Statistiken.",
+      ],
+    ],
+  },
+  {
+    titel: "Schutz & Sicherheit",
+    text: "Automatische Regeln und Werkzeuge für kritische Situationen.",
+    icon: ShieldCheck,
+    module: [
+      [
+        "Anti-Nuke",
+        "Grenzen und Gegenmaßnahmen gegen massenhafte gefährliche Aktionen.",
+      ],
+      [
+        "AutoMod",
+        "Spam, Einladungen, Links, Caps, Massen-Erwähnungen und Emoji-Spam filtern.",
+      ],
+      [
+        "Honeypot",
+        "Ein sichtbarer Köderkanal erkennt automatisierte oder unerlaubte Zugriffe.",
+      ],
+      [
+        "Verifizierung",
+        "Mitglieder über ein konfigurierbares Verifizierungsverfahren freischalten.",
+      ],
+      [
+        "Notfallmodus",
+        "Voreingestellte Schutzmaßnahmen in einer akuten Situation auslösen.",
+      ],
+      [
+        "Jail",
+        "Mitglieder kontrolliert einschränken und später wieder freigeben.",
+      ],
+      [
+        "Nachtmodus",
+        "Kanäle nach Zeitplan beschränken; die Zeitsteuerung läuft automatisch.",
+      ],
+    ],
+  },
+  {
+    titel: "Mitglieder & Community",
+    text: "Vom ersten Beitritt bis zu Rollen, Levels und Bewerbungen.",
+    icon: Users,
+    module: [
+      [
+        "Begrüßung",
+        "Willkommensnachrichten und Bilder für neue Mitglieder konfigurieren.",
+      ],
+      [
+        "Bewerbungen",
+        "Eigene Panels, Fragen und Entscheidungen für Server-Bewerbungen verwalten.",
+      ],
+      [
+        "Abschied",
+        "Eine Nachricht senden, wenn ein Mitglied den Server verlässt.",
+      ],
+      [
+        "Beitritts-DM",
+        "Neue Mitglieder mit einer privaten Nachricht begrüßen.",
+      ],
+      ["Auto-Rolle", "Beim Beitritt automatisch festgelegte Rollen vergeben."],
+      [
+        "Reaktions-Rollen",
+        "Mitglieder wählen Rollen über Reaktionen oder Komponenten.",
+      ],
+      [
+        "Eigene Rollen",
+        "Persönlich verwaltbare Rollen nach deinen Serverregeln anbieten.",
+      ],
+      [
+        "Vanity-Rollen",
+        "Rollen anhand eines eingestellten Vanity- oder Einladungstextes vergeben.",
+      ],
+      [
+        "Nickname",
+        "Regeln für automatische oder einheitliche Anzeigenamen festlegen.",
+      ],
+      [
+        "Level-System",
+        "XP, Ranglisten, Rollenbelohnungen und Levelkarten aus echter Aktivität.",
+      ],
+    ],
+  },
+  {
+    titel: "Interaktion & Automatisierung",
+    text: "Wiederkehrende Aktionen und Community-Aktivitäten.",
+    icon: Zap,
+    module: [
+      [
+        "Giveaways",
+        "Gewinnspiele erstellen, Bedingungen prüfen und Gewinner auslosen.",
+      ],
+      ["Counting", "Einen gemeinsamen Zählkanal mit Regelprüfung betreiben."],
+      [
+        "Booster",
+        "Server-Boosts erkennen und darauf mit Rollen oder Nachrichten reagieren.",
+      ],
+      [
+        "Benachrichtigungen",
+        "Neue Inhalte und festgelegte Ereignisse in Discord ankündigen.",
+      ],
+      [
+        "Auto-Reaktion",
+        "Auf passende Nachrichten automatisch mit Emojis reagieren.",
+      ],
+      [
+        "Autoresponder",
+        "Auf festgelegte Begriffe mit gespeicherten Antworten reagieren.",
+      ],
+      [
+        "Custom Commands",
+        "Eigene Slash-, Präfix- und Textauslöser erstellen: Free bis 3, Premium bis 20.",
+      ],
+      [
+        "Anonymer Chat · Beta",
+        "Anonyme Nachrichten mit eigenem geschütztem Protokollsystem ermöglichen.",
+      ],
+    ],
+  },
+  {
+    titel: "Sprache & Audio",
+    text: "Sprachkanäle und Musikwiedergabe verwalten.",
+    icon: Mic,
+    module: [
+      [
+        "Musik",
+        "Titel und Warteschlangen in einem Discord-Sprachkanal wiedergeben.",
+      ],
+      [
+        "Join to Create",
+        "Temporäre Sprachkanäle beim Beitritt erstellen und automatisch aufräumen.",
+      ],
+      [
+        "Sprach-Rolle",
+        "Beim Aufenthalt in einem Sprachkanal eine festgelegte Rolle vergeben.",
+      ],
+    ],
+  },
+  {
+    titel: "Nachrichten & Werkzeuge",
+    text: "Support, feste Inhalte, Einladungen und Zugriffsregeln.",
+    icon: Ticket,
+    module: [
+      [
+        "Tickets",
+        "Support-Panels, Kategorien, Teamrechte, Hinweise und Transkripte konfigurieren.",
+      ],
+      [
+        "Eigene Nachricht",
+        "Nachrichten und Discord-Komponenten im Dashboard erstellen und senden.",
+      ],
+      [
+        "Sticky-Nachricht",
+        "Eine festgelegte Nachricht am unteren Ende eines Kanals halten.",
+      ],
+      ["Einladungen", "Einladungen und die zugehörige Bestenliste auswerten."],
+      [
+        "Einladungs-Log",
+        "Beitritte und verwendete Einladungen nachvollziehbar protokollieren.",
+      ],
+      [
+        "No Prefix",
+        "Ausgewählten Rollen oder Personen Befehle ohne Präfix erlauben.",
+      ],
+    ],
+  },
+  {
+    titel: "Vorlagen & Verwaltung",
+    text: "Serveraufbau, Teamarbeit, Protokolle und delegierter Zugang.",
+    icon: Database,
+    module: [
+      [
+        "Speedrun · Premium",
+        "Einen Server in einem geführten Durchgang aus einer Vorlage aufsetzen.",
+      ],
+      [
+        "Vorlagen-Upload · Experimentell",
+        "Eine vorhandene Serverstruktur für Vorlagen erfassen.",
+      ],
+      [
+        "Vorlagen-Community · Experimentell",
+        "Freigegebene Community-Vorlagen durchsuchen und verwenden.",
+      ],
+      [
+        "Teamliste",
+        "Mitglieder des Serverteams nach Rollen geordnet anzeigen.",
+      ],
+      [
+        "Team-Update · Beta",
+        "Beförderungen, Rückstufungen und Verwarnungen dokumentiert durchführen.",
+      ],
+      [
+        "Logs",
+        "Löschungen, Bearbeitungen und andere Serverereignisse protokollieren.",
+      ],
+      ["Bot-Logs", "Vom Bot erfasste Modulereignisse im Dashboard prüfen."],
+      [
+        "Server-Werkzeuge",
+        "Administrative Schnellaktionen für den eigenen Server bündeln.",
+      ],
+      [
+        "Dashboard Access",
+        "Der Serverinhaber kann ausgewählten Personen und Rollen Dashboard-Zugang geben.",
+      ],
+      [
+        "Support-Warteraum · Beta",
+        "Eine geordnete Warteschlange in Sprachkanälen betreiben.",
+      ],
+    ],
+  },
+] as const;
 
+const MODUL_ANZAHL = FUNKTIONS_GRUPPEN.reduce(
+  (sum, gruppe) => sum + gruppe.module.length,
+  0,
+);
 
 const FAQ = [
   {
     frage: `Wie füge ich ${BRAND} zu meinem Server hinzu?`,
     antwort:
-      "Oben auf „Bot hinzufügen“ klicken, den Server auswählen und die Rechte bestätigen. Danach einmal im Dashboard anmelden — dort richtest du alles Weitere ein, ohne einen einzigen Befehl tippen zu müssen.",
+      "Klicke auf „Bot hinzufügen“, wähle bei Discord einen Server aus und bestätige die benötigten Rechte. Danach meldest du dich im Dashboard an, wählst den Server und richtest nur die Module ein, die du verwenden möchtest.",
   },
   {
     frage: `Ist ${BRAND} kostenlos nutzbar?`,
     antwort:
-      "Ja. Alle Module sind ohne Bezahlung nutzbar, es gibt keine Funktion hinter einer Bezahlschranke und keine Werbung in den Nachrichten des Bots.",
+      "Ja, die Grundfunktionen sind kostenlos. Einige Erweiterungen sind Premium vorbehalten, darunter das eigene Bot-Aussehen pro Server, Speedrun, Premium-Vorlagen, zusätzliche Backup-Funktionen sowie erweiterte Statistiken und höhere Limits bei Custom Commands.",
   },
   {
-    frage: "Wie kann ich alle verfügbaren Befehle sehen?",
+    frage: "Kann ich Premium bereits kaufen?",
     antwort:
-      "Mit >help im Chat oder auf der Seite „Alle Befehle“ — dort stehen sie durchsuchbar und mit Beschreibung. Die Hilfe im Discord ist nach Kategorien geordnet, damit man nicht durch eine lange Liste scrollen muss.",
+      "Noch nicht. Es ist derzeit kein Zahlungsanbieter angebunden und die Premium-Testphase läuft. Einen Zugang kannst du über den Beta-Antrag im Dashboard beantragen. Die Preisübersicht zeigt bereits die geplanten Tarife, aber die Kaufknöpfe sind bewusst deaktiviert.",
   },
   {
-    frage: "Kann ich das Präfix des Bots anpassen?",
+    frage: "Welche Befehlsarten unterstützt der Bot?",
     antwort:
-      "Ja, im Dashboard unter „Einstellungen“. Standard ist >. Wer den Bot ohne Präfix bedienen darf, lässt sich unter „No Prefix“ je Rolle oder Person festlegen.",
+      "Der Bot besitzt klassische Präfixbefehle und echte Discord-Slash-Commands. Bei eigenen Custom Commands lassen sich Slash-, Präfix- und Textauslöser konfigurieren. Welche Befehle tatsächlich geladen sind, zeigt die öffentliche Befehlsseite.",
   },
   {
-    frage: "Wie melde ich Probleme oder erhalte Support?",
+    frage: "Wer darf einen Server im Dashboard verwalten?",
     antwort:
-      "Über unseren Support-Server. Dort gibt es ein Ticket-System; Fehler werden meist am selben Tag beantwortet. Der Status aller Systeme steht außerdem auf der Status-Seite.",
+      "Discord-Serverinhaber und Personen mit den jeweils erforderlichen Serverrechten können die normalen Bereiche öffnen. Delegierten Dashboard-Zugang für weitere Nutzer oder Rollen darf ausschließlich der tatsächliche Serverinhaber einrichten.",
   },
   {
-    frage: `Unterstützt ${BRAND} mehrere Sprachen?`,
+    frage: "Wie melde ich einen Fehler oder erreiche den Support?",
     antwort:
-      "Das Dashboard gibt es auf Deutsch und Englisch, umschaltbar oben rechts. Die Sprache lässt sich zusätzlich pro Server festlegen, sodass alle Nachrichten des Bots dazu passen.",
+      "Nutze den verlinkten Discord-Support-Server und eröffne dort ein Ticket. Auf der Statusseite siehst du unabhängig davon, ob der Bot erreichbar ist, ob eine Wartung läuft und welche Zeiträume tatsächlich gemessen wurden.",
+  },
+  {
+    frage: `Unterstützt ${BRAND} Deutsch und Englisch?`,
+    antwort:
+      "Das Dashboard kann auf Deutsch oder Englisch angezeigt werden. Die Auswahl wird am Konto gespeichert. Einzelne ältere oder von Serveradministratoren selbst geschriebene Bot-Texte können weiterhin nur in der Sprache vorliegen, in der sie eingerichtet wurden.",
+  },
+  {
+    frage: "Welche Daten zeigt das Konto-Dashboard?",
+    antwort:
+      "Es zeigt gespeicherte Kontokategorien, Datenschutzanträge, Sitzungen, Discord-Berechtigungen und gemessene XP- sowie Nachrichtenaktivität. Tageswerte werden erst seit Einführung der Messung erfasst; frühere Werte werden nicht rückwirkend erfunden.",
   },
 ];
 
@@ -225,7 +460,10 @@ export default function LandingPage() {
   // die drei Zeilen zu lesen, kurz genug, dass man die zweite Karte
   // noch sieht, bevor man weiterscrollt.
   React.useEffect(() => {
-    const t = setInterval(() => setKarte((k) => (k + 1) % HERO_KARTEN.length), 4500);
+    const t = setInterval(
+      () => setKarte((k) => (k + 1) % HERO_KARTEN.length),
+      4500,
+    );
     return () => clearInterval(t);
   }, []);
 
@@ -299,8 +537,8 @@ export default function LandingPage() {
               </h1>
 
               <p className="mt-6 max-w-lg text-[17px] leading-relaxed text-slate-400">
-                Moderation, Tickets, Bewerbungen, Verifizierung — in einem
-                Bot, eingerichtet über ein Dashboard statt über Befehle.
+                Moderation, Tickets, Bewerbungen, Verifizierung — in einem Bot,
+                eingerichtet über ein Dashboard statt über Befehle.
               </p>
 
               <div className="mt-9 flex flex-wrap items-center gap-3">
@@ -407,53 +645,125 @@ export default function LandingPage() {
               Das Symbol steht jetzt ruhig neben dem Titel. */}
       <section id="funktionen" className="px-6 py-20 lg:px-12 xl:px-20">
         <div className="mx-auto max-w-[1400px]">
-          <div className="max-w-xl">
+          <div className="max-w-2xl">
             <h2 className="text-[28px] font-bold tracking-tight text-white sm:text-[32px]">
-              Was der Bot mitbringt
+              Alle Module im Überblick
             </h2>
             <p className="mt-3 text-[16px] leading-relaxed text-slate-400">
-              {FUNKTIONEN.length} Bereiche, einzeln zuschaltbar. Du
-              brauchst nur, was du einschaltest.
+              {MODUL_ANZAHL} Bereiche aus dem aktuellen Dashboard — nach Aufgabe
+              gruppiert und mit ihren tatsächlichen Grenzen beschrieben.
             </p>
           </div>
 
-          {/* Ein Raster aus Linien statt aus Kästen: die Karten
-              teilen sich ihre Ränder, statt jede einen eigenen zu
-              ziehen. Das ergibt ein ruhiges Gitter statt 34
-              schwebender Kacheln. */}
-          {/* `bg-slate-800` faerbt die Fugen -- und bei 20 Karten auf
-              3 Spalten bleibt eine Zelle leer, die dann als grauer
-              Block dasteht. Im Bild aufgefallen, nicht im Quelltext.
-              Der Hintergrund der Fugen wird deshalb ueber
-              `[&>*]:bg-[#0f0f13]` von den Kindern getragen, und die
-              Luecke bekommt am Ende eine leere Fuellzelle in
-              Kartenfarbe. */}
-          <div className="mt-10 grid gap-px overflow-hidden rounded-2xl border border-slate-800 bg-slate-800 sm:grid-cols-2 lg:grid-cols-3">
-            {FUNKTIONEN.map(({ icon: Icon, titel, text }) => (
-              <div
-                key={titel}
-                className="bg-[#0f0f13] p-5 transition-colors hover:bg-[#131318]"
-              >
-                <div className="flex items-center gap-2.5">
-                  <Icon className="h-4 w-4 shrink-0 text-indigo-400" />
-                  <h3 className="text-[15px] font-semibold text-white">
-                    {titel}
-                  </h3>
-                </div>
-                <p className="mt-2 text-[14px] leading-relaxed text-slate-400">
-                  {text}
-                </p>
-              </div>
-            ))}
+          <div className="mt-10 space-y-5">
+            {FUNKTIONS_GRUPPEN.map((gruppe) => {
+              const GruppenIcon = gruppe.icon;
+              return (
+                <article
+                  key={gruppe.titel}
+                  className="overflow-hidden rounded-2xl border border-slate-800 bg-[#0f0f13]"
+                >
+                  <div className="flex flex-col gap-3 border-b border-slate-800 bg-[#131318] px-5 py-5 sm:flex-row sm:items-center sm:px-6">
+                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-indigo-500/20 bg-indigo-500/10">
+                      <GruppenIcon className="h-5 w-5 text-indigo-400" />
+                    </span>
+                    <div>
+                      <h3 className="text-[17px] font-bold text-white">
+                        {gruppe.titel}
+                      </h3>
+                      <p className="mt-0.5 text-[13px] text-slate-500">
+                        {gruppe.text}
+                      </p>
+                    </div>
+                    <span className="sm:ml-auto text-xs tabular-nums text-slate-600">
+                      {gruppe.module.length} Module
+                    </span>
+                  </div>
+                  <div className="grid gap-px bg-slate-800 sm:grid-cols-2 lg:grid-cols-3">
+                    {gruppe.module.map(([titel, text]) => (
+                      <div
+                        key={titel}
+                        className="bg-[#0f0f13] p-5 transition-colors hover:bg-[#131318]"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="h-1.5 w-1.5 rounded-full bg-indigo-400" />
+                          <h4 className="text-[14px] font-semibold text-white">
+                            {titel}
+                          </h4>
+                        </div>
+                        <p className="mt-2 text-[13px] leading-relaxed text-slate-400">
+                          {text}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </div>
+      </section>
 
-            {/* Fuellzellen fuer die letzte Reihe. Ohne sie zeigt das
-                Raster dort seinen eigenen grauen Hintergrund. */}
-            {Array.from({ length: (3 - (FUNKTIONEN.length % 3)) % 3 }).map((_, i) => (
-              <div key={`luecke-${i}`} aria-hidden className="hidden bg-[#0f0f13] lg:block" />
-            ))}
-            {FUNKTIONEN.length % 2 === 1 && (
-              <div aria-hidden className="hidden bg-[#0f0f13] sm:block lg:hidden" />
-            )}
+      {/* Premium steht bewusst in der Mitte: nach dem vollständigen
+          Funktionsüberblick, aber vor Kennzahlen und Einrichtung. */}
+      <section className="px-6 py-14 lg:px-12 xl:px-20">
+        <div className="relative mx-auto max-w-[1400px] overflow-hidden rounded-3xl border border-amber-400/30 bg-[#15120b] px-6 py-9 sm:px-9 lg:px-12 lg:py-11">
+          <div
+            aria-hidden
+            className="pointer-events-none absolute -right-24 -top-32 h-80 w-80 rounded-full bg-amber-400/10 blur-3xl"
+          />
+          <div className="relative grid gap-8 lg:grid-cols-[1fr_0.9fr] lg:items-center">
+            <div>
+              <span className="inline-flex items-center gap-2 rounded-full border border-amber-400/25 bg-amber-400/10 px-3 py-1 text-xs font-bold text-amber-300">
+                <Crown className="h-3.5 w-3.5" />
+                Premium · Testphase
+              </span>
+              <h2 className="mt-5 text-3xl font-black tracking-tight text-white sm:text-4xl">
+                Mehr Möglichkeiten für beide Bots
+              </h2>
+              <p className="mt-4 max-w-2xl text-[15px] leading-7 text-slate-400">
+                Premium hängt an deinem Discord-Konto und gilt für den
+                University Bot und den Template-Bot. Kaufen ist während der
+                Testphase noch nicht möglich — Zugang gibt es derzeit nur über
+                einen Beta-Antrag.
+              </p>
+              <div className="mt-7 flex flex-wrap gap-3">
+                <Link
+                  href="/dashboard/premium/beta"
+                  className="inline-flex items-center gap-2 rounded-xl bg-amber-400 px-5 py-3 text-sm font-black text-black hover:bg-amber-300"
+                >
+                  <Sparkles className="h-4 w-4" />
+                  Für Premium bewerben
+                </Link>
+                <Link
+                  href="/premium"
+                  className="inline-flex items-center gap-2 rounded-xl border border-amber-400/25 px-5 py-3 text-sm font-semibold text-amber-200 hover:bg-amber-400/10"
+                >
+                  Premium ehrlich vergleichen <ArrowRight className="h-4 w-4" />
+                </Link>
+              </div>
+            </div>
+            <ul className="grid gap-2 sm:grid-cols-2">
+              {[
+                [Palette, "Eigenes Bot-Aussehen"],
+                [Database, "Bis zu 10 Backups und Automatik"],
+                [Zap, "Speedrun und Premium-Vorlagen"],
+                [BarChart4, "Rollen, Kanäle und Online-Nutzer"],
+                [KeyRound, "Bis zu 20 Custom Commands"],
+                [Server, "Ein Zugang für beide Bots"],
+              ].map(([Icon, text]) => {
+                const PremiumIcon = Icon as React.ElementType;
+                return (
+                  <li
+                    key={String(text)}
+                    className="flex items-center gap-3 rounded-xl border border-amber-400/15 bg-black/20 p-3 text-sm text-slate-300"
+                  >
+                    <PremiumIcon className="h-4 w-4 shrink-0 text-amber-400" />
+                    {text as string}
+                  </li>
+                );
+              })}
+            </ul>
           </div>
         </div>
       </section>
@@ -490,7 +800,10 @@ export default function LandingPage() {
 
             <p className="text-[13px] text-slate-500">
               Live aus dem Bot ·{" "}
-              <Link href="/status" className="text-slate-400 underline decoration-slate-700 underline-offset-4 hover:text-white">
+              <Link
+                href="/status"
+                className="text-slate-400 underline decoration-slate-700 underline-offset-4 hover:text-white"
+              >
                 Status
               </Link>
             </p>
@@ -521,8 +834,8 @@ export default function LandingPage() {
                 In drei Schritten eingerichtet
               </h2>
               <p className="mt-4 max-w-sm text-[16px] leading-relaxed text-slate-400">
-                Kein Handbuch, keine Konfigurationsdatei. Was der Bot
-                können soll, stellst du im Dashboard ein.
+                Kein Handbuch, keine Konfigurationsdatei. Was der Bot können
+                soll, stellst du im Dashboard ein.
               </p>
             </div>
 
@@ -617,8 +930,6 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
-
-
     </div>
   );
 }

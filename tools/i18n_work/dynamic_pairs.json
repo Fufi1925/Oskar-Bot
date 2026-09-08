@@ -171,5 +171,6 @@
   "{1} gemessene Nachrichten": "{1} measured messages",
   "{1} Nachrichten · {2} XP": "{1} messages · {2} XP",
   "Nachrichtenaktivität der letzten {1} Tage": "Message activity over the last {1} days",
-  "Server {1}": "Server {1}"
+  "Server {1}": "Server {1}",
+  "Unterstützt {1} Deutsch und Englisch?": "Does {1} support German and English?"
 }
