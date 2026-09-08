@@ -432,11 +432,17 @@ export const api = {
   getPullMembers: (g: string, query = "") =>
     request<any>(`/verify/${g}/pull/members?limit=5000&query=${encodeURIComponent(query)}`),
   getPullJob: (g: string) => request<any>(`/verify/${g}/pull/job`),
+  startPullAuthorizationCheck: (g: string) =>
+    request<any>(`/verify/${g}/pull/authorizations/check`, { method: "POST", body: "{}" }),
+  getPullAuthorizationCheck: (g: string) =>
+    request<any>(`/verify/${g}/pull/authorizations/check`),
   pullMember: (g: string, userId: string) =>
     request<any>(`/verify/${g}/pull/members/${userId}`, {
       method: "POST",
       body: "{}",
     }),
+  cancelPullChallenge: (g: string) =>
+    request<any>(`/verify/${g}/pull/challenge/cancel`, { method: "POST", body: "{}" }),
   createPullChallenge: (g: string, targetGuildId: string, roleId?: string) =>
     request<any>(`/verify/${g}/pull/challenge`, {
       method: "POST",

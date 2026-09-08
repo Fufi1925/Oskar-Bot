@@ -65,6 +65,18 @@ check("Pull all verarbeitet nur autorisierte Nutzer",
 check("Pull-all-Assistent hat Server, Rolle, Zusammenfassung und Code",
       all(text in PULL for text in ("Zielserver auswählen", "Zielrolle festlegen",
                                    "Pull all bestätigen", "Vierstelligen Code eingeben")))
+check("Server und Rollen nutzen eigene Dashboard-Dropdowns",
+      PULL.count("<Select") == 2 and "function Select" in PULL
+      and 'aria-expanded={open}' in PULL and "Keine Auswahl verfügbar" in PULL)
+check("unfertige Einrichtung bietet Fortsetzen oder Neustart",
+      all(text in PULL for text in ("Offene Pull-all-Einrichtung", "Einrichtung fortsetzen",
+                                   "Neu anfangen", "activeChallenge"))
+      and "cancelPullChallenge" in PULL)
+check("Statistik prüft ausschließlich guilds.join aktuell",
+      "startPullAuthorizationCheck" in PULL and "scope = 'guilds.join'" in VERIFY_API
+      and "verification_pull_audits" in VERIFY_API
+      and "response.status in {400, 401}" in VERIFY_API
+      and "429/5xx are temporary" in VERIFY_API)
 check("Code-Kanal wird nach zehn Minuten gelöscht",
       "privaten Code-Kanal" in PULL and "nach 10 Minuten gelöscht" in PULL
       and "await asyncio.sleep(600)" in VERIFY_API

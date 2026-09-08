@@ -889,9 +889,11 @@ async def test_api(store):
           and len(target.created_channels) == 1 and len(code_channel.sent) == 1,
           r.text[:180])
     r = client.get(f"{base}/pull/targets?actor={guild.owner_id}")
-    check("a reload can reopen the already-sent code popup",
+    check("a reload offers the already-sent setup with its summary",
           r.status_code == 200
-          and r.json().get("active_challenge", {}).get("target_guild_id") == str(target.id),
+          and r.json().get("active_challenge", {}).get("target_guild_id") == str(target.id)
+          and r.json().get("active_challenge", {}).get("target_name") == target.name
+          and r.json().get("active_challenge", {}).get("role_id") == str(target_role.id),
           r.text[:180])
 
     r = client.post(f"{base}/pull/confirm?actor={guild.owner_id}", json={
@@ -913,6 +915,15 @@ async def test_api(store):
     r = client.post(f"{base}/pull/toggle?actor={guild.owner_id}", json={"enabled": True})
     check("the owner can switch the guilds.join request back on",
           r.status_code == 200 and client.get(base).json().get("user_pull_enabled") is True,
+          r.text[:180])
+    r = client.post(f"{base}/pull/challenge?actor={guild.owner_id}", json=pull_body)
+    restart_channel = target.created_channels[-1]
+    r = client.post(f"{base}/pull/challenge/cancel?actor={guild.owner_id}", json={})
+    targets_after_cancel = client.get(f"{base}/pull/targets?actor={guild.owner_id}").json()
+    check("restarting discards the unfinished challenge and temporary channel",
+          r.status_code == 200 and r.json().get("status") == "cancelled"
+          and restart_channel.deleted is True
+          and targets_after_cancel.get("active_challenge") is None,
           r.text[:180])
 
     # Public OAuth completion: first a server-list hit, then success. The

@@ -10,6 +10,7 @@ import {
   Loader2,
   LockKeyhole,
   MoreHorizontal,
+  RefreshCw,
   Search,
   Server,
   ShieldCheck,
@@ -81,6 +82,9 @@ export function UserPullPanel({ guildId }: { guildId: string }) {
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [job, setJob] = useState<PullJob | null>(null);
+  const [scopeAudit, setScopeAudit] = useState<{ status: string; total: number; completed: number } | null>(null);
+  const [activeChallenge, setActiveChallenge] = useState<any>(null);
+  const [resuming, setResuming] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -94,13 +98,7 @@ export function UserPullPanel({ guildId }: { guildId: string }) {
       setMembers(memberData.members || []);
       setEnabled(Boolean(memberData.pull_enabled));
       setJob(jobData.job || null);
-      if (targetData.active_challenge?.target_guild_id) {
-        setSelectedTarget(String(targetData.active_challenge.target_guild_id));
-        setNotice(
-          "Der Code-Kanal wurde bereits erstellt. Es wurde kein zweiter Kanal angelegt.",
-        );
-        setWizard(4);
-      }
+      setActiveChallenge(targetData.active_challenge || null);
       setOwner(true);
     } catch (error: any) {
       if (error?.status === 403) setOwner(false);
@@ -114,6 +112,35 @@ export function UserPullPanel({ guildId }: { guildId: string }) {
   useEffect(() => {
     void load();
   }, [load]);
+  useEffect(() => {
+    let cancelled = false;
+    let timer: number | undefined;
+    const check = async () => {
+      try {
+        await api.startPullAuthorizationCheck(guildId);
+        const poll = async () => {
+          const result = await api.getPullAuthorizationCheck(guildId);
+          if (cancelled) return;
+          const audit = result.audit || null;
+          setScopeAudit(audit);
+          if (audit?.status === "running") {
+            timer = window.setTimeout(poll, 1500);
+          } else if (audit?.status === "completed") {
+            const refreshed = await api.getPullMembers(guildId);
+            if (!cancelled) setMembers(refreshed.members || []);
+          }
+        };
+        await poll();
+      } catch {
+        /* Owner/access errors are already handled by the main loader. */
+      }
+    };
+    void check();
+    return () => {
+      cancelled = true;
+      if (timer) window.clearTimeout(timer);
+    };
+  }, [guildId]);
   useEffect(() => {
     if (job?.status !== "running") return;
     const timer = window.setInterval(async () => {
@@ -158,12 +185,40 @@ export function UserPullPanel({ guildId }: { guildId: string }) {
   }, [members, search, filter]);
 
   const begin = () => {
+    setCode("");
+    setNotice("");
+    if (activeChallenge) {
+      setWizard(5);
+      return;
+    }
     setSelectedTarget("");
     setSelectedRole("");
     setWithRole(null);
-    setCode("");
-    setNotice("");
+    setResuming(false);
     setWizard(1);
+  };
+  const continueChallenge = () => {
+    setSelectedTarget(String(activeChallenge.target_guild_id));
+    setSelectedRole(String(activeChallenge.role_id || ""));
+    setWithRole(Boolean(activeChallenge.role_id));
+    setResuming(true);
+    setWizard(3);
+  };
+  const restartChallenge = async () => {
+    setBusy(true);
+    try {
+      await api.cancelPullChallenge(guildId);
+      setActiveChallenge(null);
+      setSelectedTarget("");
+      setSelectedRole("");
+      setWithRole(null);
+      setResuming(false);
+      setWizard(1);
+    } catch (error: any) {
+      setNotice(error?.message || "Die offene Einrichtung konnte nicht verworfen werden.");
+    } finally {
+      setBusy(false);
+    }
   };
   const sendCode = async () => {
     setBusy(true);
@@ -176,6 +231,16 @@ export function UserPullPanel({ guildId }: { guildId: string }) {
       );
       if (result.target_guild_id)
         setSelectedTarget(String(result.target_guild_id));
+      setActiveChallenge({
+        target_guild_id: String(result.target_guild_id || selectedTarget),
+        target_name: chosenTarget?.name,
+        role_id: withRole ? selectedRole : null,
+        role_name: withRole
+          ? chosenTarget?.roles.find((role) => role.id === selectedRole)?.name
+          : null,
+        expires_at: result.expires_at,
+      });
+      setResuming(true);
       setNotice(
         result.status === "already_sent"
           ? "Der temporäre Code-Kanal existiert bereits. Es wurde kein zweiter Kanal erstellt."
@@ -209,6 +274,8 @@ export function UserPullPanel({ guildId }: { guildId: string }) {
       setNotice(
         `Code bestätigt. Pull all für ${result.total ?? authorized} abrufbare Mitglieder wurde gestartet.`,
       );
+      setActiveChallenge(null);
+      setResuming(false);
       setWizard(0);
       setCode("");
     } catch (error: any) {
@@ -239,7 +306,7 @@ export function UserPullPanel({ guildId }: { guildId: string }) {
         </div>
         <button
           onClick={begin}
-          disabled={!enabled || authorized === 0 || job?.status === "running"}
+          disabled={!enabled || authorized === 0 || job?.status === "running" || scopeAudit?.status !== "completed"}
           className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 text-sm font-bold text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-40"
         >
           <Link2 className="h-4 w-4" /> Pull all
@@ -247,6 +314,12 @@ export function UserPullPanel({ guildId }: { guildId: string }) {
       </div>
 
       <section className="rounded-3xl border border-white/10 bg-[#120d10] p-6 sm:p-8">
+        {scopeAudit?.status === "running" && (
+          <div className="mb-5 flex items-center gap-3 rounded-xl border border-blue-500/20 bg-blue-500/10 px-4 py-3 text-xs text-blue-200">
+            <RefreshCw className="h-4 w-4 animate-spin" />
+            guilds.join-Autorisierungen werden aktuell geprüft ({scopeAudit.completed}/{scopeAudit.total}).
+          </div>
+        )}
         <div className="grid grid-cols-2 gap-5">
           <Metric
             color="bg-emerald-500"
@@ -438,9 +511,11 @@ export function UserPullPanel({ guildId }: { guildId: string }) {
                 ? "Zielrolle festlegen"
                 : wizard === 3
                   ? "Pull all bestätigen"
-                  : "Vierstelligen Code eingeben"
+                  : wizard === 4
+                    ? "Vierstelligen Code eingeben"
+                    : "Offene Pull-all-Einrichtung"
           }
-          step={wizard}
+          step={wizard === 5 ? 3 : wizard}
           onClose={() => setWizard(0)}
         >
           {wizard === 1 && (
@@ -505,14 +580,17 @@ export function UserPullPanel({ guildId }: { guildId: string }) {
           )}
           {wizard === 3 && (
             <div className="space-y-5">
-              <Summary label="Zielserver" value={chosenTarget?.name || "—"} />
+              <Summary
+                label="Zielserver"
+                value={chosenTarget?.name || activeChallenge?.target_name || "—"}
+              />
               <Summary
                 label="Zielrolle"
                 value={
                   withRole
                     ? chosenTarget?.roles.find(
                         (role) => role.id === selectedRole,
-                      )?.name || "—"
+                      )?.name || activeChallenge?.role_name || "—"
                     : "Keine zusätzliche Rolle"
                 }
               />
@@ -521,16 +599,39 @@ export function UserPullPanel({ guildId }: { guildId: string }) {
                 value={String(authorized)}
               />
               <p className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 text-xs leading-5 text-amber-200">
-                University Bot erstellt jetzt einen privaten Code-Kanal auf dem
-                Zielserver. Er ist nur für Zielinhaber, dich und den Bot
-                sichtbar und wird nach 10 Minuten gelöscht.
+                {resuming
+                  ? "Der private Code-Kanal wurde bereits erstellt und der Code ist noch gültig. Es wird kein zweiter Kanal angelegt."
+                  : "University Bot erstellt jetzt einen privaten Code-Kanal auf dem Zielserver. Er ist nur für Zielinhaber, dich und den Bot sichtbar und wird nach 10 Minuten gelöscht."}
               </p>
               <button
                 disabled={busy}
-                onClick={sendCode}
+                onClick={() => (resuming ? setWizard(4) : void sendCode())}
                 className="min-h-12 w-full rounded-xl bg-blue-600 font-bold text-white hover:bg-blue-500 disabled:opacity-50"
               >
-                {busy ? "Kanal wird erstellt …" : "Pull starten"}
+                {busy
+                  ? "Kanal wird erstellt …"
+                  : resuming
+                    ? "Weiter zur Codeeingabe"
+                    : "Pull starten"}
+              </button>
+            </div>
+          )}
+          {wizard === 5 && (
+            <div className="space-y-5">
+              <div className="rounded-2xl border border-blue-500/20 bg-blue-500/10 p-5 text-center">
+                <KeyRound className="mx-auto h-8 w-8 text-blue-300" />
+                <h4 className="mt-3 font-bold text-white">
+                  Du hast gerade einen Pull all eingestellt, aber noch nicht vollständig abgeschlossen.
+                </h4>
+                <p className="mt-2 text-sm leading-6 text-slate-400">
+                  Der bestehende Code ist noch gültig. Du kannst direkt bei der Zusammenfassung weitermachen oder die Einrichtung neu starten.
+                </p>
+              </div>
+              <button onClick={continueChallenge} className="min-h-12 w-full rounded-xl bg-blue-600 font-bold text-white hover:bg-blue-500">
+                Einrichtung fortsetzen
+              </button>
+              <button disabled={busy} onClick={restartChallenge} className="min-h-12 w-full rounded-xl border border-white/10 font-bold text-slate-300 hover:bg-white/5 disabled:opacity-50">
+                Neu anfangen
               </button>
             </div>
           )}
@@ -670,21 +771,36 @@ function Select({
   placeholder: string;
   options: Array<{ value: string; label: string }>;
 }) {
+  const [open, setOpen] = useState(false);
+  const selected = options.find((option) => option.value === value);
   return (
     <div className="relative">
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="min-h-12 w-full appearance-none rounded-xl border border-white/10 bg-slate-900 px-4 text-white outline-none focus:border-blue-500"
+      <button
+        type="button"
+        onClick={() => setOpen((current) => !current)}
+        aria-expanded={open}
+        className="flex min-h-12 w-full items-center justify-between rounded-xl border border-white/10 bg-slate-900 px-4 text-left text-white outline-none transition hover:border-blue-500/50 focus:border-blue-500"
       >
-        <option value="">{placeholder}</option>
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-      <ChevronDown className="pointer-events-none absolute right-4 top-4 h-4 w-4 text-slate-500" />
+        <span className={selected ? "text-white" : "text-slate-500"}>
+          {selected?.label || placeholder}
+        </span>
+        <ChevronDown className={`h-4 w-4 text-slate-500 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && (
+        <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-[130] max-h-64 overflow-y-auto rounded-xl border border-white/10 bg-[#111827] p-2 shadow-2xl shadow-black/60">
+          {options.length ? options.map((option) => (
+            <button
+              type="button"
+              key={option.value}
+              onClick={() => { onChange(option.value); setOpen(false); }}
+              className={`flex min-h-11 w-full items-center justify-between rounded-lg px-3 text-left text-sm transition ${option.value === value ? "bg-blue-500/15 text-blue-200" : "text-slate-300 hover:bg-white/5 hover:text-white"}`}
+            >
+              <span className="truncate">{option.label}</span>
+              {option.value === value && <Check className="h-4 w-4 shrink-0" />}
+            </button>
+          )) : <p className="px-3 py-4 text-center text-sm text-slate-500">Keine Auswahl verfügbar</p>}
+        </div>
+      )}
     </div>
   );
 }

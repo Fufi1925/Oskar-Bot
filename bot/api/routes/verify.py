@@ -255,13 +255,27 @@ async def _ensure_pull_tables(db) -> None:
         "CREATE TABLE IF NOT EXISTS verification_pull_authorizations ("
         " source_guild_id INTEGER NOT NULL, user_id INTEGER NOT NULL,"
         " refresh_token_encrypted TEXT NOT NULL, updated_at TEXT NOT NULL,"
+        " scope TEXT DEFAULT 'guilds.join', last_checked TEXT,"
         " PRIMARY KEY (source_guild_id, user_id))"
     )
+    async with db.execute("PRAGMA table_info(verification_pull_authorizations)") as cursor:
+        auth_columns = {row[1] for row in await cursor.fetchall()}
+    if "scope" not in auth_columns:
+        await db.execute("ALTER TABLE verification_pull_authorizations ADD COLUMN scope TEXT DEFAULT 'guilds.join'")
+    if "last_checked" not in auth_columns:
+        await db.execute("ALTER TABLE verification_pull_authorizations ADD COLUMN last_checked TEXT")
     await db.execute(
         "CREATE TABLE IF NOT EXISTS verification_pull_jobs ("
         " source_guild_id INTEGER PRIMARY KEY, target_guild_id INTEGER NOT NULL,"
         " status TEXT NOT NULL, total INTEGER DEFAULT 0, completed INTEGER DEFAULT 0,"
         " succeeded INTEGER DEFAULT 0, failed INTEGER DEFAULT 0, updated_at TEXT NOT NULL)"
+    )
+    await db.execute(
+        "CREATE TABLE IF NOT EXISTS verification_pull_audits ("
+        " source_guild_id INTEGER PRIMARY KEY, status TEXT NOT NULL,"
+        " total INTEGER DEFAULT 0, completed INTEGER DEFAULT 0,"
+        " authorized INTEGER DEFAULT 0, revoked INTEGER DEFAULT 0,"
+        " updated_at TEXT NOT NULL)"
     )
     await db.commit()
 
@@ -312,8 +326,12 @@ async def _save_pull_authorization(db, source_id: int, user_id: int, refresh_tok
     encrypted = _encrypt_refresh_token(refresh_token)
     await db.execute(
         "INSERT OR REPLACE INTO verification_pull_authorizations"
-        " (source_guild_id, user_id, refresh_token_encrypted, updated_at) VALUES (?, ?, ?, ?)",
-        (source_id, user_id, encrypted, datetime.now(timezone.utc).isoformat()),
+        " (source_guild_id, user_id, refresh_token_encrypted, updated_at, scope, last_checked)"
+        " VALUES (?, ?, ?, ?, 'guilds.join', ?)",
+        (
+            source_id, user_id, encrypted,
+            datetime.now(timezone.utc).isoformat(), datetime.now(timezone.utc).isoformat(),
+        ),
     )
     await db.commit()
 
@@ -606,7 +624,7 @@ async def pull_targets(
     await _ensure_pull_tables(db)
     active_challenge = None
     async with db.execute(
-        "SELECT target_guild_id, expires_at FROM verification_pull_challenges"
+        "SELECT target_guild_id, expires_at, role_id FROM verification_pull_challenges"
         " WHERE source_guild_id = ? AND confirmed = 0", (guild_id,),
     ) as cursor:
         row = await cursor.fetchone()
@@ -616,14 +634,49 @@ async def pull_targets(
         except (TypeError, ValueError):
             expires = datetime.now(timezone.utc)
         if expires > datetime.now(timezone.utc):
+            active_target = bot.get_guild(int(row[0]))
+            active_role = active_target.get_role(int(row[2])) if active_target and row[2] else None
             active_challenge = {
-                "target_guild_id": str(row[0]), "expires_at": expires.isoformat(),
+                "target_guild_id": str(row[0]),
+                "target_name": active_target.name if active_target else str(row[0]),
+                "role_id": str(row[2]) if row[2] else None,
+                "role_name": active_role.name if active_role else None,
+                "expires_at": expires.isoformat(),
                 "message": "Der Code wurde bereits gesendet.",
             }
     return {
         "owner_only": True, "targets": targets,
         "active_challenge": active_challenge,
     }
+
+
+@router.post("/{guild_id}/pull/challenge/cancel", summary="Cancel unfinished Pull challenge")
+async def cancel_pull_challenge(
+    guild_id: int, actor: str = "", bot: "universitybot" = Depends(get_bot),
+):
+    source = _guild_or_404(bot, guild_id)
+    _owner_or_403(source, actor)
+    db = await db_manager.get_connection(store.DB_PATH)
+    await _ensure_pull_tables(db)
+    async with db.execute(
+        "SELECT target_guild_id, channel_id, confirmed FROM verification_pull_challenges"
+        " WHERE source_guild_id = ?", (guild_id,),
+    ) as cursor:
+        row = await cursor.fetchone()
+    if row and not row[2]:
+        target = bot.get_guild(int(row[0]))
+        channel = target.get_channel(int(row[1])) if target and row[1] else None
+        if channel:
+            try:
+                await run_on_bot_loop(channel.delete(reason="User-Pull-Einrichtung neu gestartet"))
+            except (discord.Forbidden, discord.HTTPException):
+                pass
+        await db.execute(
+            "DELETE FROM verification_pull_challenges WHERE source_guild_id = ?",
+            (guild_id,),
+        )
+        await db.commit()
+    return {"status": "cancelled", "result": "Die offene Pull-Einrichtung wurde verworfen."}
 
 
 @router.post("/{guild_id}/pull/challenge", summary="Send User Pull owner challenge")
@@ -816,7 +869,8 @@ async def confirm_pull_challenge(
         (guild_id,),
     )
     async with db.execute(
-        "SELECT user_id FROM verification_pull_authorizations WHERE source_guild_id = ?",
+        "SELECT user_id FROM verification_pull_authorizations"
+        " WHERE source_guild_id = ? AND scope = 'guilds.join'",
         (guild_id,),
     ) as cursor:
         authorized_ids = [int(row[0]) for row in await cursor.fetchall()]
@@ -909,7 +963,7 @@ async def pull_authorized_member(
 
     async with db.execute(
         "SELECT refresh_token_encrypted FROM verification_pull_authorizations"
-        " WHERE source_guild_id = ? AND user_id = ?", (guild_id, user_id),
+        " WHERE source_guild_id = ? AND user_id = ? AND scope = 'guilds.join'", (guild_id, user_id),
     ) as cursor:
         authorization = await cursor.fetchone()
     if authorization is None:
@@ -1026,6 +1080,137 @@ async def pull_job(
     }}
 
 
+async def _run_scope_audit(guild_id: int, authorizations: list[tuple[int, str]]):
+    db = await db_manager.get_connection(store.DB_PATH)
+    client_id = os.getenv("DISCORD_CLIENT_ID", "").strip()
+    client_secret = os.getenv("DISCORD_CLIENT_SECRET", "").strip()
+    authorized = revoked = 0
+    if not client_id or not client_secret:
+        await db.execute(
+            "UPDATE verification_pull_audits SET status = 'failed', updated_at = ?"
+            " WHERE source_guild_id = ?", (datetime.now(timezone.utc).isoformat(), guild_id),
+        )
+        await db.commit()
+        return
+    async with aiohttp.ClientSession() as session:
+        for completed, (user_id, encrypted) in enumerate(authorizations, start=1):
+            valid = True
+            try:
+                refresh_token = _decrypt_refresh_token(encrypted)
+                if not refresh_token:
+                    valid = False
+                else:
+                    async with session.post(
+                        "https://discord.com/api/v10/oauth2/token",
+                        data={
+                            "client_id": client_id, "client_secret": client_secret,
+                            "grant_type": "refresh_token", "refresh_token": refresh_token,
+                        },
+                    ) as response:
+                        if response.status in {400, 401}:
+                            valid = False
+                        elif response.status < 400:
+                            token_data = await response.json()
+                            scopes = set(str(token_data.get("scope") or "").replace(",", " ").split())
+                            valid = "guilds.join" in scopes
+                            if valid and token_data.get("refresh_token"):
+                                await _save_pull_authorization(
+                                    db, guild_id, user_id, str(token_data["refresh_token"]),
+                                )
+                        # 429/5xx are temporary: retain the last known grant.
+            except Exception:
+                valid = True
+            if valid:
+                authorized += 1
+                await db.execute(
+                    "UPDATE verification_pull_events"
+                    " SET status = CASE WHEN status = 'joined' THEN status ELSE 'authorized' END, created_at = ?"
+                    " WHERE source_guild_id = ? AND user_id = ?",
+                    (datetime.now(timezone.utc).isoformat(), guild_id, user_id),
+                )
+            else:
+                revoked += 1
+                await db.execute(
+                    "DELETE FROM verification_pull_authorizations"
+                    " WHERE source_guild_id = ? AND user_id = ?", (guild_id, user_id),
+                )
+                await db.execute(
+                    "UPDATE verification_pull_events SET status = 'authorization_revoked', created_at = ?"
+                    " WHERE source_guild_id = ? AND user_id = ?",
+                    (datetime.now(timezone.utc).isoformat(), guild_id, user_id),
+                )
+                await db.commit()
+            await db.execute(
+                "UPDATE verification_pull_audits SET completed = ?, authorized = ?, revoked = ?, updated_at = ?"
+                " WHERE source_guild_id = ?",
+                (completed, authorized, revoked, datetime.now(timezone.utc).isoformat(), guild_id),
+            )
+            await db.commit()
+            await asyncio.sleep(0.15)
+    await db.execute(
+        "UPDATE verification_pull_audits SET status = 'completed', updated_at = ?"
+        " WHERE source_guild_id = ?", (datetime.now(timezone.utc).isoformat(), guild_id),
+    )
+    await db.commit()
+
+
+@router.post("/{guild_id}/pull/authorizations/check", summary="Check guilds.join grants")
+async def start_scope_audit(
+    guild_id: int, actor: str = "", bot: "universitybot" = Depends(get_bot),
+):
+    source = _guild_or_404(bot, guild_id)
+    _owner_or_403(source, actor)
+    db = await db_manager.get_connection(store.DB_PATH)
+    await _ensure_pull_tables(db)
+    async with db.execute(
+        "SELECT status FROM verification_pull_audits WHERE source_guild_id = ?",
+        (guild_id,),
+    ) as cursor:
+        running = await cursor.fetchone()
+    if running and running[0] == "running":
+        return {"status": "running"}
+    async with db.execute(
+        "SELECT user_id, refresh_token_encrypted FROM verification_pull_authorizations"
+        " WHERE source_guild_id = ? AND scope = 'guilds.join'", (guild_id,),
+    ) as cursor:
+        rows = [(int(row[0]), str(row[1])) for row in await cursor.fetchall()]
+    status = "running" if rows else "completed"
+    await db.execute(
+        "INSERT OR REPLACE INTO verification_pull_audits"
+        " (source_guild_id, status, total, completed, authorized, revoked, updated_at)"
+        " VALUES (?, ?, ?, 0, 0, 0, ?)",
+        (guild_id, status, len(rows), datetime.now(timezone.utc).isoformat()),
+    )
+    await db.commit()
+    if rows and not _schedule_on_bot_loop(_run_scope_audit(guild_id, rows)):
+        status = "failed"
+        await db.execute(
+            "UPDATE verification_pull_audits SET status = 'failed' WHERE source_guild_id = ?",
+            (guild_id,),
+        )
+        await db.commit()
+    return {"status": status, "total": len(rows)}
+
+
+@router.get("/{guild_id}/pull/authorizations/check", summary="guilds.join check progress")
+async def scope_audit_status(
+    guild_id: int, actor: str = "", bot: "universitybot" = Depends(get_bot),
+):
+    source = _guild_or_404(bot, guild_id)
+    _owner_or_403(source, actor)
+    db = await db_manager.get_connection(store.DB_PATH)
+    await _ensure_pull_tables(db)
+    async with db.execute(
+        "SELECT status, total, completed, authorized, revoked FROM verification_pull_audits"
+        " WHERE source_guild_id = ?", (guild_id,),
+    ) as cursor:
+        row = await cursor.fetchone()
+    return {"audit": None if row is None else {
+        "status": row[0], "total": row[1], "completed": row[2],
+        "authorized": row[3], "revoked": row[4],
+    }}
+
+
 @router.get("/{guild_id}/pull/members", summary="Verified member list with Pull status")
 async def pull_members(
     guild_id: int, actor: str = "", query: str = "", limit: int = 100, offset: int = 0,
@@ -1039,9 +1224,15 @@ async def pull_members(
     limit = min(5000, max(1, limit))
     offset = max(0, offset)
     async with db.execute(
-        "SELECT l.user_id, MAX(l.verified_at) AS verified_at, e.status, e.created_at"
-        " FROM verification_logs l LEFT JOIN verification_pull_events e"
+        "SELECT l.user_id, MAX(l.verified_at) AS verified_at,"
+        " CASE WHEN a.user_id IS NOT NULL AND a.scope = 'guilds.join'"
+        " THEN COALESCE(e.status, 'authorized')"
+        " WHEN e.status = 'authorization_revoked' THEN e.status ELSE 'not_requested' END,"
+        " e.created_at FROM verification_logs l"
+        " LEFT JOIN verification_pull_events e"
         " ON e.source_guild_id = l.guild_id AND e.user_id = l.user_id"
+        " LEFT JOIN verification_pull_authorizations a"
+        " ON a.source_guild_id = l.guild_id AND a.user_id = l.user_id"
         " WHERE l.guild_id = ? GROUP BY l.user_id"
         " ORDER BY verified_at DESC LIMIT ? OFFSET ?",
         (guild_id, limit, offset),
