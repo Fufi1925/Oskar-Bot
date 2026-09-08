@@ -229,8 +229,13 @@ const OEFFENTLICH = [
 ];
 
 /** Paths that still need a session once maintenance is off. */
-function needsAuth(pathname: string): boolean {
+function needsAuth(pathname: string, method = "GET"): boolean {
   if (OEFFENTLICH.some((p) => pathname === p)) return false;
+  if (
+    method === "GET" && pathname.startsWith("/api/bot/ideas") &&
+    !pathname.startsWith("/api/bot/ideas/me") &&
+    !pathname.startsWith("/api/bot/ideas/rewards")
+  ) return false;
   return pathname.startsWith("/dashboard") || pathname.startsWith("/api/bot");
 }
 
@@ -241,7 +246,7 @@ export default function middleware(request: NextRequest, event: any) {
   const halted = maintenanceGate(request);
   if (halted) return halted;
 
-  if (needsAuth(request.nextUrl.pathname)) {
+  if (needsAuth(request.nextUrl.pathname, request.method)) {
     return (authGate as any)(request, event);
   }
   return NextResponse.next();

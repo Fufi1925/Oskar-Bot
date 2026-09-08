@@ -157,6 +157,18 @@ async function authorize(
     }
   }
 
+  if (scope === "ideas") {
+    const session = await getServerSession(authOptions);
+    const isPublicRead = request.method === "GET" && !["me", "rewards"].includes(rest[0] ?? "");
+    if (isPublicRead) return { ok: true };
+    if (!session?.user?.id) return { ok: false, response: deny(401, "Melde dich mit Discord an.") };
+    const adminAction = rest.includes("admin") || request.method === "DELETE";
+    if (adminAction && !isGlobalAdmin(session.user.id)) {
+      return { ok: false, response: deny(403, "Nur Bot-Owner dürfen Ideen verwalten.") };
+    }
+    return { ok: true };
+  }
+
   if (scope === "guilds") {
     // `/guilds` (list) is allowed for any signed-in user — the page filters it
     // down to the servers the user actually administrates.
@@ -1769,6 +1781,12 @@ async function handler(request: NextRequest, context: { params: { path?: string[
             parsed.user_name = session?.user?.name ?? "";
             parsed.avatar = session?.user?.image ?? "";
           }
+          if (segments[0] === "ideas") {
+            parsed.user_id = actorId;
+            parsed.user_name = session?.user?.name ?? "";
+            parsed.avatar = session?.user?.image ?? "";
+            parsed.admin = isGlobalAdmin(actorId);
+          }
           body = JSON.stringify(parsed);
         }
       } catch {
@@ -1794,6 +1812,9 @@ async function handler(request: NextRequest, context: { params: { path?: string[
   // die URL schreiben und damit fremde Rechte erben.
   if (actorId) {
     url.searchParams.set("actor", actorId);
+    if (segments[0] === "ideas" && isGlobalAdmin(actorId)) {
+      url.searchParams.set("admin", "true");
+    }
   } else {
     // Ohne Sitzung darf erst recht kein Wert aus dem Browser
     // durchrutschen.

@@ -54,6 +54,7 @@ import {
   Database,
   Gift,
   KeyRound,
+  Lightbulb,
   Lock,
   Mic,
   Music,
@@ -627,6 +628,25 @@ export default function LandingPage() {
           </div>
         </div>
       </header>
+
+      <section className="px-4 py-8 sm:px-6">
+        <div className="mx-auto max-w-6xl rounded-3xl border border-indigo-500/20 bg-[#111118] p-6 sm:flex sm:items-center sm:justify-between sm:gap-8 sm:p-8">
+          <div className="flex gap-4">
+            <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl border border-indigo-500/20 bg-indigo-500/10 text-indigo-400">
+              <Lightbulb className="h-6 w-6" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-white">Hilf uns, University Bot besser zu machen</h2>
+              <p className="mt-1 text-sm font-medium text-indigo-400">Community Ideen</p>
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-400">Reiche deinen Vorschlag ein, diskutiere mit der Community und erhalte bei einer ausgezeichneten Idee 3 Tage Premium für einen Server deiner Wahl.</p>
+            </div>
+          </div>
+          <div className="mt-5 flex shrink-0 flex-wrap gap-3 sm:mt-0">
+            <span className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[.03] px-4 py-3 text-sm font-bold text-white"><Gift className="h-4 w-4 text-indigo-400"/>3 Tage Premium</span>
+            <Link href="/ideas/new" className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-sm font-bold text-white hover:bg-indigo-500">Idee einreichen <ArrowRight className="h-4 w-4"/></Link>
+          </div>
+        </div>
+      </section>
 
       {/* ── Funktionen ────────────────────────────────────── */}
       {/*

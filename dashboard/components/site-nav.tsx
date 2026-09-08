@@ -68,6 +68,7 @@ const UEBER: Eintrag[] = [
   { label: "Premium", href: "/premium", hint: "Preise und was enthalten ist" },
   { label: "Dokumentation", href: "/docs" },
   { label: "Status", href: "/status", hint: "Verfügbarkeit in Echtzeit" },
+  { label: "Community Ideen", href: "/ideas", hint: "Vorschläge ansehen und bewerten" },
   { label: "Team", href: "/team" },
   { label: "Impressum", href: "/imprint" },
 ];

@@ -46,8 +46,15 @@ async def _premium_guild_ids() -> set[str]:
                 "CREATE TABLE IF NOT EXISTS premium_guilds ("
                 " guild_id INTEGER PRIMARY KEY, granted_at INTEGER)"
             )
+            try:
+                await db.execute("ALTER TABLE premium_guilds ADD COLUMN expires_at INTEGER")
+            except Exception:
+                pass
             await db.commit()
-            async with db.execute("SELECT guild_id FROM premium_guilds") as cursor:
+            async with db.execute(
+                "SELECT guild_id FROM premium_guilds WHERE expires_at IS NULL OR expires_at > ?",
+                (int(time.time()),),
+            ) as cursor:
                 async for row in cursor:
                     ids.add(str(row[0]))
     except Exception as exc:

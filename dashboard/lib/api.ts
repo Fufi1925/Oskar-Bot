@@ -1858,4 +1858,15 @@ export const api = {
     request<any>(
       `/speedrun/${guildId}/status?since=${since}&since_main=${sinceMain}`
     ),
+  listIdeas: (params = "") => request<any>(`/ideas${params ? `?${params}` : ""}`),
+  getIdea: (id: string) => request<any>(`/ideas/${encodeURIComponent(id)}`),
+  submitIdea: (data: any) => request<any>("/ideas", { method: "POST", body: JSON.stringify(data) }),
+  voteIdea: (id: string, value: number) => request<any>(`/ideas/${encodeURIComponent(id)}/vote`, { method: "POST", body: JSON.stringify({ value }) }),
+  commentIdea: (id: string, body: string) => request<any>(`/ideas/${encodeURIComponent(id)}/comments`, { method: "POST", body: JSON.stringify({ body }) }),
+  myIdeas: () => request<any>("/ideas/me"),
+  ideaRewardServers: () => request<any>("/ideas/rewards/servers"),
+  claimIdeaReward: (id: string, guildId: string) => request<any>(`/ideas/${encodeURIComponent(id)}/reward`, { method: "POST", body: JSON.stringify({ guild_id: guildId }) }),
+  decideIdea: (id: string, data: any) => request<any>(`/ideas/${encodeURIComponent(id)}/admin`, { method: "POST", body: JSON.stringify(data) }),
+  deleteIdea: (id: string) => request<any>(`/ideas/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  blacklistIdeaUser: (data: any) => request<any>("/ideas/admin/blacklist", { method: "POST", body: JSON.stringify(data) }),
 };
