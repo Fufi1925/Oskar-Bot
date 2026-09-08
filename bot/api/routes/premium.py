@@ -35,6 +35,7 @@ from utils.links import dashboard_url
 from utils import bot_settings
 from utils import feature_audit
 from utils import premium_store as store
+from utils import premium_codes_store as code_store
 
 # The support server, same default as the compose route.
 HOME_GUILD_ID = int(os.getenv("HOME_GUILD_ID") or 1530378233579704370)
@@ -246,6 +247,131 @@ async def redeem_key(data: dict):
             if result["already"] else "Premium ist jetzt für dein Konto aktiv."
         ),
     }
+
+
+# ══════════════════════════════════════════════════════════════════════
+#  Six-digit giveaway codes for guild Premium
+# ══════════════════════════════════════════════════════════════════════
+
+_CODE_ERRORS = {
+    "unknown": "Dieser Premium-Code ist ungültig.",
+    "revoked": "Dieser Premium-Code wurde deaktiviert.",
+    "expired": "Dieser Premium-Code ist abgelaufen.",
+    "used_up": "Dieser Premium-Code wurde bereits vollständig eingelöst.",
+    "already_used": "Du hast diesen Premium-Code bereits verwendet.",
+    "guild_used": "Dieser Premium-Code wurde für diesen Server bereits verwendet.",
+    "already_lifetime": "Dieser Server besitzt bereits unbegrenztes Premium.",
+    "rate_limited": "Zu viele Versuche. Bitte warte zehn Minuten.",
+}
+
+
+def _code_actor(data: dict) -> str:
+    actor = str(data.get("actor") or "").strip()
+    if not actor.isdigit():
+        raise HTTPException(status_code=401, detail="Melde dich mit Discord an.")
+    return actor
+
+
+@router.get("/codes/servers", summary="Servers eligible for a Premium code")
+async def premium_code_servers(actor: str = "", bot: "universitybot" = Depends(get_bot)):
+    if not actor.isdigit():
+        raise HTTPException(status_code=401, detail="Melde dich mit Discord an.")
+    result = []
+    for guild in bot.guilds:
+        member = guild.get_member(int(actor))
+        if member and (guild.owner_id == int(actor) or member.guild_permissions.manage_guild):
+            result.append({
+                "id": str(guild.id),
+                "name": guild.name,
+                "icon": str(guild.icon.url) if guild.icon else None,
+            })
+    return {"servers": sorted(result, key=lambda item: item["name"].lower())}
+
+
+@router.post("/codes/check", summary="Validate a six-digit Premium code")
+async def check_premium_code(data: dict):
+    actor = _code_actor(data)
+    code = str(data.get("code") or "").strip()
+    if not (len(code) == 6 and code.isdigit()):
+        raise HTTPException(status_code=400, detail="Der Premium-Code muss aus sechs Ziffern bestehen.")
+    result = code_store.inspect(code, actor)
+    if not result.get("ok"):
+        raise HTTPException(status_code=400, detail=_CODE_ERRORS.get(result.get("error"), "Der Code kann nicht eingelöst werden."))
+    return result
+
+
+@router.post("/codes/redeem", summary="Redeem a Premium code for a guild")
+async def redeem_premium_code(data: dict, bot: "universitybot" = Depends(get_bot)):
+    actor = _code_actor(data)
+    code = str(data.get("code") or "").strip()
+    guild_id = str(data.get("guild_id") or "").strip()
+    guild = bot.get_guild(int(guild_id)) if guild_id.isdigit() else None
+    member = guild.get_member(int(actor)) if guild else None
+    if not guild or not member or not (guild.owner_id == int(actor) or member.guild_permissions.manage_guild):
+        raise HTTPException(status_code=403, detail="Du verwaltest diesen Server nicht oder University Bot ist dort nicht installiert.")
+    result = code_store.redeem(code, actor, guild.id)
+    if not result.get("ok"):
+        raise HTTPException(status_code=400, detail=_CODE_ERRORS.get(result.get("error"), "Der Code kann nicht eingelöst werden."))
+    from utils import feature_gates
+    await feature_gates.refresh_premium_guilds()
+    await feature_audit.log_action("premium_code_redeemed", actor=actor, guild_id=guild.id, detail=f"code={code} days={result['premium_days']}")
+    return {**result, "guild_id": guild_id, "guild_name": guild.name}
+
+
+@router.get("/codes", summary="List giveaway Premium codes")
+async def list_premium_codes(limit: int = 200, bot: "universitybot" = Depends(get_bot)):
+    codes = code_store.list_codes(limit)
+    for code in codes:
+        for use in code["redemptions"]:
+            guild = bot.get_guild(int(use["guild_id"]))
+            user = bot.get_user(int(use["user_id"]))
+            use["guild_name"] = guild.name if guild else str(use["guild_id"])
+            use["user_name"] = (user.display_name or user.name) if user else str(use["user_id"])
+    return {"codes": codes}
+
+
+@router.post("/codes", summary="Create a six-digit giveaway Premium code")
+async def create_premium_code(data: dict):
+    try:
+        premium_days = int(data.get("premium_days", 7))
+        max_uses = int(data.get("max_uses", 1))
+        valid_hours = int(data.get("valid_hours", 24))
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Laufzeit und Nutzungen müssen Zahlen sein.")
+    if not 1 <= premium_days <= 3650:
+        raise HTTPException(status_code=400, detail="Premium-Laufzeit: 1 bis 3650 Tage.")
+    if not 1 <= max_uses <= 1000:
+        raise HTTPException(status_code=400, detail="Nutzungen: 1 bis 1000.")
+    if not 1 <= valid_hours <= 8760:
+        raise HTTPException(status_code=400, detail="Einlösefrist: 1 bis 8760 Stunden.")
+    actor = str(data.get("actor") or "dashboard")
+    created = code_store.create(premium_days=premium_days, max_uses=max_uses, valid_hours=valid_hours, created_by=actor)
+    await feature_audit.log_action("premium_code_created", actor=actor, detail=f"code={created['code']} uses={max_uses} days={premium_days}")
+    return {"code": created}
+
+
+@router.post("/codes/revoke", summary="Deactivate a Premium code")
+async def revoke_premium_code(data: dict):
+    code = str(data.get("code") or "").strip()
+    if not code_store.revoke_code(code):
+        raise HTTPException(status_code=404, detail="Premium-Code nicht gefunden.")
+    await feature_audit.log_action("premium_code_revoked", actor=str(data.get("actor") or "dashboard"), detail=f"code={code}")
+    return {"status": "revoked"}
+
+
+@router.post("/codes/revoke-redemption", summary="Revoke Premium granted by a code")
+async def revoke_code_redemption(data: dict):
+    try:
+        redemption_id = int(data.get("redemption_id"))
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Ungültige Einlösung.")
+    result = code_store.revoke_redemption(redemption_id)
+    if not result.get("ok"):
+        raise HTTPException(status_code=404, detail="Einlösung nicht gefunden.")
+    from utils import feature_gates
+    await feature_gates.refresh_premium_guilds()
+    await feature_audit.log_action("premium_code_premium_revoked", actor=str(data.get("actor") or "dashboard"), guild_id=result["guild_id"], detail=f"redemption={redemption_id}")
+    return result
 
 
 # ══════════════════════════════════════════════════════════════════════

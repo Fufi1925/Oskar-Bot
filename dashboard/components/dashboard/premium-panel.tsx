@@ -29,8 +29,8 @@
 import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import {
-  ArrowRight, Bot, Check, Clock, Crown, ExternalLink, Gem, RefreshCw,
-  Sparkles,
+  ArrowRight, Bot, Check, ChevronDown, Clock, Crown, ExternalLink, Gem,
+  KeyRound, RefreshCw, Server, Sparkles,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
@@ -94,13 +94,25 @@ export function PremiumPanel() {
   const [status, setStatus] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [code, setCode] = useState("");
+  const [checkedCode, setCheckedCode] = useState<any>(null);
+  const [servers, setServers] = useState<any[]>([]);
+  const [selectedServer, setSelectedServer] = useState("");
+  const [serverOpen, setServerOpen] = useState(false);
+  const [codeBusy, setCodeBusy] = useState(false);
+  const [codeSuccess, setCodeSuccess] = useState<any>(null);
 
   const load = useCallback(
     async (quiet = false) => {
       if (!userId) return;
       if (quiet) setRefreshing(true);
       try {
-        setStatus(await api.getMyPremium(userId));
+        const [premiumStatus, serverChoices] = await Promise.all([
+          api.getMyPremium(userId),
+          api.premiumCodeServers(),
+        ]);
+        setStatus(premiumStatus);
+        setServers(serverChoices?.servers || []);
       } catch (err: any) {
         toast.error(err?.message || "Status konnte nicht geladen werden.");
       } finally {
@@ -139,10 +151,67 @@ export function PremiumPanel() {
     );
   }
 
+  const checkCode = async () => {
+    const value = code.replace(/\D/g, "").slice(0, 6);
+    if (value.length !== 6) { toast.error("Bitte gib den sechsstelligen Code ein."); return; }
+    setCodeBusy(true);
+    try {
+      const result = await api.checkPremiumCode(value);
+      setCheckedCode(result);
+      setCodeSuccess(null);
+      toast.success("Code ist gültig. Wähle jetzt deinen Server.");
+    } catch (err: any) {
+      setCheckedCode(null);
+      toast.error(err?.message || "Der Code ist nicht gültig.");
+    } finally { setCodeBusy(false); }
+  };
+
+  const redeemCode = async () => {
+    if (!selectedServer) { toast.error("Bitte wähle einen Server aus."); return; }
+    setCodeBusy(true);
+    try {
+      const result = await api.redeemPremiumCode(code, selectedServer);
+      setCodeSuccess(result);
+      setCheckedCode(null);
+      setCode("");
+      setSelectedServer("");
+      toast.success(`Premium wurde für ${result.guild_name} freigeschaltet.`);
+    } catch (err: any) { toast.error(err?.message || "Der Code konnte nicht eingelöst werden."); }
+    finally { setCodeBusy(false); }
+  };
+
+  const selected = servers.find((server) => server.id === selectedServer);
+
   if (loading) return <Skeleton />;
 
   return (
     <div className="space-y-5">
+      <Reveal>
+        <section className="rounded-3xl border border-amber-400/20 bg-gradient-to-br from-amber-500/[0.09] via-[#0e0e12] to-[#0e0e12] p-5 sm:p-6">
+          <div className="flex items-start gap-3">
+            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-amber-400/15"><KeyRound className="h-5 w-5 text-amber-300" /></span>
+            <div><h2 className="font-black text-white">Premium-Key einlösen</h2><p className="mt-1 text-sm leading-relaxed text-slate-400">Hole dir einen Premium-Key und erhalte Premium gratis. Auf unserem Support-Server veranstalten Admins Verlosungen für solche Keys – also sei schnell und hol dir einen!</p></div>
+          </div>
+
+          <div className="mt-5 flex flex-col gap-2 sm:flex-row">
+            <input value={code} onChange={(event)=>{setCode(event.target.value.replace(/\D/g, "").slice(0,6));setCheckedCode(null);setCodeSuccess(null)}} onKeyDown={(event)=>event.key==="Enter"&&checkCode()} inputMode="numeric" maxLength={6} placeholder="6-stelliger Code" className="min-w-0 flex-1 rounded-xl border border-slate-800 bg-[#08080b] px-4 py-3 font-mono text-lg font-black tracking-[0.25em] text-white outline-none placeholder:text-sm placeholder:tracking-normal placeholder:text-slate-600 focus:border-amber-400/40" />
+            <button onClick={checkCode} disabled={codeBusy||code.length!==6} className="rounded-xl bg-amber-400 px-5 py-3 text-sm font-black text-black hover:bg-amber-300 disabled:opacity-40">Code prüfen</button>
+          </div>
+
+          {checkedCode && <div className="mt-4 space-y-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/[0.05] p-4">
+            <div className="flex items-center gap-2 text-sm font-bold text-emerald-300"><Check className="h-4 w-4"/>Gültig: {checkedCode.premium_days} Tage Premium · noch {checkedCode.remaining_uses} Einlösung{checkedCode.remaining_uses===1?"":"en"}</div>
+            {servers.length ? <div className="relative">
+              <button type="button" onClick={()=>setServerOpen(value=>!value)} className="flex w-full items-center gap-3 rounded-xl border border-slate-700 bg-[#09090c] px-4 py-3 text-left">
+                <Server className="h-4 w-4 text-amber-400"/><span className={cn("min-w-0 flex-1 truncate text-sm",selected?"text-white":"text-slate-500")}>{selected?.name||"Server auswählen"}</span><ChevronDown className={cn("h-4 w-4 text-slate-500 transition",serverOpen&&"rotate-180")}/>
+              </button>
+              {serverOpen&&<div className="absolute z-20 mt-2 max-h-56 w-full overflow-y-auto rounded-xl border border-slate-700 bg-[#111116] p-1.5 shadow-2xl">{servers.map(server=><button key={server.id} onClick={()=>{setSelectedServer(server.id);setServerOpen(false)}} className={cn("flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm",server.id===selectedServer?"bg-amber-400/10 text-amber-200":"text-slate-300 hover:bg-white/[0.04]")}>{server.icon?<img src={server.icon} alt="" className="h-7 w-7 rounded-lg"/>:<span className="grid h-7 w-7 place-items-center rounded-lg bg-slate-800"><Server className="h-3.5 w-3.5"/></span>}<span className="truncate">{server.name}</span></button>)}</div>}
+            </div> : <p className="text-xs text-amber-300">University Bot muss auf einem Server installiert sein, den du verwaltest.</p>}
+            <button onClick={redeemCode} disabled={!selectedServer||codeBusy} className="w-full rounded-xl bg-emerald-500 px-4 py-3 text-sm font-black text-white hover:bg-emerald-400 disabled:opacity-40">Bestätigen und einlösen</button>
+          </div>}
+
+          {codeSuccess&&<div className="mt-4 rounded-2xl border border-emerald-500/25 bg-emerald-500/10 p-4"><p className="font-bold text-emerald-300">Premium wurde freigeschaltet!</p><p className="mt-1 text-sm text-slate-300">{codeSuccess.guild_name} hat jetzt Premium bis {formatDate(codeSuccess.expires_at)}.</p></div>}
+        </section>
+      </Reveal>
       {/* ── Eine Karte, zwei mögliche Aussagen ─────────────────── */}
       <Reveal>
         <section

@@ -43,6 +43,7 @@ import { cn } from "@/lib/utils";
 import { CountUp, Reveal } from "@/components/ui/reveal";
 import { PremiumTrials } from "@/components/dashboard/premium-trials";
 import { PremiumKeys } from "@/components/dashboard/premium-keys";
+import { PremiumCodes } from "@/components/dashboard/premium-codes";
 
 /* ── Typen ─────────────────────────────────────────────────────────── */
 
@@ -269,6 +270,10 @@ export function PremiumAdmin() {
 
   return (
     <div className="space-y-5">
+      {/* Giveaway-Codes stehen oben, weil Erstellen und Einlösungen prüfen
+          die häufigsten zeitkritischen Premium-Aktionen sind. */}
+      <PremiumCodes />
+
       {/* ── Die Zahlen ──────────────────────────────────────────── */}
       <Reveal>
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">

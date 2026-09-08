@@ -624,6 +624,18 @@ export const api = {
     }),
   redeemKey: (key: string) =>
     request<any>(`/premium/redeem`, { method: "POST", body: JSON.stringify({ key }) }),
+  listPremiumCodes: (limit = 200) => request<any>(`/premium/codes?limit=${limit}`),
+  createPremiumCode: (data: { premium_days: number; max_uses: number; valid_hours: number }) =>
+    request<any>(`/premium/codes`, { method: "POST", body: JSON.stringify(data) }),
+  revokePremiumCode: (code: string) =>
+    request<any>(`/premium/codes/revoke`, { method: "POST", body: JSON.stringify({ code }) }),
+  revokePremiumCodeRedemption: (redemptionId: number) =>
+    request<any>(`/premium/codes/revoke-redemption`, { method: "POST", body: JSON.stringify({ redemption_id: redemptionId }) }),
+  checkPremiumCode: (code: string) =>
+    request<any>(`/premium/codes/check`, { method: "POST", body: JSON.stringify({ code }) }),
+  premiumCodeServers: () => request<any>(`/premium/codes/servers`),
+  redeemPremiumCode: (code: string, guildId: string) =>
+    request<any>(`/premium/codes/redeem`, { method: "POST", body: JSON.stringify({ code, guild_id: guildId }) }),
   listPremiumKeys: (limit = 100) =>
     request<any>(`/premium/keys?limit=${limit}`),
   createPremiumKey: (data: { days: number; user_id?: string; note?: string }) =>

@@ -1156,7 +1156,8 @@ async function authorize(
     // waere fuer jeden Angemeldeten lesbar. Dort haengen auch
     // `accounts/grant` und `accounts/revoke` -- wer die erreicht,
     // koennte sich selbst Premium geben.
-    if (["keys", "revoke", "delete", "purge", "trials", "accounts"].includes(rest[0] ?? "")) {
+    const publicCodeAction = rest[0] === "codes" && ["check", "servers", "redeem"].includes(rest[1] ?? "");
+    if (["keys", "revoke", "delete", "purge", "trials", "accounts"].includes(rest[0] ?? "") || (rest[0] === "codes" && !publicCodeAction)) {
       if (isGlobalAdmin(session.user.id)) return { ok: true };
       const team = await fetchTeamAccess(session.user.id);
       const staff = Boolean(team && (team.is_owner || team.roles.length > 0));

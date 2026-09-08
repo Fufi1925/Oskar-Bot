@@ -29,7 +29,7 @@ export default async function PremiumPage() {
           Premium
         </h2>
         <p className="text-slate-400 mt-1">
-          Lizenz-Key einlösen und Premium-Status ansehen.
+          Sechsstelligen Premium-Code für deinen Server einlösen und Status ansehen.
         </p>
       </div>
 
