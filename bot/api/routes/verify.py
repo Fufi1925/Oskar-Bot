@@ -380,6 +380,7 @@ async def get_verification(guild_id: int, bot: "universitybot" = Depends(get_bot
 
     return {
         "guild_id": str(guild_id),
+        "guild_name": guild.name if guild else None,
         **{k: v for k, v in settings.items() if k not in store.ID_KEYS},
         **{k: (str(settings[k]) if settings[k] else None) for k in store.ID_KEYS},
         "channel_info": _channel_info(guild, settings["verification_channel_id"]),
