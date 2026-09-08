@@ -7,7 +7,7 @@ import {
   Hash, Volume2, FolderPlus, Pencil, Trash2, Copy,
   Unlock, Timer, MessageSquareX, Bell, BellOff, SearchCheck, Bot, UserCog, UserSearch,
   Webhook, Link, ScrollText, BarChart4, ClipboardList, Terminal, Gem, Gauge, Bug,
-  AtSign, Sparkles, Inbox, Cookie, BotMessageSquare, KeyRound,
+  AtSign, Sparkles, Inbox, Cookie, BotMessageSquare, KeyRound, Lightbulb,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
@@ -22,6 +22,7 @@ import { PremiumAdmin } from "@/components/dashboard/premium-admin";
 import { SpeedrunAdmin } from "@/components/dashboard/speedrun-admin";
 import { TesterPanel } from "@/components/dashboard/tester-panel";
 import { ApplicationsAdmin } from "@/components/dashboard/applications-admin";
+import { IdeasAdmin } from "@/components/dashboard/ideas-admin";
 import { TemplatesAdmin } from "@/components/dashboard/templates-admin";
 import { DataAge } from "@/components/ui/data-age";
 import { StatValue } from "@/components/ui/stat-value";
@@ -47,7 +48,7 @@ import { TrustedBotsPanel } from "@/components/dashboard/trusted-bots-panel";
 import { PrivacyErasureAdmin } from "@/components/dashboard/privacy-erasure-admin";
 
 
-type TabId = "members" | "channels" | "server" | "scans" | "broadcast" | "system" | "features" | "health" | "team" | "access" | "reports" | "audit" | "approvals" | "botsettings" | "backups" | "warnings" | "usage" | "dashusers" | "servers" | "premium" | "speedrun" | "tester" | "pingreactions" | "templates" | "userlookup" | "webapply" | "cookies" | "privacy" | "trustedbots" | "designunlock" | "beta";
+type TabId = "members" | "channels" | "server" | "scans" | "broadcast" | "system" | "features" | "health" | "team" | "access" | "reports" | "audit" | "approvals" | "botsettings" | "backups" | "warnings" | "usage" | "dashusers" | "servers" | "premium" | "speedrun" | "tester" | "pingreactions" | "templates" | "userlookup" | "webapply" | "cookies" | "privacy" | "trustedbots" | "designunlock" | "beta" | "ideas";
 type MemberAction = "ban" | "kick" | "mute" | "unmute";
 
 type QuickAction = {
@@ -87,6 +88,7 @@ const tabs: Array<{ id: TabId; label: string; icon: any }> = [
   { id: "speedrun", label: "Speedrun", icon: Gauge },
   { id: "tester", label: "Tester", icon: Bug },
   { id: "webapply", label: "Bewerbungen", icon: Inbox },
+  { id: "ideas", label: "Ideen", icon: Lightbulb },
   { id: "templates", label: "Vorlagen", icon: Sparkles },
   { id: "cookies", label: "Cookie-Hinweis", icon: Cookie },
   { id: "privacy", label: "Datenlöschung", icon: ShieldAlert },
@@ -159,7 +161,7 @@ const TAB_GROUPS: Array<{ name: string; ids: TabId[] }> = [
   // Wer darf was -- im Dashboard wie im Bot.
   { name: "Team", ids: ["team", "dashusers", "access", "userlookup"] },
   // Alles, was hereinkommt und entschieden werden will.
-  { name: "Bewerbungen", ids: ["webapply", "approvals", "tester"] },
+  { name: "Bewerbungen", ids: ["webapply", "ideas", "approvals", "tester"] },
   // Wie sich der Bot verhält.
   { name: "Einstellungen", ids: ["botsettings", "features", "pingreactions"] },
   // Was geschützt wird und was nachweisbar sein muss.
@@ -271,7 +273,7 @@ const FULL_WIDTH_TABS = new Set<TabId>([
   "features", "health", "team", "access",
   "reports", "audit", "approvals", "botsettings", "backups", "warnings", "usage",
   "dashusers", "userlookup", "servers", "premium", "speedrun", "tester", "templates",
-  "webapply", "cookies", "privacy", "trustedbots",
+  "webapply", "ideas", "cookies", "privacy", "trustedbots",
 ]);
 
 /** Beschriftung über einem Eingabefeld. */
@@ -525,7 +527,7 @@ export function AdminContent() {
     return tabs.filter((tab) => {
       // Owner/admin management is only for owners and admins, never for
       // people who merely hold a team role.
-      if (tab.id === "access") return false;
+      if (tab.id === "access" || tab.id === "ideas") return false;
       // Die Vorlagen-Verwaltung ebenso. Sie zeigt jeden Zugangscode im
       // Klartext, auch den von privaten Vorlagen fremder Server. Der
       // Proxy laesst dorthin nur globale Admins durch -- ohne diese
@@ -885,6 +887,7 @@ export function AdminContent() {
       {activeTab === "speedrun" && <SpeedrunAdmin />}
       {activeTab === "tester" && <TesterPanel />}
       {activeTab === "webapply" && <ApplicationsAdmin />}
+      {activeTab === "ideas" && <IdeasAdmin />}
       {activeTab === "access" && <OwnerAccessPanel currentUserId={(session?.user as any)?.id} />}
       {/* Nutzung: erst der Verlauf über alle Server, dann die
           Aufschlüsselung nach Befehl. Die Reihenfolge ist die der

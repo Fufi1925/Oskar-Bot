@@ -1866,6 +1866,7 @@ export const api = {
   myIdeas: () => request<any>("/ideas/me"),
   ideaRewardServers: () => request<any>("/ideas/rewards/servers"),
   claimIdeaReward: (id: string, guildId: string) => request<any>(`/ideas/${encodeURIComponent(id)}/reward`, { method: "POST", body: JSON.stringify({ guild_id: guildId }) }),
+  ideasAdminOverview: (params = "") => request<any>(`/ideas/admin/overview${params ? `?${params}` : ""}`),
   decideIdea: (id: string, data: any) => request<any>(`/ideas/${encodeURIComponent(id)}/admin`, { method: "POST", body: JSON.stringify(data) }),
   deleteIdea: (id: string) => request<any>(`/ideas/${encodeURIComponent(id)}`, { method: "DELETE" }),
   blacklistIdeaUser: (data: any) => request<any>("/ideas/admin/blacklist", { method: "POST", body: JSON.stringify(data) }),

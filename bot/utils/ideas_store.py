@@ -89,6 +89,19 @@ def listing(status="",sort="new",q="",limit=50,offset=0,viewer=""):
         row["images"] = []
     return rows
 
+def admin_overview(status="", q=""):
+    ensure()
+    ideas = listing(status, "new", q, 100, 0)
+    with _db() as db:
+        counts = {row[0]: int(row[1]) for row in db.execute(
+            "SELECT status, COUNT(*) FROM ideas GROUP BY status"
+        ).fetchall()}
+        blacklisted = [dict(row) for row in db.execute(
+            "SELECT * FROM idea_blacklist ORDER BY created_at DESC"
+        ).fetchall()]
+    return ideas, counts, blacklisted
+
+
 def mine(user_id):
     ensure()
     with _db() as db:

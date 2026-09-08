@@ -159,13 +159,16 @@ async function authorize(
 
   if (scope === "ideas") {
     const session = await getServerSession(authOptions);
+    const adminAction = rest.includes("admin") || request.method === "DELETE";
+    if (adminAction) {
+      if (!session?.user?.id || !isGlobalAdmin(session.user.id)) {
+        return { ok: false, response: deny(403, "Nur Bot-Owner dürfen Ideen verwalten.") };
+      }
+      return { ok: true };
+    }
     const isPublicRead = request.method === "GET" && !["me", "rewards"].includes(rest[0] ?? "");
     if (isPublicRead) return { ok: true };
     if (!session?.user?.id) return { ok: false, response: deny(401, "Melde dich mit Discord an.") };
-    const adminAction = rest.includes("admin") || request.method === "DELETE";
-    if (adminAction && !isGlobalAdmin(session.user.id)) {
-      return { ok: false, response: deny(403, "Nur Bot-Owner dürfen Ideen verwalten.") };
-    }
     return { ok: true };
   }
 

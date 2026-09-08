@@ -46,6 +46,12 @@ async def reward_servers(actor:str="",bot=Depends(get_bot)):
             result.append({"id":str(guild.id),"name":guild.name,"icon":str(guild.icon.url) if guild.icon else None})
     return {"servers":result}
 
+@router.get("/admin/overview")
+async def admin_overview(admin:bool=False,status:str="",q:str=""):
+    if not admin:raise HTTPException(403,"Nur Bot-Owner dürfen Ideen verwalten.")
+    ideas,counts,blacklisted=store.admin_overview(status,q)
+    return {"ideas":ideas,"counts":counts,"blacklisted":blacklisted}
+
 @router.get("/{idea_id}")
 async def idea_detail(idea_id:str,actor:str=""):
     item=store.get(idea_id,actor)
