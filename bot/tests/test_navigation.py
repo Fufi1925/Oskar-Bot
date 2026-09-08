@@ -400,102 +400,50 @@ def test_admin_tab_groups():
     defined = re.findall(r'\{ id: "(\w+)", label:', body)
     start = body.index("const TAB_GROUPS")
     block = body[start:body.index("];", start)]
-    names = re.findall(r'name: "(\w+)"', block)
-    grouped = [t for t in re.findall(r'"(\w+)"', block) if t not in names]
+    gruppen = re.findall(r'\{ name: "([^"]+)".*?ids: \[(.*?)\].*?active:', block, re.S)
+    grouped = [tab for _, ids in gruppen for tab in re.findall(r'"(\w+)"', ids)]
 
     check("every tab is in a group", not set(defined) - set(grouped),
-          f"missing from the bar: {sorted(set(defined) - set(grouped))}")
+          f"missing from the navigation: {sorted(set(defined) - set(grouped))}")
     check("no group lists an unknown tab", not set(grouped) - set(defined),
           f"unknown: {sorted(set(grouped) - set(defined))}")
-    check("no tab appears twice",
-          len(grouped) == len(set(grouped)),
-          f"duplicated: {[t for t in set(grouped) if grouped.count(t) > 1]}")
-    check("the groups have names", len(names) >= 3, str(names))
+    check("no tab appears twice", len(grouped) == len(set(grouped)),
+          f"duplicated: {[tab for tab in set(grouped) if grouped.count(tab) > 1]}")
+    check("the groups have names", len(gruppen) >= 6, str([name for name, _ in gruppen]))
 
-    # Four stacked groups of different lengths looked worse than the
-    # twenty buttons they replaced. One section at a time keeps it to a
-    # single tidy row.
-    check("one section is shown at a time",
-          "TAB_GROUPS.filter((group) => group.ids.includes(activeTab))" in body,
-          "all groups render at once again")
-    # A section nobody may open promises something that is not there.
+    # Mobil bleibt nur die offene Untergruppe sichtbar; am Desktop
+    # organisiert eine feste, kompakte Accordion-Leiste die Bereiche.
+    check("mobile shows one section at a time",
+          "TAB_GROUPS.filter((group) => group.ids.includes(activeTab))" in body)
+    check("desktop navigation sits at the side",
+          "lg:grid-cols-[260px_minmax(0,1fr)]" in body and "<aside" in body)
     check("empty sections are hidden",
-          "if (count === 0) return null" in body,
-          "a section the user cannot use would still show")
-    check("the section shows how many tabs it holds", "{count}" in body)
+          "if (!availableTabs.length) return null" in body)
+    check("the section shows how many tabs it holds", "{availableTabs.length}" in body)
 
-    # ── Wie gross eine Gruppe werden darf ────────────────────────────
-    #
-    # Vorher gab es vier Gruppen, und „Verwaltung" enthielt elf von
-    # achtundzwanzig Reitern -- alles, was in den anderen dreien
-    # keinen Platz fand. Nachgemessen bei 1400px Fensterbreite: die
-    # Reiterzeile brach auf 95px um, „Vertraute Bots" stand allein in
-    # der zweiten Zeile.
-    #
-    # Jetzt sind es acht Gruppen mit hoechstens fuenf Reitern; alle
-    # bleiben einzeilig (54px, gemessen). Die Grenze steht hier,
-    # damit der naechste neue Reiter nicht wieder in die groesste
-    # Gruppe wandert, weil das am wenigsten Arbeit macht.
-    gruppen = re.findall(r'name: "([^"]+)", ids: \[(.*?)\]', block, re.S)
     check("es gibt mehrere Gruppen", len(gruppen) >= 6, str(len(gruppen)))
-
     zu_gross = [
         f"{name}({len(re.findall(chr(34) + r'(\w+)' + chr(34), ids))})"
         for name, ids in gruppen
         if len(re.findall(chr(34) + r"(\w+)" + chr(34), ids)) > 6
     ]
-    check("keine Gruppe ist eine Restekiste", not zu_gross,
-          f"{zu_gross} -- ueber sechs Reitern bricht die Zeile um")
-
-    # Und keine leere: eine Gruppe ohne Reiter ist ein Knopf, der
-    # nichts oeffnet.
+    check("keine Gruppe ist eine Restekiste", not zu_gross, str(zu_gross))
     leer = [name for name, ids in gruppen if not re.findall(r'"(\w+)"', ids)]
     check("keine Gruppe ist leer", not leer, str(leer))
+    check("keine Gruppe heisst nur »Verwaltung«",
+          "Verwaltung" not in [name for name, _ in gruppen])
 
-    # Die Namen muessen sagen, was drinsteht. „Verwaltung" traf auf
-    # jeden Reiter im Admin-Bereich zu -- wer Premium suchte, hatte
-    # keinen Grund, dort eher nachzusehen als unter „Betrieb".
-    check("keine Gruppe heisst mehr »Verwaltung«",
-          "Verwaltung" not in [n for n, _ in gruppen],
-          "der Name galt fuer alles und half deshalb bei nichts")
-    # Farbe allein genuegt nicht -- wer Farben schlecht unterscheidet,
-    # sieht sonst nicht, welcher Bereich offen ist. Es braucht ein
-    # zweites Signal.
-    #
-    # WIE das aussieht, ist Geschmack und hat sich schon zweimal
-    # geaendert (Unterstrich -> Flaeche -> Linie + Flaeche). Geprueft
-    # wird deshalb die Anforderung: der offene Bereich traegt neben
-    # der Farbe auch fettere Schrift, und die zwei Ebenen -- Gruppe
-    # und Reiter -- unterscheiden sich voneinander.
-    # Der Ausschnitt muss der GRUPPEN-Knopf sein, nicht irgendeine
-    # Stelle der Datei: "font-semibold text-white" steht auch an den
-    # Reitern darunter. Wird nur die Datei durchsucht, bleibt der Test
-    # gruen, obwohl die Gruppe ihr zweites Signal verloren hat --
-    # genau so ist eine Mutation hier durchgerutscht.
-    gruppen_zweig = ""
-    marke = 'aria-current={open ? "true" : undefined}'
-    if marke in body:
-        # Von der Gruppen-Markierung bis zum Ende ihres className.
-        rest = body.split(marke, 1)[1]
-        gruppen_zweig = rest[:600]
-
-    gruppe_fett = "font-semibold" in gruppen_zweig
-    # Zwei Ebenen muessen unterscheidbar bleiben: Linie oben, Flaeche
-    # unten. Sehen beide gleich aus, liest man sie nicht als Ebenen.
-    zwei_ebenen = "border-b-2" in gruppen_zweig and "bg-indigo-500/10" in body
-    check("the open section is filled, not just tinted",
-          gruppe_fett and zwei_ebenen,
-          "only colour marks the open section")
+    # Die Farbe ist je Funktionsgruppe verschieden, aber nicht das
+    # einzige Signal: der offene Bereich hat auch Fläche, Rand und
+    # aria-expanded. Der gewählte Reiter bleibt aria-current.
+    farben = set(re.findall(r'color: "(text-[^"]+)"', block))
+    check("functional groups have distinct colors", len(farben) >= 6, str(farben))
+    check("the open section has a filled state",
+          'open ? group.active' in body and 'aria-expanded={open}' in body)
     check("the open tab is announced to screen readers",
           'aria-current={active ? "page" : undefined}' in body)
-    check("the open section is announced too",
-          'aria-current={open ? "true" : undefined}' in body)
-    # Frueher ein eigenes <nav aria-label>. Die Seite hat links schon
-    # eine Navigation; ein zweites Landmark fuer eine Reiterleiste
-    # INNERHALB einer Seite meldet eine Ebene, die es nicht gibt.
-    # Was zaehlt, ist aria-current -- und das steht direkt darueber.
-    check("the open tab is still announced",
-          'aria-current={active ? "page" : undefined}' in body)
+    check("the sidebar is a labelled navigation",
+          '<nav className="space-y-1.5" aria-label="Admin-Bereiche">' in body)
 
 
 def test_admin_glass_surfaces():

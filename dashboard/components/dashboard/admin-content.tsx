@@ -151,23 +151,25 @@ const tabs: Array<{ id: TabId; label: string; icon: any }> = [
  * ausschliesslich über die Gruppen rendert. `test_navigation.py`
  * prüft das.
  */
-const TAB_GROUPS: Array<{ name: string; ids: TabId[] }> = [
-  // Was man tut, wenn gerade etwas passiert.
-  { name: "Moderation", ids: ["members", "warnings", "scans", "channels"] },
-  // Die Server selbst -- Übersicht, Einstellungen, Ansagen.
-  { name: "Server", ids: ["servers", "server", "broadcast"] },
-  // Läuft alles? Zahlen und Protokolle.
-  { name: "Betrieb", ids: ["health", "usage", "reports", "audit", "system"] },
-  // Wer darf was -- im Dashboard wie im Bot.
-  { name: "Team", ids: ["team", "dashusers", "access", "userlookup"] },
-  // Alles, was hereinkommt und entschieden werden will.
-  { name: "Bewerbungen", ids: ["webapply", "ideas", "approvals", "tester"] },
-  // Wie sich der Bot verhält.
-  { name: "Einstellungen", ids: ["botsettings", "features", "pingreactions"] },
-  // Was geschützt wird und was nachweisbar sein muss.
-  { name: "Sicherheit", ids: ["privacy", "trustedbots", "backups", "cookies", "designunlock"] },
-  // Was Nutzern angeboten wird.
-  { name: "Angebote", ids: ["premium", "templates", "speedrun", "beta"] },
+type TabGroup = {
+  name: string;
+  shortName: string;
+  icon: any;
+  ids: TabId[];
+  color: string;
+  iconBg: string;
+  active: string;
+};
+
+const TAB_GROUPS: TabGroup[] = [
+  { name: "Moderation", shortName: "Moderation", icon: ShieldAlert, ids: ["members", "warnings", "scans", "channels"], color: "text-rose-400", iconBg: "bg-rose-500/10", active: "border-rose-500/25 bg-rose-500/10" },
+  { name: "Serververwaltung", shortName: "Server", icon: Server, ids: ["servers", "server", "broadcast"], color: "text-violet-400", iconBg: "bg-violet-500/10", active: "border-violet-500/25 bg-violet-500/10" },
+  { name: "System & Analyse", shortName: "System", icon: Activity, ids: ["health", "usage", "reports", "audit", "system"], color: "text-cyan-400", iconBg: "bg-cyan-500/10", active: "border-cyan-500/25 bg-cyan-500/10" },
+  { name: "Team & Zugriff", shortName: "Team", icon: Users, ids: ["team", "dashusers", "access", "userlookup"], color: "text-blue-400", iconBg: "bg-blue-500/10", active: "border-blue-500/25 bg-blue-500/10" },
+  { name: "Prüfung & Community", shortName: "Community", icon: Inbox, ids: ["webapply", "ideas", "approvals", "tester"], color: "text-amber-400", iconBg: "bg-amber-500/10", active: "border-amber-500/25 bg-amber-500/10" },
+  { name: "Bot-Konfiguration", shortName: "Bot", icon: Settings, ids: ["botsettings", "features", "pingreactions"], color: "text-indigo-400", iconBg: "bg-indigo-500/10", active: "border-indigo-500/25 bg-indigo-500/10" },
+  { name: "Sicherheit & Daten", shortName: "Sicherheit", icon: Lock, ids: ["privacy", "trustedbots", "backups", "cookies", "designunlock"], color: "text-emerald-400", iconBg: "bg-emerald-500/10", active: "border-emerald-500/25 bg-emerald-500/10" },
+  { name: "Premium & Angebote", shortName: "Angebote", icon: Gem, ids: ["premium", "templates", "speedrun", "beta"], color: "text-fuchsia-400", iconBg: "bg-fuchsia-500/10", active: "border-fuchsia-500/25 bg-fuchsia-500/10" },
 ];
 
 /**
@@ -783,102 +785,73 @@ export function AdminContent() {
         ))}
       </div>
 
-      {/*
-        Die Bereiche.
-
-        Vorher: eine Leiste mit Versalien und 0.12em Sperrung, darunter
-        die Reiter als gefüllte Knöpfe mit Schlagschatten und einem
-        Näherungseffekt, der sie beim Zeigen verschiebt. Zwei
-        Navigationsebenen, beide laut.
-
-        Jetzt: die Gruppe als schlichte Zeile, die Reiter darunter als
-        Text mit Unterstrich für den aktiven. Der Näherungseffekt ist
-        weg -- Knöpfe, die vor dem Zeiger ausweichen, sind ein Effekt,
-        kein Hinweis.
-      */}
-      <div className="overflow-hidden rounded-2xl border border-slate-800 bg-[#131318]">
-        {/* Die Gruppen. Sie tragen die Unterscheidung als Linie
-            darunter, nicht als Fläche: sonst sähen Gruppe und Reiter
-            gleich aus, und zwei gleich aussehende Zeilen übereinander
-            lesen sich nicht als Ebene und Unterebene. */}
-        <div className="flex flex-wrap gap-x-1 border-b border-slate-800 px-2 pt-1.5">
+      {/* Mobile: kompakte zweistufige Navigation. Auf großen Bildschirmen
+          übernimmt die feste Bereichsleiste links. */}
+      <div className="lg:hidden">
+        <div className="flex gap-2 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {TAB_GROUPS.map((group) => {
-            const count = group.ids.filter((id) =>
-              visibleTabs.some((tab) => tab.id === id),
-            ).length;
-            if (count === 0) return null;
-
+            const available = group.ids.filter((id) => visibleTabs.some((tab) => tab.id === id));
+            if (!available.length) return null;
             const open = group.ids.includes(activeTab);
+            const GroupIcon = group.icon;
             return (
-              <button
-                key={group.name}
-                type="button"
-                onClick={() => {
-                  const first = group.ids.find((id) =>
-                    visibleTabs.some((tab) => tab.id === id),
-                  );
-                  if (first) {
-                    setActiveTab(first);
-                    window.history.replaceState(null, "", `#${first}`);
-                  }
-                }}
-                aria-current={open ? "true" : undefined}
-                className={cn(
-                  "-mb-px border-b-2 px-3.5 pb-2.5 pt-1.5 text-[13px] transition-colors",
-                  open
-                    ? "border-indigo-500 font-semibold text-white"
-                    : "border-transparent text-slate-500 hover:text-slate-300",
-                )}
-              >
-                {group.name}
-                <span
-                  className={cn(
-                    "ml-1.5 text-[11px]",
-                    open ? "text-indigo-400/70" : "text-slate-600",
-                  )}
-                >
-                  {count}
-                </span>
+              <button key={group.name} type="button" onClick={() => { setActiveTab(available[0]); window.history.replaceState(null, "", `#${available[0]}`); }} className={cn("flex shrink-0 items-center gap-2 rounded-xl border px-3 py-2.5 text-[12px] font-semibold transition-colors", open ? cn(group.active, "text-white") : "border-slate-800 bg-[#131318] text-slate-500")}>
+                <GroupIcon className={cn("h-3.5 w-3.5", group.color)} />
+                {group.shortName}<span className="text-[10px] opacity-50">{available.length}</span>
               </button>
             );
           })}
         </div>
-
-        {/* Die Reiter der offenen Gruppe. Fläche statt Linie -- die
-            zweite Ebene ist die, in der man wählt. */}
-        <div className="flex flex-wrap gap-1 bg-[#0f0f13] p-2">
+        <div className="grid grid-cols-2 gap-2 rounded-2xl border border-slate-800 bg-[#131318] p-2 sm:flex sm:flex-wrap">
           {shownTabs.map((tab) => {
-            const active = activeTab === tab.id;
+            const group = TAB_GROUPS.find((entry) => entry.ids.includes(tab.id))!;
+            const active = tab.id === activeTab;
             const Icon = tab.icon;
             return (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => {
-                  setActiveTab(tab.id);
-                  window.history.replaceState(null, "", `#${tab.id}`);
-                }}
-                aria-current={active ? "page" : undefined}
-                className={cn(
-                  "flex items-center gap-2 rounded-lg border px-3 py-2 text-[13px] transition-colors",
-                  active
-                    ? "border-indigo-500/30 bg-indigo-500/10 font-semibold text-white"
-                    : "border-transparent text-slate-500 hover:bg-white/[0.03] hover:text-slate-300",
-                )}
-              >
-                <Icon
-                  className={cn(
-                    "h-3.5 w-3.5 shrink-0",
-                    active ? "text-indigo-400" : "text-slate-600",
-                  )}
-                />
-                {tab.label}
+              <button key={tab.id} type="button" onClick={() => { setActiveTab(tab.id); window.history.replaceState(null, "", `#${tab.id}`); }} className={cn("flex min-w-0 items-center gap-2 rounded-xl border px-3 py-2.5 text-left text-[12px] transition-colors", active ? cn(group.active, "font-semibold text-white") : "border-transparent text-slate-500 hover:bg-white/[0.03] hover:text-slate-300")}>
+                <Icon className={cn("h-3.5 w-3.5 shrink-0", group.color)} /><span className="truncate">{tab.label}</span>
               </button>
             );
           })}
         </div>
       </div>
 
+      <div className="grid items-start gap-5 lg:grid-cols-[260px_minmax(0,1fr)]">
+        {/* Desktop: dieselbe Seitenstruktur wie im Server-Dashboard,
+            aber als kompaktes Accordion. Nur der aktuelle Bereich ist offen. */}
+        <aside className="sticky top-24 hidden max-h-[calc(100vh-7rem)] overflow-y-auto rounded-2xl border border-slate-800 bg-[#111116] p-3 lg:block [scrollbar-width:thin]">
+          <div className="mb-3 px-2 pb-3 pt-1">
+            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-600">Admin-Navigation</p>
+            <p className="mt-1 text-[13px] text-slate-400">Bereich auswählen</p>
+          </div>
+          <nav className="space-y-1.5" aria-label="Admin-Bereiche">
+            {TAB_GROUPS.map((group) => {
+              const availableTabs = group.ids.map((id) => visibleTabs.find((tab) => tab.id === id)).filter(Boolean) as typeof visibleTabs;
+              if (!availableTabs.length) return null;
+              const open = group.ids.includes(activeTab);
+              const GroupIcon = group.icon;
+              return (
+                <div key={group.name} className={cn("overflow-hidden rounded-xl border transition-colors", open ? group.active : "border-transparent")}>
+                  <button type="button" onClick={() => { setActiveTab(availableTabs[0].id); window.history.replaceState(null, "", `#${availableTabs[0].id}`); }} aria-expanded={open} className={cn("flex w-full items-center gap-3 px-3 py-3 text-left transition-colors", open ? "text-white" : "text-slate-400 hover:bg-white/[0.03] hover:text-slate-200")}>
+                    <span className={cn("grid h-8 w-8 shrink-0 place-items-center rounded-lg", group.iconBg)}><GroupIcon className={cn("h-4 w-4", group.color)} /></span>
+                    <span className="min-w-0 flex-1 truncate text-[13px] font-semibold">{group.name}</span>
+                    <span className={cn("text-[10px] tabular-nums", open ? group.color : "text-slate-600")}>{availableTabs.length}</span>
+                  </button>
+                  {open && <div className="space-y-1 px-2 pb-2">
+                    {availableTabs.map((tab) => {
+                      const active = tab.id === activeTab;
+                      const Icon = tab.icon;
+                      return <button key={tab.id} type="button" onClick={() => { setActiveTab(tab.id); window.history.replaceState(null, "", `#${tab.id}`); }} aria-current={active ? "page" : undefined} className={cn("flex w-full items-center gap-2.5 rounded-lg border px-3 py-2.5 text-left text-[13px] transition-colors", active ? "border-white/10 bg-black/20 font-semibold text-white" : "border-transparent text-slate-500 hover:bg-black/10 hover:text-slate-300")}>
+                        <Icon className={cn("h-3.5 w-3.5 shrink-0", active ? group.color : "text-slate-600")} /><span className="truncate">{tab.label}</span>
+                      </button>;
+                    })}
+                  </div>}
+                </div>
+              );
+            })}
+          </nav>
+        </aside>
+        <div className="min-w-0 space-y-5">
       {/* Features and Health are full-width: they have no input sidebar. */}
       {activeTab === "features" && <FeatureFlagsPanel />}
       {activeTab === "health" && <SystemHealthPanel />}
@@ -1219,6 +1192,9 @@ export function AdminContent() {
           </main>
         </div>
       )}
+
+        </div>
+      </div>
 
       <StickySaveBar
         id="admin-notice-save-bar"
