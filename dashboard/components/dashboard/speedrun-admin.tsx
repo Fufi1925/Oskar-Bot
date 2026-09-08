@@ -101,6 +101,8 @@ export function SpeedrunAdmin() {
   const [stats, setStats] = useState<any>(null);
   const [events, setEvents] = useState<any[]>([]);
   const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState<"alle" | "frei" | "gesperrt" | "botweg">("alle");
+  const [view, setView] = useState<"server" | "verlauf">("server");
   const [busyId, setBusyId] = useState("");
   // Welcher Server gerade seinen Verlauf zeigt.
   const [openLog, setOpenLog] = useState("");
@@ -132,13 +134,15 @@ export function SpeedrunAdmin() {
 
   const shown = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    if (!needle) return guilds;
-    return guilds.filter(
-      (guild) =>
-        String(guild.guild_id).includes(needle) ||
-        String(guild.name || "").toLowerCase().includes(needle)
-    );
-  }, [guilds, query]);
+    return guilds.filter((guild) => {
+      if (filter === "frei" && guild.banned) return false;
+      if (filter === "gesperrt" && !guild.banned) return false;
+      if (filter === "botweg" && guild.bot_present) return false;
+      if (!needle) return true;
+      return String(guild.guild_id).includes(needle) ||
+        String(guild.name || "").toLowerCase().includes(needle);
+    });
+  }, [guilds, query, filter]);
 
   const act = async (
     guildId: string,
@@ -211,307 +215,43 @@ export function SpeedrunAdmin() {
     events.filter((entry) => String(entry.guild_id) === String(guildId));
 
   return (
-    <section className="space-y-6">
-      {/* ── Kopf ─────────────────────────────────────────── */}
-      <div className={cn(CARD, "space-y-4")}>
-        <div className="flex gap-3">
-          <div className="h-10 w-10 rounded-2xl bg-cyan-400/15 grid place-items-center shrink-0">
-            <Gauge className="h-5 w-5 text-cyan-300" />
-          </div>
-          <div className="min-w-0">
-            <p className="font-black text-white">Speedrun-Zugänge</p>
-            <p className="text-[12px] text-slate-400 mt-1 leading-relaxed">
-              Welche Server den Speedrun benutzt haben. Entziehen setzt den
-              Eintrag zurück. Sperren heißt: auch Premium hilft nicht mehr.
-              Beides bricht
-              einen laufenden Speedrun ab.
-            </p>
-          </div>
-          <button
-            onClick={() => {
-              setLoading(true);
-              load();
-            }}
-            className="ml-auto shrink-0 h-9 w-9 rounded-xl border border-slate-800 grid place-items-center text-slate-400 hover:text-white hover:border-slate-700 transition-colors"
-            title="Neu laden"
-          >
-            <RefreshCw className="h-4 w-4" />
-          </button>
+    <section className="space-y-5">
+      <div className="overflow-hidden rounded-3xl border border-slate-800 bg-gradient-to-br from-cyan-500/[0.10] via-[#131318] to-[#111116]">
+        <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:p-6">
+          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl border border-cyan-500/20 bg-cyan-500/10"><Gauge className="h-5 w-5 text-cyan-300" /></span>
+          <div className="min-w-0 flex-1"><h2 className="text-xl font-black tracking-tight text-white">Speedrun-Zentrale</h2><p className="mt-1 max-w-2xl text-sm leading-relaxed text-slate-400">Freigeschaltete Server überwachen, Zugänge zurücksetzen und Missbrauch dauerhaft sperren.</p></div>
+          <button onClick={() => { setLoading(true); load(); }} className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-800 bg-[#0b0b0f] px-4 py-2.5 text-xs font-bold text-slate-300 hover:border-slate-700 hover:text-white"><RefreshCw className="h-4 w-4" /> Aktualisieren</button>
         </div>
-
-        {error && (
-          <div className="rounded-xl bg-red-500/[0.06] border border-red-500/20 p-3.5 flex gap-2.5">
-            <XCircle className="h-4 w-4 text-red-400 shrink-0 mt-0.5" />
-            <p className="text-[12px] text-red-200/80 leading-relaxed">{error}</p>
-          </div>
-        )}
-
-        {stats && (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <Stat
-              icon={Unlock}
-              value={stats.unlocked}
-              label="freigeschaltet"
-              tone="text-emerald-400"
-            />
-            <Stat
-              icon={ShieldOff}
-              value={stats.banned}
-              label="gesperrt"
-              tone="text-red-400"
-            />
-            <Stat icon={Gauge} value={stats.runs} label="Läufe gesamt" />
-            <Stat icon={Users} value={stats.total} label="Server bekannt" />
-          </div>
-        )}
+        {error && <div className="mx-5 mb-5 flex gap-2.5 rounded-xl border border-red-500/20 bg-red-500/[0.07] p-3.5 sm:mx-6"><XCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-400" /><p className="text-xs leading-relaxed text-red-200/80">{error}</p></div>}
+        {stats && <div className="grid grid-cols-2 border-t border-slate-800 sm:grid-cols-4">
+          {[{ icon: Unlock, value: stats.unlocked, label: "Freigeschaltet", color: "text-emerald-400" }, { icon: ShieldOff, value: stats.banned, label: "Gesperrt", color: "text-red-400" }, { icon: Gauge, value: stats.runs, label: "Läufe gesamt", color: "text-cyan-400" }, { icon: Users, value: stats.total, label: "Server bekannt", color: "text-violet-400" }].map((item,index)=><div key={item.label} className={cn("flex items-center gap-3 border-slate-800 px-4 py-4",index>0&&"border-l",index===2&&"border-l-0 border-t sm:border-l sm:border-t-0")}><span className="grid h-9 w-9 place-items-center rounded-xl bg-black/20"><item.icon className={cn("h-4 w-4",item.color)}/></span><div><p className="text-lg font-black tabular-nums text-white">{item.value}</p><p className="text-[9px] font-bold uppercase tracking-wider text-slate-600">{item.label}</p></div></div>)}
+        </div>}
       </div>
 
-      {/* ── Liste ────────────────────────────────────────── */}
-      <div className={cn(CARD, "space-y-4")}>
-        <div className="flex items-center gap-3 flex-wrap">
-          <p className="text-xs font-black uppercase tracking-widest text-slate-500">
-            Server
-          </p>
-          <label className="relative ml-auto">
-            <Search className="h-3.5 w-3.5 text-slate-600 absolute left-2.5 top-1/2 -translate-y-1/2" />
-            <input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Name oder ID"
-              className="w-44 sm:w-60 bg-[#0e0e12] border border-slate-800 rounded-xl pl-8 pr-3 py-2 text-[12px] text-slate-300 placeholder:text-slate-600 focus:outline-none focus:border-slate-700"
-            />
-          </label>
+      <div className="grid grid-cols-2 gap-2 rounded-2xl border border-slate-800 bg-[#131318] p-2">
+        <button onClick={()=>setView("server")} aria-current={view==="server"?"page":undefined} className={cn("flex items-center justify-center gap-2 rounded-xl border py-3 text-xs font-bold transition",view==="server"?"border-cyan-500/25 bg-cyan-500/10 text-cyan-300":"border-transparent text-slate-500 hover:bg-white/[0.03]")}><Users className="h-4 w-4"/>Serververwaltung</button>
+        <button onClick={()=>setView("verlauf")} aria-current={view==="verlauf"?"page":undefined} className={cn("flex items-center justify-center gap-2 rounded-xl border py-3 text-xs font-bold transition",view==="verlauf"?"border-violet-500/25 bg-violet-500/10 text-violet-300":"border-transparent text-slate-500 hover:bg-white/[0.03]")}><History className="h-4 w-4"/>Ereignisverlauf</button>
+      </div>
+
+      {view === "server" && <>
+        <div className="rounded-2xl border border-slate-800 bg-[#131318] p-3">
+          <div className="relative"><Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-600"/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Servername oder Server-ID suchen …" className="w-full rounded-xl border border-slate-800 bg-[#0b0b0f] py-2.5 pl-10 pr-4 text-sm text-white outline-none placeholder:text-slate-600 focus:border-cyan-500/30"/></div>
+          <div className="mt-3 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">{([['alle','Alle'],['frei','Freigeschaltet'],['gesperrt','Gesperrt'],['botweg','Bot entfernt']] as const).map(([id,label])=><button key={id} onClick={()=>setFilter(id)} className={cn("shrink-0 rounded-xl border px-3.5 py-2 text-xs font-bold",filter===id?"border-cyan-500/25 bg-cyan-500/10 text-cyan-300":"border-slate-800 bg-[#0b0b0f] text-slate-500 hover:text-slate-300")}>{label}</button>)}</div>
         </div>
+        <div className="flex items-center justify-between px-1"><p className="text-xs font-bold text-slate-400">{shown.length} Server</p>{(query||filter!=="alle")&&<button onClick={()=>{setQuery("");setFilter("alle")}} className="text-xs font-bold text-cyan-400">Filter zurücksetzen</button>}</div>
 
-        {shown.length === 0 ? (
-          <p className="text-[12px] text-slate-500 py-6 text-center">
-            {guilds.length === 0
-              ? "Noch hat kein Server den Speedrun benutzt."
-              : "Nichts gefunden."}
-          </p>
-        ) : (
-          <div className="space-y-2.5">
-            {shown.map((guild) => {
-              const open = openLog === guild.guild_id;
-              const entries = open ? logFor(guild.guild_id) : [];
-              return (
-                <div
-                  key={guild.guild_id}
-                  className={cn(
-  "rounded-2xl border p-4 transition-colors",
-                    guild.banned
-                      ? "border-red-500/25 bg-red-500/[0.04]"
-                      : "border-slate-800 bg-[#0e0e12]"
-                  )}
-                >
-                  <div className="flex items-start gap-3 flex-wrap">
-                    <div className="min-w-0 flex-1">
-                      <p className="font-black text-white text-sm flex items-center gap-2 flex-wrap">
-                        {guild.name || "Unbekannter Server"}
-                        {guild.banned ? (
-                          <span className="px-1.5 py-0.5 rounded text-[9px] font-black tracking-widest bg-red-500/15 text-red-300">
-                            GESPERRT
-                          </span>
-                        ) : (
-                          <span className="px-1.5 py-0.5 rounded text-[9px] font-black tracking-widest bg-emerald-500/15 text-emerald-300">
-                            FREI
-                          </span>
-                        )}
-                        {!guild.bot_present && (
-                          <span
-                            className="px-1.5 py-0.5 rounded text-[9px] font-black tracking-widest bg-slate-700/40 text-slate-400"
-                            title="Der Bot ist auf diesem Server nicht mehr."
-                          >
-                            BOT WEG
-                          </span>
-                        )}
-                      </p>
-                      <p className="text-[11px] text-slate-600 font-mono mt-1">
-                        {guild.guild_id}
-                        {guild.members ? ` · ${guild.members} Mitglieder` : ""}
-                      </p>
+        {shown.length===0?<div className="rounded-3xl border border-dashed border-slate-800 bg-[#111116] py-14 text-center"><Search className="mx-auto h-5 w-5 text-slate-700"/><p className="mt-3 text-sm font-bold text-slate-400">Kein Server gefunden</p><p className="mt-1 text-xs text-slate-600">Passe Suche oder Filter an.</p></div>:<div className="grid items-start gap-3 xl:grid-cols-2">{shown.map(guild=>{
+          const open=openLog===guild.guild_id; const entries=open?logFor(guild.guild_id):[];
+          return <article key={guild.guild_id} className={cn("overflow-hidden rounded-2xl border bg-[#131318]",guild.banned?"border-red-500/25":"border-slate-800")}>
+            <div className="p-4"><div className="flex items-start gap-3"><span className={cn("grid h-10 w-10 shrink-0 place-items-center rounded-xl",guild.banned?"bg-red-500/10":"bg-cyan-500/10")}><Gauge className={cn("h-4 w-4",guild.banned?"text-red-400":"text-cyan-400")}/></span><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h3 className="truncate text-sm font-black text-white">{guild.name||"Unbekannter Server"}</h3><span className={cn("rounded-md border px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider",guild.banned?"border-red-500/20 bg-red-500/10 text-red-300":"border-emerald-500/20 bg-emerald-500/10 text-emerald-300")}>{guild.banned?"Gesperrt":"Frei"}</span>{!guild.bot_present&&<span className="rounded-md border border-slate-700 bg-slate-800/50 px-1.5 py-0.5 text-[9px] font-black uppercase text-slate-400">Bot entfernt</span>}</div><p className="mt-1 truncate font-mono text-[10px] text-slate-600">{guild.guild_id}</p></div></div>
+            <div className="mt-4 grid grid-cols-3 overflow-hidden rounded-xl border border-slate-800 bg-[#0b0b0f]"><div className="p-2.5"><p className="text-sm font-black text-white">{guild.members||0}</p><p className="text-[9px] uppercase text-slate-600">Mitglieder</p></div><div className="border-l border-slate-800 p-2.5"><p className="text-sm font-black text-white">{guild.runs||0}</p><p className="text-[9px] uppercase text-slate-600">Läufe</p></div><div className="border-l border-slate-800 p-2.5"><p className="truncate text-[11px] font-bold text-white">{when(guild.last_run_at)}</p><p className="text-[9px] uppercase text-slate-600">Letzter Lauf</p></div></div>
+            {guild.banned&&<div className="mt-3 rounded-xl border border-red-500/20 bg-red-500/[0.07] p-3 text-[11px] leading-relaxed text-red-200/70">Gesperrt am {when(guild.banned_at)}{guild.banned_by?` von ${guild.banned_by}`:""}{guild.ban_reason?` — ${guild.ban_reason}`:""}</div>}
+            <div className="mt-3 grid grid-cols-2 gap-2"><button onClick={()=>setOpenLog(open?"":guild.guild_id)} aria-expanded={open} className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-800 bg-[#0b0b0f] py-2.5 text-xs font-bold text-slate-400 hover:text-white"><History className="h-3.5 w-3.5"/>Verlauf</button>{guild.banned?<button onClick={()=>act(guild.guild_id,"unban")} disabled={busyId===guild.guild_id+"unban"} className="inline-flex items-center justify-center gap-2 rounded-xl border border-sky-500/25 bg-sky-500/10 py-2.5 text-xs font-bold text-sky-300 disabled:opacity-40">{busyId===guild.guild_id+"unban"?<Loader2 className="h-3.5 w-3.5 animate-spin"/>:<RotateCcw className="h-3.5 w-3.5"/>}Entsperren</button>:<div className="grid grid-cols-2 gap-2"><button onClick={()=>confirmRevoke(guild)} disabled={busyId===guild.guild_id+"revoke"} title="Zugang zurücksetzen" className="grid place-items-center rounded-xl border border-amber-500/20 bg-amber-500/10 text-amber-300 disabled:opacity-40"><RotateCcw className="h-3.5 w-3.5"/></button><button onClick={()=>confirmBan(guild)} disabled={busyId===guild.guild_id+"ban"} title="Dauerhaft sperren" className="grid place-items-center rounded-xl border border-red-500/20 bg-red-500/10 text-red-300 disabled:opacity-40"><Ban className="h-3.5 w-3.5"/></button></div>}</div></div>
+            {open&&<div className="space-y-2 border-t border-slate-800 bg-[#0b0b0f]/70 p-4">{entries.length===0?<p className="text-xs text-slate-600">Für diesen Server gibt es noch keinen Verlauf.</p>:entries.map(entry=>{const meta=EVENTS[entry.event]??{label:entry.event,tone:"text-slate-400"};return <div key={entry.id} className="flex flex-wrap items-baseline gap-2 text-[11px]"><span className="font-mono text-slate-600">{when(entry.at)}</span><span className={cn("font-bold",meta.tone)}>{meta.label}</span><span className="min-w-0 truncate text-slate-500">{entry.user_id?`Nutzer ${entry.user_id}`:entry.actor_id?`Admin ${entry.actor_id}`:""}{entry.detail?` · ${entry.detail}`:""}</span></div>})}</div>}
+          </article>})}</div>}
+      </>}
 
-                      <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2.5 text-[11px] text-slate-500">
-                        <span>
-                          Freigeschaltet:{" "}
-                          <span className="text-slate-400">
-                            {when(guild.unlocked_at)}
-                          </span>
-                        </span>
-                        {guild.unlocked_by && (
-                          <span>
-                            von{" "}
-                            <span className="text-slate-400 font-mono">
-                              {guild.unlocked_by}
-                            </span>
-                          </span>
-                        )}
-                        <span>
-                          Läufe:{" "}
-                          <span className="text-slate-400 tabular-nums">
-                            {guild.runs}
-                          </span>
-                        </span>
-                        {guild.last_run_at && (
-                          <span>
-                            zuletzt{" "}
-                            <span className="text-slate-400">
-                              {when(guild.last_run_at)}
-                            </span>
-                          </span>
-                        )}
-                      </div>
-
-                      {guild.banned && (
-                        <p className="text-[11px] text-red-200/70 mt-2 leading-relaxed">
-                          Gesperrt am {when(guild.banned_at)}
-                          {guild.banned_by ? ` von ${guild.banned_by}` : ""}
-                          {guild.ban_reason ? ` — ${guild.ban_reason}` : ""}
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="flex items-center gap-2 flex-wrap shrink-0">
-                      <button
-                        onClick={() => setOpenLog(open ? "" : guild.guild_id)}
-                        className="px-3 py-1.5 rounded-lg border border-slate-800 text-slate-400 text-[13px] font-semibold hover:text-white hover:border-slate-700 transition-colors inline-flex items-center gap-1.5"
-                      >
-                        <History className="h-3 w-3" />
-                        Verlauf
-                      </button>
-
-                      {guild.banned ? (
-                        <button
-                          onClick={() => act(guild.guild_id, "unban")}
-                          disabled={busyId === guild.guild_id + "unban"}
-                          className="px-3 py-1.5 rounded-lg border border-sky-500/30 text-sky-300/90 text-[13px] font-semibold hover:bg-sky-500/10 transition-colors inline-flex items-center gap-1.5 disabled:opacity-50"
-                        >
-                          {busyId === guild.guild_id + "unban" ? (
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                          ) : (
-                            <RotateCcw className="h-3 w-3" />
-                          )}
-                          Entsperren
-                        </button>
-                      ) : (
-                        <>
-                          <button
-                            onClick={() => confirmRevoke(guild)}
-                            disabled={busyId === guild.guild_id + "revoke"}
-                            className="px-3 py-1.5 rounded-lg border border-amber-500/30 text-amber-300/90 text-[10px] font-black uppercase tracking-wider hover:bg-amber-500/10 transition-colors inline-flex items-center gap-1.5 disabled:opacity-50"
-                          >
-                            {busyId === guild.guild_id + "revoke" ? (
-                              <Loader2 className="h-3 w-3 animate-spin" />
-                            ) : (
-                              <RotateCcw className="h-3 w-3" />
-                            )}
-                            Entziehen
-                          </button>
-                          <button
-                            onClick={() => confirmBan(guild)}
-                            disabled={busyId === guild.guild_id + "ban"}
-                            className="px-3 py-1.5 rounded-lg border border-red-500/30 text-red-300/90 text-[10px] font-black uppercase tracking-wider hover:bg-red-500/10 transition-colors inline-flex items-center gap-1.5 disabled:opacity-50"
-                          >
-                            {busyId === guild.guild_id + "ban" ? (
-                              <Loader2 className="h-3 w-3 animate-spin" />
-                            ) : (
-                              <Ban className="h-3 w-3" />
-                            )}
-                            Sperren
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </div>
-
-                  {open && (
-                    <div className="mt-3 pt-3 border-t border-slate-800/70 space-y-1">
-                      {entries.length === 0 ? (
-                        <p className="text-[11px] text-slate-600">
-                          Für diesen Server steht nichts im Verlauf.
-                        </p>
-                      ) : (
-                        entries.map((entry) => {
-                          const meta = EVENTS[entry.event] ?? {
-                            label: entry.event,
-                            tone: "text-slate-400",
-                          };
-                          return (
-                            <div
-                              key={entry.id}
-                              className="flex items-baseline gap-2.5 text-[11px]"
-                            >
-                              <span className="text-slate-600 font-mono shrink-0 tabular-nums">
-                                {when(entry.at)}
-                              </span>
-                              <span className={cn("font-bold shrink-0", meta.tone)}>
-                                {meta.label}
-                              </span>
-                              <span className="text-slate-500 truncate">
-                                {entry.user_id
-                                  ? `Nutzer ${entry.user_id}`
-                                  : entry.actor_id
-                                  ? `Admin ${entry.actor_id}`
-                                  : ""}
-                                {entry.detail ? ` · ${entry.detail}` : ""}
-                              </span>
-                            </div>
-                          );
-                        })
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* ── Verlauf über alle Server ─────────────────────── */}
-      <div className={cn(CARD, "space-y-3")}>
-        <p className="text-xs font-black uppercase tracking-widest text-slate-500">
-          Letzte Ereignisse
-        </p>
-        {events.length === 0 ? (
-          <p className="text-[12px] text-slate-500">Noch nichts passiert.</p>
-        ) : (
-          <div className="space-y-1 max-h-[320px] overflow-y-auto">
-            {events.slice(0, 80).map((entry) => {
-              const meta = EVENTS[entry.event] ?? {
-                label: entry.event,
-                tone: "text-slate-400",
-              };
-              const guild = guilds.find(
-                (item) => String(item.guild_id) === String(entry.guild_id)
-              );
-              return (
-                <div
-                  key={entry.id}
-                  className="flex items-baseline gap-2.5 text-[11px] py-0.5"
-                >
-                  <Clock className="h-3 w-3 text-slate-700 shrink-0 self-center" />
-                  <span className="text-slate-600 font-mono shrink-0 tabular-nums">
-                    {when(entry.at)}
-                  </span>
-                  <span className={cn("font-bold shrink-0", meta.tone)}>
-                    {meta.label}
-                  </span>
-                  <span className="text-slate-500 truncate">
-                    {guild?.name || entry.guild_id}
-                    {entry.detail ? ` · ${entry.detail}` : ""}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        )}
-        <p className="text-[10px] text-slate-600 leading-relaxed">
-          <CheckCircle2 className="h-3 w-3 inline mr-1 -mt-0.5" />
-          Auch Fehlversuche stehen hier. Ein Server mit vierzig abgelehnten
-          Eingaben ist etwas anderes als einer mit einem Vertipper.
-        </p>
-      </div>
+      {view === "verlauf" && <div className="rounded-3xl border border-slate-800 bg-[#131318] p-4 sm:p-5"><div className="mb-4 flex items-center gap-3"><span className="grid h-9 w-9 place-items-center rounded-xl bg-violet-500/10"><History className="h-4 w-4 text-violet-400"/></span><div><h3 className="text-sm font-black text-white">Letzte Ereignisse</h3><p className="text-[11px] text-slate-500">Freischaltungen, Sperren, Entzüge und Fehlversuche</p></div></div>{events.length===0?<p className="py-10 text-center text-xs text-slate-500">Noch nichts passiert.</p>:<div className="max-h-[600px] space-y-1.5 overflow-y-auto">{events.slice(0,80).map(entry=>{const meta=EVENTS[entry.event]??{label:entry.event,tone:"text-slate-400"};const guild=guilds.find(item=>String(item.guild_id)===String(entry.guild_id));return <div key={entry.id} className="flex items-start gap-3 rounded-xl border border-transparent bg-[#0b0b0f] px-3 py-2.5 hover:border-slate-800"><Clock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-700"/><span className="shrink-0 font-mono text-[10px] text-slate-600">{when(entry.at)}</span><span className={cn("shrink-0 text-[11px] font-bold",meta.tone)}>{meta.label}</span><span className="min-w-0 truncate text-[11px] text-slate-500">{guild?.name||entry.guild_id}{entry.detail?` · ${entry.detail}`:""}</span></div>})}</div>}<p className="mt-4 border-t border-slate-800 pt-3 text-[10px] leading-relaxed text-slate-600"><CheckCircle2 className="mr-1 inline h-3 w-3"/>Auch abgelehnte Versuche werden protokolliert.</p></div>}
     </section>
   );
 }
