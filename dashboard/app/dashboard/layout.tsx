@@ -266,17 +266,18 @@ export default function DashboardLayout({
             { name: "Anti-Nuke", href: `/dashboard/guild/${currentGuildId}/antinuke`, icon: ShieldCheck },
             { name: "Automod", href: `/dashboard/guild/${currentGuildId}/automod`, icon: ShieldCheck },
             { name: "Honeypot", href: `/dashboard/guild/${currentGuildId}/honeypot`, icon: ShieldAlert },
+            {
+              name: "Verifizierung",
+              href: `/dashboard/guild/${currentGuildId}/verification`,
+              icon: User,
+              children: [
+                { name: "Einstellungen", href: `/dashboard/guild/${currentGuildId}/verification`, icon: ShieldCheck },
+                { name: "Pull", href: `/dashboard/guild/${currentGuildId}/verification/pull`, icon: Users },
+              ],
+            },
             { name: "Notfall", href: `/dashboard/guild/${currentGuildId}/emergency`, icon: Shield },
             { name: "Jail", href: `/dashboard/guild/${currentGuildId}/jail`, icon: Lock },
             { name: "Nachtmodus", href: `/dashboard/guild/${currentGuildId}/nightmode`, icon: Moon },
-          ],
-        },
-        {
-          name: "Verifizierung",
-          collapsible: true,
-          items: [
-            { name: "Einstellungen", href: `/dashboard/guild/${currentGuildId}/verification`, icon: ShieldCheck },
-            { name: "Pull", href: `/dashboard/guild/${currentGuildId}/verification/pull`, icon: Users },
           ],
         },
         {
@@ -453,22 +454,10 @@ export default function DashboardLayout({
             if (item.items) {
               return (
                 <div key={item.name} className="space-y-2">
-                  {item.collapsible ? (
-                    <button
-                      type="button"
-                      onClick={() => setVerificationOpen((open) => !open)}
-                      aria-expanded={verificationOpen}
-                      className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-[11px] font-semibold text-slate-500 transition hover:bg-white/[0.03] hover:text-slate-300"
-                    >
-                      <span>{item.name}</span>
-                      <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", verificationOpen && "rotate-180")} />
-                    </button>
-                  ) : (
-                    <p className="px-3 text-[11px] font-semibold text-slate-600 mb-1.5">
-                      {item.name}
-                    </p>
-                  )}
-                  <div className={cn("space-y-1", item.collapsible && !verificationOpen && "hidden")}>
+                  <p className="px-3 text-[11px] font-semibold text-slate-600 mb-1.5">
+                    {item.name}
+                  </p>
+                  <div className="space-y-1">
                     {item.items.map((subItem: any) => {
                       const isActive = pathname === subItem.href;
                       const subIndex = nextIndex();
@@ -489,6 +478,59 @@ export default function DashboardLayout({
                       const isSpeedrun = ["/speedrun", "/supportqueue"].some(
                         (path) => subItem.href.endsWith(path)
                       );
+                      if (subItem.children) {
+                        const sectionActive = pathname.startsWith(subItem.href);
+                        return (
+                          <div key={subItem.name} className="space-y-1">
+                            <div
+                              data-active={sectionActive ? "true" : undefined}
+                              {...proximity.itemProps(subIndex)}
+                              className={cn(
+                                "prox-row prox-row-sm flex items-center rounded-lg transition-colors text-[13px]",
+                                sectionActive
+                                  ? "bg-blue-500/10 text-white font-semibold shadow-[inset_3px_0_0_0_rgba(96,165,250,0.9)]"
+                                  : "text-slate-400 hover:bg-white/[0.03] hover:text-slate-200"
+                              )}
+                            >
+                              <Link href={subItem.href} className="flex min-w-0 flex-1 items-center gap-3 px-3 py-2">
+                                <subItem.icon className={cn("h-4 w-4 shrink-0", sidebarIconColor(subItem.name))} />
+                                <span className="truncate">{subItem.name}</span>
+                              </Link>
+                              <button
+                                type="button"
+                                onClick={() => setVerificationOpen((open) => !open)}
+                                aria-expanded={verificationOpen}
+                                aria-label="Verifizierung aufklappen"
+                                className="mr-1 grid h-8 w-8 shrink-0 place-items-center rounded-md hover:bg-white/5"
+                              >
+                                <ChevronDown className={cn("h-4 w-4 transition-transform", verificationOpen && "rotate-180")} />
+                              </button>
+                            </div>
+                            {verificationOpen && (
+                              <div className="space-y-1 pl-7">
+                                {subItem.children.map((child: any) => {
+                                  const childActive = pathname === child.href;
+                                  return (
+                                    <Link
+                                      key={child.name}
+                                      href={child.href}
+                                      className={cn(
+                                        "flex items-center gap-2 rounded-lg px-3 py-2 text-xs transition-colors",
+                                        childActive
+                                          ? "bg-blue-500/10 font-semibold text-blue-200"
+                                          : "text-slate-500 hover:bg-white/[0.03] hover:text-slate-300"
+                                      )}
+                                    >
+                                      <child.icon className={cn("h-3.5 w-3.5", sidebarIconColor(child.name))} />
+                                      {child.name}
+                                    </Link>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      }
                       return (
                         <Link
                           key={subItem.name}

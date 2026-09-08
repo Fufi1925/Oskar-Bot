@@ -847,6 +847,10 @@ async def test_api(store):
     check("the real owner sees only owned bot guilds",
           r.status_code == 200 and r.json()["targets"][0]["id"] == str(target.id),
           r.text[:180])
+    r = client.post(f"{base}/pull/toggle?actor={guild.owner_id}", json={"enabled": True})
+    check("the simple switch can request guilds.join before a target exists",
+          r.status_code == 200 and r.json().get("needs_target") is True,
+          r.text[:180])
 
     pull_body = {"target_guild_id": str(target.id), "role_id": str(target_role.id)}
     r = client.post(f"{base}/pull/challenge?actor={guild.owner_id}", json=pull_body)
@@ -881,6 +885,15 @@ async def test_api(store):
           and pull_settings.get("user_pull_target_guild_id") == str(target.id)
           and pull_settings.get("user_pull_role_id") == str(target_role.id)
           and "access_token" not in pull_settings, str(pull_settings)[:300])
+    r = client.post(f"{base}/pull/toggle?actor={guild.owner_id}", json={"enabled": False})
+    off_settings = client.get(base).json()
+    check("the owner can switch the guilds.join request off without losing the target",
+          r.status_code == 200 and off_settings.get("user_pull_enabled") is False
+          and off_settings.get("user_pull_target_guild_id") == str(target.id), r.text[:180])
+    r = client.post(f"{base}/pull/toggle?actor={guild.owner_id}", json={"enabled": True})
+    check("the owner can switch the guilds.join request back on",
+          r.status_code == 200 and client.get(base).json().get("user_pull_enabled") is True,
+          r.text[:180])
 
     # Public OAuth completion: first a server-list hit, then success. The
     # browser does not choose a role; the API loads it from the saved config.
@@ -938,6 +951,7 @@ async def test_api(store):
     r = client.post("/api/v1/verify/oauth/complete", json={
         "guild_id": str(GUILD), "user": {"id": str(pulled_member.id)},
         "guilds": [], "access_token": "one-time-test-token",
+        "guilds_join_authorized": True,
     })
     outcome = r.json()
     check("a future consenting verification is immediately added to the target",

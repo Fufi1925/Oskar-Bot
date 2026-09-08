@@ -47,6 +47,7 @@ const statusLabel: Record<string, string> = {
   target_unavailable: "Ziel nicht erreichbar",
   scope_missing: "Nicht autorisiert",
   not_requested: "Nicht autorisiert",
+  authorized_waiting: "Autorisiert · Ziel fehlte",
 };
 
 export function UserPullPanel({ guildId }: { guildId: string }) {
@@ -109,6 +110,7 @@ export function UserPullPanel({ guildId }: { guildId: string }) {
   const pulled = members.filter(
     (member) => member.pull_status === "joined",
   ).length;
+  const ready = enabled && Boolean(target);
 
   const sendCode = async () => {
     if (!selectedTarget) return;
@@ -183,14 +185,16 @@ export function UserPullPanel({ guildId }: { guildId: string }) {
               <Link2 className="h-4 w-4" /> Sicherer OAuth2 Pull
             </div>
             <h3 className="text-xl font-bold text-white sm:text-2xl">
-              {enabled ? (
+              {ready ? (
                 <>
                   Neue Mitglieder werden zu{" "}
                   <span className="text-blue-400">{target?.name}</span>{" "}
                   verbunden
                 </>
+              ) : enabled ? (
+                "guilds.join ist aktiv – Zielserver auswählen"
               ) : (
-                "User Pull einrichten"
+                "User Pull ist ausgeschaltet"
               )}
             </h3>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
@@ -210,7 +214,7 @@ export function UserPullPanel({ guildId }: { guildId: string }) {
               className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Server className="h-4 w-4" />{" "}
-              {enabled ? "Ziel ändern" : "Jetzt einrichten"}
+              {target ? "Ziel ändern" : "Zielserver einrichten"}
             </button>
             {enabled && (
               <button

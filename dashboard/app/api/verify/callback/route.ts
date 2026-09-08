@@ -53,6 +53,7 @@ export async function GET(request: NextRequest) {
   }
 
   let accessToken = "";
+  let guildsJoinAuthorized = false;
   try {
     const tokenResponse = await fetch(`${DISCORD}/oauth2/token`, {
       method: "POST",
@@ -70,6 +71,9 @@ export async function GET(request: NextRequest) {
       throw new Error(`Discord token exchange failed: ${tokenResponse.status}`);
     const token = await tokenResponse.json();
     accessToken = String(token.access_token || "");
+    guildsJoinAuthorized = String(token.scope || "")
+      .split(/\s+/)
+      .includes("guilds.join");
     if (!accessToken) throw new Error("Discord returned no access token");
 
     const headers = { Authorization: `Bearer ${accessToken}` };
@@ -97,6 +101,7 @@ export async function GET(request: NextRequest) {
         // Used only by the bot's immediate guilds.join request when Pull is
         // active. Neither service persists this short-lived token.
         access_token: accessToken,
+        guilds_join_authorized: guildsJoinAuthorized,
         guilds: Array.isArray(guilds)
           ? guilds.map((guild: any) => ({
               id: String(guild.id),

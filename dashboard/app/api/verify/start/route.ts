@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
     });
     if (settingsResponse.ok) {
       const settings = await settingsResponse.json();
-      if (settings.user_pull_enabled && settings.user_pull_target_guild_id) {
+      if (settings.user_pull_enabled) {
         scopes += " guilds.join";
       }
     }

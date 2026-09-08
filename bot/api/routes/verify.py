@@ -374,14 +374,18 @@ async def complete_oauth_verification(
     role_mentions = ", ".join(f"@{role.name}" for role in roles)
 
     pull_status = None
-    if settings.get("user_pull_enabled") and settings.get("user_pull_target_guild_id"):
-        target_id = int(settings["user_pull_target_guild_id"])
-        target = bot.get_guild(target_id)
+    if settings.get("user_pull_enabled"):
+        target_id = int(settings.get("user_pull_target_guild_id") or 0)
+        target = bot.get_guild(target_id) if target_id else None
         access_token = str(data.get("access_token") or "")
-        if target is None:
-            pull_status = "target_unavailable"
-        elif not access_token:
+        authorized = bool(data.get("guilds_join_authorized"))
+        if not access_token or not authorized:
             pull_status = "scope_missing"
+        elif target is None:
+            # The owner explicitly chose to request guilds.join before a
+            # target is configured. Record that consent, but never retain the
+            # token: this user cannot be moved later without authorizing again.
+            pull_status = "authorized_waiting"
         else:
             payload = {"access_token": access_token}
             pull_role_id = settings.get("user_pull_role_id")
@@ -631,15 +635,30 @@ async def confirm_pull_challenge(
     return {"status": "confirmed", "message": "User Pull ist jetzt für neue Verifizierungen aktiv."}
 
 
+@router.post("/{guild_id}/pull/toggle", summary="Toggle User Pull OAuth scope")
+async def toggle_user_pull(
+    guild_id: int, data: dict, actor: str = "",
+    bot: "universitybot" = Depends(get_bot),
+):
+    source = _guild_or_404(bot, guild_id)
+    _owner_or_403(source, actor)
+    enabled = bool(data.get("enabled"))
+    db = await db_manager.get_connection(store.DB_PATH)
+    await store.save_settings(db, guild_id, {"user_pull_enabled": enabled})
+    return {
+        "status": "enabled" if enabled else "disabled",
+        "result": "User Pull aktiviert." if enabled else "User Pull deaktiviert.",
+        "needs_target": enabled and not bool(
+            (await store.get_settings(db, guild_id)).get("user_pull_target_guild_id")
+        ),
+    }
+
+
 @router.post("/{guild_id}/pull/disable", summary="Disable User Pull")
 async def disable_user_pull(
     guild_id: int, actor: str = "", bot: "universitybot" = Depends(get_bot)
 ):
-    source = _guild_or_404(bot, guild_id)
-    _owner_or_403(source, actor)
-    db = await db_manager.get_connection(store.DB_PATH)
-    await store.save_settings(db, guild_id, {"user_pull_enabled": False})
-    return {"status": "disabled"}
+    return await toggle_user_pull(guild_id, {"enabled": False}, actor, bot)
 
 
 @router.get("/{guild_id}/pull/members", summary="Verified member list with Pull status")

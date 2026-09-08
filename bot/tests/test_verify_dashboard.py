@@ -52,7 +52,9 @@ check("Blacklist-IDs werden vor dem Speichern geprüft", r"^\d{17,20}$" in PANEL
 
 print("\nUser Pull")
 check("unter den Rollen verlinkt", "User Pull" in PANEL and "/verification/pull" in PANEL)
-check("Verifizierung ist aufklappbar", 'name: "Verifizierung"' in NAV and "collapsible: true" in NAV)
+check("Verifizierung bleibt im Schutz-Tab aufklappbar",
+      'name: "Verifizierung"' in NAV and "subItem.children" in NAV
+      and "Verifizierung aufklappen" in NAV)
 check("Unterpunkt heißt Pull", 'name: "Pull"' in NAV)
 check("eigene responsive Pull-Seite", "sm:place-items-center" in PULL and "UserPullPanel" in PULL)
 check("nur zukünftige Nutzer werden beschrieben", "Nur zukünftige" in PULL and "Keine vorhandenen Mitglieder" in PULL)
@@ -60,7 +62,9 @@ check("minimale Mitgliederdaten", all(value in PULL for value in ("Discord-ID", 
 check("keine sensiblen Mitgliederdaten", all(value not in PULL.lower() for value in ("ip-adresse", "standort", "gerät", "e-mail")))
 check("Owner-Sperransicht ist blau", "Inhaberzugriff erforderlich" in PULL and "border-blue-500/20" in PULL)
 check("Pull-BFF ist strikt owner-only", 'rest[1] === "pull"' in BFF and "ownsGuildOnDiscord(guildId)" in BFF)
-check("guilds.join wird nur bei aktivem Pull angefordert", "settings.user_pull_enabled" in OAUTH_START and 'scopes += " guilds.join"' in OAUTH_START)
+check("guilds.join wird nur bei eingeschaltetem Pull angefordert",
+      "if (settings.user_pull_enabled)" in OAUTH_START
+      and 'scopes += " guilds.join"' in OAUTH_START)
 check("Access-Token wird nur unmittelbar weitergereicht", "access_token: accessToken" in OAUTH_CALLBACK and "finally" in OAUTH_CALLBACK and "/oauth2/token/revoke" in OAUTH_CALLBACK)
 
 print(f"\n{len(failures)} Fehler")

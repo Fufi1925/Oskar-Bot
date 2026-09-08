@@ -441,6 +441,11 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ target_guild_id: targetGuildId, code }),
     }),
+  toggleUserPull: (g: string, enabled: boolean) =>
+    request<any>(`/verify/${g}/pull/toggle`, {
+      method: "POST",
+      body: JSON.stringify({ enabled }),
+    }),
   disableUserPull: (g: string) =>
     request<any>(`/verify/${g}/pull/disable`, { method: "POST", body: "{}" }),
   updateVerify: (g: string, data: any) =>

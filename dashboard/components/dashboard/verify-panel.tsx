@@ -242,6 +242,11 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
   const [openMember, setOpenMember] = useState<string | null>(null);
   const guard = useSaveGuard(p.dirty, "verify-save-bar");
 
+  const setPullEnabled = async (enabled: boolean) => {
+    await p.act(() => api.toggleUserPull(guildId, enabled));
+    await p.reload();
+  };
+
   if (p.loading) return <Loading />;
 
   const roleName = p.data?.role_infos?.length
@@ -501,12 +506,23 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
                       </p>
                     </div>
                   </div>
-                  <Link
-                    href={`/dashboard/guild/${guildId}/verification/pull`}
-                    className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-500"
-                  >
-                    Einrichten
-                  </Link>
+                  <div className="flex shrink-0 items-center gap-3">
+                    <span className="text-xs font-bold text-slate-300">
+                      {p.value("user_pull_enabled") ? "An" : "Aus"}
+                    </span>
+                    <SwitchToggle
+                      checked={Boolean(p.value("user_pull_enabled"))}
+                      disabled={p.busy}
+                      onCheckedChange={setPullEnabled}
+                      label="User Pull an- oder ausschalten"
+                    />
+                    <Link
+                      href={`/dashboard/guild/${guildId}/verification/pull`}
+                      className="inline-flex min-h-10 items-center justify-center rounded-lg border border-blue-500/25 px-3 text-xs font-semibold text-blue-300 hover:bg-blue-500/10"
+                    >
+                      Öffnen
+                    </Link>
+                  </div>
                 </div>
 
                 <div className="grid gap-2 sm:grid-cols-3">
