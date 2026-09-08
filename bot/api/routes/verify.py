@@ -171,6 +171,15 @@ def _warnings(guild, settings: dict) -> list[str]:
         if problem:
             problems.append(problem)
 
+    for role_id in settings.get("verified_role_ids", [])[1:]:
+        role = guild.get_role(int(role_id))
+        if role is None:
+            problems.append("Eine zusätzliche Verifiziert-Rolle gibt es nicht mehr.")
+            continue
+        problem = _role_problem(guild, role)
+        if problem:
+            problems.append(problem)
+
     log_id = settings.get("log_channel_id")
     if log_id and guild.get_channel(int(log_id)) is None:
         problems.append("Den Log-Kanal gibt es nicht mehr.")
@@ -258,12 +267,17 @@ async def complete_oauth_verification(
             title = settings.get("blacklist_title") or "Verifizierung abgelehnt"
             description = settings.get("blacklist_text") or "Die Prüfung wurde abgelehnt."
         else:
-            title = "Verifizierung abgelehnt"
+            title = "❌ Verifizierung blockiert — Server-Blacklist" if matched \
+                else "❌ Verifizierung abgelehnt"
             description = (
-                "Du bist Mitglied eines Servers, den das Team von **{server}** "
-                "gesperrt hat. Betroffener Server: **{blocked_server}**."
+                "Deine Verifizierung auf **{server}** wurde abgelehnt, weil du Mitglied "
+                "eines Servers bist, den das Serverteam eingeschränkt hat.\n\n"
+                "Server: `{blocked_server}`\n\n"
+                "**Diese Einschränkung wird ausschließlich von den Administratoren von "
+                "{server} verwaltet. University Bot trifft keine eigene "
+                "Moderationsentscheidung.**"
                 if matched else
-                "Dein Discord-Konto erfüllt das konfigurierte Mindestalter nicht."
+                "Dein Discord-Konto erfüllt das konfigurierte Mindestalter dieses Servers nicht."
             )
         description = store.render(
             description, server=guild.name, user_mention=member.mention,
@@ -271,7 +285,7 @@ async def complete_oauth_verification(
             blocked_server=blocked_names,
         )
         embed = discord.Embed(title=title[:256], description=description[:4000], color=0xEF4444)
-        embed.set_footer(text="University Bot • Sichere Verifizierung")
+        embed.set_footer(text="Bereitgestellt von University Bot")
         try:
             await run_on_bot_loop(member.send(embed=embed))
         except (discord.Forbidden, discord.HTTPException):
@@ -296,17 +310,23 @@ async def complete_oauth_verification(
                 pass
         return {**base, "status": "denied", "reason": denial_reason, "blocked": matched}
 
-    role = guild.get_role(int(settings["verified_role_id"]))
-    problem = _role_problem(guild, role)
-    if role is None or problem:
+    roles = [
+        guild.get_role(int(role_id))
+        for role_id in settings.get("verified_role_ids", [])
+    ]
+    if not roles or any(role is None or _role_problem(guild, role) for role in roles):
         return {**base, "status": "error", "reason": "role_unavailable"}
     try:
-        if role not in member.roles:
+        missing_roles = [role for role in roles if role not in member.roles]
+        if missing_roles:
             await run_on_bot_loop(
-                member.add_roles(role, reason="One-Click-Verifizierung (Discord OAuth2)")
+                member.add_roles(*missing_roles, reason="One-Click-Verifizierung (Discord OAuth2)")
             )
     except (discord.Forbidden, discord.HTTPException):
         return {**base, "status": "error", "reason": "role_unavailable"}
+
+    role_names = ", ".join(role.name for role in roles)
+    role_mentions = ", ".join(f"@{role.name}" for role in roles)
 
     unverified_id = settings.get("unverified_role_id")
     if settings.get("remove_unverified_role") and unverified_id:
@@ -329,7 +349,7 @@ async def complete_oauth_verification(
         try:
             await run_on_bot_loop(log_channel.send(embed=discord.Embed(
                 title="OAuth-Verifizierung erfolgreich",
-                description=f"{member.mention} (`{member.id}`) hat die Rolle **{role.name}** erhalten.",
+                description=f"{member.mention} (`{member.id}`) hat **{role_names}** erhalten.",
                 color=0x22C55E,
                 timestamp=datetime.now(timezone.utc),
             )))
@@ -340,7 +360,7 @@ async def complete_oauth_verification(
         text = store.render(
             settings.get("dm_success_text", ""), server=guild.name,
             user_mention=member.mention, user_name=member.display_name,
-            role=f"@{role.name}", member_count=guild.member_count or 0,
+            role=role_mentions, member_count=guild.member_count or 0,
         )
         try:
             await run_on_bot_loop(member.send(embed=discord.Embed(
@@ -348,7 +368,10 @@ async def complete_oauth_verification(
             )))
         except (discord.Forbidden, discord.HTTPException):
             pass
-    return {**base, "status": "success", "role_name": role.name}
+    return {
+        **base, "status": "success", "role_name": roles[0].name,
+        "role_names": [role.name for role in roles],
+    }
 
 
 @router.get("/{guild_id}", summary="Verification settings")
@@ -385,6 +408,9 @@ async def get_verification(guild_id: int, bot: "universitybot" = Depends(get_bot
         **{k: (str(settings[k]) if settings[k] else None) for k in store.ID_KEYS},
         "channel_info": _channel_info(guild, settings["verification_channel_id"]),
         "role_info": _role_info(guild, settings["verified_role_id"]),
+        "role_infos": [
+            _role_info(guild, role_id) for role_id in settings.get("verified_role_ids", [])
+        ],
         "log_channel_info": _channel_info(guild, settings["log_channel_id"]),
         "blacklist_log_channel_info": _channel_info(guild, settings["blacklist_log_channel_id"]),
         "unverified_role_info": _role_info(guild, settings["unverified_role_id"]),
@@ -426,6 +452,21 @@ async def patch_verification(
                 status_code=400, detail="Die Verifizierung braucht einen Textkanal."
             )
 
+    if "verified_role_ids" in data:
+        role_ids = data["verified_role_ids"]
+        if not isinstance(role_ids, list) or len(role_ids) > 3:
+            raise HTTPException(status_code=400, detail="Du kannst höchstens drei Verifiziert-Rollen wählen.")
+        role_ids = list(dict.fromkeys(str(item) for item in role_ids))
+        for raw in role_ids:
+            role = guild.get_role(int(raw)) if raw.isdigit() else None
+            if role is None:
+                raise HTTPException(status_code=404, detail="Eine der Verifiziert-Rollen gibt es nicht mehr.")
+            problem = _role_problem(guild, role)
+            if problem:
+                raise HTTPException(status_code=400, detail=problem)
+        data["verified_role_ids"] = role_ids
+        data["verified_role_id"] = role_ids[0] if role_ids else None
+
     for key, label in (
         ("verified_role_id", "Verifiziert-Rolle"),
         ("unverified_role_id", "Unverifiziert-Rolle"),
@@ -466,7 +507,11 @@ async def patch_verification(
     if data.get("enabled"):
         channel_id = data.get("verification_channel_id") \
             or current["verification_channel_id"]
-        role_id = data.get("verified_role_id") or current["verified_role_id"]
+        role_id = (
+            (data.get("verified_role_ids") or [None])[0]
+            if "verified_role_ids" in data
+            else data.get("verified_role_id") or current["verified_role_id"]
+        )
         if not channel_id or not role_id:
             raise HTTPException(
                 status_code=400,
@@ -530,6 +575,7 @@ async def post_panel(
         )
 
     role = guild.get_role(int(settings["verified_role_id"]))
+    settings["verified_count"] = await store.count_verified(db, guild_id)
     view = cog.build_panel(guild, settings, role)
 
     message = None
@@ -597,6 +643,7 @@ async def preview_panel(
         guild.get_role(int(settings["verified_role_id"]))
         if settings.get("verified_role_id") else None
     )
+    settings["verified_count"] = await store.count_verified(db, guild_id)
     try:
         await channel.send(view=cog.build_panel(guild, settings, role, preview=True))
     except discord.Forbidden:
@@ -657,20 +704,22 @@ async def unverify_member(
             status_code=404, detail="Die Person ist nicht mehr auf dem Server."
         )
 
-    role = guild.get_role(int(settings["verified_role_id"]))
-    if role is None:
-        raise HTTPException(status_code=404, detail="Die Rolle gibt es nicht mehr.")
-    if role not in member.roles:
+    roles = [
+        guild.get_role(int(role_id))
+        for role_id in settings.get("verified_role_ids", [])
+    ]
+    roles = [role for role in roles if role is not None and role in member.roles]
+    if not roles:
         return {
             "status": "success",
-            "result": f"{member.display_name} hatte die Rolle gar nicht.",
+            "result": f"{member.display_name} hatte keine Verifiziert-Rolle.",
         }
 
     try:
-        await member.remove_roles(role, reason="Verifizierung über das Dashboard entzogen")
+        await member.remove_roles(*roles, reason="Verifizierung über das Dashboard entzogen")
     except discord.Forbidden:
         raise HTTPException(
-            status_code=403, detail=f"Der Bot darf @{role.name} nicht entfernen."
+            status_code=403, detail="Der Bot darf mindestens eine Verifiziert-Rolle nicht entfernen."
         )
 
     return {
@@ -695,21 +744,26 @@ async def verify_member(
     if member is None:
         raise HTTPException(status_code=404, detail="Die Person ist nicht auf dem Server.")
 
-    role = guild.get_role(int(settings["verified_role_id"]))
-    if role is None:
-        raise HTTPException(status_code=404, detail="Die Rolle gibt es nicht mehr.")
-    problem = _role_problem(guild, role)
-    if problem:
-        raise HTTPException(status_code=400, detail=problem)
+    roles = [
+        guild.get_role(int(role_id))
+        for role_id in settings.get("verified_role_ids", [])
+    ]
+    if not roles or any(role is None for role in roles):
+        raise HTTPException(status_code=404, detail="Eine Verifiziert-Rolle gibt es nicht mehr.")
+    for role in roles:
+        problem = _role_problem(guild, role)
+        if problem:
+            raise HTTPException(status_code=400, detail=problem)
 
-    if role in member.roles:
+    missing_roles = [role for role in roles if role not in member.roles]
+    if not missing_roles:
         return {"status": "success", "result": f"{member.display_name} war schon verifiziert."}
 
     try:
-        await member.add_roles(role, reason="Verifizierung über das Dashboard")
+        await member.add_roles(*missing_roles, reason="Verifizierung über das Dashboard")
     except discord.Forbidden:
         raise HTTPException(
-            status_code=403, detail=f"Der Bot darf @{role.name} nicht vergeben."
+            status_code=403, detail="Der Bot darf mindestens eine Verifiziert-Rolle nicht vergeben."
         )
 
     await store.log_verification(

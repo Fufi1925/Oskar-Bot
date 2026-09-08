@@ -48,6 +48,7 @@ import discord  # noqa: E402
 GUILD = 4401
 CHANNEL = 1327995167345819721      # a real-length snowflake
 ROLE_OK = 500000000000000001
+ROLE_SECOND = 500000000000000004
 ROLE_HIGH = 500000000000000002
 ROLE_MANAGED = 500000000000000003
 ALICE = 111
@@ -232,6 +233,9 @@ async def test_migration(store):
               settings["panel_title"])
         check("the success DM starts switched off",
               settings["dm_on_success"] is False)
+        check("the old primary role migrates into the role list",
+              settings["verified_role_ids"] == [str(ROLE_OK)],
+              str(settings["verified_role_ids"]))
         check("and the extra rules start off",
               settings["min_account_age_days"] == 0)
     finally:
@@ -573,7 +577,7 @@ def test_panel_rendering(store):
     check("there is a button row", len(rows) == 1, str(len(rows)))
     labels = [b.get("label") for b in rows[0]["components"]]
     check("the custom label is used", "Los geht's" in labels, str(labels))
-    check("'button' mode shows one button", len(labels) == 1, str(labels))
+    check("the panel shows OAuth and the verified-user counter", len(labels) == 2, str(labels))
     check("a preview button is disabled",
           all(b.get("disabled") for b in rows[0]["components"]),
           str(rows[0]["components"]))
@@ -583,8 +587,8 @@ def test_panel_rendering(store):
     rows = [
         c for c in view.to_components()[0]["components"] if c.get("type") == 1
     ]
-    check("legacy settings still show one OAuth button",
-          len(rows[0]["components"]) == 1,
+    check("legacy settings show OAuth plus the counter",
+          len(rows[0]["components"]) == 2,
           str(len(rows[0]["components"])))
 
     # The live component is an external OAuth link, not a role-granting custom id.
@@ -593,13 +597,13 @@ def test_panel_rendering(store):
         c for c in view.to_components()[0]["components"] if c.get("type") == 1
     ]
     buttons = rows[0]["components"]
-    check("the live button has no interaction custom_id",
-          all(not b.get("custom_id") for b in buttons), str(buttons))
+    check("the live OAuth button has no interaction custom_id",
+          not buttons[0].get("custom_id"), str(buttons))
     check("the live button points to the signed OAuth start route",
-          all("/api/verify/start?guild=" in (b.get("url") or "") for b in buttons),
+          "/api/verify/start?guild=" in (buttons[0].get("url") or ""),
           str(buttons))
-    check("and it is not disabled",
-          not any(b.get("disabled") for b in buttons), str(buttons))
+    check("the OAuth button works and the counter is disabled",
+          not buttons[0].get("disabled") and buttons[1].get("disabled"), str(buttons))
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -722,6 +726,7 @@ async def test_api(store):
 
     guild = Guild()
     guild._roles[ROLE_OK] = Role(ROLE_OK, "Verifiziert", 5)
+    guild._roles[ROLE_SECOND] = Role(ROLE_SECOND, "Mitglied", 4)
     guild._roles[ROLE_HIGH] = Role(ROLE_HIGH, "Zu hoch", 500)
     guild._roles[ROLE_MANAGED] = Role(ROLE_MANAGED, "Bot", 3, managed=True)
     channel = Channel(CHANNEL, "verify")
@@ -768,6 +773,9 @@ async def test_api(store):
     r = client.patch(base, json={"verification_method": "quatsch"})
     check("an unknown method is refused", r.status_code == 400, r.text[:120])
 
+    r = client.patch(base, json={"verified_role_ids": [str(ROLE_OK)] * 4})
+    check("more than three verify roles are refused", r.status_code == 400, r.text[:120])
+
     r = client.patch(base, json={"panel_title": "   "})
     check("an empty text is refused", r.status_code == 400, r.text[:120])
 
@@ -778,6 +786,7 @@ async def test_api(store):
     r = client.patch(base, json={
         "verification_channel_id": str(CHANNEL),
         "verified_role_id": str(ROLE_OK),
+        "verified_role_ids": [str(ROLE_OK), str(ROLE_SECOND)],
         "enabled": True,
     })
     check("a proper setup is accepted", r.status_code == 200, r.text[:120])
@@ -789,8 +798,10 @@ async def test_api(store):
           data["verification_channel_id"] == str(CHANNEL),
           str(data["verification_channel_id"]))
     check("it reports itself as configured", data["configured"] is True)
-    check("the preview is rendered server-side",
-          "Test Server" in data["preview"]["text"], str(data["preview"]))
+    check("the standard OAuth2 panel is rendered server-side",
+          "OAuth2" in data["preview"]["text"]
+          and "Bereitgestellt von University Bot" in data["preview"]["footer"],
+          str(data["preview"]))
     check("the placeholder list is sent along",
           "{server}" in data["placeholders"], str(data.get("placeholders")))
     check("the blacklist placeholder is documented",
@@ -820,6 +831,13 @@ async def test_api(store):
           str(outcome.get("blocked")))
     check("denial sends the person a DM", len(oauth_member.dms) == 1,
           str(len(oauth_member.dms)))
+    denial_embed = oauth_member.dms[0].get("embed")
+    check("the standard denial DM matches the blacklist card",
+          denial_embed is not None
+          and "Server-Blacklist" in denial_embed.title
+          and "Gesperrter Testserver" in denial_embed.description
+          and denial_embed.footer.text == "Bereitgestellt von University Bot",
+          str(denial_embed.to_dict() if denial_embed else None))
 
     client.patch(base, json={"server_blacklist_enabled": False})
     r = client.post("/api/v1/verify/oauth/complete", json={
@@ -829,11 +847,12 @@ async def test_api(store):
         "verified_role_id": str(ROLE_HIGH),  # must be ignored
     })
     outcome = r.json()
-    check("OAuth success assigns the configured role",
-          r.status_code == 200 and outcome.get("status") == "success", r.text[:180])
+    check("OAuth success assigns up to three configured roles",
+          r.status_code == 200 and outcome.get("status") == "success"
+          and any(role.id == ROLE_OK for role in oauth_member.roles)
+          and any(role.id == ROLE_SECOND for role in oauth_member.roles), r.text[:180])
     check("a browser-supplied role cannot override configuration",
-          any(role.id == ROLE_OK for role in oauth_member.roles)
-          and not any(role.id == ROLE_HIGH for role in oauth_member.roles),
+          not any(role.id == ROLE_HIGH for role in oauth_member.roles),
           str([role.id for role in oauth_member.roles]))
 
     client.patch(base, json={"panel_title": "Mein Titel"})

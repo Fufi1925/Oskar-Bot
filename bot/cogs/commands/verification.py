@@ -1308,7 +1308,14 @@ class Verification (commands .Cog ):
         preview cannot drift away from what actually gets posted --
         a second renderer is how a preview starts lying.
         """
-        role_name = f"@{role.name}" if role is not None else "@Verifiziert"
+        configured_roles = [
+            guild.get_role(int(role_id))
+            for role_id in settings.get("verified_role_ids", [])
+        ]
+        role_names = [f"@{item.name}" for item in configured_roles if item is not None]
+        role_name = ", ".join(role_names) or (
+            f"@{role.name}" if role is not None else "@Verifiziert"
+        )
 
         def fill(key):
             return verify_store.render(
@@ -1324,16 +1331,31 @@ class Verification (commands .Cog ):
         # website, where only the `identify` and `guilds` scopes are requested.
         label = (settings.get("button_label") or "Mit Discord verifizieren")[:80]
         if preview:
-            buttons = [discord.ui.Button(
-                label=label, style=discord.ButtonStyle.success,
-                custom_id="verify_preview_oauth", disabled=True,
-            )]
+            buttons = [
+                discord.ui.Button(
+                    label=label, style=discord.ButtonStyle.success,
+                    custom_id="verify_preview_oauth", disabled=True,
+                ),
+                discord.ui.Button(
+                    label=f"{int(settings.get('verified_count') or 0)} verifizierte Nutzer"[:80],
+                    style=discord.ButtonStyle.secondary,
+                    custom_id="verify_preview_count", disabled=True,
+                ),
+            ]
         else:
             base = dashboard_url().rstrip("/")
-            buttons = [discord.ui.Button(
-                label=label, style=discord.ButtonStyle.link,
-                url=f"{base}/api/verify/start?guild={guild.id}",
-            )]
+            buttons = [
+                discord.ui.Button(
+                    label=label, style=discord.ButtonStyle.link,
+                    url=f"{base}/api/verify/start?guild={guild.id}",
+                ),
+                discord.ui.Button(
+                    label=f"{int(settings.get('verified_count') or 0)} verifizierte Nutzer"[:80],
+                    style=discord.ButtonStyle.secondary,
+                    custom_id="verify_count_display",
+                    disabled=True,
+                ),
+            ]
 
         sections = [fill("panel_text")]
         footer = fill("panel_footer")

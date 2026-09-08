@@ -58,6 +58,7 @@ DEFAULTS: dict[str, Any] = {
     "enabled": False,
     "verification_channel_id": None,
     "verified_role_id": None,
+    "verified_role_ids": [],
     "log_channel_id": None,
     "unverified_role_id": None,
     "verification_method": "oauth",
@@ -67,24 +68,16 @@ DEFAULTS: dict[str, Any] = {
     # ── the texts ────────────────────────────────────────────────
     # The defaults are what most servers will never change, so they say
     # what happens rather than just "verify yourself".
-    "panel_title": "Kurz bestätigen, dann bist du drin",
-    # Die eigenen Emojis des Bots statt Unicode.
-    #
-    # Ein Unicode-Zeichen sieht auf jedem Geraet anders aus -- Windows,
-    # iOS und Android bringen eigene Saetze mit, und manche fehlen ganz
-    # (dann steht dort ein leeres Rechteck). Ein App-Emoji ist ueberall
-    # dasselbe Bild.
-    #
-    # Das geht hier, weil diese Texte in einer *Nachricht* landen. In
-    # Kanal-, Rollen- oder Webhook-Namen waere es falsch: dort rendert
-    # Discord Custom-Emojis nicht und der rohe Code stuende als Text da.
+    "panel_title": "❗ Server-Verifizierung",
     "panel_text": (
-        f"Willkommen auf **{{server}}**! {bot_emoji.MINGLE}\n\n"
-        "Damit hier keine Spam-Bots landen, fehlt nur noch ein Klick.\n"
-        "Danach siehst du alle Kanäle und kannst mitreden."
+        "Klicke auf den Button unten, um dich zu verifizieren und Zugang zum Server zu erhalten.\n\n"
+        "### ℹ️ Anleitung\n"
+        "Klicke auf **Verifizieren**, melde dich bei Discord an und bestätige OAuth2.\n\n"
+        "### 🛡️ Server-Sicherheit\n"
+        "Diese Verifizierung hilft dabei, den Server vor Bots und gesperrten Servermitgliedschaften zu schützen."
     ),
-    "panel_footer": "Du bekommst dann {role} — dauert keine zehn Sekunden.",
-    "button_label": "Bin kein Bot",
+    "panel_footer": "Bereitgestellt von University Bot",
+    "button_label": "✅ Verifizieren",
     "captcha_label": "Stattdessen CAPTCHA",
     "success_text": (
         f"Alles klar, {{user}} — du bist dabei! {bot_emoji.TADAA}\n"
@@ -239,6 +232,7 @@ async def ensure_schema(db: aiosqlite.Connection) -> None:
             existing = {row[1] for row in await cursor.fetchall()}
 
     wanted = {
+        "verified_role_ids": "TEXT DEFAULT '[]'",
         "unverified_role_id": "INTEGER",
         "panel_message_id": "INTEGER",
         "panel_channel_id": "INTEGER",
@@ -319,6 +313,22 @@ def normalise(settings: dict) -> dict:
     for key in BOOL_KEYS:
         out[key] = bool(out.get(key))
 
+    raw_roles = out.get("verified_role_ids", [])
+    if isinstance(raw_roles, str):
+        try:
+            raw_roles = json.loads(raw_roles)
+        except (TypeError, ValueError):
+            raw_roles = []
+    role_ids = list(dict.fromkeys(
+        str(item) for item in (raw_roles if isinstance(raw_roles, list) else [])
+        if str(item).isdigit() and int(str(item))
+    ))[:3]
+    primary = out.get("verified_role_id")
+    if not role_ids and primary:
+        role_ids = [str(primary)]
+    out["verified_role_ids"] = role_ids
+    out["verified_role_id"] = int(role_ids[0]) if role_ids else None
+
     raw_blocked = out.get("blacklisted_guild_ids", [])
     if isinstance(raw_blocked, str):
         try:
@@ -341,6 +351,16 @@ def normalise(settings: dict) -> dict:
     # Two is the fewest that is still a choice; Discord allows 25 options
     # in a select, and beyond about eight it stops being readable.
     out["captcha_choices"] = min(8, max(2, out["captcha_choices"] or 5))
+
+    # Servers that never customised the old stock panel receive the new,
+    # cleaner OAuth2 card automatically. Custom-written panels stay untouched.
+    if str(out.get("panel_title") or "").strip() in {
+        "Kurz bestätigen, dann bist du drin",
+        "Verifizierung erforderlich",
+        "Verification Required",
+    }:
+        for key in ("panel_title", "panel_text", "panel_footer", "button_label"):
+            out[key] = DEFAULTS[key]
 
     # All legacy button/CAPTCHA settings migrate to the single OAuth flow.
     out["verification_method"] = "oauth"
@@ -377,7 +397,7 @@ async def save_settings(
     values = [guild_id]
     for name in columns:
         value = merged[name]
-        if name == "blacklisted_guild_ids":
+        if name in ("verified_role_ids", "blacklisted_guild_ids"):
             value = json.dumps(value, separators=(",", ":"))
         values.append(int(value) if isinstance(value, bool) else value)
 

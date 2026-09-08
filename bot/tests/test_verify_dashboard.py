@@ -2,7 +2,6 @@
 """Regression checks for the user-friendly OAuth verification dashboard."""
 
 from pathlib import Path
-import re
 import sys
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -24,7 +23,7 @@ for feature in (
     "Sichere Verifizierung",
     "Live-Vorschau",
     "Panel jetzt posten",
-    "identify · guilds",
+    "OAuth2",
     "Server-Blacklist aktivieren",
     "Eigene Ablehnungs-DM verwenden",
     "Verifizierungs-Verlauf",
@@ -34,7 +33,11 @@ for feature in (
 
 check("kein CAPTCHA-Schalter", "CAPTCHA Only" not in PANEL and "Nur CAPTCHA" not in PANEL)
 check("keine Methodenauswahl", "verification_method" not in PANEL)
-check("OAuth-Datensparsamkeit erklärt", "nicht gespeichert" in re.sub(r"\s+", " ", PANEL))
+check("keine unnötige Ablauf-Erklärung", "So funktioniert die Prüfung" not in PANEL)
+check("keine technischen Scope-Namen", "identify · guilds" not in PANEL)
+check("bis zu drei Verify-Rollen", "[0, 1, 2].map" in PANEL and "bis zu 3" in PANEL)
+check("Unverifiziert-Rolle steht in der Grundkonfiguration",
+      PANEL.index("Unverifiziert-Rolle entfernen") < PANEL.index('tab === "advanced"'))
 check("mobile Tabs können horizontal scrollen", "overflow-x-auto" in PANEL)
 check("Desktop-Vorschau bleibt sichtbar", "xl:sticky" in PANEL)
 check("ungespeicherte Daten blockieren das Posten", "p.dirty > 0" in PANEL)

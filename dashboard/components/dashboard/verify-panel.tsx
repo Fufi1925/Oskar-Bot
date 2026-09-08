@@ -12,7 +12,6 @@ import {
   History,
   Info,
   ListChecks,
-  LockKeyhole,
   Mail,
   MessageSquareText,
   Plus,
@@ -254,13 +253,25 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
 
   if (p.loading) return <Loading />;
 
-  const roleName = p.data?.role_info?.name
-    ? `@${p.data.role_info.name}`
-    : "@Verifiziert";
+  const roleName = p.data?.role_infos?.length
+    ? p.data.role_infos
+        .filter((role: any) => role?.name)
+        .map((role: any) => `@${role.name}`)
+        .join(", ")
+    : p.data?.role_info?.name
+      ? `@${p.data.role_info.name}`
+      : "@Verifiziert";
   const serverName = p.data?.guild_name || "deinem Server";
   const blockedGuilds: string[] = p.value("blacklisted_guild_ids") || [];
+  const verifiedRoleIds: string[] = (
+    p.value("verified_role_ids")?.length
+      ? p.value("verified_role_ids")
+      : p.value("verified_role_id")
+        ? [String(p.value("verified_role_id"))]
+        : []
+  ).map(String);
   const hasChannel = Boolean(p.value("verification_channel_id"));
-  const hasRole = Boolean(p.value("verified_role_id"));
+  const hasRole = verifiedRoleIds.length > 0;
   const configured = hasChannel && hasRole;
   const active = Boolean(p.value("enabled"));
   const readiness = [hasChannel, hasRole, active].filter(Boolean).length;
@@ -280,6 +291,21 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
       return;
     }
     p.set("enabled", value);
+  };
+  const setVerifiedRole = (index: number, id: string | null) => {
+    const next = [...verifiedRoleIds];
+    id = id || "";
+    if (
+      id &&
+      next.some((roleId, roleIndex) => roleId === id && roleIndex !== index)
+    ) {
+      toast.error("Diese Rolle wurde bereits ausgewählt.");
+      return;
+    }
+    next[index] = id;
+    const compact = next.filter(Boolean).slice(0, 3);
+    p.set("verified_role_ids", compact);
+    p.set("verified_role_id", compact[0] || null);
   };
   const addBlockedGuild = () => {
     const id = blacklistId.trim();
@@ -323,10 +349,8 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
                   Discord OAuth2
                 </span>
               </div>
-              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-400">
-                Ein Klick für neue Mitglieder. University Bot prüft nur
-                Identität und Servermitgliedschaften – ohne CAPTCHA und ohne
-                gespeicherte OAuth-Tokens.
+              <p className="mt-2 max-w-2xl text-sm text-slate-400">
+                Moderne One-Click-Verifizierung mit OAuth2.
               </p>
             </div>
           </div>
@@ -380,11 +404,9 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
             </p>
           </div>
           <div className="rounded-xl border border-white/[0.07] bg-white/[0.035] p-3">
-            <p className="text-sm font-black text-blue-300">
-              identify · guilds
-            </p>
+            <p className="text-sm font-black text-blue-300">OAuth2</p>
             <p className="mt-1 text-[10px] font-semibold text-slate-500">
-              OAuth-Berechtigungen
+              Methode
             </p>
           </div>
         </div>
@@ -436,32 +458,78 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
                 title="Grundkonfiguration"
                 subtitle="Kanal und Rolle auswählen – den Rest übernimmt University Bot."
               >
-                <div className="grid gap-5 md:grid-cols-2">
+                <Field
+                  label="Verifizierungs-Kanal"
+                  required
+                  hint="Dort wird das öffentliche OAuth2-Panel gepostet."
+                >
+                  <ChannelPicker
+                    guildId={guildId}
+                    value={p.value("verification_channel_id") || ""}
+                    onChange={(id) => p.set("verification_channel_id", id)}
+                    placeholder="Kanal auswählen"
+                    channelTypes={["0", "5"]}
+                  />
+                </Field>
+
+                <div className="space-y-3">
+                  <div>
+                    <p className="text-xs font-extrabold text-slate-300">
+                      Verifiziert-Rollen{" "}
+                      <span className="ml-1 text-[10px] font-medium text-slate-600">
+                        bis zu 3
+                      </span>
+                    </p>
+                    <p className="mt-1 text-[11px] text-slate-500">
+                      Alle ausgewählten Rollen werden nach erfolgreicher Prüfung
+                      vergeben.
+                    </p>
+                  </div>
+                  <div className="grid gap-3 md:grid-cols-3">
+                    {[0, 1, 2].map((index) => (
+                      <Field
+                        key={index}
+                        label={
+                          index === 0 ? "Hauptrolle" : `Zusatzrolle ${index}`
+                        }
+                        required={index === 0}
+                      >
+                        <RolePicker
+                          guildId={guildId}
+                          value={verifiedRoleIds[index] || ""}
+                          onChange={(id) => setVerifiedRole(index, id)}
+                          placeholder={
+                            index === 0 ? "Rolle auswählen" : "Optional"
+                          }
+                        />
+                      </Field>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-slate-800 bg-black/10 p-4">
                   <Field
-                    label="Verifizierungs-Kanal"
-                    required
-                    hint="Dort wird das öffentliche One-Click-Panel gepostet."
-                  >
-                    <ChannelPicker
-                      guildId={guildId}
-                      value={p.value("verification_channel_id") || ""}
-                      onChange={(id) => p.set("verification_channel_id", id)}
-                      placeholder="Kanal auswählen"
-                      channelTypes={["0", "5"]}
-                    />
-                  </Field>
-                  <Field
-                    label="Verifiziert-Rolle"
-                    required
-                    hint="Diese Rolle wird nach erfolgreicher Prüfung vergeben."
+                    label="Unverifiziert-Rolle entfernen"
+                    hint="Optional: Eine Wartezimmer-Rolle nach erfolgreicher Verifizierung abnehmen."
                   >
                     <RolePicker
                       guildId={guildId}
-                      value={p.value("verified_role_id") || ""}
-                      onChange={(id) => p.set("verified_role_id", id)}
-                      placeholder="Rolle auswählen"
+                      value={p.value("unverified_role_id") || ""}
+                      onChange={(id) => p.set("unverified_role_id", id)}
+                      placeholder="Keine Rolle"
                     />
                   </Field>
+                  {p.value("unverified_role_id") && (
+                    <div className="mt-3">
+                      <InlineToggle
+                        checked={p.value("remove_unverified_role")}
+                        onCheckedChange={(value: boolean) =>
+                          p.set("remove_unverified_role", value)
+                        }
+                        label="Nach erfolgreicher Verifizierung entfernen"
+                      />
+                    </div>
+                  )}
                 </div>
                 <div className="grid gap-2 sm:grid-cols-3">
                   {[
@@ -498,52 +566,6 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
                       </span>
                     </div>
                   ))}
-                </div>
-              </Section>
-
-              <Section
-                icon={Shield}
-                title="So funktioniert die Prüfung"
-                subtitle="Transparent, datensparsam und ohne unnötige Discord-Rechte."
-                tone="emerald"
-              >
-                <div className="grid gap-3 sm:grid-cols-3">
-                  {[
-                    ["1", "Ein Klick", "Mitglied öffnet Discord OAuth2."],
-                    [
-                      "2",
-                      "Sicher prüfen",
-                      "Identität und Serverliste werden kurz geprüft.",
-                    ],
-                    [
-                      "3",
-                      "Rolle erhalten",
-                      "University Bot vergibt die konfigurierte Rolle.",
-                    ],
-                  ].map(([number, title, text]) => (
-                    <div
-                      key={number}
-                      className="rounded-xl border border-slate-800 bg-[#0b0e16] p-4"
-                    >
-                      <span className="mb-3 grid h-7 w-7 place-items-center rounded-lg bg-blue-500/10 text-xs font-black text-blue-300">
-                        {number}
-                      </span>
-                      <p className="text-sm font-bold text-white">{title}</p>
-                      <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
-                        {text}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-                <div className="flex gap-3 rounded-xl border border-blue-500/15 bg-blue-500/[0.05] p-3.5">
-                  <LockKeyhole className="mt-0.5 h-4 w-4 shrink-0 text-blue-300" />
-                  <p className="text-[11px] leading-relaxed text-slate-400">
-                    Es werden ausschließlich die Discord-Scopes{" "}
-                    <b className="text-slate-200">identify</b> und{" "}
-                    <b className="text-slate-200">guilds</b> verwendet. Token
-                    und vollständige Serverliste werden nach der Prüfung nicht
-                    gespeichert.
-                  </p>
                 </div>
               </Section>
             </>
@@ -707,10 +729,8 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
               ) : (
                 <div className="flex gap-3 rounded-xl border border-slate-800 bg-black/10 p-4">
                   <Info className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" />
-                  <p className="text-xs leading-relaxed text-slate-500">
-                    Ist die Blacklist ausgeschaltet, wird nur die
-                    Discord-Identität, das optionale Kontoalter und die
-                    Mitgliedschaft auf deinem Zielserver geprüft.
+                  <p className="text-xs text-slate-500">
+                    Die Server-Blacklist ist ausgeschaltet. OAuth2 bleibt aktiv.
                   </p>
                 </div>
               )}
@@ -843,26 +863,6 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
                     </span>
                   </div>
                 </Field>
-                <Field
-                  label="Unverifiziert-Rolle"
-                  hint="Eine vorhandene Wartezimmer-Rolle kann nach erfolgreicher Prüfung entfernt werden."
-                >
-                  <RolePicker
-                    guildId={guildId}
-                    value={p.value("unverified_role_id") || ""}
-                    onChange={(id) => p.set("unverified_role_id", id)}
-                    placeholder="Keine Rolle ausgewählt"
-                  />
-                </Field>
-                {p.value("unverified_role_id") && (
-                  <InlineToggle
-                    checked={p.value("remove_unverified_role")}
-                    onCheckedChange={(value: boolean) =>
-                      p.set("remove_unverified_role", value)
-                    }
-                    label="Unverifiziert-Rolle automatisch entfernen"
-                  />
-                )}
               </Section>
 
               <Section
@@ -1110,19 +1110,20 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
                     />
                   </p>
                 )}
-                <div className="mt-4 flex items-center justify-center gap-2 rounded-md bg-[#5865f2] px-3 py-2.5 text-[11px] font-bold text-white">
-                  <Shield className="h-3.5 w-3.5" />
-                  <DiscordEmojiText
-                    text={p.value("button_label") || "Mit Discord verifizieren"}
-                  />
+                <div className="mt-4 grid grid-cols-[1fr_auto] gap-2">
+                  <div className="flex items-center justify-center gap-2 rounded-md bg-[#5865f2] px-3 py-2.5 text-[11px] font-bold text-white">
+                    <Shield className="h-3.5 w-3.5" />
+                    <DiscordEmojiText
+                      text={p.value("button_label") || "Verifizieren"}
+                    />
+                  </div>
+                  <div className="flex items-center justify-center rounded-md bg-[#26272d] px-3 py-2.5 text-[10px] text-slate-500">
+                    {p.data?.verified_count ?? 0} Nutzer
+                  </div>
                 </div>
               </div>
-              <div className="mt-3 flex items-start gap-2 rounded-lg border border-emerald-500/10 bg-emerald-500/[0.04] p-2.5">
-                <LockKeyhole className="mt-0.5 h-3 w-3 shrink-0 text-emerald-400" />
-                <p className="text-[9px] leading-relaxed text-slate-500">
-                  Nur Identität und Servermitgliedschaften. Keine
-                  Token-Speicherung.
-                </p>
+              <div className="mt-3 rounded-lg border border-blue-500/10 bg-blue-500/[0.04] p-2 text-center text-[9px] font-bold uppercase tracking-widest text-blue-300">
+                OAuth2
               </div>
             </div>
           </div>
