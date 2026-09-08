@@ -3,6 +3,34 @@ import { AuthOptions } from "next-auth";
 
 const DISCORD_CLIENT_ID = process.env.DISCORD_CLIENT_ID || "";
 const DISCORD_CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET || "";
+const API_BASE_URL =
+  process.env.API_BASE_URL || `http://127.0.0.1:${process.env.PORT || 8080}/api/v1`;
+
+const revocationCache = new Map<string, { before: number; expires: number }>();
+
+async function revokedBefore(userId: string): Promise<number | null> {
+  const now = Date.now();
+  const cached = revocationCache.get(userId);
+  if (cached && cached.expires > now) return cached.before;
+  try {
+    const headers: Record<string, string> = {};
+    const key = process.env.DASHBOARD_API_KEY || "";
+    if (key) headers.Authorization = `Bearer ${key}`;
+    const response = await fetch(
+      `${API_BASE_URL}/bot/account/${userId}/session-valid?issued_at_ms=0`,
+      { headers, cache: "no-store", signal: AbortSignal.timeout(2000) },
+    );
+    if (!response.ok) return null;
+    const data = await response.json();
+    const before = Number(data?.revoked_before_ms || 0);
+    revocationCache.set(userId, { before, expires: now + 15_000 });
+    return before;
+  } catch {
+    // Ein Ausfall der Bot-API darf nicht alle Konten abmelden. Sobald sie
+    // wieder antwortet, greift der Widerruf spätestens nach 15 Sekunden.
+    return null;
+  }
+}
 
 export const authOptions: AuthOptions = {
   providers: [
@@ -50,15 +78,33 @@ export const authOptions: AuthOptions = {
       if (account) {
         token.accessToken = account.access_token;
         token.refreshToken = account.refresh_token;
+        token.sessionIssuedAtMs = Date.now();
+        token.sessionRevoked = false;
+      } else if (token.sub && !token.sessionRevoked) {
+        const before = await revokedBefore(String(token.sub));
+        const issued = Number(token.sessionIssuedAtMs || Number(token.iat || 0) * 1000);
+        if (before !== null && before > 0 && issued <= before) {
+          token.sessionRevoked = true;
+          delete token.accessToken;
+          delete token.refreshToken;
+        }
       }
       return token;
     },
     async session({ session, token }) {
+      if (token.sessionRevoked) {
+        delete (session as any).user;
+        delete (session as any).accessToken;
+        (session as any).revoked = true;
+        return session;
+      }
       if (session.user) {
         // @ts-ignore
         session.user.id = token.sub;
         // @ts-ignore
         session.accessToken = token.accessToken;
+        // @ts-ignore
+        session.sessionIssuedAtMs = token.sessionIssuedAtMs;
       }
       return session;
     },

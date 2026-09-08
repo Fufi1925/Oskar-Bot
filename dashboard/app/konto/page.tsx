@@ -9,6 +9,9 @@ import { SiteNav } from "@/components/site-nav";
 import { AccountLoginGate } from "@/components/account-login-gate";
 import { AccountActions } from "@/components/account-actions";
 import { AccountDangerZone } from "@/components/account-danger-zone";
+import { AccountActivityPanel } from "@/components/account-activity-panel";
+import { AccountPrivacyPanel } from "@/components/account-privacy-panel";
+import { AccountSecurityPanel } from "@/components/account-security-panel";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -85,6 +88,7 @@ export default async function AccountPage() {
     messages: number;
     highest_level: number;
     last_active: number;
+    activity?: any;
   } | null;
   const displayName = discordUser?.global_name || session.user.name || discordUser?.username || "Discord-Nutzer";
   const username = discordUser?.username || session.user.name || displayName;
@@ -141,6 +145,9 @@ export default async function AccountPage() {
           </div>
         </section>
 
+        <AccountActivityPanel activity={realStats?.activity || null} />
+        <AccountSecurityPanel userId={userId} />
+        <AccountPrivacyPanel userId={userId} />
         <AccountActions />
         <AccountDangerZone userId={userId} username={username} />
       </main>

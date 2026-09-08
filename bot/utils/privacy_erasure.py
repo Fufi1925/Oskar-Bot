@@ -128,6 +128,119 @@ def status_for(user_id: str) -> dict[str, Any] | None:
     return _row(row)
 
 
+def history_for(user_id: str) -> list[dict[str, Any]]:
+    """Alle eigenen Löschanträge, neuester zuerst, einschließlich Pseudonym."""
+    ensure()
+    uid = str(user_id)
+    anon = f"deleted:{subject_hash(uid)}"
+    with _connect() as conn:
+        rows = conn.execute(
+            "SELECT * FROM erasure_requests WHERE user_id IN (?,?)"
+            " ORDER BY requested_at DESC LIMIT 100",
+            (uid, anon),
+        ).fetchall()
+    return [_row(row) or {} for row in rows]
+
+
+def _export_rows(path: str, table: str, where: str, params: tuple) -> list[dict[str, Any]]:
+    """Defensiv eigene Zeilen lesen; fehlende optionale Tabellen sind leer."""
+    if not os.path.exists(path):
+        return []
+    try:
+        with _connect(path) as conn:
+            if not _table_exists(conn, table):
+                return []
+            rows = conn.execute(f"SELECT * FROM [{table}] WHERE {where}", params).fetchall()
+            return [dict(row) for row in rows]
+    except Exception as err:  # noqa: BLE001
+        print(f"[privacy] export {table} failed: {err}")
+        return []
+
+
+def subject_export(user_id: str) -> dict[str, Any]:
+    """Maschinenlesbare Kopie der direkt zum Konto gespeicherten Daten."""
+    uid = str(user_id)
+    datasets = {
+        "dashboard_login": _export_rows(
+            "db/admin_config.db", "dashboard_logins", "user_id=?", (uid,)
+        ),
+        "cookie_confirmations": _export_rows(
+            "db/cookie_consent.db", "cookie_consents", "user_id=?", (uid,)
+        ),
+        "leveling": _export_rows(
+            "db/leveling.db", "levels", "CAST(user_id AS TEXT)=?", (uid,)
+        ),
+        "leveling_activity": _export_rows(
+            "db/leveling.db", "account_activity_daily", "CAST(user_id AS TEXT)=?", (uid,)
+        ),
+        "team_application": _export_rows(
+            "db/web_apply.db", "web_applications", "CAST(user_id AS TEXT)=?", (uid,)
+        ),
+        "beta_applications": _export_rows(
+            "db/beta_applications.db", "beta_applications", "user_id=?", (uid,)
+        ),
+        "tester_feedback": _export_rows(
+            "db/tester_feedback.db", "tester_feedback", "user_id=?", (uid,)
+        ),
+        "premium_keys": _export_rows(
+            "db/premium.db", "premium_keys", "redeemed_by=?", (uid,)
+        ),
+        "premium_trials": _export_rows(
+            "db/premium_trial.db", "premium_trials", "user_id=?", (uid,)
+        ),
+        "premium_trial_resets": _export_rows(
+            "db/premium_trial.db", "premium_trial_resets", "user_id=?", (uid,)
+        ),
+        "premium_notices": _export_rows(
+            "db/premium_notice.db", "premium_notice", "user_id=?", (uid,)
+        ),
+        "dashboard_access": _export_rows(
+            "db/guild_dashboard_access.db", "dashboard_access_users",
+            "CAST(user_id AS TEXT)=?", (uid,)
+        ),
+        "tester_feedback_votes": _export_rows(
+            "db/tester_feedback.db", "tester_feedback_votes", "user_id=?", (uid,)
+        ),
+        "tester_feedback_log": _export_rows(
+            "db/tester_feedback.db", "tester_feedback_log", "author=?", (uid,)
+        ),
+        "erasure_requests": history_for(uid),
+    }
+    try:
+        from utils import account_security
+        datasets["account_sessions"] = account_security.sessions_for(uid)
+    except Exception:  # pragma: no cover - Export bleibt auch ohne optionale DB nutzbar
+        datasets["account_sessions"] = []
+
+    descriptions = [
+        {"key": "dashboard_login", "label": "Dashboard-Profil und Anmeldezeitpunkte", "count": len(datasets["dashboard_login"]), "purpose": "Anmeldung und Kontosicherheit"},
+        {"key": "account_sessions", "label": "Geräte und Sitzungen", "count": len(datasets["account_sessions"]), "purpose": "Sicherheitswarnungen; keine IP-Adressen"},
+        {"key": "cookie_confirmations", "label": "Cookie-Hinweisbestätigungen", "count": len(datasets["cookie_confirmations"]), "purpose": "Nachweis des angezeigten Hinweises"},
+        {"key": "leveling", "label": "XP, Level und Nachrichtenanzahl", "count": len(datasets["leveling"]), "purpose": "Level-System auf Discord-Servern"},
+        {"key": "leveling_activity", "label": "Persönlicher Aktivitätsverlauf", "count": len(datasets["leveling_activity"]), "purpose": "7- und 30-Tage-Statistik"},
+        {"key": "team_application", "label": "Team-Bewerbung", "count": len(datasets["team_application"]), "purpose": "Bearbeitung deiner Bewerbung"},
+        {"key": "beta_applications", "label": "Premium-Beta-Anträge", "count": len(datasets["beta_applications"]), "purpose": "Prüfung und Verwaltung des Zugangs"},
+        {"key": "tester_feedback", "label": "Tester-Feedback, Bewertungen und Verlauf", "count": len(datasets["tester_feedback"]) + len(datasets["tester_feedback_votes"]) + len(datasets["tester_feedback_log"]), "purpose": "Nachverfolgung deiner Meldungen"},
+        {"key": "premium", "label": "Premium-Zuordnung, Testphase und Hinweise", "count": len(datasets["premium_keys"]) + len(datasets["premium_trials"]) + len(datasets["premium_trial_resets"]) + len(datasets["premium_notices"]), "purpose": "Bereitstellung und Missbrauchsschutz"},
+        {"key": "dashboard_access", "label": "Vom Serverinhaber erteilter Dashboard-Zugang", "count": len(datasets["dashboard_access"]), "purpose": "Zugriff auf die Verwaltung bestimmter Discord-Server"},
+        {"key": "erasure_requests", "label": "Datenschutz- und Löschanträge", "count": len(datasets["erasure_requests"]), "purpose": "Bearbeitung und Nachweis deiner Anträge"},
+        {"key": "guild_content", "label": "Serverinhalte, Sprachaktivität und Moderationsnachweise", "count": None, "purpose": "Vom jeweiligen Discord-Server verwaltete Inhalte; können gesetzlichen oder berechtigten Aufbewahrungsgründen unterliegen"},
+        {"key": "security_records", "label": "Banns und erforderliche Sicherheitsnachweise", "count": None, "purpose": "Missbrauchsschutz und Durchsetzung der Nutzungsbedingungen"},
+    ]
+    return {
+        "format": "University Bot data export",
+        "exported_at": int(time.time()),
+        "subject": uid,
+        "inventory": descriptions,
+        "data": datasets,
+        "retained_exceptions": [
+            "Erforderliche Moderations- und Sicherheitsnachweise",
+            "Servereinstellungen anderer Verantwortlicher",
+            "XP und Leveling-Daten, soweit der jeweilige Server verantwortlich ist",
+        ],
+    }
+
+
 def pending_notifications() -> list[dict[str, Any]]:
     """Mature overdue requests and atomically claim their owner notification."""
     ensure()
@@ -262,6 +375,11 @@ def erase_subject(user_id: str, username: str = "") -> dict[str, int]:
         (anon, uid),
     )
     result["premium_notice"] = _delete("db/premium_notice.db", "premium_notice", "user_id = ?", (uid,))
+    try:
+        from utils import account_security
+        result["account_sessions"] = account_security.erase_subject(uid)
+    except Exception:  # pragma: no cover - eine optionale Tabelle blockiert keine Löschung
+        result["account_sessions"] = 0
 
     with _connect() as conn:
         conn.execute("INSERT OR IGNORE INTO erased_trial_subjects(subject_hash,erased_at) VALUES(?,?)", (digest, int(time.time())))

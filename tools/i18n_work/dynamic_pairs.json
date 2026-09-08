@@ -167,5 +167,9 @@
   "Webhook „{1}“ gelöscht.": "Webhook “{1}” deleted.",
   "Webhook „{1}“ wirklich löschen?": "Really delete webhook “{1}”?",
   "„{1}“ geladen — Kanal wählen und senden.": "“{1}” loaded — pick a channel and send.",
-  "„{1}“ vorbereitet — unten speichern, dann gilt es.": "“{1}” prepared — save below and it applies."
+  "„{1}“ vorbereitet — unten speichern, dann gilt es.": "“{1}” prepared — save below and it applies.",
+  "{1} gemessene Nachrichten": "{1} measured messages",
+  "{1} Nachrichten · {2} XP": "{1} messages · {2} XP",
+  "Nachrichtenaktivität der letzten {1} Tage": "Message activity over the last {1} days",
+  "Server {1}": "Server {1}"
 }

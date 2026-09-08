@@ -88,7 +88,33 @@ const API_BASE_URL =
  * immediate.
  */
 const banCache = new Map<string, { banned: boolean; reason: string; expires: number }>();
+const validityCache = new Map<string, { valid: boolean; expires: number }>();
 const BAN_TTL_MS = 15_000;
+const VALIDITY_TTL_MS = 15_000;
+
+async function isSessionValid(userId: string, issuedAtMs: number): Promise<boolean> {
+  if (!issuedAtMs) return true; // Existing sessions are upgraded by the NextAuth JWT callback.
+  const cacheKey = `${userId}:${issuedAtMs}`;
+  const now = Date.now();
+  const cached = validityCache.get(cacheKey);
+  if (cached && cached.expires > now) return cached.valid;
+
+  try {
+    const headers: Record<string, string> = {};
+    const key = process.env.DASHBOARD_API_KEY || "";
+    if (key) headers.Authorization = `Bearer ${key}`;
+    const res = await fetch(
+      `${API_BASE_URL}/bot/account/${encodeURIComponent(userId)}/session-valid?issued_at_ms=${issuedAtMs}`,
+      { headers, cache: "no-store", signal: AbortSignal.timeout(2000) },
+    );
+    if (!res.ok) return true; // API outages must not lock every account.
+    const valid = Boolean(((await res.json()) as { valid?: boolean }).valid);
+    validityCache.set(cacheKey, { valid, expires: now + VALIDITY_TTL_MS });
+    return valid;
+  } catch {
+    return true;
+  }
+}
 
 async function isBanned(userId: string): Promise<{ banned: boolean; reason: string }> {
   const now = Date.now();
@@ -122,7 +148,19 @@ const authGate = withAuth(
     const userId = request.nextauth?.token?.sub;
     if (!userId) return NextResponse.next();
 
-    const { banned, reason } = await isBanned(String(userId));
+    const issuedAtMs = Number(request.nextauth?.token?.sessionIssuedAtMs || 0);
+    const [valid, { banned, reason }] = await Promise.all([
+      isSessionValid(String(userId), issuedAtMs),
+      isBanned(String(userId)),
+    ]);
+    if (!valid) {
+      if (request.nextUrl.pathname.startsWith("/api/")) {
+        return NextResponse.json({ detail: "Session revoked." }, { status: 401 });
+      }
+      const url = new URL("/", request.url);
+      url.searchParams.set("error", "SessionRevoked");
+      return NextResponse.redirect(url);
+    }
     if (!banned) return NextResponse.next();
 
     // API calls get a clean 403, page loads get sent to the landing page with

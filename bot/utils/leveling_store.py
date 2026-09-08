@@ -121,6 +121,26 @@ async def ensure_schema(db: aiosqlite.Connection) -> None:
         "CREATE INDEX IF NOT EXISTS levels_guild_xp ON levels (guild_id, xp DESC)"
     )
 
+    # Tageswerte für den persönlichen Aktivitätsverlauf. Es wird nur ein
+    # Summensatz pro Nutzer, Server und UTC-Tag gespeichert; ältere Zeiträume
+    # vor Einführung dieser Tabelle bleiben ausdrücklich "nicht gemessen".
+    await db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS account_activity_daily (
+            day INTEGER NOT NULL,
+            guild_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            xp INTEGER NOT NULL DEFAULT 0,
+            messages INTEGER NOT NULL DEFAULT 0,
+            PRIMARY KEY (day, guild_id, user_id)
+        )
+        """
+    )
+    await db.execute(
+        "CREATE INDEX IF NOT EXISTS account_activity_user_day"
+        " ON account_activity_daily (user_id, day)"
+    )
+
     await db.execute(
         "CREATE TABLE IF NOT EXISTS leveling_settings (guild_id INTEGER PRIMARY KEY)"
     )
@@ -430,6 +450,96 @@ async def account_summary(db: aiosqlite.Connection, user_id: int) -> dict:
     }
 
 
+async def account_activity(db: aiosqlite.Connection, user_id: int, days: int = 30) -> dict:
+    """Tagesverlauf, aktivster Server und Fortschritt des besten Levels."""
+    await ensure_schema(db)
+    days = max(7, min(int(days), 30))
+    today = int(time.time() // 86400)
+    first_day = today - days + 1
+
+    async with db.execute(
+        "SELECT day, COALESCE(SUM(xp),0), COALESCE(SUM(messages),0)"
+        " FROM account_activity_daily WHERE user_id=? AND day>=?"
+        " GROUP BY day ORDER BY day",
+        (user_id, first_day),
+    ) as cursor:
+        rows = await cursor.fetchall()
+    values = {int(row[0]): (int(row[1]), int(row[2])) for row in rows}
+
+    async with db.execute(
+        "SELECT MIN(day) FROM account_activity_daily WHERE user_id=?",
+        (user_id,),
+    ) as cursor:
+        first = await cursor.fetchone()
+    recorded_since = int(first[0]) if first and first[0] is not None else None
+
+    daily = []
+    for day in range(first_day, today + 1):
+        xp, messages = values.get(day, (0, 0))
+        daily.append({
+            "day": day,
+            "xp": xp,
+            "messages": messages,
+            "known": recorded_since is not None and day >= recorded_since,
+        })
+
+    # Der aktivste Server richtet sich nach dem gemessenen 30-Tage-Zuwachs.
+    # Solange es noch keinen Verlauf gibt, ist der zuletzt benutzte Server die
+    # ehrliche Rückfallangabe und wird als solcher markiert.
+    async with db.execute(
+        "SELECT guild_id, SUM(xp) AS gained, SUM(messages) AS sent"
+        " FROM account_activity_daily WHERE user_id=? AND day>=?"
+        " GROUP BY guild_id ORDER BY sent DESC, gained DESC LIMIT 1",
+        (user_id, today - 29),
+    ) as cursor:
+        active = await cursor.fetchone()
+    active_measured = active is not None
+    if active is None:
+        async with db.execute(
+            "SELECT guild_id, 0, 0 FROM levels WHERE user_id=?"
+            " ORDER BY last_message DESC LIMIT 1",
+            (user_id,),
+        ) as cursor:
+            active = await cursor.fetchone()
+
+    async with db.execute(
+        "SELECT guild_id, xp, messages FROM levels WHERE user_id=?"
+        " ORDER BY xp DESC, last_message DESC LIMIT 1",
+        (user_id,),
+    ) as cursor:
+        best = await cursor.fetchone()
+
+    best_progress = None
+    if best:
+        level, current, needed = progress(int(best[1] or 0))
+        best_progress = {
+            "guild_id": str(best[0]),
+            "xp": int(best[1] or 0),
+            "messages": int(best[2] or 0),
+            "level": level,
+            "current": current,
+            "needed": needed,
+            "percent": round((current / needed * 100) if needed else 100, 1),
+        }
+
+    return {
+        "days": days,
+        "recorded_since": recorded_since,
+        "daily": daily,
+        "xp_7d": sum(item["xp"] for item in daily[-7:] if item["known"]),
+        "xp_30d": sum(item["xp"] for item in daily if item["known"]),
+        "messages_7d": sum(item["messages"] for item in daily[-7:] if item["known"]),
+        "messages_30d": sum(item["messages"] for item in daily if item["known"]),
+        "active_guild": ({
+            "guild_id": str(active[0]),
+            "xp": int(active[1] or 0),
+            "messages": int(active[2] or 0),
+            "measured": active_measured,
+        } if active else None),
+        "best_progress": best_progress,
+    }
+
+
 async def get_rank(db: aiosqlite.Connection, guild_id: int, user_id: int) -> int:
     """Position on the leaderboard, 1 being the top."""
     async with db.execute(
@@ -462,6 +572,14 @@ async def add_xp(
         "   messages = levels.messages + 1,"
         "   last_message = excluded.last_message",
         (guild_id, user_id, new_xp, time.time()),
+    )
+    await db.execute(
+        "INSERT INTO account_activity_daily(day,guild_id,user_id,xp,messages)"
+        " VALUES(?,?,?,?,1)"
+        " ON CONFLICT(day,guild_id,user_id) DO UPDATE SET"
+        " xp=account_activity_daily.xp+excluded.xp,"
+        " messages=account_activity_daily.messages+1",
+        (int(time.time() // 86400), guild_id, user_id, max(0, int(amount))),
     )
     await db.commit()
 

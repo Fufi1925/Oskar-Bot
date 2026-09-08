@@ -60,7 +60,7 @@ export function AccountDangerZone({ userId, username }: { userId: string; userna
   const status = request?.status;
 
   return (
-    <section className="overflow-hidden rounded-2xl border border-red-500/35 bg-red-950/15 shadow-lg shadow-red-950/10">
+    <section id="gefahrenbereich" className="overflow-hidden rounded-2xl border border-red-500/35 bg-red-950/15 shadow-lg shadow-red-950/10">
       <div className="border-b border-red-500/20 px-5 py-4 sm:px-6">
         <p className="text-xs font-bold uppercase tracking-[0.2em] text-red-400">Gefahrenbereich</p>
         <h2 className="mt-1 text-lg font-bold text-white">Konto und Daten</h2>

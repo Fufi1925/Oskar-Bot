@@ -12,10 +12,11 @@
 # ║                                                                  ║
 # ╚══════════════════════════════════════════════════════════════════╝
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from api.dependencies import get_bot
 from api.schemas import BotInfo, BotStatus
 from typing import TYPE_CHECKING
+import time
 from utils.config import *
 
 
@@ -127,8 +128,8 @@ async def get_numbers(bot: "universitybot" = Depends(get_bot)):
 
 
 @router.get("/account/{user_id}", summary="Eigene kontoübergreifende Bot-Statistik")
-async def get_account(user_id: int):
-    """Leveling-Werte des angemeldeten Kontos über alle Server hinweg.
+async def get_account(user_id: int, bot: "universitybot" = Depends(get_bot)):
+    """Leveling-Werte und gemessener Verlauf über alle Server hinweg.
 
     Die API liefert nur Bot-Daten. Discord-Profil, Serverrechte und Premium
     ergänzt die Website aus ihren jeweils maßgeblichen Quellen. Im BFF wird
@@ -138,7 +139,75 @@ async def get_account(user_id: int):
     from utils import leveling_store
 
     db = await db_manager.get_connection(leveling_store.DB_PATH)
-    return await leveling_store.account_summary(db, user_id)
+    summary = await leveling_store.account_summary(db, user_id)
+    activity = await leveling_store.account_activity(db, user_id, 30)
+
+    # Namen kommen aus Discords aktuellem Cache, nicht aus einer zweiten
+    # Datenbank. Ist der Server nicht mehr erreichbar, bleibt die ID sichtbar.
+    for key in ("active_guild", "best_progress"):
+        item = activity.get(key)
+        if not item:
+            continue
+        guild = bot.get_guild(int(item["guild_id"]))
+        item["guild_name"] = guild.name if guild else None
+
+    return {**summary, "activity": activity}
+
+
+@router.post("/account/{user_id}/session", summary="Aktuelle Kontoanmeldung merken")
+async def record_account_session(user_id: int, request: Request):
+    from utils import account_security
+
+    return account_security.record_session(
+        str(user_id), request.headers.get("user-agent", "")
+    )
+
+
+@router.get("/account/{user_id}/security", summary="Eigene Sitzungen und Sicherheit")
+async def get_account_security(user_id: int, request: Request):
+    from utils import account_security, dashboard_access
+
+    current_device, _ = account_security.describe_device(
+        request.headers.get("user-agent", "")
+    )
+    login = await dashboard_access.get_login(str(user_id))
+    sessions = account_security.sessions_for(str(user_id))
+    current_session = next(
+        (item for item in sessions if item.get("device") == current_device), None
+    )
+    return {
+        "current_device": current_device,
+        "current_login": int((current_session or {}).get("created_at") or 0),
+        "current_time": int(time.time()),
+        "last_login": int((login or {}).get("last_seen") or 0),
+        "first_login": int((login or {}).get("first_seen") or 0),
+        "login_count": int((login or {}).get("login_count") or 0),
+        "unusual": bool(sessions and sessions[0].get("unusual")),
+        "sessions": sessions,
+        "permissions": [
+            {"scope": "identify", "label": "Discord-Identität", "detail": "Name, ID und Profilbild lesen"},
+            {"scope": "guilds", "label": "Discord-Serverliste", "detail": "Server und deine Verwaltungsrechte lesen"},
+        ],
+        "not_granted": ["E-Mail-Adresse", "Nachrichten lesen", "Discord-Passwort"],
+    }
+
+
+@router.post("/account/{user_id}/revoke", summary="Alle Dashboard-Sitzungen widerrufen")
+async def revoke_account_sessions(user_id: int):
+    from utils import account_security
+
+    return {"revoked_before_ms": account_security.revoke_all(str(user_id))}
+
+
+@router.get("/account/{user_id}/session-valid", summary="JWT-Widerruf prüfen")
+async def account_session_valid(user_id: int, issued_at_ms: int = 0):
+    from utils import account_security
+
+    revoked = account_security.revoked_before(str(user_id))
+    return {
+        "valid": not revoked or int(issued_at_ms or 0) > revoked,
+        "revoked_before_ms": revoked,
+    }
 
 
 @router.get("/profiles", summary="Public Discord profiles by id")

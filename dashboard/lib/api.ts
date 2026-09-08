@@ -141,11 +141,24 @@ export const api = {
     messages: number;
     highest_level: number;
     last_active: number;
+    activity?: any;
   }>(`/bot/account/${userId}`),
+  recordAccountSession: (userId: string) =>
+    request<any>(`/bot/account/${userId}/session`, { method: "POST", body: "{}" }),
+  getAccountSecurity: (userId: string) =>
+    request<any>(`/bot/account/${userId}/security`),
+  revokeAccountSessions: (userId: string) =>
+    request<any>(`/bot/account/${userId}/revoke`, { method: "POST", body: "{}" }),
 
   // Reviewed erasure requests. User and actor IDs are injected by the BFF.
   getMyErasureRequest: (userId: string) =>
     request<any>(`/privacy/status/${userId}`),
+  getMyErasureRequests: (userId: string) =>
+    request<any>(`/privacy/requests/${userId}`),
+  getMyPrivacyInventory: (userId: string) =>
+    request<any>(`/privacy/inventory/${userId}`),
+  exportMyData: (userId: string) =>
+    request<any>(`/privacy/export/${userId}`),
   requestErasure: () => request<any>("/privacy/request", {
     method: "POST", body: JSON.stringify({}),
   }),

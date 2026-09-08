@@ -73,6 +73,26 @@ async def erasure_status(user_id: str):
     return {"request": store.status_for(user_id)}
 
 
+@router.get("/requests/{user_id}", summary="Eigene vergangene Datenschutzanträge")
+async def erasure_history(user_id: str):
+    return {"requests": store.history_for(user_id)}
+
+
+@router.get("/inventory/{user_id}", summary="Eigene gespeicherte Daten auflisten")
+async def privacy_inventory(user_id: str):
+    exported = store.subject_export(user_id)
+    return {
+        "exported_at": exported["exported_at"],
+        "inventory": exported["inventory"],
+        "retained_exceptions": exported["retained_exceptions"],
+    }
+
+
+@router.get("/export/{user_id}", summary="Eigene Daten herunterladen")
+async def privacy_export(user_id: str):
+    return store.subject_export(user_id)
+
+
 @router.post("/cancel", summary="Löschantrag während der Frist zurücknehmen")
 async def cancel_erasure(data: dict):
     ok = store.cancel(str(data.get("request_id") or ""), str(data.get("user_id") or ""))

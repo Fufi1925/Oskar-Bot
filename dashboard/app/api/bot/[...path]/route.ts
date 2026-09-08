@@ -1515,9 +1515,9 @@ async function authorize(
       return { ok: true };
     }
 
-    if (rest[0] === "status") {
+    if (["status", "requests", "inventory", "export"].includes(rest[0] ?? "")) {
       if (request.method !== "GET" || rest[1] !== session.user.id) {
-        return { ok: false, response: deny(403, "Only your own request is available.") };
+        return { ok: false, response: deny(403, "Only your own privacy data is available.") };
       }
       return { ok: true };
     }
@@ -1535,9 +1535,14 @@ async function authorize(
     if (rest[0] === "account") {
       const session = await getServerSession(authOptions);
       if (!session?.user?.id) return { ok: false, response: deny(401, "Not signed in.") };
-      if (request.method !== "GET" || rest[1] !== session.user.id) {
+      if (rest[1] !== session.user.id) {
         return { ok: false, response: deny(403, "Only your own account is available.") };
       }
+      const action = rest[2] ?? "";
+      const allowed =
+        (request.method === "GET" && ["", "security", "session-valid"].includes(action)) ||
+        (request.method === "POST" && ["session", "revoke"].includes(action));
+      if (!allowed) return { ok: false, response: deny(404, "Unknown account action.") };
       return { ok: true };
     }
 

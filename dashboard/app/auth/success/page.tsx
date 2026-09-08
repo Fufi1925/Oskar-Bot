@@ -4,6 +4,7 @@ import React, { useEffect } from "react";
 import { Check } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
+import { api } from "@/lib/api";
 
 /**
  * Deliberate post-login step. It is a real route rather than a toast on the
@@ -12,7 +13,8 @@ import { useSession } from "next-auth/react";
  */
 export default function LoginSuccessPage() {
   const router = useRouter();
-  const { status } = useSession();
+  const { data: session, status } = useSession();
+  const sessionUserId = (session?.user as { id?: string } | undefined)?.id;
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -21,13 +23,19 @@ export default function LoginSuccessPage() {
     }
     if (status !== "authenticated") return;
 
+    if (sessionUserId) {
+      // Nebenläufig: Die wichtige Erfolgsmeldung bleibt zuerst sichtbar und
+      // wartet nicht auf die Sicherheitsprotokollierung.
+      void api.recordAccountSession(sessionUserId).catch(() => {});
+    }
+
     const requested = new URLSearchParams(window.location.search).get("next") || "/dashboard";
     const destination = requested.startsWith("/") && !requested.startsWith("//")
       ? requested
       : "/dashboard";
     const timer = window.setTimeout(() => router.replace(destination), 1800);
     return () => window.clearTimeout(timer);
-  }, [router, status]);
+  }, [router, sessionUserId, status]);
 
   return (
     <main className="fixed inset-0 z-[10000] grid min-h-screen place-items-center overflow-hidden bg-[#070708] px-5">
