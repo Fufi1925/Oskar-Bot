@@ -47,7 +47,11 @@ const statusLabel: Record<string, string> = {
   target_unavailable: "Ziel nicht erreichbar",
   scope_missing: "Nicht autorisiert",
   not_requested: "Nicht autorisiert",
-  authorized_waiting: "Autorisiert · Ziel fehlte",
+  authorized_waiting: "Autorisiert",
+  authorized: "Autorisiert",
+  authorization_expired: "Erneut autorisieren",
+  authorization_revoked: "Autorisierung entfernt",
+  authorization_store_failed: "Autorisierung fehlgeschlagen",
 };
 
 export function UserPullPanel({ guildId }: { guildId: string }) {
@@ -66,6 +70,7 @@ export function UserPullPanel({ guildId }: { guildId: string }) {
   const [code, setCode] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
+  const [pullingMember, setPullingMember] = useState<string | null>(null);
   const [search, setSearch] = useState("");
 
   const load = useCallback(async () => {
@@ -155,6 +160,20 @@ export function UserPullPanel({ guildId }: { guildId: string }) {
     }
   };
 
+  const pullMember = async (userId: string) => {
+    setPullingMember(userId);
+    setNotice("");
+    try {
+      await api.pullMember(guildId, userId);
+      setNotice("Mitglied wurde erfolgreich zum bestätigten Zielserver gepullt.");
+      await load();
+    } catch (error: any) {
+      setNotice(error?.message || "Mitglied konnte nicht gepullt werden.");
+    } finally {
+      setPullingMember(null);
+    }
+  };
+
   const disable = async () => {
     setBusy(true);
     try {
@@ -200,8 +219,8 @@ export function UserPullPanel({ guildId }: { guildId: string }) {
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
               Nur zukünftige Nutzer, die beim Verifizieren ausdrücklich{" "}
               <b className="text-slate-200">guilds.join</b> erlauben, werden
-              hinzugefügt. Keine vorhandenen Mitglieder und keine OAuth-Tokens
-              werden gespeichert.
+              für den manuellen Pull vorgemerkt. Access-Tokens werden nie gespeichert;
+              die widerrufbare Refresh-Autorisierung liegt verschlüsselt vor.
             </p>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row lg:flex-col">
@@ -233,7 +252,7 @@ export function UserPullPanel({ guildId }: { guildId: string }) {
         <Stat icon={Users} label="Verifiziert" value={members.length} />
         <Stat icon={UserCheck} label="Gepullt" value={pulled} />
         <Stat icon={ShieldCheck} label="Modus" value="Nur neue" />
-        <Stat icon={KeyRound} label="Tokens gespeichert" value="0" />
+        <Stat icon={KeyRound} label="Access-Tokens gespeichert" value="0" />
       </div>
 
       <section className="rounded-2xl border border-white/10 bg-slate-950/55 p-4 sm:p-6">
@@ -265,7 +284,13 @@ export function UserPullPanel({ guildId }: { guildId: string }) {
         ) : (
           <div className="divide-y divide-white/[0.06]">
             {shown.map((member) => (
-              <MemberRow key={member.id} member={member} />
+              <MemberRow
+                key={member.id}
+                member={member}
+                canPull={ready && member.pull_status === "authorized"}
+                busy={pullingMember === member.id}
+                onPull={() => pullMember(member.id)}
+              />
             ))}
           </div>
         )}
@@ -275,47 +300,54 @@ export function UserPullPanel({ guildId }: { guildId: string }) {
         <Modal title="Zielserver verbinden" onClose={() => setSetupOpen(false)}>
           <div className="space-y-5">
             <p className="text-sm leading-6 text-slate-400">
-              University Bot muss auf dem Zielserver sein. Der tatsächliche
-              Inhaber muss bei beiden Servern identisch sein.
+              University Bot muss auf dem Zielserver sein. Der Zielserver darf
+              einen anderen Inhaber haben; dessen Zustimmung wird durch den
+              vierstelligen Code im Systemkanal bestätigt.
             </p>
             <label className="block">
               <span className="mb-2 block text-sm font-semibold text-slate-200">
-                Zielserver
+                Zielserver-ID
               </span>
-              <select
+              <input
+                inputMode="numeric"
+                list="pull-owned-targets"
                 value={selectedTarget}
                 onChange={(e) => {
-                  setSelectedTarget(e.target.value);
+                  setSelectedTarget(e.target.value.replace(/\D/g, "").slice(0, 20));
                   setSelectedRole("");
                 }}
-                className="min-h-12 w-full rounded-xl border border-white/10 bg-slate-900 px-3 text-white outline-none focus:border-blue-500"
-              >
-                <option value="">Server auswählen</option>
-                {targets.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.name}
-                  </option>
-                ))}
-              </select>
+                placeholder="Discord-Server-ID eingeben"
+                className="min-h-12 w-full rounded-xl border border-white/10 bg-slate-900 px-3 font-mono text-white outline-none focus:border-blue-500"
+              />
+              <datalist id="pull-owned-targets">
+                {targets.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+              </datalist>
             </label>
             <label className="block">
               <span className="mb-2 block text-sm font-semibold text-slate-200">
                 Besondere Zielrolle{" "}
                 <span className="font-normal text-slate-500">(optional)</span>
               </span>
-              <select
-                disabled={!chosen}
-                value={selectedRole}
-                onChange={(e) => setSelectedRole(e.target.value)}
-                className="min-h-12 w-full rounded-xl border border-white/10 bg-slate-900 px-3 text-white outline-none disabled:opacity-50"
-              >
-                <option value="">Keine zusätzliche Rolle</option>
-                {chosen?.roles.map((role) => (
-                  <option key={role.id} value={role.id}>
-                    {role.name}
-                  </option>
-                ))}
-              </select>
+              {chosen ? (
+                <select
+                  value={selectedRole}
+                  onChange={(e) => setSelectedRole(e.target.value)}
+                  className="min-h-12 w-full rounded-xl border border-white/10 bg-slate-900 px-3 text-white outline-none"
+                >
+                  <option value="">Keine zusätzliche Rolle</option>
+                  {chosen.roles.map((role) => (
+                    <option key={role.id} value={role.id}>{role.name}</option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  inputMode="numeric"
+                  value={selectedRole}
+                  onChange={(e) => setSelectedRole(e.target.value.replace(/\D/g, "").slice(0, 20))}
+                  placeholder="Optional: Discord-Rollen-ID"
+                  className="min-h-12 w-full rounded-xl border border-white/10 bg-slate-900 px-3 font-mono text-white outline-none"
+                />
+              )}
             </label>
             {chosen && (
               <div className="rounded-xl border border-blue-500/20 bg-blue-500/[0.07] p-3 text-sm text-blue-100">
@@ -325,7 +357,7 @@ export function UserPullPanel({ guildId }: { guildId: string }) {
             )}
             <button
               onClick={sendCode}
-              disabled={!selectedTarget || !chosen?.system_channel || busy}
+              disabled={!/^\d{17,20}$/.test(selectedTarget) || busy}
               className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 font-bold text-white hover:bg-blue-500 disabled:opacity-50"
             >
               Code senden <ArrowRight className="h-4 w-4" />
@@ -391,10 +423,14 @@ function Stat({
     </div>
   );
 }
-function MemberRow({ member }: { member: PullMember }) {
+function MemberRow({
+  member, canPull, busy, onPull,
+}: {
+  member: PullMember; canPull: boolean; busy: boolean; onPull: () => void;
+}) {
   const good = member.pull_status === "joined";
   return (
-    <div className="grid gap-3 py-4 sm:grid-cols-[minmax(0,1fr)_170px_150px] sm:items-center">
+    <div className="grid gap-3 py-4 sm:grid-cols-[minmax(0,1fr)_150px_140px_auto] sm:items-center">
       <div className="flex min-w-0 items-center gap-3">
         {member.avatar ? (
           <img
@@ -429,6 +465,14 @@ function MemberRow({ member }: { member: PullMember }) {
       >
         {statusLabel[member.pull_status] || member.pull_status}
       </div>
+      <button
+        type="button"
+        disabled={!canPull || busy}
+        onClick={onPull}
+        className="min-h-9 rounded-lg bg-blue-600 px-3 text-xs font-bold text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-35"
+      >
+        {busy ? "Pull läuft …" : good ? "Bereits gepullt" : "Manuell pullen"}
+      </button>
     </div>
   );
 }

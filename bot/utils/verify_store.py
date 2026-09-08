@@ -120,8 +120,8 @@ DEFAULTS: dict[str, Any] = {
         "gesperrt hat. Betroffener Server: **{blocked_server}**."
     ),
 
-    # Optional one-time guild join for future OAuth verifications. Access
-    # tokens are used immediately and never written to disk.
+    # Optional manual guild join for future OAuth verifications. Access tokens
+    # are never persisted; refresh grants are stored separately and encrypted.
     "user_pull_enabled": False,
     "user_pull_target_guild_id": None,
     "user_pull_role_id": None,

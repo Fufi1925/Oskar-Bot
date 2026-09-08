@@ -158,6 +158,25 @@ export default function PrivacyPage() {
         </p>
       </Section>
 
+      <Section title="Verifizierung und optionaler User Pull">
+        <p>
+          Die normale Server-Verifizierung prüft über Discord OAuth2 die
+          Discord-ID und die für die Server-Blacklist erforderlichen
+          Servermitgliedschaften. E-Mail-Adresse, IP-Adresse, Standort und
+          Gerät werden dabei nicht erhoben.
+        </p>
+        <p>
+          Schaltet der tatsächliche Serverinhaber „User Pull“ ein, wird
+          zusätzlich nach <strong className="text-slate-300">guilds.join</strong>
+          gefragt. Der Bot fügt niemanden automatisch hinzu. Für einen späteren,
+          manuellen Pull wird ausschließlich die widerrufbare
+          Refresh-Autorisierung verschlüsselt gespeichert; Access-Tokens werden
+          nicht gespeichert. Beim Ausschalten von User Pull werden diese
+          gespeicherten Autorisierungen des Servers gelöscht. Nutzer können den
+          Zugriff außerdem jederzeit in ihren Discord-Einstellungen widerrufen.
+        </p>
+      </Section>
+
       <Section title="Anmeldung am Dashboard">
         <p>
           Die Anmeldung läuft über Discord (OAuth2). Dabei erhalten wir von

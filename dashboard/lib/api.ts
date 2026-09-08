@@ -431,6 +431,11 @@ export const api = {
   getPullTargets: (g: string) => request<any>(`/verify/${g}/pull/targets`),
   getPullMembers: (g: string, query = "") =>
     request<any>(`/verify/${g}/pull/members?query=${encodeURIComponent(query)}`),
+  pullMember: (g: string, userId: string) =>
+    request<any>(`/verify/${g}/pull/members/${userId}`, {
+      method: "POST",
+      body: "{}",
+    }),
   createPullChallenge: (g: string, targetGuildId: string, roleId?: string) =>
     request<any>(`/verify/${g}/pull/challenge`, {
       method: "POST",

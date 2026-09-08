@@ -23,11 +23,14 @@ almost always the answer to "I set it and nothing happens".
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+import base64
 import hashlib
 import hmac
 import os
 import secrets
 from typing import TYPE_CHECKING
+
+import aiohttp
 
 import discord
 from fastapi import APIRouter, Depends, HTTPException
@@ -226,6 +229,64 @@ async def _ensure_pull_tables(db) -> None:
         " target_guild_id INTEGER NOT NULL, status TEXT NOT NULL,"
         " created_at TEXT NOT NULL, PRIMARY KEY (source_guild_id, user_id))"
     )
+    await db.execute(
+        "CREATE TABLE IF NOT EXISTS verification_pull_authorizations ("
+        " source_guild_id INTEGER NOT NULL, user_id INTEGER NOT NULL,"
+        " refresh_token_encrypted TEXT NOT NULL, updated_at TEXT NOT NULL,"
+        " PRIMARY KEY (source_guild_id, user_id))"
+    )
+    await db.commit()
+
+
+def _oauth_token_key() -> bytes:
+    secret = (os.getenv("OAUTH_TOKEN_SECRET") or os.getenv("DASHBOARD_API_KEY") or "").strip()
+    if not secret:
+        raise RuntimeError("OAUTH_TOKEN_SECRET or DASHBOARD_API_KEY is required")
+    return hashlib.sha256(("university-pull:" + secret).encode()).digest()
+
+
+def _token_keystream(key: bytes, nonce: bytes, length: int) -> bytes:
+    out = bytearray()
+    counter = 0
+    while len(out) < length:
+        out += hashlib.sha256(key + nonce + counter.to_bytes(4, "big")).digest()
+        counter += 1
+    return bytes(out[:length])
+
+
+def _encrypt_refresh_token(token: str) -> str:
+    key = _oauth_token_key()
+    nonce = secrets.token_bytes(16)
+    plain = token.encode()
+    cipher = bytes(a ^ b for a, b in zip(plain, _token_keystream(key, nonce, len(plain))))
+    tag = hmac.new(key, nonce + cipher, hashlib.sha256).digest()
+    return base64.urlsafe_b64encode(nonce + tag + cipher).decode()
+
+
+def _decrypt_refresh_token(blob: str) -> str | None:
+    try:
+        raw = base64.urlsafe_b64decode(blob.encode())
+    except (ValueError, UnicodeError):
+        return None
+    if len(raw) < 48:
+        return None
+    nonce, tag, cipher = raw[:16], raw[16:48], raw[48:]
+    key = _oauth_token_key()
+    if not hmac.compare_digest(tag, hmac.new(key, nonce + cipher, hashlib.sha256).digest()):
+        return None
+    try:
+        return bytes(a ^ b for a, b in zip(cipher, _token_keystream(key, nonce, len(cipher)))).decode()
+    except UnicodeDecodeError:
+        return None
+
+
+async def _save_pull_authorization(db, source_id: int, user_id: int, refresh_token: str):
+    encrypted = _encrypt_refresh_token(refresh_token)
+    await db.execute(
+        "INSERT OR REPLACE INTO verification_pull_authorizations"
+        " (source_guild_id, user_id, refresh_token_encrypted, updated_at) VALUES (?, ?, ?, ?)",
+        (source_id, user_id, encrypted, datetime.now(timezone.utc).isoformat()),
+    )
     await db.commit()
 
 
@@ -376,31 +437,24 @@ async def complete_oauth_verification(
     pull_status = None
     if settings.get("user_pull_enabled"):
         target_id = int(settings.get("user_pull_target_guild_id") or 0)
-        target = bot.get_guild(target_id) if target_id else None
-        access_token = str(data.get("access_token") or "")
+        refresh_token = str(data.get("refresh_token") or "")
         authorized = bool(data.get("guilds_join_authorized"))
-        if not access_token or not authorized:
+        if not refresh_token or not authorized:
             pull_status = "scope_missing"
-        elif target is None:
-            # The owner explicitly chose to request guilds.join before a
-            # target is configured. Record that consent, but never retain the
-            # token: this user cannot be moved later without authorizing again.
-            pull_status = "authorized_waiting"
         else:
-            payload = {"access_token": access_token}
-            pull_role_id = settings.get("user_pull_role_id")
-            if pull_role_id:
-                payload["roles"] = [str(pull_role_id)]
+            # Verification only records the explicit authorization. Joining a
+            # target is always a later, owner-triggered action from the Pull
+            # member list. A storage problem must never make Verify fail.
             try:
-                route = discord.http.Route(
-                    "PUT", "/guilds/{guild_id}/members/{user_id}",
-                    guild_id=target_id, user_id=member.id,
-                )
-                await run_on_bot_loop(bot.http.request(route, json=payload))
-                pull_status = "joined"
-            except (discord.Forbidden, discord.HTTPException):
-                pull_status = "join_failed"
-        await _record_pull_event(db, guild.id, member.id, target_id, pull_status)
+                await _ensure_pull_tables(db)
+                await _save_pull_authorization(db, guild.id, member.id, refresh_token)
+                pull_status = "authorized"
+            except Exception:
+                pull_status = "authorization_store_failed"
+        try:
+            await _record_pull_event(db, guild.id, member.id, target_id, pull_status)
+        except Exception:
+            pass
 
     unverified_id = settings.get("unverified_role_id")
     if settings.get("remove_unverified_role") and unverified_id:
@@ -507,7 +561,8 @@ async def create_pull_challenge(
     if not raw_target.isdigit():
         raise HTTPException(status_code=400, detail="Wähle einen Zielserver.")
     target = _guild_or_404(bot, int(raw_target))
-    _owner_or_403(target, actor)
+    # The target may belong to somebody else. Possession of the code sent to
+    # that server's owner is the target-side consent proof.
     channel = target.system_channel
     if channel is None or not hasattr(channel, "send"):
         raise HTTPException(status_code=400, detail="Der Zielserver hat keinen erreichbaren Systemkanal.")
@@ -595,7 +650,6 @@ async def confirm_pull_challenge(
     if not target_id.isdigit() or not code.isdigit() or len(code) != 4:
         raise HTTPException(status_code=400, detail="Gib den vierstelligen Code ein.")
     target = _guild_or_404(bot, int(target_id))
-    _owner_or_403(target, actor)
 
     db = await db_manager.get_connection(store.DB_PATH)
     await _ensure_pull_tables(db)
@@ -645,6 +699,17 @@ async def toggle_user_pull(
     enabled = bool(data.get("enabled"))
     db = await db_manager.get_connection(store.DB_PATH)
     await store.save_settings(db, guild_id, {"user_pull_enabled": enabled})
+    if not enabled:
+        await _ensure_pull_tables(db)
+        await db.execute(
+            "DELETE FROM verification_pull_authorizations WHERE source_guild_id = ?",
+            (guild_id,),
+        )
+        await db.execute(
+            "UPDATE verification_pull_events SET status = 'authorization_revoked'"
+            " WHERE source_guild_id = ? AND status = 'authorized'", (guild_id,),
+        )
+        await db.commit()
     return {
         "status": "enabled" if enabled else "disabled",
         "result": "User Pull aktiviert." if enabled else "User Pull deaktiviert.",
@@ -659,6 +724,87 @@ async def disable_user_pull(
     guild_id: int, actor: str = "", bot: "universitybot" = Depends(get_bot)
 ):
     return await toggle_user_pull(guild_id, {"enabled": False}, actor, bot)
+
+
+@router.post("/{guild_id}/pull/members/{user_id}", summary="Manually pull an authorized member")
+async def pull_authorized_member(
+    guild_id: int, user_id: int, actor: str = "",
+    bot: "universitybot" = Depends(get_bot),
+):
+    source = _guild_or_404(bot, guild_id)
+    _owner_or_403(source, actor)
+    db = await db_manager.get_connection(store.DB_PATH)
+    await _ensure_pull_tables(db)
+    settings = await store.get_settings(db, guild_id)
+    if not settings.get("user_pull_enabled"):
+        raise HTTPException(status_code=400, detail="Schalte User Pull zuerst ein.")
+    target_id = int(settings.get("user_pull_target_guild_id") or 0)
+    target = bot.get_guild(target_id) if target_id else None
+    if target is None:
+        raise HTTPException(status_code=400, detail="Bestätige zuerst einen Zielserver.")
+
+    async with db.execute(
+        "SELECT refresh_token_encrypted FROM verification_pull_authorizations"
+        " WHERE source_guild_id = ? AND user_id = ?", (guild_id, user_id),
+    ) as cursor:
+        authorization = await cursor.fetchone()
+    if authorization is None:
+        raise HTTPException(status_code=409, detail="Diese Person hat guilds.join noch nicht autorisiert.")
+    try:
+        refresh_token = _decrypt_refresh_token(authorization[0])
+    except RuntimeError:
+        raise HTTPException(status_code=503, detail="Die Token-Verschlüsselung ist nicht konfiguriert.")
+    if not refresh_token:
+        raise HTTPException(status_code=409, detail="Die Autorisierung ist nicht mehr verwendbar.")
+
+    client_id = os.getenv("DISCORD_CLIENT_ID", "").strip()
+    client_secret = os.getenv("DISCORD_CLIENT_SECRET", "").strip()
+    if not client_id or not client_secret:
+        raise HTTPException(status_code=503, detail="Discord OAuth ist nicht konfiguriert.")
+    async with aiohttp.ClientSession() as session:
+        async with session.post(
+            "https://discord.com/api/v10/oauth2/token",
+            data={
+                "client_id": client_id, "client_secret": client_secret,
+                "grant_type": "refresh_token", "refresh_token": refresh_token,
+            },
+        ) as response:
+            if response.status >= 400:
+                await db.execute(
+                    "DELETE FROM verification_pull_authorizations"
+                    " WHERE source_guild_id = ? AND user_id = ?", (guild_id, user_id),
+                )
+                await db.commit()
+                await _record_pull_event(db, guild_id, user_id, target_id, "authorization_expired")
+                raise HTTPException(status_code=409, detail="Die Person muss User Pull erneut autorisieren.")
+            token_data = await response.json()
+    access_token = str(token_data.get("access_token") or "")
+    rotated_refresh = str(token_data.get("refresh_token") or refresh_token)
+    scopes = str(token_data.get("scope") or "").split()
+    if not access_token or "guilds.join" not in scopes:
+        raise HTTPException(status_code=409, detail="Discord hat guilds.join nicht bestätigt.")
+
+    payload = {"access_token": access_token}
+    role_id = settings.get("user_pull_role_id")
+    if role_id:
+        role = target.get_role(int(role_id))
+        problem = _role_problem(target, role) if role else "Die Zielrolle gibt es nicht mehr."
+        if problem:
+            raise HTTPException(status_code=400, detail=problem)
+        payload["roles"] = [str(role_id)]
+    try:
+        route = discord.http.Route(
+            "PUT", "/guilds/{guild_id}/members/{user_id}",
+            guild_id=target_id, user_id=user_id,
+        )
+        await run_on_bot_loop(bot.http.request(route, json=payload))
+    except (discord.Forbidden, discord.HTTPException):
+        await _record_pull_event(db, guild_id, user_id, target_id, "join_failed")
+        raise HTTPException(status_code=409, detail="Discord konnte die Person nicht hinzufügen.")
+
+    await _save_pull_authorization(db, guild_id, user_id, rotated_refresh)
+    await _record_pull_event(db, guild_id, user_id, target_id, "joined")
+    return {"status": "joined", "result": "Mitglied wurde erfolgreich gepullt."}
 
 
 @router.get("/{guild_id}/pull/members", summary="Verified member list with Pull status")

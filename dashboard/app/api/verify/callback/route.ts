@@ -53,7 +53,9 @@ export async function GET(request: NextRequest) {
   }
 
   let accessToken = "";
+  let refreshToken = "";
   let guildsJoinAuthorized = false;
+  let pullAuthorizationStored = false;
   try {
     const tokenResponse = await fetch(`${DISCORD}/oauth2/token`, {
       method: "POST",
@@ -71,6 +73,7 @@ export async function GET(request: NextRequest) {
       throw new Error(`Discord token exchange failed: ${tokenResponse.status}`);
     const token = await tokenResponse.json();
     accessToken = String(token.access_token || "");
+    refreshToken = String(token.refresh_token || "");
     guildsJoinAuthorized = String(token.scope || "")
       .split(/\s+/)
       .includes("guilds.join");
@@ -100,7 +103,9 @@ export async function GET(request: NextRequest) {
         user: { id: user.id },
         // Used only by the bot's immediate guilds.join request when Pull is
         // active. Neither service persists this short-lived token.
-        access_token: accessToken,
+        // The bot stores only an authenticated encrypted refresh token when
+        // the user expressly granted guilds.join. It never stores accessToken.
+        refresh_token: refreshToken,
         guilds_join_authorized: guildsJoinAuthorized,
         guilds: Array.isArray(guilds)
           ? guilds.map((guild: any) => ({
@@ -114,6 +119,7 @@ export async function GET(request: NextRequest) {
     if (!completion.ok)
       throw new Error(`Bot completion failed: ${completion.status}`);
     const outcome = await completion.json();
+    pullAuthorizationStored = outcome.pull_status === "authorized";
     return resultRedirect({
       guild_id: state.guildId,
       guild_name: outcome.guild_name,
@@ -131,9 +137,11 @@ export async function GET(request: NextRequest) {
       reason: "verification_failed",
     });
   } finally {
-    // Verification needs the token for seconds, not months. Revoke it as soon
-    // as identity and memberships have been checked; nothing is persisted.
-    if (accessToken) {
+    // Ordinary verification needs the token for seconds, so revoke it. For
+    // explicitly authorized manual Pull, revocation would also invalidate the
+    // encrypted refresh grant retained by the bot; the access token is still
+    // never stored and expires normally.
+    if (accessToken && !pullAuthorizationStored) {
       await fetch(`${DISCORD}/oauth2/token/revoke`, {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },

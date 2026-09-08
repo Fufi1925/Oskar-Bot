@@ -57,7 +57,7 @@ check("Verifizierung bleibt im Schutz-Tab aufklappbar",
       and "Verifizierung aufklappen" in NAV)
 check("Unterpunkt heißt Pull", 'name: "Pull"' in NAV)
 check("eigene responsive Pull-Seite", "sm:place-items-center" in PULL and "UserPullPanel" in PULL)
-check("nur zukünftige Nutzer werden beschrieben", "Nur zukünftige" in PULL and "Keine vorhandenen Mitglieder" in PULL)
+check("nur zukünftige Nutzer werden beschrieben", "Nur zukünftige" in PULL and "manuellen Pull" in PULL)
 check("minimale Mitgliederdaten", all(value in PULL for value in ("Discord-ID", "verified_at", "pull_status", "avatar")))
 check("keine sensiblen Mitgliederdaten", all(value not in PULL.lower() for value in ("ip-adresse", "standort", "gerät", "e-mail")))
 check("Owner-Sperransicht ist blau", "Inhaberzugriff erforderlich" in PULL and "border-blue-500/20" in PULL)
@@ -65,7 +65,10 @@ check("Pull-BFF ist strikt owner-only", 'rest[1] === "pull"' in BFF and "ownsGui
 check("guilds.join wird nur bei eingeschaltetem Pull angefordert",
       "if (settings.user_pull_enabled)" in OAUTH_START
       and 'scopes += " guilds.join"' in OAUTH_START)
-check("Access-Token wird nur unmittelbar weitergereicht", "access_token: accessToken" in OAUTH_CALLBACK and "finally" in OAUTH_CALLBACK and "/oauth2/token/revoke" in OAUTH_CALLBACK)
+check("Access-Token wird nie gespeichert und Pull nutzt Refresh-Autorisierung",
+      "refresh_token: refreshToken" in OAUTH_CALLBACK
+      and "access_token: accessToken" not in OAUTH_CALLBACK
+      and "pullAuthorizationStored" in OAUTH_CALLBACK)
 
 print(f"\n{len(failures)} Fehler")
 for failure in failures:

@@ -833,6 +833,8 @@ async def test_api(store):
     # reload cannot create a second Discord message.
     target = Guild(GUILD + 1)
     target.name = "Zielserver"
+    target.owner_id = 778
+    target.owner = Member(target.owner_id)
     target.me.top_role = Role(9998, "bot", 100)
     target_role = Role(8801, "Pull-Mitglied", 5)
     target._roles[target_role.id] = target_role
@@ -844,9 +846,8 @@ async def test_api(store):
     r = client.get(f"{base}/pull/targets?actor=123")
     check("a non-owner cannot list Pull targets", r.status_code == 403, r.text[:120])
     r = client.get(f"{base}/pull/targets?actor={guild.owner_id}")
-    check("the real owner sees only owned bot guilds",
-          r.status_code == 200 and r.json()["targets"][0]["id"] == str(target.id),
-          r.text[:180])
+    check("foreign target servers are not disclosed in the suggestion list",
+          r.status_code == 200 and r.json()["targets"] == [], r.text[:180])
     r = client.post(f"{base}/pull/toggle?actor={guild.owner_id}", json={"enabled": True})
     check("the simple switch can request guilds.join before a target exists",
           r.status_code == 200 and r.json().get("needs_target") is True,
@@ -948,27 +949,60 @@ async def test_api(store):
     pulled_member = Member(334)
     guild._members[pulled_member.id] = pulled_member
     bot.http_calls.clear()
+    os.environ["OAUTH_TOKEN_SECRET"] = "test-only-pull-encryption-secret"
     r = client.post("/api/v1/verify/oauth/complete", json={
         "guild_id": str(GUILD), "user": {"id": str(pulled_member.id)},
-        "guilds": [], "access_token": "one-time-test-token",
+        "guilds": [], "refresh_token": "manual-pull-refresh-token",
         "guilds_join_authorized": True,
     })
     outcome = r.json()
-    check("a future consenting verification is immediately added to the target",
-          r.status_code == 200 and outcome.get("pull_status") == "joined"
-          and len(bot.http_calls) == 1
-          and bot.http_calls[0]["json"]["access_token"] == "one-time-test-token"
-          and bot.http_calls[0]["json"]["roles"] == [str(target_role.id)],
-          r.text[:220])
+    check("verification records authorization without automatically pulling",
+          r.status_code == 200 and outcome.get("pull_status") == "authorized"
+          and len(bot.http_calls) == 0, r.text[:220])
     with sqlite3.connect(store.DB_PATH) as pull_db:
-        serialized_db = " ".join(
-            str(value) for row in pull_db.execute(
-                "SELECT source_guild_id, user_id, target_guild_id, status, created_at "
-                "FROM verification_pull_events"
-            ) for value in row
+        encrypted = pull_db.execute(
+            "SELECT refresh_token_encrypted FROM verification_pull_authorizations"
+            " WHERE source_guild_id = ? AND user_id = ?", (GUILD, pulled_member.id),
+        ).fetchone()[0]
+    check("the refresh token is authenticated and encrypted at rest",
+          encrypted != "manual-pull-refresh-token"
+          and "manual-pull-refresh-token" not in encrypted,
+          encrypted[:80])
+
+    import api.routes.verify as verify_route
+    class RefreshResponse:
+        status = 200
+        async def __aenter__(self): return self
+        async def __aexit__(self, *args): return None
+        async def json(self):
+            return {
+                "access_token": "manual-access-only",
+                "refresh_token": "rotated-refresh-token",
+                "scope": "identify guilds guilds.join",
+            }
+    class RefreshSession:
+        async def __aenter__(self): return self
+        async def __aexit__(self, *args): return None
+        def post(self, *args, **kwargs): return RefreshResponse()
+    old_session = verify_route.aiohttp.ClientSession
+    verify_route.aiohttp.ClientSession = RefreshSession
+    os.environ["DISCORD_CLIENT_ID"] = "test-client"
+    os.environ["DISCORD_CLIENT_SECRET"] = "test-secret"
+    bot.http_calls.clear()
+    try:
+        r = client.post(
+            f"{base}/pull/members/{pulled_member.id}?actor={guild.owner_id}", json={}
         )
-    check("the one-time OAuth token is not persisted",
-          "one-time-test-token" not in serialized_db, serialized_db[:240])
+    finally:
+        verify_route.aiohttp.ClientSession = old_session
+    check("only the source owner can manually pull an authorized member",
+          r.status_code == 200 and r.json().get("status") == "joined"
+          and len(bot.http_calls) == 1
+          and bot.http_calls[0]["json"]["access_token"] == "manual-access-only",
+          r.text[:220])
+    check("the optional target role is applied during the manual pull",
+          bot.http_calls[0]["json"]["roles"] == [str(target_role.id)],
+          str(bot.http_calls[0]["json"]))
 
     client.patch(base, json={"panel_title": "Mein Titel"})
     data = client.get(base).json()
