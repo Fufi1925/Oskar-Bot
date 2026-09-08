@@ -15,8 +15,24 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
-  AlertTriangle, CheckCircle2, ChevronDown, Eye, Loader2, Lock, Mail,
-  MessageSquare, RefreshCw, Save, Send, Shield, ShieldCheck, UserMinus, X,
+  AlertTriangle,
+  CheckCircle2,
+  ChevronDown,
+  Eye,
+  Loader2,
+  Lock,
+  Mail,
+  MessageSquare,
+  Plus,
+  RefreshCw,
+  Save,
+  Send,
+  Server,
+  Shield,
+  ShieldCheck,
+  Trash2,
+  UserMinus,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
@@ -24,7 +40,10 @@ import { cn } from "@/lib/utils";
 import { ChannelPicker, RolePicker } from "@/components/dashboard/pickers";
 import { InlineToggle } from "@/components/dashboard/form-elements";
 import {
-  Loading, StickySaveBar, usePanel, useSaveGuard,
+  Loading,
+  StickySaveBar,
+  usePanel,
+  useSaveGuard,
 } from "@/components/dashboard/save-bar";
 import { EmojiText } from "@/components/dashboard/emoji-field";
 import { DiscordEmojiText } from "@/components/dashboard/discord-emoji";
@@ -40,7 +59,9 @@ function Field({ label, hint, children }: any) {
         {label}
       </span>
       {children}
-      {hint && <p className="text-[11px] text-slate-600 leading-relaxed">{hint}</p>}
+      {hint && (
+        <p className="text-[11px] text-slate-600 leading-relaxed">{hint}</p>
+      )}
     </div>
   );
 }
@@ -95,7 +116,14 @@ function Warnings({ items }: { items?: string[] }) {
   );
 }
 
-const KNOWN = ["{server}", "{user}", "{user.name}", "{role}", "{member_count}"];
+const KNOWN = [
+  "{server}",
+  "{user}",
+  "{user.name}",
+  "{role}",
+  "{member_count}",
+  "{blocked_server}",
+];
 
 function fill(text: string, role: string, server: string) {
   return String(text ?? "")
@@ -103,7 +131,8 @@ function fill(text: string, role: string, server: string) {
     .replace(/\{user\.name\}/g, "Lena")
     .replace(/\{user\}/g, "@Lena")
     .replace(/\{role\}/g, role)
-    .replace(/\{member_count\}/g, "1.204");
+    .replace(/\{member_count\}/g, "1.204")
+    .replace(/\{blocked_server\}/g, "Beispielserver");
 }
 
 function unknownPlaceholders(text: string): string[] {
@@ -112,7 +141,16 @@ function unknownPlaceholders(text: string): string[] {
 }
 
 /** A text box that shows what the result will look like. */
-function TextField({ label, hint, value, onChange, rows = 3, role, server, max }: any) {
+function TextField({
+  label,
+  hint,
+  value,
+  onChange,
+  rows = 3,
+  role,
+  server,
+  max,
+}: any) {
   const bad = unknownPlaceholders(value);
   return (
     <Field label={label} hint={hint}>
@@ -132,7 +170,8 @@ function TextField({ label, hint, value, onChange, rows = 3, role, server, max }
       />
       {bad.length > 0 && (
         <p className="text-[11px] text-amber-300/80">
-          {bad.join(", ")} gibt es nicht — bleibt so stehen, wie du es getippt hast.
+          {bad.join(", ")} gibt es nicht — bleibt so stehen, wie du es getippt
+          hast.
         </p>
       )}
       {String(value ?? "").trim() && (
@@ -158,7 +197,7 @@ function Detail({ label, value, mono }: any) {
       <p
         className={cn(
           "text-[12px] text-slate-200 truncate",
-          mono && "font-mono"
+          mono && "font-mono",
         )}
       >
         {value}
@@ -172,34 +211,20 @@ function formatWhen(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleString("de-DE", {
-    day: "2-digit", month: "2-digit", year: "numeric",
-    hour: "2-digit", minute: "2-digit",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
   });
 }
-
-const METHODS = [
-  {
-    id: "button",
-    label: "Nur Knopf",
-    desc: "Ein Klick reicht. Am bequemsten, hält aber Bots kaum auf.",
-  },
-  {
-    id: "captcha",
-    label: "Nur CAPTCHA",
-    desc: "Code per DM lösen. Sicherer, aber wer DMs zu hat, kommt nicht rein.",
-  },
-  {
-    id: "both",
-    label: "Beides anbieten",
-    desc: "Die Person wählt selbst.",
-  },
-];
 
 export function VerifyPanel({ guildId }: { guildId: string }) {
   const load = useCallback(() => api.getVerify(guildId), [guildId]);
   const p = usePanel(load);
   const [advanced, setAdvanced] = useState(false);
   const [openMember, setOpenMember] = useState<string | null>(null);
+  const [blacklistId, setBlacklistId] = useState("");
 
   // Flash the bar red instead of a browser dialog: the dialog cannot
   // be styled, and half the time the browser suppresses it anyway.
@@ -210,8 +235,21 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
   const roleName = p.data?.role_info?.name
     ? `@${p.data.role_info.name}`
     : "@Verifiziert";
-  const serverName = p.data?.channel_info?.name ? "deinem Server" : "deinem Server";
-  const method = p.value("verification_method") || "both";
+  const serverName = p.data?.channel_info?.name
+    ? "deinem Server"
+    : "deinem Server";
+  const blockedGuilds: string[] = p.value("blacklisted_guild_ids") || [];
+
+  const addBlockedGuild = () => {
+    const id = blacklistId.trim();
+    if (!/^\d{17,20}$/.test(id)) {
+      toast.error("Bitte gib eine gültige Discord-Server-ID ein.");
+      return;
+    }
+    if (!blockedGuilds.includes(id))
+      p.set("blacklisted_guild_ids", [...blockedGuilds, id]);
+    setBlacklistId("");
+  };
 
   const save = () => p.act(() => api.updateVerify(guildId, p.draft));
 
@@ -273,28 +311,22 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
           />
         </Field>
 
-        <Field label="Wie soll verifiziert werden?">
-          <div className="grid sm:grid-cols-3 gap-2">
-            {METHODS.map((o) => (
-              <button
-                key={o.id}
-                onClick={() => p.set("verification_method", o.id)}
-                className={cn(
-                  "text-left rounded-2xl border p-4 transition-all",
-                  method === o.id
-                    ? "bg-primary/10 border-primary/40"
-                    : "bg-[#0e0e12] border-slate-800 hover:border-slate-700"
-                )}
-              >
-                <p className="text-sm font-bold text-white">{o.label}</p>
-                <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
-                  {o.desc}
-                </p>
-              </button>
-            ))}
+        <div className="rounded-2xl border border-blue-400/20 bg-blue-500/[0.07] p-4">
+          <div className="flex gap-3">
+            <Shield className="mt-0.5 h-5 w-5 shrink-0 text-blue-300" />
+            <div>
+              <p className="text-sm font-bold text-white">
+                One-Click über Discord OAuth2
+              </p>
+              <p className="mt-1 text-[12px] leading-relaxed text-slate-400">
+                Die Person klickt einmal und erlaubt ausschließlich das Lesen
+                ihrer Discord-Identität und Servermitgliedschaften. CAPTCHA,
+                Passwortzugriff und dauerhaft gespeicherte OAuth-Tokens gibt es
+                nicht.
+              </p>
+            </div>
           </div>
-        </Field>
-
+        </div>
       </Card>
 
       {/* ── Texts ──────────────────────────────────────────────── */}
@@ -346,32 +378,21 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
           onChange={(v: string) => p.set("panel_footer", v)}
         />
 
-        <div className="grid sm:grid-cols-2 gap-4">
-          {(method === "button" || method === "both") && (
-            <Field label="Knopf: Verifizieren" hint="Höchstens 80 Zeichen.">
-              <EmojiText
-                value={p.value("button_label") ?? ""}
-                onChange={(next: string) => p.set("button_label", next)}
-                limit={80}
-                onLimitReached={(cap: number) =>
-                  toast.error(`Eine Knopfbeschriftung darf höchstens ${cap} Zeichen haben.`)
-                }
-              />
-            </Field>
-          )}
-          {(method === "captcha" || method === "both") && (
-            <Field label="Knopf: CAPTCHA" hint="Höchstens 80 Zeichen.">
-              <EmojiText
-                value={p.value("captcha_label") ?? ""}
-                onChange={(next: string) => p.set("captcha_label", next)}
-                limit={80}
-                onLimitReached={(cap: number) =>
-                  toast.error(`Eine Knopfbeschriftung darf höchstens ${cap} Zeichen haben.`)
-                }
-              />
-            </Field>
-          )}
-        </div>
+        <Field
+          label="Knopf: Mit Discord verifizieren"
+          hint="Höchstens 80 Zeichen."
+        >
+          <EmojiText
+            value={p.value("button_label") ?? ""}
+            onChange={(next: string) => p.set("button_label", next)}
+            limit={80}
+            onLimitReached={(cap: number) =>
+              toast.error(
+                `Eine Knopfbeschriftung darf höchstens ${cap} Zeichen haben.`,
+              )
+            }
+          />
+        </Field>
 
         <TextField
           label="Meldung nach dem Verifizieren"
@@ -383,7 +404,6 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
           value={p.value("success_text")}
           onChange={(v: string) => p.set("success_text", v)}
         />
-
       </Card>
 
       {/* ── Direct messages ────────────────────────────────────── */}
@@ -411,49 +431,139 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
             onChange={(v: string) => p.set("dm_success_text", v)}
           />
         )}
+      </Card>
 
-        {(method === "captcha" || method === "both") && (
-          <Field
-            label="Antwortmöglichkeiten beim CAPTCHA"
-            hint="Statt den Code abzutippen, wählt die Person aus einer Liste. Weniger Auswahl heißt: leichter zu raten."
-          >
-            <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
-              {[2, 3, 4, 5, 6, 7, 8].map((n) => (
+      {/* ── Per-server membership blacklist ───────────────────── */}
+      <Card
+        icon={Server}
+        title="Server-Blacklist"
+        subtitle="Lehne Personen ab, die Mitglied eines von dir gesperrten Discord-Servers sind."
+      >
+        <InlineToggle
+          checked={p.value("server_blacklist_enabled")}
+          onCheckedChange={(v: boolean) => p.set("server_blacklist_enabled", v)}
+          label="Server-Blacklist verwenden"
+          hint="Die Liste gilt ausschließlich für diesen Server."
+        />
+
+        {p.value("server_blacklist_enabled") && (
+          <>
+            <Field
+              label="Gesperrten Server hinzufügen"
+              hint="Servereinstellungen → Erweitert → Entwicklermodus aktivieren, dann den Server rechtsklicken und die ID kopieren."
+            >
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <input
+                  className={INPUT}
+                  inputMode="numeric"
+                  placeholder="Discord-Server-ID"
+                  value={blacklistId}
+                  onChange={(event) =>
+                    setBlacklistId(event.target.value.replace(/\D/g, ""))
+                  }
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      addBlockedGuild();
+                    }
+                  }}
+                />
                 <button
-                  key={n}
-                  onClick={() => p.set("captcha_choices", n)}
-                  className={cn(
-                    "rounded-xl border py-2.5 text-sm font-bold transition-all",
-                    (p.value("captcha_choices") ?? 5) === n
-                      ? "bg-primary/10 border-primary/40 text-white"
-                      : "bg-[#0e0e12] border-slate-800 text-slate-400 hover:border-slate-700"
-                  )}
+                  type="button"
+                  onClick={addBlockedGuild}
+                  className="flex shrink-0 items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-bold text-white hover:bg-blue-500"
                 >
-                  {n}
+                  <Plus className="h-4 w-4" /> Hinzufügen
                 </button>
-              ))}
+              </div>
+            </Field>
+
+            <div className="space-y-2">
+              {blockedGuilds.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-slate-800 px-4 py-7 text-center text-sm text-slate-500">
+                  Noch kein Discord-Server gesperrt.
+                </div>
+              ) : (
+                blockedGuilds.map((id) => (
+                  <div
+                    key={id}
+                    className="flex items-center gap-3 rounded-xl border border-slate-800 bg-[#0e0e12] p-3"
+                  >
+                    <div className="grid h-9 w-9 place-items-center rounded-lg bg-rose-500/10">
+                      <Server className="h-4 w-4 text-rose-300" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-white">
+                        Gesperrter Server
+                      </p>
+                      <p className="truncate font-mono text-[11px] text-slate-500">
+                        {id}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      aria-label={`Server ${id} entfernen`}
+                      onClick={() =>
+                        p.set(
+                          "blacklisted_guild_ids",
+                          blockedGuilds.filter((item) => item !== id),
+                        )
+                      }
+                      className="rounded-lg p-2 text-slate-500 hover:bg-rose-500/10 hover:text-rose-300"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))
+              )}
             </div>
-            <p className="text-[11px] text-slate-600">
-              Bei {p.value("captcha_choices") ?? 5} Möglichkeiten liegt eine
-              blinde Vermutung bei{" "}
-              {Math.round(100 / (p.value("captcha_choices") ?? 5))}%. Ein
-              falscher Versuch beendet den Vorgang.
-            </p>
-          </Field>
-        )}
 
-        {(method === "captcha" || method === "both") && (
-          <div className="rounded-xl bg-white/[0.02] border border-white/5 p-3.5">
-            <p className="text-[11px] text-slate-500 leading-relaxed">
-              <b className="text-slate-400">Zum CAPTCHA:</b> Das Bild geht
-              zwangsläufig per DM raus — sonst könnten andere mitlesen. Wer
-              keine DMs annimmt, kann diesen Weg nicht nutzen. Stell
-              &bdquo;Beides anbieten&ldquo; ein, damit solche Leute trotzdem
-              reinkommen.
-            </p>
-          </div>
-        )}
+            <Field
+              label="Log-Kanal bei Ablehnung"
+              hint="Website, DM und dieser Server-Log werden bei einem Treffer benachrichtigt."
+            >
+              <ChannelPicker
+                guildId={guildId}
+                value={p.value("blacklist_log_channel_id") || ""}
+                onChange={(id) => p.set("blacklist_log_channel_id", id)}
+                placeholder="Log-Kanal wählen"
+                channelTypes={["0", "5"]}
+              />
+            </Field>
 
+            <InlineToggle
+              checked={p.value("blacklist_custom_message")}
+              onCheckedChange={(v: boolean) =>
+                p.set("blacklist_custom_message", v)
+              }
+              label="Eigene Ablehnungsnachricht"
+              hint="Diese Nachricht erscheint in der DM. Die öffentliche University-Seite zeigt weiterhin einen klaren Ablehnungsstatus."
+            />
+            {p.value("blacklist_custom_message") && (
+              <div className="space-y-4 rounded-2xl border border-slate-800 bg-black/10 p-4">
+                <TextField
+                  label="Überschrift"
+                  rows={1}
+                  max={200}
+                  role={roleName}
+                  server={serverName}
+                  value={p.value("blacklist_title")}
+                  onChange={(v: string) => p.set("blacklist_title", v)}
+                />
+                <TextField
+                  label="Ablehnungstext"
+                  rows={4}
+                  max={3800}
+                  role={roleName}
+                  server={serverName}
+                  hint="Mit {blocked_server} zeigst du den gefundenen Server an."
+                  value={p.value("blacklist_text")}
+                  onChange={(v: string) => p.set("blacklist_text", v)}
+                />
+              </div>
+            )}
+          </>
+        )}
       </Card>
 
       {/* ── Panel actions ──────────────────────────────────────── */}
@@ -510,7 +620,7 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
           <ChevronDown
             className={cn(
               "h-4 w-4 text-slate-500 shrink-0 transition-transform",
-              advanced && "rotate-180"
+              advanced && "rotate-180",
             )}
           />
         </button>
@@ -542,7 +652,9 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
             {p.value("unverified_role_id") && (
               <InlineToggle
                 checked={p.value("remove_unverified_role")}
-                onCheckedChange={(v: boolean) => p.set("remove_unverified_role", v)}
+                onCheckedChange={(v: boolean) =>
+                  p.set("remove_unverified_role", v)
+                }
                 label="Diese Rolle nach dem Verifizieren abnehmen"
               />
             )}
@@ -583,7 +695,7 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
               onClick={() =>
                 p.act(
                   () => api.resetVerify(guildId),
-                  "Verifizierung ausschalten? Deine Texte bleiben gespeichert."
+                  "Verifizierung ausschalten? Deine Texte bleiben gespeichert.",
                 )
               }
               disabled={p.busy}
@@ -616,7 +728,7 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
                     "rounded-xl border transition-colors",
                     open
                       ? "bg-[#0e0e12] border-primary/40"
-                      : "bg-[#0e0e12] border-slate-800"
+                      : "bg-[#0e0e12] border-slate-800",
                   )}
                 >
                   <button
@@ -639,7 +751,7 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
                     <span
                       className={cn(
                         "text-[13px] truncate flex-1 min-w-0",
-                        m.left ? "text-slate-500 italic" : "text-white"
+                        m.left ? "text-slate-500 italic" : "text-white",
                       )}
                     >
                       {label}
@@ -651,7 +763,7 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
                     <ChevronDown
                       className={cn(
                         "h-3.5 w-3.5 text-slate-600 shrink-0 transition-transform",
-                        open && "rotate-180"
+                        open && "rotate-180",
                       )}
                     />
                   </button>
@@ -659,8 +771,14 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
                   {open && (
                     <div className="px-4 pb-4 pt-1 space-y-3 border-t border-slate-800/70">
                       <div className="grid sm:grid-cols-2 gap-x-4 gap-y-2 pt-3">
-                        <Detail label="Discord-Name" value={m.name || "unbekannt"} />
-                        <Detail label="Anzeigename" value={m.display_name || "—"} />
+                        <Detail
+                          label="Discord-Name"
+                          value={m.name || "unbekannt"}
+                        />
+                        <Detail
+                          label="Anzeigename"
+                          value={m.display_name || "—"}
+                        />
                         {/* Shown as text, not a number: JavaScript rounds
                             a 19-digit id and the last digits change. */}
                         <Detail label="ID" value={entry.user_id} mono />
@@ -677,7 +795,7 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
                           onClick={() =>
                             p.act(
                               () => api.unverifyMember(guildId, entry.user_id),
-                              `${label} die Verifiziert-Rolle wieder abnehmen?`
+                              `${label} die Verifiziert-Rolle wieder abnehmen?`,
                             )
                           }
                           disabled={p.busy}

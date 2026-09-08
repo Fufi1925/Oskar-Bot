@@ -30,6 +30,7 @@ from datetime import datetime ,timezone ,timedelta
 from typing import Optional 
 from utils .Tools import *
 from utils.panels import from_view
+from utils.links import dashboard_url
 
 
 logger =logging .getLogger ('discord')
@@ -1081,7 +1082,7 @@ class VerificationSetupView (discord .ui .View ):
         self .ctx =ctx 
         self .verification_channel =None 
         self .log_channel =None 
-        self .verification_method ="both"
+        self .verification_method ="oauth"
 
     @discord .ui .select (
     cls =discord .ui .ChannelSelect ,
@@ -1102,30 +1103,6 @@ class VerificationSetupView (discord .ui .View ):
         await interaction .response .defer ()
         selected_channel =select .values [0 ]
         self .log_channel =interaction .guild .get_channel (selected_channel .id )
-
-    @discord .ui .select (
-    placeholder ="Select verification method...",
-    options =[
-    discord .SelectOption (
-    label ="Quick Button Only",
-    value ="button",
-    description ="Users verify instantly by clicking a button"
-    ),
-    discord .SelectOption (
-    label ="CAPTCHA Only",
-    value ="captcha",
-    description ="Users must solve a CAPTCHA (more secure)"
-    ),
-    discord .SelectOption (
-    label ="Both Methods",
-    value ="both",
-    description ="Users can choose between button or CAPTCHA"
-    )
-    ]
-    )
-    async def method_select (self ,interaction :discord .Interaction ,select :discord .ui .Select ):
-        await interaction .response .defer ()
-        self .verification_method =select .values [0 ]
 
     @discord .ui .button (label ="Setup Verification System", emoji=ZSAFE,style =discord .ButtonStyle .green )
     async def setup_verification (self ,interaction :discord .Interaction ,button :discord .ui .Button ):
@@ -1181,7 +1158,7 @@ class VerificationSetupView (discord .ui .View ):
             "• All channels made private to unverified users\n"
             "• Verification channel locked for unverified users\n"
             "• Auto-message deletion in the verification channel\n"
-            "• DM-based CAPTCHA system\n"
+            "• One-click verification via Discord OAuth2\n"
             "• Comprehensive logging enabled"
             )
 
@@ -1224,18 +1201,13 @@ class VerificationSetupView (discord .ui .View ):
         try :
             channel =self .verification_channel 
 
-            methods =[]
-            if self .verification_method in ["button","both"]:
-                methods .append ("**Quick Verify** — instant access with one click.")
-            if self .verification_method in ["captcha","both"]:
-                methods .append ("**CAPTCHA Verify** — solve a short code sent by DM.")
-
-            if self .verification_method =="button":
-                buttons =ButtonOnlyVerificationView (self .bot )
-            elif self .verification_method =="captcha":
-                buttons =CaptchaOnlyVerificationView (self .bot )
-            else :
-                buttons =VerificationView (self .bot )
+            methods =["**Discord OAuth2** — sicher mit einem Klick verifizieren."]
+            buttons =discord .ui .View (timeout =None )
+            buttons .add_item (discord .ui .Button (
+                label ="Mit Discord verifizieren",
+                style =discord .ButtonStyle .link,
+                url =f"{dashboard_url().rstrip('/')}/api/verify/start?guild={channel.guild.id}",
+            ))
 
             # Components V2: the panel and its buttons live in one container,
             # so the accent bar wraps the whole thing instead of the buttons
@@ -1309,9 +1281,8 @@ class Verification (commands .Cog ):
         self .bot =bot 
         asyncio.create_task(self .create_tables ())
 
-        self .bot .add_view (VerificationView (self .bot ))
-        self .bot .add_view (ButtonOnlyVerificationView (self .bot ))
-        self .bot .add_view (CaptchaOnlyVerificationView (self .bot ))
+        # Legacy interaction views are deliberately not registered anymore.
+        # Old direct-role and CAPTCHA panels therefore cannot bypass OAuth.
 
     async def refresh(self, guild_id=None):
         """
@@ -1349,46 +1320,20 @@ class Verification (commands .Cog ):
                 member_count=getattr(guild, "member_count", 0) or 0,
             )
 
-        methods = verify_store.methods_for(settings)
+        # One external link is the entire user flow. Discord OAuth runs on the
+        # website, where only the `identify` and `guilds` scopes are requested.
+        label = (settings.get("button_label") or "Mit Discord verifizieren")[:80]
         if preview:
-            # Dead buttons: a preview that hands out roles is not a
-            # preview. Unique custom_ids so they cannot collide with the
-            # live panel's persistent handlers either.
-            buttons = []
-            if "button" in methods:
-                buttons.append(discord.ui.Button(
-                    label=settings.get("button_label") or "Verifizieren",
-                    style=discord.ButtonStyle.green,
-                    custom_id="verify_preview_button", disabled=True,
-                ))
-            if "captcha" in methods:
-                buttons.append(discord.ui.Button(
-                    label=settings.get("captcha_label") or "Mit CAPTCHA",
-                    style=discord.ButtonStyle.primary,
-                    custom_id="verify_preview_captcha", disabled=True,
-                ))
+            buttons = [discord.ui.Button(
+                label=label, style=discord.ButtonStyle.success,
+                custom_id="verify_preview_oauth", disabled=True,
+            )]
         else:
-            if methods == ["button"]:
-                view = ButtonOnlyVerificationView(self.bot)
-            elif methods == ["captcha"]:
-                view = CaptchaOnlyVerificationView(self.bot)
-            else:
-                view = VerificationView(self.bot)
-
-            buttons = list(view.children)
-            # The labels are configurable; the custom_ids are not, because
-            # those are what make the panel survive a restart.
-            for child in buttons:
-                if getattr(child, "custom_id", "") in (
-                    "verify_button_quick", "verify_button_only",
-                ):
-                    child.label = (settings.get("button_label")
-                                   or "Verifizieren")[:80]
-                elif getattr(child, "custom_id", "") in (
-                    "verify_captcha_secure", "verify_captcha_only",
-                ):
-                    child.label = (settings.get("captcha_label")
-                                   or "Mit CAPTCHA")[:80]
+            base = dashboard_url().rstrip("/")
+            buttons = [discord.ui.Button(
+                label=label, style=discord.ButtonStyle.link,
+                url=f"{base}/api/verify/start?guild={guild.id}",
+            )]
 
         sections = [fill("panel_text")]
         footer = fill("panel_footer")

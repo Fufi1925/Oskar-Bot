@@ -156,6 +156,7 @@ class Guild:
     def __init__(self, gid=GUILD):
         self.id = gid
         self.name = "Test Server"
+        self.icon = None
         self.member_count = 1204
         self.me = Member(1)
         self._roles = {}
@@ -277,13 +278,26 @@ async def test_partial_save(store):
             "min_account_age_days": -5,
             "button_label": "x" * 200,
         })
-        check("an unknown method falls back to 'both'",
-              settings["verification_method"] == "both")
+        check("every legacy method migrates to OAuth",
+              settings["verification_method"] == "oauth")
         check("a negative age is clamped",
               settings["min_account_age_days"] == 0)
         check("a long button label is cut to Discord's 80",
               len(settings["button_label"]) == 80,
               str(len(settings["button_label"])))
+
+        settings = await store.save_settings(db, GUILD, {
+            "server_blacklist_enabled": True,
+            "blacklisted_guild_ids": ["123456789012345678", "123456789012345678", "bad"],
+            "blacklist_log_channel_id": str(CHANNEL),
+        })
+        check("the per-server blacklist is enabled", settings["server_blacklist_enabled"] is True)
+        check("blacklisted guild ids are validated and deduplicated",
+              settings["blacklisted_guild_ids"] == ["123456789012345678"],
+              str(settings["blacklisted_guild_ids"]))
+        settings = await store.get_settings(db, GUILD)
+        check("the blacklist survives a database round trip",
+              settings["blacklisted_guild_ids"] == ["123456789012345678"])
 
         settings = await store.save_settings(db, GUILD, {"evil": True})
         check("unknown keys are dropped", "evil" not in settings)
@@ -327,13 +341,10 @@ def test_rules(store):
     check("exactly the minimum passes",
           store.account_too_young({"min_account_age_days": 7}, 7) is False)
 
-    check("'button' offers one button",
-          store.methods_for({"verification_method": "button"}) == ["button"])
-    check("'captcha' offers one button",
-          store.methods_for({"verification_method": "captcha"}) == ["captcha"])
-    check("'both' offers two",
-          store.methods_for({"verification_method": "both"})
-          == ["button", "captcha"])
+    for legacy in ("button", "captcha", "both", "oauth"):
+        check(f"'{legacy}' resolves to OAuth only",
+              store.methods_for({"verification_method": legacy}) == ["oauth"])
+    check("OAuth is the only accepted method", store.METHODS == ("oauth",))
 
     check("a channel alone is not configured",
           store.is_configured({"verification_channel_id": CHANNEL}) is False)
@@ -572,19 +583,23 @@ def test_panel_rendering(store):
     rows = [
         c for c in view.to_components()[0]["components"] if c.get("type") == 1
     ]
-    check("'both' shows two buttons", len(rows[0]["components"]) == 2,
+    check("legacy settings still show one OAuth button",
+          len(rows[0]["components"]) == 1,
           str(len(rows[0]["components"])))
 
-    # The live panel must keep the ids that make it survive a restart.
+    # The live component is an external OAuth link, not a role-granting custom id.
     view = cog.build_panel(guild, settings, role, preview=False)
     rows = [
         c for c in view.to_components()[0]["components"] if c.get("type") == 1
     ]
-    ids = [b.get("custom_id") for b in rows[0]["components"]]
-    check("the live buttons keep their custom_id",
-          all(i for i in ids), str(ids))
-    check("and they are not disabled",
-          not any(b.get("disabled") for b in rows[0]["components"]), str(ids))
+    buttons = rows[0]["components"]
+    check("the live button has no interaction custom_id",
+          all(not b.get("custom_id") for b in buttons), str(buttons))
+    check("the live button points to the signed OAuth start route",
+          all("/api/verify/start?guild=" in (b.get("url") or "") for b in buttons),
+          str(buttons))
+    check("and it is not disabled",
+          not any(b.get("disabled") for b in buttons), str(buttons))
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -778,6 +793,48 @@ async def test_api(store):
           "Test Server" in data["preview"]["text"], str(data["preview"]))
     check("the placeholder list is sent along",
           "{server}" in data["placeholders"], str(data.get("placeholders")))
+    check("the blacklist placeholder is documented",
+          "{blocked_server}" in data["placeholders"], str(data.get("placeholders")))
+
+    # Public OAuth completion: first a server-list hit, then success. The
+    # browser does not choose a role; the API loads it from the saved config.
+    oauth_member = Member(333)
+    guild._members[333] = oauth_member
+    blocked_id = "123456789012345678"
+    r = client.patch(base, json={
+        "server_blacklist_enabled": True,
+        "blacklisted_guild_ids": [blocked_id],
+        "blacklist_log_channel_id": str(CHANNEL),
+    })
+    check("a per-server blacklist can be saved", r.status_code == 200, r.text[:120])
+    r = client.post("/api/v1/verify/oauth/complete", json={
+        "guild_id": str(GUILD),
+        "user": {"id": "333", "username": "oauth-user"},
+        "guilds": [{"id": blocked_id, "name": "Gesperrter Testserver"}],
+    })
+    outcome = r.json()
+    check("a blacklisted membership is denied",
+          r.status_code == 200 and outcome.get("status") == "denied", r.text[:180])
+    check("the denial names only the matched server",
+          outcome.get("blocked") == [{"id": blocked_id, "name": "Gesperrter Testserver"}],
+          str(outcome.get("blocked")))
+    check("denial sends the person a DM", len(oauth_member.dms) == 1,
+          str(len(oauth_member.dms)))
+
+    client.patch(base, json={"server_blacklist_enabled": False})
+    r = client.post("/api/v1/verify/oauth/complete", json={
+        "guild_id": str(GUILD),
+        "user": {"id": "333", "username": "oauth-user"},
+        "guilds": [{"id": blocked_id, "name": "Gesperrter Testserver"}],
+        "verified_role_id": str(ROLE_HIGH),  # must be ignored
+    })
+    outcome = r.json()
+    check("OAuth success assigns the configured role",
+          r.status_code == 200 and outcome.get("status") == "success", r.text[:180])
+    check("a browser-supplied role cannot override configuration",
+          any(role.id == ROLE_OK for role in oauth_member.roles)
+          and not any(role.id == ROLE_HIGH for role in oauth_member.roles),
+          str([role.id for role in oauth_member.roles]))
 
     client.patch(base, json={"panel_title": "Mein Titel"})
     data = client.get(base).json()
@@ -949,8 +1006,8 @@ async def run():
     await test_dm_crash(store)
     await test_message_cleanup(store)
     test_panel_rendering(store)
-    test_captcha_options(store)
-    test_captcha_view(store)
+    # CAPTCHA helpers remain import-compatible for old persistent views, but
+    # they are intentionally unreachable in the one-click OAuth product flow.
     await test_api(store)
     test_panel_restore_uses_cog()
 

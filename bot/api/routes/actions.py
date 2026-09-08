@@ -26,6 +26,7 @@ from utils import feature_audit, feature_gates
 from utils import custom_commands as custom_command_store
 from utils import premium_store
 from utils.panels import from_embed
+from utils.links import dashboard_url
 
 if TYPE_CHECKING:
     from core.universitybot import universitybot
@@ -125,8 +126,6 @@ async def send_verification_panel(
 
     channel_id = str(data.get("channel_id") or row[0] or "")
     role_id = int(row[1] or 0)
-    method = (row[2] or "both").lower()
-
     if not role_id or guild.get_role(role_id) is None:
         raise HTTPException(
             status_code=400,
@@ -135,38 +134,22 @@ async def send_verification_panel(
 
     channel = _require_channel(guild, channel_id)
 
-    # Reuse the cog's view so the buttons keep working after a restart.
-    view = None
-    try:
-        from cogs.commands.verification import VerificationView
-
-        view = VerificationView(bot)
-
-        # Hide the button the configured method does not use.
-        if method in ("quick", "button"):
-            for item in list(view.children):
-                if getattr(item, "custom_id", "") == "verify_captcha_secure":
-                    view.remove_item(item)
-        elif method == "captcha":
-            for item in list(view.children):
-                if getattr(item, "custom_id", "") == "verify_button_quick":
-                    view.remove_item(item)
-    except Exception as exc:
-        raise HTTPException(
-            status_code=500, detail=f"Verification module unavailable: {exc}"
-        )
-
-    # Components V2, so a panel posted from the dashboard is identical to the
-    # one the cog posts itself instead of being a plain embed.
+    # This older action route may still be called by saved dashboard links.
+    # It must never recreate the retired direct-role/CAPTCHA buttons.
+    oauth_button = discord.ui.Button(
+        label=str(data.get("button_label") or "Mit Discord verifizieren")[:80],
+        style=discord.ButtonStyle.link,
+        url=f"{dashboard_url().rstrip('/')}/api/verify/start?guild={guild.id}",
+    )
     panel = Panel(
-        str(data.get("title") or "Verification required"),
+        str(data.get("title") or "Sichere Verifizierung"),
         str(
             data.get("description")
-            or f"Welcome to **{guild.name}**.\n"
-            "Verify yourself to unlock the rest of the server."
+            or f"Willkommen bei **{guild.name}**.\n"
+            "Verifiziere dich mit einem Klick über Discord OAuth2."
         ),
         accent=_colour(data.get("color")).value if data.get("color") else ACCENT["brand"],
-        buttons=list(view.children),
+        buttons=[oauth_button],
     )
 
     try:

@@ -29,7 +29,7 @@ import discord
 from fastapi import APIRouter, Depends, HTTPException
 
 from api.db_manager import db_manager
-from api.dependencies import get_bot
+from api.dependencies import get_bot, run_on_bot_loop
 from utils import feature_audit
 from utils import verify_store as store
 
@@ -193,6 +193,164 @@ async def _reload(bot, guild_id: int) -> None:
             pass
 
 
+@router.post("/oauth/complete", summary="Complete public OAuth verification")
+async def complete_oauth_verification(
+    data: dict, bot: "universitybot" = Depends(get_bot)
+):
+    """Complete a verification using identity data fetched by our OAuth server.
+
+    This endpoint is protected by the bot API key. It never accepts a role or
+    success flag from the browser and never receives an OAuth access token.
+    """
+    raw_guild_id = str(data.get("guild_id") or "")
+    user = data.get("user") if isinstance(data.get("user"), dict) else {}
+    raw_user_id = str(user.get("id") or "")
+    oauth_guilds = data.get("guilds") if isinstance(data.get("guilds"), list) else []
+    if not raw_guild_id.isdigit() or not raw_user_id.isdigit():
+        raise HTTPException(status_code=400, detail="OAuth-Daten unvollständig.")
+    guild_id = int(raw_guild_id)
+    user_id = int(raw_user_id)
+    if not guild_id or not user_id:
+        raise HTTPException(status_code=400, detail="OAuth-Daten unvollständig.")
+
+    guild = _guild_or_404(bot, guild_id)
+    db = await db_manager.get_connection(store.DB_PATH)
+    settings = await store.get_settings(db, guild_id)
+    base = {
+        "guild_id": str(guild.id),
+        "guild_name": guild.name,
+        "guild_icon": str(guild.icon.url) if guild.icon else None,
+    }
+    if not settings.get("enabled") or not store.is_configured(settings):
+        return {**base, "status": "error", "reason": "not_configured"}
+
+    try:
+        member = guild.get_member(user_id)
+        if member is None:
+            member = await run_on_bot_loop(guild.fetch_member(user_id))
+    except (discord.NotFound, discord.Forbidden, discord.HTTPException):
+        return {**base, "status": "denied", "reason": "not_a_member", "blocked": []}
+
+    oauth_memberships = {
+        str(item.get("id")): str(item.get("name") or item.get("id"))[:100]
+        for item in oauth_guilds if isinstance(item, dict) and str(item.get("id") or "").isdigit()
+    }
+    blocked_ids = set(settings.get("blacklisted_guild_ids") or [])
+    matched_ids = sorted(blocked_ids.intersection(oauth_memberships))[:20] \
+        if settings.get("server_blacklist_enabled") else []
+    matched = [
+        {"id": item, "name": oauth_memberships[item]} for item in matched_ids
+    ]
+
+    denial_reason = None
+    if matched:
+        denial_reason = "server_blacklist"
+    else:
+        created = getattr(member, "created_at", None)
+        age_days = ((datetime.now(timezone.utc) - created).total_seconds() / 86400) \
+            if created else 999999
+        if store.account_too_young(settings, age_days):
+            denial_reason = "account_too_young"
+
+    if denial_reason:
+        blocked_names = ", ".join(item["name"] for item in matched) or "—"
+        if settings.get("blacklist_custom_message"):
+            title = settings.get("blacklist_title") or "Verifizierung abgelehnt"
+            description = settings.get("blacklist_text") or "Die Prüfung wurde abgelehnt."
+        else:
+            title = "Verifizierung abgelehnt"
+            description = (
+                "Du bist Mitglied eines Servers, den das Team von **{server}** "
+                "gesperrt hat. Betroffener Server: **{blocked_server}**."
+                if matched else
+                "Dein Discord-Konto erfüllt das konfigurierte Mindestalter nicht."
+            )
+        description = store.render(
+            description, server=guild.name, user_mention=member.mention,
+            user_name=member.display_name, member_count=guild.member_count or 0,
+            blocked_server=blocked_names,
+        )
+        embed = discord.Embed(title=title[:256], description=description[:4000], color=0xEF4444)
+        embed.set_footer(text="University Bot • Sichere Verifizierung")
+        try:
+            await run_on_bot_loop(member.send(embed=embed))
+        except (discord.Forbidden, discord.HTTPException):
+            pass
+
+        log_id = settings.get("blacklist_log_channel_id") or settings.get("log_channel_id")
+        log_channel = guild.get_channel(int(log_id)) if log_id else None
+        if log_channel and hasattr(log_channel, "send"):
+            log_embed = discord.Embed(
+                title="OAuth-Verifizierung abgelehnt",
+                description=(
+                    f"{member.mention} (`{member.id}`) wurde abgelehnt.\n"
+                    f"Grund: **{denial_reason}**\n"
+                    f"Treffer: **{blocked_names}**"
+                ),
+                color=0xEF4444,
+                timestamp=datetime.now(timezone.utc),
+            )
+            try:
+                await run_on_bot_loop(log_channel.send(embed=log_embed))
+            except (discord.Forbidden, discord.HTTPException):
+                pass
+        return {**base, "status": "denied", "reason": denial_reason, "blocked": matched}
+
+    role = guild.get_role(int(settings["verified_role_id"]))
+    problem = _role_problem(guild, role)
+    if role is None or problem:
+        return {**base, "status": "error", "reason": "role_unavailable"}
+    try:
+        if role not in member.roles:
+            await run_on_bot_loop(
+                member.add_roles(role, reason="One-Click-Verifizierung (Discord OAuth2)")
+            )
+    except (discord.Forbidden, discord.HTTPException):
+        return {**base, "status": "error", "reason": "role_unavailable"}
+
+    unverified_id = settings.get("unverified_role_id")
+    if settings.get("remove_unverified_role") and unverified_id:
+        unverified = guild.get_role(int(unverified_id))
+        if unverified in member.roles:
+            try:
+                await run_on_bot_loop(
+                    member.remove_roles(unverified, reason="OAuth2-verifiziert")
+                )
+            except (discord.Forbidden, discord.HTTPException):
+                pass
+
+    await store.log_verification(
+        db, guild.id, member.id, "oauth",
+        datetime.now(timezone.utc).isoformat(),
+    )
+    log_id = settings.get("log_channel_id")
+    log_channel = guild.get_channel(int(log_id)) if log_id else None
+    if log_channel and hasattr(log_channel, "send"):
+        try:
+            await run_on_bot_loop(log_channel.send(embed=discord.Embed(
+                title="OAuth-Verifizierung erfolgreich",
+                description=f"{member.mention} (`{member.id}`) hat die Rolle **{role.name}** erhalten.",
+                color=0x22C55E,
+                timestamp=datetime.now(timezone.utc),
+            )))
+        except (discord.Forbidden, discord.HTTPException):
+            pass
+
+    if settings.get("dm_on_success"):
+        text = store.render(
+            settings.get("dm_success_text", ""), server=guild.name,
+            user_mention=member.mention, user_name=member.display_name,
+            role=f"@{role.name}", member_count=guild.member_count or 0,
+        )
+        try:
+            await run_on_bot_loop(member.send(embed=discord.Embed(
+                title="Verifizierung erfolgreich", description=text[:4000], color=0x22C55E
+            )))
+        except (discord.Forbidden, discord.HTTPException):
+            pass
+    return {**base, "status": "success", "role_name": role.name}
+
+
 @router.get("/{guild_id}", summary="Verification settings")
 async def get_verification(guild_id: int, bot: "universitybot" = Depends(get_bot)):
     db = await db_manager.get_connection(store.DB_PATH)
@@ -227,6 +385,7 @@ async def get_verification(guild_id: int, bot: "universitybot" = Depends(get_bot
         "channel_info": _channel_info(guild, settings["verification_channel_id"]),
         "role_info": _role_info(guild, settings["verified_role_id"]),
         "log_channel_info": _channel_info(guild, settings["log_channel_id"]),
+        "blacklist_log_channel_info": _channel_info(guild, settings["blacklist_log_channel_id"]),
         "unverified_role_info": _role_info(guild, settings["unverified_role_id"]),
         "methods": store.methods_for(settings),
         "configured": store.is_configured(settings),
@@ -286,8 +445,21 @@ async def patch_verification(
             and data["verification_method"] not in store.METHODS:
         raise HTTPException(
             status_code=400,
-            detail="Unbekannte Methode — erlaubt sind button, captcha oder both.",
+            detail="Die Verifizierung unterstützt ausschließlich Discord OAuth2.",
         )
+
+    if "blacklisted_guild_ids" in data:
+        blocked = data["blacklisted_guild_ids"]
+        if not isinstance(blocked, list) or len(blocked) > 250:
+            raise HTTPException(status_code=400, detail="Die Server-Blacklist ist ungültig.")
+        if any(not str(item).isdigit() for item in blocked):
+            raise HTTPException(status_code=400, detail="Server-IDs dürfen nur Ziffern enthalten.")
+
+    if data.get("blacklist_log_channel_id"):
+        raw = str(data["blacklist_log_channel_id"])
+        channel = guild.get_channel(int(raw)) if raw.isdigit() else None
+        if channel is None or not hasattr(channel, "send"):
+            raise HTTPException(status_code=404, detail="Den Blacklist-Logkanal gibt es nicht mehr.")
 
     # Switching it on without the two things it needs would look broken.
     if data.get("enabled"):
