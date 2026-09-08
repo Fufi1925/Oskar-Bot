@@ -772,6 +772,25 @@ def test_serveruebersicht():
     check("sie heissen jetzt deutsch",
           '"Begrüßung"' in guilds and '"Verifizierung"' in guilds)
 
+    # Die Übersicht darf nicht bei der alten Auswahl stehen bleiben,
+    # während in der Seitennavigation längst weitere Module existieren.
+    neue_module = (
+        "design", "serverstats", "honeypot", "userpull", "emergency",
+        "jail", "nightmode", "applications", "leave", "joindm",
+        "giveaways", "booster", "notify", "autoreact", "autoresponder",
+        "customcommands", "anonchat", "music", "sticky", "teamlist",
+        "teamupdate", "supportqueue",
+    )
+    check("alle neuen Module stehen unten in der Übersicht",
+          all(f'(\"{key}\",' in guilds for key in neue_module),
+          "sonst fehlen sie zugleich in Liste und Fortschrittsberechnung")
+    check("der Fortschritt rechnet die vollständige Modulliste",
+          '"total_count": len(modules)' in guilds
+          and 'active / len(modules)' in guilds)
+    check("Reaktions-Rollen und Auto-Reaktion werden getrennt geprüft",
+          '("reactionroles", "Reaktions-Rollen", "rr.db"' in guilds
+          and '("autoreact", "Auto-Reaktion", "autoreact.db"' in guilds)
+
 
 def test_bewerbungsseite_neu():
     print("\nDie Bewerbungsseite")

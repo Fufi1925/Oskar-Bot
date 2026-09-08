@@ -1080,9 +1080,17 @@ async def get_module_status(guild_id: int, bot: "universitybot" = Depends(get_bo
                 ) as cursor:
                     if not await cursor.fetchone():
                         return 0
-                query = f"SELECT COUNT(*) FROM [{table}] WHERE guild_id = ?"
+                async with db.execute(f"PRAGMA table_info([{table}])") as cursor:
+                    columns = {str(row[1]) for row in await cursor.fetchall()}
+                guild_column = next(
+                    (name for name in ("guild_id", "guildId", "server_id") if name in columns),
+                    None,
+                )
+                if not guild_column:
+                    return 0
+                query = f"SELECT COUNT(*) FROM [{table}] WHERE [{guild_column}] = ?"
                 if condition:
-                    query += f" AND {condition}"
+                    query += f" AND ({condition})"
                 async with db.execute(query, (guild_id,)) as cursor:
                     row = await cursor.fetchone()
                 return int(row[0]) if row else 0
@@ -1121,27 +1129,58 @@ async def get_module_status(guild_id: int, bot: "universitybot" = Depends(get_bo
 
     # (key, label, database, table, extra condition, dashboard path)
     checks = [
-        ("welcome", "Begrüßung", "welcome.db", "welcome", "", "welcome"),
-        ("automod", "AutoMod", "automod.db", "automod", "enabled = 1", "automod"),
+        # Design & server presentation
+        ("design", "Dashboard-Design", "guild_design.db", "guild_design", "", "design"),
+        ("serverstats", "Server Stats", "server_stats.db", "server_stats",
+         "humans_enabled = 1 OR bots_enabled = 1 OR boosts_enabled = 1 OR online_enabled = 1 OR roles_enabled = 1 OR channels_enabled = 1", "server-stats"),
+
+        # Protection
         ("antinuke", "Anti-Nuke", "anti.db", "antinuke", "", "antinuke"),
+        ("automod", "AutoMod", "automod.db", "automod", "enabled = 1", "automod"),
+        ("honeypot", "Honeypot", "honeypot.db", "honeypot", "enabled = 1", "honeypot"),
         ("verification", "Verifizierung", "verification.db", "verification_config", "enabled = 1", "verification"),
-        ("leveling", "Level-System", "leveling.db", "leveling_settings", "enabled = 1", "leveling"),
-        ("tickets", "Tickets", "ticket.db", "guild_configs", "", "tickets"),
+        ("userpull", "User Pull", "verification.db", "verification_config", "user_pull_enabled = 1", "verification/pull"),
+        ("emergency", "Notfall", "emergency.db", "emergency_roles", "", "emergency"),
+        ("jail", "Jail", "jail.db", "jail_settings", "", "jail"),
+        ("nightmode", "Nachtmodus", "nightmode.db", "Nightmode", "", "nightmode"),
+
+        # Members
+        ("welcome", "Begrüßung", "welcome.db", "welcome", "", "welcome"),
+        ("applications", "Bewerbungen", "applications.db", "app_panels", "", "applications"),
+        ("leave", "Abschied", "greet_extras.db", "greet_extras", "leave_enabled = 1", "leave"),
+        ("joindm", "Beitritts-DM", "joindm.db", "joindm", "", "joindm"),
         ("autorole", "Auto-Rolle", "autorole.db", "autorole", "", "autorole"),
-        ("reactionroles", "Reaktions-Rollen", "autoreact.db", "autoreact", "", "reactionroles"),
-        ("vanityroles", "Vanity-Rollen", "vanity.db", "vanity_roles", "", "vanityroles"),
-        # custom_roles, not roles: the "roles" table also holds the
-        # reqrole, so a server with only a reqrole set looked configured.
+        ("reactionroles", "Reaktions-Rollen", "rr.db", "reaction_roles", "", "reactionroles"),
+        # custom_roles, not roles: the "roles" table also holds the reqrole.
         ("customroles", "Eigene Rollen", "customrole.db", "custom_roles", "", "customroles"),
-        ("invcrole", "Sprach-Rollen", "invc.db", "vcrole_roles", "", "invcrole"),
-        # This pointed at block.db -- the blacklist database, which has
-        # no j2c table -- so Join to Create was reported as "not set up"
-        # on every server no matter what. The data lives in j2c_data.db.
+        ("vanityroles", "Vanity-Rollen", "vanity.db", "vanity_roles", "", "vanityroles"),
+        ("nickname", "Spitznamen", "nickname.db", "nickname_rules", "", "nickname"),
+        ("leveling", "Level-System", "leveling.db", "leveling_settings", "enabled = 1", "leveling"),
+
+        # Activity
+        ("giveaways", "Giveaways", "giveaways.db", "Giveaway", "", "giveaways"),
+        ("booster", "Booster", "boost.db", "boost_config", "", "booster"),
+        ("notify", "Benachrichtigungen", "notify.db", "yt_subs", "", "notify"),
+        ("autoreact", "Auto-Reaktion", "autoreact.db", "autoreact", "", "autoreact"),
+        ("autoresponder", "Autoresponder", "autoresponder.db", "autoresponses", "", "autoresponder"),
+        ("customcommands", "Custom Commands", "custom_commands.db", "custom_commands", "", "custom-commands"),
+        ("anonchat", "Anonymer Chat", "anonchat.db", "anon_channels", "enabled = 1", "anonchat"),
+
+        # Voice and tools
+        ("music", "Musik", "music.db", "music_settings", "channel_id IS NOT NULL", "music"),
+        # The J2C data lives outside db/ in production.
         ("j2c", "Join to Create", "j2c_data.db", "guild_setup",
          "join_channel_id IS NOT NULL", "j2c"),
-        ("nickname", "Spitznamen", "nickname.db", "nickname_rules", "", "nickname"),
-        ("noprefix", "Ohne Präfix", "np.db", "np_roles", "", "noprefix"),
+        ("invcrole", "Sprach-Rollen", "invc.db", "vcrole_roles", "", "invcrole"),
+        ("tickets", "Tickets", "ticket.db", "guild_configs", "", "tickets"),
+        ("sticky", "Sticky-Nachricht", "stickymessages.db", "sticky_messages", "", "sticky"),
         ("tracking", "Einladungs-Log", "invite.db", "logging", "", "tracking"),
+        ("noprefix", "Ohne Präfix", "np.db", "np_roles", "", "noprefix"),
+
+        # Administration
+        ("teamlist", "Teamliste", "teamlist.db", "teamlist", "enabled = 1", "teamlist"),
+        ("teamupdate", "Team-Update", "team_update.db", "team_settings", "enabled = 1", "teamupdate"),
+        ("supportqueue", "Support-Warteraum", "support_queue.db", "support_queue", "enabled = 1", "supportqueue"),
     ]
 
     # (key, label, JSON-Datei, Bedingung, Dashboard-Pfad)

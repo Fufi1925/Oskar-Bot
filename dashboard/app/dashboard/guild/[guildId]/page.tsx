@@ -13,7 +13,7 @@
  *
  * ── Warum „nächste Schritte“ ────────────────────────────────────────
  *
- * Die alte Seite warf 17 gleich aussehende Kacheln aus, davon 14
+ * Die alte Seite warf viele gleich aussehende Kacheln aus, die meisten
  * grau. Wer neu ist, sieht daran nicht, womit er anfangen soll —
  * Begrüßung und Anti-Nuke sind wichtiger als Spitznamen. Die
  * Reihenfolge steht in `WICHTIGKEIT`.
@@ -55,6 +55,28 @@ const MODULE_ICONS: Record<string, any> = {
   noprefix: Hash,
   tracking: Link2,
   counting: Hash,
+  design: Sparkles,
+  serverstats: BarChart4,
+  honeypot: ShieldCheck,
+  userpull: Users,
+  emergency: Shield,
+  jail: Shield,
+  nightmode: Activity,
+  applications: FileText,
+  leave: Users,
+  joindm: UserCheck,
+  giveaways: Sparkles,
+  booster: Sparkles,
+  notify: Volume2,
+  autoreact: SmilePlus,
+  autoresponder: Bot,
+  customcommands: Hash,
+  anonchat: Shield,
+  music: Volume2,
+  sticky: FileText,
+  teamlist: Users,
+  teamupdate: UserCheck,
+  supportqueue: Mic,
 };
 
 /**
@@ -82,6 +104,28 @@ const WICHTIGKEIT: Record<string, number> = {
   noprefix: 14,
   vanityroles: 15,
   nickname: 16,
+  honeypot: 17,
+  userpull: 18,
+  emergency: 19,
+  jail: 20,
+  nightmode: 21,
+  applications: 22,
+  leave: 23,
+  joindm: 24,
+  giveaways: 25,
+  booster: 26,
+  notify: 27,
+  autoreact: 28,
+  autoresponder: 29,
+  customcommands: 30,
+  anonchat: 31,
+  music: 32,
+  sticky: 33,
+  teamlist: 34,
+  teamupdate: 35,
+  supportqueue: 36,
+  serverstats: 37,
+  design: 38,
 };
 
 /** Ein kurzer Satz, was das Modul bringt. */
@@ -103,6 +147,28 @@ const WOZU: Record<string, string> = {
   noprefix: "Befehle ohne Präfix für ausgewählte Personen.",
   vanityroles: "Rolle für alle mit deinem Link im Status.",
   nickname: "Regeln für Spitznamen, etwa ein fester Vorsatz.",
+  design: "Passt Farben und Erscheinungsbild des Dashboards an.",
+  serverstats: "Zeigt aktuelle Serverzahlen in automatisch gepflegten Kanälen.",
+  honeypot: "Erkennt verdächtige Bots über einen geschützten Köderkanal.",
+  userpull: "Verwaltet ausdrücklich autorisierte Mitglieder für User Pull.",
+  emergency: "Bereitet Rollen und Berechtigungen für einen Notfall vor.",
+  jail: "Isoliert Regelbrecher, ohne sie direkt zu bannen.",
+  nightmode: "Schließt ausgewählte Kanäle automatisch über Nacht.",
+  applications: "Erstellt strukturierte Bewerbungsformulare für dein Team.",
+  leave: "Verabschiedet Mitglieder beim Verlassen des Servers.",
+  joindm: "Sendet neuen Mitgliedern automatisch eine private Nachricht.",
+  giveaways: "Veranstaltet und verwaltet Giveaways direkt auf Discord.",
+  booster: "Belohnt Server-Booster automatisch mit Rollen und Nachrichten.",
+  notify: "Benachrichtigt über neue Videos und Livestreams.",
+  autoreact: "Reagiert automatisch auf festgelegte Nachrichten.",
+  autoresponder: "Antwortet automatisch auf passende Begriffe und Sätze.",
+  customcommands: "Erstellt eigene Befehle und Antworten für den Server.",
+  anonchat: "Ermöglicht moderierten anonymen Austausch in ausgewählten Kanälen.",
+  music: "Konfiguriert Musikkanal, Wiedergabe und eigene Playlists.",
+  sticky: "Hält wichtige Nachrichten dauerhaft am Kanalende sichtbar.",
+  teamlist: "Zeigt eine automatisch aktualisierte Übersicht deines Teams.",
+  teamupdate: "Veröffentlicht Änderungen und Neuigkeiten aus dem Team.",
+  supportqueue: "Organisiert wartende Nutzer in einem Support-Sprachkanal.",
 };
 
 const CARD = "rounded-2xl border border-slate-800 bg-[#131318]";
