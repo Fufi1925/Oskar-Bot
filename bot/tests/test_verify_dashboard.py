@@ -11,6 +11,7 @@ NAV = (ROOT / "dashboard/app/dashboard/layout.tsx").read_text(encoding="utf-8")
 BFF = (ROOT / "dashboard/app/api/bot/[...path]/route.ts").read_text(encoding="utf-8")
 OAUTH_START = (ROOT / "dashboard/app/api/verify/start/route.ts").read_text(encoding="utf-8")
 OAUTH_CALLBACK = (ROOT / "dashboard/app/api/verify/callback/route.ts").read_text(encoding="utf-8")
+VERIFY_RESULT = (ROOT / "dashboard/app/verify/[guildId]/page.tsx").read_text(encoding="utf-8")
 failures: list[str] = []
 
 
@@ -67,8 +68,15 @@ check("guilds.join wird nur bei eingeschaltetem Pull angefordert",
       and 'scopes += " guilds.join"' in OAUTH_START)
 check("Access-Token wird nie gespeichert und Pull nutzt Refresh-Autorisierung",
       "refresh_token: refreshToken" in OAUTH_CALLBACK
-      and "access_token: accessToken" not in OAUTH_CALLBACK
-      and "pullAuthorizationStored" in OAUTH_CALLBACK)
+      and "access_token: accessToken" not in OAUTH_CALLBACK)
+check("Verify widerruft nicht mehr die Dashboard-OAuth-Sitzung",
+      "/oauth2/token/revoke" not in OAUTH_CALLBACK
+      and "same Discord application" in OAUTH_CALLBACK)
+check("temporärer Bot-Ausfall wird einmal wiederholt",
+      "completion.status >= 500" in OAUTH_CALLBACK and "completion = await complete()" in OAUTH_CALLBACK)
+check("Fehlerseite zeigt konkrete Rollenursache und erneuten Versuch",
+      "role_unavailable" in VERIFY_RESULT and 'status === "error"' in VERIFY_RESULT
+      and "Erneut mit Discord prüfen" in VERIFY_RESULT)
 
 print(f"\n{len(failures)} Fehler")
 for failure in failures:

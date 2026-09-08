@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
   let accessToken = "";
   let refreshToken = "";
   let guildsJoinAuthorized = false;
-  let pullAuthorizationStored = false;
+  let failureReason = "verification_failed";
   try {
     const tokenResponse = await fetch(`${DISCORD}/oauth2/token`, {
       method: "POST",
@@ -69,13 +69,15 @@ export async function GET(request: NextRequest) {
       }),
       cache: "no-store",
     });
-    if (!tokenResponse.ok)
+    if (!tokenResponse.ok) {
+      failureReason = "oauth_token_failed";
       throw new Error(`Discord token exchange failed: ${tokenResponse.status}`);
+    }
     const token = await tokenResponse.json();
     accessToken = String(token.access_token || "");
     refreshToken = String(token.refresh_token || "");
     guildsJoinAuthorized = String(token.scope || "")
-      .split(/\s+/)
+      .split(/[\s,]+/)
       .includes("guilds.join");
     if (!accessToken) throw new Error("Discord returned no access token");
 
@@ -87,39 +89,50 @@ export async function GET(request: NextRequest) {
         cache: "no-store",
       }),
     ]);
-    if (!userResponse.ok || !guildsResponse.ok)
+    if (!userResponse.ok || !guildsResponse.ok) {
+      failureReason = "oauth_identity_failed";
       throw new Error("Discord identity request failed");
+    }
     const user = await userResponse.json();
     const guilds = await guildsResponse.json();
 
-    const completion = await fetch(`${API_BASE}/verify/oauth/complete`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.DASHBOARD_API_KEY}`,
-      },
-      body: JSON.stringify({
-        guild_id: state.guildId,
-        user: { id: user.id },
-        // Used only by the bot's immediate guilds.join request when Pull is
-        // active. Neither service persists this short-lived token.
-        // The bot stores only an authenticated encrypted refresh token when
-        // the user expressly granted guilds.join. It never stores accessToken.
-        refresh_token: refreshToken,
-        guilds_join_authorized: guildsJoinAuthorized,
-        guilds: Array.isArray(guilds)
-          ? guilds.map((guild: any) => ({
-              id: String(guild.id),
-              name: String(guild.name || guild.id),
-            }))
-          : [],
-      }),
-      cache: "no-store",
+    const completionBody = JSON.stringify({
+      guild_id: state.guildId,
+      user: { id: user.id },
+      // Only an authenticated encrypted refresh token is retained when the
+      // user expressly grants guilds.join. The access token is never stored.
+      refresh_token: refreshToken,
+      guilds_join_authorized: guildsJoinAuthorized,
+      guilds: Array.isArray(guilds)
+        ? guilds.map((guild: any) => ({
+            id: String(guild.id),
+            name: String(guild.name || guild.id),
+          }))
+        : [],
     });
-    if (!completion.ok)
+    const complete = () =>
+      fetch(`${API_BASE}/verify/oauth/complete`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.DASHBOARD_API_KEY}`,
+        },
+        body: completionBody,
+        cache: "no-store",
+      });
+    let completion = await complete();
+    // A Railway deploy can briefly restart the bot between Discord's callback
+    // and role assignment. Retry one transient server error, never an OAuth or
+    // validation error, and keep the whole callback bounded.
+    if (completion.status >= 500) {
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      completion = await complete();
+    }
+    if (!completion.ok) {
+      failureReason = `bot_completion_${completion.status}`;
       throw new Error(`Bot completion failed: ${completion.status}`);
+    }
     const outcome = await completion.json();
-    pullAuthorizationStored = outcome.pull_status === "authorized";
     return resultRedirect({
       guild_id: state.guildId,
       guild_name: outcome.guild_name,
@@ -134,24 +147,14 @@ export async function GET(request: NextRequest) {
     return resultRedirect({
       guild_id: state.guildId,
       status: "error",
-      reason: "verification_failed",
+      reason: failureReason,
     });
   } finally {
-    // Ordinary verification needs the token for seconds, so revoke it. For
-    // explicitly authorized manual Pull, revocation would also invalidate the
-    // encrypted refresh grant retained by the bot; the access token is still
-    // never stored and expires normally.
-    if (accessToken && !pullAuthorizationStored) {
-      await fetch(`${DISCORD}/oauth2/token/revoke`, {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({
-          client_id: clientId,
-          client_secret: clientSecret,
-          token: accessToken,
-          token_type_hint: "access_token",
-        }),
-      }).catch(() => undefined);
-    }
+    // Do not call Discord's token-revocation endpoint here. Verification and
+    // dashboard login use the same Discord application; revoking this grant
+    // can invalidate the user's existing dashboard authorization and leave the
+    // UI looking signed out. The access token is never persisted and expires
+    // on Discord's normal short lifetime.
+    accessToken = "";
   }
 }

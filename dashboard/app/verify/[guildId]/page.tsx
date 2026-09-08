@@ -44,7 +44,16 @@ export default async function VerifyResultPage({
   const outcome = query.result ? readVerifyResult(query.result) : null;
   const valid = outcome && outcome.guild_id === guildId;
   const status = valid ? outcome.status : "error";
-  const content = copy[status];
+  const reasonText: Record<string, string> = {
+    not_configured: "Die Verifizierung ist auf diesem Server noch nicht vollständig eingerichtet.",
+    role_unavailable: "University Bot kann die Verifiziert-Rolle aktuell nicht vergeben. Prüfe Rollen-Hierarchie und Bot-Berechtigungen.",
+    oauth_token_failed: "Discord hat den Anmeldecode nicht akzeptiert. Starte die Prüfung bitte erneut.",
+    oauth_identity_failed: "Discord konnte Identität oder Servermitgliedschaften vorübergehend nicht bereitstellen.",
+    verification_failed: "Die Verbindung zur Verifizierung ist vorübergehend fehlgeschlagen. Starte die Prüfung bitte erneut.",
+  };
+  const content = status === "error" && valid
+    ? { ...copy.error, text: reasonText[outcome?.reason || ""] || copy.error.text }
+    : copy[status];
   const guildName =
     valid && outcome.guild_name ? outcome.guild_name : "Discord-Server";
   const blocked =
@@ -151,7 +160,7 @@ export default async function VerifyResultPage({
           )}
         </div>
 
-        {!valid && (
+        {status === "error" && (
           <a
             href={`/api/verify/start?guild=${encodeURIComponent(guildId)}`}
             className="mt-6 block rounded-xl bg-blue-600 px-5 py-3.5 text-center font-bold transition hover:bg-blue-500"
@@ -167,7 +176,9 @@ export default async function VerifyResultPage({
         </Link>
         <p className="mt-8 text-center text-[11px] leading-5 text-slate-600">
           Es werden nur deine Discord-Identität und Servermitgliedschaften
-          gelesen. OAuth-Tokens und Serverlisten werden nicht gespeichert.
+          gelesen. Access-Tokens und Serverlisten werden nicht gespeichert.
+          Bei ausdrücklich aktiviertem User Pull bleibt nur die verschlüsselte,
+          widerrufbare Refresh-Autorisierung erhalten.
         </p>
       </section>
     </main>

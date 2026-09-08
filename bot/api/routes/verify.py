@@ -416,12 +416,18 @@ async def complete_oauth_verification(
                 pass
         return {**base, "status": "denied", "reason": denial_reason, "blocked": matched}
 
-    roles = [
-        guild.get_role(int(role_id))
-        for role_id in settings.get("verified_role_ids", [])
-    ]
-    if not roles or any(role is None or _role_problem(guild, role) for role in roles):
+    configured_role_ids = settings.get("verified_role_ids", [])
+    configured_roles = [guild.get_role(int(role_id)) for role_id in configured_role_ids]
+    # The first role is the required primary role. A deleted or newly moved
+    # optional extra role must not break verification for everybody; simply
+    # skip extras the bot can no longer manage and keep assigning the primary.
+    if not configured_roles or configured_roles[0] is None \
+            or _role_problem(guild, configured_roles[0]):
         return {**base, "status": "error", "reason": "role_unavailable"}
+    roles = [
+        role for role in configured_roles
+        if role is not None and not _role_problem(guild, role)
+    ]
     try:
         missing_roles = [role for role in roles if role not in member.roles]
         if missing_roles:
@@ -450,11 +456,21 @@ async def complete_oauth_verification(
                 await _save_pull_authorization(db, guild.id, member.id, refresh_token)
                 pull_status = "authorized"
             except Exception:
+                # Never leave the shared SQLite connection inside a failed
+                # transaction: the normal verification log below must still be
+                # able to commit even when optional Pull persistence fails.
+                try:
+                    await db.rollback()
+                except Exception:
+                    pass
                 pull_status = "authorization_store_failed"
         try:
             await _record_pull_event(db, guild.id, member.id, target_id, pull_status)
         except Exception:
-            pass
+            try:
+                await db.rollback()
+            except Exception:
+                pass
 
     unverified_id = settings.get("unverified_role_id")
     if settings.get("remove_unverified_role") and unverified_id:

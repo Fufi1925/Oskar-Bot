@@ -29,6 +29,7 @@ Run:  python3 tests/test_verify.py
 """
 
 import asyncio
+from datetime import datetime, timezone
 import os
 import re
 import sqlite3
@@ -1003,6 +1004,33 @@ async def test_api(store):
     check("the optional target role is applied during the manual pull",
           bot.http_calls[0]["json"]["roles"] == [str(target_role.id)],
           str(bot.http_calls[0]["json"]))
+
+    # Optional Pull persistence must never poison the shared SQLite
+    # transaction or turn an otherwise successful verification into an error.
+    resilient_member = Member(335)
+    guild._members[resilient_member.id] = resilient_member
+    old_save_auth = verify_route._save_pull_authorization
+    async def broken_save_auth(db, source_id, user_id, token):
+        await db.execute(
+            "INSERT OR REPLACE INTO verification_pull_events"
+            " (source_guild_id, user_id, target_guild_id, status, created_at)"
+            " VALUES (?, ?, 0, 'partial', ?)",
+            (source_id, user_id, datetime.now(timezone.utc).isoformat()),
+        )
+        raise RuntimeError("simulated storage failure")
+    verify_route._save_pull_authorization = broken_save_auth
+    try:
+        r = client.post("/api/v1/verify/oauth/complete", json={
+            "guild_id": str(GUILD), "user": {"id": str(resilient_member.id)},
+            "guilds": [], "refresh_token": "will-not-be-stored",
+            "guilds_join_authorized": True,
+        })
+    finally:
+        verify_route._save_pull_authorization = old_save_auth
+    check("a Pull storage failure cannot make Verify fail",
+          r.status_code == 200 and r.json().get("status") == "success"
+          and r.json().get("pull_status") == "authorization_store_failed",
+          r.text[:220])
 
     client.patch(base, json={"panel_title": "Mein Titel"})
     data = client.get(base).json()
