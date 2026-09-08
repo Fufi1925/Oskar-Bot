@@ -80,7 +80,7 @@ def forbidden():
 
 class Perms:
     def __init__(self, ok=True, **kw):
-        for key in ("manage_roles", "send_messages", "manage_messages",
+        for key in ("manage_roles", "manage_guild", "send_messages", "manage_messages",
                     "view_channel", "administrator", "read_message_history"):
             setattr(self, key, kw.get(key, ok))
 
@@ -115,6 +115,7 @@ class Channel:
         self.sent: list = []
         self._ok = ok
         self.guild = None
+        self.deleted = False
 
     def permissions_for(self, _member):
         return Perms(self._ok)
@@ -125,6 +126,9 @@ class Channel:
 
     async def _edit(self, **kwargs):
         pass
+
+    async def delete(self, **kwargs):
+        self.deleted = True
 
 
 class Member:
@@ -166,13 +170,22 @@ class Guild:
         self.owner = Member(self.owner_id)
         self.system_channel = None
         self.me = Member(1)
-        self._roles = {}
+        self.default_role = Role(gid, "@everyone", 0, default=True)
+        self._roles = {self.default_role.id: self.default_role}
         self._channels = {}
         self._members = {}
+        self.created_channels = []
 
     @property
     def roles(self):
         return list(self._roles.values())
+
+    async def create_text_channel(self, name, **kwargs):
+        channel = Channel(7000 + len(self.created_channels), name)
+        channel.guild = self
+        self.created_channels.append(channel)
+        self._channels[channel.id] = channel
+        return channel
 
     def get_role(self, rid):
         return self._roles.get(int(rid))
@@ -836,6 +849,7 @@ async def test_api(store):
     target.name = "Zielserver"
     target.owner_id = 778
     target.owner = Member(target.owner_id)
+    target._members[guild.owner_id] = Member(guild.owner_id, perms=Perms(manage_guild=True))
     target.me.top_role = Role(9998, "bot", 100)
     target_role = Role(8801, "Pull-Mitglied", 5)
     target._roles[target_role.id] = target_role
@@ -847,8 +861,9 @@ async def test_api(store):
     r = client.get(f"{base}/pull/targets?actor=123")
     check("a non-owner cannot list Pull targets", r.status_code == 403, r.text[:120])
     r = client.get(f"{base}/pull/targets?actor={guild.owner_id}")
-    check("foreign target servers are not disclosed in the suggestion list",
-          r.status_code == 200 and r.json()["targets"] == [], r.text[:180])
+    check("the dropdown includes bot servers with dashboard access",
+          r.status_code == 200 and r.json()["targets"][0]["id"] == str(target.id),
+          r.text[:180])
     r = client.post(f"{base}/pull/toggle?actor={guild.owner_id}", json={"enabled": True})
     check("the simple switch can request guilds.join before a target exists",
           r.status_code == 200 and r.json().get("needs_target") is True,
@@ -857,10 +872,12 @@ async def test_api(store):
     pull_body = {"target_guild_id": str(target.id), "role_id": str(target_role.id)}
     r = client.post(f"{base}/pull/challenge?actor={guild.owner_id}", json=pull_body)
     first_challenge = r.json()
-    check("the four-digit challenge is sent to the system channel",
+    code_channel = target.created_channels[0] if target.created_channels else None
+    check("the four-digit challenge gets its own temporary channel",
           r.status_code == 200 and first_challenge.get("status") == "sent"
-          and len(target_channel.sent) == 1, r.text[:180])
-    payload = str(target_channel.sent[0]["view"].to_components())
+          and code_channel is not None and len(code_channel.sent) == 1,
+          r.text[:180])
+    payload = str(code_channel.sent[0]["view"].to_components())
     code_match = re.search(r"`(\d{4})`", payload)
     check("the challenge is Components V2 with owner ping and custom emoji",
           code_match is not None and f"<@{target.owner_id}>" in payload
@@ -869,7 +886,8 @@ async def test_api(store):
     r = client.post(f"{base}/pull/challenge?actor={guild.owner_id}", json=pull_body)
     check("an active challenge is reused without a duplicate message",
           r.status_code == 200 and r.json().get("status") == "already_sent"
-          and len(target_channel.sent) == 1, r.text[:180])
+          and len(target.created_channels) == 1 and len(code_channel.sent) == 1,
+          r.text[:180])
     r = client.get(f"{base}/pull/targets?actor={guild.owner_id}")
     check("a reload can reopen the already-sent code popup",
           r.status_code == 200

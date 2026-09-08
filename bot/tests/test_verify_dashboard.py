@@ -12,6 +12,7 @@ BFF = (ROOT / "dashboard/app/api/bot/[...path]/route.ts").read_text(encoding="ut
 OAUTH_START = (ROOT / "dashboard/app/api/verify/start/route.ts").read_text(encoding="utf-8")
 OAUTH_CALLBACK = (ROOT / "dashboard/app/api/verify/callback/route.ts").read_text(encoding="utf-8")
 VERIFY_RESULT = (ROOT / "dashboard/app/verify/[guildId]/page.tsx").read_text(encoding="utf-8")
+VERIFY_API = (ROOT / "bot/api/routes/verify.py").read_text(encoding="utf-8")
 failures: list[str] = []
 
 
@@ -58,7 +59,18 @@ check("Verifizierung bleibt im Schutz-Tab aufklappbar",
       and "Verifizierung aufklappen" in NAV)
 check("Unterpunkt heißt Pull", 'name: "Pull"' in NAV)
 check("eigene responsive Pull-Seite", "sm:place-items-center" in PULL and "UserPullPanel" in PULL)
-check("nur zukünftige Nutzer werden beschrieben", "Nur zukünftige" in PULL and "manuellen Pull" in PULL)
+check("Pull all verarbeitet nur autorisierte Nutzer",
+      "Abrufbare Mitglieder" in PULL and "Nicht autorisierte Mitglieder" in PULL
+      and "Pull all" in PULL)
+check("Pull-all-Assistent hat Server, Rolle, Zusammenfassung und Code",
+      all(text in PULL for text in ("Zielserver auswählen", "Zielrolle festlegen",
+                                   "Pull all bestätigen", "Vierstelligen Code eingeben")))
+check("Code-Kanal wird nach zehn Minuten gelöscht",
+      "privaten Code-Kanal" in PULL and "nach 10 Minuten gelöscht" in PULL
+      and "await asyncio.sleep(600)" in VERIFY_API
+      and "User-Pull-Code nach 10 Minuten gelöscht" in VERIFY_API)
+check("Pull all läuft als Fortschrittsjob", "Pull-all-Fortschritt" in PULL
+      and "verification_pull_jobs" in VERIFY_API and "_run_pull_all_job" in VERIFY_API)
 check("minimale Mitgliederdaten", all(value in PULL for value in ("Discord-ID", "verified_at", "pull_status", "avatar")))
 check("keine sensiblen Mitgliederdaten", all(value not in PULL.lower() for value in ("ip-adresse", "standort", "gerät", "e-mail")))
 check("Owner-Sperransicht ist blau", "Inhaberzugriff erforderlich" in PULL and "border-blue-500/20" in PULL)

@@ -430,7 +430,8 @@ export const api = {
   getVerify: (g: string) => request<any>(`/verify/${g}`),
   getPullTargets: (g: string) => request<any>(`/verify/${g}/pull/targets`),
   getPullMembers: (g: string, query = "") =>
-    request<any>(`/verify/${g}/pull/members?query=${encodeURIComponent(query)}`),
+    request<any>(`/verify/${g}/pull/members?limit=5000&query=${encodeURIComponent(query)}`),
+  getPullJob: (g: string) => request<any>(`/verify/${g}/pull/job`),
   pullMember: (g: string, userId: string) =>
     request<any>(`/verify/${g}/pull/members/${userId}`, {
       method: "POST",
