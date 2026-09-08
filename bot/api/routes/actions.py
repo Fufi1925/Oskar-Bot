@@ -27,6 +27,7 @@ from utils import custom_commands as custom_command_store
 from utils import premium_store
 from utils.panels import from_embed
 from utils.links import dashboard_url
+from utils.emoji import TICK
 
 if TYPE_CHECKING:
     from core.universitybot import universitybot
@@ -138,6 +139,7 @@ async def send_verification_panel(
     # It must never recreate the retired direct-role/CAPTCHA buttons.
     oauth_button = discord.ui.Button(
         label=str(data.get("button_label") or "Mit Discord verifizieren")[:80],
+        emoji=TICK,
         style=discord.ButtonStyle.link,
         url=f"{dashboard_url().rstrip('/')}/api/verify/start?guild={guild.id}",
     )

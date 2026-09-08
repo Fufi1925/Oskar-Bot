@@ -44,6 +44,7 @@ warnings.filterwarnings("ignore")
 
 import aiosqlite  # noqa: E402
 import discord  # noqa: E402
+from utils import emoji as bot_emoji  # noqa: E402
 
 GUILD = 4401
 CHANNEL = 1327995167345819721      # a real-length snowflake
@@ -831,13 +832,15 @@ async def test_api(store):
           str(outcome.get("blocked")))
     check("denial sends the person a DM", len(oauth_member.dms) == 1,
           str(len(oauth_member.dms)))
-    denial_embed = oauth_member.dms[0].get("embed")
-    check("the standard denial DM matches the blacklist card",
-          denial_embed is not None
-          and "Server-Blacklist" in denial_embed.title
-          and "Gesperrter Testserver" in denial_embed.description
-          and denial_embed.footer.text == "Bereitgestellt von University Bot",
-          str(denial_embed.to_dict() if denial_embed else None))
+    denial_view = oauth_member.dms[0].get("view")
+    denial_payload = str(denial_view.to_components() if denial_view else None)
+    check("the standard denial DM is a Components V2 blacklist card",
+          denial_view is not None
+          and "Server-Blacklist" in denial_payload
+          and "Gesperrter Testserver" in denial_payload
+          and "Bereitgestellt von University Bot" in denial_payload
+          and bot_emoji.CROSS in denial_payload,
+          denial_payload[:500])
 
     client.patch(base, json={"server_blacklist_enabled": False})
     r = client.post("/api/v1/verify/oauth/complete", json={
@@ -995,6 +998,18 @@ async def test_api(store):
     await db_manager.close_all()
 
 
+def test_active_verify_messages_are_v2(store):
+    print("\nComponents V2 and custom emojis")
+    route = open(os.path.join(HERE, "..", "api", "routes", "verify.py")).read()
+    check("the active OAuth route creates no legacy embeds", "discord.Embed" not in route)
+    check("the standard panel title uses a custom emoji",
+          bot_emoji.WARNING in store.DEFAULTS["panel_title"],
+          store.DEFAULTS["panel_title"])
+    check("the standard instructions use custom emojis",
+          bot_emoji.INFO in store.DEFAULTS["panel_text"]
+          and bot_emoji.LOCK in store.DEFAULTS["panel_text"])
+
+
 def test_panel_restore_uses_cog():
     """
     Restoring must not overwrite the configured texts.
@@ -1028,6 +1043,7 @@ async def run():
     # CAPTCHA helpers remain import-compatible for old persistent views, but
     # they are intentionally unreachable in the one-click OAuth product flow.
     await test_api(store)
+    test_active_verify_messages_are_v2(store)
     test_panel_restore_uses_cog()
 
     print(f"\n{len(failures)} failures")

@@ -13,7 +13,7 @@
 # ╚══════════════════════════════════════════════════════════════════╝
 
 import discord 
-from utils.emoji import CROSS, TICK, WARNING, ZSAFE
+from utils.emoji import CROSS, TICK, WARNING, ZSAFE, MENTION
 from discord .ext import commands 
 from discord import app_commands 
 from discord .ui import LayoutView ,TextDisplay ,Separator ,ActionRow ,MediaGallery 
@@ -1155,11 +1155,11 @@ class VerificationSetupView (discord .ui .View ):
 
 
             security_features =(
-            "• All channels made private to unverified users\n"
-            "• Verification channel locked for unverified users\n"
-            "• Auto-message deletion in the verification channel\n"
-            "• One-click verification via Discord OAuth2\n"
-            "• Comprehensive logging enabled"
+            f"{TICK} All channels made private to unverified users\n"
+            f"{TICK} Verification channel locked for unverified users\n"
+            f"{TICK} Auto-message deletion in the verification channel\n"
+            f"{TICK} One-click verification via Discord OAuth2\n"
+            f"{TICK} Comprehensive logging enabled"
             )
 
             if failed_count >0 :
@@ -1201,10 +1201,11 @@ class VerificationSetupView (discord .ui .View ):
         try :
             channel =self .verification_channel 
 
-            methods =["**Discord OAuth2** — sicher mit einem Klick verifizieren."]
+            methods =[f"{TICK} **Discord OAuth2** — sicher mit einem Klick verifizieren."]
             buttons =discord .ui .View (timeout =None )
             buttons .add_item (discord .ui .Button (
                 label ="Mit Discord verifizieren",
+                emoji =TICK,
                 style =discord .ButtonStyle .link,
                 url =f"{dashboard_url().rstrip('/')}/api/verify/start?guild={channel.guild.id}",
             ))
@@ -1333,12 +1334,12 @@ class Verification (commands .Cog ):
         if preview:
             buttons = [
                 discord.ui.Button(
-                    label=label, style=discord.ButtonStyle.success,
+                    label=label, emoji=TICK, style=discord.ButtonStyle.success,
                     custom_id="verify_preview_oauth", disabled=True,
                 ),
                 discord.ui.Button(
                     label=f"{int(settings.get('verified_count') or 0)} verifizierte Nutzer"[:80],
-                    style=discord.ButtonStyle.secondary,
+                    emoji=MENTION, style=discord.ButtonStyle.secondary,
                     custom_id="verify_preview_count", disabled=True,
                 ),
             ]
@@ -1346,12 +1347,12 @@ class Verification (commands .Cog ):
             base = dashboard_url().rstrip("/")
             buttons = [
                 discord.ui.Button(
-                    label=label, style=discord.ButtonStyle.link,
+                    label=label, emoji=TICK, style=discord.ButtonStyle.link,
                     url=f"{base}/api/verify/start?guild={guild.id}",
                 ),
                 discord.ui.Button(
                     label=f"{int(settings.get('verified_count') or 0)} verifizierte Nutzer"[:80],
-                    style=discord.ButtonStyle.secondary,
+                    emoji=MENTION, style=discord.ButtonStyle.secondary,
                     custom_id="verify_count_display",
                     disabled=True,
                 ),

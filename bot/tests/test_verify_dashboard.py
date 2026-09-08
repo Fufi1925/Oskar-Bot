@@ -20,7 +20,7 @@ for section in ("Einrichtung", "Blacklist", "Nachrichten", "Erweitert", "Verlauf
     check(f"responsiver Tab {section}", f'label: "{section}"' in PANEL)
 
 for feature in (
-    "Sichere Verifizierung",
+    "Verifizierung",
     "Live-Vorschau",
     "Panel jetzt posten",
     "OAuth2",
@@ -35,6 +35,8 @@ check("kein CAPTCHA-Schalter", "CAPTCHA Only" not in PANEL and "Nur CAPTCHA" not
 check("keine Methodenauswahl", "verification_method" not in PANEL)
 check("keine unnötige Ablauf-Erklärung", "So funktioniert die Prüfung" not in PANEL)
 check("keine technischen Scope-Namen", "identify · guilds" not in PANEL)
+check("keine Vorschau unter einzelnen Textfeldern", "Sofort-Vorschau" not in PANEL)
+check("nur die passende zentrale Live-Vorschau bleibt", PANEL.count("Live-Vorschau") == 1)
 check("bis zu drei Verify-Rollen", "[0, 1, 2].map" in PANEL and "bis zu 3" in PANEL)
 check("Unverifiziert-Rolle steht in der Grundkonfiguration",
       PANEL.index("Unverifiziert-Rolle entfernen") < PANEL.index('tab === "advanced"'))

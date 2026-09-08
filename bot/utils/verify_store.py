@@ -68,16 +68,16 @@ DEFAULTS: dict[str, Any] = {
     # ── the texts ────────────────────────────────────────────────
     # The defaults are what most servers will never change, so they say
     # what happens rather than just "verify yourself".
-    "panel_title": "❗ Server-Verifizierung",
+    "panel_title": f"{bot_emoji.WARNING} Server-Verifizierung",
     "panel_text": (
         "Klicke auf den Button unten, um dich zu verifizieren und Zugang zum Server zu erhalten.\n\n"
-        "### ℹ️ Anleitung\n"
+        f"### {bot_emoji.INFO} Anleitung\n"
         "Klicke auf **Verifizieren**, melde dich bei Discord an und bestätige OAuth2.\n\n"
-        "### 🛡️ Server-Sicherheit\n"
+        f"### {bot_emoji.LOCK} Server-Sicherheit\n"
         "Diese Verifizierung hilft dabei, den Server vor Bots und gesperrten Servermitgliedschaften zu schützen."
     ),
     "panel_footer": "Bereitgestellt von University Bot",
-    "button_label": "✅ Verifizieren",
+    "button_label": "Verifizieren",
     "captcha_label": "Stattdessen CAPTCHA",
     "success_text": (
         f"Alles klar, {{user}} — du bist dabei! {bot_emoji.TADAA}\n"
@@ -355,6 +355,7 @@ def normalise(settings: dict) -> dict:
     # Servers that never customised the old stock panel receive the new,
     # cleaner OAuth2 card automatically. Custom-written panels stay untouched.
     if str(out.get("panel_title") or "").strip() in {
+        "❗ Server-Verifizierung",
         "Kurz bestätigen, dann bist du drin",
         "Verifizierung erforderlich",
         "Verification Required",

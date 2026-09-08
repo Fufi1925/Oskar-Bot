@@ -31,7 +31,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from api.db_manager import db_manager
 from api.dependencies import get_bot, run_on_bot_loop
 from utils import feature_audit
+from utils import emoji as bot_emoji
 from utils import verify_store as store
+from utils.panels import Panel, StatusCard
 
 if TYPE_CHECKING:
     from core.universitybot import universitybot
@@ -267,8 +269,8 @@ async def complete_oauth_verification(
             title = settings.get("blacklist_title") or "Verifizierung abgelehnt"
             description = settings.get("blacklist_text") or "Die Prüfung wurde abgelehnt."
         else:
-            title = "❌ Verifizierung blockiert — Server-Blacklist" if matched \
-                else "❌ Verifizierung abgelehnt"
+            title = "Verifizierung blockiert — Server-Blacklist" if matched \
+                else "Verifizierung abgelehnt"
             description = (
                 "Deine Verifizierung auf **{server}** wurde abgelehnt, weil du Mitglied "
                 "eines Servers bist, den das Serverteam eingeschränkt hat.\n\n"
@@ -284,28 +286,29 @@ async def complete_oauth_verification(
             user_name=member.display_name, member_count=guild.member_count or 0,
             blocked_server=blocked_names,
         )
-        embed = discord.Embed(title=title[:256], description=description[:4000], color=0xEF4444)
-        embed.set_footer(text="Bereitgestellt von University Bot")
+        denial_card = Panel(
+            f"{bot_emoji.CROSS} {title}"[:256],
+            description[:3800],
+            "Bereitgestellt von University Bot",
+            tone="error",
+        )
         try:
-            await run_on_bot_loop(member.send(embed=embed))
+            await run_on_bot_loop(member.send(view=denial_card))
         except (discord.Forbidden, discord.HTTPException):
             pass
 
         log_id = settings.get("blacklist_log_channel_id") or settings.get("log_channel_id")
         log_channel = guild.get_channel(int(log_id)) if log_id else None
         if log_channel and hasattr(log_channel, "send"):
-            log_embed = discord.Embed(
-                title="OAuth-Verifizierung abgelehnt",
-                description=(
-                    f"{member.mention} (`{member.id}`) wurde abgelehnt.\n"
-                    f"Grund: **{denial_reason}**\n"
-                    f"Treffer: **{blocked_names}**"
-                ),
-                color=0xEF4444,
-                timestamp=datetime.now(timezone.utc),
+            log_card = StatusCard(
+                "OAuth2-Verifizierung abgelehnt",
+                f"{member.mention} (`{member.id}`) wurde abgelehnt.\n"
+                f"Grund: **{denial_reason}**\n"
+                f"Treffer: **{blocked_names}**",
+                tone="error",
             )
             try:
-                await run_on_bot_loop(log_channel.send(embed=log_embed))
+                await run_on_bot_loop(log_channel.send(view=log_card))
             except (discord.Forbidden, discord.HTTPException):
                 pass
         return {**base, "status": "denied", "reason": denial_reason, "blocked": matched}
@@ -347,11 +350,10 @@ async def complete_oauth_verification(
     log_channel = guild.get_channel(int(log_id)) if log_id else None
     if log_channel and hasattr(log_channel, "send"):
         try:
-            await run_on_bot_loop(log_channel.send(embed=discord.Embed(
-                title="OAuth-Verifizierung erfolgreich",
-                description=f"{member.mention} (`{member.id}`) hat **{role_names}** erhalten.",
-                color=0x22C55E,
-                timestamp=datetime.now(timezone.utc),
+            await run_on_bot_loop(log_channel.send(view=StatusCard(
+                "OAuth2-Verifizierung erfolgreich",
+                f"{member.mention} (`{member.id}`) hat **{role_names}** erhalten.",
+                tone="success",
             )))
         except (discord.Forbidden, discord.HTTPException):
             pass
@@ -363,8 +365,8 @@ async def complete_oauth_verification(
             role=role_mentions, member_count=guild.member_count or 0,
         )
         try:
-            await run_on_bot_loop(member.send(embed=discord.Embed(
-                title="Verifizierung erfolgreich", description=text[:4000], color=0x22C55E
+            await run_on_bot_loop(member.send(view=StatusCard(
+                "Verifizierung erfolgreich", text[:3800], tone="success"
             )))
         except (discord.Forbidden, discord.HTTPException):
             pass

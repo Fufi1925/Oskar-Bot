@@ -4,7 +4,6 @@ import React, { useCallback, useState } from "react";
 import {
   AlertTriangle,
   Check,
-  CheckCircle2,
   ChevronDown,
   Clock3,
   Eye,
@@ -115,8 +114,8 @@ function Section({
     amber: "bg-amber-500/10 text-amber-300 ring-amber-500/20",
   };
   return (
-    <section className="overflow-hidden rounded-2xl border border-slate-800/90 bg-[#11141d] shadow-xl shadow-black/10">
-      <header className="flex items-start gap-3 border-b border-slate-800/80 px-4 py-4 sm:px-5">
+    <section className="space-y-5 rounded-3xl border border-slate-800 bg-[#131318] p-4 sm:p-6">
+      <header className="flex items-start gap-3">
         <div
           className={cn(
             "grid h-10 w-10 shrink-0 place-items-center rounded-xl ring-1",
@@ -134,7 +133,7 @@ function Section({
           )}
         </div>
       </header>
-      <div className="space-y-5 p-4 sm:p-5">{children}</div>
+      <div className="space-y-5">{children}</div>
     </section>
   );
 }
@@ -166,16 +165,6 @@ function TextField({
         <span className="flex gap-2 rounded-lg border border-amber-500/20 bg-amber-500/[0.06] p-2.5 text-[11px] text-amber-200/80">
           <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
           {bad.join(", ")} ist kein gültiger Platzhalter.
-        </span>
-      )}
-      {String(value ?? "").trim() && (
-        <span className="block rounded-xl border border-slate-800 bg-[#090c13] px-3.5 py-3">
-          <span className="mb-1.5 block text-[9px] font-bold uppercase tracking-[0.18em] text-slate-600">
-            Sofort-Vorschau
-          </span>
-          <span className="block whitespace-pre-wrap text-[13px] leading-relaxed text-slate-300">
-            <DiscordEmojiText text={fill(value, role, server)} />
-          </span>
         </span>
       )}
     </Field>
@@ -274,7 +263,6 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
   const hasRole = verifiedRoleIds.length > 0;
   const configured = hasChannel && hasRole;
   const active = Boolean(p.value("enabled"));
-  const readiness = [hasChannel, hasRole, active].filter(Boolean).length;
   const saveBlocked = p.value("server_blacklist_enabled")
     ? blockedGuilds.length === 0
       ? "Füge mindestens einen Server zur aktiven Blacklist hinzu."
@@ -332,81 +320,47 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
 
   return (
     <section className="space-y-5 pb-4">
-      {/* Header: one clear status and one clear switch. */}
-      <div className="relative overflow-hidden rounded-3xl border border-blue-500/20 bg-[#0b1020] p-5 shadow-2xl shadow-blue-950/20 sm:p-7">
-        <div className="pointer-events-none absolute -right-20 -top-28 h-72 w-72 rounded-full bg-blue-600/20 blur-3xl" />
-        <div className="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex min-w-0 items-start gap-4">
-            <div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-500/20">
-              <ShieldCheck className="h-7 w-7 text-white" />
-            </div>
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-xl font-black tracking-tight text-white sm:text-2xl">
-                  Sichere Verifizierung
-                </h1>
-                <span className="rounded-full border border-blue-400/20 bg-blue-400/10 px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-blue-300">
-                  Discord OAuth2
-                </span>
-              </div>
-              <p className="mt-2 max-w-2xl text-sm text-slate-400">
-                Moderne One-Click-Verifizierung mit OAuth2.
-              </p>
-            </div>
+      <div className="rounded-3xl border border-slate-800 bg-[#131318] p-4 sm:p-6">
+        <div className="flex items-start gap-3">
+          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-primary/15">
+            <ShieldCheck className="h-5 w-5 text-primary" />
           </div>
-          <div className="flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-black/20 p-3.5 lg:min-w-[250px]">
-            <div>
-              <p className="text-sm font-bold text-white">
-                System {active ? "aktiv" : "pausiert"}
-              </p>
-              <p className="mt-0.5 text-[11px] text-slate-500">
-                {configured
-                  ? "Einrichtung vollständig"
-                  : "Einrichtung abschließen"}
-              </p>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="font-black text-white">Verifizierung</h1>
+              <span className="rounded-lg bg-primary/10 px-2 py-1 text-[9px] font-black uppercase tracking-widest text-primary">
+                OAuth2
+              </span>
             </div>
-            <SwitchToggle
-              checked={active}
-              onCheckedChange={toggleActive}
-              label="Verifizierung aktivieren oder pausieren"
-            />
+            <p className="mt-1 text-[12px] text-slate-400">
+              Kanal, Rollen und Server-Blacklist verwalten.
+            </p>
           </div>
+          <SwitchToggle
+            checked={active}
+            onCheckedChange={toggleActive}
+            label="Verifizierung aktivieren oder pausieren"
+          />
         </div>
 
-        <div className="relative mt-6 grid grid-cols-2 gap-2 sm:grid-cols-4">
-          <div className="rounded-xl border border-white/[0.07] bg-white/[0.035] p-3">
-            <p className="text-xl font-black text-white">
-              {p.data?.verified_count ?? 0}
-            </p>
-            <p className="text-[10px] font-semibold text-slate-500">
-              Verifiziert
-            </p>
-          </div>
-          <div className="rounded-xl border border-white/[0.07] bg-white/[0.035] p-3">
+        <div className="mt-5 grid grid-cols-2 gap-3">
+          <div className="rounded-2xl border border-slate-800 bg-[#0e0e12] px-4 py-3">
             <p
               className={cn(
                 "text-sm font-black",
                 configured ? "text-emerald-300" : "text-amber-300",
               )}
             >
-              {configured ? "Bereit" : `${readiness}/3 Schritte`}
+              {configured ? "Bereit" : "Unvollständig"}
             </p>
-            <p className="mt-1 text-[10px] font-semibold text-slate-500">
-              Konfiguration
-            </p>
+            <p className="mt-1 text-[10px] text-slate-500">Konfiguration</p>
           </div>
-          <div className="rounded-xl border border-white/[0.07] bg-white/[0.035] p-3">
+          <div className="rounded-2xl border border-slate-800 bg-[#0e0e12] px-4 py-3">
             <p className="text-sm font-black text-white">
-              {blockedGuilds.length}
+              {p.data?.verified_count ?? 0}
             </p>
-            <p className="mt-1 text-[10px] font-semibold text-slate-500">
-              Gesperrte Server
-            </p>
-          </div>
-          <div className="rounded-xl border border-white/[0.07] bg-white/[0.035] p-3">
-            <p className="text-sm font-black text-blue-300">OAuth2</p>
-            <p className="mt-1 text-[10px] font-semibold text-slate-500">
-              Methode
+            <p className="mt-1 text-[10px] text-slate-500">
+              Verifizierte Nutzer
             </p>
           </div>
         </div>
@@ -1112,12 +1066,13 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
                 )}
                 <div className="mt-4 grid grid-cols-[1fr_auto] gap-2">
                   <div className="flex items-center justify-center gap-2 rounded-md bg-[#5865f2] px-3 py-2.5 text-[11px] font-bold text-white">
-                    <Shield className="h-3.5 w-3.5" />
+                    <DiscordEmojiText text="<:ztick:1530375424922750977>" />
                     <DiscordEmojiText
                       text={p.value("button_label") || "Verifizieren"}
                     />
                   </div>
-                  <div className="flex items-center justify-center rounded-md bg-[#26272d] px-3 py-2.5 text-[10px] text-slate-500">
+                  <div className="flex items-center justify-center gap-1.5 rounded-md bg-[#26272d] px-3 py-2.5 text-[10px] text-slate-500">
+                    <DiscordEmojiText text="<:universitybot_mention:1530375331729510430>" />
                     {p.data?.verified_count ?? 0} Nutzer
                   </div>
                 </div>
