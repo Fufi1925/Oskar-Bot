@@ -50,6 +50,10 @@ with tempfile.TemporaryDirectory() as tmp:
         ("CREATE TABLE cookie_consents(user_id TEXT, user_name TEXT)", ()),
         ("INSERT INTO cookie_consents VALUES(?,?)", (uid, name)),
     ])
+    make("db/account_preferences.db", [
+        ("CREATE TABLE account_preferences(user_id TEXT PRIMARY KEY,language TEXT,theme TEXT,timezone TEXT,number_format TEXT,date_format TEXT,start_page TEXT,updated_at INTEGER)", ()),
+        ("INSERT INTO account_preferences VALUES(?,?,?,?,?,?,?,?)", (uid, "en", "light", "UTC", "en-GB", "iso", "/konto", 1)),
+    ])
     make("db/web_apply.db", [
         ("CREATE TABLE web_applications(user_id INTEGER PRIMARY KEY,user_name TEXT,avatar TEXT,answers TEXT)", ()),
         ("INSERT INTO web_applications VALUES(?,?,?,?)", (int(uid), name, "avatar", json.dumps(["private"]))),
@@ -75,6 +79,7 @@ with tempfile.TemporaryDirectory() as tmp:
     check("approved request completes", result and result["status"] == "completed")
     check("dashboard profile is deleted", one("db/admin_config.db", "SELECT COUNT(*) FROM dashboard_logins")[0] == 0)
     check("cookie link is deleted", one("db/cookie_consent.db", "SELECT COUNT(*) FROM cookie_consents")[0] == 0)
+    check("personal preferences are deleted", one("db/account_preferences.db", "SELECT COUNT(*) FROM account_preferences")[0] == 0)
     app = one("db/web_apply.db", "SELECT user_id,user_name,avatar,answers FROM web_applications")
     check("application is retained without personal fields", app[0] != int(uid) and app[1:] == (privacy.ANON_LABEL, "", "[]"), str(app))
     premium = one("db/premium.db", "SELECT redeemed_by,revoked FROM premium_keys")

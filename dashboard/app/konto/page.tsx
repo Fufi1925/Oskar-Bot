@@ -10,8 +10,11 @@ import { AccountLoginGate } from "@/components/account-login-gate";
 import { AccountActions } from "@/components/account-actions";
 import { AccountDangerZone } from "@/components/account-danger-zone";
 import { AccountActivityPanel } from "@/components/account-activity-panel";
+import { AccountApplicationsPanel } from "@/components/account-applications-panel";
+import { AccountPreferencesPanel } from "@/components/account-preferences-panel";
 import { AccountPrivacyPanel } from "@/components/account-privacy-panel";
 import { AccountSecurityPanel } from "@/components/account-security-panel";
+import { AccountSupportPanel } from "@/components/account-support-panel";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -146,6 +149,9 @@ export default async function AccountPage() {
         </section>
 
         <AccountActivityPanel activity={realStats?.activity || null} />
+        <AccountSupportPanel userId={userId} />
+        <AccountApplicationsPanel userId={userId} />
+        <AccountPreferencesPanel userId={userId} />
         <AccountSecurityPanel userId={userId} />
         <AccountPrivacyPanel userId={userId} />
         <AccountActions />

@@ -16,6 +16,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from api.dependencies import get_bot
 from api.schemas import BotInfo, BotStatus
 from typing import TYPE_CHECKING
+import os
+import sqlite3
 import time
 from utils.config import *
 
@@ -190,6 +192,56 @@ async def get_account_security(user_id: int, request: Request):
         ],
         "not_granted": ["E-Mail-Adresse", "Nachrichten lesen", "Discord-Passwort"],
     }
+
+
+@router.get("/account/{user_id}/support", summary="Eigene offene Support-Tickets")
+async def get_account_support(user_id: int, bot: "universitybot" = Depends(get_bot)):
+    tickets = []
+    path = "db/ticket.db"
+    if os.path.exists(path):
+        try:
+            with sqlite3.connect(path, timeout=10) as conn:
+                conn.row_factory = sqlite3.Row
+                exists = conn.execute(
+                    "SELECT 1 FROM sqlite_master WHERE type='table' AND name='open_tickets'"
+                ).fetchone()
+                rows = conn.execute(
+                    "SELECT channel_id,ticket_number,guild_id,created_at,is_locked,is_claimed,claimed_by_id "
+                    "FROM open_tickets WHERE creator_id=? AND closed_at IS NULL ORDER BY created_at DESC LIMIT 50",
+                    (int(user_id),),
+                ).fetchall() if exists else []
+            for row in rows:
+                guild = bot.get_guild(int(row["guild_id"]))
+                channel = guild.get_channel(int(row["channel_id"])) if guild else None
+                tickets.append({
+                    "channel_id": str(row["channel_id"]),
+                    "ticket_number": int(row["ticket_number"] or 0),
+                    "guild_id": str(row["guild_id"]),
+                    "guild_name": guild.name if guild else None,
+                    "channel_name": getattr(channel, "name", None),
+                    "created_at": row["created_at"],
+                    "locked": bool(row["is_locked"]),
+                    "claimed": bool(row["is_claimed"]),
+                    "url": f"https://discord.com/channels/{row['guild_id']}/{row['channel_id']}",
+                })
+        except sqlite3.Error:
+            tickets = []
+    return {"tickets": tickets, "support_invite": "https://discord.gg/F3TedBAVZT"}
+
+
+@router.get("/account/{user_id}/preferences", summary="Persönliche Einstellungen")
+async def get_account_preferences(user_id: int):
+    from utils import account_preferences
+    return account_preferences.get(str(user_id))
+
+
+@router.patch("/account/{user_id}/preferences", summary="Persönliche Einstellungen speichern")
+async def save_account_preferences(user_id: int, data: dict):
+    from utils import account_preferences
+    try:
+        return account_preferences.save(str(user_id), data or {})
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
 
 @router.post("/account/{user_id}/revoke", summary="Alle Dashboard-Sitzungen widerrufen")

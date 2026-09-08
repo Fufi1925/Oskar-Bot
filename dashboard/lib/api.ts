@@ -149,6 +149,15 @@ export const api = {
     request<any>(`/bot/account/${userId}/security`),
   revokeAccountSessions: (userId: string) =>
     request<any>(`/bot/account/${userId}/revoke`, { method: "POST", body: "{}" }),
+  getAccountSupport: (userId: string) =>
+    request<any>(`/bot/account/${userId}/support`),
+  getAccountPreferences: (userId: string) =>
+    request<any>(`/bot/account/${userId}/preferences`),
+  saveAccountPreferences: (userId: string, data: any) =>
+    request<any>(`/bot/account/${userId}/preferences`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
 
   // Reviewed erasure requests. User and actor IDs are injected by the BFF.
   getMyErasureRequest: (userId: string) =>

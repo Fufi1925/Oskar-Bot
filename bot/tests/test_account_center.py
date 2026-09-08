@@ -16,7 +16,7 @@ BOT = ROOT / "bot"
 DASHBOARD = ROOT / "dashboard"
 sys.path.insert(0, str(BOT))
 
-from utils import account_security, leveling_store  # noqa: E402
+from utils import account_preferences, account_security, leveling_store  # noqa: E402
 
 failures: list[str] = []
 
@@ -77,15 +77,43 @@ def main() -> int:
         finally:
             account_security.DB_PATH = original
 
+    print("\nPersönliche Einstellungen")
+    with tempfile.TemporaryDirectory() as tmp:
+        original = account_preferences.DB_PATH
+        account_preferences.DB_PATH = os.path.join(tmp, "preferences.db")
+        try:
+            saved = account_preferences.save("22", {
+                "language": "en", "theme": "light", "timezone": "UTC",
+                "number_format": "en-GB", "date_format": "iso", "start_page": "/konto",
+            })
+            check("Einstellungen werden kontogebunden gespeichert",
+                  saved["language"] == "en" and saved["start_page"] == "/konto")
+            check("Einstellungen bleiben beim erneuten Lesen erhalten",
+                  account_preferences.get("22")["theme"] == "light")
+            try:
+                account_preferences.save("22", {"start_page": "https://example.org"})
+                invalid_rejected = False
+            except ValueError:
+                invalid_rejected = True
+            check("externe oder ungültige Startseiten werden abgelehnt", invalid_rejected)
+        finally:
+            account_preferences.DB_PATH = original
+
     print("\nVerdrahtung der Kontoseite")
     page = (DASHBOARD / "app/konto/page.tsx").read_text(encoding="utf-8")
     privacy = (DASHBOARD / "components/account-privacy-panel.tsx").read_text(encoding="utf-8")
     security = (DASHBOARD / "components/account-security-panel.tsx").read_text(encoding="utf-8")
     activity = (DASHBOARD / "components/account-activity-panel.tsx").read_text(encoding="utf-8")
+    support = (DASHBOARD / "components/account-support-panel.tsx").read_text(encoding="utf-8")
+    applications = (DASHBOARD / "components/account-applications-panel.tsx").read_text(encoding="utf-8")
+    preferences = (DASHBOARD / "components/account-preferences-panel.tsx").read_text(encoding="utf-8")
     proxy = (DASHBOARD / "app/api/bot/[...path]/route.ts").read_text(encoding="utf-8")
     auth = (DASHBOARD / "lib/auth.ts").read_text(encoding="utf-8")
 
-    for component in ("AccountActivityPanel", "AccountSecurityPanel", "AccountPrivacyPanel"):
+    for component in (
+        "AccountActivityPanel", "AccountSupportPanel", "AccountApplicationsPanel",
+        "AccountPreferencesPanel", "AccountSecurityPanel", "AccountPrivacyPanel",
+    ):
         check(f"{component} ist auf der Kontoseite", f"<{component}" in page)
     check("Datenschutz bietet Inventar und JSON-Download",
           "getMyPrivacyInventory" in privacy and "exportMyData" in privacy and "Blob" in privacy)
@@ -96,8 +124,14 @@ def main() -> int:
     check("Discord-Berechtigungen werden sichtbar erklärt", "permissions" in security)
     check("7 und 30 Tage sind wählbar", "([7, 30] as const)" in activity)
     check("nicht gemessene Tage haben einen eigenen Zustand", "item.known" in activity)
+    check("Support zeigt echte Tickets, Status und Discord-Link",
+          "getAccountSupport" in support and 'fetch("/api/status"' in support and "support_invite" in support)
+    check("Bewerbungen zeigen Status, Datum und Rückmeldung",
+          "getMyApplication" in applications and "created_at" in applications and "application.reason" in applications)
+    check("alle persönlichen Auswahlfelder sind vorhanden",
+          all(term in preferences for term in ("language", "theme", "timezone", "number_format", "date_format", "start_page")))
     check("BFF bindet Kontoaktionen an die eigene Sitzung",
-          "rest[1] !== session.user.id" in proxy and '"session", "revoke"' in proxy)
+          "rest[1] !== session.user.id" in proxy and '"session", "revoke"' in proxy and 'action === "preferences"' in proxy)
     check("JWTs werden serverseitig gegen den Widerruf geprüft",
           "revokedBefore" in auth and "sessionRevoked" in auth)
     check("die Widerrufsprüfung hat ein festes Timeout", "AbortSignal.timeout(2000)" in auth)

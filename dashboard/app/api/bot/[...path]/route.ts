@@ -1540,8 +1540,9 @@ async function authorize(
       }
       const action = rest[2] ?? "";
       const allowed =
-        (request.method === "GET" && ["", "security", "session-valid"].includes(action)) ||
-        (request.method === "POST" && ["session", "revoke"].includes(action));
+        (request.method === "GET" && ["", "security", "session-valid", "support", "preferences"].includes(action)) ||
+        (request.method === "POST" && ["session", "revoke"].includes(action)) ||
+        (request.method === "PATCH" && action === "preferences");
       if (!allowed) return { ok: false, response: deny(404, "Unknown account action.") };
       return { ok: true };
     }

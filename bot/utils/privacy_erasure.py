@@ -164,6 +164,9 @@ def subject_export(user_id: str) -> dict[str, Any]:
         "dashboard_login": _export_rows(
             "db/admin_config.db", "dashboard_logins", "user_id=?", (uid,)
         ),
+        "account_preferences": _export_rows(
+            "db/account_preferences.db", "account_preferences", "user_id=?", (uid,)
+        ),
         "cookie_confirmations": _export_rows(
             "db/cookie_consent.db", "cookie_consents", "user_id=?", (uid,)
         ),
@@ -214,6 +217,7 @@ def subject_export(user_id: str) -> dict[str, Any]:
 
     descriptions = [
         {"key": "dashboard_login", "label": "Dashboard-Profil und Anmeldezeitpunkte", "count": len(datasets["dashboard_login"]), "purpose": "Anmeldung und Kontosicherheit"},
+        {"key": "account_preferences", "label": "Persönliche Einstellungen", "count": len(datasets["account_preferences"]), "purpose": "Sprache, Darstellung und bevorzugte Startseite"},
         {"key": "account_sessions", "label": "Geräte und Sitzungen", "count": len(datasets["account_sessions"]), "purpose": "Sicherheitswarnungen; keine IP-Adressen"},
         {"key": "cookie_confirmations", "label": "Cookie-Hinweisbestätigungen", "count": len(datasets["cookie_confirmations"]), "purpose": "Nachweis des angezeigten Hinweises"},
         {"key": "leveling", "label": "XP, Level und Nachrichtenanzahl", "count": len(datasets["leveling"]), "purpose": "Level-System auf Discord-Servern"},
@@ -380,6 +384,9 @@ def erase_subject(user_id: str, username: str = "") -> dict[str, int]:
         result["account_sessions"] = account_security.erase_subject(uid)
     except Exception:  # pragma: no cover - eine optionale Tabelle blockiert keine Löschung
         result["account_sessions"] = 0
+    result["account_preferences"] = _delete(
+        "db/account_preferences.db", "account_preferences", "user_id = ?", (uid,)
+    )
 
     with _connect() as conn:
         conn.execute("INSERT OR IGNORE INTO erased_trial_subjects(subject_hash,erased_at) VALUES(?,?)", (digest, int(time.time())))
