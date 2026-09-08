@@ -39,6 +39,7 @@ import {
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { Select } from "@/components/ui/select";
 
 const CARD =
   "bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6";
@@ -149,6 +150,7 @@ export function TemplatesAdmin() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState("neu");
+  const [filter, setFilter] = useState<"alle" | "offen" | "code" | "privat" | "gesperrt">("alle");
   const [busy, setBusy] = useState("");
 
   // Aufgeklappter Eintrag samt nachgeladenem Inhalt.
@@ -296,6 +298,15 @@ export function TemplatesAdmin() {
     [list]
   );
 
+  const visibleList = useMemo(() => list.filter((entry) => {
+    if (filter === "gesperrt") return entry.blocked;
+    if (entry.blocked && filter !== "alle") return false;
+    if (filter === "code") return entry.visibility === "key";
+    if (filter === "privat") return entry.visibility === "private";
+    if (filter === "offen") return entry.visibility !== "key" && entry.visibility !== "private";
+    return true;
+  }), [list, filter]);
+
   if (loading) {
     return (
       <div className={cn(CARD, "flex items-center justify-center py-16")}>
@@ -306,62 +317,68 @@ export function TemplatesAdmin() {
 
   return (
     <div className="space-y-5">
-      {/* Kopf */}
-      <div className={cn(CARD, "space-y-4")}>
-        <div className="flex items-center gap-3">
-          <div className="h-9 w-9 rounded-xl bg-primary/10 grid place-items-center shrink-0">
-            <Sparkles className="h-4 w-4 text-primary" />
+      {/* Kopf und Kennzahlen */}
+      <section className="overflow-hidden rounded-3xl border border-slate-800 bg-gradient-to-br from-violet-500/[0.09] via-[#131318] to-[#111116]">
+        <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:p-6">
+          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl border border-violet-500/20 bg-violet-500/10">
+            <Sparkles className="h-5 w-5 text-violet-400" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <h2 className="text-xl font-black tracking-tight text-white">Vorlagen-Zentrale</h2>
+            <p className="mt-1 max-w-2xl text-sm leading-relaxed text-slate-400">Community-Vorlagen prüfen, Herkunft und Inhalte nachvollziehen und problematische Einträge sicher sperren.</p>
           </div>
-          <div className="min-w-0">
-            <h3 className="font-bold text-white">Community-Vorlagen</h3>
-            <p className="text-[12px] text-slate-500 mt-0.5">
-              Alles, was hochgeladen wurde &mdash; mit Zugangscode, Herkunft und
-              Verlauf.
-            </p>
-          </div>
+          <button onClick={load} disabled={loading} className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-800 bg-[#0b0b0f] px-4 py-2.5 text-xs font-bold text-slate-300 transition hover:border-slate-700 hover:text-white disabled:opacity-40">
+            <RefreshCcw className={cn("h-4 w-4", loading && "animate-spin")} /> Aktualisieren
+          </button>
         </div>
+        <div className="grid grid-cols-2 border-t border-slate-800 sm:grid-cols-5">
+          {[
+            { label: "Vorlagen", value: stats.total ?? 0, icon: Sparkles, color: "text-violet-400" },
+            { label: "Mit Code", value: stats.with_key ?? 0, icon: Key, color: "text-amber-400" },
+            { label: "Gesperrt", value: blockedCount, icon: Ban, color: "text-rose-400" },
+            { label: "Anwendungen", value: stats.applies ?? 0, icon: Check, color: "text-emerald-400" },
+            { label: "Aufrufe", value: stats.uses ?? 0, icon: Eye, color: "text-cyan-400" },
+          ].map((item, index) => <div key={item.label} className={cn("flex items-center gap-3 border-slate-800 px-4 py-4", index > 0 && "border-l", index === 4 && "col-span-2 border-l-0 border-t sm:col-span-1 sm:border-l sm:border-t-0")}>
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-black/20"><item.icon className={cn("h-4 w-4", item.color)} /></span>
+            <div className="min-w-0"><p className="text-lg font-black tabular-nums text-white">{item.value}</p><p className="truncate text-[9px] font-bold uppercase tracking-wider text-slate-600">{item.label}</p></div>
+          </div>)}
+        </div>
+      </section>
 
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-          <Stat label="Vorlagen" value={stats.total ?? 0} />
-          <Stat label="Mit Code" value={stats.with_key ?? 0} />
-          <Stat label="Gesperrt" value={blockedCount} />
-          <Stat label="Anwendungen" value={stats.applies ?? 0} />
-          <Stat label="Aufrufe" value={stats.uses ?? 0} />
-        </div>
-
-        <div className="flex gap-2 flex-wrap">
-          <div className="relative flex-1 min-w-[200px]">
-            <Search className="h-4 w-4 text-slate-600 absolute left-3.5 top-1/2 -translate-y-1/2" />
-            <input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Name, Beschreibung, Hochlader oder Server-ID …"
-              className={cn(INPUT, "pl-11")}
-            />
+      {/* Suche, Sortierung und lokale Sichtbarkeitsfilter */}
+      <section className="rounded-2xl border border-slate-800 bg-[#131318] p-3">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+          <div className="relative min-w-0 flex-1">
+            <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-600" />
+            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Name, Beschreibung, Hochlader oder Server-ID …" className={cn(INPUT, "py-2.5 pl-10")} />
           </div>
-          <select
-            value={sort}
-            onChange={(event) => setSort(event.target.value)}
-            className={cn(INPUT, "w-auto")}
-          >
-            <option value="neu">Neueste</option>
-            <option value="beliebt">Meistgenutzt</option>
-            <option value="name">Name</option>
-          </select>
+          <div className="w-full lg:w-48"><Select value={sort} onValueChange={setSort} options={[{ value: "neu", label: "Neueste" }, { value: "beliebt", label: "Meistgenutzt" }, { value: "name", label: "Name A–Z" }]} /></div>
         </div>
+        <div className="mt-3 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {([
+            ["alle", "Alle"], ["offen", "Öffentlich"], ["code", "Mit Code"], ["privat", "Privat"], ["gesperrt", "Gesperrt"],
+          ] as const).map(([id, label]) => <button key={id} onClick={() => setFilter(id)} className={cn("shrink-0 rounded-xl border px-3.5 py-2 text-xs font-bold transition", filter === id ? "border-violet-500/30 bg-violet-500/10 text-violet-300" : "border-slate-800 bg-[#0b0b0f] text-slate-500 hover:text-slate-300")}>{label}</button>)}
+        </div>
+      </section>
+
+      <div className="flex items-center justify-between px-1">
+        <p className="text-xs font-bold text-slate-400">{visibleList.length} {visibleList.length === 1 ? "Vorlage" : "Vorlagen"}</p>
+        {(search || filter !== "alle") && <button onClick={() => { setSearch(""); setFilter("alle"); }} className="text-xs font-bold text-violet-400 hover:text-violet-300">Filter zurücksetzen</button>}
       </div>
 
-      {list.length === 0 ? (
+      {visibleList.length === 0 ? (
         <div className={cn(CARD, "py-12 text-center")}>
           <p className="text-[13px] text-slate-600">
             {search
               ? `Nichts gefunden für „${search}“.`
-              : "Es wurde noch keine Vorlage hochgeladen."}
+              : filter !== "alle"
+                ? "Keine Vorlage entspricht diesem Filter."
+                : "Es wurde noch keine Vorlage hochgeladen."}
           </p>
         </div>
       ) : (
         <div className="space-y-3">
-          {list.map((entry: any) => {
+          {visibleList.map((entry: any) => {
             const open = openId === entry.id;
             const content = detail[entry.id];
             const events = history[entry.id] || [];
