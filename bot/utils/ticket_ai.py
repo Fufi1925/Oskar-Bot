@@ -24,7 +24,8 @@ ACCESS_DB = "db/admin_config.db"
 _allowed_guilds: set[int] = {PILOT_GUILD_ID}
 API_KEY_ENV = "GOOGLE_API_TICKET_KEY"
 MODEL_ENV = "GOOGLE_TICKET_AI_MODEL"
-DEFAULT_MODEL = "gemini-2.0-flash"
+DEFAULT_MODEL = "gemini-2.5-flash"
+FALLBACK_MODELS = ("gemini-2.5-flash", "gemini-2.5-flash-lite")
 MAX_KNOWLEDGE_BYTES = 100_000
 MAX_ANSWERS_PER_TICKET = 12
 COOLDOWN_SECONDS = 8
@@ -118,6 +119,16 @@ def api_key_configured() -> bool:
     return bool(os.getenv(API_KEY_ENV, "").strip())
 
 
+def model_candidates() -> list[str]:
+    """Configured model first, then stable fallbacks for retired model IDs."""
+    configured = os.getenv(MODEL_ENV, "").strip()
+    result: list[str] = []
+    for model in (configured, *FALLBACK_MODELS):
+        if model and model not in result:
+            result.append(model)
+    return result
+
+
 def _words(value: str) -> set[str]:
     stop = {
         "aber", "alle", "dann", "dass", "eine", "einen", "einer", "eines",
@@ -175,8 +186,6 @@ async def grounded_answer(question: str, excerpts: list[str], instructions: str 
     key = os.getenv(API_KEY_ENV, "").strip()
     if not key or not excerpts:
         return None
-    model = os.getenv(MODEL_ENV, DEFAULT_MODEL).strip() or DEFAULT_MODEL
-    endpoint = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
     source = "\n\n---\n\n".join(excerpts)
     prompt = f"""Du bist der Ticket-Assistent eines Discord-Servers.
 Antworte auf Deutsch, freundlich und knapp. Verwende AUSSCHLIESSLICH Fakten aus WISSEN.
@@ -202,9 +211,19 @@ Antworte nur als JSON: {{"supported": true oder false, "answer": "..."}}"""
         },
     }
     try:
+        response = None
         async with httpx.AsyncClient(timeout=18.0) as client:
-            response = await client.post(endpoint, params={"key": key}, json=payload)
-            response.raise_for_status()
+            for model in model_candidates():
+                endpoint = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+                candidate = await client.post(endpoint, headers={"x-goog-api-key": key}, json=payload)
+                if candidate.status_code == 404:
+                    continue
+                candidate.raise_for_status()
+                response = candidate
+                break
+        if response is None:
+            print("[ticket-ai] No configured or fallback Gemini model is available.")
+            return None
         raw = response.json()["candidates"][0]["content"]["parts"][0]["text"]
         parsed = _extract_json(raw)
         answer = str((parsed or {}).get("answer") or "").strip()

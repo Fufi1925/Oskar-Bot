@@ -70,8 +70,6 @@ async def _summarize(source: str, final: bool = False) -> str:
     key = os.getenv(ticket_ai.API_KEY_ENV, "").strip()
     if not key:
         raise RuntimeError(f"Railway-Variable {ticket_ai.API_KEY_ENV} fehlt.")
-    model = os.getenv(ticket_ai.MODEL_ENV, ticket_ai.DEFAULT_MODEL).strip() or ticket_ai.DEFAULT_MODEL
-    endpoint = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
     instruction = (
         "Erstelle daraus die endgültige, übersichtliche Wissensdatei für einen Discord-Ticketassistenten. "
         "Nutze klare Überschriften und kurze Fakten. Entferne Wiederholungen."
@@ -90,9 +88,19 @@ QUELLTEXT:
         "contents": [{"role": "user", "parts": [{"text": prompt}]}],
         "generationConfig": {"temperature": 0.1, "maxOutputTokens": 1800},
     }
+    response = None
     async with httpx.AsyncClient(timeout=45.0) as client:
-        response = await client.post(endpoint, params={"key": key}, json=payload)
-        response.raise_for_status()
+        for model in ticket_ai.model_candidates():
+            endpoint = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+            candidate = await client.post(endpoint, headers={"x-goog-api-key": key}, json=payload)
+            if candidate.status_code == 404:
+                continue
+            if candidate.is_error:
+                raise RuntimeError(f"Google Gemini API antwortet mit HTTP {candidate.status_code}.")
+            response = candidate
+            break
+    if response is None:
+        raise RuntimeError("Keines der konfigurierten stabilen Gemini-Modelle ist für diesen API-Key verfügbar.")
     text = response.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
     if not text:
         raise RuntimeError("Google hat keinen Text für den Wissensentwurf zurückgegeben.")
@@ -179,10 +187,17 @@ async def run_scan(guild_id: int, bot) -> None:
         }
         exported = await config_transfer.export_guild(guild_id, include_user_data=False)
         dashboard = _safe_config(exported.get("databases", {}))
-        parts = [
-            "SERVER-METADATEN\n" + json.dumps(metadata, ensure_ascii=False, indent=2, default=str),
-            "DASHBOARD-EINSTELLUNGEN\n" + json.dumps(dashboard, ensure_ascii=False, indent=2, default=str),
-        ]
+        parts: list[str] = []
+        # Split metadata and the complete dashboard export before Gemini sees
+        # it. Previously a large dashboard JSON was appended as one oversized
+        # item and the model request silently kept only its first 12,000 chars.
+        for label, source in (
+            ("SERVER-METADATEN", json.dumps(metadata, ensure_ascii=False, indent=2, default=str)),
+            ("DASHBOARD-EINSTELLUNGEN", json.dumps(dashboard, ensure_ascii=False, indent=2, default=str)),
+        ):
+            size = CHUNK_SIZE - len(label) - 2
+            for offset in range(0, max(1, len(source)), size):
+                parts.append(f"{label}\n{source[offset:offset + size]}")
 
         message_count = 0
         buffer = ""
