@@ -6,7 +6,7 @@
  * browser through until maintenance ends.
  *
  * A server action rather than a client fetch: the password is compared
- * on the server, so it never reaches the browser bundle. Nothing links
+ * on the server, so it nver reaches the browser bundle. Nothing links
  * here and the path is not guessable.
  */
 
