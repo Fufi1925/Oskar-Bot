@@ -46,7 +46,7 @@ warnings.filterwarnings("ignore")
 
 import aiosqlite  # noqa: E402
 import discord  # noqa: E402
-from utils import emoji as bot_emoji  # noqa: E402
+from utils import emoji as bot_emoji, feature_gates  # noqa: E402
 
 GUILD = 4401
 CHANNEL = 1327995167345819721      # a real-length snowflake
@@ -861,7 +861,13 @@ async def test_api(store):
     r = client.get(f"{base}/pull/targets?actor=123")
     check("a non-owner cannot list Pull targets", r.status_code == 403, r.text[:120])
     r = client.get(f"{base}/pull/targets?actor={guild.owner_id}")
-    check("the dropdown includes bot servers with dashboard access",
+    check("even the owner cannot use Pull without server Premium",
+          r.status_code == 402 and "Premium" in r.text, r.text[:180])
+
+    feature_gates._premium_guilds.add(GUILD)
+    feature_gates._premium_expiry[GUILD] = None
+    r = client.get(f"{base}/pull/targets?actor={guild.owner_id}")
+    check("the Premium dropdown includes bot servers with dashboard access",
           r.status_code == 200 and r.json()["targets"][0]["id"] == str(target.id),
           r.text[:180])
     r = client.post(f"{base}/pull/toggle?actor={guild.owner_id}", json={"enabled": True})

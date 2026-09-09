@@ -7,6 +7,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[2]
 PANEL = (ROOT / "dashboard/components/dashboard/verify-panel.tsx").read_text(encoding="utf-8")
 PULL = (ROOT / "dashboard/components/dashboard/user-pull-panel.tsx").read_text(encoding="utf-8")
+PULL_PAGE = (ROOT / "dashboard/app/dashboard/guild/[guildId]/verification/pull/page.tsx").read_text(encoding="utf-8")
 NAV = (ROOT / "dashboard/app/dashboard/layout.tsx").read_text(encoding="utf-8")
 BFF = (ROOT / "dashboard/app/api/bot/[...path]/route.ts").read_text(encoding="utf-8")
 OAUTH_START = (ROOT / "dashboard/app/api/verify/start/route.ts").read_text(encoding="utf-8")
@@ -87,9 +88,17 @@ check("minimale Mitgliederdaten", all(value in PULL for value in ("Discord-ID", 
 check("keine sensiblen Mitgliederdaten", all(value not in PULL.lower() for value in ("ip-adresse", "standort", "gerät", "e-mail")))
 check("Owner-Sperransicht ist blau", "Inhaberzugriff erforderlich" in PULL and "border-blue-500/20" in PULL)
 check("Pull-BFF ist strikt owner-only", 'rest[1] === "pull"' in BFF and "ownsGuildOnDiscord(guildId)" in BFF)
-check("guilds.join wird nur bei eingeschaltetem Pull angefordert",
-      "if (settings.user_pull_enabled)" in OAUTH_START
+check("gesamte Pull-Seite ist hinter Server-Premium gesperrt",
+      "Premium erforderlich" in PULL_PAGE and "data?.pull_premium" in PULL_PAGE
+      and "<UserPullPanel" in PULL_PAGE)
+check("Pull-Schalter ist ohne Premium nicht verfügbar",
+      "p.data?.pull_premium" in PANEL and "Premium holen" in PANEL)
+check("guilds.join wird nur bei Premium und eingeschaltetem Pull angefordert",
+      "settings.pull_premium && settings.user_pull_enabled" in OAUTH_START
       and 'scopes += " guilds.join"' in OAUTH_START)
+check("Bot-API erzwingt Premium für alle Pull-Endpunkte",
+      "feature_gates.is_premium_guild(guild_id)" in VERIFY_API
+      and "User Pull benötigt Premium" in VERIFY_API)
 check("Access-Token wird nie gespeichert und Pull nutzt Refresh-Autorisierung",
       "refresh_token: refreshToken" in OAUTH_CALLBACK
       and "access_token: accessToken" not in OAUTH_CALLBACK)

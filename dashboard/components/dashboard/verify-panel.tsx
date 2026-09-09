@@ -7,6 +7,7 @@ import {
   Check,
   ChevronDown,
   Clock3,
+  Crown,
   Eye,
   FileText,
   History,
@@ -493,35 +494,24 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
                   )}
                 </div>
 
-                <div className="flex flex-col gap-4 rounded-xl border border-blue-500/20 bg-blue-500/[0.06] p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className={cn("flex flex-col gap-4 rounded-xl border p-4 sm:flex-row sm:items-center sm:justify-between", p.data?.pull_premium ? "border-blue-500/20 bg-blue-500/[0.06]" : "border-amber-400/25 bg-amber-400/[0.06]")}>
                   <div className="flex items-start gap-3">
-                    <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-blue-500/10 text-blue-400">
-                      <Link2 className="h-5 w-5" />
+                    <div className={cn("grid h-10 w-10 shrink-0 place-items-center rounded-xl", p.data?.pull_premium ? "bg-blue-500/10 text-blue-400" : "bg-amber-400/10 text-amber-400")}>
+                      {p.data?.pull_premium ? <Link2 className="h-5 w-5" /> : <Crown className="h-5 w-5" />}
                     </div>
                     <div>
-                      <p className="text-sm font-bold text-white">User Pull</p>
+                      <p className="flex items-center gap-2 text-sm font-bold text-white">User Pull {!p.data?.pull_premium && <span className="rounded-md bg-amber-400/15 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-amber-300">Premium</span>}</p>
                       <p className="mt-1 text-xs leading-5 text-slate-400">
-                        Zukünftige OAuth2-Verifizierungen mit einem eigenen
-                        Zielserver verbinden.
+                        {p.data?.pull_premium ? "Zukünftige OAuth2-Verifizierungen mit einem eigenen Zielserver verbinden." : "Das gesamte Pull-System und der zusätzliche guilds.join-Scope benötigen Premium auf diesem Server."}
                       </p>
                     </div>
                   </div>
                   <div className="flex shrink-0 items-center gap-3">
-                    <span className="text-xs font-bold text-slate-300">
-                      {p.value("user_pull_enabled") ? "An" : "Aus"}
-                    </span>
-                    <SwitchToggle
-                      checked={Boolean(p.value("user_pull_enabled"))}
-                      disabled={p.busy}
-                      onCheckedChange={setPullEnabled}
-                      label="User Pull an- oder ausschalten"
-                    />
-                    <Link
-                      href={`/dashboard/guild/${guildId}/verification/pull`}
-                      className="inline-flex min-h-10 items-center justify-center rounded-lg border border-blue-500/25 px-3 text-xs font-semibold text-blue-300 hover:bg-blue-500/10"
-                    >
-                      Öffnen
-                    </Link>
+                    {p.data?.pull_premium ? <>
+                      <span className="text-xs font-bold text-slate-300">{p.value("user_pull_enabled") ? "An" : "Aus"}</span>
+                      <SwitchToggle checked={Boolean(p.value("user_pull_enabled"))} disabled={p.busy} onCheckedChange={setPullEnabled} label="User Pull an- oder ausschalten" />
+                      <Link href={`/dashboard/guild/${guildId}/verification/pull`} className="inline-flex min-h-10 items-center justify-center rounded-lg border border-blue-500/25 px-3 text-xs font-semibold text-blue-300 hover:bg-blue-500/10">Öffnen</Link>
+                    </> : <Link href="/dashboard/premium" className="inline-flex min-h-10 items-center justify-center rounded-lg bg-amber-400 px-3 text-xs font-black text-black hover:bg-amber-300">Premium holen</Link>}
                   </div>
                 </div>
 

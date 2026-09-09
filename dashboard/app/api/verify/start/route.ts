@@ -42,7 +42,10 @@ export async function GET(request: NextRequest) {
     });
     if (settingsResponse.ok) {
       const settings = await settingsResponse.json();
-      if (settings.user_pull_enabled) {
+      // Pull and its powerful guilds.join scope are available only while
+      // the source server has active Premium. The bot returns the effective
+      // enabled state, but checking both fields keeps this boundary explicit.
+      if (settings.pull_premium && settings.user_pull_enabled) {
         scopes += " guilds.join";
       }
     }

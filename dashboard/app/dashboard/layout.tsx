@@ -272,7 +272,7 @@ export default function DashboardLayout({
               icon: User,
               children: [
                 { name: "Einstellungen", href: `/dashboard/guild/${currentGuildId}/verification`, icon: ShieldCheck },
-                { name: "Pull", href: `/dashboard/guild/${currentGuildId}/verification/pull`, icon: Users },
+                { name: "Pull", href: `/dashboard/guild/${currentGuildId}/verification/pull`, icon: Users, highlight: true },
               ],
             },
             { name: "Notfall", href: `/dashboard/guild/${currentGuildId}/emergency`, icon: Shield },
@@ -516,13 +516,18 @@ export default function DashboardLayout({
                                       href={child.href}
                                       className={cn(
                                         "flex items-center gap-2 rounded-lg px-3 py-2 text-xs transition-colors",
-                                        childActive
-                                          ? "bg-blue-500/10 font-semibold text-blue-200"
-                                          : "text-slate-500 hover:bg-white/[0.03] hover:text-slate-300"
+                                        child.highlight
+                                          ? childActive
+                                            ? "bg-amber-400/10 font-semibold text-amber-200"
+                                            : "text-amber-300/80 hover:bg-amber-400/[0.07]"
+                                          : childActive
+                                            ? "bg-blue-500/10 font-semibold text-blue-200"
+                                            : "text-slate-500 hover:bg-white/[0.03] hover:text-slate-300"
                                       )}
                                     >
-                                      <child.icon className={cn("h-3.5 w-3.5", sidebarIconColor(child.name))} />
-                                      {child.name}
+                                      <child.icon className={cn("h-3.5 w-3.5", child.highlight ? "text-amber-400" : sidebarIconColor(child.name))} />
+                                      <span className="min-w-0 flex-1 truncate">{child.name}</span>
+                                      {child.highlight && <Crown className="h-3 w-3 shrink-0 text-amber-400" aria-label="Premium" />}
                                     </Link>
                                   );
                                 })}
