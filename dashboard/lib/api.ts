@@ -944,6 +944,12 @@ export const api = {
 
   // Admin
   getAdminStats: () => request<AdminStats>("/admin/stats"),
+  getPremiumGuilds: () => request<any>("/admin/premium-guilds"),
+  setGuildPremium: (guildId: string, premium: boolean) =>
+    request<any>(`/admin/premium/${guildId}`, {
+      method: "POST",
+      body: JSON.stringify({ premium }),
+    }),
   getTicketAiAccess: () => request<any>("/admin/ticket-ai-access"),
   setTicketAiAccess: (guildId: string, enabled: boolean) =>
     request<any>(`/admin/ticket-ai-access/${guildId}`, {

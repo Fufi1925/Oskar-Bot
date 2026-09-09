@@ -34,7 +34,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle, Ban, CheckCircle2, ChevronDown, Clock, Crown, Gift,
   Infinity as InfinityIcon, KeyRound, Plus, RefreshCw, Search,
-  Sparkles, Timer, Users, X,
+  Sparkles, Timer, Users, X, Server,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -44,6 +44,7 @@ import { CountUp, Reveal } from "@/components/ui/reveal";
 import { PremiumTrials } from "@/components/dashboard/premium-trials";
 import { PremiumKeys } from "@/components/dashboard/premium-keys";
 import { PremiumCodes } from "@/components/dashboard/premium-codes";
+import { PremiumGuilds } from "@/components/dashboard/premium-guilds";
 
 /* ── Typen ─────────────────────────────────────────────────────────── */
 
@@ -65,7 +66,7 @@ interface Konto {
 }
 
 type Filter = "alle" | "aktiv" | "bald" | "probewoche" | "beendet";
-type Bereich = "codes" | "konten" | "probewochen" | "archiv";
+type Bereich = "codes" | "konten" | "server" | "probewochen" | "archiv";
 
 /* ── Hilfen ────────────────────────────────────────────────────────── */
 
@@ -273,6 +274,7 @@ export function PremiumAdmin() {
   const BEREICHE: Array<{ id: Bereich; label: string; text: string; icon: any; color: string; active: string }> = [
     { id: "codes", label: "Codes", text: "Verlosungen", icon: KeyRound, color: "text-amber-400", active: "border-amber-400/25 bg-amber-400/10" },
     { id: "konten", label: "Konten", text: "Premium verwalten", icon: Crown, color: "text-violet-400", active: "border-violet-400/25 bg-violet-400/10" },
+    { id: "server", label: "Server", text: "Server-Premium", icon: Server, color: "text-amber-400", active: "border-amber-400/25 bg-amber-400/10" },
     { id: "probewochen", label: "Probewochen", text: "Testzugänge", icon: Gift, color: "text-sky-400", active: "border-sky-400/25 bg-sky-400/10" },
     { id: "archiv", label: "Lizenz-Keys", text: "Altes System", icon: Clock, color: "text-slate-400", active: "border-slate-600 bg-slate-700/20" },
   ];
@@ -292,7 +294,7 @@ export function PremiumAdmin() {
             <RefreshCw className={cn("h-3.5 w-3.5", laedt && "animate-spin")} /> Daten aktualisieren
           </button>
         </div>
-        <nav className="grid grid-cols-2 gap-2 p-2 sm:grid-cols-4" aria-label="Premium-Bereiche">
+        <nav className="grid grid-cols-2 gap-2 p-2 sm:grid-cols-5" aria-label="Premium-Bereiche">
           {BEREICHE.map((item) => {
             const active = bereich === item.id;
             const Icon = item.icon;
@@ -305,6 +307,7 @@ export function PremiumAdmin() {
       </section>
 
       {bereich === "codes" && <PremiumCodes />}
+      {bereich === "server" && <PremiumGuilds />}
 
       {bereich === "konten" && <>
       {/* ── Die Zahlen ──────────────────────────────────────────── */}

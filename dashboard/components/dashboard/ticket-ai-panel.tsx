@@ -98,6 +98,32 @@ export function TicketAiPanel({ guildId }: { guildId: string }) {
     }
   };
 
+  const setEnabled = async (next: boolean) => {
+    if (!data || busy) return;
+    if (next && !data.knowledge) {
+      toast.error("Lade zuerst eine .txt-Wissensdatei hoch.");
+      return;
+    }
+    if (next && !data.api_key_configured) {
+      toast.error("Die Railway-Variable GOOGLE_API_TICKET_KEY fehlt noch.");
+      return;
+    }
+    setBusy(true);
+    try {
+      await api.saveTicketAi(guildId, {
+        enabled: next,
+        fallback_text: data.fallback_text,
+        categories: data.categories,
+      });
+      setData({ ...data, enabled: next });
+      toast.success(next ? "KI-Ticketassistent ist jetzt aktiv." : "KI-Ticketassistent wurde ausgeschaltet.");
+    } catch (error: any) {
+      toast.error(error?.message || "Status konnte nicht geändert werden.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const removeKnowledge = async () => {
     if (!confirm("Wissensdatenbank löschen und den KI-Assistenten ausschalten?")) return;
     setBusy(true);
@@ -129,8 +155,8 @@ export function TicketAiPanel({ guildId }: { guildId: string }) {
           {data && (
             <button
               type="button"
-              disabled={busy || !data.knowledge || !data.api_key_configured}
-              onClick={() => setData({ ...data, enabled: !data.enabled })}
+              disabled={busy}
+              onClick={() => setEnabled(!data.enabled)}
               className={cn("relative h-7 w-12 rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-40", data.enabled ? "bg-violet-500" : "bg-slate-700")}
               aria-label="KI-Ticketassistent ein- oder ausschalten"
             ><span className={cn("absolute left-0 top-1 h-5 w-5 rounded-full bg-white transition-transform", data.enabled ? "translate-x-6" : "translate-x-1")} /></button>

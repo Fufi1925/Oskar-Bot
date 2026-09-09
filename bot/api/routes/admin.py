@@ -719,14 +719,35 @@ async def mass_config_push(data: dict, bot: "universitybot" = Depends(get_bot)):
     return {"status": "success", "applied": applied, "setting": setting, "value": value}
 
 
+@router.get("/premium-guilds", summary="List guild Premium status")
+async def list_guild_premium(bot: "universitybot" = Depends(get_bot)):
+    await feature_gates.refresh_premium_guilds()
+    return {
+        "guilds": [
+            {
+                "guild_id": str(guild.id),
+                "name": guild.name,
+                "icon": str(guild.icon.url) if guild.icon else None,
+                "members": guild.member_count or 0,
+                "premium": feature_gates.is_premium_guild(guild.id),
+            }
+            for guild in sorted(bot.guilds, key=lambda item: str(item.name).lower())
+        ]
+    }
+
+
 @router.post("/premium/{guild_id}", summary="Grant or revoke premium for a guild")
-async def set_guild_premium(guild_id: int, data: dict):
+async def set_guild_premium(
+    guild_id: int, data: dict, bot: "universitybot" = Depends(get_bot)
+):
     if not feature_flags.is_enabled("premium_access_control"):
         raise HTTPException(status_code=403, detail="Feature 'premium_access_control' is disabled.")
 
     import time
 
     grant = bool(data.get("premium", True))
+    if grant and bot.get_guild(guild_id) is None:
+        raise HTTPException(status_code=404, detail="Der Bot ist nicht auf diesem Server.")
     async with aiosqlite.connect(CONFIG_DB) as db:
         await db.execute(
             "CREATE TABLE IF NOT EXISTS premium_guilds ("

@@ -66,6 +66,7 @@ const ADMIN_PERMISSIONS: Record<string, { GET?: string; WRITE?: string }> = {
   // The report names channels and roles across every guild.
   diagnose: { GET: "health.view" },
   premium: { WRITE: "premium.manage" },
+  "premium-guilds": { GET: "premium.manage" },
   "ticket-ai-access": { GET: "premium.manage", WRITE: "premium.manage" },
   blacklist: { WRITE: "blacklist.manage" },
   "mass-config": { WRITE: "massconfig.push" },
