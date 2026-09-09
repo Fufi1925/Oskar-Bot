@@ -25,8 +25,8 @@ import io
 import os
 import re
 from utils.config import *
-from utils.panels import from_embed
-from utils import ticket_notify
+from utils.panels import Panel, from_embed
+from utils import ticket_ai, ticket_notify
 
 # --- Configurable Variables ---
 EMBED_COLOR = 0xFF0000
@@ -71,6 +71,7 @@ class TicketDatabase:
             self.conn.execute("CREATE TABLE IF NOT EXISTS ticket_categories (category_id INTEGER PRIMARY KEY AUTOINCREMENT, guild_id INTEGER, name TEXT NOT NULL, emoji TEXT, notified_roles TEXT, button_style INTEGER, discord_category_id INTEGER, FOREIGN KEY (guild_id) REFERENCES guild_configs(guild_id) ON DELETE CASCADE)")
             self.conn.execute("CREATE TABLE IF NOT EXISTS open_tickets (channel_id INTEGER PRIMARY KEY, ticket_number INTEGER, guild_id INTEGER, creator_id INTEGER NOT NULL, category_db_id INTEGER, created_at TEXT NOT NULL, closed_by_id INTEGER, closed_at TEXT, is_locked BOOLEAN DEFAULT FALSE, is_claimed BOOLEAN DEFAULT FALSE, claimed_by_id INTEGER, FOREIGN KEY (guild_id) REFERENCES guild_configs(guild_id) ON DELETE CASCADE, FOREIGN KEY (category_db_id) REFERENCES ticket_categories(category_id) ON DELETE SET NULL)")
             self.conn.execute("CREATE TABLE IF NOT EXISTS user_ticket_counts (guild_id INTEGER, user_id INTEGER, ticket_count INTEGER DEFAULT 0, PRIMARY KEY (guild_id, user_id))")
+        ticket_ai.ensure_sync_schema(self.conn)
 
     def execute(self, q, p=()):
         with self.conn: return self.conn.execute(q, p)
@@ -281,7 +282,105 @@ class CategoryConfigView(discord.ui.View):
 class TicketCog(commands.Cog, name="Ticket System"):
     def __init__(self, bot):
         self.bot, self.db = bot, TicketDatabase(DB_PATH)
+        self._ai_inflight: set[int] = set()
         asyncio.create_task(self.load_persistent_views())
+
+    @commands.Cog.listener()
+    async def on_message(self, message: discord.Message):
+        """Answer the ticket creator until a team member claims the ticket."""
+        if (
+            not message.guild
+            or message.guild.id != ticket_ai.PILOT_GUILD_ID
+            or message.author.bot
+            or not message.content.strip()
+            or message.channel.id in self._ai_inflight
+            or not ticket_ai.pilot_available(message.guild.id)
+            or not ticket_ai.api_key_configured()
+        ):
+            return
+
+        ticket = self.db.fetchone(
+            "SELECT creator_id, category_db_id, is_claimed, closed_at FROM open_tickets WHERE channel_id=?",
+            (message.channel.id,),
+        )
+        if (
+            not ticket
+            or ticket["closed_at"] is not None
+            or ticket["is_claimed"]
+            or int(ticket["creator_id"]) != message.author.id
+            or not ticket_ai.may_answer(self.db.conn, message.channel.id)
+        ):
+            return
+
+        category_id = int(ticket["category_db_id"] or 0)
+        config = self.db.fetchone(
+            "SELECT s.enabled, s.fallback_text, c.enabled AS category_enabled, c.instructions, k.content"
+            " FROM ticket_ai_settings s JOIN ticket_ai_knowledge k ON k.guild_id=s.guild_id"
+            " LEFT JOIN ticket_ai_categories c ON c.guild_id=s.guild_id AND c.category_id=?"
+            " WHERE s.guild_id=?",
+            (category_id, message.guild.id),
+        )
+        if not config or not config["enabled"] or not config["category_enabled"]:
+            return
+
+        self._ai_inflight.add(message.channel.id)
+        try:
+            excerpts = ticket_ai.matching_context(message.content, config["content"])
+            async with message.channel.typing():
+                answer = await ticket_ai.grounded_answer(
+                    message.content, excerpts, config["instructions"] or ""
+                )
+
+            # Claim can happen while Gemini is working. Re-read immediately
+            # before sending so the team always wins that race.
+            current = self.db.fetchone(
+                "SELECT is_claimed, closed_at FROM open_tickets WHERE channel_id=?",
+                (message.channel.id,),
+            )
+            if not current or current["is_claimed"] or current["closed_at"] is not None:
+                return
+
+            if answer:
+                view = Panel(
+                    f"{ZMODULE} KI-Ticketassistent",
+                    answer,
+                    "*Automatische Antwort aus der Wissensdatenbank dieses Servers.*",
+                    tone="info",
+                )
+                await message.channel.send(
+                    view=view,
+                    allowed_mentions=discord.AllowedMentions.none(),
+                )
+            else:
+                category = self.db.fetchone(
+                    "SELECT notified_roles FROM ticket_categories WHERE category_id=? AND guild_id=?",
+                    (category_id, message.guild.id),
+                )
+                role_ids = [
+                    value for value in str((category["notified_roles"] if category else "") or "").split(",")
+                    if value.isdigit()
+                ]
+                pings = " ".join(f"<@&{role_id}>" for role_id in role_ids)
+                body = (config["fallback_text"] or "Dazu habe ich leider keine verlässliche Information gefunden.").strip()
+                if pings:
+                    body += f"\n\n{pings}"
+                view = Panel(
+                    f"{MESSAGE} Team wird benötigt",
+                    body,
+                    "*Die KI hat keine ausreichend sichere Antwort gefunden.*",
+                    tone="warning",
+                )
+                await message.channel.send(
+                    view=view,
+                    allowed_mentions=discord.AllowedMentions(
+                        everyone=False, users=False, roles=True, replied_user=False
+                    ),
+                )
+            ticket_ai.record_answer(self.db.conn, message.channel.id, escalated=not bool(answer))
+        except Exception as exc:
+            print(f"[ticket-ai] Message handling failed: {type(exc).__name__}: {exc}")
+        finally:
+            self._ai_inflight.discard(message.channel.id)
 
     async def load_persistent_views(self):
         await self.bot.wait_until_ready()

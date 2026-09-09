@@ -155,6 +155,8 @@ Gehe zu deinem Service → **Variables** und füge ALLE Variablen aus `.env.exam
 | `LAVALINK_PORT` | `13592` | Optional |
 | `GIPHY_API_KEY` | Key von developers.giphy.com | Optional |
 | `GOOGLE_API_KEY` / `GROQ_API_KEY` | Für die KI-Commands | Optional |
+| `GOOGLE_API_TICKET_KEY` | Separater Gemini-Key für den privaten KI-Ticketassistenten | Optional/Pilot |
+| `GOOGLE_TICKET_AI_MODEL` | Gemini-Modell für Ticket-Antworten, Standard `gemini-2.0-flash` | Optional |
 | `API_ENABLED` | `true` | ✅ |
 | `brand_name` | `University Bot` | ✅ |
 | `TRUSTED_BOTS` | Discord-IDs bekannter Bots, die der Anti-Nuke nie angreift — komma-getrennt | Optional |

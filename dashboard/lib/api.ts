@@ -1513,6 +1513,20 @@ export const api = {
       method: "POST",
       body: "{}",
     }),
+  getTicketAi: (guildId: string) =>
+    request<any>(`/tickets/${guildId}/ai`),
+  saveTicketAi: (guildId: string, data: any) =>
+    request<any>(`/tickets/${guildId}/ai`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+  uploadTicketAiKnowledge: (guildId: string, filename: string, content: string) =>
+    request<any>(`/tickets/${guildId}/ai/knowledge`, {
+      method: "PUT",
+      body: JSON.stringify({ filename, content }),
+    }),
+  deleteTicketAiKnowledge: (guildId: string) =>
+    request<any>(`/tickets/${guildId}/ai/knowledge`, { method: "DELETE" }),
 
   // Speedrun (Beta) — der Template-Bot baut, danach richtet dieser Bot ein.
   // Alles läuft über den University Bot; das Dashboard redet nie direkt

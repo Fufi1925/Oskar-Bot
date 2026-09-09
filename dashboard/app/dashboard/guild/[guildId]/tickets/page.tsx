@@ -1,6 +1,7 @@
 import React from "react";
 import { Ticket } from "lucide-react";
 import { TicketPanels } from "@/components/dashboard/ticket-panels";
+import { TicketAiPanel } from "@/components/dashboard/ticket-ai-panel";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -19,6 +20,9 @@ export default function TicketsPage({ params }: { params: { guildId: string } })
       </div>
 
       <TicketPanels guildId={params.guildId} />
+      {params.guildId === "1530378233579704370" && (
+        <TicketAiPanel guildId={params.guildId} />
+      )}
     </div>
   );
 }

@@ -14,6 +14,7 @@ once and aborted midway when one column was missing.
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+import time
 
 import aiosqlite
 import discord
@@ -22,7 +23,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from api import ticket_panels as panels
 from api.db_manager import db_manager
 from api.dependencies import get_bot
-from utils import feature_audit, ticket_notify
+from utils import feature_audit, ticket_ai, ticket_notify
 
 if TYPE_CHECKING:
     from core.universitybot import universitybot
@@ -315,6 +316,138 @@ async def send_panel(
         "url": message.jump_url,
         "result": f"Panel posted in #{channel.name}.",
     }
+
+
+# ══════════════════════════════════════════════════════════════════════
+#  Private Ticket AI pilot
+# ══════════════════════════════════════════════════════════════════════
+
+
+def _ai_or_404(guild_id: int) -> None:
+    # Deliberately return 404 outside the pilot so other guilds do not even
+    # learn that an unreleased feature exists.
+    if guild_id != ticket_ai.PILOT_GUILD_ID:
+        raise HTTPException(status_code=404, detail="Not found.")
+    if not ticket_ai.pilot_available(guild_id):
+        raise HTTPException(status_code=402, detail="Ticket-KI benötigt Server-Premium.")
+
+
+async def _ensure_ai_schema(db) -> None:
+    for statement in ticket_ai.SCHEMA:
+        await db.execute(statement)
+    async with db.execute("PRAGMA table_info(ticket_ai_usage)") as cursor:
+        columns = {row[1] for row in await cursor.fetchall()}
+    if "escalated" not in columns:
+        await db.execute("ALTER TABLE ticket_ai_usage ADD COLUMN escalated BOOLEAN NOT NULL DEFAULT FALSE")
+    await db.commit()
+
+
+@router.get("/{guild_id}/ai", summary="Private Ticket AI settings")
+async def get_ticket_ai(guild_id: int):
+    _ai_or_404(guild_id)
+    db = await _db()
+    await _ensure_ai_schema(db)
+    async with db.execute(
+        "SELECT enabled, fallback_text FROM ticket_ai_settings WHERE guild_id = ?",
+        (guild_id,),
+    ) as cursor:
+        settings = await cursor.fetchone()
+    async with db.execute(
+        "SELECT filename, length(content), updated_at FROM ticket_ai_knowledge WHERE guild_id = ?",
+        (guild_id,),
+    ) as cursor:
+        knowledge = await cursor.fetchone()
+    async with db.execute(
+        "SELECT c.category_id, c.name, COALESCE(a.enabled, 0), COALESCE(a.instructions, '')"
+        " FROM ticket_categories c LEFT JOIN ticket_ai_categories a"
+        " ON a.guild_id = c.guild_id AND a.category_id = c.category_id"
+        " WHERE c.guild_id = ? ORDER BY c.category_id",
+        (guild_id,),
+    ) as cursor:
+        categories = await cursor.fetchall()
+    return {
+        "available": True,
+        "api_key_configured": ticket_ai.api_key_configured(),
+        "enabled": bool(settings[0]) if settings else False,
+        "fallback_text": settings[1] if settings else "Dazu habe ich leider keine verlässliche Information in der Wissensdatenbank gefunden.",
+        "knowledge": ({"filename": knowledge[0], "characters": knowledge[1], "updated_at": knowledge[2]} if knowledge else None),
+        "categories": [
+            {"category_id": row[0], "name": row[1], "enabled": bool(row[2]), "instructions": row[3]}
+            for row in categories
+        ],
+    }
+
+
+@router.put("/{guild_id}/ai/knowledge", summary="Upload private Ticket AI knowledge")
+async def put_ticket_ai_knowledge(guild_id: int, data: dict):
+    _ai_or_404(guild_id)
+    filename = str(data.get("filename") or "wissen.txt").strip()[:120]
+    content = str(data.get("content") or "").replace("\x00", "").strip()
+    if not filename.lower().endswith(".txt"):
+        raise HTTPException(status_code=400, detail="Nur .txt-Dateien sind erlaubt.")
+    if not content:
+        raise HTTPException(status_code=400, detail="Die Wissensdatei ist leer.")
+    if len(content.encode("utf-8")) > ticket_ai.MAX_KNOWLEDGE_BYTES:
+        raise HTTPException(status_code=413, detail="Die Wissensdatei darf höchstens 100 KB groß sein.")
+    db = await _db()
+    await _ensure_ai_schema(db)
+    await db.execute(
+        "INSERT INTO ticket_ai_knowledge (guild_id, filename, content, updated_at) VALUES (?, ?, ?, ?)"
+        " ON CONFLICT(guild_id) DO UPDATE SET filename=excluded.filename, content=excluded.content, updated_at=excluded.updated_at",
+        (guild_id, filename, content, int(time.time())),
+    )
+    await db.commit()
+    return {"status": "success", "filename": filename, "characters": len(content)}
+
+
+@router.delete("/{guild_id}/ai/knowledge", summary="Delete private Ticket AI knowledge")
+async def delete_ticket_ai_knowledge(guild_id: int):
+    _ai_or_404(guild_id)
+    db = await _db()
+    await _ensure_ai_schema(db)
+    await db.execute("DELETE FROM ticket_ai_knowledge WHERE guild_id = ?", (guild_id,))
+    await db.execute("UPDATE ticket_ai_settings SET enabled = 0 WHERE guild_id = ?", (guild_id,))
+    await db.commit()
+    return {"status": "success"}
+
+
+@router.patch("/{guild_id}/ai", summary="Update private Ticket AI settings")
+async def update_ticket_ai(guild_id: int, data: dict):
+    _ai_or_404(guild_id)
+    db = await _db()
+    await _ensure_ai_schema(db)
+    fallback = str(data.get("fallback_text") or "").strip()[:500]
+    enabled = bool(data.get("enabled"))
+    if enabled:
+        async with db.execute("SELECT 1 FROM ticket_ai_knowledge WHERE guild_id = ?", (guild_id,)) as cursor:
+            if not await cursor.fetchone():
+                raise HTTPException(status_code=400, detail="Lade zuerst eine Wissensdatei hoch.")
+        if not ticket_ai.api_key_configured():
+            raise HTTPException(status_code=503, detail=f"Railway-Variable {ticket_ai.API_KEY_ENV} fehlt.")
+    await db.execute(
+        "INSERT INTO ticket_ai_settings (guild_id, enabled, fallback_text, updated_at) VALUES (?, ?, ?, ?)"
+        " ON CONFLICT(guild_id) DO UPDATE SET enabled=excluded.enabled, fallback_text=excluded.fallback_text, updated_at=excluded.updated_at",
+        (guild_id, enabled, fallback or "Dazu habe ich leider keine verlässliche Information in der Wissensdatenbank gefunden.", int(time.time())),
+    )
+    categories = data.get("categories") or []
+    valid_ids: set[int] = set()
+    async with db.execute("SELECT category_id FROM ticket_categories WHERE guild_id = ?", (guild_id,)) as cursor:
+        valid_ids = {int(row[0]) for row in await cursor.fetchall()}
+    for item in categories:
+        try:
+            category_id = int(item.get("category_id"))
+        except (TypeError, ValueError, AttributeError):
+            continue
+        if category_id not in valid_ids:
+            raise HTTPException(status_code=400, detail="Ungültige Ticket-Kategorie.")
+        instructions = str(item.get("instructions") or "").strip()[:1000]
+        await db.execute(
+            "INSERT INTO ticket_ai_categories (guild_id, category_id, enabled, instructions) VALUES (?, ?, ?, ?)"
+            " ON CONFLICT(guild_id, category_id) DO UPDATE SET enabled=excluded.enabled, instructions=excluded.instructions",
+            (guild_id, category_id, bool(item.get("enabled")), instructions),
+        )
+    await db.commit()
+    return {"status": "success"}
 
 
 # ══════════════════════════════════════════════════════════════════════
