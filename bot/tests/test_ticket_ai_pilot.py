@@ -56,7 +56,7 @@ check("scan redacts credentials and resists prompt injection", "_SECRET_PATTERNS
 check("generated knowledge is previewed before replacement", "Server lesen lassen" in PANEL and "Vorschau des automatisch erstellten Wissens" in PANEL and "Geprüften Entwurf als TXT übernehmen" in PANEL)
 check("current txt is viewable and editable", "Aktuelle Wissensdatei ansehen und bearbeiten" in PANEL and "knowledgeText" in PANEL and "Text speichern" in PANEL)
 check("long scan runs as a progress job", "ticket_ai_scan_jobs" in AI and "asyncio.create_task" in API and "getTicketAiScan" in PANEL)
-check("sensitive AI knowledge is owner-only in the BFF", 'rest[1] === "ai"' in BFF and "ownsGuildOnDiscord(guildId)" in BFF)
+check("all admitted dashboard users may manage AI knowledge", 'if (rest[1] === "ai") return { ok: true }' in BFF and "verifyGuildAccess(guildId)" in BFF)
 
 print(f"\n{len(failures)} Fehler")
 for failure in failures: print(f"  - {failure}")

@@ -1355,12 +1355,10 @@ async function authorize(
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) return { ok: false, response: deny(401, "Not signed in.") };
 
-    // AI knowledge can contain facts distilled from every channel visible to
-    // the bot. Only Discord's actual server owner may view or change it.
-    if (rest[1] === "ai") {
-      if (await ownsGuildOnDiscord(guildId)) return { ok: true };
-      return { ok: false, response: deny(403, "Only the Discord server owner may manage Ticket AI knowledge.") };
-    }
+    // Ticket AI follows the guild dashboard access list. Once
+    // verifyGuildAccess() above has admitted a signed-in user, they may view,
+    // scan and edit the shared server knowledge as requested by the owner.
+    if (rest[1] === "ai") return { ok: true };
 
     if (isGlobalAdmin(session.user.id)) return { ok: true };
 

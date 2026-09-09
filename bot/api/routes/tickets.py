@@ -353,7 +353,7 @@ async def _ensure_ai_schema(db) -> None:
 @router.get("/{guild_id}/ai-available", summary="Whether Ticket AI is visible")
 async def ticket_ai_available(guild_id: int):
     # This intentionally returns only a boolean. It lets the dashboard hide an
-    # unreleased feature before requesting the owner-only knowledge endpoint.
+    # unreleased feature before requesting the shared guild knowledge endpoint.
     return {"available": ticket_ai.pilot_available(guild_id)}
 
 
