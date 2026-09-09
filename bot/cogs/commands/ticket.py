@@ -283,6 +283,7 @@ class TicketCog(commands.Cog, name="Ticket System"):
     def __init__(self, bot):
         self.bot, self.db = bot, TicketDatabase(DB_PATH)
         self._ai_inflight: set[int] = set()
+        asyncio.create_task(ticket_ai.refresh_allowed_guilds())
         asyncio.create_task(self.load_persistent_views())
 
     @commands.Cog.listener()
@@ -290,7 +291,6 @@ class TicketCog(commands.Cog, name="Ticket System"):
         """Answer the ticket creator until a team member claims the ticket."""
         if (
             not message.guild
-            or message.guild.id != ticket_ai.PILOT_GUILD_ID
             or message.author.bot
             or not message.content.strip()
             or message.channel.id in self._ai_inflight

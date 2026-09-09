@@ -7,7 +7,7 @@ import {
   Hash, Volume2, FolderPlus, Pencil, Trash2, Copy,
   Unlock, Timer, MessageSquareX, Bell, BellOff, SearchCheck, Bot, UserCog, UserSearch,
   Webhook, Link, ScrollText, BarChart4, ClipboardList, Terminal, Gem, Gauge, Bug,
-  AtSign, Sparkles, Inbox, Cookie, BotMessageSquare, KeyRound, Lightbulb,
+  AtSign, Sparkles, Inbox, Cookie, BotMessageSquare, KeyRound, Lightbulb, BrainCircuit,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
@@ -46,9 +46,10 @@ import { OverviewCharts } from "@/components/dashboard/overview-charts";
 import { CookieConsentsPanel } from "@/components/dashboard/cookie-consents-panel";
 import { TrustedBotsPanel } from "@/components/dashboard/trusted-bots-panel";
 import { PrivacyErasureAdmin } from "@/components/dashboard/privacy-erasure-admin";
+import { TicketAiAdmin } from "@/components/dashboard/ticket-ai-admin";
 
 
-type TabId = "members" | "channels" | "server" | "scans" | "broadcast" | "system" | "features" | "health" | "team" | "access" | "reports" | "audit" | "approvals" | "botsettings" | "backups" | "warnings" | "usage" | "dashusers" | "servers" | "premium" | "speedrun" | "tester" | "pingreactions" | "templates" | "userlookup" | "webapply" | "cookies" | "privacy" | "trustedbots" | "designunlock" | "beta" | "ideas";
+type TabId = "members" | "channels" | "server" | "scans" | "broadcast" | "system" | "features" | "health" | "team" | "access" | "reports" | "audit" | "approvals" | "botsettings" | "backups" | "warnings" | "usage" | "dashusers" | "servers" | "premium" | "speedrun" | "tester" | "pingreactions" | "templates" | "userlookup" | "webapply" | "cookies" | "privacy" | "trustedbots" | "designunlock" | "beta" | "ideas" | "ticketai";
 type MemberAction = "ban" | "kick" | "mute" | "unmute";
 
 type QuickAction = {
@@ -85,6 +86,7 @@ const tabs: Array<{ id: TabId; label: string; icon: any }> = [
   { id: "botsettings", label: "Bot-Einstellungen", icon: Wrench },
   { id: "access", label: "Zugriff", icon: Lock },
   { id: "premium", label: "Premium", icon: Gem },
+  { id: "ticketai", label: "Ticket-KI", icon: BrainCircuit },
   { id: "speedrun", label: "Speedrun", icon: Gauge },
   { id: "tester", label: "Tester", icon: Bug },
   { id: "webapply", label: "Bewerbungen", icon: Inbox },
@@ -177,7 +179,7 @@ const TAB_GROUPS: TabGroup[] = [
   // Datenschutz, Wiederherstellung und geschützte Freigaben.
   { name: "Daten & Sicherheit", shortName: "Sicherheit", icon: Lock, ids: ["backups", "privacy", "cookies", "designunlock"], color: "text-emerald-400", iconBg: "bg-emerald-500/10", active: "border-emerald-500/25 bg-emerald-500/10" },
   // Produkte und Leistungen, die direkt für Nutzer oder Server angeboten werden.
-  { name: "Premium & Produkte", shortName: "Produkte", icon: Gem, ids: ["premium", "templates", "speedrun"], color: "text-fuchsia-400", iconBg: "bg-fuchsia-500/10", active: "border-fuchsia-500/25 bg-fuchsia-500/10" },
+  { name: "Premium & Produkte", shortName: "Produkte", icon: Gem, ids: ["premium", "ticketai", "templates", "speedrun"], color: "text-fuchsia-400", iconBg: "bg-fuchsia-500/10", active: "border-fuchsia-500/25 bg-fuchsia-500/10" },
 ];
 
 /**
@@ -282,7 +284,7 @@ const quickActions: QuickAction[] = [
 const FULL_WIDTH_TABS = new Set<TabId>([
   "features", "health", "team", "access",
   "reports", "audit", "approvals", "botsettings", "backups", "warnings", "usage",
-  "dashusers", "userlookup", "servers", "premium", "speedrun", "tester", "templates",
+  "dashusers", "userlookup", "servers", "premium", "ticketai", "speedrun", "tester", "templates",
   "webapply", "ideas", "cookies", "privacy", "trustedbots",
 ]);
 
@@ -483,6 +485,7 @@ export function AdminContent() {
     //                 Dutzende Rollen und Kanaele an
     userlookup: "team.view",
     premium: "premium.manage",
+    ticketai: "premium.manage",
     speedrun: "server.manage",
     // Lesen darf jede Team-Rolle; aendern gated der Proxy separat
     // ueber maintenance.toggle.
@@ -865,6 +868,7 @@ export function AdminContent() {
       {activeTab === "health" && <SystemHealthPanel />}
       {activeTab === "team" && <TeamPanel />}
       {activeTab === "premium" && <PremiumAdmin />}
+      {activeTab === "ticketai" && <TicketAiAdmin />}
       {activeTab === "speedrun" && <SpeedrunAdmin />}
       {activeTab === "tester" && <TesterPanel />}
       {activeTab === "webapply" && <ApplicationsAdmin />}

@@ -6,8 +6,6 @@ import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
-const PILOT_GUILD_ID = "1530378233579704370";
-
 type AiCategory = {
   category_id: number;
   name: string;
@@ -25,20 +23,37 @@ type AiSettings = {
 
 export function TicketAiPanel({ guildId }: { guildId: string }) {
   const [data, setData] = useState<AiSettings | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [unavailable, setUnavailable] = useState(false);
+  const [loadError, setLoadError] = useState("");
   const [busy, setBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
-    if (guildId !== PILOT_GUILD_ID) return;
+    setLoading(true);
+    setLoadError("");
+    let timer: ReturnType<typeof setTimeout> | undefined;
     try {
-      setData(await api.getTicketAi(guildId));
+      const timeout = new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error("Zeitüberschreitung beim Laden der KI-Einstellungen.")), 12000);
+      });
+      const result = await Promise.race([api.getTicketAi(guildId), timeout]);
+      setData(result);
+      setUnavailable(false);
     } catch (error: any) {
-      toast.error(error?.message || "KI-Einstellungen konnten nicht geladen werden.");
+      setData(null);
+      if (error?.status === 404) setUnavailable(true);
+      else setLoadError(error?.message || "KI-Einstellungen konnten nicht geladen werden.");
+    } finally {
+      if (timer) clearTimeout(timer);
+      setLoading(false);
     }
   }, [guildId]);
 
   useEffect(() => { load(); }, [load]);
-  if (guildId !== PILOT_GUILD_ID) return null;
+  // Until the API confirms access, render nothing: non-enabled servers must
+  // not see even a short flash of the private feature.
+  if (unavailable || (loading && !data && !loadError)) return null;
 
   const upload = async (file?: File) => {
     if (!file) return;
@@ -123,9 +138,17 @@ export function TicketAiPanel({ guildId }: { guildId: string }) {
         </div>
       </div>
 
-      {!data ? (
+      {loading ? (
         <div className="grid min-h-48 place-items-center"><Loader2 className="h-6 w-6 animate-spin text-violet-400" /></div>
-      ) : (
+      ) : loadError ? (
+        <div className="p-5 sm:p-6">
+          <div className="rounded-2xl border border-red-500/25 bg-red-500/[0.06] p-5 text-center">
+            <p className="text-sm font-bold text-red-200">KI-System konnte nicht geladen werden</p>
+            <p className="mt-1 text-xs text-slate-400">{loadError}</p>
+            <button type="button" onClick={load} className="mt-4 rounded-xl border border-red-400/25 px-4 py-2 text-xs font-bold text-red-200 hover:bg-red-500/10">Erneut versuchen</button>
+          </div>
+        </div>
+      ) : data ? (
         <div className="space-y-6 p-5 sm:p-6">
           {!data.api_key_configured && (
             <div className="rounded-2xl border border-amber-400/25 bg-amber-400/[0.06] p-4 text-sm text-amber-200">Railway-Variable <b>GOOGLE_API_TICKET_KEY</b> fehlt. Nach dem Eintragen den Bot-Dienst neu starten.</div>
@@ -193,7 +216,7 @@ export function TicketAiPanel({ guildId }: { guildId: string }) {
             <button disabled={busy} onClick={save} className="inline-flex items-center gap-2 rounded-xl bg-white px-5 py-3 text-xs font-black text-black hover:bg-slate-200 disabled:opacity-50">{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Einstellungen speichern</button>
           </div>
         </div>
-      )}
+      ) : null}
     </section>
   );
 }

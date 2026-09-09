@@ -14,11 +14,14 @@ import sqlite3
 import time
 from typing import Any
 
+import aiosqlite
 import httpx
 
 from utils import feature_gates
 
 PILOT_GUILD_ID = 1530378233579704370
+ACCESS_DB = "db/admin_config.db"
+_allowed_guilds: set[int] = {PILOT_GUILD_ID}
 API_KEY_ENV = "GOOGLE_API_TICKET_KEY"
 MODEL_ENV = "GOOGLE_TICKET_AI_MODEL"
 DEFAULT_MODEL = "gemini-2.0-flash"
@@ -65,9 +68,40 @@ def ensure_sync_schema(connection: sqlite3.Connection) -> None:
             connection.execute("ALTER TABLE ticket_ai_usage ADD COLUMN escalated BOOLEAN NOT NULL DEFAULT FALSE")
 
 
+async def refresh_allowed_guilds() -> None:
+    """Reload the admin-managed rollout list and preserve the initial pilot."""
+    async with aiosqlite.connect(ACCESS_DB) as db:
+        async with db.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='ticket_ai_access'"
+        ) as cursor:
+            first_setup = await cursor.fetchone() is None
+        await db.execute(
+            "CREATE TABLE IF NOT EXISTS ticket_ai_access ("
+            " guild_id INTEGER PRIMARY KEY, granted_at INTEGER NOT NULL)"
+        )
+        if first_setup:
+            await db.execute(
+                "INSERT INTO ticket_ai_access (guild_id, granted_at) VALUES (?, ?)",
+                (PILOT_GUILD_ID, int(time.time())),
+            )
+        await db.commit()
+        async with db.execute("SELECT guild_id FROM ticket_ai_access") as cursor:
+            guilds = {int(row[0]) for row in await cursor.fetchall()}
+    _allowed_guilds.clear()
+    _allowed_guilds.update(guilds)
+
+
+def is_allowlisted(guild_id: int) -> bool:
+    return int(guild_id) in _allowed_guilds
+
+
+def allowed_guilds() -> set[int]:
+    return set(_allowed_guilds)
+
+
 def pilot_available(guild_id: int) -> bool:
-    """Both the private allowlist and Server Premium are hard requirements."""
-    return int(guild_id) == PILOT_GUILD_ID and feature_gates.is_premium_guild(guild_id)
+    """Both the admin allowlist and Server Premium are hard requirements."""
+    return is_allowlisted(guild_id) and feature_gates.is_premium_guild(guild_id)
 
 
 def api_key_configured() -> bool:

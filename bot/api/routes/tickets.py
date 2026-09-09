@@ -326,7 +326,7 @@ async def send_panel(
 def _ai_or_404(guild_id: int) -> None:
     # Deliberately return 404 outside the pilot so other guilds do not even
     # learn that an unreleased feature exists.
-    if guild_id != ticket_ai.PILOT_GUILD_ID:
+    if not ticket_ai.is_allowlisted(guild_id):
         raise HTTPException(status_code=404, detail="Not found.")
     if not ticket_ai.pilot_available(guild_id):
         raise HTTPException(status_code=402, detail="Ticket-KI benötigt Server-Premium.")

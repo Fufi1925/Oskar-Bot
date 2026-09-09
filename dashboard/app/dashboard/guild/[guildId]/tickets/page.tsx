@@ -20,9 +20,7 @@ export default function TicketsPage({ params }: { params: { guildId: string } })
       </div>
 
       <TicketPanels guildId={params.guildId} />
-      {params.guildId === "1530378233579704370" && (
-        <TicketAiPanel guildId={params.guildId} />
-      )}
+      <TicketAiPanel guildId={params.guildId} />
     </div>
   );
 }

@@ -944,6 +944,12 @@ export const api = {
 
   // Admin
   getAdminStats: () => request<AdminStats>("/admin/stats"),
+  getTicketAiAccess: () => request<any>("/admin/ticket-ai-access"),
+  setTicketAiAccess: (guildId: string, enabled: boolean) =>
+    request<any>(`/admin/ticket-ai-access/${guildId}`, {
+      method: "POST",
+      body: JSON.stringify({ enabled }),
+    }),
   // Der Verlauf über alle Server, für die Diagramme im Admin-Bereich.
   getAdminHistory: (days = 30) => request<any>(`/admin/history?days=${days}`),
   getAdminConfig: () => request<AdminConfig>("/admin/config"),
