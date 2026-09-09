@@ -56,6 +56,16 @@ SCHEMA = (
         escalated BOOLEAN NOT NULL DEFAULT FALSE
     )""",
     "CREATE INDEX IF NOT EXISTS idx_ticket_ai_categories_guild ON ticket_ai_categories(guild_id)",
+    """CREATE TABLE IF NOT EXISTS ticket_ai_scan_jobs (
+        guild_id INTEGER PRIMARY KEY,
+        status TEXT NOT NULL DEFAULT 'idle',
+        progress INTEGER NOT NULL DEFAULT 0,
+        total_channels INTEGER NOT NULL DEFAULT 0,
+        message_count INTEGER NOT NULL DEFAULT 0,
+        draft TEXT NOT NULL DEFAULT '',
+        error TEXT NOT NULL DEFAULT '',
+        updated_at INTEGER NOT NULL DEFAULT 0
+    )""",
 )
 
 

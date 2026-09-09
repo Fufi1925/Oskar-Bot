@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { BrainCircuit, FileText, Loader2, Save, ShieldCheck, Trash2, Upload } from "lucide-react";
+import { BrainCircuit, CheckCircle2, FileText, Loader2, Save, ScanSearch, ShieldCheck, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -17,7 +17,7 @@ type AiSettings = {
   api_key_configured: boolean;
   enabled: boolean;
   fallback_text: string;
-  knowledge: null | { filename: string; characters: number; updated_at: number };
+  knowledge: null | { filename: string; characters: number; updated_at: number; content: string };
   categories: AiCategory[];
 };
 
@@ -27,6 +27,9 @@ export function TicketAiPanel({ guildId }: { guildId: string }) {
   const [unavailable, setUnavailable] = useState(false);
   const [loadError, setLoadError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [knowledgeText, setKnowledgeText] = useState("");
+  const [scan, setScan] = useState<any>(null);
+  const [draft, setDraft] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
@@ -37,9 +40,27 @@ export function TicketAiPanel({ guildId }: { guildId: string }) {
       const timeout = new Promise<never>((_, reject) => {
         timer = setTimeout(() => reject(new Error("Zeitüberschreitung beim Laden der KI-Einstellungen.")), 12000);
       });
-      const result = await Promise.race([api.getTicketAi(guildId), timeout]);
+      const request = async () => {
+        const visibility = await api.getTicketAiAvailability(guildId);
+        if (!visibility.available) return null;
+        return api.getTicketAi(guildId);
+      };
+      const result = await Promise.race([request(), timeout]);
+      if (!result) {
+        setData(null);
+        setUnavailable(true);
+        return;
+      }
       setData(result);
+      setKnowledgeText(result.knowledge?.content || "");
       setUnavailable(false);
+      try {
+        const job = await api.getTicketAiScan(guildId);
+        setScan(job);
+        if (job.status === "completed") setDraft(job.draft || "");
+      } catch {
+        // The knowledge editor still works when no scan has ever run.
+      }
     } catch (error: any) {
       setData(null);
       if (error?.status === 404) setUnavailable(true);
@@ -51,6 +72,27 @@ export function TicketAiPanel({ guildId }: { guildId: string }) {
   }, [guildId]);
 
   useEffect(() => { load(); }, [load]);
+
+  const scanStatus = scan?.status;
+  useEffect(() => {
+    if (!["queued", "running", "generating"].includes(scanStatus)) return;
+    const timer = window.setInterval(async () => {
+      try {
+        const next = await api.getTicketAiScan(guildId);
+        setScan(next);
+        if (next.status === "completed") {
+          setDraft(next.draft || "");
+          toast.success("Server-Entwurf ist bereit zur Prüfung.");
+        } else if (next.status === "failed") {
+          toast.error(next.error || "Server konnte nicht ausgewertet werden.");
+        }
+      } catch {
+        // Keep the current progress and try again on the next interval.
+      }
+    }, 2500);
+    return () => window.clearInterval(timer);
+  }, [guildId, scanStatus]);
+
   // Until the API confirms access, render nothing: non-enabled servers must
   // not see even a short flash of the private feature.
   if (unavailable || (loading && !data && !loadError)) return null;
@@ -77,6 +119,50 @@ export function TicketAiPanel({ guildId }: { guildId: string }) {
     } finally {
       setBusy(false);
       if (fileRef.current) fileRef.current.value = "";
+    }
+  };
+
+  const startScan = async () => {
+    if (!data?.api_key_configured) {
+      toast.error("Die Railway-Variable GOOGLE_API_TICKET_KEY fehlt noch.");
+      return;
+    }
+    if (!confirm("Der Bot liest alle für ihn sichtbaren Discord-Textkanäle der letzten 30 Tage und wertet Nachrichten des Serverinhabers sowie von Administratoren aus. Fortfahren?")) return;
+    setBusy(true);
+    try {
+      const result = await api.startTicketAiScan(guildId);
+      setDraft("");
+      setScan({ status: result.status || "queued", progress: 0, total_channels: 0, message_count: 0 });
+      toast.success(result.already_running ? "Die Server-Auswertung läuft bereits." : "Server-Auswertung gestartet.");
+    } catch (error: any) {
+      toast.error(error?.message || "Server-Auswertung konnte nicht gestartet werden.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const saveKnowledgeText = async (text = knowledgeText, filename?: string) => {
+    const clean = text.trim();
+    if (!clean) {
+      toast.error("Die Wissensdatei darf nicht leer sein.");
+      return false;
+    }
+    if (new TextEncoder().encode(clean).length > 100_000) {
+      toast.error("Die Wissensdatei darf höchstens 100 KB groß sein.");
+      return false;
+    }
+    setBusy(true);
+    try {
+      await api.uploadTicketAiKnowledge(guildId, filename || data?.knowledge?.filename || "server-wissen.txt", clean);
+      setKnowledgeText(clean);
+      toast.success("Wissensdatei gespeichert.");
+      await load();
+      return true;
+    } catch (error: any) {
+      toast.error(error?.message || "Wissensdatei konnte nicht gespeichert werden.");
+      return false;
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -189,14 +275,40 @@ export function TicketAiPanel({ guildId }: { guildId: string }) {
                   <p className="text-[11px] text-slate-500">Eine UTF-8-.txt-Datei, maximal 100 KB. Beim nächsten Upload wird sie ersetzt.</p>
                 </div>
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 {data.knowledge && <button disabled={busy} onClick={removeKnowledge} className="rounded-xl border border-red-500/20 p-2.5 text-red-300 hover:bg-red-500/10"><Trash2 className="h-4 w-4" /></button>}
+                <button disabled={busy} onClick={startScan} className="inline-flex items-center gap-2 rounded-xl border border-violet-400/25 px-4 py-2.5 text-xs font-black text-violet-200 hover:bg-violet-500/10 disabled:opacity-50"><ScanSearch className="h-4 w-4" /> Server lesen lassen</button>
                 <button disabled={busy} onClick={() => fileRef.current?.click()} className="inline-flex items-center gap-2 rounded-xl bg-violet-500 px-4 py-2.5 text-xs font-black text-white hover:bg-violet-400 disabled:opacity-50"><Upload className="h-4 w-4" /> TXT hochladen</button>
                 <input ref={fileRef} type="file" accept=".txt,text/plain" className="hidden" onChange={(event) => upload(event.target.files?.[0])} />
               </div>
             </div>
             {data.knowledge && <div className="mt-3 rounded-xl bg-violet-500/[0.07] px-3 py-2 text-xs text-violet-200"><b>{data.knowledge.filename}</b> · {data.knowledge.characters.toLocaleString("de-DE")} Zeichen</div>}
+            {data.knowledge && (
+              <div className="mt-4">
+                <div className="mb-2 flex items-center justify-between gap-3"><label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Aktuelle Wissensdatei ansehen und bearbeiten</label><span className="text-[10px] text-slate-600">{new TextEncoder().encode(knowledgeText).length.toLocaleString("de-DE")} / 100.000 Bytes</span></div>
+                <textarea value={knowledgeText} onChange={(event) => setKnowledgeText(event.target.value)} rows={12} className="w-full resize-y rounded-xl border border-slate-800 bg-[#09090c] px-4 py-3 font-mono text-xs leading-5 text-slate-300 outline-none focus:border-violet-500/50" />
+                <div className="mt-2 flex justify-end"><button disabled={busy || knowledgeText === data.knowledge.content} onClick={() => saveKnowledgeText()} className="inline-flex items-center gap-2 rounded-xl border border-violet-400/25 px-4 py-2.5 text-xs font-black text-violet-200 hover:bg-violet-500/10 disabled:opacity-40"><Save className="h-4 w-4" /> Text speichern</button></div>
+              </div>
+            )}
           </div>
+
+          {scan && scan.status !== "idle" && (
+            <div className="rounded-2xl border border-blue-500/20 bg-blue-500/[0.04] p-4">
+              {["queued", "running", "generating"].includes(scan.status) ? <>
+                <div className="flex items-center gap-2 text-sm font-bold text-blue-200"><Loader2 className="h-4 w-4 animate-spin" /> {scan.status === "generating" ? "KI erstellt den Wissensentwurf …" : "Server wird gelesen …"}</div>
+                <p className="mt-1 text-xs text-slate-500">{scan.progress || 0} von {scan.total_channels || "?"} Kanälen · {scan.message_count || 0} Admin-Nachrichten aus den letzten 30 Tagen</p>
+                <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-800"><div className="h-full rounded-full bg-blue-400 transition-all" style={{ width: `${scan.total_channels ? Math.min(100, (scan.progress / scan.total_channels) * 100) : 4}%` }} /></div>
+              </> : scan.status === "failed" ? <><p className="text-sm font-bold text-red-200">Server-Auswertung fehlgeschlagen</p><p className="mt-1 text-xs text-slate-500">{scan.error}</p></> : <div className="flex items-center gap-2 text-sm font-bold text-emerald-200"><CheckCircle2 className="h-4 w-4" /> Entwurf erstellt · {scan.message_count || 0} Admin-Nachrichten berücksichtigt</div>}
+            </div>
+          )}
+
+          {draft && (
+            <div className="rounded-2xl border border-emerald-500/25 bg-emerald-500/[0.04] p-4">
+              <div><p className="text-sm font-bold text-white">Vorschau des automatisch erstellten Wissens</p><p className="mt-1 text-[11px] text-slate-500">Prüfe und ändere den Text. Erst der Knopf darunter ersetzt deine aktuelle Wissensdatei.</p></div>
+              <textarea value={draft} onChange={(event) => setDraft(event.target.value)} rows={16} className="mt-3 w-full resize-y rounded-xl border border-slate-800 bg-[#09090c] px-4 py-3 font-mono text-xs leading-5 text-slate-300 outline-none focus:border-emerald-500/50" />
+              <div className="mt-3 flex justify-end"><button disabled={busy} onClick={() => saveKnowledgeText(draft, "automatisch-generiertes-serverwissen.txt")} className="inline-flex items-center gap-2 rounded-xl bg-emerald-400 px-4 py-2.5 text-xs font-black text-black hover:bg-emerald-300 disabled:opacity-50"><CheckCircle2 className="h-4 w-4" /> Geprüften Entwurf als TXT übernehmen</button></div>
+            </div>
+          )}
 
           <div>
             <div className="mb-3">

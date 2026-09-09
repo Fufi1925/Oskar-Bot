@@ -5,6 +5,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 AI = (ROOT / "bot/utils/ticket_ai.py").read_text(encoding="utf-8")
+SCAN = (ROOT / "bot/utils/ticket_ai_scan.py").read_text(encoding="utf-8")
 TICKET = (ROOT / "bot/cogs/commands/ticket.py").read_text(encoding="utf-8")
 API = (ROOT / "bot/api/routes/tickets.py").read_text(encoding="utf-8")
 ADMIN_API = (ROOT / "bot/api/routes/admin.py").read_text(encoding="utf-8")
@@ -35,7 +36,7 @@ check("server Premium mutations are permission gated", '"premium-guilds": { GET:
 check("AI switch persists immediately", "const setEnabled = async" in PANEL and "onClick={() => setEnabled(!data.enabled)}" in PANEL and "disabled={busy}" in PANEL)
 check("missing prerequisites explain instead of silently disabling", "Lade zuerst eine .txt-Wissensdatei hoch" in PANEL and "GOOGLE_API_TICKET_KEY fehlt noch" in PANEL)
 check("dashboard loader always settles", "finally" in PANEL and "setLoading(false)" in PANEL and "loadError" in PANEL and "Erneut versuchen" in PANEL and "12000" in PANEL)
-check("other servers see no feature flash", "if (unavailable || (loading && !data && !loadError)) return null" in PANEL and "<TicketAiPanel" in PAGE)
+check("other servers see no feature flash", "getTicketAiAvailability" in PANEL and "if (!visibility.available)" in PANEL and "if (unavailable || (loading && !data && !loadError)) return null" in PANEL and "<TicketAiPanel" in PAGE)
 check("Railway secret uses a valid environment name", 'API_KEY_ENV = "GOOGLE_API_TICKET_KEY"' in AI)
 check("only txt up to 100 KB is accepted", "endswith(\".txt\")" in API and "MAX_KNOWLEDGE_BYTES" in API and "100 KB" in PANEL)
 check("knowledge stays guild scoped", "ticket_ai_knowledge" in AI and "WHERE guild_id = ?" in API)
@@ -49,6 +50,13 @@ check("fallback pings team and stops repeated escalation", "notified_roles" in T
 check("AI output cannot ping users or everyone", "AllowedMentions.none()" in TICKET and "@\\u200b" in AI)
 check("Discord responses use Components V2", "Panel(" in TICKET and "view=view" in TICKET)
 check("ticket histories are not persisted", "message.content" in TICKET and "ticket_ai_usage" in AI and "ticket_ai_messages" not in AI)
+check("server scan covers dashboard data and 30 days of admin messages", "config_transfer.export_guild" in SCAN and "timedelta(days=30)" in SCAN and "administrator" in SCAN and "guild.owner_id" in SCAN)
+check("scan visits every bot-readable channel and thread without a message limit", "text_channels" in SCAN and "archived_threads" in SCAN and "guild, \"threads\"" in SCAN and "history(limit=None" in SCAN and "read_message_history" in SCAN)
+check("scan redacts credentials and resists prompt injection", "_SECRET_PATTERNS" in SCAN and "Prompt-Injection" in SCAN and "GEHEIMNIS ENTFERNT" in SCAN)
+check("generated knowledge is previewed before replacement", "Server lesen lassen" in PANEL and "Vorschau des automatisch erstellten Wissens" in PANEL and "Geprüften Entwurf als TXT übernehmen" in PANEL)
+check("current txt is viewable and editable", "Aktuelle Wissensdatei ansehen und bearbeiten" in PANEL and "knowledgeText" in PANEL and "Text speichern" in PANEL)
+check("long scan runs as a progress job", "ticket_ai_scan_jobs" in AI and "asyncio.create_task" in API and "getTicketAiScan" in PANEL)
+check("sensitive AI knowledge is owner-only in the BFF", 'rest[1] === "ai"' in BFF and "ownsGuildOnDiscord(guildId)" in BFF)
 
 print(f"\n{len(failures)} Fehler")
 for failure in failures: print(f"  - {failure}")

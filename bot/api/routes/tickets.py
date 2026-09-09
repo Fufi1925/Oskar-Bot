@@ -14,6 +14,7 @@ once and aborted midway when one column was missing.
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+import asyncio
 import time
 
 import aiosqlite
@@ -23,12 +24,19 @@ from fastapi import APIRouter, Depends, HTTPException
 from api import ticket_panels as panels
 from api.db_manager import db_manager
 from api.dependencies import get_bot
-from utils import feature_audit, ticket_ai, ticket_notify
+from utils import feature_audit, ticket_ai, ticket_ai_scan, ticket_notify
 
 if TYPE_CHECKING:
     from core.universitybot import universitybot
 
 router = APIRouter()
+_scan_tasks: dict[int, asyncio.Task] = {}
+
+
+def _forget_scan(guild_id: int, task: asyncio.Task) -> None:
+    if _scan_tasks.get(guild_id) is task:
+        _scan_tasks.pop(guild_id, None)
+
 
 DB = "db/ticket.db"
 
@@ -342,6 +350,13 @@ async def _ensure_ai_schema(db) -> None:
     await db.commit()
 
 
+@router.get("/{guild_id}/ai-available", summary="Whether Ticket AI is visible")
+async def ticket_ai_available(guild_id: int):
+    # This intentionally returns only a boolean. It lets the dashboard hide an
+    # unreleased feature before requesting the owner-only knowledge endpoint.
+    return {"available": ticket_ai.pilot_available(guild_id)}
+
+
 @router.get("/{guild_id}/ai", summary="Private Ticket AI settings")
 async def get_ticket_ai(guild_id: int):
     _ai_or_404(guild_id)
@@ -353,7 +368,7 @@ async def get_ticket_ai(guild_id: int):
     ) as cursor:
         settings = await cursor.fetchone()
     async with db.execute(
-        "SELECT filename, length(content), updated_at FROM ticket_ai_knowledge WHERE guild_id = ?",
+        "SELECT filename, length(content), updated_at, content FROM ticket_ai_knowledge WHERE guild_id = ?",
         (guild_id,),
     ) as cursor:
         knowledge = await cursor.fetchone()
@@ -370,7 +385,7 @@ async def get_ticket_ai(guild_id: int):
         "api_key_configured": ticket_ai.api_key_configured(),
         "enabled": bool(settings[0]) if settings else False,
         "fallback_text": settings[1] if settings else "Dazu habe ich leider keine verlässliche Information in der Wissensdatenbank gefunden.",
-        "knowledge": ({"filename": knowledge[0], "characters": knowledge[1], "updated_at": knowledge[2]} if knowledge else None),
+        "knowledge": ({"filename": knowledge[0], "characters": knowledge[1], "updated_at": knowledge[2], "content": knowledge[3]} if knowledge else None),
         "categories": [
             {"category_id": row[0], "name": row[1], "enabled": bool(row[2]), "instructions": row[3]}
             for row in categories
@@ -409,6 +424,54 @@ async def delete_ticket_ai_knowledge(guild_id: int):
     await db.execute("UPDATE ticket_ai_settings SET enabled = 0 WHERE guild_id = ?", (guild_id,))
     await db.commit()
     return {"status": "success"}
+
+
+@router.post("/{guild_id}/ai/scan", summary="Build knowledge draft from server")
+async def start_ticket_ai_scan(
+    guild_id: int, bot: "universitybot" = Depends(get_bot)
+):
+    _ai_or_404(guild_id)
+    if not ticket_ai.api_key_configured():
+        raise HTTPException(status_code=503, detail=f"Railway-Variable {ticket_ai.API_KEY_ENV} fehlt.")
+    db = await _db()
+    await _ensure_ai_schema(db)
+    active = _scan_tasks.get(guild_id)
+    if active and not active.done():
+        async with db.execute(
+            "SELECT status FROM ticket_ai_scan_jobs WHERE guild_id = ?", (guild_id,)
+        ) as cursor:
+            current = await cursor.fetchone()
+        return {"status": current[0] if current else "running", "already_running": True}
+    await db.execute(
+        "INSERT INTO ticket_ai_scan_jobs (guild_id, status, updated_at) VALUES (?, 'queued', ?)"
+        " ON CONFLICT(guild_id) DO UPDATE SET status='queued', progress=0, total_channels=0,"
+        " message_count=0, draft='', error='', updated_at=excluded.updated_at",
+        (guild_id, int(time.time())),
+    )
+    await db.commit()
+    task = asyncio.create_task(ticket_ai_scan.run_scan(guild_id, bot))
+    _scan_tasks[guild_id] = task
+    task.add_done_callback(lambda finished, gid=guild_id: _forget_scan(gid, finished))
+    return {"status": "queued"}
+
+
+@router.get("/{guild_id}/ai/scan", summary="Ticket AI scan progress")
+async def get_ticket_ai_scan(guild_id: int):
+    _ai_or_404(guild_id)
+    db = await _db()
+    await _ensure_ai_schema(db)
+    async with db.execute(
+        "SELECT status, progress, total_channels, message_count, draft, error, updated_at"
+        " FROM ticket_ai_scan_jobs WHERE guild_id = ?", (guild_id,)
+    ) as cursor:
+        row = await cursor.fetchone()
+    if not row:
+        return {"status": "idle", "progress": 0, "total_channels": 0, "message_count": 0, "draft": "", "error": ""}
+    return {
+        "status": row[0], "progress": row[1], "total_channels": row[2],
+        "message_count": row[3], "draft": row[4] if row[0] == "completed" else "",
+        "error": row[5], "updated_at": row[6],
+    }
 
 
 @router.patch("/{guild_id}/ai", summary="Update private Ticket AI settings")

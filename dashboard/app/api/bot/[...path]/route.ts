@@ -1354,6 +1354,14 @@ async function authorize(
 
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) return { ok: false, response: deny(401, "Not signed in.") };
+
+    // AI knowledge can contain facts distilled from every channel visible to
+    // the bot. Only Discord's actual server owner may view or change it.
+    if (rest[1] === "ai") {
+      if (await ownsGuildOnDiscord(guildId)) return { ok: true };
+      return { ok: false, response: deny(403, "Only the Discord server owner may manage Ticket AI knowledge.") };
+    }
+
     if (isGlobalAdmin(session.user.id)) return { ok: true };
 
     // Wer den Server auf Discord verwaltet, behaelt seine Rechte.
