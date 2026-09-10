@@ -205,7 +205,7 @@ async def generate_text(
                 # leaves room for the final answer on Groq's 8k TPM tier.
                 payload.update({
                     "temperature": max(temperature, 0.5),
-                    "max_completion_tokens": max(max_tokens, 4000),
+                    "max_completion_tokens": max(max_tokens, 1200 if json_mode else 4000),
                     "reasoning_effort": "low",
                     "include_reasoning": False,
                 })

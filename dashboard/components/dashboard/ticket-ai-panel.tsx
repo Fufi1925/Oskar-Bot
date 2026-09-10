@@ -296,7 +296,7 @@ export function TicketAiPanel({ guildId }: { guildId: string }) {
             <div className="rounded-2xl border border-blue-500/20 bg-blue-500/[0.04] p-4">
               {["queued", "running", "generating"].includes(scan.status) ? <>
                 <div className="flex items-center gap-2 text-sm font-bold text-blue-200"><Loader2 className="h-4 w-4 animate-spin" /> {scan.status === "generating" ? "KI erstellt den Wissensentwurf …" : "Server wird gelesen …"}</div>
-                <p className="mt-1 text-xs text-slate-500">{scan.progress || 0} von {scan.total_channels || "?"} Kanälen · {scan.message_count || 0} Admin-Nachrichten aus den letzten 30 Tagen</p>
+                <p className="mt-1 text-xs text-slate-500">{scan.status === "generating" ? `${scan.progress || 0} von ${scan.total_channels || "?"} KI-Schritten abgeschlossen` : `${scan.progress || 0} von ${scan.total_channels || "?"} Kanälen gelesen`} · {scan.message_count || 0} Admin-Nachrichten aus den letzten 30 Tagen</p>
                 <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-800"><div className="h-full rounded-full bg-blue-400 transition-all" style={{ width: `${scan.total_channels ? Math.min(100, (scan.progress / scan.total_channels) * 100) : 4}%` }} /></div>
               </> : scan.status === "failed" ? <><p className="text-sm font-bold text-red-200">Server-Auswertung fehlgeschlagen</p><p className="mt-1 text-xs text-slate-500">{scan.error}</p></> : <div className="flex items-center gap-2 text-sm font-bold text-emerald-200"><CheckCircle2 className="h-4 w-4" /> Entwurf erstellt · {scan.message_count || 0} Admin-Nachrichten berücksichtigt</div>}
             </div>
