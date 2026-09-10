@@ -350,6 +350,21 @@ async def _ensure_ai_schema(db) -> None:
     await db.commit()
 
 
+async def reset_interrupted_ai_scans() -> int:
+    """Hard-reset jobs whose tasks vanished during a deploy or restart."""
+    db = await _db()
+    await _ensure_ai_schema(db)
+    cursor = await db.execute(
+        "UPDATE ticket_ai_scan_jobs SET status='cancelled', progress=0,"
+        " total_channels=0, message_count=0, draft='',"
+        " error='Durch Bot-Neustart abgebrochen. Du kannst den Scan erneut starten.',"
+        " updated_at=? WHERE status IN ('queued', 'running', 'generating')",
+        (int(time.time()),),
+    )
+    await db.commit()
+    return max(0, int(cursor.rowcount or 0))
+
+
 @router.get("/{guild_id}/ai-available", summary="Whether Ticket AI is visible")
 async def ticket_ai_available(guild_id: int):
     # This intentionally returns only a boolean. It lets the dashboard hide an
@@ -453,6 +468,30 @@ async def start_ticket_ai_scan(
     _scan_tasks[guild_id] = task
     task.add_done_callback(lambda finished, gid=guild_id: _forget_scan(gid, finished))
     return {"status": "queued"}
+
+
+@router.post("/{guild_id}/ai/scan/cancel", summary="Hard-cancel a Ticket AI scan")
+async def cancel_ticket_ai_scan(guild_id: int):
+    _ai_or_404(guild_id)
+    task = _scan_tasks.pop(guild_id, None)
+    if task and not task.done():
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+    db = await _db()
+    await _ensure_ai_schema(db)
+    await db.execute(
+        "INSERT INTO ticket_ai_scan_jobs (guild_id, status, error, updated_at)"
+        " VALUES (?, 'cancelled', 'Manuell abgebrochen. Du kannst den Scan erneut starten.', ?)"
+        " ON CONFLICT(guild_id) DO UPDATE SET status='cancelled', progress=0,"
+        " total_channels=0, message_count=0, draft='', error=excluded.error,"
+        " updated_at=excluded.updated_at",
+        (guild_id, int(time.time())),
+    )
+    await db.commit()
+    return {"status": "cancelled"}
 
 
 @router.get("/{guild_id}/ai/scan", summary="Ticket AI scan progress")

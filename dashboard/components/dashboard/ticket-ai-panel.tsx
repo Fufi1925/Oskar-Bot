@@ -141,6 +141,21 @@ export function TicketAiPanel({ guildId }: { guildId: string }) {
     }
   };
 
+  const cancelScan = async () => {
+    if (!confirm("Laufende Server-Auswertung hart abbrechen? Der bisherige Scan-Entwurf wird verworfen.")) return;
+    setBusy(true);
+    try {
+      await api.cancelTicketAiScan(guildId);
+      setScan({ status: "cancelled", progress: 0, total_channels: 0, message_count: 0, error: "Manuell abgebrochen. Du kannst den Scan erneut starten." });
+      setDraft("");
+      toast.success("Server-Auswertung wurde abgebrochen.");
+    } catch (error: any) {
+      toast.error(error?.message || "Server-Auswertung konnte nicht abgebrochen werden.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const saveKnowledgeText = async (text = knowledgeText, filename?: string) => {
     const clean = text.trim();
     if (!clean) {
@@ -295,10 +310,10 @@ export function TicketAiPanel({ guildId }: { guildId: string }) {
           {scan && scan.status !== "idle" && (
             <div className="rounded-2xl border border-blue-500/20 bg-blue-500/[0.04] p-4">
               {["queued", "running", "generating"].includes(scan.status) ? <>
-                <div className="flex items-center gap-2 text-sm font-bold text-blue-200"><Loader2 className="h-4 w-4 animate-spin" /> {scan.status === "generating" ? "KI erstellt den Wissensentwurf …" : "Server wird gelesen …"}</div>
+                <div className="flex flex-wrap items-center justify-between gap-3"><div className="flex items-center gap-2 text-sm font-bold text-blue-200"><Loader2 className="h-4 w-4 animate-spin" /> {scan.status === "generating" ? "KI erstellt den Wissensentwurf …" : "Server wird gelesen …"}</div><button type="button" disabled={busy} onClick={cancelScan} className="rounded-lg border border-red-500/25 px-3 py-1.5 text-[11px] font-black text-red-300 hover:bg-red-500/10 disabled:opacity-40">Hart abbrechen</button></div>
                 <p className="mt-1 text-xs text-slate-500">{scan.status === "generating" ? `${scan.progress || 0} von ${scan.total_channels || "?"} KI-Schritten abgeschlossen` : `${scan.progress || 0} von ${scan.total_channels || "?"} Kanälen gelesen`} · {scan.message_count || 0} Admin-Nachrichten aus den letzten 30 Tagen</p>
                 <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-800"><div className="h-full rounded-full bg-blue-400 transition-all" style={{ width: `${scan.total_channels ? Math.min(100, (scan.progress / scan.total_channels) * 100) : 4}%` }} /></div>
-              </> : scan.status === "failed" ? <><p className="text-sm font-bold text-red-200">Server-Auswertung fehlgeschlagen</p><p className="mt-1 text-xs text-slate-500">{scan.error}</p></> : <div className="flex items-center gap-2 text-sm font-bold text-emerald-200"><CheckCircle2 className="h-4 w-4" /> Entwurf erstellt · {scan.message_count || 0} Admin-Nachrichten berücksichtigt</div>}
+              </> : scan.status === "failed" ? <><p className="text-sm font-bold text-red-200">Server-Auswertung fehlgeschlagen</p><p className="mt-1 text-xs text-slate-500">{scan.error}</p></> : scan.status === "cancelled" ? <><p className="text-sm font-bold text-amber-200">Server-Auswertung abgebrochen</p><p className="mt-1 text-xs text-slate-500">{scan.error || "Du kannst den Scan jetzt erneut starten."}</p></> : <div className="flex items-center gap-2 text-sm font-bold text-emerald-200"><CheckCircle2 className="h-4 w-4" /> Entwurf erstellt · {scan.message_count || 0} Admin-Nachrichten berücksichtigt</div>}
             </div>
           )}
 

@@ -1547,6 +1547,8 @@ export const api = {
     request<any>(`/tickets/${guildId}/ai/knowledge`, { method: "DELETE" }),
   startTicketAiScan: (guildId: string) =>
     request<any>(`/tickets/${guildId}/ai/scan`, { method: "POST", body: "{}" }),
+  cancelTicketAiScan: (guildId: string) =>
+    request<any>(`/tickets/${guildId}/ai/scan/cancel`, { method: "POST", body: "{}" }),
   getTicketAiScan: (guildId: string) =>
     request<any>(`/tickets/${guildId}/ai/scan`),
 

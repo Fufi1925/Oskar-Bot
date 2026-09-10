@@ -57,6 +57,16 @@ async def lifespan(app: FastAPI):
     except Exception as exc:
         logger.warning(f"Dashboard access preload failed: {exc}")
 
+    # Background scan tasks live only in this process. After every deploy,
+    # persisted active states are therefore stale and must never leave the
+    # dashboard spinning forever.
+    try:
+        reset_count = await tickets.reset_interrupted_ai_scans()
+        if reset_count:
+            logger.info(f"Cancelled {reset_count} interrupted Ticket AI scan(s) after restart.")
+    except Exception as exc:
+        logger.warning(f"Ticket AI scan reset failed: {exc}")
+
     # A request spends ten seconds in its undo window. The durable worker
     # matures it and sends Fufi exactly one DM; it also recovers requests when
     # the process restarted during those ten seconds.

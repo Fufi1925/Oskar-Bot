@@ -17,6 +17,7 @@ PREMIUM_GUILDS = (ROOT / "dashboard/components/dashboard/premium-guilds.tsx").re
 ADMIN_CONTENT = (ROOT / "dashboard/components/dashboard/admin-content.tsx").read_text(encoding="utf-8")
 BFF = (ROOT / "dashboard/app/api/bot/[...path]/route.ts").read_text(encoding="utf-8")
 CLIENT = (ROOT / "dashboard/lib/api.ts").read_text(encoding="utf-8")
+SERVER = (ROOT / "bot/api/server.py").read_text(encoding="utf-8")
 
 failures: list[str] = []
 def check(label: str, condition: bool) -> None:
@@ -69,6 +70,8 @@ check("scan redacts credentials and resists prompt injection", "_SECRET_PATTERNS
 check("generated knowledge is previewed before replacement", "Server lesen lassen" in PANEL and "Vorschau des automatisch erstellten Wissens" in PANEL and "Geprüften Entwurf als TXT übernehmen" in PANEL)
 check("current txt is viewable and editable", "Aktuelle Wissensdatei ansehen und bearbeiten" in PANEL and "knowledgeText" in PANEL and "Text speichern" in PANEL)
 check("long scan runs as a progress job", "ticket_ai_scan_jobs" in AI and "asyncio.create_task" in API and "getTicketAiScan" in PANEL)
+check("deploys hard-reset interrupted scans", "reset_interrupted_ai_scans" in API and "status='cancelled'" in API and "tickets.reset_interrupted_ai_scans()" in SERVER)
+check("running scans can be hard-cancelled and restarted", "/ai/scan/cancel" in API and "task.cancel()" in API and "cancelTicketAiScan" in CLIENT and "Hart abbrechen" in PANEL and 'scan.status === "cancelled"' in PANEL)
 check("all admitted dashboard users may manage AI knowledge", 'if (rest[1] === "ai") return { ok: true }' in BFF and "verifyGuildAccess(guildId)" in BFF)
 
 print(f"\n{len(failures)} Fehler")
