@@ -43,6 +43,7 @@ check("Groq key never appears in request URLs or errors", '"Authorization": f"Be
 check("non-Groq keys are rejected before a scan", 'key.startswith("gsk_")' in AI and "keinen gültigen Groq-Key" in API)
 check("HTTP 400 retries without optional model parameters", "response.status_code == 400" in AI and '"model": model, "messages": messages, "stream": False' in AI and "_groq_error(response)" in AI)
 check("Groq rate limits wait and retry automatically", "response.status_code != 429" in AI and "_rate_limit_delay(response, attempt)" in AI and "await asyncio.sleep" in AI)
+check("GPT-OSS leaves room for final output and empty answers fall back", '"reasoning_effort": "low"' in AI and '"include_reasoning": False' in AI and '"max_completion_tokens": max(max_tokens, 700)' in AI and "saw_empty_response" in AI)
 check("scan requests stay below the Groq on-demand TPM ceiling", "CHUNK_SIZE = 4_000" in SCAN and "max_tokens=1200" in SCAN and "for offset in range" in SCAN)
 check("Ticket AI contains only the Groq provider integration", all(word not in (AI + SCAN + API + PANEL + ADMIN_PANEL).lower() for word in ("google", "gemini", "generativelanguage", "api.x.ai", "xai_ticket", "grok-4")))
 check("only txt up to 100 KB is accepted", "endswith(\".txt\")" in API and "MAX_KNOWLEDGE_BYTES" in API and "100 KB" in PANEL)

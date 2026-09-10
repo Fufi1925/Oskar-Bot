@@ -188,15 +188,26 @@ async def generate_text(
             assert response is not None
             return response
 
+        saw_empty_response = False
         for model in model_candidates():
             messages = [{"role": "user", "content": prompt}]
-            payload = {
+            payload: dict[str, Any] = {
                 "model": model,
                 "messages": messages,
                 "temperature": temperature,
-                "max_tokens": max_tokens,
                 "stream": False,
             }
+            if model.startswith("openai/gpt-oss-"):
+                # GPT-OSS defaults to medium reasoning, which can spend a small
+                # completion budget entirely on hidden reasoning and return an
+                # empty final answer. Low effort preserves room for the result.
+                payload.update({
+                    "max_completion_tokens": max(max_tokens, 700),
+                    "reasoning_effort": "low",
+                    "include_reasoning": False,
+                })
+            else:
+                payload["max_tokens"] = max_tokens
             response = await post_with_rate_limit(payload)
             if response.status_code == 404:
                 continue
@@ -217,7 +228,13 @@ async def generate_text(
                 raise RuntimeError("Groq hat ein ungültiges Antwortformat geliefert.") from exc
             if str(text or "").strip():
                 return str(text).strip()
-            raise RuntimeError("Groq hat keinen Antworttext geliefert.")
+            # A reasoning model can exhaust its completion budget before the
+            # final answer. Try the next production fallback instead of
+            # aborting a long-running server scan.
+            saw_empty_response = True
+            continue
+    if saw_empty_response:
+        raise RuntimeError("Groq hat auch mit den Fallback-Modellen keinen Antworttext geliefert.")
     raise RuntimeError("Keines der konfigurierten Groq-Modelle ist für diesen Groq-Key verfügbar.")
 
 
