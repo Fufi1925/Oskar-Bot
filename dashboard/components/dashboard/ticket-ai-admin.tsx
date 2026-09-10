@@ -22,6 +22,10 @@ export function TicketAiAdmin() {
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
+  const [testQuestion, setTestQuestion] = useState("Wie viel ist 17 × 6?");
+  const [testBusy, setTestBusy] = useState(false);
+  const [testResult, setTestResult] = useState<any>(null);
+  const [testError, setTestError] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -62,6 +66,23 @@ export function TicketAiAdmin() {
     }
   };
 
+  const runTest = async () => {
+    if (!testQuestion.trim()) {
+      setTestError("Bitte eine Testfrage eingeben.");
+      return;
+    }
+    setTestBusy(true);
+    setTestResult(null);
+    setTestError("");
+    try {
+      setTestResult(await api.testTicketAi(testQuestion.trim()));
+    } catch (err: any) {
+      setTestError(err?.message || "Der KI-Test ist fehlgeschlagen.");
+    } finally {
+      setTestBusy(false);
+    }
+  };
+
   const enabled = guilds.filter((guild) => guild.enabled).length;
 
   return (
@@ -83,6 +104,24 @@ export function TicketAiAdmin() {
           <div className="rounded-xl border border-slate-800 bg-black/20 p-4"><p className="text-[10px] font-black uppercase tracking-wider text-slate-500">Bot-Server</p><p className="mt-1 text-2xl font-black text-white">{guilds.length}</p></div>
           <div className={cn("rounded-xl border p-4", keyReady ? "border-emerald-500/20 bg-emerald-500/[0.05]" : "border-amber-500/20 bg-amber-500/[0.05]")}><p className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-slate-500"><KeyRound className="h-3 w-3" /> Groq-Key</p><p className={cn("mt-1 text-sm font-black", keyReady ? "text-emerald-300" : "text-amber-300")}>{keyReady ? "Eingerichtet" : "Fehlt/ungültig"}</p></div>
         </div>
+      </div>
+
+      <div className="rounded-2xl border border-cyan-500/20 bg-[#131318] p-4 sm:p-5">
+        <div className="flex items-start gap-3">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-cyan-500/10 text-cyan-300"><BrainCircuit className="h-4 w-4" /></span>
+          <div>
+            <h3 className="font-black text-white">Groq-KI direkt testen</h3>
+            <p className="mt-1 text-xs leading-5 text-slate-400">Sendet eine Frage ohne Wissenssuche direkt an den eingerichteten Provider. Bei einem Fehler werden Modell, Finish-Grund, Tokenstatus oder HTTP-Fehler angezeigt.</p>
+          </div>
+        </div>
+        <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+          <textarea value={testQuestion} onChange={(event) => setTestQuestion(event.target.value.slice(0, 1000))} rows={2} placeholder="Zum Beispiel: Wie viel ist 17 × 6?" className="min-h-20 min-w-0 flex-1 resize-y rounded-xl border border-slate-800 bg-[#0e0e12] px-4 py-3 text-sm text-white outline-none focus:border-cyan-500/40" />
+          <button type="button" onClick={runTest} disabled={testBusy || !keyReady} className="inline-flex items-center justify-center gap-2 rounded-xl bg-cyan-500 px-5 py-3 text-sm font-black text-black hover:bg-cyan-400 disabled:opacity-40">
+            {testBusy && <Loader2 className="h-4 w-4 animate-spin" />}{testBusy ? "Teste …" : "KI testen"}
+          </button>
+        </div>
+        {testResult && <div className="mt-3 rounded-xl border border-emerald-500/20 bg-emerald-500/[0.05] p-4"><p className="text-[10px] font-black uppercase tracking-wider text-emerald-400">Antwort erhalten · {testResult.duration_ms} ms</p><p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-white">{testResult.answer}</p><p className="mt-2 break-all text-[10px] text-slate-500">Modellreihenfolge: {(testResult.models || []).join(" → ")}</p></div>}
+        {testError && <div className="mt-3 rounded-xl border border-red-500/25 bg-red-500/[0.06] p-4"><p className="text-[10px] font-black uppercase tracking-wider text-red-400">KI-Test fehlgeschlagen</p><pre className="mt-2 whitespace-pre-wrap break-words text-xs leading-5 text-red-200">{testError}</pre></div>}
       </div>
 
       <div className="rounded-2xl border border-slate-800 bg-[#131318] p-4 sm:p-5">

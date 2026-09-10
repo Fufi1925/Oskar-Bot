@@ -799,6 +799,36 @@ async def get_ticket_ai_access(bot: "universitybot" = Depends(get_bot)):
     }
 
 
+@router.post("/ticket-ai-test", summary="Test the configured Ticket AI provider")
+async def test_ticket_ai_provider(data: dict):
+    question = str(data.get("question") or "").strip()
+    if not question:
+        raise HTTPException(status_code=400, detail="Bitte eine Testfrage eingeben.")
+    if len(question) > 1000:
+        raise HTTPException(status_code=400, detail="Die Testfrage darf höchstens 1.000 Zeichen haben.")
+    prompt = (
+        "Beantworte die folgende Testfrage auf Deutsch. Dies ist ein technischer "
+        "Funktionstest. Antworte direkt, kurz und ohne Codeblock.\n\nTESTFRAGE:\n"
+        + question
+    )
+    started = time.monotonic()
+    try:
+        answer = await ticket_ai.generate_text(
+            prompt, max_tokens=700, temperature=0.2, timeout=45.0
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=f"{type(exc).__name__}: {exc}",
+        ) from exc
+    return {
+        "status": "success",
+        "answer": answer,
+        "duration_ms": round((time.monotonic() - started) * 1000),
+        "models": ticket_ai.model_candidates(),
+    }
+
+
 @router.post("/ticket-ai-access/{guild_id}", summary="Grant or revoke Ticket AI")
 async def set_ticket_ai_access(
     guild_id: int, data: dict, bot: "universitybot" = Depends(get_bot)

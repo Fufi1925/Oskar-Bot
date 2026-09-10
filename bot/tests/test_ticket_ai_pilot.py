@@ -16,6 +16,7 @@ PREMIUM_ADMIN = (ROOT / "dashboard/components/dashboard/premium-admin.tsx").read
 PREMIUM_GUILDS = (ROOT / "dashboard/components/dashboard/premium-guilds.tsx").read_text(encoding="utf-8")
 ADMIN_CONTENT = (ROOT / "dashboard/components/dashboard/admin-content.tsx").read_text(encoding="utf-8")
 BFF = (ROOT / "dashboard/app/api/bot/[...path]/route.ts").read_text(encoding="utf-8")
+CLIENT = (ROOT / "dashboard/lib/api.ts").read_text(encoding="utf-8")
 
 failures: list[str] = []
 def check(label: str, condition: bool) -> None:
@@ -30,6 +31,7 @@ check("non-allowlisted guild APIs disclose nothing", "is_allowlisted(guild_id)" 
 check("server Premium remains enforced", "pilot_available(guild_id)" in API and "ticket_ai.pilot_available(message.guild.id)" in TICKET)
 check("listener no longer hardcodes one server", "message.guild.id != ticket_ai.PILOT_GUILD_ID" not in TICKET)
 check("admin has a complete Ticket AI tab", 'id: "ticketai"' in ADMIN_CONTENT and '<TicketAiAdmin />' in ADMIN_CONTENT and "Serverfreigaben" in ADMIN_PANEL)
+check("admin can test Groq directly with detailed errors", "/ticket-ai-test" in ADMIN_API and "testTicketAi" in CLIENT and "Groq-KI direkt testen" in ADMIN_PANEL and '"ticket-ai-test": { WRITE: "premium.manage" }' in BFF)
 check("admin endpoint has premium.manage permission", '"ticket-ai-access": { GET: "premium.manage", WRITE: "premium.manage" }' in BFF)
 check("Premium admin manages individual servers", 'id: "server"' in PREMIUM_ADMIN and "<PremiumGuilds />" in PREMIUM_ADMIN and "/premium-guilds" in ADMIN_API and "setGuildPremium" in PREMIUM_GUILDS)
 check("server Premium mutations are permission gated", '"premium-guilds": { GET: "premium.manage" }' in BFF and 'premium: { WRITE: "premium.manage" }' in BFF)
@@ -43,8 +45,8 @@ check("Groq key never appears in request URLs or errors", '"Authorization": f"Be
 check("non-Groq keys are rejected before a scan", 'key.startswith("gsk_")' in AI and "keinen gültigen Groq-Key" in API)
 check("HTTP 400 retries without optional model parameters", "response.status_code == 400" in AI and '"model": model, "messages": messages, "stream": False' in AI and "_groq_error(response)" in AI)
 check("Groq rate limits wait and retry automatically", "response.status_code != 429" in AI and "_rate_limit_delay(response, attempt)" in AI and "await asyncio.sleep" in AI)
-check("GPT-OSS leaves room for final output and empty answers fall back", '"reasoning_effort": "low"' in AI and '"include_reasoning": False' in AI and '"max_completion_tokens": max(max_tokens, 2400)' in AI and "saw_empty_response" in AI)
-check("scan requests stay below the Groq on-demand TPM ceiling", "CHUNK_SIZE = 4_000" in SCAN and "max_tokens=2400" in SCAN and "for offset in range" in SCAN and "for offset in range(0, max(1, len(part)), CHUNK_SIZE)" in SCAN)
+check("GPT-OSS leaves room for final output and empty answers fall back", '"reasoning_effort": "low"' in AI and '"include_reasoning": False' in AI and '"max_completion_tokens": max(max_tokens, 4000)' in AI and "empty_responses" in AI)
+check("scan requests stay below the Groq on-demand TPM ceiling", "CHUNK_SIZE = 2_000" in SCAN and "max_tokens=4000" in SCAN and "for offset in range" in SCAN and "for offset in range(0, max(1, len(part)), CHUNK_SIZE)" in SCAN)
 check("Ticket AI contains only the Groq provider integration", all(word not in (AI + SCAN + API + PANEL + ADMIN_PANEL).lower() for word in ("google", "gemini", "generativelanguage", "api.x.ai", "xai_ticket", "grok-4")))
 check("only txt up to 100 KB is accepted", "endswith(\".txt\")" in API and "MAX_KNOWLEDGE_BYTES" in API and "100 KB" in PANEL)
 check("knowledge stays guild scoped", "ticket_ai_knowledge" in AI and "WHERE guild_id = ?" in API)
@@ -52,7 +54,7 @@ check("only the ticket creator triggers AI", 'int(ticket["creator_id"]) != messa
 check("claimed and closed tickets never answer", TICKET.count('current["is_claimed"]') >= 1 and 'current["closed_at"]' in TICKET)
 check("claim race is rechecked during Groq requests", "Claim can happen while the Groq request is running" in TICKET)
 check("categories independently enable AI", "ticket_ai_categories" in AI and 'config["category_enabled"]' in TICKET)
-check("Groq receives excerpts instead of complete knowledge", "matching_context" in AI and "excerpts" in TICKET and "source[:5000]" in AI)
+check("Groq receives excerpts instead of complete knowledge", "matching_context" in AI and "excerpts" in TICKET and "source[:3000]" in AI)
 check("prompt blocks unsupported answers and injection", "AUSSCHLIESSLICH Fakten" in AI and "unzuverlässiger Inhalt" in AI and '"supported"' in AI)
 check("fallback pings team and stops repeated escalation", "notified_roles" in TICKET and "roles=True" in TICKET and "escalated" in AI)
 check("AI output cannot ping users or everyone", "AllowedMentions.none()" in TICKET and "@\\u200b" in AI)

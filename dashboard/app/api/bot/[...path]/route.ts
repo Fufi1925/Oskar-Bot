@@ -68,6 +68,7 @@ const ADMIN_PERMISSIONS: Record<string, { GET?: string; WRITE?: string }> = {
   premium: { WRITE: "premium.manage" },
   "premium-guilds": { GET: "premium.manage" },
   "ticket-ai-access": { GET: "premium.manage", WRITE: "premium.manage" },
+  "ticket-ai-test": { WRITE: "premium.manage" },
   blacklist: { WRITE: "blacklist.manage" },
   "mass-config": { WRITE: "massconfig.push" },
   stats: { GET: "dashboard.access" },

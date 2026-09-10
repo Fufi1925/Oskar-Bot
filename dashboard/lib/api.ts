@@ -951,6 +951,10 @@ export const api = {
       body: JSON.stringify({ premium }),
     }),
   getTicketAiAccess: () => request<any>("/admin/ticket-ai-access"),
+  testTicketAi: (question: string) => request<any>("/admin/ticket-ai-test", {
+    method: "POST",
+    body: JSON.stringify({ question }),
+  }),
   setTicketAiAccess: (guildId: string, enabled: boolean) =>
     request<any>(`/admin/ticket-ai-access/${guildId}`, {
       method: "POST",

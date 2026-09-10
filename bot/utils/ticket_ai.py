@@ -170,7 +170,8 @@ def _rate_limit_delay(response: httpx.Response, attempt: int) -> float:
 
 
 async def generate_text(
-    prompt: str, *, max_tokens: int, temperature: float, timeout: float
+    prompt: str, *, max_tokens: int, temperature: float, timeout: float,
+    json_mode: bool = False,
 ) -> str:
     """Call Groq's stateless Chat Completions API without exposing the key."""
     key = os.getenv(API_KEY_ENV, "").strip()
@@ -188,7 +189,7 @@ async def generate_text(
             assert response is not None
             return response
 
-        saw_empty_response = False
+        empty_responses: list[str] = []
         for model in model_candidates():
             messages = [{"role": "user", "content": prompt}]
             payload: dict[str, Any] = {
@@ -200,14 +201,18 @@ async def generate_text(
             if model.startswith("openai/gpt-oss-"):
                 # GPT-OSS defaults to medium reasoning, which can spend a small
                 # completion budget entirely on hidden reasoning and return an
-                # empty final answer. Low effort preserves room for the result.
+                # empty final answer. Low effort plus a real output reserve
+                # leaves room for the final answer on Groq's 8k TPM tier.
                 payload.update({
-                    "max_completion_tokens": max(max_tokens, 2400),
+                    "temperature": max(temperature, 0.5),
+                    "max_completion_tokens": max(max_tokens, 4000),
                     "reasoning_effort": "low",
                     "include_reasoning": False,
                 })
             else:
                 payload["max_tokens"] = max_tokens
+            if json_mode:
+                payload["response_format"] = {"type": "json_object"}
             response = await post_with_rate_limit(payload)
             if response.status_code == 404:
                 continue
@@ -223,18 +228,29 @@ async def generate_text(
             if response.is_error:
                 raise RuntimeError(_groq_error(response))
             try:
-                text = response.json()["choices"][0]["message"]["content"]
+                body = response.json()
+                choice = body["choices"][0]
+                message = choice["message"]
+                text = message.get("content")
             except (KeyError, IndexError, TypeError, ValueError) as exc:
                 raise RuntimeError("Groq hat ein ungültiges Antwortformat geliefert.") from exc
+            if isinstance(text, list):
+                text = "".join(
+                    str(part.get("text", "")) if isinstance(part, dict) else str(part)
+                    for part in text
+                )
             if str(text or "").strip():
                 return str(text).strip()
-            # A reasoning model can exhaust its completion budget before the
-            # final answer. Try the next production fallback instead of
-            # aborting a long-running server scan.
-            saw_empty_response = True
+            # Never expose prompts or provider identifiers, but retain enough
+            # metadata for the admin test to explain an empty completion.
+            usage = body.get("usage", {}) if isinstance(body, dict) else {}
+            empty_responses.append(
+                f"{model}: finish_reason={choice.get('finish_reason', 'unbekannt')}, "
+                f"completion_tokens={usage.get('completion_tokens', 'unbekannt')}"
+            )
             continue
-    if saw_empty_response:
-        raise RuntimeError("Groq hat auch mit den Fallback-Modellen keinen Antworttext geliefert.")
+    if empty_responses:
+        raise RuntimeError("Groq lieferte keinen finalen Antworttext. " + "; ".join(empty_responses))
     raise RuntimeError("Keines der konfigurierten Groq-Modelle ist für diesen Groq-Key verfügbar.")
 
 
@@ -308,11 +324,14 @@ FRAGE:
 {question[:1200]}
 
 WISSEN:
-{source[:5000]}
+{source[:3000]}
 
 Antworte nur als JSON: {{"supported": true oder false, "answer": "..."}}"""
     try:
-        raw = await generate_text(prompt, max_tokens=350, temperature=0.15, timeout=30.0)
+        raw = await generate_text(
+            prompt, max_tokens=700, temperature=0.15, timeout=30.0,
+            json_mode=True,
+        )
         parsed = _extract_json(raw)
         answer = str((parsed or {}).get("answer") or "").strip()
         if not (parsed or {}).get("supported") or not answer:
