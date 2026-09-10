@@ -4,14 +4,12 @@ from __future__ import annotations
 
 import asyncio
 import json
-import os
 import re
 import time
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import aiosqlite
-import httpx
 
 from api import config_transfer
 from utils import ticket_ai
@@ -67,9 +65,6 @@ async def _set_job(guild_id: int, **fields: Any) -> None:
 
 
 async def _summarize(source: str, final: bool = False) -> str:
-    key = os.getenv(ticket_ai.API_KEY_ENV, "").strip()
-    if not key:
-        raise RuntimeError(f"Railway-Variable {ticket_ai.API_KEY_ENV} fehlt.")
     instruction = (
         "Erstelle daraus die endgültige, übersichtliche Wissensdatei für einen Discord-Ticketassistenten. "
         "Nutze klare Überschriften und kurze Fakten. Entferne Wiederholungen."
@@ -84,26 +79,9 @@ Antworte nur mit dem Inhalt der .txt-Datei, ohne Einleitung und ohne Codeblock.
 
 QUELLTEXT:
 {source[:CHUNK_SIZE]}"""
-    payload = {
-        "contents": [{"role": "user", "parts": [{"text": prompt}]}],
-        "generationConfig": {"temperature": 0.1, "maxOutputTokens": 1800},
-    }
-    response = None
-    async with httpx.AsyncClient(timeout=45.0) as client:
-        for model in ticket_ai.model_candidates():
-            endpoint = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
-            candidate = await client.post(endpoint, headers={"x-goog-api-key": key}, json=payload)
-            if candidate.status_code == 404:
-                continue
-            if candidate.is_error:
-                raise RuntimeError(f"Google Gemini API antwortet mit HTTP {candidate.status_code}.")
-            response = candidate
-            break
-    if response is None:
-        raise RuntimeError("Keines der konfigurierten stabilen Gemini-Modelle ist für diesen API-Key verfügbar.")
-    text = response.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
-    if not text:
-        raise RuntimeError("Google hat keinen Text für den Wissensentwurf zurückgegeben.")
+    text = await ticket_ai.generate_text(
+        prompt, max_tokens=1800, temperature=0.1, timeout=60.0
+    )
     return _redact(text)
 
 
@@ -130,7 +108,7 @@ async def _reduce(parts: list[str], final: bool = False) -> str:
             is_last_pass = len(groups) == 1
             next_parts.append(await _summarize(group, final=is_last_pass))
             if index + 1 < len(groups):
-                await asyncio.sleep(4.2)  # stay friendly to free Gemini quotas
+                await asyncio.sleep(1.2)  # avoid xAI burst limits during large scans
         current = next_parts
         final = True
         if len(current) == 1:
@@ -188,7 +166,7 @@ async def run_scan(guild_id: int, bot) -> None:
         exported = await config_transfer.export_guild(guild_id, include_user_data=False)
         dashboard = _safe_config(exported.get("databases", {}))
         parts: list[str] = []
-        # Split metadata and the complete dashboard export before Gemini sees
+        # Split metadata and the complete dashboard export before Grok sees
         # it. Previously a large dashboard JSON was appended as one oversized
         # item and the model request silently kept only its first 12,000 chars.
         for label, source in (

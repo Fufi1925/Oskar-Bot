@@ -1,7 +1,7 @@
 """Private, guild-scoped AI assistant for unclaimed support tickets.
 
 This pilot is deliberately invisible and unavailable outside ``PILOT_GUILD_ID``.
-Knowledge is stored locally per guild; Gemini receives only the user's current
+Knowledge is stored locally per guild; Grok receives only the user's current
 question and a few matching excerpts. Ticket messages are not retained here.
 """
 
@@ -22,10 +22,11 @@ from utils import feature_gates
 PILOT_GUILD_ID = 1530378233579704370
 ACCESS_DB = "db/admin_config.db"
 _allowed_guilds: set[int] = {PILOT_GUILD_ID}
-API_KEY_ENV = "GOOGLE_API_TICKET_KEY"
-MODEL_ENV = "GOOGLE_TICKET_AI_MODEL"
-DEFAULT_MODEL = "gemini-2.5-flash"
-FALLBACK_MODELS = ("gemini-2.5-flash", "gemini-2.5-flash-lite")
+API_KEY_ENV = "XAI_TICKET_AI_KEY"
+MODEL_ENV = "XAI_TICKET_AI_MODEL"
+DEFAULT_MODEL = "grok-4.6"
+FALLBACK_MODELS = ("grok-4.6", "grok-4.3")
+XAI_CHAT_URL = "https://api.x.ai/v1/chat/completions"
 MAX_KNOWLEDGE_BYTES = 100_000
 MAX_ANSWERS_PER_TICKET = 12
 COOLDOWN_SECONDS = 8
@@ -129,6 +130,38 @@ def model_candidates() -> list[str]:
     return result
 
 
+async def generate_text(
+    prompt: str, *, max_tokens: int, temperature: float, timeout: float
+) -> str:
+    """Call xAI's stateless Chat Completions API without exposing the key."""
+    key = os.getenv(API_KEY_ENV, "").strip()
+    if not key:
+        raise RuntimeError(f"Railway-Variable {API_KEY_ENV} fehlt.")
+    headers = {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}
+    async with httpx.AsyncClient(timeout=timeout) as client:
+        for model in model_candidates():
+            payload = {
+                "model": model,
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": temperature,
+                "max_tokens": max_tokens,
+                "stream": False,
+            }
+            response = await client.post(XAI_CHAT_URL, headers=headers, json=payload)
+            if response.status_code == 404:
+                continue
+            if response.is_error:
+                raise RuntimeError(f"xAI API antwortet mit HTTP {response.status_code}.")
+            try:
+                text = response.json()["choices"][0]["message"]["content"]
+            except (KeyError, IndexError, TypeError, ValueError) as exc:
+                raise RuntimeError("xAI hat ein ungültiges Antwortformat geliefert.") from exc
+            if str(text or "").strip():
+                return str(text).strip()
+            raise RuntimeError("xAI hat keinen Antworttext geliefert.")
+    raise RuntimeError("Keines der konfigurierten Grok-Modelle ist für diesen xAI-Key verfügbar.")
+
+
 def _words(value: str) -> set[str]:
     stop = {
         "aber", "alle", "dann", "dass", "eine", "einen", "einer", "eines",
@@ -154,7 +187,7 @@ def _chunks(content: str, size: int = 1100) -> list[str]:
 
 
 def matching_context(question: str, knowledge: str, limit: int = 4) -> list[str]:
-    """Local retrieval prevents sending the complete server document to Google."""
+    """Local retrieval prevents sending the complete server document to xAI."""
     query = _words(question)
     if not query:
         return []
@@ -182,7 +215,7 @@ def _extract_json(text: str) -> dict[str, Any] | None:
 
 
 async def grounded_answer(question: str, excerpts: list[str], instructions: str = "") -> str | None:
-    """Return an answer only when Gemini explicitly confirms source support."""
+    """Return an answer only when Grok explicitly confirms source support."""
     key = os.getenv(API_KEY_ENV, "").strip()
     if not key or not excerpts:
         return None
@@ -202,29 +235,8 @@ WISSEN:
 {source[:5000]}
 
 Antworte nur als JSON: {{"supported": true oder false, "answer": "..."}}"""
-    payload = {
-        "contents": [{"role": "user", "parts": [{"text": prompt}]}],
-        "generationConfig": {
-            "temperature": 0.15,
-            "maxOutputTokens": 350,
-            "responseMimeType": "application/json",
-        },
-    }
     try:
-        response = None
-        async with httpx.AsyncClient(timeout=18.0) as client:
-            for model in model_candidates():
-                endpoint = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
-                candidate = await client.post(endpoint, headers={"x-goog-api-key": key}, json=payload)
-                if candidate.status_code == 404:
-                    continue
-                candidate.raise_for_status()
-                response = candidate
-                break
-        if response is None:
-            print("[ticket-ai] No configured or fallback Gemini model is available.")
-            return None
-        raw = response.json()["candidates"][0]["content"]["parts"][0]["text"]
+        raw = await generate_text(prompt, max_tokens=350, temperature=0.15, timeout=30.0)
         parsed = _extract_json(raw)
         answer = str((parsed or {}).get("answer") or "").strip()
         if not (parsed or {}).get("supported") or not answer:
@@ -232,7 +244,7 @@ Antworte nur als JSON: {{"supported": true oder false, "answer": "..."}}"""
         answer = re.sub(r"@(everyone|here)\b", r"@\u200b\1", answer, flags=re.I)
         return answer[:1800]
     except Exception as exc:
-        print(f"[ticket-ai] Gemini request failed: {type(exc).__name__}: {exc}")
+        print(f"[ticket-ai] Grok request failed: {type(exc).__name__}: {exc}")
         return None
 
 

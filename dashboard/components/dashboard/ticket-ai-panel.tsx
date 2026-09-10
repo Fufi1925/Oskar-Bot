@@ -124,7 +124,7 @@ export function TicketAiPanel({ guildId }: { guildId: string }) {
 
   const startScan = async () => {
     if (!data?.api_key_configured) {
-      toast.error("Die Railway-Variable GOOGLE_API_TICKET_KEY fehlt noch.");
+      toast.error("Die Railway-Variable XAI_TICKET_AI_KEY fehlt noch.");
       return;
     }
     if (!confirm("Der Bot liest alle für ihn sichtbaren Discord-Textkanäle der letzten 30 Tage und wertet Nachrichten des Serverinhabers sowie von Administratoren aus. Fortfahren?")) return;
@@ -191,7 +191,7 @@ export function TicketAiPanel({ guildId }: { guildId: string }) {
       return;
     }
     if (next && !data.api_key_configured) {
-      toast.error("Die Railway-Variable GOOGLE_API_TICKET_KEY fehlt noch.");
+      toast.error("Die Railway-Variable XAI_TICKET_AI_KEY fehlt noch.");
       return;
     }
     setBusy(true);
@@ -263,7 +263,7 @@ export function TicketAiPanel({ guildId }: { guildId: string }) {
       ) : data ? (
         <div className="space-y-6 p-5 sm:p-6">
           {!data.api_key_configured && (
-            <div className="rounded-2xl border border-amber-400/25 bg-amber-400/[0.06] p-4 text-sm text-amber-200">Railway-Variable <b>GOOGLE_API_TICKET_KEY</b> fehlt. Nach dem Eintragen den Bot-Dienst neu starten.</div>
+            <div className="rounded-2xl border border-amber-400/25 bg-amber-400/[0.06] p-4 text-sm text-amber-200">Railway-Variable <b>XAI_TICKET_AI_KEY</b> fehlt. Nach dem Eintragen den Bot-Dienst neu starten.</div>
           )}
 
           <div className="rounded-2xl border border-slate-800 bg-[#0e0e12] p-4">

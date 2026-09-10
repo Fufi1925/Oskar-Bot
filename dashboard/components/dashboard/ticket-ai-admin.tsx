@@ -81,7 +81,7 @@ export function TicketAiAdmin() {
         <div className="mt-5 grid gap-3 sm:grid-cols-3">
           <div className="rounded-xl border border-slate-800 bg-black/20 p-4"><p className="text-[10px] font-black uppercase tracking-wider text-slate-500">Freigeschaltet</p><p className="mt-1 text-2xl font-black text-violet-300">{enabled}</p></div>
           <div className="rounded-xl border border-slate-800 bg-black/20 p-4"><p className="text-[10px] font-black uppercase tracking-wider text-slate-500">Bot-Server</p><p className="mt-1 text-2xl font-black text-white">{guilds.length}</p></div>
-          <div className={cn("rounded-xl border p-4", keyReady ? "border-emerald-500/20 bg-emerald-500/[0.05]" : "border-amber-500/20 bg-amber-500/[0.05]")}><p className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-slate-500"><KeyRound className="h-3 w-3" /> Google-Key</p><p className={cn("mt-1 text-sm font-black", keyReady ? "text-emerald-300" : "text-amber-300")}>{keyReady ? "Eingerichtet" : "Fehlt"}</p></div>
+          <div className={cn("rounded-xl border p-4", keyReady ? "border-emerald-500/20 bg-emerald-500/[0.05]" : "border-amber-500/20 bg-amber-500/[0.05]")}><p className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-slate-500"><KeyRound className="h-3 w-3" /> Grok-Key</p><p className={cn("mt-1 text-sm font-black", keyReady ? "text-emerald-300" : "text-amber-300")}>{keyReady ? "Eingerichtet" : "Fehlt"}</p></div>
         </div>
       </div>
 
