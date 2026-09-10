@@ -202,7 +202,7 @@ async def generate_text(
                 # completion budget entirely on hidden reasoning and return an
                 # empty final answer. Low effort preserves room for the result.
                 payload.update({
-                    "max_completion_tokens": max(max_tokens, 700),
+                    "max_completion_tokens": max(max_tokens, 2400),
                     "reasoning_effort": "low",
                     "include_reasoning": False,
                 })
