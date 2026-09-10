@@ -117,7 +117,13 @@ def pilot_available(guild_id: int) -> bool:
 
 
 def api_key_configured() -> bool:
-    return bool(os.getenv(API_KEY_ENV, "").strip())
+    """xAI console keys currently use the ``xai-`` prefix.
+
+    Treating any non-empty value as configured let keys from other providers
+    reach xAI and fail later with an opaque HTTP 400.
+    """
+    key = os.getenv(API_KEY_ENV, "").strip()
+    return key.startswith("xai-") and len(key) >= 24
 
 
 def model_candidates() -> list[str]:
@@ -130,19 +136,33 @@ def model_candidates() -> list[str]:
     return result
 
 
+def _xai_error(response: httpx.Response) -> str:
+    """Return a useful provider error without ever echoing credentials."""
+    detail = ""
+    try:
+        payload = response.json()
+        error = payload.get("error", {}) if isinstance(payload, dict) else {}
+        detail = str(error.get("message") if isinstance(error, dict) else error or "")
+    except Exception:
+        detail = ""
+    detail = re.sub(r"xai-[A-Za-z0-9_-]+", "[KEY ENTFERNT]", detail)[:300]
+    return f"xAI API HTTP {response.status_code}" + (f": {detail}" if detail else ".")
+
+
 async def generate_text(
     prompt: str, *, max_tokens: int, temperature: float, timeout: float
 ) -> str:
     """Call xAI's stateless Chat Completions API without exposing the key."""
     key = os.getenv(API_KEY_ENV, "").strip()
-    if not key:
-        raise RuntimeError(f"Railway-Variable {API_KEY_ENV} fehlt.")
+    if not api_key_configured():
+        raise RuntimeError(f"Railway-Variable {API_KEY_ENV} fehlt oder enthält keinen gültigen xAI-Key.")
     headers = {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}
     async with httpx.AsyncClient(timeout=timeout) as client:
         for model in model_candidates():
+            messages = [{"role": "user", "content": prompt}]
             payload = {
                 "model": model,
-                "messages": [{"role": "user", "content": prompt}],
+                "messages": messages,
                 "temperature": temperature,
                 "max_tokens": max_tokens,
                 "stream": False,
@@ -150,8 +170,19 @@ async def generate_text(
             response = await client.post(XAI_CHAT_URL, headers=headers, json=payload)
             if response.status_code == 404:
                 continue
+            if response.status_code == 400:
+                # Some Grok variants reject optional sampling/token fields.
+                # Retry once with the smallest officially supported request;
+                # if that also fails, surface xAI's sanitized explanation.
+                response = await client.post(
+                    XAI_CHAT_URL,
+                    headers=headers,
+                    json={"model": model, "messages": messages, "stream": False},
+                )
+                if response.status_code == 404:
+                    continue
             if response.is_error:
-                raise RuntimeError(f"xAI API antwortet mit HTTP {response.status_code}.")
+                raise RuntimeError(_xai_error(response))
             try:
                 text = response.json()["choices"][0]["message"]["content"]
             except (KeyError, IndexError, TypeError, ValueError) as exc:
