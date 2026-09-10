@@ -15,7 +15,10 @@ from api import config_transfer
 from utils import ticket_ai
 
 DB = "db/ticket.db"
-CHUNK_SIZE = 12_000
+# Groq on-demand currently allows 8,000 TPM for the default model. JSON with
+# IDs and punctuation tokenizes densely, so keep each source block well below
+# that ceiling while still processing every block hierarchically.
+CHUNK_SIZE = 4_000
 
 _SECRET_KEYS = ("token", "secret", "password", "webhook", "api_key", "apikey", "private_key", "code")
 _SECRET_PATTERNS = (
@@ -80,7 +83,7 @@ Antworte nur mit dem Inhalt der .txt-Datei, ohne Einleitung und ohne Codeblock.
 QUELLTEXT:
 {source[:CHUNK_SIZE]}"""
     text = await ticket_ai.generate_text(
-        prompt, max_tokens=1800, temperature=0.1, timeout=60.0
+        prompt, max_tokens=1200, temperature=0.1, timeout=60.0
     )
     return _redact(text)
 
