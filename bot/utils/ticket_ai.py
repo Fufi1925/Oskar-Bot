@@ -261,7 +261,24 @@ def _words(value: str) -> set[str]:
         "nicht", "oder", "sich", "sind", "über", "und", "von", "was", "wie",
         "wird", "wo", "zu", "zum", "zur", "the", "how", "what", "where",
     }
-    return {w for w in re.findall(r"[a-zA-ZÀ-ÿ0-9_-]{3,}", value.lower()) if w not in stop}
+    words = {w for w in re.findall(r"[a-zA-ZÀ-ÿ0-9_-]{3,}", value.lower()) if w not in stop}
+    result: set[str] = set()
+    for word in words:
+        normalized = word
+        if len(normalized) >= 6:
+            for suffix in ("ungen", "ern", "em", "en", "er", "es", "e", "s", "n", "t"):
+                if normalized.endswith(suffix) and len(normalized) - len(suffix) >= 5:
+                    normalized = normalized[:-len(suffix)]
+                    break
+        result.add(normalized)
+    return result
+
+
+def _terms_related(left: str, right: str) -> bool:
+    """Match German word forms and compounds without an external search service."""
+    if left == right:
+        return True
+    return min(len(left), len(right)) >= 5 and (left in right or right in left)
 
 
 def _chunks(content: str, size: int = 1100) -> list[str]:
@@ -286,10 +303,16 @@ def matching_context(question: str, knowledge: str, limit: int = 4) -> list[str]
     ranked: list[tuple[float, str]] = []
     for chunk in _chunks(knowledge):
         terms = _words(chunk)
-        overlap = query & terms
-        if not overlap:
+        matched_query = {
+            query_term for query_term in query
+            if any(_terms_related(query_term, term) for term in terms)
+        }
+        if not matched_query:
             continue
-        score = len(overlap) / max(1, len(query)) + len(overlap) / max(8, len(terms))
+        score = (
+            len(matched_query) / max(1, len(query))
+            + len(matched_query) / max(8, len(terms))
+        )
         ranked.append((score, chunk))
     ranked.sort(key=lambda item: item[0], reverse=True)
     return [chunk for score, chunk in ranked[:limit] if score >= 0.12]
