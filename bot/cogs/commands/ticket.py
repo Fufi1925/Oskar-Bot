@@ -331,7 +331,7 @@ class TicketCog(commands.Cog, name="Ticket System"):
                     message.content, excerpts, config["instructions"] or ""
                 )
 
-            # Claim can happen while Grok is working. Re-read immediately
+            # Claim can happen while the Groq request is running. Re-read immediately
             # before sending so the team always wins that race.
             current = self.db.fetchone(
                 "SELECT is_claimed, closed_at FROM open_tickets WHERE channel_id=?",

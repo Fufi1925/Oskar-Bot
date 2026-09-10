@@ -22,11 +22,11 @@ from utils import feature_gates
 PILOT_GUILD_ID = 1530378233579704370
 ACCESS_DB = "db/admin_config.db"
 _allowed_guilds: set[int] = {PILOT_GUILD_ID}
-API_KEY_ENV = "XAI_TICKET_AI_KEY"
-MODEL_ENV = "XAI_TICKET_AI_MODEL"
-DEFAULT_MODEL = "grok-4.6"
-FALLBACK_MODELS = ("grok-4.6", "grok-4.3")
-XAI_CHAT_URL = "https://api.x.ai/v1/chat/completions"
+API_KEY_ENV = "GROQ_TICKET_AI_KEY"
+MODEL_ENV = "GROQ_TICKET_AI_MODEL"
+DEFAULT_MODEL = "openai/gpt-oss-120b"
+FALLBACK_MODELS = ("openai/gpt-oss-120b", "llama-3.3-70b-versatile", "openai/gpt-oss-20b", "llama-3.1-8b-instant")
+GROQ_CHAT_URL = "https://api.groq.com/openai/v1/chat/completions"
 MAX_KNOWLEDGE_BYTES = 100_000
 MAX_ANSWERS_PER_TICKET = 12
 COOLDOWN_SECONDS = 8
@@ -117,13 +117,13 @@ def pilot_available(guild_id: int) -> bool:
 
 
 def api_key_configured() -> bool:
-    """xAI console keys currently use the ``xai-`` prefix.
+    """GroqCloud keys currently use the ``gsk_`` prefix.
 
     Treating any non-empty value as configured let keys from other providers
-    reach xAI and fail later with an opaque HTTP 400.
+    reach Groq and fail later with an opaque HTTP 400.
     """
     key = os.getenv(API_KEY_ENV, "").strip()
-    return key.startswith("xai-") and len(key) >= 24
+    return key.startswith("gsk_") and len(key) >= 24
 
 
 def model_candidates() -> list[str]:
@@ -136,7 +136,7 @@ def model_candidates() -> list[str]:
     return result
 
 
-def _xai_error(response: httpx.Response) -> str:
+def _groq_error(response: httpx.Response) -> str:
     """Return a useful provider error without ever echoing credentials."""
     detail = ""
     try:
@@ -145,17 +145,17 @@ def _xai_error(response: httpx.Response) -> str:
         detail = str(error.get("message") if isinstance(error, dict) else error or "")
     except Exception:
         detail = ""
-    detail = re.sub(r"xai-[A-Za-z0-9_-]+", "[KEY ENTFERNT]", detail)[:300]
-    return f"xAI API HTTP {response.status_code}" + (f": {detail}" if detail else ".")
+    detail = re.sub(r"gsk_[A-Za-z0-9_-]+", "[KEY ENTFERNT]", detail)[:300]
+    return f"Groq API HTTP {response.status_code}" + (f": {detail}" if detail else ".")
 
 
 async def generate_text(
     prompt: str, *, max_tokens: int, temperature: float, timeout: float
 ) -> str:
-    """Call xAI's stateless Chat Completions API without exposing the key."""
+    """Call Groq's stateless Chat Completions API without exposing the key."""
     key = os.getenv(API_KEY_ENV, "").strip()
     if not api_key_configured():
-        raise RuntimeError(f"Railway-Variable {API_KEY_ENV} fehlt oder enthält keinen gültigen xAI-Key.")
+        raise RuntimeError(f"Railway-Variable {API_KEY_ENV} fehlt oder enthält keinen gültigen Groq-Key.")
     headers = {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}
     async with httpx.AsyncClient(timeout=timeout) as client:
         for model in model_candidates():
@@ -167,30 +167,30 @@ async def generate_text(
                 "max_tokens": max_tokens,
                 "stream": False,
             }
-            response = await client.post(XAI_CHAT_URL, headers=headers, json=payload)
+            response = await client.post(GROQ_CHAT_URL, headers=headers, json=payload)
             if response.status_code == 404:
                 continue
             if response.status_code == 400:
-                # Some Grok variants reject optional sampling/token fields.
+                # Some Groq-hosted models reject optional sampling/token fields.
                 # Retry once with the smallest officially supported request;
-                # if that also fails, surface xAI's sanitized explanation.
+                # if that also fails, surface Groq's sanitized explanation.
                 response = await client.post(
-                    XAI_CHAT_URL,
+                    GROQ_CHAT_URL,
                     headers=headers,
                     json={"model": model, "messages": messages, "stream": False},
                 )
                 if response.status_code == 404:
                     continue
             if response.is_error:
-                raise RuntimeError(_xai_error(response))
+                raise RuntimeError(_groq_error(response))
             try:
                 text = response.json()["choices"][0]["message"]["content"]
             except (KeyError, IndexError, TypeError, ValueError) as exc:
-                raise RuntimeError("xAI hat ein ungültiges Antwortformat geliefert.") from exc
+                raise RuntimeError("Groq hat ein ungültiges Antwortformat geliefert.") from exc
             if str(text or "").strip():
                 return str(text).strip()
-            raise RuntimeError("xAI hat keinen Antworttext geliefert.")
-    raise RuntimeError("Keines der konfigurierten Grok-Modelle ist für diesen xAI-Key verfügbar.")
+            raise RuntimeError("Groq hat keinen Antworttext geliefert.")
+    raise RuntimeError("Keines der konfigurierten Groq-Modelle ist für diesen Groq-Key verfügbar.")
 
 
 def _words(value: str) -> set[str]:
@@ -218,7 +218,7 @@ def _chunks(content: str, size: int = 1100) -> list[str]:
 
 
 def matching_context(question: str, knowledge: str, limit: int = 4) -> list[str]:
-    """Local retrieval prevents sending the complete server document to xAI."""
+    """Local retrieval prevents sending the complete server document to Groq."""
     query = _words(question)
     if not query:
         return []
@@ -246,7 +246,7 @@ def _extract_json(text: str) -> dict[str, Any] | None:
 
 
 async def grounded_answer(question: str, excerpts: list[str], instructions: str = "") -> str | None:
-    """Return an answer only when Grok explicitly confirms source support."""
+    """Return an answer only when the Groq-hosted model explicitly confirms source support."""
     key = os.getenv(API_KEY_ENV, "").strip()
     if not key or not excerpts:
         return None
@@ -275,7 +275,7 @@ Antworte nur als JSON: {{"supported": true oder false, "answer": "..."}}"""
         answer = re.sub(r"@(everyone|here)\b", r"@\u200b\1", answer, flags=re.I)
         return answer[:1800]
     except Exception as exc:
-        print(f"[ticket-ai] Grok request failed: {type(exc).__name__}: {exc}")
+        print(f"[ticket-ai] Groq request failed: {type(exc).__name__}: {exc}")
         return None
 
 

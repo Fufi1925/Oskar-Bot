@@ -108,7 +108,7 @@ async def _reduce(parts: list[str], final: bool = False) -> str:
             is_last_pass = len(groups) == 1
             next_parts.append(await _summarize(group, final=is_last_pass))
             if index + 1 < len(groups):
-                await asyncio.sleep(1.2)  # avoid xAI burst limits during large scans
+                await asyncio.sleep(1.2)  # avoid Groq burst limits during large scans
         current = next_parts
         final = True
         if len(current) == 1:
@@ -166,7 +166,7 @@ async def run_scan(guild_id: int, bot) -> None:
         exported = await config_transfer.export_guild(guild_id, include_user_data=False)
         dashboard = _safe_config(exported.get("databases", {}))
         parts: list[str] = []
-        # Split metadata and the complete dashboard export before Grok sees
+        # Split metadata and the complete dashboard export before the Groq-hosted model sees
         # it. Previously a large dashboard JSON was appended as one oversized
         # item and the model request silently kept only its first 12,000 chars.
         for label, source in (

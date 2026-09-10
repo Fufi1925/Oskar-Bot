@@ -432,7 +432,7 @@ async def start_ticket_ai_scan(
 ):
     _ai_or_404(guild_id)
     if not ticket_ai.api_key_configured():
-        raise HTTPException(status_code=503, detail=f"Railway-Variable {ticket_ai.API_KEY_ENV} fehlt oder enthält keinen gültigen xAI-Key.")
+        raise HTTPException(status_code=503, detail=f"Railway-Variable {ticket_ai.API_KEY_ENV} fehlt oder enthält keinen gültigen Groq-Key.")
     db = await _db()
     await _ensure_ai_schema(db)
     active = _scan_tasks.get(guild_id)
@@ -486,7 +486,7 @@ async def update_ticket_ai(guild_id: int, data: dict):
             if not await cursor.fetchone():
                 raise HTTPException(status_code=400, detail="Lade zuerst eine Wissensdatei hoch.")
         if not ticket_ai.api_key_configured():
-            raise HTTPException(status_code=503, detail=f"Railway-Variable {ticket_ai.API_KEY_ENV} fehlt oder enthält keinen gültigen xAI-Key.")
+            raise HTTPException(status_code=503, detail=f"Railway-Variable {ticket_ai.API_KEY_ENV} fehlt oder enthält keinen gültigen Groq-Key.")
     await db.execute(
         "INSERT INTO ticket_ai_settings (guild_id, enabled, fallback_text, updated_at) VALUES (?, ?, ?, ?)"
         " ON CONFLICT(guild_id) DO UPDATE SET enabled=excluded.enabled, fallback_text=excluded.fallback_text, updated_at=excluded.updated_at",
