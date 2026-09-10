@@ -1,12 +1,13 @@
 """Private, guild-scoped AI assistant for unclaimed support tickets.
 
 This pilot is deliberately invisible and unavailable outside ``PILOT_GUILD_ID``.
-Knowledge is stored locally per guild; Grok receives only the user's current
+Knowledge is stored locally per guild; Groq receives only the user's current
 question and a few matching excerpts. Ticket messages are not retained here.
 """
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import re
@@ -149,6 +150,25 @@ def _groq_error(response: httpx.Response) -> str:
     return f"Groq API HTTP {response.status_code}" + (f": {detail}" if detail else ".")
 
 
+def _rate_limit_delay(response: httpx.Response, attempt: int) -> float:
+    """Use Groq's retry hint, with a safe fallback for missing headers."""
+    retry_after = response.headers.get("retry-after", "").strip()
+    try:
+        return max(1.0, min(float(retry_after), 120.0)) + 0.5
+    except ValueError:
+        pass
+    try:
+        payload = response.json()
+        error = payload.get("error", {}) if isinstance(payload, dict) else {}
+        message = str(error.get("message", "") if isinstance(error, dict) else error)
+        match = re.search(r"try again in\s+([0-9.]+)\s*s", message, re.I)
+        if match:
+            return max(1.0, min(float(match.group(1)), 120.0)) + 0.5
+    except Exception:
+        pass
+    return min(5.0 * (2 ** attempt), 60.0)
+
+
 async def generate_text(
     prompt: str, *, max_tokens: int, temperature: float, timeout: float
 ) -> str:
@@ -158,6 +178,16 @@ async def generate_text(
         raise RuntimeError(f"Railway-Variable {API_KEY_ENV} fehlt oder enthält keinen gültigen Groq-Key.")
     headers = {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}
     async with httpx.AsyncClient(timeout=timeout) as client:
+        async def post_with_rate_limit(payload: dict[str, Any]) -> httpx.Response:
+            response: httpx.Response | None = None
+            for attempt in range(5):
+                response = await client.post(GROQ_CHAT_URL, headers=headers, json=payload)
+                if response.status_code != 429 or attempt == 4:
+                    return response
+                await asyncio.sleep(_rate_limit_delay(response, attempt))
+            assert response is not None
+            return response
+
         for model in model_candidates():
             messages = [{"role": "user", "content": prompt}]
             payload = {
@@ -167,17 +197,15 @@ async def generate_text(
                 "max_tokens": max_tokens,
                 "stream": False,
             }
-            response = await client.post(GROQ_CHAT_URL, headers=headers, json=payload)
+            response = await post_with_rate_limit(payload)
             if response.status_code == 404:
                 continue
             if response.status_code == 400:
                 # Some Groq-hosted models reject optional sampling/token fields.
                 # Retry once with the smallest officially supported request;
                 # if that also fails, surface Groq's sanitized explanation.
-                response = await client.post(
-                    GROQ_CHAT_URL,
-                    headers=headers,
-                    json={"model": model, "messages": messages, "stream": False},
+                response = await post_with_rate_limit(
+                    {"model": model, "messages": messages, "stream": False}
                 )
                 if response.status_code == 404:
                     continue
