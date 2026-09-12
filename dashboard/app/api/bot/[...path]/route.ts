@@ -1168,7 +1168,7 @@ async function authorize(
     }
 
     const publicCodeAction = rest[0] === "codes" && ["check", "servers", "redeem"].includes(rest[1] ?? "");
-    if (["keys", "revoke", "delete", "purge", "trials", "accounts", "accounts-v2", "requests"].includes(rest[0] ?? "") || (rest[0] === "codes" && !publicCodeAction)) {
+    if (["keys", "revoke", "delete", "purge", "trials", "accounts", "accounts-v2", "requests", "admin"].includes(rest[0] ?? "") || (rest[0] === "codes" && !publicCodeAction)) {
       if (isGlobalAdmin(session.user.id)) return { ok: true };
       const team = await fetchTeamAccess(session.user.id);
       const staff = Boolean(team && (team.is_owner || team.roles.length > 0));

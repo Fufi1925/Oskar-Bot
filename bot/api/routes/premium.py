@@ -263,6 +263,74 @@ async def dismiss_membership_notice(data: dict):
     return {"status": "ok"}
 
 
+@router.get("/server-notice", summary="Pending direct server Premium notice")
+async def get_server_premium_notice(actor: str = "", bot: "universitybot" = Depends(get_bot)):
+    if not actor.isdigit():
+        raise HTTPException(status_code=400, detail="Keine gültige Konto-ID.")
+    notice = premium_membership.pending_server_notice(actor)
+    if not notice:
+        return {"notice": None}
+    guild = bot.get_guild(int(notice["guild_id"]))
+    notice["guild_name"] = guild.name if guild else str(notice["guild_id"])
+    notice["guild_icon"] = str(guild.icon.url) if guild and guild.icon else None
+    notice["premium"] = premium_membership.guild_status(int(notice["guild_id"]))
+    return {"notice": notice}
+
+
+@router.post("/server-notice/{notice_id}/dismiss", summary="Dismiss direct server Premium notice")
+async def dismiss_server_premium_notice(notice_id: int, data: dict):
+    actor = _code_actor(data)
+    if not premium_membership.dismiss_server_notice(notice_id, actor):
+        raise HTTPException(status_code=404, detail="Hinweis nicht gefunden.")
+    return {"status": "ok"}
+
+
+@router.get("/admin/server-grants", summary="All direct server Premium grants")
+async def admin_server_grants(bot: "universitybot" = Depends(get_bot)):
+    grants = {int(row["guild_id"]): row for row in premium_membership.list_server_grants()}
+    rows = []
+    for guild in sorted(bot.guilds, key=lambda item: item.name.lower()):
+        state = premium_membership.guild_status(guild.id)
+        direct = grants.get(guild.id)
+        rows.append({
+            "guild_id": str(guild.id), "name": guild.name,
+            "icon": str(guild.icon.url) if guild.icon else None,
+            "members": guild.member_count or 0, "owner_user_id": str(guild.owner_id),
+            "state": state, "direct_grant": direct,
+        })
+    return {"guilds": rows}
+
+
+@router.post("/admin/server-grants/{guild_id}", summary="Directly grant one server Premium")
+async def admin_grant_server(guild_id: int, data: dict, bot: "universitybot" = Depends(get_bot)):
+    guild = bot.get_guild(guild_id)
+    if not guild:
+        raise HTTPException(status_code=404, detail="Der Bot ist nicht auf diesem Server.")
+    lifetime = bool(data.get("lifetime"))
+    try:
+        days = int(data.get("days") or 0)
+        result = premium_membership.grant_server(guild_id, guild.owner_id, None if lifetime else days, str(data.get("actor") or "dashboard"))
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    from utils import feature_gates
+    await feature_gates.refresh_premium_guilds()
+    await feature_audit.log_action("premium_server_granted", actor=str(data.get("actor") or "dashboard"), guild_id=guild_id, detail="lifetime" if lifetime else f"{days} days")
+    return result
+
+
+@router.post("/admin/server-grants/{guild_id}/revoke", summary="Revoke direct server Premium")
+async def admin_revoke_server(guild_id: int, data: dict, bot: "universitybot" = Depends(get_bot)):
+    guild = bot.get_guild(guild_id)
+    try:
+        result = premium_membership.revoke_server(guild_id, delete_settings=bool(data.get("delete_settings")), owner_user_id=guild.owner_id if guild else None)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    from utils import feature_gates
+    await feature_gates.refresh_premium_guilds()
+    await feature_audit.log_action("premium_server_revoked", actor=str(data.get("actor") or "dashboard"), guild_id=guild_id, detail="settings deleted" if data.get("delete_settings") else "settings kept")
+    return result
+
+
 @router.get("/accounts-v2", summary="Premium v2 accounts and fixed slots")
 async def premium_v2_accounts(bot: "universitybot" = Depends(get_bot)):
     rows = premium_membership.list_accounts()
@@ -539,10 +607,9 @@ async def grant_account(data: dict, bot: "universitybot" = Depends(get_bot)):
     except (TypeError, ValueError):
         raise HTTPException(status_code=400, detail="days muss eine Zahl sein.")
 
-    if days not in premium_membership.PLANS:
-        raise HTTPException(status_code=400, detail="Wähle 30, 90 oder 365 Tage.")
-    ergebnis = premium_membership.grant(
-        user_id, days, source="admin",
+    lifetime = bool(data.get("lifetime"))
+    ergebnis = premium_membership.grant_custom(
+        user_id, None if lifetime else days, source="admin",
         note=str(data.get("note") or "Vom Admin vergeben")[:200],
     )
 

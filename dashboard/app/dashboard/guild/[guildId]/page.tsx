@@ -28,7 +28,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
-  Activity, ArrowRight, BarChart4, Bot, Check, ChevronRight, FileJson,
+  Activity, ArrowRight, BarChart4, Bot, Check, ChevronRight, Crown, FileJson,
   FileText, Hash, Link2, Loader2, Mic, Settings, Shield, ShieldCheck,
   SmilePlus, Sparkles, Ticket, UserCheck, Users, Volume2, Zap,
 } from "lucide-react";
@@ -255,16 +255,16 @@ export default function GuildOverviewPage({
   params: { guildId: string };
 }) {
   const [data, setData] = useState<StatusPayload | null>(null);
+  const [premium, setPremium] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<"overview" | "backup">("overview");
   const [alleOffenen, setAlleOffenen] = useState(false);
 
   useEffect(() => {
-    api
-      .getModuleStatus(params.guildId)
-      .then(setData)
-      .catch(() => setData(null))
-      .finally(() => setLoading(false));
+    Promise.all([
+      api.getModuleStatus(params.guildId).then(setData),
+      api.getServerPremium(params.guildId).then(setPremium),
+    ]).catch(() => setData(null)).finally(() => setLoading(false));
   }, [params.guildId]);
 
   const sortiert = useMemo(() => {
@@ -354,6 +354,8 @@ export default function GuildOverviewPage({
         <ConfigTransferPanel guildId={params.guildId} />
       ) : (
         <>
+          <div className={cn(CARD, "flex flex-col gap-4 p-5 sm:flex-row sm:items-center")}><span className={cn("grid h-11 w-11 place-items-center rounded-xl",premium?.runtime?"bg-amber-400/10":"bg-slate-800")}><Crown className={cn("h-5 w-5",premium?.runtime?"text-amber-300":"text-slate-600")}/></span><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h2 className="font-black text-white">Server-Tarif</h2><span className={cn("rounded-full px-2.5 py-1 text-[10px] font-black",premium?.runtime?"bg-amber-400/10 text-amber-300":"bg-slate-800 text-slate-500")}>{premium?.frozen?"Premium · eingefroren":premium?.active?"Premium aktiv":"Free"}</span></div><p className="mt-1 text-xs text-slate-500">{data.active_count} Module aktiv · {data.total_count-data.active_count} Module aus · {data.total_count} Module insgesamt</p></div><Link href={`/dashboard/guild/${params.guildId}/premium`} className="rounded-xl border border-slate-700 px-4 py-2.5 text-center text-xs font-bold text-slate-300 hover:text-white">Premiumstatus öffnen</Link></div>
+
           {/* Fortschritt und Kennzahlen */}
           <div className={cn(CARD, "p-5 sm:p-6")}>
             <div className="flex flex-wrap items-end justify-between gap-4">

@@ -26,6 +26,12 @@ def main() -> int:
             check("only one pending request per account", membership.request_purchase("42", 365)["already"])
             account = membership.decide_request(request["id"], True, "admin")
             check("approval activates the requested package", account["premium"] and account["duration_days"] == 90)
+            try:
+                membership.request_purchase("42", 30)
+                active_request_blocked = False
+            except ValueError:
+                active_request_blocked = True
+            check("active accounts cannot open another purchase request", active_request_blocked)
             for guild_id in (101, 102, 103): membership.assign_slot("42", guild_id)
             check("exactly three slots are occupied", len(membership.account_status("42")["slots"]) == 3)
             try:
@@ -47,6 +53,13 @@ def main() -> int:
             check("expired keep mode is not configurable", not frozen["configurable"])
             membership.set_expiry_action(101, "disable")
             check("disable mode stops runtime without deleting the slot", not membership.guild_status(101)["runtime"])
+            direct = membership.grant_server(200, "777", 12, "admin")
+            check("admin can directly grant a server custom days", direct["active"] and direct["duration_days"] == 12)
+            check("server owner gets a grant notice", membership.pending_server_notice("777")["kind"] == "granted")
+            revoked = membership.revoke_server(200, delete_settings=False, owner_user_id="777")
+            check("admin can revoke while keeping settings", revoked["revoked"] and not revoked["settings_deleted"])
+            permanent = membership.grant_custom("99", None)
+            check("admin can grant lifetime account Premium", permanent["premium"] and permanent["lifetime"])
     finally:
         membership.DB_PATH = original
     print(f"\n{len(failures)} failures")

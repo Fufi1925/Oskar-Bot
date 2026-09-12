@@ -114,6 +114,16 @@ export default async function GuildsPage() {
     known.add(guild.id);
   }
 
+  await Promise.all(entries.filter(entry => entry.hasBot).map(async entry => {
+    try {
+      const premiumState = await api.getServerPremium(entry.id);
+      entry.premium = Boolean(premiumState?.runtime);
+      entry.premiumFrozen = Boolean(premiumState?.frozen);
+    } catch {
+      entry.premium = false;
+    }
+  }));
+
   const connected = entries.filter((g) => g.hasBot);
   const missing = entries.filter((g) => !g.hasBot);
   const error = botError || userDiscordError;

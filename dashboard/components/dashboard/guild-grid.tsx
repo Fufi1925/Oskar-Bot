@@ -63,6 +63,8 @@ export interface GuildEntry {
    * Schätzung -- welche von beiden, sagt `hasBot`.
    */
   memberCount: number | null;
+  premium?: boolean;
+  premiumFrozen?: boolean;
 }
 
 function iconUrl(id: string, icon: string | null) {
@@ -366,7 +368,7 @@ export function GuildGrid({
                       title="Der Bot ist auf diesem Server"
                     />
                   </div>
-                  {guild.owner && <BesitzerAbzeichen />}
+                  <div className="flex flex-col items-end gap-1.5">{guild.owner && <BesitzerAbzeichen />}{guild.premium ? <span className="inline-flex items-center gap-1 rounded-lg border border-amber-400/25 bg-amber-400/10 px-2.5 py-1 text-[11px] font-black text-amber-300"><Crown className="h-3 w-3"/>{guild.premiumFrozen ? "Premium · eingefroren" : "Premium"}</span> : <span className="rounded-lg border border-slate-800 bg-[#0e0e12] px-2.5 py-1 text-[11px] font-bold text-slate-500">Free</span>}</div>
                 </div>
 
                 <h3 className="mt-4 truncate text-[16px] font-bold text-white">

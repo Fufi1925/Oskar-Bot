@@ -724,66 +724,18 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Premium steht bewusst in der Mitte: nach dem vollständigen
-          Funktionsüberblick, aber vor Kennzahlen und Einrichtung. */}
       <section className="px-6 py-14 lg:px-12 xl:px-20">
-        <div className="relative mx-auto max-w-[1400px] overflow-hidden rounded-3xl border border-amber-400/30 bg-[#15120b] px-6 py-9 sm:px-9 lg:px-12 lg:py-11">
-          <div
-            aria-hidden
-            className="pointer-events-none absolute -right-24 -top-32 h-80 w-80 rounded-full bg-amber-400/10 blur-3xl"
-          />
-          <div className="relative grid gap-8 lg:grid-cols-[1fr_0.9fr] lg:items-center">
+        <div className="relative mx-auto max-w-[1400px] overflow-hidden rounded-[32px] border border-amber-400/30 bg-[#12100b] px-6 py-10 sm:px-9 lg:px-12 lg:py-12">
+          <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_85%_0%,rgba(251,191,36,.18),transparent_42%)]" />
+          <div className="relative grid gap-9 lg:grid-cols-[1.05fr_.95fr] lg:items-center">
             <div>
-              <span className="inline-flex items-center gap-2 rounded-full border border-amber-400/25 bg-amber-400/10 px-3 py-1 text-xs font-bold text-amber-300">
-                <Crown className="h-3.5 w-3.5" />
-                Premium · Testphase
-              </span>
-              <h2 className="mt-5 text-3xl font-black tracking-tight text-white sm:text-4xl">
-                Mehr Möglichkeiten für beide Bots
-              </h2>
-              <p className="mt-4 max-w-2xl text-[15px] leading-7 text-slate-400">
-                Premium hängt an deinem Discord-Konto und gilt für den
-                University Bot und den Template-Bot. Kaufen ist während der
-                Testphase noch nicht möglich — Zugang gibt es derzeit nur über
-                einen Beta-Antrag.
-              </p>
-              <div className="mt-7 flex flex-wrap gap-3">
-                <Link
-                  href="/dashboard/premium/beta"
-                  className="inline-flex items-center gap-2 rounded-xl bg-amber-400 px-5 py-3 text-sm font-black text-black hover:bg-amber-300"
-                >
-                  <Sparkles className="h-4 w-4" />
-                  Für Premium bewerben
-                </Link>
-                <Link
-                  href="/premium"
-                  className="inline-flex items-center gap-2 rounded-xl border border-amber-400/25 px-5 py-3 text-sm font-semibold text-amber-200 hover:bg-amber-400/10"
-                >
-                  Premium ehrlich vergleichen <ArrowRight className="h-4 w-4" />
-                </Link>
-              </div>
+              <span className="inline-flex items-center gap-2 rounded-full border border-amber-400/25 bg-amber-400/10 px-3 py-1.5 text-xs font-black text-amber-300"><Crown className="h-3.5 w-3.5" />Ein Konto · drei feste Premiumserver</span>
+              <h2 className="mt-5 max-w-2xl text-3xl font-black tracking-tight text-white sm:text-5xl">Premium genau auf deinen wichtigsten Servern.</h2>
+              <p className="mt-4 max-w-2xl text-[15px] leading-7 text-slate-400">Sende eine Kaufanfrage für 30, 90 oder 365 Tage. Nach der Bestätigung verteilst du drei feste Serverplätze – mit Server-Design, erweiterten Backups, Server-Stats, User Pull und weiteren Premiumbereichen.</p>
+              <div className="mt-7 flex flex-wrap gap-3"><Link href="/dashboard/premium" className="inline-flex items-center gap-2 rounded-xl bg-amber-400 px-5 py-3 text-sm font-black text-black hover:bg-amber-300"><Sparkles className="h-4 w-4" />Kaufanfrage starten</Link><Link href="/premium" className="inline-flex items-center gap-2 rounded-xl border border-amber-400/25 px-5 py-3 text-sm font-semibold text-amber-200 hover:bg-amber-400/10">Alles über Premium<ArrowRight className="h-4 w-4" /></Link></div>
+              <div className="mt-7 grid max-w-xl grid-cols-3 gap-2 text-center"><div className="rounded-xl border border-amber-400/15 bg-black/20 p-3"><p className="text-xl font-black text-white">3</p><p className="text-[10px] text-slate-500">feste Plätze</p></div><div className="rounded-xl border border-amber-400/15 bg-black/20 p-3"><p className="text-xl font-black text-white">365</p><p className="text-[10px] text-slate-500">Tage maximal</p></div><div className="rounded-xl border border-amber-400/15 bg-black/20 p-3"><p className="text-xl font-black text-white">0</p><p className="text-[10px] text-slate-500">Löschungen bei Ablauf</p></div></div>
             </div>
-            <ul className="grid gap-2 sm:grid-cols-2">
-              {[
-                [Palette, "Eigenes Bot-Aussehen"],
-                [Database, "Bis zu 10 Backups und Automatik"],
-                [Zap, "Speedrun und Premium-Vorlagen"],
-                [BarChart4, "Rollen, Kanäle und Online-Nutzer"],
-                [KeyRound, "Bis zu 20 Custom Commands"],
-                [Server, "Ein Zugang für beide Bots"],
-              ].map(([Icon, text]) => {
-                const PremiumIcon = Icon as React.ElementType;
-                return (
-                  <li
-                    key={String(text)}
-                    className="flex items-center gap-3 rounded-xl border border-amber-400/15 bg-black/20 p-3 text-sm text-slate-300"
-                  >
-                    <PremiumIcon className="h-4 w-4 shrink-0 text-amber-400" />
-                    {text as string}
-                  </li>
-                );
-              })}
-            </ul>
+            <div className="grid gap-3 sm:grid-cols-2">{[[Palette,"Eigenes Bot-Aussehen","Name, Avatar und Banner"],[Database,"Erweiterte Backups","10 Plätze und Automatik"],[BarChart4,"Server-Stats","Live gepflegte Statistikkanäle"],[Zap,"User Pull","Vollständig Premium und owner-only"],[KeyRound,"Custom Commands","Bis zu 20 eigene Befehle"],[Server,"Sicherer Ablauf","Einfrieren oder deaktivieren"]].map(([Icon,title,text])=>{const PremiumIcon=Icon as React.ElementType;return <div key={String(title)} className="rounded-2xl border border-amber-400/15 bg-black/20 p-4"><PremiumIcon className="h-5 w-5 text-amber-400"/><p className="mt-3 text-sm font-black text-white">{title as string}</p><p className="mt-1 text-xs text-slate-500">{text as string}</p></div>})}</div>
           </div>
         </div>
       </section>

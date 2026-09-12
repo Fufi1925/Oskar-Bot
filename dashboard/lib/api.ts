@@ -602,14 +602,19 @@ export const api = {
   dismissPremiumNotice: () => request<any>("/premium/notice/dismiss", { method: "POST", body: "{}" }),
   getPremiumV2Accounts: () => request<any>("/premium/accounts-v2"),
   decidePremiumRequest: (requestId: number, approve: boolean) => request<any>(`/premium/requests/${requestId}/decide`, { method: "POST", body: JSON.stringify({ approve }) }),
+  getPremiumServerNotice: () => request<any>("/premium/server-notice"),
+  dismissPremiumServerNotice: (noticeId: number) => request<any>(`/premium/server-notice/${noticeId}/dismiss`, { method: "POST", body: "{}" }),
+  getAdminPremiumServers: () => request<any>("/premium/admin/server-grants"),
+  grantAdminPremiumServer: (guildId: string, days: number, lifetime: boolean) => request<any>(`/premium/admin/server-grants/${guildId}`, { method: "POST", body: JSON.stringify({ days, lifetime }) }),
+  revokeAdminPremiumServer: (guildId: string, deleteSettings: boolean) => request<any>(`/premium/admin/server-grants/${guildId}/revoke`, { method: "POST", body: JSON.stringify({ delete_settings: deleteSettings }) }),
   // Die Kontenuebersicht des Admin-Bereichs: eine Zeile je KONTO,
   // nicht je Key. Ein Konto kann mehrere Keys haben.
   listPremiumAccounts: (limit = 300) =>
     request<any>(`/premium/accounts?limit=${limit}`),
-  grantPremiumAccount: (userId: string, days: number, note = "") =>
+  grantPremiumAccount: (userId: string, days: number, note = "", lifetime = false) =>
     request<any>("/premium/accounts/grant", {
       method: "POST",
-      body: JSON.stringify({ user_id: userId, days, note }),
+      body: JSON.stringify({ user_id: userId, days, note, lifetime }),
     }),
   revokePremiumAccount: (userId: string) =>
     request<any>("/premium/accounts/revoke", {

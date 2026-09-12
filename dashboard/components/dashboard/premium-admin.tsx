@@ -33,8 +33,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle, Ban, CheckCircle2, ChevronDown, Clock, Crown, Gift,
-  KeyRound, Plus, RefreshCw, Search,
-  Sparkles, Timer, Users, X,
+  Infinity as InfinityIcon, KeyRound, Plus, RefreshCw, Search,
+  Sparkles, Timer, Users, X, Server,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -43,6 +43,7 @@ import { cn } from "@/lib/utils";
 import { CountUp, Reveal } from "@/components/ui/reveal";
 import { PremiumTrials } from "@/components/dashboard/premium-trials";
 import { PremiumRequestsAdmin } from "@/components/dashboard/premium-requests-admin";
+import { PremiumServerAdmin } from "@/components/dashboard/premium-server-admin";
 import { PremiumKeys } from "@/components/dashboard/premium-keys";
 import { PremiumCodes } from "@/components/dashboard/premium-codes";
 
@@ -164,6 +165,7 @@ export function PremiumAdmin() {
   const [zeigeVergabe, setZeigeVergabe] = useState(false);
   const [empfaenger, setEmpfaenger] = useState("");
   const [tage, setTage] = useState("30");
+  const [dauerhaft, setDauerhaft] = useState(false);
   const [notiz, setNotiz] = useState("");
 
   // Die Key-Verwaltung. Ebenfalls zu: seit der Zusammenlegung werden
@@ -212,16 +214,17 @@ export function PremiumAdmin() {
       return;
     }
     const t = Number(tage);
-    if (![30, 90, 365].includes(t)) {
-      toast.error("Wähle ein Paket mit 30, 90 oder 365 Tagen.");
+    if (!dauerhaft && (!Number.isInteger(t) || t < 1)) {
+      toast.error("Die Laufzeit muss mindestens einen ganzen Tag betragen.");
       return;
     }
 
     setBeschaeftigt(true);
     try {
-      await api.grantPremiumAccount(id, t, notiz.trim());
-      toast.success(`Premium vergeben — ${t} Tage.`);
+      await api.grantPremiumAccount(id, t, notiz.trim(), dauerhaft);
+      toast.success(dauerhaft ? "Premium dauerhaft vergeben." : `Premium vergeben — ${t} Tage.`);
       setEmpfaenger("");
+      setDauerhaft(false);
       setNotiz("");
       setZeigeVergabe(false);
       await laden(true);
@@ -269,6 +272,7 @@ export function PremiumAdmin() {
 
   const BEREICHE: Array<{ id: Bereich; label: string; text: string; icon: any; color: string; active: string }> = [
     { id: "konten", label: "Konten", text: "Pakete, Laufzeiten und feste Serverplätze", icon: Crown, color: "text-violet-400", active: "border-violet-400/25 bg-violet-400/10" },
+    { id: "server", label: "Server", text: "Direktes Admin-Premium verwalten", icon: Server, color: "text-amber-400", active: "border-amber-400/25 bg-amber-400/10" },
   ];
 
   return (
@@ -300,6 +304,8 @@ export function PremiumAdmin() {
       </section>
 
       {bereich === "codes" && <PremiumCodes />}
+
+      {bereich === "server" && <PremiumServerAdmin />}
 
       {bereich === "konten" && <>
       {/* ── Die Zahlen ──────────────────────────────────────────── */}
@@ -404,17 +410,20 @@ export function PremiumAdmin() {
                 </div>
                 <div>
                   <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500">
-                    Laufzeitpaket
+                    Laufzeit in Tagen
                   </label>
-                  <select
+                  <input
                     value={tage}
                     onChange={(e) => setTage(e.target.value)}
-                    className={cn(INPUT, "mt-1.5")}
-                  >
-                    <option value="30">30 Tage</option>
-                    <option value="90">90 Tage</option>
-                    <option value="365">365 Tage</option>
-                  </select>
+                    disabled={dauerhaft}
+                    type="number"
+                    min="1"
+                    className={cn(INPUT, "mt-1.5 disabled:opacity-40")}
+                    inputMode="numeric"
+                  />
+                  <button type="button" onClick={() => setDauerhaft((wert) => !wert)} className={cn("mt-2 flex w-full items-center gap-2 rounded-xl border px-3 py-2 text-xs font-bold", dauerhaft ? "border-amber-400/30 bg-amber-400/10 text-amber-300" : "border-slate-700 text-slate-400")}>
+                    <InfinityIcon className="h-4 w-4" /> Dauerhaftes Premium
+                  </button>
                 </div>
               </div>
 
