@@ -1,492 +1,57 @@
 "use client";
 
-/**
- * Die öffentliche Premium-Seite.
- *
- * ── Was hier steht ──────────────────────────────────────────────────
- *
- *   1. Ein Hinweis, dass die Testphase läuft.
- *   2. Die drei Preise: Monat, Jahr, Lifetime.
- *   3. Eine Tabelle mit zehn Punkten — was Gratis kann und was
- *      Premium kann.
- *   4. Ein paar Fragen, die sonst im Support landen.
- *
- * ── Warum die Kauf-Knöpfe ausgegraut sind ───────────────────────────
- *
- * Es gibt noch keinen Zahlungsanbieter. Ein Knopf, der zu PayPal
- * führen soll, es aber nicht tut, ist schlimmer als ein Knopf, der
- * ehrlich sagt „kommt nach der Testphase“. Deshalb sind sie
- * `disabled` und tragen den Grund direkt daneben.
- *
- * ── Warum fünf der zehn Punkte als „geplant“ stehen ─────────────────
- *
- * Fünf Punkte wirken heute schon: das gemeinsame Premium für beide
- * Bots, das Design, der Speedrun, die Premium-Vorlagen und die
- * Backups. Die übrigen fünf sind beschlossen, aber noch nicht scharf
- * geschaltet.
- * Sie hier als fertig zu verkaufen, wäre gelogen — jede Zeile trägt
- * deshalb sichtbar, ob sie schon läuft. Ein Test in
- * `bot/tests/test_premium_seite.py` vergleicht die Tabelle mit dem,
- * was der Bot wirklich sperrt.
- */
-
-import React from "react";
 import Link from "next/link";
-import {
-  ArrowRight, BadgeCheck, Check, Clock, Crown, Gem, Minus, Sparkles,
-} from "lucide-react";
+import { ArrowRight, BadgeCheck, Bot, Check, Clock3, Crown, Database, LockKeyhole, RefreshCw, Server, ShieldCheck, Sparkles, Users } from "lucide-react";
 import { SiteNav } from "@/components/site-nav";
 import { SUPPORT_INVITE } from "@/lib/legal";
 import { cn } from "@/lib/utils";
 
-const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || "University Bot";
+const PLANS = [
+  { days: 30, title: "30 Tage", text: "Zum Kennenlernen oder für ein einzelnes Projekt." },
+  { days: 90, title: "90 Tage", text: "Mehr Zeit für den vollständigen Serverbetrieb.", popular: true },
+  { days: 365, title: "365 Tage", text: "Ein ganzes Jahr Premium auf drei festen Servern." },
+];
 
-/**
- * Die Preise.
- *
- * ── Warum Lifetime teurer ist als ein Jahr ──────────────────────────
- *
- * Vorher: Jahr 21,49 €, Lifetime 20 €. Damit war das Jahresabo
- * sinnlos — für 1,49 € weniger bekam man dasselbe für immer. Kein
- * Mensch hätte je das Jahr gekauft, und wer es doch getan hätte,
- * wäre zu Recht verärgert gewesen.
- *
- * Jetzt liegt Lifetime über dem Jahrespreis und rechnet sich ab dem
- * zweiten Jahr. Das ist die übliche Staffelung: je länger die
- * Bindung, desto günstiger der Monat — aber der Einmalpreis liegt
- * über einer einzelnen Periode.
- *
- * Gerechnet, nicht getippt: eine feste Zahl läuft beim nächsten
- * Preiswechsel auseinander, und dann steht auf der Seite ein Rabatt,
- * den es nicht gibt.
- */
-const PREIS_MONAT = 1.99;
-const RABATT_JAHR = 0.15;
-const PREIS_JAHR = PREIS_MONAT * 12 * (1 - RABATT_JAHR);
+const FEATURES = [
+  { icon: Bot, title: "Server-Design", text: "Eigener Bot-Name, Server-Avatar und Banner." },
+  { icon: Database, title: "Erweiterte Backups", text: "Bis zu zehn Backups, Automatik und Nachrichten." },
+  { icon: Users, title: "Server-Stats", text: "Aktuelle Mitgliederwerte als automatisch gepflegte Kanäle." },
+  { icon: RefreshCw, title: "User Pull", text: "Das vollständige, owner-geschützte Pull-System inklusive guilds.join." },
+  { icon: Sparkles, title: "Ticket-KI", text: "KI-Assistent und Serverwissen auf ausdrücklich freigeschalteten Servern." },
+  { icon: ShieldCheck, title: "Premiumbereiche", text: "Speedrun, Premium-Vorlagen, höhere Limits und kommende Funktionen." },
+];
 
-/** Lifetime = zwei Jahre. Ab dem dritten Jahr hat es sich gelohnt. */
-const LIFETIME_JAHRE = 2;
-const PREIS_LIFETIME = Math.round(PREIS_JAHR * LIFETIME_JAHRE) - 0.01;
+const FAQ = [
+  ["Wofür gilt Premium?", "Premium gehört zu deinem Discord-Konto. Du löst anschließend bis zu drei feste Serverplätze ein. Nur diese Server erhalten Premiumfunktionen."],
+  ["Kann ich einen belegten Platz wechseln?", "Nein. Ein eingelöster Platz bleibt während der gesamten Laufzeit fest mit diesem Server verbunden."],
+  ["Wer darf Premiumfunktionen einstellen?", "Jeder Nutzer mit normalen Dashboard-Rechten des Premiumservers. Funktionen wie User Pull bleiben weiterhin dem tatsächlichen Serverinhaber vorbehalten."],
+  ["Wie funktioniert der Kauf?", "Du sendest im Dashboard eine Anfrage für 30, 90 oder 365 Tage. Ein Admin prüft und bestätigt sie anschließend manuell."],
+  ["Was passiert nach Ablauf?", "Pro Server wählst du vorher: bestehende Premiumfunktionen eingefroren weiterlaufen lassen oder vollständig deaktivieren. Einstellungen und Daten werden nie gelöscht."],
+  ["Bekomme ich eine Discord-Rolle?", "Ja. Ein aktives Premium-Konto erhält das Premium-Badge im Dashboard und die Premiumrolle auf dem Support-Discord."],
+];
 
-/** Deutsche Schreibweise: Komma, nicht Punkt. `toFixed` liefert immer
- *  einen Punkt — deshalb der Umweg über `toLocaleString`. */
-function euro(betrag: number): string {
-  return betrag.toLocaleString("de-DE", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+export default function PremiumPage() {
+  return <div className="min-h-screen bg-[#09090c] text-white">
+    <SiteNav />
+    <main>
+      <section className="relative overflow-hidden border-b border-slate-800">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_-10%,rgba(251,191,36,0.18),transparent_45%)]" />
+        <div className="relative mx-auto max-w-6xl px-4 py-16 text-center sm:px-6 sm:py-24">
+          <span className="inline-flex items-center gap-2 rounded-full border border-amber-400/25 bg-amber-400/10 px-3 py-1.5 text-xs font-bold text-amber-300"><Crown className="h-3.5 w-3.5"/>Ein Konto · drei feste Premiumserver</span>
+          <h1 className="mx-auto mt-6 max-w-4xl text-4xl font-black tracking-tight sm:text-6xl">Premium dort, wo dein Server es wirklich braucht.</h1>
+          <p className="mx-auto mt-5 max-w-2xl text-base leading-7 text-slate-400 sm:text-lg">Wähle ein Laufzeitpaket, lass deine Anfrage bestätigen und verteile drei feste Serverplätze. Transparent, servergebunden und ohne Verlust deiner Konfigurationen.</p>
+          <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row"><Link href="/dashboard/premium" className="inline-flex items-center justify-center gap-2 rounded-xl bg-amber-400 px-6 py-3.5 text-sm font-black text-black hover:brightness-110">Kaufanfrage starten<ArrowRight className="h-4 w-4"/></Link><a href={SUPPORT_INVITE} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-700 bg-[#131318] px-6 py-3.5 text-sm font-bold text-slate-200 hover:border-slate-600">Fragen im Support klären</a></div>
+          <div className="mx-auto mt-10 grid max-w-3xl gap-3 sm:grid-cols-3"><Mini icon={Crown} value="3" label="feste Serverplätze"/><Mini icon={Clock3} value="30 / 90 / 365" label="Tage Laufzeit"/><Mini icon={LockKeyhole} value="0" label="gelöschte Einstellungen"/></div>
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-6xl px-4 py-14 sm:px-6"><div className="max-w-2xl"><p className="text-xs font-black uppercase tracking-[.2em] text-amber-300">Laufzeit wählen</p><h2 className="mt-2 text-3xl font-black">Drei klare Pakete</h2><p className="mt-2 text-slate-400">Noch keine automatische Zahlung: Jede Anfrage wird vom Team geprüft. Nach der Bestätigung startet deine Laufzeit.</p></div><div className="mt-7 grid gap-4 md:grid-cols-3">{PLANS.map(plan=><article key={plan.days} className={cn("relative rounded-3xl border bg-[#131318] p-6",plan.popular?"border-amber-400/40":"border-slate-800")}>{plan.popular&&<span className="absolute -top-3 left-6 rounded-full bg-amber-400 px-3 py-1 text-[11px] font-black text-black">Beliebteste Laufzeit</span>}<p className="text-sm font-bold text-amber-300">Premium-Paket</p><p className="mt-2 text-3xl font-black">{plan.title}</p><p className="mt-3 min-h-12 text-sm leading-6 text-slate-400">{plan.text}</p><ul className="mt-5 space-y-2 text-sm text-slate-300"><Item>Premium-Badge und Supportrolle</Item><Item>Drei feste Serverplätze</Item><Item>Alle aktiven Premiumfunktionen</Item></ul><Link href="/dashboard/premium" className={cn("mt-6 flex items-center justify-center rounded-xl py-3 text-sm font-black",plan.popular?"bg-amber-400 text-black":"border border-slate-700 text-white")}>Dieses Paket anfragen</Link></article>)}</div></section>
+
+      <section className="border-y border-slate-800 bg-[#0d0d11]"><div className="mx-auto max-w-6xl px-4 py-14 sm:px-6"><p className="text-xs font-black uppercase tracking-[.2em] text-violet-300">Enthalten</p><h2 className="mt-2 text-3xl font-black">Premiumfunktionen auf deinen drei Servern</h2><div className="mt-7 grid gap-3 md:grid-cols-2 lg:grid-cols-3">{FEATURES.map(({icon:Icon,title,text})=><article key={title} className="rounded-2xl border border-slate-800 bg-[#131318] p-5"><span className="grid h-10 w-10 place-items-center rounded-xl bg-violet-500/10"><Icon className="h-5 w-5 text-violet-300"/></span><h3 className="mt-4 font-black">{title}</h3><p className="mt-1 text-sm leading-6 text-slate-400">{text}</p></article>)}</div></div></section>
+
+      <section className="mx-auto grid max-w-6xl gap-8 px-4 py-14 sm:px-6 lg:grid-cols-[.8fr_1.2fr]"><div><p className="text-xs font-black uppercase tracking-[.2em] text-emerald-300">Sicherer Ablauf</p><h2 className="mt-2 text-3xl font-black">Deine Daten bleiben bestehen.</h2><p className="mt-3 leading-7 text-slate-400">Vor Ablauf entscheidest du für jeden Premiumserver separat. Beim Einfrieren läuft die bestehende Einrichtung weiter, kann aber nicht verändert werden. Beim Deaktivieren stoppen Premiumfunktionen. In beiden Fällen bleiben Einstellungen und gespeicherte Inhalte erhalten.</p><div className="mt-5 rounded-2xl border border-emerald-500/20 bg-emerald-500/[0.06] p-4 text-sm text-emerald-200"><BadgeCheck className="mr-2 inline h-4 w-4"/>Premium-Ablauf löscht niemals deine Konfiguration.</div></div><div className="grid gap-3 sm:grid-cols-2">{FAQ.map(([q,a])=><article key={q} className="rounded-2xl border border-slate-800 bg-[#131318] p-5"><h3 className="font-black">{q}</h3><p className="mt-2 text-sm leading-6 text-slate-400">{a}</p></article>)}</div></section>
+    </main>
+  </div>;
 }
-
-type Tarif = {
-  name: string;
-  preis: string;
-  einheit: string;
-  hinweis: string;
-  badge?: string;
-  hervor?: boolean;
-};
-
-const TARIFE: Tarif[] = [
-  {
-    name: "Monat",
-    preis: `${euro(PREIS_MONAT)} €`,
-    einheit: "pro Monat",
-    hinweis: "Monatlich kündbar.",
-  },
-  {
-    name: "Jahr",
-    preis: `${euro(PREIS_JAHR)} €`,
-    einheit: "pro Jahr",
-    hinweis: `Statt ${euro(PREIS_MONAT * 12)} € — du sparst ${euro(
-      PREIS_MONAT * 12 - PREIS_JAHR
-    )} €.`,
-    badge: `${Math.round(RABATT_JAHR * 100)} % Rabatt`,
-    hervor: true,
-  },
-  {
-    name: "Lifetime",
-    preis: `${euro(PREIS_LIFETIME)} €`,
-    einheit: "einmalig",
-    hinweis:
-      `Rechnet sich nach ${LIFETIME_JAHRE} Jahren. Danach zahlst du nie ` +
-      "wieder etwas.",
-  },
-];
-
-/**
- * Die zehn Punkte.
- *
- * `live` heißt: der Bot sperrt das heute schon wirklich. Fünf Zeilen
- * tragen `live: true` — gemeinsames Premium, Design, Speedrun, die
- * Premium-Vorlagen und die Backups. Alles andere ist beschlossen und
- * kommt, ist aber noch nicht scharf.
- */
-type Zeile = {
-  titel: string;
-  text: string;
-  gratis: string | false;
-  premium: string;
-  live?: boolean;
-};
-
-const VERGLEICH: Zeile[] = [
-  {
-    titel: "Gilt für beide Bots",
-    text:
-      "Ein Premium für den University Bot und den Template-Bot. Es hängt " +
-      "an deinem Discord-Konto, nicht an einem Server.",
-    gratis: false,
-    premium: "Beide Bots mit einem Zugang",
-    live: true,
-  },
-  {
-    titel: "Eigenes Aussehen pro Server",
-    text:
-      "Der Bot bekommt auf deinem Server einen eigenen Namen, ein eigenes " +
-      "Profilbild und ein eigenes Banner. Überall sonst bleibt er, wie er ist.",
-    gratis: false,
-    premium: "Name, Bild und Banner frei wählbar",
-    live: true,
-  },
-  {
-    titel: "Speedrun",
-    text:
-      "Einen ganzen Server in einem Durchgang aufsetzen — Kanäle, Rollen " +
-      "und Rechte aus einer Vorlage.",
-    gratis: false,
-    premium: "Voller Zugriff",
-    live: true,
-  },
-  {
-    titel: "Premium-Vorlagen",
-    text:
-      "Die gesperrten Vorlagen des Template-Bots, etwa Clan- und " +
-      "Community-Server mit fertigem Aufbau.",
-    gratis: "Die offenen Vorlagen",
-    premium: "Alle Vorlagen",
-    live: true,
-  },
-  {
-    titel: "Bot-Logs: wie weit zurück",
-    text:
-      "Wie lange die Ereignisse aus Honeypot, Automod, Verifizierung und " +
-      "den anderen Quellen einsehbar bleiben.",
-    gratis: "7 Tage",
-    premium: "90 Tage",
-  },
-  {
-    titel: "Musik im Warteraum",
-    text:
-      "Eigene Musik statt der Standardmelodie, während Leute im Warteraum " +
-      "sitzen.",
-    gratis: "Standardmelodie",
-    premium: "Eigene Datei hochladen",
-  },
-  {
-    titel: "Giveaways gleichzeitig",
-    text: "Wie viele Gewinnspiele nebeneinander laufen dürfen.",
-    gratis: "3 gleichzeitig",
-    premium: "25 gleichzeitig",
-  },
-  {
-    titel: "Automatische Antworten",
-    text:
-      "Feste Antworten auf Stichwörter — für Fragen, die jede Woche " +
-      "wiederkommen.",
-    gratis: "15 Regeln",
-    premium: "100 Regeln",
-  },
-  {
-    titel: "Backups",
-    text:
-      "Kanäle, Rollen, Rechte und alle Dashboard-Einstellungen sichern " +
-      "und mit einem Klick zurückspielen.",
-    gratis: "1 Backup",
-    premium: "10 Backups, automatisch, mit Nachrichten",
-    live: true,
-  },
-  {
-    titel: "Neues zuerst",
-    text:
-      "Neue Funktionen ausprobieren, bevor sie für alle freigeschaltet " +
-      "werden.",
-    gratis: false,
-    premium: "Früher Zugang",
-  },
-];
-
-/** Wie viele davon heute schon wirken. */
-const LIVE_ANZAHL = VERGLEICH.filter((z) => z.live).length;
-
-const FRAGEN: { frage: string; antwort: string }[] = [
-  {
-    frage: "Gilt Premium für mich oder für meinen Server?",
-    antwort:
-      "Für dein Discord-Konto — und für beide Bots gleichzeitig. Um das " +
-      "Aussehen auf einem Server zu ändern, musst du dort Inhaber sein.",
-  },
-  {
-    frage: "Kann ich schon kaufen?",
-    antwort:
-      "Noch nicht. Die Testphase läuft, es ist kein Zahlungsanbieter " +
-      "angebunden. Bis dahin kommst du über das Beta-Formular an einen " +
-      "Zugang.",
-  },
-  {
-    frage: "Was passiert, wenn Premium ausläuft?",
-    antwort:
-      "Der Bot behält deine Einstellungen, benutzt aber wieder die Grenzen " +
-      "aus der Gratis-Spalte. Gelöscht wird nichts.",
-  },
-  {
-    frage: "Warum stehen fünf Punkte auf „geplant“?",
-    antwort:
-      "Weil sie es sind. Fünf Punkte wirken heute: das gemeinsame Premium " +
-      "für beide Bots, das eigene Aussehen, der Speedrun, die " +
-      "Premium-Vorlagen und die Backups. Die übrigen fünf kommen nach der " +
-      "Testphase — wir schreiben sie lieber ehrlich hin, als sie als " +
-      "fertig zu verkaufen.",
-  },
-];
-
-const CARD = "bg-[#131318] border border-slate-800 rounded-3xl";
-
-export default function PremiumSeite() {
-  return (
-    <div className="min-h-screen bg-[#0a0a0c] text-white">
-      <SiteNav />
-
-      <main className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16">
-        {/* ── Kopf ──────────────────────────────────────────────── */}
-        <div className="text-center">
-          <div className="mx-auto inline-flex items-center gap-2 rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1 text-xs font-semibold text-amber-300">
-            <Clock className="h-3.5 w-3.5" />
-            Testphase — Kauf noch nicht möglich
-          </div>
-
-          <h1 className="mt-5 text-3xl font-bold sm:text-4xl">
-            {BRAND} Premium
-          </h1>
-          <p className="mx-auto mt-3 max-w-2xl text-slate-400">
-            Ein Zugang für beide Bots: eigenes Aussehen, Speedrun,
-            Premium-Vorlagen und höhere Grenzen. Solange die Testphase läuft,
-            kommst du über das Beta-Formular daran.
-          </p>
-
-          <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-            <Link
-              href="/dashboard/premium/beta"
-              className="inline-flex items-center gap-2 rounded-2xl bg-amber-400 px-5 py-3 text-sm font-bold text-black transition hover:brightness-110"
-            >
-              <Sparkles className="h-4 w-4" />
-              Für die Beta bewerben
-            </Link>
-            <Link
-              href="/dashboard/premium"
-              className="inline-flex items-center gap-2 rounded-2xl border border-slate-800 bg-[#131318] px-5 py-3 text-sm font-semibold text-slate-200 transition hover:bg-white/[0.04]"
-            >
-              Key einlösen
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-          </div>
-        </div>
-
-        {/* ── Preise ────────────────────────────────────────────── */}
-        <div className="mt-14 grid gap-4 md:grid-cols-3">
-          {TARIFE.map((t) => (
-            <div
-              key={t.name}
-              className={cn(
-                CARD,
-                "relative flex flex-col p-6",
-                t.hervor && "border-amber-400/40"
-              )}
-            >
-              {t.badge && (
-                <div className="absolute -top-3 left-6 rounded-full bg-amber-400 px-3 py-1 text-xs font-bold text-black">
-                  {t.badge}
-                </div>
-              )}
-
-              <div className="text-sm font-semibold uppercase tracking-wider text-slate-500">
-                {t.name}
-              </div>
-
-              <div className="mt-3 flex items-baseline gap-2">
-                <span className="text-3xl font-bold text-white">{t.preis}</span>
-                <span className="text-sm text-slate-500">{t.einheit}</span>
-              </div>
-
-              <p className="mt-2 flex-1 text-sm text-slate-400">{t.hinweis}</p>
-
-              {/* Ausgegraut, mit Begründung daneben. Ein Knopf, der zu
-                  einer Zahlung führen soll, es aber nicht tut, ist
-                  schlimmer als gar keiner. */}
-              <button
-                type="button"
-                disabled
-                title="Zahlung wird nach der Testphase freigeschaltet"
-                className="mt-5 w-full cursor-not-allowed rounded-2xl border border-slate-800 bg-[#0f0f13] px-4 py-3 text-sm font-semibold text-slate-500 opacity-60"
-              >
-                Mit PayPal kaufen
-              </button>
-              <p className="mt-2 text-center text-xs text-slate-600">
-                Kommt, sobald die Testphase vorbei ist.
-              </p>
-            </div>
-          ))}
-        </div>
-
-        {/* ── Die Tabelle ───────────────────────────────────────── */}
-        <div className="mt-16">
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <div>
-              <h2 className="text-2xl font-bold">Gratis und Premium</h2>
-              <p className="mt-1 text-sm text-slate-400">
-                Zehn Punkte im Vergleich. Was schon wirkt, ist markiert —{" "}
-                {LIVE_ANZAHL} von {VERGLEICH.length}.
-              </p>
-            </div>
-
-            <div className="flex items-center gap-2 text-xs text-slate-500">
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-emerald-300">
-                <BadgeCheck className="h-3.5 w-3.5" />
-                aktiv
-              </span>
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-700 bg-[#0f0f13] px-2.5 py-1 text-slate-400">
-                <Clock className="h-3.5 w-3.5" />
-                geplant
-              </span>
-            </div>
-          </div>
-
-          <div className={cn(CARD, "mt-5 overflow-hidden")}>
-            {/* Kopfzeile: auf schmalen Geräten ausgeblendet, dort
-                trägt jede Karte ihre eigenen Beschriftungen. */}
-            <div className="hidden border-b border-slate-800 bg-[#0f0f13] sm:grid sm:grid-cols-[1.6fr_1fr_1fr]">
-              <div className="px-5 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                Funktion
-              </div>
-              <div className="px-5 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                Gratis
-              </div>
-              <div className="flex items-center gap-1.5 px-5 py-3 text-xs font-semibold uppercase tracking-wider text-amber-400">
-                <Crown className="h-3.5 w-3.5" />
-                Premium
-              </div>
-            </div>
-
-            {VERGLEICH.map((z, i) => (
-              <div
-                key={z.titel}
-                className={cn(
-                  "grid gap-1 px-5 py-4 sm:grid-cols-[1.6fr_1fr_1fr] sm:gap-0 sm:px-0 sm:py-0",
-                  i > 0 && "border-t border-slate-800"
-                )}
-              >
-                {/* Funktion */}
-                <div className="sm:px-5 sm:py-4">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-semibold text-white">{z.titel}</span>
-                    {z.live ? (
-                      <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold uppercase text-emerald-300">
-                        <BadgeCheck className="h-3 w-3" />
-                        aktiv
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 rounded-full border border-slate-700 bg-[#0f0f13] px-2 py-0.5 text-[10px] font-bold uppercase text-slate-500">
-                        <Clock className="h-3 w-3" />
-                        geplant
-                      </span>
-                    )}
-                  </div>
-                  <p className="mt-1 text-sm leading-relaxed text-slate-500">
-                    {z.text}
-                  </p>
-                </div>
-
-                {/* Gratis */}
-                <div className="flex items-start gap-2 sm:px-5 sm:py-4">
-                  <span className="text-xs font-semibold uppercase tracking-wider text-slate-600 sm:hidden">
-                    Gratis
-                  </span>
-                  {z.gratis === false ? (
-                    <span className="inline-flex items-center gap-1.5 text-sm text-slate-600">
-                      <Minus className="h-4 w-4" />
-                      nicht enthalten
-                    </span>
-                  ) : (
-                    <span className="text-sm text-slate-400">{z.gratis}</span>
-                  )}
-                </div>
-
-                {/* Premium */}
-                <div className="flex items-start gap-2 sm:px-5 sm:py-4">
-                  <span className="text-xs font-semibold uppercase tracking-wider text-amber-500/70 sm:hidden">
-                    Premium
-                  </span>
-                  <span className="inline-flex items-start gap-1.5 text-sm font-medium text-amber-200">
-                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
-                    {z.premium}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <p className="mt-3 text-xs leading-relaxed text-slate-600">
-            „Geplant“ heißt: beschlossen, aber noch nicht scharf geschaltet.
-            Diese Grenzen gelten heute noch nicht — der Bot behandelt Gratis
-            und Premium dort gleich. Wir schreiben es lieber hin, als es als
-            fertig zu verkaufen.
-          </p>
-        </div>
-
-        {/* ── Fragen ────────────────────────────────────────────── */}
-        <div className="mt-16">
-          <h2 className="text-2xl font-bold">Häufige Fragen</h2>
-          <div className="mt-5 grid gap-3 md:grid-cols-2">
-            {FRAGEN.map((f) => (
-              <div key={f.frage} className={cn(CARD, "p-5")}>
-                <div className="font-semibold text-white">{f.frage}</div>
-                <p className="mt-2 text-sm leading-relaxed text-slate-400">
-                  {f.antwort}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* ── Abschluss ─────────────────────────────────────────── */}
-        <div
-          className={cn(
-            CARD,
-            "mt-14 flex flex-col items-center gap-4 p-8 text-center"
-          )}
-        >
-          <div className="rounded-2xl bg-amber-400/15 p-3">
-            <Gem className="h-6 w-6 text-amber-400" />
-          </div>
-          <div>
-            <div className="text-lg font-bold text-white">
-              Noch Fragen offen?
-            </div>
-            <p className="mt-1 text-sm text-slate-400">
-              Schreib uns im Support-Server — wir antworten dort auch zur
-              Testphase.
-            </p>
-          </div>
-          <a
-            href={SUPPORT_INVITE}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-2 rounded-2xl bg-primary px-5 py-3 text-sm font-semibold text-white transition hover:brightness-110"
-          >
-            Zum Support-Server
-            <ArrowRight className="h-4 w-4" />
-          </a>
-        </div>
-      </main>
-    </div>
-  );
-}
+function Mini({icon:Icon,value,label}:{icon:any,value:string,label:string}){return <div className="rounded-2xl border border-slate-800 bg-black/20 p-4"><Icon className="mx-auto h-4 w-4 text-amber-300"/><p className="mt-2 text-lg font-black">{value}</p><p className="text-xs text-slate-500">{label}</p></div>}
+function Item({children}:{children:React.ReactNode}){return <li className="flex gap-2"><Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400"/>{children}</li>}

@@ -165,7 +165,7 @@ async def grant_trial(
 
 
 @router.get("/me/{user_id}", summary="Own premium status")
-async def my_premium(user_id: int):
+async def my_premium(user_id: int, bot: "universitybot" = Depends(get_bot)):
     """What the Premium tab shows the signed-in user."""
     client_id = os.getenv("PARTNER_BOT_CLIENT_ID", "").strip()
 
@@ -188,6 +188,10 @@ async def my_premium(user_id: int):
     # eine haben und das andere nicht. Jetzt gibt es nur noch einen
     # Zustand.
     zustand = premium_membership.account_status(user_id)
+    for slot in zustand.get("slots", []):
+        guild = bot.get_guild(int(slot["guild_id"]))
+        slot["guild_name"] = guild.name if guild else str(slot["guild_id"])
+        slot["guild_icon"] = str(guild.icon.url) if guild and guild.icon else None
 
     return {
         "premium": zustand,

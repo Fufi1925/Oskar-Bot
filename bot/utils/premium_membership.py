@@ -77,15 +77,19 @@ def account_status(user_id: int | str) -> dict[str, Any]:
     with _connect() as db:
         row = db.execute("SELECT * FROM premium_accounts WHERE user_id=?", (uid,)).fetchone()
         slots = db.execute("SELECT * FROM premium_slots WHERE user_id=? ORDER BY slot_no", (uid,)).fetchall()
+        requests = db.execute("SELECT id,duration_days,status,created_at,decided_at FROM premium_purchase_requests WHERE user_id=? ORDER BY created_at DESC LIMIT 20", (uid,)).fetchall()
     active = bool(row and not row["revoked"] and int(row["expires_at"]) > now)
     return {
         "user_id": uid, "product": "premium", "premium": active,
+        "granted_at": int(row["granted_at"]) if row else None,
         "expires_at": int(row["expires_at"]) if row else None,
         "duration_days": int(row["duration_days"]) if row else 0,
-        "source": row["source"] if row else "", "notice_pending": bool(row and row["notice_pending"]),
+        "source": row["source"] if row else "", "note": row["note"] if row else "",
+        "notice_pending": bool(row and row["notice_pending"]),
         "lifetime": False, "via_trial": False, "via_tester": False,
         "max_slots": MAX_SLOTS,
         "slots": [dict(slot) for slot in slots],
+        "purchase_requests": [dict(request) for request in requests],
     }
 
 
@@ -101,7 +105,7 @@ def grant(user_id: int | str, duration_days: int, source: str = "admin", note: s
         db.execute("""INSERT INTO premium_accounts
           (user_id,granted_at,expires_at,duration_days,source,note,notice_pending,revoked)
           VALUES(?,?,?,?,?,?,1,0) ON CONFLICT(user_id) DO UPDATE SET
-          expires_at=excluded.expires_at,duration_days=excluded.duration_days,
+          granted_at=excluded.granted_at,expires_at=excluded.expires_at,duration_days=excluded.duration_days,
           source=excluded.source,note=excluded.note,notice_pending=1,revoked=0""",
           (uid, now, expires, days, source, str(note)[:200]))
     return account_status(uid)
@@ -163,7 +167,7 @@ def set_expiry_action(guild_id: int, action: str) -> None:
 def guild_status(guild_id: int) -> dict[str, Any]:
     ensure(); now = int(time.time())
     with _connect() as db:
-        row = db.execute("""SELECT s.*,a.expires_at,a.revoked,a.user_id account_user_id
+        row = db.execute("""SELECT s.*,a.expires_at,a.duration_days,a.revoked,a.user_id account_user_id
           FROM premium_slots s JOIN premium_accounts a ON a.user_id=s.user_id
           WHERE s.guild_id=?""", (int(guild_id),)).fetchone()
     if not row:
@@ -173,6 +177,8 @@ def guild_status(guild_id: int) -> dict[str, Any]:
     return {"guild_id": str(guild_id), "assigned": True, "active": active,
             "runtime": active or frozen, "configurable": active,
             "frozen": frozen, "expires_at": int(row["expires_at"]),
+            "duration_days": int(row["duration_days"]),
+            "assigned_at": int(row["assigned_at"]),
             "expiry_action": row["expiry_action"], "slot_no": row["slot_no"],
             "account_user_id": row["account_user_id"]}
 
