@@ -133,7 +133,7 @@ export function PremiumHinweis() {
           >
             {rueckkehr
               ? "Willkommen zurück — du hast Premium"
-              : "Denk dran: du hast Premium"}
+              : "Ein Admin hat dir Premium gegeben"}
           </h2>
         </div>
 
@@ -141,7 +141,7 @@ export function PremiumHinweis() {
           <p className="text-sm leading-relaxed text-slate-300">
             {rueckkehr
               ? "Dein Premium ist wieder aktiv. Damit stehen dir diese Möglichkeiten erneut offen:"
-              : "Damit ist für dich Folgendes freigeschaltet:"}
+              : "Öffne Premium im Dashboard und löse deine drei festen Premium-Plätze auf den gewünschten Servern ein:"}
           </p>
 
           <ul className="space-y-2.5">

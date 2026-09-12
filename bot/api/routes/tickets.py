@@ -24,7 +24,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from api import ticket_panels as panels
 from api.db_manager import db_manager
 from api.dependencies import get_bot
-from utils import feature_audit, ticket_ai, ticket_ai_scan, ticket_notify
+from utils import feature_audit, feature_gates, ticket_ai, ticket_ai_scan, ticket_notify
 
 if TYPE_CHECKING:
     from core.universitybot import universitybot
@@ -331,13 +331,15 @@ async def send_panel(
 # ══════════════════════════════════════════════════════════════════════
 
 
-def _ai_or_404(guild_id: int) -> None:
+def _ai_or_404(guild_id: int, *, configure: bool = False) -> None:
     # Deliberately return 404 outside the pilot so other guilds do not even
     # learn that an unreleased feature exists.
     if not ticket_ai.is_allowlisted(guild_id):
         raise HTTPException(status_code=404, detail="Not found.")
     if not ticket_ai.pilot_available(guild_id):
         raise HTTPException(status_code=402, detail="Ticket-KI benötigt Server-Premium.")
+    if configure and not feature_gates.can_configure_premium_guild(guild_id):
+        raise HTTPException(status_code=423, detail="Premium ist abgelaufen. Die Einstellungen sind eingefroren.")
 
 
 async def _ensure_ai_schema(db) -> None:
@@ -410,7 +412,7 @@ async def get_ticket_ai(guild_id: int):
 
 @router.put("/{guild_id}/ai/knowledge", summary="Upload private Ticket AI knowledge")
 async def put_ticket_ai_knowledge(guild_id: int, data: dict):
-    _ai_or_404(guild_id)
+    _ai_or_404(guild_id, configure=True)
     filename = str(data.get("filename") or "wissen.txt").strip()[:120]
     content = str(data.get("content") or "").replace("\x00", "").strip()
     if not filename.lower().endswith(".txt"):
@@ -432,7 +434,7 @@ async def put_ticket_ai_knowledge(guild_id: int, data: dict):
 
 @router.delete("/{guild_id}/ai/knowledge", summary="Delete private Ticket AI knowledge")
 async def delete_ticket_ai_knowledge(guild_id: int):
-    _ai_or_404(guild_id)
+    _ai_or_404(guild_id, configure=True)
     db = await _db()
     await _ensure_ai_schema(db)
     await db.execute("DELETE FROM ticket_ai_knowledge WHERE guild_id = ?", (guild_id,))
@@ -445,7 +447,7 @@ async def delete_ticket_ai_knowledge(guild_id: int):
 async def start_ticket_ai_scan(
     guild_id: int, bot: "universitybot" = Depends(get_bot)
 ):
-    _ai_or_404(guild_id)
+    _ai_or_404(guild_id, configure=True)
     if not ticket_ai.api_key_configured():
         raise HTTPException(status_code=503, detail=f"Railway-Variable {ticket_ai.API_KEY_ENV} fehlt oder enthält keinen gültigen Groq-Key.")
     db = await _db()
@@ -472,7 +474,7 @@ async def start_ticket_ai_scan(
 
 @router.post("/{guild_id}/ai/scan/cancel", summary="Hard-cancel a Ticket AI scan")
 async def cancel_ticket_ai_scan(guild_id: int):
-    _ai_or_404(guild_id)
+    _ai_or_404(guild_id, configure=True)
     task = _scan_tasks.pop(guild_id, None)
     if task and not task.done():
         task.cancel()
@@ -515,7 +517,7 @@ async def get_ticket_ai_scan(guild_id: int):
 
 @router.patch("/{guild_id}/ai", summary="Update private Ticket AI settings")
 async def update_ticket_ai(guild_id: int, data: dict):
-    _ai_or_404(guild_id)
+    _ai_or_404(guild_id, configure=True)
     db = await _db()
     await _ensure_ai_schema(db)
     fallback = str(data.get("fallback_text") or "").strip()[:500]

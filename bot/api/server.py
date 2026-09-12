@@ -13,8 +13,10 @@ from api.dependencies import verify_api_key, limiter, get_bot_loop, get_bot, run
 from api.db_manager import db_manager
 from api.schema_guard import ensure_schema
 from utils import feature_flags
+from utils import feature_gates
 from utils import dashboard_roles
 from utils import dashboard_access
+from utils import premium_membership
 from utils.feature_services import record_request
 
 logger = logging.getLogger("api_request_logs")
@@ -36,6 +38,15 @@ async def lifespan(app: FastAPI):
         await ensure_schema()
     except Exception as exc:
         logger.warning(f"Schema guard failed: {exc}")
+
+    # One-time cut-over requested for Premium v2: old account/server grants
+    # disappear, while every configured Premium feature remains untouched.
+    try:
+        if premium_membership.migrate_reset_legacy():
+            logger.info("Premium v2 initialized; legacy grants were removed.")
+        await feature_gates.refresh_premium_guilds()
+    except Exception as exc:
+        logger.warning(f"Premium v2 preload failed: {exc}")
 
     # The API thread has its own event loop, so the flag cache has to be
     # primed here as well as in the bot's setup_hook.

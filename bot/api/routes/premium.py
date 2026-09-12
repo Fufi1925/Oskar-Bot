@@ -36,6 +36,7 @@ from utils import bot_settings
 from utils import feature_audit
 from utils import premium_store as store
 from utils import premium_codes_store as code_store
+from utils import premium_membership
 
 # The support server, same default as the compose route.
 HOME_GUILD_ID = int(os.getenv("HOME_GUILD_ID") or 1530378233579704370)
@@ -186,7 +187,7 @@ async def my_premium(user_id: int):
     # `main_bot`. Das Dashboard zeigte zwei Kacheln, und man konnte das
     # eine haben und das andere nicht. Jetzt gibt es nur noch einen
     # Zustand.
-    zustand = store.status(user_id)
+    zustand = premium_membership.account_status(user_id)
 
     return {
         "premium": zustand,
@@ -199,6 +200,88 @@ async def my_premium(user_id: int):
         "main_bot": zustand,
         "template_invite": invite,
     }
+
+
+@router.post("/purchase-request", summary="Request one Premium plan")
+async def create_purchase_request(data: dict):
+    actor = _code_actor(data)
+    try:
+        return premium_membership.request_purchase(actor, int(data.get("duration_days") or 0))
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/slots/assign", summary="Permanently assign one of three Premium slots")
+async def assign_premium_slot(data: dict, bot: "universitybot" = Depends(get_bot)):
+    actor = _code_actor(data)
+    guild_id = str(data.get("guild_id") or "")
+    guild = bot.get_guild(int(guild_id)) if guild_id.isdigit() else None
+    member = guild.get_member(int(actor)) if guild else None
+    if not guild or not member or not (guild.owner_id == int(actor) or member.guild_permissions.manage_guild):
+        raise HTTPException(status_code=403, detail="Du verwaltest diesen Server nicht oder der Bot ist dort nicht installiert.")
+    try:
+        result = premium_membership.assign_slot(actor, guild.id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    from utils import feature_gates
+    await feature_gates.refresh_premium_guilds()
+    await feature_audit.log_action("premium_slot_assigned", actor=actor, guild_id=guild.id, detail=f"slot={result['slot_no']}")
+    return {**result, "guild_name": guild.name}
+
+
+@router.get("/server/{guild_id}", summary="Premium state for one dashboard server")
+async def server_premium_state(guild_id: int, actor: str = "", bot: "universitybot" = Depends(get_bot)):
+    guild = bot.get_guild(guild_id)
+    if guild is None:
+        raise HTTPException(status_code=404, detail="Der Bot ist nicht auf diesem Server.")
+    state = premium_membership.guild_status(guild_id)
+    state["guild_name"] = guild.name
+    return state
+
+
+@router.post("/server/{guild_id}/expiry-action", summary="Choose what happens after expiry")
+async def server_premium_expiry_action(guild_id: int, data: dict):
+    # Guild access is enforced by the dashboard BFF. Like other Premium
+    # settings, this may be changed by every user with dashboard access.
+    try:
+        premium_membership.set_expiry_action(guild_id, str(data.get("action") or ""))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    from utils import feature_gates
+    await feature_gates.refresh_premium_guilds()
+    return premium_membership.guild_status(guild_id)
+
+
+@router.post("/notice/dismiss", summary="Dismiss the account Premium grant popup")
+async def dismiss_membership_notice(data: dict):
+    actor = _code_actor(data)
+    premium_membership.dismiss_notice(actor)
+    return {"status": "ok"}
+
+
+@router.get("/accounts-v2", summary="Premium v2 accounts and fixed slots")
+async def premium_v2_accounts(bot: "universitybot" = Depends(get_bot)):
+    rows = premium_membership.list_accounts()
+    for row in rows:
+        user = bot.get_user(int(row["user_id"])) if str(row["user_id"]).isdigit() else None
+        row["user_name"] = (user.display_name or user.name) if user else row["user_id"]
+        for slot in row.get("slots", []):
+            guild = bot.get_guild(int(slot["guild_id"]))
+            slot["guild_name"] = guild.name if guild else str(slot["guild_id"])
+    return {"accounts": rows, "requests": premium_membership.list_requests()}
+
+
+@router.post("/requests/{request_id}/decide", summary="Approve or deny a Premium purchase request")
+async def decide_purchase_request(request_id: int, data: dict):
+    try:
+        approved = bool(data.get("approve"))
+        result = premium_membership.decide_request(request_id, approved, str(data.get("actor") or "dashboard"))
+        if approved:
+            from utils import premium_notice
+            premium_notice.zuruecksetzen(result["user_id"])
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"status": "ok", "result": result}
 
 
 @router.post("/redeem", summary="Redeem a licence key")
@@ -391,7 +474,7 @@ async def list_accounts(limit: int = 300,
     Namen werden aufgeloest, soweit der Bot sie kennt. Eine nackte ID
     hilft im Support niemandem.
     """
-    eintraege = store.list_accounts(limit)
+    eintraege = premium_membership.list_accounts()[:limit]
 
     for zeile in eintraege:
         zeile["user_name"] = ""
@@ -439,7 +522,7 @@ async def grant_account(data: dict, bot: "universitybot" = Depends(get_bot)):
     Faelle daneben: ein Support-Fall, eine Zusage ausserhalb des
     Formulars, ein Ausgleich nach einer Panne.
 
-    `days = 0` heisst unbegrenzt.
+    Erlaubt sind ausschließlich die Pakete 30, 90 und 365 Tage.
     """
     from utils import premium_notice
 
@@ -452,9 +535,10 @@ async def grant_account(data: dict, bot: "universitybot" = Depends(get_bot)):
     except (TypeError, ValueError):
         raise HTTPException(status_code=400, detail="days muss eine Zahl sein.")
 
-    ergebnis = store.grant_direct(
-        user_id,
-        duration_days=days,
+    if days not in premium_membership.PLANS:
+        raise HTTPException(status_code=400, detail="Wähle 30, 90 oder 365 Tage.")
+    ergebnis = premium_membership.grant(
+        user_id, days, source="admin",
         note=str(data.get("note") or "Vom Admin vergeben")[:200],
     )
 
@@ -487,7 +571,7 @@ async def revoke_account(data: dict):
     if not user_id.isdigit():
         raise HTTPException(status_code=400, detail="Keine gültige Konto-ID.")
 
-    anzahl = store.revoke_user(user_id)
+    anzahl = 1 if premium_membership.revoke(user_id) else 0
 
     probewoche_beendet = False
     try:

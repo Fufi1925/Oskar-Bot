@@ -39,7 +39,7 @@ from api.db_manager import db_manager
 from api.dependencies import get_bot
 from utils import feature_audit
 from utils import guild_design as store
-from utils import premium_store
+from utils import feature_gates
 
 if TYPE_CHECKING:
     from core.universitybot import universitybot
@@ -62,16 +62,9 @@ def _guild_or_404(bot, guild_id: int):
     return guild
 
 
-def _hat_premium(user_id: str) -> bool:
-    """Premium fuer den Hauptbot -- am Konto, nicht am Server."""
-    if not str(user_id).isdigit():
-        return False
-    try:
-        zustand = premium_store.status(user_id)
-    except Exception:  # noqa: BLE001 - eine kaputte Tabelle gibt kein Premium
-        return False
-    return bool(zustand.get("premium"))
-
+def _hat_premium(guild_id: int, *, configure: bool = False) -> bool:
+    return (feature_gates.can_configure_premium_guild(guild_id) if configure
+            else feature_gates.is_premium_guild(guild_id))
 
 def _bild_daten(roh: str, feld: str) -> bytes:
     """Ein Bild aus dem Browser in Bytes verwandeln.
@@ -203,8 +196,8 @@ async def _antwort(db, guild, record: dict, user_id: str) -> dict:
     wurde. `may_edit` ist ein einzelnes Ja/Nein -- warum, geht das
     Nutzer-Dashboard nichts an.
     """
-    premium = _hat_premium(user_id)
-    darf = await store.may_edit(db, guild, user_id) if premium else False
+    premium = _hat_premium(guild.id)
+    darf = feature_gates.can_configure_premium_guild(guild.id)
 
     return {
         "guild_id": str(guild.id),
@@ -313,7 +306,7 @@ async def reset_design(
     db = await _db()
     actor = str(data.get("actor") or "")
 
-    if not _hat_premium(actor):
+    if not _hat_premium(guild_id, configure=True):
         raise HTTPException(status_code=403, detail="Dafür wird Premium benötigt.")
 
     if not await store.may_edit(db, guild, actor):
@@ -380,7 +373,7 @@ async def save_design(
     db = await _db()
     actor = str(data.get("actor") or "")
 
-    if not _hat_premium(actor):
+    if not _hat_premium(guild_id, configure=True):
         raise HTTPException(
             status_code=403,
             detail="Dafür wird Premium benötigt.",

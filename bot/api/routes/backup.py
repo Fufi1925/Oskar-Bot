@@ -38,7 +38,7 @@ from api.dependencies import get_bot
 from utils import backup_runner
 from utils import feature_audit
 from utils import guild_backup as store
-from utils import premium_store
+from utils import feature_gates
 
 if TYPE_CHECKING:
     from core.universitybot import universitybot
@@ -55,13 +55,9 @@ _LAEUFT: dict[int, dict[str, Any]] = {}
 _TASKS: dict[int, asyncio.Task] = {}
 
 
-def _hat_premium(user_id: str) -> bool:
-    if not str(user_id).isdigit():
-        return False
-    try:
-        return bool(premium_store.status(user_id).get("premium"))
-    except Exception:  # noqa: BLE001 - eine kaputte Tabelle gibt kein Premium
-        return False
+def _hat_premium(guild_id: int, *, configure: bool = False) -> bool:
+    return (feature_gates.can_configure_premium_guild(guild_id) if configure
+            else feature_gates.is_premium_guild(guild_id))
 
 
 def _guild_or_404(bot, guild_id: int):
@@ -89,7 +85,7 @@ def _zustand(guild_id: int) -> dict[str, Any]:
 async def uebersicht(guild_id: int, actor: str = "",
                      bot: "universitybot" = Depends(get_bot)):
     _guild_or_404(bot, guild_id)
-    premium = _hat_premium(actor)
+    premium = _hat_premium(guild_id)
 
     return {
         "guild_id": str(guild_id),
@@ -157,7 +153,7 @@ async def anlegen(guild_id: int, data: dict,
     """
     guild = _guild_or_404(bot, guild_id)
     actor = str(data.get("actor") or "")
-    premium = _hat_premium(actor)
+    premium = _hat_premium(guild_id, configure=True)
 
     if guild_id in _LAEUFT:
         raise HTTPException(
@@ -233,7 +229,7 @@ async def auto(guild_id: int, data: dict,
     _guild_or_404(bot, guild_id)
     actor = str(data.get("actor") or "")
 
-    if not _hat_premium(actor):
+    if not _hat_premium(guild_id, configure=True):
         raise HTTPException(
             status_code=403,
             detail="Automatische Sicherungen gibt es mit Premium.",
@@ -429,7 +425,7 @@ async def wiederherstellen(guild_id: int, kennung: str, data: dict,
         raise HTTPException(status_code=404, detail="Diese Sicherung gibt es nicht.")
 
     mit_nachrichten = bool(data.get("mit_nachrichten"))
-    if mit_nachrichten and not _hat_premium(actor):
+    if mit_nachrichten and not _hat_premium(guild_id, configure=True):
         raise HTTPException(
             status_code=403,
             detail="Nachrichten zurückschreiben geht nur mit Premium.",

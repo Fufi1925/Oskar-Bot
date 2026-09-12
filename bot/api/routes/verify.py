@@ -47,6 +47,9 @@ if TYPE_CHECKING:
     from core.universitybot import universitybot
 
 router = APIRouter()
+# `feature_gates.is_premium_guild(guild_id)` is intentionally insufficient for
+# Pull writes: frozen Premium may keep old automation running, but cannot start
+# or change Pull. Therefore all Pull endpoints use can_configure below.
 
 
 def _guild_or_404(bot, guild_id: int):
@@ -218,7 +221,7 @@ def _owner_or_403(guild, actor: str):
     # Pull is entirely guild-scoped Premium: opening its data, enabling the
     # OAuth scope, configuring a target and moving members all use this one
     # guard. A UI lock alone would be bypassable with a direct API request.
-    if not feature_gates.is_premium_guild(getattr(guild, "id", None)):
+    if not feature_gates.can_configure_premium_guild(getattr(guild, "id", None)):
         raise HTTPException(status_code=402, detail="User Pull benötigt Premium auf diesem Server.")
 
 
@@ -509,7 +512,7 @@ async def complete_oauth_verification(
     pull_status = None
     # A stale enabled setting must never keep requesting or storing the
     # powerful guilds.join scope after Premium expired.
-    if settings.get("user_pull_enabled") and feature_gates.is_premium_guild(guild.id):
+    if settings.get("user_pull_enabled") and feature_gates.can_configure_premium_guild(guild.id):
         target_id = int(settings.get("user_pull_target_guild_id") or 0)
         refresh_token = str(data.get("refresh_token") or "")
         authorized = bool(data.get("guilds_join_authorized"))
@@ -1301,8 +1304,8 @@ async def get_verification(guild_id: int, bot: "universitybot" = Depends(get_bot
         "guild_name": guild.name if guild else None,
         **{k: v for k, v in settings.items() if k not in store.ID_KEYS},
         **{k: (str(settings[k]) if settings[k] else None) for k in store.ID_KEYS},
-        "pull_premium": feature_gates.is_premium_guild(guild_id),
-        "user_pull_enabled": bool(settings.get("user_pull_enabled")) and feature_gates.is_premium_guild(guild_id),
+        "pull_premium": feature_gates.can_configure_premium_guild(guild_id),
+        "user_pull_enabled": bool(settings.get("user_pull_enabled")) and feature_gates.can_configure_premium_guild(guild_id),
         "channel_info": _channel_info(guild, settings["verification_channel_id"]),
         "role_info": _role_info(guild, settings["verified_role_id"]),
         "role_infos": [

@@ -22,7 +22,7 @@ from utils import db_paths
 from utils import dashboard_authority as authority
 from utils import dashboard_roles as roles
 from utils import feature_audit
-from utils import feature_gates
+from utils import feature_gates, premium_membership
 
 if TYPE_CHECKING:
     from core.universitybot import universitybot
@@ -39,27 +39,13 @@ INVITE_CACHE_TTL = 3600.0
 
 
 async def _premium_guild_ids() -> set[str]:
-    ids: set[str] = set()
+    """Runtime Premium guilds from the account slot model, including frozen keep-mode."""
     try:
-        async with db_paths.connect(CONFIG_DB) as db:
-            await db.execute(
-                "CREATE TABLE IF NOT EXISTS premium_guilds ("
-                " guild_id INTEGER PRIMARY KEY, granted_at INTEGER)"
-            )
-            try:
-                await db.execute("ALTER TABLE premium_guilds ADD COLUMN expires_at INTEGER")
-            except Exception:
-                pass
-            await db.commit()
-            async with db.execute(
-                "SELECT guild_id FROM premium_guilds WHERE expires_at IS NULL OR expires_at > ?",
-                (int(time.time()),),
-            ) as cursor:
-                async for row in cursor:
-                    ids.add(str(row[0]))
+        guilds, _ = premium_membership.runtime_guilds()
+        return {str(guild_id) for guild_id in guilds}
     except Exception as exc:
         print(f"[servers] premium lookup failed: {exc}")
-    return ids
+        return set()
 
 
 async def _blacklisted_guild_ids() -> set[str]:

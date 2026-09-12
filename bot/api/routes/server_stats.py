@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from api.dependencies import get_bot
 from utils import feature_audit
-from utils import premium_store
+from utils import feature_gates
 from utils import server_stats_store as store
 
 if TYPE_CHECKING:
@@ -24,14 +24,9 @@ def _guild_or_404(bot, guild_id: int):
     return guild
 
 
-def _has_premium(user_id: str) -> bool:
-    if not str(user_id).isdigit():
-        return False
-    try:
-        return bool(premium_store.status(user_id).get("premium"))
-    except Exception:
-        return False
-
+def _has_premium(guild_id: int, *, configure: bool = False) -> bool:
+    return (feature_gates.can_configure_premium_guild(guild_id) if configure
+            else feature_gates.is_premium_guild(guild_id))
 
 def _payload(guild, settings: dict, *, premium: bool) -> dict:
     members = list(getattr(guild, "members", ()) or ())
@@ -76,7 +71,7 @@ async def get_settings(
     guild_id: int, actor: str = "", bot: "universitybot" = Depends(get_bot)
 ):
     guild = _guild_or_404(bot, guild_id)
-    premium = _has_premium(actor)
+    premium = _has_premium(guild_id)
     return _payload(guild, await store.get(guild_id), premium=premium)
 
 
@@ -91,7 +86,7 @@ async def patch_settings(
         raise HTTPException(400, "Keine Server-Stats-Einstellung übermittelt.")
 
     actor = str(data.get("actor") or "")
-    premium = _has_premium(actor)
+    premium = _has_premium(guild_id, configure=True)
     if not premium and any(
         updates.get(f"{kind}_enabled") for kind in store.PREMIUM_KINDS
     ):

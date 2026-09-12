@@ -33,8 +33,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle, Ban, CheckCircle2, ChevronDown, Clock, Crown, Gift,
-  Infinity as InfinityIcon, KeyRound, Plus, RefreshCw, Search,
-  Sparkles, Timer, Users, X, Server,
+  KeyRound, Plus, RefreshCw, Search,
+  Sparkles, Timer, Users, X,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -42,9 +42,9 @@ import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { CountUp, Reveal } from "@/components/ui/reveal";
 import { PremiumTrials } from "@/components/dashboard/premium-trials";
+import { PremiumRequestsAdmin } from "@/components/dashboard/premium-requests-admin";
 import { PremiumKeys } from "@/components/dashboard/premium-keys";
 import { PremiumCodes } from "@/components/dashboard/premium-codes";
-import { PremiumGuilds } from "@/components/dashboard/premium-guilds";
 
 /* ── Typen ─────────────────────────────────────────────────────────── */
 
@@ -154,7 +154,7 @@ export function PremiumAdmin() {
   const [laedt, setLaedt] = useState(true);
   const [beschaeftigt, setBeschaeftigt] = useState(false);
 
-  const [bereich, setBereich] = useState<Bereich>("codes");
+  const [bereich, setBereich] = useState<Bereich>("konten");
   const [filter, setFilter] = useState<Filter>("alle");
   const [suche, setSuche] = useState("");
   const [offen, setOffen] = useState<string | null>(null);
@@ -212,19 +212,15 @@ export function PremiumAdmin() {
       return;
     }
     const t = Number(tage);
-    if (!Number.isFinite(t) || t < 0) {
-      toast.error("Die Laufzeit muss eine Zahl sein. 0 heißt unbegrenzt.");
+    if (![30, 90, 365].includes(t)) {
+      toast.error("Wähle ein Paket mit 30, 90 oder 365 Tagen.");
       return;
     }
 
     setBeschaeftigt(true);
     try {
       await api.grantPremiumAccount(id, t, notiz.trim());
-      toast.success(
-        t === 0
-          ? "Premium vergeben — unbegrenzt."
-          : `Premium vergeben — ${t} Tage.`
-      );
+      toast.success(`Premium vergeben — ${t} Tage.`);
       setEmpfaenger("");
       setNotiz("");
       setZeigeVergabe(false);
@@ -272,15 +268,12 @@ export function PremiumAdmin() {
   ];
 
   const BEREICHE: Array<{ id: Bereich; label: string; text: string; icon: any; color: string; active: string }> = [
-    { id: "codes", label: "Codes", text: "Verlosungen", icon: KeyRound, color: "text-amber-400", active: "border-amber-400/25 bg-amber-400/10" },
-    { id: "konten", label: "Konten", text: "Premium verwalten", icon: Crown, color: "text-violet-400", active: "border-violet-400/25 bg-violet-400/10" },
-    { id: "server", label: "Server", text: "Server-Premium", icon: Server, color: "text-amber-400", active: "border-amber-400/25 bg-amber-400/10" },
-    { id: "probewochen", label: "Probewochen", text: "Testzugänge", icon: Gift, color: "text-sky-400", active: "border-sky-400/25 bg-sky-400/10" },
-    { id: "archiv", label: "Lizenz-Keys", text: "Altes System", icon: Clock, color: "text-slate-400", active: "border-slate-600 bg-slate-700/20" },
+    { id: "konten", label: "Konten", text: "Pakete, Laufzeiten und feste Serverplätze", icon: Crown, color: "text-violet-400", active: "border-violet-400/25 bg-violet-400/10" },
   ];
 
   return (
     <div className="space-y-5">
+      <PremiumRequestsAdmin />
       <section className="overflow-hidden rounded-3xl border border-slate-800 bg-[#111116]">
         <div className="flex flex-col gap-4 border-b border-slate-800 px-5 py-5 sm:flex-row sm:items-center sm:px-6">
           <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl border border-amber-400/20 bg-amber-400/10">
@@ -307,7 +300,6 @@ export function PremiumAdmin() {
       </section>
 
       {bereich === "codes" && <PremiumCodes />}
-      {bereich === "server" && <PremiumGuilds />}
 
       {bereich === "konten" && <>
       {/* ── Die Zahlen ──────────────────────────────────────────── */}
@@ -322,11 +314,6 @@ export function PremiumAdmin() {
             ton="gold"
           />
           <Zahl icon={Crown} wert={zahlen?.active ?? 0} label="Mit Premium" />
-          <Zahl
-            icon={InfinityIcon}
-            wert={zahlen?.lifetime ?? 0}
-            label="Unbegrenzt"
-          />
           <Zahl icon={Gift} wert={zahlen?.trials ?? 0} label="Probewoche" />
           <Zahl
             icon={Users}
@@ -417,14 +404,17 @@ export function PremiumAdmin() {
                 </div>
                 <div>
                   <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500">
-                    Tage — 0 = unbegrenzt
+                    Laufzeitpaket
                   </label>
-                  <input
+                  <select
                     value={tage}
                     onChange={(e) => setTage(e.target.value)}
                     className={cn(INPUT, "mt-1.5")}
-                    inputMode="numeric"
-                  />
+                  >
+                    <option value="30">30 Tage</option>
+                    <option value="90">90 Tage</option>
+                    <option value="365">365 Tage</option>
+                  </select>
                 </div>
               </div>
 

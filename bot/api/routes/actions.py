@@ -24,7 +24,6 @@ from api.dependencies import get_bot
 from utils.panels import Panel, ACCENT
 from utils import feature_audit, feature_gates
 from utils import custom_commands as custom_command_store
-from utils import premium_store
 from utils.panels import from_embed
 from utils.links import dashboard_url
 from utils.emoji import TICK
@@ -731,10 +730,14 @@ async def cancel_giveaway(guild_id: int, message_id: int, actor: str = ""):
 
 
 def _custom_commands_premium(guild_id: int, actor: str = "") -> bool:
-    """Premium may come from the server grant or the signed-in account."""
-    if feature_gates.is_premium_guild(guild_id):
-        return True
-    return bool(actor and actor.isdigit() and premium_store.status(actor).get("premium"))
+    """Premium comes exclusively from this server's fixed account slot."""
+    return feature_gates.is_premium_guild(guild_id)
+
+
+def _require_custom_commands_writable(guild_id: int) -> None:
+    if (feature_gates.is_premium_guild(guild_id)
+            and not feature_gates.can_configure_premium_guild(guild_id)):
+        raise HTTPException(status_code=423, detail="Premium ist abgelaufen. Die Custom Commands sind eingefroren.")
 
 
 async def _refresh_custom_commands(bot, guild_id: int):
@@ -783,6 +786,7 @@ async def browse_custom_command_marketplace(guild_id: int, category: str = "", q
 @router.post("/{guild_id}/custom-commands/{name}/publish", summary="Publish a command")
 async def publish_custom_command(guild_id: int, name: str, data: dict,
                                  bot: "universitybot" = Depends(get_bot)):
+    _require_custom_commands_writable(guild_id)
     description = str(data.get("description", "")).strip()
     category = str(data.get("category", "Sonstiges"))
     screenshots = [str(url).strip() for url in data.get("screenshots", []) if str(url).strip()][:4]
@@ -808,6 +812,7 @@ async def publish_custom_command(guild_id: int, name: str, data: dict,
 
 @router.delete("/{guild_id}/custom-commands/{name}/publish", summary="Remove a marketplace listing")
 async def unpublish_custom_command(guild_id: int, name: str):
+    _require_custom_commands_writable(guild_id)
     db = await custom_command_store.connect()
     try:
         cursor = await db.execute(
@@ -825,6 +830,7 @@ async def unpublish_custom_command(guild_id: int, name: str):
 @router.post("/{guild_id}/custom-commands/marketplace/{listing_id}/import", summary="Import a marketplace command")
 async def import_marketplace_command(guild_id: int, listing_id: int, data: dict,
                                      bot: "universitybot" = Depends(get_bot)):
+    _require_custom_commands_writable(guild_id)
     actor = str(data.get("actor", "dashboard"))
     db = await custom_command_store.connect()
     try:
@@ -867,6 +873,7 @@ async def import_marketplace_command(guild_id: int, listing_id: int, data: dict,
 async def save_custom_command(
     guild_id: int, data: dict, bot: "universitybot" = Depends(get_bot)
 ):
+    _require_custom_commands_writable(guild_id)
     name = custom_command_store.normalise_name(data.get("name", ""))
     response = str(data.get("response", "")).strip()
     actor = str(data.get("actor", "dashboard"))
@@ -956,6 +963,7 @@ async def save_custom_command(
 async def delete_custom_command(
     guild_id: int, name: str, actor: str = "", bot: "universitybot" = Depends(get_bot)
 ):
+    _require_custom_commands_writable(guild_id)
     clean = custom_command_store.normalise_name(name)
     db = await custom_command_store.connect()
     try:

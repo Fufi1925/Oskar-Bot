@@ -238,6 +238,12 @@ export default function DashboardLayout({
           name: "Design",
           items: [
             {
+              name: "Premium",
+              href: `/dashboard/guild/${currentGuildId}/premium`,
+              icon: Crown,
+              highlight: true,
+            },
+            {
               name: "Design",
               href: `/dashboard/guild/${currentGuildId}/design`,
               icon: Palette,

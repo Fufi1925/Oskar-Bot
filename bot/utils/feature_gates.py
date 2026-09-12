@@ -90,36 +90,27 @@ _premium_expiry: dict[int, int | None] = {}
 
 
 async def refresh_premium_guilds() -> None:
-    """Load the premium guild allowlist (table is optional)."""
-    guilds: set[int] = set()
-    expiry: dict[int, int | None] = {}
+    """Load runtime guild entitlements from the three-slot Premium system."""
     try:
-        async with aiosqlite.connect("db/admin_config.db") as db:
-            await db.execute(
-                "CREATE TABLE IF NOT EXISTS premium_guilds ("
-                " guild_id INTEGER PRIMARY KEY, granted_at INTEGER)"
-            )
-            try:
-                await db.execute("ALTER TABLE premium_guilds ADD COLUMN expires_at INTEGER")
-            except Exception:
-                pass
-            await db.commit()
-            async with db.execute(
-                "SELECT guild_id, expires_at FROM premium_guilds WHERE expires_at IS NULL OR expires_at > ?",
-                (int(time.time()),),
-            ) as cursor:
-                async for row in cursor:
-                    guild_id = int(row[0])
-                    guilds.add(guild_id)
-                    expiry[guild_id] = int(row[1]) if row[1] is not None else None
+        from utils import premium_membership
+        guilds, expiry = premium_membership.runtime_guilds()
     except Exception as exc:
         print(f"[feature_gates] premium refresh failed: {exc}")
         return
-
     _premium_guilds.clear()
     _premium_guilds.update(guilds)
     _premium_expiry.clear()
     _premium_expiry.update(expiry)
+
+
+def can_configure_premium_guild(guild_id: int | None) -> bool:
+    if guild_id is None:
+        return False
+    try:
+        from utils import premium_membership
+        return premium_membership.configurable_guild(int(guild_id))
+    except Exception:
+        return False
 
 
 def is_premium_guild(guild_id: int | None) -> bool:
@@ -128,6 +119,14 @@ def is_premium_guild(guild_id: int | None) -> bool:
     guild_id = int(guild_id)
     expires = _premium_expiry.get(guild_id)
     if expires is not None and expires <= int(time.time()):
+        try:
+            from utils import premium_membership
+            state = premium_membership.guild_status(guild_id)
+            if state.get("runtime"):
+                _premium_expiry[guild_id] = None
+                return True
+        except Exception:
+            pass
         _premium_guilds.discard(guild_id)
         _premium_expiry.pop(guild_id, None)
         return False

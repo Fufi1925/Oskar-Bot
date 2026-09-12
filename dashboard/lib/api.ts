@@ -595,6 +595,13 @@ export const api = {
    * that is actually signed in.
    */
   getMyPremium: (userId: string) => request<any>(`/premium/me/${userId}`),
+  requestPremiumPurchase: (durationDays: number) => request<any>("/premium/purchase-request", { method: "POST", body: JSON.stringify({ duration_days: durationDays }) }),
+  assignPremiumSlot: (guildId: string) => request<any>("/premium/slots/assign", { method: "POST", body: JSON.stringify({ guild_id: guildId }) }),
+  getServerPremium: (guildId: string) => request<any>(`/premium/server/${guildId}`),
+  setServerPremiumExpiryAction: (guildId: string, action: "keep" | "disable") => request<any>(`/premium/server/${guildId}/expiry-action`, { method: "POST", body: JSON.stringify({ action }) }),
+  dismissPremiumNotice: () => request<any>("/premium/notice/dismiss", { method: "POST", body: "{}" }),
+  getPremiumV2Accounts: () => request<any>("/premium/accounts-v2"),
+  decidePremiumRequest: (requestId: number, approve: boolean) => request<any>(`/premium/requests/${requestId}/decide`, { method: "POST", body: JSON.stringify({ approve }) }),
   // Die Kontenuebersicht des Admin-Bereichs: eine Zeile je KONTO,
   // nicht je Key. Ein Konto kann mehrere Keys haben.
   listPremiumAccounts: (limit = 300) =>

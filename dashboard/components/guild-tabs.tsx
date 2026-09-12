@@ -121,6 +121,7 @@ function buildGroups(t: TranslateFn): Group[] {
       name: "Design",
       icon: Palette,
       tabs: [
+        { name: "Premium", slug: "premium", icon: Gem, also: ["premium", "laufzeit", "ablauf", "serverplatz"] },
         { name: "Design", slug: "design", icon: Palette, also: ["design", "aussehen", "name", "banner", "avatar", "profilbild", "premium"] },
         {
           name: "Backup",

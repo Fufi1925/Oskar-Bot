@@ -36,7 +36,7 @@ import aiohttp
 from fastapi import APIRouter, Depends, HTTPException
 
 from api.dependencies import get_bot
-from utils import premium_store as store
+from utils import feature_gates
 from utils import speedrun_access as access
 from utils import speedrun_handover as handover
 
@@ -165,27 +165,9 @@ def _why_unreachable(exc: Exception, url: str) -> str:
     return f"Template-Bot nicht erreichbar ({url}): {exc}"
 
 
-def _has_premium(user_id: str) -> bool:
-    """Hat dieses Konto Premium?
-
-    Hier stand `state.get("active")`. Diesen Schluessel liefert
-    `status()` nicht -- er heisst `premium`. `dict.get` auf einen
-    fehlenden Schluessel ergibt None, also galt JEDER als
-    Nicht-Premium, auch wer bezahlt hatte. Nachgemessen in
-    `repro/bug_speedrun_premium.py`.
-
-    Seit der Zusammenlegung gibt es nur noch ein Produkt: dasselbe
-    Premium gilt fuer Haupt- und Template-Bot.
-    """
-    if not user_id:
-        return False
-    try:
-        state = store.status(user_id)
-        return bool(state.get("premium"))
-    except Exception:
-        # Im Zweifel kein Premium: eine kaputte Abfrage darf niemandem
-        # etwas freischalten, das er nicht bezahlt hat.
-        return False
+def _has_premium(guild_id: int) -> bool:
+    """Speedrun is available only on an actively assigned Premium server."""
+    return feature_gates.can_configure_premium_guild(guild_id)
 
 
 # --------------------------------------------------------------------- #
@@ -241,7 +223,7 @@ async def precheck(
     except HTTPException as exc:
         template_detail = str(exc.detail)
 
-    premium = _has_premium(str(user_id or ""))
+    premium = _has_premium(guild_id)
 
     ready = main_present and main_can_manage and template_present
 
@@ -295,7 +277,7 @@ async def templates(user_id: str = ""):
             detail=str(body.get("error") or f"Template-Bot: HTTP {status_code}"),
         )
 
-    premium = _has_premium(str(user_id or ""))
+    premium = _has_premium(guild_id)
     items = []
     for entry in body.get("templates", []):
         key = str(entry.get("key") or "")
@@ -367,7 +349,7 @@ async def access_state(guild_id: int, actor: str = ""):
     """
 
     state = access.state(guild_id)
-    premium = _has_premium(str(actor or ""))
+    premium = _has_premium(guild_id)
 
     return {
         # Ein Bann sticht Premium: sonst koennte sich ein gesperrter
@@ -441,7 +423,7 @@ def _require_unlocked(guild_id: int, user_id: str = "") -> None:
             ),
         )
 
-    if not _has_premium(str(user_id or "")):
+    if not _has_premium(guild_id):
         raise HTTPException(
             status_code=403,
             detail=(

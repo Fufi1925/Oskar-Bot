@@ -277,6 +277,20 @@ def status(user_id: int | str, product: str = PRODUCT) -> dict[str, Any]:
     This is what the template bot asks. An expired or revoked key counts
     as no premium, but the row stays so history is not lost.
     """
+    # Premium v2 is account membership plus three fixed server slots. Legacy
+    # keys stay in the database only as history and no longer grant access.
+    from utils import premium_membership
+    current = premium_membership.account_status(user_id)
+    return {
+        **current,
+        "product": normalise_product(product),
+        "lifetime": False,
+        "via_trial": False,
+        "via_tester": False,
+        "trial": None,
+    }
+
+    # Legacy implementation retained below for database-history tooling.
     ensure()
     product = normalise_product(product)
     user_id = str(user_id)
@@ -540,6 +554,9 @@ def premium_user_ids(product: str = PRODUCT) -> set[str]:
     Used to decide who should hold the premium role. Expired and revoked
     rows drop out here, which is what makes the role come off again.
     """
+    from utils import premium_membership
+    return premium_membership.active_user_ids()
+
     ensure()
     product = normalise_product(product)
     now = int(time.time())
