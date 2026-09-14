@@ -16,9 +16,18 @@ def main():
         # Removing the allow rule restores the block.
         fw.delete_rule(next(r["id"] for r in fw.rules() if r["kind"]=="allow"))
         assert fw.evaluate("203.0.113.22","GET","/api/x")["allowed"] is False
+        # Authenticated owners and bot-local API calls are never counted or blocked.
+        assert fw.evaluate("203.0.113.22","GET","/dashboard",actor_id="1",actor_is_owner=True)["reason"]=="owner_bypass"
+        assert fw.evaluate("203.0.113.22","GET","/templates",trusted_internal=True)["reason"]=="trusted_internal"
         # Deterministic burst detection creates a temporary reversible rule.
         fw.update_settings({"requests_per_minute":100,"burst_10_seconds":2,"auto_block_minutes":3})
         ip="198.51.100.4"
+        # Two complete bursts only raise alarms; the third confirmation blocks.
+        for confirmation in (1,2):
+            assert fw.evaluate(ip,"GET","/api/x")["allowed"]
+            assert fw.evaluate(ip,"GET","/api/x")["allowed"]
+            alarm=fw.evaluate(ip,"GET","/api/x")
+            assert alarm["allowed"] and alarm["reason"]=="rate_alarm" and alarm["confirmations"]==confirmation
         assert fw.evaluate(ip,"GET","/api/x")["allowed"]
         assert fw.evaluate(ip,"GET","/api/x")["allowed"]
         attacked=fw.evaluate(ip,"GET","/api/x")

@@ -53,4 +53,9 @@ async def analyze_attack(event_id:int):
 
 @router.post("/check")
 async def check_request(data:dict):
-    return firewall.evaluate(str(data.get("ip") or "unknown"),str(data.get("method") or "GET"),str(data.get("path") or "/"),str(data.get("user_agent") or ""),str(data.get("country") or ""))
+    return firewall.evaluate(
+        str(data.get("ip") or "unknown"),str(data.get("method") or "GET"),
+        str(data.get("path") or "/"),str(data.get("user_agent") or ""),
+        str(data.get("country") or ""),str(data.get("actor_id") or ""),
+        bool(data.get("actor_is_owner")),False,
+    )

@@ -17,6 +17,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { withAuth } from "next-auth/middleware";
+import { getToken } from "next-auth/jwt";
 
 import {
   BYPASS_COOKIE,
@@ -246,10 +247,13 @@ async function firewallGate(request: NextRequest): Promise<NextResponse | null> 
   if (!key) return null;
   const ip = (request.headers.get("x-forwarded-for") || "unknown").split(",")[0].trim();
   try {
+    const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET || key });
+    const actorId = String(token?.sub || "");
+    const ownerIds=(process.env.ADMIN_IDS || process.env.OWNER_IDS || process.env.NEXT_PUBLIC_ADMIN_IDS || "").split(",").map(v=>v.trim());
     const response = await fetch(`${API_BASE_URL}/firewall/check`, {
       method: "POST", cache: "no-store", signal: AbortSignal.timeout(1500),
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}`, "X-Firewall-Client-IP": ip },
-      body: JSON.stringify({ ip, method: request.method, path, user_agent: request.headers.get("user-agent") || "", country: request.headers.get("cf-ipcountry") || request.headers.get("x-vercel-ip-country") || "" }),
+      body: JSON.stringify({ ip, method: request.method, path, user_agent: request.headers.get("user-agent") || "", country: request.headers.get("cf-ipcountry") || request.headers.get("x-vercel-ip-country") || "", actor_id: actorId, actor_is_owner: ownerIds.includes(actorId) }),
     });
     if (!response.ok) return null;
     const decision = await response.json() as { allowed?: boolean; reason?: string };

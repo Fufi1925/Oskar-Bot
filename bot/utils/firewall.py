@@ -17,10 +17,12 @@ DB_PATH = os.path.join("db", "firewall.db")
 RETENTION_SECONDS = 90 * 86400
 _lock = threading.RLock()
 _hits: dict[str, deque[float]] = defaultdict(deque)
+_strikes: dict[str, tuple[int, float]] = {}
 
 DEFAULTS = {
-    "enabled": "1", "requests_per_minute": "180", "burst_10_seconds": "60",
-    "auto_block_minutes": "30", "emergency_mode": "0", "emergency_rpm": "30",
+    "enabled": "1", "requests_per_minute": "600", "burst_10_seconds": "150",
+    "auto_block_minutes": "30", "emergency_mode": "0", "emergency_rpm": "60",
+    "safety_profile_version": "2",
     "block_bad_bots": "1", "country_blocklist": "", "protected_paths": "/api/,/dashboard",
 }
 
@@ -50,8 +52,15 @@ def ensure() -> None:
         CREATE INDEX IF NOT EXISTS firewall_events_created ON firewall_events(created_at DESC);
         CREATE INDEX IF NOT EXISTS firewall_events_ip ON firewall_events(ip,created_at DESC);
         """)
+        old_profile=db.execute("SELECT value FROM firewall_settings WHERE key='safety_profile_version'").fetchone()
         for key, value in DEFAULTS.items():
             db.execute("INSERT OR IGNORE INTO firewall_settings(key,value) VALUES(?,?)", (key,value))
+        # One-time repair for the first profile, whose browser limits were too
+        # strict behind shared mobile/CDN addresses. Preserve genuinely custom values.
+        if old_profile is None:
+            db.execute("UPDATE firewall_settings SET value='600' WHERE key='requests_per_minute' AND value='180'")
+            db.execute("UPDATE firewall_settings SET value='150' WHERE key='burst_10_seconds' AND value='60'")
+            db.execute("UPDATE firewall_settings SET value='60' WHERE key='emergency_rpm' AND value='30'")
         db.execute("DELETE FROM firewall_events WHERE created_at<?", (int(time.time())-RETENTION_SECONDS,))
         db.execute("DELETE FROM firewall_rules WHERE expires_at IS NOT NULL AND expires_at<=?", (int(time.time()),))
 
@@ -126,9 +135,19 @@ def log_event(ip:str,method:str,path:str,user_agent:str,country:str,category:str
         return int(cur.lastrowid)
 
 
-def evaluate(ip:str,method:str,path:str,user_agent:str="",country:str="") -> dict[str,Any]:
+def _configured_owner(actor_id: str) -> bool:
+    raw=",".join((os.getenv("OWNER_IDS", ""),os.getenv("ADMIN_IDS", ""),os.getenv("BOT_OWNER_IDS", "")))
+    return bool(actor_id and actor_id in {item.strip() for item in raw.split(",") if item.strip()})
+
+
+def evaluate(ip:str,method:str,path:str,user_agent:str="",country:str="",actor_id:str="",actor_is_owner:bool=False,trusted_internal:bool=False) -> dict[str,Any]:
     cfg=settings(); now=time.time(); ip=ip or "unknown"; ua=user_agent.lower(); country=country.upper()
     if not cfg["enabled"]: return {"allowed":True,"reason":"disabled"}
+    # Bot-internal traffic and authenticated owner accounts are never put into
+    # hit counters and can never be blocked by IP/CIDR, country or scanner rules.
+    if trusted_internal: return {"allowed":True,"reason":"trusted_internal"}
+    if actor_is_owner or _configured_owner(str(actor_id)):
+        return {"allowed":True,"reason":"owner_bypass"}
     active=rules()
     if any(r["kind"]=="allow" and _matches_ip(ip,r["value"]) for r in active): return {"allowed":True,"reason":"allowlist"}
     blocked_rule=next((r for r in active if r["kind"]=="block" and _matches_ip(ip,r["value"])),None)
@@ -152,10 +171,19 @@ def evaluate(ip:str,method:str,path:str,user_agent:str="",country:str="") -> dic
             per_min=len(q); burst=sum(1 for stamp in q if stamp>=now-10)
         limit=cfg["emergency_rpm"] if cfg["emergency_mode"] else cfg["requests_per_minute"]
         if per_min>limit or burst>cfg["burst_10_seconds"]:
+            with _lock:
+                previous,last=_strikes.get(ip,(0,0.0))
+                confirmations=(previous if last>=now-300 else 0)+1
+                _strikes[ip]=(confirmations,now)
+                q.clear()  # require another complete burst, not the next request
+            if confirmations<3:
+                event=log_event(ip,method,path,user_agent,country,"rate_alarm","high",0,per_min,False,note=f"burst={burst}; confirmation={confirmations}/3")
+                return {"allowed":True,"reason":"rate_alarm","event_id":event,"confirmations":confirmations}
             expires=int(now)+cfg["auto_block_minutes"]*60
-            add_rule("block",ip,"Automatische Sperre nach Angriffserkennung",expires,"firewall")
-            event=log_event(ip,method,path,user_agent,country,"rate_attack","critical",429,per_min,True,note=f"burst={burst}")
-            return {"allowed":False,"status":429,"reason":"Angriff erkannt; IP vorübergehend gesperrt.","event_id":event}
+            add_rule("block",ip,"Automatische Sperre nach dreifach bestätigter Angriffserkennung",expires,"firewall")
+            event=log_event(ip,method,path,user_agent,country,"rate_attack","critical",429,per_min,True,note=f"burst={burst}; confirmation=3/3")
+            with _lock:_strikes.pop(ip,None)
+            return {"allowed":False,"status":429,"reason":"Mehrfach bestätigter Angriff erkannt; IP vorübergehend gesperrt.","event_id":event}
     return {"allowed":True,"reason":"ok"}
 
 

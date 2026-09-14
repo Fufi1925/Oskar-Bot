@@ -1666,6 +1666,8 @@ async function handler(request: NextRequest, context: { params: { path?: string[
 
   const session = await getServerSession(authOptions);
   const actorId = session?.user?.id;
+  if (actorId) headers["X-Firewall-Actor"] = String(actorId);
+  if (actorId && isGlobalAdmin(actorId)) headers["X-Firewall-Owner"] = "1";
 
   // ── Binaerer Upload: unveraendert durchreichen ─────────────────────
   //

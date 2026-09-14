@@ -2,6 +2,7 @@ from fastapi import FastAPI, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import asyncio
+import ipaddress
 import os, time, json, logging, httpx
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -287,11 +288,17 @@ def create_app() -> FastAPI:
         forwarded = request.headers.get("x-firewall-client-ip", "").strip()
         if not forwarded:
             forwarded = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
-        client_ip = forwarded or (request.client.host if request.client else "unknown")
+        peer_ip=request.client.host if request.client else "unknown"
+        client_ip = forwarded or peer_ip
+        try: trusted_internal=not forwarded and ipaddress.ip_address(peer_ip).is_loopback
+        except ValueError: trusted_internal=False
         decision = firewall.evaluate(
             client_ip, request.method, request.url.path,
             request.headers.get("user-agent", ""),
             request.headers.get("x-firewall-country", request.headers.get("cf-ipcountry", "")),
+            request.headers.get("x-firewall-actor", ""),
+            request.headers.get("x-firewall-owner", "") == "1",
+            trusted_internal,
         )
         if not decision.get("allowed"):
             return Response(
