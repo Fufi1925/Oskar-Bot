@@ -1222,6 +1222,13 @@ export const api = {
     }),
 
   // Monitoring & reports (backed by the feature flags)
+  getFirewallOverview: () => request<any>("/firewall/overview"),
+  updateFirewallSettings: (data: any) => request<any>("/firewall/settings", { method: "PATCH", body: JSON.stringify(data) }),
+  addFirewallRule: (data: any) => request<any>("/firewall/rules", { method: "POST", body: JSON.stringify(data) }),
+  deleteFirewallRule: (id: number) => request<any>(`/firewall/rules/${id}`, { method: "DELETE" }),
+  stopFirewallIncident: (id: number) => request<any>(`/firewall/incidents/${id}/stop`, { method: "POST", body: "{}" }),
+  analyzeFirewallIncident: (id: number) => request<any>(`/firewall/incidents/${id}/analyze`, { method: "POST", body: "{}" }),
+
   getAdminHealth: () => request<any>("/admin/health"),
   getAdminLogs: (limit = 100) => request<any>(`/admin/logs?limit=${limit}`),
   getAdminMetrics: () => request<any>("/admin/metrics"),

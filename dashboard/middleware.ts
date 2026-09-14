@@ -239,7 +239,31 @@ function needsAuth(pathname: string, method = "GET"): boolean {
   return pathname.startsWith("/dashboard") || pathname.startsWith("/api/bot");
 }
 
-export default function middleware(request: NextRequest, event: any) {
+async function firewallGate(request: NextRequest): Promise<NextResponse | null> {
+  const path = request.nextUrl.pathname;
+  if (path.startsWith("/_next/") || path === "/favicon.ico" || path === "/firewall-blocked") return null;
+  const key = process.env.DASHBOARD_API_KEY || "";
+  if (!key) return null;
+  const ip = (request.headers.get("x-forwarded-for") || "unknown").split(",")[0].trim();
+  try {
+    const response = await fetch(`${API_BASE_URL}/firewall/check`, {
+      method: "POST", cache: "no-store", signal: AbortSignal.timeout(1500),
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}`, "X-Firewall-Client-IP": ip },
+      body: JSON.stringify({ ip, method: request.method, path, user_agent: request.headers.get("user-agent") || "", country: request.headers.get("cf-ipcountry") || request.headers.get("x-vercel-ip-country") || "" }),
+    });
+    if (!response.ok) return null;
+    const decision = await response.json() as { allowed?: boolean; reason?: string };
+    if (decision.allowed !== false) return null;
+    if (path.startsWith("/api/")) return NextResponse.json({ detail: decision.reason || "Firewall block", firewall: true }, { status: 403 });
+    const blocked = new URL("/firewall-blocked", request.url);
+    blocked.searchParams.set("reason", (decision.reason || "Anfrage blockiert").slice(0, 180));
+    return NextResponse.rewrite(blocked);
+  } catch { return null; } // Firewall backend outages must not take the website down.
+}
+
+export default async function middleware(request: NextRequest, event: any) {
+  const firewallResponse = await firewallGate(request);
+  if (firewallResponse) return firewallResponse;
   // Maintenance first. withAuth sends anonymous visitors to the sign-in
   // page, so checking it second would bounce people to Discord to log
   // in during an outage rather than telling them the site is down.

@@ -207,6 +207,13 @@ async function authorize(
     };
   }
 
+  if (scope === "firewall") {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) return { ok: false, response: deny(401, "Not signed in.") };
+    if (!isGlobalAdmin(session.user.id)) return { ok: false, response: deny(403, "Owner access required.") };
+    return { ok: true };
+  }
+
   if (scope === "admin") {
     const action = rest[0] ?? "";
 
@@ -1650,6 +1657,12 @@ async function handler(request: NextRequest, context: { params: { path?: string[
 
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (API_KEY) headers.Authorization = `Bearer ${API_KEY}`;
+  const forwardedClient = (request.headers.get("x-forwarded-for") || "").split(",")[0].trim();
+  if (forwardedClient) headers["X-Firewall-Client-IP"] = forwardedClient;
+  const firewallCountry = request.headers.get("cf-ipcountry") || request.headers.get("x-vercel-ip-country") || "";
+  if (firewallCountry) headers["X-Firewall-Country"] = firewallCountry;
+  const browserAgent = request.headers.get("user-agent");
+  if (browserAgent) headers["User-Agent"] = browserAgent;
 
   const session = await getServerSession(authOptions);
   const actorId = session?.user?.id;

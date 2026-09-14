@@ -47,9 +47,10 @@ import { CookieConsentsPanel } from "@/components/dashboard/cookie-consents-pane
 import { TrustedBotsPanel } from "@/components/dashboard/trusted-bots-panel";
 import { PrivacyErasureAdmin } from "@/components/dashboard/privacy-erasure-admin";
 import { TicketAiAdmin } from "@/components/dashboard/ticket-ai-admin";
+import { FirewallPanel } from "@/components/dashboard/firewall-panel";
 
 
-type TabId = "members" | "channels" | "server" | "scans" | "broadcast" | "system" | "features" | "health" | "team" | "access" | "reports" | "audit" | "approvals" | "botsettings" | "backups" | "warnings" | "usage" | "dashusers" | "servers" | "premium" | "speedrun" | "tester" | "pingreactions" | "templates" | "userlookup" | "webapply" | "cookies" | "privacy" | "trustedbots" | "designunlock" | "beta" | "ideas" | "ticketai";
+type TabId = "members" | "channels" | "server" | "scans" | "broadcast" | "system" | "features" | "health" | "team" | "access" | "reports" | "audit" | "approvals" | "botsettings" | "backups" | "warnings" | "usage" | "dashusers" | "servers" | "premium" | "speedrun" | "tester" | "pingreactions" | "templates" | "userlookup" | "webapply" | "cookies" | "privacy" | "trustedbots" | "designunlock" | "beta" | "ideas" | "ticketai" | "firewall";
 type MemberAction = "ban" | "kick" | "mute" | "unmute";
 
 type QuickAction = {
@@ -70,6 +71,7 @@ const tabs: Array<{ id: TabId; label: string; icon: any }> = [
   { id: "system", label: "System", icon: Wrench },
   { id: "features", label: "Funktionen", icon: Settings },
   { id: "health", label: "Zustand", icon: Activity },
+  { id: "firewall", label: "Firewall", icon: ShieldAlert },
   { id: "team", label: "Team", icon: Users },
   { id: "dashusers", label: "Dashboard-Nutzer", icon: UserCog },
   { id: "userlookup", label: "Nutzer suchen", icon: UserSearch },
@@ -177,7 +179,7 @@ const TAB_GROUPS: TabGroup[] = [
   // Globales Verhalten und automatische Bot-Reaktionen.
   { name: "Bot & Automationen", shortName: "Bot", icon: Settings, ids: ["features", "botsettings", "pingreactions", "trustedbots"], color: "text-indigo-400", iconBg: "bg-indigo-500/10", active: "border-indigo-500/25 bg-indigo-500/10" },
   // Datenschutz, Wiederherstellung und geschützte Freigaben.
-  { name: "Daten & Sicherheit", shortName: "Sicherheit", icon: Lock, ids: ["backups", "privacy", "cookies", "designunlock"], color: "text-emerald-400", iconBg: "bg-emerald-500/10", active: "border-emerald-500/25 bg-emerald-500/10" },
+  { name: "Daten & Sicherheit", shortName: "Sicherheit", icon: Lock, ids: ["firewall", "backups", "privacy", "cookies", "designunlock"], color: "text-emerald-400", iconBg: "bg-emerald-500/10", active: "border-emerald-500/25 bg-emerald-500/10" },
   // Produkte und Leistungen, die direkt für Nutzer oder Server angeboten werden.
   { name: "Premium & Produkte", shortName: "Produkte", icon: Gem, ids: ["premium", "ticketai", "templates", "speedrun"], color: "text-fuchsia-400", iconBg: "bg-fuchsia-500/10", active: "border-fuchsia-500/25 bg-fuchsia-500/10" },
 ];
@@ -282,7 +284,7 @@ const quickActions: QuickAction[] = [
 ];
 /** Tabs that render on their own, without the input sidebar. */
 const FULL_WIDTH_TABS = new Set<TabId>([
-  "features", "health", "team", "access",
+  "features", "health", "firewall", "team", "access",
   "reports", "audit", "approvals", "botsettings", "backups", "warnings", "usage",
   "dashusers", "userlookup", "servers", "premium", "ticketai", "speedrun", "tester", "templates",
   "webapply", "ideas", "cookies", "privacy", "trustedbots",
@@ -457,6 +459,7 @@ export function AdminContent() {
     system: "maintenance.toggle",
     features: "features.view",
     health: "health.view",
+    firewall: "owners.manage",
     team: "team.view",
     dashusers: "team.view",
     servers: "guild.view",
@@ -866,6 +869,7 @@ export function AdminContent() {
       {/* Features and Health are full-width: they have no input sidebar. */}
       {activeTab === "features" && <FeatureFlagsPanel />}
       {activeTab === "health" && <SystemHealthPanel />}
+      {activeTab === "firewall" && <FirewallPanel />}
       {activeTab === "team" && <TeamPanel />}
       {activeTab === "premium" && <PremiumAdmin />}
       {activeTab === "ticketai" && <TicketAiAdmin />}

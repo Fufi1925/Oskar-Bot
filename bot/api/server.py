@@ -8,7 +8,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from starlette.responses import Response, RedirectResponse
 from utils.config import *
-from api.routes import bot, guilds, admin, team, moderation, actions, access, guild_access, servers, servertools, server_stats, tickets, giveaways, leveling, vanity, broadcast, anonchat, diagnose, compose, nukealert, memberperks, extras, voice, verify, automod, logging_cfg, antinuke, pingreactions, premium, privacy, cookies, speedrun, supportqueue, honeypot, design, beta, backup, tester, music, templates, teamlist, applications, teamupdate, webapply, ideas, commands as commands_route
+from api.routes import bot, guilds, admin, team, moderation, actions, access, guild_access, servers, servertools, server_stats, tickets, giveaways, leveling, vanity, broadcast, anonchat, diagnose, compose, nukealert, memberperks, extras, voice, verify, automod, logging_cfg, antinuke, pingreactions, premium, privacy, cookies, speedrun, supportqueue, honeypot, design, beta, backup, tester, music, templates, teamlist, applications, teamupdate, webapply, ideas, firewall as firewall_route, commands as commands_route
 from api.dependencies import verify_api_key, limiter, get_bot_loop, get_bot, run_on_bot_loop
 from api.db_manager import db_manager
 from api.schema_guard import ensure_schema
@@ -17,6 +17,7 @@ from utils import feature_gates
 from utils import dashboard_roles
 from utils import dashboard_access
 from utils import premium_membership
+from utils import firewall
 from utils.feature_services import record_request
 
 logger = logging.getLogger("api_request_logs")
@@ -38,6 +39,11 @@ async def lifespan(app: FastAPI):
         await ensure_schema()
     except Exception as exc:
         logger.warning(f"Schema guard failed: {exc}")
+
+    try:
+        firewall.ensure()
+    except Exception as exc:
+        logger.warning(f"Firewall preload failed: {exc}")
 
     # One-time cut-over requested for Premium v2: old account/server grants
     # disappear, while every configured Premium feature remains untouched.
@@ -115,7 +121,7 @@ async def api_rate_limit(request: Request):
     from fastapi import HTTPException
 
     limit = RATE_LIMIT_BOOSTED if feature_flags.is_enabled("api_rate_limit_boost") else RATE_LIMIT_STANDARD
-    client_ip = request.client.host if request.client else "unknown"
+    client_ip = request.headers.get("x-firewall-client-ip", "").strip() or (request.client.host if request.client else "unknown")
     window = int(time.time() // 60)
     key = f"{client_ip}:{window}"
 
@@ -273,6 +279,28 @@ def create_app() -> FastAPI:
     # one registered on the parent never sees their exceptions.
     api_app.add_exception_handler(Exception, unhandled_exception_handler)
 
+    @api_app.middleware("http")
+    async def application_firewall(request: Request, call_next):
+        # Firewall administration/checking remains reachable for recovery.
+        if request.url.path.startswith("/firewall"):
+            return await call_next(request)
+        forwarded = request.headers.get("x-firewall-client-ip", "").strip()
+        if not forwarded:
+            forwarded = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+        client_ip = forwarded or (request.client.host if request.client else "unknown")
+        decision = firewall.evaluate(
+            client_ip, request.method, request.url.path,
+            request.headers.get("user-agent", ""),
+            request.headers.get("x-firewall-country", request.headers.get("cf-ipcountry", "")),
+        )
+        if not decision.get("allowed"):
+            return Response(
+                content=json.dumps({"detail": decision.get("reason"), "firewall": True}),
+                status_code=int(decision.get("status", 403)), media_type="application/json",
+                headers={"Retry-After": "60"} if int(decision.get("status", 403)) == 429 else None,
+            )
+        return await call_next(request)
+
     # ------------------------------------------------------------------
     # Run every API handler on the BOT's event loop.
     #
@@ -331,6 +359,7 @@ def create_app() -> FastAPI:
     api_app.include_router(ideas.router, prefix="/ideas", tags=["Ideas"])
     api_app.include_router(guilds.router, prefix="/guilds", tags=["Guilds"])
     api_app.include_router(admin.router, prefix="/admin", tags=["Admin"])
+    api_app.include_router(firewall_route.router, prefix="/firewall", tags=["Firewall"])
     api_app.include_router(team.router, prefix="/team", tags=["Team"])
     api_app.include_router(moderation.router, prefix="/moderation", tags=["Moderation"])
     api_app.include_router(actions.router, prefix="/actions", tags=["Actions"])
