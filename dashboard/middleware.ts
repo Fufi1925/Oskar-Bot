@@ -245,7 +245,7 @@ async function firewallGate(request: NextRequest): Promise<NextResponse | null> 
   if (path.startsWith("/_next/") || path === "/favicon.ico" || path === "/firewall-blocked") return null;
   const key = process.env.DASHBOARD_API_KEY || "";
   if (!key) return null;
-  const ip = (request.headers.get("x-forwarded-for") || "unknown").split(",")[0].trim();
+  const ip = (request.headers.get("cf-connecting-ip") || request.headers.get("x-real-ip") || (request.headers.get("x-forwarded-for") || "unknown").split(",")[0]).trim();
   try {
     const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET || key });
     const actorId = String(token?.sub || "");

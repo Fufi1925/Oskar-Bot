@@ -1226,6 +1226,9 @@ export const api = {
   updateFirewallSettings: (data: any) => request<any>("/firewall/settings", { method: "PATCH", body: JSON.stringify(data) }),
   addFirewallRule: (data: any) => request<any>("/firewall/rules", { method: "POST", body: JSON.stringify(data) }),
   deleteFirewallRule: (id: number) => request<any>(`/firewall/rules/${id}`, { method: "DELETE" }),
+  unbanFirewall: (data: any) => request<any>("/firewall/unban", { method: "POST", body: JSON.stringify(data) }),
+  inspectFirewall: (data: any) => request<any>("/firewall/inspect", { method: "POST", body: JSON.stringify(data) }),
+  getFirewallDiagnostics: () => request<any>("/firewall/diagnostics"),
   stopFirewallIncident: (id: number) => request<any>(`/firewall/incidents/${id}/stop`, { method: "POST", body: "{}" }),
   analyzeFirewallIncident: (id: number) => request<any>(`/firewall/incidents/${id}/analyze`, { method: "POST", body: "{}" }),
 

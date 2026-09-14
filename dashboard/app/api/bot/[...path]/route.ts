@@ -1657,7 +1657,7 @@ async function handler(request: NextRequest, context: { params: { path?: string[
 
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (API_KEY) headers.Authorization = `Bearer ${API_KEY}`;
-  const forwardedClient = (request.headers.get("x-forwarded-for") || "").split(",")[0].trim();
+  const forwardedClient = (request.headers.get("cf-connecting-ip") || request.headers.get("x-real-ip") || (request.headers.get("x-forwarded-for") || "").split(",")[0]).trim();
   if (forwardedClient) headers["X-Firewall-Client-IP"] = forwardedClient;
   const firewallCountry = request.headers.get("cf-ipcountry") || request.headers.get("x-vercel-ip-country") || "";
   if (firewallCountry) headers["X-Firewall-Country"] = firewallCountry;

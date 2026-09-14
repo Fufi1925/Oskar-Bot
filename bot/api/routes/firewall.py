@@ -26,7 +26,23 @@ async def create_rule(data:dict):
 @router.delete("/rules/{rule_id}")
 async def remove_rule(rule_id:int):
     if not firewall.delete_rule(rule_id):raise HTTPException(404,"Regel nicht gefunden.")
-    return {"status":"ok"}
+    return {"status":"ok","unblocked":True}
+
+@router.post("/unban")
+async def unban(data:dict):
+    try:removed=firewall.unban(str(data.get("kind") or ""),str(data.get("value") or ""))
+    except ValueError as exc:raise HTTPException(400,str(exc)) from exc
+    if not removed:raise HTTPException(404,"Keine passende aktive Sperre gefunden.")
+    return {"status":"ok","removed":removed,"unblocked":True}
+
+@router.post("/inspect")
+async def inspect_request(data:dict):
+    return firewall.inspect(str(data.get("ip") or ""),str(data.get("actor_id") or ""),str(data.get("user_agent") or ""),str(data.get("country") or ""),str(data.get("path") or "/"))
+
+@router.get("/diagnostics")
+async def diagnostics():
+    overview=firewall.overview()
+    return {"status":"healthy","database":"ok","engine":overview["engine"],"retention_days":overview["retention_days"],"active_rules":len(overview["rules"]),"internal_routes_exempt":True}
 
 @router.post("/incidents/{event_id}/stop")
 async def stop_attack(event_id:int,data:dict):
