@@ -33,6 +33,11 @@ def main():
         notice=fw.log_event("203.0.114.5","GET","/api/x","browser","DE","rate_alarm","high")
         assert fw.acknowledge_incident(notice,"owner")
         assert all(event["id"]!=notice for event in fw.events(50,True))
+        false_positive=fw.log_event("203.0.114.9","GET","/dashboard","browser","DE","rate_alarm","high")
+        trusted=fw.trust_incident(false_positive,"ip","owner")
+        assert trusted["rule"]["kind"]=="allow" and fw.inspect("203.0.114.9")["reason"]=="allowlist"
+        edited=fw.extend_rule(trusted["rule"]["id"],10,"reviewed")
+        assert edited["expires_at"] and edited["note"]=="reviewed"
         temporary=fw.add_rule("block","198.18.1.2",expires_at=int(time.time())+60)
         assert fw.bulk_unban("temporary")>=1 and fw.delete_rule(temporary["id"]) is False
         assert fw.apply_preset("safe")["auto_block_enabled"] is False

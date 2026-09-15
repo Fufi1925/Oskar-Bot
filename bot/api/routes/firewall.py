@@ -49,6 +49,16 @@ async def acknowledge(event_id:int,data:dict):
     if not firewall.acknowledge_incident(event_id,str(data.get("actor") or "dashboard")):raise HTTPException(404,"Offener Alarm nicht gefunden.")
     return {"status":"ok","acknowledged":True,"blocked":False}
 
+@router.post("/incidents/{event_id}/trust")
+async def trust_incident(event_id:int,data:dict):
+    try:return firewall.trust_incident(event_id,str(data.get("scope") or "ip"),str(data.get("actor") or "dashboard"))
+    except ValueError as exc:raise HTTPException(400,str(exc)) from exc
+
+@router.patch("/rules/{rule_id}")
+async def edit_rule(rule_id:int,data:dict):
+    try:return firewall.extend_rule(rule_id,int(data.get("minutes") or 0),data.get("note"))
+    except ValueError as exc:raise HTTPException(400,str(exc)) from exc
+
 @router.post("/operations/reset-counters")
 async def reset_counters(): return {"status":"ok",**firewall.reset_runtime_counters()}
 

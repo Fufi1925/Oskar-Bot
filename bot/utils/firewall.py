@@ -322,6 +322,42 @@ def acknowledge_incident(event_id:int,actor:str) -> bool:
         return db.execute("UPDATE firewall_events SET stopped_at=?,note=note||? WHERE id=? AND stopped_at IS NULL",(int(time.time()),f"; acknowledged by {actor}",int(event_id))).rowcount>0
 
 
+def trust_incident(event_id:int,scope:str,actor:str) -> dict[str,Any]:
+    """Mark a false positive safe and add an explicit reversible allow rule."""
+    ensure()
+    with _connect() as db:
+        row=db.execute("SELECT * FROM firewall_events WHERE id=?",(int(event_id),)).fetchone()
+        if not row:raise ValueError("Ereignis nicht gefunden.")
+    if scope=="ip":
+        value=str(row["ip"])
+        try:unban("block",value)
+        except ValueError:pass
+        rule=add_rule("allow",value,"Als Fehlalarm als sicher markiert",None,actor)
+    elif scope=="user":
+        value=str(row["actor_id"] or "")
+        if not value:raise ValueError("Dieses Ereignis enthält keine Discord-Nutzer-ID.")
+        try:unban("user_block",value)
+        except ValueError:pass
+        rule=add_rule("user_allow",value,"Als Fehlalarm als sicher markiert",None,actor)
+    else:raise ValueError("Unbekannter Vertrauensbereich.")
+    with _connect() as db:
+        db.execute("UPDATE firewall_events SET stopped_at=?,note=note||? WHERE id=?",(int(time.time()),f"; trusted {scope} by {actor}",int(event_id)))
+    reset_runtime_counters()
+    return {"trusted":True,"scope":scope,"value":value,"rule":rule}
+
+
+def extend_rule(rule_id:int,minutes:int,note:str|None=None) -> dict[str,Any]:
+    """Change a rule duration/note without replacing its identity."""
+    if minutes<0 or minutes>525600:raise ValueError("Ungültige Dauer.")
+    ensure(); expires=None if minutes==0 else int(time.time())+minutes*60
+    with _connect() as db:
+        row=db.execute("SELECT * FROM firewall_rules WHERE id=?",(int(rule_id),)).fetchone()
+        if not row:raise ValueError("Regel nicht gefunden.")
+        db.execute("UPDATE firewall_rules SET expires_at=?,note=? WHERE id=?",(expires,(row["note"] if note is None else str(note)[:300]),int(rule_id)))
+        updated=db.execute("SELECT * FROM firewall_rules WHERE id=?",(int(rule_id),)).fetchone()
+    return dict(updated)
+
+
 def reset_runtime_counters() -> dict[str,int]:
     """Forget volatile rate observations; persistent rules remain untouched."""
     with _lock:
