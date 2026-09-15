@@ -42,6 +42,11 @@ def main():
         assert edited["enabled"]==0 and edited["priority"]==7
         assert any(rule["id"]==edited["id"] for rule in fw.rules(True))
         assert all(rule["id"]!=edited["id"] for rule in fw.rules())
+        snapshot=fw.create_snapshot("before change","owner")
+        fw.update_settings({"requests_per_minute":4321})
+        restored=fw.restore_snapshot(snapshot["id"],"owner")
+        assert restored["restored"] and restored["settings"]["requests_per_minute"]!=4321
+        assert fw.snapshots() and fw.delete_snapshot(snapshot["id"])
         temporary=fw.add_rule("block","198.18.1.2",expires_at=int(time.time())+60)
         assert fw.bulk_unban("temporary")>=1 and fw.delete_rule(temporary["id"]) is False
         assert fw.apply_preset("safe")["auto_block_enabled"] is False

@@ -76,6 +76,23 @@ async def apply_preset(name:str):
 @router.get("/export")
 async def export_configuration(): return firewall.export_configuration()
 
+@router.get("/snapshots")
+async def list_snapshots(): return {"snapshots":firewall.snapshots(),"limit":30}
+
+@router.post("/snapshots")
+async def create_snapshot(data:dict):
+    return firewall.create_snapshot(str(data.get("name") or "Manuelle Sicherung"),str(data.get("actor") or "dashboard"))
+
+@router.post("/snapshots/{snapshot_id}/restore")
+async def restore_snapshot(snapshot_id:int,data:dict):
+    try:return firewall.restore_snapshot(snapshot_id,str(data.get("actor") or "dashboard"))
+    except (ValueError,TypeError) as exc:raise HTTPException(400,str(exc)) from exc
+
+@router.delete("/snapshots/{snapshot_id}")
+async def remove_snapshot(snapshot_id:int):
+    if not firewall.delete_snapshot(snapshot_id):raise HTTPException(404,"Sicherung nicht gefunden.")
+    return {"status":"ok"}
+
 @router.post("/incidents/{event_id}/stop")
 async def stop_attack(event_id:int,data:dict):
     try:return firewall.stop_incident(event_id,str(data.get("actor") or "dashboard"))

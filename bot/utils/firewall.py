@@ -8,6 +8,7 @@ Grok is not used anywhere in detection or enforcement.
 from __future__ import annotations
 
 import ipaddress
+import json
 import os
 import sqlite3
 import threading
@@ -65,6 +66,9 @@ def ensure() -> None:
           actor_id TEXT NOT NULL DEFAULT '',source TEXT NOT NULL DEFAULT 'external');
         CREATE INDEX IF NOT EXISTS firewall_events_created ON firewall_events(created_at DESC);
         CREATE INDEX IF NOT EXISTS firewall_events_ip ON firewall_events(ip,created_at DESC);
+        CREATE TABLE IF NOT EXISTS firewall_snapshots(
+          id INTEGER PRIMARY KEY AUTOINCREMENT,name TEXT NOT NULL,created_at INTEGER NOT NULL,
+          created_by TEXT NOT NULL DEFAULT '',settings_json TEXT NOT NULL,rules_json TEXT NOT NULL);
         """)
         columns={row[1] for row in db.execute("PRAGMA table_info(firewall_events)")}
         if "actor_id" not in columns: db.execute("ALTER TABLE firewall_events ADD COLUMN actor_id TEXT NOT NULL DEFAULT ''")
@@ -398,6 +402,49 @@ def apply_preset(name:str) -> dict[str,Any]:
     if name not in presets:raise ValueError("Unbekanntes Schutzprofil.")
     reset_runtime_counters()
     return update_settings(presets[name])
+
+
+def create_snapshot(name:str,actor:str) -> dict[str,Any]:
+    """Store a reversible configuration snapshot without security events."""
+    clean=(name or "Manuelle Sicherung").strip()[:80]
+    now=int(time.time()); cfg=settings(); saved_rules=rules(True)
+    with _connect() as db:
+        cur=db.execute("INSERT INTO firewall_snapshots(name,created_at,created_by,settings_json,rules_json) VALUES(?,?,?,?,?)",(clean,now,actor[:80],json.dumps(cfg,ensure_ascii=False),json.dumps(saved_rules,ensure_ascii=False)))
+        # Bounded storage: the newest 30 snapshots are enough for rollback.
+        db.execute("DELETE FROM firewall_snapshots WHERE id NOT IN (SELECT id FROM firewall_snapshots ORDER BY created_at DESC,id DESC LIMIT 30)")
+        row=db.execute("SELECT id,name,created_at,created_by FROM firewall_snapshots WHERE id=?",(cur.lastrowid,)).fetchone()
+    return dict(row)
+
+
+def snapshots() -> list[dict[str,Any]]:
+    ensure()
+    with _connect() as db:return [dict(row) for row in db.execute("SELECT id,name,created_at,created_by FROM firewall_snapshots ORDER BY created_at DESC,id DESC LIMIT 30")]
+
+
+def delete_snapshot(snapshot_id:int) -> bool:
+    ensure()
+    with _connect() as db:return db.execute("DELETE FROM firewall_snapshots WHERE id=?",(int(snapshot_id),)).rowcount>0
+
+
+def restore_snapshot(snapshot_id:int,actor:str) -> dict[str,Any]:
+    ensure()
+    with _connect() as db:row=db.execute("SELECT * FROM firewall_snapshots WHERE id=?",(int(snapshot_id),)).fetchone()
+    if not row:raise ValueError("Sicherung nicht gefunden.")
+    cfg=json.loads(row["settings_json"]); saved_rules=json.loads(row["rules_json"])
+    if not isinstance(cfg,dict) or not isinstance(saved_rules,list):raise ValueError("Sicherung ist beschädigt.")
+    create_snapshot("Automatisch vor Wiederherstellung",actor)
+    update_settings(cfg)
+    with _connect() as db:db.execute("DELETE FROM firewall_rules")
+    restored=0; now=int(time.time())
+    for item in saved_rules:
+        expires=item.get("expires_at")
+        if expires is not None and int(expires)<=now:continue
+        rule=add_rule(str(item.get("kind") or ""),str(item.get("value") or ""),str(item.get("note") or ""),int(expires) if expires is not None else None,actor)
+        remaining=0 if expires is None else max(1,int((int(expires)-now)/60))
+        extend_rule(rule["id"],remaining,str(item.get("note") or ""),bool(item.get("enabled",1)),int(item.get("priority",100)))
+        restored+=1
+    reset_runtime_counters()
+    return {"restored":True,"snapshot_id":int(snapshot_id),"rules_restored":restored,"settings":settings()}
 
 
 def export_configuration() -> dict[str,Any]:
