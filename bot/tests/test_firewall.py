@@ -38,6 +38,10 @@ def main():
         assert trusted["rule"]["kind"]=="allow" and fw.inspect("203.0.114.9")["reason"]=="allowlist"
         edited=fw.extend_rule(trusted["rule"]["id"],10,"reviewed")
         assert edited["expires_at"] and edited["note"]=="reviewed"
+        edited=fw.extend_rule(trusted["rule"]["id"],0,"paused",False,7)
+        assert edited["enabled"]==0 and edited["priority"]==7
+        assert any(rule["id"]==edited["id"] for rule in fw.rules(True))
+        assert all(rule["id"]!=edited["id"] for rule in fw.rules())
         temporary=fw.add_rule("block","198.18.1.2",expires_at=int(time.time())+60)
         assert fw.bulk_unban("temporary")>=1 and fw.delete_rule(temporary["id"]) is False
         assert fw.apply_preset("safe")["auto_block_enabled"] is False

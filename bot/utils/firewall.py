@@ -54,6 +54,7 @@ def ensure() -> None:
           id INTEGER PRIMARY KEY AUTOINCREMENT,kind TEXT NOT NULL,value TEXT NOT NULL,
           note TEXT NOT NULL DEFAULT '',enabled INTEGER NOT NULL DEFAULT 1,
           created_at INTEGER NOT NULL,expires_at INTEGER,created_by TEXT NOT NULL DEFAULT '',
+          priority INTEGER NOT NULL DEFAULT 100,
           UNIQUE(kind,value));
         CREATE TABLE IF NOT EXISTS firewall_events(
           id INTEGER PRIMARY KEY AUTOINCREMENT,created_at INTEGER NOT NULL,ip TEXT NOT NULL,
@@ -68,6 +69,8 @@ def ensure() -> None:
         columns={row[1] for row in db.execute("PRAGMA table_info(firewall_events)")}
         if "actor_id" not in columns: db.execute("ALTER TABLE firewall_events ADD COLUMN actor_id TEXT NOT NULL DEFAULT ''")
         if "source" not in columns: db.execute("ALTER TABLE firewall_events ADD COLUMN source TEXT NOT NULL DEFAULT 'external'")
+        rule_columns={row[1] for row in db.execute("PRAGMA table_info(firewall_rules)")}
+        if "priority" not in rule_columns: db.execute("ALTER TABLE firewall_rules ADD COLUMN priority INTEGER NOT NULL DEFAULT 100")
         profile=db.execute("SELECT value FROM firewall_settings WHERE key='safety_profile_version'").fetchone()
         previous=int(profile[0]) if profile and str(profile[0]).isdigit() else 0
         for key,value in DEFAULTS.items():
@@ -197,10 +200,11 @@ def unban(kind:str,value:str) -> int:
     return int(removed)
 
 
-def rules() -> list[dict[str,Any]]:
+def rules(include_disabled:bool=False) -> list[dict[str,Any]]:
     ensure(); now=int(time.time())
+    enabled="" if include_disabled else "enabled=1 AND "
     with _connect() as db:
-        return [dict(row) for row in db.execute("SELECT * FROM firewall_rules WHERE enabled=1 AND (expires_at IS NULL OR expires_at>?) ORDER BY created_at DESC",(now,))]
+        return [dict(row) for row in db.execute(f"SELECT * FROM firewall_rules WHERE {enabled}(expires_at IS NULL OR expires_at>?) ORDER BY priority ASC,created_at DESC",(now,))]
 
 
 def _matches_ip(ip:str,network:str) -> bool:
@@ -346,14 +350,17 @@ def trust_incident(event_id:int,scope:str,actor:str) -> dict[str,Any]:
     return {"trusted":True,"scope":scope,"value":value,"rule":rule}
 
 
-def extend_rule(rule_id:int,minutes:int,note:str|None=None) -> dict[str,Any]:
-    """Change a rule duration/note without replacing its identity."""
+def extend_rule(rule_id:int,minutes:int,note:str|None=None,enabled:bool|None=None,priority:int|None=None) -> dict[str,Any]:
+    """Change duration, note, state and priority without replacing a rule."""
     if minutes<0 or minutes>525600:raise ValueError("Ungültige Dauer.")
+    if priority is not None and not 1<=int(priority)<=1000:raise ValueError("Priorität muss zwischen 1 und 1000 liegen.")
     ensure(); expires=None if minutes==0 else int(time.time())+minutes*60
     with _connect() as db:
         row=db.execute("SELECT * FROM firewall_rules WHERE id=?",(int(rule_id),)).fetchone()
         if not row:raise ValueError("Regel nicht gefunden.")
-        db.execute("UPDATE firewall_rules SET expires_at=?,note=? WHERE id=?",(expires,(row["note"] if note is None else str(note)[:300]),int(rule_id)))
+        state=int(row["enabled"]) if enabled is None else int(bool(enabled))
+        rank=int(row["priority"]) if priority is None else int(priority)
+        db.execute("UPDATE firewall_rules SET expires_at=?,note=?,enabled=?,priority=? WHERE id=?",(expires,(row["note"] if note is None else str(note)[:300]),state,rank,int(rule_id)))
         updated=db.execute("SELECT * FROM firewall_rules WHERE id=?",(int(rule_id),)).fetchone()
     return dict(updated)
 
@@ -394,7 +401,7 @@ def apply_preset(name:str) -> dict[str,Any]:
 
 
 def export_configuration() -> dict[str,Any]:
-    return {"version":3,"exported_at":int(time.time()),"settings":settings(),"rules":rules(),"contains_events":False}
+    return {"version":4,"exported_at":int(time.time()),"settings":settings(),"rules":rules(True),"contains_events":False}
 
 
 def overview() -> dict[str,Any]:
@@ -406,9 +413,13 @@ def overview() -> dict[str,Any]:
         ips=db.execute("SELECT COUNT(DISTINCT ip) FROM firewall_events WHERE created_at>=?",(since,)).fetchone()[0]
         top_sources=[dict(row) for row in db.execute("SELECT ip,COUNT(*) AS count,SUM(blocked) AS blocked FROM firewall_events WHERE created_at>=? GROUP BY ip ORDER BY count DESC LIMIT 8",(since,))]
         top_categories=[dict(row) for row in db.execute("SELECT category,COUNT(*) AS count FROM firewall_events WHERE created_at>=? GROUP BY category ORDER BY count DESC LIMIT 8",(since,))]
-    active=rules()
+        top_paths=[dict(row) for row in db.execute("SELECT path,COUNT(*) AS count,SUM(blocked) AS blocked FROM firewall_events WHERE created_at>=? GROUP BY path ORDER BY count DESC LIMIT 8",(since,))]
+        top_methods=[dict(row) for row in db.execute("SELECT method,COUNT(*) AS count FROM firewall_events WHERE created_at>=? GROUP BY method ORDER BY count DESC",(since,))]
+        top_countries=[dict(row) for row in db.execute("SELECT COALESCE(NULLIF(country,''),'--') AS country,COUNT(*) AS count FROM firewall_events WHERE created_at>=? GROUP BY country ORDER BY count DESC LIMIT 8",(since,))]
+        hourly=[dict(row) for row in db.execute("SELECT strftime('%Y-%m-%d %H:00',created_at,'unixepoch') AS hour,COUNT(*) AS count,SUM(blocked) AS blocked FROM firewall_events WHERE created_at>=? GROUP BY hour ORDER BY hour",(since,))]
+    active=rules(); all_rules=rules(True)
     with _lock: runtime={"tracked_sources":len(_hits),"pending_confirmations":len(_strikes)}
-    return {"settings":settings(),"rules":active,"events":events(300),"active_incidents":events(60,True),"top_sources":top_sources,"top_categories":top_categories,"runtime":runtime,"stats":{"events_24h":total,"blocked_24h":blocked,"alarms_24h":alarms,"unique_ips_24h":ips,"manual_bans":sum(r["kind"] in ("block","user_block") for r in active)},"retention_days":90,"engine":{"mode":"deterministic","ai_enforcement":False,"self_protection":True}}
+    return {"settings":settings(),"rules":all_rules,"events":events(300),"active_incidents":events(60,True),"top_sources":top_sources,"top_categories":top_categories,"top_paths":top_paths,"top_methods":top_methods,"top_countries":top_countries,"hourly":hourly,"runtime":runtime,"stats":{"events_24h":total,"blocked_24h":blocked,"alarms_24h":alarms,"unique_ips_24h":ips,"manual_bans":sum(r["kind"] in ("block","user_block") for r in active),"disabled_rules":sum(not r["enabled"] for r in all_rules)},"retention_days":90,"engine":{"mode":"deterministic","ai_enforcement":False,"self_protection":True}}
 
 
 def save_ai_report(event_id:int,report:str) -> None:

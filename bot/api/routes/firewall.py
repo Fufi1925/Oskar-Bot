@@ -56,7 +56,7 @@ async def trust_incident(event_id:int,data:dict):
 
 @router.patch("/rules/{rule_id}")
 async def edit_rule(rule_id:int,data:dict):
-    try:return firewall.extend_rule(rule_id,int(data.get("minutes") or 0),data.get("note"))
+    try:return firewall.extend_rule(rule_id,int(data.get("minutes") or 0),data.get("note"),data.get("enabled"),data.get("priority"))
     except ValueError as exc:raise HTTPException(400,str(exc)) from exc
 
 @router.post("/operations/reset-counters")
