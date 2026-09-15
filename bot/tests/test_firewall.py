@@ -47,6 +47,15 @@ def main():
         restored=fw.restore_snapshot(snapshot["id"],"owner")
         assert restored["restored"] and restored["settings"]["requests_per_minute"]!=4321
         assert fw.snapshots() and fw.delete_snapshot(snapshot["id"])
+        annotated=fw.annotate_event(false_positive,"false positive reviewed","owner")
+        assert "false positive reviewed" in annotated["note"]
+        template=next(rule for rule in fw.rules(True) if rule["kind"]=="block")
+        cloned=fw.clone_rule(template["id"],"203.0.115.0/24",5,"owner")
+        assert cloned["value"]=="203.0.115.0/24" and cloned["expires_at"]
+        emergency=fw.set_timed_emergency(15)
+        assert emergency["emergency_mode"] and emergency["emergency_until"]>int(time.time())
+        assert "score" in fw.safety_audit()
+        fw.set_timed_emergency(0)
         temporary=fw.add_rule("block","198.18.1.2",expires_at=int(time.time())+60)
         assert fw.bulk_unban("temporary")>=1 and fw.delete_rule(temporary["id"]) is False
         assert fw.apply_preset("safe")["auto_block_enabled"] is False

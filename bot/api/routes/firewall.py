@@ -59,6 +59,24 @@ async def edit_rule(rule_id:int,data:dict):
     try:return firewall.extend_rule(rule_id,int(data.get("minutes") or 0),data.get("note"),data.get("enabled"),data.get("priority"))
     except ValueError as exc:raise HTTPException(400,str(exc)) from exc
 
+@router.post("/rules/{rule_id}/clone")
+async def clone_rule(rule_id:int,data:dict):
+    try:return firewall.clone_rule(rule_id,str(data.get("value") or ""),int(data.get("minutes") or 0),str(data.get("actor") or "dashboard"))
+    except ValueError as exc:raise HTTPException(400,str(exc)) from exc
+
+@router.patch("/events/{event_id}/note")
+async def annotate_event(event_id:int,data:dict):
+    try:return firewall.annotate_event(event_id,str(data.get("note") or ""),str(data.get("actor") or "dashboard"))
+    except ValueError as exc:raise HTTPException(400,str(exc)) from exc
+
+@router.post("/operations/timed-emergency")
+async def timed_emergency(data:dict):
+    try:return firewall.set_timed_emergency(int(data.get("minutes") or 0))
+    except ValueError as exc:raise HTTPException(400,str(exc)) from exc
+
+@router.get("/safety-audit")
+async def safety_audit():return firewall.safety_audit()
+
 @router.post("/operations/reset-counters")
 async def reset_counters(): return {"status":"ok",**firewall.reset_runtime_counters()}
 

@@ -31,6 +31,7 @@ DEFAULTS = {
     "confirmation_window_seconds": "300",
     "auto_block_minutes": "15",
     "emergency_mode": "0",
+    "emergency_until": "0",
     "emergency_rpm": "120",
     "block_bad_bots": "1",
     "country_blocklist": "",
@@ -122,6 +123,7 @@ def settings() -> dict[str,Any]:
         "confirmation_window_seconds":integer("confirmation_window_seconds"),
         "auto_block_minutes":integer("auto_block_minutes"),
         "emergency_mode":raw.get("emergency_mode")=="1",
+        "emergency_until":int(raw.get("emergency_until","0")),
         "emergency_rpm":integer("emergency_rpm"),
         "block_bad_bots":raw.get("block_bad_bots")=="1",
         "country_blocklist":_csv(raw.get("country_blocklist",""),True),
@@ -268,7 +270,8 @@ def evaluate(ip:str,method:str,path:str,user_agent:str="",country:str="",actor_i
         q=_hits[ip]; q.append(now)
         while q and q[0]<now-60:q.popleft()
         per_min=len(q); burst=sum(stamp>=now-10 for stamp in q)
-    limit=cfg["emergency_rpm"] if cfg["emergency_mode"] else cfg["requests_per_minute"]
+    emergency_active=cfg["emergency_mode"] and (not cfg["emergency_until"] or cfg["emergency_until"]>int(now))
+    limit=cfg["emergency_rpm"] if emergency_active else cfg["requests_per_minute"]
     if per_min<=limit and burst<=cfg["burst_10_seconds"]:return {"allowed":True,"reason":"ok"}
     with _lock:
         previous,last=_strikes.get(ip,(0,0.0))
@@ -402,6 +405,47 @@ def apply_preset(name:str) -> dict[str,Any]:
     if name not in presets:raise ValueError("Unbekanntes Schutzprofil.")
     reset_runtime_counters()
     return update_settings(presets[name])
+
+
+def clone_rule(rule_id:int,new_value:str,minutes:int,actor:str) -> dict[str,Any]:
+    """Create a new rule using an existing rule as a safe template."""
+    ensure()
+    with _connect() as db:row=db.execute("SELECT * FROM firewall_rules WHERE id=?",(int(rule_id),)).fetchone()
+    if not row:raise ValueError("Regel nicht gefunden.")
+    if not new_value.strip():raise ValueError("Neuer Regelwert fehlt.")
+    expires=None if minutes<=0 else int(time.time())+minutes*60
+    cloned=add_rule(row["kind"],new_value,f"Kopie von Regel #{rule_id}: {row['note']}"[:300],expires,actor)
+    return extend_rule(cloned["id"],0 if expires is None else max(1,minutes),cloned["note"],bool(row["enabled"]),int(row["priority"]))
+
+
+def annotate_event(event_id:int,note:str,actor:str) -> dict[str,Any]:
+    clean=note.strip()
+    if not clean:raise ValueError("Notiz darf nicht leer sein.")
+    ensure()
+    with _connect() as db:
+        row=db.execute("SELECT * FROM firewall_events WHERE id=?",(int(event_id),)).fetchone()
+        if not row:raise ValueError("Ereignis nicht gefunden.")
+        db.execute("UPDATE firewall_events SET note=note||? WHERE id=?",(f"; note by {actor}: {clean[:300]}",int(event_id)))
+        updated=db.execute("SELECT * FROM firewall_events WHERE id=?",(int(event_id),)).fetchone()
+    return dict(updated)
+
+
+def set_timed_emergency(minutes:int) -> dict[str,Any]:
+    if minutes not in {0,15,30,60,120,360}:raise ValueError("Ungültige Notfall-Dauer.")
+    until=0 if minutes==0 else int(time.time())+minutes*60
+    return update_settings({"emergency_mode":minutes>0,"emergency_until":until})
+
+
+def safety_audit() -> dict[str,Any]:
+    cfg=settings(); active=rules(); findings=[]
+    if cfg["auto_block_enabled"]:findings.append({"severity":"warning","title":"Automatische Sperren aktiv","detail":f"Nach {cfg['confirmations_required']} Bestätigungen wird automatisch gesperrt."})
+    if cfg["emergency_mode"]:findings.append({"severity":"warning","title":"Notfallmodus aktiv","detail":"Das strengere Notfalllimit ist eingeschaltet."})
+    if cfg["requests_per_minute"]<300:findings.append({"severity":"critical","title":"Sehr niedriges Minutenlimit","detail":"Unter 300 Requests/min können legitime Dashboard-Aufrufe auffallen."})
+    if cfg["burst_10_seconds"]<80:findings.append({"severity":"critical","title":"Sehr niedriges Burst-Limit","detail":"Unter 80 Requests/10s steigt das Fehlalarmrisiko."})
+    if not cfg["trusted_networks"]:findings.append({"severity":"critical","title":"Keine vertrauenswürdigen Netze","detail":"Interne Bot-Netze sollten geschützt bleiben."})
+    if any(r["kind"]=="method" and r["value"] in {"GET","POST"} for r in active):findings.append({"severity":"warning","title":"Häufige HTTP-Methode gesperrt","detail":"GET/POST-Sperren können große Teile des Dashboards abschalten."})
+    score=max(0,100-sum(25 if item["severity"]=="critical" else 10 for item in findings))
+    return {"score":score,"status":"good" if score>=80 else "review" if score>=50 else "danger","findings":findings,"checked_at":int(time.time())}
 
 
 def create_snapshot(name:str,actor:str) -> dict[str,Any]:
