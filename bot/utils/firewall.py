@@ -153,13 +153,16 @@ def _valid_user(value:str) -> str:
 def add_rule(kind:str,value:str,note:str="",expires_at:int|None=None,actor:str="") -> dict[str,Any]:
     aliases={"user":"user_block","country_block":"country"}
     kind=aliases.get(kind,kind)
-    if kind not in {"block","allow","user_block","user_allow","user_agent","path","country"}:
+    if kind not in {"block","allow","user_block","user_allow","user_agent","path","country","method"}:
         raise ValueError("Unbekannte Regelart.")
     if kind in {"block","allow"}: clean=_valid_network(value)
     elif kind in {"user_block","user_allow"}: clean=_valid_user(value)
     elif kind=="country":
         clean=value.strip().upper()
         if len(clean)!=2 or not clean.isalpha(): raise ValueError("Bitte einen zweistelligen ISO-Ländercode verwenden.")
+    elif kind=="method":
+        clean=value.strip().upper()
+        if clean not in {"GET","POST","PUT","PATCH","DELETE","OPTIONS","HEAD"}: raise ValueError("Ungültige HTTP-Methode.")
     else: clean=value.strip().lower()
     if not clean: raise ValueError("Der Regelwert fehlt.")
     if kind=="user_block" and _configured_owner(clean):
@@ -243,8 +246,9 @@ def evaluate(ip:str,method:str,path:str,user_agent:str="",country:str="",actor_i
     path_rule=next((r for r in active if r["kind"]=="path" and r["value"] in path.lower()),None)
     ua_rule=next((r for r in active if r["kind"]=="user_agent" and r["value"] in ua),None)
     country_rule=next((r for r in active if r["kind"]=="country" and r["value"]==country),None)
+    method_rule=next((r for r in active if r["kind"]=="method" and r["value"]==method.upper()),None)
     bad_bot=cfg["block_bad_bots"] and any(item in ua for item in ("sqlmap","nikto","masscan","nmap","gobuster","dirbuster"))
-    if path_rule or ua_rule or country_rule or bad_bot or (country and country in cfg["country_blocklist"]):
+    if path_rule or ua_rule or country_rule or method_rule or bad_bot or (country and country in cfg["country_blocklist"]):
         reason="bad_bot" if bad_bot else "rule_match"
         log_event(ip,method,path,user_agent,country,reason,"high",403,1,True,"",actor_id)
         return {"allowed":False,"status":403,"reason":"Anfrage durch eine explizite Firewall-Regel blockiert."}
@@ -272,7 +276,7 @@ def evaluate(ip:str,method:str,path:str,user_agent:str="",country:str="",actor_i
     return {"allowed":False,"status":429,"reason":"Mehrfach bestätigter Rate-Angriff; vorübergehend gesperrt.","event_id":event,"rule_id":rule["id"]}
 
 
-def inspect(ip:str="",actor_id:str="",user_agent:str="",country:str="",path:str="/") -> dict[str,Any]:
+def inspect(ip:str="",actor_id:str="",user_agent:str="",country:str="",path:str="/",method:str="GET") -> dict[str,Any]:
     """Dry-run a request without logging, counting, blocking or creating rules."""
     cfg=settings(); active=rules(); actor_id=str(actor_id or ""); country=country.upper(); ua=user_agent.lower()
     if not cfg["enabled"]:return {"allowed":True,"reason":"disabled","dry_run":True}
@@ -286,6 +290,7 @@ def inspect(ip:str="",actor_id:str="",user_agent:str="",country:str="",path:str=
         ("country","blocked_country",lambda r:r["value"]==country),
         ("user_agent","blocked_user_agent",lambda r:r["value"] in ua),
         ("path","blocked_path",lambda r:r["value"] in path.lower()),
+        ("method","blocked_method",lambda r:r["value"]==method.upper()),
     ):
         rule=next((item for item in active if item["kind"]==kind and match(item)),None)
         if rule:return {"allowed":kind in {"allow","user_allow"},"reason":reason,"rule":rule,"dry_run":True}
@@ -310,6 +315,52 @@ def stop_incident(event_id:int,actor:str) -> dict[str,Any]:
     return {"stopped":True,"event_id":int(event_id),"rule":rule}
 
 
+def acknowledge_incident(event_id:int,actor:str) -> bool:
+    """Close an alert without blocking its IP or user."""
+    ensure()
+    with _connect() as db:
+        return db.execute("UPDATE firewall_events SET stopped_at=?,note=note||? WHERE id=? AND stopped_at IS NULL",(int(time.time()),f"; acknowledged by {actor}",int(event_id))).rowcount>0
+
+
+def reset_runtime_counters() -> dict[str,int]:
+    """Forget volatile rate observations; persistent rules remain untouched."""
+    with _lock:
+        hit_count=len(_hits); strike_count=len(_strikes)
+        _hits.clear(); _strikes.clear()
+    return {"hit_sources_cleared":hit_count,"strike_sources_cleared":strike_count}
+
+
+def bulk_unban(scope:str) -> int:
+    ensure(); now=int(time.time())
+    clauses={
+        "automatic":("created_by='firewall'",()),
+        "temporary":("expires_at IS NOT NULL",()),
+        "ip_user":("kind IN ('block','user_block')",()),
+        "all_denies":("kind IN ('block','user_block','user_agent','path','country','method')",()),
+    }
+    if scope not in clauses:raise ValueError("Unbekannte Bereinigungsart.")
+    where,params=clauses[scope]
+    with _connect() as db: removed=db.execute(f"DELETE FROM firewall_rules WHERE {where}",params).rowcount
+    reset_runtime_counters()
+    return int(removed)
+
+
+def apply_preset(name:str) -> dict[str,Any]:
+    presets={
+        "safe":{"auto_block_enabled":False,"requests_per_minute":1200,"burst_10_seconds":350,"confirmations_required":5,"emergency_mode":False},
+        "balanced":{"auto_block_enabled":False,"requests_per_minute":900,"burst_10_seconds":250,"confirmations_required":4,"emergency_mode":False},
+        "guarded":{"auto_block_enabled":True,"requests_per_minute":700,"burst_10_seconds":180,"confirmations_required":4,"emergency_mode":False},
+        "emergency":{"auto_block_enabled":True,"requests_per_minute":500,"burst_10_seconds":120,"confirmations_required":3,"emergency_mode":True,"emergency_rpm":120},
+    }
+    if name not in presets:raise ValueError("Unbekanntes Schutzprofil.")
+    reset_runtime_counters()
+    return update_settings(presets[name])
+
+
+def export_configuration() -> dict[str,Any]:
+    return {"version":3,"exported_at":int(time.time()),"settings":settings(),"rules":rules(),"contains_events":False}
+
+
 def overview() -> dict[str,Any]:
     ensure(); now=int(time.time()); since=now-86400
     with _connect() as db:
@@ -317,8 +368,11 @@ def overview() -> dict[str,Any]:
         blocked=db.execute("SELECT COUNT(*) FROM firewall_events WHERE created_at>=? AND blocked=1",(since,)).fetchone()[0]
         alarms=db.execute("SELECT COUNT(*) FROM firewall_events WHERE created_at>=? AND category='rate_alarm'",(since,)).fetchone()[0]
         ips=db.execute("SELECT COUNT(DISTINCT ip) FROM firewall_events WHERE created_at>=?",(since,)).fetchone()[0]
+        top_sources=[dict(row) for row in db.execute("SELECT ip,COUNT(*) AS count,SUM(blocked) AS blocked FROM firewall_events WHERE created_at>=? GROUP BY ip ORDER BY count DESC LIMIT 8",(since,))]
+        top_categories=[dict(row) for row in db.execute("SELECT category,COUNT(*) AS count FROM firewall_events WHERE created_at>=? GROUP BY category ORDER BY count DESC LIMIT 8",(since,))]
     active=rules()
-    return {"settings":settings(),"rules":active,"events":events(300),"active_incidents":events(60,True),"stats":{"events_24h":total,"blocked_24h":blocked,"alarms_24h":alarms,"unique_ips_24h":ips,"manual_bans":sum(r["kind"] in ("block","user_block") for r in active)},"retention_days":90,"engine":{"mode":"deterministic","ai_enforcement":False,"self_protection":True}}
+    with _lock: runtime={"tracked_sources":len(_hits),"pending_confirmations":len(_strikes)}
+    return {"settings":settings(),"rules":active,"events":events(300),"active_incidents":events(60,True),"top_sources":top_sources,"top_categories":top_categories,"runtime":runtime,"stats":{"events_24h":total,"blocked_24h":blocked,"alarms_24h":alarms,"unique_ips_24h":ips,"manual_bans":sum(r["kind"] in ("block","user_block") for r in active)},"retention_days":90,"engine":{"mode":"deterministic","ai_enforcement":False,"self_protection":True}}
 
 
 def save_ai_report(event_id:int,report:str) -> None:

@@ -1229,6 +1229,11 @@ export const api = {
   unbanFirewall: (data: any) => request<any>("/firewall/unban", { method: "POST", body: JSON.stringify(data) }),
   inspectFirewall: (data: any) => request<any>("/firewall/inspect", { method: "POST", body: JSON.stringify(data) }),
   getFirewallDiagnostics: () => request<any>("/firewall/diagnostics"),
+  acknowledgeFirewallIncident: (id: number) => request<any>(`/firewall/incidents/${id}/acknowledge`, { method: "POST", body: "{}" }),
+  resetFirewallCounters: () => request<any>("/firewall/operations/reset-counters", { method: "POST", body: "{}" }),
+  bulkUnbanFirewall: (scope: string) => request<any>("/firewall/operations/bulk-unban", { method: "POST", body: JSON.stringify({ scope }) }),
+  applyFirewallPreset: (name: string) => request<any>(`/firewall/operations/preset/${name}`, { method: "POST", body: "{}" }),
+  exportFirewallConfiguration: () => request<any>("/firewall/export"),
   stopFirewallIncident: (id: number) => request<any>(`/firewall/incidents/${id}/stop`, { method: "POST", body: "{}" }),
   analyzeFirewallIncident: (id: number) => request<any>(`/firewall/incidents/${id}/analyze`, { method: "POST", body: "{}" }),
 

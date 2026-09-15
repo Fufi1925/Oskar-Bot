@@ -27,6 +27,15 @@ def main():
         assert not fw.evaluate("203.0.114.4","GET","/dashboard",actor_id="123456789012345678")["allowed"]
         assert fw.unban("user","123456789012345678")==1
         assert fw.delete_rule(user_rule["id"]) is False
+        method_rule=fw.add_rule("method","DELETE")
+        assert fw.inspect("203.0.114.4",path="/api/x",method="DELETE")["reason"]=="blocked_method"
+        assert fw.delete_rule(method_rule["id"])
+        notice=fw.log_event("203.0.114.5","GET","/api/x","browser","DE","rate_alarm","high")
+        assert fw.acknowledge_incident(notice,"owner")
+        assert all(event["id"]!=notice for event in fw.events(50,True))
+        temporary=fw.add_rule("block","198.18.1.2",expires_at=int(time.time())+60)
+        assert fw.bulk_unban("temporary")>=1 and fw.delete_rule(temporary["id"]) is False
+        assert fw.apply_preset("safe")["auto_block_enabled"] is False
         # Deterministic burst detection creates a temporary reversible rule.
         fw.update_settings({"requests_per_minute":100,"burst_10_seconds":2,"auto_block_minutes":3,"auto_block_enabled":True,"confirmations_required":3})
         ip="198.51.100.4"
@@ -61,6 +70,9 @@ def main():
         assert all(e["id"]!=false_event for e in fw.events())
         server=open("bot/api/server.py",encoding="utf-8").read()
         assert 'startswith("/api/v1/firewall")' in server
+        panel=open("dashboard/components/dashboard/firewall-panel.tsx",encoding="utf-8").read()
+        assert "<select" not in panel and "CustomSelect" in panel
+        assert "bulkUnbanFirewall" in panel and "acknowledgeFirewallIncident" in panel
         # The Grok route may persist a report, but never calls mutation functions.
         route=open("bot/api/routes/firewall.py",encoding="utf-8").read()
         analyze=route[route.index('async def analyze_attack'):route.index('@router.post("/check")')]

@@ -37,12 +37,34 @@ async def unban(data:dict):
 
 @router.post("/inspect")
 async def inspect_request(data:dict):
-    return firewall.inspect(str(data.get("ip") or ""),str(data.get("actor_id") or ""),str(data.get("user_agent") or ""),str(data.get("country") or ""),str(data.get("path") or "/"))
+    return firewall.inspect(str(data.get("ip") or ""),str(data.get("actor_id") or ""),str(data.get("user_agent") or ""),str(data.get("country") or ""),str(data.get("path") or "/"),str(data.get("method") or "GET"))
 
 @router.get("/diagnostics")
 async def diagnostics():
     overview=firewall.overview()
-    return {"status":"healthy","database":"ok","engine":overview["engine"],"retention_days":overview["retention_days"],"active_rules":len(overview["rules"]),"internal_routes_exempt":True}
+    return {"status":"healthy","database":"ok","engine":overview["engine"],"runtime":overview["runtime"],"retention_days":overview["retention_days"],"active_rules":len(overview["rules"]),"internal_routes_exempt":True}
+
+@router.post("/incidents/{event_id}/acknowledge")
+async def acknowledge(event_id:int,data:dict):
+    if not firewall.acknowledge_incident(event_id,str(data.get("actor") or "dashboard")):raise HTTPException(404,"Offener Alarm nicht gefunden.")
+    return {"status":"ok","acknowledged":True,"blocked":False}
+
+@router.post("/operations/reset-counters")
+async def reset_counters(): return {"status":"ok",**firewall.reset_runtime_counters()}
+
+@router.post("/operations/bulk-unban")
+async def bulk_unban(data:dict):
+    try:removed=firewall.bulk_unban(str(data.get("scope") or ""))
+    except ValueError as exc:raise HTTPException(400,str(exc)) from exc
+    return {"status":"ok","removed":removed}
+
+@router.post("/operations/preset/{name}")
+async def apply_preset(name:str):
+    try:return firewall.apply_preset(name)
+    except ValueError as exc:raise HTTPException(400,str(exc)) from exc
+
+@router.get("/export")
+async def export_configuration(): return firewall.export_configuration()
 
 @router.post("/incidents/{event_id}/stop")
 async def stop_attack(event_id:int,data:dict):
