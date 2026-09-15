@@ -215,12 +215,12 @@ const HERO_META: Record<string, { wert: string; label: string }> = {
 };
 
 const HERO_FARBEN = [
-  { icon: "bg-cyan-500", text: "text-cyan-400", glow: "from-cyan-500/20" },
-  { icon: "bg-violet-500", text: "text-violet-400", glow: "from-violet-500/20" },
-  { icon: "bg-sky-500", text: "text-sky-400", glow: "from-sky-500/20" },
-  { icon: "bg-emerald-500", text: "text-emerald-400", glow: "from-emerald-500/20" },
-  { icon: "bg-fuchsia-500", text: "text-fuchsia-400", glow: "from-fuchsia-500/20" },
-  { icon: "bg-orange-500", text: "text-orange-400", glow: "from-orange-500/20" },
+  { icon: "bg-cyan-500", text: "text-cyan-400" },
+  { icon: "bg-violet-500", text: "text-violet-400" },
+  { icon: "bg-sky-500", text: "text-sky-400" },
+  { icon: "bg-emerald-500", text: "text-emerald-400" },
+  { icon: "bg-fuchsia-500", text: "text-fuchsia-400" },
+  { icon: "bg-orange-500", text: "text-orange-400" },
 ];
 
 /** Alle nutzerseitigen Module, gruppiert wie im Dashboard. */
@@ -469,9 +469,9 @@ const FAQ = [
       "Ja, die Grundfunktionen sind kostenlos. Einige Erweiterungen sind Premium vorbehalten, darunter das eigene Bot-Aussehen pro Server, Speedrun, Premium-Vorlagen, zusätzliche Backup-Funktionen sowie erweiterte Statistiken und höhere Limits bei Custom Commands.",
   },
   {
-    frage: "Kann ich Premium bereits kaufen?",
+    frage: "Wie bekomme ich Premium?",
     antwort:
-      "Noch nicht. Es ist derzeit kein Zahlungsanbieter angebunden und die Premium-Testphase läuft. Einen Zugang kannst du über den Beta-Antrag im Dashboard beantragen. Die Preisübersicht zeigt bereits die geplanten Tarife, aber die Kaufknöpfe sind bewusst deaktiviert.",
+      "Im Dashboard kannst du eine Kaufanfrage für 30, 90 oder 365 Tage senden. Nach der manuellen Bestätigung stehen deinem Discord-Konto drei feste Serverplätze zur Verfügung. Eine bereits laufende Premiumzeit kann nicht durch eine weitere Kaufanfrage überlagert werden.",
   },
   {
     frage: "Welche Befehlsarten unterstützt der Bot?",
@@ -517,10 +517,10 @@ function ScrollReveal({
     if (!element) return;
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting) {
-          setSichtbar(true);
-          observer.unobserve(element);
-        }
+        // Nicht nur beim ersten Besuch abspielen: Sobald ein Bereich den
+        // Bildschirm verlässt, wird er zurückgesetzt. Beim erneuten Hoch-
+        // oder Herunterscrollen kommt er wieder von seiner Seite herein.
+        setSichtbar(entry.isIntersecting);
       },
       { threshold: 0.14, rootMargin: "0px 0px -7% 0px" },
     );
@@ -628,11 +628,6 @@ export default function LandingPage() {
         {/* Ein einziger, sehr weicher Schein. Die alte Seite hatte
             zwei pulsierende Flächen; auf einem dunklen Grund sieht man
             davon nur das Rauschen. */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -top-40 left-1/4 h-[520px] w-[520px] rounded-full bg-indigo-600/[0.07] blur-[140px]"
-        />
-
         <div className="relative mx-auto max-w-[1400px] px-6 lg:px-12 xl:px-20 py-20 lg:py-28">
           <div className="grid lg:grid-cols-2 gap-14 items-center">
             <div>
@@ -644,7 +639,7 @@ export default function LandingPage() {
                   Das erste nennt eine Zahl, sobald der Bot sie
                   liefert. */}
               <div className="mb-8">
-                <span className="inline-flex items-center gap-2 rounded-full border border-slate-800 bg-[#131318] px-3.5 py-1.5 text-[13px] text-slate-400">
+                <span className="inline-flex items-center gap-2 text-[13px] font-medium text-slate-400">
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
                   {server ? `Läuft auf ${server} Servern` : "Läuft auf Discord"}
                 </span>
@@ -730,7 +725,6 @@ export default function LandingPage() {
                 window.setTimeout(() => setCarouselPause(false), 900);
               }}
             >
-              <div className="pointer-events-none absolute inset-x-[15%] top-[12%] h-[70%] rounded-full bg-indigo-500/10 blur-[70px]" />
               <div className="relative h-[430px] overflow-hidden sm:h-[470px] lg:h-[500px]">
                 {HERO_KARTEN.map((eintrag, index) => {
                   let versatz = (index - karte + HERO_KARTEN.length) % HERO_KARTEN.length;
@@ -747,7 +741,7 @@ export default function LandingPage() {
                       aria-label={`${eintrag.titel} anzeigen`}
                       onClick={() => setKarte(index)}
                       className={cn(
-                        "absolute left-1/2 top-1/2 w-[76%] max-w-[390px] rounded-[24px] border border-slate-700/80 bg-[#14151d] p-6 text-left shadow-2xl transition-[transform,opacity,filter] duration-700 ease-[cubic-bezier(.22,.8,.25,1)] sm:p-8",
+                        "absolute left-1/2 top-1/2 w-[76%] max-w-[390px] rounded-xl border border-slate-700/80 bg-[#121318] p-6 text-left shadow-[0_18px_45px_rgba(0,0,0,.28)] transition-[transform,opacity,filter] duration-700 ease-[cubic-bezier(.22,.8,.25,1)] sm:p-8",
                         aktiv ? "z-30 opacity-100 blur-0" : "z-10 opacity-45 blur-[4px] hover:opacity-65",
                         Math.abs(versatz) === 2 && "opacity-0 sm:opacity-20 sm:blur-[7px]",
                       )}
@@ -755,15 +749,14 @@ export default function LandingPage() {
                         transform: `translate(calc(-50% + ${versatz * 79}%), -50%) scale(${aktiv ? 1 : Math.abs(versatz) === 1 ? 0.88 : 0.78})`,
                       }}
                     >
-                      <div className={cn("pointer-events-none absolute inset-0 rounded-[24px] bg-gradient-to-br to-transparent", farbe.glow)} />
                       <div className="relative">
-                        <span className={cn("grid h-16 w-16 place-items-center rounded-[18px] text-white shadow-lg sm:h-20 sm:w-20", farbe.icon)}>
+                        <span className={cn("grid h-16 w-16 place-items-center rounded-lg text-white sm:h-20 sm:w-20", farbe.icon)}>
                           <KartenIcon className="h-8 w-8 sm:h-10 sm:w-10" />
                         </span>
                         <h3 className="mt-7 text-[23px] font-black tracking-tight text-white sm:text-[28px]">
                           {eintrag.titel}
                         </h3>
-                        <p className="mt-3 min-h-[86px] text-[13px] leading-6 text-slate-400 sm:text-[14px]">
+                        <p className="mt-3 text-[13px] leading-6 text-slate-400 sm:text-[14px]">
                           {eintrag.text}
                         </p>
                         <div className="mt-7 flex items-end gap-3">
@@ -799,9 +792,9 @@ export default function LandingPage() {
       </header>
 
       <section className="px-4 py-8 sm:px-6">
-        <ScrollReveal von="rechts" className="mx-auto max-w-6xl rounded-3xl border border-indigo-500/20 bg-[#111118] p-6 sm:flex sm:items-center sm:justify-between sm:gap-8 sm:p-8">
+        <ScrollReveal von="rechts" className="mx-auto max-w-6xl border-y border-slate-800 py-7 sm:flex sm:items-center sm:justify-between sm:gap-8">
           <div className="flex gap-4">
-            <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl border border-indigo-500/20 bg-indigo-500/10 text-indigo-400">
+            <div className="grid h-12 w-12 shrink-0 place-items-center text-indigo-400">
               <Lightbulb className="h-6 w-6" />
             </div>
             <div>
@@ -811,7 +804,7 @@ export default function LandingPage() {
             </div>
           </div>
           <div className="mt-5 flex shrink-0 flex-wrap gap-3 sm:mt-0">
-            <span className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[.03] px-4 py-3 text-sm font-bold text-white"><Gift className="h-4 w-4 text-indigo-400"/>3 Tage Premium</span>
+            <span className="inline-flex items-center gap-2 px-1 py-3 text-sm font-semibold text-slate-300"><Gift className="h-4 w-4 text-indigo-400"/>3 Tage Premium</span>
             <Link href="/ideas/new" className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-sm font-bold text-white hover:bg-indigo-500">Idee einreichen <ArrowRight className="h-4 w-4"/></Link>
           </div>
         </ScrollReveal>
@@ -849,9 +842,9 @@ export default function LandingPage() {
               const GruppenIcon = gruppe.icon;
               return (
                 <ScrollReveal key={gruppe.titel} von={index % 2 === 0 ? "links" : "rechts"}>
-                <article className="overflow-hidden rounded-2xl border border-slate-800 bg-[#0f0f13]">
-                  <div className="flex flex-col gap-3 border-b border-slate-800 bg-[#131318] px-5 py-5 sm:flex-row sm:items-center sm:px-6">
-                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-indigo-500/20 bg-indigo-500/10">
+                <article className="border-t border-slate-800">
+                  <div className="flex flex-col gap-3 py-6 sm:flex-row sm:items-center">
+                    <span className="grid h-10 w-10 shrink-0 place-items-center">
                       <GruppenIcon className="h-5 w-5 text-indigo-400" />
                     </span>
                     <div>
@@ -866,11 +859,11 @@ export default function LandingPage() {
                       {gruppe.module.length} Module
                     </span>
                   </div>
-                  <div className="grid gap-px bg-slate-800 sm:grid-cols-2 lg:grid-cols-3">
+                  <div className="grid gap-x-10 sm:grid-cols-2 lg:grid-cols-3">
                     {gruppe.module.map(([titel, text]) => (
                       <div
                         key={titel}
-                        className="bg-[#0f0f13] p-5 transition-colors hover:bg-[#131318]"
+                        className="border-t border-slate-800 py-5 transition-colors hover:border-slate-600"
                       >
                         <div className="flex items-center gap-2">
                           <span className="h-1.5 w-1.5 rounded-full bg-indigo-400" />
@@ -893,17 +886,16 @@ export default function LandingPage() {
       </section>
 
       <section className="px-6 py-14 lg:px-12 xl:px-20">
-        <ScrollReveal von="rechts" className="relative mx-auto max-w-[1400px] overflow-hidden rounded-[32px] border border-amber-400/30 bg-[#12100b] px-6 py-10 sm:px-9 lg:px-12 lg:py-12">
-          <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_85%_0%,rgba(251,191,36,.18),transparent_42%)]" />
+        <ScrollReveal von="rechts" className="relative mx-auto max-w-[1400px] border-y border-slate-800 py-12">
           <div className="relative grid gap-9 lg:grid-cols-[1.05fr_.95fr] lg:items-center">
             <div>
-              <span className="inline-flex items-center gap-2 rounded-full border border-amber-400/25 bg-amber-400/10 px-3 py-1.5 text-xs font-black text-amber-300"><Crown className="h-3.5 w-3.5" />Ein Konto · drei feste Premiumserver</span>
+              <span className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[.14em] text-amber-300"><Crown className="h-3.5 w-3.5" />Premium · drei feste Serverplätze</span>
               <h2 className="mt-5 max-w-2xl text-3xl font-black tracking-tight text-white sm:text-5xl">Premium genau auf deinen wichtigsten Servern.</h2>
               <p className="mt-4 max-w-2xl text-[15px] leading-7 text-slate-400">Sende eine Kaufanfrage für 30, 90 oder 365 Tage. Nach der Bestätigung verteilst du drei feste Serverplätze – mit Server-Design, erweiterten Backups, Server-Stats, User Pull und weiteren Premiumbereichen.</p>
               <div className="mt-7 flex flex-wrap gap-3"><Link href="/dashboard/premium" className="inline-flex items-center gap-2 rounded-xl bg-amber-400 px-5 py-3 text-sm font-black text-black hover:bg-amber-300"><Sparkles className="h-4 w-4" />Kaufanfrage starten</Link><Link href="/premium" className="inline-flex items-center gap-2 rounded-xl border border-amber-400/25 px-5 py-3 text-sm font-semibold text-amber-200 hover:bg-amber-400/10">Alles über Premium<ArrowRight className="h-4 w-4" /></Link></div>
-              <div className="mt-7 grid max-w-xl grid-cols-3 gap-2 text-center"><div className="rounded-xl border border-amber-400/15 bg-black/20 p-3"><p className="text-xl font-black text-white">3</p><p className="text-[10px] text-slate-500">feste Plätze</p></div><div className="rounded-xl border border-amber-400/15 bg-black/20 p-3"><p className="text-xl font-black text-white">365</p><p className="text-[10px] text-slate-500">Tage maximal</p></div><div className="rounded-xl border border-amber-400/15 bg-black/20 p-3"><p className="text-xl font-black text-white">0</p><p className="text-[10px] text-slate-500">Löschungen bei Ablauf</p></div></div>
+              <dl className="mt-8 flex max-w-xl flex-wrap gap-x-10 gap-y-5 border-t border-slate-800 pt-6"><div><dd className="text-xl font-black text-white">3</dd><dt className="text-[11px] text-slate-500">feste Plätze</dt></div><div><dd className="text-xl font-black text-white">365</dd><dt className="text-[11px] text-slate-500">Tage maximal</dt></div><div><dd className="text-xl font-black text-white">Keine</dd><dt className="text-[11px] text-slate-500">Löschung bei Ablauf</dt></div></dl>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2">{[[Palette,"Eigenes Bot-Aussehen","Name, Avatar und Banner"],[Database,"Erweiterte Backups","10 Plätze und Automatik"],[BarChart4,"Server-Stats","Live gepflegte Statistikkanäle"],[Zap,"User Pull","Vollständig Premium und owner-only"],[KeyRound,"Custom Commands","Bis zu 20 eigene Befehle"],[Server,"Sicherer Ablauf","Einfrieren oder deaktivieren"]].map(([Icon,title,text])=>{const PremiumIcon=Icon as React.ElementType;return <div key={String(title)} className="rounded-2xl border border-amber-400/15 bg-black/20 p-4"><PremiumIcon className="h-5 w-5 text-amber-400"/><p className="mt-3 text-sm font-black text-white">{title as string}</p><p className="mt-1 text-xs text-slate-500">{text as string}</p></div>})}</div>
+            <div className="grid gap-3 sm:grid-cols-2">{[[Palette,"Eigenes Bot-Aussehen","Name, Avatar und Banner"],[Database,"Erweiterte Backups","10 Plätze und Automatik"],[BarChart4,"Server-Stats","Live gepflegte Statistikkanäle"],[Zap,"User Pull","Vollständig Premium und owner-only"],[KeyRound,"Custom Commands","Bis zu 20 eigene Befehle"],[Server,"Sicherer Ablauf","Einfrieren oder deaktivieren"]].map(([Icon,title,text])=>{const PremiumIcon=Icon as React.ElementType;return <div key={String(title)} className="border-t border-slate-800 py-4"><PremiumIcon className="h-5 w-5 text-amber-400"/><p className="mt-3 text-sm font-black text-white">{title as string}</p><p className="mt-1 text-xs text-slate-500">{text as string}</p></div>})}</div>
           </div>
         </ScrollReveal>
       </section>
@@ -921,7 +913,7 @@ export default function LandingPage() {
           macht. */}
       <section className="px-6 py-16 lg:px-12 xl:px-20">
         <div className="mx-auto max-w-[1400px]">
-          <ScrollReveal von="links" className="flex flex-wrap items-end justify-between gap-x-10 gap-y-8 rounded-2xl border border-slate-800 bg-[#0f0f13] px-7 py-7">
+          <ScrollReveal von="links" className="flex flex-wrap items-end justify-between gap-x-10 gap-y-8 border-y border-slate-800 py-7">
             {[
               { wert: server ?? "—", label: "Server" },
               { wert: zeig(zahlen?.modules), label: "Module" },
@@ -980,7 +972,7 @@ export default function LandingPage() {
             </ScrollReveal>
 
             <ScrollReveal von="rechts">
-            <ol className="grid gap-px overflow-hidden rounded-2xl border border-slate-800 bg-slate-800 sm:grid-cols-3">
+            <ol className="grid sm:grid-cols-3">
               {[
                 {
                   titel: "Hinzufügen",
@@ -995,7 +987,7 @@ export default function LandingPage() {
                   text: "Moderation, Tickets und Verifizierung arbeiten ab dem Speichern.",
                 },
               ].map((schritt, i) => (
-                <li key={schritt.titel} className="bg-[#0f0f13] p-6">
+                <li key={schritt.titel} className="border-t border-slate-800 py-6 sm:border-l sm:border-t-0 sm:px-6">
                   <span className="text-[13px] font-semibold tabular-nums text-indigo-400">
                     {String(i + 1).padStart(2, "0")}
                   </span>
@@ -1044,7 +1036,7 @@ export default function LandingPage() {
 
           Stattdessen eine Zeile mit dem, was man hier tun kann. */}
       <section className="px-6 pb-20 lg:px-12 xl:px-20">
-        <ScrollReveal von="links" className="mx-auto flex max-w-[1400px] flex-wrap items-center justify-between gap-6 rounded-2xl border border-slate-800 bg-[#0f0f13] px-7 py-8">
+        <ScrollReveal von="links" className="mx-auto flex max-w-[1400px] flex-wrap items-center justify-between gap-6 border-y border-slate-800 py-8">
           <div>
             <h2 className="text-[20px] font-bold tracking-tight text-white">
               {BRAND} zu deinem Server hinzufügen
