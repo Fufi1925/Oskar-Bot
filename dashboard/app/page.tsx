@@ -47,6 +47,8 @@ import Link from "next/link";
 import {
   ArrowRight,
   BarChart4,
+  ChevronLeft,
+  ChevronRight,
   Brain,
   ChevronDown,
   ClipboardList,
@@ -146,6 +148,79 @@ const HERO_KARTEN = [
     titel: "KI-Funktionen",
     text: "Antworten, Zusammenfassungen und Übersetzungen direkt im Chat deines Servers.",
   },
+  {
+    icon: ShieldCheck,
+    titel: "Application Firewall",
+    text: "Schützt Website, Dashboard und API mit Allowlists, Rate-Limits, Audit-Log und sicherem Einzel-Rollback.",
+  },
+  {
+    icon: Users,
+    titel: "User Pull",
+    text: "Autorisierte Mitglieder kontrolliert auf den eigenen Server holen — verschlüsselt, Premium und owner-only.",
+  },
+  {
+    icon: Zap,
+    titel: "Custom Commands",
+    text: "Eigene Slash-, Präfix- und Textbefehle mit Antworten, Komponenten und individuellen Auslösern.",
+  },
+  {
+    icon: Database,
+    titel: "Server-Backups",
+    text: "Rollen, Kanäle, Rechte und Dashboard-Konfigurationen sichern und gezielt wiederherstellen.",
+  },
+  {
+    icon: BarChart4,
+    titel: "Server-Statistiken",
+    text: "Boosts, Rollen, Kanäle und Online-Aktivität übersichtlich und aktuell im Dashboard verfolgen.",
+  },
+  {
+    icon: Sparkles,
+    titel: "Speedrun & Vorlagen",
+    text: "Komplette Serverstrukturen geführt aufbauen, sichern, vergleichen und erneut verwenden.",
+  },
+  {
+    icon: Mic,
+    titel: "Support-Warteraum",
+    text: "Sprachbasierte Support-Warteschlangen mit Teamsteuerung, Reihenfolge und automatischer Bereinigung.",
+  },
+  {
+    icon: Palette,
+    titel: "Server-Design",
+    text: "Bot-Name, Avatar und Banner passend zum Server gestalten und zentral im Dashboard verwalten.",
+  },
+];
+
+const HERO_META: Record<string, { wert: string; label: string }> = {
+  "Verifizierungs-System": { wert: "SAFE", label: "RAID-SCHUTZ" },
+  "Team-Update": { wert: "1×", label: "WORKFLOW" },
+  "Ticket-System": { wert: "100%", label: "ANPASSBAR" },
+  "Anti-Nuke": { wert: "24/7", label: "ÜBERWACHUNG" },
+  Bewerbungen: { wert: "FLOW", label: "ENTSCHEIDUNGEN" },
+  "Level-System": { wert: "XP", label: "ENGAGEMENT" },
+  Musik: { wert: "HQ", label: "AUDIO" },
+  AutoMod: { wert: "99.9%", label: "FILTER" },
+  "Server-Vorlagen": { wert: "1:1", label: "STRUKTUR" },
+  "Join to Create": { wert: "LIVE", label: "VOICE" },
+  Gewinnspiele: { wert: "FAIR", label: "AUSLOSUNG" },
+  Teamliste: { wert: "SYNC", label: "ROLLEN" },
+  "KI-Funktionen": { wert: "AI", label: "ASSISTENZ" },
+  "Application Firewall": { wert: "ZERO", label: "FALSE POSITIVES" },
+  "User Pull": { wert: "AES", label: "VERSCHLÜSSELT" },
+  "Custom Commands": { wert: "20+", label: "EIGENE FLOWS" },
+  "Server-Backups": { wert: "10×", label: "SICHERUNGEN" },
+  "Server-Statistiken": { wert: "LIVE", label: "SERVERDATEN" },
+  "Speedrun & Vorlagen": { wert: "FAST", label: "SETUP" },
+  "Support-Warteraum": { wert: "QUEUE", label: "SUPPORT" },
+  "Server-Design": { wert: "100%", label: "DEIN LOOK" },
+};
+
+const HERO_FARBEN = [
+  { icon: "bg-cyan-500", text: "text-cyan-400", glow: "from-cyan-500/20" },
+  { icon: "bg-violet-500", text: "text-violet-400", glow: "from-violet-500/20" },
+  { icon: "bg-sky-500", text: "text-sky-400", glow: "from-sky-500/20" },
+  { icon: "bg-emerald-500", text: "text-emerald-400", glow: "from-emerald-500/20" },
+  { icon: "bg-fuchsia-500", text: "text-fuchsia-400", glow: "from-fuchsia-500/20" },
+  { icon: "bg-orange-500", text: "text-orange-400", glow: "from-orange-500/20" },
 ];
 
 /** Alle nutzerseitigen Module, gruppiert wie im Dashboard. */
@@ -425,6 +500,52 @@ const FAQ = [
   },
 ];
 
+function ScrollReveal({
+  children,
+  von = "links",
+  className,
+}: {
+  children: React.ReactNode;
+  von?: "links" | "rechts";
+  className?: string;
+}) {
+  const ref = React.useRef<HTMLDivElement>(null);
+  const [sichtbar, setSichtbar] = React.useState(false);
+
+  React.useEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setSichtbar(true);
+          observer.unobserve(element);
+        }
+      },
+      { threshold: 0.14, rootMargin: "0px 0px -7% 0px" },
+    );
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <div
+      ref={ref}
+      className={cn(
+        "transition-[opacity,transform,filter] duration-700 ease-out motion-reduce:transform-none motion-reduce:transition-none",
+        sichtbar
+          ? "translate-x-0 opacity-100 blur-0"
+          : von === "links"
+            ? "-translate-x-16 opacity-0 blur-[2px]"
+            : "translate-x-16 opacity-0 blur-[2px]",
+        className,
+      )}
+    >
+      {children}
+    </div>
+  );
+}
+
 /** Ein einzelner FAQ-Ausklapper. */
 function FaqZeile({ frage, antwort }: { frage: string; antwort: string }) {
   const [offen, setOffen] = React.useState(false);
@@ -456,16 +577,22 @@ function FaqZeile({ frage, antwort }: { frage: string; antwort: string }) {
 export default function LandingPage() {
   const [karte, setKarte] = React.useState(0);
   const [zahlen, setZahlen] = React.useState<any>(null);
+  const [carouselPause, setCarouselPause] = React.useState(false);
+  const touchStart = React.useRef<number | null>(null);
 
-  // Die Karten im Hero weiterblättern. Fünf Sekunden: lang genug, um
-  // die drei Zeilen zu lesen, kurz genug, dass man die zweite Karte
-  // noch sieht, bevor man weiterscrollt.
+  // Schnell genug, damit alle Module sichtbar werden. Beim Überfahren,
+  // Fokussieren oder Wischen pausiert der Wechsel automatisch.
   React.useEffect(() => {
+    if (carouselPause) return;
     const t = setInterval(
       () => setKarte((k) => (k + 1) % HERO_KARTEN.length),
-      4500,
+      2600,
     );
     return () => clearInterval(t);
+  }, [carouselPause]);
+
+  const wechsel = React.useCallback((richtung: number) => {
+    setKarte((aktuell) => (aktuell + richtung + HERO_KARTEN.length) % HERO_KARTEN.length);
   }, []);
 
   // Alle Zahlen aus dem laufenden Bot.
@@ -492,10 +619,8 @@ export default function LandingPage() {
     typeof wert === "number" && wert > 0 ? wert.toLocaleString("de-DE") : "—";
   const server = zahlen?.guilds > 0 ? zeig(zahlen.guilds) : null;
 
-  const Aktiv = HERO_KARTEN[karte].icon;
-
   return (
-    <div className="min-h-screen bg-[#0a0a0c] text-slate-200 selection:bg-indigo-500/30">
+    <div className="min-h-screen overflow-x-clip bg-[#0a0a0c] text-slate-200 selection:bg-indigo-500/30">
       <SiteNav />
 
       {/* ── Hero ──────────────────────────────────────────── */}
@@ -585,44 +710,88 @@ export default function LandingPage() {
 
                 Übrig bleibt, was die Karte eigentlich soll: zeigen,
                 was der Bot kann, eins nach dem anderen. */}
-            <div className="relative hidden lg:block">
-              <div className="rounded-2xl border border-slate-800 bg-[#131318] p-7">
-                <div className="grid h-11 w-11 place-items-center rounded-xl border border-slate-800 bg-[#0f0f13]">
-                  <Aktiv className="h-5 w-5 text-indigo-400" />
-                </div>
+            <div
+              className="relative min-w-0"
+              onMouseEnter={() => setCarouselPause(true)}
+              onMouseLeave={() => setCarouselPause(false)}
+              onFocusCapture={() => setCarouselPause(true)}
+              onBlurCapture={() => setCarouselPause(false)}
+              onTouchStart={(event) => {
+                touchStart.current = event.touches[0]?.clientX ?? null;
+                setCarouselPause(true);
+              }}
+              onTouchEnd={(event) => {
+                const start = touchStart.current;
+                const ende = event.changedTouches[0]?.clientX;
+                if (start !== null && typeof ende === "number" && Math.abs(ende - start) > 42) {
+                  wechsel(ende < start ? 1 : -1);
+                }
+                touchStart.current = null;
+                window.setTimeout(() => setCarouselPause(false), 900);
+              }}
+            >
+              <div className="pointer-events-none absolute inset-x-[15%] top-[12%] h-[70%] rounded-full bg-indigo-500/10 blur-[70px]" />
+              <div className="relative h-[430px] overflow-hidden sm:h-[470px] lg:h-[500px]">
+                {HERO_KARTEN.map((eintrag, index) => {
+                  let versatz = (index - karte + HERO_KARTEN.length) % HERO_KARTEN.length;
+                  if (versatz > HERO_KARTEN.length / 2) versatz -= HERO_KARTEN.length;
+                  if (Math.abs(versatz) > 2) return null;
+                  const KartenIcon = eintrag.icon;
+                  const farbe = HERO_FARBEN[index % HERO_FARBEN.length];
+                  const meta = HERO_META[eintrag.titel] || { wert: "LIVE", label: "MODUL" };
+                  const aktiv = versatz === 0;
+                  return (
+                    <button
+                      key={eintrag.titel}
+                      type="button"
+                      aria-label={`${eintrag.titel} anzeigen`}
+                      onClick={() => setKarte(index)}
+                      className={cn(
+                        "absolute left-1/2 top-1/2 w-[76%] max-w-[390px] rounded-[24px] border border-slate-700/80 bg-[#14151d] p-6 text-left shadow-2xl transition-[transform,opacity,filter] duration-700 ease-[cubic-bezier(.22,.8,.25,1)] sm:p-8",
+                        aktiv ? "z-30 opacity-100 blur-0" : "z-10 opacity-45 blur-[4px] hover:opacity-65",
+                        Math.abs(versatz) === 2 && "opacity-0 sm:opacity-20 sm:blur-[7px]",
+                      )}
+                      style={{
+                        transform: `translate(calc(-50% + ${versatz * 79}%), -50%) scale(${aktiv ? 1 : Math.abs(versatz) === 1 ? 0.88 : 0.78})`,
+                      }}
+                    >
+                      <div className={cn("pointer-events-none absolute inset-0 rounded-[24px] bg-gradient-to-br to-transparent", farbe.glow)} />
+                      <div className="relative">
+                        <span className={cn("grid h-16 w-16 place-items-center rounded-[18px] text-white shadow-lg sm:h-20 sm:w-20", farbe.icon)}>
+                          <KartenIcon className="h-8 w-8 sm:h-10 sm:w-10" />
+                        </span>
+                        <h3 className="mt-7 text-[23px] font-black tracking-tight text-white sm:text-[28px]">
+                          {eintrag.titel}
+                        </h3>
+                        <p className="mt-3 min-h-[86px] text-[13px] leading-6 text-slate-400 sm:text-[14px]">
+                          {eintrag.text}
+                        </p>
+                        <div className="mt-7 flex items-end gap-3">
+                          <strong className={cn("text-[40px] font-black leading-none tracking-tight sm:text-[48px]", farbe.text)}>{meta.wert}</strong>
+                          <span className="pb-1 text-[11px] font-medium uppercase tracking-[.08em] text-slate-500">{meta.label}</span>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
 
-                <h3 className="mt-5 text-[19px] font-semibold text-white">
-                  {HERO_KARTEN[karte].titel}
-                </h3>
-                <p className="mt-2.5 min-h-[72px] text-[15px] leading-relaxed text-slate-400">
-                  {HERO_KARTEN[karte].text}
-                </p>
-
-                {/* Die Punkte in die Karte statt darunter: sie
-                    gehören zu ihr, und darunter standen sie wie eine
-                    zweite, leere Zeile im Layout. */}
-                <div className="mt-6 flex items-center gap-3 border-t border-slate-800 pt-5">
-                  <div className="flex flex-1 flex-wrap items-center gap-1.5">
-                    {HERO_KARTEN.map((k, i) => (
-                      <button
-                        key={k.titel}
-                        type="button"
-                        aria-label={k.titel}
-                        title={k.titel}
-                        onClick={() => setKarte(i)}
-                        className={cn(
-                          "h-1.5 rounded-full transition-colors",
-                          i === karte
-                            ? "w-5 bg-indigo-500"
-                            : "w-1.5 bg-slate-700 hover:bg-slate-600",
-                        )}
-                      />
-                    ))}
-                  </div>
-                  <span className="shrink-0 text-[12px] tabular-nums text-slate-600">
-                    {karte + 1}/{HERO_KARTEN.length}
-                  </span>
+              <div className="relative z-40 mt-2 flex items-center justify-center gap-3">
+                <button type="button" onClick={() => wechsel(-1)} aria-label="Vorheriges Modul" className="grid h-9 w-9 place-items-center rounded-full border border-slate-700 bg-[#131318] text-slate-400 transition hover:border-indigo-400/50 hover:text-white">
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <div className="flex max-w-[240px] items-center justify-center gap-1.5 overflow-hidden px-1">
+                  {HERO_KARTEN.map((eintrag, index) => (
+                    <button key={eintrag.titel} type="button" title={eintrag.titel} aria-label={eintrag.titel} onClick={() => setKarte(index)} className={cn("h-1.5 shrink-0 rounded-full transition-all", index === karte ? "w-6 bg-indigo-500" : "w-1.5 bg-slate-700 hover:bg-slate-500")} />
+                  ))}
                 </div>
+                <button type="button" onClick={() => wechsel(1)} aria-label="Nächstes Modul" className="grid h-9 w-9 place-items-center rounded-full border border-slate-700 bg-[#131318] text-slate-400 transition hover:border-indigo-400/50 hover:text-white">
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+                <span className="ml-1 text-[11px] tabular-nums text-slate-600">{karte + 1}/{HERO_KARTEN.length}</span>
+              </div>
+              <div className="mx-auto mt-3 h-0.5 w-40 overflow-hidden rounded-full bg-slate-800">
+                <div key={karte} className={cn("h-full origin-left bg-indigo-500", !carouselPause && "animate-[heroProgress_2.6s_linear_forwards]")} />
               </div>
             </div>
           </div>
@@ -630,7 +799,7 @@ export default function LandingPage() {
       </header>
 
       <section className="px-4 py-8 sm:px-6">
-        <div className="mx-auto max-w-6xl rounded-3xl border border-indigo-500/20 bg-[#111118] p-6 sm:flex sm:items-center sm:justify-between sm:gap-8 sm:p-8">
+        <ScrollReveal von="rechts" className="mx-auto max-w-6xl rounded-3xl border border-indigo-500/20 bg-[#111118] p-6 sm:flex sm:items-center sm:justify-between sm:gap-8 sm:p-8">
           <div className="flex gap-4">
             <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl border border-indigo-500/20 bg-indigo-500/10 text-indigo-400">
               <Lightbulb className="h-6 w-6" />
@@ -645,7 +814,7 @@ export default function LandingPage() {
             <span className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[.03] px-4 py-3 text-sm font-bold text-white"><Gift className="h-4 w-4 text-indigo-400"/>3 Tage Premium</span>
             <Link href="/ideas/new" className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-sm font-bold text-white hover:bg-indigo-500">Idee einreichen <ArrowRight className="h-4 w-4"/></Link>
           </div>
-        </div>
+        </ScrollReveal>
       </section>
 
       {/* ── Funktionen ────────────────────────────────────── */}
@@ -665,7 +834,7 @@ export default function LandingPage() {
               Das Symbol steht jetzt ruhig neben dem Titel. */}
       <section id="funktionen" className="px-6 py-20 lg:px-12 xl:px-20">
         <div className="mx-auto max-w-[1400px]">
-          <div className="max-w-2xl">
+          <ScrollReveal von="links" className="max-w-2xl">
             <h2 className="text-[28px] font-bold tracking-tight text-white sm:text-[32px]">
               Alle Module im Überblick
             </h2>
@@ -673,16 +842,14 @@ export default function LandingPage() {
               {MODUL_ANZAHL} Bereiche aus dem aktuellen Dashboard — nach Aufgabe
               gruppiert und mit ihren tatsächlichen Grenzen beschrieben.
             </p>
-          </div>
+          </ScrollReveal>
 
           <div className="mt-10 space-y-5">
-            {FUNKTIONS_GRUPPEN.map((gruppe) => {
+            {FUNKTIONS_GRUPPEN.map((gruppe, index) => {
               const GruppenIcon = gruppe.icon;
               return (
-                <article
-                  key={gruppe.titel}
-                  className="overflow-hidden rounded-2xl border border-slate-800 bg-[#0f0f13]"
-                >
+                <ScrollReveal key={gruppe.titel} von={index % 2 === 0 ? "links" : "rechts"}>
+                <article className="overflow-hidden rounded-2xl border border-slate-800 bg-[#0f0f13]">
                   <div className="flex flex-col gap-3 border-b border-slate-800 bg-[#131318] px-5 py-5 sm:flex-row sm:items-center sm:px-6">
                     <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-indigo-500/20 bg-indigo-500/10">
                       <GruppenIcon className="h-5 w-5 text-indigo-400" />
@@ -718,6 +885,7 @@ export default function LandingPage() {
                     ))}
                   </div>
                 </article>
+                </ScrollReveal>
               );
             })}
           </div>
@@ -725,7 +893,7 @@ export default function LandingPage() {
       </section>
 
       <section className="px-6 py-14 lg:px-12 xl:px-20">
-        <div className="relative mx-auto max-w-[1400px] overflow-hidden rounded-[32px] border border-amber-400/30 bg-[#12100b] px-6 py-10 sm:px-9 lg:px-12 lg:py-12">
+        <ScrollReveal von="rechts" className="relative mx-auto max-w-[1400px] overflow-hidden rounded-[32px] border border-amber-400/30 bg-[#12100b] px-6 py-10 sm:px-9 lg:px-12 lg:py-12">
           <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_85%_0%,rgba(251,191,36,.18),transparent_42%)]" />
           <div className="relative grid gap-9 lg:grid-cols-[1.05fr_.95fr] lg:items-center">
             <div>
@@ -737,7 +905,7 @@ export default function LandingPage() {
             </div>
             <div className="grid gap-3 sm:grid-cols-2">{[[Palette,"Eigenes Bot-Aussehen","Name, Avatar und Banner"],[Database,"Erweiterte Backups","10 Plätze und Automatik"],[BarChart4,"Server-Stats","Live gepflegte Statistikkanäle"],[Zap,"User Pull","Vollständig Premium und owner-only"],[KeyRound,"Custom Commands","Bis zu 20 eigene Befehle"],[Server,"Sicherer Ablauf","Einfrieren oder deaktivieren"]].map(([Icon,title,text])=>{const PremiumIcon=Icon as React.ElementType;return <div key={String(title)} className="rounded-2xl border border-amber-400/15 bg-black/20 p-4"><PremiumIcon className="h-5 w-5 text-amber-400"/><p className="mt-3 text-sm font-black text-white">{title as string}</p><p className="mt-1 text-xs text-slate-500">{text as string}</p></div>})}</div>
           </div>
-        </div>
+        </ScrollReveal>
       </section>
 
       {/* ── Zahlen ────────────────────────────────────────── */}
@@ -753,7 +921,7 @@ export default function LandingPage() {
           macht. */}
       <section className="px-6 py-16 lg:px-12 xl:px-20">
         <div className="mx-auto max-w-[1400px]">
-          <div className="flex flex-wrap items-end justify-between gap-x-10 gap-y-8 rounded-2xl border border-slate-800 bg-[#0f0f13] px-7 py-7">
+          <ScrollReveal von="links" className="flex flex-wrap items-end justify-between gap-x-10 gap-y-8 rounded-2xl border border-slate-800 bg-[#0f0f13] px-7 py-7">
             {[
               { wert: server ?? "—", label: "Server" },
               { wert: zeig(zahlen?.modules), label: "Module" },
@@ -779,7 +947,7 @@ export default function LandingPage() {
                 Status
               </Link>
             </p>
-          </div>
+          </ScrollReveal>
         </div>
       </section>
 
@@ -801,7 +969,7 @@ export default function LandingPage() {
       <section className="border-y border-slate-800/70 px-6 py-20 lg:px-12 xl:px-20">
         <div className="mx-auto max-w-[1400px]">
           <div className="grid gap-12 lg:grid-cols-[minmax(0,360px)_1fr] lg:gap-20">
-            <div>
+            <ScrollReveal von="links">
               <h2 className="text-[28px] font-bold leading-tight tracking-tight text-white sm:text-[32px]">
                 In drei Schritten eingerichtet
               </h2>
@@ -809,8 +977,9 @@ export default function LandingPage() {
                 Kein Handbuch, keine Konfigurationsdatei. Was der Bot können
                 soll, stellst du im Dashboard ein.
               </p>
-            </div>
+            </ScrollReveal>
 
+            <ScrollReveal von="rechts">
             <ol className="grid gap-px overflow-hidden rounded-2xl border border-slate-800 bg-slate-800 sm:grid-cols-3">
               {[
                 {
@@ -839,13 +1008,14 @@ export default function LandingPage() {
                 </li>
               ))}
             </ol>
+            </ScrollReveal>
           </div>
         </div>
       </section>
 
       {/* ── FAQ ───────────────────────────────────────────── */}
       <section className="px-6 py-20 lg:px-12 xl:px-20">
-        <div className="mx-auto max-w-[900px]">
+        <ScrollReveal von="rechts" className="mx-auto max-w-[900px]">
           {/* Vorher stand hier dreimal dasselbe untereinander: das
               Kürzel „FAQ", die Überschrift „Häufig gestellte Fragen"
               und der Satz „Finde Antworten auf häufig gestellte
@@ -861,7 +1031,7 @@ export default function LandingPage() {
               <FaqZeile key={f.frage} frage={f.frage} antwort={f.antwort} />
             ))}
           </div>
-        </div>
+        </ScrollReveal>
       </section>
 
       {/* ── Abschluss ─────────────────────────────────────── */}
@@ -874,7 +1044,7 @@ export default function LandingPage() {
 
           Stattdessen eine Zeile mit dem, was man hier tun kann. */}
       <section className="px-6 pb-20 lg:px-12 xl:px-20">
-        <div className="mx-auto flex max-w-[1400px] flex-wrap items-center justify-between gap-6 rounded-2xl border border-slate-800 bg-[#0f0f13] px-7 py-8">
+        <ScrollReveal von="links" className="mx-auto flex max-w-[1400px] flex-wrap items-center justify-between gap-6 rounded-2xl border border-slate-800 bg-[#0f0f13] px-7 py-8">
           <div>
             <h2 className="text-[20px] font-bold tracking-tight text-white">
               {BRAND} zu deinem Server hinzufügen
@@ -900,8 +1070,18 @@ export default function LandingPage() {
               Zum Dashboard
             </Link>
           </div>
-        </div>
+        </ScrollReveal>
       </section>
+
+      <style jsx global>{`
+        @keyframes heroProgress {
+          from { transform: scaleX(0); }
+          to { transform: scaleX(1); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          [class*="heroProgress"] { animation: none !important; }
+        }
+      `}</style>
     </div>
   );
 }
