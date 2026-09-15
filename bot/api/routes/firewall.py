@@ -8,31 +8,49 @@ from utils import firewall
 
 router=APIRouter()
 
+def _who(data:dict|None,actor:str) -> str:
+    return str(actor or (data or {}).get("actor") or "dashboard")
+
+def _rule(rule_id:int):
+    return next((item for item in firewall.rules(True) if int(item["id"])==int(rule_id)),None)
+
 @router.get("/overview")
 async def get_overview(): return firewall.overview()
 
 @router.patch("/settings")
-async def patch_settings(data:dict):
-    try:return firewall.update_settings(data)
+async def patch_settings(data:dict,actor:str=""):
+    before=firewall.settings()
+    try:after=firewall.update_settings(data)
     except (TypeError,ValueError) as exc:raise HTTPException(400,str(exc)) from exc
+    who=_who(data,actor); reason=str(data.get("reason") or "Firewall-Einstellung geändert")
+    for key in sorted(set(before)|set(after)):
+        if before.get(key)!=after.get(key):firewall.record_audit(who,"setting.update","setting",key,reason,before.get(key),after.get(key))
+    return after
 
 @router.post("/rules")
-async def create_rule(data:dict):
+async def create_rule(data:dict,actor:str=""):
     try:
         minutes=int(data.get("minutes") or 0); expires=None if minutes<=0 else int(__import__('time').time())+minutes*60
-        return firewall.add_rule(str(data.get("kind") or ""),str(data.get("value") or ""),str(data.get("note") or ""),expires,str(data.get("actor") or "dashboard"))
+        who=_who(data,actor); result=firewall.add_rule(str(data.get("kind") or ""),str(data.get("value") or ""),str(data.get("note") or ""),expires,who)
+        firewall.record_audit(who,"rule.create","rule",str(result["id"]),str(data.get("note") or "Regel erstellt"),None,result)
+        return result
     except (TypeError,ValueError) as exc:raise HTTPException(400,str(exc)) from exc
 
 @router.delete("/rules/{rule_id}")
-async def remove_rule(rule_id:int):
-    if not firewall.delete_rule(rule_id):raise HTTPException(404,"Regel nicht gefunden.")
+async def remove_rule(rule_id:int,actor:str="",reason:str=""):
+    before=_rule(rule_id)
+    if not before or not firewall.delete_rule(rule_id):raise HTTPException(404,"Regel nicht gefunden.")
+    firewall.record_audit(actor or "dashboard","rule.delete","rule",str(rule_id),reason or "Regel entfernt / entsperrt",before,None)
     return {"status":"ok","unblocked":True}
 
 @router.post("/unban")
-async def unban(data:dict):
-    try:removed=firewall.unban(str(data.get("kind") or ""),str(data.get("value") or ""))
+async def unban(data:dict,actor:str=""):
+    kind={"ip":"block","user":"user_block"}.get(str(data.get("kind") or ""),str(data.get("kind") or "")); value=str(data.get("value") or "")
+    before=next((item for item in firewall.rules(True) if item["kind"]==kind and (item["value"]==value or item["value"].split("/")[0]==value)),None)
+    try:removed=firewall.unban(kind,value)
     except ValueError as exc:raise HTTPException(400,str(exc)) from exc
     if not removed:raise HTTPException(404,"Keine passende aktive Sperre gefunden.")
+    firewall.record_audit(_who(data,actor),"rule.unban","rule",str(before["id"] if before else value),str(data.get("reason") or "Manuell entsperrt"),before,None)
     return {"status":"ok","removed":removed,"unblocked":True}
 
 @router.post("/inspect")
@@ -44,25 +62,49 @@ async def diagnostics():
     overview=firewall.overview()
     return {"status":"healthy","database":"ok","engine":overview["engine"],"runtime":overview["runtime"],"retention_days":overview["retention_days"],"active_rules":len(overview["rules"]),"internal_routes_exempt":True}
 
+@router.get("/self-protection-test")
+async def self_protection_test():return firewall.self_protection_test()
+
+@router.get("/audit")
+async def audit_log(limit:int=300):return {"entries":firewall.audit_entries(limit)}
+
+@router.post("/audit/{entry_id}/rollback")
+async def rollback_audit(entry_id:int,data:dict,actor:str=""):
+    try:return firewall.rollback_audit(entry_id,_who(data,actor),str(data.get("reason") or "Einzeländerung rückgängig gemacht"))
+    except ValueError as exc:raise HTTPException(400,str(exc)) from exc
+
+@router.get("/snapshots/{snapshot_id}/compare")
+async def compare_snapshot(snapshot_id:int):
+    try:return firewall.compare_snapshot(snapshot_id)
+    except ValueError as exc:raise HTTPException(404,str(exc)) from exc
+
 @router.post("/incidents/{event_id}/acknowledge")
 async def acknowledge(event_id:int,data:dict):
     if not firewall.acknowledge_incident(event_id,str(data.get("actor") or "dashboard")):raise HTTPException(404,"Offener Alarm nicht gefunden.")
     return {"status":"ok","acknowledged":True,"blocked":False}
 
 @router.post("/incidents/{event_id}/trust")
-async def trust_incident(event_id:int,data:dict):
-    try:return firewall.trust_incident(event_id,str(data.get("scope") or "ip"),str(data.get("actor") or "dashboard"))
+async def trust_incident(event_id:int,data:dict,actor:str=""):
+    who=_who(data,actor)
+    try:result=firewall.trust_incident(event_id,str(data.get("scope") or "ip"),who)
     except ValueError as exc:raise HTTPException(400,str(exc)) from exc
+    firewall.record_audit(who,"incident.trust","rule",str(result["rule"]["id"]),str(data.get("reason") or f"Fehlalarm #{event_id} als sicher markiert"),None,result["rule"])
+    return result
 
 @router.patch("/rules/{rule_id}")
-async def edit_rule(rule_id:int,data:dict):
-    try:return firewall.extend_rule(rule_id,int(data.get("minutes") or 0),data.get("note"),data.get("enabled"),data.get("priority"))
+async def edit_rule(rule_id:int,data:dict,actor:str=""):
+    before=_rule(rule_id)
+    try:after=firewall.extend_rule(rule_id,int(data.get("minutes") or 0),data.get("note"),data.get("enabled"),data.get("priority"))
     except ValueError as exc:raise HTTPException(400,str(exc)) from exc
+    firewall.record_audit(_who(data,actor),"rule.update","rule",str(rule_id),str(data.get("reason") or "Regel bearbeitet"),before,after)
+    return after
 
 @router.post("/rules/{rule_id}/clone")
-async def clone_rule(rule_id:int,data:dict):
-    try:return firewall.clone_rule(rule_id,str(data.get("value") or ""),int(data.get("minutes") or 0),str(data.get("actor") or "dashboard"))
+async def clone_rule(rule_id:int,data:dict,actor:str=""):
+    try:result=firewall.clone_rule(rule_id,str(data.get("value") or ""),int(data.get("minutes") or 0),_who(data,actor))
     except ValueError as exc:raise HTTPException(400,str(exc)) from exc
+    firewall.record_audit(_who(data,actor),"rule.clone","rule",str(result["id"]),str(data.get("reason") or f"Kopie von Regel #{rule_id}"),None,result)
+    return result
 
 @router.patch("/events/{event_id}/note")
 async def annotate_event(event_id:int,data:dict):
@@ -70,9 +112,14 @@ async def annotate_event(event_id:int,data:dict):
     except ValueError as exc:raise HTTPException(400,str(exc)) from exc
 
 @router.post("/operations/timed-emergency")
-async def timed_emergency(data:dict):
-    try:return firewall.set_timed_emergency(int(data.get("minutes") or 0))
+async def timed_emergency(data:dict,actor:str=""):
+    before=firewall.settings()
+    try:after=firewall.set_timed_emergency(int(data.get("minutes") or 0))
     except ValueError as exc:raise HTTPException(400,str(exc)) from exc
+    who=_who(data,actor)
+    for key in ("emergency_mode","emergency_until"):
+        if before.get(key)!=after.get(key):firewall.record_audit(who,"setting.emergency","setting",key,str(data.get("reason") or "Zeitbegrenzter Notfallmodus geändert"),before.get(key),after.get(key))
+    return after
 
 @router.get("/safety-audit")
 async def safety_audit():return firewall.safety_audit()
@@ -81,15 +128,22 @@ async def safety_audit():return firewall.safety_audit()
 async def reset_counters(): return {"status":"ok",**firewall.reset_runtime_counters()}
 
 @router.post("/operations/bulk-unban")
-async def bulk_unban(data:dict):
+async def bulk_unban(data:dict,actor:str=""):
+    before={f"{item['kind']}:{item['value']}":item for item in firewall.rules(True)}
     try:removed=firewall.bulk_unban(str(data.get("scope") or ""))
     except ValueError as exc:raise HTTPException(400,str(exc)) from exc
+    after={f"{item['kind']}:{item['value']}":item for item in firewall.rules(True)}; who=_who(data,actor)
+    for key in before.keys()-after.keys():firewall.record_audit(who,"rule.bulk_unban","rule",str(before[key]["id"]),str(data.get("reason") or f"Massenentsperrung: {data.get('scope')}"),before[key],None)
     return {"status":"ok","removed":removed}
 
 @router.post("/operations/preset/{name}")
-async def apply_preset(name:str):
-    try:return firewall.apply_preset(name)
+async def apply_preset(name:str,actor:str=""):
+    before=firewall.settings()
+    try:after=firewall.apply_preset(name)
     except ValueError as exc:raise HTTPException(400,str(exc)) from exc
+    for key in sorted(set(before)|set(after)):
+        if before.get(key)!=after.get(key):firewall.record_audit(actor or "dashboard","setting.preset","setting",key,f"Schutzprofil {name}",before.get(key),after.get(key))
+    return after
 
 @router.get("/export")
 async def export_configuration(): return firewall.export_configuration()
@@ -102,9 +156,12 @@ async def create_snapshot(data:dict):
     return firewall.create_snapshot(str(data.get("name") or "Manuelle Sicherung"),str(data.get("actor") or "dashboard"))
 
 @router.post("/snapshots/{snapshot_id}/restore")
-async def restore_snapshot(snapshot_id:int,data:dict):
-    try:return firewall.restore_snapshot(snapshot_id,str(data.get("actor") or "dashboard"))
+async def restore_snapshot(snapshot_id:int,data:dict,actor:str=""):
+    who=_who(data,actor)
+    try:result=firewall.restore_snapshot(snapshot_id,who)
     except (ValueError,TypeError) as exc:raise HTTPException(400,str(exc)) from exc
+    firewall.record_audit(who,"snapshot.restore","snapshot",str(snapshot_id),str(data.get("reason") or "Konfiguration wiederhergestellt"),None,{"rules_restored":result["rules_restored"]})
+    return result
 
 @router.delete("/snapshots/{snapshot_id}")
 async def remove_snapshot(snapshot_id:int):
@@ -112,9 +169,12 @@ async def remove_snapshot(snapshot_id:int):
     return {"status":"ok"}
 
 @router.post("/incidents/{event_id}/stop")
-async def stop_attack(event_id:int,data:dict):
-    try:return firewall.stop_incident(event_id,str(data.get("actor") or "dashboard"))
+async def stop_attack(event_id:int,data:dict,actor:str=""):
+    who=_who(data,actor)
+    try:result=firewall.stop_incident(event_id,who)
     except ValueError as exc:raise HTTPException(404,str(exc)) from exc
+    firewall.record_audit(who,"incident.stop","rule",str(result["rule"]["id"]),str(data.get("reason") or f"Vorfall #{event_id} manuell gestoppt"),None,result["rule"])
+    return result
 
 @router.post("/incidents/{event_id}/analyze")
 async def analyze_attack(event_id:int):

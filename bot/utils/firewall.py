@@ -70,6 +70,12 @@ def ensure() -> None:
         CREATE TABLE IF NOT EXISTS firewall_snapshots(
           id INTEGER PRIMARY KEY AUTOINCREMENT,name TEXT NOT NULL,created_at INTEGER NOT NULL,
           created_by TEXT NOT NULL DEFAULT '',settings_json TEXT NOT NULL,rules_json TEXT NOT NULL);
+        CREATE TABLE IF NOT EXISTS firewall_audit_log(
+          id INTEGER PRIMARY KEY AUTOINCREMENT,created_at INTEGER NOT NULL,actor TEXT NOT NULL,
+          action TEXT NOT NULL,target_type TEXT NOT NULL,target_id TEXT NOT NULL DEFAULT '',
+          reason TEXT NOT NULL DEFAULT '',before_json TEXT,after_json TEXT,
+          rolled_back_at INTEGER,rolled_back_by TEXT NOT NULL DEFAULT '');
+        CREATE INDEX IF NOT EXISTS firewall_audit_created ON firewall_audit_log(created_at DESC);
         """)
         columns={row[1] for row in db.execute("PRAGMA table_info(firewall_events)")}
         if "actor_id" not in columns: db.execute("ALTER TABLE firewall_events ADD COLUMN actor_id TEXT NOT NULL DEFAULT ''")
@@ -446,6 +452,87 @@ def safety_audit() -> dict[str,Any]:
     if any(r["kind"]=="method" and r["value"] in {"GET","POST"} for r in active):findings.append({"severity":"warning","title":"Häufige HTTP-Methode gesperrt","detail":"GET/POST-Sperren können große Teile des Dashboards abschalten."})
     score=max(0,100-sum(25 if item["severity"]=="critical" else 10 for item in findings))
     return {"score":score,"status":"good" if score>=80 else "review" if score>=50 else "danger","findings":findings,"checked_at":int(time.time())}
+
+
+def is_management_path(path:str) -> bool:
+    clean=(path or "").split("?",1)[0]
+    return clean.startswith("/firewall") or clean.startswith("/api/v1/firewall")
+
+
+def record_audit(actor:str,action:str,target_type:str,target_id:str="",reason:str="",before:Any=None,after:Any=None) -> int:
+    ensure()
+    encode=lambda value:None if value is None else json.dumps(value,ensure_ascii=False,sort_keys=True)
+    with _connect() as db:
+        cur=db.execute("INSERT INTO firewall_audit_log(created_at,actor,action,target_type,target_id,reason,before_json,after_json) VALUES(?,?,?,?,?,?,?,?)",(int(time.time()),str(actor or "dashboard")[:80],action[:80],target_type[:30],str(target_id)[:100],reason[:300],encode(before),encode(after)))
+        return int(cur.lastrowid)
+
+
+def audit_entries(limit:int=300) -> list[dict[str,Any]]:
+    ensure(); cap=max(1,min(1000,int(limit)))
+    with _connect() as db:rows=[dict(row) for row in db.execute("SELECT * FROM firewall_audit_log ORDER BY created_at DESC,id DESC LIMIT ?",(cap,))]
+    for row in rows:
+        row["before"]=json.loads(row.pop("before_json")) if row.get("before_json") else None
+        row["after"]=json.loads(row.pop("after_json")) if row.get("after_json") else None
+    return rows
+
+
+def _restore_rule_state(state:dict[str,Any]) -> dict[str,Any]:
+    expires=state.get("expires_at"); now=int(time.time())
+    if expires is not None and int(expires)<=now:expires=None
+    restored=add_rule(state["kind"],state["value"],state.get("note","") ,int(expires) if expires is not None else None,"rollback")
+    minutes=0 if expires is None else max(1,int((int(expires)-now)/60))
+    return extend_rule(restored["id"],minutes,state.get("note",""),bool(state.get("enabled",1)),int(state.get("priority",100)))
+
+
+def rollback_audit(entry_id:int,actor:str,reason:str="") -> dict[str,Any]:
+    ensure()
+    with _connect() as db:row=db.execute("SELECT * FROM firewall_audit_log WHERE id=?",(int(entry_id),)).fetchone()
+    if not row:raise ValueError("Audit-Eintrag nicht gefunden.")
+    if row["rolled_back_at"]:raise ValueError("Diese Änderung wurde bereits rückgängig gemacht.")
+    before=json.loads(row["before_json"]) if row["before_json"] else None
+    after=json.loads(row["after_json"]) if row["after_json"] else None
+    if row["target_type"]=="rule":
+        if before is None and after is not None:
+            with _connect() as db:db.execute("DELETE FROM firewall_rules WHERE kind=? AND value=?",(after["kind"],after["value"]))
+            result={"removed":True}
+        elif before is not None:
+            if after is not None and (after.get("kind"),after.get("value"))!=(before.get("kind"),before.get("value")):
+                with _connect() as db:db.execute("DELETE FROM firewall_rules WHERE kind=? AND value=?",(after["kind"],after["value"]))
+            result=_restore_rule_state(before)
+        else:raise ValueError("Dieser Audit-Eintrag enthält keinen wiederherstellbaren Regelstand.")
+    elif row["target_type"]=="setting":
+        if before is None:raise ValueError("Alter Einstellungswert fehlt.")
+        result=update_settings({row["target_id"]:before})
+    else:raise ValueError("Diese Änderung unterstützt keinen Einzel-Rollback.")
+    now=int(time.time())
+    with _connect() as db:db.execute("UPDATE firewall_audit_log SET rolled_back_at=?,rolled_back_by=? WHERE id=?",(now,actor[:80],int(entry_id)))
+    record_audit(actor,"rollback",row["target_type"],row["target_id"],reason or f"Rollback von Audit #{entry_id}",after,before)
+    reset_runtime_counters()
+    return {"rolled_back":True,"entry_id":int(entry_id),"result":result}
+
+
+def compare_snapshot(snapshot_id:int) -> dict[str,Any]:
+    ensure()
+    with _connect() as db:row=db.execute("SELECT * FROM firewall_snapshots WHERE id=?",(int(snapshot_id),)).fetchone()
+    if not row:raise ValueError("Sicherung nicht gefunden.")
+    saved_settings=json.loads(row["settings_json"]); current_settings=settings()
+    setting_changes=[{"key":key,"snapshot":saved_settings.get(key),"current":current_settings.get(key)} for key in sorted(set(saved_settings)|set(current_settings)) if saved_settings.get(key)!=current_settings.get(key)]
+    identify=lambda rule:f"{rule.get('kind')}:{rule.get('value')}"
+    saved={identify(rule):rule for rule in json.loads(row["rules_json"])}; current={identify(rule):rule for rule in rules(True)}
+    added=[current[key] for key in current.keys()-saved.keys()]
+    removed=[saved[key] for key in saved.keys()-current.keys()]
+    changed=[{"key":key,"snapshot":saved[key],"current":current[key]} for key in saved.keys()&current.keys() if any(saved[key].get(field)!=current[key].get(field) for field in ("note","enabled","expires_at","priority"))]
+    return {"snapshot":{"id":row["id"],"name":row["name"],"created_at":row["created_at"]},"settings":setting_changes,"rules_added":added,"rules_removed":removed,"rules_changed":changed,"total_changes":len(setting_changes)+len(added)+len(removed)+len(changed)}
+
+
+def self_protection_test() -> dict[str,Any]:
+    cases=[]
+    for path in ("/firewall/check","/api/v1/firewall/check","/api/v1/firewall/overview"):
+        cases.append({"name":f"Management-Pfad {path}","passed":is_management_path(path),"result":"bypass" if is_management_path(path) else "failed"})
+    internal=evaluate("203.0.113.250","POST","/api/templates",trusted_internal=True)
+    owner=evaluate("203.0.113.251","POST","/dashboard",actor_id="test-owner",actor_is_owner=True)
+    cases.extend(({"name":"Interner Bot-Aufruf","passed":internal.get("reason")=="trusted_internal","result":internal.get("reason")},{"name":"Owner-Bypass","passed":owner.get("reason")=="owner_bypass","result":owner.get("reason")}))
+    return {"passed":all(case["passed"] for case in cases),"cases":cases,"tested_at":int(time.time()),"created_events":False,"created_rules":False}
 
 
 def create_snapshot(name:str,actor:str) -> dict[str,Any]:

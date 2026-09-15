@@ -285,7 +285,7 @@ def create_app() -> FastAPI:
         # Firewall control/check routes must never inspect or block themselves.
         # Mounted FastAPI sub-apps may expose either the stripped or full path.
         firewall_path = request.url.path
-        if firewall_path.startswith("/firewall") or firewall_path.startswith("/api/v1/firewall"):
+        if firewall.is_management_path(firewall_path):
             return await call_next(request)
         forwarded = request.headers.get("x-firewall-client-ip", "").strip()
         if not forwarded:

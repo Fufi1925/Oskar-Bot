@@ -46,12 +46,22 @@ def main():
         fw.update_settings({"requests_per_minute":4321})
         restored=fw.restore_snapshot(snapshot["id"],"owner")
         assert restored["restored"] and restored["settings"]["requests_per_minute"]!=4321
+        fw.update_settings({"burst_10_seconds":777})
+        comparison=fw.compare_snapshot(snapshot["id"])
+        assert comparison["total_changes"]>=1 and comparison["settings"]
         assert fw.snapshots() and fw.delete_snapshot(snapshot["id"])
         annotated=fw.annotate_event(false_positive,"false positive reviewed","owner")
         assert "false positive reviewed" in annotated["note"]
         template=next(rule for rule in fw.rules(True) if rule["kind"]=="block")
         cloned=fw.clone_rule(template["id"],"203.0.115.0/24",5,"owner")
         assert cloned["value"]=="203.0.115.0/24" and cloned["expires_at"]
+        audit_id=fw.record_audit("owner","rule.create","rule",str(cloned["id"]),"test",None,cloned)
+        assert fw.audit_entries()[0]["actor"]=="owner"
+        rollback=fw.rollback_audit(audit_id,"owner","test rollback")
+        assert rollback["rolled_back"] and not any(rule["value"]=="203.0.115.0/24" for rule in fw.rules(True))
+        event_count=len(fw.events(1000))
+        self_test=fw.self_protection_test()
+        assert self_test["passed"] and not self_test["created_events"] and len(fw.events(1000))==event_count
         emergency=fw.set_timed_emergency(15)
         assert emergency["emergency_mode"] and emergency["emergency_until"]>int(time.time())
         assert "score" in fw.safety_audit()
@@ -92,7 +102,8 @@ def main():
         fw.ensure()
         assert all(e["id"]!=false_event for e in fw.events())
         server=open("bot/api/server.py",encoding="utf-8").read()
-        assert 'startswith("/api/v1/firewall")' in server
+        assert "firewall.is_management_path(firewall_path)" in server
+        assert fw.is_management_path("/api/v1/firewall/check")
         panel=open("dashboard/components/dashboard/firewall-panel.tsx",encoding="utf-8").read()
         assert "<select" not in panel and "CustomSelect" in panel
         assert "bulkUnbanFirewall" in panel and "acknowledgeFirewallIncident" in panel
