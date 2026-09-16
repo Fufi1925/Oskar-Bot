@@ -90,9 +90,6 @@ export function HomepageWorldMap() {
               <Globe2 className="h-4 w-4" /> Live von der Homepage
             </p>
             <h2 className="mt-2 text-2xl font-bold tracking-tight text-white sm:text-3xl">Website-Aufrufe weltweit</h2>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-              Ein Besuch zählt erneut, wenn dieselbe IP zuletzt vor mindestens zehn Minuten gezählt wurde. Die IP wird dafür nur als kurzlebiges, geheimes Prüfabild verarbeitet; lesbar gespeichert werden ausschließlich UTC-Tag, Ländercode und Anzahl.
-            </p>
           </div>
           <div className="flex items-end gap-6">
             <div><p className="text-3xl font-semibold tabular-nums text-white">{data ? formatter.format(data.total) : "—"}</p><p className="mt-1 text-xs text-slate-500">Aufrufe gesamt</p></div>
