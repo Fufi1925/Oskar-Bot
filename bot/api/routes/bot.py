@@ -140,7 +140,16 @@ async def homepage_visitor_map(request: Request):
     from utils import homepage_visitors
 
     if request.method == "POST":
-        homepage_visitors.record(request.headers.get("x-firewall-country", ""))
+        import asyncio
+
+        ip = request.headers.get("x-firewall-client-ip", "").strip()
+        # Dieselbe IP innerhalb von zehn Minuten weder zählen noch erneut an
+        # den Geo-Dienst senden. Danach ist ein neuer Homepage-Aufruf erlaubt.
+        if ip and not homepage_visitors.recently_seen(ip):
+            country = request.headers.get("x-firewall-country", "").strip().upper()
+            if not country:
+                country = await asyncio.to_thread(homepage_visitors.lookup_country, ip)
+            homepage_visitors.record(ip, country)
     return homepage_visitors.summary()
 
 

@@ -40,14 +40,6 @@ export function HomepageWorldMap() {
 
   React.useEffect(() => {
     let aktiv = true;
-    const navigation = String(Math.round(performance.timeOrigin || Date.now()));
-    const key = `university-home-view:${navigation}`;
-    let zaehlen = true;
-    try {
-      zaehlen = sessionStorage.getItem(key) !== "1";
-      if (zaehlen) sessionStorage.setItem(key, "1");
-    } catch {}
-
     const laden = (method: "GET" | "POST") => fetch("/api/bot/bot/visitor-map", {
       method,
       cache: "no-store",
@@ -58,7 +50,9 @@ export function HomepageWorldMap() {
       return response.json();
     });
 
-    laden(zaehlen ? "POST" : "GET")
+    // Bei jedem Öffnen melden. Das Backend entscheidet anhand der IP, ob der
+    // letzte gezählte Aufruf mindestens zehn Minuten zurückliegt.
+    laden("POST")
       .then((result) => { if (aktiv) { setData(result); setFehler(false); } })
       .catch(() => { if (aktiv) setFehler(true); });
 
@@ -97,7 +91,7 @@ export function HomepageWorldMap() {
             </p>
             <h2 className="mt-2 text-2xl font-bold tracking-tight text-white sm:text-3xl">Website-Aufrufe weltweit</h2>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-              Jeder neue Ladevorgang dieser Startseite zählt als ein Aufruf. Gespeichert werden nur UTC-Tag, Ländercode und Anzahl — keine IP-Adresse und kein Gerät.
+              Ein Besuch zählt erneut, wenn dieselbe IP zuletzt vor mindestens zehn Minuten gezählt wurde. Die IP wird dafür nur als kurzlebiges, geheimes Prüfabild verarbeitet; lesbar gespeichert werden ausschließlich UTC-Tag, Ländercode und Anzahl.
             </p>
           </div>
           <div className="flex items-end gap-6">
