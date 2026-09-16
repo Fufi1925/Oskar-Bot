@@ -539,7 +539,7 @@ function ScrollReveal({
     <div
       ref={ref}
       className={cn(
-        "transition-[opacity,transform,filter] duration-700 ease-out motion-reduce:transform-none motion-reduce:transition-none",
+        "scroll-reveal transition-[opacity,transform,filter] duration-700 ease-out motion-reduce:transform-none motion-reduce:transition-none",
         sichtbar
           ? "translate-x-0 opacity-100 blur-0"
           : von === "links"
@@ -585,12 +585,16 @@ export default function LandingPage() {
   const [karte, setKarte] = React.useState(0);
   const [zahlen, setZahlen] = React.useState<any>(null);
   const [carouselPause, setCarouselPause] = React.useState(false);
+  const [offeneGruppe, setOffeneGruppe] = React.useState<number | null>(null);
+  const [alleFaqSichtbar, setAlleFaqSichtbar] = React.useState(false);
   const touchStart = React.useRef<number | null>(null);
 
   // Schnell genug, damit alle Module sichtbar werden. Beim Überfahren,
   // Fokussieren oder Wischen pausiert der Wechsel automatisch.
   React.useEffect(() => {
-    if (carouselPause) return;
+    // Auf kleinen Displays bleibt die Bühne ruhig. Die Karten lassen sich
+    // weiterhin antippen und wischen, verursachen aber keine Dauer-Updates.
+    if (carouselPause || window.matchMedia("(max-width: 639px)").matches) return;
     const t = setInterval(
       () => setKarte((k) => (k + 1) % HERO_KARTEN.length),
       2600,
@@ -633,13 +637,13 @@ export default function LandingPage() {
       {/* ── Immersiver Hero ───────────────────────────────── */}
       <header className="px-3 pt-4 sm:px-6 lg:px-10">
         <div
-          className="university-universe relative mx-auto min-h-[720px] max-w-[1500px] overflow-hidden rounded-[28px] border border-white/10 bg-[#050914] bg-cover bg-center shadow-[0_35px_100px_rgba(0,0,0,.55)] sm:min-h-[760px]"
+          className="university-universe relative mx-auto min-h-[680px] max-w-[1500px] overflow-hidden rounded-[24px] border border-white/10 bg-[#050914] bg-cover bg-center shadow-[0_24px_70px_rgba(0,0,0,.45)] sm:min-h-[760px] sm:rounded-[28px] sm:shadow-[0_35px_100px_rgba(0,0,0,.55)]"
           style={{ backgroundImage: "url('/home-university-universe.jpg')" }}
         >
           <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(3,7,14,.32),rgba(3,7,14,.08)_40%,rgba(3,7,14,.88)_100%)]" />
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_70%_42%,transparent_0%,rgba(3,7,14,.2)_58%,rgba(3,7,14,.55)_100%)]" />
 
-          <div className="relative flex min-h-[720px] flex-col p-4 sm:min-h-[760px] sm:p-7 lg:p-9">
+          <div className="relative flex min-h-[680px] flex-col p-4 sm:min-h-[760px] sm:p-7 lg:p-9">
             <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
               <span className="university-comet university-comet-one" />
               <span className="university-comet university-comet-two" />
@@ -658,7 +662,7 @@ export default function LandingPage() {
               </p>
             </div>
 
-            <div className="relative mt-auto grid items-end gap-8 pb-2 pt-52 lg:grid-cols-[1.1fr_.9fr] lg:gap-14 lg:pt-64">
+            <div className="relative mt-auto grid items-end gap-5 pb-2 pt-40 sm:gap-8 sm:pt-52 lg:grid-cols-[1.1fr_.9fr] lg:gap-14 lg:pt-64">
               <div>
                 <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/15 bg-black/25 px-3 py-1.5 text-xs font-medium text-white/80 backdrop-blur-lg">
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_12px_#34d399]" />
@@ -686,7 +690,7 @@ export default function LandingPage() {
               </div>
 
               <div
-                className="relative min-h-[275px]"
+                className="relative min-h-[215px] sm:min-h-[275px]"
                 onMouseEnter={() => setCarouselPause(true)}
                 onMouseLeave={() => setCarouselPause(false)}
                 onTouchStart={(event) => { touchStart.current = event.touches[0]?.clientX ?? null; setCarouselPause(true); }}
@@ -712,7 +716,7 @@ export default function LandingPage() {
                       onClick={() => setKarte(index)}
                       aria-label={`${eintrag.titel} anzeigen`}
                       className={cn(
-                        "absolute bottom-10 right-0 min-h-[235px] w-[92%] overflow-hidden rounded-3xl border border-white/25 bg-[#070b16]/70 p-5 text-left shadow-[0_24px_70px_rgba(0,0,0,.5)] ring-1 ring-white/5 backdrop-blur-2xl transition-[transform,opacity,filter] duration-700 sm:w-[86%] sm:p-6",
+                        "absolute bottom-9 right-0 min-h-[190px] w-[94%] overflow-hidden rounded-2xl border border-white/25 bg-[#070b16]/75 p-4 text-left shadow-[0_16px_45px_rgba(0,0,0,.45)] ring-1 ring-white/5 backdrop-blur-2xl transition-[transform,opacity,filter] duration-500 sm:bottom-10 sm:min-h-[235px] sm:w-[86%] sm:rounded-3xl sm:p-6 sm:duration-700",
                         versatz === 0 ? "z-20 opacity-100" : "z-10 opacity-55 blur-[1.5px]",
                       )}
                       style={{ transform: `translateX(${versatz * -18}%) translateY(${Math.abs(versatz) * -12}px) scale(${versatz === 0 ? 1 : .9})` }}
@@ -785,7 +789,7 @@ export default function LandingPage() {
               blaues Quadrat mit weißem Symbol; nebeneinander ergaben
               sie eine Wand aus Blau, in der kein Eintrag heraussticht.
               Das Symbol steht jetzt ruhig neben dem Titel. */}
-      <section id="funktionen" className="px-6 py-20 lg:px-12 xl:px-20">
+      <section id="funktionen" className="px-4 py-12 sm:px-6 sm:py-20 lg:px-12 xl:px-20">
         <div className="mx-auto max-w-[1400px]">
           <ScrollReveal von="links" className="max-w-2xl">
             <h2 className="text-[28px] font-bold tracking-tight text-white sm:text-[32px]">
@@ -797,29 +801,39 @@ export default function LandingPage() {
             </p>
           </ScrollReveal>
 
-          <div className="mt-10 space-y-5">
+          <div className="mt-7 space-y-3 sm:mt-10 sm:space-y-5">
             {FUNKTIONS_GRUPPEN.map((gruppe, index) => {
               const GruppenIcon = gruppe.icon;
               return (
                 <ScrollReveal key={gruppe.titel} von={index % 2 === 0 ? "links" : "rechts"}>
-                <article className="home-glass overflow-hidden rounded-3xl px-5 sm:px-6">
-                  <div className="flex flex-col gap-3 py-6 sm:flex-row sm:items-center">
+                <article className="home-glass overflow-hidden rounded-2xl px-4 sm:rounded-3xl sm:px-6">
+                  <div className="flex items-center gap-3 py-4 sm:py-6">
                     <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-indigo-400/20 bg-indigo-400/10 shadow-[inset_0_1px_rgba(255,255,255,.08)]">
                       <GruppenIcon className="h-5 w-5 text-indigo-400" />
                     </span>
-                    <div>
-                      <h3 className="text-[17px] font-bold text-white">
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-[15px] font-bold text-white sm:text-[17px]">
                         {gruppe.titel}
                       </h3>
-                      <p className="mt-0.5 text-[13px] text-slate-500">
+                      <p className="mt-0.5 line-clamp-1 text-[12px] text-slate-500 sm:line-clamp-none sm:text-[13px]">
                         {gruppe.text}
                       </p>
                     </div>
-                    <span className="sm:ml-auto text-xs tabular-nums text-slate-600">
+                    <span className="hidden text-xs tabular-nums text-slate-600 sm:block sm:ml-auto">
                       {gruppe.module.length} Module
                     </span>
+                    <button
+                      type="button"
+                      aria-expanded={offeneGruppe === index}
+                      aria-controls={`mobile-module-${index}`}
+                      onClick={() => setOffeneGruppe((aktuell) => aktuell === index ? null : index)}
+                      className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-white/10 bg-white/5 text-indigo-300 sm:hidden"
+                    >
+                      <span className="sr-only">{gruppe.titel} {offeneGruppe === index ? "schließen" : "öffnen"}</span>
+                      <ChevronDown className={cn("h-5 w-5 transition-transform", offeneGruppe === index && "rotate-180")} />
+                    </button>
                   </div>
-                  <div className="grid gap-x-10 sm:grid-cols-2 lg:grid-cols-3">
+                  <div id={`mobile-module-${index}`} className={cn("gap-x-10 sm:grid sm:grid-cols-2 lg:grid-cols-3", offeneGruppe === index ? "grid" : "hidden")}>
                     {gruppe.module.map(([titel, text]) => (
                       <div
                         key={titel}
@@ -845,7 +859,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section className="px-6 py-14 lg:px-12 xl:px-20">
+      <section className="px-4 py-10 sm:px-6 sm:py-14 lg:px-12 xl:px-20">
         <ScrollReveal von="rechts" className="home-glass relative mx-auto max-w-[1400px] overflow-hidden rounded-3xl p-6 sm:p-9 lg:p-12">
           <div aria-hidden className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-amber-400/10 blur-3xl" />
           <div className="relative grid gap-9 lg:grid-cols-[1.05fr_.95fr] lg:items-center">
@@ -856,7 +870,7 @@ export default function LandingPage() {
               <div className="mt-7 flex flex-wrap gap-3"><Link href="/dashboard/premium" className="inline-flex items-center gap-2 rounded-xl bg-amber-400 px-5 py-3 text-sm font-black text-black hover:bg-amber-300"><Sparkles className="h-4 w-4" />Kaufanfrage starten</Link><Link href="/premium" className="inline-flex items-center gap-2 rounded-xl border border-amber-400/25 px-5 py-3 text-sm font-semibold text-amber-200 hover:bg-amber-400/10">Alles über Premium<ArrowRight className="h-4 w-4" /></Link></div>
               <dl className="mt-8 flex max-w-xl flex-wrap gap-x-10 gap-y-5 border-t border-slate-800 pt-6"><div><dd className="text-xl font-black text-white">3</dd><dt className="text-[11px] text-slate-500">feste Plätze</dt></div><div><dd className="text-xl font-black text-white">365</dd><dt className="text-[11px] text-slate-500">Tage maximal</dt></div><div><dd className="text-xl font-black text-white">Keine</dd><dt className="text-[11px] text-slate-500">Löschung bei Ablauf</dt></div></dl>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2">{[[Palette,"Eigenes Bot-Aussehen","Name, Avatar und Banner"],[Database,"Erweiterte Backups","10 Plätze und Automatik"],[BarChart4,"Server-Stats","Live gepflegte Statistikkanäle"],[Zap,"User Pull","Vollständig Premium und owner-only"],[KeyRound,"Custom Commands","Bis zu 20 eigene Befehle"],[Server,"Sicherer Ablauf","Einfrieren oder deaktivieren"]].map(([Icon,title,text])=>{const PremiumIcon=Icon as React.ElementType;return <div key={String(title)} className="rounded-2xl border border-white/10 bg-white/[.035] p-4 shadow-[inset_0_1px_rgba(255,255,255,.06)] backdrop-blur-xl transition hover:bg-white/[.06]"><PremiumIcon className="h-5 w-5 text-amber-400"/><p className="mt-3 text-sm font-black text-white">{title as string}</p><p className="mt-1 text-xs text-slate-500">{text as string}</p></div>})}</div>
+            <div className="grid grid-cols-2 gap-2 sm:gap-3">{[[Palette,"Eigenes Bot-Aussehen","Name, Avatar und Banner"],[Database,"Erweiterte Backups","10 Plätze und Automatik"],[BarChart4,"Server-Stats","Live gepflegte Statistikkanäle"],[Zap,"User Pull","Vollständig Premium und owner-only"],[KeyRound,"Custom Commands","Bis zu 20 eigene Befehle"],[Server,"Sicherer Ablauf","Einfrieren oder deaktivieren"]].map(([Icon,title,text])=>{const PremiumIcon=Icon as React.ElementType;return <div key={String(title)} className="rounded-2xl border border-white/10 bg-white/[.035] p-3 shadow-[inset_0_1px_rgba(255,255,255,.06)] backdrop-blur-xl transition hover:bg-white/[.06] sm:p-4"><PremiumIcon className="h-5 w-5 text-amber-400"/><p className="mt-3 text-sm font-black text-white">{title as string}</p><p className="mt-1 text-xs text-slate-500">{text as string}</p></div>})}</div>
           </div>
         </ScrollReveal>
       </section>
@@ -872,7 +886,7 @@ export default function LandingPage() {
           eine Kachelwand. Die Aussage „direkt aus dem laufenden Bot"
           bleibt, weil sie den Unterschied zu erfundenen Zahlen
           macht. */}
-      <section className="px-6 py-16 lg:px-12 xl:px-20">
+      <section className="px-4 py-10 sm:px-6 sm:py-16 lg:px-12 xl:px-20">
         <div className="mx-auto max-w-[1400px]">
           <ScrollReveal von="links" className="home-glass flex flex-wrap items-end justify-between gap-x-10 gap-y-8 rounded-3xl p-6 sm:p-8">
             {[
@@ -919,7 +933,7 @@ export default function LandingPage() {
           An die Stelle tritt etwas, das nachprüfbar ist: die drei
           Schritte bis zum laufenden Bot. Sobald es echte Stimmen
           gibt, können sie hier stehen. */}
-      <section className="px-6 py-20 lg:px-12 xl:px-20">
+      <section className="px-4 py-12 sm:px-6 sm:py-20 lg:px-12 xl:px-20">
         <div className="mx-auto max-w-[1400px]">
           <div className="grid gap-12 lg:grid-cols-[minmax(0,360px)_1fr] lg:gap-20">
             <ScrollReveal von="links">
@@ -967,7 +981,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── FAQ ───────────────────────────────────────────── */}
-      <section className="px-6 py-20 lg:px-12 xl:px-20">
+      <section className="px-4 py-12 sm:px-6 sm:py-20 lg:px-12 xl:px-20">
         <ScrollReveal von="rechts" className="home-glass mx-auto max-w-[900px] rounded-3xl p-6 sm:p-9">
           {/* Vorher stand hier dreimal dasselbe untereinander: das
               Kürzel „FAQ", die Überschrift „Häufig gestellte Fragen"
@@ -980,10 +994,19 @@ export default function LandingPage() {
           </div>
 
           <div className="border-t border-slate-800">
-            {FAQ.map((f) => (
-              <FaqZeile key={f.frage} frage={f.frage} antwort={f.antwort} />
+            {FAQ.map((f, index) => (
+              <div key={f.frage} className={cn(index >= 4 && !alleFaqSichtbar && "hidden sm:block")}>
+                <FaqZeile frage={f.frage} antwort={f.antwort} />
+              </div>
             ))}
           </div>
+          <button
+            type="button"
+            onClick={() => setAlleFaqSichtbar((sichtbar) => !sichtbar)}
+            className="mt-5 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-indigo-200 sm:hidden"
+          >
+            {alleFaqSichtbar ? "Weniger Fragen anzeigen" : `${FAQ.length - 4} weitere Fragen anzeigen`}
+          </button>
         </ScrollReveal>
       </section>
 
@@ -996,7 +1019,7 @@ export default function LandingPage() {
           niemand gemessen hat.
 
           Stattdessen eine Zeile mit dem, was man hier tun kann. */}
-      <section className="px-6 pb-20 lg:px-12 xl:px-20">
+      <section className="px-4 pb-12 sm:px-6 sm:pb-20 lg:px-12 xl:px-20">
         <ScrollReveal von="links" className="home-glass mx-auto flex max-w-[1400px] flex-wrap items-center justify-between gap-6 rounded-3xl p-6 sm:p-8">
           <div>
             <h2 className="text-[20px] font-bold tracking-tight text-white">
@@ -1052,6 +1075,27 @@ export default function LandingPage() {
           box-shadow: inset 0 1px rgba(255,255,255,.06), 0 22px 65px rgba(0,0,0,.24);
           -webkit-backdrop-filter: blur(22px) saturate(135%);
           backdrop-filter: blur(22px) saturate(135%);
+        }
+        @media (max-width: 639px) {
+          .university-universe {
+            animation: none !important;
+            background-position: 66% center;
+            background-size: cover;
+          }
+          .university-comet { display: none; animation: none !important; }
+          .home-glass {
+            box-shadow: inset 0 1px rgba(255,255,255,.05), 0 12px 35px rgba(0,0,0,.18);
+            -webkit-backdrop-filter: blur(10px) saturate(115%);
+            backdrop-filter: blur(10px) saturate(115%);
+          }
+          .scroll-reveal {
+            filter: none !important;
+            transition-property: opacity, transform !important;
+          }
+          .university-universe [class*="backdrop-blur"] {
+            -webkit-backdrop-filter: blur(8px) !important;
+            backdrop-filter: blur(8px) !important;
+          }
         }
         @media (prefers-reduced-motion: reduce) {
           [class*="heroProgress"], .university-universe, .university-comet { animation: none !important; }

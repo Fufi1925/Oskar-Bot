@@ -82,14 +82,15 @@ export function HomepageWorldMap() {
   };
 
   return (
-    <section className="px-4 py-12 sm:px-6 lg:px-12 xl:px-20">
+    <section className="px-4 py-8 sm:px-6 sm:py-12 lg:px-12 xl:px-20">
       <div className="home-glass mx-auto max-w-[1400px] overflow-hidden rounded-3xl p-5 sm:p-8">
-        <div className="mb-6 flex flex-wrap items-start justify-between gap-5 px-1">
+        <div className="mb-4 flex flex-wrap items-start justify-between gap-4 px-1 sm:mb-6 sm:gap-5">
           <div>
             <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-[.14em] text-indigo-400">
               <Globe2 className="h-4 w-4" /> Live von der Homepage
             </p>
             <h2 className="mt-2 text-2xl font-bold tracking-tight text-white sm:text-3xl">Website-Aufrufe weltweit</h2>
+
           </div>
           <div className="flex items-end gap-6">
             <div><p className="text-3xl font-semibold tabular-nums text-white">{data ? formatter.format(data.total) : "—"}</p><p className="mt-1 text-xs text-slate-500">Aufrufe gesamt</p></div>
@@ -103,7 +104,7 @@ export function HomepageWorldMap() {
         </div>
 
         <div ref={mapRef} className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#080b14]/80 shadow-[inset_0_1px_rgba(255,255,255,.05)]">
-          <svg viewBox="0 0 1000 500" className="block h-auto min-h-[250px] w-full" role="img" aria-label="Weltkarte der echten Homepage-Aufrufe nach Land">
+          <svg viewBox="0 0 1000 500" className="block h-auto min-h-[180px] w-full sm:min-h-[250px]" role="img" aria-label="Weltkarte der echten Homepage-Aufrufe nach Land">
             <rect width="1000" height="500" fill="#0d0e13" />
             {WORLD_PATHS.map((country) => {
               const views = werte.get(country.code) || 0;
@@ -143,7 +144,7 @@ export function HomepageWorldMap() {
 
         <div className="mt-3 flex flex-wrap items-center justify-between gap-3 px-1 text-[11px] text-slate-600">
           <span>Je heller das Land, desto mehr echte Seitenaufrufe.</span>
-          <span>Aktualisierung alle 30 Sekunden · keine erfundenen Beispieldaten</span>
+          <span className="hidden sm:inline">Aktualisierung alle 30 Sekunden · keine erfundenen Beispieldaten</span>
         </div>
       </div>
     </section>
