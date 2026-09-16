@@ -72,7 +72,7 @@ import {
   Users,
   Zap,
 } from "lucide-react";
-import { INVITE_URL } from "@/components/site-nav";
+import { SiteNav, INVITE_URL } from "@/components/site-nav";
 import { cn } from "@/lib/utils";
 
 const HomepageWorldMap = dynamic(
@@ -628,36 +628,31 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen overflow-x-clip bg-[#0a0a0c] text-slate-200 selection:bg-indigo-500/30">
+      <SiteNav />
+
       {/* ── Immersiver Hero ───────────────────────────────── */}
       <header className="px-3 pt-4 sm:px-6 lg:px-10">
         <div
-          className="relative mx-auto min-h-[720px] max-w-[1500px] overflow-hidden rounded-[28px] border border-white/10 bg-[#0a111d] bg-cover bg-center shadow-[0_35px_100px_rgba(0,0,0,.55)] sm:min-h-[760px]"
-          style={{ backgroundImage: "url('/home-university-hero.jpg')" }}
+          className="university-universe relative mx-auto min-h-[720px] max-w-[1500px] overflow-hidden rounded-[28px] border border-white/10 bg-[#050914] bg-cover bg-center shadow-[0_35px_100px_rgba(0,0,0,.55)] sm:min-h-[760px]"
+          style={{ backgroundImage: "url('/home-university-universe.jpg')" }}
         >
           <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(3,7,14,.32),rgba(3,7,14,.08)_40%,rgba(3,7,14,.88)_100%)]" />
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_70%_42%,transparent_0%,rgba(3,7,14,.2)_58%,rgba(3,7,14,.55)_100%)]" />
 
           <div className="relative flex min-h-[720px] flex-col p-4 sm:min-h-[760px] sm:p-7 lg:p-9">
-            <div className="flex items-center gap-3 rounded-2xl border border-white/15 bg-black/25 px-3 py-2.5 shadow-2xl backdrop-blur-xl sm:px-4">
-              <Link href="/" className="flex min-w-0 items-center gap-2.5">
-                <span className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-xl border border-white/15 bg-black/35">
-                  <Image src="/icon-192.png" alt="University Bot Logo" width={36} height={36} className="h-9 w-9 object-cover" priority />
-                </span>
-                <span className="truncate text-sm font-bold tracking-tight text-white">University</span>
-              </Link>
-              <nav className="ml-4 hidden items-center gap-1 text-xs text-white/70 md:flex">
-                <Link href="#funktionen" className="rounded-lg px-3 py-2 hover:bg-white/10 hover:text-white">Module</Link>
-                <Link href="/premium" className="rounded-lg px-3 py-2 hover:bg-white/10 hover:text-white">Premium</Link>
-                <Link href="/status" className="rounded-lg px-3 py-2 hover:bg-white/10 hover:text-white">Status</Link>
-                <Link href="/ideas" className="rounded-lg px-3 py-2 hover:bg-white/10 hover:text-white">Ideen</Link>
-              </nav>
-              <div className="ml-auto flex items-center gap-2">
-                <Link href="/dashboard" className="hidden rounded-xl px-3 py-2 text-xs font-semibold text-white/80 hover:bg-white/10 sm:inline-flex">Anmelden</Link>
-                <a href={INVITE_URL} target="_blank" rel="noopener noreferrer" className="rounded-xl bg-white px-4 py-2 text-xs font-bold text-slate-950 transition hover:bg-indigo-100">Bot hinzufügen</a>
-              </div>
+            <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
+              <span className="university-comet university-comet-one" />
+              <span className="university-comet university-comet-two" />
+              <span className="university-comet university-comet-three" />
+            </div>
+            <div className="absolute left-5 top-5 z-10 flex items-center gap-3 rounded-2xl border border-white/15 bg-black/25 p-2.5 pr-4 shadow-2xl backdrop-blur-xl sm:left-8 sm:top-8">
+              <span className="grid h-11 w-11 place-items-center overflow-hidden rounded-xl border border-white/15 bg-black/45">
+                <Image src="/icon-192.png" alt="University Bot Logo" width={44} height={44} className="h-11 w-11 object-cover" priority />
+              </span>
+              <div><p className="text-sm font-bold text-white">University Bot</p><p className="text-[10px] uppercase tracking-[.16em] text-white/45">Discord neu gedacht</p></div>
             </div>
 
-            <div className="pointer-events-none absolute inset-x-0 top-28 overflow-hidden px-3 text-center sm:top-24">
+            <div className="pointer-events-none absolute inset-x-0 top-32 overflow-hidden px-3 text-center sm:top-24">
               <p className="select-none whitespace-nowrap text-[16vw] font-black leading-none tracking-[-.08em] text-white/[.17] sm:text-[14vw] lg:text-[clamp(95px,11vw,168px)]">
                 UNIVERSITY
               </p>
@@ -717,20 +712,23 @@ export default function LandingPage() {
                       onClick={() => setKarte(index)}
                       aria-label={`${eintrag.titel} anzeigen`}
                       className={cn(
-                        "absolute bottom-10 right-0 w-[88%] rounded-2xl border border-white/15 bg-black/30 p-5 text-left shadow-2xl backdrop-blur-2xl transition-[transform,opacity,filter] duration-700 sm:w-[82%] sm:p-6",
-                        versatz === 0 ? "z-20 opacity-100" : "z-10 opacity-35 blur-[3px]",
+                        "absolute bottom-10 right-0 min-h-[235px] w-[92%] overflow-hidden rounded-3xl border border-white/25 bg-[#070b16]/70 p-5 text-left shadow-[0_24px_70px_rgba(0,0,0,.5)] ring-1 ring-white/5 backdrop-blur-2xl transition-[transform,opacity,filter] duration-700 sm:w-[86%] sm:p-6",
+                        versatz === 0 ? "z-20 opacity-100" : "z-10 opacity-55 blur-[1.5px]",
                       )}
                       style={{ transform: `translateX(${versatz * -18}%) translateY(${Math.abs(versatz) * -12}px) scale(${versatz === 0 ? 1 : .9})` }}
                     >
-                      <div className="flex items-start gap-4">
+                      <span className={cn("absolute inset-x-0 top-0 h-0.5 opacity-90", farbe.icon)} />
+                      <div className="absolute -right-16 -top-16 h-40 w-40 rounded-full bg-white/[.04] blur-2xl" />
+                      <div className="relative flex items-start gap-4">
                         <span className={cn("grid h-12 w-12 shrink-0 place-items-center rounded-xl text-white shadow-lg", farbe.icon)}><Icon className="h-6 w-6" /></span>
                         <div className="min-w-0 flex-1">
                           <p className="text-[10px] font-bold uppercase tracking-[.15em] text-white/45">University Modul</p>
                           <h2 className="mt-1 text-xl font-bold text-white">{eintrag.titel}</h2>
-                          <p className="mt-2 line-clamp-2 text-xs leading-5 text-white/55">{eintrag.text}</p>
+                          <p className="mt-2 text-xs leading-5 text-white/70">{eintrag.text}</p>
+                          <div className="mt-3 flex flex-wrap gap-1.5"><span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-emerald-300">Live</span><span className="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-white/55">Dashboard</span></div>
                         </div>
                       </div>
-                      <div className="mt-5 flex items-end justify-between border-t border-white/10 pt-4">
+                      <div className="relative mt-5 flex items-end justify-between border-t border-white/10 pt-4">
                         <div><strong className={cn("text-3xl font-black", farbe.text)}>{meta.wert}</strong><span className="ml-2 text-[9px] uppercase tracking-wider text-white/40">{meta.label}</span></div>
                         <span className="text-[10px] tabular-nums text-white/40">{String(index + 1).padStart(2, "0")}/{HERO_KARTEN.length}</span>
                       </div>
@@ -1032,8 +1030,24 @@ export default function LandingPage() {
           from { transform: scaleX(0); }
           to { transform: scaleX(1); }
         }
+        @keyframes universeDrift {
+          0%, 100% { background-position: 48% 50%; }
+          50% { background-position: 54% 46%; }
+        }
+        @keyframes cometFlight {
+          0% { transform: translate3d(-340px,-140px,0) rotate(24deg); opacity: 0; }
+          8% { opacity: .9; }
+          30%, 100% { transform: translate3d(1500px,640px,0) rotate(24deg); opacity: 0; }
+        }
+        .university-universe { background-size: 108% 108%; animation: universeDrift 26s ease-in-out infinite; }
+        .university-comet { position: absolute; left: 0; top: 0; width: 220px; height: 2px; border-radius: 999px; background: linear-gradient(90deg,transparent,rgba(199,210,254,.2),rgba(255,255,255,.95)); box-shadow: 0 0 10px rgba(165,180,252,.75); opacity: 0; animation: cometFlight 9s linear infinite; }
+        .university-comet::after { content: ""; position: absolute; right: -2px; top: -2px; width: 6px; height: 6px; border-radius: 999px; background: white; box-shadow: 0 0 16px 4px rgba(199,210,254,.8); }
+        .university-comet-one { top: 6%; animation-delay: 1s; }
+        .university-comet-two { top: 28%; animation-delay: 4.5s; animation-duration: 12s; transform: scale(.7); }
+        .university-comet-three { top: 50%; animation-delay: 8s; animation-duration: 15s; }
         @media (prefers-reduced-motion: reduce) {
-          [class*="heroProgress"] { animation: none !important; }
+          [class*="heroProgress"], .university-universe, .university-comet { animation: none !important; }
+          .university-comet { display: none; }
         }
       `}</style>
     </div>

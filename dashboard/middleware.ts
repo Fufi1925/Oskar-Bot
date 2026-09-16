@@ -201,6 +201,10 @@ const authGate = withAuth(
  */
 const OEFFENTLICH = [
   "/api/bot/bot/numbers",
+  // Die Weltkarte steht auf der öffentlichen Startseite. GET liefert nur
+  // aggregierte Länderzahlen, POST zählt denselben IP-Fingerabdruck höchstens
+  // einmal in zehn Minuten. Eine Discord-Anmeldung ist dafür nicht nötig.
+  "/api/bot/bot/visitor-map",
   // Die Cookie-Bestaetigung. Der Hinweis erscheint auf der
   // oeffentlichen Startseite, lange bevor sich jemand anmeldet --
   // stuende diese Route hinter der Anmeldepflicht, bekaeme jeder

@@ -58,11 +58,13 @@ def test_public_route_uses_forwarded_ip_and_country_not_browser_body():
     bff = (ROOT / "dashboard" / "app" / "api" / "bot" / "[...path]" / "route.ts").read_text(encoding="utf-8")
     page = (ROOT / "dashboard" / "app" / "page.tsx").read_text(encoding="utf-8")
     component = (ROOT / "dashboard" / "components" / "home" / "homepage-world-map.tsx").read_text(encoding="utf-8")
+    middleware = (ROOT / "dashboard" / "middleware.ts").read_text(encoding="utf-8")
 
     assert 'request.headers.get("x-firewall-client-ip", "")' in route
     assert 'request.headers.get("x-firewall-country", "")' in route
     assert "homepage_visitors.lookup_country" in route
     assert 'rest[0] === "visitor-map"' in bff
+    assert '"/api/bot/bot/visitor-map"' in middleware
     assert "<HomepageWorldMap />" in page
     assert 'laden("POST")' in component
     assert "visitorsByCountry" not in component
