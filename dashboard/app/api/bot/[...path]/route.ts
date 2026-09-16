@@ -1609,6 +1609,12 @@ async function authorize(
     if (rest[0] === "numbers" && request.method === "GET") {
       return { ok: true };
     }
+    // Öffentliche Weltkarte: GET liest ausschließlich aggregierte Länderwerte,
+    // POST zählt einen Seitenaufruf. Das Land kommt aus dem Hosting-Header und
+    // wird unten serverseitig als X-Firewall-Country weitergereicht.
+    if (rest[0] === "visitor-map" && ["GET", "POST"].includes(request.method)) {
+      return { ok: true };
+    }
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) return { ok: false, response: deny(401, "Not signed in.") };
     return { ok: true };

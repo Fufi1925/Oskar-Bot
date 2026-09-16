@@ -129,6 +129,21 @@ async def get_numbers(bot: "universitybot" = Depends(get_bot)):
     }
 
 
+@router.api_route("/visitor-map", methods=["GET", "POST"], summary="Anonyme Homepage-Aufrufe nach Land")
+async def homepage_visitor_map(request: Request):
+    """Öffentliche, echte Kartenstatistik ohne IP- oder Geräte-Speicherung.
+
+    POST zählt genau einen Homepage-Ladevorgang. Das Land stammt ausschließlich
+    aus dem vom BFF weitergereichten Hosting-Header. Der Browser kann keinen
+    Ländernamen im Body vorgeben. GET liefert nur aggregierte Länderzahlen.
+    """
+    from utils import homepage_visitors
+
+    if request.method == "POST":
+        homepage_visitors.record(request.headers.get("x-firewall-country", ""))
+    return homepage_visitors.summary()
+
+
 @router.get("/account/{user_id}", summary="Eigene kontoübergreifende Bot-Statistik")
 async def get_account(user_id: int, bot: "universitybot" = Depends(get_bot)):
     """Leveling-Werte und gemessener Verlauf über alle Server hinweg.

@@ -44,6 +44,7 @@
 
 import React from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import {
   ArrowRight,
   BarChart4,
@@ -72,6 +73,11 @@ import {
 } from "lucide-react";
 import { SiteNav, INVITE_URL } from "@/components/site-nav";
 import { cn } from "@/lib/utils";
+
+const HomepageWorldMap = dynamic(
+  () => import("@/components/home/homepage-world-map").then((modul) => modul.HomepageWorldMap),
+  { ssr: false },
+);
 
 const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || "University Bot";
 
@@ -809,6 +815,10 @@ export default function LandingPage() {
           </div>
         </ScrollReveal>
       </section>
+
+      <ScrollReveal von="links">
+        <HomepageWorldMap />
+      </ScrollReveal>
 
       {/* ── Funktionen ────────────────────────────────────── */}
       {/*
