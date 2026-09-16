@@ -194,6 +194,25 @@ function sichtbareMarken(anzahl: number): Set<number> {
   return marken;
 }
 
+/** Weiche Catmull-Rom-Kurve als kubischer SVG-Bézierpfad. */
+function weicherPfad(punkte: Array<[number, number]>) {
+  if (!punkte.length) return "";
+  if (punkte.length === 1) return `M${punkte[0][0]},${punkte[0][1]}`;
+  let d = `M${punkte[0][0].toFixed(2)},${punkte[0][1].toFixed(2)}`;
+  for (let i = 0; i < punkte.length - 1; i++) {
+    const p0 = punkte[Math.max(0, i - 1)];
+    const p1 = punkte[i];
+    const p2 = punkte[i + 1];
+    const p3 = punkte[Math.min(punkte.length - 1, i + 2)];
+    const c1x = p1[0] + (p2[0] - p0[0]) / 6;
+    const c1y = p1[1] + (p2[1] - p0[1]) / 6;
+    const c2x = p2[0] - (p3[0] - p1[0]) / 6;
+    const c2y = p2[1] - (p3[1] - p1[1]) / 6;
+    d += ` C${c1x.toFixed(2)},${c1y.toFixed(2)} ${c2x.toFixed(2)},${c2y.toFixed(2)} ${p2[0].toFixed(2)},${p2[1].toFixed(2)}`;
+  }
+  return d;
+}
+
 export function LineChart({
   daten,
   name,
@@ -205,6 +224,7 @@ export function LineChart({
 }: Props) {
   const [aktiv, setAktiv] = React.useState<number | null>(null);
   const flaeche = React.useRef<SVGSVGElement>(null);
+  const chartId = React.useId().replaceAll(":", "");
 
   // Feste Breite im Koordinatensystem; das SVG skaliert selbst.
   const B = 600;
@@ -232,20 +252,18 @@ export function LineChart({
    * Feld auf null zu ziehen.
    */
   const pfad = React.useMemo(() => {
-    let d = "";
-    let luecke = true;
+    const teile: Array<Array<[number, number]>> = [];
+    let teil: Array<[number, number]> = [];
     daten.forEach((p, i) => {
       if (p.wert === null) {
-        // Nach einer Lücke muss der nächste Punkt mit M anfangen,
-        // sonst zieht die Linie quer darüber hinweg -- im eigenen
-        // Bild nachgemessen, die Lücke war unsichtbar.
-        luecke = true;
-        return;
+        if (teil.length) teile.push(teil);
+        teil = [];
+      } else {
+        teil.push([x(i), y(p.wert)]);
       }
-      d += `${luecke ? "M" : "L"}${x(i).toFixed(1)},${y(p.wert).toFixed(1)}`;
-      luecke = false;
     });
-    return d;
+    if (teil.length) teile.push(teil);
+    return teile.map(weicherPfad).join(" ");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [daten, unten, oben, hoehe]);
 
@@ -330,10 +348,19 @@ export function LineChart({
         }
       >
         <defs>
-          <linearGradient id={`fill-${farbe.replace("#", "")}`} x1="0" y1="0" x2="0" y2="1">
+          <linearGradient id={`fill-${chartId}`} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor={farbe} stopOpacity="0.18" />
             <stop offset="100%" stopColor={farbe} stopOpacity="0" />
           </linearGradient>
+          <linearGradient id={`edge-${chartId}`} x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0" stopColor="black" stopOpacity="0" />
+            <stop offset="0.06" stopColor="white" />
+            <stop offset="0.94" stopColor="white" />
+            <stop offset="1" stopColor="black" stopOpacity="0" />
+          </linearGradient>
+          <mask id={`edge-mask-${chartId}`}>
+            <rect x={LINKS} width={innenB} height={H - UNTEN} fill={`url(#edge-${chartId})`} />
+          </mask>
         </defs>
 
         {/* Gitter und Y-Beschriftung. */}
@@ -385,17 +412,20 @@ export function LineChart({
         )}
 
         {flaechePfad && (
-          <path d={flaechePfad} fill={`url(#fill-${farbe.replace("#", "")})`} />
+          <path d={flaechePfad} fill={`url(#fill-${chartId})`} mask={`url(#edge-mask-${chartId})`} />
         )}
 
         <path
           d={pfad}
           fill="none"
           stroke={farbe}
-          strokeWidth="2"
+          strokeWidth="2.25"
           strokeLinecap="round"
           strokeLinejoin="round"
           vectorEffect="non-scaling-stroke"
+          mask={`url(#edge-mask-${chartId})`}
+          pathLength={1}
+          className="dashboard-chart-line"
         />
 
         {/* Bei wenigen Werten jeden Punkt zeigen -- eine Linie aus
@@ -439,8 +469,25 @@ export function LineChart({
           </g>
         )}
       </svg>
+      <ChartAnimationStyles />
     </div>
   );
+}
+
+function ChartAnimationStyles() {
+  return <style jsx global>{`
+    @keyframes dashboardChartDraw {
+      from { stroke-dashoffset: 1; opacity: .18; }
+      to { stroke-dashoffset: 0; opacity: 1; }
+    }
+    .dashboard-chart-line {
+      stroke-dasharray: 1;
+      animation: dashboardChartDraw 1100ms cubic-bezier(.5,1.35,.5,1) both;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .dashboard-chart-line { animation: none; stroke-dashoffset: 0; }
+    }
+  `}</style>;
 }
 
 /* ────────────────────────────────────────────────────────────────────
@@ -498,6 +545,7 @@ export function MultiLineChart({
   const [aktiv, setAktiv] = React.useState<number | null>(null);
   const [aus, setAus] = React.useState<Set<string>>(() => new Set());
   const flaeche = React.useRef<SVGSVGElement>(null);
+  const chartId = React.useId().replaceAll(":", "");
 
   const B = 600;
   const H = hoehe;
@@ -524,17 +572,18 @@ export function MultiLineChart({
 
   /** Ein Pfad je Reihe, Lücken unterbrechen ihn. */
   const pfadVon = (werte: Array<number | null>) => {
-    let d = "";
-    let luecke = true;
+    const teile: Array<Array<[number, number]>> = [];
+    let teil: Array<[number, number]> = [];
     werte.forEach((wert, i) => {
       if (wert === null) {
-        luecke = true;
-        return;
+        if (teil.length) teile.push(teil);
+        teil = [];
+      } else {
+        teil.push([x(i), y(wert)]);
       }
-      d += `${luecke ? "M" : "L"}${x(i).toFixed(1)},${y(wert).toFixed(1)}`;
-      luecke = false;
     });
-    return d;
+    if (teil.length) teile.push(teil);
+    return teile.map(weicherPfad).join(" ");
   };
 
   const beiBewegung = (e: React.MouseEvent<SVGSVGElement>) => {
@@ -627,6 +676,17 @@ export function MultiLineChart({
           labels.length
         } Werte von ${labels[0]} bis ${labels[labels.length - 1]}`}
       >
+        <defs>
+          <linearGradient id={`edge-${chartId}`} x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0" stopColor="black" stopOpacity="0" />
+            <stop offset="0.06" stopColor="white" />
+            <stop offset="0.94" stopColor="white" />
+            <stop offset="1" stopColor="black" stopOpacity="0" />
+          </linearGradient>
+          <mask id={`edge-mask-${chartId}`}>
+            <rect x={LINKS} width={innenB} height={H - UNTEN} fill={`url(#edge-${chartId})`} />
+          </mask>
+        </defs>
         {/* Gitter und Y-Beschriftung. */}
         {Array.from({ length: GITTER }, (_, i) => {
           const wert = oben - (i / (GITTER - 1)) * spanne;
@@ -679,10 +739,13 @@ export function MultiLineChart({
             d={pfadVon(reihe.werte)}
             fill="none"
             stroke={reihe.farbe}
-            strokeWidth="2"
+            strokeWidth="2.25"
             strokeLinecap="round"
             strokeLinejoin="round"
             vectorEffect="non-scaling-stroke"
+            mask={`url(#edge-mask-${chartId})`}
+            pathLength={1}
+            className="dashboard-chart-line"
           />
         ))}
 
@@ -735,6 +798,7 @@ export function MultiLineChart({
           </g>
         )}
       </svg>
+      <ChartAnimationStyles />
     </div>
   );
 }
