@@ -627,7 +627,7 @@ export default function LandingPage() {
   const server = zahlen?.guilds > 0 ? zeig(zahlen.guilds) : null;
 
   return (
-    <div className="min-h-screen overflow-x-clip bg-[#0a0a0c] text-slate-200 selection:bg-indigo-500/30">
+    <div className="min-h-screen overflow-x-clip bg-[#050712] bg-[radial-gradient(circle_at_10%_35%,rgba(79,70,229,.10),transparent_26%),radial-gradient(circle_at_90%_68%,rgba(14,165,233,.08),transparent_28%)] text-slate-200 selection:bg-indigo-500/30">
       <SiteNav />
 
       {/* ── Immersiver Hero ───────────────────────────────── */}
@@ -748,9 +748,9 @@ export default function LandingPage() {
       </header>
 
       <section className="px-4 py-8 sm:px-6">
-        <ScrollReveal von="rechts" className="mx-auto max-w-6xl border-y border-slate-800 py-7 sm:flex sm:items-center sm:justify-between sm:gap-8">
+        <ScrollReveal von="rechts" className="home-glass mx-auto max-w-6xl rounded-3xl p-6 sm:flex sm:items-center sm:justify-between sm:gap-8 sm:p-8">
           <div className="flex gap-4">
-            <div className="grid h-12 w-12 shrink-0 place-items-center text-indigo-400">
+            <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl border border-indigo-400/20 bg-indigo-400/10 text-indigo-300 shadow-[inset_0_1px_rgba(255,255,255,.08)]">
               <Lightbulb className="h-6 w-6" />
             </div>
             <div>
@@ -802,9 +802,9 @@ export default function LandingPage() {
               const GruppenIcon = gruppe.icon;
               return (
                 <ScrollReveal key={gruppe.titel} von={index % 2 === 0 ? "links" : "rechts"}>
-                <article className="border-t border-slate-800">
+                <article className="home-glass overflow-hidden rounded-3xl px-5 sm:px-6">
                   <div className="flex flex-col gap-3 py-6 sm:flex-row sm:items-center">
-                    <span className="grid h-10 w-10 shrink-0 place-items-center">
+                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-indigo-400/20 bg-indigo-400/10 shadow-[inset_0_1px_rgba(255,255,255,.08)]">
                       <GruppenIcon className="h-5 w-5 text-indigo-400" />
                     </span>
                     <div>
@@ -846,7 +846,8 @@ export default function LandingPage() {
       </section>
 
       <section className="px-6 py-14 lg:px-12 xl:px-20">
-        <ScrollReveal von="rechts" className="relative mx-auto max-w-[1400px] border-y border-slate-800 py-12">
+        <ScrollReveal von="rechts" className="home-glass relative mx-auto max-w-[1400px] overflow-hidden rounded-3xl p-6 sm:p-9 lg:p-12">
+          <div aria-hidden className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-amber-400/10 blur-3xl" />
           <div className="relative grid gap-9 lg:grid-cols-[1.05fr_.95fr] lg:items-center">
             <div>
               <span className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[.14em] text-amber-300"><Crown className="h-3.5 w-3.5" />Premium · drei feste Serverplätze</span>
@@ -855,7 +856,7 @@ export default function LandingPage() {
               <div className="mt-7 flex flex-wrap gap-3"><Link href="/dashboard/premium" className="inline-flex items-center gap-2 rounded-xl bg-amber-400 px-5 py-3 text-sm font-black text-black hover:bg-amber-300"><Sparkles className="h-4 w-4" />Kaufanfrage starten</Link><Link href="/premium" className="inline-flex items-center gap-2 rounded-xl border border-amber-400/25 px-5 py-3 text-sm font-semibold text-amber-200 hover:bg-amber-400/10">Alles über Premium<ArrowRight className="h-4 w-4" /></Link></div>
               <dl className="mt-8 flex max-w-xl flex-wrap gap-x-10 gap-y-5 border-t border-slate-800 pt-6"><div><dd className="text-xl font-black text-white">3</dd><dt className="text-[11px] text-slate-500">feste Plätze</dt></div><div><dd className="text-xl font-black text-white">365</dd><dt className="text-[11px] text-slate-500">Tage maximal</dt></div><div><dd className="text-xl font-black text-white">Keine</dd><dt className="text-[11px] text-slate-500">Löschung bei Ablauf</dt></div></dl>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2">{[[Palette,"Eigenes Bot-Aussehen","Name, Avatar und Banner"],[Database,"Erweiterte Backups","10 Plätze und Automatik"],[BarChart4,"Server-Stats","Live gepflegte Statistikkanäle"],[Zap,"User Pull","Vollständig Premium und owner-only"],[KeyRound,"Custom Commands","Bis zu 20 eigene Befehle"],[Server,"Sicherer Ablauf","Einfrieren oder deaktivieren"]].map(([Icon,title,text])=>{const PremiumIcon=Icon as React.ElementType;return <div key={String(title)} className="border-t border-slate-800 py-4"><PremiumIcon className="h-5 w-5 text-amber-400"/><p className="mt-3 text-sm font-black text-white">{title as string}</p><p className="mt-1 text-xs text-slate-500">{text as string}</p></div>})}</div>
+            <div className="grid gap-3 sm:grid-cols-2">{[[Palette,"Eigenes Bot-Aussehen","Name, Avatar und Banner"],[Database,"Erweiterte Backups","10 Plätze und Automatik"],[BarChart4,"Server-Stats","Live gepflegte Statistikkanäle"],[Zap,"User Pull","Vollständig Premium und owner-only"],[KeyRound,"Custom Commands","Bis zu 20 eigene Befehle"],[Server,"Sicherer Ablauf","Einfrieren oder deaktivieren"]].map(([Icon,title,text])=>{const PremiumIcon=Icon as React.ElementType;return <div key={String(title)} className="rounded-2xl border border-white/10 bg-white/[.035] p-4 shadow-[inset_0_1px_rgba(255,255,255,.06)] backdrop-blur-xl transition hover:bg-white/[.06]"><PremiumIcon className="h-5 w-5 text-amber-400"/><p className="mt-3 text-sm font-black text-white">{title as string}</p><p className="mt-1 text-xs text-slate-500">{text as string}</p></div>})}</div>
           </div>
         </ScrollReveal>
       </section>
@@ -873,7 +874,7 @@ export default function LandingPage() {
           macht. */}
       <section className="px-6 py-16 lg:px-12 xl:px-20">
         <div className="mx-auto max-w-[1400px]">
-          <ScrollReveal von="links" className="flex flex-wrap items-end justify-between gap-x-10 gap-y-8 border-y border-slate-800 py-7">
+          <ScrollReveal von="links" className="home-glass flex flex-wrap items-end justify-between gap-x-10 gap-y-8 rounded-3xl p-6 sm:p-8">
             {[
               { wert: server ?? "—", label: "Server" },
               { wert: zeig(zahlen?.modules), label: "Module" },
@@ -918,7 +919,7 @@ export default function LandingPage() {
           An die Stelle tritt etwas, das nachprüfbar ist: die drei
           Schritte bis zum laufenden Bot. Sobald es echte Stimmen
           gibt, können sie hier stehen. */}
-      <section className="border-y border-slate-800/70 px-6 py-20 lg:px-12 xl:px-20">
+      <section className="px-6 py-20 lg:px-12 xl:px-20">
         <div className="mx-auto max-w-[1400px]">
           <div className="grid gap-12 lg:grid-cols-[minmax(0,360px)_1fr] lg:gap-20">
             <ScrollReveal von="links">
@@ -932,7 +933,7 @@ export default function LandingPage() {
             </ScrollReveal>
 
             <ScrollReveal von="rechts">
-            <ol className="grid sm:grid-cols-3">
+            <ol className="grid gap-3 sm:grid-cols-3">
               {[
                 {
                   titel: "Hinzufügen",
@@ -947,7 +948,7 @@ export default function LandingPage() {
                   text: "Moderation, Tickets und Verifizierung arbeiten ab dem Speichern.",
                 },
               ].map((schritt, i) => (
-                <li key={schritt.titel} className="border-t border-slate-800 py-6 sm:border-l sm:border-t-0 sm:px-6">
+                <li key={schritt.titel} className="home-glass rounded-2xl p-6 shadow-[inset_0_1px_rgba(255,255,255,.05)]">
                   <span className="text-[13px] font-semibold tabular-nums text-indigo-400">
                     {String(i + 1).padStart(2, "0")}
                   </span>
@@ -967,7 +968,7 @@ export default function LandingPage() {
 
       {/* ── FAQ ───────────────────────────────────────────── */}
       <section className="px-6 py-20 lg:px-12 xl:px-20">
-        <ScrollReveal von="rechts" className="mx-auto max-w-[900px]">
+        <ScrollReveal von="rechts" className="home-glass mx-auto max-w-[900px] rounded-3xl p-6 sm:p-9">
           {/* Vorher stand hier dreimal dasselbe untereinander: das
               Kürzel „FAQ", die Überschrift „Häufig gestellte Fragen"
               und der Satz „Finde Antworten auf häufig gestellte
@@ -996,7 +997,7 @@ export default function LandingPage() {
 
           Stattdessen eine Zeile mit dem, was man hier tun kann. */}
       <section className="px-6 pb-20 lg:px-12 xl:px-20">
-        <ScrollReveal von="links" className="mx-auto flex max-w-[1400px] flex-wrap items-center justify-between gap-6 border-y border-slate-800 py-8">
+        <ScrollReveal von="links" className="home-glass mx-auto flex max-w-[1400px] flex-wrap items-center justify-between gap-6 rounded-3xl p-6 sm:p-8">
           <div>
             <h2 className="text-[20px] font-bold tracking-tight text-white">
               {BRAND} zu deinem Server hinzufügen
@@ -1045,6 +1046,13 @@ export default function LandingPage() {
         .university-comet-one { top: 6%; animation-delay: 1s; }
         .university-comet-two { top: 28%; animation-delay: 4.5s; animation-duration: 12s; transform: scale(.7); }
         .university-comet-three { top: 50%; animation-delay: 8s; animation-duration: 15s; }
+        .home-glass {
+          border: 1px solid rgba(255,255,255,.11);
+          background: linear-gradient(135deg,rgba(17,24,39,.67),rgba(8,12,24,.52));
+          box-shadow: inset 0 1px rgba(255,255,255,.06), 0 22px 65px rgba(0,0,0,.24);
+          -webkit-backdrop-filter: blur(22px) saturate(135%);
+          backdrop-filter: blur(22px) saturate(135%);
+        }
         @media (prefers-reduced-motion: reduce) {
           [class*="heroProgress"], .university-universe, .university-comet { animation: none !important; }
           .university-comet { display: none; }

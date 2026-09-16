@@ -83,7 +83,7 @@ export function HomepageWorldMap() {
 
   return (
     <section className="px-4 py-12 sm:px-6 lg:px-12 xl:px-20">
-      <div className="mx-auto max-w-[1400px] border-y border-slate-800 py-8">
+      <div className="home-glass mx-auto max-w-[1400px] overflow-hidden rounded-3xl p-5 sm:p-8">
         <div className="mb-6 flex flex-wrap items-start justify-between gap-5 px-1">
           <div>
             <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-[.14em] text-indigo-400">
@@ -102,7 +102,7 @@ export function HomepageWorldMap() {
           </div>
         </div>
 
-        <div ref={mapRef} className="relative overflow-hidden bg-[#0d0e13]">
+        <div ref={mapRef} className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#080b14]/80 shadow-[inset_0_1px_rgba(255,255,255,.05)]">
           <svg viewBox="0 0 1000 500" className="block h-auto min-h-[250px] w-full" role="img" aria-label="Weltkarte der echten Homepage-Aufrufe nach Land">
             <rect width="1000" height="500" fill="#0d0e13" />
             {WORLD_PATHS.map((country) => {
