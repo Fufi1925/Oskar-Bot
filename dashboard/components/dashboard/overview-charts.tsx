@@ -12,8 +12,8 @@
  * er nimmt, und die Berechtigung wäre eine Eigenschaft des Aufrufers
  * geworden statt der Route.
  *
- * Die Diagramme selbst sind dieselben: `LineChart` und
- * `MultiLineChart` stehen in `components/ui/line-chart.tsx`.
+ * Im Adminbereich verwenden alle Zeitreihen dieselbe animierte,
+ * geglättete Darstellung aus `admin-line-chart.tsx`.
  *
  * ── Warum „Reichweite“ und nicht „Mitglieder“ ───────────────────────
  *
@@ -26,7 +26,7 @@ import React, { useEffect, useState } from "react";
 import { Loader2, TrendingUp } from "lucide-react";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { LineChart, MultiLineChart } from "@/components/ui/line-chart";
+import { AdminLineChart } from "@/components/dashboard/admin-line-chart";
 
 const ZEITRAEUME: Array<[number, string]> = [
   [7, "7 Tage"],
@@ -152,14 +152,15 @@ export function OverviewCharts({ className }: { className?: string }) {
             <p className="mb-2 text-[13px] font-semibold text-slate-300">
               Reichweite
             </p>
-            <LineChart
-              daten={labels.map((label, i) => ({
-                label,
-                wert: data.members[i] ?? null,
-              }))}
-              name="Nutzer auf allen Servern"
-              farbe="#5865f2"
-              hoehe={180}
+            <AdminLineChart
+              labels={labels}
+              reihen={[{
+                key: "members",
+                name: "Nutzer auf allen Servern",
+                farbe: "#818cf8",
+                werte: data.members,
+              }]}
+              hoehe={190}
             />
           </div>
 
@@ -167,14 +168,15 @@ export function OverviewCharts({ className }: { className?: string }) {
             <p className="mb-2 text-[13px] font-semibold text-slate-300">
               Befehle pro Tag
             </p>
-            <LineChart
-              daten={labels.map((label, i) => ({
-                label,
-                wert: data.commands[i] ?? null,
-              }))}
-              name="Aufrufe"
-              farbe="#f59e0b"
-              hoehe={180}
+            <AdminLineChart
+              labels={labels}
+              reihen={[{
+                key: "commands",
+                name: "Aufrufe",
+                farbe: "#f59e0b",
+                werte: data.commands,
+              }]}
+              hoehe={190}
             />
           </div>
 
@@ -182,13 +184,13 @@ export function OverviewCharts({ className }: { className?: string }) {
             <p className="mb-2 text-[13px] font-semibold text-slate-300">
               Kommen und Gehen
             </p>
-            <MultiLineChart
+            <AdminLineChart
               labels={labels}
               reihen={[
-                { name: "Beitritte", farbe: "#10b981", werte: data.joins },
-                { name: "Austritte", farbe: "#f43f5e", werte: data.leaves },
+                { key: "joins", name: "Beitritte", farbe: "#22c55e", werte: data.joins },
+                { key: "leaves", name: "Austritte", farbe: "#ef4444", werte: data.leaves },
               ]}
-              hoehe={180}
+              hoehe={210}
             />
           </div>
         </div>

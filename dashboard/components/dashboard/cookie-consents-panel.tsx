@@ -48,7 +48,7 @@ import {
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { LineChart } from "@/components/ui/line-chart";
+import { AdminLineChart } from "@/components/dashboard/admin-line-chart";
 
 interface ConsentRow {
   besucher_id: string;
@@ -275,14 +275,15 @@ export function CookieConsentsPanel() {
         </div>
 
         <div className="mt-4">
-          <LineChart
-            daten={verlauf.map((punkt) => ({
-              label: tagKurz(punkt.tag),
-              wert: punkt.anzahl,
-            }))}
-            name="Bestätigungen"
-            farbe="#5865f2"
-            hoehe={180}
+          <AdminLineChart
+            labels={verlauf.map((punkt) => tagKurz(punkt.tag))}
+            reihen={[{
+              key: "consents",
+              name: "Bestätigungen",
+              farbe: "#818cf8",
+              werte: verlauf.map((punkt) => punkt.anzahl),
+            }]}
+            hoehe={200}
           />
         </div>
       </div>

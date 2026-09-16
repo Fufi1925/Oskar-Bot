@@ -16,7 +16,7 @@ import {
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { LineChart } from "@/components/ui/line-chart";
+import { AdminLineChart } from "@/components/dashboard/admin-line-chart";
 
 interface CommandEntry {
   command: string;
@@ -268,17 +268,18 @@ export function CommandStatsPanel() {
               {/* Balken zeigten nur die Höhe. Eine Linie zeigt den
                   Verlauf -- und beim Überfahren steht der Wert des
                   Tages daneben statt nur im Tooltip des Browsers. */}
-              <LineChart
-                daten={(data.daily ?? []).map((e) => ({
-                  label: new Date(e.day).toLocaleDateString("de-DE", {
-                    day: "numeric",
-                    month: "short",
-                  }),
-                  wert: e.uses,
+              <AdminLineChart
+                labels={(data.daily ?? []).map((e) => new Date(e.day).toLocaleDateString("de-DE", {
+                  day: "numeric",
+                  month: "short",
                 }))}
-                name="Aufrufe"
-                farbe="#f59e0b"
-                hoehe={180}
+                reihen={[{
+                  key: "uses",
+                  name: "Aufrufe",
+                  farbe: "#f59e0b",
+                  werte: (data.daily ?? []).map((e) => e.uses),
+                }]}
+                hoehe={200}
               />
             </div>
           )}
