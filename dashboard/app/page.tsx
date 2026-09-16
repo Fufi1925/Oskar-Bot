@@ -43,6 +43,7 @@
  */
 
 import React from "react";
+import Image from "next/image";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import {
@@ -71,7 +72,7 @@ import {
   Users,
   Zap,
 } from "lucide-react";
-import { SiteNav, INVITE_URL } from "@/components/site-nav";
+import { INVITE_URL } from "@/components/site-nav";
 import { cn } from "@/lib/utils";
 
 const HomepageWorldMap = dynamic(
@@ -627,170 +628,121 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen overflow-x-clip bg-[#0a0a0c] text-slate-200 selection:bg-indigo-500/30">
-      <SiteNav />
+      {/* ── Immersiver Hero ───────────────────────────────── */}
+      <header className="px-3 pt-4 sm:px-6 lg:px-10">
+        <div
+          className="relative mx-auto min-h-[720px] max-w-[1500px] overflow-hidden rounded-[28px] border border-white/10 bg-[#0a111d] bg-cover bg-center shadow-[0_35px_100px_rgba(0,0,0,.55)] sm:min-h-[760px]"
+          style={{ backgroundImage: "url('/home-university-hero.jpg')" }}
+        >
+          <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(3,7,14,.32),rgba(3,7,14,.08)_40%,rgba(3,7,14,.88)_100%)]" />
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_70%_42%,transparent_0%,rgba(3,7,14,.2)_58%,rgba(3,7,14,.55)_100%)]" />
 
-      {/* ── Hero ──────────────────────────────────────────── */}
-      <header className="relative overflow-x-clip">
-        {/* Ein einziger, sehr weicher Schein. Die alte Seite hatte
-            zwei pulsierende Flächen; auf einem dunklen Grund sieht man
-            davon nur das Rauschen. */}
-        <div className="relative mx-auto max-w-[1400px] px-6 lg:px-12 xl:px-20 py-20 lg:py-28">
-          <div className="grid lg:grid-cols-2 gap-14 items-center">
-            <div>
-              {/* EIN Abzeichen, nicht zwei.
-                  Vorher standen „Aktiv auf Discord" und „Der
-                  Allrounder-Bot" nebeneinander. Das zweite ist eine
-                  Selbstbeschreibung ohne Inhalt -- „Allrounder" sagt
-                  nichts, was der Absatz darunter nicht besser sagt.
-                  Das erste nennt eine Zahl, sobald der Bot sie
-                  liefert. */}
-              <div className="mb-8">
-                <span className="inline-flex items-center gap-2 text-[13px] font-medium text-slate-400">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                  {server ? `Läuft auf ${server} Servern` : "Läuft auf Discord"}
+          <div className="relative flex min-h-[720px] flex-col p-4 sm:min-h-[760px] sm:p-7 lg:p-9">
+            <div className="flex items-center gap-3 rounded-2xl border border-white/15 bg-black/25 px-3 py-2.5 shadow-2xl backdrop-blur-xl sm:px-4">
+              <Link href="/" className="flex min-w-0 items-center gap-2.5">
+                <span className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-xl border border-white/15 bg-black/35">
+                  <Image src="/icon-192.png" alt="University Bot Logo" width={36} height={36} className="h-9 w-9 object-cover" priority />
                 </span>
+                <span className="truncate text-sm font-bold tracking-tight text-white">University</span>
+              </Link>
+              <nav className="ml-4 hidden items-center gap-1 text-xs text-white/70 md:flex">
+                <Link href="#funktionen" className="rounded-lg px-3 py-2 hover:bg-white/10 hover:text-white">Module</Link>
+                <Link href="/premium" className="rounded-lg px-3 py-2 hover:bg-white/10 hover:text-white">Premium</Link>
+                <Link href="/status" className="rounded-lg px-3 py-2 hover:bg-white/10 hover:text-white">Status</Link>
+                <Link href="/ideas" className="rounded-lg px-3 py-2 hover:bg-white/10 hover:text-white">Ideen</Link>
+              </nav>
+              <div className="ml-auto flex items-center gap-2">
+                <Link href="/dashboard" className="hidden rounded-xl px-3 py-2 text-xs font-semibold text-white/80 hover:bg-white/10 sm:inline-flex">Anmelden</Link>
+                <a href={INVITE_URL} target="_blank" rel="noopener noreferrer" className="rounded-xl bg-white px-4 py-2 text-xs font-bold text-slate-950 transition hover:bg-indigo-100">Bot hinzufügen</a>
               </div>
+            </div>
 
-              {/* Kein Farbwechsel mitten in der Überschrift.
-                  „Dein Discord-Server, auf das nächste Level
-                  gebracht" -- die halbe Zeile in Indigo -- ist die
-                  Bauform, die auf jeder zweiten Landingpage steht.
-                  Sie verspricht etwas, das sich nicht prüfen lässt.
-                  Der Satz sagt jetzt, was das Ding ist. */}
-              <h1 className="text-[40px] sm:text-[52px] lg:text-[58px] font-bold leading-[1.08] tracking-tight text-white">
-                Ein Discord-Bot,
-                <br />
-                der den Server führt
-              </h1>
-
-              <p className="mt-6 max-w-lg text-[17px] leading-relaxed text-slate-400">
-                Moderation, Tickets, Bewerbungen, Verifizierung — in einem Bot,
-                eingerichtet über ein Dashboard statt über Befehle.
-              </p>
-
-              <div className="mt-9 flex flex-wrap items-center gap-3">
-                {/* Der Aufkleber „KOSTENLOS" über dem Knopf ist weg.
-                    Er hing halb darüber hinaus und sah aus wie ein
-                    Preisschild im Schlussverkauf. Dass es nichts
-                    kostet, steht jetzt als ruhiger Satz daneben --
-                    dieselbe Aussage, ohne Marktschreier. */}
-                <a
-                  href={INVITE_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center rounded-lg bg-[#5865f2] px-6 py-3 text-[15px] font-semibold text-white transition-colors hover:bg-[#4752c4]"
-                >
-                  Bot hinzufügen
-                </a>
-                <Link
-                  href="#funktionen"
-                  className="inline-flex items-center gap-2 rounded-lg border border-slate-800 px-5 py-3 text-[15px] text-slate-300 transition-colors hover:border-slate-700 hover:text-white"
-                >
-                  Funktionen ansehen
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
-              </div>
-
-              <p className="mt-5 text-[13px] text-slate-500">
-                Kostenlos · Keine Anmeldung nötig, um ihn hinzuzufügen
+            <div className="pointer-events-none absolute inset-x-0 top-28 overflow-hidden px-3 text-center sm:top-24">
+              <p className="select-none whitespace-nowrap text-[16vw] font-black leading-none tracking-[-.08em] text-white/[.17] sm:text-[14vw] lg:text-[clamp(95px,11vw,168px)]">
+                UNIVERSITY
               </p>
             </div>
 
-            {/* Die Karte rechts.
-                Drei Dinge sind hier weggefallen:
+            <div className="relative mt-auto grid items-end gap-8 pb-2 pt-52 lg:grid-cols-[1.1fr_.9fr] lg:gap-14 lg:pt-64">
+              <div>
+                <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/15 bg-black/25 px-3 py-1.5 text-xs font-medium text-white/80 backdrop-blur-lg">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_12px_#34d399]" />
+                  {server ? `Live auf ${server} Servern` : "Live auf Discord"}
+                </div>
+                <h1 className="max-w-2xl text-[38px] font-semibold leading-[1.03] tracking-[-.04em] text-white sm:text-[52px] lg:text-[64px]">
+                  Ein Ort für deinen ganzen Discord-Server.
+                </h1>
+                <p className="mt-5 max-w-xl text-sm leading-6 text-white/65 sm:text-base">
+                  Moderation, Tickets, Bewerbungen und Verifizierung zentral steuern — ohne Konfigurationsdateien und ohne erfundene Versprechen.
+                </p>
 
-                  * **Der Stapel.** Zwei angedeutete Karten dahinter
-                    sollten Tiefe vortäuschen. Sie zeigten nichts und
-                    kosteten nur Kanten.
-                  * **Die Farbverlauf-Kachel** für das Symbol. Ein
-                    pink-violetter Verlauf auf einer sonst blauen
-                    Seite -- die Sorte Farbe, die zufällig wirkt.
-                  * **Die 52px große Zahl in Fuchsia.** „24/7" ist
-                    keine Messung, sondern eine Behauptung; groß und
-                    bunt gesetzt sah sie nach Kennzahl aus.
+                <div className="mt-7 flex flex-wrap items-center gap-3">
+                  <a href={INVITE_URL} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-bold text-slate-950 transition hover:-translate-y-0.5 hover:bg-indigo-100">
+                    Jetzt hinzufügen <ArrowRight className="h-4 w-4" />
+                  </a>
+                  <Link href="#funktionen" className="rounded-xl border border-white/15 bg-black/20 px-5 py-3 text-sm font-semibold text-white backdrop-blur-xl transition hover:bg-white/10">Module ansehen</Link>
+                </div>
 
-                Übrig bleibt, was die Karte eigentlich soll: zeigen,
-                was der Bot kann, eins nach dem anderen. */}
-            <div
-              className="relative min-w-0"
-              onMouseEnter={() => setCarouselPause(true)}
-              onMouseLeave={() => setCarouselPause(false)}
-              onFocusCapture={() => setCarouselPause(true)}
-              onBlurCapture={() => setCarouselPause(false)}
-              onTouchStart={(event) => {
-                touchStart.current = event.touches[0]?.clientX ?? null;
-                setCarouselPause(true);
-              }}
-              onTouchEnd={(event) => {
-                const start = touchStart.current;
-                const ende = event.changedTouches[0]?.clientX;
-                if (start !== null && typeof ende === "number" && Math.abs(ende - start) > 42) {
-                  wechsel(ende < start ? 1 : -1);
-                }
-                touchStart.current = null;
-                window.setTimeout(() => setCarouselPause(false), 900);
-              }}
-            >
-              <div className="relative h-[430px] overflow-hidden sm:h-[470px] lg:h-[500px]">
+                <dl className="mt-9 grid max-w-xl grid-cols-3 gap-3 border-t border-white/15 pt-5">
+                  <div><dd className="text-2xl font-semibold tabular-nums text-white sm:text-3xl">{server ?? "—"}</dd><dt className="mt-1 text-[10px] uppercase tracking-[.12em] text-white/45">Server</dt></div>
+                  <div><dd className="text-2xl font-semibold tabular-nums text-white sm:text-3xl">{zeig(zahlen?.commands)}</dd><dt className="mt-1 text-[10px] uppercase tracking-[.12em] text-white/45">Befehle</dt></div>
+                  <div><dd className="text-2xl font-semibold tabular-nums text-white sm:text-3xl">{zeig(zahlen?.modules)}</dd><dt className="mt-1 text-[10px] uppercase tracking-[.12em] text-white/45">Module</dt></div>
+                </dl>
+              </div>
+
+              <div
+                className="relative min-h-[275px]"
+                onMouseEnter={() => setCarouselPause(true)}
+                onMouseLeave={() => setCarouselPause(false)}
+                onTouchStart={(event) => { touchStart.current = event.touches[0]?.clientX ?? null; setCarouselPause(true); }}
+                onTouchEnd={(event) => {
+                  const start = touchStart.current;
+                  const ende = event.changedTouches[0]?.clientX;
+                  if (start !== null && typeof ende === "number" && Math.abs(ende - start) > 42) wechsel(ende < start ? 1 : -1);
+                  touchStart.current = null;
+                  window.setTimeout(() => setCarouselPause(false), 900);
+                }}
+              >
                 {HERO_KARTEN.map((eintrag, index) => {
                   let versatz = (index - karte + HERO_KARTEN.length) % HERO_KARTEN.length;
                   if (versatz > HERO_KARTEN.length / 2) versatz -= HERO_KARTEN.length;
-                  if (Math.abs(versatz) > 2) return null;
-                  const KartenIcon = eintrag.icon;
+                  if (Math.abs(versatz) > 1) return null;
+                  const Icon = eintrag.icon;
                   const farbe = HERO_FARBEN[index % HERO_FARBEN.length];
                   const meta = HERO_META[eintrag.titel] || { wert: "LIVE", label: "MODUL" };
-                  const aktiv = versatz === 0;
                   return (
                     <button
                       key={eintrag.titel}
                       type="button"
-                      aria-label={`${eintrag.titel} anzeigen`}
                       onClick={() => setKarte(index)}
+                      aria-label={`${eintrag.titel} anzeigen`}
                       className={cn(
-                        "absolute left-1/2 top-1/2 w-[76%] max-w-[390px] rounded-xl border border-slate-700/80 bg-[#121318] p-6 text-left shadow-[0_18px_45px_rgba(0,0,0,.28)] transition-[transform,opacity,filter] duration-700 ease-[cubic-bezier(.22,.8,.25,1)] sm:p-8",
-                        aktiv ? "z-30 opacity-100 blur-0" : "z-10 opacity-45 blur-[4px] hover:opacity-65",
-                        Math.abs(versatz) === 2 && "opacity-0 sm:opacity-20 sm:blur-[7px]",
+                        "absolute bottom-10 right-0 w-[88%] rounded-2xl border border-white/15 bg-black/30 p-5 text-left shadow-2xl backdrop-blur-2xl transition-[transform,opacity,filter] duration-700 sm:w-[82%] sm:p-6",
+                        versatz === 0 ? "z-20 opacity-100" : "z-10 opacity-35 blur-[3px]",
                       )}
-                      style={{
-                        transform: `translate(calc(-50% + ${versatz * 79}%), -50%) scale(${aktiv ? 1 : Math.abs(versatz) === 1 ? 0.88 : 0.78})`,
-                      }}
+                      style={{ transform: `translateX(${versatz * -18}%) translateY(${Math.abs(versatz) * -12}px) scale(${versatz === 0 ? 1 : .9})` }}
                     >
-                      <div className="relative">
-                        <span className={cn("grid h-16 w-16 place-items-center rounded-lg text-white sm:h-20 sm:w-20", farbe.icon)}>
-                          <KartenIcon className="h-8 w-8 sm:h-10 sm:w-10" />
-                        </span>
-                        <h3 className="mt-7 text-[23px] font-black tracking-tight text-white sm:text-[28px]">
-                          {eintrag.titel}
-                        </h3>
-                        <p className="mt-3 text-[13px] leading-6 text-slate-400 sm:text-[14px]">
-                          {eintrag.text}
-                        </p>
-                        <div className="mt-7 flex items-end gap-3">
-                          <strong className={cn("text-[40px] font-black leading-none tracking-tight sm:text-[48px]", farbe.text)}>{meta.wert}</strong>
-                          <span className="pb-1 text-[11px] font-medium uppercase tracking-[.08em] text-slate-500">{meta.label}</span>
+                      <div className="flex items-start gap-4">
+                        <span className={cn("grid h-12 w-12 shrink-0 place-items-center rounded-xl text-white shadow-lg", farbe.icon)}><Icon className="h-6 w-6" /></span>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[10px] font-bold uppercase tracking-[.15em] text-white/45">University Modul</p>
+                          <h2 className="mt-1 text-xl font-bold text-white">{eintrag.titel}</h2>
+                          <p className="mt-2 line-clamp-2 text-xs leading-5 text-white/55">{eintrag.text}</p>
                         </div>
+                      </div>
+                      <div className="mt-5 flex items-end justify-between border-t border-white/10 pt-4">
+                        <div><strong className={cn("text-3xl font-black", farbe.text)}>{meta.wert}</strong><span className="ml-2 text-[9px] uppercase tracking-wider text-white/40">{meta.label}</span></div>
+                        <span className="text-[10px] tabular-nums text-white/40">{String(index + 1).padStart(2, "0")}/{HERO_KARTEN.length}</span>
                       </div>
                     </button>
                   );
                 })}
-              </div>
 
-              <div className="relative z-40 mt-2 flex items-center justify-center gap-3">
-                <button type="button" onClick={() => wechsel(-1)} aria-label="Vorheriges Modul" className="grid h-9 w-9 place-items-center rounded-full border border-slate-700 bg-[#131318] text-slate-400 transition hover:border-indigo-400/50 hover:text-white">
-                  <ChevronLeft className="h-4 w-4" />
-                </button>
-                <div className="flex max-w-[240px] items-center justify-center gap-1.5 overflow-hidden px-1">
-                  {HERO_KARTEN.map((eintrag, index) => (
-                    <button key={eintrag.titel} type="button" title={eintrag.titel} aria-label={eintrag.titel} onClick={() => setKarte(index)} className={cn("h-1.5 shrink-0 rounded-full transition-all", index === karte ? "w-6 bg-indigo-500" : "w-1.5 bg-slate-700 hover:bg-slate-500")} />
-                  ))}
+                <div className="absolute bottom-0 right-0 z-30 flex items-center gap-2">
+                  <button type="button" onClick={() => wechsel(-1)} aria-label="Vorheriges Modul" className="grid h-9 w-9 place-items-center rounded-full border border-white/15 bg-black/30 text-white/70 backdrop-blur-xl hover:bg-white/10 hover:text-white"><ChevronLeft className="h-4 w-4" /></button>
+                  <div className="flex gap-1.5">{HERO_KARTEN.map((eintrag, index) => <button key={eintrag.titel} type="button" aria-label={eintrag.titel} onClick={() => setKarte(index)} className={cn("h-1.5 rounded-full transition-all", index === karte ? "w-5 bg-white" : "w-1.5 bg-white/30")} />)}</div>
+                  <button type="button" onClick={() => wechsel(1)} aria-label="Nächstes Modul" className="grid h-9 w-9 place-items-center rounded-full border border-white/15 bg-black/30 text-white/70 backdrop-blur-xl hover:bg-white/10 hover:text-white"><ChevronRight className="h-4 w-4" /></button>
                 </div>
-                <button type="button" onClick={() => wechsel(1)} aria-label="Nächstes Modul" className="grid h-9 w-9 place-items-center rounded-full border border-slate-700 bg-[#131318] text-slate-400 transition hover:border-indigo-400/50 hover:text-white">
-                  <ChevronRight className="h-4 w-4" />
-                </button>
-                <span className="ml-1 text-[11px] tabular-nums text-slate-600">{karte + 1}/{HERO_KARTEN.length}</span>
-              </div>
-              <div className="mx-auto mt-3 h-0.5 w-40 overflow-hidden rounded-full bg-slate-800">
-                <div key={karte} className={cn("h-full origin-left bg-indigo-500", !carouselPause && "animate-[heroProgress_2.6s_linear_forwards]")} />
               </div>
             </div>
           </div>
