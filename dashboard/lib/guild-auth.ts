@@ -402,15 +402,39 @@ export async function recordLogin(
   }
 }
 
+/**
+ * Temporary access granted by the actual Discord server owner for an open
+ * support case. This check intentionally bypasses no consent state: pending,
+ * declined and closed cases all return false in the trusted backend.
+ */
+export async function hasAcceptedSupportAccess(guildId: string, userId: string): Promise<boolean> {
+  if (!/^\d{17,20}$/.test(String(guildId)) || !/^\d{15,20}$/.test(String(userId))) return false;
+  try {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    const key = process.env.DASHBOARD_API_KEY || "";
+    if (key) headers.Authorization = `Bearer ${key}`;
+    const res = await fetch(`${API_BASE_URL}/support/access/${guildId}/${userId}`, {
+      headers,
+      cache: "no-store",
+    });
+    if (!res.ok) return false;
+    return Boolean(((await res.json()) as { allowed?: boolean }).allowed);
+  } catch {
+    return false;
+  }
+}
+
 /** True when the user holds `permission` (optionally scoped to a guild). */
 export async function hasTeamPermission(
   userId: string,
   permission: string,
   guildId?: string
 ): Promise<boolean> {
-  // A per-server grant means full access inside that one server. It must not
-  // accidentally inherit restrictions from an unrelated global team role.
+  // Explicit per-server grants are full access inside that one server. An
+  // accepted support case is equally explicit and ends as soon as the case is
+  // closed.
   if (guildId && await hasDelegatedGuildAccess(guildId, userId)) return true;
+  if (guildId && await hasAcceptedSupportAccess(guildId, userId)) return true;
 
   const access = await fetchTeamAccess(userId);
   if (!access) return false;
@@ -448,10 +472,6 @@ export async function verifyGuildAccess(guildId: string): Promise<GuildAccessRes
     };
   }
 
-  if (isGlobalAdmin(userId)) {
-    return { allowed: true, status: 200, reason: "Global admin.", userId };
-  }
-
   if (!/^\d{17,20}$/.test(guildId)) {
     return { allowed: false, status: 400, reason: "Invalid guild id.", userId };
   }
@@ -463,18 +483,20 @@ export async function verifyGuildAccess(guildId: string): Promise<GuildAccessRes
     return { allowed: true, status: 200, reason: "Delegated dashboard access.", userId };
   }
 
+  if (await hasAcceptedSupportAccess(guildId, userId)) {
+    return { allowed: true, status: 200, reason: "Accepted support case.", userId };
+  }
+
   if (!session.accessToken) {
     return { allowed: false, status: 401, reason: "Discord session expired. Please sign in again.", userId };
   }
 
-  // A dashboard team role can grant access even without Manage Server on
-  // Discord — that is the point of handing out roles like "Support Agent".
+  // A role explicitly scoped to this guild remains a valid grant. An
+  // unrestricted global team role, including Owner/Co-Owner, does not silently
+  // open customer servers; those users must use the consent-based support flow.
   const team = await fetchTeamAccess(userId);
-  if (team && !team.is_owner && team.roles.length > 0) {
-    const scoped = team.accessible_guilds;
-    if (scoped === null || scoped.includes(String(guildId))) {
-      return { allowed: true, status: 200, reason: "Dashboard team role.", userId };
-    }
+  if (team && team.accessible_guilds !== null && team.accessible_guilds.includes(String(guildId))) {
+    return { allowed: true, status: 200, reason: "Guild-scoped dashboard team role.", userId };
   }
 
   const guilds = await fetchUserGuilds(session.accessToken);

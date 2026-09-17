@@ -1961,4 +1961,33 @@ export const api = {
   decideIdea: (id: string, data: any) => request<any>(`/ideas/${encodeURIComponent(id)}/admin`, { method: "POST", body: JSON.stringify(data) }),
   deleteIdea: (id: string) => request<any>(`/ideas/${encodeURIComponent(id)}`, { method: "DELETE" }),
   blacklistIdeaUser: (data: any) => request<any>("/ideas/admin/blacklist", { method: "POST", body: JSON.stringify(data) }),
+
+  // Consent-based server support.
+  getAdminSupportCases: (status = "all") =>
+    request<any>(`/support/admin/cases?status=${encodeURIComponent(status)}`),
+  createSupportRequest: (guildId: string, problem: string) =>
+    request<any>("/support/admin/requests", {
+      method: "POST",
+      body: JSON.stringify({ guild_id: guildId, problem }),
+    }),
+  addAdminSupportMessage: (caseId: number, message: string) =>
+    request<any>(`/support/admin/cases/${caseId}/messages`, {
+      method: "POST",
+      body: JSON.stringify({ message }),
+    }),
+  closeAdminSupportCase: (caseId: number) =>
+    request<any>(`/support/admin/cases/${caseId}/close`, { method: "POST", body: "{}" }),
+  getGuildSupportCases: (guildId: string) => request<any>(`/support/guild/${guildId}`),
+  respondGuildSupportCase: (guildId: string, caseId: number, decision: "accepted" | "declined") =>
+    request<any>(`/support/guild/${guildId}/cases/${caseId}/respond`, {
+      method: "POST",
+      body: JSON.stringify({ decision }),
+    }),
+  addGuildSupportMessage: (guildId: string, caseId: number, message: string) =>
+    request<any>(`/support/guild/${guildId}/cases/${caseId}/messages`, {
+      method: "POST",
+      body: JSON.stringify({ message }),
+    }),
+  closeGuildSupportCase: (guildId: string, caseId: number) =>
+    request<any>(`/support/guild/${guildId}/cases/${caseId}/close`, { method: "POST", body: "{}" }),
 };

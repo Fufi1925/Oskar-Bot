@@ -41,7 +41,7 @@ import { SUPPORT_INVITE } from "@/lib/legal";
 // Farbige Funktionssymbole wie im Referenz-Dashboard. Die Farbe beschreibt
 // den Bereich; der aktive Zustand bleibt für alle Einträge einheitlich blau.
 const SIDEBAR_ICON_COLORS: Record<string, string> = {
-  "Allgemein": "text-sky-400", "Übersicht": "text-sky-400", "Design": "text-amber-400", "Premium": "text-amber-400", "Admin": "text-red-400",
+  "Allgemein": "text-sky-400", "Übersicht": "text-sky-400", "Hilfe": "text-indigo-300", "Design": "text-amber-400", "Premium": "text-amber-400", "Admin": "text-red-400",
   "Dashboard Access": "text-blue-400", "Server Einstellungen": "text-slate-300",
   "Backup": "text-amber-400", "Server Stats": "text-sky-400",
   "Anti-Nuke": "text-rose-400", "Automod": "text-pink-400", "Honeypot": "text-orange-400",
@@ -70,12 +70,16 @@ export default function DashboardLayout({
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isProfilOpen, setIsProfilOpen] = useState(false);
   const pathname = usePathname();
+  const guildMatch = pathname.match(/\/dashboard\/guild\/([^\/]+)/);
+  const currentGuildId = guildMatch ? guildMatch[1] : null;
   const [verificationOpen, setVerificationOpen] = useState(
     pathname.includes("/verification")
   );
   const { data: session, status } = useSession();
+  const sessionUserId = (session?.user as any)?.id as string | undefined;
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [globalNotification, setGlobalNotification] = useState<string | null>(null);
+  const [pendingSupportRequests, setPendingSupportRequests] = useState(0);
   // Driven by the maintenance_mode config plus the maintenance_banner feature flag.
   const [maintenance, setMaintenance] = useState(false);
   // True when the user holds a dashboard team role, which unlocks the admin panel.
@@ -193,6 +197,22 @@ export default function DashboardLayout({
       .catch(() => {});
   }, [status, session?.user]);
 
+  // Only the actual server owner is authorized for this endpoint. Everyone
+  // else receives 403, which is intentionally treated as "no owner badge".
+  React.useEffect(() => {
+    if (!currentGuildId || !sessionUserId) {
+      setPendingSupportRequests(0);
+      return;
+    }
+    let active = true;
+    const load = () => api.getGuildSupportCases(currentGuildId)
+      .then((data) => { if (active) setPendingSupportRequests(Math.min(1, Number(data?.pending_count || 0))); })
+      .catch(() => { if (active) setPendingSupportRequests(0); });
+    load();
+    const timer = window.setInterval(load, 30_000);
+    return () => { active = false; window.clearInterval(timer); };
+  }, [currentGuildId, sessionUserId]);
+
   // The proximity effect from React Bits' LineSidebar.
   //
   // Above the early return on purpose: React requires every hook to run
@@ -220,13 +240,11 @@ export default function DashboardLayout({
     );
   }
 
-  const match = pathname.match(/\/dashboard\/guild\/([^\/]+)/);
-  const currentGuildId = match ? match[1] : null;
-
   // Base sidebar items – will be filtered if we are inside a guild
   const allSidebarItems = currentGuildId
     ? [
         { name: "Übersicht", href: `/dashboard/guild/${currentGuildId}`, icon: LayoutDashboard },
+        { name: "Hilfe", href: `/dashboard/guild/${currentGuildId}/help`, icon: LifeBuoy, notification: pendingSupportRequests },
         // Ganz oben und gelb hervorgehoben: das Design ist die
         // Premium-Funktion, die man sehen soll, bevor man sie hat.
         //
@@ -684,6 +702,9 @@ export default function DashboardLayout({
                 <span className="min-w-0 truncate">
                   {item.name.replace(" (Beta)", "")}
                 </span>
+                {Number((item as any).notification || 0) > 0 && (
+                  <span className="ml-auto grid h-5 min-w-5 place-items-center rounded-full bg-rose-500 px-1 text-[10px] font-black text-white shadow-[0_0_12px_rgba(244,63,94,.45)]">1</span>
+                )}
                 {item.name.includes("(Beta)") && (
                   <span className="ml-auto shrink-0 rounded bg-white/[0.06] px-1.5 py-0.5 text-[9px] font-bold tracking-wide text-slate-400">
                     BETA
@@ -822,9 +843,11 @@ export default function DashboardLayout({
                 className="relative p-2.5 text-slate-400 hover:bg-white/5 hover:text-white rounded-xl transition-all group"
               >
                 <Bell className="h-5 w-5" />
-                {globalNotification && (
+                {pendingSupportRequests > 0 ? (
+                  <span className="absolute -right-0.5 -top-0.5 grid h-5 min-w-5 place-items-center rounded-full border-2 border-[#0a0a0c] bg-rose-500 px-1 text-[10px] font-black text-white">1</span>
+                ) : globalNotification ? (
                   <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-blue-500 border-2 border-[#0a0a0c] shadow-[0_0_10px_rgba(59,130,246,0.5)]"></span>
-                )}
+                ) : null}
               </button>
 
               <PopoverLayer
@@ -848,6 +871,18 @@ export default function DashboardLayout({
                       </button>
                     </div>
                     
+                    {pendingSupportRequests > 0 && currentGuildId && (
+                      <Link
+                        href={`/dashboard/guild/${currentGuildId}/help`}
+                        onClick={() => setIsNotificationsOpen(false)}
+                        className="mb-3 block rounded-2xl border border-rose-500/20 bg-rose-500/[0.07] p-4 transition hover:bg-rose-500/10"
+                      >
+                        <div className="flex items-center gap-2"><LifeBuoy className="h-4 w-4 text-rose-300" /><span className="text-[10px] font-black uppercase tracking-widest text-rose-300">Admin-Anfrage</span></div>
+                        <p className="mt-2 text-xs font-semibold text-slate-200">Ein Supporter möchte dir bei deinem Server helfen.</p>
+                        <p className="mt-1 text-[10px] text-slate-500">Nur du als Serverinhaber kannst annehmen oder ablehnen.</p>
+                      </Link>
+                    )}
+
                     {globalNotification ? (
                       <div className="bg-blue-500/5 border border-blue-500/10 rounded-2xl p-4">
                         <div className="flex items-center gap-2 mb-2">
@@ -858,7 +893,7 @@ export default function DashboardLayout({
                           {globalNotification}
                         </p>
                       </div>
-                    ) : (
+                    ) : pendingSupportRequests === 0 ? (
                       <div className="py-8 flex flex-col items-center justify-center text-center">
                         <div className="h-10 w-10 rounded-full bg-slate-800 flex items-center justify-center mb-3">
                           <Bell className="h-5 w-5 text-slate-600" />
@@ -866,7 +901,7 @@ export default function DashboardLayout({
                         <p className="text-xs font-bold text-slate-500">No active broadcasts</p>
                         <p className="text-[10px] font-medium text-slate-600 mt-1 uppercase tracking-widest">Everything is operating normally</p>
                       </div>
-                    )}
+                    ) : null}
                 </div>
               </PopoverLayer>
             </div>

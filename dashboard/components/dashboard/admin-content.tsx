@@ -7,7 +7,7 @@ import {
   Hash, Volume2, FolderPlus, Pencil, Trash2, Copy,
   Unlock, Timer, MessageSquareX, Bell, BellOff, SearchCheck, Bot, UserCog, UserSearch,
   Webhook, Link, ScrollText, BarChart4, ClipboardList, Terminal, Gem, Gauge, Bug,
-  AtSign, Sparkles, Inbox, Cookie, BotMessageSquare, KeyRound, Lightbulb, BrainCircuit,
+  AtSign, Sparkles, Inbox, Cookie, BotMessageSquare, KeyRound, Lightbulb, BrainCircuit, LifeBuoy,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
@@ -48,9 +48,10 @@ import { TrustedBotsPanel } from "@/components/dashboard/trusted-bots-panel";
 import { PrivacyErasureAdmin } from "@/components/dashboard/privacy-erasure-admin";
 import { TicketAiAdmin } from "@/components/dashboard/ticket-ai-admin";
 import { FirewallPanel } from "@/components/dashboard/firewall-panel";
+import { SupportRequestsAdmin } from "@/components/dashboard/support-requests-admin";
 
 
-type TabId = "members" | "channels" | "server" | "scans" | "broadcast" | "system" | "features" | "health" | "team" | "access" | "reports" | "audit" | "approvals" | "botsettings" | "backups" | "warnings" | "usage" | "dashusers" | "servers" | "premium" | "speedrun" | "tester" | "pingreactions" | "templates" | "userlookup" | "webapply" | "cookies" | "privacy" | "trustedbots" | "designunlock" | "beta" | "ideas" | "ticketai" | "firewall";
+type TabId = "members" | "channels" | "server" | "scans" | "broadcast" | "system" | "features" | "health" | "team" | "access" | "reports" | "audit" | "approvals" | "botsettings" | "backups" | "warnings" | "usage" | "dashusers" | "servers" | "premium" | "speedrun" | "tester" | "pingreactions" | "templates" | "userlookup" | "webapply" | "cookies" | "privacy" | "trustedbots" | "designunlock" | "beta" | "ideas" | "ticketai" | "firewall" | "support";
 type MemberAction = "ban" | "kick" | "mute" | "unmute";
 
 type QuickAction = {
@@ -67,6 +68,7 @@ const tabs: Array<{ id: TabId; label: string; icon: any }> = [
   { id: "channels", label: "Kanäle", icon: Hash },
   { id: "server", label: "Server", icon: Server },
   { id: "scans", label: "Scans", icon: SearchCheck },
+  { id: "support", label: "Server-Anfragen", icon: LifeBuoy },
   { id: "broadcast", label: "Rundruf", icon: Megaphone },
   { id: "system", label: "System", icon: Wrench },
   { id: "features", label: "Funktionen", icon: Settings },
@@ -168,6 +170,7 @@ type TabGroup = {
 const TAB_GROUPS: TabGroup[] = [
   // Täglicher Systemüberblick zuerst: Zustand prüfen, dann Details auswerten.
   { name: "Übersicht & Betrieb", shortName: "Betrieb", icon: Activity, ids: ["health", "system", "usage", "reports", "audit"], color: "text-cyan-400", iconBg: "bg-cyan-500/10", active: "border-cyan-500/25 bg-cyan-500/10" },
+  { name: "Support", shortName: "Support", icon: LifeBuoy, ids: ["support"], color: "text-indigo-300", iconBg: "bg-indigo-500/10", active: "border-indigo-500/25 bg-indigo-500/10" },
   // Alles, was unmittelbar einen Discord-Server oder dessen Kommunikation betrifft.
   { name: "Server & Inhalte", shortName: "Server", icon: Server, ids: ["servers", "server", "channels", "broadcast"], color: "text-violet-400", iconBg: "bg-violet-500/10", active: "border-violet-500/25 bg-violet-500/10" },
   // Einzelne Nutzer finden, prüfen und moderieren.
@@ -329,6 +332,7 @@ export function AdminContent() {
   const [access, setAccess] = useState<{
     is_owner: boolean;
     permissions: string[];
+    highest_rank: number;
     roles: Array<{ key: string; label: string }>;
   } | null>(null);
   const [stats, setStats] = useState<AdminStats | null>(null);
@@ -541,6 +545,9 @@ export function AdminContent() {
     if (testerOnly) return tabs.filter((tab) => tab.id === "tester");
 
     return tabs.filter((tab) => {
+      // Support requests are intentionally stricter than Administrator:
+      // only Co-Owner (rank 95) and configured owners may invite access.
+      if (tab.id === "support") return (access.highest_rank ?? 0) > 90;
       // Owner/admin management is only for owners and admins, never for
       // people who merely hold a team role.
       if (tab.id === "access" || tab.id === "ideas") return false;
@@ -870,6 +877,7 @@ export function AdminContent() {
       {activeTab === "features" && <FeatureFlagsPanel />}
       {activeTab === "health" && <SystemHealthPanel />}
       {activeTab === "firewall" && <FirewallPanel />}
+      {activeTab === "support" && <SupportRequestsAdmin />}
       {activeTab === "team" && <TeamPanel />}
       {activeTab === "premium" && <PremiumAdmin />}
       {activeTab === "ticketai" && <TicketAiAdmin />}

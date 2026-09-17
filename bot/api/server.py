@@ -9,7 +9,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from starlette.responses import Response, RedirectResponse
 from utils.config import *
-from api.routes import bot, guilds, admin, team, moderation, actions, access, guild_access, servers, servertools, server_stats, tickets, giveaways, leveling, vanity, broadcast, anonchat, diagnose, compose, nukealert, memberperks, extras, voice, verify, automod, logging_cfg, antinuke, pingreactions, premium, privacy, cookies, speedrun, supportqueue, honeypot, design, beta, backup, tester, music, templates, teamlist, applications, teamupdate, webapply, ideas, firewall as firewall_route, commands as commands_route
+from api.routes import bot, guilds, admin, team, moderation, actions, access, guild_access, servers, servertools, server_stats, tickets, giveaways, leveling, vanity, broadcast, anonchat, diagnose, compose, nukealert, memberperks, extras, voice, verify, automod, logging_cfg, antinuke, pingreactions, premium, privacy, cookies, speedrun, supportqueue, support, honeypot, design, beta, backup, tester, music, templates, teamlist, applications, teamupdate, webapply, ideas, firewall as firewall_route, commands as commands_route
 from api.dependencies import verify_api_key, limiter, get_bot_loop, get_bot, run_on_bot_loop
 from api.db_manager import db_manager
 from api.schema_guard import ensure_schema
@@ -368,6 +368,7 @@ def create_app() -> FastAPI:
     api_app.include_router(ideas.router, prefix="/ideas", tags=["Ideas"])
     api_app.include_router(guilds.router, prefix="/guilds", tags=["Guilds"])
     api_app.include_router(admin.router, prefix="/admin", tags=["Admin"])
+    api_app.include_router(support.router, prefix="/support", tags=["Support"])
     api_app.include_router(firewall_route.router, prefix="/firewall", tags=["Firewall"])
     api_app.include_router(team.router, prefix="/team", tags=["Team"])
     api_app.include_router(moderation.router, prefix="/moderation", tags=["Moderation"])

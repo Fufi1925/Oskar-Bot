@@ -25,6 +25,7 @@ import {
   isGlobalAdmin,
   fetchTeamAccess,
   hasTeamPermission,
+  hasAcceptedSupportAccess,
   fetchBanState,
 } from "@/lib/guild-auth";
 
@@ -207,6 +208,34 @@ async function authorize(
     };
   }
 
+  if (scope === "support") {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) return { ok: false, response: deny(401, "Not signed in.") };
+
+    // The internal access-check endpoint is used server-to-server by
+    // guild-auth.ts. It is never exposed as a browser API.
+    if (rest[0] === "access") {
+      return { ok: false, response: deny(404, "Not found.") };
+    }
+
+    if (rest[0] === "admin") {
+      const team = await fetchTeamAccess(session.user.id);
+      if (isGlobalAdmin(session.user.id) || team?.is_owner || (team?.highest_rank ?? 0) > 90) {
+        return { ok: true };
+      }
+      return { ok: false, response: deny(403, "Only roles above Administrator may manage support cases.") };
+    }
+
+    if (rest[0] === "guild") {
+      const guildId = rest[1] ?? "";
+      if (!/^\d{17,20}$/.test(guildId)) return { ok: false, response: deny(400, "Invalid guild id.") };
+      if (await ownsGuildOnDiscord(guildId)) return { ok: true };
+      return { ok: false, response: deny(403, "Only the actual Discord server owner may answer support requests.") };
+    }
+
+    return { ok: false, response: deny(404, "Unknown support action.") };
+  }
+
   if (scope === "firewall") {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) return { ok: false, response: deny(401, "Not signed in.") };
@@ -235,8 +264,6 @@ async function authorize(
     if (GUILD_SCOPED_ADMIN_ACTIONS.has(action)) {
       const session = await getServerSession(authOptions);
       if (!session?.user?.id) return { ok: false, response: deny(401, "Not signed in.") };
-
-      if (isGlobalAdmin(session.user.id)) return { ok: true };
 
       let body: any = {};
       try {
@@ -289,6 +316,7 @@ async function authorize(
       // konnte ein Server-Inhaber, der sich selbst eine beliebige
       // Rolle gab, auf seinem eigenen Server nicht mehr moderieren.
       if (await managesGuildOnDiscord(guildId)) return { ok: true };
+      if (await hasAcceptedSupportAccess(guildId, session.user.id)) return { ok: true };
 
       const team = await fetchTeamAccess(session.user.id);
       const holdsRole = Boolean(team && team.roles.length > 0);
@@ -1674,6 +1702,19 @@ async function handler(request: NextRequest, context: { params: { path?: string[
   const actorId = session?.user?.id;
   if (actorId) headers["X-Firewall-Actor"] = String(actorId);
   if (actorId && isGlobalAdmin(actorId)) headers["X-Firewall-Owner"] = "1";
+
+  // Support identities are derived from the signed session and trusted role
+  // lookup here. The browser cannot impersonate another supporter or owner by
+  // placing names, avatars or roles in its JSON body.
+  if (actorId && segments[0] === "support") {
+    const team = await fetchTeamAccess(actorId);
+    const role = team?.is_owner ? "Owner" : team?.roles?.[0]?.label ?? "Member";
+    headers["X-Dashboard-User-Id"] = actorId;
+    headers["X-Dashboard-User-Name"] = encodeURIComponent(session?.user?.name ?? "Discord-Nutzer");
+    headers["X-Dashboard-User-Avatar"] = encodeURIComponent(session?.user?.image ?? "");
+    headers["X-Dashboard-User-Role"] = encodeURIComponent(role);
+    headers["X-Dashboard-Actor-Kind"] = segments[1] === "guild" ? "owner" : "supporter";
+  }
 
   // ── Binaerer Upload: unveraendert durchreichen ─────────────────────
   //
