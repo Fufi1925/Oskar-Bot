@@ -57,6 +57,10 @@ def test_support_requires_consent_and_closing_revokes_access(tmp_path, monkeypat
         listed = await support.guild_cases(created["guild_id"])
         assert listed["cases"][0]["rating"] == 9
         assert listed["cases"][0]["rating_note"] == "Sehr hilfreich"
+        rankings = await support.admin_rankings(admin)
+        assert rankings["summary"]["average_rating"] == 9
+        assert rankings["ranking"][0]["average_rating"] == 9
+        assert rankings["ranking"][0]["ratings_count"] == 1
         deleted = await support.admin_delete_case(created["id"], admin)
         assert deleted["ok"] is True
         assert (await support.guild_cases(created["guild_id"]))["cases"] == []
@@ -80,13 +84,16 @@ def test_support_proxy_is_owner_gated_and_tab_is_grouped():
     layout = open("dashboard/app/dashboard/layout.tsx", encoding="utf-8").read()
     guild_panel = open("dashboard/components/dashboard/guild-support-panel.tsx", encoding="utf-8").read()
     admin_panel = open("dashboard/components/dashboard/support-requests-admin.tsx", encoding="utf-8").read()
+    ranking_panel = open("dashboard/components/dashboard/support-rankings-admin.tsx", encoding="utf-8").read()
 
     assert 'if (scope === "support")' in proxy
     assert "ownsGuildOnDiscord(guildId)" in proxy
     assert "hasAcceptedSupportAccess" in auth
-    assert 'name: "Support"' in admin and 'ids: ["support"]' in admin
+    assert 'name: "Support"' in admin and 'ids: ["support", "support-rankings"]' in admin
     assert 'name: "Hilfe"' in layout and "pendingSupportRequests" in layout
     assert "Es kann sich um ein ernstes Problem handeln" in guild_panel
     assert "Bitte bewerte unseren Admin von 1 bis 10 Sternen" in guild_panel
     assert "Dashboard-Bugs prüfen" in admin_panel and "Discord-Bugs prüfen" in admin_panel
     assert "Anfrage löschen" in admin_panel
+    assert 'label: "Rankings"' in admin and 'ids: ["support", "support-rankings"]' in admin
+    assert "average_rating" in ranking_panel and "Zufriedenheit" in ranking_panel

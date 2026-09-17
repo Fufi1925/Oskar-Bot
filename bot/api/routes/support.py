@@ -148,6 +148,91 @@ async def admin_cases(request: Request, status: str = "all"):
         return {"cases": await _with_messages(db, rows)}
 
 
+@router.get("/admin/rankings", summary="Rank support agents by owner ratings")
+async def admin_rankings(request: Request):
+    _require_supporter(request)
+    async with db_paths.connect(DB_PATH) as db:
+        await _ensure(db)
+        db.row_factory = __import__("aiosqlite").Row
+        async with db.execute(
+            "SELECT supporter_id,supporter_name,supporter_avatar,supporter_role,"
+            " supporter_role_color,status,created_at,accepted_at,closed_at,rating,rating_note,"
+            " guild_id,guild_name FROM dashboard_support_cases ORDER BY updated_at DESC"
+        ) as cur:
+            rows = [dict(row) async for row in cur]
+
+    agents: dict[str, dict] = {}
+    for row in rows:
+        uid = str(row["supporter_id"])
+        agent = agents.setdefault(uid, {
+            "supporter_id": uid,
+            "supporter_name": row["supporter_name"],
+            "supporter_avatar": row["supporter_avatar"],
+            "supporter_role": row["supporter_role"],
+            "supporter_role_color": row["supporter_role_color"],
+            "total_cases": 0, "pending": 0, "active": 0, "declined": 0,
+            "closed": 0, "ratings": [], "ten_star_ratings": 0,
+            "response_seconds": [], "recent_feedback": [],
+        })
+        # Keep the newest profile snapshot.
+        if row.get("supporter_name"):
+            agent["supporter_name"] = row["supporter_name"]
+            agent["supporter_avatar"] = row.get("supporter_avatar") or agent["supporter_avatar"]
+            agent["supporter_role"] = row.get("supporter_role") or agent["supporter_role"]
+            agent["supporter_role_color"] = row.get("supporter_role_color") or agent["supporter_role_color"]
+        agent["total_cases"] += 1
+        status = row["status"]
+        if status == "pending": agent["pending"] += 1
+        elif status == "accepted": agent["active"] += 1
+        elif status == "declined": agent["declined"] += 1
+        elif status == "closed": agent["closed"] += 1
+        if int(row.get("accepted_at") or 0) > int(row.get("created_at") or 0):
+            agent["response_seconds"].append(int(row["accepted_at"]) - int(row["created_at"]))
+        rating = int(row.get("rating") or 0)
+        if 1 <= rating <= 10:
+            agent["ratings"].append(rating)
+            if rating == 10: agent["ten_star_ratings"] += 1
+            if len(agent["recent_feedback"]) < 5:
+                agent["recent_feedback"].append({
+                    "rating": rating,
+                    "note": row.get("rating_note") or "",
+                    "guild_id": row["guild_id"],
+                    "guild_name": row["guild_name"],
+                    "closed_at": int(row.get("closed_at") or 0),
+                })
+
+    ranking = []
+    for agent in agents.values():
+        ratings = agent.pop("ratings")
+        response = agent.pop("response_seconds")
+        rated = len(ratings)
+        decided = agent["closed"] + agent["declined"] + agent["active"]
+        agent.update({
+            "ratings_count": rated,
+            "average_rating": round(sum(ratings) / rated, 2) if rated else 0,
+            "satisfaction_percent": round(sum(1 for value in ratings if value >= 8) * 100 / rated) if rated else 0,
+            "completion_percent": round(agent["closed"] * 100 / decided) if decided else 0,
+            "average_response_seconds": round(sum(response) / len(response)) if response else 0,
+            "rating_distribution": {str(value): ratings.count(value) for value in range(1, 11)},
+        })
+        ranking.append(agent)
+    ranking.sort(key=lambda item: (-item["average_rating"], -item["ratings_count"], -item["closed"], item["supporter_name"].lower()))
+    for index, agent in enumerate(ranking, 1):
+        agent["rank"] = index
+
+    all_ratings = [int(row.get("rating") or 0) for row in rows if 1 <= int(row.get("rating") or 0) <= 10]
+    return {
+        "summary": {
+            "supporters": len(ranking),
+            "cases": len(rows),
+            "active": sum(1 for row in rows if row["status"] == "accepted"),
+            "ratings": len(all_ratings),
+            "average_rating": round(sum(all_ratings) / len(all_ratings), 2) if all_ratings else 0,
+        },
+        "ranking": ranking,
+    }
+
+
 @router.post("/admin/requests", summary="Invite a guild owner to a support case")
 async def create_request(data: dict, request: Request, bot: "universitybot" = Depends(get_bot)):
     actor, role, color, rank = _require_supporter(request)

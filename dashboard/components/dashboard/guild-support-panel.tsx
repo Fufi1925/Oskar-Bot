@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { AlertTriangle, Check, CheckCircle2, LifeBuoy, Loader2, ShieldCheck, Star, X } from "lucide-react";
+import { AlertTriangle, Check, CheckCircle2, Clock3, Eye, LifeBuoy, LockKeyhole, Loader2, ScanSearch, ShieldCheck, Star, UserCheck, X } from "lucide-react";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 
@@ -68,23 +68,42 @@ export function GuildSupportPanel({ guildId }: { guildId: string }) {
     finally { setBusy(null); }
   };
 
+  const pendingCount = cases.filter((fall) => fall.status === "pending").length;
+  const activeCount = cases.filter((fall) => fall.status === "accepted").length;
+  const closedCount = cases.filter((fall) => fall.status === "closed").length;
+  const shownCases = [...cases].sort((a, b) => ({ pending: 0, accepted: 1, declined: 2, closed: 3 }[a.status as "pending" | "accepted" | "declined" | "closed"] ?? 4) - ({ pending: 0, accepted: 1, declined: 2, closed: 3 }[b.status as "pending" | "accepted" | "declined" | "closed"] ?? 4) || Number(b.updated_at || 0) - Number(a.updated_at || 0));
+
   return (
     <div className="space-y-5">
-      <section className="rounded-2xl border border-slate-800 bg-[#111116] p-5 sm:p-6">
-        <div className="flex items-start gap-4">
-          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-indigo-500/10 text-indigo-300"><LifeBuoy className="h-5 w-5" /></span>
-          <div>
-            <h2 className="text-lg font-bold text-white">Hilfe bei Problemen</h2>
-            <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-400">
-              Prüfe zuerst Einstellungen, Bot-Rechte und die Statusseite. Wenn ein University-Supporter helfen möchte, erscheint seine Admin-Anfrage hier. Nur der tatsächliche Discord-Serverinhaber kann Zugriff erlauben.
-            </p>
+      <section className="relative overflow-hidden rounded-3xl border border-indigo-400/20 bg-[linear-gradient(135deg,rgba(79,70,229,.17),rgba(15,23,42,.82)_52%,rgba(8,12,24,.94))] p-6 sm:p-8">
+        <div aria-hidden className="absolute -right-16 -top-20 h-64 w-64 rounded-full bg-indigo-400/10 blur-3xl" />
+        <div className="relative flex flex-wrap items-start gap-5">
+          <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl border border-indigo-300/20 bg-indigo-400/10 text-indigo-200 shadow-[inset_0_1px_rgba(255,255,255,.08)]"><LifeBuoy className="h-7 w-7" /></span>
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-black uppercase tracking-[.16em] text-indigo-300">University Support</p>
+            <h1 className="mt-2 text-2xl font-black tracking-tight text-white sm:text-3xl">Hilfe und sicherer Admin-Zugriff</h1>
+            <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300/80">Hier entscheidest ausschließlich du als tatsächlicher Serverinhaber, ob ein Supporter deinen Server untersuchen darf. Ohne deine Zustimmung bleibt das Dashboard gesperrt.</p>
           </div>
+          {owner && <div className="flex flex-wrap gap-2"><span className="rounded-full border border-amber-400/20 bg-amber-400/10 px-3 py-1.5 text-xs font-bold text-amber-200">{pendingCount} offen</span><span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1.5 text-xs font-bold text-emerald-200">{activeCount} aktiv</span></div>}
         </div>
       </section>
 
-      <div>
-        <h2 className="text-lg font-bold text-white">Admin-Anfragen</h2>
-        <p className="mt-1 text-sm text-slate-500">Eine Annahme gilt nur bis der Supportfall geschlossen wird.</p>
+      <section className="grid gap-3 sm:grid-cols-3">
+        {[
+          [Clock3, "1. Anfrage prüfen", "Du siehst Name, Profilbild, Dashboard-Rolle und Nachricht des Supporters."],
+          [UserCheck, "2. Selbst entscheiden", "Nur du kannst die Hilfe annehmen oder ablehnen. Es gibt keinen automatischen Zugriff."],
+          [LockKeyhole, "3. Jederzeit beenden", "Beim Schließen wird der Zugriff sofort entzogen und du bewertest die Hilfe."],
+        ].map(([Icon, title, text]) => { const I = Icon as React.ElementType; return <div key={String(title)} className="rounded-2xl border border-slate-800 bg-[#111116] p-5"><I className="h-5 w-5 text-indigo-300" /><h2 className="mt-4 text-sm font-black text-white">{title as string}</h2><p className="mt-2 text-xs leading-5 text-slate-500">{text as string}</p></div>; })}
+      </section>
+
+      <section className="grid overflow-hidden rounded-2xl border border-slate-800 bg-[#111116] lg:grid-cols-2">
+        <div className="border-b border-slate-800 p-5 lg:border-b-0 lg:border-r"><h2 className="flex items-center gap-2 text-sm font-black text-white"><ScanSearch className="h-4 w-4 text-emerald-300" />Was ein angenommener Supporter darf</h2><ul className="mt-3 space-y-2 text-xs leading-5 text-slate-400"><li>• Server-Dashboard und aktuelle Einstellungen öffnen</li><li>• schreibgeschützte Dashboard- und Discord-Diagnosen starten</li><li>• Probleme mit Bot-Rechten, Rollen, Webhooks und Verbindungen prüfen</li></ul></div>
+        <div className="p-5"><h2 className="flex items-center gap-2 text-sm font-black text-white"><Eye className="h-4 w-4 text-rose-300" />Was weiterhin geschützt bleibt</h2><ul className="mt-3 space-y-2 text-xs leading-5 text-slate-400"><li>• Niemand erhält Zugriff ohne deine ausdrückliche Annahme</li><li>• Owner-only-Bereiche und die Vergabe von Dashboard-Zugriff bleiben geschützt</li><li>• Support-Scans führen niemals automatisch Änderungen aus</li></ul></div>
+      </section>
+
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div><h2 className="text-xl font-black text-white">Deine Supportfälle</h2><p className="mt-1 text-sm text-slate-500">Offene Entscheidungen zuerst, danach aktive Fälle und Verlauf.</p></div>
+        {owner && cases.length > 0 && <span className="text-xs text-slate-600">{cases.length} insgesamt · {closedCount} geschlossen</span>}
       </div>
 
       {loading && <div className="grid min-h-32 place-items-center"><Loader2 className="h-5 w-5 animate-spin text-indigo-400" /></div>}
@@ -94,13 +113,13 @@ export function GuildSupportPanel({ guildId }: { guildId: string }) {
         </div>
       )}
       {!loading && owner && cases.length === 0 && (
-        <div className="rounded-2xl border border-dashed border-slate-800 p-8 text-center text-sm text-slate-500">Keine Admin-Anfrage für diesen Server.</div>
+        <div className="rounded-2xl border border-dashed border-slate-800 bg-[#0d0d11] p-8 text-center"><ShieldCheck className="mx-auto h-7 w-7 text-emerald-400/70" /><p className="mt-3 text-sm font-bold text-slate-300">Keine offene Admin-Anfrage</p><p className="mt-1 text-xs text-slate-600">Dein Server-Dashboard ist für das Support-Team gesperrt.</p></div>
       )}
 
-      {owner && cases.map((fall) => {
+      {owner && shownCases.map((fall) => {
         const status = STATUS[fall.status] || STATUS.closed;
         return (
-          <section key={fall.id} className="overflow-hidden rounded-2xl border border-slate-800 bg-[#111116]">
+          <section key={fall.id} className={`overflow-hidden rounded-2xl border bg-[#111116] ${fall.status === "pending" ? "border-amber-400/25 shadow-[0_16px_50px_rgba(245,158,11,.06)]" : fall.status === "accepted" ? "border-emerald-400/20" : "border-slate-800"}`}>
             <div className="flex flex-wrap items-start justify-between gap-4 p-5 sm:p-6">
               <div className="flex min-w-0 items-center gap-3">
                 {fall.supporter_avatar ? <img src={fall.supporter_avatar} alt="" className="h-12 w-12 rounded-full object-cover ring-2 ring-white/10" /> : <span className="grid h-12 w-12 place-items-center rounded-full bg-indigo-500/10"><ShieldCheck className="h-5 w-5 text-indigo-300" /></span>}

@@ -1965,6 +1965,7 @@ export const api = {
   // Consent-based server support.
   getAdminSupportCases: (status = "all") =>
     request<any>(`/support/admin/cases?status=${encodeURIComponent(status)}`),
+  getAdminSupportRankings: () => request<any>("/support/admin/rankings"),
   createSupportRequest: (guildId: string, problem: string) =>
     request<any>("/support/admin/requests", {
       method: "POST",
