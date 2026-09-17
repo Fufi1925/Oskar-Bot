@@ -15,6 +15,7 @@ from urllib.parse import unquote
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from api.dependencies import get_bot
+from api.routes import servertools
 from utils import dashboard_roles, db_paths
 
 if TYPE_CHECKING:
@@ -36,8 +37,15 @@ async def _ensure(db) -> None:
         " supporter_role_color TEXT DEFAULT '#ef4444', supporter_rank INTEGER DEFAULT 0,"
         " problem TEXT DEFAULT '', status TEXT NOT NULL DEFAULT 'pending',"
         " owner_id TEXT DEFAULT '', created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL,"
-        " accepted_at INTEGER DEFAULT 0, closed_at INTEGER DEFAULT 0)"
+        " accepted_at INTEGER DEFAULT 0, closed_at INTEGER DEFAULT 0,"
+        " rating INTEGER DEFAULT 0, rating_note TEXT DEFAULT '')"
     )
+    async with db.execute("PRAGMA table_info(dashboard_support_cases)") as cur:
+        columns = {str(row[1]) async for row in cur}
+    if "rating" not in columns:
+        await db.execute("ALTER TABLE dashboard_support_cases ADD COLUMN rating INTEGER DEFAULT 0")
+    if "rating_note" not in columns:
+        await db.execute("ALTER TABLE dashboard_support_cases ADD COLUMN rating_note TEXT DEFAULT ''")
     await db.execute(
         "CREATE INDEX IF NOT EXISTS idx_dashboard_support_guild_status"
         " ON dashboard_support_cases(guild_id, status)"
@@ -263,9 +271,13 @@ async def owner_add_message(guild_id: str, case_id: int, data: dict, request: Re
     return await _add_message(case_id, data, request, owner_guild=guild_id)
 
 
-async def _close_case(case_id: int, request: Request, *, owner_guild: str = ""):
+async def _close_case(case_id: int, request: Request, *, owner_guild: str = "", data: dict | None = None):
     actor = _identity(request)
     now = int(time.time())
+    rating = int((data or {}).get("rating") or 0)
+    rating_note = str((data or {}).get("rating_note") or "").strip()[:1000]
+    if owner_guild and not 1 <= rating <= 10:
+        raise HTTPException(400, "Please rate the support from 1 to 10 stars.")
     async with db_paths.connect(DB_PATH) as db:
         await _ensure(db)
         case = await _case(db, case_id)
@@ -281,8 +293,8 @@ async def _close_case(case_id: int, request: Request, *, owner_guild: str = ""):
             if case["supporter_id"] != actor["id"] and not dashboard_roles.is_owner(actor["id"]):
                 raise HTTPException(403, "Only the assigned supporter may close this case.")
         await db.execute(
-            "UPDATE dashboard_support_cases SET status='closed',updated_at=?,closed_at=? WHERE id=?",
-            (now, now, case_id),
+            "UPDATE dashboard_support_cases SET status='closed',updated_at=?,closed_at=?,rating=?,rating_note=? WHERE id=?",
+            (now, now, rating, rating_note, case_id),
         )
         await db.commit()
         return {"ok": True, "access_revoked": True}
@@ -293,6 +305,64 @@ async def admin_close_case(case_id: int, request: Request):
     return await _close_case(case_id, request)
 
 
-@router.post("/guild/{guild_id}/cases/{case_id}/close", summary="Guild owner closes a case")
-async def owner_close_case(guild_id: str, case_id: int, request: Request):
-    return await _close_case(case_id, request, owner_guild=guild_id)
+@router.delete("/admin/cases/{case_id}", summary="Delete a support request")
+async def admin_delete_case(case_id: int, request: Request):
+    _require_supporter(request)
+    async with db_paths.connect(DB_PATH) as db:
+        await _ensure(db)
+        case = await _case(db, case_id)
+        if not case:
+            raise HTTPException(404, "Support case not found.")
+        await db.execute("DELETE FROM dashboard_support_messages WHERE case_id=?", (case_id,))
+        await db.execute("DELETE FROM dashboard_support_cases WHERE id=?", (case_id,))
+        await db.commit()
+        return {"ok": True, "access_revoked": case["status"] == "accepted"}
+
+
+@router.post("/admin/cases/{case_id}/scan", summary="Read-only support diagnostics")
+async def admin_support_scan(case_id: int, data: dict, request: Request, bot: "universitybot" = Depends(get_bot)):
+    actor, _, _, _ = _require_supporter(request)
+    scan_type = str(data.get("scan_type") or "full").lower()
+    if scan_type not in {"dashboard", "discord", "full"}:
+        raise HTTPException(400, "Unknown scan type.")
+
+    async with db_paths.connect(DB_PATH) as db:
+        await _ensure(db)
+        case = await _case(db, case_id)
+        if not case:
+            raise HTTPException(404, "Support case not found.")
+        if case["status"] != "accepted":
+            raise HTTPException(409, "The server owner must accept support before a scan.")
+        if case["supporter_id"] != actor["id"] and not dashboard_roles.is_owner(actor["id"]):
+            raise HTTPException(403, "Only the assigned supporter may scan this server.")
+
+        result: dict = {"case_id": case_id, "guild_id": case["guild_id"], "scan_type": scan_type, "scanned_at": int(time.time())}
+        if scan_type in {"dashboard", "full"}:
+            async with db.execute("PRAGMA quick_check") as cur:
+                quick = await cur.fetchone()
+            async with db.execute("SELECT COUNT(*) FROM dashboard_support_cases WHERE guild_id=?", (case["guild_id"],)) as cur:
+                history = int((await cur.fetchone())[0])
+            guild = bot.get_guild(int(case["guild_id"]))
+            me = getattr(guild, "me", None) if guild else None
+            permissions = getattr(me, "guild_permissions", None)
+            checks = [
+                {"key": "support_consent", "label": "Support-Freigabe", "ok": True, "detail": "Vom Serverinhaber angenommen."},
+                {"key": "database", "label": "Support-Datenbank", "ok": bool(quick and str(quick[0]).lower() == "ok"), "detail": str(quick[0]) if quick else "Keine Antwort"},
+                {"key": "guild_cache", "label": "Server im Bot-Cache", "ok": guild is not None, "detail": "Server erreichbar" if guild else "Server derzeit nicht im Bot-Cache"},
+                {"key": "bot_member", "label": "Bot-Mitglied geladen", "ok": me is not None, "detail": "Bot-Mitglied gefunden" if me else "Bot-Mitglied fehlt"},
+                {"key": "dashboard_history", "label": "Support-Verlauf", "ok": history > 0, "detail": f"{history} gespeicherte Supportfälle"},
+            ]
+            if permissions is not None:
+                for key, label in (("view_channel", "Kanäle sehen"), ("send_messages", "Nachrichten senden"), ("manage_roles", "Rollen verwalten"), ("manage_guild", "Server verwalten")):
+                    ok = bool(getattr(permissions, key, False) or getattr(permissions, "administrator", False))
+                    checks.append({"key": f"permission_{key}", "label": label, "ok": ok, "detail": "Vorhanden" if ok else "Bot-Recht fehlt"})
+            result["dashboard"] = {"ok": all(item["ok"] for item in checks), "checks": checks}
+
+        if scan_type in {"discord", "full"}:
+            result["discord"] = await servertools.security_scan(int(case["guild_id"]), bot)
+        return result
+
+
+@router.post("/guild/{guild_id}/cases/{case_id}/close", summary="Guild owner closes and rates a case")
+async def owner_close_case(guild_id: str, case_id: int, data: dict, request: Request):
+    return await _close_case(case_id, request, owner_guild=guild_id, data=data)

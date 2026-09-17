@@ -1977,6 +1977,13 @@ export const api = {
     }),
   closeAdminSupportCase: (caseId: number) =>
     request<any>(`/support/admin/cases/${caseId}/close`, { method: "POST", body: "{}" }),
+  deleteAdminSupportCase: (caseId: number) =>
+    request<any>(`/support/admin/cases/${caseId}`, { method: "DELETE" }),
+  scanAdminSupportCase: (caseId: number, scanType: "dashboard" | "discord" | "full") =>
+    request<any>(`/support/admin/cases/${caseId}/scan`, {
+      method: "POST",
+      body: JSON.stringify({ scan_type: scanType }),
+    }),
   getGuildSupportCases: (guildId: string) => request<any>(`/support/guild/${guildId}`),
   respondGuildSupportCase: (guildId: string, caseId: number, decision: "accepted" | "declined") =>
     request<any>(`/support/guild/${guildId}/cases/${caseId}/respond`, {
@@ -1988,6 +1995,9 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ message }),
     }),
-  closeGuildSupportCase: (guildId: string, caseId: number) =>
-    request<any>(`/support/guild/${guildId}/cases/${caseId}/close`, { method: "POST", body: "{}" }),
+  closeGuildSupportCase: (guildId: string, caseId: number, rating: number, ratingNote = "") =>
+    request<any>(`/support/guild/${guildId}/cases/${caseId}/close`, {
+      method: "POST",
+      body: JSON.stringify({ rating, rating_note: ratingNote }),
+    }),
 };

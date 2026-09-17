@@ -52,8 +52,14 @@ def test_support_requires_consent_and_closing_revokes_access(tmp_path, monkeypat
 
         await support.owner_add_message(created["guild_id"], created["id"], {"message": "Bitte prüfe die Rollen."}, owner)
         await support.admin_add_message(created["id"], {"message": "Scan ist fertig."}, admin)
-        await support.owner_close_case(created["guild_id"], created["id"], owner)
+        await support.owner_close_case(created["guild_id"], created["id"], {"rating": 9, "rating_note": "Sehr hilfreich"}, owner)
         assert (await support.support_access(created["guild_id"], created["supporter_id"]))["allowed"] is False
+        listed = await support.guild_cases(created["guild_id"])
+        assert listed["cases"][0]["rating"] == 9
+        assert listed["cases"][0]["rating_note"] == "Sehr hilfreich"
+        deleted = await support.admin_delete_case(created["id"], admin)
+        assert deleted["ok"] is True
+        assert (await support.guild_cases(created["guild_id"]))["cases"] == []
 
     asyncio.run(run())
 
@@ -72,9 +78,15 @@ def test_support_proxy_is_owner_gated_and_tab_is_grouped():
     auth = open("dashboard/lib/guild-auth.ts", encoding="utf-8").read()
     admin = open("dashboard/components/dashboard/admin-content.tsx", encoding="utf-8").read()
     layout = open("dashboard/app/dashboard/layout.tsx", encoding="utf-8").read()
+    guild_panel = open("dashboard/components/dashboard/guild-support-panel.tsx", encoding="utf-8").read()
+    admin_panel = open("dashboard/components/dashboard/support-requests-admin.tsx", encoding="utf-8").read()
 
     assert 'if (scope === "support")' in proxy
     assert "ownsGuildOnDiscord(guildId)" in proxy
     assert "hasAcceptedSupportAccess" in auth
     assert 'name: "Support"' in admin and 'ids: ["support"]' in admin
     assert 'name: "Hilfe"' in layout and "pendingSupportRequests" in layout
+    assert "Es kann sich um ein ernstes Problem handeln" in guild_panel
+    assert "Bitte bewerte unseren Admin von 1 bis 10 Sternen" in guild_panel
+    assert "Dashboard-Bugs prüfen" in admin_panel and "Discord-Bugs prüfen" in admin_panel
+    assert "Anfrage löschen" in admin_panel
