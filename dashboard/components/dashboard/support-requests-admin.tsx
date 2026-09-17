@@ -2,7 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
-import { AlertTriangle, Bug, CheckCircle2, ExternalLink, LifeBuoy, Loader2, MessageSquare, RefreshCw, SearchCheck, Send, ShieldCheck, Trash2, X } from "lucide-react";
+import { AlertTriangle, Bug, CheckCircle2, Clock3, Copy, ExternalLink, LifeBuoy, Loader2, MessageSquare, Plus, RefreshCw, Search, SearchCheck, Send, ShieldCheck, SlidersHorizontal, Star, Trash2, UserCheck, X } from "lucide-react";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 
@@ -18,6 +18,9 @@ export function SupportRequestsAdmin() {
   const [guildId, setGuildId] = React.useState("");
   const [problem, setProblem] = React.useState("");
   const [filter, setFilter] = React.useState("all");
+  const [query, setQuery] = React.useState("");
+  const [sort, setSort] = React.useState<"priority" | "newest" | "oldest" | "rating">("priority");
+  const [composerOpen, setComposerOpen] = React.useState(false);
   const [cases, setCases] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
@@ -28,10 +31,10 @@ export function SupportRequestsAdmin() {
 
   const laden = React.useCallback(async () => {
     setLoading(true);
-    try { setCases((await api.getAdminSupportCases(filter)).cases || []); }
+    try { setCases((await api.getAdminSupportCases("all")).cases || []); }
     catch (error: any) { toast.error(error?.message || "Server-Anfragen konnten nicht geladen werden."); }
     finally { setLoading(false); }
-  }, [filter]);
+  }, []);
   React.useEffect(() => { laden(); }, [laden]);
 
   const anfragen = async () => {
@@ -40,7 +43,7 @@ export function SupportRequestsAdmin() {
     try {
       await api.createSupportRequest(guildId.trim(), problem.trim());
       toast.success("Support-Anfrage wurde an den Serverinhaber gesendet.");
-      setGuildId(""); setProblem(""); setFilter("all"); await laden();
+      setGuildId(""); setProblem(""); setFilter("all"); setComposerOpen(false); await laden();
     } catch (error: any) { toast.error(error?.message || "Support-Anfrage konnte nicht erstellt werden."); }
     finally { setSaving(false); }
   };
@@ -81,33 +84,66 @@ export function SupportRequestsAdmin() {
     finally { setScanning(""); }
   };
 
+  const counts = React.useMemo(() => ({
+    all: cases.length,
+    pending: cases.filter((item) => item.status === "pending").length,
+    accepted: cases.filter((item) => item.status === "accepted").length,
+    declined: cases.filter((item) => item.status === "declined").length,
+    closed: cases.filter((item) => item.status === "closed").length,
+  }), [cases]);
+  const rated = cases.filter((item) => Number(item.rating) > 0);
+  const averageRating = rated.length ? rated.reduce((sum, item) => sum + Number(item.rating), 0) / rated.length : 0;
+  const averageResponse = (() => {
+    const values = cases.filter((item) => Number(item.accepted_at) > Number(item.created_at)).map((item) => Number(item.accepted_at) - Number(item.created_at));
+    return values.length ? Math.round(values.reduce((sum, value) => sum + value, 0) / values.length / 60) : 0;
+  })();
+  const visibleCases = React.useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    const statusOrder: Record<string, number> = { pending: 0, accepted: 1, declined: 2, closed: 3 };
+    return cases
+      .filter((item) => filter === "all" || item.status === filter)
+      .filter((item) => !needle || [item.guild_name, item.guild_id, item.supporter_name, item.supporter_role, item.problem].some((value) => String(value || "").toLowerCase().includes(needle)))
+      .sort((a, b) => {
+        if (sort === "newest") return Number(b.created_at) - Number(a.created_at);
+        if (sort === "oldest") return Number(a.created_at) - Number(b.created_at);
+        if (sort === "rating") return Number(b.rating || 0) - Number(a.rating || 0) || Number(b.updated_at) - Number(a.updated_at);
+        return (statusOrder[a.status] ?? 9) - (statusOrder[b.status] ?? 9) || Number(b.updated_at) - Number(a.updated_at);
+      });
+  }, [cases, filter, query, sort]);
+  const sortLabel = { priority: "Priorität", newest: "Neueste", oldest: "Älteste", rating: "Bewertung" }[sort];
+
   return (
     <div className="space-y-5">
-      <section className="rounded-2xl border border-indigo-500/20 bg-indigo-500/[0.05] p-5">
-        <div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-indigo-500/10"><LifeBuoy className="h-5 w-5 text-indigo-300" /></span><div><h3 className="font-bold text-white">Server-Anfrage senden</h3><p className="text-xs text-slate-500">Nur Server, auf denen der Bot ist. Zugriff entsteht erst nach Zustimmung des tatsächlichen Serverinhabers.</p></div></div>
-        <div className="mt-5 grid gap-3 lg:grid-cols-[minmax(220px,.45fr)_1fr_auto]">
-          <input value={guildId} onChange={(e) => setGuildId(e.target.value.replace(/\D/g, ""))} placeholder="Discord-Server-ID" maxLength={20} className="rounded-xl border border-slate-800 bg-[#09090c] px-4 py-3 text-sm text-white outline-none focus:border-indigo-500/50" />
-          <input value={problem} onChange={(e) => setProblem(e.target.value)} placeholder="Kurze Nachricht zum Problem (optional)" maxLength={1000} className="rounded-xl border border-slate-800 bg-[#09090c] px-4 py-3 text-sm text-white outline-none focus:border-indigo-500/50" />
-          <button onClick={anfragen} disabled={saving} className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-500 px-5 py-3 text-sm font-bold text-white disabled:opacity-50"><Send className="h-4 w-4" />Support-Anfrage</button>
-        </div>
+      <section className="relative overflow-hidden rounded-3xl border border-indigo-400/20 bg-[linear-gradient(135deg,rgba(79,70,229,.16),rgba(15,15,22,.95)_55%)] p-6 sm:p-7">
+        <div aria-hidden className="absolute -right-20 -top-24 h-72 w-72 rounded-full bg-indigo-400/10 blur-3xl" />
+        <div className="relative flex flex-wrap items-start gap-4"><span className="grid h-12 w-12 place-items-center rounded-2xl border border-indigo-300/20 bg-indigo-400/10"><LifeBuoy className="h-6 w-6 text-indigo-200" /></span><div className="min-w-0 flex-1"><p className="text-xs font-black uppercase tracking-[.16em] text-indigo-300">Support-Zentrale</p><h2 className="mt-1 text-2xl font-black text-white">Server-Anfragen verwalten</h2><p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">Anfragen senden, Zustimmung verfolgen, sichere Diagnosen starten und jeden Fall vollständig dokumentieren.</p></div><button onClick={() => setComposerOpen((open) => !open)} className="inline-flex items-center gap-2 rounded-xl bg-indigo-500 px-4 py-2.5 text-sm font-black text-white"><Plus className={`h-4 w-4 transition-transform ${composerOpen ? "rotate-45" : ""}`} />{composerOpen ? "Schließen" : "Neue Anfrage"}</button></div>
       </section>
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap gap-2">{FILTER.map(([id, text]) => <button key={id} onClick={() => setFilter(id)} className={`rounded-lg border px-3 py-2 text-xs font-bold ${filter === id ? "border-indigo-400/30 bg-indigo-400/10 text-indigo-200" : "border-slate-800 text-slate-500"}`}>{text}</button>)}</div>
-        <button onClick={laden} className="grid h-9 w-9 place-items-center rounded-lg border border-slate-800 text-slate-500 hover:text-white"><RefreshCw className="h-4 w-4" /></button>
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+        {[[LifeBuoy,"Fälle",counts.all],[Clock3,"Warten",counts.pending],[UserCheck,"Aktiver Zugriff",counts.accepted],[Star,"Ø Bewertung",averageRating ? `${averageRating.toFixed(2)}/10` : "—"],[MessageSquare,"Ø Annahmezeit",averageResponse ? `${averageResponse} Min.` : "—"]].map(([Icon,label,value])=>{const I=Icon as React.ElementType;return <div key={String(label)} className="rounded-2xl border border-slate-800 bg-[#131318] p-4"><I className="h-4 w-4 text-indigo-300"/><p className="mt-3 text-xl font-black text-white">{value as React.ReactNode}</p><p className="mt-1 text-xs text-slate-500">{label as string}</p></div>})}
       </div>
 
+      {composerOpen && <section className="rounded-2xl border border-indigo-500/20 bg-[#111116] p-5 sm:p-6">
+        <div className="grid gap-5 lg:grid-cols-[.7fr_1.3fr]"><div><h3 className="font-black text-white">Sichere Admin-Anfrage</h3><p className="mt-2 text-xs leading-5 text-slate-500">Der Bot muss auf dem Server sein. Der Serverinhaber sieht deinen Namen, dein Profilbild, deine Dashboard-Rolle und diese Nachricht. Vor der Annahme erhältst du keinerlei Zugriff.</p><div className="mt-4 rounded-xl border border-emerald-500/15 bg-emerald-500/[0.05] p-3 text-xs leading-5 text-emerald-200/80"><ShieldCheck className="mb-2 h-4 w-4"/>Zugriff endet beim Schließen oder Löschen des Falls sofort.</div></div><div className="space-y-3"><label className="block"><span className="mb-1.5 block text-xs font-bold text-slate-400">Discord-Server-ID</span><input value={guildId} onChange={(e) => setGuildId(e.target.value.replace(/\D/g, ""))} placeholder="123456789012345678" maxLength={20} className="w-full rounded-xl border border-slate-800 bg-[#09090c] px-4 py-3 text-sm text-white outline-none focus:border-indigo-500/50" /></label><label className="block"><span className="mb-1.5 flex justify-between text-xs font-bold text-slate-400">Nachricht an den Serverinhaber <span className="font-normal text-slate-600">{problem.length}/1000</span></span><textarea value={problem} onChange={(e) => setProblem(e.target.value)} placeholder="Beschreibe kurz, wobei du helfen möchtest …" maxLength={1000} rows={4} className="w-full resize-none rounded-xl border border-slate-800 bg-[#09090c] px-4 py-3 text-sm text-white outline-none focus:border-indigo-500/50" /></label><button onClick={anfragen} disabled={saving || !/^\d{17,20}$/.test(guildId)} className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-500 px-5 py-3 text-sm font-black text-white disabled:opacity-40"><Send className="h-4 w-4" />Anfrage sicher senden</button></div></div>
+      </section>}
+
+      <section className="rounded-2xl border border-slate-800 bg-[#111116] p-3 sm:p-4">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-center"><div className="relative min-w-0 flex-1"><Search className="absolute left-3 top-3 h-4 w-4 text-slate-600"/><input value={query} onChange={(e)=>setQuery(e.target.value)} placeholder="Server, ID, Supporter oder Problem suchen …" className="w-full rounded-xl border border-slate-800 bg-[#09090c] py-2.5 pl-9 pr-4 text-sm text-white outline-none focus:border-indigo-500/50"/></div><div className="flex flex-wrap gap-2">{FILTER.map(([id, text]) => <button key={id} onClick={() => setFilter(id)} className={`rounded-lg border px-3 py-2 text-xs font-bold ${filter === id ? "border-indigo-400/30 bg-indigo-400/10 text-indigo-200" : "border-slate-800 text-slate-500 hover:text-slate-300"}`}>{text} <span className="ml-1 opacity-60">{counts[id as keyof typeof counts]}</span></button>)}</div><button onClick={()=>setSort(sort === "priority" ? "newest" : sort === "newest" ? "oldest" : sort === "oldest" ? "rating" : "priority")} title="Sortierung wechseln" className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-800 px-3 py-2 text-xs font-bold text-slate-400"><SlidersHorizontal className="h-3.5 w-3.5"/>{sortLabel}</button><button onClick={laden} className="grid h-9 w-9 place-items-center rounded-lg border border-slate-800 text-slate-500 hover:text-white"><RefreshCw className="h-4 w-4" /></button></div>
+        <p className="mt-3 px-1 text-[11px] text-slate-600">{visibleCases.length} von {cases.length} Fällen sichtbar · Sortierung: {sortLabel}</p>
+      </section>
+
       {loading && <div className="grid min-h-40 place-items-center"><Loader2 className="h-5 w-5 animate-spin text-indigo-400" /></div>}
-      {!loading && cases.length === 0 && <div className="rounded-2xl border border-dashed border-slate-800 p-10 text-center text-sm text-slate-500">Keine Server-Anfragen in dieser Ansicht.</div>}
-      {!loading && cases.map((fall) => (
-        <section key={fall.id} className="overflow-hidden rounded-2xl border border-slate-800 bg-[#0f0f13]">
+      {!loading && visibleCases.length === 0 && <div className="rounded-2xl border border-dashed border-slate-800 bg-[#0d0d11] p-10 text-center"><Search className="mx-auto h-6 w-6 text-slate-700"/><p className="mt-3 text-sm font-bold text-slate-400">Keine passenden Supportfälle</p><p className="mt-1 text-xs text-slate-600">Ändere Suche oder Filter oder erstelle eine neue Anfrage.</p></div>}
+      {!loading && visibleCases.map((fall) => (
+        <section key={fall.id} className={`overflow-hidden rounded-2xl border bg-[#0f0f13] ${fall.status === "pending" ? "border-amber-400/20" : fall.status === "accepted" ? "border-emerald-400/20" : "border-slate-800"}`}>
           <div className="flex flex-wrap items-start justify-between gap-4 p-5">
-            <div className="flex items-center gap-3">
-              {fall.guild_icon ? <img src={fall.guild_icon} alt="" className="h-11 w-11 rounded-xl object-cover" /> : <span className="grid h-11 w-11 place-items-center rounded-xl bg-indigo-500/10"><ShieldCheck className="h-5 w-5 text-indigo-300" /></span>}
-              <div><p className="font-bold text-white">{fall.guild_name}</p><p className="text-xs tabular-nums text-slate-500">{fall.guild_id}</p><p className="mt-1 text-[10px] text-slate-600">Supporter: {fall.supporter_name} · {fall.supporter_role}</p></div>
+            <div className="flex min-w-0 items-center gap-3">
+              {fall.guild_icon ? <img src={fall.guild_icon} alt="" className="h-12 w-12 rounded-xl object-cover ring-1 ring-white/10" /> : <span className="grid h-12 w-12 place-items-center rounded-xl bg-indigo-500/10"><ShieldCheck className="h-5 w-5 text-indigo-300" /></span>}
+              <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><p className="truncate font-black text-white">{fall.guild_name}</p><span className="rounded bg-slate-800 px-1.5 py-0.5 text-[9px] font-bold text-slate-500">Fall #{fall.id}</span></div><button onClick={()=>{navigator.clipboard?.writeText(String(fall.guild_id));toast.success("Server-ID kopiert.")}} className="mt-0.5 inline-flex items-center gap-1 text-xs tabular-nums text-slate-500 hover:text-indigo-300">{fall.guild_id}<Copy className="h-3 w-3"/></button><p className="mt-1 text-[10px] text-slate-600">{fall.supporter_name} · <span style={{color:fall.supporter_role_color}}>{fall.supporter_role}</span></p></div>
             </div>
-            <span className={`rounded-full border px-3 py-1 text-xs font-bold ${COLOR[fall.status] || COLOR.closed}`}>{LABEL[fall.status] || fall.status}</span>
+            <div className="text-right"><span className={`inline-flex rounded-full border px-3 py-1 text-xs font-bold ${COLOR[fall.status] || COLOR.closed}`}>{LABEL[fall.status] || fall.status}</span><p className="mt-2 text-[10px] text-slate-600">Erstellt {zeit(fall.created_at)}</p></div>
           </div>
+          <div className="grid grid-cols-2 gap-px border-t border-slate-800 bg-slate-800 sm:grid-cols-4">{[["Status",LABEL[fall.status] || fall.status],["Nachrichten",fall.messages?.length || 0],["Letzte Änderung",zeit(fall.updated_at)],["Bewertung",fall.rating ? `${fall.rating}/10` : "Noch keine"]].map(([label,value])=><div key={String(label)} className="bg-[#0c0c10] px-4 py-3"><p className="truncate text-xs font-bold text-slate-300">{value}</p><p className="mt-1 text-[10px] text-slate-600">{label}</p></div>)}</div>
 
           {fall.messages?.length > 0 && <div className="space-y-2 border-t border-slate-800 p-5">{fall.messages.map((eintrag: any) => <div key={eintrag.id} className="rounded-xl border border-slate-800 bg-black/20 p-3"><div className="flex justify-between gap-3 text-xs"><strong className="text-slate-300">{eintrag.actor_name || eintrag.actor_role} · {eintrag.actor_role}</strong><span className="text-slate-600">{zeit(eintrag.created_at)}</span></div><p className="mt-1.5 whitespace-pre-wrap text-sm text-slate-400">{eintrag.message}</p></div>)}</div>}
 

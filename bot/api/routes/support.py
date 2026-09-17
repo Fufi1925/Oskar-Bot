@@ -149,15 +149,20 @@ async def admin_cases(request: Request, status: str = "all"):
 
 
 @router.get("/admin/rankings", summary="Rank support agents by owner ratings")
-async def admin_rankings(request: Request):
+async def admin_rankings(request: Request, days: int = 0):
     _require_supporter(request)
+    if days not in {0, 30, 90, 365}:
+        raise HTTPException(400, "Ranking period must be 30, 90, 365 days or all time.")
+    cutoff = int(time.time()) - days * 86400 if days else 0
     async with db_paths.connect(DB_PATH) as db:
         await _ensure(db)
         db.row_factory = __import__("aiosqlite").Row
         async with db.execute(
             "SELECT supporter_id,supporter_name,supporter_avatar,supporter_role,"
             " supporter_role_color,status,created_at,accepted_at,closed_at,rating,rating_note,"
-            " guild_id,guild_name FROM dashboard_support_cases ORDER BY updated_at DESC"
+            " guild_id,guild_name FROM dashboard_support_cases"
+            " WHERE created_at >= ? ORDER BY updated_at DESC",
+            (cutoff,),
         ) as cur:
             rows = [dict(row) async for row in cur]
 
@@ -221,13 +226,22 @@ async def admin_rankings(request: Request):
         agent["rank"] = index
 
     all_ratings = [int(row.get("rating") or 0) for row in rows if 1 <= int(row.get("rating") or 0) <= 10]
+    all_response = [int(row["accepted_at"]) - int(row["created_at"]) for row in rows if int(row.get("accepted_at") or 0) > int(row.get("created_at") or 0)]
     return {
+        "period_days": days,
         "summary": {
             "supporters": len(ranking),
             "cases": len(rows),
+            "pending": sum(1 for row in rows if row["status"] == "pending"),
             "active": sum(1 for row in rows if row["status"] == "accepted"),
+            "declined": sum(1 for row in rows if row["status"] == "declined"),
+            "closed": sum(1 for row in rows if row["status"] == "closed"),
             "ratings": len(all_ratings),
+            "ten_star_ratings": sum(1 for value in all_ratings if value == 10),
             "average_rating": round(sum(all_ratings) / len(all_ratings), 2) if all_ratings else 0,
+            "satisfaction_percent": round(sum(1 for value in all_ratings if value >= 8) * 100 / len(all_ratings)) if all_ratings else 0,
+            "average_response_seconds": round(sum(all_response) / len(all_response)) if all_response else 0,
+            "rating_coverage_percent": round(len(all_ratings) * 100 / max(1, sum(1 for row in rows if row["status"] == "closed"))),
         },
         "ranking": ranking,
     }
