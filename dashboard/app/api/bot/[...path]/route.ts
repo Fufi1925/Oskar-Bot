@@ -1634,7 +1634,7 @@ async function authorize(
     // Die Zahlen der Startseite: ohne Anmeldung lesbar. Sie stehen
     // ohnehin auf jeder oeffentlichen Bot-Liste, und die Startseite
     // ist nun einmal oeffentlich.
-    if (rest[0] === "numbers" && request.method === "GET") {
+    if (["numbers", "featured-servers"].includes(rest[0] ?? "") && request.method === "GET") {
       return { ok: true };
     }
     // Öffentliche Weltkarte: GET liest ausschließlich aggregierte Länderwerte,

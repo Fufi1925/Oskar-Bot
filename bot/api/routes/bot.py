@@ -129,6 +129,35 @@ async def get_numbers(bot: "universitybot" = Depends(get_bot)):
     }
 
 
+@router.get("/featured-servers", summary="Public servers selected for the homepage")
+async def get_featured_servers(bot: "universitybot" = Depends(get_bot)):
+    """Only returns the public card fields of explicitly selected guilds."""
+    try:
+        with sqlite3.connect("db/admin_config.db") as db:
+            db.execute(
+                "CREATE TABLE IF NOT EXISTS homepage_servers ("
+                " guild_id TEXT PRIMARY KEY, position INTEGER NOT NULL)"
+            )
+            rows = db.execute(
+                "SELECT guild_id FROM homepage_servers ORDER BY position, guild_id"
+            ).fetchall()
+    except sqlite3.Error:
+        rows = []
+
+    servers = []
+    for (guild_id,) in rows:
+        guild = bot.get_guild(int(guild_id)) if str(guild_id).isdigit() else None
+        if guild is None:
+            continue
+        servers.append({
+            "guild_id": str(guild.id),
+            "name": guild.name,
+            "icon": str(guild.icon.url) if guild.icon else None,
+            "members": guild.member_count or 0,
+        })
+    return {"servers": servers}
+
+
 @router.api_route("/visitor-map", methods=["GET", "POST"], summary="Anonyme Homepage-Aufrufe nach Land")
 async def homepage_visitor_map(request: Request):
     """Öffentliche, echte Kartenstatistik ohne IP- oder Geräte-Speicherung.

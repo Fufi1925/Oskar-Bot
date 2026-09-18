@@ -2,10 +2,12 @@
 
 import React from "react";
 import { Clock3, Server, Users } from "lucide-react";
+import { geoGraticule10, geoOrthographic, geoPath } from "d3-geo";
+import { feature } from "topojson-client";
+import countriesTopology from "world-atlas/countries-110m.json";
 
 type CountryValue = { country: string; views: number };
 type VisitorData = { total: number; today: number; countries: CountryValue[] };
-type Dot = { lat: number; lon: number; accent: boolean };
 
 const COUNTRY_NAMES: Record<string, string> = {
   DE: "Deutschland", AT: "Österreich", US: "Vereinigte Staaten", NL: "Niederlande",
@@ -13,36 +15,13 @@ const COUNTRY_NAMES: Record<string, string> = {
   IT: "Italien", ES: "Spanien", TR: "Türkei", CA: "Kanada", BR: "Brasilien", AU: "Australien",
 };
 
-function land(lat: number, lon: number) {
-  // Deliberately coarse continent silhouettes. The dense dotted projection and
-  // moving sphere are the visual layer; the live country list beside it is the
-  // exact visitor data.
-  const ellipse = (cx: number, cy: number, rx: number, ry: number) =>
-    ((lon - cx) / rx) ** 2 + ((lat - cy) / ry) ** 2 < 1;
-  return (
-    ellipse(-108, 47, 42, 25) || ellipse(-88, 22, 18, 22) ||
-    ellipse(-61, -17, 20, 36) || ellipse(-43, -10, 10, 19) ||
-    ellipse(15, 50, 23, 14) || ellipse(18, 7, 22, 36) ||
-    ellipse(67, 47, 56, 25) || ellipse(108, 23, 34, 25) ||
-    ellipse(135, -25, 19, 13) || ellipse(48, -20, 6, 12) ||
-    ellipse(-42, 72, 11, 8)
-  );
-}
-
-const DOTS: Dot[] = (() => {
-  const values: Dot[] = [];
-  for (let lat = -58; lat <= 78; lat += 3.2) {
-    for (let lon = -178; lon <= 178; lon += 3.2) {
-      if (land(lat, lon)) values.push({ lat, lon, accent: ((Math.round(lat * 10) + Math.round(lon * 10)) % 41) === 0 });
-    }
-  }
-  return values;
-})();
+const COUNTRIES = feature(countriesTopology as any, (countriesTopology as any).objects.countries) as any;
+const GRATICULE = geoGraticule10();
 
 function InteractiveCanvas() {
   const canvas = React.useRef<HTMLCanvasElement>(null);
   const rotation = React.useRef(-18);
-  const tilt = React.useRef(-7);
+  const tilt = React.useRef(-10);
   const dragging = React.useRef(false);
   const last = React.useRef({ x: 0, y: 0 });
 
@@ -65,50 +44,53 @@ function InteractiveCanvas() {
       }
       context.setTransform(ratio, 0, 0, ratio, 0, 0);
       context.clearRect(0, 0, width, height);
-      if (!dragging.current) rotation.current += Math.min(32, now - previous) * 0.01;
+      if (!dragging.current) rotation.current += Math.min(32, now - previous) * 0.008;
       previous = now;
 
-      const radius = Math.min(width, height) * 0.39;
+      const radius = Math.min(width, height) * .4;
       const cx = width / 2;
       const cy = height / 2;
-      const gradient = context.createRadialGradient(cx - radius * .3, cy - radius * .35, radius * .08, cx, cy, radius * 1.18);
-      gradient.addColorStop(0, "rgba(59,130,246,.055)");
-      gradient.addColorStop(.72, "rgba(15,48,110,.05)");
-      gradient.addColorStop(1, "rgba(0,0,0,0)");
-      context.beginPath(); context.arc(cx, cy, radius * 1.18, 0, Math.PI * 2); context.fillStyle = gradient; context.fill();
-      context.beginPath(); context.arc(cx, cy, radius, 0, Math.PI * 2); context.strokeStyle = "rgba(59,130,246,.68)"; context.lineWidth = 1.5; context.shadowColor = "#3b82f6"; context.shadowBlur = 22; context.stroke(); context.shadowBlur = 0;
+      const projection = geoOrthographic()
+        .translate([cx, cy])
+        .scale(radius)
+        .clipAngle(90)
+        .rotate([rotation.current, tilt.current, 0]);
+      const path = geoPath(projection, context);
 
-      const yaw = rotation.current * Math.PI / 180;
-      const pitch = tilt.current * Math.PI / 180;
-      const rendered: Array<{ x: number; y: number; z: number; accent: boolean }> = [];
-      for (const dot of DOTS) {
-        const lat = dot.lat * Math.PI / 180;
-        const lon = dot.lon * Math.PI / 180 + yaw;
-        const x0 = Math.cos(lat) * Math.sin(lon);
-        const y0 = Math.sin(lat);
-        const z0 = Math.cos(lat) * Math.cos(lon);
-        const y = y0 * Math.cos(pitch) - z0 * Math.sin(pitch);
-        const z = y0 * Math.sin(pitch) + z0 * Math.cos(pitch);
-        if (z > -.08) rendered.push({ x: cx + x0 * radius, y: cy - y * radius, z, accent: dot.accent });
-      }
-      rendered.sort((a, b) => a.z - b.z);
-      for (const dot of rendered) {
-        const alpha = .22 + Math.max(0, dot.z) * .78;
-        context.beginPath();
-        context.arc(dot.x, dot.y, dot.accent ? 1.8 : 1.05, 0, Math.PI * 2);
-        context.fillStyle = dot.accent ? `rgba(96,165,250,${alpha})` : `rgba(244,244,245,${alpha})`;
-        context.fill();
-      }
+      const halo = context.createRadialGradient(cx, cy, radius * .72, cx, cy, radius * 1.22);
+      halo.addColorStop(0, "rgba(37,99,235,.03)");
+      halo.addColorStop(.82, "rgba(59,130,246,.11)");
+      halo.addColorStop(1, "rgba(59,130,246,0)");
+      context.beginPath(); context.arc(cx, cy, radius * 1.22, 0, Math.PI * 2); context.fillStyle = halo; context.fill();
+
+      context.beginPath(); path({ type: "Sphere" } as any);
+      context.fillStyle = "#090b11"; context.fill();
+      context.strokeStyle = "rgba(96,165,250,.78)"; context.lineWidth = 1.5;
+      context.shadowColor = "#3b82f6"; context.shadowBlur = 22; context.stroke(); context.shadowBlur = 0;
+
+      context.beginPath(); path(GRATICULE as any);
+      context.strokeStyle = "rgba(59,130,246,.075)"; context.lineWidth = .55; context.stroke();
+
+      context.beginPath(); path(COUNTRIES);
+      context.fillStyle = "rgba(37,99,235,.2)"; context.fill();
+      context.strokeStyle = "rgba(191,219,254,.72)"; context.lineWidth = .55; context.stroke();
+
+      // A second soft outline keeps small real countries visible without
+      // replacing them with invented continent blobs.
+      context.beginPath(); path(COUNTRIES);
+      context.strokeStyle = "rgba(59,130,246,.34)"; context.lineWidth = 1.3;
+      context.shadowColor = "rgba(59,130,246,.65)"; context.shadowBlur = 5; context.stroke(); context.shadowBlur = 0;
+
       frame = requestAnimationFrame(draw);
     };
     frame = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(frame);
   }, []);
 
-  return <canvas ref={canvas} aria-label="Drehbare Weltkugel der Homepage-Aufrufe" className="h-full min-h-[350px] w-full cursor-grab touch-none active:cursor-grabbing"
+  return <canvas ref={canvas} aria-label="Drehbare Weltkugel mit echten Ländergrenzen" className="h-full min-h-[350px] w-full cursor-grab touch-none active:cursor-grabbing"
     onPointerDown={(event) => { dragging.current = true; last.current = { x: event.clientX, y: event.clientY }; event.currentTarget.setPointerCapture(event.pointerId); }}
     onPointerMove={(event) => { if (!dragging.current) return; rotation.current += (event.clientX - last.current.x) * .32; tilt.current = Math.max(-42, Math.min(42, tilt.current - (event.clientY - last.current.y) * .2)); last.current = { x: event.clientX, y: event.clientY }; }}
-    onPointerUp={(event) => { dragging.current = false; event.currentTarget.releasePointerCapture(event.pointerId); }}
+    onPointerUp={(event) => { dragging.current = false; if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId); }}
     onPointerCancel={() => { dragging.current = false; }}
     onLostPointerCapture={() => { dragging.current = false; }} />;
 }

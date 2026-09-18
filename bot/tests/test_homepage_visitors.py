@@ -69,3 +69,25 @@ def test_public_route_uses_forwarded_ip_and_country_not_browser_body():
     assert "<InteractiveHomeGlobe" in page
     assert 'method: "POST"' in component
     assert "visitorsByCountry" not in component
+
+
+def test_real_globe_and_admin_selected_server_marquee():
+    page = (ROOT / "dashboard" / "app" / "page.tsx").read_text(encoding="utf-8")
+    globe = (ROOT / "dashboard" / "components" / "home" / "interactive-home-globe.tsx").read_text(encoding="utf-8")
+    marquee = (ROOT / "dashboard" / "components" / "home" / "featured-server-marquee.tsx").read_text(encoding="utf-8")
+    admin_panel = (ROOT / "dashboard" / "components" / "dashboard" / "homepage-servers-admin.tsx").read_text(encoding="utf-8")
+    admin_route = (ROOT / "bot" / "api" / "routes" / "admin.py").read_text(encoding="utf-8")
+    public_route = (ROOT / "bot" / "api" / "routes" / "bot.py").read_text(encoding="utf-8")
+    bff = (ROOT / "dashboard" / "app" / "api" / "bot" / "[...path]" / "route.ts").read_text(encoding="utf-8")
+
+    assert "world-atlas/countries-110m.json" in globe
+    assert "geoOrthographic" in globe and "geoPath" in globe
+    assert "rotation.current +=" in globe
+    assert "<FeaturedServerMarquee />" in page
+    assert '"/api/bot/bot/featured-servers"' in marquee
+    assert '"/homepage-servers"' in admin_route
+    assert "homepage_servers" in admin_route and "homepage_servers" in public_route
+    assert '"featured-servers"' in bff
+    middleware = (ROOT / "dashboard" / "middleware.ts").read_text(encoding="utf-8")
+    assert '"/api/bot/bot/featured-servers"' in middleware
+    assert "saveHomepageServersAdmin" in admin_panel

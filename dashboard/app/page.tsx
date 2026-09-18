@@ -10,6 +10,7 @@ import {
 import { INVITE_URL, SiteNav } from "@/components/site-nav";
 import { LegacyHomepage } from "@/components/home/legacy-homepage";
 import { InteractiveHomeGlobe } from "@/components/home/interactive-home-globe";
+import { FeaturedServerMarquee } from "@/components/home/featured-server-marquee";
 import { SUPPORT_INVITE } from "@/lib/legal";
 
 const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || "University Bot";
@@ -74,6 +75,7 @@ function NewHomepage() {
       </section>
 
       <InteractiveHomeGlobe guilds={numbers?.guilds} users={numbers?.users} />
+      <FeaturedServerMarquee />
 
       <section id="features" className="px-4 py-20 sm:px-6 sm:py-28"><div className="mx-auto max-w-[1200px]"><div className="max-w-2xl"><p className="text-xs font-black uppercase tracking-[.24em] text-blue-400">Alles verbunden</p><h2 className="mt-4 text-4xl font-black tracking-tight text-white sm:text-5xl">Ein Bot statt eines ganzen Bot-Ordners.</h2><p className="mt-5 text-base leading-7 text-zinc-400">Die wichtigsten Werkzeuge für Aufbau, Schutz und Betrieb deines Discord-Servers greifen ineinander.</p></div><div className="mt-12 grid gap-3 md:grid-cols-2 lg:grid-cols-3">{FEATURES.map((feature,index)=><article key={feature.title} className={`group relative overflow-hidden rounded-2xl border border-white/[.07] bg-[#100d11] p-6 transition hover:border-blue-400/25 ${index===0||index===5 ? "lg:col-span-1" : ""}`}><div className="absolute -right-12 -top-12 h-32 w-32 rounded-full bg-blue-500/[.06] blur-2xl transition group-hover:bg-blue-500/10"/><span className="grid h-11 w-11 place-items-center rounded-xl border border-blue-400/20 bg-blue-500/10"><feature.icon className="h-5 w-5 text-blue-400"/></span><h3 className="mt-6 text-lg font-black text-white">{feature.title}</h3><p className="mt-3 text-sm leading-7 text-zinc-500">{feature.text}</p><span className="mt-6 inline-flex items-center gap-2 text-xs font-black text-blue-400">Im Dashboard verwalten<ArrowRight className="h-3.5 w-3.5"/></span></article>)}</div></div></section>
 

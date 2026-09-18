@@ -51,9 +51,10 @@ import { TicketAiAdmin } from "@/components/dashboard/ticket-ai-admin";
 import { FirewallPanel } from "@/components/dashboard/firewall-panel";
 import { SupportRequestsAdmin } from "@/components/dashboard/support-requests-admin";
 import { SupportRankingsAdmin } from "@/components/dashboard/support-rankings-admin";
+import { HomepageServersAdmin } from "@/components/dashboard/homepage-servers-admin";
 
 
-type TabId = "members" | "channels" | "server" | "scans" | "broadcast" | "system" | "features" | "health" | "team" | "access" | "reports" | "audit" | "approvals" | "botsettings" | "backups" | "warnings" | "usage" | "dashusers" | "servers" | "premium" | "speedrun" | "tester" | "pingreactions" | "templates" | "userlookup" | "webapply" | "cookies" | "privacy" | "trustedbots" | "designunlock" | "beta" | "ideas" | "ticketai" | "firewall" | "support" | "support-rankings";
+type TabId = "members" | "channels" | "server" | "scans" | "broadcast" | "system" | "features" | "health" | "team" | "access" | "reports" | "audit" | "approvals" | "botsettings" | "backups" | "warnings" | "usage" | "dashusers" | "servers" | "premium" | "speedrun" | "tester" | "pingreactions" | "templates" | "userlookup" | "webapply" | "cookies" | "privacy" | "trustedbots" | "designunlock" | "beta" | "ideas" | "ticketai" | "firewall" | "support" | "support-rankings" | "homepage-servers";
 type MemberAction = "ban" | "kick" | "mute" | "unmute";
 
 type QuickAction = {
@@ -81,6 +82,7 @@ const tabs: Array<{ id: TabId; label: string; icon: any }> = [
   { id: "dashusers", label: "Dashboard-Nutzer", icon: UserCog },
   { id: "userlookup", label: "Nutzer suchen", icon: UserSearch },
   { id: "servers", label: "Alle Server", icon: Globe },
+  { id: "homepage-servers", label: "Homepage-Server", icon: Globe },
   { id: "warnings", label: "Warnungen", icon: AlertTriangle },
   { id: "usage", label: "Nutzung", icon: Terminal },
   { id: "reports", label: "Berichte", icon: BarChart4 },
@@ -175,7 +177,7 @@ const TAB_GROUPS: TabGroup[] = [
   { name: "Übersicht & Betrieb", shortName: "Betrieb", icon: Activity, ids: ["health", "system", "usage", "reports", "audit"], color: "text-cyan-400", iconBg: "bg-cyan-500/10", active: "border-cyan-500/25 bg-cyan-500/10" },
   { name: "Support", shortName: "Support", icon: LifeBuoy, ids: ["support", "support-rankings"], color: "text-indigo-300", iconBg: "bg-indigo-500/10", active: "border-indigo-500/25 bg-indigo-500/10" },
   // Alles, was unmittelbar einen Discord-Server oder dessen Kommunikation betrifft.
-  { name: "Server & Inhalte", shortName: "Server", icon: Server, ids: ["servers", "server", "channels", "broadcast"], color: "text-violet-400", iconBg: "bg-violet-500/10", active: "border-violet-500/25 bg-violet-500/10" },
+  { name: "Server & Inhalte", shortName: "Server", icon: Server, ids: ["servers", "homepage-servers", "server", "channels", "broadcast"], color: "text-violet-400", iconBg: "bg-violet-500/10", active: "border-violet-500/25 bg-violet-500/10" },
   // Einzelne Nutzer finden, prüfen und moderieren.
   { name: "Nutzer & Moderation", shortName: "Moderation", icon: ShieldAlert, ids: ["members", "userlookup", "warnings", "scans"], color: "text-rose-400", iconBg: "bg-rose-500/10", active: "border-rose-500/25 bg-rose-500/10" },
   // Interne Rollen, Dashboard-Zugriffe und sensible Freigaben.
@@ -292,7 +294,7 @@ const quickActions: QuickAction[] = [
 const FULL_WIDTH_TABS = new Set<TabId>([
   "features", "health", "firewall", "team", "access",
   "reports", "audit", "approvals", "botsettings", "backups", "warnings", "usage",
-  "dashusers", "userlookup", "servers", "premium", "ticketai", "speedrun", "tester", "templates",
+  "dashusers", "userlookup", "servers", "homepage-servers", "premium", "ticketai", "speedrun", "tester", "templates",
   "webapply", "ideas", "cookies", "privacy", "trustedbots",
 ]);
 
@@ -412,7 +414,7 @@ export function AdminContent({ configuredOwner = false }: { configuredOwner?: bo
   useEffect(() => {
     const applyHash = () => {
       const hash = window.location.hash.replace("#", "");
-      if (hash === "servers" && !configuredOwner) {
+      if (["servers", "homepage-servers"].includes(hash) && !configuredOwner) {
         router.replace("/dashboard");
         return;
       }
@@ -531,7 +533,7 @@ export function AdminContent({ configuredOwner = false }: { configuredOwner?: bo
     // Ein leerer Zustand ist die ehrlichere Zwischenstufe: er sagt
     // „wird geprüft“ statt „du darfst das alles“.
     if (!access) return [];
-    if (access.is_owner) return configuredOwner ? tabs : tabs.filter((tab) => tab.id !== "servers");
+    if (access.is_owner) return configuredOwner ? tabs : tabs.filter((tab) => !["servers", "homepage-servers"].includes(tab.id));
 
     // Wer gar keine Rolle hat, sieht keinen einzigen Reiter. Die Seite
     // selbst leitet solche Leute schon weg (`app/dashboard/admin/
@@ -554,7 +556,7 @@ export function AdminContent({ configuredOwner = false }: { configuredOwner?: bo
 
     return tabs.filter((tab) => {
       // The fleet view is reserved for IDs fixed in the deployment environment.
-      if (tab.id === "servers") return configuredOwner;
+      if (tab.id === "servers" || tab.id === "homepage-servers") return configuredOwner;
       // Support requests are intentionally stricter than Administrator:
       // only Co-Owner (rank 95) and configured owners may invite access.
       if (tab.id === "support" || tab.id === "support-rankings") return (access.highest_rank ?? 0) > 90;
@@ -914,6 +916,7 @@ export function AdminContent({ configuredOwner = false }: { configuredOwner?: bo
       {activeTab === "dashusers" && <DashboardUsersPanel currentUserId={(session?.user as any)?.id} />}
       {activeTab === "userlookup" && <UserLookupPanel />}
       {activeTab === "servers" && <ServersPanel currentUserId={(session?.user as any)?.id} />}
+      {activeTab === "homepage-servers" && <HomepageServersAdmin />}
       {activeTab === "reports" && <ReportsPanel />}
       {activeTab === "audit" && <AuditPanel />}
       {activeTab === "approvals" && <ApprovalsPanel currentUserId={(session?.user as any)?.id} />}

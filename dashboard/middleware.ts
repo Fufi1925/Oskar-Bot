@@ -201,6 +201,9 @@ const authGate = withAuth(
  */
 const OEFFENTLICH = [
   "/api/bot/bot/numbers",
+  // Vom Owner ausdrücklich ausgewählte Serverkarten; keine Rollen, Owner-IDs
+  // oder Konfigurationen werden über diese öffentliche Route ausgegeben.
+  "/api/bot/bot/featured-servers",
   // Die Weltkarte steht auf der öffentlichen Startseite. GET liefert nur
   // aggregierte Länderzahlen, POST zählt denselben IP-Fingerabdruck höchstens
   // einmal in zehn Minuten. Eine Discord-Anmeldung ist dafür nicht nötig.

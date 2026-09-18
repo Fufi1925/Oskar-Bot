@@ -975,6 +975,12 @@ export const api = {
   // Der Verlauf über alle Server, für die Diagramme im Admin-Bereich.
   getAdminHistory: (days = 30) => request<any>(`/admin/history?days=${days}`),
   getAdminConfig: () => request<AdminConfig>("/admin/config"),
+  getHomepageServersAdmin: () => request<any>("/admin/homepage-servers"),
+  saveHomepageServersAdmin: (guildIds: string[]) => request<any>("/admin/homepage-servers", {
+    method: "PUT",
+    body: JSON.stringify({ guild_ids: guildIds }),
+  }),
+  getFeaturedServers: () => request<any>("/bot/featured-servers"),
   updateAdminConfig: (data: AdminConfigUpdate) => 
     request<{ status: string }>("/admin/config", {
       method: "PATCH",

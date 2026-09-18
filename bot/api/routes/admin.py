@@ -40,6 +40,10 @@ async def init_db():
         # Default values
         await db.execute("INSERT OR IGNORE INTO config (key, value) VALUES ('maintenance_mode', 'false')")
         await db.execute("INSERT OR IGNORE INTO config (key, value) VALUES ('global_notification', '')")
+        await db.execute(
+            "CREATE TABLE IF NOT EXISTS homepage_servers ("
+            " guild_id TEXT PRIMARY KEY, position INTEGER NOT NULL)"
+        )
         await db.commit()
 
 import psutil
@@ -148,6 +152,58 @@ async def patch_admin_config(data: AdminConfigUpdate):
         await feature_audit.record_notification(data.global_notification)
 
     return {"status": "success"}
+
+
+@router.get("/homepage-servers", summary="Choose servers shown on the public homepage")
+async def get_homepage_servers(bot: "universitybot" = Depends(get_bot)):
+    await init_db()
+    async with aiosqlite.connect(CONFIG_DB) as db:
+        rows = await (await db.execute(
+            "SELECT guild_id FROM homepage_servers ORDER BY position, guild_id"
+        )).fetchall()
+    selected = [str(row[0]) for row in rows]
+    selected_set = set(selected)
+    guilds = [
+        {
+            "guild_id": str(guild.id),
+            "name": guild.name,
+            "icon": str(guild.icon.url) if guild.icon else None,
+            "members": guild.member_count or 0,
+            "selected": str(guild.id) in selected_set,
+        }
+        for guild in sorted(bot.guilds, key=lambda item: str(item.name).lower())
+    ]
+    return {"selected": selected, "guilds": guilds, "limit": 20}
+
+
+@router.put("/homepage-servers", summary="Save public homepage server order")
+async def put_homepage_servers(data: dict, bot: "universitybot" = Depends(get_bot)):
+    raw = data.get("guild_ids", [])
+    if not isinstance(raw, list):
+        raise HTTPException(status_code=400, detail="guild_ids must be a list")
+    guild_ids: list[str] = []
+    for value in raw:
+        guild_id = str(value).strip()
+        if not guild_id.isdigit() or bot.get_guild(int(guild_id)) is None:
+            raise HTTPException(status_code=400, detail=f"Unknown server: {guild_id}")
+        if guild_id not in guild_ids:
+            guild_ids.append(guild_id)
+    if len(guild_ids) > 20:
+        raise HTTPException(status_code=400, detail="At most 20 servers can be shown")
+
+    await init_db()
+    async with aiosqlite.connect(CONFIG_DB) as db:
+        await db.execute("DELETE FROM homepage_servers")
+        await db.executemany(
+            "INSERT INTO homepage_servers (guild_id, position) VALUES (?, ?)",
+            [(guild_id, index) for index, guild_id in enumerate(guild_ids)],
+        )
+        await db.commit()
+    await feature_audit.log_action(
+        "homepage_servers_changed", actor="dashboard",
+        detail=f"{len(guild_ids)} server(s): {','.join(guild_ids)}",
+    )
+    return {"status": "success", "selected": guild_ids}
 
 
 @router.get("/notifications/history", summary="Global notification history")
