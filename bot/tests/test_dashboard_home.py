@@ -274,7 +274,9 @@ def test_startseite_ist_ruhiger():
     check("neues Design startet standardmäßig", 'useState<HomepageVersion>("new")' in seite)
     check("klassische Homepage bleibt wählbar", '<LegacyHomepage />' in seite)
     check("Auswahl wird lokal gespeichert", 'localStorage.setItem("homepage-version"' in seite)
-    check("keine blauen Akzentklassen im neuen Einstieg", "bg-blue-" not in seite and "text-blue-" not in seite)
+    check("neuer Einstieg nutzt blaue Akzente", "bg-blue-" in seite and "text-blue-" in seite)
+    check("keine pinken Akzentklassen im neuen Einstieg", "fuchsia-" not in seite and "pink-" not in seite)
+    check("nur echte Sprachen werden gezeigt", "Deutsch" in seite and "English" in seite and "Español" not in seite)
 
 
 def main() -> int:

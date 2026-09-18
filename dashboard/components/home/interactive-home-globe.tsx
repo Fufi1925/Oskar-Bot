@@ -65,18 +65,18 @@ function InteractiveCanvas() {
       }
       context.setTransform(ratio, 0, 0, ratio, 0, 0);
       context.clearRect(0, 0, width, height);
-      if (!dragging.current) rotation.current += Math.min(32, now - previous) * 0.0025;
+      if (!dragging.current) rotation.current += Math.min(32, now - previous) * 0.01;
       previous = now;
 
       const radius = Math.min(width, height) * 0.39;
       const cx = width / 2;
       const cy = height / 2;
       const gradient = context.createRadialGradient(cx - radius * .3, cy - radius * .35, radius * .08, cx, cy, radius * 1.18);
-      gradient.addColorStop(0, "rgba(217,70,239,.055)");
-      gradient.addColorStop(.72, "rgba(90,12,92,.05)");
+      gradient.addColorStop(0, "rgba(59,130,246,.055)");
+      gradient.addColorStop(.72, "rgba(15,48,110,.05)");
       gradient.addColorStop(1, "rgba(0,0,0,0)");
       context.beginPath(); context.arc(cx, cy, radius * 1.18, 0, Math.PI * 2); context.fillStyle = gradient; context.fill();
-      context.beginPath(); context.arc(cx, cy, radius, 0, Math.PI * 2); context.strokeStyle = "rgba(217,70,239,.68)"; context.lineWidth = 1.5; context.shadowColor = "#d946ef"; context.shadowBlur = 22; context.stroke(); context.shadowBlur = 0;
+      context.beginPath(); context.arc(cx, cy, radius, 0, Math.PI * 2); context.strokeStyle = "rgba(59,130,246,.68)"; context.lineWidth = 1.5; context.shadowColor = "#3b82f6"; context.shadowBlur = 22; context.stroke(); context.shadowBlur = 0;
 
       const yaw = rotation.current * Math.PI / 180;
       const pitch = tilt.current * Math.PI / 180;
@@ -96,7 +96,7 @@ function InteractiveCanvas() {
         const alpha = .22 + Math.max(0, dot.z) * .78;
         context.beginPath();
         context.arc(dot.x, dot.y, dot.accent ? 1.8 : 1.05, 0, Math.PI * 2);
-        context.fillStyle = dot.accent ? `rgba(232,121,249,${alpha})` : `rgba(244,244,245,${alpha})`;
+        context.fillStyle = dot.accent ? `rgba(96,165,250,${alpha})` : `rgba(244,244,245,${alpha})`;
         context.fill();
       }
       frame = requestAnimationFrame(draw);
@@ -109,7 +109,8 @@ function InteractiveCanvas() {
     onPointerDown={(event) => { dragging.current = true; last.current = { x: event.clientX, y: event.clientY }; event.currentTarget.setPointerCapture(event.pointerId); }}
     onPointerMove={(event) => { if (!dragging.current) return; rotation.current += (event.clientX - last.current.x) * .32; tilt.current = Math.max(-42, Math.min(42, tilt.current - (event.clientY - last.current.y) * .2)); last.current = { x: event.clientX, y: event.clientY }; }}
     onPointerUp={(event) => { dragging.current = false; event.currentTarget.releasePointerCapture(event.pointerId); }}
-    onPointerCancel={() => { dragging.current = false; }} />;
+    onPointerCancel={() => { dragging.current = false; }}
+    onLostPointerCapture={() => { dragging.current = false; }} />;
 }
 
 export function InteractiveHomeGlobe({ guilds, users }: { guilds?: number; users?: number }) {
@@ -126,17 +127,17 @@ export function InteractiveHomeGlobe({ guilds, users }: { guilds?: number; users
   const maximum = Math.max(1, top[0]?.views || 1);
   const number = (value?: number) => typeof value === "number" && value > 0 ? value.toLocaleString("de-DE") : "—";
 
-  return <section id="statistics" className="border-y border-fuchsia-500/10 bg-[#0b0a0c] px-4 py-16 sm:px-6 sm:py-20">
+  return <section id="statistics" className="border-y border-blue-500/10 bg-[#0b0a0c] px-4 py-16 sm:px-6 sm:py-20">
     <div className="mx-auto max-w-[1320px]">
-      <div className="mb-10 text-center"><p className="text-[10px] font-black uppercase tracking-[.28em] text-fuchsia-400">Live auf der ganzen Welt</p><h2 className="mt-3 text-3xl font-black tracking-tight text-white sm:text-4xl">Eine Community ohne Grenzen.</h2><p className="mt-3 text-sm text-zinc-500">Die Kugel dreht sich langsam weiter. Ziehe sie mit Maus oder Finger in jede Richtung.</p></div>
+      <div className="mb-10 text-center"><p className="text-[10px] font-black uppercase tracking-[.28em] text-blue-400">Live auf der ganzen Welt</p><h2 className="mt-3 text-3xl font-black tracking-tight text-white sm:text-4xl">Eine Community ohne Grenzen.</h2><p className="mt-3 text-sm text-zinc-500">Die Kugel dreht sich langsam weiter. Ziehe sie mit Maus oder Finger in jede Richtung.</p></div>
       <div className="grid items-center gap-8 lg:grid-cols-[.9fr_1.1fr]">
-        <div className="relative min-h-[410px] overflow-hidden"><InteractiveCanvas /><span className="pointer-events-none absolute bottom-5 left-1/2 -translate-x-1/2 rounded-full border border-fuchsia-400/15 bg-black/40 px-3 py-1.5 text-[10px] font-bold text-zinc-500 backdrop-blur">Ziehen zum Drehen</span></div>
+        <div className="relative min-h-[410px] overflow-hidden"><InteractiveCanvas /><span className="pointer-events-none absolute bottom-5 left-1/2 -translate-x-1/2 rounded-full border border-blue-400/15 bg-black/40 px-3 py-1.5 text-[10px] font-bold text-zinc-500 backdrop-blur">Ziehen zum Drehen</span></div>
         <div>
           <div className="grid grid-cols-3 gap-3">{[
             [Server, number(guilds), "Server"], [Users, number(users), "Nutzer"], [Clock3, "99,69%", "Uptime"],
-          ].map(([Icon, value, label]) => { const StatIcon = Icon as React.ElementType; return <div key={String(label)} className="rounded-2xl border border-fuchsia-400/10 bg-[#120e13] px-3 py-5 text-center"><span className="mx-auto grid h-8 w-8 place-items-center rounded-lg border border-fuchsia-400/20 bg-fuchsia-500/10"><StatIcon className="h-4 w-4 text-fuchsia-400" /></span><p className="mt-3 text-lg font-black tabular-nums text-white sm:text-xl">{String(value)}</p><p className="mt-1 text-[9px] font-black uppercase tracking-[.2em] text-zinc-600">{String(label)}</p></div>; })}</div>
+          ].map(([Icon, value, label]) => { const StatIcon = Icon as React.ElementType; return <div key={String(label)} className="rounded-2xl border border-blue-400/10 bg-[#120e13] px-3 py-5 text-center"><span className="mx-auto grid h-8 w-8 place-items-center rounded-lg border border-blue-400/20 bg-blue-500/10"><StatIcon className="h-4 w-4 text-blue-400" /></span><p className="mt-3 text-lg font-black tabular-nums text-white sm:text-xl">{String(value)}</p><p className="mt-1 text-[9px] font-black uppercase tracking-[.2em] text-zinc-600">{String(label)}</p></div>; })}</div>
           <p className="mb-3 mt-7 text-[10px] font-black uppercase tracking-[.25em] text-zinc-600">Top Länder · echte Homepage-Aufrufe</p>
-          <div className="space-y-2">{top.length ? top.map((country, index) => <div key={country.country}><div className="flex items-center gap-3 text-xs"><span className="w-4 tabular-nums text-zinc-700">{index + 1}.</span><span className="min-w-0 flex-1 truncate font-bold text-zinc-300">{COUNTRY_NAMES[country.country] || country.country}</span><span className="tabular-nums text-zinc-600">{country.views.toLocaleString("de-DE")}</span></div><div className="ml-7 mt-1 h-[3px] overflow-hidden rounded-full bg-white/[.05]"><div className="h-full rounded-full bg-fuchsia-600" style={{ width: `${Math.max(3, country.views / maximum * 100)}%` }} /></div></div>) : <div className="grid h-44 place-items-center rounded-2xl border border-fuchsia-400/10 bg-[#120e13] text-sm text-zinc-600">Live-Daten werden geladen …</div>}</div>
+          <div className="space-y-2">{top.length ? top.map((country, index) => <div key={country.country}><div className="flex items-center gap-3 text-xs"><span className="w-4 tabular-nums text-zinc-700">{index + 1}.</span><span className="min-w-0 flex-1 truncate font-bold text-zinc-300">{COUNTRY_NAMES[country.country] || country.country}</span><span className="tabular-nums text-zinc-600">{country.views.toLocaleString("de-DE")}</span></div><div className="ml-7 mt-1 h-[3px] overflow-hidden rounded-full bg-white/[.05]"><div className="h-full rounded-full bg-blue-600" style={{ width: `${Math.max(3, country.views / maximum * 100)}%` }} /></div></div>) : <div className="grid h-44 place-items-center rounded-2xl border border-blue-400/10 bg-[#120e13] text-sm text-zinc-600">Live-Daten werden geladen …</div>}</div>
         </div>
       </div>
     </div>
