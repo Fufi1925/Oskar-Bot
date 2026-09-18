@@ -33,6 +33,7 @@ import {
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { verifyGuildAccess } from "@/lib/guild-auth";
+import { redirect } from "next/navigation";
 
 export const revalidate = 0; // Never cache any guild dashboard page
 
@@ -68,18 +69,7 @@ export default async function GuildLayout({
     }
   }
 
-  if (error || !guild) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] border-2 border-dashed border-blue-500/20 rounded-3xl bg-blue-500/5 p-12 text-center">
-        <ShieldAlert className="h-16 w-16 text-blue-500 mb-6 opacity-50" />
-        <h2 className="text-2xl font-bold text-white">Access Denied</h2>
-        <p className="text-slate-400 mt-2 max-w-md">{error || "This guild does not exist or you do not have permission to manage it."}</p>
-        <Link href="/dashboard/guilds" className="mt-8">
-          <Button variant="outline">Back to Servers</Button>
-        </Link>
-      </div>
-    );
-  }
+  if (error || !guild) redirect("/dashboard");
 
   return (
     <div className="space-y-5">

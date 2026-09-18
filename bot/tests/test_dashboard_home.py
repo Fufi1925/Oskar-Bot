@@ -80,19 +80,17 @@ def test_zahlen_sind_echt():
     seite = strip_ts(read("app", "page.tsx"))
 
     check("sie werden geladen", '"/api/bot/bot/numbers"' in seite)
-    check("und in den Zustand gelegt", "setZahlen(d)" in seite)
+    check("und in den Zustand gelegt", "setNumbers(data)" in seite)
 
     # Keine festen Zahlen mehr in den Kacheln.
-    block = seite[seite.index("label: \"Server\""):]
-    block = block[: block.index("].map(")]
     for fest in ('"152"', '"608"', '"41"'):
-        check(f"{fest} steht nicht mehr fest drin", fest not in block)
+        check(f"{fest} steht nicht mehr fest drin", fest not in seite)
 
-    for feld in ("zahlen?.modules", "zahlen?.commands", "zahlen?.users"):
-        check(f"{feld} wird angezeigt", feld in block)
+    for feld in ("numbers?.modules", "numbers?.commands", "numbers?.users"):
+        check(f"{feld} wird angezeigt", feld in seite)
 
     # Fehlt die Antwort, steht ein Strich -- keine erfundene Zahl.
-    check("ohne Antwort ein Strich", 'wert > 0 ? wert.toLocaleString("de-DE") : "—"'
+    check("ohne Antwort ein Strich", 'value > 0 ? value.toLocaleString("de-DE") : "—"'
           in seite)
 
 
@@ -274,11 +272,11 @@ def test_startseite_ist_ruhiger():
           not re.search(r"^\s*Star,?\s*$", seite, re.M),
           "ein unbenutzter Import bleibt sonst ewig stehen")
 
-    # Die Versal-Sperrung unter den Zahlen.
-    zahlen_block = seite[seite.index('label: "Server"'):]
-    zahlen_block = zahlen_block[: zahlen_block.index("</section>")]
-    check("keine Versalien unter den Zahlen",
-          "uppercase tracking-widest" not in zahlen_block)
+    # Das neue pinke Design ist Standard, das bisherige bleibt erreichbar.
+    check("neues Design startet standardmäßig", 'useState<HomepageVersion>("new")' in seite)
+    check("klassische Homepage bleibt wählbar", '<LegacyHomepage />' in seite)
+    check("Auswahl wird lokal gespeichert", 'localStorage.setItem("homepage-version"' in seite)
+    check("keine blauen Akzentklassen im neuen Einstieg", "bg-blue-" not in seite and "text-blue-" not in seite)
 
 
 def main() -> int:

@@ -43,6 +43,19 @@ export function isGlobalAdmin(userId?: string | null): boolean {
   return getAdminIds().includes(userId);
 }
 
+/** Fixed deployment owners. This list is server-only and is never exposed to clients. */
+export function getConfiguredOwnerIds(): string[] {
+  return (process.env.OWNER_IDS || process.env.ADMIN_IDS || "")
+    .split(",")
+    .map((id) => id.trim())
+    .filter(Boolean);
+}
+
+export function isConfiguredOwner(userId?: string | null): boolean {
+  if (!userId) return false;
+  return getConfiguredOwnerIds().includes(String(userId).trim());
+}
+
 interface DiscordPartialGuild {
   id: string;
   name: string;
@@ -458,6 +471,14 @@ export async function verifyGuildAccess(guildId: string): Promise<GuildAccessRes
   }
 
   const userId = session.user.id;
+
+  // Fixed deployment owners can open a guild from the private fleet view.
+  // This is checked only on the server; no ID list or special-access hint is
+  // shipped to the browser. Guild-owner-only settings still perform their own
+  // stricter ownership checks in their dedicated routes.
+  if (isConfiguredOwner(userId)) {
+    return { allowed: true, status: 200, reason: "OK", userId };
+  }
 
   // A dashboard ban beats every other rule, including Manage Server.
   const ban = await fetchBanState(userId);

@@ -38,7 +38,7 @@ export function ThemeToggle({ embedded = false }: { embedded?: boolean }) {
 
   return (
     <div
-      className={`theme-filter-reset flex items-center rounded-full border border-white/10 bg-[#151519]/95 p-1 shadow-2xl shadow-black/40 backdrop-blur-xl ${embedded ? "relative" : "fixed bottom-5 right-5 z-40"}`}
+      className={`theme-filter-reset dashboard-theme-toggle flex items-center rounded-full border border-white/10 bg-[#151519]/95 p-1 shadow-2xl shadow-black/40 backdrop-blur-xl ${embedded ? "relative" : "fixed bottom-5 right-5 z-40"}`}
       role="group"
       aria-label="Farbschema"
     >

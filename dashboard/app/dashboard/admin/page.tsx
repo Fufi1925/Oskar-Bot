@@ -19,7 +19,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { isAdmin, cn } from "@/lib/utils";
-import { fetchTeamAccess } from "@/lib/guild-auth";
+import { fetchTeamAccess, isConfiguredOwner } from "@/lib/guild-auth";
 import { Shield, Users, Server, Activity, Database, Cpu, Globe, Lock, Settings } from "lucide-react";
 
 import { AdminContent } from "@/components/dashboard/admin-content";
@@ -41,7 +41,7 @@ export default async function AdminPage() {
     }
   }
 
-  return <AdminContent />;
+  return <AdminContent configuredOwner={isConfiguredOwner(session.user.id)} />;
 }
 
 

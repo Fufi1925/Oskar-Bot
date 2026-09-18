@@ -28,6 +28,7 @@ import { DataAge } from "@/components/ui/data-age";
 import { StatValue } from "@/components/ui/stat-value";
 import { OwnerAccessPanel } from "@/components/dashboard/owner-access-panel";
 import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { ReportsPanel } from "@/components/dashboard/reports-panel";
 import { AuditPanel } from "@/components/dashboard/audit-panel";
 import { ApprovalsPanel } from "@/components/dashboard/approvals-panel";
@@ -328,8 +329,9 @@ function TextInput({ label, value, setValue, placeholder, type = "text" }: { lab
   );
 }
 
-export function AdminContent() {
+export function AdminContent({ configuredOwner = false }: { configuredOwner?: boolean }) {
   const { data: session } = useSession();
+  const router = useRouter();
   // Own access, used to hide tabs the user has no permission for.
   const [access, setAccess] = useState<{
     is_owner: boolean;
@@ -410,6 +412,10 @@ export function AdminContent() {
   useEffect(() => {
     const applyHash = () => {
       const hash = window.location.hash.replace("#", "");
+      if (hash === "servers" && !configuredOwner) {
+        router.replace("/dashboard");
+        return;
+      }
       if (hash && tabs.some((t) => t.id === hash)) {
         setActiveTab(hash as TabId);
       }
@@ -417,7 +423,7 @@ export function AdminContent() {
     applyHash();
     window.addEventListener("hashchange", applyHash);
     return () => window.removeEventListener("hashchange", applyHash);
-  }, []);
+  }, [configuredOwner, router]);
 
   // Load own permissions so tabs the user cannot use are hidden.
   useEffect(() => {
@@ -525,7 +531,7 @@ export function AdminContent() {
     // Ein leerer Zustand ist die ehrlichere Zwischenstufe: er sagt
     // „wird geprüft“ statt „du darfst das alles“.
     if (!access) return [];
-    if (access.is_owner) return tabs;
+    if (access.is_owner) return configuredOwner ? tabs : tabs.filter((tab) => tab.id !== "servers");
 
     // Wer gar keine Rolle hat, sieht keinen einzigen Reiter. Die Seite
     // selbst leitet solche Leute schon weg (`app/dashboard/admin/
@@ -547,6 +553,8 @@ export function AdminContent() {
     if (testerOnly) return tabs.filter((tab) => tab.id === "tester");
 
     return tabs.filter((tab) => {
+      // The fleet view is reserved for IDs fixed in the deployment environment.
+      if (tab.id === "servers") return configuredOwner;
       // Support requests are intentionally stricter than Administrator:
       // only Co-Owner (rank 95) and configured owners may invite access.
       if (tab.id === "support" || tab.id === "support-rankings") return (access.highest_rank ?? 0) > 90;
@@ -563,7 +571,7 @@ export function AdminContent() {
       if (!required) return true;
       return access.permissions.includes(required);
     });
-  }, [access]);
+  }, [access, configuredOwner]);
 
   // If the active tab disappeared, fall back to the first one available.
   useEffect(() => {

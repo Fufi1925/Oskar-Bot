@@ -6,6 +6,7 @@ import os
 import sqlite3
 import tempfile
 from pathlib import Path
+import re
 
 ROOT = Path(__file__).resolve().parents[2]
 MODULE = ROOT / "bot" / "utils" / "homepage_visitors.py"
@@ -65,6 +66,6 @@ def test_public_route_uses_forwarded_ip_and_country_not_browser_body():
     assert "homepage_visitors.lookup_country" in route
     assert 'rest[0] === "visitor-map"' in bff
     assert '"/api/bot/bot/visitor-map"' in middleware
-    assert "<HomepageWorldMap />" in page
+    assert re.search(r"<HomepageWorldMap(?:\s+tone=\"pink\")?\s*/>", page)
     assert 'laden("POST")' in component
     assert "visitorsByCountry" not in component

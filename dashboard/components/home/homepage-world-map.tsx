@@ -22,17 +22,20 @@ const regionNames = typeof Intl !== "undefined" && "DisplayNames" in Intl
   ? new Intl.DisplayNames(["de"], { type: "region" })
   : null;
 
-function farbe(wert: number, max: number) {
-  if (!wert) return "#20232d";
+function farbe(wert: number, max: number, tone: "indigo" | "pink") {
+  if (!wert) return "#202024";
   const anteil = wert / Math.max(1, max);
-  if (anteil >= 0.8) return "#818cf8";
-  if (anteil >= 0.5) return "#6366f1";
-  if (anteil >= 0.25) return "#4f46e5";
-  if (anteil >= 0.1) return "#3730a3";
-  return "#312e81";
+  const palette = tone === "pink"
+    ? ["#500724", "#831843", "#be185d", "#db2777", "#f0abfc"]
+    : ["#312e81", "#3730a3", "#4f46e5", "#6366f1", "#818cf8"];
+  if (anteil >= 0.8) return palette[4];
+  if (anteil >= 0.5) return palette[3];
+  if (anteil >= 0.25) return palette[2];
+  if (anteil >= 0.1) return palette[1];
+  return palette[0];
 }
 
-export function HomepageWorldMap() {
+export function HomepageWorldMap({ tone = "indigo" }: { tone?: "indigo" | "pink" }) {
   const [data, setData] = React.useState<VisitorMapData | null>(null);
   const [hover, setHover] = React.useState<Hover>(null);
   const [fehler, setFehler] = React.useState(false);
@@ -86,7 +89,7 @@ export function HomepageWorldMap() {
       <div className="home-glass mx-auto max-w-[1400px] overflow-hidden rounded-3xl p-5 sm:p-8">
         <div className="mb-4 flex flex-wrap items-start justify-between gap-4 px-1 sm:mb-6 sm:gap-5">
           <div>
-            <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-[.14em] text-indigo-400">
+            <p className={cn("flex items-center gap-2 text-xs font-bold uppercase tracking-[.14em]", tone === "pink" ? "text-fuchsia-400" : "text-indigo-400")}>
               <Globe2 className="h-4 w-4" /> Live von der Homepage
             </p>
             <h2 className="mt-2 text-2xl font-bold tracking-tight text-white sm:text-3xl">Website-Aufrufe weltweit</h2>
@@ -96,7 +99,7 @@ export function HomepageWorldMap() {
             <div><p className="text-3xl font-semibold tabular-nums text-white">{data ? formatter.format(data.total) : "—"}</p><p className="mt-1 text-xs text-slate-500">Aufrufe gesamt</p></div>
             <div><p className="text-xl font-semibold tabular-nums text-white">{data ? formatter.format(data.today) : "—"}</p><p className="mt-1 text-xs text-slate-500">heute</p></div>
             {trend !== null && trend !== undefined && (
-              <span className={cn("mb-4 inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs font-bold", trend >= 0 ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-400" : "border-red-500/20 bg-red-500/10 text-red-400")}>
+              <span className={cn("mb-4 inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs font-bold", tone === "pink" ? "border-fuchsia-500/20 bg-fuchsia-500/10 text-fuchsia-400" : trend >= 0 ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-400" : "border-red-500/20 bg-red-500/10 text-red-400")}>
                 {trend >= 0 ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}{trend >= 0 ? "+" : ""}{trend.toFixed(1)}%
               </span>
             )}
@@ -112,7 +115,7 @@ export function HomepageWorldMap() {
                 <path
                   key={`${country.code}-${country.name}`}
                   d={country.d}
-                  fill={farbe(views, max)}
+                  fill={farbe(views, max, tone)}
                   stroke="#0d0e13"
                   strokeWidth="0.8"
                   vectorEffect="non-scaling-stroke"
@@ -134,7 +137,7 @@ export function HomepageWorldMap() {
           {hover && (
             <div className="pointer-events-none absolute z-10 w-40 rounded-lg border border-slate-700 bg-[#151720]/95 p-3 shadow-xl backdrop-blur" style={{ left: hover.x, top: hover.y }}>
               <p className="truncate text-xs font-semibold text-white">{hover.name}</p>
-              <p className="mt-1 text-sm font-bold tabular-nums text-indigo-300">{formatter.format(hover.views)} Aufrufe</p>
+              <p className={cn("mt-1 text-sm font-bold tabular-nums", tone === "pink" ? "text-fuchsia-300" : "text-indigo-300")}>{formatter.format(hover.views)} Aufrufe</p>
             </div>
           )}
 
