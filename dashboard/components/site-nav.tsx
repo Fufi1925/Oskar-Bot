@@ -198,6 +198,14 @@ export function SiteNav() {
   const pathname = usePathname();
   const [offen, setOffen] = React.useState(false);
   const [mobileGroup, setMobileGroup] = React.useState<"commands" | "about" | "team" | null>(null);
+  const [compact, setCompact] = React.useState(false);
+
+  React.useEffect(() => {
+    const update = () => setCompact(window.scrollY > 56);
+    update();
+    window.addEventListener("scroll", update, { passive: true });
+    return () => window.removeEventListener("scroll", update);
+  }, []);
 
   React.useEffect(() => {
     if (!offen) return;
@@ -210,18 +218,35 @@ export function SiteNav() {
 
   return (
     <>
-    <nav className="sticky top-0 z-50 w-full border-b border-slate-800 bg-[#0a0a0c]/90 backdrop-blur-xl">
-      <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-12 xl:px-20 h-[76px] flex items-center gap-4 lg:gap-8">
-        {/* Marke — reiner Text, kein Kästchen davor. */}
+    <div className="sticky top-0 z-50 h-[86px] w-full px-2 pt-2 sm:h-[96px] sm:px-4 sm:pt-3">
+    <nav
+      data-compact={compact ? "true" : "false"}
+      className={cn(
+        "pointer-events-auto mx-auto overflow-visible rounded-2xl border bg-[#111116]/92 shadow-[0_18px_55px_rgba(0,0,0,.34)] backdrop-blur-2xl transition-[max-width,height,background-color,border-color,box-shadow] duration-500 ease-out",
+        compact
+          ? "h-[60px] max-w-[1180px] border-blue-400/20 bg-[#101015]/96 shadow-[0_16px_45px_rgba(0,0,0,.48)]"
+          : "h-[72px] max-w-[1400px] border-white/10",
+      )}
+    >
+      <div className={cn("flex h-full items-center px-3 transition-[padding,gap] duration-500 sm:px-5", compact ? "gap-3 lg:gap-5" : "gap-4 lg:gap-8 lg:px-8")}>
+        {/* Eigenständige Marke wie in der Vorlage: echtes Logo, Name und Claim. */}
         <Link
           href="/"
-          className="text-[19px] sm:text-[21px] font-extrabold tracking-tight text-white truncate max-w-[46vw] sm:max-w-none"
+          className="flex min-w-0 shrink-0 items-center gap-2.5"
+          aria-label={`${BRAND} Startseite`}
         >
-          {BRAND}
+          <span className={cn("grid shrink-0 place-items-center overflow-hidden rounded-xl border border-blue-400/20 bg-blue-500/10 transition-[width,height] duration-500", compact ? "h-8 w-8" : "h-9 w-9")}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/icon-192.png" alt="" className="h-full w-full object-cover" />
+          </span>
+          <span className="hidden min-w-0 sm:block">
+            <strong className={cn("block truncate font-extrabold leading-none tracking-tight text-white transition-[font-size] duration-500", compact ? "text-[14px]" : "text-[16px]")}>{BRAND}</strong>
+            <span className="mt-1 block text-[8px] font-black uppercase tracking-[.24em] text-blue-400">All in one</span>
+          </span>
         </Link>
 
         {/* Die Links. Ab lg sichtbar, darunter im Menü. */}
-        <div className="hidden lg:flex items-center gap-7">
+        <div className={cn("hidden items-center transition-[gap] duration-500 lg:flex", compact ? "gap-4" : "gap-7")}>
           <Dropdown label="Befehle" items={BEFEHLE} />
           <Dropdown label="Über" items={UEBER} />
           <a
@@ -322,6 +347,7 @@ export function SiteNav() {
       {/* Der mobile Drawer liegt bewusst außerhalb der gefilterten Nav:
           so bezieht sich position:fixed zuverlässig auf den Viewport. */}
     </nav>
+    </div>
       {offen && (
         <div id="public-navigation-drawer" className="fixed inset-0 top-0 z-[100] h-dvh" role="dialog" aria-modal="true" aria-label="Hauptmenü">
           <button aria-label="Menü schließen" onClick={() => setOffen(false)} className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
