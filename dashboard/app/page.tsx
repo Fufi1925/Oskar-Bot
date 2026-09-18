@@ -3,7 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import {
-  ArrowRight, BarChart3, Check, ChevronDown, Crown, Gift,
+  ArrowRight, Check, ChevronDown, Crown,
   Headphones, Languages, MessageSquareText,
   PanelsTopLeft, ShieldCheck, Sparkles, Ticket, Users, Zap,
 } from "lucide-react";
@@ -11,6 +11,7 @@ import { INVITE_URL, SiteNav } from "@/components/site-nav";
 import { LegacyHomepage } from "@/components/home/legacy-homepage";
 import { InteractiveHomeGlobe } from "@/components/home/interactive-home-globe";
 import { FeaturedServerMarquee } from "@/components/home/featured-server-marquee";
+import { HeroModuleOrbit } from "@/components/home/hero-module-orbit";
 import { SUPPORT_INVITE } from "@/lib/legal";
 
 const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || "University Bot";
@@ -65,12 +66,7 @@ function NewHomepage() {
             <div className="mt-8"><p className="mb-3 text-[10px] font-black uppercase tracking-[.24em] text-zinc-600">Verfügbar auf</p><div className="flex max-w-2xl flex-wrap gap-2">{LANGUAGES.map(([flag, language]) => <span key={language} className="inline-flex items-center gap-2 rounded-lg border border-white/[.06] bg-white/[.025] px-3 py-1.5 text-xs font-medium text-zinc-500"><span className="text-sm">{flag}</span>{language}</span>)}</div></div>
           </div>
 
-          <div className="relative min-h-[470px] sm:min-h-[540px]">
-            <div className="absolute left-1/2 top-1/2 h-[300px] w-[300px] sm:h-[390px] sm:w-[390px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-blue-500/15 bg-blue-500/[.025] shadow-[0_0_120px_rgba(37,99,235,.16)]"><div className="absolute inset-10 rounded-full border border-dashed border-blue-400/20" /><div className="absolute inset-24 grid place-items-center rounded-[52px] border border-blue-400/25 bg-[#171019] shadow-[0_0_70px_rgba(96,165,250,.18)]"><img src="/icon-192.png" alt="" className="h-28 w-28 rounded-3xl object-cover" /></div></div>
-            {[
-              ["Moderation", ShieldCheck, "left-0 top-16"], ["Ticket System", Ticket, "right-0 top-28"], ["Leveling", BarChart3, "left-6 bottom-24"], ["Giveaways", Gift, "right-6 bottom-14"],
-            ].map(([label, Icon, pos]) => { const FeatureIcon = Icon as React.ElementType; return <div key={String(label)} className={`absolute ${pos} flex min-w-36 items-center gap-2 sm:min-w-48 sm:gap-3 rounded-2xl border border-blue-400/20 bg-[#171219]/90 p-3 sm:p-4 shadow-[0_18px_55px_rgba(0,0,0,.5)] backdrop-blur-xl`}><span className="grid h-11 w-11 place-items-center rounded-xl border border-blue-400/20 bg-blue-500/10"><FeatureIcon className="h-5 w-5 text-blue-400" /></span><div><p className="text-sm font-black text-white">{String(label)}</p><p className="mt-0.5 text-[10px] uppercase tracking-widest text-zinc-600">Live Modul</p></div></div>; })}
-          </div>
+          <HeroModuleOrbit />
         </div>
       </section>
 

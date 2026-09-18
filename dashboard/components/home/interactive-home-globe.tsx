@@ -5,6 +5,7 @@ import { Clock3, Server, Users } from "lucide-react";
 import { geoGraticule10, geoOrthographic, geoPath } from "d3-geo";
 import { feature } from "topojson-client";
 import countriesTopology from "world-atlas/countries-110m.json";
+import isoCountries from "i18n-iso-countries";
 
 type CountryValue = { country: string; views: number };
 type VisitorData = { total: number; today: number; countries: CountryValue[] };
@@ -18,7 +19,7 @@ const COUNTRY_NAMES: Record<string, string> = {
 const COUNTRIES = feature(countriesTopology as any, (countriesTopology as any).objects.countries) as any;
 const GRATICULE = geoGraticule10();
 
-function InteractiveCanvas() {
+function InteractiveCanvas({ visits }: { visits: Map<string, number> }) {
   const canvas = React.useRef<HTMLCanvasElement>(null);
   const rotation = React.useRef(-18);
   const tilt = React.useRef(-10);
@@ -72,8 +73,25 @@ function InteractiveCanvas() {
       context.strokeStyle = "rgba(59,130,246,.075)"; context.lineWidth = .55; context.stroke();
 
       context.beginPath(); path(COUNTRIES);
-      context.fillStyle = "rgba(37,99,235,.2)"; context.fill();
-      context.strokeStyle = "rgba(191,219,254,.72)"; context.lineWidth = .55; context.stroke();
+      context.fillStyle = "rgba(37,99,235,.12)"; context.fill();
+      context.strokeStyle = "rgba(191,219,254,.62)"; context.lineWidth = .55; context.stroke();
+
+      const maximumVisits = Math.max(1, ...Array.from(visits.values()));
+      for (const country of COUNTRIES.features || []) {
+        const numeric = String(country.id ?? "").padStart(3, "0");
+        const count = visits.get(numeric) || 0;
+        if (!count) continue;
+        const strength = Math.sqrt(count / maximumVisits);
+        context.beginPath(); path(country);
+        context.fillStyle = `rgba(37,99,235,${.28 + strength * .68})`;
+        context.shadowColor = `rgba(59,130,246,${.35 + strength * .65})`;
+        context.shadowBlur = 4 + strength * 19;
+        context.fill();
+        context.shadowBlur = 0;
+        context.strokeStyle = `rgba(219,234,254,${.5 + strength * .5})`;
+        context.lineWidth = .65 + strength * .8;
+        context.stroke();
+      }
 
       // A second soft outline keeps small real countries visible without
       // replacing them with invented continent blobs.
@@ -85,7 +103,7 @@ function InteractiveCanvas() {
     };
     frame = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(frame);
-  }, []);
+  }, [visits]);
 
   return <canvas ref={canvas} aria-label="Drehbare Weltkugel mit echten Ländergrenzen" className="h-full min-h-[350px] w-full cursor-grab touch-none active:cursor-grabbing"
     onPointerDown={(event) => { dragging.current = true; last.current = { x: event.clientX, y: event.clientY }; event.currentTarget.setPointerCapture(event.pointerId); }}
@@ -107,13 +125,21 @@ export function InteractiveHomeGlobe({ guilds, users }: { guilds?: number; users
   }, []);
   const top = [...(data?.countries || [])].sort((a, b) => b.views - a.views).slice(0, 10);
   const maximum = Math.max(1, top[0]?.views || 1);
+  const visits = React.useMemo(() => {
+    const result = new Map<string, number>();
+    for (const country of data?.countries || []) {
+      const numeric = isoCountries.alpha2ToNumeric(country.country.toUpperCase());
+      if (numeric) result.set(String(numeric).padStart(3, "0"), Number(country.views) || 0);
+    }
+    return result;
+  }, [data]);
   const number = (value?: number) => typeof value === "number" && value > 0 ? value.toLocaleString("de-DE") : "—";
 
   return <section id="statistics" className="border-y border-blue-500/10 bg-[#0b0a0c] px-4 py-16 sm:px-6 sm:py-20">
     <div className="mx-auto max-w-[1320px]">
       <div className="mb-10 text-center"><p className="text-[10px] font-black uppercase tracking-[.28em] text-blue-400">Live auf der ganzen Welt</p><h2 className="mt-3 text-3xl font-black tracking-tight text-white sm:text-4xl">Eine Community ohne Grenzen.</h2><p className="mt-3 text-sm text-zinc-500">Die Kugel dreht sich langsam weiter. Ziehe sie mit Maus oder Finger in jede Richtung.</p></div>
       <div className="grid items-center gap-8 lg:grid-cols-[.9fr_1.1fr]">
-        <div className="relative min-h-[410px] overflow-hidden"><InteractiveCanvas /><span className="pointer-events-none absolute bottom-5 left-1/2 -translate-x-1/2 rounded-full border border-blue-400/15 bg-black/40 px-3 py-1.5 text-[10px] font-bold text-zinc-500 backdrop-blur">Ziehen zum Drehen</span></div>
+        <div className="relative min-h-[410px] overflow-hidden"><InteractiveCanvas visits={visits} /><span className="pointer-events-none absolute bottom-5 left-1/2 -translate-x-1/2 rounded-full border border-blue-400/15 bg-black/40 px-3 py-1.5 text-[10px] font-bold text-zinc-500 backdrop-blur">Ziehen zum Drehen</span></div>
         <div>
           <div className="grid grid-cols-3 gap-3">{[
             [Server, number(guilds), "Server"], [Users, number(users), "Nutzer"], [Clock3, "99,69%", "Uptime"],

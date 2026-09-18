@@ -82,7 +82,10 @@ def test_real_globe_and_admin_selected_server_marquee():
 
     assert "world-atlas/countries-110m.json" in globe
     assert "geoOrthographic" in globe and "geoPath" in globe
+    assert "i18n-iso-countries" in globe
+    assert "maximumVisits" in globe and "shadowBlur" in globe
     assert "rotation.current +=" in globe
+    assert "<HeroModuleOrbit />" in page
     assert "<FeaturedServerMarquee />" in page
     assert '"/api/bot/bot/featured-servers"' in marquee
     assert '"/homepage-servers"' in admin_route
