@@ -35,7 +35,6 @@ export function HeroModuleOrbit() {
       .orbit-pulse { transform-origin: 50% 169px; animation: orbitPulse 13s linear infinite; }
       .hero-module-card { animation: moduleFloat 5s ease-in-out infinite; }
       @media (min-width:640px) { @keyframes orbitPulse { from { transform: translateX(-50%) rotate(0deg) translateY(-215px); } to { transform: translateX(-50%) rotate(360deg) translateY(-215px); } } .orbit-pulse { transform-origin: 50% 219px; } }
-      @media (prefers-reduced-motion:reduce) { .orbit-pulse,.hero-module-card { animation:none!important; } }
     `}</style>
   </div>;
 }

@@ -83,8 +83,11 @@ def test_real_globe_and_admin_selected_server_marquee():
     assert "world-atlas/countries-110m.json" in globe
     assert "geoOrthographic" in globe and "geoPath" in globe
     assert "i18n-iso-countries" in globe
+    assert "Intl.DisplayNames" in globe and "countryName(country.country)" in globe
     assert "maximumVisits" in globe and "shadowBlur" in globe
     assert "rotation.current +=" in globe
+    assert "animation-play-state: running !important" in marquee
+    assert "prefers-reduced-motion" not in marquee
     assert "<HeroModuleOrbit />" in page
     assert "<FeaturedServerMarquee />" in page
     assert '"/api/bot/bot/featured-servers"' in marquee

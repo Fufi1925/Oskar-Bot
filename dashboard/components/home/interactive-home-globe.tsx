@@ -10,11 +10,24 @@ import isoCountries from "i18n-iso-countries";
 type CountryValue = { country: string; views: number };
 type VisitorData = { total: number; today: number; countries: CountryValue[] };
 
-const COUNTRY_NAMES: Record<string, string> = {
-  DE: "Deutschland", AT: "Österreich", US: "Vereinigte Staaten", NL: "Niederlande",
-  CH: "Schweiz", CN: "China", FR: "Frankreich", RU: "Russland", GB: "Vereinigtes Königreich",
-  IT: "Italien", ES: "Spanien", TR: "Türkei", CA: "Kanada", BR: "Brasilien", AU: "Australien",
-};
+const GERMAN_REGIONS = typeof Intl !== "undefined" && "DisplayNames" in Intl
+  ? new Intl.DisplayNames(["de"], { type: "region" })
+  : null;
+const ENGLISH_REGIONS = typeof Intl !== "undefined" && "DisplayNames" in Intl
+  ? new Intl.DisplayNames(["en"], { type: "region" })
+  : null;
+
+function countryName(code: string): string {
+  const normalized = String(code || "").trim().toUpperCase();
+  if (!/^[A-Z]{2}$/.test(normalized)) return "Unbekanntes Land";
+  try {
+    const german = GERMAN_REGIONS?.of(normalized);
+    if (german && german !== normalized) return german;
+    const english = ENGLISH_REGIONS?.of(normalized);
+    if (english && english !== normalized) return english;
+  } catch { /* Invalid or unsupported region code. */ }
+  return "Unbekanntes Land";
+}
 
 const COUNTRIES = feature(countriesTopology as any, (countriesTopology as any).objects.countries) as any;
 const GRATICULE = geoGraticule10();
@@ -145,7 +158,7 @@ export function InteractiveHomeGlobe({ guilds, users }: { guilds?: number; users
             [Server, number(guilds), "Server"], [Users, number(users), "Nutzer"], [Clock3, "99,69%", "Uptime"],
           ].map(([Icon, value, label]) => { const StatIcon = Icon as React.ElementType; return <div key={String(label)} className="rounded-2xl border border-blue-400/10 bg-[#120e13] px-3 py-5 text-center"><span className="mx-auto grid h-8 w-8 place-items-center rounded-lg border border-blue-400/20 bg-blue-500/10"><StatIcon className="h-4 w-4 text-blue-400" /></span><p className="mt-3 text-lg font-black tabular-nums text-white sm:text-xl">{String(value)}</p><p className="mt-1 text-[9px] font-black uppercase tracking-[.2em] text-zinc-600">{String(label)}</p></div>; })}</div>
           <p className="mb-3 mt-7 text-[10px] font-black uppercase tracking-[.25em] text-zinc-600">Top Länder · echte Homepage-Aufrufe</p>
-          <div className="space-y-2">{top.length ? top.map((country, index) => <div key={country.country}><div className="flex items-center gap-3 text-xs"><span className="w-4 tabular-nums text-zinc-700">{index + 1}.</span><span className="min-w-0 flex-1 truncate font-bold text-zinc-300">{COUNTRY_NAMES[country.country] || country.country}</span><span className="tabular-nums text-zinc-600">{country.views.toLocaleString("de-DE")}</span></div><div className="ml-7 mt-1 h-[3px] overflow-hidden rounded-full bg-white/[.05]"><div className="h-full rounded-full bg-blue-600" style={{ width: `${Math.max(3, country.views / maximum * 100)}%` }} /></div></div>) : <div className="grid h-44 place-items-center rounded-2xl border border-blue-400/10 bg-[#120e13] text-sm text-zinc-600">Live-Daten werden geladen …</div>}</div>
+          <div className="space-y-2">{top.length ? top.map((country, index) => <div key={country.country}><div className="flex items-center gap-3 text-xs"><span className="w-4 tabular-nums text-zinc-700">{index + 1}.</span><span className="min-w-0 flex-1 truncate font-bold text-zinc-300">{countryName(country.country)}</span><span className="tabular-nums text-zinc-600">{country.views.toLocaleString("de-DE")}</span></div><div className="ml-7 mt-1 h-[3px] overflow-hidden rounded-full bg-white/[.05]"><div className="h-full rounded-full bg-blue-600" style={{ width: `${Math.max(3, country.views / maximum * 100)}%` }} /></div></div>) : <div className="grid h-44 place-items-center rounded-2xl border border-blue-400/10 bg-[#120e13] text-sm text-zinc-600">Live-Daten werden geladen …</div>}</div>
         </div>
       </div>
     </div>
