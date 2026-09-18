@@ -86,12 +86,10 @@ def test_zahlen_sind_echt():
     for fest in ('"152"', '"608"', '"41"'):
         check(f"{fest} steht nicht mehr fest drin", fest not in seite)
 
-    for feld in ("numbers?.modules", "numbers?.commands", "numbers?.users"):
-        check(f"{feld} wird angezeigt", feld in seite)
+    for feld in ("numbers?.guilds", "numbers?.users"):
+        check(f"{feld} wird an die Live-Welt übergeben", feld in seite)
 
-    # Fehlt die Antwort, steht ein Strich -- keine erfundene Zahl.
-    check("ohne Antwort ein Strich", 'value > 0 ? value.toLocaleString("de-DE") : "—"'
-          in seite)
+    check("die interaktive Welt folgt direkt auf den Hero", "<InteractiveHomeGlobe" in seite)
 
 
 def test_route_zaehlt_richtig():
