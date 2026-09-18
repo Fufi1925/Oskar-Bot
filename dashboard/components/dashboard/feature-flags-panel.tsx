@@ -21,7 +21,7 @@ export interface FeatureFlagDetail {
   rollout_percent: number;
 }
 
-export function FeatureFlagsPanel() {
+export function FeatureFlagsPanel({ canEdit = false }: { canEdit?: boolean }) {
   const [features, setFeatures] = useState<FeatureFlagDetail[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -198,7 +198,7 @@ export function FeatureFlagsPanel() {
 
                 <Switch
                   checked={flag.enabled}
-                  disabled={pending === flag.key}
+                  disabled={!canEdit || pending === flag.key}
                   onCheckedChange={(value: boolean) => toggle(flag, value)}
                 />
               </div>
@@ -225,7 +225,7 @@ export function FeatureFlagsPanel() {
                     max={100}
                     step={10}
                     value={rolloutDraft[flag.key] ?? flag.rollout_percent}
-                    disabled={pending === flag.key}
+                    disabled={!canEdit || pending === flag.key}
                     onChange={(e) =>
                       setRolloutDraft((d) => ({
                         ...d,

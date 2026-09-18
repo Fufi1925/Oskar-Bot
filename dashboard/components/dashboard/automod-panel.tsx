@@ -310,7 +310,21 @@ export function AutomodPanel({ guildId }: { guildId: string }) {
       : r.enabled
   ).length;
 
-  const save = () => p.act(() => api.updateAutomod(guildId, p.draft));
+  const refreshLiveStatus = () =>
+    window.dispatchEvent(new CustomEvent("automod-saved", { detail: guildId }));
+
+  const save = async () => {
+    const result = await p.act(() => api.updateAutomod(guildId, p.draft));
+    if (result) refreshLiveStatus();
+  };
+
+  const reset = async () => {
+    const result = await p.act(
+      () => api.resetAutomod(guildId),
+      "Automod ausschalten? Deine Regeln bleiben gespeichert."
+    );
+    if (result) refreshLiveStatus();
+  };
 
   return (
     <section className="space-y-5">
@@ -438,12 +452,7 @@ export function AutomodPanel({ guildId }: { guildId: string }) {
             />
 
             <button
-              onClick={() =>
-                p.act(
-                  () => api.resetAutomod(guildId),
-                  "Automod ausschalten? Deine Regeln bleiben gespeichert."
-                )
-              }
+              onClick={reset}
               disabled={p.busy}
               className="w-full py-3 rounded-xl bg-red-500/[0.06] border border-red-500/20 text-xs font-black uppercase tracking-widest text-red-300 hover:bg-red-500/10 disabled:opacity-40 transition-all"
             >

@@ -38,7 +38,7 @@ interface MemberInfo {
   }>;
 }
 
-export function TeamPanel() {
+export function TeamPanel({ canAssign = false }: { canAssign?: boolean }) {
   const [roles, setRoles] = useState<RoleInfo[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [members, setMembers] = useState<MemberInfo[]>([]);
@@ -171,6 +171,7 @@ export function TeamPanel() {
       {tab === "team" && (
         <>
           {/* Assign */}
+          {canAssign && (
           <div className="bg-[#131318] border border-slate-800 rounded-3xl p-8">
             <h4 className="font-black text-white flex items-center gap-2 mb-6">
               <UserPlus className="h-5 w-5 text-primary" /> Grant a role
@@ -270,6 +271,7 @@ export function TeamPanel() {
               {busy ? "Working..." : "Grant role"}
             </button>
           </div>
+          )}
 
           {/* Members */}
           <div className="space-y-4">
@@ -335,14 +337,16 @@ export function TeamPanel() {
                           {role.guild_ids.length} server
                         </span>
                       )}
-                      <button
-                        onClick={() => revoke(member.user_id, role.key, role.label)}
-                        disabled={busy}
-                        className="opacity-40 hover:opacity-100 transition-opacity"
-                        title="Remove role"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
+                      {canAssign && (
+                        <button
+                          onClick={() => revoke(member.user_id, role.key, role.label)}
+                          disabled={busy}
+                          className="opacity-40 hover:opacity-100 transition-opacity"
+                          title="Remove role"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      )}
                     </span>
                   ))}
                 </div>

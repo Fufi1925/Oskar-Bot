@@ -1,7 +1,7 @@
 """
 Dashboard team management.
 
-Endpoints for handing out the 40 dashboard roles to people, so the bot owner
+Endpoints for handing out the 50 dashboard roles to people, so the bot owner
 does not have to share the owner account.
 """
 
@@ -161,6 +161,36 @@ async def assign_role(user_id: str, data: dict):
     guild_ids = data.get("guild_ids") or []
     if not isinstance(guild_ids, list):
         raise HTTPException(status_code=400, detail="guild_ids must be a list.")
+    guild_ids = [str(g) for g in guild_ids]
+    if any(not g.isdigit() for g in guild_ids):
+        raise HTTPException(status_code=400, detail="guild_ids must contain Discord IDs.")
+
+    if not roles.is_owner(actor):
+        actor_scope = roles.accessible_guilds(actor)
+        if actor_scope is not None:
+            if not guild_ids:
+                raise HTTPException(
+                    status_code=403,
+                    detail="A guild-scoped manager cannot grant a global role.",
+                )
+            outside = set(guild_ids) - actor_scope
+            if outside:
+                raise HTTPException(
+                    status_code=403,
+                    detail="You may only assign roles for guilds in your own scope.",
+                )
+
+        scopes = guild_ids or [None]
+        for scope in scopes:
+            missing = set(target_role.permissions) - roles.get_permissions(actor, scope)
+            if missing:
+                raise HTTPException(
+                    status_code=403,
+                    detail=(
+                        "You cannot delegate permissions you do not hold: "
+                        + ", ".join(sorted(missing))
+                    ),
+                )
 
     assignment = await roles.assign(
         user_id,
@@ -268,20 +298,14 @@ async def add_owner(data: dict):
             status_code=403, detail="Only owners can manage owner and admin access."
         )
 
-    user_id = str(data.get("user_id", "")).strip()
-    kind = str(data.get("kind", "admin")).strip().lower()
-
-    try:
-        record = await roles.add_owner(
-            user_id, kind=kind, added_by=actor, note=str(data.get("note", ""))
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
-
-    await feature_audit.log_action(
-        "dashboard_owner_added", actor=actor, detail=f"{kind}: {user_id}"
+    # Full access is intentionally immutable at runtime.  Otherwise a stolen
+    # dashboard session (or a powerful team role added later) could turn an
+    # arbitrary database row into a permanent owner.  OWNER_IDS / ADMIN_IDS
+    # are the sole source of full-access identities.
+    raise HTTPException(
+        status_code=403,
+        detail="Full access can only be configured through OWNER_IDS / ADMIN_IDS.",
     )
-    return {"status": "success", **record}
 
 
 @router.delete("/owners/{user_id}", summary="Revoke full dashboard access")

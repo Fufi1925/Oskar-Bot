@@ -473,17 +473,16 @@ export function AdminContent({ configuredOwner = false }: { configuredOwner?: bo
     system: "maintenance.toggle",
     features: "features.view",
     health: "health.view",
-    firewall: "owners.manage",
     team: "team.view",
-    dashusers: "team.view",
+    dashusers: "team.assign",
     servers: "guild.view",
     warnings: "members.view",
     usage: "metrics.view",
     reports: "reports.view",
     audit: "audit.view",
     approvals: "approvals.view",
-    backups: "health.view",
-    designunlock: "health.view",
+    backups: "maintenance.toggle",
+    designunlock: "maintenance.toggle",
     beta: "premium.manage",
     botsettings: "maintenance.toggle",
     tester: "tester.access",
@@ -491,31 +490,31 @@ export function AdminContent({ configuredOwner = false }: { configuredOwner?: bo
     // Diese drei hatten hier gar keinen Eintrag -- und ein Reiter ohne
     // Eintrag wird JEDEM gezeigt, auch einem Trial-Moderator. Beim
     // Klick kam dann die Fehlermeldung des Proxys. Nachgemessen: 39
-    // von 41 Rollen sahen "Nutzer suchen", obwohl der Proxy dort
-    // team.view verlangt.
+    // von 50 Rollen sahen "Nutzer suchen". Da dieser Reiter auch
+    // globale Sperren und Massenaktionen anbietet, gilt für den ganzen
+    // Reiter die Schreibschwelle team.assign (GET allein wäre team.view).
     //
-    // Die Werte sind nicht ausgedacht, sondern das, was der Proxy
-    // wirklich prueft:
-    //   userlookup -> die /access-Routen verlangen team.view (GET)
+    // Die Werte entsprechen den tatsächlich ausgeführten Aktionen:
+    //   userlookup -> Schreibaktionen unter /access verlangen team.assign
     //   premium    -> /premium/keys verlangt eine Team-Rolle
     //   speedrun   -> die eingreifendste Aktion ueberhaupt: sie legt
     //                 Dutzende Rollen und Kanaele an
-    userlookup: "team.view",
+    userlookup: "team.assign",
     premium: "premium.manage",
     ticketai: "premium.manage",
     speedrun: "server.manage",
-    // Lesen darf jede Team-Rolle; aendern gated der Proxy separat
-    // ueber maintenance.toggle.
-    pingreactions: "dashboard.access",
+    // Globale Ping-Reaktionen sind ein technischer Reiter: Lesen verlangt
+    // health.view, Aendern gated der Proxy zusaetzlich ueber maintenance.toggle.
+    pingreactions: "health.view",
     // Die Cookie-Bestaetigungen. Die Liste nennt Discord-Konten und
     // Zeitpunkte, also dieselbe Schwelle wie bei den
     // Dashboard-Nutzern. Genau das prueft auch der Proxy (`scope ===
     // "cookies"`); stuende hier weniger, waere der Reiter sichtbar
     // und gaebe beim Klick nur eine Fehlermeldung.
     cookies: "team.view",
-    // Die vertrauten Bots. Lesen darf jede Team-Rolle -- die Liste
-    // steht ohnehin in jedem Server-Reiter. Aendern verlangt
-    // maintenance.toggle, und genau das prueft auch der Proxy.
+    // Die globale Liste vertrauter Bots bleibt festen Admin-IDs vorbehalten.
+    // Der Eintrag bleibt nur als Dokumentation; der Filter sperrt den Reiter
+    // für Teamrollen ausdrücklich.
     trustedbots: "dashboard.access",
   };
 
@@ -562,7 +561,7 @@ export function AdminContent({ configuredOwner = false }: { configuredOwner?: bo
       if (tab.id === "support" || tab.id === "support-rankings") return (access.highest_rank ?? 0) > 90;
       // Owner/admin management is only for owners and admins, never for
       // people who merely hold a team role.
-      if (tab.id === "access" || tab.id === "ideas") return false;
+      if (["access", "ideas", "firewall", "privacy", "trustedbots"].includes(tab.id)) return false;
       // Die Vorlagen-Verwaltung ebenso. Sie zeigt jeden Zugangscode im
       // Klartext, auch den von privaten Vorlagen fremder Server. Der
       // Proxy laesst dorthin nur globale Admins durch -- ohne diese
@@ -570,7 +569,9 @@ export function AdminContent({ configuredOwner = false }: { configuredOwner?: bo
       // Klick nur eine Fehlermeldung.
       if (tab.id === "templates") return false;
       const required = TAB_PERMISSION[tab.id];
-      if (!required) return true;
+      // Fail closed: adding a new tab without assigning a permission must not
+      // expose it to every team role by accident.
+      if (!required) return false;
       return access.permissions.includes(required);
     });
   }, [access, configuredOwner]);
@@ -886,12 +887,16 @@ export function AdminContent({ configuredOwner = false }: { configuredOwner?: bo
         </aside>
         <div className="min-w-0 space-y-5">
       {/* Features and Health are full-width: they have no input sidebar. */}
-      {activeTab === "features" && <FeatureFlagsPanel />}
+      {activeTab === "features" && (
+        <FeatureFlagsPanel canEdit={Boolean(access?.is_owner || access?.permissions.includes("features.edit"))} />
+      )}
       {activeTab === "health" && <SystemHealthPanel />}
       {activeTab === "firewall" && <FirewallPanel />}
       {activeTab === "support" && <SupportRequestsAdmin />}
       {activeTab === "support-rankings" && <SupportRankingsAdmin />}
-      {activeTab === "team" && <TeamPanel />}
+      {activeTab === "team" && (
+        <TeamPanel canAssign={Boolean(access?.is_owner || access?.permissions.includes("team.assign"))} />
+      )}
       {activeTab === "premium" && <PremiumAdmin />}
       {activeTab === "ticketai" && <TicketAiAdmin />}
       {activeTab === "speedrun" && <SpeedrunAdmin />}
@@ -917,9 +922,16 @@ export function AdminContent({ configuredOwner = false }: { configuredOwner?: bo
       {activeTab === "userlookup" && <UserLookupPanel />}
       {activeTab === "servers" && <ServersPanel currentUserId={(session?.user as any)?.id} />}
       {activeTab === "homepage-servers" && <HomepageServersAdmin />}
-      {activeTab === "reports" && <ReportsPanel />}
+      {activeTab === "reports" && (
+        <ReportsPanel canExport={Boolean(access?.is_owner || access?.permissions.includes("reports.export"))} />
+      )}
       {activeTab === "audit" && <AuditPanel />}
-      {activeTab === "approvals" && <ApprovalsPanel currentUserId={(session?.user as any)?.id} />}
+      {activeTab === "approvals" && (
+        <ApprovalsPanel
+          currentUserId={(session?.user as any)?.id}
+          canResolve={Boolean(access?.is_owner || access?.permissions.includes("approvals.resolve"))}
+        />
+      )}
       {activeTab === "backups" && <BackupsPanel guilds={guilds} />}
       {activeTab === "designunlock" && <DesignUnlockPanel guilds={guilds} />}
       {activeTab === "beta" && <BetaAdmin />}

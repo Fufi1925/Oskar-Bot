@@ -41,7 +41,7 @@ function scoreBar(score: number) {
   return "bg-red-400";
 }
 
-export function ReportsPanel() {
+export function ReportsPanel({ canExport = false }: { canExport?: boolean }) {
   const [active, setActive] = useState<ReportId | null>(null);
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
@@ -133,13 +133,15 @@ export function ReportsPanel() {
             <h4 className="font-black text-white">
               {REPORTS.find((r) => r.id === active)?.label}
             </h4>
-            <button
-              onClick={exportReport}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#0e0e12] border border-slate-800 hover:bg-white/[0.06] transition-all text-sm font-semibold text-slate-400"
-            >
-              <Download className="h-3.5 w-3.5" />
-              JSON
-            </button>
+            {canExport && (
+              <button
+                onClick={exportReport}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#0e0e12] border border-slate-800 hover:bg-white/[0.06] transition-all text-sm font-semibold text-slate-400"
+              >
+                <Download className="h-3.5 w-3.5" />
+                JSON
+              </button>
+            )}
           </div>
 
           <div className="p-6">

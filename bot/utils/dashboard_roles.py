@@ -217,14 +217,14 @@ PERMISSION_GROUPS: tuple[str, ...] = tuple(dict.fromkeys(p.group for p in PERMIS
 # Befehlsnamen und Zaehlerstaende. Die einzige heikle Angabe darin
 # sind die Servernamen ("Busiest servers"), und die werden fuer alle
 # ausser Ownern maskiert (siehe ``api/routes/admin.py``).
-_VIEW_BASE = ("dashboard.access", "guild.view", "metrics.view")
+_VIEW_BASE = ("dashboard.access", "metrics.view")
 
 # Was eine Rolle mindestens braucht, um sich ueberhaupt anzumelden.
 #
 # Getrennt vom ``_VIEW_BASE``, damit eine bewusst enge Rolle nicht
 # automatisch alles mitbekommt, was spaeter zur Grundausstattung
 # dazukommt. Genau ein Fall nutzt das: der Tester.
-_LOGIN_BASE = ("dashboard.access", "guild.view")
+_LOGIN_BASE = ("dashboard.access",)
 
 
 def _perms(*keys: str, base: tuple[str, ...] | None = None) -> tuple[str, ...]:
@@ -277,11 +277,20 @@ ALL_PERMISSION_KEYS = tuple(p.key for p in PERMISSIONS)
 ROLES: tuple[Role, ...] = (
     # ── Leadership (5) ────────────────────────────────────────────────────
     Role("co_owner", "Co-Owner", CAT_LEADERSHIP,
-         "Full access to everything, including handing out dashboard roles.",
-         ALL_PERMISSION_KEYS, rank=95, color="#f43f5e"),
+         "Oversees staff and approvals; global infrastructure powers stay owner-only.",
+         _perms("members.view", "members.manage", "moderation.warn", "moderation.mute",
+                "moderation.kick", "moderation.ban", "moderation.purge", "tickets.view",
+                "tickets.manage", "audit.view", "reports.view", "approvals.view",
+                "approvals.resolve", "team.view", "team.assign", "channels.view",
+                "roles.view"),
+         rank=95, color="#f43f5e"),
     Role("administrator", "Administrator", CAT_LEADERSHIP,
-         "Everything except managing the dashboard team.",
-         tuple(k for k in ALL_PERMISSION_KEYS if k != "team.assign"),
+         "Runs moderation and server support without global operations or team assignment.",
+         _perms("settings.view", "members.view", "members.manage", "moderation.warn",
+                "moderation.mute", "moderation.kick", "moderation.ban",
+                "moderation.purge", "tickets.view", "tickets.manage", "automod.view",
+                "antinuke.view", "verification.view", "audit.view", "reports.view",
+                "channels.view", "roles.view"),
          rank=90, color="#ef4444"),
     Role("head_of_staff", "Head of Staff", CAT_LEADERSHIP,
          "Oversees the whole staff team: moderation, support and the team list.",
@@ -429,12 +438,11 @@ ROLES: tuple[Role, ...] = (
     Role("technical_lead", "Technical Lead", CAT_TECHNICAL,
          "Owns the technical side: features, health, logs and metrics.",
          _perms("features.view", "features.edit", "health.view", "logs.view",
-                "metrics.view", "audit.view", "reports.view", "maintenance.toggle"),
+                "metrics.view", "audit.view", "reports.view"),
          rank=78, color="#6366f1"),
     Role("devops_engineer", "DevOps Engineer", CAT_TECHNICAL,
-         "Watches the deployment and can put the bot into maintenance.",
-         _perms("health.view", "logs.view", "metrics.view", "maintenance.toggle",
-                "features.view"),
+         "Watches deployment health and logs without global write access.",
+         _perms("health.view", "logs.view", "metrics.view", "features.view"),
          rank=66, color="#4f46e5"),
     Role("feature_manager", "Feature Manager", CAT_TECHNICAL,
          "Toggles feature flags and runs percentage rollouts.",
@@ -450,9 +458,8 @@ ROLES: tuple[Role, ...] = (
                 "channels.view", "roles.view"),
          rank=54, color="#312e81"),
     Role("bot_operator", "Bot Operator", CAT_TECHNICAL,
-         "Day-to-day operation: health, blacklist and premium.",
-         _perms("health.view", "logs.view", "blacklist.manage", "premium.manage",
-                "maintenance.toggle"),
+         "Monitors day-to-day bot health and logs without global write access.",
+         _perms("health.view", "logs.view"),
          rank=68, color="#818cf8"),
 
     # ── Analytics (5) ─────────────────────────────────────────────────────
@@ -474,6 +481,38 @@ ROLES: tuple[Role, ...] = (
          "Reads the cross-guild audit log and incident timeline.",
          _perms("audit.view", "reports.view", "logs.view", "team.view"),
          rank=49, color="#115e59"),
+    # ── Narrow dashboard duties (9) ──────────────────────────────────────
+    # These roles intentionally use only the login baseline.  A read-only
+    # observer must not inherit the fleet list or unrelated metrics merely
+    # because they are allowed into the admin dashboard.
+    Role("health_observer", "Health Observer", CAT_TECHNICAL,
+         "Reads service health without maintenance or configuration rights.",
+         _perms("health.view", base=_LOGIN_BASE), rank=22, color="#64748b"),
+    Role("metrics_observer", "Metrics Observer", CAT_ANALYTICS,
+         "Reads aggregate usage and performance metrics only.",
+         _perms("metrics.view", base=_LOGIN_BASE), rank=18, color="#0891b2"),
+    Role("report_reader", "Report Reader", CAT_ANALYTICS,
+         "Reads reports without export, audit-log or action rights.",
+         _perms("reports.view", base=_LOGIN_BASE), rank=19, color="#0f766e"),
+    Role("audit_reader", "Audit Reader", CAT_ANALYTICS,
+         "Reads the audit trail without operational permissions.",
+         _perms("audit.view", base=_LOGIN_BASE), rank=24, color="#475569"),
+    Role("approval_reviewer", "Approval Reviewer", CAT_ANALYTICS,
+         "Reads queued approvals but cannot approve or reject them.",
+         _perms("approvals.view", base=_LOGIN_BASE), rank=26, color="#78716c"),
+    Role("team_auditor", "Team Auditor", CAT_LEADERSHIP,
+         "Reads team assignments without being able to grant or revoke roles.",
+         _perms("team.view", base=_LOGIN_BASE), rank=27, color="#a16207"),
+    Role("feature_observer", "Feature Observer", CAT_TECHNICAL,
+         "Reads feature-flag state without changing rollouts.",
+         _perms("features.view", base=_LOGIN_BASE), rank=23, color="#6366f1"),
+    Role("premium_manager", "Premium Manager", CAT_LEADERSHIP,
+         "Grants and revokes Premium; receives no other global operation right.",
+         _perms("premium.manage", base=_LOGIN_BASE), rank=73, color="#d97706"),
+    Role("maintenance_operator", "Maintenance Operator", CAT_TECHNICAL,
+         "May toggle maintenance and bot settings, but cannot manage features or access.",
+         _perms("maintenance.toggle", "health.view", base=_LOGIN_BASE), rank=74, color="#ea580c"),
+
     # ── Beta-Test (1) ─────────────────────────────────────────────────────
     Role("tester", "Tester", CAT_BETA,
          "Testet neue Funktionen vor dem Rollout. Sieht im Admin-Panel "
@@ -501,7 +540,7 @@ ROLES: tuple[Role, ...] = (
 ROLES_BY_KEY: dict[str, Role] = {r.key: r for r in ROLES}
 ROLE_CATEGORIES: tuple[str, ...] = tuple(dict.fromkeys(r.category for r in ROLES))
 
-assert len(ROLES) == 41, f"expected 41 roles, got {len(ROLES)}"
+assert len(ROLES) == 50, f"expected 50 roles, got {len(ROLES)}"
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -625,9 +664,8 @@ def db_owner_ids() -> set[str]:
 
 
 def is_owner(user_id: str) -> bool:
-    """Owners bypass the role system entirely."""
-    uid = str(user_id)
-    return uid in env_owner_ids() or uid in _owner_cache
+    """Only deployment-configured IDs bypass the role system entirely."""
+    return str(user_id) in env_owner_ids()
 
 
 def can_manage_owners(user_id: str) -> bool:
@@ -639,11 +677,7 @@ def can_manage_owners(user_id: str) -> bool:
     of people who can — otherwise the distinction between the two levels
     would be meaningless.
     """
-    uid = str(user_id)
-    if uid in env_owner_ids():
-        return True
-    record = _owner_cache.get(uid)
-    return bool(record and record.get("kind") == "owner")
+    return str(user_id) in env_owner_ids()
 
 
 def list_owners() -> list[dict]:
@@ -668,11 +702,9 @@ def list_owners() -> list[dict]:
             }
         )
 
-    for uid, record in sorted(_owner_cache.items()):
-        if uid in env_owner_ids():
-            continue  # already listed above
-        entries.append({**record, "source": "dashboard", "locked": False})
-
+    # Legacy database entries are deliberately not listed as full-access
+    # identities.  Full access is deployment configuration, never a role or a
+    # mutable dashboard record.
     return entries
 
 

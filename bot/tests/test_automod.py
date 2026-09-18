@@ -732,7 +732,7 @@ async def test_api(store):
             return guild if int(gid) == GUILD else None
 
         def get_cog(self, name):
-            return None
+            return object()
 
         def add_view(self, *a, **k):
             pass
@@ -785,6 +785,19 @@ async def test_api(store):
           spam["punishment"] == "kick", str(spam))
     check("the active count is reported", data["active_count"] == 1,
           str(data["active_count"]))
+
+    live = client.get(f"/api/v1/actions/{GUILD}/automod/status").json()
+    check("live status lists the shared rule registry",
+          [r["key"] for r in live["modules"]] == list(store.RULES),
+          str(live.get("modules")))
+    anti_link = next(r_ for r_ in live["modules"] if r_["key"] == "links")
+    check("Anti-Link has the canonical understandable name",
+          anti_link["label"] == "Anti-Link", str(anti_link))
+    check("disabled rules are off despite their stored punishment",
+          anti_link["state"] == "off" and anti_link["active"] is False,
+          str(anti_link))
+    check("the enabled rule is active in live status",
+          next(r_ for r_ in live["modules"] if r_["key"] == "spam")["state"] == "active")
 
     client.patch(base, json={"ignored_roles": [str(ROLE_OK)]})
     data = client.get(base).json()

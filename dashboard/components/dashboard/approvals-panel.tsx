@@ -29,7 +29,13 @@ function timeAgo(unix: number) {
  * Queue of destructive actions waiting for a second admin to sign off.
  * Only visible while admin_action_approval_queue is switched on.
  */
-export function ApprovalsPanel({ currentUserId }: { currentUserId?: string }) {
+export function ApprovalsPanel({
+  currentUserId,
+  canResolve = false,
+}: {
+  currentUserId?: string;
+  canResolve?: boolean;
+}) {
   const [entries, setEntries] = useState<QueueEntry[]>([]);
   const [status, setStatus] = useState<"pending" | "approved" | "rejected">("pending");
   const [loading, setLoading] = useState(true);
@@ -193,7 +199,7 @@ export function ApprovalsPanel({ currentUserId }: { currentUserId?: string }) {
                     )}
                   </div>
 
-                  {status === "pending" && (
+                  {status === "pending" && canResolve && (
                     <div className="flex gap-2 shrink-0">
                       <button
                         onClick={() => resolve(entry, true)}
@@ -214,7 +220,7 @@ export function ApprovalsPanel({ currentUserId }: { currentUserId?: string }) {
                   )}
                 </div>
 
-                {ownRequest && status === "pending" && (
+                {ownRequest && status === "pending" && canResolve && (
                   <p className="text-[11px] text-amber-400/80 mt-3">
                     This is your own request — someone else has to approve it.
                   </p>

@@ -32,7 +32,7 @@ Was hier festgehalten wird
      wirkungslos, weil vorher schon 403 zurueckkommt.
   2. `managesGuildOnDiscord` sagt im Zweifel NEIN. Ein Ausfall der
      Discord-API darf kein Freifahrtschein sein.
-  3. Jede der 41 Rollen sieht mindestens einen Reiter, und jeder
+  3. Jede der 50 Rollen sieht mindestens einen Reiter, und jeder
      Reiter, den der Proxy schuetzt, ist auch in der Oberflaeche
      hinterlegt. Sonst steht er in der Leiste und gibt beim Klick
      eine Fehlermeldung.
@@ -224,21 +224,22 @@ def tab_rechte() -> tuple[list[str], dict[str, str]]:
     block = re.search(
         r"const TAB_PERMISSION[^=]*=\s*\{(.*?)\n  \};", src, re.S
     )
-    zuordnung = dict(re.findall(r'^\s*(\w+):\s*"([^"]+)"', block.group(1), re.M))
-    reiter = list(dict.fromkeys(re.findall(r'\{ id: "(\w+)"', src)))
+    zuordnung = dict(re.findall(r'^\s*([\w-]+):\s*"([^"]+)"', block.group(1), re.M))
+    reiter = list(dict.fromkeys(re.findall(r'\{ id: "([\w-]+)"', src)))
     return reiter, zuordnung
 
 
 def test_jede_rolle_sieht_etwas():
-    print("\nJede der 41 Rollen sieht mindestens einen Reiter")
+    print("\nJede der 50 Rollen sieht mindestens einen Reiter")
 
     reiter, zuordnung = tab_rechte()
     check("die Reiter wurden gefunden", len(reiter) >= 20, f"{len(reiter)}")
-    check("es gibt 41 Rollen", len(dr.ROLES) == 41, f"{len(dr.ROLES)}")
+    check("es gibt 50 Rollen", len(dr.ROLES) == 50, f"{len(dr.ROLES)}")
 
     # `access` und `templates` sind fuer alle Rollen gesperrt -- das
     # steht so im Quelltext und ist Absicht.
-    gesperrt = {"access", "templates"}
+    gesperrt = {"access", "templates", "ideas", "firewall", "privacy", "trustedbots",
+                "servers", "homepage-servers"}
 
     leer = []
     for rolle in dr.ROLES:
@@ -248,7 +249,10 @@ def test_jede_rolle_sieht_etwas():
         sichtbar = [
             t for t in reiter
             if t not in gesperrt
-            and (t not in zuordnung or zuordnung[t] in rechte)
+            and (
+                (t in {"support", "support-rankings"} and rolle.rank > 90)
+                or (t in zuordnung and zuordnung[t] in rechte)
+            )
         ]
         if not sichtbar:
             leer.append(rolle.key)
@@ -268,15 +272,17 @@ def test_kein_reiter_ohne_recht():
 
     # Ein Reiter ohne Eintrag wird JEDEM gezeigt -- auch dem
     # Trial-Moderator. Beim Klick kommt dann die Fehlermeldung des
-    # Proxys. Genau so war es bei „Nutzer suchen“: 41 von 41 Rollen
+    # Proxys. Genau so war es bei „Nutzer suchen“: 41 von 50 Rollen
     # sahen den Reiter, der Proxy verlangt dort team.view.
-    gesperrt = {"access", "templates"}
-    ohne = [t for t in reiter if t not in zuordnung and t not in gesperrt]
+    gesperrt = {"access", "templates", "ideas", "firewall", "privacy", "trustedbots",
+                "servers", "homepage-servers"}
+    ohne = [t for t in reiter if t not in zuordnung and t not in gesperrt
+            and t not in {"support", "support-rankings"}]
     check("jeder Reiter hat ein Recht", not ohne, ", ".join(ohne))
 
     # Die drei, die neu dazugekommen sind -- namentlich, weil sie der
     # Anlass waren.
-    for tab, recht in (("userlookup", "team.view"),
+    for tab, recht in (("userlookup", "team.assign"),
                        ("premium", "premium.manage"),
                        ("speedrun", "server.manage")):
         check(f"{tab} verlangt {recht}", zuordnung.get(tab) == recht,
@@ -298,7 +304,7 @@ def test_nutzer_suchen_ist_eng():
     duerfen = [r.key for r in dr.ROLES if recht in r.permissions]
 
     # Der Reiter kann jeden Nutzer auf ALLEN Servern des Bots bannen.
-    # Vorher sahen ihn alle 41 Rollen, auch der Trial-Moderator.
+    # Vorher sahen ihn alle 50 Rollen, auch der Trial-Moderator.
     check("nur wenige Rollen sehen ihn", 0 < len(duerfen) <= 12,
           f"{len(duerfen)} von {len(dr.ROLES)}")
     check("ein Trial-Moderator nicht", "trial_moderator" not in duerfen)
@@ -309,6 +315,50 @@ def test_nutzer_suchen_ist_eng():
 # ══════════════════════════════════════════════════════════════════════
 #  3. Ohne Rolle: nichts sehen
 # ══════════════════════════════════════════════════════════════════════
+
+
+def test_gefaehrliche_rechte_bleiben_getrennt():
+    print("\nGefaehrliche globale Rechte bleiben getrennt")
+
+    alle = set(dr.ALL_PERMISSION_KEYS)
+    check("keine Teamrolle erhaelt implizit Vollzugriff",
+          all(set(r.permissions) != alle for r in dr.ROLES))
+    check("nur feste IDs umgehen das Rollensystem",
+          not dr.is_owner("123456789012345678"))
+    import inspect
+    owner_src = inspect.getsource(dr.is_owner)
+    check("DB-Eintraege geben keinen Vollzugriff",
+          "_owner_cache" not in owner_src, owner_src)
+
+    traeger = {
+        recht: {r.key for r in dr.ROLES if recht in r.permissions}
+        for recht in (
+            "team.assign", "maintenance.toggle", "premium.manage",
+            "blacklist.manage", "massconfig.push", "features.edit",
+        )
+    }
+    check("Teamzuweisung bleibt beim Co-Owner",
+          traeger["team.assign"] == {"co_owner"}, str(traeger["team.assign"]))
+    check("Maintenance hat genau eine Spezialrolle",
+          traeger["maintenance.toggle"] == {"maintenance_operator"},
+          str(traeger["maintenance.toggle"]))
+    check("Premium hat genau eine Spezialrolle",
+          traeger["premium.manage"] == {"premium_manager"},
+          str(traeger["premium.manage"]))
+    check("Blacklist bleibt festen Admin-IDs vorbehalten",
+          not traeger["blacklist.manage"], str(traeger["blacklist.manage"]))
+    check("Massconfig bleibt festen Admin-IDs vorbehalten",
+          not traeger["massconfig.push"], str(traeger["massconfig.push"]))
+    check("Feature-Schreibrecht bleibt fachlich begrenzt",
+          traeger["features.edit"] == {"technical_lead", "feature_manager"},
+          str(traeger["features.edit"]))
+
+    with open(os.path.join(BOT, "api", "routes", "team.py"), encoding="utf-8") as f:
+        team_src = strip_ts(f.read())
+    check("Rollenvergabe kann keine fremden Rechte delegieren",
+          "set(target_role.permissions) - roles.get_permissions(actor, scope)" in team_src)
+    check("Guild-begrenzte Rollen koennen nicht global weitergeben",
+          "A guild-scoped manager cannot grant a global role" in team_src)
 
 
 def test_aktionen_nach_rechten():
@@ -506,6 +556,7 @@ def main() -> int:
     test_jede_rolle_sieht_etwas()
     test_kein_reiter_ohne_recht()
     test_nutzer_suchen_ist_eng()
+    test_gefaehrliche_rechte_bleiben_getrennt()
     test_aktionen_nach_rechten()
     test_zahlen_stuerzen_nicht_ab()
     test_ohne_rolle_kein_zugang()

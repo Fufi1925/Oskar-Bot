@@ -7,7 +7,7 @@ owner throw somebody out.
 A person can reach the dashboard through three different doors:
 
     owner      listed in OWNER_IDS / ADMIN_IDS or in the dashboard_owners table
-    team role  holds one of the 40 dashboard roles
+    team role  holds one of the 50 dashboard roles
     Discord    has Manage Server / Administrator on a guild the bot is in
 
 The third door is the reason a plain "remove all roles" button is not enough:

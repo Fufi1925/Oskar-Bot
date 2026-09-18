@@ -1,16 +1,28 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { AlertTriangle, CheckCircle2, Loader2, RefreshCw, Zap } from "lucide-react";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 interface ModuleState {
+  key: string;
   event: string;
+  label: string;
+  enabled: boolean;
   punishment: string | null;
   active: boolean;
   listener_loaded: boolean;
+  state: "active" | "paused" | "off";
 }
+
+const PUNISHMENT_LABELS: Record<string, string> = {
+  delete: "Löschen",
+  warn: "Verwarnen",
+  mute: "Timeout",
+  kick: "Kicken",
+  ban: "Bannen",
+};
 
 interface StatusPayload {
   master_enabled: boolean;
@@ -34,7 +46,7 @@ export function AutomodStatus({ guildId }: { guildId: string }) {
   const [data, setData] = useState<StatusPayload | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       setData(await api.getAutomodStatus(guildId));
@@ -43,12 +55,16 @@ export function AutomodStatus({ guildId }: { guildId: string }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [guildId]);
 
   useEffect(() => {
     load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [guildId]);
+    const afterSave = (event: Event) => {
+      if ((event as CustomEvent<string>).detail === guildId) load();
+    };
+    window.addEventListener("automod-saved", afterSave);
+    return () => window.removeEventListener("automod-saved", afterSave);
+  }, [guildId, load]);
 
   if (loading) {
     return (
@@ -91,7 +107,7 @@ export function AutomodStatus({ guildId }: { guildId: string }) {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
         {data.modules.map((mod) => (
           <div
-            key={mod.event}
+            key={mod.key}
             className={cn(
               "flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl border text-sm",
               mod.active
@@ -100,7 +116,7 @@ export function AutomodStatus({ guildId }: { guildId: string }) {
             )}
           >
             <span className={mod.active ? "text-white font-bold" : "text-slate-500"}>
-              {mod.event}
+              {mod.label}
             </span>
             <span
               className={cn(
@@ -108,7 +124,9 @@ export function AutomodStatus({ guildId }: { guildId: string }) {
                 mod.active ? "text-emerald-400" : "text-slate-600"
               )}
             >
-              {mod.active ? mod.punishment : mod.punishment ? "paused" : "off"}
+              {mod.state === "active"
+                ? PUNISHMENT_LABELS[mod.punishment || ""] || mod.punishment
+                : mod.state === "paused" ? "Pausiert" : "Aus"}
             </span>
           </div>
         ))}

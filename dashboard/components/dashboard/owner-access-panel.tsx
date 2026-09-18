@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Crown, Loader2, Lock, ShieldPlus, Trash2, TriangleAlert } from "lucide-react";
+import { Crown, Loader2, Lock, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -27,15 +27,7 @@ interface OwnerEntry {
 export function OwnerAccessPanel({ currentUserId }: { currentUserId?: string }) {
   const [owners, setOwners] = useState<OwnerEntry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState(false);
   const [denied, setDenied] = useState(false);
-  // Admins may look at the list; only owners may change it.
-  const [canManage, setCanManage] = useState(false);
-
-  const [userId, setUserId] = useState("");
-  const [kind, setKind] = useState<"owner" | "admin">("admin");
-  const [note, setNote] = useState("");
-
   const load = async () => {
     try {
       const data = await api.getOwners();
@@ -54,44 +46,7 @@ export function OwnerAccessPanel({ currentUserId }: { currentUserId?: string }) 
 
   useEffect(() => {
     load();
-    if (currentUserId) {
-      api
-        .getOwnAccess(currentUserId)
-        .then((a) => setCanManage(Boolean(a?.can_manage_owners)))
-        .catch(() => setCanManage(false));
-    }
-  }, [currentUserId]);
-
-  const add = async () => {
-    const id = userId.trim();
-    if (!/^\d{15,20}$/.test(id)) return toast.error("Please enter a valid Discord user ID.");
-
-    setBusy(true);
-    try {
-      await api.addOwner(id, kind, note.trim());
-      toast.success(`${kind === "owner" ? "Owner" : "Admin"} added.`);
-      setUserId("");
-      setNote("");
-      await load();
-    } catch (err: any) {
-      toast.error(err?.message || "Could not add this user.");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const remove = async (entry: OwnerEntry) => {
-    setBusy(true);
-    try {
-      await api.removeOwner(entry.user_id);
-      toast.success("Access revoked.");
-      await load();
-    } catch (err: any) {
-      toast.error(err?.message || "Could not revoke access.");
-    } finally {
-      setBusy(false);
-    }
-  };
+  }, []);
 
   if (loading) {
     return (
@@ -132,80 +87,13 @@ export function OwnerAccessPanel({ currentUserId }: { currentUserId?: string }) 
         </div>
       </div>
 
-      {!canManage && (
-        <div className="bg-[#0e0e12] border border-slate-800 rounded-3xl p-5 flex gap-3">
-          <Lock className="h-5 w-5 text-slate-500 shrink-0" />
-          <p className="text-sm text-slate-400">
-            You can see this list because you are an admin, but only owners may
-            change it.
-          </p>
-        </div>
-      )}
-
-      {/* Add */}
-      {canManage && (
-      <div className="bg-[#131318] border border-slate-800 rounded-3xl p-8">
-        <h4 className="font-black text-white flex items-center gap-2 mb-6">
-          <ShieldPlus className="h-5 w-5 text-primary" /> Grant full access
-        </h4>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-          <label className="block space-y-2">
-            <span className="text-xs font-black uppercase tracking-widest text-slate-500">
-              Discord user ID
-            </span>
-            <input
-              value={userId}
-              onChange={(e) => setUserId(e.target.value)}
-              placeholder="123456789012345678"
-              className="w-full bg-[#0e0e12] border border-slate-800 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
-            />
-          </label>
-
-          <label className="block space-y-2">
-            <span className="text-xs font-black uppercase tracking-widest text-slate-500">
-              Level
-            </span>
-            <select
-              value={kind}
-              onChange={(e) => setKind(e.target.value as "owner" | "admin")}
-              className="w-full appearance-none bg-[#0a0a0c] border border-white/10 rounded-2xl px-4 py-3 pr-9 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2024%2024%22%20stroke%3D%22%2394a3b8%22%20stroke-width%3D%222%22%3E%3Cpath%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20d%3D%22M19%209l-7%207-7-7%22/%3E%3C/svg%3E')] bg-[length:1.1rem] bg-[right_0.6rem_center] bg-no-repeat cursor-pointer"
-            >
-              <option value="admin">Admin — full dashboard access</option>
-              <option value="owner">Owner — full access, may add others</option>
-            </select>
-          </label>
-
-          <label className="block space-y-2">
-            <span className="text-xs font-black uppercase tracking-widest text-slate-500">
-              Note <span className="text-slate-600">(optional)</span>
-            </span>
-            <input
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder="e.g. second account"
-              className="w-full bg-[#0e0e12] border border-slate-800 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary"
-            />
-          </label>
-        </div>
-
-        <div className="mt-5 flex items-start gap-3 p-4 bg-amber-500/5 border border-amber-500/20 rounded-2xl">
-          <TriangleAlert className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
-          <p className="text-xs text-amber-200/80 leading-relaxed">
-            Both levels bypass every permission check and can act on all servers.
-            For limited access use a team role instead.
-          </p>
-        </div>
-
-        <button
-          onClick={add}
-          disabled={busy}
-          className="mt-6 w-full py-4 bg-primary rounded-2xl font-semibold text-sm shadow-xl shadow-primary/20 hover:brightness-110 disabled:opacity-50"
-        >
-          {busy ? "Working..." : "Grant full access"}
-        </button>
+      <div className="bg-[#0e0e12] border border-slate-800 rounded-3xl p-5 flex gap-3">
+        <Lock className="h-5 w-5 text-slate-500 shrink-0" />
+        <p className="text-sm text-slate-400">
+          Full access is fixed by <code>OWNER_IDS</code> and <code>ADMIN_IDS</code>.
+          It cannot be granted, revoked, or inherited through the dashboard.
+        </p>
       </div>
-      )}
 
       {/* List */}
       <div className="space-y-3">
@@ -264,27 +152,12 @@ export function OwnerAccessPanel({ currentUserId }: { currentUserId?: string }) 
               </div>
             </div>
 
-            {entry.locked ? (
-              <span
-                className="text-[10px] font-black uppercase tracking-widest text-slate-600"
-                title="Configured through OWNER_IDS / ADMIN_IDS — change it in your environment variables"
-              >
-                locked
-              </span>
-            ) : entry.user_id === currentUserId ? (
-              <span className="text-[10px] font-black uppercase tracking-widest text-slate-600">
-                cannot remove yourself
-              </span>
-            ) : !canManage ? null : (
-              <button
-                onClick={() => remove(entry)}
-                disabled={busy}
-                className="p-2.5 rounded-xl text-slate-500 hover:text-red-400 hover:bg-red-400/10 transition-all disabled:opacity-40"
-                title="Revoke access"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
-            )}
+            <span
+              className="text-[10px] font-black uppercase tracking-widest text-slate-600"
+              title="Configured through OWNER_IDS / ADMIN_IDS"
+            >
+              locked
+            </span>
           </div>
         ))}
       </div>

@@ -421,58 +421,58 @@ async def automod_status(guild_id: int, bot: "universitybot" = Depends(get_bot))
     """
     guild = _guild_or_404(bot, guild_id)
 
-    modules = {
-        "Anti spam": "AntiSpam",
-        "Anti caps": "AntiCaps",
-        "Anti links": "AntiLink",
-        "Anti invites": "AntiInvite",
-        "Anti mass mention": "AntiMassMention",
-        "Anti emoji spam": "AntiEmojiSpam",
+    # Do not maintain another rule list here.  The settings endpoint and every
+    # listener use automod_store; reading the legacy punishment table directly
+    # made Anti-Link disappear ("Anti link" vs "Anti links") and treated a
+    # disabled rule as active merely because an old punishment row survived.
+    from utils import automod_store as store
+
+    cog_names = {
+        "spam": "AntiSpam",
+        "caps": "AntiCaps",
+        "links": "AntiLink",
+        "invites": "AntiInvite",
+        "mentions": "AntiMassMention",
+        "emoji": "AntiEmojiSpam",
     }
 
-    async with aiosqlite.connect("db/automod.db") as db:
-        async with db.execute(
-            "SELECT enabled FROM automod WHERE guild_id = ?", (guild_id,)
-        ) as cursor:
-            row = await cursor.fetchone()
-        master = bool(row[0]) if row else False
+    async with aiosqlite.connect(store.DB_PATH) as db:
+        settings = await store.get_settings(db, guild_id)
 
-        async with db.execute(
-            "SELECT event, punishment FROM automod_punishments WHERE guild_id = ?",
-            (guild_id,),
-        ) as cursor:
-            punishments = {event: punishment for event, punishment in await cursor.fetchall()}
-
-        async with db.execute(
-            "SELECT type, id FROM automod_ignored WHERE guild_id = ?", (guild_id,)
-        ) as cursor:
-            ignored = await cursor.fetchall()
-
-        async with db.execute(
-            "SELECT log_channel FROM automod_logging WHERE guild_id = ?", (guild_id,)
-        ) as cursor:
-            log_row = await cursor.fetchone()
-
+    master = bool(settings["enabled"])
     entries = []
-    for event, cog_name in modules.items():
-        punishment = punishments.get(event)
-        loaded = bot.get_cog(cog_name) is not None
+    for key, spec in store.RULES.items():
+        rule = settings["rules"][key]
+        loaded = bot.get_cog(cog_names[key]) is not None
+        configured_active = store.rule_active(settings, key)
+        actually_active = bool(configured_active and loaded)
         entries.append(
             {
-                "event": event,
-                "punishment": punishment,
-                "active": bool(master and punishment),
+                "key": key,
+                "event": store.LEGACY_EVENTS[key],
+                "label": spec["label"],
+                "enabled": bool(rule["enabled"]),
+                "punishment": rule["punishment"],
+                "active": actually_active,
                 "listener_loaded": loaded,
+                "state": (
+                    "active" if actually_active
+                    else "paused" if rule["enabled"]
+                    else "off"
+                ),
             }
         )
 
-    log_channel = guild.get_channel(int(log_row[0])) if log_row and log_row[0] else None
+    log_id = settings.get("log_channel")
+    log_channel = guild.get_channel(int(log_id)) if log_id else None
 
     # Permissions the punishments need to work at all.
     me = guild.me
     missing = []
     if me is not None:
-        used = {p for p in punishments.values() if p}
+        used = {
+            entry["punishment"] for entry in entries if entry["active"]
+        }
         if not me.guild_permissions.manage_messages:
             missing.append("Manage Messages")
         if any(p in ("mute", "timeout") for p in used) and not me.guild_permissions.moderate_members:
@@ -487,8 +487,8 @@ async def automod_status(guild_id: int, bot: "universitybot" = Depends(get_bot))
         "master_enabled": master,
         "modules": entries,
         "active_count": sum(1 for e in entries if e["active"]),
-        "ignored_channels": [str(i) for t, i in ignored if t == "channel"],
-        "ignored_roles": [str(i) for t, i in ignored if t == "role"],
+        "ignored_channels": [str(i) for i in settings["ignored_channels"]],
+        "ignored_roles": [str(i) for i in settings["ignored_roles"]],
         "log_channel": log_channel.name if log_channel else None,
         "missing_permissions": missing,
         "live": "Changes apply to the next message — the listeners read this on every message.",
