@@ -118,7 +118,7 @@ function InteractiveCanvas({ visits }: { visits: Map<string, number> }) {
     return () => cancelAnimationFrame(frame);
   }, [visits]);
 
-  return <canvas ref={canvas} aria-label="Drehbare Weltkugel mit echten Ländergrenzen" className="h-full min-h-[350px] w-full cursor-grab touch-none active:cursor-grabbing"
+  return <canvas ref={canvas} aria-label="Drehbare Weltkugel mit echten Ländergrenzen" className="h-full min-h-[255px] w-full cursor-grab touch-none active:cursor-grabbing sm:min-h-[350px]"
     onPointerDown={(event) => { dragging.current = true; last.current = { x: event.clientX, y: event.clientY }; event.currentTarget.setPointerCapture(event.pointerId); }}
     onPointerMove={(event) => { if (!dragging.current) return; rotation.current += (event.clientX - last.current.x) * .32; tilt.current = Math.max(-42, Math.min(42, tilt.current - (event.clientY - last.current.y) * .2)); last.current = { x: event.clientX, y: event.clientY }; }}
     onPointerUp={(event) => { dragging.current = false; if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId); }}
@@ -148,19 +148,24 @@ export function InteractiveHomeGlobe({ guilds, users }: { guilds?: number; users
   }, [data]);
   const number = (value?: number) => typeof value === "number" && value > 0 ? value.toLocaleString("de-DE") : "—";
 
-  return <section id="statistics" className="border-y border-blue-500/10 bg-[#0b0a0c] px-4 py-16 sm:px-6 sm:py-20">
+  return <section id="statistics" className="border-y border-blue-500/10 bg-[#0b0a0c] px-4 py-10 sm:px-6 sm:py-20">
     <div className="mx-auto max-w-[1320px]">
-      <div className="mb-10 text-center"><p className="text-[10px] font-black uppercase tracking-[.28em] text-blue-400">Live auf der ganzen Welt</p><h2 className="mt-3 text-3xl font-black tracking-tight text-white sm:text-4xl">Eine Community ohne Grenzen.</h2><p className="mt-3 text-sm text-zinc-500">Die Kugel dreht sich langsam weiter. Ziehe sie mit Maus oder Finger in jede Richtung.</p></div>
-      <div className="grid items-center gap-8 lg:grid-cols-[.9fr_1.1fr]">
-        <div className="relative min-h-[410px] overflow-hidden"><InteractiveCanvas visits={visits} /><span className="pointer-events-none absolute bottom-5 left-1/2 -translate-x-1/2 rounded-full border border-blue-400/15 bg-black/40 px-3 py-1.5 text-[10px] font-bold text-zinc-500 backdrop-blur">Ziehen zum Drehen</span></div>
+      <div className="mb-5 text-center sm:mb-10"><p className="text-[10px] font-black uppercase tracking-[.28em] text-blue-400">Live auf der ganzen Welt</p><h2 className="mt-2 text-2xl font-black tracking-tight text-white sm:mt-3 sm:text-4xl">Eine Community ohne Grenzen.</h2><p className="mt-2 text-xs leading-5 text-zinc-500 sm:mt-3 sm:text-sm">Dreht sich automatisch und lässt sich mit dem Finger bewegen.</p></div>
+      <div className="grid items-center gap-4 sm:gap-8 lg:grid-cols-[.9fr_1.1fr]">
+        <div className="relative min-h-[280px] overflow-hidden sm:min-h-[410px]"><InteractiveCanvas visits={visits} /><span className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full border border-blue-400/15 bg-black/40 px-3 py-1.5 text-[10px] font-bold text-zinc-500 backdrop-blur sm:bottom-5">Ziehen zum Drehen</span></div>
         <div>
           <div className="grid grid-cols-3 gap-3">{[
             [Server, number(guilds), "Server"], [Users, number(users), "Nutzer"], [Clock3, "99,69%", "Uptime"],
-          ].map(([Icon, value, label]) => { const StatIcon = Icon as React.ElementType; return <div key={String(label)} className="rounded-2xl border border-blue-400/10 bg-[#120e13] px-3 py-5 text-center"><span className="mx-auto grid h-8 w-8 place-items-center rounded-lg border border-blue-400/20 bg-blue-500/10"><StatIcon className="h-4 w-4 text-blue-400" /></span><p className="mt-3 text-lg font-black tabular-nums text-white sm:text-xl">{String(value)}</p><p className="mt-1 text-[9px] font-black uppercase tracking-[.2em] text-zinc-600">{String(label)}</p></div>; })}</div>
-          <p className="mb-3 mt-7 text-[10px] font-black uppercase tracking-[.25em] text-zinc-600">Top Länder · echte Homepage-Aufrufe</p>
-          <div className="space-y-2">{top.length ? top.map((country, index) => <div key={country.country}><div className="flex items-center gap-3 text-xs"><span className="w-4 tabular-nums text-zinc-700">{index + 1}.</span><span className="min-w-0 flex-1 truncate font-bold text-zinc-300">{countryName(country.country)}</span><span className="tabular-nums text-zinc-600">{country.views.toLocaleString("de-DE")}</span></div><div className="ml-7 mt-1 h-[3px] overflow-hidden rounded-full bg-white/[.05]"><div className="h-full rounded-full bg-blue-600" style={{ width: `${Math.max(3, country.views / maximum * 100)}%` }} /></div></div>) : <div className="grid h-44 place-items-center rounded-2xl border border-blue-400/10 bg-[#120e13] text-sm text-zinc-600">Live-Daten werden geladen …</div>}</div>
+          ].map(([Icon, value, label]) => { const StatIcon = Icon as React.ElementType; return <div key={String(label)} className="rounded-xl border border-blue-400/10 bg-[#120e13] px-2 py-3 text-center sm:rounded-2xl sm:px-3 sm:py-5"><span className="mx-auto hidden h-8 w-8 place-items-center rounded-lg border border-blue-400/20 bg-blue-500/10 sm:grid"><StatIcon className="h-4 w-4 text-blue-400" /></span><p className="text-base font-black tabular-nums text-white sm:mt-3 sm:text-xl">{String(value)}</p><p className="mt-1 text-[8px] font-black uppercase tracking-[.14em] text-zinc-600 sm:text-[9px] sm:tracking-[.2em]">{String(label)}</p></div>; })}</div>
+          <p className="mb-3 mt-5 text-[10px] font-black uppercase tracking-[.25em] text-zinc-600 sm:mt-7">Top Länder · echte Homepage-Aufrufe</p>
+          <div className="mobile-country-list space-y-2">{top.length ? top.map((country, index) => <div key={country.country}><div className="flex items-center gap-3 text-xs"><span className="w-4 tabular-nums text-zinc-700">{index + 1}.</span><span className="min-w-0 flex-1 truncate font-bold text-zinc-300">{countryName(country.country)}</span><span className="tabular-nums text-zinc-600">{country.views.toLocaleString("de-DE")}</span></div><div className="ml-7 mt-1 h-[3px] overflow-hidden rounded-full bg-white/[.05]"><div className="h-full rounded-full bg-blue-600" style={{ width: `${Math.max(3, country.views / maximum * 100)}%` }} /></div></div>) : <div className="grid h-44 place-items-center rounded-2xl border border-blue-400/10 bg-[#120e13] text-sm text-zinc-600">Live-Daten werden geladen …</div>}</div>
         </div>
       </div>
     </div>
+    <style jsx global>{`
+      @media (max-width: 639px) {
+        .mobile-country-list > :nth-child(n+6) { display: none; }
+      }
+    `}</style>
   </section>;
 }
