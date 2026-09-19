@@ -421,7 +421,7 @@ export default function DashboardLayout({
       {/* Mobile Sidebar Overlay */}
       {isSidebarOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden"
+          className="fixed inset-0 z-40 bg-[#02030a]/72 backdrop-blur-md lg:hidden"
           onClick={() => setIsSidebarOpen(false)}
         />
       )}
@@ -431,25 +431,29 @@ export default function DashboardLayout({
         className={cn(
           // Sitzt am Rand statt zu schweben: eine 2.5rem-Rundung mit
           // Schlagschatten sieht aus wie eine Karte auf einer Karte.
-          "fixed left-0 top-0 bottom-0 z-50 w-64 transform transition-transform duration-300 lg:translate-x-0",
-          "border-r border-slate-800 bg-[#0c0c0f] overflow-hidden flex flex-col",
-          isSidebarOpen ? "translate-x-0" : "-translate-x-[110%]"
+          "fixed bottom-2 left-2 top-2 z-50 w-[min(88vw,360px)] transform transition-transform duration-300 lg:bottom-0 lg:left-0 lg:top-0 lg:w-[272px] lg:translate-x-0 lg:rounded-none",
+          "overflow-hidden rounded-[28px] border border-white/[.12] bg-[#090b12]/82 shadow-[0_28px_100px_rgba(0,0,0,.72)] backdrop-blur-3xl flex flex-col",
+          isSidebarOpen ? "translate-x-0" : "-translate-x-[115%]"
         )}
       >
+        <div className="pointer-events-none absolute -right-20 -top-24 h-64 w-64 rounded-full bg-blue-600/20 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-24 -left-20 h-56 w-56 rounded-full bg-indigo-500/10 blur-3xl" />
+
         {/* Header */}
-        <div className="flex h-16 items-center px-6 mt-4 flex-shrink-0">
-          <div className="flex items-center gap-3 group">
-            <Bot className="h-5 w-5 text-indigo-400" />
-            <div className="flex flex-col">
-              <h1 className="text-[16px] font-bold tracking-tight text-white leading-none">
-                {process.env.NEXT_PUBLIC_BRAND_NAME || "University Bot"}
-              </h1>
-              <span className="mt-1 text-[11px] text-slate-500">Dashboard</span>
-            </div>
+        <div className="relative flex flex-shrink-0 items-center gap-3 border-b border-white/[.08] px-4 py-4">
+          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl border border-blue-300/20 bg-blue-500/10 shadow-[0_8px_24px_rgba(37,99,235,.18)]">
+            <Bot className="h-5 w-5 text-indigo-300" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h1 className="truncate text-[16px] font-black leading-none tracking-tight text-white">
+              {process.env.NEXT_PUBLIC_BRAND_NAME || "University Bot"}
+            </h1>
+            <span className="mt-1.5 block text-[9px] font-black uppercase tracking-[.22em] text-blue-300/80">Control Center</span>
           </div>
           <button
-            className="ml-auto p-2 lg:hidden text-slate-400 hover:text-white"
+            className="grid h-10 w-10 place-items-center rounded-2xl border border-white/[.08] bg-white/[.045] text-slate-400 transition hover:bg-white/[.09] hover:text-white lg:hidden"
             onClick={() => setIsSidebarOpen(false)}
+            aria-label="Navigation schließen"
           >
             <X className="h-5 w-5" />
           </button>
@@ -463,7 +467,7 @@ export default function DashboardLayout({
           // full travel with 3px to spare. 44px would be too much --
           // "Zurück zur Serverliste" starts wrapping. Worked out in
           // repro/prox_shift_budget.py.
-          className="mt-8 pl-4 pr-10 space-y-6 overflow-y-auto flex-1 no-scrollbar relative z-10 pb-3"
+          className="relative z-10 flex-1 space-y-2 overflow-y-auto py-3 pl-3 pr-10 no-scrollbar"
           {...proximity.containerProps}
         >
           {(() => {
@@ -477,11 +481,11 @@ export default function DashboardLayout({
               const proxIndex = item.items ? -1 : nextIndex();
             if (item.items) {
               return (
-                <div key={item.name} className="space-y-2">
-                  <p className="px-3 text-[11px] font-semibold text-slate-600 mb-1.5">
+                <div key={item.name} className="space-y-1.5 pt-2">
+                  <p className="px-3 text-[9px] font-black uppercase tracking-[.2em] text-slate-500">
                     {item.name}
                   </p>
-                  <div className="space-y-1">
+                  <div className="space-y-1.5">
                     {item.items.map((subItem: any) => {
                       const isActive = pathname === subItem.href;
                       const subIndex = nextIndex();
@@ -510,10 +514,10 @@ export default function DashboardLayout({
                               data-active={sectionActive ? "true" : undefined}
                               {...proximity.itemProps(subIndex)}
                               className={cn(
-                                "prox-row prox-row-sm flex items-center rounded-lg transition-colors text-[13px]",
+                                "prox-row prox-row-sm flex items-center rounded-2xl border transition-all text-[13px]",
                                 sectionActive
-                                  ? "bg-blue-500/10 text-white font-semibold shadow-[inset_3px_0_0_0_rgba(96,165,250,0.9)]"
-                                  : "text-slate-400 hover:bg-white/[0.03] hover:text-slate-200"
+                                  ? "border-blue-400/25 bg-blue-500/12 text-white font-semibold"
+                                  : "border-white/[.07] bg-white/[.035] text-slate-400 hover:border-white/[.12] hover:bg-white/[.065] hover:text-slate-200"
                               )}
                             >
                               <Link href={subItem.href} className="flex min-w-0 flex-1 items-center gap-3 px-3 py-2">
@@ -539,14 +543,14 @@ export default function DashboardLayout({
                                       key={child.name}
                                       href={child.href}
                                       className={cn(
-                                        "flex items-center gap-2 rounded-lg px-3 py-2 text-xs transition-colors",
+                                        "flex items-center gap-2 rounded-xl border px-3 py-2 text-xs transition-colors",
                                         child.highlight
                                           ? childActive
-                                            ? "bg-amber-400/10 font-semibold text-amber-200"
-                                            : "text-amber-300/80 hover:bg-amber-400/[0.07]"
+                                            ? "border-amber-400/20 bg-amber-400/10 font-semibold text-amber-200"
+                                            : "border-amber-400/10 bg-amber-400/[.035] text-amber-300/80 hover:bg-amber-400/[.07]"
                                           : childActive
-                                            ? "bg-blue-500/10 font-semibold text-blue-200"
-                                            : "text-slate-500 hover:bg-white/[0.03] hover:text-slate-300"
+                                            ? "border-blue-400/20 bg-blue-500/10 font-semibold text-blue-200"
+                                            : "border-white/[.05] bg-white/[.025] text-slate-500 hover:bg-white/[.055] hover:text-slate-300"
                                       )}
                                     >
                                       <child.icon className={cn("h-3.5 w-3.5", child.highlight ? "text-amber-400" : sidebarIconColor(child.name))} />
@@ -576,7 +580,7 @@ export default function DashboardLayout({
                           // hervor, weil alles hervorsticht.
                           className={cn(
                             "prox-row prox-row-sm",
-                            "flex items-center gap-3 px-3 py-2 rounded-lg transition-colors group text-[13px]",
+                            "flex items-center gap-3 rounded-2xl border px-3 py-2.5 transition-all group text-[13px]",
                             // Gelb auch in einer Gruppe.
                             //
                             // Genau der Fall, vor dem der Kommentar
@@ -588,11 +592,11 @@ export default function DashboardLayout({
                             // und auf dem Bildschirm nicht zu sehen.
                             (subItem as any).highlight
                               ? isActive
-                                ? "bg-amber-400/10 text-amber-200 font-semibold"
-                                : "text-amber-300/80 hover:bg-amber-400/[0.07] hover:text-amber-200"
+                                ? "border-amber-400/25 bg-amber-400/10 text-amber-200 font-semibold"
+                                : "border-amber-400/10 bg-amber-400/[.035] text-amber-300/80 hover:bg-amber-400/[.07] hover:text-amber-200"
                               : isActive
-                              ? "bg-blue-500/10 text-white font-semibold shadow-[inset_3px_0_0_0_rgba(96,165,250,0.9)]"
-                              : "text-slate-400 hover:bg-white/[0.03] hover:text-slate-200"
+                              ? "border-blue-400/25 bg-blue-500/12 text-white font-semibold"
+                              : "border-white/[.07] bg-white/[.035] text-slate-400 hover:border-white/[.12] hover:bg-white/[.065] hover:text-slate-200"
                           )}
                         >
                           <subItem.icon
@@ -672,14 +676,14 @@ export default function DashboardLayout({
                 // ruhig.
                 className={cn(
                   "prox-row",
-                  "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors group text-[14px]",
+                  "flex items-center gap-3 rounded-2xl border px-3 py-3 transition-all group text-[14px]",
                   isPremium
                     ? isActive
-                      ? "bg-amber-400/10 text-amber-200 font-semibold"
-                      : "text-amber-300/80 hover:bg-amber-400/[0.07] hover:text-amber-200"
+                      ? "border-amber-400/25 bg-amber-400/10 text-amber-200 font-semibold"
+                      : "border-amber-400/10 bg-amber-400/[.035] text-amber-300/80 hover:bg-amber-400/[.07] hover:text-amber-200"
                     : isActive
-                    ? "bg-blue-500/10 text-white font-semibold shadow-[inset_3px_0_0_0_rgba(96,165,250,0.9)]"
-                    : "text-slate-400 hover:bg-white/[0.03] hover:text-slate-200"
+                    ? "border-blue-300/25 bg-gradient-to-r from-blue-600/25 to-indigo-500/15 text-white font-semibold shadow-[0_12px_30px_rgba(37,99,235,.14)]"
+                    : "border-white/[.07] bg-white/[.035] text-slate-400 hover:border-white/[.12] hover:bg-white/[.065] hover:text-slate-200"
                 )}
               >
                 {/* No leading line and no 01/02/03 gutter, both from the
@@ -689,7 +693,7 @@ export default function DashboardLayout({
                     already says. The shift alone carries the effect. */}
                 <item.icon
                   className={cn(
-                    "h-[18px] w-[18px] shrink-0 transition-colors",
+                    "box-content h-[18px] w-[18px] shrink-0 rounded-xl border border-white/[.07] bg-black/15 p-2 transition-colors",
                     isPremium
                       ? "text-amber-400"
                       : sidebarIconColor(item.name)
@@ -718,15 +722,15 @@ export default function DashboardLayout({
 
         {/* Fixed "Back to Server" link (only shown inside a guild) */}
         {backLinkItem && (
-          <div className="px-4 py-2 flex-shrink-0">
-            <div className="h-px bg-white/5 w-3/4 mx-auto rounded-full mb-2" />
+          <div className="relative flex-shrink-0 px-3 py-2">
+            <div className="mx-auto mb-2 h-px w-3/4 rounded-full bg-white/[.08]" />
             <Link
               href={backLinkItem.href || "/dashboard/guilds"}
               className={cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors group text-[14px]",
+                "flex items-center gap-3 rounded-2xl border px-3 py-3 transition-all group text-[13px]",
                 pathname === backLinkItem.href
-                  ? "bg-blue-500/10 text-white font-semibold shadow-[inset_3px_0_0_0_rgba(96,165,250,0.9)]"
-                  : "text-slate-400 hover:bg-white/[0.03] hover:text-slate-200"
+                  ? "border-blue-400/25 bg-blue-500/12 text-white font-semibold"
+                  : "border-white/[.07] bg-white/[.035] text-slate-400 hover:border-white/[.12] hover:bg-white/[.065] hover:text-slate-200"
               )}
             >
               <BackLinkIcon
@@ -746,9 +750,9 @@ export default function DashboardLayout({
         )}
 
         {/* User Profil - now a normal flex child, no absolute positioning */}
-        <div className="flex-shrink-0 p-4 border-t border-white/5 glass-blue bg-blue-500/[0.02]">
-          <div className="flex items-center gap-3 p-2 bg-white/[0.02] rounded-2xl border border-white/[0.05]">
-            <div className="h-10 w-10 rounded-full bg-blue-500/10 flex items-center justify-center ring-1 ring-white/10 overflow-hidden border border-blue-500/20">
+        <div className="relative flex-shrink-0 border-t border-white/[.08] p-3">
+          <div className="flex items-center gap-3 rounded-2xl border border-white/[.09] bg-white/[.05] p-2.5 shadow-[0_12px_30px_rgba(0,0,0,.2)]">
+            <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl border border-blue-400/20 bg-blue-500/10 ring-1 ring-white/10">
               {session?.user?.image ? (
                 <img
                   src={session.user.image}
@@ -824,7 +828,7 @@ export default function DashboardLayout({
       </aside>
 
       {/* Main Content Area (unchanged) */}
-      <div className="lg:pl-64 flex flex-col min-h-screen relative z-10">
+      <div className="relative z-10 flex min-h-screen flex-col lg:pl-[272px]">
         {/* Top Navbar (unchanged) */}
         <header className="h-16 lg:h-20 sticky top-2 lg:top-4 z-30 mx-3 lg:mx-10 flex items-center justify-between gap-2 border border-white/10 glass bg-white/[0.01] backdrop-blur-3xl px-3 lg:px-8 rounded-[1.5rem] lg:rounded-[2rem] shadow-xl shadow-black/20 mb-4 lg:mb-6 mt-3 lg:mt-4">
           <button

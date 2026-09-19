@@ -358,7 +358,7 @@ def test_admin_link_style():
 
     # Ein Stil fuer den aktiven Eintrag, in beiden Ebenen.
     check("ein einheitlicher aktiver Zustand",
-          layout.count('bg-blue-500/10 text-white font-semibold shadow-[inset_3px_0_0_0_rgba(96,165,250,0.9)]') >= 2,
+          layout.count('border-blue-400/25 bg-blue-500/12 text-white font-semibold') >= 2,
           "Haupt- und Untereintraege muessen gleich aussehen")
 
     # Die Zuordnung laeuft weiter ueber die Adresse, nicht ueber die
@@ -373,10 +373,14 @@ def test_admin_link_style():
     check("Beta ist ein Zeichen, kein Text",
           '(Beta)", "")' in layout and "BETA" in layout)
 
-    # Und die Leiste sitzt am Rand statt zu schweben.
-    check("die Leiste sitzt am Rand",
-          "fixed left-0 top-0 bottom-0" in layout)
-    check("der Inhalt weicht ihr aus", "lg:pl-64" in layout,
+    # Mobil schwebt die Glasleiste mit sicherem Rand; am Desktop sitzt sie
+    # dauerhaft links und der Inhalt reserviert ihre volle neue Breite.
+    check("die mobile Leiste schwebt mit sicherem Rand",
+          "fixed bottom-2 left-2 top-2" in layout
+          and "rounded-[28px]" in layout)
+    check("die Desktop-Leiste sitzt am Rand",
+          "lg:bottom-0 lg:left-0 lg:top-0" in layout)
+    check("der Inhalt weicht ihr aus", "lg:pl-[272px]" in layout,
           "sonst liegt der Inhalt unter der Leiste")
 
 
@@ -691,9 +695,9 @@ def test_proximity_effect():
     # 16px, then had to grow to 40px so the rows could travel further --
     # and a copy of the number in this file just went stale and failed
     # against correct CSS. The point of the check is that the two agree.
-    SIDEBAR_W = 256
+    SIDEBAR_W = 272
     nav_class = re.search(
-        r'className="mt-8 ([^"]*?)\s+space-y-6[^"]*overflow-y-auto', layout
+        r'className="([^"]*space-y-2[^"]*overflow-y-auto[^"]*pr-10[^"]*)"', layout
     )
     check("the nav padding can be read",
           nav_class is not None,
@@ -900,12 +904,12 @@ def test_public_mobile_drawer():
     check("support and bot invitations are linked",
           "SUPPORT_INVITE" in src and "INVITE_URL" in src)
     check("the drawer covers the viewport from the right",
-          'fixed inset-0 top-0 z-[100] h-dvh' in src
-          and 'absolute right-0 top-0' in src)
+          'fixed inset-0 z-[100] h-dvh' in src
+          and 'absolute bottom-2 right-2 top-2' in src)
     check("the page behind the drawer is dimmed",
-          "bg-black/70 backdrop-blur-sm" in src)
+          "bg-[#02030a]/72 backdrop-blur-md" in src)
     check("the drawer scrolls on short screens",
-          "flex-1 space-y-3 overflow-y-auto" in src)
+          "flex-1 space-y-2 overflow-y-auto" in src)
     check("opening the drawer locks page scrolling",
           'document.body.style.overflow = "hidden"' in src)
     check("escape closes the drawer",
@@ -920,7 +924,7 @@ def test_public_mobile_drawer():
     check("the embedded theme control is not fixed",
           'embedded ? "relative"' in theme)
     check("desktop navigation remains available",
-          "hidden lg:flex items-center" in src)
+          "hidden items-center transition-[gap] duration-500 lg:flex" in src)
     check("the complete drawer also opens on desktop",
           'aria-label="Komplettmenü"' in src
           and 'h-dvh lg:hidden' not in src)
