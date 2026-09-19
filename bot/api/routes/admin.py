@@ -1547,8 +1547,19 @@ async def umzug_download():
         umzug.schreibe_archiv_nach(puffer)
         puffer.flush()
         groesse = puffer.tell()
-    finally:
+    except Exception as exc:
         puffer.close()
+        try:
+            os.remove(puffer.name)
+        except OSError:
+            pass
+        raise HTTPException(
+            status_code=500,
+            detail=f"Umzug abgebrochen – nicht alle Daten konnten verifiziert werden: {exc}",
+        ) from exc
+    finally:
+        if not puffer.closed:
+            puffer.close()
 
     stempel = time.strftime("%Y%m%d-%H%M%S")
     name = f"umzug-komplett-{stempel}.zip"
@@ -1646,7 +1657,9 @@ async def umzug_einspielen(request: Request, sicherung: bool = True):
 
     pfad = await _hochgeladenes_archiv(request)
     try:
-        ergebnis = umzug.spiele_datei_ein(pfad, sicherung=sicherung)
+        ergebnis = umzug.spiele_datei_ein(
+            pfad, sicherung=sicherung, verifiziert_erforderlich=True
+        )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     finally:

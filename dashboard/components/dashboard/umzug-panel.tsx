@@ -45,12 +45,23 @@ interface DateiEintrag {
   ueberschreibt?: boolean;
 }
 
+interface Abdeckung {
+  bot_daten?: string[];
+  root_dateitypen?: string[];
+  schwester_dienste?: string[];
+  prinzip?: string;
+}
+
 interface Uebersicht {
   dateien: DateiEintrag[];
   datei_anzahl: number;
   bytes_gesamt: number;
   zeilen_gesamt: number;
   datenbanken: number;
+  archiv_version?: number;
+  vollstaendig?: boolean;
+  fehler?: string[];
+  abdeckung?: Abdeckung;
 }
 
 interface Pruefbericht {
@@ -62,6 +73,9 @@ interface Pruefbericht {
   bytes_gesamt: number;
   ueberschreibt_anzahl: number;
   abgelehnt: string[];
+  integritaet_geprueft?: boolean;
+  vollstaendig?: boolean;
+  abdeckung?: Abdeckung;
 }
 
 /**
@@ -299,6 +313,36 @@ export function UmzugPanel() {
               ))}
             </div>
 
+            {uebersicht.vollstaendig ? (
+            <div className="mb-4 rounded-xl border border-emerald-500/30 bg-emerald-500/[.07] p-4">
+              <div className="flex items-start gap-3">
+                <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-400" />
+                <div>
+                  <p className="text-sm font-bold text-emerald-200">
+                    100 % der erkannten persistenten Daten werden gesichert
+                  </p>
+                  <p className="mt-1 text-xs leading-5 text-emerald-100/70">
+                    Jede vorhandene Datenbank, jede Tabelle, jede Einstellung und jede
+                    Datei neuer Funktionen ist automatisch dabei. Es gibt keine feste
+                    DB-Liste, die bei einer neuen Funktion vergessen werden kann.
+                  </p>
+                  <ul className="mt-2 grid gap-1 text-[11px] text-slate-400 sm:grid-cols-2">
+                    <li>• SQLite-DBs als konsistenter Live-Snapshot</li>
+                    <li>• db, jsondb, Logs und KI-Anweisungen</li>
+                    <li>• Root-DBs, JSON, Schlüssel und verschlüsselte Dateien</li>
+                    <li>• Phantom, Louckup und Statusbot-Daten, sofern vorhanden</li>
+                    <li>• SHA-256-Prüfsumme für jede einzelne Datei</li>
+                    <li>• Download bricht ab, sobald auch nur eine Datei fehlt</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+            ) : (
+              <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/[.07] p-4 text-sm text-red-200">
+                Keine Vollständigkeitsfreigabe: {(uebersicht.fehler || []).join(" · ") || "Es wurden keine persistenten Dateien gefunden."}
+              </div>
+            )}
+
             <div className="mb-4 overflow-hidden rounded-xl border border-[#1e1f22]">
               {sichtbar.map((d, i) => (
                 <div
@@ -336,8 +380,8 @@ export function UmzugPanel() {
             <div className="flex flex-wrap gap-2">
               <button
                 onClick={herunterladen}
-                disabled={beschaeftigt}
-                className="inline-flex items-center gap-2 rounded-xl bg-[#5865f2] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#4752c4] disabled:opacity-50"
+                disabled={beschaeftigt || !uebersicht.vollstaendig}
+                className="inline-flex items-center gap-2 rounded-xl bg-[#5865f2] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#4752c4] disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {beschaeftigt ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -408,7 +452,9 @@ export function UmzugPanel() {
               <div className="mb-3 flex items-center gap-2">
                 <ShieldCheck className="h-4 w-4 text-emerald-400" />
                 <span className="text-sm font-medium text-white">
-                  Das Archiv wurde geprüft
+                  {bericht.vollstaendig
+                    ? "Archiv vollständig – jede Datei bytegenau bestätigt"
+                    : "Archiv lesbar, aber ohne vollständigen Integritätsnachweis"}
                 </span>
               </div>
               <div className="grid grid-cols-2 gap-3 text-xs sm:grid-cols-4">
@@ -464,8 +510,8 @@ export function UmzugPanel() {
 
             <button
               onClick={einspielen}
-              disabled={beschaeftigt}
-              className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-emerald-500 disabled:opacity-50"
+              disabled={beschaeftigt || !bericht.vollstaendig}
+              className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-40"
             >
               {beschaeftigt ? (
                 <Loader2 className="h-4 w-4 animate-spin" />

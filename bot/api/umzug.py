@@ -59,17 +59,19 @@ Umzugsarchiv kommt per Upload ins System.
 
 from __future__ import annotations
 
+import hashlib
 import io
 import json
 import os
 import shutil
 import sqlite3
+import tempfile
 import time
 import zipfile
 
 # Wie das Archiv aufgebaut ist. Steht in der Datei selbst, damit ein
 # spaeterer Stand ein aelteres Archiv noch lesen kann.
-ARCHIV_VERSION = 1
+ARCHIV_VERSION = 2
 
 #: Name der Beschreibungsdatei im Archiv.
 INFO_NAME = "umzug-info.json"
@@ -78,15 +80,24 @@ INFO_NAME = "umzug-info.json"
 ORDNER = (
     "db",
     "jsondb",
+    "logs",
+    "instructions",
 )
 
-#: Einzelne Dateien ausserhalb dieser Ordner.
-EINZELDATEIEN = (
-    "rr.db",
-    "j2c_data.db",
-    "ignore.json",
-    "channels.json",
+#: Persistente Dateien direkt im Bot-Arbeitsordner. Nicht als feste
+#: Namensliste: eine neue Funktion mit neuer DB wird dadurch automatisch
+#: erfasst, ohne dass der Umzug spaeter nachgezogen werden muss.
+PERSISTENTE_ENDUNGEN = (
+    ".db", ".sqlite", ".sqlite3", ".json", ".jsonl", ".key", ".enc", ".dat"
 )
+
+#: Daten der mitgelieferten Schwester-Dienste. Nur deren Datenordner,
+#: niemals Quellcode oder statische Assets.
+GESCHWISTER_ORDNER = (
+    "phantom/data",
+    "louckup/data",
+)
+GESCHWISTER_DATEI_ORDNER = ("statusbot",)
 
 #: Dateiendungen, die beim Sichern uebersprungen werden. Die
 #: Journal-/WAL-Dateien gehoeren zu einer offenen Datenbank und sind
@@ -153,34 +164,45 @@ def sammle_dateien() -> list[str]:
                 voll = os.path.join(pfad, name)
                 gefunden.append(os.path.relpath(voll, wurzel))
 
-    for name in EINZELDATEIEN:
-        voll = os.path.join(wurzel, name)
-        if os.path.isfile(voll):
-            gefunden.append(name)
+    # Alles Persistente direkt neben db/. Dadurch sind auch neue Root-DBs,
+    # Konfigurationen und verschluesselte Dateien ohne Registry-Aenderung da.
+    if os.path.isdir(wurzel):
+        for name in os.listdir(wurzel):
+            voll = os.path.join(wurzel, name)
+            if os.path.isfile(voll) and name.lower().endswith(PERSISTENTE_ENDUNGEN):
+                if not name.endswith(UEBERSPRINGEN):
+                    gefunden.append(name)
 
-    # Der eigene Ticket-Bot liegt eine Ebene hoeher neben bot/.
-    phantom = os.path.join(os.path.dirname(wurzel), "phantom", "data")
-    if os.path.isdir(phantom):
-        for pfad, _u, dateien in os.walk(phantom):
+    projekt = os.path.dirname(wurzel)
+    for relativ in GESCHWISTER_ORDNER:
+        basis = os.path.join(projekt, relativ)
+        if not os.path.isdir(basis):
+            continue
+        for pfad, _u, dateien in os.walk(basis):
             for name in dateien:
-                if name.endswith(UEBERSPRINGEN):
+                if name == ".gitkeep" or name.endswith(UEBERSPRINGEN):
                     continue
                 voll = os.path.join(pfad, name)
-                # Als "phantom/data/..." ablegen, damit der Weg zurueck
-                # eindeutig ist.
-                gefunden.append(
-                    os.path.join(
-                        "phantom", os.path.relpath(voll, os.path.dirname(phantom))
-                    )
-                )
+                gefunden.append(os.path.relpath(voll, projekt))
 
-    return sorted(set(gefunden))
+    # Statusbot schreibt seine JSON-Zustaende direkt in seinen Dienstordner.
+    for relativ in GESCHWISTER_DATEI_ORDNER:
+        basis = os.path.join(projekt, relativ)
+        if not os.path.isdir(basis):
+            continue
+        for name in os.listdir(basis):
+            voll = os.path.join(basis, name)
+            if os.path.isfile(voll) and name.lower().endswith(PERSISTENTE_ENDUNGEN):
+                gefunden.append(os.path.relpath(voll, projekt))
+
+    return sorted(set(p.replace(os.sep, "/") for p in gefunden))
 
 
 def _voller_pfad(rel: str) -> str:
     """Wo eine Archivdatei im Dateisystem liegt."""
     wurzel = _daten_wurzel()
-    if rel.startswith("phantom/"):
+    if any(rel.startswith(prefix.split("/")[0] + "/")
+           for prefix in (*GESCHWISTER_ORDNER, *GESCHWISTER_DATEI_ORDNER)):
         return os.path.join(os.path.dirname(wurzel), rel)
     return os.path.join(wurzel, rel)
 
@@ -229,12 +251,14 @@ def baue_uebersicht() -> dict:
     eintraege = []
     gesamt_bytes = 0
     gesamt_zeilen = 0
+    fehler: list[str] = []
 
     for rel in dateien:
         voll = _voller_pfad(rel)
         try:
             groesse = os.path.getsize(voll)
-        except OSError:
+        except OSError as exc:
+            fehler.append(f"{rel}: {exc}")
             continue
         gesamt_bytes += groesse
 
@@ -260,52 +284,112 @@ def baue_uebersicht() -> dict:
         "bytes_gesamt": gesamt_bytes,
         "zeilen_gesamt": gesamt_zeilen,
         "datenbanken": sum(1 for e in eintraege if e["ist_datenbank"]),
+        "archiv_version": ARCHIV_VERSION,
+        "vollstaendig": bool(eintraege) and not fehler and len(eintraege) == len(dateien),
+        "fehler": fehler,
+        "abdeckung": {
+            "bot_daten": list(ORDNER),
+            "root_dateitypen": list(PERSISTENTE_ENDUNGEN),
+            "schwester_dienste": list(GESCHWISTER_ORDNER) + list(GESCHWISTER_DATEI_ORDNER),
+            "prinzip": "automatische Dateisuche; keine feste Datenbankliste",
+        },
     }
 
 
-def _info_block() -> dict:
-    """Die Beschreibung, die oben ins Archiv gelegt wird."""
-    uebersicht = baue_uebersicht()
+def _sha256(pfad: str) -> str:
+    digest = hashlib.sha256()
+    with open(pfad, "rb") as handle:
+        for block in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def _ist_sqlite(pfad: str) -> bool:
+    try:
+        with open(pfad, "rb") as handle:
+            return handle.read(16) == b"SQLite format 3\x00"
+    except OSError:
+        return False
+
+
+def _konsistente_kopie(quelle: str, ziel: str) -> None:
+    """Copy one persistent file; SQLite is snapshotted through its backup API."""
+    os.makedirs(os.path.dirname(ziel), exist_ok=True)
+    if not _ist_sqlite(quelle):
+        shutil.copy2(quelle, ziel)
+        return
+    source = sqlite3.connect(f"file:{os.path.abspath(quelle)}?mode=ro", uri=True)
+    destination = sqlite3.connect(ziel)
+    try:
+        source.backup(destination)
+        destination.commit()
+    finally:
+        destination.close()
+        source.close()
+
+
+def _info_block(dateien: list[str], manifest: dict[str, str]) -> dict:
+    """Description and byte-level integrity manifest stored in the archive."""
     return {
         "archiv_version": ARCHIV_VERSION,
         "erstellt_am": int(time.time()),
         "erstellt_am_text": time.strftime("%d.%m.%Y %H:%M:%S"),
-        "datei_anzahl": uebersicht["datei_anzahl"],
-        "bytes_gesamt": uebersicht["bytes_gesamt"],
-        "zeilen_gesamt": uebersicht["zeilen_gesamt"],
-        "dateien": [e["pfad"] for e in uebersicht["dateien"]],
+        "datei_anzahl": len(dateien),
+        "dateien": dateien,
+        "sha256": manifest,
+        "vollstaendig": True,
+        "abdeckung": {
+            "bot_daten": list(ORDNER),
+            "root_dateitypen": list(PERSISTENTE_ENDUNGEN),
+            "schwester_dienste": list(GESCHWISTER_ORDNER) + list(GESCHWISTER_DATEI_ORDNER),
+            "prinzip": "automatische Dateisuche; keine feste Datenbankliste",
+        },
         "hinweis": (
-            "Vollstaendiger Umzug. Enthaelt die Datenbankdateien selbst, "
-            "nicht nur ausgelesene Zeilen -- damit sind offene Tickets, "
-            "Panel-Nachrichten, eigene Texte und der Schluessel "
-            "db/template_secret.key mit dabei."
+            "Vollstaendiger, byteweise verifizierter Umzug. Jede zum Exportzeitpunkt "
+            "erkannte persistente Datei ist enthalten; SQLite-Dateien wurden mit "
+            "der Backup-API konsistent gesichert."
         ),
     }
 
 
 def schreibe_archiv_nach(ziel):
-    """
-    Das Umzugsarchiv in einen offenen Datei-/Pufferzeiger schreiben.
-
-    Bewusst nicht als Rueckgabe eines fertigen bytes-Objekts: ein
-    Archiv kann mehrere Gigabyte gross werden, und der Container hat
-    davon nicht beliebig viel. So wandert es Datei fuer Datei hinein.
-    """
+    """Write a fail-closed, byte-verified archive to an open seekable file."""
     dateien = sammle_dateien()
+    if not dateien:
+        raise RuntimeError("Keine persistenten Dateien gefunden; Archiv wird nicht erstellt.")
 
-    with zipfile.ZipFile(ziel, "w", zipfile.ZIP_DEFLATED, allowZip64=True) as archiv:
-        archiv.writestr(
-            INFO_NAME, json.dumps(_info_block(), ensure_ascii=False, indent=2)
-        )
+    with tempfile.TemporaryDirectory(prefix="umzug-snapshot-") as snapshot:
+        manifest: dict[str, str] = {}
         for rel in dateien:
-            voll = _voller_pfad(rel)
-            if not os.path.isfile(voll):
-                continue
+            quelle = _voller_pfad(rel)
+            if not os.path.isfile(quelle):
+                raise RuntimeError(f"Pflichtdatei waehrend des Exports verschwunden: {rel}")
+            kopie = os.path.join(snapshot, *rel.split("/"))
             try:
-                archiv.write(voll, rel)
-            except Exception as exc:  # eine unlesbare Datei darf nicht alles kippen
-                print(f"[umzug] uebersprungen {rel}: {exc}")
+                _konsistente_kopie(quelle, kopie)
+            except Exception as exc:
+                raise RuntimeError(f"{rel} konnte nicht vollstaendig gesichert werden: {exc}") from exc
+            manifest[rel] = _sha256(kopie)
 
+        info = _info_block(dateien, manifest)
+        with zipfile.ZipFile(ziel, "w", zipfile.ZIP_DEFLATED, allowZip64=True) as archiv:
+            archiv.writestr(INFO_NAME, json.dumps(info, ensure_ascii=False, indent=2))
+            for rel in dateien:
+                archiv.write(os.path.join(snapshot, *rel.split("/")), rel)
+
+    # Read the finished ZIP back. Success is only returned if every expected
+    # entry exists and is byte-for-byte identical to the staged snapshot.
+    ziel.flush()
+    ziel.seek(0)
+    with zipfile.ZipFile(ziel) as archiv:
+        namen = {n for n in archiv.namelist() if n != INFO_NAME and not n.endswith("/")}
+        if namen != set(dateien):
+            raise RuntimeError("Archiv-Pruefung fehlgeschlagen: Dateiliste ist unvollstaendig.")
+        for rel, expected in manifest.items():
+            actual = hashlib.sha256(archiv.read(rel)).hexdigest()
+            if actual != expected:
+                raise RuntimeError(f"Archiv-Pruefung fehlgeschlagen: {rel} ist beschaedigt.")
+    ziel.seek(0, os.SEEK_END)
     return dateien
 
 
@@ -350,6 +434,8 @@ def _pruefe_offenes_archiv(archiv: zipfile.ZipFile) -> dict:
             info = {}
 
     nutzdateien = [n for n in namen if n != INFO_NAME]
+    if len(nutzdateien) != len(set(nutzdateien)):
+        raise ValueError("Das Archiv enthaelt doppelte Dateinamen und wird abgelehnt.")
     unsicher = [n for n in nutzdateien if not _ist_sicher(n)]
     sicher = [n for n in nutzdateien if _ist_sicher(n)]
 
@@ -358,6 +444,24 @@ def _pruefe_offenes_archiv(archiv: zipfile.ZipFile) -> dict:
             "Das Archiv enthaelt keine verwertbaren Dateien. "
             "Stammt es wirklich aus 'Alles herunterladen'?"
         )
+
+    version = int(info.get("archiv_version") or 0)
+    integritaet_geprueft = False
+    if version >= 2:
+        erwartet = info.get("dateien")
+        hashes = info.get("sha256")
+        if not isinstance(erwartet, list) or set(erwartet) != set(sicher):
+            raise ValueError("Das Archiv ist unvollstaendig: Dateiliste und Inhalt weichen ab.")
+        if not isinstance(hashes, dict) or set(hashes) != set(sicher):
+            raise ValueError("Das Archiv hat kein vollstaendiges Pruefsummen-Verzeichnis.")
+        for name in sicher:
+            digest = hashlib.sha256()
+            with archiv.open(name) as handle:
+                for block in iter(lambda: handle.read(1024 * 1024), b""):
+                    digest.update(block)
+            if digest.hexdigest() != hashes[name]:
+                raise ValueError(f"Pruefsumme falsch: {name}")
+        integritaet_geprueft = True
 
     eintraege = []
     for name in sorted(sicher):
@@ -383,17 +487,26 @@ def _pruefe_offenes_archiv(archiv: zipfile.ZipFile) -> dict:
         "bytes_gesamt": sum(e["bytes"] for e in eintraege),
         "ueberschreibt_anzahl": sum(1 for e in eintraege if e["ueberschreibt"]),
         "abgelehnt": unsicher,
+        "integritaet_geprueft": integritaet_geprueft,
+        "vollstaendig": bool(integritaet_geprueft and not unsicher),
+        "abdeckung": info.get("abdeckung") or {},
     }
 
 
-def spiele_datei_ein(pfad: str, *, sicherung: bool = True) -> dict:
+def spiele_datei_ein(
+    pfad: str, *, sicherung: bool = True, verifiziert_erforderlich: bool = False
+) -> dict:
     """
     Wie spiele_archiv_ein(), aber von der Platte.
 
     Der Weg, den die API nimmt -- siehe pruefe_archiv_datei().
     """
-    return _spiele_ein(zipfile.ZipFile(pfad), pruefe_archiv_datei(pfad),
-                       sicherung=sicherung)
+    return _spiele_ein(
+        zipfile.ZipFile(pfad),
+        pruefe_archiv_datei(pfad),
+        sicherung=sicherung,
+        verifiziert_erforderlich=verifiziert_erforderlich,
+    )
 
 
 def spiele_archiv_ein(rohdaten: bytes, *, sicherung: bool = True) -> dict:
@@ -408,9 +521,20 @@ def spiele_archiv_ein(rohdaten: bytes, *, sicherung: bool = True) -> dict:
                        sicherung=sicherung)
 
 
-def _spiele_ein(archiv: zipfile.ZipFile, bericht: dict, *,
-                sicherung: bool = True) -> dict:
+def _spiele_ein(
+    archiv: zipfile.ZipFile,
+    bericht: dict,
+    *,
+    sicherung: bool = True,
+    verifiziert_erforderlich: bool = False,
+) -> dict:
     """Das eigentliche Zurueckschreiben -- gemeinsam fuer beide Wege."""
+    if verifiziert_erforderlich and not bericht.get("vollstaendig"):
+        archiv.close()
+        raise ValueError(
+            "Einspielen abgelehnt: Das Archiv bestätigt nicht jede Datei mit SHA-256. "
+            "Bitte auf dem alten Konto ein neues Umzugsarchiv erstellen."
+        )
 
     sicherungs_ordner = ""
     if sicherung:
@@ -467,10 +591,19 @@ def _spiele_ein(archiv: zipfile.ZipFile, bericht: dict, *,
                 except OSError:
                     pass
 
+    if fehlgeschlagen:
+        raise ValueError(
+            "Der Umzug ist NICHT vollstaendig. Fehlgeschlagen: "
+            + " | ".join(fehlgeschlagen)
+            + (f". Sicherheitskopie: {sicherungs_ordner}" if sicherungs_ordner else "")
+        )
+
     return {
         "geschrieben": len(geschrieben),
         "dateien": geschrieben,
-        "fehlgeschlagen": fehlgeschlagen,
+        "fehlgeschlagen": [],
         "sicherung": sicherungs_ordner,
         "abgelehnt": bericht["abgelehnt"],
+        "integritaet_geprueft": bool(bericht.get("integritaet_geprueft")),
+        "vollstaendig": bool(bericht.get("vollstaendig")),
     }

@@ -120,6 +120,16 @@ def baue_alt():
     with open(os.path.join(ALT, "jsondb", "joindm_messages.json"), "w") as f:
         json.dump({str(GILDE): "Danke fuers Beitreten!"}, f)
 
+    # Neue Funktionen duerfen keine manuell gepflegte Dateiliste brauchen.
+    with open(os.path.join(ALT, "brandneue_funktion.json"), "w") as f:
+        json.dump({"enabled": True, "setting": "bleibt erhalten"}, f)
+    os.makedirs(os.path.join(ALT, "logs"), exist_ok=True)
+    with open(os.path.join(ALT, "logs", "123_moderation_2026.json"), "w") as f:
+        json.dump([{"action": "warn", "user": 123}], f)
+    os.makedirs(os.path.join(ALT, "instructions"), exist_ok=True)
+    with open(os.path.join(ALT, "instructions", "ticket_ai.txt"), "w") as f:
+        f.write("Private KI-Anweisung fuer Tickets")
+
     # Eine Journal-Datei, die NICHT mitkommen darf.
     with open(os.path.join(ALT, "db", "tickets.db-journal"), "wb") as f:
         f.write(b"muell")
@@ -262,6 +272,11 @@ def test_panel_und_routen():
     for route in ("/umzug/uebersicht", "/umzug/download", "/umzug/pruefen",
                   "/umzug/einspielen"):
         pruefe(f"die Route {route} ist gebaut", f'"{route}"' in admin)
+    pruefe("die API spielt nur vollstaendig verifizierte Archive ein",
+           "verifiziert_erforderlich=True" in admin)
+    pruefe("das Dashboard zeigt die 100-Prozent-Pruefung",
+           "100 % der erkannten persistenten Daten" in quelle
+           and "SHA-256" in quelle)
 
     # Der Upload darf NICHT ueber request.body() laufen: das haelt ein
     # Gigabyte-Archiv komplett im Arbeitsspeicher.
@@ -316,6 +331,15 @@ def main():
     pruefe("die JSON-Konfiguration ist dabei",
            "jsondb/joindm_messages.json" in namen)
     pruefe("rr.db ausserhalb von db/ ist dabei", "rr.db" in namen)
+    pruefe("neue Root-Konfigurationen sind automatisch dabei",
+           "brandneue_funktion.json" in namen)
+    pruefe("exportierte Logs sind dabei", "logs/123_moderation_2026.json" in namen)
+    pruefe("KI-Anweisungen sind dabei", "instructions/ticket_ai.txt" in namen)
+    info = json.loads(zipfile.ZipFile(io.BytesIO(rohdaten)).read("umzug-info.json"))
+    pruefe("jede Datei hat eine SHA-256-Pruefsumme",
+           set(info.get("sha256", {})) == set(namen) - {"umzug-info.json"})
+    pruefe("Archivversion 2 bestaetigt die Vollstaendigkeit",
+           info.get("archiv_version") == 2 and info.get("vollstaendig") is True)
     pruefe("die Journal-Datei ist NICHT dabei",
            "db/tickets.db-journal" not in namen,
            "ein altes Journal kann die Datenbank beschaedigen")
@@ -348,7 +372,24 @@ def main():
     print(f"  Dateien im Archiv: {bericht['datei_anzahl']}")
     print(f"  Wuerde ueberschreiben: {bericht['ueberschreibt_anzahl']}")
     print(f"  Abgelehnt: {bericht['abgelehnt'] or 'nichts'}")
+    pruefe("die Pruefung bestaetigt jede Datei bytegenau",
+           bericht.get("integritaet_geprueft") is True and bericht.get("vollstaendig") is True)
     pruefe("die Pruefung veraendert nichts", os.listdir(NEU) == [])
+
+    # Eine nachtraeglich veraenderte Datei muss den gesamten Import stoppen.
+    manipuliert = io.BytesIO()
+    with zipfile.ZipFile(io.BytesIO(rohdaten)) as quelle, zipfile.ZipFile(manipuliert, "w") as ziel:
+        for name in quelle.namelist():
+            daten = quelle.read(name)
+            if name == "db/tickets.db":
+                daten += b"manipuliert"
+            ziel.writestr(name, daten)
+    try:
+        umzug.pruefe_archiv(manipuliert.getvalue())
+        manipulation_gestoppt = False
+    except ValueError:
+        manipulation_gestoppt = True
+    pruefe("eine einzige manipulierte Datei stoppt das ganze Archiv", manipulation_gestoppt)
 
     linie("4  Einspielen")
     ergebnis = umzug.spiele_archiv_ein(rohdaten, sicherung=False)
@@ -379,6 +420,14 @@ def main():
            == nachher.get("DATEI db/template_secret.key"))
     pruefe("XP sind da",
            vorher.get("db/leveling.db:levels") == nachher.get("db/leveling.db:levels"))
+    for relativ in (
+        "brandneue_funktion.json",
+        "logs/123_moderation_2026.json",
+        "instructions/ticket_ai.txt",
+    ):
+        pruefe(f"Zusatzdatei unveraendert: {relativ}",
+               open(os.path.join(ALT, relativ), "rb").read()
+               == open(os.path.join(NEU, relativ), "rb").read())
 
     # ── Zip-Slip ─────────────────────────────────────────────────────
     linie("6  Boesartiges Archiv: Ausbruch aus dem Datenordner")
