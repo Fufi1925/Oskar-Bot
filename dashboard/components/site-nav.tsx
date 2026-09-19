@@ -176,21 +176,26 @@ function Dropdown({
 
 type MobileIcon = React.ComponentType<{ className?: string }>;
 
-function MobileNavLink({ href, label, icon: Icon, onClick, external, active, primary }: { href: string; label: string; icon: MobileIcon; onClick: () => void; external?: boolean; active?: boolean; primary?: boolean }) {
+function MobileNavLink({ href, label, icon: Icon, onClick, external, active, primary, compact }: { href: string; label: string; icon: MobileIcon; onClick: () => void; external?: boolean; active?: boolean; primary?: boolean; compact?: boolean }) {
   const style = cn(
-    "flex w-full items-center gap-4 rounded-2xl px-5 py-4 text-[18px] transition-colors",
-    primary ? "bg-[#5865f2] text-white" : active ? "bg-[#23242a] text-white" : "bg-[#1d1e22] text-slate-200 hover:bg-[#25262b]"
+    "group flex w-full items-center border transition-all duration-200",
+    compact ? "gap-2.5 rounded-2xl px-3 py-3 text-[13px]" : "gap-3 rounded-2xl px-4 py-3.5 text-[15px]",
+    primary
+      ? "border-blue-300/25 bg-gradient-to-r from-blue-600 to-indigo-500 text-white shadow-[0_14px_35px_rgba(37,99,235,.28)]"
+      : active
+        ? "border-blue-400/25 bg-blue-500/12 text-white"
+        : "border-white/[.08] bg-white/[.045] text-slate-200 hover:border-white/[.14] hover:bg-white/[.075]",
   );
-  const content = <><Icon className={cn("h-6 w-6", primary ? "text-white" : active ? "text-blue-400" : "text-slate-400")} /><span className="flex-1 text-left">{label}</span><ChevronRight className={cn("h-5 w-5", primary ? "text-white" : "text-blue-500")} /></>;
+  const content = <><span className={cn("grid shrink-0 place-items-center rounded-xl border", compact ? "h-8 w-8" : "h-9 w-9", primary ? "border-white/15 bg-white/10" : active ? "border-blue-400/20 bg-blue-500/10" : "border-white/[.07] bg-black/15")}><Icon className={cn(compact ? "h-4 w-4" : "h-[18px] w-[18px]", primary ? "text-white" : active ? "text-blue-300" : "text-slate-400 group-hover:text-white")} /></span><span className="min-w-0 flex-1 truncate text-left font-semibold">{label}</span><ChevronRight className={cn("h-4 w-4 shrink-0 transition-transform group-hover:translate-x-0.5", primary ? "text-white/80" : active ? "text-blue-300" : "text-slate-500")} /></>;
   return external ? <a href={href} target="_blank" rel="noopener noreferrer" onClick={onClick} className={style}>{content}</a> : <Link href={href} onClick={onClick} className={style}>{content}</Link>;
 }
 
 function MobileNavGroup({ label, icon: Icon, open, onClick, green, children }: { label: string; icon: MobileIcon; open: boolean; onClick: () => void; green?: boolean; children: React.ReactNode }) {
-  return <div><button type="button" onClick={onClick} aria-expanded={open} className="flex w-full items-center gap-4 rounded-2xl bg-[#1d1e22] px-5 py-4 text-[18px] text-slate-200 hover:bg-[#25262b]"><Icon className={cn("h-6 w-6", green ? "text-emerald-400" : "text-slate-400")} /><span className={cn("flex-1 text-left", green && "text-emerald-400")}>{label}</span><ChevronDown className={cn("h-5 w-5 transition-transform", green ? "text-emerald-400" : "text-slate-300", open && "rotate-180")} /></button>{open && <div className="mt-2 space-y-1 rounded-2xl border border-slate-800 bg-[#15161a] p-2">{children}</div>}</div>;
+  return <div className={cn("overflow-hidden rounded-2xl border transition-colors", open ? "border-blue-400/20 bg-white/[.065]" : "border-white/[.08] bg-white/[.045]")}><button type="button" onClick={onClick} aria-expanded={open} className="group flex w-full items-center gap-3 px-4 py-3.5 text-[15px] text-slate-200"><span className={cn("grid h-9 w-9 shrink-0 place-items-center rounded-xl border", green ? "border-emerald-400/20 bg-emerald-500/10" : "border-white/[.07] bg-black/15")}><Icon className={cn("h-[18px] w-[18px]", green ? "text-emerald-300" : "text-slate-400 group-hover:text-white")} /></span><span className={cn("flex-1 text-left font-semibold", green && "text-emerald-300")}>{label}</span><ChevronDown className={cn("h-4 w-4 transition-transform duration-200", green ? "text-emerald-300" : "text-slate-500", open && "rotate-180")} /></button>{open && <div className="mx-2 mb-2 space-y-1 border-t border-white/[.07] pt-2">{children}</div>}</div>;
 }
 
 function MobileSubLink({ href, label, icon: Icon, close }: { href: string; label: string; icon: MobileIcon; close: () => void }) {
-  return <Link href={href} onClick={close} className="flex items-center gap-3 rounded-xl px-4 py-3 text-[15px] text-slate-400 hover:bg-white/[0.04] hover:text-white"><Icon className="h-4 w-4 text-blue-400" />{label}</Link>;
+  return <Link href={href} onClick={close} className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-medium text-slate-400 transition hover:bg-white/[.06] hover:text-white"><Icon className="h-4 w-4 text-blue-300" />{label}<ChevronRight className="ml-auto h-3.5 w-3.5 text-slate-600" /></Link>;
 }
 
 export function SiteNav() {
@@ -349,67 +354,76 @@ export function SiteNav() {
     </nav>
     </div>
       {offen && (
-        <div id="public-navigation-drawer" className="fixed inset-0 top-0 z-[100] h-dvh" role="dialog" aria-modal="true" aria-label="Hauptmenü">
-          <button aria-label="Menü schließen" onClick={() => setOffen(false)} className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
-          <aside className="absolute right-0 top-0 flex h-full w-[min(82vw,530px)] flex-col border-l border-slate-700 bg-[#101113] shadow-2xl shadow-black/70">
-            <div className="flex items-center gap-4 border-b border-slate-700 px-6 py-7">
-              <div className="grid h-11 w-11 place-items-center overflow-hidden rounded-xl border border-blue-500/20 bg-blue-500/10">
+        <div id="public-navigation-drawer" className="fixed inset-0 z-[100] h-dvh" role="dialog" aria-modal="true" aria-label="Hauptmenü">
+          <button aria-label="Menü schließen" onClick={() => setOffen(false)} className="absolute inset-0 bg-[#02030a]/72 backdrop-blur-md" />
+          <aside className="absolute bottom-2 right-2 top-2 flex w-[min(88vw,420px)] flex-col overflow-hidden rounded-[28px] border border-white/[.12] bg-[#090b12]/78 shadow-[0_28px_100px_rgba(0,0,0,.72)] backdrop-blur-3xl sm:bottom-4 sm:right-4 sm:top-4">
+            <div className="pointer-events-none absolute -right-20 -top-24 h-64 w-64 rounded-full bg-blue-600/20 blur-3xl" />
+            <div className="pointer-events-none absolute -bottom-24 -left-20 h-56 w-56 rounded-full bg-indigo-500/10 blur-3xl" />
+
+            <div className="relative flex items-center gap-3 border-b border-white/[.08] px-4 py-4 sm:px-5">
+              <div className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-2xl border border-blue-300/20 bg-blue-500/10 shadow-[0_8px_24px_rgba(37,99,235,.18)]">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src="/icon-192.png" alt="" className="h-full w-full object-cover" />
               </div>
-              <span className="min-w-0 flex-1 truncate text-[22px] font-extrabold text-white">{BRAND}</span>
-              <button type="button" onClick={() => setOffen(false)} className="rounded-xl p-2 text-slate-400 hover:bg-white/5 hover:text-white" aria-label="Menü schließen"><X className="h-6 w-6" /></button>
+              <div className="min-w-0 flex-1">
+                <span className="block truncate text-[17px] font-black tracking-tight text-white">{BRAND}</span>
+                <span className="mt-0.5 block text-[9px] font-black uppercase tracking-[.22em] text-blue-300/80">Navigation</span>
+              </div>
+              <button type="button" onClick={() => setOffen(false)} className="grid h-10 w-10 place-items-center rounded-2xl border border-white/[.08] bg-white/[.045] text-slate-400 transition hover:bg-white/[.09] hover:text-white" aria-label="Menü schließen"><X className="h-5 w-5" /></button>
             </div>
 
-            <div className="flex-1 space-y-3 overflow-y-auto px-5 py-6">
-              <MobileNavLink href="/" label="Home" icon={Home} active={pathname === "/"} onClick={() => setOffen(false)} />
-              <MobileNavLink href="/konto" label="Mein Konto" icon={UserRound} active={pathname === "/konto"} onClick={() => setOffen(false)} />
+            <div className="relative flex-1 space-y-2 overflow-y-auto px-3 py-3 [scrollbar-width:none] sm:px-4 sm:py-4">
+              <MobileNavLink href="/dashboard" label="Dashboard öffnen" icon={LayoutDashboard} primary onClick={() => setOffen(false)} />
 
-              <MobileNavGroup label="Commands" icon={Grid2X2} open={mobileGroup === "commands"} onClick={() => setMobileGroup(mobileGroup === "commands" ? null : "commands")}>
+              <div className="grid grid-cols-2 gap-2">
+                <MobileNavLink href={INVITE_URL} label="Bot hinzufügen" icon={CirclePlus} external compact onClick={() => setOffen(false)} />
+                <MobileNavLink href={SUPPORT_INVITE} label="Support" icon={CircleHelp} external compact onClick={() => setOffen(false)} />
+              </div>
+
+              <p className="px-1 pb-0.5 pt-3 text-[9px] font-black uppercase tracking-[.2em] text-slate-500">Seiten</p>
+              <MobileNavLink href="/" label="Startseite" icon={Home} active={pathname === "/"} onClick={() => setOffen(false)} />
+
+              <MobileNavGroup label="Befehle & Hilfe" icon={Grid2X2} open={mobileGroup === "commands"} onClick={() => setMobileGroup(mobileGroup === "commands" ? null : "commands")}>
                 <MobileSubLink href="/commands" label="Alle Befehle" icon={Grid2X2} close={() => setOffen(false)} />
                 <MobileSubLink href="/docs" label="Dokumentation" icon={BookOpen} close={() => setOffen(false)} />
               </MobileNavGroup>
 
-              <MobileNavGroup label="Über" icon={Globe} open={mobileGroup === "about"} onClick={() => setMobileGroup(mobileGroup === "about" ? null : "about")}>
+              <MobileNavGroup label="Mehr entdecken" icon={Globe} open={mobileGroup === "about"} onClick={() => setMobileGroup(mobileGroup === "about" ? null : "about")}>
                 <MobileSubLink href="/premium" label="Premium" icon={Shield} close={() => setOffen(false)} />
-                <MobileSubLink href="/status" label="Status" icon={Activity} close={() => setOffen(false)} />
-                <MobileSubLink href="/team" label="Team" icon={Users} close={() => setOffen(false)} />
+                <MobileSubLink href="/status" label="Systemstatus" icon={Activity} close={() => setOffen(false)} />
+                <MobileSubLink href="/ideas" label="Community-Ideen" icon={CircleHelp} close={() => setOffen(false)} />
+                <MobileSubLink href="/team" label="Unser Team" icon={Users} close={() => setOffen(false)} />
                 <MobileSubLink href="/imprint" label="Impressum" icon={FileText} close={() => setOffen(false)} />
                 <MobileSubLink href="/privacy" label="Datenschutz" icon={Shield} close={() => setOffen(false)} />
                 <MobileSubLink href="/terms" label="Nutzungsbedingungen" icon={FileText} close={() => setOffen(false)} />
               </MobileNavGroup>
-
-              <div className="my-5 h-px bg-slate-700" />
-              <MobileNavLink href={SUPPORT_INVITE} label="Support Server" icon={CircleHelp} external onClick={() => setOffen(false)} />
 
               <MobileNavGroup label="Team beitreten" icon={UserPlus} green open={mobileGroup === "team"} onClick={() => setMobileGroup(mobileGroup === "team" ? null : "team")}>
                 {TEAM_ROLLEN.map(item => <MobileSubLink key={item.href} href={item.href} label={item.label} icon={UserPlus} close={() => setOffen(false)} />)}
                 <MobileSubLink href="/team/apply" label="Alle Bewerbungen" icon={Users} close={() => setOffen(false)} />
               </MobileNavGroup>
 
-              <MobileNavLink href="/dashboard" label="Dashboard" icon={LayoutDashboard} primary onClick={() => setOffen(false)} />
-              <MobileNavLink href={INVITE_URL} label="Bot hinzufügen" icon={CirclePlus} external onClick={() => setOffen(false)} />
-
-              <div className="flex items-center gap-3 rounded-2xl border border-slate-700 bg-[#1d1e22] p-4">
-                <span className="flex-1 text-[15px] font-semibold text-slate-300">Design</span>
-                <ThemeToggle embedded />
-                <div className="h-9 w-px bg-slate-700" />
-                <LanguageSwitcher />
-              </div>
-
+              <p className="px-1 pb-0.5 pt-3 text-[9px] font-black uppercase tracking-[.2em] text-slate-500">Konto & Ansicht</p>
               {session?.user ? (
-                <Link href="/konto" onClick={() => setOffen(false)} className="flex items-center gap-4 rounded-2xl bg-[#27282d] px-5 py-4 text-slate-100">
+                <Link href="/konto" onClick={() => setOffen(false)} className="flex items-center gap-3 rounded-2xl border border-white/[.08] bg-white/[.045] px-4 py-3 text-slate-100 transition hover:bg-white/[.075]">
                   {session.user.image ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={session.user.image} alt="" className="h-9 w-9 rounded-full" />
-                  ) : <LayoutDashboard className="h-6 w-6" />}
-                  <span className="min-w-0 flex-1 truncate">{session.user.name}</span><ChevronRight className="h-5 w-5" />
+                    <img src={session.user.image} alt="" className="h-9 w-9 rounded-xl ring-1 ring-white/10" />
+                  ) : <span className="grid h-9 w-9 place-items-center rounded-xl bg-blue-500/10"><UserRound className="h-5 w-5 text-blue-300" /></span>}
+                  <span className="min-w-0 flex-1"><strong className="block truncate text-[14px]">{session.user.name}</strong><span className="block text-[10px] text-slate-500">Mein Konto</span></span><ChevronRight className="h-4 w-4 text-slate-500" />
                 </Link>
               ) : (
-                <button onClick={() => signIn("discord", { callbackUrl: "/auth/success?next=%2Fdashboard" })} className="flex w-full items-center gap-4 rounded-2xl bg-[#27282d] px-5 py-4 text-left text-slate-100">
-                  <LogIn className="h-6 w-6" /><span className="flex-1 text-[17px]">Anmelden</span><ChevronRight className="h-5 w-5" />
+                <button onClick={() => signIn("discord", { callbackUrl: "/auth/success?next=%2Fdashboard" })} className="flex w-full items-center gap-3 rounded-2xl border border-white/[.08] bg-white/[.045] px-4 py-3 text-left text-slate-100 transition hover:bg-white/[.075]">
+                  <span className="grid h-9 w-9 place-items-center rounded-xl bg-blue-500/10"><LogIn className="h-4 w-4 text-blue-300" /></span><span className="flex-1 text-[14px] font-semibold">Mit Discord anmelden</span><ChevronRight className="h-4 w-4 text-slate-500" />
                 </button>
               )}
+
+              <div className="flex items-center gap-3 rounded-2xl border border-white/[.08] bg-white/[.045] px-4 py-3">
+                <span className="flex-1 text-[12px] font-semibold text-slate-400">Design & Sprache</span>
+                <ThemeToggle embedded />
+                <div className="h-8 w-px bg-white/[.08]" />
+                <LanguageSwitcher />
+              </div>
             </div>
           </aside>
         </div>
