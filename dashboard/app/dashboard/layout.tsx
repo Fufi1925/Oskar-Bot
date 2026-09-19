@@ -441,12 +441,14 @@ export default function DashboardLayout({
 
         {/* Header */}
         <div className="relative flex flex-shrink-0 items-center gap-3 border-b border-white/[.08] px-4 py-4">
-          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl border border-blue-300/20 bg-blue-500/10 shadow-[0_8px_24px_rgba(37,99,235,.18)]">
-            <Bot className="h-5 w-5 text-indigo-300" />
+          <div className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-2xl border border-blue-300/20 bg-blue-500/10 shadow-[0_8px_24px_rgba(37,99,235,.18)]">
+            {/* Der Markenname und das echte Logo bleiben in jeder Sprache identisch. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/icon-192.png" alt="University Bot" className="h-full w-full object-cover" data-no-translate />
           </div>
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0 flex-1" data-no-translate>
             <h1 className="truncate text-[16px] font-black leading-none tracking-tight text-white">
-              {process.env.NEXT_PUBLIC_BRAND_NAME || "University Bot"}
+              University Bot
             </h1>
             <span className="mt-1.5 block text-[9px] font-black uppercase tracking-[.22em] text-blue-300/80">Control Center</span>
           </div>
@@ -830,9 +832,12 @@ export default function DashboardLayout({
       {/* Main Content Area (unchanged) */}
       <div className="relative z-10 flex min-h-screen flex-col lg:pl-[272px]">
         {/* Top Navbar (unchanged) */}
-        <header className="h-16 lg:h-20 sticky top-2 lg:top-4 z-30 mx-3 lg:mx-10 flex items-center justify-between gap-2 border border-white/10 glass bg-white/[0.01] backdrop-blur-3xl px-3 lg:px-8 rounded-[1.5rem] lg:rounded-[2rem] shadow-xl shadow-black/20 mb-4 lg:mb-6 mt-3 lg:mt-4">
+        <header className="sticky top-2 z-30 mx-3 mb-4 mt-3 flex h-16 isolate items-center justify-between gap-2 rounded-[24px] border border-white/[.1] bg-[#090b12]/78 px-2.5 shadow-[0_22px_70px_rgba(0,0,0,.32)] backdrop-blur-3xl lg:top-4 lg:mx-6 lg:mb-6 lg:mt-4 lg:h-[72px] lg:rounded-[28px] lg:px-4">
+          <div className="pointer-events-none absolute inset-x-16 top-0 h-px bg-gradient-to-r from-transparent via-blue-300/35 to-transparent" />
+          <div className="pointer-events-none absolute -top-20 right-28 h-40 w-64 rounded-full bg-blue-600/[.08] blur-3xl" />
           <button
-            className="p-2 lg:hidden text-slate-400 hover:bg-white/5 rounded-xl transition-colors"
+            className="relative grid h-10 w-10 shrink-0 place-items-center rounded-2xl border border-white/[.08] bg-white/[.045] text-slate-400 transition hover:bg-white/[.09] hover:text-white lg:hidden"
+            aria-label="Navigation öffnen"
             onClick={() => setIsSidebarOpen(true)}
           >
             <Menu className="h-6 w-6" />
@@ -840,11 +845,17 @@ export default function DashboardLayout({
 
           <GlobalSearch />
 
-          <div className="flex items-center gap-2 lg:gap-6">
+          <div className="relative ml-auto flex items-center gap-1.5 lg:gap-2">
             <div className="relative" ref={bellRef}>
               <button 
                 onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
-                className="relative p-2.5 text-slate-400 hover:bg-white/5 hover:text-white rounded-xl transition-all group"
+                className={cn(
+                  "relative grid h-10 w-10 place-items-center rounded-2xl border transition-all",
+                  isNotificationsOpen
+                    ? "border-blue-400/25 bg-blue-500/12 text-blue-300"
+                    : "border-white/[.08] bg-white/[.045] text-slate-400 hover:bg-white/[.09] hover:text-white"
+                )}
+                aria-label="Benachrichtigungen"
               >
                 <Bell className="h-5 w-5" />
                 {pendingSupportRequests > 0 ? (
@@ -862,7 +873,7 @@ export default function DashboardLayout({
                 width={320}
                 minHeight={0}
                 maxHeight={420}
-                className="bg-[#071a33]/90 backdrop-blur-3xl border border-white/5 rounded-[24px] shadow-[0_20px_50px_rgba(0,0,0,0.5)] animate-in fade-in zoom-in-95 duration-300 origin-top-right"
+                className="rounded-[24px] border border-white/[.1] bg-[#090b12]/92 shadow-[0_24px_70px_rgba(0,0,0,.6)] backdrop-blur-3xl animate-in fade-in zoom-in-95 duration-200 origin-top-right"
               >
                 <div className="overflow-y-auto p-4">
                     <div className="flex items-center justify-between mb-4 border-b border-white/5 pb-2">
@@ -909,8 +920,6 @@ export default function DashboardLayout({
                 </div>
               </PopoverLayer>
             </div>
-            <div className="h-8 w-[1px] bg-white/5 hidden sm:block"></div>
-
             {/* Sprachumschalter — direkt neben dem Profil. Der Import
                 stand schon lange hier, gerendert wurde er nie: im
                 Dashboard gab es also keine Möglichkeit, die Sprache zu
@@ -923,9 +932,15 @@ export default function DashboardLayout({
             <div className="relative" ref={profileRef}>
               <button
                 onClick={() => setIsProfilOpen(!isProfilOpen)}
-                className="flex items-center gap-3.5 p-1.5 rounded-2xl hover:bg-white/5 transition-all group border border-transparent hover:border-white/10"
+                className={cn(
+                  "flex h-10 items-center gap-2 rounded-2xl border px-1.5 pr-2.5 transition-all group",
+                  isProfilOpen
+                    ? "border-blue-400/25 bg-blue-500/10"
+                    : "border-white/[.08] bg-white/[.045] hover:bg-white/[.09]"
+                )}
+                aria-label="Kontomenü"
               >
-                <div className="h-9 w-9 rounded-full bg-blue-500/10 flex items-center justify-center overflow-hidden border border-blue-500/20 ring-2 ring-transparent group-hover:ring-blue-500/30 transition-all">
+                <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-xl border border-blue-400/20 bg-blue-500/10 ring-1 ring-transparent transition-all group-hover:ring-blue-400/20">
                   {session?.user?.image ? (
                     <img src={session.user.image} alt="User Avatar" className="h-full w-full object-cover opacity-80" />
                   ) : (
@@ -962,7 +977,7 @@ export default function DashboardLayout({
                 width={224}
                 minHeight={0}
                 maxHeight={420}
-                className="bg-[#071a33]/90 backdrop-blur-3xl border border-white/5 rounded-[24px] shadow-[0_20px_50px_rgba(0,0,0,0.5)] animate-in fade-in zoom-in-95 duration-300 origin-top-right"
+                className="rounded-[24px] border border-white/[.1] bg-[#090b12]/92 shadow-[0_24px_70px_rgba(0,0,0,.6)] backdrop-blur-3xl animate-in fade-in zoom-in-95 duration-200 origin-top-right"
               >
                 <div className="overflow-y-auto p-2">
                     <div className="px-4 py-3 border-b border-white/5 mb-2">

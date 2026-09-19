@@ -218,8 +218,10 @@ export function GlobalSearch() {
   };
 
   return (
-    <div className="hidden md:flex items-center w-96 max-w-full relative group" ref={boxRef}>
-      <Search className="absolute left-4 h-4 w-4 text-slate-500 group-focus-within:text-blue-500 transition-colors z-10" />
+    <div className="relative hidden min-w-0 max-w-xl flex-1 items-center md:flex group" ref={boxRef}>
+      <span className="absolute left-2 grid h-8 w-8 place-items-center rounded-xl border border-white/[.07] bg-black/15">
+        <Search className="h-4 w-4 text-slate-500 transition-colors group-focus-within:text-blue-300" />
+      </span>
       <input
         ref={inputRef}
         type="text"
@@ -230,16 +232,17 @@ export function GlobalSearch() {
         }}
         onFocus={() => setOpen(true)}
         onKeyDown={onKeyDown}
-        placeholder="Search pages...  Ctrl+K"
-        className="w-full bg-white/[0.03] border border-white/5 rounded-2xl py-2.5 pl-12 pr-4 text-xs font-bold text-slate-300 focus:outline-none focus:ring-1 focus:ring-blue-500/30 focus:bg-white/[0.05] transition-all placeholder:text-slate-600"
+        placeholder="Seiten durchsuchen …"
+        className="h-11 w-full rounded-2xl border border-white/[.08] bg-white/[.04] pl-12 pr-20 text-xs font-semibold text-slate-200 outline-none transition-all placeholder:text-slate-600 hover:bg-white/[.055] focus:border-blue-400/25 focus:bg-blue-500/[.06] focus:ring-2 focus:ring-blue-500/10"
       />
+      <kbd className="pointer-events-none absolute right-3 rounded-lg border border-white/[.08] bg-black/20 px-2 py-1 text-[9px] font-black tracking-wider text-slate-500">⌘ K</kbd>
 
       <PopoverLayer
         anchor={boxRef}
         open={open && results.length > 0}
         onClose={() => setOpen(false)}
         maxHeight={384}
-        className="bg-[#071a33]/95 backdrop-blur-3xl border border-white/10 rounded-2xl shadow-2xl shadow-black/50"
+        className="rounded-[24px] border border-white/[.1] bg-[#090b12]/94 shadow-[0_24px_70px_rgba(0,0,0,.62)] backdrop-blur-3xl"
       >
         {/* Der Naeherungseffekt misst die Zeilen mit `offsetTop` gegen
             ihren offsetParent. Der muss also dieser Kasten sein --
@@ -296,7 +299,7 @@ export function GlobalSearch() {
         onClose={() => setOpen(false)}
         maxHeight={120}
         minHeight={0}
-        className="bg-[#071a33]/95 backdrop-blur-3xl border border-white/10 rounded-2xl shadow-2xl"
+        className="rounded-[24px] border border-white/[.1] bg-[#090b12]/94 shadow-[0_24px_70px_rgba(0,0,0,.62)] backdrop-blur-3xl"
       >
         <p className="text-xs text-slate-500 text-center p-6">
           Nichts gefunden für „{query}“.

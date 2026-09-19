@@ -38,7 +38,7 @@ export function LanguageSwitcher() {
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-800/50 border border-slate-700/50 text-slate-300 hover:bg-slate-700/50 hover:text-white transition-all text-sm font-medium"
+        className="flex h-10 items-center gap-2 rounded-2xl border border-white/[.08] bg-white/[.045] px-2.5 text-sm font-medium text-slate-300 transition-all hover:bg-white/[.09] hover:text-white"
         title={t("language")}
         aria-label={t("language")}
       >
@@ -60,16 +60,16 @@ export function LanguageSwitcher() {
         width={190}
         minHeight={0}
         maxHeight={200}
-        className="bg-slate-900 border border-slate-700 rounded-xl shadow-2xl"
+        className="overflow-hidden rounded-[20px] border border-white/[.1] bg-[#090b12]/94 p-1.5 shadow-[0_24px_70px_rgba(0,0,0,.62)] backdrop-blur-3xl"
       >
         {SPRACHEN.map((sprache) => (
           <button
             key={sprache.code}
             onClick={() => { setLanguage(sprache.code); setOpen(false); }}
-            className={`w-full flex items-center gap-3 px-4 py-3 text-sm transition-colors ${
+            className={`flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-sm transition-colors ${
               language === sprache.code
-                ? "bg-blue-500/10 text-blue-400 border-l-2 border-blue-500"
-                : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                ? "border-blue-400/20 bg-blue-500/10 text-blue-300"
+                : "border-transparent text-slate-300 hover:bg-white/[.06] hover:text-white"
             }`}
           >
             {/* Flagge vor dem Namen — in der Liste wie im Knopf. */}
