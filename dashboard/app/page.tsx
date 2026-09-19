@@ -11,7 +11,6 @@ import { INVITE_URL, SiteNav } from "@/components/site-nav";
 import { LegacyHomepage } from "@/components/home/legacy-homepage";
 import { InteractiveHomeGlobe } from "@/components/home/interactive-home-globe";
 import { FeaturedServerMarquee } from "@/components/home/featured-server-marquee";
-import { HeroModuleOrbit } from "@/components/home/hero-module-orbit";
 import { SUPPORT_INVITE } from "@/lib/legal";
 
 const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || "University Bot";
@@ -52,21 +51,28 @@ function NewHomepage() {
     <main className="new-home min-h-screen overflow-x-clip bg-[#09090b] text-zinc-200 selection:bg-blue-500/30">
       <SiteNav />
 
-      <section className="relative flex min-h-[790px] items-center overflow-hidden px-4 pb-16 pt-28 sm:px-6 lg:pt-32">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_73%_45%,rgba(37,99,235,.14),transparent_26%),radial-gradient(circle_at_12%_30%,rgba(59,130,246,.09),transparent_25%)]" />
-        <div className="pointer-events-none absolute inset-0 opacity-[.16] [background-image:linear-gradient(rgba(255,255,255,.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.05)_1px,transparent_1px)] [background-size:72px_72px] [mask-image:linear-gradient(to_bottom,black,transparent_85%)]" />
-        <div className="relative mx-auto grid w-full max-w-[1320px] items-center gap-14 lg:grid-cols-[1.05fr_.95fr]">
-          <div>
-            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-blue-400/20 bg-blue-500/[.08] px-3 py-1.5 text-xs font-bold text-blue-300"><Sparkles className="h-3.5 w-3.5" />Dein Discord. Ein Bot. Volle Kontrolle.</div>
-            <h1 className="max-w-3xl text-[45px] font-black leading-[.98] tracking-[-.055em] text-white sm:text-[65px] lg:text-[76px]">
-              <span className="bg-gradient-to-r from-blue-500 to-blue-500 bg-clip-text text-transparent">{BRAND}</span> ist dein ultimativer <span className="bg-gradient-to-r from-blue-500 to-blue-400 bg-clip-text text-transparent">All-in-One Bot.</span>
-            </h1>
-            <p className="mt-7 max-w-2xl text-base leading-8 text-zinc-400 sm:text-lg">Moderation, Tickets, Verifizierung, Logging, Community und Automationen in einem System. Weniger Bots, weniger Chaos, ein klares Dashboard.</p>
-            <div className="mt-8 flex flex-wrap gap-3"><a href={INVITE_URL} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-6 py-3.5 text-sm font-black text-white shadow-[0_12px_35px_rgba(37,99,235,.28)] transition hover:-translate-y-0.5 hover:bg-blue-500"><Sparkles className="h-4 w-4" />Jetzt einladen<ArrowRight className="h-4 w-4" /></a><a href={SUPPORT_INVITE} target="_blank" rel="noreferrer" className="rounded-xl border border-white/10 bg-white/[.025] px-6 py-3.5 text-sm font-bold text-zinc-300 transition hover:border-blue-400/25 hover:text-white">Support Server</a></div>
-            <div className="mt-8"><p className="mb-3 text-[10px] font-black uppercase tracking-[.24em] text-zinc-600">Verfügbar auf</p><div className="flex max-w-2xl flex-wrap gap-2">{LANGUAGES.map(([flag, language]) => <span key={language} className="inline-flex items-center gap-2 rounded-lg border border-white/[.06] bg-white/[.025] px-3 py-1.5 text-xs font-medium text-zinc-500"><span className="text-sm">{flag}</span>{language}</span>)}</div></div>
-          </div>
+      <section
+        className="new-home-universe relative flex min-h-[790px] items-center overflow-hidden bg-cover px-4 pb-16 pt-28 sm:px-6 lg:pt-32"
+        style={{ backgroundImage: "url('/home-university-universe.jpg')" }}
+      >
+        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(3,7,18,.92)_0%,rgba(3,7,18,.72)_38%,rgba(3,7,18,.16)_67%,rgba(3,7,18,.05)_100%)]" />
+        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(3,7,18,.3),transparent_35%,rgba(9,9,11,.84)_100%)]" />
+        <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
+          <span className="new-home-comet new-home-comet-one" />
+          <span className="new-home-comet new-home-comet-two" />
+          <span className="new-home-comet new-home-comet-three" />
+        </div>
 
-          <HeroModuleOrbit />
+        <div className="relative mx-auto w-full max-w-[1320px]">
+          <div className="max-w-[590px]">
+            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-blue-400/25 bg-[#07101f]/55 px-3 py-1.5 text-xs font-bold text-blue-200 backdrop-blur-md"><Sparkles className="h-3.5 w-3.5" />Dein Server. Ein System.</div>
+            <h1 className="text-[43px] font-black leading-[1.01] tracking-[-.05em] text-white sm:text-[61px] lg:text-[68px]">
+              <span className="text-blue-400">{BRAND}</span> bringt Ordnung in deinen Discord.
+            </h1>
+            <p className="mt-6 max-w-[540px] text-base leading-8 text-slate-300/75 sm:text-lg">Schutz, Tickets, Community und Automationen greifen zentral ineinander – eingerichtet in einem klaren Dashboard.</p>
+            <div className="mt-8 flex flex-wrap gap-3"><a href={INVITE_URL} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-6 py-3.5 text-sm font-black text-white shadow-[0_12px_35px_rgba(37,99,235,.28)] transition hover:-translate-y-0.5 hover:bg-blue-500"><Sparkles className="h-4 w-4" />Jetzt einladen<ArrowRight className="h-4 w-4" /></a><a href={SUPPORT_INVITE} target="_blank" rel="noreferrer" className="rounded-xl border border-white/15 bg-black/20 px-6 py-3.5 text-sm font-bold text-slate-200 backdrop-blur-md transition hover:border-blue-400/35 hover:text-white">Support Server</a></div>
+            <div className="mt-8"><p className="mb-3 text-[10px] font-black uppercase tracking-[.24em] text-slate-400/60">Verfügbar auf</p><div className="flex flex-wrap gap-2">{LANGUAGES.map(([flag, language]) => <span key={language} className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-black/20 px-3 py-1.5 text-xs font-medium text-slate-300/70 backdrop-blur-md"><span className="text-sm">{flag}</span>{language}</span>)}</div></div>
+          </div>
         </div>
       </section>
 
@@ -82,8 +88,56 @@ function NewHomepage() {
       <section className="px-4 pb-24 sm:px-6"><div className="mx-auto flex max-w-[1200px] flex-col items-center rounded-[30px] border border-blue-400/20 bg-[radial-gradient(circle_at_50%_0%,rgba(96,165,250,.15),transparent_60%),#110d12] px-6 py-16 text-center"><Languages className="h-7 w-7 text-blue-400"/><h2 className="mt-5 text-3xl font-black text-white sm:text-4xl">Dein Server kann einfacher laufen.</h2><p className="mt-4 max-w-xl text-sm leading-7 text-zinc-400">Lade {BRAND} ein und richte genau die Module ein, die du brauchst.</p><a href={INVITE_URL} target="_blank" rel="noreferrer" className="mt-7 inline-flex items-center gap-2 rounded-xl bg-blue-600 px-7 py-3.5 text-sm font-black text-white hover:bg-blue-500">Bot jetzt einladen<ArrowRight className="h-4 w-4"/></a></div></section>
 
       <style jsx global>{`
+        @keyframes newHomeUniverseDrift {
+          0%, 100% { background-position: 50% 50%; }
+          50% { background-position: 56% 45%; }
+        }
+        @keyframes newHomeCometFlight {
+          0% { transform: translate3d(-360px,-150px,0) rotate(24deg); opacity: 0; }
+          8% { opacity: .9; }
+          31%, 100% { transform: translate3d(1550px,650px,0) rotate(24deg); opacity: 0; }
+        }
+        .new-home-universe {
+          background-size: 108% 108%;
+          animation: newHomeUniverseDrift 26s ease-in-out infinite !important;
+        }
+        .new-home-comet {
+          position: absolute;
+          left: 0;
+          top: 0;
+          width: 220px;
+          height: 2px;
+          border-radius: 999px;
+          background: linear-gradient(90deg,transparent,rgba(147,197,253,.18),rgba(255,255,255,.95));
+          box-shadow: 0 0 10px rgba(96,165,250,.7);
+          opacity: 0;
+          animation: newHomeCometFlight 9s linear infinite !important;
+        }
+        .new-home-comet::after {
+          content: "";
+          position: absolute;
+          right: -2px;
+          top: -2px;
+          width: 6px;
+          height: 6px;
+          border-radius: 999px;
+          background: white;
+          box-shadow: 0 0 16px 4px rgba(147,197,253,.8);
+        }
+        .new-home-comet-one { top: 5%; animation-delay: 1s !important; }
+        .new-home-comet-two { top: 27%; animation-delay: 4.5s !important; animation-duration: 12s !important; }
+        .new-home-comet-three { top: 49%; animation-delay: 8s !important; animation-duration: 15s !important; }
         .new-home .home-glass { border-color: rgba(96,165,250,.16) !important; background: linear-gradient(135deg,rgba(24,14,25,.86),rgba(12,10,13,.9)) !important; }
         body:has(.new-home) .dashboard-theme-toggle { display: none !important; }
+        @media (max-width: 639px) {
+          .new-home-universe {
+            min-height: 690px;
+            background-position: 64% center;
+            background-size: cover;
+            animation: none !important;
+          }
+          .new-home-comet { display: none; }
+        }
       `}</style>
     </main>
   );
