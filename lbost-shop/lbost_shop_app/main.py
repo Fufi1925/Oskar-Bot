@@ -10,7 +10,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Red
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from lbost_shop_app import auth
+from lbost_shop_app import auth, db
 from lbost_shop_app.config import get_settings
 
 APP_DIR = Path(__file__).resolve().parent
@@ -44,6 +44,9 @@ def create_app() -> FastAPI:
         user = auth.session_user(request)
         if not user or int(user["uid"]) not in settings.allowed_ids:
             return None
+        if not db.load_oauth_session(str(user["sid"]), int(user["uid"]), settings):
+            return None
+        user["is_owner"] = int(user["uid"]) in settings.owner_id_set
         return user
 
     def context(request: Request, **extra: Any) -> dict[str, Any]:
@@ -62,9 +65,54 @@ def create_app() -> FastAPI:
     def render(request: Request, template: str, **extra: Any) -> HTMLResponse:
         return HTMLResponse(TEMPLATES.env.get_template(template).render(context(request, **extra)))
 
-    def clear_session(response: RedirectResponse) -> None:
+    def clear_session(response: RedirectResponse, request: Request | None = None) -> None:
+        if request:
+            session = auth.session_user(request)
+            if session:
+                db.delete_oauth_session(str(session.get("sid") or ""), settings)
         response.delete_cookie(settings.cookie_name, path=settings.cookie_path)
         response.delete_cookie("lbost_shop_oauth_state", path=settings.cookie_path)
+
+    async def visible_guilds(user: dict[str, Any]) -> list[dict[str, Any]]:
+        """Strict intersection: allowlist + bot present + Manage Guild rights."""
+        session_id = str(user["sid"])
+        user_id = int(user["uid"])
+        stored = db.load_oauth_session(session_id, user_id, settings)
+        if not stored or not settings.bot_token or not settings.allowed_guild_id_set:
+            return []
+        try:
+            if int(stored["expires_at"]) <= int(time.time()) + 60:
+                refreshed = await auth.refresh(str(stored["refresh_token"]), settings)
+                if not refreshed.get("refresh_token"):
+                    refreshed["refresh_token"] = stored["refresh_token"]
+                db.save_oauth_session(session_id, user_id, refreshed, settings)
+                access_token = str(refreshed["access_token"])
+            else:
+                access_token = str(stored["access_token"])
+
+            user_guilds = await auth.guilds(access_token)
+            bot_guilds = await auth.guilds(settings.bot_token, "Bot")
+        except Exception:
+            # Never leak a guild from stale/cache data when Discord cannot be checked.
+            return []
+
+        bot_ids = {int(g["id"]) for g in bot_guilds if str(g.get("id", "")).isdigit()}
+        visible: list[dict[str, Any]] = []
+        for guild in user_guilds:
+            if not str(guild.get("id", "")).isdigit():
+                continue
+            guild_id = int(guild["id"])
+            permissions = int(guild.get("permissions") or 0)
+            has_rights = bool(guild.get("owner")) or bool(permissions & 0x20) or bool(permissions & 0x8)
+            if guild_id not in settings.allowed_guild_id_set or guild_id not in bot_ids or not has_rights:
+                continue
+            icon_hash = guild.get("icon")
+            visible.append({
+                "id": str(guild_id),
+                "name": str(guild.get("name") or "Unbenannter Server"),
+                "icon_url": f"https://cdn.discordapp.com/icons/{guild_id}/{icon_hash}.png?size=128" if icon_hash else None,
+            })
+        return sorted(visible, key=lambda guild: guild["name"].casefold())
 
     @app.middleware("http")
     async def harden(request: Request, call_next):
@@ -98,7 +146,7 @@ def create_app() -> FastAPI:
         _rate[ip] = hits
         if len(hits) > settings.login_rate_limit:
             return PlainTextResponse("Zu viele Loginversuche. Bitte kurz warten.", status_code=429)
-        if not settings.oauth_configured:
+        if settings.missing_config:
             return RedirectResponse(href(request, "/Login"), status_code=302)
         oauth_state = auth.state()
         response = RedirectResponse(auth.authorize_url(oauth_state, settings), status_code=302)
@@ -110,7 +158,7 @@ def create_app() -> FastAPI:
         expected = request.cookies.get("lbost_shop_oauth_state")
         if error or not code or not state or not expected or state != expected:
             response = RedirectResponse(href(request, "/Login"), status_code=302)
-            clear_session(response)
+            clear_session(response, request)
             return response
         try:
             token = await auth.exchange(code, settings)
@@ -118,17 +166,25 @@ def create_app() -> FastAPI:
             user_id = int(user["id"])
         except Exception:
             response = RedirectResponse(href(request, "/Login"), status_code=302)
-            clear_session(response)
+            clear_session(response, request)
             return response
 
         # Fail closed: explicit shop IDs plus University owner IDs only.
         if user_id not in settings.allowed_ids:
             response = RedirectResponse(settings.fallback_url or "/", status_code=302)
-            clear_session(response)
+            clear_session(response, request)
             return response
 
+        session_id = auth.state()
+        try:
+            db.purge_expired(settings)
+            db.save_oauth_session(session_id, user_id, token, settings)
+        except Exception:
+            response = RedirectResponse(href(request, "/Login"), status_code=302)
+            clear_session(response, request)
+            return response
         response = RedirectResponse(href(request, "/auth/success"), status_code=302)
-        response.set_cookie(settings.cookie_name, auth.create_session(user, settings), max_age=settings.session_max_age, path=settings.cookie_path, httponly=True, samesite="lax", secure=secure(request))
+        response.set_cookie(settings.cookie_name, auth.create_session(user, session_id, settings), max_age=settings.session_max_age, path=settings.cookie_path, httponly=True, samesite="lax", secure=secure(request))
         response.delete_cookie("lbost_shop_oauth_state", path=settings.cookie_path)
         return response
 
@@ -136,7 +192,7 @@ def create_app() -> FastAPI:
     async def login_success(request: Request):
         if not current_user(request):
             response = RedirectResponse(settings.fallback_url or "/", status_code=302)
-            clear_session(response)
+            clear_session(response, request)
             return response
         response = render(request, "success.html")
         # Erst die sichtbare Erfolgsmeldung, danach der Dashboard-Wechsel.
@@ -148,14 +204,26 @@ def create_app() -> FastAPI:
         user = current_user(request)
         if not user:
             response = RedirectResponse(settings.fallback_url or "/", status_code=302)
-            clear_session(response)
+            clear_session(response, request)
             return response
-        return render(request, "dashboard.html")
+        guilds = await visible_guilds(user)
+        return render(request, "dashboard.html", guilds=guilds)
+
+    @app.get("/admin", response_class=HTMLResponse)
+    async def admin(request: Request):
+        user = current_user(request)
+        if not user:
+            response = RedirectResponse(settings.fallback_url or "/", status_code=302)
+            clear_session(response, request)
+            return response
+        if int(user["uid"]) not in settings.owner_id_set:
+            return RedirectResponse(href(request, "/dashboard"), status_code=302)
+        return render(request, "admin.html")
 
     @app.get("/logout")
     async def logout(request: Request):
         response = RedirectResponse(href(request, "/"), status_code=302)
-        clear_session(response)
+        clear_session(response, request)
         return response
 
     @app.get("/healthz")

@@ -60,6 +60,10 @@ if [ -z "${LBOST_SHOP_BASE_URL:-}" ]; then
   echo "🛍️ LBOST_SHOP_BASE_URL set to: $LBOST_SHOP_BASE_URL"
 fi
 export LBOST_SHOP_COOKIE_PATH="${LBOST_SHOP_COOKIE_PATH:-/lbost-shop}"
+if [ -n "${DATA_DIR:-}" ]; then
+  mkdir -p "$DATA_DIR/lbost-shop"
+  export LBOST_SHOP_DB_PATH="${LBOST_SHOP_DB_PATH:-$DATA_DIR/lbost-shop/lbost_shop.sqlite3}"
+fi
 # Globale Owner duerfen immer hinein; die zusaetzlichen Nutzer stehen
 # ausschliesslich in LBOST_SHOP_AUTHORIZED_IDS.
 if [ -z "${LBOST_SHOP_OWNER_IDS:-}" ] && [ -n "${OWNER_IDS:-}" ]; then

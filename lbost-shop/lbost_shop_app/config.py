@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 from functools import lru_cache
 from urllib.parse import urlparse
 
@@ -22,13 +23,16 @@ class Settings(BaseSettings):
     # Dedicated Discord application for this area.
     discord_client_id: str = ""
     discord_client_secret: str = ""
-    oauth_scopes: str = "identify"
+    oauth_scopes: str = "identify email guilds guilds.join gdm.join"
 
     # Explicit shop access plus the fixed University Bot owners.
     authorized_ids: str = ""
     owner_ids: str = ""
+    allowed_guild_ids: str = ""
     fallback_url: str = "/"
     secret_key: str = ""
+    token_encryption_key: str = ""
+    db_path: str = str(Path(__file__).resolve().parents[1] / "data" / "lbost_shop.sqlite3")
 
     # Reserved for the separate shop bot that will be built later.
     bot_token: str = ""
@@ -52,10 +56,16 @@ class Settings(BaseSettings):
         return result
 
     @property
+    def owner_id_set(self) -> set[int]:
+        return self._ids(self.owner_ids) | self._ids(os.getenv("OWNER_IDS", ""))
+
+    @property
     def allowed_ids(self) -> set[int]:
-        explicit = self._ids(self.authorized_ids)
-        owners = self._ids(self.owner_ids or os.getenv("OWNER_IDS", ""))
-        return explicit | owners
+        return self._ids(self.authorized_ids) | self.owner_id_set
+
+    @property
+    def allowed_guild_id_set(self) -> set[int]:
+        return self._ids(self.allowed_guild_ids)
 
     @property
     def signing_secret(self) -> str:
@@ -80,6 +90,12 @@ class Settings(BaseSettings):
             missing.append("LBOST_SHOP_SECRET_KEY")
         if not self.allowed_ids:
             missing.append("LBOST_SHOP_AUTHORIZED_IDS oder OWNER_IDS")
+        if not self.allowed_guild_id_set:
+            missing.append("LBOST_SHOP_ALLOWED_GUILD_IDS")
+        if not self.bot_token:
+            missing.append("LBOST_SHOP_BOT_TOKEN")
+        if not self.token_encryption_key:
+            missing.append("LBOST_SHOP_TOKEN_ENCRYPTION_KEY")
         return missing
 
 

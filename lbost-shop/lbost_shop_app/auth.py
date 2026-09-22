@@ -21,9 +21,10 @@ def _serializer(settings: Settings) -> URLSafeTimedSerializer:
     return URLSafeTimedSerializer(settings.signing_secret, salt=SESSION_SALT)
 
 
-def create_session(user: dict[str, Any], settings: Settings) -> str:
+def create_session(user: dict[str, Any], session_id: str, settings: Settings) -> str:
     return _serializer(settings).dumps({
         "uid": int(user["id"]),
+        "sid": session_id,
         "username": str(user.get("username") or ""),
         "global_name": user.get("global_name"),
         "avatar": user.get("avatar"),
@@ -38,7 +39,8 @@ def read_session(raw: str, settings: Settings) -> dict[str, Any] | None:
         data = _serializer(settings).loads(raw, max_age=settings.session_max_age)
     except (BadSignature, SignatureExpired, TypeError, ValueError):
         return None
-    return data if isinstance(data, dict) and str(data.get("uid", "")).isdigit() else None
+    valid = isinstance(data, dict) and str(data.get("uid", "")).isdigit() and bool(data.get("sid"))
+    return data if valid else None
 
 
 def session_user(request) -> dict[str, Any] | None:
@@ -67,11 +69,50 @@ async def exchange(code: str, settings: Settings) -> dict[str, Any]:
         return response.json()
 
 
+async def refresh(refresh_token: str, settings: Settings) -> dict[str, Any]:
+    async with httpx.AsyncClient(timeout=20.0) as client:
+        response = await client.post(DISCORD_TOKEN, data={
+            "client_id": settings.discord_client_id,
+            "client_secret": settings.discord_client_secret,
+            "grant_type": "refresh_token",
+            "refresh_token": refresh_token,
+        }, headers={"Content-Type": "application/x-www-form-urlencoded"})
+        response.raise_for_status()
+        return response.json()
+
+
 async def discord_user(access_token: str) -> dict[str, Any]:
     async with httpx.AsyncClient(timeout=20.0) as client:
         response = await client.get(f"{DISCORD_API}/users/@me", headers={"Authorization": f"Bearer {access_token}"})
         response.raise_for_status()
         return response.json()
+
+
+async def guilds(token: str, authorization_type: str = "Bearer") -> list[dict[str, Any]]:
+    """Read every guild page available to a user or bot token."""
+    result: list[dict[str, Any]] = []
+    after: str | None = None
+    async with httpx.AsyncClient(timeout=20.0) as client:
+        while True:
+            params = {"limit": "200"}
+            if after:
+                params["after"] = after
+            response = await client.get(
+                f"{DISCORD_API}/users/@me/guilds",
+                params=params,
+                headers={"Authorization": f"{authorization_type} {token}"},
+            )
+            response.raise_for_status()
+            page = response.json()
+            if not isinstance(page, list):
+                break
+            result.extend(page)
+            if len(page) < 200:
+                break
+            after = str(page[-1].get("id") or "")
+            if not after:
+                break
+    return result
 
 
 def avatar_url(user: dict[str, Any] | None) -> str | None:
