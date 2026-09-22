@@ -67,6 +67,7 @@ def is_technical(t: str) -> bool:
     # stammen aus dem groben String-Literal-Scanner und sind kein DOM-Text.
     if any(marker in t for marker in (
         "useState", "React.useState", " const [", "a.status ===",
+        "className", "</", "/>", "=>", ");return", "===", "&&", "||", "xMarken.has(",
         ", icon: Server, color:", ">Kanal</option>", ">Rolle</option>",
         ",`Server-Präfix (", "return (", ": Array", ": Record",
         "onChange: (", "entries.length ===", "!data ? (", ".replace(",
@@ -84,7 +85,9 @@ def is_technical(t: str) -> bool:
         return True
     if re.fullmatch(r"\{[a-zA-Z0-9_.-]+\}", t):
         return True
-    if t.startswith((") :", ": i ", "= (", "= 0", "();", "0 &&")):
+    if t.startswith((") :", ":", "= (", "= 0", "();", "0 &&", ">", "}", ")")):
+        return True
+    if re.fullmatch(r"<:[A-Za-z0-9_]+:\d+>", t):
         return True
     if t.startswith(("next-auth.", "ec.europa.eu/", "db/")):
         return True
@@ -193,6 +196,10 @@ for p in DASH.rglob("*"):
     if p.suffix in (".tsx", ".ts") and "node_modules" not in p.parts and ".next" not in p.parts:
         rel = str(p.relative_to(DASH)).replace("\\", "/")
         if rel in SKIP_FILES:
+            continue
+        if "--dashboard" in sys.argv and not rel.startswith(
+            ("app/dashboard/", "components/dashboard/", "components/global-search", "components/language-switcher")
+        ):
             continue
         files.append((p, rel))
 print(f"Zu scannende Dateien: {len(files)}")

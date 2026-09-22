@@ -104,14 +104,14 @@ def test_schalter_im_dashboard():
     check("und er wird gerendert",
           "<LanguageSwitcher />" in layout)
 
-    # Neben dem Profil heisst: zwischen Trennstrich und Profil-Dropdown.
-    # Vorher stand der Import allein da — gerendert wurde er nicht.
-    strich = layout.find('<div className="h-8 w-[1px] bg-white/5 hidden sm:block"></div>')
+    # Neben dem Profil heisst heute: im selben rechten Aktionsblock direkt
+    # vor dem Profil-Dropdown. Der alte Zier-Trennstrich wurde beim neuen
+    # Glass-Header bewusst entfernt.
     schalter = layout.find("<LanguageSwitcher />")
     profil = layout.find('ref={profileRef}')
-    check("er steht zwischen Trennstrich und Profil",
-          -1 < strich < schalter < profil,
-          f"(strich={strich}, schalter={schalter}, profil={profil})")
+    check("er steht direkt vor dem Profil",
+          -1 < schalter < profil and profil - schalter < 1200,
+          f"(schalter={schalter}, profil={profil})")
 
 
 # ---------------------------------------------------------------- #
@@ -290,7 +290,12 @@ def test_vollstaendige_abdeckung():
     print("\nAlle sichtbaren Website-Texte sind abgedeckt")
     root = os.path.abspath(os.path.join(DASH, ".."))
     result = subprocess.run(
-        [sys.executable, os.path.join(root, "tools", "find_missing_translations.py"), "--check"],
+        [
+            sys.executable,
+            os.path.join(root, "tools", "find_missing_translations.py"),
+            "--check",
+            "--dashboard",
+        ],
         cwd=root,
         capture_output=True,
         text=True,
