@@ -40,15 +40,19 @@ Ein Server wird nur angezeigt, wenn **alle** Bedingungen stimmen:
 
 Wenn eine Discord-Prüfung fehlschlägt, wird sicherheitshalber kein Server aus veralteten Daten angezeigt.
 
+## Hintergrund-Bot
+
+`start.sh` startet `/app/lbost-shop/run_bot.py` als eigenen Hintergrundprozess, sobald `LBOST_SHOP_BOT_TOKEN` gesetzt ist. Der Client verbindet sich mit dem Discord-Gateway und wird beim Container-Stopp sauber beendet. Er besitzt derzeit absichtlich keine Commands, Nachrichten-Handler oder Automationen; diese Funktionen kommen später und bleiben vom Hauptbot isoliert.
+
 ## OAuth
 
 Standard-Scopes:
 
 ```text
-identify email guilds guilds.join gdm.join
+identify email guilds guilds.join
 ```
 
-Damit fragt Discord Identität, E-Mail, Serverliste, Serverbeitritt und den Beitritt zu verwalteten Gruppen-DMs ab. Das Lesen oder Schreiben privater Benutzer-DMs ist für gewöhnliche Discord-Anwendungen nicht verfügbar und wird bewusst nicht vorgetäuscht. Der Bot kann später eigene DMs an Nutzer senden.
+Damit fragt Discord Identität, E-Mail, Serverliste und Serverbeitritt ab. Das Lesen oder Schreiben privater Benutzer-DMs ist für gewöhnliche Discord-Anwendungen nicht verfügbar und wird bewusst nicht vorgetäuscht. Der Bot kann später eigene DMs an Nutzer senden.
 
 Im Discord Developer Portal muss exakt diese Redirect-URI stehen:
 

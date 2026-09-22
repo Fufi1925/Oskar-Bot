@@ -130,7 +130,13 @@ echo "🖥️ Dashboard: port $DASHBOARD_PORT"
 echo "=========================================="
 
 DASHBOARD_PID=""
+LBOST_SHOP_BOT_PID=""
 cleanup() {
+  if [ -n "${LBOST_SHOP_BOT_PID:-}" ] && kill -0 "$LBOST_SHOP_BOT_PID" 2>/dev/null; then
+    echo "🧹 Stopping LBoost Shop Bot (PID: $LBOST_SHOP_BOT_PID)"
+    kill "$LBOST_SHOP_BOT_PID" 2>/dev/null || true
+    wait "$LBOST_SHOP_BOT_PID" 2>/dev/null || true
+  fi
   if [ -n "${PHANTOM_BOT_PID:-}" ] && kill -0 "$PHANTOM_BOT_PID" 2>/dev/null; then
     echo "🧹 Stopping Phantom Bot (PID: $PHANTOM_BOT_PID)"
     kill "$PHANTOM_BOT_PID" 2>/dev/null || true
@@ -185,6 +191,18 @@ if [ -n "${PHANTOM_BOT_TOKEN:-}" ] && [ -f /app/phantom/run_bot.py ]; then
   echo "✅ Phantom Ticket-Bot started (PID: $PHANTOM_BOT_PID)"
 else
   echo "ℹ️ Phantom Ticket-Bot skipped (PHANTOM_BOT_TOKEN not set)"
+fi
+
+# Start the isolated LBoost Shop gateway client. It intentionally has no
+# commands or handlers yet, but stays connected for future shop features.
+if [ -n "${LBOST_SHOP_BOT_TOKEN:-}" ] && [ -f /app/lbost-shop/run_bot.py ]; then
+  echo "🛍️ Starting LBoost Shop Bot (no features enabled yet)..."
+  cd /app/lbost-shop
+  PYTHONPATH=/app/lbost-shop python run_bot.py > /tmp/lbost-shop-bot.log 2>&1 &
+  LBOST_SHOP_BOT_PID=$!
+  echo "✅ LBoost Shop Bot started (PID: $LBOST_SHOP_BOT_PID)"
+else
+  echo "ℹ️ LBoost Shop Bot skipped (LBOST_SHOP_BOT_TOKEN not set)"
 fi
 
 cd /app/bot

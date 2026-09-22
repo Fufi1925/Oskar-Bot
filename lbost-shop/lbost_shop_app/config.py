@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     # Dedicated Discord application for this area.
     discord_client_id: str = ""
     discord_client_secret: str = ""
-    oauth_scopes: str = "identify email guilds guilds.join gdm.join"
+    oauth_scopes: str = "identify email guilds guilds.join"
 
     # Explicit shop access plus the fixed University Bot owners.
     authorized_ids: str = ""
