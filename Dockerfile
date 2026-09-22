@@ -57,6 +57,10 @@ RUN pip install --no-cache-dir -r ./phantom/requirements.txt
 COPY louckup/ ./louckup/
 RUN pip install --no-cache-dir -r ./louckup/requirements.txt
 
+# LBoost Shop — separater OAuth-/Dashboard-Bereich unter /lbost-shop.
+COPY lbost-shop/ ./lbost-shop/
+RUN pip install --no-cache-dir -r ./lbost-shop/requirements.txt
+
 # Die Deploy-Historie fuer den Tester-Reiter.
 #
 # Im fertigen Image gibt es kein .git -- oben wird nur bot/ und

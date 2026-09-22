@@ -48,6 +48,24 @@ if [ -z "${LOUCKUP_SECRET_KEY:-}" ] && [ -n "${DASHBOARD_API_KEY:-}" ]; then
   export LOUCKUP_SECRET_KEY="$DASHBOARD_API_KEY"
 fi
 
+# ── LBoost Shop (isolated under /lbost-shop) ──────────────────────
+# Eigene Discord-Application, eigener Session-Schluessel, eigene
+# Freigabeliste und bereits reservierter Token fuer den spaeteren Shop-Bot.
+if [ -z "${LBOST_SHOP_BASE_URL:-}" ]; then
+  if [ -n "${RAILWAY_PUBLIC_DOMAIN:-}" ]; then
+    export LBOST_SHOP_BASE_URL="https://$RAILWAY_PUBLIC_DOMAIN/lbost-shop"
+  else
+    export LBOST_SHOP_BASE_URL="http://localhost:$PORT/lbost-shop"
+  fi
+  echo "🛍️ LBOST_SHOP_BASE_URL set to: $LBOST_SHOP_BASE_URL"
+fi
+export LBOST_SHOP_COOKIE_PATH="${LBOST_SHOP_COOKIE_PATH:-/lbost-shop}"
+# Globale Owner duerfen immer hinein; die zusaetzlichen Nutzer stehen
+# ausschliesslich in LBOST_SHOP_AUTHORIZED_IDS.
+if [ -z "${LBOST_SHOP_OWNER_IDS:-}" ] && [ -n "${OWNER_IDS:-}" ]; then
+  export LBOST_SHOP_OWNER_IDS="$OWNER_IDS"
+fi
+
 # Set NEXTAUTH_URL automatically if not set
 if [ -z "${NEXTAUTH_URL:-}" ]; then
   if [ -n "${RAILWAY_PUBLIC_DOMAIN:-}" ]; then

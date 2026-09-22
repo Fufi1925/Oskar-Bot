@@ -1,0 +1,3 @@
+{% extends "base.html" %}{% block title %}Anmeldung erfolgreich — {{ brand }}{% endblock %}{% block body %}
+<main class="center"><section class="card success"><span class="success-check">✓</span><p class="eyebrow">Zugriff bestätigt</p><h2>Anmeldung erfolgreich</h2><p>Willkommen, {{ user.global_name or user.username }}. Du wirst jetzt sicher zu deinem Dashboard weitergeleitet.</p><div class="loading"><span></span></div><a class="quiet-link" href="{{ root_path }}/dashboard">Jetzt weiter</a></section></main>
+{% endblock %}

@@ -545,6 +545,25 @@ def create_app() -> FastAPI:
     except Exception as exc:
         logger.error("Failed to mount Louckup at /louckup: %s", exc)
 
+    # LBoost Shop — eigener OAuth-Bereich mit eigener Application,
+    # eigener Session und separater Freigabeliste. Auch dieser Mount muss
+    # vor dem Dashboard-Catch-all stehen.
+    try:
+        import sys as _shop_sys
+        from pathlib import Path as _ShopPath
+
+        _shop_root = _ShopPath(__file__).resolve().parents[2] / "lbost-shop"
+        if _shop_root.is_dir():
+            _shop_sys.path.insert(0, str(_shop_root))
+            from lbost_shop_app.main import create_app as create_lbost_shop_app
+
+            app.mount("/lbost-shop", create_lbost_shop_app())
+            logger.info("LBoost Shop mounted at /lbost-shop")
+        else:
+            logger.warning("LBoost Shop directory missing at %s — /lbost-shop will 404", _shop_root)
+    except Exception as exc:
+        logger.error("Failed to mount LBoost Shop at /lbost-shop: %s", exc)
+
     # Mounts ohne abschliessenden Slash.
     #
     # Seit Starlette 1.x greift ein Mount nur noch auf Pfade, die mit
@@ -561,6 +580,10 @@ def create_app() -> FastAPI:
     @app.get("/louckup", include_in_schema=False)
     async def louckup_root():
         return RedirectResponse(url="/louckup/", status_code=307)
+
+    @app.get("/lbost-shop", include_in_schema=False)
+    async def lbost_shop_root():
+        return RedirectResponse(url="/lbost-shop/", status_code=307)
 
     @app.get("/phantom", include_in_schema=False)
     async def phantom_root():

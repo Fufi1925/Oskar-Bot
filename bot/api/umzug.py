@@ -96,6 +96,7 @@ PERSISTENTE_ENDUNGEN = (
 GESCHWISTER_ORDNER = (
     "phantom/data",
     "louckup/data",
+    "lbost-shop/data",
 )
 GESCHWISTER_DATEI_ORDNER = ("statusbot",)
 
