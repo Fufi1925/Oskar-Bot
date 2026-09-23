@@ -290,6 +290,7 @@ def create_app() -> FastAPI:
         return response
 
     @app.get("/dashboard", response_class=HTMLResponse)
+    @app.get("/servers", response_class=HTMLResponse)
     async def dashboard(request: Request):
         user = current_user(request)
         if not user:

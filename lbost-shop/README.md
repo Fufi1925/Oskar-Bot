@@ -12,6 +12,10 @@ Ein Server wird nur angezeigt, wenn alle Bedingungen stimmen:
 
 Diese Bedingungen werden bei jedem geschützten Aufruf erneut mit Discord abgeglichen. Nur globale `OWNER_IDS` und zusätzliche `LBOST_SHOP_OWNER_IDS` sehen `/lbost-shop/admin`.
 
+## Dashboard-Oberfläche
+
+Nach dem Login verwendet der komplette geschützte Bereich dieselbe University-Bot-Dashboard-Struktur: echtes University-Bot-Logo und festes Branding, Glass-Sidebar, gruppierte Servernavigation, mobile Navigation mit Overlay, Sticky-Topbar, globale Modulsuche, Benachrichtigungs-Popover, DE/EN-Sprachwahl und Profilmenü. Dashboard, Serverübersicht, sämtliche Modulformulare und das Owner-Admin-Panel teilen sich diese Shell.
+
 ## Dashboard-Module
 
 - **Advanced Tickets:** mehrere Panel-Konfigurationen und Kategorien, eigene Rollen, Berechtigungen, Button-Texte und Custom Emojis, Claim/Close/Delete, HTML-Transkripte, Log-Kanal, Components-V2-Layouts, Farben, Bilder, Thumbnail und Footer.

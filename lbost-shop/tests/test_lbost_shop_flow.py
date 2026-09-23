@@ -69,6 +69,10 @@ async def run() -> None:
         assert response.status_code == 200
         assert "Visible" in response.text
         assert all(name not in response.text for name in ("Not secret", "Bot absent", "No rights"))
+        assert "University Bot" in response.text and "Control Center" in response.text
+        response = await client.get("/lbost-shop/guild/1")
+        assert response.status_code == 200
+        assert "Advanced Ticket System" in response.text and "Dashboard durchsuchen" in response.text
 
         # Ordinary authorised users neither see nor open the owner panel.
         assert "Admin-Panel" not in response.text
