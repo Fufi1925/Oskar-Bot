@@ -80,6 +80,61 @@ if [ -z "${NEXTAUTH_URL:-}" ]; then
   echo "🌐 NEXTAUTH_URL set to: $NEXTAUTH_URL"
 fi
 
+# OAuth is extremely strict about redirect_uri. A trailing callback path,
+# whitespace, localhost on Railway or a trailing slash can make Discord accept
+# the consent and then reject the token exchange. Normalize to one public
+# origin before Next.js starts, while keeping intentional custom domains.
+NORMALIZED_NEXTAUTH_URL="$(python - "$NEXTAUTH_URL" "${RAILWAY_PUBLIC_DOMAIN:-}" <<'PY'
+import sys
+from urllib.parse import urlsplit
+raw = (sys.argv[1] or "").strip().strip('"').strip("'")
+railway = (sys.argv[2] or "").strip()
+if raw and "://" not in raw:
+    raw = "https://" + raw
+parts = urlsplit(raw)
+host = (parts.hostname or "").lower()
+if railway and host in {"localhost", "127.0.0.1", "0.0.0.0", ""}:
+    print("https://" + railway)
+elif parts.scheme in {"http", "https"} and parts.netloc:
+    print(f"{parts.scheme}://{parts.netloc}")
+else:
+    print("")
+PY
+)"
+if [ -n "$NORMALIZED_NEXTAUTH_URL" ]; then
+  if [ "$NORMALIZED_NEXTAUTH_URL" != "$NEXTAUTH_URL" ]; then
+    echo "🛠️ NEXTAUTH_URL normalized: $NEXTAUTH_URL -> $NORMALIZED_NEXTAUTH_URL"
+  fi
+  export NEXTAUTH_URL="$NORMALIZED_NEXTAUTH_URL"
+else
+  echo "❌ NEXTAUTH_URL is invalid; Discord OAuth cannot start"
+fi
+export NEXTAUTH_URL_INTERNAL="${NEXTAUTH_URL_INTERNAL:-http://127.0.0.1:$DASHBOARD_PORT}"
+echo "🔁 University OAuth callback: $NEXTAUTH_URL/api/auth/callback/discord"
+
+# The main dashboard may use new dedicated names or the legacy variables.
+# Dedicated values also repair every older main-dashboard OAuth route that
+# still reads DISCORD_CLIENT_*. Never silently borrow LBOST_SHOP_*.
+if [ -n "${UNIVERSITY_DISCORD_CLIENT_ID:-}" ]; then
+  export DISCORD_CLIENT_ID="$UNIVERSITY_DISCORD_CLIENT_ID"
+elif [ -n "${MAIN_BOT_CLIENT_ID:-}" ]; then
+  export DISCORD_CLIENT_ID="$MAIN_BOT_CLIENT_ID"
+fi
+if [ -n "${UNIVERSITY_DISCORD_CLIENT_SECRET:-}" ]; then
+  export DISCORD_CLIENT_SECRET="$UNIVERSITY_DISCORD_CLIENT_SECRET"
+elif [ -n "${MAIN_BOT_CLIENT_SECRET:-}" ]; then
+  export DISCORD_CLIENT_SECRET="$MAIN_BOT_CLIENT_SECRET"
+fi
+if [ -z "${UNIVERSITY_DISCORD_CLIENT_ID:-${MAIN_BOT_CLIENT_ID:-${DISCORD_CLIENT_ID:-}}}" ]; then
+  echo "❌ University Discord OAuth client ID is missing"
+fi
+if [ -z "${UNIVERSITY_DISCORD_CLIENT_SECRET:-${MAIN_BOT_CLIENT_SECRET:-${DISCORD_CLIENT_SECRET:-}}}" ]; then
+  echo "❌ University Discord OAuth client secret is missing"
+fi
+if [ -n "${LBOST_SHOP_DISCORD_CLIENT_ID:-}" ] && [ "${UNIVERSITY_DISCORD_CLIENT_ID:-${MAIN_BOT_CLIENT_ID:-${DISCORD_CLIENT_ID:-}}}" = "$LBOST_SHOP_DISCORD_CLIENT_ID" ]; then
+  echo "⚠️ University and LBoost use the same Discord Client ID. Set UNIVERSITY_DISCORD_CLIENT_ID to the main app."
+fi
+
 # IMPORTANT: NEXTAUTH_SECRET must be stable across restarts, otherwise every
 # restart invalidates all login cookies and users must authorize Discord again.
 if [ -z "${NEXTAUTH_SECRET:-}" ]; then

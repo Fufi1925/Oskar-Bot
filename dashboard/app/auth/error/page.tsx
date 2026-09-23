@@ -2,6 +2,7 @@
 
 import React, { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
+import { signIn } from "next-auth/react";
 import Link from "next/link";
 import { AlertTriangle, ArrowLeft, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -71,7 +72,7 @@ function ErrorContent() {
           <Button 
             variant="outline" 
             className="w-full gap-2 h-12 font-bold border-slate-800"
-            onClick={() => window.location.reload()}
+            onClick={() => signIn("discord", { callbackUrl: "/auth/success?next=%2Fdashboard" })}
           >
             <RefreshCw className="h-4 w-4" />
             Erneut versuchen

@@ -33,10 +33,14 @@ export default function LoginSuccessPage() {
     let timer: number | undefined;
     const started = Date.now();
     const requested = new URLSearchParams(window.location.search).get("next");
+    const safeRequested =
+      requested && requested.startsWith("/") && !requested.startsWith("//")
+        ? requested
+        : null;
 
     void (async () => {
-      let destination = requested || "/dashboard";
-      if (!requested && sessionUserId) {
+      let destination = safeRequested || "/dashboard";
+      if (!safeRequested && sessionUserId) {
         // Account preference is cross-device. Never let a slow API hide the
         // success confirmation or hold the redirect indefinitely.
         const preference: any = await Promise.race([

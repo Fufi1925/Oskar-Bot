@@ -597,7 +597,18 @@ def create_app() -> FastAPI:
     async def proxy_to_dashboard(request: Request, path: str):
         target_url = f"{DASHBOARD_URL}/{path}"
         headers = dict(request.headers)
+        # NextAuth must see the public origin, not the internal :3000 hop.
+        # Railway normally supplies these already, but setting deterministic
+        # fallbacks prevents OAuth state/callback cookies from switching host
+        # or protocol when a proxy header is absent.
+        public_host = request.headers.get("x-forwarded-host") or request.headers.get("host")
+        public_proto = request.headers.get("x-forwarded-proto") or request.url.scheme
         headers.pop("host", None)
+        if public_host:
+            headers["x-forwarded-host"] = public_host.split(",", 1)[0].strip()
+        headers["x-forwarded-proto"] = public_proto.split(",", 1)[0].strip()
+        if headers["x-forwarded-proto"] == "https":
+            headers.setdefault("x-forwarded-port", "443")
         body = await request.body()
         try:
             async with httpx.AsyncClient(timeout=30.0, follow_redirects=False) as client:

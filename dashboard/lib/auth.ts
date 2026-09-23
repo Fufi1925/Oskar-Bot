@@ -1,8 +1,21 @@
 import DiscordProvider from "next-auth/providers/discord";
 import { AuthOptions } from "next-auth";
 
-const DISCORD_CLIENT_ID = process.env.DISCORD_CLIENT_ID || "";
-const DISCORD_CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET || "";
+// Keep the University OAuth application isolated from LBoost Shop and every
+// other bot. Dedicated names win; the old variables remain supported so
+// existing Railway deployments keep working without a migration.
+const DISCORD_CLIENT_ID = (
+  process.env.UNIVERSITY_DISCORD_CLIENT_ID ||
+  process.env.MAIN_BOT_CLIENT_ID ||
+  process.env.DISCORD_CLIENT_ID ||
+  ""
+).trim();
+const DISCORD_CLIENT_SECRET = (
+  process.env.UNIVERSITY_DISCORD_CLIENT_SECRET ||
+  process.env.MAIN_BOT_CLIENT_SECRET ||
+  process.env.DISCORD_CLIENT_SECRET ||
+  ""
+).trim();
 const API_BASE_URL =
   process.env.API_BASE_URL || `http://127.0.0.1:${process.env.PORT || 8080}/api/v1`;
 
@@ -125,7 +138,19 @@ export const authOptions: AuthOptions = {
   secret: process.env.NEXTAUTH_SECRET || process.env.DASHBOARD_API_KEY,
   pages: {
     signIn: "/",
-    error: "/",
+    // Do not send an OAuth callback error back to the homepage. That hid the
+    // real reason and could immediately start another login loop.
+    error: "/auth/error",
   },
-  debug: true,
+  logger: {
+    error(code, metadata) {
+      // NextAuth redacts provider secrets. Railway now receives the concrete
+      // callback/state/token error instead of only a generic browser page.
+      console.error(`[next-auth][${code}]`, metadata);
+    },
+    warn(code) {
+      console.warn(`[next-auth][${code}]`);
+    },
+  },
+  debug: process.env.NODE_ENV !== "production",
 };
