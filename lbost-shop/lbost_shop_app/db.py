@@ -8,6 +8,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import sqlite3
+import threading
 import time
 from pathlib import Path
 from typing import Any
@@ -92,3 +93,117 @@ def purge_expired(settings: Settings) -> None:
     cutoff = int(time.time()) - settings.session_max_age
     with _connect(settings) as conn:
         conn.execute("DELETE FROM oauth_sessions WHERE last_seen_at < ?", (cutoff,))
+
+# ── Feature configuration and runtime data ──────────────────────────────
+_FEATURE_DBS: set[str] = set()
+_FEATURE_DB_LOCK = threading.Lock()
+
+
+def init_features(settings: Settings) -> None:
+    key = str(Path(settings.db_path).resolve())
+    if key in _FEATURE_DBS:
+        return
+    with _FEATURE_DB_LOCK:
+        if key in _FEATURE_DBS:
+            return
+        _init_features(settings)
+        _FEATURE_DBS.add(key)
+
+
+def _init_features(settings: Settings) -> None:
+    with _connect(settings) as conn:
+        conn.executescript("""
+        CREATE TABLE IF NOT EXISTS guild_features (
+            guild_id INTEGER NOT NULL,
+            feature TEXT NOT NULL,
+            data_json TEXT NOT NULL DEFAULT '{}',
+            updated_at INTEGER NOT NULL,
+            PRIMARY KEY (guild_id, feature)
+        );
+        CREATE TABLE IF NOT EXISTS warnings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            guild_id INTEGER NOT NULL, user_id INTEGER NOT NULL,
+            moderator_id INTEGER NOT NULL, reason TEXT NOT NULL,
+            created_at INTEGER NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS tickets (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            guild_id INTEGER NOT NULL, channel_id INTEGER UNIQUE NOT NULL,
+            owner_id INTEGER NOT NULL, panel_key TEXT NOT NULL,
+            claimed_by INTEGER, status TEXT NOT NULL DEFAULT 'open',
+            created_at INTEGER NOT NULL, closed_at INTEGER
+        );
+        CREATE TABLE IF NOT EXISTS giveaways (
+            message_id INTEGER PRIMARY KEY, guild_id INTEGER NOT NULL,
+            channel_id INTEGER NOT NULL, prize TEXT NOT NULL,
+            winners INTEGER NOT NULL, ends_at INTEGER NOT NULL,
+            status TEXT NOT NULL DEFAULT 'active', winner_ids TEXT NOT NULL DEFAULT '[]'
+        );
+        CREATE TABLE IF NOT EXISTS giveaway_entries (
+            message_id INTEGER NOT NULL, user_id INTEGER NOT NULL,
+            PRIMARY KEY(message_id,user_id)
+        );
+        CREATE TABLE IF NOT EXISTS scheduled_jobs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            guild_id INTEGER NOT NULL, kind TEXT NOT NULL,
+            channel_id INTEGER NOT NULL, content TEXT NOT NULL,
+            interval_minutes INTEGER NOT NULL, next_run INTEGER NOT NULL,
+            enabled INTEGER NOT NULL DEFAULT 1
+        );
+        CREATE TABLE IF NOT EXISTS feature_audit (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            guild_id INTEGER NOT NULL, actor_id INTEGER NOT NULL,
+            action TEXT NOT NULL, details TEXT NOT NULL,
+            created_at INTEGER NOT NULL
+        );
+        """)
+
+
+def get_feature(guild_id: int, feature: str, settings: Settings) -> dict[str, Any]:
+    import json
+    init_features(settings)
+    with _connect(settings) as conn:
+        row = conn.execute(
+            "SELECT data_json FROM guild_features WHERE guild_id=? AND feature=?",
+            (guild_id, feature),
+        ).fetchone()
+    if not row:
+        return {}
+    try:
+        value = json.loads(row["data_json"])
+        return value if isinstance(value, dict) else {}
+    except (TypeError, ValueError):
+        return {}
+
+
+def set_feature(guild_id: int, feature: str, data: dict[str, Any], actor_id: int, settings: Settings) -> None:
+    import json
+    init_features(settings)
+    now = int(time.time())
+    payload = json.dumps(data, ensure_ascii=False, separators=(",", ":"))
+    with _connect(settings) as conn:
+        conn.execute(
+            """INSERT INTO guild_features(guild_id,feature,data_json,updated_at)
+               VALUES(?,?,?,?) ON CONFLICT(guild_id,feature)
+               DO UPDATE SET data_json=excluded.data_json,updated_at=excluded.updated_at""",
+            (guild_id, feature, payload, now),
+        )
+        conn.execute(
+            "INSERT INTO feature_audit(guild_id,actor_id,action,details,created_at) VALUES(?,?,?,?,?)",
+            (guild_id, actor_id, f"configure:{feature}", payload[:2000], now),
+        )
+
+
+def all_features(guild_id: int, settings: Settings) -> dict[str, dict[str, Any]]:
+    import json
+    init_features(settings)
+    result: dict[str, dict[str, Any]] = {}
+    with _connect(settings) as conn:
+        rows = conn.execute("SELECT feature,data_json FROM guild_features WHERE guild_id=?", (guild_id,)).fetchall()
+    for row in rows:
+        try:
+            value = json.loads(row["data_json"])
+            result[row["feature"]] = value if isinstance(value, dict) else {}
+        except (TypeError, ValueError):
+            result[row["feature"]] = {}
+    return result

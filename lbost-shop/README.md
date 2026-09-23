@@ -1,16 +1,69 @@
 # LBoost Shop (`/lbost-shop`)
 
-Vollständig isolierter University-Bot-Unterbereich mit eigener Discord-OAuth-Anwendung, verschlüsselten serverseitigen OAuth-Sitzungen, eigener Zugriffsliste und eigener Server-Freigabeliste.
+Isolierter University-Bot-Unterbereich mit eigener Discord-App, verschlüsselten OAuth-Sitzungen, eigenem Bot-Prozess und vollständig serverbezogener Modulkonfiguration.
 
-## Routen
+## Zugriff
 
-- `/lbost-shop` – kurze Einordnung als University-Bot-Unterbereich
-- `/lbost-shop/Login` – Loginseite
-- `/lbost-shop/auth/callback` – Discord OAuth Redirect
-- `/lbost-shop/auth/success` – sichtbare Erfolgsmeldung vor der Weiterleitung
-- `/lbost-shop/dashboard` – streng gefilterte Serverliste
-- `/lbost-shop/admin` – leerer Platzhalter ausschließlich für bestehende Owner-IDs
-- `/lbost-shop/healthz` – technische Statusantwort ohne Secrets
+Ein Server wird nur angezeigt, wenn alle Bedingungen stimmen:
+
+1. Seine ID steht in `LBOST_SHOP_ALLOWED_GUILD_IDS`.
+2. Der separate Shop-Bot ist aktuell auf dem Server.
+3. Der Nutzer ist Serverinhaber oder besitzt `Administrator` beziehungsweise `Server verwalten`.
+
+Diese Bedingungen werden bei jedem geschützten Aufruf erneut mit Discord abgeglichen. Nur globale `OWNER_IDS` und zusätzliche `LBOST_SHOP_OWNER_IDS` sehen `/lbost-shop/admin`.
+
+## Dashboard-Module
+
+- **Advanced Tickets:** mehrere Panel-Konfigurationen und Kategorien, eigene Rollen, Berechtigungen, Button-Texte und Custom Emojis, Claim/Close/Delete, HTML-Transkripte, Log-Kanal, Components-V2-Layouts, Farben, Bilder, Thumbnail und Footer.
+- **Moderation:** Warn, Timeout, Kick und Ban als Slash Commands; Anti-Spam, Anti-Link, Ausnahmen und Moderationslogs.
+- **Welcome & Leave:** eigene Kanäle, Texte, Platzhalter und Bilder für Join und Leave.
+- **Reaction Roles:** beliebig konfigurierte Rollenbuttons und mehrere Panels.
+- **Automation:** Auto-Antworten, eigene `!`-Commands und intervallbasierte Ankündigungen.
+- **Logging:** Member-, Nachrichten-, Moderations-, Rollen-, Kanal- und Ticketlogs.
+- **Giveaways:** persistente Teilnehmer, automatische Gewinner, Dauer, Gewinneranzahl und Reroll.
+
+Der Serverbereich ist unter `/lbost-shop/guild/{SERVER_ID}` erreichbar. Änderungen landen in SQLite/WAL und werden vom Bot ohne Neustart gelesen. JSON-Felder im Dashboard enthalten direkt sichtbare Beispiele für mehrere Panels und Einträge.
+
+## Discord-Befehle
+
+```text
+/ticket-panel
+/reaction-panel
+/warn
+/mute
+/kick
+/ban
+/giveaway
+/giveaway-reroll
+/announce
+```
+
+Interaktive Discord-Nachrichten werden als Components V2 erzeugt. Standardbuttons verwenden keine Unicode-Emojis; Custom Emojis können im Dashboard hinterlegt werden. Ticket-, Rollen- und Giveaway-Buttons funktionieren nach Deployments weiter, da ihre IDs global verarbeitet und alle Zustände persistent gespeichert werden.
+
+## Hintergrund-Bot
+
+`start.sh` startet `/app/lbost-shop/run_bot.py` als getrennten Hintergrundprozess, sobald `LBOST_SHOP_BOT_TOKEN` gesetzt ist. Discord.py übernimmt Reconnects; beim Container-Stopp wird der Prozess sauber beendet. Der Bot teilt weder Cogs noch Sessions mit University Bot, Phantom oder Louckup.
+
+Im Discord Developer Portal müssen für Welcome/Leave, AutoMod und Auto-Antworten aktiviert sein:
+
+- Server Members Intent
+- Message Content Intent
+
+Der Bot benötigt abhängig von aktivierten Modulen unter anderem `Manage Channels`, `Manage Roles`, `Moderate Members`, `Kick Members`, `Ban Members`, `Manage Messages`, `View Channel`, `Send Messages`, `Read Message History` und `Attach Files`.
+
+## OAuth
+
+```text
+identify email guilds guilds.join
+```
+
+Gruppen-DM-Scopes sind nicht enthalten. Private Direktnachrichten werden nicht gelesen.
+
+Redirect-URI:
+
+```text
+https://DEINE-DOMAIN/lbost-shop/auth/callback
+```
 
 ## Railway-Variablen
 
@@ -24,40 +77,6 @@ LBOST_SHOP_ALLOWED_GUILD_IDS
 LBOST_SHOP_BOT_TOKEN
 ```
 
-Optional: `LBOST_SHOP_OWNER_IDS`, `LBOST_SHOP_BASE_URL`, `LBOST_SHOP_COOKIE_PATH`, `LBOST_SHOP_FALLBACK_URL`, `LBOST_SHOP_OAUTH_SCOPES`, `LBOST_SHOP_DB_PATH`.
+Optional: `LBOST_SHOP_OWNER_IDS`, `LBOST_SHOP_BASE_URL`, `LBOST_SHOP_COOKIE_PATH`, `LBOST_SHOP_FALLBACK_URL`, `LBOST_SHOP_OAUTH_SCOPES`, `LBOST_SHOP_DB_PATH`, `LBOST_SHOP_BOT_LOG_LEVEL`.
 
-- `LBOST_SHOP_AUTHORIZED_IDS`: Nutzer, die sich zusätzlich zu den globalen Ownern anmelden dürfen.
-- `LBOST_SHOP_ALLOWED_GUILD_IDS`: einzige Server-IDs, die grundsätzlich im Shop-Dashboard erscheinen dürfen.
-- `LBOST_SHOP_OWNER_IDS`: optionale zusätzliche Shop-Owner. Sie werden mit allen vorhandenen globalen `OWNER_IDS` vereinigt. Nur diese Owner-Gesamtmenge sieht und erreicht `/admin`.
-- `LBOST_SHOP_TOKEN_ENCRYPTION_KEY`: getrenner Schlüssel für verschlüsselte Discord Access- und Refresh-Tokens.
-- `LBOST_SHOP_BOT_TOKEN`: Token des separaten Shop-Bots; seine aktuellen Server werden bei jedem Dashboard-Aufruf mit Discord abgeglichen.
-
-Ein Server wird nur angezeigt, wenn **alle** Bedingungen stimmen:
-
-1. Seine ID steht in `LBOST_SHOP_ALLOWED_GUILD_IDS`.
-2. Der separate Shop-Bot ist aktuell auf dem Server.
-3. Der angemeldete Nutzer ist Serverinhaber oder besitzt `Administrator` beziehungsweise `Server verwalten`.
-
-Wenn eine Discord-Prüfung fehlschlägt, wird sicherheitshalber kein Server aus veralteten Daten angezeigt.
-
-## Hintergrund-Bot
-
-`start.sh` startet `/app/lbost-shop/run_bot.py` als eigenen Hintergrundprozess, sobald `LBOST_SHOP_BOT_TOKEN` gesetzt ist. Der Client verbindet sich mit dem Discord-Gateway und wird beim Container-Stopp sauber beendet. Er besitzt derzeit absichtlich keine Commands, Nachrichten-Handler oder Automationen; diese Funktionen kommen später und bleiben vom Hauptbot isoliert.
-
-## OAuth
-
-Standard-Scopes:
-
-```text
-identify email guilds guilds.join
-```
-
-Damit fragt Discord Identität, E-Mail, Serverliste und Serverbeitritt ab. Das Lesen oder Schreiben privater Benutzer-DMs ist für gewöhnliche Discord-Anwendungen nicht verfügbar und wird bewusst nicht vorgetäuscht. Der Bot kann später eigene DMs an Nutzer senden.
-
-Im Discord Developer Portal muss exakt diese Redirect-URI stehen:
-
-```text
-https://DEINE-DOMAIN/lbost-shop/auth/callback
-```
-
-Nicht autorisierte Konten erhalten niemals ein Session-Cookie und werden nach `/` weitergeleitet. OAuth-Tokens liegen ausschließlich verschlüsselt in der serverseitigen SQLite-Datenbank, niemals im Browser-Cookie.
+Access- und Refresh-Tokens werden mit einem getrennten Schlüssel verschlüsselt in der serverseitigen Datenbank gespeichert und nie in den Browser-Cookie geschrieben. Nicht autorisierte Konten erhalten keine Sitzung.

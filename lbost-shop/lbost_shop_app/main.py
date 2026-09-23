@@ -1,6 +1,8 @@
 """Isolated LBoost Shop landing page, Discord login and placeholder dashboard."""
 from __future__ import annotations
 
+import json
+import secrets
 import time
 from pathlib import Path
 from typing import Any
@@ -16,6 +18,69 @@ from lbost_shop_app.config import get_settings
 APP_DIR = Path(__file__).resolve().parent
 TEMPLATES = Jinja2Templates(directory=str(APP_DIR / "templates"))
 _rate: dict[str, list[float]] = {}
+
+FEATURES: dict[str, dict[str, Any]] = {
+    "tickets": {"title": "Advanced Ticket System", "icon": "🎫", "fields": [
+        ("enabled", "Aktiviert", "bool"), ("panel_channel_id", "Panel-Kanal", "channel"),
+        ("category_id", "Ticket-Kategorie", "channel"), ("log_channel_id", "Transkript-/Log-Kanal", "channel"),
+        ("support_role_ids", "Support-Rollen (IDs, Komma)", "text"),
+        ("open_role_ids", "Darf Tickets öffnen (Rollen-IDs, leer = alle)", "text"), ("button_label", "Öffnen-Button", "text"),
+        ("button_emoji", "Öffnen-Emoji", "text"), ("claim_label", "Übernehmen-Button", "text"),
+        ("claim_emoji", "Übernehmen-Emoji", "text"), ("close_label", "Schließen-Button", "text"),
+        ("close_emoji", "Schließen-Emoji", "text"), ("delete_label", "Löschen-Button", "text"),
+        ("delete_emoji", "Löschen-Emoji", "text"),
+        ("title", "Embed-Titel", "text"),
+        ("description", "Beschreibung", "textarea"), ("footer", "Footer", "text"),
+        ("color", "Farbe", "color"), ("image_url", "Bild-URL", "url"), ("thumbnail_url", "Thumbnail-URL", "url"),
+        ("panels_json", "Weitere Panels (JSON)", "json"),
+    ]},
+    "moderation": {"title": "Moderation", "icon": "🛡️", "fields": [
+        ("enabled", "Aktiviert", "bool"), ("log_channel_id", "Moderations-Log", "channel"),
+        ("anti_spam", "Anti-Spam", "bool"), ("spam_limit", "Nachrichten je 8 Sekunden", "number"),
+        ("anti_links", "Anti-Link", "bool"), ("allowed_domains", "Erlaubte Domains (Komma)", "text"),
+        ("exempt_role_ids", "Ausgenommene Rollen (IDs, Komma)", "text"),
+    ]},
+    "welcome": {"title": "Welcome & Leave", "icon": "👋", "fields": [
+        ("enabled", "Aktiviert", "bool"), ("welcome_channel_id", "Willkommenskanal", "channel"),
+        ("welcome_message", "Willkommenstext", "textarea"), ("welcome_image_url", "Willkommensbild", "url"),
+        ("leave_enabled", "Leave-Nachrichten", "bool"), ("leave_channel_id", "Leave-Kanal", "channel"),
+        ("leave_message", "Leave-Text", "textarea"), ("leave_image_url", "Leave-Bild", "url"),
+    ]},
+    "reaction_roles": {"title": "Reaction Roles", "icon": "🎭", "fields": [
+        ("enabled", "Aktiviert", "bool"), ("channel_id", "Panel-Kanal", "channel"),
+        ("title", "Panel-Titel", "text"), ("description", "Panel-Beschreibung", "textarea"),
+        ("roles_json", "Rollen-Buttons (JSON)", "json"), ("panels_json", "Weitere Panels (JSON)", "json"),
+    ]},
+    "automation": {"title": "Automation", "icon": "📢", "fields": [
+        ("enabled", "Aktiviert", "bool"), ("auto_responses_json", "Auto-Antworten (JSON)", "json"),
+        ("custom_commands_json", "Eigene Befehle (JSON)", "json"),
+        ("announcements_json", "Automatische Nachrichten (JSON)", "json"),
+    ]},
+    "logging": {"title": "Logging", "icon": "📊", "fields": [
+        ("enabled", "Aktiviert", "bool"), ("channel_id", "Log-Kanal", "channel"),
+        ("member_logs", "Mitglieder-Logs", "bool"), ("message_logs", "Nachrichten-Logs", "bool"),
+        ("moderation_logs", "Moderations-Logs", "bool"), ("role_channel_logs", "Rollen-/Kanal-Logs", "bool"),
+        ("ticket_logs", "Ticket-Logs", "bool"),
+    ]},
+    "giveaways": {"title": "Giveaways", "icon": "🎁", "fields": [
+        ("enabled", "Aktiviert", "bool"), ("log_channel_id", "Giveaway-Log", "channel"),
+        ("manager_role_ids", "Manager-Rollen (IDs, Komma)", "text"),
+        ("default_winners", "Standard-Anzahl Gewinner", "number"),
+    ]},
+}
+
+JSON_HELP: dict[str, dict[str, str]] = {
+    "tickets": {"panels_json": '[{"key":"billing","title":"Billing Support","panel_channel_id":"123","category_id":"456","support_role_ids":"789","button_label":"Billing-Ticket"}]'},
+    "reaction_roles": {
+        "roles_json": '[{"role_id":"123","label":"Updates","emoji":"<:bell:123456>"}]',
+        "panels_json": '[{"title":"Game Roles","channel_id":"123","roles_json":[{"role_id":"456","label":"Player"}]}]',
+    },
+    "automation": {
+        "auto_responses_json": '[{"trigger":"hello","response":"Welcome!","exact":false}]',
+        "custom_commands_json": '[{"name":"rules","title":"Rules","response":"Read the server rules."}]',
+        "announcements_json": '[{"channel_id":"123","title":"News","content":"Automatic update","interval_minutes":1440}]',
+    },
+}
 
 SECURITY_HEADERS = {
     "X-Content-Type-Options": "nosniff",
@@ -114,6 +179,31 @@ def create_app() -> FastAPI:
             })
         return sorted(visible, key=lambda guild: guild["name"].casefold())
 
+    async def guild_access(user: dict[str, Any], guild_id: int) -> dict[str, Any] | None:
+        return next((guild for guild in await visible_guilds(user) if int(guild["id"]) == guild_id), None)
+
+    async def guild_resources(guild_id: int) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
+        """Channels and roles for friendly dashboard selectors; fail closed."""
+        try:
+            import httpx
+            headers = {"Authorization": f"Bot {settings.bot_token}"}
+            async with httpx.AsyncClient(timeout=20.0) as client:
+                channels_response = await client.get(f"https://discord.com/api/v10/guilds/{guild_id}/channels", headers=headers)
+                roles_response = await client.get(f"https://discord.com/api/v10/guilds/{guild_id}/roles", headers=headers)
+                channels_response.raise_for_status()
+                roles_response.raise_for_status()
+            channels = [
+                {"id": str(item["id"]), "name": str(item.get("name") or item["id"])}
+                for item in channels_response.json() if item.get("type") in (0, 4, 5, 10, 11, 12, 15, 16)
+            ]
+            roles = [
+                {"id": str(item["id"]), "name": str(item.get("name") or item["id"])}
+                for item in roles_response.json() if str(item.get("id")) != str(guild_id)
+            ]
+            return channels, roles
+        except Exception:
+            return [], []
+
     @app.middleware("http")
     async def harden(request: Request, call_next):
         response = await call_next(request)
@@ -208,6 +298,63 @@ def create_app() -> FastAPI:
             return response
         guilds = await visible_guilds(user)
         return render(request, "dashboard.html", guilds=guilds)
+
+    @app.get("/guild/{guild_id}", response_class=HTMLResponse)
+    async def guild_home(request: Request, guild_id: int):
+        user = current_user(request)
+        guild = await guild_access(user, guild_id) if user else None
+        if not user or not guild:
+            return RedirectResponse(href(request, "/dashboard"), status_code=302)
+        configured = db.all_features(guild_id, settings)
+        return render(request, "guild.html", guild=guild, features=FEATURES, configured=configured)
+
+    @app.get("/guild/{guild_id}/{feature}", response_class=HTMLResponse)
+    async def feature_page(request: Request, guild_id: int, feature: str):
+        user = current_user(request)
+        guild = await guild_access(user, guild_id) if user else None
+        spec = FEATURES.get(feature)
+        if not user or not guild or not spec:
+            return RedirectResponse(href(request, "/dashboard"), status_code=302)
+        channels, roles = await guild_resources(guild_id)
+        values = db.get_feature(guild_id, feature, settings)
+        return render(request, "feature.html", guild=guild, feature=feature, spec=spec, values=values, channels=channels, roles=roles, csrf=user["sid"], saved=request.query_params.get("saved") == "1", error=None, json_help=JSON_HELP.get(feature, {}))
+
+    @app.post("/guild/{guild_id}/{feature}", response_class=HTMLResponse)
+    async def save_feature(request: Request, guild_id: int, feature: str):
+        user = current_user(request)
+        guild = await guild_access(user, guild_id) if user else None
+        spec = FEATURES.get(feature)
+        if not user or not guild or not spec:
+            return RedirectResponse(href(request, "/dashboard"), status_code=302)
+        form = await request.form()
+        if not secrets.compare_digest(str(form.get("csrf") or ""), str(user["sid"])):
+            return PlainTextResponse("Ungültige Anfrage.", status_code=403)
+        values: dict[str, Any] = {}
+        error: str | None = None
+        for key, _label, field_type in spec["fields"]:
+            raw = str(form.get(key) or "").strip()
+            if field_type == "bool":
+                values[key] = key in form
+            elif field_type == "number":
+                try:
+                    values[key] = max(1, min(1000, int(raw or "1")))
+                except ValueError:
+                    error = f"Ungültige Zahl bei {key}."
+            elif field_type == "json":
+                try:
+                    parsed = json.loads(raw or "[]")
+                    if not isinstance(parsed, (list, dict)):
+                        raise ValueError
+                    values[key] = parsed
+                except (TypeError, ValueError, json.JSONDecodeError):
+                    error = f"Ungültiges JSON bei {key}."
+            else:
+                values[key] = raw[:4000]
+        if error:
+            channels, roles = await guild_resources(guild_id)
+            return render(request, "feature.html", guild=guild, feature=feature, spec=spec, values=values, channels=channels, roles=roles, csrf=user["sid"], saved=False, error=error, json_help=JSON_HELP.get(feature, {}))
+        db.set_feature(guild_id, feature, values, int(user["uid"]), settings)
+        return RedirectResponse(href(request, f"/guild/{guild_id}/{feature}?saved=1"), status_code=303)
 
     @app.get("/admin", response_class=HTMLResponse)
     async def admin(request: Request):
