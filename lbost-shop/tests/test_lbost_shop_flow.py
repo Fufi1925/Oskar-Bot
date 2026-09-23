@@ -25,7 +25,7 @@ os.environ.update({
 
 import httpx  # noqa: E402
 from fastapi import FastAPI  # noqa: E402
-from lbost_shop_app import auth  # noqa: E402
+from lbost_shop_app import auth, db  # noqa: E402
 from lbost_shop_app.config import get_settings  # noqa: E402
 from lbost_shop_app.main import create_app  # noqa: E402
 
@@ -76,7 +76,17 @@ async def run() -> None:
         response = await client.get("/lbost-shop/guild/1")
         assert response.status_code == 200
         assert "Advanced Ticket System" in response.text and "Dashboard durchsuchen" in response.text
-        assert "Einrichtung" in response.text and "Nächste Schritte" in response.text and "Noch offen" in response.text
+        assert "Einrichtung" in response.text and "Als Nächstes" in response.text and "Noch offen" in response.text
+        response = await client.get("/lbost-shop/guild/1/config-export")
+        assert response.status_code == 200 and response.json()["guild_id"] == "1"
+        session = auth.read_session(client.cookies.get("lbost_shop_session"), get_settings())
+        response = await client.post(
+            "/lbost-shop/guild/1/config-import",
+            data={"csrf": session["sid"]},
+            files={"config_file": ("config.json", b'{"version":1,"features":{"moderation":{"enabled":true}}}', "application/json")},
+        )
+        assert response.status_code == 303
+        assert db.get_feature(1, "moderation", get_settings())["enabled"] is True
 
         # Ordinary authorised users neither see nor open the owner panel.
         assert "Admin-Panel" not in response.text

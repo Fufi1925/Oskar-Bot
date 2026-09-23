@@ -207,3 +207,26 @@ def all_features(guild_id: int, settings: Settings) -> dict[str, dict[str, Any]]
         except (TypeError, ValueError):
             result[row["feature"]] = {}
     return result
+
+
+def feature_history(guild_id: int, settings: Settings, days: int = 14) -> list[dict[str, Any]]:
+    """Daily configuration changes for the server overview chart."""
+    from datetime import datetime, timedelta, timezone
+    init_features(settings)
+    start = datetime.now(timezone.utc).date() - timedelta(days=days - 1)
+    with _connect(settings) as conn:
+        rows = conn.execute(
+            """SELECT date(created_at, 'unixepoch') AS day, COUNT(*) AS amount
+               FROM feature_audit WHERE guild_id=? AND created_at>=?
+               GROUP BY day""",
+            (guild_id, int(datetime.combine(start, datetime.min.time(), tzinfo=timezone.utc).timestamp())),
+        ).fetchall()
+    amounts = {str(row["day"]): int(row["amount"]) for row in rows}
+    points = []
+    for offset in range(days):
+        day = start + timedelta(days=offset)
+        points.append({"day": day.strftime("%d.%m"), "amount": amounts.get(day.isoformat(), 0)})
+    maximum = max((point["amount"] for point in points), default=0) or 1
+    for point in points:
+        point["height"] = max(5, round(point["amount"] / maximum * 100))
+    return points

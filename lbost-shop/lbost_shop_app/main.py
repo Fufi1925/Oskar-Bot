@@ -20,7 +20,7 @@ TEMPLATES = Jinja2Templates(directory=str(APP_DIR / "templates"))
 _rate: dict[str, list[float]] = {}
 
 FEATURES: dict[str, dict[str, Any]] = {
-    "tickets": {"title": "Advanced Ticket System", "icon": "🎫", "fields": [
+    "tickets": {"title": "Advanced Ticket System", "icon": "ticket", "fields": [
         ("enabled", "Aktiviert", "bool"), ("panel_channel_id", "Panel-Kanal", "channel"),
         ("category_id", "Ticket-Kategorie", "channel"), ("log_channel_id", "Transkript-/Log-Kanal", "channel"),
         ("support_role_ids", "Support-Rollen (IDs, Komma)", "text"),
@@ -34,35 +34,35 @@ FEATURES: dict[str, dict[str, Any]] = {
         ("color", "Farbe", "color"), ("image_url", "Bild-URL", "url"), ("thumbnail_url", "Thumbnail-URL", "url"),
         ("panels_json", "Weitere Panels (JSON)", "json"),
     ]},
-    "moderation": {"title": "Moderation", "icon": "🛡️", "fields": [
+    "moderation": {"title": "Moderation", "icon": "shield", "fields": [
         ("enabled", "Aktiviert", "bool"), ("log_channel_id", "Moderations-Log", "channel"),
         ("anti_spam", "Anti-Spam", "bool"), ("spam_limit", "Nachrichten je 8 Sekunden", "number"),
         ("anti_links", "Anti-Link", "bool"), ("allowed_domains", "Erlaubte Domains (Komma)", "text"),
         ("exempt_role_ids", "Ausgenommene Rollen (IDs, Komma)", "text"),
     ]},
-    "welcome": {"title": "Welcome & Leave", "icon": "👋", "fields": [
+    "welcome": {"title": "Welcome & Leave", "icon": "users", "fields": [
         ("enabled", "Aktiviert", "bool"), ("welcome_channel_id", "Willkommenskanal", "channel"),
         ("welcome_message", "Willkommenstext", "textarea"), ("welcome_image_url", "Willkommensbild", "url"),
         ("leave_enabled", "Leave-Nachrichten", "bool"), ("leave_channel_id", "Leave-Kanal", "channel"),
         ("leave_message", "Leave-Text", "textarea"), ("leave_image_url", "Leave-Bild", "url"),
     ]},
-    "reaction_roles": {"title": "Reaction Roles", "icon": "🎭", "fields": [
+    "reaction_roles": {"title": "Reaction Roles", "icon": "users", "fields": [
         ("enabled", "Aktiviert", "bool"), ("channel_id", "Panel-Kanal", "channel"),
         ("title", "Panel-Titel", "text"), ("description", "Panel-Beschreibung", "textarea"),
         ("roles_json", "Rollen-Buttons (JSON)", "json"), ("panels_json", "Weitere Panels (JSON)", "json"),
     ]},
-    "automation": {"title": "Automation", "icon": "📢", "fields": [
+    "automation": {"title": "Automation", "icon": "bolt", "fields": [
         ("enabled", "Aktiviert", "bool"), ("auto_responses_json", "Auto-Antworten (JSON)", "json"),
         ("custom_commands_json", "Eigene Befehle (JSON)", "json"),
         ("announcements_json", "Automatische Nachrichten (JSON)", "json"),
     ]},
-    "logging": {"title": "Logging", "icon": "📊", "fields": [
+    "logging": {"title": "Logging", "icon": "log", "fields": [
         ("enabled", "Aktiviert", "bool"), ("channel_id", "Log-Kanal", "channel"),
         ("member_logs", "Mitglieder-Logs", "bool"), ("message_logs", "Nachrichten-Logs", "bool"),
         ("moderation_logs", "Moderations-Logs", "bool"), ("role_channel_logs", "Rollen-/Kanal-Logs", "bool"),
         ("ticket_logs", "Ticket-Logs", "bool"),
     ]},
-    "giveaways": {"title": "Giveaways", "icon": "🎁", "fields": [
+    "giveaways": {"title": "Giveaways", "icon": "gift", "fields": [
         ("enabled", "Aktiviert", "bool"), ("log_channel_id", "Giveaway-Log", "channel"),
         ("manager_role_ids", "Manager-Rollen (IDs, Komma)", "text"),
         ("default_winners", "Standard-Anzahl Gewinner", "number"),
@@ -338,7 +338,46 @@ def create_app() -> FastAPI:
             return RedirectResponse(href(request, "/dashboard"), status_code=302)
         configured = db.all_features(guild_id, settings)
         _channels, _roles, stats = await guild_resources(guild_id)
-        return render(request, "guild.html", guild=guild, features=FEATURES, configured=configured, stats=stats)
+        history = db.feature_history(guild_id, settings)
+        return render(request, "guild.html", guild=guild, features=FEATURES, configured=configured, stats=stats, history=history, csrf=user["sid"], active_tab=request.query_params.get("tab", "overview"), restored=request.query_params.get("restored") == "1")
+
+    @app.get("/guild/{guild_id}/config-export")
+    async def export_guild_config(request: Request, guild_id: int):
+        user = current_user(request)
+        guild = await guild_access(user, guild_id) if user else None
+        if not user or not guild:
+            return RedirectResponse(href(request, "/dashboard"), status_code=302)
+        payload = {"version": 1, "guild_id": str(guild_id), "features": db.all_features(guild_id, settings)}
+        response = JSONResponse(payload)
+        response.headers["Content-Disposition"] = f'attachment; filename="lbost-shop-{guild_id}.json"'
+        return response
+
+    @app.post("/guild/{guild_id}/config-import")
+    async def import_guild_config(request: Request, guild_id: int):
+        user = current_user(request)
+        guild = await guild_access(user, guild_id) if user else None
+        if not user or not guild:
+            return RedirectResponse(href(request, "/dashboard"), status_code=302)
+        form = await request.form()
+        if not secrets.compare_digest(str(form.get("csrf") or ""), str(user["sid"])):
+            return PlainTextResponse("Ungültige Anfrage.", status_code=403)
+        upload = form.get("config_file")
+        if not upload or not hasattr(upload, "read"):
+            return PlainTextResponse("Konfigurationsdatei fehlt.", status_code=400)
+        raw = await upload.read(1_000_001)
+        if len(raw) > 1_000_000:
+            return PlainTextResponse("Konfigurationsdatei ist zu groß.", status_code=413)
+        try:
+            payload = json.loads(raw)
+            imported = payload.get("features", {})
+            if not isinstance(imported, dict):
+                raise ValueError
+            for feature, values in imported.items():
+                if feature in FEATURES and isinstance(values, dict):
+                    db.set_feature(guild_id, feature, values, int(user["uid"]), settings)
+        except (TypeError, ValueError, json.JSONDecodeError, UnicodeDecodeError):
+            return PlainTextResponse("Ungültige Konfigurationsdatei.", status_code=400)
+        return RedirectResponse(href(request, f"/guild/{guild_id}?tab=backup&restored=1"), status_code=303)
 
     @app.get("/guild/{guild_id}/{feature}", response_class=HTMLResponse)
     async def feature_page(request: Request, guild_id: int, feature: str):

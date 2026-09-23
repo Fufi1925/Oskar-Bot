@@ -42,6 +42,13 @@
     }
   });
 
+  document.querySelectorAll('[data-page-tab]').forEach((button) => button.addEventListener('click', () => {
+    const selected = button.dataset.pageTab;
+    document.querySelectorAll('[data-page-tab]').forEach((item) => item.classList.toggle('active', item === button));
+    document.querySelectorAll('[data-page-panel]').forEach((panel) => { panel.hidden = panel.dataset.pagePanel !== selected; });
+    const url = new URL(window.location.href); url.searchParams.set('tab', selected); history.replaceState(null, '', url);
+  }));
+
   const serverSearch = document.querySelector('[data-server-search]');
   const serverGrid = document.querySelector('[data-server-grid]');
   const serverCards = [...document.querySelectorAll('[data-server-card]')];
