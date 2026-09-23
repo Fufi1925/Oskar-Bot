@@ -16,6 +16,8 @@ Diese Bedingungen werden bei jedem geschützten Aufruf erneut mit Discord abgegl
 
 Nach dem Login verwendet der komplette geschützte Bereich dieselbe University-Bot-Dashboard-Struktur: echtes University-Bot-Logo und festes Branding, Glass-Sidebar, gruppierte Servernavigation, mobile Navigation mit Overlay, Sticky-Topbar, globale Modulsuche, Benachrichtigungs-Popover, DE/EN-Sprachwahl und Profilmenü. Dashboard, Serverübersicht, sämtliche Modulformulare und das Owner-Admin-Panel teilen sich diese Shell.
 
+`/servers` entspricht der University-Serverauswahl mit Kennzahlen, Namens-/ID-Suche, Sortierung nach Mitgliedern oder Namen, Serverkarten, Besitzerstatus und Mitgliederzahlen. Die Detailübersicht eines Servers zeigt Einrichtungsfortschritt, Mitglieder, Kanäle, Rollen, Boost-Status, nächste Schritte sowie getrennte Listen für eingerichtete und noch offene Module. Nicht freigegebene Server bleiben trotz dieser Darstellung vollständig verborgen.
+
 ## Dashboard-Module
 
 - **Advanced Tickets:** mehrere Panel-Konfigurationen und Kategorien, eigene Rollen, Berechtigungen, Button-Texte und Custom Emojis, Claim/Close/Delete, HTML-Transkripte, Log-Kanal, Components-V2-Layouts, Farben, Bilder, Thumbnail und Footer.

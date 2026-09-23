@@ -94,7 +94,7 @@ async def guilds(token: str, authorization_type: str = "Bearer") -> list[dict[st
     after: str | None = None
     async with httpx.AsyncClient(timeout=20.0) as client:
         while True:
-            params = {"limit": "200"}
+            params = {"limit": "200", "with_counts": "true"}
             if after:
                 params["after"] = after
             response = await client.get(

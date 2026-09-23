@@ -42,6 +42,29 @@
     }
   });
 
+  const serverSearch = document.querySelector('[data-server-search]');
+  const serverGrid = document.querySelector('[data-server-grid]');
+  const serverCards = [...document.querySelectorAll('[data-server-card]')];
+  const noResults = document.querySelector('[data-no-server-results]');
+  const filterServers = () => {
+    const term = (serverSearch?.value || '').trim().toLocaleLowerCase();
+    let visible = 0;
+    serverCards.forEach((card) => {
+      const show = !term || card.dataset.name.includes(term) || card.dataset.id.includes(term);
+      card.hidden = !show; if (show) visible += 1;
+    });
+    noResults?.classList.toggle('open', visible === 0 && Boolean(term));
+  };
+  serverSearch?.addEventListener('input', filterServers);
+  document.querySelectorAll('[data-server-sort]').forEach((button) => button.addEventListener('click', () => {
+    const mode = button.dataset.serverSort;
+    document.querySelectorAll('[data-server-sort]').forEach((item) => item.classList.toggle('active', item === button));
+    serverCards.sort((a, b) => mode === 'name'
+      ? a.dataset.name.localeCompare(b.dataset.name, 'de')
+      : Number(b.dataset.members) - Number(a.dataset.members));
+    serverCards.forEach((card) => serverGrid?.appendChild(card));
+  }));
+
   const stored = localStorage.getItem('lbost-language') || 'de';
   document.querySelectorAll('[data-language-current]').forEach((el) => { el.textContent = stored.toUpperCase(); });
   document.querySelectorAll('[data-language]').forEach((button) => button.addEventListener('click', () => {

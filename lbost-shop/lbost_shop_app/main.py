@@ -161,7 +161,8 @@ def create_app() -> FastAPI:
             # Never leak a guild from stale/cache data when Discord cannot be checked.
             return []
 
-        bot_ids = {int(g["id"]) for g in bot_guilds if str(g.get("id", "")).isdigit()}
+        bot_map = {int(g["id"]): g for g in bot_guilds if str(g.get("id", "")).isdigit()}
+        bot_ids = set(bot_map)
         visible: list[dict[str, Any]] = []
         for guild in user_guilds:
             if not str(guild.get("id", "")).isdigit():
@@ -172,37 +173,57 @@ def create_app() -> FastAPI:
             if guild_id not in settings.allowed_guild_id_set or guild_id not in bot_ids or not has_rights:
                 continue
             icon_hash = guild.get("icon")
+            bot_guild = bot_map.get(guild_id) or {}
+            member_count = bot_guild.get("approximate_member_count")
+            if not isinstance(member_count, int):
+                member_count = guild.get("approximate_member_count")
             visible.append({
                 "id": str(guild_id),
                 "name": str(guild.get("name") or "Unbenannter Server"),
                 "icon_url": f"https://cdn.discordapp.com/icons/{guild_id}/{icon_hash}.png?size=128" if icon_hash else None,
+                "owner": bool(guild.get("owner")),
+                "member_count": member_count if isinstance(member_count, int) else None,
             })
         return sorted(visible, key=lambda guild: guild["name"].casefold())
 
     async def guild_access(user: dict[str, Any], guild_id: int) -> dict[str, Any] | None:
         return next((guild for guild in await visible_guilds(user) if int(guild["id"]) == guild_id), None)
 
-    async def guild_resources(guild_id: int) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
-        """Channels and roles for friendly dashboard selectors; fail closed."""
+    async def guild_resources(guild_id: int) -> tuple[list[dict[str, str]], list[dict[str, str]], dict[str, Any]]:
+        """Channels, roles and overview data for the University-style pages."""
         try:
             import httpx
             headers = {"Authorization": f"Bot {settings.bot_token}"}
             async with httpx.AsyncClient(timeout=20.0) as client:
                 channels_response = await client.get(f"https://discord.com/api/v10/guilds/{guild_id}/channels", headers=headers)
                 roles_response = await client.get(f"https://discord.com/api/v10/guilds/{guild_id}/roles", headers=headers)
+                guild_response = await client.get(f"https://discord.com/api/v10/guilds/{guild_id}", params={"with_counts": "true"}, headers=headers)
                 channels_response.raise_for_status()
                 roles_response.raise_for_status()
+                guild_response.raise_for_status()
+            raw_channels = channels_response.json()
+            raw_roles = roles_response.json()
+            raw_guild = guild_response.json()
             channels = [
                 {"id": str(item["id"]), "name": str(item.get("name") or item["id"])}
-                for item in channels_response.json() if item.get("type") in (0, 4, 5, 10, 11, 12, 15, 16)
+                for item in raw_channels if item.get("type") in (0, 4, 5, 10, 11, 12, 15, 16)
             ]
             roles = [
                 {"id": str(item["id"]), "name": str(item.get("name") or item["id"])}
-                for item in roles_response.json() if str(item.get("id")) != str(guild_id)
+                for item in raw_roles if str(item.get("id")) != str(guild_id)
             ]
-            return channels, roles
+            stats = {
+                "member_count": int(raw_guild.get("approximate_member_count") or 0),
+                "channel_count": len(raw_channels),
+                "role_count": max(0, len(raw_roles) - 1),
+                "boost_level": int(raw_guild.get("premium_tier") or 0),
+                "boost_count": int(raw_guild.get("premium_subscription_count") or 0),
+                "verification_level": int(raw_guild.get("verification_level") or 0),
+                "owner_id": str(raw_guild.get("owner_id") or ""),
+            }
+            return channels, roles, stats
         except Exception:
-            return [], []
+            return [], [], {}
 
     @app.middleware("http")
     async def harden(request: Request, call_next):
@@ -290,7 +311,6 @@ def create_app() -> FastAPI:
         return response
 
     @app.get("/dashboard", response_class=HTMLResponse)
-    @app.get("/servers", response_class=HTMLResponse)
     async def dashboard(request: Request):
         user = current_user(request)
         if not user:
@@ -300,6 +320,16 @@ def create_app() -> FastAPI:
         guilds = await visible_guilds(user)
         return render(request, "dashboard.html", guilds=guilds)
 
+    @app.get("/servers", response_class=HTMLResponse)
+    async def servers(request: Request):
+        user = current_user(request)
+        if not user:
+            response = RedirectResponse(settings.fallback_url or "/", status_code=302)
+            clear_session(response, request)
+            return response
+        guilds = await visible_guilds(user)
+        return render(request, "servers.html", guilds=guilds)
+
     @app.get("/guild/{guild_id}", response_class=HTMLResponse)
     async def guild_home(request: Request, guild_id: int):
         user = current_user(request)
@@ -307,7 +337,8 @@ def create_app() -> FastAPI:
         if not user or not guild:
             return RedirectResponse(href(request, "/dashboard"), status_code=302)
         configured = db.all_features(guild_id, settings)
-        return render(request, "guild.html", guild=guild, features=FEATURES, configured=configured)
+        _channels, _roles, stats = await guild_resources(guild_id)
+        return render(request, "guild.html", guild=guild, features=FEATURES, configured=configured, stats=stats)
 
     @app.get("/guild/{guild_id}/{feature}", response_class=HTMLResponse)
     async def feature_page(request: Request, guild_id: int, feature: str):
@@ -316,7 +347,7 @@ def create_app() -> FastAPI:
         spec = FEATURES.get(feature)
         if not user or not guild or not spec:
             return RedirectResponse(href(request, "/dashboard"), status_code=302)
-        channels, roles = await guild_resources(guild_id)
+        channels, roles, _stats = await guild_resources(guild_id)
         values = db.get_feature(guild_id, feature, settings)
         return render(request, "feature.html", guild=guild, feature=feature, spec=spec, values=values, channels=channels, roles=roles, csrf=user["sid"], saved=request.query_params.get("saved") == "1", error=None, json_help=JSON_HELP.get(feature, {}))
 
@@ -352,7 +383,7 @@ def create_app() -> FastAPI:
             else:
                 values[key] = raw[:4000]
         if error:
-            channels, roles = await guild_resources(guild_id)
+            channels, roles, _stats = await guild_resources(guild_id)
             return render(request, "feature.html", guild=guild, feature=feature, spec=spec, values=values, channels=channels, roles=roles, csrf=user["sid"], saved=False, error=error, json_help=JSON_HELP.get(feature, {}))
         db.set_feature(guild_id, feature, values, int(user["uid"]), settings)
         return RedirectResponse(href(request, f"/guild/{guild_id}/{feature}?saved=1"), status_code=303)
