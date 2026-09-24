@@ -26,7 +26,7 @@ import os
 import re
 from utils.config import *
 from utils.panels import Panel, from_embed
-from utils import ticket_ai, ticket_notify
+from utils import feature_gates, ticket_ai, ticket_notify
 
 # --- Configurable Variables ---
 EMBED_COLOR = 0xFF0000
@@ -71,6 +71,14 @@ class TicketDatabase:
             self.conn.execute("CREATE TABLE IF NOT EXISTS ticket_categories (category_id INTEGER PRIMARY KEY AUTOINCREMENT, guild_id INTEGER, name TEXT NOT NULL, emoji TEXT, notified_roles TEXT, button_style INTEGER, discord_category_id INTEGER, FOREIGN KEY (guild_id) REFERENCES guild_configs(guild_id) ON DELETE CASCADE)")
             self.conn.execute("CREATE TABLE IF NOT EXISTS open_tickets (channel_id INTEGER PRIMARY KEY, ticket_number INTEGER, guild_id INTEGER, creator_id INTEGER NOT NULL, category_db_id INTEGER, created_at TEXT NOT NULL, closed_by_id INTEGER, closed_at TEXT, is_locked BOOLEAN DEFAULT FALSE, is_claimed BOOLEAN DEFAULT FALSE, claimed_by_id INTEGER, FOREIGN KEY (guild_id) REFERENCES guild_configs(guild_id) ON DELETE CASCADE, FOREIGN KEY (category_db_id) REFERENCES ticket_categories(category_id) ON DELETE SET NULL)")
             self.conn.execute("CREATE TABLE IF NOT EXISTS user_ticket_counts (guild_id INTEGER, user_id INTEGER, ticket_count INTEGER DEFAULT 0, PRIMARY KEY (guild_id, user_id))")
+            panel_columns = {
+                row[1] for row in self.conn.execute("PRAGMA table_info(ticket_panels)").fetchall()
+            }
+            if panel_columns and "select_placeholder" not in panel_columns:
+                self.conn.execute(
+                    "ALTER TABLE ticket_panels ADD COLUMN select_placeholder TEXT NOT NULL"
+                    " DEFAULT 'Wähle eine Kategorie…'"
+                )
         ticket_ai.ensure_sync_schema(self.conn)
 
     def execute(self, q, p=()):
@@ -433,7 +441,7 @@ class TicketCog(commands.Cog, name="Ticket System"):
         if panel_id is not None:
             try:
                 config = self.db.fetchone(
-                    "SELECT panel_type FROM ticket_panels WHERE panel_id=?",
+                    "SELECT panel_type, select_placeholder FROM ticket_panels WHERE panel_id=?",
                     (panel_id,),
                 )
                 categories = self.db.fetchall(
@@ -450,6 +458,11 @@ class TicketCog(commands.Cog, name="Ticket System"):
         view = view_class(self)
         if config['panel_type'] == 'dropdown':
             view.children[0].options = [discord.SelectOption(label=c['name'], value=str(c['category_id']), emoji=c['emoji']) for c in categories]
+            if panel_id is not None:
+                placeholder = 'Wähle eine Kategorie…'
+                if feature_gates.can_configure_premium_guild(guild_id):
+                    placeholder = str(config['select_placeholder'] or '').strip()[:150] or placeholder
+                view.children[0].placeholder = placeholder
         else:
             for c in categories: view.add_item(discord.ui.Button(label=c['name'], style=discord.ButtonStyle(c['button_style']), emoji=c['emoji'], custom_id=f"create_ticket_{c['category_id']}"))
         return view

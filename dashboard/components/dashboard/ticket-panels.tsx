@@ -28,6 +28,7 @@ interface Panel {
   channel_id: string | null;
   message_id: string | null;
   panel_type: string;
+  select_placeholder: string;
   embed_title: string;
   embed_description: string;
   embed_color: number | null;
@@ -77,6 +78,55 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
   );
 }
 
+const DEFAULT_SELECT_PLACEHOLDER = "Wähle eine Kategorie…";
+
+function DropdownPlaceholderEditor({
+  panel,
+  premium,
+  onCommit,
+}: {
+  panel: Panel;
+  premium: boolean;
+  onCommit: (value: string) => void;
+}) {
+  const effective = premium
+    ? panel.select_placeholder || DEFAULT_SELECT_PLACEHOLDER
+    : DEFAULT_SELECT_PLACEHOLDER;
+  const [value, setValue] = useState(effective);
+
+  useEffect(() => setValue(effective), [effective, panel.panel_id]);
+
+  return (
+    <Field
+      label="Dropdown-Platzhalter"
+      hint={
+        premium
+          ? "Wird für alle Discord-Nutzer angezeigt. Leer lassen setzt den Standard zurück."
+          : "Ein eigener Platzhalter ist nur mit aktivem Server-Premium verfügbar."
+      }
+    >
+      <input
+        value={value}
+        maxLength={150}
+        disabled={!premium}
+        onChange={(event) => setValue(event.target.value)}
+        onBlur={() => premium && value !== effective && onCommit(value)}
+        placeholder={DEFAULT_SELECT_PLACEHOLDER}
+        className="w-full bg-[#0e0e12] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-primary/50 disabled:cursor-not-allowed disabled:opacity-55"
+      />
+      <div className="space-y-1.5">
+        <span className="text-[10px] font-black uppercase tracking-widest text-slate-600">
+          Discord-Vorschau
+        </span>
+        <div className="flex items-center justify-between rounded-md border border-[#3f4147] bg-[#1e1f22] px-3 py-2.5 text-sm text-[#b5bac1]">
+          <span className="truncate">{value.trim() || DEFAULT_SELECT_PLACEHOLDER}</span>
+          <ChevronDown className="h-4 w-4 shrink-0 text-[#b5bac1]" />
+        </div>
+      </div>
+    </Field>
+  );
+}
+
 /**
  * Ticket panels.
  *
@@ -94,6 +144,7 @@ export function TicketPanels({ guildId }: { guildId: string }) {
   const [busy, setBusy] = useState(false);
   const [panels, setPanels] = useState<Panel[]>([]);
   const [server, setServer] = useState<any>({});
+  const [premiumConfigurable, setPremiumConfigurable] = useState(false);
   const [openTickets, setOpenTickets] = useState(0);
   const [expanded, setExpanded] = useState<number | null>(null);
   const [editing, setEditing] = useState<
@@ -136,6 +187,7 @@ export function TicketPanels({ guildId }: { guildId: string }) {
       const data = await api.getTicketPanels(guildId);
       setPanels(data.panels || []);
       setServer(data.server || {});
+      setPremiumConfigurable(Boolean(data.premium_configurable));
       setOpenTickets(data.open_tickets || 0);
       if (data.panels?.length && expanded === null) {
         setExpanded(data.panels[0].panel_id);
@@ -476,36 +528,52 @@ export function TicketPanels({ guildId }: { guildId: string }) {
                       />
                     </Field>
 
-                    <Field
-                      label="Darstellung"
-                      hint={
-                        panel.categories.length > 5
-                          ? "Bei mehr als 5 Kategorien ist ein Dropdown nötig — Discord erlaubt nur 5 Knöpfe."
-                          : "Knöpfe sind direkt sichtbar, ein Dropdown spart Platz."
-                      }
-                    >
-                      <div className="flex gap-2">
-                        {[
-                          { value: "button", label: "Knöpfe" },
-                          { value: "dropdown", label: "Dropdown" },
-                        ].map((o) => (
-                          <button
-                            key={o.value}
-                            onClick={() =>
-                              patchPanel(panel.panel_id, { panel_type: o.value })
-                            }
-                            className={cn(
-                              "flex-1 px-4 py-3 rounded-xl text-xs font-bold border transition-all",
-                              (panel.panel_type || "button") === o.value
-                                ? "bg-primary/15 border-primary/40 text-primary"
-                                : "bg-[#0e0e12] border-slate-800 text-slate-400 hover:text-slate-200"
-                            )}
-                          >
-                            {o.label}
-                          </button>
-                        ))}
-                      </div>
-                    </Field>
+                    <div className="space-y-5">
+                      <Field
+                        label="Darstellung"
+                        hint={
+                          panel.categories.length > 5
+                            ? "Bei mehr als 5 Kategorien ist ein Dropdown nötig — Discord erlaubt nur 5 Knöpfe."
+                            : "Knöpfe sind direkt sichtbar, ein Dropdown spart Platz."
+                        }
+                      >
+                        <div className="flex gap-2">
+                          {[
+                            { value: "button", label: "Knöpfe" },
+                            { value: "dropdown", label: "Dropdown" },
+                          ].map((o) => (
+                            <button
+                              key={o.value}
+                              onClick={() =>
+                                patchPanel(panel.panel_id, { panel_type: o.value })
+                              }
+                              className={cn(
+                                "flex-1 px-4 py-3 rounded-xl text-xs font-bold border transition-all",
+                                (panel.panel_type || "button") === o.value
+                                  ? "bg-primary/15 border-primary/40 text-primary"
+                                  : "bg-[#0e0e12] border-slate-800 text-slate-400 hover:text-slate-200"
+                              )}
+                            >
+                              {o.label}
+                            </button>
+                          ))}
+                        </div>
+                      </Field>
+
+                      {(panel.panel_type || "button") === "dropdown" && (
+                        <DropdownPlaceholderEditor
+                          panel={panel}
+                          premium={premiumConfigurable}
+                          onCommit={(value) =>
+                            patchPanel(
+                              panel.panel_id,
+                              { select_placeholder: value },
+                              "Dropdown-Platzhalter gespeichert. Sende das Panel erneut, um Discord zu aktualisieren."
+                            )
+                          }
+                        />
+                      )}
+                    </div>
 
                     <Field label="Farbe">
                       <div className="flex items-center gap-2">

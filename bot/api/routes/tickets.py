@@ -80,6 +80,7 @@ async def get_panels(guild_id: int):
             ],
         },
         "open_tickets": open_row[0] if open_row else 0,
+        "premium_configurable": feature_gates.can_configure_premium_guild(guild_id),
     }
 
 
@@ -147,6 +148,12 @@ async def create_panel(guild_id: int, data: dict | None = None):
 
 @router.patch("/{guild_id}/panels/{panel_id}", summary="Update one panel")
 async def update_panel(guild_id: int, panel_id: int, data: dict):
+    if "select_placeholder" in data and not feature_gates.can_configure_premium_guild(guild_id):
+        raise HTTPException(
+            status_code=403,
+            detail="Ein eigener Dropdown-Platzhalter erfordert aktives Premium.",
+        )
+
     db = await _db()
     changed = await panels.update_panel(db, guild_id, panel_id, data)
     if not changed:
@@ -259,8 +266,15 @@ async def send_panel(
     # and is the only workable option past five categories, since Discord
     # allows at most five buttons per row.
     if (panel["panel_type"] or "button") == "dropdown":
+        placeholder = panels.DEFAULT_SELECT_PLACEHOLDER
+        if feature_gates.can_configure_premium_guild(guild_id):
+            placeholder = (
+                str(panel.get("select_placeholder") or "").strip()
+                [:panels.MAX_SELECT_PLACEHOLDER]
+                or panels.DEFAULT_SELECT_PLACEHOLDER
+            )
         select = discord.ui.Select(
-            placeholder="Wähle eine Kategorie…",
+            placeholder=placeholder,
             custom_id="create_ticket_select",
             min_values=1,
             max_values=1,

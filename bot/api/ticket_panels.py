@@ -27,11 +27,13 @@ from typing import Any
 import aiosqlite
 
 DB_PATH = "db/ticket.db"
+DEFAULT_SELECT_PLACEHOLDER = "Wähle eine Kategorie…"
+MAX_SELECT_PLACEHOLDER = 150
 
 PANEL_COLUMNS = (
     "panel_id", "guild_id", "name", "channel_id", "message_id", "panel_type",
     "embed_title", "embed_description", "embed_color",
-    "embed_image_url", "embed_thumbnail_url", "staff_roles",
+    "embed_image_url", "embed_thumbnail_url", "staff_roles", "select_placeholder",
 )
 
 
@@ -106,10 +108,19 @@ async def ensure_schema(db: aiosqlite.Connection) -> None:
             embed_color INTEGER,
             embed_image_url TEXT,
             embed_thumbnail_url TEXT,
-            staff_roles TEXT DEFAULT ''
+            staff_roles TEXT DEFAULT '',
+            select_placeholder TEXT NOT NULL DEFAULT 'Wähle eine Kategorie…'
         )
         """
     )
+    async with db.execute("PRAGMA table_info(ticket_panels)") as cursor:
+        panel_columns = {str(row[1]) for row in await cursor.fetchall()}
+    if "select_placeholder" not in panel_columns:
+        await db.execute(
+            "ALTER TABLE ticket_panels ADD COLUMN select_placeholder TEXT NOT NULL"
+            " DEFAULT 'Wähle eine Kategorie…'"
+        )
+
     await db.execute(
         "CREATE INDEX IF NOT EXISTS idx_panels_guild ON ticket_panels(guild_id)"
     )
@@ -191,7 +202,7 @@ async def list_panels(db: aiosqlite.Connection, guild_id: int) -> list[dict]:
     async with db.execute(
         "SELECT panel_id, name, channel_id, message_id, panel_type,"
         " embed_title, embed_description, embed_color, embed_image_url,"
-        " embed_thumbnail_url, staff_roles"
+        " embed_thumbnail_url, staff_roles, select_placeholder"
         " FROM ticket_panels WHERE guild_id = ? ORDER BY panel_id",
         (guild_id,),
     ) as cursor:
@@ -220,6 +231,7 @@ async def list_panels(db: aiosqlite.Connection, guild_id: int) -> list[dict]:
             "embed_image_url": row[8] or "",
             "embed_thumbnail_url": row[9] or "",
             "staff_roles": _split_roles(row[10]),
+            "select_placeholder": row[11] or DEFAULT_SELECT_PLACEHOLDER,
             "posted": bool(row[3]),
             "categories": [
                 {
@@ -266,6 +278,7 @@ _WRITABLE = {
     "embed_color": "embed_color",
     "embed_image_url": "embed_image_url",
     "embed_thumbnail_url": "embed_thumbnail_url",
+    "select_placeholder": "select_placeholder",
 }
 
 
@@ -288,8 +301,11 @@ async def update_panel(
             continue
         if data[key] is None and key not in NULLABLE:
             continue
+        value = data[key]
+        if key == "select_placeholder":
+            value = str(value).strip()[:MAX_SELECT_PLACEHOLDER] or DEFAULT_SELECT_PLACEHOLDER
         assignments.append(f"{column} = ?")
-        values.append(data[key])
+        values.append(value)
 
     if "staff_roles" in data and data["staff_roles"] is not None:
         assignments.append("staff_roles = ?")

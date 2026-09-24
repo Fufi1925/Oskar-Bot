@@ -123,7 +123,8 @@ def run():
     from api.server import create_app
     from fastapi.testclient import TestClient
 
-    dep.set_bot(FakeBot())
+    fake_bot = FakeBot()
+    dep.set_bot(fake_bot)
     client = TestClient(create_app())
     base = f"/api/v1/tickets/{GUILD}"
 
@@ -274,10 +275,59 @@ def run():
         if p["panel_id"] == fresh
     )
     check("panel type is stored", target["panel_type"] == "dropdown", str(target))
+    check("legacy panels receive the default placeholder",
+          target["select_placeholder"] == "Wähle eine Kategorie…", str(target))
 
-    guild = FakeBot().guilds[0]
+    # The dashboard cannot bypass Premium by calling the API directly.
+    r = client.patch(
+        f"{base}/panels/{fresh}",
+        json={"select_placeholder": "Wie können wir helfen?"},
+    )
+    check("non-premium cannot edit the placeholder", r.status_code == 403,
+          f"-> {r.status_code} {r.text[:80]}")
+
+    from utils import feature_gates
+    original_can_configure = feature_gates.can_configure_premium_guild
+    feature_gates.can_configure_premium_guild = lambda guild_id: int(guild_id) == GUILD
+    r = client.patch(
+        f"{base}/panels/{fresh}",
+        json={"select_placeholder": "Wie können wir helfen?"},
+    )
+    check("premium can edit the placeholder", r.status_code == 200,
+          f"-> {r.status_code} {r.text[:80]}")
+    target = next(
+        p for p in client.get(f"{base}/panels").json()["panels"]
+        if p["panel_id"] == fresh
+    )
+    check("custom placeholder is stored per panel",
+          target["select_placeholder"] == "Wie können wir helfen?", str(target))
+
+    def placeholders(component):
+        found = []
+        placeholder = getattr(component, "placeholder", None)
+        if placeholder:
+            found.append(placeholder)
+        for child in getattr(component, "children", []) or []:
+            found.extend(placeholders(child))
+        for child in getattr(component, "items", []) or []:
+            found.extend(placeholders(child))
+        return found
+
     r = client.post(f"{base}/panels/{fresh}/send", json={})
     check("a dropdown panel posts", r.status_code == 200, f"-> {r.status_code} {r.text[:80]}")
+    posted = fake_bot.guilds[0].channel.sent[-1]["view"]
+    check("Discord receives the premium placeholder",
+          "Wie können wir helfen?" in placeholders(posted), str(placeholders(posted)))
+
+    # A saved Premium value must stop taking effect as soon as Premium is no
+    # longer active; keeping it in the database allows it to return on renewal.
+    feature_gates.can_configure_premium_guild = lambda _guild_id: False
+    r = client.post(f"{base}/panels/{fresh}/send", json={})
+    posted = fake_bot.guilds[0].channel.sent[-1]["view"]
+    check("expired premium sends the standard placeholder",
+          r.status_code == 200 and "Wähle eine Kategorie…" in placeholders(posted),
+          str(placeholders(posted)))
+    feature_gates.can_configure_premium_guild = original_can_configure
 
     client.patch(f"{base}/panels/{fresh}", json={"panel_type": "button"})
     r = client.post(f"{base}/panels/{fresh}/send", json={})
