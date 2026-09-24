@@ -2,8 +2,9 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import {
-  BellRing, ChevronDown, Loader2, Plus, Send, Settings2, Ticket, Trash2, X,
+  BellRing, ChevronDown, Crown, Loader2, Lock, Plus, Send, Settings2, Ticket, Trash2, X,
 } from "lucide-react";
+import Link from "next/link";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -102,26 +103,57 @@ function DropdownPlaceholderEditor({
       hint={
         premium
           ? "Wird für alle Discord-Nutzer angezeigt. Leer lassen setzt den Standard zurück."
-          : "Ein eigener Platzhalter ist nur mit aktivem Server-Premium verfügbar."
+          : undefined
       }
     >
-      <input
-        value={value}
-        maxLength={150}
-        disabled={!premium}
-        onChange={(event) => setValue(event.target.value)}
-        onBlur={() => premium && value !== effective && onCommit(value)}
-        placeholder={DEFAULT_SELECT_PLACEHOLDER}
-        className="w-full bg-[#0e0e12] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-primary/50 disabled:cursor-not-allowed disabled:opacity-55"
-      />
-      <div className="space-y-1.5">
-        <span className="text-[10px] font-black uppercase tracking-widest text-slate-600">
-          Discord-Vorschau
-        </span>
-        <div className="flex items-center justify-between rounded-md border border-[#3f4147] bg-[#1e1f22] px-3 py-2.5 text-sm text-[#b5bac1]">
-          <span className="truncate">{value.trim() || DEFAULT_SELECT_PLACEHOLDER}</span>
-          <ChevronDown className="h-4 w-4 shrink-0 text-[#b5bac1]" />
+      <div className="relative min-h-[190px] overflow-hidden rounded-2xl">
+        <div
+          className={cn(
+            "space-y-3 transition",
+            !premium && "pointer-events-none select-none blur-[3px] opacity-45"
+          )}
+          aria-hidden={!premium}
+        >
+          <input
+            value={value}
+            maxLength={150}
+            disabled={!premium}
+            onChange={(event) => setValue(event.target.value)}
+            onBlur={() => premium && value !== effective && onCommit(value)}
+            placeholder={DEFAULT_SELECT_PLACEHOLDER}
+            className="w-full bg-[#0e0e12] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-primary/50 disabled:cursor-not-allowed"
+          />
+          <div className="space-y-1.5">
+            <span className="text-[10px] font-black uppercase tracking-widest text-slate-600">
+              Discord-Vorschau
+            </span>
+            <div className="flex items-center justify-between rounded-md border border-[#3f4147] bg-[#1e1f22] px-3 py-2.5 text-sm text-[#b5bac1]">
+              <span className="truncate">{value.trim() || DEFAULT_SELECT_PLACEHOLDER}</span>
+              <ChevronDown className="h-4 w-4 shrink-0 text-[#b5bac1]" />
+            </div>
+          </div>
         </div>
+
+        {!premium && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-[#0a0a0c]/35 p-3">
+            <div className="w-full max-w-sm rounded-2xl border border-amber-400/25 bg-[#131318]/95 p-4 text-center shadow-2xl backdrop-blur-md">
+              <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-xl bg-amber-400/10">
+                <Lock className="h-5 w-5 text-amber-300" />
+              </div>
+              <h3 className="mt-2 font-bold text-white">Premium erforderlich</h3>
+              <p className="mt-1 text-xs leading-5 text-slate-400">
+                Eigene Texte für das Ticket-Dropdown sind mit Server-Premium verfügbar.
+              </p>
+              <Link
+                href="/premium"
+                className="mt-3 inline-flex items-center gap-2 rounded-xl bg-amber-400 px-4 py-2 text-xs font-bold text-black transition hover:bg-amber-300"
+              >
+                <Crown className="h-4 w-4" />
+                Premium ansehen
+              </Link>
+            </div>
+          </div>
+        )}
       </div>
     </Field>
   );
