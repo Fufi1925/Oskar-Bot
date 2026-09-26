@@ -1,5 +1,98 @@
 # Was geändert wurde
 
+## Oktober: LBoost Shop von Grund auf nachgezählt
+
+Der Shop-Bereich (`lbost-shop/`) hatte schon alle sieben Module aus der
+Wunschliste — Tickets, Moderation, Welcome/Leave, Reaction Roles,
+Automation, Logging, Giveaways. Also erst gemessen, dann geflickt, dann
+das ergänzt, was der Hauptbot kann und der Shop nicht.
+
+Vier echte Fehler, vorher gemessen (Skript unter `/home/user/repro/`, jede Zahl nachgeprüft):
+
+* **Verbindungsleck.** `with sqlite3.connect(...) as conn` committet,
+  schließt aber nie. 150 Konfigurationslesungen waren 150 offene
+  Datei-Deskriptoren — und der Bot liest die Konfiguration bei jedem
+  Event. Jetzt ein Kontextmanager mit Pool pro Thread, garantiertes
+  `commit()` und `busy_timeout`. Messung nach dem Fix: +0 Deskriptoren
+  bei 800 Lesungen.
+* **Die Content-Security-Policy hat das halbe Dashboard abgeschaltet.**
+  `style-src 'self'` ohne `unsafe-inline` verbietet auch `style`-Attribute
+  — und genau darin standen Fortschrittsbalken und Diagrammhöhen.
+  Chromium meldete 30 Verstöße, der Balken war so breit wie sein Rahmen,
+  alle 14 Diagrammbalken 4 px hoch. Behoben ohne Aufweichung: 201
+  generierte Klassen (`.ub-fill-0` … `.ub-h-100`). Nachgemessen: 0
+  Verstöße, 264 px bei 29 %, ungleiche Balkenhöhen.
+* **Der Bot hat den Verlaufsgraphen gefüllt.** Laufzeit-Schreiben
+  (nächster Sendelauf) landeten in `feature_audit` und damit im
+  „14-Tage-Verlauf“ des Servers; die Tabelle wuchs ungebremst. Jetzt
+  `audit=False` für Laufzeit, Zustand in einer eigenen Tabelle,
+  Aufräumlauf beim Start (45 Tage).
+* **Verlorenes Update.** Der Automations-Worker las die Konfiguration,
+  fügte `next_run` ein und schrieb das Ganze zurück. Traf das auf ein
+  parallel gespeichertes Formular, war die Änderung des Nutzers weg —
+  im Test vorher reproduziert (`extra` war `None`, erwartet `1`).
+
+Was der Hauptbot konnte und der Shop nicht, ist jetzt drin — in eigener
+Implementierung, weil der Bereich bewusst nichts importiert:
+
+* `lbost_shop_app/regeln.py` als *eine* Regelstelle für Platzhalter,
+  Fragen, Kürzungen und Kanalnamen. Dashboard-Vorschau und Bot rufen
+  dieselbe Funktion auf; ein Test prüft die Gleichheit und dass der Bot
+  keine eigenen Defaults mehr hat.
+* Ticket-Begrüßung, Überschrift und Bestätigung waren im Bot bereits
+  vorgesehen (`ticket_title`, `ticket_message`) aber im Formular nicht
+  vorhanden — also gar nicht settingbar. Jetzt drin, mit den fünf
+  Platzhaltern des Hauptbots.
+* Bis zu fünf **Formularfragen** vor dem Öffnen (kurz / Absatz / Bild),
+  Antworten hängen im Ticket — wie im Hauptbot, inklusive Modal vor
+  `defer()`.
+* **Live-Vorschau** im Ticket-Formular: entprellt 500 ms, eine Anfrage pro
+  Tippkaskade (gemessen), rechnet im Bot, speichert nichts. Fremde
+  Felder melden sich als „Feld unbekannt", statt still den alten Stand
+  zu zeigen.
+* Bot-Herzschlag statt festgeschriebenem „Online"-Schild, Verwarnungs-
+  liste im Moderations-Reiter mit Einzellöschung, Admin-Panel mit
+  Sitzungen („alle abmelden"), Freigabeliste und Änderungsverlauf.
+
+Zuverlässigkeit und Sicherheit nebenbei: Rechtecheck vor `delete()` und
+`timeout()` (ein fehlendes Recht warf und stoppte den AutoMod für den
+ganzen Server), Rollenprüfung vor `add_roles`, Giveaway-Gewinner nur aus
+Anwesenden, ein Abschluss pro Wettbewerb, Ratelimit-Wörterbuch räumt auf,
+Zahlen-/URL-/Farb-/JSON-Grenzen im Formular und beim Import,
+Discord-Lesungen gecacht, GZip und ein Jahres-Cache mit Versions-Suffix
+auf den statischen Dateien.
+
+Das Sprach-Menü oben rechts war eine Attrappe: Es schrieb nur „EN“ in die
+Beschriftung. Statt einer halben Übersetzung ist der Platz jetzt der
+echte Bot-Status; eine DE/EN-Umschaltung folgt, wenn die Texte des
+Hauptdashboards mitgezogen werden.
+
+Nachgemessen: 7 Testdateien grün (`lbost-shop/tests/run_all.py`), davon eine,
+die den Bot-Code wirklich ablaufen lässt (`test_shop_botlauf.py`: Modal vor
+`defer()`, Kanalname, Platzhalter, Rechte am Kanal, Transkript, Spam-Serie,
+Giveaway-Abschluss, Herzschlag),
+`ruff --select=E9,F` sauber, Chromium-Durchgang über 11 Seiten bei
+1360 px und 4 Mobilseiten bei 390 px: 0 px Überlauf, 0 JS-Fehler,
+0 CSP-Verstöße. **32 Mutationen, 32 gefangen** — jede Sicherung hat
+einen Test, der verschwindet, wenn man sie herausnimmt. Drei Prüfungen
+waren beim ersten Anlauf vakuum-grün (eine Testbehauptung, die der
+Produktionspfad nie liest, eine Zeilenzählung ohne Sortieranker und ein
+Filter ohne Beobachtungsgröße) und wurden nachgeschärft.
+
+Zwei Tests mussten mitgehen, weil sich das Produkt geändert hat — nicht
+umgekehrt: `test_lbost_shop.py` prüft jetzt den Statusknopf statt des
+Sprachmenüs und das volle Admin-Panel statt „noch keine Einstellungen“;
+`test_lbost_shop_flow.py` verlangt im Admin-Panel die echten Zahlen
+(freigegebenes Konto und gespeicherter Modulverlauf).
+
+Noch offen, weil der Zugriffsschlüssel kein `workflow`-Recht hat: der neue
+CI-Job für den Bereich (`.github/workflows/tests.yml`). Er liegt als
+`lbost-shop-ci-job.patch` im Arbeitsverzeichnis und braucht zwei Minuten,
+sobald der Token im GitHub-Settings auf „Workflows: read and write“ steht —
+oder du kopierst den Job von Hand in die Datei.`
+
+---
+
 ## Oktober: Ticket-Vorschau rechnet der Bot
 
 Der Reiter für erweiterte Ticket-Einstellungen (Begrüßungstitel, -text,

@@ -1,3 +1,31 @@
-{% extends "dashboard_base.html" %}{% block title %}Admin-Panel — University Bot{% endblock %}{% block dashboard_content %}
-<header class="ub-page-header"><div><p class="eyebrow">Owner-Bereich</p><h1>Admin-Panel</h1><p class="page-lead">Dieser Bereich ist ausschließlich für die bestehenden Owner-IDs sichtbar und aufrufbar.</p></div><span class="ub-owner-badge">Owner only</span></header><section class="ub-panel ub-admin-empty"><span class="ub-large-icon"><svg><use href="#i-shield"></use></svg></span><h2>Admin-Bereich vorbereitet</h2><p>Noch keine Einstellungen. Die Navigation und sichere Owner-Prüfung sind bereits aktiv.</p></section>
+{% extends "dashboard_base.html" %}
+{% block title %}Admin-Panel — University Bot{% endblock %}
+{% block dashboard_content %}
+<header class="ub-page-header"><div><p class="eyebrow">Owner-Bereich</p><h1>Admin-Panel</h1><p class="page-lead">Dieser Bereich ist ausschließlich für die bestehenden Owner-IDs sichtbar und aufrufbar.</p></div><span class="ub-owner-badge">Owner only</span></header>
+<section class="ub-admin-grid">
+<article><strong>{% if status.online %}Online{% else %}Getrennt{% endif %}</strong><span>Shop-Bot{% if status.vor is not none %} · Meldung vor {{ status.vor }} s{% endif %}</span></article>
+<article><strong>{{ uebersicht.server }}</strong><span>Server mit Konfiguration</span></article>
+<article><strong>{{ uebersicht.konfigurationen }}</strong><span>Modul-Einträge insgesamt</span></article>
+<article><strong>{{ uebersicht.tickets }}</strong><span>Tickets · {{ uebersicht.warnungen }} Verwarnungen</span></article>
+<article><strong>{{ sitzungen|length }}</strong><span>aktive Sitzungen (letzte 50)</span></article>
+</section>
+
+<section class="ub-daten-card"><header><div><h2>Zugang</h2><p>Nur diese Konten kommen durch — plus die Owner aus <code>OWNER_IDS</code>. Server erscheinen zusätzlich nur bei Bot-Anwesenheit und Recht „Server verwalten“.</p></div><span>{{ authorized|length }} Konten · {{ freigegebene_server|length }} Server</span></header>
+<div class="ub-chips">{% for id in authorized %}<span>{{ id }}</span>{% endfor %}{% if not authorized %}<span>LBOST_SHOP_AUTHORIZED_IDS ist leer — niemand kommt hinein</span>{% endif %}</div>
+<p class="ub-preview-note">Als Owner dürfen hier: {% for id in owners %}<code>{{ id }}</code> {% endfor %}</p>
+<div class="ub-chips">{% for id in freigegebene_server %}<span>Server {{ id }}</span>{% endfor %}{% if not freigegebene_server %}<span>LBOST_SHOP_ALLOWED_GUILD_IDS ist leer</span>{% endif %}</div>
+</section>
+
+<section class="ub-daten-card"><header><div><h2>Sitzungen</h2><p>Jeder Eintrag ist ein Browser, der aktuell mitgelenkt werden kann. Tokens stehen verschlüsselt in der Datenbank und werden hier nicht angezeigt.</p></div>
+<form method="post" action="{{ root_path }}/admin/sitzungen/loeschen" class="ub-inline-form"><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit" class="ub-danger-button">Alle abmelden</button></form></header>
+{% if sitzungen %}<table class="ub-table"><thead><tr><th>Konto</th><th>Sitzung</th><th>Angemeldet</th><th>Zuletzt gesehen</th><th>Läuft ab</th></tr></thead><tbody>
+{% for sitzung in sitzungen %}<tr><td><code>{{ sitzung.user_id }}</code></td><td>#{{ sitzung.kurz }}</td><td>{{ sitzung.erstellt | strftime }}</td><td>vor {{ sitzung.zuletzt | seit_minuten }} Min.</td><td>{{ sitzung.laeuft_ab | strftime }}</td></tr>{% endfor %}
+</tbody></table>{% else %}<p class="ub-preview-note">Keine aktive Sitzung. Noch keine Anmeldungen oder alle abgemeldet.</p>{% endif %}
+</section>
+
+<section class="ub-daten-card"><header><div><h2>Letzte Änderungen</h2><p>Wer hat wann welches Modul gespeichert. Der Verlauf bleibt {{ audit_tage }} Tage, ältere Zeilen räumt der Start auf.</p></div><span>{{ uebersicht.aenderungen }} Einträge</span></header>
+{% if aenderungen %}<table class="ub-table"><thead><tr><th>Zeit</th><th>Server</th><th>Konto</th><th>Modul</th></tr></thead><tbody>
+{% for eintrag in aenderungen %}<tr><td>{{ eintrag.created_at | strftime }}</td><td><code>{{ eintrag.guild_id }}</code></td><td><code>{{ eintrag.actor_id }}</code></td><td>{{ eintrag.action }}</td></tr>{% endfor %}
+</tbody></table>{% else %}<p class="ub-preview-note">Noch keine Einstellungen gespeichert.</p>{% endif %}
+</section>
 {% endblock %}

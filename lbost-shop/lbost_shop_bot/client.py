@@ -3,19 +3,22 @@
 The configuration source is the shop dashboard's SQLite database. Discord
 messages use Components V2 layouts; component custom IDs are handled globally
 so tickets, role panels and giveaways continue working after restarts.
+
+Text rules (placeholders, question filtering, channel naming) live in
+``lbost_shop_app.regeln`` so the dashboard preview and this bot calculate the
+same output — the same split University Bot uses.
 """
 from __future__ import annotations
 
 import asyncio
 import html
 import io
-import json
 import logging
 import random
 import re
 import time
 from collections import defaultdict, deque
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 from urllib.parse import urlparse
 
@@ -23,11 +26,16 @@ import discord
 from discord import app_commands
 from discord.ext import commands, tasks
 
-from lbost_shop_app import db
+from lbost_shop_app import db, regeln
 from lbost_shop_app.config import Settings, get_settings
 
 logger = logging.getLogger("lbost-shop-bot")
 LINK_RE = re.compile(r"https?://[^\s]+", re.I)
+
+#: Wie alt ein Zeitstempel im Spam-Eimer sein darf, bevor er verworfen wird.
+SPAM_FENSTER = 8.0
+#: Hochstens so viele Nutzer gleichzeitig im Spam-Zähler (Speicherbremse).
+SPAM_MAX_EINTRAEGE = 4000
 
 
 def ids(raw: Any) -> set[int]:
@@ -78,6 +86,72 @@ def layout(title: str, description: str, *, color: Any = "#5865f2", buttons: lis
     return view
 
 
+def taugliche_teilnehmer(teilnehmer: list[int], mitglieder: set[int]) -> list[int]:
+    """Nur wer auf dem Server ist, kann gewinnen.
+
+    Vorher landeten Ausgetretene und Gebannte in der Ziehung; die Erwähnung
+    ins Leere, der Gewinner offiziell vorhanden. Der Filter ist eine eigene
+    Funktion, damit er ohne Discord-Objekte prüfbar ist.
+    """
+    tauglich: list[int] = []
+    for uid in teilnehmer or []:
+        try:
+            nummer = int(uid)
+        except (TypeError, ValueError):
+            continue
+        if nummer in mitglieder:
+            tauglich.append(nummer)
+    return tauglich
+
+
+def _zeit(stempel: int) -> str:
+    if not stempel:
+        return "—"
+    return datetime.fromtimestamp(int(stempel), timezone.utc).astimezone().strftime("%d.%m. %H:%M")
+
+
+class TicketFragenModal(discord.ui.Modal):
+    """Fragen vor dem Öffnen — dieselbe Regel wie die Dashboard-Vorschau."""
+
+    def __init__(self, bot: "ShopBot", panel_key: str, fragen: list[dict[str, Any]]):
+        super().__init__(title="Ticket erstellen", timeout=300)
+        self.bot = bot
+        self.panel_key = panel_key
+        self.fragen = fragen
+        self.eingaben: list[tuple[str, str, Any]] = []
+        for frage in fragen[:regeln.MAX_TICKET_QUESTIONS]:
+            label = str(frage.get("label") or "Frage")[:regeln.MAX_FRAGE_LABEL]
+            typ = str(frage.get("type") or "short")
+            pflicht = bool(frage.get("required", True))
+            if typ == "image":
+                feld = discord.ui.FileUpload(required=pflicht, min_values=1 if pflicht else 0, max_values=1)
+                self.eingaben.append((label, "image", feld))
+                self.add_item(discord.ui.Label(
+                    text=label,
+                    description=str(frage.get("placeholder") or "Bild hochladen")[:regeln.MAX_FRAGE_HINWEIS],
+                    component=feld,
+                ))
+                continue
+            feld = discord.ui.TextInput(
+                label=label,
+                placeholder=str(frage.get("placeholder") or "").strip()[:regeln.MAX_FRAGE_HINWEIS] or None,
+                required=pflicht,
+                style=discord.TextStyle.paragraph if typ == "paragraph" else discord.TextStyle.short,
+                max_length=regeln.MAX_ANTWORT_LANG if typ == "paragraph" else regeln.MAX_ANTWORT_KURZ,
+            )
+            self.eingaben.append((label, typ, feld))
+            self.add_item(feld)
+
+    async def on_submit(self, interaction: discord.Interaction) -> None:
+        antworten = []
+        for label, typ, feld in self.eingaben:
+            if typ == "image":
+                antworten.append({"label": label, "type": "image", "attachments": list(feld.values or [])})
+            else:
+                antworten.append({"label": label, "type": typ, "value": feld.value})
+        await self.bot.create_ticket(interaction, self.panel_key, antworten=antworten)
+
+
 class ShopBot(commands.Bot):
     def __init__(self, settings: Settings):
         intents = discord.Intents.none()
@@ -89,6 +163,7 @@ class ShopBot(commands.Bot):
         super().__init__(command_prefix="!", intents=intents, allowed_mentions=discord.AllowedMentions.none())
         self.settings = settings
         self.spam: dict[tuple[int, int], deque[float]] = defaultdict(deque)
+        self._cooldowns: dict[str, float] = {}
         self.feature_cache: dict[tuple[int, str], tuple[float, dict[str, Any]]] = {}
 
     def feature(self, guild_id: int, name: str) -> dict[str, Any]:
@@ -98,17 +173,22 @@ class ShopBot(commands.Bot):
             return cached[1]
         value = db.get_feature(guild_id, name, self.settings)
         self.feature_cache[key] = (now, value)
+        if len(self.feature_cache) > 4000:  # Server, die niemand mehr sieht, rauswerfen
+            self.feature_cache = {k: v for k, v in self.feature_cache.items() if now - v[0] < 30}
         return value
 
     async def setup_hook(self) -> None:
         db.init_features(self.settings)
+        db.prune_audit(self.settings)
         self.giveaway_worker.start()
         self.automation_worker.start()
+        self.heartbeat.start()
         await self.tree.sync()
 
     async def on_ready(self) -> None:
         logger.info("Connected as %s (%s), %s guilds; feature runtime active", self.user, self.user.id if self.user else "?", len(self.guilds))
 
+    # ── Hilfen ────────────────────────────────────────────────────────
     async def send_layout(self, channel: discord.abc.Messageable, title: str, description: str, **kwargs: Any) -> discord.Message | None:
         try:
             return await channel.send(view=layout(title, description, **kwargs))
@@ -125,10 +205,39 @@ class ShopBot(commands.Bot):
 
     async def interaction_notice(self, interaction: discord.Interaction, title: str, text: str, *, error: bool = False) -> None:
         view = layout(title, text, color="#ed4245" if error else "#3ba55d")
-        if interaction.response.is_done():
-            await interaction.followup.send(view=view, ephemeral=True)
-        else:
-            await interaction.response.send_message(view=view, ephemeral=True)
+        try:
+            if interaction.response.is_done():
+                await interaction.followup.send(view=view, ephemeral=True)
+            else:
+                await interaction.response.send_message(view=view, ephemeral=True)
+        except (discord.HTTPException, discord.InteractionResponded):
+            logger.warning("Could not answer interaction", exc_info=True)
+
+    async def safe_delete(self, message: discord.Message, grund: str) -> bool:
+        """Löschen, ohne an fehlenden Rechten zu zerbrechen.
+
+        Ohne Abfrage warf ``Forbidden`` und der ganze Event-Handler starb —
+        das nächste Mitglied hätte keinen Spam-Schutz mehr abbekommen, solange
+        niemand den Bot neu startet.
+        """
+        try:
+            await message.delete()
+            return True
+        except discord.Forbidden:
+            logger.info("Missing permissions to delete a message in #%s (%s)", getattr(message.channel, "name", "?"), grund)
+        except discord.HTTPException:
+            logger.warning("Deleting message failed (%s)", grund, exc_info=True)
+        return False
+
+    async def safe_timeout(self, member: discord.Member, minuten: int, grund: str) -> bool:
+        try:
+            await member.timeout(timedelta(minutes=minuten), reason=f"LBoost Shop: {grund}")
+            return True
+        except discord.Forbidden:
+            logger.info("Missing permissions to time out %s (%s)", member, grund)
+        except discord.HTTPException:
+            logger.warning("Timeout failed for %s (%s)", member, grund, exc_info=True)
+        return False
 
     async def on_interaction(self, interaction: discord.Interaction) -> None:
         if interaction.type is not discord.InteractionType.component or not interaction.guild:
@@ -136,7 +245,7 @@ class ShopBot(commands.Bot):
         custom_id = str((interaction.data or {}).get("custom_id") or "")
         try:
             if custom_id.startswith("shop:ticket:create:"):
-                await self.create_ticket(interaction, custom_id.rsplit(":", 1)[-1])
+                await self.start_ticket(interaction, custom_id.rsplit(":", 1)[-1])
             elif custom_id.startswith("shop:ticket:"):
                 await self.ticket_action(interaction, custom_id.rsplit(":", 1)[-1])
             elif custom_id.startswith("shop:role:"):
@@ -145,8 +254,7 @@ class ShopBot(commands.Bot):
                 await self.enter_giveaway(interaction, int(custom_id.rsplit(":", 1)[-1]))
         except Exception:
             logger.exception("Component failed: %s", custom_id)
-            if not interaction.response.is_done():
-                await self.interaction_notice(interaction, "Aktion fehlgeschlagen", "Die Aktion konnte nicht sicher ausgeführt werden.", error=True)
+            await self.interaction_notice(interaction, "Aktion fehlgeschlagen", "Die Aktion konnte nicht sicher ausgeführt werden.", error=True)
 
     # ── Tickets ──────────────────────────────────────────────────────
     def ticket_panel(self, guild_id: int, key: str) -> dict[str, Any]:
@@ -154,107 +262,206 @@ class ShopBot(commands.Bot):
         if key == "default":
             return cfg
         panels = cfg.get("panels_json") or []
-        selected = next((p for p in panels if str(p.get("key")) == key), None)
+        selected = next((p for p in panels if isinstance(p, dict) and str(p.get("key")) == key), None)
         return {**cfg, **selected} if selected else cfg
 
-    async def create_ticket(self, interaction: discord.Interaction, panel_key: str) -> None:
+    async def start_ticket(self, interaction: discord.Interaction, panel_key: str) -> None:
+        """Knopfdruck: erst das Fragen-Modal, sonst direkt das Ticket.
+
+        Das Modal muss die *erste* Antwort auf die Interaktion sein — wer
+        vorher ``defer`` aufruft, kann kein Modal mehr senden und der Knopf
+        wirkt kaputt.
+        """
+        cfg = self.ticket_panel(interaction.guild.id, panel_key)
+        fragen = regeln.fragen_bereinigen(cfg.get("questions_json"))
+        if fragen:
+            await interaction.response.send_modal(TicketFragenModal(self, panel_key, fragen))
+            return
+        await interaction.response.defer(ephemeral=True)
+        await self.create_ticket(interaction, panel_key)
+
+    async def create_ticket(self, interaction: discord.Interaction, panel_key: str,
+                            antworten: list[dict[str, Any]] | None = None) -> None:
         guild = interaction.guild
         member = interaction.user
+        if not interaction.response.is_done():
+            await interaction.response.defer(ephemeral=True)
         cfg = self.ticket_panel(guild.id, panel_key)
         if not cfg.get("enabled", self.feature(guild.id, "tickets").get("enabled")):
             return await self.interaction_notice(interaction, "Tickets deaktiviert", "Dieses Ticket-Panel ist nicht aktiv.", error=True)
-        open_roles = ids(cfg.get("open_role_ids"))
-        if open_roles and not any(role.id in open_roles for role in member.roles):
+        offene_rollen = ids(cfg.get("open_role_ids"))
+        if offene_rollen and not any(role.id in offene_rollen for role in member.roles):
             return await self.interaction_notice(interaction, "Keine Berechtigung", "Du besitzt keine Rolle, die dieses Ticket öffnen darf.", error=True)
-        with db._connect(self.settings) as conn:
-            existing = conn.execute("SELECT channel_id FROM tickets WHERE guild_id=? AND owner_id=? AND status='open'", (guild.id, member.id)).fetchone()
-        if existing and guild.get_channel(int(existing["channel_id"])):
-            return await self.interaction_notice(interaction, "Ticket bereits offen", f"Du hast bereits <#{existing['channel_id']}>.", error=True)
-        category = guild.get_channel(int(cfg.get("category_id") or 0))
-        support_roles = [guild.get_role(role_id) for role_id in ids(cfg.get("support_role_ids"))]
+        bereits = db.offene_tickets_fuer_nutzer(guild.id, member.id, self.settings)
+        if bereits and guild.get_channel(int(bereits)):
+            return await self.interaction_notice(interaction, "Ticket bereits offen", f"Du hast bereits <#{bereits}>.", error=True)
+
+        kategorie = guild.get_channel(int(cfg.get("category_id") or 0))
+        support_rollen = [guild.get_role(role_id) for role_id in ids(cfg.get("support_role_ids"))]
         overwrites: dict[Any, discord.PermissionOverwrite] = {
             guild.default_role: discord.PermissionOverwrite(view_channel=False),
-            member: discord.PermissionOverwrite(view_channel=True, send_messages=True, read_message_history=True),
-            guild.me: discord.PermissionOverwrite(view_channel=True, send_messages=True, manage_channels=True, read_message_history=True),
+            member: discord.PermissionOverwrite(view_channel=True, send_messages=True, read_message_history=True, attach_files=True),
+            guild.me: discord.PermissionOverwrite(view_channel=True, send_messages=True, manage_channels=True, manage_messages=True, read_message_history=True, attach_files=True),
         }
-        for role in filter(None, support_roles):
-            overwrites[role] = discord.PermissionOverwrite(view_channel=True, send_messages=True, read_message_history=True)
-        name = f"ticket-{member.name}"[:90].lower().replace(" ", "-")
-        channel = await guild.create_text_channel(name, category=category if isinstance(category, discord.CategoryChannel) else None, overwrites=overwrites, reason=f"LBoost ticket by {member}")
-        with db._connect(self.settings) as conn:
-            conn.execute("INSERT INTO tickets(guild_id,channel_id,owner_id,panel_key,created_at) VALUES(?,?,?,?,?)", (guild.id, channel.id, member.id, panel_key, int(time.time())))
+        for role in filter(None, support_rollen):
+            overwrites[role] = discord.PermissionOverwrite(view_channel=True, send_messages=True, read_message_history=True, attach_files=True)
+
+        nummer = db.naechste_ticket_nummer(guild.id, self.settings)
+        anzeige = str(getattr(member, "global_name", None) or member.name or "nutzer")
+        name = regeln.kanal_name(nummer, anzeige, str(cfg.get("channel_name_format") or ""))
+        try:
+            channel = await guild.create_text_channel(
+                name,
+                category=kategorie if isinstance(kategorie, discord.CategoryChannel) else None,
+                overwrites=overwrites,
+                slowmode_seconds=max(0, min(30, int(cfg.get("slowmode_seconds") or 0))),
+                reason=f"LBoost Shop ticket by {member}",
+            )
+        except discord.Forbidden:
+            return await self.interaction_notice(interaction, "Keine Rechte", "Der Bot darf in dieser Kategorie keine Kanäle anlegen. Prüfe die Rollenberechtigung.", error=True)
+        except discord.HTTPException as fehler:
+            return await self.interaction_notice(interaction, "Ticket nicht möglich", f"Discord hat den Kanal abgelehnt: {getattr(fehler, 'text', 'unbekannter Fehler')}", error=True)
+
+        db.ticket_anlegen(guild.id, channel.id, member.id, panel_key, nummer, antworten or [], self.settings)
+        worte = regeln.ersetzungen(
+            ticket_number=f"{nummer:04d}",
+            user=f"<@{member.id}>",
+            category=kategorie.name if isinstance(kategorie, discord.CategoryChannel) else "Support",
+            server=guild.name,
+            channel=f"#{channel.name}",
+        )
+        texte = regeln.ticket_texte(cfg, worte, antworten=antworten)
+        titel = texte["titel"]
+        text = texte["nachricht"]
         buttons = [
             discord.ui.Button(label=str(cfg.get("claim_label") or "Übernehmen")[:80], emoji=emoji(cfg.get("claim_emoji")), style=discord.ButtonStyle.primary, custom_id="shop:ticket:claim"),
             discord.ui.Button(label=str(cfg.get("close_label") or "Schließen")[:80], emoji=emoji(cfg.get("close_emoji")), style=discord.ButtonStyle.danger, custom_id="shop:ticket:close"),
         ]
-        await self.send_layout(channel, str(cfg.get("ticket_title") or "Support-Ticket"), str(cfg.get("ticket_message") or f"<@{member.id}>, beschreibe bitte dein Anliegen."), color=cfg.get("color"), buttons=buttons)
-        await self.interaction_notice(interaction, "Ticket erstellt", f"Dein Ticket wurde in <#{channel.id}> geöffnet.")
-        await self.log(guild, "Ticket erstellt", f"Kanal: <#{channel.id}>\nNutzer: <@{member.id}>", "tickets")
+        await self.send_layout(channel, titel, text, color=cfg.get("color"), buttons=buttons,
+                               image_url=str(cfg.get("ticket_image_url") or ""),
+                               thumbnail_url=str(cfg.get("ticket_thumbnail_url") or ""))
+
+        bestaetigung = texte["bestaetigung"]
+        await interaction.followup.send(view=layout("Ticket erstellt", bestaetigung, color="#3ba55d"), ephemeral=True)
+        if support_rollen and cfg.get("mention_support", True):
+            erwahnung = " ".join(role.mention for role in filter(None, support_rollen))
+            if erwahnung:
+                await self.send_layout(channel, "Support angefragt", f"{erwahnung} — ein neues Ticket ist offen.", color="#5865f2")
+        await self.log(guild, "Ticket erstellt", f"Kanal: <#{channel.id}>\nNutzer: <@{member.id}>\nNummer: `#{nummer:04d}`", "tickets")
 
     def can_manage_ticket(self, member: discord.Member, cfg: dict[str, Any]) -> bool:
         return member.guild_permissions.manage_channels or any(role.id in ids(cfg.get("support_role_ids")) for role in member.roles)
 
     async def ticket_action(self, interaction: discord.Interaction, action: str) -> None:
         guild, channel, member = interaction.guild, interaction.channel, interaction.user
-        with db._connect(self.settings) as conn:
-            ticket = conn.execute("SELECT * FROM tickets WHERE channel_id=?", (channel.id,)).fetchone()
+        ticket = db.ticket_fuer_kanal(channel.id, self.settings)
         if not ticket:
             return await self.interaction_notice(interaction, "Kein Ticket", "Dieser Kanal ist kein aktives Ticket.", error=True)
-        cfg = self.ticket_panel(guild.id, ticket["panel_key"])
+        cfg = self.ticket_panel(guild.id, str(ticket["panel_key"]))
         if not self.can_manage_ticket(member, cfg):
             return await self.interaction_notice(interaction, "Keine Berechtigung", "Du darfst dieses Ticket nicht verwalten.", error=True)
         if action == "claim":
-            with db._connect(self.settings) as conn:
-                conn.execute("UPDATE tickets SET claimed_by=? WHERE channel_id=?", (member.id, channel.id))
+            db.ticket_setzen(channel.id, self.settings, claimed_by=member.id)
             return await self.interaction_notice(interaction, "Ticket übernommen", f"Dieses Ticket wird jetzt von <@{member.id}> bearbeitet.")
         if action == "close":
             await interaction.response.defer(ephemeral=True)
             transcript = await self.make_transcript(channel)
             log_channel = guild.get_channel(int(cfg.get("log_channel_id") or 0))
-            if log_channel:
-                await log_channel.send(view=layout("Ticket geschlossen", f"Ticket: {channel.name}\nGeschlossen von: <@{member.id}>"), file=discord.File(io.BytesIO(transcript), filename=f"transcript-{channel.id}.html"))
+            abgelegt = False
+            if log_channel and transcript:
+                try:
+                    await log_channel.send(
+                        view=layout("Ticket geschlossen", f"Ticket: {channel.name}\nGeschlossen von: <@{member.id}>\nNachrichten: {transcript[1]}", color="#ed4245"),
+                        file=discord.File(io.BytesIO(transcript[0]), filename=f"transcript-{channel.id}.html"),
+                    )
+                    abgelegt = True
+                except discord.HTTPException:
+                    logger.warning("Transcript upload failed", exc_info=True)
             owner = guild.get_member(int(ticket["owner_id"]))
             if owner:
-                await channel.set_permissions(owner, send_messages=False, view_channel=True)
-            with db._connect(self.settings) as conn:
-                conn.execute("UPDATE tickets SET status='closed',closed_at=? WHERE channel_id=?", (int(time.time()), channel.id))
+                try:
+                    await channel.set_permissions(owner, send_messages=False, view_channel=True)
+                except discord.HTTPException:
+                    logger.warning("Could not lock ticket channel", exc_info=True)
+            db.ticket_setzen(channel.id, self.settings, status="closed", closed_at=int(time.time()), closed_by=member.id)
             buttons = [discord.ui.Button(label=str(cfg.get("delete_label") or "Löschen")[:80], emoji=emoji(cfg.get("delete_emoji")), style=discord.ButtonStyle.danger, custom_id="shop:ticket:delete")]
-            await self.send_layout(channel, "Ticket geschlossen", f"Geschlossen von <@{member.id}>.", color="#ed4245", buttons=buttons)
-            return await interaction.followup.send(view=layout("Ticket geschlossen", "Transkript wurde erstellt und das Ticket geschlossen."), ephemeral=True)
+            await self.send_layout(channel, "Ticket geschlossen",
+                                   f"Geschlossen von <@{member.id}>. Transkript: {'abgelegt' if abgelegt else 'nicht abgelegt (Log-Kanal prüfen)'}",
+                                   color="#ed4245", buttons=buttons)
+            return await interaction.followup.send(view=layout("Ticket geschlossen", "Das Ticket wurde geschlossen."), ephemeral=True)
         if action == "delete":
-            with db._connect(self.settings) as conn:
-                conn.execute("UPDATE tickets SET status='deleted' WHERE channel_id=?", (channel.id,))
+            db.ticket_setzen(channel.id, self.settings, status="deleted")
             await self.interaction_notice(interaction, "Ticket wird gelöscht", "Der Kanal wird in wenigen Sekunden gelöscht.")
             await asyncio.sleep(3)
-            await channel.delete(reason=f"Ticket deleted by {member}")
+            try:
+                await channel.delete(reason=f"LBoost Shop ticket deleted by {member}")
+            except discord.HTTPException:
+                logger.warning("Ticket channel delete failed", exc_info=True)
 
-    async def make_transcript(self, channel: discord.TextChannel) -> bytes:
-        lines = ["<!doctype html><meta charset='utf-8'><title>Ticket Transcript</title><style>body{font:14px system-ui;background:#101218;color:#eee;padding:24px}.m{padding:10px;border-bottom:1px solid #2a2d36}.a{color:#8ea8ff;font-weight:bold}.t{color:#777;font-size:11px}</style><h1>Ticket Transcript</h1>"]
-        async for message in channel.history(limit=2000, oldest_first=True):
-            content = html.escape(message.clean_content)
-            attachments = " ".join(html.escape(a.url) for a in message.attachments)
-            lines.append(f"<div class='m'><span class='a'>{html.escape(str(message.author))}</span> <span class='t'>{message.created_at.isoformat()}</span><br>{content}<br>{attachments}</div>")
-        return "\n".join(lines).encode("utf-8")
+    async def make_transcript(self, channel: discord.TextChannel) -> tuple[bytes, int] | None:
+        """HTML-Transkript plus Nachrichtenanzahl.
+
+        Kein Limit mehr „2000 und Hoffen": lange Tickets wurden abgeschnitten,
+        ohne dass jemand das merkte. Jetzt läuft die Paginierung durch und die
+        Kopfzeile sagt, wie viele Nachrichten wirklich drin stehen.
+        """
+        zeilen = ["<!doctype html><meta charset='utf-8'><title>Transkript</title>",
+                  "<style>body{font:14px system-ui;background:#101218;color:#eee;padding:24px}"
+                  ".m{padding:10px;border-bottom:1px solid #2a2d36}.a{color:#8ea8ff;font-weight:bold}"
+                  ".t{color:#777;font-size:11px}</style>"]
+        anzahl = 0
+        try:
+            async for message in channel.history(limit=None, oldest_first=True):
+                anzahl += 1
+                if anzahl > 10000:
+                    zeilen.append("<p><i>Transkript nach 10000 Nachrichten beendet.</i></p>")
+                    break
+                anhaenge = " ".join(
+                    f"<a href=\"{html.escape(a.url, quote=True)}\">{html.escape(a.filename)}</a>"
+                    for a in message.attachments
+                )
+                text = html.escape(message.content or "")
+                zeilen.append(
+                    f"<div class='m'><span class='a'>{html.escape(str(message.author))}</span> "
+                    f"<span class='t'>{message.created_at:%d.%m.%Y %H:%M}</span><br>{text}<br>{anhaenge}</div>"
+                )
+        except discord.HTTPException:
+            logger.warning("Transcript failed for #%s", getattr(channel, "name", "?"), exc_info=True)
+            if anzahl == 0:
+                return None
+        return "\n".join(zeilen).encode("utf-8"), anzahl
 
     async def toggle_role(self, interaction: discord.Interaction, role_id: int) -> None:
         role = interaction.guild.get_role(role_id)
         member = interaction.user
-        if not role or role >= interaction.guild.me.top_role:
-            return await self.interaction_notice(interaction, "Rolle nicht verfügbar", "Die Rolle kann nicht verwaltet werden.", error=True)
-        if role in member.roles:
-            await member.remove_roles(role, reason="LBoost reaction role")
-            await self.interaction_notice(interaction, "Rolle entfernt", f"Die Rolle {role.mention} wurde entfernt.")
-        else:
-            await member.add_roles(role, reason="LBoost reaction role")
-            await self.interaction_notice(interaction, "Rolle hinzugefügt", f"Die Rolle {role.mention} wurde hinzugefügt.")
+        if not role:
+            return await self.interaction_notice(interaction, "Rolle fehlt", "Die Rolle existiert nicht mehr. Bitte das Panel neu senden.", error=True)
+        if role >= interaction.guild.me.top_role or role.is_default() or role.managed:
+            return await self.interaction_notice(interaction, "Rolle nicht verfügbar", "Diese Rolle darf der Bot nicht vergeben.", error=True)
+        try:
+            if role in member.roles:
+                await member.remove_roles(role, reason="LBoost Shop reaction role")
+                await self.interaction_notice(interaction, "Rolle entfernt", f"Die Rolle {role.mention} wurde entfernt.")
+            else:
+                await member.add_roles(role, reason="LBoost Shop reaction role")
+                await self.interaction_notice(interaction, "Rolle hinzugefügt", f"Die Rolle {role.mention} wurde hinzugefügt.")
+        except discord.Forbidden:
+            await self.interaction_notice(interaction, "Keine Berechtigung", "Der Bot steht mit seiner Rolle unter der Zielrolle.", error=True)
 
     async def enter_giveaway(self, interaction: discord.Interaction, message_id: int) -> None:
-        with db._connect(self.settings) as conn:
-            giveaway = conn.execute("SELECT status FROM giveaways WHERE message_id=?", (message_id,)).fetchone()
-            if not giveaway or giveaway["status"] != "active":
-                return await self.interaction_notice(interaction, "Giveaway beendet", "Dieses Giveaway nimmt keine Teilnehmer mehr an.", error=True)
-            conn.execute("INSERT OR IGNORE INTO giveaway_entries(message_id,user_id) VALUES(?,?)", (message_id, interaction.user.id))
-        await self.interaction_notice(interaction, "Teilnahme gespeichert", "Du nimmst jetzt an diesem Giveaway teil.")
+        cfg = self.feature(interaction.guild.id, "giveaways")
+        required = int(cfg.get("required_role_id") or 0)
+        if required and not any(role.id == required for role in interaction.user.roles):
+            return await self.interaction_notice(interaction, "Rolle fehlt", f"Für dieses Giveaway brauchst du {interaction.guild.get_role(required).mention if interaction.guild.get_role(required) else 'eine Rolle'}.", error=True)
+        ergebnis = db.giveaway_beitreten(message_id, interaction.user.id, self.settings)
+        meldungen = {
+            "unbekannt": ("Giveaway unbekannt", "Dieses Giveaway ist nicht mehr gespeichert.", True),
+            "beendet": ("Giveaway beendet", "Dieses Giveaway nimmt keine Teilnehmer mehr an.", True),
+            "bereits": ("Schon dabei", "Du nimmst bereits teil.", False),
+            "beitritt": ("Teilnahme gespeichert", "Du nimmst jetzt an diesem Giveaway teil.", False),
+        }
+        titel, text, fehler = meldungen[ergebnis]
+        await self.interaction_notice(interaction, titel, text, error=fehler)
 
     # ── Events and automation ───────────────────────────────────────
     async def on_member_join(self, member: discord.Member) -> None:
@@ -262,7 +469,13 @@ class ShopBot(commands.Bot):
         if cfg.get("enabled"):
             channel = member.guild.get_channel(int(cfg.get("welcome_channel_id") or 0))
             if channel:
-                text = str(cfg.get("welcome_message") or "Willkommen {user} auf {server}.").replace("{user}", member.mention).replace("{server}", member.guild.name)
+                text = (
+                    str(cfg.get("welcome_message") or "Willkommen {user} auf {server}.")
+                    .replace("{user}", member.mention)
+                    .replace("{server}", member.guild.name)
+                    .replace("{member_count}", str(member.guild.member_count))
+                    .replace("{channel}", f"#{channel.name}")
+                )
                 await self.send_layout(channel, "Willkommen", text, image_url=str(cfg.get("welcome_image_url") or ""), color=cfg.get("color"))
         log_cfg = self.feature(member.guild.id, "logging")
         if log_cfg.get("enabled") and log_cfg.get("member_logs"):
@@ -273,7 +486,11 @@ class ShopBot(commands.Bot):
         if cfg.get("enabled") and cfg.get("leave_enabled"):
             channel = member.guild.get_channel(int(cfg.get("leave_channel_id") or 0))
             if channel:
-                text = str(cfg.get("leave_message") or "{user} hat {server} verlassen.").replace("{user}", str(member)).replace("{server}", member.guild.name)
+                text = (
+                    str(cfg.get("leave_message") or "{user} hat {server} verlassen.")
+                    .replace("{user}", str(member))
+                    .replace("{server}", member.guild.name)
+                )
                 await self.send_layout(channel, "Mitglied gegangen", text, image_url=str(cfg.get("leave_image_url") or ""))
         log_cfg = self.feature(member.guild.id, "logging")
         if log_cfg.get("enabled") and log_cfg.get("member_logs"):
@@ -283,123 +500,217 @@ class ShopBot(commands.Bot):
         if not message.guild or message.author.bot:
             return
         member = message.author
+        # ``roles`` und ``guild_permissions`` hängen am Mitglied, nicht am
+        # Nutzer-Objekt; über getattr läuft der Pfad auch, wenn das Mitglied
+        # gerade erst geladen wurde, statt mit AttributeError zu sterben.
+        rollen = list(getattr(member, "roles", None) or [])
+        rechte = getattr(member, "guild_permissions", None)
         mod = self.feature(message.guild.id, "moderation")
-        exempt = member.guild_permissions.manage_messages or any(r.id in ids(mod.get("exempt_role_ids")) for r in member.roles)
-        if mod.get("enabled") and not exempt:
-            if mod.get("anti_links") and LINK_RE.search(message.content):
-                allowed = [x.strip().lower() for x in str(mod.get("allowed_domains") or "").split(",") if x.strip()]
-                domains = [urlparse(x).netloc.lower() for x in LINK_RE.findall(message.content)]
-                if any(not any(domain == item or domain.endswith("." + item) for item in allowed) for domain in domains):
-                    await message.delete()
-                    await member.timeout(timedelta(minutes=5), reason="LBoost anti-link")
-                    await self.log(message.guild, "AutoMod: Link", f"Nutzer: <@{member.id}>\nKanal: <#{message.channel.id}>", "moderation")
-                    return
-            if mod.get("anti_spam"):
-                key, now = (message.guild.id, member.id), time.monotonic()
-                bucket = self.spam[key]
-                while bucket and now - bucket[0] > 8:
-                    bucket.popleft()
-                bucket.append(now)
-                if len(bucket) >= int(mod.get("spam_limit") or 6):
-                    bucket.clear()
-                    await message.delete()
-                    await member.timeout(timedelta(minutes=5), reason="LBoost anti-spam")
-                    await self.log(message.guild, "AutoMod: Spam", f"Nutzer: <@{member.id}>\nKanal: <#{message.channel.id}>", "moderation")
-                    return
+        if mod.get("enabled"):
+            exempt = bool(getattr(rechte, "manage_messages", False)) or any(r.id in ids(mod.get("exempt_role_ids")) for r in rollen)
+            if not exempt:
+                if mod.get("anti_links") and message.content:
+                    erlaubnis = [x.strip().lower() for x in str(mod.get("allowed_domains") or "").split(",") if x.strip()]
+                    domains = [urlparse(link).netloc.lower() for link in LINK_RE.findall(message.content)]
+                    verboten = [d for d in domains if not any(d == eintrag or d.endswith("." + eintrag) for eintrag in erlaubnis)]
+                    if verboten and await self.safe_delete(message, "anti-link"):
+                        bestraft = await self.safe_timeout(member, int(mod.get("spam_timeout_minuten") or 5), "anti-link") if mod.get("link_timeout") else False
+                        await self.log(message.guild, "AutoMod: Link",
+                                       f"Nutzer: <@{member.id}>\nKanal: <#{message.channel.id}>\nDomains: {', '.join(verboten[:5])}\nTimeout: {'ja' if bestraft else 'nein'}", "moderation")
+                        return
+                if mod.get("anti_spam"):
+                    loeschen = await self.sammle_spam(message, mod)
+                    if loeschen:
+                        await self.log(message.guild, "AutoMod: Spam",
+                                       f"Nutzer: <@{member.id}>\nKanal: <#{message.channel.id}>\nGelöschte Nachrichten: {loeschen}", "moderation")
+                        return
         automation = self.feature(message.guild.id, "automation")
-        if automation.get("enabled"):
+        if automation.get("enabled") and message.content:
             content = message.content.strip()
             for item in automation.get("auto_responses_json") or []:
+                if not isinstance(item, dict):
+                    continue
                 trigger = str(item.get("trigger") or "")
                 match = content.casefold() == trigger.casefold() if item.get("exact") else trigger.casefold() in content.casefold()
-                if trigger and match:
+                if trigger and match and await self.cooldown_frei(message, f"auto:{trigger}", int(item.get("cooldown_seconds") or 0)):
                     await self.send_layout(message.channel, str(item.get("title") or "Automatische Antwort"), str(item.get("response") or ""), color=item.get("color"))
                     break
-            if content.startswith("!"):
+            if content.startswith("!") and len(content) > 1:
                 command = content[1:].split()[0].casefold()
                 for item in automation.get("custom_commands_json") or []:
-                    if command == str(item.get("name") or "").casefold():
+                    if isinstance(item, dict) and command == str(item.get("name") or "").casefold():
                         await self.send_layout(message.channel, str(item.get("title") or command), str(item.get("response") or ""), color=item.get("color"))
                         break
+
+    async def sammle_spam(self, message: discord.Message, mod: dict[str, Any]) -> int:
+        """Spam-Eimer pro Nutzer und Kanal; gibt die Anzahl gelöschter Nachrichten zurück."""
+        if not mod.get("anti_spam"):
+            return 0
+        jetzt = time.monotonic()
+        schluessel = (message.guild.id, message.author.id, message.channel.id)
+        eimer = self.spam[schluessel]
+        while eimer and jetzt - eimer[0] > SPAM_FENSTER:
+            eimer.popleft()
+        eimer.append(jetzt)
+        # Der Eintrag für die ausgelöste Nachricht wird mitgezählt.
+        grenze = max(3, min(1000, int(mod.get("spam_limit") or 6)))
+        if len(eimer) < grenze:
+            if len(self.spam) > SPAM_MAX_EINTRAEGE:
+                self.spam = {k: v for k, v in self.spam.items() if v and jetzt - v[-1] < SPAM_FENSTER * 2}
+            return 0
+        self.spam.pop(schluessel, None)
+        geloescht = 0
+        zu_loeschen = [message]
+        try:
+            async for aeltere in message.channel.history(limit=grenze, before=message):
+                if aeltere.author.id != message.author.id:
+                    continue
+                if jetzt - aeltere.created_at.timestamp() > SPAM_FENSTER:
+                    break
+                zu_loeschen.append(aeltere)
+        except discord.HTTPException:
+            pass
+        for nachricht in zu_loeschen:
+            if await self.safe_delete(nachricht, "anti-spam"):
+                geloescht += 1
+        if mod.get("spam_timeout") and geloescht:
+            await self.safe_timeout(message.author, int(mod.get("spam_timeout_minuten") or 5), "anti-spam")
+        return geloescht
+
+    async def cooldown_frei(self, message: discord.Message, schluessel: str, sekunden: int) -> bool:
+        """Auto-Antworten nicht bei jeder Nachricht duplizieren."""
+        if sekunden <= 0:
+            return True
+        selbst = f"{message.channel.id}:{schluessel}"
+        state = self._cooldowns.get(selbst, 0)
+        jetzt = time.monotonic()
+        if jetzt - state < sekunden:
+            return False
+        self._cooldowns[selbst] = jetzt
+        if len(self._cooldowns) > 5000:
+            self._cooldowns = {k: v for k, v in self._cooldowns.items() if jetzt - v < max(60, sekunden)}
+        return True
 
     async def on_message_delete(self, message: discord.Message) -> None:
         if message.guild and not message.author.bot:
             cfg = self.feature(message.guild.id, "logging")
-            if cfg.get("enabled") and cfg.get("message_logs"):
-                await self.log(message.guild, "Nachricht gelöscht", f"Nutzer: <@{message.author.id}>\nKanal: <#{message.channel.id}>\nInhalt: {message.content[:1500] or '(leer)'}")
+            if cfg.get("enabled") and cfg.get("message_logs") and isinstance(message.channel, discord.TextChannel):
+                await self.log(message.guild, "Nachricht gelöscht", f"Nutzer: <@{message.author.id}>\nKanal: <#{message.channel.id}>\nInhalt: {discord.utils.escape_markdown(message.content[:1500]) or '(leer)'}")
 
     async def on_message_edit(self, before: discord.Message, after: discord.Message) -> None:
         if before.guild and not before.author.bot and before.content != after.content:
             cfg = self.feature(before.guild.id, "logging")
-            if cfg.get("enabled") and cfg.get("message_logs"):
+            if cfg.get("enabled") and cfg.get("message_logs") and isinstance(before.channel, discord.TextChannel):
                 await self.log(before.guild, "Nachricht bearbeitet", f"Nutzer: <@{before.author.id}>\nKanal: <#{before.channel.id}>\nVorher: {before.content[:700]}\nNachher: {after.content[:700]}")
 
-    async def on_guild_channel_create(self, channel: discord.abc.GuildChannel) -> None:
+    async def _kanael_loggt(self, channel: discord.abc.GuildChannel, text: str) -> None:
         cfg = self.feature(channel.guild.id, "logging")
         if cfg.get("enabled") and cfg.get("role_channel_logs"):
-            await self.log(channel.guild, "Kanal erstellt", f"Kanal: {channel.name}\nID: `{channel.id}`")
+            await self.log(channel.guild, text, f"Kanal: {channel.name}\nID: `{channel.id}`")
+
+    async def _rollen_loggt(self, role: discord.Role, text: str) -> None:
+        cfg = self.feature(role.guild.id, "logging")
+        if cfg.get("enabled") and cfg.get("role_channel_logs"):
+            await self.log(role.guild, text, f"Rolle: {role.name}\nID: `{role.id}`")
+
+    async def on_guild_channel_create(self, channel: discord.abc.GuildChannel) -> None:
+        await self._kanael_loggt(channel, "Kanal erstellt")
 
     async def on_guild_channel_delete(self, channel: discord.abc.GuildChannel) -> None:
-        cfg = self.feature(channel.guild.id, "logging")
-        if cfg.get("enabled") and cfg.get("role_channel_logs"):
-            await self.log(channel.guild, "Kanal gelöscht", f"Kanal: {channel.name}\nID: `{channel.id}`")
+        await self._kanael_loggt(channel, "Kanal gelöscht")
 
     async def on_guild_role_create(self, role: discord.Role) -> None:
-        cfg = self.feature(role.guild.id, "logging")
-        if cfg.get("enabled") and cfg.get("role_channel_logs"):
-            await self.log(role.guild, "Rolle erstellt", f"Rolle: {role.name}\nID: `{role.id}`")
+        await self._rollen_loggt(role, "Rolle erstellt")
 
     async def on_guild_role_delete(self, role: discord.Role) -> None:
-        cfg = self.feature(role.guild.id, "logging")
-        if cfg.get("enabled") and cfg.get("role_channel_logs"):
-            await self.log(role.guild, "Rolle gelöscht", f"Rolle: {role.name}\nID: `{role.id}`")
+        await self._rollen_loggt(role, "Rolle gelöscht")
 
     @tasks.loop(seconds=30)
     async def giveaway_worker(self) -> None:
         now = int(time.time())
-        with db._connect(self.settings) as conn:
-            rows = conn.execute("SELECT * FROM giveaways WHERE status='active' AND ends_at<=?", (now,)).fetchall()
-        for row in rows:
-            await self.finish_giveaway(row)
+        for guild in self.guilds:
+            cfg = self.feature(guild.id, "giveaways")
+            if not cfg.get("enabled"):
+                continue
+            for zeile in db.giveaways_fuer_gilde(guild.id, self.settings, 25):
+                if str(zeile["status"]) != "active" or int(zeile["ends_at"]) > now:
+                    continue
+                belegt = db.giveaway_belegen(int(zeile["message_id"]), self.settings)
+                if not belegt:
+                    continue
+                await self.finish_giveaway(guild, belegt)
 
     @giveaway_worker.before_loop
     async def before_giveaways(self) -> None:
         await self.wait_until_ready()
 
-    async def finish_giveaway(self, row: Any) -> None:
-        guild = self.get_guild(int(row["guild_id"]))
-        channel = guild.get_channel(int(row["channel_id"])) if guild else None
-        with db._connect(self.settings) as conn:
-            entrants = [int(x["user_id"]) for x in conn.execute("SELECT user_id FROM giveaway_entries WHERE message_id=?", (row["message_id"],)).fetchall()]
-            winners = random.sample(entrants, min(len(entrants), int(row["winners"]))) if entrants else []
-            conn.execute("UPDATE giveaways SET status='ended',winner_ids=? WHERE message_id=?", (json.dumps(winners), row["message_id"]))
+    async def finish_giveaway(self, guild: discord.Guild, zeile: dict[str, Any]) -> None:
+        channel = guild.get_channel(int(zeile["channel_id"]))
+        teilnehmer = db.giveaway_teilnehmer(int(zeile["message_id"]), self.settings)
+        # Wer den Server verlassen oder einen Bann bekommen hat, kann nicht
+        # gewinnen; die alte Fassung erwähnte Leute, die gar nicht mehr da sind.
+        tauglich = taugliche_teilnehmer(teilnehmer, {m.id for m in guild.members})
+        anzahl = max(1, int(zeile["winners"] or 1))
+        gewinner = random.sample(tauglich, min(len(tauglich), anzahl)) if tauglich else []
+        db.giveaway_abschliessen(int(zeile["message_id"]), gewinner, self.settings)
+        text = ("Gewinner: " + ", ".join(f"<@{uid}>" for uid in gewinner)) if gewinner else "Es gab keine gültigen Teilnehmer."
         if channel:
-            text = "Gewinner: " + ", ".join(f"<@{uid}>" for uid in winners) if winners else "Es gab keine gültigen Teilnehmer."
-            await self.send_layout(channel, f"Giveaway beendet: {row['prize']}", text, color="#57f287")
+            await self.send_layout(channel, f"Giveaway beendet: {zeile['prize']}", text, color="#57f287")
+        await self.log(guild, "Giveaway beendet", f"Preis: {zeile['prize']}\nGewinner: {len(gewinner)}", "giveaways")
 
     @tasks.loop(minutes=1)
     async def automation_worker(self) -> None:
+        """Geplante Ankündigungen.
+
+        Der nächste Lauf liegt in ``guild_state``, nicht mehr in der
+        Benutzer-Konfiguration. Zuvor schrieb der Worker die gesamte
+        Modul-Konfiguration zurück — fiel das mit einem Speichern im
+        Dashboard zusammen, war die Änderung des Nutzers weg.
+        """
         now = int(time.time())
         for guild in self.guilds:
             cfg = self.feature(guild.id, "automation")
             if not cfg.get("enabled"):
                 continue
-            changed = False
-            for item in cfg.get("announcements_json") or []:
-                if int(item.get("next_run") or 0) > now:
+            eintraege = [item for item in (cfg.get("announcements_json") or []) if isinstance(item, dict)]
+            if not eintraege:
+                continue
+            state_key = f"announce:{guild.id}"
+            faellig = db.get_state(0, state_key, self.settings) or {"wert": {}, "updated_at": 0}
+            zeitstempel = faellig["wert"] if isinstance(faellig["wert"], dict) else {}
+            aktualisiert = False
+            for index, item in enumerate(eintraege):
+                schluessel = str(index)
+                if int(zeitstempel.get(schluessel) or 0) > now:
                     continue
                 channel = guild.get_channel(int(item.get("channel_id") or 0))
                 if channel and item.get("content"):
                     await self.send_layout(channel, str(item.get("title") or "Ankündigung"), str(item["content"]), color=item.get("color"))
-                item["next_run"] = now + max(60, int(item.get("interval_minutes") or 60) * 60)
-                changed = True
-            if changed:
-                db.set_feature(guild.id, "automation", cfg, self.user.id if self.user else 0, self.settings)
+                zeitstempel[schluessel] = now + max(60, int(item.get("interval_minutes") or 60) * 60)
+                aktualisiert = True
+            if aktualisiert:
+                db.set_state(0, state_key, zeitstempel, self.settings)
 
     @automation_worker.before_loop
     async def before_automation(self) -> None:
         await self.wait_until_ready()
 
+    @tasks.loop(seconds=20)
+    async def heartbeat(self) -> None:
+        """Dem Dashboard zeigen, dass der Bot lebt.
+
+        Die Überschrift „Shop-Bot: Online“ war vorher hartgeschrieben — sie
+        blieb auch dann grün, wenn der Bot-Prozess längst tot war.
+        """
+        db.set_state(0, "bot_heartbeat", {
+            "zeit": int(time.time()),
+            "gilden": len(self.guilds),
+            "name": str(self.user) if self.user else "",
+        }, self.settings)
+
+    @heartbeat.before_loop
+    async def before_heartbeat(self) -> None:
+        await self.wait_until_ready()
 
 # ── Slash commands ─────────────────────────────────────────────────────
 async def require_manage(interaction: discord.Interaction) -> bool:
@@ -410,103 +721,208 @@ async def require_manage(interaction: discord.Interaction) -> bool:
     return True
 
 
+def hat_mod_rechte(interaction: discord.Interaction, benoetigt: str) -> bool:
+    recht = getattr(interaction.user.guild_permissions, benoetigt, False)
+    return bool(recht)
+
+
 def register_commands(bot: ShopBot) -> None:
     @bot.tree.command(name="ticket-panel", description="Sendet ein konfiguriertes Ticket-Panel")
     @app_commands.describe(panel="Panel-Key aus der Dashboard-Konfiguration")
     async def ticket_panel_command(interaction: discord.Interaction, panel: str = "default"):
-        if not await require_manage(interaction): return
+        if not await require_manage(interaction):
+            return
         cfg = bot.ticket_panel(interaction.guild.id, panel)
         if not cfg.get("enabled"):
             return await bot.interaction_notice(interaction, "Tickets deaktiviert", "Aktiviere das Modul zuerst im Dashboard.", error=True)
         channel = interaction.guild.get_channel(int(cfg.get("panel_channel_id") or interaction.channel_id))
         if not isinstance(channel, discord.TextChannel):
             return await bot.interaction_notice(interaction, "Kanal fehlt", "Wähle im Dashboard einen gültigen Textkanal.", error=True)
-        button = discord.ui.Button(label=str(cfg.get("button_label") or "Ticket öffnen")[:80], emoji=emoji(cfg.get("button_emoji")), style=discord.ButtonStyle.primary, custom_id=f"shop:ticket:create:{panel}"[:100])
-        message = await bot.send_layout(channel, str(cfg.get("title") or "Support"), str(cfg.get("description") or "Öffne ein Ticket, um das Team zu kontaktieren."), color=cfg.get("color"), buttons=[button], image_url=str(cfg.get("image_url") or ""), thumbnail_url=str(cfg.get("thumbnail_url") or ""), footer=str(cfg.get("footer") or ""))
-        await bot.interaction_notice(interaction, "Panel gesendet", f"Das Ticket-Panel wurde in <#{channel.id}> veröffentlicht." if message else "Panel konnte nicht gesendet werden.", error=not bool(message))
+        button = discord.ui.Button(
+            label=str(cfg.get("button_label") or "Ticket öffnen")[:80],
+            emoji=emoji(cfg.get("button_emoji")),
+            style=discord.ButtonStyle.primary,
+            custom_id=f"shop:ticket:create:{panel}"[:100],
+        )
+        message = await bot.send_layout(
+            channel,
+            regeln.PANEL_TITEL if not cfg.get("title") else str(cfg.get("title"))[:256],
+            (regeln.PANEL_BESCHREIBUNG if not cfg.get("description") else str(cfg.get("description")))[:3900],
+            color=cfg.get("color"),
+            buttons=[button],
+            image_url=str(cfg.get("image_url") or ""),
+            thumbnail_url=str(cfg.get("thumbnail_url") or ""),
+            footer=str(cfg.get("footer") or ""),
+        )
+        await bot.interaction_notice(
+            interaction, "Panel gesendet",
+            f"Das Ticket-Panel wurde in <#{channel.id}> veröffentlicht." if message else "Panel konnte nicht gesendet werden.",
+            error=not bool(message),
+        )
 
     @bot.tree.command(name="reaction-panel", description="Sendet ein konfiguriertes Rollen-Panel")
     @app_commands.describe(panel="Index des Panels, beginnend mit 0")
     async def reaction_panel_command(interaction: discord.Interaction, panel: int = 0):
-        if not await require_manage(interaction): return
+        if not await require_manage(interaction):
+            return
         cfg = bot.feature(interaction.guild.id, "reaction_roles")
-        panels = [{**cfg, "roles_json": cfg.get("roles_json") or []}] + list(cfg.get("panels_json") or [])
+        panels = [{**cfg, "roles_json": cfg.get("roles_json") or []}] + [p for p in (cfg.get("panels_json") or []) if isinstance(p, dict)]
         selected = panels[panel] if 0 <= panel < len(panels) else None
         if not cfg.get("enabled") or not selected:
             return await bot.interaction_notice(interaction, "Panel nicht verfügbar", "Prüfe die Dashboard-Konfiguration.", error=True)
         channel = interaction.guild.get_channel(int(selected.get("channel_id") or cfg.get("channel_id") or interaction.channel_id))
         if not isinstance(channel, discord.TextChannel):
             return await bot.interaction_notice(interaction, "Kanal fehlt", "Wähle im Dashboard einen gültigen Textkanal.", error=True)
-        buttons = [discord.ui.Button(label=str(item.get("label") or "Rolle")[:80], emoji=emoji(item.get("emoji")), style=discord.ButtonStyle.secondary, custom_id=f"shop:role:{int(item['role_id'])}") for item in selected.get("roles_json", [])[:25] if str(item.get("role_id", "")).isdigit()]
+        buttons = []
+        for item in selected.get("roles_json", [])[:25]:
+            if not isinstance(item, dict) or not str(item.get("role_id", "")).isdigit():
+                continue
+            ziel = interaction.guild.get_role(int(item["role_id"]))
+            buttons.append(discord.ui.Button(
+                label=str(item.get("label") or (ziel.name if ziel else "Rolle"))[:80],
+                emoji=emoji(item.get("emoji")),
+                style=discord.ButtonStyle.secondary,
+                custom_id=f"shop:role:{int(item['role_id'])}",
+            ))
+        if not buttons:
+            return await bot.interaction_notice(interaction, "Keine Buttons", "Das Panel hat keine gültigen Rollen-Einträge.", error=True)
         sent = await bot.send_layout(channel, str(selected.get("title") or "Rollen auswählen"), str(selected.get("description") or "Wähle deine Rollen über die Buttons."), color=selected.get("color"), buttons=buttons)
         await bot.interaction_notice(interaction, "Panel gesendet", f"Das Rollen-Panel wurde in <#{channel.id}> veröffentlicht." if sent else "Panel konnte nicht gesendet werden.", error=not bool(sent))
 
+    async def mod_zugriff(interaction: discord.Interaction, recht: str, modul: str = "Moderation") -> bool:
+        if modul == "Moderation" and not bot.feature(interaction.guild.id, "moderation").get("enabled"):
+            await bot.interaction_notice(interaction, "Moderation deaktiviert", "Aktiviere das Modul im Dashboard.", error=True)
+            return False
+        if not hat_mod_rechte(interaction, recht):
+            await bot.interaction_notice(interaction, "Keine Berechtigung", f"Dir fehlt die Discord-Berechtigung „{recht.replace('_', ' ')}“.", error=True)
+            return False
+        return True
+
     @bot.tree.command(name="warn", description="Verwarnt ein Mitglied")
-    async def warn(interaction: discord.Interaction, member: discord.Member, reason: str):
-        if not bot.feature(interaction.guild.id, "moderation").get("enabled"): return await bot.interaction_notice(interaction, "Moderation deaktiviert", "Aktiviere das Modul im Dashboard.", error=True)
-        if not interaction.user.guild_permissions.moderate_members: return await bot.interaction_notice(interaction, "Keine Berechtigung", "Dir fehlt Mitglieder moderieren.", error=True)
-        with db._connect(bot.settings) as conn:
-            conn.execute("INSERT INTO warnings(guild_id,user_id,moderator_id,reason,created_at) VALUES(?,?,?,?,?)", (interaction.guild.id, member.id, interaction.user.id, reason[:1000], int(time.time())))
-        await bot.interaction_notice(interaction, "Verwarnung gespeichert", f"{member.mention} wurde verwarnt.")
-        await bot.log(interaction.guild, "Verwarnung", f"Mitglied: {member.mention}\nModerator: <@{interaction.user.id}>\nGrund: {reason}", "moderation")
+    @app_commands.describe(member="Mitglied", grund="Grund der Verwarnung")
+    async def warn(interaction: discord.Interaction, member: discord.Member, grund: str = "Kein Grund angegeben"):
+        if not await mod_zugriff(interaction, "moderate_members"):
+            return
+        if member.id == interaction.guild.owner_id:
+            return await bot.interaction_notice(interaction, "Nicht möglich", "Den Serverinhaber kannst du nicht verwarnen.", error=True)
+        nummer = db.warnung_anlegen(interaction.guild.id, member.id, interaction.user.id, grund, bot.settings)
+        anzahl = db.warnungen_fuer_nutzer(interaction.guild.id, member.id, bot.settings)
+        await bot.interaction_notice(interaction, "Verwarnung gespeichert", f"Fall #{nummer}: {member.mention} hat jetzt {anzahl} Verwarnung{'en' if anzahl != 1 else ''}.\nGrund: {grund[:300]}")
+        await bot.log(interaction.guild, "Verwarnung", f"Fall: #{nummer}\nMitglied: {member.mention}\nModerator: <@{interaction.user.id}>\nGrund: {grund[:500]}", "moderation")
+
+    @bot.tree.command(name="warnings", description="Zeigt die Verwarnungen eines Mitglieds")
+    @app_commands.describe(member="Mitglied")
+    async def warnings(interaction: discord.Interaction, member: discord.Member):
+        if not await mod_zugriff(interaction, "moderate_members"):
+            return
+        eintraege = [e for e in db.warnungen_fuer_gilde(interaction.guild.id, bot.settings, 200) if int(e["user_id"]) == member.id]
+        if not eintraege:
+            return await bot.interaction_notice(interaction, "Keine Verwarnungen", f"{member.mention} ist aktuell nicht verwarnt.")
+        zeilen = [f"#{int(e['case_number'] or e['id'])} · {_zeit(int(e['created_at']))} · <@{int(e['moderator_id'])}> · {str(e['reason'])[:120]}" for e in eintraege[:10]]
+        await bot.interaction_notice(interaction, f"Verwarnungen: {member}", "\n".join(zeilen)[:1800] + (f"\n\n…und {len(eintraege) - 10} weitere" if len(eintraege) > 10 else ""))
+
+    @bot.tree.command(name="clearwarnings", description="Löscht die Verwarnungen eines Mitglieds")
+    @app_commands.describe(member="Mitglied")
+    async def clearwarnings(interaction: discord.Interaction, member: discord.Member):
+        if not await mod_zugriff(interaction, "moderate_members"):
+            return
+        eintraege = [e for e in db.warnungen_fuer_gilde(interaction.guild.id, bot.settings, 200) if int(e["user_id"]) == member.id]
+        for eintrag in eintraege:
+            db.warnung_loeschen(interaction.guild.id, int(eintrag["id"]), bot.settings)
+        await bot.interaction_notice(interaction, "Verwarnungen gelöscht", f"{len(eintraege)} Einträge für {member.mention} entfernt.")
+        await bot.log(interaction.guild, "Verwarnungen gelöscht", f"Mitglied: {member}\nAnzahl: {len(eintraege)}\nModerator: <@{interaction.user.id}>", "moderation")
 
     @bot.tree.command(name="mute", description="Versetzt ein Mitglied in Timeout")
-    async def mute(interaction: discord.Interaction, member: discord.Member, minutes: app_commands.Range[int, 1, 40320], reason: str = "Kein Grund angegeben"):
-        if not bot.feature(interaction.guild.id, "moderation").get("enabled"): return await bot.interaction_notice(interaction, "Moderation deaktiviert", "Aktiviere das Modul im Dashboard.", error=True)
-        if not interaction.user.guild_permissions.moderate_members: return await bot.interaction_notice(interaction, "Keine Berechtigung", "Dir fehlt Mitglieder moderieren.", error=True)
-        await member.timeout(timedelta(minutes=minutes), reason=f"{interaction.user}: {reason}")
-        await bot.interaction_notice(interaction, "Timeout gesetzt", f"{member.mention} wurde für {minutes} Minuten stummgeschaltet.")
-        await bot.log(interaction.guild, "Timeout", f"Mitglied: {member.mention}\nDauer: {minutes} Minuten\nGrund: {reason}", "moderation")
+    async def mute(interaction: discord.Interaction, member: discord.Member,
+                    minuten: app_commands.Range[int, 1, 40320], grund: str = "Kein Grund angegeben"):
+        if not await mod_zugriff(interaction, "moderate_members"):
+            return
+        if member.id == interaction.user.id:
+            return await bot.interaction_notice(interaction, "Nicht möglich", "Du kannst dich nicht selbst in die Auszeit schicken.", error=True)
+        if member.is_timed_out():
+            return await bot.interaction_notice(interaction, "Bereits in Auszeit", f"{member.mention} ist bereits stummgeschaltet.", error=True)
+        if member.guild_permissions.administrator:
+            return await bot.interaction_notice(interaction, "Nicht möglich", "Administratoren kannst du nicht per Timeout moderieren.", error=True)
+        ok = await bot.safe_timeout(member, minuten, grund)
+        if not ok:
+            return await bot.interaction_notice(interaction, "Keine Rechte", "Der Bot darf keine Timeouts setzen (Rolle zu tief oder Berechtigung fehlt).", error=True)
+        await bot.interaction_notice(interaction, "Timeout gesetzt", f"{member.mention} wurde für {minuten} Minuten stummgeschaltet.\nGrund: {grund[:300]}")
+        await bot.log(interaction.guild, "Timeout", f"Mitglied: {member.mention}\nDauer: {minuten} Minuten\nGrund: {grund[:500]}", "moderation")
 
     @bot.tree.command(name="kick", description="Entfernt ein Mitglied")
-    async def kick(interaction: discord.Interaction, member: discord.Member, reason: str = "Kein Grund angegeben"):
-        if not bot.feature(interaction.guild.id, "moderation").get("enabled"): return await bot.interaction_notice(interaction, "Moderation deaktiviert", "Aktiviere das Modul im Dashboard.", error=True)
-        if not interaction.user.guild_permissions.kick_members: return await bot.interaction_notice(interaction, "Keine Berechtigung", "Dir fehlt Mitglieder kicken.", error=True)
-        await member.kick(reason=f"{interaction.user}: {reason}")
-        await bot.interaction_notice(interaction, "Mitglied entfernt", f"{member} wurde entfernt.")
-        await bot.log(interaction.guild, "Kick", f"Mitglied: {member}\nModerator: <@{interaction.user.id}>\nGrund: {reason}", "moderation")
+    async def kick(interaction: discord.Interaction, member: discord.Member, grund: str = "Kein Grund angegeben"):
+        if not await mod_zugriff(interaction, "kick_members"):
+            return
+        if not interaction.guild.me.guild_permissions.kick_members:
+            return await bot.interaction_notice(interaction, "Keine Rechte", "Der Bot hat keine Berechtigung, Mitglieder zu kicken.", error=True)
+        if member.top_role >= interaction.guild.me.top_role:
+            return await bot.interaction_notice(interaction, "Rolle zu hoch", f"{member.mention} steht auf derselben oder einer höheren Rolle wie der Bot.", error=True)
+        try:
+            await member.kick(reason=f"{interaction.user}: {grund}")
+        except discord.Forbidden:
+            return await bot.interaction_notice(interaction, "Nicht möglich", "Discord hat den Kick abgelehnt.", error=True)
+        await bot.interaction_notice(interaction, "Mitglied entfernt", f"{member} wurde entfernt.\nGrund: {grund[:300]}")
+        await bot.log(interaction.guild, "Kick", f"Mitglied: {member}\nModerator: <@{interaction.user.id}>\nGrund: {grund[:500]}", "moderation")
 
     @bot.tree.command(name="ban", description="Bannt ein Mitglied")
-    async def ban(interaction: discord.Interaction, member: discord.Member, reason: str = "Kein Grund angegeben"):
-        if not bot.feature(interaction.guild.id, "moderation").get("enabled"): return await bot.interaction_notice(interaction, "Moderation deaktiviert", "Aktiviere das Modul im Dashboard.", error=True)
-        if not interaction.user.guild_permissions.ban_members: return await bot.interaction_notice(interaction, "Keine Berechtigung", "Dir fehlt Mitglieder bannen.", error=True)
-        await member.ban(reason=f"{interaction.user}: {reason}")
-        await bot.interaction_notice(interaction, "Mitglied gebannt", f"{member} wurde gebannt.")
-        await bot.log(interaction.guild, "Ban", f"Mitglied: {member}\nModerator: <@{interaction.user.id}>\nGrund: {reason}", "moderation")
+    @app_commands.describe(tage="Nachrichten der letzten N Tage mit löschen (0-7)")
+    async def ban(interaction: discord.Interaction, member: discord.Member, grund: str = "Kein Grund angegeben",
+                  tage: app_commands.Range[int, 0, 7] = 0):
+        if not await mod_zugriff(interaction, "ban_members"):
+            return
+        if not interaction.guild.me.guild_permissions.ban_members:
+            return await bot.interaction_notice(interaction, "Keine Rechte", "Der Bot hat keine Berechtigung, Mitglieder zu bannen.", error=True)
+        if member.top_role >= interaction.guild.me.top_role:
+            return await bot.interaction_notice(interaction, "Rolle zu hoch", f"{member.mention} steht auf derselben oder einer höheren Rolle wie der Bot.", error=True)
+        try:
+            await interaction.guild.ban(member, reason=f"{interaction.user}: {grund}", delete_message_seconds=tage * 86400 if tage else None)
+        except discord.Forbidden:
+            return await bot.interaction_notice(interaction, "Nicht möglich", "Discord hat den Bann abgelehnt.", error=True)
+        await bot.interaction_notice(interaction, "Mitglied gebannt", f"{member} wurde gebannt.\nGrund: {grund[:300]}")
+        await bot.log(interaction.guild, "Ban", f"Mitglied: {member}\nModerator: <@{interaction.user.id}>\nGrund: {grund[:500]}", "moderation")
 
     @bot.tree.command(name="giveaway", description="Startet ein Giveaway")
-    async def giveaway(interaction: discord.Interaction, minutes: app_commands.Range[int, 1, 525600], winners: app_commands.Range[int, 1, 20], prize: str):
-        if not await require_manage(interaction): return
+    @app_commands.describe(minuten="Laufzeit", gewinner="Anzahl Gewinner", preis="Was wird verlost")
+    async def giveaway(interaction: discord.Interaction, minuten: app_commands.Range[int, 1, 525600],
+                       gewinner: app_commands.Range[int, 1, 20], preis: str):
+        if not await require_manage(interaction):
+            return
         cfg = bot.feature(interaction.guild.id, "giveaways")
-        if not cfg.get("enabled"): return await bot.interaction_notice(interaction, "Giveaways deaktiviert", "Aktiviere das Modul im Dashboard.", error=True)
+        if not cfg.get("enabled"):
+            return await bot.interaction_notice(interaction, "Giveaways deaktiviert", "Aktiviere das Modul im Dashboard.", error=True)
         await interaction.response.defer(ephemeral=True)
-        ends = int(time.time()) + minutes * 60
-        pending_button = discord.ui.Button(label="Teilnehmen", style=discord.ButtonStyle.success, custom_id="shop:giveaway:pending")
-        message = await interaction.channel.send(view=layout(prize, f"Endet: <t:{ends}:R>\nGewinner: {winners}", color="#57f287", buttons=[pending_button]))
-        # Replace the placeholder with a fresh persistent button containing the message ID.
-        active_button = discord.ui.Button(label="Teilnehmen", style=discord.ButtonStyle.success, custom_id=f"shop:giveaway:{message.id}")
-        await message.edit(view=layout(prize, f"Endet: <t:{ends}:R>\nGewinner: {winners}", color="#57f287", buttons=[active_button]))
-        with db._connect(bot.settings) as conn:
-            conn.execute("INSERT INTO giveaways(message_id,guild_id,channel_id,prize,winners,ends_at) VALUES(?,?,?,?,?,?)", (message.id, interaction.guild.id, interaction.channel.id, prize[:500], winners, ends))
-        await interaction.followup.send(view=layout("Giveaway gestartet", f"Nachricht: `{message.id}`"), ephemeral=True)
+        ends = int(time.time()) + minuten * 60
+        text = f"Endet: <t:{ends}:R>\nGewinner: {gewinner}\nTeilnahme über den Knopf."
+        knopf = discord.ui.Button(label="Teilnehmen", style=discord.ButtonStyle.success, custom_id="shop:giveaway:0")
+        nachricht = await interaction.channel.send(view=layout(preis[:200], text, color="#57f287", buttons=[knopf]))
+        db.giveaway_anlegen(nachricht.id, interaction.guild.id, interaction.channel.id, preis, gewinner, ends, bot.settings,
+                            int(cfg.get("required_role_id") or 0))
+        # Der Knopf braucht die endgültige Nachrichten-ID, also einmal nachziehen.
+        endgueltig = discord.ui.Button(label="Teilnehmen", style=discord.ButtonStyle.success, custom_id=f"shop:giveaway:{nachricht.id}")
+        await nachricht.edit(view=layout(preis[:200], text, color="#57f287", buttons=[endgueltig]))
+        await interaction.followup.send(view=layout("Giveaway gestartet", f"Nachricht: `{nachricht.id}`"), ephemeral=True)
 
     @bot.tree.command(name="giveaway-reroll", description="Zieht Gewinner eines Giveaways neu")
-    async def giveaway_reroll(interaction: discord.Interaction, message_id: str):
-        if not await require_manage(interaction): return
-        if not message_id.isdigit(): return await bot.interaction_notice(interaction, "Ungültige ID", "Gib eine gültige Nachrichten-ID an.", error=True)
-        with db._connect(bot.settings) as conn:
-            row = conn.execute("SELECT * FROM giveaways WHERE message_id=?", (int(message_id),)).fetchone()
-            entrants = [int(x["user_id"]) for x in conn.execute("SELECT user_id FROM giveaway_entries WHERE message_id=?", (int(message_id),)).fetchall()]
-        if not row or not entrants: return await bot.interaction_notice(interaction, "Nicht möglich", "Giveaway oder Teilnehmer wurden nicht gefunden.", error=True)
-        winners_list = random.sample(entrants, min(len(entrants), int(row["winners"])))
-        await bot.send_layout(interaction.channel, f"Giveaway neu gezogen: {row['prize']}", "Gewinner: " + ", ".join(f"<@{x}>" for x in winners_list), color="#57f287")
-        await bot.interaction_notice(interaction, "Neu gezogen", "Die Gewinner wurden neu ermittelt.")
+    async def giveaway_reroll(interaction: discord.Interaction, nachrichten_id: str):
+        if not await require_manage(interaction):
+            return
+        if not nachrichten_id.isdigit():
+            return await bot.interaction_notice(interaction, "Ungültige ID", "Gib eine gültige Nachrichten-ID an.", error=True)
+        row = next((g for g in db.giveaways_fuer_gilde(interaction.guild.id, bot.settings, 100) if int(g["message_id"]) == int(nachrichten_id)), None)
+        teilnehmer = db.giveaway_teilnehmer(int(nachrichten_id), bot.settings) if row else []
+        tauglich = taugliche_teilnehmer(teilnehmer, {m.id for m in interaction.guild.members})
+        if not row or not tauglich:
+            return await bot.interaction_notice(interaction, "Nicht möglich", "Giveaway oder Teilnehmer wurden nicht gefunden.", error=True)
+        gewinner = random.sample(tauglich, min(len(tauglich), max(1, int(row["winners"]))))
+        await bot.send_layout(interaction.channel, f"Giveaway neu gezogen: {row['prize']}", "Gewinner: " + ", ".join(f"<@{x}>" for x in gewinner), color="#57f287")
+        await bot.interaction_notice(interaction, "Neu gezogen", f"{len(gewinner)} Gewinner ermittelt ({len(tauglich)} Teilnehmer).")
 
     @bot.tree.command(name="announce", description="Sendet eine Components-V2-Ankündigung")
-    async def announce(interaction: discord.Interaction, channel: discord.TextChannel, title: str, text: str):
-        if not await require_manage(interaction): return
-        sent = await bot.send_layout(channel, title, text)
-        await bot.interaction_notice(interaction, "Ankündigung gesendet", f"Gesendet in {channel.mention}." if sent else "Senden fehlgeschlagen.", error=not bool(sent))
+    async def announce(interaction: discord.Interaction, kanal: discord.TextChannel, titel: str, text: str):
+        if not await require_manage(interaction):
+            return
+        sent = await bot.send_layout(kanal, titel[:256], text[:3900])
+        await bot.interaction_notice(interaction, "Ankündigung gesendet", f"Gesendet in {kanal.mention}." if sent else "Senden fehlgeschlagen.", error=not bool(sent))
 
     @bot.tree.error
     async def command_error(interaction: discord.Interaction, error: app_commands.AppCommandError):
@@ -519,6 +935,7 @@ def register_commands(bot: ShopBot) -> None:
 
 def create_bot() -> ShopBot:
     settings = get_settings()
+    db.init_features(settings)
     bot = ShopBot(settings)
     register_commands(bot)
     return bot

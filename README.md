@@ -79,7 +79,7 @@ Einzelheiten in [docs/PREMIUM.md](docs/PREMIUM.md).
 | `statusbot/` | Status-Dienst, eigener Railway-Service |
 | `lavalink/` | Konfiguration für einen eigenen Musik-Server |
 | `louckup/` | abgetrennter Nachschlage-Bereich — **pausiert, nicht anfassen** |
-| `lbost-shop/` | Shop-Bereich mit eigenem Bot |
+| `lbost-shop/` | Shop-Bereich mit eigenem Bot, eigenem Dashboard und sieben Testdateien (`tests/run_all.py`) |
 | `tools/` | Helfer für Übersetzungen, Deploy-Verlauf und Prüfläufe |
 
 ## Lokal starten

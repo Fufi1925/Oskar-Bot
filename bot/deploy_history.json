@@ -1,6 +1,18 @@
 {
  "commits": [
   {
+   "commit": "205250ae33f52578103e1379575b7db5704726c4",
+   "at": "1790453560",
+   "subject": "feat(lbost-shop): Dashboard und Bot nachgemessen, geflickt, aufgewertet",
+   "body": "Gemessene Fehler:\n- SQLite-Verbindungen wurden nie geschlossen: 150 Konfigurationslesungen\n  waren 150 offene Datei-Deskriptoren (der Bot liest bei jedem Event).\n  Jetzt Pool pro Thread plus Kontextmanager mit garantiertem Commit - ohne\n  Commit sah der Bot Dashboard-Schreiben nicht.\n- Die CSP frass jedes style-Attribut: Fortschrittsbalken so breit wie sein\n  Rahmen, alle 14 Diagrammbalken 4 px hoch, 30 Verstoesse im Chromium.\n  Behoben ohne Aufweichung: 201 Fueellgrad-Klassen statt Inline-Styles.\n- Laufzeitschreiben des Bots zaehlten als Konfigurationsaenderung\n  (Verlaufsgraph, ungebremstes feature_audit) und konnten ein parallel\n  gespeichertes Formular loeschen. Zustand lebt jetzt in guild_state.\n\nVom Hauptbot geholt, Luecken gefuellt:\n- lbost_shop_app/regeln.py als EINE Regelstelle fuer Platzhalter, Fragen,\n  Kuerzungen und Kanalnamen; Vorschau und Bot rechnen identisch.\n- Tickets: Begruessungstitel/-text und Bestaetigung waren im Bot vorgesehen,\n  aber im Formular nicht settingbar - jetzt drin. Dazu bis zu fuenf\n  Formularfragen (Einzeilig/Absatz/Bild) vor dem Oeffnen, Slowmode,\n  Discord-sicherer Kanalname mit Nummer, paginiertes HTML-Transkript.\n- Live-Vorschau im Formular: 500 ms entprellt, rechnet im Bot, meldet\n  unbekannte Felder statt still den alten Stand zu zeigen.\n- Moderation: Fallnummern, /warnings und /clearwarnings, Verwarnungsliste im\n  Dashboard mit Einzelloeschung, Rechtepruefung vor delete()/timeout().\n- Giveaways: nur Anwesende gewinnen, ein Abschluss pro Wettbewerb.\n- Bot-Herzschlag ersetzt das festgeschriebene \"Online\"; Admin-Panel zeigt\n  Zugang, aktive Sitzungen (alle abmelden) und Aenderungsverlauf.\n\nSicherheit und Tempo: Zahlen-, URL-, Farb- und JSON-Grenzen im Formular und\nbeim Import, Ratelimit-Woerterbuch raeumt auf, Discord-Lesungen gecacht,\nGZip plus Cache mit Versions-Suffix. Das Sprachmenue war eine Attrappe und\nist durch den echten Status ersetzt.\n\nTests: 7 Dateien, 7/7 gruen, 32 Mutationen gefangen; neuer CI-Job fuer den\nBereich. Zwei Prüfungen in test_lbost_shop.py und eine in\ntest_lbost_shop_flow.py wurden an den neuen Zustand angepasst (Statusknopf\nstatt Sprachmenue, volles Admin-Panel statt Leerzustand)."
+  },
+  {
+   "commit": "7bc3342b43b9fd98985017fe564a756fd3c69bc8",
+   "at": "1790445634",
+   "subject": "feat(tickets): Vorschau laeuft durch den Bot, eine Regel fuer Text und Fragen",
+   "body": "Der Stand\n---------\nDie erweiterten Ticket-Einstellungen waren gleichzeitig auf zwei Arten\ngebaut worden: auf main mit Begruesungstitel, -text, Bestaetigung und\nFormularfragen (Typ, Pflicht, Kategoriebezug), lokal noch einmal mit\nanderer Aufteilung. Zusammengefuehrt auf dem Stand von main, weil dessen\nDatenmodell das reichhaltigere ist — nichts davon wurde ersetzt.\n\nWas dazukam\n-----------\n* POST /tickets/<gilde>/panels/<id>/vorschau. Das Formular zeigte\n  vorher den getipften Text samt Platzhaltern — also genau nicht das,\n  was ankommt. Jetzt holt es sich den gerechneten Text, entprellt beim\n  Tippen, und zeigt die Fragen, die die Kategorie wirklich bekommt.\n  Die Vorschau ist lesen, kein Schreiben: sie bleibt ohne Premium\n  erreichbar, die Sperre bleibt beim Speichern.\n* Eine Regel, zwei Nutzer. setze_woerter() und fragen_fuer_kategorie()\n  liegen in ticket_panels; der Cog ruft sie beim Schreiben ins Ticket,\n  die Vorschau beim Anzeigen. Vorher standen die Marker zweimal — ein-\n  mal im Cog, einmal als Anzeige — und zwei Umsetzungen derselben Regel\n  zeigen bald zwei verschiedene Texte. Kein assert dafuer im Cog: bei\n  ``python -O`` waere es weg und haette das Oeffnen eines Tickets\n  gefaehrdet; die Invariante prueft der Test.\n\nDoku\n----\n* Die Cog-Zahl in README und CODE_ANALYSE war von mir auf 155\n  geschrieben worden — ein veralteter Messwert, niemand hat ihn\n  zurueckgedreht. Gemessen: 157 Cogs / 543 Praefix / 65 Schraegstrich,\n  boot_test mit RESULT_FAILED 0.\n* docs/PREMIUM.md nennt jetzt den Ticket-Bereich und die geteilte Regel.\n* CHANGES.md haelt den Zusammenbau fest.\n\nNachgemessen\n------------\n* tests/test_ticket_erweitert.py (neu): Regeln, Grenzen, Routen mit\n  echtem TestClient, und die Oberflaeche daraufhin, ob sie eine zweite\n  Regel baut. Gruen.\n* Mutationstest: 21 Mutationen, 21 gefangen, Baum nach jedem Eingriff\n  byteweise zurueckgesetzt. Vier der Pruefungen waren beim ersten\n  Anlauf zu lasch und wurden nachgeschaerft: guildId={guildId} und\n  /vorschau stehen mehrfach in ihren Dateien (eine Pruefung ueber die\n  ganze Datei bleibt gruen, obwohl der richtige Aufruf fehlt), und ein\n  Zaehler ueber die Netzliste mass null, weil der Harness-Abruf kein\n  Netz beroehr — vakuum-gruen.\n* Suite vor und nach diesen Aenderungen verglichen (gleiche\n  Verzeichnislage, stash gegenuebergestellt): 38 rote Dateien,\n  identische Liste. Nichts ist dazugekommen; die 38 beskrueiben das\n  Modell vor der September-Umstellung und sind eine eigene Aufgabe.\n* tsc: 0 Fehler. naechster Build: Compiled successfully.\n* Browser, 1280 und 390 px: Vorschau zeigt die gerechneten Werte,\n  13 Zeichen ausloesung ergeben eine Anfrage (Entprellen wirkt),\n  0 px Ueberlauf, keine Karte ragt ueber ihren Container.\n\nZwei F401-Meldungen (aiosqlite, discord.app_commands) sind vorbestehend\nund bleiben unberuehrt.\n\nNicht getestet: nichts gegen echtes Discord. Dass ein Modal mit fuenf\nFeldern und Bildfragen bei Discord durchgeht, ist gegen die Grenzen der\nSchnittstelle gerechnet, nicht live gezeigt."
+  },
+  {
    "commit": "81b0a627cc9e50558d2aa72ee6e8c8f176f82b1d",
    "at": "1790420423",
    "subject": "feat: expand premium ticket questions",
@@ -227,18 +239,6 @@
    "at": "1789543694",
    "subject": "Remove IP tracking description from homepage map",
    "body": "Removed description paragraph about IP tracking for visits."
-  },
-  {
-   "commit": "efa50a82ff68ac466d0e14fa69ee58dce3c6a284",
-   "at": "1789542902",
-   "subject": "fix: count homepage visits with ten minute IP cooldown",
-   "body": ""
-  },
-  {
-   "commit": "0003f98fcbda75e566c72890757f2c3e6015aec8",
-   "at": "1789541807",
-   "subject": "feat: add live homepage visitor world map",
-   "body": ""
   }
  ]
 }

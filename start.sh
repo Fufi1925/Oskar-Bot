@@ -248,10 +248,13 @@ else
   echo "ℹ️ Phantom Ticket-Bot skipped (PHANTOM_BOT_TOKEN not set)"
 fi
 
-# Start the isolated LBoost Shop gateway client. It intentionally has no
-# commands or handlers yet, but stays connected for future shop features.
+# Start the isolated LBoost Shop bot. It reads its configuration from the
+# shop's SQLite file on every event (three second cache), so a change saved
+# in the dashboard takes effect without restarting anything. The bot writes a
+# heartbeat every 20 seconds; the dashboard shows that instead of a fixed
+# "online" label, and /healthz reports it too.
 if [ -n "${LBOST_SHOP_BOT_TOKEN:-}" ] && [ -f /app/lbost-shop/run_bot.py ]; then
-  echo "🛍️ Starting LBoost Shop Bot (no features enabled yet)..."
+  echo "🛍️ Starting LBoost Shop Bot (liest die Konfiguration aus dem Dashboard)..."
   cd /app/lbost-shop
   PYTHONPATH=/app/lbost-shop python run_bot.py > /tmp/lbost-shop-bot.log 2>&1 &
   LBOST_SHOP_BOT_PID=$!

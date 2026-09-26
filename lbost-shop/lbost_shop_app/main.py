@@ -1,54 +1,89 @@
-"""Isolated LBoost Shop landing page, Discord login and placeholder dashboard."""
+"""Isolated LBoost Shop landing page, Discord login and dashboard.
+
+Der Bereich läuft bewusst eigenständig: eigene Discord-App, eigene Sitzung,
+eigene Datenbank, eigener Bot-Prozess. Er teilt nichts mit University Bot,
+Phantom oder Louckup außer der Optik und den Regeln für Tickettexte (die
+liegen in ``regeln.py`` und gelten für Vorschau und Bot gleichzeitig).
+"""
 from __future__ import annotations
 
 import json
+import re
 import secrets
 import time
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 from fastapi import FastAPI, Request
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from lbost_shop_app import auth, db
+from lbost_shop_app import auth, db, regeln
 from lbost_shop_app.config import get_settings
 
 APP_DIR = Path(__file__).resolve().parent
 TEMPLATES = Jinja2Templates(directory=str(APP_DIR / "templates"))
+
+# Login-Versuche pro IP. Ohne Kürzung wuchs das Wörterbuch mit jeder neuen IP
+# für die Lebensdauer des Prozesses weiter.
 _rate: dict[str, list[float]] = {}
+_RATE_ALTER = 120.0
+
+# Kurzer Zwischenspeicher für Discord-Lesungen. Ohne ihn waren pro
+# Dashboard-Aufruf fünf Anfragen an Discord fällig (zwei für die Serverliste,
+# drei für Kanäle, Rollen und Statistiken) — bei jedem einzelnen Klick.
+_cache: dict[str, tuple[float, Any]] = {}
+_CACHE_MAX = 400
+
+COLOR_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
 
 FEATURES: dict[str, dict[str, Any]] = {
     "tickets": {"title": "Advanced Ticket System", "icon": "ticket", "fields": [
         ("enabled", "Aktiviert", "bool"), ("panel_channel_id", "Panel-Kanal", "channel"),
         ("category_id", "Ticket-Kategorie", "channel"), ("log_channel_id", "Transkript-/Log-Kanal", "channel"),
         ("support_role_ids", "Support-Rollen (IDs, Komma)", "text"),
-        ("open_role_ids", "Darf Tickets öffnen (Rollen-IDs, leer = alle)", "text"), ("button_label", "Öffnen-Button", "text"),
+        ("open_role_ids", "Darf Tickets öffnen (Rollen-IDs, leer = alle)", "text"),
+        ("mention_support", "Support bei neuem Ticket erwähnen", "bool"),
+        ("button_label", "Öffnen-Button", "text"),
         ("button_emoji", "Öffnen-Emoji", "text"), ("claim_label", "Übernehmen-Button", "text"),
         ("claim_emoji", "Übernehmen-Emoji", "text"), ("close_label", "Schließen-Button", "text"),
-        ("close_emoji", "Schließen-Emoji", "text"), ("delete_label", "Löschen-Button", "text"),
+        ("close_emoji", "Übernehmen-Emoji", "text"), ("delete_label", "Löschen-Button", "text"),
         ("delete_emoji", "Löschen-Emoji", "text"),
         ("title", "Embed-Titel", "text"),
         ("description", "Beschreibung", "textarea"), ("footer", "Footer", "text"),
         ("color", "Farbe", "color"), ("image_url", "Bild-URL", "url"), ("thumbnail_url", "Thumbnail-URL", "url"),
+        ("ticket_title", "Überschrift im Ticket", "text"),
+        ("ticket_message", "Begrüßung im Ticket", "textarea"),
+        ("ticket_created_message", "Bestätigung an den Nutzer", "text"),
+        ("ticket_image_url", "Bild im Ticket", "url"), ("ticket_thumbnail_url", "Thumbnail im Ticket", "url"),
+        ("channel_name_format", "Kanalname (leer = Standard)", "text"),
+        ("slowmode_seconds", "Slowmode im Ticket (Sekunden)", "number"),
+        ("questions_json", "Fragen beim Öffnen (JSON)", "json"),
         ("panels_json", "Weitere Panels (JSON)", "json"),
     ]},
     "moderation": {"title": "Moderation", "icon": "shield", "fields": [
         ("enabled", "Aktiviert", "bool"), ("log_channel_id", "Moderations-Log", "channel"),
         ("anti_spam", "Anti-Spam", "bool"), ("spam_limit", "Nachrichten je 8 Sekunden", "number"),
+        ("spam_timeout", "Timeout bei Spam", "bool"),
         ("anti_links", "Anti-Link", "bool"), ("allowed_domains", "Erlaubte Domains (Komma)", "text"),
+        ("link_timeout", "Timeout bei fremdem Link", "bool"),
+        ("spam_timeout_minuten", "Timeout-Dauer (Minuten)", "number"),
         ("exempt_role_ids", "Ausgenommene Rollen (IDs, Komma)", "text"),
     ]},
     "welcome": {"title": "Welcome & Leave", "icon": "users", "fields": [
         ("enabled", "Aktiviert", "bool"), ("welcome_channel_id", "Willkommenskanal", "channel"),
         ("welcome_message", "Willkommenstext", "textarea"), ("welcome_image_url", "Willkommensbild", "url"),
+        ("color", "Farbe", "color"),
         ("leave_enabled", "Leave-Nachrichten", "bool"), ("leave_channel_id", "Leave-Kanal", "channel"),
         ("leave_message", "Leave-Text", "textarea"), ("leave_image_url", "Leave-Bild", "url"),
     ]},
     "reaction_roles": {"title": "Reaction Roles", "icon": "users", "fields": [
         ("enabled", "Aktiviert", "bool"), ("channel_id", "Panel-Kanal", "channel"),
         ("title", "Panel-Titel", "text"), ("description", "Panel-Beschreibung", "textarea"),
+        ("color", "Farbe", "color"),
         ("roles_json", "Rollen-Buttons (JSON)", "json"), ("panels_json", "Weitere Panels (JSON)", "json"),
     ]},
     "automation": {"title": "Automation", "icon": "bolt", "fields": [
@@ -65,18 +100,41 @@ FEATURES: dict[str, dict[str, Any]] = {
     "giveaways": {"title": "Giveaways", "icon": "gift", "fields": [
         ("enabled", "Aktiviert", "bool"), ("log_channel_id", "Giveaway-Log", "channel"),
         ("manager_role_ids", "Manager-Rollen (IDs, Komma)", "text"),
+        ("required_role_id", "Pflicht-Rolle zum Mitmachen (ID, leer = jede)", "text"),
         ("default_winners", "Standard-Anzahl Gewinner", "number"),
     ]},
 }
 
+#: Wo der Bot Platzhalter ersetzt — im Dashboard sichtbar, damit niemand
+#: rätet, welche Wörter funktionieren.
+PLATZHALTER = {
+    "tickets": "Platzhalter: {ticket_number} {user} {category} {server} {channel}",
+    "welcome": "Platzhalter: {user} {server} {member_count} {channel}",
+}
+
+#: Grenzen pro Feld. Ohne diese Liste konnte jemand „Nachrichten je 8
+#: Sekunden = 0“ eintragen und jeder einzelne Beitrag galt als Spam.
+GRENZEN: dict[str, tuple[int, int]] = {
+    "spam_limit": (3, 100),
+    "spam_timeout_minuten": (1, 1440),
+    "default_winners": (1, 20),
+    "slowmode_seconds": (0, 30),
+}
+
+JSON_MAX_FELDER = 50
+JSON_MAX_GROESSE = 32_000
+
 JSON_HELP: dict[str, dict[str, str]] = {
-    "tickets": {"panels_json": '[{"key":"billing","title":"Billing Support","panel_channel_id":"123","category_id":"456","support_role_ids":"789","button_label":"Billing-Ticket"}]'},
+    "tickets": {
+        "panels_json": '[{"key":"billing","title":"Billing Support","panel_channel_id":"123","category_id":"456","support_role_ids":"789","button_label":"Billing-Ticket"}]',
+        "questions_json": '[{"label":"Um was geht es?","placeholder":"Kurz beschreiben","type":"short","required":true},{"label":"Beleg","type":"image","required":false}]',
+    },
     "reaction_roles": {
         "roles_json": '[{"role_id":"123","label":"Updates","emoji":"<:bell:123456>"}]',
         "panels_json": '[{"title":"Game Roles","channel_id":"123","roles_json":[{"role_id":"456","label":"Player"}]}]',
     },
     "automation": {
-        "auto_responses_json": '[{"trigger":"hello","response":"Welcome!","exact":false}]',
+        "auto_responses_json": '[{"trigger":"hello","response":"Welcome!","exact":false,"cooldown_seconds":30}]',
         "custom_commands_json": '[{"name":"rules","title":"Rules","response":"Read the server rules."}]',
         "announcements_json": '[{"channel_id":"123","title":"News","content":"Automatic update","interval_minutes":1440}]',
     },
@@ -87,14 +145,225 @@ SECURITY_HEADERS = {
     "X-Frame-Options": "DENY",
     "Referrer-Policy": "no-referrer",
     "Permissions-Policy": "geolocation=(), microphone=(), camera=()",
+    # style-src bleibt bei 'self': Das Dashboard erzeugt seine Füllgrade über
+    # Klassen, nicht über style-Attribute. Wer hier "schnell" unsafe-inline
+    # einträgt, macht die Policy zur Deko.
     "Content-Security-Policy": "default-src 'self'; img-src 'self' https://cdn.discordapp.com; style-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'",
 }
+
+
+def _static_version() -> str:
+    """Versions-Suffix für CSS/JS: langer Cache plus sicherer Neubeladung."""
+    markierungen = []
+    for datei in sorted((APP_DIR / "static").rglob("*")):
+        if datei.is_file() and datei.suffix in {".css", ".js"}:
+            stat = datei.stat()
+            markierungen.append(f"{datei.name}:{int(stat.st_mtime)}:{stat.st_size}")
+    return f"{abs(hash(tuple(markierungen))) % 10**8:08d}"
+
+
+def _kurz(schluessel: str) -> Any:
+    eintrag = _cache.get(schluessel)
+    if not eintrag:
+        return None
+    wert, bis = eintrag
+    if time.monotonic() > bis:
+        _cache.pop(schluessel, None)
+        return None
+    return wert
+
+
+def _kurz_setzen(schluessel: str, wert: Any, sekunden: float) -> None:
+    if len(_cache) > _CACHE_MAX:
+        jetzt = time.monotonic()
+        for alt in [k for k, (_wert, bis) in _cache.items() if bis <= jetzt]:
+            _cache.pop(alt, None)
+        while len(_cache) > _CACHE_MAX:
+            _cache.pop(next(iter(_cache)))
+    _cache[schluessel] = (wert, time.monotonic() + sekunden)
+
+
+def cache_leeren() -> None:
+    """Nur für Tests und nach Änderungen, die sofort sichtbar sein sollen."""
+    _cache.clear()
+
+
+def _rate_pruefen(ip: str, grenze: int) -> bool:
+    """True, wenn der Versuch erlaubt ist. Leert alte IPs nebenbei."""
+    jetzt = time.time()
+    if len(_rate) > 5000:
+        for alt in [k for k, v in _rate.items() if not v or jetzt - v[-1] > _RATE_ALTER]:
+            _rate.pop(alt, None)
+    hits = [stamp for stamp in _rate.get(ip, []) if jetzt - stamp < 60]
+    hits.append(jetzt)
+    _rate[ip] = hits
+    return len(hits) <= grenze
+
+
+def _rollen_ids(wert: Any) -> str:
+    """Rollen-/ID-Listen normalisieren: nur Ziffern, durch Komma getrennt."""
+    teile = re.split(r"[,;\s]+", str(wert or ""))
+    sauber = [teil for teil in teile if teil.isdigit() and len(teil) <= 21]
+    return ",".join(dict.fromkeys(sauber))
+
+
+def _url_pruefen(feld: str, wert: str) -> str | None:
+    """Bild-URLs müssen http(s) sein — sonst zeigt Discord ein kaputtes Bild."""
+    if not wert:
+        return None
+    try:
+        ziel = urlparse(wert)
+    except ValueError:
+        return f"{feld}: keine gültige URL."
+    if ziel.scheme not in {"http", "https"} or not ziel.netloc:
+        return f"{feld}: nur http(s)-Links erlaubt."
+    if len(wert) > 600:
+        return f"{feld}: URL ist länger als 600 Zeichen."
+    return None
+
+
+def _json_pruefen(wert: str) -> tuple[Any, str | None]:
+    if not wert.strip():
+        return [], None
+    if len(wert) > JSON_MAX_GROESSE:
+        return None, f"JSON ist größer als {JSON_MAX_GROESSE // 1000} KB."
+    try:
+        parsed = json.loads(wert)
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return None, "JSON konnte nicht gelesen werden."
+    if not isinstance(parsed, (list, dict)):
+        return None, "JSON muss eine Liste oder ein Objekt sein."
+    if isinstance(parsed, list) and len(parsed) > JSON_MAX_FELDER:
+        return None, f"Höchstens {JSON_MAX_FELDER} Einträge."
+    if isinstance(parsed, list):
+        parsed = [eintrag for eintrag in parsed if isinstance(eintrag, dict)]
+    return parsed, None
+
+
+async def _discord_abfrage(bot_token: str, pfad: str, params: dict[str, str] | None = None) -> Any:
+    """Ein Discord-Lesaufruf mit Bot-Token. Eigene Funktion: Tests docken hier an.
+
+    Der Bot liest Kanäle, Rollen und Serverzahlen für die Auswahlfelder — ohne
+    these Funktion müsste jeder Test httpx global umbiegen.
+    """
+    import httpx
+
+    async with httpx.AsyncClient(timeout=20.0) as client:
+        response = await client.get(
+            f"https://discord.com/api/v10{pfad}",
+            params=params or None,
+            headers={"Authorization": f"Bot {bot_token}"},
+        )
+        response.raise_for_status()
+        return response.json()
+
+
+def _panels_bereinigen(eintraege: list[Any]) -> list[dict[str, Any]]:
+    """Panels brauchen einen key — sonst weiß der Bot nicht, welches er meinen soll."""
+    sauber: list[dict[str, Any]] = []
+    gesehen: set[str] = set()
+    for eintrag in eintraege:
+        if not isinstance(eintrag, dict):
+            continue
+        schluessel = str(eintrag.get("key") or "").strip()[:40]
+        if not schluessel or not re.fullmatch(r"[a-z0-9_-]+", schluessel.lower()):
+            continue
+        if schluessel.lower() in gesehen:
+            continue
+        gesehen.add(schluessel.lower())
+        sauber.append({k: (v if not isinstance(v, str) else v[:4000]) for k, v in eintrag.items()})
+    return sauber
+
+
+def _werte_aus_formular(spec: dict[str, Any], form: Any, feature: str = "") -> tuple[dict[str, Any], list[str]]:
+    """Formular in die Liste der erlaubten Felder übersetzen.
+
+    Alles, was hier nicht durchgeht, steht danach in der Datenbank und wird
+    vom Bot gelesen — deshalb: Zahlen begrenzt, IDs nur Ziffern, URLs nur
+    http(s), JSON in Größe und Einträgen gekappt.
+    """
+    values: dict[str, Any] = {}
+    fehler: list[str] = []
+    for key, label, typ in spec["fields"]:
+        eingabe = form.get(key)
+        raw = str(eingabe if eingabe is not None else "").strip()
+        if typ == "bool":
+            values[key] = key in form
+        elif typ == "number":
+            minimum, maximum = GRENZEN.get(key, (1, 1000))
+            if raw == "":
+                # Leer gelassen heit "nichts eingestellt", nicht "der
+                # kleinste erlaubte Wert". Ein importiertes 0 duerfen wir
+                # nicht stillschweigend zu 3 verbiegen.
+                continue
+            try:
+                zahl = int(raw)
+            except ValueError:
+                fehler.append(f"{label}: keine Zahl.")
+                continue
+            if not minimum <= zahl <= maximum:
+                fehler.append(f"{label}: nur Werte von {minimum} bis {maximum}.")
+                continue
+            values[key] = zahl
+        elif typ == "json":
+            parsed, meldung = _json_pruefen(raw)
+            if meldung:
+                fehler.append(f"{label}: {meldung}")
+                continue
+            if key == "questions_json" and isinstance(parsed, list):
+                parsed = regeln.fragen_bereinigen(parsed)
+            elif key == "panels_json" and feature == "tickets" and isinstance(parsed, list):
+                parsed = _panels_bereinigen(parsed)
+            values[key] = parsed
+        elif typ == "url":
+            meldung = _url_pruefen(label, raw)
+            if meldung:
+                fehler.append(meldung)
+                continue
+            values[key] = raw
+        elif typ == "color":
+            if raw and not COLOR_RE.match(raw):
+                fehler.append(f"{label}: Farbe bitte als #rrggbb.")
+                continue
+            values[key] = raw
+        elif key.endswith("_role_ids") or key.endswith("_role_id"):
+            values[key] = _rollen_ids(raw)
+        elif typ == "channel":
+            if raw and not raw.isdigit():
+                fehler.append(f"{label}: Kanal-ID ungültig.")
+                continue
+            values[key] = raw
+        else:
+            values[key] = raw[:4000]
+    return values, fehler
 
 
 def create_app() -> FastAPI:
     settings = get_settings()
     app = FastAPI(title="LBoost Shop", docs_url=None, redoc_url=None, openapi_url=None)
+    # Antworten sind JSON und HTML, beide gut komprimierbar; die Seite hängt
+    # hinter dem Railway-Proxy ohne eigenen Cache.
+    app.add_middleware(GZipMiddleware, minimum_size=1024)
     app.mount("/static", StaticFiles(directory=str(APP_DIR / "static")), name="static")
+    db.init_features(settings)
+    db.prune_audit(settings)
+    version = _static_version()
+
+    def _zeitpunkt(wert: Any) -> str:
+        """Unix-Sekunden als Lesedatum für die Tabellen."""
+        try:
+            return time.strftime("%d.%m.%Y %H:%M", time.localtime(int(wert)))
+        except (TypeError, ValueError, OSError):
+            return "—"
+
+    TEMPLATES.env.filters["strftime"] = _zeitpunkt
+    TEMPLATES.env.filters["seit_minuten"] = lambda wert: (
+        "gerade eben" if not wert or int(time.time()) - int(wert) < 60
+        else f"vor {(int(time.time()) - int(wert)) // 60} Min."
+    )
+    TEMPLATES.env.filters["json_pretty"] = lambda wert: (
+        json.dumps(wert, ensure_ascii=False, indent=2) if wert not in (None, [], {}, "") else ""
+    )
 
     def prefix(request: Request) -> str:
         return (request.scope.get("root_path") or settings.root_path).rstrip("/")
@@ -114,6 +383,21 @@ def create_app() -> FastAPI:
         user["is_owner"] = int(user["uid"]) in settings.owner_id_set
         return user
 
+    def bot_status() -> dict[str, Any]:
+        """Echter Zustand des Bot-Prozesses statt einer festen Zeile."""
+        state = db.get_state(0, "bot_heartbeat", settings) or {}
+        wert = state.get("wert") if isinstance(state, dict) else None
+        if not isinstance(wert, dict):
+            return {"online": False, "vor": None, "gilden": 0, "name": "", "token": bool(settings.bot_token)}
+        vor = int(time.time()) - int(wert.get("zeit") or 0)
+        return {
+            "online": vor <= 90,
+            "vor": vor,
+            "gilden": int(wert.get("gilden") or 0),
+            "name": str(wert.get("name") or ""),
+            "token": bool(settings.bot_token),
+        }
+
     def context(request: Request, **extra: Any) -> dict[str, Any]:
         user = current_user(request)
         data = {
@@ -123,6 +407,13 @@ def create_app() -> FastAPI:
             "user": user,
             "avatar_url": auth.avatar_url(user),
             "missing": settings.missing_config,
+            "asset_version": version,
+            "status": bot_status(),
+            "heute": int(time.time()),
+            "audit_tage": db.AUDIT_TAGE,
+            "module": FEATURES,
+            "platzhalter": PLATZHALTER,
+            "limits": GRENZEN,
         }
         data.update(extra)
         return data
@@ -138,10 +429,17 @@ def create_app() -> FastAPI:
         response.delete_cookie(settings.cookie_name, path=settings.cookie_path)
         response.delete_cookie("lbost_shop_oauth_state", path=settings.cookie_path)
 
+    def csrf_ok(form_value: Any, user: dict[str, Any]) -> bool:
+        return bool(user) and secrets.compare_digest(str(form_value or ""), str(user["sid"]))
+
     async def visible_guilds(user: dict[str, Any]) -> list[dict[str, Any]]:
         """Strict intersection: allowlist + bot present + Manage Guild rights."""
         session_id = str(user["sid"])
         user_id = int(user["uid"])
+        schluessel = f"gilden:{user_id}"
+        zwischendurch = _kurz(schluessel)
+        if isinstance(zwischendurch, list):
+            return zwischendurch
         stored = db.load_oauth_session(session_id, user_id, settings)
         if not stored or not settings.bot_token or not settings.allowed_guild_id_set:
             return []
@@ -149,7 +447,7 @@ def create_app() -> FastAPI:
             if int(stored["expires_at"]) <= int(time.time()) + 60:
                 refreshed = await auth.refresh(str(stored["refresh_token"]), settings)
                 if not refreshed.get("refresh_token"):
-                    refreshed["refresh_token"] = stored["refresh_token"]
+                    refreshed["refresh_token"] = str(stored["refresh_token"])
                 db.save_oauth_session(session_id, user_id, refreshed, settings)
                 access_token = str(refreshed["access_token"])
             else:
@@ -184,26 +482,23 @@ def create_app() -> FastAPI:
                 "owner": bool(guild.get("owner")),
                 "member_count": member_count if isinstance(member_count, int) else None,
             })
-        return sorted(visible, key=lambda guild: guild["name"].casefold())
+        ergebnis = sorted(visible, key=lambda guild: guild["name"])
+        _kurz_setzen(schluessel, ergebnis, 20)
+        return ergebnis
 
     async def guild_access(user: dict[str, Any], guild_id: int) -> dict[str, Any] | None:
         return next((guild for guild in await visible_guilds(user) if int(guild["id"]) == guild_id), None)
 
     async def guild_resources(guild_id: int) -> tuple[list[dict[str, str]], list[dict[str, str]], dict[str, Any]]:
         """Channels, roles and overview data for the University-style pages."""
+        schluessel = f"ressourcen:{guild_id}"
+        zwischendurch = _kurz(schluessel)
+        if isinstance(zwischendurch, tuple):
+            return zwischendurch
         try:
-            import httpx
-            headers = {"Authorization": f"Bot {settings.bot_token}"}
-            async with httpx.AsyncClient(timeout=20.0) as client:
-                channels_response = await client.get(f"https://discord.com/api/v10/guilds/{guild_id}/channels", headers=headers)
-                roles_response = await client.get(f"https://discord.com/api/v10/guilds/{guild_id}/roles", headers=headers)
-                guild_response = await client.get(f"https://discord.com/api/v10/guilds/{guild_id}", params={"with_counts": "true"}, headers=headers)
-                channels_response.raise_for_status()
-                roles_response.raise_for_status()
-                guild_response.raise_for_status()
-            raw_channels = channels_response.json()
-            raw_roles = roles_response.json()
-            raw_guild = guild_response.json()
+            raw_channels = await _discord_abfrage(settings.bot_token, f"/guilds/{guild_id}/channels")
+            raw_roles = await _discord_abfrage(settings.bot_token, f"/guilds/{guild_id}/roles")
+            raw_guild = await _discord_abfrage(settings.bot_token, f"/guilds/{guild_id}", {"with_counts": "true"})
             channels = [
                 {"id": str(item["id"]), "name": str(item.get("name") or item["id"])}
                 for item in raw_channels if item.get("type") in (0, 4, 5, 10, 11, 12, 15, 16)
@@ -221,8 +516,12 @@ def create_app() -> FastAPI:
                 "verification_level": int(raw_guild.get("verification_level") or 0),
                 "owner_id": str(raw_guild.get("owner_id") or ""),
             }
-            return channels, roles, stats
+            ergebnis = (channels, roles, stats)
+            _kurz_setzen(schluessel, ergebnis, 45)
+            return ergebnis
         except Exception:
+            # Bewusst nicht cached: ein kurzer Discord-Ausfall soll beim
+            # nächsten Klick neu versucht werden, nicht 45 Sekunden lang.
             return [], [], {}
 
     @app.middleware("http")
@@ -230,7 +529,12 @@ def create_app() -> FastAPI:
         response = await call_next(request)
         for key, value in SECURITY_HEADERS.items():
             response.headers.setdefault(key, value)
-        if (response.headers.get("content-type") or "").startswith("text/html"):
+        pfad = request.url.path
+        if "/static/" in pfad:
+            # Dateien haben ein Versions-Suffix am Namen, deshalb dürfen sie
+            # einen Tag im Browser bleiben.
+            response.headers["Cache-Control"] = "public, max-age=86400"
+        elif (response.headers.get("content-type") or "").startswith("text/html"):
             response.headers["Cache-Control"] = "no-store, private"
         return response
 
@@ -242,7 +546,8 @@ def create_app() -> FastAPI:
     async def login(request: Request):
         if current_user(request):
             return RedirectResponse(href(request, "/dashboard"), status_code=302)
-        return render(request, "login.html", redirect_uri=settings.oauth_redirect_uri)
+        return render(request, "login.html", redirect_uri=settings.oauth_redirect_uri,
+                      abgemeldet=(request.query_params.get("abgemeldet") or "").replace("-", "").isdigit() and int(request.query_params.get("abgemeldet")) or 0)
 
     @app.get("/login", include_in_schema=False)
     async def login_lower(request: Request):
@@ -251,11 +556,7 @@ def create_app() -> FastAPI:
     @app.get("/auth/discord")
     async def auth_discord(request: Request):
         ip = (request.headers.get("x-forwarded-for") or (request.client.host if request.client else "unknown")).split(",")[0].strip()
-        now = time.time()
-        hits = [stamp for stamp in _rate.get(ip, []) if now - stamp < 60]
-        hits.append(now)
-        _rate[ip] = hits
-        if len(hits) > settings.login_rate_limit:
+        if not _rate_pruefen(ip, settings.login_rate_limit):
             return PlainTextResponse("Zu viele Loginversuche. Bitte kurz warten.", status_code=429)
         if settings.missing_config:
             return RedirectResponse(href(request, "/Login"), status_code=302)
@@ -297,6 +598,7 @@ def create_app() -> FastAPI:
         response = RedirectResponse(href(request, "/auth/success"), status_code=302)
         response.set_cookie(settings.cookie_name, auth.create_session(user, session_id, settings), max_age=settings.session_max_age, path=settings.cookie_path, httponly=True, samesite="lax", secure=secure(request))
         response.delete_cookie("lbost_shop_oauth_state", path=settings.cookie_path)
+        cache_leeren()
         return response
 
     @app.get("/auth/success", response_class=HTMLResponse)
@@ -330,6 +632,21 @@ def create_app() -> FastAPI:
         guilds = await visible_guilds(user)
         return render(request, "servers.html", guilds=guilds)
 
+    def modul_daten(guild_id: int, feature: str) -> dict[str, Any]:
+        """Was auf dem Server schon passiert ist — Tickets, Verwarnungen, Giveaways."""
+        if feature == "tickets":
+            return {
+                "kennzahlen": db.ticket_kennzahlen(guild_id, settings),
+                "tickets": db.tickets_fuer_gilde(guild_id, settings, 12),
+                "vorschau": regeln.vorschau_willkommen(db.get_feature(guild_id, "tickets", settings)),
+                "panel": regeln.vorschau_panel(db.get_feature(guild_id, "tickets", settings)),
+            }
+        if feature == "moderation":
+            return {"warnungen": db.warnungen_fuer_gilde(guild_id, settings, 25)}
+        if feature == "giveaways":
+            return {"giveaways": db.giveaways_fuer_gilde(guild_id, settings, 12)}
+        return {}
+
     @app.get("/guild/{guild_id}", response_class=HTMLResponse)
     async def guild_home(request: Request, guild_id: int):
         user = current_user(request)
@@ -339,7 +656,12 @@ def create_app() -> FastAPI:
         configured = db.all_features(guild_id, settings)
         _channels, _roles, stats = await guild_resources(guild_id)
         history = db.feature_history(guild_id, settings)
-        return render(request, "guild.html", guild=guild, features=FEATURES, configured=configured, stats=stats, history=history, csrf=user["sid"], active_tab=request.query_params.get("tab", "overview"), restored=request.query_params.get("restored") == "1")
+        kennzahlen = db.ticket_kennzahlen(guild_id, settings)
+        warnungen = len(db.warnungen_fuer_gilde(guild_id, settings, 100))
+        return render(request, "guild.html", guild=guild, features=FEATURES, configured=configured, stats=stats,
+                      history=history, csrf=user["sid"], kennzahlen=kennzahlen, warnungen=warnungen,
+                      active_tab=request.query_params.get("tab", "overview"),
+                      restored=request.query_params.get("restored") == "1")
 
     @app.get("/guild/{guild_id}/config-export")
     async def export_guild_config(request: Request, guild_id: int):
@@ -359,7 +681,7 @@ def create_app() -> FastAPI:
         if not user or not guild:
             return RedirectResponse(href(request, "/dashboard"), status_code=302)
         form = await request.form()
-        if not secrets.compare_digest(str(form.get("csrf") or ""), str(user["sid"])):
+        if not csrf_ok(form.get("csrf"), user):
             return PlainTextResponse("Ungültige Anfrage.", status_code=403)
         upload = form.get("config_file")
         if not upload or not hasattr(upload, "read"):
@@ -372,12 +694,22 @@ def create_app() -> FastAPI:
             imported = payload.get("features", {})
             if not isinstance(imported, dict):
                 raise ValueError
+            uebernommen = 0
             for feature, values in imported.items():
-                if feature in FEATURES and isinstance(values, dict):
-                    db.set_feature(guild_id, feature, values, int(user["uid"]), settings)
+                spec = FEATURES.get(feature)
+                if not spec or not isinstance(values, dict):
+                    continue
+                # Nur bekannte Felder, in derselben Prüfung wie das Formular.
+                # Sonst könnte eine importierte Datei Felder enthalten, die
+                # das Formular ablehnen würde — und der Bot liest sie trotzdem.
+                gefiltert, fehler = _werte_aus_formular(spec, values, feature)
+                if fehler:
+                    continue
+                db.set_feature(guild_id, feature, gefiltert, int(user["uid"]), settings)
+                uebernommen += 1
         except (TypeError, ValueError, json.JSONDecodeError, UnicodeDecodeError):
             return PlainTextResponse("Ungültige Konfigurationsdatei.", status_code=400)
-        return RedirectResponse(href(request, f"/guild/{guild_id}?tab=backup&restored=1"), status_code=303)
+        return RedirectResponse(href(request, f"/guild/{guild_id}?tab=backup&restored={uebernommen}"), status_code=303)
 
     @app.get("/guild/{guild_id}/{feature}", response_class=HTMLResponse)
     async def feature_page(request: Request, guild_id: int, feature: str):
@@ -388,7 +720,12 @@ def create_app() -> FastAPI:
             return RedirectResponse(href(request, "/dashboard"), status_code=302)
         channels, roles, _stats = await guild_resources(guild_id)
         values = db.get_feature(guild_id, feature, settings)
-        return render(request, "feature.html", guild=guild, feature=feature, spec=spec, values=values, channels=channels, roles=roles, csrf=user["sid"], saved=request.query_params.get("saved") == "1", error=None, json_help=JSON_HELP.get(feature, {}))
+        return render(request, "feature.html", guild=guild, feature=feature, spec=spec, values=values,
+                      channels=channels, roles=roles, csrf=user["sid"],
+                      saved=request.query_params.get("saved") == "1",
+                      geloescht=request.query_params.get("geloescht") == "1",
+                      discord_ok=bool(channels or roles),
+                      error=None, json_help=JSON_HELP.get(feature, {}), daten=modul_daten(guild_id, feature))
 
     @app.post("/guild/{guild_id}/{feature}", response_class=HTMLResponse)
     async def save_feature(request: Request, guild_id: int, feature: str):
@@ -398,34 +735,63 @@ def create_app() -> FastAPI:
         if not user or not guild or not spec:
             return RedirectResponse(href(request, "/dashboard"), status_code=302)
         form = await request.form()
-        if not secrets.compare_digest(str(form.get("csrf") or ""), str(user["sid"])):
+        if not csrf_ok(form.get("csrf"), user):
             return PlainTextResponse("Ungültige Anfrage.", status_code=403)
-        values: dict[str, Any] = {}
-        error: str | None = None
-        for key, _label, field_type in spec["fields"]:
-            raw = str(form.get(key) or "").strip()
-            if field_type == "bool":
-                values[key] = key in form
-            elif field_type == "number":
-                try:
-                    values[key] = max(1, min(1000, int(raw or "1")))
-                except ValueError:
-                    error = f"Ungültige Zahl bei {key}."
-            elif field_type == "json":
-                try:
-                    parsed = json.loads(raw or "[]")
-                    if not isinstance(parsed, (list, dict)):
-                        raise ValueError
-                    values[key] = parsed
-                except (TypeError, ValueError, json.JSONDecodeError):
-                    error = f"Ungültiges JSON bei {key}."
-            else:
-                values[key] = raw[:4000]
-        if error:
+        values, fehler = _werte_aus_formular(spec, form, feature)
+        if fehler:
             channels, roles, _stats = await guild_resources(guild_id)
-            return render(request, "feature.html", guild=guild, feature=feature, spec=spec, values=values, channels=channels, roles=roles, csrf=user["sid"], saved=False, error=error, json_help=JSON_HELP.get(feature, {}))
+            return render(request, "feature.html", guild=guild, feature=feature, spec=spec,
+                          values={**db.get_feature(guild_id, feature, settings), **values},
+                          channels=channels, roles=roles, csrf=user["sid"], saved=False,
+                          discord_ok=bool(channels or roles),
+                          error=" ".join(fehler[:4]), json_help=JSON_HELP.get(feature, {}),
+                          daten=modul_daten(guild_id, feature))
         db.set_feature(guild_id, feature, values, int(user["uid"]), settings)
         return RedirectResponse(href(request, f"/guild/{guild_id}/{feature}?saved=1"), status_code=303)
+
+    @app.post("/guild/{guild_id}/{feature}/vorschau")
+    async def feature_vorschau(request: Request, guild_id: int, feature: str):
+        """Live-Vorschau: rechnet mit dem Entwurf, speichert aber nichts.
+
+        Dieselbe Funktion wie im Bot (``regeln``), damit die Seite nicht etwas
+        verspricht, das Discord ablehnt oder der Bot anders schreibt.
+        """
+        user = current_user(request)
+        guild = await guild_access(user, guild_id) if user else None
+        if not user or not guild or feature != "tickets":
+            return JSONResponse({"fehler": "Zugriff abgelehnt."}, status_code=403)
+        try:
+            entwurf = json.loads((await request.body())[:60_000].decode("utf-8", "replace") or "{}")
+        except (TypeError, ValueError, json.JSONDecodeError):
+            return JSONResponse({"fehler": "Entwurf konnte nicht gelesen werden."}, status_code=400)
+        if not isinstance(entwurf, dict):
+            return JSONResponse({"fehler": "Entwurf muss ein Objekt sein."}, status_code=400)
+        # Nur lesen, nichts schreiben — und unbekannte Schlüssel bleiben weg.
+        # Die Liste im Rückgabewert ist der Hinweis darauf, dass Formular und
+        # Regeln auseinandergedriftet sind: ohne sie zeigt die Vorschau still
+        # den alten Stand, obwohl jemand etwas getippt hat.
+        erlaubt = {key for key, _label, _typ in FEATURES["tickets"]["fields"]}
+        unbekannt = sorted(set(entwurf) - erlaubt)
+        entwurf = {k: v for k, v in entwurf.items() if k in erlaubt}
+        cfg = db.get_feature(guild_id, "tickets", settings)
+        antwort = regeln.vorschau_willkommen(cfg, entwurf=entwurf)
+        if unbekannt:
+            antwort["unbekannte_felder"] = unbekannt[:10]
+        return JSONResponse(antwort)
+
+    @app.post("/guild/{guild_id}/moderation/warnung/{warnung_id}/loeschen")
+    async def warning_delete(request: Request, guild_id: int, warnung_id: int):
+        user = current_user(request)
+        guild = await guild_access(user, guild_id) if user else None
+        if not user or not guild:
+            return JSONResponse({"ok": False}, status_code=403)
+        form = await request.form()
+        if not csrf_ok(form.get("csrf"), user):
+            return PlainTextResponse("Ungültige Anfrage.", status_code=403)
+        entfernt = db.warnung_loeschen(guild_id, warnung_id, settings)
+        if entfernt:
+            return RedirectResponse(href(request, f"/guild/{guild_id}/moderation?geloescht=1"), status_code=303)
+        return PlainTextResponse("Verwarnung nicht gefunden.", status_code=404)
 
     @app.get("/admin", response_class=HTMLResponse)
     async def admin(request: Request):
@@ -436,7 +802,31 @@ def create_app() -> FastAPI:
             return response
         if int(user["uid"]) not in settings.owner_id_set:
             return RedirectResponse(href(request, "/dashboard"), status_code=302)
-        return render(request, "admin.html")
+        uebersicht = db.konfigurations_uebersicht(settings)
+        return render(request, "admin.html",
+                      authorized=sorted(settings.allowed_ids),
+                      owners=sorted(settings.owner_id_set),
+                      freigegebene_server=sorted(settings.allowed_guild_id_set),
+                      sitzungen=db.offene_sitzungen(settings),
+                      aenderungen=db.letzte_aenderungen(settings, 20),
+                      uebersicht=uebersicht,
+                      status=bot_status())
+
+    @app.post("/admin/sitzungen/loeschen")
+    async def admin_revoke(request: Request):
+        user = current_user(request)
+        if not user or int(user["uid"]) not in settings.owner_id_set:
+            return PlainTextResponse("Zugriff abgelehnt.", status_code=403)
+        form = await request.form()
+        if not csrf_ok(form.get("csrf"), user):
+            return PlainTextResponse("Ungültige Anfrage.", status_code=403)
+        anzahl = db.alle_sitzungen_loeschen(settings)
+        # Die eigene Sitzung ist damit auch weg: der Hinweis gehoert auf die
+        # Login-Seite, sonst landet der Umleitungs-Zielkontakt ohne Sitzung
+        # sofort wieder auf der Startseite und die Meldung war nie zu sehen.
+        response = RedirectResponse(href(request, f"/Login?abgemeldet={anzahl}"), status_code=303)
+        clear_session(response, request)
+        return response
 
     @app.get("/logout")
     async def logout(request: Request):
@@ -446,7 +836,16 @@ def create_app() -> FastAPI:
 
     @app.get("/healthz")
     async def healthz():
-        return JSONResponse({"ok": True, "service": "lbost-shop", "oauth_configured": settings.oauth_configured, "allowed_accounts": len(settings.allowed_ids), "bot_token_configured": bool(settings.bot_token)})
+        status = bot_status()
+        return JSONResponse({
+            "ok": True,
+            "service": "lbost-shop",
+            "oauth_configured": settings.oauth_configured,
+            "allowed_accounts": len(settings.allowed_ids),
+            "bot_token_configured": bool(settings.bot_token),
+            "bot_online": status["online"],
+            "bot_letzte_meldung": status["vor"],
+        })
 
     return app
 

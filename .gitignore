@@ -76,4 +76,7 @@ phantom/**/__pycache__/
 louckup/.env
 louckup/.venv/
 louckup/data/*.db
+# Shop-Datenbank enthaelt verschluesselte Tokens und Sitzungen - nie einchecken.
+lbost-shop/data/*
+!lbost-shop/data/.gitkeep
 louckup/**/__pycache__/

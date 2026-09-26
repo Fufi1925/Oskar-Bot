@@ -77,6 +77,13 @@ async def run() -> None:
         assert response.status_code == 200
         assert "Advanced Ticket System" in response.text and "Dashboard durchsuchen" in response.text
         assert "Einrichtung" in response.text and "Als Nächstes" in response.text and "Noch offen" in response.text
+        response = await client.get("/lbost-shop/guild/1/tickets")
+        assert response.status_code == 200
+        assert "Vorschau" in response.text and "gerechnet im Bot" in response.text
+        assert "Fragen beim Öffnen (JSON)" in response.text
+        response = await client.get("/lbost-shop/guild/1/moderation")
+        assert response.status_code == 200
+        assert "Verwarnungen auf diesem Server" in response.text
         response = await client.get("/lbost-shop/guild/1/config-export")
         assert response.status_code == 200 and response.json()["guild_id"] == "1"
         session = auth.read_session(client.cookies.get("lbost_shop_session"), get_settings())
@@ -110,7 +117,13 @@ async def run() -> None:
         await login()
         response = await client.get("/lbost-shop/admin")
         assert response.status_code == 200
-        assert "Noch keine Einstellungen" in response.text
+        # Das Panel zeigt inzwischen echte Zahlen: freigegebene Konten, die
+        # aktiven Sitzungen und den Änderungsverlauf. Ein leeres Panel wäre
+        # hier ein Fehler, also muss der Test die echten Werte sehen.
+        assert "Admin-Panel" in response.text
+        assert "Aktive Sitzungen" in response.text or "aktive Sitzungen" in response.text
+        assert "123" in response.text, "freigegebenes Konto muss im Panel stehen"
+        assert "configure:moderation" in response.text, "gespeichertes Modul muss im Verlauf auftauchen"
 
     print("ok   OAuth, Filter, Verschluesselung, Widerruf und Owner-Admin")
 

@@ -65,7 +65,7 @@ check("Tokens serverseitig verschluesselt", "Fernet" in db and "refresh_token BL
 check("Tokens nie im Cookie", "access_token" not in auth.split("def create_session", 1)[1].split("def read_session", 1)[0])
 check("Owner Admin-Route", '@app.get("/admin"' in main and "settings.owner_id_set" in main)
 check("Admin-Link nur fuer Owner", "user.is_owner" in dash_shell)
-check("University Dashboard-Shell", all(term in dash_shell for term in ("University Bot", "Control Center", "data-global-search", "notifications", "language", "profile")))
+check("University Dashboard-Shell", all(term in dash_shell for term in ("University Bot", "Control Center", "data-global-search", "notifications", "ub-status-pill", "profile")))
 check("University Logo", (SHOP / "lbost_shop_app/static/icon-192.png").is_file())
 check("Responsive Dashboard-Navigation", "data-open-sidebar" in dash_shell and "data-ub-overlay" in dash_shell)
 check("University Serverliste", all(term in servers_page for term in ("Mitglieder erreicht", "Server mit Bot", "data-server-search", "data-server-sort")))
@@ -75,10 +75,25 @@ ui_text = main + "".join(path.read_text() for path in (SHOP / "lbost_shop_app/te
 check("keine Unicode-Emojis im Dashboard", not any(0x1F000 <= ord(char) <= 0x1FAFF for char in ui_text))
 check("Server-Sicherung", "config-export" in main and "config-import" in main and "feature_history" in db)
 check("Serverdetails von Discord", "with_counts" in main and "channel_count" in main and "role_count" in main)
-check("Admin noch ohne Einstellungen",  "Noch keine Einstellungen" in admin)
+check("Admin mit echten Zahlen", all(term in admin for term in ("aktive Sitzungen", "Letzte Änderungen", "Zugang", "ub-table")))
 check("Mount vor Catch-all", 'app.mount("/lbost-shop"' in server and server.find('app.mount("/lbost-shop"') < server.find('async def proxy_to_dashboard'))
 check("Docker kopiert Bereich", "COPY lbost-shop/ ./lbost-shop/" in docker)
 check("Start setzt Base URL", "LBOST_SHOP_BASE_URL" in start)
 check("DB im persistenten Volume", "LBOST_SHOP_DB_PATH" in start and "$DATA_DIR/lbost-shop" in start)
+
+import re as _re
+_csp = _re.search(r'"Content-Security-Policy": "([^"]+)"', main)
+check("CSP ohne unsafe-inline", bool(_csp) and "unsafe-inline" not in _csp.group(1) and "style-src 'self'" in _csp.group(1))
+check("kein style-Attribut im Dashboard", not any("style=" in path.read_text() for path in (SHOP / "lbost_shop_app/templates").glob("*.html")))
+check("Fuellgrade als Klassen", ".ub-fill-50{" in (SHOP / "lbost_shop_app/static/css/university-dashboard.css").read_text())
+check("Discord-Aufrufe gecacht", "_kurz_setzen" in main and "guild_resources" in main)
+check("Formulargrenzen", "GRENZEN" in main and "spam_limit" in main and "min=\"{{ grenze[0] }}" in (SHOP / "lbost_shop_app/templates/feature.html").read_text())
+check("Vorschau im Bot gerechnet", "regeln.vorschau_willkommen" in main and "from lbost_shop_app import db, regeln" in bot_client)
+
+for vorlage in sorted((SHOP / "lbost_shop_app/templates").glob("*.html")):
+    for tag in _re.findall(r"<link\b[^>]*>", vorlage.read_text()):
+        if not _re.fullmatch(r'<link rel="stylesheet" href="[^"]+">', tag):
+            failures.append(f"kaputtes link-Tag in {vorlage.name}: {tag}")
+check("link-Tags korrekt geschlossen", not any(f.startswith("kaputtes") for f in failures))
 
 raise SystemExit(1 if failures else 0)

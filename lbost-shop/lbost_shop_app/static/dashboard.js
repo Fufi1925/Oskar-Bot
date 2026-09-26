@@ -72,12 +72,103 @@
     serverCards.forEach((card) => serverGrid?.appendChild(card));
   }));
 
-  const stored = localStorage.getItem('lbost-language') || 'de';
-  document.querySelectorAll('[data-language-current]').forEach((el) => { el.textContent = stored.toUpperCase(); });
-  document.querySelectorAll('[data-language]').forEach((button) => button.addEventListener('click', () => {
-    localStorage.setItem('lbost-language', button.dataset.language);
-    document.querySelectorAll('[data-language-current]').forEach((el) => { el.textContent = button.dataset.language.toUpperCase(); });
-    closePopovers(null);
-  }));
+
+  // ── Ticket-Vorschau: tippen ohne Speichern, gerechnet im Bot ──
+  const vorschauFormular = document.querySelector('[data-preview-url]');
+  if (vorschauFormular) {
+    const vorschauUrl = vorschauFormular.dataset.previewUrl;
+    const status = document.querySelector('[data-preview-state]');
+    let vorschauTimer = null;
+
+    const feldwerte = () => {
+      const daten = {};
+      vorschauFormular.querySelectorAll('[data-preview-field]').forEach((feld) => {
+        const name = feld.dataset.previewField;
+        if (feld.type === 'checkbox') { daten[name] = feld.checked; return; }
+        if (name.endsWith('_json')) {
+          if (!feld.value.trim()) { daten[name] = []; return; }
+          try { daten[name] = JSON.parse(feld.value); } catch (fehler) { /* unvollstaendiges JSON: letzter Stand bleibt stehen */ }
+          return;
+        }
+        daten[name] = feld.value;
+      });
+      return daten;
+    };
+
+    const schreiben = (name, wert) => {
+      const feld = document.querySelector('[data-preview="' + name + '"]');
+      if (feld) feld.textContent = wert === null || wert === undefined ? '' : String(wert);
+    };
+
+    const fragenZeigen = (fragen) => {
+      const feld = document.querySelector('[data-preview="fragen"]');
+      if (!feld) return;
+      feld.textContent = '';
+      if (!fragen || fragen.length === 0) {
+        const leer = document.createElement('em');
+        leer.textContent = 'Keine Fragen gestellt.';
+        feld.appendChild(leer);
+        return;
+      }
+      fragen.forEach((frage, index) => {
+        if (index) feld.appendChild(document.createElement('br'));
+        const kopf = document.createElement('b');
+        kopf.textContent = (index + 1) + '. ' + frage.label + (frage.pflicht ? ' · Pflicht' : '');
+        feld.appendChild(kopf);
+        feld.appendChild(document.createTextNode(frage.hinweis || frage.feld));
+      });
+    };
+
+    const merken = (text, online) => {
+      if (!status) return;
+      status.className = 'ub-status-pill ' + (online ? 'online' : 'offline');
+      status.textContent = text;
+    };
+
+    const vorschauLaden = async () => {
+      merken('rechne\u2026', true);
+      try {
+        const antwort = await fetch(vorschauUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(feldwerte()),
+        });
+        if (!antwort.ok) throw new Error('HTTP ' + antwort.status);
+        const daten = await antwort.json();
+        if (daten.fehler) throw new Error(daten.fehler);
+        schreiben('titel', daten.titel);
+        schreiben('nachricht', daten.nachricht);
+        schreiben('bestaetigung', daten.bestaetigung);
+        fragenZeigen(daten.fragen);
+        const kanal = document.querySelector('[data-preview-kanal]');
+        if (kanal) kanal.textContent = '#' + daten.kanal;
+        if (daten.unbekannte_felder && daten.unbekannte_felder.length) {
+          merken('Feld unbekannt: ' + daten.unbekannte_felder.join(', '), false);
+        } else {
+          merken('Entwurf, gerechnet im Bot', true);
+        }
+      } catch (fehler) {
+        merken('Vorschau nicht verf\u00fcgbar', false);
+      }
+    };
+
+    const planen = (verzoegerung) => {
+      clearTimeout(vorschauTimer);
+      vorschauTimer = setTimeout(vorschauLaden, verzoegerung);
+    };
+
+    vorschauFormular.addEventListener('input', () => planen(500));
+    vorschauFormular.addEventListener('change', () => planen(150));
+  }
+
+  // JSON-Felder: Tab rueckt ein, statt zum naechsten Feld zu springen
+  document.querySelectorAll('textarea[spellcheck="false"]').forEach((feld) => {
+    feld.addEventListener('keydown', (event) => {
+      if (event.key !== 'Tab') return;
+      event.preventDefault();
+      feld.setRangeText('  ', feld.selectionStart, feld.selectionEnd, 'end');
+      feld.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+  });
   root.classList.add('dashboard-js');
 })();
