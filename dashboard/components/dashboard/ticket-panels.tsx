@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import {
-  BellRing, ChevronDown, Crown, Loader2, Lock, Plus, Send, Settings2, Ticket, Trash2, X,
+  ArrowDown, ArrowUp, BellRing, ChevronDown, Crown, ImageUp, Loader2, Lock, Plus, Send, Settings2, Ticket, Trash2, X,
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -27,7 +27,8 @@ interface TicketQuestion {
   label: string;
   placeholder: string;
   required: boolean;
-  style: "short" | "paragraph";
+  type: "short" | "paragraph" | "image";
+  category_ids: number[];
 }
 
 interface Panel {
@@ -39,6 +40,7 @@ interface Panel {
   select_placeholder: string;
   ticket_welcome_title: string;
   ticket_welcome_message: string;
+  ticket_created_message: string;
   ticket_questions: TicketQuestion[];
   embed_title: string;
   embed_description: string;
@@ -111,6 +113,9 @@ function AdvancedTicketSettings({
   const [welcomeMessage, setWelcomeMessage] = useState(
     panel.ticket_welcome_message || "Danke, dass du dich meldest, {user}."
   );
+  const [createdMessage, setCreatedMessage] = useState(
+    panel.ticket_created_message || "Dein Ticket ist offen: {channel}"
+  );
   const [questions, setQuestions] = useState<TicketQuestion[]>(
     panel.ticket_questions || []
   );
@@ -121,6 +126,9 @@ function AdvancedTicketSettings({
     setWelcomeMessage(
       panel.ticket_welcome_message || "Danke, dass du dich meldest, {user}."
     );
+    setCreatedMessage(
+      panel.ticket_created_message || "Dein Ticket ist offen: {channel}"
+    );
     setQuestions(panel.ticket_questions || []);
   }, [panel]);
 
@@ -128,6 +136,15 @@ function AdvancedTicketSettings({
     setQuestions((current) =>
       current.map((question, i) => (i === index ? { ...question, ...patch } : question))
     );
+
+  const moveQuestion = (index: number, direction: -1 | 1) =>
+    setQuestions((current) => {
+      const target = index + direction;
+      if (target < 0 || target >= current.length) return current;
+      const next = [...current];
+      [next[index], next[target]] = [next[target], next[index]];
+      return next;
+    });
 
   const settings = (
     <div className="space-y-6">
@@ -193,6 +210,22 @@ function AdvancedTicketSettings({
         />
       </Field>
 
+      <Field
+        label="Bestätigung nach dem Erstellen"
+        hint="Diese private Nachricht sieht der Nutzer nach dem Öffnen. Variable: {channel}"
+      >
+        <input
+          value={createdMessage}
+          maxLength={1900}
+          onChange={(event) => setCreatedMessage(event.target.value)}
+          placeholder="Dein Ticket ist offen: {channel}"
+          className="w-full rounded-xl border border-slate-800 bg-[#0e0e12] px-4 py-3 text-sm text-white outline-none focus:border-primary/50"
+        />
+        <div className="rounded-xl border-l-4 border-primary bg-[#1e1f22] p-3 text-sm text-[#dbdee1]">
+          {createdMessage || "Dein Ticket ist offen: {channel}"}
+        </div>
+      </Field>
+
       <div className="space-y-3">
         <div className="flex items-center justify-between gap-3">
           <div>
@@ -209,7 +242,13 @@ function AdvancedTicketSettings({
             onClick={() =>
               setQuestions((current) => [
                 ...current,
-                { label: "Neue Frage", placeholder: "", required: true, style: "short" },
+                {
+                  label: "Neue Frage",
+                  placeholder: "",
+                  required: true,
+                  type: "short",
+                  category_ids: [],
+                },
               ])
             }
             className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-bold text-slate-300 disabled:opacity-40"
@@ -238,36 +277,70 @@ function AdvancedTicketSettings({
                 <input
                   value={question.placeholder}
                   maxLength={100}
-                  aria-label={`Platzhalter für Frage ${index + 1}`}
+                  aria-label={`Hinweis für Frage ${index + 1}`}
                   onChange={(event) =>
                     updateQuestion(index, { placeholder: event.target.value })
                   }
-                  placeholder="Hinweis im Eingabefeld"
+                  placeholder={
+                    question.type === "image"
+                      ? "Hinweis zum Bild-Upload"
+                      : "Hinweis im Eingabefeld"
+                  }
                   className="rounded-xl border border-slate-800 bg-[#131318] px-3 py-2.5 text-sm text-white outline-none focus:border-primary/50"
                 />
-                <button
-                  type="button"
-                  aria-label={`Frage ${index + 1} löschen`}
-                  onClick={() => setQuestions((current) => current.filter((_, i) => i !== index))}
-                  className="rounded-xl border border-red-500/20 bg-red-500/10 p-2.5 text-red-400"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {(["short", "paragraph"] as const).map((style) => (
+                <div className="flex gap-1.5">
                   <button
-                    key={style}
                     type="button"
-                    onClick={() => updateQuestion(index, { style })}
+                    disabled={index === 0}
+                    aria-label={`Frage ${index + 1} nach oben verschieben`}
+                    onClick={() => moveQuestion(index, -1)}
+                    className="rounded-xl border border-slate-800 bg-[#131318] p-2.5 text-slate-400 disabled:opacity-30"
+                  >
+                    <ArrowUp className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    disabled={index === questions.length - 1}
+                    aria-label={`Frage ${index + 1} nach unten verschieben`}
+                    onClick={() => moveQuestion(index, 1)}
+                    className="rounded-xl border border-slate-800 bg-[#131318] p-2.5 text-slate-400 disabled:opacity-30"
+                  >
+                    <ArrowDown className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={`Frage ${index + 1} löschen`}
+                    onClick={() =>
+                      setQuestions((current) => current.filter((_, i) => i !== index))
+                    }
+                    className="rounded-xl border border-red-500/20 bg-red-500/10 p-2.5 text-red-400"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="mt-3 flex flex-wrap gap-2">
+                {(
+                  [
+                    { value: "short", label: "Kurze Antwort" },
+                    { value: "paragraph", label: "Lange Antwort" },
+                    { value: "image", label: "Bild hochladen" },
+                  ] as const
+                ).map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => updateQuestion(index, { type: option.value })}
                     className={cn(
-                      "rounded-lg border px-3 py-1.5 text-xs font-bold",
-                      question.style === style
+                      "inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-bold",
+                      question.type === option.value
                         ? "border-primary/40 bg-primary/15 text-primary"
                         : "border-slate-800 text-slate-500"
                     )}
                   >
-                    {style === "short" ? "Kurze Antwort" : "Lange Antwort"}
+                    {option.value === "image" && <ImageUp className="h-3.5 w-3.5" />}
+                    {option.label}
                   </button>
                 ))}
                 <button
@@ -283,6 +356,55 @@ function AdvancedTicketSettings({
                   {question.required ? "Pflichtfeld" : "Optional"}
                 </button>
               </div>
+
+              <div className="mt-4 space-y-2 border-t border-slate-800 pt-3">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-600">
+                  Anzeigen bei
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => updateQuestion(index, { category_ids: [] })}
+                    className={cn(
+                      "rounded-lg border px-3 py-1.5 text-xs font-bold",
+                      !question.category_ids?.length
+                        ? "border-primary/40 bg-primary/15 text-primary"
+                        : "border-slate-800 text-slate-500"
+                    )}
+                  >
+                    Alle Kategorien
+                  </button>
+                  {panel.categories.map((category) => {
+                    const categoryId = Number(category.category_id);
+                    const selected = question.category_ids?.includes(categoryId);
+                    return (
+                      <button
+                        key={categoryId}
+                        type="button"
+                        onClick={() => {
+                          const current = question.category_ids || [];
+                          updateQuestion(index, {
+                            category_ids: selected
+                              ? current.filter((id) => id !== categoryId)
+                              : [...current, categoryId],
+                          });
+                        }}
+                        className={cn(
+                          "rounded-lg border px-3 py-1.5 text-xs font-bold",
+                          selected
+                            ? "border-primary/40 bg-primary/15 text-primary"
+                            : "border-slate-800 text-slate-500"
+                        )}
+                      >
+                        {category.name}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-[11px] text-slate-600">
+                  Keine einzelne Auswahl bedeutet: Diese Frage erscheint bei allen Kategorien.
+                </p>
+              </div>
             </div>
           ))
         )}
@@ -297,6 +419,7 @@ function AdvancedTicketSettings({
               select_placeholder: selectPlaceholder,
               ticket_welcome_title: welcomeTitle,
               ticket_welcome_message: welcomeMessage,
+              ticket_created_message: createdMessage,
               ticket_questions: questions,
             })
           }

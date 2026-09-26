@@ -35,6 +35,7 @@ DEFAULT_TICKET_WELCOME_MESSAGE = (
     "**Beschreibe dein Anliegen so genau wie möglich** — je mehr wir wissen, "
     "desto schneller geht es."
 )
+DEFAULT_TICKET_CREATED_MESSAGE = "Dein Ticket ist offen: {channel}"
 MAX_SELECT_PLACEHOLDER = 150
 MAX_TICKET_QUESTIONS = 5
 
@@ -42,7 +43,8 @@ PANEL_COLUMNS = (
     "panel_id", "guild_id", "name", "channel_id", "message_id", "panel_type",
     "embed_title", "embed_description", "embed_color",
     "embed_image_url", "embed_thumbnail_url", "staff_roles", "select_placeholder",
-    "ticket_welcome_title", "ticket_welcome_message", "ticket_questions",
+    "ticket_welcome_title", "ticket_welcome_message", "ticket_created_message",
+    "ticket_questions",
 )
 
 
@@ -121,6 +123,7 @@ async def ensure_schema(db: aiosqlite.Connection) -> None:
             select_placeholder TEXT NOT NULL DEFAULT 'Wähle eine Kategorie…',
             ticket_welcome_title TEXT NOT NULL DEFAULT 'Ticket #{ticket_number}',
             ticket_welcome_message TEXT NOT NULL DEFAULT '',
+            ticket_created_message TEXT NOT NULL DEFAULT 'Dein Ticket ist offen: {channel}',
             ticket_questions TEXT NOT NULL DEFAULT '[]'
         )
         """
@@ -135,6 +138,9 @@ async def ensure_schema(db: aiosqlite.Connection) -> None:
             "TEXT NOT NULL DEFAULT 'Ticket #{ticket_number}'"
         ),
         "ticket_welcome_message": "TEXT NOT NULL DEFAULT ''",
+        "ticket_created_message": (
+            "TEXT NOT NULL DEFAULT 'Dein Ticket ist offen: {channel}'"
+        ),
         "ticket_questions": "TEXT NOT NULL DEFAULT '[]'",
     }
     for column, definition in panel_migrations.items():
@@ -232,11 +238,23 @@ def _clean_questions(value: Any) -> list[dict]:
         label = str(item.get("label") or "").strip()[:45]
         if not label:
             continue
+        question_type = str(item.get("type") or item.get("style") or "short")
+        if question_type not in {"short", "paragraph", "image"}:
+            question_type = "short"
+        category_ids = []
+        for raw_id in item.get("category_ids") or []:
+            try:
+                category_id = int(raw_id)
+            except (TypeError, ValueError):
+                continue
+            if category_id > 0 and category_id not in category_ids:
+                category_ids.append(category_id)
         cleaned.append({
             "label": label,
             "placeholder": str(item.get("placeholder") or "").strip()[:100],
             "required": bool(item.get("required", True)),
-            "style": "paragraph" if item.get("style") == "paragraph" else "short",
+            "type": question_type,
+            "category_ids": category_ids,
         })
     return cleaned
 
@@ -250,8 +268,8 @@ async def list_panels(db: aiosqlite.Connection, guild_id: int) -> list[dict]:
         "SELECT panel_id, name, channel_id, message_id, panel_type,"
         " embed_title, embed_description, embed_color, embed_image_url,"
         " embed_thumbnail_url, staff_roles, select_placeholder,"
-        " ticket_welcome_title, ticket_welcome_message, ticket_questions"
-        " FROM ticket_panels WHERE guild_id = ? ORDER BY panel_id",
+        " ticket_welcome_title, ticket_welcome_message, ticket_created_message,"
+        " ticket_questions FROM ticket_panels WHERE guild_id = ? ORDER BY panel_id",
         (guild_id,),
     ) as cursor:
         rows = await cursor.fetchall()
@@ -282,7 +300,8 @@ async def list_panels(db: aiosqlite.Connection, guild_id: int) -> list[dict]:
             "select_placeholder": row[11] or DEFAULT_SELECT_PLACEHOLDER,
             "ticket_welcome_title": row[12] or DEFAULT_TICKET_WELCOME_TITLE,
             "ticket_welcome_message": row[13] or DEFAULT_TICKET_WELCOME_MESSAGE,
-            "ticket_questions": _clean_questions(row[14]),
+            "ticket_created_message": row[14] or DEFAULT_TICKET_CREATED_MESSAGE,
+            "ticket_questions": _clean_questions(row[15]),
             "posted": bool(row[3]),
             "categories": [
                 {
@@ -332,6 +351,7 @@ _WRITABLE = {
     "select_placeholder": "select_placeholder",
     "ticket_welcome_title": "ticket_welcome_title",
     "ticket_welcome_message": "ticket_welcome_message",
+    "ticket_created_message": "ticket_created_message",
     "ticket_questions": "ticket_questions",
 }
 
@@ -362,6 +382,8 @@ async def update_panel(
             value = str(value).strip()[:256] or DEFAULT_TICKET_WELCOME_TITLE
         elif key == "ticket_welcome_message":
             value = str(value).strip()[:4000] or DEFAULT_TICKET_WELCOME_MESSAGE
+        elif key == "ticket_created_message":
+            value = str(value).strip()[:1900] or DEFAULT_TICKET_CREATED_MESSAGE
         elif key == "ticket_questions":
             value = json.dumps(_clean_questions(value), ensure_ascii=False)
         assignments.append(f"{column} = ?")

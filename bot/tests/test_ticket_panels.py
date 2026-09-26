@@ -303,8 +303,13 @@ def run():
           target["select_placeholder"] == "Wie können wir helfen?", str(target))
 
     questions = [
-        {"label": f"Frage {index}", "placeholder": "Antwort", "required": True,
-         "style": "paragraph" if index == 0 else "short"}
+        {
+            "label": f"Frage {index}",
+            "placeholder": "Antwort",
+            "required": True,
+            "type": "image" if index == 0 else "short",
+            "category_ids": [target["categories"][0]["category_id"]] if index == 0 else [],
+        }
         for index in range(6)
     ]
     r = client.patch(
@@ -312,6 +317,7 @@ def run():
         json={
             "ticket_welcome_title": "Willkommen in Ticket #{ticket_number}",
             "ticket_welcome_message": "Hallo {user}, Kategorie: {category}",
+            "ticket_created_message": "Fertig: {channel}",
             "ticket_questions": questions,
         },
     )
@@ -324,6 +330,12 @@ def run():
           str(target))
     check("Discord modal question limit is enforced",
           len(target["ticket_questions"]) == 5, str(target["ticket_questions"]))
+    check("image questions keep their category assignment",
+          target["ticket_questions"][0]["type"] == "image"
+          and len(target["ticket_questions"][0]["category_ids"]) == 1,
+          str(target["ticket_questions"][0]))
+    check("created-ticket confirmation is configurable",
+          target["ticket_created_message"] == "Fertig: {channel}", str(target))
 
     def placeholders(component):
         found = []

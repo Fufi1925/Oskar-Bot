@@ -79,6 +79,9 @@ class TicketDatabase:
                 "select_placeholder": "TEXT NOT NULL DEFAULT 'Wähle eine Kategorie…'",
                 "ticket_welcome_title": "TEXT NOT NULL DEFAULT 'Ticket #{ticket_number}'",
                 "ticket_welcome_message": "TEXT NOT NULL DEFAULT ''",
+                "ticket_created_message": (
+                    "TEXT NOT NULL DEFAULT 'Dein Ticket ist offen: {channel}'"
+                ),
                 "ticket_questions": "TEXT NOT NULL DEFAULT '[]'",
             }
             for column, definition in panel_migrations.items():
@@ -674,6 +677,7 @@ class TicketCog(commands.Cog, name="Ticket System"):
                 "**Beschreibe dein Anliegen so genau wie möglich** — je mehr "
                 "wir wissen, desto schneller geht es."
             ),
+            "created_message": "Dein Ticket ist offen: {channel}",
             "questions": [],
         }
         panel_id = cat_info["panel_id"] if "panel_id" in cat_info.keys() else None
@@ -681,14 +685,18 @@ class TicketCog(commands.Cog, name="Ticket System"):
             return config
         try:
             row = self.db.fetchone(
-                "SELECT ticket_welcome_title, ticket_welcome_message, ticket_questions"
-                " FROM ticket_panels WHERE panel_id=? AND guild_id=?",
+                "SELECT ticket_welcome_title, ticket_welcome_message,"
+                " ticket_created_message, ticket_questions FROM ticket_panels"
+                " WHERE panel_id=? AND guild_id=?",
                 (panel_id, guild_id),
             )
             if not row:
                 return config
             config["title"] = str(row["ticket_welcome_title"] or config["title"])[:256]
             config["message"] = str(row["ticket_welcome_message"] or config["message"])[:4000]
+            config["created_message"] = str(
+                row["ticket_created_message"] or config["created_message"]
+            )[:1900]
             raw_questions = json.loads(row["ticket_questions"] or "[]")
             if isinstance(raw_questions, list):
                 config["questions"] = [
@@ -716,12 +724,29 @@ class TicketCog(commands.Cog, name="Ticket System"):
             )
 
         panel_config = self._ticket_panel_config(guild.id, cat_info)
+        panel_config["questions"] = [
+            question for question in panel_config["questions"]
+            if not question.get("category_ids")
+            or str(cat_id) in {str(value) for value in question.get("category_ids", [])}
+        ][:5]
         if answers is None and panel_config["questions"]:
             return await inter.response.send_modal(
                 TicketQuestionsModal(self, cat_id, panel_config)
             )
         if answers is not None and not panel_config["questions"]:
             answers = []
+        for answer in answers or []:
+            if answer.get("type") != "image":
+                continue
+            invalid = [
+                attachment for attachment in answer.get("attachments", [])
+                if not str(getattr(attachment, "content_type", "") or "").startswith("image/")
+            ]
+            if invalid:
+                return await inter.response.send_message(
+                    "Bitte lade bei Bildfragen ausschließlich Bilddateien hoch.",
+                    ephemeral=True,
+                )
 
         await inter.response.defer(ephemeral=True)
         if (count := self.db.fetchone("SELECT ticket_count FROM user_ticket_counts WHERE guild_id=? AND user_id=?",(guild.id,user.id))) and count['ticket_count'] >= TICKET_LIMIT_PER_USER: return await inter.followup.send(f"You have reached the max of {TICKET_LIMIT_PER_USER} open tickets.",ephemeral=True)
@@ -819,6 +844,7 @@ class TicketCog(commands.Cog, name="Ticket System"):
             "{user}": user.mention,
             "{category}": str(cat_info["name"]),
             "{server}": guild.name,
+            "{channel}": ch.mention,
         }
 
         def render_template(value):
@@ -832,10 +858,20 @@ class TicketCog(commands.Cog, name="Ticket System"):
             description=render_template(panel_config["message"])[:4096],
             color=EMBED_COLOR,
         )
-        for question, answer in answers or []:
+        image_answers = []
+        for answer in answers or []:
+            if answer.get("type") == "image":
+                image_answers.append(answer)
+                filenames = [
+                    getattr(attachment, "filename", "Bild")
+                    for attachment in answer.get("attachments", [])
+                ]
+                value = ", ".join(filenames) or "Kein Bild hochgeladen"
+            else:
+                value = str(answer.get("value") or "Keine Antwort")
             ticket_embed.add_field(
-                name=str(question)[:256],
-                value=str(answer or "Keine Antwort")[:1024],
+                name=str(answer.get("label") or "Antwort")[:256],
+                value=value[:1024],
                 inline=False,
             )
         ticket_embed.set_footer(text=f"Kategorie: {cat_info['name']}")
@@ -848,7 +884,21 @@ class TicketCog(commands.Cog, name="Ticket System"):
             pass
 
         await ch.send(view=from_embed(ticket_embed, TicketActionsView(self, ch.id, cat_id)))
-        await inter.followup.send(f"Dein Ticket ist offen: {ch.mention}", ephemeral=True)
+        for answer in image_answers:
+            for attachment in answer.get("attachments", []):
+                try:
+                    uploaded = await attachment.to_file()
+                    image_panel = Panel(
+                        f"Antwort: {answer.get('label') or 'Bild'}",
+                        f"Datei: `{uploaded.filename}`",
+                        image_url=f"attachment://{uploaded.filename}",
+                    )
+                    await ch.send(view=image_panel, file=uploaded)
+                except (discord.HTTPException, discord.NotFound):
+                    continue
+
+        created_message = render_template(panel_config["created_message"])[:1900]
+        await inter.followup.send(created_message, ephemeral=True)
 
     @commands.hybrid_group(name="ticket", description="Main command group for the ticket system.")
     @commands.guild_only()
@@ -899,22 +949,55 @@ class TicketQuestionsModal(discord.ui.Modal):
         self.question_inputs = []
         for question in panel_config["questions"][:5]:
             label = str(question.get("label") or "Frage").strip()[:45]
+            question_type = question.get("type") or question.get("style") or "short"
+            required = bool(question.get("required", True))
+            if question_type == "image":
+                field = discord.ui.FileUpload(
+                    required=required,
+                    min_values=1 if required else 0,
+                    max_values=1,
+                )
+                self.question_inputs.append((label, question_type, field))
+                self.add_item(
+                    discord.ui.Label(
+                        text=label,
+                        description=(
+                            str(question.get("placeholder") or "Bild hochladen")[:100]
+                        ),
+                        component=field,
+                    )
+                )
+                continue
+
             field = discord.ui.TextInput(
                 label=label,
                 placeholder=str(question.get("placeholder") or "").strip()[:100] or None,
-                required=bool(question.get("required", True)),
+                required=required,
                 style=(
                     discord.TextStyle.paragraph
-                    if question.get("style") == "paragraph"
+                    if question_type == "paragraph"
                     else discord.TextStyle.short
                 ),
-                max_length=1000 if question.get("style") == "paragraph" else 200,
+                max_length=1000 if question_type == "paragraph" else 200,
             )
-            self.question_inputs.append((label, field))
+            self.question_inputs.append((label, question_type, field))
             self.add_item(field)
 
     async def on_submit(self, interaction):
-        answers = [(label, field.value) for label, field in self.question_inputs]
+        answers = []
+        for label, question_type, field in self.question_inputs:
+            if question_type == "image":
+                answers.append({
+                    "label": label,
+                    "type": "image",
+                    "attachments": list(field.values or []),
+                })
+            else:
+                answers.append({
+                    "label": label,
+                    "type": question_type,
+                    "value": field.value,
+                })
         await self.cog.create_ticket_flow(
             interaction,
             self.category_id,

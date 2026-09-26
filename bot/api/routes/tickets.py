@@ -152,6 +152,7 @@ async def update_panel(guild_id: int, panel_id: int, data: dict):
         "select_placeholder",
         "ticket_welcome_title",
         "ticket_welcome_message",
+        "ticket_created_message",
         "ticket_questions",
     }
     if premium_fields.intersection(data) and not feature_gates.can_configure_premium_guild(guild_id):
