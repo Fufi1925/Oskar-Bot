@@ -40,7 +40,7 @@ Hauptbot nicht überwachen, wenn der nicht mehr antwortet.
 | Zeilen Python/TypeScript | ~286.000 | gleiches Muster mit `cat` und `wc -l` |
 | Python-Dateien unter `bot/` | 484 | `find bot -name '*.py' \| wc -l` |
 | `.tsx` unter `dashboard/` | 239 | `find dashboard -name '*.tsx' -not -path '*/node_modules/*' \| wc -l` |
-| Cogs | 155 | `python3 ../.github/scripts/boot_test.py` |
+| Cogs | 157 | `python3 ../.github/scripts/boot_test.py` |
 | Prefix-Befehle / Schrägstrich-Befehle | 543 / 65 | ebenda |
 | eigenständige Testskripte | 137 | `ls bot/tests/test_*.py \| wc -l` |
 | Seiten des Server-Dashboards | 53 | `ls dashboard/app/dashboard/guild/\[guildId\]/ \| wc -l` |
@@ -59,7 +59,7 @@ man nicht sauber ermitteln kann, gehört nicht in eine Dokumentation.
 | Schicht | Ort | Bemerkung |
 |---|---|---|
 | Bot-Kern | `bot/core/` | eine `universitybot`-Unterklasse von `discord.Client` |
-| Cogs | `bot/cogs/` | 155, geladen über `bot/cogs/__init__.py` |
+| Cogs | `bot/cogs/` | 157, geladen über `bot/cogs/__init__.py` |
 | HTTP-Schnittstelle | `bot/api/` | FastAPI, Router pro Bereich, `server.py` hängt sie an |
 | Speicher | `bot/utils/*.py` | eine Datei pro Bereich, meist eine SQLite-Tabelle |
 | Dashboard | `dashboard/app/` | Next.js App Router, `app/api/bot/[...path]/route.ts` als Proxy |

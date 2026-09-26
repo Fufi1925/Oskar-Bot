@@ -39,6 +39,27 @@ DEFAULT_TICKET_CREATED_MESSAGE = "Dein Ticket ist offen: {channel}"
 MAX_SELECT_PLACEHOLDER = 150
 MAX_TICKET_QUESTIONS = 5
 
+#: Woerter, die der Bot in Begruessung und Bestaetigung ersetzt.
+#:
+#: Eine Liste, zwei Nutzer. Der Cog ersetzt beim Schreiben ins Ticket,
+#: die Vorschau im Dashboard zeigt dasselbe Ergebnis. Zwei getrennte
+#: Marker-Listen sind die klassische Stelle, an der die Vorschau etwas
+#: verspricht, das der Bot nie senden wuerde — und der Unterschied
+#: faellt erst auf, wenn jemand beide Texte vergleicht.
+WILLKOMMEN_NAMEN = ("ticket_number", "user", "category", "server", "channel")
+WILLKOMMEN_WOERTER = tuple("{" + name + "}" for name in WILLKOMMEN_NAMEN)
+
+#: Beispielswerte fuer die Vorschau. Bewusst erkennbar erfunden:
+#: "#ticket-0001-support" sieht nach Beispiel aus und nach nichts, was
+#: man einem Besucher zeigen wollte.
+VORSCHAU_BEISPIELE = {
+    "ticket_number": "0001",
+    "user": "@dein.name",
+    "category": "Support",
+    "server": "Dein Server",
+    "channel": "#ticket-0001-support",
+}
+
 PANEL_COLUMNS = (
     "panel_id", "guild_id", "name", "channel_id", "message_id", "panel_type",
     "embed_title", "embed_description", "embed_color",
@@ -257,6 +278,84 @@ def _clean_questions(value: Any) -> list[dict]:
             "category_ids": category_ids,
         })
     return cleaned
+
+
+def setze_woerter(text: Any, **werte: str) -> str:
+    """Die bekannten Woerter einsetzen, den Rest in Ruhe lassen.
+
+    Kein ``str.format``: ein Text mit geschweiften Klammern — ein
+    kopierter JSON-Schnipsel, ein Rest aus einem Guide — wuerde dabei
+    eine Ausnahme werfen, und sie bleibt ausgerechnet hängen, wenn
+    jemand ein Ticket oeffnet.
+    """
+    ausgabe = str(text or "")
+    for name in WILLKOMMEN_NAMEN:
+        if name in werte:
+            ausgabe = ausgabe.replace("{" + name + "}", str(werte[name]))
+    return ausgabe
+
+
+def fragen_fuer_kategorie(fragen: Any, category_id: Any) -> list[dict]:
+    """Die Fragen, die bei dieser Kategorie wirklich gestellt werden.
+
+    Dieselbe Auswahl wie im Cog — die Vorschau zeigt sonst Fragen, die
+    jemand nie zu Gesicht bekommt, oder lässt eine weg, die kommt.
+    """
+    ohne_kategorie = category_id in (None, "", 0, "0")
+    ausgabe = []
+    for frage in fragen or []:
+        if not isinstance(frage, dict):
+            continue
+        # Ohne Kategorieangabe sind alle Fragen gemeint. Der Cog ruft
+        # immer mit einer auf; die Vorschau im Dashboard hat keine,
+        # weil sie das Panel zeigt und nicht einen einzelnen Knopf.
+        ids = {str(wert) for wert in (frage.get("category_ids") or [])}
+        if not ohne_kategorie and ids and str(category_id) not in ids:
+            continue
+        ausgabe.append(frage)
+        if len(ausgabe) >= MAX_TICKET_QUESTIONS:
+            break
+    return ausgabe
+
+
+def vorschau_willkommen(panel: dict, *, category_id: Any = None,
+                        entwurf: dict | None = None) -> dict:
+    """Was der Bot senden wuerde — mit dem Entwurf, nicht dem Speichern.
+
+    Wer tippt, will sehen, was sein Text tut, bevor er speichert. Der
+    Entwurf wird durchgereicht und hier ueber die gespeicherte Zeile
+    gelegt; die Laengenbeschneidung ist die aus dem Cog, sonst zeigt die
+    Vorschau einen Text, den Discord ablehnen wuerde.
+    """
+    zusammen = {**(panel or {}), **(entwurf or {})}
+
+    titel = str(zusammen.get("ticket_welcome_title") or DEFAULT_TICKET_WELCOME_TITLE)
+    nachricht = str(
+        zusammen.get("ticket_welcome_message") or DEFAULT_TICKET_WELCOME_MESSAGE
+    )
+    bestaetigung = str(
+        zusammen.get("ticket_created_message") or DEFAULT_TICKET_CREATED_MESSAGE
+    )
+
+    fragen = fragen_fuer_kategorie(
+        _clean_questions(zusammen.get("ticket_questions")), category_id
+    )
+
+    return {
+        "titel": setze_woerter(titel, **VORSCHAU_BEISPIELE)[:256],
+        "nachricht": setze_woerter(nachricht, **VORSCHAU_BEISPIELE)[:4096],
+        "bestaetigung": setze_woerter(bestaetigung, **VORSCHAU_BEISPIELE)[:1900],
+        "fragen": [
+            {
+                "label": frage["label"],
+                "typ": frage["type"],
+                "pflicht": bool(frage.get("required")),
+                "hinweis": frage.get("placeholder") or "",
+            }
+            for frage in fragen
+        ],
+        "woerter": list(WILLKOMMEN_WOERTER),
+    }
 
 
 async def list_panels(db: aiosqlite.Connection, guild_id: int) -> list[dict]:

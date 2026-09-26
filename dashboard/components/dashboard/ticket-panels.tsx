@@ -93,17 +93,28 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
 
 const DEFAULT_SELECT_PLACEHOLDER = "Wähle eine Kategorie…";
 
+type Vorschau = {
+  titel: string;
+  nachricht: string;
+  bestaetigung: string;
+  fragen: Array<{ label: string; typ: string; pflicht: boolean; hinweis: string }>;
+};
+
 function AdvancedTicketSettings({
+  guildId,
   panel,
   premium,
   busy,
   onSave,
 }: {
+  guildId: string;
   panel: Panel;
   premium: boolean;
   busy: boolean;
   onSave: (data: Record<string, unknown>) => void;
 }) {
+  const [vorschau, setVorschau] = useState<Vorschau | null>(null);
+  const [vorschauLaedt, setVorschauLaedt] = useState(false);
   const [selectPlaceholder, setSelectPlaceholder] = useState(
     panel.select_placeholder || DEFAULT_SELECT_PLACEHOLDER
   );
@@ -131,6 +142,47 @@ function AdvancedTicketSettings({
     );
     setQuestions(panel.ticket_questions || []);
   }, [panel]);
+
+  // Die Vorschau rechnet der Bot, nicht dieses Formular.
+  //
+  // Zwei Umsetzungen derselben Regel (einmal hier, einmal im Cog)
+  // zeigen bald zwei verschiedene Texte — und der Fehler faellt erst
+  // auf, wenn jemand den Ticketkanal mit dem Dashboard vergleicht.
+  // Der Entwurf wird mitgeschickt, damit man sieht, was der Text tut,
+  // bevor er gespeichert ist.
+  useEffect(() => {
+    if (!premium) return;
+    let abgebrochen = false;
+    const timer = setTimeout(async () => {
+      setVorschauLaedt(true);
+      try {
+        const antwort = await api.ticketPanelVorschau(guildId, panel.panel_id, {
+          ticket_welcome_title: welcomeTitle,
+          ticket_welcome_message: welcomeMessage,
+          ticket_created_message: createdMessage,
+          ticket_questions: questions,
+        });
+        if (!abgebrochen && antwort) {
+          setVorschau({
+            titel: String(antwort.titel || ""),
+            nachricht: String(antwort.nachricht || ""),
+            bestaetigung: String(antwort.bestaetigung || ""),
+            fragen: Array.isArray(antwort.fragen) ? antwort.fragen : [],
+          });
+        }
+      } catch {
+        // Ohne Vorschau bleibt der Entwurf stehen: die Felder selbst
+        // sind wichtiger als ihre schmucke Darstellung.
+        if (!abgebrochen) setVorschau(null);
+      } finally {
+        if (!abgebrochen) setVorschauLaedt(false);
+      }
+    }, 500);
+    return () => {
+      abgebrochen = true;
+      clearTimeout(timer);
+    };
+  }, [premium, guildId, panel.panel_id, welcomeTitle, welcomeMessage, createdMessage, questions]);
 
   const updateQuestion = (index: number, patch: Partial<TicketQuestion>) =>
     setQuestions((current) =>
@@ -185,14 +237,44 @@ function AdvancedTicketSettings({
             className="w-full rounded-xl border border-slate-800 bg-[#0e0e12] px-4 py-3 text-sm text-white outline-none focus:border-primary/50"
           />
         </Field>
-        <Field label="Vorschau im Ticket">
+        <Field
+          label="Vorschau im Ticket"
+          hint={
+            vorschau
+              ? "So sendet der Bot es — Platzhalter sind eingesetzt."
+              : "Wird gerade beim Bot nachgerechnet."
+          }
+        >
           <div className="rounded-xl border-l-4 border-red-500 bg-[#1e1f22] p-4">
             <p className="font-bold text-white">
-              {welcomeTitle || "Ticket #{ticket_number}"}
+              {vorschau?.titel ?? welcomeTitle ?? "Ticket #{ticket_number}"}
             </p>
             <p className="mt-2 whitespace-pre-wrap text-xs text-[#b5bac1]">
-              {welcomeMessage || "Danke, dass du dich meldest, {user}."}
+              {vorschau?.nachricht ??
+                welcomeMessage ??
+                "Danke, dass du dich meldest, {user}."}
             </p>
+            {vorschau?.fragen.length ? (
+              <div className="mt-3 space-y-1.5 border-t border-[#3f4147] pt-3">
+                <span className="block text-[10px] font-black uppercase tracking-widest text-[#949ba4]">
+                  Fragen vorher
+                </span>
+                {vorschau.fragen.map((frage, index) => (
+                  <p key={index} className="text-xs text-[#dbdee1]">
+                    <span className="font-semibold">{frage.label}</span>
+                    {frage.pflicht ? "" : " (optional)"}
+                    {frage.typ === "image" ? " · Bild" : ""}
+                    {frage.typ === "paragraph" ? " · längerer Text" : ""}
+                  </p>
+                ))}
+              </div>
+            ) : null}
+            <div className="mt-3 flex items-center gap-2 border-t border-[#3f4147] pt-3">
+              {vorschauLaedt && <Loader2 className="h-3 w-3 animate-spin text-[#949ba4]" />}
+              <p className="whitespace-pre-wrap text-[11px] text-[#949ba4]">
+                {vorschau?.bestaetigung ?? createdMessage ?? "Dein Ticket ist offen: {channel}"}
+              </p>
+            </div>
           </div>
         </Field>
       </div>
@@ -1051,6 +1133,7 @@ export function TicketPanels({ guildId }: { guildId: string }) {
 
                     {advancedPanel === panel.panel_id && (
                       <AdvancedTicketSettings
+                        guildId={guildId}
                         panel={panel}
                         premium={premiumConfigurable}
                         busy={busy}

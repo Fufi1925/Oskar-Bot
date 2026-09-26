@@ -1560,6 +1560,19 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify(data),
     }),
+  /**
+   * Die Vorschau der Ticket-Begrüssung.
+   *
+   * Wird beim Tippen nachgezogen, nicht mitgeschrieben: der Bot ersetzt
+   * die Platzhalter und waehlt die Fragen der Kategorie aus. Eine zwei-
+   * te Umsetzung im Frontend waere die Stelle, an der Vorschau und
+   * Wirklichkeit auseinanderlaufen.
+   */
+  ticketPanelVorschau: (guildId: string, panelId: number, entwurf: any) =>
+    request<any>(`/tickets/${guildId}/panels/${panelId}/vorschau`, {
+      method: "POST",
+      body: JSON.stringify(entwurf),
+    }),
   deleteTicketPanel: (guildId: string, panelId: number) =>
     request<any>(`/tickets/${guildId}/panels/${panelId}`, { method: "DELETE" }),
   saveTicketCategory: (guildId: string, panelId: number, data: any) =>

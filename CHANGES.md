@@ -1,5 +1,41 @@
 # Was geändert wurde
 
+## Oktober: Ticket-Vorschau rechnet der Bot
+
+Der Reiter für erweiterte Ticket-Einstellungen (Begrüßungstitel, -text,
+Bestätigung, Formularfragen) war gleichzeitig von zwei Seiten gebaut
+worden. Zusammengeführt auf dem Stand von `main`, weil dessen Modell das
+reichhaltigere ist: Fragen mit Typ (kurz, Absatz, Bild), echten
+Pflichtfeldern und Kategoriebezug.
+
+Die zwei Stücke, die der Zusammenbau gebracht hat:
+
+* **`POST /tickets/<gild>/panels/<id>/vorschau`** — das Formular zeigte
+  vorher den getipften Text samt Platzhaltern. Jetzt holt es
+  sich den gerenderten Text vom Bot, entprellt beim Tippen, und zeigt
+  dazu die Fragen, die die Kategorie wirklich bekommt. Ohne Premium wird nicht
+  nachgerechnet: die Felder sind dann gesperrt, ein Entwurf wäre also
+  ohnehin nicht bedienbar.
+* **Eine Regel, zwei Nutzer** — `setze_woerter()` und
+  `fragen_fuer_kategorie()` liegen in `bot/api/ticket_panels.py`. Der
+  Cog ruft sie beim Schreiben ins Ticket, die Vorschau beim Anzeigen.
+  Vorher standen die Marker zweimal: einmal im Cog, einmal als
+  Anzeige-Behauptung im Formular.
+
+Nachgemessen: `tests/test_ticket_erweitert.py` (neu) gegen die echten
+Routen; 21 Mutationen, 21 gefangen, Baum nach jedem Eingriff byteweise
+zurückgesetzt. Zwei der Prüfungen waren beim ersten Anlauf zu lasch —
+`guildId={guildId}` und `/vorschau` stehen mehrfach in ihren Dateien,
+die Pruefung war auf den Block zu verengen, nicht auf die Zeichenkette.
+
+Die Cog-Zahl in README und CODE_ANALYSE war von mir auf 155 geschrieben
+worden (ein veralteter Messwert aus dem vorherigen Stand); gemessen sind
+157 Cogs / 543 Präfix-Befehle / 65 Schrägstrich-Befehle, `boot_test` mit
+`RESULT_FAILED 0`.
+
+---
+
+
 Diese Datei beschreibt den Stand **September 2026**. Frühere Stände sind im
 Git-Verlauf nachlesbar; was hier steht, ist an dem, was im Zweig `main`
 liegt, überprüfbar.

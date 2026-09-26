@@ -724,11 +724,13 @@ class TicketCog(commands.Cog, name="Ticket System"):
             )
 
         panel_config = self._ticket_panel_config(guild.id, cat_info)
-        panel_config["questions"] = [
-            question for question in panel_config["questions"]
-            if not question.get("category_ids")
-            or str(cat_id) in {str(value) for value in question.get("category_ids", [])}
-        ][:5]
+        # Auswahl und Grenze liegen im Panel-Speicher, damit die
+        # Vorschau im Dashboard exakt dieselben Fragen zeigt.
+        from api import ticket_panels as regeln
+
+        panel_config["questions"] = regeln.fragen_fuer_kategorie(
+            panel_config["questions"], cat_id
+        )
         if answers is None and panel_config["questions"]:
             return await inter.response.send_modal(
                 TicketQuestionsModal(self, cat_id, panel_config)
@@ -839,19 +841,20 @@ class TicketCog(commands.Cog, name="Ticket System"):
         # Die Erwaehnungen brauchen aber ein content-Feld, sonst
         # benachrichtigt niemand das Team. Also zwei Nachrichten: die
         # Pings als reiner Text, danach die Karte.
+        # Die Woerter selbst stehen im Panel-Speicher, der Cog nennt nur
+        # die Werte. Welche Marker es sind, prueft
+        # tests/test_ticket_erweitert.py — ein assert hier ginge bei
+        # ``python -O`` verloren und wuerde ausgerechnet das Oeffnen
+        # eines Tickets zum Absturz bringen.
         replacements = {
-            "{ticket_number}": f"{t_num:04d}",
-            "{user}": user.mention,
-            "{category}": str(cat_info["name"]),
-            "{server}": guild.name,
-            "{channel}": ch.mention,
+            "ticket_number": f"{t_num:04d}",
+            "user": user.mention,
+            "category": str(cat_info["name"]),
+            "server": guild.name,
+            "channel": ch.mention,
         }
-
         def render_template(value):
-            rendered = str(value or "")
-            for marker, replacement in replacements.items():
-                rendered = rendered.replace(marker, replacement)
-            return rendered
+            return regeln.setze_woerter(value, **replacements)
 
         ticket_embed = discord.Embed(
             title=render_template(panel_config["title"])[:256],

@@ -168,6 +168,52 @@ async def update_panel(guild_id: int, panel_id: int, data: dict):
     return {"status": "success", "changed": True}
 
 
+@router.post(
+    "/{guild_id}/panels/{panel_id}/vorschau",
+    summary="So klingt die Begrüssung im frischen Ticket",
+)
+async def preview_welcome(guild_id: int, panel_id: int, data: dict | None = None):
+    """Der Text, den der Bot senden würde — mit dem Entwurf, nicht dem gespeicherten Stand.
+
+    Zwei Gründe, dies hier zu berechnen und nicht im Dashboard:
+
+    * Die Platzhalter ersetzt der Bot. Eine zweite Umsetzung im
+      Frontend ist die Stelle, an der die Vorschau etwas zeigt, das
+      nie gesendet wird.
+    * Welche Fragen eine Kategorie wirklich bekommt, entscheidet eine
+      Auswahl im Cog. Auch die steht hier, in `ticket_panels`, und wird
+      von beiden Seiten benutzt.
+
+    Kein Premium nötig: gelesen wird ein Entwurf, geschrieben wird
+    nichts. Die Sperre bleibt beim Speichern (siehe `update_panel`).
+    """
+    db = await _db()
+    panel = next(
+        (
+            p for p in await panels.list_panels(db, guild_id)
+            if int(p["panel_id"]) == int(panel_id)
+        ),
+        None,
+    )
+    if panel is None:
+        raise HTTPException(status_code=404, detail="Dieses Panel gibt es nicht.")
+
+    entwurf = {
+        schluessel: wert
+        for schluessel, wert in (data or {}).items()
+        if schluessel in {
+            "select_placeholder",
+            "ticket_welcome_title",
+            "ticket_welcome_message",
+            "ticket_created_message",
+            "ticket_questions",
+        }
+    }
+    return panels.vorschau_willkommen(
+        panel, category_id=(data or {}).get("category_id"), entwurf=entwurf
+    )
+
+
 @router.delete("/{guild_id}/panels/{panel_id}", summary="Delete a panel")
 async def delete_panel(guild_id: int, panel_id: int, actor: str = ""):
     db = await _db()

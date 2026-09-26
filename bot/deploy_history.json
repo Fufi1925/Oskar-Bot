@@ -1,6 +1,24 @@
 {
  "commits": [
   {
+   "commit": "81b0a627cc9e50558d2aa72ee6e8c8f176f82b1d",
+   "at": "1790420423",
+   "subject": "feat: expand premium ticket questions",
+   "body": ""
+  },
+  {
+   "commit": "6d313c48811cb2430709ea0b90a856fdd11d25cf",
+   "at": "1790414276",
+   "subject": "feat: add premium advanced ticket setup",
+   "body": ""
+  },
+  {
+   "commit": "8d0ab534dbcdc1244c5bc316e35b39a9511556c5",
+   "at": "1790411823",
+   "subject": "docs: Doku auf den Stand September 2026, plus ein Name ueberall",
+   "body": "1. Markdown auf aktuellen Stand\n-------------------------------\nREADME.md, SECURITY.md, CHANGES.md, RAILWAY_DEPLOYMENT.md,\nCODE_ANALYSE.md und docs/PREMIUM.md beschreibt jetzt, was der Code tut.\nZahlen sind mit dem Kommando daneben angegeben, damit die naechste\nAenderung die Zahl nicht vergisst.\n\nSUMMARY_UNDERSTANDING.md ist entfernt: dieselbe Analyse desselben alten\nStands in zwei Dateien laeuft auseinander.\n\nFundstaetze beim Durchgehen der Unter-Dateien:\n* bot/README.md und dashboard/README.md behaupteten eine MIT-Lizenz - das\n  Projekt hat keine; die Zeile sagt jetzt, was gilt. Dazu ein\n  Doppel-Wort (\"University Bot Bot\") und zwei URLs mit Leerzeichen, die\n  damit nie funktionierten.\n* bot/README.md nannte als Startbefehl \"python University Bot.py\". Die\n  Datei heisst university_bot.py - ein frueherer Ersetzungslauf hat den\n  Dateinamen mit umbogen.\n* RAILWAY_DEPLOYMENT.md schrieb \"61 Datenbanken\" und\n  \"http://localhost:8000\". Nachgemessen: ueber 60 Dateien unter db/, und\n  das Dashboard laeuft auf 3000 (API 8080). Die Volume-Tabelle nennt\n  jetzt auch premium_membership.db, guild_backup.db und\n  support_notice.db - drei, deren Verlust besonders wehtut.\n* statusbot/ENV.md hatte einen einzelnen Buchstaben \"o\" als Zeile vom\n  Editieren übrig.\n* phantom/README.md und lbost-shop/README.md: Formulierung, nicht Sinn.\n\n2. Ein Name: University Bot\n---------------------------\nDer Name stand in drei Formen da - \"Universitätsbot\" aus einer\nRailway-Variable, \"universitybot X\" als Rest einer Umbenennung in\nbot/utils/config.py und \"UniversityBot Devs\" in 190 Kommentarzeilen.\nDer Bot nannte sich in Hilfetexten und Cog-Meldungen demnach anders als\ndas Dashboard.\n\nNeu: dashboard/lib/brand.ts und MARKE/_marke() in bot/utils/config.py.\nBeide fuehren Schreibweisen des Namens auf \"University Bot\" zurueck; ein\nwirklich anderer Name bleibt moeglich. Die Uebersetzungstabelle\nschreibt den Namen nicht mehr um - \"Universitätsbot\" war ihr Werk, nicht\ndes Codes. Der Seitentitel traegt keine Behauptung mehr am Namen\n(\"- Ultimate Discord Bot\") und Unterstellen bekommen ihren Eigennamen\nvorangestellt, damit die Suche sie trennen kann. Fusszeile und\nIdeen-Antwort nennen denselben Team-Namen.\n\ntest_marke.py haelt das fest, fuer beide Seiten. Der gesuchte String\nwird darin zusammengebaut: der laufende Ersetzungsversuch hatte sonst\nausgerechnet den Test umgeschrieben, der die alte Schreibweise verbieten\nsollte - genau das ist beim ersten Anlauf passiert.\n\n3. Lange Zeilen: nachgesehen, nicht angefasst\n---------------------------------------------\nDie Frage war, ob sie wirklich da sind. Sind sie: 472 Dateien mit Zeilen\nueber 200 Zeichen, die langste in world-paths.ts mit 167.888 (Geometrie,\nin Ordnung), dazu support-rankings-admin.tsx 4.364,\ncustom-commands-panel.tsx 3.411, premium-requests-admin.tsx 3.136 fuer die\nganze Komponente in sechs Zeilen, firewall-panel.tsx 2.668.\n\nWie besprochen gelassen: tsc 0 Fehler, next lint 0 Fehler (nur Warnungen\nwegen img), Build durch. Die Zeilenlaenge ist ein Wartungsproblem, kein\nFunktionsproblem - die Analyse-Datei haelt fest, dass die\nerklaerenden Kommentare drumherum fehlen, und das ist der eigentliche Punkt.\n\nNachgemessen\n-------------\n* Basislauf ohne diese Aenderungen und Lauf mit ihr: 38 rote Testdateien,\n  identische Liste. Es ist nichts dazugekommen.\n* test_ci_workflow (liest README und SECURITY) und test_marke: gruen.\n* tsc und next lint: 0 Fehler.\n* Ein Nachtrag, weil er eine Fallgrube zeigt: test_speedrun_templates.py\n  ueberspringt still, wenn ../University-Template fehlt, und zaehlt dann\n  als gruen. Mit dem Repo daneben meldet es zwei veraltete Erwartungen\n  (rp baut jetzt Rollen-Vergabe, business Tickets) - die allgemeine\n  Pruefung desselben Tests ist gruen. Nicht geaendert, weil es eine\n  Entscheidung ueber den Template-Bot ist.\n\nNicht getestet: die Doku laeuft nicht; kein Lauf gegen echtes Discord."
+  },
+  {
    "commit": "a08cfc60d47279d8d50a2e0455263c1809b48e30",
    "at": "1790278470",
    "subject": "style: gate ticket placeholder with premium overlay",
@@ -220,24 +238,6 @@
    "commit": "0003f98fcbda75e566c72890757f2c3e6015aec8",
    "at": "1789541807",
    "subject": "feat: add live homepage visitor world map",
-   "body": ""
-  },
-  {
-   "commit": "ea97414c45afc03ba5d784cc102cd8e4e03e3f54",
-   "at": "1789540265",
-   "subject": "feat: animate smooth charts across dashboards",
-   "body": ""
-  },
-  {
-   "commit": "1cd4dbf5c960d6eb97043261f5375217413dfe4d",
-   "at": "1789539271",
-   "subject": "feat: refresh admin dashboard charts",
-   "body": ""
-  },
-  {
-   "commit": "ed632fc4387a267e06f55c93cd30c07fcb202a86",
-   "at": "1789500611",
-   "subject": "feat: simplify homepage and replay scroll animations",
    "body": ""
   }
  ]

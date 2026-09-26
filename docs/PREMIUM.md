@@ -38,12 +38,19 @@ Ein Server mit Platz bekommt:
 | Backup | bis zu 10 Sicherungen, automatische Sicherung, Nachrichten mitsichern |
 | Server-Statistik | Statistik-Sprachkanäle, häufiger aktualisiert |
 | Mitglieder-Abruf | verifizierte Personen in Rollen holen (nur von Hand, mit Bestätigung) |
+| Tickets | eigene Begrüßung im Ticket, eigene Bestätigung, Formularfragen (bis zu fünf, mit Pflicht, Textabsatz oder Bild, bezogen auf Kategorien) |
 | Eigene Befehle | mehr Befehle, mehr Auslöser pro Befehl |
 | Speedrun, Vorlagen, höhere Grenzen | die Bereiche, die schon vorher Premium-Limits hatten |
 
 Entschieden wird das an **einer** Stelle: `feature_gates.is_premium_guild()`
 und `can_configure_premium_guild()`. Ein Bereich, der daneben eine zweite
 Abfrage baut, läuft bei der nächsten Änderung auseinander.
+
+Dasselbe gilt für die **Regeln im Text**: Welche Platzhalter der Bot ersetzt und
+welche Fragen eine Kategorie bekommt, steht ein einziges Mal in
+`bot/api/ticket_panels.py`. Der Cog und die Vorschau im Dashboard rufen beide
+diese Funktionen auf — eine zweite Umsetzung im Frontend wäre die Stelle, an der
+die Vorschau etwas zeigt, das nie gesendet wird.
 
 ---
 

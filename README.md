@@ -28,7 +28,7 @@ an das Dashboard weiter.
 
 ```
 Railway-Container  ·  ein Port
-├─ university_bot.py      Discord-Bot + FastAPI auf $PORT  (155 Cogs)
+├─ university_bot.py      Discord-Bot + FastAPI auf $PORT  (157 Cogs)
 │   ├─ /api/v1/*          Bot-Schnittstelle, die das Dashboard anspricht
 │   ├─ /louckup           eigener, abgetrennter Bereich (pausiert)
 │   ├─ /lbost-shop        Shop-Bereich mit eigener Discord-App
@@ -73,7 +73,7 @@ Einzelheiten in [docs/PREMIUM.md](docs/PREMIUM.md).
 
 | Ordner | Inhalt |
 |---|---|
-| `bot/` | Discord-Bot, FastAPI-Schnittstelle, SQLite-Speicher, 137 eigenständige Testskripte |
+| `bot/` | Discord-Bot, FastAPI-Schnittstelle, SQLite-Speicher, 138 eigenständige Testskripte |
 | `dashboard/` | Next.js 14 (App Router): öffentliche Seiten, Server-Dashboard, Admin-Bereich |
 | `phantom/` | isolierter Ticket-Bot mit eigenem Login |
 | `statusbot/` | Status-Dienst, eigener Railway-Service |
