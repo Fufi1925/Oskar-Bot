@@ -23,6 +23,13 @@ interface Category {
   discord_category_id: string | null;
 }
 
+interface TicketQuestion {
+  label: string;
+  placeholder: string;
+  required: boolean;
+  style: "short" | "paragraph";
+}
+
 interface Panel {
   panel_id: number;
   name: string;
@@ -30,6 +37,9 @@ interface Panel {
   message_id: string | null;
   panel_type: string;
   select_placeholder: string;
+  ticket_welcome_title: string;
+  ticket_welcome_message: string;
+  ticket_questions: TicketQuestion[];
   embed_title: string;
   embed_description: string;
   embed_color: number | null;
@@ -81,81 +91,256 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
 
 const DEFAULT_SELECT_PLACEHOLDER = "Wähle eine Kategorie…";
 
-function DropdownPlaceholderEditor({
+function AdvancedTicketSettings({
   panel,
   premium,
-  onCommit,
+  busy,
+  onSave,
 }: {
   panel: Panel;
   premium: boolean;
-  onCommit: (value: string) => void;
+  busy: boolean;
+  onSave: (data: Record<string, unknown>) => void;
 }) {
-  const effective = premium
-    ? panel.select_placeholder || DEFAULT_SELECT_PLACEHOLDER
-    : DEFAULT_SELECT_PLACEHOLDER;
-  const [value, setValue] = useState(effective);
+  const [selectPlaceholder, setSelectPlaceholder] = useState(
+    panel.select_placeholder || DEFAULT_SELECT_PLACEHOLDER
+  );
+  const [welcomeTitle, setWelcomeTitle] = useState(
+    panel.ticket_welcome_title || "Ticket #{ticket_number}"
+  );
+  const [welcomeMessage, setWelcomeMessage] = useState(
+    panel.ticket_welcome_message || "Danke, dass du dich meldest, {user}."
+  );
+  const [questions, setQuestions] = useState<TicketQuestion[]>(
+    panel.ticket_questions || []
+  );
 
-  useEffect(() => setValue(effective), [effective, panel.panel_id]);
+  useEffect(() => {
+    setSelectPlaceholder(panel.select_placeholder || DEFAULT_SELECT_PLACEHOLDER);
+    setWelcomeTitle(panel.ticket_welcome_title || "Ticket #{ticket_number}");
+    setWelcomeMessage(
+      panel.ticket_welcome_message || "Danke, dass du dich meldest, {user}."
+    );
+    setQuestions(panel.ticket_questions || []);
+  }, [panel]);
 
-  return (
-    <Field
-      label="Dropdown-Platzhalter"
-      hint={
-        premium
-          ? "Wird für alle Discord-Nutzer angezeigt. Leer lassen setzt den Standard zurück."
-          : undefined
-      }
-    >
-      <div className="relative min-h-[190px] overflow-hidden rounded-2xl">
-        <div
-          className={cn(
-            "space-y-3 transition",
-            !premium && "pointer-events-none select-none blur-[3px] opacity-45"
-          )}
-          aria-hidden={!premium}
+  const updateQuestion = (index: number, patch: Partial<TicketQuestion>) =>
+    setQuestions((current) =>
+      current.map((question, i) => (i === index ? { ...question, ...patch } : question))
+    );
+
+  const settings = (
+    <div className="space-y-6">
+      {(panel.panel_type || "button") === "dropdown" && (
+        <Field
+          label="Dropdown-Platzhalter"
+          hint="Dieser Text wird im geschlossenen Discord-Dropdown angezeigt."
         >
           <input
-            value={value}
+            value={selectPlaceholder}
             maxLength={150}
-            disabled={!premium}
-            onChange={(event) => setValue(event.target.value)}
-            onBlur={() => premium && value !== effective && onCommit(value)}
-            placeholder={DEFAULT_SELECT_PLACEHOLDER}
-            className="w-full bg-[#0e0e12] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-primary/50 disabled:cursor-not-allowed"
+            onChange={(event) => setSelectPlaceholder(event.target.value)}
+            className="w-full rounded-xl border border-slate-800 bg-[#0e0e12] px-4 py-3 text-sm text-white outline-none focus:border-primary/50"
           />
           <div className="space-y-1.5">
             <span className="text-[10px] font-black uppercase tracking-widest text-slate-600">
               Discord-Vorschau
             </span>
             <div className="flex items-center justify-between rounded-md border border-[#3f4147] bg-[#1e1f22] px-3 py-2.5 text-sm text-[#b5bac1]">
-              <span className="truncate">{value.trim() || DEFAULT_SELECT_PLACEHOLDER}</span>
-              <ChevronDown className="h-4 w-4 shrink-0 text-[#b5bac1]" />
+              <span className="truncate">
+                {selectPlaceholder.trim() || DEFAULT_SELECT_PLACEHOLDER}
+              </span>
+              <ChevronDown className="h-4 w-4 shrink-0" />
             </div>
           </div>
+        </Field>
+      )}
+
+      <div className="grid gap-5 md:grid-cols-2">
+        <Field
+          label="Begrüßungstitel"
+          hint="Variablen: {ticket_number}, {user}, {category}, {server}"
+        >
+          <input
+            value={welcomeTitle}
+            maxLength={256}
+            onChange={(event) => setWelcomeTitle(event.target.value)}
+            className="w-full rounded-xl border border-slate-800 bg-[#0e0e12] px-4 py-3 text-sm text-white outline-none focus:border-primary/50"
+          />
+        </Field>
+        <Field label="Vorschau im Ticket">
+          <div className="rounded-xl border-l-4 border-red-500 bg-[#1e1f22] p-4">
+            <p className="font-bold text-white">
+              {welcomeTitle || "Ticket #{ticket_number}"}
+            </p>
+            <p className="mt-2 whitespace-pre-wrap text-xs text-[#b5bac1]">
+              {welcomeMessage || "Danke, dass du dich meldest, {user}."}
+            </p>
+          </div>
+        </Field>
+      </div>
+
+      <Field
+        label="Begrüßungsnachricht"
+        hint="Diese Nachricht sendet der Bot direkt nach dem Erstellen des Tickets."
+      >
+        <textarea
+          value={welcomeMessage}
+          maxLength={4000}
+          rows={5}
+          onChange={(event) => setWelcomeMessage(event.target.value)}
+          className="w-full resize-y rounded-xl border border-slate-800 bg-[#0e0e12] px-4 py-3 text-sm text-white outline-none focus:border-primary/50"
+        />
+      </Field>
+
+      <div className="space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-black uppercase tracking-widest text-slate-500">
+              Fragen vor der Erstellung
+            </p>
+            <p className="mt-1 text-[11px] text-slate-600">
+              Discord zeigt ein Formular mit bis zu fünf Fragen. Antworten erscheinen im Ticket.
+            </p>
+          </div>
+          <button
+            type="button"
+            disabled={questions.length >= 5}
+            onClick={() =>
+              setQuestions((current) => [
+                ...current,
+                { label: "Neue Frage", placeholder: "", required: true, style: "short" },
+              ])
+            }
+            className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-bold text-slate-300 disabled:opacity-40"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Frage hinzufügen
+          </button>
         </div>
 
-        {!premium && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center bg-[#0a0a0c]/35 p-3">
-            <div className="w-full max-w-sm rounded-2xl border border-amber-400/25 bg-[#131318]/95 p-4 text-center shadow-2xl backdrop-blur-md">
-              <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-xl bg-amber-400/10">
-                <Lock className="h-5 w-5 text-amber-300" />
-              </div>
-              <h3 className="mt-2 font-bold text-white">Premium erforderlich</h3>
-              <p className="mt-1 text-xs leading-5 text-slate-400">
-                Eigene Texte für das Ticket-Dropdown sind mit Server-Premium verfügbar.
-              </p>
-              <Link
-                href="/premium"
-                className="mt-3 inline-flex items-center gap-2 rounded-xl bg-amber-400 px-4 py-2 text-xs font-bold text-black transition hover:bg-amber-300"
-              >
-                <Crown className="h-4 w-4" />
-                Premium ansehen
-              </Link>
-            </div>
+        {questions.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-slate-800 px-4 py-6 text-center text-sm text-slate-500">
+            Ohne Fragen wird das Ticket direkt erstellt.
           </div>
+        ) : (
+          questions.map((question, index) => (
+            <div key={index} className="rounded-2xl border border-slate-800 bg-[#0e0e12] p-4">
+              <div className="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
+                <input
+                  value={question.label}
+                  maxLength={45}
+                  aria-label={`Frage ${index + 1}`}
+                  onChange={(event) => updateQuestion(index, { label: event.target.value })}
+                  placeholder="Frage"
+                  className="rounded-xl border border-slate-800 bg-[#131318] px-3 py-2.5 text-sm text-white outline-none focus:border-primary/50"
+                />
+                <input
+                  value={question.placeholder}
+                  maxLength={100}
+                  aria-label={`Platzhalter für Frage ${index + 1}`}
+                  onChange={(event) =>
+                    updateQuestion(index, { placeholder: event.target.value })
+                  }
+                  placeholder="Hinweis im Eingabefeld"
+                  className="rounded-xl border border-slate-800 bg-[#131318] px-3 py-2.5 text-sm text-white outline-none focus:border-primary/50"
+                />
+                <button
+                  type="button"
+                  aria-label={`Frage ${index + 1} löschen`}
+                  onClick={() => setQuestions((current) => current.filter((_, i) => i !== index))}
+                  className="rounded-xl border border-red-500/20 bg-red-500/10 p-2.5 text-red-400"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {(["short", "paragraph"] as const).map((style) => (
+                  <button
+                    key={style}
+                    type="button"
+                    onClick={() => updateQuestion(index, { style })}
+                    className={cn(
+                      "rounded-lg border px-3 py-1.5 text-xs font-bold",
+                      question.style === style
+                        ? "border-primary/40 bg-primary/15 text-primary"
+                        : "border-slate-800 text-slate-500"
+                    )}
+                  >
+                    {style === "short" ? "Kurze Antwort" : "Lange Antwort"}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => updateQuestion(index, { required: !question.required })}
+                  className={cn(
+                    "rounded-lg border px-3 py-1.5 text-xs font-bold",
+                    question.required
+                      ? "border-amber-400/30 bg-amber-400/10 text-amber-300"
+                      : "border-slate-800 text-slate-500"
+                  )}
+                >
+                  {question.required ? "Pflichtfeld" : "Optional"}
+                </button>
+              </div>
+            </div>
+          ))
         )}
       </div>
-    </Field>
+
+      <div className="flex justify-end">
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() =>
+            onSave({
+              select_placeholder: selectPlaceholder,
+              ticket_welcome_title: welcomeTitle,
+              ticket_welcome_message: welcomeMessage,
+              ticket_questions: questions,
+            })
+          }
+          className="rounded-xl bg-primary px-5 py-2.5 text-xs font-black uppercase tracking-widest text-white disabled:opacity-40"
+        >
+          Erweiterte Einstellungen speichern
+        </button>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="relative overflow-hidden rounded-3xl border border-slate-800 bg-[#101014] p-5">
+      <div
+        className={cn(
+          "transition",
+          !premium && "pointer-events-none select-none blur-[3px] opacity-45"
+        )}
+        aria-hidden={!premium}
+      >
+        {settings}
+      </div>
+
+      {!premium && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-[#0a0a0c]/35 p-4">
+          <div className="max-w-sm rounded-2xl border border-amber-400/25 bg-[#131318]/95 p-5 text-center shadow-2xl backdrop-blur-md">
+            <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-amber-400/10">
+              <Lock className="h-5 w-5 text-amber-300" />
+            </div>
+            <h3 className="mt-3 font-bold text-white">Premium erforderlich</h3>
+            <p className="mt-1 text-sm leading-5 text-slate-400">
+              Eigene Dropdown-Texte, Begrüßungen und Formularfragen sind mit Server-Premium verfügbar.
+            </p>
+            <Link
+              href="/premium"
+              className="mt-4 inline-flex items-center gap-2 rounded-xl bg-amber-400 px-4 py-2 text-sm font-bold text-black transition hover:bg-amber-300"
+            >
+              <Crown className="h-4 w-4" />
+              Premium ansehen
+            </Link>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -179,6 +364,7 @@ export function TicketPanels({ guildId }: { guildId: string }) {
   const [premiumConfigurable, setPremiumConfigurable] = useState(false);
   const [openTickets, setOpenTickets] = useState(0);
   const [expanded, setExpanded] = useState<number | null>(null);
+  const [advancedPanel, setAdvancedPanel] = useState<number | null>(null);
   const [editing, setEditing] = useState<
     { panelId: number; cat: Category; panelType: string } | null
   >(null);
@@ -591,20 +777,6 @@ export function TicketPanels({ guildId }: { guildId: string }) {
                           ))}
                         </div>
                       </Field>
-
-                      {(panel.panel_type || "button") === "dropdown" && (
-                        <DropdownPlaceholderEditor
-                          panel={panel}
-                          premium={premiumConfigurable}
-                          onCommit={(value) =>
-                            patchPanel(
-                              panel.panel_id,
-                              { select_placeholder: value },
-                              "Dropdown-Platzhalter gespeichert. Sende das Panel erneut, um Discord zu aktualisieren."
-                            )
-                          }
-                        />
-                      )}
                     </div>
 
                     <Field label="Farbe">
@@ -720,6 +892,55 @@ export function TicketPanels({ guildId }: { guildId: string }) {
                       )}
                     </div>
                   )}
+
+                  {/* Premium settings stay out of the basic panel form and
+                      open only when the administrator asks for them. */}
+                  <div className="space-y-3">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setAdvancedPanel(
+                          advancedPanel === panel.panel_id ? null : panel.panel_id
+                        )
+                      }
+                      className="flex w-full items-center justify-between rounded-2xl border border-slate-800 bg-[#0e0e12] px-4 py-3 text-left transition hover:border-primary/30"
+                    >
+                      <span className="flex items-center gap-3">
+                        <span className="rounded-xl bg-primary/10 p-2 text-primary">
+                          <Settings2 className="h-4 w-4" />
+                        </span>
+                        <span>
+                          <span className="block text-sm font-bold text-white">
+                            Erweiterte Einstellungen
+                          </span>
+                          <span className="block text-[11px] text-slate-500">
+                            Dropdown-Text, Ticket-Begrüßung und Formularfragen
+                          </span>
+                        </span>
+                      </span>
+                      <ChevronDown
+                        className={cn(
+                          "h-4 w-4 text-slate-500 transition-transform",
+                          advancedPanel === panel.panel_id && "rotate-180"
+                        )}
+                      />
+                    </button>
+
+                    {advancedPanel === panel.panel_id && (
+                      <AdvancedTicketSettings
+                        panel={panel}
+                        premium={premiumConfigurable}
+                        busy={busy}
+                        onSave={(data) =>
+                          patchPanel(
+                            panel.panel_id,
+                            data,
+                            "Erweiterte Ticket-Einstellungen gespeichert."
+                          )
+                        }
+                      />
+                    )}
+                  </div>
 
                   {/* categories */}
                   <div>

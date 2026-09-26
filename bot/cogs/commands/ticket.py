@@ -22,6 +22,7 @@ import sqlite3
 from datetime import datetime
 import asyncio
 import io
+import json
 import os
 import re
 from utils.config import *
@@ -74,11 +75,17 @@ class TicketDatabase:
             panel_columns = {
                 row[1] for row in self.conn.execute("PRAGMA table_info(ticket_panels)").fetchall()
             }
-            if panel_columns and "select_placeholder" not in panel_columns:
-                self.conn.execute(
-                    "ALTER TABLE ticket_panels ADD COLUMN select_placeholder TEXT NOT NULL"
-                    " DEFAULT 'Wähle eine Kategorie…'"
-                )
+            panel_migrations = {
+                "select_placeholder": "TEXT NOT NULL DEFAULT 'Wähle eine Kategorie…'",
+                "ticket_welcome_title": "TEXT NOT NULL DEFAULT 'Ticket #{ticket_number}'",
+                "ticket_welcome_message": "TEXT NOT NULL DEFAULT ''",
+                "ticket_questions": "TEXT NOT NULL DEFAULT '[]'",
+            }
+            for column, definition in panel_migrations.items():
+                if panel_columns and column not in panel_columns:
+                    self.conn.execute(
+                        f"ALTER TABLE ticket_panels ADD COLUMN {column} {definition}"
+                    )
         ticket_ai.ensure_sync_schema(self.conn)
 
     def execute(self, q, p=()):
@@ -658,14 +665,66 @@ class TicketCog(commands.Cog, name="Ticket System"):
         # den View gebunden. Nachgeprueft mit inspect.signature.
         await knopf.callback(inter)
 
-    async def create_ticket_flow(self, inter, cat_id):
-        await inter.response.defer(ephemeral=True)
+    def _ticket_panel_config(self, guild_id, cat_info):
+        config = {
+            "title": "Ticket #{ticket_number}",
+            "message": (
+                "Danke, dass du dich meldest, {user}.\n"
+                "Das Team ist benachrichtigt und meldet sich, sobald jemand da ist.\n\n"
+                "**Beschreibe dein Anliegen so genau wie möglich** — je mehr "
+                "wir wissen, desto schneller geht es."
+            ),
+            "questions": [],
+        }
+        panel_id = cat_info["panel_id"] if "panel_id" in cat_info.keys() else None
+        if not panel_id or not feature_gates.can_configure_premium_guild(guild_id):
+            return config
+        try:
+            row = self.db.fetchone(
+                "SELECT ticket_welcome_title, ticket_welcome_message, ticket_questions"
+                " FROM ticket_panels WHERE panel_id=? AND guild_id=?",
+                (panel_id, guild_id),
+            )
+            if not row:
+                return config
+            config["title"] = str(row["ticket_welcome_title"] or config["title"])[:256]
+            config["message"] = str(row["ticket_welcome_message"] or config["message"])[:4000]
+            raw_questions = json.loads(row["ticket_questions"] or "[]")
+            if isinstance(raw_questions, list):
+                config["questions"] = [
+                    question for question in raw_questions[:5]
+                    if isinstance(question, dict)
+                    and str(question.get("label") or "").strip()
+                ]
+        except (KeyError, TypeError, ValueError, sqlite3.Error):
+            pass
+        return config
+
+    async def create_ticket_flow(self, inter, cat_id, answers=None):
         guild, user = inter.guild, inter.user
-        if (count := self.db.fetchone("SELECT ticket_count FROM user_ticket_counts WHERE guild_id=? AND user_id=?",(guild.id,user.id))) and count['ticket_count'] >= TICKET_LIMIT_PER_USER: return await inter.followup.send(f"You have reached the max of {TICKET_LIMIT_PER_USER} open tickets.",ephemeral=True)
-        
         cat_info = self.db.fetchone("SELECT * FROM ticket_categories WHERE category_id=?", (cat_id,))
-        disc_cat = guild.get_channel(cat_info['discord_category_id'])
-        if not cat_info or not disc_cat: return await inter.followup.send("This ticket category has been deleted or is misconfigured.", ephemeral=True)
+        disc_cat = guild.get_channel(cat_info['discord_category_id']) if cat_info else None
+        if not cat_info or not disc_cat:
+            if not inter.response.is_done():
+                return await inter.response.send_message(
+                    "Diese Ticket-Kategorie wurde gelöscht oder ist falsch eingerichtet.",
+                    ephemeral=True,
+                )
+            return await inter.followup.send(
+                "Diese Ticket-Kategorie wurde gelöscht oder ist falsch eingerichtet.",
+                ephemeral=True,
+            )
+
+        panel_config = self._ticket_panel_config(guild.id, cat_info)
+        if answers is None and panel_config["questions"]:
+            return await inter.response.send_modal(
+                TicketQuestionsModal(self, cat_id, panel_config)
+            )
+        if answers is not None and not panel_config["questions"]:
+            answers = []
+
+        await inter.response.defer(ephemeral=True)
+        if (count := self.db.fetchone("SELECT ticket_count FROM user_ticket_counts WHERE guild_id=? AND user_id=?",(guild.id,user.id))) and count['ticket_count'] >= TICKET_LIMIT_PER_USER: return await inter.followup.send(f"You have reached the max of {TICKET_LIMIT_PER_USER} open tickets.",ephemeral=True)
         
         t_num = (self.db.fetchone("SELECT MAX(ticket_number) as n FROM open_tickets WHERE guild_id=?", (guild.id,))['n'] or 0) + 1
         
@@ -755,16 +814,30 @@ class TicketCog(commands.Cog, name="Ticket System"):
         # Die Erwaehnungen brauchen aber ein content-Feld, sonst
         # benachrichtigt niemand das Team. Also zwei Nachrichten: die
         # Pings als reiner Text, danach die Karte.
+        replacements = {
+            "{ticket_number}": f"{t_num:04d}",
+            "{user}": user.mention,
+            "{category}": str(cat_info["name"]),
+            "{server}": guild.name,
+        }
+
+        def render_template(value):
+            rendered = str(value or "")
+            for marker, replacement in replacements.items():
+                rendered = rendered.replace(marker, replacement)
+            return rendered
+
         ticket_embed = discord.Embed(
-            title=f"Ticket #{t_num:04d}",
-            description=(
-                f"Danke, dass du dich meldest, {user.mention}.\n"
-                "Das Team ist benachrichtigt und meldet sich, sobald jemand da ist.\n\n"
-                "**Beschreibe dein Anliegen so genau wie möglich** — je mehr "
-                "wir wissen, desto schneller geht es."
-            ),
+            title=render_template(panel_config["title"])[:256],
+            description=render_template(panel_config["message"])[:4096],
             color=EMBED_COLOR,
         )
+        for question, answer in answers or []:
+            ticket_embed.add_field(
+                name=str(question)[:256],
+                value=str(answer or "Keine Antwort")[:1024],
+                inline=False,
+            )
         ticket_embed.set_footer(text=f"Kategorie: {cat_info['name']}")
 
         try:
@@ -817,6 +890,37 @@ class TicketCog(commands.Cog, name="Ticket System"):
     async def transcript(self, ctx):
         if not ctx.interaction: return await ctx.send("Please use the slash command version of this command.")
         await ClosedTicketActionsView(self, ctx.channel.id)._generate_transcript(ctx.interaction, False)
+
+class TicketQuestionsModal(discord.ui.Modal):
+    def __init__(self, cog, category_id, panel_config):
+        super().__init__(title="Ticket erstellen", timeout=300)
+        self.cog = cog
+        self.category_id = category_id
+        self.question_inputs = []
+        for question in panel_config["questions"][:5]:
+            label = str(question.get("label") or "Frage").strip()[:45]
+            field = discord.ui.TextInput(
+                label=label,
+                placeholder=str(question.get("placeholder") or "").strip()[:100] or None,
+                required=bool(question.get("required", True)),
+                style=(
+                    discord.TextStyle.paragraph
+                    if question.get("style") == "paragraph"
+                    else discord.TextStyle.short
+                ),
+                max_length=1000 if question.get("style") == "paragraph" else 200,
+            )
+            self.question_inputs.append((label, field))
+            self.add_item(field)
+
+    async def on_submit(self, interaction):
+        answers = [(label, field.value) for label, field in self.question_inputs]
+        await self.cog.create_ticket_flow(
+            interaction,
+            self.category_id,
+            answers=answers,
+        )
+
 
 class TicketPanelSelect(discord.ui.View):
     def __init__(self, cog): super().__init__(timeout=None); self.cog = cog

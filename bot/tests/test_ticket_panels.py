@@ -302,6 +302,29 @@ def run():
     check("custom placeholder is stored per panel",
           target["select_placeholder"] == "Wie können wir helfen?", str(target))
 
+    questions = [
+        {"label": f"Frage {index}", "placeholder": "Antwort", "required": True,
+         "style": "paragraph" if index == 0 else "short"}
+        for index in range(6)
+    ]
+    r = client.patch(
+        f"{base}/panels/{fresh}",
+        json={
+            "ticket_welcome_title": "Willkommen in Ticket #{ticket_number}",
+            "ticket_welcome_message": "Hallo {user}, Kategorie: {category}",
+            "ticket_questions": questions,
+        },
+    )
+    target = next(
+        p for p in client.get(f"{base}/panels").json()["panels"]
+        if p["panel_id"] == fresh
+    )
+    check("premium welcome text is stored per panel",
+          r.status_code == 200 and target["ticket_welcome_title"].startswith("Willkommen"),
+          str(target))
+    check("Discord modal question limit is enforced",
+          len(target["ticket_questions"]) == 5, str(target["ticket_questions"]))
+
     def placeholders(component):
         found = []
         placeholder = getattr(component, "placeholder", None)
@@ -327,6 +350,12 @@ def run():
     check("expired premium sends the standard placeholder",
           r.status_code == 200 and "Wähle eine Kategorie…" in placeholders(posted),
           str(placeholders(posted)))
+    r = client.patch(
+        f"{base}/panels/{fresh}",
+        json={"ticket_welcome_message": "Umgehungsversuch"},
+    )
+    check("non-premium cannot edit advanced settings", r.status_code == 403,
+          f"-> {r.status_code} {r.text[:80]}")
     feature_gates.can_configure_premium_guild = original_can_configure
 
     client.patch(f"{base}/panels/{fresh}", json={"panel_type": "button"})

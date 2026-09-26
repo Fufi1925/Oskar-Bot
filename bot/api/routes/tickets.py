@@ -148,10 +148,16 @@ async def create_panel(guild_id: int, data: dict | None = None):
 
 @router.patch("/{guild_id}/panels/{panel_id}", summary="Update one panel")
 async def update_panel(guild_id: int, panel_id: int, data: dict):
-    if "select_placeholder" in data and not feature_gates.can_configure_premium_guild(guild_id):
+    premium_fields = {
+        "select_placeholder",
+        "ticket_welcome_title",
+        "ticket_welcome_message",
+        "ticket_questions",
+    }
+    if premium_fields.intersection(data) and not feature_gates.can_configure_premium_guild(guild_id):
         raise HTTPException(
             status_code=403,
-            detail="Ein eigener Dropdown-Platzhalter erfordert aktives Premium.",
+            detail="Erweiterte Ticket-Einstellungen erfordern aktives Premium.",
         )
 
     db = await _db()

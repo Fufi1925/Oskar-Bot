@@ -28,12 +28,21 @@ import aiosqlite
 
 DB_PATH = "db/ticket.db"
 DEFAULT_SELECT_PLACEHOLDER = "Wähle eine Kategorie…"
+DEFAULT_TICKET_WELCOME_TITLE = "Ticket #{ticket_number}"
+DEFAULT_TICKET_WELCOME_MESSAGE = (
+    "Danke, dass du dich meldest, {user}.\n"
+    "Das Team ist benachrichtigt und meldet sich, sobald jemand da ist.\n\n"
+    "**Beschreibe dein Anliegen so genau wie möglich** — je mehr wir wissen, "
+    "desto schneller geht es."
+)
 MAX_SELECT_PLACEHOLDER = 150
+MAX_TICKET_QUESTIONS = 5
 
 PANEL_COLUMNS = (
     "panel_id", "guild_id", "name", "channel_id", "message_id", "panel_type",
     "embed_title", "embed_description", "embed_color",
     "embed_image_url", "embed_thumbnail_url", "staff_roles", "select_placeholder",
+    "ticket_welcome_title", "ticket_welcome_message", "ticket_questions",
 )
 
 
@@ -109,17 +118,30 @@ async def ensure_schema(db: aiosqlite.Connection) -> None:
             embed_image_url TEXT,
             embed_thumbnail_url TEXT,
             staff_roles TEXT DEFAULT '',
-            select_placeholder TEXT NOT NULL DEFAULT 'Wähle eine Kategorie…'
+            select_placeholder TEXT NOT NULL DEFAULT 'Wähle eine Kategorie…',
+            ticket_welcome_title TEXT NOT NULL DEFAULT 'Ticket #{ticket_number}',
+            ticket_welcome_message TEXT NOT NULL DEFAULT '',
+            ticket_questions TEXT NOT NULL DEFAULT '[]'
         )
         """
     )
     async with db.execute("PRAGMA table_info(ticket_panels)") as cursor:
         panel_columns = {str(row[1]) for row in await cursor.fetchall()}
-    if "select_placeholder" not in panel_columns:
-        await db.execute(
-            "ALTER TABLE ticket_panels ADD COLUMN select_placeholder TEXT NOT NULL"
-            " DEFAULT 'Wähle eine Kategorie…'"
-        )
+    panel_migrations = {
+        "select_placeholder": (
+            "TEXT NOT NULL DEFAULT 'Wähle eine Kategorie…'"
+        ),
+        "ticket_welcome_title": (
+            "TEXT NOT NULL DEFAULT 'Ticket #{ticket_number}'"
+        ),
+        "ticket_welcome_message": "TEXT NOT NULL DEFAULT ''",
+        "ticket_questions": "TEXT NOT NULL DEFAULT '[]'",
+    }
+    for column, definition in panel_migrations.items():
+        if column not in panel_columns:
+            await db.execute(
+                f"ALTER TABLE ticket_panels ADD COLUMN {column} {definition}"
+            )
 
     await db.execute(
         "CREATE INDEX IF NOT EXISTS idx_panels_guild ON ticket_panels(guild_id)"
@@ -194,6 +216,31 @@ def _split_roles(value: Any) -> list[str]:
     return [p for p in str(value).split(",") if p.strip().isdigit()]
 
 
+def _clean_questions(value: Any) -> list[dict]:
+    if isinstance(value, str):
+        try:
+            value = json.loads(value)
+        except (TypeError, ValueError):
+            value = []
+    if not isinstance(value, list):
+        return []
+
+    cleaned = []
+    for item in value[:MAX_TICKET_QUESTIONS]:
+        if not isinstance(item, dict):
+            continue
+        label = str(item.get("label") or "").strip()[:45]
+        if not label:
+            continue
+        cleaned.append({
+            "label": label,
+            "placeholder": str(item.get("placeholder") or "").strip()[:100],
+            "required": bool(item.get("required", True)),
+            "style": "paragraph" if item.get("style") == "paragraph" else "short",
+        })
+    return cleaned
+
+
 async def list_panels(db: aiosqlite.Connection, guild_id: int) -> list[dict]:
     """Every panel of a guild, categories included."""
     await ensure_schema(db)
@@ -202,7 +249,8 @@ async def list_panels(db: aiosqlite.Connection, guild_id: int) -> list[dict]:
     async with db.execute(
         "SELECT panel_id, name, channel_id, message_id, panel_type,"
         " embed_title, embed_description, embed_color, embed_image_url,"
-        " embed_thumbnail_url, staff_roles, select_placeholder"
+        " embed_thumbnail_url, staff_roles, select_placeholder,"
+        " ticket_welcome_title, ticket_welcome_message, ticket_questions"
         " FROM ticket_panels WHERE guild_id = ? ORDER BY panel_id",
         (guild_id,),
     ) as cursor:
@@ -232,6 +280,9 @@ async def list_panels(db: aiosqlite.Connection, guild_id: int) -> list[dict]:
             "embed_thumbnail_url": row[9] or "",
             "staff_roles": _split_roles(row[10]),
             "select_placeholder": row[11] or DEFAULT_SELECT_PLACEHOLDER,
+            "ticket_welcome_title": row[12] or DEFAULT_TICKET_WELCOME_TITLE,
+            "ticket_welcome_message": row[13] or DEFAULT_TICKET_WELCOME_MESSAGE,
+            "ticket_questions": _clean_questions(row[14]),
             "posted": bool(row[3]),
             "categories": [
                 {
@@ -279,6 +330,9 @@ _WRITABLE = {
     "embed_image_url": "embed_image_url",
     "embed_thumbnail_url": "embed_thumbnail_url",
     "select_placeholder": "select_placeholder",
+    "ticket_welcome_title": "ticket_welcome_title",
+    "ticket_welcome_message": "ticket_welcome_message",
+    "ticket_questions": "ticket_questions",
 }
 
 
@@ -304,6 +358,12 @@ async def update_panel(
         value = data[key]
         if key == "select_placeholder":
             value = str(value).strip()[:MAX_SELECT_PLACEHOLDER] or DEFAULT_SELECT_PLACEHOLDER
+        elif key == "ticket_welcome_title":
+            value = str(value).strip()[:256] or DEFAULT_TICKET_WELCOME_TITLE
+        elif key == "ticket_welcome_message":
+            value = str(value).strip()[:4000] or DEFAULT_TICKET_WELCOME_MESSAGE
+        elif key == "ticket_questions":
+            value = json.dumps(_clean_questions(value), ensure_ascii=False)
         assignments.append(f"{column} = ?")
         values.append(value)
 
