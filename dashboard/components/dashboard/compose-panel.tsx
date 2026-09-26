@@ -25,6 +25,7 @@ import { DiscordEmoji, customEmojiHtml } from "@/components/dashboard/discord-em
 import { ChannelPicker } from "@/components/dashboard/pickers";
 import { InlineToggle } from "@/components/dashboard/form-elements";
 import { announcementsFor } from "@/lib/announcements";
+import { BRAND } from "@/lib/brand";
 
 const INPUT =
   "w-full bg-[#0e0e12] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-primary/50 transition-colors";
@@ -774,7 +775,7 @@ export function ComposePanel({ guildId }: { guildId: string }) {
                 {/* The bot's own name, so the preview matches what the
                     server will actually see. */}
                 <span className="text-sm font-semibold text-white">
-                  {process.env.NEXT_PUBLIC_BRAND_NAME || "University Bot"}
+                  {BRAND}
                 </span>
                 <span className="px-1 py-0.5 rounded bg-[#5865f2] text-[9px] font-bold uppercase text-white">
                   Bot

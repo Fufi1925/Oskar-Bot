@@ -1,36 +1,13 @@
-<div align="center">
+# bot/ — Discord-Bot und API
 
-```
-███████╗██╗   ██╗██████╗  ██████╗ ██╗  ██╗
-╚══███╔╝╚██╗ ██╔╝██╔══██╗██╔═══██╗╚██╗██╔╝
-  ███╔╝  ╚████╔╝ ██████╔╝██║   ██║ ╚███╔╝ 
- ███╔╝    ╚██╔╝  ██╔══██╗██║   ██║ ██╔██╗ 
-███████╗   ██║   ██║  ██║╚██████╔╝██╔╝ ██╗
-╚══════╝   ╚═╝   ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═╝
-```
-
-<h3>University Bot Bot — Python Discord Bot + FastAPI Backend</h3>
-
-
-<p>
-  <a href="https://python.org"><img src="https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white"/></a>
-  <a href="https://fastapi.tiangolo.com"><img src="https://img.shields.io/badge/FastAPI-Backend-009688?style=for-the-badge&logo=fastapi&logoColor=white"/></a>
-  <a href="https://discordpy.readthedocs.io"><img src="https://img.shields.io/badge/Discord.py-v2-5865F2?style=for-the-badge&logo=discord&logoColor=white"/></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-red?style=for-the-badge"/></a>
-</p>
-<p>
-  <a href="https://discord.gg/F3TedBAVZT"><img src="https://img.shields.io/badge/Discord-Join_Server-5865F2?style=for-the-badge&logo=discord&logoColor=white"/></a>
-  <a href="https://youtube.com/@University BotDevs"><img src="https://img.shields.io/badge/YouTube-University BotDevs-FF0000?style=for-the-badge&logo=youtube&logoColor=white"/></a>
-  <a href="https://github.com/University Bot"><img src="https://img.shields.io/badge/GitHub-University Bot-181717?style=for-the-badge&logo=github&logoColor=white"/></a>
-</p>
-
-</div>
+**University Bot** · Python, `discord.py` 2.x, FastAPI. 155 Cogs, eine
+Schnittstelle unter `/api/v1/*`, die das Dashboard anspricht.
 
 ---
 
 ## ✦ Overview
 
-This folder contains the University Bot Discord bot built on `discord.py v2` alongside a `FastAPI` backend that powers the web dashboard. Everything runs from a single `python University Bot.py` command.
+This folder contains the University Bot Discord bot built on `discord.py v2` alongside a `FastAPI` backend that powers the web dashboard. Everything runs from a single `python university_bot.py` command.
 
 ```
 bot/
@@ -47,7 +24,7 @@ bot/
 ├── games/                 Standalone game logic + button views
 ├── utils/                 Emoji, tools, sync, Cloudflare tunnel
 ├── assets/                Fonts, backgrounds, GIFs
-└── University Bot.py               Entry point
+└── university_bot.py              Einstiegspunkt
 ```
 
 ---
@@ -209,7 +186,7 @@ WEBHOOK_URL        = "https://discord.com/api/webhooks/..."
 ### 3 — Run
 
 ```bash
-python University Bot.py
+python university_bot.py
 ```
 
 ---
@@ -295,7 +272,7 @@ When `EMOJI_SYNC=true`, the bot syncs application emojis on every startup:
 Upload the entire `bot/` folder to your host and set the start command to:
 
 ```bash
-python University Bot.py
+python university_bot.py
 ```
 
 `pycloudflared` downloads the binary on first run — no extra steps on any host.
@@ -329,10 +306,10 @@ python University Bot.py
 
 <p>
   <a href="https://discord.gg/F3TedBAVZT"><img src="https://img.shields.io/badge/Discord-Join_Server-5865F2?style=for-the-badge&logo=discord&logoColor=white"/></a>
-  <a href="https://youtube.com/@University BotDevs"><img src="https://img.shields.io/badge/YouTube-University BotDevs-FF0000?style=for-the-badge&logo=youtube&logoColor=white"/></a>
-  <a href="https://github.com/University Bot"><img src="https://img.shields.io/badge/GitHub-University Bot-181717?style=for-the-badge&logo=github&logoColor=white"/></a>
+  <a href="https://youtube.com/@UniversityBotDevs"><img src="https://img.shields.io/badge/YouTube-University%20Bot%20Devs-FF0000?style=for-the-badge&logo=youtube&logoColor=white"/></a>
+  <a href="https://github.com/Fufi1925/Oskar-Bot"><img src="https://img.shields.io/badge/GitHub-University%20Bot-181717?style=for-the-badge&logo=github&logoColor=white"/></a>
 </p>
 
-© 2026 University Bot Devs — MIT License
+© 2026 University Bot Devs — alle Rechte vorbehalten, siehe [LICENSE](../LICENSE)
 
 </div>

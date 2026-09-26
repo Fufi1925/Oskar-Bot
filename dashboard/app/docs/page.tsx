@@ -44,6 +44,7 @@
  */
 
 import React from "react";
+import { normalisiereMarke } from "@/lib/brand";
 import Link from "next/link";
 import {
   ArrowUpRight, Bot, LayoutDashboard, LifeBuoy, Search, Shield,
@@ -53,7 +54,7 @@ import { SiteNav } from "@/components/site-nav";
 import { SUPPORT_INVITE } from "@/lib/legal";
 import { cn } from "@/lib/utils";
 
-const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || "University Bot";
+const BRAND = normalisiereMarke(process.env.NEXT_PUBLIC_BRAND_NAME);
 
 /** Das Standard-Präfix. Steht so in der FAQ der Startseite. */
 const PREFIX = ">";

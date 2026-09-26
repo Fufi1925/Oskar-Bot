@@ -1,4 +1,9 @@
-# Phantom Bot & Dashboard – Änderungen (für die Aufgabe)
+# Phantom Bot & Dashboard – Änderungen
+
+> **Historischer Stand.** Diese Datei beschreibt den Umbau, der 2026 im
+> Sommer lief, und bleibt als Begründung für die heutige Form stehen. Was
+> `phantom/` *jetzt* tut, steht in [phantom/README.md](phantom/README.md);
+> steht hier etwas, das dort nicht mehr steht, gilt die README.
 
 ## Ziele erfüllt
 

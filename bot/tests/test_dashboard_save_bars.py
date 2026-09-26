@@ -23,9 +23,9 @@ import re
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-DASH = os.path.join(os.path.dirname(os.path.dirname(HERE)), "Oskar-Bot", "dashboard")
-if not os.path.isdir(DASH):
-    DASH = os.path.join(os.path.dirname(os.path.dirname(HERE)), "dashboard")
+# Repo-Wurzel = zwei Ebenen ueber bot/tests. Der Ordner heisst auf
+# GitHub anders als lokal, deshalb darf hier kein Ordnername stehen.
+DASH = os.path.join(os.path.dirname(os.path.dirname(HERE)), "dashboard")
 
 failures: list[str] = []
 

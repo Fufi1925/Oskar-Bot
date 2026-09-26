@@ -1,6 +1,6 @@
 # LBoost Shop (`/lbost-shop`)
 
-Isolierter University-Bot-Unterbereich mit eigener Discord-App, verschlüsselten OAuth-Sitzungen, eigenem Bot-Prozess und vollständig serverbezogener Modulkonfiguration.
+Isolierter Unterbereich von University Bot mit eigener Discord-App, verschlüsselten OAuth-Sitzungen, eigenem Bot-Prozess und vollständig serverbezogener Modulkonfiguration.
 
 ## Zugriff
 
@@ -14,7 +14,7 @@ Diese Bedingungen werden bei jedem geschützten Aufruf erneut mit Discord abgegl
 
 ## Dashboard-Oberfläche
 
-Nach dem Login verwendet der komplette geschützte Bereich dieselbe University-Bot-Dashboard-Struktur: echtes University-Bot-Logo und festes Branding, Glass-Sidebar, gruppierte Servernavigation, mobile Navigation mit Overlay, Sticky-Topbar, globale Modulsuche, Benachrichtigungs-Popover, DE/EN-Sprachwahl und Profilmenü. Dashboard, Serverübersicht, sämtliche Modulformulare und das Owner-Admin-Panel teilen sich diese Shell.
+Nach dem Login verwendet der komplette geschützte Bereich dieselbe Dashboard-Struktur wie University Bot: echtes Logo und festes Branding, Glass-Sidebar, gruppierte Servernavigation, mobile Navigation mit Overlay, Sticky-Topbar, globale Modulsuche, Benachrichtigungs-Popover, DE/EN-Sprachwahl und Profilmenü. Dashboard, Serverübersicht, sämtliche Modulformulare und das Owner-Admin-Panel teilen sich diese Shell.
 
 `/servers` entspricht der University-Serverauswahl mit Kennzahlen, Namens-/ID-Suche, Sortierung nach Mitgliedern oder Namen, Serverkarten, Besitzerstatus und Mitgliederzahlen. Die Detailübersicht eines Servers übernimmt den Aufbau der University-Übersicht mit Übersicht-/Sicherung-Reitern, Tarifzeile, dynamischem Einrichtungsfortschritt, einfarbigen Lucide-artigen SVG-Symbolen, Mitglieder-/Kanal-/Rollen-/Bot-Kennzahlen, Präfix, Boost- und Sicherheitsstatus, 14-Tage-Konfigurationsverlauf, „Als Nächstes“, „Eingerichtet“ und „Noch offen“. Unicode-Emoji-Modulsymbole werden im Dashboard nicht verwendet. Über „Sicherung“ lassen sich alle Servermodule exportieren und sicher wieder einspielen. Nicht freigegebene Server bleiben vollständig verborgen.
 

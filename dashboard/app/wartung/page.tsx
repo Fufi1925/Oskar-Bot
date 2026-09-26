@@ -1,3 +1,4 @@
+import { normalisiereMarke } from "@/lib/brand";
 /**
  * The maintenance notice.
  *
@@ -14,7 +15,7 @@
 
 export const dynamic = "force-dynamic";
 
-const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || "University Bot";
+const BRAND = normalisiereMarke(process.env.NEXT_PUBLIC_BRAND_NAME);
 
 export default function MaintenancePage() {
   return (

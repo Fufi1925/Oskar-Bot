@@ -3957,8 +3957,6 @@ export const phrasePairs: Array<[de: string, en: string]> = [
   ["Der Servername stimmt nicht überein.", "The server name does not match."],
   ["Dies kann nicht rückgängig gemacht werden. Exportieren Sie zunächst ein Backup, wenn Sie es möglicherweise zurückhaben möchten.", "This cannot be undone. Export a backup first if you might want it back."],
   ["Diese Person ist ein Eigentümer oder Dashboard-Administrator und kann nicht gesperrt werden. Entfernen Sie diesen Zugriff zunächst auf der Registerkarte „Zugriff“.", "This person is an owner or dashboard admin and cannot be banned. Remove that access in the Access tab first."],
-  ["Universitätsbot", "University Bot"],
-  ["Universitäts-Bot-Konto", "University Bot Konto"],
   ["Laden Sie eine hier oder von einem anderen Server exportierte Datei hoch. Sie erhalten zunächst eine Zusammenfassung und es wird nichts geschrieben, bis Sie dies bestätigen.", "Upload a file exported here or from another server. You get a summary first and nothing is written until you confirm."],
   ["Benutzer-ID kopiert.", "User ID copied."],
   ["Benutzer aus dem Dashboard gesperrt.", "User banned from the dashboard."],
@@ -4175,7 +4173,7 @@ export const phrasePairs: Array<[de: string, en: string]> = [
   ["Status wird geprüft …", "Checking status …"],
   ["TikTok-Kanal", "TikTok channel"],
   ["Unserem Discord beitreten", "Join our Discord"],
-  ["vom University-Team", "by University Team"],
+  ["vom University Bot Team", "by the University Bot Team"],
 
   // ════════════════════════════════════════════════════════════════
   // Vollstaendige Abdeckung der Dashboard-Oberflaeche. Diese Eintraege

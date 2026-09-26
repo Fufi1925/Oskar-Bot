@@ -66,3 +66,30 @@ Five bug classes hit this project more than once:
 
 All five are invisible on an empty server and only show up later, which
 is exactly why they need automated coverage.
+
+---
+
+## Stand September 2026
+
+137 eigenständige Skripte (`ls tests/test_*.py | wc -l`). `run_all.py`
+findet neue Dateien von selbst — es sammelt über ein Muster, eine Liste,
+die man pflegen muss, wäre die erste vergessene Testdatei.
+
+**Zwei Dinge, die man wissen sollte, bevor man einen roten Test sieht:**
+
+1. **`test_speedrun_templates.py` vergleicht mit dem Nachbar-Repo.** Es
+   liest die echte Vorlagen-Registry aus `../University-Template`. Liegt
+   das dort nicht, überspringt der Test still — in einer isolierten
+   Auscheckung ist er also grün, ohne etwas geprüft zu haben. Ändert sich
+   eine Vorlage im Template-Bot, muss die fest verdrahtete Erwartungsliste
+   in diesem Skript mitwandern; sonst meldet er eine Abweichung, die eine
+   absichtige ist.
+2. **`test_speedrun_ui.py` braucht Netzwerk** für einen bewusst
+   nicht erreichbaren Dienst (`kein-solcher-dienst.railway.internal`), um
+   den Fehlerpfad zu prüfen. Ohne Netzzugang schlägt er fehl, egal was der
+   Code tut.
+
+Ein dritter Punkt ist Absicht: **`test_marke.py`** prüft den Namen. Wer
+den Namen des Bots ändert, muss diese Prüfung mitändern — sie verhindert,
+dass „University Bot", „Universitätsbot" und „UniversityBot" nebeneinander
+auftauchen.

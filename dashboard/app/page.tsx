@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { normalisiereMarke } from "@/lib/brand";
 import Link from "next/link";
 import {
   ArrowRight, Check, ChevronDown, Crown,
@@ -13,7 +14,7 @@ import { InteractiveHomeGlobe } from "@/components/home/interactive-home-globe";
 import { FeaturedServerMarquee } from "@/components/home/featured-server-marquee";
 import { SUPPORT_INVITE } from "@/lib/legal";
 
-const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || "University Bot";
+const BRAND = normalisiereMarke(process.env.NEXT_PUBLIC_BRAND_NAME);
 
 type HomepageVersion = "new" | "classic";
 

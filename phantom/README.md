@@ -8,7 +8,7 @@ Komplett **eigenes** System unter:
 {deine-domain}/phantom/api/...
 ```
 
-- **Kein** University-Bot / Oskar-Bot Import  
+- **Kein** Import aus dem Hauptbot (Repo `Oskar-Bot/`)  
 - **Eigener** Discord-Bot-Token  
 - **Eigenes** Discord-OAuth (Login)  
 - **Eigene** SQLite-DB unter `phantom/data/`  
@@ -183,7 +183,7 @@ Server-Liste wird nach Login in SQLite (`user_guilds`) gespeichert und ist lesba
 - [ ] Eigene OAuth Redirects nur `/phantom/...`
 - [ ] Eigene SQLite unter `phantom/data/`
 - [ ] Cookie Path = `/phantom`
-- [ ] Kein Import aus `Oskar-Bot/`
+- [ ] Kein Import aus dem Hauptbot (`Oskar-Bot/`)
 - [ ] Nginx mounted nur `/phantom/` auf diesen Service
 
 ---

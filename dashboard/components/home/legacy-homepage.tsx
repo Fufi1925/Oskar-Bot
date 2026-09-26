@@ -74,13 +74,14 @@ import {
 } from "lucide-react";
 import { SiteNav, INVITE_URL } from "@/components/site-nav";
 import { cn } from "@/lib/utils";
+import { normalisiereMarke } from "@/lib/brand";
 
 const HomepageWorldMap = dynamic(
   () => import("@/components/home/homepage-world-map").then((modul) => modul.HomepageWorldMap),
   { ssr: false },
 );
 
-const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || "University Bot";
+const BRAND = normalisiereMarke(process.env.NEXT_PUBLIC_BRAND_NAME);
 
 /**
  * Die Karten im Hero, die von selbst weiterblättern.

@@ -4,7 +4,7 @@
 # ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
 # ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
 # ║                                                                  ║
-# ║            © 2026 UniversityBot Devs — All Rights Reserved              ║
+# ║            © 2026 University Bot Devs — All Rights Reserved              ║
 # ║                                                                  ║
 # ║   discord  ──  https://discord.gg/F3TedBAVZT                      ║
 # ║   youtube  ──  https://youtube.com/@UniversityBotDevs                   ║
@@ -17,8 +17,51 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+#: Der eine Name.
+MARKE = "University Bot"
+
+#: Schreibweisen, die nur Varianten des Namens sind. Sie werden nach
+#: derselben Regel umgerechnet wie die Eingabe -- eine Menge mit Umlauten
+#: würde sonst nie getroffen, weil die Eingabe vorher aufgelöst wird.
+_MARKE_ROHVARIANTEN = (
+    "UniversityBot", "Universitätsbot", "Universität-Bot", "University Bot",
+    "Uni Bot", "UB", "Oskar Bot", "Oskar-Bot", "universitybot X",
+)
+
+
+def _schluessel(wert: str) -> str:
+    return (
+        (wert or "")
+        .strip()
+        .lower()
+        .replace("ä", "ae").replace("ö", "oe").replace("ü", "ue")
+        .replace("ß", "ss")
+        .replace("-", "").replace(" ", "")
+    )
+
+
+_MARKE_VARIANTEN = {_schluessel(v) for v in _MARKE_ROHVARIANTEN}
+
+
+def _marke(wert: str | None) -> str:
+    """Eine Schreibweise des Namens auf den Namen zurueckfuehren.
+
+    Leerzeichen, Bindestriche, Groessen und Umlaute sind nur Varianten
+    desselben Namens, keine eigene Marke. Was ein wirklich anderer Name
+    ist, bleibt stehen -- die Vorgabe ist aber immer der eine Name.
+    """
+    roh = (wert or "").strip()
+    if not roh:
+        return MARKE
+    return MARKE if _schluessel(roh) in _MARKE_VARIANTEN else roh
+
+
 TOKEN      = os.environ.get("TOKEN")
-BRAND_NAME = os.environ.get("brand_name", "universitybot X")
+# Der Name des Bots. Er wird nicht uebersetzt -- "Universitaetsbot" ist
+# eine Uebersetzung des Namens und damit ein zweiter Name fuer dasselbe.
+# Die alte Vorgabe "universitybot X" war ein Rest einer Umbenennung und
+# stand so in Hilfetexten, Einbettungen und den Cog-Meldungen.
+BRAND_NAME = _marke(os.environ.get("BRAND_NAME") or os.environ.get("brand_name"))
 NAME       = BRAND_NAME
 BotName    = BRAND_NAME
 

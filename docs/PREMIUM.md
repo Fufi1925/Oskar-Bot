@@ -1,239 +1,117 @@
-# Premium-Keys
+# Premium
 
-Lizenz-Keys für die Premium-Funktionen des Template-Bots.
+Stand September 2026. Beschreibt, was der Code tut — nicht, was die
+Webseite verspricht. Beide sollten dasselbe sagen; wenn sie es nicht tun,
+ist dieses Dokument die Prüfung und die Webseite der Fehler.
 
-## Wie es abläuft
+---
 
-1. Jemand kauft Premium im Discord.
-2. Ein Team-Mitglied erstellt den Key im Dashboard unter
-   **Admin → Premium**. Auf Wunsch schickt der Bot ihn **per DM**.
-3. Der Käufer trägt den Key im Dashboard unter **Admin → Premium** ein.
-   Beim Einlösen wird er fest an sein Discord-Konto gebunden.
-4. Der Template-Bot fragt bei uns nach, ob dieses Konto Premium hat.
+## Ein Modell: Konto mit drei Serverplätzen
 
-Der Key gilt für das **Discord-Konto**, nicht für einen Server. Wer ihn
-eingelöst hat, hat Premium — egal auf welchem Server.
+Premium hängt am **Discord-Konto**. Ein Konto bekommt **drei feste
+Serverplätze** — es schaltet also nicht „alle Server, auf denen man Rechte
+hat" frei, sondern genau die drei, die man zuweist.
 
-## Keys verwalten
+```
+Konto (Discord-ID)
+ ├─ Laufzeit: 30, 90 oder 365 Tage
+ └─ Platz 1, 2, 3  →  je eine Server-ID
+```
 
-Alles unter **Admin → Premium**. Die früheren `/key`-Befehle gibt es
-nicht mehr: Lizenzen sind Abrechnung, das gehört an eine Stelle mit
-Protokoll statt in einen Chat-Befehl, den nur drei Leute nutzen dürfen.
+Grund für die Plätze: Ein Bot mit Admin-Rechten auf vielen Servern und
+einem Konto-Zugang wäre ein Werkzeug, das ein einziger gekaufter Zugang für
+Dutzende Communities ändert. Die Grenze pro Server ist die eigentliche
+Sicherheit, nicht die Preismechanik.
 
-| Feld | Wirkung |
+Gespeichert in `db/premium_membership.db` (braucht ein Railway-Volume,
+sonst sind alle Zuweisungen nach jedem Deploy weg).
+
+---
+
+## Was eingeschaltet wird
+
+Ein Server mit Platz bekommt:
+
+| Bereich | Was Premium dort kann |
 |---|---|
-| Laufzeit in Tagen | `0` = unbegrenzt. Standard 30. |
-| Discord-ID | Optional. Ist sie gesetzt, geht der Key per DM raus. |
-| Notiz | Optional, z.B. eine Bestellnummer. |
+| Design | eigener Name, eigenes Profilbild, eigenes Banner für diesen Server |
+| Backup | bis zu 10 Sicherungen, automatische Sicherung, Nachrichten mitsichern |
+| Server-Statistik | Statistik-Sprachkanäle, häufiger aktualisiert |
+| Mitglieder-Abruf | verifizierte Personen in Rollen holen (nur von Hand, mit Bestätigung) |
+| Eigene Befehle | mehr Befehle, mehr Auslöser pro Befehl |
+| Speedrun, Vorlagen, höhere Grenzen | die Bereiche, die schon vorher Premium-Limits hatten |
 
-Der erzeugte Key wird **einmal** angezeigt und lässt sich kopieren.
-Danach ist er nur noch gehasht gespeichert.
+Entschieden wird das an **einer** Stelle: `feature_gates.is_premium_guild()`
+und `can_configure_premium_guild()`. Ein Bereich, der daneben eine zweite
+Abfrage baut, läuft bei der nächsten Änderung auseinander.
 
-Ob die DM angekommen ist, wird ehrlich gemeldet: `sent`, `dms_closed`,
-`unknown_user` oder `failed`. Der Key existiert in jedem Fall — bei
-einem Fehlschlag muss er von Hand weitergegeben werden.
+---
 
-In der Liste steht pro Key, wer ihn eingelöst hat (Name statt nur ID),
-ob er aktiv, offen, abgelaufen oder gesperrt ist. Sperren lässt sich
-**rückgängig machen**, damit ein Fehlklick nicht endgültig ist.
+## Kaufen geht noch nicht
 
-Die Laufzeit läuft **ab Einlösung**, nicht ab Erstellung. Ein Key, der
-eine Woche ungelesen in der DM liegt, verliert dadurch nichts.
+Es gibt **keine Zahlung**. Wer Premium will, stellt im Dashboard eine
+Anfrage (`/dashboard/premium`), das Team bestätigt sie von Hand. Danach
+startet die Laufzeit.
 
-## Sperren wirkt sofort
+Warum so: Ein Beleg, der nirgends nachvollziehbar ist, erzeugt
+Support-Fälle, die man nicht lösen kann. Solange die Testphase läuft, ist
+die manuelle Bestätigung billiger als jede Halblösung mit Zahlungsanbieter.
 
-Wird ein Key im Dashboard gesperrt, meldet der Hauptbot das dem
-Template-Bot (`POST /internal/licence-revoked`). Der löscht daraufhin
-**alle** lokalen Freischaltungen dieses Kontos aus seinem Volume und
-leert seinen Zwischenspeicher — Premium ist dort also sofort weg, nicht
-erst nach fünf Minuten.
+Lizenz-Keys, wie sie der Template-Bot früher kannte, werden **nicht mehr
+ausgegeben**. Die Tabelle `db/premium.db` bleibt lesen, damit bestehende
+Einträge nicht verschwinden, und Admins können im Admin-Bereich weiter von
+Hand vergeben (`POST /premium/accounts/grant`). Ein Feld zum Eingeben eines
+Keys gibt es im Nutzer-Dashboard nicht mehr — ein Eingabefeld für Keys, die
+niemand mehr ausstellt, ist eine Sackgasse mit Cursor.
 
-Ohne `TEMPLATE_BOT_URL` entfällt nur die Sofortwirkung: der Widerruf
-greift dann, sobald der Template-Bot das nächste Mal nachfragt. Das
-Dashboard sagt dazu, welcher der beiden Fälle eingetreten ist.
+---
 
-> Hält jemand **zwei** gültige Lizenzen, wird beim Sperren einer davon
-> nichts gemeldet — die andere gilt ja weiter.
+## Was passiert, wenn es abläuft
 
-## Sperren, Freigeben, Löschen
+Der Server verliert die Premium-Funktionen, **Einstellungen bleiben
+stehen**. Das ist im Code so entschieden und im Admin-Dialog ausdrücklich
+wählbar, wenn ein Admin Premium entzieht:
 
-| Aktion | Wirkung | Umkehrbar |
-|---|---|---|
-| **Sperren** | Premium sofort weg, Zeile bleibt in der Liste | ja |
-| **Sperre aufheben** | Premium gilt sofort wieder | ja |
-| **Löschen** | Zeile verschwindet endgültig | **nein** |
-| **Aufräumen** | Ganze Gruppe löschen (gesperrt / abgelaufen / offen) | **nein** |
+* „Premium entziehen, Einstellungen behalten" — Standard.
+* „Premium-Einstellungen endgültig löschen" — löscht Design, Backups,
+  Server-Statistik, eigene Befehle, Ticket-KI-Daten, Abruf-Daten und
+  Speedrun-Daten dieses Servers.
 
-Ein „alles löschen" gibt es bewusst nicht — das würde die Zeilen
-mitnehmen, die gerade jemandem Premium geben.
+Der Inhaber des Servers bekommt in beiden Fällen ein Fenster im Dashboard,
+sonst merkt er den Wechsel erst, wenn etwas nicht mehr funktioniert.
 
-Bei **jeder** dieser Aktionen wird der Template-Bot benachrichtigt, damit
-sie sofort greift und nicht erst nach Ablauf seines Zwischenspeichers.
-Das gilt ausdrücklich auch fürs **Freigeben**: sonst stünde im Dashboard
-„aktiv", während der Bot noch bis zu fünf Minuten „nein" sagt.
+---
 
-## Die Premium-Rolle
+## Was beim Umzug passiert ist
 
-Unter **Admin → Bot Config → Premium Role** eine Rollen-ID eintragen.
-Wer eine gültige Lizenz hat, bekommt die Rolle auf dem Support-Server.
+Vorher gab es zwei getrennte Produkte (`template_bot` und `main_bot`) und
+daneben einen 7-Tage-Probezeitraum für Konten. Das Modell ist
+zusammengelegt:
 
-Abgeglichen wird alle 10 Minuten — nicht nur beim Einlösen. Eine Lizenz
-*endet* auch, und dabei löst nichts ein Ereignis aus: ohne Timer würde
-ein abgelaufener Kunde die Rolle für immer behalten.
+| Alt | Heute |
+|---|---|
+| Key pro Produkt einlösen | Anfrage, vom Team bestätigt |
+| Konto hat Premium, gilt überall | Konto hat drei Plätze |
+| 7-Tage-Probewoche über den Template-Bot | entfällt als eigener Weg |
+| `product="template_bot"` / `"main_bot"` | ein Produkt; alte Aufrufe werden darauf abgebildet |
 
-Drei Dinge gehen dabei erfahrungsgemäß schief, und alle drei werden im
-Dashboard getrennt gemeldet:
+Beim ersten Start nach dem Deploy widerruft `premium_membership.ensure()`
+alle alten `premium_keys` und leert `premium_guilds`. Wer vorher
+Template-Premium hatte, hat danach keines — so beschlossen. Die Zeilen
+bleiben in der Datenbank stehen (nur `revoked = 1`), damit sich nachvollziehen
+lässt, wer wann was hatte.
 
-- keine Rolle eingestellt
-- dem Bot fehlt „Rollen verwalten"
-- die Rolle steht **über** der Bot-Rolle — Discord verweigert das
+---
 
-## Wichtig: Keys sind nicht wiederherstellbar
-
-Keys werden **nur gehasht** gespeichert (HMAC-SHA256 mit Pepper). Die DM
-ist die einzige Kopie. Geht sie verloren, muss der Key gesperrt und ein
-neuer erstellt werden — auch wir können ihn nicht auslesen.
-
-Das ist Absicht: Ein Key, den man aus der Datenbank lesen kann, ist ein
-Key, den jeder lesen kann, der an die Datenbank kommt.
-
-## Nötige Variablen
-
-| Variable | Wo | Zweck |
-|---|---|---|
-| `PREMIUM_KEY_PEPPER` | Hauptbot | Zufälliger Wert, mit dem Keys gehasht werden. |
-| `PREMIUM_PARTNER_TOKEN` | Hauptbot **und** Template-Bot | Gemeinsames Geheimnis für die Abfrage. |
-| `PARTNER_BOT_CLIENT_ID` | Hauptbot | Client-ID des Template-Bots, für den Einladungslink. |
-| `TEMPLATE_BOT_URL` | Hauptbot | Adresse des Template-Bots. Ohne sie wirkt ein Widerruf erst nach ~5 Minuten. |
-| `PREMIUM_ROLE_ID` | Hauptbot (optional) | Rolle für Premium-Nutzer. Auch im Dashboard einstellbar. |
-| `HOME_GUILD_ID` | Hauptbot | Support-Server. Standard: `1530378233579704370`. |
-
-> ⚠️ **`PREMIUM_KEY_PEPPER` muss vor dem ersten Key gesetzt sein und darf
-> danach nie geändert werden.** Eine Änderung macht *alle* bisherigen
-> Keys ungültig. Das Dashboard weigert sich, solange der Wert fehlt.
-
-Einen Pepper erzeugen:
+## Prüfen
 
 ```bash
-python3 -c "import secrets; print(secrets.token_urlsafe(32))"
+cd bot
+python3 tests/test_premium_membership_v2.py
+python3 tests/test_premium_seite.py
+python3 tests/test_backup.py          # Grenzen am Backup-Beispiel
 ```
 
-## Schnittstelle für den Template-Bot
-
-> **Eingebaut.** Der Template-Bot fragt seit
-> [`9c5a3e3`](https://github.com/Fufi1925/University-Template) selbst nach
-> (`core/licence.py`). Es müssen dort nur noch `MAIN_BOT_URL` und
-> `PREMIUM_PARTNER_TOKEN` gesetzt werden.
->
-> Bleiben beide leer, gilt dort weiterhin nur der alte Master-Key.
-
-**Anfrage**
-
-```http
-GET https://<hauptbot-host>/api/v1/premium/check/<discord_user_id>
-X-Partner-Token: <PREMIUM_PARTNER_TOKEN>
-```
-
-**Antwort**
-
-```json
-{
-  "user_id": "1303627964734246944",
-  "product": "template_bot",
-  "premium": true,
-  "expires_at": 1788132016,
-  "lifetime": false
-}
-```
-
-- `premium` — das Einzige, worauf es ankommt.
-- `expires_at` — Unix-Zeit, oder `null` bei unbegrenzt.
-- `lifetime` — `true`, wenn der Key nie abläuft.
-
-Abgelaufene und gesperrte Keys liefern `premium: false`.
-
-> **Kein Dashboard-Key nötig.** Die restliche API verlangt
-> `Authorization: Bearer <DASHBOARD_API_KEY>`. Dieser eine Endpunkt nicht:
-> der Template-Bot ist ein anderes Programm und hat keinen Grund, den
-> Dashboard-Schlüssel zu kennen. Er authentifiziert sich ausschließlich
-> mit `X-Partner-Token`.
->
-> Die Ausnahme ist eng gefasst — nur `GET`, nur `/premium/check/…`, und nur
-> bei passendem Token. Jede andere Route braucht weiterhin den
-> Dashboard-Schlüssel.
-
-**Statuscodes**
-
-| Code | Bedeutung |
-|---|---|
-| `200` | Antwort wie oben. |
-| `401` | Token fehlt oder ist falsch. |
-| `503` | `PREMIUM_PARTNER_TOKEN` ist beim Hauptbot nicht gesetzt. |
-
-**So ist es im Template-Bot umgesetzt** (`core/licence.py`, gekürzt)
-
-```python
-import os
-import aiohttp
-
-MAIN_BOT_URL = os.getenv("MAIN_BOT_URL", "").rstrip("/")
-TOKEN = os.getenv("PREMIUM_PARTNER_TOKEN", "")
-
-
-async def has_premium(user_id: int) -> bool:
-    """
-    Whether this Discord account has premium.
-
-    Fails closed: if the main bot is unreachable nobody is granted
-    premium by accident. Cache this — do not call it on every message.
-    """
-    if not MAIN_BOT_URL or not TOKEN:
-        return False
-    url = f"{MAIN_BOT_URL}/api/v1/premium/check/{user_id}"
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(
-                url,
-                headers={"X-Partner-Token": TOKEN},
-                timeout=aiohttp.ClientTimeout(total=5),
-            ) as response:
-                if response.status != 200:
-                    return False
-                return bool((await response.json()).get("premium"))
-    except Exception:
-        return False
-```
-
-Zwei Eigenschaften, an denen dort alles hängt:
-
-- **Zwischenspeichern.** Antworten gelten 5 Minuten. Ein Aufruf pro Klick
-  wäre zu langsam — Discord verwirft Interaktionen nach 3 Sekunden.
-- **Im Zweifel nein.** Netzwerkfehler, 401, 503, unlesbare Antwort: alles
-  bedeutet „kein Premium". Ein Ausfall darf niemanden freischalten.
-
-Der Template-Bot prüft **zuerst seinen lokalen Store** (Master-Key) und
-erst danach hier. Eine bestehende Freischaltung gilt also weiter, auch
-wenn der Hauptbot gerade nicht erreichbar ist.
-
-## Was das Dashboard zeigt
-
-**Seitenleiste → Premium** (für jeden angemeldeten Nutzer, nicht nur für
-Admins — wer einen Key gekauft hat, ist kein Teammitglied):
-
-- **University Bot Premium** — „Coming Soon"
-- **Template-Bot Premium** — Status und Eingabefeld
-
-Zusätzlich unter **Admin → Premium** dieselben zwei Karten, darunter für
-das Team die Liste der ausgegebenen Keys mit Sperr-Knopf. Dort stehen nur
-Hashes, nie die Keys selbst.
-
-## Sicherheit
-
-- Keys liegen gehasht in `db/premium.db`, nicht im Klartext.
-- Beim Einlösen setzt der Dashboard-Proxy die Konto-ID **aus der
-  Sitzung**. Eine ID aus dem Browser wird ignoriert, sonst könnte man
-  Premium auf ein fremdes Konto buchen.
-- `/premium/check/...` ist über das Dashboard **nicht** erreichbar —
-  sonst könnte jeder eingeloggte Browser fremde Konten abfragen.
-- Das Partner-Token wird mit `hmac.compare_digest` verglichen, damit die
-  Laufzeit nichts über die richtigen Zeichen verrät.
+Die drei prüfen die Grenze (ein Platz pro Server, drei pro Konto,
+Automatik nur mit Premium) gegen die echten Routen — nicht gegen
+Textbausteine der Webseite.

@@ -1,30 +1,8 @@
-<div align="center">
+# dashboard/ — Web-Dashboard
 
-```
-███████╗██╗   ██╗██████╗  ██████╗ ██╗  ██╗
-╚══███╔╝╚██╗ ██╔╝██╔══██╗██╔═══██╗╚██╗██╔╝
-  ███╔╝  ╚████╔╝ ██████╔╝██║   ██║ ╚███╔╝ 
- ███╔╝    ╚██╔╝  ██╔══██╗██║   ██║ ██╔██╗ 
-███████╗   ██║   ██║  ██║╚██████╔╝██╔╝ ██╗
-╚══════╝   ╚═╝   ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═╝
-```
-
-<h3>University Bot Dashboard — Next.js Web Interface</h3>
-
-
-<p>
-  <a href="https://nextjs.org"><img src="https://img.shields.io/badge/Next.js-14+-000000?style=for-the-badge&logo=nextdotjs&logoColor=white"/></a>
-  <a href="https://typescriptlang.org"><img src="https://img.shields.io/badge/TypeScript-5+-3178C6?style=for-the-badge&logo=typescript&logoColor=white"/></a>
-  <a href="https://tailwindcss.com"><img src="https://img.shields.io/badge/Tailwind_CSS-3-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white"/></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-red?style=for-the-badge"/></a>
-</p>
-<p>
-  <a href="https://discord.gg/F3TedBAVZT"><img src="https://img.shields.io/badge/Discord-Join_Server-5865F2?style=for-the-badge&logo=discord&logoColor=white"/></a>
-  <a href="https://youtube.com/@University BotDevs"><img src="https://img.shields.io/badge/YouTube-University BotDevs-FF0000?style=for-the-badge&logo=youtube&logoColor=white"/></a>
-  <a href="https://github.com/University Bot"><img src="https://img.shields.io/badge/GitHub-University Bot-181717?style=for-the-badge&logo=github&logoColor=white"/></a>
-</p>
-
-</div>
+**University Bot** · Next.js 14 (App Router), TypeScript, Tailwind.
+Öffentliche Seiten, Server-Dashboard, Admin-Bereich — und der Proxy
+unter `app/api/bot/[...path]/`, der die Rechte prüft.
 
 ---
 
@@ -215,10 +193,10 @@ This URL is permanent — it never changes between restarts as long as the Cloud
 
 <p>
   <a href="https://discord.gg/F3TedBAVZT"><img src="https://img.shields.io/badge/Discord-Join_Server-5865F2?style=for-the-badge&logo=discord&logoColor=white"/></a>
-  <a href="https://youtube.com/@University BotDevs"><img src="https://img.shields.io/badge/YouTube-University BotDevs-FF0000?style=for-the-badge&logo=youtube&logoColor=white"/></a>
-  <a href="https://github.com/University Bot"><img src="https://img.shields.io/badge/GitHub-University Bot-181717?style=for-the-badge&logo=github&logoColor=white"/></a>
+  <a href="https://youtube.com/@UniversityBotDevs"><img src="https://img.shields.io/badge/YouTube-University%20Bot%20Devs-FF0000?style=for-the-badge&logo=youtube&logoColor=white"/></a>
+  <a href="https://github.com/Fufi1925/Oskar-Bot"><img src="https://img.shields.io/badge/GitHub-University%20Bot-181717?style=for-the-badge&logo=github&logoColor=white"/></a>
 </p>
 
-© 2026 University Bot Devs — MIT License
+© 2026 University Bot Devs — alle Rechte vorbehalten, siehe [LICENSE](../LICENSE)
 
 </div>

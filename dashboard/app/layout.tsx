@@ -15,6 +15,7 @@
  */
 
 import type { Metadata, Viewport } from "next";
+import { normalisiereMarke } from "@/lib/brand";
 import "./globals.css";
 
 import { Toaster } from "@/components/ui/sonner";
@@ -25,11 +26,18 @@ import { PublicFooter } from "@/components/public-footer";
 import { LanguageProvider } from "@/lib/i18n/LanguageContext";
 import { SUPPORT_INVITE } from "@/lib/legal";
 
-const brandName = process.env.NEXT_PUBLIC_BRAND_NAME || "University Bot";
+const brandName = normalisiereMarke(process.env.NEXT_PUBLIC_BRAND_NAME);
 const footerEmail = process.env.FOOTER_EMAIL || "fufi1925@proton.me";
 
 export const metadata: Metadata = {
-  title: `${brandName} - Ultimate Discord Bot`,
+  // Der Name allein, kein Werbe-Anhaengsel. Frueher stand hier
+  // „- Ultimate Discord Bot“ — eine erfundene Behauptung, die in
+  // jedem Browser-Tab und in jedem Suchergebnis stand. Unterseiten
+  // kriegen ihren eigenen Titel vorangestellt.
+  title: {
+    default: brandName,
+    template: `%s · ${brandName}`,
+  },
   description: "Advanced Discord community management and security.",
   icons: {
     icon: [

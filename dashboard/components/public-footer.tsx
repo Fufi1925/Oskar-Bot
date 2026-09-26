@@ -10,6 +10,7 @@
  * Arbeitsnavigation bis an den unteren Rand.
  */
 
+import { normalisiereMarke } from "@/lib/brand";
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -21,7 +22,7 @@ import {
   MessageCircle,
 } from "lucide-react";
 
-const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || "University Bot";
+const BRAND = normalisiereMarke(process.env.NEXT_PUBLIC_BRAND_NAME);
 const TIKTOK_URL =
   "https://www.tiktok.com/@university6421?_r=1&_t=ZG-99Xn7K24Gfp";
 
@@ -207,7 +208,7 @@ export function PublicFooter({
         <div className="mt-12 flex flex-col gap-5 border-t border-slate-800/80 pt-7 sm:flex-row sm:items-center sm:justify-between">
           <p className="flex flex-wrap items-center gap-1.5 text-[13px] text-slate-600">
             Erstellt mit <Heart className="h-4 w-4 fill-rose-500/20 text-rose-400" />
-            <span className="font-semibold text-slate-400">vom University-Team</span>
+            <span className="font-semibold text-slate-400">vom University Bot Team</span>
             <span aria-hidden>·</span>
             <span>&copy; {2026}</span>
           </p>

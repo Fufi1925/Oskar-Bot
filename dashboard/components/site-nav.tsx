@@ -32,8 +32,9 @@ import { LanguageSwitcher } from "@/components/language-switcher";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { SUPPORT_INVITE } from "@/lib/legal";
 import { cn } from "@/lib/utils";
+import { normalisiereMarke } from "@/lib/brand";
 
-const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || "University Bot";
+const BRAND = normalisiereMarke(process.env.NEXT_PUBLIC_BRAND_NAME);
 
 /** Die Einladung des Bots. Ohne Client-ID führt der Link ins Leere,
  *  deshalb fällt er dann auf den Support-Server zurück. */

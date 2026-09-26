@@ -7,8 +7,8 @@
 ## ⚠️ ZUERST: Volume anlegen (sonst gehen alle Daten verloren)
 
 Railway baut den Container bei **jedem Deploy neu**. Ohne Volume sind
-danach alle 61 Datenbanken weg — jeder Server verliert jede Einstellung,
-jedes Mal.
+danach alle Dateien unter `db/` weg — über 60 Datenbanken, und jeder
+Server verliert jede Einstellung, jedes Mal.
 
 **Das musst du einmal im Railway-Dashboard klicken:**
 
@@ -62,6 +62,9 @@ dreien heißt es mehr:
 | `db/cookie_consent.db` | Der Nachweis nach Art. 7 Abs. 1 DSGVO ist weg. Die Besucher sehen den Hinweis trotzdem nicht wieder (ihr Cookie liegt in ihrem Browser) — es lässt sich dann nur nicht mehr belegen, dass sie ihn gesehen haben. |
 | `db/guild_history.db` | Der Verlauf beginnt bei null; die Diagramme sind nach jedem Deploy leer. |
 | `db/trusted_bots.db` | Die im Dashboard eingetragenen vertrauten Bots sind weg — der Anti-Nuke bannt sie beim nächsten Mal wieder. Die drei eingebauten und alles aus `TRUSTED_BOTS` bleiben. |
+| `db/premium_membership.db` | **Konten und ihre drei Serverplätze.** Jeder Käufer wäre Premium-los, ohne dass eine Buchung fehlt — der sichere Weg, Support-Fälle zu produzieren. |
+| `db/guild_backup.db` | Alle Sicherungen. Wer wiederherstellen will, findet nichts mehr vor — und der einzige Weg zurück führt über den Server, der gerade erst kaputt war. |
+| `db/support_notice.db` | Der 7-Tage-Abstand für die Support-Einladung ist weg: jeder sieht das Fenster nach jedem Deploy sofort wieder. |
 
 ### Ein Volume ist kein Backup
 
@@ -158,7 +161,7 @@ Gehe zu deinem Service → **Variables** und füge ALLE Variablen aus `.env.exam
 | `GROQ_TICKET_AI_KEY` | Separater GroqCloud-Key für den privaten Ticketassistenten | Optional/Pilot |
 | `GROQ_TICKET_AI_MODEL` | GroqCloud-Modell für Ticket-Antworten, Standard `openai/gpt-oss-120b` | Optional |
 | `API_ENABLED` | `true` | ✅ |
-| `brand_name` | `University Bot` | ✅ |
+| `BRAND_NAME` | Der Name des Bots. Nicht setzen, außer der Name soll wirklich ein anderer sein: Schreibweisen wie `Universitätsbot` oder `UniversityBot` führt der Bot auf `University Bot` zurück. | Optional |
 | `TRUSTED_BOTS` | Discord-IDs bekannter Bots, die der Anti-Nuke nie angreift — komma-getrennt | Optional |
 
 ### `TRUSTED_BOTS` — Bots, die der Anti-Nuke in Ruhe lässt
@@ -243,7 +246,7 @@ npm install
 npm run build
 npm run start
 
-# 4. Öffne http://localhost:8000
+# 4. Dashboard: http://localhost:3000   (API und Bot laufen auf 8080)
 ```
 
 ---

@@ -4,7 +4,7 @@
 # ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
 # ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
 # ║                                                                  ║
-# ║            © 2026 UniversityBot Devs — All Rights Reserved              ║
+# ║            © 2026 University Bot Devs — All Rights Reserved              ║
 # ║                                                                  ║
 # ║   discord  ──  https://discord.gg/F3TedBAVZT                      ║
 # ║   youtube  ──  https://youtube.com/@UniversityBotDevs                   ║

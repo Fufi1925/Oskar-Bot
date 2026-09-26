@@ -44,7 +44,7 @@ def main() -> int:
     check("auf dem Handy stehen die Bereiche untereinander",
           "grid gap-12" in footer and "lg:grid-cols-[" in footer)
     check("die gewünschte Team-Zeile ist vorhanden",
-          "vom University-Team" in footer and "&copy; {2026}" in footer)
+          "vom University Bot Team" in footer and "&copy; {2026}" in footer)
     check("Discord, Mail und das gewünschte TikTok-Profil sind verlinkt",
           "supportInvite" in footer and "TIKTOK_URL" in footer
           and "mailto:" in footer)
