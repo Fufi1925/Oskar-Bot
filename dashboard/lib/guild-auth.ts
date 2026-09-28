@@ -56,6 +56,16 @@ export function isConfiguredOwner(userId?: string | null): boolean {
   return getConfiguredOwnerIds().includes(String(userId).trim());
 }
 
+/** Strict OWNER_IDS check for the per-owner bypass editor (ADMIN_IDS excluded). */
+export function isOwnerId(userId?: string | null): boolean {
+  if (!userId) return false;
+  return (process.env.OWNER_IDS || "")
+    .split(",")
+    .map((id) => id.trim())
+    .filter(Boolean)
+    .includes(String(userId).trim());
+}
+
 interface DiscordPartialGuild {
   id: string;
   name: string;
@@ -291,6 +301,8 @@ export async function fetchDelegatedGuilds(userId: string): Promise<DelegatedGui
 export interface TeamAccess {
   user_id: string;
   is_owner: boolean;
+  is_configured_owner?: boolean;
+  owner_privileges?: Record<string, boolean>;
   /** Only owners may add or remove other owners and admins. */
   can_manage_owners: boolean;
   roles: Array<{ key: string; label: string; color: string; rank: number }>;
@@ -307,10 +319,13 @@ const teamCache = new Map<string, { access: TeamAccess; expires: number }>();
 const TEAM_CACHE_TTL_MS = 30_000;
 
 /** Fetches the dashboard roles of a user from the bot. */
-export async function fetchTeamAccess(userId: string): Promise<TeamAccess | null> {
+export async function fetchTeamAccess(
+  userId: string,
+  force = false,
+): Promise<TeamAccess | null> {
   const now = Date.now();
   const cached = teamCache.get(userId);
-  if (cached && cached.expires > now) return cached.access;
+  if (!force && cached && cached.expires > now) return cached.access;
 
   try {
     const headers: Record<string, string> = { "Content-Type": "application/json" };

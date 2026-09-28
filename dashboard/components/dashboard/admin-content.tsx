@@ -7,7 +7,7 @@ import {
   Hash, Volume2, FolderPlus, Pencil, Trash2, Copy,
   Unlock, Timer, MessageSquareX, Bell, BellOff, SearchCheck, Bot, UserCog, UserSearch,
   Webhook, Link, ScrollText, BarChart4, ClipboardList, Terminal, Gem, Gauge, Bug,
-  AtSign, Sparkles, Inbox, Cookie, BotMessageSquare, KeyRound, Lightbulb, BrainCircuit, LifeBuoy, Trophy,
+  AtSign, Sparkles, Inbox, Cookie, BotMessageSquare, KeyRound, Lightbulb, BrainCircuit, LifeBuoy, Trophy, Crown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
@@ -27,6 +27,7 @@ import { TemplatesAdmin } from "@/components/dashboard/templates-admin";
 import { DataAge } from "@/components/ui/data-age";
 import { StatValue } from "@/components/ui/stat-value";
 import { OwnerAccessPanel } from "@/components/dashboard/owner-access-panel";
+import { OwnerPrivilegesPanel } from "@/components/dashboard/owner-privileges-panel";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { ReportsPanel } from "@/components/dashboard/reports-panel";
@@ -54,7 +55,7 @@ import { SupportRankingsAdmin } from "@/components/dashboard/support-rankings-ad
 import { HomepageServersAdmin } from "@/components/dashboard/homepage-servers-admin";
 
 
-type TabId = "members" | "channels" | "server" | "scans" | "broadcast" | "system" | "features" | "health" | "team" | "access" | "reports" | "audit" | "approvals" | "botsettings" | "backups" | "warnings" | "usage" | "dashusers" | "servers" | "premium" | "speedrun" | "tester" | "pingreactions" | "templates" | "userlookup" | "webapply" | "cookies" | "privacy" | "trustedbots" | "designunlock" | "beta" | "ideas" | "ticketai" | "firewall" | "support" | "support-rankings" | "homepage-servers";
+type TabId = "members" | "channels" | "server" | "scans" | "broadcast" | "system" | "features" | "health" | "team" | "access" | "owner" | "reports" | "audit" | "approvals" | "botsettings" | "backups" | "warnings" | "usage" | "dashusers" | "servers" | "premium" | "speedrun" | "tester" | "pingreactions" | "templates" | "userlookup" | "webapply" | "cookies" | "privacy" | "trustedbots" | "designunlock" | "beta" | "ideas" | "ticketai" | "firewall" | "support" | "support-rankings" | "homepage-servers";
 type MemberAction = "ban" | "kick" | "mute" | "unmute";
 
 type QuickAction = {
@@ -79,6 +80,7 @@ const tabs: Array<{ id: TabId; label: string; icon: any }> = [
   { id: "health", label: "Zustand", icon: Activity },
   { id: "firewall", label: "Firewall", icon: ShieldAlert },
   { id: "team", label: "Team", icon: Users },
+  { id: "owner", label: "Owner", icon: Crown },
   { id: "dashusers", label: "Dashboard-Nutzer", icon: UserCog },
   { id: "userlookup", label: "Nutzer suchen", icon: UserSearch },
   { id: "servers", label: "Alle Server", icon: Globe },
@@ -181,7 +183,7 @@ const TAB_GROUPS: TabGroup[] = [
   // Einzelne Nutzer finden, prüfen und moderieren.
   { name: "Nutzer & Moderation", shortName: "Moderation", icon: ShieldAlert, ids: ["members", "userlookup", "warnings", "scans"], color: "text-rose-400", iconBg: "bg-rose-500/10", active: "border-rose-500/25 bg-rose-500/10" },
   // Interne Rollen, Dashboard-Zugriffe und sensible Freigaben.
-  { name: "Team & Zugriffe", shortName: "Team", icon: Users, ids: ["team", "dashusers", "access", "approvals"], color: "text-blue-400", iconBg: "bg-blue-500/10", active: "border-blue-500/25 bg-blue-500/10" },
+  { name: "Team & Zugriffe", shortName: "Team", icon: Users, ids: ["team", "owner", "dashusers", "access", "approvals"], color: "text-blue-400", iconBg: "bg-blue-500/10", active: "border-blue-500/25 bg-blue-500/10" },
   // Eingänge aus der Community, die geprüft oder entschieden werden müssen.
   { name: "Bewerbungen & Community", shortName: "Community", icon: Inbox, ids: ["webapply", "tester", "beta", "ideas"], color: "text-amber-400", iconBg: "bg-amber-500/10", active: "border-amber-500/25 bg-amber-500/10" },
   // Globales Verhalten und automatische Bot-Reaktionen.
@@ -331,12 +333,20 @@ function TextInput({ label, value, setValue, placeholder, type = "text" }: { lab
   );
 }
 
-export function AdminContent({ configuredOwner = false }: { configuredOwner?: boolean }) {
+export function AdminContent({
+  configuredOwner = false,
+  ownerId = false,
+}: {
+  configuredOwner?: boolean;
+  ownerId?: boolean;
+}) {
   const { data: session } = useSession();
   const router = useRouter();
   // Own access, used to hide tabs the user has no permission for.
   const [access, setAccess] = useState<{
     is_owner: boolean;
+    is_configured_owner?: boolean;
+    owner_privileges?: Record<string, boolean>;
     permissions: string[];
     highest_rank: number;
     roles: Array<{ key: string; label: string }>;
@@ -532,7 +542,13 @@ export function AdminContent({ configuredOwner = false }: { configuredOwner?: bo
     // Ein leerer Zustand ist die ehrlichere Zwischenstufe: er sagt
     // „wird geprüft“ statt „du darfst das alles“.
     if (!access) return [];
-    if (access.is_owner) return configuredOwner ? tabs : tabs.filter((tab) => !["servers", "homepage-servers"].includes(tab.id));
+    if (access.is_owner) {
+      return tabs.filter((tab) => {
+        if (tab.id === "owner") return ownerId;
+        if (["servers", "homepage-servers"].includes(tab.id)) return configuredOwner;
+        return true;
+      });
+    }
 
     // Wer gar keine Rolle hat, sieht keinen einzigen Reiter. Die Seite
     // selbst leitet solche Leute schon weg (`app/dashboard/admin/
@@ -561,7 +577,7 @@ export function AdminContent({ configuredOwner = false }: { configuredOwner?: bo
       if (tab.id === "support" || tab.id === "support-rankings") return (access.highest_rank ?? 0) > 90;
       // Owner/admin management is only for owners and admins, never for
       // people who merely hold a team role.
-      if (["access", "ideas", "firewall", "privacy", "trustedbots"].includes(tab.id)) return false;
+      if (["owner", "access", "ideas", "firewall", "privacy", "trustedbots"].includes(tab.id)) return false;
       // Die Vorlagen-Verwaltung ebenso. Sie zeigt jeden Zugangscode im
       // Klartext, auch den von privaten Vorlagen fremder Server. Der
       // Proxy laesst dorthin nur globale Admins durch -- ohne diese
@@ -574,7 +590,7 @@ export function AdminContent({ configuredOwner = false }: { configuredOwner?: bo
       if (!required) return false;
       return access.permissions.includes(required);
     });
-  }, [access, configuredOwner]);
+  }, [access, configuredOwner, ownerId]);
 
   // If the active tab disappeared, fall back to the first one available.
   useEffect(() => {
@@ -903,6 +919,9 @@ export function AdminContent({ configuredOwner = false }: { configuredOwner?: bo
       {activeTab === "tester" && <TesterPanel />}
       {activeTab === "webapply" && <ApplicationsAdmin />}
       {activeTab === "ideas" && <IdeasAdmin />}
+      {activeTab === "owner" && ownerId && (
+        <OwnerPrivilegesPanel currentUserId={(session?.user as any)?.id || ""} />
+      )}
       {activeTab === "access" && <OwnerAccessPanel currentUserId={(session?.user as any)?.id} />}
       {/* Nutzung: erst der Verlauf über alle Server, dann die
           Aufschlüsselung nach Befehl. Die Reihenfolge ist die der

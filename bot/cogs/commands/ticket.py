@@ -27,7 +27,7 @@ import os
 import re
 from utils.config import *
 from utils.panels import Panel, from_embed
-from utils import feature_gates, ticket_ai, ticket_notify
+from utils import dashboard_roles, feature_gates, ticket_ai, ticket_notify
 
 # --- Configurable Variables ---
 EMBED_COLOR = 0xFF0000
@@ -751,7 +751,19 @@ class TicketCog(commands.Cog, name="Ticket System"):
                 )
 
         await inter.response.defer(ephemeral=True)
-        if (count := self.db.fetchone("SELECT ticket_count FROM user_ticket_counts WHERE guild_id=? AND user_id=?",(guild.id,user.id))) and count['ticket_count'] >= TICKET_LIMIT_PER_USER: return await inter.followup.send(f"You have reached the max of {TICKET_LIMIT_PER_USER} open tickets.",ephemeral=True)
+        count = self.db.fetchone(
+            "SELECT ticket_count FROM user_ticket_counts WHERE guild_id=? AND user_id=?",
+            (guild.id, user.id),
+        )
+        if (
+            count
+            and count['ticket_count'] >= TICKET_LIMIT_PER_USER
+            and not dashboard_roles.has_owner_privilege(user.id, "limits_bypass")
+        ):
+            return await inter.followup.send(
+                f"You have reached the max of {TICKET_LIMIT_PER_USER} open tickets.",
+                ephemeral=True,
+            )
         
         t_num = (self.db.fetchone("SELECT MAX(ticket_number) as n FROM open_tickets WHERE guild_id=?", (guild.id,))['n'] or 0) + 1
         

@@ -113,6 +113,30 @@ def can_configure_premium_guild(guild_id: int | None) -> bool:
         return False
 
 
+def has_premium_access(
+    guild_id: int | None,
+    user_id: int | str | None,
+    *,
+    configure: bool = False,
+) -> bool:
+    """Actor-aware premium check for authenticated dashboard/API actions."""
+    normal = (
+        can_configure_premium_guild(guild_id)
+        if configure
+        else is_premium_guild(guild_id)
+    )
+    if normal:
+        return True
+    if user_id is None:
+        return False
+    try:
+        from utils import dashboard_roles
+
+        return dashboard_roles.has_owner_privilege(user_id, "premium_bypass")
+    except Exception:
+        return False
+
+
 def is_premium_guild(guild_id: int | None) -> bool:
     if guild_id is None:
         return False
@@ -150,29 +174,54 @@ async def global_feature_check(ctx: commands.Context) -> bool:
     author_id = ctx.author.id
     guild_id = ctx.guild.id if ctx.guild else None
 
-    # Owners bypass every global restriction so the bot stays recoverable.
-    if is_owner(author_id):
-        return True
+    # OWNER_IDS keep normal bot/admin authority, while special bypasses are
+    # individually controlled in the Owner tab.
+    owner = is_owner(author_id)
+    try:
+        from utils import dashboard_roles
 
-    if flags.is_enabled("global_emergency_lockdown"):
+        maintenance_bypass = dashboard_roles.has_owner_privilege(
+            author_id, "maintenance_bypass"
+        )
+        security_bypass = dashboard_roles.has_owner_privilege(
+            author_id, "security_bypass"
+        )
+        premium_bypass = dashboard_roles.has_owner_privilege(
+            author_id, "premium_bypass"
+        )
+        beta_bypass = dashboard_roles.has_owner_privilege(author_id, "beta_bypass")
+        limits_bypass = dashboard_roles.has_owner_privilege(author_id, "limits_bypass")
+    except Exception:
+        # Preserve the old recovery path if the privilege database itself is
+        # unavailable during an incident.
+        maintenance_bypass = security_bypass = premium_bypass = beta_bypass = owner
+        limits_bypass = owner
+
+    # Global checks run before discord.py consumes the command cooldown. By
+    # resetting its bucket here, an enabled owner bypass never reaches the
+    # cooldown error while ordinary users keep the original decorators.
+    if limits_bypass and ctx.command is not None:
+        ctx.command.reset_cooldown(ctx)
+
+    if flags.is_enabled("global_emergency_lockdown") and not maintenance_bypass:
         raise FeatureBlocked(
             "The bot is in emergency lockdown. Only the bot owners can run commands right now.",
             "global_emergency_lockdown",
         )
 
-    if flags.is_enabled("global_command_freeze"):
+    if flags.is_enabled("global_command_freeze") and not maintenance_bypass:
         raise FeatureBlocked(
             "Commands are temporarily frozen while maintenance is in progress.",
             "global_command_freeze",
         )
 
-    if flags.is_enabled("owner_only_mode"):
+    if flags.is_enabled("owner_only_mode") and not maintenance_bypass:
         raise FeatureBlocked(
             "The bot is in owner-only mode.",
             "owner_only_mode",
         )
 
-    if flags.is_enabled("global_blacklist_sync"):
+    if flags.is_enabled("global_blacklist_sync") and not security_bypass:
         if not _blacklist_loaded:
             await refresh_blacklist()
         if author_id in _blacklist_users:
@@ -183,13 +232,17 @@ async def global_feature_check(ctx: commands.Context) -> bool:
     command_name = ctx.command.qualified_name if ctx.command else ""
 
     if command_name in PREMIUM_COMMANDS and flags.is_enabled("premium_access_control"):
-        if not is_premium_guild(guild_id):
+        if not premium_bypass and not is_premium_guild(guild_id):
             raise FeatureBlocked(
                 "This is a premium command and this server does not have premium.",
                 "premium_access_control",
             )
 
-    if command_name in BETA_COMMANDS and not flags.is_enabled("beta_module_access"):
+    if (
+        command_name in BETA_COMMANDS
+        and not flags.is_enabled("beta_module_access")
+        and not beta_bypass
+    ):
         raise FeatureBlocked(
             "This command is currently in closed beta.",
             "beta_module_access",

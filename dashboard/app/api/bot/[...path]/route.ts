@@ -202,9 +202,11 @@ async function authorize(
       return { ok: false, response: deny(400, "Invalid guild id.") };
     }
     if (await ownsGuildOnDiscord(guildId)) return { ok: true };
+    const team = await fetchTeamAccess(session.user.id, true);
+    if (team?.owner_privileges?.guild_owner_bypass) return { ok: true };
     return {
       ok: false,
-      response: deny(403, "Only the Discord server owner may manage dashboard access."),
+      response: deny(403, "Only the Discord server owner or an OWNER_ID with Inhaber-Bypass may manage dashboard access."),
     };
   }
 
@@ -230,7 +232,9 @@ async function authorize(
       const guildId = rest[1] ?? "";
       if (!/^\d{17,20}$/.test(guildId)) return { ok: false, response: deny(400, "Invalid guild id.") };
       if (await ownsGuildOnDiscord(guildId)) return { ok: true };
-      return { ok: false, response: deny(403, "Only the actual Discord server owner may answer support requests.") };
+      const team = await fetchTeamAccess(session.user.id, true);
+      if (team?.owner_privileges?.guild_owner_bypass) return { ok: true };
+      return { ok: false, response: deny(403, "Only the actual Discord server owner or an OWNER_ID with Inhaber-Bypass may answer support requests.") };
     }
 
     return { ok: false, response: deny(404, "Unknown support action.") };
@@ -952,9 +956,11 @@ async function authorize(
         return { ok: false, response: deny(401, "Not signed in.") };
       }
       if (await ownsGuildOnDiscord(guildId)) return { ok: true };
+      const team = await fetchTeamAccess(session.user.id, true);
+      if (team?.owner_privileges?.guild_owner_bypass) return { ok: true };
       return {
         ok: false,
-        response: deny(403, "Nur der tatsächliche Discord-Serverinhaber darf User Pull verwalten."),
+        response: deny(403, "Nur der tatsächliche Discord-Serverinhaber oder eine OWNER_ID mit Inhaber-Bypass darf User Pull verwalten."),
       };
     }
 
@@ -1512,6 +1518,17 @@ async function authorize(
         };
       }
       return { ok: true };
+    }
+
+    // Per-owner bypasses are stricter than ordinary global admin access:
+    // only IDs explicitly listed in OWNER_IDS may see or change them.
+    if (resource === "owner-privileges") {
+      const access = await fetchTeamAccess(session.user.id);
+      if (access?.is_configured_owner) return { ok: true };
+      return {
+        ok: false,
+        response: deny(403, "Only configured OWNER_IDS may manage owner bypasses."),
+      };
     }
 
     // Owner and admin management is the highest privilege in the system:

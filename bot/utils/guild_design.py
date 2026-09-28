@@ -253,4 +253,11 @@ async def may_edit(db: aiosqlite.Connection, guild, user_id: int | str) -> bool:
             return True
     except (TypeError, ValueError):
         pass
+    try:
+        from utils import dashboard_roles
+
+        if dashboard_roles.has_owner_privilege(user_id, "guild_owner_bypass"):
+            return True
+    except Exception:
+        pass
     return await is_unlocked(db, int(guild.id))

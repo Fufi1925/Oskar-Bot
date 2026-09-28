@@ -38,7 +38,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from api.db_manager import db_manager
 from api.dependencies import get_bot, get_bot_loop, run_on_bot_loop
-from utils import feature_audit, feature_gates
+from utils import dashboard_roles, feature_audit, feature_gates
 from utils import emoji as bot_emoji
 from utils import verify_store as store
 from utils.panels import Panel, StatusCard
@@ -216,12 +216,17 @@ async def _reload(bot, guild_id: int) -> None:
 
 
 def _owner_or_403(guild, actor: str):
-    if not str(actor or "").isdigit() or int(actor) != int(getattr(guild, "owner_id", 0)):
-        raise HTTPException(status_code=403, detail="Nur der tatsächliche Discord-Serverinhaber darf User Pull verwalten.")
+    actor_id = str(actor or "")
+    actual_owner = actor_id.isdigit() and int(actor_id) == int(getattr(guild, "owner_id", 0))
+    owner_bypass = dashboard_roles.has_owner_privilege(actor_id, "guild_owner_bypass")
+    if not actual_owner and not owner_bypass:
+        raise HTTPException(status_code=403, detail="Nur der tatsächliche Discord-Serverinhaber oder ein Owner mit Inhaber-Bypass darf User Pull verwalten.")
     # Pull is entirely guild-scoped Premium: opening its data, enabling the
     # OAuth scope, configuring a target and moving members all use this one
     # guard. A UI lock alone would be bypassable with a direct API request.
-    if not feature_gates.can_configure_premium_guild(getattr(guild, "id", None)):
+    if not feature_gates.has_premium_access(
+        getattr(guild, "id", None), actor_id, configure=True
+    ):
         raise HTTPException(status_code=402, detail="User Pull benötigt Premium auf diesem Server.")
 
 

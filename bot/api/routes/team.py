@@ -268,6 +268,50 @@ async def revoke_all_roles(user_id: str, actor: str = ""):
     return {"status": "success", "user_id": user_id, "removed": count}
 
 
+# ── Owner-only special bypasses ───────────────────────────────────────────
+
+
+@router.get("/owner-privileges", summary="Special bypasses of configured owners")
+async def list_owner_privileges(
+    actor: str = "", bot: "universitybot" = Depends(get_bot)
+):
+    await roles.load()
+    if str(actor) not in roles.configured_owner_ids():
+        raise HTTPException(status_code=403, detail="Only OWNER_IDS may open this tab.")
+
+    entries = []
+    for user_id in sorted(roles.configured_owner_ids()):
+        user = bot.get_user(int(user_id)) if user_id.isdigit() else None
+        entries.append({
+            "user_id": user_id,
+            "username": str(user) if user else None,
+            "avatar": str(user.display_avatar.url) if user else None,
+            "privileges": roles.owner_privileges(user_id),
+        })
+    return {"owners": entries, "keys": list(roles.OWNER_PRIVILEGE_KEYS)}
+
+
+@router.patch(
+    "/owner-privileges/{user_id}", summary="Update special bypasses of one owner"
+)
+async def update_owner_privileges(user_id: str, data: dict):
+    await roles.load()
+    actor = str(data.get("actor", "")).strip()
+    if actor not in roles.configured_owner_ids():
+        raise HTTPException(status_code=403, detail="Only OWNER_IDS may change bypasses.")
+    try:
+        privileges = await roles.set_owner_privileges(
+            user_id, data.get("privileges") or {}, updated_by=actor
+        )
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+
+    await feature_audit.log_action(
+        "owner_privileges_updated", actor=actor, detail=str(user_id)
+    )
+    return {"status": "success", "user_id": str(user_id), "privileges": privileges}
+
+
 # ── Owners and admins ─────────────────────────────────────────────────────
 
 
@@ -354,6 +398,8 @@ async def get_own_access(user_id: str):
     return {
         "user_id": user_id,
         "is_owner": roles.is_owner(user_id),
+        "is_configured_owner": str(user_id) in roles.configured_owner_ids(),
+        "owner_privileges": roles.owner_privileges(user_id),
         "can_manage_owners": roles.can_manage_owners(user_id),
         "roles": [
             {"key": r.key, "label": r.label, "color": r.color, "rank": r.rank}

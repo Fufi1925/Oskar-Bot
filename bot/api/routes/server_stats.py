@@ -24,9 +24,12 @@ def _guild_or_404(bot, guild_id: int):
     return guild
 
 
-def _has_premium(guild_id: int, *, configure: bool = False) -> bool:
-    return (feature_gates.can_configure_premium_guild(guild_id) if configure
-            else feature_gates.is_premium_guild(guild_id))
+def _has_premium(
+    guild_id: int, actor: str = "", *, configure: bool = False
+) -> bool:
+    return feature_gates.has_premium_access(
+        guild_id, actor, configure=configure
+    )
 
 def _payload(guild, settings: dict, *, premium: bool) -> dict:
     members = list(getattr(guild, "members", ()) or ())
@@ -71,7 +74,7 @@ async def get_settings(
     guild_id: int, actor: str = "", bot: "universitybot" = Depends(get_bot)
 ):
     guild = _guild_or_404(bot, guild_id)
-    premium = _has_premium(guild_id)
+    premium = _has_premium(guild_id, actor)
     return _payload(guild, await store.get(guild_id), premium=premium)
 
 
@@ -86,7 +89,7 @@ async def patch_settings(
         raise HTTPException(400, "Keine Server-Stats-Einstellung übermittelt.")
 
     actor = str(data.get("actor") or "")
-    premium = _has_premium(guild_id, configure=True)
+    premium = _has_premium(guild_id, actor, configure=True)
     if not premium and any(
         updates.get(f"{kind}_enabled") for kind in store.PREMIUM_KINDS
     ):

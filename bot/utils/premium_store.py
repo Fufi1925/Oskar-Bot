@@ -365,17 +365,22 @@ def status(user_id: int | str, product: str = PRODUCT) -> dict[str, Any]:
     # utils/, und utils/__init__ importiert wiederum diese Datei --
     # oben stuende ein Ringschluss.
     tester = False
+    owner_bypass = False
     if not active:
         try:
             from utils import dashboard_roles
 
             tester = dashboard_roles.is_tester(user_id)
+            owner_bypass = dashboard_roles.has_owner_privilege(
+                user_id, "premium_bypass"
+            )
         except Exception:
             # Eine kaputte Rollenabfrage darf niemandem Premium
             # wegnehmen, den er bezahlt hat -- und keinem geben.
             tester = False
+            owner_bypass = False
 
-    if tester:
+    if tester or owner_bypass:
         active = True
         lifetime = True
 
@@ -387,6 +392,7 @@ def status(user_id: int | str, product: str = PRODUCT) -> dict[str, Any]:
         # anzeigen kann -- und der Nutzer nicht glaubt, er haette
         # bezahlt.
         "via_tester": tester,
+        "via_owner_bypass": owner_bypass,
         # Damit die Oberflaeche „7 Tage kostenlos" statt „Premium"
         # schreiben kann -- und der Nutzer weiss, dass es endet.
         "via_trial": trial is not None,

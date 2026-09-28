@@ -566,6 +566,17 @@ _loaded = False
 # Owners/admins stored in the database: user_id -> record
 _owner_cache: dict[str, dict] = {}
 
+OWNER_PRIVILEGE_KEYS = (
+    "guild_owner_bypass",
+    "premium_bypass",
+    "beta_bypass",
+    "maintenance_bypass",
+    "security_bypass",
+    "limits_bypass",
+)
+# OWNER_IDS only (not ADMIN_IDS) -> explicitly selected special bypasses.
+_owner_privilege_cache: dict[str, dict[str, bool]] = {}
+
 
 async def _ensure_tables(db: aiosqlite.Connection) -> None:
     await db.execute(
@@ -588,6 +599,18 @@ async def _ensure_tables(db: aiosqlite.Connection) -> None:
         " added_at INTEGER DEFAULT 0,"
         " note TEXT DEFAULT '')"
     )
+    await db.execute(
+        "CREATE TABLE IF NOT EXISTS dashboard_owner_privileges ("
+        " user_id TEXT PRIMARY KEY,"
+        " guild_owner_bypass INTEGER NOT NULL DEFAULT 1,"
+        " premium_bypass INTEGER NOT NULL DEFAULT 1,"
+        " beta_bypass INTEGER NOT NULL DEFAULT 1,"
+        " maintenance_bypass INTEGER NOT NULL DEFAULT 1,"
+        " security_bypass INTEGER NOT NULL DEFAULT 1,"
+        " limits_bypass INTEGER NOT NULL DEFAULT 1,"
+        " updated_by TEXT DEFAULT '',"
+        " updated_at INTEGER DEFAULT 0)"
+    )
     await db.commit()
 
 
@@ -602,6 +625,7 @@ async def load(force: bool = False) -> None:
         os.makedirs("db", exist_ok=True)
         entries: dict[str, list[Assignment]] = {}
         owners: dict[str, dict] = {}
+        owner_privileges: dict[str, dict[str, bool]] = {}
         try:
             async with db_paths.connect(DB_PATH) as db:
                 await _ensure_tables(db)
@@ -636,6 +660,16 @@ async def load(force: bool = False) -> None:
                             "added_at": int(added_at or 0),
                             "note": note or "",
                         }
+
+                columns = ", ".join(OWNER_PRIVILEGE_KEYS)
+                async with db.execute(
+                    f"SELECT user_id, {columns} FROM dashboard_owner_privileges"
+                ) as cursor:
+                    async for row in cursor:
+                        owner_privileges[str(row[0])] = {
+                            key: bool(row[index + 1])
+                            for index, key in enumerate(OWNER_PRIVILEGE_KEYS)
+                        }
         except Exception as exc:
             print(f"[dashboard_roles] load failed: {exc}")
             _loaded = True
@@ -645,6 +679,8 @@ async def load(force: bool = False) -> None:
         _cache.update(entries)
         _owner_cache.clear()
         _owner_cache.update(owners)
+        _owner_privilege_cache.clear()
+        _owner_privilege_cache.update(owner_privileges)
         _loaded = True
 
 
@@ -656,6 +692,65 @@ def env_owner_ids() -> set[str]:
     ids = {part.strip() for part in admin_env.split(",") if part.strip()}
     ids.update(OWNER_IDS_STR)
     return ids
+
+
+def configured_owner_ids() -> set[str]:
+    """Only IDs from OWNER_IDS; ADMIN_IDS are deliberately excluded."""
+    from utils.config import OWNER_IDS_STR
+
+    return {str(user_id) for user_id in OWNER_IDS_STR}
+
+
+def owner_privileges(user_id: str) -> dict[str, bool]:
+    uid = str(user_id)
+    if uid not in configured_owner_ids():
+        return {key: False for key in OWNER_PRIVILEGE_KEYS}
+    # Existing owners historically bypassed every special gate. Keeping all
+    # switches on until a row is saved prevents a deployment from silently
+    # taking recovery access away.
+    return dict(
+        _owner_privilege_cache.get(
+            uid, {key: True for key in OWNER_PRIVILEGE_KEYS}
+        )
+    )
+
+
+def has_owner_privilege(user_id: str | int, privilege: str) -> bool:
+    if privilege not in OWNER_PRIVILEGE_KEYS:
+        return False
+    return bool(owner_privileges(str(user_id)).get(privilege))
+
+
+async def set_owner_privileges(
+    user_id: str, values: dict, *, updated_by: str
+) -> dict[str, bool]:
+    uid = str(user_id).strip()
+    actor = str(updated_by).strip()
+    if uid not in configured_owner_ids() or actor not in configured_owner_ids():
+        raise PermissionError("Only IDs from OWNER_IDS can manage owner bypasses.")
+
+    current = owner_privileges(uid)
+    saved = {
+        key: bool(values[key]) if key in values else current[key]
+        for key in OWNER_PRIVILEGE_KEYS
+    }
+    now = int(time.time())
+    columns = ", ".join(OWNER_PRIVILEGE_KEYS)
+    placeholders = ", ".join("?" for _ in OWNER_PRIVILEGE_KEYS)
+    updates = ", ".join(f"{key}=excluded.{key}" for key in OWNER_PRIVILEGE_KEYS)
+    async with db_paths.connect(DB_PATH) as db:
+        await _ensure_tables(db)
+        await db.execute(
+            "INSERT INTO dashboard_owner_privileges"
+            f" (user_id, {columns}, updated_by, updated_at)"
+            f" VALUES (?, {placeholders}, ?, ?)"
+            " ON CONFLICT(user_id) DO UPDATE SET " + updates
+            + ", updated_by=excluded.updated_by, updated_at=excluded.updated_at",
+            (uid, *(int(saved[key]) for key in OWNER_PRIVILEGE_KEYS), actor, now),
+        )
+        await db.commit()
+    _owner_privilege_cache[uid] = saved
+    return dict(saved)
 
 
 def db_owner_ids() -> set[str]:

@@ -1020,6 +1020,15 @@ export const api = {
 
   // Owner / admin access (owners only)
   getOwners: () => request<{ owners: any[]; count: number }>("/team/owners"),
+  getOwnerPrivileges: (actor: string) =>
+    request<{ owners: any[]; keys: string[] }>(
+      `/team/owner-privileges?actor=${encodeURIComponent(actor)}`,
+    ),
+  updateOwnerPrivileges: (userId: string, actor: string, privileges: Record<string, boolean>) =>
+    request<any>(`/team/owner-privileges/${userId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ actor, privileges }),
+    }),
   addOwner: (userId: string, kind: "owner" | "admin", note = "") =>
     request<any>("/team/owners", {
       method: "POST",

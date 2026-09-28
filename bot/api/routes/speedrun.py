@@ -36,7 +36,7 @@ import aiohttp
 from fastapi import APIRouter, Depends, HTTPException
 
 from api.dependencies import get_bot
-from utils import feature_gates
+from utils import dashboard_roles, feature_gates, premium_store
 from utils import speedrun_access as access
 from utils import speedrun_handover as handover
 
@@ -165,9 +165,11 @@ def _why_unreachable(exc: Exception, url: str) -> str:
     return f"Template-Bot nicht erreichbar ({url}): {exc}"
 
 
-def _has_premium(guild_id: int) -> bool:
-    """Speedrun is available only on an actively assigned Premium server."""
-    return feature_gates.can_configure_premium_guild(guild_id)
+def _has_premium(guild_id: int, user_id: str = "") -> bool:
+    """Speedrun requires guild Premium unless this OWNER_ID bypasses it."""
+    return feature_gates.has_premium_access(
+        guild_id, user_id, configure=True
+    )
 
 
 # --------------------------------------------------------------------- #
@@ -179,6 +181,7 @@ def _has_premium(guild_id: int) -> bool:
 async def precheck(
     guild_id: int,
     user_id: str = "",
+    actor: str = "",
     bot: "universitybot" = Depends(get_bot),
 ):
     """
@@ -223,7 +226,7 @@ async def precheck(
     except HTTPException as exc:
         template_detail = str(exc.detail)
 
-    premium = _has_premium(guild_id)
+    premium = _has_premium(guild_id, actor or user_id)
 
     ready = main_present and main_can_manage and template_present
 
@@ -260,7 +263,7 @@ def _template_invite() -> str:
 
 
 @router.get("/templates", summary="Waehlbare Templates")
-async def templates(user_id: str = ""):
+async def templates(user_id: str = "", actor: str = ""):
     """
     Die Template-Liste, angereichert um "darf dieser Nutzer das?".
 
@@ -277,7 +280,9 @@ async def templates(user_id: str = ""):
             detail=str(body.get("error") or f"Template-Bot: HTTP {status_code}"),
         )
 
-    premium = _has_premium(guild_id)
+    effective_user = actor or user_id
+    premium = bool(premium_store.status(effective_user).get("active"))
+    beta_bypass = dashboard_roles.has_owner_privilege(effective_user, "beta_bypass")
     items = []
     for entry in body.get("templates", []):
         key = str(entry.get("key") or "")
@@ -291,7 +296,7 @@ async def templates(user_id: str = ""):
         #
         # Frueher entschied hier allein die Beta-Freigabe, weil der
         # Zugang ueber einen Code lief. Den gibt es nicht mehr.
-        if not in_beta:
+        if not in_beta and not beta_bypass:
             reason = (
                 f"In der Beta sind erst {len(BETA_TEMPLATES)} Vorlagen "
                 "freigegeben."
@@ -349,7 +354,7 @@ async def access_state(guild_id: int, actor: str = ""):
     """
 
     state = access.state(guild_id)
-    premium = _has_premium(guild_id)
+    premium = _has_premium(guild_id, actor)
 
     return {
         # Ein Bann sticht Premium: sonst koennte sich ein gesperrter
@@ -423,7 +428,7 @@ def _require_unlocked(guild_id: int, user_id: str = "") -> None:
             ),
         )
 
-    if not _has_premium(guild_id):
+    if not _has_premium(guild_id, user_id):
         raise HTTPException(
             status_code=403,
             detail=(
@@ -447,7 +452,7 @@ async def start(
     """Startet den Bau beim Template-Bot. Antwortet sofort."""
 
     template_key = str(data.get("template") or "").strip()
-    user_id = str(data.get("user_id") or "").strip()
+    user_id = str(data.get("actor") or data.get("user_id") or "").strip()
 
     # Zuerst: darf hier überhaupt gebaut werden?
     #
@@ -456,7 +461,10 @@ async def start(
     # ein mitgeschickter Wert aus dem Browser käme hier nie an.
     _require_unlocked(guild_id, user_id)
 
-    if template_key not in BETA_TEMPLATES:
+    if (
+        template_key not in BETA_TEMPLATES
+        and not dashboard_roles.has_owner_privilege(user_id, "beta_bypass")
+    ):
         raise HTTPException(
             status_code=400,
             detail=(

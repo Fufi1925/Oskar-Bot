@@ -5,7 +5,7 @@ import aiosqlite
 import discord
 from fastapi import APIRouter, Depends, HTTPException
 from api.dependencies import get_bot
-from utils import ideas_store as store, emoji
+from utils import dashboard_roles, ideas_store as store, emoji
 from utils.panels import Panel
 
 router=APIRouter()
@@ -42,7 +42,10 @@ async def reward_servers(actor:str="",bot=Depends(get_bot)):
     result=[]
     for guild in bot.guilds:
         member=guild.get_member(int(actor))
-        if member and (guild.owner_id==int(actor) or member.guild_permissions.manage_guild):
+        if (
+            dashboard_roles.has_owner_privilege(actor, "guild_owner_bypass")
+            or (member and (guild.owner_id==int(actor) or member.guild_permissions.manage_guild))
+        ):
             result.append({"id":str(guild.id),"name":guild.name,"icon":str(guild.icon.url) if guild.icon else None})
     return {"servers":result}
 

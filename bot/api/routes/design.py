@@ -306,7 +306,7 @@ async def reset_design(
     db = await _db()
     actor = str(data.get("actor") or "")
 
-    if not _hat_premium(guild_id, configure=True):
+    if not feature_gates.has_premium_access(guild_id, actor, configure=True):
         raise HTTPException(status_code=403, detail="Dafür wird Premium benötigt.")
 
     if not await store.may_edit(db, guild, actor):
@@ -373,7 +373,7 @@ async def save_design(
     db = await _db()
     actor = str(data.get("actor") or "")
 
-    if not _hat_premium(guild_id, configure=True):
+    if not feature_gates.has_premium_access(guild_id, actor, configure=True):
         raise HTTPException(
             status_code=403,
             detail="Dafür wird Premium benötigt.",

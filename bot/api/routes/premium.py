@@ -32,7 +32,7 @@ from discord.ui import Separator, TextDisplay
 from utils.cv2 import build_container
 from utils.emoji import NEXT_ALT1 as NEXT, PREMIUM, STAR, UPTIME, ZBOT, ZSAFE, ZWARNING
 from utils.links import dashboard_url
-from utils import bot_settings
+from utils import bot_settings, dashboard_roles
 from utils import feature_audit
 from utils import premium_store as store
 from utils import premium_codes_store as code_store
@@ -221,7 +221,16 @@ async def assign_premium_slot(data: dict, bot: "universitybot" = Depends(get_bot
     guild_id = str(data.get("guild_id") or "")
     guild = bot.get_guild(int(guild_id)) if guild_id.isdigit() else None
     member = guild.get_member(int(actor)) if guild else None
-    if not guild or not member or not (guild.owner_id == int(actor) or member.guild_permissions.manage_guild):
+    if (
+        not guild
+        or (
+            not dashboard_roles.has_owner_privilege(actor, "guild_owner_bypass")
+            and (
+                not member
+                or not (guild.owner_id == int(actor) or member.guild_permissions.manage_guild)
+            )
+        )
+    ):
         raise HTTPException(status_code=403, detail="Du verwaltest diesen Server nicht oder der Bot ist dort nicht installiert.")
     try:
         result = premium_membership.assign_slot(actor, guild.id)
@@ -434,7 +443,10 @@ async def premium_code_servers(actor: str = "", bot: "universitybot" = Depends(g
     result = []
     for guild in bot.guilds:
         member = guild.get_member(int(actor))
-        if member and (guild.owner_id == int(actor) or member.guild_permissions.manage_guild):
+        if (
+            dashboard_roles.has_owner_privilege(actor, "guild_owner_bypass")
+            or (member and (guild.owner_id == int(actor) or member.guild_permissions.manage_guild))
+        ):
             result.append({
                 "id": str(guild.id),
                 "name": guild.name,
@@ -462,7 +474,16 @@ async def redeem_premium_code(data: dict, bot: "universitybot" = Depends(get_bot
     guild_id = str(data.get("guild_id") or "").strip()
     guild = bot.get_guild(int(guild_id)) if guild_id.isdigit() else None
     member = guild.get_member(int(actor)) if guild else None
-    if not guild or not member or not (guild.owner_id == int(actor) or member.guild_permissions.manage_guild):
+    if (
+        not guild
+        or (
+            not dashboard_roles.has_owner_privilege(actor, "guild_owner_bypass")
+            and (
+                not member
+                or not (guild.owner_id == int(actor) or member.guild_permissions.manage_guild)
+            )
+        )
+    ):
         raise HTTPException(status_code=403, detail="Du verwaltest diesen Server nicht oder University Bot ist dort nicht installiert.")
     result = code_store.redeem(code, actor, guild.id)
     if not result.get("ok"):

@@ -53,7 +53,7 @@ async def _db():
 
 
 @router.get("/{guild_id}/panels", summary="All ticket panels of a guild")
-async def get_panels(guild_id: int):
+async def get_panels(guild_id: int, actor: str = ""):
     db = await _db()
 
     async with db.execute(
@@ -80,7 +80,9 @@ async def get_panels(guild_id: int):
             ],
         },
         "open_tickets": open_row[0] if open_row else 0,
-        "premium_configurable": feature_gates.can_configure_premium_guild(guild_id),
+        "premium_configurable": feature_gates.has_premium_access(
+            guild_id, actor, configure=True
+        ),
     }
 
 
@@ -155,7 +157,12 @@ async def update_panel(guild_id: int, panel_id: int, data: dict):
         "ticket_created_message",
         "ticket_questions",
     }
-    if premium_fields.intersection(data) and not feature_gates.can_configure_premium_guild(guild_id):
+    if (
+        premium_fields.intersection(data)
+        and not feature_gates.has_premium_access(
+            guild_id, data.get("actor"), configure=True
+        )
+    ):
         raise HTTPException(
             status_code=403,
             detail="Erweiterte Ticket-Einstellungen erfordern aktives Premium.",
@@ -320,7 +327,7 @@ async def send_panel(
     # allows at most five buttons per row.
     if (panel["panel_type"] or "button") == "dropdown":
         placeholder = panels.DEFAULT_SELECT_PLACEHOLDER
-        if feature_gates.can_configure_premium_guild(guild_id):
+        if feature_gates.has_premium_access(guild_id, actor, configure=True):
             placeholder = (
                 str(panel.get("select_placeholder") or "").strip()
                 [:panels.MAX_SELECT_PLACEHOLDER]
@@ -398,14 +405,21 @@ async def send_panel(
 # ══════════════════════════════════════════════════════════════════════
 
 
-def _ai_or_404(guild_id: int, *, configure: bool = False) -> None:
+def _ai_or_404(
+    guild_id: int, actor: str = "", *, configure: bool = False
+) -> None:
     # Deliberately return 404 outside the pilot so other guilds do not even
     # learn that an unreleased feature exists.
     if not ticket_ai.is_allowlisted(guild_id):
         raise HTTPException(status_code=404, detail="Not found.")
-    if not ticket_ai.pilot_available(guild_id):
+    if (
+        not ticket_ai.pilot_available(guild_id)
+        and not feature_gates.has_premium_access(guild_id, actor)
+    ):
         raise HTTPException(status_code=402, detail="Ticket-KI benötigt Server-Premium.")
-    if configure and not feature_gates.can_configure_premium_guild(guild_id):
+    if configure and not feature_gates.has_premium_access(
+        guild_id, actor, configure=True
+    ):
         raise HTTPException(status_code=423, detail="Premium ist abgelaufen. Die Einstellungen sind eingefroren.")
 
 
@@ -435,15 +449,21 @@ async def reset_interrupted_ai_scans() -> int:
 
 
 @router.get("/{guild_id}/ai-available", summary="Whether Ticket AI is visible")
-async def ticket_ai_available(guild_id: int):
+async def ticket_ai_available(guild_id: int, actor: str = ""):
     # This intentionally returns only a boolean. It lets the dashboard hide an
     # unreleased feature before requesting the shared guild knowledge endpoint.
-    return {"available": ticket_ai.pilot_available(guild_id)}
+    return {
+        "available": ticket_ai.is_allowlisted(guild_id)
+        and (
+            ticket_ai.pilot_available(guild_id)
+            or feature_gates.has_premium_access(guild_id, actor)
+        )
+    }
 
 
 @router.get("/{guild_id}/ai", summary="Private Ticket AI settings")
-async def get_ticket_ai(guild_id: int):
-    _ai_or_404(guild_id)
+async def get_ticket_ai(guild_id: int, actor: str = ""):
+    _ai_or_404(guild_id, actor)
     db = await _db()
     await _ensure_ai_schema(db)
     async with db.execute(
@@ -479,7 +499,7 @@ async def get_ticket_ai(guild_id: int):
 
 @router.put("/{guild_id}/ai/knowledge", summary="Upload private Ticket AI knowledge")
 async def put_ticket_ai_knowledge(guild_id: int, data: dict):
-    _ai_or_404(guild_id, configure=True)
+    _ai_or_404(guild_id, str(data.get("actor") or ""), configure=True)
     filename = str(data.get("filename") or "wissen.txt").strip()[:120]
     content = str(data.get("content") or "").replace("\x00", "").strip()
     if not filename.lower().endswith(".txt"):
@@ -500,8 +520,8 @@ async def put_ticket_ai_knowledge(guild_id: int, data: dict):
 
 
 @router.delete("/{guild_id}/ai/knowledge", summary="Delete private Ticket AI knowledge")
-async def delete_ticket_ai_knowledge(guild_id: int):
-    _ai_or_404(guild_id, configure=True)
+async def delete_ticket_ai_knowledge(guild_id: int, actor: str = ""):
+    _ai_or_404(guild_id, actor, configure=True)
     db = await _db()
     await _ensure_ai_schema(db)
     await db.execute("DELETE FROM ticket_ai_knowledge WHERE guild_id = ?", (guild_id,))
@@ -512,9 +532,9 @@ async def delete_ticket_ai_knowledge(guild_id: int):
 
 @router.post("/{guild_id}/ai/scan", summary="Build knowledge draft from server")
 async def start_ticket_ai_scan(
-    guild_id: int, bot: "universitybot" = Depends(get_bot)
+    guild_id: int, actor: str = "", bot: "universitybot" = Depends(get_bot)
 ):
-    _ai_or_404(guild_id, configure=True)
+    _ai_or_404(guild_id, actor, configure=True)
     if not ticket_ai.api_key_configured():
         raise HTTPException(status_code=503, detail=f"Railway-Variable {ticket_ai.API_KEY_ENV} fehlt oder enthält keinen gültigen Groq-Key.")
     db = await _db()
@@ -540,8 +560,8 @@ async def start_ticket_ai_scan(
 
 
 @router.post("/{guild_id}/ai/scan/cancel", summary="Hard-cancel a Ticket AI scan")
-async def cancel_ticket_ai_scan(guild_id: int):
-    _ai_or_404(guild_id, configure=True)
+async def cancel_ticket_ai_scan(guild_id: int, actor: str = ""):
+    _ai_or_404(guild_id, actor, configure=True)
     task = _scan_tasks.pop(guild_id, None)
     if task and not task.done():
         task.cancel()
@@ -564,8 +584,8 @@ async def cancel_ticket_ai_scan(guild_id: int):
 
 
 @router.get("/{guild_id}/ai/scan", summary="Ticket AI scan progress")
-async def get_ticket_ai_scan(guild_id: int):
-    _ai_or_404(guild_id)
+async def get_ticket_ai_scan(guild_id: int, actor: str = ""):
+    _ai_or_404(guild_id, actor)
     db = await _db()
     await _ensure_ai_schema(db)
     async with db.execute(
@@ -584,7 +604,7 @@ async def get_ticket_ai_scan(guild_id: int):
 
 @router.patch("/{guild_id}/ai", summary="Update private Ticket AI settings")
 async def update_ticket_ai(guild_id: int, data: dict):
-    _ai_or_404(guild_id, configure=True)
+    _ai_or_404(guild_id, str(data.get("actor") or ""), configure=True)
     db = await _db()
     await _ensure_ai_schema(db)
     fallback = str(data.get("fallback_text") or "").strip()[:500]
