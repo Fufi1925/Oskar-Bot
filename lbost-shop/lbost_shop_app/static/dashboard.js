@@ -199,6 +199,16 @@
       const kind = pickerButton.dataset.pickerKind;
       results.textContent = '';
       let shown = 0;
+      if (!pickerButton.hasAttribute('data-picker-multiple') && targetValues(pickerButton).length) {
+        const clear = document.createElement('button'); clear.type = 'button'; clear.className = 'ub-picker-clear';
+        clear.textContent = 'Auswahl entfernen';
+        clear.addEventListener('click', () => {
+          const target = document.getElementById(pickerButton.dataset.pickerTarget);
+          if (target) { target.value = ''; target.dispatchEvent(new Event('change', { bubbles: true })); }
+          updatePickerButtons(pickerButton.dataset.pickerTarget, kind); closePicker();
+        });
+        results.appendChild(clear); shown += 1;
+      }
       sourceItems(kind).forEach((source) => {
         if (term && !source.textContent.toLocaleLowerCase('de').includes(term)) return;
         const option = source.cloneNode(true);
@@ -207,6 +217,7 @@
           if (pickerButton.hasAttribute('data-picker-multiple')) {
             if (pickerChoices.has(source.dataset.id)) pickerChoices.delete(source.dataset.id);
             else pickerChoices.add(source.dataset.id);
+            setMultipleValues(pickerButton, [...pickerChoices]);
             renderPickerResults();
             return;
           }
@@ -221,6 +232,22 @@
         results.appendChild(option);
         shown += 1;
       });
+      if (kind === 'members' && /^\d{15,20}$/.test((searchInput?.value || '').trim()) &&
+          !sourceItems(kind).some((item) => item.dataset.id === searchInput.value.trim())) {
+        const rawId = searchInput.value.trim();
+        const option = document.createElement('button'); option.type = 'button'; option.className = 'ub-picker-raw-id';
+        const avatar = document.createElement('span'); avatar.className = 'ub-picker-avatar'; avatar.textContent = '#';
+        const copy = document.createElement('span');
+        const title = document.createElement('strong'); title.textContent = 'Discord-ID verwenden';
+        const detail = document.createElement('small'); detail.textContent = rawId;
+        copy.append(title, detail); option.append(avatar, copy);
+        option.addEventListener('click', () => {
+          const target = document.getElementById(pickerButton.dataset.pickerTarget);
+          if (target) { target.value = rawId; target.dispatchEvent(new Event('change', { bubbles: true })); }
+          updatePickerButtons(pickerButton.dataset.pickerTarget, kind); closePicker();
+        });
+        results.appendChild(option); shown += 1;
+      }
       modal?.querySelector('[data-picker-empty]')?.toggleAttribute('hidden', shown !== 0);
       if (pickerCount) pickerCount.textContent = `${pickerChoices.size} ausgewählt`;
     };
@@ -229,11 +256,21 @@
       pickerButton = button;
       pickerChoices = new Set(targetValues(button));
       if (pickerTitle) pickerTitle.textContent = pickerKindTitle[button.dataset.pickerKind] || 'Auswählen';
-      pickerFooter?.toggleAttribute('hidden', !button.hasAttribute('data-picker-multiple'));
+      if (pickerFooter) pickerFooter.hidden = true;
       if (searchInput) searchInput.value = '';
       modal.hidden = false;
       modal.setAttribute('aria-hidden', 'false');
-      document.body.classList.add('ub-picker-open');
+      const panel = modal.querySelector('section');
+      const rect = button.getBoundingClientRect();
+      const width = Math.max(280, rect.width);
+      const left = Math.min(Math.max(8, rect.left), window.innerWidth - width - 8);
+      const roomBelow = window.innerHeight - rect.bottom - 10;
+      const openAbove = roomBelow < 260 && rect.top > roomBelow;
+      panel.style.width = `${Math.min(width, window.innerWidth - 16)}px`;
+      panel.style.left = `${left}px`;
+      panel.style.top = openAbove ? 'auto' : `${rect.bottom + 6}px`;
+      panel.style.bottom = openAbove ? `${window.innerHeight - rect.top + 6}px` : 'auto';
+      panel.style.maxHeight = `${Math.max(180, openAbove ? rect.top - 16 : roomBelow)}px`;
       renderPickerResults();
       window.setTimeout(() => searchInput?.focus(), 30);
     };
@@ -322,26 +359,38 @@
       const enabled = row.querySelector('input[type="checkbox"]').checked;
       const channelInput = row.querySelector('input[name^="channel_"]');
       const channel = channelInput?.value || '';
-      const known = !channel || sourceItems('channels').some((item) => item.dataset.id === channel);
-      const broken = enabled && (!channel || !known);
-      row.classList.toggle('active', enabled && channel && known);
+      const channelOption = sourceItems('channels').find((item) => item.dataset.id === channel);
+      const known = !channel || Boolean(channelOption);
+      const canPost = !channelOption || channelOption.dataset.canPost !== 'false';
+      const broken = enabled && (!channel || !known || !canPost);
+      row.classList.toggle('active', enabled && channel && known && canPost);
       row.classList.toggle('broken', broken);
       row.querySelector('.ub-log-category-controls')?.toggleAttribute('hidden', !enabled);
       const error = row.querySelector('[data-category-error]');
       if (error) {
         error.hidden = !broken;
-        if (broken) error.lastChild.textContent = channel && !known ? 'Diesen Kanal gibt es nicht mehr.' : 'Kein Kanal gewählt — hier landet nichts.';
+        if (broken) {
+          error.lastChild.textContent = channel && !known
+            ? 'Diesen Kanal gibt es nicht mehr.'
+            : channel && !canPost
+              ? 'Der Bot darf dort nicht schreiben.'
+              : 'Kein Kanal gewählt — hier landet nichts.';
+        }
       }
       const test = row.querySelector('.ub-log-test');
       const hint = row.querySelector('.ub-log-test-hint');
-      const saved = channel && channel === row.dataset.savedChannel && known;
+      const saved = channel && channel === row.dataset.savedChannel && known && canPost;
       if (test) test.hidden = !enabled || !saved;
       if (hint) hint.hidden = !enabled || !channel || saved;
     };
     const updateSummary = () => {
       const rows = [...loggingForm.querySelectorAll('[data-log-category]')];
       rows.forEach(updateCategory);
-      const active = rows.filter((row) => row.classList.contains('active')).length;
+      const active = rows.filter((row) => {
+        const enabled = row.querySelector('input[type="checkbox"]').checked;
+        const channel = row.querySelector('input[name^="channel_"]')?.value;
+        return enabled && Boolean(channel);
+      }).length;
       const broken = rows.filter((row) => row.classList.contains('broken'));
       const activeNode = loggingForm.querySelector('[data-log-active]');
       const brokenNode = loggingForm.querySelector('[data-log-broken]');
@@ -356,8 +405,8 @@
       const names = loggingForm.querySelector('[data-log-broken-names]');
       if (names) names.textContent = broken.map((row) => row.dataset.label).join(', ');
       const copy = loggingForm.querySelector('[data-log-broken-copy]');
-      if (copy) copy.textContent = `${broken.length === 1 ? 'ist an' : 'sind an'}, aber dort landet nichts. Kanal fehlt oder wurde gelöscht.`;
-      loggingForm.querySelector('[data-log-all-off]')?.toggleAttribute('hidden', !rows.some((row) => row.querySelector('input[type="checkbox"]').checked));
+      if (copy) copy.textContent = `${broken.length === 1 ? 'ist an' : 'sind an'}, aber dort landet nichts. Kanal fehlt, wurde gelöscht, oder der Bot darf nicht hineinschreiben.`;
+      loggingForm.querySelector('[data-log-all-off]')?.toggleAttribute('hidden', active === 0);
       loggingForm.querySelectorAll('[data-log-group]').forEach((group) => {
         const groupRows = [...group.querySelectorAll('[data-log-category]')];
         const on = groupRows.filter((row) => row.querySelector('input[type="checkbox"]').checked).length;
@@ -414,8 +463,22 @@
     };
     const allChannel = loggingForm.querySelector('#log-all-channel');
     allChannel?.addEventListener('change', () => loggingForm.querySelectorAll('[data-log-preset]').forEach((button) => { button.disabled = !allChannel.value; }));
-    loggingForm.querySelectorAll('[data-log-preset]').forEach((button) => button.addEventListener('click', () => {
+    loggingForm.querySelectorAll('[data-log-preset]').forEach((button) => button.addEventListener('click', async () => {
       if (!allChannel?.value) return;
+      if (button.dataset.logPreset === 'everything') {
+        const body = new FormData();
+        body.set('csrf', loggingForm.querySelector('input[name="csrf"]').value);
+        body.set('action', 'everything'); body.set('all_channel', allChannel.value);
+        button.disabled = true;
+        try {
+          const response = await fetch(window.location.href, { method: 'POST', body });
+          if (!response.ok || !response.url.includes('saved=1')) throw new Error('preset failed');
+          currentDirty = 0; window.location.href = response.url;
+        } catch (error) {
+          button.disabled = false; showLogToast('Die Voreinstellung konnte nicht gespeichert werden.', true);
+        }
+        return;
+      }
       const wanted = new Set(presetKeys[button.dataset.logPreset]);
       loggingForm.querySelectorAll('[data-log-category]').forEach((row) => {
         const enabled = wanted.has(row.dataset.key);

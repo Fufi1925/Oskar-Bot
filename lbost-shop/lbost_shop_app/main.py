@@ -41,17 +41,58 @@ _CACHE_MAX = 400
 COLOR_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
 
 LOG_CATEGORIES: dict[str, dict[str, Any]] = {
-    "message_events": {"label": "Nachrichten", "description": "Bearbeitete, gelöschte und massenhaft gelöschte Nachrichten.", "group": "Inhalte", "noisy": True},
-    "join_leave_events": {"label": "Beitritt & Austritt", "description": "Beitritte, Austritte und das Alter neuer Konten.", "group": "Menschen"},
-    "member_moderation": {"label": "Moderation", "description": "Banns, Entbannungen, Timeouts, Namen und Rollen von Mitgliedern.", "group": "Menschen"},
+    "message_events": {"label": "Nachrichten", "description": "Bearbeitete und gelöschte Nachrichten, mit dem alten Text.", "group": "Inhalte", "noisy": True},
+    "join_leave_events": {"label": "Beitritt & Austritt", "description": "Wer kommt, wer geht, und wie alt das Konto war.", "group": "Menschen"},
+    "member_moderation": {"label": "Moderation", "description": "Banns, Entbannungen, Timeouts und Namensänderungen.", "group": "Menschen"},
     "voice_events": {"label": "Sprachkanäle", "description": "Betreten, Verlassen und Wechseln von Sprachkanälen.", "group": "Menschen", "noisy": True},
-    "channel_events": {"label": "Kanäle", "description": "Kanäle, Threads und Einladungen erstellt, geändert oder gelöscht.", "group": "Server"},
-    "role_events": {"label": "Rollen", "description": "Rollen erstellt, gelöscht oder in Rechten und Namen geändert.", "group": "Server"},
+    "channel_events": {"label": "Kanäle", "description": "Kanäle angelegt, gelöscht oder umbenannt.", "group": "Server"},
+    "role_events": {"label": "Rollen", "description": "Rollen angelegt, gelöscht oder in den Rechten geändert.", "group": "Server"},
     "emoji_events": {"label": "Emojis", "description": "Server-Emojis hinzugefügt oder entfernt.", "group": "Inhalte"},
-    "reaction_events": {"label": "Reaktionen", "description": "Reaktionen auf Nachrichten hinzugefügt oder entfernt.", "group": "Inhalte", "noisy": True},
-    "system_events": {"label": "Server", "description": "Servername, Symbol und weitere Servereinstellungen.", "group": "Server"},
+    "reaction_events": {"label": "Reaktionen", "description": "Reaktionen gesetzt und entfernt. Kann viel werden.", "group": "Inhalte", "noisy": True},
+    "system_events": {"label": "Server", "description": "Servername, Symbol und andere Server-Einstellungen.", "group": "Server"},
 }
 LOG_GROUPS = ("Menschen", "Inhalte", "Server")
+
+
+def _channel_permissions(
+    guild_id: int,
+    channel: dict[str, Any],
+    roles: list[dict[str, Any]],
+    member: dict[str, Any],
+) -> int | None:
+    """Calculate the bot's effective Discord permissions for one channel."""
+    if not member:
+        return None
+    role_ids = {str(guild_id), *(str(value) for value in member.get("roles") or [])}
+    permissions = 0
+    for role in roles:
+        if str(role.get("id")) in role_ids:
+            permissions |= int(role.get("permissions") or 0)
+    if permissions & (1 << 3):  # Administrator
+        return (1 << 53) - 1
+
+    overwrites = channel.get("permission_overwrites") or []
+
+    def apply(current: int, overwrite: dict[str, Any]) -> int:
+        return (current & ~int(overwrite.get("deny") or 0)) | int(overwrite.get("allow") or 0)
+
+    everyone = next((item for item in overwrites if str(item.get("id")) == str(guild_id)), None)
+    if everyone:
+        permissions = apply(permissions, everyone)
+
+    role_deny = role_allow = 0
+    for item in overwrites:
+        if int(item.get("type") or 0) == 0 and str(item.get("id")) in role_ids and str(item.get("id")) != str(guild_id):
+            role_deny |= int(item.get("deny") or 0)
+            role_allow |= int(item.get("allow") or 0)
+    permissions = (permissions & ~role_deny) | role_allow
+
+    user_id = str((member.get("user") or {}).get("id") or "")
+    user_overwrite = next(
+        (item for item in overwrites if int(item.get("type") or 0) == 1 and str(item.get("id")) == user_id),
+        None,
+    )
+    return apply(permissions, user_overwrite) if user_overwrite else permissions
 
 
 def normalise_logging(raw: dict[str, Any] | None) -> dict[str, Any]:
@@ -552,11 +593,16 @@ def create_app() -> FastAPI:
                 if not user_id.isdigit():
                     continue
                 username = str(user.get("global_name") or user.get("username") or user_id)
+                avatar = str(user.get("avatar") or "")
+                extension = "gif" if avatar.startswith("a_") else "png"
                 members.append({
                     "id": user_id,
                     "name": str(item.get("nick") or username),
                     "username": username,
-                    "avatar": str(user.get("avatar") or ""),
+                    "avatar": avatar,
+                    "avatar_url": f"https://cdn.discordapp.com/avatars/{user_id}/{avatar}.{extension}?size=64" if avatar else "",
+                    "bot": bool(user.get("bot")),
+                    "role_ids": [str(value) for value in item.get("roles") or []],
                 })
             members.sort(key=lambda entry: entry["name"].casefold())
             _kurz_setzen(schluessel, members, 45)
@@ -564,9 +610,11 @@ def create_app() -> FastAPI:
         except Exception:
             return []
 
-    async def guild_resources(guild_id: int) -> tuple[list[dict[str, str]], list[dict[str, str]], dict[str, Any]]:
+    async def guild_resources(
+        guild_id: int, *, include_bot_permissions: bool = False
+    ) -> tuple[list[dict[str, str]], list[dict[str, str]], dict[str, Any]]:
         """Channels, roles and overview data for the University-style pages."""
-        schluessel = f"ressourcen:{guild_id}"
+        schluessel = f"ressourcen:{guild_id}:{int(include_bot_permissions)}"
         zwischendurch = _kurz(schluessel)
         if isinstance(zwischendurch, tuple):
             return zwischendurch
@@ -574,14 +622,43 @@ def create_app() -> FastAPI:
             raw_channels = await _discord_abfrage(settings.bot_token, f"/guilds/{guild_id}/channels")
             raw_roles = await _discord_abfrage(settings.bot_token, f"/guilds/{guild_id}/roles")
             raw_guild = await _discord_abfrage(settings.bot_token, f"/guilds/{guild_id}", {"with_counts": "true"})
-            channels = [
-                {"id": str(item["id"]), "name": str(item.get("name") or item["id"]), "type": str(item.get("type", 0))}
-                for item in raw_channels if item.get("type") in (0, 4, 5, 10, 11, 12, 15, 16)
-            ]
+            raw_member: dict[str, Any] = {}
+            if include_bot_permissions:
+                try:
+                    bot_id = str(settings.discord_client_id or "")
+                    if bot_id:
+                        raw_member = await _discord_abfrage(settings.bot_token, f"/guilds/{guild_id}/members/{bot_id}")
+                except Exception:
+                    # Ressourcen bleiben benutzbar; nur die Rechtewarnung ist dann unbekannt.
+                    raw_member = {}
+            channels = []
+            for item in raw_channels:
+                if item.get("type") not in (0, 4, 5, 10, 11, 12, 15, 16):
+                    continue
+                permissions = _channel_permissions(guild_id, item, raw_roles, raw_member)
+                channels.append({
+                    "id": str(item["id"]),
+                    "name": str(item.get("name") or item["id"]),
+                    "type": str(item.get("type", 0)),
+                    "can_view": None if permissions is None else bool(permissions & (1 << 10)),
+                    "can_post": None if permissions is None else bool(permissions & (1 << 10) and permissions & (1 << 11)),
+                    "can_embed": None if permissions is None else bool(permissions & (1 << 14)),
+                })
             roles = [
-                {"id": str(item["id"]), "name": str(item.get("name") or item["id"])}
+                {
+                    "id": str(item["id"]),
+                    "name": str(item.get("name") or item["id"]),
+                    "colour": f"#{int(item.get('color') or 0x99AAB5):06x}",
+                    "position": int(item.get("position") or 0),
+                    "managed": bool(item.get("managed")),
+                }
                 for item in raw_roles if str(item.get("id")) != str(guild_id)
             ]
+            member_role_ids = {str(guild_id), *(str(value) for value in raw_member.get("roles") or [])}
+            guild_permissions = 0
+            for role in raw_roles:
+                if str(role.get("id")) in member_role_ids:
+                    guild_permissions |= int(role.get("permissions") or 0)
             stats = {
                 "member_count": int(raw_guild.get("approximate_member_count") or 0),
                 "channel_count": len(raw_channels),
@@ -590,6 +667,7 @@ def create_app() -> FastAPI:
                 "boost_count": int(raw_guild.get("premium_subscription_count") or 0),
                 "verification_level": int(raw_guild.get("verification_level") or 0),
                 "owner_id": str(raw_guild.get("owner_id") or ""),
+                "bot_can_audit": None if not raw_member else bool(guild_permissions & ((1 << 3) | (1 << 7))),
             }
             ergebnis = (channels, roles, stats)
             _kurz_setzen(schluessel, ergebnis, 45)
@@ -793,23 +871,52 @@ def create_app() -> FastAPI:
         spec = FEATURES.get(feature)
         if not user or not guild or not spec:
             return RedirectResponse(href(request, "/dashboard"), status_code=302)
-        channels, roles, _stats = await guild_resources(guild_id)
+        channels, roles, resource_stats = await guild_resources(
+            guild_id, include_bot_permissions=feature == "logging"
+        )
         values = db.get_feature(guild_id, feature, settings)
         if feature == "logging":
             values = normalise_logging(values)
             channel_ids = {item["id"] for item in channels}
             role_ids = {item["id"] for item in roles}
             members = await guild_members(guild_id)
+            roles_by_id = {item["id"]: item for item in roles}
+            for member in members:
+                member_roles = [roles_by_id[value] for value in member.get("role_ids", []) if value in roles_by_id]
+                top_role = max(member_roles, key=lambda item: item.get("position", 0), default=None)
+                member["top_role"] = top_role["name"] if top_role else ""
             warnings: list[str] = []
+            if resource_stats.get("bot_can_audit") is False:
+                warnings.append("Ohne „Audit-Log einsehen“ steht bei Banns und gelöschten Nachrichten nicht, wer es war.")
+            channel_map = {item["id"]: item for item in channels}
+            panel_order = {
+                "join_leave_events": 0, "member_moderation": 1, "voice_events": 2,
+                "message_events": 0, "reaction_events": 1, "emoji_events": 2,
+                "channel_events": 0, "role_events": 1, "system_events": 2,
+            }
             categories = []
             for key, category in LOG_CATEGORIES.items():
                 channel_id = values["log_channels"].get(key, "")
-                broken = bool(values["log_enabled"].get(key) and (not channel_id or channel_id not in channel_ids))
+                channel_info = channel_map.get(channel_id)
+                missing = bool(channel_id and channel_info is None)
+                cannot_post = bool(channel_info and channel_info.get("can_post") is False)
+                cannot_embed = bool(channel_info and channel_info.get("can_embed") is False)
+                broken = bool(values["log_enabled"].get(key) and (not channel_id or missing or cannot_post))
                 if values["log_enabled"].get(key) and not channel_id:
-                    warnings.append(f"„{category['label']}“ ist aktiv, aber es wurde kein Kanal ausgewählt.")
-                elif channel_id and channel_id not in channel_ids:
-                    warnings.append(f"Der gespeicherte Kanal für „{category['label']}“ existiert nicht mehr.")
-                categories.append({"key": key, **category, "channel": channel_id, "enabled": values["log_enabled"].get(key, False), "broken": broken})
+                    warnings.append(f"„{category['label']}“ ist an, aber ohne Kanal wird nichts gepostet.")
+                elif missing:
+                    warnings.append(f"Der Kanal für „{category['label']}“ existiert nicht mehr.")
+                elif cannot_post:
+                    warnings.append(f"Der Bot darf im Kanal für „{category['label']}“ nicht schreiben.")
+                elif cannot_embed:
+                    warnings.append(f"Ohne „Links einbetten“ bleiben Einträge für „{category['label']}“ unvollständig.")
+                categories.append({
+                    "key": key, **category, "channel": channel_id,
+                    "enabled": values["log_enabled"].get(key, False),
+                    "broken": broken, "missing": missing,
+                    "cannot_post": cannot_post, "cannot_embed": cannot_embed,
+                    "group_order": panel_order[key],
+                })
             for channel_id in values["ignore_channels"]:
                 if channel_id not in channel_ids:
                     warnings.append(f"Ein ausgenommener Kanal ({channel_id}) existiert nicht mehr.")
@@ -821,7 +928,7 @@ def create_app() -> FastAPI:
                 values=values, categories=categories, groups=LOG_GROUPS,
                 channels=[item for item in channels if item.get("type") in ("0", "5")],
                 roles=roles, members=members, warnings=warnings,
-                active_count=sum(1 for item in categories if item["enabled"] and item["channel"] and not item["broken"]),
+                active_count=sum(1 for item in categories if item["enabled"] and item["channel"]),
                 broken_count=sum(1 for item in categories if item["broken"]),
                 exception_count=len(values["ignore_channels"]) + len(values["ignore_roles"]) + len(values["ignore_users"]),
                 csrf=user["sid"], saved=request.query_params.get("saved") == "1",
@@ -919,10 +1026,21 @@ def create_app() -> FastAPI:
             payload = {
                 "flags": 32768,
                 "allowed_mentions": {"parse": []},
-                "components": [{"type": 17, "accent_color": 0x526DFF, "components": [{
-                    "type": 10,
-                    "content": f"## Testeintrag\nSo sieht ein LBoost-Eintrag für **{LOG_CATEGORIES[category]['label']}** aus. Diese Nachricht wurde im Dashboard ausgelöst.",
-                }]}],
+                "components": [{
+                    "type": 17,
+                    "accent_color": 0x5865F2,
+                    "components": [
+                        {"type": 10, "content": "## Test"},
+                        {"type": 14, "divider": True, "spacing": 1},
+                        {
+                            "type": 10,
+                            "content": (
+                                f"So sieht ein Eintrag für **{LOG_CATEGORIES[category]['label']}** aus. "
+                                "Diese Nachricht kam aus dem Dashboard."
+                            ),
+                        },
+                    ],
+                }],
             }
             async with httpx.AsyncClient(timeout=20.0) as client:
                 response = await client.post(

@@ -32,9 +32,13 @@ bot = create_bot()
 commands = {command.name for command in bot.tree.get_commands()}
 erwartet = {"ticket-panel", "reaction-panel", "warn", "warnings", "clearwarnings", "mute", "kick", "ban",
             "giveaway", "giveaway-reroll", "announce", "log-setup", "log-status", "log-test",
-            "log-toggle", "log-ignore", "log-search", "log-export", "log-reset"}
+            "log-toggle", "log-ignore", "log-search", "log-export", "log-reset", "log"}
 assert erwartet <= commands, f"es fehlen: {sorted(erwartet - commands)}"
 assert len(commands - erwartet) == 0, f"unerwartete Befehle: {sorted(commands - erwartet)}"
+log_group = bot.tree.get_command("log")
+assert [command.name for command in log_group.commands] == [
+    "setup", "status", "config", "test", "toggle", "ignore", "search", "export", "reset"
+]
 assert bot.intents.members and bot.intents.message_content and bot.intents.moderation
 from lbost_shop_bot.client import taugliche_teilnehmer  # noqa: E402
 

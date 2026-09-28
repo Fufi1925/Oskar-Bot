@@ -1,13 +1,11 @@
 {% extends "dashboard_base.html" %}
 {% block title %}Logs — {{ guild.name }}{% endblock %}
 {% block dashboard_content %}
-<header class="ub-page-header">
+<header class="ub-page-header ub-log-page-title">
   <div>
-    <p class="eyebrow">{{ guild.name }} / Aktivität</p>
-    <h1 class="ub-title-with-icon"><svg><use href="#i-log"></use></svg>Logs</h1>
-    <p class="page-lead">Wer hat was gelöscht, wer ist gegangen und wer hat den Server verändert — der LBoost Bot schreibt jedes Ereignis in den gewählten Kanal.</p>
+    <h1 class="ub-title-with-icon"><svg><use href="#i-bell"></use></svg>Logs</h1>
+    <p class="page-lead">Wer hat was gelöscht, wer ist gegangen, wer hat eine Rolle bekommen — der Bot schreibt es in einen Kanal deiner Wahl.</p>
   </div>
-  <a class="ub-back-button" href="{{ root_path }}/guild/{{ guild.id }}">Zur Übersicht</a>
 </header>
 
 {% if saved %}<div class="notice success-notice">Protokoll-Einstellungen gespeichert. Der Bot übernimmt sie ohne Neustart.</div>{% endif %}
@@ -34,7 +32,7 @@
 
     <div class="ub-log-broken-banner{% if not broken_count %} is-hidden{% endif %}" data-log-broken-banner>
       <svg><use href="#i-shield"></use></svg>
-      <p><strong data-log-broken-names>{% for category in categories if category.broken %}{{ category.label }}{% if not loop.last %}, {% endif %}{% endfor %}</strong> <span data-log-broken-copy>{% if broken_count == 1 %}ist an{% else %}sind an{% endif %}, aber dort landet nichts. Kanal fehlt oder wurde gelöscht.</span></p>
+      <p><strong data-log-broken-names>{% for category in categories if category.broken %}{{ category.label }}{% if not loop.last %}, {% endif %}{% endfor %}</strong> <span data-log-broken-copy>{% if broken_count == 1 %}ist an{% else %}sind an{% endif %}, aber dort landet nichts. Kanal fehlt, wurde gelöscht, oder der Bot darf nicht hineinschreiben.</span></p>
     </div>
 
     <div class="ub-log-quickstart">
@@ -59,7 +57,7 @@
 
     <div class="ub-log-groups">
       {% for group in groups %}
-      {% set group_categories = categories|selectattr('group','equalto',group)|list %}
+      {% set group_categories = categories|selectattr('group','equalto',group)|sort(attribute='group_order')|list %}
       {% set group_enabled = group_categories|selectattr('enabled')|list|length %}
       <article class="ub-log-group-row{% if group_enabled %} active{% endif %}" data-log-group="{{ loop.index0 }}">
         <div class="ub-log-group-head">
@@ -79,7 +77,7 @@
               <div>
                 <h3>{{ category.label }}{% if category.noisy %}<small class="noisy">viel</small>{% endif %}</h3>
                 <p>{{ category.description }}</p>
-                <p class="ub-log-inline-error" data-category-error{% if not category.broken %} hidden{% endif %}><svg><use href="#i-shield"></use></svg>{% if category.channel %}Diesen Kanal gibt es nicht mehr.{% else %}Kein Kanal gewählt — hier landet nichts.{% endif %}</p>
+                <p class="ub-log-inline-error" data-category-error{% if not category.broken %} hidden{% endif %}><svg><use href="#i-shield"></use></svg>{% if category.cannot_post %}Der Bot darf dort nicht schreiben.{% elif category.missing %}Diesen Kanal gibt es nicht mehr.{% else %}Kein Kanal gewählt — hier landet nichts.{% endif %}</p>
               </div>
               <label class="ub-log-switch"><input type="checkbox" name="enabled_{{ category.key }}"{% if category.enabled %} checked{% endif %}><i></i></label>
             </div>
@@ -141,9 +139,9 @@
   </div>
 </form>
 
-<div class="ub-picker-source" data-picker-source="channels" hidden>{% for channel in channels %}<button type="button" data-id="{{ channel.id }}" data-name="# {{ channel.name }}"><svg><use href="#i-log"></use></svg><span><strong># {{ channel.name }}</strong><small>Kanal</small></span></button>{% endfor %}</div>
-<div class="ub-picker-source" data-picker-source="roles" hidden>{% for role in roles %}<button type="button" data-id="{{ role.id }}" data-name="{{ role.name }}"><svg><use href="#i-users"></use></svg><span><strong>{{ role.name }}</strong><small>Rolle</small></span></button>{% endfor %}</div>
-<div class="ub-picker-source" data-picker-source="members" hidden>{% for member in members %}<button type="button" data-id="{{ member.id }}" data-name="{{ member.name }}"><span class="ub-picker-avatar">{{ member.name[:1]|upper }}</span><span><strong>{{ member.name }}</strong><small>{{ member.username }} · {{ member.id }}</small></span></button>{% endfor %}</div>
+<div class="ub-picker-source" data-picker-source="channels" hidden>{% for channel in channels %}<button type="button" data-id="{{ channel.id }}" data-name="# {{ channel.name }}" data-can-post="{% if channel.can_post is false %}false{% else %}true{% endif %}" data-can-embed="{% if channel.can_embed is false %}false{% else %}true{% endif %}"><svg><use href="#i-log"></use></svg><span><strong># {{ channel.name }}</strong><small>{% if channel.can_post is false %}Bot darf nicht schreiben{% elif channel.can_embed is false %}Links einbetten fehlt{% else %}Kanal{% endif %}</small></span></button>{% endfor %}</div>
+<div class="ub-picker-source" data-picker-source="roles" hidden>{% for role in roles %}<button type="button" data-id="{{ role.id }}" data-name="{{ role.name }}"><svg class="ub-role-colour" viewBox="0 0 12 12"><circle cx="6" cy="6" r="5" fill="{{ role.colour }}"></circle></svg><span><strong>{{ role.name }}</strong><small>{% if role.managed %}Verwaltete Rolle{% else %}Rolle{% endif %}</small></span></button>{% endfor %}</div>
+<div class="ub-picker-source" data-picker-source="members" hidden>{% for member in members %}<button type="button" data-id="{{ member.id }}" data-name="{{ member.name }}">{% if member.avatar_url %}<img class="ub-picker-avatar" src="{{ member.avatar_url }}" alt="">{% else %}<span class="ub-picker-avatar">{{ member.name[:1]|upper }}</span>{% endif %}<span><strong>{{ member.name }}{% if member.bot %}<b class="ub-picker-bot">bot</b>{% endif %}</strong><small>{{ member.id }}{% if member.top_role %} · {{ member.top_role }}{% endif %}</small></span></button>{% endfor %}</div>
 
 <div class="ub-picker-modal" data-picker-modal hidden aria-hidden="true">
   <button type="button" class="ub-picker-backdrop" data-picker-close aria-label="Schließen"></button>
