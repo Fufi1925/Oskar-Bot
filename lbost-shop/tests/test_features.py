@@ -31,7 +31,8 @@ assert isinstance(view, discord.ui.LayoutView)
 bot = create_bot()
 commands = {command.name for command in bot.tree.get_commands()}
 erwartet = {"ticket-panel", "reaction-panel", "warn", "warnings", "clearwarnings", "mute", "kick", "ban",
-            "giveaway", "giveaway-reroll", "announce"}
+            "giveaway", "giveaway-reroll", "announce", "log-setup", "log-status", "log-test",
+            "log-toggle", "log-ignore", "log-search", "log-export", "log-reset"}
 assert erwartet <= commands, f"es fehlen: {sorted(erwartet - commands)}"
 assert len(commands - erwartet) == 0, f"unerwartete Befehle: {sorted(commands - erwartet)}"
 assert bot.intents.members and bot.intents.message_content and bot.intents.moderation

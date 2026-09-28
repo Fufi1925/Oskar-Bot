@@ -31,6 +31,18 @@ from lbost_shop_app.config import Settings, get_settings
 
 logger = logging.getLogger("lbost-shop-bot")
 LINK_RE = re.compile(r"https?://[^\s]+", re.I)
+LOG_CATEGORIES = (
+    "message_events", "join_leave_events", "member_moderation",
+    "voice_events", "channel_events", "role_events", "emoji_events",
+    "reaction_events", "system_events",
+)
+OLD_LOG_FLAGS = {
+    "message_events": "message_logs", "join_leave_events": "member_logs",
+    "member_moderation": "moderation_logs", "voice_events": "member_logs",
+    "channel_events": "role_channel_logs", "role_events": "role_channel_logs",
+    "emoji_events": "role_channel_logs", "reaction_events": "message_logs",
+    "system_events": "role_channel_logs",
+}
 
 #: Wie alt ein Zeitstempel im Spam-Eimer sein darf, bevor er verworfen wird.
 SPAM_FENSTER = 8.0
@@ -160,6 +172,10 @@ class ShopBot(commands.Bot):
         intents.moderation = True
         intents.messages = True
         intents.message_content = True
+        intents.reactions = True
+        intents.voice_states = True
+        intents.emojis_and_stickers = True
+        intents.invites = True
         super().__init__(command_prefix="!", intents=intents, allowed_mentions=discord.AllowedMentions.none())
         self.settings = settings
         self.spam: dict[tuple[int, int], deque[float]] = defaultdict(deque)
@@ -196,7 +212,103 @@ class ShopBot(commands.Bot):
             logger.warning("Could not send Components V2 message", exc_info=True)
             return None
 
+    def logging_config(self, guild_id: int) -> dict[str, Any]:
+        raw = dict(self.feature(guild_id, "logging") or {})
+        fallback = int(raw.get("channel_id") or 0)
+        channels = dict(raw.get("log_channels") or {})
+        enabled = dict(raw.get("log_enabled") or {})
+        for category in LOG_CATEGORIES:
+            if fallback and not channels.get(category):
+                channels[category] = fallback
+            if category not in enabled:
+                enabled[category] = bool(raw.get(OLD_LOG_FLAGS[category], False))
+        return {
+            "enabled": bool(raw.get("enabled")),
+            "log_channels": channels,
+            "log_enabled": enabled,
+            "ignore_channels": ids(raw.get("ignore_channels")),
+            "ignore_roles": ids(raw.get("ignore_roles")),
+            "ignore_users": ids(raw.get("ignore_users")),
+            "auto_delete_duration": max(0, min(86400, int(raw.get("auto_delete_duration") or 0))),
+        }
+
+    def logging_ignored(
+        self,
+        cfg: dict[str, Any],
+        *,
+        channel_id: int | None = None,
+        user: discord.abc.User | None = None,
+    ) -> bool:
+        if channel_id and channel_id in cfg["ignore_channels"]:
+            return True
+        if user and user.id in cfg["ignore_users"]:
+            return True
+        return bool(
+            isinstance(user, discord.Member)
+            and any(role.id in cfg["ignore_roles"] for role in user.roles)
+        )
+
+    async def audit_actor(
+        self,
+        guild: discord.Guild,
+        action: discord.AuditLogAction,
+        target_id: int | None = None,
+    ) -> discord.User | discord.Member | None:
+        try:
+            async for entry in guild.audit_logs(limit=6, action=action):
+                age = (discord.utils.utcnow() - entry.created_at).total_seconds()
+                if age > 20:
+                    break
+                if target_id is None or int(getattr(entry.target, "id", 0)) == int(target_id):
+                    return entry.user
+        except (discord.Forbidden, discord.HTTPException):
+            return None
+        return None
+
+    async def log_event(
+        self,
+        guild: discord.Guild,
+        category: str,
+        title: str,
+        description: str,
+        *,
+        channel_id: int | None = None,
+        user: discord.abc.User | None = None,
+    ) -> None:
+        cfg = self.logging_config(guild.id)
+        if (
+            category not in LOG_CATEGORIES
+            or not cfg["enabled"]
+            or not cfg["log_enabled"].get(category)
+            or self.logging_ignored(cfg, channel_id=channel_id, user=user)
+        ):
+            return
+        db.add_event_log(
+            guild.id,
+            category,
+            title,
+            description,
+            channel_id,
+            getattr(user, "id", None),
+            self.settings,
+        )
+        target_id = int(cfg["log_channels"].get(category) or 0)
+        channel = guild.get_channel(target_id)
+        if not isinstance(channel, (discord.TextChannel, discord.Thread)):
+            return
+        try:
+            await channel.send(
+                view=layout(title, description, color="#526dff"),
+                delete_after=cfg["auto_delete_duration"] or None,
+            )
+        except (discord.Forbidden, discord.HTTPException):
+            logger.warning("Logging failed for guild=%s category=%s", guild.id, category)
+
     async def log(self, guild: discord.Guild, title: str, description: str, feature: str = "logging") -> None:
+        """Module-specific logs stay isolated; Discord events use log_event."""
+        if feature == "logging":
+            await self.log_event(guild, "system_events", title, description)
+            return
         cfg = self.feature(guild.id, feature)
         channel_id = int(cfg.get("channel_id") or cfg.get("log_channel_id") or 0)
         channel = guild.get_channel(channel_id)
@@ -477,9 +589,12 @@ class ShopBot(commands.Bot):
                     .replace("{channel}", f"#{channel.name}")
                 )
                 await self.send_layout(channel, "Willkommen", text, image_url=str(cfg.get("welcome_image_url") or ""), color=cfg.get("color"))
-        log_cfg = self.feature(member.guild.id, "logging")
-        if log_cfg.get("enabled") and log_cfg.get("member_logs"):
-            await self.log(member.guild, "Mitglied beigetreten", f"Nutzer: <@{member.id}>\nID: `{member.id}`")
+        created = int(member.created_at.timestamp())
+        await self.log_event(
+            member.guild, "join_leave_events", "Mitglied beigetreten",
+            f"Nutzer: <@{member.id}>\nID: `{member.id}`\nKonto erstellt: <t:{created}:R>\nMitglieder: `{member.guild.member_count}`",
+            user=member,
+        )
 
     async def on_member_remove(self, member: discord.Member) -> None:
         cfg = self.feature(member.guild.id, "welcome")
@@ -492,9 +607,11 @@ class ShopBot(commands.Bot):
                     .replace("{server}", member.guild.name)
                 )
                 await self.send_layout(channel, "Mitglied gegangen", text, image_url=str(cfg.get("leave_image_url") or ""))
-        log_cfg = self.feature(member.guild.id, "logging")
-        if log_cfg.get("enabled") and log_cfg.get("member_logs"):
-            await self.log(member.guild, "Mitglied gegangen", f"Nutzer: {member}\nID: `{member.id}`")
+        actor = await self.audit_actor(member.guild, discord.AuditLogAction.kick, member.id)
+        detail = f"Nutzer: {member}\nID: `{member.id}`\nMitglieder: `{member.guild.member_count}`"
+        if actor:
+            detail += f"\nEntfernt von: <@{actor.id}>"
+        await self.log_event(member.guild, "join_leave_events", "Mitglied gegangen", detail, user=member)
 
     async def on_message(self, message: discord.Message) -> None:
         if not message.guild or message.author.bot:
@@ -593,37 +710,213 @@ class ShopBot(commands.Bot):
 
     async def on_message_delete(self, message: discord.Message) -> None:
         if message.guild and not message.author.bot:
-            cfg = self.feature(message.guild.id, "logging")
-            if cfg.get("enabled") and cfg.get("message_logs") and isinstance(message.channel, discord.TextChannel):
-                await self.log(message.guild, "Nachricht gelöscht", f"Nutzer: <@{message.author.id}>\nKanal: <#{message.channel.id}>\nInhalt: {discord.utils.escape_markdown(message.content[:1500]) or '(leer)'}")
+            actor = await self.audit_actor(
+                message.guild, discord.AuditLogAction.message_delete, message.author.id
+            )
+            detail = f"Nutzer: <@{message.author.id}>\nKanal: <#{message.channel.id}>\nNachricht: `{message.id}`\nInhalt: {message.content[:1400] or '(leer)'}"
+            if message.attachments:
+                detail += "\nAnhänge: " + ", ".join(item.filename for item in message.attachments[:8])
+            if actor:
+                detail += f"\nGelöscht von: <@{actor.id}>"
+            await self.log_event(
+                message.guild, "message_events", "Nachricht gelöscht", detail,
+                channel_id=message.channel.id, user=message.author,
+            )
+
+    async def on_bulk_message_delete(self, messages: list[discord.Message]) -> None:
+        if not messages or not messages[0].guild:
+            return
+        message = messages[0]
+        actor = await self.audit_actor(message.guild, discord.AuditLogAction.message_bulk_delete)
+        detail = f"Kanal: <#{message.channel.id}>\nGelöschte Nachrichten: `{len(messages)}`"
+        if actor:
+            detail += f"\nAusgeführt von: <@{actor.id}>"
+        await self.log_event(
+            message.guild, "message_events", "Nachrichten gesammelt gelöscht", detail,
+            channel_id=message.channel.id, user=actor,
+        )
 
     async def on_message_edit(self, before: discord.Message, after: discord.Message) -> None:
         if before.guild and not before.author.bot and before.content != after.content:
-            cfg = self.feature(before.guild.id, "logging")
-            if cfg.get("enabled") and cfg.get("message_logs") and isinstance(before.channel, discord.TextChannel):
-                await self.log(before.guild, "Nachricht bearbeitet", f"Nutzer: <@{before.author.id}>\nKanal: <#{before.channel.id}>\nVorher: {before.content[:700]}\nNachher: {after.content[:700]}")
-
-    async def _kanael_loggt(self, channel: discord.abc.GuildChannel, text: str) -> None:
-        cfg = self.feature(channel.guild.id, "logging")
-        if cfg.get("enabled") and cfg.get("role_channel_logs"):
-            await self.log(channel.guild, text, f"Kanal: {channel.name}\nID: `{channel.id}`")
-
-    async def _rollen_loggt(self, role: discord.Role, text: str) -> None:
-        cfg = self.feature(role.guild.id, "logging")
-        if cfg.get("enabled") and cfg.get("role_channel_logs"):
-            await self.log(role.guild, text, f"Rolle: {role.name}\nID: `{role.id}`")
+            await self.log_event(
+                before.guild,
+                "message_events",
+                "Nachricht bearbeitet",
+                f"Nutzer: <@{before.author.id}>\nKanal: <#{before.channel.id}>\nNachricht: [öffnen]({after.jump_url})\nVorher: {before.content[:650] or '(leer)'}\nNachher: {after.content[:650] or '(leer)'}",
+                channel_id=before.channel.id,
+                user=before.author,
+            )
 
     async def on_guild_channel_create(self, channel: discord.abc.GuildChannel) -> None:
-        await self._kanael_loggt(channel, "Kanal erstellt")
+        actor = await self.audit_actor(channel.guild, discord.AuditLogAction.channel_create, channel.id)
+        detail = f"Kanal: {channel.mention}\nID: `{channel.id}`\nTyp: `{type(channel).__name__}`"
+        if actor:
+            detail += f"\nErstellt von: <@{actor.id}>"
+        await self.log_event(channel.guild, "channel_events", "Kanal erstellt", detail, user=actor)
 
     async def on_guild_channel_delete(self, channel: discord.abc.GuildChannel) -> None:
-        await self._kanael_loggt(channel, "Kanal gelöscht")
+        actor = await self.audit_actor(channel.guild, discord.AuditLogAction.channel_delete, channel.id)
+        detail = f"Kanal: {channel.name}\nID: `{channel.id}`\nTyp: `{type(channel).__name__}`"
+        if actor:
+            detail += f"\nGelöscht von: <@{actor.id}>"
+        await self.log_event(channel.guild, "channel_events", "Kanal gelöscht", detail, user=actor)
+
+    async def on_guild_channel_update(self, before: discord.abc.GuildChannel, after: discord.abc.GuildChannel) -> None:
+        changes = []
+        if before.name != after.name:
+            changes.append(f"Name: `{before.name}` → `{after.name}`")
+        if getattr(before, "position", None) != getattr(after, "position", None):
+            changes.append(f"Position: `{getattr(before, 'position', '?')}` → `{getattr(after, 'position', '?')}`")
+        if getattr(before, "category_id", None) != getattr(after, "category_id", None):
+            changes.append(f"Kategorie: `{getattr(before, 'category_id', None)}` → `{getattr(after, 'category_id', None)}`")
+        if not changes:
+            return
+        actor = await self.audit_actor(after.guild, discord.AuditLogAction.channel_update, after.id)
+        detail = f"Kanal: {after.mention}\n" + "\n".join(changes)
+        if actor:
+            detail += f"\nGeändert von: <@{actor.id}>"
+        await self.log_event(after.guild, "channel_events", "Kanal geändert", detail, user=actor)
 
     async def on_guild_role_create(self, role: discord.Role) -> None:
-        await self._rollen_loggt(role, "Rolle erstellt")
+        actor = await self.audit_actor(role.guild, discord.AuditLogAction.role_create, role.id)
+        detail = f"Rolle: {role.mention}\nID: `{role.id}`\nFarbe: `{role.colour}`"
+        if actor:
+            detail += f"\nErstellt von: <@{actor.id}>"
+        await self.log_event(role.guild, "role_events", "Rolle erstellt", detail, user=actor)
 
     async def on_guild_role_delete(self, role: discord.Role) -> None:
-        await self._rollen_loggt(role, "Rolle gelöscht")
+        actor = await self.audit_actor(role.guild, discord.AuditLogAction.role_delete, role.id)
+        detail = f"Rolle: {role.name}\nID: `{role.id}`"
+        if actor:
+            detail += f"\nGelöscht von: <@{actor.id}>"
+        await self.log_event(role.guild, "role_events", "Rolle gelöscht", detail, user=actor)
+
+    async def on_guild_role_update(self, before: discord.Role, after: discord.Role) -> None:
+        changes = []
+        if before.name != after.name:
+            changes.append(f"Name: `{before.name}` → `{after.name}`")
+        if before.colour != after.colour:
+            changes.append(f"Farbe: `{before.colour}` → `{after.colour}`")
+        if before.permissions != after.permissions:
+            changes.append("Berechtigungen wurden geändert.")
+        if before.hoist != after.hoist:
+            changes.append(f"Separat anzeigen: `{before.hoist}` → `{after.hoist}`")
+        if before.mentionable != after.mentionable:
+            changes.append(f"Erwähnbar: `{before.mentionable}` → `{after.mentionable}`")
+        if not changes:
+            return
+        actor = await self.audit_actor(after.guild, discord.AuditLogAction.role_update, after.id)
+        detail = f"Rolle: {after.mention}\n" + "\n".join(changes)
+        if actor:
+            detail += f"\nGeändert von: <@{actor.id}>"
+        await self.log_event(after.guild, "role_events", "Rolle geändert", detail, user=actor)
+
+    async def on_member_update(self, before: discord.Member, after: discord.Member) -> None:
+        changes = []
+        if before.nick != after.nick:
+            changes.append(f"Nickname: `{before.nick or before.name}` → `{after.nick or after.name}`")
+        before_roles = {role.id: role for role in before.roles}
+        after_roles = {role.id: role for role in after.roles}
+        added = [role.mention for rid, role in after_roles.items() if rid not in before_roles]
+        removed = [role.name for rid, role in before_roles.items() if rid not in after_roles]
+        if added:
+            changes.append("Rollen hinzugefügt: " + ", ".join(added))
+        if removed:
+            changes.append("Rollen entfernt: " + ", ".join(removed))
+        if before.timed_out_until != after.timed_out_until:
+            changes.append(
+                "Timeout: " + (f"bis <t:{int(after.timed_out_until.timestamp())}:F>" if after.timed_out_until else "aufgehoben")
+            )
+        if not changes:
+            return
+        actor = await self.audit_actor(after.guild, discord.AuditLogAction.member_role_update, after.id)
+        detail = f"Mitglied: {after.mention}\n" + "\n".join(changes)
+        if actor:
+            detail += f"\nGeändert von: <@{actor.id}>"
+        await self.log_event(after.guild, "member_moderation", "Mitglied geändert", detail, user=after)
+
+    async def on_member_ban(self, guild: discord.Guild, user: discord.User) -> None:
+        actor = await self.audit_actor(guild, discord.AuditLogAction.ban, user.id)
+        detail = f"Nutzer: {user}\nID: `{user.id}`"
+        if actor:
+            detail += f"\nGebannt von: <@{actor.id}>"
+        await self.log_event(guild, "member_moderation", "Mitglied gebannt", detail, user=user)
+
+    async def on_member_unban(self, guild: discord.Guild, user: discord.User) -> None:
+        actor = await self.audit_actor(guild, discord.AuditLogAction.unban, user.id)
+        detail = f"Nutzer: {user}\nID: `{user.id}`"
+        if actor:
+            detail += f"\nEntbannt von: <@{actor.id}>"
+        await self.log_event(guild, "member_moderation", "Mitglied entbannt", detail, user=user)
+
+    async def on_voice_state_update(self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState) -> None:
+        if before.channel == after.channel:
+            return
+        if before.channel is None:
+            title, detail = "Sprachkanal betreten", f"Mitglied: {member.mention}\nKanal: {after.channel.mention}"
+        elif after.channel is None:
+            title, detail = "Sprachkanal verlassen", f"Mitglied: {member.mention}\nKanal: {before.channel.mention}"
+        else:
+            title, detail = "Sprachkanal gewechselt", f"Mitglied: {member.mention}\nVon: {before.channel.mention}\nNach: {after.channel.mention}"
+        await self.log_event(member.guild, "voice_events", title, detail, channel_id=getattr(after.channel or before.channel, "id", None), user=member)
+
+    async def on_guild_update(self, before: discord.Guild, after: discord.Guild) -> None:
+        changes = []
+        if before.name != after.name:
+            changes.append(f"Name: `{before.name}` → `{after.name}`")
+        if before.verification_level != after.verification_level:
+            changes.append(f"Verifizierungsstufe: `{before.verification_level}` → `{after.verification_level}`")
+        if before.icon != after.icon:
+            changes.append("Serverbild wurde geändert.")
+        if before.banner != after.banner:
+            changes.append("Serverbanner wurde geändert.")
+        if not changes:
+            return
+        actor = await self.audit_actor(after, discord.AuditLogAction.guild_update, after.id)
+        detail = "\n".join(changes)
+        if actor:
+            detail += f"\nGeändert von: <@{actor.id}>"
+        await self.log_event(after, "system_events", "Server geändert", detail, user=actor)
+
+    async def on_guild_emojis_update(self, guild: discord.Guild, before: tuple[discord.Emoji, ...], after: tuple[discord.Emoji, ...]) -> None:
+        before_map = {item.id: item for item in before}
+        after_map = {item.id: item for item in after}
+        added = [str(item) for item_id, item in after_map.items() if item_id not in before_map]
+        removed = [item.name for item_id, item in before_map.items() if item_id not in after_map]
+        if not added and not removed:
+            return
+        detail = ("Hinzugefügt: " + ", ".join(added) if added else "")
+        if removed:
+            detail += ("\n" if detail else "") + "Entfernt: " + ", ".join(removed)
+        await self.log_event(guild, "emoji_events", "Emojis geändert", detail)
+
+    async def on_thread_create(self, thread: discord.Thread) -> None:
+        await self.log_event(thread.guild, "channel_events", "Thread erstellt", f"Thread: {thread.mention}\nID: `{thread.id}`", channel_id=thread.parent_id, user=thread.owner)
+
+    async def on_thread_delete(self, thread: discord.Thread) -> None:
+        await self.log_event(thread.guild, "channel_events", "Thread gelöscht", f"Thread: {thread.name}\nID: `{thread.id}`", channel_id=thread.parent_id)
+
+    async def on_invite_create(self, invite: discord.Invite) -> None:
+        if invite.guild:
+            await self.log_event(invite.guild, "channel_events", "Einladung erstellt", f"Code: `{invite.code}`\nKanal: {invite.channel.mention}\nErsteller: {getattr(invite.inviter, 'mention', 'unbekannt')}", channel_id=invite.channel.id, user=invite.inviter)
+
+    async def on_invite_delete(self, invite: discord.Invite) -> None:
+        if invite.guild:
+            await self.log_event(invite.guild, "channel_events", "Einladung gelöscht", f"Code: `{invite.code}`\nKanal: {invite.channel.mention}", channel_id=invite.channel.id)
+
+    async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent) -> None:
+        if payload.guild_id and self.user and payload.user_id != self.user.id:
+            guild = self.get_guild(payload.guild_id)
+            user = guild.get_member(payload.user_id) if guild else None
+            if guild:
+                await self.log_event(guild, "reaction_events", "Reaktion hinzugefügt", f"Nutzer: <@{payload.user_id}>\nKanal: <#{payload.channel_id}>\nNachricht: `{payload.message_id}`\nReaktion: {payload.emoji}", channel_id=payload.channel_id, user=user)
+
+    async def on_raw_reaction_remove(self, payload: discord.RawReactionActionEvent) -> None:
+        if payload.guild_id and self.user and payload.user_id != self.user.id:
+            guild = self.get_guild(payload.guild_id)
+            user = guild.get_member(payload.user_id) if guild else None
+            if guild:
+                await self.log_event(guild, "reaction_events", "Reaktion entfernt", f"Nutzer: <@{payload.user_id}>\nKanal: <#{payload.channel_id}>\nNachricht: `{payload.message_id}`\nReaktion: {payload.emoji}", channel_id=payload.channel_id, user=user)
 
     @tasks.loop(seconds=30)
     async def giveaway_worker(self) -> None:
@@ -727,6 +1020,157 @@ def hat_mod_rechte(interaction: discord.Interaction, benoetigt: str) -> bool:
 
 
 def register_commands(bot: ShopBot) -> None:
+    @bot.tree.command(name="log-setup", description="Richtet das vollständige Logging in einem Kanal ein")
+    async def log_setup(
+        interaction: discord.Interaction,
+        channel: discord.TextChannel,
+        reaktionen: bool = False,
+    ):
+        if not await require_manage(interaction):
+            return
+        cfg = bot.logging_config(interaction.guild.id)
+        cfg["enabled"] = True
+        for category in LOG_CATEGORIES:
+            if category == "reaction_events" and not reaktionen:
+                cfg["log_enabled"][category] = False
+                continue
+            cfg["log_channels"][category] = str(channel.id)
+            cfg["log_enabled"][category] = True
+        db.set_feature(interaction.guild.id, "logging", cfg, interaction.user.id, bot.settings)
+        bot.feature_cache.pop((interaction.guild.id, "logging"), None)
+        count = len(LOG_CATEGORIES) if reaktionen else len(LOG_CATEGORIES) - 1
+        await bot.interaction_notice(
+            interaction,
+            "Logging eingerichtet",
+            f"{count} Kategorien schreiben jetzt in {channel.mention}. Reaktions-Logs: `{'an' if reaktionen else 'aus'}`.",
+        )
+
+    @bot.tree.command(name="log-status", description="Zeigt den Zustand aller Logging-Kategorien")
+    async def log_status(interaction: discord.Interaction):
+        if not await require_manage(interaction):
+            return
+        cfg = bot.logging_config(interaction.guild.id)
+        lines = []
+        for category in LOG_CATEGORIES:
+            channel_id = int(cfg["log_channels"].get(category) or 0)
+            channel = interaction.guild.get_channel(channel_id)
+            state = "aktiv" if cfg["enabled"] and cfg["log_enabled"].get(category) and channel else "aus"
+            lines.append(f"**{category.replace('_', ' ').title()}** — `{state}`" + (f" in {channel.mention}" if channel else ""))
+        await bot.interaction_notice(interaction, "Logging-Status", "\n".join(lines))
+
+    @bot.tree.command(name="log-test", description="Postet einen Testeintrag für eine Logging-Kategorie")
+    @app_commands.choices(category=[app_commands.Choice(name=key.replace("_", " ").title(), value=key) for key in LOG_CATEGORIES])
+    async def log_test(interaction: discord.Interaction, category: app_commands.Choice[str]):
+        if not await require_manage(interaction):
+            return
+        cfg = bot.logging_config(interaction.guild.id)
+        channel_id = int(cfg["log_channels"].get(category.value) or 0)
+        channel = interaction.guild.get_channel(channel_id)
+        if not isinstance(channel, discord.TextChannel):
+            return await bot.interaction_notice(interaction, "Kein Log-Kanal", "Für diese Kategorie wurde kein gültiger Textkanal gewählt.", error=True)
+        await interaction.response.defer(ephemeral=True)
+        sent = await bot.send_layout(channel, "Testeintrag", f"Das Logging für **{category.name}** funktioniert.", color="#526dff")
+        await interaction.followup.send(view=layout("Test abgeschlossen", f"Der Eintrag wurde in {channel.mention} gepostet." if sent else "Der Bot konnte dort nicht schreiben.", color="#3ba55d" if sent else "#ed4245"), ephemeral=True)
+
+    @bot.tree.command(name="log-toggle", description="Schaltet eine Logging-Kategorie ein oder aus")
+    @app_commands.choices(category=[app_commands.Choice(name=key.replace("_", " ").title(), value=key) for key in LOG_CATEGORIES])
+    async def log_toggle(interaction: discord.Interaction, category: app_commands.Choice[str], aktiviert: bool):
+        if not await require_manage(interaction):
+            return
+        cfg = bot.logging_config(interaction.guild.id)
+        cfg["enabled"] = True
+        cfg["log_enabled"][category.value] = aktiviert
+        db.set_feature(interaction.guild.id, "logging", cfg, interaction.user.id, bot.settings)
+        bot.feature_cache.pop((interaction.guild.id, "logging"), None)
+        await bot.interaction_notice(interaction, "Kategorie geändert", f"**{category.name}** ist jetzt `{'aktiv' if aktiviert else 'aus'}`.")
+
+    @bot.tree.command(name="log-ignore", description="Verwaltet ignorierte Kanäle, Rollen und Nutzer")
+    @app_commands.choices(kind=[
+        app_commands.Choice(name="Kanal", value="channel"),
+        app_commands.Choice(name="Rolle", value="role"),
+        app_commands.Choice(name="Nutzer", value="user"),
+    ])
+    async def log_ignore(
+        interaction: discord.Interaction,
+        kind: app_commands.Choice[str],
+        discord_id: str,
+        entfernen: bool = False,
+    ):
+        if not await require_manage(interaction):
+            return
+        if not discord_id.isdigit():
+            return await bot.interaction_notice(interaction, "Ungültige ID", "Gib eine numerische Discord-ID an.", error=True)
+        cfg = bot.logging_config(interaction.guild.id)
+        field = {"channel": "ignore_channels", "role": "ignore_roles", "user": "ignore_users"}[kind.value]
+        values = set(cfg[field])
+        value = int(discord_id)
+        if entfernen:
+            values.discard(value)
+        else:
+            values.add(value)
+        cfg[field] = sorted(values)
+        db.set_feature(interaction.guild.id, "logging", cfg, interaction.user.id, bot.settings)
+        bot.feature_cache.pop((interaction.guild.id, "logging"), None)
+        await bot.interaction_notice(interaction, "Ausnahmen aktualisiert", f"Die {kind.name}-ID `{discord_id}` wurde {'entfernt' if entfernen else 'hinzugefügt'}.")
+
+    @bot.tree.command(name="log-search", description="Durchsucht die gespeicherten Discord-Ereignisse")
+    async def log_search(
+        interaction: discord.Interaction,
+        suche: str = "",
+        tage: app_commands.Range[int, 1, 30] = 7,
+    ):
+        if not await require_manage(interaction):
+            return
+        rows = db.search_event_logs(
+            interaction.guild.id,
+            bot.settings,
+            query=suche,
+            since=int(time.time()) - tage * 86400,
+            limit=20,
+        )
+        if not rows:
+            return await bot.interaction_notice(interaction, "Keine Treffer", "Für diese Suche wurden keine gespeicherten Ereignisse gefunden.")
+        lines = [f"<t:{row['created_at']}:R> **{row['title']}** — {row['description'].replace(chr(10), ' ')[:160]}" for row in rows]
+        await bot.interaction_notice(interaction, f"Log-Suche · {len(rows)} Treffer", "\n".join(lines)[:3800])
+
+    @bot.tree.command(name="log-export", description="Exportiert gespeicherte Discord-Ereignisse als Textdatei")
+    async def log_export(interaction: discord.Interaction, tage: app_commands.Range[int, 1, 30] = 7):
+        if not await require_manage(interaction):
+            return
+        await interaction.response.defer(ephemeral=True)
+        rows = db.search_event_logs(
+            interaction.guild.id,
+            bot.settings,
+            since=int(time.time()) - tage * 86400,
+            limit=1000,
+        )
+        content = "\n\n".join(
+            f"[{time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(row['created_at']))} UTC] {row['category']} | {row['title']}\n{row['description']}"
+            for row in reversed(rows)
+        ) or "Keine Ereignisse im gewählten Zeitraum."
+        await interaction.followup.send(
+            view=layout("Log-Export", f"{len(rows)} Ereignisse aus den letzten {tage} Tagen."),
+            file=discord.File(io.BytesIO(content.encode("utf-8")), filename=f"lbost-logs-{interaction.guild.id}-{tage}d.txt"),
+            ephemeral=True,
+        )
+
+    @bot.tree.command(name="log-reset", description="Setzt die vollständige Logging-Konfiguration zurück")
+    async def log_reset(interaction: discord.Interaction):
+        if not await require_manage(interaction):
+            return
+        empty = {
+            "enabled": False,
+            "log_channels": {},
+            "log_enabled": {key: False for key in LOG_CATEGORIES},
+            "ignore_channels": [],
+            "ignore_roles": [],
+            "ignore_users": [],
+            "auto_delete_duration": 0,
+        }
+        db.set_feature(interaction.guild.id, "logging", empty, interaction.user.id, bot.settings)
+        bot.feature_cache.pop((interaction.guild.id, "logging"), None)
+        await bot.interaction_notice(interaction, "Logging zurückgesetzt", "Alle Kanäle, Schalter und Ausnahmen wurden entfernt. Das Ereignisarchiv bleibt erhalten.")
+
     @bot.tree.command(name="ticket-panel", description="Sendet ein konfiguriertes Ticket-Panel")
     @app_commands.describe(panel="Panel-Key aus der Dashboard-Konfiguration")
     async def ticket_panel_command(interaction: discord.Interaction, panel: str = "default"):

@@ -40,6 +40,52 @@ _CACHE_MAX = 400
 
 COLOR_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
 
+LOG_CATEGORIES: dict[str, dict[str, Any]] = {
+    "message_events": {"label": "Nachrichten", "description": "Bearbeitete, gelöschte und massenhaft gelöschte Nachrichten.", "group": "Inhalte", "noisy": True},
+    "join_leave_events": {"label": "Beitritt & Austritt", "description": "Beitritte, Austritte und das Alter neuer Konten.", "group": "Menschen"},
+    "member_moderation": {"label": "Moderation", "description": "Banns, Entbannungen, Timeouts, Namen und Rollen von Mitgliedern.", "group": "Menschen"},
+    "voice_events": {"label": "Sprachkanäle", "description": "Betreten, Verlassen und Wechseln von Sprachkanälen.", "group": "Menschen", "noisy": True},
+    "channel_events": {"label": "Kanäle", "description": "Kanäle, Threads und Einladungen erstellt, geändert oder gelöscht.", "group": "Server"},
+    "role_events": {"label": "Rollen", "description": "Rollen erstellt, gelöscht oder in Rechten und Namen geändert.", "group": "Server"},
+    "emoji_events": {"label": "Emojis", "description": "Server-Emojis hinzugefügt oder entfernt.", "group": "Inhalte"},
+    "reaction_events": {"label": "Reaktionen", "description": "Reaktionen auf Nachrichten hinzugefügt oder entfernt.", "group": "Inhalte", "noisy": True},
+    "system_events": {"label": "Server", "description": "Servername, Symbol und weitere Servereinstellungen.", "group": "Server"},
+}
+LOG_GROUPS = ("Menschen", "Inhalte", "Server")
+
+
+def normalise_logging(raw: dict[str, Any] | None) -> dict[str, Any]:
+    """Read both the old single-channel format and the University format."""
+    raw = dict(raw or {})
+    fallback = str(raw.get("channel_id") or "")
+    old_flags = {
+        "message_events": "message_logs",
+        "join_leave_events": "member_logs",
+        "member_moderation": "moderation_logs",
+        "voice_events": "member_logs",
+        "channel_events": "role_channel_logs",
+        "role_events": "role_channel_logs",
+        "emoji_events": "role_channel_logs",
+        "reaction_events": "message_logs",
+        "system_events": "role_channel_logs",
+    }
+    channels = dict(raw.get("log_channels") or {})
+    enabled = dict(raw.get("log_enabled") or {})
+    for key in LOG_CATEGORIES:
+        if fallback and not channels.get(key):
+            channels[key] = fallback
+        if key not in enabled:
+            enabled[key] = bool(raw.get(old_flags[key], False))
+    return {
+        "enabled": bool(raw.get("enabled")),
+        "log_channels": {key: str(value) for key, value in channels.items() if key in LOG_CATEGORIES and str(value).isdigit()},
+        "log_enabled": {key: bool(enabled.get(key)) for key in LOG_CATEGORIES},
+        "ignore_channels": [str(value) for value in raw.get("ignore_channels", []) if str(value).isdigit()],
+        "ignore_roles": [str(value) for value in raw.get("ignore_roles", []) if str(value).isdigit()],
+        "ignore_users": [str(value) for value in raw.get("ignore_users", []) if str(value).isdigit()],
+        "auto_delete_duration": int(raw.get("auto_delete_duration") or 0),
+    }
+
 FEATURES: dict[str, dict[str, Any]] = {
     "tickets": {"title": "Advanced Ticket System", "icon": "ticket", "fields": [
         ("enabled", "Aktiviert", "bool"), ("panel_channel_id", "Panel-Kanal", "channel"),
@@ -500,7 +546,7 @@ def create_app() -> FastAPI:
             raw_roles = await _discord_abfrage(settings.bot_token, f"/guilds/{guild_id}/roles")
             raw_guild = await _discord_abfrage(settings.bot_token, f"/guilds/{guild_id}", {"with_counts": "true"})
             channels = [
-                {"id": str(item["id"]), "name": str(item.get("name") or item["id"])}
+                {"id": str(item["id"]), "name": str(item.get("name") or item["id"]), "type": str(item.get("type", 0))}
                 for item in raw_channels if item.get("type") in (0, 4, 5, 10, 11, 12, 15, 16)
             ]
             roles = [
@@ -720,6 +766,35 @@ def create_app() -> FastAPI:
             return RedirectResponse(href(request, "/dashboard"), status_code=302)
         channels, roles, _stats = await guild_resources(guild_id)
         values = db.get_feature(guild_id, feature, settings)
+        if feature == "logging":
+            values = normalise_logging(values)
+            channel_ids = {item["id"] for item in channels}
+            role_ids = {item["id"] for item in roles}
+            warnings: list[str] = []
+            categories = []
+            for key, category in LOG_CATEGORIES.items():
+                channel_id = values["log_channels"].get(key, "")
+                if values["log_enabled"].get(key) and not channel_id:
+                    warnings.append(f"„{category['label']}“ ist aktiv, aber es wurde kein Kanal ausgewählt.")
+                elif channel_id and channel_id not in channel_ids:
+                    warnings.append(f"Der gespeicherte Kanal für „{category['label']}“ existiert nicht mehr.")
+                categories.append({"key": key, **category, "channel": channel_id, "enabled": values["log_enabled"].get(key, False)})
+            for channel_id in values["ignore_channels"]:
+                if channel_id not in channel_ids:
+                    warnings.append(f"Ein ausgenommener Kanal ({channel_id}) existiert nicht mehr.")
+            for role_id in values["ignore_roles"]:
+                if role_id not in role_ids:
+                    warnings.append(f"Eine ausgenommene Rolle ({role_id}) existiert nicht mehr.")
+            return render(
+                request, "logging.html", guild=guild, feature=feature, spec=spec,
+                values=values, categories=categories, groups=LOG_GROUPS,
+                channels=[item for item in channels if item.get("type") in ("0", "5")],
+                roles=roles, warnings=warnings,
+                active_count=sum(1 for item in categories if item["enabled"] and item["channel"]),
+                csrf=user["sid"], saved=request.query_params.get("saved") == "1",
+                tested=request.query_params.get("tested") == "1",
+                error=request.query_params.get("error"),
+            )
         return render(request, "feature.html", guild=guild, feature=feature, spec=spec, values=values,
                       channels=channels, roles=roles, csrf=user["sid"],
                       saved=request.query_params.get("saved") == "1",
@@ -737,6 +812,50 @@ def create_app() -> FastAPI:
         form = await request.form()
         if not csrf_ok(form.get("csrf"), user):
             return PlainTextResponse("Ungültige Anfrage.", status_code=403)
+        if feature == "logging":
+            previous = normalise_logging(db.get_feature(guild_id, feature, settings))
+            channels, roles, _stats = await guild_resources(guild_id)
+            channel_ids = {item["id"] for item in channels if item.get("type") in ("0", "5")}
+            role_ids = {item["id"] for item in roles}
+            action = str(form.get("action") or "save")
+            preset_keys = {
+                "essential": {"member_moderation", "join_leave_events", "system_events"},
+                "usual": {"member_moderation", "join_leave_events", "system_events", "message_events", "channel_events", "role_events", "voice_events"},
+                "everything": set(LOG_CATEGORIES),
+            }
+            all_channel = str(form.get("all_channel") or "")
+            if action in preset_keys:
+                if all_channel not in channel_ids:
+                    return RedirectResponse(href(request, f"/guild/{guild_id}/logging?error=Bitte+zuerst+einen+Log-Kanal+auswählen"), status_code=303)
+                selected = preset_keys[action]
+                previous["enabled"] = True
+                for key in LOG_CATEGORIES:
+                    previous["log_enabled"][key] = key in selected
+                    if key in selected:
+                        previous["log_channels"][key] = all_channel
+                db.set_feature(guild_id, feature, previous, int(user["uid"]), settings)
+                return RedirectResponse(href(request, f"/guild/{guild_id}/logging?saved=1"), status_code=303)
+            values = normalise_logging(previous)
+            values["enabled"] = "enabled" in form
+            for key in LOG_CATEGORIES:
+                channel_id = str(form.get(f"channel_{key}") or "")
+                values["log_enabled"][key] = f"enabled_{key}" in form
+                if channel_id:
+                    if channel_id not in channel_ids:
+                        return RedirectResponse(href(request, f"/guild/{guild_id}/logging?error=Ungültiger+Log-Kanal"), status_code=303)
+                    values["log_channels"][key] = channel_id
+                else:
+                    values["log_channels"].pop(key, None)
+                    values["log_enabled"][key] = False
+            values["ignore_channels"] = list(dict.fromkeys(value for value in form.getlist("ignore_channels") if value in channel_ids))
+            values["ignore_roles"] = list(dict.fromkeys(value for value in form.getlist("ignore_roles") if value in role_ids))
+            values["ignore_users"] = list(dict.fromkeys(value.strip() for value in str(form.get("ignore_users") or "").replace(";", ",").split(",") if value.strip().isdigit()))
+            try:
+                values["auto_delete_duration"] = max(0, min(86400, int(str(form.get("auto_delete_duration") or "0"))))
+            except ValueError:
+                return RedirectResponse(href(request, f"/guild/{guild_id}/logging?error=Ungültige+Löschdauer"), status_code=303)
+            db.set_feature(guild_id, feature, values, int(user["uid"]), settings)
+            return RedirectResponse(href(request, f"/guild/{guild_id}/logging?saved=1"), status_code=303)
         values, fehler = _werte_aus_formular(spec, form, feature)
         if fehler:
             channels, roles, _stats = await guild_resources(guild_id)
@@ -748,6 +867,39 @@ def create_app() -> FastAPI:
                           daten=modul_daten(guild_id, feature))
         db.set_feature(guild_id, feature, values, int(user["uid"]), settings)
         return RedirectResponse(href(request, f"/guild/{guild_id}/{feature}?saved=1"), status_code=303)
+
+    @app.post("/guild/{guild_id}/logging/test/{category}")
+    async def test_logging(request: Request, guild_id: int, category: str):
+        user = current_user(request)
+        guild = await guild_access(user, guild_id) if user else None
+        if not user or not guild or category not in LOG_CATEGORIES:
+            return RedirectResponse(href(request, "/dashboard"), status_code=302)
+        form = await request.form()
+        if not csrf_ok(form.get("csrf"), user):
+            return PlainTextResponse("Ungültige Anfrage.", status_code=403)
+        values = normalise_logging(db.get_feature(guild_id, "logging", settings))
+        channel_id = values["log_channels"].get(category)
+        if not channel_id:
+            return RedirectResponse(href(request, f"/guild/{guild_id}/logging?error=Kein+Kanal+konfiguriert"), status_code=303)
+        try:
+            import httpx
+            payload = {
+                "flags": 32768,
+                "allowed_mentions": {"parse": []},
+                "components": [{"type": 17, "accent_color": 0x526DFF, "components": [{
+                    "type": 10,
+                    "content": f"## Testeintrag\nSo sieht ein LBoost-Eintrag für **{LOG_CATEGORIES[category]['label']}** aus. Diese Nachricht wurde im Dashboard ausgelöst.",
+                }]}],
+            }
+            async with httpx.AsyncClient(timeout=20.0) as client:
+                response = await client.post(
+                    f"https://discord.com/api/v10/channels/{channel_id}/messages",
+                    headers={"Authorization": f"Bot {settings.bot_token}"}, json=payload,
+                )
+                response.raise_for_status()
+        except Exception:
+            return RedirectResponse(href(request, f"/guild/{guild_id}/logging?error=Der+Bot+kann+in+diesen+Kanal+nicht+schreiben"), status_code=303)
+        return RedirectResponse(href(request, f"/guild/{guild_id}/logging?tested=1"), status_code=303)
 
     @app.post("/guild/{guild_id}/{feature}/vorschau")
     async def feature_vorschau(request: Request, guild_id: int, feature: str):

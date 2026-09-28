@@ -169,6 +169,16 @@ def init_features(settings: Settings) -> None:
                     action TEXT NOT NULL, details TEXT NOT NULL,
                     created_at INTEGER NOT NULL
                 );
+                CREATE TABLE IF NOT EXISTS discord_event_logs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    guild_id INTEGER NOT NULL,
+                    category TEXT NOT NULL,
+                    title TEXT NOT NULL,
+                    description TEXT NOT NULL,
+                    channel_id INTEGER,
+                    user_id INTEGER,
+                    created_at INTEGER NOT NULL
+                );
                 """)
                 # Ältere Bestände bekamen diese Spalten nie; ohne ALTER hätte der
                 # Bot beim ersten Ticket danach mit "no such column" verloren.
@@ -180,6 +190,8 @@ def init_features(settings: Settings) -> None:
                 conn.execute("CREATE INDEX IF NOT EXISTS idx_tickets_guild_status ON tickets(guild_id,status)")
                 conn.execute("CREATE INDEX IF NOT EXISTS idx_warnings_guild_user ON warnings(guild_id,user_id)")
                 conn.execute("CREATE INDEX IF NOT EXISTS idx_audit_guild_time ON feature_audit(guild_id,created_at)")
+                conn.execute("CREATE INDEX IF NOT EXISTS idx_shop_event_logs_guild_time ON discord_event_logs(guild_id,created_at DESC)")
+                conn.execute("CREATE INDEX IF NOT EXISTS idx_shop_event_logs_category ON discord_event_logs(guild_id,category,created_at DESC)")
                 # scheduled_jobs war der geplante Weg für Ankündigungen; der Bot
                 # nutzt jetzt guild_state. Die Tabelle bleibt zum Exportieren.
                 conn.executescript("""
@@ -661,3 +673,58 @@ def giveaways_fuer_gilde(guild_id: int, settings: Settings, grenze: int = 25) ->
             (guild_id, max(1, min(100, int(grenze)))),
         ).fetchall()
     return [dict(row) for row in rows]
+
+
+# ── Durchsuchbares Discord-Ereignisarchiv ───────────────────────────────
+def add_event_log(
+    guild_id: int,
+    category: str,
+    title: str,
+    description: str,
+    channel_id: int | None,
+    user_id: int | None,
+    settings: Settings,
+) -> None:
+    """Ein Discord-Ereignis speichern und Einträge nach 30 Tagen entfernen."""
+    now = int(time.time())
+    with _gesichert(settings) as conn:
+        conn.execute(
+            """INSERT INTO discord_event_logs
+               (guild_id,category,title,description,channel_id,user_id,created_at)
+               VALUES(?,?,?,?,?,?,?)""",
+            (guild_id, category, title[:200], description[:4000], channel_id, user_id, now),
+        )
+        conn.execute("DELETE FROM discord_event_logs WHERE created_at < ?", (now - 30 * 86400,))
+
+
+def search_event_logs(
+    guild_id: int,
+    settings: Settings,
+    *,
+    query: str = "",
+    category: str = "",
+    since: int = 0,
+    limit: int = 100,
+) -> list[dict[str, Any]]:
+    clauses = ["guild_id=?", "created_at>=?"]
+    values: list[Any] = [guild_id, since]
+    if category:
+        clauses.append("category=?")
+        values.append(category)
+    if query:
+        clauses.append("(title LIKE ? OR description LIKE ?)")
+        pattern = f"%{query[:200]}%"
+        values.extend((pattern, pattern))
+    values.append(max(1, min(1000, limit)))
+    with _gesichert(settings) as conn:
+        rows = conn.execute(
+            "SELECT * FROM discord_event_logs WHERE " + " AND ".join(clauses)
+            + " ORDER BY created_at DESC LIMIT ?",
+            values,
+        ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def clear_event_logs(guild_id: int, settings: Settings) -> None:
+    with _gesichert(settings) as conn:
+        conn.execute("DELETE FROM discord_event_logs WHERE guild_id=?", (guild_id,))
