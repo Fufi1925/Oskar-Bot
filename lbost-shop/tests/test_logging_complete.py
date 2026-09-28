@@ -72,9 +72,30 @@ assert "ignore_channels" in client and "ignore_roles" in client and "ignore_user
 assert "audit_logs" in client
 assert "logging/test/{category}" in main
 assert "flags\": 32768" in main
-assert "Schnelle Einrichtung" in template
-assert "Ausnahmen und Aufbewahrung" in template
+# Das Shop-Panel folgt der aktuellen University-Struktur: Überblick,
+# Entwurfs-Presets, einklappbare Gruppen, eigene Picker und Sticky-Save-Bar.
+assert "ub-log-stats" in template
+assert "Nach Bereich" in template
+assert "Eine Voreinstellung setzt alles auf einmal" in template
+assert "data-log-preset=\"essential\"" in template
+assert "data-log-group-expand" in template
+assert "data-log-exceptions-toggle" in template
+assert "data-log-save-bar" in template
 assert "Testeintrag posten" in template
 assert "{% for group in groups %}" in template
+for kind in ("channels", "roles", "members"):
+    assert f'data-picker-source="{kind}"' in template
+assert "data-picker-modal" in template
+assert "data-picker-search" in template
+assert "<select" not in template
+assert "<textarea" not in template
+assert "guild_members" in main
 
-print("ok   neun Kategorien, vollständige Discord-Events, Components V2 und University-Dashboard")
+script = (root / "lbost_shop_app" / "static" / "dashboard.js").read_text(encoding="utf-8")
+style = (root / "lbost_shop_app" / "static" / "css" / "university-dashboard.css").read_text(encoding="utf-8")
+for marker in ("data-picker-open", "data-log-group-all", "data-log-dirty-count", "data-log-add-user"):
+    assert marker in script
+assert ".ub-picker-modal" in style and ".ub-log-save-bar" in style
+assert "@media(max-width:700px)" in style
+
+print("ok   neun Kategorien, vollständige Discord-Events, Components V2 und aktuelles University-Panel")

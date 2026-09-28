@@ -535,6 +535,35 @@ def create_app() -> FastAPI:
     async def guild_access(user: dict[str, Any], guild_id: int) -> dict[str, Any] | None:
         return next((guild for guild in await visible_guilds(user) if int(guild["id"]) == guild_id), None)
 
+    async def guild_members(guild_id: int) -> list[dict[str, str]]:
+        """Members for the University-style searchable user picker."""
+        schluessel = f"mitglieder:{guild_id}"
+        cached = _kurz(schluessel)
+        if isinstance(cached, list):
+            return cached
+        try:
+            raw = await _discord_abfrage(
+                settings.bot_token, f"/guilds/{guild_id}/members", {"limit": "1000"}
+            )
+            members = []
+            for item in raw if isinstance(raw, list) else []:
+                user = item.get("user") or {}
+                user_id = str(user.get("id") or "")
+                if not user_id.isdigit():
+                    continue
+                username = str(user.get("global_name") or user.get("username") or user_id)
+                members.append({
+                    "id": user_id,
+                    "name": str(item.get("nick") or username),
+                    "username": username,
+                    "avatar": str(user.get("avatar") or ""),
+                })
+            members.sort(key=lambda entry: entry["name"].casefold())
+            _kurz_setzen(schluessel, members, 45)
+            return members
+        except Exception:
+            return []
+
     async def guild_resources(guild_id: int) -> tuple[list[dict[str, str]], list[dict[str, str]], dict[str, Any]]:
         """Channels, roles and overview data for the University-style pages."""
         schluessel = f"ressourcen:{guild_id}"
@@ -770,15 +799,17 @@ def create_app() -> FastAPI:
             values = normalise_logging(values)
             channel_ids = {item["id"] for item in channels}
             role_ids = {item["id"] for item in roles}
+            members = await guild_members(guild_id)
             warnings: list[str] = []
             categories = []
             for key, category in LOG_CATEGORIES.items():
                 channel_id = values["log_channels"].get(key, "")
+                broken = bool(values["log_enabled"].get(key) and (not channel_id or channel_id not in channel_ids))
                 if values["log_enabled"].get(key) and not channel_id:
                     warnings.append(f"„{category['label']}“ ist aktiv, aber es wurde kein Kanal ausgewählt.")
                 elif channel_id and channel_id not in channel_ids:
                     warnings.append(f"Der gespeicherte Kanal für „{category['label']}“ existiert nicht mehr.")
-                categories.append({"key": key, **category, "channel": channel_id, "enabled": values["log_enabled"].get(key, False)})
+                categories.append({"key": key, **category, "channel": channel_id, "enabled": values["log_enabled"].get(key, False), "broken": broken})
             for channel_id in values["ignore_channels"]:
                 if channel_id not in channel_ids:
                     warnings.append(f"Ein ausgenommener Kanal ({channel_id}) existiert nicht mehr.")
@@ -789,8 +820,10 @@ def create_app() -> FastAPI:
                 request, "logging.html", guild=guild, feature=feature, spec=spec,
                 values=values, categories=categories, groups=LOG_GROUPS,
                 channels=[item for item in channels if item.get("type") in ("0", "5")],
-                roles=roles, warnings=warnings,
-                active_count=sum(1 for item in categories if item["enabled"] and item["channel"]),
+                roles=roles, members=members, warnings=warnings,
+                active_count=sum(1 for item in categories if item["enabled"] and item["channel"] and not item["broken"]),
+                broken_count=sum(1 for item in categories if item["broken"]),
+                exception_count=len(values["ignore_channels"]) + len(values["ignore_roles"]) + len(values["ignore_users"]),
                 csrf=user["sid"], saved=request.query_params.get("saved") == "1",
                 tested=request.query_params.get("tested") == "1",
                 error=request.query_params.get("error"),
