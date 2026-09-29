@@ -250,15 +250,38 @@ fi
 
 # Start the isolated LBoost Shop bot. It reads its configuration from the
 # shop's SQLite file on every event (three second cache), so a change saved
-# in the dashboard takes effect without restarting anything. The bot writes a
-# heartbeat every 20 seconds; the dashboard shows that instead of a fixed
-# "online" label, and /healthz reports it too.
+# in the dashboard takes effect without restarting anything. The supervisor
+# keeps this isolated process online even if Discord disconnects it or one
+# event triggers an unexpected process-level failure. Previously only the
+# University process was supervised; a crashed Shop bot stayed offline until
+# the whole deployment happened to restart.
+run_lbost_shop_bot_forever() {
+  local child=""
+  local exit_code=0
+  trap 'if [ -n "$child" ] && kill -0 "$child" 2>/dev/null; then kill "$child" 2>/dev/null || true; wait "$child" 2>/dev/null || true; fi; exit 0' TERM INT
+  while true; do
+    echo "$(date -u +%FT%TZ) starting LBoost Shop Bot"
+    cd /app/lbost-shop || exit 1
+    PYTHONPATH=/app/lbost-shop python run_bot.py &
+    child=$!
+    wait "$child"
+    exit_code=$?
+    child=""
+    if [ "$exit_code" = "75" ]; then
+      echo "$(date -u +%FT%TZ) LBoost Shop Discord rate limit; retry in 900 seconds"
+      sleep 900
+    else
+      echo "$(date -u +%FT%TZ) LBoost Shop Bot exited with $exit_code; retry in 15 seconds"
+      sleep 15
+    fi
+  done
+}
+
 if [ -n "${LBOST_SHOP_BOT_TOKEN:-}" ] && [ -f /app/lbost-shop/run_bot.py ]; then
-  echo "🛍️ Starting LBoost Shop Bot (liest die Konfiguration aus dem Dashboard)..."
-  cd /app/lbost-shop
-  PYTHONPATH=/app/lbost-shop python run_bot.py > /tmp/lbost-shop-bot.log 2>&1 &
+  echo "🛍️ Starting supervised LBoost Shop Bot (dashboard configuration is live)..."
+  run_lbost_shop_bot_forever > /tmp/lbost-shop-bot.log 2>&1 &
   LBOST_SHOP_BOT_PID=$!
-  echo "✅ LBoost Shop Bot started (PID: $LBOST_SHOP_BOT_PID)"
+  echo "✅ LBoost Shop Bot supervisor started (PID: $LBOST_SHOP_BOT_PID)"
 else
   echo "ℹ️ LBoost Shop Bot skipped (LBOST_SHOP_BOT_TOKEN not set)"
 fi

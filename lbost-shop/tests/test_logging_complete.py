@@ -162,6 +162,8 @@ assert "Nach Namen suchen oder ID einfügen" in template
 assert "data-picker-inline-clear" in template and "data-picker-external-search" in template
 assert '"message_events": 0, "emoji_events": 1, "reaction_events": 2' in main
 assert ".ub-picker-modal" in style and ".ub-log-save-bar" in style
+assert ".ub-picker-modal[hidden]{display:none!important}" in style
+assert ".ub-log-row-icon svg" in style and "stroke:currentColor" in style
 assert "max-width:1160px" in style and ".ub-log-category-controls{grid-template-columns:1fr" in style
 assert "@media(max-width:700px)" in style
 
