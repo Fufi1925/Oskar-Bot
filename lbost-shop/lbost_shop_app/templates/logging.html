@@ -1,9 +1,9 @@
 {% extends "dashboard_base.html" %}
-{% block title %}Logs — {{ guild.name }}{% endblock %}
+{% block title %}Protokolle — {{ guild.name }}{% endblock %}
 {% block dashboard_content %}
 <header class="ub-page-header ub-log-page-title">
   <div>
-    <h1 class="ub-title-with-icon"><svg><use href="#i-bell"></use></svg>Logs</h1>
+    <h1 class="ub-title-with-icon"><svg><use href="#i-bell"></use></svg>Protokolle</h1>
     <p class="page-lead">Wer hat was gelöscht, wer ist gegangen, wer hat eine Rolle bekommen — der Bot schreibt es in einen Kanal deiner Wahl.</p>
   </div>
 </header>
@@ -20,7 +20,7 @@
   <section class="ub-log-card">
     <header class="ub-log-card-header">
       <span class="ub-log-card-icon"><svg><use href="#i-bell"></use></svg></span>
-      <div><h2>Logs</h2><p>Der Bot schreibt mit, was auf dem Server passiert. Fang mit einer Voreinstellung an — einzeln einstellen kannst du danach immer noch.</p></div>
+      <div><h2>Protokolle</h2><p>Der Bot schreibt mit, was auf dem Server passiert. Fang mit einer Voreinstellung an — einzeln einstellen kannst du danach immer noch.</p></div>
       <button type="button" class="ub-log-icon-button" data-log-reload title="Neu laden"><svg><use href="#i-settings"></use></svg></button>
     </header>
 
@@ -37,8 +37,8 @@
 
     <div class="ub-log-quickstart">
       <input type="hidden" name="all_channel" id="log-all-channel" value="">
-      <button type="button" class="ub-custom-picker-button" data-picker-open data-picker-kind="channels" data-picker-target="log-all-channel" data-picker-placeholder="Kanal für die Voreinstellung">
-        <svg><use href="#i-log"></use></svg><span data-picker-label>Kanal für die Voreinstellung</span><svg class="chevron"><use href="#i-chevron"></use></svg>
+      <button type="button" class="ub-custom-picker-button ub-preset-channel-picker" data-picker-open data-picker-kind="channels" data-picker-target="log-all-channel" data-picker-placeholder="Kanal für die Voreinstellung">
+        <span data-picker-label>Kanal für die Voreinstellung</span><svg class="chevron"><use href="#i-chevron"></use></svg>
       </button>
       <div class="ub-log-preset-grid">
         <button type="button" data-log-preset="essential" disabled><strong>Das Nötigste</strong><span>Moderation, Beitritte, Serveränderungen. Wenig Rauschen.</span><small>3 Arten</small></button>
@@ -83,8 +83,8 @@
             </div>
             <div class="ub-log-category-controls"{% if not category.enabled %} hidden{% endif %}>
               <input type="hidden" name="channel_{{ category.key }}" id="log-channel-{{ category.key }}" value="{{ category.channel }}">
-              <button type="button" class="ub-custom-picker-button" data-picker-open data-picker-kind="channels" data-picker-target="log-channel-{{ category.key }}" data-picker-placeholder="Kanal wählen">
-                <svg><use href="#i-log"></use></svg><span data-picker-label>{% for channel in channels if channel.id == category.channel %}# {{ channel.name }}{% else %}{% if not category.channel %}Kanal wählen{% else %}Unbekannter Kanal{% endif %}{% endfor %}</span><svg class="chevron"><use href="#i-chevron"></use></svg>
+              <button type="button" class="ub-custom-picker-button ub-category-channel-picker" data-picker-open data-picker-kind="channels" data-picker-target="log-channel-{{ category.key }}" data-picker-placeholder="Kanal wählen">
+                <span class="ub-picker-hash">#</span><span data-picker-label>{% for channel in channels if channel.id == category.channel %}{{ channel.name }}{% else %}{% if not category.channel %}Kanal wählen{% else %}Unbekannter Kanal{% endif %}{% endfor %}</span><span class="ub-picker-inline-clear" data-picker-inline-clear{% if not category.channel %} hidden{% endif %}>×</span><svg class="chevron"><use href="#i-chevron"></use></svg>
               </button>
               <button type="button" data-log-test-url="{{ root_path }}/guild/{{ guild.id }}/logging/test/{{ category.key }}" class="ub-log-test"{% if not category.channel or category.broken %} hidden{% endif %}><svg><use href="#i-bolt"></use></svg><span>Testeintrag posten</span></button>
               <p class="ub-log-test-hint" hidden>Erst speichern, dann lässt sich der Kanal testen.</p>
@@ -100,7 +100,7 @@
 
   <section class="ub-log-card">
     <header class="ub-log-card-header">
-      <span class="ub-log-card-icon"><svg><use href="#i-users"></use></svg></span>
+      <span class="ub-log-card-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"></circle><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-4 8"></path></svg></span>
       <div><h2>Ausnahmen</h2><p>Kanäle, Rollen und Mitglieder, über die nichts protokolliert wird.</p></div>
     </header>
     <button type="button" class="ub-log-exception-toggle" data-log-exceptions-toggle>
@@ -110,22 +110,26 @@
       <div class="ub-log-field">
         <label>Kanäle</label>
         <div id="ignore-channels-inputs">{% for id in values.ignore_channels %}<input type="hidden" name="ignore_channels" value="{{ id }}">{% endfor %}</div>
-        <button type="button" class="ub-custom-picker-button" data-picker-open data-picker-kind="channels" data-picker-target="ignore-channels-inputs" data-picker-multiple data-picker-placeholder="Kanäle auswählen"><svg><use href="#i-log"></use></svg><span data-picker-label>{% if values.ignore_channels %}{{ values.ignore_channels|length }} ausgewählt{% else %}Kanäle auswählen{% endif %}</span><svg class="chevron"><use href="#i-chevron"></use></svg></button>
+        <button type="button" class="ub-custom-picker-button" data-picker-open data-picker-kind="channels" data-picker-target="ignore-channels-inputs" data-picker-multiple data-picker-placeholder="Auswählen"><span data-picker-label>{% if values.ignore_channels %}{{ values.ignore_channels|length }} ausgewählt{% else %}Auswählen{% endif %}</span><svg class="chevron"><use href="#i-chevron"></use></svg></button>
         <div class="ub-picker-chips" data-picker-chips="ignore-channels-inputs"></div>
         <p>Die Log-Kanäle selbst gehören hierhin — sonst protokolliert jeder Eintrag den nächsten.</p>
       </div>
       <div class="ub-log-field">
         <label>Rollen</label>
         <div id="ignore-roles-inputs">{% for id in values.ignore_roles %}<input type="hidden" name="ignore_roles" value="{{ id }}">{% endfor %}</div>
-        <button type="button" class="ub-custom-picker-button" data-picker-open data-picker-kind="roles" data-picker-target="ignore-roles-inputs" data-picker-multiple data-picker-placeholder="Rollen auswählen"><svg><use href="#i-users"></use></svg><span data-picker-label>{% if values.ignore_roles %}{{ values.ignore_roles|length }} ausgewählt{% else %}Rollen auswählen{% endif %}</span><svg class="chevron"><use href="#i-chevron"></use></svg></button>
+        <button type="button" class="ub-custom-picker-button" data-picker-open data-picker-kind="roles" data-picker-target="ignore-roles-inputs" data-picker-multiple data-picker-placeholder="Auswählen"><span data-picker-label>{% if values.ignore_roles %}{{ values.ignore_roles|length }} ausgewählt{% else %}Auswählen{% endif %}</span><svg class="chevron"><use href="#i-chevron"></use></svg></button>
         <div class="ub-picker-chips" data-picker-chips="ignore-roles-inputs"></div>
       </div>
-      <div class="ub-log-field">
+      <div class="ub-log-field ub-log-members-field">
         <label>Mitglieder</label>
+        <span class="ub-log-user-label">Benutzer</span>
         <div class="ub-log-user-add">
           <input type="hidden" id="ignore-user-candidate" value="">
-          <button type="button" class="ub-custom-picker-button" data-picker-open data-picker-kind="members" data-picker-target="ignore-user-candidate" data-picker-placeholder="Mitglied auswählen"><svg><use href="#i-users"></use></svg><span data-picker-label>Mitglied auswählen</span><svg class="chevron"><use href="#i-chevron"></use></svg></button>
-          <button type="button" class="ub-log-add-user" data-log-add-user disabled title="Hinzufügen"><svg><use href="#i-bolt"></use></svg></button>
+          <label class="ub-log-user-search">
+            <svg><use href="#i-search"></use></svg>
+            <input type="search" data-user-search data-picker-open data-picker-external-search data-picker-kind="members" data-picker-target="ignore-user-candidate" placeholder="Nach Namen suchen oder ID einfügen" autocomplete="off">
+          </label>
+          <button type="button" class="ub-log-add-user" data-log-add-user disabled title="Hinzufügen"><svg><use href="#i-shield"></use></svg></button>
         </div>
         <input type="hidden" name="ignore_users" id="ignore-users" value="{{ values.ignore_users|join(',') }}">
         <div class="ub-picker-chips" data-user-chips>{% for id in values.ignore_users %}<span data-id="{{ id }}">{{ id }}<button type="button" data-remove-user="{{ id }}" title="Entfernen"><svg><use href="#i-x"></use></svg></button></span>{% endfor %}</div>
@@ -139,7 +143,7 @@
   </div>
 </form>
 
-<div class="ub-picker-source" data-picker-source="channels" hidden>{% for channel in channels %}<button type="button" data-id="{{ channel.id }}" data-name="# {{ channel.name }}" data-can-post="{% if channel.can_post is false %}false{% else %}true{% endif %}" data-can-embed="{% if channel.can_embed is false %}false{% else %}true{% endif %}"><svg><use href="#i-log"></use></svg><span><strong># {{ channel.name }}</strong><small>{% if channel.can_post is false %}Bot darf nicht schreiben{% elif channel.can_embed is false %}Links einbetten fehlt{% else %}Kanal{% endif %}</small></span></button>{% endfor %}</div>
+<div class="ub-picker-source" data-picker-source="channels" hidden>{% for channel in channels %}<button type="button" data-id="{{ channel.id }}" data-name="{{ channel.name }}" data-can-post="{% if channel.can_post is false %}false{% else %}true{% endif %}" data-can-embed="{% if channel.can_embed is false %}false{% else %}true{% endif %}"><svg><use href="#i-log"></use></svg><span><strong># {{ channel.name }}</strong><small>{% if channel.can_post is false %}Bot darf nicht schreiben{% elif channel.can_embed is false %}Links einbetten fehlt{% else %}Kanal{% endif %}</small></span></button>{% endfor %}</div>
 <div class="ub-picker-source" data-picker-source="roles" hidden>{% for role in roles %}<button type="button" data-id="{{ role.id }}" data-name="{{ role.name }}"><svg class="ub-role-colour" viewBox="0 0 12 12"><circle cx="6" cy="6" r="5" fill="{{ role.colour }}"></circle></svg><span><strong>{{ role.name }}</strong><small>{% if role.managed %}Verwaltete Rolle{% else %}Rolle{% endif %}</small></span></button>{% endfor %}</div>
 <div class="ub-picker-source" data-picker-source="members" hidden>{% for member in members %}<button type="button" data-id="{{ member.id }}" data-name="{{ member.name }}">{% if member.avatar_url %}<img class="ub-picker-avatar" src="{{ member.avatar_url }}" alt="">{% else %}<span class="ub-picker-avatar">{{ member.name[:1]|upper }}</span>{% endif %}<span><strong>{{ member.name }}{% if member.bot %}<b class="ub-picker-bot">bot</b>{% endif %}</strong><small>{{ member.id }}{% if member.top_role %} · {{ member.top_role }}{% endif %}</small></span></button>{% endfor %}</div>
 

@@ -891,7 +891,7 @@ def create_app() -> FastAPI:
             channel_map = {item["id"]: item for item in channels}
             panel_order = {
                 "join_leave_events": 0, "member_moderation": 1, "voice_events": 2,
-                "message_events": 0, "reaction_events": 1, "emoji_events": 2,
+                "message_events": 0, "emoji_events": 1, "reaction_events": 2,
                 "channel_events": 0, "role_events": 1, "system_events": 2,
             }
             categories = []

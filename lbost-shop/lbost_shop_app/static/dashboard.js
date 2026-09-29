@@ -226,6 +226,7 @@
             target.value = source.dataset.id;
             target.dispatchEvent(new Event('change', { bubbles: true }));
           }
+          if (pickerButton.hasAttribute('data-picker-external-search')) pickerButton.value = source.dataset.name;
           updatePickerButtons(pickerButton.dataset.pickerTarget, kind);
           closePicker();
         });
@@ -244,6 +245,7 @@
         option.addEventListener('click', () => {
           const target = document.getElementById(pickerButton.dataset.pickerTarget);
           if (target) { target.value = rawId; target.dispatchEvent(new Event('change', { bubbles: true })); }
+          if (pickerButton.hasAttribute('data-picker-external-search')) pickerButton.value = rawId;
           updatePickerButtons(pickerButton.dataset.pickerTarget, kind); closePicker();
         });
         results.appendChild(option); shown += 1;
@@ -257,7 +259,9 @@
       pickerChoices = new Set(targetValues(button));
       if (pickerTitle) pickerTitle.textContent = pickerKindTitle[button.dataset.pickerKind] || 'Auswählen';
       if (pickerFooter) pickerFooter.hidden = true;
-      if (searchInput) searchInput.value = '';
+      const externalSearch = button.hasAttribute('data-picker-external-search');
+      if (searchInput) searchInput.value = externalSearch ? button.value : '';
+      modal.querySelector('.ub-picker-search')?.toggleAttribute('hidden', externalSearch);
       modal.hidden = false;
       modal.setAttribute('aria-hidden', 'false');
       const panel = modal.querySelector('section');
@@ -272,7 +276,7 @@
       panel.style.bottom = openAbove ? `${window.innerHeight - rect.top + 6}px` : 'auto';
       panel.style.maxHeight = `${Math.max(180, openAbove ? rect.top - 16 : roomBelow)}px`;
       renderPickerResults();
-      window.setTimeout(() => searchInput?.focus(), 30);
+      if (!externalSearch) window.setTimeout(() => searchInput?.focus(), 30);
     };
     const closePicker = () => {
       if (!modal) return;
@@ -291,6 +295,8 @@
           label.textContent = values.length ? `${values.length} ausgewählt` : button.dataset.pickerPlaceholder;
         } else {
           label.textContent = target.value ? sourceName(kind, target.value) : button.dataset.pickerPlaceholder;
+          const inlineClear = button.querySelector('[data-picker-inline-clear]');
+          if (inlineClear) inlineClear.hidden = !target.value;
         }
       });
       renderMultiChips(targetId, kind);
@@ -329,7 +335,24 @@
       });
     };
 
-    document.querySelectorAll('[data-picker-open]').forEach((button) => button.addEventListener('click', () => openPicker(button)));
+    document.querySelectorAll('[data-picker-inline-clear]').forEach((clear) => clear.addEventListener('click', (event) => {
+      event.preventDefault(); event.stopPropagation();
+      const button = clear.closest('[data-picker-open]');
+      const target = document.getElementById(button.dataset.pickerTarget);
+      if (target) { target.value = ''; target.dispatchEvent(new Event('change', { bubbles: true })); }
+      updatePickerButtons(button.dataset.pickerTarget, button.dataset.pickerKind);
+    }));
+    document.querySelectorAll('[data-picker-open]').forEach((button) => {
+      button.addEventListener('click', () => openPicker(button));
+      if (button.hasAttribute('data-picker-external-search')) {
+        button.addEventListener('focus', () => openPicker(button));
+        button.addEventListener('input', () => {
+          if (pickerButton !== button) openPicker(button);
+          if (searchInput) searchInput.value = button.value;
+          renderPickerResults();
+        });
+      }
+    });
     modal?.querySelectorAll('[data-picker-close], [data-picker-cancel]').forEach((button) => button.addEventListener('click', closePicker));
     modal?.querySelector('[data-picker-apply]')?.addEventListener('click', () => {
       if (pickerButton) setMultipleValues(pickerButton, [...pickerChoices]);
@@ -519,7 +542,9 @@
       const users = userInput.value.split(',').filter(Boolean);
       if (!users.includes(userCandidate.value)) users.push(userCandidate.value);
       userInput.value = users.join(','); userInput.dispatchEvent(new Event('change', { bubbles: true }));
-      userCandidate.value = ''; addUser.disabled = true; updatePickerButtons('ignore-user-candidate', 'members'); renderUserChips();
+      userCandidate.value = '';
+      const userSearch = loggingForm.querySelector('[data-user-search]'); if (userSearch) userSearch.value = '';
+      addUser.disabled = true; updatePickerButtons('ignore-user-candidate', 'members'); renderUserChips();
     });
     userInput?.addEventListener('change', updateSummary);
 

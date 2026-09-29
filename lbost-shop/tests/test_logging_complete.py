@@ -134,6 +134,7 @@ assert "Diese Nachricht kam aus dem Dashboard." in main
 # Das Shop-Panel folgt der aktuellen University-Struktur: Überblick,
 # Entwurfs-Presets, einklappbare Gruppen, eigene Picker und Sticky-Save-Bar.
 assert "ub-log-stats" in template
+assert "Protokolle" in template
 assert "Nach Bereich" in template
 assert "Eine Voreinstellung setzt alles auf einmal" in template
 assert "data-log-preset=\"essential\"" in template
@@ -157,7 +158,11 @@ for marker in ("data-picker-open", "data-log-group-all", "data-log-dirty-count",
 assert "data-can-post" in template and "Der Bot darf dort nicht schreiben" in template
 assert "Discord-ID verwenden" in script and "getBoundingClientRect" in script
 assert "button.dataset.logPreset === 'everything'" in script and "body.set('action', 'everything')" in script
+assert "Nach Namen suchen oder ID einfügen" in template
+assert "data-picker-inline-clear" in template and "data-picker-external-search" in template
+assert '"message_events": 0, "emoji_events": 1, "reaction_events": 2' in main
 assert ".ub-picker-modal" in style and ".ub-log-save-bar" in style
+assert "max-width:1160px" in style and ".ub-log-category-controls{grid-template-columns:1fr" in style
 assert "@media(max-width:700px)" in style
 
 print("ok   neun Kategorien, vollständige Discord-Events, Components V2 und aktuelles University-Panel")
