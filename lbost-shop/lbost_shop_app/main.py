@@ -7,13 +7,14 @@ liegen in ``regeln.py`` und gelten für Vorschau und Bot gleichzeitig).
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 import secrets
 import time
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import quote_plus, urlparse
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.gzip import GZipMiddleware
@@ -162,11 +163,24 @@ FEATURES: dict[str, dict[str, Any]] = {
         ("exempt_role_ids", "Ausgenommene Rollen (IDs, Komma)", "text"),
     ]},
     "welcome": {"title": "Welcome & Leave", "icon": "users", "fields": [
-        ("enabled", "Aktiviert", "bool"), ("welcome_channel_id", "Willkommenskanal", "channel"),
-        ("welcome_message", "Willkommenstext", "textarea"), ("welcome_image_url", "Willkommensbild", "url"),
-        ("color", "Farbe", "color"),
-        ("leave_enabled", "Leave-Nachrichten", "bool"), ("leave_channel_id", "Leave-Kanal", "channel"),
-        ("leave_message", "Leave-Text", "textarea"), ("leave_image_url", "Leave-Bild", "url"),
+        ("enabled", "Begrüßung aktiviert", "bool"), ("welcome_channel_id", "Willkommenskanal", "channel"),
+        ("welcome_type", "Nachrichtenart", "text"), ("welcome_message", "Willkommenstext", "textarea"),
+        ("welcome_auto_delete_duration", "Nach Sekunden löschen", "number"),
+        ("welcome_embed_message", "Text über der Karte", "textarea"),
+        ("welcome_embed_title", "Kartenüberschrift", "text"),
+        ("welcome_embed_description", "Kartenbeschreibung", "textarea"),
+        ("welcome_embed_author_name", "Kopfzeile", "text"),
+        ("welcome_embed_author_icon", "Kopfzeilenbild", "url"),
+        ("welcome_embed_footer_text", "Fußzeile", "text"),
+        ("welcome_embed_footer_icon", "Fußzeilenbild", "url"),
+        ("welcome_embed_thumbnail", "Thumbnail", "url"), ("welcome_embed_image", "Kartenbild", "url"),
+        ("color", "Farbe", "color"), ("welcome_image_enabled", "Generiertes Willkommensbild", "bool"),
+        ("welcome_image_url", "Eigener Willkommenshintergrund", "url"),
+        ("leave_enabled", "Abschied aktiviert", "bool"), ("leave_channel_id", "Abschiedskanal", "channel"),
+        ("leave_message", "Abschiedstext", "textarea"),
+        ("leave_auto_delete_duration", "Nach Sekunden löschen", "number"),
+        ("leave_image_enabled", "Generiertes Abschiedsbild", "bool"),
+        ("leave_image_url", "Eigener Abschiedshintergrund", "url"),
     ]},
     "reaction_roles": {"title": "Reaction Roles", "icon": "users", "fields": [
         ("enabled", "Aktiviert", "bool"), ("channel_id", "Panel-Kanal", "channel"),
@@ -207,6 +221,8 @@ GRENZEN: dict[str, tuple[int, int]] = {
     "spam_timeout_minuten": (1, 1440),
     "default_winners": (1, 20),
     "slowmode_seconds": (0, 30),
+    "welcome_auto_delete_duration": (0, 86400),
+    "leave_auto_delete_duration": (0, 86400),
 }
 
 JSON_MAX_FELDER = 50
@@ -298,6 +314,8 @@ def _rollen_ids(wert: Any) -> str:
 def _url_pruefen(feld: str, wert: str) -> str | None:
     """Bild-URLs müssen http(s) sein — sonst zeigt Discord ein kaputtes Bild."""
     if not wert:
+        return None
+    if wert in {"{user_avatar}", "{server_icon}"}:
         return None
     try:
         ziel = urlparse(wert)
@@ -877,6 +895,20 @@ def create_app() -> FastAPI:
             guild_id, include_bot_permissions=feature == "logging"
         )
         values = db.get_feature(guild_id, feature, settings)
+        if feature == "welcome":
+            defaults = {
+                "welcome_type": "simple", "color": "#5865f2",
+                "welcome_image_enabled": True, "leave_image_enabled": True,
+                "welcome_message": "Willkommen {user} auf **{server_name}**! Du bist Mitglied Nummer {server_membercount}.",
+                "leave_message": "**{user_nick}** hat den Server verlassen.",
+            }
+            return render(
+                request, "welcome.html", guild=guild, feature=feature, spec=spec,
+                values={**defaults, **values}, channels=[item for item in channels if item.get("type") in ("0", "5")],
+                roles=roles, csrf=user["sid"], saved=request.query_params.get("saved") == "1",
+                tested=request.query_params.get("tested"), error=request.query_params.get("error"),
+                active_tab=request.query_params.get("tab", "welcome"),
+            )
         if feature == "moderation":
             members = await guild_members(guild_id)
             member_map = {str(item["id"]): item for item in members}
@@ -977,6 +1009,23 @@ def create_app() -> FastAPI:
         form = await request.form()
         if not csrf_ok(form.get("csrf"), user):
             return PlainTextResponse("Ungültige Anfrage.", status_code=403)
+        if feature == "welcome":
+            values, fehler = _werte_aus_formular(spec, form, feature)
+            if values.get("welcome_type") not in {"simple", "embed"}:
+                values["welcome_type"] = "simple"
+            channels, _roles, _stats = await guild_resources(guild_id)
+            channel_ids = {str(item["id"]) for item in channels if item.get("type") in ("0", "5")}
+            for key in ("welcome_channel_id", "leave_channel_id"):
+                if values.get(key) and str(values[key]) not in channel_ids:
+                    fehler.append("Der ausgewählte Kanal existiert nicht.")
+            for key in ("welcome_image_url", "leave_image_url"):
+                url = str(values.get(key) or "")
+                if url and (not url.startswith("https://") or url.split("?", 1)[0].lower().endswith((".png", ".jpg", ".jpeg", ".gif", ".webp")) is False):
+                    fehler.append("Hintergrundbilder müssen HTTPS-Bildadressen sein.")
+            if fehler:
+                return RedirectResponse(href(request, f"/guild/{guild_id}/welcome?tab={form.get('tab') or 'welcome'}&error=" + quote_plus(" ".join(fehler[:3]))), status_code=303)
+            db.set_feature(guild_id, feature, values, int(user["uid"]), settings)
+            return RedirectResponse(href(request, f"/guild/{guild_id}/welcome?tab={form.get('tab') or 'welcome'}&saved=1"), status_code=303)
         if feature == "logging":
             previous = normalise_logging(db.get_feature(guild_id, feature, settings))
             channels, roles, _stats = await guild_resources(guild_id)
@@ -1032,6 +1081,85 @@ def create_app() -> FastAPI:
                           daten=modul_daten(guild_id, feature))
         db.set_feature(guild_id, feature, values, int(user["uid"]), settings)
         return RedirectResponse(href(request, f"/guild/{guild_id}/{feature}?saved=1"), status_code=303)
+
+    @app.post("/guild/{guild_id}/welcome/test/{kind}")
+    async def test_greeting(request: Request, guild_id: int, kind: str):
+        user = current_user(request)
+        guild = await guild_access(user, guild_id) if user else None
+        if not user or not guild or kind not in {"welcome", "leave"}:
+            return RedirectResponse(href(request, "/dashboard"), status_code=302)
+        form = await request.form()
+        if not csrf_ok(form.get("csrf"), user):
+            return PlainTextResponse("Ungültige Anfrage.", status_code=403)
+        values = db.get_feature(guild_id, "welcome", settings)
+        # The University test button sends the current draft, not only the
+        # last saved row. This lets the real Discord preview validate edits
+        # before they are committed.
+        draft, _draft_errors = _werte_aus_formular(FEATURES["welcome"], form, "welcome")
+        values = {**values, **draft}
+        channel_id = str(values.get(f"{kind}_channel_id") or "")
+        if not channel_id or not settings.bot_token:
+            return RedirectResponse(href(request, f"/guild/{guild_id}/welcome?tab={kind}&error=Kanal+oder+Bot-Token+fehlt"), status_code=303)
+        samples = {
+            "user": f"<@{user['uid']}>", "user_name": str(user.get("username") or "Neuer"),
+            "user_nick": str(user.get("global_name") or user.get("username") or "Neuer"),
+            "user_id": str(user["uid"]), "user_avatar": avatar_url(user),
+            "user_joindate": "heute", "user_createdate": "08.01.2024",
+            "server_name": str(guild.get("name") or "Server"), "server_id": str(guild_id),
+            "server_membercount": str(guild.get("member_count") or 1), "server_icon": str(guild.get("icon_url") or ""),
+            "timestamp": "jetzt", "server": str(guild.get("name") or "Server"), "count": str(guild.get("member_count") or 1),
+        }
+        def fill(value: Any) -> str:
+            return re.sub(r"\{(\w+)\}", lambda match: samples.get(match.group(1).lower(), match.group(0)), str(value or ""))
+        title = "Willkommen" if kind == "welcome" else "Abschied"
+        text = fill(values.get(f"{kind}_message") or ("Willkommen {user} auf **{server_name}**!" if kind == "welcome" else "**{user_nick}** hat den Server verlassen."))
+        if kind == "welcome" and values.get("welcome_type") == "embed":
+            title = fill(values.get("welcome_embed_title") or title)
+            text = fill(values.get("welcome_embed_description") or values.get("welcome_message") or text)
+        components: list[dict[str, Any]] = [{"type": 10, "content": f"## {title}\n{text}"[:4000]}]
+        banner = None
+        if values.get(f"{kind}_image_enabled", True):
+            try:
+                import httpx
+                from lbost_shop_bot import welcome_card
+                avatar_bytes = None
+                background_bytes = None
+                async with httpx.AsyncClient(timeout=8.0, follow_redirects=True) as media_client:
+                    avatar = samples.get("user_avatar")
+                    if avatar:
+                        media = await media_client.get(avatar)
+                        if media.status_code == 200 and len(media.content) <= 8 * 1024 * 1024:
+                            avatar_bytes = media.content
+                    background_url = str(values.get(f"{kind}_image_url") or "")
+                    if background_url:
+                        media = await media_client.get(background_url)
+                        if media.status_code == 200 and len(media.content) <= 8 * 1024 * 1024:
+                            background_bytes = media.content
+                banner = await asyncio.to_thread(
+                    welcome_card.render, name=samples["user_nick"], avatar_bytes=avatar_bytes,
+                    guild_name=samples["server_name"], member_count=int(samples["server_membercount"]),
+                    accent=int(str(values.get("color") or "#3b82f6").lstrip("#"), 16),
+                    background_bytes=background_bytes,
+                    label="WILLKOMMEN" if kind == "welcome" else "TSCHUESS",
+                    subtitle=None if kind == "welcome" else f"hat {samples['server_name']} verlassen",
+                    counter_text=None,
+                )
+                if banner:
+                    components.append({"type": 12, "items": [{"media": {"url": "attachment://vorschau.png"}}]})
+            except Exception:
+                banner = None
+        payload = {"flags": 32768, "allowed_mentions": {"parse": []}, "components": [{"type": 17, "accent_color": int(str(values.get("color") or "#5865f2").lstrip("#"), 16), "components": components}]}
+        try:
+            import httpx
+            async with httpx.AsyncClient(timeout=20.0) as client:
+                if banner:
+                    response = await client.post(f"https://discord.com/api/v10/channels/{channel_id}/messages", headers={"Authorization": f"Bot {settings.bot_token}"}, data={"payload_json": json.dumps(payload)}, files={"files[0]": ("vorschau.png", banner.getvalue(), "image/png")})
+                else:
+                    response = await client.post(f"https://discord.com/api/v10/channels/{channel_id}/messages", headers={"Authorization": f"Bot {settings.bot_token}"}, json=payload)
+                response.raise_for_status()
+        except Exception:
+            return RedirectResponse(href(request, f"/guild/{guild_id}/welcome?tab={kind}&error=Testnachricht+konnte+nicht+gesendet+werden"), status_code=303)
+        return RedirectResponse(href(request, f"/guild/{guild_id}/welcome?tab={kind}&tested={kind}"), status_code=303)
 
     @app.post("/guild/{guild_id}/logging/test/{category}")
     async def test_logging(request: Request, guild_id: int, category: str):

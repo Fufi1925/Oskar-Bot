@@ -22,6 +22,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 from urllib.parse import urlparse
 
+import aiohttp
 import discord
 from discord import app_commands
 from discord.ext import commands, tasks
@@ -75,7 +76,7 @@ def emoji(raw: Any) -> discord.PartialEmoji | None:
 
 
 def layout(title: str, description: str, *, color: Any = "#5865f2", buttons: list[discord.ui.Button] | None = None,
-           image_url: str = "", thumbnail_url: str = "", footer: str = "") -> discord.ui.LayoutView:
+           image_url: str = "", extra_image_url: str = "", thumbnail_url: str = "", footer: str = "") -> discord.ui.LayoutView:
     view = discord.ui.LayoutView(timeout=None)
     container = discord.ui.Container(accent_color=colour(color))
     text = f"## {title}\n{description}"[:3900]
@@ -83,8 +84,13 @@ def layout(title: str, description: str, *, color: Any = "#5865f2", buttons: lis
     if thumbnail_url:
         section = discord.ui.Section(discord.ui.TextDisplay(" "), accessory=discord.ui.Thumbnail(thumbnail_url))
         container.add_item(section)
-    if image_url:
-        container.add_item(discord.ui.MediaGallery(discord.MediaGalleryItem(image_url)))
+    if image_url or extra_image_url:
+        gallery = discord.ui.MediaGallery()
+        if image_url:
+            gallery.add_item(media=image_url)
+        if extra_image_url:
+            gallery.add_item(media=extra_image_url)
+        container.add_item(gallery)
     if buttons:
         for offset in range(0, min(len(buttons), 25), 5):
             row = discord.ui.ActionRow()
@@ -655,20 +661,109 @@ class ShopBot(commands.Bot):
         titel, text, fehler = meldungen[ergebnis]
         await self.interaction_notice(interaction, titel, text, error=fehler)
 
+    # ── Welcome / leave: shared University renderer ─────────────────
+    def greet_values(self, member: discord.Member) -> dict[str, str]:
+        guild = member.guild
+        joined = getattr(member, "joined_at", None)
+        created = getattr(member, "created_at", None)
+        count = guild.member_count or len(guild.members)
+        return {
+            "user": member.mention, "user_name": member.name,
+            "user_nick": member.display_name, "user_id": str(member.id),
+            "user_avatar": str(member.display_avatar.url),
+            "user_joindate": joined.strftime("%a, %b %d, %Y") if joined else "—",
+            "user_createdate": created.strftime("%a, %b %d, %Y") if created else "—",
+            "server_name": guild.name, "server_id": str(guild.id),
+            "server_membercount": str(count),
+            "server_icon": str(guild.icon.url) if guild.icon else "https://cdn.discordapp.com/embed/avatars/0.png",
+            "timestamp": discord.utils.format_dt(discord.utils.utcnow()),
+            # Existing LBoost aliases remain valid during migration.
+            "server": guild.name, "member_count": str(count), "count": str(count),
+            "channel": "",
+        }
+
+    def greet_fill(self, value: Any, member: discord.Member) -> str:
+        values = self.greet_values(member)
+        return re.sub(r"\{(\w+)\}", lambda match: values.get(match.group(1).lower(), match.group(0)), str(value or ""))
+
+    async def greet_banner(self, member: discord.Member, cfg: dict[str, Any], kind: str) -> discord.File | None:
+        if not cfg.get(f"{kind}_image_enabled", True):
+            return None
+        background = b""
+        url = str(cfg.get(f"{kind}_image_url") or "").strip()
+        if url:
+            try:
+                timeout = aiohttp.ClientTimeout(total=6)
+                async with aiohttp.ClientSession(timeout=timeout) as session:
+                    async with session.get(url) as response:
+                        if response.status == 200 and int(response.headers.get("Content-Length", "0") or 0) <= 8 * 1024 * 1024:
+                            background = await response.content.read(8 * 1024 * 1024 + 1)
+                            if len(background) > 8 * 1024 * 1024:
+                                background = b""
+            except Exception:
+                background = b""
+        avatar = b""
+        try:
+            avatar = await asyncio.wait_for(member.display_avatar.replace(size=256, format="png").read(), timeout=5)
+        except Exception:
+            pass
+        try:
+            from lbost_shop_bot import welcome_card
+            count = member.guild.member_count or len(member.guild.members)
+            buffer = await asyncio.to_thread(
+                welcome_card.render, name=member.display_name, avatar_bytes=avatar or None,
+                guild_name=member.guild.name, member_count=count,
+                accent=member.guild.me.colour.value if member.guild.me and member.guild.me.colour.value else 0x3B82F6,
+                background_bytes=background or None,
+                label="WILLKOMMEN" if kind == "welcome" else "TSCHUESS",
+                subtitle=None if kind == "welcome" else f"hat {member.guild.name} verlassen",
+                counter_text=None if kind == "welcome" else f"Noch {count:,} Mitglieder".replace(",", "."),
+            )
+            return discord.File(buffer, filename="willkommen.png" if kind == "welcome" else "tschuess.png") if buffer else None
+        except Exception:
+            logger.warning("Could not render %s card", kind, exc_info=True)
+            return None
+
+    async def send_greeting(self, member: discord.Member, kind: str) -> None:
+        cfg = self.feature(member.guild.id, "welcome")
+        enabled = cfg.get("enabled") if kind == "welcome" else cfg.get("leave_enabled")
+        if not enabled or (kind == "leave" and member.bot):
+            return
+        channel = member.guild.get_channel(int(cfg.get(f"{kind}_channel_id") or 0))
+        if not isinstance(channel, discord.TextChannel):
+            return
+        banner = await self.greet_banner(member, cfg, kind)
+        image = f"attachment://{banner.filename}" if banner else ""
+        if kind == "welcome" and str(cfg.get("welcome_type") or "simple") == "embed":
+            title = self.greet_fill(cfg.get("welcome_embed_title") or "Willkommen", member)
+            sections = []
+            above = self.greet_fill(cfg.get("welcome_embed_message"), member)
+            if above: sections.append(above)
+            author = self.greet_fill(cfg.get("welcome_embed_author_name"), member)
+            if author: sections.append(f"**{author}**")
+            description = self.greet_fill(cfg.get("welcome_embed_description"), member)
+            if description: sections.append(description)
+            footer = self.greet_fill(cfg.get("welcome_embed_footer_text"), member)
+            text = "\n\n".join(sections) or self.greet_fill(cfg.get("welcome_message"), member)
+            embed_image = self.greet_fill(cfg.get("welcome_embed_image"), member)
+            thumbnail = self.greet_fill(cfg.get("welcome_embed_thumbnail") or cfg.get("welcome_embed_author_icon"), member)
+            view = layout(title, text, color=cfg.get("color"), image_url=embed_image or image,
+                          extra_image_url=image if image and embed_image else "", thumbnail_url=thumbnail, footer=footer)
+        else:
+            template = cfg.get(f"{kind}_message") or ("Willkommen {user} auf **{server_name}**!" if kind == "welcome" else "**{user_nick}** hat den Server verlassen.")
+            view = layout("Willkommen" if kind == "welcome" else "Abschied", self.greet_fill(template, member),
+                          color=cfg.get("color"), image_url=image)
+        try:
+            message = await channel.send(view=view, **({"file": banner} if banner else {}))
+            duration = int(cfg.get(f"{kind}_auto_delete_duration") or 0)
+            if duration:
+                await message.delete(delay=duration)
+        except (discord.Forbidden, discord.HTTPException):
+            logger.warning("Could not send %s message in guild %s", kind, member.guild.id, exc_info=True)
+
     # ── Events and automation ───────────────────────────────────────
     async def on_member_join(self, member: discord.Member) -> None:
-        cfg = self.feature(member.guild.id, "welcome")
-        if cfg.get("enabled"):
-            channel = member.guild.get_channel(int(cfg.get("welcome_channel_id") or 0))
-            if channel:
-                text = (
-                    str(cfg.get("welcome_message") or "Willkommen {user} auf {server}.")
-                    .replace("{user}", member.mention)
-                    .replace("{server}", member.guild.name)
-                    .replace("{member_count}", str(member.guild.member_count))
-                    .replace("{channel}", f"#{channel.name}")
-                )
-                await self.send_layout(channel, "Willkommen", text, image_url=str(cfg.get("welcome_image_url") or ""), color=cfg.get("color"))
+        await self.send_greeting(member, "welcome")
         await self.log_event(
             member.guild, "join_leave_events", "Member Joined",
             self.log_fields(
@@ -680,16 +775,7 @@ class ShopBot(commands.Bot):
         )
 
     async def on_member_remove(self, member: discord.Member) -> None:
-        cfg = self.feature(member.guild.id, "welcome")
-        if cfg.get("enabled") and cfg.get("leave_enabled"):
-            channel = member.guild.get_channel(int(cfg.get("leave_channel_id") or 0))
-            if channel:
-                text = (
-                    str(cfg.get("leave_message") or "{user} hat {server} verlassen.")
-                    .replace("{user}", str(member))
-                    .replace("{server}", member.guild.name)
-                )
-                await self.send_layout(channel, "Mitglied gegangen", text, image_url=str(cfg.get("leave_image_url") or ""))
+        await self.send_greeting(member, "leave")
         fields = [
             ("User", f"{member.mention} ({member})"),
             ("Joined", discord.utils.format_dt(member.joined_at, "R") if member.joined_at else "Unknown"),

@@ -597,5 +597,59 @@
     updateSummary();
   }
 
+  // ── Welcome & Leave: two University tabs with one live renderer ──
+  const greetRoot = document.querySelector('[data-greet-root]');
+  if (greetRoot) {
+    const form = greetRoot.querySelector('[data-greet-form]');
+    let focused = null;
+    const samples = {
+      user: '@Neuer', user_name: 'neuer', user_nick: 'Neuer', user_id: '123456789012345678',
+      user_avatar: 'https://cdn.discordapp.com/avatar.png', user_createdate: 'Mo, Jan 08, 2024',
+      user_joindate: 'heute', server_name: document.querySelector('.eyebrow')?.textContent.split('/')[0].trim() || 'Mein Server',
+      server_membercount: '1.204', server_icon: '', timestamp: 'jetzt',
+    };
+    const fill = (text) => String(text || '').replace(/\{(\w+)\}/g, (all, key) => samples[key.toLowerCase()] ?? all);
+    const field = (name) => form?.querySelector(`[name="${name}"]`);
+    const update = () => {
+      const embed = form?.querySelector('input[name="welcome_type"]:checked')?.value === 'embed';
+      const simple = greetRoot.querySelector('[data-greet-simple]');
+      const embedPanel = greetRoot.querySelector('[data-greet-embed]');
+      if (simple) simple.hidden = embed;
+      if (embedPanel) embedPanel.hidden = !embed;
+      const title = greetRoot.querySelector('[data-greet-preview-title]');
+      const text = greetRoot.querySelector('[data-greet-preview-text]');
+      const footer = greetRoot.querySelector('[data-greet-preview-footer]');
+      if (title) title.textContent = fill(embed ? field('welcome_embed_title')?.value || 'Willkommen!' : 'Willkommen');
+      if (text) text.textContent = fill(embed ? field('welcome_embed_description')?.value : field('welcome_message')?.value);
+      if (footer) footer.textContent = fill(embed ? field('welcome_embed_footer_text')?.value : '');
+      const leave = greetRoot.querySelector('[data-greet-preview-text-leave]');
+      if (leave) leave.textContent = fill(field('leave_message')?.value);
+    };
+    form?.querySelectorAll('input, textarea').forEach((input) => {
+      input.addEventListener('focus', () => { if (!['checkbox', 'radio', 'color', 'number', 'hidden'].includes(input.type)) focused = input; });
+      input.addEventListener('input', update); input.addEventListener('change', update);
+    });
+    greetRoot.querySelectorAll('[data-greet-token]').forEach((button) => button.addEventListener('click', () => {
+      if (!focused) return;
+      const token = button.dataset.greetToken; const start = focused.selectionStart ?? focused.value.length; const end = focused.selectionEnd ?? start;
+      focused.setRangeText(token, start, end, 'end'); focused.dispatchEvent(new Event('input', { bubbles: true })); focused.focus();
+    }));
+    const templates = {
+      short: { type: 'simple', message: 'Willkommen {user} auf **{server_name}**! Du bist Mitglied Nummer {server_membercount}.' },
+      image: { type: 'embed', title: 'Willkommen auf {server_name}!', description: 'Schön, dass du da bist, {user}!\n\nDu bist unser {server_membercount}. Mitglied.', footer: 'Beigetreten am {user_joindate}' },
+      formal: { type: 'embed', title: 'Neues Mitglied', description: '{user} ist dem Server beigetreten.', footer: 'Mitglied #{server_membercount}' },
+    };
+    greetRoot.querySelectorAll('[data-greet-template]').forEach((button) => button.addEventListener('click', () => {
+      const data = templates[button.dataset.greetTemplate]; if (!data) return;
+      const radio = form.querySelector(`input[name="welcome_type"][value="${data.type}"]`); if (radio) radio.checked = true;
+      if (data.message !== undefined) field('welcome_message').value = data.message;
+      if (data.title !== undefined) field('welcome_embed_title').value = data.title;
+      if (data.description !== undefined) field('welcome_embed_description').value = data.description;
+      if (data.footer !== undefined) field('welcome_embed_footer_text').value = data.footer;
+      update();
+    }));
+    update();
+  }
+
   root.classList.add('dashboard-js');
 })();
