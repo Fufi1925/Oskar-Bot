@@ -279,9 +279,12 @@ run_lbost_shop_bot_forever() {
 
 if [ -n "${LBOST_SHOP_BOT_TOKEN:-}" ] && [ -f /app/lbost-shop/run_bot.py ]; then
   echo "🛍️ Starting supervised LBoost Shop Bot (dashboard configuration is live)..."
-  run_lbost_shop_bot_forever > /tmp/lbost-shop-bot.log 2>&1 &
+  # Keep output on the service's stdout. Redirecting everything only to /tmp
+  # previously hid invalid-token and disabled-intent errors in Railway while
+  # the misleading "supervisor started" line remained visible.
+  run_lbost_shop_bot_forever &
   LBOST_SHOP_BOT_PID=$!
-  echo "✅ LBoost Shop Bot supervisor started (PID: $LBOST_SHOP_BOT_PID)"
+  echo "✅ LBoost Shop Bot supervisor started (PID: $LBOST_SHOP_BOT_PID; waiting for Discord READY)"
 else
   echo "ℹ️ LBoost Shop Bot skipped (LBOST_SHOP_BOT_TOKEN not set)"
 fi

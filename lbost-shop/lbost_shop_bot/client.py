@@ -193,19 +193,32 @@ class TicketFragenModal(discord.ui.Modal):
 
 
 class ShopBot(commands.Bot):
-    def __init__(self, settings: Settings):
+    def __init__(self, settings: Settings, *, privileged_intents: bool = True):
         intents = discord.Intents.none()
         intents.guilds = True
-        intents.members = True
+        # These two intents must be switched on in Discord's Developer Portal.
+        # A fresh application commonly has them disabled. The launcher first
+        # tries the complete mode and, if Discord rejects it with gateway code
+        # 4014, reconnects without only these privileged intents so the bot is
+        # online instead of entering an endless crash loop.
+        intents.members = privileged_intents
+        intents.message_content = privileged_intents
         intents.moderation = True
         intents.messages = True
-        intents.message_content = True
         intents.reactions = True
         intents.voice_states = True
         intents.emojis_and_stickers = True
         intents.invites = True
-        super().__init__(command_prefix="!", intents=intents, allowed_mentions=discord.AllowedMentions.none())
+        async def shop_prefix(_bot: commands.Bot, message: discord.Message) -> str:
+            if not message.guild:
+                return "!"
+            cfg = self.feature(message.guild.id, "moderation")
+            value = str(cfg.get("prefix") or "!").strip()
+            return value[:10] if value else "!"
+
+        super().__init__(command_prefix=shop_prefix, intents=intents, allowed_mentions=discord.AllowedMentions.none())
         self.settings = settings
+        self.privileged_intents = privileged_intents
         self.spam: dict[tuple[int, int], deque[float]] = defaultdict(deque)
         self._cooldowns: dict[str, float] = {}
         self._audit_cache: dict[tuple[int, str, int | None], tuple[Any, float]] = {}
@@ -231,7 +244,19 @@ class ShopBot(commands.Bot):
         await self.tree.sync()
 
     async def on_ready(self) -> None:
-        logger.info("Connected as %s (%s), %s guilds; feature runtime active", self.user, self.user.id if self.user else "?", len(self.guilds))
+        mode = "complete" if self.privileged_intents else "online (privileged intents disabled in Developer Portal)"
+        logger.info("Connected as %s (%s), %s guilds; feature runtime %s", self.user, self.user.id if self.user else "?", len(self.guilds), mode)
+        # Do not wait for the 20-second task interval before the dashboard can
+        # see a successful login.
+        self.write_heartbeat()
+
+    def write_heartbeat(self) -> None:
+        db.set_state(0, "bot_heartbeat", {
+            "zeit": int(time.time()),
+            "gilden": len(self.guilds),
+            "name": str(self.user) if self.user else "",
+            "vollstaendig": self.privileged_intents,
+        }, self.settings)
 
     # ── Hilfen ────────────────────────────────────────────────────────
     async def send_layout(self, channel: discord.abc.Messageable, title: str, description: str, **kwargs: Any) -> discord.Message | None:
@@ -722,6 +747,11 @@ class ShopBot(commands.Bot):
                     if isinstance(item, dict) and command == str(item.get("name") or "").casefold():
                         await self.send_layout(message.channel, str(item.get("title") or command), str(item.get("response") or ""), color=item.get("color"))
                         break
+        # Overriding on_message disables prefix/hybrid commands unless the
+        # command processor is called explicitly. Slash commands were working,
+        # while University-style !warn / !ban silently did nothing.
+        if isinstance(message, discord.Message):
+            await self.process_commands(message)
 
     async def sammle_spam(self, message: discord.Message, mod: dict[str, Any]) -> int:
         """Spam-Eimer pro Nutzer und Kanal; gibt die Anzahl gelöschter Nachrichten zurück."""
@@ -1190,11 +1220,7 @@ class ShopBot(commands.Bot):
         Die Überschrift „Shop-Bot: Online“ war vorher hartgeschrieben — sie
         blieb auch dann grün, wenn der Bot-Prozess längst tot war.
         """
-        db.set_state(0, "bot_heartbeat", {
-            "zeit": int(time.time()),
-            "gilden": len(self.guilds),
-            "name": str(self.user) if self.user else "",
-        }, self.settings)
+        self.write_heartbeat()
 
     @heartbeat.before_loop
     async def before_heartbeat(self) -> None:
@@ -1540,88 +1566,7 @@ def register_commands(bot: ShopBot) -> None:
             return False
         return True
 
-    @bot.tree.command(name="warn", description="Verwarnt ein Mitglied")
-    @app_commands.describe(member="Mitglied", grund="Grund der Verwarnung")
-    async def warn(interaction: discord.Interaction, member: discord.Member, grund: str = "Kein Grund angegeben"):
-        if not await mod_zugriff(interaction, "moderate_members"):
-            return
-        if member.id == interaction.guild.owner_id:
-            return await bot.interaction_notice(interaction, "Nicht möglich", "Den Serverinhaber kannst du nicht verwarnen.", error=True)
-        nummer = db.warnung_anlegen(interaction.guild.id, member.id, interaction.user.id, grund, bot.settings)
-        anzahl = db.warnungen_fuer_nutzer(interaction.guild.id, member.id, bot.settings)
-        await bot.interaction_notice(interaction, "Verwarnung gespeichert", f"Fall #{nummer}: {member.mention} hat jetzt {anzahl} Verwarnung{'en' if anzahl != 1 else ''}.\nGrund: {grund[:300]}")
-        await bot.log(interaction.guild, "Verwarnung", f"Fall: #{nummer}\nMitglied: {member.mention}\nModerator: <@{interaction.user.id}>\nGrund: {grund[:500]}", "moderation")
-
-    @bot.tree.command(name="warnings", description="Zeigt die Verwarnungen eines Mitglieds")
-    @app_commands.describe(member="Mitglied")
-    async def warnings(interaction: discord.Interaction, member: discord.Member):
-        if not await mod_zugriff(interaction, "moderate_members"):
-            return
-        eintraege = [e for e in db.warnungen_fuer_gilde(interaction.guild.id, bot.settings, 200) if int(e["user_id"]) == member.id]
-        if not eintraege:
-            return await bot.interaction_notice(interaction, "Keine Verwarnungen", f"{member.mention} ist aktuell nicht verwarnt.")
-        zeilen = [f"#{int(e['case_number'] or e['id'])} · {_zeit(int(e['created_at']))} · <@{int(e['moderator_id'])}> · {str(e['reason'])[:120]}" for e in eintraege[:10]]
-        await bot.interaction_notice(interaction, f"Verwarnungen: {member}", "\n".join(zeilen)[:1800] + (f"\n\n…und {len(eintraege) - 10} weitere" if len(eintraege) > 10 else ""))
-
-    @bot.tree.command(name="clearwarnings", description="Löscht die Verwarnungen eines Mitglieds")
-    @app_commands.describe(member="Mitglied")
-    async def clearwarnings(interaction: discord.Interaction, member: discord.Member):
-        if not await mod_zugriff(interaction, "moderate_members"):
-            return
-        eintraege = [e for e in db.warnungen_fuer_gilde(interaction.guild.id, bot.settings, 200) if int(e["user_id"]) == member.id]
-        for eintrag in eintraege:
-            db.warnung_loeschen(interaction.guild.id, int(eintrag["id"]), bot.settings)
-        await bot.interaction_notice(interaction, "Verwarnungen gelöscht", f"{len(eintraege)} Einträge für {member.mention} entfernt.")
-        await bot.log(interaction.guild, "Verwarnungen gelöscht", f"Mitglied: {member}\nAnzahl: {len(eintraege)}\nModerator: <@{interaction.user.id}>", "moderation")
-
-    @bot.tree.command(name="mute", description="Versetzt ein Mitglied in Timeout")
-    async def mute(interaction: discord.Interaction, member: discord.Member,
-                    minuten: app_commands.Range[int, 1, 40320], grund: str = "Kein Grund angegeben"):
-        if not await mod_zugriff(interaction, "moderate_members"):
-            return
-        if member.id == interaction.user.id:
-            return await bot.interaction_notice(interaction, "Nicht möglich", "Du kannst dich nicht selbst in die Auszeit schicken.", error=True)
-        if member.is_timed_out():
-            return await bot.interaction_notice(interaction, "Bereits in Auszeit", f"{member.mention} ist bereits stummgeschaltet.", error=True)
-        if member.guild_permissions.administrator:
-            return await bot.interaction_notice(interaction, "Nicht möglich", "Administratoren kannst du nicht per Timeout moderieren.", error=True)
-        ok = await bot.safe_timeout(member, minuten, grund)
-        if not ok:
-            return await bot.interaction_notice(interaction, "Keine Rechte", "Der Bot darf keine Timeouts setzen (Rolle zu tief oder Berechtigung fehlt).", error=True)
-        await bot.interaction_notice(interaction, "Timeout gesetzt", f"{member.mention} wurde für {minuten} Minuten stummgeschaltet.\nGrund: {grund[:300]}")
-        await bot.log(interaction.guild, "Timeout", f"Mitglied: {member.mention}\nDauer: {minuten} Minuten\nGrund: {grund[:500]}", "moderation")
-
-    @bot.tree.command(name="kick", description="Entfernt ein Mitglied")
-    async def kick(interaction: discord.Interaction, member: discord.Member, grund: str = "Kein Grund angegeben"):
-        if not await mod_zugriff(interaction, "kick_members"):
-            return
-        if not interaction.guild.me.guild_permissions.kick_members:
-            return await bot.interaction_notice(interaction, "Keine Rechte", "Der Bot hat keine Berechtigung, Mitglieder zu kicken.", error=True)
-        if member.top_role >= interaction.guild.me.top_role:
-            return await bot.interaction_notice(interaction, "Rolle zu hoch", f"{member.mention} steht auf derselben oder einer höheren Rolle wie der Bot.", error=True)
-        try:
-            await member.kick(reason=f"{interaction.user}: {grund}")
-        except discord.Forbidden:
-            return await bot.interaction_notice(interaction, "Nicht möglich", "Discord hat den Kick abgelehnt.", error=True)
-        await bot.interaction_notice(interaction, "Mitglied entfernt", f"{member} wurde entfernt.\nGrund: {grund[:300]}")
-        await bot.log(interaction.guild, "Kick", f"Mitglied: {member}\nModerator: <@{interaction.user.id}>\nGrund: {grund[:500]}", "moderation")
-
-    @bot.tree.command(name="ban", description="Bannt ein Mitglied")
-    @app_commands.describe(tage="Nachrichten der letzten N Tage mit löschen (0-7)")
-    async def ban(interaction: discord.Interaction, member: discord.Member, grund: str = "Kein Grund angegeben",
-                  tage: app_commands.Range[int, 0, 7] = 0):
-        if not await mod_zugriff(interaction, "ban_members"):
-            return
-        if not interaction.guild.me.guild_permissions.ban_members:
-            return await bot.interaction_notice(interaction, "Keine Rechte", "Der Bot hat keine Berechtigung, Mitglieder zu bannen.", error=True)
-        if member.top_role >= interaction.guild.me.top_role:
-            return await bot.interaction_notice(interaction, "Rolle zu hoch", f"{member.mention} steht auf derselben oder einer höheren Rolle wie der Bot.", error=True)
-        try:
-            await interaction.guild.ban(member, reason=f"{interaction.user}: {grund}", delete_message_seconds=tage * 86400 if tage else None)
-        except discord.Forbidden:
-            return await bot.interaction_notice(interaction, "Nicht möglich", "Discord hat den Bann abgelehnt.", error=True)
-        await bot.interaction_notice(interaction, "Mitglied gebannt", f"{member} wurde gebannt.\nGrund: {grund[:300]}")
-        await bot.log(interaction.guild, "Ban", f"Mitglied: {member}\nModerator: <@{interaction.user.id}>\nGrund: {grund[:500]}", "moderation")
+    # The complete hybrid University moderation suite is registered below.
 
     @bot.tree.command(name="giveaway", description="Startet ein Giveaway")
     @app_commands.describe(minuten="Laufzeit", gewinner="Anzahl Gewinner", preis="Was wird verlost")
@@ -1675,9 +1620,15 @@ def register_commands(bot: ShopBot) -> None:
             pass
 
 
-def create_bot() -> ShopBot:
+    # Separate module keeps the complete University-compatible moderation
+    # command surface isolated from tickets/logging.
+    from lbost_shop_bot.moderation import register_moderation
+    register_moderation(bot)
+
+
+def create_bot(*, privileged_intents: bool = True) -> ShopBot:
     settings = get_settings()
     db.init_features(settings)
-    bot = ShopBot(settings)
+    bot = ShopBot(settings, privileged_intents=privileged_intents)
     register_commands(bot)
     return bot

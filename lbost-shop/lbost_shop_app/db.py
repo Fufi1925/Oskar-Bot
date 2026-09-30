@@ -602,6 +602,13 @@ def warnung_loeschen(guild_id: int, warnung_id: int, settings: Settings) -> bool
     return bool(cursor.rowcount)
 
 
+def warnungen_loeschen_nutzer(guild_id: int, user_id: int, settings: Settings) -> int:
+    """Delete exactly one member's warnings, shared by dashboard and Discord."""
+    with _gesichert(settings) as conn:
+        cursor = conn.execute("DELETE FROM warnings WHERE guild_id=? AND user_id=?", (guild_id, user_id))
+    return max(0, int(cursor.rowcount or 0))
+
+
 # ── Giveaways ───────────────────────────────────────────────────────────
 def giveaway_anlegen(message_id: int, guild_id: int, channel_id: int, prize: str,
                      winners: int, ends_at: int, settings: Settings,

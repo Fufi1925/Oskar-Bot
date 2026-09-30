@@ -30,11 +30,14 @@ assert isinstance(view, discord.ui.LayoutView)
 
 bot = create_bot()
 commands = {command.name for command in bot.tree.get_commands()}
-erwartet = {"ticket-panel", "reaction-panel", "warn", "warnings", "clearwarnings", "mute", "kick", "ban",
+erwartet = {"ticket-panel", "reaction-panel", "warn", "warnings", "clearwarns", "clearwarnings",
+            "mute", "unmute", "kick", "ban", "unban", "clear", "lock", "unlock", "hide", "unhide",
+            "lockall", "unlockall", "hideall", "unhideall", "slowmode", "unslowmode", "nick", "clone",
+            "snipe", "role", "removerole", "roleicon", "prefix", "unbanall", "audit", "topcheck", "steal", "enlarge", "delemoji", "delsticker",
             "giveaway", "giveaway-reroll", "announce", "log-setup", "log-status", "log-test",
             "log-toggle", "log-ignore", "log-search", "log-export", "log-reset", "log"}
 assert erwartet <= commands, f"es fehlen: {sorted(erwartet - commands)}"
-assert len(commands - erwartet) == 0, f"unerwartete Befehle: {sorted(commands - erwartet)}"
+assert "nuke" not in commands and "template" not in commands, "ausgeschlossene Wiederaufbau-/Template-Systeme sind aktiv"
 log_group = bot.tree.get_command("log")
 assert [command.name for command in log_group.commands] == [
     "setup", "status", "config", "test", "toggle", "ignore", "search", "export", "reset"

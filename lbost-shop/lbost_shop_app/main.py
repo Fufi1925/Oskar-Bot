@@ -152,7 +152,8 @@ FEATURES: dict[str, dict[str, Any]] = {
         ("panels_json", "Weitere Panels (JSON)", "json"),
     ]},
     "moderation": {"title": "Moderation", "icon": "shield", "fields": [
-        ("enabled", "Aktiviert", "bool"), ("log_channel_id", "Moderations-Log", "channel"),
+        ("enabled", "Aktiviert", "bool"), ("topcheck", "Topcheck", "bool"),
+        ("prefix", "Befehlspräfix", "text"), ("log_channel_id", "Moderations-Log", "channel"),
         ("anti_spam", "Anti-Spam", "bool"), ("spam_limit", "Nachrichten je 8 Sekunden", "number"),
         ("spam_timeout", "Timeout bei Spam", "bool"),
         ("anti_links", "Anti-Link", "bool"), ("allowed_domains", "Erlaubte Domains (Komma)", "text"),
@@ -421,7 +422,7 @@ def _werte_aus_formular(spec: dict[str, Any], form: Any, feature: str = "") -> t
                 continue
             values[key] = raw
         else:
-            values[key] = raw[:4000]
+            values[key] = raw[:10] if key == "prefix" else raw[:4000]
     return values, fehler
 
 
@@ -475,14 +476,15 @@ def create_app() -> FastAPI:
         state = db.get_state(0, "bot_heartbeat", settings) or {}
         wert = state.get("wert") if isinstance(state, dict) else None
         if not isinstance(wert, dict):
-            return {"online": False, "vor": None, "gilden": 0, "name": "", "token": bool(settings.bot_token)}
-        vor = int(time.time()) - int(wert.get("zeit") or 0)
+            return {"online": False, "vor": None, "gilden": 0, "name": "", "token": bool(settings.bot_token), "vollstaendig": False}
+        vor = max(0, int(time.time()) - int(wert.get("zeit") or 0))
         return {
             "online": vor <= 90,
             "vor": vor,
             "gilden": int(wert.get("gilden") or 0),
             "name": str(wert.get("name") or ""),
             "token": bool(settings.bot_token),
+            "vollstaendig": bool(wert.get("vollstaendig", True)),
         }
 
     def context(request: Request, **extra: Any) -> dict[str, Any]:
@@ -875,6 +877,29 @@ def create_app() -> FastAPI:
             guild_id, include_bot_permissions=feature == "logging"
         )
         values = db.get_feature(guild_id, feature, settings)
+        if feature == "moderation":
+            members = await guild_members(guild_id)
+            member_map = {str(item["id"]): item for item in members}
+            rows = db.warnungen_fuer_gilde(guild_id, settings, 200)
+            grouped: dict[str, dict[str, Any]] = {}
+            for row in rows:
+                uid = str(row["user_id"])
+                target = grouped.setdefault(uid, {
+                    "user_id": uid,
+                    "name": member_map.get(uid, {}).get("display_name") or member_map.get(uid, {}).get("name") or "Unbekanntes Mitglied",
+                    "entries": [],
+                })
+                target["entries"].append(row)
+            return render(
+                request, "moderation.html", guild=guild, feature=feature, spec=spec,
+                values=values, channels=[item for item in channels if item.get("type") in ("0", "5")],
+                roles=roles, members=members, warning_users=list(grouped.values()),
+                warning_total=len(rows), csrf=user["sid"],
+                saved=request.query_params.get("saved") == "1",
+                added=request.query_params.get("added") == "1",
+                geloescht=request.query_params.get("geloescht") == "1",
+                error=request.query_params.get("error"),
+            )
         if feature == "logging":
             values = normalise_logging(values)
             channel_ids = {item["id"] for item in channels}
@@ -1081,6 +1106,34 @@ def create_app() -> FastAPI:
         if unbekannt:
             antwort["unbekannte_felder"] = unbekannt[:10]
         return JSONResponse(antwort)
+
+    @app.post("/guild/{guild_id}/moderation/warnung")
+    async def warning_add(request: Request, guild_id: int):
+        user = current_user(request)
+        guild = await guild_access(user, guild_id) if user else None
+        if not user or not guild:
+            return JSONResponse({"ok": False}, status_code=403)
+        form = await request.form()
+        if not csrf_ok(form.get("csrf"), user):
+            return PlainTextResponse("Ungültige Anfrage.", status_code=403)
+        target = str(form.get("user_id") or "").strip()
+        grund = str(form.get("reason") or "").strip()
+        if not target.isdigit() or not grund:
+            return RedirectResponse(href(request, f"/guild/{guild_id}/moderation?error=Mitglied+und+Grund+sind+erforderlich"), status_code=303)
+        db.warnung_anlegen(guild_id, int(target), int(user["uid"]), grund[:500], settings)
+        return RedirectResponse(href(request, f"/guild/{guild_id}/moderation?added=1"), status_code=303)
+
+    @app.post("/guild/{guild_id}/moderation/warnungen/{user_id}/loeschen")
+    async def warnings_clear(request: Request, guild_id: int, user_id: int):
+        user = current_user(request)
+        guild = await guild_access(user, guild_id) if user else None
+        if not user or not guild:
+            return JSONResponse({"ok": False}, status_code=403)
+        form = await request.form()
+        if not csrf_ok(form.get("csrf"), user):
+            return PlainTextResponse("Ungültige Anfrage.", status_code=403)
+        db.warnungen_loeschen_nutzer(guild_id, user_id, settings)
+        return RedirectResponse(href(request, f"/guild/{guild_id}/moderation?geloescht=1"), status_code=303)
 
     @app.post("/guild/{guild_id}/moderation/warnung/{warnung_id}/loeschen")
     async def warning_delete(request: Request, guild_id: int, warnung_id: int):
