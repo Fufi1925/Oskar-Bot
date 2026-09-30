@@ -23,6 +23,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from lbost_shop_app import auth, db, regeln
+from lbost_shop_app import giveaways as giveaway_store
 from lbost_shop_app.config import get_settings
 
 APP_DIR = Path(__file__).resolve().parent
@@ -924,6 +925,19 @@ def create_app() -> FastAPI:
                 repaired=int(request.query_params.get("repaired") or 0),
                 error=request.query_params.get("error"),
             )
+        if feature == "giveaways":
+            members = await guild_members(guild_id)
+            running, ended = [], []
+            now = int(time.time())
+            for row in giveaway_store.list_all(guild_id, settings):
+                row["entry_count"] = len(giveaway_store.entries(int(row["message_id"]), settings))
+                row["winner_ids_list"] = giveaway_store.past_winners(int(row["message_id"]), settings)
+                row["running"] = row.get("status") == "active" and int(row.get("ends_at") or 0) > now
+                (running if row["running"] else ended).append(row)
+            return render(request, "giveaways.html", guild=guild, feature=feature, spec=spec,
+                channels=[item for item in channels if item.get("type") in ("0", "5")], roles=roles,
+                members=members, running=running, ended=ended, csrf=user["sid"],
+                saved=request.query_params.get("saved") == "1", error=request.query_params.get("error"))
         if feature == "welcome":
             defaults = {
                 "welcome_type": "simple", "color": "#5865f2",
@@ -1366,6 +1380,138 @@ def create_app() -> FastAPI:
             problems.append("Discord-Prüfung konnte nicht abgeschlossen werden")
         query = f"verified=1&repaired={repaired}" + ("&error=" + quote_plus(" · ".join(problems[:4])) if problems else "")
         return RedirectResponse(href(request, f"/guild/{guild_id}/reaction_roles?{query}"), status_code=303)
+
+    def _giveaway_discord_payload(record: dict[str, Any], entries: int, *, ended: bool = False, winners: str = "") -> dict[str, Any]:
+        values = giveaway_store.values(record, entries)
+        title = giveaway_store.fill(record.get("title") or giveaway_store.DEFAULT_TITLE, values)
+        body = giveaway_store.fill(record.get("description") or giveaway_store.DEFAULT_DESCRIPTION, values)
+        parts = [{"type": 10, "content": f"## {title}"}, {"type": 14, "divider": True, "spacing": 1}, {"type": 10, "content": body}]
+        rules = giveaway_store.requirement_lines(record)
+        if rules and not ended: parts.append({"type": 10, "content": "**Bedingungen:** " + " · ".join(rules)})
+        parts.append({"type": 10, "content": (f"**Gewonnen:** {winners}" if winners else "Niemand hat teilgenommen.") if ended else f"**Teilnehmer:** {entries}"})
+        if record.get("image_url"): parts.append({"type": 12, "items": [{"media": {"url": str(record["image_url"])}}]})
+        if not ended:
+            raw = str(record.get("button_emoji") or "").strip(); emoji = None
+            match = re.fullmatch(r"<(a?):([^:>]+):(\d+)>", raw)
+            if match: emoji = {"id": match.group(3), "name": match.group(2), "animated": bool(match.group(1))}
+            elif raw: emoji = {"name": raw}
+            button = {"type": 2, "style": 3, "label": str(record.get("button_label") or "Teilnehmen")[:80], "custom_id": f"giveaway_join_{record['message_id']}"}
+            if emoji: button["emoji"] = emoji
+            parts.append({"type": 1, "components": [button]})
+        return {"flags": 32768, "allowed_mentions": {"parse": []}, "components": [{"type": 17, "accent_color": int(record.get("colour") or 0xF59E0B), "components": parts}]}
+
+    async def _giveaway_patch(record: dict[str, Any], *, ended=False, winners="") -> None:
+        import httpx
+        payload = _giveaway_discord_payload(record, len(giveaway_store.entries(int(record["message_id"]), settings)), ended=ended, winners=winners)
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            await client.patch(f"https://discord.com/api/v10/channels/{record['channel_id']}/messages/{record['message_id']}", headers={"Authorization": f"Bot {settings.bot_token}"}, json=payload)
+
+    async def _giveaway_dm(user_id: int, record: dict[str, Any], text: str, kind: str) -> None:
+        if not giveaway_store.claim_dm(int(record["message_id"]), user_id, kind, settings): return
+        import httpx
+        headers={"Authorization": f"Bot {settings.bot_token}"}
+        try:
+            async with httpx.AsyncClient(timeout=20.0) as client:
+                opened=await client.post("https://discord.com/api/v10/users/@me/channels",headers=headers,json={"recipient_id":str(user_id)})
+                opened.raise_for_status(); channel=opened.json()["id"]
+                await client.post(f"https://discord.com/api/v10/channels/{channel}/messages",headers=headers,json={"flags":32768,"components":[{"type":17,"accent_color":int(record.get('colour') or 0xF59E0B),"components":[{"type":10,"content":text}]}]})
+        except Exception: pass
+
+    async def _giveaway_finish(record: dict[str, Any], reroll: bool = False) -> list[int]:
+        message_id=int(record["message_id"])
+        if not reroll and not giveaway_store.mark_ended(message_id, settings): return []
+        winners=giveaway_store.draw(message_id,int(record.get("winners") or 1),settings,exclude_past=reroll)
+        giveaway_store.record_winners(message_id,winners,settings,reroll=reroll)
+        mentions=", ".join(f"<@{uid}>" for uid in winners)
+        data=giveaway_store.values(record,len(giveaway_store.entries(message_id,settings)),winners_mentions=mentions or "—",server="diesem Server")
+        import httpx
+        announce=giveaway_store.message(record,"msg_announce" if winners else "msg_no_entries",data)
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            await client.post(f"https://discord.com/api/v10/channels/{record['channel_id']}/messages",headers={"Authorization":f"Bot {settings.bot_token}"},json={"flags":32768,"allowed_mentions":{"users":[str(u) for u in winners],"parse":[]},"components":[{"type":17,"accent_color":int(record.get('colour') or 0xF59E0B),"components":[{"type":10,"content":announce}]}]})
+        if not reroll: await _giveaway_patch(record,ended=True,winners=mentions)
+        if record.get("dm_winners"):
+            for uid in winners: await _giveaway_dm(uid,record,giveaway_store.message(record,"msg_winner_dm",data),"winner-reroll" if reroll else "winner")
+        if record.get("dm_host") and record.get("host_id"):
+            await _giveaway_dm(int(record["host_id"]),record,f"**Giveaway beendet**\n\nPreis: **{record['prize']}**\nGewinner: {mentions or 'Niemand'}","host-reroll" if reroll else "host")
+        return winners
+
+    @app.post("/guild/{guild_id}/giveaways/create")
+    async def giveaway_create(request: Request, guild_id: int):
+        user=current_user(request); guild=await guild_access(user,guild_id) if user else None
+        if not user or not guild: return JSONResponse({"ok":False},status_code=403)
+        form=await request.form()
+        if not csrf_ok(form.get("csrf"),user): return PlainTextResponse("Ungültige Anfrage.",status_code=403)
+        channel_id=str(form.get("channel_id") or ""); prize=str(form.get("prize") or "").strip()[:200]
+        try: winners=max(1,min(20,int(form.get("winners") or 1))); minutes=max(1,min(86400,int(form.get("duration_minutes") or 60)))
+        except ValueError: winners,minutes=1,60
+        channels,_roles,_=await guild_resources(guild_id)
+        if not prize or not channel_id.isdigit() or channel_id not in {str(c["id"]) for c in channels}: return RedirectResponse(href(request,f"/guild/{guild_id}/giveaways?error="+quote_plus("Bitte Preis und Textkanal auswählen.")),status_code=303)
+        payload=dict(form); payload.update({k:k in form for k in giveaway_store.FLAGS}); fields=giveaway_store.clean(payload)
+        record={"message_id":0,"guild_id":guild_id,"channel_id":int(channel_id),"prize":prize,"winners":winners,"ends_at":int(time.time())+minutes*60,"status":"active","winner_ids":"[]","host_id":int(user["uid"]),"start_time":int(time.time()),**fields}
+        import httpx
+        try:
+            async with httpx.AsyncClient(timeout=20.0) as client:
+                response=await client.post(f"https://discord.com/api/v10/channels/{channel_id}/messages",headers={"Authorization":f"Bot {settings.bot_token}"},json=_giveaway_discord_payload(record,0)); response.raise_for_status(); record["message_id"]=int(response.json()["id"])
+            giveaway_store.create(record,settings); await _giveaway_patch(record)
+        except Exception: return RedirectResponse(href(request,f"/guild/{guild_id}/giveaways?error="+quote_plus("Nachricht konnte nicht gesendet werden.")),status_code=303)
+        return RedirectResponse(href(request,f"/guild/{guild_id}/giveaways/{record['message_id']}?saved=1"),status_code=303)
+
+    @app.get("/guild/{guild_id}/giveaways/{message_id}",response_class=HTMLResponse)
+    async def giveaway_detail_page(request:Request,guild_id:int,message_id:int):
+        user=current_user(request); guild=await guild_access(user,guild_id) if user else None; record=giveaway_store.get(guild_id,message_id,settings) if guild else None
+        if not user or not guild or not record: return RedirectResponse(href(request,f"/guild/{guild_id}/giveaways"),status_code=302)
+        channels,roles,_=await guild_resources(guild_id); members=await guild_members(guild_id); member_map={int(m["id"]):m for m in members}; tuning=giveaway_store.boosts(message_id,settings); odds=giveaway_store.chances(message_id,int(record.get("winners") or 1),settings); won=set(giveaway_store.past_winners(message_id,settings))
+        with db._gesichert(settings) as conn: joined={int(r["user_id"]):int(r["joined_at"] or 0) for r in conn.execute("SELECT user_id,joined_at FROM giveaway_entries WHERE message_id=?",(message_id,)).fetchall()}
+        people=[]
+        for uid in set(joined)|set(tuning):
+            member=member_map.get(uid,{}); boost=tuning.get(uid,{})
+            people.append({"id":uid,"name":member.get("display_name") or member.get("name") or f"Unbekannt ({uid})","avatar":member.get("avatar_url"),"left":not bool(member),"joined_at":joined.get(uid),"not_entered":uid not in joined,"weight":boost.get("weight",1),"guaranteed":boost.get("guaranteed",False),"note":boost.get("note","") ,"chance":round(odds.get(uid,0),2),"won":uid in won})
+        people.sort(key=lambda p:(not p["guaranteed"],-p["weight"],-p["chance"]))
+        return render(request,"giveaway_detail.html",guild=guild,record=record,channels=channels,roles=roles,people=people,csrf=user["sid"],defaults=giveaway_store.DEFAULT_MESSAGES,saved=request.query_params.get("saved")=="1",error=request.query_params.get("error"))
+
+    @app.post("/guild/{guild_id}/giveaways/{message_id}/update")
+    async def giveaway_update(request:Request,guild_id:int,message_id:int):
+        user=current_user(request); guild=await guild_access(user,guild_id) if user else None; record=giveaway_store.get(guild_id,message_id,settings) if guild else None
+        if not user or not record:return JSONResponse({"ok":False},status_code=403)
+        form=await request.form()
+        if not csrf_ok(form.get("csrf"),user):return PlainTextResponse("Ungültige Anfrage.",status_code=403)
+        payload=dict(form)
+        # Only the text/settings tab owns these switches. Extending time or
+        # saving rules must never turn DMs and leaving off by omission.
+        if str(form.get("section") or "") == "texts":
+            payload.update({k:k in form for k in giveaway_store.FLAGS})
+        changes=giveaway_store.clean(payload,partial=True)
+        if "prize" in form: changes["prize"]=str(form.get("prize") or "")[:200]
+        if "winners" in form:
+            try:changes["winners"]=max(1,min(20,int(form["winners"])))
+            except:pass
+        if "extend_minutes" in form:
+            try:changes["ends_at"]=max(int(record["ends_at"]),int(time.time()))+int(form["extend_minutes"])*60; changes["status"]="active"
+            except:pass
+        fresh=giveaway_store.update(guild_id,message_id,changes,settings); await _giveaway_patch(fresh)
+        return RedirectResponse(href(request,f"/guild/{guild_id}/giveaways/{message_id}?saved=1"),status_code=303)
+
+    @app.post("/guild/{guild_id}/giveaways/{message_id}/boost")
+    async def giveaway_boost(request:Request,guild_id:int,message_id:int):
+        user=current_user(request); guild=await guild_access(user,guild_id) if user else None
+        if not user or not guild:return JSONResponse({"ok":False},status_code=403)
+        form=await request.form()
+        if not csrf_ok(form.get("csrf"),user):return PlainTextResponse("Ungültige Anfrage.",status_code=403)
+        try:giveaway_store.set_boost(message_id,int(form.get("user_id")),str(form.get("mode") or "weight"),int(form.get("weight") or 1),str(form.get("note") or ""),int(user["uid"]),settings)
+        except:return PlainTextResponse("Ungültige Chance.",status_code=400)
+        return RedirectResponse(href(request,f"/guild/{guild_id}/giveaways/{message_id}?saved=1#entries"),status_code=303)
+
+    @app.post("/guild/{guild_id}/giveaways/{message_id}/action")
+    async def giveaway_action(request:Request,guild_id:int,message_id:int):
+        user=current_user(request); guild=await guild_access(user,guild_id) if user else None; record=giveaway_store.get(guild_id,message_id,settings) if guild else None
+        if not user or not record:return JSONResponse({"ok":False},status_code=403)
+        form=await request.form()
+        if not csrf_ok(form.get("csrf"),user):return PlainTextResponse("Ungültige Anfrage.",status_code=403)
+        action=str(form.get("action") or "")
+        if action=="end":await _giveaway_finish(record)
+        elif action=="reroll":await _giveaway_finish(record,True)
+        elif action=="cancel":giveaway_store.update(guild_id,message_id,{"status":"cancelled"},settings); await _giveaway_patch(record,ended=True,winners="Abgebrochen")
+        return RedirectResponse(href(request,f"/guild/{guild_id}/giveaways/{message_id}?saved=1"),status_code=303)
 
     @app.post("/guild/{guild_id}/moderation/warnung")
     async def warning_add(request: Request, guild_id: int):

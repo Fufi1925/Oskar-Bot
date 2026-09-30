@@ -161,7 +161,29 @@ def init_features(settings: Settings) -> None:
                 );
                 CREATE TABLE IF NOT EXISTS giveaway_entries (
                     message_id INTEGER NOT NULL, user_id INTEGER NOT NULL,
+                    joined_at INTEGER NOT NULL DEFAULT 0,
                     PRIMARY KEY(message_id,user_id)
+                );
+                CREATE TABLE IF NOT EXISTS giveaway_winners (
+                    message_id INTEGER NOT NULL, user_id INTEGER NOT NULL,
+                    won_at INTEGER NOT NULL, rerolled INTEGER NOT NULL DEFAULT 0,
+                    PRIMARY KEY(message_id,user_id)
+                );
+                CREATE TABLE IF NOT EXISTS giveaway_boosts (
+                    message_id INTEGER NOT NULL, user_id INTEGER NOT NULL,
+                    weight INTEGER NOT NULL DEFAULT 1, guaranteed INTEGER NOT NULL DEFAULT 0,
+                    note TEXT NOT NULL DEFAULT '', set_by INTEGER, set_at INTEGER,
+                    PRIMARY KEY(message_id,user_id)
+                );
+                CREATE TABLE IF NOT EXISTS giveaway_dms (
+                    message_id INTEGER NOT NULL, user_id INTEGER NOT NULL,
+                    kind TEXT NOT NULL, sent_at INTEGER NOT NULL,
+                    PRIMARY KEY(message_id,user_id,kind)
+                );
+                CREATE TABLE IF NOT EXISTS giveaway_activity (
+                    guild_id INTEGER NOT NULL, user_id INTEGER NOT NULL,
+                    messages INTEGER NOT NULL DEFAULT 0, xp INTEGER NOT NULL DEFAULT 0,
+                    PRIMARY KEY(guild_id,user_id)
                 );
                 CREATE TABLE IF NOT EXISTS feature_audit (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -200,6 +222,22 @@ def init_features(settings: Settings) -> None:
                 _spalte_hinzufuegen(conn, "tickets", "closed_by", "INTEGER")
                 _spalte_hinzufuegen(conn, "warnings", "case_number", "INTEGER NOT NULL DEFAULT 0")
                 _spalte_hinzufuegen(conn, "giveaways", "required_role_id", "INTEGER NOT NULL DEFAULT 0")
+                for name, kind in {
+                    "host_id": "INTEGER NOT NULL DEFAULT 0", "start_time": "INTEGER NOT NULL DEFAULT 0",
+                    "title": "TEXT NOT NULL DEFAULT ''", "description": "TEXT NOT NULL DEFAULT ''",
+                    "colour": "INTEGER", "button_label": "TEXT NOT NULL DEFAULT ''",
+                    "button_emoji": "TEXT NOT NULL DEFAULT ''", "image_url": "TEXT NOT NULL DEFAULT ''",
+                    "blocked_role_id": "INTEGER NOT NULL DEFAULT 0", "min_messages": "INTEGER NOT NULL DEFAULT 0",
+                    "min_level": "INTEGER NOT NULL DEFAULT 0", "min_account_days": "INTEGER NOT NULL DEFAULT 0",
+                    "min_member_days": "INTEGER NOT NULL DEFAULT 0", "dm_winners": "INTEGER NOT NULL DEFAULT 1",
+                    "dm_host": "INTEGER NOT NULL DEFAULT 1", "allow_leave": "INTEGER NOT NULL DEFAULT 1",
+                    "msg_joined": "TEXT NOT NULL DEFAULT ''", "msg_left": "TEXT NOT NULL DEFAULT ''",
+                    "msg_ended": "TEXT NOT NULL DEFAULT ''", "msg_denied": "TEXT NOT NULL DEFAULT ''",
+                    "msg_winner_dm": "TEXT NOT NULL DEFAULT ''", "msg_announce": "TEXT NOT NULL DEFAULT ''",
+                    "msg_no_entries": "TEXT NOT NULL DEFAULT ''",
+                }.items():
+                    _spalte_hinzufuegen(conn, "giveaways", name, kind)
+                _spalte_hinzufuegen(conn, "giveaway_entries", "joined_at", "INTEGER NOT NULL DEFAULT 0")
                 conn.execute("CREATE INDEX IF NOT EXISTS idx_tickets_guild_status ON tickets(guild_id,status)")
                 conn.execute("CREATE INDEX IF NOT EXISTS idx_warnings_guild_user ON warnings(guild_id,user_id)")
                 conn.execute("CREATE INDEX IF NOT EXISTS idx_audit_guild_time ON feature_audit(guild_id,created_at)")

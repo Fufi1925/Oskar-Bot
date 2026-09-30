@@ -673,3 +673,58 @@
 
   root.classList.add('dashboard-js');
 })();
+
+// Complete giveaway dashboard interactions.
+(() => {
+  const root = document.querySelector('[data-gw-create]');
+  if (root) {
+    root.querySelectorAll('[data-gw-tab]').forEach(button => button.addEventListener('click', () => {
+      root.querySelectorAll('[data-gw-tab]').forEach(x => x.classList.toggle('active', x === button));
+      root.querySelectorAll('[data-gw-pane]').forEach(x => x.classList.toggle('active', x.dataset.gwPane === button.dataset.gwTab));
+    }));
+    root.querySelectorAll('[data-minutes]').forEach(button => button.addEventListener('click', () => {
+      root.querySelectorAll('[data-minutes]').forEach(x => x.classList.toggle('active', x === button));
+      root.querySelector('[data-gw-duration]').value = button.dataset.minutes;
+      const custom = root.querySelector('[data-gw-custom-duration]'); if (custom) custom.value = '';
+      preview();
+    }));
+    const custom = root.querySelector('[data-gw-custom-duration]'); if (custom) custom.addEventListener('input', () => { if (+custom.value > 0) root.querySelector('[data-gw-duration]').value = custom.value; preview(); });
+    const form = root.querySelector('[data-gw-form]');
+    function replace(text, values) { Object.entries(values).forEach(([k,v]) => { text = text.split(`{${k}}`).join(v); }); return text; }
+    function preview() {
+      if (!form) return; const data = new FormData(form); const prize = data.get('prize') || 'Dein Preis'; const winners = data.get('winners') || '1';
+      const minutes = +(data.get('duration_minutes') || 60); const title = data.get('title') || 'Gewinnspiel';
+      const values = {prize, winners, entries:'0', ends: minutes >= 1440 ? `in ${Math.round(minutes/1440)} Tag(en)` : minutes >= 60 ? `in ${Math.round(minutes/60)} Stunde(n)` : `in ${minutes} Minuten`, host:'@Host', winners_mentions:'@Alice, @Bob', server:'dein Server'};
+      const body = data.get('description') || '**{prize}**\n\nDrücke den Knopf, um teilzunehmen.\n**Gewinner:** {winners}\n**Endet:** {ends}';
+      root.querySelector('[data-gw-preview-title]').textContent = replace(String(title), values);
+      root.querySelector('[data-gw-preview-body]').textContent = replace(String(body), values);
+      root.querySelector('[data-gw-preview-button]').textContent = data.get('button_label') || 'Teilnehmen';
+      root.querySelectorAll('[data-gw-message-preview]').forEach(output => {
+        const input = output.parentElement.querySelector('textarea');
+        output.textContent = replace(String(input?.value || output.dataset.default || ''), values);
+      });
+    }
+    form?.querySelectorAll('input,textarea').forEach(input => input.addEventListener('input', preview)); preview();
+    root.querySelector('[data-gw-collapse]')?.addEventListener('click', () => { const f=root.querySelector('[data-gw-form]'); f.hidden=!f.hidden; });
+  }
+  const detail = document.querySelector('[data-gw-detail]');
+  if (detail) {
+    detail.querySelectorAll('[data-gw-detail-tab]').forEach(button => button.addEventListener('click', () => {
+      detail.querySelectorAll('[data-gw-detail-tab]').forEach(x => x.classList.toggle('active', x === button));
+      detail.querySelectorAll('[data-gw-detail-pane]').forEach(x => x.classList.toggle('active', x.dataset.gwDetailPane === button.dataset.gwDetailTab));
+      history.replaceState(null, '', `#${button.dataset.gwDetailTab}`);
+    }));
+    const hash=location.hash.slice(1); if(hash) detail.querySelector(`[data-gw-detail-tab="${hash}"]`)?.click();
+    detail.querySelector('[data-gw-entry-search]')?.addEventListener('input', event => { const q=event.target.value.trim().toLowerCase(); detail.querySelectorAll('[data-gw-people] article').forEach(row => row.hidden = q && !row.dataset.search.includes(q)); });
+    detail.querySelectorAll('[data-confirm]').forEach(button => button.addEventListener('click', event => { if (!confirm(button.dataset.confirm)) event.preventDefault(); }));
+    const modal=detail.querySelector('[data-gw-boost-modal]'), modeInput=detail.querySelector('[data-gw-boost-mode]');
+    detail.querySelectorAll('[data-gw-boost]').forEach(button => button.addEventListener('click', () => {
+      modal.hidden=false; document.body.classList.add('modal-open'); modal.querySelector('[data-gw-boost-user]').value=button.dataset.id; modal.querySelector('[data-gw-boost-title]').textContent=button.dataset.name;
+      modal.querySelector('[name="weight"]').value=+button.dataset.weight>1?button.dataset.weight:100; modal.querySelector('[name="note"]').value=button.dataset.note||'';
+      const mode=button.dataset.guaranteed==='1'?'guaranteed':(+button.dataset.weight>1?'weight':'weight'); modal.querySelector(`[data-mode="${mode}"]`)?.click();
+    }));
+    modal?.querySelectorAll('[data-gw-boost-close]').forEach(x => x.addEventListener('click', () => { modal.hidden=true; document.body.classList.remove('modal-open'); }));
+    modal?.querySelectorAll('[data-mode]').forEach(button => button.addEventListener('click', () => { modeInput.value=button.dataset.mode; modal.querySelectorAll('[data-mode]').forEach(x=>x.classList.toggle('active',x===button)); modal.querySelector('[data-gw-weight-wrap]').hidden=button.dataset.mode!=='weight'; }));
+  }
+  document.querySelectorAll('time[data-timestamp]').forEach(el => { const d=new Date(+el.dataset.timestamp*1000); if(!isNaN(d)) el.textContent=new Intl.DateTimeFormat('de-DE',{dateStyle:'medium',timeStyle:'short'}).format(d); });
+})();

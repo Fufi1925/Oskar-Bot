@@ -28,6 +28,7 @@ from discord import app_commands
 from discord.ext import commands, tasks
 
 from lbost_shop_app import db, regeln
+from lbost_shop_app import giveaways as giveaway_store
 from lbost_shop_app.config import Settings, get_settings
 
 logger = logging.getLogger("lbost-shop-bot")
@@ -450,6 +451,8 @@ class ShopBot(commands.Bot):
                 await self.toggle_role(interaction, int(custom_id.rsplit(":", 1)[-1]))
             elif custom_id.startswith("shop:giveaway:"):
                 await self.enter_giveaway(interaction, int(custom_id.rsplit(":", 1)[-1]))
+            elif custom_id.startswith("giveaway_join_"):
+                await self.enter_giveaway(interaction, int(custom_id.rsplit("_", 1)[-1]))
         except Exception:
             logger.exception("Component failed: %s", custom_id)
             await self.interaction_notice(interaction, "Aktion fehlgeschlagen", "Die Aktion konnte nicht sicher ausgeführt werden.", error=True)
@@ -688,20 +691,41 @@ class ShopBot(commands.Bot):
         except discord.Forbidden:
             await self.interaction_notice(interaction, "Keine Berechtigung", "Der Bot steht mit seiner Rolle unter der Zielrolle.", error=True)
 
+    def giveaway_view(self, record: dict[str, Any], entries: int, *, ended: bool = False, winners: str = ""):
+        values = giveaway_store.values(record, entries)
+        title = giveaway_store.fill(record.get("title") or giveaway_store.DEFAULT_TITLE, values)
+        body = giveaway_store.fill(record.get("description") or giveaway_store.DEFAULT_DESCRIPTION, values)
+        rules = giveaway_store.requirement_lines(record)
+        if rules and not ended:
+            body += "\n\n**Bedingungen:** " + " · ".join(rules)
+        body += (f"\n\n**Gewonnen:** {winners}" if winners else "\n\nNiemand hat teilgenommen.") if ended else f"\n\n**Teilnehmer:** {entries}"
+        buttons = []
+        if not ended:
+            try: emoji = record.get("button_emoji") or None
+            except Exception: emoji = None
+            buttons.append(discord.ui.Button(label=(record.get("button_label") or "Teilnehmen")[:80], emoji=emoji, style=discord.ButtonStyle.success, custom_id=f"giveaway_join_{record['message_id']}"))
+        return layout(title[:256], body[:3900], color=f"#{int(record.get('colour') or 0xF59E0B):06x}", buttons=buttons, image_url=str(record.get("image_url") or ""))
+
     async def enter_giveaway(self, interaction: discord.Interaction, message_id: int) -> None:
-        cfg = self.feature(interaction.guild.id, "giveaways")
-        required = int(cfg.get("required_role_id") or 0)
-        if required and not any(role.id == required for role in interaction.user.roles):
-            return await self.interaction_notice(interaction, "Rolle fehlt", f"Für dieses Giveaway brauchst du {interaction.guild.get_role(required).mention if interaction.guild.get_role(required) else 'eine Rolle'}.", error=True)
-        ergebnis = db.giveaway_beitreten(message_id, interaction.user.id, self.settings)
-        meldungen = {
-            "unbekannt": ("Giveaway unbekannt", "Dieses Giveaway ist nicht mehr gespeichert.", True),
-            "beendet": ("Giveaway beendet", "Dieses Giveaway nimmt keine Teilnehmer mehr an.", True),
-            "bereits": ("Schon dabei", "Du nimmst bereits teil.", False),
-            "beitritt": ("Teilnahme gespeichert", "Du nimmst jetzt an diesem Giveaway teil.", False),
-        }
-        titel, text, fehler = meldungen[ergebnis]
-        await self.interaction_notice(interaction, titel, text, error=fehler)
+        record = giveaway_store.get(interaction.guild.id, message_id, self.settings)
+        if not record or record.get("status") != "active" or int(record.get("ends_at") or 0) <= int(time.time()):
+            text = giveaway_store.message(record or {}, "msg_ended", giveaway_store.values(record or {}))
+            return await self.interaction_notice(interaction, "Giveaway beendet", text, error=True)
+        failed = giveaway_store.failed_requirements(record, interaction.user, self.settings)
+        if failed:
+            text = giveaway_store.message(record, "msg_denied", giveaway_store.values(record)) + "\n" + "\n".join(f"• {item}" for item in failed)
+            return await self.interaction_notice(interaction, "Teilnahme nicht möglich", text, error=True)
+        result, total = giveaway_store.toggle_entry(message_id, interaction.user.id, bool(record.get("allow_leave", 1)), self.settings)
+        data = giveaway_store.values(record, total)
+        if result == "already": title, text = "Schon dabei", giveaway_store.message(record, "msg_joined", data)
+        elif result == "left": title, text = "Teilnahme beendet", giveaway_store.message(record, "msg_left", data)
+        else: title, text = "Teilnahme gespeichert", giveaway_store.message(record, "msg_joined", data)
+        await self.interaction_notice(interaction, title, text)
+        try:
+            message = interaction.message or await interaction.channel.fetch_message(message_id)
+            await message.edit(view=self.giveaway_view(record, total))
+        except Exception:
+            pass
 
     # ── Welcome / leave: shared University renderer ─────────────────
     def greet_values(self, member: discord.Member) -> dict[str, str]:
@@ -833,6 +857,7 @@ class ShopBot(commands.Bot):
     async def on_message(self, message: discord.Message) -> None:
         if not message.guild or message.author.bot:
             return
+        giveaway_store.add_activity(message.guild.id, message.author.id, self.settings)
         member = message.author
         # ``roles`` und ``guild_permissions`` hängen am Mitglied, nicht am
         # Nutzer-Objekt; über getattr läuft der Pfad auch, wenn das Mitglied
@@ -1278,31 +1303,50 @@ class ShopBot(commands.Bot):
             cfg = self.feature(guild.id, "giveaways")
             if not cfg.get("enabled"):
                 continue
-            for zeile in db.giveaways_fuer_gilde(guild.id, self.settings, 25):
+            for zeile in giveaway_store.list_all(guild.id, self.settings, 50):
                 if str(zeile["status"]) != "active" or int(zeile["ends_at"]) > now:
                     continue
-                belegt = db.giveaway_belegen(int(zeile["message_id"]), self.settings)
-                if not belegt:
-                    continue
-                await self.finish_giveaway(guild, belegt)
+                await self.finish_giveaway(guild, zeile)
 
     @giveaway_worker.before_loop
     async def before_giveaways(self) -> None:
         await self.wait_until_ready()
 
-    async def finish_giveaway(self, guild: discord.Guild, zeile: dict[str, Any]) -> None:
+    async def finish_giveaway(self, guild: discord.Guild, zeile: dict[str, Any], *, reroll: bool = False) -> list[int]:
+        message_id = int(zeile["message_id"])
+        if not reroll and not giveaway_store.mark_ended(message_id, self.settings):
+            return []
         channel = guild.get_channel(int(zeile["channel_id"]))
-        teilnehmer = db.giveaway_teilnehmer(int(zeile["message_id"]), self.settings)
-        # Wer den Server verlassen oder einen Bann bekommen hat, kann nicht
-        # gewinnen; die alte Fassung erwähnte Leute, die gar nicht mehr da sind.
-        tauglich = taugliche_teilnehmer(teilnehmer, {m.id for m in guild.members})
-        anzahl = max(1, int(zeile["winners"] or 1))
-        gewinner = random.sample(tauglich, min(len(tauglich), anzahl)) if tauglich else []
-        db.giveaway_abschliessen(int(zeile["message_id"]), gewinner, self.settings)
-        text = ("Gewinner: " + ", ".join(f"<@{uid}>" for uid in gewinner)) if gewinner else "Es gab keine gültigen Teilnehmer."
+        eligible_members = {m.id for m in guild.members if not m.bot and not giveaway_store.failed_requirements(zeile, m, self.settings)}
+        eligible = set(taugliche_teilnehmer(giveaway_store.entries(message_id, self.settings), eligible_members))
+        winners = giveaway_store.draw(message_id, max(1, int(zeile["winners"] or 1)), self.settings, exclude_past=reroll, eligible=eligible)
+        giveaway_store.record_winners(message_id, winners, self.settings, reroll=reroll)
+        mentions = ", ".join(f"<@{uid}>" for uid in winners)
+        values = giveaway_store.values(zeile, len(giveaway_store.entries(message_id, self.settings)), winners_mentions=mentions or "—", server=guild.name)
+        announce = giveaway_store.message(zeile, "msg_announce" if winners else "msg_no_entries", values)
         if channel:
-            await self.send_layout(channel, f"Giveaway beendet: {zeile['prize']}", text, color="#57f287")
-        await self.log(guild, "Giveaway beendet", f"Preis: {zeile['prize']}\nGewinner: {len(gewinner)}", "giveaways")
+            await self.send_layout(channel, "Giveaway neu ausgelost" if reroll else "Giveaway beendet", announce, color=f"#{int(zeile.get('colour') or 0xF59E0B):06x}")
+            if not reroll:
+                try:
+                    original = await channel.fetch_message(message_id)
+                    await original.edit(view=self.giveaway_view(zeile, len(giveaway_store.entries(message_id, self.settings)), ended=True, winners=mentions))
+                except Exception:
+                    pass
+        if zeile.get("dm_winners"):
+            for uid in winners:
+                member = guild.get_member(uid)
+                kind = "winner-reroll" if reroll else "winner"
+                if member and giveaway_store.claim_dm(message_id, uid, kind, self.settings):
+                    try: await member.send(view=layout("Du hast gewonnen", giveaway_store.message(zeile, "msg_winner_dm", values), color=f"#{int(zeile.get('colour') or 0xF59E0B):06x}"))
+                    except (discord.Forbidden, AttributeError): pass
+                    await asyncio.sleep(.75)
+        host = guild.get_member(int(zeile.get("host_id") or 0))
+        host_kind = "host-reroll" if reroll else "host"
+        if host and zeile.get("dm_host") and giveaway_store.claim_dm(message_id, host.id, host_kind, self.settings):
+            try: await host.send(view=layout("Giveaway-Zusammenfassung", f"Preis: **{zeile['prize']}**\nGewinner: {mentions or 'Niemand'}"))
+            except (discord.Forbidden, AttributeError): pass
+        await self.log(guild, "Giveaway beendet", f"Preis: {zeile['prize']}\nGewinner: {len(winners)}", "giveaways")
+        return winners
 
     @tasks.loop(minutes=1)
     async def automation_worker(self) -> None:
@@ -1710,11 +1754,21 @@ def register_commands(bot: ShopBot) -> None:
         text = f"Endet: <t:{ends}:R>\nGewinner: {gewinner}\nTeilnahme über den Knopf."
         knopf = discord.ui.Button(label="Teilnehmen", style=discord.ButtonStyle.success, custom_id="shop:giveaway:0")
         nachricht = await interaction.channel.send(view=layout(preis[:200], text, color="#57f287", buttons=[knopf]))
-        db.giveaway_anlegen(nachricht.id, interaction.guild.id, interaction.channel.id, preis, gewinner, ends, bot.settings,
-                            int(cfg.get("required_role_id") or 0))
+        giveaway_store.create({
+            "message_id": nachricht.id, "guild_id": interaction.guild.id,
+            "channel_id": interaction.channel.id, "prize": preis[:200], "winners": gewinner,
+            "ends_at": ends, "status": "active", "winner_ids": "[]",
+            "host_id": interaction.user.id, "start_time": int(time.time()),
+            "title": "", "description": "", "colour": 0xF59E0B,
+            "button_label": "Teilnehmen", "button_emoji": "", "image_url": "",
+            "required_role_id": int(cfg.get("required_role_id") or 0), "blocked_role_id": 0,
+            "min_messages": 0, "min_level": 0, "min_account_days": 0, "min_member_days": 0,
+            "dm_winners": 1, "dm_host": 1, "allow_leave": 1,
+            **{key: "" for key in giveaway_store.DEFAULT_MESSAGES},
+        }, bot.settings)
         # Der Knopf braucht die endgültige Nachrichten-ID, also einmal nachziehen.
-        endgueltig = discord.ui.Button(label="Teilnehmen", style=discord.ButtonStyle.success, custom_id=f"shop:giveaway:{nachricht.id}")
-        await nachricht.edit(view=layout(preis[:200], text, color="#57f287", buttons=[endgueltig]))
+        record = giveaway_store.get(interaction.guild.id, nachricht.id, bot.settings)
+        await nachricht.edit(view=bot.giveaway_view(record, 0))
         await interaction.followup.send(view=layout("Giveaway gestartet", f"Nachricht: `{nachricht.id}`"), ephemeral=True)
 
     @bot.tree.command(name="giveaway-reroll", description="Zieht Gewinner eines Giveaways neu")
@@ -1723,14 +1777,28 @@ def register_commands(bot: ShopBot) -> None:
             return
         if not nachrichten_id.isdigit():
             return await bot.interaction_notice(interaction, "Ungültige ID", "Gib eine gültige Nachrichten-ID an.", error=True)
-        row = next((g for g in db.giveaways_fuer_gilde(interaction.guild.id, bot.settings, 100) if int(g["message_id"]) == int(nachrichten_id)), None)
-        teilnehmer = db.giveaway_teilnehmer(int(nachrichten_id), bot.settings) if row else []
-        tauglich = taugliche_teilnehmer(teilnehmer, {m.id for m in interaction.guild.members})
-        if not row or not tauglich:
+        row = giveaway_store.get(interaction.guild.id, int(nachrichten_id), bot.settings)
+        eligible_now = taugliche_teilnehmer(giveaway_store.entries(int(nachrichten_id), bot.settings), {m.id for m in interaction.guild.members}) if row else []
+        if not row or not eligible_now:
             return await bot.interaction_notice(interaction, "Nicht möglich", "Giveaway oder Teilnehmer wurden nicht gefunden.", error=True)
-        gewinner = random.sample(tauglich, min(len(tauglich), max(1, int(row["winners"]))))
-        await bot.send_layout(interaction.channel, f"Giveaway neu gezogen: {row['prize']}", "Gewinner: " + ", ".join(f"<@{x}>" for x in gewinner), color="#57f287")
-        await bot.interaction_notice(interaction, "Neu gezogen", f"{len(gewinner)} Gewinner ermittelt ({len(tauglich)} Teilnehmer).")
+        winners = await bot.finish_giveaway(interaction.guild, row, reroll=True)
+        await bot.interaction_notice(interaction, "Neu gezogen", f"{len(winners)} neue Gewinner ermittelt. Bisherige Gewinner wurden übersprungen.")
+
+    @bot.command(name="giveaway")
+    async def giveaway_prefix(ctx: commands.Context, minuten: int, gewinner: int, *, preis: str):
+        """Prefix counterpart of /giveaway: !giveaway <minutes> <winners> <prize>."""
+        if not ctx.guild or not isinstance(ctx.author, discord.Member) or not ctx.author.guild_permissions.manage_guild:
+            return
+        minuten=max(1,min(525600,minuten)); gewinner=max(1,min(20,gewinner)); ends=int(time.time())+minuten*60
+        record={"message_id":0,"guild_id":ctx.guild.id,"channel_id":ctx.channel.id,"prize":preis[:200],"winners":gewinner,"ends_at":ends,"status":"active","winner_ids":"[]","host_id":ctx.author.id,"start_time":int(time.time()),"title":"","description":"","colour":0xF59E0B,"button_label":"Teilnehmen","button_emoji":"","image_url":"","required_role_id":0,"blocked_role_id":0,"min_messages":0,"min_level":0,"min_account_days":0,"min_member_days":0,"dm_winners":1,"dm_host":1,"allow_leave":1,**{key:"" for key in giveaway_store.DEFAULT_MESSAGES}}
+        message=await ctx.send(view=bot.giveaway_view(record,0)); record["message_id"]=message.id; giveaway_store.create(record,bot.settings); await message.edit(view=bot.giveaway_view(record,0))
+
+    @bot.command(name="giveaway-reroll", aliases=["greroll"])
+    async def giveaway_reroll_prefix(ctx: commands.Context, message_id: int):
+        """Prefix counterpart of /giveaway-reroll."""
+        if not ctx.guild or not isinstance(ctx.author, discord.Member) or not ctx.author.guild_permissions.manage_guild:return
+        record=giveaway_store.get(ctx.guild.id,message_id,bot.settings)
+        if record: await bot.finish_giveaway(ctx.guild,record,reroll=True)
 
     @bot.tree.command(name="announce", description="Sendet eine Components-V2-Ankündigung")
     async def announce(interaction: discord.Interaction, kanal: discord.TextChannel, titel: str, text: str):
