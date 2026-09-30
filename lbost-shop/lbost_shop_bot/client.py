@@ -29,6 +29,7 @@ from discord.ext import commands, tasks
 
 from lbost_shop_app import db, regeln
 from lbost_shop_app import giveaways as giveaway_store
+from lbost_shop_app import automation as automation_store
 from lbost_shop_app.config import Settings, get_settings
 from lbost_shop_bot.custom_commands import CustomCommandsService
 
@@ -247,6 +248,7 @@ class ShopBot(commands.Bot):
     async def setup_hook(self) -> None:
         db.init_features(self.settings)
         db.prune_audit(self.settings)
+        automation_store.ensure_schema(self.settings)
         self.giveaway_worker.start()
         self.automation_worker.start()
         self.heartbeat.start()
@@ -256,6 +258,10 @@ class ShopBot(commands.Bot):
     async def on_ready(self) -> None:
         mode = "complete" if self.privileged_intents else "online (privileged intents disabled in Developer Portal)"
         logger.info("Connected as %s (%s), %s guilds; feature runtime %s", self.user, self.user.id if self.user else "?", len(self.guilds), mode)
+        # Import the old JSON automations exactly once without deleting their
+        # source configuration, then use only the dedicated tables.
+        for guild in self.guilds:
+            automation_store.migrate_legacy(self.settings,guild.id,self.feature(guild.id,"automation"))
         # Do not wait for the 20-second task interval before the dashboard can
         # see a successful login.
         self.write_heartbeat()
@@ -888,14 +894,18 @@ class ShopBot(commands.Bot):
                         return
         automation = self.feature(message.guild.id, "automation")
         if automation.get("enabled") and message.content:
+            # Also covers the first message after an offline migration or test
+            # harness where on_ready has not run yet. The migration is idempotent.
+            automation_store.migrate_legacy(self.settings,message.guild.id,automation)
             content = message.content.strip()
-            for item in automation.get("auto_responses_json") or []:
-                if not isinstance(item, dict):
-                    continue
-                trigger = str(item.get("trigger") or "")
-                match = content.casefold() == trigger.casefold() if item.get("exact") else trigger.casefold() in content.casefold()
-                if trigger and match and await self.cooldown_frei(message, f"auto:{trigger}", int(item.get("cooldown_seconds") or 0)):
-                    await self.send_layout(message.channel, str(item.get("title") or "Automatische Antwort"), str(item.get("response") or ""), color=item.get("color"))
+            for item in automation_store.responses(self.settings,message.guild.id):
+                trigger=str(item.get("trigger") or "")
+                match=content.casefold()==trigger.casefold() if item.get("exact") else trigger.casefold() in content.casefold()
+                if trigger and match and await self.cooldown_frei(message,f"auto-response:{item['id']}",int(item.get("cooldown_seconds") or 0)):
+                    values={"user":getattr(message.author,"mention",f"<@{message.author.id}>"),"user_name":getattr(message.author,"display_name",getattr(message.author,"name",str(message.author))),"server":message.guild.name,"channel":getattr(message.channel,"mention",f"<#{message.channel.id}>"),"member_count":getattr(message.guild,"member_count",0) or len(getattr(message.guild,"members",[])),"date":datetime.now().strftime("%d.%m.%Y"),"time":datetime.now().strftime("%H:%M")}
+                    title=str(item.get("title") or "Automatische Antwort");text=str(item.get("response") or "")
+                    for key,value in values.items():title=title.replace("{"+key+"}",str(value));text=text.replace("{"+key+"}",str(value))
+                    await message.channel.send(view=layout(title,text,color=item.get("color"),image_url=item.get("image_url") or ""))
                     break
         # The dedicated University-style service handles prefix, slash, exact
         # and contains triggers with the complete flow/action system.
@@ -1348,38 +1358,26 @@ class ShopBot(commands.Bot):
         await self.log(guild, "Giveaway beendet", f"Preis: {zeile['prize']}\nGewinner: {len(winners)}", "giveaways")
         return winners
 
-    @tasks.loop(minutes=1)
+    @tasks.loop(seconds=30)
     async def automation_worker(self) -> None:
-        """Geplante Ankündigungen.
-
-        Der nächste Lauf liegt in ``guild_state``, nicht mehr in der
-        Benutzer-Konfiguration. Zuvor schrieb der Worker die gesamte
-        Modul-Konfiguration zurück — fiel das mit einem Speichern im
-        Dashboard zusammen, war die Änderung des Nutzers weg.
-        """
-        now = int(time.time())
+        """Atomically send one-time/repeating messages and announcements."""
+        now=int(time.time())
         for guild in self.guilds:
-            cfg = self.feature(guild.id, "automation")
-            if not cfg.get("enabled"):
-                continue
-            eintraege = [item for item in (cfg.get("announcements_json") or []) if isinstance(item, dict)]
-            if not eintraege:
-                continue
-            state_key = f"announce:{guild.id}"
-            faellig = db.get_state(0, state_key, self.settings) or {"wert": {}, "updated_at": 0}
-            zeitstempel = faellig["wert"] if isinstance(faellig["wert"], dict) else {}
-            aktualisiert = False
-            for index, item in enumerate(eintraege):
-                schluessel = str(index)
-                if int(zeitstempel.get(schluessel) or 0) > now:
-                    continue
-                channel = guild.get_channel(int(item.get("channel_id") or 0))
-                if channel and item.get("content"):
-                    await self.send_layout(channel, str(item.get("title") or "Ankündigung"), str(item["content"]), color=item.get("color"))
-                zeitstempel[schluessel] = now + max(60, int(item.get("interval_minutes") or 60) * 60)
-                aktualisiert = True
-            if aktualisiert:
-                db.set_state(0, state_key, zeitstempel, self.settings)
+            if not self.feature(guild.id,"automation").get("enabled"):continue
+            for kind in ("messages","announcements"):
+                for item in automation_store.claim_due(self.settings,kind,now,guild_id=guild.id):
+                    channel=guild.get_channel(int(item.get("channel_id") or 0))
+                    if channel is None:continue
+                    values={"server":guild.name,"member_count":guild.member_count or len(guild.members),"channel":channel.mention,"date":datetime.now().strftime("%d.%m.%Y"),"time":datetime.now().strftime("%H:%M"),"user":"@User","user_name":"User"}
+                    title=str(item.get("title") or ("Automatische Nachricht" if kind=="messages" else "Ankündigung"));text=str(item.get("content") or "")
+                    for key,value in values.items():title=title.replace("{"+key+"}",str(value));text=text.replace("{"+key+"}",str(value))
+                    role=guild.get_role(int(item.get("mention_role_id") or 0)) if kind=="announcements" else None
+                    try:
+                        body=f"{role.mention}\n{text}" if role else text
+                        sent=await channel.send(view=layout(title,body,color=item.get("color"),image_url=item.get("image_url") or ""),allowed_mentions=discord.AllowedMentions(roles=True,users=False,everyone=False))
+                        delay=int(item.get("delete_after") or 0)
+                        if kind=="messages" and delay>0:await sent.delete(delay=delay)
+                    except discord.HTTPException:logger.exception("Automation send failed for %s",item.get("id"))
 
     @automation_worker.before_loop
     async def before_automation(self) -> None:

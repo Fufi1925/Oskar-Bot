@@ -25,6 +25,7 @@ from fastapi.templating import Jinja2Templates
 from lbost_shop_app import auth, db, regeln
 from lbost_shop_app import giveaways as giveaway_store
 from lbost_shop_app import custom_commands as custom_command_store
+from lbost_shop_app import automation as automation_store
 from lbost_shop_app.config import get_settings
 
 APP_DIR = Path(__file__).resolve().parent
@@ -928,6 +929,18 @@ def create_app() -> FastAPI:
                 repaired=int(request.query_params.get("repaired") or 0),
                 error=request.query_params.get("error"),
             )
+        if feature == "automation":
+            migrated=automation_store.migrate_legacy(settings,guild_id,values,int(user["uid"]))
+            return render(
+                request,"automation.html",guild=guild,feature=feature,spec=spec,
+                channels=[item for item in channels if item.get("type") in ("0","5")],roles=roles,
+                automated_messages=automation_store.list_items(settings,guild_id,"messages"),
+                auto_responses=automation_store.list_items(settings,guild_id,"responses"),
+                announcements=automation_store.list_items(settings,guild_id,"announcements"),
+                csrf=user["sid"],saved=request.query_params.get("saved")=="1",
+                deleted=request.query_params.get("deleted")=="1",tested=request.query_params.get("tested")=="1",
+                migrated=migrated,error=request.query_params.get("error"),active_tab=request.query_params.get("tab","messages"),
+            )
         if feature == "custom_commands":
             members = await guild_members(guild_id)
             commands = custom_command_store.list_all(settings, guild_id)
@@ -935,7 +948,7 @@ def create_app() -> FastAPI:
             # this isolated feature record by the shop owner; it is never read
             # from University databases.
             premium = bool(values.get("premium", False))
-            limit = custom_command_store.PREMIUM_MAX_COMMANDS if premium else custom_command_store.FREE_MAX_COMMANDS
+            limit = custom_command_store.PREMIUM_MAX_COMMANDS
             return render(
                 request, "custom_commands.html", guild=guild, feature=feature, spec=spec,
                 channels=[item for item in channels if item.get("type") in ("0", "5")],
@@ -1399,6 +1412,79 @@ def create_app() -> FastAPI:
             problems.append("Discord-Prüfung konnte nicht abgeschlossen werden")
         query = f"verified=1&repaired={repaired}" + ("&error=" + quote_plus(" · ".join(problems[:4])) if problems else "")
         return RedirectResponse(href(request, f"/guild/{guild_id}/reaction_roles?{query}"), status_code=303)
+
+    def _automation_text(text: str, guild: dict[str,Any]) -> str:
+        from datetime import datetime as _datetime
+        values={"server":guild.get("name") or "Server","member_count":guild.get("approximate_member_count") or "—","date":_datetime.now().strftime("%d.%m.%Y"),"time":_datetime.now().strftime("%H:%M"),"user":"@User","user_name":"User","channel":"#kanal"}
+        result=str(text or "")
+        for key,value in values.items():result=result.replace("{"+key+"}",str(value))
+        return result
+
+    def _automation_payload(item: dict[str,Any], guild: dict[str,Any], *, mention: str="") -> dict[str,Any]:
+        components=[]
+        if mention:components.append({"type":10,"content":mention})
+        title=_automation_text(str(item.get("title") or "Automatische Nachricht"),guild);content=_automation_text(str(item.get("content") or item.get("response") or ""),guild)
+        components.append({"type":10,"content":f"## {title}\n{content}"[:3900]})
+        if item.get("image_url"):components.append({"type":12,"items":[{"media":{"url":str(item["image_url"])}}]})
+        try:accent=int(str(item.get("color") or "#5865f2").lstrip("#"),16)
+        except ValueError:accent=0x5865F2
+        return {"flags":32768,"allowed_mentions":{"parse":[],"roles":[str(item.get("mention_role_id"))] if item.get("mention_role_id") else []},"components":[{"type":17,"accent_color":accent,"components":components}]}
+
+    @app.post("/guild/{guild_id}/automation/save")
+    async def automation_save(request:Request,guild_id:int):
+        from datetime import datetime as _datetime
+        from zoneinfo import ZoneInfo
+        user=current_user(request);guild=await guild_access(user,guild_id) if user else None
+        if not user or not guild:return JSONResponse({"ok":False},status_code=403)
+        form=await request.form()
+        if not csrf_ok(form.get("csrf"),user):return PlainTextResponse("Ungültige Anfrage.",status_code=403)
+        kind=str(form.get("kind") or "");data=dict(form);data["enabled"]="enabled" in form
+        color=str(form.get("color") or "#5865f2")
+        if not COLOR_RE.fullmatch(color):return RedirectResponse(href(request,f"/guild/{guild_id}/automation?tab={kind}&error="+quote_plus("Ungültige Farbe.")),status_code=303)
+        image=str(form.get("image_url") or "")
+        if image and not image.startswith("https://"):return RedirectResponse(href(request,f"/guild/{guild_id}/automation?tab={kind}&error="+quote_plus("Bild-URLs müssen HTTPS verwenden.")),status_code=303)
+        try:
+            if kind=="responses":
+                if not str(form.get("trigger") or "").strip() or not str(form.get("response") or "").strip():raise ValueError("Trigger und Antwort sind erforderlich.")
+                data["exact"]="exact" in form;automation_store.save_response(settings,guild_id,data,int(user["uid"]))
+            elif kind=="messages":
+                channel=str(form.get("channel_id") or "");channels,_roles,_=await guild_resources(guild_id)
+                if channel not in {str(c["id"]) for c in channels}:raise ValueError("Bitte einen gültigen Kanal wählen.")
+                raw=str(form.get("send_at") or "");local=_datetime.fromisoformat(raw).replace(tzinfo=ZoneInfo("Europe/Berlin"));data["send_at"]=int(local.timestamp())
+                if not str(form.get("content") or "").strip():raise ValueError("Die Nachricht darf nicht leer sein.")
+                automation_store.save_message(settings,guild_id,data,int(user["uid"]))
+            elif kind=="announcements":
+                channel=str(form.get("channel_id") or "");channels,roles,_=await guild_resources(guild_id)
+                if channel not in {str(c["id"]) for c in channels}:raise ValueError("Bitte einen gültigen Kanal wählen.")
+                role=str(form.get("mention_role_id") or "");data["mention_role_id"]=int(role) if role in {str(r["id"]) for r in roles} else 0
+                if not str(form.get("content") or "").strip():raise ValueError("Die Ankündigung darf nicht leer sein.")
+                automation_store.save_announcement(settings,guild_id,data,int(user["uid"]))
+            else:raise ValueError("Unbekannter Automationstyp.")
+        except (ValueError,TypeError) as exc:return RedirectResponse(href(request,f"/guild/{guild_id}/automation?tab={kind}&error="+quote_plus(str(exc))),status_code=303)
+        values=db.get_feature(guild_id,"automation",settings);values["enabled"]=True;db.set_feature(guild_id,"automation",values,int(user["uid"]),settings)
+        return RedirectResponse(href(request,f"/guild/{guild_id}/automation?tab={kind}&saved=1"),status_code=303)
+
+    @app.post("/guild/{guild_id}/automation/action")
+    async def automation_action(request:Request,guild_id:int):
+        user=current_user(request);guild=await guild_access(user,guild_id) if user else None
+        if not user or not guild:return JSONResponse({"ok":False},status_code=403)
+        form=await request.form()
+        if not csrf_ok(form.get("csrf"),user):return PlainTextResponse("Ungültige Anfrage.",status_code=403)
+        kind=str(form.get("kind") or "");action=str(form.get("action") or "");item_id=int(form.get("id") or 0)
+        if kind not in automation_store.KINDS:return PlainTextResponse("Unbekannter Typ.",status_code=400)
+        if action=="delete":automation_store.delete(settings,guild_id,kind,item_id);suffix="deleted=1"
+        elif action=="toggle":automation_store.toggle(settings,guild_id,kind,item_id);suffix="saved=1"
+        elif action=="test" and kind in {"messages","announcements"}:
+            item=automation_store.get(settings,guild_id,kind,item_id)
+            if not item:return PlainTextResponse("Eintrag nicht gefunden.",status_code=404)
+            import httpx
+            mention=f"<@&{item['mention_role_id']}>" if kind=="announcements" and item.get("mention_role_id") else ""
+            async with httpx.AsyncClient(timeout=20.0) as client:
+                result=await client.post(f"https://discord.com/api/v10/channels/{item['channel_id']}/messages",headers={"Authorization":f"Bot {settings.bot_token}"},json=_automation_payload(item,guild,mention=mention))
+            if result.status_code>=300:return RedirectResponse(href(request,f"/guild/{guild_id}/automation?tab={kind}&error="+quote_plus("Testnachricht konnte nicht gesendet werden.")),status_code=303)
+            suffix="tested=1"
+        else:return PlainTextResponse("Unbekannte Aktion.",status_code=400)
+        return RedirectResponse(href(request,f"/guild/{guild_id}/automation?tab={kind}&{suffix}"),status_code=303)
 
     @app.post("/guild/{guild_id}/custom_commands/save")
     async def custom_command_save(request: Request, guild_id: int):

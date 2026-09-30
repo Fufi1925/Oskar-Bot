@@ -12,8 +12,8 @@ from lbost_shop_bot.custom_commands import CustomCommandsService
 settings=get_settings();db.init_features(settings);store.ensure_schema(settings)
 flow={'description':'Vollständiger Test','enabled':True,'cooldown':10,'allowed_roles':['9'],'allowed_users':['42'],'deny_without_role':True,'parameters':[{'id':'p','name':'target','description':'Ziel','type':'user','required':True}], 'actions':[{'id':'a','type':'reply','text':'Hallo {target:UserPing}','ephemeral':True,'embed':{'enabled':True,'title':'Titel','description':'{server}','color':'#2563eb','image_url':'https://example.com/a.png','footer':'Fuß'},'buttons':[{'id':'b','label':'Klick','emoji':'','style':'green','actions':[{'id':'c','type':'condition_role','role_id':'9','then':[{'id':'d','type':'add_role','role_id':'10'}],'else':[{'id':'e','type':'dm','text':'Nein'}]}]}]},{'id':'f','type':'send_channel','channel_id':'7','text':'Kanal'},{'id':'g','type':'remove_role','role_id':'10'}]}
 store.validate_config(flow)
-for i in range(3):assert store.save(settings,1,f'cmd-{i}','ok','owner',use_prefix=True,use_slash=True,config=flow)
-assert not store.save(settings,1,'cmd-3','no','owner',config=flow)
+for i in range(20):assert store.save(settings,1,f'cmd-{i}','ok','owner',use_prefix=True,use_slash=True,config=flow)
+assert not store.save(settings,1,'cmd-20','no','owner',config=flow)
 for i in range(20):assert store.save(settings,2,f'premium-{i}','ok','owner',config=flow,max_commands=20)
 assert not store.save(settings,2,'premium-20','no','owner',config=flow,max_commands=20)
 assert store.get(settings,1,'CMD-0')['config']['actions'][0]['buttons'][0]['actions'][0]['type']=='condition_role'

@@ -4,7 +4,7 @@ import json, re, time
 from typing import Any
 from lbost_shop_app import db
 
-FREE_MAX_COMMANDS = 3
+FREE_MAX_COMMANDS = 20
 PREMIUM_MAX_COMMANDS = 20
 NAME_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,31}$")
 ACTION_TYPES = {"reply", "dm", "send_channel", "add_role", "remove_role", "condition_role"}
