@@ -24,6 +24,7 @@ from fastapi.templating import Jinja2Templates
 
 from lbost_shop_app import auth, db, regeln
 from lbost_shop_app import giveaways as giveaway_store
+from lbost_shop_app import custom_commands as custom_command_store
 from lbost_shop_app.config import get_settings
 
 APP_DIR = Path(__file__).resolve().parent
@@ -186,9 +187,11 @@ FEATURES: dict[str, dict[str, Any]] = {
     "reaction_roles": {"title": "Reaktions-Rollen", "icon": "users", "fields": [
         ("enabled", "Aktiviert", "bool"),
     ]},
+    "custom_commands": {"title": "Custom Commands", "icon": "command", "fields": [
+        ("enabled", "Aktiviert", "bool"),
+    ]},
     "automation": {"title": "Automation", "icon": "bolt", "fields": [
         ("enabled", "Aktiviert", "bool"), ("auto_responses_json", "Auto-Antworten (JSON)", "json"),
-        ("custom_commands_json", "Eigene Befehle (JSON)", "json"),
         ("announcements_json", "Automatische Nachrichten (JSON)", "json"),
     ]},
     "logging": {"title": "Logging", "icon": "log", "fields": [
@@ -925,6 +928,22 @@ def create_app() -> FastAPI:
                 repaired=int(request.query_params.get("repaired") or 0),
                 error=request.query_params.get("error"),
             )
+        if feature == "custom_commands":
+            members = await guild_members(guild_id)
+            commands = custom_command_store.list_all(settings, guild_id)
+            # LBoost keeps its data independent. A premium flag may be set in
+            # this isolated feature record by the shop owner; it is never read
+            # from University databases.
+            premium = bool(values.get("premium", False))
+            limit = custom_command_store.PREMIUM_MAX_COMMANDS if premium else custom_command_store.FREE_MAX_COMMANDS
+            return render(
+                request, "custom_commands.html", guild=guild, feature=feature, spec=spec,
+                channels=[item for item in channels if item.get("type") in ("0", "5")],
+                roles=roles, members=members, commands=commands, count=len(commands), limit=limit,
+                premium=premium, prefix=str(db.get_feature(guild_id, "moderation", settings).get("prefix") or "!"),
+                csrf=user["sid"], saved=request.query_params.get("saved") == "1",
+                deleted=request.query_params.get("deleted") == "1", error=request.query_params.get("error"),
+            )
         if feature == "giveaways":
             members = await guild_members(guild_id)
             running, ended = [], []
@@ -1380,6 +1399,61 @@ def create_app() -> FastAPI:
             problems.append("Discord-Prüfung konnte nicht abgeschlossen werden")
         query = f"verified=1&repaired={repaired}" + ("&error=" + quote_plus(" · ".join(problems[:4])) if problems else "")
         return RedirectResponse(href(request, f"/guild/{guild_id}/reaction_roles?{query}"), status_code=303)
+
+    @app.post("/guild/{guild_id}/custom_commands/save")
+    async def custom_command_save(request: Request, guild_id: int):
+        user=current_user(request); guild=await guild_access(user,guild_id) if user else None
+        if not user or not guild: return JSONResponse({"ok":False},status_code=403)
+        form=await request.form()
+        if not csrf_ok(form.get("csrf"),user): return PlainTextResponse("Ungültige Anfrage.",status_code=403)
+        name=custom_command_store.normalise_name(form.get("name")); original=custom_command_store.normalise_name(form.get("original_name"))
+        use_prefix="use_prefix" in form; use_exact="use_exact" in form; use_contains="use_contains" in form; use_slash="use_slash" in form
+        try:
+            config=json.loads(str(form.get("config_json") or "{}"))
+            config=custom_command_store.validate_config(config)
+        except (json.JSONDecodeError,TypeError,ValueError) as exc:
+            return RedirectResponse(href(request,f"/guild/{guild_id}/custom_commands?error="+quote_plus(str(exc))),status_code=303)
+        if not custom_command_store.valid_name(name):
+            return RedirectResponse(href(request,f"/guild/{guild_id}/custom_commands?error="+quote_plus("Der Name darf nur Buchstaben, Zahlen, - und _ enthalten (maximal 32).")),status_code=303)
+        if not any((use_prefix,use_exact,use_contains,use_slash)):
+            return RedirectResponse(href(request,f"/guild/{guild_id}/custom_commands?error="+quote_plus("Wähle mindestens eine Erkennungsart aus.")),status_code=303)
+        if original and original != name:
+            return RedirectResponse(href(request,f"/guild/{guild_id}/custom_commands?error="+quote_plus("Der Name eines bestehenden Commands kann nicht geändert werden.")),status_code=303)
+        try:
+            global_commands=await _discord_abfrage(settings.bot_token,f"/applications/{settings.discord_client_id}/commands")
+            global_names={str(item.get("name") or "").lower() for item in global_commands}
+        except Exception: global_names=set()
+        existing=custom_command_store.get(settings,guild_id,name)
+        if existing is None and ((use_slash and name in global_names) or (use_prefix and name in global_names)):
+            return RedirectResponse(href(request,f"/guild/{guild_id}/custom_commands?error="+quote_plus("Dieser Name gehört bereits zu einem Bot-Befehl.")),status_code=303)
+        def first_reply(actions):
+            for action in actions:
+                if action.get("type")=="reply" and str(action.get("text") or "").strip(): return str(action["text"]).strip()
+                nested=first_reply(action.get("then",[]))+first_reply(action.get("else",[]))
+                if nested:return nested
+                for button in action.get("buttons",[]):
+                    nested=first_reply(button.get("actions",[]))
+                    if nested:return nested
+            return ""
+        response=first_reply(config.get("actions",[])) or "Command ausgeführt."
+        if len(response)>1900: response=response[:1900]
+        feature_values=db.get_feature(guild_id,"custom_commands",settings);premium=bool(feature_values.get("premium",False))
+        saved=custom_command_store.save(settings,guild_id,name,response,str(user["uid"]),use_prefix=use_prefix,use_exact=use_exact,use_contains=use_contains,use_slash=use_slash,config=config,max_commands=custom_command_store.PREMIUM_MAX_COMMANDS if premium else custom_command_store.FREE_MAX_COMMANDS)
+        if not saved:
+            limit=custom_command_store.PREMIUM_MAX_COMMANDS if premium else custom_command_store.FREE_MAX_COMMANDS
+            return RedirectResponse(href(request,f"/guild/{guild_id}/custom_commands?error="+quote_plus(f"Für diesen Server sind höchstens {limit} Custom Commands möglich.")),status_code=303)
+        feature_values["enabled"]=True;db.set_feature(guild_id,"custom_commands",feature_values,int(user["uid"]),settings)
+        return RedirectResponse(href(request,f"/guild/{guild_id}/custom_commands?saved=1"),status_code=303)
+
+    @app.post("/guild/{guild_id}/custom_commands/delete")
+    async def custom_command_delete(request: Request, guild_id: int):
+        user=current_user(request); guild=await guild_access(user,guild_id) if user else None
+        if not user or not guild:return JSONResponse({"ok":False},status_code=403)
+        form=await request.form()
+        if not csrf_ok(form.get("csrf"),user):return PlainTextResponse("Ungültige Anfrage.",status_code=403)
+        name=custom_command_store.normalise_name(form.get("name"))
+        if not custom_command_store.delete(settings,guild_id,name):return PlainTextResponse("Custom Command nicht gefunden.",status_code=404)
+        return RedirectResponse(href(request,f"/guild/{guild_id}/custom_commands?deleted=1"),status_code=303)
 
     def _giveaway_discord_payload(record: dict[str, Any], entries: int, *, ended: bool = False, winners: str = "") -> dict[str, Any]:
         values = giveaway_store.values(record, entries)

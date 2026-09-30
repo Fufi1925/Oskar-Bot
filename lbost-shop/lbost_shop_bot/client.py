@@ -30,6 +30,7 @@ from discord.ext import commands, tasks
 from lbost_shop_app import db, regeln
 from lbost_shop_app import giveaways as giveaway_store
 from lbost_shop_app.config import Settings, get_settings
+from lbost_shop_bot.custom_commands import CustomCommandsService
 
 logger = logging.getLogger("lbost-shop-bot")
 LINK_RE = re.compile(r"https?://[^\s]+", re.I)
@@ -230,6 +231,7 @@ class ShopBot(commands.Bot):
         self._cooldowns: dict[str, float] = {}
         self._audit_cache: dict[tuple[int, str, int | None], tuple[Any, float]] = {}
         self.feature_cache: dict[tuple[int, str], tuple[float, dict[str, Any]]] = {}
+        self.custom_commands_service = CustomCommandsService(self)
 
     def feature(self, guild_id: int, name: str) -> dict[str, Any]:
         key, now = (guild_id, name), time.monotonic()
@@ -248,6 +250,7 @@ class ShopBot(commands.Bot):
         self.giveaway_worker.start()
         self.automation_worker.start()
         self.heartbeat.start()
+        await self.custom_commands_service.start()
         await self.tree.sync()
 
     async def on_ready(self) -> None:
@@ -894,12 +897,9 @@ class ShopBot(commands.Bot):
                 if trigger and match and await self.cooldown_frei(message, f"auto:{trigger}", int(item.get("cooldown_seconds") or 0)):
                     await self.send_layout(message.channel, str(item.get("title") or "Automatische Antwort"), str(item.get("response") or ""), color=item.get("color"))
                     break
-            if content.startswith("!") and len(content) > 1:
-                command = content[1:].split()[0].casefold()
-                for item in automation.get("custom_commands_json") or []:
-                    if isinstance(item, dict) and command == str(item.get("name") or "").casefold():
-                        await self.send_layout(message.channel, str(item.get("title") or command), str(item.get("response") or ""), color=item.get("color"))
-                        break
+        # The dedicated University-style service handles prefix, slash, exact
+        # and contains triggers with the complete flow/action system.
+        await self.custom_commands_service.handle_message(message)
         # Overriding on_message disables prefix/hybrid commands unless the
         # command processor is called explicitly. Slash commands were working,
         # while University-style !warn / !ban silently did nothing.
