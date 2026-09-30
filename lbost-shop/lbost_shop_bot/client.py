@@ -454,6 +454,48 @@ class ShopBot(commands.Bot):
             logger.exception("Component failed: %s", custom_id)
             await self.interaction_notice(interaction, "Aktion fehlgeschlagen", "Die Aktion konnte nicht sicher ausgeführt werden.", error=True)
 
+    # ── University reaction roles ───────────────────────────────────
+    async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent) -> None:
+        if payload.guild_id is None or payload.user_id == (self.user.id if self.user else 0):
+            return
+        mapping = db.reaktionsrolle(payload.guild_id, payload.message_id, str(payload.emoji), self.settings)
+        if not mapping:
+            return
+        guild = self.get_guild(payload.guild_id)
+        if not guild:
+            return
+        member = payload.member or guild.get_member(payload.user_id)
+        role = guild.get_role(int(mapping["role_id"]))
+        if not member or member.bot or not role or role.managed or not guild.me or role >= guild.me.top_role:
+            return
+        try:
+            await member.add_roles(role, reason="LBoost reaction role added")
+            if db.reaktionsrollen_dm(guild.id, self.settings):
+                try:
+                    await member.send(view=layout("Rolle erhalten", f"Du hast auf **{guild.name}** die Rolle **{role.name}** erhalten."))
+                except (discord.Forbidden, discord.HTTPException):
+                    pass
+        except (discord.Forbidden, discord.HTTPException):
+            logger.warning("Could not add reaction role %s in guild %s", role.id, guild.id)
+
+    async def on_raw_reaction_remove(self, payload: discord.RawReactionActionEvent) -> None:
+        if payload.guild_id is None or payload.user_id == (self.user.id if self.user else 0):
+            return
+        mapping = db.reaktionsrolle(payload.guild_id, payload.message_id, str(payload.emoji), self.settings)
+        if not mapping:
+            return
+        guild = self.get_guild(payload.guild_id)
+        if not guild:
+            return
+        member = guild.get_member(payload.user_id)
+        role = guild.get_role(int(mapping["role_id"]))
+        if not member or member.bot or not role or role.managed or not guild.me or role >= guild.me.top_role:
+            return
+        try:
+            await member.remove_roles(role, reason="LBoost reaction role removed")
+        except (discord.Forbidden, discord.HTTPException):
+            logger.warning("Could not remove reaction role %s in guild %s", role.id, guild.id)
+
     # ── Tickets ──────────────────────────────────────────────────────
     def ticket_panel(self, guild_id: int, key: str) -> dict[str, Any]:
         cfg = self.feature(guild_id, "tickets")
@@ -1709,7 +1751,9 @@ def register_commands(bot: ShopBot) -> None:
     # Separate module keeps the complete University-compatible moderation
     # command surface isolated from tickets/logging.
     from lbost_shop_bot.moderation import register_moderation
+    from lbost_shop_bot.reaction_roles import register_reaction_roles
     register_moderation(bot)
+    register_reaction_roles(bot)
 
 
 def create_bot(*, privileged_intents: bool = True) -> ShopBot:

@@ -14,7 +14,7 @@ import secrets
 import time
 from pathlib import Path
 from typing import Any
-from urllib.parse import quote_plus, urlparse
+from urllib.parse import quote, quote_plus, urlparse
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.gzip import GZipMiddleware
@@ -182,11 +182,8 @@ FEATURES: dict[str, dict[str, Any]] = {
         ("leave_image_enabled", "Generiertes Abschiedsbild", "bool"),
         ("leave_image_url", "Eigener Abschiedshintergrund", "url"),
     ]},
-    "reaction_roles": {"title": "Reaction Roles", "icon": "users", "fields": [
-        ("enabled", "Aktiviert", "bool"), ("channel_id", "Panel-Kanal", "channel"),
-        ("title", "Panel-Titel", "text"), ("description", "Panel-Beschreibung", "textarea"),
-        ("color", "Farbe", "color"),
-        ("roles_json", "Rollen-Buttons (JSON)", "json"), ("panels_json", "Weitere Panels (JSON)", "json"),
+    "reaction_roles": {"title": "Reaktions-Rollen", "icon": "users", "fields": [
+        ("enabled", "Aktiviert", "bool"),
     ]},
     "automation": {"title": "Automation", "icon": "bolt", "fields": [
         ("enabled", "Aktiviert", "bool"), ("auto_responses_json", "Auto-Antworten (JSON)", "json"),
@@ -895,6 +892,38 @@ def create_app() -> FastAPI:
             guild_id, include_bot_permissions=feature == "logging"
         )
         values = db.get_feature(guild_id, feature, settings)
+        if feature == "reaction_roles":
+            try:
+                raw_emojis = await _discord_abfrage(settings.bot_token, f"/guilds/{guild_id}/emojis")
+                server_emojis = [{
+                    "id": str(item["id"]), "name": str(item.get("name") or "emoji"),
+                    "raw": f"<{'a' if item.get('animated') else ''}:{item.get('name') or 'emoji'}:{item['id']}>",
+                    "url": f"https://cdn.discordapp.com/emojis/{item['id']}.{'gif' if item.get('animated') else 'png'}?size=48",
+                } for item in raw_emojis]
+            except Exception:
+                server_emojis = []
+            role_map = {str(item["id"]): item for item in roles}
+            grouped: dict[int, dict[str, Any]] = {}
+            rows = db.reaktionsrollen(guild_id, settings)
+            for row in rows:
+                message = grouped.setdefault(int(row["message_id"]), {
+                    "message_id": str(row["message_id"]), "channel_id": str(row["channel_id"]), "entries": [],
+                })
+                role = role_map.get(str(row["role_id"]))
+                message["entries"].append({
+                    **row, "role_name": role["name"] if role else None,
+                    "role_colour": role["colour"] if role else "#ef4444", "missing_role": role is None,
+                })
+            return render(
+                request, "reaction_roles.html", guild=guild, feature=feature, spec=spec,
+                values=values, channels=[item for item in channels if item.get("type") in ("0", "5")],
+                roles=roles, server_emojis=server_emojis, messages=list(grouped.values()), total=len(rows),
+                dm_enabled=db.reaktionsrollen_dm(guild_id, settings), csrf=user["sid"],
+                saved=request.query_params.get("saved") == "1",
+                verified=request.query_params.get("verified") == "1",
+                repaired=int(request.query_params.get("repaired") or 0),
+                error=request.query_params.get("error"),
+            )
         if feature == "welcome":
             defaults = {
                 "welcome_type": "simple", "color": "#5865f2",
@@ -1234,6 +1263,109 @@ def create_app() -> FastAPI:
         if unbekannt:
             antwort["unbekannte_felder"] = unbekannt[:10]
         return JSONResponse(antwort)
+
+    def _discord_emoji_path(value: str) -> str:
+        match = re.fullmatch(r"<a?:([^:>]+):(\d+)>", value.strip())
+        return f"{match.group(1)}:{match.group(2)}" if match else value.strip()
+
+    @app.post("/guild/{guild_id}/reaction_roles/settings")
+    async def reaction_role_settings(request: Request, guild_id: int):
+        user = current_user(request); guild = await guild_access(user, guild_id) if user else None
+        if not user or not guild: return JSONResponse({"ok": False}, status_code=403)
+        form = await request.form()
+        if not csrf_ok(form.get("csrf"), user): return PlainTextResponse("Ungültige Anfrage.", status_code=403)
+        db.reaktionsrollen_dm_setzen(guild_id, "dm_enabled" in form, settings)
+        return RedirectResponse(href(request, f"/guild/{guild_id}/reaction_roles?saved=1"), status_code=303)
+
+    @app.post("/guild/{guild_id}/reaction_roles/add")
+    async def reaction_role_add(request: Request, guild_id: int):
+        user = current_user(request); guild = await guild_access(user, guild_id) if user else None
+        if not user or not guild: return JSONResponse({"ok": False}, status_code=403)
+        form = await request.form()
+        if not csrf_ok(form.get("csrf"), user): return PlainTextResponse("Ungültige Anfrage.", status_code=403)
+        channel_id = str(form.get("channel_id") or ""); message_id = str(form.get("message_id") or "")
+        role_id = str(form.get("role_id") or ""); reaction = str(form.get("emoji") or "").strip()
+        if not (channel_id.isdigit() and message_id.isdigit() and role_id.isdigit() and reaction):
+            return RedirectResponse(href(request, f"/guild/{guild_id}/reaction_roles?error=Kanal,+Nachrichten-ID,+Emoji+und+Rolle+sind+erforderlich"), status_code=303)
+        if len(reaction) > 100 or db.reaktionsrolle(guild_id, int(message_id), reaction, settings):
+            return RedirectResponse(href(request, f"/guild/{guild_id}/reaction_roles?error=Dieses+Emoji+ist+auf+der+Nachricht+bereits+vergeben"), status_code=303)
+        channels, roles, _stats = await guild_resources(guild_id)
+        role = next((item for item in roles if item["id"] == role_id), None)
+        if not role or role.get("managed"):
+            return RedirectResponse(href(request, f"/guild/{guild_id}/reaction_roles?error=Diese+Rolle+kann+nicht+verwaltet+werden"), status_code=303)
+        try:
+            bot_member = await _discord_abfrage(settings.bot_token, f"/guilds/{guild_id}/members/{settings.discord_client_id}")
+            bot_roles = {str(value) for value in bot_member.get("roles") or []}
+            bot_top = max((int(item["position"]) for item in roles if item["id"] in bot_roles), default=0)
+            if int(role["position"]) >= bot_top:
+                raise ValueError("role hierarchy")
+            import httpx
+            headers = {"Authorization": f"Bot {settings.bot_token}"}
+            async with httpx.AsyncClient(timeout=20.0) as client:
+                message = await client.get(f"https://discord.com/api/v10/channels/{channel_id}/messages/{message_id}", headers=headers)
+                if message.status_code == 404: raise LookupError("message")
+                message.raise_for_status()
+                encoded = quote(_discord_emoji_path(reaction), safe="")
+                added = await client.put(f"https://discord.com/api/v10/channels/{channel_id}/messages/{message_id}/reactions/{encoded}/@me", headers=headers)
+                added.raise_for_status()
+        except ValueError:
+            return RedirectResponse(href(request, f"/guild/{guild_id}/reaction_roles?error=Die+Rolle+muss+unter+der+Bot-Rolle+stehen"), status_code=303)
+        except LookupError:
+            return RedirectResponse(href(request, f"/guild/{guild_id}/reaction_roles?error=Nachricht+in+diesem+Kanal+nicht+gefunden"), status_code=303)
+        except Exception:
+            return RedirectResponse(href(request, f"/guild/{guild_id}/reaction_roles?error=Der+Bot+kann+die+Nachricht+nicht+lesen+oder+das+Emoji+nicht+verwenden"), status_code=303)
+        db.reaktionsrolle_anlegen(guild_id, int(channel_id), int(message_id), reaction, int(role_id), settings)
+        current = db.get_feature(guild_id, "reaction_roles", settings); current["enabled"] = True
+        db.set_feature(guild_id, "reaction_roles", current, int(user["uid"]), settings)
+        return RedirectResponse(href(request, f"/guild/{guild_id}/reaction_roles?saved=1"), status_code=303)
+
+    @app.post("/guild/{guild_id}/reaction_roles/remove")
+    async def reaction_role_remove(request: Request, guild_id: int):
+        user = current_user(request); guild = await guild_access(user, guild_id) if user else None
+        if not user or not guild: return JSONResponse({"ok": False}, status_code=403)
+        form = await request.form()
+        if not csrf_ok(form.get("csrf"), user): return PlainTextResponse("Ungültige Anfrage.", status_code=403)
+        message_id = str(form.get("message_id") or ""); reaction = str(form.get("emoji") or "")
+        mapping = db.reaktionsrolle(guild_id, int(message_id) if message_id.isdigit() else 0, reaction, settings)
+        if not mapping: return PlainTextResponse("Eintrag nicht gefunden.", status_code=404)
+        try:
+            import httpx
+            encoded = quote(_discord_emoji_path(reaction), safe="")
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                await client.delete(f"https://discord.com/api/v10/channels/{mapping['channel_id']}/messages/{message_id}/reactions/{encoded}/@me", headers={"Authorization": f"Bot {settings.bot_token}"})
+        except Exception: pass
+        db.reaktionsrolle_loeschen(guild_id, int(message_id), reaction, settings)
+        return RedirectResponse(href(request, f"/guild/{guild_id}/reaction_roles?saved=1"), status_code=303)
+
+    @app.post("/guild/{guild_id}/reaction_roles/verify")
+    async def reaction_roles_verify(request: Request, guild_id: int):
+        user = current_user(request); guild = await guild_access(user, guild_id) if user else None
+        if not user or not guild: return JSONResponse({"ok": False}, status_code=403)
+        form = await request.form()
+        if not csrf_ok(form.get("csrf"), user): return PlainTextResponse("Ungültige Anfrage.", status_code=403)
+        _channels, roles, _stats = await guild_resources(guild_id); role_ids = {item["id"] for item in roles}
+        repaired = 0; problems = []
+        try:
+            import httpx
+            headers = {"Authorization": f"Bot {settings.bot_token}"}
+            async with httpx.AsyncClient(timeout=20.0) as client:
+                for row in db.reaktionsrollen(guild_id, settings):
+                    if str(row["role_id"]) not in role_ids:
+                        problems.append(f"{row['emoji']}: Rolle gelöscht"); continue
+                    response = await client.get(f"https://discord.com/api/v10/channels/{row['channel_id']}/messages/{row['message_id']}", headers=headers)
+                    if response.status_code != 200:
+                        problems.append(f"{row['emoji']}: Nachricht nicht gefunden"); continue
+                    data = response.json(); wanted = _discord_emoji_path(str(row["emoji"]))
+                    present = any((str(item.get("emoji", {}).get("name") or "") + (f":{item['emoji']['id']}" if item.get("emoji", {}).get("id") else "")) == wanted for item in data.get("reactions") or [])
+                    if not present:
+                        encoded = quote(wanted, safe="")
+                        result = await client.put(f"https://discord.com/api/v10/channels/{row['channel_id']}/messages/{row['message_id']}/reactions/{encoded}/@me", headers=headers)
+                        if result.status_code < 300: repaired += 1
+                        else: problems.append(f"{row['emoji']}: Reaktion konnte nicht gesetzt werden")
+        except Exception:
+            problems.append("Discord-Prüfung konnte nicht abgeschlossen werden")
+        query = f"verified=1&repaired={repaired}" + ("&error=" + quote_plus(" · ".join(problems[:4])) if problems else "")
+        return RedirectResponse(href(request, f"/guild/{guild_id}/reaction_roles?{query}"), status_code=303)
 
     @app.post("/guild/{guild_id}/moderation/warnung")
     async def warning_add(request: Request, guild_id: int):

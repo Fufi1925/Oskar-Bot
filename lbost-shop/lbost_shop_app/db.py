@@ -179,6 +179,19 @@ def init_features(settings: Settings) -> None:
                     user_id INTEGER,
                     created_at INTEGER NOT NULL
                 );
+                CREATE TABLE IF NOT EXISTS reaction_roles (
+                    guild_id INTEGER NOT NULL,
+                    channel_id INTEGER NOT NULL,
+                    message_id INTEGER NOT NULL,
+                    emoji TEXT NOT NULL,
+                    role_id INTEGER NOT NULL,
+                    created_at INTEGER NOT NULL,
+                    PRIMARY KEY(guild_id,message_id,emoji)
+                );
+                CREATE TABLE IF NOT EXISTS reaction_role_settings (
+                    guild_id INTEGER PRIMARY KEY,
+                    dm_enabled INTEGER NOT NULL DEFAULT 1
+                );
                 """)
                 # Ältere Bestände bekamen diese Spalten nie; ohne ALTER hätte der
                 # Bot beim ersten Ticket danach mit "no such column" verloren.
@@ -607,6 +620,57 @@ def warnungen_loeschen_nutzer(guild_id: int, user_id: int, settings: Settings) -
     with _gesichert(settings) as conn:
         cursor = conn.execute("DELETE FROM warnings WHERE guild_id=? AND user_id=?", (guild_id, user_id))
     return max(0, int(cursor.rowcount or 0))
+
+
+# ── Reaktions-Rollen ────────────────────────────────────────────────────
+def reaktionsrollen(guild_id: int, settings: Settings) -> list[dict[str, Any]]:
+    with _gesichert(settings) as conn:
+        rows = conn.execute(
+            "SELECT guild_id,channel_id,message_id,emoji,role_id,created_at FROM reaction_roles WHERE guild_id=? ORDER BY message_id,created_at",
+            (guild_id,),
+        ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def reaktionsrolle(guild_id: int, message_id: int, emoji: str, settings: Settings) -> dict[str, Any] | None:
+    with _gesichert(settings) as conn:
+        row = conn.execute(
+            "SELECT guild_id,channel_id,message_id,emoji,role_id FROM reaction_roles WHERE guild_id=? AND message_id=? AND emoji=?",
+            (guild_id, message_id, emoji),
+        ).fetchone()
+    return dict(row) if row else None
+
+
+def reaktionsrolle_anlegen(guild_id: int, channel_id: int, message_id: int, emoji: str,
+                            role_id: int, settings: Settings) -> None:
+    with _gesichert(settings) as conn:
+        conn.execute(
+            "INSERT INTO reaction_roles(guild_id,channel_id,message_id,emoji,role_id,created_at) VALUES(?,?,?,?,?,?)",
+            (guild_id, channel_id, message_id, emoji[:100], role_id, int(time.time())),
+        )
+
+
+def reaktionsrolle_loeschen(guild_id: int, message_id: int, emoji: str, settings: Settings) -> bool:
+    with _gesichert(settings) as conn:
+        cursor = conn.execute(
+            "DELETE FROM reaction_roles WHERE guild_id=? AND message_id=? AND emoji=?",
+            (guild_id, message_id, emoji),
+        )
+    return bool(cursor.rowcount)
+
+
+def reaktionsrollen_dm(guild_id: int, settings: Settings) -> bool:
+    with _gesichert(settings) as conn:
+        row = conn.execute("SELECT dm_enabled FROM reaction_role_settings WHERE guild_id=?", (guild_id,)).fetchone()
+    return bool(row["dm_enabled"]) if row else True
+
+
+def reaktionsrollen_dm_setzen(guild_id: int, enabled: bool, settings: Settings) -> None:
+    with _gesichert(settings) as conn:
+        conn.execute(
+            "INSERT INTO reaction_role_settings(guild_id,dm_enabled) VALUES(?,?) ON CONFLICT(guild_id) DO UPDATE SET dm_enabled=excluded.dm_enabled",
+            (guild_id, int(enabled)),
+        )
 
 
 # ── Giveaways ───────────────────────────────────────────────────────────

@@ -597,6 +597,26 @@
     updateSummary();
   }
 
+  // ── Reaktions-Rollen: University form behaviour ──
+  const rrRoot = document.querySelector('[data-rr-root]');
+  if (rrRoot) {
+    const dmForm = rrRoot.querySelector('[data-rr-dm-form]');
+    dmForm?.querySelector('input[name="dm_enabled"]')?.addEventListener('change', () => dmForm.submit());
+    const addForm = rrRoot.querySelector('[data-rr-add-form]');
+    const addButton = rrRoot.querySelector('[data-rr-add]');
+    const updateAdd = () => {
+      if (!addForm || !addButton) return;
+      addButton.disabled = !['channel_id', 'message_id', 'emoji', 'role_id'].every((name) => addForm.querySelector(`[name="${name}"]`)?.value.trim());
+    };
+    addForm?.querySelectorAll('input').forEach((input) => { input.addEventListener('input', updateAdd); input.addEventListener('change', updateAdd); });
+    const emojiInput = rrRoot.querySelector('[data-rr-emoji]');
+    rrRoot.querySelectorAll('[data-rr-emoji-value]').forEach((button) => button.addEventListener('click', () => {
+      if (emojiInput) { emojiInput.value = button.dataset.rrEmojiValue; emojiInput.dispatchEvent(new Event('input', { bubbles: true })); }
+      rrRoot.querySelectorAll('[data-rr-emoji-value]').forEach((item) => item.classList.toggle('selected', item === button));
+    }));
+    updateAdd();
+  }
+
   // ── Welcome & Leave: two University tabs with one live renderer ──
   const greetRoot = document.querySelector('[data-greet-root]');
   if (greetRoot) {

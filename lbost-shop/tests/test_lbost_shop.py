@@ -79,8 +79,11 @@ check("Responsive Dashboard-Navigation", "data-open-sidebar" in dash_shell and "
 check("University Serverliste", all(term in servers_page for term in ("Mitglieder erreicht", "Server mit Bot", "data-server-search", "data-server-sort")))
 check("University Serveruebersicht", all(term in guild_page for term in ("Einrichtung", "Als Nächstes", "Eingerichtet", "Noch offen", "Server-Tarif", "Sicherung")))
 check("keine Emoji-Modulsymbole", all(spec in main for spec in ('"icon": "ticket"', '"icon": "shield"', '"icon": "users"', '"icon": "bolt"', '"icon": "log"', '"icon": "gift"')))
-ui_text = main + "".join(path.read_text() for path in (SHOP / "lbost_shop_app/templates").glob("*.html"))
-check("keine Unicode-Emojis im Dashboard", not any(0x1F000 <= ord(char) <= 0x1FAFF for char in ui_text))
+# Module icons stay monochrome SVGs. Reaction-role emoji choices are user
+# content (the feature cannot be configured without an emoji), not dashboard
+# decoration, and are intentionally the only exception.
+ui_text = main + "".join(path.read_text() for path in (SHOP / "lbost_shop_app/templates").glob("*.html") if path.name != "reaction_roles.html")
+check("keine Unicode-Emoji-Modulsymbole im Dashboard", not any(0x1F000 <= ord(char) <= 0x1FAFF for char in ui_text))
 check("Server-Sicherung", "config-export" in main and "config-import" in main and "feature_history" in db)
 check("Serverdetails von Discord", "with_counts" in main and "channel_count" in main and "role_count" in main)
 check("Admin mit echten Zahlen", all(term in admin for term in ("aktive Sitzungen", "Letzte Änderungen", "Zugang", "ub-table")))
