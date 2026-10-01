@@ -37,6 +37,7 @@ import { cn, isAdmin } from "@/lib/utils";
 import { api } from "@/lib/api";
 import { AdminConfig } from "@/types/api";
 import { SUPPORT_INVITE } from "@/lib/legal";
+import { guildModuleFromHref } from "@/lib/guild-modules";
 
 export default function DashboardLayout({
   children,
@@ -46,6 +47,7 @@ export default function DashboardLayout({
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isProfilOpen, setIsProfilOpen] = useState(false);
   const pathname = usePathname();
+  const { language } = useLanguage();
   const guildMatch = pathname.match(/\/dashboard\/guild\/([^\/]+)/);
   const currentGuildId = guildMatch ? guildMatch[1] : null;
   const { data: session, status } = useSession();
@@ -54,6 +56,8 @@ export default function DashboardLayout({
   const [globalNotification, setGlobalNotification] = useState<string | null>(null);
   const [pendingSupportRequests, setPendingSupportRequests] = useState(0);
   const [sidebarGuild, setSidebarGuild] = useState<{ name: string; icon: string | null } | null>(null);
+  const [moduleStates, setModuleStates] = useState<Record<string, boolean>>({});
+  const moduleStateRevision = useRef(0);
   // Driven by the maintenance_mode config plus the maintenance_banner feature flag.
   const [maintenance, setMaintenance] = useState(false);
   // True when the user holds a dashboard team role, which unlocks the admin panel.
@@ -187,6 +191,38 @@ export default function DashboardLayout({
         if (active) setSidebarGuild({ name: "Server", icon: null });
       });
     return () => { active = false; };
+  }, [currentGuildId]);
+
+  // One bulk read drives every small status point. A local event keeps the
+  // sidebar in sync immediately after the switch on the current page changes.
+  React.useEffect(() => {
+    if (!currentGuildId) {
+      setModuleStates({});
+      return;
+    }
+    let active = true;
+    moduleStateRevision.current += 1;
+    setModuleStates({});
+    const requestedAt = moduleStateRevision.current;
+    api.getGuildModuleStates(currentGuildId)
+      .then((data) => {
+        if (active && requestedAt === moduleStateRevision.current) {
+          setModuleStates(data.modules || {});
+        }
+      })
+      .catch(() => { if (active) setModuleStates({}); });
+
+    const onState = (event: Event) => {
+      const detail = (event as CustomEvent).detail;
+      if (String(detail?.guildId) !== String(currentGuildId) || !detail?.module) return;
+      moduleStateRevision.current += 1;
+      setModuleStates((states) => ({ ...states, [detail.module]: Boolean(detail.enabled) }));
+    };
+    window.addEventListener("guild-module-state", onState);
+    return () => {
+      active = false;
+      window.removeEventListener("guild-module-state", onState);
+    };
   }, [currentGuildId]);
 
   // Only the actual server owner is authorized for this endpoint. Everyone
@@ -481,6 +517,9 @@ export default function DashboardLayout({
                         const active = pathname === subItem.href ||
                           (subItem.name !== "Übersicht" && pathname.startsWith(`${subItem.href}/`));
                         const SubIcon = subItem.icon;
+                        const subModuleKey = currentGuildId
+                          ? guildModuleFromHref(subItem.href, currentGuildId)
+                          : null;
                         return (
                           <React.Fragment key={subItem.href}>
                             <Link
@@ -501,8 +540,18 @@ export default function DashboardLayout({
                               <span className="min-w-0 flex-1 truncate">{subItem.name}</span>
                               {Number(subItem.notification || 0) > 0 ? (
                                 <span className="grid h-4 min-w-4 place-items-center rounded-full bg-rose-500 px-1 text-[9px] font-bold text-white">1</span>
-                              ) : !active ? (
-                                <span className={cn("h-1 w-1 shrink-0 rounded-full", subItem.highlight ? "bg-amber-400/70" : "bg-slate-600")} />
+                              ) : subModuleKey ? (
+                                <span
+                                  className={cn(
+                                    "h-2 w-2 shrink-0 rounded-full transition-colors",
+                                    moduleStates[subModuleKey] === true
+                                      ? "bg-emerald-400 shadow-[0_0_7px_rgba(52,211,153,.65)]"
+                                      : "bg-slate-600"
+                                  )}
+                                  title={moduleStates[subModuleKey] === true
+                                    ? language === "en" ? "Enabled" : "Aktiviert"
+                                    : language === "en" ? "Disabled" : "Deaktiviert"}
+                                />
                               ) : null}
                             </Link>
                             {subItem.children?.map((child: any) => {
@@ -554,8 +603,6 @@ export default function DashboardLayout({
                   <span className="min-w-0 flex-1 truncate">{item.name}</span>
                   {Number(item.notification || 0) > 0 ? (
                     <span className="grid h-4 min-w-4 place-items-center rounded-full bg-rose-500 px-1 text-[9px] font-bold text-white">1</span>
-                  ) : !active ? (
-                    <span className={cn("h-1 w-1 shrink-0 rounded-full", item.highlight ? "bg-amber-400/70" : "bg-slate-600")} />
                   ) : null}
                 </Link>
               );

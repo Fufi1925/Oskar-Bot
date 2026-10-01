@@ -111,6 +111,16 @@ class GuildModuleUpdate(BaseModel):
     enabled: bool
 
 
+@router.get("/{guild_id}/modules", summary="Get all dashboard module states")
+async def get_guild_module_states(
+    guild_id: int,
+    bot: "universitybot" = Depends(get_bot),
+):
+    if not bot.get_guild(guild_id):
+        raise HTTPException(status_code=404, detail="Guild not found")
+    return {"guild_id": str(guild_id), "modules": await guild_modules.get_states(guild_id)}
+
+
 @router.get("/{guild_id}/modules/{module}", summary="Get a dashboard module state")
 async def get_guild_module_state(
     guild_id: int,

@@ -8,24 +8,24 @@ from __future__ import annotations
 
 import asyncio
 import os
-import sqlite3
 from typing import Any, Optional
 
 import aiosqlite
 
 DB_PATH = os.path.join("db", "settings.db")
 
+# Only real bot systems get a switch. Overview/help/settings, entitlement and
+# access pages are navigation or administration and would have no meaningful
+# runtime to turn off.
 MODULE_KEYS = frozenset({
-    "overview", "help", "premium", "design", "backup", "server-stats",
-    "antinuke", "automod", "honeypot", "verification", "verification-pull",
+    "backup", "server-stats", "antinuke", "automod", "honeypot", "verification",
     "emergency", "jail", "nightmode", "welcome", "applications", "leave",
     "joindm", "autorole", "reactionroles", "customroles", "vanityroles",
-    "nickname", "leveling", "leveling-leaderboard", "giveaways", "counting",
-    "booster", "notify", "autoreact", "autoresponder", "custom-commands",
-    "anonchat", "music", "j2c", "invcrole", "tickets", "compose", "sticky",
-    "invites", "tracking", "noprefix", "speedrun", "template-upload",
-    "templates", "teamlist", "teamupdate", "logging", "botlogs",
-    "admin-dashboard", "dashboard-access", "supportqueue", "settings",
+    "nickname", "leveling", "giveaways", "counting", "booster", "notify",
+    "autoreact", "autoresponder", "custom-commands", "anonchat", "music", "j2c",
+    "invcrole", "tickets", "compose", "sticky", "invites", "tracking", "noprefix",
+    "speedrun", "template-upload", "templates", "teamlist", "teamupdate", "logging",
+    "supportqueue",
 })
 
 # Python module/cog names do not always match their dashboard route.
@@ -84,7 +84,16 @@ async def load() -> None:
             ) as cursor:
                 rows = await cursor.fetchall()
         _disabled.clear()
-        _disabled.update((int(guild_id), str(module)) for guild_id, module in rows)
+        for guild_id, module in rows:
+            key = str(module)
+            # Follow-up migration: Pull and Verify now intentionally share one
+            # switch; the same applies to the Leveling leaderboard page.
+            if key == "verification-pull":
+                key = "verification"
+            elif key == "leveling-leaderboard":
+                key = "leveling"
+            if key in MODULE_KEYS:
+                _disabled.add((int(guild_id), key))
         _loaded = True
 
 
@@ -100,6 +109,13 @@ async def get_enabled(guild_id: int, module: str) -> bool:
     if not _loaded:
         await load()
     return is_enabled(guild_id, key)
+
+
+async def get_states(guild_id: int) -> dict[str, bool]:
+    """Return every real system in one request for the sidebar indicators."""
+    if not _loaded:
+        await load()
+    return {key: is_enabled(guild_id, key) for key in sorted(MODULE_KEYS)}
 
 
 async def set_enabled(guild_id: int, module: str, enabled: bool) -> bool:

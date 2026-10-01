@@ -1,5 +1,6 @@
 import asyncio
 import importlib.util
+import sqlite3
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -28,6 +29,11 @@ def test_module_states_default_enabled_and_persist(tmp_path, monkeypatch):
     asyncio.run(guild_modules.load())
     assert guild_modules.is_enabled(123, "welcome") is False
 
+    states = asyncio.run(guild_modules.get_states(123))
+    assert states["welcome"] is False
+    assert "overview" not in states
+    assert "settings" not in states
+
     assert asyncio.run(guild_modules.set_enabled(123, "welcome", True)) is True
     assert guild_modules.is_enabled(123, "welcome") is True
 
@@ -40,6 +46,21 @@ def test_unknown_modules_are_rejected(tmp_path, monkeypatch):
         pass
     else:
         raise AssertionError("unknown module key was accepted")
+
+
+def test_old_pull_switch_migrates_to_shared_verification(tmp_path, monkeypatch):
+    path = tmp_path / "settings.db"
+    monkeypatch.setattr(guild_modules, "DB_PATH", str(path))
+    asyncio.run(guild_modules.ensure())
+    with sqlite3.connect(path) as db:
+        db.execute(
+            "INSERT INTO guild_module_states (guild_id, module, enabled) VALUES (?, ?, 0)",
+            (77, "verification-pull"),
+        )
+    guild_modules._disabled.clear()
+    guild_modules._loaded = False
+    asyncio.run(guild_modules.load())
+    assert guild_modules.is_enabled(77, "verification") is False
 
 
 def test_runtime_mapping_and_event_guild_detection():

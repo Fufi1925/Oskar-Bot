@@ -7,71 +7,24 @@ import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
-
-const LABELS: Record<string, string> = {
-  overview: "Übersicht", help: "Hilfe", premium: "Premium", design: "Design",
-  backup: "Backup", "server-stats": "Server Stats", antinuke: "Anti-Nuke",
-  automod: "Automod", honeypot: "Honeypot", verification: "Verifizierung",
-  "verification-pull": "User Pull", emergency: "Notfallmodus", jail: "Jail",
-  nightmode: "Nachtmodus", welcome: "Willkommensnachricht", applications: "Bewerbungen",
-  leave: "Abschiedsnachricht", joindm: "Beitritts-DM", autorole: "Auto-Rolle",
-  reactionroles: "Reaktions-Rollen", customroles: "Eigene Rollen",
-  vanityroles: "Vanity-Rollen", nickname: "Nickname-Regeln", leveling: "Leveling",
-  "leveling-leaderboard": "Leveling-Rangliste", giveaways: "Giveaways",
-  counting: "Counting", booster: "Booster", notify: "Benachrichtigungen",
-  autoreact: "Auto-Reaktion", autoresponder: "Autoresponder",
-  "custom-commands": "Custom Commands", anonchat: "Anonymer Chat", music: "Musik",
-  j2c: "Join to Create", invcrole: "Sprach-Rolle", tickets: "Tickets",
-  compose: "Eigene Nachrichten", sticky: "Sticky-Nachrichten", invites: "Einladungen",
-  tracking: "Einladungs-Log", noprefix: "No Prefix", speedrun: "Speedrun",
-  "template-upload": "Template-Upload", templates: "Community-Templates",
-  teamlist: "Teamliste", teamupdate: "Team-Update", logging: "Logging",
-  botlogs: "Bot-Logs", "admin-dashboard": "Server-Werkzeuge",
-  "dashboard-access": "Dashboard-Zugriff", supportqueue: "Support-Warteraum",
-  settings: "Server-Einstellungen",
-};
-
-const LABELS_EN: Record<string, string> = {
-  overview: "Overview", help: "Help", premium: "Premium", design: "Design",
-  backup: "Backup", "server-stats": "Server Stats", antinuke: "Anti-Nuke",
-  automod: "AutoMod", honeypot: "Honeypot", verification: "Verification",
-  "verification-pull": "User Pull", emergency: "Emergency Mode", jail: "Jail",
-  nightmode: "Night Mode", welcome: "Welcome Message", applications: "Applications",
-  leave: "Goodbye Message", joindm: "Join DM", autorole: "Auto Role",
-  reactionroles: "Reaction Roles", customroles: "Custom Roles", vanityroles: "Vanity Roles",
-  nickname: "Nickname Rules", leveling: "Leveling", "leveling-leaderboard": "Leveling Leaderboard",
-  giveaways: "Giveaways", counting: "Counting", booster: "Booster", notify: "Notifications",
-  autoreact: "Auto Reaction", autoresponder: "Autoresponder", "custom-commands": "Custom Commands",
-  anonchat: "Anonymous Chat", music: "Music", j2c: "Join to Create", invcrole: "Voice Role",
-  tickets: "Tickets", compose: "Custom Messages", sticky: "Sticky Messages", invites: "Invites",
-  tracking: "Invite Log", noprefix: "No Prefix", speedrun: "Speedrun",
-  "template-upload": "Template Upload", templates: "Community Templates", teamlist: "Team List",
-  teamupdate: "Team Update", logging: "Logging", botlogs: "Bot Logs",
-  "admin-dashboard": "Server Tools", "dashboard-access": "Dashboard Access",
-  supportqueue: "Support Waiting Room", settings: "Server Settings",
-};
-
-function moduleFromPath(pathname: string, guildId: string) {
-  const tail = pathname.split(`/dashboard/guild/${guildId}`)[1] || "";
-  const parts = tail.split("/").filter(Boolean);
-  if (!parts.length) return "overview";
-  if (parts[0] === "verification" && parts[1] === "pull") return "verification-pull";
-  if (parts[0] === "leveling" && parts[1] === "leaderboard") return "leveling-leaderboard";
-  return parts[0];
-}
+import { GUILD_MODULE_LABELS_DE, GUILD_MODULE_LABELS_EN, guildModuleFromPath } from "@/lib/guild-modules";
 
 export function GuildModuleStatus({ guildId }: { guildId: string }) {
   const pathname = usePathname();
   const { language } = useLanguage();
-  const moduleKey = useMemo(() => moduleFromPath(pathname, guildId), [pathname, guildId]);
+  const moduleKey = useMemo(() => guildModuleFromPath(pathname, guildId), [pathname, guildId]);
   const english = language === "en";
-  const label = (english ? LABELS_EN : LABELS)[moduleKey] || (english ? "Module" : "Modul");
+  const label = moduleKey ? (english ? GUILD_MODULE_LABELS_EN : GUILD_MODULE_LABELS_DE)[moduleKey] : "";
   const [enabled, setEnabled] = useState(true);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     let active = true;
+    if (!moduleKey) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     api.getGuildModuleState(guildId, moduleKey)
       .then((data) => { if (active) setEnabled(data.enabled !== false); })
@@ -83,11 +36,15 @@ export function GuildModuleStatus({ guildId }: { guildId: string }) {
   }, [guildId, moduleKey, english]);
 
   const toggle = async () => {
+    if (!moduleKey) return;
     const next = !enabled;
     setSaving(true);
     try {
       const data = await api.setGuildModuleState(guildId, moduleKey, next);
       setEnabled(data.enabled);
+      window.dispatchEvent(new CustomEvent("guild-module-state", {
+        detail: { guildId, module: moduleKey, enabled: data.enabled },
+      }));
       toast.success(english
         ? `${label} was ${data.enabled ? "enabled" : "disabled"}.`
         : `${label} wurde ${data.enabled ? "aktiviert" : "deaktiviert"}.`);
@@ -97,6 +54,8 @@ export function GuildModuleStatus({ guildId }: { guildId: string }) {
       setSaving(false);
     }
   };
+
+  if (!moduleKey) return null;
 
   if (loading) {
     return (

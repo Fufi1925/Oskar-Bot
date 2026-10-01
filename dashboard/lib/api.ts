@@ -183,6 +183,8 @@ export const api = {
   // Guilds
   listGuilds: () => request<GuildSummary[]>("/guilds/"),
   getGuildDetails: (guildId: string) => request<any>(`/guilds/${guildId}`),
+  getGuildModuleStates: (guildId: string) =>
+    request<{ guild_id: string; modules: Record<string, boolean> }>(`/guilds/${guildId}/modules`),
   getGuildModuleState: (guildId: string, module: string) =>
     request<{ guild_id: string; module: string; enabled: boolean }>(`/guilds/${guildId}/modules/${module}`),
   setGuildModuleState: (guildId: string, module: string, enabled: boolean) =>
