@@ -193,6 +193,11 @@ export const api = {
     request<{ applied: any[]; count: number }>(`/dashboard-ai/${guildId}/apply`, {
       method: "POST", body: JSON.stringify({ plan_id: planId }),
     }),
+  executeDashboardAiCall: (operation: { path: string; method: string; body?: Record<string, any> }) =>
+    request<any>(`/${operation.path.replace(/^\/+/, "")}`, {
+      method: operation.method,
+      body: operation.method === "DELETE" ? undefined : JSON.stringify(operation.body || {}),
+    }),
   getGuildModuleStates: (guildId: string) =>
     request<{ guild_id: string; modules: Record<string, boolean> }>(`/guilds/${guildId}/modules`),
   getGuildModuleState: (guildId: string, module: string) =>

@@ -20,7 +20,7 @@ def test_dashboard_ai_is_allowlisted_and_guild_scoped():
 
 def test_dashboard_ai_never_receives_sensitive_server_data():
     store = read("bot/utils/dashboard_ai.py")
-    assert "Du erhältst bewusst keinerlei Serverdaten" in store
+    assert "Du erhältst bewusst keinerlei Serverlisten" in store
     assert "_best_text_channel" in store
     prompt = store[store.index("prompt = f"):store.index("text = await ticket_ai.generate_text")]
     assert "text_channels" not in prompt and "channel.id" not in prompt
@@ -47,3 +47,16 @@ def test_only_validated_dashboard_actions_are_applied():
     assert "channel_id in channel_ids" in store
     assert "await guild_modules.set_enabled" in route
     assert "patch_antinuke" in route
+    assert "antinuke_whitelist" in store and "put_whitelist" in route
+    assert "DASHBOARD_API_SCOPES" in store and "executeDashboardAiCall" in read("dashboard/lib/api.ts")
+
+
+def test_language_and_local_discord_resolution():
+    store = read("bot/utils/dashboard_ai.py")
+    page = read("dashboard/app/dashboard/guild/[guildId]/ai/page.tsx")
+    assert "Detect the language of the NEW instruction" in store
+    assert "reply in English" in store
+    assert "_existing_welcome_channel" in store
+    assert "_resolve_member" in store
+    assert 'getattr(guild, "members"' in store
+    assert "messageLanguage" in page

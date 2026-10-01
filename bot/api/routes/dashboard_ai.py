@@ -121,6 +121,18 @@ async def apply_plan(
         elif kind == "configure_welcome":
             await _configure_welcome(guild_id, operation)
             applied.append(operation)
+        elif kind == "antinuke_whitelist":
+            actions = {name: name in set(operation["actions"]) for name in antinuke.ACTIONS}
+            await antinuke.put_whitelist(
+                guild_id, int(operation["user_id"]),
+                {"actions": actions, "actor": f"dashboard-ai:{actor}"}, bot,
+            )
+            applied.append(operation)
+        elif kind == "dashboard_api":
+            # Executed by the browser through the normal authenticated BFF after
+            # this server-side plan was confirmed. Every existing endpoint then
+            # re-applies its own guild permission and schema checks.
+            applied.append(operation)
 
     await feature_audit.log_action(
         "dashboard_ai_plan_applied",

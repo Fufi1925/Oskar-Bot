@@ -9,6 +9,10 @@ import { api } from "@/lib/api";
 interface Message { role: "user" | "assistant"; content: string; }
 interface Plan { plan_id: string; reply: string; operations: any[]; }
 
+function messageLanguage(text: string): "de" | "en" {
+  return /[äöüß]|\b(ich|mache|mach|bitte|und|der|die|das|ein|eine|schalte|richte|willkommen)\b/i.test(text) ? "de" : "en";
+}
+
 const MODULE_NAMES: Record<string, string> = {
   antinuke: "Anti-Nuke", automod: "Automod", welcome: "Willkommen", leave: "Abschied",
   tickets: "Tickets", verification: "Verifizierung", leveling: "Leveling", giveaways: "Giveaways",
@@ -24,6 +28,12 @@ function operationText(operation: any) {
   if (operation.type === "configure_welcome") {
     return `Willkommensnachricht einrichten und ${operation.enabled ? "aktivieren" : "deaktivieren"}`;
   }
+  if (operation.type === "antinuke_whitelist") {
+    return `${operation.user_name || "Nutzer"} für ${operation.actions?.join(", ") || "Anti-Nuke"} whitelisten`;
+  }
+  if (operation.type === "dashboard_api") {
+    return `Dashboard-Aktion: ${operation.method} ${String(operation.path).split("/")[0]}`;
+  }
   return "Dashboard-Einstellung ändern";
 }
 
@@ -31,10 +41,11 @@ export default function DashboardAiPage({ params }: { params: { guildId: string 
   const router = useRouter();
   const [accessChecked, setAccessChecked] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
-    { role: "assistant", content: "Beschreibe, was ich auf diesem Server im Dashboard einstellen soll. Ich erstelle zuerst einen Plan und ändere nichts ohne deine Bestätigung." },
+    { role: "assistant", content: "Tell me what you want to configure on this server. I will create a preview first and change nothing without your confirmation. You can also write in German; I will answer in the language of each message." },
   ]);
   const [input, setInput] = useState("");
   const [plan, setPlan] = useState<Plan | null>(null);
+  const [replyLanguage, setReplyLanguage] = useState<"de" | "en">("en");
   const [busy, setBusy] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -54,6 +65,7 @@ export default function DashboardAiPage({ params }: { params: { guildId: string 
     const text = input.trim();
     if (!text || busy) return;
     const next = [...messages, { role: "user" as const, content: text }];
+    setReplyLanguage(messageLanguage(text));
     setMessages(next);
     setInput("");
     setPlan(null);
@@ -73,12 +85,22 @@ export default function DashboardAiPage({ params }: { params: { guildId: string 
     setBusy(true);
     try {
       const result = await api.applyDashboardAi(params.guildId, plan.plan_id);
+      let appliedCount = 0;
       for (const operation of result.applied || []) {
+        if (operation.type === "dashboard_api") {
+          await api.executeDashboardAiCall(operation);
+        }
+        appliedCount += 1;
         const moduleKey = operation.type === "configure_welcome" ? "welcome" : operation.module;
         const enabled = Boolean(operation.enabled);
         if (moduleKey) window.dispatchEvent(new CustomEvent("guild-module-state", { detail: { guildId: params.guildId, module: moduleKey, enabled } }));
       }
-      setMessages((old) => [...old, { role: "assistant", content: `${result.count} Änderung(en) wurden sicher angewendet.` }]);
+      setMessages((old) => [...old, {
+        role: "assistant",
+        content: replyLanguage === "de"
+          ? `${appliedCount} bestätigte Änderung(en) wurden angewendet.`
+          : `${appliedCount} confirmed change(s) were applied.`,
+      }]);
       setPlan(null);
       toast.success("Dashboard-Einstellungen wurden angewendet.");
     } catch (error: any) {
