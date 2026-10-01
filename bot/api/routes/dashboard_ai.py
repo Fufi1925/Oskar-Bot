@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from api.dependencies import get_bot
-from api.routes import antinuke
+from api.routes import antinuke, automod, leveling, verify
 from utils import dashboard_ai, feature_audit, guild_modules, ticket_ai
 
 if TYPE_CHECKING:
@@ -90,7 +90,19 @@ async def _configure_welcome(guild_id: int, operation: dict) -> None:
             (guild_id, operation["message"], int(operation["channel_id"])),
         )
         await db.commit()
-    await guild_modules.set_enabled(guild_id, "welcome", bool(operation.get("enabled", True)))
+        async with db.execute(
+            "SELECT welcome_message, channel_id FROM welcome WHERE guild_id = ?", (guild_id,)
+        ) as cursor:
+            saved = await cursor.fetchone()
+    enabled = bool(operation.get("enabled", True))
+    await guild_modules.set_enabled(guild_id, "welcome", enabled)
+    if (
+        not saved
+        or str(saved[0] or "") != str(operation["message"])
+        or str(saved[1] or "") != str(operation["channel_id"])
+        or await guild_modules.get_enabled(guild_id, "welcome") != enabled
+    ):
+        raise HTTPException(status_code=500, detail="Die Welcome-Einstellungen wurden nicht vollständig gespeichert.")
 
 
 @router.post("/{guild_id}/apply")
@@ -117,6 +129,22 @@ async def apply_plan(
                 await antinuke.patch_antinuke(
                     guild_id, {"status": enabled, "actor": f"dashboard-ai:{actor}"}, bot
                 )
+            elif module == "automod":
+                await automod.patch_automod(
+                    guild_id, {"enabled": enabled, "actor": f"dashboard-ai:{actor}"}, bot
+                )
+            elif module == "verification":
+                await verify.patch_verification(
+                    guild_id, {"enabled": enabled, "actor": f"dashboard-ai:{actor}"}, bot
+                )
+            elif module == "leveling":
+                await leveling.patch_leveling(
+                    guild_id, {"enabled": enabled, "actor": f"dashboard-ai:{actor}"}, bot
+                )
+            # Read the persisted gate back before reporting success. This turns
+            # a failed/no-op write into an error instead of a false "applied".
+            if await guild_modules.get_enabled(guild_id, module) != enabled:
+                raise HTTPException(status_code=500, detail=f"{module} wurde nicht gespeichert.")
             applied.append(operation)
         elif kind == "configure_welcome":
             await _configure_welcome(guild_id, operation)
@@ -127,6 +155,15 @@ async def apply_plan(
                 guild_id, int(operation["user_id"]),
                 {"actions": actions, "actor": f"dashboard-ai:{actor}"}, bot,
             )
+            async with aiosqlite.connect(antinuke.DB_PATH) as db:
+                selected = ", ".join(operation["actions"])
+                async with db.execute(
+                    f"SELECT {selected} FROM whitelisted_users WHERE guild_id = ? AND user_id = ?",
+                    (guild_id, int(operation["user_id"])),
+                ) as cursor:
+                    saved = await cursor.fetchone()
+            if not saved or not all(bool(value) for value in saved):
+                raise HTTPException(status_code=500, detail="Die Anti-Nuke-Whitelist wurde nicht gespeichert.")
             applied.append(operation)
         elif kind == "dashboard_api":
             # Executed by the browser through the normal authenticated BFF after

@@ -60,3 +60,6 @@ def test_language_and_local_discord_resolution():
     assert "_resolve_member" in store
     assert 'getattr(guild, "members"' in store
     assert "messageLanguage" in page
+    assert "Nenne niemals den Modellnamen" in store
+    assert "_safe_reply" in store
+    assert "wurde nicht gespeichert" in read("bot/api/routes/dashboard_ai.py")
