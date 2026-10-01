@@ -107,6 +107,13 @@ class NotifCommands(commands.Cog):
         await self.bot.wait_until_ready()
 
     async def _check(self, db, session, channel_id, watchers):
+        from utils import guild_modules
+        watchers = [
+            watcher for watcher in watchers
+            if guild_modules.is_enabled(watcher["guild_id"], "notify")
+        ]
+        if not watchers:
+            return
         wants_upload = any(w["on_upload"] for w in watchers)
         wants_live = any(w["on_live"] for w in watchers)
 

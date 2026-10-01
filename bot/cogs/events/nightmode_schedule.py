@@ -65,7 +65,10 @@ class NightmodeSchedule(commands.Cog):
             logger.error(f"Nightmode: could not read the schedule: {exc}")
             return
 
+        from utils import guild_modules
         for settings in schedules:
+            if not guild_modules.is_enabled(settings["guild_id"], "nightmode"):
+                continue
             try:
                 await self._apply(settings)
             except Exception as exc:

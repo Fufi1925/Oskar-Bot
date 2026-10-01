@@ -39,6 +39,7 @@ export const revalidate = 0; // Never cache any guild dashboard page
 
 import { Button } from "@/components/ui/button";
 import { GuildHeader } from "@/components/dashboard/guild-header";
+import { GuildModuleStatus } from "@/components/dashboard/guild-module-status";
 
 interface GuildLayoutProps {
   children: React.ReactNode;
@@ -100,6 +101,7 @@ export default async function GuildLayout({
         Die Suche darin ist nicht verloren: die globale Suche oben
         (⌘K) findet dieselben Seiten und dazu die Server.
       */}
+      <GuildModuleStatus guildId={guildId} />
       <div className="min-h-[400px]">{children}</div>
     </div>
   );

@@ -375,7 +375,7 @@ export default function DashboardLayout({
         { name: "Server", href: "/dashboard/guilds", icon: Server },
         // Premium is for everyone: a customer who bought a key needs to
         // reach the redeem field without being staff.
-        { name: "Premium", href: "/dashboard/premium", icon: Gem },
+        { name: "Premium", href: "/dashboard/premium", icon: Gem, highlight: true },
         ...(isAdmin(session?.user?.id) || hasTeamRole
             ? [{ name: "Admin Panel", href: "/dashboard/admin", icon: Shield }]
             : []),
@@ -442,7 +442,7 @@ export default function DashboardLayout({
                 <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full bg-[#25262c]">
                   {sidebarGuild?.icon ? (
                     <img
-                      src={`https://cdn.discordapp.com/icons/${currentGuildId}/${sidebarGuild.icon}.png?size=80`}
+                      src={sidebarGuild.icon}
                       alt=""
                       className="h-full w-full object-cover"
                     />
@@ -489,8 +489,12 @@ export default function DashboardLayout({
                               className={cn(
                                 "prox-row flex h-9 items-center gap-2.5 rounded-md px-2.5 text-[12px] font-medium transition-colors",
                                 active
-                                  ? "bg-[#27324f] text-blue-300"
-                                  : "text-slate-400 hover:bg-white/[.035] hover:text-slate-100"
+                                  ? subItem.highlight
+                                    ? "bg-amber-400/[.10] text-amber-300"
+                                    : "bg-[#27324f] text-blue-300"
+                                  : subItem.highlight
+                                    ? "text-amber-300 hover:bg-amber-400/[.06] hover:text-amber-200"
+                                    : "text-slate-400 hover:bg-white/[.035] hover:text-slate-100"
                               )}
                             >
                               <SubIcon className="h-[15px] w-[15px] shrink-0 text-current" />
@@ -498,7 +502,7 @@ export default function DashboardLayout({
                               {Number(subItem.notification || 0) > 0 ? (
                                 <span className="grid h-4 min-w-4 place-items-center rounded-full bg-rose-500 px-1 text-[9px] font-bold text-white">1</span>
                               ) : !active ? (
-                                <span className="h-1 w-1 shrink-0 rounded-full bg-slate-600" />
+                                <span className={cn("h-1 w-1 shrink-0 rounded-full", subItem.highlight ? "bg-amber-400/70" : "bg-slate-600")} />
                               ) : null}
                             </Link>
                             {subItem.children?.map((child: any) => {
@@ -510,7 +514,9 @@ export default function DashboardLayout({
                                   href={child.href}
                                   className={cn(
                                     "ml-4 flex h-8 items-center gap-2 rounded-md px-2.5 text-[11px] font-medium transition-colors",
-                                    childActive ? "bg-[#27324f] text-blue-300" : "text-slate-500 hover:bg-white/[.035] hover:text-slate-200"
+                                    childActive
+                                      ? child.highlight ? "bg-amber-400/[.10] text-amber-300" : "bg-[#27324f] text-blue-300"
+                                      : child.highlight ? "text-amber-300 hover:bg-amber-400/[.06]" : "text-slate-500 hover:bg-white/[.035] hover:text-slate-200"
                                   )}
                                 >
                                   <ChildIcon className="h-3.5 w-3.5 shrink-0" />
@@ -536,8 +542,12 @@ export default function DashboardLayout({
                   className={cn(
                     "prox-row flex h-9 items-center gap-2.5 rounded-md px-2.5 text-[12px] font-medium transition-colors",
                     active
-                      ? "bg-[#27324f] text-blue-300"
-                      : "text-slate-400 hover:bg-white/[.035] hover:text-slate-100"
+                      ? item.highlight
+                        ? "bg-amber-400/[.10] text-amber-300"
+                        : "bg-[#27324f] text-blue-300"
+                      : item.highlight
+                        ? "text-amber-300 hover:bg-amber-400/[.06] hover:text-amber-200"
+                        : "text-slate-400 hover:bg-white/[.035] hover:text-slate-100"
                   )}
                 >
                   <ItemIcon className="h-[15px] w-[15px] shrink-0 text-current" />
@@ -545,7 +555,7 @@ export default function DashboardLayout({
                   {Number(item.notification || 0) > 0 ? (
                     <span className="grid h-4 min-w-4 place-items-center rounded-full bg-rose-500 px-1 text-[9px] font-bold text-white">1</span>
                   ) : !active ? (
-                    <span className="h-1 w-1 shrink-0 rounded-full bg-slate-600" />
+                    <span className={cn("h-1 w-1 shrink-0 rounded-full", item.highlight ? "bg-amber-400/70" : "bg-slate-600")} />
                   ) : null}
                 </Link>
               );

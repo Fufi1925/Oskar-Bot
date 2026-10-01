@@ -49,8 +49,11 @@ class BackupAuto(commands.Cog):
             LOGGER.warning("Automatik: Liste nicht lesbar: %s", exc)
             return
 
+        from utils import guild_modules
         for eintrag in faellig:
             guild_id = int(eintrag["guild_id"])
+            if not guild_modules.is_enabled(guild_id, "backup"):
+                continue
             guild = self.bot.get_guild(guild_id)
 
             if guild is None:

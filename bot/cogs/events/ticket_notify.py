@@ -175,7 +175,10 @@ class TicketNotify(commands.Cog):
             logger.error(f"Faellige Tickets nicht lesbar: {type(exc).__name__}: {exc}")
             return
 
+        from utils import guild_modules
         for eintrag in offen:
+            if not guild_modules.is_enabled(eintrag["guild_id"], "tickets"):
+                continue
             for kind in ("user", "staff"):
                 if not eintrag[f"pending_{kind}"]:
                     continue

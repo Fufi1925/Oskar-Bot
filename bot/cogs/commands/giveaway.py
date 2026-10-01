@@ -251,8 +251,10 @@ class Giveaway(commands.Cog):
             self.SELECT_DUE, (datetime.datetime.now().timestamp(),)
         )
         ended_giveaways = await self.cursor.fetchall()
+        from utils import guild_modules
         for giveaway in ended_giveaways:
-            await self.end_giveaway(giveaway)
+            if guild_modules.is_enabled(int(giveaway[1]), "giveaways"):
+                await self.end_giveaway(giveaway)
 
     async def end_giveaway(self, giveaway):
         """Ein Gewinnspiel abschliessen -- genau einmal.
@@ -338,8 +340,10 @@ class Giveaway(commands.Cog):
             self.SELECT_DUE, (datetime.datetime.now().timestamp(),)
         )
         ends_raw = await self.cursor.fetchall()
+        from utils import guild_modules
         for giveaway in ends_raw:
-            await self.end_giveaway(giveaway)
+            if guild_modules.is_enabled(int(giveaway[1]), "giveaways"):
+                await self.end_giveaway(giveaway)
 
     @GiveawayEnd.before_loop
     async def before_giveaway_end(self):

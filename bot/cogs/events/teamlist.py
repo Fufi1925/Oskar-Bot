@@ -136,7 +136,10 @@ class TeamList(Cog):
             print(f"[teamlist] Auffrischungsrunde fehlgeschlagen: {error}")
             return
 
+        from utils import guild_modules
         for guild_id in guild_ids:
+            if not guild_modules.is_enabled(guild_id, "teamlist"):
+                continue
             try:
                 await renderer.refresh_guild(self.client, guild_id)
             except Exception as error:

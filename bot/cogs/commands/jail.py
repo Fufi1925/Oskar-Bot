@@ -85,7 +85,10 @@ class Jail(commands.Cog):
     async def jail_check_loop(self):
         now = datetime.utcnow()
         cursor = self.conn.execute("SELECT guild_id, user_id, duration, jailed_at, roles FROM jailed")
+        from utils import guild_modules
         for guild_id, user_id, duration, jailed_at, roles in cursor.fetchall():
+            if not guild_modules.is_enabled(int(guild_id), "jail"):
+                continue
             if not duration:
                 continue
             jailed_time = datetime.fromisoformat(jailed_at)

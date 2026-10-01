@@ -39,6 +39,8 @@ from api.schemas import (
     InviteStat, InvitesLeaderboard
 )
 from typing import TYPE_CHECKING, List, Optional
+from pydantic import BaseModel
+from utils import guild_modules
 import aiosqlite
 import json
 import os
@@ -104,7 +106,43 @@ async def get_guild_details(guild_id: int, bot: "universitybot" = Depends(get_bo
         channel_count=len(guild.channels)
     )
 
-@router.get("/{guild_id}/prefix", response_model=PrefixConfig, summary="Get guild prefix", description="Retrieves the custom command prefix configured for the guild.")
+
+class GuildModuleUpdate(BaseModel):
+    enabled: bool
+
+
+@router.get("/{guild_id}/modules/{module}", summary="Get a dashboard module state")
+async def get_guild_module_state(
+    guild_id: int,
+    module: str,
+    bot: "universitybot" = Depends(get_bot),
+):
+    if not bot.get_guild(guild_id):
+        raise HTTPException(status_code=404, detail="Guild not found")
+    try:
+        enabled = await guild_modules.get_enabled(guild_id, module)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return {"guild_id": str(guild_id), "module": module, "enabled": enabled}
+
+
+@router.patch("/{guild_id}/modules/{module}", summary="Enable or disable a dashboard module")
+async def update_guild_module_state(
+    guild_id: int,
+    module: str,
+    data: GuildModuleUpdate,
+    bot: "universitybot" = Depends(get_bot),
+):
+    if not bot.get_guild(guild_id):
+        raise HTTPException(status_code=404, detail="Guild not found")
+    try:
+        enabled = await guild_modules.set_enabled(guild_id, module, data.enabled)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return {"guild_id": str(guild_id), "module": module, "enabled": enabled}
+
+
+@router.get("/{guild_id}/prefix", response_model=PrefixConfig, summary="Get guild prefix", description="Retrieves the custom prefix configured for the guild.")
 async def get_guild_prefix(guild_id: int):
     """
     Retrieves the custom prefix for a specific guild.

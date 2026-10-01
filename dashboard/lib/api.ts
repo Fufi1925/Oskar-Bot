@@ -183,6 +183,13 @@ export const api = {
   // Guilds
   listGuilds: () => request<GuildSummary[]>("/guilds/"),
   getGuildDetails: (guildId: string) => request<any>(`/guilds/${guildId}`),
+  getGuildModuleState: (guildId: string, module: string) =>
+    request<{ guild_id: string; module: string; enabled: boolean }>(`/guilds/${guildId}/modules/${module}`),
+  setGuildModuleState: (guildId: string, module: string, enabled: boolean) =>
+    request<{ guild_id: string; module: string; enabled: boolean }>(`/guilds/${guildId}/modules/${module}`, {
+      method: "PATCH",
+      body: JSON.stringify({ enabled }),
+    }),
   getChannels: (guildId: string) => request<DiscordChannel[]>(`/guilds/${guildId}/channels`),
   getRoles: (guildId: string) => request<DiscordRole[]>(`/guilds/${guildId}/roles`),
 

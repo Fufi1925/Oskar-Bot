@@ -71,6 +71,21 @@ class universitybot(commands.AutoShardedBot):
         self._np_roles: set[tuple[int, int]] = set()
         self._np_loaded = False
 
+    def _schedule_event(self, coro, event_name, *args, **kwargs):
+        """Do not dispatch a disabled module's listeners for this guild.
+
+        This is the central runtime half of the dashboard switch. It covers
+        member/message/voice/reaction listeners without requiring dozens of
+        fragile copies of the same database check in individual cogs.
+        """
+        from utils import guild_modules
+
+        guild_id = guild_modules.guild_id_from_event(args)
+        module = guild_modules.module_for_callable(coro)
+        if guild_id is not None and module and not guild_modules.is_enabled(guild_id, module):
+            return None
+        return super()._schedule_event(coro, event_name, *args, **kwargs)
+
     async def setup_hook(self):
         # Global admin feature flags must be available before the first command
         # or listener runs, otherwise the safety gates would be bypassed during
@@ -78,16 +93,33 @@ class universitybot(commands.AutoShardedBot):
         from utils import feature_flags
         from utils import feature_gates
         from utils import bot_settings
+        from utils import guild_modules
         from utils.feature_services import FeatureServices, start_deadlock_watchdog
 
         await bot_settings.load()
         await feature_flags.load()
+        await guild_modules.load()
         feature_gates.setup_gates(self)
 
         # Per-guild behaviour settings (disabled commands, cooldowns,
         # moderation guards) are enforced by their own global check.
         from cogs.events.guild_settings_enforcement import guild_settings_check
         self.add_check(guild_settings_check)
+        self.add_check(guild_modules.command_check)
+
+        # Prefix and application commands use different check pipelines.
+        # Wrap the tree's existing global check rather than replacing it.
+        original_interaction_check = self.tree.interaction_check
+
+        async def module_interaction_check(interaction: discord.Interaction) -> bool:
+            if not await original_interaction_check(interaction):
+                return False
+            if interaction.guild_id is None:
+                return True
+            module = guild_modules.command_module(getattr(interaction, "command", None))
+            return guild_modules.is_enabled(interaction.guild_id, module)
+
+        self.tree.interaction_check = module_interaction_check
         await feature_gates.refresh_blacklist()
         await feature_gates.refresh_premium_guilds()
 

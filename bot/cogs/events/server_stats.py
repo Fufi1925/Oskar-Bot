@@ -165,7 +165,10 @@ class ServerStats(Cog):
 
     @tasks.loop(minutes=10)
     async def refresh_loop(self):
+        from utils import guild_modules
         for guild_id in await store.enabled_guild_ids():
+            if not guild_modules.is_enabled(guild_id, "server-stats"):
+                continue
             guild = self.client.get_guild(guild_id)
             if guild is None:
                 continue
