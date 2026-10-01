@@ -57,6 +57,7 @@ export default function DashboardLayout({
   const [pendingSupportRequests, setPendingSupportRequests] = useState(0);
   const [sidebarGuild, setSidebarGuild] = useState<{ name: string; icon: string | null } | null>(null);
   const [moduleStates, setModuleStates] = useState<Record<string, boolean>>({});
+  const [dashboardAiAllowed, setDashboardAiAllowed] = useState(false);
   const moduleStateRevision = useRef(0);
   // Driven by the maintenance_mode config plus the maintenance_banner feature flag.
   const [maintenance, setMaintenance] = useState(false);
@@ -193,6 +194,18 @@ export default function DashboardLayout({
     return () => { active = false; };
   }, [currentGuildId]);
 
+  React.useEffect(() => {
+    if (!currentGuildId) {
+      setDashboardAiAllowed(false);
+      return;
+    }
+    let active = true;
+    api.getDashboardAiAccess(currentGuildId)
+      .then((data) => { if (active) setDashboardAiAllowed(Boolean(data.allowed)); })
+      .catch(() => { if (active) setDashboardAiAllowed(false); });
+    return () => { active = false; };
+  }, [currentGuildId]);
+
   // One bulk read drives every small status point. A local event keeps the
   // sidebar in sync immediately after the switch on the current page changes.
   React.useEffect(() => {
@@ -264,6 +277,9 @@ export default function DashboardLayout({
   const allSidebarItems = currentGuildId
     ? [
         { name: "Übersicht", href: `/dashboard/guild/${currentGuildId}`, icon: LayoutDashboard },
+        ...(dashboardAiAllowed
+          ? [{ name: "KI", href: `/dashboard/guild/${currentGuildId}/ai`, icon: Bot }]
+          : []),
         { name: "Hilfe", href: `/dashboard/guild/${currentGuildId}/help`, icon: LifeBuoy, notification: pendingSupportRequests },
         // Ganz oben und gelb hervorgehoben: das Design ist die
         // Premium-Funktion, die man sehen soll, bevor man sie hat.
@@ -421,7 +437,7 @@ export default function DashboardLayout({
   // the sections just like the reference navigation.
   const mainSidebarItems = currentGuildId
     ? [
-        ...allSidebarItems.filter((item: any) => item.name === "Übersicht" || item.name === "Einstellungen"),
+        ...allSidebarItems.filter((item: any) => ["Übersicht", "KI", "Einstellungen"].includes(item.name)),
         ...allSidebarItems.filter((item: any) => item.name === "Hilfe"),
         ...allSidebarItems.filter((item: any) => Array.isArray(item.items)),
       ]

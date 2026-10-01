@@ -937,7 +937,7 @@ export function AdminContent({
       {activeTab === "privacy" && <PrivacyErasureAdmin />}
       {activeTab === "trustedbots" && <TrustedBotsPanel />}
       {activeTab === "templates" && <TemplatesAdmin />}
-      {activeTab === "dashusers" && <DashboardUsersPanel currentUserId={(session?.user as any)?.id} />}
+      {activeTab === "dashusers" && <DashboardUsersPanel currentUserId={(session?.user as any)?.id} canManageAi={Boolean(access?.is_owner)} />}
       {activeTab === "userlookup" && <UserLookupPanel />}
       {activeTab === "servers" && <ServersPanel currentUserId={(session?.user as any)?.id} />}
       {activeTab === "homepage-servers" && <HomepageServersAdmin />}

@@ -24,6 +24,7 @@ import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { Select } from "@/components/ui/select";
 import { StickySaveBar, useSaveGuard } from "@/components/dashboard/save-bar";
+import { DashboardAiAccessAdmin } from "@/components/dashboard/dashboard-ai-access-admin";
 
 interface DashboardUser {
   user_id: string;
@@ -96,7 +97,7 @@ function SourceBadge({ source }: { source: string }) {
   );
 }
 
-export function DashboardUsersPanel({ currentUserId }: { currentUserId?: string }) {
+export function DashboardUsersPanel({ currentUserId, canManageAi = false }: { currentUserId?: string; canManageAi?: boolean }) {
   const [users, setUsers] = useState<DashboardUser[]>([]);
   const [summary, setSummary] = useState<{
     count: number; authorised_count: number; banned_count: number;
@@ -302,6 +303,7 @@ export function DashboardUsersPanel({ currentUserId }: { currentUserId?: string 
 
   return (
     <div className="space-y-6">
+      {canManageAi && <DashboardAiAccessAdmin />}
       {/* Summary */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         {[

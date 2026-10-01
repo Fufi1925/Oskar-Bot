@@ -183,6 +183,16 @@ export const api = {
   // Guilds
   listGuilds: () => request<GuildSummary[]>("/guilds/"),
   getGuildDetails: (guildId: string) => request<any>(`/guilds/${guildId}`),
+  getDashboardAiAccess: (guildId: string) =>
+    request<{ allowed: boolean; key_configured: boolean }>(`/dashboard-ai/${guildId}/access`),
+  planDashboardAi: (guildId: string, message: string, history: Array<{ role: string; content: string }>) =>
+    request<{ plan_id: string; reply: string; operations: any[]; expires_in: number }>(`/dashboard-ai/${guildId}/plan`, {
+      method: "POST", body: JSON.stringify({ message, history }),
+    }),
+  applyDashboardAi: (guildId: string, planId: string) =>
+    request<{ applied: any[]; count: number }>(`/dashboard-ai/${guildId}/apply`, {
+      method: "POST", body: JSON.stringify({ plan_id: planId }),
+    }),
   getGuildModuleStates: (guildId: string) =>
     request<{ guild_id: string; modules: Record<string, boolean> }>(`/guilds/${guildId}/modules`),
   getGuildModuleState: (guildId: string, module: string) =>
@@ -1299,6 +1309,14 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ message, send_at: sendAt }),
     }),
+
+  // ── Dashboard AI pilot (global Owner allowlist) ─────────────────────
+  getDashboardAiUsers: () =>
+    request<{ users: Array<{ user_id: string; granted_by: string; granted_at: number }>; api_key_configured: boolean }>("/admin/dashboard-ai-users"),
+  grantDashboardAiUser: (userId: string) =>
+    request<any>(`/admin/dashboard-ai-users/${userId}`, { method: "POST", body: "{}" }),
+  revokeDashboardAiUser: (userId: string) =>
+    request<any>(`/admin/dashboard-ai-users/${userId}`, { method: "DELETE" }),
 
   // ── Dashboard users (who can get in, and who is locked out) ──────────
   getDashboardUsers: (includeDiscord = false) =>

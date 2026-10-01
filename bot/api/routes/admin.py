@@ -25,6 +25,8 @@ from utils import feature_reports
 from utils import feature_gates
 from utils import bot_settings
 from utils import ticket_ai
+from utils import dashboard_ai
+from utils import dashboard_roles
 from utils.feature_services import runtime
 
 if TYPE_CHECKING:
@@ -911,6 +913,44 @@ async def set_ticket_ai_access(
         detail="granted" if enabled else "revoked",
     )
     return {"status": "success", "guild_id": str(guild_id), "enabled": enabled}
+
+
+def _dashboard_ai_owner(request: Request) -> str:
+    actor = request.headers.get("x-firewall-actor", "").strip()
+    if not actor.isdigit() or not dashboard_roles.is_owner(actor):
+        raise HTTPException(status_code=404, detail="Not found.")
+    return actor
+
+
+@router.get("/dashboard-ai-users", summary="Owner-managed Dashboard AI users")
+async def get_dashboard_ai_users(request: Request):
+    _dashboard_ai_owner(request)
+    return {
+        "users": await dashboard_ai.list_users(),
+        "api_key_configured": ticket_ai.api_key_configured(),
+    }
+
+
+@router.post("/dashboard-ai-users/{user_id}", summary="Grant Dashboard AI to a user")
+async def grant_dashboard_ai_user(request: Request, user_id: str):
+    actor = _dashboard_ai_owner(request)
+    if not user_id.isdigit() or not 15 <= len(user_id) <= 20:
+        raise HTTPException(status_code=400, detail="Ungültige Discord-Nutzer-ID.")
+    await dashboard_ai.grant(user_id, actor)
+    await feature_audit.log_action(
+        "dashboard_ai_user_granted", actor=actor, detail=f"user:{user_id}"
+    )
+    return {"status": "success", "user_id": user_id, "enabled": True}
+
+
+@router.delete("/dashboard-ai-users/{user_id}", summary="Revoke Dashboard AI from a user")
+async def revoke_dashboard_ai_user(request: Request, user_id: str):
+    actor = _dashboard_ai_owner(request)
+    await dashboard_ai.revoke(user_id)
+    await feature_audit.log_action(
+        "dashboard_ai_user_revoked", actor=actor, detail=f"user:{user_id}"
+    )
+    return {"status": "success", "user_id": user_id, "enabled": False}
 
 
 @router.post("/blacklist/refresh", summary="Reload the global blacklist cache")

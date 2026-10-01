@@ -191,6 +191,18 @@ async function authorize(
     return { ok: true };
   }
 
+  if (scope === "dashboard-ai") {
+    const guildId = rest[0] ?? "";
+    if (!/^\d{17,20}$/.test(guildId)) {
+      return { ok: false, response: deny(400, "Invalid guild id.") };
+    }
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) return { ok: false, response: deny(401, "Not signed in.") };
+    const access = await verifyGuildAccess(guildId);
+    if (!access.allowed) return { ok: false, response: deny(access.status, access.reason) };
+    return { ok: true };
+  }
+
   if (scope === "guild-access") {
     // This list controls who may enter the entire server dashboard. Not even
     // Administrator / Manage Server or a global bot admin may widen it: only
