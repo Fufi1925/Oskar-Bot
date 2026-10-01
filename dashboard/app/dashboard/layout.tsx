@@ -38,30 +38,6 @@ import { api } from "@/lib/api";
 import { AdminConfig } from "@/types/api";
 import { SUPPORT_INVITE } from "@/lib/legal";
 
-// Farbige Funktionssymbole wie im Referenz-Dashboard. Die Farbe beschreibt
-// den Bereich; der aktive Zustand bleibt für alle Einträge einheitlich blau.
-const SIDEBAR_ICON_COLORS: Record<string, string> = {
-  "Allgemein": "text-sky-400", "Übersicht": "text-sky-400", "Hilfe": "text-indigo-300", "Design": "text-amber-400", "Premium": "text-amber-400", "Admin": "text-red-400",
-  "Dashboard Access": "text-blue-400", "Server Einstellungen": "text-slate-300",
-  "Backup": "text-amber-400", "Server Stats": "text-sky-400",
-  "Anti-Nuke": "text-rose-400", "Automod": "text-pink-400", "Honeypot": "text-orange-400",
-  "Verifizierung": "text-emerald-400", "Pull": "text-blue-400", "Notfall": "text-red-400", "Jail": "text-violet-400", "Nachtmodus": "text-indigo-400",
-  "Begrüßung": "text-pink-400", "Bewerbungen": "text-violet-300", "Abschied": "text-orange-400",
-  "Beitritts-DM": "text-cyan-400", "Auto-Rolle": "text-emerald-400", "Reaktions-Rollen": "text-fuchsia-400",
-  "Eigene Rollen": "text-blue-400", "Vanity-Rollen": "text-amber-400", "Nickname": "text-purple-400", "Level-System": "text-orange-400",
-  "Giveaways": "text-pink-400", "Counting": "text-teal-400", "Booster": "text-fuchsia-400",
-  "Benachrichtigungen": "text-red-400", "Auto-Reaktion": "text-yellow-400", "Autoresponder": "text-cyan-400",
-  "Custom Commands": "text-blue-400", "Anonymer Chat (Beta)": "text-violet-400",
-  "Musik": "text-purple-400", "Join to Create": "text-sky-400", "Sprach-Rolle": "text-violet-400",
-  "Tickets": "text-cyan-400", "Eigene Nachricht": "text-blue-400", "Sticky-Nachricht": "text-amber-400",
-  "Einladungen": "text-emerald-400", "Einladungs-Log": "text-teal-400", "No Prefix": "text-lime-400",
-  "Speedrun": "text-amber-400", "Hochladen (Experimentell)": "text-sky-400", "Community (Experimentell)": "text-fuchsia-400",
-  "Teamliste": "text-emerald-400", "Team-Update (Beta)": "text-cyan-400", "Logs": "text-slate-300",
-  "Bot-Logs": "text-indigo-300", "Server-Werkzeuge": "text-rose-400", "Support-Warteraum (Beta)": "text-cyan-400",
-  "Einstellungen": "text-slate-300", "Zurück zur Serverliste": "text-sky-400",
-};
-const sidebarIconColor = (name: string) => SIDEBAR_ICON_COLORS[name] || "text-cyan-400";
-
 export default function DashboardLayout({
   children,
 }: {
@@ -72,14 +48,12 @@ export default function DashboardLayout({
   const pathname = usePathname();
   const guildMatch = pathname.match(/\/dashboard\/guild\/([^\/]+)/);
   const currentGuildId = guildMatch ? guildMatch[1] : null;
-  const [verificationOpen, setVerificationOpen] = useState(
-    pathname.includes("/verification")
-  );
   const { data: session, status } = useSession();
   const sessionUserId = (session?.user as any)?.id as string | undefined;
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [globalNotification, setGlobalNotification] = useState<string | null>(null);
   const [pendingSupportRequests, setPendingSupportRequests] = useState(0);
+  const [sidebarGuild, setSidebarGuild] = useState<{ name: string; icon: string | null } | null>(null);
   // Driven by the maintenance_mode config plus the maintenance_banner feature flag.
   const [maintenance, setMaintenance] = useState(false);
   // True when the user holds a dashboard team role, which unlocks the admin panel.
@@ -197,6 +171,24 @@ export default function DashboardLayout({
       .catch(() => {});
   }, [status, session?.user]);
 
+  // The selected Discord server belongs in the navigation itself, as in the
+  // reference: back to all servers first, then the server's real icon/name.
+  React.useEffect(() => {
+    if (!currentGuildId) {
+      setSidebarGuild(null);
+      return;
+    }
+    let active = true;
+    api.getGuildDetails(currentGuildId)
+      .then((guild: any) => {
+        if (active) setSidebarGuild({ name: String(guild?.name || "Server"), icon: guild?.icon || null });
+      })
+      .catch(() => {
+        if (active) setSidebarGuild({ name: "Server", icon: null });
+      });
+    return () => { active = false; };
+  }, [currentGuildId]);
+
   // Only the actual server owner is authorized for this endpoint. Everyone
   // else receives 403, which is intentionally treated as "no owner badge".
   React.useEffect(() => {
@@ -213,17 +205,9 @@ export default function DashboardLayout({
     return () => { active = false; window.clearInterval(timer); };
   }, [currentGuildId, sessionUserId]);
 
-  // The proximity effect from React Bits' LineSidebar.
-  //
-  // Above the early return on purpose: React requires every hook to run
-  // on every render, and the loading branch below returns before the
-  // sidebar is built. Placing it further down threw
-  // "Rendered fewer hooks than expected" the moment the session
-  // resolved.
-  //
-  // pathname is enough to derive the active row; the item list is not
-  // needed yet at this point.
-  const proximity = useProximity({ radius: 90, smoothing: 4 });
+  // Keep the established pointer/ref plumbing so links retain all native
+  // behaviour. The clean sidebar neutralises its old travel in CSS.
+  const proximity = useProximity({ radius: 1, smoothing: 4 });
 
   if (status === "loading" || status === "unauthenticated") {
     return (
@@ -397,18 +381,15 @@ export default function DashboardLayout({
             : []),
       ];
 
-  // Separate the "Back to Server" item when inside a guild
-  let mainSidebarItems = allSidebarItems;
-  let backLinkItem: any = null;
-
-  if (currentGuildId) {
-    mainSidebarItems = allSidebarItems.filter(
-      (item) => !(item.name === "Back to Server")
-    );
-    backLinkItem = allSidebarItems.find((item) => item.name === "Back to Server");
-  }
-
-  const BackLinkIcon = backLinkItem?.icon || Server;
+  // Keep every University feature, but place the primary destinations above
+  // the sections just like the reference navigation.
+  const mainSidebarItems = currentGuildId
+    ? [
+        ...allSidebarItems.filter((item: any) => item.name === "Übersicht" || item.name === "Einstellungen"),
+        ...allSidebarItems.filter((item: any) => item.name === "Hilfe"),
+        ...allSidebarItems.filter((item: any) => Array.isArray(item.items)),
+      ]
+    : allSidebarItems;
 
   return (
     <div className="min-h-screen bg-[#0a0a0c] text-slate-200">
@@ -426,411 +407,155 @@ export default function DashboardLayout({
         />
       )}
 
-      {/* Sidebar - now using flex column */}
+      {/* Clean server navigation: flat surfaces, quiet monochrome icons and
+          the same information order as the supplied reference. */}
       <aside
         className={cn(
-          // Sitzt am Rand statt zu schweben: eine 2.5rem-Rundung mit
-          // Schlagschatten sieht aus wie eine Karte auf einer Karte.
-          "fixed bottom-2 left-2 top-2 z-50 w-[min(88vw,360px)] transform transition-transform duration-300 lg:bottom-0 lg:left-0 lg:top-0 lg:w-[272px] lg:translate-x-0 lg:rounded-none",
-          "overflow-hidden rounded-[28px] border border-white/[.12] bg-[#090b12]/82 shadow-[0_28px_100px_rgba(0,0,0,.72)] backdrop-blur-3xl flex flex-col",
-          isSidebarOpen ? "translate-x-0" : "-translate-x-[115%]"
+          "university-clean-sidebar fixed inset-y-0 left-0 z-50 flex w-[250px] flex-col border-r border-white/[.06] bg-[#191a1f] transition-transform duration-200 lg:translate-x-0",
+          isSidebarOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
-        <div className="pointer-events-none absolute -right-20 -top-24 h-64 w-64 rounded-full bg-blue-600/20 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-24 -left-20 h-56 w-56 rounded-full bg-indigo-500/10 blur-3xl" />
-
-        {/* Header */}
-        <div className="relative flex flex-shrink-0 items-center gap-3 border-b border-white/[.08] px-4 py-4">
-          <div className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-2xl border border-blue-300/20 bg-blue-500/10 shadow-[0_8px_24px_rgba(37,99,235,.18)]">
-            {/* Der Markenname und das echte Logo bleiben in jeder Sprache identisch. */}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/icon-192.png" alt="University Bot" className="h-full w-full object-cover" data-no-translate />
-          </div>
-          <div className="min-w-0 flex-1" data-no-translate>
-            <h1 className="truncate text-[16px] font-black leading-none tracking-tight text-white">
-              University Bot
-            </h1>
-            <span className="mt-1.5 block text-[9px] font-black uppercase tracking-[.22em] text-blue-300/80">Control Center</span>
-          </div>
+        <div className="flex h-[62px] shrink-0 items-center gap-2.5 border-b border-white/[.06] px-4">
+          <img src="/icon-192.png" alt="University Bot" className="h-8 w-8 rounded-lg object-cover" />
+          <span className="truncate text-[15px] font-bold text-white">University Bot</span>
           <button
-            className="grid h-10 w-10 place-items-center rounded-2xl border border-white/[.08] bg-white/[.045] text-slate-400 transition hover:bg-white/[.09] hover:text-white lg:hidden"
             onClick={() => setIsSidebarOpen(false)}
+            className="ml-auto grid h-8 w-8 place-items-center text-slate-500 hover:text-white lg:hidden"
             aria-label="Navigation schließen"
           >
-            <X className="h-5 w-5" />
+            <X className="h-4 w-4" />
           </button>
         </div>
 
-        {/* Scrollable Navigation */}
-        <nav
-          // pr-10 rather than px-4 on both sides: the rows slide right
-          // by up to 37px, and a scroll container clips at its padding
-          // box. With 16px of room they were cut off; 40px clears the
-          // full travel with 3px to spare. 44px would be too much --
-          // "Zurück zur Serverliste" starts wrapping. Worked out in
-          // repro/prox_shift_budget.py.
-          className="relative z-10 flex-1 space-y-2 overflow-y-auto py-3 pl-3 pr-10 no-scrollbar"
-          {...proximity.containerProps}
-        >
-          {(() => {
-            // Every link in the sidebar takes part, sub-links included.
-            // They are all in one scrolling column, so one running index
-            // over the whole thing is all the effect needs -- a group
-            // heading is not a link and simply does not get one.
-            let flat = -1;
-            const nextIndex = () => ++flat;
-            return mainSidebarItems.map((item: any) => {
-              const proxIndex = item.items ? -1 : nextIndex();
-            if (item.items) {
-              return (
-                <div key={item.name} className="space-y-1.5 pt-2">
-                  <p className="px-3 text-[9px] font-black uppercase tracking-[.2em] text-slate-500">
-                    {item.name}
-                  </p>
-                  <div className="space-y-1.5">
-                    {item.items.map((subItem: any) => {
-                      const isActive = pathname === subItem.href;
-                      const subIndex = nextIndex();
-                      // Der Speedrun steht in der Gruppe "Verwaltung",
-                      // wird also *hier* gerendert und nicht im Zweig
-                      // für die oberste Ebene weiter unten.
-                      //
-                      // Genau daran ist die Hervorhebung vorher
-                      // gescheitert: sie stand nur dort. Premium sah
-                      // richtig aus, weil Premium ein Eintrag der
-                      // obersten Ebene ist -- der Speedrun ist es
-                      // nicht, und der Stil kam nie an.
-                      // Beta-Reiter tragen denselben Stil: eigenes
-                      // Symbol-Feld, Abzeichen, ruhigeres Licht. Der
-                      // Warteraum ist der zweite davon -- die Liste
-                      // steht hier, damit ein dritter nicht wieder
-                      // durchs Raster fällt.
-                      const isSpeedrun = ["/speedrun", "/supportqueue"].some(
-                        (path) => subItem.href.endsWith(path)
-                      );
-                      if (subItem.children) {
-                        const sectionActive = pathname.startsWith(subItem.href);
+        <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-5 pt-3 scrollbar-thin">
+          {currentGuildId && (
+            <>
+              <Link
+                href="/dashboard/guilds"
+                className="mb-3 flex h-8 items-center gap-2 px-1 text-xs font-medium text-slate-500 transition-colors hover:text-slate-200"
+              >
+                <span aria-hidden="true" className="text-base leading-none">←</span>
+                <span>Alle Server</span>
+              </Link>
+
+              <div className="mb-3 flex items-center gap-2.5 px-1">
+                <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full bg-[#25262c]">
+                  {sidebarGuild?.icon ? (
+                    <img
+                      src={`https://cdn.discordapp.com/icons/${currentGuildId}/${sidebarGuild.icon}.png?size=80`}
+                      alt=""
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="grid h-full w-full place-items-center text-xs font-bold text-slate-400">
+                      {(sidebarGuild?.name || "S").slice(0, 1).toUpperCase()}
+                    </div>
+                  )}
+                  <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-[#191a1f] bg-blue-500" />
+                </div>
+                <span className="min-w-0 truncate text-sm font-semibold text-slate-100">
+                  {sidebarGuild?.name || "Server wird geladen …"}
+                </span>
+              </div>
+
+              <div className="mb-3">
+                <GlobalSearch sidebar />
+              </div>
+            </>
+          )}
+
+          <nav
+            aria-label="Dashboard-Navigation"
+            className="relative space-y-0.5"
+            {...proximity.containerProps}
+          >
+            {mainSidebarItems.map((item: any, groupIndex: number) => {
+              if (item.items) {
+                return (
+                  <div key={item.name} className="pb-2 pt-4 first:pt-2">
+                    <p className="mb-1.5 px-2 text-[10px] font-bold uppercase tracking-[0.13em] text-slate-500">
+                      {item.name}
+                    </p>
+                    <div className="space-y-0.5">
+                      {item.items.map((subItem: any, subIndex: number) => {
+                        const active = pathname === subItem.href ||
+                          (subItem.name !== "Übersicht" && pathname.startsWith(`${subItem.href}/`));
+                        const SubIcon = subItem.icon;
                         return (
-                          <div key={subItem.name} className="space-y-1">
-                            <div
-                              data-active={sectionActive ? "true" : undefined}
-                              {...proximity.itemProps(subIndex)}
+                          <React.Fragment key={subItem.href}>
+                            <Link
+                              href={subItem.href}
+                              {...proximity.itemProps(groupIndex * 100 + subIndex)}
                               className={cn(
-                                "prox-row prox-row-sm flex items-center rounded-2xl border transition-all text-[13px]",
-                                sectionActive
-                                  ? "border-blue-400/25 bg-blue-500/12 text-white font-semibold"
-                                  : "border-white/[.07] bg-white/[.035] text-slate-400 hover:border-white/[.12] hover:bg-white/[.065] hover:text-slate-200"
+                                "prox-row flex h-9 items-center gap-2.5 rounded-md px-2.5 text-[12px] font-medium transition-colors",
+                                active
+                                  ? "bg-[#27324f] text-blue-300"
+                                  : "text-slate-400 hover:bg-white/[.035] hover:text-slate-100"
                               )}
                             >
-                              <Link href={subItem.href} className="flex min-w-0 flex-1 items-center gap-3 px-3 py-2">
-                                <subItem.icon className={cn("h-4 w-4 shrink-0", sidebarIconColor(subItem.name))} />
-                                <span className="truncate">{subItem.name}</span>
-                              </Link>
-                              <button
-                                type="button"
-                                onClick={() => setVerificationOpen((open) => !open)}
-                                aria-expanded={verificationOpen}
-                                aria-label="Verifizierung aufklappen"
-                                className="mr-1 grid h-8 w-8 shrink-0 place-items-center rounded-md hover:bg-white/5"
-                              >
-                                <ChevronDown className={cn("h-4 w-4 transition-transform", verificationOpen && "rotate-180")} />
-                              </button>
-                            </div>
-                            {verificationOpen && (
-                              <div className="space-y-1 pl-7">
-                                {subItem.children.map((child: any) => {
-                                  const childActive = pathname === child.href;
-                                  return (
-                                    <Link
-                                      key={child.name}
-                                      href={child.href}
-                                      className={cn(
-                                        "flex items-center gap-2 rounded-xl border px-3 py-2 text-xs transition-colors",
-                                        child.highlight
-                                          ? childActive
-                                            ? "border-amber-400/20 bg-amber-400/10 font-semibold text-amber-200"
-                                            : "border-amber-400/10 bg-amber-400/[.035] text-amber-300/80 hover:bg-amber-400/[.07]"
-                                          : childActive
-                                            ? "border-blue-400/20 bg-blue-500/10 font-semibold text-blue-200"
-                                            : "border-white/[.05] bg-white/[.025] text-slate-500 hover:bg-white/[.055] hover:text-slate-300"
-                                      )}
-                                    >
-                                      <child.icon className={cn("h-3.5 w-3.5", child.highlight ? "text-amber-400" : sidebarIconColor(child.name))} />
-                                      <span className="min-w-0 flex-1 truncate">{child.name}</span>
-                                      {child.highlight && <Crown className="h-3 w-3 shrink-0 text-amber-400" aria-label="Premium" />}
-                                    </Link>
-                                  );
-                                })}
-                              </div>
-                            )}
-                          </div>
+                              <SubIcon className="h-[15px] w-[15px] shrink-0 text-current" />
+                              <span className="min-w-0 flex-1 truncate">{subItem.name}</span>
+                              {Number(subItem.notification || 0) > 0 ? (
+                                <span className="grid h-4 min-w-4 place-items-center rounded-full bg-rose-500 px-1 text-[9px] font-bold text-white">1</span>
+                              ) : !active ? (
+                                <span className="h-1 w-1 shrink-0 rounded-full bg-slate-600" />
+                              ) : null}
+                            </Link>
+                            {subItem.children?.map((child: any) => {
+                              const childActive = pathname === child.href;
+                              const ChildIcon = child.icon;
+                              return (
+                                <Link
+                                  key={`${subItem.href}-${child.name}`}
+                                  href={child.href}
+                                  className={cn(
+                                    "ml-4 flex h-8 items-center gap-2 rounded-md px-2.5 text-[11px] font-medium transition-colors",
+                                    childActive ? "bg-[#27324f] text-blue-300" : "text-slate-500 hover:bg-white/[.035] hover:text-slate-200"
+                                  )}
+                                >
+                                  <ChildIcon className="h-3.5 w-3.5 shrink-0" />
+                                  <span className="truncate">{child.name}</span>
+                                </Link>
+                              );
+                            })}
+                          </React.Fragment>
                         );
-                      }
-                      return (
-                        <Link
-                          key={subItem.name}
-                          href={subItem.href}
-                          data-active={isActive ? "true" : undefined}
-                          {...proximity.itemProps(subIndex)}
-                          // Ein Stil fuer jede Zeile.
-                          //
-                          // Vorher hatte der Speedrun einen eigenen
-                          // (cyan, wanderndes Licht), der aktive
-                          // Eintrag ein blaues Leuchten und einen
-                          // pulsierenden Punkt. Vier Sonderfaelle in
-                          // einer Liste heisst: nichts sticht mehr
-                          // hervor, weil alles hervorsticht.
-                          className={cn(
-                            "prox-row prox-row-sm",
-                            "flex items-center gap-3 rounded-2xl border px-3 py-2.5 transition-all group text-[13px]",
-                            // Gelb auch in einer Gruppe.
-                            //
-                            // Genau der Fall, vor dem der Kommentar
-                            // oben warnt: `isPremium` gibt es nur auf
-                            // der obersten Ebene. Der Design-Reiter
-                            // steht in einer Gruppe, also haette er
-                            // den Stil sonst nie bekommen -- der
-                            // gelbe Rahmen waere im Code gestanden
-                            // und auf dem Bildschirm nicht zu sehen.
-                            (subItem as any).highlight
-                              ? isActive
-                                ? "border-amber-400/25 bg-amber-400/10 text-amber-200 font-semibold"
-                                : "border-amber-400/10 bg-amber-400/[.035] text-amber-300/80 hover:bg-amber-400/[.07] hover:text-amber-200"
-                              : isActive
-                              ? "border-blue-400/25 bg-blue-500/12 text-white font-semibold"
-                              : "border-white/[.07] bg-white/[.035] text-slate-400 hover:border-white/[.12] hover:bg-white/[.065] hover:text-slate-200"
-                          )}
-                        >
-                          <subItem.icon
-                            className={cn(
-                              "h-4 w-4 shrink-0 transition-colors",
-                              (subItem as any).highlight
-                                ? "text-amber-400"
-                                : sidebarIconColor(subItem.name)
-                            )}
-                          />
-                          {/* "(Beta)" als Zeichen statt als Text: in
-                              einer Untereintrag-Zeile ist der Platz
-                              knapp, und die Klammer ist lauter als
-                              das, was sie sagt. */}
-                          <span className="min-w-0 truncate">
-                            {subItem.name.replace(" (Beta)", "")}
-                          </span>
-                          {/* "(Beta)" als ruhiges Zeichen statt als
-                              Klammer im Text -- und in derselben
-                              Farbe wie ueberall sonst. */}
-                          {subItem.name.includes("(Beta)") && (
-                            <span className="ml-auto shrink-0 rounded bg-white/[0.06] px-1.5 py-0.5 text-[9px] font-bold tracking-wide text-slate-400">
-                              BETA
-                            </span>
-                          )}
-                        </Link>
-                      );
-                    })}
+                      })}
+                    </div>
                   </div>
-                </div>
-              );
-            }
+                );
+              }
 
-            const isActive = pathname === item.href;
-            // Premium is the one entry that should catch the eye before
-            // it is read, so it glows gold instead of using the flat
-            // blue every other link shares. Keyed off the href, not the
-            // label, because the label is translated.
-            // Golden wird alles, was Premium verkauft oder braucht.
-            //
-            // Der Design-Reiter haengt sich hier an, statt einen
-            // vierten Sonderfall zu bauen: er ist die
-            // Premium-Funktion, die man sehen soll, bevor man sie
-            // hat -- und `highlight` am Eintrag sagt genau das.
-            const isPremium =
-              item.href === "/dashboard/premium" || Boolean((item as any).highlight);
-            // Admin gets its own treatment: a steel plate rather than the
-            // flat blue, but deliberately without Premium's pulse — this
-            // one is clicked daily and a permanent animation would wear
-            // thin. Keyed off the href, not the label, which is
-            // translated.
-            const isAdmin = item.href === "/dashboard/admin";
-            // Der Speedrun baut einen ganzen Server -- er soll
-            // nicht aussehen wie "Nickname" drei Zeilen darüber.
-            // Eigene Farbe, eigenes Symbol-Feld und ein Licht,
-            // das über die Oberkante läuft.
-            const isSpeedrun = ["/speedrun", "/supportqueue"].some((path) =>
-              item.href.endsWith(path)
-            );
-            return (
-              <Link
-                key={item.name}
-                href={item.href}
-                data-active={isActive ? "true" : undefined}
-                // Still a real Link: right-click, middle-click, the URL
-                // preview and Next.js prefetching all keep working. The
-                // original component renders <li onClick>, which loses
-                // every one of those.
-                {...proximity.itemProps(proxIndex)}
-                // Ein Stil, drei Zustaende.
-                //
-                // Premium hatte ein goldenes Pulsieren, Admin eine
-                // Stahlplatte, der Speedrun ein wanderndes Licht --
-                // drei Ausnahmen in einer Liste von fuenf Eintraegen.
-                // Premium bleibt farblich hervorgehoben, weil es
-                // etwas verkauft; alles andere ist jetzt gleich
-                // ruhig.
-                className={cn(
-                  "prox-row",
-                  "flex items-center gap-3 rounded-2xl border px-3 py-3 transition-all group text-[14px]",
-                  isPremium
-                    ? isActive
-                      ? "border-amber-400/25 bg-amber-400/10 text-amber-200 font-semibold"
-                      : "border-amber-400/10 bg-amber-400/[.035] text-amber-300/80 hover:bg-amber-400/[.07] hover:text-amber-200"
-                    : isActive
-                    ? "border-blue-300/25 bg-gradient-to-r from-blue-600/25 to-indigo-500/15 text-white font-semibold shadow-[0_12px_30px_rgba(37,99,235,.14)]"
-                    : "border-white/[.07] bg-white/[.035] text-slate-400 hover:border-white/[.12] hover:bg-white/[.065] hover:text-slate-200"
-                )}
-              >
-                {/* No leading line and no 01/02/03 gutter, both from the
-                    original LineSidebar. The numbers were the loudest
-                    thing in a sidebar that is read by label, and the
-                    line was a second signal for what the movement
-                    already says. The shift alone carries the effect. */}
-                <item.icon
+              const active = pathname === item.href;
+              const ItemIcon = item.icon;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  {...proximity.itemProps(groupIndex * 100)}
                   className={cn(
-                    "box-content h-[18px] w-[18px] shrink-0 rounded-xl border border-white/[.07] bg-black/15 p-2 transition-colors",
-                    isPremium
-                      ? "text-amber-400"
-                      : sidebarIconColor(item.name)
+                    "prox-row flex h-9 items-center gap-2.5 rounded-md px-2.5 text-[12px] font-medium transition-colors",
+                    active
+                      ? "bg-[#27324f] text-blue-300"
+                      : "text-slate-400 hover:bg-white/[.035] hover:text-slate-100"
                   )}
-                />
-                {/* Der Reiter heißt in der Navigation "Speedrun (Beta)".
-                    Das Wort in Klammern mitzuschleppen macht die Zeile
-                    lang und die Klammer laut; als kleines Zeichen sagt
-                    es dasselbe und stört nicht beim Lesen. */}
-                <span className="min-w-0 truncate">
-                  {item.name.replace(" (Beta)", "")}
-                </span>
-                {Number((item as any).notification || 0) > 0 && (
-                  <span className="ml-auto grid h-5 min-w-5 place-items-center rounded-full bg-rose-500 px-1 text-[10px] font-black text-white shadow-[0_0_12px_rgba(244,63,94,.45)]">1</span>
-                )}
-                {item.name.includes("(Beta)") && (
-                  <span className="ml-auto shrink-0 rounded bg-white/[0.06] px-1.5 py-0.5 text-[9px] font-bold tracking-wide text-slate-400">
-                    BETA
-                  </span>
-                )}
-              </Link>
-            );
-            });
-          })()}
-        </nav>
-
-        {/* Fixed "Back to Server" link (only shown inside a guild) */}
-        {backLinkItem && (
-          <div className="relative flex-shrink-0 px-3 py-2">
-            <div className="mx-auto mb-2 h-px w-3/4 rounded-full bg-white/[.08]" />
-            <Link
-              href={backLinkItem.href || "/dashboard/guilds"}
-              className={cn(
-                "flex items-center gap-3 rounded-2xl border px-3 py-3 transition-all group text-[13px]",
-                pathname === backLinkItem.href
-                  ? "border-blue-400/25 bg-blue-500/12 text-white font-semibold"
-                  : "border-white/[.07] bg-white/[.035] text-slate-400 hover:border-white/[.12] hover:bg-white/[.065] hover:text-slate-200"
-              )}
-            >
-              <BackLinkIcon
-                className={cn(
-                  "h-[18px] w-[18px] shrink-0 transition-colors",
-                  sidebarIconColor(backLinkItem.name)
-                )}
-              />
-              {backLinkItem.name}
-              {pathname === backLinkItem.href ? (
-                <ChevronRight className="ml-auto h-4 w-4 text-blue-500" />
-              ) : (
-                <ChevronRight className="ml-auto h-4 w-4 opacity-0 group-hover:opacity-30 transition-opacity" />
-              )}
-            </Link>
-          </div>
-        )}
-
-        {/* User Profil - now a normal flex child, no absolute positioning */}
-        <div className="relative flex-shrink-0 border-t border-white/[.08] p-3">
-          <div className="flex items-center gap-3 rounded-2xl border border-white/[.09] bg-white/[.05] p-2.5 shadow-[0_12px_30px_rgba(0,0,0,.2)]">
-            <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl border border-blue-400/20 bg-blue-500/10 ring-1 ring-white/10">
-              {session?.user?.image ? (
-                <img
-                  src={session.user.image}
-                  alt="User Avatar"
-                  className="h-full w-full object-cover opacity-80"
-                />
-              ) : (
-                <User className="h-6 w-6 text-blue-500/50" />
-              )}
-            </div>
-            <div className="overflow-hidden min-w-0">
-              <p className="text-sm font-bold text-white truncate font-outfit">
-                {session?.user?.name || "Administrator"}
-              </p>
-              {/* Shows the actual dashboard role instead of a hardcoded "User" */}
-              {teamAccess?.is_owner ? (
-                <p className="text-[10px] font-black uppercase truncate tracking-widest text-amber-400">
-                  Owner
-                </p>
-              ) : teamAccess?.roles?.length ? (
-                <p
-                  className="text-[10px] font-black uppercase truncate tracking-widest"
-                  style={{ color: teamAccess.roles[0].color }}
-                  title={teamAccess.roles.map((r) => r.label).join(", ")}
                 >
-                  {teamAccess.roles[0].label}
-                  {teamAccess.roles.length > 1 && (
-                    <span className="text-slate-500"> +{teamAccess.roles.length - 1}</span>
-                  )}
-                </p>
-              ) : (
-                <p className="text-[10px] font-black uppercase text-slate-500 truncate tracking-widest">
-                  Member
-                </p>
-              )}
-            </div>
-
-            {/* Das Premium-Abzeichen.
-                
-                Steht NEBEN der Rolle, nicht statt ihr: eine Team-Rolle
-                sagt, was jemand darf, Premium sagt, was er hat. Beides
-                kann gleichzeitig gelten, und wer beides hat, soll auch
-                beides sehen.
-
-                Nur wenn wirklich Premium besteht -- ein graues
-                „kein Premium" wäre eine Dauerwerbung an der Stelle,
-                an der sonst der eigene Name steht. */}
-            {premium?.aktiv && (
-              <span
-                className="ml-auto shrink-0 rounded-lg border border-amber-400/30 bg-amber-400/10 px-1.5 py-1 text-amber-400"
-                title={
-                  premium.probewoche
-                    ? "Premium über die Probewoche"
-                    : premium.tester
-                      ? "Premium über den Tester-Zugang"
-                      : "Premium ist aktiv"
-                }
-              >
-                <Crown className="h-3.5 w-3.5" />
-              </span>
-            )}
-          </div>
-
-          {/* Was das Premium gerade ist -- eine Zeile, nur wenn es
-              etwas zu sagen gibt. Eine laufende Probewoche endet, und
-              das soll man sehen, bevor sie weg ist. */}
-          {premium?.aktiv && (premium.probewoche || premium.tester) && (
-            <p className="mt-1.5 px-2 text-[10px] font-bold uppercase tracking-widest text-amber-400/70">
-              {premium.probewoche ? "Probewoche läuft" : "Tester-Zugang"}
-            </p>
-          )}
+                  <ItemIcon className="h-[15px] w-[15px] shrink-0 text-current" />
+                  <span className="min-w-0 flex-1 truncate">{item.name}</span>
+                  {Number(item.notification || 0) > 0 ? (
+                    <span className="grid h-4 min-w-4 place-items-center rounded-full bg-rose-500 px-1 text-[9px] font-bold text-white">1</span>
+                  ) : !active ? (
+                    <span className="h-1 w-1 shrink-0 rounded-full bg-slate-600" />
+                  ) : null}
+                </Link>
+              );
+            })}
+          </nav>
         </div>
       </aside>
 
       {/* Main Content Area (unchanged) */}
-      <div className="relative z-10 flex min-h-screen flex-col lg:pl-[272px]">
+      <div className="relative z-10 flex min-h-screen flex-col lg:pl-[250px]">
         {/* Top Navbar (unchanged) */}
         <header className="sticky top-2 z-30 mx-3 mb-4 mt-3 flex h-16 isolate items-center justify-between gap-2 rounded-[24px] border border-white/[.1] bg-[#090b12]/78 px-2.5 shadow-[0_22px_70px_rgba(0,0,0,.32)] backdrop-blur-3xl lg:top-4 lg:mx-6 lg:mb-6 lg:mt-4 lg:h-[72px] lg:rounded-[28px] lg:px-4">
           <div className="pointer-events-none absolute inset-x-16 top-0 h-px bg-gradient-to-r from-transparent via-blue-300/35 to-transparent" />
@@ -843,7 +568,7 @@ export default function DashboardLayout({
             <Menu className="h-6 w-6" />
           </button>
 
-          <GlobalSearch />
+          {!currentGuildId && <GlobalSearch />}
 
           <div className="relative ml-auto flex items-center gap-1.5 lg:gap-2">
             <div className="relative" ref={bellRef}>

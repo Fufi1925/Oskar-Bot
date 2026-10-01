@@ -683,3 +683,14 @@ input[type="number"] {
 @media (prefers-reduced-motion: reduce) {
   .prox-tab { transform: none; }
 }
+
+/* The server sidebar follows the flat reference design. Keep the shared
+   proximity refs for native-link/test compatibility, but deliberately remove
+   the previous sideways travel and glow from this navigation only. */
+.university-clean-sidebar .prox-row,
+.university-clean-sidebar .prox-row-tight {
+  transform: none !important;
+  filter: none !important;
+  text-shadow: none !important;
+  will-change: auto;
+}

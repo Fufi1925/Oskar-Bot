@@ -89,7 +89,7 @@ const ADMIN_TABS: SearchTarget[] = [
  * Command palette for the header search box, which was previously a
  * decorative input with no behaviour. Opens with Ctrl/Cmd+K.
  */
-export function GlobalSearch() {
+export function GlobalSearch({ sidebar = false }: { sidebar?: boolean } = {}) {
   const router = useRouter();
   const pathname = usePathname();
   const [query, setQuery] = useState("");
@@ -218,9 +218,22 @@ export function GlobalSearch() {
   };
 
   return (
-    <div className="relative hidden min-w-0 max-w-xl flex-1 items-center md:flex group" ref={boxRef}>
-      <span className="absolute left-2 grid h-8 w-8 place-items-center rounded-xl border border-white/[.07] bg-black/15">
-        <Search className="h-4 w-4 text-slate-500 transition-colors group-focus-within:text-blue-300" />
+    <div
+      className={cn(
+        "relative min-w-0 items-center group",
+        sidebar ? "flex w-full" : "hidden max-w-xl flex-1 md:flex"
+      )}
+      ref={boxRef}
+    >
+      <span
+        className={cn(
+          "absolute grid place-items-center",
+          sidebar
+            ? "left-2 h-7 w-7"
+            : "left-2 h-8 w-8 rounded-xl border border-white/[.07] bg-black/15"
+        )}
+      >
+        <Search className={cn("text-slate-500 transition-colors group-focus-within:text-blue-300", sidebar ? "h-3.5 w-3.5" : "h-4 w-4")} />
       </span>
       <input
         ref={inputRef}
@@ -232,10 +245,18 @@ export function GlobalSearch() {
         }}
         onFocus={() => setOpen(true)}
         onKeyDown={onKeyDown}
-        placeholder="Seiten durchsuchen …"
-        className="h-11 w-full rounded-2xl border border-white/[.08] bg-white/[.04] pl-12 pr-20 text-xs font-semibold text-slate-200 outline-none transition-all placeholder:text-slate-600 hover:bg-white/[.055] focus:border-blue-400/25 focus:bg-blue-500/[.06] focus:ring-2 focus:ring-blue-500/10"
+        placeholder={sidebar ? "Suchen" : "Seiten durchsuchen …"}
+        className={cn(
+          "w-full text-xs font-semibold text-slate-200 outline-none transition-colors placeholder:text-slate-600",
+          sidebar
+            ? "h-9 rounded-md border border-white/[.07] bg-[#202126] pl-10 pr-12 hover:border-white/[.11] focus:border-blue-500/40"
+            : "h-11 rounded-2xl border border-white/[.08] bg-white/[.04] pl-12 pr-20 hover:bg-white/[.055] focus:border-blue-400/25 focus:bg-blue-500/[.06] focus:ring-2 focus:ring-blue-500/10"
+        )}
       />
-      <kbd className="pointer-events-none absolute right-3 rounded-lg border border-white/[.08] bg-black/20 px-2 py-1 text-[9px] font-black tracking-wider text-slate-500">⌘ K</kbd>
+      <kbd className={cn(
+        "pointer-events-none absolute right-3 text-[9px] font-black tracking-wider text-slate-500",
+        sidebar ? "rounded px-1 py-0.5" : "rounded-lg border border-white/[.08] bg-black/20 px-2 py-1"
+      )}>⌘ K</kbd>
 
       <PopoverLayer
         anchor={boxRef}
