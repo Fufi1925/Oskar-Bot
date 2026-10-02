@@ -37,7 +37,7 @@ assert fragen[0]["type"] == "paragraph"
 assert fragen[1]["type"] == "image" and fragen[1]["required"] is False
 assert fragen[2]["label"] == "Boser Typ" and fragen[2]["type"] == "short"
 assert regeln.fragen_bereinigen({"keine": "liste"}) == []
-assert regeln.fragen_bereinigen('[{"label":"x"}]') == [{"label": "x", "placeholder": "", "required": True, "type": "short"}]
+assert regeln.fragen_bereinigen('[{"label":"x"}]') == [{"label": "x", "placeholder": "", "required": True, "type": "short", "category_keys": []}]
 
 # ── Kanalname: Discord-tauglich, nicht nur schoen ─────────────────────
 name = regeln.kanal_name(7, "Fufi.dev | Gamer", "")

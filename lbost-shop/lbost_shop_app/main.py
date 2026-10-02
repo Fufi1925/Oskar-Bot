@@ -953,6 +953,10 @@ def create_app() -> FastAPI:
                 panels = [{
                     "key": "default", "name": "Support", "title": values.get("title") or "Support Tickets",
                     "description": values.get("description") or "Choose a category to open a ticket.",
+                    "panel_type": "button", "select_placeholder": "Wähle eine Kategorie…",
+                    "ticket_title": "Ticket #{ticket_number}",
+                    "ticket_message": "Danke, dass du dich meldest, {user}.",
+                    "ticket_created_message": "Dein Ticket ist offen: {channel}",
                     "panel_channel_id": values.get("panel_channel_id") or "", "categories": [{
                         "key": "support", "name": "Support", "emoji": values.get("button_emoji") or "",
                         "category_id": values.get("category_id") or "", "support_role_ids": values.get("support_role_ids") or "",
@@ -961,9 +965,18 @@ def create_app() -> FastAPI:
             for panel in panels:
                 if not panel.get("categories"):
                     panel["categories"] = [{"key": "support", "name": "Support", "emoji": "", "button_style": 1}]
+            try:
+                raw_emojis = await _discord_abfrage(settings.bot_token, f"/guilds/{guild_id}/emojis")
+                server_emojis = [{
+                    "id": str(item["id"]), "name": str(item.get("name") or "emoji"),
+                    "raw": f"<{'a' if item.get('animated') else ''}:{item.get('name') or 'emoji'}:{item['id']}>",
+                    "url": f"https://cdn.discordapp.com/emojis/{item['id']}.{'gif' if item.get('animated') else 'png'}?size=48",
+                } for item in raw_emojis]
+            except Exception:
+                server_emojis = []
             return render(
                 request, "tickets.html", guild=guild, feature=feature, spec=spec, values=values,
-                panels=panels, channels=channels, roles=roles, csrf=user["sid"],
+                panels=panels, channels=channels, roles=roles, server_emojis=server_emojis, csrf=user["sid"],
                 stats=db.ticket_kennzahlen(guild_id, settings), tickets=db.tickets_fuer_gilde(guild_id, settings, 20),
                 saved=request.query_params.get("saved") == "1", error=request.query_params.get("error"),
             )
@@ -1155,8 +1168,8 @@ def create_app() -> FastAPI:
             return PlainTextResponse("Ungültige Anfrage.", status_code=403)
         try:
             panels = json.loads(str(form.get("panels_json") or "[]"))
-            if not isinstance(panels, list) or not panels or len(panels) > 10:
-                raise ValueError("Es sind 1 bis 10 Panels erlaubt.")
+            if not isinstance(panels, list) or not panels:
+                raise ValueError("Mindestens ein Panel ist erforderlich.")
             clean_panels = []
             for index, panel in enumerate(panels):
                 if not isinstance(panel, dict):
@@ -1184,18 +1197,36 @@ def create_app() -> FastAPI:
                     "title": str(panel.get("title") or "Support Tickets")[:256],
                     "description": str(panel.get("description") or "Choose a category to open a ticket.")[:4000],
                     "color": str(panel.get("color") or "#5865f2") if COLOR_RE.fullmatch(str(panel.get("color") or "")) else "#5865f2",
+                    "panel_type": "dropdown" if panel.get("panel_type") == "dropdown" else "button",
+                    "select_placeholder": str(panel.get("select_placeholder") or "Wähle eine Kategorie…").strip()[:150],
+                    "ticket_title": str(panel.get("ticket_title") or "Ticket #{ticket_number}").strip()[:256],
+                    "ticket_message": str(panel.get("ticket_message") or "Danke, dass du dich meldest, {user}.").strip()[:4000],
+                    "ticket_created_message": str(panel.get("ticket_created_message") or "Dein Ticket ist offen: {channel}").strip()[:1900],
                     "panel_channel_id": str(panel.get("panel_channel_id") or "") if str(panel.get("panel_channel_id") or "").isdigit() else "",
                     "image_url": str(panel.get("image_url") or "")[:600], "thumbnail_url": str(panel.get("thumbnail_url") or "")[:600],
+                    "message_id": str(panel.get("message_id") or "") if str(panel.get("message_id") or "").isdigit() else "",
                     "questions_json": questions, "categories": categories,
                 })
             values = db.get_feature(guild_id, "tickets", settings)
             values.update({
                 "enabled": "enabled" in form, "mention_support": "mention_support" in form,
                 "always_transcript": "always_transcript" in form,
-                "log_channel_id": str(form.get("log_channel_id") or ""),
-                "closed_category_id": str(form.get("closed_category_id") or ""),
-                "staff_role_ids": ",".join(value for value in form.getlist("staff_role_ids") if str(value).isdigit()),
-                "max_open_tickets": max(1, min(10, int(form.get("max_open_tickets") or 1))),
+                "log_channel_id": str(form.get("log_channel_id") or "") if str(form.get("log_channel_id") or "").isdigit() else "",
+                "closed_category_id": str(form.get("closed_category_id") or "") if str(form.get("closed_category_id") or "").isdigit() else "",
+                "staff_role_ids": ",".join(
+                    value for raw in form.getlist("staff_role_ids")
+                    for value in str(raw).replace(" ", "").split(",") if value.isdigit()
+                ),
+                "max_open_tickets": max(1, min(10, int(form.get("max_open_tickets") or 3))),
+                "notify_user_enabled": "notify_user_enabled" in form,
+                "notify_staff_enabled": "notify_staff_enabled" in form,
+                "notify_user_delay": max(30, min(86400, int(form.get("notify_user_delay") or 900))),
+                "notify_staff_delay": max(30, min(86400, int(form.get("notify_staff_delay") or 900))),
+                "notify_user_cooldown": max(60, min(604800, int(form.get("notify_user_cooldown") or 21600))),
+                "notify_staff_cooldown": max(60, min(604800, int(form.get("notify_staff_cooldown") or 21600))),
+                "notify_quiet_enabled": "notify_quiet_enabled" in form,
+                "notify_quiet_start": max(0, min(23, int(form.get("notify_quiet_start") or 22))),
+                "notify_quiet_end": max(0, min(23, int(form.get("notify_quiet_end") or 7))),
                 "panels_json": clean_panels,
             })
             db.set_feature(guild_id, "tickets", values, int(user["uid"]), settings)
@@ -1218,28 +1249,59 @@ def create_app() -> FastAPI:
         channel_id = str(panel.get("panel_channel_id") or values.get("panel_channel_id") or "")
         if not channel_id.isdigit():
             return RedirectResponse(href(request, f"/guild/{guild_id}/tickets?error=Panel-Kanal+fehlt"), status_code=303)
-        buttons = []
-        for index, category in enumerate(panel.get("categories") or []):
-            category_key = re.sub(r"[^a-zA-Z0-9_-]", "", str(category.get("key") or f"category-{index + 1}"))[:28]
-            component = {
-                "type": 2, "style": max(1, min(4, int(category.get("button_style") or 1))),
-                "label": str(category.get("name") or "Support")[:80],
-                "custom_id": f"shop:ticket:create:{key}~{category_key}"[:100],
-            }
-            emoji_match = re.fullmatch(r"<(a?):([^:>]+):(\d+)>", str(category.get("emoji") or "").strip())
-            if emoji_match:
-                component["emoji"] = {"id": emoji_match.group(3), "name": emoji_match.group(2), "animated": emoji_match.group(1) == "a"}
-            buttons.append(component)
-        if not buttons:
-            buttons.append({"type": 2, "style": 1, "label": "Open Ticket", "custom_id": f"shop:ticket:create:{key}"[:100]})
-        rows = [{"type": 1, "components": buttons[offset:offset + 5]} for offset in range(0, len(buttons), 5)]
+        categories = list(panel.get("categories") or [])[:15]
+        def api_emoji(raw: Any) -> dict[str, Any] | None:
+            value = str(raw or "").strip()
+            match = re.fullmatch(r"<(a?):([^:>]+):(\d+)>", value)
+            if match:
+                return {"id": match.group(3), "name": match.group(2), "animated": match.group(1) == "a"}
+            if value and len(value) <= 16:
+                return {"name": value}
+            return None
+        if panel.get("panel_type") == "dropdown":
+            options = []
+            for index, category in enumerate(categories):
+                category_key = re.sub(r"[^a-zA-Z0-9_-]", "", str(category.get("key") or f"category-{index + 1}"))[:28]
+                option = {"label": str(category.get("name") or "Support")[:100], "value": category_key}
+                selected_emoji = api_emoji(category.get("emoji"))
+                if selected_emoji:
+                    option["emoji"] = selected_emoji
+                options.append(option)
+            rows = [{"type": 1, "components": [{
+                "type": 3, "custom_id": f"shop:ticket:select:{key}"[:100],
+                "placeholder": str(panel.get("select_placeholder") or "Wähle eine Kategorie…")[:150],
+                "min_values": 1, "max_values": 1, "options": options,
+            }]}]
+        else:
+            buttons = []
+            for index, category in enumerate(categories):
+                category_key = re.sub(r"[^a-zA-Z0-9_-]", "", str(category.get("key") or f"category-{index + 1}"))[:28]
+                component = {
+                    "type": 2, "style": max(1, min(4, int(category.get("button_style") or 1))),
+                    "label": str(category.get("name") or "Support")[:80],
+                    "custom_id": f"shop:ticket:create:{key}~{category_key}"[:100],
+                }
+                selected_emoji = api_emoji(category.get("emoji"))
+                if selected_emoji:
+                    component["emoji"] = selected_emoji
+                buttons.append(component)
+            if not buttons:
+                buttons.append({"type": 2, "style": 1, "label": "Open Ticket", "custom_id": f"shop:ticket:create:{key}"[:100]})
+            rows = [{"type": 1, "components": buttons[offset:offset + 5]} for offset in range(0, len(buttons), 5)]
         color = str(panel.get("color") or "#5865f2").lstrip("#")
+        content_components: list[dict[str, Any]] = [
+            {"type": 10, "content": f"## {str(panel.get('title') or 'Support Tickets')[:256]}\n{str(panel.get('description') or 'Choose a category to open a ticket.')[:3500]}"},
+        ]
+        media_items = []
+        for media_url in (panel.get("image_url"), panel.get("thumbnail_url")):
+            if str(media_url or "").startswith("https://"):
+                media_items.append({"media": {"url": str(media_url)[:600]}})
+        if media_items:
+            content_components.append({"type": 12, "items": media_items})
+        content_components.extend([{"type": 14, "divider": True}, *rows])
         payload = {
             "flags": 32768,
-            "components": [{"type": 17, "accent_color": int(color, 16), "components": [
-                {"type": 10, "content": f"## {str(panel.get('title') or 'Support Tickets')[:256]}\n{str(panel.get('description') or 'Choose a category to open a ticket.')[:3500]}"},
-                {"type": 14, "divider": True}, *rows,
-            ]}],
+            "components": [{"type": 17, "accent_color": int(color, 16), "components": content_components}],
         }
         try:
             import httpx
@@ -1249,6 +1311,13 @@ def create_app() -> FastAPI:
                     headers={"Authorization": f"Bot {settings.bot_token}"}, json=payload,
                 )
                 response.raise_for_status()
+                sent = response.json()
+            panel["message_id"] = str(sent.get("id") or "")
+            values["panels_json"] = [
+                panel if isinstance(item, dict) and str(item.get("key")) == key else item
+                for item in (values.get("panels_json") or [])
+            ]
+            db.set_feature(guild_id, "tickets", values, int(user["uid"]), settings)
         except Exception:
             return RedirectResponse(href(request, f"/guild/{guild_id}/tickets?error=Panel+konnte+nicht+gesendet+werden"), status_code=303)
         return RedirectResponse(href(request, f"/guild/{guild_id}/tickets?saved=1"), status_code=303)

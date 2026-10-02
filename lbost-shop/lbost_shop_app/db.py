@@ -229,6 +229,12 @@ def init_features(settings: Settings) -> None:
                 _spalte_hinzufuegen(conn, "tickets", "answers_json", "TEXT NOT NULL DEFAULT ''")
                 _spalte_hinzufuegen(conn, "tickets", "closed_by", "INTEGER")
                 _spalte_hinzufuegen(conn, "tickets", "is_locked", "INTEGER NOT NULL DEFAULT 0")
+                _spalte_hinzufuegen(conn, "tickets", "last_owner_message", "INTEGER NOT NULL DEFAULT 0")
+                _spalte_hinzufuegen(conn, "tickets", "last_staff_message", "INTEGER NOT NULL DEFAULT 0")
+                _spalte_hinzufuegen(conn, "tickets", "last_staff_id", "INTEGER NOT NULL DEFAULT 0")
+                _spalte_hinzufuegen(conn, "tickets", "user_dm_at", "INTEGER NOT NULL DEFAULT 0")
+                _spalte_hinzufuegen(conn, "tickets", "staff_dm_at", "INTEGER NOT NULL DEFAULT 0")
+                _spalte_hinzufuegen(conn, "tickets", "notify_sleep", "INTEGER NOT NULL DEFAULT 0")
                 conn.execute("CREATE INDEX IF NOT EXISTS idx_shop_transcripts_expiry ON ticket_transcripts(expires_at)")
                 _spalte_hinzufuegen(conn, "warnings", "case_number", "INTEGER NOT NULL DEFAULT 0")
                 _spalte_hinzufuegen(conn, "giveaways", "required_role_id", "INTEGER NOT NULL DEFAULT 0")
@@ -589,13 +595,25 @@ def ticket_fuer_kanal(channel_id: int, settings: Settings) -> dict[str, Any] | N
 
 
 def ticket_setzen(channel_id: int, settings: Settings, **felder: Any) -> None:
-    erlaubt = {"status", "claimed_by", "closed_at", "closed_by", "answers_json", "is_locked"}
+    erlaubt = {"status", "claimed_by", "closed_at", "closed_by", "answers_json", "is_locked",
+               "last_owner_message", "last_staff_message", "last_staff_id", "user_dm_at",
+               "staff_dm_at", "notify_sleep"}
     felder = {k: v for k, v in felder.items() if k in erlaubt}
     if not felder:
         return
     setzung = ", ".join(f"{name}=?" for name in felder)
     with _gesichert(settings) as conn:
         conn.execute(f"UPDATE tickets SET {setzung} WHERE channel_id=?", (*felder.values(), channel_id))
+
+
+def offene_tickets_fuer_benachrichtigung(settings: Settings) -> list[dict[str, Any]]:
+    _connect(settings)
+    with _gesichert(settings) as conn:
+        rows = conn.execute(
+            "SELECT * FROM tickets WHERE status='open' AND notify_sleep=0"
+            " AND (last_owner_message>0 OR last_staff_message>0)"
+        ).fetchall()
+    return [dict(row) for row in rows]
 
 
 def transcript_speichern(ticket_id: int, guild_id: int, guild_name: str, channel_name: str,

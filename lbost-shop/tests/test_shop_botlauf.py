@@ -25,7 +25,7 @@ os.environ.update({
 
 import discord  # noqa: E402
 
-from lbost_shop_app import db  # noqa: E402
+from lbost_shop_app import db, automation as automation_store  # noqa: E402
 from lbost_shop_app.config import get_settings  # noqa: E402
 from lbost_shop_bot.client import ShopBot, layout, taugliche_teilnehmer  # noqa: E402
 
@@ -335,7 +335,7 @@ async def main() -> None:
     assert "Hallo <@7001>, Test Guild ÄÖÜ hilft." in text, text
     assert "Kategorie Support" in text and "#ticket-0001-fufi-dev" in text, text
     assert "**Worum?**" in text and "Login geht nicht" in text, "Antwort fehlt im Tickettext"
-    assert knopfe_aus_view(kanal.ansichten[0]) == ["Claim", "Lock", "Unlock", "Close"], knopfe_aus_view(kanal.ansichten[0])
+    assert knopfe_aus_view(kanal.ansichten[0]) == ["Claim", "Unclaim", "Lock", "Unlock", "Close"], knopfe_aus_view(kanal.ansichten[0])
     assert "Support angefragt" in text_aus_view(kanal.ansichten[1]), "Support nicht erwähnt"
     assert "Offen: #ticket-0001-fufi-dev (0001)" in meldung_text(lauf), meldung_text(lauf)
 
@@ -436,8 +436,11 @@ async def main() -> None:
 
     # 9) Auto-Antwort mit Abkühlzeit: dieselbe Antwort nicht zweimal
     bot.feature_cache.clear()
-    db.set_feature(11, "automation", {"enabled": True, "auto_responses_json": [
-        {"trigger": "danke", "response": "Gerne!", "cooldown_seconds": 60}]}, 1, settings)
+    db.set_feature(11, "automation", {"enabled": True}, 1, settings)
+    automation_store.save_response(settings, 11, {
+        "trigger": "danke", "response": "Gerne!", "cooldown_seconds": 60,
+        "enabled": True, "exact": False,
+    }, 1)
     dialog = FakeChannel(guild, 805, "plauder")
 
     async def fake_layout(channel, titel, beschreibung, **kwargs):

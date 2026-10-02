@@ -251,6 +251,7 @@ class ShopBot(commands.Bot):
         automation_store.ensure_schema(self.settings)
         self.giveaway_worker.start()
         self.automation_worker.start()
+        self.ticket_notify_worker.start()
         self.heartbeat.start()
         await self.custom_commands_service.start()
         await self.tree.sync()
@@ -408,6 +409,18 @@ class ShopBot(commands.Bot):
         cfg = self.feature(guild.id, feature)
         channel_id = int(cfg.get("channel_id") or cfg.get("log_channel_id") or 0)
         channel = guild.get_channel(channel_id)
+        if not channel and feature == "tickets":
+            try:
+                channel = await guild.create_text_channel(
+                    (re.sub(r"[^a-z0-9-]+", "-", self.settings.brand_name.lower()).strip("-") + "-ticket-logs")[:90] or "ticket-logs",
+                    overwrites={guild.default_role: discord.PermissionOverwrite(view_channel=False)},
+                    reason="LBoost Shop ticket logging",
+                )
+                cfg["log_channel_id"] = str(channel.id)
+                db.set_feature(guild.id, "tickets", cfg, 0, self.settings, audit=False)
+                self.feature_cache.pop((guild.id, "tickets"), None)
+            except (discord.Forbidden, discord.HTTPException, AttributeError):
+                channel = None
         if channel:
             await self.send_layout(channel, title, description, color="#526dff")
 
@@ -456,6 +469,11 @@ class ShopBot(commands.Bot):
                 value = custom_id.removeprefix("shop:ticket:create:")
                 panel_key, _, category_key = value.partition("~")
                 await self.start_ticket(interaction, panel_key, category_key)
+            elif custom_id.startswith("shop:ticket:select:"):
+                panel_key = custom_id.removeprefix("shop:ticket:select:")
+                values = list((interaction.data or {}).get("values") or [])
+                if values:
+                    await self.start_ticket(interaction, panel_key, str(values[0]))
             elif custom_id.startswith("shop:ticket:"):
                 await self.ticket_action(interaction, custom_id.rsplit(":", 1)[-1])
             elif custom_id.startswith("shop:role:"):
@@ -536,6 +554,8 @@ class ShopBot(commands.Bot):
         """
         cfg = self.ticket_panel(interaction.guild.id, panel_key, category_key)
         fragen = regeln.fragen_bereinigen(cfg.get("questions_json"))
+        if category_key:
+            fragen = [frage for frage in fragen if not frage.get("category_keys") or category_key in frage.get("category_keys", [])]
         if fragen:
             await interaction.response.send_modal(TicketFragenModal(self, panel_key, category_key, fragen))
             return
@@ -598,18 +618,20 @@ class ShopBot(commands.Bot):
         worte = regeln.ersetzungen(
             ticket_number=f"{nummer:04d}",
             user=f"<@{member.id}>",
-            category=kategorie.name if isinstance(kategorie, discord.CategoryChannel) else "Support",
+            category=str(cfg.get("name") or (kategorie.name if isinstance(kategorie, discord.CategoryChannel) else "Support")),
             server=guild.name,
             channel=f"#{channel.name}",
         )
         texte = regeln.ticket_texte(cfg, worte, antworten=antworten)
         titel = texte["titel"]
         text = texte["nachricht"]
+        action_emoji = emoji(cfg.get("emoji") or cfg.get("button_emoji"))
         buttons = [
-            discord.ui.Button(label=str(cfg.get("claim_label") or "Claim")[:80], emoji=emoji(cfg.get("claim_emoji")), style=discord.ButtonStyle.primary, custom_id="shop:ticket:claim"),
-            discord.ui.Button(label="Lock", style=discord.ButtonStyle.secondary, custom_id="shop:ticket:lock"),
-            discord.ui.Button(label="Unlock", style=discord.ButtonStyle.secondary, custom_id="shop:ticket:unlock"),
-            discord.ui.Button(label=str(cfg.get("close_label") or "Close")[:80], emoji=emoji(cfg.get("close_emoji")), style=discord.ButtonStyle.danger, custom_id="shop:ticket:close"),
+            discord.ui.Button(label=str(cfg.get("claim_label") or "Claim")[:80], emoji=emoji(cfg.get("claim_emoji")) or action_emoji, style=discord.ButtonStyle.primary, custom_id="shop:ticket:claim"),
+            discord.ui.Button(label="Unclaim", emoji=action_emoji, style=discord.ButtonStyle.secondary, custom_id="shop:ticket:unclaim"),
+            discord.ui.Button(label="Lock", emoji=action_emoji, style=discord.ButtonStyle.secondary, custom_id="shop:ticket:lock"),
+            discord.ui.Button(label="Unlock", emoji=action_emoji, style=discord.ButtonStyle.secondary, custom_id="shop:ticket:unlock"),
+            discord.ui.Button(label=str(cfg.get("close_label") or "Close")[:80], emoji=emoji(cfg.get("close_emoji")) or action_emoji, style=discord.ButtonStyle.danger, custom_id="shop:ticket:close"),
         ]
         await self.send_layout(channel, titel, text, color=cfg.get("color"), buttons=buttons,
                                image_url=str(cfg.get("ticket_image_url") or ""),
@@ -638,8 +660,17 @@ class ShopBot(commands.Bot):
         if not self.can_manage_ticket(member, cfg):
             return await self.interaction_notice(interaction, "Keine Berechtigung", "Du darfst dieses Ticket nicht verwalten.", error=True)
         if action == "claim":
+            if ticket.get("claimed_by"):
+                return await self.interaction_notice(interaction, "Bereits übernommen", f"Dieses Ticket wird bereits von <@{ticket['claimed_by']}> bearbeitet.", error=True)
             db.ticket_setzen(channel.id, self.settings, claimed_by=member.id)
+            await self.log(guild, "Ticket übernommen", f"Kanal: <#{channel.id}>\nTeammitglied: <@{member.id}>", "tickets")
             return await self.interaction_notice(interaction, "Ticket übernommen", f"Dieses Ticket wird jetzt von <@{member.id}> bearbeitet.")
+        if action == "unclaim":
+            if not ticket.get("claimed_by"):
+                return await self.interaction_notice(interaction, "Nicht übernommen", "Dieses Ticket ist derzeit niemandem zugewiesen.", error=True)
+            db.ticket_setzen(channel.id, self.settings, claimed_by=None)
+            await self.log(guild, "Ticket freigegeben", f"Kanal: <#{channel.id}>\nTeammitglied: <@{member.id}>", "tickets")
+            return await self.interaction_notice(interaction, "Ticket freigegeben", f"Freigegeben von <@{member.id}>.")
         if action in {"lock", "unlock"}:
             owner = guild.get_member(int(ticket["owner_id"]))
             locked = action == "lock"
@@ -649,6 +680,7 @@ class ShopBot(commands.Bot):
                 except discord.HTTPException:
                     return await self.interaction_notice(interaction, "Discord error", "The ticket permissions could not be changed.", error=True)
             db.ticket_setzen(channel.id, self.settings, is_locked=1 if locked else 0)
+            await self.log(guild, "Ticket gesperrt" if locked else "Ticket entsperrt", f"Kanal: <#{channel.id}>\nTeammitglied: <@{member.id}>", "tickets")
             return await self.interaction_notice(interaction, "Ticket locked" if locked else "Ticket unlocked", f"Changed by <@{member.id}>.")
         if action == "reopen":
             await interaction.response.defer(ephemeral=True)
@@ -658,8 +690,17 @@ class ShopBot(commands.Bot):
             category = guild.get_channel(int(cfg.get("category_id") or 0))
             if isinstance(category, discord.CategoryChannel):
                 await channel.edit(category=category)
-            db.ticket_setzen(channel.id, self.settings, status="open", closed_at=None, closed_by=None, is_locked=0)
-            await self.send_layout(channel, "Ticket Reopened", f"Reopened by <@{member.id}>.", color="#3ba55d")
+            db.ticket_setzen(channel.id, self.settings, status="open", closed_at=None, closed_by=None, is_locked=0, claimed_by=None, notify_sleep=0)
+            action_emoji = emoji(cfg.get("emoji") or cfg.get("button_emoji"))
+            buttons = [
+                discord.ui.Button(label="Claim", emoji=action_emoji, style=discord.ButtonStyle.primary, custom_id="shop:ticket:claim"),
+                discord.ui.Button(label="Unclaim", emoji=action_emoji, style=discord.ButtonStyle.secondary, custom_id="shop:ticket:unclaim"),
+                discord.ui.Button(label="Lock", emoji=action_emoji, style=discord.ButtonStyle.secondary, custom_id="shop:ticket:lock"),
+                discord.ui.Button(label="Unlock", emoji=action_emoji, style=discord.ButtonStyle.secondary, custom_id="shop:ticket:unlock"),
+                discord.ui.Button(label="Close", emoji=action_emoji, style=discord.ButtonStyle.danger, custom_id="shop:ticket:close"),
+            ]
+            await self.send_layout(channel, "Ticket Reopened", f"Reopened by <@{member.id}>.", color="#3ba55d", buttons=buttons)
+            await self.log(guild, "Ticket wieder geöffnet", f"Kanal: <#{channel.id}>\nTeammitglied: <@{member.id}>", "tickets")
             return await interaction.followup.send(view=layout("Ticket Reopened", "The ticket is open again.", color="#3ba55d"), ephemeral=True)
         if action == "close":
             await interaction.response.defer(ephemeral=True)
@@ -670,15 +711,29 @@ class ShopBot(commands.Bot):
                 except discord.HTTPException:
                     logger.warning("Could not lock ticket channel", exc_info=True)
             archive = guild.get_channel(int(cfg.get("closed_category_id") or 0))
+            if not isinstance(archive, discord.CategoryChannel):
+                try:
+                    archive = await guild.create_category(
+                        "Closed Tickets",
+                        overwrites={guild.default_role: discord.PermissionOverwrite(view_channel=False)},
+                        reason="LBoost Shop ticket archive",
+                    )
+                    server_cfg = self.feature(guild.id, "tickets")
+                    server_cfg["closed_category_id"] = str(archive.id)
+                    db.set_feature(guild.id, "tickets", server_cfg, 0, self.settings, audit=False)
+                    self.feature_cache.pop((guild.id, "tickets"), None)
+                except (discord.Forbidden, discord.HTTPException, AttributeError):
+                    archive = None
             if isinstance(archive, discord.CategoryChannel):
                 try:
                     await channel.edit(category=archive)
                 except discord.HTTPException:
                     pass
             db.ticket_setzen(channel.id, self.settings, status="closed", closed_at=int(time.time()), closed_by=member.id)
+            action_emoji = emoji(cfg.get("emoji") or cfg.get("button_emoji"))
             buttons = [
-                discord.ui.Button(label="Reopen", style=discord.ButtonStyle.success, custom_id="shop:ticket:reopen"),
-                discord.ui.Button(label=str(cfg.get("delete_label") or "Delete")[:80], emoji=emoji(cfg.get("delete_emoji")), style=discord.ButtonStyle.danger, custom_id="shop:ticket:delete"),
+                discord.ui.Button(label="Reopen", emoji=action_emoji, style=discord.ButtonStyle.success, custom_id="shop:ticket:reopen"),
+                discord.ui.Button(label=str(cfg.get("delete_label") or "Delete")[:80], emoji=emoji(cfg.get("delete_emoji")) or action_emoji, style=discord.ButtonStyle.danger, custom_id="shop:ticket:delete"),
             ]
             await self.send_layout(channel, "Ticket Closed",
                                    f"Closed by <@{member.id}>. The ticket creator was removed.",
@@ -686,8 +741,9 @@ class ShopBot(commands.Bot):
             await self.log(guild, "Ticket geschlossen", f"Kanal: <#{channel.id}>\nGeschlossen von: <@{member.id}>", "tickets")
             return await interaction.followup.send(view=layout("Ticket Closed", "The ticket was archived."), ephemeral=True)
         if action == "delete":
-            yes = discord.ui.Button(label="Yes", emoji=emoji(cfg.get("button_emoji")), style=discord.ButtonStyle.success, custom_id="shop:ticket:delete_yes")
-            no = discord.ui.Button(label="No", emoji=emoji(cfg.get("delete_emoji")), style=discord.ButtonStyle.secondary, custom_id="shop:ticket:delete_no")
+            action_emoji = emoji(cfg.get("emoji") or cfg.get("button_emoji"))
+            yes = discord.ui.Button(label="Yes", emoji=action_emoji, style=discord.ButtonStyle.success, custom_id="shop:ticket:delete_yes")
+            no = discord.ui.Button(label="No", emoji=emoji(cfg.get("delete_emoji")) or action_emoji, style=discord.ButtonStyle.secondary, custom_id="shop:ticket:delete_no")
             return await interaction.response.send_message(
                 view=layout(
                     "Save ticket transcript?",
@@ -733,7 +789,8 @@ class ShopBot(commands.Bot):
                             ))
                         except Exception:
                             pass
-            db.ticket_setzen(channel.id, self.settings, status="deleted")
+            db.ticket_setzen(channel.id, self.settings, status="deleted", notify_sleep=1)
+            await self.log(guild, "Ticket-Löschung geplant", f"Kanal: <#{channel.id}>\nTeammitglied: <@{member.id}>\nTranscript: {'ja' if wants_dm or always_log else 'nein'}", "tickets")
             await interaction.followup.send(view=layout("Ticket Deletion", "The channel will be deleted in a few seconds.", color="#ed4245"), ephemeral=True)
             await asyncio.sleep(3)
             try:
@@ -957,10 +1014,37 @@ class ShopBot(commands.Bot):
             user=member, footer=f"User ID: {member.id}",
         )
 
+    async def record_ticket_activity(self, message: discord.Message) -> None:
+        ticket = db.ticket_fuer_kanal(message.channel.id, self.settings)
+        if not ticket or ticket.get("status") != "open":
+            return
+        now = int(time.time())
+        stored = str(ticket.get("panel_key") or "")
+        panel_key, _, category_key = stored.partition("~")
+        cfg = self.ticket_panel(message.guild.id, panel_key, category_key)
+        is_owner = message.author.id == int(ticket["owner_id"])
+        is_staff = self.can_manage_ticket(message.author, cfg)
+        command = (message.content or "").strip().casefold()
+        if is_staff and command in {">sleep", ">wake"}:
+            sleeping = command == ">sleep"
+            db.ticket_setzen(message.channel.id, self.settings, notify_sleep=1 if sleeping else 0)
+            await self.send_layout(
+                message.channel,
+                "Ticket notifications paused" if sleeping else "Ticket notifications resumed",
+                "No reminder DMs will be sent for this ticket." if sleeping else "Reminder DMs are active again.",
+                color="#5865f2",
+            )
+            return
+        if is_owner:
+            db.ticket_setzen(message.channel.id, self.settings, last_owner_message=now)
+        elif is_staff:
+            db.ticket_setzen(message.channel.id, self.settings, last_staff_message=now, last_staff_id=message.author.id)
+
     async def on_message(self, message: discord.Message) -> None:
         if not message.guild or message.author.bot:
             return
         giveaway_store.add_activity(message.guild.id, message.author.id, self.settings)
+        await self.record_ticket_activity(message)
         member = message.author
         # ``roles`` und ``guild_permissions`` hängen am Mitglied, nicht am
         # Nutzer-Objekt; über getattr läuft der Pfad auch, wenn das Mitglied
@@ -1475,6 +1559,55 @@ class ShopBot(commands.Bot):
 
     @automation_worker.before_loop
     async def before_automation(self) -> None:
+        await self.wait_until_ready()
+
+    @tasks.loop(seconds=30)
+    async def ticket_notify_worker(self) -> None:
+        now = int(time.time())
+        hour = datetime.now(timezone.utc).hour
+        for ticket in db.offene_tickets_fuer_benachrichtigung(self.settings):
+            guild = self.get_guild(int(ticket["guild_id"]))
+            if not guild:
+                continue
+            cfg = self.feature(guild.id, "tickets")
+            if not cfg.get("enabled", True):
+                continue
+            if cfg.get("notify_quiet_enabled"):
+                start = max(0, min(23, int(cfg.get("notify_quiet_start") or 22)))
+                end = max(0, min(23, int(cfg.get("notify_quiet_end") or 7)))
+                quiet = start <= hour < end if start < end else hour >= start or hour < end
+                if quiet:
+                    continue
+            channel = guild.get_channel(int(ticket["channel_id"]))
+            if not channel:
+                continue
+            last_owner = int(ticket.get("last_owner_message") or 0)
+            last_staff = int(ticket.get("last_staff_message") or 0)
+            if cfg.get("notify_user_enabled") and last_staff > last_owner:
+                delay = max(30, min(86400, int(cfg.get("notify_user_delay") or 900)))
+                cooldown = max(60, min(604800, int(cfg.get("notify_user_cooldown") or 21600)))
+                if now - last_staff >= delay and now - int(ticket.get("user_dm_at") or 0) >= cooldown:
+                    recipient = guild.get_member(int(ticket["owner_id"]))
+                    if recipient:
+                        try:
+                            await recipient.send(view=layout("New reply in your ticket", f"The team replied in <#{channel.id}> on **{guild.name}**. Your ticket is waiting for you.", color="#5865f2"))
+                            db.ticket_setzen(channel.id, self.settings, user_dm_at=now)
+                        except (discord.Forbidden, discord.HTTPException):
+                            pass
+            if cfg.get("notify_staff_enabled") and last_staff > 0 and last_owner > last_staff:
+                delay = max(30, min(86400, int(cfg.get("notify_staff_delay") or 900)))
+                cooldown = max(60, min(604800, int(cfg.get("notify_staff_cooldown") or 21600)))
+                if now - last_owner >= delay and now - int(ticket.get("staff_dm_at") or 0) >= cooldown:
+                    recipient = guild.get_member(int(ticket.get("last_staff_id") or 0))
+                    if recipient:
+                        try:
+                            await recipient.send(view=layout("Ticket is waiting", f"The creator replied in <#{channel.id}> on **{guild.name}** and is waiting for the team.", color="#f0b232"))
+                            db.ticket_setzen(channel.id, self.settings, staff_dm_at=now)
+                        except (discord.Forbidden, discord.HTTPException):
+                            pass
+
+    @ticket_notify_worker.before_loop
+    async def before_ticket_notify(self) -> None:
         await self.wait_until_ready()
 
     @tasks.loop(seconds=20)

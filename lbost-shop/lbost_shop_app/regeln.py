@@ -94,12 +94,17 @@ def fragen_bereinigen(wert: Any) -> list[dict[str, Any]]:
         typ = str(eintrag.get("type") or eintrag.get("style") or "short")
         if typ not in FRAGE_TYPEN:
             typ = "short"
-        required = typ != "image" and bool(eintrag.get("required", True))
+        category_keys: list[str] = []
+        for raw_key in eintrag.get("category_keys") or eintrag.get("category_ids") or []:
+            key = re.sub(r"[^a-zA-Z0-9_-]", "", str(raw_key))[:28]
+            if key and key not in category_keys:
+                category_keys.append(key)
         sauber.append({
             "label": label,
             "placeholder": str(eintrag.get("placeholder") or "").strip()[:MAX_FRAGE_HINWEIS],
-            "required": bool(eintrag.get("required", True)) if typ != "image" else required,
+            "required": bool(eintrag.get("required", True)),
             "type": typ,
+            "category_keys": category_keys,
         })
         if len(sauber) >= MAX_TICKET_QUESTIONS:
             break
