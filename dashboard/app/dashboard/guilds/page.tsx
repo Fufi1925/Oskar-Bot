@@ -1,6 +1,5 @@
 import React from "react";
-import Link from "next/link";
-import { Home, ShieldCheck, Users } from "lucide-react";
+import { ShieldCheck, Users } from "lucide-react";
 import { api } from "@/lib/api";
 import { GuildSummary } from "@/types/api";
 import { getServerSession } from "next-auth/next";
@@ -130,25 +129,16 @@ export default async function GuildsPage() {
 
   return (
     <div className="space-y-6">
-      <Link
-        href="/"
-        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-800 bg-[#131318] px-3 py-1.5 text-[12px] font-semibold text-slate-400 transition-colors hover:border-slate-700 hover:text-white"
-      >
-        <Home className="h-3.5 w-3.5 text-sky-400" />
-        Zur Startseite
-      </Link>
-      <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-end">
-        <div>
-          <h1 className="text-2xl font-bold text-white">Deine Server</h1>
-          <p className="mt-1.5 text-[14px] text-slate-400">
-            {connected.length > 0
-              ? "Wähle einen Server, um seine Einstellungen zu verwalten."
-              : "Füge den Bot auf einem Server hinzu, um loszulegen."}
-          </p>
+      <div>
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <h1 className="text-2xl font-bold tracking-tight text-white">Server</h1>
+          <span className="text-xs text-slate-500">{connected.length} verbunden · {missing.length} ohne Bot</span>
         </div>
-      {/* Sprachumschalter steht nicht mehr hier: er haengt seitdem in
-          der Kopfzeile des Dashboard-Layouts, direkt neben dem Profil —
-          auf dieser Seite waere er sonst doppelt. */}
+        <p className="mt-1.5 text-[14px] text-slate-400">
+          {connected.length > 0
+            ? "Wähle einen Server und verwalte seine Einstellungen."
+            : "Füge den Bot auf einem Server hinzu, um loszulegen."}
+        </p>
       </div>
 
       {error && !userGuilds.length && (
