@@ -74,6 +74,8 @@ export interface TicketCategory {
   staff_roles: string[];
   button_style?: number;
   discord_category_id?: string | null;
+  ticket_welcome_title?: string;
+  ticket_welcome_message?: string;
 }
 
 export interface TicketEmbed {

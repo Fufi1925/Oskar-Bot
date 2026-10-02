@@ -70,7 +70,10 @@ SCHEMA: dict[str, tuple[str, ...]] = {
             emoji TEXT,
             notified_roles TEXT,
             button_style INTEGER,
-            discord_category_id INTEGER
+            discord_category_id INTEGER,
+            panel_id INTEGER,
+            ticket_welcome_title TEXT NOT NULL DEFAULT '',
+            ticket_welcome_message TEXT NOT NULL DEFAULT ''
         )""",
         """CREATE TABLE IF NOT EXISTS open_tickets (
             channel_id INTEGER PRIMARY KEY,

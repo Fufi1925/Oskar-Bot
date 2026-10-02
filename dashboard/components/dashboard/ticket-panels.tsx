@@ -21,6 +21,8 @@ interface Category {
   staff_roles: string[];
   button_style: number;
   discord_category_id: string | null;
+  ticket_welcome_title: string;
+  ticket_welcome_message: string;
 }
 
 interface TicketQuestion {
@@ -78,6 +80,27 @@ function isImageUrl(url: string) {
 function hexOf(color: number | null) {
   return `#${Number(color ?? 0x5865f2).toString(16).padStart(6, "0")}`;
 }
+
+function categoryPreview(value: string, category: string) {
+  const examples: Record<string, string> = {
+    ticket_number: "0042",
+    user: "@Alex",
+    category: category || "Support",
+    server: "University Community",
+    channel: "#ticket-0042-alex",
+  };
+  return String(value || "").replace(
+    /\{(ticket_number|user|category|server|channel)\}/g,
+    (_, key: string) => examples[key] || "",
+  );
+}
+
+const CATEGORY_BUTTON_PREVIEW: Record<number, string> = {
+  1: "bg-[#5865f2] text-white",
+  2: "bg-[#4e5058] text-white",
+  3: "bg-[#248046] text-white",
+  4: "bg-[#da373c] text-white",
+};
 
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
@@ -651,6 +674,10 @@ export function TicketPanels({ guildId }: { guildId: string }) {
   const patchServer = (data: any) =>
     run(() => api.updateTicketServer(guildId, data), "Gespeichert.");
 
+  const editingPanel = editing
+    ? panels.find((panel) => panel.panel_id === editing.panelId) || null
+    : null;
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[300px]">
@@ -664,7 +691,7 @@ export function TicketPanels({ guildId }: { guildId: string }) {
       {/* ── Category editor ─────────────────────────────── */}
       {editing && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-[#131318] border border-slate-800 rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden">
+          <div className="bg-[#131318] border border-slate-800 rounded-3xl w-full max-w-3xl shadow-2xl overflow-hidden">
             <div className="p-6 border-b border-slate-800 flex items-center justify-between">
               <h3 className="font-bold text-white">
                 {editing.cat.category_id ? "Kategorie bearbeiten" : "Neue Kategorie"}
@@ -787,6 +814,83 @@ export function TicketPanels({ guildId }: { guildId: string }) {
                 </div>
               </Field>
               )}
+
+              <section className="rounded-2xl border border-amber-400/20 bg-amber-400/[.035] p-4">
+                <div className="flex items-start gap-3">
+                  <Crown className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-sm font-bold text-white">Eigene Nachricht für diese Kategorie</p>
+                      <span className="rounded-md bg-amber-400/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-amber-300">Premium</span>
+                    </div>
+                    <p className="mt-1 text-[11px] leading-5 text-slate-500">
+                      Zum Beispiel kann „Fragen“ einen anderen Begrüßungstext als „Termin“ erhalten. Leere Felder übernehmen die erweiterte Nachricht des Panels.
+                    </p>
+                  </div>
+                </div>
+
+                {premiumConfigurable ? (
+                  <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_.9fr]">
+                    <div className="space-y-3">
+                      <Field label="Titel im Ticket">
+                        <input
+                          value={editing.cat.ticket_welcome_title || ""}
+                          onChange={(event) => setEditing({ ...editing, cat: { ...editing.cat, ticket_welcome_title: event.target.value } })}
+                          maxLength={256}
+                          placeholder={editingPanel?.ticket_welcome_title || "Ticket #{ticket_number}"}
+                          className="w-full rounded-xl border border-slate-800 bg-[#0e0e12] px-4 py-3 text-sm text-white outline-none focus:border-amber-400/35"
+                        />
+                      </Field>
+                      <Field
+                        label="Nachricht im Ticket"
+                        hint="Platzhalter: {user}, {ticket_number}, {category}, {server}, {channel}"
+                      >
+                        <textarea
+                          value={editing.cat.ticket_welcome_message || ""}
+                          onChange={(event) => setEditing({ ...editing, cat: { ...editing.cat, ticket_welcome_message: event.target.value } })}
+                          maxLength={4000}
+                          rows={6}
+                          placeholder={editingPanel?.ticket_welcome_message || "Danke, dass du dich meldest, {user}."}
+                          className="w-full resize-y rounded-xl border border-slate-800 bg-[#0e0e12] px-4 py-3 text-sm leading-6 text-white outline-none focus:border-amber-400/35"
+                        />
+                      </Field>
+                    </div>
+
+                    <div>
+                      <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-slate-500">Live-Vorschau</p>
+                      <div className="rounded-xl bg-[#313338] p-3 text-[#dbdee1] shadow-inner">
+                        <div className="border-l-4 border-[#5865f2] bg-[#2b2d31] p-3">
+                          <p className="text-sm font-bold text-white">
+                            {categoryPreview(
+                              editing.cat.ticket_welcome_title || editingPanel?.ticket_welcome_title || "Ticket #{ticket_number}",
+                              editing.cat.name,
+                            )}
+                          </p>
+                          <p className="mt-2 whitespace-pre-wrap text-xs leading-5 text-[#dbdee1]">
+                            {categoryPreview(
+                              editing.cat.ticket_welcome_message || editingPanel?.ticket_welcome_message || "Danke, dass du dich meldest, {user}.",
+                              editing.cat.name,
+                            )}
+                          </p>
+                          <p className="mt-3 text-[10px] text-[#949ba4]">Kategorie: {editing.cat.name || "Support"}</p>
+                        </div>
+                        {editing.panelType !== "dropdown" && (
+                          <div className="mt-2">
+                            <span className={cn("inline-flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium", CATEGORY_BUTTON_PREVIEW[editing.cat.button_style] || CATEGORY_BUTTON_PREVIEW[2])}>
+                              <DiscordEmoji value={editing.cat.emoji || "🎫"} className="h-4 w-4" />
+                              {editing.cat.name || "Support"}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mt-4 flex items-center gap-2 rounded-xl border border-amber-400/15 bg-black/10 px-3 py-3 text-xs text-amber-200/80">
+                    <Lock className="h-4 w-4 shrink-0" /> Aktives Server-Premium wird zum Bearbeiten benötigt.
+                  </div>
+                )}
+              </section>
             </div>
 
             <div className="p-6 border-t border-slate-800 flex gap-3">
@@ -1168,6 +1272,8 @@ export function TicketPanels({ guildId }: { guildId: string }) {
                               staff_roles: [],
                               button_style: 2,
                               discord_category_id: null,
+                              ticket_welcome_title: "",
+                              ticket_welcome_message: "",
                             },
                           })
                         }
@@ -1198,6 +1304,11 @@ export function TicketPanels({ guildId }: { guildId: string }) {
                               {cat.staff_roles.length} Rolle
                               {cat.staff_roles.length === 1 ? "" : "n"}
                             </span>
+                            {(cat.ticket_welcome_title || cat.ticket_welcome_message) && (
+                              <span className="rounded-md border border-amber-400/20 bg-amber-400/[.07] px-2 py-1 text-[9px] font-black uppercase tracking-wider text-amber-300">
+                                Eigene Nachricht
+                              </span>
+                            )}
                             {!cat.discord_category_id && (
                               <span className="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-lg bg-amber-500/10 text-amber-300 border border-amber-500/25">
                                 Keine Kanal-Kategorie

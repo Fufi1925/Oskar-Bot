@@ -104,7 +104,9 @@ async def ensure_schema(db: aiosqlite.Connection) -> None:
             notified_roles TEXT,
             button_style INTEGER,
             discord_category_id INTEGER,
-            panel_id INTEGER
+            panel_id INTEGER,
+            ticket_welcome_title TEXT NOT NULL DEFAULT '',
+            ticket_welcome_message TEXT NOT NULL DEFAULT ''
         )
         """
     )
@@ -180,6 +182,14 @@ async def ensure_schema(db: aiosqlite.Connection) -> None:
     if cat_columns and "panel_id" not in cat_columns:
         await db.execute(
             "ALTER TABLE ticket_categories ADD COLUMN panel_id INTEGER"
+        )
+    if cat_columns and "ticket_welcome_title" not in cat_columns:
+        await db.execute(
+            "ALTER TABLE ticket_categories ADD COLUMN ticket_welcome_title TEXT NOT NULL DEFAULT ''"
+        )
+    if cat_columns and "ticket_welcome_message" not in cat_columns:
+        await db.execute(
+            "ALTER TABLE ticket_categories ADD COLUMN ticket_welcome_message TEXT NOT NULL DEFAULT ''"
         )
 
     # guild_configs.staff_roles was written by the API but never existed in
@@ -378,7 +388,8 @@ async def list_panels(db: aiosqlite.Connection, guild_id: int) -> list[dict]:
         panel_id = row[0]
         async with db.execute(
             "SELECT category_id, name, emoji, notified_roles, button_style,"
-            " discord_category_id FROM ticket_categories"
+            " discord_category_id, ticket_welcome_title, ticket_welcome_message"
+            " FROM ticket_categories"
             " WHERE guild_id = ? AND panel_id = ? ORDER BY category_id",
             (guild_id, panel_id),
         ) as cat_cursor:
@@ -410,6 +421,8 @@ async def list_panels(db: aiosqlite.Connection, guild_id: int) -> list[dict]:
                     "staff_roles": _split_roles(c[3]),
                     "button_style": c[4] or 2,
                     "discord_category_id": str(c[5]) if c[5] else None,
+                    "ticket_welcome_title": c[6] or "",
+                    "ticket_welcome_message": c[7] or "",
                 }
                 for c in cats
             ],
@@ -550,23 +563,50 @@ async def upsert_category(
     except (TypeError, ValueError):
         style = 2
     target = data.get("discord_category_id") or None
-
     category_id = data.get("category_id")
+    existing_title = existing_message = ""
+    if category_id and (
+        "ticket_welcome_title" not in data or "ticket_welcome_message" not in data
+    ):
+        async with db.execute(
+            "SELECT ticket_welcome_title, ticket_welcome_message"
+            " FROM ticket_categories WHERE category_id = ? AND guild_id = ?",
+            (category_id, guild_id),
+        ) as cursor:
+            existing = await cursor.fetchone()
+        if existing:
+            existing_title = str(existing[0] or "")
+            existing_message = str(existing[1] or "")
+    welcome_title = str(
+        data.get("ticket_welcome_title", existing_title) or ""
+    ).strip()[:256]
+    welcome_message = str(
+        data.get("ticket_welcome_message", existing_message) or ""
+    ).strip()[:4000]
+
     if category_id:
         await db.execute(
             "UPDATE ticket_categories SET name = ?, emoji = ?, notified_roles = ?,"
-            " button_style = ?, discord_category_id = ?, panel_id = ?"
+            " button_style = ?, discord_category_id = ?, panel_id = ?,"
+            " ticket_welcome_title = ?, ticket_welcome_message = ?"
             " WHERE category_id = ? AND guild_id = ?",
-            (name, emoji, roles, style, target, panel_id, category_id, guild_id),
+            (
+                name, emoji, roles, style, target, panel_id,
+                welcome_title, welcome_message, category_id, guild_id,
+            ),
         )
         await db.commit()
         return int(category_id)
 
     cursor = await db.execute(
         "INSERT INTO ticket_categories (guild_id, panel_id, name, emoji,"
-        " notified_roles, button_style, discord_category_id)"
-        " VALUES (?, ?, ?, ?, ?, ?, ?)",
-        (guild_id, panel_id, name, emoji, roles, style, target),
+        " notified_roles, button_style, discord_category_id,"
+        " ticket_welcome_title, ticket_welcome_message)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (
+            guild_id, panel_id, name, emoji, roles, style, target,
+            welcome_title, welcome_message,
+        ),
     )
     await db.commit()
     return cursor.lastrowid

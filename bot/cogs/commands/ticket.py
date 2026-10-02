@@ -69,7 +69,7 @@ class TicketDatabase:
     def _create_tables(self):
         with self.conn:
             self.conn.execute("CREATE TABLE IF NOT EXISTS guild_configs (guild_id INTEGER PRIMARY KEY, panel_channel_id INTEGER, logging_channel_id INTEGER, panel_message_id INTEGER, panel_type TEXT, embed_title TEXT, embed_description TEXT, embed_color INTEGER, embed_image_url TEXT, embed_thumbnail_url TEXT, closed_category_id INTEGER)")
-            self.conn.execute("CREATE TABLE IF NOT EXISTS ticket_categories (category_id INTEGER PRIMARY KEY AUTOINCREMENT, guild_id INTEGER, name TEXT NOT NULL, emoji TEXT, notified_roles TEXT, button_style INTEGER, discord_category_id INTEGER, FOREIGN KEY (guild_id) REFERENCES guild_configs(guild_id) ON DELETE CASCADE)")
+            self.conn.execute("CREATE TABLE IF NOT EXISTS ticket_categories (category_id INTEGER PRIMARY KEY AUTOINCREMENT, guild_id INTEGER, name TEXT NOT NULL, emoji TEXT, notified_roles TEXT, button_style INTEGER, discord_category_id INTEGER, panel_id INTEGER, ticket_welcome_title TEXT NOT NULL DEFAULT '', ticket_welcome_message TEXT NOT NULL DEFAULT '', FOREIGN KEY (guild_id) REFERENCES guild_configs(guild_id) ON DELETE CASCADE)")
             self.conn.execute("CREATE TABLE IF NOT EXISTS open_tickets (channel_id INTEGER PRIMARY KEY, ticket_number INTEGER, guild_id INTEGER, creator_id INTEGER NOT NULL, category_db_id INTEGER, created_at TEXT NOT NULL, closed_by_id INTEGER, closed_at TEXT, is_locked BOOLEAN DEFAULT FALSE, is_claimed BOOLEAN DEFAULT FALSE, claimed_by_id INTEGER, FOREIGN KEY (guild_id) REFERENCES guild_configs(guild_id) ON DELETE CASCADE, FOREIGN KEY (category_db_id) REFERENCES ticket_categories(category_id) ON DELETE SET NULL)")
             self.conn.execute("CREATE TABLE IF NOT EXISTS user_ticket_counts (guild_id INTEGER, user_id INTEGER, ticket_count INTEGER DEFAULT 0, PRIMARY KEY (guild_id, user_id))")
             panel_columns = {
@@ -88,6 +88,21 @@ class TicketDatabase:
                 if panel_columns and column not in panel_columns:
                     self.conn.execute(
                         f"ALTER TABLE ticket_panels ADD COLUMN {column} {definition}"
+                    )
+            category_columns = {
+                row[1] for row in self.conn.execute(
+                    "PRAGMA table_info(ticket_categories)"
+                ).fetchall()
+            }
+            category_migrations = {
+                "panel_id": "INTEGER",
+                "ticket_welcome_title": "TEXT NOT NULL DEFAULT ''",
+                "ticket_welcome_message": "TEXT NOT NULL DEFAULT ''",
+            }
+            for column, definition in category_migrations.items():
+                if column not in category_columns:
+                    self.conn.execute(
+                        f"ALTER TABLE ticket_categories ADD COLUMN {column} {definition}"
                     )
         ticket_ai.ensure_sync_schema(self.conn)
 
@@ -694,6 +709,16 @@ class TicketCog(commands.Cog, name="Ticket System"):
                 return config
             config["title"] = str(row["ticket_welcome_title"] or config["title"])[:256]
             config["message"] = str(row["ticket_welcome_message"] or config["message"])[:4000]
+            # Premium categories may override the panel-wide greeting. Empty
+            # fields intentionally inherit the advanced panel message.
+            if "ticket_welcome_title" in cat_info.keys() and str(
+                cat_info["ticket_welcome_title"] or ""
+            ).strip():
+                config["title"] = str(cat_info["ticket_welcome_title"]).strip()[:256]
+            if "ticket_welcome_message" in cat_info.keys() and str(
+                cat_info["ticket_welcome_message"] or ""
+            ).strip():
+                config["message"] = str(cat_info["ticket_welcome_message"]).strip()[:4000]
             config["created_message"] = str(
                 row["ticket_created_message"] or config["created_message"]
             )[:1900]
@@ -806,9 +831,11 @@ class TicketCog(commands.Cog, name="Ticket System"):
         }
 
         pings = [user.mention]
+        ping_roles = []
         if cat_info['notified_roles']:
             for role_id in cat_info['notified_roles'].split(','):
                 if role := guild.get_role(int(role_id)):
+                    ping_roles.append(role)
                     # Das Team braucht dieselben Rechte wie der Ersteller,
                     # sonst kann es nur zusehen.
                     overwrites[role] = discord.PermissionOverwrite(
@@ -892,7 +919,15 @@ class TicketCog(commands.Cog, name="Ticket System"):
         ticket_embed.set_footer(text=f"Kategorie: {cat_info['name']}")
 
         try:
-            await ch.send(" ".join(pings))
+            await ch.send(
+                " ".join(pings),
+                allowed_mentions=discord.AllowedMentions(
+                    everyone=False,
+                    users=[user],
+                    roles=ping_roles,
+                    replied_user=False,
+                ),
+            )
         except discord.HTTPException:
             # Ohne Erwaehnung geht es zur Not auch -- die Karte ist
             # wichtiger als der Ping.

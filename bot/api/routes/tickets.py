@@ -242,6 +242,16 @@ async def delete_panel(guild_id: int, panel_id: int, actor: str = ""):
 
 @router.put("/{guild_id}/panels/{panel_id}/categories", summary="Add or edit a category")
 async def upsert_category(guild_id: int, panel_id: int, data: dict):
+    category_message_fields = {"ticket_welcome_title", "ticket_welcome_message"}
+    if (
+        category_message_fields.intersection(data)
+        and not feature_gates.has_premium_access(
+            guild_id, data.get("actor"), configure=True
+        )
+    ):
+        # Keep frozen Premium text intact while still allowing ordinary fields
+        # such as team roles or the target category to be maintained.
+        data = {key: value for key, value in data.items() if key not in category_message_fields}
     db = await _db()
     try:
         category_id = await panels.upsert_category(db, guild_id, panel_id, data)

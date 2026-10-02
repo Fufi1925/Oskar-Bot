@@ -91,6 +91,8 @@ class TicketCategory(BaseModel):
     staff_roles: List[int] = []
     button_style: Optional[int] = 2 # Blurple
     discord_category_id: Optional[int] = None
+    ticket_welcome_title: Optional[str] = ""
+    ticket_welcome_message: Optional[str] = ""
 
 class TicketEmbed(BaseModel):
     title: Optional[str]
