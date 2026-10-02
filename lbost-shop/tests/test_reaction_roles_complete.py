@@ -23,8 +23,8 @@ commands = (root / "lbost_shop_bot/reaction_roles.py").read_text(encoding="utf-8
 js = (root / "lbost_shop_app/static/dashboard.js").read_text(encoding="utf-8")
 
 assert all(text in template for text in (
-    "Rolle per Reaktion", "Mitglied per DM benachrichtigen", "Neue Reaktions-Rolle",
-    "Nachrichten-ID", "Server-Emojis", "Alles überprüfen", "Noch keine Reaktions-Rolle eingerichtet",
+    "Rol door reactie", "Breng het lid op de hoogte via DM", "Nieuwe reactierol",
+    "Bericht-ID", "Server-emoji’s", "Controleer alles", "Er is nog geen reactierol ingesteld",
 ))
 assert "<select" not in template and "data-picker-kind=\"channels\"" in template and "data-picker-kind=\"roles\"" in template
 assert "data-rr-emoji-value" in template and "data-rr-add" in template
@@ -50,5 +50,5 @@ assert db.reaktionsrolle_loeschen(123, 789, "✅", settings)
 assert not db.reaktionsrollen(123, settings)
 
 bot = create_bot()
-assert bot.tree.get_command("createrr") and bot.tree.get_command("dmrr")
+assert bot.tree.get_command("maakreactierol") and bot.tree.get_command("dmreactierol")
 print("ok   Reaktions-Rollen: University-Dashboard, Discord-Reaktionen, Rollen und Reparatur")

@@ -45,17 +45,17 @@ _CACHE_MAX = 400
 COLOR_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
 
 LOG_CATEGORIES: dict[str, dict[str, Any]] = {
-    "message_events": {"label": "Nachrichten", "description": "Bearbeitete und gelöschte Nachrichten, mit dem alten Text.", "group": "Inhalte", "noisy": True},
-    "join_leave_events": {"label": "Beitritt & Austritt", "description": "Wer kommt, wer geht, und wie alt das Konto war.", "group": "Menschen"},
-    "member_moderation": {"label": "Moderation", "description": "Banns, Entbannungen, Timeouts und Namensänderungen.", "group": "Menschen"},
-    "voice_events": {"label": "Sprachkanäle", "description": "Betreten, Verlassen und Wechseln von Sprachkanälen.", "group": "Menschen", "noisy": True},
-    "channel_events": {"label": "Kanäle", "description": "Kanäle angelegt, gelöscht oder umbenannt.", "group": "Server"},
-    "role_events": {"label": "Rollen", "description": "Rollen angelegt, gelöscht oder in den Rechten geändert.", "group": "Server"},
-    "emoji_events": {"label": "Emojis", "description": "Server-Emojis hinzugefügt oder entfernt.", "group": "Inhalte"},
-    "reaction_events": {"label": "Reaktionen", "description": "Reaktionen gesetzt und entfernt. Kann viel werden.", "group": "Inhalte", "noisy": True},
-    "system_events": {"label": "Server", "description": "Servername, Symbol und andere Server-Einstellungen.", "group": "Server"},
+    "message_events": {"label": "Nieuws", "description": "Berichten aangepast en verwijderd, met de oude tekst.", "group": "Inhoud", "noisy": True},
+    "join_leave_events": {"label": "Meedoen & weggaan", "description": "Wie komt, wie gaat en hoe oud het account was.", "group": "mensen"},
+    "member_moderation": {"label": "Moderatie", "description": "Bans, unbans, time-outs en naamswijzigingen.", "group": "mensen"},
+    "voice_events": {"label": "Spraakkanalen", "description": "Spraakkanalen openen, verlaten en schakelen.", "group": "mensen", "noisy": True},
+    "channel_events": {"label": "Kanalen", "description": "Kanalen gemaakt, verwijderd of hernoemd.", "group": "Servers"},
+    "role_events": {"label": "Rollen", "description": "Rollen aangemaakt, verwijderd of rechten gewijzigd.", "group": "Servers"},
+    "emoji_events": {"label": "Emoji's", "description": "Server-emoji's toegevoegd of verwijderd.", "group": "Inhoud"},
+    "reaction_events": {"label": "Reacties", "description": "Reacties ingesteld en verwijderd. Het kan veel zijn.", "group": "Inhoud", "noisy": True},
+    "system_events": {"label": "Servers", "description": "Servernaam, pictogram en andere serverinstellingen.", "group": "Servers"},
 }
-LOG_GROUPS = ("Menschen", "Inhalte", "Server")
+LOG_GROUPS = ("mensen", "Inhoud", "Servers")
 
 
 def _channel_permissions(
@@ -132,91 +132,91 @@ def normalise_logging(raw: dict[str, Any] | None) -> dict[str, Any]:
     }
 
 FEATURES: dict[str, dict[str, Any]] = {
-    "tickets": {"title": "Advanced Ticket System", "icon": "ticket", "fields": [
-        ("enabled", "Aktiviert", "bool"), ("panel_channel_id", "Panel-Kanal", "channel"),
+    "tickets": {"title": "Geavanceerd ticketsysteem", "icon": "ticket", "fields": [
+        ("enabled", "Ingeschakeld", "bool"), ("panel_channel_id", "Paneelkanaal", "channel"),
         ("category_id", "Ticket-Kategorie", "channel"), ("closed_category_id", "Archiv-Kategorie", "channel"),
-        ("log_channel_id", "Ticket-Log-Kanal", "channel"),
-        ("always_transcript", "Transcript immer ins Ticket-Log", "bool"),
-        ("support_role_ids", "Support-Rollen (IDs, Komma)", "text"),
-        ("open_role_ids", "Darf Tickets öffnen (Rollen-IDs, leer = alle)", "text"),
-        ("max_open_tickets", "Offene Tickets pro Nutzer", "number"),
-        ("mention_support", "Support bei neuem Ticket erwähnen", "bool"),
-        ("button_label", "Öffnen-Button", "text"),
-        ("button_emoji", "Öffnen-Emoji", "text"), ("claim_label", "Übernehmen-Button", "text"),
-        ("claim_emoji", "Übernehmen-Emoji", "text"), ("close_label", "Schließen-Button", "text"),
-        ("close_emoji", "Übernehmen-Emoji", "text"), ("delete_label", "Löschen-Button", "text"),
-        ("delete_emoji", "Löschen-Emoji", "text"),
+        ("log_channel_id", "Ticketlogkanaal", "channel"),
+        ("always_transcript", "Afschrift altijd in het ticketlogboek", "bool"),
+        ("support_role_ids", "Ondersteunende rollen (ID's, komma)", "text"),
+        ("open_role_ids", "Kan tickets openen (rol-ID's, leeg = alles)", "text"),
+        ("max_open_tickets", "Open tickets per gebruiker", "number"),
+        ("mention_support", "Vermeld ondersteuning voor nieuw ticket", "bool"),
+        ("button_label", "Knop openen", "text"),
+        ("button_emoji", "Emoji openen", "text"), ("claim_label", "Knop Toepassen", "text"),
+        ("claim_emoji", "Neem emoji over", "text"), ("close_label", "Knop Sluiten", "text"),
+        ("close_emoji", "Neem emoji over", "text"), ("delete_label", "Knop Verwijderen", "text"),
+        ("delete_emoji", "Verwijder emoji", "text"),
         ("title", "Embed-Titel", "text"),
-        ("description", "Beschreibung", "textarea"), ("footer", "Footer", "text"),
-        ("color", "Farbe", "color"), ("image_url", "Bild-URL", "url"), ("thumbnail_url", "Thumbnail-URL", "url"),
-        ("ticket_title", "Überschrift im Ticket", "text"),
-        ("ticket_message", "Begrüßung im Ticket", "textarea"),
-        ("ticket_created_message", "Bestätigung an den Nutzer", "text"),
-        ("ticket_image_url", "Bild im Ticket", "url"), ("ticket_thumbnail_url", "Thumbnail im Ticket", "url"),
-        ("channel_name_format", "Kanalname (leer = Standard)", "text"),
-        ("slowmode_seconds", "Slowmode im Ticket (Sekunden)", "number"),
-        ("questions_json", "Fragen beim Öffnen (JSON)", "json"),
-        ("panels_json", "Weitere Panels (JSON)", "json"),
+        ("description", "Beschrijving", "textarea"), ("footer", "Voettekst", "text"),
+        ("color", "kleur", "color"), ("image_url", "Bild-URL", "url"), ("thumbnail_url", "Thumbnail-URL", "url"),
+        ("ticket_title", "Op weg naar het ticket", "text"),
+        ("ticket_message", "Welkom in het ticket", "textarea"),
+        ("ticket_created_message", "Bevestiging aan de gebruiker", "text"),
+        ("ticket_image_url", "Afbeelding in het ticket", "url"), ("ticket_thumbnail_url", "Miniatuur in het ticket", "url"),
+        ("channel_name_format", "Kanaalnaam (leeg = standaard)", "text"),
+        ("slowmode_seconds", "Langzame modus in het ticket (seconden)", "number"),
+        ("questions_json", "Vragen bij het openen (JSON)", "json"),
+        ("panels_json", "Meer panelen (JSON)", "json"),
     ]},
-    "moderation": {"title": "Moderation", "icon": "shield", "fields": [
-        ("enabled", "Aktiviert", "bool"), ("topcheck", "Topcheck", "bool"),
-        ("prefix", "Befehlspräfix", "text"), ("log_channel_id", "Moderations-Log", "channel"),
-        ("anti_spam", "Anti-Spam", "bool"), ("spam_limit", "Nachrichten je 8 Sekunden", "number"),
-        ("spam_timeout", "Timeout bei Spam", "bool"),
-        ("anti_links", "Anti-Link", "bool"), ("allowed_domains", "Erlaubte Domains (Komma)", "text"),
-        ("link_timeout", "Timeout bei fremdem Link", "bool"),
-        ("spam_timeout_minuten", "Timeout-Dauer (Minuten)", "number"),
-        ("exempt_role_ids", "Ausgenommene Rollen (IDs, Komma)", "text"),
+    "moderation": {"title": "Moderatie", "icon": "shield", "fields": [
+        ("enabled", "Ingeschakeld", "bool"), ("topcheck", "Topcontrole", "bool"),
+        ("prefix", "Opdrachtvoorvoegsel", "text"), ("log_channel_id", "Moderations-Log", "channel"),
+        ("anti_spam", "Anti-Spam", "bool"), ("spam_limit", "Berichten van elk 8 seconden", "number"),
+        ("spam_timeout", "Time-out voor spam", "bool"),
+        ("anti_links", "Anti-Link", "bool"), ("allowed_domains", "Toegestane domeinen (komma)", "text"),
+        ("link_timeout", "Time-out voor buitenlandse link", "bool"),
+        ("spam_timeout_minuten", "Time-outduur (minuten)", "number"),
+        ("exempt_role_ids", "Uitgesloten rollen (ID's, komma)", "text"),
     ]},
-    "welcome": {"title": "Welcome & Leave", "icon": "users", "fields": [
-        ("enabled", "Begrüßung aktiviert", "bool"), ("welcome_channel_id", "Willkommenskanal", "channel"),
-        ("welcome_type", "Nachrichtenart", "text"), ("welcome_message", "Willkommenstext", "textarea"),
-        ("welcome_auto_delete_duration", "Nach Sekunden löschen", "number"),
-        ("welcome_embed_message", "Text über der Karte", "textarea"),
-        ("welcome_embed_title", "Kartenüberschrift", "text"),
-        ("welcome_embed_description", "Kartenbeschreibung", "textarea"),
-        ("welcome_embed_author_name", "Kopfzeile", "text"),
-        ("welcome_embed_author_icon", "Kopfzeilenbild", "url"),
-        ("welcome_embed_footer_text", "Fußzeile", "text"),
-        ("welcome_embed_footer_icon", "Fußzeilenbild", "url"),
-        ("welcome_embed_thumbnail", "Thumbnail", "url"), ("welcome_embed_image", "Kartenbild", "url"),
-        ("color", "Farbe", "color"), ("welcome_image_enabled", "Generiertes Willkommensbild", "bool"),
-        ("welcome_image_url", "Eigener Willkommenshintergrund", "url"),
-        ("leave_enabled", "Abschied aktiviert", "bool"), ("leave_channel_id", "Abschiedskanal", "channel"),
-        ("leave_message", "Abschiedstext", "textarea"),
-        ("leave_auto_delete_duration", "Nach Sekunden löschen", "number"),
-        ("leave_image_enabled", "Generiertes Abschiedsbild", "bool"),
-        ("leave_image_url", "Eigener Abschiedshintergrund", "url"),
+    "welcome": {"title": "Welkom en vertrek", "icon": "users", "fields": [
+        ("enabled", "Begroeting geactiveerd", "bool"), ("welcome_channel_id", "Welkomstkanaal", "channel"),
+        ("welcome_type", "Berichttype", "text"), ("welcome_message", "Welkomsttekst", "textarea"),
+        ("welcome_auto_delete_duration", "Verwijder na seconden", "number"),
+        ("welcome_embed_message", "Tekst boven de kaart", "textarea"),
+        ("welcome_embed_title", "Kaartkop", "text"),
+        ("welcome_embed_description", "Kaartbeschrijving", "textarea"),
+        ("welcome_embed_author_name", "Koptekst", "text"),
+        ("welcome_embed_author_icon", "Kopafbeelding", "url"),
+        ("welcome_embed_footer_text", "voettekst", "text"),
+        ("welcome_embed_footer_icon", "Voettekstafbeelding", "url"),
+        ("welcome_embed_thumbnail", "Miniaturen", "url"), ("welcome_embed_image", "Kaartafbeelding", "url"),
+        ("color", "kleur", "color"), ("welcome_image_enabled", "Gegenereerde welkomstafbeelding", "bool"),
+        ("welcome_image_url", "Eigen welkomstachtergrond", "url"),
+        ("leave_enabled", "Afscheid geactiveerd", "bool"), ("leave_channel_id", "Afscheidskanaal", "channel"),
+        ("leave_message", "Afscheid tekst", "textarea"),
+        ("leave_auto_delete_duration", "Verwijder na seconden", "number"),
+        ("leave_image_enabled", "Gegenereerd afscheidsbeeld", "bool"),
+        ("leave_image_url", "Eigen afscheidsachtergrond", "url"),
     ]},
-    "reaction_roles": {"title": "Reaktions-Rollen", "icon": "users", "fields": [
-        ("enabled", "Aktiviert", "bool"),
+    "reaction_roles": {"title": "Reactierollen", "icon": "users", "fields": [
+        ("enabled", "Ingeschakeld", "bool"),
     ]},
-    "custom_commands": {"title": "Custom Commands", "icon": "command", "fields": [
-        ("enabled", "Aktiviert", "bool"),
+    "custom_commands": {"title": "Aangepaste opdrachten", "icon": "command", "fields": [
+        ("enabled", "Ingeschakeld", "bool"),
     ]},
-    "automation": {"title": "Automation", "icon": "bolt", "fields": [
-        ("enabled", "Aktiviert", "bool"), ("auto_responses_json", "Auto-Antworten (JSON)", "json"),
-        ("announcements_json", "Automatische Nachrichten (JSON)", "json"),
+    "automation": {"title": "Automatisering", "icon": "bolt", "fields": [
+        ("enabled", "Ingeschakeld", "bool"), ("auto_responses_json", "Automatische antwoorden (JSON)", "json"),
+        ("announcements_json", "Automatische berichten (JSON)", "json"),
     ]},
-    "logging": {"title": "Logging", "icon": "log", "fields": [
-        ("enabled", "Aktiviert", "bool"), ("channel_id", "Log-Kanal", "channel"),
-        ("member_logs", "Mitglieder-Logs", "bool"), ("message_logs", "Nachrichten-Logs", "bool"),
-        ("moderation_logs", "Moderations-Logs", "bool"), ("role_channel_logs", "Rollen-/Kanal-Logs", "bool"),
-        ("ticket_logs", "Ticket-Logs", "bool"),
+    "logging": {"title": "Loggen", "icon": "log", "fields": [
+        ("enabled", "Ingeschakeld", "bool"), ("channel_id", "Logkanaal", "channel"),
+        ("member_logs", "Ledenlogboeken", "bool"), ("message_logs", "Berichtenlogboeken", "bool"),
+        ("moderation_logs", "Moderatielogboeken", "bool"), ("role_channel_logs", "Rol-/kanaallogboeken", "bool"),
+        ("ticket_logs", "Ticketlogboeken", "bool"),
     ]},
-    "giveaways": {"title": "Giveaways", "icon": "gift", "fields": [
-        ("enabled", "Aktiviert", "bool"), ("log_channel_id", "Giveaway-Log", "channel"),
-        ("manager_role_ids", "Manager-Rollen (IDs, Komma)", "text"),
-        ("required_role_id", "Pflicht-Rolle zum Mitmachen (ID, leer = jede)", "text"),
-        ("default_winners", "Standard-Anzahl Gewinner", "number"),
+    "giveaways": {"title": "Weggeefacties", "icon": "gift", "fields": [
+        ("enabled", "Ingeschakeld", "bool"), ("log_channel_id", "Giveawaylogboek", "channel"),
+        ("manager_role_ids", "Managerrollen (ID's, komma)", "text"),
+        ("required_role_id", "Verplichte rol om deel te nemen (ID, leeg = iedereen)", "text"),
+        ("default_winners", "Standaard aantal winnaars", "number"),
     ]},
 }
 
 #: Wo der Bot Platzhalter ersetzt — im Dashboard sichtbar, damit niemand
 #: rätet, welche Wörter funktionieren.
 PLATZHALTER = {
-    "tickets": "Platzhalter: {ticket_number} {user} {category} {server} {channel}",
-    "welcome": "Platzhalter: {user} {server} {member_count} {channel}",
+    "tickets": "Wildcard: {ticket_number} {user} {category} {server} {channel}",
+    "welcome": "Wildcard: {user} {server} {member_count} {channel}",
 }
 
 #: Grenzen pro Feld. Ohne diese Liste konnte jemand „Nachrichten je 8
@@ -236,16 +236,16 @@ JSON_MAX_GROESSE = 32_000
 
 JSON_HELP: dict[str, dict[str, str]] = {
     "tickets": {
-        "panels_json": '[{"key":"billing","title":"Billing Support","panel_channel_id":"123","category_id":"456","support_role_ids":"789","button_label":"Billing-Ticket"}]',
-        "questions_json": '[{"label":"Um was geht es?","placeholder":"Kurz beschreiben","type":"short","required":true},{"label":"Beleg","type":"image","required":false}]',
+        "panels_json": '[{"key \\\'billing\\\', \\\'title\\\', \\\'Factureringsondersteuning\\\', \\\'panel_channel_id\\\':123 \\\', \\\'category_id\\\':456 \\\', \\\'support_role_ids\\\':789 \\\', button_label \\\'Factuurticket"}]',
+        "questions_json": '[{"label \\\'Waar gaat het over?\\\', placeholder \\\'Beschrijf kort\\\', type \\\'short\\\', \\\'vereist\\\':true},{\\\'label \\\'Beleg\\\', \\\'type\\\': afbeelding, \\\'vereist\\\':false}]',
     },
     "reaction_roles": {
-        "roles_json": '[{"role_id":"123","label":"Updates","emoji":"<:bell:123456>"}]',
-        "panels_json": '[{"title":"Game Roles","channel_id":"123","roles_json":[{"role_id":"456","label":"Player"}]}]',
+        "roles_json": '[...]',
+        "panels_json": '[{"title"Speelrollen","channel_id"123"roles_json":[{"role_id"456"label"Speler"}]}]',
     },
     "automation": {
-        "auto_responses_json": '[{"trigger":"hello","response":"Welcome!","exact":false,"cooldown_seconds":30}]',
-        "custom_commands_json": '[{"name":"rules","title":"Rules","response":"Read the server rules."}]',
+        "auto_responses_json": '[{"trigger":hallo","response"Welkom!", "exact":false,"cooldown_seconds":30}]',
+        "custom_commands_json": '[{"name"regels","title"Regels","response"Lees de serverregels."}]',
         "announcements_json": '[{"channel_id":"123","title":"News","content":"Automatic update","interval_minutes":1440}]',
     },
 }
@@ -254,7 +254,7 @@ SECURITY_HEADERS = {
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "DENY",
     "Referrer-Policy": "no-referrer",
-    "Permissions-Policy": "geolocation=(), microphone=(), camera=()",
+    "Permissions-Policy": "geolocatie=(), microfoon=(), camera=()",
     # style-src bleibt bei 'self': Das Dashboard erzeugt seine Füllgrade über
     # Klassen, nicht über style-Attribute. Wer hier "schnell" unsafe-inline
     # einträgt, macht die Policy zur Deko.
@@ -276,8 +276,8 @@ def _kurz(schluessel: str) -> Any:
     eintrag = _cache.get(schluessel)
     if not eintrag:
         return None
-    wert, bis = eintrag
-    if time.monotonic() > bis:
+    wert, verloopt = eintrag
+    if time.monotonic() > verloopt:
         _cache.pop(schluessel, None)
         return None
     return wert
@@ -286,7 +286,7 @@ def _kurz(schluessel: str) -> Any:
 def _kurz_setzen(schluessel: str, wert: Any, sekunden: float) -> None:
     if len(_cache) > _CACHE_MAX:
         jetzt = time.monotonic()
-        for alt in [k for k, (_wert, bis) in _cache.items() if bis <= jetzt]:
+        for alt in [k for k, (_wert, bis) in _cache.items() if tot <= jetzt]:
             _cache.pop(alt, None)
         while len(_cache) > _CACHE_MAX:
             _cache.pop(next(iter(_cache)))
@@ -326,11 +326,11 @@ def _url_pruefen(feld: str, wert: str) -> str | None:
     try:
         ziel = urlparse(wert)
     except ValueError:
-        return f"{feld}: keine gültige URL."
+        return f"{feld}: geen geldige URL."
     if ziel.scheme not in {"http", "https"} or not ziel.netloc:
-        return f"{feld}: nur http(s)-Links erlaubt."
+        return f"{feld}: alleen http(s)-links toegestaan."
     if len(wert) > 600:
-        return f"{feld}: URL ist länger als 600 Zeichen."
+        return f"{feld}: URL is langer dan 600 tekens."
     return None
 
 
@@ -338,15 +338,15 @@ def _json_pruefen(wert: str) -> tuple[Any, str | None]:
     if not wert.strip():
         return [], None
     if len(wert) > JSON_MAX_GROESSE:
-        return None, f"JSON ist größer als {JSON_MAX_GROESSE // 1000} KB."
+        return None, f"JSON is groter dan {JSON_MAX_GROESSE // 1000} KB."
     try:
         parsed = json.loads(wert)
     except (TypeError, ValueError, json.JSONDecodeError):
-        return None, "JSON konnte nicht gelesen werden."
+        return None, "JSON kon niet worden gelezen."
     if not isinstance(parsed, (list, dict)):
-        return None, "JSON muss eine Liste oder ein Objekt sein."
+        return None, "JSON moet een lijst of een object zijn."
     if isinstance(parsed, list) and len(parsed) > JSON_MAX_FELDER:
-        return None, f"Höchstens {JSON_MAX_FELDER} Einträge."
+        return None, f"Maximaal {JSON_MAX_FELDER} vermeldingen."
     if isinstance(parsed, list):
         parsed = [eintrag for eintrag in parsed if isinstance(eintrag, dict)]
     return parsed, None
@@ -414,7 +414,7 @@ def _werte_aus_formular(spec: dict[str, Any], form: Any, feature: str = "") -> t
                 fehler.append(f"{label}: keine Zahl.")
                 continue
             if not minimum <= zahl <= maximum:
-                fehler.append(f"{label}: nur Werte von {minimum} bis {maximum}.")
+                fehler.append(f"{label}: alleen waarden van {minimum} tot {maximum}.")
                 continue
             values[key] = zahl
         elif typ == "json":
@@ -435,14 +435,14 @@ def _werte_aus_formular(spec: dict[str, Any], form: Any, feature: str = "") -> t
             values[key] = raw
         elif typ == "color":
             if raw and not COLOR_RE.match(raw):
-                fehler.append(f"{label}: Farbe bitte als #rrggbb.")
+                fehler.append(f"{label}: voer de kleur in als #rrggbb.")
                 continue
             values[key] = raw
         elif key.endswith("_role_ids") or key.endswith("_role_id"):
             values[key] = _rollen_ids(raw)
         elif typ == "channel":
             if raw and not raw.isdigit():
-                fehler.append(f"{label}: Kanal-ID ungültig.")
+                fehler.append(f"{label}: kanaal-ID ongeldig.")
                 continue
             values[key] = raw
         else:
@@ -452,7 +452,7 @@ def _werte_aus_formular(spec: dict[str, Any], form: Any, feature: str = "") -> t
 
 def create_app() -> FastAPI:
     settings = get_settings()
-    app = FastAPI(title="LBoost Shop", docs_url=None, redoc_url=None, openapi_url=None)
+    app = FastAPI(title="LBoost-winkel", docs_url=None, redoc_url=None, openapi_url=None)
     # Antworten sind JSON und HTML, beide gut komprimierbar; die Seite hängt
     # hinter dem Railway-Proxy ohne eigenen Cache.
     app.add_middleware(GZipMiddleware, minimum_size=1024)
@@ -470,7 +470,7 @@ def create_app() -> FastAPI:
 
     TEMPLATES.env.filters["strftime"] = _zeitpunkt
     TEMPLATES.env.filters["seit_minuten"] = lambda wert: (
-        "gerade eben" if not wert or int(time.time()) - int(wert) < 60
+        "zojuist" if not wert or int(time.time()) - int(wert) < 60
         else f"vor {(int(time.time()) - int(wert)) // 60} Min."
     )
     TEMPLATES.env.filters["json_pretty"] = lambda wert: (
@@ -614,7 +614,7 @@ def create_app() -> FastAPI:
                 member_count = guild.get("approximate_member_count")
             visible.append({
                 "id": str(guild_id),
-                "name": str(guild.get("name") or "Unbenannter Server"),
+                "name": str(guild.get("name") or "Naamloze server"),
                 "icon_url": f"https://cdn.discordapp.com/icons/{guild_id}/{icon_hash}.png?size=128" if icon_hash else None,
                 "owner": bool(guild.get("owner")),
                 "member_count": member_count if isinstance(member_count, int) else None,
@@ -760,7 +760,7 @@ def create_app() -> FastAPI:
     async def auth_discord(request: Request):
         ip = (request.headers.get("x-forwarded-for") or (request.client.host if request.client else "unknown")).split(",")[0].strip()
         if not _rate_pruefen(ip, settings.login_rate_limit):
-            return PlainTextResponse("Zu viele Loginversuche. Bitte kurz warten.", status_code=429)
+            return PlainTextResponse("Te veel inlogpogingen. Wacht even.", status_code=429)
         if settings.missing_config:
             return RedirectResponse(href(request, "/Login"), status_code=302)
         oauth_state = auth.state()
@@ -841,7 +841,7 @@ def create_app() -> FastAPI:
     async def ticket_transcript(request: Request, ticket_id: int):
         transcript = db.transcript_laden(ticket_id, settings)
         if not transcript:
-            return HTMLResponse("<h1>Transcript unavailable</h1><p>It does not exist or has expired.</p>", status_code=404)
+            return HTMLResponse("<h1>Transcript niet beschikbaar</h1><p>Het bestaat niet of is verlopen.</p>", status_code=404)
         user = session_user_any(request)
         target = f"/Tickets/Transkript/{ticket_id}"
         if not user:
@@ -851,7 +851,7 @@ def create_app() -> FastAPI:
         if not allowed and uid in settings.allowed_ids:
             allowed = bool(await guild_access(user, int(transcript["guild_id"])))
         if not allowed:
-            return HTMLResponse("<h1>Access denied</h1><p>This private transcript does not belong to your Discord account.</p>", status_code=403)
+            return HTMLResponse("<h1>Toegang geweigerd</h1><p>Dit privétranscript hoort niet bij je Discord-account.</p>", status_code=403)
         return render(request, "ticket_transcript.html", transcript=transcript, brand=settings.brand_name)
 
     @app.get("/dashboard", response_class=HTMLResponse)
@@ -924,13 +924,13 @@ def create_app() -> FastAPI:
             return RedirectResponse(href(request, "/dashboard"), status_code=302)
         form = await request.form()
         if not csrf_ok(form.get("csrf"), user):
-            return PlainTextResponse("Ungültige Anfrage.", status_code=403)
+            return PlainTextResponse("Ongeldig verzoek.", status_code=403)
         upload = form.get("config_file")
         if not upload or not hasattr(upload, "read"):
-            return PlainTextResponse("Konfigurationsdatei fehlt.", status_code=400)
+            return PlainTextResponse("Configuratiebestand ontbreekt.", status_code=400)
         raw = await upload.read(1_000_001)
         if len(raw) > 1_000_000:
-            return PlainTextResponse("Konfigurationsdatei ist zu groß.", status_code=413)
+            return PlainTextResponse("Configuratiebestand is te groot.", status_code=413)
         try:
             payload = json.loads(raw)
             imported = payload.get("features", {})
@@ -950,7 +950,7 @@ def create_app() -> FastAPI:
                 db.set_feature(guild_id, feature, gefiltert, int(user["uid"]), settings)
                 uebernommen += 1
         except (TypeError, ValueError, json.JSONDecodeError, UnicodeDecodeError):
-            return PlainTextResponse("Ungültige Konfigurationsdatei.", status_code=400)
+            return PlainTextResponse("Ongeldig configuratiebestand.", status_code=400)
         return RedirectResponse(href(request, f"/guild/{guild_id}?tab=backup&restored={uebernommen}"), status_code=303)
 
     @app.get("/guild/{guild_id}/{feature}", response_class=HTMLResponse)
@@ -970,20 +970,20 @@ def create_app() -> FastAPI:
             panels = [item for item in (values.get("panels_json") or []) if isinstance(item, dict)]
             if not panels:
                 panels = [{
-                    "key": "default", "name": "Support", "title": values.get("title") or "Support Tickets",
-                    "description": values.get("description") or "Choose a category to open a ticket.",
-                    "panel_type": "button", "select_placeholder": "Wähle eine Kategorie…",
+                    "key": "default", "name": "Ondersteuning", "title": values.get("title") or "Ondersteuningstickets",
+                    "description": values.get("description") or "Kies een categorie om een ticket te openen.",
+                    "panel_type": "button", "select_placeholder": "Kies een categorie...",
                     "ticket_title": "Ticket #{ticket_number}",
-                    "ticket_message": "Danke, dass du dich meldest, {user}.",
-                    "ticket_created_message": "Dein Ticket ist offen: {channel}",
+                    "ticket_message": "Bedankt dat u contact heeft opgenomen, {user}.",
+                    "ticket_created_message": "Je ticket is geopend: {channel}",
                     "panel_channel_id": values.get("panel_channel_id") or "", "categories": [{
-                        "key": "support", "name": "Support", "emoji": values.get("button_emoji") or "",
+                        "key": "support", "name": "Ondersteuning", "emoji": values.get("button_emoji") or "",
                         "category_id": values.get("category_id") or "", "support_role_ids": values.get("support_role_ids") or "",
                     }],
                 }]
             for panel in panels:
                 if not panel.get("categories"):
-                    panel["categories"] = [{"key": "support", "name": "Support", "emoji": "", "button_style": 1}]
+                    panel["categories"] = [{"key": "support", "name": "Ondersteuning", "emoji": "", "button_style": 1}]
             try:
                 raw_emojis = await _discord_abfrage(settings.bot_token, f"/guilds/{guild_id}/emojis")
                 server_emojis = [{
@@ -1076,8 +1076,8 @@ def create_app() -> FastAPI:
             defaults = {
                 "welcome_type": "simple", "color": "#5865f2",
                 "welcome_image_enabled": True, "leave_image_enabled": True,
-                "welcome_message": "Willkommen {user} auf **{server_name}**! Du bist Mitglied Nummer {server_membercount}.",
-                "leave_message": "**{user_nick}** hat den Server verlassen.",
+                "welcome_message": "Welkom {user} bij **{server_name}**! U bent lidnummer {server_membercount}.",
+                "leave_message": "**{user_nick}** heeft de server verlaten.",
             }
             return render(
                 request, "welcome.html", guild=guild, feature=feature, spec=spec,
@@ -1095,7 +1095,7 @@ def create_app() -> FastAPI:
                 uid = str(row["user_id"])
                 target = grouped.setdefault(uid, {
                     "user_id": uid,
-                    "name": member_map.get(uid, {}).get("display_name") or member_map.get(uid, {}).get("name") or "Unbekanntes Mitglied",
+                    "name": member_map.get(uid, {}).get("display_name") or member_map.get(uid, {}).get("name") or "Onbekend lid",
                     "entries": [],
                 })
                 target["entries"].append(row)
@@ -1121,7 +1121,7 @@ def create_app() -> FastAPI:
                 member["top_role"] = top_role["name"] if top_role else ""
             warnings: list[str] = []
             if resource_stats.get("bot_can_audit") is False:
-                warnings.append("Ohne „Audit-Log einsehen“ steht bei Banns und gelöschten Nachrichten nicht, wer es war.")
+                warnings.append("Zonder “bekijk auditlogboek” zeggen verboden en verwijderde berichten niet wie het heeft gedaan.")
             channel_map = {item["id"]: item for item in channels}
             panel_order = {
                 "join_leave_events": 0, "member_moderation": 1, "voice_events": 2,
@@ -1137,13 +1137,13 @@ def create_app() -> FastAPI:
                 cannot_embed = bool(channel_info and channel_info.get("can_embed") is False)
                 broken = bool(values["log_enabled"].get(key) and (not channel_id or missing or cannot_post))
                 if values["log_enabled"].get(key) and not channel_id:
-                    warnings.append(f"„{category['label']}“ ist an, aber ohne Kanal wird nichts gepostet.")
+                    warnings.append(f"„{category['label']}” is ingeschakeld, maar zonder kanaal wordt niets geplaatst.")
                 elif missing:
-                    warnings.append(f"Der Kanal für „{category['label']}“ existiert nicht mehr.")
+                    warnings.append(f"Het kanaal voor ‘{category['label']}” bestaat niet meer.")
                 elif cannot_post:
-                    warnings.append(f"Der Bot darf im Kanal für „{category['label']}“ nicht schreiben.")
+                    warnings.append(f"De bot mag niet schrijven in het kanaal voor ‘{category['label']}”.")
                 elif cannot_embed:
-                    warnings.append(f"Ohne „Links einbetten“ bleiben Einträge für „{category['label']}“ unvollständig.")
+                    warnings.append(f"Zonder ‘Links insluiten’ blijven vermeldingen voor ‘{category['label']}” onvolledig.")
                 categories.append({
                     "key": key, **category, "channel": channel_id,
                     "enabled": values["log_enabled"].get(key, False),
@@ -1153,10 +1153,10 @@ def create_app() -> FastAPI:
                 })
             for channel_id in values["ignore_channels"]:
                 if channel_id not in channel_ids:
-                    warnings.append(f"Ein ausgenommener Kanal ({channel_id}) existiert nicht mehr.")
+                    warnings.append(f"Een uitgezonderd kanaal ({channel_id}) bestaat niet meer.")
             for role_id in values["ignore_roles"]:
                 if role_id not in role_ids:
-                    warnings.append(f"Eine ausgenommene Rolle ({role_id}) existiert nicht mehr.")
+                    warnings.append(f"Een uitgezonderde rol ({role_id}) bestaat niet meer.")
             return render(
                 request, "logging.html", guild=guild, feature=feature, spec=spec,
                 values=values, categories=categories, groups=LOG_GROUPS,
@@ -1184,7 +1184,7 @@ def create_app() -> FastAPI:
             return RedirectResponse(href(request, "/dashboard"), status_code=302)
         form = await request.form()
         if not csrf_ok(form.get("csrf"), user):
-            return PlainTextResponse("Ungültige Anfrage.", status_code=403)
+            return PlainTextResponse("Ongeldig verzoek.", status_code=403)
         values = db.get_feature(guild_id, feature, settings)
         values["enabled"] = str(form.get("enabled") or "") in {"1", "true", "on", "yes"}
         db.set_feature(guild_id, feature, values, int(user["uid"]), settings)
@@ -1202,11 +1202,11 @@ def create_app() -> FastAPI:
             return RedirectResponse(href(request, "/dashboard"), status_code=302)
         form = await request.form()
         if not csrf_ok(form.get("csrf"), user):
-            return PlainTextResponse("Ungültige Anfrage.", status_code=403)
+            return PlainTextResponse("Ongeldig verzoek.", status_code=403)
         try:
             panels = json.loads(str(form.get("panels_json") or "[]"))
             if not isinstance(panels, list) or not panels:
-                raise ValueError("Mindestens ein Panel ist erforderlich.")
+                raise ValueError("Er is minimaal één paneel vereist.")
             clean_panels = []
             for index, panel in enumerate(panels):
                 if not isinstance(panel, dict):
@@ -1218,7 +1218,7 @@ def create_app() -> FastAPI:
                         continue
                     categories.append({
                         "key": re.sub(r"[^a-zA-Z0-9_-]", "", str(category.get("key") or f"category-{c_index + 1}"))[:28],
-                        "name": str(category.get("name") or "Support").strip()[:80],
+                        "name": str(category.get("name") or "Ondersteuning").strip()[:80],
                         "emoji": str(category.get("emoji") or "").strip()[:100],
                         "button_style": max(1, min(4, int(category.get("button_style") or 1))),
                         "category_id": str(category.get("category_id") or "") if str(category.get("category_id") or "").isdigit() else "",
@@ -1227,18 +1227,18 @@ def create_app() -> FastAPI:
                         "ticket_message": str(category.get("ticket_message") or "")[:4000],
                     })
                 if not categories:
-                    categories.append({"key": "support", "name": "Support", "emoji": "", "button_style": 1, "category_id": "", "support_role_ids": "", "ticket_title": "", "ticket_message": ""})
+                    categories.append({"key": "support", "name": "Ondersteuning", "emoji": "", "button_style": 1, "category_id": "", "support_role_ids": "", "ticket_title": "", "ticket_message": ""})
                 questions = regeln.fragen_bereinigen(panel.get("questions_json"))
                 clean_panels.append({
-                    "key": key or f"panel-{index + 1}", "name": str(panel.get("name") or "Support")[:100],
-                    "title": str(panel.get("title") or "Support Tickets")[:256],
-                    "description": str(panel.get("description") or "Choose a category to open a ticket.")[:4000],
+                    "key": key or f"panel-{index + 1}", "name": str(panel.get("name") or "Ondersteuning")[:100],
+                    "title": str(panel.get("title") or "Ondersteuningstickets")[:256],
+                    "description": str(panel.get("description") or "Kies een categorie om een ticket te openen.")[:4000],
                     "color": str(panel.get("color") or "#5865f2") if COLOR_RE.fullmatch(str(panel.get("color") or "")) else "#5865f2",
                     "panel_type": "dropdown" if panel.get("panel_type") == "dropdown" else "button",
-                    "select_placeholder": str(panel.get("select_placeholder") or "Wähle eine Kategorie…").strip()[:150],
+                    "select_placeholder": str(panel.get("select_placeholder") or "Kies een categorie...").strip()[:150],
                     "ticket_title": str(panel.get("ticket_title") or "Ticket #{ticket_number}").strip()[:256],
-                    "ticket_message": str(panel.get("ticket_message") or "Danke, dass du dich meldest, {user}.").strip()[:4000],
-                    "ticket_created_message": str(panel.get("ticket_created_message") or "Dein Ticket ist offen: {channel}").strip()[:1900],
+                    "ticket_message": str(panel.get("ticket_message") or "Bedankt dat u contact heeft opgenomen, {user}.").strip()[:4000],
+                    "ticket_created_message": str(panel.get("ticket_created_message") or "Je ticket is geopend: {channel}").strip()[:1900],
                     "panel_channel_id": str(panel.get("panel_channel_id") or "") if str(panel.get("panel_channel_id") or "").isdigit() else "",
                     "image_url": str(panel.get("image_url") or "")[:600], "thumbnail_url": str(panel.get("thumbnail_url") or "")[:600],
                     "message_id": str(panel.get("message_id") or "") if str(panel.get("message_id") or "").isdigit() else "",
@@ -1279,13 +1279,13 @@ def create_app() -> FastAPI:
             return RedirectResponse(href(request, "/dashboard"), status_code=302)
         form = await request.form()
         if not csrf_ok(form.get("csrf"), user):
-            return PlainTextResponse("Ungültige Anfrage.", status_code=403)
+            return PlainTextResponse("Ongeldig verzoek.", status_code=403)
         key = str(form.get("send_panel") or "default")
         values = db.get_feature(guild_id, "tickets", settings)
         panel = next((item for item in (values.get("panels_json") or []) if isinstance(item, dict) and str(item.get("key")) == key), values)
         channel_id = str(panel.get("panel_channel_id") or values.get("panel_channel_id") or "")
         if not channel_id.isdigit():
-            return RedirectResponse(href(request, f"/guild/{guild_id}/tickets?error=Panel-Kanal+fehlt"), status_code=303)
+            return RedirectResponse(href(request, f"/guild/{guild_id}/tickets?error=Paneelkanaal+ontbreekt"), status_code=303)
         categories = list(panel.get("categories") or [])[:15]
         def api_emoji(raw: Any) -> dict[str, Any] | None:
             value = str(raw or "").strip()
@@ -1299,14 +1299,14 @@ def create_app() -> FastAPI:
             options = []
             for index, category in enumerate(categories):
                 category_key = re.sub(r"[^a-zA-Z0-9_-]", "", str(category.get("key") or f"category-{index + 1}"))[:28]
-                option = {"label": str(category.get("name") or "Support")[:100], "value": category_key}
+                option = {"label": str(category.get("name") or "Ondersteuning")[:100], "value": category_key}
                 selected_emoji = api_emoji(category.get("emoji"))
                 if selected_emoji:
                     option["emoji"] = selected_emoji
                 options.append(option)
             rows = [{"type": 1, "components": [{
                 "type": 3, "custom_id": f"shop:ticket:select:{key}"[:100],
-                "placeholder": str(panel.get("select_placeholder") or "Wähle eine Kategorie…")[:150],
+                "placeholder": str(panel.get("select_placeholder") or "Kies een categorie...")[:150],
                 "min_values": 1, "max_values": 1, "options": options,
             }]}]
         else:
@@ -1315,7 +1315,7 @@ def create_app() -> FastAPI:
                 category_key = re.sub(r"[^a-zA-Z0-9_-]", "", str(category.get("key") or f"category-{index + 1}"))[:28]
                 component = {
                     "type": 2, "style": max(1, min(4, int(category.get("button_style") or 1))),
-                    "label": str(category.get("name") or "Support")[:80],
+                    "label": str(category.get("name") or "Ondersteuning")[:80],
                     "custom_id": f"shop:ticket:create:{key}~{category_key}"[:100],
                 }
                 selected_emoji = api_emoji(category.get("emoji"))
@@ -1323,11 +1323,11 @@ def create_app() -> FastAPI:
                     component["emoji"] = selected_emoji
                 buttons.append(component)
             if not buttons:
-                buttons.append({"type": 2, "style": 1, "label": "Open Ticket", "custom_id": f"shop:ticket:create:{key}"[:100]})
+                buttons.append({"type": 2, "style": 1, "label": "Ticket openen", "custom_id": f"shop:ticket:create:{key}"[:100]})
             rows = [{"type": 1, "components": buttons[offset:offset + 5]} for offset in range(0, len(buttons), 5)]
         color = str(panel.get("color") or "#5865f2").lstrip("#")
         content_components: list[dict[str, Any]] = [
-            {"type": 10, "content": f"## {str(panel.get('title') or 'Support Tickets')[:256]}\n{str(panel.get('description') or 'Choose a category to open a ticket.')[:3500]}"},
+            {"type": 10, "content": f"## {str(panel.get('title') or 'Ondersteuningstickets')[:256]}\n{str(panel.get('description') or 'Kies een categorie om een ticket te openen.')[:3500]}"},
         ]
         media_items = []
         for media_url in (panel.get("image_url"), panel.get("thumbnail_url")):
@@ -1356,7 +1356,7 @@ def create_app() -> FastAPI:
             ]
             db.set_feature(guild_id, "tickets", values, int(user["uid"]), settings)
         except Exception:
-            return RedirectResponse(href(request, f"/guild/{guild_id}/tickets?error=Panel+konnte+nicht+gesendet+werden"), status_code=303)
+            return RedirectResponse(href(request, f"/guild/{guild_id}/tickets?error=Paneel+kon+niet+worden+verzonden"), status_code=303)
         return RedirectResponse(href(request, f"/guild/{guild_id}/tickets?saved=1"), status_code=303)
 
     @app.post("/guild/{guild_id}/{feature}", response_class=HTMLResponse)
@@ -1368,7 +1368,7 @@ def create_app() -> FastAPI:
             return RedirectResponse(href(request, "/dashboard"), status_code=302)
         form = await request.form()
         if not csrf_ok(form.get("csrf"), user):
-            return PlainTextResponse("Ungültige Anfrage.", status_code=403)
+            return PlainTextResponse("Ongeldig verzoek.", status_code=403)
         if feature == "welcome":
             values, fehler = _werte_aus_formular(spec, form, feature)
             if values.get("welcome_type") not in {"simple", "embed"}:
@@ -1377,11 +1377,11 @@ def create_app() -> FastAPI:
             channel_ids = {str(item["id"]) for item in channels if item.get("type") in ("0", "5")}
             for key in ("welcome_channel_id", "leave_channel_id"):
                 if values.get(key) and str(values[key]) not in channel_ids:
-                    fehler.append("Der ausgewählte Kanal existiert nicht.")
+                    fehler.append("Het geselecteerde kanaal bestaat niet.")
             for key in ("welcome_image_url", "leave_image_url"):
                 url = str(values.get(key) or "")
                 if url and (not url.startswith("https://") or url.split("?", 1)[0].lower().endswith((".png", ".jpg", ".jpeg", ".gif", ".webp")) is False):
-                    fehler.append("Hintergrundbilder müssen HTTPS-Bildadressen sein.")
+                    fehler.append("Achtergrondafbeeldingen moeten HTTPS-afbeeldingsadressen zijn.")
             if fehler:
                 return RedirectResponse(href(request, f"/guild/{guild_id}/welcome?tab={form.get('tab') or 'welcome'}&error=" + quote_plus(" ".join(fehler[:3]))), status_code=303)
             db.set_feature(guild_id, feature, values, int(user["uid"]), settings)
@@ -1400,7 +1400,7 @@ def create_app() -> FastAPI:
             all_channel = str(form.get("all_channel") or "")
             if action in preset_keys:
                 if all_channel not in channel_ids:
-                    return RedirectResponse(href(request, f"/guild/{guild_id}/logging?error=Bitte+zuerst+einen+Log-Kanal+auswählen"), status_code=303)
+                    return RedirectResponse(href(request, f"/guild/{guild_id}/logging?error=Selecteer+eerst+een+logkanaal"), status_code=303)
                 selected = preset_keys[action]
                 previous["enabled"] = True
                 for key in LOG_CATEGORIES:
@@ -1416,7 +1416,7 @@ def create_app() -> FastAPI:
                 values["log_enabled"][key] = f"enabled_{key}" in form
                 if channel_id:
                     if channel_id not in channel_ids:
-                        return RedirectResponse(href(request, f"/guild/{guild_id}/logging?error=Ungültiger+Log-Kanal"), status_code=303)
+                        return RedirectResponse(href(request, f"/guild/{guild_id}/logging?error=Ongeldig+logkanaal"), status_code=303)
                     values["log_channels"][key] = channel_id
                 else:
                     values["log_channels"].pop(key, None)
@@ -1427,7 +1427,7 @@ def create_app() -> FastAPI:
             try:
                 values["auto_delete_duration"] = max(0, min(86400, int(str(form.get("auto_delete_duration") or "0"))))
             except ValueError:
-                return RedirectResponse(href(request, f"/guild/{guild_id}/logging?error=Ungültige+Löschdauer"), status_code=303)
+                return RedirectResponse(href(request, f"/guild/{guild_id}/logging?error=Ongeldige+verwijderduur"), status_code=303)
             db.set_feature(guild_id, feature, values, int(user["uid"]), settings)
             return RedirectResponse(href(request, f"/guild/{guild_id}/logging?saved=1"), status_code=303)
         values, fehler = _werte_aus_formular(spec, form, feature)
@@ -1450,7 +1450,7 @@ def create_app() -> FastAPI:
             return RedirectResponse(href(request, "/dashboard"), status_code=302)
         form = await request.form()
         if not csrf_ok(form.get("csrf"), user):
-            return PlainTextResponse("Ungültige Anfrage.", status_code=403)
+            return PlainTextResponse("Ongeldig verzoek.", status_code=403)
         values = db.get_feature(guild_id, "welcome", settings)
         # The University test button sends the current draft, not only the
         # last saved row. This lets the real Discord preview validate edits
@@ -1459,20 +1459,20 @@ def create_app() -> FastAPI:
         values = {**values, **draft}
         channel_id = str(values.get(f"{kind}_channel_id") or "")
         if not channel_id or not settings.bot_token:
-            return RedirectResponse(href(request, f"/guild/{guild_id}/welcome?tab={kind}&error=Kanal+oder+Bot-Token+fehlt"), status_code=303)
+            return RedirectResponse(href(request, f"/guild/{guild_id}/welcome?tab={kind}&error=Kanaal+of+bot-token+ontbreekt"), status_code=303)
         samples = {
-            "user": f"<@{user['uid']}>", "user_name": str(user.get("username") or "Neuer"),
-            "user_nick": str(user.get("global_name") or user.get("username") or "Neuer"),
+            "user": f"<@{user['uid']}>", "user_name": str(user.get("username") or "Nieuwer"),
+            "user_nick": str(user.get("global_name") or user.get("username") or "Nieuwer"),
             "user_id": str(user["uid"]), "user_avatar": avatar_url(user),
             "user_joindate": "heute", "user_createdate": "08.01.2024",
-            "server_name": str(guild.get("name") or "Server"), "server_id": str(guild_id),
+            "server_name": str(guild.get("name") or "Servers"), "server_id": str(guild_id),
             "server_membercount": str(guild.get("member_count") or 1), "server_icon": str(guild.get("icon_url") or ""),
-            "timestamp": "jetzt", "server": str(guild.get("name") or "Server"), "count": str(guild.get("member_count") or 1),
+            "timestamp": "jetzt", "server": str(guild.get("name") or "Servers"), "count": str(guild.get("member_count") or 1),
         }
         def fill(value: Any) -> str:
             return re.sub(r"\{(\w+)\}", lambda match: samples.get(match.group(1).lower(), match.group(0)), str(value or ""))
-        title = "Willkommen" if kind == "welcome" else "Abschied"
-        text = fill(values.get(f"{kind}_message") or ("Willkommen {user} auf **{server_name}**!" if kind == "welcome" else "**{user_nick}** hat den Server verlassen."))
+        title = "Welkom" if kind == "welcome" else "Vaarwel"
+        text = fill(values.get(f"{kind}_message") or ("Welkom {user} bij **{server_name}**!" if kind == "welcome" else "**{user_nick}** heeft de server verlaten."))
         if kind == "welcome" and values.get("welcome_type") == "embed":
             title = fill(values.get("welcome_embed_title") or title)
             text = fill(values.get("welcome_embed_description") or values.get("welcome_message") or text)
@@ -1500,7 +1500,7 @@ def create_app() -> FastAPI:
                     guild_name=samples["server_name"], member_count=int(samples["server_membercount"]),
                     accent=int(str(values.get("color") or "#3b82f6").lstrip("#"), 16),
                     background_bytes=background_bytes,
-                    label="WILLKOMMEN" if kind == "welcome" else "TSCHUESS",
+                    label="WELKOM" if kind == "welcome" else "TSCHUESS",
                     subtitle=None if kind == "welcome" else f"hat {samples['server_name']} verlassen",
                     counter_text=None,
                 )
@@ -1518,7 +1518,7 @@ def create_app() -> FastAPI:
                     response = await client.post(f"https://discord.com/api/v10/channels/{channel_id}/messages", headers={"Authorization": f"Bot {settings.bot_token}"}, json=payload)
                 response.raise_for_status()
         except Exception:
-            return RedirectResponse(href(request, f"/guild/{guild_id}/welcome?tab={kind}&error=Testnachricht+konnte+nicht+gesendet+werden"), status_code=303)
+            return RedirectResponse(href(request, f"/guild/{guild_id}/welcome?tab={kind}&error=Testbericht+kon+niet+worden+verzonden"), status_code=303)
         return RedirectResponse(href(request, f"/guild/{guild_id}/welcome?tab={kind}&tested={kind}"), status_code=303)
 
     @app.post("/guild/{guild_id}/logging/test/{category}")
@@ -1529,11 +1529,11 @@ def create_app() -> FastAPI:
             return RedirectResponse(href(request, "/dashboard"), status_code=302)
         form = await request.form()
         if not csrf_ok(form.get("csrf"), user):
-            return PlainTextResponse("Ungültige Anfrage.", status_code=403)
+            return PlainTextResponse("Ongeldig verzoek.", status_code=403)
         values = normalise_logging(db.get_feature(guild_id, "logging", settings))
         channel_id = values["log_channels"].get(category)
         if not channel_id:
-            return RedirectResponse(href(request, f"/guild/{guild_id}/logging?error=Kein+Kanal+konfiguriert"), status_code=303)
+            return RedirectResponse(href(request, f"/guild/{guild_id}/logging?error=Geen+kanaal+geconfigureerd"), status_code=303)
         try:
             import httpx
             payload = {
@@ -1543,13 +1543,13 @@ def create_app() -> FastAPI:
                     "type": 17,
                     "accent_color": 0x5865F2,
                     "components": [
-                        {"type": 10, "content": "## Test"},
+                        {"type": 10, "content": "## Testen"},
                         {"type": 14, "divider": True, "spacing": 1},
                         {
                             "type": 10,
                             "content": (
-                                f"So sieht ein Eintrag für **{LOG_CATEGORIES[category]['label']}** aus. "
-                                "Diese Nachricht kam aus dem Dashboard."
+                                f"Zo ziet een vermelding voor **{LOG_CATEGORIES[category]['label']}** aus. "
+                                "Dit bericht kwam van het dashboard."
                             ),
                         },
                     ],
@@ -1562,7 +1562,7 @@ def create_app() -> FastAPI:
                 )
                 response.raise_for_status()
         except Exception:
-            return RedirectResponse(href(request, f"/guild/{guild_id}/logging?error=Der+Bot+kann+in+diesen+Kanal+nicht+schreiben"), status_code=303)
+            return RedirectResponse(href(request, f"/guild/{guild_id}/logging?error=De+bot+kan+niet+in+dit+kanaal+schrijven"), status_code=303)
         return RedirectResponse(href(request, f"/guild/{guild_id}/logging?tested=1"), status_code=303)
 
     @app.post("/guild/{guild_id}/{feature}/vorschau")
@@ -1575,13 +1575,13 @@ def create_app() -> FastAPI:
         user = current_user(request)
         guild = await guild_access(user, guild_id) if user else None
         if not user or not guild or feature != "tickets":
-            return JSONResponse({"fehler": "Zugriff abgelehnt."}, status_code=403)
+            return JSONResponse({"fehler": "Toegang geweigerd."}, status_code=403)
         try:
             entwurf = json.loads((await request.body())[:60_000].decode("utf-8", "replace") or "{}")
         except (TypeError, ValueError, json.JSONDecodeError):
-            return JSONResponse({"fehler": "Entwurf konnte nicht gelesen werden."}, status_code=400)
+            return JSONResponse({"fehler": "Het concept kon niet worden gelezen."}, status_code=400)
         if not isinstance(entwurf, dict):
-            return JSONResponse({"fehler": "Entwurf muss ein Objekt sein."}, status_code=400)
+            return JSONResponse({"fehler": "Diepgang moet een object zijn."}, status_code=400)
         # Nur lesen, nichts schreiben — und unbekannte Schlüssel bleiben weg.
         # Die Liste im Rückgabewert ist der Hinweis darauf, dass Formular und
         # Regeln auseinandergedriftet sind: ohne sie zeigt die Vorschau still
@@ -1604,7 +1604,7 @@ def create_app() -> FastAPI:
         user = current_user(request); guild = await guild_access(user, guild_id) if user else None
         if not user or not guild: return JSONResponse({"ok": False}, status_code=403)
         form = await request.form()
-        if not csrf_ok(form.get("csrf"), user): return PlainTextResponse("Ungültige Anfrage.", status_code=403)
+        if not csrf_ok(form.get("csrf"), user): return PlainTextResponse("Ongeldig verzoek.", status_code=403)
         db.reaktionsrollen_dm_setzen(guild_id, "dm_enabled" in form, settings)
         return RedirectResponse(href(request, f"/guild/{guild_id}/reaction_roles?saved=1"), status_code=303)
 
@@ -1613,23 +1613,23 @@ def create_app() -> FastAPI:
         user = current_user(request); guild = await guild_access(user, guild_id) if user else None
         if not user or not guild: return JSONResponse({"ok": False}, status_code=403)
         form = await request.form()
-        if not csrf_ok(form.get("csrf"), user): return PlainTextResponse("Ungültige Anfrage.", status_code=403)
+        if not csrf_ok(form.get("csrf"), user): return PlainTextResponse("Ongeldig verzoek.", status_code=403)
         channel_id = str(form.get("channel_id") or ""); message_id = str(form.get("message_id") or "")
         role_id = str(form.get("role_id") or ""); reaction = str(form.get("emoji") or "").strip()
         if not (channel_id.isdigit() and message_id.isdigit() and role_id.isdigit() and reaction):
-            return RedirectResponse(href(request, f"/guild/{guild_id}/reaction_roles?error=Kanal,+Nachrichten-ID,+Emoji+und+Rolle+sind+erforderlich"), status_code=303)
+            return RedirectResponse(href(request, f"/guild/{guild_id}/reaction_roles?error=Kanaal,+bericht-ID,+emoji+en+rol+zijn+verplicht"), status_code=303)
         if len(reaction) > 100 or db.reaktionsrolle(guild_id, int(message_id), reaction, settings):
-            return RedirectResponse(href(request, f"/guild/{guild_id}/reaction_roles?error=Dieses+Emoji+ist+auf+der+Nachricht+bereits+vergeben"), status_code=303)
+            return RedirectResponse(href(request, f"/guild/{guild_id}/reaction_roles?error=Deze+emoji+is+al+aan+het+bericht+toegekend"), status_code=303)
         channels, roles, _stats = await guild_resources(guild_id)
         role = next((item for item in roles if item["id"] == role_id), None)
         if not role or role.get("managed"):
-            return RedirectResponse(href(request, f"/guild/{guild_id}/reaction_roles?error=Diese+Rolle+kann+nicht+verwaltet+werden"), status_code=303)
+            return RedirectResponse(href(request, f"/guild/{guild_id}/reaction_roles?error=Deze+rol+kan+niet+worden+beheerd"), status_code=303)
         try:
             bot_member = await _discord_abfrage(settings.bot_token, f"/guilds/{guild_id}/members/{settings.discord_client_id}")
             bot_roles = {str(value) for value in bot_member.get("roles") or []}
             bot_top = max((int(item["position"]) for item in roles if item["id"] in bot_roles), default=0)
             if int(role["position"]) >= bot_top:
-                raise ValueError("role hierarchy")
+                raise ValueError("rollenhiërarchie")
             import httpx
             headers = {"Authorization": f"Bot {settings.bot_token}"}
             async with httpx.AsyncClient(timeout=20.0) as client:
@@ -1640,11 +1640,11 @@ def create_app() -> FastAPI:
                 added = await client.put(f"https://discord.com/api/v10/channels/{channel_id}/messages/{message_id}/reactions/{encoded}/@me", headers=headers)
                 added.raise_for_status()
         except ValueError:
-            return RedirectResponse(href(request, f"/guild/{guild_id}/reaction_roles?error=Die+Rolle+muss+unter+der+Bot-Rolle+stehen"), status_code=303)
+            return RedirectResponse(href(request, f"/guild/{guild_id}/reaction_roles?error=De+rol+moet+onder+de+botrol+staan"), status_code=303)
         except LookupError:
-            return RedirectResponse(href(request, f"/guild/{guild_id}/reaction_roles?error=Nachricht+in+diesem+Kanal+nicht+gefunden"), status_code=303)
+            return RedirectResponse(href(request, f"/guild/{guild_id}/reaction_roles?error=Bericht+niet+gevonden+in+dit+kanaal"), status_code=303)
         except Exception:
-            return RedirectResponse(href(request, f"/guild/{guild_id}/reaction_roles?error=Der+Bot+kann+die+Nachricht+nicht+lesen+oder+das+Emoji+nicht+verwenden"), status_code=303)
+            return RedirectResponse(href(request, f"/guild/{guild_id}/reaction_roles?error=De+bot+kan+het+bericht+niet+lezen+of+de+emoji+niet+gebruiken"), status_code=303)
         db.reaktionsrolle_anlegen(guild_id, int(channel_id), int(message_id), reaction, int(role_id), settings)
         current = db.get_feature(guild_id, "reaction_roles", settings); current["enabled"] = True
         db.set_feature(guild_id, "reaction_roles", current, int(user["uid"]), settings)
@@ -1655,10 +1655,10 @@ def create_app() -> FastAPI:
         user = current_user(request); guild = await guild_access(user, guild_id) if user else None
         if not user or not guild: return JSONResponse({"ok": False}, status_code=403)
         form = await request.form()
-        if not csrf_ok(form.get("csrf"), user): return PlainTextResponse("Ungültige Anfrage.", status_code=403)
+        if not csrf_ok(form.get("csrf"), user): return PlainTextResponse("Ongeldig verzoek.", status_code=403)
         message_id = str(form.get("message_id") or ""); reaction = str(form.get("emoji") or "")
         mapping = db.reaktionsrolle(guild_id, int(message_id) if message_id.isdigit() else 0, reaction, settings)
-        if not mapping: return PlainTextResponse("Eintrag nicht gefunden.", status_code=404)
+        if not mapping: return PlainTextResponse("Invoer niet gevonden.", status_code=404)
         try:
             import httpx
             encoded = quote(_discord_emoji_path(reaction), safe="")
@@ -1673,7 +1673,7 @@ def create_app() -> FastAPI:
         user = current_user(request); guild = await guild_access(user, guild_id) if user else None
         if not user or not guild: return JSONResponse({"ok": False}, status_code=403)
         form = await request.form()
-        if not csrf_ok(form.get("csrf"), user): return PlainTextResponse("Ungültige Anfrage.", status_code=403)
+        if not csrf_ok(form.get("csrf"), user): return PlainTextResponse("Ongeldig verzoek.", status_code=403)
         _channels, roles, _stats = await guild_resources(guild_id); role_ids = {item["id"] for item in roles}
         repaired = 0; problems = []
         try:
@@ -1682,25 +1682,25 @@ def create_app() -> FastAPI:
             async with httpx.AsyncClient(timeout=20.0) as client:
                 for row in db.reaktionsrollen(guild_id, settings):
                     if str(row["role_id"]) not in role_ids:
-                        problems.append(f"{row['emoji']}: Rolle gelöscht"); continue
+                        problems.append(f"{row['emoji']}: rol verwijderd"); continue
                     response = await client.get(f"https://discord.com/api/v10/channels/{row['channel_id']}/messages/{row['message_id']}", headers=headers)
                     if response.status_code != 200:
-                        problems.append(f"{row['emoji']}: Nachricht nicht gefunden"); continue
+                        problems.append(f"{row['emoji']}: bericht niet gevonden"); continue
                     data = response.json(); wanted = _discord_emoji_path(str(row["emoji"]))
                     present = any((str(item.get("emoji", {}).get("name") or "") + (f":{item['emoji']['id']}" if item.get("emoji", {}).get("id") else "")) == wanted for item in data.get("reactions") or [])
                     if not present:
                         encoded = quote(wanted, safe="")
                         result = await client.put(f"https://discord.com/api/v10/channels/{row['channel_id']}/messages/{row['message_id']}/reactions/{encoded}/@me", headers=headers)
                         if result.status_code < 300: repaired += 1
-                        else: problems.append(f"{row['emoji']}: Reaktion konnte nicht gesetzt werden")
+                        else: problems.append(f"{row['emoji']}: reactie kon niet worden geplaatst")
         except Exception:
-            problems.append("Discord-Prüfung konnte nicht abgeschlossen werden")
+            problems.append("De onenigheidscontrole kan niet worden voltooid")
         query = f"verified=1&repaired={repaired}" + ("&error=" + quote_plus(" · ".join(problems[:4])) if problems else "")
         return RedirectResponse(href(request, f"/guild/{guild_id}/reaction_roles?{query}"), status_code=303)
 
     def _automation_text(text: str, guild: dict[str,Any]) -> str:
         from datetime import datetime as _datetime
-        values={"server":guild.get("name") or "Server","member_count":guild.get("approximate_member_count") or "—","date":_datetime.now().strftime("%d.%m.%Y"),"time":_datetime.now().strftime("%H:%M"),"user":"@User","user_name":"User","channel":"#kanal"}
+        values={"server":guild.get("name") or "Servers","member_count":guild.get("approximate_member_count") or "—","date":_datetime.now().strftime("%d.%m.%Y"),"time":_datetime.now().strftime("%H:%M"),"user":"@User","user_name":"gebruikers","channel":"#kanaal"}
         result=str(text or "")
         for key,value in values.items():result=result.replace("{"+key+"}",str(value))
         return result
@@ -1708,7 +1708,7 @@ def create_app() -> FastAPI:
     def _automation_payload(item: dict[str,Any], guild: dict[str,Any], *, mention: str="") -> dict[str,Any]:
         components=[]
         if mention:components.append({"type":10,"content":mention})
-        title=_automation_text(str(item.get("title") or "Automatische Nachricht"),guild);content=_automation_text(str(item.get("content") or item.get("response") or ""),guild)
+        title=_automation_text(str(item.get("title") or "Automatisch rapporteren"),guild);content=_automation_text(str(item.get("content") or item.get("response") or ""),guild)
         components.append({"type":10,"content":f"## {title}\n{content}"[:3900]})
         if item.get("image_url"):components.append({"type":12,"items":[{"media":{"url":str(item["image_url"])}}]})
         try:accent=int(str(item.get("color") or "#5865f2").lstrip("#"),16)
@@ -1722,29 +1722,29 @@ def create_app() -> FastAPI:
         user=current_user(request);guild=await guild_access(user,guild_id) if user else None
         if not user or not guild:return JSONResponse({"ok":False},status_code=403)
         form=await request.form()
-        if not csrf_ok(form.get("csrf"),user):return PlainTextResponse("Ungültige Anfrage.",status_code=403)
+        if not csrf_ok(form.get("csrf"),user):return PlainTextResponse("Ongeldig verzoek.",status_code=403)
         kind=str(form.get("kind") or "");data=dict(form);data["enabled"]="enabled" in form
         color=str(form.get("color") or "#5865f2")
-        if not COLOR_RE.fullmatch(color):return RedirectResponse(href(request,f"/guild/{guild_id}/automation?tab={kind}&error="+quote_plus("Ungültige Farbe.")),status_code=303)
+        if not COLOR_RE.fullmatch(color):return RedirectResponse(href(request,f"/guild/{guild_id}/automation?tab={kind}&error="+quote_plus("Ongeldige kleur.")),status_code=303)
         image=str(form.get("image_url") or "")
-        if image and not image.startswith("https://"):return RedirectResponse(href(request,f"/guild/{guild_id}/automation?tab={kind}&error="+quote_plus("Bild-URLs müssen HTTPS verwenden.")),status_code=303)
+        if image and not image.startswith("https://"):return RedirectResponse(href(request,f"/guild/{guild_id}/automation?tab={kind}&error="+quote_plus("Afbeeldings-URL's moeten HTTPS gebruiken.")),status_code=303)
         try:
             if kind=="responses":
-                if not str(form.get("trigger") or "").strip() or not str(form.get("response") or "").strip():raise ValueError("Trigger und Antwort sind erforderlich.")
+                if not str(form.get("trigger") or "").strip() or not str(form.get("response") or "").strip():raise ValueError("Trigger en respons zijn vereist.")
                 data["exact"]="exact" in form;automation_store.save_response(settings,guild_id,data,int(user["uid"]))
             elif kind=="messages":
                 channel=str(form.get("channel_id") or "");channels,_roles,_=await guild_resources(guild_id)
-                if channel not in {str(c["id"]) for c in channels}:raise ValueError("Bitte einen gültigen Kanal wählen.")
+                if channel not in {str(c["id"]) for c in channels}:raise ValueError("Kies een geldig kanaal.")
                 raw=str(form.get("send_at") or "");local=_datetime.fromisoformat(raw).replace(tzinfo=ZoneInfo("Europe/Berlin"));data["send_at"]=int(local.timestamp())
-                if not str(form.get("content") or "").strip():raise ValueError("Die Nachricht darf nicht leer sein.")
+                if not str(form.get("content") or "").strip():raise ValueError("Het bericht mag niet leeg zijn.")
                 automation_store.save_message(settings,guild_id,data,int(user["uid"]))
             elif kind=="announcements":
                 channel=str(form.get("channel_id") or "");channels,roles,_=await guild_resources(guild_id)
-                if channel not in {str(c["id"]) for c in channels}:raise ValueError("Bitte einen gültigen Kanal wählen.")
+                if channel not in {str(c["id"]) for c in channels}:raise ValueError("Kies een geldig kanaal.")
                 role=str(form.get("mention_role_id") or "");data["mention_role_id"]=int(role) if role in {str(r["id"]) for r in roles} else 0
-                if not str(form.get("content") or "").strip():raise ValueError("Die Ankündigung darf nicht leer sein.")
+                if not str(form.get("content") or "").strip():raise ValueError("De aankondiging mag niet leeg zijn.")
                 automation_store.save_announcement(settings,guild_id,data,int(user["uid"]))
-            else:raise ValueError("Unbekannter Automationstyp.")
+            else:raise ValueError("Onbekend automatiseringstype.")
         except (ValueError,TypeError) as exc:return RedirectResponse(href(request,f"/guild/{guild_id}/automation?tab={kind}&error="+quote_plus(str(exc))),status_code=303)
         values=db.get_feature(guild_id,"automation",settings);values["enabled"]=True;db.set_feature(guild_id,"automation",values,int(user["uid"]),settings)
         return RedirectResponse(href(request,f"/guild/{guild_id}/automation?tab={kind}&saved=1"),status_code=303)
@@ -1754,21 +1754,21 @@ def create_app() -> FastAPI:
         user=current_user(request);guild=await guild_access(user,guild_id) if user else None
         if not user or not guild:return JSONResponse({"ok":False},status_code=403)
         form=await request.form()
-        if not csrf_ok(form.get("csrf"),user):return PlainTextResponse("Ungültige Anfrage.",status_code=403)
+        if not csrf_ok(form.get("csrf"),user):return PlainTextResponse("Ongeldig verzoek.",status_code=403)
         kind=str(form.get("kind") or "");action=str(form.get("action") or "");item_id=int(form.get("id") or 0)
-        if kind not in automation_store.KINDS:return PlainTextResponse("Unbekannter Typ.",status_code=400)
+        if kind not in automation_store.KINDS:return PlainTextResponse("Onbekend type.",status_code=400)
         if action=="delete":automation_store.delete(settings,guild_id,kind,item_id);suffix="deleted=1"
         elif action=="toggle":automation_store.toggle(settings,guild_id,kind,item_id);suffix="saved=1"
         elif action=="test" and kind in {"messages","announcements"}:
             item=automation_store.get(settings,guild_id,kind,item_id)
-            if not item:return PlainTextResponse("Eintrag nicht gefunden.",status_code=404)
+            if not item:return PlainTextResponse("Invoer niet gevonden.",status_code=404)
             import httpx
             mention=f"<@&{item['mention_role_id']}>" if kind=="announcements" and item.get("mention_role_id") else ""
             async with httpx.AsyncClient(timeout=20.0) as client:
                 result=await client.post(f"https://discord.com/api/v10/channels/{item['channel_id']}/messages",headers={"Authorization":f"Bot {settings.bot_token}"},json=_automation_payload(item,guild,mention=mention))
-            if result.status_code>=300:return RedirectResponse(href(request,f"/guild/{guild_id}/automation?tab={kind}&error="+quote_plus("Testnachricht konnte nicht gesendet werden.")),status_code=303)
+            if result.status_code>=300:return RedirectResponse(href(request,f"/guild/{guild_id}/automation?tab={kind}&error="+quote_plus("Testbericht kon niet worden verzonden.")),status_code=303)
             suffix="tested=1"
-        else:return PlainTextResponse("Unbekannte Aktion.",status_code=400)
+        else:return PlainTextResponse("Onbekende actie.",status_code=400)
         return RedirectResponse(href(request,f"/guild/{guild_id}/automation?tab={kind}&{suffix}"),status_code=303)
 
     @app.post("/guild/{guild_id}/custom_commands/save")
@@ -1776,7 +1776,7 @@ def create_app() -> FastAPI:
         user=current_user(request); guild=await guild_access(user,guild_id) if user else None
         if not user or not guild: return JSONResponse({"ok":False},status_code=403)
         form=await request.form()
-        if not csrf_ok(form.get("csrf"),user): return PlainTextResponse("Ungültige Anfrage.",status_code=403)
+        if not csrf_ok(form.get("csrf"),user): return PlainTextResponse("Ongeldig verzoek.",status_code=403)
         name=custom_command_store.normalise_name(form.get("name")); original=custom_command_store.normalise_name(form.get("original_name"))
         use_prefix="use_prefix" in form; use_exact="use_exact" in form; use_contains="use_contains" in form; use_slash="use_slash" in form
         try:
@@ -1785,18 +1785,18 @@ def create_app() -> FastAPI:
         except (json.JSONDecodeError,TypeError,ValueError) as exc:
             return RedirectResponse(href(request,f"/guild/{guild_id}/custom_commands?error="+quote_plus(str(exc))),status_code=303)
         if not custom_command_store.valid_name(name):
-            return RedirectResponse(href(request,f"/guild/{guild_id}/custom_commands?error="+quote_plus("Der Name darf nur Buchstaben, Zahlen, - und _ enthalten (maximal 32).")),status_code=303)
+            return RedirectResponse(href(request,f"/guild/{guild_id}/custom_commands?error="+quote_plus("De naam mag alleen letters, cijfers, - en _ bevatten (maximaal 32).")),status_code=303)
         if not any((use_prefix,use_exact,use_contains,use_slash)):
-            return RedirectResponse(href(request,f"/guild/{guild_id}/custom_commands?error="+quote_plus("Wähle mindestens eine Erkennungsart aus.")),status_code=303)
+            return RedirectResponse(href(request,f"/guild/{guild_id}/custom_commands?error="+quote_plus("Selecteer ten minste één detectietype.")),status_code=303)
         if original and original != name:
-            return RedirectResponse(href(request,f"/guild/{guild_id}/custom_commands?error="+quote_plus("Der Name eines bestehenden Commands kann nicht geändert werden.")),status_code=303)
+            return RedirectResponse(href(request,f"/guild/{guild_id}/custom_commands?error="+quote_plus("De naam van een bestaand commando kan niet worden gewijzigd.")),status_code=303)
         try:
             global_commands=await _discord_abfrage(settings.bot_token,f"/applications/{settings.discord_client_id}/commands")
             global_names={str(item.get("name") or "").lower() for item in global_commands}
         except Exception: global_names=set()
         existing=custom_command_store.get(settings,guild_id,name)
         if existing is None and ((use_slash and name in global_names) or (use_prefix and name in global_names)):
-            return RedirectResponse(href(request,f"/guild/{guild_id}/custom_commands?error="+quote_plus("Dieser Name gehört bereits zu einem Bot-Befehl.")),status_code=303)
+            return RedirectResponse(href(request,f"/guild/{guild_id}/custom_commands?error="+quote_plus("Deze naam hoort al bij een botcommando.")),status_code=303)
         def first_reply(actions):
             for action in actions:
                 if action.get("type")=="reply" and str(action.get("text") or "").strip(): return str(action["text"]).strip()
@@ -1806,13 +1806,13 @@ def create_app() -> FastAPI:
                     nested=first_reply(button.get("actions",[]))
                     if nested:return nested
             return ""
-        response=first_reply(config.get("actions",[])) or "Command ausgeführt."
+        response=first_reply(config.get("actions",[])) or "Commando uitgevoerd."
         if len(response)>1900: response=response[:1900]
         feature_values=db.get_feature(guild_id,"custom_commands",settings)
         saved=custom_command_store.save(settings,guild_id,name,response,str(user["uid"]),use_prefix=use_prefix,use_exact=use_exact,use_contains=use_contains,use_slash=use_slash,config=config,max_commands=custom_command_store.PREMIUM_MAX_COMMANDS)
         if not saved:
             limit=custom_command_store.PREMIUM_MAX_COMMANDS
-            return RedirectResponse(href(request,f"/guild/{guild_id}/custom_commands?error="+quote_plus(f"Für diesen Server sind höchstens {limit} Custom Commands möglich.")),status_code=303)
+            return RedirectResponse(href(request,f"/guild/{guild_id}/custom_commands?error="+quote_plus(f"Voor deze server zijn maximaal {limit} aangepaste commando’s mogelijk.")),status_code=303)
         feature_values["enabled"]=True;db.set_feature(guild_id,"custom_commands",feature_values,int(user["uid"]),settings)
         return RedirectResponse(href(request,f"/guild/{guild_id}/custom_commands?saved=1"),status_code=303)
 
@@ -1821,9 +1821,9 @@ def create_app() -> FastAPI:
         user=current_user(request); guild=await guild_access(user,guild_id) if user else None
         if not user or not guild:return JSONResponse({"ok":False},status_code=403)
         form=await request.form()
-        if not csrf_ok(form.get("csrf"),user):return PlainTextResponse("Ungültige Anfrage.",status_code=403)
+        if not csrf_ok(form.get("csrf"),user):return PlainTextResponse("Ongeldig verzoek.",status_code=403)
         name=custom_command_store.normalise_name(form.get("name"))
-        if not custom_command_store.delete(settings,guild_id,name):return PlainTextResponse("Custom Command nicht gefunden.",status_code=404)
+        if not custom_command_store.delete(settings,guild_id,name):return PlainTextResponse("Aangepaste opdracht niet gevonden.",status_code=404)
         return RedirectResponse(href(request,f"/guild/{guild_id}/custom_commands?deleted=1"),status_code=303)
 
     def _giveaway_discord_payload(record: dict[str, Any], entries: int, *, ended: bool = False, winners: str = "") -> dict[str, Any]:
@@ -1832,15 +1832,15 @@ def create_app() -> FastAPI:
         body = giveaway_store.fill(record.get("description") or giveaway_store.DEFAULT_DESCRIPTION, values)
         parts = [{"type": 10, "content": f"## {title}"}, {"type": 14, "divider": True, "spacing": 1}, {"type": 10, "content": body}]
         rules = giveaway_store.requirement_lines(record)
-        if rules and not ended: parts.append({"type": 10, "content": "**Bedingungen:** " + " · ".join(rules)})
-        parts.append({"type": 10, "content": (f"**Gewonnen:** {winners}" if winners else "Niemand hat teilgenommen.") if ended else f"**Teilnehmer:** {entries}"})
+        if rules and not ended: parts.append({"type": 10, "content": "**Voorwaarden:**" + " · ".join(rules)})
+        parts.append({"type": 10, "content": (f"**Gewonnen:** {winners}" if winners else "Niemand deed mee.") if ended else f"**Deelnemers:** {entries}"})
         if record.get("image_url"): parts.append({"type": 12, "items": [{"media": {"url": str(record["image_url"])}}]})
         if not ended:
             raw = str(record.get("button_emoji") or "").strip(); emoji = None
             match = re.fullmatch(r"<(a?):([^:>]+):(\d+)>", raw)
             if match: emoji = {"id": match.group(3), "name": match.group(2), "animated": bool(match.group(1))}
             elif raw: emoji = {"name": raw}
-            button = {"type": 2, "style": 3, "label": str(record.get("button_label") or "Teilnehmen")[:80], "custom_id": f"giveaway_join_{record['message_id']}"}
+            button = {"type": 2, "style": 3, "label": str(record.get("button_label") or "Doe mee")[:80], "custom_id": f"giveaway_join_{record['message_id']}"}
             if emoji: button["emoji"] = emoji
             parts.append({"type": 1, "components": [button]})
         return {"flags": 32768, "allowed_mentions": {"parse": []}, "components": [{"type": 17, "accent_color": int(record.get("colour") or 0xF59E0B), "components": parts}]}
@@ -1868,7 +1868,7 @@ def create_app() -> FastAPI:
         winners=giveaway_store.draw(message_id,int(record.get("winners") or 1),settings,exclude_past=reroll)
         giveaway_store.record_winners(message_id,winners,settings,reroll=reroll)
         mentions=", ".join(f"<@{uid}>" for uid in winners)
-        data=giveaway_store.values(record,len(giveaway_store.entries(message_id,settings)),winners_mentions=mentions or "—",server="diesem Server")
+        data=giveaway_store.values(record,len(giveaway_store.entries(message_id,settings)),winners_mentions=mentions or "—",server="deze server")
         import httpx
         announce=giveaway_store.message(record,"msg_announce" if winners else "msg_no_entries",data)
         async with httpx.AsyncClient(timeout=20.0) as client:
@@ -1877,7 +1877,7 @@ def create_app() -> FastAPI:
         if record.get("dm_winners"):
             for uid in winners: await _giveaway_dm(uid,record,giveaway_store.message(record,"msg_winner_dm",data),"winner-reroll" if reroll else "winner")
         if record.get("dm_host") and record.get("host_id"):
-            await _giveaway_dm(int(record["host_id"]),record,f"**Giveaway beendet**\n\nPreis: **{record['prize']}**\nGewinner: {mentions or 'Niemand'}","host-reroll" if reroll else "host")
+            await _giveaway_dm(int(record["host_id"]),record,f"**Giveaway beendet**\n\nPreis: **{record['prize']}**\nWinnaars: {mentions or 'Niemand'}","host-reroll" if reroll else "host")
         return winners
 
     @app.post("/guild/{guild_id}/giveaways/create")
@@ -1885,12 +1885,12 @@ def create_app() -> FastAPI:
         user=current_user(request); guild=await guild_access(user,guild_id) if user else None
         if not user or not guild: return JSONResponse({"ok":False},status_code=403)
         form=await request.form()
-        if not csrf_ok(form.get("csrf"),user): return PlainTextResponse("Ungültige Anfrage.",status_code=403)
+        if not csrf_ok(form.get("csrf"),user): return PlainTextResponse("Ongeldig verzoek.",status_code=403)
         channel_id=str(form.get("channel_id") or ""); prize=str(form.get("prize") or "").strip()[:200]
         try: winners=max(1,min(20,int(form.get("winners") or 1))); minutes=max(1,min(86400,int(form.get("duration_minutes") or 60)))
         except ValueError: winners,minutes=1,60
         channels,_roles,_=await guild_resources(guild_id)
-        if not prize or not channel_id.isdigit() or channel_id not in {str(c["id"]) for c in channels}: return RedirectResponse(href(request,f"/guild/{guild_id}/giveaways?error="+quote_plus("Bitte Preis und Textkanal auswählen.")),status_code=303)
+        if not prize or not channel_id.isdigit() or channel_id not in {str(c["id"]) for c in channels}: return RedirectResponse(href(request,f"/guild/{guild_id}/giveaways?error="+quote_plus("Selecteer prijs en tekstkanaal.")),status_code=303)
         payload=dict(form); payload.update({k:k in form for k in giveaway_store.FLAGS}); fields=giveaway_store.clean(payload)
         record={"message_id":0,"guild_id":guild_id,"channel_id":int(channel_id),"prize":prize,"winners":winners,"ends_at":int(time.time())+minutes*60,"status":"active","winner_ids":"[]","host_id":int(user["uid"]),"start_time":int(time.time()),**fields}
         import httpx
@@ -1898,7 +1898,7 @@ def create_app() -> FastAPI:
             async with httpx.AsyncClient(timeout=20.0) as client:
                 response=await client.post(f"https://discord.com/api/v10/channels/{channel_id}/messages",headers={"Authorization":f"Bot {settings.bot_token}"},json=_giveaway_discord_payload(record,0)); response.raise_for_status(); record["message_id"]=int(response.json()["id"])
             giveaway_store.create(record,settings); await _giveaway_patch(record)
-        except Exception: return RedirectResponse(href(request,f"/guild/{guild_id}/giveaways?error="+quote_plus("Nachricht konnte nicht gesendet werden.")),status_code=303)
+        except Exception: return RedirectResponse(href(request,f"/guild/{guild_id}/giveaways?error="+quote_plus("Bericht kon niet worden verzonden.")),status_code=303)
         return RedirectResponse(href(request,f"/guild/{guild_id}/giveaways/{record['message_id']}?saved=1"),status_code=303)
 
     @app.get("/guild/{guild_id}/giveaways/{message_id}",response_class=HTMLResponse)
@@ -1919,7 +1919,7 @@ def create_app() -> FastAPI:
         user=current_user(request); guild=await guild_access(user,guild_id) if user else None; record=giveaway_store.get(guild_id,message_id,settings) if guild else None
         if not user or not record:return JSONResponse({"ok":False},status_code=403)
         form=await request.form()
-        if not csrf_ok(form.get("csrf"),user):return PlainTextResponse("Ungültige Anfrage.",status_code=403)
+        if not csrf_ok(form.get("csrf"),user):return PlainTextResponse("Ongeldig verzoek.",status_code=403)
         payload=dict(form)
         # Only the text/settings tab owns these switches. Extending time or
         # saving rules must never turn DMs and leaving off by omission.
@@ -1941,9 +1941,9 @@ def create_app() -> FastAPI:
         user=current_user(request); guild=await guild_access(user,guild_id) if user else None
         if not user or not guild:return JSONResponse({"ok":False},status_code=403)
         form=await request.form()
-        if not csrf_ok(form.get("csrf"),user):return PlainTextResponse("Ungültige Anfrage.",status_code=403)
+        if not csrf_ok(form.get("csrf"),user):return PlainTextResponse("Ongeldig verzoek.",status_code=403)
         try:giveaway_store.set_boost(message_id,int(form.get("user_id")),str(form.get("mode") or "weight"),int(form.get("weight") or 1),str(form.get("note") or ""),int(user["uid"]),settings)
-        except:return PlainTextResponse("Ungültige Chance.",status_code=400)
+        except:return PlainTextResponse("Ongeldige kans.",status_code=400)
         return RedirectResponse(href(request,f"/guild/{guild_id}/giveaways/{message_id}?saved=1#entries"),status_code=303)
 
     @app.post("/guild/{guild_id}/giveaways/{message_id}/action")
@@ -1951,11 +1951,11 @@ def create_app() -> FastAPI:
         user=current_user(request); guild=await guild_access(user,guild_id) if user else None; record=giveaway_store.get(guild_id,message_id,settings) if guild else None
         if not user or not record:return JSONResponse({"ok":False},status_code=403)
         form=await request.form()
-        if not csrf_ok(form.get("csrf"),user):return PlainTextResponse("Ungültige Anfrage.",status_code=403)
+        if not csrf_ok(form.get("csrf"),user):return PlainTextResponse("Ongeldig verzoek.",status_code=403)
         action=str(form.get("action") or "")
         if action=="end":await _giveaway_finish(record)
         elif action=="reroll":await _giveaway_finish(record,True)
-        elif action=="cancel":giveaway_store.update(guild_id,message_id,{"status":"cancelled"},settings); await _giveaway_patch(record,ended=True,winners="Abgebrochen")
+        elif action=="cancel":giveaway_store.update(guild_id,message_id,{"status":"cancelled"},settings); await _giveaway_patch(record,ended=True,winners="Afgebroken")
         return RedirectResponse(href(request,f"/guild/{guild_id}/giveaways/{message_id}?saved=1"),status_code=303)
 
     @app.post("/guild/{guild_id}/moderation/warnung")
@@ -1966,11 +1966,11 @@ def create_app() -> FastAPI:
             return JSONResponse({"ok": False}, status_code=403)
         form = await request.form()
         if not csrf_ok(form.get("csrf"), user):
-            return PlainTextResponse("Ungültige Anfrage.", status_code=403)
+            return PlainTextResponse("Ongeldig verzoek.", status_code=403)
         target = str(form.get("user_id") or "").strip()
         grund = str(form.get("reason") or "").strip()
         if not target.isdigit() or not grund:
-            return RedirectResponse(href(request, f"/guild/{guild_id}/moderation?error=Mitglied+und+Grund+sind+erforderlich"), status_code=303)
+            return RedirectResponse(href(request, f"/guild/{guild_id}/moderation?error=Lid+en+reden+zijn+verplicht"), status_code=303)
         db.warnung_anlegen(guild_id, int(target), int(user["uid"]), grund[:500], settings)
         return RedirectResponse(href(request, f"/guild/{guild_id}/moderation?added=1"), status_code=303)
 
@@ -1982,7 +1982,7 @@ def create_app() -> FastAPI:
             return JSONResponse({"ok": False}, status_code=403)
         form = await request.form()
         if not csrf_ok(form.get("csrf"), user):
-            return PlainTextResponse("Ungültige Anfrage.", status_code=403)
+            return PlainTextResponse("Ongeldig verzoek.", status_code=403)
         db.warnungen_loeschen_nutzer(guild_id, user_id, settings)
         return RedirectResponse(href(request, f"/guild/{guild_id}/moderation?geloescht=1"), status_code=303)
 
@@ -1994,11 +1994,11 @@ def create_app() -> FastAPI:
             return JSONResponse({"ok": False}, status_code=403)
         form = await request.form()
         if not csrf_ok(form.get("csrf"), user):
-            return PlainTextResponse("Ungültige Anfrage.", status_code=403)
+            return PlainTextResponse("Ongeldig verzoek.", status_code=403)
         entfernt = db.warnung_loeschen(guild_id, warnung_id, settings)
         if entfernt:
             return RedirectResponse(href(request, f"/guild/{guild_id}/moderation?geloescht=1"), status_code=303)
-        return PlainTextResponse("Verwarnung nicht gefunden.", status_code=404)
+        return PlainTextResponse("Waarschuwing niet gevonden.", status_code=404)
 
     @app.get("/admin", response_class=HTMLResponse)
     async def admin(request: Request):
@@ -2023,10 +2023,10 @@ def create_app() -> FastAPI:
     async def admin_revoke(request: Request):
         user = current_user(request)
         if not user or int(user["uid"]) not in settings.owner_id_set:
-            return PlainTextResponse("Zugriff abgelehnt.", status_code=403)
+            return PlainTextResponse("Toegang geweigerd.", status_code=403)
         form = await request.form()
         if not csrf_ok(form.get("csrf"), user):
-            return PlainTextResponse("Ungültige Anfrage.", status_code=403)
+            return PlainTextResponse("Ongeldig verzoek.", status_code=403)
         anzahl = db.alle_sitzungen_loeschen(settings)
         # Die eigene Sitzung ist damit auch weg: der Hinweis gehoert auf die
         # Login-Seite, sonst landet der Umleitungs-Zielkontakt ohne Sitzung

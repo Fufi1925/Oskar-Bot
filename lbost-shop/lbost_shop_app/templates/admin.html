@@ -1,31 +1,31 @@
 {% extends "dashboard_base.html" %}
 {% block title %}Admin-Panel — University Bot{% endblock %}
 {% block dashboard_content %}
-<header class="ub-page-header"><div><p class="eyebrow">Owner-Bereich</p><h1>Admin-Panel</h1><p class="page-lead">Dieser Bereich ist ausschließlich für die bestehenden Owner-IDs sichtbar und aufrufbar.</p></div><span class="ub-owner-badge">Owner only</span></header>
+<header class="ub-page-header"><div><p class="eyebrow">Eigenaar gebied</p><h1>Beheerderspaneel</h1><p class="page-lead">Dit gebied is alleen zichtbaar en toegankelijk voor de bestaande eigenaar-ID’s.</p></div><span class="ub-owner-badge">Alleen eigenaar</span></header>
 <section class="ub-admin-grid">
-<article><strong>{% if status.online %}Online{% else %}Getrennt{% endif %}</strong><span>Shop-Bot{% if status.vor is not none %} · Meldung vor {{ status.vor }} s{% endif %}</span></article>
-<article><strong>{{ uebersicht.server }}</strong><span>Server mit Konfiguration</span></article>
-<article><strong>{{ uebersicht.konfigurationen }}</strong><span>Modul-Einträge insgesamt</span></article>
-<article><strong>{{ uebersicht.tickets }}</strong><span>Tickets · {{ uebersicht.warnungen }} Verwarnungen</span></article>
-<article><strong>{{ sitzungen|length }}</strong><span>aktive Sitzungen (letzte 50)</span></article>
+<article><strong>{% if status.online %}Online{% else %}Verbinding verbroken{% endif %}</strong><span>Shop-Bot{% if status.vor is not none %} · Rapporteer vóór {{ status.vor }} s{% endif %}</span></article>
+<article><strong>{{ uebersicht.server }}</strong><span>Server met configuratie</span></article>
+<article><strong>{{ uebersicht.konfigurationen }}</strong><span>Totaal aantal module-invoer</span></article>
+<article><strong>{{ uebersicht.tickets }}</strong><span>Tickets · {{ uebersicht.warnungen }}-waarschuwingen</span></article>
+<article><strong>{{ sitzungen|length }}</strong><span>actieve sessies (laatste 50)</span></article>
 </section>
 
-<section class="ub-daten-card"><header><div><h2>Zugang</h2><p>Nur diese Konten kommen durch — plus die Owner aus <code>OWNER_IDS</code>. Server erscheinen zusätzlich nur bei Bot-Anwesenheit und Recht „Server verwalten“.</p></div><span>{{ authorized|length }} Konten · {{ freigegebene_server|length }} Server</span></header>
-<div class="ub-chips">{% for id in authorized %}<span>{{ id }}</span>{% endfor %}{% if not authorized %}<span>LBOST_SHOP_AUTHORIZED_IDS ist leer — niemand kommt hinein</span>{% endif %}</div>
-<p class="ub-preview-note">Als Owner dürfen hier: {% for id in owners %}<code>{{ id }}</code> {% endfor %}</p>
-<div class="ub-chips">{% for id in freigegebene_server %}<span>Server {{ id }}</span>{% endfor %}{% if not freigegebene_server %}<span>LBOST_SHOP_ALLOWED_GUILD_IDS ist leer</span>{% endif %}</div>
+<section class="ub-daten-card"><header><div><h2>Toegang</h2><p>Alleen deze accounts komen binnen – plus de eigenaren <code>EIGENAAR_IDS</code>. Bovendien verschijnen servers alleen als de bot aanwezig is en het recht ‘Servers beheren’ is gegeven.</p></div><span>{{ authorized|length }}-accounts · {{ freigegebene_server|length }}-servers</span></header>
+<div class="ub-chips">{% for id in authorized %}<span>{{ id }}</span>{% endfor %}{% if not authorized %}<span>LBOST_SHOP_AUTHORIZED_IDS is leeg: niemand kan het invoeren</span>{% endif %}</div>
+<p class="ub-preview-note">Als eigenaren hier: {% for id in owners %}<code>{{ id }}</code> {% endfor %}</p>
+<div class="ub-chips">{% for id in freigegebene_server %}<span>Server {{ id }}</span>{% endfor %}{% if not freigegebene_server %}<span>LBOST_SHOP_ALLOWED_GUILD_IDS is leeg</span>{% endif %}</div>
 </section>
 
-<section class="ub-daten-card"><header><div><h2>Sitzungen</h2><p>Jeder Eintrag ist ein Browser, der aktuell mitgelenkt werden kann. Tokens stehen verschlüsselt in der Datenbank und werden hier nicht angezeigt.</p></div>
-<form method="post" action="{{ root_path }}/admin/sitzungen/loeschen" class="ub-inline-form"><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit" class="ub-danger-button">Alle abmelden</button></form></header>
-{% if sitzungen %}<table class="ub-table"><thead><tr><th>Konto</th><th>Sitzung</th><th>Angemeldet</th><th>Zuletzt gesehen</th><th>Läuft ab</th></tr></thead><tbody>
-{% for sitzung in sitzungen %}<tr><td><code>{{ sitzung.user_id }}</code></td><td>#{{ sitzung.kurz }}</td><td>{{ sitzung.erstellt | strftime }}</td><td>vor {{ sitzung.zuletzt | seit_minuten }} Min.</td><td>{{ sitzung.laeuft_ab | strftime }}</td></tr>{% endfor %}
-</tbody></table>{% else %}<p class="ub-preview-note">Keine aktive Sitzung. Noch keine Anmeldungen oder alle abgemeldet.</p>{% endif %}
+<section class="ub-daten-card"><header><div><h2>vergaderingen</h2><p>Elk item is een browser die momenteel kan worden beheerd. Tokens worden gecodeerd in de database en worden hier niet weergegeven.</p></div>
+<form method="post" action="{{ root_path }}/admin/sitzungen/loeschen" class="ub-inline-form"><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit" class="ub-danger-button">Meld iedereen af</button></form></header>
+{% if sitzungen %}<table class="ub-table"><thead><tr><th>account</th><th>sessie</th><th>Geregistreerd</th><th>Laatst gezien</th><th>Verloopt</th></tr></thead><tbody>
+{% for sitzung in sitzungen %}<tr><td><code>{{ sitzung.user_id }}</code></td><td>#{{ sitzung.kurz }}</td><td>{{ sitzung.erstellt | strftime }}</td><td>vóór {{ sitzung.zuletzt | seit_minuten }} Min.</td><td>{{ sitzung.laeuft_ab | strftime }}</td></tr>{% endfor %}
+</tbody></table>{% else %}<p class="ub-preview-note">Geen actieve sessie. Nog geen registraties of iedereen is uitgelogd.</p>{% endif %}
 </section>
 
-<section class="ub-daten-card"><header><div><h2>Letzte Änderungen</h2><p>Wer hat wann welches Modul gespeichert. Der Verlauf bleibt {{ audit_tage }} Tage, ältere Zeilen räumt der Start auf.</p></div><span>{{ uebersicht.aenderungen }} Einträge</span></header>
-{% if aenderungen %}<table class="ub-table"><thead><tr><th>Zeit</th><th>Server</th><th>Konto</th><th>Modul</th></tr></thead><tbody>
+<section class="ub-daten-card"><header><div><h2>Laatste wijzigingen</h2><p>Wie welke module heeft opgeslagen en wanneer. De historie blijft {{ audit_tage }} dagen, oudere lijnen worden bij de start opgeruimd.</p></div><span>{{ uebersicht.aenderungen }}-invoer</span></header>
+{% if aenderungen %}<table class="ub-table"><thead><tr><th>Tijd</th><th>Server</th><th>account</th><th>Module</th></tr></thead><tbody>
 {% for eintrag in aenderungen %}<tr><td>{{ eintrag.created_at | strftime }}</td><td><code>{{ eintrag.guild_id }}</code></td><td><code>{{ eintrag.actor_id }}</code></td><td>{{ eintrag.action }}</td></tr>{% endfor %}
-</tbody></table>{% else %}<p class="ub-preview-note">Noch keine Einstellungen gespeichert.</p>{% endif %}
+</tbody></table>{% else %}<p class="ub-preview-note">Nog geen instellingen opgeslagen.</p>{% endif %}
 </section>
 {% endblock %}

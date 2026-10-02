@@ -91,7 +91,7 @@ class Settings(BaseSettings):
         if self.signing_secret == DEV_SECRET:
             missing.append("LBOST_SHOP_SECRET_KEY")
         if not self.allowed_ids:
-            missing.append("LBOST_SHOP_AUTHORIZED_IDS oder OWNER_IDS")
+            missing.append("LBOST_SHOP_AUTHORIZED_IDS of OWNER_IDS")
         if not self.allowed_guild_id_set:
             missing.append("LBOST_SHOP_ALLOWED_GUILD_IDS")
         if not self.bot_token:

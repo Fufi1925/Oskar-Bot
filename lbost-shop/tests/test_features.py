@@ -30,17 +30,17 @@ assert isinstance(view, discord.ui.LayoutView)
 
 bot = create_bot()
 commands = {command.name for command in bot.tree.get_commands()}
-erwartet = {"ticket-panel", "reaction-panel", "warn", "warnings", "clearwarns", "clearwarnings",
-            "mute", "unmute", "kick", "ban", "unban", "clear", "lock", "unlock", "hide", "unhide",
-            "lockall", "unlockall", "hideall", "unhideall", "slowmode", "unslowmode", "nick", "clone",
-            "snipe", "role", "removerole", "roleicon", "prefix", "unbanall", "audit", "topcheck", "steal", "enlarge", "delemoji", "delsticker",
-            "giveaway", "giveaway-reroll", "announce", "log-setup", "log-status", "log-test",
-            "log-toggle", "log-ignore", "log-search", "log-export", "log-reset", "log"}
+erwartet = {"ticket-paneel", "rollen-paneel", "waarschuw", "waarschuwingen", "wiswaarschuwingen", "wisallewaarschuwingen",
+            "demp", "ontdemp", "verwijder", "verban", "ontban", "wis", "vergrendel", "ontgrendel", "verberg", "toon",
+            "vergrendelalles", "ontgrendelalles", "verbergalles", "toonalles", "traagmodus", "resettraagmodus", "bijnaam", "kloon",
+            "laatstebericht", "rol", "verwijderrol", "rolicoon", "voorvoegsel", "ontbanalles", "audit", "hierarchiecontrole", "kopieeremoji", "vergroot", "verwijderemoji", "verwijdersticker",
+            "winactie", "winactie-opnieuw", "aankondiging", "log-instellen", "log-status", "log-test",
+            "log-schakelen", "log-negeren", "log-zoeken", "log-exporteren", "log-resetten", "log"}
 assert erwartet <= commands, f"es fehlen: {sorted(erwartet - commands)}"
 assert "nuke" not in commands and "template" not in commands, "ausgeschlossene Wiederaufbau-/Template-Systeme sind aktiv"
 log_group = bot.tree.get_command("log")
 assert [command.name for command in log_group.commands] == [
-    "setup", "status", "config", "test", "toggle", "ignore", "search", "export", "reset"
+    "instellen", "status", "configuratie", "test", "schakelen", "negeren", "zoeken", "exporteren", "resetten"
 ]
 assert bot.intents.members and bot.intents.message_content and bot.intents.moderation
 from lbost_shop_bot.client import taugliche_teilnehmer  # noqa: E402

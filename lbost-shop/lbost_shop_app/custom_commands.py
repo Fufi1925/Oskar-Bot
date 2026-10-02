@@ -97,32 +97,32 @@ def signatures(settings) -> dict[int, tuple[int,int]]:
 
 
 def validate_config(config: Any) -> dict:
-    if not isinstance(config,dict): raise ValueError("Die Command-Konfiguration ist ungültig.")
+    if not isinstance(config,dict): raise ValueError("De opdrachtconfiguratie is ongeldig.")
     actions=config.get("actions",[]); parameters=config.get("parameters",[]); total=0
     def steps(items,depth=0):
         nonlocal total
-        if not isinstance(items,list) or depth>4: raise ValueError("Der Command-Flow ist ungültig oder zu tief verschachtelt.")
+        if not isinstance(items,list) or depth>4: raise ValueError("De opdrachtstroom is ongeldig of te diep genest.")
         for action in items:
-            if not isinstance(action,dict) or action.get("type") not in ACTION_TYPES: raise ValueError("Der Command enthält einen ungültigen Schritt.")
+            if not isinstance(action,dict) or action.get("type") not in ACTION_TYPES: raise ValueError("De opdracht bevat een ongeldige stap.")
             total+=1
-            if total>50: raise ValueError("Der Command darf insgesamt höchstens 50 Schritte enthalten.")
+            if total>50: raise ValueError("Het commando mag in totaal maximaal 50 stappen bevatten.")
             buttons=action.get("buttons",[])
-            if not isinstance(buttons,list) or len(buttons)>5: raise ValueError("Eine Antwort darf höchstens 5 Buttons enthalten.")
+            if not isinstance(buttons,list) or len(buttons)>5: raise ValueError("Een antwoord mag maximaal 5 knoppen bevatten.")
             for button in buttons:
-                if not isinstance(button,dict): raise ValueError("Ungültiger Button.")
+                if not isinstance(button,dict): raise ValueError("Ongeldige knop.")
                 steps(button.get("actions",[]),depth+1)
             if action.get("type")=="condition_role":
                 steps(action.get("then",[]),depth+1);steps(action.get("else",[]),depth+1)
-    if not isinstance(actions,list) or len(actions)>25: raise ValueError("Der Flow darf höchstens 25 Schritte enthalten.")
+    if not isinstance(actions,list) or len(actions)>25: raise ValueError("De stroom mag maximaal 25 stappen bevatten.")
     steps(actions)
-    if not actions: raise ValueError("Füge mindestens einen Flow-Schritt hinzu.")
-    if not isinstance(parameters,list) or len(parameters)>10: raise ValueError("Es sind höchstens 10 Parameter möglich.")
+    if not actions: raise ValueError("Voeg ten minste één stroomstap toe.")
+    if not isinstance(parameters,list) or len(parameters)>10: raise ValueError("Er zijn maximaal 10 parameters mogelijk.")
     names=[]
     for parameter in parameters:
         name=str(parameter.get("name", "")) if isinstance(parameter,dict) else ""
-        if not re.fullmatch(r"[a-z][a-z0-9_]{0,31}",name): raise ValueError("Jeder Parameter braucht einen gültigen Namen.")
-        if name in names: raise ValueError("Parameternamen dürfen nicht doppelt vorkommen.")
-        if parameter.get("type") not in PARAMETER_TYPES: raise ValueError("Ungültiger Parametertyp.")
+        if not re.fullmatch(r"[a-z][a-z0-9_]{0,31}",name): raise ValueError("Elke parameter heeft een geldige naam nodig.")
+        if name in names: raise ValueError("Parameternamen mogen niet dubbel voorkomen.")
+        if parameter.get("type") not in PARAMETER_TYPES: raise ValueError("Ongeldig parametertype.")
         names.append(name)
     config["cooldown"]=max(0,min(86400,int(config.get("cooldown") or 0)))
     config["allowed_roles"]=[str(v) for v in config.get("allowed_roles",[]) if str(v).isdigit()][:50]

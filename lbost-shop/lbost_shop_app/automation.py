@@ -57,7 +57,7 @@ def save_response(settings,guild_id:int,data:dict,actor:int)->int:
     with db._gesichert(settings) as conn:
         if item_id:
             cursor=conn.execute("UPDATE auto_responses SET trigger=?,response=?,title=?,color=?,image_url=?,exact=?,cooldown_seconds=?,enabled=?,updated_at=? WHERE guild_id=? AND id=?",(*values,now,guild_id,item_id));
-            if not cursor.rowcount:raise ValueError("Auto-Response nicht gefunden.")
+            if not cursor.rowcount:raise ValueError("Automatisch antwoord niet gevonden.")
             return item_id
         cursor=conn.execute("INSERT INTO auto_responses(guild_id,trigger,response,title,color,image_url,exact,cooldown_seconds,enabled,created_by,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",(guild_id,*values,actor,now,now));return int(cursor.lastrowid)
 
@@ -68,7 +68,7 @@ def save_message(settings,guild_id:int,data:dict,actor:int)->int:
     with db._gesichert(settings) as conn:
         if item_id:
             cursor=conn.execute("UPDATE automated_messages SET channel_id=?,title=?,content=?,color=?,image_url=?,send_at=?,repeat_minutes=?,next_run=?,delete_after=?,enabled=?,updated_at=? WHERE guild_id=? AND id=?",(*values,now,guild_id,item_id));
-            if not cursor.rowcount:raise ValueError("Automatisierte Nachricht nicht gefunden.")
+            if not cursor.rowcount:raise ValueError("Geautomatiseerd bericht niet gevonden.")
             return item_id
         cursor=conn.execute("INSERT INTO automated_messages(guild_id,channel_id,title,content,color,image_url,send_at,repeat_minutes,next_run,delete_after,enabled,created_by,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",(guild_id,*values,actor,now,now));return int(cursor.lastrowid)
 
@@ -79,7 +79,7 @@ def save_announcement(settings,guild_id:int,data:dict,actor:int)->int:
     with db._gesichert(settings) as conn:
         if item_id:
             cursor=conn.execute("UPDATE automatic_announcements SET channel_id=?,title=?,content=?,color=?,image_url=?,interval_minutes=?,first_delay_minutes=?,next_run=?,mention_role_id=?,enabled=?,updated_at=? WHERE guild_id=? AND id=?",(*values,now,guild_id,item_id));
-            if not cursor.rowcount:raise ValueError("Automatische Ankündigung nicht gefunden.")
+            if not cursor.rowcount:raise ValueError("Automatische aankondiging niet gevonden.")
             return item_id
         cursor=conn.execute("INSERT INTO automatic_announcements(guild_id,channel_id,title,content,color,image_url,interval_minutes,first_delay_minutes,next_run,mention_role_id,enabled,created_by,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",(guild_id,*values,actor,now,now));return int(cursor.lastrowid)
 

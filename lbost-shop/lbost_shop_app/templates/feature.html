@@ -2,67 +2,67 @@
 {% block title %}{{ spec.title }} — {{ guild.name }}{% endblock %}
 {% block dashboard_content %}
 {% macro feldhinweis(key, feature, platzhalter) %}{% if platzhalter.get(feature) and key in ('ticket_message','ticket_created_message','ticket_title','welcome_message','leave_message') %}<small class="ub-hinweis">{{ platzhalter[feature] }}</small>{% endif %}{% endmacro %}
-<header class="ub-page-header"><div><p class="eyebrow">{{ guild.name }} / Modul</p><h1 class="ub-title-with-icon"><svg><use href="#i-{{ spec.icon }}"></use></svg>{{ spec.title }}</h1><p class="page-lead">Alle Einstellungen werden getrennt für diesen Server gespeichert und ohne Neustart übernommen.</p></div><a class="ub-back-button" href="{{ root_path }}/guild/{{ guild.id }}">← Übersicht</a></header>
-{% if saved %}<div class="notice success-notice">Änderungen gespeichert. Der Bot übernimmt sie automatisch.</div>{% endif %}
-{% if geloescht %}<div class="notice success-notice">Verwarnung entfernt.</div>{% endif %}
+<header class="ub-page-header"><div><p class="eyebrow">{{ guild.name }} / module</p><h1 class="ub-title-with-icon"><svg><use href="#i-{{ spec.icon }}"></use></svg>{{ spec.title }}</h1><p class="page-lead">Alle instellingen worden voor deze server afzonderlijk opgeslagen en zonder herstart toegepast.</p></div><a class="ub-back-button" href="{{ root_path }}/guild/{{ guild.id }}">← Overzicht</a></header>
+{% if saved %}<div class="notice success-notice">Wijzigingen opgeslagen. De bot regelt dit automatisch.</div>{% endif %}
+{% if geloescht %}<div class="notice success-notice">Waarschuwing verwijderd.</div>{% endif %}
 {% if error %}<div class="notice error-notice">{{ error }}</div>{% endif %}
-{% if not discord_ok %}<div class="notice error-notice">Discord antwortet gerade nicht. Kanäle und Rollen bleiben leer; speichern geht trotzdem, die Auswahl ist nur leer.</div>{% endif %}
+{% if not discord_ok %}<div class="notice error-notice">Discord reageert momenteel niet. Kanalen en rollen blijven leeg; Opslaan werkt nog steeds, de selectie is gewoon leeg.</div>{% endif %}
 <form class="settings-form ub-settings-form" method="post" {% if feature == 'tickets' %}data-preview-url="{{ root_path }}/guild/{{ guild.id }}/tickets/vorschau"{% endif %}>
 <input type="hidden" name="csrf" value="{{ csrf }}">
-<div class="ub-form-heading"><div><h2>Konfiguration</h2><p>Kanäle und Kategorien werden direkt aus Discord geladen.</p></div><span>SERVER {{ guild.id }}</span></div>
+<div class="ub-form-heading"><div><h2>Configuratie</h2><p>Kanalen en categorieën worden rechtstreeks vanuit Discord geladen.</p></div><span>SERVER{{ guild.id }}</span></div>
 <div class="form-grid">
 {% for key,label,type in spec.fields %}<label class="field{% if type in ['textarea','json'] %} wide{% endif %}">
 {% if type == 'bool' %}<span class="switch-row"><input type="checkbox" name="{{ key }}"{% if values.get(key) %} checked{% endif %}><span class="switch"></span><b>{{ label }}</b></span>
 {% elif type == 'textarea' %}<b>{{ label }}</b><textarea name="{{ key }}" rows="5" data-preview-field="{{ key }}">{{ values.get(key, '') }}</textarea>{{ feldhinweis(key, feature, platzhalter) }}
-{% elif type == 'json' %}<b>{{ label }}</b><textarea name="{{ key }}" rows="8" spellcheck="false" data-preview-field="{{ key }}">{{ values.get(key, []) | json_pretty }}</textarea><small>{% if key == 'questions_json' %}Höchstens fünf Fragen. Erlaubte Schlüssel: label, placeholder, type (short, paragraph, image), required.{% elif key == 'panels_json' and feature == 'tickets' %}Ein Objekt pro Panel; „key“ ist der Name im Befehl /ticket-panel.{% elif key == 'roles_json' %}Ein Objekt pro Rolle: role_id, label, emoji.{% else %}JSON-Liste; mehrere Einträge sind möglich.{% endif %}</small>{% if json_help.get(key) %}<details><summary>Beispiel anzeigen</summary><pre>{{ json_help.get(key) }}</pre></details>{% endif %}
-{% elif type == 'channel' %}<b>{{ label }}</b><select name="{{ key }}" data-preview-field="{{ key }}"><option value="">Nicht ausgewählt</option>{% for item in channels %}<option value="{{ item.id }}"{% if values.get(key)|string == item.id %} selected{% endif %}># {{ item.name }}</option>{% endfor %}</select>
+{% elif type == 'json' %}<b>{{ label }}</b><textarea name="{{ key }}" rows="8" spellcheck="false" data-preview-field="{{ key }}">{{ values.get(key, []) | json_pretty }}</textarea><small>{% if key == 'questions_json' %}Maximaal vijf vragen. Toegestane sleutels: label, tijdelijke aanduiding, type (kort, alinea, afbeelding), vereist.{% elif key == 'panels_json' and feature == 'tickets' %}OEén object per paneel; "key" is de naam in de opdracht /ticket-panel.{% elif key == 'roles_json' %}OEén object per rol: rol_id, label, emoji.{% else %}JSON lijst; meerdere vermeldingen zijn mogelijk.{% endif %}</small>{% if json_help.get(key) %}<details><summary>Laat voorbeeld zien</summary><pre>{{ json_help.get(key) }}</pre></details>{% endif %}
+{% elif type == 'channel' %}<b>{{ label }}</b><select name="{{ key }}" data-preview-field="{{ key }}"><option value="">Niet geselecteerd</option>{% for item in channels %}<option value="{{ item.id }}"{% if values.get(key)|string == item.id %} selected{% endif %}># {{ item.name }}</option>{% endfor %}</select>
 {% elif type == 'color' %}<b>{{ label }}</b><input type="color" name="{{ key }}" value="{{ values.get(key, '#5865f2') or '#5865f2' }}"><small>{{ values.get(key) or '#5865f2' }}</small>
-{% elif type == 'number' %}{% set grenze = limits.get(key, [1, 1000]) %}<b>{{ label }}</b><input type="number" name="{{ key }}" value="{{ values.get(key, '') }}" min="{{ grenze[0] }}" max="{{ grenze[1] }}" step="1"><small>Erlaubt ist {{ grenze[0] }} bis {{ grenze[1] }}.</small>
+{% elif type == 'number' %}{% set grenze = limits.get(key, [1, 1000]) %}<b>{{ label }}</b><input type="number" name="{{ key }}" value="{{ values.get(key, '') }}" min="{{ grenze[0] }}" max="{{ grenze[1] }}" step="1"><small>{{ grenze[0] }} tot {{ grenze[1] }} is toegestaan.</small>
 {% else %}<b>{{ label }}</b><input type="{{ 'url' if type == 'url' else 'text' }}" name="{{ key }}" value="{{ values.get(key, '') }}" maxlength="{{ 600 if type == 'url' else 4000 }}"{% if type == 'text' %} data-preview-field="{{ key }}"{% endif %}>{{ feldhinweis(key, feature, platzhalter) }}
 {% endif %}</label>
 {% endfor %}
 </div>
-<div class="form-actions"><a href="{{ root_path }}/guild/{{ guild.id }}">Abbrechen</a><button type="submit">Konfiguration speichern</button></div>
+<div class="form-actions"><a href="{{ root_path }}/guild/{{ guild.id }}">Annuleer</a><button type="submit">Configuratie opslaan</button></div>
 </form>
 
 {% if feature == 'tickets' %}
-<section class="ub-daten-card"><header><div><h2>Vorschau</h2><p>Was der Bot in Discord zeigt — gerechnet im Bot, nicht im Browser.</p></div><span class="ub-status-pill online" data-preview-state><i></i>gespeicherter Stand</span></header>
+<section class="ub-daten-card"><header><div><h2>Voorbeeld</h2><p>Wat de bot laat zien in Discord - berekend in de bot, niet in de browser.</p></div><span class="ub-status-pill online" data-preview-state><i></i>opgeslagen status</span></header>
 <div class="ub-preview-grid">
-<div class="ub-preview"><header><h3>Panel auf dem Kanal</h3><span>Farbe {{ daten.panel.farbe }}</span></header>
+<div class="ub-preview"><header><h3>Paneel op het kanaal</h3><span>Kleur {{ daten.panel.farbe }}</span></header>
 <div class="ub-discord"><h4 data-preview="panel_titel">{{ daten.panel.titel }}</h4><p data-preview="panel_beschreibung">{{ daten.panel.beschreibung }}</p>
-{% if daten.panel.bild %}<div class="ub-antwort">Bild: <code>{{ daten.panel.bild|truncate(60, true) }}</code></div>{% endif %}
+{% if daten.panel.bild %}<div class="ub-antwort">Afbeelding: <code>{{ daten.panel.bild|truncate(60, true) }}</code></div>{% endif %}
 <div class="ub-zeile"><span class="ub-btn" data-preview="button_label">{{ daten.panel.oeffnen.label }}</span></div>
 {% if daten.panel.footer %}<div class="ub-fuss" data-preview="panel_footer">{{ daten.panel.footer }}</div>{% endif %}</div></div>
-<div class="ub-preview"><header><h3>Im geöffneten Ticket</h3><span data-preview-kanal>#{{ daten.vorschau.kanal }}</span></header>
+<div class="ub-preview"><header><h3>In het geopende kaartje</h3><span data-preview-kanal>#{{ daten.vorschau.kanal }}</span></header>
 <div class="ub-discord"><h4 data-preview="titel">{{ daten.vorschau.titel }}</h4><p data-preview="nachricht">{{ daten.vorschau.nachricht }}</p>
-<div class="ub-antwort" data-preview="fragen">{% if daten.vorschau.fragen %}{% for frage in daten.vorschau.fragen %}<b>{{ loop.index }}. {{ frage.label }}{% if frage.pflicht %} · Pflicht{% endif %}</b>{{ frage.hinweis or ('Bild hochladen' if frage.typ == 'image' else 'Antwortmöglichkeit: ' ~ frage.feld) }}{% if not loop.last %}<br>{% endif %}{% endfor %}{% else %}<em>Keine Fragen gestellt.</em>{% endif %}</div>
+<div class="ub-antwort" data-preview="fragen">{% if daten.vorschau.fragen %}{% for frage in daten.vorschau.fragen %}<b>{{ loop.index }}. {{ frage.label }}{% if frage.pflicht %} · Verplicht{% endif %}</b>{{ frage.hinweis or ('Afbeelding uploaden' if frage.typ == 'image' else 'Antwoordmogelijkheid:' ~ frage.feld) }}{% if not loop.last %}<br>{% endif %}{% endfor %}{% else %}<em>Geen vragen gesteld.</em>{% endif %}</div>
 <div class="ub-zeile"><span class="ub-btn">{{ daten.panel.buttons[0].label }}</span><span class="ub-btn gefahr">{{ daten.panel.buttons[1].label }}</span></div></div>
-<p class="ub-preview-note">Bestätigung an den Nutzer: <span data-preview="bestaetigung">{{ daten.vorschau.bestaetigung }}</span></p></div>
+<p class="ub-preview-note">Bevestiging aan de gebruiker: <span data-preview="bestaetigung">{{ daten.vorschau.bestaetigung }}</span></p></div>
 </div>
-<p class="ub-preview-note">Die Felder wandern beim Tippt über die Vorschau — gespeichert wird erst über den Knopf unten. Fragen erscheinen als Form vor dem Öffnen des Ticketkanals, höchstens fünf, wie im Bot.</p></section>
+<p class="ub-preview-note">De velden bewegen over het voorbeeld terwijl u typt - ze worden alleen opgeslagen via de onderstaande knop. Vragen verschijnen als een formulier voordat het ticketkanaal wordt geopend, maximaal vijf, zoals in de bot.</p></section>
 {% endif %}
 
 {% if feature == 'moderation' %}
-<section class="ub-daten-card"><header><div><h2>Verwarnungen auf diesem Server</h2><p>Was <code>/warn</code> gespeichert hat — die Liste fehlt sonst jede Kontrolle.</p></div></header>
-{% if daten.warnungen %}<table class="ub-table"><thead><tr><th>Fall</th><th>Mitglied</th><th>Moderator</th><th>Grund</th><th>Wann</th><th></th></tr></thead><tbody>
-{% for eintrag in daten.warnungen %}<tr><td>#{{ eintrag.case_number or eintrag.id }}</td><td><code>{{ eintrag.user_id }}</code></td><td><code>{{ eintrag.moderator_id }}</code></td><td>{{ eintrag.reason|truncate(90, true) }}</td><td>{{ eintrag.created_at | strftime }}</td><td><form method="post" action="{{ root_path }}/guild/{{ guild.id }}/moderation/warnung/{{ eintrag.id }}/loeschen"><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit">löschen</button></form></td></tr>{% endfor %}
-</tbody></table>{% else %}<p class="ub-preview-note">Noch keine Verwarnung. <code>/warn</code> im Discord schreibt den ersten Eintrag.</p>{% endif %}
+<section class="ub-daten-card"><header><div><h2>Waarschuwingen op deze server</h2><p>Wat <code>/waarschuw</code> is opgeslagen - de lijst heeft verder geen enkele controle.</p></div></header>
+{% if daten.warnungen %}<table class="ub-table"><thead><tr><th>geval</th><th>lid</th><th>Moderator</th><th>reden</th><th>Wanneer</th><th></th></tr></thead><tbody>
+{% for eintrag in daten.warnungen %}<tr><td>#{{ eintrag.case_number or eintrag.id }}</td><td><code>{{ eintrag.user_id }}</code></td><td><code>{{ eintrag.moderator_id }}</code></td><td>{{ eintrag.reason|truncate(90, true) }}</td><td>{{ eintrag.created_at | strftime }}</td><td><form method="post" action="{{ root_path }}/guild/{{ guild.id }}/moderation/warnung/{{ eintrag.id }}/loeschen"><input type="hidden" name="csrf" value="{{ csrf }}"><button type="submit">verwijderen</button></form></td></tr>{% endfor %}
+</tbody></table>{% else %}<p class="ub-preview-note">Nog geen waarschuwing. <code>/waarschuw</code> in Discord schrijft het eerste bericht.</p>{% endif %}
 </section>
 {% endif %}
 
 {% if feature == 'tickets' %}
-<section class="ub-daten-card"><header><div><h2>Letzte Tickets</h2><p>{{ daten.kennzahlen.offen }} offen · {{ daten.kennzahlen.beansprucht }} übernommen · {{ daten.kennzahlen.geschlossen }} geschlossen · {{ daten.kennzahlen.neu_7_tage }} in sieben Tagen</p></div></header>
-{% if daten.tickets %}<table class="ub-table"><thead><tr><th>#</th><th>Kanal</th><th>Nutzer</th><th>Panel</th><th>Status</th><th>Angelegt</th></tr></thead><tbody>
-{% for ticket in daten.tickets %}<tr><td>{{ '%04d'|format(ticket.ticket_number) }}</td><td><code>{{ ticket.channel_id }}</code></td><td><code>{{ ticket.owner_id }}</code></td><td>{{ ticket.panel_key }}</td><td>{% if ticket.status == 'open' %}offen{% elif ticket.status == 'closed' %}geschlossen{% else %}{{ ticket.status }}{% endif %}{% if ticket.claimed_by %} · #{{ ticket.claimed_by }}{% endif %}</td><td>{{ ticket.created_at | strftime }}</td></tr>{% endfor %}
-</tbody></table>{% else %}<p class="ub-preview-note">Noch kein Ticket geöffnet.</p>{% endif %}
+<section class="ub-daten-card"><header><div><h2>Laatste kaartjes</h2><p>{{ daten.kennzahlen.offen }} open · {{ daten.kennzahlen.beansprucht }} overgenomen · {{ daten.kennzahlen.geschlossen }} gesloten · {{ daten.kennzahlen.neu_7_tage }} over zeven dagen</p></div></header>
+{% if daten.tickets %}<table class="ub-table"><thead><tr><th>#</th><th>Kanaal</th><th>Gebruiker</th><th>paneel</th><th>status</th><th>Gemaakt</th></tr></thead><tbody>
+{% for ticket in daten.tickets %}<tr><td>{{ '%04d'|format(ticket.ticket_number) }}</td><td><code>{{ ticket.channel_id }}</code></td><td><code>{{ ticket.owner_id }}</code></td><td>{{ ticket.panel_key }}</td><td>{% if ticket.status == 'open' %}open{% elif ticket.status == 'closed' %}gesloten{% else %}{{ ticket.status }}{% endif %}{% if ticket.claimed_by %} · #{{ ticket.claimed_by }}{% endif %}</td><td>{{ ticket.created_at | strftime }}</td></tr>{% endfor %}
+</tbody></table>{% else %}<p class="ub-preview-note">Er is nog geen ticket geopend.</p>{% endif %}
 </section>
 {% endif %}
 
 {% if feature == 'giveaways' %}
-<section class="ub-daten-card"><header><div><h2>Giveaways</h2><p>Läuft die Zeit noch, entscheidet der Bot alle 30 Sekunden über die Gewinner.</p></div></header>
-{% if daten.giveaways %}<table class="ub-table"><thead><tr><th>Preis</th><th>Gewinner</th><th>Status</th><th>Ende</th></tr></thead><tbody>
-{% for g in daten.giveaways %}<tr><td>{{ g.prize|truncate(60, true) }}</td><td>{{ g.winners }}</td><td>{% if g.status == 'active' %}läuft{% elif g.status == 'ended' %}beendet{% else %}{{ g.status }}{% endif %}</td><td>{{ g.ends_at | strftime }}</td></tr>{% endfor %}
-</tbody></table>{% else %}<p class="ub-preview-note">Noch kein Giveaway gestartet.</p>{% endif %}
+<section class="ub-daten-card"><header><div><h2>Weggeefacties</h2><p>Als de tijd nog loopt, bepaalt de bot elke 30 seconden de winnaars.</p></div></header>
+{% if daten.giveaways %}<table class="ub-table"><thead><tr><th>Prijs</th><th>Winnaar</th><th>status</th><th>einde</th></tr></thead><tbody>
+{% for g in daten.giveaways %}<tr><td>{{ g.prize|truncate(60, true) }}</td><td>{{ g.winners }}</td><td>{% if g.status == 'active' %} actief{% elif g.status == 'ended' %}voltooid{% else %}{{ g.status }}{% endif %}</td><td>{{ g.ends_at | strftime }}</td></tr>{% endfor %}
+</tbody></table>{% else %}<p class="ub-preview-note">Er is nog geen winactie gestart.</p>{% endif %}
 </section>
 {% endif %}
 {% endblock %}

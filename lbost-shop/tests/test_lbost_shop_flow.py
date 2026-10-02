@@ -69,18 +69,18 @@ async def run() -> None:
         assert response.status_code == 200
         assert "Visible" in response.text
         assert all(name not in response.text for name in ("Not secret", "Bot absent", "No rights"))
-        assert "University Bot" in response.text and "Control Center" in response.text
+        assert "University Bot" in response.text and "controlecentrum" in response.text
         response = await client.get("/lbost-shop/servers")
         assert response.status_code == 200
-        assert "Deine Server" in response.text and "Mitglieder erreicht" in response.text and "Server mit Bot" in response.text
+        assert "Jouw servers" in response.text and "leden bereikt" in response.text and "Server met bot" in response.text
         response = await client.get("/lbost-shop/guild/1")
         assert response.status_code == 200
-        assert "Advanced Ticket System" in response.text and "Dashboard durchsuchen" in response.text
-        assert "Einrichtung" in response.text and "Als Nächstes" in response.text and "Noch offen" in response.text
+        assert "Geavanceerd ticketsysteem" in response.text and "Dashboard doorbladeren" in response.text
+        assert "Installatie" in response.text and "Volgende" in response.text and "Nog in te stellen" in response.text
         response = await client.get("/lbost-shop/guild/1/tickets")
         assert response.status_code == 200
-        assert "Vorschau" in response.text and "gerechnet im Bot" in response.text
-        assert "Fragen vor der Erstellung" in response.text and 'name="panels_json"' in response.text and 'type="hidden" name="panels_json"' in response.text
+        assert "Voorbeeld in het ticket" in response.text and "dezelfde regels in de bot" in response.text
+        assert "Vragen vóór het aanmaken" in response.text and 'name="panels_json"' in response.text and 'type="hidden" name="panels_json"' in response.text
         assert "ub-module-dot enabled" in response.text and "ub-module-control" in response.text
         session = auth.read_session(client.cookies.get("lbost_shop_session"), get_settings())
         response = await client.post("/lbost-shop/guild/1/module/tickets", data={
@@ -93,7 +93,7 @@ async def run() -> None:
         assert response.status_code == 303 and db.get_feature(1, "tickets", get_settings())["enabled"] is True
         response = await client.get("/lbost-shop/guild/1/moderation")
         assert response.status_code == 200
-        assert "Verwarnungen auf diesem Server" in response.text
+        assert "Waarschuwingen op deze server" in response.text
         response = await client.get("/lbost-shop/guild/1/config-export")
         assert response.status_code == 200 and response.json()["guild_id"] == "1"
         session = auth.read_session(client.cookies.get("lbost_shop_session"), get_settings())
@@ -131,7 +131,7 @@ async def run() -> None:
         # aktiven Sitzungen und den Änderungsverlauf. Ein leeres Panel wäre
         # hier ein Fehler, also muss der Test die echten Werte sehen.
         assert "Admin-Panel" in response.text
-        assert "Aktive Sitzungen" in response.text or "aktive Sitzungen" in response.text
+        assert "Actieve sessies" in response.text or "actieve sessies" in response.text
         assert "123" in response.text, "freigegebenes Konto muss im Panel stehen"
         assert "configure:moderation" in response.text, "gespeichertes Modul muss im Verlauf auftauchen"
 

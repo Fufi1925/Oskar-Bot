@@ -5,16 +5,16 @@ from datetime import timezone
 from typing import Any
 from lbost_shop_app import db
 
-DEFAULT_TITLE = "Gewinnspiel"
-DEFAULT_DESCRIPTION = "**{prize}**\n\nDrücke den Knopf, um teilzunehmen.\n**Gewinner:** {winners}\n**Endet:** {ends}"
+DEFAULT_TITLE = "Giveaway"
+DEFAULT_DESCRIPTION = "**{prize}**\n\nDruk op de knop om mee te doen.\n**Winnaar:** {winners}\n**Einde:** {ends}"
 DEFAULT_MESSAGES = {
- "msg_joined":"Du bist dabei! Teilnehmer: **{entries}**",
- "msg_left":"Du nimmst nicht mehr teil. Teilnehmer: **{entries}**",
- "msg_ended":"Dieses Gewinnspiel ist bereits beendet.",
- "msg_denied":"Du erfüllst die Bedingungen noch nicht:",
+ "msg_joined":"Je bent er! Deelnemers: **{entries}**",
+ "msg_left":"Je doet niet meer mee. Deelnemers: **{entries}**",
+ "msg_ended":"Deze giveaway is al afgelopen.",
+ "msg_denied":"U voldoet nog niet aan de voorwaarden:",
  "msg_winner_dm":"**{prize}**\n\nServer: **{server}**",
- "msg_announce":"Glückwunsch {winners_mentions}! Ihr gewinnt **{prize}**.",
- "msg_no_entries":"Niemand hat am Gewinnspiel für **{prize}** teilgenommen.",
+ "msg_announce":"Gefeliciteerd {winners_mentions}! Jij wint **{prize}**.",
+ "msg_no_entries":"Niemand nam deel aan de giveaway voor **{prize}**.",
 }
 TEXT_LIMITS = {"title":200,"description":2000,"button_label":80,"button_emoji":100,"image_url":600,
  **{k:(1000 if k in {"msg_winner_dm","msg_announce"} else 500) for k in DEFAULT_MESSAGES}}
@@ -157,22 +157,22 @@ def add_activity(guild_id:int,user_id:int,settings)->None:
 def failed_requirements(record:dict,member,settings)->list[str]:
  problems=[]; roles={r.id for r in getattr(member,"roles",[])}
  required=int(record.get("required_role_id") or 0); blocked=int(record.get("blocked_role_id") or 0)
- if required and required not in roles: problems.append(f"Benötigte Rolle: <@&{required}>")
- if blocked and blocked in roles: problems.append(f"Ausgeschlossene Rolle: <@&{blocked}>")
+ if required and required not in roles: problems.append(f"Vereiste rol: <@&{required}>")
+ if blocked and blocked in roles: problems.append(f"Uitgesloten rol: <@&{blocked}>")
  messages,level=activity(int(getattr(getattr(member,"guild",None),"id",0) or record.get("guild_id") or 0),member.id,settings)
- if messages<int(record.get("min_messages") or 0): problems.append(f"Mindestens {record['min_messages']} Nachrichten")
+ if messages<int(record.get("min_messages") or 0): problems.append(f"Minimaal {record['min_messages']} berichten")
  if level<int(record.get("min_level") or 0): problems.append(f"Mindestens Level {record['min_level']}")
  now=time.time(); created=getattr(member,"created_at",None); joined=getattr(member,"joined_at",None)
- if created and (now-created.replace(tzinfo=timezone.utc).timestamp())/86400<int(record.get("min_account_days") or 0): problems.append(f"Account mindestens {record['min_account_days']} Tage alt")
- if joined and (now-joined.replace(tzinfo=timezone.utc).timestamp())/86400<int(record.get("min_member_days") or 0): problems.append(f"Mindestens {record['min_member_days']} Tage auf dem Server")
+ if created and (now-created.replace(tzinfo=timezone.utc).timestamp())/86400<int(record.get("min_account_days") or 0): problems.append(f"Account minimaal {record['min_account_days']} dagen oud")
+ if joined and (now-joined.replace(tzinfo=timezone.utc).timestamp())/86400<int(record.get("min_member_days") or 0): problems.append(f"Minimaal {record['min_member_days']} dagen op de server")
  return problems
 
 def requirement_lines(record:dict)->list[str]:
  out=[]
- if record.get("required_role_id"):out.append(f"Rolle <@&{record['required_role_id']}>")
- if record.get("blocked_role_id"):out.append(f"Nicht <@&{record['blocked_role_id']}>")
- if record.get("min_messages"):out.append(f"{record['min_messages']} Nachrichten")
+ if record.get("required_role_id"):out.append(f"Rol <@&{record['required_role_id']}>")
+ if record.get("blocked_role_id"):out.append(f"Niet <@&{record['blocked_role_id']}>")
+ if record.get("min_messages"):out.append(f"{record['min_messages']} berichten")
  if record.get("min_level"):out.append(f"Level {record['min_level']}")
- if record.get("min_account_days"):out.append(f"Account {record['min_account_days']} Tage")
- if record.get("min_member_days"):out.append(f"{record['min_member_days']} Tage Mitglied")
+ if record.get("min_account_days"):out.append(f"Account {record['min_account_days']} dagen")
+ if record.get("min_member_days"):out.append(f"{record['min_member_days']} dagen lid")
  return out

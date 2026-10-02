@@ -23,9 +23,9 @@ WILLKOMMEN_NAMEN = ("ticket_number", "user", "category", "server", "channel")
 #: Beispielswerte für die Vorschau. Bewusst erkennbar erfunden.
 VORSCHAU_BEISPIELE = {
     "ticket_number": "0001",
-    "user": "@dein.name",
-    "category": "Support",
-    "server": "Dein Server",
+    "user": "@jouw.naam",
+    "category": "Ondersteuning",
+    "server": "Jouw server",
     "channel": "#ticket-0001-support",
 }
 
@@ -38,16 +38,16 @@ FRAGE_TYPEN = ("short", "paragraph", "image")
 
 TITEL_BEISPIEL = "Ticket #{ticket_number}"
 NACHRICHT_BEISPIEL = (
-    "Danke, dass du dich meldest, {user}.\n"
-    "Beschreibe dein Anliegen so genau wie möglich, dann geht es schneller."
+    "Bedankt dat u contact heeft opgenomen, {user}.\n"
+    "Beschrijf je verzoek zo nauwkeurig mogelijk, dan gaat het sneller."
 )
-BESTAETIGUNG_BEISPIEL = "Dein Ticket ist offen: {channel}"
+BESTAETIGUNG_BEISPIEL = "Je ticket is geopend: {channel}"
 
 #: Standardtext des Panels auf dem Kanal. Der Bot nutzt denselben String;
 #: zwei verschiedene Defaults waere die Stelle, an der die Vorschau einen
 #: anderen Text zeigt als der Kanal.
-PANEL_TITEL = "Support"
-PANEL_BESCHREIBUNG = "Öffne ein Ticket, um das Team zu kontaktieren."
+PANEL_TITEL = "Ondersteuning"
+PANEL_BESCHREIBUNG = "Open een ticket om contact op te nemen met het team."
 
 # Discord erlaubt in Kanalnamen nur a-z, 0-9, Bindestrich und Unterstrich.
 _UNERWUESCHT = re.compile(r"[^a-z0-9_-]+")
@@ -175,10 +175,10 @@ def vorschau_panel(cfg: dict[str, Any]) -> dict[str, Any]:
         "farbe": str(cfg.get("color") or "#5865f2"),
         "bild": str(cfg.get("image_url") or ""),
         "thumbnail": str(cfg.get("thumbnail_url") or ""),
-        "oeffnen": knopf("button_label", "Ticket öffnen"),
+        "oeffnen": knopf("button_label", "Ticket openen"),
         "buttons": [
-            knopf("claim_label", "Übernehmen"),
-            knopf("close_label", "Schließen"),
+            knopf("claim_label", "Overnemen"),
+            knopf("close_label", "Sluiten"),
         ],
     }
 
@@ -204,7 +204,7 @@ def vorschau_willkommen(cfg: dict[str, Any], *, entwurf: dict[str, Any] | None =
                 "typ": frage["type"],
                 "pflicht": bool(frage["required"]),
                 "hinweis": frage["placeholder"],
-                "feld": "Datei" if frage["type"] == "image" else ("Mehrzeilig" if frage["type"] == "paragraph" else "Einzeilig"),
+                "feld": "bestand" if frage["type"] == "image" else ("Meerdere lijnen" if frage["type"] == "paragraph" else "Enkele lijn"),
                 "laenge": MAX_ANTWORT_LANG if frage["type"] == "paragraph" else MAX_ANTWORT_KURZ,
             }
             for frage in fragen
@@ -217,10 +217,10 @@ def antworten_formatieren(antworten: list[dict[str, Any]]) -> str:
     """Die Antworten aus dem Modal als Markdown-Block für das Ticket."""
     zeilen: list[str] = []
     for antwort in antworten or []:
-        label = str(antwort.get("label") or "Antwort")[:MAX_FRAGE_LABEL]
+        label = str(antwort.get("label") or "Antwoord")[:MAX_FRAGE_LABEL]
         if antwort.get("type") == "image":
             dateien = [str(link) for link in (antwort.get("attachments") or []) if str(link).startswith(("http://", "https://"))][:5]
-            inhalt = "\n".join(dateien) if dateien else "_keine Datei_"
+            inhalt = "\n".join(dateien) if dateien else "_geen bestand_"
         else:
             inhalt = str(antwort.get("value") or "").strip()[:MAX_ANTWORT_LANG] or "_leer_"
         zeilen.append(f"**{label}**\n{inhalt}")

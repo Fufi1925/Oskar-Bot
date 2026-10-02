@@ -36,7 +36,7 @@ client=(root/'lbost_shop_bot/client.py').read_text()
 overview=(root/'lbost_shop_app/templates/giveaways.html').read_text()
 detail=(root/'lbost_shop_app/templates/giveaway_detail.html').read_text()
 for token in ('duration_minutes','msg_winner_dm','msg_announce','blocked_role_id','min_messages','min_level','min_account_days','min_member_days','dm_winners','dm_host','allow_leave'): assert token in overview
-for token in ('data-gw-detail-tab="entries"','data-gw-detail-tab="texts"','data-gw-detail-tab="rules"','data-gw-entry-search','data-gw-boost','guaranteed','Interne Notiz','extend_minutes','value="reroll"'): assert token in detail
+for token in ('data-gw-detail-tab="entries"','data-gw-detail-tab="texts"','data-gw-detail-tab="rules"','data-gw-entry-search','data-gw-boost','guaranteed','Interne opmerking','extend_minutes','value="reroll"'): assert token in detail
 for token in ('giveaway_join_','failed_requirements','claim_dm','exclude_past=reroll','giveaway_view'): assert token in client
 for token in ('_giveaway_finish','_giveaway_dm','giveaways/{message_id}/boost','giveaways/{message_id}/action'): assert token in main
 assert 'flags": 32768' in main and 'LayoutView' in client

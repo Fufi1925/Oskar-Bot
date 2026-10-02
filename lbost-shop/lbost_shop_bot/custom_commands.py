@@ -26,7 +26,7 @@ class CustomCommandsService:
         store.ensure_schema(self.settings);await self.refresh(sync_slash=False)
         self._signatures=store.signatures(self.settings)
         self._watch_task=asyncio.create_task(self._watch())
-        logger.info("Custom commands loaded for %s guilds",len(self._commands))
+        logger.info("Aangepaste opdrachten geladen voor %s gilden",len(self._commands))
 
     async def close(self):
         if self._watch_task:self._watch_task.cancel()
@@ -42,7 +42,7 @@ class CustomCommandsService:
                         await self.refresh(guild_id,sync_slash=True)
                 self._signatures=current
             except asyncio.CancelledError:raise
-            except Exception:logger.exception("Custom command refresh failed")
+            except Exception:logger.exception("Vernieuwen van aangepaste opdracht mislukt")
 
     async def refresh(self,guild_id:int|None=None,*,sync_slash=False):
         rows=store.list_all(self.settings,guild_id)
@@ -65,7 +65,7 @@ class CustomCommandsService:
         self._slash_names[guild_id]=desired
         if sync:
             try:await tree.sync(guild=guild)
-            except Exception:logger.exception("Custom slash sync failed for guild %s",guild_id)
+            except Exception:logger.exception("Aangepaste slash-synchronisatie mislukt voor gilde %s",guild_id)
 
     def _make_slash_command(self,guild_id:int,name:str)->app_commands.Command:
         entry=self._commands.get(guild_id,{}).get(name,{})
@@ -76,14 +76,14 @@ class CustomCommandsService:
             if re.fullmatch(r"[a-z][a-z0-9_]{0,31}",option) and option not in seen:seen.add(option);valid.append(parameter)
         async def runner(interaction:discord.Interaction,values:dict):
             if not self.bot.feature(guild_id,"custom_commands").get("enabled",True):
-                await interaction.response.send_message("Custom Commands sind auf diesem Server deaktiviert.",ephemeral=True);return
+                await interaction.response.send_message("Aangepaste opdrachten zijn uitgeschakeld op deze server.",ephemeral=True);return
             current=self._commands.get(guild_id,{}).get(name)
             if current is None or not current.get("use_slash"):
-                await interaction.response.send_message("Dieser Custom Command ist nicht mehr verfügbar.",ephemeral=True);return
+                await interaction.response.send_message("Deze aangepaste opdracht is niet langer beschikbaar.",ephemeral=True);return
             if not self._allowed(current,interaction.user):
-                await interaction.response.send_message("Du darfst diesen Command nicht verwenden.",ephemeral=True);return
+                await interaction.response.send_message("U mag deze opdracht niet gebruiken.",ephemeral=True);return
             if self._on_cooldown(guild_id,name,interaction.user.id,current):
-                await interaction.response.send_message("Dieser Command hat für dich noch Cooldown.",ephemeral=True);return
+                await interaction.response.send_message("Deze opdracht heeft nog een cooldown voor je.",ephemeral=True);return
             variables={key:value for key,value in values.items() if key!="interaction" and value is not None}
             arguments=" ".join(getattr(value,"mention",str(value)) for value in variables.values());sent=False
             async def send(text,action=None):
@@ -93,7 +93,7 @@ class CustomCommandsService:
                 if not sent:await interaction.response.send_message(view=view,ephemeral=ephemeral);sent=True
                 else:await interaction.followup.send(view=view,ephemeral=ephemeral)
             await self._run_actions(current,interaction.user,interaction.guild,interaction.channel,arguments,send,variables)
-            if not sent and not interaction.response.is_done():await interaction.response.send_message("Command ausgeführt.",ephemeral=True)
+            if not sent and not interaction.response.is_done():await interaction.response.send_message("Commando uitgevoerd.",ephemeral=True)
         if valid:
             declarations=[]
             for parameter in valid:
@@ -118,7 +118,7 @@ class CustomCommandsService:
                 f"{{{key}}}":natural,f"{{option.{key}}}":natural,f"{{{key}:UserPing}}":natural,
                 f"{{{key}:ChannelPing}}":natural,f"{{{key}:RolePing}}":natural,f"{{{key}:Username}}":natural,
                 f"{{{key}:Channel}}":natural,f"{{{key}:Role}}":natural,f"{{{key}:Text}}":str(value),
-                f"{{{key}:Number}}":str(value),f"{{{key}:Boolean}}":"Ja" if value is True else "Nein" if value is False else str(value)}
+                f"{{{key}:Number}}":str(value),f"{{{key}:Boolean}}":"Ja" if value is True else "Nee" if value is False else str(value)}
             for token,result in tokens.items():rendered=rendered.replace(token,result)
         return rendered
 
@@ -139,11 +139,11 @@ class CustomCommandsService:
 
     def _view(self,action:dict,text:str,member,guild,channel,arguments:str,variables=None):
         embed=action.get("embed") if isinstance(action.get("embed"),dict) else {}
-        enabled=bool(embed.get("enabled"));title=self._render(embed.get("title","") if enabled else "Custom Command",member,guild,channel,arguments,variables)
+        enabled=bool(embed.get("enabled"));title=self._render(embed.get("title","") if enabled else "Aangepaste opdracht",member,guild,channel,arguments,variables)
         description=self._render(embed.get("description","") if enabled else text,member,guild,channel,arguments,variables)
         if enabled and text:description=f"{text}\n\n{description}" if description else text
         view=discord.ui.LayoutView(timeout=900);container=discord.ui.Container(accent_color=colour(embed.get("color") if enabled else "#5865f2"))
-        content=((f"## {title}\n" if title else "")+(description or "Command ausgeführt."))[:3900]
+        content=((f"## {title}\n" if title else "")+(description or "Commando uitgevoerd."))[:3900]
         container.add_item(discord.ui.TextDisplay(content))
         image=str(embed.get("image_url") or "") if enabled else ""
         if image:
@@ -159,7 +159,7 @@ class CustomCommandsService:
 
     def _button(self,definition:dict,guild,channel,arguments:str,variables=None):
         styles={"blue":discord.ButtonStyle.primary,"gray":discord.ButtonStyle.secondary,"green":discord.ButtonStyle.success,"red":discord.ButtonStyle.danger}
-        button=discord.ui.Button(label=str(definition.get("label") or "Klick mich")[:80],emoji=str(definition.get("emoji") or "").strip() or None,style=styles.get(definition.get("style"),discord.ButtonStyle.primary))
+        button=discord.ui.Button(label=str(definition.get("label") or "Klik op mij")[:80],emoji=str(definition.get("emoji") or "").strip() or None,style=styles.get(definition.get("style"),discord.ButtonStyle.primary))
         async def clicked(interaction:discord.Interaction,data=definition):
             sent=False
             async def send(text,action=None):
@@ -168,7 +168,7 @@ class CustomCommandsService:
                 if not sent and not interaction.response.is_done():await interaction.response.send_message(view=view,ephemeral=bool((action or {}).get("ephemeral")));sent=True
                 else:await interaction.followup.send(view=view,ephemeral=bool((action or {}).get("ephemeral")));sent=True
             await self._run_actions({"response":"","config":{"actions":data.get("actions",[])}},interaction.user,guild,channel,arguments,send,variables)
-            if not sent and not interaction.response.is_done():await interaction.response.send_message("Aktion ausgeführt.",ephemeral=True)
+            if not sent and not interaction.response.is_done():await interaction.response.send_message("Actie uitgevoerd.",ephemeral=True)
         button.callback=clicked;return button
 
     async def _run_actions(self,entry:dict,member,guild,channel,arguments:str,send,variables:dict|None=None):
@@ -185,8 +185,8 @@ class CustomCommandsService:
                 elif kind in ("add_role","remove_role"):
                     role=guild.get_role(int(action.get("role_id",0) or 0))
                     if role is not None:
-                        if kind=="add_role":await member.add_roles(role,reason="LBoost Custom Command")
-                        else:await member.remove_roles(role,reason="LBoost Custom Command")
+                        if kind=="add_role":await member.add_roles(role,reason="LBoost aangepaste opdracht")
+                        else:await member.remove_roles(role,reason="LBoost aangepaste opdracht")
                 elif kind=="condition_role":
                     role_id=int(action.get("role_id",0) or 0);has_role=any(role.id==role_id for role in getattr(member,"roles",[]))
                     await run(action.get("then",[]) if has_role else action.get("else",[]),depth+1)
@@ -222,4 +222,4 @@ class CustomCommandsService:
             async def send(text,action=None):await message.channel.send(view=self._view(action or {},text,message.author,message.guild,message.channel,arguments))
             await self._run_actions(entry,message.author,message.guild,message.channel,arguments,send);return True
         except Exception:
-            logger.exception("Custom command failed in guild %s",getattr(message.guild,"id","unknown"));return True
+            logger.exception("Aangepaste opdracht mislukt in gilde %s",getattr(message.guild,"id","unknown"));return True

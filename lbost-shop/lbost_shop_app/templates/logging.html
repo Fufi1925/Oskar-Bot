@@ -3,13 +3,13 @@
 {% block dashboard_content %}
 <header class="ub-page-header ub-log-page-title">
   <div>
-    <h1 class="ub-title-with-icon"><svg><use href="#i-bell"></use></svg>Protokolle</h1>
-    <p class="page-lead">Wer hat was gelöscht, wer ist gegangen, wer hat eine Rolle bekommen — der Bot schreibt es in einen Kanal deiner Wahl.</p>
+    <h1 class="ub-title-with-icon"><svg><use href="#i-bell"></use></svg>Protocollen</h1>
+    <p class="page-lead">Wie heeft wat verwijderd, wie is weggegaan, wie heeft een rol gekregen - de bot schrijft het naar een kanaal naar keuze.</p>
   </div>
 </header>
 
-{% if saved %}<div class="notice success-notice">Protokoll-Einstellungen gespeichert. Der Bot übernimmt sie ohne Neustart.</div>{% endif %}
-{% if tested %}<div class="notice success-notice">Der Testeintrag wurde erfolgreich auf Discord gepostet.</div>{% endif %}
+{% if saved %}<div class="notice success-notice">Protocolinstellingen opgeslagen. De bot neemt het over zonder opnieuw op te starten.</div>{% endif %}
+{% if tested %}<div class="notice success-notice">De testinzending is met succes op Discord geplaatst.</div>{% endif %}
 {% if error %}<div class="notice error-notice">{{ error }}</div>{% endif %}
 
 <form method="post" class="ub-logging-panel" data-logging-form data-test-base="{{ root_path }}/guild/{{ guild.id }}/logging/test/">
@@ -20,39 +20,39 @@
   <section class="ub-log-card">
     <header class="ub-log-card-header">
       <span class="ub-log-card-icon"><svg><use href="#i-bell"></use></svg></span>
-      <div><h2>Protokolle</h2><p>Der Bot schreibt mit, was auf dem Server passiert. Fang mit einer Voreinstellung an — einzeln einstellen kannst du danach immer noch.</p></div>
-      <button type="button" class="ub-log-icon-button" data-log-reload title="Neu laden"><svg><use href="#i-settings"></use></svg></button>
+      <div><h2>Protocollen</h2><p>De bot registreert wat er op de server gebeurt. Begin met een preset – je kunt deze achteraf altijd individueel aanpassen.</p></div>
+      <button type="button" class="ub-log-icon-button" data-log-reload title="Herladen"><svg><use href="#i-settings"></use></svg></button>
     </header>
 
     <div class="ub-log-stats">
-      <div><strong><span data-log-active>{{ active_count }}</span><small> / {{ categories|length }}</small></strong><p>laufen</p></div>
-      <div class="{% if broken_count %}danger{% endif %}" data-log-problem-stat><strong data-log-broken>{{ broken_count }}</strong><p data-log-problem-label>{% if broken_count == 1 %}Problem{% else %}Probleme{% endif %}</p></div>
-      <div><strong data-log-exception-count>{{ exception_count }}</strong><p>Ausnahmen</p></div>
+      <div><strong><span data-log-active>{{ active_count }}</span><small> / {{ categories|length }}</small></strong><p>rennen</p></div>
+      <div class="{% if broken_count %}danger{% endif %}" data-log-problem-stat><strong data-log-broken>{{ broken_count }}</strong><p data-log-problem-label>{% if broken_count == 1 %}Probleem{% else %}Problemen{% endif %}</p></div>
+      <div><strong data-log-exception-count>{{ exception_count }}</strong><p>Uitzonderingen</p></div>
     </div>
 
     <div class="ub-log-broken-banner{% if not broken_count %} is-hidden{% endif %}" data-log-broken-banner>
       <svg><use href="#i-shield"></use></svg>
-      <p><strong data-log-broken-names>{% for category in categories if category.broken %}{{ category.label }}{% if not loop.last %}, {% endif %}{% endfor %}</strong> <span data-log-broken-copy>{% if broken_count == 1 %}ist an{% else %}sind an{% endif %}, aber dort landet nichts. Kanal fehlt, wurde gelöscht, oder der Bot darf nicht hineinschreiben.</span></p>
+      <p><strong data-log-broken-names>{% for category in categories if category.broken %}{{ category.label }}{% if not loop.last %}, {% endif %}{% endfor %}</strong> <span data-log-broken-copy>{% if broken_count == 1 %} staat op {% else %} staat op {% endif %}, maar daar komt niets terecht. Kanaal ontbreekt, is verwijderd of de bot mag er niet naar schrijven.</span></p>
     </div>
 
     <div class="ub-log-quickstart">
       <input type="hidden" name="all_channel" id="log-all-channel" value="">
-      <button type="button" class="ub-custom-picker-button ub-preset-channel-picker" data-picker-open data-picker-kind="channels" data-picker-target="log-all-channel" data-picker-placeholder="Kanal für die Voreinstellung">
-        <span data-picker-label>Kanal für die Voreinstellung</span><svg class="chevron"><use href="#i-chevron"></use></svg>
+      <button type="button" class="ub-custom-picker-button ub-preset-channel-picker" data-picker-open data-picker-kind="channels" data-picker-target="log-all-channel" data-picker-placeholder="Kanaal voor voorinstelling">
+        <span data-picker-label>Kanaal voor voorinstelling</span><svg class="chevron"><use href="#i-chevron"></use></svg>
       </button>
       <div class="ub-log-preset-grid">
-        <button type="button" data-log-preset="essential" disabled><strong>Das Nötigste</strong><span>Moderation, Beitritte, Serveränderungen. Wenig Rauschen.</span><small>3 Arten</small></button>
-        <button type="button" data-log-preset="usual" disabled><strong>Das Übliche</strong><span>Dazu Nachrichten, Kanäle, Rollen und Sprachkanäle.</span><small>7 Arten</small></button>
-        <button type="button" data-log-preset="everything" disabled><strong>Alles</strong><span>Auch Reaktionen und Emojis. Wird viel.</span><small>9 Arten</small></button>
+        <button type="button" data-log-preset="essential" disabled><strong>De essentie</strong><span>Moderatie, joins, serverwijzigingen. Weinig lawaai.</span><small>3 soorten</small></button>
+        <button type="button" data-log-preset="usual" disabled><strong>Het gebruikelijke</strong><span>Plus berichten, kanalen, rollen en spraakkanalen.</span><small>7 soorten</small></button>
+        <button type="button" data-log-preset="everything" disabled><strong>Alles</strong><span>Ook reacties en emoji’s. Zal veel zijn.</span><small>9 soorten</small></button>
       </div>
-      <p class="ub-log-footnote">Eine Voreinstellung setzt alles auf einmal — auch das, was gerade an ist. Gespeichert wird erst unten.</p>
+      <p class="ub-log-footnote">Een preset stelt alles in één keer in, inclusief wat er momenteel aan staat. Het wordt alleen hieronder opgeslagen.</p>
     </div>
   </section>
 
   <section class="ub-log-card">
     <header class="ub-log-card-header">
       <span class="ub-log-card-icon"><svg><use href="#i-bolt"></use></svg></span>
-      <div><h2>Nach Bereich</h2><p>Drei Blöcke statt neun Schalter. Aufklappen für die einzelnen Arten.</p></div>
+      <div><h2>Per gebied</h2><p>Drie blokken in plaats van negen schakelaars. Uitbreiden voor de individuele soort.</p></div>
     </header>
 
     <div class="ub-log-groups">
@@ -61,13 +61,13 @@
       {% set group_enabled = group_categories|selectattr('enabled')|list|length %}
       <article class="ub-log-group-row{% if group_enabled %} active{% endif %}" data-log-group="{{ loop.index0 }}">
         <div class="ub-log-group-head">
-          <span class="ub-log-row-icon"><svg><use href="#i-{% if group == 'Menschen' %}users{% elif group == 'Inhalte' %}log{% else %}settings{% endif %}"></use></svg></span>
+          <span class="ub-log-row-icon"><svg><use href="#i-{% if group == 'mensen' %}users{% elif group == 'Inhoud' %}log{% else %}settings{% endif %}"></use></svg></span>
           <div class="ub-log-group-copy">
             <h3>{{ group }} <small><span data-group-active>{{ group_enabled }}</span>/{{ group_categories|length }}</small></h3>
-            <p>{% if group == 'Menschen' %}Wer kommt, wer geht, wer wurde bestraft.{% elif group == 'Inhalte' %}Was geschrieben, gelöscht und angeklickt wurde.{% else %}Änderungen an Kanälen, Rollen und Einstellungen.{% endif %}</p>
+            <p>{% if group == 'mensen' %}Wie komt, wie gaat, wie werd gestraft.{% elif group == 'Inhoud' %}Wat is geschreven, verwijderd en waarop is geklikt.{% else %}Wijzigingen in kanalen, rollen en instellingen.{% endif %}</p>
           </div>
-          <button type="button" class="ub-log-group-all" data-log-group-all>{% if group_enabled == group_categories|length %}Alle aus{% else %}Alle an{% endif %}</button>
-          <button type="button" class="ub-log-expand" data-log-group-expand title="Einzeln einstellen"><svg><use href="#i-chevron"></use></svg></button>
+          <button type="button" class="ub-log-group-all" data-log-group-all>{% if group_enabled == group_categories|length %}Alles uit{% else %}Alles aan{% endif %}</button>
+          <button type="button" class="ub-log-expand" data-log-group-expand title="Individueel instellen"><svg><use href="#i-chevron"></use></svg></button>
         </div>
         <div class="ub-log-group-details" hidden>
           {% for category in group_categories %}
@@ -75,19 +75,19 @@
             <div class="ub-log-category-head">
               <span class="ub-log-row-icon"><svg><use href="#i-{% if category.key == 'member_moderation' %}shield{% elif category.key in ['join_leave_events','voice_events','role_events'] %}users{% elif category.key in ['channel_events','system_events'] %}server{% else %}log{% endif %}"></use></svg></span>
               <div>
-                <h3>{{ category.label }}{% if category.noisy %}<small class="noisy">viel</small>{% endif %}</h3>
+                <h3>{{ category.label }}{% if category.noisy %}<small class="noisy">veel</small>{% endif %}</h3>
                 <p>{{ category.description }}</p>
-                <p class="ub-log-inline-error" data-category-error{% if not category.broken %} hidden{% endif %}><svg><use href="#i-shield"></use></svg>{% if category.cannot_post %}Der Bot darf dort nicht schreiben.{% elif category.missing %}Diesen Kanal gibt es nicht mehr.{% else %}Kein Kanal gewählt — hier landet nichts.{% endif %}</p>
+                <p class="ub-log-inline-error" data-category-error{% if not category.broken %} hidden{% endif %}><svg><use href="#i-shield"></use></svg>{% if category.cannot_post %}De bot mag daar niet schrijven.{% elif category.missing %}Dit kanaal bestaat niet meer.{% else %}Geen kanaal geselecteerd - hier komt niets terecht.{% endif %}</p>
               </div>
               <label class="ub-log-switch"><input type="checkbox" name="enabled_{{ category.key }}"{% if category.enabled %} checked{% endif %}><i></i></label>
             </div>
             <div class="ub-log-category-controls"{% if not category.enabled %} hidden{% endif %}>
               <input type="hidden" name="channel_{{ category.key }}" id="log-channel-{{ category.key }}" value="{{ category.channel }}">
-              <button type="button" class="ub-custom-picker-button ub-category-channel-picker" data-picker-open data-picker-kind="channels" data-picker-target="log-channel-{{ category.key }}" data-picker-placeholder="Kanal wählen">
-                <span class="ub-picker-hash">#</span><span data-picker-label>{% for channel in channels if channel.id == category.channel %}{{ channel.name }}{% else %}{% if not category.channel %}Kanal wählen{% else %}Unbekannter Kanal{% endif %}{% endfor %}</span><span class="ub-picker-inline-clear" data-picker-inline-clear{% if not category.channel %} hidden{% endif %}>×</span><svg class="chevron"><use href="#i-chevron"></use></svg>
+              <button type="button" class="ub-custom-picker-button ub-category-channel-picker" data-picker-open data-picker-kind="channels" data-picker-target="log-channel-{{ category.key }}" data-picker-placeholder="Kanaal selecteren">
+                <span class="ub-picker-hash">#</span><span data-picker-label>{% for channel in channels if channel.id == category.channel %}{{ channel.name }}{% else %}{% if not category.channel %}Kanaal selecteren{% else %}Onbekend kanaal{% endif %}{% endfor %}</span><span class="ub-picker-inline-clear" data-picker-inline-clear{% if not category.channel %} hidden{% endif %}>×</span><svg class="chevron"><use href="#i-chevron"></use></svg>
               </button>
-              <button type="button" data-log-test-url="{{ root_path }}/guild/{{ guild.id }}/logging/test/{{ category.key }}" class="ub-log-test"{% if not category.channel or category.broken %} hidden{% endif %}><svg><use href="#i-bolt"></use></svg><span>Testeintrag posten</span></button>
-              <p class="ub-log-test-hint" hidden>Erst speichern, dann lässt sich der Kanal testen.</p>
+              <button type="button" data-log-test-url="{{ root_path }}/guild/{{ guild.id }}/logging/test/{{ category.key }}" class="ub-log-test"{% if not category.channel or category.broken %} hidden{% endif %}><svg><use href="#i-bolt"></use></svg><span>Post-testinvoer</span></button>
+              <p class="ub-log-test-hint" hidden>Sla eerst op en dan kun je het kanaal testen.</p>
             </div>
           </div>
           {% endfor %}
@@ -95,66 +95,66 @@
       </article>
       {% endfor %}
     </div>
-    <button type="button" class="ub-log-all-off" data-log-all-off{% if not active_count %} hidden{% endif %}>Alles ausschalten</button>
+    <button type="button" class="ub-log-all-off" data-log-all-off{% if not active_count %} hidden{% endif %}>Zet alles uit</button>
   </section>
 
   <section class="ub-log-card">
     <header class="ub-log-card-header">
       <span class="ub-log-card-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"></circle><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-4 8"></path></svg></span>
-      <div><h2>Ausnahmen</h2><p>Kanäle, Rollen und Mitglieder, über die nichts protokolliert wird.</p></div>
+      <div><h2>Uitzonderingen</h2><p>Kanalen, rollen en leden die niet zijn ingelogd.</p></div>
     </header>
     <button type="button" class="ub-log-exception-toggle" data-log-exceptions-toggle>
-      <span data-log-exception-label>{% if exception_count == 0 %}Keine Ausnahmen{% elif exception_count == 1 %}1 Ausnahme{% else %}{{ exception_count }} Ausnahmen{% endif %}</span><svg><use href="#i-chevron"></use></svg>
+      <span data-log-exception-label>{% if exception_count == 0 %}Geen uitzonderingen{% elif exception_count == 1 %}1 Uitzondering{% else %}{{ exception_count }} Uitzonderingen{% endif %}</span><svg><use href="#i-chevron"></use></svg>
     </button>
     <div class="ub-log-exception-panel" data-log-exceptions hidden>
       <div class="ub-log-field">
-        <label>Kanäle</label>
+        <label>Kanalen</label>
         <div id="ignore-channels-inputs">{% for id in values.ignore_channels %}<input type="hidden" name="ignore_channels" value="{{ id }}">{% endfor %}</div>
-        <button type="button" class="ub-custom-picker-button" data-picker-open data-picker-kind="channels" data-picker-target="ignore-channels-inputs" data-picker-multiple data-picker-placeholder="Auswählen"><span data-picker-label>{% if values.ignore_channels %}{{ values.ignore_channels|length }} ausgewählt{% else %}Auswählen{% endif %}</span><svg class="chevron"><use href="#i-chevron"></use></svg></button>
+        <button type="button" class="ub-custom-picker-button" data-picker-open data-picker-kind="channels" data-picker-target="ignore-channels-inputs" data-picker-multiple data-picker-placeholder="Selecteer"><span data-picker-label>{% if values.ignore_channels %}{{ values.ignore_channels|length }} geselecteerd{% else %}Selecteer{% endif %}</span><svg class="chevron"><use href="#i-chevron"></use></svg></button>
         <div class="ub-picker-chips" data-picker-chips="ignore-channels-inputs"></div>
-        <p>Die Log-Kanäle selbst gehören hierhin — sonst protokolliert jeder Eintrag den nächsten.</p>
+        <p>De logkanalen zelf horen hier thuis - anders zal elk item de volgende loggen.</p>
       </div>
       <div class="ub-log-field">
         <label>Rollen</label>
         <div id="ignore-roles-inputs">{% for id in values.ignore_roles %}<input type="hidden" name="ignore_roles" value="{{ id }}">{% endfor %}</div>
-        <button type="button" class="ub-custom-picker-button" data-picker-open data-picker-kind="roles" data-picker-target="ignore-roles-inputs" data-picker-multiple data-picker-placeholder="Auswählen"><span data-picker-label>{% if values.ignore_roles %}{{ values.ignore_roles|length }} ausgewählt{% else %}Auswählen{% endif %}</span><svg class="chevron"><use href="#i-chevron"></use></svg></button>
+        <button type="button" class="ub-custom-picker-button" data-picker-open data-picker-kind="roles" data-picker-target="ignore-roles-inputs" data-picker-multiple data-picker-placeholder="Selecteer"><span data-picker-label>{% if values.ignore_roles %}{{ values.ignore_roles|length }} geselecteerd{% else %}Selecteer{% endif %}</span><svg class="chevron"><use href="#i-chevron"></use></svg></button>
         <div class="ub-picker-chips" data-picker-chips="ignore-roles-inputs"></div>
       </div>
       <div class="ub-log-field ub-log-members-field">
-        <label>Mitglieder</label>
-        <span class="ub-log-user-label">Benutzer</span>
+        <label>leden</label>
+        <span class="ub-log-user-label">Gebruiker</span>
         <div class="ub-log-user-add">
           <input type="hidden" id="ignore-user-candidate" value="">
           <label class="ub-log-user-search">
             <svg><use href="#i-search"></use></svg>
-            <input type="search" data-user-search data-picker-open data-picker-external-search data-picker-kind="members" data-picker-target="ignore-user-candidate" placeholder="Nach Namen suchen oder ID einfügen" autocomplete="off">
+            <input type="search" data-user-search data-picker-open data-picker-external-search data-picker-kind="members" data-picker-target="ignore-user-candidate" placeholder="Zoek op naam of voer ID in" autocomplete="off">
           </label>
-          <button type="button" class="ub-log-add-user" data-log-add-user disabled title="Hinzufügen"><svg><use href="#i-shield"></use></svg></button>
+          <button type="button" class="ub-log-add-user" data-log-add-user disabled title="Toevoegen"><svg><use href="#i-shield"></use></svg></button>
         </div>
         <input type="hidden" name="ignore_users" id="ignore-users" value="{{ values.ignore_users|join(',') }}">
-        <div class="ub-picker-chips" data-user-chips>{% for id in values.ignore_users %}<span data-id="{{ id }}">{{ id }}<button type="button" data-remove-user="{{ id }}" title="Entfernen"><svg><use href="#i-x"></use></svg></button></span>{% endfor %}</div>
+        <div class="ub-picker-chips" data-user-chips>{% for id in values.ignore_users %}<span data-id="{{ id }}">{{ id }}<button type="button" data-remove-user="{{ id }}" title="Verwijderen"><svg><use href="#i-x"></use></svg></button></span>{% endfor %}</div>
       </div>
     </div>
   </section>
 
   <div class="ub-log-save-bar" data-log-save-bar hidden>
-    <p><strong data-log-dirty-count>0</strong> nicht gespeicherte Änderungen</p>
-    <div><button type="button" data-log-discard>Verwerfen</button><button type="submit" name="action" value="save"><svg><use href="#i-shield"></use></svg>Speichern</button></div>
+    <p><strong data-log-dirty-count>0</strong> niet-opgeslagen wijzigingen</p>
+    <div><button type="button" data-log-discard>Gooi weg</button><button type="submit" name="action" value="save"><svg><use href="#i-shield"></use></svg>Opslaan</button></div>
   </div>
 </form>
 
-<div class="ub-picker-source" data-picker-source="channels" hidden>{% for channel in channels %}<button type="button" data-id="{{ channel.id }}" data-name="{{ channel.name }}" data-can-post="{% if channel.can_post is false %}false{% else %}true{% endif %}" data-can-embed="{% if channel.can_embed is false %}false{% else %}true{% endif %}"><svg><use href="#i-log"></use></svg><span><strong># {{ channel.name }}</strong><small>{% if channel.can_post is false %}Bot darf nicht schreiben{% elif channel.can_embed is false %}Links einbetten fehlt{% else %}Kanal{% endif %}</small></span></button>{% endfor %}</div>
-<div class="ub-picker-source" data-picker-source="roles" hidden>{% for role in roles %}<button type="button" data-id="{{ role.id }}" data-name="{{ role.name }}"><svg class="ub-role-colour" viewBox="0 0 12 12"><circle cx="6" cy="6" r="5" fill="{{ role.colour }}"></circle></svg><span><strong>{{ role.name }}</strong><small>{% if role.managed %}Verwaltete Rolle{% else %}Rolle{% endif %}</small></span></button>{% endfor %}</div>
-<div class="ub-picker-source" data-picker-source="members" hidden>{% for member in members %}<button type="button" data-id="{{ member.id }}" data-name="{{ member.name }}">{% if member.avatar_url %}<img class="ub-picker-avatar" src="{{ member.avatar_url }}" alt="">{% else %}<span class="ub-picker-avatar">{{ member.name[:1]|upper }}</span>{% endif %}<span><strong>{{ member.name }}{% if member.bot %}<b class="ub-picker-bot">bot</b>{% endif %}</strong><small>{{ member.id }}{% if member.top_role %} · {{ member.top_role }}{% endif %}</small></span></button>{% endfor %}</div>
+<div class="ub-picker-source" data-picker-source="channels" hidden>{% for channel in channels %}<button type="button" data-id="{{ channel.id }}" data-name="{{ channel.name }}" data-can-post="{% if channel.can_post is false %}false{% else %}true{% endif %}" data-can-embed="{% if channel.can_embed is false %}false{% else %}true{% endif %}"><svg><use href="#i-log"></use></svg><span><strong># {{ channel.name }}</strong><small>{% if channel.can_post is false %}Bot mag niet schrijven{% elif channel.can_embed is false %}EInbedde links ontbreken{% else %}Kanaal{% endif %}</small></span></button>{% endfor %}</div>
+<div class="ub-picker-source" data-picker-source="roles" hidden>{% for role in roles %}<button type="button" data-id="{{ role.id }}" data-name="{{ role.name }}"><svg class="ub-role-colour" viewBox="0 0 12 12"><circle cx="6" cy="6" r="5" fill="{{ role.colour }}"></circle></svg><span><strong>{{ role.name }}</strong><small>{% if role.managed %}Beheerde rol{% else %}Rol{% endif %}</small></span></button>{% endfor %}</div>
+<div class="ub-picker-source" data-picker-source="members" hidden>{% for member in members %}<button type="button" data-id="{{ member.id }}" data-name="{{ member.name }}">{% if member.avatar_url %}<img class="ub-picker-avatar" src="{{ member.avatar_url }}" alt="">{% else %}<span class="ub-picker-avatar">{{ member.name[:1]|upper }}</span>{% endif %}<span><strong>{{ member.name }}{% if member.bot %}<b class="ub-picker-bot">aangeboden</b>{% endif %}</strong><small>{{ member.id }}{% if member.top_role %} · {{ member.top_role }}{% endif %}</small></span></button>{% endfor %}</div>
 
 <div class="ub-picker-modal" data-picker-modal hidden aria-hidden="true">
-  <button type="button" class="ub-picker-backdrop" data-picker-close aria-label="Schließen"></button>
+  <button type="button" class="ub-picker-backdrop" data-picker-close aria-label="Sluiten"></button>
   <section role="dialog" aria-modal="true" aria-labelledby="picker-title">
-    <header><div><h2 id="picker-title" data-picker-title>Auswählen</h2><p data-picker-subtitle>Durchsuche die Einträge deines Servers.</p></div><button type="button" data-picker-close><svg><use href="#i-x"></use></svg></button></header>
-    <label class="ub-picker-search"><svg><use href="#i-search"></use></svg><input type="search" data-picker-search placeholder="Suchen …" autocomplete="off"></label>
+    <header><div><h2 id="picker-title" data-picker-title>Selecteer</h2><p data-picker-subtitle>Zoek de vermeldingen op uw server.</p></div><button type="button" data-picker-close><svg><use href="#i-x"></use></svg></button></header>
+    <label class="ub-picker-search"><svg><use href="#i-search"></use></svg><input type="search" data-picker-search placeholder="Zoeken..." autocomplete="off"></label>
     <div class="ub-picker-results" data-picker-results></div>
-    <p class="ub-picker-empty" data-picker-empty hidden>Keine passenden Einträge gefunden.</p>
-    <footer data-picker-footer hidden><span data-picker-selection-count>0 ausgewählt</span><button type="button" data-picker-cancel>Abbrechen</button><button type="button" data-picker-apply>Übernehmen</button></footer>
+    <p class="ub-picker-empty" data-picker-empty hidden>Geen overeenkomende vermeldingen gevonden.</p>
+    <footer data-picker-footer hidden><span data-picker-selection-count>0 geselecteerd</span><button type="button" data-picker-cancel>Annuleer</button><button type="button" data-picker-apply>Overnemen</button></footer>
   </section>
 </div>
 {% endblock %}

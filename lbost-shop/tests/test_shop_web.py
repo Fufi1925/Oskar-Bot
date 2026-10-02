@@ -120,12 +120,12 @@ async def run() -> None:
             "csrf": token, "enabled": "on", "spam_limit": "0", "anti_spam": "on",
             "spam_timeout_minuten": "99999", "log_channel_id": "10",
         })
-        assert response.status_code == 200 and "nur Werte von" in response.text
+        assert response.status_code == 200 and "alleen waarden van" in response.text
         gespeichert = db.get_feature(1, "moderation", settings)
         # Bei einem Fehler bleibt der alte Stand stehen, ein halbes Formular
         # speichert der Shop nicht - sonst ist das Modul aktiv mit 0 Toleranz.
         assert gespeichert == {}, f"trotz Fehler gespeichert: {gespeichert}"
-        assert "Nachrichten je 8 Sekunden: nur Werte von 3 bis 100." in response.text
+        assert "Berichten van elk 8 seconden: alleen waarden van 3 tot 100." in response.text
 
         # Einmal korrekt speichern, dann zeigt die Seite die echten Zahlen
         await client.post("/lbost-shop/guild/1/moderation", data={
@@ -146,7 +146,7 @@ async def run() -> None:
             "csrf": token, "enabled": "on", "title": "Support", "description": "Text",
             "image_url": "javascript:alert(1)", "color": "gruen", "panel_channel_id": "10",
         })
-        assert "nur http(s)-Links erlaubt" in response.text and "#rrggbb" in response.text
+        assert "alleen http(s)-links toegestaan" in response.text and "#rrggbb" in response.text
         assert db.get_feature(1, "tickets", settings) == {}, "ungueltige Eingabe wurde gespeichert"
         await client.post("/lbost-shop/guild/1/tickets", data={
             "csrf": token, "enabled": "on", "title": "Support", "description": "Text",
@@ -170,7 +170,7 @@ async def run() -> None:
                                      json={"ticket_message": "Entwurf für {user}", "fremder_schluessel": "x"})
         assert response.status_code == 200, response.text
         vorschau = response.json()
-        assert vorschau["nachricht"] == "Entwurf für @dein.name"
+        assert vorschau["nachricht"] == "Entwurf für @jouw.naam"
         # Die Vorschau kennt nur die Ticket-Felder: ein fremder Schluessel kann
         # nichts veraendern, und fremde Module haben gar keine Vorschau.
         assert vorschau["unbekannte_felder"] == ["fremder_schluessel"], "Feld-Drift bleibt unsichtbar"
@@ -181,7 +181,7 @@ async def run() -> None:
         zu_gross = await client.post("/lbost-shop/guild/1/tickets/vorschau",
                                      content=b'{"ticket_message": "' + b"x" * 70000 + b'"}')
         assert zu_gross.status_code == 400, "Riesiger Entwurf laeuft durch"
-        assert vorschau["titel"] == "Ticket 0001 für @dein.name"
+        assert vorschau["titel"] == "Ticket 0001 für @jouw.naam"
         assert vorschau["bestaetigung"] == "Los geht es in #ticket-0001-support"
         assert len(vorschau["fragen"]) == 5
         # Gespeichert hat die Vorschau nichts
@@ -202,8 +202,8 @@ async def run() -> None:
         # ── Verwarnungen im Dashboard ────────────────────────────────
         db.warnung_anlegen(1, 555, 123, "Beleidigung", settings)
         seite = await client.get("/lbost-shop/guild/1/moderation")
-        assert "Verwarnungen auf diesem Server" in seite.text
-        assert "555" in seite.text and "Beleidigung" in seite.text and "löschen" in seite.text
+        assert "Waarschuwingen op deze server" in seite.text
+        assert "555" in seite.text and "Beleidigung" in seite.text and "verwijderen" in seite.text
         eintrag = db.warnungen_fuer_gilde(1, settings, 5)[0]
         abgelehnt = await client.post(f"/lbost-shop/guild/1/moderation/warnung/{eintrag['id']}/loeschen", data={"csrf": "falsch"})
         assert abgelehnt.status_code == 403
@@ -237,7 +237,7 @@ async def run() -> None:
         gesundheit = (await client.get("/lbost-shop/healthz")).json()
         assert gesundheit["bot_online"] is True and gesundheit["bot_letzte_meldung"] <= 2
         seite = await client.get("/lbost-shop/dashboard")
-        assert "Bot online" in seite.text and "3 Server" in seite.text
+        assert "Bot online" in seite.text and "3 server" in seite.text
 
         # ── Admin-Panel: Sitzungen entwerten ────────────────────────
         admin = await client.get("/lbost-shop/admin")
@@ -255,7 +255,7 @@ async def run() -> None:
         await owner.get("/lbost-shop/auth/callback", params={"code": "ok", "state": state})
         admin = await owner.get("/lbost-shop/admin")
         assert admin.status_code == 200
-        assert "aktive Sitzungen" in admin.text and "Zugang" in admin.text
+        assert "actieve sessies" in admin.text and "Toegang" in admin.text
         assert "123" in admin.text and "999" in admin.text
         assert "configure:" in admin.text, "Aenderungsverlauf fehlt"
         sitzungen = db.offene_sitzungen(get_settings())
@@ -269,7 +269,7 @@ async def run() -> None:
         # Der Browser folgt der Umleitung, der Test muss es also auch tun.
         login_seite = await owner.get(entwerten.headers["location"])
         assert login_seite.status_code == 200
-        assert "Sitzungen wurden abgemeldet" in login_seite.text
+        assert "zijn afgemeld" in login_seite.text
 
     # ── Ratelimit bleibt begrenzt und raeumt auf ─────────────────────
     from lbost_shop_app.main import _rate, _rate_pruefen

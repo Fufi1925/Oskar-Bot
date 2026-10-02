@@ -26,8 +26,8 @@ assert all(f'("{field}"' in main for field in fields)
 assert 'data-page-tab="welcome"' in template and 'data-page-tab="leave"' in template
 assert 'data-page-panel="welcome"' in template and 'data-page-panel="leave"' in template
 assert "data-picker-open" in template and "<select" not in template
-assert "Generiertes Bild" in template and "Generiertes Abschiedsbild" in template
-assert "Live-Vorschau" in template and "In den Kanal senden" in template
+assert "Gegenereerde afbeelding" in template and "Gegenereerd afscheidsbeeld" in template
+assert "Live-voorbeeld" in template and "Verzenden naar kanaal" in template
 assert all(token in template for token in ("{user}", "{user_name}", "{user_nick}", "{user_avatar}", "{server_name}", "{server_membercount}"))
 assert "send_greeting(member, \"welcome\")" in client
 assert "send_greeting(member, \"leave\")" in client

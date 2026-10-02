@@ -867,7 +867,7 @@ def add_event_log(
     user_id: int | None,
     settings: Settings,
 ) -> None:
-    """Ein Discord-Ereignis speichern und Einträge nach 30 Tagen entfernen."""
+    """Ein Discord-Ereignis speichern und Einträge nach 30 dagenn entfernen."""
     now = int(time.time())
     with _gesichert(settings) as conn:
         conn.execute(

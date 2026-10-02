@@ -22,7 +22,7 @@ assert store.delete(s,1,'responses',response_id)
 legacy={'auto_responses_json':[{'trigger':'alt','response':'legacy','exact':False}],'announcements_json':[{'channel_id':'11','title':'Alt','content':'legacy','interval_minutes':90}]}
 assert store.migrate_legacy(s,2,legacy)==2 and store.migrate_legacy(s,2,legacy)==0
 root=Path(__file__).parents[1];template=(root/'lbost_shop_app/templates/automation.html').read_text();main=(root/'lbost_shop_app/main.py').read_text();client=(root/'lbost_shop_bot/client.py').read_text();script=(root/'lbost_shop_app/static/dashboard.js').read_text()
-for token in ('Automated messages','Auto-responses','Automatic announcements','data-auto-modal="messages"','data-auto-modal="responses"','data-auto-modal="announcements"','repeat_minutes','cooldown_seconds','interval_minutes','mention_role_id','first_delay_minutes','delete_after'):assert token in template
+for token in ('Geautomatiseerde berichten','Automatische reacties','Automatische aankondigingen','data-auto-modal="messages"','data-auto-modal="responses"','data-auto-modal="announcements"','repeat_minutes','cooldown_seconds','interval_minutes','mention_role_id','first_delay_minutes','delete_after'):assert token in template
 for token in ('automation/save','automation/action','_automation_payload','flags":32768'):assert token in main
 for token in ('claim_due','automation_store.responses','AllowedMentions(roles=True','delete(delay=delay)'):assert token in client
 assert 'data-auto-new' in script and 'data-auto-edit' in script and 'data-auto-token' in script

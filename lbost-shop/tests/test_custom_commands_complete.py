@@ -43,10 +43,10 @@ async def check():
 asyncio.run(check())
 root=Path(__file__).parents[1]
 template=(root/'lbost_shop_app/templates/custom_commands.html').read_text();script=(root/'lbost_shop_app/static/dashboard.js').read_text();runtime=(root/'lbost_shop_bot/custom_commands.py').read_text();main=(root/'lbost_shop_app/main.py').read_text();client=(root/'lbost_shop_bot/client.py').read_text()
-for token in ('Command Creator','data-cc-actions','data-cc-parameters','data-cc-pane="settings"','Rolle geben','Rolle entfernen','Nachricht senden','DM senden','Bedingung','use_prefix','use_slash','use_exact','use_contains'):assert token in template
+for token in ('Commandomaker','data-cc-actions','data-cc-parameters','data-cc-pane="settings"','Rol geven','Rol verwijderen','Bericht verzenden','DM verzenden','Voorwaarde','use_prefix','use_slash','use_exact','use_contains'):assert token in template
 for token in ('condition_role','allowed_roles','allowed_users','cooldown','LayoutView','_make_slash_command','handle_message','buttons'):assert token in runtime
 assert 'CustomCommandsService(self)' in client and 'custom_commands_service.start()' in client
 assert 'custom_commands/save' in main and 'custom_commands/delete' in main
-for forbidden in ('Marketplace','marketplace','Veröffentlichen','publishTarget'):assert forbidden not in template and forbidden not in runtime and forbidden not in str(root/'lbost_shop_app/custom_commands.py')
+for forbidden in ('Marketplace','marketplace','Publiceren','publishTarget'):assert forbidden not in template and forbidden not in runtime and forbidden not in str(root/'lbost_shop_app/custom_commands.py')
 assert 'data-cc-action-kind' in script and 'data-cc-add-button' in script and 'data-cc-param-type' in script
 print('ok   Custom Commands vollständig: Flow, Aktionen, Parameter, Regeln, Trigger, Slash und Components V2; ohne Marketplace')

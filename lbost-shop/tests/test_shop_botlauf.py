@@ -335,15 +335,15 @@ async def main() -> None:
     assert "Hallo <@7001>, Test Guild ÄÖÜ hilft." in text, text
     assert "Kategorie Support" in text and "#ticket-0001-fufi-dev" in text, text
     assert "**Worum?**" in text and "Login geht nicht" in text, "Antwort fehlt im Tickettext"
-    assert knopfe_aus_view(kanal.ansichten[0]) == ["Claim", "Unclaim", "Lock", "Unlock", "Close"], knopfe_aus_view(kanal.ansichten[0])
-    assert "Support angefragt" in text_aus_view(kanal.ansichten[1]), "Support nicht erwähnt"
+    assert knopfe_aus_view(kanal.ansichten[0]) == ["Overnemen", "Niet geclaimd", "Vergrendelen", "Ontgrendelen", "Sluiten"], knopfe_aus_view(kanal.ansichten[0])
+    assert "Ondersteuning gevraagd" in text_aus_view(kanal.ansichten[1]), "Support nicht erwähnt"
     assert "Offen: #ticket-0001-fufi-dev (0001)" in meldung_text(lauf), meldung_text(lauf)
 
     # 3) Zweites offenes Ticket derselben Person: abgelehnt, kein neuer Kanal
     zweiter = FakeInteraction(guild, nutzer)
     await bot.create_ticket(zweiter, "default")
     assert len(guild.ticket_kanaele()) == 1, "zweites Ticket angelegt"
-    assert "Ticket-Limit erreicht" in meldung_text(zweiter), meldung_text(zweiter)
+    assert "Ticketlimiet bereikt" in meldung_text(zweiter), meldung_text(zweiter)
 
     # 3b) Panel mit Rollenpflicht: ohne Rolle kein Ticket, kein Kanal
     bot.feature_cache.clear()
@@ -352,7 +352,7 @@ async def main() -> None:
     nur_jeder = FakeMember(7050, "ohnerolle", "Ohne Rolle", [guild.default_role])
     abgewehrt = FakeInteraction(guild, nur_jeder)
     await bot.create_ticket(abgewehrt, "default")
-    assert "Keine Berechtigung" in meldung_text(abgewehrt), meldung_text(abgewehrt)
+    assert "Geen toestemming" in meldung_text(abgewehrt), meldung_text(abgewehrt)
     assert len(guild.ticket_kanaele()) == 1, "obwohl keine Rolle: Kanal angelegt"
     db.set_feature(11, "tickets", {**db.get_feature(11, "tickets", settings), "open_role_ids": ""},
                    1, settings, audit=False)
@@ -372,9 +372,9 @@ async def main() -> None:
     assert kanal.restrictions[1]["view_channel"] is False, "Nutzer bleibt im geschlossenen Ticket"
     assert not log.dateien, "der alte HTML-Datei-Export darf nicht mehr verwendet werden"
     schlusstag = text_aus_view(log.ansichten[-1])
-    assert "Ticket geschlossen" in schlusstag, schlusstag
+    assert "Kaartje gesloten" in schlusstag, schlusstag
     assert "<@7002>" in schlusstag, schlusstag
-    assert "Ticket erstellt" in text_aus_view(log.ansichten[0]), "Erstellungslog fehlt"
+    assert "Ticket aangemaakt" in text_aus_view(log.ansichten[0]), "Erstellungslog fehlt"
     await bot.ticket_action(FakeInteraction(guild, verwalter, kanal), "delete_yes")
     transcript = db.transcript_laden(kanal.id, settings)
     assert transcript and len(transcript["messages"]) >= 2, "Web-Transcript nicht gespeichert"
@@ -384,7 +384,7 @@ async def main() -> None:
     # 5) Fremder Nutzer kommt an das Ticket nicht heran
     abwehr = FakeInteraction(guild, FakeMember(7099, "anders", "Anders", [guild.default_role]), kanal)
     await bot.ticket_action(abwehr, "close")
-    assert "Keine Berechtigung" in meldung_text(abwehr), meldung_text(abwehr)
+    assert "Geen toestemming" in meldung_text(abwehr), meldung_text(abwehr)
     assert db.ticket_fuer_kanal(kanal.id, settings)["status"] == "deleted"
 
     # 6) Anti-Spam: ganze Serie löschen, Timeout, Logzeile
@@ -465,10 +465,10 @@ async def main() -> None:
     assert wechsel.removed and wechsel.removed[0].id == 40, "Rolle nicht entfernt"
     ueberhoch = FakeInteraction(guild, wechsel, rollen_kanal)
     await bot.toggle_role(ueberhoch, 42)   # Rolle steht hoeher als der Bot
-    assert "nicht verfügbar" in meldung_text(ueberhoch), meldung_text(ueberhoch)
+    assert "niet beschikbaar" in meldung_text(ueberhoch), meldung_text(ueberhoch)
     verschwunden = FakeInteraction(guild, wechsel, rollen_kanal)
     await bot.toggle_role(verschwunden, 41)  # Rolle gibt es nicht mehr
-    assert "Rolle fehlt" in meldung_text(verschwunden), meldung_text(verschwunden)
+    assert "Rol ontbreekt" in meldung_text(verschwunden), meldung_text(verschwunden)
 
     print("ok   Botlauf: Modal vor defer, Tickettext, Slowmode, Transkript, Spam, Giveaway, Herzschlag")
 

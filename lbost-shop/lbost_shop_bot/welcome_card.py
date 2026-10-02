@@ -145,7 +145,7 @@ def render(
     member_count: int,
     accent: int = 0x3B82F6,
     background_bytes: bytes | None = None,
-    label: str = "WILLKOMMEN",
+    label: str = "WELKOM",
     subtitle: str | None = None,
     counter_text: str | None = None,
 ) -> io.BytesIO | None:
@@ -154,7 +154,7 @@ def render(
 
     ``background_bytes`` legt ein eigenes Bild darunter, ``label``,
     ``subtitle`` und ``counter_text`` machen dieselbe Karte fuer den
-    Abschied brauchbar -- sonst stuende dort "WILLKOMMEN", wenn jemand
+    Abschied brauchbar -- sonst stuende dort "WELKOM", wenn jemand
     geht.
     """
 
@@ -246,7 +246,7 @@ def render(
 
         sub_font = _font(24, bold=False)
         if sub_font is not None:
-            zeile = subtitle if subtitle is not None else f"auf {guild_name}"
+            zeile = subtitle if subtitle is not None else f"op {guild_name}"
             server, _ = _fit(draw, zeile, lambda s: _font(s, bold=False),
                              24, room, 16)
             draw.text((left, 190), zeile,
@@ -258,7 +258,7 @@ def render(
             zaehler = (
                 counter_text
                 if counter_text is not None
-                else f"Mitglied Nr. {member_count:,}".replace(",", ".")
+                else f"Lid nr. {member_count:,}".replace(",", ".")
             )
             draw.text((left, 226), zaehler, font=sub_font, fill=FAINT)
 

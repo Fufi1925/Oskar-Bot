@@ -41,7 +41,7 @@ assert all(legacy["log_enabled"].values())
 # Discord-Ausgabe: derselbe Container-, Trenner- und Feldaufbau wie beim
 # CV2EmbedAdapter des University-Logging-Cogs.
 log_view = university_log_layout(
-    "Message Deleted",
+    "Bericht verwijderd",
     LogDescription([("Content", "```Text```"), ("Channel", "<#123>")]),
     footer="User ID: 1 • Message ID: 2",
 )
@@ -52,7 +52,7 @@ assert [type(item).__name__ for item in log_container.children] == [
     "TextDisplay", "Separator", "TextDisplay", "Separator", "TextDisplay",
     "Separator", "TextDisplay",
 ]
-assert log_container.children[0].content == "**Message Deleted**"
+assert log_container.children[0].content == "**Bericht verwijderd**"
 assert log_container.children[-1].content == "*User ID: 1 • Message ID: 2*"
 
 # Das Dashboard muss denselben kaputten Zustand erkennen wie University:
@@ -90,19 +90,19 @@ for listener in (
 
 # Ereigniszuordnung und Inhalt entsprechen dem aktuellen University-Cog.
 member_update = client.split("async def on_member_update", 1)[1].split("async def on_member_ban", 1)[0]
-assert '"role_events", "Member Roles Updated"' in member_update
-assert '"member_moderation", "Nickname Changed"' in member_update
+assert '"role_events", "Ledenrollen bijgewerkt"' in member_update
+assert '"member_moderation", "Bijnaam gewijzigd"' in member_update
 invite_block = client.split("async def on_invite_create", 1)[1].split("async def on_raw_reaction_add", 1)[0]
 assert invite_block.count('"system_events"') >= 2
 assert "async def _reaction_log" in client and client.count("await self._reaction_log(") == 2
 assert "fetch_user(payload.user_id)" in client
 for title in (
-    "Message Edited", "Message Deleted", "Messages Purged", "Member Joined",
-    "Member Left", "Member Banned", "Member Unbanned", "Voice State Changed",
-    "Channel Created", "Channel Deleted", "Channel Updated", "Role Created",
-    "Role Deleted", "Role Updated", "Server Updated", "Emoji Added", "Emoji Removed",
-    "Thread Created", "Thread Deleted", "Invite Created", "Invite Deleted",
-    "Reaction Added", "Reaction Removed",
+    "Bericht bewerkt", "Bericht verwijderd", "Berichten gewist", "Lid is lid geworden",
+    "Lid links", "Lid verbannen", "Lid opgeheven", "Stemstatus gewijzigd",
+    "Kanaal gemaakt", "Kanaal verwijderd", "Kanaal bijgewerkt", "Rol gemaakt",
+    "Rol verwijderd", "Rol bijgewerkt", "Server bijgewerkt", "Emoji toegevoegd", "Emoji verwijderd",
+    "Onderwerp gemaakt", "Onderwerp verwijderd", "Uitnodiging gemaakt", "Uitnodiging verwijderd",
+    "Reactie toegevoegd", "Reactie verwijderd",
 ):
     assert title in client, title
 assert "def university_log_layout" in client
@@ -111,12 +111,12 @@ assert 'discord.ui.TextDisplay(f"**{title}**")' in client
 assert "discord.ui.Separator(visible=True)" in client
 assert "not cfg[\"enabled\"]" not in client
 assert 'app_commands.Group(name="log"' in client
-for subcommand in ("setup", "status", "config", "test", "toggle", "ignore", "search", "export", "reset"):
+for subcommand in ("instellen", "status", "configuratie", "test", "schakelen", "negeren", "zoeken", "exporteren", "resetten"):
     assert f'@log_group.command(name="{subcommand}"' in client
 
 for command in (
-    "log-setup", "log-status", "log-test", "log-toggle", "log-ignore",
-    "log-search", "log-export", "log-reset",
+    "log-instellen", "log-status", "log-test", "log-schakelen", "log-negeren",
+    "log-zoeken", "log-exporteren", "log-resetten",
 ):
     assert f'name="{command}"' in client
 
@@ -129,19 +129,19 @@ assert "audit_logs" in client
 assert "logging/test/{category}" in main
 assert "flags\": 32768" in main
 assert '"accent_color": 0x5865F2' in main
-assert '"content": "## Test"' in main
-assert "Diese Nachricht kam aus dem Dashboard." in main
+assert '"content": "## Testen"' in main
+assert "Dit bericht kwam van het dashboard." in main
 # Das Shop-Panel folgt der aktuellen University-Struktur: Überblick,
 # Entwurfs-Presets, einklappbare Gruppen, eigene Picker und Sticky-Save-Bar.
 assert "ub-log-stats" in template
-assert "Protokolle" in template
-assert "Nach Bereich" in template
-assert "Eine Voreinstellung setzt alles auf einmal" in template
+assert "Protocollen" in template
+assert "Per gebied" in template
+assert "Een preset stelt alles in één keer in" in template
 assert "data-log-preset=\"essential\"" in template
 assert "data-log-group-expand" in template
 assert "data-log-exceptions-toggle" in template
 assert "data-log-save-bar" in template
-assert "Testeintrag posten" in template
+assert "Post-testinvoer" in template
 assert "{% for group in groups %}" in template
 for kind in ("channels", "roles", "members"):
     assert f'data-picker-source="{kind}"' in template
@@ -155,10 +155,10 @@ script = (root / "lbost_shop_app" / "static" / "dashboard.js").read_text(encodin
 style = (root / "lbost_shop_app" / "static" / "css" / "university-dashboard.css").read_text(encoding="utf-8")
 for marker in ("data-picker-open", "data-log-group-all", "data-log-dirty-count", "data-log-add-user"):
     assert marker in script
-assert "data-can-post" in template and "Der Bot darf dort nicht schreiben" in template
-assert "Discord-ID verwenden" in script and "getBoundingClientRect" in script
+assert "data-can-post" in template and "De bot mag daar niet schrijven" in template
+assert "Gebruik Discord-ID" in script and "getBoundingClientRect" in script
 assert "button.dataset.logPreset === 'everything'" in script and "body.set('action', 'everything')" in script
-assert "Nach Namen suchen oder ID einfügen" in template
+assert "Zoek op naam of voer ID in" in template
 assert "data-picker-inline-clear" in template and "data-picker-external-search" in template
 assert '"message_events": 0, "emoji_events": 1, "reaction_events": 2' in main
 assert ".ub-picker-modal" in style and ".ub-log-save-bar" in style

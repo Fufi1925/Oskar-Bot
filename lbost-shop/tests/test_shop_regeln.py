@@ -58,11 +58,11 @@ cfg = {
 }
 vorschau = regeln.vorschau_willkommen(cfg)
 mit_beispielen = regeln.ticket_texte(cfg, regeln.VORSCHAU_BEISPIELE)
-assert vorschau["titel"] == mit_beispielen["titel"] == "Ticket 0001 — Support"
+assert vorschau["titel"] == mit_beispielen["titel"] == "Ticket 0001 — Ondersteuning"
 assert vorschau["nachricht"] == mit_beispielen["nachricht"]
 assert vorschau["bestaetigung"] == mit_beispielen["bestaetigung"] == "Offen in #ticket-0001-support"
 assert vorschau["fragen"][0]["label"] == "Worum?" and vorschau["fragen"][0]["pflicht"] is True
-assert vorschau["fragen"][0]["feld"] == "Einzeilig" and vorschau["fragen"][0]["laenge"] == 200
+assert vorschau["fragen"][0]["feld"] == "Enkele lijn" and vorschau["fragen"][0]["laenge"] == 200
 # Der Bot ruft dieselbe Funktion mit echten Werten: gleiches Muster, echte Namen.
 bot_text = regeln.ticket_texte(cfg, worte)
 assert bot_text["titel"] == "Ticket 0001 — Support"
@@ -82,7 +82,7 @@ assert len(regeln.vorschau_willkommen({"ticket_created_message": "z" * 9000})["b
 panel = regeln.vorschau_panel({"title": "Support", "description": "Text", "color": "#ff0000", "button_label": "Los"})
 assert panel["titel"] == "Support" and panel["farbe"] == "#ff0000"
 assert panel["oeffnen"]["label"] == "Los"
-assert [b["label"] for b in panel["buttons"]] == ["Übernehmen", "Schließen"]
+assert [b["label"] for b in panel["buttons"]] == ["Overnemen", "Sluiten"]
 assert regeln.vorschau_panel({})["beschreibung"] == regeln.PANEL_BESCHREIBUNG
 
 # ── Antworten ────────────────────────────────────────────────────────
@@ -93,7 +93,7 @@ block = regeln.antworten_formatieren([
 ])
 assert "**Worum?**\nFrage" in block
 assert "https://cdn.discordapp.com/a.png" in block and "javascript" not in block
-assert "_keine Datei_" in block
+assert "_geen bestand_" in block
 assert len(regeln.antworten_formatieren([{"label": "L", "type": "short", "value": "z" * 9000}])) <= 3800
 
 # Panel-Standardtexte: Vorschau und Bot müssen denselben Default nutzen

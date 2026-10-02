@@ -12,31 +12,31 @@ def register_reaction_roles(bot) -> None:
     async def say(ctx, title: str, text: str, error: bool = False) -> None:
         await ctx.send(view=layout(title, text, color="#ed4245" if error else "#5865f2"), ephemeral=bool(ctx.interaction))
 
-    @bot.hybrid_command(name="createrr", description="Erstellt eine Reaktions-Rolle")
+    @bot.hybrid_command(name="maakreactierol", aliases=["createrr"], description="Creëert een reactierol")
     @commands.has_guild_permissions(manage_roles=True)
     @commands.bot_has_guild_permissions(manage_roles=True, add_reactions=True, read_message_history=True)
     async def createrr(ctx: commands.Context, channel: discord.TextChannel, message_id: str,
                        emoji: str, role: discord.Role):
         if not message_id.isdigit():
-            return await say(ctx, "Ungültige Nachrichten-ID", "Kopiere die ID der Discord-Nachricht.", True)
+            return await say(ctx, "Ongeldige bericht-ID", "Kopieer de Discord-bericht-ID.", True)
         if role.managed or role >= ctx.guild.me.top_role:
-            return await say(ctx, "Rolle nicht verwaltbar", "Die Rolle muss unter der höchsten Bot-Rolle stehen.", True)
+            return await say(ctx, "Rol niet beheersbaar", "De rol moet lager zijn dan de hoogste botrol.", True)
         if db.reaktionsrolle(ctx.guild.id, int(message_id), emoji.strip(), bot.settings):
-            return await say(ctx, "Bereits eingerichtet", "Dieses Emoji ist auf der Nachricht bereits vergeben.", True)
+            return await say(ctx, "Al ingesteld", "Deze emoji is al overgenomen in het bericht.", True)
         try:
             message = await channel.fetch_message(int(message_id))
             await message.add_reaction(emoji.strip())
         except discord.NotFound:
-            return await say(ctx, "Nachricht nicht gefunden", "Im ausgewählten Kanal existiert diese Nachrichten-ID nicht.", True)
+            return await say(ctx, "Bericht niet gevonden", "Deze bericht-ID bestaat niet in het geselecteerde kanaal.", True)
         except discord.Forbidden:
-            return await say(ctx, "Berechtigung fehlt", "Der Bot darf die Nachricht nicht lesen oder keine Reaktionen hinzufügen.", True)
+            return await say(ctx, "Autorisatie ontbreekt", "De bot mag het bericht niet lezen of reacties toevoegen.", True)
         except discord.HTTPException:
-            return await say(ctx, "Emoji nicht verwendbar", "Discord kennt das Emoji nicht oder der Bot kann es nicht benutzen.", True)
+            return await say(ctx, "Emoji niet bruikbaar", "Discord kent de emoji niet of de bot kan deze niet gebruiken.", True)
         db.reaktionsrolle_anlegen(ctx.guild.id, channel.id, int(message_id), emoji.strip(), role.id, bot.settings)
-        await say(ctx, "Reaktions-Rolle erstellt", f"{emoji.strip()} gibt jetzt {role.mention}.\n[Nachricht öffnen]({message.jump_url})")
+        await say(ctx, "Reactierol aangemaakt", f"{emoji.strip()} geeft nu {role.mention}.\n[Bericht openen]({message.jump_url})")
 
-    @bot.hybrid_command(name="dmrr", description="Schaltet DMs für Reaktions-Rollen ein oder aus")
+    @bot.hybrid_command(name="dmreactierol", aliases=["dmrr"], description="Schakelt DM's voor reactierollen in of uit")
     @commands.has_guild_permissions(manage_guild=True)
     async def dmrr(ctx: commands.Context, aktiviert: bool):
         db.reaktionsrollen_dm_setzen(ctx.guild.id, aktiviert, bot.settings)
-        await say(ctx, "DM-Benachrichtigung", "Aktiviert" if aktiviert else "Deaktiviert")
+        await say(ctx, "DM-melding", "Ingeschakeld" if aktiviert else "Uitgeschakeld")
