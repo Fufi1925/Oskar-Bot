@@ -754,6 +754,17 @@ export const api = {
    * nicht um die eines bestimmten Servers.
    */
   getBotEmojis: () => request<any>(`/compose/emojis`),
+  getGuildEmojis: (guildId: string) => request<any>(`/compose/${guildId}/emojis`),
+  createComposeCode: (guildId: string, data: any) =>
+    request<any>(`/compose/${guildId}/codes`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  importComposeCode: (guildId: string, code: string) =>
+    request<any>(`/compose/${guildId}/codes/import`, {
+      method: "POST",
+      body: JSON.stringify({ code }),
+    }),
   // Die Begruessungs-Vorlagen kommen vom Bot, damit die Emoji-Codes
   // aus derselben Quelle stammen wie die Auswahl. Eine zweite Liste
   // hier liefe beim ersten neuen Emoji auseinander.

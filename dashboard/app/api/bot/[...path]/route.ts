@@ -1279,6 +1279,11 @@ async function authorize(
 
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) return { ok: false, response: deny(401, "Not signed in.") };
+    // Guild emoji names and CDN ids are read-only presentation data used by
+    // the shared picker on every module page. Guild access above is enough;
+    // channels.manage would wrongly hide them from specialised team roles.
+    if (rest[1] === "emojis" && request.method === "GET") return { ok: true };
+
     if (isGlobalAdmin(session.user.id)) return { ok: true };
 
     // Wer den Server auf Discord verwaltet, behaelt seine Rechte.

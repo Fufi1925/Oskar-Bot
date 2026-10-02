@@ -19,7 +19,11 @@ again, losing its pins, links and reactions.
 
 from __future__ import annotations
 
+import json
 import os
+import secrets
+import sqlite3
+import time
 from typing import TYPE_CHECKING
 
 import discord
@@ -34,6 +38,22 @@ if TYPE_CHECKING:
     from core.universitybot import universitybot
 
 router = APIRouter()
+
+COMPOSE_CODES_DB = os.path.join("db", "compose_codes.db")
+
+
+def _compose_codes_db() -> sqlite3.Connection:
+    os.makedirs(os.path.dirname(COMPOSE_CODES_DB), exist_ok=True)
+    db = sqlite3.connect(COMPOSE_CODES_DB, timeout=10)
+    db.row_factory = sqlite3.Row
+    db.execute("PRAGMA journal_mode=WAL")
+    db.execute(
+        "CREATE TABLE IF NOT EXISTS compose_codes ("
+        " code TEXT PRIMARY KEY, guild_id TEXT NOT NULL, payload_json TEXT NOT NULL,"
+        " created_by TEXT NOT NULL DEFAULT '', created_at INTEGER NOT NULL,"
+        " used_by TEXT, used_at INTEGER)"
+    )
+    return db
 
 
 def _guild_or_404(bot, guild_id: int):
@@ -69,6 +89,77 @@ def _channel(guild, raw) -> object:
                        "Karten kämen dort leer an.",
             )
     return channel
+
+
+@router.post("/{guild_id}/codes", summary="Create a one-use message design code")
+async def create_compose_code(guild_id: int, data: dict, actor: str = ""):
+    payload = {
+        key: value for key, value in data.items()
+        if key in {
+            "kind", "channel_id", "content", "embed", "color", "blocks",
+            "allow_mentions", "pin", "sender",
+        }
+    }
+    problems = builder.validate(payload)
+    if problems:
+        raise HTTPException(status_code=400, detail=" ".join(problems))
+    encoded = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+    if len(encoded.encode("utf-8")) > 100_000:
+        raise HTTPException(status_code=400, detail="Die Nachricht ist zu groß zum Speichern.")
+
+    created_by = str(actor or data.get("actor") or "dashboard")
+    now = int(time.time())
+    db = _compose_codes_db()
+    try:
+        with db:
+            for _ in range(40):
+                code = str(10_000_000 + secrets.randbelow(90_000_000))
+                try:
+                    db.execute(
+                        "INSERT INTO compose_codes"
+                        "(code,guild_id,payload_json,created_by,created_at) VALUES(?,?,?,?,?)",
+                        (code, str(guild_id), encoded, created_by, now),
+                    )
+                    break
+                except sqlite3.IntegrityError:
+                    continue
+            else:  # pragma: no cover - requires dozens of random collisions
+                raise HTTPException(status_code=503, detail="Code konnte nicht erzeugt werden.")
+    finally:
+        db.close()
+    return {"code": code, "digits": 8, "single_use": True}
+
+
+@router.post("/{guild_id}/codes/import", summary="Import and consume one message design code")
+async def import_compose_code(guild_id: int, data: dict, actor: str = ""):
+    code = str(data.get("code") or "").strip()
+    if len(code) != 8 or not code.isdigit():
+        raise HTTPException(status_code=400, detail="Der Code muss genau 8 Zahlen enthalten.")
+
+    db = _compose_codes_db()
+    try:
+        with db:
+            # BEGIN IMMEDIATE serialises competing consumers before either can
+            # read the unused row. The guarded UPDATE remains a second line of
+            # defence and makes the one-use rule explicit in the database.
+            db.execute("BEGIN IMMEDIATE")
+            row = db.execute("SELECT * FROM compose_codes WHERE code=?", (code,)).fetchone()
+            if row is None:
+                raise HTTPException(status_code=404, detail="Dieser Code existiert nicht.")
+            if row["used_at"] is not None:
+                raise HTTPException(status_code=409, detail="Dieser Code wurde bereits verwendet.")
+            if str(row["guild_id"]) != str(guild_id):
+                raise HTTPException(status_code=403, detail="Dieser Code gehört zu einem anderen Server.")
+            changed = db.execute(
+                "UPDATE compose_codes SET used_by=?,used_at=? WHERE code=? AND used_at IS NULL",
+                (str(actor or data.get("actor") or "dashboard"), int(time.time()), code),
+            )
+            if changed.rowcount != 1:
+                raise HTTPException(status_code=409, detail="Dieser Code wurde bereits verwendet.")
+            payload = json.loads(row["payload_json"])
+    finally:
+        db.close()
+    return {"code": code, "consumed": True, "payload": payload}
 
 
 @router.post("/{guild_id}/check", summary="Is this message sendable?")
@@ -410,6 +501,26 @@ def _emoji_group(name: str) -> str:
             if needle in upper:
                 return label
     return "Sonstige"
+
+
+@router.get("/{guild_id}/emojis", summary="Custom emojis available on this server")
+async def guild_emojis(guild_id: int, bot: "universitybot" = Depends(get_bot)):
+    guild = _guild_or_404(bot, guild_id)
+    items = []
+    for emoji in sorted(guild.emojis, key=lambda item: item.name.lower()):
+        if not bool(getattr(emoji, "available", True)):
+            continue
+        animated = bool(getattr(emoji, "animated", False))
+        items.append({
+            "key": f"SERVER_{emoji.id}",
+            "name": emoji.name,
+            "id": str(emoji.id),
+            "animated": animated,
+            "raw": f"<{'a' if animated else ''}:{emoji.name}:{emoji.id}>",
+            "group": "Server-Emojis",
+            "url": str(emoji.url),
+        })
+    return {"emojis": items, "groups": ["Server-Emojis"] if items else [], "count": len(items)}
 
 
 @router.get("/emojis", summary="Die eigenen Emojis des Bots")

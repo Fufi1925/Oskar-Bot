@@ -20,6 +20,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import { Loader2, Search, Smile, X } from "lucide-react";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -75,6 +76,8 @@ export function EmojiPicker({
   const [error, setError] = useState("");
   const [emojis, setEmojis] = useState<BotEmoji[]>([]);
   const [query, setQuery] = useState("");
+  const pathname = usePathname();
+  const guildId = pathname.match(/\/dashboard\/guild\/(\d{15,22})/)?.[1] || "";
   // Warum das Feld per Portal an `document.body` haengt
   // ---------------------------------------------------
   // Mehrere Bausteine eroeffnen einen eigenen Stapelkontext:
@@ -112,15 +115,27 @@ export function EmojiPicker({
     if (emojis.length || loading) return;
     setLoading(true);
     try {
-      const answer = await api.getBotEmojis();
-      setEmojis(answer?.emojis ?? []);
+      const [botAnswer, guildAnswer] = await Promise.all([
+        api.getBotEmojis(),
+        guildId ? api.getGuildEmojis(guildId).catch(() => ({ emojis: [] })) : Promise.resolve({ emojis: [] }),
+      ]);
+      const botEmojis: BotEmoji[] = botAnswer?.emojis ?? [];
+      const serverEmojis: BotEmoji[] = guildAnswer?.emojis ?? [];
+      // Server emojis are deliberately appended: the bot's curated groups
+      // stay in their familiar order and the current server gets one live
+      // section at the very bottom.
+      const seen = new Set(botEmojis.map((entry) => entry.raw));
+      setEmojis([
+        ...botEmojis,
+        ...serverEmojis.filter((entry) => !seen.has(entry.raw)),
+      ]);
       setError("");
     } catch (err: any) {
       setError(err?.message || "Die Emojis ließen sich nicht laden.");
     } finally {
       setLoading(false);
     }
-  }, [emojis.length, loading]);
+  }, [emojis.length, guildId, loading]);
 
   useEffect(() => {
     if (open) load();

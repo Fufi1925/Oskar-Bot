@@ -14,7 +14,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle, ArrowDown, ArrowUp, Check, Copy, Eye, FileText, Image as ImageIcon,
-  Layers, Link2, Loader2, Minus, MousePointerClick, Pencil, Plus, Send,
+  KeyRound, Layers, Link2, Loader2, Minus, MousePointerClick, Pencil, Plus, Save, Send,
   Sparkles, Trash2, Type, X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -90,6 +90,9 @@ export function ComposePanel({ guildId }: { guildId: string }) {
   const [busy, setBusy] = useState(false);
   const [problems, setProblems] = useState<string[]>([]);
   const [sent, setSent] = useState<{ url: string; id: string } | null>(null);
+  const [importCode, setImportCode] = useState("");
+  const [savedCode, setSavedCode] = useState("");
+  const [codeBusy, setCodeBusy] = useState(false);
 
   // text
   const [content, setContent] = useState("");
@@ -180,7 +183,10 @@ export function ComposePanel({ guildId }: { guildId: string }) {
       kind, channel_id: channelId, allow_mentions: allowMentions, pin, sender,
     };
     if (kind === "text") base.content = content;
-    if (kind === "embed") base.embed = embed;
+    if (kind === "embed") {
+      base.content = content;
+      base.embed = embed;
+    }
     if (kind === "v2") {
       base.color = accent;
       base.blocks = blocks.map(({ id, ...rest }) => rest);
@@ -212,6 +218,58 @@ export function ComposePanel({ guildId }: { guildId: string }) {
       toast.error(err?.message || "Senden fehlgeschlagen.");
     } finally {
       setBusy(false);
+    }
+  };
+
+  const saveAsCode = async () => {
+    if (problems.length) return toast.error("Bitte zuerst die Hinweise in der Vorschau beheben.");
+    setCodeBusy(true);
+    try {
+      const result = await api.createComposeCode(guildId, payload);
+      setSavedCode(String(result.code || ""));
+      toast.success("Einmal-Code erstellt.");
+    } catch (err: any) {
+      toast.error(err?.message || "Code konnte nicht erstellt werden.");
+    } finally {
+      setCodeBusy(false);
+    }
+  };
+
+  const importFromCode = async () => {
+    const code = importCode.trim();
+    if (!/^\d{8}$/.test(code)) return toast.error("Der Code muss genau 8 Zahlen enthalten.");
+    setCodeBusy(true);
+    try {
+      const result = await api.importComposeCode(guildId, code);
+      const saved = result?.payload || {};
+      const importedKind: Kind = ["text", "embed", "v2"].includes(saved.kind)
+        ? saved.kind
+        : "text";
+      setKind(importedKind);
+      setChannelId(String(saved.channel_id || ""));
+      setContent(String(saved.content || ""));
+      setEmbed({
+        title: "", description: "", color: "#5865f2", footer_text: "",
+        author_name: "", image: "", thumbnail: "", fields: [],
+        ...(saved.embed || {}),
+      });
+      setAccent(String(saved.color || "#5865f2"));
+      setBlocks(
+        Array.isArray(saved.blocks)
+          ? saved.blocks.map((block: Omit<Block, "id">) => ({ ...block, id: nextId++ }))
+          : [{ id: nextId++, type: "text", text: "" }],
+      );
+      setAllowMentions(Boolean(saved.allow_mentions));
+      setPin(Boolean(saved.pin));
+      setSender(String(saved.sender || "main"));
+      setSent(null);
+      setSavedCode("");
+      setImportCode("");
+      toast.success("Nachricht vollständig aus dem Code geladen. Der Code ist jetzt verbraucht.");
+    } catch (err: any) {
+      toast.error(err?.message || "Code konnte nicht importiert werden.");
+    } finally {
+      setCodeBusy(false);
     }
   };
 
@@ -261,6 +319,40 @@ export function ComposePanel({ guildId }: { guildId: string }) {
     <section className="grid xl:grid-cols-5 gap-6">
       {/* ══ Editor ═══════════════════════════════════ */}
       <div className="xl:col-span-3 space-y-5">
+        <div className="rounded-2xl border border-blue-400/15 bg-[#131318] p-4 sm:p-5">
+          <div className="flex items-start gap-3">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-blue-500/10 text-blue-300">
+              <KeyRound className="h-4 w-4" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-bold text-white">Import über Code</p>
+              <p className="mt-1 text-[11px] leading-5 text-slate-500">
+                Lädt Text, Bilder, Embed-Felder, Components-V2-Bausteine, Trennlinien, Knöpfe und Sendeeinstellungen exakt aus einem einmaligen Code.
+              </p>
+              <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                <input
+                  value={importCode}
+                  onChange={(event) => setImportCode(event.target.value.replace(/\D/g, "").slice(0, 8))}
+                  onKeyDown={(event) => { if (event.key === "Enter") void importFromCode(); }}
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  placeholder="8-stelliger Code"
+                  className="min-w-0 flex-1 rounded-xl border border-slate-800 bg-[#0e0e12] px-4 py-2.5 font-mono text-sm tracking-[.18em] text-white outline-none focus:border-blue-400/40"
+                />
+                <button
+                  type="button"
+                  onClick={importFromCode}
+                  disabled={codeBusy || importCode.length !== 8}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-500/15 px-4 py-2.5 text-xs font-bold text-blue-200 transition-colors hover:bg-blue-500/25 disabled:opacity-40"
+                >
+                  {codeBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <KeyRound className="h-3.5 w-3.5" />}
+                  Importieren
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {announcements.length > 0 && (
           <div className="bg-[#131318] border border-primary/25 rounded-3xl p-4 sm:p-6 space-y-4">
             <div className="flex gap-3">
@@ -999,6 +1091,33 @@ export function ComposePanel({ guildId }: { guildId: string }) {
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               Absenden
             </button>
+
+            <button
+              type="button"
+              onClick={saveAsCode}
+              disabled={codeBusy || problems.length > 0}
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl border border-blue-400/20 bg-blue-500/[.07] text-xs font-black uppercase tracking-widest text-blue-200 hover:bg-blue-500/[.12] disabled:opacity-40 transition-all"
+            >
+              {codeBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              Als Einmal-Code speichern
+            </button>
+
+            {savedCode && (
+              <div className="rounded-xl border border-blue-400/20 bg-blue-500/[.06] p-4 text-center">
+                <p className="text-[10px] font-black uppercase tracking-widest text-blue-300">Dein einmaliger Import-Code</p>
+                <button
+                  type="button"
+                  onClick={() => { void navigator.clipboard?.writeText(savedCode); toast.success("Code kopiert."); }}
+                  className="mt-2 font-mono text-2xl font-black tracking-[.22em] text-white hover:text-blue-200"
+                  title="Code kopieren"
+                >
+                  {savedCode}
+                </button>
+                <p className="mt-2 text-[11px] leading-5 text-slate-500">
+                  Genau 8 Zahlen. Der Code funktioniert nur einmal und nur auf diesem Server.
+                </p>
+              </div>
+            )}
 
             {sent && (
               <div className="rounded-xl bg-emerald-500/[0.07] border border-emerald-500/25 p-3.5 space-y-2">
