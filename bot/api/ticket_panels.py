@@ -90,7 +90,8 @@ async def ensure_schema(db: aiosqlite.Connection) -> None:
             embed_image_url TEXT,
             embed_thumbnail_url TEXT,
             closed_category_id INTEGER,
-            staff_roles TEXT
+            staff_roles TEXT,
+            always_transcript INTEGER NOT NULL DEFAULT 0
         )
         """
     )
@@ -126,6 +127,35 @@ async def ensure_schema(db: aiosqlite.Connection) -> None:
             claimed_by_id INTEGER
         )
         """
+    )
+
+    async with db.execute("PRAGMA table_info(guild_configs)") as cursor:
+        guild_columns = {str(row[1]) for row in await cursor.fetchall()}
+    if "always_transcript" not in guild_columns:
+        await db.execute(
+            "ALTER TABLE guild_configs ADD COLUMN always_transcript INTEGER NOT NULL DEFAULT 0"
+        )
+
+    await db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS ticket_transcripts (
+            ticket_id INTEGER PRIMARY KEY,
+            guild_id INTEGER NOT NULL,
+            guild_name TEXT NOT NULL,
+            channel_name TEXT NOT NULL,
+            ticket_number INTEGER,
+            creator_id INTEGER NOT NULL,
+            closed_by_id INTEGER NOT NULL,
+            category_name TEXT NOT NULL DEFAULT '',
+            created_at TEXT NOT NULL,
+            expires_at TEXT NOT NULL,
+            messages_json TEXT NOT NULL
+        )
+        """
+    )
+    await db.execute(
+        "CREATE INDEX IF NOT EXISTS idx_ticket_transcripts_expiry"
+        " ON ticket_transcripts(expires_at)"
     )
 
     await db.execute(

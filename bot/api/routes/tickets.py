@@ -15,6 +15,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 import asyncio
+from datetime import datetime, timezone
+import json
 import time
 
 import aiosqlite
@@ -24,7 +26,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from api import ticket_panels as panels
 from api.db_manager import db_manager
 from api.dependencies import get_bot
-from utils import feature_audit, feature_gates, ticket_ai, ticket_ai_scan, ticket_notify
+from utils import dashboard_roles, feature_audit, feature_gates, ticket_ai, ticket_ai_scan, ticket_notify
 
 if TYPE_CHECKING:
     from core.universitybot import universitybot
@@ -48,6 +50,81 @@ async def _db():
 
 
 # ══════════════════════════════════════════════════════════════════════
+#  Authenticated web transcripts
+# ══════════════════════════════════════════════════════════════════════
+
+
+@router.get("/transcript/{ticket_id}", summary="One private ticket transcript")
+async def get_ticket_transcript(
+    ticket_id: int, actor: str = "", bot: "universitybot" = Depends(get_bot)
+):
+    if not actor.isdigit():
+        raise HTTPException(status_code=401, detail="Discord login required.")
+    db = await _db()
+    async with db.execute(
+        "SELECT * FROM ticket_transcripts WHERE ticket_id=?", (ticket_id,)
+    ) as cursor:
+        row = await cursor.fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Transcript not found.")
+
+    now = datetime.now(timezone.utc)
+    try:
+        expires = datetime.fromisoformat(str(row["expires_at"]))
+        if expires.tzinfo is None:
+            expires = expires.replace(tzinfo=timezone.utc)
+    except ValueError:
+        expires = now
+    if expires <= now:
+        await db.execute("DELETE FROM ticket_transcripts WHERE ticket_id=?", (ticket_id,))
+        await db.commit()
+        raise HTTPException(status_code=410, detail="This transcript has expired.")
+
+    actor_id = int(actor)
+    allowed = (
+        actor in dashboard_roles.env_owner_ids()
+        or actor_id in {int(row["creator_id"]), int(row["closed_by_id"])}
+    )
+    guild = bot.get_guild(int(row["guild_id"]))
+    member = guild.get_member(actor_id) if guild else None
+    if member and (
+        member.id == guild.owner_id
+        or member.guild_permissions.administrator
+        or member.guild_permissions.manage_channels
+    ):
+        allowed = True
+    if member and not allowed:
+        role_ids = {role.id for role in member.roles}
+        async with db.execute(
+            "SELECT staff_roles FROM guild_configs WHERE guild_id=?",
+            (row["guild_id"],),
+        ) as cursor:
+            config = await cursor.fetchone()
+        configured = {
+            int(value) for value in str((config[0] if config else "") or "").split(",")
+            if value.isdigit()
+        }
+        if role_ids.intersection(configured):
+            allowed = True
+    if not allowed:
+        raise HTTPException(status_code=403, detail="You cannot view this transcript.")
+
+    return {
+        "ticket_id": str(row["ticket_id"]),
+        "guild_id": str(row["guild_id"]),
+        "guild_name": row["guild_name"],
+        "channel_name": row["channel_name"],
+        "ticket_number": row["ticket_number"],
+        "creator_id": str(row["creator_id"]),
+        "closed_by_id": str(row["closed_by_id"]),
+        "category_name": row["category_name"],
+        "created_at": row["created_at"],
+        "expires_at": row["expires_at"],
+        "messages": json.loads(row["messages_json"]),
+    }
+
+
+# ══════════════════════════════════════════════════════════════════════
 #  Overview
 # ══════════════════════════════════════════════════════════════════════
 
@@ -57,7 +134,7 @@ async def get_panels(guild_id: int, actor: str = ""):
     db = await _db()
 
     async with db.execute(
-        "SELECT logging_channel_id, closed_category_id, staff_roles"
+        "SELECT logging_channel_id, closed_category_id, staff_roles, always_transcript"
         " FROM guild_configs WHERE guild_id = ?",
         (guild_id,),
     ) as cursor:
@@ -78,6 +155,7 @@ async def get_panels(guild_id: int, actor: str = ""):
             "staff_roles": [
                 r for r in str((row[2] if row else "") or "").split(",") if r.isdigit()
             ],
+            "always_transcript": bool(row[3]) if row else False,
         },
         "open_tickets": open_row[0] if open_row else 0,
         "premium_configurable": feature_gates.has_premium_access(
@@ -117,6 +195,10 @@ async def update_server_settings(guild_id: int, data: dict):
     if "staff_roles" in data:
         assignments.append("staff_roles = ?")
         values.append(",".join(str(r) for r in (data["staff_roles"] or [])))
+
+    if "always_transcript" in data:
+        assignments.append("always_transcript = ?")
+        values.append(1 if data["always_transcript"] else 0)
 
     if assignments:
         values.append(guild_id)

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { Moon, Sun } from "lucide-react";
 
 export type DashboardTheme = "light" | "dark";
@@ -15,6 +16,7 @@ function applyTheme(theme: DashboardTheme) {
 /** Global, persistent light/dark switch. Dark is the default for new users. */
 export function ThemeToggle({ embedded = false }: { embedded?: boolean }) {
   const [theme, setTheme] = useState<DashboardTheme>("dark");
+  const pathname = usePathname();
 
   useEffect(() => {
     const saved = window.localStorage.getItem("dashboard-theme");
@@ -35,6 +37,8 @@ export function ThemeToggle({ embedded = false }: { embedded?: boolean }) {
     applyTheme(next);
     window.dispatchEvent(new CustomEvent("dashboard-theme-change", { detail: next }));
   };
+
+  if (!embedded && pathname.startsWith("/Tickets/Transkript/")) return null;
 
   return (
     <div

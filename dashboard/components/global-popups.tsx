@@ -9,7 +9,10 @@ import { ServerPremiumHinweis } from "@/components/server-premium-hinweis";
 /** Keep global dialogs behind the dedicated login-success screen. */
 export function GlobalPopups() {
   const pathname = usePathname();
-  if (pathname.startsWith("/auth/success")) return null;
+  if (
+    pathname.startsWith("/auth/success") ||
+    pathname.startsWith("/Tickets/Transkript/")
+  ) return null;
   return (
     <>
       <CookieHinweis />

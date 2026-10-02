@@ -61,7 +61,21 @@ SCHEMA: dict[str, tuple[str, ...]] = {
             embed_color INTEGER,
             embed_image_url TEXT,
             embed_thumbnail_url TEXT,
-            closed_category_id INTEGER
+            closed_category_id INTEGER,
+            always_transcript INTEGER NOT NULL DEFAULT 0
+        )""",
+        """CREATE TABLE IF NOT EXISTS ticket_transcripts (
+            ticket_id INTEGER PRIMARY KEY,
+            guild_id INTEGER NOT NULL,
+            guild_name TEXT NOT NULL,
+            channel_name TEXT NOT NULL,
+            ticket_number INTEGER,
+            creator_id INTEGER NOT NULL,
+            closed_by_id INTEGER NOT NULL,
+            category_name TEXT NOT NULL DEFAULT '',
+            created_at TEXT NOT NULL,
+            expires_at TEXT NOT NULL,
+            messages_json TEXT NOT NULL
         )""",
         """CREATE TABLE IF NOT EXISTS ticket_categories (
             category_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -675,6 +689,8 @@ ADDED_COLUMNS = (
     # CREATE TABLE IF NOT EXISTS aendert an einer vorhandenen Tabelle
     # nichts, dafuer braucht es diesen ALTER.
     ("db/applications.db", "app_categories", "accept_roles", "TEXT DEFAULT ''"),
+    # Existing ticket databases predate the optional automatic transcript log.
+    ("db/ticket.db", "guild_configs", "always_transcript", "INTEGER NOT NULL DEFAULT 0"),
 )
 
 

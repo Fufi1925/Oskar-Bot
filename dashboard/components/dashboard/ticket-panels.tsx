@@ -1379,15 +1379,37 @@ export function TicketPanels({ guildId }: { guildId: string }) {
         </div>
 
         <div className="grid md:grid-cols-2 gap-5">
-          <Field label="Transkript-Kanal" hint="Dorthin wird der Verlauf geschlossener Tickets geschickt.">
-            <ChannelPicker
-              guildId={guildId}
-              value={server.logging_channel || ""}
-              onChange={(id) => patchServer({ logging_channel: id || null })}
-              placeholder="Kanal wählen (optional)"
-              channelTypes={["0", "5"]}
-            />
-          </Field>
+          <div className="space-y-3">
+            <Field label="Ticket-Log-Kanal" hint="Dorthin werden Ticket-Aktionen und auf Wunsch Transcript-Links gesendet.">
+              <ChannelPicker
+                guildId={guildId}
+                value={server.logging_channel || ""}
+                onChange={(id) => patchServer({ logging_channel: id || null })}
+                placeholder="Kanal wählen (optional)"
+                channelTypes={["0", "5"]}
+              />
+            </Field>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={Boolean(server.always_transcript)}
+              disabled={busy}
+              onClick={() => patchServer({ always_transcript: !server.always_transcript })}
+              className={`w-full flex items-center justify-between gap-4 rounded-2xl border px-4 py-3 text-left transition-colors disabled:opacity-50 ${
+                server.always_transcript
+                  ? "border-emerald-400/25 bg-emerald-500/[.07]"
+                  : "border-slate-800 bg-[#0e0e12]"
+              }`}
+            >
+              <span>
+                <span className="block text-xs font-bold text-white">Transcript immer ins Ticket-Log</span>
+                <span className="mt-1 block text-[10px] leading-4 text-slate-500">Standardmäßig aus. Der private Link bleibt 90 Tage verfügbar.</span>
+              </span>
+              <span className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${server.always_transcript ? "bg-emerald-500" : "bg-slate-700"}`}>
+                <span className={`absolute top-1 h-4 w-4 rounded-full bg-white transition-transform ${server.always_transcript ? "translate-x-6" : "translate-x-1"}`} />
+              </span>
+            </button>
+          </div>
 
           <Field label="Archiv-Kategorie" hint="Geschlossene Tickets werden hierhin verschoben.">
             <ChannelPicker

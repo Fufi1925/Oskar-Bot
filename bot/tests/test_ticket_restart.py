@@ -64,8 +64,11 @@ def test_knoepfe_ueberleben():
           {"t_lock", "t_unlock", "t_claim", "t_close"} <= knopf_ids,
           f"({sorted(knopf_ids)})")
     check("die Knoepfe im geschlossenen Ticket auch",
-          {"c_reopen", "c_transcript", "c_delete"} <= knopf_ids,
+          {"c_reopen", "c_delete"} <= knopf_ids,
           "-> ohne ID kommt die Interaktion nirgends an")
+    check("der alte einzelne Transcript-Knopf ist entfernt",
+          "c_transcript" not in knopf_ids,
+          "-> die Auswahl gehoert jetzt in den Delete-Ablauf")
 
     # Und jeder muss abgefangen werden. Die Tabelle im Cog ist die
     # Zuordnung; fehlt einer, tut genau der nichts.

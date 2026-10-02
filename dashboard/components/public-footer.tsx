@@ -133,6 +133,7 @@ export function PublicFooter({
     pathname.startsWith("/dashboard") ||
     pathname.startsWith("/api/") ||
     pathname.startsWith("/auth/") ||
+    pathname.startsWith("/Tickets/Transkript/") ||
     pathname.startsWith("/526etrzeqwgoqfu32qzi") ||
     pathname.startsWith("/wartung")
   ) {

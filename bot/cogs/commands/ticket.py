@@ -17,17 +17,18 @@
 import discord
 from utils.emoji import CROSS, DELETE_ALT1, HANDSHAKE, LOCK, MESSAGE, TICK, UNLOCK, ZBAN, ZMODULE, ZWRENCH
 from discord import app_commands
-from discord.ext import commands
+from discord.ext import commands, tasks
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 import asyncio
-import io
 import json
 import os
 import re
 from utils.config import *
-from utils.panels import Panel, from_embed
+from utils.panels import Panel, container, from_embed
+from utils.links import dashboard_url
 from utils import dashboard_roles, feature_gates, ticket_ai, ticket_notify
+from discord.ui import ActionRow, LayoutView, Separator, TextDisplay
 
 # --- Configurable Variables ---
 EMBED_COLOR = 0xFF0000
@@ -68,10 +69,19 @@ class TicketDatabase:
 
     def _create_tables(self):
         with self.conn:
-            self.conn.execute("CREATE TABLE IF NOT EXISTS guild_configs (guild_id INTEGER PRIMARY KEY, panel_channel_id INTEGER, logging_channel_id INTEGER, panel_message_id INTEGER, panel_type TEXT, embed_title TEXT, embed_description TEXT, embed_color INTEGER, embed_image_url TEXT, embed_thumbnail_url TEXT, closed_category_id INTEGER)")
+            self.conn.execute("CREATE TABLE IF NOT EXISTS guild_configs (guild_id INTEGER PRIMARY KEY, panel_channel_id INTEGER, logging_channel_id INTEGER, panel_message_id INTEGER, panel_type TEXT, embed_title TEXT, embed_description TEXT, embed_color INTEGER, embed_image_url TEXT, embed_thumbnail_url TEXT, closed_category_id INTEGER, always_transcript INTEGER NOT NULL DEFAULT 0)")
             self.conn.execute("CREATE TABLE IF NOT EXISTS ticket_categories (category_id INTEGER PRIMARY KEY AUTOINCREMENT, guild_id INTEGER, name TEXT NOT NULL, emoji TEXT, notified_roles TEXT, button_style INTEGER, discord_category_id INTEGER, panel_id INTEGER, ticket_welcome_title TEXT NOT NULL DEFAULT '', ticket_welcome_message TEXT NOT NULL DEFAULT '', FOREIGN KEY (guild_id) REFERENCES guild_configs(guild_id) ON DELETE CASCADE)")
             self.conn.execute("CREATE TABLE IF NOT EXISTS open_tickets (channel_id INTEGER PRIMARY KEY, ticket_number INTEGER, guild_id INTEGER, creator_id INTEGER NOT NULL, category_db_id INTEGER, created_at TEXT NOT NULL, closed_by_id INTEGER, closed_at TEXT, is_locked BOOLEAN DEFAULT FALSE, is_claimed BOOLEAN DEFAULT FALSE, claimed_by_id INTEGER, FOREIGN KEY (guild_id) REFERENCES guild_configs(guild_id) ON DELETE CASCADE, FOREIGN KEY (category_db_id) REFERENCES ticket_categories(category_id) ON DELETE SET NULL)")
             self.conn.execute("CREATE TABLE IF NOT EXISTS user_ticket_counts (guild_id INTEGER, user_id INTEGER, ticket_count INTEGER DEFAULT 0, PRIMARY KEY (guild_id, user_id))")
+            self.conn.execute("CREATE TABLE IF NOT EXISTS ticket_transcripts (ticket_id INTEGER PRIMARY KEY, guild_id INTEGER NOT NULL, guild_name TEXT NOT NULL, channel_name TEXT NOT NULL, ticket_number INTEGER, creator_id INTEGER NOT NULL, closed_by_id INTEGER NOT NULL, category_name TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL, expires_at TEXT NOT NULL, messages_json TEXT NOT NULL)")
+            self.conn.execute("CREATE INDEX IF NOT EXISTS idx_ticket_transcripts_expiry ON ticket_transcripts(expires_at)")
+            guild_columns = {
+                row[1] for row in self.conn.execute("PRAGMA table_info(guild_configs)").fetchall()
+            }
+            if "always_transcript" not in guild_columns:
+                self.conn.execute(
+                    "ALTER TABLE guild_configs ADD COLUMN always_transcript INTEGER NOT NULL DEFAULT 0"
+                )
             panel_columns = {
                 row[1] for row in self.conn.execute("PRAGMA table_info(ticket_panels)").fetchall()
             }
@@ -132,6 +142,126 @@ async def log_ticket_action(db, guild, user, action, details):
         embed.add_field(name="Action By", value=user.mention).add_field(name="Details", value=details, inline=False)
         try: await log_channel.send(view=from_embed(embed))
         except: pass
+
+def _transcript_link(ticket_id: int) -> str:
+    base = dashboard_url().rstrip("/")
+    return f"{base}/Tickets/Transkript/{ticket_id}" if base else ""
+
+
+def _message_snapshot(message) -> dict:
+    """JSON-safe Discord message data used by the authenticated web transcript."""
+    author = message.author
+    avatar = getattr(getattr(author, "display_avatar", None), "url", "")
+    reply = None
+    reference = getattr(message, "reference", None)
+    resolved = getattr(reference, "resolved", None) if reference else None
+    if resolved is not None and hasattr(resolved, "author"):
+        reply = {
+            "message_id": str(getattr(resolved, "id", "")),
+            "author": getattr(resolved.author, "display_name", str(resolved.author)),
+            "content": str(getattr(resolved, "clean_content", ""))[:180],
+        }
+    elif reference and getattr(reference, "message_id", None):
+        reply = {"message_id": str(reference.message_id), "author": "", "content": ""}
+
+    embeds = []
+    for embed in getattr(message, "embeds", []):
+        try:
+            embeds.append(embed.to_dict())
+        except Exception:
+            pass
+    components = []
+    for component in getattr(message, "components", []):
+        try:
+            components.append(component.to_dict())
+        except Exception:
+            pass
+
+    return {
+        "id": str(message.id),
+        "created_at": message.created_at.isoformat(),
+        "edited_at": message.edited_at.isoformat() if message.edited_at else None,
+        "content": str(getattr(message, "clean_content", "") or ""),
+        "raw_content": str(getattr(message, "content", "") or ""),
+        "pinned": bool(getattr(message, "pinned", False)),
+        "author": {
+            "id": str(author.id),
+            "username": str(author),
+            "display_name": getattr(author, "display_name", str(author)),
+            "avatar_url": str(avatar),
+            "bot": bool(getattr(author, "bot", False)),
+        },
+        "reply": reply,
+        "attachments": [
+            {
+                "id": str(attachment.id),
+                "filename": attachment.filename,
+                "url": attachment.url,
+                "proxy_url": attachment.proxy_url,
+                "content_type": attachment.content_type,
+                "size": attachment.size,
+                "width": attachment.width,
+                "height": attachment.height,
+                "description": getattr(attachment, "description", None),
+            }
+            for attachment in getattr(message, "attachments", [])
+        ],
+        "embeds": embeds,
+        "components": components,
+        "stickers": [
+            {"name": sticker.name, "url": str(sticker.url)}
+            for sticker in getattr(message, "stickers", [])
+        ],
+        "reactions": [
+            {"emoji": str(reaction.emoji), "count": reaction.count}
+            for reaction in getattr(message, "reactions", [])
+        ],
+    }
+
+
+async def save_ticket_transcript(db, channel, ticket, closed_by, category_name: str) -> str:
+    messages = [
+        _message_snapshot(message)
+        async for message in channel.history(limit=None, oldest_first=True)
+    ]
+    now = datetime.now(timezone.utc)
+    expires = now + timedelta(days=90)
+    db.execute("DELETE FROM ticket_transcripts WHERE expires_at <= ?", (now.isoformat(),))
+    db.execute(
+        "INSERT INTO ticket_transcripts"
+        "(ticket_id,guild_id,guild_name,channel_name,ticket_number,creator_id,"
+        "closed_by_id,category_name,created_at,expires_at,messages_json)"
+        " VALUES(?,?,?,?,?,?,?,?,?,?,?)"
+        " ON CONFLICT(ticket_id) DO UPDATE SET guild_name=excluded.guild_name,"
+        " channel_name=excluded.channel_name,ticket_number=excluded.ticket_number,"
+        " creator_id=excluded.creator_id,closed_by_id=excluded.closed_by_id,"
+        " category_name=excluded.category_name,created_at=excluded.created_at,"
+        " expires_at=excluded.expires_at,messages_json=excluded.messages_json",
+        (
+            channel.id, channel.guild.id, channel.guild.name, channel.name,
+            ticket["ticket_number"], ticket["creator_id"], closed_by.id,
+            category_name, now.isoformat(), expires.isoformat(),
+            json.dumps(messages, ensure_ascii=False, separators=(",", ":")),
+        ),
+    )
+    return _transcript_link(channel.id)
+
+
+def transcript_dm_view(guild_name: str, channel_name: str, ticket_number, link: str):
+    button = discord.ui.Button(
+        label="Open Transcript", emoji=TRANSCRIPT_EMOJI,
+        style=discord.ButtonStyle.link, url=link,
+    )
+    return Panel(
+        "Ticket Transcript",
+        f"{TRANSCRIPT_EMOJI} **Ticket:** #{channel_name}\n"
+        f"**Ticket ID:** `{ticket_number or channel_name}`\n"
+        f"**Server:** {guild_name}",
+        "This private transcript is available for **90 days**. "
+        "Sign in with Discord to view the complete conversation.",
+        tone="brand", buttons=[button],
+    )
+
 
 async def get_or_create_closed_category(db, guild):
     config = db.fetchone("SELECT closed_category_id FROM guild_configs WHERE guild_id = ?", (guild.id,))
@@ -318,6 +448,18 @@ class TicketCog(commands.Cog, name="Ticket System"):
         self._ai_inflight: set[int] = set()
         asyncio.create_task(ticket_ai.refresh_allowed_guilds())
         asyncio.create_task(self.load_persistent_views())
+        self.purge_expired_transcripts.start()
+
+    @tasks.loop(hours=6)
+    async def purge_expired_transcripts(self):
+        self.db.execute(
+            "DELETE FROM ticket_transcripts WHERE expires_at <= ?",
+            (datetime.now(timezone.utc).isoformat(),),
+        )
+
+    @purge_expired_transcripts.before_loop
+    async def before_transcript_purge(self):
+        await self.bot.wait_until_ready()
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
@@ -492,7 +634,9 @@ class TicketCog(commands.Cog, name="Ticket System"):
             for c in categories: view.add_item(discord.ui.Button(label=c['name'], style=discord.ButtonStyle(c['button_style']), emoji=c['emoji'], custom_id=f"create_ticket_{c['category_id']}"))
         return view
 
-    def cog_unload(self): self.db.close()
+    def cog_unload(self):
+        self.purge_expired_transcripts.cancel()
+        self.db.close()
 
     @commands.Cog.listener()
     async def on_guild_channel_delete(self, channel):
@@ -580,7 +724,6 @@ class TicketCog(commands.Cog, name="Ticket System"):
         "t_claim": ("open", "b_claim"),
         "t_close": ("open", "b_close"),
         "c_reopen": ("closed", "b_reopen"),
-        "c_transcript": ("closed", "b_transcript"),
         "c_delete": ("closed", "b_delete"),
     }
 
@@ -985,12 +1128,6 @@ class TicketCog(commands.Cog, name="Ticket System"):
     @commands.has_permissions(manage_channels=True)
     async def claim(self, ctx): await self._dispatch_action(ctx, "claim")
 
-    @ticket.command(name="transcript", description="Generate a transcript of a closed ticket.")
-    @commands.has_permissions(manage_channels=True)
-    async def transcript(self, ctx):
-        if not ctx.interaction: return await ctx.send("Please use the slash command version of this command.")
-        await ClosedTicketActionsView(self, ctx.channel.id)._generate_transcript(ctx.interaction, False)
-
 class TicketQuestionsModal(discord.ui.Modal):
     def __init__(self, cog, category_id, panel_config):
         super().__init__(title="Ticket erstellen", timeout=300)
@@ -1138,7 +1275,7 @@ class TicketActionsView(discord.ui.View):
         
         closed_embed = discord.Embed(
             title="Ticket Closed",
-            description=f"This ticket has been officially closed and archived by {i.user.mention}.\nThe user has been removed from the channel.\n\nStaff can use the buttons below to reopen, create a transcript, or permanently delete the channel.",
+            description=f"This ticket has been officially closed and archived by {i.user.mention}.\nThe user has been removed from the channel.\n\nStaff can use the buttons below to reopen or permanently delete the channel.",
             color=EMBED_COLOR,
             timestamp=datetime.now()
         )
@@ -1188,39 +1325,165 @@ class ClosedTicketActionsView(discord.ui.View):
         await log_ticket_action(self.cog.db, i.guild, i.user, "Reopened", f"{i.channel.mention}")
         self.stop()
         
-    @discord.ui.button(label="Transcript", emoji=TRANSCRIPT_EMOJI, style=discord.ButtonStyle.primary, custom_id="c_transcript")
-    async def b_transcript(self, i, b): await self._generate_transcript(i, False)
-
     @discord.ui.button(label="Delete", emoji=DELETE_EMOJI, style=discord.ButtonStyle.danger, custom_id="c_delete")
-    async def b_delete(self, i, b): await self._generate_transcript(i, True)
+    async def b_delete(self, i, b):
+        await i.response.send_message(
+            view=DeleteTicketTranscriptChoice(self, i.user.id), ephemeral=True
+        )
 
-    async def _generate_transcript(self, i, delete_after):
-        await i.response.defer(ephemeral=True, thinking=True)
+    async def delete_ticket(self, i: discord.Interaction, send_dms: bool):
         ch = i.guild.get_channel(self.ch_id)
-        if not ch: return await i.followup.send("Channel not found.", ephemeral=True)
-        
-        messages = [m async for m in ch.history(limit=None, oldest_first=True)]
-        content = f"Transcript for ticket #{ch.name} in {i.guild.name}\n\n"
-        for m in messages:
-            content += f"[{m.created_at.strftime('%Y-%m-%d %H:%M:%S')}] {m.author.display_name}: {m.clean_content}\n"
-            for attachment in m.attachments: content += f"  [Attachment: {attachment.url}]\n"
-        file = discord.File(io.BytesIO(content.encode()), filename=f"transcript-{ch.name}.txt")
+        if not ch:
+            return await i.followup.send("Channel not found.", ephemeral=True)
+        ticket = self.cog.db.fetchone(
+            "SELECT * FROM open_tickets WHERE channel_id=?", (self.ch_id,)
+        )
+        if not ticket:
+            return await i.followup.send("Ticket data was not found.", ephemeral=True)
+        category = self.cog.db.fetchone(
+            "SELECT name FROM ticket_categories WHERE category_id=?", (self.cat_id,)
+        )
+        category_name = category["name"] if category else "Unknown"
+        config = self.cog.db.fetchone(
+            "SELECT always_transcript FROM guild_configs WHERE guild_id=?",
+            (i.guild.id,),
+        )
+        always_log = bool(config and config["always_transcript"])
+        link = ""
+        delivery_notes = []
 
-        try:
-            await i.user.send(f"Transcript for ticket {ch.mention} in {i.guild.name}:", file=file)
-            await i.followup.send(f"Transcript sent to your DMs.", ephemeral=True)
-        except: await i.followup.send("Could not DM you the transcript. Do you have DMs disabled?", file=file, ephemeral=True)
-        
-        if delete_after:
-            await i.followup.send("This ticket channel will be permanently deleted in 10 seconds...", ephemeral=True)
-            await log_ticket_action(self.cog.db, i.guild, i.user, "Deletion Scheduled", f"{ch.mention}")
-            await asyncio.sleep(10)
-            await ch.delete()
-            self.cog.db.execute("DELETE FROM open_tickets WHERE channel_id=?", (self.ch_id,))
+        if send_dms or always_log:
             try:
-                await ticket_notify.forget(self.ch_id)
-            except Exception:
-                pass
+                link = await save_ticket_transcript(
+                    self.cog.db, ch, ticket, i.user, category_name
+                )
+            except Exception as exc:
+                await i.followup.send(
+                    f"The transcript could not be saved: {type(exc).__name__}.",
+                    ephemeral=True,
+                )
+                return
+            if not link:
+                await i.followup.send(
+                    "The transcript link is unavailable because the dashboard URL is not configured. The ticket was not deleted.",
+                    ephemeral=True,
+                )
+                return
+
+        if always_log and link:
+            log_channel = await get_or_create_log_channel(self.cog.db, i.guild)
+            if log_channel:
+                try:
+                    await log_channel.send(
+                        view=transcript_dm_view(
+                            i.guild.name, ch.name, ticket["ticket_number"], link
+                        )
+                    )
+                    delivery_notes.append("the ticket log")
+                except Exception:
+                    pass
+
+        if send_dms and link:
+            recipients = [i.user]
+            creator = i.guild.get_member(ticket["creator_id"])
+            if creator is None:
+                try:
+                    creator = await self.cog.bot.fetch_user(ticket["creator_id"])
+                except Exception:
+                    creator = None
+            if creator and creator.id != i.user.id:
+                recipients.append(creator)
+            delivered = 0
+            for recipient in recipients:
+                try:
+                    await recipient.send(
+                        view=transcript_dm_view(
+                            i.guild.name, ch.name, ticket["ticket_number"], link
+                        )
+                    )
+                    delivered += 1
+                except Exception:
+                    pass
+            if delivered:
+                delivery_notes.append(
+                    "your DMs and the ticket creator's DMs"
+                    if len(recipients) > 1 and delivered > 1 else "DMs"
+                )
+
+        destination = ", ".join(delivery_notes) if delivery_notes else "no recipients"
+        await i.followup.send(
+            f"Transcript delivery: {destination}. The ticket will be permanently deleted in 10 seconds.",
+            ephemeral=True,
+        )
+        await log_ticket_action(
+            self.cog.db, i.guild, i.user, "Deletion Scheduled", f"{ch.mention}"
+        )
+        await asyncio.sleep(10)
+        await ch.delete()
+        self.cog.db.execute("DELETE FROM open_tickets WHERE channel_id=?", (self.ch_id,))
+        try:
+            await ticket_notify.forget(self.ch_id)
+        except Exception:
+            pass
+        self.stop()
+
+
+class DeleteTicketTranscriptChoice(LayoutView):
+    """Components V2 confirmation shown only to the staff member deleting."""
+
+    def __init__(self, closed_view: ClosedTicketActionsView, user_id: int):
+        super().__init__(timeout=120)
+        self.closed_view = closed_view
+        self.user_id = user_id
+        self.finished = False
+        yes = discord.ui.Button(
+            label="Yes", emoji=TICK, style=discord.ButtonStyle.success
+        )
+        no = discord.ui.Button(
+            label="No", emoji=CROSS, style=discord.ButtonStyle.secondary
+        )
+        yes.callback = self._yes
+        no.callback = self._no
+        self.add_item(container(
+            TextDisplay(f"## {TRANSCRIPT_EMOJI}  Save ticket transcript?"),
+            Separator(visible=True),
+            TextDisplay(
+                "Would you like to send the private transcript to **you** and "
+                "the **ticket creator** before this channel is deleted?\n\n"
+                "The link requires a Discord login and expires after **90 days**."
+            ),
+            Separator(visible=True),
+            ActionRow(yes, no),
+            accent_color=0x5865F2,
+        ))
+
+    async def _finish(self, interaction: discord.Interaction, send_dms: bool):
+        if interaction.user.id != self.user_id:
+            return await interaction.response.send_message(
+                "Only the staff member who opened this confirmation can choose.",
+                ephemeral=True,
+            )
+        if self.finished:
+            return await interaction.response.send_message(
+                "This choice has already been processed.", ephemeral=True
+            )
+        self.finished = True
+        self.stop()
+        await interaction.response.defer(ephemeral=True, thinking=True)
+        await interaction.edit_original_response(
+            view=Panel(
+                "Deleting Ticket",
+                "The transcript choice was saved. The ticket is being archived and deleted.",
+                tone="warning",
+            )
+        )
+        await self.closed_view.delete_ticket(interaction, send_dms)
+
+    async def _yes(self, interaction: discord.Interaction):
+        await self._finish(interaction, True)
+
+    async def _no(self, interaction: discord.Interaction):
+        await self._finish(interaction, False)
 
 async def setup(bot):
     await bot.add_cog(TicketCog(bot))
