@@ -16,7 +16,7 @@ const STATUS: Record<string, { label: string; style: string }> = {
   rejected: { label: "Abgelehnt", style: "border-red-500/25 bg-red-500/10 text-red-300" },
   needs_info: { label: "Infos benötigt", style: "border-orange-500/25 bg-orange-500/10 text-orange-300" },
 };
-const CARD = "rounded-2xl border border-white/10 bg-[#111116]";
+const CARD = "rounded-xl border border-white/[.06] bg-[#202126]";
 
 export function IdeasAdmin() {
   const [data, setData] = useState<any>({ ideas: [], counts: {}, blacklisted: [] });
@@ -122,7 +122,7 @@ export function IdeasAdmin() {
     <div className="space-y-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="text-2xl font-black text-white">Community Ideen</h2>
+          <h2 className="text-xl font-semibold tracking-tight text-white">Community-Ideen</h2>
           <p className="mt-1 text-sm text-slate-400">Ideen prüfen, beantworten, belohnen und moderieren.</p>
         </div>
         <a href="/ideas" target="_blank" className="inline-flex items-center gap-2 text-sm font-semibold text-indigo-400">
@@ -132,12 +132,14 @@ export function IdeasAdmin() {
 
       {notice && <div className="rounded-xl border border-indigo-500/20 bg-indigo-500/10 px-4 py-3 text-sm text-indigo-100">{notice}</div>}
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-6">
+      <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-white/[.06] bg-white/[.06] sm:grid-cols-3 lg:grid-cols-6">
         {cards.map(([label, value, Icon, color]) => (
-          <div key={label} className={`${CARD} p-4`}>
-            <Icon className={`h-4 w-4 ${color}`} />
-            <p className="mt-3 text-2xl font-black text-white">{value}</p>
-            <p className="mt-1 text-xs text-slate-500">{label}</p>
+          <div key={label} className="flex items-center gap-3 bg-[#202126] px-3.5 py-3">
+            <Icon className={`h-3.5 w-3.5 shrink-0 ${color}`} />
+            <div className="min-w-0">
+              <p className="text-lg font-semibold leading-none tabular-nums text-white">{value}</p>
+              <p className="mt-1 truncate text-[11px] text-slate-500">{label}</p>
+            </div>
           </div>
         ))}
       </div>

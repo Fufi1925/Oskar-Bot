@@ -72,10 +72,10 @@ type Bereich = "codes" | "konten" | "server" | "probewochen" | "archiv";
 /* ── Hilfen ────────────────────────────────────────────────────────── */
 
 const INPUT =
-  "w-full bg-[#0e0e12] border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white " +
-  "placeholder:text-slate-600 focus:border-primary/50 focus:outline-none transition-colors";
+  "w-full rounded-lg border border-white/[.07] bg-[#191a1f] px-3.5 py-2.5 text-sm text-white " +
+  "placeholder:text-slate-600 focus:border-primary/40 focus:outline-none transition-colors";
 
-const CARD = "bg-[#131318] border border-slate-800 rounded-3xl";
+const CARD = "rounded-xl border border-white/[.06] bg-[#202126]";
 
 /** Deutsche Schreibweise. `toFixed`/`toString` liefern einen Punkt. */
 function datum(sekunden?: number | null): string {
@@ -114,10 +114,10 @@ function Zahl({
   return (
     <div
       className={cn(
-        "rounded-2xl border p-4",
+        "rounded-xl border p-4",
         ton === "gold"
-          ? "border-amber-400/30 bg-amber-400/[0.06]"
-          : "border-slate-800 bg-[#0f0f13]"
+          ? "border-amber-400/20 bg-amber-400/[0.06]"
+          : "border-white/[.06] bg-[#202126]"
       )}
     >
       <div className="flex items-center gap-2">
@@ -278,16 +278,16 @@ export function PremiumAdmin() {
   return (
     <div className="space-y-5">
       <PremiumRequestsAdmin />
-      <section className="overflow-hidden rounded-3xl border border-slate-800 bg-[#111116]">
-        <div className="flex flex-col gap-4 border-b border-slate-800 px-5 py-5 sm:flex-row sm:items-center sm:px-6">
-          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl border border-amber-400/20 bg-amber-400/10">
+      <section className="overflow-hidden rounded-xl border border-white/[.06] bg-[#202126]">
+        <div className="flex flex-col gap-4 border-b border-white/[.06] px-5 py-4 sm:flex-row sm:items-center">
+          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-amber-400/10">
             <Crown className="h-5 w-5 text-amber-300" />
           </div>
           <div className="min-w-0 flex-1">
-            <h2 className="text-lg font-black text-white">Premium-Zentrale</h2>
+            <h2 className="text-base font-semibold text-white">Premium-Zentrale</h2>
             <p className="mt-1 text-xs text-slate-500">Codes, Konten und Testzugänge an einem übersichtlichen Ort.</p>
           </div>
-          <button onClick={() => laden()} disabled={laedt} className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-800 bg-[#0b0b0f] px-3.5 py-2.5 text-xs font-bold text-slate-400 transition hover:border-slate-700 hover:text-white disabled:opacity-40">
+          <button onClick={() => laden()} disabled={laedt} className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/[.07] bg-[#191a1f] px-3.5 py-2.5 text-xs font-medium text-slate-400 transition hover:border-white/[.12] hover:text-white disabled:opacity-40">
             <RefreshCw className={cn("h-3.5 w-3.5", laedt && "animate-spin")} /> Daten aktualisieren
           </button>
         </div>
@@ -295,7 +295,7 @@ export function PremiumAdmin() {
           {BEREICHE.map((item) => {
             const active = bereich === item.id;
             const Icon = item.icon;
-            return <button key={item.id} onClick={() => setBereich(item.id)} aria-current={active ? "page" : undefined} className={cn("flex min-w-0 items-center gap-3 rounded-2xl border px-3 py-3 text-left transition", active ? cn(item.active, "text-white") : "border-transparent text-slate-500 hover:bg-white/[0.03] hover:text-slate-300")}>
+            return <button key={item.id} onClick={() => setBereich(item.id)} aria-current={active ? "page" : undefined} className={cn("flex min-w-0 items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition", active ? cn(item.active, "text-white") : "border-transparent text-slate-500 hover:bg-white/[0.03] hover:text-slate-300")}>
               <span className={cn("grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-black/20", item.color)}><Icon className="h-4 w-4" /></span>
               <span className="min-w-0"><span className="block truncate text-xs font-bold">{item.label}</span><span className="mt-0.5 hidden truncate text-[10px] opacity-60 lg:block">{item.text}</span></span>
             </button>;

@@ -346,10 +346,28 @@ async def premium_v2_accounts(bot: "universitybot" = Depends(get_bot)):
     for row in rows:
         user = bot.get_user(int(row["user_id"])) if str(row["user_id"]).isdigit() else None
         row["user_name"] = (user.display_name or user.name) if user else row["user_id"]
+        row["avatar"] = str(user.display_avatar.url) if user else None
         for slot in row.get("slots", []):
             guild = bot.get_guild(int(slot["guild_id"]))
             slot["guild_name"] = guild.name if guild else str(slot["guild_id"])
-    return {"accounts": rows, "requests": premium_membership.list_requests()}
+
+    requests = premium_membership.list_requests()
+    for item in requests:
+        user_id = str(item.get("user_id") or "")
+        user = bot.get_user(int(user_id)) if user_id.isdigit() else None
+        # A purchase request can come from somebody who is not cached in a
+        # shared guild. Resolve pending rows through Discord so the reviewer
+        # sees the account, not just a snowflake. Historical rows stay cache
+        # only to avoid hundreds of unnecessary API calls.
+        if user is None and item.get("status") == "pending" and user_id.isdigit():
+            try:
+                user = await bot.fetch_user(int(user_id))
+            except Exception:
+                user = None
+        item["user_name"] = (user.display_name or user.name) if user else "Unbekannter Nutzer"
+        item["avatar"] = str(user.display_avatar.url) if user else None
+
+    return {"accounts": rows, "requests": requests}
 
 
 @router.post("/requests/{request_id}/decide", summary="Approve or deny a Premium purchase request")

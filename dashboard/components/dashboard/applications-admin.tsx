@@ -25,10 +25,10 @@ import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { InlineToggle } from "@/components/dashboard/form-elements";
 
-const CARD = "rounded-2xl border border-slate-800 bg-[#0f0f13] p-5";
+const CARD = "rounded-xl border border-white/[.06] bg-[#202126] p-4 sm:p-5";
 const INPUT =
-  "w-full rounded-xl border border-slate-800 bg-[#0a0a0c] px-4 py-3 text-[14px] " +
-  "text-white placeholder:text-slate-600 focus:outline-none focus:border-slate-700 " +
+  "w-full rounded-lg border border-white/[.07] bg-[#191a1f] px-3.5 py-2.5 text-[14px] " +
+  "text-white placeholder:text-slate-600 focus:outline-none focus:border-blue-400/30 " +
   "transition-colors";
 
 const STATUS: Record<string, { label: string; ton: string }> = {
@@ -148,10 +148,10 @@ export function ApplicationsAdmin() {
               setGewaehlt(null);
             }}
             className={cn(
-              "rounded-lg border px-3.5 py-2 text-[13px] transition-colors",
+              "rounded-lg border px-3.5 py-2 text-[12px] font-medium transition-colors",
               filter === f.id
-                ? "border-indigo-500/40 bg-indigo-500/10 text-indigo-300"
-                : "border-slate-800 bg-[#131318] text-slate-400 hover:border-slate-700",
+                ? "border-blue-400/25 bg-blue-500/10 text-blue-300"
+                : "border-white/[.06] bg-[#202126] text-slate-500 hover:border-white/[.12] hover:text-slate-300",
             )}
           >
             {f.label}
@@ -164,7 +164,7 @@ export function ApplicationsAdmin() {
         <button
           type="button"
           onClick={() => setZeigeConfig((z) => !z)}
-          className="ml-auto flex items-center gap-2 rounded-lg border border-slate-800 bg-[#131318] px-3.5 py-2 text-[13px] text-slate-400 hover:border-slate-700 transition-colors"
+          className="ml-auto flex items-center gap-2 rounded-lg border border-white/[.06] bg-[#202126] px-3.5 py-2 text-[12px] font-medium text-slate-400 transition-colors hover:border-white/[.12] hover:text-white"
         >
           <Settings2 className="h-3.5 w-3.5" />
           Einstellungen
