@@ -77,6 +77,8 @@ check("Kundenbrand Dashboard-Shell", all(term in dash_shell for term in ("{{ bra
 check("University Logo", (SHOP / "lbost_shop_app/static/icon-192.png").is_file())
 check("Responsive Dashboard-Navigation", "data-open-sidebar" in dash_shell and "data-ub-overlay" in dash_shell)
 check("graue Sidebar mit Modulstatus", "ub-module-dot" in dash_shell and "module_status.get(module_key" in dash_shell and "ub-module-control" in dash_shell)
+_dashboard_css = (SHOP / "lbost_shop_app/static/css/university-dashboard.css").read_text()
+check("graue Dashboard-Tabs und Flaechen", "Unified clean grey dashboard surfaces and tabs" in _dashboard_css and ".ub-dashboard-shell,.ub-workspace{background:#232428}" in _dashboard_css and ".ub-overview-tabs,.cc-tabs,.auto-tabs,.uv-detail-tabs" in _dashboard_css)
 check("University Serverliste", all(term in servers_page for term in ("Mitglieder erreicht", "Server mit Bot", "data-server-search", "data-server-sort")))
 check("University Serveruebersicht", all(term in guild_page for term in ("Einrichtung", "Als Nächstes", "Eingerichtet", "Noch offen", "Server-Tarif", "Sicherung")))
 check("keine Emoji-Modulsymbole", all(spec in main for spec in ('"icon": "ticket"', '"icon": "shield"', '"icon": "users"', '"icon": "bolt"', '"icon": "log"', '"icon": "gift"')))
