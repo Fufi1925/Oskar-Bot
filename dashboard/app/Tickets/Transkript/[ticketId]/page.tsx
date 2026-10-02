@@ -144,7 +144,12 @@ export default async function TicketTranscriptPage({ params }: { params: { ticke
 
   const response = await fetch(
     `${API_BASE_URL}/tickets/transcript/${params.ticketId}?actor=${encodeURIComponent(session.user.id)}`,
-    { headers: { "X-API-Key": process.env.DASHBOARD_API_KEY || "" }, cache: "no-store" },
+    {
+      headers: {
+        Authorization: `Bearer ${process.env.DASHBOARD_API_KEY || ""}`,
+      },
+      cache: "no-store",
+    },
   );
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
