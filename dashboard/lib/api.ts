@@ -980,6 +980,7 @@ export const api = {
 
   // Admin
   getAdminStats: () => request<AdminStats>("/admin/stats"),
+  getAdminOverview: () => request<any>("/admin/overview"),
   getPremiumGuilds: () => request<any>("/admin/premium-guilds"),
   setGuildPremium: (guildId: string, premium: boolean) =>
     request<any>(`/admin/premium/${guildId}`, {

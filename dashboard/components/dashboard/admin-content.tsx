@@ -25,7 +25,6 @@ import { ApplicationsAdmin } from "@/components/dashboard/applications-admin";
 import { IdeasAdmin } from "@/components/dashboard/ideas-admin";
 import { TemplatesAdmin } from "@/components/dashboard/templates-admin";
 import { DataAge } from "@/components/ui/data-age";
-import { StatValue } from "@/components/ui/stat-value";
 import { OwnerAccessPanel } from "@/components/dashboard/owner-access-panel";
 import { OwnerPrivilegesPanel } from "@/components/dashboard/owner-privileges-panel";
 import { useSession } from "next-auth/react";
@@ -53,9 +52,10 @@ import { FirewallPanel } from "@/components/dashboard/firewall-panel";
 import { SupportRequestsAdmin } from "@/components/dashboard/support-requests-admin";
 import { SupportRankingsAdmin } from "@/components/dashboard/support-rankings-admin";
 import { HomepageServersAdmin } from "@/components/dashboard/homepage-servers-admin";
+import { AdminOverview, type AdminOverviewData } from "@/components/dashboard/admin-overview";
 
 
-type TabId = "members" | "channels" | "server" | "scans" | "broadcast" | "system" | "features" | "health" | "team" | "access" | "owner" | "reports" | "audit" | "approvals" | "botsettings" | "backups" | "warnings" | "usage" | "dashusers" | "servers" | "premium" | "speedrun" | "tester" | "pingreactions" | "templates" | "userlookup" | "webapply" | "cookies" | "privacy" | "trustedbots" | "designunlock" | "beta" | "ideas" | "ticketai" | "firewall" | "support" | "support-rankings" | "homepage-servers";
+type TabId = "overview" | "members" | "channels" | "server" | "scans" | "broadcast" | "system" | "features" | "health" | "team" | "access" | "owner" | "reports" | "audit" | "approvals" | "botsettings" | "backups" | "warnings" | "usage" | "dashusers" | "servers" | "premium" | "speedrun" | "tester" | "pingreactions" | "templates" | "userlookup" | "webapply" | "cookies" | "privacy" | "trustedbots" | "designunlock" | "beta" | "ideas" | "ticketai" | "firewall" | "support" | "support-rankings" | "homepage-servers";
 type MemberAction = "ban" | "kick" | "mute" | "unmute";
 
 type QuickAction = {
@@ -68,6 +68,7 @@ type QuickAction = {
 };
 
 const tabs: Array<{ id: TabId; label: string; icon: any }> = [
+  { id: "overview", label: "Übersicht", icon: Activity },
   { id: "members", label: "Mitglieder", icon: Users },
   { id: "channels", label: "Kanäle", icon: Hash },
   { id: "server", label: "Server", icon: Server },
@@ -176,7 +177,7 @@ type TabGroup = {
 
 const TAB_GROUPS: TabGroup[] = [
   // Täglicher Systemüberblick zuerst: Zustand prüfen, dann Details auswerten.
-  { name: "Übersicht & Betrieb", shortName: "Betrieb", icon: Activity, ids: ["health", "system", "usage", "reports", "audit"], color: "text-cyan-400", iconBg: "bg-cyan-500/10", active: "border-cyan-500/25 bg-cyan-500/10" },
+  { name: "Übersicht & Betrieb", shortName: "Übersicht", icon: Activity, ids: ["overview", "health", "system", "usage", "reports", "audit"], color: "text-cyan-400", iconBg: "bg-cyan-500/10", active: "border-cyan-500/25 bg-cyan-500/10" },
   { name: "Support", shortName: "Support", icon: LifeBuoy, ids: ["support", "support-rankings"], color: "text-indigo-300", iconBg: "bg-indigo-500/10", active: "border-indigo-500/25 bg-indigo-500/10" },
   // Alles, was unmittelbar einen Discord-Server oder dessen Kommunikation betrifft.
   { name: "Server & Inhalte", shortName: "Server", icon: Server, ids: ["servers", "homepage-servers", "server", "channels", "broadcast"], color: "text-violet-400", iconBg: "bg-violet-500/10", active: "border-violet-500/25 bg-violet-500/10" },
@@ -294,7 +295,7 @@ const quickActions: QuickAction[] = [
 ];
 /** Tabs that render on their own, without the input sidebar. */
 const FULL_WIDTH_TABS = new Set<TabId>([
-  "features", "health", "firewall", "team", "access",
+  "overview", "features", "health", "firewall", "team", "access",
   "reports", "audit", "approvals", "botsettings", "backups", "warnings", "usage",
   "dashusers", "userlookup", "servers", "homepage-servers", "premium", "ticketai", "speedrun", "tester", "templates",
   "webapply", "ideas", "cookies", "privacy", "trustedbots",
@@ -352,6 +353,7 @@ export function AdminContent({
     roles: Array<{ key: string; label: string }>;
   } | null>(null);
   const [stats, setStats] = useState<AdminStats | null>(null);
+  const [overview, setOverview] = useState<AdminOverviewData | null>(null);
   const [config, setConfig] = useState<AdminConfig | null>(null);
   const [guilds, setGuilds] = useState<any[]>([]);
   const [channels, setChannels] = useState<any[]>([]);
@@ -366,7 +368,7 @@ export function AdminContent({
   // What the server last confirmed, so an edit in progress is
   // recognisable and "Verwerfen" has something to go back to.
   const savedNotification = useRef("");
-  const [activeTab, setActiveTab] = useState<TabId>("members");
+  const [activeTab, setActiveTab] = useState<TabId>("overview");
   const [result, setResult] = useState("");
 
   const [guildId, setGuildId] = useState("");
@@ -385,8 +387,14 @@ export function AdminContent({
   const fetchData = async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
     try {
-      const [statsData, configData, guildData] = await Promise.all([api.getAdminStats(), api.getAdminConfig(), api.listGuilds()]);
+      const [statsData, overviewData, configData, guildData] = await Promise.all([
+        api.getAdminStats(),
+        api.getAdminOverview(),
+        api.getAdminConfig(),
+        api.listGuilds(),
+      ]);
       setStats(statsData);
+      setOverview(overviewData);
       setConfig(configData);
       // Only adopt the server's text when the box is untouched. This
       // poll runs every 30 seconds, so typing a longer notice used to
@@ -463,18 +471,9 @@ export function AdminContent({
   const guildOptions = guilds.map((guild) => ({ value: String(guild.id), label: `${guild.name} (${guild.id})` }));
   const channelOptions = channels.map((channel) => ({ value: String(channel.id), label: `#${channel.name}` }));
 
-  const statItems = [
-    // Deutsch, wie der Rest der Seite. Drei dieser vier Zeilen
-    // standen auf Englisch da -- direkt neben "Server wählen, dann
-    // Moderation und Verwaltung erledigen."
-    { name: "Nutzer gesamt", value: stats?.total_users || "0", icon: Users, color: "text-blue-500" },
-    { name: "Aktive Server", value: stats?.active_servers || "0", icon: Server, color: "text-emerald-500" },
-    { name: "Antwortzeit", value: stats?.api_latency || "0ms", icon: Activity, color: "text-amber-500" },
-    { name: "Datenbank", value: stats?.db_size || "0 MB", icon: Database, color: "text-purple-500" },
-  ];
-
   // Which permission each tab needs. Tabs without an entry are always shown.
   const TAB_PERMISSION: Partial<Record<TabId, string>> = {
+    overview: "dashboard.access",
     members: "members.view",
     channels: "channels.manage",
     server: "server.manage",
@@ -777,16 +776,14 @@ export function AdminContent({
         Jetzt: eine Zeile. Titel, Untertitel, ein Knopf, der sagt,
         was er tut.
       */}
-      <div className="flex flex-wrap items-center gap-4 rounded-2xl border border-slate-800 bg-[#131318] px-5 py-4">
-        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-indigo-500/25 bg-indigo-500/10">
-          <Shield className="h-[18px] w-[18px] text-indigo-400" />
-        </span>
+      <div className="flex flex-wrap items-center gap-4 border-b border-white/[.06] pb-4">
+        <Shield className="h-5 w-5 shrink-0 text-blue-300" />
         <div className="min-w-0 flex-1">
-          <h1 className="text-[22px] font-bold tracking-tight text-white">
-            Admin-Bereich
+          <h1 className="text-[22px] font-semibold tracking-tight text-white">
+            Admin Panel
           </h1>
           <p className="mt-0.5 text-[13px] text-slate-500">
-            Server wählen, dann Moderation und Verwaltung erledigen.
+            Übersicht, Verwaltung und Systemkontrolle an einem Ort.
           </p>
         </div>
 
@@ -794,45 +791,12 @@ export function AdminContent({
           type="button"
           onClick={() => fetchData(true)}
           disabled={refreshing}
-          className="flex shrink-0 items-center gap-2 rounded-lg border border-slate-800 bg-[#0f0f13] px-4 py-2 text-[13px] text-slate-300 transition-colors hover:border-slate-700 hover:text-white disabled:opacity-50"
+          className="flex shrink-0 items-center gap-2 rounded-lg border border-white/[.07] bg-[#202126] px-3.5 py-2 text-[12px] text-slate-400 transition-colors hover:border-white/[.12] hover:text-white disabled:opacity-50"
         >
           <RefreshCw className={cn("h-3.5 w-3.5", refreshing && "animate-spin")} />
           {refreshing ? "Lädt …" : "Aktualisieren"}
           <DataAge since={lastLoaded} />
         </button>
-      </div>
-
-      {/*
-        Die Zahlen.
-
-        Erst waren es vier Glaskarten mit wachsenden Symbolen und
-        einer Einblend-Animation je Karte -- auf einer Seite, die man
-        täglich öffnet, jedes Mal dieselbe Show. Dann eine einzige
-        Textzeile, und die war zu wenig: vier Zahlen dicht
-        nebeneinander lesen sich als ein Satz, nicht als vier Angaben.
-
-        Jetzt vier ruhige Felder mit eigener Fläche. Die Farbe steckt
-        nur im Symbol -- sie ordnet zu, ohne dass etwas leuchtet.
-      */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {statItems.map((stat) => (
-          <div
-            key={stat.name}
-            className="flex items-center gap-3 rounded-2xl border border-slate-800 bg-[#131318] px-4 py-3.5"
-          >
-            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white/[0.04]">
-              <stat.icon className={cn("h-4 w-4", stat.color)} />
-            </span>
-            <div className="min-w-0">
-              <p className="truncate text-[19px] font-bold leading-none tabular-nums text-white">
-                <StatValue value={stat.value} />
-              </p>
-              <p className="mt-1.5 truncate text-[12px] text-slate-500">
-                {stat.name}
-              </p>
-            </div>
-          </div>
-        ))}
       </div>
 
       {/* Mobile: kompakte zweistufige Navigation. Auf großen Bildschirmen
@@ -852,7 +816,7 @@ export function AdminContent({
             );
           })}
         </div>
-        <div className="grid grid-cols-2 gap-2 rounded-2xl border border-slate-800 bg-[#131318] p-2 sm:flex sm:flex-wrap">
+        <div className="grid grid-cols-2 gap-1.5 rounded-xl border border-white/[.06] bg-[#202126] p-2 sm:flex sm:flex-wrap">
           {shownTabs.map((tab) => {
             const group = TAB_GROUPS.find((entry) => entry.ids.includes(tab.id))!;
             const active = tab.id === activeTab;
@@ -869,10 +833,9 @@ export function AdminContent({
       <div className="grid items-start gap-5 lg:grid-cols-[260px_minmax(0,1fr)]">
         {/* Desktop: dieselbe Seitenstruktur wie im Server-Dashboard,
             aber als kompaktes Accordion. Nur der aktuelle Bereich ist offen. */}
-        <aside className="sticky top-24 hidden max-h-[calc(100vh-7rem)] overflow-y-auto rounded-2xl border border-slate-800 bg-[#111116] p-3 lg:block [scrollbar-width:thin]">
-          <div className="mb-3 px-2 pb-3 pt-1">
-            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-600">Admin-Navigation</p>
-            <p className="mt-1 text-[13px] text-slate-400">Bereich auswählen</p>
+        <aside className="sticky top-24 hidden max-h-[calc(100vh-7rem)] overflow-y-auto rounded-xl border border-white/[.06] bg-[#202126] p-2.5 lg:block [scrollbar-width:thin]">
+          <div className="mb-2 px-2 pb-2 pt-1">
+            <p className="text-[11px] font-semibold text-slate-500">Bereiche</p>
           </div>
           <nav className="space-y-1.5" aria-label="Admin-Bereiche">
             {TAB_GROUPS.map((group) => {
@@ -902,6 +865,23 @@ export function AdminContent({
           </nav>
         </aside>
         <div className="min-w-0 space-y-5">
+      {/* The overview is deliberately the first tab: opening the admin panel
+          should answer "what changed?" before offering individual tools. */}
+      {activeTab === "overview" && (
+        <AdminOverview
+          data={overview}
+          loading={loading}
+          onOpen={(tab) => {
+            const target = visibleTabs.find((item) => item.id === tab);
+            if (!target) {
+              toast.info("Für diesen Bereich fehlt deiner Admin-Rolle die Berechtigung.");
+              return;
+            }
+            setActiveTab(target.id);
+            window.history.replaceState(null, "", `#${target.id}`);
+          }}
+        />
+      )}
       {/* Features and Health are full-width: they have no input sidebar. */}
       {activeTab === "features" && (
         <FeatureFlagsPanel canEdit={Boolean(access?.is_owner || access?.permissions.includes("features.edit"))} />

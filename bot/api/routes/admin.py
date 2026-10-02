@@ -17,6 +17,7 @@ from api.dependencies import get_bot
 from api.schemas import AdminStats, AdminNodeStatus, AdminConfig, AdminConfigUpdate
 from typing import TYPE_CHECKING, List
 import os
+import sqlite3
 import aiosqlite
 
 from utils import feature_flags
@@ -115,6 +116,141 @@ async def get_admin_stats(bot: "universitybot" = Depends(get_bot)):
         db_size=db_size_str,
         nodes=nodes
     )
+
+
+def _overview_count(path: str, query: str, params: tuple = ()) -> int:
+    """Read one dashboard counter without making the overview fragile.
+
+    These stores are deliberately independent. A fresh installation may not
+    have opened every feature yet, so a missing database/table is a zero, not
+    a broken admin home page.
+    """
+    if not os.path.exists(path):
+        return 0
+    try:
+        with sqlite3.connect(path, timeout=2) as db:
+            row = db.execute(query, params).fetchone()
+            return int(row[0] or 0) if row else 0
+    except sqlite3.Error:
+        return 0
+
+
+@router.get("/overview")
+async def get_admin_overview(bot: "universitybot" = Depends(get_bot)):
+    """A truthful 24-hour inbox for the first admin-panel tab."""
+    await init_db()
+    now = int(time.time())
+    since = now - 86400
+    servers = len(bot.guilds)
+    users = sum(g.member_count or 0 for g in bot.guilds)
+
+    # Persist lightweight hourly totals. This gives us real growth instead of
+    # pretending that Discord account creation time means "new to this bot".
+    async with aiosqlite.connect(CONFIG_DB) as db:
+        await db.execute(
+            "CREATE TABLE IF NOT EXISTS admin_metric_snapshots ("
+            " captured_at INTEGER PRIMARY KEY, servers INTEGER NOT NULL,"
+            " users INTEGER NOT NULL)"
+        )
+        async with db.execute(
+            "SELECT captured_at FROM admin_metric_snapshots ORDER BY captured_at DESC LIMIT 1"
+        ) as cursor:
+            latest = await cursor.fetchone()
+        if not latest or now - int(latest[0]) >= 3600:
+            await db.execute(
+                "INSERT OR REPLACE INTO admin_metric_snapshots"
+                " (captured_at, servers, users) VALUES (?, ?, ?)",
+                (now, servers, users),
+            )
+        await db.execute(
+            "DELETE FROM admin_metric_snapshots WHERE captured_at < ?", (now - 2678400,)
+        )
+        async with db.execute(
+            "SELECT servers, users, captured_at FROM admin_metric_snapshots "
+            "WHERE captured_at <= ? ORDER BY captured_at DESC LIMIT 1",
+            (since,),
+        ) as cursor:
+            baseline = await cursor.fetchone()
+        if baseline is None:
+            async with db.execute(
+                "SELECT servers, users, captured_at FROM admin_metric_snapshots "
+                "ORDER BY captured_at ASC LIMIT 1"
+            ) as cursor:
+                baseline = await cursor.fetchone()
+        await db.commit()
+
+    base_servers = int(baseline[0]) if baseline else servers
+    base_users = int(baseline[1]) if baseline else users
+    baseline_at = int(baseline[2]) if baseline else now
+
+    firewall_blocks = _overview_count(
+        "db/firewall.db",
+        "SELECT COUNT(*) FROM firewall_events WHERE created_at >= ? AND blocked = 1",
+        (since,),
+    )
+    premium_new = _overview_count(
+        "db/premium_membership.db",
+        "SELECT COUNT(*) FROM premium_purchase_requests WHERE created_at >= ?",
+        (since,),
+    )
+    premium_pending = _overview_count(
+        "db/premium_membership.db",
+        "SELECT COUNT(*) FROM premium_purchase_requests WHERE status = 'pending'",
+    )
+    premium_active = _overview_count(
+        "db/premium_membership.db",
+        "SELECT COUNT(*) FROM premium_accounts WHERE revoked = 0 "
+        "AND (lifetime = 1 OR expires_at > ?)",
+        (now,),
+    )
+    ideas_new = _overview_count(
+        "db/ideas.db", "SELECT COUNT(*) FROM ideas WHERE created_at >= ?", (since,)
+    )
+    ideas_open = _overview_count(
+        "db/ideas.db",
+        "SELECT COUNT(*) FROM ideas WHERE status IN ('open', 'needs_info')",
+    )
+    applications_new = _overview_count(
+        "db/web_apply.db",
+        "SELECT COUNT(*) FROM web_applications WHERE created_at >= ?",
+        (since,),
+    )
+    applications_open = _overview_count(
+        "db/web_apply.db",
+        "SELECT COUNT(*) FROM web_applications WHERE status = 'open'",
+    )
+
+    return {
+        "period_hours": 24,
+        "captured_at": now,
+        "baseline_at": baseline_at,
+        "totals": {
+            "servers": servers,
+            "users": users,
+            "premium_active": premium_active,
+        },
+        "new": {
+            # Snapshot deltas are net growth. Never present departures as
+            # "negative new users"; the detail text in the UI says so.
+            "servers": max(0, servers - base_servers),
+            "users": max(0, users - base_users),
+            "firewall_blocks": firewall_blocks,
+            "premium_purchases": premium_new,
+            "ideas": ideas_new,
+            "applications": applications_new,
+        },
+        "pending": {
+            "premium_purchases": premium_pending,
+            "ideas": ideas_open,
+            "applications": applications_open,
+        },
+        "system": {
+            "api_latency_ms": round(bot.latency * 1000, 2),
+            "ready": bool(bot.is_ready()),
+            "guilds_available": bool(bot.guilds),
+        },
+    }
+
 
 @router.get("/config", response_model=AdminConfig)
 async def get_admin_config():
