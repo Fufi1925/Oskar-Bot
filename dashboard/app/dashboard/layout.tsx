@@ -628,7 +628,10 @@ export default function DashboardLayout({
       </aside>
 
       {/* Main Content Area (unchanged) */}
-      <div className="relative z-10 flex min-h-screen flex-col lg:pl-[250px]">
+      <div className={cn(
+        "relative z-10 flex min-h-screen flex-col lg:pl-[250px]",
+        currentGuildId ? "bg-[#191a1f]" : "bg-transparent"
+      )}>
         {/* Top Navbar (unchanged) */}
         <header className="sticky top-2 z-30 mx-3 mb-4 mt-3 flex h-16 isolate items-center justify-between gap-2 rounded-[24px] border border-white/[.1] bg-[#090b12]/78 px-2.5 shadow-[0_22px_70px_rgba(0,0,0,.32)] backdrop-blur-3xl lg:top-4 lg:mx-6 lg:mb-6 lg:mt-4 lg:h-[72px] lg:rounded-[28px] lg:px-4">
           <div className="pointer-events-none absolute inset-x-16 top-0 h-px bg-gradient-to-r from-transparent via-blue-300/35 to-transparent" />
