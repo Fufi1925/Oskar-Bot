@@ -14,7 +14,7 @@
 
 <form method="post" class="ub-logging-panel" data-logging-form data-test-base="{{ root_path }}/guild/{{ guild.id }}/logging/test/">
   <input type="hidden" name="csrf" value="{{ csrf }}">
-  <input type="hidden" name="enabled" value="1">
+  {% if module_status.get('logging', true) %}<input type="hidden" name="enabled" value="1">{% endif %}
   <input type="hidden" name="auto_delete_duration" value="{{ values.auto_delete_duration }}">
 
   <section class="ub-log-card">

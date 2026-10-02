@@ -9,7 +9,7 @@
   {% if saved %}<div class="ub-alert success">Die Ticket-Einstellungen wurden gespeichert.</div>{% endif %}{% if error %}<div class="ub-alert error">{{ error }}</div>{% endif %}
   <form method="post" action="{{ root_path }}/guild/{{ guild.id }}/tickets/designer" data-ticket-form>
     <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="panels_json" data-panels-json>
-    <input type="checkbox" name="enabled" checked hidden>
+    <input type="checkbox" name="enabled"{% if module_status.get('tickets', true) %} checked{% endif %} hidden>
     <section class="ut-intro"><span class="ut-icon-box">{{ icon('ticket') }}</span><div><h2>Ticket-Panels</h2><p>Ein Panel ist eine Nachricht mit Knöpfen. Klickt jemand darauf, bekommt er einen privaten Kanal mit deinem Team. Du kannst mehrere Panels anlegen — etwa Support in einem Kanal und Bewerbungen in einem anderen.</p><small>Alles wird sofort gespeichert. Nach Änderungen an Text oder Farbe das Panel neu senden.{% if stats.offen %} · Aktuell <b>{{ stats.offen }}</b> offene Tickets.{% endif %}</small></div></section>
 
     <div class="ut-panels" data-panel-list>

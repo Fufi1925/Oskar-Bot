@@ -240,6 +240,8 @@ class ShopBot(commands.Bot):
         if cached and now - cached[0] < 3:
             return cached[1]
         value = db.get_feature(guild_id, name, self.settings)
+        if name in {"tickets", "moderation", "welcome", "reaction_roles", "giveaways", "custom_commands", "automation", "logging"} and "enabled" not in value:
+            value["enabled"] = True
         self.feature_cache[key] = (now, value)
         if len(self.feature_cache) > 4000:  # Server, die niemand mehr sieht, rauswerfen
             self.feature_cache = {k: v for k, v in self.feature_cache.items() if now - v[0] < 30}
@@ -490,6 +492,8 @@ class ShopBot(commands.Bot):
     async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent) -> None:
         if payload.guild_id is None or payload.user_id == (self.user.id if self.user else 0):
             return
+        if not self.feature(payload.guild_id, "reaction_roles").get("enabled", True):
+            return
         mapping = db.reaktionsrolle(payload.guild_id, payload.message_id, str(payload.emoji), self.settings)
         if not mapping:
             return
@@ -512,6 +516,8 @@ class ShopBot(commands.Bot):
 
     async def on_raw_reaction_remove(self, payload: discord.RawReactionActionEvent) -> None:
         if payload.guild_id is None or payload.user_id == (self.user.id if self.user else 0):
+            return
+        if not self.feature(payload.guild_id, "reaction_roles").get("enabled", True):
             return
         mapping = db.reaktionsrolle(payload.guild_id, payload.message_id, str(payload.emoji), self.settings)
         if not mapping:
@@ -835,6 +841,8 @@ class ShopBot(commands.Bot):
         return messages
 
     async def toggle_role(self, interaction: discord.Interaction, role_id: int) -> None:
+        if not self.feature(interaction.guild.id, "reaction_roles").get("enabled", True):
+            return await self.interaction_notice(interaction, "Modul deaktiviert", "Reaction Roles sind auf diesem Server deaktiviert.", error=True)
         role = interaction.guild.get_role(role_id)
         member = interaction.user
         if not role:
@@ -867,6 +875,8 @@ class ShopBot(commands.Bot):
         return layout(title[:256], body[:3900], color=f"#{int(record.get('colour') or 0xF59E0B):06x}", buttons=buttons, image_url=str(record.get("image_url") or ""))
 
     async def enter_giveaway(self, interaction: discord.Interaction, message_id: int) -> None:
+        if not self.feature(interaction.guild.id, "giveaways").get("enabled", True):
+            return await self.interaction_notice(interaction, "Modul deaktiviert", "Giveaways sind auf diesem Server deaktiviert.", error=True)
         record = giveaway_store.get(interaction.guild.id, message_id, self.settings)
         if not record or record.get("status") != "active" or int(record.get("ends_at") or 0) <= int(time.time()):
             text = giveaway_store.message(record or {}, "msg_ended", giveaway_store.values(record or {}))

@@ -819,6 +819,8 @@
   let focused=null;root.querySelectorAll('.auto-modal textarea,.auto-modal input[type=text]').forEach(input=>{input.addEventListener('focus',()=>focused=input)});root.querySelectorAll('[data-auto-token]').forEach(button=>button.addEventListener('click',()=>{if(!focused||!button.closest('form').contains(focused))return;const start=focused.selectionStart??focused.value.length,end=focused.selectionEnd??start;focused.setRangeText(button.dataset.autoToken,start,end,'end');focused.focus()}));
 })();
 
+document.addEventListener('change',event=>{const toggle=event.target.closest?.('[data-module-toggle]');if(toggle){toggle.disabled=true;toggle.form.requestSubmit()}});
+
 // Premium ticket designer — mirrors the University ticket workspace.
 (()=>{
  const root=document.querySelector('#ticket-designer');if(!root)return;

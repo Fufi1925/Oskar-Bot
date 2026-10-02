@@ -81,6 +81,16 @@ async def run() -> None:
         assert response.status_code == 200
         assert "Vorschau" in response.text and "gerechnet im Bot" in response.text
         assert "Fragen vor der Erstellung" in response.text and 'name="panels_json"' in response.text and 'type="hidden" name="panels_json"' in response.text
+        assert "ub-module-dot enabled" in response.text and "ub-module-control" in response.text
+        session = auth.read_session(client.cookies.get("lbost_shop_session"), get_settings())
+        response = await client.post("/lbost-shop/guild/1/module/tickets", data={
+            "csrf": session["sid"], "next": "/guild/1/tickets",
+        })
+        assert response.status_code == 303 and db.get_feature(1, "tickets", get_settings())["enabled"] is False
+        response = await client.post("/lbost-shop/guild/1/module/tickets", data={
+            "csrf": session["sid"], "next": "/guild/1/tickets", "enabled": "1",
+        })
+        assert response.status_code == 303 and db.get_feature(1, "tickets", get_settings())["enabled"] is True
         response = await client.get("/lbost-shop/guild/1/moderation")
         assert response.status_code == 200
         assert "Verwarnungen auf diesem Server" in response.text

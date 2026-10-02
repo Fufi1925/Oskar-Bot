@@ -75,6 +75,8 @@ class CustomCommandsService:
             option=str(parameter.get("name", ""))
             if re.fullmatch(r"[a-z][a-z0-9_]{0,31}",option) and option not in seen:seen.add(option);valid.append(parameter)
         async def runner(interaction:discord.Interaction,values:dict):
+            if not self.bot.feature(guild_id,"custom_commands").get("enabled",True):
+                await interaction.response.send_message("Custom Commands sind auf diesem Server deaktiviert.",ephemeral=True);return
             current=self._commands.get(guild_id,{}).get(name)
             if current is None or not current.get("use_slash"):
                 await interaction.response.send_message("Dieser Custom Command ist nicht mehr verfügbar.",ephemeral=True);return
@@ -211,6 +213,7 @@ class CustomCommandsService:
 
     async def handle_message(self,message:discord.Message)->bool:
         if message.author.bot:return False
+        if not self.bot.feature(message.guild.id,"custom_commands").get("enabled",True):return False
         try:
             found=await self.invocation(message)
             if found is None:return False

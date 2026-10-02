@@ -515,8 +515,23 @@ def create_app() -> FastAPI:
             "vollstaendig": bool(wert.get("vollstaendig", True)),
         }
 
+    def module_status_fuer_gilde(guild_id: int) -> dict[str, bool]:
+        """Effective module states; existing customer guilds start enabled."""
+        statuses: dict[str, bool] = {}
+        for key in FEATURES:
+            values = db.get_feature(guild_id, key, settings)
+            # Missing legacy state is effectively enabled without writing during GET.
+            # The first real toggle persists the explicit choice.
+            statuses[key] = bool(values.get("enabled", True))
+        return statuses
+
     def context(request: Request, **extra: Any) -> dict[str, Any]:
         user = current_user(request)
+        guild = extra.get("guild")
+        guild_id = int(guild.get("id") if isinstance(guild, dict) else getattr(guild, "id", 0) or 0)
+        module_status = module_status_fuer_gilde(guild_id) if guild_id else {}
+        path_feature = request.url.path.rstrip("/").rsplit("/", 1)[-1]
+        active_module = path_feature if path_feature in FEATURES else ""
         data = {
             "request": request,
             "brand": settings.brand_name,
@@ -532,6 +547,8 @@ def create_app() -> FastAPI:
             "heute": int(time.time()),
             "audit_tage": db.AUDIT_TAGE,
             "module": FEATURES,
+            "module_status": module_status,
+            "active_module": active_module,
             "platzhalter": PLATZHALTER,
             "limits": GRENZEN,
         }
@@ -947,6 +964,8 @@ def create_app() -> FastAPI:
             guild_id, include_bot_permissions=feature == "logging"
         )
         values = db.get_feature(guild_id, feature, settings)
+        if "enabled" not in values:
+            values["enabled"] = True
         if feature == "tickets":
             panels = [item for item in (values.get("panels_json") or []) if isinstance(item, dict)]
             if not panels:
@@ -1156,6 +1175,24 @@ def create_app() -> FastAPI:
                       geloescht=request.query_params.get("geloescht") == "1",
                       discord_ok=bool(channels or roles),
                       error=None, json_help=JSON_HELP.get(feature, {}), daten=modul_daten(guild_id, feature))
+
+    @app.post("/guild/{guild_id}/module/{feature}")
+    async def toggle_module(request: Request, guild_id: int, feature: str):
+        user = current_user(request)
+        guild = await guild_access(user, guild_id) if user else None
+        if not user or not guild or feature not in FEATURES:
+            return RedirectResponse(href(request, "/dashboard"), status_code=302)
+        form = await request.form()
+        if not csrf_ok(form.get("csrf"), user):
+            return PlainTextResponse("Ungültige Anfrage.", status_code=403)
+        values = db.get_feature(guild_id, feature, settings)
+        values["enabled"] = str(form.get("enabled") or "") in {"1", "true", "on", "yes"}
+        db.set_feature(guild_id, feature, values, int(user["uid"]), settings)
+        target = str(form.get("next") or f"/guild/{guild_id}/{feature}")
+        safe_prefix = f"/guild/{guild_id}/"
+        if not target.startswith(safe_prefix):
+            target = f"/guild/{guild_id}/{feature}"
+        return RedirectResponse(href(request, target), status_code=303)
 
     @app.post("/guild/{guild_id}/tickets/designer")
     async def save_ticket_designer(request: Request, guild_id: int):
