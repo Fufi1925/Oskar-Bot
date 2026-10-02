@@ -37,6 +37,8 @@ class Settings(BaseSettings):
     # Reserved for the separate shop bot that will be built later.
     bot_token: str = ""
     brand_name: str = "LBoost Shop"
+    brand_logo_url: str = ""
+    brand_color: str = "#5865f2"
 
     @property
     def root_path(self) -> str:

@@ -11,7 +11,6 @@ same output — the same split University Bot uses.
 from __future__ import annotations
 
 import asyncio
-import html
 import io
 import logging
 import random
@@ -162,10 +161,11 @@ def _zeit(stempel: int) -> str:
 class TicketFragenModal(discord.ui.Modal):
     """Fragen vor dem Öffnen — dieselbe Regel wie die Dashboard-Vorschau."""
 
-    def __init__(self, bot: "ShopBot", panel_key: str, fragen: list[dict[str, Any]]):
+    def __init__(self, bot: "ShopBot", panel_key: str, category_key: str, fragen: list[dict[str, Any]]):
         super().__init__(title="Ticket erstellen", timeout=300)
         self.bot = bot
         self.panel_key = panel_key
+        self.category_key = category_key
         self.fragen = fragen
         self.eingaben: list[tuple[str, str, Any]] = []
         for frage in fragen[:regeln.MAX_TICKET_QUESTIONS]:
@@ -198,7 +198,7 @@ class TicketFragenModal(discord.ui.Modal):
                 antworten.append({"label": label, "type": "image", "attachments": list(feld.values or [])})
             else:
                 antworten.append({"label": label, "type": typ, "value": feld.value})
-        await self.bot.create_ticket(interaction, self.panel_key, antworten=antworten)
+        await self.bot.create_ticket(interaction, self.panel_key, self.category_key, antworten=antworten)
 
 
 class ShopBot(commands.Bot):
@@ -453,7 +453,9 @@ class ShopBot(commands.Bot):
         custom_id = str((interaction.data or {}).get("custom_id") or "")
         try:
             if custom_id.startswith("shop:ticket:create:"):
-                await self.start_ticket(interaction, custom_id.rsplit(":", 1)[-1])
+                value = custom_id.removeprefix("shop:ticket:create:")
+                panel_key, _, category_key = value.partition("~")
+                await self.start_ticket(interaction, panel_key, category_key)
             elif custom_id.startswith("shop:ticket:"):
                 await self.ticket_action(interaction, custom_id.rsplit(":", 1)[-1])
             elif custom_id.startswith("shop:role:"):
@@ -509,47 +511,64 @@ class ShopBot(commands.Bot):
             logger.warning("Could not remove reaction role %s in guild %s", role.id, guild.id)
 
     # ── Tickets ──────────────────────────────────────────────────────
-    def ticket_panel(self, guild_id: int, key: str) -> dict[str, Any]:
+    def ticket_panel(self, guild_id: int, key: str, category_key: str = "") -> dict[str, Any]:
         cfg = self.feature(guild_id, "tickets")
-        if key == "default":
-            return cfg
         panels = cfg.get("panels_json") or []
-        selected = next((p for p in panels if isinstance(p, dict) and str(p.get("key")) == key), None)
-        return {**cfg, **selected} if selected else cfg
+        selected: dict[str, Any] = next(
+            (p for p in panels if isinstance(p, dict) and str(p.get("key")) == key), {}
+        )
+        merged = {**cfg, **selected}
+        if category_key:
+            category = next(
+                (item for item in (merged.get("categories") or [])
+                 if isinstance(item, dict) and str(item.get("key")) == category_key),
+                {},
+            )
+            merged = {**merged, **category, "selected_category_key": category_key}
+        return merged
 
-    async def start_ticket(self, interaction: discord.Interaction, panel_key: str) -> None:
+    async def start_ticket(self, interaction: discord.Interaction, panel_key: str, category_key: str = "") -> None:
         """Knopfdruck: erst das Fragen-Modal, sonst direkt das Ticket.
 
         Das Modal muss die *erste* Antwort auf die Interaktion sein — wer
         vorher ``defer`` aufruft, kann kein Modal mehr senden und der Knopf
         wirkt kaputt.
         """
-        cfg = self.ticket_panel(interaction.guild.id, panel_key)
+        cfg = self.ticket_panel(interaction.guild.id, panel_key, category_key)
         fragen = regeln.fragen_bereinigen(cfg.get("questions_json"))
         if fragen:
-            await interaction.response.send_modal(TicketFragenModal(self, panel_key, fragen))
+            await interaction.response.send_modal(TicketFragenModal(self, panel_key, category_key, fragen))
             return
         await interaction.response.defer(ephemeral=True)
-        await self.create_ticket(interaction, panel_key)
+        await self.create_ticket(interaction, panel_key, category_key)
 
     async def create_ticket(self, interaction: discord.Interaction, panel_key: str,
-                            antworten: list[dict[str, Any]] | None = None) -> None:
+                            category_key: str = "", antworten: list[dict[str, Any]] | None = None) -> None:
         guild = interaction.guild
         member = interaction.user
         if not interaction.response.is_done():
             await interaction.response.defer(ephemeral=True)
-        cfg = self.ticket_panel(guild.id, panel_key)
+        cfg = self.ticket_panel(guild.id, panel_key, category_key)
         if not cfg.get("enabled", self.feature(guild.id, "tickets").get("enabled")):
             return await self.interaction_notice(interaction, "Tickets deaktiviert", "Dieses Ticket-Panel ist nicht aktiv.", error=True)
         offene_rollen = ids(cfg.get("open_role_ids"))
         if offene_rollen and not any(role.id in offene_rollen for role in member.roles):
             return await self.interaction_notice(interaction, "Keine Berechtigung", "Du besitzt keine Rolle, die dieses Ticket öffnen darf.", error=True)
-        bereits = db.offene_tickets_fuer_nutzer(guild.id, member.id, self.settings)
-        if bereits and guild.get_channel(int(bereits)):
-            return await self.interaction_notice(interaction, "Ticket bereits offen", f"Du hast bereits <#{bereits}>.", error=True)
+        vorhandene = [
+            channel_id for channel_id in db.offene_ticket_kanale(guild.id, member.id, self.settings)
+            if guild.get_channel(channel_id)
+        ]
+        maximum = max(1, min(10, int(cfg.get("max_open_tickets") or 1)))
+        if len(vorhandene) >= maximum:
+            links = ", ".join(f"<#{channel_id}>" for channel_id in vorhandene[:5])
+            return await self.interaction_notice(
+                interaction, "Ticket-Limit erreicht",
+                f"Du hast bereits {len(vorhandene)} von {maximum} Tickets offen: {links}.", error=True,
+            )
 
         kategorie = guild.get_channel(int(cfg.get("category_id") or 0))
-        support_rollen = [guild.get_role(role_id) for role_id in ids(cfg.get("support_role_ids"))]
+        support_ids = ids(cfg.get("support_role_ids")) | ids(cfg.get("staff_role_ids"))
+        support_rollen = [guild.get_role(role_id) for role_id in support_ids]
         overwrites: dict[Any, discord.PermissionOverwrite] = {
             guild.default_role: discord.PermissionOverwrite(view_channel=False),
             member: discord.PermissionOverwrite(view_channel=True, send_messages=True, read_message_history=True, attach_files=True),
@@ -574,7 +593,8 @@ class ShopBot(commands.Bot):
         except discord.HTTPException as fehler:
             return await self.interaction_notice(interaction, "Ticket nicht möglich", f"Discord hat den Kanal abgelehnt: {getattr(fehler, 'text', 'unbekannter Fehler')}", error=True)
 
-        db.ticket_anlegen(guild.id, channel.id, member.id, panel_key, nummer, antworten or [], self.settings)
+        stored_panel_key = f"{panel_key}~{category_key}" if category_key else panel_key
+        db.ticket_anlegen(guild.id, channel.id, member.id, stored_panel_key, nummer, antworten or [], self.settings)
         worte = regeln.ersetzungen(
             ticket_number=f"{nummer:04d}",
             user=f"<@{member.id}>",
@@ -586,8 +606,10 @@ class ShopBot(commands.Bot):
         titel = texte["titel"]
         text = texte["nachricht"]
         buttons = [
-            discord.ui.Button(label=str(cfg.get("claim_label") or "Übernehmen")[:80], emoji=emoji(cfg.get("claim_emoji")), style=discord.ButtonStyle.primary, custom_id="shop:ticket:claim"),
-            discord.ui.Button(label=str(cfg.get("close_label") or "Schließen")[:80], emoji=emoji(cfg.get("close_emoji")), style=discord.ButtonStyle.danger, custom_id="shop:ticket:close"),
+            discord.ui.Button(label=str(cfg.get("claim_label") or "Claim")[:80], emoji=emoji(cfg.get("claim_emoji")), style=discord.ButtonStyle.primary, custom_id="shop:ticket:claim"),
+            discord.ui.Button(label="Lock", style=discord.ButtonStyle.secondary, custom_id="shop:ticket:lock"),
+            discord.ui.Button(label="Unlock", style=discord.ButtonStyle.secondary, custom_id="shop:ticket:unlock"),
+            discord.ui.Button(label=str(cfg.get("close_label") or "Close")[:80], emoji=emoji(cfg.get("close_emoji")), style=discord.ButtonStyle.danger, custom_id="shop:ticket:close"),
         ]
         await self.send_layout(channel, titel, text, color=cfg.get("color"), buttons=buttons,
                                image_url=str(cfg.get("ticket_image_url") or ""),
@@ -602,86 +624,158 @@ class ShopBot(commands.Bot):
         await self.log(guild, "Ticket erstellt", f"Kanal: <#{channel.id}>\nNutzer: <@{member.id}>\nNummer: `#{nummer:04d}`", "tickets")
 
     def can_manage_ticket(self, member: discord.Member, cfg: dict[str, Any]) -> bool:
-        return member.guild_permissions.manage_channels or any(role.id in ids(cfg.get("support_role_ids")) for role in member.roles)
+        allowed = ids(cfg.get("support_role_ids")) | ids(cfg.get("staff_role_ids"))
+        return member.guild_permissions.manage_channels or any(role.id in allowed for role in member.roles)
 
     async def ticket_action(self, interaction: discord.Interaction, action: str) -> None:
         guild, channel, member = interaction.guild, interaction.channel, interaction.user
         ticket = db.ticket_fuer_kanal(channel.id, self.settings)
         if not ticket:
             return await self.interaction_notice(interaction, "Kein Ticket", "Dieser Kanal ist kein aktives Ticket.", error=True)
-        cfg = self.ticket_panel(guild.id, str(ticket["panel_key"]))
+        stored_key = str(ticket["panel_key"])
+        panel_key, _, category_key = stored_key.partition("~")
+        cfg = self.ticket_panel(guild.id, panel_key, category_key)
         if not self.can_manage_ticket(member, cfg):
             return await self.interaction_notice(interaction, "Keine Berechtigung", "Du darfst dieses Ticket nicht verwalten.", error=True)
         if action == "claim":
             db.ticket_setzen(channel.id, self.settings, claimed_by=member.id)
             return await self.interaction_notice(interaction, "Ticket übernommen", f"Dieses Ticket wird jetzt von <@{member.id}> bearbeitet.")
+        if action in {"lock", "unlock"}:
+            owner = guild.get_member(int(ticket["owner_id"]))
+            locked = action == "lock"
+            if owner:
+                try:
+                    await channel.set_permissions(owner, view_channel=True, send_messages=not locked)
+                except discord.HTTPException:
+                    return await self.interaction_notice(interaction, "Discord error", "The ticket permissions could not be changed.", error=True)
+            db.ticket_setzen(channel.id, self.settings, is_locked=1 if locked else 0)
+            return await self.interaction_notice(interaction, "Ticket locked" if locked else "Ticket unlocked", f"Changed by <@{member.id}>.")
+        if action == "reopen":
+            await interaction.response.defer(ephemeral=True)
+            owner = guild.get_member(int(ticket["owner_id"]))
+            if owner:
+                await channel.set_permissions(owner, view_channel=True, send_messages=True)
+            category = guild.get_channel(int(cfg.get("category_id") or 0))
+            if isinstance(category, discord.CategoryChannel):
+                await channel.edit(category=category)
+            db.ticket_setzen(channel.id, self.settings, status="open", closed_at=None, closed_by=None, is_locked=0)
+            await self.send_layout(channel, "Ticket Reopened", f"Reopened by <@{member.id}>.", color="#3ba55d")
+            return await interaction.followup.send(view=layout("Ticket Reopened", "The ticket is open again.", color="#3ba55d"), ephemeral=True)
         if action == "close":
             await interaction.response.defer(ephemeral=True)
-            transcript = await self.make_transcript(channel)
-            log_channel = guild.get_channel(int(cfg.get("log_channel_id") or 0))
-            abgelegt = False
-            if log_channel and transcript:
-                try:
-                    await log_channel.send(
-                        view=layout("Ticket geschlossen", f"Ticket: {channel.name}\nGeschlossen von: <@{member.id}>\nNachrichten: {transcript[1]}", color="#ed4245"),
-                        file=discord.File(io.BytesIO(transcript[0]), filename=f"transcript-{channel.id}.html"),
-                    )
-                    abgelegt = True
-                except discord.HTTPException:
-                    logger.warning("Transcript upload failed", exc_info=True)
             owner = guild.get_member(int(ticket["owner_id"]))
             if owner:
                 try:
-                    await channel.set_permissions(owner, send_messages=False, view_channel=True)
+                    await channel.set_permissions(owner, send_messages=False, view_channel=False)
                 except discord.HTTPException:
                     logger.warning("Could not lock ticket channel", exc_info=True)
+            archive = guild.get_channel(int(cfg.get("closed_category_id") or 0))
+            if isinstance(archive, discord.CategoryChannel):
+                try:
+                    await channel.edit(category=archive)
+                except discord.HTTPException:
+                    pass
             db.ticket_setzen(channel.id, self.settings, status="closed", closed_at=int(time.time()), closed_by=member.id)
-            buttons = [discord.ui.Button(label=str(cfg.get("delete_label") or "Löschen")[:80], emoji=emoji(cfg.get("delete_emoji")), style=discord.ButtonStyle.danger, custom_id="shop:ticket:delete")]
-            await self.send_layout(channel, "Ticket geschlossen",
-                                   f"Geschlossen von <@{member.id}>. Transkript: {'abgelegt' if abgelegt else 'nicht abgelegt (Log-Kanal prüfen)'}",
+            buttons = [
+                discord.ui.Button(label="Reopen", style=discord.ButtonStyle.success, custom_id="shop:ticket:reopen"),
+                discord.ui.Button(label=str(cfg.get("delete_label") or "Delete")[:80], emoji=emoji(cfg.get("delete_emoji")), style=discord.ButtonStyle.danger, custom_id="shop:ticket:delete"),
+            ]
+            await self.send_layout(channel, "Ticket Closed",
+                                   f"Closed by <@{member.id}>. The ticket creator was removed.",
                                    color="#ed4245", buttons=buttons)
-            return await interaction.followup.send(view=layout("Ticket geschlossen", "Das Ticket wurde geschlossen."), ephemeral=True)
+            await self.log(guild, "Ticket geschlossen", f"Kanal: <#{channel.id}>\nGeschlossen von: <@{member.id}>", "tickets")
+            return await interaction.followup.send(view=layout("Ticket Closed", "The ticket was archived."), ephemeral=True)
         if action == "delete":
+            yes = discord.ui.Button(label="Yes", emoji=emoji(cfg.get("button_emoji")), style=discord.ButtonStyle.success, custom_id="shop:ticket:delete_yes")
+            no = discord.ui.Button(label="No", emoji=emoji(cfg.get("delete_emoji")), style=discord.ButtonStyle.secondary, custom_id="shop:ticket:delete_no")
+            return await interaction.response.send_message(
+                view=layout(
+                    "Save ticket transcript?",
+                    "Would you like to send the private transcript to **you** and the **ticket creator** before this channel is deleted?\n\nThe link requires a Discord login and expires after **90 days**.",
+                    color="#5865f2", buttons=[yes, no],
+                ), ephemeral=True,
+            )
+        if action in {"delete_yes", "delete_no"}:
+            await interaction.response.defer(ephemeral=True)
+            wants_dm = action == "delete_yes"
+            always_log = bool(cfg.get("always_transcript"))
+            link = f"{self.settings.base_url.rstrip('/')}/Tickets/Transkript/{channel.id}"
+            if wants_dm or always_log:
+                messages = await self.transcript_messages(channel)
+                db.transcript_speichern(
+                    channel.id, guild.id, guild.name, channel.name, int(ticket["owner_id"]),
+                    member.id, str(ticket["panel_key"]), messages, self.settings,
+                )
+                open_button = discord.ui.Button(label="Open Transcript", style=discord.ButtonStyle.link, url=link)
+                transcript_view = layout(
+                    "Ticket Transcript",
+                    f"**Ticket:** #{channel.name}\n**Server:** {guild.name}\n\nThis private transcript is available for **90 days**. Sign in with Discord to view it.",
+                    color=cfg.get("color"), buttons=[open_button],
+                )
+                if always_log:
+                    log_channel = guild.get_channel(int(cfg.get("log_channel_id") or 0))
+                    if log_channel:
+                        try:
+                            await log_channel.send(view=transcript_view)
+                        except discord.HTTPException:
+                            pass
+                if wants_dm:
+                    recipients = [member]
+                    owner = guild.get_member(int(ticket["owner_id"]))
+                    if owner and owner.id != member.id:
+                        recipients.append(owner)
+                    for recipient in recipients:
+                        try:
+                            await recipient.send(view=layout(
+                                "Ticket Transcript",
+                                f"**Ticket:** #{channel.name}\n**Server:** {guild.name}\n\nThis private transcript is available for **90 days**. Sign in with Discord to view it.",
+                                color=cfg.get("color"), buttons=[discord.ui.Button(label="Open Transcript", style=discord.ButtonStyle.link, url=link)],
+                            ))
+                        except Exception:
+                            pass
             db.ticket_setzen(channel.id, self.settings, status="deleted")
-            await self.interaction_notice(interaction, "Ticket wird gelöscht", "Der Kanal wird in wenigen Sekunden gelöscht.")
+            await interaction.followup.send(view=layout("Ticket Deletion", "The channel will be deleted in a few seconds.", color="#ed4245"), ephemeral=True)
             await asyncio.sleep(3)
             try:
                 await channel.delete(reason=f"LBoost Shop ticket deleted by {member}")
             except discord.HTTPException:
                 logger.warning("Ticket channel delete failed", exc_info=True)
 
-    async def make_transcript(self, channel: discord.TextChannel) -> tuple[bytes, int] | None:
-        """HTML-Transkript plus Nachrichtenanzahl.
-
-        Kein Limit mehr „2000 und Hoffen": lange Tickets wurden abgeschnitten,
-        ohne dass jemand das merkte. Jetzt läuft die Paginierung durch und die
-        Kopfzeile sagt, wie viele Nachrichten wirklich drin stehen.
-        """
-        zeilen = ["<!doctype html><meta charset='utf-8'><title>Transkript</title>",
-                  "<style>body{font:14px system-ui;background:#101218;color:#eee;padding:24px}"
-                  ".m{padding:10px;border-bottom:1px solid #2a2d36}.a{color:#8ea8ff;font-weight:bold}"
-                  ".t{color:#777;font-size:11px}</style>"]
-        anzahl = 0
-        try:
-            async for message in channel.history(limit=None, oldest_first=True):
-                anzahl += 1
-                if anzahl > 10000:
-                    zeilen.append("<p><i>Transkript nach 10000 Nachrichten beendet.</i></p>")
-                    break
-                anhaenge = " ".join(
-                    f"<a href=\"{html.escape(a.url, quote=True)}\">{html.escape(a.filename)}</a>"
-                    for a in message.attachments
-                )
-                text = html.escape(message.content or "")
-                zeilen.append(
-                    f"<div class='m'><span class='a'>{html.escape(str(message.author))}</span> "
-                    f"<span class='t'>{message.created_at:%d.%m.%Y %H:%M}</span><br>{text}<br>{anhaenge}</div>"
-                )
-        except discord.HTTPException:
-            logger.warning("Transcript failed for #%s", getattr(channel, "name", "?"), exc_info=True)
-            if anzahl == 0:
-                return None
-        return "\n".join(zeilen).encode("utf-8"), anzahl
+    async def transcript_messages(self, channel: discord.TextChannel) -> list[dict[str, Any]]:
+        """Store the complete ordered Discord message shape for the private web archive."""
+        messages: list[dict[str, Any]] = []
+        async for message in channel.history(limit=None, oldest_first=True):
+            embeds = []
+            for item in getattr(message, "embeds", []):
+                try:
+                    embeds.append(item.to_dict())
+                except Exception:
+                    pass
+            components = []
+            for item in getattr(message, "components", []):
+                try:
+                    components.append(item.to_dict())
+                except Exception:
+                    pass
+            messages.append({
+                "id": str(message.id), "content": getattr(message, "clean_content", message.content) or "",
+                "raw_content": message.content or "", "created_at": message.created_at.isoformat(),
+                "edited_at": getattr(message, "edited_at", None).isoformat() if getattr(message, "edited_at", None) else None,
+                "author": {
+                    "id": str(message.author.id), "display_name": str(getattr(message.author, "display_name", None) or getattr(message.author, "global_name", None) or getattr(message.author, "name", message.author)),
+                    "username": str(message.author), "avatar_url": str(getattr(getattr(message.author, "display_avatar", None), "url", "")),
+                    "bot": bool(message.author.bot),
+                },
+                "attachments": [{
+                    "id": str(item.id), "filename": item.filename, "url": item.url,
+                    "proxy_url": item.proxy_url, "content_type": item.content_type,
+                    "size": item.size,
+                } for item in getattr(message, "attachments", [])],
+                "embeds": embeds, "components": components,
+                "reactions": [{"emoji": str(item.emoji), "count": item.count} for item in getattr(message, "reactions", [])],
+                "stickers": [{"name": item.name, "url": str(item.url)} for item in getattr(message, "stickers", [])],
+            })
+        return messages
 
     async def toggle_role(self, interaction: discord.Interaction, role_id: int) -> None:
         role = interaction.guild.get_role(role_id)
@@ -1676,18 +1770,32 @@ def register_commands(bot: ShopBot) -> None:
         channel = interaction.guild.get_channel(int(cfg.get("panel_channel_id") or interaction.channel_id))
         if not isinstance(channel, discord.TextChannel):
             return await bot.interaction_notice(interaction, "Kanal fehlt", "Wähle im Dashboard einen gültigen Textkanal.", error=True)
-        button = discord.ui.Button(
-            label=str(cfg.get("button_label") or "Ticket öffnen")[:80],
-            emoji=emoji(cfg.get("button_emoji")),
-            style=discord.ButtonStyle.primary,
-            custom_id=f"shop:ticket:create:{panel}"[:100],
-        )
+        categories = [item for item in (cfg.get("categories") or []) if isinstance(item, dict)][:15]
+        buttons = []
+        if categories:
+            for index, category in enumerate(categories):
+                key = re.sub(r"[^a-zA-Z0-9_-]", "", str(category.get("key") or f"category-{index + 1}"))[:28]
+                try:
+                    style = discord.ButtonStyle(int(category.get("button_style") or 1))
+                except (TypeError, ValueError):
+                    style = discord.ButtonStyle.primary
+                buttons.append(discord.ui.Button(
+                    label=str(category.get("name") or "Support")[:80],
+                    emoji=emoji(category.get("emoji")), style=style,
+                    custom_id=f"shop:ticket:create:{panel}~{key}"[:100],
+                ))
+        else:
+            buttons.append(discord.ui.Button(
+                label=str(cfg.get("button_label") or "Ticket öffnen")[:80],
+                emoji=emoji(cfg.get("button_emoji")), style=discord.ButtonStyle.primary,
+                custom_id=f"shop:ticket:create:{panel}"[:100],
+            ))
         message = await bot.send_layout(
             channel,
             regeln.PANEL_TITEL if not cfg.get("title") else str(cfg.get("title"))[:256],
             (regeln.PANEL_BESCHREIBUNG if not cfg.get("description") else str(cfg.get("description")))[:3900],
             color=cfg.get("color"),
-            buttons=[button],
+            buttons=buttons,
             image_url=str(cfg.get("image_url") or ""),
             thumbnail_url=str(cfg.get("thumbnail_url") or ""),
             footer=str(cfg.get("footer") or ""),

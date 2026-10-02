@@ -80,7 +80,7 @@ async def run() -> None:
         response = await client.get("/lbost-shop/guild/1/tickets")
         assert response.status_code == 200
         assert "Vorschau" in response.text and "gerechnet im Bot" in response.text
-        assert "Fragen beim Öffnen (JSON)" in response.text
+        assert "Fragen vor dem Öffnen" in response.text and "ohne JSON" in response.text
         response = await client.get("/lbost-shop/guild/1/moderation")
         assert response.status_code == 200
         assert "Verwarnungen auf diesem Server" in response.text

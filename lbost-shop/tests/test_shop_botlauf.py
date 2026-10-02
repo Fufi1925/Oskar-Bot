@@ -147,6 +147,10 @@ class FakeChannel:
         self.slowmode = None
         self.kategorie = None
         self.ueberschreibungen = None
+        self.deleted = False
+
+    async def delete(self, **kwargs):
+        self.deleted = True
 
     async def send(self, content=None, *, view=None, file=None):
         self.ansichten.append(view)
@@ -331,7 +335,7 @@ async def main() -> None:
     assert "Hallo <@7001>, Test Guild ÄÖÜ hilft." in text, text
     assert "Kategorie Support" in text and "#ticket-0001-fufi-dev" in text, text
     assert "**Worum?**" in text and "Login geht nicht" in text, "Antwort fehlt im Tickettext"
-    assert knopfe_aus_view(kanal.ansichten[0]) == ["Übernehmen", "Schließen"], knopfe_aus_view(kanal.ansichten[0])
+    assert knopfe_aus_view(kanal.ansichten[0]) == ["Claim", "Lock", "Unlock", "Close"], knopfe_aus_view(kanal.ansichten[0])
     assert "Support angefragt" in text_aus_view(kanal.ansichten[1]), "Support nicht erwähnt"
     assert "Offen: #ticket-0001-fufi-dev (0001)" in meldung_text(lauf), meldung_text(lauf)
 
@@ -339,7 +343,7 @@ async def main() -> None:
     zweiter = FakeInteraction(guild, nutzer)
     await bot.create_ticket(zweiter, "default")
     assert len(guild.ticket_kanaele()) == 1, "zweites Ticket angelegt"
-    assert "Du hast bereits <#" in meldung_text(zweiter), meldung_text(zweiter)
+    assert "Ticket-Limit erreicht" in meldung_text(zweiter), meldung_text(zweiter)
 
     # 3b) Panel mit Rollenpflicht: ohne Rolle kein Ticket, kein Kanal
     bot.feature_cache.clear()
@@ -365,20 +369,23 @@ async def main() -> None:
     assert db.ticket_fuer_kanal(kanal.id, settings)["status"] == "closed"
     assert kanal.restrictions and kanal.restrictions[0] == nutzer.id
     assert kanal.restrictions[1]["send_messages"] is False, "Nutzer kann weiter schreiben"
-    assert log.dateien, "Transkript nicht als Datei im Log"
-    transkript = log.dateien[0].fp.getvalue().decode()
-    assert "Nachricht fürs Transkript" in transkript, transkript[:200]
-    assert "Antwort des Teams" in transkript
+    assert kanal.restrictions[1]["view_channel"] is False, "Nutzer bleibt im geschlossenen Ticket"
+    assert not log.dateien, "der alte HTML-Datei-Export darf nicht mehr verwendet werden"
     schlusstag = text_aus_view(log.ansichten[-1])
     assert "Ticket geschlossen" in schlusstag, schlusstag
-    assert "ticket-0001-fufi-dev" in schlusstag and "<@7002>" in schlusstag, schlusstag
+    assert "<@7002>" in schlusstag, schlusstag
     assert "Ticket erstellt" in text_aus_view(log.ansichten[0]), "Erstellungslog fehlt"
+    await bot.ticket_action(FakeInteraction(guild, verwalter, kanal), "delete_yes")
+    transcript = db.transcript_laden(kanal.id, settings)
+    assert transcript and len(transcript["messages"]) >= 2, "Web-Transcript nicht gespeichert"
+    assert any("Nachricht fürs Transkript" in item["content"] for item in transcript["messages"])
+    assert db.ticket_fuer_kanal(kanal.id, settings)["status"] == "deleted"
 
     # 5) Fremder Nutzer kommt an das Ticket nicht heran
     abwehr = FakeInteraction(guild, FakeMember(7099, "anders", "Anders", [guild.default_role]), kanal)
     await bot.ticket_action(abwehr, "close")
     assert "Keine Berechtigung" in meldung_text(abwehr), meldung_text(abwehr)
-    assert db.ticket_fuer_kanal(kanal.id, settings)["status"] == "closed"
+    assert db.ticket_fuer_kanal(kanal.id, settings)["status"] == "deleted"
 
     # 6) Anti-Spam: ganze Serie löschen, Timeout, Logzeile
     bot.feature_cache.clear()  # der Bot liest Konfiguration alle drei Sekunden neu

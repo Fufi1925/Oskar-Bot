@@ -151,7 +151,15 @@ def init_features(settings: Settings) -> None:
                     guild_id INTEGER NOT NULL, channel_id INTEGER UNIQUE NOT NULL,
                     owner_id INTEGER NOT NULL, panel_key TEXT NOT NULL,
                     claimed_by INTEGER, status TEXT NOT NULL DEFAULT 'open',
-                    created_at INTEGER NOT NULL, closed_at INTEGER
+                    created_at INTEGER NOT NULL, closed_at INTEGER,
+                    is_locked INTEGER NOT NULL DEFAULT 0
+                );
+                CREATE TABLE IF NOT EXISTS ticket_transcripts (
+                    ticket_id INTEGER PRIMARY KEY, guild_id INTEGER NOT NULL,
+                    guild_name TEXT NOT NULL, channel_name TEXT NOT NULL,
+                    owner_id INTEGER NOT NULL, closed_by INTEGER NOT NULL,
+                    panel_key TEXT NOT NULL DEFAULT 'default', created_at INTEGER NOT NULL,
+                    expires_at INTEGER NOT NULL, messages_json TEXT NOT NULL
                 );
                 CREATE TABLE IF NOT EXISTS giveaways (
                     message_id INTEGER PRIMARY KEY, guild_id INTEGER NOT NULL,
@@ -220,6 +228,8 @@ def init_features(settings: Settings) -> None:
                 _spalte_hinzufuegen(conn, "tickets", "ticket_number", "INTEGER NOT NULL DEFAULT 0")
                 _spalte_hinzufuegen(conn, "tickets", "answers_json", "TEXT NOT NULL DEFAULT ''")
                 _spalte_hinzufuegen(conn, "tickets", "closed_by", "INTEGER")
+                _spalte_hinzufuegen(conn, "tickets", "is_locked", "INTEGER NOT NULL DEFAULT 0")
+                conn.execute("CREATE INDEX IF NOT EXISTS idx_shop_transcripts_expiry ON ticket_transcripts(expires_at)")
                 _spalte_hinzufuegen(conn, "warnings", "case_number", "INTEGER NOT NULL DEFAULT 0")
                 _spalte_hinzufuegen(conn, "giveaways", "required_role_id", "INTEGER NOT NULL DEFAULT 0")
                 for name, kind in {
@@ -324,6 +334,7 @@ def purge_expired(settings: Settings) -> None:
     cutoff = int(time.time()) - settings.session_max_age
     with _gesichert(settings) as conn:
         conn.execute("DELETE FROM oauth_sessions WHERE last_seen_at < ?", (cutoff,))
+        conn.execute("DELETE FROM ticket_transcripts WHERE expires_at <= ?", (int(time.time()),))
 
 
 def offene_sitzungen(settings: Settings) -> list[dict[str, Any]]:
@@ -543,6 +554,16 @@ def offene_tickets_fuer_nutzer(guild_id: int, user_id: int, settings: Settings) 
     return int(row["channel_id"]) if row else None
 
 
+def offene_ticket_kanale(guild_id: int, user_id: int, settings: Settings) -> list[int]:
+    _connect(settings)
+    with _gesichert(settings) as conn:
+        rows = conn.execute(
+            "SELECT channel_id FROM tickets WHERE guild_id=? AND owner_id=? AND status='open' ORDER BY created_at",
+            (guild_id, user_id),
+        ).fetchall()
+    return [int(row["channel_id"]) for row in rows]
+
+
 def naechste_ticket_nummer(guild_id: int, settings: Settings) -> int:
     with _gesichert(settings) as conn:
         row = conn.execute("SELECT COUNT(*) AS anzahl FROM tickets WHERE guild_id=?", (guild_id,)).fetchone()
@@ -568,13 +589,47 @@ def ticket_fuer_kanal(channel_id: int, settings: Settings) -> dict[str, Any] | N
 
 
 def ticket_setzen(channel_id: int, settings: Settings, **felder: Any) -> None:
-    erlaubt = {"status", "claimed_by", "closed_at", "closed_by", "answers_json"}
+    erlaubt = {"status", "claimed_by", "closed_at", "closed_by", "answers_json", "is_locked"}
     felder = {k: v for k, v in felder.items() if k in erlaubt}
     if not felder:
         return
     setzung = ", ".join(f"{name}=?" for name in felder)
     with _gesichert(settings) as conn:
         conn.execute(f"UPDATE tickets SET {setzung} WHERE channel_id=?", (*felder.values(), channel_id))
+
+
+def transcript_speichern(ticket_id: int, guild_id: int, guild_name: str, channel_name: str,
+                         owner_id: int, closed_by: int, panel_key: str,
+                         messages: list[dict[str, Any]], settings: Settings) -> None:
+    now = int(time.time())
+    with _gesichert(settings) as conn:
+        conn.execute("DELETE FROM ticket_transcripts WHERE expires_at<=?", (now,))
+        conn.execute(
+            """INSERT INTO ticket_transcripts(ticket_id,guild_id,guild_name,channel_name,owner_id,
+               closed_by,panel_key,created_at,expires_at,messages_json) VALUES(?,?,?,?,?,?,?,?,?,?)
+               ON CONFLICT(ticket_id) DO UPDATE SET guild_name=excluded.guild_name,
+               channel_name=excluded.channel_name,owner_id=excluded.owner_id,
+               closed_by=excluded.closed_by,panel_key=excluded.panel_key,
+               created_at=excluded.created_at,expires_at=excluded.expires_at,
+               messages_json=excluded.messages_json""",
+            (ticket_id, guild_id, guild_name, channel_name, owner_id, closed_by, panel_key,
+             now, now + 90 * 86400, json.dumps(messages, ensure_ascii=False, separators=(",", ":"))),
+        )
+
+
+def transcript_laden(ticket_id: int, settings: Settings) -> dict[str, Any] | None:
+    now = int(time.time())
+    with _gesichert(settings) as conn:
+        conn.execute("DELETE FROM ticket_transcripts WHERE expires_at<=?", (now,))
+        row = conn.execute("SELECT * FROM ticket_transcripts WHERE ticket_id=?", (ticket_id,)).fetchone()
+    if not row:
+        return None
+    result = dict(row)
+    try:
+        result["messages"] = json.loads(result.pop("messages_json"))
+    except (TypeError, ValueError, json.JSONDecodeError):
+        result["messages"] = []
+    return result
 
 
 def tickets_fuer_gilde(guild_id: int, settings: Settings, grenze: int = 25) -> list[dict[str, Any]]:

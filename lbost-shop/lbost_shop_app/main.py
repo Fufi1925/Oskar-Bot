@@ -134,9 +134,12 @@ def normalise_logging(raw: dict[str, Any] | None) -> dict[str, Any]:
 FEATURES: dict[str, dict[str, Any]] = {
     "tickets": {"title": "Advanced Ticket System", "icon": "ticket", "fields": [
         ("enabled", "Aktiviert", "bool"), ("panel_channel_id", "Panel-Kanal", "channel"),
-        ("category_id", "Ticket-Kategorie", "channel"), ("log_channel_id", "Transkript-/Log-Kanal", "channel"),
+        ("category_id", "Ticket-Kategorie", "channel"), ("closed_category_id", "Archiv-Kategorie", "channel"),
+        ("log_channel_id", "Ticket-Log-Kanal", "channel"),
+        ("always_transcript", "Transcript immer ins Ticket-Log", "bool"),
         ("support_role_ids", "Support-Rollen (IDs, Komma)", "text"),
         ("open_role_ids", "Darf Tickets öffnen (Rollen-IDs, leer = alle)", "text"),
+        ("max_open_tickets", "Offene Tickets pro Nutzer", "number"),
         ("mention_support", "Support bei neuem Ticket erwähnen", "bool"),
         ("button_label", "Öffnen-Button", "text"),
         ("button_emoji", "Öffnen-Emoji", "text"), ("claim_label", "Übernehmen-Button", "text"),
@@ -223,6 +226,7 @@ GRENZEN: dict[str, tuple[int, int]] = {
     "spam_timeout_minuten": (1, 1440),
     "default_winners": (1, 20),
     "slowmode_seconds": (0, 30),
+    "max_open_tickets": (1, 10),
     "welcome_auto_delete_duration": (0, 86400),
     "leave_auto_delete_duration": (0, 86400),
 }
@@ -254,7 +258,7 @@ SECURITY_HEADERS = {
     # style-src bleibt bei 'self': Das Dashboard erzeugt seine Füllgrade über
     # Klassen, nicht über style-Attribute. Wer hier "schnell" unsafe-inline
     # einträgt, macht die Policy zur Deko.
-    "Content-Security-Policy": "default-src 'self'; img-src 'self' https://cdn.discordapp.com; style-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'",
+    "Content-Security-Policy": "default-src 'self'; img-src 'self' https: data:; style-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'",
 }
 
 
@@ -482,11 +486,15 @@ def create_app() -> FastAPI:
     def secure(request: Request) -> bool:
         return (request.headers.get("x-forwarded-proto") or request.url.scheme).lower() == "https"
 
-    def current_user(request: Request) -> dict[str, Any] | None:
+    def session_user_any(request: Request) -> dict[str, Any] | None:
         user = auth.session_user(request)
-        if not user or int(user["uid"]) not in settings.allowed_ids:
+        if not user or not db.load_oauth_session(str(user["sid"]), int(user["uid"]), settings):
             return None
-        if not db.load_oauth_session(str(user["sid"]), int(user["uid"]), settings):
+        return user
+
+    def current_user(request: Request) -> dict[str, Any] | None:
+        user = session_user_any(request)
+        if not user or int(user["uid"]) not in settings.allowed_ids:
             return None
         user["is_owner"] = int(user["uid"]) in settings.owner_id_set
         return user
@@ -512,6 +520,9 @@ def create_app() -> FastAPI:
         data = {
             "request": request,
             "brand": settings.brand_name,
+            "brand_logo_url": settings.brand_logo_url,
+            "brand_color": settings.brand_color if COLOR_RE.fullmatch(settings.brand_color) else "#5865f2",
+            "premium": True,
             "root_path": prefix(request),
             "user": user,
             "avatar_url": auth.avatar_url(user),
@@ -738,6 +749,9 @@ def create_app() -> FastAPI:
         oauth_state = auth.state()
         response = RedirectResponse(auth.authorize_url(oauth_state, settings), status_code=302)
         response.set_cookie("lbost_shop_oauth_state", oauth_state, max_age=600, path=settings.cookie_path, httponly=True, samesite="lax", secure=secure(request))
+        target = str(request.query_params.get("next") or "")
+        if re.fullmatch(r"/Tickets/Transkript/\d{15,22}", target):
+            response.set_cookie("lbost_shop_auth_target", target, max_age=600, path=settings.cookie_path, httponly=True, samesite="lax", secure=secure(request))
         return response
 
     @app.get("/auth/callback")
@@ -756,8 +770,15 @@ def create_app() -> FastAPI:
             clear_session(response, request)
             return response
 
-        # Fail closed: explicit shop IDs plus University owner IDs only.
-        if user_id not in settings.allowed_ids:
+        target = str(request.cookies.get("lbost_shop_auth_target") or "")
+        transcript_match = re.fullmatch(r"/Tickets/Transkript/(\d{15,22})", target)
+        transcript = db.transcript_laden(int(transcript_match.group(1)), settings) if transcript_match else None
+        transcript_user = bool(
+            transcript and user_id in {int(transcript["owner_id"]), int(transcript["closed_by"])}
+        )
+        # Dashboard access stays fail-closed. A ticket participant may only
+        # establish a session for the exact private transcript requested.
+        if user_id not in settings.allowed_ids and not transcript_user:
             response = RedirectResponse(settings.fallback_url or "/", status_code=302)
             clear_session(response, request)
             return response
@@ -770,9 +791,10 @@ def create_app() -> FastAPI:
             response = RedirectResponse(href(request, "/Login"), status_code=302)
             clear_session(response, request)
             return response
-        response = RedirectResponse(href(request, "/auth/success"), status_code=302)
+        response = RedirectResponse(href(request, target if transcript_user else "/auth/success"), status_code=302)
         response.set_cookie(settings.cookie_name, auth.create_session(user, session_id, settings), max_age=settings.session_max_age, path=settings.cookie_path, httponly=True, samesite="lax", secure=secure(request))
         response.delete_cookie("lbost_shop_oauth_state", path=settings.cookie_path)
+        response.delete_cookie("lbost_shop_auth_target", path=settings.cookie_path)
         cache_leeren()
         return response
 
@@ -786,6 +808,34 @@ def create_app() -> FastAPI:
         # Erst die sichtbare Erfolgsmeldung, danach der Dashboard-Wechsel.
         response.headers["Refresh"] = f"1.2;url={href(request, '/dashboard')}"
         return response
+
+    @app.get("/brand.css", response_class=PlainTextResponse)
+    async def customer_brand_css():
+        color = settings.brand_color if COLOR_RE.fullmatch(settings.brand_color) else "#5865f2"
+        return PlainTextResponse(
+            f":root{{--ub-customer-brand:{color};}}"
+            f".ub-brand strong,.ub-title-with-icon svg{{color:{color};}}"
+            f".ub-navigation a.active{{border-color:{color};}}",
+            media_type="text/css",
+            headers={"Cache-Control": "public, max-age=300"},
+        )
+
+    @app.get("/Tickets/Transkript/{ticket_id}", response_class=HTMLResponse)
+    async def ticket_transcript(request: Request, ticket_id: int):
+        transcript = db.transcript_laden(ticket_id, settings)
+        if not transcript:
+            return HTMLResponse("<h1>Transcript unavailable</h1><p>It does not exist or has expired.</p>", status_code=404)
+        user = session_user_any(request)
+        target = f"/Tickets/Transkript/{ticket_id}"
+        if not user:
+            return RedirectResponse(href(request, "/auth/discord") + "?next=" + quote(target), status_code=302)
+        uid = int(user["uid"])
+        allowed = uid in {int(transcript["owner_id"]), int(transcript["closed_by"])}
+        if not allowed and uid in settings.allowed_ids:
+            allowed = bool(await guild_access(user, int(transcript["guild_id"])))
+        if not allowed:
+            return HTMLResponse("<h1>Access denied</h1><p>This private transcript does not belong to your Discord account.</p>", status_code=403)
+        return render(request, "ticket_transcript.html", transcript=transcript, brand=settings.brand_name)
 
     @app.get("/dashboard", response_class=HTMLResponse)
     async def dashboard(request: Request):
@@ -897,6 +947,26 @@ def create_app() -> FastAPI:
             guild_id, include_bot_permissions=feature == "logging"
         )
         values = db.get_feature(guild_id, feature, settings)
+        if feature == "tickets":
+            panels = [item for item in (values.get("panels_json") or []) if isinstance(item, dict)]
+            if not panels:
+                panels = [{
+                    "key": "default", "name": "Support", "title": values.get("title") or "Support Tickets",
+                    "description": values.get("description") or "Choose a category to open a ticket.",
+                    "panel_channel_id": values.get("panel_channel_id") or "", "categories": [{
+                        "key": "support", "name": "Support", "emoji": values.get("button_emoji") or "",
+                        "category_id": values.get("category_id") or "", "support_role_ids": values.get("support_role_ids") or "",
+                    }],
+                }]
+            for panel in panels:
+                if not panel.get("categories"):
+                    panel["categories"] = [{"key": "support", "name": "Support", "emoji": "", "button_style": 1}]
+            return render(
+                request, "tickets.html", guild=guild, feature=feature, spec=spec, values=values,
+                panels=panels, channels=channels, roles=roles, csrf=user["sid"],
+                stats=db.ticket_kennzahlen(guild_id, settings), tickets=db.tickets_fuer_gilde(guild_id, settings, 20),
+                saved=request.query_params.get("saved") == "1", error=request.query_params.get("error"),
+            )
         if feature == "reaction_roles":
             try:
                 raw_emojis = await _discord_abfrage(settings.bot_token, f"/guilds/{guild_id}/emojis")
@@ -944,10 +1014,10 @@ def create_app() -> FastAPI:
         if feature == "custom_commands":
             members = await guild_members(guild_id)
             commands = custom_command_store.list_all(settings, guild_id)
-            # LBoost keeps its data independent. A premium flag may be set in
-            # this isolated feature record by the shop owner; it is never read
-            # from University databases.
-            premium = bool(values.get("premium", False))
+            # Every customer-specific LBoost dashboard is Premium from its
+            # first start. There is no purchase flag and therefore no state
+            # that can silently downgrade an existing customer bot.
+            premium = True
             limit = custom_command_store.PREMIUM_MAX_COMMANDS
             return render(
                 request, "custom_commands.html", guild=guild, feature=feature, spec=spec,
@@ -1073,6 +1143,115 @@ def create_app() -> FastAPI:
                       geloescht=request.query_params.get("geloescht") == "1",
                       discord_ok=bool(channels or roles),
                       error=None, json_help=JSON_HELP.get(feature, {}), daten=modul_daten(guild_id, feature))
+
+    @app.post("/guild/{guild_id}/tickets/designer")
+    async def save_ticket_designer(request: Request, guild_id: int):
+        user = current_user(request)
+        guild = await guild_access(user, guild_id) if user else None
+        if not user or not guild:
+            return RedirectResponse(href(request, "/dashboard"), status_code=302)
+        form = await request.form()
+        if not csrf_ok(form.get("csrf"), user):
+            return PlainTextResponse("Ungültige Anfrage.", status_code=403)
+        try:
+            panels = json.loads(str(form.get("panels_json") or "[]"))
+            if not isinstance(panels, list) or not panels or len(panels) > 10:
+                raise ValueError("Es sind 1 bis 10 Panels erlaubt.")
+            clean_panels = []
+            for index, panel in enumerate(panels):
+                if not isinstance(panel, dict):
+                    continue
+                key = re.sub(r"[^a-zA-Z0-9_-]", "", str(panel.get("key") or f"panel-{index + 1}"))[:28]
+                categories = []
+                for c_index, category in enumerate(panel.get("categories") or []):
+                    if not isinstance(category, dict) or len(categories) >= 15:
+                        continue
+                    categories.append({
+                        "key": re.sub(r"[^a-zA-Z0-9_-]", "", str(category.get("key") or f"category-{c_index + 1}"))[:28],
+                        "name": str(category.get("name") or "Support").strip()[:80],
+                        "emoji": str(category.get("emoji") or "").strip()[:100],
+                        "button_style": max(1, min(4, int(category.get("button_style") or 1))),
+                        "category_id": str(category.get("category_id") or "") if str(category.get("category_id") or "").isdigit() else "",
+                        "support_role_ids": ",".join(value for value in str(category.get("support_role_ids") or "").replace(" ", "").split(",") if value.isdigit()),
+                        "ticket_title": str(category.get("ticket_title") or "")[:256],
+                        "ticket_message": str(category.get("ticket_message") or "")[:4000],
+                    })
+                if not categories:
+                    categories.append({"key": "support", "name": "Support", "emoji": "", "button_style": 1, "category_id": "", "support_role_ids": "", "ticket_title": "", "ticket_message": ""})
+                questions = regeln.fragen_bereinigen(panel.get("questions_json"))
+                clean_panels.append({
+                    "key": key or f"panel-{index + 1}", "name": str(panel.get("name") or "Support")[:100],
+                    "title": str(panel.get("title") or "Support Tickets")[:256],
+                    "description": str(panel.get("description") or "Choose a category to open a ticket.")[:4000],
+                    "color": str(panel.get("color") or "#5865f2") if COLOR_RE.fullmatch(str(panel.get("color") or "")) else "#5865f2",
+                    "panel_channel_id": str(panel.get("panel_channel_id") or "") if str(panel.get("panel_channel_id") or "").isdigit() else "",
+                    "image_url": str(panel.get("image_url") or "")[:600], "thumbnail_url": str(panel.get("thumbnail_url") or "")[:600],
+                    "questions_json": questions, "categories": categories,
+                })
+            values = db.get_feature(guild_id, "tickets", settings)
+            values.update({
+                "enabled": "enabled" in form, "mention_support": "mention_support" in form,
+                "always_transcript": "always_transcript" in form,
+                "log_channel_id": str(form.get("log_channel_id") or ""),
+                "closed_category_id": str(form.get("closed_category_id") or ""),
+                "staff_role_ids": ",".join(value for value in form.getlist("staff_role_ids") if str(value).isdigit()),
+                "max_open_tickets": max(1, min(10, int(form.get("max_open_tickets") or 1))),
+                "panels_json": clean_panels,
+            })
+            db.set_feature(guild_id, "tickets", values, int(user["uid"]), settings)
+        except (TypeError, ValueError, json.JSONDecodeError) as exc:
+            return RedirectResponse(href(request, f"/guild/{guild_id}/tickets?error=" + quote_plus(str(exc))), status_code=303)
+        return RedirectResponse(href(request, f"/guild/{guild_id}/tickets?saved=1"), status_code=303)
+
+    @app.post("/guild/{guild_id}/tickets/send")
+    async def send_saved_ticket_panel(request: Request, guild_id: int):
+        user = current_user(request)
+        guild = await guild_access(user, guild_id) if user else None
+        if not user or not guild:
+            return RedirectResponse(href(request, "/dashboard"), status_code=302)
+        form = await request.form()
+        if not csrf_ok(form.get("csrf"), user):
+            return PlainTextResponse("Ungültige Anfrage.", status_code=403)
+        key = str(form.get("send_panel") or "default")
+        values = db.get_feature(guild_id, "tickets", settings)
+        panel = next((item for item in (values.get("panels_json") or []) if isinstance(item, dict) and str(item.get("key")) == key), values)
+        channel_id = str(panel.get("panel_channel_id") or values.get("panel_channel_id") or "")
+        if not channel_id.isdigit():
+            return RedirectResponse(href(request, f"/guild/{guild_id}/tickets?error=Panel-Kanal+fehlt"), status_code=303)
+        buttons = []
+        for index, category in enumerate(panel.get("categories") or []):
+            category_key = re.sub(r"[^a-zA-Z0-9_-]", "", str(category.get("key") or f"category-{index + 1}"))[:28]
+            component = {
+                "type": 2, "style": max(1, min(4, int(category.get("button_style") or 1))),
+                "label": str(category.get("name") or "Support")[:80],
+                "custom_id": f"shop:ticket:create:{key}~{category_key}"[:100],
+            }
+            emoji_match = re.fullmatch(r"<(a?):([^:>]+):(\d+)>", str(category.get("emoji") or "").strip())
+            if emoji_match:
+                component["emoji"] = {"id": emoji_match.group(3), "name": emoji_match.group(2), "animated": emoji_match.group(1) == "a"}
+            buttons.append(component)
+        if not buttons:
+            buttons.append({"type": 2, "style": 1, "label": "Open Ticket", "custom_id": f"shop:ticket:create:{key}"[:100]})
+        rows = [{"type": 1, "components": buttons[offset:offset + 5]} for offset in range(0, len(buttons), 5)]
+        color = str(panel.get("color") or "#5865f2").lstrip("#")
+        payload = {
+            "flags": 32768,
+            "components": [{"type": 17, "accent_color": int(color, 16), "components": [
+                {"type": 10, "content": f"## {str(panel.get('title') or 'Support Tickets')[:256]}\n{str(panel.get('description') or 'Choose a category to open a ticket.')[:3500]}"},
+                {"type": 14, "divider": True}, *rows,
+            ]}],
+        }
+        try:
+            import httpx
+            async with httpx.AsyncClient(timeout=20.0) as client:
+                response = await client.post(
+                    f"https://discord.com/api/v10/channels/{channel_id}/messages",
+                    headers={"Authorization": f"Bot {settings.bot_token}"}, json=payload,
+                )
+                response.raise_for_status()
+        except Exception:
+            return RedirectResponse(href(request, f"/guild/{guild_id}/tickets?error=Panel+konnte+nicht+gesendet+werden"), status_code=303)
+        return RedirectResponse(href(request, f"/guild/{guild_id}/tickets?saved=1"), status_code=303)
 
     @app.post("/guild/{guild_id}/{feature}", response_class=HTMLResponse)
     async def save_feature(request: Request, guild_id: int, feature: str):
@@ -1523,10 +1702,10 @@ def create_app() -> FastAPI:
             return ""
         response=first_reply(config.get("actions",[])) or "Command ausgeführt."
         if len(response)>1900: response=response[:1900]
-        feature_values=db.get_feature(guild_id,"custom_commands",settings);premium=bool(feature_values.get("premium",False))
-        saved=custom_command_store.save(settings,guild_id,name,response,str(user["uid"]),use_prefix=use_prefix,use_exact=use_exact,use_contains=use_contains,use_slash=use_slash,config=config,max_commands=custom_command_store.PREMIUM_MAX_COMMANDS if premium else custom_command_store.FREE_MAX_COMMANDS)
+        feature_values=db.get_feature(guild_id,"custom_commands",settings)
+        saved=custom_command_store.save(settings,guild_id,name,response,str(user["uid"]),use_prefix=use_prefix,use_exact=use_exact,use_contains=use_contains,use_slash=use_slash,config=config,max_commands=custom_command_store.PREMIUM_MAX_COMMANDS)
         if not saved:
-            limit=custom_command_store.PREMIUM_MAX_COMMANDS if premium else custom_command_store.FREE_MAX_COMMANDS
+            limit=custom_command_store.PREMIUM_MAX_COMMANDS
             return RedirectResponse(href(request,f"/guild/{guild_id}/custom_commands?error="+quote_plus(f"Für diesen Server sind höchstens {limit} Custom Commands möglich.")),status_code=303)
         feature_values["enabled"]=True;db.set_feature(guild_id,"custom_commands",feature_values,int(user["uid"]),settings)
         return RedirectResponse(href(request,f"/guild/{guild_id}/custom_commands?saved=1"),status_code=303)
