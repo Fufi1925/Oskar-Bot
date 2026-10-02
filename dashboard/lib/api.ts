@@ -981,6 +981,7 @@ export const api = {
   // Admin
   getAdminStats: () => request<AdminStats>("/admin/stats"),
   getAdminOverview: () => request<any>("/admin/overview"),
+  getDiscordEntity: (id: string) => request<any>(`/admin/discord-entity/${encodeURIComponent(id)}`),
   getPremiumGuilds: () => request<any>("/admin/premium-guilds"),
   setGuildPremium: (guildId: string, premium: boolean) =>
     request<any>(`/admin/premium/${guildId}`, {

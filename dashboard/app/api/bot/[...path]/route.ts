@@ -74,6 +74,7 @@ const ADMIN_PERMISSIONS: Record<string, { GET?: string; WRITE?: string }> = {
   "mass-config": { WRITE: "massconfig.push" },
   stats: { GET: "dashboard.access" },
   overview: { GET: "dashboard.access" },
+  "discord-entity": { GET: "dashboard.access" },
   // Die Befehls-Statistik. Ohne diesen Eintrag fiel sie auf
   // verifyAdminAccess() zurück, und die lässt ausschließlich globale
   // Admins durch: der Usage-Reiter war zwar sichtbar, gab beim Klick

@@ -252,6 +252,68 @@ async def get_admin_overview(bot: "universitybot" = Depends(get_bot)):
     }
 
 
+@router.get("/discord-entity/{entity_id}")
+async def get_discord_entity(entity_id: str, bot: "universitybot" = Depends(get_bot)):
+    """Resolve a Discord snowflake for the admin-wide custom info popup."""
+    if not entity_id.isdigit() or not 15 <= len(entity_id) <= 22:
+        raise HTTPException(status_code=400, detail="Ungültige Discord-ID.")
+    snowflake = int(entity_id)
+
+    guild = bot.get_guild(snowflake)
+    if guild is not None:
+        owner = getattr(guild, "owner", None)
+        return {
+            "type": "server",
+            "id": entity_id,
+            "name": guild.name,
+            "image": str(guild.icon.url) if getattr(guild, "icon", None) else None,
+            "created_at": guild.created_at.isoformat() if getattr(guild, "created_at", None) else None,
+            "member_count": int(guild.member_count or 0),
+            "owner": {
+                "id": str(guild.owner_id),
+                "name": (getattr(owner, "display_name", None) or getattr(owner, "name", None) or str(guild.owner_id)),
+                "image": str(owner.display_avatar.url) if owner and getattr(owner, "display_avatar", None) else None,
+            },
+        }
+
+    user = bot.get_user(snowflake)
+    if user is None:
+        try:
+            user = await bot.fetch_user(snowflake)
+        except Exception:
+            user = None
+    if user is None:
+        return {"type": "unknown", "id": entity_id, "name": "Nicht auflösbar", "image": None, "servers": []}
+
+    shared_servers = []
+    for item in bot.guilds:
+        member = item.get_member(snowflake)
+        if member is None:
+            continue
+        shared_servers.append({
+            "id": str(item.id),
+            "name": item.name,
+            "image": str(item.icon.url) if getattr(item, "icon", None) else None,
+            "member_count": int(item.member_count or 0),
+            "nickname": member.nick,
+            "joined_at": member.joined_at.isoformat() if getattr(member, "joined_at", None) else None,
+        })
+    shared_servers.sort(key=lambda item: item["name"].lower())
+
+    return {
+        "type": "user",
+        "id": entity_id,
+        "name": getattr(user, "display_name", None) or user.name,
+        "username": user.name,
+        "global_name": getattr(user, "global_name", None),
+        "image": str(user.display_avatar.url) if getattr(user, "display_avatar", None) else None,
+        "bot": bool(getattr(user, "bot", False)),
+        "created_at": user.created_at.isoformat() if getattr(user, "created_at", None) else None,
+        "servers": shared_servers[:100],
+        "server_count": len(shared_servers),
+    }
+
+
 @router.get("/config", response_model=AdminConfig)
 async def get_admin_config():
     await init_db()

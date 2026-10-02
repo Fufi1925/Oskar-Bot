@@ -38,6 +38,7 @@ import { api } from "@/lib/api";
 import { AdminConfig } from "@/types/api";
 import { SUPPORT_INVITE } from "@/lib/legal";
 import { guildModuleFromHref } from "@/lib/guild-modules";
+import { DiscordIdInspector } from "@/components/dashboard/discord-id-inspector";
 
 export default function DashboardLayout({
   children,
@@ -445,6 +446,7 @@ export default function DashboardLayout({
 
   return (
     <div className="min-h-screen bg-[#0a0a0c] text-slate-200">
+      <DiscordIdInspector />
       {/* Liquid Background Elements */}
       {/* Ein ruhiger Schein statt zwei pulsierender Flaechen. */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">

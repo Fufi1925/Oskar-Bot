@@ -52,6 +52,7 @@ def ensure() -> None:
     with _lock, _connect() as db:
         db.executescript("""
         CREATE TABLE IF NOT EXISTS firewall_settings(key TEXT PRIMARY KEY,value TEXT NOT NULL);
+        CREATE TABLE IF NOT EXISTS firewall_meta(key TEXT PRIMARY KEY,value TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS firewall_rules(
           id INTEGER PRIMARY KEY AUTOINCREMENT,kind TEXT NOT NULL,value TEXT NOT NULL,
           note TEXT NOT NULL DEFAULT '',enabled INTEGER NOT NULL DEFAULT 1,
@@ -101,6 +102,39 @@ def ensure() -> None:
                 except ValueError: continue
                 if any(net.version==candidate.version and (candidate.subnet_of(net) or net.subnet_of(candidate)) for net in trusted):
                     db.execute("DELETE FROM firewall_rules WHERE id=?",(row["id"],))
+
+        # One-time recovery requested by the owner after the live protection
+        # settings were changed accidentally. Restore every setting to the
+        # original conservative profile, including removing unknown keys.
+        # Rules/allowlists, manual bans, events, snapshots and the audit trail
+        # are intentionally retained: "settings reset" must not destroy the
+        # permanent lists or the 90-day incident history.
+        reset_key="original_defaults_reset_2026_10_02"
+        restored=db.execute("SELECT 1 FROM firewall_meta WHERE key=?",(reset_key,)).fetchone()
+        if not restored:
+            before={row["key"]:row["value"] for row in db.execute("SELECT key,value FROM firewall_settings")}
+            db.execute("DELETE FROM firewall_settings")
+            db.executemany(
+                "INSERT INTO firewall_settings(key,value) VALUES(?,?)",
+                tuple(DEFAULTS.items()),
+            )
+            db.execute(
+                "INSERT INTO firewall_meta(key,value) VALUES(?,?)",
+                (reset_key,str(int(time.time()))),
+            )
+            db.execute(
+                "INSERT INTO firewall_audit_log"
+                "(created_at,actor,action,target_type,target_id,reason,before_json,after_json)"
+                " VALUES(?,?,?,?,?,?,?,?)",
+                (
+                    int(time.time()),"system","settings.restore_defaults","setting","all",
+                    "Versehentlich geänderte Firewall-Einstellungen auf Originalprofil zurückgesetzt",
+                    json.dumps(before,ensure_ascii=False),
+                    json.dumps(DEFAULTS,ensure_ascii=False),
+                ),
+            )
+            _hits.clear()
+            _strikes.clear()
         now=int(time.time())
         db.execute("DELETE FROM firewall_events WHERE created_at<?",(now-RETENTION_SECONDS,))
         db.execute("DELETE FROM firewall_rules WHERE expires_at IS NOT NULL AND expires_at<=?",(now,))
