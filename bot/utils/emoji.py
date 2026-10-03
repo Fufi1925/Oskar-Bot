@@ -1,39 +1,25 @@
-╔══════════════════════════════════════════════════════════════════╗
-
-║                                                                  ║
-
-║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
-
-║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
-
-║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
-
-║                                                                  ║
-
-║            © 2026 University Bot Devs — All Rights Reserved    ║
-
-║                                                                  ║
-
-║   discord  ──  https://discord.gg/F3TedBAVZT                    ║
-
-║   youtube  ──  https://youtube.com/@UniversityBotDevs          ║
-
-║   github   ──  https://github.com/UniversityBot                ║
-
-║                                                                  ║
-
-╚══════════════════════════════════════════════════════════════════╝
+# ╔══════════════════════════════════════════════════════════════════╗
+# ║                                                                  ║
+# ║   ░█▀▀░█▀█░█▀▄░█▀▀░█░█   ░█▀▄░█▀▀░█░█░█▀▀                     ║
+# ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
+# ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
+# ║                                                                  ║
+# ║            © 2026 University Bot Devs — All Rights Reserved    ║
+# ║                                                                  ║
+# ║   discord  ──  https://discord.gg/F3TedBAVZT                    ║
+# ║   youtube  ──  https://youtube.com/@UniversityBotDevs          ║
+# ║   github   ──  https://github.com/UniversityBot                ║
+# ║                                                                  ║
+# ╚══════════════════════════════════════════════════════════════════╝
 
 """
 Centralized emoji module for the universitybot bot.
 All emoji definitions are stored here for easy management and consistency.
 """
 
-============================================================================
-
-DISCORD CUSTOM EMOJIS (Static)
-
-============================================================================
+# ============================================================================
+# DISCORD CUSTOM EMOJIS (Static)
+# ============================================================================
 
 BOOST = "<:booster:1555917932251447306>"
 BUG_HUNTER = "<:BugHunterLevel1:1530375321281368285>"
@@ -155,24 +141,18 @@ universitybot_GLOBAL = "<:web:1555917025556299877>"
 universitybot_OWNER = "<:lupe:1556002685407330486>"
 universitybot_SEARCH = "<:lupe:1556002685407330486>"
 
-============================================================================
-
-COMPATIBILITY ALIASES
-
-============================================================================
-
-Existing code imports these names directly.
-
-Keep the original names above and provide the expected aliases here.
+# ============================================================================
+# COMPATIBILITY ALIASES
+# ============================================================================
+# Existing code imports these names directly.
+# Keep the original names above and provide the expected aliases here.
 
 ZHUMAN = HUMAN
 universitybotLINKS = links
 
-============================================================================
-
-DISCORD CUSTOM EMOJIS (Animated)
-
-============================================================================
+# ============================================================================
+# DISCORD CUSTOM EMOJIS (Animated)
+# ============================================================================
 
 ACTIVE_DEVELOPER = "<a:Active_Developer:1530375164259209216>"
 Developer = ACTIVE_DEVELOPER
@@ -212,33 +192,29 @@ TADAA = "<a:TADAA:1530375414575529984>"
 TIMER_ALT1 = "<a:timer:1530375349232472206>"
 _37496ALERT = "<a:37496alert:1530375474276995152>"
 
-============================================================================
-
-DISCORD BADGE EMOJIS MAPPING
-
-============================================================================
+# ============================================================================
+# DISCORD BADGE EMOJIS MAPPING
+# ============================================================================
 
 DISCORD_BADGE_EMOJIS = {
-"staff": STAFF,
-"partner": PARTNER_BADGE,
-"hypesquad": HYPESQUAD_BRILLIANCE,
-"hypesquad_bravery": HYPESQUAD_BRAVERY,
-"hypesquad_brilliance": HYPESQUAD_BRILLIANCE,
-"hypesquad_balance": HYPESQUAD_BALANCE,
-"bug_hunter": BUG_HUNTER,
-"bug_hunter_level_2": BUG_HUNTER_LVL2,
-"early_supporter": EARLY_SUPPORTER,
-"early_verified_bot_developer": EARLY_VERIFIED_BOT_DEV,
-"certified_moderator": CERTIFIED_MODERATOR,
-"active_developer": ACTIVE_DEVELOPER,
-"discord_mod": CERTIFIED_MODERATOR,
+    "staff": STAFF,
+    "partner": PARTNER_BADGE,
+    "hypesquad": HYPESQUAD_BRILLIANCE,
+    "hypesquad_bravery": HYPESQUAD_BRAVERY,
+    "hypesquad_brilliance": HYPESQUAD_BRILLIANCE,
+    "hypesquad_balance": HYPESQUAD_BALANCE,
+    "bug_hunter": BUG_HUNTER,
+    "bug_hunter_level_2": BUG_HUNTER_LVL2,
+    "early_supporter": EARLY_SUPPORTER,
+    "early_verified_bot_developer": EARLY_VERIFIED_BOT_DEV,
+    "certified_moderator": CERTIFIED_MODERATOR,
+    "active_developer": ACTIVE_DEVELOPER,
+    "discord_mod": CERTIFIED_MODERATOR,
 }
 
-============================================================================
-
-UNICODE EMOJIS
-
-============================================================================
+# ============================================================================
+# UNICODE EMOJIS
+# ============================================================================
 
 ARROW_DOWN = "⬇️"
 ARROW_LEFT = "⬅️"
@@ -278,140 +254,136 @@ TONGUE_OUT = "😜"
 UPSIDE_DOWN = "🙃"
 WARNING_UNICODE = "⚠️"
 
-============================================================================
-
-EMOJI COLLECTIONS BY CATEGORY
-
-============================================================================
+# ============================================================================
+# EMOJI COLLECTIONS BY CATEGORY
+# ============================================================================
 
 GAME_BUTTONS = {
-"up": ARROW_UP,
-"down": ARROW_DOWN,
-"left": ARROW_LEFT,
-"right": ARROW_RIGHT,
-"stop": STOP_BUTTON,
-"target": "🎯",
+    "up": ARROW_UP,
+    "down": ARROW_DOWN,
+    "left": ARROW_LEFT,
+    "right": ARROW_RIGHT,
+    "stop": STOP_BUTTON,
+    "target": "🎯",
 }
 
 ACTION_EMOJIS = {
-"success": TICK,
-"error": CROSS,
-"warning": WARNING,
-"clock": TIMER,
-"refresh": ICONLOAD,
+    "success": TICK,
+    "error": CROSS,
+    "warning": WARNING,
+    "clock": TIMER,
+    "refresh": ICONLOAD,
 }
 
 RPS_CHOICES = {
-"rock": ROCK,
-"scissors": SCISSORS,
-"paper": PAPER,
+    "rock": ROCK,
+    "scissors": SCISSORS,
+    "paper": PAPER,
 }
 
 BUTTON_EMOJIS = {
-"note": MESSAGE,
-"privacy": LOCK,
-"claim": STAR,
-"untrust": CROSS,
-"block": DENIED,
-"target": "🎯",
-"edit": "✏️",
+    "note": MESSAGE,
+    "privacy": LOCK,
+    "claim": STAR,
+    "untrust": CROSS,
+    "block": DENIED,
+    "target": "🎯",
+    "edit": "✏️",
 }
 
 REACTION_TEST_EMOJIS = [
-COOKIE,
-CELEBRATE,
-BUBBLE_TEA,
-CHERRIES,
-PEACH,
-MONEY,
-MOON,
-HEARTS,
+    COOKIE,
+    CELEBRATE,
+    BUBBLE_TEA,
+    CHERRIES,
+    PEACH,
+    MONEY,
+    MOON,
+    HEARTS,
 ]
 
 FUN_EMOJIS = [
-LAUGH1,
-LAUGH2,
-LAUGH3,
-SHOCKED,
-DIZZY,
-UPSIDE_DOWN,
-TONGUE_OUT,
+    LAUGH1,
+    LAUGH2,
+    LAUGH3,
+    SHOCKED,
+    DIZZY,
+    UPSIDE_DOWN,
+    TONGUE_OUT,
 ]
 
 MINECRAFT_EMOJIS = {
-"success": TICK,
-"error": CROSS,
-"warning": WARNING,
-"clock": TIMER,
-"refresh": ICONLOAD,
-"java": MINECRAFT,
+    "success": TICK,
+    "error": CROSS,
+    "warning": WARNING,
+    "clock": TIMER,
+    "refresh": ICONLOAD,
+    "java": MINECRAFT,
 }
 
-============================================================================
-
-FEATURE EMOJIS
-
-============================================================================
+# ============================================================================
+# FEATURE EMOJIS
+# ============================================================================
 
 MODERATION_EMOJIS = {
-"warn": WARNING,
-"mute": MUTE,
-"ban": SWORD,
-"kick": SWORD,
-"lock": LOCK,
+    "warn": WARNING,
+    "mute": MUTE,
+    "ban": SWORD,
+    "kick": SWORD,
+    "lock": LOCK,
 }
 
 TICKET_EMOJIS = {
-"ticket": TICKET,
-"close": ERROR,
-"open": SUCCESS,
-"pin": PIN,
+    "ticket": TICKET,
+    "close": ERROR,
+    "open": SUCCESS,
+    "pin": PIN,
 }
 
 LEVEL_EMOJIS = {
-"level_up": LEVEL_UP,
-"sparkle": SPARKLE,
-"achievement": STAR,
+    "level_up": LEVEL_UP,
+    "sparkle": SPARKLE,
+    "achievement": STAR,
 }
 
 UTILITY_EMOJIS = {
-"music": MUSIC,
-"system": SYSTEM,
-"new": NEW,
-"message": MESSAGE,
-"wifi": WIFI,
-"cast": CAST,
+    "music": MUSIC,
+    "system": SYSTEM,
+    "new": NEW,
+    "message": MESSAGE,
+    "wifi": WIFI,
+    "cast": CAST,
 }
 
-============================================================================
+# ============================================================================
+# HELPER FUNCTIONS
+# ============================================================================
 
-HELPER FUNCTIONS
-
-============================================================================
 
 def get_badge_emoji(badge_name: str) -> str | None:
-"""
-Get Discord badge emoji by name.
-"""
-return DISCORD_BADGE_EMOJIS.get(badge_name.lower())
+    """
+    Get Discord badge emoji by name.
+    """
+    return DISCORD_BADGE_EMOJIS.get(badge_name.lower())
+
 
 def get_action_emoji(action: str) -> str | None:
-"""
-Get emoji for a common action.
-"""
-return ACTION_EMOJIS.get(action.lower())
+    """
+    Get emoji for a common action.
+    """
+    return ACTION_EMOJIS.get(action.lower())
+
 
 def get_button_emoji(button_type: str) -> str | None:
-"""
-Get emoji for a button type.
-"""
-return BUTTON_EMOJIS.get(button_type.lower())
+    """
+    Get emoji for a button type.
+    """
+    return BUTTON_EMOJIS.get(button_type.lower())
 
-============================================================================
 
-COMPATIBILITY ALIASES
-
-============================================================================
+# ============================================================================
+# COMPATIBILITY ALIASES
+# ============================================================================
 
 CHECKMARK = TICK
 CROSS_MARK = CROSS
@@ -420,109 +392,108 @@ FAIL = ERROR
 OK = TICK
 NOT_OK = ERROR
 
-============================================================================
-
-BUTTON LABEL → EMOJI
-
-============================================================================
+# ============================================================================
+# BUTTON LABEL → EMOJI
+# ============================================================================
 
 LABEL_EMOJIS = {
-# confirm / deny
-"yes": TICK,
-"no": CROSS,
-"confirm": TICK,
-"confirm reset": WARNING,
-"cancel": CROSS,
-"submit": TICK,
-"submit & continue": TICK,
-"finish setup": TICK,
-"done": TICK,
-"enable": ENABLE,
-"disable": DISABLE,
-"approve": TICK,
-"deny": DENIED,
+    # confirm / deny
+    "yes": TICK,
+    "no": CROSS,
+    "confirm": TICK,
+    "confirm reset": WARNING,
+    "cancel": CROSS,
+    "submit": TICK,
+    "submit & continue": TICK,
+    "finish setup": TICK,
+    "done": TICK,
+    "enable": ENABLE,
+    "disable": DISABLE,
+    "approve": TICK,
+    "deny": DENIED,
 
-# navigation
-"next": NEXT,
-"previous": PREVIOUS,
-"back": ZBACK,
-"back to setup": ZBACK,
-"home": HOME,
-"stop": MUSICSTOP_ICONS,
-"stop freezing": MUSICSTOP_ICONS,
+    # navigation
+    "next": NEXT,
+    "previous": PREVIOUS,
+    "back": ZBACK,
+    "back to setup": ZBACK,
+    "home": HOME,
+    "stop": MUSICSTOP_ICONS,
+    "stop freezing": MUSICSTOP_ICONS,
 
-# editing
-"edit": ZWRENCH,
-"edit content": MESSAGE,
-"edit settings": ZSETTINGS,
-"settings": ZSETTINGS,
-"change channels": CHANNEL,
-"manage channels": CHANNEL,
-"manage roles": U_ADMIN,
-"manage users": ZPEOPLE,
-"manage ignores": ZSETTINGS,
-"add": ZPLUS,
-"delete": DELETE,
-"remove": DELETE,
-"clear": DELETE,
-"reset": WARNING,
+    # editing
+    "edit": ZWRENCH,
+    "edit content": MESSAGE,
+    "edit settings": ZSETTINGS,
+    "settings": ZSETTINGS,
+    "change channels": CHANNEL,
+    "manage channels": CHANNEL,
+    "manage roles": U_ADMIN,
+    "manage users": ZPEOPLE,
+    "manage ignores": ZSETTINGS,
+    "add": ZPLUS,
+    "delete": DELETE,
+    "remove": DELETE,
+    "clear": DELETE,
+    "reset": WARNING,
 
-# information
-"info": INFO,
-"help": INFO,
-"support": HANDSHAKE,
-"vote": STAR,
-"invite": ZBOT,
-"title": MESSAGE,
-"description": MESSAGE,
-"show rules": REDRULESBOOK,
-"show overwrites": ZSETTINGS,
-"show punishment type": SWORD,
-"view ignored": INFO,
-"list successful": TICK,
-"list unsuccessful": CROSS,
+    # information
+    "info": INFO,
+    "help": INFO,
+    "support": HANDSHAKE,
+    "vote": STAR,
+    "invite": ZBOT,
+    "title": MESSAGE,
+    "description": MESSAGE,
+    "show rules": REDRULESBOOK,
+    "show overwrites": ZSETTINGS,
+    "show punishment type": SWORD,
+    "view ignored": INFO,
+    "list successful": TICK,
+    "list unsuccessful": CROSS,
 
-# features
-"verify now": ZSAFE,
-"quick verify": ZSAFE,
-"captcha verify": ZSAFE,
-"verify with captcha": ZSAFE,
-"enter code": ZSAFE,
-"setup verification system": ZSAFE,
-"join": ZPLUS,
-"steal as emoji": EMOTE,
-"steal as sticker": EMOTE,
-"global afk": ZDIL,
-"local afk": ZDIL,
-"download icon": ICON_BROWSER,
-"server avatar": ZPEOPLE,
-"user banner": ZHUMAN,
-"make a guess!": GAMES,
-"hint": INFO,
-
+    # features
+    "verify now": ZSAFE,
+    "quick verify": ZSAFE,
+    "captcha verify": ZSAFE,
+    "verify with captcha": ZSAFE,
+    "enter code": ZSAFE,
+    "setup verification system": ZSAFE,
+    "join": ZPLUS,
+    "steal as emoji": EMOTE,
+    "steal as sticker": EMOTE,
+    "global afk": ZDIL,
+    "local afk": ZDIL,
+    "download icon": ICON_BROWSER,
+    "server avatar": ZPEOPLE,
+    "user banner": ZHUMAN,
+    "make a guess!": GAMES,
+    "hint": INFO,
 }
 
+
 def get_label_emoji(label: str) -> str | None:
-"""
-The emoji for a button label, or None when nothing fits.
+    """
+    The emoji for a button label, or None when nothing fits.
 
-Longest match first, so "edit settings" does not resolve to the
-plain "edit" icon.
-"""
-key = str(label or "").strip().lower()
+    Longest match first, so "edit settings" does not resolve to the
+    plain "edit" icon.
+    """
+    key = str(label or "").strip().lower()
 
-if not key:
-    return None
+    if not key:
+        return None
 
-if key in LABEL_EMOJIS:
-    return LABEL_EMOJIS[key]
+    if key in LABEL_EMOJIS:
+        return LABEL_EMOJIS[key]
 
-best = None
+    best = None
 
-for candidate, emoji in LABEL_EMOJIS.items():
-    if candidate in key and (
-        best is None or len(candidate) > len(best[0])
-    ):
-        best = (candidate, emoji)
+    for candidate, emoji in LABEL_EMOJIS.items():
+        if candidate in key and (
+            best is None or len(candidate) > len(best[0])
+        ):
+            best = (candidate, emoji)
 
-return best[1] if best else None
+    return best[1] if best else None
+    
