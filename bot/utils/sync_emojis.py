@@ -73,6 +73,17 @@ LOCAL_EMOJI_SOURCES = {
     "connection": os.path.join(ASSET_DIR, "connection.png"),
     "warningg": os.path.join(ASSET_DIR, "warningg.png"),
     "tadaaa": os.path.join(ASSET_DIR, "tadaaa.png"),
+    "wifi": os.path.join(ASSET_DIR, "wifi.png"),
+    "AI": os.path.join(ASSET_DIR, "AI.png"),
+    "bothunder": os.path.join(ASSET_DIR, "bothunder.png"),
+    "stur": os.path.join(ASSET_DIR, "stur.png"),
+    "chat": os.path.join(ASSET_DIR, "chat.png"),
+    "cirle": os.path.join(ASSET_DIR, "cirle.png"),
+    "ban": os.path.join(ASSET_DIR, "ban.png"),
+    "zuback": os.path.join(ASSET_DIR, "zuback.png"),
+    "heart": os.path.join(ASSET_DIR, "heart.png"),
+    "lupe": os.path.join(ASSET_DIR, "lupe.png"),
+    "university": os.path.join(ASSET_DIR, "university.png"),
 }
 FORCE_REPLACE_IDS = {
     "ArrowRed": {"1530375308270899371"},
@@ -102,6 +113,17 @@ FORCE_REPLACE_IDS = {
     "connection": {"1556003126736322613"},
     "warningg": {"1556002419383734302"},
     "tadaaa": {"1556002186964500510"},
+    "wifi": {"1555999938331279451"},
+    "AI": {"1556000515530293278"},
+    "bothunder": {"1555999686605803590"},
+    "stur": {"1555999376344883293"},
+    "chat": {"1555997648891150368"},
+    "cirle": {"1556001048068624494"},
+    "ban": {"1556000901242822737"},
+    "zuback": {"1555998730027536465"},
+    "heart": {"1556001406996062258"},
+    "lupe": {"1556002685407330486"},
+    "university": {"1556002995852935209"},
 }
 
 
