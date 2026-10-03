@@ -198,7 +198,7 @@ DISCORD_BADGE_EMOJIS = {
     "early_supporter": EARLY_SUPPORTER,
     "early_verified_bot_developer": EARLY_VERIFIED_BOT_DEV,
     "certified_moderator": CERTIFIED_MODERATOR,
-    "active_developer": ACTIVE_DEVELOPER,
+    "active_developer": Developer,
     "discord_mod": CERTIFIED_MODERATOR,
 }
 
