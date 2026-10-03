@@ -428,6 +428,7 @@ LABEL_EMOJIS = {
     "disable": DISABLE,
     "approve": TICK,
     "deny": DENIED,
+
     # navigation
     "next": NEXT,
     "previous": PREVIOUS,
@@ -436,6 +437,7 @@ LABEL_EMOJIS = {
     "home": HOME,
     "stop": MUSICSTOP_ICONS,
     "stop freezing": MUSICSTOP_ICONS,
+
     # editing
     "edit": ZWRENCH,
     "edit content": MESSAGE,
@@ -451,6 +453,7 @@ LABEL_EMOJIS = {
     "remove": DELETE,
     "clear": DELETE,
     "reset": WARNING,
+
     # information
     "info": INFO,
     "help": INFO,
@@ -465,6 +468,7 @@ LABEL_EMOJIS = {
     "view ignored": INFO,
     "list successful": TICK,
     "list unsuccessful": CROSS,
+
     # features
     "verify now": ZSAFE,
     "quick verify": ZSAFE,
@@ -479,7 +483,7 @@ LABEL_EMOJIS = {
     "local afk": ZDIL,
     "download icon": ICON_BROWSER,
     "server avatar": ZPEOPLE,
-    "user banner": ZHUMAN,
+    "user banner": HUMAN,
     "make a guess!": GAMES,
     "hint": INFO,
 }
