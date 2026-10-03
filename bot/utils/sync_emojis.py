@@ -47,9 +47,27 @@ ASSET_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "asset
 # the new ID to emoji.py, normal name/ID matching takes over on later starts.
 LOCAL_EMOJI_SOURCES = {
     "ArrowRed": os.path.join(ASSET_DIR, "ArrowRed.png"),
+    "Disable": os.path.join(ASSET_DIR, "Disable.png"),
+    "handshake": os.path.join(ASSET_DIR, "handshake.png"),
+    "index": os.path.join(ASSET_DIR, "index.png"),
+    "red_button": os.path.join(ASSET_DIR, "red_button.png"),
+    "universitybot_time": os.path.join(ASSET_DIR, "universitybot_time.png"),
+    "warning": os.path.join(ASSET_DIR, "warning.png"),
+    "zmusic": os.path.join(ASSET_DIR, "zmusic.png"),
+    "zpin": os.path.join(ASSET_DIR, "zpin.png"),
+    "zseed": os.path.join(ASSET_DIR, "zseed.png"),
 }
 FORCE_REPLACE_IDS = {
     "ArrowRed": {"1530375308270899371"},
+    "Disable": {"1530375483936608277"},
+    "handshake": {"1530375521534214306"},
+    "index": {"1530375391959580783"},
+    "red_button": {"1530375507214991471"},
+    "universitybot_time": {"1530375094893936800"},
+    "warning": {"1530375219733201036"},
+    "zmusic": {"1530375363090448404"},
+    "zpin": {"1530375133791784964"},
+    "zseed": {"1530375235981803573"},
 }
 
 
