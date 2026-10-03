@@ -4,11 +4,11 @@
 # ║   ░█░░░█░█░█░█░█▀▀░▄▀▄   ░█░█░█▀▀░▀▄▀░▀▀█                     ║
 # ║   ░▀▀▀░▀▀▀░▀▀░░▀▀▀░▀░▀   ░▀▀░░▀▀▀░░▀░░▀▀▀                     ║
 # ║                                                                  ║
-# ║            © 2026 University Bot Devs — All Rights Reserved              ║
+# ║            © 2026 University Bot Devs — All Rights Reserved    ║
 # ║                                                                  ║
-# ║   discord  ──  https://discord.gg/F3TedBAVZT                      ║
-# ║   youtube  ──  https://youtube.com/@UniversityBotDevs                   ║
-# ║   github   ──  https://github.com/UniversityBot                        ║
+# ║   discord  ──  https://discord.gg/F3TedBAVZT                   ║
+# ║   youtube  ──  https://youtube.com/@UniversityBotDevs          ║
+# ║   github   ──  https://github.com/UniversityBot                ║
 # ║                                                                  ║
 # ╚══════════════════════════════════════════════════════════════════╝
 
@@ -20,6 +20,7 @@ All emoji definitions are stored here for easy management and consistency.
 # ============================================================================
 # DISCORD CUSTOM EMOJIS (Static)
 # ============================================================================
+
 BOOST = "<:booster:1555917932251447306>"
 BUG_HUNTER = "<:BugHunterLevel1:1530375321281368285>"
 BUG_HUNTER_LVL2 = "<:BugHunterLvl2:1532395583564677380>"
@@ -38,9 +39,6 @@ DISABLE = "<:Disable:1530375483936608277>"
 DND = "<:dnd:1530375178448535634>"
 EARLY_SUPPORTER = "<:EarlySupporter:1530375223051026582>"
 ENABLE = "<:Enable:1530375130683801730>"
-# The original ":error:" emoji no longer exists on Discord's CDN and is not
-# hosted by the application, so it rendered as literal "<:error:...>" text.
-# Point it at the red cross the application really owns.
 ERROR = "<:bluetick:1555937372841975929>"
 FORWARD = "<:forward:1530375267560722522>"
 GAMES = "<:jeu:1555917030790537227>"
@@ -81,10 +79,6 @@ OFFLINE = "<:offline:1530375199114137772>"
 PARTNER_BADGE = "<:profil:1555917001657163826>"
 PC = "<:pc:1530375283893469234>"
 PIN = "<:zpin:1530375133791784964>"
-# Was <:next:> -- the same right-pointing arrow as NEXT_ALT1, so every
-# "previous page" button in the paginator and the help menu showed an
-# arrow pointing forwards. <:zback:> is the app's only left-pointing
-# arrow; checked against the rendered images, not the names.
 PREVIOUS = "<:zuback:1555998730027536465>"
 RED_BUTTON = "<:red_button:1530375507214991471>"
 RED_PIN = "<:red_pin:1530375100900053043>"
@@ -120,6 +114,10 @@ ZCOUNTING = "<:Counting_Bot:1555917691716374549>"
 ZCROSS = "<:bluetick:1555937372841975929>"
 ZDIL = "<:heart:1556001406996062258>"
 HUMAN = "<:membres:1555917006845386752>"
+
+# Compatibility alias: older modules still import ZHUMAN.
+ZHUMAN = HUMAN
+
 ZMODULE = "<:module:1556001529733840926>"
 ZMUSICPAUSE = "<:pause:1555997078025674863>"
 ZPAUSE = "<:pauseee:1556001778988875906>"
@@ -147,7 +145,12 @@ universitybot_SEARCH = "<:lupe:1556002685407330486>"
 # ============================================================================
 # DISCORD CUSTOM EMOJIS (Animated)
 # ============================================================================
+
 Developer = "<a:Active_Developer:1530375164259209216>"
+
+# Compatibility alias: some code uses ACTIVE_DEVELOPER.
+ACTIVE_DEVELOPER = Developer
+
 ARROWRED = "<a:ArrowRed:1530375308270899371>"
 BLACKCROWN = "<a:BlackCrown:1530375431973376001>"
 BLOBPART = "<a:blobpart:1530375528979103805>"
@@ -184,8 +187,9 @@ TIMER_ALT1 = "<a:timer:1530375349232472206>"
 _37496ALERT = "<a:37496alert:1530375474276995152>"
 
 # ============================================================================
-# DISCORD BADGE EMOJIS MAPPING (Dictionary)
+# DISCORD BADGE EMOJIS MAPPING
 # ============================================================================
+
 DISCORD_BADGE_EMOJIS = {
     "staff": STAFF,
     "partner": PARTNER_BADGE,
@@ -198,13 +202,14 @@ DISCORD_BADGE_EMOJIS = {
     "early_supporter": EARLY_SUPPORTER,
     "early_verified_bot_developer": EARLY_VERIFIED_BOT_DEV,
     "certified_moderator": CERTIFIED_MODERATOR,
-    "active_developer": Developer,
+    "active_developer": ACTIVE_DEVELOPER,
     "discord_mod": CERTIFIED_MODERATOR,
 }
 
 # ============================================================================
 # UNICODE EMOJIS
 # ============================================================================
+
 ARROW_DOWN = "⬇️"
 ARROW_LEFT = "⬅️"
 ARROW_RIGHT = "➡️"
@@ -244,29 +249,23 @@ UPSIDE_DOWN = "🙃"
 WARNING_UNICODE = "⚠️"
 
 # ============================================================================
-# EMOJI COLLECTIONS BY CATEGORY (Dictionaries)
+# EMOJI COLLECTIONS BY CATEGORY
 # ============================================================================
+
 GAME_BUTTONS = {
     "up": ARROW_UP,
     "down": ARROW_DOWN,
     "left": ARROW_LEFT,
     "right": ARROW_RIGHT,
     "stop": STOP_BUTTON,
-    "target": "🎯",
+    "target": TARGET,
 }
 
-# The app owns 142 custom emojis, so these tables use them rather than
-# the platform's ✅ / ❌ / ⚠️. Those render differently on every OS and
-# have nothing to do with the bot's own look; the custom set is one
-# style everywhere. The *_UNICODE constants stay defined for anywhere
-# a real fallback is still wanted.
 ACTION_EMOJIS = {
     "success": TICK,
     "error": CROSS,
     "warning": WARNING,
     "clock": TIMER,
-    # The app has no refresh arrow of its own; <:iconLoad:> is the
-    # nearest thing and reads as "working on it".
     "refresh": ICONLOAD,
 }
 
@@ -282,19 +281,29 @@ BUTTON_EMOJIS = {
     "claim": STAR,
     "untrust": CROSS,
     "block": DENIED,
-    # No custom counterpart for these two among the app's 142; the
-    # platform emoji stays rather than a wrong icon that happens to be
-    # custom.
-    "target": "🎯",
+    "target": TARGET,
     "edit": "✏️",
 }
 
 REACTION_TEST_EMOJIS = [
-    COOKIE, CELEBRATE, BUBBLE_TEA, CHERRIES, PEACH, MONEY, MOON, HEARTS
+    COOKIE,
+    CELEBRATE,
+    BUBBLE_TEA,
+    CHERRIES,
+    PEACH,
+    MONEY,
+    MOON,
+    HEARTS,
 ]
 
 FUN_EMOJIS = [
-    LAUGH1, LAUGH2, LAUGH3, SHOCKED, DIZZY, UPSIDE_DOWN, TONGUE_OUT
+    LAUGH1,
+    LAUGH2,
+    LAUGH3,
+    SHOCKED,
+    DIZZY,
+    UPSIDE_DOWN,
+    TONGUE_OUT,
 ]
 
 MINECRAFT_EMOJIS = {
@@ -303,14 +312,13 @@ MINECRAFT_EMOJIS = {
     "warning": WARNING,
     "clock": TIMER,
     "refresh": ICONLOAD,
-    # <:zmc:> is the app's own Minecraft icon -- better here than a
-    # coffee cup standing in for "Java edition".
     "java": MINECRAFT,
 }
 
 # ============================================================================
-# FEATURE EMOJIS (Dictionaries)
+# FEATURE EMOJIS
 # ============================================================================
+
 MODERATION_EMOJIS = {
     "warn": WARNING,
     "mute": MUTE,
@@ -345,55 +353,31 @@ UTILITY_EMOJIS = {
 # HELPER FUNCTIONS
 # ============================================================================
 
-def get_badge_emoji(badge_name: str) -> str:
+def get_badge_emoji(badge_name: str) -> str | None:
     """
     Get Discord badge emoji by name.
-    
-    Args:
-        badge_name: The name of the badge (e.g., 'staff', 'partner', 'bug_hunter')
-    
-    Returns:
-        The emoji string for the badge, or None if not found
     """
-    return DISCORD_BADGE_EMOJIS.get(badge_name.lower())
+    return DISCORD_BADGE_EMOJIS.get(str(badge_name).lower())
 
 
-def get_action_emoji(action: str) -> str:
+def get_action_emoji(action: str) -> str | None:
     """
     Get emoji for a common action.
-    
-    Args:
-        action: The action name (e.g., 'success', 'error', 'warning')
-    
-    Returns:
-        The emoji string for the action
     """
-    return ACTION_EMOJIS.get(action.lower())
+    return ACTION_EMOJIS.get(str(action).lower())
 
 
-def get_button_emoji(button_type: str) -> str:
+def get_button_emoji(button_type: str) -> str | None:
     """
     Get emoji for a button type.
-    
-    Args:
-        button_type: The button type (e.g., 'note', 'privacy', 'claim')
-    
-    Returns:
-        The emoji string for the button
     """
-    return BUTTON_EMOJIS.get(button_type.lower())
+    return BUTTON_EMOJIS.get(str(button_type).lower())
 
 
 # ============================================================================
 # COMPATIBILITY ALIASES
 # ============================================================================
 
-# Common aliases for frequently used emojis.
-#
-# These used to be split: ERROR was the custom <:zcross:>, while SUCCESS
-# right next to it was the platform's ✅ -- so a success and a failure
-# from the same command did not look like they came from the same bot.
-# Both are custom now.
 CHECKMARK = TICK
 CROSS_MARK = CROSS
 CHECK = TICK
@@ -401,18 +385,10 @@ FAIL = ERROR
 OK = TICK
 NOT_OK = ERROR
 
-
 # ============================================================================
 # BUTTON LABEL → EMOJI
 # ============================================================================
 
-# 140 buttons across the bot carried no emoji at all. Rather than pick
-# one at 140 call sites -- and end up with three different icons for
-# "Cancel" -- the label decides, once, here.
-#
-# Matched lowercase; the longest matching key wins, so "stop freezing"
-# does not pick up the plain "stop" icon. A label with no match keeps no
-# emoji: a wrong icon is worse than none.
 LABEL_EMOJIS = {
     # confirm / deny
     "yes": TICK,
@@ -483,7 +459,7 @@ LABEL_EMOJIS = {
     "local afk": ZDIL,
     "download icon": ICON_BROWSER,
     "server avatar": ZPEOPLE,
-    "user banner": HUMAN,
+    "user banner": ZHUMAN,
     "make a guess!": GAMES,
     "hint": INFO,
 }
@@ -491,20 +467,25 @@ LABEL_EMOJIS = {
 
 def get_label_emoji(label: str) -> str | None:
     """
-    The emoji for a button label, or None when nothing fits.
+    Get the emoji for a button label.
 
-    Longest match first, so "edit settings" does not resolve to the
-    plain "edit" icon.
+    Exact matches are preferred. Otherwise the longest matching
+    label contained in the input is used.
     """
     key = str(label or "").strip().lower()
+
     if not key:
         return None
+
     if key in LABEL_EMOJIS:
         return LABEL_EMOJIS[key]
-    # Fall back to the longest key contained in the label.
-    best = None
-    for candidate, emoji in LABEL_EMOJIS.items():
-        if candidate in key and (best is None or len(candidate) > len(best[0])):
-            best = (candidate, emoji)
-    return best[1] if best else None
 
+    best = None
+
+    for candidate, emoji in LABEL_EMOJIS.items():
+        if candidate in key and (
+            best is None or len(candidate) > len(best[0])
+        ):
+            best = (candidate, emoji)
+
+    return best[1] if best else None
