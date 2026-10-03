@@ -39,6 +39,18 @@ from colorama import Fore, Style, init
 init(autoreset=True)
 
 EMOJI_PY_PATH = os.path.join(os.path.dirname(__file__), "emoji.py")
+ASSET_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "assets", "emojis"))
+
+# Local application-emoji artwork. These files are uploaded directly to the
+# bot application in the Developer Portal instead of being copied from an old
+# Discord CDN emoji. An ID listed here is replaced once; after EmojiSync writes
+# the new ID to emoji.py, normal name/ID matching takes over on later starts.
+LOCAL_EMOJI_SOURCES = {
+    "ArrowRed": os.path.join(ASSET_DIR, "ArrowRed.png"),
+}
+FORCE_REPLACE_IDS = {
+    "ArrowRed": {"1530375308270899371"},
+}
 
 
 def _log(level: str, color: str, symbol: str, msg: str) -> None:
@@ -153,7 +165,16 @@ async def run_sync(token: str) -> None:
                 or next((e for e in app_emojis if e["name"] == name), None)
             )
 
-            if existing:
+            local_source = LOCAL_EMOJI_SOURCES.get(name)
+            replace_existing = bool(
+                existing
+                and existing.get("id") == old_id
+                and old_id in FORCE_REPLACE_IDS.get(name, set())
+                and local_source
+                and os.path.isfile(local_source)
+            )
+
+            if existing and not replace_existing:
                 new_id = existing["id"]
                 # The "a" prefix must match what Discord actually stores. Keeping
                 # the template's own prefix leaves an animated emoji written as
@@ -170,14 +191,39 @@ async def run_sync(token: str) -> None:
                     skipped += 1
                 continue
 
-            # Not found — upload it
-            info(f"Uploading: {name} {Fore.LIGHTBLACK_EX}(not in application emojis)")
+            if replace_existing:
+                info(f"Replacing: {name} {Fore.LIGHTBLACK_EX}(new local artwork)")
+                async with session.delete(
+                    f"https://discord.com/api/v10/applications/{app_id}/emojis/{existing['id']}"
+                ) as delete_response:
+                    if delete_response.status not in (200, 204):
+                        error(
+                            f"Could not replace {name}; deleting the old application emoji "
+                            f"failed [HTTP {delete_response.status}]"
+                        )
+                        failed += 1
+                        continue
+                app_emojis.remove(existing)
+            else:
+                info(f"Uploading: {name} {Fore.LIGHTBLACK_EX}(not in application emojis)")
 
-            image_data, mime = await _fetch_emoji_image(session, old_id, animated)
+            if local_source and os.path.isfile(local_source):
+                try:
+                    with open(local_source, "rb") as image_file:
+                        image_data = image_file.read()
+                    extension = os.path.splitext(local_source)[1].lower()
+                    mime = "image/gif" if extension == ".gif" else "image/png"
+                except OSError as err:
+                    error(f"Could not read local artwork for {name} ({err})")
+                    failed += 1
+                    continue
+            else:
+                image_data, mime = await _fetch_emoji_image(session, old_id, animated)
+
             if not image_data:
                 error(
-                    f"Could not download image for {name} [ID: {old_id}] — "
-                    f"the source emoji is gone; point it at a live emoji in emoji.py"
+                    f"Could not load image for {name} [ID: {old_id}] — "
+                    f"provide a local asset or point it at a live emoji in emoji.py"
                 )
                 failed += 1
                 continue
