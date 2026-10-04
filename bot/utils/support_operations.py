@@ -410,6 +410,32 @@ async def report_error(bot, feature: str, exc: BaseException, *, guild_id: int |
     return row
 
 
+async def create_developer_ticket(bot, error_id: str, actor_id: int | str) -> tuple[dict | None, str]:
+    """Create the same internal developer thread used by the Discord button."""
+    row = get_error(error_id)
+    if not row:
+        return None, "Fehler nicht gefunden."
+    if row.get("ticket_thread_id"):
+        return row, "already"
+    channel_id = get_setting("error_channel_id")
+    guild = bot.get_guild(MAIN_SUPPORT_GUILD_ID) if hasattr(bot, "get_guild") else None
+    channel = guild.get_channel(int(channel_id)) if guild and channel_id.isdigit() else None
+    if channel is None or not row.get("message_id"):
+        return row, "Die Fehlernachricht oder der konfigurierte Fehlerkanal fehlt."
+    try:
+        message = await channel.fetch_message(int(row["message_id"]))
+        thread = await message.create_thread(name=f"dev-{error_id.lower()}"[:100], auto_archive_duration=10080)
+        await thread.send(view=_container(
+            f"{CODEBASE} Entwickler-Ticket · {error_id.upper()}",
+            f"{error_text(row)}\n\n{INFO} **Arbeitsbereich**\nAnalyse, Reproduktion, Fix und Verifikation werden in diesem Thread dokumentiert.",
+            color=0x5865F2,
+        ))
+        attach_ticket(error_id, thread.id, actor_id)
+        return get_error(error_id), "created"
+    except (discord.NotFound, discord.Forbidden, discord.HTTPException, ValueError) as exc:
+        return row, f"{type(exc).__name__}: {exc}"
+
+
 async def refresh_error_report(bot, error_id: str) -> bool:
     """Refresh the configured centre message after a command-side status edit."""
     row = get_error(error_id)

@@ -1189,6 +1189,34 @@ export const api = {
   importCustomCommand: (guildId: string, listingId: number) =>
     request<any>(`/actions/${guildId}/custom-commands/marketplace/${listingId}/import`, { method: "POST", body: "{}" }),
 
+  // Exclusive support-server owner operations
+  getSupportOperations: (guildId: string) =>
+    request<any>(`/support-operations/${guildId}/overview`),
+  setSupportErrorChannel: (guildId: string, channelId: string) =>
+    request<any>(`/support-operations/${guildId}/settings/error-channel`, { method: "POST", body: JSON.stringify({ channel_id: channelId }) }),
+  setSupportErrorStatus: (guildId: string, errorId: string, status: string) =>
+    request<any>(`/support-operations/${guildId}/errors/${encodeURIComponent(errorId)}/status`, { method: "POST", body: JSON.stringify({ status }) }),
+  createSupportDeveloperTicket: (guildId: string, errorId: string) =>
+    request<any>(`/support-operations/${guildId}/errors/${encodeURIComponent(errorId)}/ticket`, { method: "POST", body: "{}" }),
+  createSupportIncident: (guildId: string, data: any) =>
+    request<any>(`/support-operations/${guildId}/incidents`, { method: "POST", body: JSON.stringify(data) }),
+  updateSupportIncident: (guildId: string, incidentId: string, data: any) =>
+    request<any>(`/support-operations/${guildId}/incidents/${encodeURIComponent(incidentId)}`, { method: "POST", body: JSON.stringify(data) }),
+  updateSupportFeature: (guildId: string, key: string, data: any) =>
+    request<any>(`/support-operations/${guildId}/features/${encodeURIComponent(key)}`, { method: "POST", body: JSON.stringify(data) }),
+  diagnoseSupportServer: (guildId: string, targetGuildId: string) =>
+    request<any>(`/support-operations/${guildId}/diagnose/${encodeURIComponent(targetGuildId)}`),
+  lookupSupportServer: (guildId: string, targetGuildId: string) =>
+    request<any>(`/support-operations/${guildId}/servers/${encodeURIComponent(targetGuildId)}`),
+  getSupportPremiumHistory: (guildId: string, serverId = "", userId = "") =>
+    request<any>(`/support-operations/${guildId}/premium-history?server_id=${encodeURIComponent(serverId)}&user_id=${encodeURIComponent(userId)}`),
+  getSupportAccessCase: (guildId: string, serverId: string, userId: string) =>
+    request<any>(`/support-operations/${guildId}/support-access?server_id=${encodeURIComponent(serverId)}&user_id=${encodeURIComponent(userId)}`),
+  revokeSupportAccessCase: (guildId: string, serverId: string, userId: string) =>
+    request<any>(`/support-operations/${guildId}/support-access/revoke`, { method: "POST", body: JSON.stringify({ server_id: serverId, user_id: userId }) }),
+  inspectSupportTemplate: (guildId: string, templateId: number) =>
+    request<any>(`/support-operations/${guildId}/templates/${templateId}`),
+
   // Emergency lockdown
   getEmergency: (guildId: string) => request<any>(`/actions/${guildId}/emergency`),
   setEmergency: (guildId: string, enable: boolean) =>

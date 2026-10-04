@@ -59,6 +59,7 @@ export default function DashboardLayout({
   const [sidebarGuild, setSidebarGuild] = useState<{ name: string; icon: string | null } | null>(null);
   const [moduleStates, setModuleStates] = useState<Record<string, boolean>>({});
   const [dashboardAiAllowed, setDashboardAiAllowed] = useState(false);
+  const [supportOperationsAllowed, setSupportOperationsAllowed] = useState(false);
   const moduleStateRevision = useRef(0);
   // Driven by the maintenance_mode config plus the maintenance_banner feature flag.
   const [maintenance, setMaintenance] = useState(false);
@@ -207,6 +208,19 @@ export default function DashboardLayout({
     return () => { active = false; };
   }, [currentGuildId]);
 
+  React.useEffect(() => {
+    if (currentGuildId !== "1530378233579704370") {
+      setSupportOperationsAllowed(false);
+      return;
+    }
+    let active = true;
+    setSupportOperationsAllowed(false);
+    api.getSupportOperations(currentGuildId)
+      .then(() => { if (active) setSupportOperationsAllowed(true); })
+      .catch(() => { if (active) setSupportOperationsAllowed(false); });
+    return () => { active = false; };
+  }, [currentGuildId, sessionUserId]);
+
   // One bulk read drives every small status point. A local event keeps the
   // sidebar in sync immediately after the switch on the current page changes.
   React.useEffect(() => {
@@ -278,6 +292,9 @@ export default function DashboardLayout({
   const allSidebarItems = currentGuildId
     ? [
         { name: "Übersicht", href: `/dashboard/guild/${currentGuildId}`, icon: LayoutDashboard },
+        ...(supportOperationsAllowed
+          ? [{ name: "Owner-Konsole", href: `/dashboard/guild/${currentGuildId}/owner-operations`, icon: ShieldCheck }]
+          : []),
         ...(dashboardAiAllowed
           ? [{ name: "KI", href: `/dashboard/guild/${currentGuildId}/ai`, icon: Bot }]
           : []),

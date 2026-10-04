@@ -23,6 +23,7 @@ import {
   ownsGuildOnDiscord,
   verifyAdminAccess,
   isGlobalAdmin,
+  isOwnerId,
   fetchTeamAccess,
   hasTeamPermission,
   hasAcceptedSupportAccess,
@@ -202,6 +203,19 @@ async function authorize(
     if (!session?.user?.id) return { ok: false, response: deny(401, "Not signed in.") };
     const access = await verifyGuildAccess(guildId);
     if (!access.allowed) return { ok: false, response: deny(access.status, access.reason) };
+    return { ok: true };
+  }
+
+  if (scope === "support-operations") {
+    const guildId = rest[0] ?? "";
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) return { ok: false, response: deny(401, "Not signed in.") };
+    if (guildId !== "1530378233579704370") {
+      return { ok: false, response: deny(404, "Not found.") };
+    }
+    if (!isOwnerId(session.user.id)) {
+      return { ok: false, response: deny(403, "Only configured OWNER_IDS may use the support console.") };
+    }
     return { ok: true };
   }
 
