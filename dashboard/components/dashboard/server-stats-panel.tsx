@@ -3,8 +3,8 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import {
-  Bot, Crown, Hash, Layers3, Loader2, Lock, Save, Users,
-  UserRound, Volume2,
+  Bot, Crown, Globe2, Hash, Layers3, Loader2, Lock, Save, Server, Terminal,
+  Users, UserRound, Volume2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -13,7 +13,9 @@ import { api } from "@/lib/api";
 
 const CARD = "rounded-3xl border border-slate-800 bg-[#131318]";
 
-type Kind = "humans" | "bots" | "boosts" | "online" | "roles" | "channels";
+type Kind =
+  | "humans" | "bots" | "boosts" | "online" | "roles" | "channels"
+  | "global_servers" | "global_users" | "global_commands";
 type Form = Record<`${Kind}_enabled`, boolean>;
 
 const ITEMS: Array<{
@@ -24,6 +26,7 @@ const ITEMS: Array<{
   icon: typeof Users;
   color: string;
   premium?: boolean;
+  global?: boolean;
 }> = [
   {
     kind: "humans",
@@ -76,6 +79,33 @@ const ITEMS: Array<{
     color: "text-cyan-400",
     premium: true,
   },
+  {
+    kind: "global_servers",
+    title: "Alle Server",
+    description: "Zeigt live, auf wie vielen Servern der Bot aktiv ist.",
+    preview: (count) => `🌐 Alle Server: ${count}`,
+    icon: Server,
+    color: "text-blue-400",
+    global: true,
+  },
+  {
+    kind: "global_users",
+    title: "Alle Nutzer",
+    description: "Zeigt die live erreichbaren, eindeutigen Nutzer des Bots.",
+    preview: (count) => `👥 Alle Nutzer: ${count}`,
+    icon: Globe2,
+    color: "text-indigo-400",
+    global: true,
+  },
+  {
+    kind: "global_commands",
+    title: "Ausgeführte Befehle",
+    description: "Zeigt alle seit Beginn erfassten Prefix- und Slash-Befehle.",
+    preview: (count) => `⌨️ Befehle: ${count}`,
+    icon: Terminal,
+    color: "text-violet-400",
+    global: true,
+  },
 ];
 
 const EMPTY_FORM: Form = {
@@ -85,6 +115,9 @@ const EMPTY_FORM: Form = {
   online_enabled: false,
   roles_enabled: false,
   channels_enabled: false,
+  global_servers_enabled: false,
+  global_users_enabled: false,
+  global_commands_enabled: false,
 };
 
 function formFrom(answer: any): Form {
@@ -95,6 +128,9 @@ function formFrom(answer: any): Form {
     online_enabled: Boolean(answer.online_enabled),
     roles_enabled: Boolean(answer.roles_enabled),
     channels_enabled: Boolean(answer.channels_enabled),
+    global_servers_enabled: Boolean(answer.global_servers_enabled),
+    global_users_enabled: Boolean(answer.global_users_enabled),
+    global_commands_enabled: Boolean(answer.global_commands_enabled),
   };
 }
 
@@ -130,13 +166,18 @@ export function ServerStatsPanel({ guildId }: { guildId: string }) {
     try {
       // Premium-Schalter werden nicht bloß im Browser gesperrt. Ohne
       // Premium schicken wir sie gar nicht erst; die API prüft zusätzlich.
-      const payload = data?.premium
-        ? form
+      const payload: Record<string, boolean> = data?.premium
+        ? { ...form }
         : {
             humans_enabled: form.humans_enabled,
             bots_enabled: form.bots_enabled,
             boosts_enabled: form.boosts_enabled,
           };
+      if (data?.global_stats_available) {
+        payload.global_servers_enabled = form.global_servers_enabled;
+        payload.global_users_enabled = form.global_users_enabled;
+        payload.global_commands_enabled = form.global_commands_enabled;
+      }
       const answer = await api.updateServerStats(guildId, payload);
       setData(answer);
       setForm(formFrom(answer));
@@ -157,8 +198,9 @@ export function ServerStatsPanel({ guildId }: { guildId: string }) {
   }
 
   const premium = Boolean(data?.premium);
-  const changed = data && ITEMS.some(({ kind, premium: required }) =>
+  const changed = data && ITEMS.some(({ kind, premium: required, global }) =>
     (!required || premium) &&
+    (!global || data.global_stats_available) &&
     Boolean(data[`${kind}_enabled`]) !== form[`${kind}_enabled`]
   );
 
@@ -224,7 +266,7 @@ export function ServerStatsPanel({ guildId }: { guildId: string }) {
       )}
 
       <div className="grid gap-4 lg:grid-cols-3">
-        {ITEMS.filter((item) => !item.premium).map(renderItem)}
+        {ITEMS.filter((item) => !item.premium && !item.global).map(renderItem)}
       </div>
 
       <div className="space-y-3">
@@ -264,6 +306,23 @@ export function ServerStatsPanel({ guildId }: { guildId: string }) {
           )}
         </div>
       </div>
+
+      {data?.global_stats_available && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 px-1">
+            <Globe2 className="h-4 w-4 text-indigo-400" />
+            <div>
+              <h3 className="text-sm font-bold text-white">Globale Bot-Statistiken</h3>
+              <p className="text-xs text-slate-500">
+                Exklusiv für den Main-Support-Server · live über alle Server
+              </p>
+            </div>
+          </div>
+          <div className="grid gap-4 lg:grid-cols-3">
+            {ITEMS.filter((item) => item.global).map(renderItem)}
+          </div>
+        </div>
+      )}
 
       <div className={`${CARD} flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between`}>
         <div>

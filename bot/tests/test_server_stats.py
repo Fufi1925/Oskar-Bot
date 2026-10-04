@@ -33,6 +33,10 @@ async def storage() -> None:
             saved = await store.save(7, {"humans_enabled": True})
             check("one counter can be enabled", saved["humans_enabled"] is True)
             check("unsent switches keep their value", saved["bots_enabled"] is False)
+            check(
+                "global counters default to disabled",
+                all(saved[f"{kind}_enabled"] is False for kind in store.GLOBAL_KINDS),
+            )
             await store.set_channel(7, "humans", 123456789012345678)
             saved = await store.get(7)
             check("Discord snowflakes stay exact", saved["humans_channel_id"] == 123456789012345678)
@@ -55,6 +59,16 @@ def wiring() -> None:
     panel = (DASH / "components/dashboard/server-stats-panel.tsx").read_text(encoding="utf-8")
     check("BFF authorizes the new scope", 'scope === "server-stats"' in proxy)
     check("premium is enforced by the API", "store.PREMIUM_KINDS" in route and "_has_premium" in route)
+    check(
+        "global counters are restricted to the main support server",
+        "1530378233579704370" in (BOT / "utils/server_stats_store.py").read_text(encoding="utf-8")
+        and "forbidden_global" in route
+        and "global_stats_available" in route,
+    )
+    check(
+        "dashboard shows the three exclusive global counters",
+        all(label in panel for label in ("Alle Server", "Alle Nutzer", "Ausgeführte Befehle", "Globale Bot-Statistiken")),
+    )
     check("premium cards are blurred and locked", "blur-[3px]" in panel and "Premium erforderlich" in panel)
     check("tab sits in the user sidebar", "/server-stats`" in sidebar)
     check("tab is in guild navigation", 'slug: "server-stats"' in tabs)

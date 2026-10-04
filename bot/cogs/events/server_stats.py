@@ -14,6 +14,7 @@ import discord
 from discord.ext import commands, tasks
 
 from core import Cog, universitybot
+from utils import command_stats
 from utils import server_stats_store as store
 
 NAMES = {
@@ -23,6 +24,9 @@ NAMES = {
     "online": "🟢 Online: {count}",
     "roles": "🎭 Rollen: {count}",
     "channels": "📚 Kanäle: {count}",
+    "global_servers": "🌐 Alle Server: {count}",
+    "global_users": "👥 Alle Nutzer: {count}",
+    "global_commands": "⌨️ Befehle: {count}",
 }
 
 
@@ -64,9 +68,21 @@ class ServerStats(Cog):
             "channels": channels,
         }
 
+    async def global_counts(self) -> dict[str, int]:
+        """Botweite Live-Zahlen, ausschließlich für den Main-Support-Server."""
+        return {
+            "global_servers": len(self.client.guilds),
+            "global_users": len(self.client.users),
+            "global_commands": await command_stats.total_uses(),
+        }
+
     async def sync_guild(self, guild: discord.Guild) -> dict:
         settings = await store.get(guild.id)
         counts = self.counts(guild)
+        is_main_support = guild.id == store.MAIN_SUPPORT_GUILD_ID
+        kinds = store.KINDS if is_main_support else store.LOCAL_KINDS
+        if is_main_support:
+            counts.update(await self.global_counts())
         created: list[str] = []
         deleted: list[str] = []
 
@@ -80,7 +96,7 @@ class ServerStats(Cog):
             guild.default_role: discord.PermissionOverwrite(connect=False)
         }
 
-        for kind in store.KINDS:
+        for kind in kinds:
             enabled = settings[f"{kind}_enabled"]
             saved_id = settings[f"{kind}_channel_id"]
             channel = guild.get_channel(saved_id) if saved_id else None
@@ -132,13 +148,36 @@ class ServerStats(Cog):
 
         self._pending[guild.id] = asyncio.create_task(later())
 
+    def schedule_main_support(self) -> None:
+        guild = self.client.get_guild(store.MAIN_SUPPORT_GUILD_ID)
+        if guild is not None:
+            self.schedule(guild)
+
     @commands.Cog.listener()
     async def on_member_join(self, member: discord.Member):
         self.schedule(member.guild)
+        self.schedule_main_support()
 
     @commands.Cog.listener()
     async def on_member_remove(self, member: discord.Member):
         self.schedule(member.guild)
+        self.schedule_main_support()
+
+    @commands.Cog.listener()
+    async def on_guild_join(self, guild: discord.Guild):
+        self.schedule_main_support()
+
+    @commands.Cog.listener()
+    async def on_guild_remove(self, guild: discord.Guild):
+        self.schedule_main_support()
+
+    @commands.Cog.listener()
+    async def on_command_completion(self, ctx: commands.Context):
+        self.schedule_main_support()
+
+    @commands.Cog.listener()
+    async def on_app_command_completion(self, interaction: discord.Interaction, command):
+        self.schedule_main_support()
 
     @commands.Cog.listener()
     async def on_member_update(self, before: discord.Member, after: discord.Member):

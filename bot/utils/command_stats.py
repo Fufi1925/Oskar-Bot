@@ -110,6 +110,21 @@ async def flush(force: bool = False) -> int:
     return len(keys)
 
 
+async def total_uses() -> int:
+    """Return the all-time command total, including buffered live events."""
+    os.makedirs("db", exist_ok=True)
+    await flush(force=True)
+    try:
+        async with aiosqlite.connect(DB_PATH) as db:
+            await _ensure_table(db)
+            async with db.execute("SELECT COALESCE(SUM(uses), 0) FROM command_usage") as cursor:
+                row = await cursor.fetchone()
+        return int(row[0] or 0) if row else 0
+    except Exception as exc:
+        print(f"[command_stats] total failed: {exc}")
+        return 0
+
+
 async def summary(guild_id: int | None = None, days: int = 30) -> dict:
     """Aggregated usage for the dashboard."""
     os.makedirs("db", exist_ok=True)

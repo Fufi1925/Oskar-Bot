@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 from fastapi import APIRouter, Depends, HTTPException
 
 from api.dependencies import get_bot
+from utils import command_stats
 from utils import feature_audit
 from utils import feature_gates
 from utils import server_stats_store as store
@@ -31,7 +32,7 @@ def _has_premium(
         guild_id, actor, configure=configure
     )
 
-def _payload(guild, settings: dict, *, premium: bool) -> dict:
+async def _payload(bot, guild, settings: dict, *, premium: bool) -> dict:
     members = list(getattr(guild, "members", ()) or ())
     bots = sum(1 for member in members if member.bot)
     counts = {
@@ -45,6 +46,13 @@ def _payload(guild, settings: dict, *, premium: bool) -> dict:
         "roles": max(0, len(getattr(guild, "roles", ()) or ()) - 1),
         "channels": len(getattr(guild, "channels", ()) or ()),
     }
+    is_main_support = guild.id == store.MAIN_SUPPORT_GUILD_ID
+    if is_main_support:
+        counts.update({
+            "global_servers": len(bot.guilds),
+            "global_users": len(bot.users),
+            "global_commands": await command_stats.total_uses(),
+        })
 
     channels = {}
     for kind in store.KINDS:
@@ -61,6 +69,7 @@ def _payload(guild, settings: dict, *, premium: bool) -> dict:
     return {
         "guild_id": str(guild.id),
         "premium": premium,
+        "global_stats_available": is_main_support,
         **{f"{kind}_enabled": settings[f"{kind}_enabled"] for kind in store.KINDS},
         "counts": counts,
         "channels": channels,
@@ -75,7 +84,7 @@ async def get_settings(
 ):
     guild = _guild_or_404(bot, guild_id)
     premium = _has_premium(guild_id, actor)
-    return _payload(guild, await store.get(guild_id), premium=premium)
+    return await _payload(bot, guild, await store.get(guild_id), premium=premium)
 
 
 @router.patch("/{guild_id}", summary="Server-Stats einstellen")
@@ -83,7 +92,20 @@ async def patch_settings(
     guild_id: int, data: dict, bot: "universitybot" = Depends(get_bot)
 ):
     guild = _guild_or_404(bot, guild_id)
-    allowed = {f"{kind}_enabled" for kind in store.KINDS}
+    allowed_kinds = (
+        store.KINDS
+        if guild_id == store.MAIN_SUPPORT_GUILD_ID
+        else store.LOCAL_KINDS
+    )
+    forbidden_global = {
+        f"{kind}_enabled" for kind in store.GLOBAL_KINDS
+    } & data.keys()
+    if forbidden_global and guild_id != store.MAIN_SUPPORT_GUILD_ID:
+        raise HTTPException(
+            403,
+            "Globale Bot-Statistiken können nur auf dem Main-Support-Server aktiviert werden.",
+        )
+    allowed = {f"{kind}_enabled" for kind in allowed_kinds}
     updates = {key: bool(value) for key, value in data.items() if key in allowed}
     if not updates:
         raise HTTPException(400, "Keine Server-Stats-Einstellung übermittelt.")
@@ -112,7 +134,7 @@ async def patch_settings(
     except Exception as exc:
         raise HTTPException(502, f"Die Statistikkanäle konnten nicht aktualisiert werden: {exc}")
 
-    result = _payload(guild, await store.get(guild_id), premium=premium)
+    result = await _payload(bot, guild, await store.get(guild_id), premium=premium)
     await feature_audit.log_action(
         "server_stats_changed",
         actor=actor,

@@ -10,9 +10,12 @@ from __future__ import annotations
 import aiosqlite
 
 DB_PATH = "db/server_stats.db"
+MAIN_SUPPORT_GUILD_ID = 1530378233579704370
 FREE_KINDS = ("humans", "bots", "boosts")
 PREMIUM_KINDS = ("online", "roles", "channels")
-KINDS = FREE_KINDS + PREMIUM_KINDS
+LOCAL_KINDS = FREE_KINDS + PREMIUM_KINDS
+GLOBAL_KINDS = ("global_servers", "global_users", "global_commands")
+KINDS = LOCAL_KINDS + GLOBAL_KINDS
 DEFAULTS = {
     **{f"{kind}_enabled": False for kind in KINDS},
     **{f"{kind}_channel_id": None for kind in KINDS},
