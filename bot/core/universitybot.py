@@ -132,6 +132,7 @@ class universitybot(commands.AutoShardedBot):
         start_deadlock_watchdog()
 
         self._count_failed_slash_commands()
+        self._install_event_error_reporter()
 
         self.status_task.start()
         self.np_refresh_task.start()
@@ -181,10 +182,67 @@ class universitybot(commands.AutoShardedBot):
                 # Buchhaltung darf die Fehlerbehandlung nie verschlucken.
                 pass
 
+            try:
+                from utils import support_operations
+                expected = (
+                    discord.app_commands.CheckFailure,
+                    discord.app_commands.CommandOnCooldown,
+                    discord.app_commands.TransformerError,
+                )
+                if not isinstance(error, expected):
+                    original_error = getattr(error, "original", error)
+                    command = getattr(interaction, "command", None)
+                    name = getattr(command, "qualified_name", "") or getattr(command, "name", "") or "unknown"
+                    await support_operations.report_error(
+                        self, f"slash:/{name}", original_error,
+                        guild_id=interaction.guild_id,
+                        user_id=getattr(interaction.user, "id", None),
+                    )
+            except Exception:
+                # Auch die Fehlerzentrale darf Discords normalen Handler nie
+                # verhindern.
+                pass
+
             await original(interaction, error)
 
         tree.on_error = on_error
         tree._usage_counter_installed = True
+
+    def _install_event_error_reporter(self):
+        """Wrap discord.py's real event error hook for the support centre.
+
+        A Cog listener named ``on_error`` is never dispatched when another
+        listener crashes; discord.py calls ``Bot.on_error`` directly. Wrapping
+        that method is therefore the only reliable interception point, while
+        calling the original preserves Railway's full traceback output.
+        """
+        if getattr(self, "_support_event_error_installed", False):
+            return
+        original = self.on_error
+
+        async def on_error(event_method, *args, **kwargs):
+            try:
+                import sys
+                import traceback
+                from utils import support_operations
+                exc_type, exc, tb = sys.exc_info()
+                if exc is not None:
+                    guild_id = None
+                    for arg in args:
+                        guild = getattr(arg, "guild", None)
+                        if guild is not None:
+                            guild_id = guild.id
+                            break
+                    await support_operations.report_error(
+                        self, f"event:{event_method}", exc, guild_id=guild_id,
+                        trace="".join(traceback.format_exception(exc_type, exc, tb)),
+                    )
+            except Exception:
+                pass
+            await original(event_method, *args, **kwargs)
+
+        self.on_error = on_error
+        self._support_event_error_installed = True
 
     async def load_extensions(self):
         from utils.feature_services import runtime

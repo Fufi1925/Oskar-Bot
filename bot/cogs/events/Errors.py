@@ -18,6 +18,7 @@ from discord.ext import commands
 from core import universitybot, Cog, Context
 from utils.Tools import get_ignore_data
 from utils.panels import from_embed
+from utils import support_operations
 
 class Errors(Cog):
   def __init__(self, client: universitybot):
@@ -126,6 +127,15 @@ class Errors(Cog):
       await ctx.reply(f'** Huh! I need {missing} Permission to run the {ctx.command.qualified_name}command! Give me {missing} Permission**', delete_after=7)
       return
 
+    if isinstance(error, (commands.MissingRole, commands.MissingAnyRole, commands.NotOwner)):
+      await ctx.reply("Du darfst diesen Befehl nicht verwenden.", delete_after=7)
+      return
+
+    if isinstance(error, commands.CheckFailure):
+      # Generic checks are intentional denials, not application faults. This
+      # also covers DM-only/global checks that do not have a specialised type.
+      return
+
     # Everything below is a real fault, not a user mistake. Previously the
     # function just ended here: the user saw nothing happen and the log stayed
     # empty, so a broken command was invisible until someone reported it.
@@ -151,6 +161,17 @@ class Errors(Cog):
       traceback.format_exception(type(original), original, original.__traceback__)
     )
     print(trace.rstrip())
+
+    # The support-server error centre deduplicates the fingerprint and updates
+    # one report instead of posting the same stack trace repeatedly.
+    try:
+      await support_operations.report_error(
+        self.client, f"prefix:{where}", original,
+        guild_id=ctx.guild.id if ctx.guild else None,
+        user_id=ctx.author.id, trace=trace,
+      )
+    except Exception as report_error:
+      print(f"[ERROR-CENTRE] Could not persist report: {report_error}")
 
     # Never let the reporting itself break the handler: the channel may be
     # gone, or we may lack permission to talk in it.
