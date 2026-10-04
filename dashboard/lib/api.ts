@@ -1171,6 +1171,11 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ name, response, ...modes, config }),
     }),
+  importCustomCommandMessage: (guildId: string, message: string, channelId = "") =>
+    request<any>(`/actions/${guildId}/custom-commands/message/import`, {
+      method: "POST",
+      body: JSON.stringify({ message, channel_id: channelId }),
+    }),
   deleteCustomCommand: (guildId: string, name: string) =>
     request<any>(`/actions/${guildId}/custom-commands/${encodeURIComponent(name)}`, {
       method: "DELETE",

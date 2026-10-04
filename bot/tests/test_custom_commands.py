@@ -4,6 +4,7 @@ import asyncio, importlib.util, os, sys, tempfile, types
 HERE=os.path.dirname(os.path.abspath(__file__));BOT=os.path.dirname(HERE);sys.path.insert(0,BOT)
 from discord.ext import commands
 from utils import custom_commands as store
+from utils import custom_command_messages
 # Load the one service file without importing the complete cogs registry.
 sys.modules["core"] = types.SimpleNamespace(Cog=commands.Cog)
 spec=importlib.util.spec_from_file_location("custom_commands_service",os.path.join(BOT,"cogs/events/custom_commands_service.py"))
@@ -45,8 +46,16 @@ async def main():
  assert channel.items==['Hi Alex: Welt','Hi Alex: ','Hi Alex: bitte'],channel.items
  slash=service._make_slash_command(77,'drei')
  assert slash.name=='drei' and slash.parameters[0].name=='args'
- options=service._reply_options({'embed':{'enabled':True,'title':'Test','description':'Hallo','color':'#2563eb'},'buttons':[{'label':'Klick','style':'blue','actions':[]}]},Author(),Guild(),channel,'')
+ options=await service._reply_options({'embed':{'enabled':True,'title':'Test','description':'Hallo','color':'#2563eb'},'buttons':[{'label':'Klick','style':'blue','actions':[]}]},Author(),Guild(),channel,'')
  assert options['embed'].title=='Test' and len(options['view'].children)==1
+ imported=await service._reply_options({'message':{'content':'Vorlage','embeds':[{'title':'Importiert','description':'Vollständig'}]},'buttons':[{'label':'Website','url':'https://example.com','actions':[]}],'selects':[{'placeholder':'Sprache','options':[{'label':'Deutsch','value':'de','actions':[]}]}]},Author(),Guild(),channel,'')
+ assert imported['embeds'][0].title=='Importiert' and len(imported['view'].children)==2
+ class Component:
+  def __init__(self,raw):self.raw=raw
+  def to_dict(self):return self.raw
+ fake=types.SimpleNamespace(content='Mehr unter https://example.com/hilfe',components=[Component({'type':17,'accent_color':255,'components':[{'type':10,'content':'# Hallo'},{'type':1,'components':[{'type':2,'style':5,'label':'Web','url':'https://example.com'},{'type':3,'placeholder':'Sprache','options':[{'label':'Deutsch','value':'de'}]}]}]})],attachments=[],embeds=[__import__('discord').Embed(title='Titel')],flags=types.SimpleNamespace(components_v2=True),jump_url='https://discord.com/channels/77/55/99',channel=types.SimpleNamespace(id=55),id=99)
+ snap,snap_buttons,snap_selects=custom_command_messages.snapshot(fake)
+ assert snap['components_v2'] and snap['detected']['links']==2 and snap_buttons[0]['url']=='https://example.com' and snap_selects[0]['options'][0]['value']=='de'
  named=types.SimpleNamespace(mention='<@9>',display_name='Mira',name='mira')
  role=types.SimpleNamespace(mention='<@&8>',name='Team')
  target_channel=types.SimpleNamespace(mention='<#7>',name='chat')

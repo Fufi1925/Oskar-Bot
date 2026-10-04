@@ -24,6 +24,7 @@ from api.dependencies import get_bot
 from utils.panels import Panel, ACCENT
 from utils import feature_audit, feature_gates
 from utils import custom_commands as custom_command_store
+from utils import custom_command_messages
 from utils.panels import from_embed
 from utils.links import dashboard_url
 from utils.emoji import TICK
@@ -770,6 +771,63 @@ async def list_custom_commands(guild_id: int, actor: str = ""):
     }
 
 
+@router.post("/{guild_id}/custom-commands/message/import", summary="Import an existing Discord message")
+async def import_custom_command_message(
+    guild_id: int, data: dict, bot: "universitybot" = Depends(get_bot)
+):
+    """Read a message the bot can see in this guild and return a safe snapshot.
+
+    The original component custom_ids are application-private and therefore
+    intentionally not copied. Link buttons stay links; interactive controls
+    become editable local actions in the Custom Command editor.
+    """
+    _require_custom_commands_writable(guild_id)
+    guild = _guild_or_404(bot, guild_id)
+    source = str(data.get("message") or data.get("url") or "").strip()
+    match = re.search(r"(?:canary\.|ptb\.)?discord(?:app)?\.com/channels/(\d+)/(\d+)/(\d+)", source, re.I)
+    if match:
+        source_guild, channel_id, message_id = map(int, match.groups())
+        if source_guild != guild_id:
+            raise HTTPException(status_code=403, detail="Die Nachricht gehört nicht zu diesem Server.")
+    else:
+        channel_id = int(data.get("channel_id") or 0)
+        message_id = int(data.get("message_id") or source or 0) if str(data.get("message_id") or source or "").isdigit() else 0
+    if not channel_id or not message_id:
+        raise HTTPException(status_code=400, detail="Füge einen Discord-Nachrichtenlink ein oder gib Kanal- und Nachrichten-ID an.")
+    channel = guild.get_channel_or_thread(channel_id)
+    if channel is None or not hasattr(channel, "fetch_message"):
+        raise HTTPException(status_code=404, detail="Der Nachrichtenkanal wurde auf diesem Server nicht gefunden.")
+    me = guild.me
+    if me is not None and hasattr(channel, "permissions_for"):
+        permissions = channel.permissions_for(me)
+        if not permissions.view_channel or not permissions.read_message_history:
+            raise HTTPException(status_code=403, detail="Der Bot darf diese Nachricht nicht lesen.")
+    try:
+        message = await channel.fetch_message(message_id)
+    except discord.NotFound:
+        raise HTTPException(status_code=404, detail="Die Discord-Nachricht wurde nicht gefunden.")
+    except discord.Forbidden:
+        raise HTTPException(status_code=403, detail="Der Bot darf diese Nachricht nicht lesen.")
+    if message.guild is None or message.guild.id != guild_id:
+        raise HTTPException(status_code=403, detail="Die Nachricht gehört nicht zu diesem Server.")
+    snapshot, buttons, selects = custom_command_messages.snapshot(message)
+    first_embed = snapshot["embeds"][0] if snapshot["embeds"] else {}
+    legacy_embed = {
+        "enabled": bool(first_embed),
+        "title": str(first_embed.get("title") or ""),
+        "description": str(first_embed.get("description") or ""),
+        "color": f"#{int(first_embed.get('color', 0x2563EB) or 0x2563EB):06x}",
+        "image_url": str((first_embed.get("image") or {}).get("url") or ""),
+        "footer": str((first_embed.get("footer") or {}).get("text") or ""),
+    }
+    return {
+        "status": "success", "message": snapshot,
+        "text": snapshot["content"], "embed": legacy_embed,
+        "buttons": buttons, "selects": selects,
+        "detected": snapshot["detected"],
+    }
+
+
 MARKETPLACE_CATEGORIES = {"Utility", "Moderation", "Fun & Games", "Rollen", "Information", "Community", "Sonstiges"}
 
 
@@ -899,12 +957,34 @@ async def save_custom_command(
             if total_steps > 50:
                 raise HTTPException(status_code=400, detail="Der Command darf insgesamt höchstens 50 Schritte enthalten.")
             buttons = action.get("buttons", [])
-            if not isinstance(buttons, list) or len(buttons) > 5:
-                raise HTTPException(status_code=400, detail="Eine Antwort darf höchstens 5 Buttons enthalten.")
+            if not isinstance(buttons, list) or len(buttons) > 25:
+                raise HTTPException(status_code=400, detail="Eine Antwort darf höchstens 25 Buttons enthalten.")
             for button in buttons:
                 if not isinstance(button, dict):
                     raise HTTPException(status_code=400, detail="Ungültiger Button.")
+                link = str(button.get("url") or "")
+                if link and not re.match(r"^https://", link, re.I):
+                    raise HTTPException(status_code=400, detail="Button-Links müssen gültige HTTPS-URLs sein.")
                 validate_steps(button.get("actions", []), depth + 1)
+            selects = action.get("selects", [])
+            if not isinstance(selects, list) or len(selects) > 5:
+                raise HTTPException(status_code=400, detail="Eine Antwort darf höchstens 5 Auswahlleisten enthalten.")
+            if ((len(buttons) + 4) // 5) + len(selects) > 5:
+                raise HTTPException(status_code=400, detail="Buttons und Auswahlleisten dürfen zusammen höchstens 5 Zeilen belegen.")
+            for select in selects:
+                options = select.get("options", []) if isinstance(select, dict) else []
+                if not isinstance(options, list) or not 1 <= len(options) <= 25:
+                    raise HTTPException(status_code=400, detail="Eine Auswahlleiste braucht 1 bis 25 Optionen.")
+                for option in options:
+                    if not isinstance(option, dict):
+                        raise HTTPException(status_code=400, detail="Ungültige Auswahloption.")
+                    validate_steps(option.get("actions", []), depth + 1)
+            message_data = action.get("message")
+            if message_data is not None:
+                if not isinstance(message_data, dict):
+                    raise HTTPException(status_code=400, detail="Die importierte Nachricht ist ungültig.")
+                if len(message_data.get("embeds", [])) > 10 or len(message_data.get("attachments", [])) > 10:
+                    raise HTTPException(status_code=400, detail="Eine Nachricht darf höchstens 10 Embeds und 10 Anhänge enthalten.")
             if action.get("type") == "condition_role":
                 validate_steps(action.get("then", []), depth + 1)
                 validate_steps(action.get("else", []), depth + 1)
