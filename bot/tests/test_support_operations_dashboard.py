@@ -35,11 +35,17 @@ owner_at = layout.index('name: "Owner-Konsole"')
 ai_at = layout.index('name: "KI"')
 assert owner_at < ai_at
 assert "supportOperationsAllowed" in layout
+assert '["Übersicht", "Owner-Konsole", "KI", "Einstellungen"]' in layout
 
 bff = (ROOT / "dashboard/app/api/bot/[...path]/route.ts").read_text()
 assert 'scope === "support-operations"' in bff
 assert "isOwnerId(session.user.id)" in bff
 assert "1530378233579704370" in bff
+assert 'scope === "firewall"' in bff and "!team?.is_owner" in bff
+
+guild_auth = (ROOT / "dashboard/lib/guild-auth.ts").read_text()
+admin_ids = guild_auth[guild_auth.index("export function getAdminIds"):guild_auth.index("export function getConfiguredOwnerIds")]
+assert "new Set" in admin_ids and "process.env.ADMIN_IDS" in admin_ids and "process.env.OWNER_IDS" in admin_ids
 
 page = ROOT / "dashboard/app/dashboard/guild/[guildId]/owner-operations/page.tsx"
 panel = ROOT / "dashboard/components/dashboard/support-operations-panel.tsx"

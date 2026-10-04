@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import time
 from typing import Awaitable, Callable
@@ -23,6 +24,7 @@ ACCENT = 0x5865F2
 SUCCESS = 0x57F287
 DANGER = 0xED4245
 WARN = 0xFEE75C
+logger = logging.getLogger("support_owner_console")
 
 
 def panel(title: str, *sections: str, color: int = ACCENT, rows: list | None = None):
@@ -88,6 +90,14 @@ class SupportOwnerConsole(commands.Cog):
         ops.ensure()
         ops.install_log_reporting(self.bot)
         await ops.register_error_views(self.bot)
+        # These commands are deliberately guild-scoped. A later global
+        # tree.sync() does not publish guild commands, so without this explicit
+        # sync Discord never receives them even though the Cog is loaded.
+        try:
+            synced = await self.bot.tree.sync(guild=SUPPORT_GUILD)
+            logger.info("Synced %s support-owner commands to guild %s", len(synced), MAIN_SUPPORT_GUILD_ID)
+        except Exception:
+            logger.exception("Could not sync support-owner commands to guild %s", MAIN_SUPPORT_GUILD_ID)
 
     async def _guard(self, interaction: discord.Interaction) -> bool:
         if interaction.guild_id != MAIN_SUPPORT_GUILD_ID or not ops.is_owner(interaction.user.id):

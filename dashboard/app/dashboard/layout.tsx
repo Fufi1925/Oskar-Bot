@@ -455,7 +455,7 @@ export default function DashboardLayout({
   // the sections just like the reference navigation.
   const mainSidebarItems = currentGuildId
     ? [
-        ...allSidebarItems.filter((item: any) => ["Übersicht", "KI", "Einstellungen"].includes(item.name)),
+        ...allSidebarItems.filter((item: any) => ["Übersicht", "Owner-Konsole", "KI", "Einstellungen"].includes(item.name)),
         ...allSidebarItems.filter((item: any) => item.name === "Hilfe"),
         ...allSidebarItems.filter((item: any) => Array.isArray(item.items)),
       ]

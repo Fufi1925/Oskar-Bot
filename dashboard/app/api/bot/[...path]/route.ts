@@ -213,7 +213,11 @@ async function authorize(
     if (guildId !== "1530378233579704370") {
       return { ok: false, response: deny(404, "Not found.") };
     }
-    if (!isOwnerId(session.user.id)) {
+    // The dashboard process may not have OWNER_IDS set (the bot still has its
+    // configured/default owners). Ask the trusted access API as a fallback;
+    // FastAPI performs the strict OWNER_IDS check again before returning data.
+    const team = await fetchTeamAccess(session.user.id, true);
+    if (!isOwnerId(session.user.id) && !team?.is_owner) {
       return { ok: false, response: deny(403, "Only configured OWNER_IDS may use the support console.") };
     }
     return { ok: true };
@@ -271,7 +275,10 @@ async function authorize(
   if (scope === "firewall") {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) return { ok: false, response: deny(401, "Not signed in.") };
-    if (!isGlobalAdmin(session.user.id)) return { ok: false, response: deny(403, "Owner access required.") };
+    const team = await fetchTeamAccess(session.user.id, true);
+    if (!isGlobalAdmin(session.user.id) && !isOwnerId(session.user.id) && !team?.is_owner) {
+      return { ok: false, response: deny(403, "Owner access required.") };
+    }
     return { ok: true };
   }
 
@@ -1751,7 +1758,13 @@ async function handler(request: NextRequest, context: { params: { path?: string[
   const session = await getServerSession(authOptions);
   const actorId = session?.user?.id;
   if (actorId) headers["X-Firewall-Actor"] = String(actorId);
-  if (actorId && isGlobalAdmin(actorId)) headers["X-Firewall-Owner"] = "1";
+  if (actorId) {
+    let actorIsOwner = isGlobalAdmin(actorId) || isOwnerId(actorId);
+    if (!actorIsOwner && ["firewall", "support-operations"].includes(segments[0])) {
+      actorIsOwner = Boolean((await fetchTeamAccess(actorId, true))?.is_owner);
+    }
+    if (actorIsOwner) headers["X-Firewall-Owner"] = "1";
+  }
 
   // Support identities are derived from the signed session and trusted role
   // lookup here. The browser cannot impersonate another supporter or owner by

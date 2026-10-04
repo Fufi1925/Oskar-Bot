@@ -27,13 +27,14 @@ const ADMINISTRATOR = BigInt(0x8);
  * erreichte. Beide Hälften müssen dieselbe Liste sehen.
  */
 export function getAdminIds(): string[] {
-  const raw =
-    process.env.ADMIN_IDS ||
-    process.env.OWNER_IDS ||
-    process.env.NEXT_PUBLIC_ADMIN_IDS ||
-    "";
-  return raw
-    .split(",")
+  // Union, never fallback: when ADMIN_IDS is set as well as OWNER_IDS the old
+  // `a || b` expression silently discarded every owner. That locked owners
+  // out of the Firewall and other global administration routes.
+  return Array.from(new Set([
+    process.env.ADMIN_IDS || "",
+    process.env.OWNER_IDS || "",
+    process.env.NEXT_PUBLIC_ADMIN_IDS || "",
+  ].flatMap((raw) => raw.split(","))))
     .map((id) => id.trim())
     .filter(Boolean);
 }

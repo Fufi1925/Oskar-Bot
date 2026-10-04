@@ -57,6 +57,8 @@ def main():
     }
     for command in module.SupportOwnerConsole.__cog_app_commands__:
         assert command._guild_ids == [ops.MAIN_SUPPORT_GUILD_ID], (command.name, command._guild_ids)
+    source = open(path, encoding="utf-8").read()
+    assert "tree.sync(guild=SUPPORT_GUILD)" in source, "guild-only commands must be synced explicitly"
     print("support operations: all checks passed")
 
 
