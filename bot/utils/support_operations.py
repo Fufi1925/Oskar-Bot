@@ -15,6 +15,7 @@ import re
 import sqlite3
 import time
 import traceback
+import uuid
 from datetime import datetime, timezone
 from typing import Any
 
@@ -115,7 +116,11 @@ def _instance() -> str:
 def _fingerprint(feature: str, exc: BaseException, trace: str) -> str:
     stable = re.sub(r'line \d+', 'line ?', trace)
     stable = re.sub(r'0x[0-9a-fA-F]+', '0x?', stable)
-    raw = f"{feature}|{type(exc).__name__}|{str(exc)}|{stable[-1200:]}"
+    message = re.sub(r"0x[0-9a-fA-F]+", "0x?", str(exc))
+    request_prefix = r"(?m)^\[[0-9a-fA-F]{8}\](?= Unhandled error on )"
+    message = re.sub(request_prefix, "[request]", message)
+    stable = re.sub(request_prefix, "[request]", stable)
+    raw = f"{feature}|{type(exc).__name__}|{message}|{stable[-1200:]}"
     return hashlib.sha256(raw.encode("utf-8", "replace")).hexdigest()
 
 
@@ -173,6 +178,24 @@ def list_errors(limit: int = 10, status: str = "") -> list[dict]:
         return [dict(row) for row in db.execute(query, params)]
 
 
+def console_counts() -> dict:
+    """Count the complete database, independently of the recent-item limits."""
+    ensure()
+    with _connect() as db:
+        errors = db.execute("SELECT COUNT(*), COALESCE(SUM(status != 'resolved'), 0) FROM support_errors").fetchone()
+        incidents = db.execute("SELECT COUNT(*), COALESCE(SUM(status != 'resolved'), 0) FROM support_incidents").fetchone()
+    return {"total_errors": errors[0], "open_errors": errors[1],
+            "total_incidents": incidents[0], "open_incidents": incidents[1]}
+
+
+def list_audit(limit: int = 50) -> list[dict]:
+    ensure()
+    with _connect() as db:
+        return [dict(row) for row in db.execute(
+            "SELECT * FROM support_audit ORDER BY id DESC LIMIT ?",
+            (max(1, min(100, limit)),))]
+
+
 def set_error_status(error_id: str, status: str, actor_id: int | str) -> dict | None:
     if status not in ERROR_STATES:
         raise ValueError("Ungültiger Fehlerstatus.")
@@ -203,7 +226,7 @@ def attach_ticket(error_id: str, thread_id: int, actor_id: int | str) -> None:
 
 def create_incident(title: str, severity: str, description: str, actor_id: int | str) -> dict:
     ensure(); now = int(time.time()); severity = severity if severity in SEVERITIES else "medium"
-    base = hashlib.sha1(f"{now}:{title}:{actor_id}".encode()).hexdigest()[:6].upper()
+    base = uuid.uuid4().hex[:12].upper()
     incident_id = f"INC-{datetime.fromtimestamp(now, timezone.utc):%Y%m%d}-{base}"
     timeline = [{"at": now, "actor": str(actor_id), "event": "Incident eröffnet", "note": description[:500]}]
     with _connect() as db:

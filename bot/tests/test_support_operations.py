@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Support-server owner console: persistence, dedupe and command exposure."""
-import asyncio
 import importlib.util
 import os
 import sys
 import tempfile
+from unittest.mock import patch
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 BOT = os.path.dirname(HERE)
@@ -44,6 +44,26 @@ def main():
     assert incident["status"] == "open"
     assert ops.update_incident(incident["incident_id"], "monitoring", "Fix läuft", 1)["status"] == "monitoring"
     assert len(ops.list_incidents()) == 1
+
+    one, _ = ops.upsert_error("event-loop", RuntimeError("Event at 0x123abc bound to a different loop"), trace="Event at 0x123abc")
+    two, created = ops.upsert_error("event-loop", RuntimeError("Event at 0x456def bound to a different loop"), trace="Event at 0x456def")
+    assert not created and one["error_id"] == two["error_id"] and two["count"] == 2
+    original, _ = ops.upsert_error("log:api_request_logs", RuntimeError("[123abcde] Unhandled error on POST /check: Event at 0x123abc"), trace="[123abcde] Unhandled error on POST /check: Event at 0x123abc")
+    repeat, created = ops.upsert_error("log:api_request_logs", RuntimeError("[456defab] Unhandled error on POST /check: Event at 0x456def"), trace="[456defab] Unhandled error on POST /check: Event at 0x456def")
+    assert not created and original["error_id"] == repeat["error_id"]
+    # Identical titles in the same second must remain separate incidents.
+    with patch.object(ops.time, "time", return_value=1791297920):
+        a = ops.create_incident("Repeated title", "high", "First", 1)
+        b = ops.create_incident("Repeated title", "high", "Second", 1)
+    assert a["incident_id"] != b["incident_id"]
+    assert ops.get_incident(a["incident_id"])["description"] == "First"
+    assert ops.get_incident(b["incident_id"])["description"] == "Second"
+    for n in range(60):
+        ops.upsert_error(f"unique:{n}", RuntimeError("count test"))
+    assert len(ops.list_errors(50)) == 50
+    assert ops.console_counts()["open_errors"] == 63
+    assert ops.console_counts()["open_incidents"] == 3
+    assert ops.list_audit(100)[0]["action"] == "incident_created"
 
     path = os.path.join(BOT, "cogs", "commands", "support_owner_console.py")
     spec = importlib.util.spec_from_file_location("support_owner_console_test", path)

@@ -1196,6 +1196,8 @@ export const api = {
     request<any>(`/support-operations/${guildId}/overview`),
   setSupportErrorChannel: (guildId: string, channelId: string) =>
     request<any>(`/support-operations/${guildId}/settings/error-channel`, { method: "POST", body: JSON.stringify({ channel_id: channelId }) }),
+  getSupportOperationError: (guildId: string, errorId: string) =>
+    request<any>(`/support-operations/${guildId}/errors/${encodeURIComponent(errorId)}`),
   setSupportErrorStatus: (guildId: string, errorId: string, status: string) =>
     request<any>(`/support-operations/${guildId}/errors/${encodeURIComponent(errorId)}/status`, { method: "POST", body: JSON.stringify({ status }) }),
   createSupportDeveloperTicket: (guildId: string, errorId: string) =>
@@ -1216,7 +1218,7 @@ export const api = {
     request<any>(`/support-operations/${guildId}/support-access?server_id=${encodeURIComponent(serverId)}&user_id=${encodeURIComponent(userId)}`),
   revokeSupportAccessCase: (guildId: string, serverId: string, userId: string) =>
     request<any>(`/support-operations/${guildId}/support-access/revoke`, { method: "POST", body: JSON.stringify({ server_id: serverId, user_id: userId }) }),
-  inspectSupportTemplate: (guildId: string, templateId: number) =>
+  inspectSupportTemplate: (guildId: string, templateId: number | string) =>
     request<any>(`/support-operations/${guildId}/templates/${templateId}`),
 
   // Emergency lockdown

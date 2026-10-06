@@ -111,6 +111,37 @@ def main():
                     assert result.json()["inspection"]["modules"] == ["channels"]
                 assert get("/templates/999").status_code == 404
                 assert len(get("/overview").json()["incidents"]) == 1
+                assert get(f'/errors/{error["error_id"]}').json()["status"] == "resolved"
+                assert get("/errors/ERR-MISSING").status_code == 404
+                assert post("/incidents", {"title": "Test", "severity": "invalid"}).status_code == 400
+                assert post("/incidents", {"title": "x" * 151}).status_code == 400
+                assert get("/premium-history", server_id=str(2**80)).status_code == 400
+                assert get("/premium-history", user_id="²").status_code == 400
+                assert get("/support-access", server_id="²", user_id="1").status_code == 400
+                assert get("/servers/²").status_code == 404
+                assert client.get(base + "/access", params={"actor": "²"}).status_code == 403
+                assert get("/templates/0").status_code == 400
+                assert get(f"/templates/{2**80}").status_code == 400
+                for n in range(60):
+                    ops.upsert_error(f"count:{n}", ValueError("count"))
+                result = get("/overview").json()
+                assert len(result["errors"]) == 50 and result["global"]["open_errors"] == 60
+                assert result["global"]["total_errors"] == 61
+                assert any(entry["action"] == "support_access_revoked" for entry in result["audit"])
+                # A newer closed case must not hide an older active grant.
+                with sqlite3.connect("db/admin_config.db") as db:
+                    for status in ["accepted", "accepted", "closed"]:
+                        db.execute("INSERT INTO dashboard_support_cases(guild_id,supporter_id,status,created_at,updated_at) VALUES(?,?,?,1,1)", (str(guild.id), "2", status))
+                assert get("/support-access", server_id=str(guild.id), user_id="2").json()["case"]["status"] == "accepted"
+                result = post("/support-access/revoke", {"server_id": str(guild.id), "user_id": "2"})
+                assert result.json()["revoked"] == 2
+                with sqlite3.connect("db/admin_config.db") as db:
+                    assert db.execute("SELECT COUNT(*) FROM dashboard_support_cases WHERE supporter_id='2' AND status='accepted'").fetchone()[0] == 0
+                assert post("/support-access/revoke", {"server_id": str(guild.id), "user_id": "2"}).json()["revoked"] == 0
+                for path in ["/overview", f'/errors/{error["error_id"]}', "/support-access"]:
+                    assert client.get(base + path, params={"actor": "2", "server_id": "1", "user_id": "1"}).status_code == 403
+                    assert client.get(base + path, params={"actor": "", "server_id": "1", "user_id": "1"}).status_code == 403
+                assert client.get(f'/support-operations/123/errors/{error["error_id"]}', params={"actor": "1"}).status_code == 404
         finally:
             os.chdir(old)
             set_bot_loop(None)

@@ -19,15 +19,20 @@ from utils.server_stats_store import MAIN_SUPPORT_GUILD_ID
 router = APIRouter()
 
 
+def _valid_discord_id(value: str) -> bool:
+    return (0 < len(value) <= 20 and value.isascii() and value.isdigit()
+            and 0 < int(value) < 2**64)
+
+
 def _guard(guild_id: int, actor: str) -> None:
     if guild_id != MAIN_SUPPORT_GUILD_ID:
         raise HTTPException(404, "Diese Seite existiert auf diesem Server nicht.")
-    if not actor.isdigit() or not ops.is_owner(actor):
+    if not _valid_discord_id(actor) or not ops.is_owner(actor):
         raise HTTPException(403, "Nur globale OWNER_IDS dürfen diese Support-Konsole verwenden.")
 
 
 def _guild(bot, guild_id: str) -> discord.Guild:
-    if not str(guild_id).isdigit() or not (guild := bot.get_guild(int(guild_id))):
+    if not _valid_discord_id(str(guild_id)) or not (guild := bot.get_guild(int(guild_id))):
         raise HTTPException(404, "Der Bot ist nicht mit diesem Server verbunden.")
     return guild
 
@@ -60,29 +65,39 @@ async def overview(guild_id: int, actor: str = "", bot=Depends(get_bot)):
     users = sum(g.member_count or 0 for g in bot.guilds)
     errors = ops.list_errors(50)
     incidents = ops.list_incidents(25)
+    counts = ops.console_counts()
     return {
         "global": {
             "guilds": len(bot.guilds), "users": users,
             "commands": await command_stats.total_uses(),
             "latency_ms": round(bot.latency * 1000) if math.isfinite(bot.latency) else None,
-            "open_errors": sum(1 for row in errors if row["status"] != "resolved"),
-            "open_incidents": sum(1 for row in incidents if row["status"] != "resolved"),
+            **counts,
         },
         "deployment": _deployment(),
         "settings": {"error_channel_id": error_channel},
         "errors": errors,
         "incidents": incidents,
+        "audit": ops.list_audit(50),
         "features": feature_flags.describe(),
         "feature_values": feature_flags.all_values(),
         "feature_rollouts": feature_flags.all_rollouts(),
     }
 
 
+@router.get("/{guild_id}/errors/{error_id}")
+async def error_lookup(guild_id: int, error_id: str, actor: str = ""):
+    _guard(guild_id, actor)
+    row = ops.get_error(error_id.strip().upper())
+    if not row:
+        raise HTTPException(404, "Fehler nicht gefunden.")
+    return row
+
+
 @router.post("/{guild_id}/settings/error-channel")
 async def configure_error_channel(guild_id: int, data: dict, actor: str = "", bot=Depends(get_bot)):
     _guard(guild_id, actor)
     guild = _guild(bot, str(guild_id)); channel_id = str(data.get("channel_id") or "")
-    channel = guild.get_channel(int(channel_id)) if channel_id.isdigit() else None
+    channel = guild.get_channel(int(channel_id)) if _valid_discord_id(channel_id) else None
     if not isinstance(channel, discord.TextChannel):
         raise HTTPException(400, "Wähle einen Textkanal des Support-Servers.")
     if channel.permissions_for(guild.default_role).view_channel:
@@ -120,7 +135,12 @@ async def error_ticket(guild_id: int, error_id: str, actor: str = "", bot=Depend
 async def incident_create(guild_id: int, data: dict, actor: str = ""):
     _guard(guild_id, actor); title = str(data.get("title") or "").strip()
     if not title: raise HTTPException(400, "Ein Titel ist erforderlich.")
-    return ops.create_incident(title, str(data.get("severity") or "medium"),
+    severity = str(data.get("severity") or "medium")
+    if severity not in ops.SEVERITIES:
+        raise HTTPException(400, "Ungültiger Schweregrad.")
+    if len(title) > 150 or len(str(data.get("description") or "")) > 2000:
+        raise HTTPException(400, "Titel oder Beschreibung ist zu lang.")
+    return ops.create_incident(title, severity,
                                str(data.get("description") or ""), actor)
 
 
@@ -178,8 +198,9 @@ async def server_lookup(guild_id: int, target_guild_id: str, actor: str = "", bo
 async def premium_history(guild_id: int, server_id: str = "", user_id: str = "", actor: str = ""):
     _guard(guild_id, actor)
     if not server_id and not user_id: raise HTTPException(400, "Server-ID oder Nutzer-ID erforderlich.")
-    if server_id and not server_id.isdigit(): raise HTTPException(400, "Ungültige Server-ID.")
-    if user_id and not user_id.isdigit(): raise HTTPException(400, "Ungültige Nutzer-ID.")
+    if server_id and (not _valid_discord_id(server_id) or int(server_id) > 2**63 - 1):
+        raise HTTPException(400, "Ungültige Server-ID.")
+    if user_id and not _valid_discord_id(user_id): raise HTTPException(400, "Ungültige Nutzer-ID.")
     return {"server": premium_membership.guild_status(int(server_id)) if server_id else None,
             "account": premium_membership.account_status(user_id) if user_id else None}
 
@@ -188,7 +209,7 @@ async def _support_case(server_id: str, user_id: str):
     from api.routes.support import _ensure
     async with aiosqlite.connect("db/admin_config.db") as db:
         db.row_factory = aiosqlite.Row; await _ensure(db)
-        async with db.execute("SELECT * FROM dashboard_support_cases WHERE guild_id=? AND supporter_id=? ORDER BY id DESC LIMIT 1", (server_id, user_id)) as cur:
+        async with db.execute("SELECT * FROM dashboard_support_cases WHERE guild_id=? AND supporter_id=? ORDER BY CASE status WHEN 'accepted' THEN 0 WHEN 'pending' THEN 1 ELSE 2 END, id DESC LIMIT 1", (server_id, user_id)) as cur:
             row = await cur.fetchone()
     return dict(row) if row else None
 
@@ -196,27 +217,32 @@ async def _support_case(server_id: str, user_id: str):
 @router.get("/{guild_id}/support-access")
 async def support_access(guild_id: int, server_id: str, user_id: str, actor: str = ""):
     _guard(guild_id, actor)
-    if not server_id.isdigit() or not user_id.isdigit(): raise HTTPException(400, "Ungültige ID.")
+    if not _valid_discord_id(server_id) or not _valid_discord_id(user_id): raise HTTPException(400, "Ungültige ID.")
     return {"case": await _support_case(server_id, user_id)}
 
 
 @router.post("/{guild_id}/support-access/revoke")
 async def support_access_revoke(guild_id: int, data: dict, actor: str = ""):
     _guard(guild_id, actor); server_id=str(data.get("server_id") or ""); user_id=str(data.get("user_id") or "")
-    if not server_id.isdigit() or not user_id.isdigit():
+    if not _valid_discord_id(server_id) or not _valid_discord_id(user_id):
         raise HTTPException(400, "Ungültige ID.")
     row = await _support_case(server_id, user_id)
     if not row: raise HTTPException(404, "Supportfall nicht gefunden.")
     now=int(time.time())
     async with aiosqlite.connect("db/admin_config.db") as db:
-        await db.execute("UPDATE dashboard_support_cases SET status='closed',closed_at=?,updated_at=? WHERE id=? AND status IN ('pending','accepted')", (now,now,row["id"])); await db.commit()
-    ops.audit(actor, "support_access_revoked", str(row["id"]), f"guild={server_id}, supporter={user_id}")
-    return {"status": "closed", "case_id": row["id"]}
+        cursor = await db.execute("UPDATE dashboard_support_cases SET status='closed',closed_at=?,updated_at=? WHERE guild_id=? AND supporter_id=? AND status IN ('pending','accepted')", (now,now,server_id,user_id))
+        revoked = cursor.rowcount
+        await db.commit()
+    if revoked:
+        ops.audit(actor, "support_access_revoked", str(row["id"]), f"guild={server_id}, supporter={user_id}, cases={revoked}")
+    return {"status": "closed" if revoked else row["status"], "case_id": row["id"], "revoked": revoked}
 
 
 @router.get("/{guild_id}/templates/{template_id}")
 async def template_inspect(guild_id: int, template_id: int, actor: str = ""):
     _guard(guild_id, actor)
+    if not 0 < template_id <= 2**63 - 1:
+        raise HTTPException(400, "Ungültige Template-ID.")
     async with aiosqlite.connect(template_store.DB_PATH) as db:
         await template_store.ensure_schema(db)
         item = await template_store.get_template(db, template_id, as_admin=True)
