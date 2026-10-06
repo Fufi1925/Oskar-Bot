@@ -19,6 +19,7 @@ import type { NextRequest } from "next/server";
 import { withAuth } from "next-auth/middleware";
 import { getToken } from "next-auth/jwt";
 import { getAuthSecret } from "@/lib/auth-session";
+import { authErrorPath } from "@/lib/auth-errors";
 
 import {
   BYPASS_COOKIE,
@@ -282,6 +283,18 @@ export default async function middleware(request: NextRequest, event: any) {
   // in during an outage rather than telling them the site is down.
   const halted = maintenanceGate(request);
   if (halted) return halted;
+
+  // Older OAuth redirects land on /?error=OAuthCallback. Show the actual
+  // failure and a fresh sign-in action rather than the anonymous homepage.
+  const error = request.nextUrl.searchParams.get("error");
+  if (
+    request.nextUrl.pathname === "/" &&
+    ["OAuthSignin", "OAuthCallback", "OAuthAccountNotLinked", "Callback"].includes(error || "")
+  ) {
+    return NextResponse.redirect(
+      new URL(authErrorPath("signin", error)!, process.env.NEXTAUTH_URL || request.url),
+    );
+  }
 
   if (needsAuth(request.nextUrl.pathname, request.method)) {
     return (authGate as any)(request, event);
