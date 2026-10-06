@@ -11,6 +11,7 @@ from starlette.responses import Response, RedirectResponse
 from utils.config import *
 from api.routes import bot, guilds, admin, team, moderation, actions, access, guild_access, dashboard_ai, support_operations, servers, servertools, server_stats, tickets, giveaways, leveling, vanity, broadcast, anonchat, diagnose, compose, nukealert, memberperks, extras, voice, verify, automod, logging_cfg, antinuke, pingreactions, premium, privacy, cookies, speedrun, supportqueue, support, honeypot, design, beta, backup, tester, music, templates, teamlist, applications, teamupdate, webapply, ideas, firewall as firewall_route, commands as commands_route
 from api.dependencies import verify_api_key, limiter, get_bot_loop, get_bot, run_on_bot_loop
+from api.loop_bridge import BotLoopMiddleware
 from api.db_manager import db_manager
 from api.schema_guard import ensure_schema
 from utils import feature_flags
@@ -310,59 +311,9 @@ def create_app() -> FastAPI:
             )
         return await call_next(request)
 
-    # ------------------------------------------------------------------
-    # Run every API handler on the BOT's event loop.
-    #
-    # uvicorn runs in its own thread with its own loop, but discord.py
-    # objects (HTTP session, gateway, locks) belong to the bot's loop.
-    # Awaiting them from here raised
-    #     RuntimeError: Timeout context manager should be used inside a task
-    # on every dashboard action (ban, kick, send message, edit channel...).
-    #
-    # Doing it once as middleware fixes all routes at once, instead of
-    # wrapping 112 endpoints by hand.
-    # ------------------------------------------------------------------
-    @api_app.middleware("http")
-    async def run_on_bot_event_loop(request: Request, call_next):
-        loop = get_bot_loop()
-        if loop is None or loop.is_closed():
-            return await call_next(request)
-
-        try:
-            if asyncio.get_running_loop() is loop:
-                return await call_next(request)
-        except RuntimeError:
-            pass
-
-        async def _handle():
-            response = await call_next(request)
-
-            # A streaming response hands back a lazy iterator that is bound
-            # to *this* loop. Returning it would make the server read it
-            # from the uvicorn loop instead, which deadlocks and leaves the
-            # download spinning forever. Drain it here, while we are still
-            # on the loop that owns it.
-            iterator = getattr(response, "body_iterator", None)
-            if iterator is not None:
-                chunks = [chunk async for chunk in iterator]
-                body = b"".join(
-                    c if isinstance(c, bytes) else str(c).encode("utf-8")
-                    for c in chunks
-                )
-                headers = dict(response.headers)
-                # The length changes once the body is assembled.
-                headers.pop("content-length", None)
-                return Response(
-                    content=body,
-                    status_code=response.status_code,
-                    headers=headers,
-                    media_type=response.media_type,
-                )
-
-            return response
-
-        fut = asyncio.run_coroutine_threadsafe(_handle(), loop)
-        return await asyncio.wrap_future(fut)
+    # Wrap the whole sub-app rather than moving BaseHTTPMiddleware.call_next
+    # across loops: its response events belong to the loop that created them.
+    api_app.add_middleware(BotLoopMiddleware, loop_provider=get_bot_loop)
 
     api_app.include_router(bot.router, prefix="/bot", tags=["Bot"])
     api_app.include_router(ideas.router, prefix="/ideas", tags=["Ideas"])
