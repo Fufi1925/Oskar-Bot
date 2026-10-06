@@ -462,11 +462,11 @@ export default function DashboardLayout({
     : allSidebarItems;
 
   return (
-    <div className="min-h-screen bg-[#0a0a0c] text-slate-200">
+    <div className="user-dashboard-theme min-h-screen bg-[#0a0a0c] text-slate-200">
       <DiscordIdInspector />
       {/* Liquid Background Elements */}
       {/* Ein ruhiger Schein statt zwei pulsierender Flaechen. */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
+      <div className="dashboard-background-decoration fixed inset-0 overflow-hidden pointer-events-none z-0">
         <div className="absolute top-[-15%] right-[-10%] h-[45%] w-[45%] rounded-full bg-indigo-600/[0.05] blur-[140px]" />
       </div>
 
@@ -649,9 +649,9 @@ export default function DashboardLayout({
       {/* Main Content Area (unchanged) */}
       <div className="relative z-10 flex min-h-screen flex-col bg-[#191a1f] lg:pl-[250px]">
         {/* Top Navbar (unchanged) */}
-        <header className="sticky top-2 z-30 mx-3 mb-4 mt-3 flex h-16 isolate items-center justify-between gap-2 rounded-[24px] border border-white/[.1] bg-[#090b12]/78 px-2.5 shadow-[0_22px_70px_rgba(0,0,0,.32)] backdrop-blur-3xl lg:top-4 lg:mx-6 lg:mb-6 lg:mt-4 lg:h-[72px] lg:rounded-[28px] lg:px-4">
-          <div className="pointer-events-none absolute inset-x-16 top-0 h-px bg-gradient-to-r from-transparent via-blue-300/35 to-transparent" />
-          <div className="pointer-events-none absolute -top-20 right-28 h-40 w-64 rounded-full bg-blue-600/[.08] blur-3xl" />
+        <header className="dashboard-topbar sticky top-2 z-30 mx-3 mb-4 mt-3 flex h-16 isolate items-center justify-between gap-2 rounded-[24px] border border-white/[.1] bg-[#090b12]/78 px-2.5 shadow-[0_22px_70px_rgba(0,0,0,.32)] backdrop-blur-3xl lg:top-4 lg:mx-6 lg:mb-6 lg:mt-4 lg:h-[72px] lg:rounded-[28px] lg:px-4">
+          <div className="dashboard-header-decoration pointer-events-none absolute inset-x-16 top-0 h-px bg-gradient-to-r from-transparent via-blue-300/35 to-transparent" />
+          <div className="dashboard-header-decoration pointer-events-none absolute -top-20 right-28 h-40 w-64 rounded-full bg-blue-600/[.08] blur-3xl" />
           <button
             className="relative grid h-10 w-10 shrink-0 place-items-center rounded-2xl border border-white/[.08] bg-white/[.045] text-slate-400 transition hover:bg-white/[.09] hover:text-white lg:hidden"
             aria-label="Navigation öffnen"

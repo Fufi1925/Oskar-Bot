@@ -695,8 +695,8 @@ input[type="number"] {
   will-change: auto;
 }
 
-/* Admin tabs share the quiet charcoal surfaces of the overview reference.
-   Scoped to the admin workspace: server dashboards keep their own theme. */
+/* Shared dashboard surfaces follow the charcoal overview reference.
+   Public pages retain their own theme. */
 .admin-dashboard-theme {
   --admin-card: #202126;
   --admin-field: #191a1e;
@@ -712,7 +712,7 @@ input[type="number"] {
 }
 
 /* Cover both shared admin-ui cards and older panels with local utilities. */
-.admin-dashboard-theme :is(.glass, .admin-glass, [class~="bg-[#131318]"], [class~="bg-[#202126]"], [class~="bg-slate-900"], [class~="bg-slate-900/50"], [class~="bg-white/[0.02]"], [class~="bg-white/[0.03]"]) {
+:is(.admin-dashboard-theme, .user-dashboard-theme) :is(.glass, .admin-glass, [class~="bg-[#131318]"], [class~="bg-[#202126]"], [class~="bg-slate-900"], [class~="bg-slate-900/50"], [class~="bg-white/[0.02]"], [class~="bg-white/[0.03]"]) {
   background: var(--admin-card);
   background-image: none;
   backdrop-filter: none;
@@ -720,19 +720,19 @@ input[type="number"] {
   box-shadow: 0 1px 2px rgb(0 0 0 / .08);
 }
 
-.admin-dashboard-theme :is([class~="rounded-3xl"], [class~="rounded-2xl"], [class~="rounded-[2rem]"], .admin-glass) {
+:is(.admin-dashboard-theme, .user-dashboard-theme) :is([class~="rounded-3xl"], [class~="rounded-2xl"], [class~="rounded-[2rem]"], .admin-glass) {
   border-radius: 16px;
 }
 
-.admin-dashboard-theme :is([class~="border-slate-800"], [class~="border-slate-700"], [class~="border-white/5"]) {
+:is(.admin-dashboard-theme, .user-dashboard-theme) :is([class~="border-slate-800"], [class~="border-slate-700"], [class~="border-white/5"]) {
   border-color: var(--admin-border);
 }
 
-.admin-dashboard-theme :is([class~="bg-[#0a0a0c]"], [class~="bg-[#0e0e12]"], [class~="bg-[#0f0f13]"], [class~="bg-[#191a1f]"]) {
+:is(.admin-dashboard-theme, .user-dashboard-theme) :is([class~="bg-[#0a0a0c]"], [class~="bg-[#0e0e12]"], [class~="bg-[#0f0f13]"], [class~="bg-[#191a1f]"]) {
   background-color: var(--admin-field);
 }
 
-.admin-dashboard-theme :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]), textarea, select) {
+:is(.admin-dashboard-theme, .user-dashboard-theme) :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]), textarea, select) {
   background-color: var(--admin-field);
   border-color: var(--admin-border);
   border-radius: 10px;
@@ -741,56 +741,56 @@ input[type="number"] {
   line-height: 1.5;
 }
 
-.admin-dashboard-theme :is(input, textarea)::placeholder {
+:is(.admin-dashboard-theme, .user-dashboard-theme) :is(input, textarea)::placeholder {
   color: #858892;
 }
 
-.admin-dashboard-theme :is(button, a, input, textarea, select):focus-visible {
+:is(.admin-dashboard-theme, .user-dashboard-theme) :is(button, a, input, textarea, select):focus-visible {
   outline: 2px solid #a7b6ed;
   outline-offset: 3px;
 }
 
-.admin-dashboard-theme :is(h2, h3) {
+:is(.admin-dashboard-theme, .user-dashboard-theme) :is(h2, h3) {
   font-weight: 600;
   letter-spacing: -.015em;
 }
 
-.admin-dashboard-theme :is(label, th)[class*="uppercase"] {
+:is(.admin-dashboard-theme, .user-dashboard-theme) :is(label, th)[class*="uppercase"] {
   text-transform: none;
   letter-spacing: normal;
 }
 
-.admin-dashboard-theme :is([class~="text-slate-500"], [class~="text-slate-600"]) {
+:is(.admin-dashboard-theme, .user-dashboard-theme) :is([class~="text-slate-500"], [class~="text-slate-600"]) {
   color: #92959f;
 }
 
-.admin-dashboard-theme [class~="text-slate-400"] {
+:is(.admin-dashboard-theme, .user-dashboard-theme) [class~="text-slate-400"] {
   color: #a5a7af;
 }
 
-.admin-dashboard-theme table {
+:is(.admin-dashboard-theme, .user-dashboard-theme) table {
   font-size: 13px;
   border-collapse: collapse;
 }
 
-.admin-dashboard-theme :is(th, td) {
+:is(.admin-dashboard-theme, .user-dashboard-theme) :is(th, td) {
   border-color: var(--admin-border);
 }
 
-.admin-dashboard-theme th {
+:is(.admin-dashboard-theme, .user-dashboard-theme) th {
   color: #a5a7af;
   font-weight: 500;
 }
 
-.admin-dashboard-theme tbody tr:hover {
+:is(.admin-dashboard-theme, .user-dashboard-theme) tbody tr:hover {
   background-color: rgb(255 255 255 / .025);
 }
 
-.admin-dashboard-theme :is(.admin-glass::before, .admin-hero::after) {
+:is(.admin-dashboard-theme, .user-dashboard-theme) :is(.admin-glass::before, .admin-hero::after) {
   display: none;
 }
 
-.admin-dashboard-theme .admin-glass-hover:hover {
+:is(.admin-dashboard-theme, .user-dashboard-theme) .admin-glass-hover:hover {
   transform: none;
   box-shadow: 0 1px 2px rgb(0 0 0 / .08);
   border-color: rgb(255 255 255 / .12);
@@ -808,32 +808,32 @@ input[type="number"] {
   }
 }
 
-.admin-dashboard-theme :is([class~="bg-[#0b0b0f]"], [class~="bg-[#0c0c10]"], [class~="bg-[#101014]"], [class~="bg-[#111116]"], [class~="bg-[#0e0e12]/60"], [class~="bg-[#0c0c10]/70"]) {
+:is(.admin-dashboard-theme, .user-dashboard-theme) :is([class~="bg-[#0b0b0f]"], [class~="bg-[#0c0c10]"], [class~="bg-[#101014]"], [class~="bg-[#111116]"], [class~="bg-[#0e0e12]/60"], [class~="bg-[#0c0c10]/70"]) {
   background-color: var(--admin-field);
 }
 
-.admin-dashboard-theme :is([class~="bg-[#131318]/70"], [class~="bg-white/[.03]"], [class~="bg-white/[0.04]"], [class~="bg-white/[0.05]"], [class~="bg-white/[0.06]"])[class~="border"] {
+:is(.admin-dashboard-theme, .user-dashboard-theme) :is([class~="bg-[#131318]/70"], [class~="bg-white/[.03]"], [class~="bg-white/[0.04]"], [class~="bg-white/[0.05]"], [class~="bg-white/[0.06]"])[class~="border"] {
   background-color: var(--admin-card);
   border-color: var(--admin-border);
 }
 
-.admin-dashboard-theme button:is([class~="bg-[#202126]"], [class~="bg-[#0e0e12]"]):enabled:hover {
+:is(.admin-dashboard-theme, .user-dashboard-theme) button:is([class~="bg-[#202126]"], [class~="bg-[#0e0e12]"]):enabled:hover {
   background-color: #282a31;
   border-color: rgb(255 255 255 / .12);
 }
 
 /* A portal menu retains its admin surface outside the workspace DOM. */
-[data-admin-surface="true"] {
+[data-dashboard-surface="true"] {
   background-color: #202126;
   border-color: rgb(255 255 255 / .07);
   border-radius: 12px;
 }
 
-.admin-dashboard-theme :is([class~="bg-[#202126]"], [class~="bg-[#131318]"])[class~="rounded-xl"] {
+:is(.admin-dashboard-theme, .user-dashboard-theme) :is([class~="bg-[#202126]"], [class~="bg-[#131318]"])[class~="rounded-xl"] {
   border-radius: 16px;
 }
 
-.admin-dashboard-theme [class~="font-black"] {
+:is(.admin-dashboard-theme, .user-dashboard-theme) [class~="font-black"] {
   font-weight: 600;
 }
 
@@ -858,4 +858,84 @@ input[type="number"] {
     grid-column: 1 / -1;
     justify-self: start;
   }
+}
+
+/* The user shell supplies the same palette without adding a second inset
+   around each page. Layout and all existing navigation stay intact. */
+.user-dashboard-theme {
+  --admin-card: #202126;
+  --admin-field: #191a1e;
+  --admin-border: rgb(255 255 255 / .07);
+  --card: var(--admin-card);
+  --surface: var(--admin-field);
+  --card-border: var(--admin-border);
+  background-color: var(--admin-field);
+  color: #e9eaed;
+  color-scheme: dark;
+}
+
+.user-dashboard-theme .dashboard-topbar {
+  background: var(--admin-card);
+  border-color: var(--admin-border);
+  border-radius: 16px;
+  box-shadow: 0 1px 2px rgb(0 0 0 / .08);
+  backdrop-filter: none;
+}
+
+.user-dashboard-theme .university-clean-sidebar {
+  background-color: var(--admin-card);
+  border-color: var(--admin-border);
+}
+
+.user-dashboard-theme :is(.dashboard-background-decoration, .dashboard-header-decoration) {
+  display: none;
+}
+
+.user-dashboard-theme :is([class~="bg-[#09090c]"], [class~="bg-[#09090d]"], [class~="bg-[#0b0b10]"], [class~="bg-[#0d0d11]"], [class~="bg-[#101015]"], [class~="bg-[#111216]"], [class~="bg-[#15151b]"], [class~="bg-[#16161c]"], [class~="bg-[#17171b]"], [class~="bg-[#17171c]"], [class~="bg-[#17171d]"]) {
+  background-color: var(--admin-field);
+}
+
+.user-dashboard-theme :is([class~="bg-[#0b1626]"], [class~="bg-[#0d1728]"], [class~="bg-[#0d1b30]"], [class~="bg-[#111827]"], [class~="bg-[#111318]"], [class~="bg-[#11141d]"], [class~="bg-[#202027]"])[class~="border"] {
+  background: var(--admin-card);
+  border-color: var(--admin-border);
+}
+
+.user-dashboard-theme :is([class~="rounded-[24px]"], [class~="rounded-[28px]"], [class~="rounded-[32px]"])[class~="border"] {
+  border-radius: 16px;
+}
+
+.user-dashboard-theme .dashboard-topbar :is(button, a) {
+  border-radius: 10px;
+}
+
+.user-dashboard-theme main :is(input, textarea, select) {
+  max-width: 100%;
+}
+
+[data-dashboard-surface="true"] :is([class~="text-slate-500"], [class~="text-slate-600"]) {
+  color: #92959f;
+}
+
+.user-dashboard-theme main h1:not(.admin-dashboard-theme h1) {
+  font-size: clamp(22px, 2vw, 28px);
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -.025em;
+}
+
+.user-dashboard-theme :is([class~="bg-[#0e0e12]/40"], [class~="bg-[#0e0e12]/50"], [class~="bg-[#0b0b0f]/70"]) {
+  background-color: var(--admin-field);
+}
+
+:is(.admin-dashboard-theme, .user-dashboard-theme) [contenteditable="true"] {
+  background-color: var(--admin-field);
+  border-color: var(--admin-border);
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+:is(.admin-dashboard-theme, .user-dashboard-theme) [contenteditable="true"]:focus-visible {
+  outline: 2px solid #a7b6ed;
+  outline-offset: 3px;
 }
