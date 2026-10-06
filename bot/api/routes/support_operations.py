@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import json
-import math
 import os
 import time
 
@@ -10,6 +9,7 @@ import aiosqlite
 import discord
 from fastapi import APIRouter, Depends, HTTPException
 
+from api.metrics import latency_milliseconds
 from api.dependencies import get_bot, run_on_bot_loop
 from utils import (command_stats, feature_flags, premium_membership,
                    support_operations as ops, template_store)
@@ -70,7 +70,7 @@ async def overview(guild_id: int, actor: str = "", bot=Depends(get_bot)):
         "global": {
             "guilds": len(bot.guilds), "users": users,
             "commands": await command_stats.total_uses(),
-            "latency_ms": round(bot.latency * 1000) if math.isfinite(bot.latency) else None,
+            "latency_ms": latency_milliseconds(bot.latency, 0),
             **counts,
         },
         "deployment": _deployment(),

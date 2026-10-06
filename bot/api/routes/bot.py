@@ -13,6 +13,7 @@
 # ╚══════════════════════════════════════════════════════════════════╝
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from api.metrics import latency_milliseconds
 from api.dependencies import get_bot
 from api.schemas import BotInfo, BotStatus
 from typing import TYPE_CHECKING
@@ -35,7 +36,7 @@ async def get_status(bot: "universitybot" = Depends(get_bot)):
     return BotStatus(
         user=str(bot.user),
         id=str(bot.user.id) if bot.user else None,
-        latency=bot.latency * 1000,
+        latency=latency_milliseconds(bot.latency),
         guild_count=len(bot.guilds),
         user_count=sum(g.member_count or 0 for g in bot.guilds),
         shards=bot.shard_count
@@ -46,13 +47,14 @@ async def get_bot_info(bot: "universitybot" = Depends(get_bot)):
     """
     Get general information about the Discord bot.
     """
+    latency = latency_milliseconds(bot.latency, 2)
     return BotInfo(
         name=bot.user.name if bot.user else BRAND_NAME,
         id=str(bot.user.id) if bot.user else None,
         guilds=len(bot.guilds),
         users=sum(g.member_count or 0 for g in bot.guilds),
         commands=len(bot.commands),
-        latency=f"{round(bot.latency * 1000, 2)}ms"
+        latency=f"{latency}ms" if latency is not None else "Nicht verfügbar"
     )
 
 
@@ -125,7 +127,7 @@ async def get_numbers(bot: "universitybot" = Depends(get_bot)):
         "prefix_commands": prefix,
         "slash_commands": slash,
         "commands": prefix + slash,
-        "latency_ms": round(bot.latency * 1000, 1),
+        "latency_ms": latency_milliseconds(bot.latency, 1),
     }
 
 

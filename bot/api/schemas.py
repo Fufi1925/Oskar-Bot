@@ -28,7 +28,7 @@ class BotInfo(BaseModel):
 class BotStatus(BaseModel):
     user: str
     id: Optional[str]
-    latency: float
+    latency: Optional[float]
     guild_count: int
     user_count: int
     shards: Optional[int]

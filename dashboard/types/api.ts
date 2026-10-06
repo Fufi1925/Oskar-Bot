@@ -30,7 +30,7 @@ export interface BotInfo {
 export interface BotStatus {
   user: string;
   id: number | null;
-  latency: number;
+  latency: number | null;
   guild_count: number;
   user_count: number;
   shards: number | null;

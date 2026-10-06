@@ -13,6 +13,7 @@
 # ╚══════════════════════════════════════════════════════════════════╝
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from api.metrics import latency_milliseconds
 from api.dependencies import get_bot
 from api.schemas import AdminStats, AdminNodeStatus, AdminConfig, AdminConfigUpdate
 from typing import TYPE_CHECKING, List
@@ -79,6 +80,9 @@ async def get_admin_stats(bot: "universitybot" = Depends(get_bot)):
     total_commands = len(bot.commands)
     loaded_cogs = len(bot.cogs or {})
 
+    latency = latency_milliseconds(bot.latency)
+    latency_text = f"{round(latency, 2)}ms" if latency is not None else "Nicht verfügbar"
+
     # Node Healths
     nodes = [
         AdminNodeStatus(
@@ -101,8 +105,8 @@ async def get_admin_stats(bot: "universitybot" = Depends(get_bot)):
         ),
         AdminNodeStatus(
             name="Auth Sockets", 
-            status="Healthy", 
-            load=f"Shard: {bot.shard_count} | Latency: {round(bot.latency * 1000)}ms", 
+            status="Healthy" if bot.is_ready() and latency is not None else "Booting",
+            load=f"Shard: {bot.shard_count} | Latency: {latency_text}",
             icon="Lock"
         )
     ]
@@ -112,7 +116,7 @@ async def get_admin_stats(bot: "universitybot" = Depends(get_bot)):
     return AdminStats(
         total_users=str(total_members),
         active_servers=str(len(bot.guilds)),
-        api_latency=f"{round(bot.latency * 1000, 2)}ms",
+        api_latency=latency_text,
         db_size=db_size_str,
         nodes=nodes
     )
@@ -245,7 +249,7 @@ async def get_admin_overview(bot: "universitybot" = Depends(get_bot)):
             "applications": applications_open,
         },
         "system": {
-            "api_latency_ms": round(bot.latency * 1000, 2),
+            "api_latency_ms": latency_milliseconds(bot.latency, 2),
             "ready": bool(bot.is_ready()),
             "guilds_available": bool(bot.guilds),
         },

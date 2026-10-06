@@ -21,7 +21,7 @@ export type AdminOverviewData = {
     applications: number;
   };
   pending: { premium_purchases: number; ideas: number; applications: number };
-  system: { api_latency_ms: number; ready: boolean; guilds_available: boolean };
+  system: { api_latency_ms: number | null; ready: boolean; guilds_available: boolean };
 };
 
 type OpenTab = (tab: string) => void;
@@ -115,7 +115,7 @@ export function AdminOverview({
           </div>
           <div className="space-y-3 text-xs">
             <div className="flex items-center justify-between"><span className="text-slate-500">Bot</span><span className={data?.system.ready ? "text-emerald-300" : "text-amber-300"}>{data?.system.ready ? "Online" : "Startet"}</span></div>
-            <div className="flex items-center justify-between"><span className="text-slate-500">Antwortzeit</span><span className="tabular-nums text-slate-300">{loading ? "–" : `${format(data?.system.api_latency_ms)} ms`}</span></div>
+            <div className="flex items-center justify-between"><span className="text-slate-500">Antwortzeit</span><span className="tabular-nums text-slate-300">{loading ? "–" : data?.system.api_latency_ms == null ? "Nicht verfügbar" : `${format(data.system.api_latency_ms)} ms`}</span></div>
             <div className="flex items-center justify-between"><span className="text-slate-500">Aktive Server</span><span className="tabular-nums text-slate-300">{loading ? "–" : format(data?.totals.servers)}</span></div>
             <div className="flex items-center justify-between"><span className="text-slate-500">Erreichte Nutzer</span><span className="tabular-nums text-slate-300">{loading ? "–" : format(data?.totals.users)}</span></div>
             <div className="flex items-center justify-between"><span className="text-slate-500">Aktive Premium-Konten</span><span className="tabular-nums text-slate-300">{loading ? "–" : format(data?.totals.premium_active)}</span></div>
