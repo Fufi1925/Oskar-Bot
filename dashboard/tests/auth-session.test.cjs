@@ -88,3 +88,29 @@ test('Missing, forged, expired and revoked sessions stay blocked', async () => {
   assert.equal(response.status, 307);
   assert.equal(new URL(response.headers.get('location')).searchParams.get('error'), 'SessionRevoked');
 });
+
+test('Railway auth logs retain the reason and omit credentials, tokens and state values', () => {
+  const { options } = load(crypto.randomBytes(32).toString('hex'), 'https://dashboard.example.test', true);
+  const entries = [];
+  const original = console.error;
+  const marker = 'do-not-log-test-secret';
+  try {
+    console.error = (...args) => entries.push(args);
+    options.logger.error('OAUTH_CALLBACK_ERROR', {
+      error: Object.assign(new Error('invalid_client (client authentication failed)'), {
+        request: { headers: { Authorization: marker }, client_secret: marker },
+        access_token: marker,
+      }),
+      providerId: 'discord',
+    });
+    options.logger.error('OAUTH_CALLBACK_ERROR', {
+      error: new Error(`state mismatch, expected ${marker}, got ${marker}`),
+      providerId: 'discord',
+    });
+  } finally { console.error = original; }
+  assert.equal(entries[0][0], '[next-auth][OAUTH_CALLBACK_ERROR]');
+  assert.equal(entries[0][1].message, 'invalid_client (client authentication failed)');
+  assert.equal(entries[0][1].providerId, 'discord');
+  assert.equal(entries[1][1].message, 'state mismatch (values redacted)');
+  assert(!JSON.stringify(entries).includes(marker));
+});

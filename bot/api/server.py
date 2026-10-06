@@ -550,6 +550,12 @@ def create_app() -> FastAPI:
     async def proxy_to_dashboard(request: Request, path: str):
         target_url = f"{DASHBOARD_URL}/{path}"
         headers = dict(request.headers)
+        # HTTP/2 clients and reverse proxies may split Cookie over several
+        # fields. A dict keeps only one and can silently drop OAuth state or
+        # a session-token chunk. RFC 9113 requires joining them with "; ".
+        cookie_fields = request.headers.getlist("cookie")
+        if cookie_fields:
+            headers["cookie"] = "; ".join(cookie_fields)
         # NextAuth must see the public origin, not the internal :3000 hop.
         # Railway normally supplies these already, but setting deterministic
         # fallbacks prevents OAuth state/callback cookies from switching host

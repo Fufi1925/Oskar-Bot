@@ -145,9 +145,17 @@ export const authOptions: AuthOptions = {
   },
   logger: {
     error(code, metadata) {
-      // NextAuth redacts provider secrets. Railway now receives the concrete
-      // callback/state/token error instead of only a generic browser page.
-      console.error(`[next-auth][${code}]`, metadata);
+      // Keep the concrete callback reason visible without dumping request
+      // objects, provider credentials, tokens or raw OAuth state values.
+      const detail = (metadata as any)?.error || metadata;
+      const message = typeof (detail as any)?.message === "string"
+        ? (detail as any).message.replace(/state mismatch[^\n]*/gi, "state mismatch (values redacted)")
+        : "Authentication failed";
+      console.error(`[next-auth][${code}]`, {
+        name: (detail as any)?.name || code,
+        message,
+        providerId: (metadata as any)?.providerId,
+      });
     },
     warn(code) {
       console.warn(`[next-auth][${code}]`);

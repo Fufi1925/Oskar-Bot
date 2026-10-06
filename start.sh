@@ -208,7 +208,9 @@ trap cleanup EXIT INT TERM
 # Start Dashboard standalone server
 cd /app/dashboard/standalone
 ls -la server.js 2>/dev/null || echo "⚠️ server.js not found!"
-HOSTNAME=0.0.0.0 PORT=$DASHBOARD_PORT node server.js > /tmp/dashboard.log 2>&1 &
+# Keep the real Node PID for cleanup, mirror errors into Railway logs, and
+# retain the local log used by the readiness checks below.
+HOSTNAME=0.0.0.0 PORT=$DASHBOARD_PORT node server.js > >(tee /tmp/dashboard.log) 2>&1 &
 DASHBOARD_PID=$!
 echo "✅ Dashboard started on port $DASHBOARD_PORT (PID: $DASHBOARD_PID)"
 
