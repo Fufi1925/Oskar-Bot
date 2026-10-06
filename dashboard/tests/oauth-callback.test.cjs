@@ -64,9 +64,9 @@ async function roundtrip(mode = 'ok') {
     assert(jar['__Secure-next-auth.state'], 'secure state cookie must survive the Discord redirect');
     const state = authorize.searchParams.get('state');
     if (mode === 'missing_state') delete jar['__Secure-next-auth.state'];
-    const response = await AuthHandler({ options, req: { action: 'callback', providerId: 'discord', method: 'GET', headers: {}, cookies: jar, query: { code: 'test-code', state: mode === 'wrong_state' ? 'wrong-state' : state } } });
+    const response = await AuthHandler({ options, req: { action: 'callback', providerId: 'discord', method: 'GET', headers: {}, cookies: jar, query: { code: 'test-code', state: mode === 'wrong_state' ? 'wrong-state' : state, ...(mode === 'legacy_no_issuer' ? {} : { iss: mode === 'wrong_issuer' ? 'https://untrusted.example.test' : 'https://discord.com' }) } } });
     applyCookies(jar, response);
-    if (mode === 'ok') {
+    if (mode === 'ok' || mode === 'legacy_no_issuer') {
       assert.equal(response.redirect, callbackUrl, JSON.stringify(errors));
       assert(jar['__Secure-next-auth.session-token'], 'callback must issue a real signed session');
       const session = await AuthHandler({ options, req: { action: 'session', method: 'GET', headers: {}, cookies: jar, query: {} } });
@@ -77,12 +77,18 @@ async function roundtrip(mode = 'ok') {
       assert.equal(new URL(response.redirect).searchParams.get('error'), 'OAuthCallback');
       assert(!jar['__Secure-next-auth.session-token']);
       assert(errors.some(item => item.code === 'OAUTH_CALLBACK_ERROR'));
-      if (mode === 'missing_state') assert.equal(exchanges, 0, 'missing state must be rejected before token exchange');
+      if (mode === 'missing_state' || mode === 'wrong_issuer') assert.equal(exchanges, 0, 'invalid state or issuer must be rejected before token exchange');
+      if (mode === 'wrong_issuer') assert(errors.some(item => item.message.startsWith('iss mismatch')), 'reject the unexpected issuer explicitly');
+      if (mode === 'invalid_client') {
+        assert.equal(exchanges, 1, 'valid state and issuer must reach the token endpoint');
+        assert(errors.some(item => item.message.includes('invalid_client')));
+      }
     }
   } finally { await new Promise(resolve => server.close(resolve)); }
 }
 test('Discord authorization, state, code exchange, profile and session roundtrip on Railway origin', () => roundtrip());
-for (const mode of ['missing_state', 'wrong_state', 'invalid_client']) test('OAuthCallback safely rejects ' + mode, () => roundtrip(mode));
+test('Discord legacy callbacks without an issuer still create a session', () => roundtrip('legacy_no_issuer'));
+for (const mode of ['missing_state', 'wrong_state', 'wrong_issuer', 'invalid_client']) test('OAuthCallback safely rejects ' + mode, () => roundtrip(mode));
 
 test('OAuth failures open the error page rather than bouncing back to the homepage', () => {
   const { authErrorPath } = require('../lib/auth-errors.ts');

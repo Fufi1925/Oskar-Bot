@@ -49,6 +49,9 @@ async function revokedBefore(userId: string): Promise<number | null> {
 export const authOptions: AuthOptions = {
   providers: [
     DiscordProvider({
+      // Discord includes iss in authorization responses (RFC 9207). NextAuth
+      // needs the expected issuer to validate it before exchanging the code.
+      issuer: "https://discord.com",
       clientId: DISCORD_CLIENT_ID,
       clientSecret: DISCORD_CLIENT_SECRET,
       authorization: { 
