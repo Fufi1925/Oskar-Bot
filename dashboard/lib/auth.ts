@@ -1,5 +1,6 @@
 import DiscordProvider from "next-auth/providers/discord";
 import { AuthOptions } from "next-auth";
+import { getAuthSecret } from "@/lib/auth-session";
 
 // Keep the University OAuth application isolated from LBoost Shop and every
 // other bot. Dedicated names win; the old variables remain supported so
@@ -135,7 +136,7 @@ export const authOptions: AuthOptions = {
     strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60,
   },
-  secret: process.env.NEXTAUTH_SECRET || process.env.DASHBOARD_API_KEY,
+  secret: getAuthSecret(),
   pages: {
     signIn: "/",
     // Do not send an OAuth callback error back to the homepage. That hid the

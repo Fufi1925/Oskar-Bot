@@ -18,6 +18,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { withAuth } from "next-auth/middleware";
 import { getToken } from "next-auth/jwt";
+import { getAuthSecret } from "@/lib/auth-session";
 
 import {
   BYPASS_COOKIE,
@@ -179,9 +180,10 @@ const authGate = withAuth(
     return NextResponse.redirect(url);
   },
   {
+    secret: getAuthSecret(),
     pages: {
       signIn: "/",
-      error: "/",
+      error: "/auth/error",
     },
   }
 );
@@ -254,7 +256,7 @@ async function firewallGate(request: NextRequest): Promise<NextResponse | null> 
   if (!key) return null;
   const ip = (request.headers.get("cf-connecting-ip") || request.headers.get("x-real-ip") || (request.headers.get("x-forwarded-for") || "unknown").split(",")[0]).trim();
   try {
-    const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET || key });
+    const token = await getToken({ req: request, secret: getAuthSecret() });
     const actorId = String(token?.sub || "");
     const ownerIds=(process.env.ADMIN_IDS || process.env.OWNER_IDS || process.env.NEXT_PUBLIC_ADMIN_IDS || "").split(",").map(v=>v.trim());
     const response = await fetch(`${API_BASE_URL}/firewall/check`, {
