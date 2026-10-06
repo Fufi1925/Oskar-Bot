@@ -694,3 +694,168 @@ input[type="number"] {
   text-shadow: none !important;
   will-change: auto;
 }
+
+/* Admin tabs share the quiet charcoal surfaces of the overview reference.
+   Scoped to the admin workspace: server dashboards keep their own theme. */
+.admin-dashboard-theme {
+  --admin-card: #202126;
+  --admin-field: #191a1e;
+  --admin-border: rgba(255, 255, 255, .07);
+  --card: var(--admin-card);
+  --surface: var(--admin-field);
+  --card-border: var(--admin-border);
+  background: var(--admin-field);
+  border-radius: 20px;
+  padding: clamp(12px, 2vw, 24px);
+  color: #e9eaed;
+  color-scheme: dark;
+}
+
+/* Cover both shared admin-ui cards and older panels with local utilities. */
+.admin-dashboard-theme :is(.glass, .admin-glass, [class~="bg-[#131318]"], [class~="bg-[#202126]"], [class~="bg-slate-900"], [class~="bg-slate-900/50"], [class~="bg-white/[0.02]"], [class~="bg-white/[0.03]"]) {
+  background: var(--admin-card);
+  background-image: none;
+  backdrop-filter: none;
+  border-color: var(--admin-border);
+  box-shadow: 0 1px 2px rgb(0 0 0 / .08);
+}
+
+.admin-dashboard-theme :is([class~="rounded-3xl"], [class~="rounded-2xl"], [class~="rounded-[2rem]"], .admin-glass) {
+  border-radius: 16px;
+}
+
+.admin-dashboard-theme :is([class~="border-slate-800"], [class~="border-slate-700"], [class~="border-white/5"]) {
+  border-color: var(--admin-border);
+}
+
+.admin-dashboard-theme :is([class~="bg-[#0a0a0c]"], [class~="bg-[#0e0e12]"], [class~="bg-[#0f0f13]"], [class~="bg-[#191a1f]"]) {
+  background-color: var(--admin-field);
+}
+
+.admin-dashboard-theme :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]), textarea, select) {
+  background-color: var(--admin-field);
+  border-color: var(--admin-border);
+  border-radius: 10px;
+  color: #e9eaed;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.admin-dashboard-theme :is(input, textarea)::placeholder {
+  color: #858892;
+}
+
+.admin-dashboard-theme :is(button, a, input, textarea, select):focus-visible {
+  outline: 2px solid #a7b6ed;
+  outline-offset: 3px;
+}
+
+.admin-dashboard-theme :is(h2, h3) {
+  font-weight: 600;
+  letter-spacing: -.015em;
+}
+
+.admin-dashboard-theme :is(label, th)[class*="uppercase"] {
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.admin-dashboard-theme :is([class~="text-slate-500"], [class~="text-slate-600"]) {
+  color: #92959f;
+}
+
+.admin-dashboard-theme [class~="text-slate-400"] {
+  color: #a5a7af;
+}
+
+.admin-dashboard-theme table {
+  font-size: 13px;
+  border-collapse: collapse;
+}
+
+.admin-dashboard-theme :is(th, td) {
+  border-color: var(--admin-border);
+}
+
+.admin-dashboard-theme th {
+  color: #a5a7af;
+  font-weight: 500;
+}
+
+.admin-dashboard-theme tbody tr:hover {
+  background-color: rgb(255 255 255 / .025);
+}
+
+.admin-dashboard-theme :is(.admin-glass::before, .admin-hero::after) {
+  display: none;
+}
+
+.admin-dashboard-theme .admin-glass-hover:hover {
+  transform: none;
+  box-shadow: 0 1px 2px rgb(0 0 0 / .08);
+  border-color: rgb(255 255 255 / .12);
+}
+
+.admin-dashboard-theme nav button[aria-current="page"] {
+  background: #2b2d34;
+  border-color: rgb(255 255 255 / .1);
+}
+
+@media (max-width: 639px) {
+  .admin-dashboard-theme {
+    padding: 12px;
+    border-radius: 16px;
+  }
+}
+
+.admin-dashboard-theme :is([class~="bg-[#0b0b0f]"], [class~="bg-[#0c0c10]"], [class~="bg-[#101014]"], [class~="bg-[#111116]"], [class~="bg-[#0e0e12]/60"], [class~="bg-[#0c0c10]/70"]) {
+  background-color: var(--admin-field);
+}
+
+.admin-dashboard-theme :is([class~="bg-[#131318]/70"], [class~="bg-white/[.03]"], [class~="bg-white/[0.04]"], [class~="bg-white/[0.05]"], [class~="bg-white/[0.06]"])[class~="border"] {
+  background-color: var(--admin-card);
+  border-color: var(--admin-border);
+}
+
+.admin-dashboard-theme button:is([class~="bg-[#202126]"], [class~="bg-[#0e0e12]"]):enabled:hover {
+  background-color: #282a31;
+  border-color: rgb(255 255 255 / .12);
+}
+
+/* A portal menu retains its admin surface outside the workspace DOM. */
+[data-admin-surface="true"] {
+  background-color: #202126;
+  border-color: rgb(255 255 255 / .07);
+  border-radius: 12px;
+}
+
+.admin-dashboard-theme :is([class~="bg-[#202126]"], [class~="bg-[#131318]"])[class~="rounded-xl"] {
+  border-radius: 16px;
+}
+
+.admin-dashboard-theme [class~="font-black"] {
+  font-weight: 600;
+}
+
+.admin-dashboard-theme nav > div:has(button[aria-expanded="true"]) {
+  background-color: #24262d;
+  border-color: rgb(255 255 255 / .09);
+}
+
+@media (max-width: 639px) {
+  .admin-dashboard-theme > .flex:first-child {
+    display: grid;
+    grid-template-columns: 20px minmax(0, 1fr);
+    align-items: start;
+    gap: 12px;
+  }
+
+  .admin-dashboard-theme > .flex:first-child > svg {
+    margin-top: 5px;
+  }
+
+  .admin-dashboard-theme > .flex:first-child > button {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+}

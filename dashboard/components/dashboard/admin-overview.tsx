@@ -66,7 +66,7 @@ export function AdminOverview({
             </p>
           )}
         </div>
-        <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2">
           {cards.map((card) => (
             <button
               key={card.label}
@@ -90,7 +90,7 @@ export function AdminOverview({
         </div>
       </section>
 
-      <div className="grid gap-4 xl:grid-cols-[1.35fr_1fr]">
+      <div className="grid gap-5">
         <section className="rounded-xl border border-white/[.06] bg-[#202126] p-4">
           <div className="mb-2 flex items-center gap-2">
             <Sparkles className="h-4 w-4 text-blue-300" />

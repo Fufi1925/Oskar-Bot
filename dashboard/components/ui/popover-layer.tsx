@@ -264,6 +264,7 @@ export function PopoverLayer({
   return createPortal(
     <div
       ref={popRef}
+      data-admin-surface={anchor.current?.closest(".admin-dashboard-theme") ? "true" : undefined}
       style={{
         top: spot.top,
         left: spot.left,

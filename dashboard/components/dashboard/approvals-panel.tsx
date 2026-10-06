@@ -104,7 +104,7 @@ export function ApprovalsPanel({
       <div className="bg-[#131318] border border-slate-800 rounded-3xl p-5 sm:p-8">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="flex items-center gap-4">
-            <div className="h-12 w-12 rounded-2xl bg-primary/15 border border-primary/25 flex items-center justify-center">
+            <div className="h-12 w-12 shrink-0 rounded-2xl bg-primary/15 border border-primary/25 flex items-center justify-center">
               <ClipboardList className="h-6 w-6 text-primary" />
             </div>
             <div>
@@ -115,8 +115,8 @@ export function ApprovalsPanel({
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="flex gap-1.5 p-1.5 bg-[#131318]/70 border border-slate-800 rounded-2xl">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap gap-1.5 p-1.5 bg-[#131318]/70 border border-slate-800 rounded-2xl">
               {(
                 [
                   ["pending", "Ausstehend"],

@@ -763,7 +763,7 @@ export function AdminContent({
   }
 
   return (
-    <div className="space-y-5">
+    <div className="admin-dashboard-theme space-y-5">
       {/*
         Der Kopf.
 
