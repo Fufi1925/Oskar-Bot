@@ -13,8 +13,15 @@ export default function OwnerOperationsPage({params}:{params:{guildId:string}}) 
   const [allowed,setAllowed]=useState(false);
   useEffect(()=>{
     if(params.guildId!==SUPPORT_GUILD_ID){router.replace(`/dashboard/guild/${params.guildId}`);return}
-    api.getSupportOperations(params.guildId).then(()=>setAllowed(true)).catch(()=>router.replace(`/dashboard/guild/${params.guildId}`));
+    let active = true;
+    setAllowed(false);
+    api.getSupportOperationsAccess(params.guildId).then((data)=>{
+      if (!active) return;
+      if (data.allowed === true) setAllowed(true);
+      else router.replace(`/dashboard/guild/${params.guildId}`);
+    }).catch(()=>{if(active)router.replace(`/dashboard/guild/${params.guildId}`)});
+    return () => { active = false; };
   },[params.guildId,router]);
-  if(!allowed)return <div className="grid min-h-[420px] place-items-center"><Loader2 className="h-6 w-6 animate-spin text-blue-400"/></div>;
+  if(params.guildId!==SUPPORT_GUILD_ID || !allowed)return <div className="grid min-h-[420px] place-items-center"><Loader2 className="h-6 w-6 animate-spin text-blue-400"/></div>;
   return <SupportOperationsPanel guildId={params.guildId}/>;
 }

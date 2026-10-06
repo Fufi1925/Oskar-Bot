@@ -1190,6 +1190,8 @@ export const api = {
     request<any>(`/actions/${guildId}/custom-commands/marketplace/${listingId}/import`, { method: "POST", body: "{}" }),
 
   // Exclusive support-server owner operations
+  getSupportOperationsAccess: (guildId: string) =>
+    request<{ allowed: boolean }>(`/support-operations/${guildId}/access`),
   getSupportOperations: (guildId: string) =>
     request<any>(`/support-operations/${guildId}/overview`),
   setSupportErrorChannel: (guildId: string, channelId: string) =>

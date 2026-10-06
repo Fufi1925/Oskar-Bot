@@ -45,6 +45,13 @@ def _deployment() -> dict:
     }
 
 
+@router.get("/{guild_id}/access")
+async def access(guild_id: int, actor: str = ""):
+    """Check visibility without loading operational databases or bot metrics."""
+    _guard(guild_id, actor)
+    return {"allowed": True}
+
+
 @router.get("/{guild_id}/overview")
 async def overview(guild_id: int, actor: str = "", bot=Depends(get_bot)):
     _guard(guild_id, actor)

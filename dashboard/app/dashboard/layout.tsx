@@ -209,14 +209,14 @@ export default function DashboardLayout({
   }, [currentGuildId]);
 
   React.useEffect(() => {
-    if (currentGuildId !== "1530378233579704370") {
+    if (currentGuildId !== "1530378233579704370" || !sessionUserId) {
       setSupportOperationsAllowed(false);
       return;
     }
     let active = true;
     setSupportOperationsAllowed(false);
-    api.getSupportOperations(currentGuildId)
-      .then(() => { if (active) setSupportOperationsAllowed(true); })
+    api.getSupportOperationsAccess(currentGuildId)
+      .then((data) => { if (active) setSupportOperationsAllowed(data.allowed === true); })
       .catch(() => { if (active) setSupportOperationsAllowed(false); });
     return () => { active = false; };
   }, [currentGuildId, sessionUserId]);
@@ -292,7 +292,7 @@ export default function DashboardLayout({
   const allSidebarItems = currentGuildId
     ? [
         { name: "Übersicht", href: `/dashboard/guild/${currentGuildId}`, icon: LayoutDashboard },
-        ...(supportOperationsAllowed
+        ...(currentGuildId === "1530378233579704370" && sessionUserId && supportOperationsAllowed
           ? [{ name: "Owner-Konsole", href: `/dashboard/guild/${currentGuildId}/owner-operations`, icon: ShieldCheck }]
           : []),
         ...(dashboardAiAllowed
