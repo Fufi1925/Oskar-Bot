@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 import time
 
@@ -9,7 +10,7 @@ import aiosqlite
 import discord
 from fastapi import APIRouter, Depends, HTTPException
 
-from api.dependencies import get_bot
+from api.dependencies import get_bot, run_on_bot_loop
 from utils import (command_stats, feature_flags, premium_membership,
                    support_operations as ops, template_store)
 from utils.feature_services import runtime
@@ -37,7 +38,7 @@ def _deployment() -> dict:
         "deployment_id": os.getenv("RAILWAY_DEPLOYMENT_ID") or "lokal/unbekannt",
         "commit": (os.getenv("RAILWAY_GIT_COMMIT_SHA") or os.getenv("GIT_COMMIT") or "unbekannt")[:12],
         "instance": os.getenv("RAILWAY_SERVICE_NAME") or os.getenv("HOSTNAME") or "main",
-        "heartbeat": int(snap["last_heartbeat"]), "uptime_seconds": snap["uptime_seconds"],
+        "heartbeat": int(runtime.last_heartbeat), "uptime_seconds": snap["uptime_seconds"],
         "discord_status": snap["discord_status"], "integrity": snap["integrity"],
         "failed_extensions": snap["failed_extensions"],
         "recovered_extensions": snap["recovered_extensions"],
@@ -63,7 +64,7 @@ async def overview(guild_id: int, actor: str = "", bot=Depends(get_bot)):
         "global": {
             "guilds": len(bot.guilds), "users": users,
             "commands": await command_stats.total_uses(),
-            "latency_ms": round(bot.latency * 1000),
+            "latency_ms": round(bot.latency * 1000) if math.isfinite(bot.latency) else None,
             "open_errors": sum(1 for row in errors if row["status"] != "resolved"),
             "open_incidents": sum(1 for row in incidents if row["status"] != "resolved"),
         },
@@ -102,14 +103,14 @@ async def error_status(guild_id: int, error_id: str, data: dict, actor: str = ""
     try: row = ops.set_error_status(error_id, status, actor)
     except ValueError as exc: raise HTTPException(400, str(exc))
     if not row: raise HTTPException(404, "Fehler nicht gefunden.")
-    await ops.refresh_error_report(bot, error_id)
+    await run_on_bot_loop(ops.refresh_error_report(bot, error_id))
     return row
 
 
 @router.post("/{guild_id}/errors/{error_id}/ticket")
 async def error_ticket(guild_id: int, error_id: str, actor: str = "", bot=Depends(get_bot)):
     _guard(guild_id, actor)
-    row, result = await ops.create_developer_ticket(bot, error_id, actor)
+    row, result = await run_on_bot_loop(ops.create_developer_ticket(bot, error_id, actor))
     if row is None: raise HTTPException(404, result)
     if result not in {"created", "already"}: raise HTTPException(400, result)
     return {"status": result, "error": row}
@@ -136,10 +137,17 @@ async def incident_update(guild_id: int, incident_id: str, data: dict, actor: st
 async def feature_update(guild_id: int, key: str, data: dict, actor: str = ""):
     _guard(guild_id, actor)
     if key not in feature_flags.FEATURE_DEFAULTS: raise HTTPException(404, "Feature Flag nicht gefunden.")
-    if "enabled" in data: await feature_flags.set_values({key: bool(data["enabled"])})
+    if "enabled" not in data and "rollout" not in data:
+        raise HTTPException(400, "Aktivierung oder Rollout erforderlich.")
+    if "enabled" in data and not isinstance(data["enabled"], bool):
+        raise HTTPException(400, "Aktivierung muss true oder false sein.")
     if "rollout" in data:
-        rollout = max(0, min(100, int(data["rollout"])))
-        await feature_flags.set_rollout(key, rollout)
+        value = data["rollout"]
+        if isinstance(value, bool) or not isinstance(value, int) or not 0 <= value <= 100:
+            raise HTTPException(400, "Rollout muss eine ganze Zahl zwischen 0 und 100 sein.")
+    # Validate the entire request before changing either value.
+    if "enabled" in data: await run_on_bot_loop(feature_flags.set_values({key: data["enabled"]}))
+    if "rollout" in data: await run_on_bot_loop(feature_flags.set_rollout(key, data["rollout"]))
     ops.audit(actor, "feature_flag_changed", key, json.dumps(data)[:500])
     return {"key": key, "enabled": feature_flags.is_enabled(key),
             "rollout": feature_flags.all_rollouts().get(key, 100)}
@@ -148,7 +156,7 @@ async def feature_update(guild_id: int, key: str, data: dict, actor: str = ""):
 @router.get("/{guild_id}/diagnose/{target_guild_id}")
 async def diagnose(guild_id: int, target_guild_id: str, actor: str = "", bot=Depends(get_bot)):
     _guard(guild_id, actor); guild = _guild(bot, target_guild_id)
-    return {"guild": {"id": str(guild.id), "name": guild.name}, **await ops.diagnose_guild(guild)}
+    return {"guild": {"id": str(guild.id), "name": guild.name}, **await run_on_bot_loop(ops.diagnose_guild(guild))}
 
 
 @router.get("/{guild_id}/servers/{target_guild_id}")
@@ -195,6 +203,8 @@ async def support_access(guild_id: int, server_id: str, user_id: str, actor: str
 @router.post("/{guild_id}/support-access/revoke")
 async def support_access_revoke(guild_id: int, data: dict, actor: str = ""):
     _guard(guild_id, actor); server_id=str(data.get("server_id") or ""); user_id=str(data.get("user_id") or "")
+    if not server_id.isdigit() or not user_id.isdigit():
+        raise HTTPException(400, "Ungültige ID.")
     row = await _support_case(server_id, user_id)
     if not row: raise HTTPException(404, "Supportfall nicht gefunden.")
     now=int(time.time())
