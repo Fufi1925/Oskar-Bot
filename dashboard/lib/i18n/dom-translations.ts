@@ -7121,6 +7121,42 @@ export const phrasePairs: Array<[de: string, en: string]> = [
   // Generator neu laufen lassen.
   // ════════════════════════════════════════════════════════════════
   ["Speichert deine gewählte Website-Sprache auch für serverseitige Seiten und die Discord-Verifizierung.", "Saves your chosen website language for server-rendered pages and Discord verification."],
+
+  // ════════════════════════════════════════════════════════════════
+  // Vollstaendige Abdeckung der Dashboard-Oberflaeche. Diese Eintraege
+  // stammen aus tools/build_dom_translations.py — nicht von Hand hier
+  // pflegen, sondern die Batches in tools/i18n_work/ anpassen und den
+  // Generator neu laufen lassen.
+  // ════════════════════════════════════════════════════════════════
+  ["1 bis 10.080 Minuten (7 Tage).", "1 to 10,080 minutes (7 days)."],
+  ["Aktive Schutzbereiche", "Active protections"],
+  ["Angriffsmeldungen", "Attack reports"],
+  ["Angriffsmeldungen konnten nicht geladen werden.", "Attack reports could not be loaded."],
+  ["Anti-Nuke konnte nicht geladen werden", "Anti-Nuke could not be loaded"],
+  ["Anti-Nuke-Bereiche", "Anti-Nuke sections"],
+  ["AutoMod konnte nicht geladen werden", "AutoMod could not be loaded"],
+  ["AutoMod-Bereiche", "AutoMod sections"],
+  ["Bitte prüfe die Grenzwerte deiner Regeln.", "Please check your rule limits."],
+  ["Eingeschaltet", "Enabled"],
+  ["Eingeschaltete Regeln", "Enabled rules"],
+  ["Jeder Schutzbereich ist einzeln einstellbar. Eine Ausnahme erlaubt einer Person nur die ausgewählten Aktionen.", "Each protection can be configured individually. An exception only allows a person to perform the selected actions."],
+  ["Keine globalen Bot-Ausnahmen vorhanden.", "No global bot exceptions configured."],
+  ["Keine passenden Regeln.", "No matching rules."],
+  ["Keine passenden Schutzbereiche.", "No matching protections."],
+  ["Lege fest, welche Rollen und Kanäle von deinen Regeln ausgenommen sind.", "Choose which roles and channels are exempt from your rules."],
+  ["Live-Status konnte nicht geladen werden.", "Live status could not be loaded."],
+  ["Nicht geladene Bereiche", "Unloaded protections"],
+  ["Regel einstellen", "Configure rule"],
+  ["Regel suchen", "Search rules"],
+  ["Regel suchen …", "Search rules …"],
+  ["Regeln filtern", "Filter rules"],
+  ["Schutzbereich suchen", "Search protections"],
+  ["Schutzbereich suchen …", "Search protections …"],
+  ["Schutzbereiche", "Protections"],
+  ["Status aktualisieren", "Refresh status"],
+  ["Systeminfos", "System information"],
+  ["Vertrauenswürdige Bots", "Trusted bots"],
+  ["Wähle eine Regel und passe Grenzwerte und Aktionen an. Änderungen werden gemeinsam gespeichert.", "Choose a rule and configure its limits and actions. All changes are saved together."],
 ];
 
 /**

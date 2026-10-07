@@ -68,26 +68,26 @@ export function AutomodStatus({ guildId }: { guildId: string }) {
 
   if (loading) {
     return (
-      <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 flex items-center justify-center">
+      <div className="bg-[#202124] border border-white/[.07] rounded-2xl p-4 sm:p-6 flex items-center justify-center">
         <Loader2 className="h-6 w-6 text-primary animate-spin opacity-40" />
       </div>
     );
   }
 
-  if (!data) return null;
+  if (!data) return <div className="rounded-2xl border border-white/10 bg-[#202124] p-6 space-y-3"><p className="text-sm text-slate-300">Live-Status konnte nicht geladen werden.</p><button type="button" onClick={load} className="text-sm text-blue-300">Erneut versuchen</button></div>;
 
   return (
     <div
       className={cn(
-        "bg-[#131318] border rounded-3xl p-4 sm:p-6",
-        data.master_enabled ? "border-emerald-500/25" : "border-slate-800"
+        "bg-[#202124] border rounded-2xl p-4 sm:p-6",
+        data.master_enabled ? "border-emerald-500/25" : "border-white/[.07]"
       )}
     >
       <div className="flex items-center justify-between gap-4 mb-4 flex-wrap">
         <div className="flex items-center gap-3">
-          <Zap className={cn("h-5 w-5", data.master_enabled ? "text-emerald-400" : "text-slate-600")} />
+          <Zap className={cn("h-5 w-5", data.master_enabled ? "text-emerald-400" : "text-slate-500")} />
           <div>
-            <h4 className="font-black text-white">Live status</h4>
+            <h4 className="font-semibold text-white">Live status</h4>
             <p className="text-xs text-slate-500 mt-0.5">
               {data.master_enabled
                 ? `${data.active_count} of ${data.modules.length} rules are enforcing right now`
@@ -120,8 +120,8 @@ export function AutomodStatus({ guildId }: { guildId: string }) {
             </span>
             <span
               className={cn(
-                "text-[10px] font-black uppercase tracking-widest shrink-0",
-                mod.active ? "text-emerald-400" : "text-slate-600"
+                "text-xs font-semibold uppercase tracking-widest shrink-0",
+                mod.active ? "text-emerald-400" : "text-slate-500"
               )}
             >
               {mod.state === "active"
@@ -147,7 +147,7 @@ export function AutomodStatus({ guildId }: { guildId: string }) {
         </div>
       )}
 
-      <div className="mt-4 flex flex-wrap gap-x-5 gap-y-1.5 text-[11px] text-slate-600">
+      <div className="mt-4 flex flex-wrap gap-x-5 gap-y-1.5 text-xs text-slate-500">
         {data.log_channel && <span>Log: #{data.log_channel}</span>}
         {data.ignored_channels.length > 0 && (
           <span>{data.ignored_channels.length} ignored channels</span>
@@ -157,7 +157,7 @@ export function AutomodStatus({ guildId }: { guildId: string }) {
         )}
       </div>
 
-      <p className="mt-4 flex items-start gap-2 text-[11px] text-slate-500 leading-relaxed">
+      <p className="mt-4 flex items-start gap-2 text-xs text-slate-500 leading-relaxed">
         <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0 mt-0.5" />
         {data.live}
       </p>

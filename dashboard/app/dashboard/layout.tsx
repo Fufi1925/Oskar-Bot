@@ -349,8 +349,7 @@ export default function DashboardLayout({
               href: `/dashboard/guild/${currentGuildId}/verification`,
               icon: User,
               children: [
-                { name: "Sprachwahl", href: "/dashboard/language", icon: Settings },
-        { name: "Einstellungen", href: `/dashboard/guild/${currentGuildId}/verification`, icon: ShieldCheck },
+                { name: "Einstellungen", href: `/dashboard/guild/${currentGuildId}/verification`, icon: ShieldCheck },
                 { name: "Pull", href: `/dashboard/guild/${currentGuildId}/verification/pull`, icon: Users, highlight: true },
               ],
             },
@@ -443,7 +442,6 @@ export default function DashboardLayout({
       ]
     : [
         { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-        { name: "Sprachwahl", href: "/dashboard/language", icon: Settings },
         { name: "Server", href: "/dashboard/guilds", icon: Server },
         // Premium is for everyone: a customer who bought a key needs to
         // reach the redeem field without being staff.
@@ -457,7 +455,7 @@ export default function DashboardLayout({
   // the sections just like the reference navigation.
   const mainSidebarItems = currentGuildId
     ? [
-        ...allSidebarItems.filter((item: any) => ["Übersicht", "Owner-Konsole", "KI", "Einstellungen", "Sprachwahl"].includes(item.name)),
+        ...allSidebarItems.filter((item: any) => ["Übersicht", "Owner-Konsole", "KI", "Einstellungen"].includes(item.name)),
         ...allSidebarItems.filter((item: any) => item.name === "Hilfe"),
         ...allSidebarItems.filter((item: any) => Array.isArray(item.items)),
       ]

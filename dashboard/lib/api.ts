@@ -728,9 +728,7 @@ export const api = {
   /** Post a sample report, so a broken setup shows up before an attack. */
   testNukeAlert: (guildId: string) =>
     request<any>(`/nukealert/${guildId}/test`, { method: "POST", body: "{}" }),
-  /** One-click link that adds the template bot and tells it we sent it. */
-  getPartnerInvite: (guildId: string) =>
-    request<any>(`/nukealert/${guildId}/partner-invite`),
+
 
   // Compose: design a message and post it as the bot
   /** Validate before sending — Discord's own 400 names no field. */

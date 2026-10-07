@@ -8,9 +8,9 @@ export const revalidate = 0;
 
 export default function Page({ params }: { params: { guildId: string } }) {
   return (
-    <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
+    <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
       <div>
-        <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+        <h2 className="text-2xl font-semibold text-white flex items-center gap-2">
           <Shield className="h-6 w-6 text-primary" />
           Automod
         </h2>
@@ -19,11 +19,8 @@ export default function Page({ params }: { params: { guildId: string } }) {
         </p>
       </div>
 
-      {/* Reads back what the listeners actually see, so the tab can
-          prove a saved change is live rather than just claiming it. */}
-      <AutomodStatus guildId={params.guildId} />
+      <AutomodPanel guildId={params.guildId} liveStatus={<AutomodStatus guildId={params.guildId} />} />
 
-      <AutomodPanel guildId={params.guildId} />
     </div>
   );
 }

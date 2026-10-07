@@ -135,6 +135,7 @@ async def get_automod(guild_id: int, bot: "universitybot" = Depends(get_bot)):
             "defaults": {
                 "threshold": spec["threshold"],
                 "duration": spec["duration"],
+                "window": spec["window"],
                 "punishment": spec["punishment"],
             },
             **entry,

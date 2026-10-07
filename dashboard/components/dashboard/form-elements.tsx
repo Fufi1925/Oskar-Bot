@@ -125,6 +125,7 @@ export const FormInput = ({ label, icon: Icon, className, ...props }: FormInputP
  * ------------------------------------------------------------------ */
 
 interface InlineToggleProps {
+  ariaLabel?: string;
   checked: boolean;
   onCheckedChange: (checked: boolean) => void;
   label: React.ReactNode;
@@ -194,6 +195,7 @@ export const InlineToggle = ({
   checked,
   onCheckedChange,
   label,
+  ariaLabel,
   hint,
   disabled,
   className,
@@ -208,6 +210,7 @@ export const InlineToggle = ({
     <button
       type="button"
       role="switch"
+      aria-label={ariaLabel || (typeof label === "string" ? label : undefined)}
       aria-checked={!!checked}
       disabled={disabled}
       onClick={() => !disabled && onCheckedChange(!checked)}

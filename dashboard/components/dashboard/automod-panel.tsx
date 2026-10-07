@@ -1,25 +1,16 @@
 "use client";
 
-/**
- * Automod.
- *
- * The old form was wired to nothing: it wrote `anti_spam` / `mute`
- * while the bot looked for `Anti spam` / `Mute`, so every switch in it
- * was decoration. It also offered "Delete message" and "Warn user",
- * neither of which the bot could do.
- *
- * Layout follows the verification tab: switch a rule on and you are
- * done, everything else sits behind "Erweitert" per rule. One save bar
- * for the whole page, and leaving with unsaved changes is refused.
- */
-
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   AlertTriangle, AtSign, ChevronDown, Hash, Link as LinkIcon, Loader2,
-  MessageSquare, RefreshCw, Save, Shield, Smile, Type, Zap,
+  MessageSquare, RefreshCw, Search, Shield, Smile, Type, Zap,
 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
+import { WebsiteSelect } from "@/components/ui/website-select";
+import { filterRules, ruleDefaults, validateRules } from "@/lib/security-rules";
+import { useLanguage } from "@/lib/i18n/LanguageContext";
+import { translateWebsiteText } from "@/lib/i18n/dom-translations";
 import { cn } from "@/lib/utils";
 import {
   ChannelPicker, MultiChannelPicker, MultiRolePicker,
@@ -31,7 +22,7 @@ import {
 } from "@/components/dashboard/save-bar";
 
 const INPUT =
-  "w-full bg-[#0e0e12] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-primary/50 transition-colors";
+  "w-full bg-[#18191c] border border-white/[.07] rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-primary/50 transition-colors";
 
 const ICONS: Record<string, any> = {
   spam: Zap,
@@ -54,27 +45,27 @@ const PUNISHMENTS: Record<string, { label: string; hint: string }> = {
 function Field({ label, hint, children }: any) {
   return (
     <div className="space-y-2">
-      <span className="text-xs font-black uppercase tracking-widest text-slate-500">
+      <span className="text-xs font-semibold uppercase tracking-widest text-slate-500">
         {label}
       </span>
       {children}
-      {hint && <p className="text-[11px] text-slate-600 leading-relaxed">{hint}</p>}
+      {hint && <p className="text-xs text-slate-500 leading-relaxed">{hint}</p>}
     </div>
   );
 }
 
-function Card({ icon: Icon, title, subtitle, children, onReload }: any) {
+function Card({ icon: Icon, title, subtitle, children, onReload, reloadDisabled }: any) {
   return (
-    <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
+    <div className="bg-[#202124] border border-white/[.07] rounded-2xl p-4 sm:p-6 space-y-5">
       <div className="flex items-start justify-between gap-4">
         <div className="flex gap-3 min-w-0">
           <div className="h-10 w-10 rounded-2xl bg-primary/15 grid place-items-center shrink-0">
             <Icon className="h-5 w-5 text-primary" />
           </div>
           <div className="min-w-0">
-            <p className="font-black text-white">{title}</p>
+            <p className="font-semibold text-white">{title}</p>
             {subtitle && (
-              <p className="text-[12px] text-slate-400 mt-1 leading-relaxed">
+              <p className="text-xs text-slate-400 mt-1 leading-relaxed">
                 {subtitle}
               </p>
             )}
@@ -83,6 +74,8 @@ function Card({ icon: Icon, title, subtitle, children, onReload }: any) {
         {onReload && (
           <button
             onClick={onReload}
+            disabled={reloadDisabled}
+            title="Status aktualisieren"
             className="p-2.5 rounded-xl bg-white/[0.03] border border-white/5 hover:bg-white/[0.06] shrink-0"
           >
             <RefreshCw className="h-4 w-4 text-primary" />
@@ -99,7 +92,7 @@ function Warnings({ items }: { items?: string[] }) {
   return (
     <div className="rounded-xl bg-amber-500/[0.06] border border-amber-500/20 p-3.5 flex gap-2.5">
       <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
-      <div className="text-[12px] text-amber-200/80 leading-relaxed">
+      <div className="text-xs text-amber-200/80 leading-relaxed">
         <span className="font-bold">Das läuft so nicht rund:</span>
         <br />
         {items.map((w, i) => (
@@ -121,7 +114,7 @@ function Warnings({ items }: { items?: string[] }) {
  */
 
 /** One rule: a switch, and the details folded away behind it. */
-function RuleCard({ rule, draft, onChange, master }: any) {
+function RuleCard({ rule, draft, onChange, master, busy }: any) {
   const [open, setOpen] = useState(false);
   const Icon = ICONS[rule.key] || Shield;
 
@@ -137,8 +130,8 @@ function RuleCard({ rule, draft, onChange, master }: any) {
       className={cn(
         "rounded-2xl border transition-colors",
         enabled
-          ? "bg-[#0e0e12] border-primary/30"
-          : "bg-[#0e0e12]/60 border-slate-800"
+          ? "bg-[#18191c] border-primary/30"
+          : "bg-[#18191c]/60 border-white/[.07]"
       )}
     >
       <div className="flex items-start gap-3 p-4">
@@ -148,18 +141,18 @@ function RuleCard({ rule, draft, onChange, master }: any) {
             enabled ? "bg-primary/15" : "bg-white/[0.03]"
           )}
         >
-          <Icon className={cn("h-4 w-4", enabled ? "text-primary" : "text-slate-600")} />
+          <Icon className={cn("h-4 w-4", enabled ? "text-primary" : "text-slate-500")} />
         </div>
 
         <div className="min-w-0 flex-1">
           <p className={cn("font-bold text-sm", enabled ? "text-white" : "text-slate-400")}>
             {rule.label}
           </p>
-          <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
+          <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
             {rule.description}
           </p>
           {enabled && (
-            <p className="text-[11px] text-slate-500 mt-1.5">
+            <p className="text-xs text-slate-500 mt-1.5">
               Ab <span className="text-slate-300 font-bold">{value("threshold")}</span>{" "}
               {rule.threshold_label} →{" "}
               <span className="text-slate-300 font-bold">
@@ -171,51 +164,53 @@ function RuleCard({ rule, draft, onChange, master }: any) {
         </div>
 
         <InlineToggle
+          ariaLabel={rule.label}
           checked={enabled}
           onCheckedChange={(v: boolean) => onChange({ enabled: v })}
           label=""
-          disabled={!master}
+          disabled={!master || busy}
         />
       </div>
 
       {enabled && (
         <>
           <button
+            aria-expanded={open}
             onClick={() => setOpen((o) => !o)}
-            className="w-full flex items-center justify-between px-4 py-2.5 border-t border-slate-800/70"
+            className="w-full flex items-center justify-between px-4 py-2.5 border-t border-white/[.05]"
           >
-            <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">
-              Erweitert
+            <span className="text-xs font-semibold uppercase tracking-widest text-slate-500">
+              Regel einstellen
             </span>
             <ChevronDown
               className={cn(
-                "h-3.5 w-3.5 text-slate-600 transition-transform",
+                "h-3.5 w-3.5 text-slate-500 transition-transform",
                 open && "rotate-180"
               )}
             />
           </button>
 
           {open && (
-            <div className="px-4 pb-4 space-y-4">
+            <fieldset disabled={busy} className="px-4 pb-4 space-y-4 disabled:opacity-60">
               <Field label="Strafe">
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   {Object.entries(PUNISHMENTS).map(([id, spec]) => (
                     <button
                       key={id}
                       onClick={() => onChange({ punishment: id })}
                       title={spec.hint}
                       className={cn(
-                        "rounded-xl border px-2 py-2.5 text-[11px] font-bold transition-all",
+                        "rounded-xl border px-2 py-2.5 text-xs font-bold transition-all",
                         punishment === id
                           ? "bg-primary/10 border-primary/40 text-white"
-                          : "bg-[#0e0e12] border-slate-800 text-slate-400 hover:border-slate-700"
+                          : "bg-[#18191c] border-white/[.07] text-slate-400 hover:border-slate-700"
                       )}
                     >
                       {spec.label}
                     </button>
                   ))}
                 </div>
-                <p className="text-[11px] text-slate-600">
+                <p className="text-xs text-slate-500">
                   {PUNISHMENTS[punishment]?.hint}
                 </p>
               </Field>
@@ -236,7 +231,7 @@ function RuleCard({ rule, draft, onChange, master }: any) {
                 </Field>
 
                 {punishment === "mute" && (
-                  <Field label="Stumm für (Minuten)" hint="Discord erlaubt bis 28 Tage.">
+                  <Field label="Stumm für (Minuten)" hint="1 bis 10.080 Minuten (7 Tage).">
                     <input
                       type="number"
                       min={1}
@@ -267,17 +262,13 @@ function RuleCard({ rule, draft, onChange, master }: any) {
 
               <button
                 onClick={() =>
-                  onChange({
-                    threshold: rule.defaults.threshold,
-                    duration: rule.defaults.duration,
-                    punishment: rule.defaults.punishment,
-                  })
+                  onChange(ruleDefaults(rule))
                 }
-                className="text-[11px] text-slate-500 hover:text-slate-300 underline"
+                className="text-xs text-slate-500 hover:text-slate-300 underline"
               >
                 Auf Standard zurücksetzen
               </button>
-            </div>
+            </fieldset>
           )}
         </>
       )}
@@ -285,10 +276,13 @@ function RuleCard({ rule, draft, onChange, master }: any) {
   );
 }
 
-export function AutomodPanel({ guildId }: { guildId: string }) {
+export function AutomodPanel({ guildId, liveStatus }: { guildId: string; liveStatus?: React.ReactNode }) {
+  const { language } = useLanguage();
   const load = useCallback(() => api.getAutomod(guildId), [guildId]);
   const p = usePanel(load);
-  const [exceptions, setExceptions] = useState(false);
+  const [view, setView] = useState("rules");
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState("all");
 
 
   // Flash the bar red instead of a browser dialog: the dialog cannot
@@ -296,6 +290,7 @@ export function AutomodPanel({ guildId }: { guildId: string }) {
   const guard = useSaveGuard(p.dirty, "automod-save-bar");
 
   if (p.loading) return <Loading />;
+  if (!p.data) return <Card icon={AlertTriangle} title="AutoMod konnte nicht geladen werden"><button type="button" onClick={p.reload} className="text-sm text-blue-300">Erneut versuchen</button></Card>;
 
   const master = !!p.value("enabled");
   const rules: any[] = p.data?.rules || [];
@@ -313,7 +308,11 @@ export function AutomodPanel({ guildId }: { guildId: string }) {
   const refreshLiveStatus = () =>
     window.dispatchEvent(new CustomEvent("automod-saved", { detail: guildId }));
 
+  const visibleRules = filterRules(rules, ruleDraft, query, filter, text => translateWebsiteText(text, language));
+  const invalid = validateRules(rules, ruleDraft);
+
   const save = async () => {
+    if (invalid) return toast.error("Bitte prüfe die Grenzwerte deiner Regeln.");
     const result = await p.act(() => api.updateAutomod(guildId, p.draft));
     if (result) refreshLiveStatus();
   };
@@ -329,27 +328,33 @@ export function AutomodPanel({ guildId }: { guildId: string }) {
   return (
     <section className="space-y-5">
       <Warnings items={p.data?.warnings} />
+      <nav aria-label="AutoMod-Bereiche" className="flex flex-wrap gap-2 rounded-2xl border border-white/[.07] bg-[#202124] p-2">
+        {[["rules", "Regeln"], ["exceptions", "Ausnahmen"], ["live", "Live-Status"]].map(([key, label]) => <button key={key} type="button" aria-pressed={view === key} onClick={() => setView(key)} className={cn("rounded-xl px-4 py-2.5 text-sm transition-colors", view === key ? "bg-white/10 text-white" : "text-slate-400 hover:bg-white/5 hover:text-white")}>{label}</button>)}
+      </nav>
+      <div hidden={view !== "rules"} className="space-y-5">
 
       <Card
         icon={Shield}
         title="Automod"
         subtitle="Regeln, die der Bot ohne Nachfragen durchsetzt."
         onReload={p.reload}
+        reloadDisabled={p.busy || !!p.dirty}
       >
         <div className="grid grid-cols-2 gap-3">
-          <div className="bg-[#0e0e12] border border-slate-800 rounded-2xl px-4 py-3">
-            <p className="text-lg font-black text-white">
+          <div className="bg-[#18191c] border border-white/[.07] rounded-2xl px-4 py-3">
+            <p className="text-lg font-semibold text-white">
               {master ? "Aktiv" : "Aus"}
             </p>
-            <p className="text-[11px] text-slate-500">Hauptschalter</p>
+            <p className="text-xs text-slate-500">Hauptschalter</p>
           </div>
-          <div className="bg-[#0e0e12] border border-slate-800 rounded-2xl px-4 py-3">
-            <p className="text-lg font-black text-white">{activeNow}</p>
-            <p className="text-[11px] text-slate-500">Regeln an</p>
+          <div className="bg-[#18191c] border border-white/[.07] rounded-2xl px-4 py-3">
+            <p className="text-lg font-semibold text-white">{activeNow}</p>
+            <p className="text-xs text-slate-500">Eingeschaltete Regeln</p>
           </div>
         </div>
 
         <InlineToggle
+          disabled={p.busy}
           checked={master}
           onCheckedChange={(v: boolean) => p.set("enabled", v)}
           label="Automod aktiv"
@@ -360,58 +365,42 @@ export function AutomodPanel({ guildId }: { guildId: string }) {
       <Card
         icon={Zap}
         title="Regeln"
-        subtitle="Einschalten reicht. Feineinstellungen stecken hinter „Erweitert“."
+        subtitle="Wähle eine Regel und passe Grenzwerte und Aktionen an. Änderungen werden gemeinsam gespeichert."
       >
         {!master && (
           <div className="rounded-xl bg-white/[0.02] border border-white/5 p-3.5">
-            <p className="text-[12px] text-slate-500">
+            <p className="text-xs text-slate-500">
               Der Hauptschalter steht auf aus — die Regeln hier sind
               gespeichert, greifen aber nicht.
             </p>
           </div>
         )}
 
-        <div className="space-y-2.5">
-          {rules.map((rule) => (
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1"><Search className="absolute left-3 top-3.5 h-4 w-4 text-slate-500" /><input aria-label="Regel suchen" placeholder="Regel suchen …" value={query} onChange={e => setQuery(e.target.value)} className={cn(INPUT, "pl-10")} /></div>
+          <WebsiteSelect aria-label="Regeln filtern" value={filter} onChange={e => setFilter(e.target.value)} className={cn(INPUT, "sm:w-48")}><option value="all">Alle Regeln</option><option value="enabled">Eingeschaltet</option><option value="disabled">Ausgeschaltet</option></WebsiteSelect>
+        </div>
+        {visibleRules.length === 0 && <p className="py-6 text-center text-sm text-slate-400">Keine passenden Regeln.</p>}
+        <div className="grid lg:grid-cols-2 gap-3 items-start">
+          {visibleRules.map((rule) => (
             <RuleCard
               key={rule.key}
               rule={rule}
               draft={ruleDraft[rule.key]}
               master={master}
+              busy={p.busy}
               onChange={(patch: any) => changeRule(rule.key, patch)}
             />
           ))}
         </div>
       </Card>
 
-      <div className="bg-[#131318] border border-slate-800 rounded-3xl overflow-hidden">
-        <button
-          onClick={() => setExceptions((a) => !a)}
-          className="w-full flex items-center justify-between px-6 py-5"
-        >
-          <div className="flex gap-3 items-center min-w-0">
-            <div className="h-10 w-10 rounded-2xl bg-white/[0.04] grid place-items-center shrink-0">
-              <Hash className="h-5 w-5 text-slate-400" />
-            </div>
-            <div className="text-left min-w-0">
-              <p className="font-black text-white">Ausnahmen und Log</p>
-              <p className="text-[12px] text-slate-500 mt-0.5">
-                Wer und wo verschont bleibt, und wohin protokolliert wird.
-              </p>
-            </div>
-          </div>
-          <ChevronDown
-            className={cn(
-              "h-4 w-4 text-slate-500 shrink-0 transition-transform",
-              exceptions && "rotate-180"
-            )}
-          />
-        </button>
-
-        {exceptions && (
-          <div className="px-6 pb-6 space-y-5 border-t border-slate-800 pt-5">
+      </div>
+      <div hidden={view !== "exceptions"}>
+      <Card icon={Hash} title="Ausnahmen und Log" subtitle="Lege fest, welche Rollen und Kanäle von deinen Regeln ausgenommen sind.">
+          <fieldset disabled={p.busy} className="space-y-5 disabled:opacity-60">
             <div className="rounded-xl bg-white/[0.02] border border-white/5 p-3.5">
-              <p className="text-[11px] text-slate-500 leading-relaxed">
+              <p className="text-xs text-slate-500 leading-relaxed">
                 Serverinhaber und alle mit „Administrator“ oder „Nachrichten
                 verwalten“ sind ohnehin ausgenommen — die musst du hier nicht
                 eintragen.
@@ -454,18 +443,20 @@ export function AutomodPanel({ guildId }: { guildId: string }) {
             <button
               onClick={reset}
               disabled={p.busy}
-              className="w-full py-3 rounded-xl bg-red-500/[0.06] border border-red-500/20 text-xs font-black uppercase tracking-widest text-red-300 hover:bg-red-500/10 disabled:opacity-40 transition-all"
+              className="w-full py-3 rounded-xl bg-red-500/[0.06] border border-red-500/20 text-xs font-semibold uppercase tracking-widest text-red-300 hover:bg-red-500/10 disabled:opacity-40 transition-all"
             >
               Automod ausschalten
             </button>
-          </div>
-        )}
+          </fieldset>
+      </Card>
       </div>
+      <div hidden={view !== "live"}>{liveStatus}</div>
 
       <StickySaveBar
         id="automod-save-bar"
         count={p.dirty}
         busy={p.busy}
+        blocked={invalid ? "Bitte prüfe die Grenzwerte deiner Regeln." : null}
         shake={guard.shake}
         onDiscard={p.discard}
         onSave={save}

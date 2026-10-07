@@ -1,8 +1,8 @@
 # Website languages
 
 The website supports German and English through the shared language provider.
-The dashboard language page is `/dashboard/language`; the existing language
-switcher remains available. The selected language is stored in local storage
+The language switcher is available in the existing website and dashboard
+navigation. The selected language is stored in local storage
 and a `website-language` cookie, including when local storage is unavailable.
 The cookie gives server-rendered pages and the OAuth start handler the same
 preference. Explicit `lang=de` / `lang=en` links override the saved preference.

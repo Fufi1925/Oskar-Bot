@@ -1,30 +1,14 @@
 "use client";
 
-/**
- * Anti-Nuke.
- *
- * What this replaces: four cards labelled "Anti Ban & Kick",
- * "Anti Server Edit", "Anti Role Modifier" and "Anti Channel Nukes",
- * each with a green &bdquo;Protected&ldquo; badge. Those four ids appear
- * nowhere in the bot -- the real thing is seventeen listeners covering
- * fourteen kinds of action, and none of them is individually
- * switchable. So the tab showed four labels that stood for nothing and
- * hid ten kinds of protection that do exist.
- *
- * The whitelist was worse. The table has one column per action and each
- * module reads only its own, but the dashboard's &bdquo;Add&ldquo;
- * button wrote every column as true -- a complete bypass of all
- * seventeen protections, from a button with no warning on it. Here you
- * pick the actions, and the default is none.
- */
-
 import React, { useCallback, useState } from "react";
 import {
   AlertTriangle, Bot, Check, ChevronDown, Pencil, Shield, ShieldAlert,
-  ShieldCheck, Trash2, UserPlus,
+  ShieldCheck, Trash2, UserPlus, Search, RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
+import { useLanguage } from "@/lib/i18n/LanguageContext";
+import { translateWebsiteText } from "@/lib/i18n/dom-translations";
 import { cn } from "@/lib/utils";
 import { UserPicker } from "@/components/dashboard/user-picker";
 import { InlineToggle } from "@/components/dashboard/form-elements";
@@ -34,10 +18,10 @@ function Card({ icon: Icon, title, subtitle, children, tone }: any) {
   return (
     <div
       className={cn(
-        "border rounded-3xl p-4 sm:p-6 space-y-5",
+        "border rounded-2xl p-4 sm:p-6 space-y-5",
         tone === "danger"
           ? "bg-red-500/[0.04] border-red-500/25"
-          : "bg-[#131318] border-slate-800"
+          : "bg-[#202124] border-white/[.07]"
       )}
     >
       <div className="flex gap-3 min-w-0">
@@ -55,9 +39,9 @@ function Card({ icon: Icon, title, subtitle, children, tone }: any) {
           />
         </div>
         <div className="min-w-0">
-          <p className="font-black text-white">{title}</p>
+          <p className="font-semibold text-white">{title}</p>
           {subtitle && (
-            <p className="text-[12px] text-slate-400 mt-1 leading-relaxed">
+            <p className="text-xs text-slate-400 mt-1 leading-relaxed">
               {subtitle}
             </p>
           )}
@@ -73,7 +57,7 @@ function Warnings({ items }: { items?: string[] }) {
   return (
     <div className="rounded-xl bg-amber-500/[0.06] border border-amber-500/20 p-3.5 flex gap-2.5">
       <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
-      <div className="text-[12px] text-amber-200/80 leading-relaxed">
+      <div className="text-xs text-amber-200/80 leading-relaxed">
         <span className="font-bold">Das solltest du wissen:</span>
         <br />
         {items.map((w, i) => (
@@ -101,12 +85,13 @@ function WhitelistEditor({
   const all = count === actions.length;
 
   return (
-    <div className="rounded-2xl bg-[#0e0e12] border border-slate-800 p-4 space-y-4">
+    <div className="rounded-2xl bg-[#18191c] border border-white/[.07] p-4 space-y-4">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-xs font-black uppercase tracking-widest text-slate-400">
+        <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">
           {title}
         </p>
         <button
+          disabled={busy}
           onClick={() =>
             setPicked(
               all
@@ -114,7 +99,7 @@ function WhitelistEditor({
                 : Object.fromEntries(actions.map((a: any) => [a.key, true]))
             )
           }
-          className="text-[11px] text-slate-500 hover:text-slate-300 underline shrink-0"
+          className="text-xs text-slate-500 hover:text-slate-300 underline shrink-0"
         >
           {all ? "Nichts" : "Alles"}
         </button>
@@ -126,13 +111,14 @@ function WhitelistEditor({
           return (
             <button
               key={action.key}
+              disabled={busy}
               onClick={() => setPicked((p) => ({ ...p, [action.key]: !on }))}
               title={action.description}
               className={cn(
                 "flex items-start gap-2.5 text-left rounded-xl border px-3 py-2.5 transition-all",
                 on
                   ? "bg-red-500/10 border-red-500/40"
-                  : "bg-[#0e0e12] border-slate-800 hover:border-slate-700"
+                  : "bg-[#18191c] border-white/[.07] hover:border-slate-700"
               )}
             >
               <span
@@ -146,13 +132,13 @@ function WhitelistEditor({
               <span className="min-w-0">
                 <span
                   className={cn(
-                    "block text-[12px] font-bold",
+                    "block text-xs font-bold",
                     on ? "text-white" : "text-slate-400"
                   )}
                 >
                   {action.label}
                 </span>
-                <span className="block text-[10px] text-slate-600 leading-relaxed">
+                <span className="block text-xs text-slate-500 leading-relaxed">
                   {action.description}
                 </span>
               </span>
@@ -163,8 +149,8 @@ function WhitelistEditor({
 
       <p
         className={cn(
-          "text-[11px] leading-relaxed",
-          count === 0 ? "text-slate-600" : "text-amber-200/70"
+          "text-xs leading-relaxed",
+          count === 0 ? "text-slate-500" : "text-amber-200/70"
         )}
       >
         {count === 0
@@ -178,14 +164,14 @@ function WhitelistEditor({
         <button
           onClick={onCancel}
           disabled={busy}
-          className="px-4 py-2.5 rounded-xl bg-white/[0.03] border border-white/10 text-xs font-black uppercase tracking-widest text-slate-400 hover:text-white disabled:opacity-40 transition-all"
+          className="px-4 py-2.5 rounded-xl bg-white/[0.03] border border-white/10 text-xs font-semibold uppercase tracking-widest text-slate-400 hover:text-white disabled:opacity-40 transition-all"
         >
           Abbrechen
         </button>
         <button
           onClick={() => onSave(picked)}
           disabled={busy}
-          className="flex-1 py-2.5 rounded-xl bg-primary text-xs font-black uppercase tracking-widest hover:brightness-110 disabled:opacity-40 transition-all"
+          className="flex-1 py-2.5 rounded-xl bg-primary text-xs font-semibold uppercase tracking-widest hover:brightness-110 disabled:opacity-40 transition-all"
         >
           Speichern
         </button>
@@ -194,24 +180,35 @@ function WhitelistEditor({
   );
 }
 
-export function AntiNukePanel({ guildId }: { guildId: string }) {
+export function AntiNukePanel({ guildId, reports }: { guildId: string; reports?: React.ReactNode }) {
+  const { language } = useLanguage();
   const load = useCallback(() => api.getAntiNuke(guildId), [guildId]);
   const p = usePanel(load);
   const [adding, setAdding] = useState(false);
   const [newUser, setNewUser] = useState("");
   const [editing, setEditing] = useState<string | null>(null);
-  const [showModules, setShowModules] = useState(false);
+  const [view, setView] = useState("rules");
+  const [query, setQuery] = useState("");
 
   if (p.loading) return <Loading />;
 
+  if (!p.data) return <Card icon={ShieldAlert} title="Anti-Nuke konnte nicht geladen werden"><button type="button" onClick={p.reload} className="text-sm text-blue-300">Erneut laden</button></Card>;
   const status = !!p.data?.status;
   const actions: any[] = p.data?.actions || [];
   const whitelist: any[] = p.data?.whitelist || [];
   const trustedBots: any[] = p.data?.trusted_bots || [];
+  const activeActions = actions.filter(action => status && action.loaded && action.enabled !== false);
+  const visibleActions = actions.filter(action => `${action.label} ${action.description} ${translateWebsiteText(action.label, language)} ${translateWebsiteText(action.description, language)}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
 
   return (
     <section className="space-y-5">
+      <div className="grid gap-3 sm:grid-cols-3">
+        {[{ label: "Aktive Schutzbereiche", value: activeActions.length }, { label: "Ausnahmen", value: whitelist.length }, { label: "Nicht geladene Bereiche", value: actions.filter(a => !a.loaded).length }].map(item => <div key={item.label} className="rounded-2xl border border-white/[.07] bg-[#202124] p-5"><p className="text-xs text-slate-400">{item.label}</p><p className="mt-2 text-2xl font-semibold text-white">{item.value}</p></div>)}
+      </div>
       <Warnings items={p.data?.warnings} />
+      <nav aria-label="Anti-Nuke-Bereiche" className="grid grid-cols-2 gap-2 rounded-2xl border border-white/[.07] bg-[#202124] p-2 sm:grid-cols-4">
+        {[{ key: "rules", label: "Schutzbereiche" }, { key: "exceptions", label: "Ausnahmen" }, { key: "system", label: "Systeminfos" }, { key: "reports", label: "Angriffsmeldungen" }].map(item => <button key={item.key} type="button" aria-pressed={view === item.key} onClick={() => setView(item.key)} className={cn("rounded-xl px-3 py-3 text-sm transition", view === item.key ? "bg-white/10 text-white" : "text-slate-400 hover:bg-white/5")}>{item.label}</button>)}
+      </nav>
 
       {/* Die vertrauten Bots aus `TRUSTED_BOTS`.
           Nur zum Anschauen -- die Liste gilt global und wird in
@@ -219,8 +216,9 @@ export function AntiNukePanel({ guildId }: { guildId: string }) {
           weil sonst niemand nachvollziehen kann, warum ein
           bestimmter Bot ungestraft Kanäle anlegt. Von außen sieht
           das aus wie ein kaputter Anti-Nuke. */}
+      <div hidden={view !== "system"} className="space-y-5">
       {trustedBots.length > 0 && (
-        <div className="rounded-2xl border border-slate-800 bg-[#131318] p-4">
+        <div className="rounded-2xl border border-white/[.07] bg-[#202124] p-4">
           <div className="flex items-start gap-3">
             <Bot className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" />
             <div className="min-w-0 flex-1">
@@ -245,7 +243,7 @@ export function AntiNukePanel({ guildId }: { guildId: string }) {
                   <span
                     key={b.id}
                     title={`${b.name || "Unbekannt"} · ${b.id}`}
-                    className="flex items-center gap-2 rounded-lg border border-slate-800 bg-[#0e0e12] py-1 pl-1 pr-2.5"
+                    className="flex items-center gap-2 rounded-lg border border-white/[.07] bg-[#18191c] py-1 pl-1 pr-2.5"
                   >
                     {b.avatar ? (
                       // eslint-disable-next-line @next/next/no-img-element
@@ -261,7 +259,7 @@ export function AntiNukePanel({ guildId }: { guildId: string }) {
                         <Bot className="h-3 w-3 text-slate-500" />
                       </span>
                     )}
-                    <span className="text-[12px] text-slate-300">
+                    <span className="text-xs text-slate-300">
                       {b.name || b.id}
                     </span>
                   </span>
@@ -273,6 +271,32 @@ export function AntiNukePanel({ guildId }: { guildId: string }) {
       )}
 
       <Card
+        icon={Shield}
+        title="Damit der Schutz auch greift"
+        subtitle="Drei Dinge, ohne die Anti-Nuke nur zuschaut."
+      >
+        <div className="space-y-3 text-xs text-slate-400 leading-relaxed">
+          <p>
+            <b className="text-slate-200">Rolle ganz oben:</b> Der Bot kann
+            niemanden bannen, der über ihm steht. Die Bot-Rolle gehört an die
+            Spitze der Rollenliste.
+          </p>
+          <p>
+            <b className="text-slate-200">Rechte:</b> „Mitglieder bannen“ und
+            „Audit-Log einsehen“. Ohne das zweite erfährt der Bot nicht
+            einmal, wer etwas gelöscht hat.
+          </p>
+          <p>
+            <b className="text-slate-200">Serverinhaber:</b> Gegen den
+            Server-Eigentümer kann kein Bot etwas ausrichten — das lässt
+            Discord grundsätzlich nicht zu.
+          </p>
+        </div>
+      </Card>
+      {trustedBots.length === 0 && <Card icon={Bot} title="Vertrauenswürdige Bots"><p className="text-sm text-slate-400">Keine globalen Bot-Ausnahmen vorhanden.</p></Card>}
+      </div>
+      <div hidden={view !== "rules"}>
+      <Card
         icon={status ? ShieldCheck : ShieldAlert}
         title="Anti-Nuke"
         subtitle="Wenn jemand anfängt, Kanäle zu löschen oder Mitglieder zu bannen, bannt der Bot die Person und macht rückgängig, was geht."
@@ -282,25 +306,26 @@ export function AntiNukePanel({ guildId }: { guildId: string }) {
             "rounded-2xl border p-4 flex items-center justify-between gap-4",
             status
               ? "bg-emerald-500/[0.06] border-emerald-500/25"
-              : "bg-[#0e0e12] border-slate-800"
+              : "bg-[#18191c] border-white/[.07]"
           )}
         >
           <div className="min-w-0">
             <p
               className={cn(
-                "font-black",
+                "font-semibold",
                 status ? "text-emerald-300" : "text-slate-400"
               )}
             >
               {status ? "Aktiv" : "Aus"}
             </p>
-            <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
+            <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
               {status
-                ? `${p.data?.module_count ?? 0} Wächter laufen mit.`
+                ? `${activeActions.reduce((count, action) => count + (action.modules?.length ?? 1), 0)} Wächter laufen mit.`
                 : "Es wird nichts überwacht."}
             </p>
           </div>
           <InlineToggle
+            ariaLabel="Anti-Nuke"
             checked={status}
             onCheckedChange={(v: boolean) =>
               p.act(
@@ -315,23 +340,9 @@ export function AntiNukePanel({ guildId }: { guildId: string }) {
           />
         </div>
 
-        <button
-          onClick={() => setShowModules((o) => !o)}
-          className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-[#0e0e12] border border-slate-800"
-        >
-          <span className="text-[11px] font-black uppercase tracking-widest text-slate-500">
-            Was genau überwacht wird ({actions.length} Bereiche)
-          </span>
-          <ChevronDown
-            className={cn(
-              "h-3.5 w-3.5 text-slate-600 transition-transform",
-              showModules && "rotate-180"
-            )}
-          />
-        </button>
-
-        {showModules && (
-          <div className="grid sm:grid-cols-2 gap-2">
+        <div className="relative"><Search className="absolute left-3 top-3.5 h-4 w-4 text-slate-500" /><input value={query} onChange={e => setQuery(e.target.value)} aria-label="Schutzbereich suchen" placeholder="Schutzbereich suchen …" className="w-full rounded-xl border border-white/10 bg-[#18191c] py-3 pl-10 pr-4 text-sm text-white outline-none focus:border-blue-400/40" /></div>
+        <button type="button" onClick={p.reload} disabled={p.busy} className="flex items-center gap-2 text-sm text-blue-300"><RefreshCw className="h-4 w-4" />Status aktualisieren</button>
+        <div className="grid sm:grid-cols-2 gap-2">
             {/* Jeder Bereich ist jetzt ein eigener Schalter.
                 Vorher war das eine reine Anzeige: wer wollte, dass der
                 Bot Kanal-Löschungen ignoriert (weil ein anderer Bot
@@ -341,7 +352,7 @@ export function AntiNukePanel({ guildId }: { guildId: string }) {
                 Die Schalter sind grau, solange der Hauptschalter aus
                 ist: sie hätten dann keine Wirkung, und ein bedienbarer
                 Schalter ohne Wirkung ist eine Lüge. */}
-            {actions.map((action) => {
+            {visibleActions.map((action) => {
               const an = action.enabled !== false;
               const nutzbar = status && action.loaded;
               return (
@@ -352,22 +363,22 @@ export function AntiNukePanel({ guildId }: { guildId: string }) {
                     !action.loaded
                       ? "bg-red-500/[0.05] border-red-500/25"
                       : !status
-                      ? "bg-[#0e0e12]/50 border-slate-800/60"
+                      ? "bg-[#18191c]/50 border-white/[.05]"
                       : an
-                      ? "bg-[#0e0e12] border-slate-800"
-                      : "bg-[#0e0e12]/50 border-slate-800/60"
+                      ? "bg-[#18191c] border-white/[.07]"
+                      : "bg-[#18191c]/50 border-white/[.05]"
                   )}
                 >
                   <div className="min-w-0">
                     <p
                       className={cn(
-                        "text-[12px] font-bold",
+                        "text-xs font-bold",
                         nutzbar && an ? "text-white" : "text-slate-500"
                       )}
                     >
                       {action.label}
                     </p>
-                    <p className="text-[10px] text-slate-600 leading-relaxed mt-0.5">
+                    <p className="text-xs text-slate-500 leading-relaxed mt-0.5">
                       {!action.loaded
                         ? "Dieses Modul ist nicht geladen — es schützt gerade nichts."
                         : !status
@@ -379,6 +390,7 @@ export function AntiNukePanel({ guildId }: { guildId: string }) {
                   </div>
 
                   <InlineToggle
+                    ariaLabel={action.label}
                     checked={an && nutzbar}
                     onCheckedChange={(v: boolean) =>
                       p.act(
@@ -395,15 +407,15 @@ export function AntiNukePanel({ guildId }: { guildId: string }) {
               );
             })}
           </div>
-        )}
+        {visibleActions.length === 0 && <p className="py-6 text-center text-sm text-slate-400">Keine passenden Schutzbereiche.</p>}
 
-        <p className="text-[11px] text-slate-600 leading-relaxed">
-          Die Bereiche lassen sich nicht einzeln abschalten — Anti-Nuke ist
-          an oder aus. Wer eine bestimmte Aktion ausführen darf, regelst du
-          unten über die Ausnahmeliste.
+        <p className="text-xs text-slate-500 leading-relaxed">
+          Jeder Schutzbereich ist einzeln einstellbar. Eine Ausnahme erlaubt einer Person nur die ausgewählten Aktionen.
         </p>
       </Card>
 
+      </div>
+      <div hidden={view !== "exceptions"}>
       {/* ── Whitelist ────────────────────────────────────────── */}
       <Card
         icon={UserPlus}
@@ -417,7 +429,7 @@ export function AntiNukePanel({ guildId }: { guildId: string }) {
               setAdding(true);
               setEditing(null);
             }}
-            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-white/[0.03] border border-white/10 text-xs font-black uppercase tracking-widest text-slate-300 hover:text-white transition-all"
+            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-white/[0.03] border border-white/10 text-xs font-semibold uppercase tracking-widest text-slate-300 hover:text-white transition-all"
           >
             <UserPlus className="h-3.5 w-3.5" />
             Jemanden ausnehmen
@@ -444,9 +456,8 @@ export function AntiNukePanel({ guildId }: { guildId: string }) {
               }}
               onSave={async (picked: Record<string, boolean>) => {
                 if (!newUser) return toast.error("Erst ein Mitglied wählen.");
-                await p.act(() =>
-                  api.setAntiNukeWhitelist(guildId, newUser, picked)
-                );
+                const saved = await p.act(() => api.setAntiNukeWhitelist(guildId, newUser, picked));
+                if (!saved) return;
                 setAdding(false);
                 setNewUser("");
               }}
@@ -455,7 +466,7 @@ export function AntiNukePanel({ guildId }: { guildId: string }) {
         )}
 
         {whitelist.length === 0 ? (
-          <p className="text-sm text-slate-500 py-8 text-center border border-dashed border-slate-800 rounded-2xl">
+          <p className="text-sm text-slate-500 py-8 text-center border border-dashed border-white/[.07] rounded-2xl">
             Niemand ausgenommen. Der Schutz gilt für alle — auch für dich.
           </p>
         ) : (
@@ -473,7 +484,7 @@ export function AntiNukePanel({ guildId }: { guildId: string }) {
                     "rounded-2xl border",
                     everything
                       ? "bg-red-500/[0.05] border-red-500/30"
-                      : "bg-[#0e0e12] border-slate-800"
+                      : "bg-[#18191c] border-white/[.07]"
                   )}
                 >
                   <div className="flex items-center gap-3 px-4 py-3">
@@ -496,14 +507,14 @@ export function AntiNukePanel({ guildId }: { guildId: string }) {
                       >
                         {entry.name || "Nicht mehr auf dem Server"}
                         {entry.bot && (
-                          <span className="ml-2 px-1.5 py-0.5 rounded bg-primary/15 text-primary text-[9px] font-black uppercase align-middle">
+                          <span className="ml-2 px-1.5 py-0.5 rounded bg-primary/15 text-primary text-xs font-semibold uppercase align-middle">
                             Bot
                           </span>
                         )}
                       </p>
                       <p
                         className={cn(
-                          "text-[11px] truncate",
+                          "text-xs truncate",
                           everything ? "text-red-300" : "text-slate-500"
                         )}
                       >
@@ -552,9 +563,8 @@ export function AntiNukePanel({ guildId }: { guildId: string }) {
                         busy={p.busy}
                         onCancel={() => setEditing(null)}
                         onSave={async (picked: Record<string, boolean>) => {
-                          await p.act(() =>
-                            api.setAntiNukeWhitelist(guildId, entry.id, picked)
-                          );
+                          const saved = await p.act(() => api.setAntiNukeWhitelist(guildId, entry.id, picked));
+                          if (!saved) return;
                           setEditing(null);
                         }}
                       />
@@ -567,29 +577,9 @@ export function AntiNukePanel({ guildId }: { guildId: string }) {
         )}
       </Card>
 
-      <Card
-        icon={Shield}
-        title="Damit der Schutz auch greift"
-        subtitle="Drei Dinge, ohne die Anti-Nuke nur zuschaut."
-      >
-        <div className="space-y-3 text-[12px] text-slate-400 leading-relaxed">
-          <p>
-            <b className="text-slate-200">Rolle ganz oben:</b> Der Bot kann
-            niemanden bannen, der über ihm steht. Die Bot-Rolle gehört an die
-            Spitze der Rollenliste.
-          </p>
-          <p>
-            <b className="text-slate-200">Rechte:</b> „Mitglieder bannen“ und
-            „Audit-Log einsehen“. Ohne das zweite erfährt der Bot nicht
-            einmal, wer etwas gelöscht hat.
-          </p>
-          <p>
-            <b className="text-slate-200">Serverinhaber:</b> Gegen den
-            Server-Eigentümer kann kein Bot etwas ausrichten — das lässt
-            Discord grundsätzlich nicht zu.
-          </p>
-        </div>
-      </Card>
+
+      </div>
+      <div hidden={view !== "reports"}>{reports}</div>
     </section>
   );
 }

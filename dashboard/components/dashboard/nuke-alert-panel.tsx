@@ -16,8 +16,8 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import {
-  AlertTriangle, Bell, Check, Clock, Copy, ExternalLink, Loader2, Send,
-  EyeOff, Shield, ShieldAlert, ShieldCheck, Trash2, UserPlus, X,
+  AlertTriangle, Bell, Check, Clock, Loader2, Send,
+  EyeOff, Shield, ShieldAlert, ShieldCheck, Trash2, X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
@@ -50,11 +50,11 @@ function ago(unix: number) {
 function Field({ label, hint, children }: any) {
   return (
     <div className="space-y-2">
-      <span className="text-xs font-black uppercase tracking-widest text-slate-500">
+      <span className="text-xs font-semibold uppercase tracking-widest text-slate-500">
         {label}
       </span>
       {children}
-      {hint && <p className="text-[11px] text-slate-600 leading-relaxed">{hint}</p>}
+      {hint && <p className="text-xs text-slate-500 leading-relaxed">{hint}</p>}
     </div>
   );
 }
@@ -85,9 +85,9 @@ function Rule({
   return (
     <div className="flex gap-2.5">
       <span className={cn("h-2 w-2 rounded-full shrink-0 mt-1.5", colour)} />
-      <p className="text-[12px] leading-relaxed">
+      <p className="text-xs leading-relaxed">
         <span className="text-slate-300">{when}</span>
-        <span className="text-slate-600"> — {what}</span>
+        <span className="text-slate-500"> — {what}</span>
       </p>
     </div>
   );
@@ -98,7 +98,6 @@ export function NukeAlertPanel({ guildId }: { guildId: string }) {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [draft, setDraft] = useState<Record<string, any>>({});
-  const [invite, setInvite] = useState<any>(null);
 
   const load = useCallback(async () => {
     try {
@@ -144,19 +143,6 @@ export function NukeAlertPanel({ guildId }: { guildId: string }) {
     }
   };
 
-  const fetchInvite = async () => {
-    setBusy(true);
-    try {
-      const res = await api.getPartnerInvite(guildId);
-      setInvite(res);
-      if (res.warning) toast.warning(res.warning);
-    } catch (err: any) {
-      toast.error(err?.message || "Link konnte nicht erstellt werden.");
-    } finally {
-      setBusy(false);
-    }
-  };
-
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[200px]">
@@ -165,23 +151,25 @@ export function NukeAlertPanel({ guildId }: { guildId: string }) {
     );
   }
 
+  if (!data) return <div className="rounded-2xl border border-white/[.07] bg-[#202124] p-6"><p className="text-sm text-slate-400">Angriffsmeldungen konnten nicht geladen werden.</p><button type="button" onClick={load} className="mt-4 text-sm text-blue-300">Erneut laden</button></div>;
+
   const missing: string[] = data?.missing_permissions || [];
 
   return (
     <section className="space-y-6">
       {/* ── The thing that actually matters ──────────── */}
       {missing.length > 0 ? (
-        <div className="bg-red-500/[0.07] border border-red-500/30 rounded-3xl p-4 sm:p-6 space-y-3">
+        <div className="bg-red-500/[0.07] border border-red-500/30 rounded-2xl p-4 sm:p-6 space-y-3">
           <div className="flex gap-3">
             <ShieldAlert className="h-5 w-5 text-red-400 shrink-0 mt-0.5" />
             <div className="min-w-0">
-              <p className="font-black text-white">
+              <p className="font-semibold text-white">
                 Der Bot könnte einen Angriff gerade nicht stoppen
               </p>
-              <p className="text-[12px] text-red-200/80 mt-1.5 leading-relaxed">
+              <p className="text-xs text-red-200/80 mt-1.5 leading-relaxed">
                 Ihm fehlen: <b>{missing.join(", ")}</b>
               </p>
-              <p className="text-[11px] text-slate-400 mt-2 leading-relaxed">
+              <p className="text-xs text-slate-400 mt-2 leading-relaxed">
                 Er sieht den Angriff, kann aber nichts dagegen tun. Gib ihm
                 diese Rechte und schieb seine Rolle in den Server­einstellungen
                 möglichst weit nach oben — er kann nur gegen Rollen vorgehen,
@@ -191,9 +179,9 @@ export function NukeAlertPanel({ guildId }: { guildId: string }) {
           </div>
         </div>
       ) : (
-        <div className="bg-emerald-500/[0.05] border border-emerald-500/20 rounded-3xl p-5 flex gap-3">
+        <div className="bg-emerald-500/[0.05] border border-emerald-500/20 rounded-2xl p-5 flex gap-3">
           <ShieldCheck className="h-5 w-5 text-emerald-400 shrink-0" />
-          <p className="text-[12px] text-emerald-200/80 leading-relaxed">
+          <p className="text-xs text-emerald-200/80 leading-relaxed">
             Der Bot hat alle nötigen Rechte und könnte eingreifen. Achte
             zusätzlich darauf, dass seine Rolle weit oben steht.
           </p>
@@ -201,14 +189,14 @@ export function NukeAlertPanel({ guildId }: { guildId: string }) {
       )}
 
       {/* ── Settings ─────────────────────────────────── */}
-      <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
+      <div className="bg-[#202124] border border-white/[.07] rounded-2xl p-4 sm:p-6 space-y-5">
         <div className="flex items-center gap-3">
           <div className="h-10 w-10 rounded-2xl bg-primary/15 grid place-items-center shrink-0">
             <Bell className="h-5 w-5 text-primary" />
           </div>
           <div className="min-w-0">
-            <p className="font-black text-white">Meldung bei Angriffen</p>
-            <p className="text-[11px] text-slate-500">
+            <p className="font-semibold text-white">Meldung bei Angriffen</p>
+            <p className="text-xs text-slate-500">
               Bisher hat der Bot bei einem Angriff nichts gesagt — weder wenn er
               ihn abwehrte, noch wenn er es nicht konnte.
             </p>
@@ -276,8 +264,8 @@ export function NukeAlertPanel({ guildId }: { guildId: string }) {
         {/* Was das System tut — und was nicht.
             Die Regeln sind bewusst still: das ist erklärungsbedürftig,
             weil Schweigen leicht wie ein Ausfall aussieht. */}
-        <div className="rounded-2xl bg-[#0e0e12] border border-slate-800 p-4 space-y-2.5">
-          <p className="text-[10px] font-black uppercase tracking-widest text-slate-600">
+        <div className="rounded-2xl bg-[#18191c] border border-white/[.07] p-4 space-y-2.5">
+          <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">
             Wann der Bot was tut
           </p>
           <Rule
@@ -301,7 +289,7 @@ export function NukeAlertPanel({ guildId }: { guildId: string }) {
           <button
             onClick={test}
             disabled={busy}
-            className="flex items-center gap-2 px-5 py-3 rounded-xl bg-white/[0.03] border border-white/10 text-xs font-black uppercase tracking-widest text-slate-300 hover:text-primary hover:border-primary/30 disabled:opacity-40 transition-all"
+            className="flex items-center gap-2 px-5 py-3 rounded-xl bg-white/[0.03] border border-white/10 text-xs font-semibold uppercase tracking-widest text-slate-300 hover:text-primary hover:border-primary/30 disabled:opacity-40 transition-all"
           >
             <Send className="h-4 w-4" />
             Testmeldung senden
@@ -309,93 +297,9 @@ export function NukeAlertPanel({ guildId }: { guildId: string }) {
         </div>
       </div>
 
-      {/* ── Partner bot ──────────────────────────────── */}
-      {data?.partner_configured && (
-        <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-4">
-          <div className="flex gap-3">
-            <div className="h-10 w-10 rounded-2xl bg-primary/15 grid place-items-center shrink-0">
-              <UserPlus className="h-5 w-5 text-primary" />
-            </div>
-            <div className="min-w-0">
-              <p className="font-black text-white">Template-Bot hinzufügen</p>
-              <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
-                Erzeugt einen Einladungslink für den zweiten Bot. Der erkennt
-                dann automatisch, dass er von hier kommt, und richtet den Server
-                mit seinem Template ein.
-              </p>
-            </div>
-          </div>
-
-          <div className="rounded-xl bg-emerald-500/[0.05] border border-emerald-500/20 p-3.5">
-            <p className="text-[11px] text-emerald-200/80 leading-relaxed">
-              <b className="text-emerald-300">Fest freigestellt:</b> Der
-              Template-Bot ist beim Anti-Nuke dauerhaft ausgenommen — er legt
-              beim Wiederherstellen in kurzer Zeit sehr viele Kanäle und Rollen
-              an, was sonst wie ein Angriff aussieht. Du musst ihn nirgends
-              eintragen, und er lässt sich auch nicht versehentlich aussperren.
-            </p>
-          </div>
-
-          <div className="rounded-xl bg-white/[0.02] border border-white/5 p-3.5">
-            <p className="text-[11px] text-slate-500 leading-relaxed">
-              <b className="text-slate-400">Warum ein Klick nötig ist:</b> Discord
-              lässt einen Bot keinen anderen Bot einladen — auch nicht mit
-              Admin-Rechten. Das Autorisieren muss ein Mensch im Browser
-              bestätigen. Das ist Absicht: sonst könnte ein übernommener Bot
-              beliebig viele weitere nachziehen, also genau einen Nuke bauen.
-              <br />
-              <br />
-              Nach einem Angriff schickt der Bot den Startbefehl selbst — fünf
-              Sekunden nachdem der Template-Bot beigetreten ist, in den Kanal
-              mit der Alarm-Meldung. Du musst nichts tippen.
-            </p>
-          </div>
-
-          {invite ? (
-            <div className="space-y-2">
-              <div className="flex gap-2 flex-wrap">
-                <a
-                  href={invite.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex-1 min-w-[180px] flex items-center justify-center gap-2 py-3 rounded-xl bg-primary text-xs font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:brightness-110 transition-all"
-                >
-                  <ExternalLink className="h-4 w-4" />
-                  Jetzt hinzufügen
-                </a>
-                <button
-                  onClick={() => {
-                    navigator.clipboard?.writeText(invite.url);
-                    toast.success("Link kopiert.");
-                  }}
-                  className="px-4 py-3 rounded-xl bg-white/[0.03] border border-white/10 text-slate-400 hover:text-white transition-all"
-                >
-                  <Copy className="h-4 w-4" />
-                </button>
-              </div>
-              {invite.signed && (
-                <p className="text-[11px] text-slate-600">
-                  Der Link ist signiert und läuft in{" "}
-                  {Math.round((invite.expires_in || 3600) / 60)} Minuten ab.
-                </p>
-              )}
-            </div>
-          ) : (
-            <button
-              onClick={fetchInvite}
-              disabled={busy}
-              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-white/[0.03] border border-white/10 text-xs font-black uppercase tracking-widest text-slate-300 hover:text-primary hover:border-primary/30 disabled:opacity-40 transition-all"
-            >
-              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
-              Einladungslink erstellen
-            </button>
-          )}
-        </div>
-      )}
-
       {/* ── History ──────────────────────────────────── */}
       <div>
-        <h3 className="font-black text-white flex items-center gap-2 mb-3">
+        <h3 className="font-semibold text-white flex items-center gap-2 mb-3">
           <Clock className="h-5 w-5 text-slate-500" />
           Vorfälle
           <span className="text-xs font-normal text-slate-500">
@@ -404,7 +308,7 @@ export function NukeAlertPanel({ guildId }: { guildId: string }) {
         </h3>
 
         {!data?.incidents?.length ? (
-          <p className="text-sm text-slate-500 py-8 text-center border border-dashed border-slate-800 rounded-2xl">
+          <p className="text-sm text-slate-500 py-8 text-center border border-dashed border-white/[.07] rounded-2xl">
             Noch nichts passiert.
           </p>
         ) : (
@@ -418,17 +322,17 @@ export function NukeAlertPanel({ guildId }: { guildId: string }) {
               return (
                 <div
                   key={entry.id}
-                  className="bg-[#131318] border border-slate-800 rounded-2xl px-4 py-3 flex items-center gap-3 flex-wrap"
+                  className="bg-[#202124] border border-white/[.07] rounded-2xl px-4 py-3 flex items-center gap-3 flex-wrap"
                 >
                   <Icon className={cn("h-4 w-4 shrink-0", style.tone)} />
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-bold text-white truncate">
                       {entry.action_label}
-                      <span className={cn("ml-2 text-[11px] font-black uppercase", style.tone)}>
+                      <span className={cn("ml-2 text-xs font-semibold uppercase", style.tone)}>
                         {style.label}
                       </span>
                     </p>
-                    <p className="text-[11px] text-slate-500">
+                    <p className="text-xs text-slate-500">
                       {entry.executor_name || "unbekannt"}
                       {entry.executor_id && ` (${entry.executor_id})`}
                       {" · "}

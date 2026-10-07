@@ -750,6 +750,8 @@ async def test_api(store):
           str(len(data["rules"])))
     check("each rule carries its limits",
           all("threshold_min" in r and "threshold_max" in r for r in data["rules"]))
+    check("reset values include the real rule window",
+          all(r["defaults"]["window"] == store.RULES[r["key"]]["window"] for r in data["rules"]))
     check("the punishments are advertised",
           set(data["punishments"]) == set(store.PUNISHMENTS),
           str(data["punishments"]))

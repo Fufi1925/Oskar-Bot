@@ -7,9 +7,9 @@ export const dynamic = "force-dynamic";
 
 export default function AntiNukePage({ params }: { params: { guildId: string } }) {
   return (
-    <div className="max-w-4xl mx-auto space-y-6 pb-24">
+    <div className="max-w-6xl mx-auto space-y-6 pb-24">
       <div>
-        <h2 className="text-2xl font-black text-white flex items-center gap-2 tracking-tight">
+        <h2 className="text-2xl font-semibold text-white flex items-center gap-2 tracking-tight">
           <ShieldAlert className="h-6 w-6 text-primary" />
           Anti-Nuke
         </h2>
@@ -19,10 +19,7 @@ export default function AntiNukePage({ params }: { params: { guildId: string } }
         </p>
       </div>
 
-      <AntiNukePanel guildId={params.guildId} />
-
-      {/* Reporting: whether an attack was stopped, or only seen. */}
-      <NukeAlertPanel guildId={params.guildId} />
+      <AntiNukePanel guildId={params.guildId} reports={<NukeAlertPanel guildId={params.guildId} />} />
     </div>
   );
 }
