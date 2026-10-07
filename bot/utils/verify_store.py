@@ -68,20 +68,22 @@ DEFAULTS: dict[str, Any] = {
     # ── the texts ────────────────────────────────────────────────
     # The defaults are what most servers will never change, so they say
     # what happens rather than just "verify yourself".
-    "panel_title": f"{bot_emoji.WARNING} Server-Verifizierung",
+    "panel_title": f"{bot_emoji.WARNING} Verify your account",
     "panel_text": (
-        "Klicke auf den Button unten, um dich zu verifizieren und Zugang zum Server zu erhalten.\n\n"
-        f"### {bot_emoji.INFO} Anleitung\n"
-        "Klicke auf **Verifizieren**, melde dich bei Discord an und bestätige OAuth2.\n\n"
-        f"### {bot_emoji.LOCK} Server-Sicherheit\n"
-        "Diese Verifizierung hilft dabei, den Server vor Bots und gesperrten Servermitgliedschaften zu schützen."
+        "Welcome to **{server}**! Verify your Discord account to receive {role} and access the server.\n\n"
+        f"### {bot_emoji.INFO} How to verify\n"
+        "Select **Verify with Discord**, sign in to Discord and approve the requested OAuth2 access. "
+        "Return here once verification is complete.\n\n"
+        f"### {bot_emoji.LOCK} Your privacy\n"
+        "University Bot checks your identity and server memberships against this server's rules. "
+        "We never ask for your Discord password or access to your messages."
     ),
-    "panel_footer": "Bereitgestellt von University Bot",
-    "button_label": "Verifizieren",
-    "captcha_label": "Stattdessen CAPTCHA",
+    "panel_footer": "Powered by University Bot",
+    "button_label": "Verify with Discord",
+    "captcha_label": "Use CAPTCHA instead",
     "success_text": (
-        f"Alles klar, {{user}} — du bist dabei! {bot_emoji.TADAA}\n"
-        "Alle Kanäle von **{server}** sind jetzt für dich offen."
+        f"{bot_emoji.TADAA} You're verified, {{user}}!\n"
+        "You received {role} on **{server}**. You can now access the channels available to your roles."
     ),
 
     # ── direct messages ──────────────────────────────────────────
@@ -89,9 +91,9 @@ DEFAULTS: dict[str, Any] = {
     # optional -- but whether the bot congratulates people afterwards is.
     "dm_on_success": False,
     "dm_success_text": (
-        "Willkommen auf **{server}**, {user.name}!\n\n"
-        "Du bist verifiziert und kannst loslegen. "
-        "Schau am besten zuerst in die Regeln und stell dich kurz vor."
+        f"{bot_emoji.TICK} Welcome to **{{server}}**, {{user.name}}!\n\n"
+        "Your verification is complete and you received {role}. "
+        "Please read the server rules before getting started."
     ),
     # The nag when somebody writes in the verification channel.
     "dm_on_delete": True,
@@ -114,10 +116,10 @@ DEFAULTS: dict[str, Any] = {
     "blacklisted_guild_ids": [],
     "blacklist_log_channel_id": None,
     "blacklist_custom_message": False,
-    "blacklist_title": "Verifizierung abgelehnt",
+    "blacklist_title": "Verification declined",
     "blacklist_text": (
-        "Du bist Mitglied eines Servers, den das Team von **{server}** "
-        "gesperrt hat. Betroffener Server: **{blocked_server}**."
+        "You are a member of a server restricted by the team of **{server}**. "
+        "Restricted server: **{blocked_server}**. Please contact this server's staff for help."
     ),
 
     # Optional manual guild join for future OAuth verifications. Access tokens
@@ -368,9 +370,25 @@ def normalise(settings: dict) -> dict:
         "❗ Server-Verifizierung",
         "Kurz bestätigen, dann bist du drin",
         "Verifizierung erforderlich",
-        "Verification Required",
+        "Verification Required", f"{bot_emoji.WARNING} Server-Verifizierung",
     }:
-        for key in ("panel_title", "panel_text", "panel_footer", "button_label"):
+        out["panel_title"] = DEFAULTS["panel_title"]
+
+    legacy_texts = {
+        "panel_text": ("Klicke auf den Button unten, um dich zu verifizieren und Zugang zum Server zu erhalten.\n\n"
+            f"### {bot_emoji.INFO} Anleitung\nKlicke auf **Verifizieren**, melde dich bei Discord an und bestätige OAuth2.\n\n"
+            f"### {bot_emoji.LOCK} Server-Sicherheit\nDiese Verifizierung hilft dabei, den Server vor Bots und gesperrten Servermitgliedschaften zu schützen."),
+        "panel_footer": "Bereitgestellt von University Bot",
+        "button_label": "Verifizieren",
+        "captcha_label": "Stattdessen CAPTCHA",
+        "success_text": (f"Alles klar, {{user}} — du bist dabei! {bot_emoji.TADAA}\n"
+                         "Alle Kanäle von **{server}** sind jetzt für dich offen."),
+        "dm_success_text": "Willkommen auf **{server}**, {user.name}!\n\nDu bist verifiziert und kannst loslegen. Schau am besten zuerst in die Regeln und stell dich kurz vor.",
+        "blacklist_title": "Verifizierung abgelehnt",
+        "blacklist_text": "Du bist Mitglied eines Servers, den das Team von **{server}** gesperrt hat. Betroffener Server: **{blocked_server}**.",
+    }
+    for key, old in legacy_texts.items():
+        if str(out.get(key) or "").strip() == old:
             out[key] = DEFAULTS[key]
 
     # All legacy button/CAPTCHA settings migrate to the single OAuth flow.

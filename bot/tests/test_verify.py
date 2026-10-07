@@ -835,7 +835,7 @@ async def test_api(store):
     check("it reports itself as configured", data["configured"] is True)
     check("the standard OAuth2 panel is rendered server-side",
           "OAuth2" in data["preview"]["text"]
-          and "Bereitgestellt von University Bot" in data["preview"]["footer"],
+          and "Powered by University Bot" in data["preview"]["footer"],
           str(data["preview"]))
     check("the placeholder list is sent along",
           "{server}" in data["placeholders"], str(data.get("placeholders")))
@@ -965,10 +965,10 @@ async def test_api(store):
     denial_payload = str(denial_view.to_components() if denial_view else None)
     check("the standard denial DM is a Components V2 blacklist card",
           denial_view is not None
-          and "Server-Blacklist" in denial_payload
+          and "Verification blocked" in denial_payload
           and "Gesperrter Testserver" in denial_payload
-          and "Bereitgestellt von University Bot" in denial_payload
-          and bot_emoji.CROSS in denial_payload,
+          and "Powered by University Bot" in denial_payload
+          and bot_emoji.CROSS_ALT in denial_payload,
           denial_payload[:500])
 
     client.patch(base, json={"server_blacklist_enabled": False})

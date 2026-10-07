@@ -443,20 +443,19 @@ async def complete_oauth_verification(
     if denial_reason:
         blocked_names = ", ".join(item["name"] for item in matched) or "—"
         if settings.get("blacklist_custom_message"):
-            title = settings.get("blacklist_title") or "Verifizierung abgelehnt"
-            description = settings.get("blacklist_text") or "Die Prüfung wurde abgelehnt."
+            title = settings.get("blacklist_title") or "Verification declined"
+            description = settings.get("blacklist_text") or "Your verification was declined."
         else:
-            title = "Verifizierung blockiert — Server-Blacklist" if matched \
-                else "Verifizierung abgelehnt"
+            title = "Verification blocked — restricted server" if matched \
+                else "Verification declined"
             description = (
-                "Deine Verifizierung auf **{server}** wurde abgelehnt, weil du Mitglied "
-                "eines Servers bist, den das Serverteam eingeschränkt hat.\n\n"
-                "Server: `{blocked_server}`\n\n"
-                "**Diese Einschränkung wird ausschließlich von den Administratoren von "
-                "{server} verwaltet. University Bot trifft keine eigene "
-                "Moderationsentscheidung.**"
+                "Your verification on **{server}** was declined because you are a member of "
+                "a server restricted by this server's staff.\n\n"
+                "Restricted server: `{blocked_server}`\n\n"
+                "**These restrictions are managed by the administrators of {server}. "
+                "Please contact them for help. University Bot does not make its own moderation decision.**"
                 if matched else
-                "Dein Discord-Konto erfüllt das konfigurierte Mindestalter dieses Servers nicht."
+                "Your Discord account does not meet this server's minimum account age. Please contact the server staff for help."
             )
         description = store.render(
             description, server=guild.name, user_mention=member.mention,
@@ -464,9 +463,9 @@ async def complete_oauth_verification(
             blocked_server=blocked_names,
         )
         denial_card = Panel(
-            f"{bot_emoji.CROSS} {title}"[:256],
+            f"{bot_emoji.CROSS_ALT} {title}"[:256],
             description[:3800],
-            "Bereitgestellt von University Bot",
+            "Powered by University Bot",
             tone="error",
         )
         try:
@@ -583,7 +582,7 @@ async def complete_oauth_verification(
         )
         try:
             await run_on_bot_loop(member.send(view=StatusCard(
-                "Verifizierung erfolgreich", text[:3800], tone="success"
+                "Verification complete", text[:3800], tone="success"
             )))
         except (discord.Forbidden, discord.HTTPException):
             pass
@@ -1323,6 +1322,7 @@ async def get_verification(guild_id: int, bot: "universitybot" = Depends(get_bot
         "configured": store.is_configured(settings),
         "panel_posted": panel_alive,
         "placeholders": store.PLACEHOLDERS,
+        "text_defaults": {key: store.DEFAULTS[key] for key in store.TEXT_KEYS},
         "preview": {
             "title": preview("panel_title"),
             "text": preview("panel_text"),

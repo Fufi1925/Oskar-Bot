@@ -46,13 +46,13 @@ import { DiscordEmojiText } from "@/components/dashboard/discord-emoji";
 import { LogUmgezogen } from "@/components/dashboard/log-umgezogen";
 
 const INPUT =
-  "w-full rounded-xl border border-slate-800 bg-[#0b0e16] px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-blue-500/60 focus:ring-4 focus:ring-blue-500/10";
+  "w-full rounded-xl border border-white/[.07] bg-[#18191c] px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-blue-500/60 focus:ring-4 focus:ring-blue-500/10";
 
 const TABS = [
   { id: "setup", label: "Einrichtung", icon: ListChecks },
   { id: "blacklist", label: "Blacklist", icon: Server },
-  { id: "messages", label: "Nachrichten", icon: MessageSquareText },
-  { id: "advanced", label: "Erweitert", icon: SlidersHorizontal },
+  { id: "messages", label: "Discord-Nachrichten", icon: MessageSquareText },
+  { id: "advanced", label: "Sicherheit", icon: SlidersHorizontal },
   { id: "history", label: "Verlauf", icon: History },
 ] as const;
 
@@ -85,17 +85,17 @@ function unknownPlaceholders(text: string): string[] {
 function Field({ label, hint, required, children }: any) {
   return (
     <label className="block space-y-2.5">
-      <span className="flex items-center gap-2 text-xs font-extrabold text-slate-300">
+      <span className="flex items-center gap-2 text-xs font-semibold text-slate-300">
         {label}
         {required && (
-          <span className="rounded-md bg-blue-500/10 px-1.5 py-0.5 text-[9px] uppercase tracking-wider text-blue-300">
+          <span className="rounded-md bg-blue-500/10 px-1.5 py-0.5 text-xs uppercase tracking-wider text-blue-300">
             Pflicht
           </span>
         )}
       </span>
       {children}
       {hint && (
-        <span className="block text-[11px] leading-relaxed text-slate-500">
+        <span className="block text-xs leading-relaxed text-slate-500">
           {hint}
         </span>
       )}
@@ -117,7 +117,7 @@ function Section({
     amber: "bg-amber-500/10 text-amber-300 ring-amber-500/20",
   };
   return (
-    <section className="space-y-5 rounded-3xl border border-slate-800 bg-[#131318] p-4 sm:p-6">
+    <section className="space-y-5 rounded-2xl border border-white/[.07] bg-[#202124] p-4 sm:p-6">
       <header className="flex items-start gap-3">
         <div
           className={cn(
@@ -165,7 +165,7 @@ function TextField({
         }
       />
       {bad.length > 0 && (
-        <span className="flex gap-2 rounded-lg border border-amber-500/20 bg-amber-500/[0.06] p-2.5 text-[11px] text-amber-200/80">
+        <span className="flex gap-2 rounded-lg border border-amber-500/20 bg-amber-500/[0.06] p-2.5 text-xs text-amber-200/80">
           <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
           {bad.join(", ")} ist kein gültiger Platzhalter.
         </span>
@@ -207,7 +207,7 @@ function Warnings({
 function Detail({ label, value, mono }: any) {
   return (
     <div className="min-w-0">
-      <p className="text-[9px] font-bold uppercase tracking-widest text-slate-600">
+      <p className="text-xs font-bold uppercase tracking-widest text-slate-600">
         {label}
       </p>
       <p
@@ -257,11 +257,20 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
   }, [guildId]);
 
   const setPullEnabled = async (enabled: boolean) => {
+    if (p.dirty > 0) {
+      toast.info("Speichere oder verwerfe zuerst deine Änderungen, bevor du User Pull umschaltest.");
+      return;
+    }
     await p.act(() => api.toggleUserPull(guildId, enabled));
     await p.reload();
   };
 
   if (p.loading) return <Loading />;
+  if (!p.data) return <section className="rounded-2xl border border-white/[.07] bg-[#202124] p-6">
+    <h2 className="font-semibold text-white">Verifizierung konnte nicht geladen werden</h2>
+    <p className="mt-2 text-sm text-slate-400">Deine Einstellungen werden angezeigt, sobald die Verbindung wiederhergestellt ist.</p>
+    <button type="button" onClick={() => p.reload()} className="mt-4 rounded-xl border border-white/10 px-4 py-2 text-sm text-white">Erneut laden</button>
+  </section>;
 
   const roleName = p.data?.role_infos?.length
     ? p.data.role_infos
@@ -333,61 +342,41 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
 
   return (
     <section className="space-y-5 pb-4">
-      <div className="rounded-3xl border border-slate-800 bg-[#131318] p-4 sm:p-6">
-        <div className="flex items-start gap-3">
-          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-primary/15">
-            <ShieldCheck className="h-5 w-5 text-primary" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="font-black text-white">Verifizierung</h1>
-              <span className="rounded-lg bg-primary/10 px-2 py-1 text-[9px] font-black uppercase tracking-widest text-primary">
-                OAuth2
-              </span>
+      <header className="rounded-2xl border border-white/[.07] bg-[#202124] p-5 sm:p-7">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="flex items-start gap-4">
+            <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-blue-400/10 text-blue-300"><ShieldCheck className="h-6 w-6" /></span>
+            <div><h1 className="text-xl font-semibold text-white sm:text-2xl">Verifizierung</h1>
+              <p className="mt-2 max-w-xl text-sm leading-relaxed text-slate-400">Neue Mitglieder sicher freischalten. Wähle Kanal und Rollen, passe die Nachricht an und veröffentliche dein Panel.</p>
             </div>
-            <p className="mt-1 text-[12px] text-slate-400">
-              Kanal, Rollen und Server-Blacklist verwalten.
-            </p>
           </div>
+          <span className="rounded-lg border border-white/[.07] bg-white/[.025] px-3 py-1.5 text-xs text-slate-400">Discord OAuth2</span>
         </div>
-
-        <div className="mt-5 grid grid-cols-2 gap-3">
-          <div className="rounded-2xl border border-slate-800 bg-[#0e0e12] px-4 py-3">
-            <p
-              className={cn(
-                "text-sm font-black",
-                configured ? "text-emerald-300" : "text-amber-300",
-              )}
-            >
-              {configured ? "Bereit" : "Unvollständig"}
-            </p>
-            <p className="mt-1 text-[10px] text-slate-500">Konfiguration</p>
-          </div>
-          <div className="rounded-2xl border border-slate-800 bg-[#0e0e12] px-4 py-3">
-            <p className="text-sm font-black text-white">
-              {p.data?.verified_count ?? 0}
-            </p>
-            <p className="mt-1 text-[10px] text-slate-500">
-              Verifizierte Nutzer
-            </p>
-          </div>
+        <div className="mt-6 grid gap-3 sm:grid-cols-3">
+          {[
+            { label: "Einrichtung", value: configured ? "Bereit" : "Kanal und Rollen fehlen", icon: Settings2, color: configured ? "text-emerald-300" : "text-amber-300" },
+            { label: "Verifizierte Mitglieder", value: Number(p.data.verified_count ?? 0).toLocaleString("de-DE"), icon: ShieldCheck, color: "text-blue-300" },
+            { label: "Discord-Panel", value: p.data.panel_posted ? "Veröffentlicht" : "Noch nicht gesendet", icon: MessageSquareText, color: p.data.panel_posted ? "text-emerald-300" : "text-slate-300" },
+          ].map(({ label, value, icon: Icon, color }) => <div key={label} className="flex items-center gap-3 rounded-xl border border-white/[.05] bg-[#18191c] p-4">
+            <Icon className={cn("h-5 w-5 shrink-0", color)} /><div className="min-w-0"><p className="text-xs text-slate-500">{label}</p><p className={cn("mt-1 text-sm font-medium", color)}>{value}</p></div>
+          </div>)}
         </div>
-      </div>
+      </header>
 
       <Warnings items={p.data?.warnings} onGoSetup={() => switchTab("setup")} />
 
       {/* Mobile-friendly section navigation. */}
-      <nav className="overflow-x-auto rounded-2xl border border-slate-800 bg-[#0e1119] p-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <div className="flex min-w-max gap-1">
+      <nav className="rounded-2xl border border-white/[.07] bg-[#202124] p-2">
+        <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 lg:grid-cols-5">
           {TABS.map(({ id, label, icon: Icon }) => (
             <button
               type="button"
               key={id}
               onClick={() => switchTab(id)}
               className={cn(
-                "flex items-center gap-2 rounded-xl px-3.5 py-2.5 text-xs font-bold transition sm:px-4",
+                "flex min-h-12 items-center justify-center gap-2 rounded-xl px-3 py-3 text-sm font-medium transition",
                 tab === id
-                  ? "bg-blue-600 text-white shadow-lg shadow-blue-900/30"
+                  ? "bg-white/[.09] text-white ring-1 ring-white/10"
                   : "text-slate-500 hover:bg-white/[0.04] hover:text-slate-200",
               )}
             >
@@ -396,7 +385,7 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
               {id === "blacklist" && blockedGuilds.length > 0 && (
                 <span
                   className={cn(
-                    "rounded-full px-1.5 text-[9px]",
+                    "rounded-full px-1.5 text-xs",
                     tab === id ? "bg-white/15" : "bg-slate-800 text-slate-400",
                   )}
                 >
@@ -410,14 +399,14 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
 
       <div
         id="verify-workspace"
-        className="grid scroll-mt-5 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_360px]"
+        className="grid scroll-mt-5 items-start gap-5 lg:grid-cols-[minmax(0,1fr)_340px]"
       >
-        <div className="min-w-0 space-y-5">
+        <div className="min-w-0 space-y-5 module-content-enter" key={tab}>
           {tab === "setup" && (
             <>
               <Section
                 icon={Settings2}
-                title="Grundkonfiguration"
+                title="1. Kanal und Rollen"
                 subtitle="Kanal und Rolle auswählen – den Rest übernimmt University Bot."
               >
                 <Field
@@ -436,13 +425,13 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
 
                 <div className="space-y-3">
                   <div>
-                    <p className="text-xs font-extrabold text-slate-300">
+                    <p className="text-xs font-semibold text-slate-300">
                       Verifiziert-Rollen{" "}
-                      <span className="ml-1 text-[10px] font-medium text-slate-600">
+                      <span className="ml-1 text-xs font-medium text-slate-600">
                         bis zu 3
                       </span>
                     </p>
-                    <p className="mt-1 text-[11px] text-slate-500">
+                    <p className="mt-1 text-xs text-slate-500">
                       Alle ausgewählten Rollen werden nach erfolgreicher Prüfung
                       vergeben.
                     </p>
@@ -469,7 +458,7 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
                   </div>
                 </div>
 
-                <div className="rounded-xl border border-slate-800 bg-black/10 p-4">
+                <div className="rounded-xl border border-white/[.07] bg-black/10 p-4">
                   <Field
                     label="Unverifiziert-Rolle entfernen"
                     hint="Optional: Eine Wartezimmer-Rolle nach erfolgreicher Verifizierung abnehmen."
@@ -500,7 +489,7 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
                       {p.data?.pull_premium ? <Link2 className="h-5 w-5" /> : <Crown className="h-5 w-5" />}
                     </div>
                     <div>
-                      <p className="flex items-center gap-2 text-sm font-bold text-white">User Pull {!p.data?.pull_premium && <span className="rounded-md bg-amber-400/15 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-amber-300">Premium</span>}</p>
+                      <p className="flex items-center gap-2 text-sm font-bold text-white">User Pull {!p.data?.pull_premium && <span className="rounded-md bg-amber-400/15 px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-amber-300">Premium</span>}</p>
                       <p className="mt-1 text-xs leading-5 text-slate-400">
                         {p.data?.pull_premium ? "Zukünftige OAuth2-Verifizierungen mit einem eigenen Zielserver verbinden." : "Das gesamte Pull-System und der zusätzliche guilds.join-Scope benötigen Premium auf diesem Server."}
                       </p>
@@ -511,7 +500,7 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
                       <span className="text-xs font-bold text-slate-300">{p.value("user_pull_enabled") ? "An" : "Aus"}</span>
                       <SwitchToggle checked={Boolean(p.value("user_pull_enabled"))} disabled={p.busy} onCheckedChange={setPullEnabled} label="User Pull an- oder ausschalten" />
                       <Link href={`/dashboard/guild/${guildId}/verification/pull`} className="inline-flex min-h-10 items-center justify-center rounded-lg border border-blue-500/25 px-3 text-xs font-semibold text-blue-300 hover:bg-blue-500/10">Öffnen</Link>
-                    </> : <Link href="/dashboard/premium" className="inline-flex min-h-10 items-center justify-center rounded-lg bg-amber-400 px-3 text-xs font-black text-black hover:bg-amber-300">Premium holen</Link>}
+                    </> : <Link href="/dashboard/premium" className="inline-flex min-h-10 items-center justify-center rounded-lg bg-amber-400 px-3 text-xs font-semibold text-black hover:bg-amber-300">Premium holen</Link>}
                   </div>
                 </div>
 
@@ -519,7 +508,7 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
                   {[
                     [hasChannel, "1", "Kanal gewählt"],
                     [hasRole, "2", "Rolle gewählt"],
-                    [active, "3", "System aktiviert"],
+                    [p.data?.panel_posted, "3", "Panel veröffentlicht"],
                   ].map(([done, number, label]) => (
                     <div
                       key={String(number)}
@@ -527,12 +516,12 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
                         "flex items-center gap-3 rounded-xl border p-3",
                         done
                           ? "border-emerald-500/20 bg-emerald-500/[0.06]"
-                          : "border-slate-800 bg-black/10",
+                          : "border-white/[.07] bg-black/10",
                       )}
                     >
                       <span
                         className={cn(
-                          "grid h-7 w-7 shrink-0 place-items-center rounded-full text-xs font-black",
+                          "grid h-7 w-7 shrink-0 place-items-center rounded-full text-xs font-semibold",
                           done
                             ? "bg-emerald-500 text-white"
                             : "bg-slate-800 text-slate-500",
@@ -608,7 +597,7 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
                       <p className="text-xs font-bold text-slate-300">
                         Gesperrte Server
                       </p>
-                      <span className="text-[10px] text-slate-600">
+                      <span className="text-xs text-slate-600">
                         {blockedGuilds.length} von 250
                       </span>
                     </div>
@@ -618,7 +607,7 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
                         <p className="mt-2 text-sm font-semibold text-slate-400">
                           Die Liste ist noch leer
                         </p>
-                        <p className="mt-1 text-[11px] text-slate-600">
+                        <p className="mt-1 text-xs text-slate-600">
                           Füge oben die erste Discord-Server-ID ein.
                         </p>
                       </div>
@@ -627,16 +616,16 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
                         {blockedGuilds.map((id, index) => (
                           <div
                             key={id}
-                            className="group flex items-center gap-3 rounded-xl border border-slate-800 bg-[#0b0e16] p-3 transition hover:border-rose-500/25"
+                            className="group flex items-center gap-3 rounded-xl border border-white/[.07] bg-[#18191c] p-3 transition hover:border-rose-500/25"
                           >
-                            <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-rose-500/10 text-xs font-black text-rose-300">
+                            <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-rose-500/10 text-xs font-semibold text-rose-300">
                               {index + 1}
                             </div>
                             <div className="min-w-0 flex-1">
                               <p className="text-xs font-semibold text-white">
                                 Gesperrter Server
                               </p>
-                              <p className="truncate font-mono text-[10px] text-slate-600">
+                              <p className="truncate font-mono text-xs text-slate-600">
                                 {id}
                               </p>
                             </div>
@@ -683,7 +672,7 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
                   />
 
                   {p.value("blacklist_custom_message") && (
-                    <div className="space-y-5 rounded-xl border border-slate-800 bg-black/10 p-4">
+                    <div className="space-y-5 rounded-xl border border-white/[.07] bg-black/10 p-4">
                       <TextField
                         label="Überschrift"
                         rows={1}
@@ -711,7 +700,7 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
                   )}
                 </>
               ) : (
-                <div className="flex gap-3 rounded-xl border border-slate-800 bg-black/10 p-4">
+                <div className="flex gap-3 rounded-xl border border-white/[.07] bg-black/10 p-4">
                   <Info className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" />
                   <p className="text-xs text-slate-500">
                     Die Server-Blacklist ist ausgeschaltet. OAuth2 bleibt aktiv.
@@ -725,16 +714,23 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
             <>
               <Section
                 icon={FileText}
-                title="Verifizierungs-Panel"
+                title="Nachricht im Discord-Kanal"
                 subtitle="Diese Nachricht sehen neue Mitglieder im Discord-Kanal."
               >
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/[.07] bg-[#18191c] p-4">
+                  <p className="max-w-sm text-sm leading-relaxed text-slate-400">Die Standardvorlage ist Englisch, nutzt Custom-Emojis und wird als Components V2 gesendet. Eigene Texte sind weiterhin möglich.</p>
+                  <button type="button" disabled={p.busy || !p.data?.text_defaults} className="rounded-xl border border-white/10 px-4 py-2.5 text-sm text-slate-200 hover:bg-white/5 disabled:opacity-50" onClick={() => {
+                    for (const key of ["panel_title", "panel_text", "panel_footer", "button_label"]) p.set(key, p.data.text_defaults[key]);
+                    toast.info("Englische Standardvorlage geladen. Speichern und das Discord-Panel aktualisieren, um sie zu veröffentlichen.");
+                  }}>Englische Vorlage verwenden</button>
+                </div>
                 <div className="flex flex-wrap gap-1.5">
                   {Object.entries(p.data?.placeholders || {}).map(
                     ([token, description]) => (
                       <span
                         key={token}
                         title={String(description)}
-                        className="rounded-lg border border-slate-800 bg-[#0b0e16] px-2 py-1 font-mono text-[10px] text-slate-400"
+                        className="rounded-lg border border-white/[.07] bg-[#18191c] px-2 py-1 font-mono text-xs text-slate-400"
                       >
                         {token}
                       </span>
@@ -901,7 +897,7 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
                   )
                 }
                 disabled={p.busy}
-                className="w-full rounded-xl border border-rose-500/20 bg-rose-500/[0.06] px-5 py-3.5 text-xs font-black uppercase tracking-widest text-rose-300 transition hover:bg-rose-500/10 disabled:opacity-40"
+                className="w-full rounded-xl border border-rose-500/20 bg-rose-500/[0.06] px-5 py-3.5 text-xs font-semibold uppercase tracking-widest text-rose-300 transition hover:bg-rose-500/10 disabled:opacity-40"
               >
                 Verifizierung vollständig ausschalten
               </button>
@@ -920,7 +916,7 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
                   <p className="mt-3 text-sm font-semibold text-slate-400">
                     Noch keine Verifizierungen
                   </p>
-                  <p className="mt-1 text-[11px] text-slate-600">
+                  <p className="mt-1 text-xs text-slate-600">
                     Sobald jemand den OAuth-Flow abschließt, erscheint die
                     Person hier.
                   </p>
@@ -939,8 +935,8 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
                       <div
                         key={key}
                         className={cn(
-                          "overflow-hidden rounded-xl border bg-[#0b0e16] transition",
-                          open ? "border-blue-500/30" : "border-slate-800",
+                          "overflow-hidden rounded-xl border bg-[#18191c] transition",
+                          open ? "border-blue-500/30" : "border-white/[.07]",
                         )}
                       >
                         <button
@@ -971,11 +967,11 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
                             >
                               {label}
                             </p>
-                            <p className="mt-0.5 text-[10px] text-slate-600">
+                            <p className="mt-0.5 text-xs text-slate-600">
                               {formatWhen(entry.at)}
                             </p>
                           </div>
-                          <span className="hidden rounded-lg bg-blue-500/10 px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-blue-300 sm:block">
+                          <span className="hidden rounded-lg bg-blue-500/10 px-2 py-1 text-xs font-bold uppercase tracking-wider text-blue-300 sm:block">
                             OAuth
                           </span>
                           <ChevronDown
@@ -986,7 +982,7 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
                           />
                         </button>
                         {open && (
-                          <div className="space-y-4 border-t border-slate-800 p-4">
+                          <div className="space-y-4 border-t border-white/[.07] p-4">
                             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
                               <Detail
                                 label="Discord-Name"
@@ -1029,7 +1025,7 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
                                   )
                                 }
                                 disabled={p.busy}
-                                className="flex w-full items-center justify-center gap-2 rounded-xl border border-rose-500/20 bg-rose-500/[0.06] py-2.5 text-[10px] font-black uppercase tracking-widest text-rose-300 transition hover:bg-rose-500/10 disabled:opacity-40"
+                                className="flex w-full items-center justify-center gap-2 rounded-xl border border-rose-500/20 bg-rose-500/[0.06] py-2.5 text-xs font-semibold uppercase tracking-widest text-rose-300 transition hover:bg-rose-500/10 disabled:opacity-40"
                               >
                                 <UserMinus className="h-3.5 w-3.5" /> Rolle
                                 wieder abnehmen
@@ -1047,19 +1043,19 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
         </div>
 
         {/* Persistent live preview and actions on desktop. */}
-        <aside className="space-y-4 xl:sticky xl:top-5">
-          <div className="overflow-hidden rounded-2xl border border-slate-800 bg-[#11141d]">
-            <div className="flex items-center justify-between border-b border-slate-800 px-4 py-3">
+        <aside className="space-y-4 lg:sticky lg:top-5">
+          <div className="overflow-hidden rounded-2xl border border-white/[.07] bg-[#202124]">
+            <div className="flex items-center justify-between border-b border-white/[.07] px-4 py-3">
               <div className="flex items-center gap-2">
                 <Eye className="h-4 w-4 text-blue-300" />
-                <p className="text-xs font-bold text-white">Live-Vorschau</p>
+                <p className="text-xs font-bold text-white">Discord-Vorschau</p>
               </div>
-              <span className="text-[9px] font-bold uppercase tracking-widest text-slate-600">
+              <span className="text-xs font-bold uppercase tracking-widest text-slate-600">
                 Discord
               </span>
             </div>
-            <div className="bg-[#090b10] p-4">
-              <div className="rounded-lg border-l-4 border-blue-500 bg-[#111318] p-4 shadow-xl">
+            <div className="bg-[#18191c] p-4">
+              <div className="rounded-xl border border-white/10 bg-[#202124] p-4">
                 <div className="mb-3 flex items-center gap-2.5">
                   <div className="grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-600">
                     <ShieldCheck className="h-5 w-5 text-white" />
@@ -1067,69 +1063,69 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
                   <div>
                     <p className="text-xs font-bold text-white">
                       University Bot{" "}
-                      <span className="rounded bg-blue-500 px-1 py-0.5 text-[7px] font-black">
+                      <span className="rounded bg-blue-500 px-1 py-0.5 text-[7px] font-semibold">
                         APP
                       </span>
                     </p>
-                    <p className="text-[9px] text-slate-600">Heute um 12:00</p>
+                    <p className="text-xs text-slate-600">Components V2 · English defaults</p>
                   </div>
                 </div>
                 <p className="text-sm font-bold text-white">
                   <DiscordEmojiText
                     text={fill(
-                      p.value("panel_title") || "Verifizierung",
+                      p.value("panel_title") || "Verify your account",
                       roleName,
                       serverName,
                     )}
                   />
                 </p>
-                <p className="mt-2 whitespace-pre-wrap text-[11px] leading-relaxed text-slate-400">
+                <p className="mt-2 whitespace-pre-wrap text-xs leading-relaxed text-slate-400">
                   <DiscordEmojiText
                     text={fill(
                       p.value("panel_text") ||
-                        "Klicke unten, um dich sicher zu verifizieren.",
+                        "Verify your Discord account to access the server.",
                       roleName,
                       serverName,
                     )}
                   />
                 </p>
                 {p.value("panel_footer") && (
-                  <p className="mt-3 border-t border-white/[0.06] pt-3 text-[10px] leading-relaxed text-slate-500">
+                  <p className="mt-3 border-t border-white/[0.06] pt-3 text-xs leading-relaxed text-slate-500">
                     <DiscordEmojiText
                       text={fill(p.value("panel_footer"), roleName, serverName)}
                     />
                   </p>
                 )}
-                <div className="mt-4 grid grid-cols-[1fr_auto] gap-2">
-                  <div className="flex items-center justify-center gap-2 rounded-md bg-[#5865f2] px-3 py-2.5 text-[11px] font-bold text-white">
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <div className="flex items-center justify-center gap-2 rounded-md bg-[#5865f2] px-3 py-2.5 text-xs font-bold text-white">
                     <DiscordEmojiText text="<:ztick:1530375424922750977>" />
                     <DiscordEmojiText
-                      text={p.value("button_label") || "Verifizieren"}
+                      text={p.value("button_label") || "Verify with Discord"}
                     />
                   </div>
-                  <div className="flex items-center justify-center gap-1.5 rounded-md bg-[#26272d] px-3 py-2.5 text-[10px] text-slate-500">
+                  <div className="flex items-center justify-center gap-1.5 rounded-md bg-[#26272d] px-3 py-2.5 text-xs text-slate-500">
                     <DiscordEmojiText text="<:universitybot_mention:1530375331729510430>" />
-                    {p.data?.verified_count ?? 0} Nutzer
+                    {p.data?.verified_count ?? 0} verified members
                   </div>
                 </div>
               </div>
-              <div className="mt-3 rounded-lg border border-blue-500/10 bg-blue-500/[0.04] p-2 text-center text-[9px] font-bold uppercase tracking-widest text-blue-300">
+              <div className="mt-3 rounded-lg border border-blue-500/10 bg-blue-500/[0.04] p-2 text-center text-xs font-bold uppercase tracking-widest text-blue-300">
                 OAuth2
               </div>
             </div>
           </div>
 
-          <div className="rounded-2xl border border-slate-800 bg-[#11141d] p-4">
+          <div className="rounded-2xl border border-white/[.07] bg-[#202124] p-4">
             <p className="text-xs font-bold text-white">
               Panel veröffentlichen
             </p>
-            <p className="mt-1 text-[10px] leading-relaxed text-slate-500">
+            <p className="mt-1 text-xs leading-relaxed text-slate-500">
               {p.data?.panel_posted
                 ? "Das Panel ist bereits online. Nach Änderungen einfach aktualisieren."
                 : "Poste das Panel nach dem Speichern in den gewählten Kanal."}
             </p>
             {p.dirty > 0 && (
-              <div className="mt-3 flex gap-2 rounded-lg border border-amber-500/15 bg-amber-500/[0.05] p-2.5 text-[10px] text-amber-200/70">
+              <div className="mt-3 flex gap-2 rounded-lg border border-amber-500/15 bg-amber-500/[0.05] p-2.5 text-xs text-amber-200/70">
                 <AlertTriangle className="h-3.5 w-3.5 shrink-0" /> Vor dem
                 Posten erst speichern.
               </div>
@@ -1139,7 +1135,7 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
                 type="button"
                 onClick={() => p.act(() => api.postVerifyPanel(guildId))}
                 disabled={p.busy || !configured || p.dirty > 0}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-3 text-xs font-black text-white shadow-lg shadow-blue-900/25 transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-35"
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-3 text-xs font-semibold text-white shadow-lg shadow-blue-900/25 transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-35"
               >
                 <Send className="h-4 w-4" />{" "}
                 {p.data?.panel_posted
@@ -1160,7 +1156,7 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
                 type="button"
                 onClick={p.reload}
                 disabled={p.busy}
-                className="flex w-full items-center justify-center gap-2 py-2 text-[10px] font-bold text-slate-600 transition hover:text-slate-300 disabled:opacity-35"
+                className="flex w-full items-center justify-center gap-2 py-2 text-xs font-bold text-slate-600 transition hover:text-slate-300 disabled:opacity-35"
               >
                 <RefreshCw className="h-3.5 w-3.5" /> Daten neu laden
               </button>

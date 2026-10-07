@@ -31,6 +31,7 @@ from typing import Optional
 from utils .Tools import *
 from utils.panels import from_view
 from utils.links import dashboard_url
+from utils import emoji as verify_emoji
 
 
 logger =logging .getLogger ('discord')
@@ -48,10 +49,10 @@ TONE_COLORS = {
 }
 
 TONE_MARKERS = {
-    "info": "\u2022",
-    "success": "\u2713",
-    "warning": "!",
-    "error": "\u00d7",
+    "info": ZSAFE,
+    "success": TICK,
+    "warning": WARNING,
+    "error": verify_emoji.CROSS_ALT,
 }
 
 
@@ -544,13 +545,13 @@ async def finish_verification (bot ,interaction ,role ,method :str ):
     if settings .get ("dm_on_success"):
         try :
             await member .send (view =VCard (
-            "Verifiziert",fill ("dm_success_text"),tone ='success',
+            "Verification complete",fill ("dm_success_text"),tone ='success',
             ))
         except (discord .Forbidden ,discord .HTTPException ):
             # Closed DMs are not a verification failure.
             pass 
 
-    return VCard ("Verifiziert",fill ("success_text"),tone ='success')
+    return VCard ("Verification complete",fill ("success_text"),tone ='success')
 
 
 class VerificationView (discord .ui .View ):
@@ -1280,10 +1281,42 @@ class ButtonOnlyVerificationView (discord .ui .View ):
 class Verification (commands .Cog ):
     def __init__ (self ,bot ):
         self .bot =bot 
+        self._panels_refreshed = False
         asyncio.create_task(self .create_tables ())
 
         # Legacy interaction views are deliberately not registered anymore.
         # Old direct-role and CAPTCHA panels therefore cannot bypass OAuth.
+
+    @commands.Cog.listener()
+    async def on_ready(self):
+        """Refresh existing panels after upgrades, without posting new messages."""
+        if self._panels_refreshed:
+            return
+        self._panels_refreshed = True
+        try:
+            async with aiosqlite.connect(DATABASE_PATH) as db:
+                await verify_store.ensure_schema(db)
+                async with db.execute("SELECT guild_id FROM verification_config WHERE enabled=1 AND panel_message_id IS NOT NULL") as cursor:
+                    guild_ids = [row[0] for row in await cursor.fetchall()]
+                for guild_id in guild_ids:
+                    guild = self.bot.get_guild(guild_id)
+                    if guild is None:
+                        continue
+                    settings = await verify_store.get_settings(db, guild_id)
+                    if not verify_store.is_configured(settings) or not settings.get("panel_channel_id"):
+                        continue
+                    channel = guild.get_channel(int(settings["panel_channel_id"]))
+                    if channel is None:
+                        continue
+                    settings["verified_count"] = await verify_store.count_verified(db, guild_id)
+                    try:
+                        message = await channel.fetch_message(int(settings["panel_message_id"]))
+                        await message.edit(content=None, embeds=[], view=self.build_panel(guild, settings))
+                    except (discord.NotFound, discord.Forbidden, discord.HTTPException):
+                        continue
+        except Exception as error:
+            self._panels_refreshed = False
+            logger.warning("Verification panel refresh unavailable: %s", error)
 
     async def refresh(self, guild_id=None):
         """
@@ -1330,7 +1363,7 @@ class Verification (commands .Cog ):
 
         # One external link is the entire user flow. Discord OAuth runs on the
         # website, where only the `identify` and `guilds` scopes are requested.
-        label = (settings.get("button_label") or "Mit Discord verifizieren")[:80]
+        label = (settings.get("button_label") or "Verify with Discord")[:80]
         if preview:
             buttons = [
                 discord.ui.Button(
@@ -1338,7 +1371,7 @@ class Verification (commands .Cog ):
                     custom_id="verify_preview_oauth", disabled=True,
                 ),
                 discord.ui.Button(
-                    label=f"{int(settings.get('verified_count') or 0)} verifizierte Nutzer"[:80],
+                    label=f"{int(settings.get('verified_count') or 0)} verified members"[:80],
                     emoji=MENTION, style=discord.ButtonStyle.secondary,
                     custom_id="verify_preview_count", disabled=True,
                 ),
@@ -1351,7 +1384,7 @@ class Verification (commands .Cog ):
                     url=f"{base}/api/verify/start?guild={guild.id}",
                 ),
                 discord.ui.Button(
-                    label=f"{int(settings.get('verified_count') or 0)} verifizierte Nutzer"[:80],
+                    label=f"{int(settings.get('verified_count') or 0)} verified members"[:80],
                     emoji=MENTION, style=discord.ButtonStyle.secondary,
                     custom_id="verify_count_display",
                     disabled=True,
@@ -1363,7 +1396,7 @@ class Verification (commands .Cog ):
         if footer.strip():
             sections.append(footer)
         if preview:
-            sections.append("*Vorschau — die Knöpfe sind hier ohne Funktion.*")
+            sections.append("-# Preview — these buttons are disabled.")
 
         return ConfigurablePanel(
             title=fill("panel_title"),
@@ -1433,8 +1466,8 @@ class Verification (commands .Cog ):
                 return 
 
             embed =VCard(
-            "Nachricht gelöscht",
-            "Dieser Kanal ist nur zum Verifizieren. Nutze bitte die Knöpfe.",
+            "Message removed",
+            "This channel is reserved for verification. Please use the panel's **Verify with Discord** button.",
             tone ='warning',
             )
             try :
