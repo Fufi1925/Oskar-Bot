@@ -1,5 +1,6 @@
 "use client";
 
+import { websiteLocale, useWebsiteLocale } from "@/lib/i18n/locale";
 import React from "react";
 import { AlertTriangle, Check, CheckCircle2, Clock3, Eye, LifeBuoy, LockKeyhole, Loader2, ScanSearch, ShieldCheck, Star, UserCheck, X } from "lucide-react";
 import { api } from "@/lib/api";
@@ -13,10 +14,11 @@ const STATUS: Record<string, { label: string; color: string }> = {
 };
 
 function zeit(value: number) {
-  return value ? new Date(value * 1000).toLocaleString("de-DE") : "—";
+  return value ? new Date(value * 1000).toLocaleString(websiteLocale()) : "—";
 }
 
 export function GuildSupportPanel({ guildId }: { guildId: string }) {
+  useWebsiteLocale();
   const [cases, setCases] = React.useState<any[]>([]);
   const [owner, setOwner] = React.useState<boolean | null>(null);
   const [loading, setLoading] = React.useState(true);

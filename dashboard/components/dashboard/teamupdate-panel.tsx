@@ -1,5 +1,6 @@
 "use client";
 
+import { websiteLocale, useWebsiteLocale } from "@/lib/i18n/locale";
 import { WebsiteSelect } from "@/components/ui/website-select";
 
 /**
@@ -110,6 +111,7 @@ function Field({
   icon?: React.ComponentType<{ className?: string }>;
   children: React.ReactNode;
 }) {
+  useWebsiteLocale();
   return (
     <div>
       <div className={LBL}>
@@ -125,6 +127,7 @@ function Field({
 }
 
 export function TeamUpdatePanel({ guildId }: { guildId: string }) {
+  useWebsiteLocale();
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState("");
   const [settings, setSettings] = useState<any>(null);
@@ -883,7 +886,7 @@ export function TeamUpdatePanel({ guildId }: { guildId: string }) {
                         </div>
                       )}
                       <div className="text-[10px] text-slate-600">
-                        {new Date(e.created_at * 1000).toLocaleString("de-DE")}
+                        {new Date(e.created_at * 1000).toLocaleString(websiteLocale())}
                         {e.source !== "command" && ` · ${e.source}`}
                       </div>
                     </div>

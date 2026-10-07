@@ -1,5 +1,6 @@
 "use client";
 
+import { websiteLocale, useWebsiteLocale } from "@/lib/i18n/locale";
 import React from "react";
 import Link from "next/link";
 import {
@@ -19,10 +20,11 @@ function ticketDate(value: string) {
   const date = new Date(value);
   return Number.isNaN(date.getTime())
     ? value
-    : date.toLocaleString("de-DE", { dateStyle: "medium", timeStyle: "short" });
+    : date.toLocaleString(websiteLocale(), { dateStyle: "medium", timeStyle: "short" });
 }
 
 export function AccountSupportPanel({ userId }: { userId: string }) {
+  useWebsiteLocale();
   const [support, setSupport] = React.useState<any>(null);
   const [status, setStatus] = React.useState<any>(null);
   const [loading, setLoading] = React.useState(true);

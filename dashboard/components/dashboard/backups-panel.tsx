@@ -1,5 +1,6 @@
 "use client";
 
+import { localizedConfirm } from "@/lib/i18n/browser-language";
 import React, { useEffect, useState } from "react";
 import {
   AlertTriangle, Database, Download, FileJson, HardDrive, Loader2, Plus, RefreshCw,
@@ -107,7 +108,7 @@ export function BackupsPanel({
 
   const restore = async (name: string) => {
     // Overwrites the live databases, so make it a deliberate action.
-    if (!confirm(
+    if (!localizedConfirm(
       `Restore snapshot "${name}"?\n\n` +
   "This overwrites the current databases. The present state is saved " +
   "as a pre-restore snapshot first, so it can be undone."

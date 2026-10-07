@@ -8,17 +8,19 @@ const API_BASE =
   `http://127.0.0.1:${process.env.PORT || 8080}/api/v1`;
 
 export async function GET(request: NextRequest) {
+  const language = request.nextUrl.searchParams.get("lang") || request.cookies.get("website-language")?.value;
+  const selectedLanguage = language === "de" ? "de" : "en";
   const guildId = request.nextUrl.searchParams.get("guild") || "";
   if (!/^\d{17,20}$/.test(guildId)) {
     return NextResponse.json(
-      { detail: "Ungültige Server-ID." },
+      { detail: selectedLanguage === "de" ? "Ungültige Server-ID." : "Invalid server ID." },
       { status: 400 },
     );
   }
   const clientId = process.env.DISCORD_CLIENT_ID;
   if (!clientId) {
     return NextResponse.json(
-      { detail: "Discord OAuth ist nicht konfiguriert." },
+      { detail: selectedLanguage === "de" ? "Discord OAuth ist nicht konfiguriert." : "Discord OAuth is not configured." },
       { status: 503 },
     );
   }
@@ -53,7 +55,7 @@ export async function GET(request: NextRequest) {
     // Keep ordinary verification available if the optional lookup fails.
   }
   authorize.searchParams.set("scope", scopes);
-  authorize.searchParams.set("state", createVerifyState(guildId));
+  authorize.searchParams.set("state", createVerifyState(guildId, selectedLanguage));
   authorize.searchParams.set("prompt", "consent");
   return NextResponse.redirect(authorize);
 }

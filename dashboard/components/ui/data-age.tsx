@@ -16,6 +16,7 @@
  * second, including twenty tab buttons and a table.
  */
 
+import { websiteLocale, useWebsiteLocale } from "@/lib/i18n/locale";
 import React, { useEffect, useState } from "react";
 
 import { cn } from "@/lib/utils";
@@ -66,6 +67,7 @@ export function DataAge({
   staleAfter?: number;
   className?: string;
 }) {
+  useWebsiteLocale();
   const age = useDataAge(since);
 
   if (age === null) {
@@ -87,7 +89,7 @@ export function DataAge({
   return (
     <span
       // A title, because the short form loses precision on purpose.
-      title={`Zuletzt aktualisiert: ${new Date(since!).toLocaleTimeString("de-DE")}`}
+      title={`Zuletzt aktualisiert: ${new Date(since!).toLocaleTimeString(websiteLocale())}`}
       className={cn(
         "text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-lg",
         "transition-colors duration-500 inline-flex items-center gap-1.5",

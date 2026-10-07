@@ -25,6 +25,7 @@
  *   <StickySaveBar count={p.dirty} shake={guard.shake} ... />
  */
 
+import { localizedConfirm } from "@/lib/i18n/browser-language";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Loader2, Save } from "lucide-react";
 import { toast } from "sonner";
@@ -238,7 +239,7 @@ export function usePanel(load: () => Promise<any>): Panel {
   }, [reload]);
 
   const act = async (fn: () => Promise<any>, confirmText?: string) => {
-    if (confirmText && !confirm(confirmText)) return;
+    if (confirmText && !localizedConfirm(confirmText)) return;
     setBusy(true);
     try {
       const res = await fn();

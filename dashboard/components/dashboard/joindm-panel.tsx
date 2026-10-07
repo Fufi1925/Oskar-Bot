@@ -13,6 +13,7 @@
  * while people are joining, something is wrong.
  */
 
+import { websiteLocale, useWebsiteLocale } from "@/lib/i18n/locale";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle, Check, Clock, Eye, Loader2, Mail, MailX, Save, Send,
@@ -39,6 +40,7 @@ const SAMPLE: Record<string, string> = {
 };
 
 function Field({ label, hint, children }: any) {
+  useWebsiteLocale();
   return (
     <div className="space-y-2">
       <span className="text-xs font-black uppercase tracking-widest text-slate-500">
@@ -51,6 +53,7 @@ function Field({ label, hint, children }: any) {
 }
 
 function Stat({ icon: Icon, label, value, tone }: any) {
+  useWebsiteLocale();
   return (
     <div className="bg-[#0e0e12] border border-slate-800 rounded-2xl px-4 py-3">
       <Icon className={cn("h-4 w-4 mb-1.5", tone || "text-primary")} />
@@ -61,6 +64,7 @@ function Stat({ icon: Icon, label, value, tone }: any) {
 }
 
 export function JoinDMPanel({ guildId }: { guildId: string }) {
+  useWebsiteLocale();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -204,7 +208,7 @@ export function JoinDMPanel({ guildId }: { guildId: string }) {
               label="Zuletzt"
               value={
                 data?.last_sent
-                  ? new Date(data.last_sent * 1000).toLocaleDateString("de-DE")
+                  ? new Date(data.last_sent * 1000).toLocaleDateString(websiteLocale())
                   : "—"
               }
             />

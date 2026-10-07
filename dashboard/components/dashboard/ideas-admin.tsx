@@ -1,5 +1,6 @@
 "use client";
 
+import { localizedConfirm } from "@/lib/i18n/browser-language";
 import { WebsiteSelect } from "@/components/ui/website-select";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
@@ -88,7 +89,7 @@ export function IdeasAdmin() {
   };
 
   const remove = async () => {
-    if (!selected || !window.confirm("Diese Idee mit Stimmen und Kommentaren endgültig löschen?")) return;
+    if (!selected || !localizedConfirm("Diese Idee mit Stimmen und Kommentaren endgültig löschen?")) return;
     setBusy(true);
     try {
       await api.deleteIdea(selected.id);

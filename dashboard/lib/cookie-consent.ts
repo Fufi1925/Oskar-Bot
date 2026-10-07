@@ -73,6 +73,12 @@ export type CookieEintrag = {
 /** Was dieser Seite wirklich in den Browser gelegt wird. */
 export const COOKIES: CookieEintrag[] = [
   {
+    name: "website-language",
+    zweck: "Speichert deine gewählte Website-Sprache auch für serverseitige Seiten und die Discord-Verifizierung.",
+    dauer: "1 Jahr",
+    quelle: "Sprachwahl",
+  },
+  {
     name: "next-auth.session-token",
     zweck: "Hält dich angemeldet. Ohne dieses Cookie gibt es kein Dashboard.",
     dauer: "30 Tage",

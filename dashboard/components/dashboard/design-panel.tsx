@@ -21,6 +21,7 @@
  * und eine davon träfe alle Server gleichzeitig.
  */
 
+import { localizedConfirm } from "@/lib/i18n/browser-language";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   AlertTriangle,
@@ -216,7 +217,7 @@ export function DesignPanel({ guildId }: { guildId: string }) {
    * sind danach weg.
    */
   const aufStandard = async () => {
-    const sicher = window.confirm(
+    const sicher = localizedConfirm(
       "Der Bot bekommt hier wieder sein normales Aussehen aus dem " +
         "Developer Portal.\n\nName, Profilbild und Banner für diesen " +
         "Server werden gelöscht. Das lässt sich nicht rückgängig machen."

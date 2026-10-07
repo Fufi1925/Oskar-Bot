@@ -1,5 +1,6 @@
 "use client";
 
+import { websiteLocale, useWebsiteLocale } from "@/lib/i18n/locale";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -32,6 +33,7 @@ type Entity = {
 };
 
 function Avatar({ src, name, size = 52 }: { src?: string | null; name: string; size?: number }) {
+  useWebsiteLocale();
   if (src) {
     return <Image src={src} alt="" width={size} height={size} unoptimized className="shrink-0 rounded-xl object-cover" style={{ width: size, height: size }} />;
   }
@@ -43,6 +45,7 @@ function Avatar({ src, name, size = 52 }: { src?: string | null; name: string; s
 }
 
 export function DiscordIdInspector() {
+  useWebsiteLocale();
   const pathname = usePathname();
   const [entityId, setEntityId] = useState<string | null>(null);
   const [entity, setEntity] = useState<Entity | null>(null);
@@ -162,8 +165,8 @@ export function DiscordIdInspector() {
 
               <div className="mt-4 grid grid-cols-2 gap-2">
                 <Info icon={entity.type === "server" ? Server : UserRound} label="Typ" value={entity.type === "server" ? "Server" : entity.type === "user" ? "Nutzer" : "Unbekannt"} />
-                <Info icon={CalendarDays} label="Erstellt" value={entity.created_at ? new Date(entity.created_at).toLocaleDateString("de-DE") : "Nicht verfügbar"} />
-                {entity.type === "server" && <Info icon={Users} label="Mitglieder" value={Number(entity.member_count || 0).toLocaleString("de-DE")} />}
+                <Info icon={CalendarDays} label="Erstellt" value={entity.created_at ? new Date(entity.created_at).toLocaleDateString(websiteLocale()) : "Nicht verfügbar"} />
+                {entity.type === "server" && <Info icon={Users} label="Mitglieder" value={Number(entity.member_count || 0).toLocaleString(websiteLocale())} />}
                 {entity.type === "user" && <Info icon={Server} label="Gemeinsame Server" value={String(entity.server_count || 0)} />}
               </div>
 
@@ -181,7 +184,7 @@ export function DiscordIdInspector() {
                     {entity.servers.map((server) => (
                       <div key={server.id} className="flex items-center gap-2.5 rounded-xl border border-white/[.05] bg-black/[.08] p-2.5">
                         <Avatar src={server.image} name={server.name} size={32} />
-                        <div className="min-w-0 flex-1"><p className="truncate text-xs font-medium text-slate-200">{server.name}</p><p className="truncate text-[10px] text-slate-600">{server.nickname ? `Als ${server.nickname}` : "Mitglied"}{server.member_count ? ` · ${server.member_count.toLocaleString("de-DE")} Mitglieder` : ""}</p></div>
+                        <div className="min-w-0 flex-1"><p className="truncate text-xs font-medium text-slate-200">{server.name}</p><p className="truncate text-[10px] text-slate-600">{server.nickname ? `Als ${server.nickname}` : "Mitglied"}{server.member_count ? ` · ${server.member_count.toLocaleString(websiteLocale())} Mitglieder` : ""}</p></div>
                       </div>
                     ))}
                   </div>
@@ -198,5 +201,6 @@ export function DiscordIdInspector() {
 }
 
 function Info({ icon: Icon, label, value }: { icon: any; label: string; value: string }) {
+  useWebsiteLocale();
   return <div className="rounded-xl border border-white/[.055] bg-black/[.08] p-3"><Icon className="h-3.5 w-3.5 text-blue-300" /><p className="mt-2 text-[10px] text-slate-600">{label}</p><p className="mt-0.5 truncate text-xs font-medium text-slate-300">{value}</p></div>;
 }

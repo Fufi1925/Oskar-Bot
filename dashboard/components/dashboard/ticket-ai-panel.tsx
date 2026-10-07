@@ -1,5 +1,7 @@
 "use client";
 
+import { websiteLocale, useWebsiteLocale } from "@/lib/i18n/locale";
+import { localizedConfirm } from "@/lib/i18n/browser-language";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { BrainCircuit, CheckCircle2, FileText, Loader2, Save, ScanSearch, ShieldCheck, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
@@ -22,6 +24,7 @@ type AiSettings = {
 };
 
 export function TicketAiPanel({ guildId }: { guildId: string }) {
+  useWebsiteLocale();
   const [data, setData] = useState<AiSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [unavailable, setUnavailable] = useState(false);
@@ -127,7 +130,7 @@ export function TicketAiPanel({ guildId }: { guildId: string }) {
       toast.error("Die Railway-Variable GROQ_TICKET_AI_KEY fehlt oder enthält keinen gültigen Groq-Key.");
       return;
     }
-    if (!confirm("Der Bot liest alle für ihn sichtbaren Discord-Textkanäle der letzten 30 Tage und wertet Nachrichten des Serverinhabers sowie von Administratoren aus. Fortfahren?")) return;
+    if (!localizedConfirm("Der Bot liest alle für ihn sichtbaren Discord-Textkanäle der letzten 30 Tage und wertet Nachrichten des Serverinhabers sowie von Administratoren aus. Fortfahren?")) return;
     setBusy(true);
     try {
       const result = await api.startTicketAiScan(guildId);
@@ -142,7 +145,7 @@ export function TicketAiPanel({ guildId }: { guildId: string }) {
   };
 
   const cancelScan = async () => {
-    if (!confirm("Laufende Server-Auswertung hart abbrechen? Der bisherige Scan-Entwurf wird verworfen.")) return;
+    if (!localizedConfirm("Laufende Server-Auswertung hart abbrechen? Der bisherige Scan-Entwurf wird verworfen.")) return;
     setBusy(true);
     try {
       await api.cancelTicketAiScan(guildId);
@@ -226,7 +229,7 @@ export function TicketAiPanel({ guildId }: { guildId: string }) {
   };
 
   const removeKnowledge = async () => {
-    if (!confirm("Wissensdatenbank löschen und den KI-Assistenten ausschalten?")) return;
+    if (!localizedConfirm("Wissensdatenbank löschen und den KI-Assistenten ausschalten?")) return;
     setBusy(true);
     try {
       await api.deleteTicketAiKnowledge(guildId);
@@ -297,10 +300,10 @@ export function TicketAiPanel({ guildId }: { guildId: string }) {
                 <input ref={fileRef} type="file" accept=".txt,text/plain" className="hidden" onChange={(event) => upload(event.target.files?.[0])} />
               </div>
             </div>
-            {data.knowledge && <div className="mt-3 rounded-xl bg-violet-500/[0.07] px-3 py-2 text-xs text-violet-200"><b>{data.knowledge.filename}</b> · {data.knowledge.characters.toLocaleString("de-DE")} Zeichen</div>}
+            {data.knowledge && <div className="mt-3 rounded-xl bg-violet-500/[0.07] px-3 py-2 text-xs text-violet-200"><b>{data.knowledge.filename}</b> · {data.knowledge.characters.toLocaleString(websiteLocale())} Zeichen</div>}
             {data.knowledge && (
               <div className="mt-4">
-                <div className="mb-2 flex items-center justify-between gap-3"><label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Aktuelle Wissensdatei ansehen und bearbeiten</label><span className="text-[10px] text-slate-600">{new TextEncoder().encode(knowledgeText).length.toLocaleString("de-DE")} / 100.000 Bytes</span></div>
+                <div className="mb-2 flex items-center justify-between gap-3"><label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Aktuelle Wissensdatei ansehen und bearbeiten</label><span className="text-[10px] text-slate-600">{new TextEncoder().encode(knowledgeText).length.toLocaleString(websiteLocale())} / 100.000 Bytes</span></div>
                 <textarea value={knowledgeText} onChange={(event) => setKnowledgeText(event.target.value)} rows={12} className="w-full resize-y rounded-xl border border-slate-800 bg-[#09090c] px-4 py-3 font-mono text-xs leading-5 text-slate-300 outline-none focus:border-violet-500/50" />
                 <div className="mt-2 flex justify-end"><button disabled={busy || knowledgeText === data.knowledge.content} onClick={() => saveKnowledgeText()} className="inline-flex items-center gap-2 rounded-xl border border-violet-400/25 px-4 py-2.5 text-xs font-black text-violet-200 hover:bg-violet-500/10 disabled:opacity-40"><Save className="h-4 w-4" /> Text speichern</button></div>
               </div>

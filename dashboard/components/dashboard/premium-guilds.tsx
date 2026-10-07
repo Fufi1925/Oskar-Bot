@@ -1,5 +1,7 @@
 "use client";
 
+import { websiteLocale, useWebsiteLocale } from "@/lib/i18n/locale";
+import { localizedConfirm } from "@/lib/i18n/browser-language";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Crown, Loader2, RefreshCw, Search, Server } from "lucide-react";
 import { toast } from "sonner";
@@ -15,6 +17,7 @@ type Guild = {
 };
 
 export function PremiumGuilds() {
+  useWebsiteLocale();
   const [guilds, setGuilds] = useState<Guild[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -48,7 +51,7 @@ export function PremiumGuilds() {
 
   const toggle = async (guild: Guild) => {
     const next = !guild.premium;
-    if (!next && !confirm(`Server-Premium für „${guild.name}“ wirklich entziehen?`)) return;
+    if (!next && !localizedConfirm(`Server-Premium für „${guild.name}“ wirklich entziehen?`)) return;
     setBusy(guild.guild_id);
     try {
       await api.setGuildPremium(guild.guild_id, next);
@@ -86,7 +89,7 @@ export function PremiumGuilds() {
         ) : <div className="mt-4 grid gap-3 lg:grid-cols-2">
           {visible.map((guild) => <div key={guild.guild_id} className={cn("flex items-center gap-3 rounded-2xl border p-3", guild.premium ? "border-amber-400/25 bg-amber-400/[0.04]" : "border-slate-800 bg-[#0e0e12]")}>
             {guild.icon ? <img src={guild.icon} alt="" className="h-10 w-10 rounded-xl object-cover" /> : <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-slate-800 text-slate-500"><Server className="h-4 w-4" /></span>}
-            <div className="min-w-0 flex-1"><p className="truncate text-sm font-bold text-white">{guild.name}</p><p className="truncate text-[10px] text-slate-600">{guild.guild_id} · {guild.members.toLocaleString("de-DE")} Mitglieder</p><p className={cn("mt-1 text-[9px] font-black uppercase", guild.premium ? "text-amber-300" : "text-slate-600")}>{guild.premium ? "Server-Premium aktiv" : "Kein Server-Premium"}</p></div>
+            <div className="min-w-0 flex-1"><p className="truncate text-sm font-bold text-white">{guild.name}</p><p className="truncate text-[10px] text-slate-600">{guild.guild_id} · {guild.members.toLocaleString(websiteLocale())} Mitglieder</p><p className={cn("mt-1 text-[9px] font-black uppercase", guild.premium ? "text-amber-300" : "text-slate-600")}>{guild.premium ? "Server-Premium aktiv" : "Kein Server-Premium"}</p></div>
             <button type="button" onClick={() => toggle(guild)} disabled={busy === guild.guild_id} className={cn("relative h-7 w-12 shrink-0 rounded-full transition-colors disabled:opacity-40", guild.premium ? "bg-amber-400" : "bg-slate-700")} aria-label={`Premium für ${guild.name} ${guild.premium ? "entziehen" : "vergeben"}`}>
               {busy === guild.guild_id ? <Loader2 className="absolute left-4 top-1.5 h-4 w-4 animate-spin text-black" /> : <span className={cn("absolute left-0 top-1 h-5 w-5 rounded-full bg-white transition-transform", guild.premium ? "translate-x-6" : "translate-x-1")} />}
             </button>

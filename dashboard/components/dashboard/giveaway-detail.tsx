@@ -17,6 +17,7 @@
  * user with settings rights ever receives them.
  */
 
+import { websiteLocale, useWebsiteLocale } from "@/lib/i18n/locale";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle, ArrowLeft, Clock, Crown, Dices, ExternalLink, Eye,
@@ -93,7 +94,7 @@ const EXTEND = [
 
 function fmt(unix: number) {
   if (!unix) return "—";
-  return new Date(unix * 1000).toLocaleString("de-DE", {
+  return new Date(unix * 1000).toLocaleString(websiteLocale(), {
     day: "2-digit", month: "2-digit", year: "numeric",
     hour: "2-digit", minute: "2-digit",
   });
@@ -112,6 +113,7 @@ function relative(unix: number) {
 }
 
 function Field({ label, hint, children }: any) {
+  useWebsiteLocale();
   return (
     <div className="space-y-2">
       <span className="text-xs font-black uppercase tracking-widest text-slate-500">
@@ -125,6 +127,7 @@ function Field({ label, hint, children }: any) {
 
 /** Preview of one message, with the placeholders filled in. */
 function Preview({ text, fallback, values }: any) {
+  useWebsiteLocale();
   const filled = useMemo(() => {
     let out = (text || fallback || "").toString();
     for (const [token, value] of Object.entries(values)) {
@@ -154,6 +157,7 @@ export function GiveawayDetail({
   messageId: string;
   onBack: () => void;
 }) {
+  useWebsiteLocale();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -748,6 +752,7 @@ export function GiveawayDetail({
  * ------------------------------------------------------------------ */
 
 function BoostDialog({ guildId, messageId, person, onClose, onDone }: any) {
+  useWebsiteLocale();
   const [mode, setMode] = useState<"weight" | "guaranteed" | "clear">(
     person.guaranteed ? "guaranteed" : person.weight > 1 ? "weight" : "weight"
   );

@@ -26,6 +26,8 @@
  * im Bot. Eine Oberfläche, die einen Knopf versteckt, ist keine Sperre.
  */
 
+import { websiteLocale, useWebsiteLocale } from "@/lib/i18n/locale";
+import { localizedConfirm, localizedPrompt } from "@/lib/i18n/browser-language";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import {
@@ -62,7 +64,7 @@ const EVENTS: Record<string, { label: string; tone: string }> = {
 
 function when(seconds?: number | null) {
   if (!seconds) return "—";
-  return new Date(seconds * 1000).toLocaleString("de-DE", {
+  return new Date(seconds * 1000).toLocaleString(websiteLocale(), {
     day: "2-digit",
     month: "2-digit",
     year: "2-digit",
@@ -82,6 +84,7 @@ function Stat({
   label: string;
   tone?: string;
 }) {
+  useWebsiteLocale();
   return (
     <div className="rounded-2xl border border-slate-800 bg-[#0e0e12] p-4">
       <Icon className={cn("h-4 w-4 mb-2", tone || "text-slate-500")} />
@@ -92,6 +95,7 @@ function Stat({
 }
 
 export function SpeedrunAdmin() {
+  useWebsiteLocale();
   const { data: session } = useSession();
   const actorId = session?.user?.id ?? "";
 
@@ -180,7 +184,7 @@ export function SpeedrunAdmin() {
   const confirmRevoke = (guild: any) => {
     const name = guild.name || guild.guild_id;
     if (
-      confirm(
+      localizedConfirm(
         `Zugang für „${name}“ entziehen?\n\n` +
   "Der Eintrag wird zurückgesetzt. Mit Premium geht es sofort wieder. " +
   "Ein laufender Speedrun wird sofort abgebrochen."
@@ -192,7 +196,7 @@ export function SpeedrunAdmin() {
 
   const confirmBan = (guild: any) => {
     const name = guild.name || guild.guild_id;
-    const reason = prompt(
+    const reason = localizedPrompt(
       `„${name}“ dauerhaft sperren?\n\n` +
   "Danach hilft auch Premium nicht mehr. Ein laufender Speedrun wird sofort " +
   "abgebrochen.\n\nBegründung (wird dem Server angezeigt):"

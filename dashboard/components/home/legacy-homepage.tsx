@@ -42,6 +42,7 @@
  * dasteht. Antwortet die Schnittstelle nicht, steht dort ein Strich.
  */
 
+import { websiteLocale, useWebsiteLocale } from "@/lib/i18n/locale";
 import React from "react";
 import Image from "next/image";
 import Link from "next/link";
@@ -517,6 +518,7 @@ function ScrollReveal({
   von?: "links" | "rechts";
   className?: string;
 }) {
+  useWebsiteLocale();
   const ref = React.useRef<HTMLDivElement>(null);
   const [sichtbar, setSichtbar] = React.useState(false);
 
@@ -556,6 +558,7 @@ function ScrollReveal({
 
 /** Ein einzelner FAQ-Ausklapper. */
 function FaqZeile({ frage, antwort }: { frage: string; antwort: string }) {
+  useWebsiteLocale();
   const [offen, setOffen] = React.useState(false);
   return (
     <div className="border-b border-slate-800">
@@ -583,6 +586,7 @@ function FaqZeile({ frage, antwort }: { frage: string; antwort: string }) {
 }
 
 export function LegacyHomepage() {
+  useWebsiteLocale();
   const [karte, setKarte] = React.useState(0);
   const [zahlen, setZahlen] = React.useState<any>(null);
   const [carouselPause, setCarouselPause] = React.useState(false);
@@ -628,7 +632,7 @@ export function LegacyHomepage() {
 
   /** Eine Zahl, oder ein Strich, solange sie nicht da ist. */
   const zeig = (wert: any) =>
-    typeof wert === "number" && wert > 0 ? wert.toLocaleString("de-DE") : "—";
+    typeof wert === "number" && wert > 0 ? wert.toLocaleString(websiteLocale()) : "—";
   const server = zahlen?.guilds > 0 ? zeig(zahlen.guilds) : null;
 
   return (

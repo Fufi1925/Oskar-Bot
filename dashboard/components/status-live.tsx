@@ -32,6 +32,7 @@
  * gar nicht.
  */
 
+import { websiteLocale, useWebsiteLocale } from "@/lib/i18n/locale";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Activity,
@@ -121,7 +122,7 @@ function seit(unix: number) {
  * schlimmer als unschoen. Im gerenderten Bild nachgemessen.
  */
 function prozent(wert: number) {
-  return wert.toLocaleString("de-DE", {
+  return wert.toLocaleString(websiteLocale(), {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
@@ -131,12 +132,13 @@ function prozent(wert: number) {
 function achsenText(start: number, stunden: number) {
   const d = new Date(start * 1000);
   if (stunden <= 24) {
-    return d.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
+    return d.toLocaleTimeString(websiteLocale(), { hour: "2-digit", minute: "2-digit" });
   }
-  return d.toLocaleDateString("de-DE", { day: "numeric", month: "short" });
+  return d.toLocaleDateString(websiteLocale(), { day: "numeric", month: "short" });
 }
 
 export function StatusLive({ marke }: { marke: string }) {
+  useWebsiteLocale();
   const [zustand, setZustand] = useState<Zustand | null>(null);
   const [verlauf, setVerlauf] = useState<Verlauf | null>(null);
   const [stunden, setStunden] = useState(24);

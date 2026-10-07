@@ -1,5 +1,6 @@
 "use client";
 
+import { websiteLocale, useWebsiteLocale } from "@/lib/i18n/locale";
 import React from "react";
 import Link from "next/link";
 import { ArrowRight, BadgeCheck, CalendarDays, Crown, Server, ShieldCheck, Sparkles, X } from "lucide-react";
@@ -7,9 +8,10 @@ import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 
 const WAIT_SECONDS = 3;
-const date = (value?: number | null) => value ? new Date(value * 1000).toLocaleDateString("de-DE", { day: "2-digit", month: "long", year: "numeric" }) : "–";
+const date = (value?: number | null) => value ? new Date(value * 1000).toLocaleDateString(websiteLocale(), { day: "2-digit", month: "long", year: "numeric" }) : "–";
 
 export function PremiumHinweis() {
+  useWebsiteLocale();
   const { data: session, status } = useSession();
   const pathname = usePathname();
   const [open, setOpen] = React.useState(false);
@@ -66,4 +68,5 @@ export function PremiumHinweis() {
   </div>;
 }
 
-function Info({icon:Icon,value,label}:{icon:any,value:string,label:string}){return <div className="rounded-xl border border-slate-800 bg-black/20 p-3 text-center"><Icon className="mx-auto h-4 w-4 text-amber-300"/><p className="mt-2 text-sm font-black text-white">{value}</p><p className="mt-0.5 truncate text-[10px] text-slate-500">{label}</p></div>}
+function Info({icon:Icon,value,label}:{icon:any,value:string,label:string}){
+  useWebsiteLocale();return <div className="rounded-xl border border-slate-800 bg-black/20 p-3 text-center"><Icon className="mx-auto h-4 w-4 text-amber-300"/><p className="mt-2 text-sm font-black text-white">{value}</p><p className="mt-0.5 truncate text-[10px] text-slate-500">{label}</p></div>}

@@ -1,5 +1,7 @@
 "use client";
 
+import { websiteLocale, useWebsiteLocale } from "@/lib/i18n/locale";
+import { localizedConfirm } from "@/lib/i18n/browser-language";
 import { WebsiteSelect } from "@/components/ui/website-select";
 
 import React, { useCallback, useEffect, useState } from "react";
@@ -11,10 +13,11 @@ import { cn } from "@/lib/utils";
 const INPUT = "w-full rounded-xl border border-slate-800 bg-[#0b0b0f] px-3 py-2.5 text-sm text-white outline-none focus:border-amber-400/40";
 
 function date(value: number) {
-  return new Date(value * 1000).toLocaleString("de-DE", { dateStyle: "medium", timeStyle: "short" });
+  return new Date(value * 1000).toLocaleString(websiteLocale(), { dateStyle: "medium", timeStyle: "short" });
 }
 
 export function PremiumCodes() {
+  useWebsiteLocale();
   const [codes, setCodes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -47,13 +50,13 @@ export function PremiumCodes() {
   };
 
   const revokeCode = async (code: string) => {
-    if (!confirm(`Code ${code} wirklich deaktivieren? Offene Einlösungen sind danach nicht mehr möglich.`)) return;
+    if (!localizedConfirm(`Code ${code} wirklich deaktivieren? Offene Einlösungen sind danach nicht mehr möglich.`)) return;
     try { await api.revokePremiumCode(code); toast.success("Code deaktiviert."); await load(); }
     catch (error: any) { toast.error(error?.message || "Code konnte nicht deaktiviert werden."); }
   };
 
   const revokeUse = async (use: any) => {
-    if (!confirm(`Premium für ${use.guild_name} sofort einziehen?`)) return;
+    if (!localizedConfirm(`Premium für ${use.guild_name} sofort einziehen?`)) return;
     try { await api.revokePremiumCodeRedemption(use.id); toast.success("Premium wurde eingezogen."); await load(); }
     catch (error: any) { toast.error(error?.message || "Premium konnte nicht eingezogen werden."); }
   };

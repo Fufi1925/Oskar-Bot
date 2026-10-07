@@ -22,6 +22,7 @@
  * refetches, and the counts say what they are worth.
  */
 
+import { websiteLocale, useWebsiteLocale } from "@/lib/i18n/locale";
 import React, { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -77,12 +78,13 @@ function health(latency: number | null) {
 }
 
 function Stat({ icon: Icon, label, value }: any) {
+  useWebsiteLocale();
   return (
     <div className="flex items-center gap-2.5">
       <Icon className="h-4 w-4 shrink-0 text-slate-600" />
       <div className="min-w-0">
         <span className="text-[15px] font-semibold text-white">
-          {Number(value ?? 0).toLocaleString("de-DE")}
+          {Number(value ?? 0).toLocaleString(websiteLocale())}
         </span>{" "}
         <span className="text-[13px] text-slate-500">{label}</span>
       </div>
@@ -97,6 +99,7 @@ export function GuildHeader({
   guild: Guild;
   isOwner: boolean;
 }) {
+  useWebsiteLocale();
   const router = useRouter();
   const [latency, setLatency] = useState<number | null>(null);
   const [checked, setChecked] = useState(false);

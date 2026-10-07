@@ -36,6 +36,8 @@
  * praktisch wäre.
  */
 
+import { websiteLocale, useWebsiteLocale } from "@/lib/i18n/locale";
+import { localizedConfirm } from "@/lib/i18n/browser-language";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Cookie,
@@ -75,7 +77,7 @@ const KARTE = "rounded-3xl border border-slate-800 bg-[#131318]";
 /** Datum und Uhrzeit — bei einem Nachweis zählt die Minute. */
 function zeitpunkt(unix: number) {
   if (!unix) return "—";
-  return new Date(unix * 1000).toLocaleString("de-DE", {
+  return new Date(unix * 1000).toLocaleString(websiteLocale(), {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
@@ -86,13 +88,14 @@ function zeitpunkt(unix: number) {
 
 /** Ein Tagesstempel als „12. Aug“ für die Achse. */
 function tagKurz(unix: number) {
-  return new Date(unix * 1000).toLocaleDateString("de-DE", {
+  return new Date(unix * 1000).toLocaleDateString(websiteLocale(), {
     day: "numeric",
     month: "short",
   });
 }
 
 export function CookieConsentsPanel() {
+  useWebsiteLocale();
   const [rows, setRows] = useState<ConsentRow[]>([]);
   const [zahlen, setZahlen] = useState<Zahlen | null>(null);
   const [verlauf, setVerlauf] = useState<Array<{ tag: number; anzahl: number }>>([]);
@@ -137,7 +140,7 @@ export function CookieConsentsPanel() {
 
   const zeileLoeschen = async (row: ConsentRow) => {
     if (
-      !confirm(
+      !localizedConfirm(
         `Diesen Eintrag löschen?\n\n` +
           `${row.user_name || row.user_id || "Ohne Konto"} — ` +
           `bestätigt am ${zeitpunkt(row.zuerst_at)}.\n\n` +
@@ -163,7 +166,7 @@ export function CookieConsentsPanel() {
   const kontoLoeschen = async (row: ConsentRow) => {
     const wieViele = rows.filter((r) => r.user_id === row.user_id).length;
     if (
-      !confirm(
+      !localizedConfirm(
         `Alles zu ${row.user_name || row.user_id} löschen?\n\n` +
           `Betrifft ${wieViele} ${wieViele === 1 ? "Eintrag" : "Einträge"} — ` +
           "jeden Browser, mit dem dieses Konto angemeldet war.\n\n" +
@@ -230,7 +233,7 @@ export function CookieConsentsPanel() {
         ].map((k) => (
           <div key={k.label} className={cn(KARTE, "px-4 py-3.5")}>
             <p className={cn("text-[19px] font-bold leading-none tabular-nums", k.farbe)}>
-              {k.wert.toLocaleString("de-DE")}
+              {k.wert.toLocaleString(websiteLocale())}
             </p>
             <p className="mt-1.5 text-[12px] text-slate-500">{k.label}</p>
           </div>

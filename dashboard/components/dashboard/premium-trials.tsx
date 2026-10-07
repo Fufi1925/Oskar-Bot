@@ -29,6 +29,8 @@
  * an den Knöpfen — nicht nur in diesem Kommentar.
  */
 
+import { websiteLocale, useWebsiteLocale } from "@/lib/i18n/locale";
+import { localizedConfirm } from "@/lib/i18n/browser-language";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
@@ -63,7 +65,7 @@ const KARTE = "rounded-3xl border border-slate-800 bg-[#131318]";
 
 function datum(unix: number) {
   if (!unix) return "—";
-  return new Date(unix * 1000).toLocaleDateString("de-DE", {
+  return new Date(unix * 1000).toLocaleDateString(websiteLocale(), {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
@@ -85,6 +87,7 @@ function restzeit(sekunden: number) {
 }
 
 export function PremiumTrials() {
+  useWebsiteLocale();
   const [rows, setRows] = useState<TrialRow[]>([]);
   const [stats, setStats] = useState<{
     total: number;
@@ -127,7 +130,7 @@ export function PremiumTrials() {
 
   const beenden = async (row: TrialRow) => {
     if (
-      !confirm(
+      !localizedConfirm(
         `Die Probewoche von ${row.user_name || row.user_id} sofort beenden?\n\n` +
           "Der Eintrag bleibt bestehen — das Konto hat seine Probewoche " +
           "damit verbraucht und bekommt keine neue.",
@@ -149,7 +152,7 @@ export function PremiumTrials() {
 
   const zuruecksetzen = async (row: TrialRow) => {
     if (
-      !confirm(
+      !localizedConfirm(
         `Die Probewoche von ${row.user_name || row.user_id} zurücksetzen?\n\n` +
           `Das Konto darf danach noch einmal ${tage} Tage kostenlos — ` +
           "normalerweise geht das nur einmal.",

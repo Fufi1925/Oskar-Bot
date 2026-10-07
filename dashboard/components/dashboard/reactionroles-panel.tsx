@@ -13,6 +13,7 @@
  * message shows up immediately instead of hiding in a long list.
  */
 
+import { localizedConfirm } from "@/lib/i18n/browser-language";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   AlertTriangle, Check, ExternalLink, Info, Loader2, MessageSquare, Plus,
@@ -67,7 +68,7 @@ export function ReactionRolesPanel({ guildId }: { guildId: string }) {
   useEffect(() => { load(); }, [load]);
 
   const act = async (fn: () => Promise<any>, confirmText?: string) => {
-    if (confirmText && !confirm(confirmText)) return;
+    if (confirmText && !localizedConfirm(confirmText)) return;
     setBusy(true);
     try {
       const res = await fn();

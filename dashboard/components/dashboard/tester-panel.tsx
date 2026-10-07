@@ -1,5 +1,6 @@
 "use client";
 
+import { websiteLocale, useWebsiteLocale } from "@/lib/i18n/locale";
 import { WebsiteSelect } from "@/components/ui/website-select";
 
 /**
@@ -74,7 +75,7 @@ const PRIORITIES: Record<string, { label: string; tone: string }> = {
 
 function when(seconds?: number | null) {
   if (!seconds) return "—";
-  return new Date(seconds * 1000).toLocaleString("de-DE", {
+  return new Date(seconds * 1000).toLocaleString(websiteLocale(), {
     day: "2-digit",
     month: "2-digit",
     year: "2-digit",
@@ -84,6 +85,7 @@ function when(seconds?: number | null) {
 }
 
 export function TesterPanel() {
+  useWebsiteLocale();
   const [loading, setLoading] = useState(true);
   const [state, setState] = useState<any>(null);
   const [log, setLog] = useState<any>(null);

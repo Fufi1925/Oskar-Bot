@@ -1,5 +1,6 @@
 "use client";
 
+import { websiteLocale, useWebsiteLocale } from "@/lib/i18n/locale";
 import { WebsiteSelect } from "@/components/ui/website-select";
 
 /**
@@ -41,6 +42,7 @@ const STATUS: Record<string, { label: string; ton: string }> = {
 };
 
 export function ApplicationsAdmin() {
+  useWebsiteLocale();
   const [liste, setListe] = React.useState<any[]>([]);
   const [zahlen, setZahlen] = React.useState<any>({});
   const [gewaehlt, setGewaehlt] = React.useState<any>(null);
@@ -423,7 +425,7 @@ export function ApplicationsAdmin() {
                     </p>
                     <p className="mt-0.5 text-[12px] text-slate-600">
                       Eingereicht am{" "}
-                      {new Date(gewaehlt.created_at * 1000).toLocaleString("de-DE")}
+                      {new Date(gewaehlt.created_at * 1000).toLocaleString(websiteLocale())}
                     </p>
                   </div>
                   <span

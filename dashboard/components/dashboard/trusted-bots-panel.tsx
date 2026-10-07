@@ -28,6 +28,7 @@
  * Deshalb tragen sie kein Entfernen-Kreuz, sondern ein Schloss.
  */
 
+import { localizedConfirm } from "@/lib/i18n/browser-language";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   AlertTriangle, Bot, Loader2, Lock, Plus, RefreshCw, Server, Trash2,
@@ -121,7 +122,7 @@ export function TrustedBotsPanel() {
 
   const entfernen = async (eintrag: TrustedBot) => {
     if (
-      !confirm(
+      !localizedConfirm(
         `${eintrag.name || eintrag.id} von der Liste nehmen?\n\n` +
           "Der Anti-Nuke behandelt diesen Bot danach wie jeden anderen: " +
           "legt er Kanäle an oder vergibt Rollen, wird er gebannt.",

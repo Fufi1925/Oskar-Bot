@@ -1,5 +1,6 @@
 "use client";
 
+import { websiteLocale, useWebsiteLocale } from "@/lib/i18n/locale";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { BadgeCheck, Bot, Clock3, Crown, Database, Loader2, Lock, Power, RefreshCw, Server, ShieldCheck, Snowflake, Sparkles, Users } from "lucide-react";
@@ -16,10 +17,11 @@ const FEATURES = [
   [ShieldCheck, "Weitere Bereiche", "Speedrun, Vorlagen und höhere Limits"],
 ] as const;
 
-const date = (value?: number | null) => value ? new Date(value * 1000).toLocaleString("de-DE", { dateStyle: "medium", timeStyle: "short" }) : "–";
+const date = (value?: number | null) => value ? new Date(value * 1000).toLocaleString(websiteLocale(), { dateStyle: "medium", timeStyle: "short" }) : "–";
 const daysLeft = (value?: number | null) => value ? Math.max(0, Math.ceil((value * 1000 - Date.now()) / 86_400_000)) : 0;
 
 export function ServerPremiumPanel({ guildId }: { guildId: string }) {
+  useWebsiteLocale();
   const [state, setState] = useState<any>(null);
   const [busy, setBusy] = useState(false);
   const load = useCallback(async () => {
@@ -58,5 +60,7 @@ export function ServerPremiumPanel({ guildId }: { guildId: string }) {
   </div>;
 }
 
-function Fact({icon:Icon,label,value,detail}:{icon:any,label:string,value:string,detail:string}){return <div className="rounded-2xl border border-slate-800 bg-black/20 p-4"><Icon className="h-4 w-4 text-amber-300"/><p className="mt-3 text-[10px] font-black uppercase tracking-wider text-slate-600">{label}</p><p className="mt-1 truncate text-sm font-black text-white">{value}</p><p className="mt-1 text-xs leading-5 text-slate-500">{detail}</p></div>}
-function Choice({active,onClick,icon:Icon,title,text,badge}:{active:boolean,onClick:()=>void,icon:any,title:string,text:string,badge?:string}){return <button onClick={onClick} className={cn("relative rounded-2xl border p-5 text-left transition",active?"border-amber-400/40 bg-amber-400/[0.08]":"border-slate-800 hover:border-slate-700")}><div className="flex items-start justify-between"><Icon className="h-5 w-5 text-amber-300"/>{active?<BadgeCheck className="h-5 w-5 text-emerald-400"/>:badge?<span className="rounded-full bg-amber-400/10 px-2 py-1 text-[10px] font-black text-amber-300">{badge}</span>:null}</div><p className="mt-3 font-black text-white">{title}</p><p className="mt-1 text-xs leading-5 text-slate-400">{text}</p></button>}
+function Fact({icon:Icon,label,value,detail}:{icon:any,label:string,value:string,detail:string}){
+  useWebsiteLocale();return <div className="rounded-2xl border border-slate-800 bg-black/20 p-4"><Icon className="h-4 w-4 text-amber-300"/><p className="mt-3 text-[10px] font-black uppercase tracking-wider text-slate-600">{label}</p><p className="mt-1 truncate text-sm font-black text-white">{value}</p><p className="mt-1 text-xs leading-5 text-slate-500">{detail}</p></div>}
+function Choice({active,onClick,icon:Icon,title,text,badge}:{active:boolean,onClick:()=>void,icon:any,title:string,text:string,badge?:string}){
+  useWebsiteLocale();return <button onClick={onClick} className={cn("relative rounded-2xl border p-5 text-left transition",active?"border-amber-400/40 bg-amber-400/[0.08]":"border-slate-800 hover:border-slate-700")}><div className="flex items-start justify-between"><Icon className="h-5 w-5 text-amber-300"/>{active?<BadgeCheck className="h-5 w-5 text-emerald-400"/>:badge?<span className="rounded-full bg-amber-400/10 px-2 py-1 text-[10px] font-black text-amber-300">{badge}</span>:null}</div><p className="mt-3 font-black text-white">{title}</p><p className="mt-1 text-xs leading-5 text-slate-400">{text}</p></button>}

@@ -17,6 +17,7 @@
  * something happened without watching the screen.
  */
 
+import { websiteLocale, useWebsiteLocale } from "@/lib/i18n/locale";
 import React, { useEffect, useRef, useState } from "react";
 
 import { useReducedMotion } from "@/components/ui/reveal";
@@ -48,6 +49,7 @@ export function StatValue({
   duration?: number;
   className?: string;
 }) {
+  useWebsiteLocale();
   const text = String(value ?? "");
   const parsed = split(text);
   const reduced = useReducedMotion();
@@ -97,7 +99,7 @@ export function StatValue({
 
   return (
     <span className={cn("tabular-nums", className)}>
-      {shown.toLocaleString("de-DE", {
+      {shown.toLocaleString(websiteLocale(), {
         minimumFractionDigits: decimals,
         maximumFractionDigits: decimals,
       })}

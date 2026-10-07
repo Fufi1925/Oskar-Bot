@@ -20,6 +20,8 @@
  * Panel-Nachrichten und der Schluessel db/template_secret.key.
  */
 
+import { websiteLocale, useWebsiteLocale } from "@/lib/i18n/locale";
+import { localizedConfirm } from "@/lib/i18n/browser-language";
 import React, { useEffect, useRef, useState } from "react";
 import {
   AlertTriangle,
@@ -87,19 +89,20 @@ interface Pruefbericht {
 function groesse(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) {
-    return `${(bytes / 1024).toLocaleString("de-DE", { maximumFractionDigits: 1 })} KB`;
+    return `${(bytes / 1024).toLocaleString(websiteLocale(), { maximumFractionDigits: 1 })} KB`;
   }
   if (bytes < 1024 * 1024 * 1024) {
-    return `${(bytes / (1024 * 1024)).toLocaleString("de-DE", { maximumFractionDigits: 2 })} MB`;
+    return `${(bytes / (1024 * 1024)).toLocaleString(websiteLocale(), { maximumFractionDigits: 2 })} MB`;
   }
-  return `${(bytes / (1024 * 1024 * 1024)).toLocaleString("de-DE", { maximumFractionDigits: 2 })} GB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toLocaleString(websiteLocale(), { maximumFractionDigits: 2 })} GB`;
 }
 
 function zahl(n: number): string {
-  return n.toLocaleString("de-DE");
+  return n.toLocaleString(websiteLocale());
 }
 
 export function UmzugPanel() {
+  useWebsiteLocale();
   const [uebersicht, setUebersicht] = useState<Uebersicht | null>(null);
   const [laedt, setLaedt] = useState(true);
   const [beschaeftigt, setBeschaeftigt] = useState(false);
@@ -213,7 +216,7 @@ export function UmzugPanel() {
       `${bericht.ueberschreibt_anzahl} davon überschreiben vorhandene.\n\n` +
       `Der bisherige Stand wird vorher gesichert.\n` +
       `Danach muss der Bot neu starten.`;
-    if (!confirm(frage)) return;
+    if (!localizedConfirm(frage)) return;
 
     setBeschaeftigt(true);
     setFortschritt("Die Dateien werden zurückgeschrieben …");

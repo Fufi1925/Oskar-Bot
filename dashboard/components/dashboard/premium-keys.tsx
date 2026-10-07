@@ -21,6 +21,8 @@
  *   * Nichts ist erfunden. Wo etwas unbekannt ist, steht das da.
  */
 
+import { websiteLocale, useWebsiteLocale } from "@/lib/i18n/locale";
+import { localizedConfirm } from "@/lib/i18n/browser-language";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle, ArrowUpDown, Ban, CheckCircle2, ChevronDown, Copy,
@@ -92,7 +94,7 @@ function stateOf(row: KeyRow, now: number): KeyState {
 
 function fmtDate(seconds?: number | null): string {
   if (!seconds) return "—";
-  return new Date(seconds * 1000).toLocaleDateString("de-DE", {
+  return new Date(seconds * 1000).toLocaleDateString(websiteLocale(), {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
@@ -101,7 +103,7 @@ function fmtDate(seconds?: number | null): string {
 
 function fmtDateTime(seconds?: number | null): string {
   if (!seconds) return "—";
-  return new Date(seconds * 1000).toLocaleString("de-DE", {
+  return new Date(seconds * 1000).toLocaleString(websiteLocale(), {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
@@ -141,6 +143,7 @@ function Stat({
   active?: boolean;
   onClick?: () => void;
 }) {
+  useWebsiteLocale();
   // The numbers double as filters — seeing "7 expired" and having to
   // then find the filter for it is a step nobody should need.
   const Tag = onClick ? "button" : "div";
@@ -179,6 +182,7 @@ function Panel({
   children?: React.ReactNode;
   tone?: "plain" | "muted";
 }) {
+  useWebsiteLocale();
   return (
     <section
       className={cn(
@@ -208,6 +212,7 @@ function Panel({
 /* ── the tab ───────────────────────────────────────────────────────── */
 
 export function PremiumKeys() {
+  useWebsiteLocale();
   const [rows, setRows] = useState<KeyRow[]>([]);
   const [role, setRole] = useState<any>(null);
   const [stats, setStats] = useState<any>(null);
@@ -354,10 +359,10 @@ export function PremiumKeys() {
     hash: string,
     what: "revoke" | "unrevoke" | "delete"
   ) => {
-    if (what === "delete" && !confirm("Diesen Key endgültig löschen?")) return;
+    if (what === "delete" && !localizedConfirm("Diesen Key endgültig löschen?")) return;
     if (
       what === "revoke" &&
-      !confirm("Sperren? Premium wird sofort entzogen, auch im Template-Bot.")
+      !localizedConfirm("Sperren? Premium wird sofort entzogen, auch im Template-Bot.")
     ) {
       return;
     }
@@ -380,7 +385,7 @@ export function PremiumKeys() {
     const hashes = [...selected];
     if (hashes.length === 0) return;
     const word = what === "delete" ? "endgültig löschen" : "sperren";
-    if (!confirm(`${hashes.length} Keys ${word}?`)) return;
+    if (!localizedConfirm(`${hashes.length} Keys ${word}?`)) return;
 
     setBusy(true);
     let done = 0;

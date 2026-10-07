@@ -25,6 +25,7 @@
  * Formen mit. Ein paar Rechtecke sind kein Grund dafür.
  */
 
+import { websiteLocale, useWebsiteLocale } from "@/lib/i18n/locale";
 import React from "react";
 import { cn } from "@/lib/utils";
 
@@ -57,8 +58,8 @@ function zeitraum(von: number, bis: number) {
   const format: Intl.DateTimeFormatOptions = langer
     ? { day: "2-digit", month: "2-digit" }
     : { hour: "2-digit", minute: "2-digit" };
-  const links = a.toLocaleString("de-DE", format);
-  const rechts = b.toLocaleString("de-DE", format);
+  const links = a.toLocaleString(websiteLocale(), format);
+  const rechts = b.toLocaleString(websiteLocale(), format);
   return links === rechts ? links : `${links} – ${rechts}`;
 }
 
@@ -71,6 +72,7 @@ export function UptimeBars({
   hoehe?: number;
   className?: string;
 }) {
+  useWebsiteLocale();
   const [aktiv, setAktiv] = React.useState<number | null>(null);
 
   if (abschnitte.length === 0) {

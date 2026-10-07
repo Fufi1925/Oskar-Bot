@@ -25,6 +25,7 @@
  * an derselben Stelle.
  */
 
+import { websiteLocale, useWebsiteLocale } from "@/lib/i18n/locale";
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
@@ -210,6 +211,7 @@ function Zeile({
   guildId: string;
   fertig: boolean;
 }) {
+  useWebsiteLocale();
   const Icon = MODULE_ICONS[mod.key] || Settings;
   return (
     <Link
@@ -254,6 +256,7 @@ export default function GuildOverviewPage({
 }: {
   params: { guildId: string };
 }) {
+  useWebsiteLocale();
   const [data, setData] = useState<StatusPayload | null>(null);
   const [premium, setPremium] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -304,7 +307,7 @@ export default function GuildOverviewPage({
   const restOffen = sortiert.offen.slice(3);
 
   const kennzahlen = [
-    { label: "Mitglieder", wert: data.guild.member_count.toLocaleString("de-DE"), icon: Users },
+    { label: "Mitglieder", wert: data.guild.member_count.toLocaleString(websiteLocale()), icon: Users },
     { label: "Kanäle", wert: data.guild.channel_count, icon: Hash },
     { label: "Rollen", wert: data.guild.role_count, icon: Shield },
     { label: "Bots", wert: data.guild.bot_count, icon: Bot },

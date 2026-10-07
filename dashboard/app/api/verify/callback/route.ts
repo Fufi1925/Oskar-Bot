@@ -16,7 +16,7 @@ const API_BASE =
 function resultRedirect(result: Omit<VerifyResult, "exp">) {
   const token = createVerifyResult(result);
   const response = NextResponse.redirect(
-    `${websiteOrigin()}/verify/${encodeURIComponent(result.guild_id)}?result=${encodeURIComponent(token)}`,
+    `${websiteOrigin()}/verify/${encodeURIComponent(result.guild_id)}?result=${encodeURIComponent(token)}&lang=${result.language === "de" ? "de" : "en"}`,
   );
   response.headers.set("Cache-Control", "no-store");
   response.headers.set("Referrer-Policy", "no-referrer");
@@ -28,14 +28,17 @@ export async function GET(request: NextRequest) {
     request.nextUrl.searchParams.get("state") || "",
   );
   if (!state) {
-    return NextResponse.json(
-      { detail: "Dieser Verifizierungslink ist ungültig oder abgelaufen." },
-      { status: 400 },
-    );
+    // Invalid state has no trusted guild ID. Show a safe, localized error page
+    // instead of an untranslated JSON response or an unsafe retry destination.
+    const response = NextResponse.redirect(`${websiteOrigin()}/verify/invalid?lang=${request.cookies.get("website-language")?.value === "de" ? "de" : "en"}`);
+    response.headers.set("Cache-Control", "no-store");
+    response.headers.set("Referrer-Policy", "no-referrer");
+    return response;
   }
   if (request.nextUrl.searchParams.get("error")) {
     return resultRedirect({
       guild_id: state.guildId,
+      language: state.language === "de" ? "de" : "en",
       status: "error",
       reason: "oauth_cancelled",
     });
@@ -47,6 +50,7 @@ export async function GET(request: NextRequest) {
   if (!code || !clientId || !clientSecret || !process.env.DASHBOARD_API_KEY) {
     return resultRedirect({
       guild_id: state.guildId,
+      language: state.language === "de" ? "de" : "en",
       status: "error",
       reason: "oauth_unavailable",
     });
@@ -135,6 +139,7 @@ export async function GET(request: NextRequest) {
     const outcome = await completion.json();
     return resultRedirect({
       guild_id: state.guildId,
+      language: state.language === "de" ? "de" : "en",
       guild_name: outcome.guild_name,
       guild_icon: outcome.guild_icon,
       status: outcome.status,
@@ -146,6 +151,7 @@ export async function GET(request: NextRequest) {
     console.error("OAuth verification failed", error);
     return resultRedirect({
       guild_id: state.guildId,
+      language: state.language === "de" ? "de" : "en",
       status: "error",
       reason: failureReason,
     });

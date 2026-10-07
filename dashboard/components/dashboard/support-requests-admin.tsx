@@ -1,5 +1,6 @@
 "use client";
 
+import { websiteLocale, useWebsiteLocale } from "@/lib/i18n/locale";
 import React from "react";
 import Link from "next/link";
 import { AlertTriangle, Bug, CheckCircle2, Clock3, Copy, ExternalLink, LifeBuoy, Loader2, MessageSquare, Plus, RefreshCw, Search, SearchCheck, Send, ShieldCheck, SlidersHorizontal, Star, Trash2, UserCheck, X } from "lucide-react";
@@ -12,9 +13,10 @@ const FILTER = [
 const LABEL: Record<string, string> = { pending: "Offen", accepted: "Angenommen", declined: "Abgelehnt", closed: "Geschlossen" };
 const COLOR: Record<string, string> = { pending: "border-amber-400/20 bg-amber-400/10 text-amber-300", accepted: "border-emerald-400/20 bg-emerald-400/10 text-emerald-300", declined: "border-rose-400/20 bg-rose-400/10 text-rose-300", closed: "border-slate-700 bg-slate-800/60 text-slate-400" };
 
-const zeit = (value: number) => value ? new Date(value * 1000).toLocaleString("de-DE") : "—";
+const zeit = (value: number) => value ? new Date(value * 1000).toLocaleString(websiteLocale()) : "—";
 
 export function SupportRequestsAdmin() {
+  useWebsiteLocale();
   const [guildId, setGuildId] = React.useState("");
   const [problem, setProblem] = React.useState("");
   const [filter, setFilter] = React.useState("all");

@@ -1,3 +1,4 @@
+import { websiteLocale } from "@/lib/i18n/server-language";
 import React from "react";
 import Link from "next/link";
 import Image from "next/image";
@@ -123,7 +124,7 @@ export default async function DashboardPage() {
   const vorschau = myGuilds.slice(0, 6);
   const erreichte = connected.reduce((s, g) => s + (g.memberCount ?? 0), 0);
 
-  const zahl = (n: number) => n.toLocaleString("de-DE");
+  const zahl = (n: number) => n.toLocaleString(websiteLocale());
 
   return (
     <div className="space-y-5">

@@ -1,5 +1,6 @@
 "use client";
 
+import { websiteLocale, useWebsiteLocale } from "@/lib/i18n/locale";
 import React from "react";
 import { signOut } from "next-auth/react";
 import {
@@ -18,12 +19,13 @@ import { api } from "@/lib/api";
 
 function date(value: number) {
   if (!value) return "Noch nicht aufgezeichnet";
-  return new Intl.DateTimeFormat("de-DE", {
+  return new Intl.DateTimeFormat(websiteLocale(), {
     day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit",
   }).format(new Date(value * 1000));
 }
 
 export function AccountSecurityPanel({ userId }: { userId: string }) {
+  useWebsiteLocale();
   const [data, setData] = React.useState<any>(null);
   const [loading, setLoading] = React.useState(true);
   const [confirm, setConfirm] = React.useState(false);

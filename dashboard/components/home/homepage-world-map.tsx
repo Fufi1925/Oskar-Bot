@@ -1,6 +1,7 @@
 
 "use client";
 
+import { websiteLocale, useWebsiteLocale } from "@/lib/i18n/locale";
 import React from "react";
 import { ArrowDown, ArrowUp, Globe2 } from "lucide-react";
 import { WORLD_PATHS } from "@/components/home/world-paths";
@@ -18,7 +19,7 @@ type VisitorMapData = {
 
 type Hover = { code: string; name: string; views: number; x: number; y: number } | null;
 
-const formatter = new Intl.NumberFormat("de-DE");
+const formatter = new Intl.NumberFormat(websiteLocale());
 const regionNames = typeof Intl !== "undefined" && "DisplayNames" in Intl
   ? new Intl.DisplayNames(["de"], { type: "region" })
   : null;
@@ -37,6 +38,7 @@ function farbe(wert: number, max: number, tone: "indigo" | "pink") {
 }
 
 export function HomepageWorldMap({ tone = "indigo" }: { tone?: "indigo" | "pink" }) {
+  useWebsiteLocale();
   const [data, setData] = React.useState<VisitorMapData | null>(null);
   const [hover, setHover] = React.useState<Hover>(null);
   const [fehler, setFehler] = React.useState(false);

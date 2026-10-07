@@ -16,6 +16,7 @@
  * ein anderes Konto stellen.
  */
 
+import { websiteLocale, useWebsiteLocale } from "@/lib/i18n/locale";
 import React, { useCallback, useEffect, useState } from "react";
 import { signOut } from "next-auth/react";
 import {
@@ -44,10 +45,11 @@ interface Frage {
 
 function datum(unix: number) {
   if (!unix) return "";
-  return new Date(unix * 1000).toLocaleDateString("de-DE");
+  return new Date(unix * 1000).toLocaleDateString(websiteLocale());
 }
 
 export function BetaForm() {
+  useWebsiteLocale();
   const [daten, setDaten] = useState<any>(null);
   const [laedt, setLaedt] = useState(true);
   const [sendet, setSendet] = useState(false);

@@ -1,5 +1,6 @@
 "use client";
 
+import { websiteLocale, useWebsiteLocale } from "@/lib/i18n/locale";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -25,20 +26,24 @@ const CARD = "rounded-2xl border border-white/[0.08] bg-[#111117] shadow-[0_20px
 
 function formatDate(value: number) {
   if (!value) return "—";
-  return new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "short", year: "numeric" }).format(new Date(value * 1000));
+  return new Intl.DateTimeFormat(websiteLocale(), { day: "2-digit", month: "short", year: "numeric" }).format(new Date(value * 1000));
 }
 function StatusBadge({ status }: { status: string }) {
+  useWebsiteLocale();
   const item = STATUS[status] || STATUS.open;
   return <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-bold ${item.badge}`}><span className={`h-1.5 w-1.5 rounded-full ${item.dot}`} />{item.label}</span>;
 }
 function Avatar({ src, name, size = "h-8 w-8" }: { src?: string; name?: string; size?: string }) {
+  useWebsiteLocale();
   return src ? <img src={src} alt="" className={`${size} rounded-full object-cover ring-1 ring-white/10`} /> : <span className={`${size} grid shrink-0 place-items-center rounded-full bg-indigo-500/15 text-xs font-black text-indigo-300 ring-1 ring-indigo-500/20`}>{(name || "U").slice(0, 1).toUpperCase()}</span>;
 }
 function LoginButton({ text = "Mit Discord anmelden" }: { text?: string }) {
+  useWebsiteLocale();
   return <button onClick={() => signIn("discord", { callbackUrl: "/auth/success?next=%2Fideas" })} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 text-sm font-bold text-white transition hover:bg-indigo-500"><ShieldCheck className="h-4 w-4" />{text}</button>;
 }
 
 function IdeasShell({ children }: { children: React.ReactNode }) {
+  useWebsiteLocale();
   return (
     <div className="min-h-screen bg-[#08080c] text-white">
       <SiteNav />
@@ -57,6 +62,7 @@ function IdeasShell({ children }: { children: React.ReactNode }) {
 }
 
 function IdeaCard({ idea }: { idea: any }) {
+  useWebsiteLocale();
   return (
     <Link href={`/ideas/${idea.id}`} className={`${CARD} group block overflow-hidden transition duration-200 hover:-translate-y-0.5 hover:border-indigo-500/30 hover:bg-[#14141b]`}>
       <div className="p-5 sm:p-6">
@@ -73,6 +79,7 @@ function IdeaCard({ idea }: { idea: any }) {
 }
 
 export function IdeasList() {
+  useWebsiteLocale();
   const [ideas, setIdeas] = useState<any[]>([]);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -128,6 +135,7 @@ export function IdeasList() {
 }
 
 export function NewIdea() {
+  useWebsiteLocale();
   const { status } = useSession();
   const router = useRouter();
   const [title, setTitle] = useState("");
@@ -163,6 +171,7 @@ export function NewIdea() {
 }
 
 export function IdeaDetail({ id }: { id: string }) {
+  useWebsiteLocale();
   const { status } = useSession();
   const [idea, setIdea] = useState<any>(null);
   const [comment, setComment] = useState("");
@@ -198,6 +207,7 @@ export function IdeaDetail({ id }: { id: string }) {
 }
 
 export function MyIdeas() {
+  useWebsiteLocale();
   const { status } = useSession();
   const search = useSearchParams();
   const [tab, setTab] = useState(search.get("tab") === "rewards" ? "rewards" : "ideas");
@@ -216,13 +226,18 @@ export function MyIdeas() {
 }
 
 function RewardCard({ reward, servers }: { reward: any; servers: any[] }) {
+  useWebsiteLocale();
   const [guild, setGuild] = useState(servers[0]?.id || "");
   const [claimed, setClaimed] = useState(Boolean(reward.claimed_at));
   const [open, setOpen] = useState(false);
   const selected = servers.find((server) => server.id === guild);
   return <div className={`${CARD} relative overflow-hidden p-6`}><div className="pointer-events-none absolute -right-12 -top-12 h-32 w-32 rounded-full bg-emerald-500/10 blur-2xl"/><div className="relative flex items-start gap-4"><span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-emerald-500/10 text-emerald-400"><Gift className="h-6 w-6"/></span><div><span className="text-[11px] font-bold uppercase tracking-wider text-emerald-400">Community-Belohnung</span><h3 className="mt-1 text-xl font-black text-white">3 Tage Premium</h3><p className="mt-1 text-sm text-slate-400">für „{reward.title}“</p></div></div>{claimed?<div className="relative mt-6 flex items-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm font-bold text-emerald-300"><CheckCircle2 className="h-5 w-5"/>Bereits eingelöst</div>:<div className="relative mt-6"><p className="mb-2 text-xs font-bold text-slate-400">Server auswählen</p><div className="relative"><button onClick={()=>setOpen(!open)} className="flex min-h-11 w-full items-center justify-between rounded-xl border border-white/10 bg-black/20 px-4 text-sm text-white"><span>{selected?.name||"Server auswählen"}</span><ChevronDown className={`h-4 w-4 text-slate-500 transition ${open?"rotate-180":""}`}/></button>{open&&<div className="absolute left-0 right-0 top-12 z-10 max-h-52 overflow-y-auto rounded-xl border border-white/10 bg-[#17171e] p-2 shadow-2xl">{servers.length?servers.map((server)=><button key={server.id} onClick={()=>{setGuild(server.id);setOpen(false)}} className={`flex min-h-10 w-full items-center justify-between rounded-lg px-3 text-left text-sm ${guild===server.id?"bg-indigo-500/15 text-indigo-200":"text-slate-300 hover:bg-white/5"}`}><span className="truncate">{server.name}</span>{guild===server.id&&<Check className="h-4 w-4"/>}</button>):<p className="p-3 text-center text-xs text-slate-500">Kein verwalteter Server mit University Bot.</p>}</div>}</div><button disabled={!guild} onClick={async()=>{await api.claimIdeaReward(reward.idea_id,guild);setClaimed(true)}} className="mt-3 min-h-11 w-full rounded-xl bg-emerald-600 text-sm font-bold text-white hover:bg-emerald-500 disabled:opacity-40">Für diesen Server einlösen</button></div>}</div>;
 }
-function Tip({ number, title, text }: { number: string; title: string; text: string }) { return <div className={`${CARD} p-5`}><span className="text-xs font-black text-indigo-400">{number}</span><h3 className="mt-2 text-sm font-bold text-white">{title}</h3><p className="mt-1 text-xs leading-5 text-slate-400">{text}</p></div>; }
-function Field({ label, hint, children }: { label: string; hint: string; children: React.ReactNode }) { return <label className="block"><span className="mb-2 flex items-center justify-between gap-3 text-sm font-bold text-slate-300"><span>{label}</span><span className="text-xs font-normal text-slate-600">{hint}</span></span>{children}</label>; }
-function Loading() { return <div className="grid min-h-72 place-items-center"><div className="text-center"><Loader2 className="mx-auto h-6 w-6 animate-spin text-indigo-400"/><p className="mt-3 text-sm text-slate-500">Wird geladen …</p></div></div>; }
-function Empty({ icon, title, text, children }: { icon: React.ReactNode; title: string; text: string; children?: React.ReactNode }) { return <div className={`${CARD} mt-6 py-20 text-center`}><span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-indigo-500/10 text-indigo-400">{icon}</span><h2 className="mt-4 text-lg font-bold text-white">{title}</h2><p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-400">{text}</p>{children&&<div className="mt-5">{children}</div>}</div>; }
+function Tip({ number, title, text }: { number: string; title: string; text: string }) {
+  useWebsiteLocale(); return <div className={`${CARD} p-5`}><span className="text-xs font-black text-indigo-400">{number}</span><h3 className="mt-2 text-sm font-bold text-white">{title}</h3><p className="mt-1 text-xs leading-5 text-slate-400">{text}</p></div>; }
+function Field({ label, hint, children }: { label: string; hint: string; children: React.ReactNode }) {
+  useWebsiteLocale(); return <label className="block"><span className="mb-2 flex items-center justify-between gap-3 text-sm font-bold text-slate-300"><span>{label}</span><span className="text-xs font-normal text-slate-600">{hint}</span></span>{children}</label>; }
+function Loading() {
+  useWebsiteLocale(); return <div className="grid min-h-72 place-items-center"><div className="text-center"><Loader2 className="mx-auto h-6 w-6 animate-spin text-indigo-400"/><p className="mt-3 text-sm text-slate-500">Wird geladen …</p></div></div>; }
+function Empty({ icon, title, text, children }: { icon: React.ReactNode; title: string; text: string; children?: React.ReactNode }) {
+  useWebsiteLocale(); return <div className={`${CARD} mt-6 py-20 text-center`}><span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-indigo-500/10 text-indigo-400">{icon}</span><h2 className="mt-4 text-lg font-bold text-white">{title}</h2><p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-400">{text}</p>{children&&<div className="mt-5">{children}</div>}</div>; }

@@ -11,6 +11,8 @@
  * step.
  */
 
+import { websiteLocale, useWebsiteLocale } from "@/lib/i18n/locale";
+import { localizedConfirm } from "@/lib/i18n/browser-language";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle, Clock, Globe, Info, Loader2, Plus, RefreshCw, Search,
@@ -33,6 +35,7 @@ const DURATIONS = [
 ];
 
 function Field({ label, hint, children }: any) {
+  useWebsiteLocale();
   return (
     <div className="space-y-2">
       <span className="text-xs font-black uppercase tracking-widest text-slate-500">
@@ -46,12 +49,13 @@ function Field({ label, hint, children }: any) {
 
 function when(unix?: number | null) {
   if (!unix) return null;
-  return new Date(unix * 1000).toLocaleDateString("de-DE", {
+  return new Date(unix * 1000).toLocaleDateString(websiteLocale(), {
     day: "2-digit", month: "2-digit", year: "numeric",
   });
 }
 
 export function NoPrefixPanel({ guildId }: { guildId: string }) {
+  useWebsiteLocale();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -74,7 +78,7 @@ export function NoPrefixPanel({ guildId }: { guildId: string }) {
   useEffect(() => { load(); }, [load]);
 
   const act = async (fn: () => Promise<any>, confirmText?: string) => {
-    if (confirmText && !confirm(confirmText)) return;
+    if (confirmText && !localizedConfirm(confirmText)) return;
     setBusy(true);
     try {
       const res = await fn();

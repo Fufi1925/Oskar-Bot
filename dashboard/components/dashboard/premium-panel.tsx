@@ -1,5 +1,6 @@
 "use client";
 
+import { websiteLocale, useWebsiteLocale } from "@/lib/i18n/locale";
 import { WebsiteSelect } from "@/components/ui/website-select";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -14,9 +15,10 @@ const PLANS = [
   { days: 90, label: "90 Tage" },
   { days: 365, label: "365 Tage" },
 ];
-const fmt = (value?: number | null) => value ? new Date(value * 1000).toLocaleString("de-DE") : "–";
+const fmt = (value?: number | null) => value ? new Date(value * 1000).toLocaleString(websiteLocale()) : "–";
 
 export function PremiumPanel() {
+  useWebsiteLocale();
   const { data: session } = useSession();
   const userId = session?.user?.id || "";
   const [status, setStatus] = useState<any>(null);

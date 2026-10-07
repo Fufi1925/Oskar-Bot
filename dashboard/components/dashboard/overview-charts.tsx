@@ -22,6 +22,7 @@
  * Personenzahl gelesen und wäre dann zu hoch.
  */
 
+import { websiteLocale, useWebsiteLocale } from "@/lib/i18n/locale";
 import React, { useEffect, useState } from "react";
 import { Loader2, TrendingUp } from "lucide-react";
 import { api } from "@/lib/api";
@@ -47,7 +48,7 @@ interface Verlauf {
 function tag(iso: string) {
   const d = new Date(`${iso}T00:00:00Z`);
   if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString("de-DE", {
+  return d.toLocaleDateString(websiteLocale(), {
     day: "numeric",
     month: "short",
     timeZone: "UTC",
@@ -55,6 +56,7 @@ function tag(iso: string) {
 }
 
 export function OverviewCharts({ className }: { className?: string }) {
+  useWebsiteLocale();
   const [days, setDays] = useState(30);
   const [data, setData] = useState<Verlauf | null>(null);
   const [loading, setLoading] = useState(true);

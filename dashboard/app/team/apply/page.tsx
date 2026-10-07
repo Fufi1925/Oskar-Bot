@@ -32,6 +32,7 @@
  * Browser.
  */
 
+import { websiteLocale, useWebsiteLocale } from "@/lib/i18n/locale";
 import React from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -96,6 +97,7 @@ const STATUS_TEXT: Record<
 const CARD = "rounded-2xl border border-slate-800 bg-[#0f0f13]";
 
 export default function ApplyPage() {
+  useWebsiteLocale();
   return (
     // useSearchParams verlangt eine Suspense-Grenze, sonst faellt die
     // ganze Seite beim Bauen auf Client-Rendering zurueck.
@@ -106,6 +108,7 @@ export default function ApplyPage() {
 }
 
 function ApplyInner() {
+  useWebsiteLocale();
   const { data: session, status: authStatus } = useSession();
   const params = useSearchParams();
 
@@ -341,14 +344,14 @@ function ApplyInner() {
                 <div>
                   <dt className="text-slate-600">Eingereicht</dt>
                   <dd className="text-slate-300">
-                    {new Date(meine.created_at * 1000).toLocaleDateString("de-DE")}
+                    {new Date(meine.created_at * 1000).toLocaleDateString(websiteLocale())}
                   </dd>
                 </div>
                 {meine.decided_at > 0 && (
                   <div>
                     <dt className="text-slate-600">Entschieden</dt>
                     <dd className="text-slate-300">
-                      {new Date(meine.decided_at * 1000).toLocaleDateString("de-DE")}
+                      {new Date(meine.decided_at * 1000).toLocaleDateString(websiteLocale())}
                     </dd>
                   </div>
                 )}

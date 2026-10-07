@@ -1,5 +1,7 @@
 "use client";
 
+import { websiteLocale, useWebsiteLocale } from "@/lib/i18n/locale";
+import { localizedConfirm } from "@/lib/i18n/browser-language";
 import { WebsiteSelect } from "@/components/ui/website-select";
 
 /**
@@ -47,12 +49,13 @@ const STATUS_LABEL: Record<string, string> = {
 
 function when(unix?: number | null) {
   if (!unix) return "—";
-  return new Date(unix * 1000).toLocaleString("de-DE", {
+  return new Date(unix * 1000).toLocaleString(websiteLocale(), {
     day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit",
   });
 }
 
 function Field({ label, hint, children }: any) {
+  useWebsiteLocale();
   return (
     <div className="space-y-2">
       <span className="text-xs font-black uppercase tracking-widest text-slate-500">
@@ -65,6 +68,7 @@ function Field({ label, hint, children }: any) {
 }
 
 export function BroadcastPanel({ guilds }: { guilds?: any[] }) {
+  useWebsiteLocale();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -137,7 +141,7 @@ export function BroadcastPanel({ guilds }: { guilds?: any[] }) {
       : null;
 
     if (!scheduled) {
-      const ok = confirm(
+      const ok = localizedConfirm(
         `Diese Nachricht geht an ${reach} Server und lässt sich danach nicht ` +
         `mehr zurückholen.\n\nWirklich jetzt senden?`
       );
@@ -161,7 +165,7 @@ export function BroadcastPanel({ guilds }: { guilds?: any[] }) {
   };
 
   const act = async (fn: () => Promise<any>, confirmText?: string) => {
-    if (confirmText && !confirm(confirmText)) return;
+    if (confirmText && !localizedConfirm(confirmText)) return;
     setBusy(true);
     try {
       const res = await fn();

@@ -1,5 +1,6 @@
 "use client";
 
+import { websiteLocale, useWebsiteLocale } from "@/lib/i18n/locale";
 import { WebsiteSelect } from "@/components/ui/website-select";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -67,6 +68,7 @@ const isAuthorized = (member: PullMember) =>
   ["authorized", "joined"].includes(member.pull_status);
 
 export function UserPullPanel({ guildId }: { guildId: string }) {
+  useWebsiteLocale();
   const [targets, setTargets] = useState<Target[]>([]);
   const [members, setMembers] = useState<PullMember[]>([]);
   const [enabled, setEnabled] = useState(false);
@@ -451,7 +453,7 @@ export function UserPullPanel({ guildId }: { guildId: string }) {
                 </span>
                 <span className="text-sm text-slate-400">
                   {member.verified_at
-                    ? new Date(member.verified_at).toLocaleDateString("de-DE")
+                    ? new Date(member.verified_at).toLocaleDateString(websiteLocale())
                     : "—"}
                 </span>
                 <Status member={member} />
@@ -492,7 +494,7 @@ export function UserPullPanel({ guildId }: { guildId: string }) {
               label="Verifiziert am"
               value={
                 detail.verified_at
-                  ? new Date(detail.verified_at).toLocaleString("de-DE")
+                  ? new Date(detail.verified_at).toLocaleString(websiteLocale())
                   : "—"
               }
             />
@@ -683,6 +685,7 @@ function Metric({
   label: string;
   align?: "left" | "right";
 }) {
+  useWebsiteLocale();
   return (
     <div className={align === "right" ? "text-right" : ""}>
       <div
@@ -702,6 +705,7 @@ function MemberIdentity({
   member: PullMember;
   large?: boolean;
 }) {
+  useWebsiteLocale();
   return (
     <div className="flex min-w-0 items-center gap-3">
       {member.avatar ? (
@@ -727,6 +731,7 @@ function MemberIdentity({
   );
 }
 function Status({ member }: { member: PullMember }) {
+  useWebsiteLocale();
   const good = isAuthorized(member);
   return (
     <span
@@ -745,6 +750,7 @@ function Info({
   value: string;
   mono?: boolean;
 }) {
+  useWebsiteLocale();
   return (
     <div className="rounded-xl border border-white/10 bg-black/20 p-4">
       <p className="text-xs uppercase tracking-wider text-slate-600">{label}</p>
@@ -755,6 +761,7 @@ function Info({
   );
 }
 function Summary({ label, value }: { label: string; value: string }) {
+  useWebsiteLocale();
   return (
     <div className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.03] p-4">
       <span className="text-sm text-slate-500">{label}</span>
@@ -773,6 +780,7 @@ function Select({
   placeholder: string;
   options: Array<{ value: string; label: string }>;
 }) {
+  useWebsiteLocale();
   const [open, setOpen] = useState(false);
   const selected = options.find((option) => option.value === value);
   return (
@@ -815,6 +823,7 @@ function Choice({
   onClick: () => void;
   children: React.ReactNode;
 }) {
+  useWebsiteLocale();
   return (
     <button
       onClick={onClick}
@@ -832,6 +841,7 @@ function Next({
   disabled: boolean;
   onClick: () => void;
 }) {
+  useWebsiteLocale();
   return (
     <button
       disabled={disabled}
@@ -853,6 +863,7 @@ function Wizard({
   onClose: () => void;
   children: React.ReactNode;
 }) {
+  useWebsiteLocale();
   return (
     <Modal title={title} onClose={onClose}>
       <div className="mb-6 flex gap-2">
@@ -876,6 +887,7 @@ function Modal({
   onClose: () => void;
   children: React.ReactNode;
 }) {
+  useWebsiteLocale();
   return (
     <div
       className="fixed inset-0 z-[100] grid place-items-end bg-black/75 backdrop-blur-sm sm:place-items-center sm:p-5"
@@ -903,6 +915,7 @@ function Modal({
   );
 }
 function OwnerLock() {
+  useWebsiteLocale();
   return (
     <div className="relative min-h-[520px] overflow-hidden rounded-2xl border border-blue-500/20 bg-[#071127]">
       <div

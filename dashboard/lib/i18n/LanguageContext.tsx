@@ -3,6 +3,8 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { Language, translations, TranslationKey } from "./translations";
 import { translateDashboardDom } from "./dom-translations";
+import { validLanguage } from "./browser-language";
+import { notifyLocaleChange } from "./locale";
 
 interface LanguageContextType {
   language: Language;
@@ -16,21 +18,26 @@ const LanguageContext = createContext<LanguageContextType>({
   t: (key: TranslationKey) => key,
 });
 
-export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [language, setLanguageState] = useState<Language>("de");
+export function LanguageProvider({ children, initialLanguage = "de" }: { children: ReactNode; initialLanguage?: Language }) {
+  const [language, setLanguageState] = useState<Language>(initialLanguage);
 
   useEffect(() => {
-    const saved = localStorage.getItem("language") as Language;
-    if (saved && (saved === "de" || saved === "en")) {
-      setLanguageState(saved);
-      document.documentElement.lang = saved;
-    } else {
-      document.documentElement.lang = "de";
-    }
-  }, []);
+    // Explicit links (including the signed OAuth result) take priority. The
+    // cookie also lets server-rendered pages start in the selected language.
+    const requested = validLanguage(new URLSearchParams(window.location.search).get("lang"));
+    let saved: Language | null = null;
+    try { saved = validLanguage(localStorage.getItem("language")); } catch {}
+    const selected = requested || saved || initialLanguage;
+    setLanguageState(selected);
+    document.documentElement.lang = selected;
+    notifyLocaleChange();
+    document.cookie = `website-language=${selected}; Path=/; Max-Age=31536000; SameSite=Lax${location.protocol === "https:" ? "; Secure" : ""}`;
+    try { localStorage.setItem("language", selected); } catch {}
+  }, [initialLanguage]);
 
   useEffect(() => {
     let scheduled = false;
+    let frame = 0;
 
     const applyTranslations = () => {
       scheduled = false;
@@ -40,10 +47,11 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     const scheduleTranslations = () => {
       if (scheduled) return;
       scheduled = true;
-      requestAnimationFrame(applyTranslations);
+      frame = requestAnimationFrame(applyTranslations);
     };
 
     document.documentElement.lang = language;
+    notifyLocaleChange();
     scheduleTranslations();
 
     // Translate content rendered after navigation, suspense/loading states, API
@@ -71,13 +79,20 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
       subtree: true,
     });
 
-    return () => observer.disconnect();
+    return () => { observer.disconnect(); cancelAnimationFrame(frame); };
   }, [language]);
 
   const setLanguage = (lang: Language) => {
     setLanguageState(lang);
-    localStorage.setItem("language", lang);
+    const url = new URL(window.location.href);
+    if (url.searchParams.has("lang")) {
+      url.searchParams.set("lang", lang);
+      window.history.replaceState(window.history.state, "", url);
+    }
+    try { localStorage.setItem("language", lang); } catch {}
+    document.cookie = `website-language=${lang}; Path=/; Max-Age=31536000; SameSite=Lax${location.protocol === "https:" ? "; Secure" : ""}`;
     document.documentElement.lang = lang;
+    notifyLocaleChange();
     translateDashboardDom(lang);
   };
 

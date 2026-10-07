@@ -30,6 +30,8 @@
  * sperrbar bleiben — aber sie sind nicht mehr der Alltag.
  */
 
+import { websiteLocale, useWebsiteLocale } from "@/lib/i18n/locale";
+import { localizedConfirm } from "@/lib/i18n/browser-language";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle, Ban, CheckCircle2, ChevronDown, Clock, Crown, Gift,
@@ -80,7 +82,7 @@ const CARD = "rounded-xl border border-white/[.06] bg-[#202126]";
 /** Deutsche Schreibweise. `toFixed`/`toString` liefern einen Punkt. */
 function datum(sekunden?: number | null): string {
   if (!sekunden) return "—";
-  return new Date(sekunden * 1000).toLocaleDateString("de-DE", {
+  return new Date(sekunden * 1000).toLocaleDateString(websiteLocale(), {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
@@ -111,6 +113,7 @@ function Zahl({
   label: string;
   ton?: "normal" | "gold" | "still";
 }) {
+  useWebsiteLocale();
   return (
     <div
       className={cn(
@@ -150,6 +153,7 @@ function Zahl({
 /* ── Der Reiter ────────────────────────────────────────────────────── */
 
 export function PremiumAdmin() {
+  useWebsiteLocale();
   const [konten, setKonten] = useState<Konto[]>([]);
   const [zahlen, setZahlen] = useState<any>(null);
   const [laedt, setLaedt] = useState(true);
@@ -238,7 +242,7 @@ export function PremiumAdmin() {
   const entziehen = async (k: Konto) => {
     const name = k.user_name || k.user_id;
     if (
-      !window.confirm(
+      !localizedConfirm(
         `${name} verliert damit Premium — auf beiden Bots.\n\n` +
           "Eine laufende Probewoche wird ebenfalls beendet."
       )

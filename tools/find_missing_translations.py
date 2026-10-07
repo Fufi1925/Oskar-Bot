@@ -15,6 +15,7 @@ import html
 import re
 import json
 import sys
+import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -24,6 +25,10 @@ SKIP_FILES = {
     "lib/i18n/dom-translations.ts",
     "lib/i18n/translations.ts",
     "lib/i18n/LanguageContext.tsx",
+    "lib/i18n/browser-language.ts",
+    "lib/i18n/locale.ts",
+    "lib/i18n/server-language.ts",
+    "lib/brand.ts",
 }
 
 # ── Vorhandenes Woerterbuch ──────────────────────────────────────
@@ -181,6 +186,8 @@ candidates = {}
 def add(text, rel, require_german=True):
     t = norm(text)
     runtime = norm(decode_source_literal(text))
+    if not re.search(r"[a-zA-ZäöüßÄÖÜ]", runtime):
+        return
     if len(runtime) < 2 or runtime in known or runtime.casefold() in known or is_technical(runtime):
         return
     if "${" in t:
@@ -204,48 +211,15 @@ for p in DASH.rglob("*"):
         files.append((p, rel))
 print(f"Zu scannende Dateien: {len(files)}")
 
-for p, rel in files:
-    try:
-        content = p.read_text(encoding="utf-8")
-    except Exception:
-        continue
-    # Kommentare entfernen
-    c = re.sub(r"/\*.*?\*/", "", content, flags=re.S)
-    c = re.sub(r"^\s*//.*$", "", c, flags=re.M)
-
-    # 1) Attribute mit UI-Charakter
-    for attr in ("placeholder", "title", "aria-label", "label", "name", "text", "hint",
-                 "description", "error", "heading", "caption", "message", "emptyText",
-                 "empty", "confirmLabel", "cancelLabel", "saveLabel", "tooltip"):
-        for m in re.finditer(attr + r'=s?"((?:[^"\\\n]|\\.)*)"', c):
-            add(m.group(1), rel, require_german=False)
-        for m in re.finditer(attr + r'=\{s?"((?:[^"\\\n]|\\.)*)"\s*\}', c):
-            add(m.group(1), rel, require_german=False)
-
-    # 2) JSX-Text zwischen > und < (auch mehrzeilig), ohne {} Ausdruecke
-    for m in re.finditer(r">\s*([^<>{}]+?)\s*<", c, flags=re.S):
-        txt = m.group(1)
-        # Mehrzeilig: als eine Zeichenkette normalisiert aufnehmen
-        add(txt, rel, require_german=False)
-
-    # 3) Objekt-Literale
-    for m in re.finditer(r"\b(?:label|name|text|hint|title|description|placeholder|value|"
-                         r"heading|caption|message|emptyText|error)\s*:\s*\"((?:[^\"\\\n]|\\.)*)\"", c):
-        add(m.group(1), rel, require_german=False)
-
-    # 4) Toast-Meldungen (template literals eingeschlossen)
-    for m in re.finditer(r"toast\.(?:success|error|info|loading|warning|promise)\(\s*[\"'`]([^\"'`\n]+)[\"'`]", c):
-        add(m.group(1), rel, require_german=False)
-    for m in re.finditer(r"toast\.(?:success|error|info|loading|warning|promise)\.\w+\(\s*[\"'`]([^\"'`\n]+)[\"'`]", c):
-        add(m.group(1), rel, require_german=False)
-
-    # 5) Alle restlichen String-Literale mit deutschem Wort (fangt Arrays, Optionen)
-    for m in re.finditer(r'"((?:[^"\\\n]|\\.){2,})"', c):
-        add(m.group(1), rel)
-    # Template-Literale mit ${...} und deutschem Wort (dynamische Meldungen)
-    for m in re.finditer(r"`((?:[^`\\\n]|\\.){4,})`", c):
-        if "${" in m.group(1):
-            add(m.group(1), rel)
+# AST extraction includes standalone JSX fragments and English-first labels.
+# String boundaries come from TypeScript, so source code is never treated as UI.
+parsed = subprocess.run(
+    ["node", str(ROOT / "tools" / "extract_ui_text.cjs")],
+    input=json.dumps([(str(p), rel) for p, rel in files]),
+    text=True, capture_output=True, check=True,
+)
+for text, rel, visible in json.loads(parsed.stdout):
+    add(text, rel, require_german=not visible)
 
 print(f"\nKandidaten ohne Uebersetzung: {len(candidates)}")
 

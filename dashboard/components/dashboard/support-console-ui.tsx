@@ -1,5 +1,6 @@
 "use client";
 
+import { websiteLocale, useWebsiteLocale } from "@/lib/i18n/locale";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { AlertCircle, Check, Copy, Loader2, X } from "lucide-react";
@@ -11,7 +12,7 @@ export const CARD =
   "rounded-2xl border border-[var(--card-border)] bg-[var(--card)]";
 export function timestamp(value?: number | null) {
   if (!value || !Number.isFinite(value)) return "Noch nicht erfasst";
-  return new Date(value * 1000).toLocaleString("de-DE");
+  return new Date(value * 1000).toLocaleString(websiteLocale());
 }
 export function message(error: unknown) {
   return error instanceof Error
@@ -25,6 +26,7 @@ export function Badge({
   children: ReactNode;
   tone?: "neutral" | "good" | "warn" | "bad";
 }) {
+  useWebsiteLocale();
   return (
     <span
       className={`inline-flex shrink-0 items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-medium ${tone === "good" ? "bg-emerald-400/10 text-emerald-300" : tone === "warn" ? "bg-amber-400/10 text-amber-300" : tone === "bad" ? "bg-rose-400/10 text-rose-300" : "bg-white/5 text-slate-400"}`}
@@ -50,6 +52,7 @@ export function Action({
   type?: "button" | "submit";
   label?: string;
 }) {
+  useWebsiteLocale();
   return (
     <button
       type={type}
@@ -73,6 +76,7 @@ export function Section({
   children: ReactNode;
   aside?: ReactNode;
 }) {
+  useWebsiteLocale();
   return (
     <section className={CARD}>
       <header className="flex flex-wrap items-start justify-between gap-3 border-b border-[var(--card-border)] p-5">
@@ -91,6 +95,7 @@ export function Section({
   );
 }
 export function Empty({ title, detail }: { title: string; detail?: string }) {
+  useWebsiteLocale();
   return (
     <div className="rounded-xl border border-dashed border-[var(--card-border)] px-5 py-10 text-center">
       <Check className="mx-auto mb-3 h-5 w-5 text-slate-500" />
@@ -102,6 +107,7 @@ export function Empty({ title, detail }: { title: string; detail?: string }) {
   );
 }
 export function Row({ label, value }: { label: string; value: ReactNode }) {
+  useWebsiteLocale();
   return (
     <div className="flex items-start justify-between gap-4 border-b border-white/5 py-2.5 text-sm last:border-0">
       <span className="text-slate-500">{label}</span>
@@ -118,6 +124,7 @@ export function CopyButton({
   value: string;
   label?: string;
 }) {
+  useWebsiteLocale();
   return (
     <Action
       label={label}
@@ -140,6 +147,7 @@ export function Field({
   label: string;
   children: ReactNode;
 }) {
+  useWebsiteLocale();
   return (
     <label className="block space-y-2">
       <span className="block text-xs font-medium text-slate-400">{label}</span>
@@ -148,6 +156,7 @@ export function Field({
   );
 }
 export function Notice({ children }: { children: ReactNode }) {
+  useWebsiteLocale();
   return (
     <div
       role="alert"
@@ -176,6 +185,7 @@ export function ConfirmDialog({
   onCancel: () => void;
   onConfirm: (note: string) => void;
 }) {
+  useWebsiteLocale();
   const box = useRef<HTMLDivElement>(null);
   const [note, setNote] = useState("");
   useEffect(() => {

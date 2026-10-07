@@ -23,6 +23,7 @@
  * nicht gibt.
  */
 
+import { websiteLocale, useWebsiteLocale } from "@/lib/i18n/locale";
 import React from "react";
 import Link from "next/link";
 import {
@@ -44,6 +45,7 @@ interface Befehl {
 
 /** Eine Zeile in der Liste. */
 function Zeile({ befehl, prefix }: { befehl: Befehl; prefix: string }) {
+  useWebsiteLocale();
   return (
     <div className="rounded-xl border border-slate-800 bg-[#0f0f13] px-4 py-3 transition-colors hover:border-slate-700">
       <div className="flex items-start gap-3">
@@ -61,7 +63,7 @@ function Zeile({ befehl, prefix }: { befehl: Befehl; prefix: string }) {
             )}
             {befehl.uses > 0 && (
               <span className="text-[11px] text-slate-600">
-                {befehl.uses.toLocaleString("de-DE")}&times; benutzt
+                {befehl.uses.toLocaleString(websiteLocale())}&times; benutzt
               </span>
             )}
           </div>
@@ -101,6 +103,7 @@ function Zeile({ befehl, prefix }: { befehl: Befehl; prefix: string }) {
 }
 
 export default function CommandsPage() {
+  useWebsiteLocale();
   const [daten, setDaten] = React.useState<any>(null);
   const [laden, setLaden] = React.useState(true);
   const [fehler, setFehler] = React.useState("");

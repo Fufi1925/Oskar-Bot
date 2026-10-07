@@ -1,3 +1,4 @@
+import { websiteLocale } from "@/lib/i18n/server-language";
 import Image from "next/image";
 import Link from "next/link";
 import { getServerSession } from "next-auth/next";
@@ -32,15 +33,15 @@ function discordCreatedAt(id: string): Date | null {
 }
 
 function formatDate(value: Date | null) {
-  return value ? new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "long", year: "numeric" }).format(value) : "Nicht verfügbar";
+  return value ? new Intl.DateTimeFormat(websiteLocale(), { day: "2-digit", month: "long", year: "numeric" }).format(value) : "Nicht verfügbar";
 }
 
 function number(value: number | null | undefined) {
-  return typeof value === "number" ? value.toLocaleString("de-DE") : "—";
+  return typeof value === "number" ? value.toLocaleString(websiteLocale()) : "—";
 }
 
 function formatTimestamp(value?: number | null) {
-  return value ? new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(value * 1000)) : "Nicht verfügbar";
+  return value ? new Intl.DateTimeFormat(websiteLocale(), { day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(value * 1000)) : "Nicht verfügbar";
 }
 
 function remainingDays(value?: number | null) {

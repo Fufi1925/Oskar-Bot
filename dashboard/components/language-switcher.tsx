@@ -44,7 +44,7 @@ export function LanguageSwitcher() {
       >
         {/* Flagge zuerst — sie sagt die Sprache auch ohne Text. */}
         <span className="text-base leading-none">{aktuell.flagge}</span>
-        <span className="hidden sm:inline text-xs font-bold tracking-wider">
+        <span data-no-translate className="hidden sm:inline text-xs font-bold tracking-wider">
           {aktuell.name}
         </span>
         <ChevronDown
@@ -74,7 +74,7 @@ export function LanguageSwitcher() {
           >
             {/* Flagge vor dem Namen — in der Liste wie im Knopf. */}
             <span className="text-lg">{sprache.flagge}</span>
-            <span className="font-medium">{sprache.name}</span>
+            <span data-no-translate className="font-medium">{sprache.name}</span>
             {language === sprache.code && (
               <span className="ml-auto text-blue-400">✓</span>
             )}

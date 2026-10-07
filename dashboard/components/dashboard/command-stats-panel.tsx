@@ -1,5 +1,6 @@
 "use client";
 
+import { websiteLocale, useWebsiteLocale } from "@/lib/i18n/locale";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Activity,
@@ -68,7 +69,7 @@ function isSlash(command: string) {
  * statt des Dashboards ist deutlich schlechter.
  */
 function num(value: number | null | undefined) {
-  return (value ?? 0).toLocaleString("de-DE");
+  return (value ?? 0).toLocaleString(websiteLocale());
 }
 
 /**
@@ -87,6 +88,7 @@ function num(value: number | null | undefined) {
  * Bedienung.
  */
 export function CommandStatsPanel() {
+  useWebsiteLocale();
   const [data, setData] = useState<StatsPayload | null>(null);
   const [days, setDays] = useState(30);
   const [loading, setLoading] = useState(true);
@@ -269,7 +271,7 @@ export function CommandStatsPanel() {
                   Verlauf -- und beim Überfahren steht der Wert des
                   Tages daneben statt nur im Tooltip des Browsers. */}
               <AdminLineChart
-                labels={(data.daily ?? []).map((e) => new Date(e.day).toLocaleDateString("de-DE", {
+                labels={(data.daily ?? []).map((e) => new Date(e.day).toLocaleDateString(websiteLocale(), {
                   day: "numeric",
                   month: "short",
                 }))}

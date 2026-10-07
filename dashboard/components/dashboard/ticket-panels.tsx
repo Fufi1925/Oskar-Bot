@@ -1,5 +1,6 @@
 "use client";
 
+import { localizedConfirm, localizedPrompt } from "@/lib/i18n/browser-language";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ArrowDown, ArrowUp, BellRing, ChevronDown, Crown, ImageUp, Loader2, Lock, Plus, Send, Settings2, Ticket, Trash2, X,
@@ -621,7 +622,7 @@ export function TicketPanels({ guildId }: { guildId: string }) {
     const changed = editing && JSON.stringify(editing.cat) !== editingBase;
     if (
       changed &&
-      !confirm("Die Änderungen an dieser Kategorie verwerfen?")
+      !localizedConfirm("Die Änderungen an dieser Kategorie verwerfen?")
     ) {
       return;
     }
@@ -652,7 +653,7 @@ export function TicketPanels({ guildId }: { guildId: string }) {
 
   /** Run a request, show the outcome, reload. */
   const run = async (fn: () => Promise<any>, message: string, confirmText?: string) => {
-    if (confirmText && !confirm(confirmText)) return false;
+    if (confirmText && !localizedConfirm(confirmText)) return false;
     setBusy(true);
     try {
       await fn();
@@ -1354,7 +1355,7 @@ export function TicketPanels({ guildId }: { guildId: string }) {
         <button
           disabled={busy}
           onClick={async () => {
-            const name = prompt("Name des Panels (nur intern):", "Support");
+            const name = localizedPrompt("Name des Panels (nur intern):", "Support");
             if (name?.trim()) {
               await run(
                 () => api.createTicketPanel(guildId, name.trim()),

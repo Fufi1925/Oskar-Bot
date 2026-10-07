@@ -15,6 +15,8 @@
  */
 
 import type { Metadata, Viewport } from "next";
+import { cookies } from "next/headers";
+import type { Language } from "@/lib/i18n/translations";
 import { normalisiereMarke } from "@/lib/brand";
 import "./globals.css";
 
@@ -70,8 +72,9 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const language: Language = cookies().get("website-language")?.value === "en" ? "en" : "de";
   return (
-    <html lang="en" data-theme="dark" suppressHydrationWarning>
+    <html lang={language} data-theme="dark" suppressHydrationWarning>
       <head>
         <script
           dangerouslySetInnerHTML={{
@@ -81,18 +84,18 @@ export default function RootLayout({
       </head>
       <body className="font-sans antialiased text-slate-200">
         <AuthProvider>
-          <LanguageProvider>
+          <LanguageProvider initialLanguage={language}>
             {children}
             <PublicFooter supportInvite={SUPPORT_INVITE} email={footerEmail} />
+            <Toaster />
+            {/* Globale Hinweise bleiben während der wichtigen
+                Login-Erfolgsanzeige geschlossen. Erst nach der Weiterleitung
+                ins Dashboard dürfen Cookie-, Premium- und Supportdialoge
+                erscheinen. Innerhalb des AuthProviders, weil sie die Sitzung
+                des angemeldeten Discord-Kontos benötigen. */}
+            <GlobalPopups />
+            <ThemeToggle />
           </LanguageProvider>
-          <Toaster />
-          {/* Globale Hinweise bleiben während der wichtigen
-              Login-Erfolgsanzeige geschlossen. Erst nach der Weiterleitung
-              ins Dashboard dürfen Cookie-, Premium- und Supportdialoge
-              erscheinen. Innerhalb des AuthProviders, weil sie die Sitzung
-              des angemeldeten Discord-Kontos benötigen. */}
-          <GlobalPopups />
-          <ThemeToggle />
         </AuthProvider>
       </body>
     </html>

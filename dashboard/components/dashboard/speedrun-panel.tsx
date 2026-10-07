@@ -56,6 +56,7 @@
  * durchgehend `prefers-reduced-motion`.
  */
 
+import { localizedConfirm } from "@/lib/i18n/browser-language";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
@@ -935,7 +936,7 @@ export function SpeedrunPanel({ guildId }: { guildId: string }) {
 
   const cancel = async () => {
     if (
-      !confirm(
+      !localizedConfirm(
         "Den Bau abbrechen?\n\nDer Server bleibt so stehen, wie er gerade " +
           "ist — was schon angelegt wurde, bleibt. Discord kennt kein Zurück."
       )

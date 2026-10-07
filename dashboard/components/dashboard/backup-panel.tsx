@@ -1,5 +1,7 @@
 "use client";
 
+import { websiteLocale, useWebsiteLocale } from "@/lib/i18n/locale";
+import { localizedConfirm } from "@/lib/i18n/browser-language";
 import { WebsiteSelect } from "@/components/ui/website-select";
 
 /**
@@ -79,18 +81,18 @@ interface Sicherung {
 function groesse(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) {
-    return `${(bytes / 1024).toLocaleString("de-DE", {
+    return `${(bytes / 1024).toLocaleString(websiteLocale(), {
       maximumFractionDigits: 0,
     })} KB`;
   }
-  return `${(bytes / 1024 / 1024).toLocaleString("de-DE", {
+  return `${(bytes / 1024 / 1024).toLocaleString(websiteLocale(), {
     maximumFractionDigits: 1,
   })} MB`;
 }
 
 function zeitpunkt(sekunden: number): string {
   if (!sekunden) return "—";
-  return new Date(sekunden * 1000).toLocaleString("de-DE", {
+  return new Date(sekunden * 1000).toLocaleString(websiteLocale(), {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
@@ -116,6 +118,7 @@ const VERGLEICH = [
 ];
 
 function JaNein({ wert }: { wert: string | boolean }) {
+  useWebsiteLocale();
   if (wert === true) return <Check className="h-4 w-4 text-emerald-400" />;
   if (wert === false)
     return <X className="h-4 w-4 text-slate-700" aria-label="nicht enthalten" />;
@@ -124,6 +127,7 @@ function JaNein({ wert }: { wert: string | boolean }) {
 
 /** Ein Kanalsymbol nach Art. */
 function KanalIcon({ kind }: { kind: string }) {
+  useWebsiteLocale();
   if (kind === "voice" || kind === "stage")
     return <Mic className="h-3 w-3 shrink-0 text-slate-600" />;
   return <Hash className="h-3 w-3 shrink-0 text-slate-600" />;
@@ -142,6 +146,7 @@ function Vorschau({
   guildId: string;
   kennung: string;
 }) {
+  useWebsiteLocale();
   const [daten, setDaten] = useState<any>(null);
   const [fehler, setFehler] = useState("");
 
@@ -315,7 +320,7 @@ function Vorschau({
                 <Hash className="h-3 w-3 text-slate-600" />
                 {n.kanal}
                 <span className="text-amber-400/70">
-                  {n.anzahl.toLocaleString("de-DE")}
+                  {n.anzahl.toLocaleString(websiteLocale())}
                 </span>
               </span>
             ))}
@@ -353,6 +358,7 @@ function WiederherstellenFenster({
     mit_nachrichten: boolean;
   }) => void;
 }) {
+  useWebsiteLocale();
   const [allesLoeschen, setAllesLoeschen] = useState(false);
   const [mitEinstellungen, setMitEinstellungen] = useState(true);
   const [mitNachrichten, setMitNachrichten] = useState(false);
@@ -483,7 +489,7 @@ function WiederherstellenFenster({
                   <Crown className="h-3.5 w-3.5 text-amber-400" />
                 </div>
                 <p className="mt-1 text-xs leading-relaxed text-slate-400">
-                  {sicherung.nachrichten.toLocaleString("de-DE")} Nachrichten.
+                  {sicherung.nachrichten.toLocaleString(websiteLocale())} Nachrichten.
                   Das dauert mehrere Minuten — Discord lässt nur wenige
                   gleichzeitig durch.
                 </p>
@@ -531,6 +537,7 @@ function WiederherstellenFenster({
 }
 
 export function BackupPanel({ guildId }: { guildId: string }) {
+  useWebsiteLocale();
   const [daten, setDaten] = useState<any>(null);
   const [laedt, setLaedt] = useState(true);
   const [beschaeftigt, setBeschaeftigt] = useState(false);
@@ -590,7 +597,7 @@ export function BackupPanel({ guildId }: { guildId: string }) {
   };
 
   const loeschen = async (s: Sicherung) => {
-    if (!window.confirm(`${s.kennung} endgültig löschen?`)) return;
+    if (!localizedConfirm(`${s.kennung} endgültig löschen?`)) return;
     setBeschaeftigt(true);
     try {
       await api.backupDelete(guildId, s.kennung);
@@ -742,7 +749,7 @@ export function BackupPanel({ guildId }: { guildId: string }) {
                 />
                 <span className="text-xs leading-relaxed text-slate-400">
                   Die letzten{" "}
-                  {(daten?.limits?.nachrichten ?? 500).toLocaleString("de-DE")}{" "}
+                  {(daten?.limits?.nachrichten ?? 500).toLocaleString(websiteLocale())}{" "}
                   Nachrichten je Kanal mitsichern.{" "}
                   <span className="text-amber-300/80">
                     Dauert dann mehrere Minuten statt Sekunden.
@@ -845,7 +852,7 @@ export function BackupPanel({ guildId }: { guildId: string }) {
                       {s.nachrichten > 0 && (
                         <span className="inline-flex items-center gap-1">
                           <MessageSquare className="h-3 w-3" />
-                          {s.nachrichten.toLocaleString("de-DE")}
+                          {s.nachrichten.toLocaleString(websiteLocale())}
                         </span>
                       )}
                       <span>{groesse(s.groesse)}</span>

@@ -1,5 +1,7 @@
 "use client";
 
+import { websiteLocale, useWebsiteLocale } from "@/lib/i18n/locale";
+import { localizedConfirm } from "@/lib/i18n/browser-language";
 import { WebsiteSelect } from "@/components/ui/website-select";
 
 import React, { useCallback, useEffect, useState } from "react";
@@ -44,6 +46,7 @@ const SEVERITY = {
 } as const;
 
 function Card({ children, className }: { children: React.ReactNode; className?: string }) {
+  useWebsiteLocale();
   return (
     <div className={cn("bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6", className)}>
       {children}
@@ -52,6 +55,7 @@ function Card({ children, className }: { children: React.ReactNode; className?: 
 }
 
 function Stat({ label, value, hint }: { label: string; value: React.ReactNode; hint?: string }) {
+  useWebsiteLocale();
   return (
     <div>
       <p className="text-2xl font-black text-white tabular-nums">{value}</p>
@@ -64,10 +68,12 @@ function Stat({ label, value, hint }: { label: string; value: React.ReactNode; h
 }
 
 function Empty({ text }: { text: string }) {
+  useWebsiteLocale();
   return <p className="text-center text-slate-500 py-10 text-sm">{text}</p>;
 }
 
 export default function ServerToolsPage({ params }: { params: { guildId: string } }) {
+  useWebsiteLocale();
   const guildId = params.guildId;
   const [tab, setTab] = useState<TabId>("overview");
   const [loading, setLoading] = useState(true);
@@ -112,7 +118,7 @@ export default function ServerToolsPage({ params }: { params: { guildId: string 
     refresh: TabId[] = [],
     confirmText?: string
   ) => {
-    if (confirmText && !confirm(confirmText)) return;
+    if (confirmText && !localizedConfirm(confirmText)) return;
     setBusy(true);
     try {
       const res = await fn();
@@ -132,7 +138,7 @@ export default function ServerToolsPage({ params }: { params: { guildId: string 
   };
 
   const removeWebhook = async (id: string, name: string) => {
-    if (!confirm(`Webhook „${name}“ wirklich löschen?`)) return;
+    if (!localizedConfirm(`Webhook „${name}“ wirklich löschen?`)) return;
     setBusy(true);
     try {
       await api.deleteWebhook(guildId, id);
@@ -210,7 +216,7 @@ export default function ServerToolsPage({ params }: { params: { guildId: string 
             <div className="space-y-4">
               <Card>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                  <Stat label="Mitglieder" value={current.members.total.toLocaleString("de-DE")}
+                  <Stat label="Mitglieder" value={current.members.total.toLocaleString(websiteLocale())}
                         hint={`${current.members.humans} Menschen · ${current.members.bots} Bots`} />
                   <Stat label="Kanäle"
                         value={current.channels.text + current.channels.voice}

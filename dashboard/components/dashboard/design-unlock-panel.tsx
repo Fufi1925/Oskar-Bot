@@ -1,5 +1,6 @@
 "use client";
 
+import { websiteLocale, useWebsiteLocale } from "@/lib/i18n/locale";
 import { WebsiteSelect } from "@/components/ui/website-select";
 
 /**
@@ -32,7 +33,7 @@ interface Eintrag {
 
 function datum(unix: number) {
   if (!unix) return "—";
-  return new Date(unix * 1000).toLocaleString("de-DE");
+  return new Date(unix * 1000).toLocaleString(websiteLocale());
 }
 
 export function DesignUnlockPanel({
@@ -40,6 +41,7 @@ export function DesignUnlockPanel({
 }: {
   guilds?: Array<{ id: string; name: string }>;
 }) {
+  useWebsiteLocale();
   const [liste, setListe] = useState<Eintrag[]>([]);
   const [laedt, setLaedt] = useState(true);
   const [beschaeftigt, setBeschaeftigt] = useState(false);

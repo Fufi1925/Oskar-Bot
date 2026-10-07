@@ -1,5 +1,6 @@
 "use client";
 
+import { websiteLocale, useWebsiteLocale } from "@/lib/i18n/locale";
 import Image from "next/image";
 import { useCallback, useEffect, useState } from "react";
 import { Check, Clock3, Loader2, ShoppingCart, UserRound, X } from "lucide-react";
@@ -17,6 +18,7 @@ interface PurchaseRequest {
 }
 
 function AccountAvatar({ request }: { request: PurchaseRequest }) {
+  useWebsiteLocale();
   if (request.avatar) {
     return (
       <Image
@@ -37,6 +39,7 @@ function AccountAvatar({ request }: { request: PurchaseRequest }) {
 }
 
 export function PremiumRequestsAdmin() {
+  useWebsiteLocale();
   const [data, setData] = useState<any>(null);
   const [busy, setBusy] = useState<number | null>(null);
 
@@ -113,7 +116,7 @@ export function PremiumRequestsAdmin() {
                     <Clock3 className="h-3 w-3" />
                     {request.duration_days} Tage · Anfrage #{request.id}
                     {request.created_at
-                      ? ` · ${new Date(request.created_at * 1000).toLocaleDateString("de-DE")}`
+                      ? ` · ${new Date(request.created_at * 1000).toLocaleDateString(websiteLocale())}`
                       : ""}
                   </p>
                 </div>
@@ -167,7 +170,7 @@ export function PremiumRequestsAdmin() {
                   </span>
                 </div>
                 <p className="mt-2.5 text-[11px] text-slate-500">
-                  Laufzeit bis {account.expires_at ? new Date(account.expires_at * 1000).toLocaleDateString("de-DE") : "–"}
+                  Laufzeit bis {account.expires_at ? new Date(account.expires_at * 1000).toLocaleDateString(websiteLocale()) : "–"}
                 </p>
                 <div className="mt-2 grid grid-cols-3 gap-1.5">
                   {[1, 2, 3].map((number) => {

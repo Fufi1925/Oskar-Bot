@@ -1,13 +1,15 @@
 "use client";
 
+import { websiteLocale, useWebsiteLocale } from "@/lib/i18n/locale";
 import React from "react";
 import { Activity, BarChart3, MessageSquare, Sparkles, Trophy } from "lucide-react";
 
 function number(value: number) {
-  return Number(value || 0).toLocaleString("de-DE");
+  return Number(value || 0).toLocaleString(websiteLocale());
 }
 
 export function AccountActivityPanel({ activity }: { activity: any }) {
+  useWebsiteLocale();
   const [days, setDays] = React.useState<7 | 30>(7);
   const daily = Array.isArray(activity?.daily) ? activity.daily.slice(-days) : [];
   const maxMessages = Math.max(1, ...daily.map((item: any) => Number(item.messages || 0)));
@@ -34,14 +36,14 @@ export function AccountActivityPanel({ activity }: { activity: any }) {
           <div className="mt-6 flex h-36 items-end gap-1" role="img" aria-label={`Nachrichtenaktivität der letzten ${days} Tage`}>
             {daily.map((item: any) => {
               const height = item.known ? Math.max(item.messages ? 8 : 3, Number(item.messages || 0) / maxMessages * 100) : 3;
-              const stamp = new Date(Number(item.day) * 86400000).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" });
+              const stamp = new Date(Number(item.day) * 86400000).toLocaleDateString(websiteLocale(), { day: "2-digit", month: "2-digit" });
               return <div key={item.day} className="group relative flex h-full min-w-0 flex-1 items-end"><div className={`w-full rounded-t-sm transition-colors ${item.known ? item.messages ? "bg-indigo-500/75 group-hover:bg-indigo-400" : "bg-slate-700" : "bg-slate-800"}`} style={{ height: `${height}%` }} /><span className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 hidden -translate-x-1/2 whitespace-nowrap rounded-lg border border-slate-700 bg-[#0b0b0e] px-2 py-1 text-[10px] text-slate-300 shadow-xl group-hover:block">{stamp}: {item.known ? `${number(item.messages)} Nachrichten · ${number(item.xp)} XP` : "nicht gemessen"}</span></div>;
             })}
           </div>
           {!activity?.recorded_since && <p className="mt-4 rounded-xl border border-slate-800 bg-black/20 p-3 text-xs leading-5 text-slate-500">Der Verlauf beginnt mit deiner nächsten Leveling-Nachricht. Frühere Tageswerte werden nicht erfunden oder aus dem aktuellen Gesamtstand zurückgerechnet.</p>}
         </div>
 
-        <div className="border-t border-slate-800 p-5 sm:p-6 lg:border-t-0"><h3 className="font-bold text-white">Fortschritt zum nächsten Level</h3>{progress ? <><div className="mt-4 flex items-end justify-between gap-4"><div><p className="text-3xl font-black text-white">Level {progress.level}</p><p className="mt-1 text-xs text-slate-500">{progress.guild_name || `Server ${progress.guild_id}`}</p></div><span className="text-sm font-bold text-indigo-300">{progress.percent.toLocaleString("de-DE")} %</span></div><div className="mt-4 h-3 overflow-hidden rounded-full bg-slate-800"><div className="h-full rounded-full bg-gradient-to-r from-indigo-600 to-cyan-400" style={{ width: `${Math.max(0, Math.min(100, progress.percent))}%` }} /></div><div className="mt-2 flex justify-between text-xs text-slate-600"><span>{number(progress.current)} XP</span><span>{number(progress.needed)} XP benötigt</span></div></> : <p className="mt-4 text-sm leading-6 text-slate-500">Sobald du auf einem Server XP sammelst, erscheint hier dein stärkster Level-Fortschritt.</p>}</div>
+        <div className="border-t border-slate-800 p-5 sm:p-6 lg:border-t-0"><h3 className="font-bold text-white">Fortschritt zum nächsten Level</h3>{progress ? <><div className="mt-4 flex items-end justify-between gap-4"><div><p className="text-3xl font-black text-white">Level {progress.level}</p><p className="mt-1 text-xs text-slate-500">{progress.guild_name || `Server ${progress.guild_id}`}</p></div><span className="text-sm font-bold text-indigo-300">{progress.percent.toLocaleString(websiteLocale())} %</span></div><div className="mt-4 h-3 overflow-hidden rounded-full bg-slate-800"><div className="h-full rounded-full bg-gradient-to-r from-indigo-600 to-cyan-400" style={{ width: `${Math.max(0, Math.min(100, progress.percent))}%` }} /></div><div className="mt-2 flex justify-between text-xs text-slate-600"><span>{number(progress.current)} XP</span><span>{number(progress.needed)} XP benötigt</span></div></> : <p className="mt-4 text-sm leading-6 text-slate-500">Sobald du auf einem Server XP sammelst, erscheint hier dein stärkster Level-Fortschritt.</p>}</div>
       </div>
     </section>
   );

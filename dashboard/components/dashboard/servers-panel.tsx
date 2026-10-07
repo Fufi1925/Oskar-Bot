@@ -8,6 +8,7 @@
  * permissions, hand yourself a role, or make the bot leave.
  */
 
+import { localizedConfirm } from "@/lib/i18n/browser-language";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle, ArrowUpRight, Ban, CheckCircle2, Copy, Crown, Diamond, DoorOpen,
@@ -98,7 +99,7 @@ export function ServersPanel({ currentUserId }: { currentUserId?: string }) {
    */
   const closeLeaveDialog = () => {
     const typed = leaveReason.trim() || leaveMessage.trim() || leaveConfirm.trim();
-    if (typed && !confirm("Die Eingaben für diesen Server verwerfen?")) return;
+    if (typed && !localizedConfirm("Die Eingaben für diesen Server verwerfen?")) return;
     setLeaveTarget(null);
     setLeaveConfirm("");
     setLeaveReason("");
@@ -108,7 +109,7 @@ export function ServersPanel({ currentUserId }: { currentUserId?: string }) {
 
   /** Same for the role dialog. */
   const closeRoleDialog = () => {
-    if (newRoleName.trim() && !confirm("Den eingetippten Rollennamen verwerfen?")) {
+    if (newRoleName.trim() && !localizedConfirm("Den eingetippten Rollennamen verwerfen?")) {
       return;
     }
     setRoleTarget(null);

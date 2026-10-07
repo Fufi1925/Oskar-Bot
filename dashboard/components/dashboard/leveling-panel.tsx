@@ -11,6 +11,8 @@
  * switching it on.
  */
 
+import { websiteLocale, useWebsiteLocale } from "@/lib/i18n/locale";
+import { localizedConfirm } from "@/lib/i18n/browser-language";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle, Award, BarChart4, ChevronRight, Eye, Gauge, Loader2, Medal, MessageSquare,
@@ -53,6 +55,7 @@ const DELETE_PRESETS = [
 ];
 
 function Field({ label, hint, children }: any) {
+  useWebsiteLocale();
   return (
     <div className="space-y-2">
       <span className="text-xs font-black uppercase tracking-widest text-slate-500">
@@ -65,6 +68,7 @@ function Field({ label, hint, children }: any) {
 }
 
 function Stat({ icon: Icon, label, value }: any) {
+  useWebsiteLocale();
   return (
     <div className="bg-[#0e0e12] border border-slate-800 rounded-2xl p-4">
       <Icon className="h-4 w-4 text-primary mb-2" />
@@ -75,10 +79,11 @@ function Stat({ icon: Icon, label, value }: any) {
 }
 
 function num(value: any) {
-  return Number(value || 0).toLocaleString("de-DE");
+  return Number(value || 0).toLocaleString(websiteLocale());
 }
 
 export function LevelingPanel({ guildId }: { guildId: string }) {
+  useWebsiteLocale();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -123,7 +128,7 @@ export function LevelingPanel({ guildId }: { guildId: string }) {
 
   /** Run an action, then reload. */
   const act = async (fn: () => Promise<any>, confirmText?: string) => {
-    if (confirmText && !confirm(confirmText)) return;
+    if (confirmText && !localizedConfirm(confirmText)) return;
     setBusy(true);
     try {
       const res = await fn();
@@ -606,6 +611,7 @@ export function LevelingPanel({ guildId }: { guildId: string }) {
  * ------------------------------------------------------------------ */
 
 function RewardsTab({ guildId, data, busy, act, stack, onStack, reload }: any) {
+  useWebsiteLocale();
   const [level, setLevel] = useState(5);
   const [roleId, setRoleId] = useState("");
 
@@ -740,6 +746,7 @@ function RewardsTab({ guildId, data, busy, act, stack, onStack, reload }: any) {
  * ------------------------------------------------------------------ */
 
 function TuningTab({ guildId, data, busy, act }: any) {
+  useWebsiteLocale();
   const [kind, setKind] = useState<"role" | "channel">("role");
   const [targetId, setTargetId] = useState("");
   const [factor, setFactor] = useState(2);
@@ -944,6 +951,7 @@ function TuningTab({ guildId, data, busy, act }: any) {
  * ------------------------------------------------------------------ */
 
 function MembersTab({ guildId, busy, act }: any) {
+  useWebsiteLocale();
   const [board, setBoard] = useState<any>(null);
   const [page, setPage] = useState(1);
   const [query, setQuery] = useState("");
@@ -1110,6 +1118,7 @@ function MembersTab({ guildId, busy, act }: any) {
 }
 
 function EditMember({ guildId, member, onClose, onDone }: any) {
+  useWebsiteLocale();
   const [mode, setMode] = useState<"xp" | "level" | "add_xp">("xp");
   const [amount, setAmount] = useState(member.xp);
   const [saving, setSaving] = useState(false);
@@ -1222,6 +1231,7 @@ function duration(seconds: number) {
 }
 
 function CurveTab({ guildId }: { guildId: string }) {
+  useWebsiteLocale();
   const [data, setData] = useState<any>(null);
   const [upTo, setUpTo] = useState(25);
   const [loading, setLoading] = useState(true);
@@ -1368,6 +1378,7 @@ function CurveTab({ guildId }: { guildId: string }) {
  * ------------------------------------------------------------------ */
 
 function LadderWizard({ guildId, onDone }: { guildId: string; onDone: () => void }) {
+  useWebsiteLocale();
   const [open, setOpen] = useState(false);
   const [options, setOptions] = useState<any>(null);
   const [rungs, setRungs] = useState<any[]>([]);

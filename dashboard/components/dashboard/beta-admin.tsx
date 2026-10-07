@@ -12,6 +12,8 @@
  * wäre alles erledigt.
  */
 
+import { websiteLocale, useWebsiteLocale } from "@/lib/i18n/locale";
+import { localizedConfirm } from "@/lib/i18n/browser-language";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   CheckCircle2,
@@ -54,10 +56,11 @@ const DM_TEXT: Record<string, string> = {
 
 function datum(unix: number) {
   if (!unix) return "—";
-  return new Date(unix * 1000).toLocaleString("de-DE");
+  return new Date(unix * 1000).toLocaleString(websiteLocale());
 }
 
 export function BetaAdmin() {
+  useWebsiteLocale();
   const [daten, setDaten] = useState<any>(null);
   const [laedt, setLaedt] = useState(true);
   const [beschaeftigt, setBeschaeftigt] = useState(0);
@@ -104,7 +107,7 @@ export function BetaAdmin() {
 
   const entziehen = async (a: Antrag) => {
     if (
-      !confirm(
+      !localizedConfirm(
         `${a.user_name || a.user_id} das Premium entziehen?\n\n` +
           "Der Zugang ist danach sofort weg. Bei einer späteren " +
           "Neuvergabe erscheint der Willkommens-Hinweis erneut."

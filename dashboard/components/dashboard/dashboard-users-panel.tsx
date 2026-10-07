@@ -14,6 +14,8 @@
  * sessions are cut off on their next request, and it outranks Manage Server.
  */
 
+import { websiteLocale, useWebsiteLocale } from "@/lib/i18n/locale";
+import { localizedConfirm } from "@/lib/i18n/browser-language";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle, Ban, Check, Clock, Copy, Crown, Loader2, LogIn, RefreshCw,
@@ -80,6 +82,7 @@ function timeAgo(timestamp: number): string {
 }
 
 function SourceBadge({ source }: { source: string }) {
+  useWebsiteLocale();
   const styles: Record<string, { label: string; className: string; icon: any }> = {
     owner: { label: "Owner", className: "bg-amber-500/10 text-amber-400 border-amber-500/25", icon: Crown },
     team_role: { label: "Team role", className: "bg-primary/10 text-primary border-primary/25", icon: Shield },
@@ -98,6 +101,7 @@ function SourceBadge({ source }: { source: string }) {
 }
 
 export function DashboardUsersPanel({ currentUserId, canManageAi = false }: { currentUserId?: string; canManageAi?: boolean }) {
+  useWebsiteLocale();
   const [users, setUsers] = useState<DashboardUser[]>([]);
   const [summary, setSummary] = useState<{
     count: number; authorised_count: number; banned_count: number;
@@ -171,7 +175,7 @@ export function DashboardUsersPanel({ currentUserId, canManageAi = false }: { cu
    * one into view, so this is the one place a confirm() is right.
    */
   const closeBanDialog = () => {
-    if (banReason.trim() && !confirm("Den eingetippten Grund verwerfen?")) return;
+    if (banReason.trim() && !localizedConfirm("Den eingetippten Grund verwerfen?")) return;
     setBanTarget(null);
   };
 
@@ -637,7 +641,7 @@ export function DashboardUsersPanel({ currentUserId, canManageAi = false }: { cu
                                   )}
                                   <span className="truncate">{guild.guild_name}</span>
                                   <span className="text-[10px] text-slate-600 shrink-0">
-                                    {guild.member_count?.toLocaleString("de-DE")}
+                                    {guild.member_count?.toLocaleString(websiteLocale())}
                                   </span>
                                 </li>
                               ))}

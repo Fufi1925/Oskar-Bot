@@ -1,5 +1,7 @@
 "use client";
 
+import { websiteLocale, useWebsiteLocale } from "@/lib/i18n/locale";
+import { localizedConfirm } from "@/lib/i18n/browser-language";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ChevronRight, Clock, Dices, ExternalLink, Gift, Loader2, PartyPopper, Plus,
@@ -66,6 +68,7 @@ function relativeTime(unix: number) {
 }
 
 function Field({ label, hint, children }: any) {
+  useWebsiteLocale();
   return (
     <div className="space-y-2">
       <span className="text-xs font-black uppercase tracking-widest text-slate-500">
@@ -85,6 +88,7 @@ function Field({ label, hint, children }: any) {
  * reroll skips whoever already won.
  */
 export function GiveawaysPanel({ guildId }: { guildId: string }) {
+  useWebsiteLocale();
   const [items, setItems] = useState<Giveaway[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -137,7 +141,7 @@ export function GiveawaysPanel({ guildId }: { guildId: string }) {
   const canCreate = Boolean(prize.trim()) && Boolean(channelId) && effectiveMinutes > 0;
 
   const act = async (fn: () => Promise<any>, fallback: string, confirmText?: string) => {
-    if (confirmText && !confirm(confirmText)) return;
+    if (confirmText && !localizedConfirm(confirmText)) return;
     setBusy(true);
     try {
       const res = await fn();
@@ -183,7 +187,7 @@ export function GiveawaysPanel({ guildId }: { guildId: string }) {
       s
         .replace(/\{prize\}/g, prize || "…")
         .replace(/\{winners\}/g, String(winners))
-        .replace(/\{ends\}/g, ends.toLocaleString("de-DE", {
+        .replace(/\{ends\}/g, ends.toLocaleString(websiteLocale(), {
           day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit",
         }))
         .replace(/\{entries\}/g, "0")

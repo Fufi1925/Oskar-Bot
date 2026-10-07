@@ -30,6 +30,7 @@
  * einer Wartezeit.
  */
 
+import { websiteLocale, useWebsiteLocale } from "@/lib/i18n/locale";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle, Ban, Check, ChevronDown, Copy, Eye, Hash, History,
@@ -117,7 +118,7 @@ function grouped(content: any): Array<{ name: string; items: any[] }> {
 function stamp(value: any): string {
   const seconds = Number(value || 0);
   if (!seconds) return "—";
-  return new Date(seconds * 1000).toLocaleString("de-DE", {
+  return new Date(seconds * 1000).toLocaleString(websiteLocale(), {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
@@ -134,6 +135,7 @@ function bytes(value: number): string {
 }
 
 function Stat({ label, value }: { label: string; value: React.ReactNode }) {
+  useWebsiteLocale();
   return (
     <div className="rounded-2xl bg-[#0e0e12] border border-slate-800 px-4 py-3">
       <p className="text-[9px] font-black uppercase tracking-widest text-slate-600">
@@ -145,6 +147,7 @@ function Stat({ label, value }: { label: string; value: React.ReactNode }) {
 }
 
 export function TemplatesAdmin() {
+  useWebsiteLocale();
   const [list, setList] = useState<any[]>([]);
   const [stats, setStats] = useState<any>({});
   const [loading, setLoading] = useState(true);
@@ -615,7 +618,7 @@ export function TemplatesAdmin() {
                           {entry.members ? (
                             <span className="text-slate-600">
                               {" "}
-                              &middot; {entry.members.toLocaleString("de-DE")}{" "}
+                              &middot; {entry.members.toLocaleString(websiteLocale())}{" "}
                               Mitglieder
                             </span>
                           ) : null}
@@ -800,7 +803,7 @@ export function TemplatesAdmin() {
                                 {content.source.member_count
                                   ? ` und hatte ${Number(
                                       content.source.member_count
-                                    ).toLocaleString("de-DE")} Mitglieder`
+                                    ).toLocaleString(websiteLocale())} Mitglieder`
                                   : ""}
                                 .
                               </p>

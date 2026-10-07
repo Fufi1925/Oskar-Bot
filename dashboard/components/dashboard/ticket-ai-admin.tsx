@@ -1,5 +1,6 @@
 "use client";
 
+import { websiteLocale, useWebsiteLocale } from "@/lib/i18n/locale";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Bot, BrainCircuit, KeyRound, Loader2, RefreshCw, Search, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
@@ -16,6 +17,7 @@ type Guild = {
 };
 
 export function TicketAiAdmin() {
+  useWebsiteLocale();
   const [guilds, setGuilds] = useState<Guild[]>([]);
   const [keyReady, setKeyReady] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -141,7 +143,7 @@ export function TicketAiAdmin() {
                 {guild.icon ? <img src={guild.icon} alt="" className="h-10 w-10 rounded-xl object-cover" /> : <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-slate-800 text-slate-400"><Bot className="h-4 w-4" /></span>}
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-bold text-white">{guild.name}</p>
-                  <p className="truncate text-[10px] text-slate-600">{guild.guild_id} · {guild.members.toLocaleString("de-DE")} Mitglieder</p>
+                  <p className="truncate text-[10px] text-slate-600">{guild.guild_id} · {guild.members.toLocaleString(websiteLocale())} Mitglieder</p>
                   <div className="mt-1 flex gap-1.5">
                     <span className={cn("rounded px-1.5 py-0.5 text-[8px] font-black uppercase", guild.premium ? "bg-amber-400/12 text-amber-300" : "bg-slate-800 text-slate-500")}>{guild.premium ? "Premium" : "Kein Premium"}</span>
                     {guild.enabled && <span className="rounded bg-violet-500/12 px-1.5 py-0.5 text-[8px] font-black uppercase text-violet-300">KI freigeschaltet</span>}

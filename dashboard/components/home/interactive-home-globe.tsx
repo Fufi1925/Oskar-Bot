@@ -1,5 +1,6 @@
 "use client";
 
+import { websiteLocale, useWebsiteLocale } from "@/lib/i18n/locale";
 import React from "react";
 import { Clock3, Server, Users } from "lucide-react";
 import { geoGraticule10, geoOrthographic, geoPath } from "d3-geo";
@@ -33,6 +34,7 @@ const COUNTRIES = feature(countriesTopology as any, (countriesTopology as any).o
 const GRATICULE = geoGraticule10();
 
 function InteractiveCanvas({ visits }: { visits: Map<string, number> }) {
+  useWebsiteLocale();
   const canvas = React.useRef<HTMLCanvasElement>(null);
   const rotation = React.useRef(-18);
   const tilt = React.useRef(-10);
@@ -127,6 +129,7 @@ function InteractiveCanvas({ visits }: { visits: Map<string, number> }) {
 }
 
 export function InteractiveHomeGlobe({ guilds, users }: { guilds?: number; users?: number }) {
+  useWebsiteLocale();
   const [data, setData] = React.useState<VisitorData | null>(null);
   React.useEffect(() => {
     let active = true;
@@ -146,7 +149,7 @@ export function InteractiveHomeGlobe({ guilds, users }: { guilds?: number; users
     }
     return result;
   }, [data]);
-  const number = (value?: number) => typeof value === "number" && value > 0 ? value.toLocaleString("de-DE") : "—";
+  const number = (value?: number) => typeof value === "number" && value > 0 ? value.toLocaleString(websiteLocale()) : "—";
 
   return <section id="statistics" className="border-y border-blue-500/10 bg-[#0b0a0c] px-4 py-10 sm:px-6 sm:py-20">
     <div className="mx-auto max-w-[1320px]">
@@ -158,7 +161,7 @@ export function InteractiveHomeGlobe({ guilds, users }: { guilds?: number; users
             [Server, number(guilds), "Server"], [Users, number(users), "Nutzer"], [Clock3, "99,69%", "Uptime"],
           ].map(([Icon, value, label]) => { const StatIcon = Icon as React.ElementType; return <div key={String(label)} className="rounded-xl border border-blue-400/10 bg-[#120e13] px-2 py-3 text-center sm:rounded-2xl sm:px-3 sm:py-5"><span className="mx-auto hidden h-8 w-8 place-items-center rounded-lg border border-blue-400/20 bg-blue-500/10 sm:grid"><StatIcon className="h-4 w-4 text-blue-400" /></span><p className="text-base font-black tabular-nums text-white sm:mt-3 sm:text-xl">{String(value)}</p><p className="mt-1 text-[8px] font-black uppercase tracking-[.14em] text-zinc-600 sm:text-[9px] sm:tracking-[.2em]">{String(label)}</p></div>; })}</div>
           <p className="mb-3 mt-5 text-[10px] font-black uppercase tracking-[.25em] text-zinc-600 sm:mt-7">Top Länder · echte Homepage-Aufrufe</p>
-          <div className="mobile-country-list space-y-2">{top.length ? top.map((country, index) => <div key={country.country}><div className="flex items-center gap-3 text-xs"><span className="w-4 tabular-nums text-zinc-700">{index + 1}.</span><span className="min-w-0 flex-1 truncate font-bold text-zinc-300">{countryName(country.country)}</span><span className="tabular-nums text-zinc-600">{country.views.toLocaleString("de-DE")}</span></div><div className="ml-7 mt-1 h-[3px] overflow-hidden rounded-full bg-white/[.05]"><div className="h-full rounded-full bg-blue-600" style={{ width: `${Math.max(3, country.views / maximum * 100)}%` }} /></div></div>) : <div className="grid h-44 place-items-center rounded-2xl border border-blue-400/10 bg-[#120e13] text-sm text-zinc-600">Live-Daten werden geladen …</div>}</div>
+          <div className="mobile-country-list space-y-2">{top.length ? top.map((country, index) => <div key={country.country}><div className="flex items-center gap-3 text-xs"><span className="w-4 tabular-nums text-zinc-700">{index + 1}.</span><span className="min-w-0 flex-1 truncate font-bold text-zinc-300">{countryName(country.country)}</span><span className="tabular-nums text-zinc-600">{country.views.toLocaleString(websiteLocale())}</span></div><div className="ml-7 mt-1 h-[3px] overflow-hidden rounded-full bg-white/[.05]"><div className="h-full rounded-full bg-blue-600" style={{ width: `${Math.max(3, country.views / maximum * 100)}%` }} /></div></div>) : <div className="grid h-44 place-items-center rounded-2xl border border-blue-400/10 bg-[#120e13] text-sm text-zinc-600">Live-Daten werden geladen …</div>}</div>
         </div>
       </div>
     </div>

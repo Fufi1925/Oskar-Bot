@@ -1,5 +1,6 @@
 "use client";
 
+import { websiteLocale, useWebsiteLocale } from "@/lib/i18n/locale";
 import React from "react";
 import { cn } from "@/lib/utils";
 
@@ -27,9 +28,9 @@ const UNTEN = 30;
 const LINKS = 12;
 
 function kurz(wert: number) {
-  if (Math.abs(wert) >= 1_000_000) return `${(wert / 1_000_000).toLocaleString("de-DE", { maximumFractionDigits: 1 })} Mio.`;
-  if (Math.abs(wert) >= 10_000) return `${(wert / 1000).toLocaleString("de-DE", { maximumFractionDigits: 1 })}k`;
-  return wert.toLocaleString("de-DE", { maximumFractionDigits: 2 });
+  if (Math.abs(wert) >= 1_000_000) return `${(wert / 1_000_000).toLocaleString(websiteLocale(), { maximumFractionDigits: 1 })} Mio.`;
+  if (Math.abs(wert) >= 10_000) return `${(wert / 1000).toLocaleString(websiteLocale(), { maximumFractionDigits: 1 })}k`;
+  return wert.toLocaleString(websiteLocale(), { maximumFractionDigits: 2 });
 }
 
 /** Catmull-Rom als kubische Bézier-Kurve: weich wie curveNatural, ohne neue Chart-Laufzeit. */
@@ -60,6 +61,7 @@ function marken(anzahl: number) {
 }
 
 export function AdminLineChart({ labels, reihen, hoehe = 220, className, einheit = "", responsive = false }: Props) {
+  useWebsiteLocale();
   const container = React.useRef<HTMLDivElement>(null);
   const [breite, setBreite] = React.useState(720);
   React.useEffect(() => {

@@ -12,6 +12,7 @@
  * the bot behind it used to do something else entirely.
  */
 
+import { localizedConfirm } from "@/lib/i18n/browser-language";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle, Check, FlaskConical, Info, Link2, Loader2, Plus,
@@ -77,7 +78,7 @@ export function VanityPanel({ guildId }: { guildId: string }) {
   useEffect(() => { load(); }, [load]);
 
   const act = async (fn: () => Promise<any>, confirmText?: string) => {
-    if (confirmText && !confirm(confirmText)) return;
+    if (confirmText && !localizedConfirm(confirmText)) return;
     setBusy(true);
     try {
       const res = await fn();

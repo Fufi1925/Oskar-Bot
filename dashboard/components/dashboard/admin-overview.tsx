@@ -1,5 +1,6 @@
 "use client";
 
+import { websiteLocale, useWebsiteLocale } from "@/lib/i18n/locale";
 import React from "react";
 import {
   Activity, ArrowRight, Bot, CreditCard, FileText, Lightbulb,
@@ -26,7 +27,7 @@ export type AdminOverviewData = {
 
 type OpenTab = (tab: string) => void;
 
-const format = (value: number | undefined) => Number(value || 0).toLocaleString("de-DE");
+const format = (value: number | undefined) => Number(value || 0).toLocaleString(websiteLocale());
 
 export function AdminOverview({
   data,
@@ -37,6 +38,7 @@ export function AdminOverview({
   loading: boolean;
   onOpen: OpenTab;
 }) {
+  useWebsiteLocale();
   const cards = [
     { label: "Neue Server", value: data?.new.servers, note: "Netto-Wachstum", icon: Server, tone: "text-violet-300", tab: "servers" },
     { label: "Neue Nutzer", value: data?.new.users, note: "Netto-Wachstum", icon: Users, tone: "text-blue-300", tab: "dashusers" },
@@ -62,7 +64,7 @@ export function AdminOverview({
           </div>
           {data?.captured_at && (
             <p className="text-[11px] text-slate-600">
-              Stand {new Date(data.captured_at * 1000).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}
+              Stand {new Date(data.captured_at * 1000).toLocaleTimeString(websiteLocale(), { hour: "2-digit", minute: "2-digit" })}
             </p>
           )}
         </div>

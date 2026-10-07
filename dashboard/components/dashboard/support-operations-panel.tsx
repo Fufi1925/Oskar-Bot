@@ -1,5 +1,6 @@
 "use client";
 
+import { websiteLocale, useWebsiteLocale } from "@/lib/i18n/locale";
 import { WebsiteSelect } from "@/components/ui/website-select";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -228,6 +229,7 @@ type TemplateResult = {
 };
 
 function StateBadge({ status }: { status: string }) {
+  useWebsiteLocale();
   return (
     <Badge
       tone={
@@ -254,6 +256,7 @@ function timeline(value: string): Timeline[] {
 }
 
 export function SupportOperationsPanel({ guildId }: { guildId: string }) {
+  useWebsiteLocale();
   const [data, setData] = useState<Overview | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
@@ -542,12 +545,12 @@ export function SupportOperationsPanel({ guildId }: { guildId: string }) {
                   {[
                     [
                       "Server",
-                      global.guilds.toLocaleString("de-DE"),
+                      global.guilds.toLocaleString(websiteLocale()),
                       "Verbundene Communities",
                     ],
                     [
                       "Nutzer",
-                      global.users.toLocaleString("de-DE"),
+                      global.users.toLocaleString(websiteLocale()),
                       "Mitgliedschaften über alle Server",
                     ],
                     [
@@ -603,7 +606,7 @@ export function SupportOperationsPanel({ guildId }: { guildId: string }) {
                     />
                     <Row
                       label="Verwendete Befehle"
-                      value={global.commands.toLocaleString("de-DE")}
+                      value={global.commands.toLocaleString(websiteLocale())}
                     />
                     <Row
                       label="Letzter Heartbeat"
@@ -1503,7 +1506,7 @@ export function SupportOperationsPanel({ guildId }: { guildId: string }) {
                         />
                         <Row
                           label="Mitglieder"
-                          value={server.members.toLocaleString("de-DE")}
+                          value={server.members.toLocaleString(websiteLocale())}
                         />
                         <Row
                           label="Kanäle / Rollen"
@@ -1922,7 +1925,7 @@ export function SupportOperationsPanel({ guildId }: { guildId: string }) {
                       />
                       <Row
                         label="Größe"
-                        value={`${template.result.inspection.size.toLocaleString("de-DE")} Zeichen`}
+                        value={`${template.result.inspection.size.toLocaleString(websiteLocale())} Zeichen`}
                       />
                       <Row
                         label="Bereiche"
@@ -2031,6 +2034,7 @@ function RolloutEditor({
   value: number;
   onSave: (value: number) => void;
 }) {
+  useWebsiteLocale();
   const [draft, setDraft] = useState(String(value));
   const number = Number(draft);
   const valid =

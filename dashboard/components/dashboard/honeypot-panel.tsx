@@ -1,5 +1,6 @@
 "use client";
 
+import { websiteLocale, useWebsiteLocale } from "@/lib/i18n/locale";
 import { WebsiteSelect } from "@/components/ui/website-select";
 
 import { useCallback, useEffect, useState } from "react";
@@ -27,6 +28,7 @@ interface Settings {
 }
 
 export function HoneypotPanel({ guildId }: { guildId: string }) {
+  useWebsiteLocale();
   const [data, setData] = useState<Settings | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -67,7 +69,7 @@ export function HoneypotPanel({ guildId }: { guildId: string }) {
     <section className={card}>
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3"><span className="grid h-11 w-11 place-items-center rounded-xl bg-emerald-400/10"><ShieldCheck className="h-5 w-5 text-emerald-300" /></span>
-          <div><h3 className="font-semibold text-white">Schutz aktiv</h3><p className="mt-1 text-sm text-slate-400">#{data.channel_name || "Kanal fehlt"} · {Number(data.kicks || 0).toLocaleString("de-DE")} erfolgreiche Softbans</p></div>
+          <div><h3 className="font-semibold text-white">Schutz aktiv</h3><p className="mt-1 text-sm text-slate-400">#{data.channel_name || "Kanal fehlt"} · {Number(data.kicks || 0).toLocaleString(websiteLocale())} erfolgreiche Softbans</p></div>
         </div>
         <div className="flex gap-2"><button onClick={load} disabled={busy} className={action} aria-label="Statistik aktualisieren"><RefreshCw className="h-4 w-4" /></button>
           <button disabled={busy} className={action} onClick={() => run(() => api.honeypotResend(guildId), "Panel aktualisiert.")}><Send className="h-4 w-4" />Panel erneuern</button></div>

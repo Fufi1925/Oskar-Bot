@@ -1,5 +1,6 @@
 "use client";
 
+import { websiteLocale, useWebsiteLocale } from "@/lib/i18n/locale";
 import React from "react";
 import Link from "next/link";
 import {
@@ -39,7 +40,7 @@ const STATES: Record<string, { label: string; style: string; icon: any }> = {
 
 function date(value: number) {
   return value
-    ? new Date(value * 1000).toLocaleDateString("de-DE", {
+    ? new Date(value * 1000).toLocaleDateString(websiteLocale(), {
         day: "2-digit",
         month: "long",
         year: "numeric",
@@ -48,6 +49,7 @@ function date(value: number) {
 }
 
 export function AccountApplicationsPanel({ userId }: { userId: string }) {
+  useWebsiteLocale();
   const [application, setApplication] = React.useState<any>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState("");

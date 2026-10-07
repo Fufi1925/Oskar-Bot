@@ -349,7 +349,8 @@ export default function DashboardLayout({
               href: `/dashboard/guild/${currentGuildId}/verification`,
               icon: User,
               children: [
-                { name: "Einstellungen", href: `/dashboard/guild/${currentGuildId}/verification`, icon: ShieldCheck },
+                { name: "Sprachwahl", href: "/dashboard/language", icon: Settings },
+        { name: "Einstellungen", href: `/dashboard/guild/${currentGuildId}/verification`, icon: ShieldCheck },
                 { name: "Pull", href: `/dashboard/guild/${currentGuildId}/verification/pull`, icon: Users, highlight: true },
               ],
             },
@@ -442,6 +443,7 @@ export default function DashboardLayout({
       ]
     : [
         { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+        { name: "Sprachwahl", href: "/dashboard/language", icon: Settings },
         { name: "Server", href: "/dashboard/guilds", icon: Server },
         // Premium is for everyone: a customer who bought a key needs to
         // reach the redeem field without being staff.
@@ -455,7 +457,7 @@ export default function DashboardLayout({
   // the sections just like the reference navigation.
   const mainSidebarItems = currentGuildId
     ? [
-        ...allSidebarItems.filter((item: any) => ["Übersicht", "Owner-Konsole", "KI", "Einstellungen"].includes(item.name)),
+        ...allSidebarItems.filter((item: any) => ["Übersicht", "Owner-Konsole", "KI", "Einstellungen", "Sprachwahl"].includes(item.name)),
         ...allSidebarItems.filter((item: any) => item.name === "Hilfe"),
         ...allSidebarItems.filter((item: any) => Array.isArray(item.items)),
       ]
@@ -800,7 +802,7 @@ export default function DashboardLayout({
               >
                 <div className="overflow-y-auto p-2">
                     <div className="px-4 py-3 border-b border-white/5 mb-2">
-                      <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] mb-1">Authenticated As</p>
+                      <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] mb-1">Angemeldet als</p>
                       <p className="text-sm font-bold text-white truncate">{session?.user?.name || "Administrator"}</p>
                       {(premium?.aktiv ||
                         teamAccess?.is_owner ||
@@ -856,7 +858,7 @@ export default function DashboardLayout({
                       className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-black uppercase tracking-widest text-blue-500/80 hover:bg-blue-500/10 hover:text-blue-500 transition-all group/item"
                     >
                       <LogOut className="h-4 w-4" />
-                      Deauthorize
+                      Abmelden
                     </button>
                 </div>
               </PopoverLayer>

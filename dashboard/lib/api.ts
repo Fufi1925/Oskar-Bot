@@ -14,6 +14,9 @@
  * ╚══════════════════════════════════════════════════════════════════╝
  */
 
+import { translateWebsiteText } from "@/lib/i18n/dom-translations";
+import { currentWebsiteLanguage } from "@/lib/i18n/browser-language";
+
 import { 
   BotInfo, 
   BotStatus, 
@@ -112,7 +115,7 @@ async function request<T>(
       }
 
       console.error(`[API HTTP Error] Status ${response.status} for ${url}:`, errorData || detail);
-      throw new ApiError(response.status, detail);
+      throw new ApiError(response.status, translateWebsiteText(String(detail), currentWebsiteLanguage()));
     }
 
     if (response.status === 204) {

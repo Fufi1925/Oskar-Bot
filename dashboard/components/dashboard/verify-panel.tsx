@@ -1,5 +1,6 @@
 "use client";
 
+import { websiteLocale, useWebsiteLocale } from "@/lib/i18n/locale";
 import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import {
@@ -83,6 +84,7 @@ function unknownPlaceholders(text: string): string[] {
 }
 
 function Field({ label, hint, required, children }: any) {
+  useWebsiteLocale();
   return (
     <label className="block space-y-2.5">
       <span className="flex items-center gap-2 text-xs font-semibold text-slate-300">
@@ -110,6 +112,7 @@ function Section({
   children,
   tone = "blue",
 }: any) {
+  useWebsiteLocale();
   const tones: Record<string, string> = {
     blue: "bg-blue-500/10 text-blue-300 ring-blue-500/20",
     rose: "bg-rose-500/10 text-rose-300 ring-rose-500/20",
@@ -151,6 +154,7 @@ function TextField({
   server,
   max,
 }: any) {
+  useWebsiteLocale();
   const bad = unknownPlaceholders(value);
   return (
     <Field label={label} hint={hint}>
@@ -181,6 +185,7 @@ function Warnings({
   items?: string[];
   onGoSetup: () => void;
 }) {
+  useWebsiteLocale();
   if (!items?.length) return null;
   return (
     <button
@@ -205,6 +210,7 @@ function Warnings({
 }
 
 function Detail({ label, value, mono }: any) {
+  useWebsiteLocale();
   return (
     <div className="min-w-0">
       <p className="text-xs font-bold uppercase tracking-widest text-slate-600">
@@ -226,7 +232,7 @@ function formatWhen(value: string) {
   if (!value) return "—";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString("de-DE", {
+  return date.toLocaleString(websiteLocale(), {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
@@ -236,6 +242,7 @@ function formatWhen(value: string) {
 }
 
 export function VerifyPanel({ guildId }: { guildId: string }) {
+  useWebsiteLocale();
   const load = useCallback(() => api.getVerify(guildId), [guildId]);
   const p = usePanel(load);
   const [tab, setTab] = useState<TabId>("setup");
@@ -258,7 +265,7 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
 
   const setPullEnabled = async (enabled: boolean) => {
     if (p.dirty > 0) {
-      toast.info("Speichere oder verwerfe zuerst deine Änderungen, bevor du User Pull umschaltest.");
+      toast.info("Speichere oder verwirf zuerst deine Änderungen, bevor du User Pull umschaltest.");
       return;
     }
     await p.act(() => api.toggleUserPull(guildId, enabled));
@@ -355,7 +362,7 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
         <div className="mt-6 grid gap-3 sm:grid-cols-3">
           {[
             { label: "Einrichtung", value: configured ? "Bereit" : "Kanal und Rollen fehlen", icon: Settings2, color: configured ? "text-emerald-300" : "text-amber-300" },
-            { label: "Verifizierte Mitglieder", value: Number(p.data.verified_count ?? 0).toLocaleString("de-DE"), icon: ShieldCheck, color: "text-blue-300" },
+            { label: "Verifizierte Mitglieder", value: Number(p.data.verified_count ?? 0).toLocaleString(websiteLocale()), icon: ShieldCheck, color: "text-blue-300" },
             { label: "Discord-Panel", value: p.data.panel_posted ? "Veröffentlicht" : "Noch nicht gesendet", icon: MessageSquareText, color: p.data.panel_posted ? "text-emerald-300" : "text-slate-300" },
           ].map(({ label, value, icon: Icon, color }) => <div key={label} className="flex items-center gap-3 rounded-xl border border-white/[.05] bg-[#18191c] p-4">
             <Icon className={cn("h-5 w-5 shrink-0", color)} /><div className="min-w-0"><p className="text-xs text-slate-500">{label}</p><p className={cn("mt-1 text-sm font-medium", color)}>{value}</p></div>
@@ -1054,7 +1061,7 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
                 Discord
               </span>
             </div>
-            <div className="bg-[#18191c] p-4">
+            <div data-no-translate className="bg-[#18191c] p-4">
               <div className="rounded-xl border border-white/10 bg-[#202124] p-4">
                 <div className="mb-3 flex items-center gap-2.5">
                   <div className="grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-600">

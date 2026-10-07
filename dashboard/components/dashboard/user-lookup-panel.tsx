@@ -20,6 +20,7 @@
  * die echte Zahl steht und nicht eine geschaetzte.
  */
 
+import { websiteLocale, useWebsiteLocale } from "@/lib/i18n/locale";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   AlertTriangle, Ban, Crown, Loader2, Search, Shield, ShieldOff,
@@ -75,12 +76,13 @@ interface Lookup {
 
 function datum(unix: number) {
   if (!unix) return "unbekannt";
-  return new Date(unix * 1000).toLocaleDateString("de-DE", {
+  return new Date(unix * 1000).toLocaleDateString(websiteLocale(), {
     day: "2-digit", month: "2-digit", year: "numeric",
   });
 }
 
 function Stat({ label, value, tone }: { label: string; value: number | string; tone?: string }) {
+  useWebsiteLocale();
   return (
     <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-3.5 text-center">
       <div className={cn("text-2xl font-black", tone || "text-white")}>{value}</div>
@@ -92,6 +94,7 @@ function Stat({ label, value, tone }: { label: string; value: number | string; t
 }
 
 export function UserLookupPanel() {
+  useWebsiteLocale();
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<Lookup | null>(null);
@@ -478,7 +481,7 @@ export function UserLookupPanel() {
                         )}
                       </div>
                       <p className="text-[11px] text-slate-500 mt-0.5">
-                        {g.member_count.toLocaleString("de-DE")} Mitglieder
+                        {g.member_count.toLocaleString(websiteLocale())} Mitglieder
                         {g.top_role ? ` · ${g.top_role}` : ""}
                         {g.joined_at ? ` · seit ${datum(g.joined_at)}` : ""}
                       </p>

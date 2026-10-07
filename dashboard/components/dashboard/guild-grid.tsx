@@ -1,5 +1,6 @@
 "use client";
 
+import { websiteLocale, useWebsiteLocale } from "@/lib/i18n/locale";
 import React, { useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
@@ -24,6 +25,7 @@ function iconUrl(id: string, icon: string | null) {
 }
 
 function GuildAvatar({ guild, muted = false }: { guild: GuildEntry; muted?: boolean }) {
+  useWebsiteLocale();
   const src = iconUrl(guild.id, guild.icon);
   if (src) {
     return (
@@ -49,10 +51,11 @@ function GuildAvatar({ guild, muted = false }: { guild: GuildEntry; muted?: bool
 
 function memberText(guild: GuildEntry) {
   if (guild.memberCount === null) return "Mitglieder unbekannt";
-  return `${guild.hasBot ? "" : "ca. "}${guild.memberCount.toLocaleString("de-DE")} Mitglieder`;
+  return `${guild.hasBot ? "" : "ca. "}${guild.memberCount.toLocaleString(websiteLocale())} Mitglieder`;
 }
 
 function ConnectedCard({ guild }: { guild: GuildEntry }) {
+  useWebsiteLocale();
   return (
     <Link
       href={`/dashboard/guild/${guild.id}`}
@@ -79,6 +82,7 @@ function ConnectedCard({ guild }: { guild: GuildEntry }) {
 }
 
 function MissingCard({ guild, inviteUrl }: { guild: GuildEntry; inviteUrl: string }) {
+  useWebsiteLocale();
   const href = `${inviteUrl}${inviteUrl.includes("?") ? "&" : "?"}guild_id=${guild.id}&disable_guild_select=true`;
   return (
     <a
@@ -104,6 +108,7 @@ export function GuildGrid({ connected, missing, inviteUrl }: {
   missing: GuildEntry[];
   inviteUrl: string;
 }) {
+  useWebsiteLocale();
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<"name" | "members">("name");
 

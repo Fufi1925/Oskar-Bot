@@ -1,11 +1,13 @@
 "use client";
 
+import { websiteLocale, useWebsiteLocale } from "@/lib/i18n/locale";
 import React, { useEffect, useState } from "react";
 import { Bot, KeyRound, Loader2, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 
 export function DashboardAiAccessAdmin() {
+  useWebsiteLocale();
   const [users, setUsers] = useState<Array<{ user_id: string; granted_by: string; granted_at: number }>>([]);
   const [userId, setUserId] = useState("");
   const [keyReady, setKeyReady] = useState(false);
@@ -70,7 +72,7 @@ export function DashboardAiAccessAdmin() {
         {loading ? <Loader2 className="mx-auto h-5 w-5 animate-spin text-slate-500" /> : users.length ? users.map((user) => (
           <div key={user.user_id} className="flex items-center gap-3 rounded-xl border border-white/[.07] bg-black/15 px-4 py-3">
             <code className="min-w-0 flex-1 truncate text-sm text-slate-200">{user.user_id}</code>
-            <span className="hidden text-xs text-slate-600 sm:block">seit {new Date(user.granted_at * 1000).toLocaleDateString("de-DE")}</span>
+            <span className="hidden text-xs text-slate-600 sm:block">seit {new Date(user.granted_at * 1000).toLocaleDateString(websiteLocale())}</span>
             <button disabled={busy} onClick={() => revoke(user.user_id)} className="rounded-lg p-2 text-slate-500 hover:bg-rose-500/10 hover:text-rose-300" title="KI-Zugriff entfernen"><Trash2 className="h-4 w-4" /></button>
           </div>
         )) : <p className="py-3 text-center text-sm text-slate-600">Noch keine Nutzer freigeschaltet.</p>}

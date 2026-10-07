@@ -30,6 +30,7 @@
  * das 90 Listener.
  */
 
+import { websiteLocale, useWebsiteLocale } from "@/lib/i18n/locale";
 import React from "react";
 import { cn } from "@/lib/utils";
 
@@ -112,16 +113,16 @@ function stellenFuer(spanne: number, vorgabe: number) {
 /** Eine Zahl für die Achse: kurz, aber nicht falsch gerundet. */
 function kurz(wert: number, stellen: number) {
   if (Math.abs(wert) >= 1_000_000) {
-    return `${(wert / 1_000_000).toLocaleString("de-DE", {
+    return `${(wert / 1_000_000).toLocaleString(websiteLocale(), {
       maximumFractionDigits: 1,
     })} Mio.`;
   }
   if (Math.abs(wert) >= 10_000) {
-    return `${(wert / 1000).toLocaleString("de-DE", {
+    return `${(wert / 1000).toLocaleString(websiteLocale(), {
       maximumFractionDigits: 0,
     })}k`;
   }
-  return wert.toLocaleString("de-DE", {
+  return wert.toLocaleString(websiteLocale(), {
     minimumFractionDigits: stellen,
     maximumFractionDigits: stellen,
   });
@@ -148,14 +149,14 @@ function achsenBeschriftung(spanne: number, stellen: number) {
     if (Math.abs(wert) >= 1_000_000) {
       // Ein Schritt von 20.000 braucht in Millionen zwei Stellen.
       const noetig = schritt >= 1_000_000 ? 0 : schritt >= 100_000 ? 1 : 2;
-      return `${(wert / 1_000_000).toLocaleString("de-DE", {
+      return `${(wert / 1_000_000).toLocaleString(websiteLocale(), {
         minimumFractionDigits: noetig,
         maximumFractionDigits: noetig,
       })} Mio.`;
     }
     if (Math.abs(wert) >= 10_000) {
       const noetig = schritt >= 1000 ? 0 : schritt >= 100 ? 1 : 2;
-      return `${(wert / 1000).toLocaleString("de-DE", {
+      return `${(wert / 1000).toLocaleString(websiteLocale(), {
         minimumFractionDigits: noetig,
         maximumFractionDigits: noetig,
       })}k`;
@@ -222,6 +223,7 @@ export function LineChart({
   einheit = "",
   className,
 }: Props) {
+  useWebsiteLocale();
   const [aktiv, setAktiv] = React.useState<number | null>(null);
   const flaeche = React.useRef<SVGSVGElement>(null);
   const chartId = React.useId().replaceAll(":", "");
@@ -475,6 +477,7 @@ export function LineChart({
 }
 
 function ChartAnimationStyles() {
+  useWebsiteLocale();
   return <style jsx global>{`
     @keyframes dashboardChartDraw {
       from { stroke-dashoffset: 1; opacity: .18; }
@@ -542,6 +545,7 @@ export function MultiLineChart({
   einheit = "",
   className,
 }: MultiProps) {
+  useWebsiteLocale();
   const [aktiv, setAktiv] = React.useState<number | null>(null);
   const [aus, setAus] = React.useState<Set<string>>(() => new Set());
   const flaeche = React.useRef<SVGSVGElement>(null);
