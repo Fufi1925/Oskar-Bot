@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import {
   AlertTriangle,
@@ -241,7 +241,20 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
   const [tab, setTab] = useState<TabId>("setup");
   const [blacklistId, setBlacklistId] = useState("");
   const [openMember, setOpenMember] = useState<string | null>(null);
+  const [moduleEnabled, setModuleEnabled] = useState<boolean | null>(null);
   const guard = useSaveGuard(p.dirty, "verify-save-bar");
+
+  useEffect(() => {
+    setModuleEnabled(null);
+    const onModule = (event: Event) => {
+      const detail = (event as CustomEvent).detail;
+      if (String(detail?.guildId) === guildId && detail?.module === "verification") {
+        setModuleEnabled(Boolean(detail.enabled));
+      }
+    };
+    window.addEventListener("guild-module-state", onModule);
+    return () => window.removeEventListener("guild-module-state", onModule);
+  }, [guildId]);
 
   const setPullEnabled = async (enabled: boolean) => {
     await p.act(() => api.toggleUserPull(guildId, enabled));
@@ -270,7 +283,7 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
   const hasChannel = Boolean(p.value("verification_channel_id"));
   const hasRole = verifiedRoleIds.length > 0;
   const configured = hasChannel && hasRole;
-  const active = Boolean(p.value("enabled"));
+  const active = moduleEnabled ?? Boolean(p.value("enabled"));
   const saveBlocked = p.value("server_blacklist_enabled")
     ? blockedGuilds.length === 0
       ? "Füge mindestens einen Server zur aktiven Blacklist hinzu."
@@ -280,14 +293,6 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
     : null;
 
   const save = () => p.act(() => api.updateVerify(guildId, p.draft));
-  const toggleActive = (value: boolean) => {
-    if (value && !configured) {
-      setTab("setup");
-      toast.error("Wähle zuerst einen Verifizierungs-Kanal und eine Rolle.");
-      return;
-    }
-    p.set("enabled", value);
-  };
   const setVerifiedRole = (index: number, id: string | null) => {
     const next = [...verifiedRoleIds];
     id = id || "";
@@ -344,11 +349,6 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
               Kanal, Rollen und Server-Blacklist verwalten.
             </p>
           </div>
-          <SwitchToggle
-            checked={active}
-            onCheckedChange={toggleActive}
-            label="Verifizierung aktivieren oder pausieren"
-          />
         </div>
 
         <div className="mt-5 grid grid-cols-2 gap-3">
@@ -890,7 +890,13 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
                 type="button"
                 onClick={() =>
                   p.act(
-                    () => api.resetVerify(guildId),
+                    async () => {
+                      const result = await api.resetVerify(guildId);
+                      window.dispatchEvent(new CustomEvent("guild-module-state", {
+                        detail: { guildId, module: "verification", enabled: false },
+                      }));
+                      return result;
+                    },
                     "Verifizierung wirklich ausschalten? Deine Texte und Einstellungen bleiben gespeichert.",
                   )
                 }

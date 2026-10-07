@@ -55,9 +55,9 @@ check("Blacklist-IDs werden vor dem Speichern geprüft", r"^\d{17,20}$" in PANEL
 
 print("\nUser Pull")
 check("unter den Rollen verlinkt", "User Pull" in PANEL and "/verification/pull" in PANEL)
-check("Verifizierung bleibt im Schutz-Tab aufklappbar",
+check("Verifizierung und Pull bleiben im Schutz-Tab erreichbar",
       'name: "Verifizierung"' in NAV and "subItem.children" in NAV
-      and "Verifizierung aufklappen" in NAV)
+      and '/verification/pull' in NAV)
 check("Unterpunkt heißt Pull", 'name: "Pull"' in NAV)
 check("eigene responsive Pull-Seite", "sm:place-items-center" in PULL and "UserPullPanel" in PULL)
 check("Pull all verarbeitet nur autorisierte Nutzer",

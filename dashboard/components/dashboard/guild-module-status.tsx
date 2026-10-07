@@ -18,6 +18,8 @@ export function GuildModuleStatus({ guildId }: { guildId: string }) {
   const [enabled, setEnabled] = useState(true);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [loadError, setLoadError] = useState(false);
+  const [revision, setRevision] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -26,17 +28,41 @@ export function GuildModuleStatus({ guildId }: { guildId: string }) {
       return;
     }
     setLoading(true);
+    setLoadError(false);
     api.getGuildModuleState(guildId, moduleKey)
-      .then((data) => { if (active) setEnabled(data.enabled !== false); })
+      .then((data) => {
+        if (active) {
+          setEnabled(data.enabled !== false);
+          window.dispatchEvent(new CustomEvent("guild-module-state", {
+            detail: { guildId, module: moduleKey, enabled: data.enabled !== false },
+          }));
+        }
+      })
       .catch((error: any) => {
-        if (active) toast.error(error?.message || (english ? "The module status could not be loaded." : "Modulstatus konnte nicht geladen werden."));
+        if (active) {
+          setLoadError(true);
+          toast.error(error?.message || (english ? "The module status could not be loaded." : "Modulstatus konnte nicht geladen werden."));
+        }
       })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [guildId, moduleKey, english]);
+  }, [guildId, moduleKey, english, revision]);
+
+  useEffect(() => {
+    const onState = (event: Event) => {
+      const detail = (event as CustomEvent).detail;
+      if (String(detail?.guildId) === guildId && detail?.module === moduleKey) setEnabled(Boolean(detail.enabled));
+    };
+    window.addEventListener("guild-module-state", onState);
+    return () => window.removeEventListener("guild-module-state", onState);
+  }, [guildId, moduleKey]);
 
   const toggle = async () => {
     if (!moduleKey) return;
+    if (loadError) {
+      setRevision(value => value + 1);
+      return;
+    }
     const next = !enabled;
     setSaving(true);
     try {
@@ -65,6 +91,13 @@ export function GuildModuleStatus({ guildId }: { guildId: string }) {
     );
   }
 
+  if (loadError) {
+    return <section className="flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-[#202124] px-5 py-5">
+      <p className="text-sm text-slate-400">{english ? "Module status unavailable." : "Modulstatus nicht verfügbar."}</p>
+      <button type="button" onClick={toggle} className="rounded-xl border border-white/10 px-4 py-2 text-sm text-white">{english ? "Retry" : "Erneut laden"}</button>
+    </section>;
+  }
+
   return (
     <section
       className={cn(
@@ -88,7 +121,7 @@ export function GuildModuleStatus({ guildId }: { guildId: string }) {
           </p>
           <p className={cn("mt-0.5 text-sm", enabled ? "text-emerald-400/65" : "text-rose-400/65")}>
             {enabled
-              ? english ? "The function is active on this server." : "Die Funktion ist auf diesem Server aktiv."
+              ? english ? "The module is available. Its settings below determine how it runs." : "Das Modul ist freigegeben. Die Einstellungen darunter bestimmen, wie es ausgeführt wird."
               : english ? "The function will not run on this server." : "Die Funktion wird auf diesem Server nicht ausgeführt."}
           </p>
         </div>

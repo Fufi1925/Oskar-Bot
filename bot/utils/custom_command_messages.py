@@ -174,6 +174,11 @@ def build_view(message: dict, buttons: list, selects: list,
     """Build either a classic View or a Components-V2 LayoutView."""
     v2 = bool(message.get("components_v2"))
     view = discord.ui.LayoutView(timeout=900) if v2 else discord.ui.View(timeout=900)
+    # Generic builders hide the originating cog behind local callbacks. Keep
+    # that origin so the shared module gate can pause custom-command actions;
+    # message-editor actions (a tool, not a cog) remain independent.
+    from utils.guild_modules import module_for_callable
+    view._university_module = module_for_callable(dispatch)
     container = None
     if v2:
         from discord.ui import Container, File, MediaGallery, Separator, TextDisplay
@@ -202,6 +207,7 @@ def build_view(message: dict, buttons: list, selects: list,
                 url=url or None,
             )
             if not url:
+                button._university_module = view._university_module
                 async def clicked(interaction: discord.Interaction, data=definition):
                     await dispatch(interaction, data.get("actions") or [], bool(data.get("private_response")))
                 button.callback = clicked
@@ -226,6 +232,7 @@ def build_view(message: dict, buttons: list, selects: list,
             max_values=max(1, min(int(definition.get("max_values", 1) or 1), len(options))),
             options=options,
         )
+        select._university_module = view._university_module
         async def selected(interaction: discord.Interaction, data=definition, component=select):
             chosen = set(component.values)
             actions = []

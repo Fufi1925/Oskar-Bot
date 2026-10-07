@@ -38,7 +38,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from api.db_manager import db_manager
 from api.dependencies import get_bot, get_bot_loop, run_on_bot_loop
-from utils import dashboard_roles, feature_audit, feature_gates
+from utils import dashboard_roles, feature_audit, feature_gates, guild_modules
 from utils import emoji as bot_emoji
 from utils import verify_store as store
 from utils.panels import Panel, StatusCard
@@ -1449,6 +1449,8 @@ async def patch_verification(
             raise HTTPException(status_code=400, detail=f"„{key}“ kann nicht negativ sein.")
 
     settings = await store.save_settings(db, guild_id, data)
+    if "enabled" in data:
+        await guild_modules.set_enabled(guild_id, "verification", bool(settings["enabled"]))
     await _reload(bot, guild_id)
 
     await feature_audit.log_action(
@@ -1589,6 +1591,7 @@ async def reset_verification(
         updates.update({key: store.DEFAULTS[key] for key in store.TEXT_KEYS})
 
     await store.save_settings(db, guild_id, updates)
+    await guild_modules.set_enabled(guild_id, "verification", False)
     await _reload(bot, guild_id)
 
     return {

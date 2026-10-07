@@ -866,6 +866,11 @@ async def test_api(store):
 
     feature_gates._premium_guilds.add(GUILD)
     feature_gates._premium_expiry[GUILD] = None
+    # Pull writes use the current membership registry rather than the old
+    # runtime-only Premium cache. Create the entitlement in this test's
+    # temporary database so owner/role/challenge checks are actually reached.
+    from utils import premium_membership
+    premium_membership.grant_server(GUILD, guild.owner_id, None, "test")
     r = client.get(f"{base}/pull/targets?actor={guild.owner_id}")
     check("the Premium dropdown includes bot servers with dashboard access",
           r.status_code == 200 and r.json()["targets"][0]["id"] == str(target.id),

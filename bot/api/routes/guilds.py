@@ -146,9 +146,13 @@ async def update_guild_module_state(
     if not bot.get_guild(guild_id):
         raise HTTPException(status_code=404, detail="Guild not found")
     try:
-        enabled = await guild_modules.set_enabled(guild_id, module, data.enabled)
+        guild_modules.validate_key(module)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+    try:
+        enabled = await guild_modules.set_enabled(guild_id, module, data.enabled)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     return {"guild_id": str(guild_id), "module": module, "enabled": enabled}
 
 

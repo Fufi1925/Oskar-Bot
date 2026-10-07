@@ -80,6 +80,9 @@ class universitybot(commands.AutoShardedBot):
         """
         from utils import guild_modules
 
+        if event_name == "on_interaction" and args and args[0].extras.get("university_module_blocked"):
+            return None
+
         guild_id = guild_modules.guild_id_from_event(args)
         module = guild_modules.module_for_callable(coro)
         if guild_id is not None and module and not guild_modules.is_enabled(guild_id, module):
@@ -99,6 +102,8 @@ class universitybot(commands.AutoShardedBot):
         await bot_settings.load()
         await feature_flags.load()
         await guild_modules.load()
+        from utils import interaction_notices
+        interaction_notices.install(self)
         feature_gates.setup_gates(self)
 
         # Per-guild behaviour settings (disabled commands, cooldowns,
@@ -117,7 +122,10 @@ class universitybot(commands.AutoShardedBot):
             if interaction.guild_id is None:
                 return True
             module = guild_modules.command_module(getattr(interaction, "command", None))
-            return guild_modules.is_enabled(interaction.guild_id, module)
+            if not guild_modules.is_enabled(interaction.guild_id, module):
+                await interaction_notices.notify(interaction, module)
+                return False
+            return True
 
         self.tree.interaction_check = module_interaction_check
         await feature_gates.refresh_blacklist()
@@ -394,6 +402,9 @@ class universitybot(commands.AutoShardedBot):
         await self._load_no_prefix_state()
 
     async def _is_no_prefix(self, message: discord.Message) -> bool:
+        from utils import guild_modules
+        if message.guild and not guild_modules.is_enabled(message.guild.id, "noprefix"):
+            return False
         if not self._np_loaded:
             await self._load_no_prefix_state()
 

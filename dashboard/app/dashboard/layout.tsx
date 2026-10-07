@@ -585,7 +585,9 @@ export default function DashboardLayout({
                                   )}
                                   title={moduleStates[subModuleKey] === true
                                     ? language === "en" ? "Enabled" : "Aktiviert"
-                                    : language === "en" ? "Disabled" : "Deaktiviert"}
+                                    : moduleStates[subModuleKey] === false
+                                      ? language === "en" ? "Disabled" : "Deaktiviert"
+                                      : language === "en" ? "Status unavailable" : "Status nicht verfügbar"}
                                 />
                               ) : null}
                             </Link>

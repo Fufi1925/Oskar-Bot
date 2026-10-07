@@ -35,7 +35,10 @@ export const GUILD_MODULE_LABELS_EN: Record<string, string> = {
   supportqueue: "Support Waiting Room",
 };
 
-export const TOGGLEABLE_GUILD_MODULES = new Set(Object.keys(GUILD_MODULE_LABELS_DE));
+// These pages are tools rather than continuously running bot systems. A
+// server-wide power switch cannot meaningfully pause an editor or a library.
+const TOOL_TABS = new Set(["compose", "speedrun", "template-upload", "templates"]);
+export const TOGGLEABLE_GUILD_MODULES = new Set(Object.keys(GUILD_MODULE_LABELS_DE).filter(key => !TOOL_TABS.has(key)));
 
 /** One status per real system. Nested pages share their parent system. */
 export function guildModuleFromPath(pathname: string, guildId: string): string | null {

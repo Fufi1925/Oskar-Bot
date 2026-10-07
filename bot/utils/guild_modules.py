@@ -23,8 +23,8 @@ MODULE_KEYS = frozenset({
     "joindm", "autorole", "reactionroles", "customroles", "vanityroles",
     "nickname", "leveling", "giveaways", "counting", "booster", "notify",
     "autoreact", "autoresponder", "custom-commands", "anonchat", "music", "j2c",
-    "invcrole", "tickets", "compose", "sticky", "invites", "tracking", "noprefix",
-    "speedrun", "template-upload", "templates", "teamlist", "teamupdate", "logging",
+    "invcrole", "tickets", "sticky", "invites", "tracking", "noprefix",
+    "teamlist", "teamupdate", "logging",
     "supportqueue",
 })
 
@@ -38,13 +38,14 @@ RUNTIME_ALIASES = {
     "autoreact": "autoreact", "autoresponder": "autoresponder",
     "custom_commands": "custom-commands", "anonchat": "anonchat",
     "music": "music", "j2c": "j2c", "voice": "invcrole", "ticket": "tickets",
-    "compose": "compose", "stickymessage": "sticky", "tracking": "tracking",
-    "invites": "invites", "noprefix": "noprefix", "speedrun": "speedrun",
-    "templates": "templates", "teamlist": "teamlist", "teamupdate": "teamupdate",
+    "stickymessage": "sticky", "tracking": "tracking",
+    "invites": "invites", "noprefix": "noprefix",
+    "teamlist": "teamlist", "teamupdate": "teamupdate",
     "logging": "logging", "antinuke": "antinuke", "automod": "automod",
     "honeypot": "honeypot", "verification": "verification", "emergency": "emergency",
     "jail": "jail", "nightmode": "nightmode", "applications": "applications",
     "joindm": "joindm", "supportqueue": "supportqueue", "server_stats": "server-stats",
+    "selfroles": "reactionroles", "verify": "verification", "backup": "backup",
 }
 
 _disabled: set[tuple[int, str]] = set()
@@ -108,18 +109,35 @@ async def get_enabled(guild_id: int, module: str) -> bool:
     key = validate_key(module)
     if not _loaded:
         await load()
-    return is_enabled(guild_id, key)
+    enabled = is_enabled(guild_id, key)
+    if key == "verification":
+        from utils import verify_store
+        os.makedirs(os.path.dirname(verify_store.DB_PATH), exist_ok=True)
+        async with aiosqlite.connect(verify_store.DB_PATH) as db:
+            settings = await verify_store.get_settings(db, guild_id)
+        enabled = enabled and bool(settings["enabled"])
+    return enabled
 
 
 async def get_states(guild_id: int) -> dict[str, bool]:
     """Return every real system in one request for the sidebar indicators."""
     if not _loaded:
         await load()
-    return {key: is_enabled(guild_id, key) for key in sorted(MODULE_KEYS)}
+    states = {key: is_enabled(guild_id, key) for key in sorted(MODULE_KEYS)}
+    states["verification"] = await get_enabled(guild_id, "verification")
+    return states
 
 
 async def set_enabled(guild_id: int, module: str, enabled: bool) -> bool:
     key = validate_key(module)
+    if key == "verification":
+        from utils import verify_store
+        os.makedirs(os.path.dirname(verify_store.DB_PATH), exist_ok=True)
+        async with aiosqlite.connect(verify_store.DB_PATH) as db:
+            settings = await verify_store.get_settings(db, guild_id)
+            if enabled and not verify_store.is_configured(settings):
+                raise ValueError("Wähle zuerst einen Verifizierungs-Kanal und eine Rolle.")
+            await verify_store.save_settings(db, guild_id, {"enabled": bool(enabled)})
     await ensure()
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute(
@@ -139,8 +157,23 @@ async def set_enabled(guild_id: int, module: str, enabled: bool) -> bool:
     return bool(enabled)
 
 
+async def initialize_guild(guild_id: int) -> None:
+    """Enable module availability on join without overwriting explicit choices."""
+    await ensure()
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.executemany(
+            "INSERT OR IGNORE INTO guild_module_states (guild_id, module, enabled) VALUES (?, ?, 1)",
+            [(int(guild_id), key) for key in sorted(MODULE_KEYS)],
+        )
+        await db.commit()
+
+
 def module_for_callable(callback: Any) -> Optional[str]:
     """Map a bound cog/listener callback to its dashboard module."""
+    # discord.py decorators wrap callbacks in _ItemCallback objects. Panels
+    # may move the item into a generic LayoutView, so unwrap the real callback.
+    if not isinstance(callback, type):
+        callback = getattr(callback, "callback", callback)
     module_name = str(getattr(callback, "__module__", "")).lower()
     owner = getattr(callback, "__self__", None)
     if owner is not None:
@@ -181,4 +214,20 @@ def command_module(command: Any) -> Optional[str]:
 
 async def command_check(ctx: Any) -> bool:
     guild = getattr(ctx, "guild", None)
-    return guild is None or is_enabled(guild.id, command_module(getattr(ctx, "command", None)))
+    module = command_module(getattr(ctx, "command", None))
+    if guild is not None and not is_enabled(guild.id, module):
+        from utils.interaction_notices import disabled_card
+        # Slash commands receive their private response through the tree gate.
+        # Prefix commands cannot create ephemeral messages; send only to the
+        # invoking user's DM rather than publishing the notice in the channel.
+        if getattr(ctx, "interaction", None) is not None:
+            from utils.interaction_notices import notify
+            await notify(ctx.interaction, module)
+        else:
+            import discord
+            try:
+                await ctx.author.send(view=disabled_card(module), allowed_mentions=discord.AllowedMentions.none())
+            except discord.HTTPException:
+                pass
+        return False
+    return True

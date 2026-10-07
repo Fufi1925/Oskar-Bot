@@ -55,7 +55,7 @@ MAX_TITLE = 200
 METHODS = ("oauth",)
 
 DEFAULTS: dict[str, Any] = {
-    "enabled": False,
+    "enabled": True,
     "verification_channel_id": None,
     "verified_role_id": None,
     "verified_role_ids": [],

@@ -53,6 +53,8 @@ class GuildSettingsEnforcement(Cog):
 
     @commands.Cog.listener()
     async def on_guild_join(self, guild: discord.Guild):
+        from utils import guild_modules
+        await guild_modules.initialize_guild(guild.id)
         await guild_settings.load(guild.id)
 
     # ── before a command runs ─────────────────────────────────────────────
