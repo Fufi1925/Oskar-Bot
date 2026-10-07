@@ -20,7 +20,9 @@ import pytest
 @pytest.fixture(autouse=True)
 def isolated_verification(tmp_path, monkeypatch):
     from utils import verify_store
+    from utils import honeypot
     monkeypatch.setattr(verify_store, "DB_PATH", str(tmp_path / "verify.db"))
+    monkeypatch.setattr(honeypot, "DB_PATH", str(tmp_path / "honeypot.db"))
     monkeypatch.setattr(guild_modules, "_loaded", False)
     monkeypatch.setattr(guild_modules, "_disabled", set())
 
@@ -93,20 +95,20 @@ def test_join_defaults_enable_every_system_without_overwriting_existing_choice(t
     asyncio.run(guild_modules.initialize_guild(456))
     asyncio.run(guild_modules.load())
     assert guild_modules.is_enabled(123, "tickets") is False
-    assert all(asyncio.run(guild_modules.get_states(456)).values())
+    assert all(guild_modules.is_enabled(456, module) for module in guild_modules.MODULE_KEYS)
     with sqlite3.connect(guild_modules.DB_PATH) as db:
         assert db.execute("SELECT COUNT(*) FROM guild_module_states WHERE guild_id=456 AND enabled=1").fetchone()[0] == len(guild_modules.MODULE_KEYS)
 
 
-def test_verification_has_one_persistent_activation_and_requires_setup(tmp_path, monkeypatch):
+def test_verification_has_one_persistent_activation_and_allows_initial_setup(tmp_path, monkeypatch):
     import aiosqlite
     from utils import verify_store
     monkeypatch.setattr(guild_modules, "DB_PATH", str(tmp_path / "settings.db"))
     async def run():
         await guild_modules.set_enabled(123, "verification", False)
         assert await guild_modules.get_enabled(123, "verification") is False
-        with pytest.raises(ValueError, match="Kanal"):
-            await guild_modules.set_enabled(123, "verification", True)
+        await guild_modules.set_enabled(123, "verification", True)
+        assert await guild_modules.get_enabled(123, "verification") is True
         async with aiosqlite.connect(verify_store.DB_PATH) as db:
             await verify_store.save_settings(db, 123, {"verification_channel_id": 1, "verified_role_id": 2})
         await guild_modules.set_enabled(123, "verification", True)

@@ -116,6 +116,13 @@ async def get_enabled(guild_id: int, module: str) -> bool:
         async with aiosqlite.connect(verify_store.DB_PATH) as db:
             settings = await verify_store.get_settings(db, guild_id)
         enabled = enabled and bool(settings["enabled"])
+    if key == "honeypot":
+        from utils import honeypot
+        os.makedirs(os.path.dirname(honeypot.DB_PATH), exist_ok=True)
+        async with aiosqlite.connect(honeypot.DB_PATH) as db:
+            await honeypot.ensure_schema(db)
+            settings = await honeypot.get(db, guild_id)
+        enabled = enabled and bool(settings["enabled"])
     return enabled
 
 
@@ -125,6 +132,7 @@ async def get_states(guild_id: int) -> dict[str, bool]:
         await load()
     states = {key: is_enabled(guild_id, key) for key in sorted(MODULE_KEYS)}
     states["verification"] = await get_enabled(guild_id, "verification")
+    states["honeypot"] = await get_enabled(guild_id, "honeypot")
     return states
 
 
@@ -134,9 +142,8 @@ async def set_enabled(guild_id: int, module: str, enabled: bool) -> bool:
         from utils import verify_store
         os.makedirs(os.path.dirname(verify_store.DB_PATH), exist_ok=True)
         async with aiosqlite.connect(verify_store.DB_PATH) as db:
-            settings = await verify_store.get_settings(db, guild_id)
-            if enabled and not verify_store.is_configured(settings):
-                raise ValueError("Wähle zuerst einen Verifizierungs-Kanal und eine Rolle.")
+            # Enabling must expose setup even before channel/role selection.
+            # Verification's send/join paths still require a configured setup.
             await verify_store.save_settings(db, guild_id, {"enabled": bool(enabled)})
     await ensure()
     async with aiosqlite.connect(DB_PATH) as db:
@@ -226,7 +233,7 @@ async def command_check(ctx: Any) -> bool:
         else:
             import discord
             try:
-                await ctx.author.send(view=disabled_card(module), allowed_mentions=discord.AllowedMentions.none())
+                await ctx.author.send(view=disabled_card(module, ctx.author), allowed_mentions=discord.AllowedMentions.none())
             except discord.HTTPException:
                 pass
         return False

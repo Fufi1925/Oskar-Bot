@@ -16,16 +16,27 @@ An enabled module still needs its own channels, roles, messages or rules.
 | Overview, Settings, Help, Design, Bot Logs, Premium, Dashboard Access, Admin Dashboard, Owner Console, AI | Navigation, administration or tools: no shared module switch. |
 
 Verification uses a single dashboard switch which updates both the module
-gate and the actual verification configuration. Missing channel/role setup
-is rejected when explicitly enabling it. Existing paused configurations stay
+gate and the actual verification configuration. Enabling an unconfigured
+module reveals its channel/role setup without allowing role grants. Existing paused configurations stay
 paused. New, unconfigured verification settings are available by default;
 they cannot grant roles until configured. A failed status request is shown
 as unavailable rather than falsely claiming the system is disabled.
+
+Disabled module pages show only their availability control. Their settings
+are unmounted until enabled, including while the state is loading or unavailable.
+Honeypot's shared switch also activates/deactivates its actual channel automation.
+Its warning text is fixed in English, and its persistent counter opens private
+information, real server/global counts and University Bot links after restarts.
+Existing active warning messages are updated once after startup to apply the
+fixed warning and clickable counter without waiting for a moderation event.
 
 Expired/unregistered Discord buttons, selects and modal submissions receive
 an English, ephemeral Components V2 card with the bot's custom warning emoji.
 Registered views, dynamic components and restart-safe ticket, application,
 giveaway and self-role listeners retain their normal callbacks. Disabled
 modules stop callbacks before side effects and send a private dashboard hint.
+Members are asked to contact a server administrator and told the module may
+have been disabled intentionally. Administrators and members with Manage Server
+are asked to enable it themselves in the dashboard.
 Prefix commands cannot send ephemeral messages, so their hint goes to the
 invoking user's DM. Discord links do not generate component interactions.

@@ -60,12 +60,12 @@ DB_PATH = "db/honeypot.db"
 DEFAULT_CHANNEL_NAME = "dont-sent-here"
 
 #: Die Ueberschrift der Koeder-Nachricht.
-DEFAULT_TITLE = "SCHREIBE NICHT IN DIESEN KANAL"
+DEFAULT_TITLE = "DO NOT SEND MESSAGES IN THIS CHANNEL"
 
 #: Der Text darunter.
 DEFAULT_TEXT = (
-    "Dieser Kanal fängt Spam-Bots ab. Jede Nachricht hier führt zu "
-    "einem **Softban**."
+    "This channel is used to catch spam bots. Any messages sent here will "
+    "result in **a softban**."
 )
 
 #: Obergrenzen. Discord selbst laesst im Titel eines Embeds 256 und in
@@ -166,8 +166,8 @@ async def get(db: aiosqlite.Connection, guild_id: int) -> dict:
         "message_id": daten.get("message_id") or None,
         "custom_channel_id": daten.get("custom_channel_id") or None,
         "log_channel_id": daten.get("log_channel_id") or None,
-        "title": daten.get("title") or DEFAULT_TITLE,
-        "text": daten.get("text") or DEFAULT_TEXT,
+        "title": DEFAULT_TITLE,
+        "text": DEFAULT_TEXT,
         "kicks": int(daten.get("kicks") or 0),
         "delete_days": int(
             daten.get("delete_days")
@@ -177,6 +177,12 @@ async def get(db: aiosqlite.Connection, guild_id: int) -> dict:
         "whitelist_roles": _rollen_liste(daten.get("whitelist_roles")),
         "updated_at": float(daten.get("updated_at") or 0),
     }
+
+
+async def statistics(db: aiosqlite.Connection) -> dict:
+    async with db.execute("SELECT COALESCE(SUM(kicks), 0), COALESCE(SUM(enabled), 0) FROM honeypot") as cursor:
+        softbans, active = await cursor.fetchone()
+    return {"softbans": int(softbans), "active": int(active)}
 
 
 async def save(db: aiosqlite.Connection, guild_id: int, **felder) -> dict:
@@ -196,9 +202,9 @@ async def save(db: aiosqlite.Connection, guild_id: int, **felder) -> dict:
         elif schluessel in ("enabled",):
             wert = 1 if wert else 0
         elif schluessel == "title":
-            wert = (str(wert or "").strip() or DEFAULT_TITLE)[:MAX_TITLE]
+            wert = DEFAULT_TITLE
         elif schluessel == "text":
-            wert = (str(wert or "").strip() or DEFAULT_TEXT)[:MAX_TEXT]
+            wert = DEFAULT_TEXT
         elif schluessel == "delete_days":
             try:
                 wert = max(0, min(int(wert), MAX_DELETE_DAYS))

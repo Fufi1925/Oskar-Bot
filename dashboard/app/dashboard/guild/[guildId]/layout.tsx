@@ -101,8 +101,7 @@ export default async function GuildLayout({
         Die Suche darin ist nicht verloren: die globale Suche oben
         (⌘K) findet dieselben Seiten und dazu die Server.
       */}
-      <GuildModuleStatus guildId={guildId} />
-      <div className="min-h-[400px]">{children}</div>
+      <GuildModuleStatus guildId={guildId}>{children}</GuildModuleStatus>
     </div>
   );
 }

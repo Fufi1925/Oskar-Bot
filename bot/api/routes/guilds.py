@@ -150,6 +150,10 @@ async def update_guild_module_state(
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     try:
+        if module == "honeypot":
+            from api.routes.honeypot import toggle
+            result = await toggle(guild_id, {"enabled": data.enabled}, bot=bot)
+            return {"guild_id": str(guild_id), "module": module, "enabled": result["enabled"]}
         enabled = await guild_modules.set_enabled(guild_id, module, data.enabled)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

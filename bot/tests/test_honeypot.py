@@ -105,7 +105,7 @@ def test_speicher() -> None:
         daten = await store.get(db, 111)
         check("gespeicherte Werte kommen zurueck",
               daten["enabled"] and daten["channel_id"] == 999
-              and daten["title"] == "Nicht hier")
+              and daten["title"] == store.DEFAULT_TITLE)
 
         # Der Zaehler.
         for _ in range(3):
@@ -123,10 +123,10 @@ def test_speicher() -> None:
         # Grenzen.
         await store.save(db, 111, title="x" * 500, text="y" * 5000)
         daten = await store.get(db, 111)
-        check("der Titel wird auf die Grenze gekuerzt",
-              len(daten["title"]) <= store.MAX_TITLE, str(len(daten["title"])))
-        check("der Text wird auf die Grenze gekuerzt",
-              len(daten["text"]) <= store.MAX_TEXT, str(len(daten["text"])))
+        check("der Titel ist nicht bearbeitbar",
+              daten["title"] == store.DEFAULT_TITLE)
+        check("der Text ist nicht bearbeitbar",
+              daten["text"] == store.DEFAULT_TEXT)
 
         await store.save(db, 111, delete_days=99)
         daten = await store.get(db, 111)
@@ -372,9 +372,9 @@ def test_knopf() -> None:
           "ohne sie ueberlebt er keinen Neustart")
     check("die Zahl steht auf dem Knopf",
           "kicks" in knopf and "label=" in knopf)
-    check("er ist nicht anklickbar",
-          "disabled=True" in knopf,
-          "es ist eine Anzeige, kein Bedienelement")
+    check("er öffnet private Informationen",
+          "disabled=True" not in knopf and "ephemeral=True" in knopf,
+          "der Statistik-Knopf muss anklickbar sein")
 
     # Nach einem Treffer muss der Knopf nachgefuehrt werden.
     softban = ohne[ohne.find("async def _softban"):]

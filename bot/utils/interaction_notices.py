@@ -13,10 +13,14 @@ from utils import guild_modules
 from utils.panels import StatusCard
 
 
-def disabled_card(module: str) -> StatusCard:
+def disabled_card(module: str, user=None) -> StatusCard:
     label = module.replace("-", " ").title()
-    return StatusCard("Module disabled", f"Hey! **{label}** is disabled on this server.\n"
-                      "Ask a server administrator to enable this module in the **dashboard**, then try again.",
+    permissions = getattr(user, "guild_permissions", None)
+    administrator = bool(permissions and (permissions.administrator or permissions.manage_guild))
+    guidance = ("Please enable this module in the **dashboard**, then try again." if administrator else
+                "Ask a server administrator to enable this module in the **dashboard**, then try again. "
+                "It may have been disabled intentionally by your server's staff.")
+    return StatusCard("Module disabled", f"Hey! **{label}** is disabled on this server.\n" + guidance,
                       tone="warning")
 
 
@@ -25,7 +29,7 @@ async def notify(interaction, module: str | None = None, *, delay: float = 0) ->
         await asyncio.sleep(delay)
     if interaction.response.is_done():
         return
-    view = disabled_card(module) if module else StatusCard(
+    view = disabled_card(module, getattr(interaction, "user", None)) if module else StatusCard(
         "Panel expired", "Hey! This panel has expired. Please refresh it or send the panel again, then try again.",
         tone="warning",
     )

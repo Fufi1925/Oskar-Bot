@@ -39,6 +39,7 @@ verraten, dass die Falle Grenzen hat.
 from __future__ import annotations
 
 import logging
+import os
 
 import discord
 from discord.ext import commands
@@ -52,26 +53,70 @@ log = logging.getLogger(__name__)
 
 
 class KicksButton(discord.ui.View):
-    """Die Nachricht im Koeder-Kanal.
+    """Persistent counter opening private information and live statistics."""
 
-    Der Knopf zeigt die Zahl der Treffer und tut sonst nichts -- er
-    ist eine Anzeige, kein Bedienelement. `timeout=None` und eine
-    feste `custom_id`, damit er einen Neustart ueberlebt: ohne beides
-    ist der Knopf nach jedem Deploy tot und muesste neu gesendet
-    werden.
-    """
-
-    def __init__(self, kicks: int = 0):
+    def __init__(self, kicks: int = 0, bot=None):
         super().__init__(timeout=None)
-        self.add_item(
-            discord.ui.Button(
-                label=f"Softbans: {kicks}",
-                emoji=ICONS_WARNING,
-                style=discord.ButtonStyle.secondary,
-                disabled=True,
-                custom_id="honeypot:kicks",
-            )
+        self.bot = bot
+        button = discord.ui.Button(
+            label=f"Softbans: {kicks}", emoji=ICONS_WARNING,
+            style=discord.ButtonStyle.secondary, custom_id="honeypot:kicks",
         )
+        button.callback = self.show_information
+        self.add_item(button)
+
+    async def show_information(self, interaction):
+        bot = self.bot or interaction.client
+        cog = bot.get_cog("Honeypot")
+        if cog is None or interaction.guild_id is None:
+            from utils.interaction_notices import notify
+            await notify(interaction)
+            return
+        await interaction.response.defer(ephemeral=True)
+        data = await cog.settings(interaction.guild_id)
+        if not data["enabled"]:
+            from utils.interaction_notices import disabled_card
+            await interaction.followup.send(view=disabled_card("honeypot", interaction.user), ephemeral=True)
+            return
+        stats = await store.statistics(await cog._db())
+        site = (os.getenv("NEXTAUTH_URL") or "https://universtiy-bot.up.railway.app").rstrip("/")
+        if not site.startswith(("https://", "http://")):
+            site = "https://universtiy-bot.up.railway.app"
+        app_id = getattr(getattr(bot, "user", None), "id", None) or os.getenv("DISCORD_CLIENT_ID") or "1530349205372145715"
+        avatar = getattr(getattr(bot, "user", None), "display_avatar", None)
+        logo = str(avatar.url) if avatar else f"{site}/icon-512.png"
+        view = discord.ui.LayoutView(timeout=None)
+        info = discord.ui.Container(accent_color=0x202124)
+        info.add_item(discord.ui.Section(
+            discord.ui.TextDisplay(f"## {ICONS_WARNING} What is a Honeypot?"),
+            discord.ui.TextDisplay(
+                "A **honeypot** is a channel used to detect unwanted activity.\n\n"
+                "University Bot watches a channel that is visible to members but is not intended for normal use. "
+                "Spam bots and compromised accounts may post here while scanning a server.\n\n"
+                "Sending a message here results in **a softban**: the member is banned and immediately unbanned. "
+                "Their recent messages are deleted according to the server's settings. "
+                "The server owner, bots and exempt roles are protected."
+            ), accessory=discord.ui.Thumbnail(logo),
+        ))
+        info.add_item(discord.ui.ActionRow(
+            discord.ui.Button(label="Invite University Bot", style=discord.ButtonStyle.link,
+                              url=f"https://discord.com/oauth2/authorize?client_id={app_id}&permissions=8&scope=bot%20applications.commands"),
+            discord.ui.Button(label="Documentation", style=discord.ButtonStyle.link, url=f"{site}/docs"),
+            discord.ui.Button(label="University Bot", style=discord.ButtonStyle.link, url=site),
+        ))
+        view.add_item(info)
+        numbers = discord.ui.Container(accent_color=0x202124)
+        channel = f"<#{data['channel_id']}>" if data.get("channel_id") else "No channel configured"
+        numbers.add_item(discord.ui.Section(
+            discord.ui.TextDisplay(f"## {ICONS_WARNING} Honeypot Statistics"),
+            discord.ui.TextDisplay(
+                f"**Server stats**\nTotal successful softbans: **{data['kicks']:,}**\n{channel}: **{data['kicks']:,}**\n\n"
+                f"**Global stats**\nUniversity Bot servers: **{len(bot.guilds):,}**\n"
+                f"Active honeypots: **{stats['active']:,}**\nTotal successful softbans: **{stats['softbans']:,}**"
+            ), accessory=discord.ui.Thumbnail(logo),
+        ))
+        view.add_item(numbers)
+        await interaction.followup.send(view=view, ephemeral=True, allowed_mentions=discord.AllowedMentions.none())
 
 
 class Honeypot(Cog):
@@ -80,12 +125,14 @@ class Honeypot(Cog):
     def __init__(self, client):
         self.client = client
         self._connection = None
+        self._panels_refreshed = False
 
     async def cog_load(self) -> None:
         import aiosqlite
 
         self._connection = await aiosqlite.connect(store.DB_PATH)
         await store.ensure_schema(self._connection)
+        self.client.add_view(KicksButton(bot=self.client))
 
     async def cog_unload(self) -> None:
         if self._connection is not None:
@@ -102,6 +149,26 @@ class Honeypot(Cog):
 
     async def settings(self, guild_id: int) -> dict:
         return await store.get(await self._db(), guild_id)
+
+    @Cog.listener()
+    async def on_ready(self):
+        """Upgrade existing warnings and disabled counters once after a deploy."""
+        if self._panels_refreshed:
+            return
+        self._panels_refreshed = True
+        try:
+            async with (await self._db()).execute("SELECT guild_id FROM honeypot WHERE enabled = 1") as cursor:
+                guild_ids = [row[0] for row in await cursor.fetchall()]
+            for guild_id in guild_ids:
+                guild = self.client.get_guild(guild_id)
+                if guild is not None:
+                    try:
+                        await self.sende_oder_aktualisiere(guild)
+                    except Exception as error:
+                        log.warning("[honeypot] Panel refresh failed for %s: %s", guild_id, error)
+        except Exception as error:
+            self._panels_refreshed = False
+            log.warning("[honeypot] Panel refresh unavailable: %s", error)
 
     # ── Der Kanal ────────────────────────────────────────────────────
 
@@ -226,13 +293,13 @@ class Honeypot(Cog):
 
     def _baue_embed(self, daten: dict) -> discord.Embed:
         embed = discord.Embed(
-            title=daten.get("title") or store.DEFAULT_TITLE,
-            description=daten.get("text") or store.DEFAULT_TEXT,
+            title=store.DEFAULT_TITLE,
+            description=store.DEFAULT_TEXT,
             colour=0x2B2D31,
         )
-        embed.set_thumbnail(
-            url="https://cdn.discordapp.com/emojis/1041498063641903204.png"
-        )
+        avatar = getattr(getattr(self.client, "user", None), "display_avatar", None)
+        if avatar:
+            embed.set_thumbnail(url=str(avatar.url))
         return embed
 
     async def sende_oder_aktualisiere(self, guild, daten: dict | None = None):
@@ -307,6 +374,7 @@ class Honeypot(Cog):
     async def aktiviere(self, guild) -> dict:
         """Kanal beschaffen, nach oben schieben, Nachricht setzen."""
         daten = await self.settings(guild.id)
+        vorher = daten
         kanal = await self._stelle_kanal_sicher(guild, daten)
         if kanal is None:
             return {"ok": False, "grund": "Kanal konnte nicht angelegt werden."}
@@ -319,6 +387,10 @@ class Honeypot(Cog):
             await self._db(), guild.id, enabled=True, channel_id=kanal.id
         )
         nachricht = await self.sende_oder_aktualisiere(guild, daten)
+        if nachricht is None:
+            await store.save(await self._db(), guild.id, enabled=vorher["enabled"],
+                             channel_id=vorher.get("channel_id"), message_id=vorher.get("message_id"))
+            return {"ok": False, "grund": "Die Warnung konnte nicht gesendet werden. Prüfe die Kanalrechte des Bots."}
 
         return {
             "ok": True,
@@ -446,22 +518,6 @@ class Honeypot(Cog):
             await kanal.send(view=from_embed(embed))
         except (discord.Forbidden, discord.HTTPException):
             pass
-
-    # ── Nach einem Neustart ──────────────────────────────────────────
-
-    @commands.Cog.listener()
-    async def on_ready(self) -> None:
-        """Die Knoepfe wieder anhaengen.
-
-        Ohne das ist der Zaehler-Knopf nach jedem Deploy tot. Er ist
-        zwar ohnehin `disabled`, aber Discord blendet eine Ansicht
-        ohne registrierten Empfaenger nach einiger Zeit aus.
-        """
-        try:
-            self.client.add_view(KicksButton(0))
-        except Exception:  # noqa: BLE001 - schon registriert
-            pass
-
 
 async def setup(client):
     await client.add_cog(Honeypot(client))

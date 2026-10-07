@@ -26,6 +26,7 @@ from api.db_manager import db_manager
 from api.dependencies import get_bot
 from utils import feature_audit
 from utils import honeypot as store
+from utils import guild_modules
 
 if TYPE_CHECKING:
     from core.universitybot import universitybot
@@ -200,10 +201,7 @@ async def patch_settings(
 
     felder: dict = {}
 
-    if "title" in data:
-        felder["title"] = data["title"]
-    if "text" in data:
-        felder["text"] = data["text"]
+    # The warning is fixed, including for older clients and stored settings.
     if "delete_days" in data:
         felder["delete_days"] = data["delete_days"]
 
@@ -238,12 +236,23 @@ async def patch_settings(
                 gueltig.append(int(eintrag))
         felder["whitelist_roles"] = gueltig
 
+    channel_changed = "custom_channel_id" in felder and felder["custom_channel_id"] != vorher.get("custom_channel_id")
+    if channel_changed:
+        felder.update(channel_id=None, message_id=None)
     record = await store.save(db, guild_id, **felder) if felder else vorher
 
     # Laeuft der Honeypot bereits, muss die Nachricht die Aenderung
     # sofort zeigen -- sonst steht im Kanal weiter der alte Text und
     # niemand weiss, ob das Speichern gewirkt hat.
-    if record.get("enabled") and record.get("channel_id"):
+    if record.get("enabled"):
+        if channel_changed:
+            result = await _cog(bot).aktiviere(guild)
+            if not result.get("ok"):
+                await store.save(db, guild_id, custom_channel_id=vorher.get("custom_channel_id"),
+                                 channel_id=vorher.get("channel_id"), message_id=vorher.get("message_id"),
+                                 enabled=vorher.get("enabled"))
+                raise HTTPException(status_code=400, detail="Der gewählte Köder-Kanal konnte nicht eingerichtet werden.")
+            record = await store.get(db, guild_id)
         try:
             await _cog(bot).sende_oder_aktualisiere(guild, record)
         except HTTPException:
@@ -274,6 +283,7 @@ async def toggle(
 
     if not an:
         record = await store.save(db, guild_id, enabled=False)
+        await guild_modules.set_enabled(guild_id, "honeypot", False)
         await feature_audit.log_action(
             "honeypot_disabled",
             actor=str(data.get("actor", "dashboard")),
@@ -292,6 +302,7 @@ async def toggle(
         )
 
     record = await store.get(db, guild_id)
+    await guild_modules.set_enabled(guild_id, "honeypot", True)
     await feature_audit.log_action(
         "honeypot_enabled",
         actor=str(data.get("actor", "dashboard")),
@@ -313,6 +324,10 @@ async def resend(guild_id: int, bot: "universitybot" = Depends(get_bot)):
         )
 
     nachricht = await _cog(bot).sende_oder_aktualisiere(guild, record)
+    if nachricht is None and (not record.get("channel_id") or guild.get_channel(int(record["channel_id"])) is None):
+        result = await _cog(bot).aktiviere(guild)
+        if result.get("ok"):
+            return _antwort(guild, await store.get(db, guild_id))
     if nachricht is None:
         raise HTTPException(
             status_code=400,

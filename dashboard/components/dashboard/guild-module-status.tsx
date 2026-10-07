@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 import { GUILD_MODULE_LABELS_DE, GUILD_MODULE_LABELS_EN, guildModuleFromPath } from "@/lib/guild-modules";
 
-export function GuildModuleStatus({ guildId }: { guildId: string }) {
+export function GuildModuleStatus({ guildId, children }: { guildId: string; children: React.ReactNode }) {
   const pathname = usePathname();
   const { language } = useLanguage();
   const moduleKey = useMemo(() => guildModuleFromPath(pathname, guildId), [pathname, guildId]);
@@ -20,6 +20,7 @@ export function GuildModuleStatus({ guildId }: { guildId: string }) {
   const [saving, setSaving] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const [revision, setRevision] = useState(0);
+  const [loadedPath, setLoadedPath] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -33,6 +34,7 @@ export function GuildModuleStatus({ guildId }: { guildId: string }) {
       .then((data) => {
         if (active) {
           setEnabled(data.enabled !== false);
+          setLoadedPath(pathname);
           window.dispatchEvent(new CustomEvent("guild-module-state", {
             detail: { guildId, module: moduleKey, enabled: data.enabled !== false },
           }));
@@ -46,7 +48,7 @@ export function GuildModuleStatus({ guildId }: { guildId: string }) {
       })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [guildId, moduleKey, english, revision]);
+  }, [guildId, moduleKey, pathname, english, revision]);
 
   useEffect(() => {
     const onState = (event: Event) => {
@@ -81,9 +83,9 @@ export function GuildModuleStatus({ guildId }: { guildId: string }) {
     }
   };
 
-  if (!moduleKey) return null;
+  if (!moduleKey) return <>{children}</>;
 
-  if (loading) {
+  if (loading || loadedPath !== pathname && !loadError) {
     return (
       <div className="flex min-h-[92px] items-center justify-center rounded-2xl border border-white/[.07] bg-[#111216]">
         <Loader2 className="h-5 w-5 animate-spin text-slate-500" />
@@ -99,7 +101,7 @@ export function GuildModuleStatus({ guildId }: { guildId: string }) {
   }
 
   return (
-    <section
+    <><section
       className={cn(
         "flex flex-col gap-4 rounded-2xl border px-5 py-5 sm:flex-row sm:items-center",
         enabled
@@ -144,5 +146,7 @@ export function GuildModuleStatus({ guildId }: { guildId: string }) {
             : english ? "Enable" : "Aktivieren"}
       </button>
     </section>
+    {enabled && <div className="min-h-[400px]">{children}</div>}
+    </>
   );
 }
