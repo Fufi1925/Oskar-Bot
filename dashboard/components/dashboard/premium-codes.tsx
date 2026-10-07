@@ -1,5 +1,7 @@
 "use client";
 
+import { WebsiteSelect } from "@/components/ui/website-select";
+
 import React, { useCallback, useEffect, useState } from "react";
 import { Ban, Check, Clock, Copy, Gift, KeyRound, Plus, RefreshCw, Users } from "lucide-react";
 import { toast } from "sonner";
@@ -73,7 +75,7 @@ export function PremiumCodes() {
           <div className="relative mt-1.5"><Users className="absolute left-3 top-3 h-4 w-4 text-slate-600"/><input className={cn(INPUT,"pl-9")} inputMode="numeric" value={uses} onChange={e=>setUses(e.target.value)} /></div>
         </label>
         <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Code einlösbar
-          <select className={cn(INPUT,"mt-1.5")} value={validHours} onChange={e=>setValidHours(e.target.value)}><option value="1">1 Stunde</option><option value="6">6 Stunden</option><option value="24">24 Stunden</option><option value="72">3 Tage</option><option value="168">7 Tage</option><option value="720">30 Tage</option></select>
+          <WebsiteSelect className={cn(INPUT,"mt-1.5")} value={validHours} onChange={e=>setValidHours(e.target.value)}><option value="1">1 Stunde</option><option value="6">6 Stunden</option><option value="24">24 Stunden</option><option value="72">3 Tage</option><option value="168">7 Tage</option><option value="720">30 Tage</option></WebsiteSelect>
         </label>
       </div>
       <button disabled={busy} onClick={create} className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-amber-400 px-4 py-3 text-sm font-black text-black hover:bg-amber-300 disabled:opacity-50 sm:w-auto"><Plus className="h-4 w-4"/>Sechsstelligen Code erstellen</button>

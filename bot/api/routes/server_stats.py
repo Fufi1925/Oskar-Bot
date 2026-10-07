@@ -48,11 +48,8 @@ async def _payload(bot, guild, settings: dict, *, premium: bool) -> dict:
     }
     is_main_support = guild.id == store.MAIN_SUPPORT_GUILD_ID
     if is_main_support:
-        counts.update({
-            "global_servers": len(bot.guilds),
-            "global_users": len(bot.users),
-            "global_commands": await command_stats.total_uses(),
-        })
+        from utils.global_stats import global_counts
+        counts.update(await global_counts(bot))
 
     channels = {}
     for kind in store.KINDS:

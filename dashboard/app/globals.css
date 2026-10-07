@@ -939,3 +939,18 @@ input[type="number"] {
   outline: 2px solid #a7b6ed;
   outline-offset: 3px;
 }
+
+.module-banner-position {
+  transition: padding-top 450ms cubic-bezier(.22,.68,.25,1);
+}
+.module-content-enter {
+  animation: module-content-enter 500ms cubic-bezier(.22,.68,.25,1) both;
+}
+@keyframes module-content-enter {
+  from { opacity: 0; transform: translateY(36px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .module-banner-position { transition: none; }
+  .module-content-enter { animation: none; }
+}

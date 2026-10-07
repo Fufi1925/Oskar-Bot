@@ -1,5 +1,7 @@
 "use client";
 
+import { WebsiteSelect } from "@/components/ui/website-select";
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Check,
@@ -401,7 +403,7 @@ export function UserPullPanel({ guildId }: { guildId: string }) {
               Status
             </span>
             <div className="relative">
-              <select
+              <WebsiteSelect
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
                 className="min-h-12 w-full appearance-none rounded-2xl border border-white/10 bg-[#1c1919] px-4 text-white outline-none"
@@ -409,7 +411,7 @@ export function UserPullPanel({ guildId }: { guildId: string }) {
                 <option value="all">Alle</option>
                 <option value="authorized">Abrufbar</option>
                 <option value="unauthorized">Nicht autorisiert</option>
-              </select>
+              </WebsiteSelect>
               <ChevronDown className="pointer-events-none absolute right-4 top-4 h-4 w-4 text-slate-500" />
             </div>
           </label>

@@ -1,5 +1,7 @@
 "use client";
 
+import { WebsiteSelect } from "@/components/ui/website-select";
+
 /**
  * Seven features that worked over chat commands but had no dashboard.
  *
@@ -435,7 +437,7 @@ export function NightmodePanel({ guildId }: { guildId: string }) {
 
         <div className="grid md:grid-cols-2 gap-5">
           <Field label="Schließen um">
-            <select
+            <WebsiteSelect
               value={p.value("start_hour") ?? 23}
               onChange={(e) => p.set("start_hour", Number(e.target.value))}
               className={INPUT}
@@ -443,10 +445,10 @@ export function NightmodePanel({ guildId }: { guildId: string }) {
               {hours.map((h) => (
                 <option key={h} value={h}>{String(h).padStart(2, "0")}:00</option>
               ))}
-            </select>
+            </WebsiteSelect>
           </Field>
           <Field label="Öffnen um">
-            <select
+            <WebsiteSelect
               value={p.value("end_hour") ?? 7}
               onChange={(e) => p.set("end_hour", Number(e.target.value))}
               className={INPUT}
@@ -454,12 +456,12 @@ export function NightmodePanel({ guildId }: { guildId: string }) {
               {hours.map((h) => (
                 <option key={h} value={h}>{String(h).padStart(2, "0")}:00</option>
               ))}
-            </select>
+            </WebsiteSelect>
           </Field>
         </div>
 
         <Field label="Zeitzone" hint="Damit die Uhrzeiten zu eurem Tag passen.">
-          <select
+          <WebsiteSelect
             value={p.value("timezone") ?? "Europe/Berlin"}
             onChange={(e) => p.set("timezone", e.target.value)}
             className={INPUT}
@@ -468,7 +470,7 @@ export function NightmodePanel({ guildId }: { guildId: string }) {
               "America/New_York", "UTC"].map((tz) => (
               <option key={tz} value={tz}>{tz}</option>
             ))}
-          </select>
+          </WebsiteSelect>
         </Field>
 
         <Field label="Welche Kanäle" hint="Nur diese werden geschlossen.">

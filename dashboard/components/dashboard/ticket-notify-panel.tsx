@@ -1,5 +1,7 @@
 "use client";
 
+import { WebsiteSelect } from "@/components/ui/website-select";
+
 /**
  * DM-Benachrichtigungen fuer Tickets.
  *
@@ -306,7 +308,7 @@ export function TicketNotifyPanel({ guildId }: { guildId: string }) {
             <label className="text-[11px] font-black uppercase tracking-wider text-slate-400">
               Von
             </label>
-            <select
+            <WebsiteSelect
               value={s.quiet_start}
               disabled={!s.quiet_enabled || saving}
               onChange={(e) => patch({ quiet_start: parseInt(e.target.value, 10) })}
@@ -315,14 +317,14 @@ export function TicketNotifyPanel({ guildId }: { guildId: string }) {
               {Array.from({ length: 24 }, (_, i) => (
                 <option key={i} value={i}>{String(i).padStart(2, "0")}:00</option>
               ))}
-            </select>
+            </WebsiteSelect>
           </div>
           <span className="text-slate-600 pb-2.5">bis</span>
           <div className="space-y-1.5">
             <label className="text-[11px] font-black uppercase tracking-wider text-slate-400">
               Bis
             </label>
-            <select
+            <WebsiteSelect
               value={s.quiet_end}
               disabled={!s.quiet_enabled || saving}
               onChange={(e) => patch({ quiet_end: parseInt(e.target.value, 10) })}
@@ -331,7 +333,7 @@ export function TicketNotifyPanel({ guildId }: { guildId: string }) {
               {Array.from({ length: 24 }, (_, i) => (
                 <option key={i} value={i}>{String(i).padStart(2, "0")}:00</option>
               ))}
-            </select>
+            </WebsiteSelect>
           </div>
           <p className="text-[11px] text-slate-500 italic pb-2.5">
             Zeiten in UTC.

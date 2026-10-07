@@ -1,5 +1,7 @@
 "use client";
 
+import { WebsiteSelect } from "@/components/ui/website-select";
+
 /**
  * Admin broadcast: one message to every server the bot is on.
  *
@@ -406,7 +408,7 @@ export function BroadcastPanel({ guilds }: { guilds?: any[] }) {
         {/* Test to one server */}
         <div className="grid md:grid-cols-[1fr_auto] gap-3 items-end">
           <Field label="Testweise an einen Server">
-            <select
+            <WebsiteSelect
               value={testGuild}
               onChange={(e) => setTestGuild(e.target.value)}
               className={INPUT}
@@ -415,7 +417,7 @@ export function BroadcastPanel({ guilds }: { guilds?: any[] }) {
               {(guilds || []).map((g: any) => (
                 <option key={g.id} value={g.id}>{g.name}</option>
               ))}
-            </select>
+            </WebsiteSelect>
           </Field>
           <button
             onClick={sendTest}

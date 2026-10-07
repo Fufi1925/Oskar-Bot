@@ -1,5 +1,7 @@
 "use client";
 
+import { WebsiteSelect } from "@/components/ui/website-select";
+
 /**
  * Bot-Logs: alles, was der Bot selbst protokolliert, an einer Stelle.
  *
@@ -260,7 +262,7 @@ export function BotLogsPanel({ guildId }: { guildId: string }) {
                         Kanal
                       </label>
                       <div className="mt-2 flex flex-col gap-2 sm:flex-row">
-                        <select
+                        <WebsiteSelect
                           value={q.channel_id || ""}
                           disabled={speichert === q.key}
                           onChange={(e) =>
@@ -276,7 +278,7 @@ export function BotLogsPanel({ guildId }: { guildId: string }) {
                               #{k.name}
                             </option>
                           ))}
-                        </select>
+                        </WebsiteSelect>
 
                         <Link
                           href={`/dashboard/guild/${guildId}/${q.seite}`}

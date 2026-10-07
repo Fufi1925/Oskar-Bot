@@ -18,9 +18,9 @@ type Props = {
   hoehe?: number;
   className?: string;
   einheit?: string;
+  responsive?: boolean;
 };
 
-const B = 720;
 const OBEN = 18;
 const RECHTS = 12;
 const UNTEN = 30;
@@ -59,7 +59,16 @@ function marken(anzahl: number) {
   return result;
 }
 
-export function AdminLineChart({ labels, reihen, hoehe = 220, className, einheit = "" }: Props) {
+export function AdminLineChart({ labels, reihen, hoehe = 220, className, einheit = "", responsive = false }: Props) {
+  const container = React.useRef<HTMLDivElement>(null);
+  const [breite, setBreite] = React.useState(720);
+  React.useEffect(() => {
+    if (!responsive || !container.current) return;
+    const observer = new ResizeObserver(entries => setBreite(entries[0].contentRect.width));
+    observer.observe(container.current);
+    return () => observer.disconnect();
+  }, [responsive]);
+  const B = responsive ? Math.max(320, breite) : 720;
   const [aktiv, setAktiv] = React.useState<number | null>(null);
   const svg = React.useRef<SVGSVGElement>(null);
   const id = React.useId().replaceAll(":", "");
@@ -75,7 +84,8 @@ export function AdminLineChart({ labels, reihen, hoehe = 220, className, einheit
   const bereich = oben - unten || 1;
   const x = (i: number) => LINKS + (labels.length < 2 ? innenB / 2 : (i / (labels.length - 1)) * innenB);
   const y = (wert: number) => OBEN + innenH - ((wert - unten) / bereich) * innenH;
-  const xMarken = marken(labels.length);
+  const xMarken = marken(labels.length).filter(index =>
+    index === labels.length - 1 || x(labels.length - 1) - x(index) >= 48);
 
   const pfade = reihen.map((reihe) => {
     const teile: Array<Array<[number, number]>> = [];
@@ -105,7 +115,7 @@ export function AdminLineChart({ labels, reihen, hoehe = 220, className, einheit
   }
 
   return (
-    <div className={cn("relative min-w-0", className)}>
+    <div ref={container} className={cn("relative min-w-0", className)}>
       <div className="mb-3 flex flex-wrap gap-x-5 gap-y-2">
         {reihen.map((reihe) => (
           <span key={reihe.key} className="inline-flex items-center gap-2 text-xs text-slate-400">

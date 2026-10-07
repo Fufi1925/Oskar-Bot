@@ -37,10 +37,11 @@ def test_persistent_button_opens_private_real_statistics_with_own_brand(tmp_path
             assert reply["ephemeral"] and reply["view"].has_components_v2()
             body = text_of(reply["view"])
             assert "What is a Honeypot?" in body and "<:" in body
-            assert "Total successful softbans: **2**" in body and "Total successful softbans: **5**" in body
-            assert "University Bot servers: **3**" in body
+            assert "Total moderated in this server: `2`" in body and "Total moderations: `5`" in body
+            assert "Total servers: `3`" in body
             links = [item.url for item in reply["view"].walk_children() if isinstance(item, discord.ui.Button)]
             assert "https://universtiy-bot.up.railway.app/docs" in links
+            assert "https://universtiy-bot.up.railway.app/honeypot/stats" in links
             assert any("client_id=1530349205372145715" in link for link in links)
             assert all("riskymh" not in link for link in links)
             # Existing warning customizations must never override the fixed text.

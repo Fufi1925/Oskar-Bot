@@ -101,12 +101,12 @@ export function GuildModuleStatus({ guildId, children }: { guildId: string; chil
   }
 
   return (
-    <><section
+    <><div className="module-banner-position" style={{ paddingTop: enabled ? 0 : "clamp(3rem, 18vh, 10rem)" }}><section
       className={cn(
-        "flex flex-col gap-4 rounded-2xl border px-5 py-5 sm:flex-row sm:items-center",
+        "mx-auto flex w-full flex-col gap-4 rounded-2xl border px-5 py-5 transition-all duration-500 sm:flex-row sm:items-center",
         enabled
           ? "border-emerald-400/25 bg-emerald-500/[.075]"
-          : "border-rose-400/25 bg-rose-500/[.075]"
+          : "max-w-3xl border-rose-400/25 bg-rose-500/[.075]"
       )}
       aria-live="polite"
     >
@@ -145,8 +145,8 @@ export function GuildModuleStatus({ guildId, children }: { guildId: string; chil
             ? english ? "Disable" : "Deaktivieren"
             : english ? "Enable" : "Aktivieren"}
       </button>
-    </section>
-    {enabled && <div className="min-h-[400px]">{children}</div>}
+    </section></div>
+    {enabled && <div className="module-content-enter min-h-[400px]">{children}</div>}
     </>
   );
 }

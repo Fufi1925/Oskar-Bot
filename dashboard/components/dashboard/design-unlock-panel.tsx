@@ -1,5 +1,7 @@
 "use client";
 
+import { WebsiteSelect } from "@/components/ui/website-select";
+
 /**
  * Freischaltliste für den Design-Reiter.
  *
@@ -115,7 +117,7 @@ export function DesignUnlockPanel({
         </div>
 
         <div className="mt-5 flex flex-col gap-2 sm:flex-row">
-          <select
+          <WebsiteSelect
             value={guilds.some((g) => g.id === wahl) ? wahl : ""}
             onChange={(e) => setWahl(e.target.value)}
             className="flex-1 rounded-2xl border border-slate-800 bg-[#0f0f13] px-4 py-3 text-sm text-white outline-none focus:border-amber-400/50"
@@ -126,7 +128,7 @@ export function DesignUnlockPanel({
                 {g.name}
               </option>
             ))}
-          </select>
+          </WebsiteSelect>
           <input
             value={notiz}
             onChange={(e) => setNotiz(e.target.value)}

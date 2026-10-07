@@ -46,6 +46,7 @@ Deploy die Einstellungen **und der Zaehler** weg.
 from __future__ import annotations
 
 import time
+from datetime import datetime, timedelta, timezone
 
 import aiosqlite
 
@@ -114,6 +115,11 @@ async def ensure_schema(db: aiosqlite.Connection) -> None:
             await db.execute(f"ALTER TABLE honeypot ADD COLUMN {name} {typ}")
         except Exception:  # noqa: BLE001 - Spalte existiert bereits
             pass
+    await db.execute("""CREATE TABLE IF NOT EXISTS honeypot_daily (
+        day TEXT NOT NULL, guild_id INTEGER NOT NULL, moderations INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY(day, guild_id))""")
+    await db.execute("CREATE TABLE IF NOT EXISTS honeypot_tracking (id INTEGER PRIMARY KEY, started_at REAL NOT NULL)")
+    await db.execute("INSERT OR IGNORE INTO honeypot_tracking VALUES (1, ?)", (time.time(),))
     await db.commit()
 
 
@@ -185,6 +191,29 @@ async def statistics(db: aiosqlite.Connection) -> dict:
     return {"softbans": int(softbans), "active": int(active)}
 
 
+async def live_statistics(db: aiosqlite.Connection, *, total_servers: int) -> dict:
+    totals = await statistics(db)
+    today = datetime.now(timezone.utc).date()
+    week_start = (today - timedelta(days=6)).isoformat()
+    chart_start = today - timedelta(days=13)
+    async with db.execute("SELECT started_at FROM honeypot_tracking WHERE id=1") as cursor:
+        started_at = (await cursor.fetchone())[0]
+    since = datetime.fromtimestamp(started_at, timezone.utc)
+    async with db.execute("SELECT COALESCE(SUM(moderations),0), COUNT(DISTINCT guild_id) FROM honeypot_daily WHERE day >= ? AND day <= ?", (week_start, today.isoformat())) as cursor:
+        week_moderations, week_servers = await cursor.fetchone()
+    async with db.execute("SELECT day, SUM(moderations), COUNT(DISTINCT guild_id) FROM honeypot_daily WHERE day >= ? AND day <= ? GROUP BY day", (chart_start.isoformat(), today.isoformat())) as cursor:
+        days = {row[0]: (int(row[1]), int(row[2])) for row in await cursor.fetchall()}
+    history = []
+    for offset in range(14):
+        day = chart_start + timedelta(days=offset)
+        counts = days.get(day.isoformat(), (0, 0)) if day >= since.date() else (None, None)
+        history.append({"day": day.isoformat(), "moderations": counts[0], "servers": counts[1]})
+    return {"total_moderations": totals["softbans"], "active_honeypots": totals["active"],
+            "total_servers": int(total_servers), "moderations_7d": int(week_moderations),
+            "triggered_servers_7d": int(week_servers), "history": history,
+            "tracking_since": since.isoformat(), "updated_at": datetime.now(timezone.utc).isoformat()}
+
+
 async def save(db: aiosqlite.Connection, guild_id: int, **felder) -> dict:
     """Einzelne Felder aendern; alles Uebrige bleibt stehen."""
     erlaubt = {name for name, _ in COLUMNS}
@@ -246,15 +275,22 @@ async def bump_kicks(db: aiosqlite.Connection, guild_id: int) -> int:
     Moment schreiben, wuerden sich sonst gegenseitig ueberschreiben
     und nur einen Treffer zaehlen.
     """
-    await db.execute(
-        "INSERT OR IGNORE INTO honeypot (guild_id) VALUES (?)", (guild_id,)
-    )
-    await db.execute(
-        "UPDATE honeypot SET kicks = COALESCE(kicks, 0) + 1, updated_at = ? "
-        "WHERE guild_id = ?",
-        (time.time(), guild_id),
-    )
-    await db.commit()
+    try:
+        await db.execute(
+            "INSERT OR IGNORE INTO honeypot (guild_id) VALUES (?)", (guild_id,)
+        )
+        await db.execute(
+            "UPDATE honeypot SET kicks = COALESCE(kicks, 0) + 1, updated_at = ? "
+            "WHERE guild_id = ?",
+            (time.time(), guild_id),
+        )
+        await db.execute("""INSERT INTO honeypot_daily(day,guild_id,moderations) VALUES (?,?,1)
+            ON CONFLICT(day,guild_id) DO UPDATE SET moderations=moderations+1""",
+            (datetime.now(timezone.utc).date().isoformat(), guild_id))
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        raise
 
     async with db.execute(
         "SELECT kicks FROM honeypot WHERE guild_id = ?", (guild_id,)

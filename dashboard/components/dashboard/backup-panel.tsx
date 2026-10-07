@@ -1,5 +1,7 @@
 "use client";
 
+import { WebsiteSelect } from "@/components/ui/website-select";
+
 /**
  * Backup — Sicherungen dieses Servers.
  *
@@ -925,7 +927,7 @@ export function BackupPanel({ guildId }: { guildId: string }) {
                 <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500">
                   Abstand
                 </label>
-                <select
+                <WebsiteSelect
                   value={String(auto.stunden ?? 24)}
                   disabled={beschaeftigt}
                   onChange={(e) =>
@@ -939,7 +941,7 @@ export function BackupPanel({ guildId }: { guildId: string }) {
                   <option value="72">Alle 3 Tage</option>
                   <option value="168">Wöchentlich</option>
                   <option value="720">Monatlich</option>
-                </select>
+                </WebsiteSelect>
               </div>
 
               <label className="flex cursor-pointer items-start gap-2.5">

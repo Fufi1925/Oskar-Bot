@@ -91,11 +91,10 @@ class KicksButton(discord.ui.View):
             discord.ui.TextDisplay(f"## {ICONS_WARNING} What is a Honeypot?"),
             discord.ui.TextDisplay(
                 "A **honeypot** is a channel used to detect unwanted activity.\n\n"
-                "University Bot watches a channel that is visible to members but is not intended for normal use. "
-                "Spam bots and compromised accounts may post here while scanning a server.\n\n"
-                "Sending a message here results in **a softban**: the member is banned and immediately unbanned. "
-                "Their recent messages are deleted according to the server's settings. "
-                "The server owner, bots and exempt roles are protected."
+                "Honeypot watches a channel that is visible to members but not intended for normal use. "
+                "Spam bots and compromised accounts may send messages to it while scanning or posting across a server.\n\n"
+                "When a message is sent to the honeypot channel, Honeypot can automatically remove the user "
+                "by banning or kicking them.\n\n-# University Bot uses a softban: ban, then immediately unban."
             ), accessory=discord.ui.Thumbnail(logo),
         ))
         info.add_item(discord.ui.ActionRow(
@@ -110,11 +109,14 @@ class KicksButton(discord.ui.View):
         numbers.add_item(discord.ui.Section(
             discord.ui.TextDisplay(f"## {ICONS_WARNING} Honeypot Statistics"),
             discord.ui.TextDisplay(
-                f"**Server stats**\nTotal successful softbans: **{data['kicks']:,}**\n{channel}: **{data['kicks']:,}**\n\n"
-                f"**Global stats**\nUniversity Bot servers: **{len(bot.guilds):,}**\n"
-                f"Active honeypots: **{stats['active']:,}**\nTotal successful softbans: **{stats['softbans']:,}**"
+                f"**Server Stats:**\nTotal moderated in this server: `{data['kicks']:,}`\n-# - {channel}: `{data['kicks']:,}`\n\n"
+                f"**Global Stats:**\nTotal servers: `{len(bot.guilds):,}`\nTotal moderations: `{stats['softbans']:,}`\n"
+                "-# I wonder when this counter will stop increasing...\n"
+                "-# Apparently, there is still plenty of spam to catch."
             ), accessory=discord.ui.Thumbnail(logo),
         ))
+        numbers.add_item(discord.ui.ActionRow(discord.ui.Button(
+            label="Live Stats", style=discord.ButtonStyle.link, url=f"{site}/honeypot/stats")))
         view.add_item(numbers)
         await interaction.followup.send(view=view, ephemeral=True, allowed_mentions=discord.AllowedMentions.none())
 

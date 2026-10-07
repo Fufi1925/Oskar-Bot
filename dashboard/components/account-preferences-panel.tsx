@@ -1,5 +1,7 @@
 "use client";
 
+import { WebsiteSelect } from "@/components/ui/website-select";
+
 import React from "react";
 import {
   CalendarDays,
@@ -184,14 +186,14 @@ export function AccountPreferencesPanel({ userId }: { userId: string }) {
                 <Languages className="h-4 w-4 text-fuchsia-400" />
                 Sprache
               </span>
-              <select
+              <WebsiteSelect
                 value={form.language}
                 onChange={(event) => set("language", event.target.value)}
                 className="mt-2 w-full rounded-xl border border-slate-700 bg-[#0b0b0e] px-3 py-2.5 text-sm text-white outline-none focus:border-fuchsia-500"
               >
                 <option value="de">Deutsch</option>
                 <option value="en">English</option>
-              </select>
+              </WebsiteSelect>
             </label>
             <fieldset>
               <legend className="flex items-center gap-2 text-sm font-semibold text-slate-300">
@@ -221,7 +223,7 @@ export function AccountPreferencesPanel({ userId }: { userId: string }) {
               <span className="text-sm font-semibold text-slate-300">
                 Zeitzone
               </span>
-              <select
+              <WebsiteSelect
                 value={form.timezone}
                 onChange={(event) => set("timezone", event.target.value)}
                 className="mt-2 w-full rounded-xl border border-slate-700 bg-[#0b0b0e] px-3 py-2.5 text-sm text-white outline-none focus:border-fuchsia-500"
@@ -231,7 +233,7 @@ export function AccountPreferencesPanel({ userId }: { userId: string }) {
                     {zone}
                   </option>
                 ))}
-              </select>
+              </WebsiteSelect>
             </label>
           </div>
 
@@ -241,7 +243,7 @@ export function AccountPreferencesPanel({ userId }: { userId: string }) {
                 <CalendarDays className="h-4 w-4 text-fuchsia-400" />
                 Zahlenformat
               </span>
-              <select
+              <WebsiteSelect
                 value={form.number_format}
                 onChange={(event) => set("number_format", event.target.value)}
                 className="mt-2 w-full rounded-xl border border-slate-700 bg-[#0b0b0e] px-3 py-2.5 text-sm text-white outline-none focus:border-fuchsia-500"
@@ -249,13 +251,13 @@ export function AccountPreferencesPanel({ userId }: { userId: string }) {
                 <option value="de-DE">Deutsch – 1.234.567,89</option>
                 <option value="en-GB">English UK – 1,234,567.89</option>
                 <option value="en-US">English US – 1,234,567.89</option>
-              </select>
+              </WebsiteSelect>
             </label>
             <label className="block">
               <span className="text-sm font-semibold text-slate-300">
                 Datumsformat
               </span>
-              <select
+              <WebsiteSelect
                 value={form.date_format}
                 onChange={(event) => set("date_format", event.target.value)}
                 className="mt-2 w-full rounded-xl border border-slate-700 bg-[#0b0b0e] px-3 py-2.5 text-sm text-white outline-none focus:border-fuchsia-500"
@@ -264,14 +266,14 @@ export function AccountPreferencesPanel({ userId }: { userId: string }) {
                 <option value="medium">Standard</option>
                 <option value="long">Ausführlich</option>
                 <option value="iso">ISO – 2026-09-08</option>
-              </select>
+              </WebsiteSelect>
             </label>
             <label className="block">
               <span className="flex items-center gap-2 text-sm font-semibold text-slate-300">
                 <Home className="h-4 w-4 text-fuchsia-400" />
                 Bevorzugte Startseite nach dem Login
               </span>
-              <select
+              <WebsiteSelect
                 value={form.start_page}
                 onChange={(event) => set("start_page", event.target.value)}
                 className="mt-2 w-full rounded-xl border border-slate-700 bg-[#0b0b0e] px-3 py-2.5 text-sm text-white outline-none focus:border-fuchsia-500"
@@ -280,7 +282,7 @@ export function AccountPreferencesPanel({ userId }: { userId: string }) {
                 <option value="/dashboard/guilds">Serverübersicht</option>
                 <option value="/konto">Mein Konto</option>
                 <option value="/status">Bot-Status</option>
-              </select>
+              </WebsiteSelect>
             </label>
             <div className="rounded-xl border border-slate-800 bg-black/20 p-3 text-xs text-slate-500">
               <p>

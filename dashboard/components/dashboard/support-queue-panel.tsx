@@ -1,5 +1,7 @@
 "use client";
 
+import { WebsiteSelect } from "@/components/ui/website-select";
+
 /**
  * Support-Warteraum: vier Einstellungen, mehr nicht.
  *
@@ -248,7 +250,7 @@ export function SupportQueuePanel({ guildId }: { guildId: string }) {
           <Volume2 className="h-4 w-4 text-slate-500" />
           <h4 className="text-sm font-semibold text-white">Warteraum-Kanal</h4>
         </div>
-        <select
+        <WebsiteSelect
           value={kanal}
           onChange={(e) => setKanal(e.target.value)}
           className="w-full rounded-2xl border border-slate-800 bg-[#0f0f13] px-4 py-3 text-sm text-white outline-none focus:border-primary/50"
@@ -261,7 +263,7 @@ export function SupportQueuePanel({ guildId }: { guildId: string }) {
               {k.can_join ? "" : "  (Bot darf nicht hinein)"}
             </option>
           ))}
-        </select>
+        </WebsiteSelect>
         {gewaehlterKanal && !gewaehlterKanal.can_join && (
           <p className="mt-2 flex items-start gap-1.5 text-xs text-red-300">
             <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
@@ -283,7 +285,7 @@ export function SupportQueuePanel({ guildId }: { guildId: string }) {
           <Bell className="h-4 w-4 text-slate-500" />
           <h4 className="text-sm font-semibold text-white">Meldekanal</h4>
         </div>
-        <select
+        <WebsiteSelect
           value={meldeKanal}
           onChange={(e) => setMeldeKanal(e.target.value)}
           className="w-full rounded-2xl border border-slate-800 bg-[#0f0f13] px-4 py-3 text-sm text-white outline-none focus:border-primary/50"
@@ -295,7 +297,7 @@ export function SupportQueuePanel({ guildId }: { guildId: string }) {
               {k.can_send ? "" : "  (Bot darf hier nicht schreiben)"}
             </option>
           ))}
-        </select>
+        </WebsiteSelect>
         <p className="mt-2 text-xs text-slate-600">
           Hier meldet der Bot, wenn jemand wartet. Ohne Meldekanal merkt das
           Team nichts davon.
@@ -308,7 +310,7 @@ export function SupportQueuePanel({ guildId }: { guildId: string }) {
           <Users className="h-4 w-4 text-slate-500" />
           <h4 className="text-sm font-semibold text-white">Team-Rolle</h4>
         </div>
-        <select
+        <WebsiteSelect
           value={rolle}
           onChange={(e) => setRolle(e.target.value)}
           className="w-full rounded-2xl border border-slate-800 bg-[#0f0f13] px-4 py-3 text-sm text-white outline-none focus:border-primary/50"
@@ -319,7 +321,7 @@ export function SupportQueuePanel({ guildId }: { guildId: string }) {
               @{r.name}
             </option>
           ))}
-        </select>
+        </WebsiteSelect>
         <p className="mt-2 text-xs text-slate-600">
           Diese Rolle wird in der Meldung erwähnt. Sitzt bereits jemand mit
           ihr im Warteraum, bleibt die Meldung aus — es ist ja schon jemand

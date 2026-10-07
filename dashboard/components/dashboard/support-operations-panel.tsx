@@ -1,5 +1,7 @@
 "use client";
 
+import { WebsiteSelect } from "@/components/ui/website-select";
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
@@ -801,7 +803,7 @@ export function SupportOperationsPanel({ guildId }: { guildId: string }) {
                 </div>
                 <div className="my-4 flex flex-wrap items-center gap-3">
                   <Field label="Status">
-                    <select
+                    <WebsiteSelect
                       className={INPUT}
                       value={errorStatus}
                       onChange={(event) => setErrorStatus(event.target.value)}
@@ -811,17 +813,17 @@ export function SupportOperationsPanel({ guildId }: { guildId: string }) {
                       <option value="investigating">In Untersuchung</option>
                       <option value="resolved">Behoben</option>
                       <option value="all">Alle</option>
-                    </select>
+                    </WebsiteSelect>
                   </Field>
                   <Field label="Sortierung">
-                    <select
+                    <WebsiteSelect
                       className={INPUT}
                       value={errorSort}
                       onChange={(event) => setErrorSort(event.target.value)}
                     >
                       <option value="recent">Zuletzt gemeldet</option>
                       <option value="frequency">Am häufigsten</option>
-                    </select>
+                    </WebsiteSelect>
                   </Field>
                   <span className="ml-auto text-xs text-slate-500">
                     {errorRows.length} Treffer
@@ -1118,7 +1120,7 @@ export function SupportOperationsPanel({ guildId }: { guildId: string }) {
                         />
                       </Field>
                       <Field label="Schweregrad">
-                        <select
+                        <WebsiteSelect
                           className={INPUT}
                           value={incidentDraft.severity}
                           onChange={(event) =>
@@ -1133,7 +1135,7 @@ export function SupportOperationsPanel({ guildId }: { guildId: string }) {
                               {label}
                             </option>
                           ))}
-                        </select>
+                        </WebsiteSelect>
                       </Field>
                     </div>
                     <Field label="Auswirkungen und aktueller Stand">
@@ -1178,7 +1180,7 @@ export function SupportOperationsPanel({ guildId }: { guildId: string }) {
                   title="Incident-Verlauf"
                   description="Die letzten 25 Incidents mit Status und Zeitlinie."
                   aside={
-                    <select
+                    <WebsiteSelect
                       aria-label="Incidents filtern"
                       className={INPUT + " !w-auto"}
                       value={incidentStatus}
@@ -1189,7 +1191,7 @@ export function SupportOperationsPanel({ guildId }: { guildId: string }) {
                       <option value="open">Offene</option>
                       <option value="resolved">Behobene</option>
                       <option value="all">Alle</option>
-                    </select>
+                    </WebsiteSelect>
                   }
                 >
                   <div className="space-y-3">
@@ -1308,7 +1310,7 @@ export function SupportOperationsPanel({ guildId }: { guildId: string }) {
                     />
                   </Field>
                   <Field label="Kategorie">
-                    <select
+                    <WebsiteSelect
                       className={INPUT}
                       value={featureCategory}
                       onChange={(event) =>
@@ -1323,10 +1325,10 @@ export function SupportOperationsPanel({ guildId }: { guildId: string }) {
                         .map((category) => (
                           <option key={category}>{category}</option>
                         ))}
-                    </select>
+                    </WebsiteSelect>
                   </Field>
                   <Field label="Zustand">
-                    <select
+                    <WebsiteSelect
                       className={INPUT}
                       value={featureStatus}
                       onChange={(event) => setFeatureStatus(event.target.value)}
@@ -1335,7 +1337,7 @@ export function SupportOperationsPanel({ guildId }: { guildId: string }) {
                       <option value="active">Wirksam</option>
                       <option value="disabled">Deaktiviert</option>
                       <option value="blocked">Aktiviert, aber blockiert</option>
-                    </select>
+                    </WebsiteSelect>
                   </Field>
                 </div>
                 <div className="mt-5 space-y-3">

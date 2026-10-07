@@ -1,5 +1,7 @@
 "use client";
 
+import { WebsiteSelect } from "@/components/ui/website-select";
+
 import React, { useCallback, useEffect, useState } from "react";
 import {
   AlertTriangle, CheckCircle2, Hash, Link2, Loader2, Lock, LockOpen,
@@ -545,7 +547,7 @@ export default function ServerToolsPage({ params }: { params: { guildId: string 
                       </span>
                     )}
 
-                    <select
+                    <WebsiteSelect
                       value={c.slowmode}
                       disabled={busy}
                       onChange={(e) =>
@@ -568,7 +570,7 @@ export default function ServerToolsPage({ params }: { params: { guildId: string 
                           {sec === 0 ? "Kein Slowmode" : `${sec}s`}
                         </option>
                       ))}
-                    </select>
+                    </WebsiteSelect>
                   </div>
                 ))}
               </div>

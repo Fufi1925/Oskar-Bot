@@ -31,6 +31,7 @@ SCHEMA_VERSION = 1
 # Tables holding user history rather than configuration. Skipped on export
 # so a config file stays portable between servers.
 USER_DATA_TABLES = {
+    "honeypot_daily",
     # Who currently holds a vanity role. Per-member state, not config;
     # a restore re-derives it from the status anyway.
     "vanity_holders",

@@ -110,7 +110,7 @@ async def flush(force: bool = False) -> int:
     return len(keys)
 
 
-async def total_uses() -> int:
+async def total_uses(*, strict: bool = False) -> int:
     """Return the all-time command total, including buffered live events."""
     os.makedirs("db", exist_ok=True)
     await flush(force=True)
@@ -119,9 +119,15 @@ async def total_uses() -> int:
             await _ensure_table(db)
             async with db.execute("SELECT COALESCE(SUM(uses), 0) FROM command_usage") as cursor:
                 row = await cursor.fetchone()
-        return int(row[0] or 0) if row else 0
+        # A full disk can prevent a flush while reads still work. Those live
+        # counts have been restored to the pending buffer and still count.
+        async with _lock:
+            pending = sum(_pending.values())
+        return (int(row[0] or 0) if row else 0) + pending
     except Exception as exc:
         print(f"[command_stats] total failed: {exc}")
+        if strict:
+            raise RuntimeError("Command statistics are currently unavailable.") from exc
         return 0
 
 

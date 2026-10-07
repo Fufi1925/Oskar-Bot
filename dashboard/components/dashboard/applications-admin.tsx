@@ -1,5 +1,7 @@
 "use client";
 
+import { WebsiteSelect } from "@/components/ui/website-select";
+
 /**
  * Team-Bewerbungen im Admin-Dashboard.
  *
@@ -227,7 +229,7 @@ export function ApplicationsAdmin() {
                     <span className="text-[10px] font-black uppercase tracking-widest text-slate-600">
                       Server
                     </span>
-                    <select
+                    <WebsiteSelect
                       value={eigen}
                       onChange={(e) =>
                         configSpeichern({
@@ -254,14 +256,14 @@ export function ApplicationsAdmin() {
                           {g.name}
                         </option>
                       ))}
-                    </select>
+                    </WebsiteSelect>
                   </label>
 
                   <label className="mt-2.5 block">
                     <span className="text-[10px] font-black uppercase tracking-widest text-slate-600">
                       Rolle
                     </span>
-                    <select
+                    <WebsiteSelect
                       value={config.roles?.[r.key]?.discord_role_id || ""}
                       onChange={(e) =>
                         configSpeichern({
@@ -284,7 +286,7 @@ export function ApplicationsAdmin() {
                           {!ar.assignable ? " (steht über dem Bot)" : ""}
                         </option>
                       ))}
-                    </select>
+                    </WebsiteSelect>
                   </label>
 
                   {!ziel && (
@@ -302,7 +304,7 @@ export function ApplicationsAdmin() {
               <span className="text-[10px] font-black uppercase tracking-widest text-slate-600">
                 Allgemeiner Server
               </span>
-              <select
+              <WebsiteSelect
                 value={config.guild_id || ""}
                 onChange={(e) => configSpeichern({ guild_id: e.target.value })}
                 className={cn(INPUT, "mt-2")}
@@ -313,7 +315,7 @@ export function ApplicationsAdmin() {
                     {g.name}
                   </option>
                 ))}
-              </select>
+              </WebsiteSelect>
               <span className="mt-1.5 block text-[11px] text-slate-500">
                 Gilt für jede Rolle ohne eigenen Server.
               </span>
@@ -322,7 +324,7 @@ export function ApplicationsAdmin() {
               <span className="text-[10px] font-black uppercase tracking-widest text-slate-600">
                 Kanal für neue Bewerbungen
               </span>
-              <select
+              <WebsiteSelect
                 value={config.channel_id || ""}
                 onChange={(e) => configSpeichern({ channel_id: e.target.value })}
                 className={cn(INPUT, "mt-2")}
@@ -333,7 +335,7 @@ export function ApplicationsAdmin() {
                     #{c.name}
                   </option>
                 ))}
-              </select>
+              </WebsiteSelect>
             </label>
           </div>
 

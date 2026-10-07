@@ -1,5 +1,7 @@
 "use client";
 
+import { WebsiteSelect } from "@/components/ui/website-select";
+
 /**
  * Der Tester-Reiter.
  *
@@ -510,7 +512,7 @@ export function TesterPanel() {
           {/* Dringlichkeit nur bei Fehlern: ein Vorschlag ist ein
               Wunsch, keine Störung. */}
           {kind === "bug" && (
-            <select
+            <WebsiteSelect
               value={priority}
               onChange={(event) => setPriority(event.target.value)}
               className="w-full bg-[#0e0e12] border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-violet-500/50 transition-colors"
@@ -519,7 +521,7 @@ export function TesterPanel() {
               <option value="normal">Normal</option>
               <option value="high">Stört beim Arbeiten</option>
               <option value="critical">Geht gar nicht mehr</option>
-            </select>
+            </WebsiteSelect>
           )}
         </div>
 
@@ -590,7 +592,7 @@ export function TesterPanel() {
 
           {/* Filter. Ohne sie ist eine Liste mit dreißig erledigten
               Meldungen nicht mehr zu gebrauchen. */}
-          <select
+          <WebsiteSelect
             value={filterState}
             onChange={(event) => setFilterState(event.target.value)}
             className="ml-auto bg-[#0e0e12] border border-slate-800 rounded-lg px-2.5 py-1.5 text-[11px] text-slate-300 focus:outline-none"
@@ -602,7 +604,7 @@ export function TesterPanel() {
             <option value="done">erledigt</option>
             <option value="rejected">abgelehnt</option>
             <option value="duplicate">Duplikat</option>
-          </select>
+          </WebsiteSelect>
         </div>
 
         {feedback.length === 0 ? (

@@ -91,7 +91,7 @@ const ITEMS: Array<{
   {
     kind: "global_users",
     title: "Alle Nutzer",
-    description: "Zeigt die live erreichbaren, eindeutigen Nutzer des Bots.",
+    description: "Eindeutige Mitglieder aller verbundenen Server. Gemeinsame Mitglieder zählen einmal; fremde DM-Nutzer zählen nicht mit.",
     preview: (count) => `👥 Alle Nutzer: ${count}`,
     icon: Globe2,
     color: "text-indigo-400",

@@ -34,6 +34,12 @@ if TYPE_CHECKING:
 router = APIRouter()
 
 
+@router.get("/live-stats", summary="Public aggregate Honeypot statistics")
+async def live_stats(bot: "universitybot" = Depends(get_bot)):
+    # No guild IDs, member IDs or configuration are exposed.
+    return await store.live_statistics(await _db(), total_servers=len(bot.guilds))
+
+
 async def _db():
     connection = await db_manager.get_connection(store.DB_PATH)
     await store.ensure_schema(connection)

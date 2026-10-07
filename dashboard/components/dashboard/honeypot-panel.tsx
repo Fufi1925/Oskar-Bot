@@ -1,5 +1,7 @@
 "use client";
 
+import { WebsiteSelect } from "@/components/ui/website-select";
+
 import { useCallback, useEffect, useState } from "react";
 import { AlertTriangle, Loader2, RefreshCw, Save, Send, ShieldCheck, Users, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
@@ -77,18 +79,18 @@ export function HoneypotPanel({ guildId }: { guildId: string }) {
       <section className={card}><h3 className="flex items-center gap-2 font-semibold text-white"><MessageSquare className="h-4 w-4 text-blue-300" />Köder-Kanal</h3>
         <p className="mt-2 text-sm leading-relaxed text-slate-400">Automatisch steht der Kanal ganz oben. Ein eigener Kanal bleibt an seiner bisherigen Position.</p>
         <label className="mt-5 block text-sm text-slate-300" htmlFor="honeypot-channel">Kanal auswählen</label>
-        <select id="honeypot-channel" value={channel} onChange={event => setChannel(event.target.value)} className={field}>
+        <WebsiteSelect id="honeypot-channel" value={channel} onChange={event => setChannel(event.target.value)} className={field}>
           <option value="">Automatisch: #dont-sent-here</option>
           {data.channels.map(item => <option key={item.id} value={item.id} disabled={!item.can_send}>#{item.name}{!item.can_send ? " · keine Schreibrechte" : ""}</option>)}
-        </select>
+        </WebsiteSelect>
         <p className="mt-3 text-xs text-slate-500">Der Kanal muss für Mitglieder sichtbar und beschreibbar sein.</p>
       </section>
       <section className={card}><h3 className="flex items-center gap-2 font-semibold text-white"><ShieldCheck className="h-4 w-4 text-amber-300" />Softban</h3>
         <p className="mt-2 text-sm leading-relaxed text-slate-400">Bannen und sofort entbannen entfernt den Spam. Die Person kann anschließend mit einem neuen Einladungslink zurückkommen.</p>
         <label className="mt-5 block text-sm text-slate-300" htmlFor="honeypot-days">Nachrichten löschen</label>
-        <select id="honeypot-days" value={days} onChange={event => setDays(Number(event.target.value))} className={field}>
+        <WebsiteSelect id="honeypot-days" value={days} onChange={event => setDays(Number(event.target.value))} className={field}>
           {[0,1,2,3,4,5,6,7].map(day => <option key={day} value={day}>{day === 0 ? "Keine Nachrichten löschen" : day === 1 ? "Letzte 24 Stunden" : `Letzte ${day} Tage`}</option>)}
-        </select>
+        </WebsiteSelect>
         <p className="mt-3 text-xs text-slate-500">Ohne Bannrecht oder bei zu hoher Rolle kann der Bot keinen Softban ausführen.</p>
       </section>
     </div>

@@ -1,5 +1,7 @@
 "use client";
 
+import { WebsiteSelect } from "@/components/ui/website-select";
+
 /**
  * Der Musik-Reiter.
  *
@@ -321,7 +323,7 @@ export function MusicPanel({ guildId }: { guildId: string }) {
           label="Stammkanal"
           hint="Der Bot spielt hier, statt dem Aufrufer hinterherzulaufen. Kanäle, die er nicht betreten darf, sind ausgegraut."
         >
-          <select
+          <WebsiteSelect
             value={settings.channel_id || ""}
             onChange={(event) =>
               save({ channel_id: event.target.value || null })
@@ -342,12 +344,12 @@ export function MusicPanel({ guildId }: { guildId: string }) {
                 {channel.can_join && !channel.can_speak ? "  (stumm)" : ""}
               </option>
             ))}
-          </select>
+          </WebsiteSelect>
 
           {/* Was gerade gewählt ist -- als Zeile, nicht nur im
               zugeklappten Menü.
               
-              Ein <select> zeigt seine Auswahl zwar an, aber ohne
+              Ein <WebsiteSelect> zeigt seine Auswahl zwar an, aber ohne
               Kategorie und ohne den Hinweis, ob der Bot dort
               überhaupt sprechen darf. Genau das ist der häufigste
               Grund für "es passiert nichts". */}
@@ -441,7 +443,7 @@ export function MusicPanel({ guildId }: { guildId: string }) {
                   : undefined
               }
             >
-              <select
+              <WebsiteSelect
                 value={settings.autostart_playlist || ""}
                 onChange={(event) =>
                   save({ autostart_playlist: event.target.value || null })
@@ -454,7 +456,7 @@ export function MusicPanel({ guildId }: { guildId: string }) {
                     {list.name} ({list.count} Titel)
                   </option>
                 ))}
-              </select>
+              </WebsiteSelect>
             </Field>
           )}
         </div>

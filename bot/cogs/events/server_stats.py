@@ -70,11 +70,8 @@ class ServerStats(Cog):
 
     async def global_counts(self) -> dict[str, int]:
         """Botweite Live-Zahlen, ausschließlich für den Main-Support-Server."""
-        return {
-            "global_servers": len(self.client.guilds),
-            "global_users": len(self.client.users),
-            "global_commands": await command_stats.total_uses(),
-        }
+        from utils.global_stats import global_counts
+        return await global_counts(self.client)
 
     async def sync_guild(self, guild: discord.Guild) -> dict:
         settings = await store.get(guild.id)

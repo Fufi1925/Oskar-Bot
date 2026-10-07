@@ -1,5 +1,7 @@
 "use client";
 
+import { WebsiteSelect } from "@/components/ui/website-select";
+
 /**
  * Team-Update einrichten.
  *
@@ -527,7 +529,7 @@ export function TeamUpdatePanel({ guildId }: { guildId: string }) {
           </Field>
 
           <Field label="Und dann">
-            <select
+            <WebsiteSelect
               value={settings?.warn_action || "none"}
               onChange={(e) => patch({ warn_action: e.target.value })}
               className={INPUT}
@@ -535,7 +537,7 @@ export function TeamUpdatePanel({ guildId }: { guildId: string }) {
               <option value="none">Nichts — nur speichern</option>
               <option value="downrank">Zurückstufen</option>
               <option value="kick">Aus dem Team nehmen</option>
-            </select>
+            </WebsiteSelect>
           </Field>
         </div>
 

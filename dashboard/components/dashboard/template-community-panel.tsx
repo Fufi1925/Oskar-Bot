@@ -1,5 +1,7 @@
 "use client";
 
+import { WebsiteSelect } from "@/components/ui/website-select";
+
 /**
  * Community-Vorlagen: stöbern, ansehen, anwenden.
  *
@@ -1735,7 +1737,7 @@ export function TemplateCommunityPanel({ guildId }: { guildId: string }) {
         </div>
 
         {/* Sortierung als Knöpfe statt als Auswahlliste.
-            Ein <select> versteckt die Möglichkeiten hinter einem Klick;
+            Ein <WebsiteSelect> versteckt die Möglichkeiten hinter einem Klick;
             hier sieht man sofort, wonach sich ordnen lässt — und
             welche Ordnung gerade gilt. */}
         <div className="flex gap-1.5 flex-wrap">

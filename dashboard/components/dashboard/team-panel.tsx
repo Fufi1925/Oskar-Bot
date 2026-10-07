@@ -1,5 +1,7 @@
 "use client";
 
+import { WebsiteSelect } from "@/components/ui/website-select";
+
 import React, { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle, Check, Loader2, Search, Shield, Trash2, UserPlus, Users, X,
@@ -194,7 +196,7 @@ export function TeamPanel({ canAssign = false }: { canAssign?: boolean }) {
                 <span className="text-xs font-black uppercase tracking-widest text-slate-500">
                   Role
                 </span>
-                <select
+                <WebsiteSelect
                   value={roleKey}
                   onChange={(e) => setRoleKey(e.target.value)}
                   className="w-full appearance-none bg-[#0a0a0c] border border-white/10 rounded-2xl px-4 py-3 pr-9 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2024%2024%22%20stroke%3D%22%2394a3b8%22%20stroke-width%3D%222%22%3E%3Cpath%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20d%3D%22M19%209l-7%207-7-7%22/%3E%3C/svg%3E')] bg-[length:1.1rem] bg-[right_0.6rem_center] bg-no-repeat cursor-pointer"
@@ -211,7 +213,7 @@ export function TeamPanel({ canAssign = false }: { canAssign?: boolean }) {
                         ))}
                     </optgroup>
                   ))}
-                </select>
+                </WebsiteSelect>
               </label>
 
               <label className="block space-y-2">

@@ -1,5 +1,7 @@
 "use client";
 
+import { WebsiteSelect } from "@/components/ui/website-select";
+
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Ban, CheckCircle2, Clock3, ExternalLink, Gift, Lightbulb,
@@ -151,10 +153,10 @@ export function IdeasAdmin() {
               <Search className="absolute left-3.5 top-3.5 h-4 w-4 text-slate-500" />
               <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Titel, Text oder Ideen-ID suchen …" className="h-11 w-full rounded-xl border border-white/10 bg-black/20 pl-10 pr-4 text-sm text-white outline-none focus:border-indigo-500" />
             </div>
-            <select value={filter} onChange={(e) => setFilter(e.target.value)} className="h-11 rounded-xl border border-white/10 bg-[#17171d] px-4 text-sm text-white outline-none">
+            <WebsiteSelect value={filter} onChange={(e) => setFilter(e.target.value)} className="h-11 rounded-xl border border-white/10 bg-[#17171d] px-4 text-sm text-white outline-none">
               <option value="">Alle Status</option>
               {Object.entries(STATUS).map(([key, item]) => <option key={key} value={key}>{item.label}</option>)}
-            </select>
+            </WebsiteSelect>
           </div>
 
           {loading ? (
@@ -208,9 +210,9 @@ export function IdeasAdmin() {
               {selected.images?.length ? <div className="grid grid-cols-3 gap-2">{selected.images.map((image: string) => <img key={image} src={image} alt="Referenz" className="h-20 w-full rounded-lg object-cover" />)}</div> : null}
 
               <label className="block text-xs font-bold text-slate-400">Status
-                <select value={nextStatus} onChange={(e) => setNextStatus(e.target.value)} className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#17171d] px-3 text-sm text-white">
+                <WebsiteSelect value={nextStatus} onChange={(e) => setNextStatus(e.target.value)} className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#17171d] px-3 text-sm text-white">
                   {Object.entries(STATUS).map(([key, item]) => <option key={key} value={key}>{item.label}</option>)}
-                </select>
+                </WebsiteSelect>
               </label>
               <label className="block text-xs font-bold text-slate-400">Öffentliche Admin-Notiz
                 <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={4} placeholder="Begründung, Rückfrage oder Versionshinweis …" className="mt-2 w-full resize-none rounded-xl border border-white/10 bg-black/20 p-3 text-sm text-white outline-none focus:border-indigo-500" />
