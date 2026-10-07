@@ -247,6 +247,18 @@ async def write_snapshot(target: str) -> tuple[int, int]:
     """
     import shutil
 
+    # A second full copy must fit alongside the live databases and the last
+    # verified backup. Never fill the volume or delete that backup to make room.
+    sources = iter_database_files() + [name for name in JSON_CONFIG_FILES if os.path.isfile(name)]
+    estimate = sum(os.path.getsize(path) + (os.path.getsize(path + "-wal") if os.path.isfile(path + "-wal") else 0)
+                   for path in sources)
+    ancestor = os.path.abspath(target)
+    while not os.path.exists(ancestor):
+        ancestor = os.path.dirname(ancestor)
+    reserve = max(64 * 1024 * 1024, estimate // 10)
+    if shutil.disk_usage(ancestor).free < estimate + reserve:
+        raise OSError(28, "Not enough free disk space for a backup plus the live-data reserve", target)
+
     os.makedirs(target, exist_ok=True)
 
     copied = 0

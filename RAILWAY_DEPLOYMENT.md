@@ -261,3 +261,18 @@ npm run start
 | Musik funktioniert nicht | Lavalink Credentials prüfen |
 | 502 Bad Gateway | Dashboard-Server abgestürzt → Railway Logs checken |
 | CORS Fehler | `CORS_ORIGINS` Variable mit deiner URL setzen |
+
+Bei `database or disk is full` kann SQLite keine weiteren Daten schreiben.
+Die Website kann trotzdem erreichbar sein. Prüfe die Belegung des Railway-Volumes
+und erhöhe dessen Kapazität oder entferne gezielt entbehrliche Dateien nach einer
+externen Sicherung. Live-Datenbanken, deren `-wal`-Dateien und das letzte gültige
+Backup dürfen dabei nicht gelöscht werden.
+
+Die Fehlerberichterstattung pausiert nach einem eigenen Fehler für 60 Sekunden
+und versucht es anschließend beim nächsten Fehler erneut. Eigene Fehler werden
+nicht erneut gemeldet; höchstens acht Log-Berichte sind gleichzeitig vorgemerkt.
+SQLite-Wartezeiten laufen außerhalb des Bot-Event-Loops. Neue Backups starten nur,
+wenn die geschätzte Kopie einschließlich WAL-Dateien und eine Reserve von
+mindestens 64 MiB (bei größeren Kopien 10 %) auf das Ziel-Dateisystem passen.
+Diese Schutzmaßnahmen schaffen keinen zusätzlichen Platz auf einem bereits
+vollen Volume.

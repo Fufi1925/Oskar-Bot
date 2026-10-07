@@ -7,6 +7,9 @@ written to the audit table.
 from __future__ import annotations
 
 import hashlib
+import asyncio
+from contextlib import contextmanager
+from contextvars import ContextVar
 import json
 import logging
 import os
@@ -14,6 +17,7 @@ import platform
 import re
 import sqlite3
 import time
+import threading
 import traceback
 import uuid
 from datetime import datetime, timezone
@@ -31,13 +35,23 @@ DB_PATH = "db/support_operations.db"
 ERROR_STATES = {"new": "Neu", "investigating": "Untersuchung", "resolved": "Behoben"}
 INCIDENT_STATES = {"open": "Offen", "monitoring": "Beobachtung", "resolved": "Behoben"}
 SEVERITIES = {"low", "medium", "high", "critical"}
+_reporting = ContextVar("support_reporting", default=False)
+_report_lock = asyncio.Lock()
+_report_retry_at = 0.0
+REPORT_RETRY_SECONDS = 60
 
 
-def _connect() -> sqlite3.Connection:
+@contextmanager
+def _connect():
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
-    db = sqlite3.connect(DB_PATH)
+    db = sqlite3.connect(DB_PATH, timeout=1)
     db.row_factory = sqlite3.Row
-    return db
+    try:
+        with db:
+            yield db
+    finally:
+        # sqlite3's own context manager commits/rolls back but does not close.
+        db.close()
 
 
 def ensure() -> None:
@@ -306,7 +320,7 @@ def _container(title: str, body: str, *, color: int = 0x5865F2, rows: list | Non
 
 class ErrorActionView(discord.ui.LayoutView):
     """Persistent controls attached to every error report."""
-    def __init__(self, bot, error_id: str):
+    def __init__(self, bot, error_id: str, *, error: dict | None = None):
         super().__init__(timeout=None)
         self.bot = bot; self.error_id = error_id.upper()
         from discord.ui import ActionRow, Button, Container, Separator, TextDisplay
@@ -324,7 +338,7 @@ class ErrorActionView(discord.ui.LayoutView):
         box = Container(accent_color=0xED4245)
         box.add_item(TextDisplay(f"### {ZWARNING} Fehlerbericht · `{self.error_id}`"))
         box.add_item(Separator(visible=True))
-        box.add_item(TextDisplay(error_text(get_error(self.error_id) or {})))
+        box.add_item(TextDisplay(error_text(error if error is not None else (get_error(self.error_id) or {}))))
         box.add_item(row)
         self.add_item(box)
 
@@ -376,9 +390,23 @@ class SupportErrorLogHandler(logging.Handler):
     """Forward real Python ERROR records into the deduplicating centre."""
     def __init__(self, bot):
         super().__init__(level=logging.ERROR); self.bot = bot
+        self._slots = threading.BoundedSemaphore(8)
+        self._tasks = set()
+
+    def _completed(self, task):
+        self._tasks.discard(task)
+        self._slots.release()
+        if not task.cancelled():
+            # Always retrieve the exception: asyncio must never feed a failed
+            # reporter back into this root handler as another error report.
+            failure = task.exception()
+            if failure is not None:
+                logging.getLogger("support_operations").warning("Error reporter failed: %s", failure)
 
     def emit(self, record: logging.LogRecord) -> None:
-        if record.name.startswith("support_operations"):
+        if record.name.startswith("support_operations") or _reporting.get() or time.monotonic() < _report_retry_at:
+            return
+        if not self._slots.acquire(blocking=False):
             return
         try:
             if record.exc_info and record.exc_info[1]:
@@ -388,13 +416,24 @@ class SupportErrorLogHandler(logging.Handler):
                 exc = RuntimeError(record.getMessage())
                 trace = self.format(record)
             loop = self.bot.loop
-            loop.call_soon_threadsafe(
-                lambda: loop.create_task(report_error(
+            def start():
+                if loop.is_closed() or time.monotonic() < _report_retry_at:
+                    self._slots.release()
+                    return
+                coroutine = report_error(
                     self.bot, f"log:{record.name}", exc, trace=trace
-                ))
-            )
+                )
+                try:
+                    task = loop.create_task(coroutine, name="support-error-report")
+                except Exception:
+                    coroutine.close()
+                    self._slots.release()
+                    return
+                self._tasks.add(task)
+                task.add_done_callback(self._completed)
+            loop.call_soon_threadsafe(start)
         except Exception:
-            pass
+            self._slots.release()
 
 
 def install_log_reporting(bot) -> SupportErrorLogHandler:
@@ -410,15 +449,41 @@ def install_log_reporting(bot) -> SupportErrorLogHandler:
 
 async def report_error(bot, feature: str, exc: BaseException, *, guild_id: int | None = None,
                        user_id: int | None = None, trace: str = "") -> dict:
+    """Reporting must not block the bot or recursively report its own failure."""
+    global _report_retry_at
+    if time.monotonic() < _report_retry_at or _reporting.get():
+        return {}
+    async with _report_lock:
+        if time.monotonic() < _report_retry_at:
+            return {}
+        token = _reporting.set(True)
+        try:
+            return await _report_error(bot, feature, exc, guild_id=guild_id, user_id=user_id, trace=trace)
+        except Exception as failure:
+            _report_retry_at = time.monotonic() + REPORT_RETRY_SECONDS
+            logging.getLogger("support_operations").warning(
+                "Error centre unavailable; reporting paused for %ss: %s: %s",
+                REPORT_RETRY_SECONDS, type(failure).__name__, str(failure)[:250],
+            )
+            return {}
+        finally:
+            _reporting.reset(token)
+
+
+async def _report_error(bot, feature: str, exc: BaseException, *, guild_id: int | None = None,
+                        user_id: int | None = None, trace: str = "") -> dict:
     """Deduplicate, persist and post/update one private error-centre message."""
-    row, created = upsert_error(feature, exc, guild_id=guild_id, user_id=user_id, trace=trace)
-    channel_id = get_setting("error_channel_id")
+    def persist():
+        row, created = upsert_error(feature, exc, guild_id=guild_id, user_id=user_id, trace=trace)
+        return row, created, get_setting("error_channel_id")
+    # SQLite busy waits must not stall the Discord/API event loop.
+    row, created, channel_id = await asyncio.to_thread(persist)
     guild = bot.get_guild(MAIN_SUPPORT_GUILD_ID) if hasattr(bot, "get_guild") else None
     channel = guild.get_channel(int(channel_id)) if guild and channel_id.isdigit() else None
     if channel is None or not hasattr(channel, "send"):
         return row
     try:
-        view = ErrorActionView(bot, row["error_id"])
+        view = ErrorActionView(bot, row["error_id"], error=row)
         if not created and row.get("message_id"):
             try:
                 message = await channel.fetch_message(int(row["message_id"]))
@@ -427,7 +492,7 @@ async def report_error(bot, feature: str, exc: BaseException, *, guild_id: int |
             except (discord.NotFound, discord.Forbidden, discord.HTTPException):
                 pass
         message = await channel.send(view=view)
-        attach_error_message(row["error_id"], message.id)
+        await asyncio.to_thread(attach_error_message, row["error_id"], message.id)
     except discord.HTTPException:
         pass
     return row
