@@ -84,8 +84,8 @@ export function AdminLineChart({ labels, reihen, hoehe = 220, className, einheit
   const bereich = oben - unten || 1;
   const x = (i: number) => LINKS + (labels.length < 2 ? innenB / 2 : (i / (labels.length - 1)) * innenB);
   const y = (wert: number) => OBEN + innenH - ((wert - unten) / bereich) * innenH;
-  const xMarken = marken(labels.length).filter(index =>
-    index === labels.length - 1 || x(labels.length - 1) - x(index) >= 48);
+  const xMarken = new Set([...marken(labels.length)].filter(index =>
+    index === labels.length - 1 || x(labels.length - 1) - x(index) >= 48));
 
   const pfade = reihen.map((reihe) => {
     const teile: Array<Array<[number, number]>> = [];
