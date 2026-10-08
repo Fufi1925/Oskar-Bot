@@ -1,5 +1,6 @@
 "use client";
 
+import { ModerationTabs } from "@/components/dashboard/moderation-design";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   AlertTriangle, AtSign, ChevronDown, Hash, Link as LinkIcon, Loader2,
@@ -328,9 +329,7 @@ export function AutomodPanel({ guildId, liveStatus }: { guildId: string; liveSta
   return (
     <section className="space-y-5">
       <Warnings items={p.data?.warnings} />
-      <nav aria-label="AutoMod-Bereiche" className="flex flex-wrap gap-2 rounded-2xl border border-white/[.07] bg-[#202124] p-2">
-        {[["rules", "Regeln"], ["exceptions", "Ausnahmen"], ["live", "Live-Status"]].map(([key, label]) => <button key={key} type="button" aria-pressed={view === key} onClick={() => setView(key)} className={cn("rounded-xl px-4 py-2.5 text-sm transition-colors", view === key ? "bg-white/10 text-white" : "text-slate-400 hover:bg-white/5 hover:text-white")}>{label}</button>)}
-      </nav>
+      <ModerationTabs value={view} onChange={setView} items={[["rules", "Regeln"], ["exceptions", "Ausnahmen"], ["live", "Live-Status"]]} label="AutoMod-Bereiche" />
       <div hidden={view !== "rules"} className="space-y-5">
 
       <Card

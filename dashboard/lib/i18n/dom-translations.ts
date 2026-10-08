@@ -7157,6 +7157,21 @@ export const phrasePairs: Array<[de: string, en: string]> = [
   ["Systeminfos", "System information"],
   ["Vertrauenswürdige Bots", "Trusted bots"],
   ["Wähle eine Regel und passe Grenzwerte und Aktionen an. Änderungen werden gemeinsam gespeichert.", "Choose a rule and configure its limits and actions. All changes are saved together."],
+
+  // ════════════════════════════════════════════════════════════════
+  // Vollstaendige Abdeckung der Dashboard-Oberflaeche. Diese Eintraege
+  // stammen aus tools/build_dom_translations.py — nicht von Hand hier
+  // pflegen, sondern die Batches in tools/i18n_work/ anpassen und den
+  // Generator neu laufen lassen.
+  // ════════════════════════════════════════════════════════════════
+  ["Berechtigte Konten", "Authorized accounts"],
+  ["Honeypot-Bereiche", "Honeypot sections"],
+  ["Jetzt schließen oder öffnen", "Close or open now"],
+  ["Manuell steuern", "Manual controls"],
+  ["Notfall steuern", "Emergency controls"],
+  ["Rechte vorübergehend entziehen und sicher wiederherstellen.", "Temporarily remove permissions and safely restore them."],
+  ["Schutz und Moderation", "Protection and moderation"],
+  ["Verifizierungsbereiche", "Verification sections"],
 ];
 
 /**

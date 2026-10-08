@@ -1,5 +1,6 @@
 "use client";
 
+import { ModerationSection } from "@/components/dashboard/moderation-design";
 import React, { useEffect, useState } from "react";
 import { AlertTriangle, Loader2, RefreshCw, ShieldAlert, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
@@ -61,16 +62,16 @@ export function EmergencyPanel({ guildId }: { guildId: string }) {
     );
   }
 
-  if (!state) return null;
+  if (!state) return <ModerationSection icon={AlertTriangle} title="Einstellungen nicht verfügbar." onReload={load}><p className="text-sm text-slate-400">Erneut laden</p></ModerationSection>;
 
   return (
     <section className="space-y-6">
       <div
         className={cn(
-          "border rounded-3xl p-8",
+          "border rounded-2xl p-4 sm:p-6",
           state.active
             ? "bg-red-500/10 border-red-500/30"
-            : "bg-[#131318] border-slate-800"
+            : "bg-[#202124] border-white/[.07]"
         )}
       >
         <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -81,7 +82,7 @@ export function EmergencyPanel({ guildId }: { guildId: string }) {
               <ShieldCheck className="h-8 w-8 text-emerald-400" />
             )}
             <div>
-              <h3 className="text-xl font-black text-white">
+              <h3 className="text-xl font-semibold text-white">
                 {state.active ? "Lockdown is active" : "Normal operation"}
               </h3>
               <p className="text-sm text-slate-400 mt-1">
@@ -93,6 +94,8 @@ export function EmergencyPanel({ guildId }: { guildId: string }) {
           </div>
 
           <button
+            title="Status aktualisieren"
+            disabled={busy}
             onClick={() => load()}
             className="p-2.5 rounded-xl bg-white/[0.03] border border-white/5 hover:bg-white/[0.06] transition-all"
           >
@@ -101,7 +104,8 @@ export function EmergencyPanel({ guildId }: { guildId: string }) {
         </div>
       </div>
 
-      <div className="bg-[#131318] border border-slate-800 rounded-3xl p-8">
+      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
+      <ModerationSection icon={ShieldAlert} title="Notfall steuern" subtitle="Rechte vorübergehend entziehen und sicher wiederherstellen.">
         <p className="text-sm text-slate-400 leading-relaxed mb-6">
           A lockdown removes Administrator, Ban, Kick, Manage Channels, Manage Roles,
           Manage Server, Manage Webhooks, Mention Everyone, Manage Messages and Timeout
@@ -113,7 +117,7 @@ export function EmergencyPanel({ guildId }: { guildId: string }) {
           <button
             onClick={() => toggle(false)}
             disabled={busy}
-            className="w-full py-4 bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-emerald-500/25 disabled:opacity-50"
+            className="w-full py-4 bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 rounded-2xl font-semibold uppercase tracking-widest text-xs hover:bg-emerald-500/25 disabled:opacity-50"
           >
             {busy ? "Restoring..." : "Lift lockdown and restore permissions"}
           </button>
@@ -130,13 +134,14 @@ export function EmergencyPanel({ guildId }: { guildId: string }) {
               <button
                 onClick={() => toggle(true)}
                 disabled={busy}
-                className="flex-1 py-4 bg-red-500/15 text-red-400 border border-red-500/30 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-red-500/25 disabled:opacity-50"
+                className="flex-1 py-4 bg-red-500/15 text-red-400 border border-red-500/30 rounded-2xl font-semibold uppercase tracking-widest text-xs hover:bg-red-500/25 disabled:opacity-50"
               >
                 {busy ? "Locking down..." : "Yes, lock the server down"}
               </button>
               <button
+                disabled={busy}
                 onClick={() => setConfirm(false)}
-                className="px-6 py-4 rounded-2xl bg-white/[0.03] border border-white/5 text-slate-400 hover:text-white transition-all text-xs font-black uppercase tracking-widest"
+                className="px-6 py-4 rounded-2xl bg-white/[0.03] border border-white/5 text-slate-400 hover:text-white transition-all text-xs font-semibold uppercase tracking-widest"
               >
                 Cancel
               </button>
@@ -145,23 +150,24 @@ export function EmergencyPanel({ guildId }: { guildId: string }) {
         ) : (
           <button
             onClick={() => setConfirm(true)}
-            className="w-full py-4 rounded-2xl bg-white/[0.03] border border-red-500/20 text-red-400/80 hover:text-red-400 hover:bg-red-500/10 transition-all font-black uppercase tracking-widest text-xs"
+            className="w-full py-4 rounded-2xl bg-white/[0.03] border border-red-500/20 text-red-400/80 hover:text-red-400 hover:bg-red-500/10 transition-all font-semibold uppercase tracking-widest text-xs"
           >
             Start emergency lockdown
           </button>
         )}
-      </div>
-
+      </ModerationSection>
+      <div className="space-y-5">
+      <ModerationSection icon={ShieldCheck} title="Berechtigte Konten"><p className="text-2xl font-semibold text-white">{state.authorised_users.length}</p><div className="flex flex-wrap gap-2">{state.authorised_users.map(user => <span key={user.id} data-no-translate className="rounded-lg border border-white/10 bg-[#18191c] px-3 py-2 text-sm text-slate-300">{user.name || user.id}</span>)}</div></ModerationSection>
       {state.locked_roles.length > 0 && (
-        <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6">
-          <p className="text-xs font-black uppercase tracking-widest text-slate-500 mb-3">
+        <div className="bg-[#202124] border border-white/[.07] rounded-2xl p-4 sm:p-6">
+          <p className="text-xs font-semibold uppercase tracking-widest text-slate-500 mb-3">
             Affected roles
           </p>
           <div className="flex flex-wrap gap-1.5">
             {state.locked_roles.map((role) => (
               <span
                 key={role.id}
-                className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-red-400/10 text-red-300 border border-red-400/20"
+                className="text-xs font-bold px-2.5 py-1 rounded-lg bg-red-400/10 text-red-300 border border-red-400/20"
               >
                 {role.name}
               </span>
@@ -169,6 +175,8 @@ export function EmergencyPanel({ guildId }: { guildId: string }) {
           </div>
         </div>
       )}
+      </div>
+      </div>
     </section>
   );
 }

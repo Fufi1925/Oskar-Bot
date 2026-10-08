@@ -1,5 +1,6 @@
 "use client";
 
+import { ModerationTabs } from "@/components/dashboard/moderation-design";
 import React, { useCallback, useState } from "react";
 import {
   AlertTriangle, Bot, Check, ChevronDown, Pencil, Shield, ShieldAlert,
@@ -206,9 +207,7 @@ export function AntiNukePanel({ guildId, reports }: { guildId: string; reports?:
         {[{ label: "Aktive Schutzbereiche", value: activeActions.length }, { label: "Ausnahmen", value: whitelist.length }, { label: "Nicht geladene Bereiche", value: actions.filter(a => !a.loaded).length }].map(item => <div key={item.label} className="rounded-2xl border border-white/[.07] bg-[#202124] p-5"><p className="text-xs text-slate-400">{item.label}</p><p className="mt-2 text-2xl font-semibold text-white">{item.value}</p></div>)}
       </div>
       <Warnings items={p.data?.warnings} />
-      <nav aria-label="Anti-Nuke-Bereiche" className="grid grid-cols-2 gap-2 rounded-2xl border border-white/[.07] bg-[#202124] p-2 sm:grid-cols-4">
-        {[{ key: "rules", label: "Schutzbereiche" }, { key: "exceptions", label: "Ausnahmen" }, { key: "system", label: "Systeminfos" }, { key: "reports", label: "Angriffsmeldungen" }].map(item => <button key={item.key} type="button" aria-pressed={view === item.key} onClick={() => setView(item.key)} className={cn("rounded-xl px-3 py-3 text-sm transition", view === item.key ? "bg-white/10 text-white" : "text-slate-400 hover:bg-white/5")}>{item.label}</button>)}
-      </nav>
+      <ModerationTabs value={view} onChange={setView} items={[["rules", "Schutzbereiche"], ["exceptions", "Ausnahmen"], ["system", "Systeminfos"], ["reports", "Angriffsmeldungen"]]} label="Anti-Nuke-Bereiche" />
 
       {/* Die vertrauten Bots aus `TRUSTED_BOTS`.
           Nur zum Anschauen -- die Liste gilt global und wird in

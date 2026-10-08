@@ -1,3 +1,4 @@
+import { ModerationHeader } from "@/components/dashboard/moderation-design";
 import React from "react";
 import { Shield } from "lucide-react";
 import { AutomodPanel } from "@/components/dashboard/automod-panel";
@@ -8,16 +9,8 @@ export const revalidate = 0;
 
 export default function Page({ params }: { params: { guildId: string } }) {
   return (
-    <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
-      <div>
-        <h2 className="text-2xl font-semibold text-white flex items-center gap-2">
-          <Shield className="h-6 w-6 text-primary" />
-          Automod
-        </h2>
-        <p className="text-slate-400 mt-1">
-          Spam, Caps, Links und Massenpings automatisch abfangen.
-        </p>
-      </div>
+    <div className="max-w-6xl mx-auto space-y-5 animate-in fade-in slide-in-from-bottom-2 duration-500">
+      <ModerationHeader icon={Shield} title="AutoMod" description="Spam, Caps, Links und Massenpings automatisch abfangen." />
 
       <AutomodPanel guildId={params.guildId} liveStatus={<AutomodStatus guildId={params.guildId} />} />
 

@@ -1,5 +1,7 @@
 "use client";
 
+import { ModerationHeader } from "@/components/dashboard/moderation-design";
+
 import { websiteLocale, useWebsiteLocale } from "@/lib/i18n/locale";
 import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
@@ -349,16 +351,7 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
 
   return (
     <section className="space-y-5 pb-4">
-      <header className="rounded-2xl border border-white/[.07] bg-[#202124] p-5 sm:p-7">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="flex items-start gap-4">
-            <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-blue-400/10 text-blue-300"><ShieldCheck className="h-6 w-6" /></span>
-            <div><h1 className="text-xl font-semibold text-white sm:text-2xl">Verifizierung</h1>
-              <p className="mt-2 max-w-xl text-sm leading-relaxed text-slate-400">Neue Mitglieder sicher freischalten. Wähle Kanal und Rollen, passe die Nachricht an und veröffentliche dein Panel.</p>
-            </div>
-          </div>
-          <span className="rounded-lg border border-white/[.07] bg-white/[.025] px-3 py-1.5 text-xs text-slate-400">Discord OAuth2</span>
-        </div>
+      <ModerationHeader icon={ShieldCheck} title="Verifizierung" description="Neue Mitglieder sicher freischalten. Wähle Kanal und Rollen, passe die Nachricht an und veröffentliche dein Panel.">
         <div className="mt-6 grid gap-3 sm:grid-cols-3">
           {[
             { label: "Einrichtung", value: configured ? "Bereit" : "Kanal und Rollen fehlen", icon: Settings2, color: configured ? "text-emerald-300" : "text-amber-300" },
@@ -368,17 +361,18 @@ export function VerifyPanel({ guildId }: { guildId: string }) {
             <Icon className={cn("h-5 w-5 shrink-0", color)} /><div className="min-w-0"><p className="text-xs text-slate-500">{label}</p><p className={cn("mt-1 text-sm font-medium", color)}>{value}</p></div>
           </div>)}
         </div>
-      </header>
+      </ModerationHeader>
 
       <Warnings items={p.data?.warnings} onGoSetup={() => switchTab("setup")} />
 
       {/* Mobile-friendly section navigation. */}
-      <nav className="rounded-2xl border border-white/[.07] bg-[#202124] p-2">
+      <nav aria-label="Verifizierungsbereiche" className="rounded-2xl border border-white/[.07] bg-[#202124] p-2">
         <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 lg:grid-cols-5">
           {TABS.map(({ id, label, icon: Icon }) => (
             <button
               type="button"
               key={id}
+              aria-pressed={tab === id}
               onClick={() => switchTab(id)}
               className={cn(
                 "flex min-h-12 items-center justify-center gap-2 rounded-xl px-3 py-3 text-sm font-medium transition",

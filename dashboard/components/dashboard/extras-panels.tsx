@@ -1,5 +1,6 @@
 "use client";
 
+import { ModerationSection, ModerationField, moderationInput } from "@/components/dashboard/moderation-design";
 import { WebsiteSelect } from "@/components/ui/website-select";
 
 /**
@@ -400,16 +401,18 @@ export function NightmodePanel({ guildId }: { guildId: string }) {
   const guard = useSaveGuard(p.dirty, "nightmode-save-bar");
 
   if (p.loading) return <Loading />;
+  if (!p.data) return <ModerationSection icon={AlertTriangle} title="Einstellungen nicht verfügbar." onReload={p.reload}><p className="text-sm text-slate-400">Erneut laden</p></ModerationSection>;
 
   const hours = Array.from({ length: 24 }, (_, i) => i);
 
   return (
     <section className="space-y-5">
-      <Card
+      <ModerationSection
         icon={Moon}
         title="Nachts automatisch schließen"
         subtitle="Zur eingestellten Zeit darf niemand mehr schreiben, morgens geht es von allein wieder auf."
         onReload={p.reload}
+        reloadDisabled={p.busy || !!p.dirty}
       >
         {!p.data?.can_manage && (
           <Warn>
@@ -419,10 +422,10 @@ export function NightmodePanel({ guildId }: { guildId: string }) {
 
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div>
-            <p className="font-black text-white">
+            <p className="font-semibold text-white">
               {p.value("enabled") ? "Zeitplan läuft" : "Ausgeschaltet"}
             </p>
-            <p className="text-[11px] text-slate-500">
+            <p className="text-xs text-slate-500">
               {p.data?.active
                 ? "Die Kanäle sind gerade geschlossen."
                 : "Die Kanäle sind offen."}
@@ -431,49 +434,52 @@ export function NightmodePanel({ guildId }: { guildId: string }) {
           <InlineToggle
             checked={p.value("enabled")}
             onCheckedChange={(v: boolean) => p.set("enabled", v)}
+            disabled={p.busy}
             label="Zeitplan aktiv"
           />
         </div>
 
         <div className="grid md:grid-cols-2 gap-5">
-          <Field label="Schließen um">
+          <ModerationField label="Schließen um">
             <WebsiteSelect
               value={p.value("start_hour") ?? 23}
               onChange={(e) => p.set("start_hour", Number(e.target.value))}
-              className={INPUT}
+              className={moderationInput}
             >
               {hours.map((h) => (
                 <option key={h} value={h}>{String(h).padStart(2, "0")}:00</option>
               ))}
             </WebsiteSelect>
-          </Field>
-          <Field label="Öffnen um">
+          </ModerationField>
+          <ModerationField label="Öffnen um">
             <WebsiteSelect
               value={p.value("end_hour") ?? 7}
               onChange={(e) => p.set("end_hour", Number(e.target.value))}
-              className={INPUT}
+              className={moderationInput}
             >
               {hours.map((h) => (
                 <option key={h} value={h}>{String(h).padStart(2, "0")}:00</option>
               ))}
             </WebsiteSelect>
-          </Field>
+          </ModerationField>
         </div>
 
-        <Field label="Zeitzone" hint="Damit die Uhrzeiten zu eurem Tag passen.">
+        <ModerationField label="Zeitzone" hint="Damit die Uhrzeiten zu eurem Tag passen.">
           <WebsiteSelect
             value={p.value("timezone") ?? "Europe/Berlin"}
             onChange={(e) => p.set("timezone", e.target.value)}
-            className={INPUT}
+            className={moderationInput}
           >
             {["Europe/Berlin", "Europe/London", "Europe/Vienna", "Europe/Zurich",
               "America/New_York", "UTC"].map((tz) => (
               <option key={tz} value={tz}>{tz}</option>
             ))}
           </WebsiteSelect>
-        </Field>
+        </ModerationField>
 
-        <Field label="Welche Kanäle" hint="Nur diese werden geschlossen.">
+      </ModerationSection>
+      <ModerationSection icon={Hash} title="Kanäle" subtitle="Nur diese werden geschlossen.">
+        <ModerationField label="Welche Kanäle" hint="Nur diese werden geschlossen.">
           <ChannelPicker
             guildId={guildId}
             value={(p.value("channels") || [])[0] || ""}
@@ -493,7 +499,7 @@ export function NightmodePanel({ guildId }: { guildId: string }) {
               return (
                 <span
                   key={cid}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#0e0e12] border border-slate-800 text-sm text-slate-300"
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#18191c] border border-white/[.07] text-sm text-slate-300"
                 >
                   #{info?.name || cid}
                   <button
@@ -501,7 +507,7 @@ export function NightmodePanel({ guildId }: { guildId: string }) {
                       p.set("channels",
                         (p.value("channels") || []).filter((c: string) => c !== cid))
                     }
-                    className="text-slate-600 hover:text-red-400"
+                    className="text-slate-500 hover:text-red-400"
                   >
                     ×
                   </button>
@@ -509,26 +515,29 @@ export function NightmodePanel({ guildId }: { guildId: string }) {
               );
             })}
           </div>
-        </Field>
+        </ModerationField>
 
+      </ModerationSection>
+      <ModerationSection icon={Lock} title="Manuell steuern" subtitle="Jetzt schließen oder öffnen">
+        {!!p.dirty && <p className="text-sm text-amber-300">Erst speichern oder verwerfen</p>}
         <div className="flex gap-3 flex-wrap">
           <button
             onClick={() => p.act(() => api.toggleNightmode(guildId, true))}
-            disabled={p.busy}
-            className="flex-1 min-w-[140px] flex items-center justify-center gap-2 py-3 rounded-xl bg-white/[0.03] border border-white/10 text-xs font-black uppercase tracking-widest text-slate-300 hover:text-primary disabled:opacity-40 transition-all"
+            disabled={p.busy || !!p.dirty}
+            className="flex-1 min-w-[140px] flex items-center justify-center gap-2 py-3 rounded-xl bg-white/[0.03] border border-white/10 text-xs font-semibold uppercase tracking-widest text-slate-300 hover:text-primary disabled:opacity-40 transition-all"
           >
             <Lock className="h-4 w-4" /> Jetzt schließen
           </button>
           <button
             onClick={() => p.act(() => api.toggleNightmode(guildId, false))}
-            disabled={p.busy}
-            className="flex-1 min-w-[140px] flex items-center justify-center gap-2 py-3 rounded-xl bg-white/[0.03] border border-white/10 text-xs font-black uppercase tracking-widest text-slate-300 hover:text-primary disabled:opacity-40 transition-all"
+            disabled={p.busy || !!p.dirty}
+            className="flex-1 min-w-[140px] flex items-center justify-center gap-2 py-3 rounded-xl bg-white/[0.03] border border-white/10 text-xs font-semibold uppercase tracking-widest text-slate-300 hover:text-primary disabled:opacity-40 transition-all"
           >
             <Check className="h-4 w-4" /> Jetzt öffnen
           </button>
         </div>
 
-      </Card>
+      </ModerationSection>
 
       <StickySaveBar
         id="nightmode-save-bar"
@@ -552,20 +561,22 @@ export function JailPanel({ guildId }: { guildId: string }) {
   const guard = useSaveGuard(p.dirty, "jail-save-bar");
 
   if (p.loading) return <Loading />;
+  if (!p.data) return <ModerationSection icon={AlertTriangle} title="Einstellungen nicht verfügbar." onReload={p.reload}><p className="text-sm text-slate-400">Erneut laden</p></ModerationSection>;
 
   return (
     <section className="space-y-5">
-      <Card
+      <ModerationSection
         icon={Lock}
         title="Isolation statt Bann"
         subtitle="Wer eingesperrt wird, verliert alle Rollen und sieht nur noch einen Kanal. Rückgängig zu machen, im Gegensatz zu einem Bann."
         onReload={p.reload}
+        reloadDisabled={p.busy || !!p.dirty}
       >
         {p.data?.problem && <Warn>{p.data.problem}</Warn>}
 
         {!p.data?.configured && (
           <div className="rounded-xl bg-primary/[0.06] border border-primary/25 p-4 space-y-3">
-            <p className="text-[12px] text-slate-300 leading-relaxed">
+            <p className="text-sm text-slate-300 leading-relaxed">
               Noch nicht eingerichtet. Der Bot kann Rolle und Kanal anlegen und
               die Rolle in <b>allen</b> Kanälen sperren — von Hand heißt das,
               jeden einzelnen Kanal zu bearbeiten.
@@ -577,8 +588,8 @@ export function JailPanel({ guildId }: { guildId: string }) {
                   "Jail-Rolle und -Kanal anlegen und in allen Kanälen sperren?"
                 )
               }
-              disabled={p.busy}
-              className="w-full py-3 rounded-xl bg-primary text-xs font-black uppercase tracking-widest hover:brightness-110 disabled:opacity-40 transition-all"
+              disabled={p.busy || !!p.dirty}
+              className="w-full py-3 rounded-xl bg-primary text-xs font-semibold uppercase tracking-widest hover:brightness-110 disabled:opacity-40 transition-all"
             >
               Automatisch einrichten
             </button>
@@ -586,46 +597,46 @@ export function JailPanel({ guildId }: { guildId: string }) {
         )}
 
         <div className="grid md:grid-cols-2 gap-5">
-          <Field label="Jail-Rolle">
+          <ModerationField label="Jail-Rolle">
             <RolePicker
               guildId={guildId}
-              value={p.value("jail_role")?.id || ""}
+              value={(typeof p.value("jail_role") === "string" ? p.value("jail_role") : p.value("jail_role")?.id) || ""}
               onChange={(id) => p.set("jail_role", id)}
               placeholder="Rolle wählen"
             />
-          </Field>
-          <Field label="Jail-Kanal" hint="Der einzige Kanal, den Eingesperrte sehen.">
+          </ModerationField>
+          <ModerationField label="Jail-Kanal" hint="Der einzige Kanal, den Eingesperrte sehen.">
             <ChannelPicker
               guildId={guildId}
-              value={p.value("jail_channel")?.id || ""}
+              value={(typeof p.value("jail_channel") === "string" ? p.value("jail_channel") : p.value("jail_channel")?.id) || ""}
               onChange={(id) => p.set("jail_channel", id)}
               placeholder="Kanal wählen"
               channelTypes={["0", "5"]}
             />
-          </Field>
-          <Field label="Mod-Rolle" hint="Wer einsperren darf.">
+          </ModerationField>
+          <ModerationField label="Mod-Rolle" hint="Wer einsperren darf.">
             <RolePicker
               guildId={guildId}
-              value={p.value("mod_role")?.id || ""}
+              value={(typeof p.value("mod_role") === "string" ? p.value("mod_role") : p.value("mod_role")?.id) || ""}
               onChange={(id) => p.set("mod_role", id)}
               placeholder="Rolle wählen"
             />
-          </Field>
-          <Field label="Protokoll-Kanal">
+          </ModerationField>
+          <ModerationField label="Protokoll-Kanal">
             <ChannelPicker
               guildId={guildId}
-              value={p.value("log_channel")?.id || ""}
+              value={(typeof p.value("log_channel") === "string" ? p.value("log_channel") : p.value("log_channel")?.id) || ""}
               onChange={(id) => p.set("log_channel", id)}
               placeholder="Kein Protokoll"
               channelTypes={["0", "5"]}
             />
-          </Field>
+          </ModerationField>
         </div>
 
-      </Card>
+      </ModerationSection>
 
-      <div>
-        <h3 className="font-black text-white flex items-center gap-2 mb-3">
+      <div className="rounded-2xl border border-white/[.07] bg-[#202124] p-4 sm:p-6">
+        <h3 className="font-semibold text-white flex items-center gap-2 mb-3">
           <Users className="h-5 w-5 text-slate-500" />
           Gerade eingesperrt
           <span className="text-xs font-normal text-slate-500">
@@ -633,7 +644,7 @@ export function JailPanel({ guildId }: { guildId: string }) {
           </span>
         </h3>
         {!p.data?.inmates?.length ? (
-          <p className="text-sm text-slate-500 py-8 text-center border border-dashed border-slate-800 rounded-2xl">
+          <p className="text-sm text-slate-500 py-8 text-center border border-dashed border-white/[.07] rounded-2xl">
             Niemand.
           </p>
         ) : (
@@ -641,7 +652,7 @@ export function JailPanel({ guildId }: { guildId: string }) {
             {p.data.inmates.map((inmate: any) => (
               <div
                 key={inmate.user_id}
-                className="flex items-center gap-3 bg-[#131318] border border-slate-800 rounded-2xl px-4 py-3"
+                className="flex items-center gap-3 bg-[#202124] border border-white/[.07] rounded-2xl px-4 py-3"
               >
                 {inmate.avatar ? (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -656,7 +667,7 @@ export function JailPanel({ guildId }: { guildId: string }) {
                   )}>
                     {inmate.name}
                   </p>
-                  <p className="text-[11px] text-slate-500 truncate">
+                  <p className="text-xs text-slate-500 truncate">
                     {inmate.reason || "kein Grund angegeben"}
                     {inmate.mod_name && ` · von ${inmate.mod_name}`}
                   </p>

@@ -1,6 +1,8 @@
 "use client";
 
 import { websiteLocale, useWebsiteLocale } from "@/lib/i18n/locale";
+import { ModerationTabs } from "@/components/dashboard/moderation-design";
+import { StickySaveBar, useSaveGuard } from "@/components/dashboard/save-bar";
 import { WebsiteSelect } from "@/components/ui/website-select";
 
 import { useCallback, useEffect, useState } from "react";
@@ -34,6 +36,7 @@ export function HoneypotPanel({ guildId }: { guildId: string }) {
   const [busy, setBusy] = useState(false);
   const [channel, setChannel] = useState("");
   const [days, setDays] = useState(1);
+  const [view, setView] = useState("setup");
   const [roles, setRoles] = useState<string[]>([]);
   const apply = useCallback((result: Settings) => {
     setData(result);
@@ -54,6 +57,8 @@ export function HoneypotPanel({ guildId }: { guildId: string }) {
     catch (error: any) { toast.error(error?.message || "Aktion fehlgeschlagen."); }
     finally { setBusy(false); }
   };
+  const dirty = !!data && (channel !== (data.custom_channel_id || "") || days !== data.delete_days || JSON.stringify(roles) !== JSON.stringify(data.whitelist_roles || []));
+  const guard = useSaveGuard(dirty ? 1 : 0, "honeypot-save-bar");
   if (loading) return <div className={card}><Loader2 className="h-5 w-5 animate-spin text-slate-400" /></div>;
   if (!data) return <div className={card}><p className="mb-3 text-slate-400">Einstellungen nicht verfügbar.</p><button onClick={load} className={action}>Erneut laden</button></div>;
   if (!data.enabled) return <div className={card}>
@@ -64,20 +69,21 @@ export function HoneypotPanel({ guildId }: { guildId: string }) {
       return result;
     }, "Honeypot aktiviert.")}>Honeypot einschalten</button>
   </div>;
-  const dirty = channel !== (data.custom_channel_id || "") || days !== data.delete_days || JSON.stringify(roles) !== JSON.stringify(data.whitelist_roles || []);
   return <div className="space-y-5">
     <section className={card}>
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3"><span className="grid h-11 w-11 place-items-center rounded-xl bg-emerald-400/10"><ShieldCheck className="h-5 w-5 text-emerald-300" /></span>
           <div><h3 className="font-semibold text-white">Schutz aktiv</h3><p className="mt-1 text-sm text-slate-400">#{data.channel_name || "Kanal fehlt"} · {Number(data.kicks || 0).toLocaleString(websiteLocale())} erfolgreiche Softbans</p></div>
         </div>
-        <div className="flex gap-2"><button onClick={load} disabled={busy} className={action} aria-label="Statistik aktualisieren"><RefreshCw className="h-4 w-4" /></button>
-          <button disabled={busy} className={action} onClick={() => run(() => api.honeypotResend(guildId), "Panel aktualisiert.")}><Send className="h-4 w-4" />Panel erneuern</button></div>
+        <div className="flex gap-2"><button onClick={load} disabled={busy || dirty} className={action} aria-label="Statistik aktualisieren"><RefreshCw className="h-4 w-4" /></button>
+          <button disabled={busy || dirty} className={action} onClick={() => run(() => api.honeypotResend(guildId), "Panel aktualisiert.")}><Send className="h-4 w-4" />Panel erneuern</button></div>
       </div>
       {(data.permissions.detail || data.channel_missing) && <div role="status" className="mt-4 flex gap-2 rounded-xl border border-amber-400/20 bg-amber-400/5 p-3 text-sm text-amber-200"><AlertTriangle className="h-5 w-5 shrink-0" /><span>{data.permissions.detail || "Der Köder-Kanal wurde gelöscht. Mit „Panel erneuern“ wird er wiederhergestellt."}</span></div>}
     </section>
 
-    <div className="grid gap-5 lg:grid-cols-2">
+    <ModerationTabs value={view} onChange={setView} items={[["setup", "Einrichtung"], ["exceptions", "Ausnahmen"], ["panel", "Discord-Panel"]]} label="Honeypot-Bereiche" />
+    <div hidden={view !== "setup"}>
+    <fieldset disabled={busy} className="grid gap-5 lg:grid-cols-2 disabled:opacity-60">
       <section className={card}><h3 className="flex items-center gap-2 font-semibold text-white"><MessageSquare className="h-4 w-4 text-blue-300" />Köder-Kanal</h3>
         <p className="mt-2 text-sm leading-relaxed text-slate-400">Automatisch steht der Kanal ganz oben. Ein eigener Kanal bleibt an seiner bisherigen Position.</p>
         <label className="mt-5 block text-sm text-slate-300" htmlFor="honeypot-channel">Kanal auswählen</label>
@@ -95,21 +101,26 @@ export function HoneypotPanel({ guildId }: { guildId: string }) {
         </WebsiteSelect>
         <p className="mt-3 text-xs text-slate-500">Ohne Bannrecht oder bei zu hoher Rolle kann der Bot keinen Softban ausführen.</p>
       </section>
+    </fieldset>
     </div>
 
+    <div hidden={view !== "exceptions"} className="space-y-5">
     <section className={card}><h3 className="flex items-center gap-2 font-semibold text-white"><Users className="h-4 w-4 text-violet-300" />Ausnahmen</h3>
       <p className="mt-2 text-sm text-slate-400">Mitglieder mit diesen Rollen werden nicht bestraft. Server-Inhaber und Bots sind immer geschützt.</p>
       <div className="mt-4 grid max-h-64 gap-2 overflow-y-auto sm:grid-cols-2">
-        {data.roles.map(role => <label key={role.id} className="flex cursor-pointer items-center gap-3 rounded-xl border border-white/[.07] bg-[#18191c] p-3 text-sm text-slate-300"><input type="checkbox" checked={roles.includes(role.id)} onChange={event => setRoles(current => event.target.checked ? [...current, role.id] : current.filter(id => id !== role.id))} className="h-4 w-4 accent-primary" /><span className="truncate">{role.name}</span></label>)}
+        {data.roles.map(role => <label key={role.id} className="flex cursor-pointer items-center gap-3 rounded-xl border border-white/[.07] bg-[#18191c] p-3 text-sm text-slate-300"><input type="checkbox" disabled={busy} checked={roles.includes(role.id)} onChange={event => setRoles(current => event.target.checked ? [...current, role.id] : current.filter(id => id !== role.id))} className="h-4 w-4 accent-primary" /><span className="truncate">{role.name}</span></label>)}
       </div>
       {data.roles.length === 0 && <p className="mt-4 text-sm text-slate-500">Keine zusätzlichen Rollen vorhanden.</p>}
     </section>
 
+    <LogUmgezogen guildId={guildId} logKey="honeypot" was="Wer softgebannt wurde" />
+    </div>
+    <div hidden={view !== "panel"}>
     <section className={card}><div className="mb-4 flex items-center justify-between"><h3 className="font-semibold text-white">Discord-Panel</h3><span className="rounded-lg bg-white/5 px-2 py-1 text-xs text-slate-500">Fester Warntext</span></div>
       <div className="rounded-xl border border-white/[.07] bg-[#18191c] p-5"><h4 className="text-lg font-bold text-white">{TITLE}</h4><p className="mt-3 text-sm leading-relaxed text-slate-300">This channel is used to catch spam bots. Any messages sent here will result in <strong>a softban</strong>.</p><span className="mt-4 inline-block rounded-lg border border-white/10 px-3 py-2 text-sm text-slate-300">Softbans: {data.kicks || 0}</span></div>
       <p className="mt-3 text-xs text-slate-500">Der Knopf öffnet privat Informationen, aktuelle Statistiken und Links zu University Bot. Die Warnung ist nicht bearbeitbar.</p>
     </section>
-    <LogUmgezogen guildId={guildId} logKey="honeypot" was="Wer softgebannt wurde" />
-    <div className="sticky bottom-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-[#202124]/95 p-4 shadow-xl backdrop-blur"><p className="text-sm text-slate-400">{dirty ? "Ungespeicherte Änderungen" : "Alle Änderungen gespeichert"}</p><button disabled={busy || !dirty} onClick={() => run(() => api.honeypotSave(guildId, { custom_channel_id: channel || null, delete_days: days, whitelist_roles: roles }), "Einstellungen gespeichert.")} className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-50">{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}Speichern</button></div>
+    </div>
+    <StickySaveBar id="honeypot-save-bar" count={dirty ? 1 : 0} busy={busy} shake={guard.shake} onDiscard={() => apply(data)} onSave={() => run(() => api.honeypotSave(guildId, { custom_channel_id: channel || null, delete_days: days, whitelist_roles: roles }), "Einstellungen gespeichert.")} />
   </div>;
 }
