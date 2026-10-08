@@ -47,7 +47,9 @@ def add_fields(modal, questions):
             field=discord.ui.TextInput(style=discord.TextStyle.paragraph if kind=='paragraph' else discord.TextStyle.short,
                 required=required,max_length=question.get('max_length',4000 if kind=='paragraph' else 200),
                 placeholder=question.get('placeholder') or None)
-        modal.add_item(discord.ui.Label(text=label,description=description,component=field))
+        wrapper = discord.ui.Label(text=label,description=description,component=field)
+        wrapper._university_dm_custom_copy = True
+        modal.add_item(wrapper)
         inputs.append((question,field))
     return inputs
 

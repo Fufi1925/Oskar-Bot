@@ -13,6 +13,7 @@
 # ╚══════════════════════════════════════════════════════════════════╝
 
 import discord
+from utils.dm_i18n import bot_reason
 from utils.emoji import DELETE, TICK
 from discord.ext import commands
 from discord import ui
@@ -134,7 +135,7 @@ class Warn(commands.Cog):
             )
 
             try:
-                await user.send(f"You have been warned in **{ctx.guild.name}** by **{ctx.author}**. Reason: {reason_to_send}")
+                await user.send(f"You have been warned in **{ctx.guild.name}** by **{ctx.author}**. Reason: {bot_reason(reason, user.id, reason_to_send)}")
                 dm_status = "Yes"
             except discord.Forbidden:
                 dm_status = "No"

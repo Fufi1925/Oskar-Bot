@@ -67,7 +67,7 @@ class Context(commands.Context):
         if not (self.channel.permissions_for(self.me)).send_messages:
             try:
                 await self.author.send(
-                    "bot dont have perms to send msg in that channel")
+                    "I do not have permission to send messages in that channel.")
             except discord.Forbidden:  
                 pass
             return
@@ -79,7 +79,7 @@ class Context(commands.Context):
         if not (self.channel.permissions_for(self.me)).send_messages:
             try:
                 await self.author.send(
-                    "bot dont have perms to send msg in that channel")
+                    "I do not have permission to send messages in that channel.")
             except discord.Forbidden:  
                 pass
             return

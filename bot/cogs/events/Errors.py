@@ -78,7 +78,7 @@ class Errors(Cog):
         return
 
     if isinstance(error, commands.NoPrivateMessage):
-      embed = discord.Embed(color=0xFF0000, description="You can't use my commands in DMs.")
+      embed = discord.Embed(color=0xFF0000, description="You cannot use this command in DMs.")
       embed.set_author(name=ctx.author, icon_url=ctx.author.avatar.url if ctx.author.avatar else ctx.author.default_avatar.url)
       embed.set_thumbnail(url=ctx.author.avatar.url if ctx.author.avatar else ctx.author.default_avatar.url)
       await ctx.reply(delete_after=20, view=from_embed(embed))
@@ -90,7 +90,7 @@ class Errors(Cog):
       return
 
     if isinstance(error, commands.CommandOnCooldown):
-      embed = discord.Embed(color=0xFF0000, description=f"**{ctx.author.mention} Couldown is here Bro Tryy commands in {error.retry_after:.2f} seconds**.")
+      embed = discord.Embed(color=0xFF0000, description=f"{ctx.author.mention} Please wait {error.retry_after:.2f} seconds before using this command again.")
       embed.set_author(name="Cooldown", icon_url=self.client.user.display_avatar.url)
       
       embed.set_footer(text=f"Requested by {ctx.author}", icon_url=ctx.author.avatar.url if ctx.author.avatar else ctx.author.default_avatar.url)

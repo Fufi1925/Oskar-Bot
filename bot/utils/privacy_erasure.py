@@ -167,6 +167,9 @@ def subject_export(user_id: str) -> dict[str, Any]:
         "account_preferences": _export_rows(
             "db/account_preferences.db", "account_preferences", "user_id=?", (uid,)
         ),
+        "dm_preferences": _export_rows(
+            "db/dm_preferences.db", "dm_preferences", "CAST(user_id AS TEXT)=?", (uid,)
+        ),
         "cookie_confirmations": _export_rows(
             "db/cookie_consent.db", "cookie_consents", "user_id=?", (uid,)
         ),
@@ -337,6 +340,7 @@ def erase_subject(user_id: str, username: str = "") -> dict[str, int]:
     result: dict[str, int] = {}
 
     result["dashboard_profile"] = _delete("db/admin_config.db", "dashboard_logins", "user_id = ?", (uid,))
+    result["dm_preferences"] = _delete("db/dm_preferences.db", "dm_preferences", "CAST(user_id AS TEXT)=?", (uid,))
     result["cookie_consents"] = _delete("db/cookie_consent.db", "cookie_consents", "user_id = ?", (uid,))
 
     result["web_application"] = _update(

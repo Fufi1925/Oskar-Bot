@@ -20,7 +20,10 @@ def need_user(data):
 async def send_dm(bot,user_id,title,text,link=""):
     try:
         user=bot.get_user(int(user_id)) or await bot.fetch_user(int(user_id))
-        panel=Panel(f"{emoji.STAR} {title}",text,"University Bot Ideen",tone="success" if "angenommen" in title.lower() else "warning")
+        from utils.dm_i18n import preserve_values
+        sections = text.split("\n\n", 2)
+        panel=Panel(f"{emoji.STAR} {title}",*sections,"University Bot Ideen",tone="success" if "angenommen" in title.lower() else "warning")
+        preserve_values(panel, [sections[0], *sections[2:]])
         if link:
             panel.add_item(discord.ui.ActionRow(discord.ui.Button(label="Belohnung einlösen",url=link)))
         await user.send(view=panel)

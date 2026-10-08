@@ -352,10 +352,11 @@ class Applications(commands.Cog):
             return True
         try:
             dm = await user.create_dm()
-            await dm.send(view=CV2(
+            from utils.dm_i18n import preserve_body
+            await dm.send(view=preserve_body(CV2(
                 f"Frage {index + 1} von {len(fragen)}",
                 fragen[index],
-            ))
+            )))
             return True
         except (discord.Forbidden, discord.HTTPException):
             return False

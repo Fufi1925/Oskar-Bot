@@ -72,6 +72,12 @@ class PasswordSentView(LayoutView):
         )
 
 
+def _private_password(password):
+    text = TextDisplay(password)
+    text._university_dm_custom_copy = True
+    return text
+
+
 class PasswordDMView(LayoutView):
     def __init__(self, password):
         super().__init__(timeout=None)
@@ -80,7 +86,7 @@ class PasswordDMView(LayoutView):
             build_container(
                 TextDisplay("🎁 **Here is your password:**"),
                 Separator(visible=True),
-                TextDisplay(password),
+                _private_password(password),
             )
         )
 

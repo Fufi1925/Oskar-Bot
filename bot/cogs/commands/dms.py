@@ -98,7 +98,8 @@ class StaffDMCog(commands.Cog):
             )
             embed.set_footer(text=f"This message was sent by {ctx.author.name}.")
 
-            await member.send(view=from_embed(embed))
+            from utils.dm_i18n import preserve_body
+            await member.send(view=preserve_body(from_embed(embed)))
 
             view = SuccessView(member)
             await ctx.reply(view=view)

@@ -237,7 +237,7 @@ class NoPrefix(commands.Cog):
                         log_channel = self.client.get_channel(1396794297386532978)
                         if log_channel:
                             embed_log = CV2Embed(
-                                title="No Prefix Expired",
+                                title="No Prefix expired",
                                 description=(
                     f"**User**: [{user}](https://discord.com/users/{user.id})\n"
                     f"**User Mention**: {user.mention}\n"
@@ -265,18 +265,18 @@ class NoPrefix(commands.Cog):
                                     await member.remove_roles(role)
 
                         embed = CV2Embed(
-                            description=f"{ICONS_WARNING} Your No Prefix status has **Expired**. You will now require the prefix to use commands.",
+                            description=f"{ICONS_WARNING} Your No Prefix access has **expired**. You now need a prefix to use commands.",
                             color=0xFF0000,
                         )
                         embed.set_author(
-                            name="No Prefix Expired",
+                            name="No Prefix expired",
                             icon_url=user.display_avatar.url
                             if user.avatar
                             else user.default_avatar.url,
                         )
 
                         embed.set_footer(
-                            text=f"{BRAND_NAME}  - No Prefix, Join support to regain access."
+                            text=f"{BRAND_NAME} - No Prefix: join the support server to regain access."
                         )
                         support = Button(
                             label="Support", emoji=HANDSHAKE,
@@ -583,8 +583,8 @@ class NoPrefix(commands.Cog):
             await db.commit()
 
         embed = CV2Embed(
-            title="Congratulations you got 2 months No Prefix!",
-            description=f"You've been credited 2 months of global No Prefix for boosting our Partnered Servers. You can now use my commands without prefix. If you wish to remove it, please reach out [Support Server](https://discord.gg/F3TedBAVZT).",
+            title="Congratulations! You received 2 months of No Prefix.",
+            description=f"You received 2 months of global No Prefix for boosting our partner servers. You can now use my commands without a prefix. To remove this feature, contact our [support server](https://discord.gg/F3TedBAVZT).",
             color=0xFF0000,
         )
         try:
@@ -615,8 +615,8 @@ class NoPrefix(commands.Cog):
             await db.commit()
 
         embed = CV2Embed(
-            title=f"{ICONS_WARNING} Global No Prefix Expired",
-            description=f"Hey {user.mention}, your global no prefix has expired!\n\n__**Reason:**__ Unboosting our partnered Server.\nIf you think this is a mistake then please reach out [Support Server](https://discord.gg/F3TedBAVZT).",
+            title=f"{ICONS_WARNING} Global No Prefix expired",
+            description=f"Hey {user.mention}, your global No Prefix has expired because you stopped boosting our partner server. If you think this is a mistake, contact our [support server](https://discord.gg/F3TedBAVZT).",
             color=0xFF0000,
         )
 

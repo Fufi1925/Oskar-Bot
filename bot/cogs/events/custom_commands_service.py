@@ -340,7 +340,7 @@ class CustomCommandsService(Cog):
                     await send(text, action)
                 elif kind == "dm" and (text or has_message):
                     kwargs = await self._reply_options(action, member, guild, channel, arguments, variables)
-                    await member.send(text or None, **kwargs)
+                    await member.send(text or None, _university_dm_custom_copy=True, **kwargs)
                 elif kind == "send_channel" and (text or has_message):
                     target = guild.get_channel_or_thread(int(action.get("channel_id", 0) or 0))
                     if target is not None:

@@ -303,7 +303,7 @@ class SetupInput(discord.ui.Modal):
                 if isinstance(button, discord.ui.Button)
             ):
                 await interaction.user.send(
-                    "**All setup!** (Game will soon start after the opponent finishes)"
+                    "All set! The game will start when your opponent finishes setting up."
                 )
                 return self.button.view.stop()
         else:

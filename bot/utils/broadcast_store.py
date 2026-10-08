@@ -291,13 +291,14 @@ def build_view(record_row: dict):
     """The broadcast as a Components V2 panel."""
     from utils.panels import ACCENT, Panel
 
-    return Panel(
+    from utils.dm_i18n import preserve_values
+    return preserve_values(Panel(
         record_row.get("title") or "Nachricht vom Bot-Team",
         record_row.get("message") or "",
         tone=record_row.get("tone") or "info",
         accent=ACCENT.get(record_row.get("tone") or "info"),
         image_url=record_row.get("image_url") or None,
-    )
+    ), [record_row.get("title"), record_row.get("message")])
 
 
 async def deliver(

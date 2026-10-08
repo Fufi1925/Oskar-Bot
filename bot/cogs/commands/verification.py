@@ -544,9 +544,10 @@ async def finish_verification (bot ,interaction ,role ,method :str ):
 
     if settings .get ("dm_on_success"):
         try :
-            await member .send (view =VCard (
+            from utils.dm_i18n import verification_success
+            await member .send (view =verification_success(VCard (
             "Verification complete",fill ("dm_success_text"),tone ='success',
-            ))
+            ), settings))
         except (discord .Forbidden ,discord .HTTPException ):
             # Closed DMs are not a verification failure.
             pass 

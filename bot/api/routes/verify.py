@@ -468,6 +468,9 @@ async def complete_oauth_verification(
             "Powered by University Bot",
             tone="error",
         )
+        if settings.get('blacklist_custom_message'):
+            from utils.dm_i18n import preserve_values
+            preserve_values(denial_card, [f"{bot_emoji.CROSS_ALT} {title}"[:256], description[:3800]])
         try:
             await run_on_bot_loop(member.send(view=denial_card))
         except (discord.Forbidden, discord.HTTPException):
@@ -581,9 +584,10 @@ async def complete_oauth_verification(
             role=role_mentions, member_count=guild.member_count or 0,
         )
         try:
-            await run_on_bot_loop(member.send(view=StatusCard(
+            from utils.dm_i18n import verification_success
+            await run_on_bot_loop(member.send(view=verification_success(StatusCard(
                 "Verification complete", text[:3800], tone="success"
-            )))
+            ), settings)))
         except (discord.Forbidden, discord.HTTPException):
             pass
     return {

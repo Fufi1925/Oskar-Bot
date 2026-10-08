@@ -357,7 +357,11 @@ async def send_dm(bot, guild, member, action: str, templates: dict, values: dict
     if nutzer is None:
         return False
     try:
-        await nutzer.send(view=CV2(titel, text))
+        from utils.dm_i18n import preserve_values
+        custom = []
+        if vorlage.get('title') != store.DEFAULT_TITLES.get(action): custom.append(titel)
+        if vorlage.get('dm_body') != store.DEFAULT_DM.get(action): custom.append(text)
+        await nutzer.send(view=preserve_values(CV2(titel, text), custom))
         return True
     except (discord.Forbidden, discord.HTTPException, AttributeError):
         return False

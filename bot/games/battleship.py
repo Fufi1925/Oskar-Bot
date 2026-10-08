@@ -295,7 +295,7 @@ class BattleShip:
 
         async def place_ship(ship: str, size: int, color: tuple[int, int, int]) -> bool:
             embed, file, _, _ = await self.get_file(user)
-            await user.send(f"Where do you want to place your `{ship}`?\nSend the start coordinate... e.g. (`a1`)", file=file, view=from_embed(embed))
+            await user.send(f"Where do you want to place your `{ship}`?\nSend the starting coordinate, for example `a1`.", file=file, view=from_embed(embed))
 
             def check(msg: discord.Message) -> bool:
                 if not msg.guild and msg.author == user:
@@ -308,13 +308,13 @@ class BattleShip:
                 )
             except asyncio.TimeoutError:
                 await user.send(
-                    f"The timeout of {self.timeout} seconds, has been reached. Aborting..."
+                    f"The timeout of {self.timeout} seconds has been reached. The game has been cancelled."
                 )
                 return False
 
             _, start = self.get_coords(message.content)
 
-            await user.send("Do you want it to be vertical?\nSay `yes` or `no`")
+            await user.send("Do you want it to be vertical?\nReply with `yes` or `no`.")
 
             def check(msg: discord.Message) -> bool:
                 if not msg.guild and msg.author == user:
@@ -327,7 +327,7 @@ class BattleShip:
                 )
             except asyncio.TimeoutError:
                 await user.send(
-                    f"The timeout of {self.timeout} seconds, has been reached. Aborting..."
+                    f"The timeout of {self.timeout} seconds has been reached. The game has been cancelled."
                 )
                 return False
 
@@ -344,13 +344,13 @@ class BattleShip:
             if board._is_valid(new_ship):
                 board.ships.append(new_ship)
             else:
-                await user.send("That is a not a valid location, please try again")
+                await user.send("That is not a valid location. Please try again.")
                 await place_ship(ship, size, color)
 
         for ship, (size, color) in SHIPS.items():
             await place_ship(ship, size, color)
 
-        await user.send("All setup! (Game will soon start after the opponent finishes)")
+        await user.send("All set! The game will start when your opponent finishes setting up.")
         return True
 
     async def start(

@@ -13,6 +13,7 @@
 # ╚══════════════════════════════════════════════════════════════════╝
 
 import discord
+from utils.dm_i18n import bot_reason
 from utils.emoji import TICK, ZWARNING
 from discord.ext import commands
 from discord import ui
@@ -100,7 +101,7 @@ class Ban(commands.Cog):
 
         # Try to DM the user
         try:
-            await user.send(f"{ZWARNING} You have been banned from **{ctx.guild.name}** by **{ctx.author}**. Reason: {reason or 'No reason provided'}")
+            await user.send(f"{ZWARNING} You have been banned from **{ctx.guild.name}** by **{ctx.author}**. Reason: {bot_reason(reason, user.id)}")
             dm_status = "Yes"
         except discord.Forbidden:
             dm_status = "No"

@@ -13,6 +13,7 @@
 # ╚══════════════════════════════════════════════════════════════════╝
 
 import discord
+from utils.dm_i18n import bot_reason
 from utils.emoji import CROSS, DELETE, TICK, ZWARNING
 from discord.ext import commands
 from discord import ui
@@ -185,7 +186,7 @@ class Mute(commands.Cog):
             return await ctx.send(view=from_embed(error))
 
         try:
-            await user.send(f"{ZWARNING} You have been muted in **{ctx.guild.name}** by **{ctx.author}** for {duration_text}. Reason: {reason or 'None'}")
+            await user.send(f"{ZWARNING} You have been muted in **{ctx.guild.name}** by **{ctx.author}** for {duration_text}. Reason: {bot_reason(reason, user.id)}")
             dm_status = "Yes"
         except discord.Forbidden:
             dm_status = "No"

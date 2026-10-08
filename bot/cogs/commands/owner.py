@@ -428,7 +428,7 @@ class Owner(commands.Cog):
     async def dm(self, ctx, user: discord.User, *, message: str):
         """ DM the user of your choice """
         try:
-            await user.send(message)
+            await user.send(message, _university_dm_custom_copy=True)
             await ctx.send(f"{TICK} | Successfully Sent a DM to **{user}**")
         except discord.Forbidden:
             await ctx.send("This user might be having DMs blocked or it's a bot account...")           

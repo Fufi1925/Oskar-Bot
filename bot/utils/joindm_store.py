@@ -244,13 +244,16 @@ def build_view(settings: dict, member, guild):
     if footer:
         sections.append(footer)
 
-    return Panel(
+    from utils.dm_i18n import preserve_values
+    view = Panel(
         fill(settings.get("title"), member, guild) or "Willkommen",
         *sections,
         accent=settings.get("colour") or DEFAULTS["colour"],
         image_url=settings.get("image_url") or None,
         buttons=buttons,
     )
+    custom = [fill(settings.get(key), member, guild) for key in ('title', 'message', 'footer', 'button_label') if settings.get(key) and settings.get(key) != DEFAULTS.get(key)]
+    return preserve_values(view, custom)
 
 
 def may_send(settings: dict, member) -> str | None:

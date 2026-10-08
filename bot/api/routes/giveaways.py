@@ -812,14 +812,12 @@ async def _announce(bot, record: dict, winner_ids: list[int], *, reroll=False, d
                     "user_name": getattr(member, "display_name", ""),
                 },
             )
-            sent = await _send_dm(
-                db, member, message_id,
-                StatusCard(
-                    "Du hast gewonnen!",
-                    f"{body}\n\n[Zum Gewinnspiel]({url})",
-                    tone="success",
-                ),
-            )
+            from utils.dm_i18n import preserve_values
+            dm_card = StatusCard("Du hast gewonnen!", body, tone="success")
+            if record.get('msg_winner_dm') and record['msg_winner_dm'] != DEFAULT_MESSAGES['msg_winner_dm']:
+                preserve_values(dm_card, [body])
+            dm_card.add_item(discord.ui.ActionRow(discord.ui.Button(label='Go to giveaway', url=url)))
+            sent = await _send_dm(db, member, message_id, dm_card)
 
             # Nur zwischen tatsaechlich verschickten Nachrichten warten,
             # und nicht hinter der letzten: sonst kostet ein Abschluss

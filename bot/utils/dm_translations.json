@@ -1,0 +1,3018 @@
+[
+  {
+    "en": "You received the role **{0}**.",
+    "de": "Du hast die Rolle **{0}** bekommen."
+  },
+  {
+    "en": "You received the roles **{0}**.",
+    "de": "Du hast die Rollen **{0}** bekommen."
+  },
+  {
+    "en": "unlimited",
+    "de": "unbegrenzt"
+  },
+  {
+    "en": "No reason provided.",
+    "de": "Kein Grund angegeben."
+  },
+  {
+    "en": "No reason",
+    "de": "Kein Grund"
+  },
+  {
+    "en": "Carrier",
+    "de": "Flugzeugträger"
+  },
+  {
+    "en": "Battleship",
+    "de": "Schlachtschiff"
+  },
+  {
+    "en": "Destroyer",
+    "de": "Zerstörer"
+  },
+  {
+    "en": "Submarine",
+    "de": "U-Boot"
+  },
+  {
+    "en": "Patrol Boat",
+    "de": "Patrouillenboot"
+  },
+  {
+    "en": "Unexpected Error",
+    "de": "Unerwarteter Fehler"
+  },
+  {
+    "en": "**Something went wrong while running `{0}`.**\nThis is a bug on our side, not something you did. It has been written to the log.",
+    "de": "**Beim Ausführen von `{0}` ist ein Fehler aufgetreten.**\nDas ist ein Fehler auf unserer Seite, den du nicht verursacht hast. Er wurde im Log erfasst."
+  },
+  {
+    "en": "Warning",
+    "de": "Verwarnung"
+  },
+  {
+    "en": "New team member",
+    "de": "Neu im Team"
+  },
+  {
+    "en": "Removed from the team",
+    "de": "Team-Ausschluss"
+  },
+  {
+    "en": "Reranked",
+    "de": "Rückstufung"
+  },
+  {
+    "en": "Ticket rating",
+    "de": "Ticket-Bewertung"
+  },
+  {
+    "en": "Ticket questions",
+    "de": "Ticket-Fragen"
+  },
+  {
+    "en": "Server not found.",
+    "de": "Server nicht gefunden."
+  },
+  {
+    "en": "The action could not be completed. Please try again.",
+    "de": "Die Aktion konnte nicht abgeschlossen werden. Bitte versuche es erneut."
+  },
+  {
+    "en": "Bot lacks permission to assign roles. Please contact an administrator.",
+    "de": "Dem Bot fehlt die Berechtigung, Rollen zu vergeben. Bitte wende dich an einen Administrator."
+  },
+  {
+    "en": "Verified role not found. Please contact an administrator.",
+    "de": "Die Verifizierungsrolle wurde nicht gefunden. Bitte wende dich an einen Administrator."
+  },
+  {
+    "en": "Verification system is not configured or disabled.",
+    "de": "Die Verifizierung ist nicht eingerichtet oder deaktiviert."
+  },
+  {
+    "en": "System Unavailable",
+    "de": "System nicht verfügbar"
+  },
+  {
+    "en": "You are already verified! You can access all channels.",
+    "de": "Du bist bereits verifiziert und hast Zugriff auf alle Kanäle."
+  },
+  {
+    "en": "You are already verified in this server!",
+    "de": "Du bist auf diesem Server bereits verifiziert!"
+  },
+  {
+    "en": "Already Verified",
+    "de": "Bereits verifiziert"
+  },
+  {
+    "en": "You are already verified.",
+    "de": "Du bist bereits verifiziert."
+  },
+  {
+    "en": "Already completed",
+    "de": "Schon erledigt"
+  },
+  {
+    "en": "That role no longer exists.",
+    "de": "Die Rolle gibt es nicht mehr."
+  },
+  {
+    "en": "You are no longer a member of the server.",
+    "de": "Du bist nicht mehr auf dem Server."
+  },
+  {
+    "en": "I can no longer find that server.",
+    "de": "Den Server finde ich nicht mehr."
+  },
+  {
+    "en": "That was not the code from the image.\nGo back to the server and restart verification.",
+    "de": "Das war nicht der Code aus dem Bild.\nGeh zurück in den Server und starte die Verifizierung neu."
+  },
+  {
+    "en": "The code you entered is incorrect. Please try again by clicking the verification button in the server.",
+    "de": "Dein eingegebener Code ist falsch. Bitte versuche es erneut über den Verifizierungsbutton auf dem Server."
+  },
+  {
+    "en": "Incorrect Code",
+    "de": "Falscher Code"
+  },
+  {
+    "en": "Which code is shown in the image?",
+    "de": "Welcher Code steht im Bild?"
+  },
+  {
+    "en": "Enter the 6-character code from the image",
+    "de": "Gib den sechsstelligen Code aus dem Bild ein"
+  },
+  {
+    "en": "Verification Code",
+    "de": "Verifizierungscode"
+  },
+  {
+    "en": "Enter Verification Code",
+    "de": "Verifizierungscode eingeben"
+  },
+  {
+    "en": "{0}× Member permissions granted",
+    "de": "{0}× Rechte an Mitglied vergeben"
+  },
+  {
+    "en": "Member permissions granted",
+    "de": "Rechte an Mitglied vergeben"
+  },
+  {
+    "en": "{0}× Integration added",
+    "de": "{0}× Integration hinzugefügt"
+  },
+  {
+    "en": "Integration added",
+    "de": "Integration hinzugefügt"
+  },
+  {
+    "en": "{0}× Server settings changed",
+    "de": "{0}× Server-Einstellungen geändert"
+  },
+  {
+    "en": "Server settings changed",
+    "de": "Server-Einstellungen geändert"
+  },
+  {
+    "en": "{0}× @everyone abused",
+    "de": "{0}× @everyone missbraucht"
+  },
+  {
+    "en": "@everyone abused",
+    "de": "@everyone missbraucht"
+  },
+  {
+    "en": "{0}× Bot added",
+    "de": "{0}× Bot hinzugefügt"
+  },
+  {
+    "en": "Bot added",
+    "de": "Bot hinzugefügt"
+  },
+  {
+    "en": "{0}× Webhook updated",
+    "de": "{0}× Webhook geändert"
+  },
+  {
+    "en": "Webhook updated",
+    "de": "Webhook geändert"
+  },
+  {
+    "en": "{0}× Webhook deleted",
+    "de": "{0}× Webhook gelöscht"
+  },
+  {
+    "en": "Webhook deleted",
+    "de": "Webhook gelöscht"
+  },
+  {
+    "en": "{0}× Webhook created",
+    "de": "{0}× Webhook erstellt"
+  },
+  {
+    "en": "Webhook created",
+    "de": "Webhook erstellt"
+  },
+  {
+    "en": "{0}× Members removed",
+    "de": "{0}× Mitglieder entfernt"
+  },
+  {
+    "en": "Members removed",
+    "de": "Mitglieder entfernt"
+  },
+  {
+    "en": "{0}× Member kicked",
+    "de": "{0}× Mitglied gekickt"
+  },
+  {
+    "en": "Member kicked",
+    "de": "Mitglied gekickt"
+  },
+  {
+    "en": "{0}× Member banned",
+    "de": "{0}× Mitglied gebannt"
+  },
+  {
+    "en": "Member banned",
+    "de": "Mitglied gebannt"
+  },
+  {
+    "en": "{0}× Role updated",
+    "de": "{0}× Rolle geändert"
+  },
+  {
+    "en": "Role updated",
+    "de": "Rolle geändert"
+  },
+  {
+    "en": "{0}× Role deleted",
+    "de": "{0}× Rolle gelöscht"
+  },
+  {
+    "en": "Role deleted",
+    "de": "Rolle gelöscht"
+  },
+  {
+    "en": "{0}× Role created",
+    "de": "{0}× Rolle erstellt"
+  },
+  {
+    "en": "Role created",
+    "de": "Rolle erstellt"
+  },
+  {
+    "en": "{0}× Channel updated",
+    "de": "{0}× Kanal geändert"
+  },
+  {
+    "en": "Channel updated",
+    "de": "Kanal geändert"
+  },
+  {
+    "en": "{0}× Channel deleted",
+    "de": "{0}× Kanal gelöscht"
+  },
+  {
+    "en": "Channel deleted",
+    "de": "Kanal gelöscht"
+  },
+  {
+    "en": "{0}× Channel created",
+    "de": "{0}× Kanal erstellt"
+  },
+  {
+    "en": "Channel created",
+    "de": "Kanal erstellt"
+  },
+  {
+    "en": "{0} Setup",
+    "de": "{0} platzieren",
+    "localized": [
+      0
+    ]
+  },
+  {
+    "en": "Do you want it to be vertical? (y/n)",
+    "de": "Soll es senkrecht stehen? (y/n)"
+  },
+  {
+    "en": "Enter the starting coordinate",
+    "de": "Startkoordinate eingeben"
+  },
+  {
+    "en": "Enter your target coordinate",
+    "de": "Zielkoordinate eingeben"
+  },
+  {
+    "en": "Input a coordinate",
+    "de": "Koordinate eingeben"
+  },
+  {
+    "en": "Please confirm every required checkbox.",
+    "de": "Bitte bestätige alle erforderlichen Checkboxen."
+  },
+  {
+    "en": "Go to giveaway",
+    "de": "Zum Gewinnspiel"
+  },
+  {
+    "en": "{0} This command is already in progress. Please let it finish and try again afterward.",
+    "de": "{0} Dieser Befehl läuft bereits. Bitte warte, bis er abgeschlossen ist, und versuche es danach erneut."
+  },
+  {
+    "en": "{0} Please wait {1} seconds before using this command again.",
+    "de": "{0} Bitte warte {1} Sekunden, bevor du diesen Befehl erneut verwendest."
+  },
+  {
+    "en": "You cannot use this command in DMs.",
+    "de": "Diesen Befehl kannst du nicht in Direktnachrichten verwenden."
+  },
+  {
+    "en": "Your account must be {0} days old (it is {1}).",
+    "de": "Dein Account muss {0} Tage alt sein (er ist {1})."
+  },
+  {
+    "en": "Welcome to the team of **{0}**! Your role: **{1}**.\n\n**Reason:** {2}",
+    "de": "Willkommen im Team von **{0}**! Deine Rolle: **{1}**.\n\n**Grund:** {2}"
+  },
+  {
+    "en": "You received a team warning on **{0}** ({1} in total).\n\n**Reason:** {2}",
+    "de": "Du hast auf **{0}** eine Team-Verwarnung bekommen ({1} insgesamt).\n\n**Grund:** {2}"
+  },
+  {
+    "en": "You are no longer on the team of **{0}**.\n\n**Reason:** {1}",
+    "de": "Du bist auf **{0}** nicht mehr im Team.\n\n**Grund:** {1}"
+  },
+  {
+    "en": "You were demoted on **{0}**: {1} → **{2}**.\n\n**Reason:** {3}",
+    "de": "Du wurdest auf **{0}** zurückgestuft: {1} → **{2}**.\n\n**Grund:** {3}"
+  },
+  {
+    "en": "You were promoted on **{0}**: {1} → **{2}**.\n\n**Reason:** {3}",
+    "de": "Du wurdest auf **{0}** befördert: {1} → **{2}**.\n\n**Grund:** {3}"
+  },
+  {
+    "en": "Team admission",
+    "de": "Team-Aufnahme"
+  },
+  {
+    "en": "Team warning",
+    "de": "Team-Verwarnung"
+  },
+  {
+    "en": "Team departure",
+    "de": "Team-Austritt"
+  },
+  {
+    "en": "Demoted",
+    "de": "Zurückstufung"
+  },
+  {
+    "en": "Promoted",
+    "de": "Beförderung"
+  },
+  {
+    "en": "patrol boat",
+    "de": "Patrouillenboot"
+  },
+  {
+    "en": "submarine",
+    "de": "U-Boot"
+  },
+  {
+    "en": "destroyer",
+    "de": "Zerstörer"
+  },
+  {
+    "en": "battleship",
+    "de": "Schlachtschiff"
+  },
+  {
+    "en": "carrier",
+    "de": "Flugzeugträger"
+  },
+  {
+    "en": "warned",
+    "de": "verwarnt"
+  },
+  {
+    "en": "kicked",
+    "de": "gekickt"
+  },
+  {
+    "en": "banned",
+    "de": "gebannt"
+  },
+  {
+    "en": "Unlimited",
+    "de": "Unbegrenzt"
+  },
+  {
+    "en": "{0} day",
+    "de": "{0} Tag"
+  },
+  {
+    "en": "{0} hour",
+    "de": "{0} Stunde"
+  },
+  {
+    "en": "{0} minute",
+    "de": "{0} Minute"
+  },
+  {
+    "en": "{0} second",
+    "de": "{0} Sekunde"
+  },
+  {
+    "en": "{0} days",
+    "de": "{0} Tage"
+  },
+  {
+    "en": "{0} hours",
+    "de": "{0} Stunden"
+  },
+  {
+    "en": "{0} minutes",
+    "de": "{0} Minuten"
+  },
+  {
+    "en": "{0} seconds",
+    "de": "{0} Sekunden"
+  },
+  {
+    "en": "Score",
+    "de": "Bewertung"
+  },
+  {
+    "en": "Submit feedback",
+    "de": "Bewertung abgeben"
+  },
+  {
+    "en": "This rating request is no longer available.",
+    "de": "Diese Bewertungsanfrage ist nicht mehr verfügbar."
+  },
+  {
+    "en": "Rating unavailable",
+    "de": "Bewertung nicht verfügbar"
+  },
+  {
+    "en": "Thank you for your feedback.",
+    "de": "Danke für deine Bewertung."
+  },
+  {
+    "en": "You have already submitted feedback for this ticket.",
+    "de": "Du hast dieses Ticket bereits bewertet."
+  },
+  {
+    "en": "Already rated",
+    "de": "Bereits bewertet"
+  },
+  {
+    "en": "Check your answers",
+    "de": "Prüfe deine Antworten"
+  },
+  {
+    "en": "Please contact the support team directly.",
+    "de": "Bitte wende dich direkt an das Support-Team."
+  },
+  {
+    "en": "Ratings disabled",
+    "de": "Bewertungen deaktiviert"
+  },
+  {
+    "en": "Only the ticket creator can submit feedback.",
+    "de": "Nur der Ticket-Ersteller kann eine Bewertung abgeben."
+  },
+  {
+    "en": "Rating unavailable",
+    "de": "Bewertung nicht verfügbar"
+  },
+  {
+    "en": "Please contact the server administrators.",
+    "de": "Bitte wende dich an die Server-Administratoren."
+  },
+  {
+    "en": "Ticket system disabled",
+    "de": "Ticketsystem deaktiviert"
+  },
+  {
+    "en": "Claim reward",
+    "de": "Belohnung einlösen"
+  },
+  {
+    "en": "Timeout **not** possible",
+    "de": "Timeout **nicht** moeglich"
+  },
+  {
+    "en": "10-minute timeout",
+    "de": "10 Minuten Timeout"
+  },
+  {
+    "en": "The role could **not** be removed",
+    "de": "Rolle konnte **nicht** entzogen werden"
+  },
+  {
+    "en": "Role removed again",
+    "de": "Rolle wieder entzogen"
+  },
+  {
+    "en": "**Actions taken:** {0}",
+    "de": "**Getan:** {0}",
+    "localized": [
+      0
+    ]
+  },
+  {
+    "en": "This is an attempt to increase their **own** permissions from moderator to administrator, rather than an attack on the server.",
+    "de": "Das ist kein Angriff auf den Server, sondern der Versuch, die **eigenen** Rechte zu erweitern — von Moderator auf Administrator."
+  },
+  {
+    "en": "{0} gave themselves the **{1}** role, which grants **Administrator**.",
+    "de": "{0} hat sich selbst die Rolle **{1}** gegeben — und die traegt **Administrator**."
+  },
+  {
+    "en": "Get help",
+    "de": "Hilfe holen"
+  },
+  {
+    "en": "Review Anti-Nuke",
+    "de": "Anti-Nuke prüfen"
+  },
+  {
+    "en": "Restore server",
+    "de": "Server wiederherstellen"
+  },
+  {
+    "en": "**So far in this attack:** {0}",
+    "de": "**Bisher in diesem Angriff:** {0}",
+    "localized": [
+      0
+    ]
+  },
+  {
+    "en": "**Cleaned up:** deleted {0} channels created by the attacker.",
+    "de": "**Aufgeräumt:** {0} vom Angreifer erstellte Kanäle gelöscht."
+  },
+  {
+    "en": "**Details:** {0}",
+    "de": "**Details:** {0}"
+  },
+  {
+    "en": "**Responsible user:** {0}",
+    "de": "**Verursacher:** {0}"
+  },
+  {
+    "en": "**{0}** — the responsible user was banned and the change was reverted.",
+    "de": "**{0}** — der Verursacher wurde gebannt und die Änderung rückgängig gemacht.",
+    "localized": [
+      0
+    ]
+  },
+  {
+    "en": "Attack prevented — {0}",
+    "de": "Angriff abgewehrt — {0}"
+  },
+  {
+    "en": "Attack prevented",
+    "de": "Angriff abgewehrt"
+  },
+  {
+    "en": "Empty messages are not forwarded.",
+    "de": "Leere Nachrichten werden nicht weitergeleitet."
+  },
+  {
+    "en": "Attachments are not allowed in this channel.",
+    "de": "In diesem Kanal sind keine Anhänge erlaubt."
+  },
+  {
+    "en": "You must have been on this server for {0} days (you have been here for {1}).",
+    "de": "Du musst {0} Tage auf dem Server sein (du bist {1})."
+  },
+  {
+    "en": "Your role does not allow you to post anonymously here.",
+    "de": "Mit deiner Rolle kannst du hier nicht anonym schreiben."
+  },
+  {
+    "en": "You do not have the required role for this channel.",
+    "de": "Dir fehlt die nötige Rolle für diesen Kanal."
+  },
+  {
+    "en": "You are not allowed to post anonymously here.",
+    "de": "Du darfst hier nicht anonym schreiben."
+  },
+  {
+    "en": "Please wait another {0} seconds.",
+    "de": "Bitte warte noch {0} Sekunden."
+  },
+  {
+    "en": "The bot cannot delete your message. It needs the “Manage Messages” permission in the anonymous channel.",
+    "de": "Der Bot darf deine Nachricht nicht löschen. Dem Bot fehlt im anonymen Kanal das Recht „Nachrichten verwalten“."
+  },
+  {
+    "en": "Your request to erase personal data was declined.\nReason: {0}",
+    "de": "Dein Antrag auf Datenlöschung wurde abgelehnt.\nGrund: {0}"
+  },
+  {
+    "en": "Your request to erase personal data was approved. The approved account data was deleted or anonymized, and Premium was removed.",
+    "de": "Dein Antrag auf Datenlöschung wurde genehmigt. Die freigegebenen Kontodaten wurden gelöscht oder anonymisiert und Premium wurde entfernt."
+  },
+  {
+    "en": "No participants.",
+    "de": "Keine Teilnehmer."
+  },
+  {
+    "en": "Winners: {0}",
+    "de": "Gewinner: {0}"
+  },
+  {
+    "en": "**{0}** on **{1}**",
+    "de": "**{0}** auf **{1}**"
+  },
+  {
+    "en": "Rerolled",
+    "de": "Neu ausgelost"
+  },
+  {
+    "en": "Giveaway ended",
+    "de": "Gewinnspiel beendet"
+  },
+  {
+    "en": "[Go to giveaway]({0})",
+    "de": "[Zum Gewinnspiel]({0})"
+  },
+  {
+    "en": "You won!",
+    "de": "Du hast gewonnen!"
+  },
+  {
+    "en": "**Roles assigned:** {0}",
+    "de": "**Vergebene Rollen:** {0}"
+  },
+  {
+    "en": "Your application was withdrawn. You can now apply again.",
+    "de": "Deine Bewerbung wurde zurueckgezogen. Du kannst dich jetzt wieder neu bewerben."
+  },
+  {
+    "en": "Withdrawn",
+    "de": "Zurueckgezogen"
+  },
+  {
+    "en": "You do not have an open application.",
+    "de": "Du hast gerade keine offene Bewerbung."
+  },
+  {
+    "en": "Nothing to withdraw",
+    "de": "Nichts zurueckzuziehen"
+  },
+  {
+    "en": "> You can extend your access here: {0}",
+    "de": "> Verlaengern kannst du hier: {0}"
+  },
+  {
+    "en": "> Premium templates are locked again.",
+    "de": "> Die Premium-Vorlagen sind wieder gesperrt."
+  },
+  {
+    "en": "-# The trial is available once per account.",
+    "de": "-# Die Probewoche laeuft nur einmal pro Konto."
+  },
+  {
+    "en": "Your 7 days of Premium have ended",
+    "de": "Deine 7 Tage Premium sind vorbei"
+  },
+  {
+    "en": "You are verified and ready to go. Please read the rules first and introduce yourself.",
+    "de": "Du bist verifiziert und kannst loslegen. Schau am besten zuerst in die Regeln und stell dich kurz vor."
+  },
+  {
+    "en": "Your verification is complete and you received {0}. Please read the server rules before getting started.",
+    "de": "Deine Verifizierung ist abgeschlossen und du hast {0} erhalten. Bitte lies die Serverregeln, bevor du loslegst."
+  },
+  {
+    "en": "Welcome to **{0}**, {1}!",
+    "de": "Willkommen auf **{0}**, {1}!"
+  },
+  {
+    "en": "Hey {0}, welcome to **{1}**!",
+    "de": "Hey {0}, schön dass du auf **{1}** bist!"
+  },
+  {
+    "en": "University Bot",
+    "de": "University Bot"
+  },
+  {
+    "en": "Attached files",
+    "de": "Angehängte Dateien"
+  },
+  {
+    "en": "DM language",
+    "de": "Sprache für Direktnachrichten"
+  },
+  {
+    "en": "Support",
+    "de": "Support"
+  },
+  {
+    "en": "Open dashboard",
+    "de": "Dashboard öffnen"
+  },
+  {
+    "en": "Open Transcript",
+    "de": "Transkript öffnen"
+  },
+  {
+    "en": "Ticket Transcript",
+    "de": "Ticket-Transkript"
+  },
+  {
+    "en": "Ticket ID",
+    "de": "Ticket-ID"
+  },
+  {
+    "en": "Ticket",
+    "de": "Ticket"
+  },
+  {
+    "en": "Server",
+    "de": "Server"
+  },
+  {
+    "en": "User",
+    "de": "Nutzer"
+  },
+  {
+    "en": "Reason",
+    "de": "Grund"
+  },
+  {
+    "en": "No reason provided",
+    "de": "Kein Grund angegeben"
+  },
+  {
+    "en": "New reply in your ticket",
+    "de": "Neue Antwort in deinem Ticket"
+  },
+  {
+    "en": "A staff member replied to your ticket{0} on **{1}**.",
+    "de": "Ein Teammitglied hat auf dein Ticket{0} auf **{1}** geantwortet."
+  },
+  {
+    "en": "Someone is waiting for a reply",
+    "de": "Jemand wartet auf eine Antwort"
+  },
+  {
+    "en": "**{0}** wrote in ticket{1} on **{2}** and has not received a reply yet.",
+    "de": "**{0}** hat im Ticket{1} auf **{2}** geschrieben und noch keine Antwort bekommen."
+  },
+  {
+    "en": "Go to ticket",
+    "de": "Zum Ticket"
+  },
+  {
+    "en": "This private transcript is available for **90 days**. Sign in with Discord to view the complete conversation.",
+    "de": "Dieses private Transkript ist **90 Tage** verfügbar. Melde dich mit Discord an, um den vollständigen Verlauf anzusehen."
+  },
+  {
+    "en": "How was your support?",
+    "de": "Wie war dein Support?"
+  },
+  {
+    "en": "Your ticket has been closed. Share your feedback with the support team.",
+    "de": "Dein Ticket wurde geschlossen. Teile dem Support-Team mit, wie zufrieden du warst."
+  },
+  {
+    "en": "Rate support",
+    "de": "Support bewerten"
+  },
+  {
+    "en": "Ticket feedback",
+    "de": "Ticket-Bewertung"
+  },
+  {
+    "en": "Rating",
+    "de": "Bewertung"
+  },
+  {
+    "en": "Your rating",
+    "de": "Deine Bewertung"
+  },
+  {
+    "en": "Feedback received",
+    "de": "Bewertung erhalten"
+  },
+  {
+    "en": "Thank you for rating your support experience.",
+    "de": "Danke für deine Bewertung des Supports."
+  },
+  {
+    "en": "Your feedback has already been saved.",
+    "de": "Deine Bewertung wurde bereits gespeichert."
+  },
+  {
+    "en": "This feedback request belongs to another user.",
+    "de": "Diese Bewertungsanfrage gehört einem anderen Nutzer."
+  },
+  {
+    "en": "You have been banned from **{0}** by **{1}**. Reason: {2}",
+    "de": "Du wurdest auf **{0}** von **{1}** gebannt. Grund: {2}"
+  },
+  {
+    "en": "You have been unbanned from **{0}** by **{1}**. Reason: {2}",
+    "de": "Dein Bann auf **{0}** wurde von **{1}** aufgehoben. Grund: {2}"
+  },
+  {
+    "en": "You have been warned in **{0}** by **{1}**. Reason: {2}",
+    "de": "Du wurdest auf **{0}** von **{1}** verwarnt. Grund: {2}"
+  },
+  {
+    "en": "You have been muted in **{0}** by **{1}** for {2}. Reason: {3}",
+    "de": "Du wurdest auf **{0}** von **{1}** für {2} stummgeschaltet. Grund: {3}",
+    "localized": [
+      2
+    ]
+  },
+  {
+    "en": "You have been unmuted in **{0}**.",
+    "de": "Deine Stummschaltung auf **{0}** wurde aufgehoben."
+  },
+  {
+    "en": "You have been kicked from **{0}**. Reason: {1}",
+    "de": "Du wurdest von **{0}** gekickt. Grund: {1}"
+  },
+  {
+    "en": "You were warned in **{0}**: {1}",
+    "de": "Du wurdest auf **{0}** verwarnt: {1}"
+  },
+  {
+    "en": "You were **{0}** in **{1}**.",
+    "de": "Auf **{1}** wurde folgende Maßnahme gegen dich durchgeführt: **{0}**.",
+    "localized": [
+      0
+    ]
+  },
+  {
+    "en": "Reason: {0}",
+    "de": "Grund: {0}"
+  },
+  {
+    "en": "You have been unjailed in **{0}**.",
+    "de": "Du wurdest auf **{0}** aus dem Jail entlassen."
+  },
+  {
+    "en": "You were jailed in **{0}**.",
+    "de": "Du wurdest auf **{0}** ins Jail versetzt."
+  },
+  {
+    "en": "Duration: {0}",
+    "de": "Dauer: {0}",
+    "localized": [
+      0
+    ]
+  },
+  {
+    "en": "Permanent",
+    "de": "Unbefristet"
+  },
+  {
+    "en": "You received the **{0}** role from {1}.",
+    "de": "Du hast auf {1} die Rolle **{0}** erhalten."
+  },
+  {
+    "en": "You've been invited to join {0} by {1}!",
+    "de": "{1} hat dich eingeladen, {0} beizutreten!"
+  },
+  {
+    "en": "You were mentioned in **{0}** by **{1}**",
+    "de": "Du wurdest auf **{0}** von **{1}** erwähnt."
+  },
+  {
+    "en": "Total Mentions",
+    "de": "Erwähnungen insgesamt"
+  },
+  {
+    "en": "Jump to Message",
+    "de": "Zur Nachricht"
+  },
+  {
+    "en": "[Click Here]({0})",
+    "de": "[Hier klicken]({0})"
+  },
+  {
+    "en": "A Message from the Staff Team",
+    "de": "Eine Nachricht vom Team"
+  },
+  {
+    "en": "This message was sent by {0}.",
+    "de": "Diese Nachricht wurde von {0} gesendet."
+  },
+  {
+    "en": "I do not have permission to send messages in that channel.",
+    "de": "Mir fehlt die Berechtigung, Nachrichten in diesem Kanal zu senden."
+  },
+  {
+    "en": "Welcome!",
+    "de": "Willkommen!"
+  },
+  {
+    "en": "Thank you for adding me!",
+    "de": "Danke fürs Hinzufügen!"
+  },
+  {
+    "en": "Default prefix: `>`",
+    "de": "Standard-Präfix: `>`"
+  },
+  {
+    "en": "`>help` shows all commands",
+    "de": "`>help` zeigt alle Befehle"
+  },
+  {
+    "en": "You can configure everything in the **dashboard** — the button below opens this server's settings",
+    "de": "Alles einstellen kannst du im **Dashboard** — der Knopf unten führt direkt zu diesem Server"
+  },
+  {
+    "en": "Questions? The **support server** can help",
+    "de": "Fragen? Der **Support-Server** hilft weiter"
+  },
+  {
+    "en": "Congratulations! You received 2 months of No Prefix.",
+    "de": "Glückwunsch! Du hast No Prefix für zwei Monate erhalten."
+  },
+  {
+    "en": "You received 2 months of global No Prefix for boosting our partner servers. You can now use my commands without a prefix. To remove this feature, contact our [support server](https://discord.gg/F3TedBAVZT).",
+    "de": "Für das Boosten unserer Partnerserver hast du globales No Prefix für zwei Monate erhalten. Du kannst meine Befehle jetzt ohne Präfix verwenden. Wenn du diese Funktion entfernen lassen möchtest, melde dich auf unserem [Support-Server](https://discord.gg/F3TedBAVZT)."
+  },
+  {
+    "en": "Global No Prefix expired",
+    "de": "Globales No Prefix abgelaufen"
+  },
+  {
+    "en": "Hey {0}, your global No Prefix has expired because you stopped boosting our partner server. If you think this is a mistake, contact our [support server](https://discord.gg/F3TedBAVZT).",
+    "de": "Hey {0}, dein globales No Prefix ist abgelaufen, weil du unseren Partnerserver nicht mehr boostest. Wenn du einen Fehler vermutest, melde dich auf unserem [Support-Server](https://discord.gg/F3TedBAVZT)."
+  },
+  {
+    "en": "Your No Prefix access has **expired**. You now need a prefix to use commands.",
+    "de": "Dein No-Prefix-Zugang ist **abgelaufen**. Du benötigst wieder einen Präfix, um Befehle zu verwenden."
+  },
+  {
+    "en": "No Prefix expired",
+    "de": "No Prefix abgelaufen"
+  },
+  {
+    "en": "{0} - No Prefix: join the support server to regain access.",
+    "de": "{0} - No Prefix: Tritt dem Support-Server bei, um wieder Zugang zu erhalten."
+  },
+  {
+    "en": "Verification complete",
+    "de": "Verifizierung abgeschlossen"
+  },
+  {
+    "en": "Verification declined",
+    "de": "Verifizierung abgelehnt"
+  },
+  {
+    "en": "Verification blocked — restricted server",
+    "de": "Verifizierung blockiert – eingeschränkter Server"
+  },
+  {
+    "en": "Your Discord account does not meet this server's minimum account age. Please contact the server staff for help.",
+    "de": "Dein Discord-Konto erfüllt das Mindestalter dieses Servers nicht. Wende dich für Hilfe an das Server-Team."
+  },
+  {
+    "en": "Your verification on **{0}** was declined because you are a member of a server restricted by this server's staff.",
+    "de": "Deine Verifizierung auf **{0}** wurde abgelehnt, weil du Mitglied eines Servers bist, den das Server-Team eingeschränkt hat."
+  },
+  {
+    "en": "Restricted server: `{0}`",
+    "de": "Eingeschränkter Server: `{0}`"
+  },
+  {
+    "en": "**These restrictions are managed by the administrators of {0}. Please contact them for help. University Bot does not make its own moderation decision.**",
+    "de": "**Diese Einschränkungen werden von den Administratoren von {0} verwaltet. Wende dich für Hilfe an sie. University Bot trifft keine eigene Moderationsentscheidung.**"
+  },
+  {
+    "en": "Quick verification",
+    "de": "Kurz bestätigen"
+  },
+  {
+    "en": "Choose the code shown in the image from the menu below.",
+    "de": "Such unten den Code aus dem Bild heraus."
+  },
+  {
+    "en": "Solve the CAPTCHA and enter the code using the button.",
+    "de": "Löse das CAPTCHA und tippe den Code über den Knopf ein."
+  },
+  {
+    "en": "Pay attention to **uppercase and lowercase letters**.",
+    "de": "Achte auf **Groß- und Kleinschreibung**."
+  },
+  {
+    "en": "Select the code from the image",
+    "de": "Code aus dem Bild auswählen"
+  },
+  {
+    "en": "Enter code",
+    "de": "Code eingeben"
+  },
+  {
+    "en": "Message removed",
+    "de": "Nachricht entfernt"
+  },
+  {
+    "en": "This channel is reserved for verification. Please use the panel's **Verify with Discord** button.",
+    "de": "Dieser Kanal ist für die Verifizierung reserviert. Bitte nutze den Button **Mit Discord verifizieren** im Panel."
+  },
+  {
+    "en": "Powered by University Bot",
+    "de": "Unterstützt von University Bot"
+  },
+  {
+    "en": "You are in the beta",
+    "de": "Du bist in der Beta"
+  },
+  {
+    "en": "Your application was accepted — **Premium is active now**.\n\nYou can find the new options under “Design” in the dashboard: give the bot a custom name, avatar, and banner on your server.\n\nThank you for testing the beta. Let us know if you notice anything.",
+    "de": "Dein Antrag wurde angenommen — **Premium ist ab sofort aktiv**.\n\nDu findest die neuen Möglichkeiten im Dashboard unter „Design“: eigener Name, eigenes Bild und eigenes Banner für den Bot auf deinem Server.\n\nDanke, dass du die Beta mittestest. Schreib uns, wenn dir etwas auffällt."
+  },
+  {
+    "en": "Application declined",
+    "de": "Antrag abgelehnt"
+  },
+  {
+    "en": "Your beta application was not accepted.",
+    "de": "Dein Antrag für die Beta wurde leider nicht angenommen."
+  },
+  {
+    "en": "**Reason:** {0}",
+    "de": "**Begründung:** {0}"
+  },
+  {
+    "en": "This is not a ban — you can apply again later.",
+    "de": "Das ist keine Sperre — du kannst dich später erneut bewerben."
+  },
+  {
+    "en": "Your premium key",
+    "de": "Dein Premium-Key"
+  },
+  {
+    "en": "{0} **Duration:** {1}",
+    "de": "{0} **Laufzeit:** {1}",
+    "localized": [
+      1
+    ]
+  },
+  {
+    "en": "{0} **Valid for:** Template bot",
+    "de": "{0} **Gilt für:** Template-Bot"
+  },
+  {
+    "en": "{0} **How to redeem it**",
+    "de": "{0} **So löst du ihn ein**"
+  },
+  {
+    "en": "> {0} Open the dashboard → **Premium** tab",
+    "de": "> {0} Dashboard öffnen → Reiter **Premium**"
+  },
+  {
+    "en": "> {0} Enter the key and click **Redeem**",
+    "de": "> {0} Key eintragen und auf **Einlösen** klicken"
+  },
+  {
+    "en": "> {0} The bot's invite link will then appear",
+    "de": "> {0} Danach erscheint der Einladungslink für den Bot"
+  },
+  {
+    "en": "{0} When redeemed, the key is permanently linked to your Discord account and cannot be transferred.",
+    "de": "{0} Der Key wird beim Einlösen fest an dein Discord-Konto gebunden und lässt sich danach nicht mehr übertragen."
+  },
+  {
+    "en": "-# {0} We only store the key in encrypted form — this message is the only copy. Please keep it safe.",
+    "de": "-# {0} Wir speichern den Key nur verschlüsselt — diese Nachricht ist die einzige Kopie. Bitte gut aufheben."
+  },
+  {
+    "en": "Open dashboard",
+    "de": "Zum Dashboard"
+  },
+  {
+    "en": "Here is your password:",
+    "de": "Hier ist dein Passwort:"
+  },
+  {
+    "en": "Where do you want to place your `{0}`?\nSend the starting coordinate, for example `a1`.",
+    "de": "Wo möchtest du dein `{0}` platzieren?\nSende die Startkoordinate, zum Beispiel `a1`.",
+    "localized": [
+      0
+    ]
+  },
+  {
+    "en": "Do you want it to be vertical?\nReply with `yes` or `no`.",
+    "de": "Soll es senkrecht stehen?\nAntworte mit `yes` oder `no`."
+  },
+  {
+    "en": "That is not a valid location. Please try again.",
+    "de": "Das ist keine gültige Position. Bitte versuche es erneut."
+  },
+  {
+    "en": "All set! The game will start when your opponent finishes setting up.",
+    "de": "Alles bereit! Das Spiel startet, sobald dein Gegner mit dem Aufbau fertig ist."
+  },
+  {
+    "en": "The timeout of {0} seconds has been reached. The game has been cancelled.",
+    "de": "Die Zeit von {0} Sekunden ist abgelaufen. Das Spiel wurde abgebrochen."
+  },
+  {
+    "en": "Application: {0}",
+    "de": "Bewerbung: {0}"
+  },
+  {
+    "en": "You are applying on **{0}**.\nI will ask you **{1} questions**, one at a time.\n\nYou have **{2}** to answer each question. Type `cancel` to stop at any time.",
+    "de": "Du bewirbst dich auf **{0}**.\nIch stelle dir jetzt **{1} Fragen** — eine nach der anderen.\n\nPro Frage hast du **{2}** Zeit. Mit `abbrechen` steigst du jederzeit aus.",
+    "localized": [
+      2
+    ]
+  },
+  {
+    "en": "Question {0} of {1}",
+    "de": "Frage {0} von {1}"
+  },
+  {
+    "en": "Let's continue",
+    "de": "Weiter geht's"
+  },
+  {
+    "en": "The bot restarted. Here is your unanswered question again:",
+    "de": "Der Bot wurde neu gestartet. Hier ist deine offene Frage noch einmal:"
+  },
+  {
+    "en": "Cancelled",
+    "de": "Abgebrochen"
+  },
+  {
+    "en": "Your application was discarded. You can start again at any time.",
+    "de": "Deine Bewerbung wurde verworfen. Du kannst jederzeit neu anfangen."
+  },
+  {
+    "en": "This application category no longer exists.",
+    "de": "Diese Bewerbungskategorie gibt es nicht mehr."
+  },
+  {
+    "en": "Something went wrong",
+    "de": "Etwas ist schiefgelaufen"
+  },
+  {
+    "en": "The server is no longer available.",
+    "de": "Der Server ist nicht mehr erreichbar."
+  },
+  {
+    "en": "Thank you",
+    "de": "Danke"
+  },
+  {
+    "en": "Your application has been received. The team will contact you.",
+    "de": "Deine Bewerbung ist eingegangen. Das Team meldet sich."
+  },
+  {
+    "en": "Application submitted",
+    "de": "Bewerbung abgeschickt"
+  },
+  {
+    "en": "Your application for **{0}** on **{1}** has been received.\nYou will be notified here when the team has made a decision.\n\n-# Type `withdraw` to withdraw your application.",
+    "de": "Deine Bewerbung für **{0}** auf **{1}** ist eingegangen.\nDu bekommst hier Bescheid, sobald das Team entschieden hat.\n\n-# Mit `zurückziehen` kannst du sie hier wieder zurücknehmen."
+  },
+  {
+    "en": "Application accepted",
+    "de": "Bewerbung angenommen"
+  },
+  {
+    "en": "Application rejected",
+    "de": "Bewerbung abgelehnt"
+  },
+  {
+    "en": "Your application for **{0}** on **{1}** was accepted.{2}\n\n**Reason:**\n{3}",
+    "de": "Deine Bewerbung für **{0}** auf **{1}** wurde angenommen.{2}\n\n**Begründung:**\n{3}",
+    "localized": [
+      2
+    ]
+  },
+  {
+    "en": "Your application for **{0}** on **{1}** was rejected.\n\n**Reason:**\n{2}",
+    "de": "Deine Bewerbung für **{0}** auf **{1}** wurde abgelehnt.\n\n**Begründung:**\n{2}"
+  },
+  {
+    "en": "Application expired",
+    "de": "Bewerbung abgelaufen"
+  },
+  {
+    "en": "You did not reply for more than {0}, so your application was discarded. You can start again at any time.",
+    "de": "Du hast über {0} nicht geantwortet, deshalb wurde deine Bewerbung verworfen. Du kannst jederzeit neu anfangen.",
+    "localized": [
+      0
+    ]
+  },
+  {
+    "en": "Anonymous chat",
+    "de": "Anonymer Chat"
+  },
+  {
+    "en": "Author identified",
+    "de": "Autor nachgeschlagen"
+  },
+  {
+    "en": "Message `{0}` was sent by {1}.",
+    "de": "Nachricht `{0}` stammt von {1}."
+  },
+  {
+    "en": "This reply was sent by DM to preserve anonymity in the channel.",
+    "de": "Diese Antwort kam per DM, damit die Anonymität im Kanal erhalten bleibt."
+  },
+  {
+    "en": "The anonymous message `{0}` was sent by <@{1}> (`{1}`).",
+    "de": "Die anonyme Nachricht `{0}` stammt von <@{1}> (`{1}`)."
+  },
+  {
+    "en": "The anonymous message was empty.",
+    "de": "Die anonyme Nachricht war leer."
+  },
+  {
+    "en": "Your idea was accepted",
+    "de": "Deine Idee wurde angenommen"
+  },
+  {
+    "en": "Your idea was rejected",
+    "de": "Deine Idee wurde abgelehnt"
+  },
+  {
+    "en": "Your idea was accepted and rewarded",
+    "de": "Deine Idee wurde angenommen und belohnt"
+  },
+  {
+    "en": "An update on your idea",
+    "de": "Update zu deiner Idee"
+  },
+  {
+    "en": "University Bot ideas",
+    "de": "University Bot Ideen"
+  },
+  {
+    "en": "Status: **Open**",
+    "de": "Status: **Offen**"
+  },
+  {
+    "en": "Status: **Planned**",
+    "de": "Status: **Geplant**"
+  },
+  {
+    "en": "Status: **In progress**",
+    "de": "Status: **In Bearbeitung**"
+  },
+  {
+    "en": "Status: **Implemented**",
+    "de": "Status: **Umgesetzt**"
+  },
+  {
+    "en": "Status: **Rejected**",
+    "de": "Status: **Abgelehnt**"
+  },
+  {
+    "en": "Status: **More information needed**",
+    "de": "Status: **Informationen benötigt**"
+  },
+  {
+    "en": "New request to erase personal data under Article 17 GDPR",
+    "de": "Neuer Antrag auf Datenlöschung nach Art. 17 DSGVO"
+  },
+  {
+    "en": "User: {0}",
+    "de": "Nutzer: {0}"
+  },
+  {
+    "en": "Discord ID: {0}",
+    "de": "Discord-ID: {0}"
+  },
+  {
+    "en": "Request: {0}",
+    "de": "Antrag: {0}"
+  },
+  {
+    "en": "Please review this in the admin dashboard under “Data erasure”.",
+    "de": "Bitte im Admin-Dashboard unter „Datenlöschung“ prüfen."
+  },
+  {
+    "en": "A notice about a member",
+    "de": "Hinweis zu einem Mitglied"
+  },
+  {
+    "en": "View profile",
+    "de": "Profil ansehen"
+  },
+  {
+    "en": "**{0}** (`{1}`) is on your server:\n{2}\n\n**Reason for this notice:**\n{3}\n\nThis is for your information only — no action has been taken. You decide whether to act.",
+    "de": "**{0}** (`{1}`) ist auf deinem Server:\n{2}\n\n**Grund des Hinweises:**\n{3}\n\nDas ist nur eine Information — es wurde nichts unternommen. Ob du etwas tust, entscheidest du."
+  },
+  {
+    "en": "**{0}** (`{1}`) is on your servers:\n{2}\n\n**Reason for this notice:**\n{3}\n\nThis is for your information only — no action has been taken. You decide whether to act.",
+    "de": "**{0}** (`{1}`) ist auf deinen Servern:\n{2}\n\n**Grund des Hinweises:**\n{3}\n\nDas ist nur eine Information — es wurde nichts unternommen. Ob du etwas tust, entscheidest du."
+  },
+  {
+    "en": "University Bot • Notice to server owners",
+    "de": "University Bot • Hinweis an Server-Inhaber"
+  },
+  {
+    "en": "*I will not send separate DMs for further incidents in this attack — check the server channel or dashboard.*",
+    "de": "*Weitere Vorfälle in diesem Angriff schicke ich dir nicht einzeln — sieh im Server-Kanal oder im Dashboard nach.*"
+  },
+  {
+    "en": "**{0}** — no log channel is available, so I am notifying you here:",
+    "de": "**{0}** — kein Log-Kanal erreichbar, deshalb hier:"
+  },
+  {
+    "en": "Privilege escalation stopped",
+    "de": "Rechte-Ausweitung gestoppt"
+  },
+  {
+    "en": "No ban — removing the role is enough.",
+    "de": "Kein Bann — die Rolle ist weg, das genuegt."
+  },
+  {
+    "en": "Ticket priority",
+    "de": "Ticket-Priorität"
+  },
+  {
+    "en": "Low",
+    "de": "Niedrig"
+  },
+  {
+    "en": "Normal",
+    "de": "Normal"
+  },
+  {
+    "en": "High",
+    "de": "Hoch"
+  },
+  {
+    "en": "Urgent",
+    "de": "Dringend"
+  },
+  {
+    "en": "Private setting",
+    "de": "Private Einstellung"
+  },
+  {
+    "en": "This language selector belongs to another user.",
+    "de": "Diese Sprachauswahl gehört einem anderen Nutzer."
+  },
+  {
+    "de": "Kanal",
+    "en": "Channel"
+  },
+  {
+    "de": "Das hat nicht geklappt.",
+    "en": "That didn't work."
+  },
+  {
+    "de": "Kategorien",
+    "en": "Categories"
+  },
+  {
+    "de": "Nachricht",
+    "en": "Message"
+  },
+  {
+    "de": "Tage",
+    "en": "days"
+  },
+  {
+    "de": "Eigene Nachricht",
+    "en": "Custom Message"
+  },
+  {
+    "de": "Gelöscht.",
+    "en": "Deleted."
+  },
+  {
+    "de": "Auto-Rolle",
+    "en": "Auto Role"
+  },
+  {
+    "de": "Nachrichten",
+    "en": "Messages"
+  },
+  {
+    "de": "Protokoll-Kanal",
+    "en": "Log channel"
+  },
+  {
+    "de": "Rolle gelöscht",
+    "en": "Role deleted"
+  },
+  {
+    "de": "Server Stats",
+    "en": "Server Stats"
+  },
+  {
+    "de": "Server-Werkzeuge",
+    "en": "Server Tools"
+  },
+  {
+    "de": "Sticky-Nachricht",
+    "en": "Sticky Message"
+  },
+  {
+    "de": "Stunden",
+    "en": "hours"
+  },
+  {
+    "de": "Support-Server",
+    "en": "Support Server"
+  },
+  {
+    "de": "Bearbeiten",
+    "en": "Edit"
+  },
+  {
+    "de": "Bitte einen Grund angeben.",
+    "en": "Please provide a reason."
+  },
+  {
+    "de": "Das muss eine https-Adresse sein, die auf .png, .jpg, .gif oder .webp endet.",
+    "en": "This must be an https URL ending in .png, .jpg, .gif or .webp."
+  },
+  {
+    "de": "Kanäle verwalten",
+    "en": "Manage channels"
+  },
+  {
+    "de": "Kategorie",
+    "en": "Category"
+  },
+  {
+    "de": "Ohne Grund geht das nicht.",
+    "en": "A reason is required."
+  },
+  {
+    "de": "Rollen verwalten",
+    "en": "Manage roles"
+  },
+  {
+    "de": "Sekunden",
+    "en": "seconds"
+  },
+  {
+    "de": "Zählen",
+    "en": "Counting"
+  },
+  {
+    "de": "läuft",
+    "en": "running"
+  },
+  {
+    "de": "über",
+    "en": "over"
+  },
+  {
+    "de": "(nur Anhang)",
+    "en": "(attachment only)"
+  },
+  {
+    "de": "(steht über dem Bot)",
+    "en": "(above the bot)"
+  },
+  {
+    "de": "24 Stunden",
+    "en": "24 hours"
+  },
+  {
+    "de": "Alle Sprachkanäle",
+    "en": "All voice channels"
+  },
+  {
+    "de": "Aufräumen",
+    "en": "Clean up"
+  },
+  {
+    "de": "Auswählen",
+    "en": "Select"
+  },
+  {
+    "de": "Auto-Rollen",
+    "en": "Auto roles"
+  },
+  {
+    "de": "Bedienfeld posten oder auffrischen",
+    "en": "Post or refresh the panel"
+  },
+  {
+    "de": "Beförderung",
+    "en": "Promotion"
+  },
+  {
+    "de": "Begründung:",
+    "en": "Reason:"
+  },
+  {
+    "de": "Bestätigen",
+    "en": "Confirm"
+  },
+  {
+    "de": "Bitte eine Rolle auswählen.",
+    "en": "Please select a role."
+  },
+  {
+    "de": "Bitte einen Kanal auswählen.",
+    "en": "Please select a channel."
+  },
+  {
+    "de": "Das Design darf hier nur der Server-Inhaber ändern.",
+    "en": "Only the server owner may change the design here."
+  },
+  {
+    "de": "Der Bot ist nicht mehr geschützt.",
+    "en": "The bot is no longer protected."
+  },
+  {
+    "de": "Der Bot wird vom Anti-Nuke nicht mehr angegriffen.",
+    "en": "The bot is no longer attacked by Anti-Nuke."
+  },
+  {
+    "de": "Der Titel ist zu kurz.",
+    "en": "The title is too short."
+  },
+  {
+    "de": "Die Kategorie braucht einen Namen.",
+    "en": "The category needs a name."
+  },
+  {
+    "de": "Die Probewoche ist wieder frei.",
+    "en": "The trial week is available again."
+  },
+  {
+    "de": "Die Vorlage braucht einen Namen.",
+    "en": "The template needs a name."
+  },
+  {
+    "de": "Diesen Kanal gibt es nicht mehr.",
+    "en": "This channel no longer exists."
+  },
+  {
+    "de": "Dieses Gewinnspiel gibt es nicht mehr.",
+    "en": "This giveaway no longer exists."
+  },
+  {
+    "de": "Eigene Rollen-Befehle",
+    "en": "Custom role commands"
+  },
+  {
+    "de": "Eine Ablehnung braucht eine Begründung.",
+    "en": "A rejection needs a reason."
+  },
+  {
+    "de": "Einträgen",
+    "en": "entries"
+  },
+  {
+    "de": "Erstellt von",
+    "en": "Created by"
+  },
+  {
+    "de": "Freischaltung zurücknehmen",
+    "en": "Withdraw approval"
+  },
+  {
+    "de": "Für",
+    "en": "For"
+  },
+  {
+    "de": "Gelöscht",
+    "en": "Deleted"
+  },
+  {
+    "de": "Gelöschte Rolle",
+    "en": "Deleted role"
+  },
+  {
+    "de": "Gib dem Befehl einen Namen.",
+    "en": "Give the command a name."
+  },
+  {
+    "de": "Grund ist Pflicht",
+    "en": "A reason is required"
+  },
+  {
+    "de": "Hier hat noch niemand XP gesammelt.",
+    "en": "Nobody has collected XP here yet."
+  },
+  {
+    "de": "Kanal gelöscht",
+    "en": "Channel deleted"
+  },
+  {
+    "de": "Kein XP für",
+    "en": "No XP for"
+  },
+  {
+    "de": "Klicke unten, um ein Ticket zu öffnen.",
+    "en": "Click below to open a ticket."
+  },
+  {
+    "de": "Laufzeit: 0 (unbegrenzt) bis 3650 Tage.",
+    "en": "Duration: 0 (unlimited) to 3650 days."
+  },
+  {
+    "de": "Link zum Profilbild",
+    "en": "Link to the avatar"
+  },
+  {
+    "de": "Link zum Serverbild",
+    "en": "Link to the server image"
+  },
+  {
+    "de": "Läuft ab",
+    "en": "Expires"
+  },
+  {
+    "de": "Maßnahmen",
+    "en": "Actions"
+  },
+  {
+    "de": "Minuten",
+    "en": "minutes"
+  },
+  {
+    "de": "Nachricht vom Bot-Team",
+    "en": "Message from the bot team"
+  },
+  {
+    "de": "Nachrichten verwalten",
+    "en": "Manage Messages"
+  },
+  {
+    "de": "Neues Mitglied",
+    "en": "New member"
+  },
+  {
+    "de": "Nicht verfügbar",
+    "en": "Not available"
+  },
+  {
+    "de": "Noch kein anonymer Kanal.",
+    "en": "No anonymous channel yet."
+  },
+  {
+    "de": "Prüfen",
+    "en": "Check"
+  },
+  {
+    "de": "Rückstufung",
+    "en": "Demotion"
+  },
+  {
+    "de": "Servern",
+    "en": "servers"
+  },
+  {
+    "de": "Spaß",
+    "en": "Fun"
+  },
+  {
+    "de": "Sprachkanäle",
+    "en": "Voice channels"
+  },
+  {
+    "de": "Ticket-System",
+    "en": "Ticket system"
+  },
+  {
+    "de": "Umgehung einer Sperre",
+    "en": "Evading a ban"
+  },
+  {
+    "de": "Unverifiziert-Rolle",
+    "en": "Unverified role"
+  },
+  {
+    "de": "Verlängert.",
+    "en": "Extended."
+  },
+  {
+    "de": "Verzögerung (Sekunden)",
+    "en": "Delay (seconds)"
+  },
+  {
+    "de": "Wer die Tester-Rolle hat",
+    "en": "Whoever holds the tester role"
+  },
+  {
+    "de": "Wer hat sie angewendet",
+    "en": "Who has applied it"
+  },
+  {
+    "de": "Wähle eine Rolle.",
+    "en": "Pick a role."
+  },
+  {
+    "de": "Zurückgesetzt.",
+    "en": "Reset."
+  },
+  {
+    "de": "aus dem Team genommen",
+    "en": "removed from the team"
+  },
+  {
+    "de": "bestätigt",
+    "en": "confirmed"
+  },
+  {
+    "de": "offene Tickets.",
+    "en": "open tickets."
+  },
+  {
+    "de": "zurückgestuft",
+    "en": "demoted"
+  },
+  {
+    "de": "zählen",
+    "en": "counting"
+  },
+  {
+    "de": "ist.",
+    "en": "is."
+  },
+  {
+    "de": "lautstärke",
+    "en": "volume"
+  },
+  {
+    "de": "Änderungen",
+    "en": "Changes"
+  },
+  {
+    "de": "Name",
+    "en": "name"
+  },
+  {
+    "de": "Gespeichert.",
+    "en": "Saved."
+  },
+  {
+    "de": "Beschreibung",
+    "en": "Description"
+  },
+  {
+    "de": "Farbe",
+    "en": "color"
+  },
+  {
+    "de": "Bewerbungen",
+    "en": "Applications"
+  },
+  {
+    "de": "Teamliste",
+    "en": "Team list"
+  },
+  {
+    "de": "Abschied",
+    "en": "Farewell"
+  },
+  {
+    "de": "Aufrufe",
+    "en": "views"
+  },
+  {
+    "de": "Benachrichtigungen",
+    "en": "Notifications"
+  },
+  {
+    "de": "Design",
+    "en": "design"
+  },
+  {
+    "de": "Sperren",
+    "en": "Block"
+  },
+  {
+    "de": "Team-Update",
+    "en": "Team update"
+  },
+  {
+    "de": "Ablehnen",
+    "en": "Reject"
+  },
+  {
+    "de": "Alle",
+    "en": "All"
+  },
+  {
+    "de": "Bist du sicher?",
+    "en": "Are you sure?"
+  },
+  {
+    "de": "Booster",
+    "en": "Boosters"
+  },
+  {
+    "de": "Nachtmodus",
+    "en": "Night mode"
+  },
+  {
+    "de": "Support-Warteraum",
+    "en": "Support waiting room"
+  },
+  {
+    "de": "Vorlagen",
+    "en": "Templates"
+  },
+  {
+    "de": "Abgelehnt",
+    "en": "Rejected"
+  },
+  {
+    "de": "Anzahl",
+    "en": "number"
+  },
+  {
+    "de": "Anzeigename",
+    "en": "Display name"
+  },
+  {
+    "de": "Bild",
+    "en": "Image"
+  },
+  {
+    "de": "Einladungs-Log",
+    "en": "Invitation log"
+  },
+  {
+    "de": "Keine",
+    "en": "None"
+  },
+  {
+    "de": "Keine Meldung",
+    "en": "No report"
+  },
+  {
+    "de": "Kicken",
+    "en": "Kick"
+  },
+  {
+    "de": "Laufzeit",
+    "en": "Duration"
+  },
+  {
+    "de": "Notfall",
+    "en": "Emergency"
+  },
+  {
+    "de": "Platzhalter",
+    "en": "Placeholder"
+  },
+  {
+    "de": "Regeln",
+    "en": "Rules"
+  },
+  {
+    "de": "Schutz",
+    "en": "Protection"
+  },
+  {
+    "de": "Stummschalten",
+    "en": "Mute"
+  },
+  {
+    "de": "Teilnehmen",
+    "en": "Participate"
+  },
+  {
+    "de": "Werkzeuge",
+    "en": "Tools"
+  },
+  {
+    "de": "Zustand",
+    "en": "Condition"
+  },
+  {
+    "de": "🎉 Gewinnspiel",
+    "en": "🎉 Competition"
+  },
+  {
+    "de": "Ab",
+    "en": "From"
+  },
+  {
+    "de": "Ab Level",
+    "en": "From level"
+  },
+  {
+    "de": "Abgebrochen.",
+    "en": "Aborted."
+  },
+  {
+    "de": "Administrator",
+    "en": "Admin"
+  },
+  {
+    "de": "Alle Bewerbungen",
+    "en": "All applications"
+  },
+  {
+    "de": "Annehmen",
+    "en": "Accept"
+  },
+  {
+    "de": "Anonym",
+    "en": "Anonymous"
+  },
+  {
+    "de": "Antworten",
+    "en": "Answers"
+  },
+  {
+    "de": "Aufheben",
+    "en": "Cancel"
+  },
+  {
+    "de": "Aufnahme",
+    "en": "Recording"
+  },
+  {
+    "de": "Aus",
+    "en": "Off"
+  },
+  {
+    "de": "Ausblenden",
+    "en": "Hide"
+  },
+  {
+    "de": "Auswahl",
+    "en": "Selection"
+  },
+  {
+    "de": "Automatisch",
+    "en": "Automatically"
+  },
+  {
+    "de": "Belohnungen",
+    "en": "Rewards"
+  },
+  {
+    "de": "Bild-URL",
+    "en": "Image URL"
+  },
+  {
+    "de": "Darstellung",
+    "en": "Presentation"
+  },
+  {
+    "de": "Dateien",
+    "en": "files"
+  },
+  {
+    "de": "Datenbank",
+    "en": "Database"
+  },
+  {
+    "de": "Datenbanken",
+    "en": "Databases"
+  },
+  {
+    "de": "Designer",
+    "en": "Designers"
+  },
+  {
+    "de": "Die Probewoche wurde beendet.",
+    "en": "The trial week has ended."
+  },
+  {
+    "de": "Entfernt.",
+    "en": "Removed."
+  },
+  {
+    "de": "Entsperren",
+    "en": "Unlock"
+  },
+  {
+    "de": "Entstummen",
+    "en": "Unmute"
+  },
+  {
+    "de": "Feld",
+    "en": "field"
+  },
+  {
+    "de": "Fertig",
+    "en": "Done"
+  },
+  {
+    "de": "Gesendet",
+    "en": "Sent"
+  },
+  {
+    "de": "Gewinner",
+    "en": "Winner"
+  },
+  {
+    "de": "Gewinnspiele",
+    "en": "Competitions"
+  },
+  {
+    "de": "Inhalt",
+    "en": "Content"
+  },
+  {
+    "de": "Konto",
+    "en": "account"
+  },
+  {
+    "de": "Kurz & freundlich",
+    "en": "Short & friendly"
+  },
+  {
+    "de": "Label",
+    "en": "label"
+  },
+  {
+    "de": "Level aufgestiegen",
+    "en": "Leveled up"
+  },
+  {
+    "de": "Lizenzen",
+    "en": "Licenses"
+  },
+  {
+    "de": "Mit Bild",
+    "en": "With picture"
+  },
+  {
+    "de": "Mitgliederzahl",
+    "en": "Number of members"
+  },
+  {
+    "de": "Mitmachen",
+    "en": "Join in"
+  },
+  {
+    "de": "Mittel",
+    "en": "Means"
+  },
+  {
+    "de": "Nein",
+    "en": "No"
+  },
+  {
+    "de": "Neu auslosen",
+    "en": "Draw again"
+  },
+  {
+    "de": "Nutzer nachschlagen",
+    "en": "Look up users"
+  },
+  {
+    "de": "Nutzung",
+    "en": "Usage"
+  },
+  {
+    "de": "Panel",
+    "en": "panel"
+  },
+  {
+    "de": "Produkt",
+    "en": "product"
+  },
+  {
+    "de": "Reaktionen",
+    "en": "Reactions"
+  },
+  {
+    "de": "Regeln an",
+    "en": "rules"
+  },
+  {
+    "de": "Sachlich",
+    "en": "Factually"
+  },
+  {
+    "de": "Schlicht",
+    "en": "Simple"
+  },
+  {
+    "de": "Sperre aufheben",
+    "en": "Remove lock"
+  },
+  {
+    "de": "Strafe",
+    "en": "punishment"
+  },
+  {
+    "de": "Team-Ausschluss",
+    "en": "Team exclusion"
+  },
+  {
+    "de": "Testmeldung",
+    "en": "Test message"
+  },
+  {
+    "de": "Titel",
+    "en": "Title"
+  },
+  {
+    "de": "Typ",
+    "en": "Type"
+  },
+  {
+    "de": "Unbekannt",
+    "en": "Unknown"
+  },
+  {
+    "de": "Verwarnen",
+    "en": "Warn"
+  },
+  {
+    "de": "Verwarnung",
+    "en": "Warning"
+  },
+  {
+    "de": "Wer",
+    "en": "Who"
+  },
+  {
+    "de": "Worum es geht",
+    "en": "What it's about"
+  },
+  {
+    "de": "XP gesamt",
+    "en": "XP total"
+  },
+  {
+    "de": "XP-Multiplikatoren",
+    "en": "XP multipliers"
+  },
+  {
+    "de": "YouTube-Benachrichtigungen",
+    "en": "YouTube notifications"
+  },
+  {
+    "de": "Zugriff",
+    "en": "Access"
+  },
+  {
+    "de": "Machen Sie mit beim Erstellen",
+    "en": "Join to Create"
+  },
+  {
+    "de": "Benutzerdefinierte Befehle",
+    "en": "Custom Commands"
+  },
+  {
+    "de": "Dashboard-Zugriff",
+    "en": "Dashboard Access"
+  },
+  {
+    "de": "Werbegeschenke",
+    "en": "Giveaways"
+  },
+  {
+    "de": "Gemeinschaft",
+    "en": "Community"
+  },
+  {
+    "de": "Inhaltsersteller",
+    "en": "Content Creator"
+  },
+  {
+    "de": "Einbetten",
+    "en": "Embed"
+  },
+  {
+    "de": "Du kannst dich nicht selbst verbieten.",
+    "en": "You cannot ban yourself."
+  },
+  {
+    "de": "Team",
+    "en": "Team"
+  },
+  {
+    "de": "Community-Vorlagen",
+    "en": "Community templates"
+  },
+  {
+    "de": "Protokolle",
+    "en": "Logs"
+  },
+  {
+    "de": "Speedrun",
+    "en": "Speedrun"
+  },
+  {
+    "de": "Bot",
+    "en": "Bot"
+  },
+  {
+    "de": "Honeypot",
+    "en": "Honeypot"
+  },
+  {
+    "de": "Autoresponder",
+    "en": "Autoresponder"
+  },
+  {
+    "de": "Code",
+    "en": "Code"
+  },
+  {
+    "de": "Moderator",
+    "en": "Moderator"
+  },
+  {
+    "de": "Online",
+    "en": "Online"
+  },
+  {
+    "de": "Tester",
+    "en": "Tester"
+  },
+  {
+    "de": "Geben Sie ein Triggerwort ein.",
+    "en": "Enter a trigger word."
+  },
+  {
+    "de": "Lebensdauer",
+    "en": "Lifetime"
+  },
+  {
+    "de": "Link",
+    "en": "Link"
+  },
+  {
+    "de": "Spitznamen",
+    "en": "Nicknames"
+  },
+  {
+    "de": "Offline",
+    "en": "Offline"
+  },
+  {
+    "de": "Passwort",
+    "en": "password"
+  },
+  {
+    "de": "Unser Team",
+    "en": "Our team"
+  },
+  {
+    "de": "Webhooks",
+    "en": "Webhooks"
+  },
+  {
+    "de": "🛡️",
+    "en": "🛡️"
+  },
+  {
+    "de": "Premium",
+    "en": "Premium"
+  },
+  {
+    "de": "Anti-Nuke",
+    "en": "Anti-Nuke"
+  },
+  {
+    "de": "Backup",
+    "en": "Backup"
+  },
+  {
+    "de": "Jail",
+    "en": "Jail"
+  },
+  {
+    "de": "Slash",
+    "en": "Slash"
+  },
+  {
+    "de": "Cookies",
+    "en": "Cookies"
+  },
+  {
+    "de": "Startseite",
+    "en": "Home"
+  },
+  {
+    "de": "Inhaber",
+    "en": "Owners"
+  },
+  {
+    "de": "Servername",
+    "en": "Server name"
+  },
+  {
+    "de": "Persönlicher Aktivitätsverlauf",
+    "en": "Personal activity history"
+  },
+  {
+    "de": "Unbekanntes Gerät",
+    "en": "Unknown device"
+  },
+  {
+    "de": "Persönliche Einstellungen",
+    "en": "Personal settings"
+  },
+  {
+    "de": "Vorschau:",
+    "en": "Preview:"
+  },
+  {
+    "de": "Anfrage",
+    "en": "Request"
+  },
+  {
+    "de": "Bitte eine Testfrage eingeben.",
+    "en": "Please enter a test question."
+  },
+  {
+    "de": "Bitte einen Server auswählen.",
+    "en": "Please select a server."
+  },
+  {
+    "de": "Blacklist",
+    "en": "Blacklist"
+  },
+  {
+    "de": "Configured through OWNER_IDS / ADMIN_IDS",
+    "en": "Configured through OWNER_IDS / ADMIN_IDS"
+  },
+  {
+    "de": "Details",
+    "en": "Details"
+  },
+  {
+    "de": "Die Wissensdatei darf höchstens 100 KB groß sein.",
+    "en": "The knowledge file must be no larger than 100 KB."
+  },
+  {
+    "de": "Discord-Nutzer",
+    "en": "Discord user"
+  },
+  {
+    "de": "Ereignisse",
+    "en": "events"
+  },
+  {
+    "de": "Firewall",
+    "en": "Firewall"
+  },
+  {
+    "de": "Freigeschaltet",
+    "en": "Unlocked"
+  },
+  {
+    "de": "Geplant",
+    "en": "Planned"
+  },
+  {
+    "de": "Geschlossen",
+    "en": "Closed"
+  },
+  {
+    "de": "Gib eine gültige Discord-Server-ID ein.",
+    "en": "Enter a valid Discord server ID."
+  },
+  {
+    "de": "Hilfe",
+    "en": "Help"
+  },
+  {
+    "de": "Ideen",
+    "en": "Ideas"
+  },
+  {
+    "de": "In Bearbeitung",
+    "en": "In Progress"
+  },
+  {
+    "de": "Ja",
+    "en": "Yes"
+  },
+  {
+    "de": "KI-Ticketassistent",
+    "en": "AI ticket assistant"
+  },
+  {
+    "de": "Land",
+    "en": "country"
+  },
+  {
+    "de": "Letzte Änderung",
+    "en": "Last updated"
+  },
+  {
+    "de": "Pfad",
+    "en": "path"
+  },
+  {
+    "de": "Priorität",
+    "en": "priority"
+  },
+  {
+    "de": "Railway-Variable",
+    "en": "Railway variable"
+  },
+  {
+    "de": "Serverplätze",
+    "en": "Server slots"
+  },
+  {
+    "de": "Sicherung löschen",
+    "en": "Delete backup"
+  },
+  {
+    "de": "Speicherung",
+    "en": "storage"
+  },
+  {
+    "de": "Ticket-Kategorien",
+    "en": "Ticket categories"
+  },
+  {
+    "de": "Umgesetzt",
+    "en": "Implemented"
+  },
+  {
+    "de": "User Pull",
+    "en": "User pull"
+  },
+  {
+    "de": "Verifiziert",
+    "en": "Verified"
+  },
+  {
+    "de": "Zeitpunkt",
+    "en": "time"
+  },
+  {
+    "de": "guilds.join",
+    "en": "guilds.join"
+  },
+  {
+    "de": "zurückgesetzt",
+    "en": "reset"
+  },
+  {
+    "de": "Neu",
+    "en": "New"
+  },
+  {
+    "de": "Abschließen",
+    "en": "Complete"
+  },
+  {
+    "de": "Behoben",
+    "en": "Resolved"
+  },
+  {
+    "de": "Der Code muss genau 8 Zahlen enthalten.",
+    "en": "The code must contain exactly 8 digits."
+  },
+  {
+    "de": "Discord OAuth ist nicht konfiguriert.",
+    "en": "Discord OAuth is not configured."
+  },
+  {
+    "de": "Diskussion",
+    "en": "Discussion"
+  },
+  {
+    "de": "Entwickler-Ticket",
+    "en": "Developer ticket"
+  },
+  {
+    "de": "Fall",
+    "en": "Case"
+  },
+  {
+    "de": "Frage",
+    "en": "Question"
+  },
+  {
+    "de": "Incident eröffnet",
+    "en": "Incident opened"
+  },
+  {
+    "de": "Kanal fehlt",
+    "en": "Channel missing"
+  },
+  {
+    "de": "Keine Kaufanfragen.",
+    "en": "No purchase requests."
+  },
+  {
+    "de": "Live",
+    "en": "Live"
+  },
+  {
+    "de": "Melde dich mit Discord an.",
+    "en": "Sign in with Discord."
+  },
+  {
+    "de": "Navigation",
+    "en": "Navigation"
+  },
+  {
+    "de": "Nur Bot-Owner dürfen Ideen verwalten.",
+    "en": "Only bot owners can manage ideas."
+  },
+  {
+    "de": "Premium verwalten",
+    "en": "Manage Premium"
+  },
+  {
+    "de": "Premium-Historie",
+    "en": "Premium history"
+  },
+  {
+    "de": "Quelle",
+    "en": "Source"
+  },
+  {
+    "de": "Server-Diagnose",
+    "en": "Server diagnostics"
+  },
+  {
+    "de": "Server-Lookup",
+    "en": "Server lookup"
+  },
+  {
+    "de": "Serverinhaber",
+    "en": "Server owner"
+  },
+  {
+    "de": "Sticky-Nachrichten",
+    "en": "Sticky messages"
+  },
+  {
+    "de": "Supportzugriff",
+    "en": "Support access"
+  },
+  {
+    "de": "Supportzugriff widerrufen?",
+    "en": "Revoke support access?"
+  },
+  {
+    "de": "Template-Inspektor",
+    "en": "Template inspector"
+  },
+  {
+    "de": "Ungültige Server-ID.",
+    "en": "Invalid server ID."
+  },
+  {
+    "de": "Untersuchen",
+    "en": "Inspect"
+  },
+  {
+    "de": "Wieder öffnen",
+    "en": "Reopen"
+  },
+  {
+    "de": "Wähle eine Kategorie…",
+    "en": "Choose a category…"
+  },
+  {
+    "de": "Bereitstellung",
+    "en": "Deployment"
+  },
+  {
+    "de": "Verifizierung",
+    "en": "Verification"
+  },
+  {
+    "de": "KB",
+    "en": "KB"
+  },
+  {
+    "de": "Nicht angemeldet.",
+    "en": "Not signed in."
+  },
+  {
+    "de": "Nicht gefunden.",
+    "en": "Not found."
+  },
+  {
+    "de": "Nur Owner dürfen Owner- und Administratorzugriffe verwalten.",
+    "en": "Only owners can manage owner and admin access."
+  },
+  {
+    "de": "Die",
+    "en": "The"
+  },
+  {
+    "de": "Nutzungen",
+    "en": "Uses"
+  },
+  {
+    "de": "Automod",
+    "en": "AutoMod"
+  },
+  {
+    "de": "XP",
+    "en": "XP"
+  },
+  {
+    "de": "Tickets",
+    "en": "Tickets"
+  },
+  {
+    "de": "E-Mail:",
+    "en": "Email:"
+  },
+  {
+    "de": "Discord-ID:",
+    "en": "Discord ID:"
+  },
+  {
+    "de": "Laufzeit:",
+    "en": "Duration:"
+  },
+  {
+    "de": "Nachrichten in",
+    "en": "Messages over"
+  },
+  {
+    "de": "In Ordnung",
+    "en": "Healthy"
+  },
+  {
+    "de": "Mehr als",
+    "en": "More than"
+  },
+  {
+    "de": "Wird vorbereitet",
+    "en": "Preparing"
+  },
+  {
+    "de": "Zuletzt:",
+    "en": "Last:"
+  },
+  {
+    "de": "DM zugestellt",
+    "en": "DM delivered"
+  },
+  {
+    "de": "Noch",
+    "en": "Still"
+  },
+  {
+    "de": "Absenden",
+    "en": "Submit"
+  },
+  {
+    "de": "Command ausgeführt.",
+    "en": "Command executed."
+  },
+  {
+    "de": "Befehl",
+    "en": "Command"
+  },
+  {
+    "de": "Spaß & Spiele",
+    "en": "Fun & Games"
+  },
+  {
+    "de": "GROQ_TICKET_AI_KEY",
+    "en": "GROQ_TICKET_AI_KEY"
+  },
+  {
+    "de": "Zeichen.",
+    "en": "characters."
+  },
+  {
+    "de": "Manuelle Sicherung",
+    "en": "Manual backup"
+  },
+  {
+    "de": "Platzhalter:",
+    "en": "Placeholders:"
+  },
+  {
+    "de": "Bewertung:",
+    "en": "Rating:"
+  },
+  {
+    "de": "SCHREIBE KEINE NACHRICHTEN IN DIESEN KANAL",
+    "en": "DO NOT SEND MESSAGES IN THIS CHANNEL"
+  },
+  {
+    "de": "Softbans:",
+    "en": "Softbans:"
+  },
+  {
+    "de": "Seite",
+    "en": "Page"
+  },
+  {
+    "de": "Rollen anlegen",
+    "en": "Create roles"
+  },
+  {
+    "de": "db/",
+    "en": "db/"
+  },
+  {
+    "de": "OWNER_IDS",
+    "en": "OWNER_IDS"
+  },
+  {
+    "de": "ADMIN_IDS",
+    "en": "ADMIN_IDS"
+  },
+  {
+    "de": "Unbekannter Nutzer",
+    "en": "Unknown user"
+  },
+  {
+    "de": "PREMIUM_PARTNER_TOKEN",
+    "en": "PREMIUM_PARTNER_TOKEN"
+  },
+  {
+    "de": "Besitzer:",
+    "en": "Owner:"
+  },
+  {
+    "de": "Beigetreten:",
+    "en": "Joined:"
+  },
+  {
+    "de": "Erstellt:",
+    "en": "Created:"
+  },
+  {
+    "de": "auffällig",
+    "en": "suspicious"
+  },
+  {
+    "de": "TEMPLATE_BOT_URL",
+    "en": "TEMPLATE_BOT_URL"
+  },
+  {
+    "de": "Schritten",
+    "en": "steps"
+  },
+  {
+    "de": "Bau",
+    "en": "Build"
+  },
+  {
+    "de": "Incident aktualisiert",
+    "en": "Incident updated"
+  },
+  {
+    "de": "Supportzugriff widerrufen",
+    "en": "Support access revoked"
+  },
+  {
+    "de": "ersetzen.",
+    "en": "."
+  },
+  {
+    "de": "Keine Daten",
+    "en": "No data"
+  },
+  {
+    "de": "Wiederhergestellt:",
+    "en": "Recovered:"
+  },
+  {
+    "de": "Zeichen",
+    "en": "characters"
+  },
+  {
+    "de": "Wer im Team ist",
+    "en": "Who's on the team"
+  },
+  {
+    "de": "Rollen,",
+    "en": "roles,"
+  },
+  {
+    "de": "Kategorie:",
+    "en": "Category:"
+  },
+  {
+    "de": "Raid / Massenspam",
+    "en": "Raid / mass spam"
+  },
+  {
+    "de": "Werbung per DM",
+    "en": "DM advertising"
+  },
+  {
+    "de": "Kein Grund angegeben.",
+    "en": "No reason provided."
+  },
+  {
+    "de": ".gg/",
+    "en": ".gg/"
+  },
+  {
+    "de": "Verifiziere dein Konto",
+    "en": "Verify your account"
+  },
+  {
+    "de": "Mit Discord verifizieren",
+    "en": "Verify with Discord"
+  },
+  {
+    "de": "SPRACHKANÄLE",
+    "en": "VOICE"
+  },
+  {
+    "de": "→ #",
+    "en": "→ #"
+  },
+  {
+    "de": "“.",
+    "en": "”."
+  },
+  {
+    "de": "Kanada",
+    "en": "Canada"
+  },
+  {
+    "de": "Brasilien",
+    "en": "Brazil"
+  },
+  {
+    "de": "Australien",
+    "en": "Australia"
+  },
+  {
+    "de": "Japan",
+    "en": "Japan"
+  },
+  {
+    "de": "Sonstiges",
+    "en": "Other"
+  },
+  {
+    "de": "Tag",
+    "en": "Day"
+  },
+  {
+    "de": "Stunde",
+    "en": "Hour"
+  },
+  {
+    "de": "Willkommen",
+    "en": "Welcome"
+  },
+  {
+    "de": "An",
+    "en": "On"
+  },
+  {
+    "de": "Schaltfläche",
+    "en": "Button"
+  },
+  {
+    "de": "Einstellen",
+    "en": "Configure"
+  },
+  {
+    "de": "Lena",
+    "en": "Lena"
+  },
+  {
+    "de": "Ablauf",
+    "en": "Expiry"
+  },
+  {
+    "de": "Angelegt",
+    "en": "Created"
+  },
+  {
+    "de": "Autorisierung",
+    "en": "Authorization"
+  },
+  {
+    "de": "Beobachten",
+    "en": "Monitor"
+  },
+  {
+    "de": "Betrug",
+    "en": "Fraud"
+  },
+  {
+    "de": "Cpu",
+    "en": "Cpu"
+  },
+  {
+    "de": "Eingegangen",
+    "en": "Received"
+  },
+  {
+    "de": "Allgemein",
+    "en": "General"
+  },
+  {
+    "de": "Weltkugel",
+    "en": "Globe"
+  },
+  {
+    "de": "Kritisch",
+    "en": "Critical"
+  },
+  {
+    "de": "Minute",
+    "en": "Minute"
+  },
+  {
+    "de": "Pause",
+    "en": "Pause"
+  },
+  {
+    "de": "Person",
+    "en": "Person"
+  },
+  {
+    "de": "Schutzprofil",
+    "en": "Protection profile"
+  },
+  {
+    "de": "Spielt",
+    "en": "Playing"
+  },
+  {
+    "de": "Supporter",
+    "en": "Supporter"
+  },
+  {
+    "de": "Timeout",
+    "en": "Timeout"
+  },
+  {
+    "de": "Zu",
+    "en": "To"
+  },
+  {
+    "de": "Eingeschaltet",
+    "en": "Enabled"
+  },
+  {
+    "de": "Unbekannter Nachrichtentyp.",
+    "en": "Unknown message type."
+  },
+  {
+    "de": "Die Embed-Einstellungen sind ungültig.",
+    "en": "The embed settings are invalid."
+  },
+  {
+    "de": "Ein Embed-Feld überschreitet das Zeichenlimit.",
+    "en": "An embed field exceeds the character limit."
+  },
+  {
+    "de": "Das Embed darf insgesamt höchstens 6000 Zeichen enthalten.",
+    "en": "The embed may contain at most 6,000 characters in total."
+  },
+  {
+    "de": "Die Löschzeit muss zwischen 0 und 86400 Sekunden liegen.",
+    "en": "The deletion delay must be between 0 and 86,400 seconds."
+  },
+  {
+    "de": "Die Abschiedsvorschau ist gerade nicht verfügbar.",
+    "en": "The departure preview is currently unavailable."
+  },
+  {
+    "de": "Die Abschiedsnachricht konnte nicht gesendet werden. Prüfe die Nachricht und die Kanalrechte.",
+    "en": "The departure message could not be sent. Check the message and channel permissions."
+  },
+  {
+    "de": "Ersteller",
+    "en": "Creator"
+  },
+  {
+    "de": "Eröffnungsformular",
+    "en": "Opening form"
+  },
+  {
+    "de": "Großes Bild",
+    "en": "Large image"
+  },
+  {
+    "de": "Schließformular",
+    "en": "Closing form"
+  },
+  {
+    "en": "{0} is now **level {1}**!",
+    "de": "{0} ist jetzt **Level {1}**!"
+  },
+  {
+    "en": "Your application for **{0}** ({1}) was accepted.\n\n**Reason:**\n{2}",
+    "de": "Deine Bewerbung als **{0}** ({1}) wurde angenommen.\n\n**Begründung:**\n{2}"
+  },
+  {
+    "en": "Your application for **{0}** ({1}) was rejected.\n\n**Reason:**\n{2}",
+    "de": "Deine Bewerbung als **{0}** ({1}) wurde abgelehnt.\n\n**Begründung:**\n{2}"
+  }
+]

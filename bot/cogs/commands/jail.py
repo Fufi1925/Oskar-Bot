@@ -13,6 +13,8 @@
 # ╚══════════════════════════════════════════════════════════════════╝
 
 import discord
+from utils.dm_i18n import bot_reason
+from utils.emoji import LOCK, MESSAGE, INFO
 from discord.ext import commands, tasks
 import sqlite3
 from datetime import datetime, timedelta
@@ -167,7 +169,7 @@ class Jail(commands.Cog):
             await jail_channel.set_permissions(member, view_channel=True, send_messages=True, read_message_history=True)
 
         try:
-            await member.send(f"🔒 You were jailed in **{ctx.guild.name}**.\n📝 Reason: {reason}\n⏰ Duration: {duration or 'Permanent'}")
+            await member.send(f"{LOCK} You were jailed in **{ctx.guild.name}**.\n{MESSAGE} Reason: {bot_reason(None if reason == 'No reason provided' else reason, member.id)}\n{INFO} Duration: {duration or 'Permanent'}")
         except:
             pass
 

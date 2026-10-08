@@ -203,6 +203,9 @@ class Leveling(commands.Cog):
                 )
 
                 if mode == "dm":
+                    from utils.dm_i18n import preserve_values
+                    if settings.get("level_message") != store.DEFAULTS["level_message"]:
+                        preserve_values(card, [text])
                     try:
                         await member.send(view=card)
                     except (discord.Forbidden, discord.HTTPException):

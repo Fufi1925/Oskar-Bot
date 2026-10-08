@@ -83,6 +83,11 @@ class universitybot(commands.AutoShardedBot):
         if event_name == "on_interaction" and args and args[0].extras.get("university_module_blocked"):
             return None
 
+        if event_name == 'on_message' and args and args[0].guild is None:
+            from utils.dm_delivery import is_language_command
+            if is_language_command(args[0].content) and coro != self.on_message:
+                return None
+
         guild_id = guild_modules.guild_id_from_event(args)
         module = guild_modules.module_for_callable(coro)
         if guild_id is not None and module and not guild_modules.is_enabled(guild_id, module):
@@ -104,6 +109,8 @@ class universitybot(commands.AutoShardedBot):
         await guild_modules.load()
         from utils import interaction_notices
         interaction_notices.install(self)
+        from utils import dm_delivery
+        dm_delivery.install(self)
         feature_gates.setup_gates(self)
 
         # Per-guild behaviour settings (disabled commands, cooldowns,
@@ -437,6 +444,10 @@ class universitybot(commands.AutoShardedBot):
     async def on_message(self, message: discord.Message):
         if message.author.bot:
             return
+        if message.guild is None:
+            from utils.dm_delivery import handle_message
+            if await handle_message(message):
+                return
         if message.guild and self.user and self.user in message.mentions and message.content.strip() in {self.user.mention, f"<@!{self.user.id}>"}:
             try:
                 enabled = True

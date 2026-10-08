@@ -13,6 +13,7 @@
 # ╚══════════════════════════════════════════════════════════════════╝
 
 import discord
+from utils.dm_i18n import bot_reason
 from utils.emoji import DELETE, TICK, ZWARNING
 from discord.ext import commands
 from discord import ui
@@ -159,7 +160,7 @@ class Unban(commands.Cog):
             return
 
         try:
-            await user.send(f"{TICK} You have been unbanned from **{ctx.guild.name}** by **{ctx.author}**. Reason: {reason or 'No reason provided'}")
+            await user.send(f"{TICK} You have been unbanned from **{ctx.guild.name}** by **{ctx.author}**. Reason: {bot_reason(reason, user.id)}")
             dm_status = "Yes"
         except discord.Forbidden:
             dm_status = "No"

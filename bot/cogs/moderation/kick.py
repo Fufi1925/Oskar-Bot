@@ -13,6 +13,7 @@
 # ╚══════════════════════════════════════════════════════════════════╝
 
 import discord
+from utils.dm_i18n import bot_reason
 from utils.emoji import TICK
 from discord.ext import commands
 from utils.Tools import * # Assuming these decorators exist as provided
@@ -54,7 +55,7 @@ class Kick(commands.Cog):
 
         # --- Attempt to DM the user ---
         try:
-            dm_message = f"You have been kicked from **{ctx.guild.name}**. Reason: {reason}"
+            dm_message = f"You have been kicked from **{ctx.guild.name}**. Reason: {bot_reason(reason, member.id)}"
             await member.send(dm_message)
         except (discord.Forbidden, discord.HTTPException):
             # Fails silently if the user has DMs closed or an error occurs
