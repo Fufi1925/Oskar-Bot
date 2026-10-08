@@ -49,8 +49,16 @@ def placeholders(member) -> dict[str, Any]:
     guild = member.guild
     joined = getattr(member, "joined_at", None)
     created = getattr(member, "created_at", None)
+    count = guild.member_count if guild.member_count is not None else len(guild.members)
 
     return {
+        "user.name": member.name,
+        "user.display": member.display_name,
+        "user.id": member.id,
+        "server": guild.name,
+        "guild": guild.name,
+        "count": count,
+        "membercount": count,
         "user": member.mention,
         # display_avatar covers members without their own picture; plain
         # `.avatar` is None for them and used to raise.
@@ -62,7 +70,7 @@ def placeholders(member) -> dict[str, Any]:
         "user_createdate": created.strftime("%a, %b %d, %Y") if created else "—",
         "server_name": guild.name,
         "server_id": guild.id,
-        "server_membercount": guild.member_count,
+        "server_membercount": count,
         "server_icon": (
             guild.icon.url if guild.icon
             else "https://cdn.discordapp.com/embed/avatars/0.png"
@@ -84,7 +92,7 @@ def fill(text: str, values: dict[str, Any]) -> str:
         name = match.group(1).lower()
         return str(lowered.get(name, "{" + name + "}"))
 
-    return re.sub(r"\{(\w+)\}", replace, text or "")
+    return re.sub(r"\{([\w.]+)\}", replace, text or "")
 
 
 def parse_colour(value) -> int:

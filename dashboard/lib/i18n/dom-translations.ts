@@ -7172,6 +7172,34 @@ export const phrasePairs: Array<[de: string, en: string]> = [
   ["Rechte vorübergehend entziehen und sicher wiederherstellen.", "Temporarily remove permissions and safely restore them."],
   ["Schutz und Moderation", "Protection and moderation"],
   ["Verifizierungsbereiche", "Verification sections"],
+
+  // ════════════════════════════════════════════════════════════════
+  // Vollstaendige Abdeckung der Dashboard-Oberflaeche. Diese Eintraege
+  // stammen aus tools/build_dom_translations.py — nicht von Hand hier
+  // pflegen, sondern die Batches in tools/i18n_work/ anpassen und den
+  // Generator neu laufen lassen.
+  // ════════════════════════════════════════════════════════════════
+  ["**{user_nick}** hat **{server_name}** verlassen. Alles Gute!", "**{user_nick}** left **{server_name}**. All the best!"],
+  ["**{user_nick}** hat {server_name} verlassen.", "**{user_nick}** left {server_name}."],
+  ["0 heißt: die Abschiedsnachricht bleibt stehen.", "0 means the departure message stays."],
+  ["Abschied gespeichert.", "Departure settings saved."],
+  ["Abschiedseinstellungen konnten nicht geladen werden.", "Departure settings could not be loaded."],
+  ["Auf Wiedersehen, {user_nick}!", "Goodbye, {user_nick}!"],
+  ["Danke für deine Zeit auf **{server_name}**.", "Thank you for your time on **{server_name}**."],
+  ["Die Abschiedskarte mit Profilbild und Mitgliedsnummer.", "The departure card with profile picture and member count."],
+  ["Gestalte die Abschiedsnachricht wie deine Begrüßung: Kanal, Text, Embed, Bilder und Platzhalter – mit direkter Vorschau.", "Design your departure message like your welcome: channel, text, embed, images and placeholders, with a live preview."],
+  ["Hier landet die Abschiedsnachricht.", "The departure message is sent here."],
+  ["Leer lassen für den gezeichneten Hintergrund.", "Leave empty to use the default background."],
+  ["Mitglied hat den Server verlassen", "Member left the server"],
+  ["{server_membercount} Mitglieder", "{server_membercount} members"],
+  ["{user_name} · {user_id}", "{user_name} · {user_id}"],
+  ["Unbekannter Nachrichtentyp.", "Unknown message type."],
+  ["Die Embed-Einstellungen sind ungültig.", "The embed settings are invalid."],
+  ["Ein Embed-Feld überschreitet das Zeichenlimit.", "An embed field exceeds the character limit."],
+  ["Das Embed darf insgesamt höchstens 6000 Zeichen enthalten.", "The embed may contain at most 6,000 characters in total."],
+  ["Die Löschzeit muss zwischen 0 und 86400 Sekunden liegen.", "The deletion delay must be between 0 and 86,400 seconds."],
+  ["Die Abschiedsvorschau ist gerade nicht verfügbar.", "The departure preview is currently unavailable."],
+  ["Die Abschiedsnachricht konnte nicht gesendet werden. Prüfe die Nachricht und die Kanalrechte.", "The departure message could not be sent. Check the message and channel permissions."],
 ];
 
 /**
@@ -7559,7 +7587,7 @@ export function translateWebsiteText(value: string, language: Language): string 
 function shouldSkipNode(node: Node) {
   const parent = node.parentElement;
   if (!parent) return true;
-  if (parent.closest("script,style,noscript,code,pre,textarea,[data-no-translate]")) return true;
+  if (parent.closest("script,style,noscript,code,pre,textarea,[contenteditable],[data-no-translate]")) return true;
   return false;
 }
 

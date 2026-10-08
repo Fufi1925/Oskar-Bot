@@ -1517,6 +1517,9 @@ export const api = {
 
   // Ticket panels — one endpoint per section, so saving one part can
   // never blank another.
+  testLeave: (guildId: string, draft: any) => request<any>(`/actions/${guildId}/leave/test`, {
+    method: "POST", body: JSON.stringify(draft),
+  }),
   getGreetExtras: (guildId: string) =>
     request<any>(`/guilds/${guildId}/greet-extras`),
   saveGreetExtras: (guildId: string, data: any) =>

@@ -301,7 +301,9 @@ async def test_cog():
     # danebenzulegen laedt sie hoch, zeigt sie aber nicht an.
     entfernt = code[code.find("async def on_member_remove"):]
     check("das Abschiedsbild geht in die View",
-          "attachment://" in entfernt and "Panel(" in entfernt,
+          "greet_extras.message_payload" in entfernt
+          and "attachment://" in strip_py(read("utils/greet_extras.py"))
+          and "Panel(" in strip_py(read("utils/greet_extras.py")),
           "-> sonst kommt der Abschied ohne Bild an")
 
     # Der Bild-Schalter wird AUSGEFUEHRT, nicht gesucht.

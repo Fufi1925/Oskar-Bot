@@ -263,30 +263,9 @@ class greet(commands.Cog):
         if kanal is None:
             return
 
-        text = greet_extras.render_text(
-            extras.get("leave_message") or "**{user.display}** hat den Server verlassen.",
-            member,
-            guild,
-        )
-
         banner = await self.build_banner(member, kind="leave", extras=extras)
-
-        # Wie bei der Begruessung: bei Components V2 muss das Bild *in*
-        # die View. Eine Datei danebenzulegen laedt sie hoch, zeigt sie
-        # aber nicht an.
-        view = None
-        if banner is not None:
-            view = Panel("", text, image_url=f"attachment://{banner.filename}")
-            inhalt = None
-        else:
-            inhalt = text
-
         try:
-            await kanal.send(
-                content=inhalt,
-                view=view,
-                **({"file": banner} if banner is not None else {}),
-            )
+            await kanal.send(**greet_extras.message_payload(extras, member, banner))
         except (discord.Forbidden, discord.HTTPException):
             # Kein Recht im Kanal oder Discord lehnt ab -- ein
             # Abschiedsgruss ist das nicht wert, den Listener platzen zu

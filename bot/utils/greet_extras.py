@@ -23,6 +23,7 @@ Zugriff kann das nicht.
 from __future__ import annotations
 
 import re
+import json
 
 from utils import db_paths
 
@@ -58,6 +59,9 @@ DEFAULTS = {
     "leave_message": "",
     "leave_image_enabled": True,
     "leave_image_url": "",
+    "leave_type": "simple",
+    "leave_embed_data": {},
+    "leave_auto_delete_duration": 0,
 }
 
 
@@ -73,6 +77,16 @@ async def ensure_schema(db) -> None:
         " leave_image_enabled INTEGER DEFAULT 1,"
         " leave_image_url TEXT DEFAULT '')"
     )
+    # Existing installations keep their channel, text and image settings.
+    async with db.execute("PRAGMA table_info(greet_extras)") as cursor:
+        columns = {row[1] for row in await cursor.fetchall()}
+    for name, declaration in {
+        "leave_type": "TEXT DEFAULT 'simple'",
+        "leave_embed_data": "TEXT DEFAULT '{}'",
+        "leave_auto_delete_duration": "INTEGER DEFAULT 0",
+    }.items():
+        if name not in columns:
+            await db.execute(f"ALTER TABLE greet_extras ADD COLUMN {name} {declaration}")
     await db.commit()
 
 
@@ -82,7 +96,8 @@ async def get(guild_id: int) -> dict:
         async with db.execute(
             "SELECT welcome_image_enabled, welcome_image_url, leave_enabled,"
             " leave_channel_id, leave_message, leave_image_enabled,"
-            " leave_image_url FROM greet_extras WHERE guild_id = ?",
+            " leave_image_url, leave_type, leave_embed_data, leave_auto_delete_duration"
+            " FROM greet_extras WHERE guild_id = ?",
             (guild_id,),
         ) as cursor:
             row = await cursor.fetchone()
@@ -98,17 +113,14 @@ async def get(guild_id: int) -> dict:
         "leave_message": row[4] or "",
         "leave_image_enabled": bool(row[5]),
         "leave_image_url": row[6] or "",
+        "leave_type": row[7] or "simple",
+        "leave_embed_data": json.loads(row[8] or "{}"),
+        "leave_auto_delete_duration": int(row[9] or 0),
     }
 
 
-async def save(guild_id: int, data: dict) -> dict:
-    """
-    Einstellungen speichern und den Stand danach zurueckgeben.
-
-    Zusammengefuehrt statt ersetzt: das Dashboard schickt beim Umlegen
-    eines Schalters nur dieses eine Feld.
-    """
-    aktuell = await get(guild_id)
+def validate_update(current: dict, data: dict) -> dict:
+    aktuell = dict(current)
 
     for schluessel in ("welcome_image_enabled", "leave_enabled",
                        "leave_image_enabled"):
@@ -133,13 +145,48 @@ async def save(guild_id: int, data: dict) -> dict:
     if "leave_message" in data:
         aktuell["leave_message"] = str(data["leave_message"] or "")[:2000]
 
+    if "leave_type" in data:
+        if data["leave_type"] not in ("simple", "embed"):
+            raise ValueError("Unbekannter Nachrichtentyp.")
+        aktuell["leave_type"] = data["leave_type"]
+    if "leave_embed_data" in data:
+        embed = data["leave_embed_data"] if data["leave_embed_data"] is not None else {}
+        if not isinstance(embed, dict):
+            raise ValueError("Die Embed-Einstellungen sind ungültig.")
+        limits = {"message": 2000, "title": 256, "description": 4096, "author_name": 256, "footer_text": 2048,
+                  "author_icon": 2048, "footer_icon": 2048, "image": 2048, "thumbnail": 2048, "color": 16}
+        clean = {key: str(value or "") for key, value in embed.items() if key in limits}
+        if any(len(value) > limits[key] for key, value in clean.items()):
+            raise ValueError("Ein Embed-Feld überschreitet das Zeichenlimit.")
+        if sum(len(clean.get(key, "")) for key in ("title", "description", "author_name", "footer_text")) > 6000:
+            raise ValueError("Das Embed darf insgesamt höchstens 6000 Zeichen enthalten.")
+        aktuell["leave_embed_data"] = clean
+    if "leave_auto_delete_duration" in data:
+        duration = data["leave_auto_delete_duration"]
+        if isinstance(duration, bool) or not isinstance(duration, int) or not 0 <= duration <= 86400:
+            raise ValueError("Die Löschzeit muss zwischen 0 und 86400 Sekunden liegen.")
+        aktuell["leave_auto_delete_duration"] = duration
+
+    return aktuell
+
+
+async def save(guild_id: int, data: dict) -> dict:
+    """
+    Einstellungen speichern und den Stand danach zurueckgeben.
+
+    Zusammengefuehrt statt ersetzt: das Dashboard schickt beim Umlegen
+    eines Schalters nur dieses eine Feld.
+    """
+    aktuell = validate_update(await get(guild_id), data)
+
     async with db_paths.connect(GREET_DB) as db:
         await ensure_schema(db)
         await db.execute(
             "INSERT INTO greet_extras (guild_id, welcome_image_enabled,"
             " welcome_image_url, leave_enabled, leave_channel_id,"
-            " leave_message, leave_image_enabled, leave_image_url)"
-            " VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+            " leave_message, leave_image_enabled, leave_image_url,"
+            " leave_type, leave_embed_data, leave_auto_delete_duration)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
             " ON CONFLICT(guild_id) DO UPDATE SET"
             " welcome_image_enabled = excluded.welcome_image_enabled,"
             " welcome_image_url = excluded.welcome_image_url,"
@@ -147,7 +194,10 @@ async def save(guild_id: int, data: dict) -> dict:
             " leave_channel_id = excluded.leave_channel_id,"
             " leave_message = excluded.leave_message,"
             " leave_image_enabled = excluded.leave_image_enabled,"
-            " leave_image_url = excluded.leave_image_url",
+            " leave_image_url = excluded.leave_image_url,"
+            " leave_type = excluded.leave_type,"
+            " leave_embed_data = excluded.leave_embed_data,"
+            " leave_auto_delete_duration = excluded.leave_auto_delete_duration",
             (
                 guild_id,
                 int(aktuell["welcome_image_enabled"]),
@@ -157,6 +207,9 @@ async def save(guild_id: int, data: dict) -> dict:
                 aktuell["leave_message"],
                 int(aktuell["leave_image_enabled"]),
                 aktuell["leave_image_url"],
+                aktuell["leave_type"],
+                json.dumps(aktuell["leave_embed_data"]),
+                aktuell["leave_auto_delete_duration"],
             ),
         )
         await db.commit()
@@ -164,7 +217,7 @@ async def save(guild_id: int, data: dict) -> dict:
     return aktuell
 
 
-def render_text(vorlage: str, member, guild) -> str:
+def render_text(vorlage: str, member, guild, *, limit: int | None = 2000) -> str:
     """
     Platzhalter fuellen -- dieselben wie bei der Begruessung.
 
@@ -190,4 +243,38 @@ def render_text(vorlage: str, member, guild) -> str:
     text = vorlage
     for platzhalter, wert in ersetzungen.items():
         text = text.replace(platzhalter, wert)
-    return text[:2000]
+    return text[:limit] if limit is not None else text
+
+
+def api_settings(settings: dict) -> dict:
+    """Discord snowflakes must stay strings across JSON and JavaScript."""
+    return {**settings, "leave_channel_id": str(settings.get("leave_channel_id") or "")}
+
+
+def message_payload(settings: dict, member, banner=None) -> dict:
+    """The real departure and its preview share every field and image."""
+    from utils import greet_render
+    from utils.panels import Panel, embed_sections
+
+    text = settings.get("leave_message") or "**{user.display}** hat den Server verlassen."
+    if settings.get("leave_type") == "embed":
+        values = greet_render.placeholders(member)
+        # Keep legacy dotted placeholders working in existing messages.
+        info = {key: render_text(str(value), member, member.guild, limit=None)
+                for key, value in (settings.get("leave_embed_data") or {}).items()}
+        embed = greet_render.build_embed(info, values)
+        content = greet_render.fill(info.get("message", ""), values)
+        title, sections, image, thumbnail = embed_sections(embed)
+        view = Panel(title, content, *sections, accent=embed.colour.value,
+                     image_url=image, thumbnail_url=thumbnail)
+        if banner is not None:
+            view.add_image(f"attachment://{banner.filename}")
+    else:
+        content = greet_render.fill(render_text(text, member, member.guild), greet_render.placeholders(member))
+        view = Panel("", content, image_url=f"attachment://{banner.filename}" if banner else None)
+    payload = {"view": view}
+    if banner is not None:
+        payload["file"] = banner
+    if settings.get("leave_auto_delete_duration"):
+        payload["delete_after"] = settings["leave_auto_delete_duration"]
+    return payload

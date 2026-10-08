@@ -1353,7 +1353,7 @@ async def patch_guild_behaviour(guild_id: int, data: dict):
 async def get_greet_extras(guild_id: int):
     from utils import greet_extras
 
-    return {"guild_id": str(guild_id), **(await greet_extras.get(guild_id))}
+    return {"guild_id": str(guild_id), **greet_extras.api_settings(await greet_extras.get(guild_id))}
 
 
 @router.patch("/{guild_id}/greet-extras", summary="Bild-Schalter und Abschied speichern")
@@ -1376,4 +1376,4 @@ async def patch_greet_extras(guild_id: int, data: dict, actor: str = ""):
             f"Abschied {'an' if settings['leave_enabled'] else 'aus'}"
         ),
     )
-    return {"status": "success", **settings}
+    return {"status": "success", **greet_extras.api_settings(settings)}

@@ -22,6 +22,7 @@ import {
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { InlineToggle } from "@/components/dashboard/form-elements";
 import { ChannelPicker } from "@/components/dashboard/pickers";
 import { WelcomeConfig } from "@/types/api";
 import { StickySaveBar, useSaveGuard } from "@/components/dashboard/save-bar";
@@ -34,6 +35,10 @@ const INPUT =
 /** Exactly the placeholders utils/greet_render.py understands. */
 const TOKENS = [
   { token: "{user}", hint: "Erwähnt das Mitglied", sample: "@Neuer" },
+  { token: "{user.name}", hint: "Benutzername", sample: "neuer" },
+  { token: "{user.display}", hint: "Anzeigename", sample: "Neuer" },
+  { token: "{server}", hint: "Servername", sample: "Mein Server" },
+  { token: "{count}", hint: "Mitgliederzahl", sample: "1.204" },
   { token: "{user_name}", hint: "Benutzername", sample: "neuer" },
   { token: "{user_nick}", hint: "Anzeigename", sample: "Neuer" },
   { token: "{user_id}", hint: "ID des Mitglieds", sample: "123456789012345678" },
@@ -117,16 +122,30 @@ function isImage(url: string) {
   return /^https?:\/\//.test(filled);
 }
 
+type GreetingConfig = WelcomeConfig & { image_enabled?: boolean; image_url?: string };
+
+const LEAVE_TEMPLATES = [
+  { name: "Kurz & freundlich", type: "simple", message: "**{user_nick}** hat **{server_name}** verlassen. Alles Gute!" },
+  { name: "Mit Bild", type: "embed", embed: { title: "Auf Wiedersehen, {user_nick}!", description: "Danke für deine Zeit auf **{server_name}**.", color: "#f43f5e", thumbnail: "{user_avatar}", footer_text: "{server_membercount} Mitglieder" } },
+  { name: "Sachlich", type: "embed", embed: { title: "Mitglied hat den Server verlassen", description: "{user_name} · {user_id}", color: "#2f3136" } },
+];
+
 export function WelcomeForm({
   initialConfig,
   guildId,
+  kind = "welcome",
+  onSaveConfig,
+  onTestConfig,
 }: {
-  initialConfig: WelcomeConfig;
+  initialConfig: GreetingConfig;
+  kind?: "welcome" | "leave";
+  onSaveConfig?: (config: GreetingConfig) => Promise<void>;
+  onTestConfig?: (config: GreetingConfig) => Promise<any>;
   channels?: any[];
   guildId: string;
 }) {
-  const [config, setConfig] = useState<WelcomeConfig>(initialConfig);
-  const [saved, setSaved] = useState<WelcomeConfig>(initialConfig);
+  const [config, setConfig] = useState<GreetingConfig>(initialConfig);
+  const [saved, setSaved] = useState<GreetingConfig>(initialConfig);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const lastFocused = useRef<HTMLTextAreaElement | HTMLInputElement | null>(null);
@@ -134,8 +153,9 @@ export function WelcomeForm({
   // Die Vorlagen vom Bot holen. Er liest die Emoji-Codes aus
   // `utils/emoji.py` -- dieselbe Quelle wie die Auswahl. Schlaegt der
   // Aufruf fehl, bleiben die schlichten Vorlagen oben stehen.
-  const [templates, setTemplates] = useState<any[]>(FALLBACK_TEMPLATES);
+  const [templates, setTemplates] = useState<any[]>(kind === "leave" ? LEAVE_TEMPLATES : FALLBACK_TEMPLATES);
   useEffect(() => {
+    if (kind === "leave") return;
     let alive = true;
     api
       .getWelcomeTemplates()
@@ -151,7 +171,7 @@ export function WelcomeForm({
     return () => {
       alive = false;
     };
-  }, []);
+  }, [kind]);
 
   // Memoised: a fresh `{}` on every render would make the preview below
   // recompute constantly.
@@ -175,7 +195,7 @@ export function WelcomeForm({
     return count;
   }, [config, saved]);
 
-  const guard = useSaveGuard(dirty, "welcome-save-bar");
+  const guard = useSaveGuard(dirty, `${kind}-save-bar`);
 
   const setEmbed = (patch: any) =>
     setConfig({ ...config, embed_data: { ...embed, ...patch } });
@@ -214,9 +234,12 @@ export function WelcomeForm({
     }
     setSaving(true);
     try {
-      await api.updateWelcome(guildId, config);
-      setSaved(config);
-      toast.success("Begrüßung gespeichert.");
+      if (onSaveConfig) await onSaveConfig(config);
+      else await api.updateWelcome(guildId, config);
+      const committed = kind === "leave" ? { ...config, image_url: config.image_url?.trim() || "" } : config;
+      setConfig(committed);
+      setSaved(committed);
+      toast.success(kind === "leave" ? "Abschied gespeichert." : "Begrüßung gespeichert.");
     } catch (err: any) {
       toast.error(err?.message || "Speichern fehlgeschlagen.");
     } finally {
@@ -231,7 +254,7 @@ export function WelcomeForm({
     }
     setTesting(true);
     try {
-      const res = await api.testWelcome(guildId, config.channel_id, {
+      const res = onTestConfig ? await onTestConfig(config) : await api.testWelcome(guildId, config.channel_id, {
         welcome_type: config.welcome_type || "simple",
         welcome_message: config.welcome_message || "",
         embed_data: config.embed_data || null,
@@ -258,13 +281,15 @@ export function WelcomeForm({
   }), [config, embed, isEmbed]);
 
   return (
-    <div className="space-y-5">
+    <div className={cn("space-y-5", kind === "leave" && "leave-editor")}>
+    <fieldset disabled={saving || testing} className="min-w-0 space-y-5 border-0 p-0">
     <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
       {/* ══ Form ═══════════════════════════════════════ */}
       <div className="xl:col-span-3 space-y-6">
         <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6 space-y-5">
-          <Field label="Kanal" hint="Hier landet die Begrüßung.">
+          <Field label="Kanal" hint={kind === "leave" ? "Hier landet die Abschiedsnachricht." : "Hier landet die Begrüßung."}>
             <ChannelPicker
+              disabled={saving || testing}
               guildId={guildId}
               value={config.channel_id || ""}
               onChange={(id) => setConfig({ ...config, channel_id: id || null })}
@@ -302,16 +327,17 @@ export function WelcomeForm({
 
           <Field
             label="Nach X Sekunden löschen"
-            hint="0 heißt: die Begrüßung bleibt stehen."
+            hint={kind === "leave" ? "0 heißt: die Abschiedsnachricht bleibt stehen." : "0 heißt: die Begrüßung bleibt stehen."}
           >
             <input
               type="number"
               min={0}
+              max={kind === "leave" ? 86400 : undefined}
               value={config.auto_delete_duration || 0}
               onChange={(e) =>
                 setConfig({
                   ...config,
-                  auto_delete_duration: Math.max(0, Number(e.target.value) || 0),
+                  auto_delete_duration: Math.max(0, Math.min(kind === "leave" ? 86400 : Infinity, Math.trunc(Number(e.target.value) || 0))),
                 })
               }
               className={INPUT}
@@ -344,11 +370,20 @@ export function WelcomeForm({
           </div>
         </div>
 
+        {kind === "leave" && <section className="rounded-2xl border border-white/[.07] bg-[#202124] p-4 sm:p-6 space-y-5">
+          <InlineToggle disabled={saving || testing} checked={!!config.image_enabled} onCheckedChange={value => setConfig({ ...config, image_enabled: value })} label="Bild beim Abschied" hint="Die Abschiedskarte mit Profilbild und Mitgliedsnummer." />
+          <Field label="Eigenes Hintergrundbild" hint="Leer lassen für den gezeichneten Hintergrund.">
+            <input aria-label="Eigenes Hintergrundbild" value={config.image_url || ""} disabled={!config.image_enabled || saving || testing} onChange={e => setConfig({ ...config, image_url: e.target.value })} placeholder="https://…/hintergrund.png" className={INPUT} />
+          </Field>
+          {config.image_enabled && config.image_url && isImage(config.image_url) && <img src={config.image_url} alt="Vorschau des Hintergrundbildes" className="max-h-40 w-full rounded-xl object-cover" />}
+        </section>}
+
         {/* Text */}
         {!isEmbed && (
           <div className="bg-[#131318] border border-slate-800 rounded-3xl p-4 sm:p-6">
             <Field label="Nachricht">
               <EmojiText
+                disabled={saving || testing}
                 {...track}
                 value={config.welcome_message || ""}
                 onChange={(next) =>
@@ -357,7 +392,7 @@ export function WelcomeForm({
                 rows={5}
                 limit={2000}
                 showCount
-                placeholder="Willkommen {user} auf {server_name}!"
+                placeholder={kind === "leave" ? "**{user_nick}** hat {server_name} verlassen." : "Willkommen {user} auf {server_name}!"}
                 onLimitReached={(max) =>
                   toast.error(`Das passt nicht mehr in ${max} Zeichen.`)
                 }
@@ -374,6 +409,7 @@ export function WelcomeForm({
               hint="Optional. Nützlich, um jemanden zu pingen — in der Karte selbst gibt es keine Benachrichtigung."
             >
               <EmojiText
+                disabled={saving || testing}
                 {...track}
                 value={embed.message || ""}
                 onChange={(next) => setEmbed({ message: next })}
@@ -388,11 +424,12 @@ export function WelcomeForm({
             <div className="grid md:grid-cols-2 gap-5">
               <Field label="Überschrift">
                 <EmojiText
+                disabled={saving || testing}
                   {...track}
                   value={embed.title || ""}
                   onChange={(next) => setEmbed({ title: next })}
                   limit={256}
-                  placeholder="Willkommen auf {server_name}!"
+                  placeholder={kind === "leave" ? "Auf Wiedersehen, {user_nick}!" : "Willkommen auf {server_name}!"}
                   onLimitReached={(max) =>
                     toast.error(`Eine Überschrift darf höchstens ${max} Zeichen haben.`)
                   }
@@ -422,13 +459,14 @@ export function WelcomeForm({
 
             <Field label="Beschreibung">
               <EmojiText
+                disabled={saving || testing}
                 {...track}
                 value={embed.description || ""}
                 onChange={(next) => setEmbed({ description: next })}
                 rows={4}
                 limit={4096}
                 showCount
-                placeholder="Schön, dass du da bist, {user}!"
+                placeholder={kind === "leave" ? "Alles Gute, {user_nick}!" : "Schön, dass du da bist, {user}!"}
                 onLimitReached={(max) =>
                   toast.error(`Die Beschreibung darf höchstens ${max} Zeichen haben.`)
                 }
@@ -442,6 +480,7 @@ export function WelcomeForm({
               <div className="grid md:grid-cols-2 gap-5">
                 <Field label="Name">
                   <EmojiText
+                disabled={saving || testing}
                     {...track}
                     value={embed.author_name || ""}
                     onChange={(next) => setEmbed({ author_name: next })}
@@ -471,6 +510,7 @@ export function WelcomeForm({
               <div className="grid md:grid-cols-2 gap-5">
                 <Field label="Text">
                   <EmojiText
+                disabled={saving || testing}
                     {...track}
                     value={embed.footer_text || ""}
                     onChange={(next) => setEmbed({ footer_text: next })}
@@ -532,7 +572,7 @@ export function WelcomeForm({
 
             <div className="rounded-2xl bg-[#313338] p-4 space-y-2">
               {preview.content && (
-                <p className="text-sm text-[#dbdee1] whitespace-pre-line break-words">
+                <p data-no-translate className="text-sm text-[#dbdee1] whitespace-pre-line break-words">
                   <DiscordEmojiText text={preview.content} />
                 </p>
               )}
@@ -549,17 +589,17 @@ export function WelcomeForm({
                   <div className="flex gap-3">
                     <div className="min-w-0 flex-1 space-y-1.5">
                       {preview.author && (
-                        <p className="text-xs font-semibold text-white">
+                        <p data-no-translate className="text-xs font-semibold text-white">
                           <DiscordEmojiText text={preview.author} />
                         </p>
                       )}
                       {preview.title && (
-                        <p className="text-[15px] font-bold text-white break-words">
+                        <p data-no-translate className="text-[15px] font-bold text-white break-words">
                           <DiscordEmojiText text={preview.title} />
                         </p>
                       )}
                       {preview.description && (
-                        <p className="text-sm text-[#dbdee1] whitespace-pre-line break-words">
+                        <p data-no-translate className="text-sm text-[#dbdee1] whitespace-pre-line break-words">
                           <DiscordEmojiText text={preview.description} />
                         </p>
                       )}
@@ -586,7 +626,7 @@ export function WelcomeForm({
                   )}
 
                   {preview.footer && (
-                    <p className="text-[11px] text-[#949ba4] break-words">
+                    <p data-no-translate className="text-[11px] text-[#949ba4] break-words">
                       <DiscordEmojiText text={preview.footer} />
                     </p>
                   )}
@@ -662,8 +702,9 @@ export function WelcomeForm({
       </div>
       </div>
 
+      </fieldset>
       <StickySaveBar
-        id="welcome-save-bar"
+        id={`${kind}-save-bar`}
         count={dirty}
         busy={saving}
         shake={guard.shake}

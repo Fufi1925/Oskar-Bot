@@ -954,3 +954,12 @@ input[type="number"] {
   .module-banner-position { transition: none; }
   .module-content-enter { animation: none; }
 }
+
+/* Departure uses the shared greeting editor with the clean dashboard theme. */
+.leave-editor .bg-\[\#131318\] { background-color: #202124; }
+.leave-editor .bg-\[\#0e0e12\] { background-color: #18191c; }
+.leave-editor .border-slate-800 { border-color: rgb(255 255 255 / .07); }
+.leave-editor .rounded-3xl { border-radius: 1rem; }
+.leave-editor .font-black { font-weight: 600; }
+.leave-editor .text-slate-600 { color: #94a3b8; }
+.leave-editor .grid > * { min-width: 0; }

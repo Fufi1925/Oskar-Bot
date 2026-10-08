@@ -356,6 +356,32 @@ async def test_welcome(guild_id: int, data: dict, bot: "universitybot" = Depends
     }
 
 
+@router.post("/{guild_id}/leave/test", summary="Send a departure preview")
+async def test_leave(guild_id: int, data: dict, bot: "universitybot" = Depends(get_bot)):
+    from utils import greet_extras
+
+    guild = _guild_or_404(bot, guild_id)
+    try:
+        settings = greet_extras.validate_update(await greet_extras.get(guild_id), {key: value for key, value in data.items() if key.startswith("leave_")})
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    channel = _require_channel(guild, str(settings.get("leave_channel_id") or ""))
+    actor = str(data.get("actor", ""))
+    member = guild.get_member(int(actor)) if actor.isdigit() else None
+    member = member or guild.me
+    greeter = bot.get_cog("greet")
+    if greeter is None:
+        raise HTTPException(status_code=503, detail="Die Abschiedsvorschau ist gerade nicht verfügbar.")
+    try:
+        banner = await greeter.build_banner(member, kind="leave", extras=settings)
+        message = await channel.send(**greet_extras.message_payload(settings, member, banner))
+    except discord.Forbidden:
+        raise HTTPException(status_code=403, detail=f"Der Bot darf in #{channel.name} nicht schreiben.")
+    except (discord.HTTPException, ValueError, TypeError) as exc:
+        raise HTTPException(status_code=400, detail="Die Abschiedsnachricht konnte nicht gesendet werden. Prüfe die Nachricht und die Kanalrechte.") from exc
+    return {"status": "success", "url": message.jump_url, "result": f"Vorschau in #{channel.name} gesendet."}
+
+
 # ══════════════════════════════════════════════════════════════════════════
 #  Free-form message
 # ══════════════════════════════════════════════════════════════════════════
