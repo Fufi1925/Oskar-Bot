@@ -34,7 +34,7 @@ check("listener no longer hardcodes one server", "message.guild.id != ticket_ai.
 check("admin has a complete Ticket AI tab", 'id: "ticketai"' in ADMIN_CONTENT and '<TicketAiAdmin />' in ADMIN_CONTENT and "Serverfreigaben" in ADMIN_PANEL)
 check("admin can test Groq directly with detailed errors", "/ticket-ai-test" in ADMIN_API and "testTicketAi" in CLIENT and "Groq-KI direkt testen" in ADMIN_PANEL and '"ticket-ai-test": { WRITE: "premium.manage" }' in BFF)
 check("admin endpoint has premium.manage permission", '"ticket-ai-access": { GET: "premium.manage", WRITE: "premium.manage" }' in BFF)
-check("Premium admin manages individual servers", 'id: "server"' in PREMIUM_ADMIN and "<PremiumGuilds />" in PREMIUM_ADMIN and "/premium-guilds" in ADMIN_API and "setGuildPremium" in PREMIUM_GUILDS)
+check("Premium admin manages individual servers", 'id: "server"' in PREMIUM_ADMIN and "<PremiumServerAdmin />" in PREMIUM_ADMIN and "/premium-guilds" in ADMIN_API and "setGuildPremium" in PREMIUM_GUILDS)
 check("server Premium mutations are permission gated", '"premium-guilds": { GET: "premium.manage" }' in BFF and 'premium: { WRITE: "premium.manage" }' in BFF)
 check("AI switch persists immediately", "const setEnabled = async" in PANEL and "onClick={() => setEnabled(!data.enabled)}" in PANEL and "disabled={busy}" in PANEL)
 check("missing prerequisites explain instead of silently disabling", "Lade zuerst eine .txt-Wissensdatei hoch" in PANEL and "GROQ_TICKET_AI_KEY fehlt oder enthält keinen gültigen Groq-Key" in PANEL)

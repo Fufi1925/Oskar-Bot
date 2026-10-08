@@ -1645,10 +1645,10 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify(data),
     }),
-  createTicketPanel: (guildId: string, name: string) =>
+  createTicketPanel: (guildId: string, name: string, channelId?: string) =>
     request<any>(`/tickets/${guildId}/panels`, {
       method: "POST",
-      body: JSON.stringify({ name }),
+      body: JSON.stringify({ name, channel_id: channelId }),
     }),
   updateTicketPanel: (guildId: string, panelId: number, data: any) =>
     request<any>(`/tickets/${guildId}/panels/${panelId}`, {

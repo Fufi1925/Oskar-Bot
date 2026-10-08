@@ -343,18 +343,27 @@ def test_listener_wirkung():
                 with conn:
                     return conn.execute(q, p)
 
+        from types import SimpleNamespace
+        from utils import ticket_settings
+        conn.execute('ALTER TABLE ticket_categories ADD COLUMN panel_id INTEGER')
+        conn.execute("CREATE TABLE guild_configs(guild_id INTEGER,staff_roles TEXT)")
+        conn.execute(ticket_settings.SCHEMA)
         gesendet = []
 
         class FakeResponse:
             def is_done(self):
                 return False
 
-            async def send_message(self, text, **kw):
-                gesendet.append(text)
+            async def send_message(self, text='', **kw):
+                gesendet.append(str(kw['view'].to_components()) if 'view' in kw else text)
 
         class FakeInter:
             def __init__(self, kanal):
                 self.channel_id = kanal
+                self.guild_id = 7
+                self.guild = SimpleNamespace(id=7)
+                self.user = SimpleNamespace(id=42,roles=[],guild_permissions=SimpleNamespace(administrator=False))
+                self.data = {'custom_id':'t_close'}
                 self.response = FakeResponse()
 
         cog = TicketCog.__new__(TicketCog)
@@ -380,7 +389,7 @@ def test_listener_wirkung():
         gesendet.clear()
         asyncio.run(cog._dispatch_ticket_button(FakeInter(301), "t_close"))
         check("beim richtigen Stand wird der View gebaut und geprueft",
-              gesendet and "misconfigured" in gesendet[0].lower(),
+              gesendet and "staff action" in gesendet[0].lower(),
               f"-> die Rollenpruefung des Views lief nicht: {gesendet}")
         conn.close()
 

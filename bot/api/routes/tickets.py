@@ -26,7 +26,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from api import ticket_panels as panels
 from api.db_manager import db_manager
 from api.dependencies import get_bot
-from utils import dashboard_roles, feature_audit, feature_gates, ticket_ai, ticket_ai_scan, ticket_notify
+from utils import dashboard_roles, feature_audit, feature_gates, ticket_ai, ticket_ai_scan, ticket_notify, ticket_settings
 
 if TYPE_CHECKING:
     from core.universitybot import universitybot
@@ -220,7 +220,12 @@ async def update_server_settings(guild_id: int, data: dict):
 async def create_panel(guild_id: int, data: dict | None = None):
     db = await _db()
     name = str((data or {}).get("name", "Support")).strip()[:100] or "Support"
+    channel_id = (data or {}).get('channel_id')
+    if channel_id and not str(channel_id).isdigit():
+        raise HTTPException(status_code=400, detail='Select a valid channel.')
     panel_id = await panels.create_panel(db, guild_id, name)
+    if (data or {}).get('channel_id'):
+        await panels.update_panel(db, guild_id, panel_id, {'channel_id': data['channel_id']})
     await feature_audit.log_action(
         "ticket_panel_created",
         actor=str((data or {}).get("actor", "dashboard")),
@@ -251,7 +256,10 @@ async def update_panel(guild_id: int, panel_id: int, data: dict):
         )
 
     db = await _db()
-    changed = await panels.update_panel(db, guild_id, panel_id, data)
+    try:
+        changed = await panels.update_panel(db, guild_id, panel_id, data)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     if not changed:
         return {"status": "success", "changed": False}
     return {"status": "success", "changed": True}
@@ -335,6 +343,12 @@ async def upsert_category(guild_id: int, panel_id: int, data: dict):
         # such as team roles or the target category to be maintained.
         data = {key: value for key, value in data.items() if key not in category_message_fields}
     db = await _db()
+    if isinstance(data.get('settings'),dict) and 'opening_questions' in data['settings'] and not feature_gates.has_premium_access(guild_id,data.get('actor'),configure=True):
+        stored=await ticket_settings.load(db,guild_id,'category',data.get('category_id') or 0)
+        preferences=dict(data['settings'])
+        if 'opening_questions' in stored:preferences['opening_questions']=stored['opening_questions']
+        else:preferences.pop('opening_questions',None)
+        data={**data,'settings':preferences}
     try:
         category_id = await panels.upsert_category(db, guild_id, panel_id, data)
     except ValueError as exc:
@@ -392,6 +406,10 @@ async def send_panel(
             detail="Add at least one category before posting the panel.",
         )
 
+    preferences = ticket_settings.resolve(panel.get('settings'))
+    panel['categories'] = [c for c in panel['categories'] if ticket_settings.resolve(panel.get('settings'), c.get('settings'))['active']]
+    if not panel['categories']:
+        raise HTTPException(status_code=400, detail='Enable at least one ticket category before posting the panel.')
     channel = guild.get_channel(int(panel["channel_id"]))
     if channel is None:
         raise HTTPException(
@@ -405,10 +423,11 @@ async def send_panel(
         )
 
     # Replace the old message so a channel does not fill up with panels.
+    old_message = None
     if panel["message_id"]:
         try:
             old = await channel.fetch_message(int(panel["message_id"]))
-            await old.delete()
+            old_message = old
         except Exception:
             pass
 
@@ -456,11 +475,23 @@ async def send_panel(
                 )
             )
 
+    description = panel['embed_description'] or 'Choose a category below to create a ticket.'
+    if preferences['show_capacity']:
+        counts = []
+        for category in panel['categories']:
+            settings = ticket_settings.resolve(panel.get('settings'), category.get('settings'))
+            maximum = settings['capacity']
+            if maximum:
+                count = category.get('open_tickets', 0)
+                counts.append(f"**{category['name']}**: `{count}/{maximum}` ({round(count / maximum * 100)}%)")
+        if counts:
+            description = description[:2200] + '\n\n## Ticket availability\n' + '\n'.join(counts)
     view = Panel(
         panel["embed_title"] or panel["name"],
-        panel["embed_description"] or "Klicke unten, um ein Ticket zu öffnen.",
+        description[:max(100,3800-len(panel['embed_title'] or panel['name']))],
         accent=panel["embed_color"] or ACCENT["brand"],
         image_url=panel["embed_image_url"] or None,
+        thumbnail_url=panel["embed_thumbnail_url"] or None,
         buttons=controls,
     )
 
@@ -472,6 +503,11 @@ async def send_panel(
         ) from exc
 
     await panels.set_message_id(db, guild_id, panel_id, message.id)
+    if old_message is not None:
+        try:
+            await old_message.delete()
+        except discord.HTTPException:
+            pass
 
     try:
         bot.add_view(view, message_id=message.id)

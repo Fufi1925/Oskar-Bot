@@ -50,8 +50,8 @@ def listener_module(custom_id: str) -> str | None:
         return "giveaways"
     if custom_id.startswith(("app_accept_", "app_deny_")):
         return "applications"
-    if custom_id.startswith("create_ticket_") or custom_id in {
-        "t_lock", "t_unlock", "t_claim", "t_close", "c_reopen", "c_delete",
+    if custom_id.startswith(("create_ticket_", "ticket_rating_", "ticket_tool_")) or custom_id in {
+        "t_lock", "t_unlock", "t_claim", "t_close", "t_unclaim", "t_request", "t_confirm", "t_cancel", "t_tools", "c_reopen", "c_delete",
     }:
         return "tickets"
     return None

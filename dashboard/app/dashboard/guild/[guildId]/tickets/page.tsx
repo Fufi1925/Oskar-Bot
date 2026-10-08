@@ -8,8 +8,8 @@ export const revalidate = 0;
 
 export default function TicketsPage({ params }: { params: { guildId: string } }) {
   return (
-    <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
-      <div>
+    <div className="max-w-6xl mx-auto space-y-5">
+      <div className="rounded-2xl border border-white/[.07] bg-[#202124] p-5 sm:p-6">
         <h2 className="text-2xl font-bold text-white flex items-center gap-2">
           <Ticket className="h-6 w-6 text-primary" />
           Tickets

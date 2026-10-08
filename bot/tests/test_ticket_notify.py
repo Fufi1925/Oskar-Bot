@@ -571,7 +571,7 @@ def test_verdrahtung():
         return treffer
 
     check("Ticket wird beim Erstellen wirklich angemeldet",
-          "create_ticket_flow" in ruft_notify("register_ticket"),
+          "_create_ticket_flow" in ruft_notify("register_ticket"),
           f"({ruft_notify('register_ticket')})")
 
     vergessen = ruft_notify("forget")

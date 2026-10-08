@@ -24,10 +24,12 @@ import asyncio
 import json
 import os
 import re
+import time
+from types import SimpleNamespace
 from utils.config import *
 from utils.panels import Panel, container, from_embed
 from utils.links import dashboard_url
-from utils import dashboard_roles, feature_gates, ticket_ai, ticket_notify
+from utils import dashboard_roles, feature_gates, ticket_ai, ticket_notify, ticket_settings
 from discord.ui import ActionRow, LayoutView, Separator, TextDisplay
 
 # --- Configurable Variables ---
@@ -45,8 +47,8 @@ EMBED_COLOR = 0xFF0000
 # --- Emoji Variables ---
 SUCCESS_EMOJI = TICK
 ERROR_EMOJI = CROSS
-LOCK_EMOJI = f"{UNLOCK} "
-UNLOCK_EMOJI = LOCK
+LOCK_EMOJI = LOCK
+UNLOCK_EMOJI = UNLOCK
 CLAIM_EMOJI = HANDSHAKE
 CLOSE_EMOJI = ZBAN
 DELETE_EMOJI = DELETE_ALT1
@@ -78,6 +80,8 @@ class TicketDatabase:
             guild_columns = {
                 row[1] for row in self.conn.execute("PRAGMA table_info(guild_configs)").fetchall()
             }
+            if 'staff_roles' not in guild_columns:
+                self.conn.execute("ALTER TABLE guild_configs ADD COLUMN staff_roles TEXT DEFAULT ''")
             if "always_transcript" not in guild_columns:
                 self.conn.execute(
                     "ALTER TABLE guild_configs ADD COLUMN always_transcript INTEGER NOT NULL DEFAULT 0"
@@ -114,6 +118,11 @@ class TicketDatabase:
                     self.conn.execute(
                         f"ALTER TABLE ticket_categories ADD COLUMN {column} {definition}"
                     )
+        with self.conn:
+            self.conn.execute(ticket_settings.SCHEMA)
+            self.conn.execute(ticket_settings.STATE_SCHEMA)
+            self.conn.execute(ticket_settings.RATING_SCHEMA)
+            self.conn.execute(ticket_settings.FEEDBACK_SCHEMA)
         ticket_ai.ensure_sync_schema(self.conn)
 
     def execute(self, q, p=()):
@@ -446,6 +455,9 @@ class TicketCog(commands.Cog, name="Ticket System"):
     def __init__(self, bot):
         self.bot, self.db = bot, TicketDatabase(DB_PATH)
         self._ai_inflight: set[int] = set()
+        self._creation_locks = {}
+        self._action_locks = {}
+        self.ticket_automations.start()
         asyncio.create_task(ticket_ai.refresh_allowed_guilds())
         asyncio.create_task(self.load_persistent_views())
         self.purge_expired_transcripts.start()
@@ -460,6 +472,25 @@ class TicketCog(commands.Cog, name="Ticket System"):
     @purge_expired_transcripts.before_loop
     async def before_transcript_purge(self):
         await self.bot.wait_until_ready()
+
+    @tasks.loop(minutes=1)
+    async def ticket_automations(self):
+        from cogs.commands.ticket_workflow import tick
+        await tick(self)
+
+    @ticket_automations.before_loop
+    async def before_ticket_automations(self):
+        await self.bot.wait_until_ready()
+
+    @commands.Cog.listener('on_message')
+    async def workflow_message(self, message):
+        from cogs.commands.ticket_workflow import activity
+        await activity(self, message)
+
+    @commands.Cog.listener('on_member_remove')
+    async def workflow_member_leave(self, member):
+        from cogs.commands.ticket_workflow import member_leave
+        await member_leave(self, member)
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
@@ -620,21 +651,23 @@ class TicketCog(commands.Cog, name="Ticket System"):
         else:
             config = self.db.fetchone("SELECT panel_type FROM guild_configs WHERE guild_id=?", (guild_id,))
             categories = self.db.fetchall("SELECT * FROM ticket_categories WHERE guild_id=?", (guild_id,))
+        categories = [c for c in categories if self.preferences(guild_id,c['category_id'])['active']]
         if not config or not categories: return None
         view_class = TicketPanelSelect if config['panel_type'] == 'dropdown' else TicketPanelButtons
         view = view_class(self)
         if config['panel_type'] == 'dropdown':
-            view.children[0].options = [discord.SelectOption(label=c['name'], value=str(c['category_id']), emoji=c['emoji']) for c in categories]
+            view.children[0].options = [discord.SelectOption(label=c['name'], value=str(c['category_id']), emoji=c['emoji'] or None) for c in categories]
             if panel_id is not None:
                 placeholder = 'Wähle eine Kategorie…'
                 if feature_gates.can_configure_premium_guild(guild_id):
                     placeholder = str(config['select_placeholder'] or '').strip()[:150] or placeholder
                 view.children[0].placeholder = placeholder
         else:
-            for c in categories: view.add_item(discord.ui.Button(label=c['name'], style=discord.ButtonStyle(c['button_style']), emoji=c['emoji'], custom_id=f"create_ticket_{c['category_id']}"))
+            for c in categories: view.add_item(discord.ui.Button(label=c['name'], style=discord.ButtonStyle(c['button_style']), emoji=c['emoji'] or None, custom_id=f"create_ticket_{c['category_id']}"))
         return view
 
     def cog_unload(self):
+        self.ticket_automations.cancel()
         self.purge_expired_transcripts.cancel()
         self.db.close()
 
@@ -722,6 +755,11 @@ class TicketCog(commands.Cog, name="Ticket System"):
         "t_lock": ("open", "b_lock"),
         "t_unlock": ("open", "b_unlock"),
         "t_claim": ("open", "b_claim"),
+        "t_unclaim": ("open", "b_unclaim"),
+        "t_request": ("open", "b_request"),
+        "t_confirm": ("open", "b_confirm"),
+        "t_cancel": ("open", "b_cancel"),
+        "t_tools": ("open", "b_tools"),
         "t_close": ("open", "b_close"),
         "c_reopen": ("closed", "b_reopen"),
         "c_delete": ("closed", "b_delete"),
@@ -732,6 +770,24 @@ class TicketCog(commands.Cog, name="Ticket System"):
         if inter.type != discord.InteractionType.component:
             return
         cid = inter.data.get("custom_id", "")
+        if getattr(inter,'extras',{}).get('university_module_blocked'):
+            return
+        store = getattr(getattr(getattr(self,'bot',None),'_connection',None),'_view_store',None)
+        if store is not None:
+            key=((inter.data or {}).get('component_type'),cid)
+            message_id=getattr(getattr(inter,'message',None),'id',None)
+            item=store._views.get(message_id,{}).get(key) or store._views.get(None,{}).get(key)
+            if item is not None and getattr(item.callback,'_university_ticket_action',False):
+                return
+        if cid.startswith('ticket_rating_') and not inter.response.is_done():
+            from cogs.commands.ticket_workflow import RatingModal
+            suffix = cid.removeprefix('ticket_rating_')
+            if suffix.isdigit():
+                request = self.db.fetchone('SELECT snapshot FROM ticket_feedback_requests WHERE channel_id=?', (int(suffix),))
+                ticket = json.loads(request['snapshot']) if request else self.db.fetchone('SELECT * FROM open_tickets WHERE channel_id=?', (int(suffix),))
+                if ticket and ticket['creator_id'] == inter.user.id and ticket['closed_at']:
+                    return await inter.response.send_modal(RatingModal(self, ticket))
+            return await inter.response.send_message(view=Panel(f'{ERROR_EMOJI} Rating unavailable', 'Only the original ticket creator can rate a closed ticket.'), ephemeral=True)
 
         # Die Knoepfe IM Ticket, nach einem Neustart.
         #
@@ -745,10 +801,22 @@ class TicketCog(commands.Cog, name="Ticket System"):
         # Interaktion, die Kategorie in der Datenbank -- mehr braucht er
         # nicht.
         if cid in self.TICKET_BUTTONS:
+            from utils import guild_modules, interaction_notices
+            if not guild_modules.is_enabled(inter.guild_id, 'tickets'):
+                if not inter.response.is_done():
+                    await interaction_notices.notify(inter, 'tickets')
+                return
             # Hat schon jemand geantwortet, laeuft der urspruengliche
             # View noch: dann nicht dazwischenfunken.
             if inter.response.is_done():
                 return
+            store = getattr(getattr(getattr(self,'bot',None), '_connection', None), '_view_store', None)
+            if store is not None:
+                message_id = getattr(getattr(inter, 'message', None), 'id', None)
+                key = ((inter.data or {}).get('component_type'), cid)
+                item = store._views.get(message_id, {}).get(key) or store._views.get(None, {}).get(key)
+                if item is not None and getattr(item.callback, '_university_ticket_action', False):
+                    return  # The registered callback owns permission checks and execution.
             return await self._dispatch_ticket_button(inter, cid)
 
         if not cid.startswith("create_ticket_"):
@@ -830,12 +898,11 @@ class TicketCog(commands.Cog, name="Ticket System"):
         config = {
             "title": "Ticket #{ticket_number}",
             "message": (
-                "Danke, dass du dich meldest, {user}.\n"
-                "Das Team ist benachrichtigt und meldet sich, sobald jemand da ist.\n\n"
-                "**Beschreibe dein Anliegen so genau wie möglich** — je mehr "
-                "wir wissen, desto schneller geht es."
+                "Welcome to your ticket, {user}.\n"
+                "Our support team will reply as soon as possible.\n\n"
+                "**Describe your request in detail** so we can help you."
             ),
-            "created_message": "Dein Ticket ist offen: {channel}",
+            "created_message": "Your ticket is open: {channel}",
             "questions": [],
         }
         panel_id = cat_info["panel_id"] if "panel_id" in cat_info.keys() else None
@@ -876,11 +943,29 @@ class TicketCog(commands.Cog, name="Ticket System"):
             pass
         return config
 
-    async def create_ticket_flow(self, inter, cat_id, answers=None):
+    def preferences(self, guild_id, category_id):
+        cat = self.db.fetchone('SELECT panel_id FROM ticket_categories WHERE guild_id=? AND category_id=?', (guild_id, category_id))
+        return ticket_settings.sync_settings(self.db, guild_id, cat['panel_id'] if cat else 0, category_id)
+
+    async def create_ticket_flow(self, inter, cat_id, answers=None, creator_id=None):
+        from utils import guild_modules,interaction_notices
+        if getattr(inter,'extras',{}).get('university_module_blocked'):
+            return
+        if not guild_modules.is_enabled(inter.guild.id,'tickets'):
+            if not inter.response.is_done():await interaction_notices.notify(inter,'tickets')
+            return
+        key = (inter.guild.id, creator_id or inter.user.id)
+        lock = self._creation_locks.setdefault(key, asyncio.Lock())
+        if lock.locked():
+            return await inter.response.send_message(view=Panel(f'{ERROR_EMOJI} Please wait', 'Your ticket is already being created.'), ephemeral=True)
+        async with lock:
+            return await self._create_ticket_flow(inter, cat_id, answers, creator_id)
+
+    async def _create_ticket_flow(self, inter, cat_id, answers=None, creator_id=None):
         guild, user = inter.guild, inter.user
         cat_info = self.db.fetchone("SELECT * FROM ticket_categories WHERE category_id=?", (cat_id,))
         disc_cat = guild.get_channel(cat_info['discord_category_id']) if cat_info else None
-        if not cat_info or not disc_cat:
+        if not cat_info or cat_info['guild_id'] != guild.id or not disc_cat:
             if not inter.response.is_done():
                 return await inter.response.send_message(
                     "Diese Ticket-Kategorie wurde gelöscht oder ist falsch eingerichtet.",
@@ -891,7 +976,18 @@ class TicketCog(commands.Cog, name="Ticket System"):
                 ephemeral=True,
             )
 
+        preferences = self.preferences(guild.id, cat_id)
+        if creator_id and creator_id != inter.user.id:
+            from cogs.commands.ticket_workflow import is_staff
+            if not preferences['allow_on_behalf'] or not is_staff(self,inter.user,cat_id):
+                return await inter.response.send_message(view=Panel(f'{ERROR_EMOJI} Staff action','This category does not allow you to open tickets for other members.'),ephemeral=True)
+            user=guild.get_member(creator_id)
+            if user is None:
+                return await inter.response.send_message(view=Panel('Member unavailable','The selected member is no longer on the server.'),ephemeral=True)
+        if not preferences['active']:
+            return await inter.response.send_message(view=Panel(f'{ERROR_EMOJI} Category unavailable', 'This ticket category has been disabled. Please contact an administrator.'), ephemeral=True)
         panel_config = self._ticket_panel_config(guild.id, cat_info)
+        panel_config['creator_id'] = user.id
         # Auswahl und Grenze liegen im Panel-Speicher, damit die
         # Vorschau im Dashboard exakt dieselben Fragen zeigt.
         from api import ticket_panels as regeln
@@ -899,6 +995,8 @@ class TicketCog(commands.Cog, name="Ticket System"):
         panel_config["questions"] = regeln.fragen_fuer_kategorie(
             panel_config["questions"], cat_id
         )
+        if preferences['opening_questions'] is not None and feature_gates.can_configure_premium_guild(guild.id):
+            panel_config['questions'] = preferences['opening_questions']
         if answers is None and panel_config["questions"]:
             return await inter.response.send_modal(
                 TicketQuestionsModal(self, cat_id, panel_config)
@@ -920,16 +1018,17 @@ class TicketCog(commands.Cog, name="Ticket System"):
 
         await inter.response.defer(ephemeral=True)
         count = self.db.fetchone(
-            "SELECT ticket_count FROM user_ticket_counts WHERE guild_id=? AND user_id=?",
+            "SELECT COUNT(*) AS ticket_count FROM open_tickets WHERE guild_id=? AND creator_id=? AND closed_at IS NULL",
             (guild.id, user.id),
         )
         if (
             count
-            and count['ticket_count'] >= TICKET_LIMIT_PER_USER
+            and preferences['ticket_limit'] > 0
+            and count['ticket_count'] >= preferences['ticket_limit']
             and not dashboard_roles.has_owner_privilege(user.id, "limits_bypass")
         ):
             return await inter.followup.send(
-                f"You have reached the max of {TICKET_LIMIT_PER_USER} open tickets.",
+                f"You have reached the max of {preferences['ticket_limit']} open tickets.",
                 ephemeral=True,
             )
         
@@ -975,8 +1074,10 @@ class TicketCog(commands.Cog, name="Ticket System"):
 
         pings = [user.mention]
         ping_roles = []
-        if cat_info['notified_roles']:
-            for role_id in cat_info['notified_roles'].split(','):
+        from cogs.commands.ticket_workflow import staff_ids
+        team_ids = staff_ids(self, guild.id, cat_id)
+        if team_ids:
+            for role_id in team_ids:
                 if role := guild.get_role(int(role_id)):
                     ping_roles.append(role)
                     # Das Team braucht dieselben Rechte wie der Ersteller,
@@ -990,12 +1091,19 @@ class TicketCog(commands.Cog, name="Ticket System"):
                         add_reactions=True,
                         manage_messages=True,
                     )
-                    pings.append(role.mention)
+                    if preferences['ping_team']:
+                        pings.append(role.mention)
         
-        try: ch = await disc_cat.create_text_channel(name=f"ticket-{t_num:04d}-{user.name.lower()}", overwrites=overwrites)
+        naming = dict(prefix=preferences['prefix'],ticket_number=f'{t_num:04d}',username=user.name.lower(),user_id=str(user.id),display_name=user.display_name,case_id=f'T-{guild.id}-{t_num:04d}')
+        name = preferences['name_format']
+        for key, value in naming.items():
+            name = name.replace('{'+key+'}', str(value))
+        name = re.sub(r'[^\w-]', '-', name.lower()).strip('-')[:100] or f'ticket-{t_num:04d}'
+        try: ch = await disc_cat.create_text_channel(name=name, overwrites=overwrites)
         except: return await inter.followup.send("I lack permissions to create a channel.", ephemeral=True)
         
         self.db.execute('INSERT INTO open_tickets VALUES (?,?,?,?,?,?,?,?,?,?,?)', (ch.id,t_num,guild.id,user.id,cat_id,datetime.now().isoformat(),None,None,False,False,None))
+        self.db.execute('INSERT OR REPLACE INTO ticket_workflow(channel_id,last_activity,priority) VALUES(?,?,?)', (ch.id,time.time(),preferences['priority']))
         self.db.execute('INSERT INTO user_ticket_counts VALUES (?,?,1) ON CONFLICT(guild_id,user_id) DO UPDATE SET ticket_count=ticket_count+1', (guild.id,user.id))
         await log_ticket_action(self.db, guild, user, "Ticket Created", f"Ticket {ch.mention} by {user.mention} (Category: {cat_info['name']}).")
 
@@ -1038,28 +1146,23 @@ class TicketCog(commands.Cog, name="Ticket System"):
         def render_template(value):
             return regeln.setze_woerter(value, **replacements)
 
+        full_message = render_template(panel_config["message"])[:4096]
         ticket_embed = discord.Embed(
             title=render_template(panel_config["title"])[:256],
-            description=render_template(panel_config["message"])[:4096],
+            description=full_message[:3000],
             color=EMBED_COLOR,
         )
-        image_answers = []
-        for answer in answers or []:
-            if answer.get("type") == "image":
-                image_answers.append(answer)
-                filenames = [
-                    getattr(attachment, "filename", "Bild")
-                    for attachment in answer.get("attachments", [])
-                ]
-                value = ", ".join(filenames) or "Kein Bild hochgeladen"
-            else:
-                value = str(answer.get("value") or "Keine Antwort")
-            ticket_embed.add_field(
-                name=str(answer.get("label") or "Antwort")[:256],
-                value=value[:1024],
-                inline=False,
-            )
-        ticket_embed.set_footer(text=f"Kategorie: {cat_info['name']}")
+        ticket_embed.add_field(name='Case ID', value=f'`T-{guild.id}-{t_num:04d}`', inline=False)
+        ticket_embed.add_field(name='Category', value=cat_info['name'], inline=False)
+        ticket_embed.add_field(name='Creator', value=user.mention, inline=False)
+        ticket_embed.add_field(name='Priority', value=preferences['priority'].title(), inline=False)
+        if not ticket_settings.is_open(preferences):
+            ticket_embed.add_field(name='Outside support hours', value=f"Your ticket is open. Our team will reply during its support hours ({preferences['timezone']}).", inline=False)
+        if preferences['welcome_image_url']:
+            ticket_embed.set_image(url=preferences['welcome_image_url'])
+        if preferences['welcome_thumbnail_url']:
+            ticket_embed.set_thumbnail(url=preferences['welcome_thumbnail_url'])
+        ticket_embed.set_footer(text=f"University Bot · {cat_info['name']}")
 
         try:
             await ch.send(
@@ -1077,21 +1180,15 @@ class TicketCog(commands.Cog, name="Ticket System"):
             pass
 
         await ch.send(view=from_embed(ticket_embed, TicketActionsView(self, ch.id, cat_id)))
-        for answer in image_answers:
-            for attachment in answer.get("attachments", []):
-                try:
-                    uploaded = await attachment.to_file()
-                    image_panel = Panel(
-                        f"Antwort: {answer.get('label') or 'Bild'}",
-                        f"Datei: `{uploaded.filename}`",
-                        image_url=f"attachment://{uploaded.filename}",
-                    )
-                    await ch.send(view=image_panel, file=uploaded)
-                except (discord.HTTPException, discord.NotFound):
-                    continue
+        if len(full_message) > 3000:
+            await ch.send(view=Panel('Support request', full_message[3000:]))
+        from cogs.commands.ticket_workflow import send_answers
+        if answers:
+            await send_answers(ch, 'Opening form', answers)
 
         created_message = render_template(panel_config["created_message"])[:1900]
-        await inter.followup.send(created_message, ephemeral=True)
+        await inter.followup.send(view=Panel(f'{SUCCESS_EMOJI} Your ticket is ready', created_message,
+            buttons=[discord.ui.Button(label='Go to ticket', url=ch.jump_url, emoji=MESSAGE)]), ephemeral=True)
 
     @commands.hybrid_group(name="ticket", description="Main command group for the ticket system.")
     @commands.guild_only()
@@ -1112,6 +1209,20 @@ class TicketCog(commands.Cog, name="Ticket System"):
     # im selben Zug zu löschen wäre eine zweite Änderung in einem
     # Commit, der eigentlich nur einen Befehl entfernt.
 
+    @ticket.command(name='create', description='Open a ticket for yourself or another member.')
+    @commands.guild_only()
+    async def create(self, ctx, category_id: int, member: discord.Member | None = None):
+        if not ctx.interaction:
+            return await ctx.send(view=Panel(f'{MESSAGE} Open a ticket', 'Use /ticket create to choose a category and open a ticket.'))
+        await self.create_ticket_flow(ctx.interaction,category_id,creator_id=member.id if member else None)
+
+    @create.autocomplete('category_id')
+    async def create_category_autocomplete(self, interaction, current):
+        if interaction.guild_id is None:return []
+        query=str(current).lower()
+        rows=self.db.fetchall('SELECT category_id,name FROM ticket_categories WHERE guild_id=? ORDER BY category_id',(interaction.guild_id,))
+        return [app_commands.Choice(name=row['name'][:100],value=row['category_id']) for row in rows if (query in row['name'].lower() or query in str(row['category_id'])) and self.preferences(interaction.guild_id,row['category_id'])['active']][:25]
+
     @ticket.command(name="close", description="Close the current ticket channel.")
     @commands.has_permissions(manage_channels=True)
     async def close(self, ctx): await self._dispatch_action(ctx, "close")
@@ -1130,70 +1241,30 @@ class TicketCog(commands.Cog, name="Ticket System"):
 
 class TicketQuestionsModal(discord.ui.Modal):
     def __init__(self, cog, category_id, panel_config):
-        super().__init__(title="Ticket erstellen", timeout=300)
-        self.cog = cog
-        self.category_id = category_id
-        self.question_inputs = []
-        for question in panel_config["questions"][:5]:
-            label = str(question.get("label") or "Frage").strip()[:45]
-            question_type = question.get("type") or question.get("style") or "short"
-            required = bool(question.get("required", True))
-            if question_type == "image":
-                field = discord.ui.FileUpload(
-                    required=required,
-                    min_values=1 if required else 0,
-                    max_values=1,
-                )
-                self.question_inputs.append((label, question_type, field))
-                self.add_item(
-                    discord.ui.Label(
-                        text=label,
-                        description=(
-                            str(question.get("placeholder") or "Bild hochladen")[:100]
-                        ),
-                        component=field,
-                    )
-                )
-                continue
-
-            field = discord.ui.TextInput(
-                label=label,
-                placeholder=str(question.get("placeholder") or "").strip()[:100] or None,
-                required=required,
-                style=(
-                    discord.TextStyle.paragraph
-                    if question_type == "paragraph"
-                    else discord.TextStyle.short
-                ),
-                max_length=1000 if question_type == "paragraph" else 200,
-            )
-            self.question_inputs.append((label, question_type, field))
-            self.add_item(field)
+        super().__init__(title='Open a ticket', timeout=900)
+        from cogs.commands.ticket_workflow import add_fields
+        self.cog, self.category_id = cog, category_id
+        self.creator_id = panel_config.get('creator_id')
+        self.inputs = add_fields(self, panel_config['questions'])
 
     async def on_submit(self, interaction):
-        answers = []
-        for label, question_type, field in self.question_inputs:
-            if question_type == "image":
-                answers.append({
-                    "label": label,
-                    "type": "image",
-                    "attachments": list(field.values or []),
-                })
-            else:
-                answers.append({
-                    "label": label,
-                    "type": question_type,
-                    "value": field.value,
-                })
-        await self.cog.create_ticket_flow(
-            interaction,
-            self.category_id,
-            answers=answers,
-        )
+        from cogs.commands.ticket_workflow import form_answers
+        try:
+            answers = form_answers(self.inputs)
+        except ValueError as exc:
+            return await interaction.response.send_message(view=Panel('Check your answers',str(exc)),ephemeral=True)
+        await self.cog.create_ticket_flow(interaction,self.category_id,answers=answers,creator_id=self.creator_id)
 
 
 class TicketPanelSelect(discord.ui.View):
-    def __init__(self, cog): super().__init__(timeout=None); self.cog = cog
+    def __init__(self, cog):
+        super().__init__(timeout=None)
+        self.cog=cog
+        original=self.children[0].callback
+        async def callback(interaction):
+            await original(interaction)
+        callback._university_ticket_action=True
+        self.children[0].callback=callback
     @discord.ui.select(placeholder="Select a category to open a ticket...", custom_id="ticket_panel_select")
     async def select_ticket(self, inter, select): await self.cog.create_ticket_flow(inter, int(select.values[0]))
 
@@ -1204,20 +1275,27 @@ class TicketActionsView(discord.ui.View):
     def __init__(self, cog, ch_id, cat_id):
         super().__init__(timeout=None)
         self.cog, self.ch_id, self.cat_id = cog, ch_id, cat_id
+        self.remove_item(self.b_confirm)
+        self.remove_item(self.b_cancel)
+        from cogs.commands.ticket_workflow import protect_actions
+        protect_actions(self)
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        cat_info = self.cog.db.fetchone("SELECT notified_roles FROM ticket_categories WHERE category_id=?", (self.cat_id,))
-        if not cat_info or not cat_info['notified_roles']:
-            await interaction.response.send_message("This ticket is misconfigured; no staff roles are assigned.", ephemeral=True)
+        ticket = self.cog.db.fetchone('SELECT * FROM open_tickets WHERE channel_id=?', (self.ch_id,))
+        if not ticket or ticket['closed_at']:
+            await interaction.response.send_message(view=Panel(f'{ERROR_EMOJI} Ticket unavailable', 'This ticket is closed or no longer exists.'), ephemeral=True)
             return False
-        
-        allowed_role_ids = {int(r_id) for r_id in cat_info['notified_roles'].split(',')}
-        user_role_ids = {role.id for role in interaction.user.roles}
-        
-        if not user_role_ids.intersection(allowed_role_ids):
-            await interaction.response.send_message("You do not have the required role to perform this action.", ephemeral=True)
-            return False
-        return True
+        preferences = self.cog.preferences(interaction.guild.id, self.cat_id)
+        cat = self.cog.db.fetchone('SELECT notified_roles FROM ticket_categories WHERE category_id=?', (self.cat_id,))
+        from cogs.commands.ticket_workflow import staff_ids
+        role_ids = staff_ids(self.cog, interaction.guild.id, self.cat_id)
+        staff = interaction.user.guild_permissions.administrator or bool(role_ids.intersection(r.id for r in interaction.user.roles))
+        creator = ticket['creator_id'] == interaction.user.id
+        operation = (interaction.data or {}).get('custom_id', '')
+        allowed = staff or (creator and (operation in ('t_request','t_confirm','t_cancel') or (operation == 't_close' and not preferences['staff_only_close']) or (operation == 't_tools' and preferences['allow_participants'])))
+        if not allowed:
+            await interaction.response.send_message(view=Panel(f'{ERROR_EMOJI} Staff action', 'Please ask the support team to perform this action.'), ephemeral=True)
+        return allowed
 
     @discord.ui.button(label="Lock", emoji=LOCK_EMOJI, custom_id="t_lock", style=discord.ButtonStyle.secondary)
     async def b_lock(self, i, b):
@@ -1241,19 +1319,35 @@ class TicketActionsView(discord.ui.View):
 
     @discord.ui.button(label="Claim", emoji=CLAIM_EMOJI, custom_id="t_claim", style=discord.ButtonStyle.primary)
     async def b_claim(self, i, b):
-        t = self.cog.db.fetchone("SELECT * FROM open_tickets WHERE channel_id=?", (self.ch_id,))
-        if t['is_claimed']: return await i.response.send_message(f"This ticket is already claimed by <@{t['claimed_by_id']}>.", ephemeral=True)
-        self.cog.db.execute("UPDATE open_tickets SET is_claimed=1, claimed_by_id=? WHERE channel_id=?", (i.user.id, self.ch_id))
-        await i.response.send_message(f"{CLAIM_EMOJI} Ticket claimed by {i.user.mention}. They will now handle this request.")
-        await log_ticket_action(self.cog.db, i.guild, i.user, "Claimed", f"{i.channel.mention}")
+        from cogs.commands.ticket_workflow import claim
+        await i.response.defer(ephemeral=True)
+        if await claim(self.cog, i.channel, self.cat_id, i.user):
+            await i.followup.send(view=Panel(f'{SUCCESS_EMOJI} Ticket claimed', 'You are now handling this request.'), ephemeral=True)
+        else:
+            await i.followup.send(view=Panel('Already claimed', 'This ticket is already being handled or has been closed.'), ephemeral=True)
 
     @discord.ui.button(label="Close", emoji=CLOSE_EMOJI, style=discord.ButtonStyle.danger, custom_id="t_close")
     async def b_close(self, i, b):
+        lock = self.cog._action_locks.setdefault(self.ch_id, asyncio.Lock())
+        if lock.locked():
+            return await i.response.send_message(view=Panel('Please wait', 'This ticket is already being updated.'), ephemeral=True)
+        async with lock:
+            await self._close(i, b)
+
+    async def _close(self, i, b):
+        preferences = self.cog.preferences(i.guild.id, self.cat_id)
+        if preferences['closing_questions'] and not hasattr(self, '_closing_answers'):
+            from cogs.commands.ticket_workflow import ActionFormModal
+            return await i.response.send_modal(ActionFormModal(self.cog, self.cat_id, preferences['closing_questions'], 'Close ticket', self.finish_close))
         await i.response.defer(ephemeral=True)
         t = self.cog.db.fetchone("SELECT * FROM open_tickets WHERE channel_id=?", (self.ch_id,))
+        if t is None or t['closed_at']:
+            return await i.followup.send(view=Panel('Ticket already closed', 'Use the latest message in the ticket.'), ephemeral=True)
         creator = i.guild.get_member(t['creator_id'])
+        if t['is_claimed'] and preferences['restrict_claimed']:
+            from cogs.commands.ticket_workflow import restore_claim
+            await restore_claim(self.cog,i.channel,t,preferences)
         if creator:
-            self.cog.db.execute("UPDATE user_ticket_counts SET ticket_count=MAX(0,ticket_count-1) WHERE guild_id=? AND user_id=?", (i.guild.id, creator.id))
             await i.channel.set_permissions(creator, send_messages=False, view_channel=False)
         
         category_info = self.cog.db.fetchone("SELECT name FROM ticket_categories WHERE category_id=?", (self.cat_id,))
@@ -1263,6 +1357,7 @@ class TicketActionsView(discord.ui.View):
         if closed_category: await i.channel.edit(category=closed_category)
         
         self.cog.db.execute("UPDATE open_tickets SET closed_by_id=?, closed_at=? WHERE channel_id=?", (i.user.id, datetime.now().isoformat(), self.ch_id))
+        self.cog.db.execute("UPDATE user_ticket_counts SET ticket_count=MAX(0,ticket_count-1) WHERE guild_id=? AND user_id=?", (i.guild.id,t['creator_id']))
         await log_ticket_action(self.cog.db, i.guild, i.user, "Closed", f"Ticket {i.channel.mention} (Category: {category_name})")
 
         # Geschlossen heisst: keine offenen Erinnerungen mehr, und ein
@@ -1274,7 +1369,7 @@ class TicketActionsView(discord.ui.View):
             pass
         
         closed_embed = discord.Embed(
-            title="Ticket Closed",
+            title=f"{CLOSE_EMOJI} Ticket Closed",
             description=f"This ticket has been officially closed and archived by {i.user.mention}.\nThe user has been removed from the channel.\n\nStaff can use the buttons below to reopen or permanently delete the channel.",
             color=EMBED_COLOR,
             timestamp=datetime.now()
@@ -1284,32 +1379,104 @@ class TicketActionsView(discord.ui.View):
         closed_embed.add_field(name="Original Category", value=category_name, inline=True)
         
         await i.channel.send(view=from_embed(closed_embed, ClosedTicketActionsView(self.cog, self.ch_id, self.cat_id)))
-        await i.message.edit(view=None)
+        if getattr(i, 'message', None):
+            try:
+                await i.message.edit(view=None)
+            except discord.HTTPException:
+                pass
+        if getattr(self, '_closing_answers', None):
+            from cogs.commands.ticket_workflow import send_answers
+            await send_answers(i.channel, 'Closing form', self._closing_answers)
+        if preferences['rating_enabled']:
+            closed = self.cog.db.fetchone('SELECT * FROM open_tickets WHERE channel_id=?',(self.ch_id,))
+            snapshot = {**dict(closed),'_settings':preferences,'_category_name':category_name}
+            self.cog.db.execute('INSERT OR REPLACE INTO ticket_feedback_requests VALUES(?,?,?,?)',(self.ch_id,i.guild.id,t['creator_id'],json.dumps(snapshot)))
+            try:
+                recipient = creator or await self.cog.bot.fetch_user(t['creator_id'])
+                await recipient.send(view=Panel(f'{SUCCESS_EMOJI} How was your support?', 'Your ticket has been closed. Share your feedback with the support team.',
+                    buttons=[discord.ui.Button(label='Rate support',custom_id=f'ticket_rating_{self.ch_id}',emoji=MESSAGE)]))
+            except discord.HTTPException:
+                pass
         await i.followup.send("Ticket successfully closed and archived.", ephemeral=True)
         self.stop()
+
+    async def finish_close(self, interaction, answers):
+        from cogs.commands.ticket_workflow import is_staff
+        ticket = self.cog.db.fetchone('SELECT * FROM open_tickets WHERE channel_id=?', (self.ch_id,))
+        settings = self.cog.preferences(interaction.guild.id,self.cat_id)
+        if not ticket or ticket['closed_at'] or not (is_staff(self.cog,interaction.user,self.cat_id) or (ticket['creator_id']==interaction.user.id and (not settings['staff_only_close'] or getattr(self,'_request_confirmed',False)))):
+            return await interaction.response.send_message(view=Panel('Action unavailable','This ticket is closed or you no longer have permission to close it.'),ephemeral=True)
+        self._closing_answers = answers
+        lock=self.cog._action_locks.setdefault(self.ch_id,asyncio.Lock())
+        if lock.locked():
+            return await interaction.response.send_message(view=Panel('Please wait','This ticket is already being updated.'),ephemeral=True)
+        async with lock:
+            await self._close(interaction,None)
+
+    @discord.ui.button(label='Release', custom_id='t_unclaim', emoji=UNLOCK_EMOJI, row=1)
+    async def b_unclaim(self, i, b):
+        from cogs.commands.ticket_workflow import release
+        await release(self, i)
+
+    @discord.ui.button(label='Request close', custom_id='t_request', emoji=MESSAGE, row=1)
+    async def b_request(self, i, b):
+        self.cog.db.execute('INSERT INTO ticket_workflow(channel_id,last_activity,close_requested_by) VALUES(?,?,?) ON CONFLICT(channel_id) DO UPDATE SET close_requested_by=excluded.close_requested_by', (self.ch_id,time.time(),i.user.id))
+        await i.response.send_message(view=Panel('Close this ticket?', 'The support team or ticket creator can confirm this request.', buttons=[discord.ui.Button(label='Confirm',custom_id='t_confirm',style=discord.ButtonStyle.danger),discord.ui.Button(label='Keep open',custom_id='t_cancel')]))
+
+    @discord.ui.button(label='Confirm close', custom_id='t_confirm', row=2)
+    async def b_confirm(self, i, b):
+        state = self.cog.db.fetchone('SELECT close_requested_by FROM ticket_workflow WHERE channel_id=?', (self.ch_id,))
+        if not state or not state['close_requested_by']:
+            return await i.response.send_message(view=Panel('No active request', 'There is no close request to confirm.'), ephemeral=True)
+        if state['close_requested_by'] == i.user.id:
+            return await i.response.send_message(view=Panel('Waiting for confirmation', 'The other party must confirm your request.'), ephemeral=True)
+        settings = self.cog.preferences(i.guild.id,self.cat_id)
+        self.cog.db.execute('UPDATE ticket_workflow SET close_requested_by=NULL WHERE channel_id=?', (self.ch_id,))
+        if settings['close_after_request']:
+            self._request_confirmed = True
+            return await self.b_close.callback(i)
+        await i.response.send_message(view=Panel('Close request accepted', 'The support team can now close this ticket.'))
+
+    @discord.ui.button(label='Keep open', custom_id='t_cancel', row=2)
+    async def b_cancel(self, i, b):
+        self.cog.db.execute('UPDATE ticket_workflow SET close_requested_by=NULL WHERE channel_id=?', (self.ch_id,))
+        await i.response.send_message(view=Panel('Ticket stays open', 'The close request has been cancelled.'))
+
+    @discord.ui.button(label='Ticket options', custom_id='t_tools', emoji=ZWRENCH, row=1)
+    async def b_tools(self, i, b):
+        from cogs.commands.ticket_workflow import ToolsView
+        await i.response.send_message(view=Panel('Ticket options', 'Manage priority, participants and saved replies.', buttons=ToolsView(self.cog,self.ch_id,self.cat_id).children), ephemeral=True)
 
 class ClosedTicketActionsView(discord.ui.View):
     def __init__(self, cog, ch_id, cat_id):
         super().__init__(timeout=None)
         self.cog, self.ch_id, self.cat_id = cog, ch_id, cat_id
+        from cogs.commands.ticket_workflow import protect_actions
+        protect_actions(self)
     
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        cat_info = self.cog.db.fetchone("SELECT notified_roles FROM ticket_categories WHERE category_id=?", (self.cat_id,))
-        if not cat_info or not cat_info['notified_roles']: return False
-        allowed_role_ids = {int(r_id) for r_id in cat_info['notified_roles'].split(',')}
-        user_role_ids = {role.id for role in interaction.user.roles}
-        if not user_role_ids.intersection(allowed_role_ids):
-            await interaction.response.send_message("You do not have the required role for this action.", ephemeral=True)
+        from cogs.commands.ticket_workflow import is_staff
+        if not is_staff(self.cog,interaction.user,self.cat_id):
+            await interaction.response.send_message(view=Panel(f'{ERROR_EMOJI} Staff action','Only the support team can manage archived tickets.'),ephemeral=True)
             return False
         return True
 
     @discord.ui.button(label="Reopen", emoji=REOPEN_EMOJI, style=discord.ButtonStyle.success, custom_id="c_reopen")
     async def b_reopen(self, i: discord.Interaction, button: discord.ui.Button):
+        lock=self.cog._action_locks.setdefault(self.ch_id,asyncio.Lock())
+        if lock.locked():
+            return await i.response.send_message(view=Panel('Please wait','This ticket is already being updated.'),ephemeral=True)
+        async with lock:
+            await self._reopen(i,button)
+
+    async def _reopen(self, i, button):
         await i.response.defer(ephemeral=True)
         t = self.cog.db.fetchone("SELECT * FROM open_tickets WHERE channel_id=?", (self.ch_id,))
         cat_info = self.cog.db.fetchone("SELECT discord_category_id FROM ticket_categories WHERE category_id=?", (self.cat_id,))
         
-        original_category = i.guild.get_channel(cat_info['discord_category_id'])
+        if not t or not t['closed_at']:
+            return await i.followup.send(view=Panel('Already open','This ticket has already been reopened.'),ephemeral=True)
+        original_category = i.guild.get_channel(cat_info['discord_category_id']) if cat_info else None
         if original_category: await i.channel.edit(category=original_category)
 
         creator = i.guild.get_member(t['creator_id'])
@@ -1317,9 +1484,11 @@ class ClosedTicketActionsView(discord.ui.View):
             await i.channel.set_permissions(creator, view_channel=True, send_messages=True)
             self.cog.db.execute("INSERT INTO user_ticket_counts VALUES (?,?,1) ON CONFLICT(guild_id,user_id) DO UPDATE SET ticket_count=ticket_count+1", (i.guild.id, creator.id))
         
-        self.cog.db.execute("UPDATE open_tickets SET closed_by_id=NULL, closed_at=NULL WHERE channel_id=?", (self.ch_id,))
+        self.cog.db.execute("UPDATE open_tickets SET closed_by_id=NULL, closed_at=NULL, is_claimed=0, claimed_by_id=NULL WHERE channel_id=?", (self.ch_id,))
         
-        reopen_embed = discord.Embed(title="Ticket Reopened", description=f"This ticket has been reopened by {i.user.mention}.", color=EMBED_COLOR)
+        self.cog.db.execute('UPDATE ticket_workflow SET last_activity=?,alerted=NULL,team_alerted=NULL,close_requested_by=NULL WHERE channel_id=?',(time.time(),self.ch_id))
+        await ticket_notify.register_ticket(self.ch_id,i.guild.id,t['creator_id'])
+        reopen_embed = discord.Embed(title=f"{REOPEN_EMOJI} Ticket Reopened", description=f"This ticket has been reopened by {i.user.mention}.", color=EMBED_COLOR)
         await i.channel.send(view=from_embed(reopen_embed, TicketActionsView(self.cog, self.ch_id, self.cat_id)))
         await i.message.edit(view=None)
         await log_ticket_action(self.cog.db, i.guild, i.user, "Reopened", f"{i.channel.mention}")

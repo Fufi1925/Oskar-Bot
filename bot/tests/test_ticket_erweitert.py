@@ -306,62 +306,20 @@ def test_routen():
 
 
 def test_oberflaeche():
-    """Das Formular holt die Vorschau — und baut sie nicht selbst."""
+    """The replacement editor keeps live previews, Premium gating and drafts."""
     print("\nOberfläche")
-
-    quelltext_ = quelltext("components", "dashboard", "ticket-panels.tsx")
-
-    check("die Vorschau wird beim Bot geholt",
-          "await api.ticketPanelVorschau(" in quelltext_,
-          "eine eigene Ersetzung hier waer die zweite Regel")
-    check("und der Entwurf wird mitgeschickt",
-          "ticket_welcome_message: welcomeMessage" in quelltext_,
-          "sonst sieht man immer den alten Stand")
-    check("kein eigenes Ersetzen im Formular",
-          re.search(r'\.replace\("\{(?:user|ticket_number|category|server|channel)\}"',
-                    quelltext_) is None,
-          "die Liste der Woerter steht im Bot")
-    check("abgesichert gegen zu schnelles Nachfragen",
-          "500)" in quelltext_ and "clearTimeout" in quelltext_,
-          "ein Abruf pro Tasteanschlag trifft die Schnittstelle")
-    # Blockbezogen pruefen: `guildId={guildId}` steht achtmal in der
-    # Datei. Ein Suchauftrag uebers Ganze bleibt gruen, auch wenn aus-
-    # gerechnet der Aufruf von AdvancedTicketSettings die Server-ID
-    # verliert — nachgemessen im Mutationstest.
-    aufruf = re.search(r"<AdvancedTicketSettings\b.*?/>", quelltext_, re.S)
-    check("der Aufruf ist auffindbar", aufruf is not None)
-    if aufruf:
-        check("die Server-ID kommt beim Formular an",
-              "guildId={guildId}" in aufruf.group(0),
-              "ohne sie weiss der Bot nicht, welches Panel gemeint ist")
-
-    # Ohne Premium nachfragen waer nicht gefaehrlich, aber laestig: der
-    # Entwurf wird bei jedem Tippen zum Bot geschickt, obwohl die
-    # erweiterten Felder gar nicht bedienbar sind.
-    check("die Vorschau laeuft nur, wenn die Sperre offen ist",
-          "if (!premium) return;" in quelltext_,
-          "sonst sendet ein Nutzer ohne Premium bei jedem Tipp seinen Text")
-
-    # Die Sperre selbst: muss bleiben, sonst ist der Hinweis frei bedienbar.
-    check("Sperre: unscharf und nicht bedienbar",
-          'pointer-events-none select-none blur-[3px]' in quelltext_)
-    check("Karte steckt in einem Container mit overflow-hidden",
-          "relative overflow-hidden rounded-3xl" in quelltext_,
-          "ohne das ragt die Karte über ihre Karte hinaus — das war der"
-          " Fehler am Design-Reiter")
-    check("und sie führt zu Premium", 'href="/premium"' in quelltext_)
-
-    api_ts = quelltext("lib", "api.ts")
-    check("der API-Helfer existiert", "ticketPanelVorschau:" in api_ts)
-    # Ebenfalls blockbezogen: `/vorschau` steht noch ein zweites Mal in
-    # der Datei (bei den Sicherungen), und ein Suchauftrag uebers Ganze
-    # deckt einen falsch zeigenden Ticket-Helfer nicht auf.
-    helfer = re.search(r"ticketPanelVorschau:.*?\n    \}", api_ts, re.S)
-    check("der Helfer ist auffindbar", helfer is not None)
-    if helfer:
-        check("er zeigt auf die Ticket-Route",
-              "/tickets/${guildId}/panels/${panelId}/vorschau" in helfer.group(0),
-              helfer.group(0)[:120])
+    code = quelltext('components', 'dashboard', 'ticket-workspace.tsx')
+    compact = re.sub(r'\s+', '', code)
+    check('shared backend preview', 'api.ticketPanelVorschau(guildId,draft.panel_id' in compact)
+    check('preview uses the draft', 'JSON.parse(previewDraft)' in code)
+    check('preview is debounced and cancelled', '},500)' in compact and 'clearTimeout(timer)' in code)
+    check('Premium settings cannot be saved without access', "if(!data.premium_configurable)" in compact and "deletepayload[key]" in compact)
+    check('Premium message fields are disabled', 'disabled={!data.premium_configurable}' in code)
+    check('drafts use the navigation guard', "useSaveGuard(dirty?1:0" in compact)
+    check('failed requests report an error', "toast.error(e.message" in code)
+    check('mobile tabs scroll without changing page width', 'overflow-x-auto' in code)
+    check('custom website dropdowns', re.search(r'<Select\b',code) is not None and '<select' not in code)
+    check('backend API helper still exists', 'ticketPanelVorschau:' in quelltext('lib','api.ts'))
 
 
 def test_gemessene_grenzen():
@@ -372,7 +330,7 @@ def test_gemessene_grenzen():
 
     check("fünf Fragen", tp.MAX_TICKET_QUESTIONS == 5, str(tp.MAX_TICKET_QUESTIONS))
     code = bot_quelltext("cogs", "commands", "ticket.py")
-    check("Modal kappt auf fünf", "for question in panel_config[\"questions\"][:5]:" in code)
+    check("Modal kappt auf fünf", "for question in questions[:5]:" in bot_quelltext("cogs", "commands", "ticket_workflow.py"))
 
     sauber = tp._clean_questions([{"label": "x" * 90}])
     check("Beschriftung 45 Zeichen", len(sauber[0]["label"]) == 45,

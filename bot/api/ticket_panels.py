@@ -25,17 +25,17 @@ import json
 from typing import Any
 
 import aiosqlite
+from utils import ticket_settings
 
 DB_PATH = "db/ticket.db"
 DEFAULT_SELECT_PLACEHOLDER = "Wähle eine Kategorie…"
 DEFAULT_TICKET_WELCOME_TITLE = "Ticket #{ticket_number}"
 DEFAULT_TICKET_WELCOME_MESSAGE = (
-    "Danke, dass du dich meldest, {user}.\n"
-    "Das Team ist benachrichtigt und meldet sich, sobald jemand da ist.\n\n"
-    "**Beschreibe dein Anliegen so genau wie möglich** — je mehr wir wissen, "
-    "desto schneller geht es."
+    "Welcome to your ticket, {user}.\n"
+    "Our support team will reply as soon as possible.\n\n"
+    "**Describe your request in detail** so we can help you."
 )
-DEFAULT_TICKET_CREATED_MESSAGE = "Dein Ticket ist offen: {channel}"
+DEFAULT_TICKET_CREATED_MESSAGE = "Your ticket is open: {channel}"
 MAX_SELECT_PLACEHOLDER = 150
 MAX_TICKET_QUESTIONS = 5
 
@@ -71,6 +71,10 @@ PANEL_COLUMNS = (
 
 async def ensure_schema(db: aiosqlite.Connection) -> None:
     """Create the panel tables and migrate a single-panel setup once."""
+    await db.execute(ticket_settings.SCHEMA)
+    await db.execute(ticket_settings.STATE_SCHEMA)
+    await db.execute(ticket_settings.RATING_SCHEMA)
+    await db.execute(ticket_settings.FEEDBACK_SCHEMA)
     # guild_configs and ticket_categories are normally created by the ticket
     # cog. The dashboard must not depend on that having happened: if the cog
     # has not run yet, every read here died with "no such table" — the PATCH
@@ -128,6 +132,11 @@ async def ensure_schema(db: aiosqlite.Connection) -> None:
         )
         """
     )
+
+    async with db.execute('PRAGMA table_info(open_tickets)') as cursor:
+        open_columns = {row[1] for row in await cursor.fetchall()}
+    if 'category_db_id' not in open_columns:
+        await db.execute('ALTER TABLE open_tickets ADD COLUMN category_db_id INTEGER')
 
     async with db.execute("PRAGMA table_info(guild_configs)") as cursor:
         guild_columns = {str(row[1]) for row in await cursor.fetchall()}
@@ -300,7 +309,7 @@ def _clean_questions(value: Any) -> list[dict]:
         if not label:
             continue
         question_type = str(item.get("type") or item.get("style") or "short")
-        if question_type not in {"short", "paragraph", "image"}:
+        if question_type not in {"short", "paragraph", "image", "file", "select", "radio", "checkbox"}:
             question_type = "short"
         category_ids = []
         for raw_id in item.get("category_ids") or []:
@@ -316,6 +325,10 @@ def _clean_questions(value: Any) -> list[dict]:
             "required": bool(item.get("required", True)),
             "type": question_type,
             "category_ids": category_ids,
+            "description": str(item.get('description') or '')[:100],
+            "max_length": max(1, min(4000, int(item.get('max_length') or (4000 if question_type == 'paragraph' else 200)))),
+            "options": [str(x)[:100] for x in (item.get('options') or [])][:25],
+            "public": bool(item.get('public', False)),
         })
     return cleaned
 
@@ -457,6 +470,12 @@ async def list_panels(db: aiosqlite.Connection, guild_id: int) -> list[dict]:
                 for c in cats
             ],
         })
+    for panel in panels:
+        panel['settings'] = await ticket_settings.load(db, guild_id, 'panel', panel['panel_id'])
+        for category in panel['categories']:
+            category['settings'] = await ticket_settings.load(db, guild_id, 'category', category['category_id'])
+            async with db.execute('SELECT COUNT(*) FROM open_tickets WHERE guild_id=? AND category_db_id=? AND closed_at IS NULL', (guild_id, category['category_id'])) as cursor:
+                category['open_tickets'] = (await cursor.fetchone())[0]
     return panels
 
 
@@ -466,14 +485,16 @@ async def create_panel(
     await ensure_schema(db)
     cursor = await db.execute(
         "INSERT INTO ticket_panels (guild_id, name, embed_title,"
-        " embed_description, embed_color)"
-        " VALUES (?, ?, ?, ?, ?)",
+        " embed_description, embed_color, ticket_welcome_message, ticket_created_message)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?)",
         (
             guild_id,
             name[:100] or "Support",
             name[:100] or "Support",
-            "Klicke unten, um ein Ticket zu öffnen.",
+            "Choose a category below to create a ticket.",
             0x5865F2,
+            DEFAULT_TICKET_WELCOME_MESSAGE,
+            DEFAULT_TICKET_CREATED_MESSAGE,
         ),
     )
     await db.commit()
@@ -507,6 +528,10 @@ async def update_panel(
     """
     await ensure_schema(db)
 
+    async with db.execute('SELECT 1 FROM ticket_panels WHERE guild_id=? AND panel_id=?', (guild_id, panel_id)) as cursor:
+        if not await cursor.fetchone():
+            raise ValueError('Panel not found.')
+    settings = ticket_settings.validate(data['settings']) if 'settings' in data else None
     # Fields that may legitimately be cleared. For the rest, null still
     # means "not sent" — otherwise a partial update would blank them.
     NULLABLE = {"channel_id", "embed_image_url", "embed_thumbnail_url"}
@@ -518,6 +543,15 @@ async def update_panel(
         if data[key] is None and key not in NULLABLE:
             continue
         value = data[key]
+        if key == 'name':
+            value = str(value).strip()[:100]
+            if not value:raise ValueError('A panel needs a name.')
+        elif key == 'panel_type' and value not in ('button','dropdown'):
+            raise ValueError('Choose buttons or a dropdown for the panel.')
+        elif key == 'channel_id' and value and not str(value).isdigit():
+            raise ValueError('Select a valid panel channel.')
+        elif key in ('embed_image_url','embed_thumbnail_url') and value and not str(value).startswith('https://'):
+            raise ValueError('Image addresses must start with https://.')
         if key == "select_placeholder":
             value = str(value).strip()[:MAX_SELECT_PLACEHOLDER] or DEFAULT_SELECT_PLACEHOLDER
         elif key == "ticket_welcome_title":
@@ -527,7 +561,10 @@ async def update_panel(
         elif key == "ticket_created_message":
             value = str(value).strip()[:1900] or DEFAULT_TICKET_CREATED_MESSAGE
         elif key == "ticket_questions":
-            value = json.dumps(_clean_questions(value), ensure_ascii=False)
+            ticket_settings.validate({'opening_questions': value[:5] if isinstance(value,list) else value})
+            normalized = _clean_questions(value)
+            ticket_settings.validate({'opening_questions': normalized})
+            value = json.dumps(normalized, ensure_ascii=False)
         assignments.append(f"{column} = ?")
         values.append(value)
 
@@ -535,8 +572,11 @@ async def update_panel(
         assignments.append("staff_roles = ?")
         values.append(",".join(str(r) for r in data["staff_roles"]))
 
+    if settings is not None:
+        await ticket_settings.save(db, guild_id, 'panel', panel_id, settings)
     if not assignments:
-        return False
+        await db.commit()
+        return settings is not None
 
     values.extend([panel_id, guild_id])
     await db.execute(
@@ -582,11 +622,23 @@ async def upsert_category(
 ) -> int:
     await ensure_schema(db)
 
+    async with db.execute('SELECT 1 FROM ticket_panels WHERE guild_id=? AND panel_id=?', (guild_id, panel_id)) as cursor:
+        if not await cursor.fetchone():
+            raise ValueError('Panel not found.')
+    preferences = ticket_settings.validate(data['settings'], category=True) if 'settings' in data else None
+    if data.get('category_id'):
+        async with db.execute('SELECT 1 FROM ticket_categories WHERE guild_id=? AND panel_id=? AND category_id=?', (guild_id,panel_id,data['category_id'])) as cursor:
+            if not await cursor.fetchone():
+                raise ValueError('Category not found in this panel.')
     name = str(data.get("name", "")).strip()[:80]
     if not name:
         raise ValueError("A category needs a name.")
 
-    emoji = str(data.get("emoji", "") or "")[:32]
+    if not data.get('category_id'):
+        async with db.execute('SELECT COUNT(*) FROM ticket_categories WHERE guild_id=? AND panel_id=?', (guild_id,panel_id)) as cursor:
+            if (await cursor.fetchone())[0] >= 25:
+                raise ValueError('A ticket panel can contain up to 25 categories.')
+    emoji = str(data.get("emoji", "") or "")[:128]
     roles = ",".join(str(r) for r in (data.get("staff_roles") or []))
     try:
         style = max(1, min(int(data.get("button_style", 2)), 4))
@@ -625,6 +677,8 @@ async def upsert_category(
                 welcome_title, welcome_message, category_id, guild_id,
             ),
         )
+        if preferences is not None:
+            await ticket_settings.save(db, guild_id, 'category', category_id, preferences)
         await db.commit()
         return int(category_id)
 
@@ -638,8 +692,11 @@ async def upsert_category(
             welcome_title, welcome_message,
         ),
     )
+    category_id = cursor.lastrowid
+    if preferences is not None:
+        await ticket_settings.save(db, guild_id, 'category', category_id, preferences)
     await db.commit()
-    return cursor.lastrowid
+    return category_id
 
 
 async def delete_category(

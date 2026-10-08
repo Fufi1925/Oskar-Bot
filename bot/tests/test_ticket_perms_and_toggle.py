@@ -59,7 +59,7 @@ def rechte_im_ticket() -> dict[str, set[str]]:
 
     quelle = None
     for k in ast.walk(baum):
-        if isinstance(k, ast.AsyncFunctionDef) and k.name == "create_ticket_flow":
+        if isinstance(k, ast.AsyncFunctionDef) and k.name == "_create_ticket_flow":
             quelle = ast.get_source_segment(roh, k)
     if quelle is None:
         return {}
@@ -221,7 +221,7 @@ def test_abschied_reiter():
     check("die Seite existiert", os.path.isfile(seite))
     if os.path.isfile(seite):
         inhalt = open(seite, encoding="utf-8").read()
-        check("sie zeigt nur den Abschied", 'show="leave"' in inhalt,
+        check("sie zeigt nur den Abschied", '<LeaveForm ' in inhalt,
               "-> sonst steht das Willkommensbild doppelt da")
         check("sie ist als Abschied ueberschrieben", "Abschied" in inhalt)
 
