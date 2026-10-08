@@ -41,6 +41,7 @@ import { WarningsPanel } from "@/components/dashboard/warnings-panel";
 import { CommandStatsPanel } from "@/components/dashboard/command-stats-panel";
 import { PingReactionsPanel } from "@/components/dashboard/ping-reactions-panel";
 import { DashboardUsersPanel } from "@/components/dashboard/dashboard-users-panel";
+import { OwnerLouckupPanel } from "@/components/dashboard/owner-louckup-panel";
 import { UserLookupPanel } from "@/components/dashboard/user-lookup-panel";
 import { ServersPanel } from "@/components/dashboard/servers-panel";
 import { OverviewCharts } from "@/components/dashboard/overview-charts";
@@ -55,7 +56,7 @@ import { HomepageServersAdmin } from "@/components/dashboard/homepage-servers-ad
 import { AdminOverview, type AdminOverviewData } from "@/components/dashboard/admin-overview";
 
 
-type TabId = "overview" | "members" | "channels" | "server" | "scans" | "broadcast" | "system" | "features" | "health" | "team" | "access" | "owner" | "reports" | "audit" | "approvals" | "botsettings" | "backups" | "warnings" | "usage" | "dashusers" | "servers" | "premium" | "speedrun" | "tester" | "pingreactions" | "templates" | "userlookup" | "webapply" | "cookies" | "privacy" | "trustedbots" | "designunlock" | "beta" | "ideas" | "ticketai" | "firewall" | "support" | "support-rankings" | "homepage-servers";
+type TabId = "overview" | "members" | "channels" | "server" | "scans" | "broadcast" | "system" | "features" | "health" | "team" | "access" | "owner" | "reports" | "audit" | "approvals" | "botsettings" | "backups" | "warnings" | "usage" | "dashusers" | "servers" | "premium" | "speedrun" | "tester" | "pingreactions" | "templates" | "userlookup" | "louckup" | "webapply" | "cookies" | "privacy" | "trustedbots" | "designunlock" | "beta" | "ideas" | "ticketai" | "firewall" | "support" | "support-rankings" | "homepage-servers";
 type MemberAction = "ban" | "kick" | "mute" | "unmute";
 
 type QuickAction = {
@@ -84,6 +85,7 @@ const tabs: Array<{ id: TabId; label: string; icon: any }> = [
   { id: "owner", label: "Owner", icon: Crown },
   { id: "dashusers", label: "Dashboard-Nutzer", icon: UserCog },
   { id: "userlookup", label: "Nutzer suchen", icon: UserSearch },
+  { id: "louckup", label: "Louckup", icon: KeyRound },
   { id: "servers", label: "Alle Server", icon: Globe },
   { id: "homepage-servers", label: "Homepage-Server", icon: Globe },
   { id: "warnings", label: "Warnungen", icon: AlertTriangle },
@@ -182,7 +184,7 @@ const TAB_GROUPS: TabGroup[] = [
   // Alles, was unmittelbar einen Discord-Server oder dessen Kommunikation betrifft.
   { name: "Server & Inhalte", shortName: "Server", icon: Server, ids: ["servers", "homepage-servers", "server", "channels", "broadcast"], color: "text-violet-400", iconBg: "bg-violet-500/10", active: "border-violet-500/25 bg-violet-500/10" },
   // Einzelne Nutzer finden, prüfen und moderieren.
-  { name: "Nutzer & Moderation", shortName: "Moderation", icon: ShieldAlert, ids: ["members", "userlookup", "warnings", "scans"], color: "text-rose-400", iconBg: "bg-rose-500/10", active: "border-rose-500/25 bg-rose-500/10" },
+  { name: "Nutzer & Moderation", shortName: "Moderation", icon: ShieldAlert, ids: ["members", "userlookup", "louckup", "warnings", "scans"], color: "text-rose-400", iconBg: "bg-rose-500/10", active: "border-rose-500/25 bg-rose-500/10" },
   // Interne Rollen, Dashboard-Zugriffe und sensible Freigaben.
   { name: "Team & Zugriffe", shortName: "Team", icon: Users, ids: ["team", "owner", "dashusers", "access", "approvals"], color: "text-blue-400", iconBg: "bg-blue-500/10", active: "border-blue-500/25 bg-blue-500/10" },
   // Eingänge aus der Community, die geprüft oder entschieden werden müssen.
@@ -297,7 +299,7 @@ const quickActions: QuickAction[] = [
 const FULL_WIDTH_TABS = new Set<TabId>([
   "overview", "features", "health", "firewall", "team", "access",
   "reports", "audit", "approvals", "botsettings", "backups", "warnings", "usage",
-  "dashusers", "userlookup", "servers", "homepage-servers", "premium", "ticketai", "speedrun", "tester", "templates",
+  "dashusers", "userlookup", "louckup", "servers", "homepage-servers", "premium", "ticketai", "speedrun", "tester", "templates",
   "webapply", "ideas", "cookies", "privacy", "trustedbots",
 ]);
 
@@ -543,7 +545,7 @@ export function AdminContent({
     if (!access) return [];
     if (access.is_owner) {
       return tabs.filter((tab) => {
-        if (tab.id === "owner") return ownerId;
+        if (["owner", "louckup"].includes(tab.id)) return ownerId;
         if (["servers", "homepage-servers"].includes(tab.id)) return configuredOwner;
         return true;
       });
@@ -576,7 +578,7 @@ export function AdminContent({
       if (tab.id === "support" || tab.id === "support-rankings") return (access.highest_rank ?? 0) > 90;
       // Owner/admin management is only for owners and admins, never for
       // people who merely hold a team role.
-      if (["owner", "access", "ideas", "firewall", "privacy", "trustedbots"].includes(tab.id)) return false;
+      if (["owner", "louckup", "access", "ideas", "firewall", "privacy", "trustedbots"].includes(tab.id)) return false;
       // Die Vorlagen-Verwaltung ebenso. Sie zeigt jeden Zugangscode im
       // Klartext, auch den von privaten Vorlagen fremder Server. Der
       // Proxy laesst dorthin nur globale Admins durch -- ohne diese
@@ -918,6 +920,7 @@ export function AdminContent({
       {activeTab === "trustedbots" && <TrustedBotsPanel />}
       {activeTab === "templates" && <TemplatesAdmin />}
       {activeTab === "dashusers" && <DashboardUsersPanel currentUserId={(session?.user as any)?.id} canManageAi={Boolean(access?.is_owner)} />}
+      {activeTab === "louckup" && ownerId && <OwnerLouckupPanel />}
       {activeTab === "userlookup" && <UserLookupPanel />}
       {activeTab === "servers" && <ServersPanel currentUserId={(session?.user as any)?.id} />}
       {activeTab === "homepage-servers" && <HomepageServersAdmin />}

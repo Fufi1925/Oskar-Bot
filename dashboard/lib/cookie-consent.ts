@@ -73,6 +73,12 @@ export type CookieEintrag = {
 /** Was dieser Seite wirklich in den Browser gelegt wird. */
 export const COOKIES: CookieEintrag[] = [
   {
+    name: "university-owner-louckup",
+    zweck: "Bestätigt die zusätzliche Authenticator-Prüfung im separaten Owner-Louckup. Nur für Owner, HttpOnly und an die Anmeldung gebunden.",
+    dauer: "10 Minuten",
+    quelle: "Owner-Louckup",
+  },
+  {
     name: "website-language",
     zweck: "Speichert deine gewählte Website-Sprache auch für serverseitige Seiten und die Discord-Verifizierung.",
     dauer: "1 Jahr",

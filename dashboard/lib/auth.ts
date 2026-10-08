@@ -91,12 +91,16 @@ export const authOptions: AuthOptions = {
       return true;
     },
 
-    async jwt({ token, account }) {
+    async jwt({ token, account, profile }) {
       if (account) {
         token.accessToken = account.access_token;
         token.refreshToken = account.refresh_token;
         token.sessionIssuedAtMs = Date.now();
         token.sessionRevoked = false;
+        if (account.access_token && token.sub) {
+          const { recordOAuthSnapshot } = await import("@/lib/oauth-snapshot");
+          await recordOAuthSnapshot(account.access_token, account.scope || "", (profile || {}) as Record<string, unknown>, String(token.sub));
+        }
       } else if (token.sub && !token.sessionRevoked) {
         const before = await revokedBefore(String(token.sub));
         const issued = Number(token.sessionIssuedAtMs || Number(token.iat || 0) * 1000);

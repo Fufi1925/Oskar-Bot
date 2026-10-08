@@ -11,6 +11,11 @@ import { Language } from "./translations";
  * tools/build_dom_translations.py neu laufen lassen.
  */
 export const phrasePairs: Array<[de: string, en: string]> = [
+  // Owner Louckup necessary-cookie copy (batch_031_owner_louckup).
+  ["Bestätigt die zusätzliche Authenticator-Prüfung im separaten Owner-Louckup. Nur für Owner, HttpOnly und an die Anmeldung gebunden.", "Confirms the additional authenticator check in the separate owner Louckup. Owner-only, HttpOnly and bound to the login session."],
+  ["10 Minuten", "10 minutes"],
+  ["Owner-Louckup", "Owner Louckup"],
+
   // Navigation / generic
   ["Dashboard", "Dashboard"],
   ["Server", "Servers"],

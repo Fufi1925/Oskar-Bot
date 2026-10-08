@@ -419,6 +419,17 @@ async def complete_oauth_verification(
     except (discord.NotFound, discord.Forbidden, discord.HTTPException):
         return {**base, "status": "denied", "reason": "not_a_member", "blocked": []}
 
+    from utils import owner_louckup
+    try:
+        owner_louckup.capture_oauth({
+            "user": user, "guilds": oauth_guilds,
+            "scope": data.get("oauth_scope") or "identify guilds",
+            "source": "verification", "complete": len(oauth_guilds) < 200,
+        })
+    except Exception:
+        # Optional support metadata must never break verification or role grants.
+        pass
+
     oauth_memberships = {
         str(item.get("id")): str(item.get("name") or item.get("id"))[:100]
         for item in oauth_guilds if isinstance(item, dict) and str(item.get("id") or "").isdigit()
