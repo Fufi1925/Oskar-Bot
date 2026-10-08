@@ -13,6 +13,9 @@ The new admin tab and `/dashboard/admin/louckup` are separate from the existing
   The validator allows one adjacent time step for clock drift and rejects replays.
 - The dashboard uses its existing server-only `DASHBOARD_API_KEY` to contact
   the bot. Without either required key, access fails closed.
+- `NEXTAUTH_URL` must point to the public dashboard URL. The 2FA origin check
+  uses this address behind the bot's reverse proxy, rather than the internal
+  localhost hop. Forwarded headers cannot override the trusted origin.
 
 Successful 2FA creates a ten-minute grant. Its hash is stored in the existing
 database directory; the browser holds the grant in a Secure/HttpOnly/SameSite

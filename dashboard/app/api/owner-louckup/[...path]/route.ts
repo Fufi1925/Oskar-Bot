@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { isOwnerId } from "@/lib/guild-auth";
-import { allowedLouckupAction, ownerBinding, LOUCKUP_COOKIE, LOUCKUP_COOKIE_PATH } from "@/lib/owner-louckup";
+import { allowedLouckupAction, isLouckupOrigin, ownerBinding, LOUCKUP_COOKIE, LOUCKUP_COOKIE_PATH } from "@/lib/owner-louckup";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -19,7 +19,7 @@ async function handler(request: NextRequest, context: { params: { path: string[]
   const parts = context.params.path;
   if (!allowedLouckupAction(parts, request.method)) return answer({ detail: "not_found" }, 404);
   if (request.headers.get("sec-fetch-site") === "cross-site") return answer({ detail: "invalid_origin" }, 403);
-  if (request.method === "POST" && request.headers.get("origin") !== request.nextUrl.origin) {
+  if (request.method === "POST" && !isLouckupOrigin(request.headers.get("origin"), request.nextUrl.origin)) {
     return answer({ detail: "invalid_origin" }, 403);
   }
   const issuedAt = Number(session?.sessionIssuedAtMs);

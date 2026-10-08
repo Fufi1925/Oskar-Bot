@@ -33,6 +33,9 @@ export function OwnerLouckupPanel() {
     rate_limited: t("Zu viele Fehlversuche. Bitte warte fünf Minuten.", "Too many failed attempts. Please wait five minutes."),
     not_configured: t("Die Authenticator-Sperre muss zuerst in den Servereinstellungen eingerichtet werden.", "The authenticator gate needs to be configured in the server settings first."),
     sign_in_again: t("Bitte melde dich erneut mit Discord an.", "Please sign in with Discord again."),
+    not_signed_in: t("Deine Anmeldung ist abgelaufen. Bitte melde dich erneut mit Discord an.", "Your session has expired. Please sign in with Discord again."),
+    invalid_origin: t("Die Website-Adresse stimmt nicht mit der konfigurierten Dashboard-Adresse überein. Öffne das Dashboard über die in NEXTAUTH_URL eingestellte Adresse.", "The website address does not match the configured dashboard address. Open the dashboard at the address configured in NEXTAUTH_URL."),
+    service_unavailable: t("Der Bot-Dienst ist momentan nicht erreichbar. Bitte versuche es gleich erneut.", "The bot service is currently unavailable. Please try again shortly."),
     owner_required: t("Dieser Bereich ist ausschließlich für feste Owner-IDs freigegeben.", "This area is restricted to configured owner IDs."),
   }[reason] || t("Die Anfrage konnte nicht abgeschlossen werden. Bitte versuche es erneut.", "The request could not be completed. Please try again."));
 
