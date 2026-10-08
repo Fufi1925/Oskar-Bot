@@ -12,6 +12,7 @@ once and aborted midway when one column was missing.
 """
 
 from __future__ import annotations
+from utils.component_emojis import category_text
 
 from typing import TYPE_CHECKING
 import asyncio
@@ -483,7 +484,7 @@ async def send_panel(
             maximum = settings['capacity']
             if maximum:
                 count = category.get('open_tickets', 0)
-                counts.append(f"**{category['name']}**: `{count}/{maximum}` ({round(count / maximum * 100)}%)")
+                counts.append(f"{category_text(category['name'], category['emoji'])}: `{count}/{maximum}` ({round(count / maximum * 100)}%)")
         if counts:
             description = description[:2200] + '\n\n## Ticket availability\n' + '\n'.join(counts)
     view = Panel(

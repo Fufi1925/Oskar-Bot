@@ -26,6 +26,7 @@ from typing import Any
 
 import aiosqlite
 from utils import ticket_settings
+from utils.component_emojis import label_emoji
 
 DB_PATH = "db/ticket.db"
 DEFAULT_SELECT_PLACEHOLDER = "Wähle eine Kategorie…"
@@ -459,8 +460,8 @@ async def list_panels(db: aiosqlite.Connection, guild_id: int) -> list[dict]:
             "categories": [
                 {
                     "category_id": c[0],
-                    "name": c[1],
-                    "emoji": c[2] or "",
+                    "name": label_emoji(c[1], c[2], limit=80)[0],
+                    "emoji": label_emoji(c[1], c[2], limit=80)[1] or "",
                     "staff_roles": _split_roles(c[3]),
                     "button_style": c[4] or 2,
                     "discord_category_id": str(c[5]) if c[5] else None,
@@ -630,7 +631,10 @@ async def upsert_category(
         async with db.execute('SELECT 1 FROM ticket_categories WHERE guild_id=? AND panel_id=? AND category_id=?', (guild_id,panel_id,data['category_id'])) as cursor:
             if not await cursor.fetchone():
                 raise ValueError('Category not found in this panel.')
-    name = str(data.get("name", "")).strip()[:80]
+    raw_name = str(data.get("name", "")).strip()
+    name, emoji = label_emoji(raw_name, data.get("emoji"), limit=80)
+    if not raw_name:
+        name = ""
     if not name:
         raise ValueError("A category needs a name.")
 
@@ -638,7 +642,7 @@ async def upsert_category(
         async with db.execute('SELECT COUNT(*) FROM ticket_categories WHERE guild_id=? AND panel_id=?', (guild_id,panel_id)) as cursor:
             if (await cursor.fetchone())[0] >= 25:
                 raise ValueError('A ticket panel can contain up to 25 categories.')
-    emoji = str(data.get("emoji", "") or "")[:128]
+    emoji = str(emoji or "")[:128]
     roles = ",".join(str(r) for r in (data.get("staff_roles") or []))
     try:
         style = max(1, min(int(data.get("button_style", 2)), 4))

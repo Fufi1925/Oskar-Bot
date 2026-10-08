@@ -20,6 +20,7 @@ added via .add_item().
 """
 
 import discord
+from utils.component_emojis import normalize_controls
 from discord.ui import LayoutView, TextDisplay, Separator, Container
 
 
@@ -27,7 +28,7 @@ def build_container(*items, accent_color=None):
     """Build a Container and add items to it via .add_item()."""
     container = Container(accent_color=accent_color)
     for item in items:
-        container.add_item(item)
+        container.add_item(normalize_controls(item))
     return container
 
 
@@ -46,6 +47,7 @@ def add_action_rows(container, components):
     from discord.ui import ActionRow
     current_row = []
     for item in components:
+        normalize_controls(item)
         if getattr(item, 'type', None) and getattr(item.type, 'value', 0) != 2:
             if current_row:
                 container.add_item(ActionRow(*current_row))

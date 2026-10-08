@@ -7,6 +7,7 @@ from datetime import datetime
 from types import SimpleNamespace
 
 import discord
+from utils.component_emojis import category_text
 from utils import ticket_settings, ticket_notify, guild_modules
 from utils.emoji import TICK, CROSS, MESSAGE, WARNING
 from utils.panels import Panel
@@ -314,7 +315,7 @@ async def refresh_panels(cog):
             if not preferences['active']:continue
             count = cog.db.fetchone('SELECT COUNT(*) AS n FROM open_tickets WHERE guild_id=? AND category_db_id=? AND closed_at IS NULL', (guild.id,category['category_id']))['n']
             if preferences['capacity']:
-                maximum=preferences['capacity']; lines.append(f"**{category['name']}**: `{count}/{maximum}` ({round(count/maximum*100)}%)")
+                maximum=preferences['capacity']; lines.append(f"{category_text(category['name'], category['emoji'])}: `{count}/{maximum}` ({round(count/maximum*100)}%)")
         description=panel['embed_description'] or 'Choose a category below to create a ticket.'
         if settings['show_capacity'] and lines:description=description[:2200]+'\n\n## Ticket availability\n'+'\n'.join(lines)
         signature=(description,json.dumps(dict(panel),sort_keys=True),json.dumps([{**dict(c),'settings':cog.preferences(guild.id,c['category_id'])} for c in categories],sort_keys=True),json.dumps(settings,sort_keys=True))

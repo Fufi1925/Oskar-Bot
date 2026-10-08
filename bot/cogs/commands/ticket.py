@@ -15,6 +15,7 @@
 # cogs/commands/ticket.py
 
 import discord
+from utils.component_emojis import normalize_controls
 from utils.emoji import CROSS, DELETE_ALT1, HANDSHAKE, LOCK, MESSAGE, TICK, UNLOCK, ZBAN, ZMODULE, ZWRENCH
 from discord import app_commands
 from discord.ext import commands, tasks
@@ -664,7 +665,7 @@ class TicketCog(commands.Cog, name="Ticket System"):
                 view.children[0].placeholder = placeholder
         else:
             for c in categories: view.add_item(discord.ui.Button(label=c['name'], style=discord.ButtonStyle(c['button_style']), emoji=c['emoji'] or None, custom_id=f"create_ticket_{c['category_id']}"))
-        return view
+        return normalize_controls(view)
 
     def cog_unload(self):
         self.ticket_automations.cancel()

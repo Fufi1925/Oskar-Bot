@@ -17,6 +17,7 @@ already owns the view (and its persistence); we only need the components.
 from __future__ import annotations
 
 import discord
+from utils.component_emojis import normalize_controls
 from discord.ui import (
     ActionRow,
     Container,
@@ -66,7 +67,7 @@ def container(*items, accent_color=None) -> Container:
     box = Container(accent_color=accent_color)
     for item in items:
         if item is not None:
-            box.add_item(item)
+            box.add_item(normalize_controls(item))
     return box
 
 

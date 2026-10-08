@@ -12,6 +12,7 @@ from typing import Any, Awaitable, Callable
 
 import aiohttp
 import discord
+from utils.component_emojis import normalize_controls
 
 URL_RE = re.compile(r"https?://[^\s<>]+", re.I)
 DISCORD_FILE_HOSTS = ("cdn.discordapp.com", "media.discordapp.net")
@@ -251,7 +252,7 @@ def build_view(message: dict, buttons: list, selects: list,
         for row in rows:
             for item in row:
                 view.add_item(item)
-    return view if (buttons or selects or (v2 and (message.get("blocks") or []))) else None
+    return normalize_controls(view) if (buttons or selects or (v2 and (message.get("blocks") or []))) else None
 
 
 async def attachment_files(message: dict) -> list[discord.File]:
