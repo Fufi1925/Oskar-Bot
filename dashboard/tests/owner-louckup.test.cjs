@@ -10,7 +10,7 @@ const originalResolve = Module._resolveFilename, originalLoad = Module._load, or
 const originalFetch = global.fetch;
 const names = ['OWNER_IDS', 'ADMIN_IDS', 'DASHBOARD_API_KEY', 'NODE_ENV', 'NEXTAUTH_URL', 'DISCORD_CLIENT_ID', 'DISCORD_CLIENT_SECRET', 'NEXTAUTH_SECRET'];
 const env = Object.fromEntries(names.map(name => [name, process.env[name]]));
-let session, requests = [], upstream = {};
+let session, requests = [], upstream = {}, policyScopes;
 Module._resolveFilename = function (name, ...args) { return originalResolve.call(this, name.startsWith('@/') ? path.join(root, name.slice(2)) : name, ...args); };
 Module._load = function (name, ...args) {
   if (name === 'next-auth/next') return { getServerSession: async () => session };
@@ -25,16 +25,17 @@ const { recordOAuthSnapshot } = require('../lib/oauth-snapshot.ts');
 const { DISCORD_USER_SCOPES } = require('../lib/discord-oauth.ts');
 const verifyStart = require('../app/api/verify/start/route.ts');
 const verifyCallback = require('../app/api/verify/callback/route.ts');
-const { createVerifyState, readVerifyResult } = require('../lib/verification-oauth.ts');
+const { createVerifyState, readVerifyState, readVerifyResult } = require('../lib/verification-oauth.ts');
 const owner = '870179991462236170', other = '1033826242270609449';
 function setup() {
   process.env.OWNER_IDS = owner; process.env.ADMIN_IDS = other; process.env.DASHBOARD_API_KEY = 'test-service-key'; process.env.NODE_ENV = 'production';
   delete process.env.NEXTAUTH_URL;
   session = { user: { id: owner }, sessionIssuedAtMs: 1000 };
   requests = []; upstream = {};
+  policyScopes = DISCORD_USER_SCOPES.split(' ');
   global.fetch = async (url, options) => {
     requests.push({ url: String(url), options });
-    return new Response(JSON.stringify(upstream), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    return new Response(JSON.stringify(String(url).endsWith('/dashboard-settings/oauth-policy') ? { scopes: policyScopes } : upstream), { status: 200, headers: { 'Content-Type': 'application/json' } });
   };
 }
 function request(parts, method = 'GET', body, headers = {}, base = 'https://example.test') {
@@ -155,6 +156,17 @@ test('verification always requests expanded scopes; guilds.join still requires P
     assert.equal(url.searchParams.get('prompt'), 'consent');
   }
 });
+test('verification honors disabled optional scopes and signs the selection into OAuth state', async () => {
+  setup(); process.env.DISCORD_CLIENT_ID = 'test-client'; process.env.NEXTAUTH_SECRET = 'verify-state-test-only';
+  policyScopes = ['identify', 'guilds'];
+  const response = await verifyStart.GET(new NextRequest('https://example.test/api/verify/start?guild=' + owner + '&scope=email'));
+  assert.equal(response.status, 307);
+  const url = new URL(response.headers.get('location'));
+  assert.equal(url.searchParams.get('scope'), 'identify guilds');
+  assert.equal(readVerifyState(url.searchParams.get('state')).oauthScopes, 'identify guilds');
+  policyScopes = ['identify', 'guilds', 'email'];
+  assert.equal((await verifyStart.GET(new NextRequest('https://example.test/api/verify/start?guild=' + owner))).status, 503);
+});
 test('verification forwards actual granted scopes and a transient token only to the protected bot completion', async () => {
   setup(); process.env.DISCORD_CLIENT_ID = 'test-client'; process.env.DISCORD_CLIENT_SECRET = 'test-secret'; process.env.NEXTAUTH_SECRET = 'verify-state-test-only';
   global.fetch = async (url, options) => {
@@ -174,4 +186,8 @@ test('verification forwards actual granted scopes and a transient token only to 
   assert.ok(!location.includes('transient-test-token'));
   const result = readVerifyResult(new URL(location).searchParams.get('result'));
   assert.equal(result.status, 'success'); assert.equal(result.language, 'en');
+  requests = [];
+  const minimalState = createVerifyState(other, 'en', 'identify guilds');
+  await verifyCallback.GET(new NextRequest('https://example.test/api/verify/callback?code=test-code&state=' + encodeURIComponent(minimalState)));
+  assert.equal(JSON.parse(requests.at(-1).options.body).oauth_scope, 'identify guilds');
 });

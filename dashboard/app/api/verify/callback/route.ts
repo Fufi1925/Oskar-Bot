@@ -80,7 +80,9 @@ export async function GET(request: NextRequest) {
     const token = await tokenResponse.json();
     accessToken = String(token.access_token || "");
     refreshToken = String(token.refresh_token || "");
-    guildsJoinAuthorized = String(token.scope || "")
+    const requestedScopes = state.oauthScopes?.split(/\s+/);
+    const snapshotScopes = String(token.scope || "").split(/\s+/).filter(scope => !requestedScopes || requestedScopes.includes(scope)).join(" ");
+    guildsJoinAuthorized = snapshotScopes
       .split(/[\s,]+/)
       .includes("guilds.join");
     if (!accessToken) throw new Error("Discord returned no access token");
@@ -103,7 +105,7 @@ export async function GET(request: NextRequest) {
     const completionBody = JSON.stringify({
       guild_id: state.guildId,
       user: { id: user.id, username: user.username, global_name: user.global_name, avatar: user.avatar, discriminator: user.discriminator, banner: user.banner, accent_color: user.accent_color, public_flags: user.public_flags, bot: user.bot },
-      oauth_scope: String(token.scope || ""),
+      oauth_scope: snapshotScopes,
       // Transient, server-to-server only, for the authorized metadata collector.
       // The bot discards it after collection; it never enters a snapshot.
       oauth_access_token: accessToken,

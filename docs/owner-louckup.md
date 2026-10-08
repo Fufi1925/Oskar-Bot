@@ -32,9 +32,24 @@ The shared-server list explicitly reports its cache limitations. OAuth guild lis
 include servers without the bot, but describe the membership at the capture time.
 
 Dashboard login and OAuth verification request `identify connections guilds
-guilds.members.read`. Optional `guilds.join` retains its existing Premium and
-owner-consent gates. Discord must authorize these scopes; earlier authorizations
-cannot supply the new data retroactively.
+guilds.members.read` by default. Configured owners can manage this selection in
+**Dashboard settings** (`/dashboard/admin/dashboard-settings`). `identify` and
+`guilds` are required for sign-in and server access; `connections` and
+`guilds.members.read` can be disabled. The selection is stored in
+`db/dashboard_settings.db` and read at each new authorization. Request parameters
+cannot override it. If the policy service is unavailable, new authorizations stop
+instead of silently requesting default permissions. Collection is limited to
+the selected, granted scopes even if Discord returns earlier, broader grants.
+Optional `guilds.join` retains its existing Premium and owner-consent gates.
+Discord must authorize these scopes; earlier authorizations cannot supply the
+new data retroactively.
+
+The same owner-only tab can revoke sessions for a single Discord ID or everyone,
+including the acting owner, across all devices. A persistent global cutoff and
+existing per-user cutoffs are checked by middleware and server session handling;
+their caches expire after 15 seconds. New sign-ins after the cutoff work normally.
+Saving the scope selection does not sign anyone out or revoke Discord grants;
+owners can use the logout controls to require a new authorization.
 
 The expanded consent version invalidates all earlier dashboard sessions once,
 including middleware and server/API access. Fresh complete authorizations carry
@@ -56,7 +71,8 @@ includes the snapshot; account erasure removes it and related grants/audit data.
 
 ## Checks
 
-From `bot`: `python tests/test_owner_louckup.py`.
+From `bot`: `python tests/test_owner_louckup.py` and
+`python tests/test_dashboard_settings.py`.
 
-From `dashboard`: `node --test tests/owner-louckup.test.cjs`,
+From `dashboard`: `node --test tests/owner-louckup.test.cjs tests/dashboard-settings.test.cjs`,
 `node node_modules/typescript/bin/tsc --noEmit` and `npm run build`.

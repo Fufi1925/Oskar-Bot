@@ -31,6 +31,7 @@ global.fetch = async () => new Response(JSON.stringify({ banned: false, valid: t
 function applyCookies(jar, response) { for (const cookie of response.cookies || []) { if (cookie.options?.maxAge === 0) delete jar[cookie.name]; else jar[cookie.name] = cookie.value; } }
 
 async function roundtrip(mode = 'ok') {
+  const requestedScopes = mode === 'minimal_scopes' ? 'identify guilds' : DISCORD_USER_SCOPES;
   let exchanges = 0;
   const errors = [];
   const server = http.createServer(async (req, res) => {
@@ -43,7 +44,7 @@ async function roundtrip(mode = 'ok') {
       assert.equal(params.get('grant_type'), 'authorization_code');
       assert.equal(params.get('code'), 'test-code');
       if (mode === 'invalid_client') { res.writeHead(401); return res.end(JSON.stringify({ error: 'invalid_client' })); }
-      res.end(JSON.stringify({ access_token: 'test-access', refresh_token: 'test-refresh', token_type: 'Bearer', expires_in: 3600, scope: DISCORD_USER_SCOPES }));
+      res.end(JSON.stringify({ access_token: 'test-access', refresh_token: 'test-refresh', token_type: 'Bearer', expires_in: 3600, scope: requestedScopes }));
     } else if (req.url === '/profile') {
       res.end(JSON.stringify({ id: '111', username: 'OAuth-Test', avatar: null, discriminator: '0' }));
     } else { res.writeHead(404); res.end('{}'); }
@@ -51,7 +52,7 @@ async function roundtrip(mode = 'ok') {
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const endpoint = `http://127.0.0.1:${server.address().port}`;
   try {
-    const base = require('../lib/auth.ts').authOptions;
+    const base = require('../lib/auth.ts').createAuthOptions(requestedScopes);
     const provider = base.providers[0];
     const options = { ...base, debug: false, logger: { error(code, metadata) { errors.push({ code, message: metadata?.error?.message || metadata?.message || '' }); }, warn() {}, debug() {} }, providers: [{ ...provider, options: { ...provider.options, clientId: credentials.id, clientSecret: credentials.secret, authorization: { url: endpoint + '/authorize', params: provider.options.authorization.params }, token: endpoint + '/token', userinfo: endpoint + '/profile' } }] };
     const jar = {};
@@ -61,14 +62,14 @@ async function roundtrip(mode = 'ok') {
     applyCookies(jar, signIn);
     const authorize = new URL(signIn.redirect);
     assert.equal(authorize.searchParams.get('redirect_uri'), origin + '/api/auth/callback/discord');
-    assert.equal(authorize.searchParams.get('scope'), DISCORD_USER_SCOPES);
+    assert.equal(authorize.searchParams.get('scope'), requestedScopes);
     assert.equal(authorize.searchParams.get('prompt'), 'consent');
     assert(jar['__Secure-next-auth.state'], 'secure state cookie must survive the Discord redirect');
     const state = authorize.searchParams.get('state');
     if (mode === 'missing_state') delete jar['__Secure-next-auth.state'];
     const response = await AuthHandler({ options, req: { action: 'callback', providerId: 'discord', method: 'GET', headers: {}, cookies: jar, query: { code: 'test-code', state: mode === 'wrong_state' ? 'wrong-state' : state, ...(mode === 'legacy_no_issuer' ? {} : { iss: mode === 'wrong_issuer' ? 'https://untrusted.example.test' : 'https://discord.com' }) } } });
     applyCookies(jar, response);
-    if (mode === 'ok' || mode === 'legacy_no_issuer') {
+    if (mode === 'ok' || mode === 'legacy_no_issuer' || mode === 'minimal_scopes') {
       assert.equal(response.redirect, callbackUrl, JSON.stringify(errors));
       assert(jar['__Secure-next-auth.session-token'], 'callback must issue a real signed session');
       const session = await AuthHandler({ options, req: { action: 'session', method: 'GET', headers: {}, cookies: jar, query: {} } });
@@ -90,6 +91,7 @@ async function roundtrip(mode = 'ok') {
 }
 test('Discord authorization, state, code exchange, profile and session roundtrip on Railway origin', () => roundtrip());
 test('Discord legacy callbacks without an issuer still create a session', () => roundtrip('legacy_no_issuer'));
+test('disabling optional scopes still completes real OAuth and preserves the resulting session', () => roundtrip('minimal_scopes'));
 for (const mode of ['missing_state', 'wrong_state', 'wrong_issuer', 'invalid_client']) test('OAuthCallback safely rejects ' + mode, () => roundtrip(mode));
 
 test('OAuth failures open the error page rather than bouncing back to the homepage', () => {

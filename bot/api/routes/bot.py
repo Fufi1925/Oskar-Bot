@@ -308,9 +308,9 @@ async def revoke_account_sessions(user_id: int):
 
 @router.get("/account/{user_id}/session-valid", summary="JWT-Widerruf prüfen")
 async def account_session_valid(user_id: int, issued_at_ms: int = 0):
-    from utils import account_security
+    from utils import account_security, dashboard_settings
 
-    revoked = account_security.revoked_before(str(user_id))
+    revoked = max(account_security.revoked_before(str(user_id)), dashboard_settings.revoked_before())
     return {
         "valid": not revoked or int(issued_at_ms or 0) > revoked,
         "revoked_before_ms": revoked,

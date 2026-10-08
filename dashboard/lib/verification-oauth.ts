@@ -1,7 +1,7 @@
 import { createHmac, randomBytes, timingSafeEqual } from "crypto";
 
 export type VerifyLanguage = "de" | "en";
-export type VerifyState = { guildId: string; nonce: string; exp: number; language?: VerifyLanguage };
+export type VerifyState = { guildId: string; nonce: string; exp: number; language?: VerifyLanguage; oauthScopes?: string };
 export type VerifyResult = {
   guild_id: string;
   language?: VerifyLanguage;
@@ -46,10 +46,11 @@ function readSigned<T>(token: string): T | null {
   }
 }
 
-export function createVerifyState(guildId: string, language: VerifyLanguage = "en"): string {
+export function createVerifyState(guildId: string, language: VerifyLanguage = "en", oauthScopes?: string): string {
   const value: VerifyState = {
     guildId,
     language,
+    ...(oauthScopes ? { oauthScopes } : {}),
     nonce: randomBytes(18).toString("base64url"),
     exp: Date.now() + 10 * 60 * 1000,
   };

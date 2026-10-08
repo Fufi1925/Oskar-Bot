@@ -11,6 +11,7 @@ from starlette.responses import Response, RedirectResponse
 from utils.config import *
 from api.routes import bot, guilds, admin, team, moderation, actions, access, guild_access, dashboard_ai, support_operations, servers, servertools, server_stats, tickets, giveaways, leveling, vanity, broadcast, anonchat, diagnose, compose, nukealert, memberperks, extras, voice, verify, automod, logging_cfg, antinuke, pingreactions, premium, privacy, cookies, speedrun, supportqueue, support, honeypot, design, beta, backup, tester, music, templates, teamlist, applications, teamupdate, webapply, ideas, firewall as firewall_route, commands as commands_route
 from api.routes import owner_louckup
+from api.routes import dashboard_settings
 from utils import owner_louckup as owner_louckup_store
 from utils import owner_oauth
 from api.dependencies import verify_api_key, limiter, get_bot_loop, get_bot, run_on_bot_loop
@@ -345,6 +346,7 @@ def create_app() -> FastAPI:
     api_app.include_router(moderation.router, prefix="/moderation", tags=["Moderation"])
     api_app.include_router(actions.router, prefix="/actions", tags=["Actions"])
     api_app.include_router(owner_louckup.router, prefix="/owner-louckup", tags=["Owner Louckup"])
+    api_app.include_router(dashboard_settings.router, prefix="/dashboard-settings", tags=["Dashboard Settings"])
     api_app.include_router(access.router, prefix="/access", tags=["Access"])
     api_app.include_router(
         guild_access.router, prefix="/guild-access", tags=["Guild Dashboard Access"]

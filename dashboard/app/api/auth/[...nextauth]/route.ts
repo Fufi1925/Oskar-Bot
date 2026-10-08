@@ -1,9 +1,22 @@
 import NextAuth from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
-import { authOptions } from "@/lib/auth";
+import { authOptions, createAuthOptions } from "@/lib/auth";
 import { authErrorPath } from "@/lib/auth-errors";
+import { configuredOAuthScopes } from "@/lib/dashboard-oauth-policy";
 
-const handler = NextAuth(authOptions);
+async function handler(request: NextRequest, context: { params: { nextauth: string[] } }) {
+  if (["signin", "callback"].includes(context.params.nextauth[0])) {
+    try {
+      const scopes = await configuredOAuthScopes();
+      // Client-supplied authorization parameters must not override owner policy.
+      request.nextUrl.searchParams.delete("scope");
+      return NextAuth(createAuthOptions(scopes))(request, context);
+    } catch {
+      return NextResponse.redirect(new URL("/auth/error?error=OAuthSignin", process.env.NEXTAUTH_URL || request.url));
+    }
+  }
+  return NextAuth(authOptions)(request, context);
+}
 
 export async function GET(
   request: NextRequest,

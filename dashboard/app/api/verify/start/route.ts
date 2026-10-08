@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createVerifyState, websiteOrigin } from "@/lib/verification-oauth";
-import { DISCORD_USER_SCOPES } from "@/lib/discord-oauth";
+import { configuredOAuthScopes } from "@/lib/dashboard-oauth-policy";
 
 export const dynamic = "force-dynamic";
 
@@ -35,7 +35,11 @@ export async function GET(request: NextRequest) {
   authorize.searchParams.set("response_type", "code");
   // guilds.join is optional and only appears after the owner confirmed User
   // Pull on the target server. Existing verifications are never upgraded.
-  let scopes = DISCORD_USER_SCOPES;
+  let scopes: string;
+  try { scopes = await configuredOAuthScopes(); }
+  catch {
+    return NextResponse.json({ detail: selectedLanguage === "de" ? "Die OAuth-Einstellungen sind momentan nicht erreichbar. Bitte versuche es gleich erneut." : "OAuth settings are currently unavailable. Please try again shortly." }, { status: 503 });
+  }
   try {
     const settingsResponse = await fetch(`${API_BASE}/verify/${guildId}`, {
       headers: {
@@ -56,7 +60,7 @@ export async function GET(request: NextRequest) {
     // Keep ordinary verification available if the optional lookup fails.
   }
   authorize.searchParams.set("scope", scopes);
-  authorize.searchParams.set("state", createVerifyState(guildId, selectedLanguage));
+  authorize.searchParams.set("state", createVerifyState(guildId, selectedLanguage, scopes));
   authorize.searchParams.set("prompt", "consent");
   return NextResponse.redirect(authorize);
 }
