@@ -21,6 +21,7 @@ test.after(() => {
   for (const [key, value] of Object.entries(saved)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; }
 });
 const { AuthHandler } = require(path.join(root, 'node_modules/next-auth/core/index.js'));
+const { DISCORD_USER_SCOPES } = require('../lib/discord-oauth.ts');
 const origin = 'https://universtiy-bot.up.railway.app';
 const callbackUrl = origin + '/auth/success?next=%2Fdashboard';
 const credentials = { id: 'test-client', secret: crypto.randomBytes(32).toString('hex') };
@@ -42,7 +43,7 @@ async function roundtrip(mode = 'ok') {
       assert.equal(params.get('grant_type'), 'authorization_code');
       assert.equal(params.get('code'), 'test-code');
       if (mode === 'invalid_client') { res.writeHead(401); return res.end(JSON.stringify({ error: 'invalid_client' })); }
-      res.end(JSON.stringify({ access_token: 'test-access', refresh_token: 'test-refresh', token_type: 'Bearer', expires_in: 3600, scope: 'identify guilds' }));
+      res.end(JSON.stringify({ access_token: 'test-access', refresh_token: 'test-refresh', token_type: 'Bearer', expires_in: 3600, scope: DISCORD_USER_SCOPES }));
     } else if (req.url === '/profile') {
       res.end(JSON.stringify({ id: '111', username: 'OAuth-Test', avatar: null, discriminator: '0' }));
     } else { res.writeHead(404); res.end('{}'); }
@@ -52,7 +53,7 @@ async function roundtrip(mode = 'ok') {
   try {
     const base = require('../lib/auth.ts').authOptions;
     const provider = base.providers[0];
-    const options = { ...base, debug: false, logger: { error(code, metadata) { errors.push({ code, message: metadata?.error?.message || metadata?.message || '' }); }, warn() {}, debug() {} }, providers: [{ ...provider, options: { ...provider.options, clientId: credentials.id, clientSecret: credentials.secret, authorization: { url: endpoint + '/authorize', params: { scope: 'identify guilds' } }, token: endpoint + '/token', userinfo: endpoint + '/profile' } }] };
+    const options = { ...base, debug: false, logger: { error(code, metadata) { errors.push({ code, message: metadata?.error?.message || metadata?.message || '' }); }, warn() {}, debug() {} }, providers: [{ ...provider, options: { ...provider.options, clientId: credentials.id, clientSecret: credentials.secret, authorization: { url: endpoint + '/authorize', params: provider.options.authorization.params }, token: endpoint + '/token', userinfo: endpoint + '/profile' } }] };
     const jar = {};
     const csrf = await AuthHandler({ options, req: { action: 'csrf', method: 'GET', headers: {}, cookies: jar, query: {} } });
     applyCookies(jar, csrf);
@@ -60,7 +61,8 @@ async function roundtrip(mode = 'ok') {
     applyCookies(jar, signIn);
     const authorize = new URL(signIn.redirect);
     assert.equal(authorize.searchParams.get('redirect_uri'), origin + '/api/auth/callback/discord');
-    assert.equal(authorize.searchParams.get('scope'), 'identify guilds');
+    assert.equal(authorize.searchParams.get('scope'), DISCORD_USER_SCOPES);
+    assert.equal(authorize.searchParams.get('prompt'), 'consent');
     assert(jar['__Secure-next-auth.state'], 'secure state cookie must survive the Discord redirect');
     const state = authorize.searchParams.get('state');
     if (mode === 'missing_state') delete jar['__Secure-next-auth.state'];

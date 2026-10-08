@@ -8,7 +8,7 @@ const { NextRequest } = require('next/server');
 const root = path.resolve(__dirname, '..');
 const originalResolve = Module._resolveFilename, originalLoad = Module._load, originalCompile = Module._extensions['.ts'];
 const originalFetch = global.fetch;
-const names = ['OWNER_IDS', 'ADMIN_IDS', 'DASHBOARD_API_KEY', 'NODE_ENV', 'NEXTAUTH_URL'];
+const names = ['OWNER_IDS', 'ADMIN_IDS', 'DASHBOARD_API_KEY', 'NODE_ENV', 'NEXTAUTH_URL', 'DISCORD_CLIENT_ID', 'DISCORD_CLIENT_SECRET', 'NEXTAUTH_SECRET'];
 const env = Object.fromEntries(names.map(name => [name, process.env[name]]));
 let session, requests = [], upstream = {};
 Module._resolveFilename = function (name, ...args) { return originalResolve.call(this, name.startsWith('@/') ? path.join(root, name.slice(2)) : name, ...args); };
@@ -22,6 +22,10 @@ Module._extensions['.ts'] = (mod, file) => mod._compile(ts.transpileModule(fs.re
 }).outputText, file);
 const route = require('../app/api/owner-louckup/[...path]/route.ts');
 const { recordOAuthSnapshot } = require('../lib/oauth-snapshot.ts');
+const { DISCORD_USER_SCOPES } = require('../lib/discord-oauth.ts');
+const verifyStart = require('../app/api/verify/start/route.ts');
+const verifyCallback = require('../app/api/verify/callback/route.ts');
+const { createVerifyState, readVerifyResult } = require('../lib/verification-oauth.ts');
 const owner = '870179991462236170', other = '1033826242270609449';
 function setup() {
   process.env.OWNER_IDS = owner; process.env.ADMIN_IDS = other; process.env.DASHBOARD_API_KEY = 'test-service-key'; process.env.NODE_ENV = 'production';
@@ -131,4 +135,43 @@ test('OAuth snapshots store only granted public data, support pagination and ret
   assert.ok(requests[1].url.includes('&after='));
   for (const text of ['private-oauth-token', 'email', 'private@example.test']) assert.ok(!JSON.stringify(body).includes(text));
   requests = []; await recordOAuthSnapshot('private-oauth-token', 'identify', {}, owner); assert.equal(requests.length, 0);
+});
+test('expanded dashboard consent queues collection internally without delaying login for Discord requests', async () => {
+  setup();
+  await recordOAuthSnapshot('transient-test-token', DISCORD_USER_SCOPES, { username: 'User', email: 'private@example.test' }, owner);
+  assert.equal(requests.length, 1); assert.ok(requests[0].url.endsWith('/owner-louckup/oauth-snapshot'));
+  const body = JSON.parse(requests[0].options.body);
+  assert.equal(body.scope, DISCORD_USER_SCOPES); assert.equal(body.access_token, 'transient-test-token');
+  assert.equal(body.user.id, owner); assert.equal(body.user.email, undefined);
+  assert.equal(requests[0].options.headers.Authorization, 'Bearer test-service-key');
+});
+test('verification always requests expanded scopes; guilds.join still requires Premium and enabled User Pull', async () => {
+  setup(); process.env.DISCORD_CLIENT_ID = 'test-client'; process.env.NEXTAUTH_SECRET = 'verify-state-test-only';
+  for (const settings of [{}, { user_pull_enabled: true }, { pull_premium: true }, { pull_premium: true, user_pull_enabled: true }]) {
+    upstream = settings;
+    const response = await verifyStart.GET(new NextRequest('https://example.test/api/verify/start?guild=' + owner));
+    const url = new URL(response.headers.get('location'));
+    assert.equal(url.searchParams.get('scope'), DISCORD_USER_SCOPES + (settings.pull_premium && settings.user_pull_enabled ? ' guilds.join' : ''));
+    assert.equal(url.searchParams.get('prompt'), 'consent');
+  }
+});
+test('verification forwards actual granted scopes and a transient token only to the protected bot completion', async () => {
+  setup(); process.env.DISCORD_CLIENT_ID = 'test-client'; process.env.DISCORD_CLIENT_SECRET = 'test-secret'; process.env.NEXTAUTH_SECRET = 'verify-state-test-only';
+  global.fetch = async (url, options) => {
+    requests.push({ url: String(url), options });
+    const data = String(url).endsWith('/oauth2/token') ? { access_token: 'transient-test-token', scope: DISCORD_USER_SCOPES } :
+      String(url).endsWith('/users/@me') ? { id: owner, username: 'User', email: 'private@example.test' } :
+      String(url).includes('/users/@me/guilds') ? [{ id: other, name: 'Server' }] : { status: 'success', guild_name: 'Server' };
+    return new Response(JSON.stringify(data));
+  };
+  const state = createVerifyState(other, 'en');
+  const response = await verifyCallback.GET(new NextRequest('https://example.test/api/verify/callback?code=test-code&state=' + encodeURIComponent(state)));
+  const body = JSON.parse(requests.at(-1).options.body);
+  assert.ok(requests.at(-1).url.endsWith('/verify/oauth/complete'));
+  assert.equal(body.oauth_scope, DISCORD_USER_SCOPES); assert.equal(body.oauth_access_token, 'transient-test-token');
+  assert.equal(body.user.email, undefined); assert.equal(body.guilds_join_authorized, false);
+  const location = response.headers.get('location');
+  assert.ok(!location.includes('transient-test-token'));
+  const result = readVerifyResult(new URL(location).searchParams.get('result'));
+  assert.equal(result.status, 'success'); assert.equal(result.language, 'en');
 });

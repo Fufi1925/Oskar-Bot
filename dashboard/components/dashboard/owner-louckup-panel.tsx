@@ -5,14 +5,14 @@ import { ArrowLeft, CheckCircle2, Clock3, Fingerprint, Globe2, KeyRound, Loader2
 import Link from "next/link";
 import Image from "next/image";
 import { useWebsiteLocale } from "@/lib/i18n/locale";
+import { OwnerOAuthDetails, type OwnerOAuthSnapshot } from "./owner-oauth-details";
 
 type Guild = { guild_id: string; guild_name: string; member_count: number; is_owner: boolean; is_admin: boolean; top_role: string | null; joined_at: number; roles: string[] };
-type OAuthGuild = { id: string; name: string; icon: string | null; owner: boolean; permissions: string };
 type Result = {
   profile: { user_id: string; found: boolean; username: string | null; display_name: string | null; avatar: string | null; is_bot: boolean; created_at: number };
   bot: { guilds: Guild[]; members_intent: boolean; cached_member_data: boolean; ban: { reason: string; banned_at: number; banned_by: string } | null };
   dashboard: { first_seen: number; last_seen: number; login_count: number } | null;
-  oauth: { source: string; captured_at: number; expires_at: number; complete: boolean; scopes: string[]; profile: Record<string, string | number | boolean>; guilds: OAuthGuild[] } | null;
+  oauth: OwnerOAuthSnapshot | null;
 };
 const card = "rounded-2xl border border-white/[0.07] bg-[#11151e] p-5 sm:p-6";
 
@@ -110,6 +110,7 @@ export function OwnerLouckupPanel() {
           let admin = false, manage = false; try { const bits = BigInt(guild.permissions); admin = (bits & BigInt(8)) !== BigInt(0); manage = (bits & BigInt(32)) !== BigInt(0); } catch { /* Unknown permissions stay unknown. */ }
           return <div key={guild.id} className="flex flex-wrap items-center justify-between gap-3 py-4 first:pt-0"><div><p className="text-sm font-medium">{guild.name}</p><p className="mt-1 font-mono text-[11px] text-slate-500">{guild.id}</p></div><div className="flex flex-wrap gap-2">{guild.owner && chip(t("Inhaber", "Owner"))}{admin && chip(t("Administrator", "Administrator"))}{!admin && manage && chip(t("Server verwalten", "Manage server"))}{result.bot.guilds.some(g => g.guild_id === guild.id) && chip(t("Bot vorhanden", "Bot present"))}</div></div>;
         })}{!result.oauth.guilds.filter(g => matches(g.name, g.id)).length && <p className="py-5 text-sm text-slate-500">{t("Keine passenden OAuth-Server gefunden.", "No matching OAuth guilds found.")}</p>}</div></div>}
+        {result.oauth && <OwnerOAuthDetails snapshot={result.oauth} filter={filter} />}
       </>}
     </>}
     {error && <div role="alert" className="rounded-xl border border-rose-400/20 bg-rose-500/5 px-4 py-3 text-sm text-rose-300">{errorText(error)}</div>}

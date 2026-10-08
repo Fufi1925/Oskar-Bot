@@ -16,11 +16,21 @@
 
 "use client";
 
-import { SessionProvider } from "next-auth/react";
+import { useEffect } from "react";
+import { SessionProvider, signOut, useSession } from "next-auth/react";
+
+function SessionRevocation() {
+  const { data } = useSession();
+  useEffect(() => {
+    if (data?.revoked) void signOut({ callbackUrl: "/?error=SessionRevoked" });
+  }, [data?.revoked]);
+  return null;
+}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   return (
-    <SessionProvider refetchInterval={0} refetchOnWindowFocus={false}>
+    <SessionProvider refetchInterval={60} refetchOnWindowFocus>
+      <SessionRevocation />
       {children}
     </SessionProvider>
   );

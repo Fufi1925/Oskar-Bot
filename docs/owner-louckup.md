@@ -26,14 +26,29 @@ block the owner for five minutes. Codes, secrets and lookup results are not logg
 ## Data
 
 The view combines public Discord profile information, cached shared bot servers,
-bot ban state, dashboard sign-in counts and the latest authorized OAuth snapshot.
+bot ban state, dashboard sign-in counts and the latest authorized OAuth snapshot,
+including connected accounts and the user's own guild membership details.
 The shared-server list explicitly reports its cache limitations. OAuth guild lists
 include servers without the bot, but describe the membership at the capture time.
 
-Existing authorizations are not retroactively recovered. A snapshot appears at
-the next dashboard login or server verification using the existing `identify`
-and `guilds` scopes. No additional scope is requested. No passwords, private
-messages, email addresses or OAuth credentials are retained in this feature.
+Dashboard login and OAuth verification request `identify connections guilds
+guilds.members.read`. Optional `guilds.join` retains its existing Premium and
+owner-consent gates. Discord must authorize these scopes; earlier authorizations
+cannot supply the new data retroactively.
+
+The expanded consent version invalidates all earlier dashboard sessions once,
+including middleware and server/API access. Fresh complete authorizations carry
+the new version and survive subsequent deployments. Browser sessions check for
+revocation every minute and on focus.
+
+The bot collects additional data in the background with a two-minute deadline,
+two concurrent membership requests per job, bounded retries and pagination.
+Incomplete retrieval is labelled explicitly. No passwords, private messages,
+email addresses or OAuth credentials are retained in this feature. A bearer
+token is forwarded only over the internal, API-key-protected server endpoint and
+lives temporarily in task memory; it is never included in stored snapshots,
+lookup responses, logs or exports. Older jobs cannot overwrite a newer consent
+or recreate an erased account. Jobs are cancelled during shutdown.
 
 Snapshots expire after 30 days, access logs after 90 days. The API runs a cleanup
 worker every minute and also deletes expired records on access. Account export

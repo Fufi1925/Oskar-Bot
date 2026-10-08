@@ -5,6 +5,7 @@ import os
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from api.dependencies import get_bot, run_on_bot_loop
 from utils import owner_louckup as store, user_lookup
+from utils import owner_oauth
 
 
 def service_guard(authorization: str = Header(default='')):
@@ -53,7 +54,7 @@ async def lock(request: Request):
 async def snapshot(data: dict):
     # Server-to-server only. The browser proxy does not expose this action.
     try:
-        store.capture_oauth(data)
+        owner_oauth.capture(data)
     except (ValueError, TypeError, AttributeError):
         raise HTTPException(400, 'Invalid OAuth snapshot')
     return {'recorded': True}

@@ -12,6 +12,7 @@ from utils.config import *
 from api.routes import bot, guilds, admin, team, moderation, actions, access, guild_access, dashboard_ai, support_operations, servers, servertools, server_stats, tickets, giveaways, leveling, vanity, broadcast, anonchat, diagnose, compose, nukealert, memberperks, extras, voice, verify, automod, logging_cfg, antinuke, pingreactions, premium, privacy, cookies, speedrun, supportqueue, support, honeypot, design, beta, backup, tester, music, templates, teamlist, applications, teamupdate, webapply, ideas, firewall as firewall_route, commands as commands_route
 from api.routes import owner_louckup
 from utils import owner_louckup as owner_louckup_store
+from utils import owner_oauth
 from api.dependencies import verify_api_key, limiter, get_bot_loop, get_bot, run_on_bot_loop
 from api.loop_bridge import BotLoopMiddleware
 from api.db_manager import db_manager
@@ -112,6 +113,7 @@ async def lifespan(app: FastAPI):
     try:
         yield
     finally:
+        await run_on_bot_loop(owner_oauth.stop())
         louckup_retention_task.cancel()
         try:
             await louckup_retention_task

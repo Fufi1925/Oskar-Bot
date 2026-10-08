@@ -1,6 +1,7 @@
 import DiscordProvider from "next-auth/providers/discord";
 import { AuthOptions } from "next-auth";
 import { getAuthSecret } from "@/lib/auth-session";
+import { DASHBOARD_AUTH_VERSION, DISCORD_USER_SCOPES, hasDashboardConsent } from "@/lib/discord-oauth";
 
 // Keep the University OAuth application isolated from LBoost Shop and every
 // other bot. Dedicated names win; the old variables remain supported so
@@ -56,7 +57,8 @@ export const authOptions: AuthOptions = {
       clientSecret: DISCORD_CLIENT_SECRET,
       authorization: { 
         params: { 
-          scope: "identify guilds",
+          scope: DISCORD_USER_SCOPES,
+          prompt: "consent",
         } 
       },
     }),
@@ -97,11 +99,17 @@ export const authOptions: AuthOptions = {
         token.refreshToken = account.refresh_token;
         token.sessionIssuedAtMs = Date.now();
         token.sessionRevoked = false;
+        token.authVersion = hasDashboardConsent(account.scope || "") ? DASHBOARD_AUTH_VERSION : undefined;
         if (account.access_token && token.sub) {
           const { recordOAuthSnapshot } = await import("@/lib/oauth-snapshot");
           await recordOAuthSnapshot(account.access_token, account.scope || "", (profile || {}) as Record<string, unknown>, String(token.sub));
         }
-      } else if (token.sub && !token.sessionRevoked) {
+      }
+      if (token.authVersion !== DASHBOARD_AUTH_VERSION) {
+        token.sessionRevoked = true;
+        delete token.accessToken;
+        delete token.refreshToken;
+      } else if (!account && token.sub && !token.sessionRevoked) {
         const before = await revokedBefore(String(token.sub));
         const issued = Number(token.sessionIssuedAtMs || Number(token.iat || 0) * 1000);
         if (before !== null && before > 0 && issued <= before) {

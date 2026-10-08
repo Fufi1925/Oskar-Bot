@@ -20,6 +20,7 @@ import { withAuth } from "next-auth/middleware";
 import { getToken } from "next-auth/jwt";
 import { getAuthSecret } from "@/lib/auth-session";
 import { authErrorPath } from "@/lib/auth-errors";
+import { DASHBOARD_AUTH_VERSION } from "@/lib/discord-oauth";
 
 import {
   BYPASS_COOKIE,
@@ -150,6 +151,15 @@ const authGate = withAuth(
   async function middleware(request: NextRequest & { nextauth: { token: any } }) {
     const userId = request.nextauth?.token?.sub;
     if (!userId) return NextResponse.next();
+
+    if (request.nextauth.token.authVersion !== DASHBOARD_AUTH_VERSION || request.nextauth.token.sessionRevoked) {
+      if (request.nextUrl.pathname.startsWith("/api/")) {
+        return NextResponse.json({ detail: "Session revoked." }, { status: 401 });
+      }
+      const url = new URL("/", process.env.NEXTAUTH_URL || request.url);
+      url.searchParams.set("error", "SessionRevoked");
+      return NextResponse.redirect(url);
+    }
 
     const issuedAtMs = Number(request.nextauth?.token?.sessionIssuedAtMs || 0);
     const [valid, { banned, reason }] = await Promise.all([

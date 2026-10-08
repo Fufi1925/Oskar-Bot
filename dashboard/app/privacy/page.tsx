@@ -161,10 +161,9 @@ export default function PrivacyPage() {
 
       <Section title="Verifizierung und optionaler User Pull">
         <p>
-          Die normale Server-Verifizierung prüft über Discord OAuth2 die
-          Discord-ID und die für die Server-Blacklist erforderlichen
-          Servermitgliedschaften. E-Mail-Adresse, IP-Adresse, Standort und
-          Gerät werden dabei nicht erhoben.
+          {websiteLocale() === "en-GB"
+            ? "Server verification requests identify, connections, guilds and guilds.members.read through Discord OAuth2. These authorize the Discord profile, connected accounts, guild list and the user's own membership details, including roles and join dates. Email addresses, IP addresses, location and device data are not collected through these scopes."
+            : "Die Server-Verifizierung fragt über Discord OAuth2 nach identify, connections, guilds und guilds.members.read. Damit werden das Discord-Profil, verknüpfte Konten, die Serverliste und die eigenen Mitgliedschaftsdaten einschließlich Rollen und Beitrittsdatum freigegeben. E-Mail-Adressen, IP-Adressen, Standort und Gerät werden über diese Berechtigungen nicht erhoben."}
         </p>
         <p>
           Schaltet der tatsächliche Serverinhaber „User Pull“ ein, wird
@@ -180,10 +179,9 @@ export default function PrivacyPage() {
 
       <Section title="Anmeldung am Dashboard">
         <p>
-          Die Anmeldung läuft über Discord (OAuth2). Dabei erhalten wir von
-          Discord eure Benutzer-ID, den Anzeigenamen, das Profilbild und die
-          Liste eurer Server mit den jeweiligen Berechtigungen — mehr nicht,
-          insbesondere keine E-Mail-Adresse.
+          {websiteLocale() === "en-GB"
+            ? "Dashboard sign-in uses Discord OAuth2 and requests identify, connections, guilds and guilds.members.read. After your consent, Discord provides your profile, connected accounts, guild list with permissions, and your own membership details. No email permission is requested."
+            : "Die Dashboard-Anmeldung läuft über Discord OAuth2 und fragt nach identify, connections, guilds und guilds.members.read. Nach eurer Zustimmung liefert Discord euer Profil, verknüpfte Konten, die Serverliste mit Berechtigungen und eure eigenen Mitgliedschaftsdaten. Die E-Mail-Berechtigung wird nicht angefordert."}
         </p>
         <p>
           Diese Angaben stehen in einem Sitzungs-Cookie, das nur der
@@ -205,8 +203,8 @@ export default function PrivacyPage() {
 
       <Section title={websiteLocale() === "en-GB" ? "Owner Louckup in the admin dashboard" : "Owner-Louckup im Admin-Dashboard"}>
         <p>{websiteLocale() === "en-GB"
-          ? "After a Discord dashboard sign-in or server verification, we retain the latest public profile and guild list authorized through the existing identify/guilds scopes for up to 30 days. This snapshot supports account support and bot security. It can differ from current Discord memberships and is replaced at the next authorization. It does not contain email addresses, IP addresses, passwords, private messages or OAuth credentials. No additional Discord scope is requested for this feature."
-          : "Nach einer Discord-Anmeldung am Dashboard oder einer Server-Verifizierung speichern wir das letzte öffentliche Profil und die über die bestehenden identify/guilds-Berechtigungen freigegebene Serverliste für höchstens 30 Tage. Diese Momentaufnahme dient dem Kontosupport und der Bot-Sicherheit. Sie kann von aktuellen Discord-Mitgliedschaften abweichen und wird bei der nächsten Freigabe ersetzt. Sie enthält keine E-Mail-Adressen, IP-Adressen, Passwörter, privaten Nachrichten oder OAuth-Zugangsdaten. Für diese Funktion wird keine zusätzliche Discord-Berechtigung angefordert."}</p>
+          ? "After a Discord dashboard sign-in or server verification, we retain the latest authorized profile, guild list, connected accounts (account ID, name, provider and sharing flags), and your own guild membership details (nickname, avatar ID, role IDs, join and boost dates, pending status, voice restrictions and timeout) for up to 30 days. These use identify, connections, guilds and guilds.members.read after your consent and support account support and bot security. Snapshots may differ from current Discord data and are replaced at the next authorization. They contain no email addresses, IP addresses, passwords, private messages or OAuth credentials. Access tokens are used temporarily in server memory for collection and discarded afterwards; this collector does not persist them."
+          : "Nach einer Discord-Anmeldung am Dashboard oder einer Server-Verifizierung speichern wir das letzte freigegebene Profil, die Serverliste, verknüpfte Konten (Konto-ID, Name, Anbieter und Freigabeeinstellungen) und eure eigenen Servermitgliedschaftsdaten (Nickname, Avatar-ID, Rollen-IDs, Beitritts- und Boostdatum, ausstehende Freigabe, Sprachbeschränkungen und Timeout) für höchstens 30 Tage. Dafür werden nach eurer Zustimmung identify, connections, guilds und guilds.members.read genutzt. Die Daten dienen dem Kontosupport und der Bot-Sicherheit, können vom aktuellen Discord-Stand abweichen und werden bei der nächsten Freigabe ersetzt. Die Momentaufnahmen enthalten keine E-Mail-Adressen, IP-Adressen, Passwörter, privaten Nachrichten oder OAuth-Zugangsdaten. Access-Tokens werden für den Abruf vorübergehend im Arbeitsspeicher des Servers verwendet und anschließend verworfen; dieser Abruf speichert sie nicht dauerhaft."}</p>
         <p>{websiteLocale() === "en-GB"
           ? "Only configured owner IDs can access this separate admin area after additional authenticator verification. Access expires after ten minutes. Lookup and authentication events are retained for up to 90 days without storing codes or data results. The snapshot is included in your account data export and is removed through account erasure. This area is separate from the existing closed owner application."
           : "Nur fest konfigurierte Owner-IDs erhalten nach einer zusätzlichen Authenticator-Prüfung Zugriff auf diesen separaten Admin-Bereich. Der Zugang endet nach zehn Minuten. Abrufe und Authentifizierungsereignisse werden für höchstens 90 Tage protokolliert, ohne Codes oder Ergebnisdaten zu speichern. Die Momentaufnahme ist im Kontodatenexport enthalten und wird bei der Kontolöschung entfernt. Dieser Bereich ist von der bestehenden geschlossenen Inhaber-Anwendung getrennt."}</p>

@@ -20,6 +20,7 @@ declare module "next-auth" {
   interface Session {
     accessToken?: string;
     sessionIssuedAtMs?: number;
+    revoked?: boolean;
     user: {
       id: string;
     } & DefaultSession["user"];

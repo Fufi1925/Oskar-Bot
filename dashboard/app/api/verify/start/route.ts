@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createVerifyState, websiteOrigin } from "@/lib/verification-oauth";
+import { DISCORD_USER_SCOPES } from "@/lib/discord-oauth";
 
 export const dynamic = "force-dynamic";
 
@@ -34,7 +35,7 @@ export async function GET(request: NextRequest) {
   authorize.searchParams.set("response_type", "code");
   // guilds.join is optional and only appears after the owner confirmed User
   // Pull on the target server. Existing verifications are never upgraded.
-  let scopes = "identify guilds";
+  let scopes = DISCORD_USER_SCOPES;
   try {
     const settingsResponse = await fetch(`${API_BASE}/verify/${guildId}`, {
       headers: {

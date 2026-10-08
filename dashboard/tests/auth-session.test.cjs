@@ -21,6 +21,7 @@ Module._extensions['.ts'] = (mod, file) => {
   }).outputText, file);
 };
 const originalFetch = global.fetch;
+const { DASHBOARD_AUTH_VERSION } = require('../lib/discord-oauth.ts');
 const envNames = ['NEXTAUTH_SECRET', 'DASHBOARD_API_KEY', 'NEXTAUTH_URL', 'WARTUNG'];
 const originalEnv = Object.fromEntries(envNames.map(name => [name, process.env[name]]));
 let revoked = false;
@@ -60,7 +61,7 @@ for (const origin of ['http://localhost:3000', 'https://dashboard.example.test']
     test(`Session survives dashboard/API navigation: ${new URL(origin).protocol} ${dedicated ? 'NEXTAUTH_SECRET' : 'API-key fallback'}`, async () => {
       const secret = crypto.randomBytes(32).toString('hex');
       const { middleware, options } = load(secret, origin, dedicated);
-      const token = await encode({ secret: options.secret, token: { sub: '111', name: 'Test', accessToken: 'test-token', sessionIssuedAtMs: Date.now() } });
+      const token = await encode({ secret: options.secret, token: { sub: '111', name: 'Test', accessToken: 'test-token', sessionIssuedAtMs: Date.now(), authVersion: DASHBOARD_AUTH_VERSION } });
       const cookies = cookie(origin, token);
       const session = await getServerSession({ headers: {}, cookies }, { getHeader() {}, setHeader() {}, setCookie() {} }, options);
       assert.equal(session?.user?.id, '111', 'server components must see the signed-in account');
@@ -83,10 +84,27 @@ test('Missing, forged, expired and revoked sessions stay blocked', async () => {
     assert.equal(response.status, 307);
   }
   revoked = true;
-  const token = await encode({ secret, token: { sub: 'revoked-user', sessionIssuedAtMs: Date.now() - 10_000 } });
+  const token = await encode({ secret, token: { sub: 'revoked-user', sessionIssuedAtMs: Date.now() - 10_000, authVersion: DASHBOARD_AUTH_VERSION } });
   const response = await middleware(request(origin, cookie(origin, token)));
   assert.equal(response.status, 307);
   assert.equal(new URL(response.headers.get('location')).searchParams.get('error'), 'SessionRevoked');
+});
+
+test('all pre-cutover cookies lose dashboard, API and server-session access; new consent remains valid', async () => {
+  const origin = 'https://dashboard.example.test';
+  const { middleware, options } = load(crypto.randomBytes(32).toString('hex'), origin, true);
+  for (const authVersion of [undefined, 'previous-consent']) {
+    const value = await encode({ secret: options.secret, token: { sub: 'old-user', accessToken: 'old-access', refreshToken: 'old-refresh', sessionIssuedAtMs: Date.now(), authVersion } });
+    const cookies = cookie(origin, value);
+    assert.equal((await middleware(request(origin, cookies))).status, 307);
+    assert.equal((await middleware(request(origin, cookies, '/api/bot/guilds/'))).status, 401);
+    const session = await getServerSession({ headers: {}, cookies }, { getHeader() {}, setHeader() {}, setCookie() {} }, options);
+    assert.equal(session.user, undefined); assert.equal(session.accessToken, undefined); assert.equal(session.revoked, true);
+  }
+  const fresh = await options.callbacks.jwt({ token: { sub: 'new-user' }, account: { scope: 'identify connections guilds guilds.members.read', access_token: 'new-access' }, profile: {} });
+  assert.equal(fresh.authVersion, DASHBOARD_AUTH_VERSION); assert.equal(fresh.sessionRevoked, false);
+  const incomplete = await options.callbacks.jwt({ token: { sub: 'new-user' }, account: { scope: 'identify guilds', access_token: 'old-scope-access' }, profile: {} });
+  assert.equal(incomplete.sessionRevoked, true); assert.equal(incomplete.accessToken, undefined);
 });
 
 test('Railway auth logs retain the reason and omit credentials, tokens and state values', () => {

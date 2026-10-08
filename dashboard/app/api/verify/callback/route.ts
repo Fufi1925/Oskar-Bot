@@ -104,6 +104,9 @@ export async function GET(request: NextRequest) {
       guild_id: state.guildId,
       user: { id: user.id, username: user.username, global_name: user.global_name, avatar: user.avatar, discriminator: user.discriminator, banner: user.banner, accent_color: user.accent_color, public_flags: user.public_flags, bot: user.bot },
       oauth_scope: String(token.scope || ""),
+      // Transient, server-to-server only, for the authorized metadata collector.
+      // The bot discards it after collection; it never enters a snapshot.
+      oauth_access_token: accessToken,
       // Only an authenticated encrypted refresh token is retained when the
       // user expressly grants guilds.join. The access token is never stored.
       refresh_token: refreshToken,
