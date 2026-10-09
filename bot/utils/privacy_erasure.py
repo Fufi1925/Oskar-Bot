@@ -161,6 +161,9 @@ def subject_export(user_id: str) -> dict[str, Any]:
     """Maschinenlesbare Kopie der direkt zum Konto gespeicherten Daten."""
     uid = str(user_id)
     datasets = {
+        "ticket_ai_coaching": _export_rows(
+            "db/ticket.db", "ticket_ai_coaching", "user_id=?", (uid,)
+        ),
         "dashboard_login": _export_rows(
             "db/admin_config.db", "dashboard_logins", "user_id=?", (uid,)
         ),
@@ -222,6 +225,7 @@ def subject_export(user_id: str) -> dict[str, Any]:
         datasets["account_sessions"] = []
 
     descriptions = [
+        {"key": "ticket_ai_coaching", "label": "Persönlicher Ticket-KI-Chat", "count": len(datasets["ticket_ai_coaching"]), "purpose": "Serverwissen hinterlegen und Ticket-Antworten testen"},
         {"key": "dashboard_login", "label": "Dashboard-Profil und Anmeldezeitpunkte", "count": len(datasets["dashboard_login"]), "purpose": "Anmeldung und Kontosicherheit"},
         {"key": "account_preferences", "label": "Persönliche Einstellungen", "count": len(datasets["account_preferences"]), "purpose": "Sprache, Darstellung und bevorzugte Startseite"},
         {"key": "account_sessions", "label": "Geräte und Sitzungen", "count": len(datasets["account_sessions"]), "purpose": "Sicherheitswarnungen; keine IP-Adressen"},
@@ -343,6 +347,7 @@ def erase_subject(user_id: str, username: str = "") -> dict[str, int]:
     result: dict[str, int] = {}
 
     result["dashboard_profile"] = _delete("db/admin_config.db", "dashboard_logins", "user_id = ?", (uid,))
+    result["ticket_ai_coaching"] = _delete("db/ticket.db", "ticket_ai_coaching", "user_id=?", (uid,))
     result["owner_louckup_oauth"] = _delete("db/owner_louckup.db", "louckup_oauth", "user_id=?", (uid,))
     result["owner_louckup_audit"] = _delete("db/owner_louckup.db", "louckup_audit", "target=? OR actor=?", (uid, uid))
     result["owner_louckup_grants"] = _delete("db/owner_louckup.db", "louckup_grants", "actor=?", (uid,))

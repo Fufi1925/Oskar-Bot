@@ -1706,6 +1706,14 @@ export const api = {
     request<any>(`/tickets/${guildId}/ai/scan/cancel`, { method: "POST", body: "{}" }),
   getTicketAiScan: (guildId: string) =>
     request<any>(`/tickets/${guildId}/ai/scan`),
+  getTicketAiChat: (guildId: string) => request<any>(`/tickets/${guildId}/ai/chat`),
+  sendTicketAiChat: (guildId: string, message: string, mode: "teach" | "ask", language: string) =>
+    request<any>(`/tickets/${guildId}/ai/chat`, { method: "POST", body: JSON.stringify({ message, mode, language }) }),
+  clearTicketAiChat: (guildId: string) => request<any>(`/tickets/${guildId}/ai/chat`, { method: "DELETE" }),
+  saveTicketAiMemory: (guildId: string, data: { id?: number; title: string; content: string }) =>
+    request<any>(`/tickets/${guildId}/ai/memories`, { method: "PUT", body: JSON.stringify(data) }),
+  deleteTicketAiMemory: (guildId: string, id: number) =>
+    request<any>(`/tickets/${guildId}/ai/memories/${id}`, { method: "DELETE" }),
 
   // Speedrun (Beta) — der Template-Bot baut, danach richtet dieser Bot ein.
   // Alles läuft über den University Bot; das Dashboard redet nie direkt

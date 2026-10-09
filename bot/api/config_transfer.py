@@ -46,6 +46,8 @@ USER_DATA_TABLES = {
     "warn_log",
     "open_tickets",
     "user_ticket_counts",
+    "ticket_ai_coaching",
+    "ticket_transcripts",
     "verification_logs",
     # Per-member role assignments, not a server setting.
     "custom_roles",

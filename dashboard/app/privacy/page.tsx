@@ -64,17 +64,12 @@ export default function PrivacyPage() {
       updated={LEGAL_UPDATED}
     >
       <Section title="Kurzfassung">
-        <p>
-          {BRAND} speichert so wenig wie möglich: im Wesentlichen
-          Discord-IDs (Zahlen) und die Einstellungen, die ihr im Dashboard
-          vornehmt. <strong>Nachrichteninhalte werden nicht mitgelesen und
-          nicht gespeichert</strong> — mit einer Ausnahme, die ihr selbst
-          einrichtet und die weiter unten steht.
-        </p>
-        <p>
-          Es gibt keine Werbung, kein Tracking, keine Analyse-Skripte und
-          keine Weitergabe an Dritte.
-        </p>
+        <p>{websiteLocale() === "en-GB"
+          ? `${BRAND} stores data needed for its features, including Discord IDs and dashboard settings. Message contents are processed for features you configure, such as logging, ticket transcripts and the Ticket AI described below.`
+          : `${BRAND} speichert Daten, die seine Funktionen benötigen, darunter Discord-IDs und Dashboard-Einstellungen. Nachrichteninhalte werden für Funktionen verarbeitet, die ihr selbst einrichtet, etwa Logging, Ticket-Transkripte und die unten beschriebene Ticket-KI.`}</p>
+        <p>{websiteLocale() === "en-GB"
+          ? "There is no advertising, tracking, analytics scripting or data sharing for advertising or analytics. Transmission for enabled AI features is described below."
+          : "Es gibt keine Werbung, kein Tracking, keine Analyse-Skripte und keine Weitergabe für Werbung oder Analyse. Die Übermittlung bei eingeschalteten KI-Funktionen ist unten beschrieben."}</p>
       </Section>
 
       <Section title="Verantwortlich">
@@ -139,7 +134,7 @@ export default function PrivacyPage() {
 
       <Section title="Was der Bot nicht speichert">
         <ul className="list-disc pl-5 space-y-2 text-slate-400">
-          <li>Keine Nachrichteninhalte aus euren Kanälen.</li>
+          <li>{websiteLocale() === "en-GB" ? "No general archiving of your channel messages. Exceptions are enabled features such as ticket transcripts and Ticket AI." : "Keine allgemeine Archivierung eurer Kanalnachrichten. Ausnahmen sind aktivierte Funktionen wie Ticket-Transkripte und Ticket-KI."}</li>
           <li>Keine E-Mail-Adressen, Telefonnummern oder Passwörter.</li>
           <li>
             Keine IP-Adressen zu Werbe-, Analyse- oder Ortungszwecken. Die
@@ -149,7 +144,7 @@ export default function PrivacyPage() {
           <li>Keine Daten von Servern, auf denen der Bot nicht ist.</li>
         </ul>
         <p>
-          <strong className="text-slate-300">Die eine Ausnahme:</strong> Wenn
+          <strong className="text-slate-300">Logging:</strong> Wenn
           ein Server-Administrator die Protokoll-Funktion („Logging“)
           einschaltet, schreibt der Bot Ereignisse wie gelöschte oder
           bearbeitete Nachrichten in einen Kanal <em>auf eurem eigenen
@@ -157,6 +152,18 @@ export default function PrivacyPage() {
           Server, nicht in unserer Datenbank. Wer das einschaltet, ist für
           diese Verarbeitung selbst verantwortlich.
         </p>
+      </Section>
+
+      <Section title={websiteLocale() === "en-GB" ? "Ticket AI and server knowledge" : "Ticket-KI und Serverwissen"}>
+        <p>{websiteLocale() === "en-GB"
+          ? "The optional Ticket AI workspace stores your personal coaching chat for your dashboard account and the selected server. It retains up to 60 messages; messages older than 30 days are removed when chat history is accessed. You can clear the chat yourself. Chat history is included in your account data export and removed through account erasure. Clearing the chat does not delete shared server knowledge."
+          : "Der optionale Ticket-KI-Bereich speichert deinen persönlichen Lernchat für dein Dashboard-Konto und den ausgewählten Server. Er behält höchstens 60 Nachrichten; Nachrichten älter als 30 Tage werden beim Abruf des Chatverlaufs entfernt. Du kannst den Chat selbst leeren. Der Verlauf ist im Kontodatenexport enthalten und wird bei der Kontolöschung entfernt. Das Leeren des Chats löscht das gemeinsame Serverwissen nicht."}</p>
+        <p>{websiteLocale() === "en-GB"
+          ? "Remember knowledge saves the exact information you enter as shared server knowledge. Authorized server administrators can view, edit and delete these entries and imported TXT documents. The Read server action creates a local review draft from server structure, configuration with credentials filtered out, and accessible owner or administrator messages from the past 30 days. Member messages and ticket channels are excluded. This scan makes no AI provider request. The draft is stored locally; you must explicitly accept it before it becomes knowledge used for answers."
+          : "Wissen merken speichert deine eingegebene Information unverändert als gemeinsames Serverwissen. Berechtigte Server-Administratoren können diese Einträge und importierte TXT-Dokumente ansehen, bearbeiten und löschen. Server lesen erstellt lokal einen prüfbaren Entwurf aus Serverstruktur, Konfiguration mit herausgefilterten Zugangsdaten und zugänglichen Nachrichten des Inhabers oder von Administratoren aus den vergangenen 30 Tagen. Mitgliedernachrichten und Ticketkanäle werden ausgelassen. Dieser Scan ruft keinen KI-Anbieter auf. Der Entwurf wird lokal gespeichert; erst deine ausdrückliche Übernahme macht ihn zu Wissen für Antworten."}</p>
+        <p>{websiteLocale() === "en-GB"
+          ? "When you use Test reply or enable AI replies in a ticket category, the existing Groq service receives the current question, matching excerpts of saved knowledge and category instructions. Dashboard follow-ups may also include recent questions from your own coaching chat. Ticket AI does not store ticket conversations itself; a separately enabled ticket transcript can still retain them. Avoid adding passwords, access credentials or unnecessary personal information to server knowledge."
+          : "Wenn du Antwort testen verwendest oder KI-Antworten in einer Ticketkategorie einschaltest, erhält der bestehende Dienst Groq die aktuelle Frage, passende Ausschnitte des gespeicherten Wissens und Kategorieanweisungen. Bei Rückfragen im Dashboard können auch die letzten Fragen aus deinem eigenen Lernchat enthalten sein. Die Ticket-KI selbst speichert keine Ticketgespräche; ein separat aktiviertes Ticket-Transkript kann sie weiterhin speichern. Hinterlege keine Passwörter, Zugangsdaten oder unnötigen persönlichen Angaben im Serverwissen."}</p>
       </Section>
 
       <Section title="Verifizierung und optionaler User Pull">

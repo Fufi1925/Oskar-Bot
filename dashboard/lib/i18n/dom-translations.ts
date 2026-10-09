@@ -7346,6 +7346,15 @@ export const phrasePairs: Array<[de: string, en: string]> = [
   // ════════════════════════════════════════════════════════════════
   ["Tickets im Auftrag öffnen erlauben", "Allow opening tickets on behalf of members"],
   ["Teammitglieder können mit /ticket create ein Ticket für andere Mitglieder eröffnen.", "Staff can use /ticket create to open a ticket for another member."],
+
+  // ════════════════════════════════════════════════════════════════
+  // Vollstaendige Abdeckung der Dashboard-Oberflaeche. Diese Eintraege
+  // stammen aus tools/build_dom_translations.py — nicht von Hand hier
+  // pflegen, sondern die Batches in tools/i18n_work/ anpassen und den
+  // Generator neu laufen lassen.
+  // ════════════════════════════════════════════════════════════════
+  ["Persönlicher Ticket-KI-Chat", "Personal Ticket AI chat"],
+  ["Serverwissen hinterlegen und Ticket-Antworten testen", "Add server knowledge and test ticket replies"],
 ];
 
 /**

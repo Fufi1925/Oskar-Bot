@@ -521,8 +521,8 @@ class TicketCog(commands.Cog, name="Ticket System"):
 
         category_id = int(ticket["category_db_id"] or 0)
         config = self.db.fetchone(
-            "SELECT s.enabled, s.fallback_text, c.enabled AS category_enabled, c.instructions, k.content"
-            " FROM ticket_ai_settings s JOIN ticket_ai_knowledge k ON k.guild_id=s.guild_id"
+            "SELECT s.enabled, s.fallback_text, c.enabled AS category_enabled, c.instructions, COALESCE(k.content, '') AS content"
+            " FROM ticket_ai_settings s LEFT JOIN ticket_ai_knowledge k ON k.guild_id=s.guild_id"
             " LEFT JOIN ticket_ai_categories c ON c.guild_id=s.guild_id AND c.category_id=?"
             " WHERE s.guild_id=?",
             (category_id, message.guild.id),
@@ -532,7 +532,10 @@ class TicketCog(commands.Cog, name="Ticket System"):
 
         self._ai_inflight.add(message.channel.id)
         try:
-            excerpts = ticket_ai.matching_context(message.content, config["content"])
+            memories = [dict(row) for row in self.db.fetchall(
+                "SELECT title,content FROM ticket_ai_memories WHERE guild_id=? ORDER BY updated_at DESC,id DESC", (message.guild.id,)
+            )]
+            excerpts = ticket_ai.answer_context(message.content, config["content"], memories)
             async with message.channel.typing():
                 answer = await ticket_ai.grounded_answer(
                     message.content, excerpts, config["instructions"] or ""

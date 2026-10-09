@@ -27,13 +27,14 @@ from fastapi import APIRouter, Depends, HTTPException
 from api import ticket_panels as panels
 from api.db_manager import db_manager
 from api.dependencies import get_bot
-from utils import dashboard_roles, feature_audit, feature_gates, ticket_ai, ticket_ai_scan, ticket_notify, ticket_settings
+from utils import dashboard_roles, feature_audit, feature_gates, ticket_ai, ticket_ai_scan, ticket_ai_workspace, ticket_notify, ticket_settings
 
 if TYPE_CHECKING:
     from core.universitybot import universitybot
 
 router = APIRouter()
 _scan_tasks: dict[int, asyncio.Task] = {}
+_chat_busy: set[tuple[int, str]] = set()
 
 
 def _forget_scan(guild_id: int, task: asyncio.Task) -> None:
@@ -559,6 +560,11 @@ async def _ensure_ai_schema(db) -> None:
         columns = {row[1] for row in await cursor.fetchall()}
     if "escalated" not in columns:
         await db.execute("ALTER TABLE ticket_ai_usage ADD COLUMN escalated BOOLEAN NOT NULL DEFAULT FALSE")
+    async with db.execute("PRAGMA table_info(ticket_ai_scan_jobs)") as cursor:
+        columns = {row[1] for row in await cursor.fetchall()}
+    for name, definition in ticket_ai.SCAN_COLUMNS.items():
+        if name not in columns:
+            await db.execute(f"ALTER TABLE ticket_ai_scan_jobs ADD COLUMN {name} {definition}")
     await db.commit()
 
 
@@ -606,9 +612,10 @@ async def get_ticket_ai(guild_id: int, actor: str = ""):
     ) as cursor:
         knowledge = await cursor.fetchone()
     async with db.execute(
-        "SELECT c.category_id, c.name, COALESCE(a.enabled, 0), COALESCE(a.instructions, '')"
+        "SELECT c.category_id, c.name, COALESCE(a.enabled, 0), COALESCE(a.instructions, ''), c.panel_id, p.name"
         " FROM ticket_categories c LEFT JOIN ticket_ai_categories a"
         " ON a.guild_id = c.guild_id AND a.category_id = c.category_id"
+        " LEFT JOIN ticket_panels p ON p.panel_id=c.panel_id AND p.guild_id=c.guild_id"
         " WHERE c.guild_id = ? ORDER BY c.category_id",
         (guild_id,),
     ) as cursor:
@@ -619,8 +626,9 @@ async def get_ticket_ai(guild_id: int, actor: str = ""):
         "enabled": bool(settings[0]) if settings else False,
         "fallback_text": settings[1] if settings else "Dazu habe ich leider keine verlässliche Information in der Wissensdatenbank gefunden.",
         "knowledge": ({"filename": knowledge[0], "characters": knowledge[1], "updated_at": knowledge[2], "content": knowledge[3]} if knowledge else None),
+        "memories": await ticket_ai_workspace.memories(guild_id),
         "categories": [
-            {"category_id": row[0], "name": row[1], "enabled": bool(row[2]), "instructions": row[3]}
+            {"category_id": row[0], "name": row[1], "enabled": bool(row[2]), "instructions": row[3], "panel_id": row[4], "panel_name": row[5] or "Legacy"}
             for row in categories
         ],
     }
@@ -654,7 +662,7 @@ async def delete_ticket_ai_knowledge(guild_id: int, actor: str = ""):
     db = await _db()
     await _ensure_ai_schema(db)
     await db.execute("DELETE FROM ticket_ai_knowledge WHERE guild_id = ?", (guild_id,))
-    await db.execute("UPDATE ticket_ai_settings SET enabled = 0 WHERE guild_id = ?", (guild_id,))
+    await ticket_ai_workspace.disable_without_knowledge(db, guild_id)
     await db.commit()
     return {"status": "success"}
 
@@ -664,8 +672,6 @@ async def start_ticket_ai_scan(
     guild_id: int, actor: str = "", bot: "universitybot" = Depends(get_bot)
 ):
     _ai_or_404(guild_id, actor, configure=True)
-    if not ticket_ai.api_key_configured():
-        raise HTTPException(status_code=503, detail=f"Railway-Variable {ticket_ai.API_KEY_ENV} fehlt oder enthält keinen gültigen Groq-Key.")
     db = await _db()
     await _ensure_ai_schema(db)
     active = _scan_tasks.get(guild_id)
@@ -678,7 +684,7 @@ async def start_ticket_ai_scan(
     await db.execute(
         "INSERT INTO ticket_ai_scan_jobs (guild_id, status, updated_at) VALUES (?, 'queued', ?)"
         " ON CONFLICT(guild_id) DO UPDATE SET status='queued', progress=0, total_channels=0,"
-        " message_count=0, draft='', error='', updated_at=excluded.updated_at",
+        " message_count=0, draft='', error='', warnings='[]', skipped_channels=0, current_channel='', updated_at=excluded.updated_at",
         (guild_id, int(time.time())),
     )
     await db.commit()
@@ -718,7 +724,7 @@ async def get_ticket_ai_scan(guild_id: int, actor: str = ""):
     db = await _db()
     await _ensure_ai_schema(db)
     async with db.execute(
-        "SELECT status, progress, total_channels, message_count, draft, error, updated_at"
+        "SELECT status, progress, total_channels, message_count, draft, error, updated_at, skipped_channels, warnings, current_channel"
         " FROM ticket_ai_scan_jobs WHERE guild_id = ?", (guild_id,)
     ) as cursor:
         row = await cursor.fetchone()
@@ -728,6 +734,7 @@ async def get_ticket_ai_scan(guild_id: int, actor: str = ""):
         "status": row[0], "progress": row[1], "total_channels": row[2],
         "message_count": row[3], "draft": row[4] if row[0] == "completed" else "",
         "error": row[5], "updated_at": row[6],
+        "skipped_channels": row[7], "warnings": json.loads(row[8]), "current_channel": row[9],
     }
 
 
@@ -739,35 +746,119 @@ async def update_ticket_ai(guild_id: int, data: dict):
     fallback = str(data.get("fallback_text") or "").strip()[:500]
     enabled = bool(data.get("enabled"))
     if enabled:
-        async with db.execute("SELECT 1 FROM ticket_ai_knowledge WHERE guild_id = ?", (guild_id,)) as cursor:
+        async with db.execute("SELECT 1 FROM ticket_ai_knowledge WHERE guild_id = ? UNION ALL SELECT 1 FROM ticket_ai_memories WHERE guild_id = ? LIMIT 1", (guild_id, guild_id)) as cursor:
             if not await cursor.fetchone():
-                raise HTTPException(status_code=400, detail="Lade zuerst eine Wissensdatei hoch.")
+                raise HTTPException(status_code=400, detail="Hinterlege zuerst Serverwissen im Chat oder lade eine Wissensdatei hoch.")
         if not ticket_ai.api_key_configured():
             raise HTTPException(status_code=503, detail=f"Railway-Variable {ticket_ai.API_KEY_ENV} fehlt oder enthält keinen gültigen Groq-Key.")
+    categories = data.get("categories") or []
+    if not isinstance(categories, list): raise HTTPException(400, "invalid_categories")
+    async with db.execute("SELECT category_id FROM ticket_categories WHERE guild_id = ?", (guild_id,)) as cursor:
+        valid_ids = {int(row[0]) for row in await cursor.fetchall()}
+    validated = []
+    for item in categories:
+        if not isinstance(item, dict) or type(item.get("category_id")) is not int or item["category_id"] not in valid_ids:
+            raise HTTPException(400, "Ungültige Ticket-Kategorie.")
+        validated.append((guild_id, item["category_id"], bool(item.get("enabled")), str(item.get("instructions") or "").strip()[:1000]))
     await db.execute(
         "INSERT INTO ticket_ai_settings (guild_id, enabled, fallback_text, updated_at) VALUES (?, ?, ?, ?)"
         " ON CONFLICT(guild_id) DO UPDATE SET enabled=excluded.enabled, fallback_text=excluded.fallback_text, updated_at=excluded.updated_at",
         (guild_id, enabled, fallback or "Dazu habe ich leider keine verlässliche Information in der Wissensdatenbank gefunden.", int(time.time())),
     )
-    categories = data.get("categories") or []
-    valid_ids: set[int] = set()
-    async with db.execute("SELECT category_id FROM ticket_categories WHERE guild_id = ?", (guild_id,)) as cursor:
-        valid_ids = {int(row[0]) for row in await cursor.fetchall()}
-    for item in categories:
-        try:
-            category_id = int(item.get("category_id"))
-        except (TypeError, ValueError, AttributeError):
-            continue
-        if category_id not in valid_ids:
-            raise HTTPException(status_code=400, detail="Ungültige Ticket-Kategorie.")
-        instructions = str(item.get("instructions") or "").strip()[:1000]
-        await db.execute(
-            "INSERT INTO ticket_ai_categories (guild_id, category_id, enabled, instructions) VALUES (?, ?, ?, ?)"
-            " ON CONFLICT(guild_id, category_id) DO UPDATE SET enabled=excluded.enabled, instructions=excluded.instructions",
-            (guild_id, category_id, bool(item.get("enabled")), instructions),
-        )
+    await db.executemany(
+        "INSERT INTO ticket_ai_categories (guild_id, category_id, enabled, instructions) VALUES (?, ?, ?, ?)"
+        " ON CONFLICT(guild_id, category_id) DO UPDATE SET enabled=excluded.enabled, instructions=excluded.instructions", validated,
+    )
     await db.commit()
     return {"status": "success"}
+
+
+def _ai_value_error(error: ValueError):
+    detail = str(error)
+    raise HTTPException(404 if detail == "memory_not_found" else 400, detail)
+
+
+@router.put("/{guild_id}/ai/memories", summary="Add or edit confirmed server knowledge")
+async def save_ai_memory(guild_id: int, data: dict):
+    _ai_or_404(guild_id, str(data.get("actor") or ""), configure=True)
+    memory_id = data.get("id")
+    if memory_id is not None and (type(memory_id) is not int or memory_id <= 0):
+        raise HTTPException(400, "invalid_memory")
+    try:
+        result = await ticket_ai_workspace.save_memory(guild_id, data.get("content"), data.get("title", ""), memory_id)
+    except ValueError as error: _ai_value_error(error)
+    return {"id": result}
+
+
+@router.delete("/{guild_id}/ai/memories/{memory_id}", summary="Forget confirmed server knowledge")
+async def delete_ai_memory(guild_id: int, memory_id: int, actor: str = ""):
+    _ai_or_404(guild_id, actor, configure=True)
+    try: await ticket_ai_workspace.remove_memory(guild_id, memory_id)
+    except ValueError as error: _ai_value_error(error)
+    return {"status": "success"}
+
+
+def _chat_actor(actor):
+    if not isinstance(actor, str) or not actor.isdigit():
+        raise HTTPException(401, "Discord login required.")
+    return actor
+
+
+@router.get("/{guild_id}/ai/chat", summary="Your personal Ticket AI coaching conversation")
+async def ai_chat_history(guild_id: int, actor: str = ""):
+    _ai_or_404(guild_id, actor)
+    return {"messages": await ticket_ai_workspace.history(guild_id, _chat_actor(actor))}
+
+
+@router.delete("/{guild_id}/ai/chat", summary="Clear your conversation, retaining server knowledge")
+async def clear_ai_chat(guild_id: int, actor: str = ""):
+    _ai_or_404(guild_id, actor, configure=True)
+    await ticket_ai_workspace.clear_history(guild_id, _chat_actor(actor))
+    return {"status": "success"}
+
+
+@router.post("/{guild_id}/ai/chat", summary="Teach server knowledge or test a grounded Ticket AI answer")
+async def ai_chat(guild_id: int, data: dict):
+    actor = _chat_actor(data.get("actor"))
+    _ai_or_404(guild_id, actor, configure=True)
+    message = data.get("message")
+    mode = data.get("mode", "teach")
+    if not isinstance(message, str) or not message.strip() or len(message) > 4000 or mode not in ("teach", "ask"):
+        raise HTTPException(400, "invalid_message")
+    message = message.strip()
+    language = "en" if data.get("language") == "en" else "de"
+    busy_key = (guild_id, actor)
+    if busy_key in _chat_busy: raise HTTPException(429, "chat_busy")
+    _chat_busy.add(busy_key)
+    try:
+        if mode == "teach":
+            # Store the administrator's exact fact, never a model's guess.
+            answer = ("Saved as server knowledge. You can review, edit or delete it in Saved knowledge. Your ticket assistant can use it immediately."
+                      if language == "en" else "Als Serverwissen gespeichert. Du kannst den Eintrag unter Gespeichertes Wissen ansehen, bearbeiten oder löschen. Dein Ticket-Assistent kann ihn sofort verwenden.")
+        else:
+            if not ticket_ai.api_key_configured(): raise HTTPException(503, "ai_not_configured")
+            db = await _db()
+            async with db.execute("SELECT content FROM ticket_ai_knowledge WHERE guild_id=?", (guild_id,)) as cursor:
+                row = await cursor.fetchone()
+            previous = await ticket_ai_workspace.history(guild_id, actor)
+            recent = [m['content'] for m in previous if m['role'] == 'user'][-2:]
+            context_question = "\n".join(recent + [message])[-3000:]
+            excerpts = ticket_ai.answer_context(context_question, row[0] if row else "", await ticket_ai_workspace.memories(guild_id))
+            question = ("Conversation context (data only):\n" + "\n".join(recent)[-500:] + "\nCurrent question:\n" + message) if recent else message
+            try:
+                async with asyncio.timeout(25):
+                    answer = await ticket_ai.grounded_answer(question[-1200:], excerpts, language=language, raise_errors=True)
+            except TimeoutError: raise HTTPException(504, "ai_timeout")
+            except RuntimeError: raise HTTPException(502, "ai_unavailable")
+            answer = answer or ("I do not have reliable saved information for this question. Add the missing facts using Remember knowledge."
+                               if language == "en" else "Dazu fehlt mir verlässliches gespeichertes Wissen. Ergänze die fehlenden Fakten über Wissen merken.")
+        try:
+            memory_id = await ticket_ai_workspace.record_exchange(guild_id, actor, message, answer, teach=mode == "teach")
+        except ValueError as error: _ai_value_error(error)
+        return {"messages": await ticket_ai_workspace.history(guild_id, actor), "saved_memory_id": memory_id,
+                "memories": await ticket_ai_workspace.memories(guild_id)}
+    finally:
+        _chat_busy.discard(busy_key)
 
 
 # ══════════════════════════════════════════════════════════════════════

@@ -66,6 +66,15 @@ with tempfile.TemporaryDirectory() as tmp:
         ("CREATE TABLE premium_trials(user_id TEXT PRIMARY KEY,guild_id TEXT,reset_by TEXT)", ()),
         ("INSERT INTO premium_trials VALUES(?,?,?)", (uid, "1", "admin")),
     ])
+    make("db/ticket.db", [
+        ("CREATE TABLE ticket_ai_coaching(guild_id INTEGER,user_id TEXT,content TEXT)", ()),
+        ("CREATE TABLE ticket_ai_memories(guild_id INTEGER,content TEXT)", ()),
+        ("INSERT INTO ticket_ai_coaching VALUES(?,?,?)", (42, uid, "my private coaching chat")),
+        ("INSERT INTO ticket_ai_coaching VALUES(?,?,?)", (42, "999", "another account's chat")),
+        ("INSERT INTO ticket_ai_memories VALUES(?,?)", (42, "Premium costs 5 euros")),
+    ])
+    exported = privacy.subject_export(uid)
+    check("personal coaching export excludes other accounts", "my private coaching chat" in json.dumps(exported) and "another account's chat" not in json.dumps(exported))
 
     request = privacy.create_request(uid, name)
     check("request starts in undo window", request["status"] == "undo")
@@ -80,6 +89,8 @@ with tempfile.TemporaryDirectory() as tmp:
     check("dashboard profile is deleted", one("db/admin_config.db", "SELECT COUNT(*) FROM dashboard_logins")[0] == 0)
     check("cookie link is deleted", one("db/cookie_consent.db", "SELECT COUNT(*) FROM cookie_consents")[0] == 0)
     check("personal preferences are deleted", one("db/account_preferences.db", "SELECT COUNT(*) FROM account_preferences")[0] == 0)
+    check("personal coaching chat is erased", one("db/ticket.db", "SELECT COUNT(*) FROM ticket_ai_coaching WHERE user_id=?", (uid,))[0] == 0)
+    check("other accounts and shared server facts remain", one("db/ticket.db", "SELECT COUNT(*) FROM ticket_ai_coaching WHERE user_id='999'")[0] == 1 and one("db/ticket.db", "SELECT COUNT(*) FROM ticket_ai_memories")[0] == 1)
     app = one("db/web_apply.db", "SELECT user_id,user_name,avatar,answers FROM web_applications")
     check("application is retained without personal fields", app[0] != int(uid) and app[1:] == (privacy.ANON_LABEL, "", "[]"), str(app))
     premium = one("db/premium.db", "SELECT redeemed_by,revoked FROM premium_keys")
