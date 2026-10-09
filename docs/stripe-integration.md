@@ -66,6 +66,20 @@ The helper verifies the token's project/environment and selected service before 
 
 Required network destinations: `api.stripe.com`, `backboard.railway.com`; interactive Stripe authentication additionally uses `dashboard.stripe.com`, `mcp.stripe.com`, `access.stripe.com`. Saved environment drafts must be applied/published before relying on new network or credential bindings. A saved draft or deployment request is not evidence of successful live operation; verify Railway deployment, webhook signature handling and an authenticated checkout before announcing availability.
 
+### Setup without a Railway token
+
+The user cannot create a Railway project token on the current plan. A Railway token is optional; no paid upgrade is required for the manual transfer path. With the matching live Stripe credential securely bound, run:
+
+```sh
+STRIPE_MODE=live python tools/setup_stripe.py --live
+```
+
+The CLI supports opaque cloud credential bindings through their supported HTTPS authentication route. Before any writes it verifies `/v1/balance.livemode` against the selected mode, then checks account payment activation. Provisioning therefore also requires Balance read and Account read permission. It honors the provided `SSL_CERT_FILE`/`REQUESTS_CA_BUNDLE` certificate store while retaining TLS verification; Stripe's bundled default alone does not trust the managed environment's HTTPS proxy CA. An opaque credential is never transferred to Railway; use the original live key privately in Railway's service Variables instead. Application runtime still validates ordinary live/test key prefixes.
+
+Copy the resulting public `STRIPE_PRICE_MONTHLY`, `STRIPE_PRICE_YEARLY`, `STRIPE_PRICE_LIFETIME` and `STRIPE_PORTAL_CONFIGURATION` IDs to the selected service's Variables. Add `STRIPE_MODE=live`, `STRIPE_PUBLIC_URL=https://universtiy-bot.up.railway.app`, the original private `STRIPE_SECRET_KEY` and the endpoint's private `STRIPE_WEBHOOK_SECRET` copied directly from Stripe Dashboard. Price variables hold `price_...` IDs, never euro amounts. Save all variables and deploy the service, then verify webhook delivery. No publishable key is needed for hosted Checkout.
+
+On 9 October 2026, secure Stripe authentication was verified successfully, but `/v1/balance` explicitly returned `livemode=false` despite `STRIPE_MODE=live`; `/v1/account` returned `charges_enabled=false`. Live provisioning stopped before mutations. No production Stripe objects or Railway variables were created. Correct the secure credential binding to the intended live account before continuing; recheck payment activation in that mode. The affected automated Stripe suite passes 39 tests.
+
 Webhook URL: `https://universtiy-bot.up.railway.app/api/stripe/webhook`
 API and SDK: Stripe Python 16.x, `2026-09-30.endive`.
 The endpoint is outside the dashboard API-key mount and requires a valid Stripe signature over the raw request body (300-second tolerance, 1 MiB cap). It must remain reachable by Stripe, without an interactive login or external dashboard authentication wall.

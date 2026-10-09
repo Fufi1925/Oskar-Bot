@@ -9,17 +9,23 @@ import asyncio
 import os
 import sys
 from pathlib import Path
+import stripe
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'bot'))
 from utils import stripe_billing as billing
 
 
-async def setup(public_url, *, live=False):
+async def setup(public_url, *, live=False, api=None):
     expected_mode = 'live' if live else 'test'
     if billing.mode() != expected_mode:
         raise billing.BillingError('Selected setup mode differs from STRIPE_MODE. Use --live explicitly for live setup.')
     os.environ['STRIPE_PUBLIC_URL'] = public_url
     base = billing.origin()
-    api = billing.client()
+    api = api or billing.client()
+    # Cloud credential bindings may be proxy placeholders. Verify mode at the
+    # provider instead of guessing from an opaque value or creating a price.
+    balance = billing.as_dict(await api.v1.balance.retrieve_async())
+    if not isinstance(balance.get('livemode'), bool) or balance['livemode'] != live:
+        raise billing.BillingError('Stripe credential does not access the selected mode. Select a matching live/test key in secure environment settings.')
     if live:
         account = billing.as_dict(await api.v1.accounts.retrieve_current_async())
         if not account.get('charges_enabled'):
@@ -108,22 +114,37 @@ async def exists_product(api, key):
 
 
 async def run_setup(public_url, *, live=False, railway_url=None):
+    key = os.getenv('STRIPE_SECRET_KEY', '').strip()
+    if not key:
+        raise billing.BillingError('Supply STRIPE_SECRET_KEY securely in environment settings.')
+    # Stripe supplies a bundled CA file by default; managed environments may
+    # provide their trusted HTTPS proxy CA through the standard TLS variables.
+    trusted_ca = os.getenv('SSL_CERT_FILE') or os.getenv('REQUESTS_CA_BUNDLE')
+    if trusted_ca:
+        stripe.ca_bundle_path = trusted_ca
+    # Use injected authentication on the official HTTPS destination. The API
+    # mode check above stays mandatory even when the key is a proxy placeholder.
+    http = stripe.HTTPXClient(timeout=15)
+    api = stripe.StripeClient(key, stripe_version=billing.API_VERSION, max_network_retries=2, http_client=http)
     try:
         if railway_url:
             from setup_stripe_railway import RailwayTarget
             async with RailwayTarget(railway_url) as railway:
                 # Check credentials and scope before creating Stripe objects.
                 await railway.preflight()
-                settings = await setup(public_url, live=live)
+                # Opaque bindings cannot be exported to another provider.
+                if not key.startswith((f'sk_{billing.mode()}_', f'rk_{billing.mode()}_')):
+                    raise billing.BillingError('Proxy-bound Stripe credentials support Stripe-only setup. Transfer the original key privately in Railway Variables.')
+                settings = await setup(public_url, live=live, api=api)
                 await railway.configure(settings)
         else:
-            await setup(public_url, live=live)
+            await setup(public_url, live=live, api=api)
     finally:
+        await http.close_async()
         await billing.close_client()
 
 
 if __name__ == '__main__':
-    import stripe
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--public-url', default='https://universtiy-bot.up.railway.app')
     parser.add_argument('--live', action='store_true', help='Provision live objects; requires STRIPE_MODE=live and a live credential.')
