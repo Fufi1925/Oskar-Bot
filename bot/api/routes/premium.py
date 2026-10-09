@@ -190,8 +190,12 @@ async def my_premium(user_id: int, bot: "universitybot" = Depends(get_bot)):
     zustand = premium_membership.account_status(user_id)
     for slot in zustand.get("slots", []):
         guild = bot.get_guild(int(slot["guild_id"]))
-        slot["guild_name"] = guild.name if guild else str(slot["guild_id"])
-        slot["guild_icon"] = str(guild.icon.url) if guild and guild.icon else None
+        if guild:
+            slot["guild_name"] = guild.name
+            slot["guild_icon"] = str(guild.icon.url) if guild.icon else None
+            premium_membership.remember_slot_guild(user_id, guild.id, slot["guild_name"], slot["guild_icon"])
+        slot["bot_present"] = guild is not None
+        slot["premium_active"] = premium_membership.guild_status(int(slot["guild_id"]))["active"]
 
     return {
         "premium": zustand,
@@ -210,12 +214,12 @@ async def my_premium(user_id: int, bot: "universitybot" = Depends(get_bot)):
 async def create_purchase_request(data: dict):
     actor = _code_actor(data)
     try:
-        return premium_membership.request_purchase(actor, int(data.get("duration_days") or 0))
+        return premium_membership.request_purchase(actor, int(data.get("duration_days")))
     except (TypeError, ValueError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
-@router.post("/slots/assign", summary="Permanently assign one of three Premium slots")
+@router.post("/slots/assign", summary="Assign one available Premium slot")
 async def assign_premium_slot(data: dict, bot: "universitybot" = Depends(get_bot)):
     actor = _code_actor(data)
     guild_id = str(data.get("guild_id") or "")
@@ -233,13 +237,26 @@ async def assign_premium_slot(data: dict, bot: "universitybot" = Depends(get_bot
     ):
         raise HTTPException(status_code=403, detail="Du verwaltest diesen Server nicht oder der Bot ist dort nicht installiert.")
     try:
-        result = premium_membership.assign_slot(actor, guild.id)
+        result = premium_membership.assign_slot(actor, guild.id, guild_name=guild.name, guild_icon=str(guild.icon.url) if guild.icon else None)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     from utils import feature_gates
     await feature_gates.refresh_premium_guilds()
     await feature_audit.log_action("premium_slot_assigned", actor=actor, guild_id=guild.id, detail=f"slot={result['slot_no']}")
     return {**result, "guild_name": guild.name}
+
+
+@router.post("/slots/{slot_no}/release", summary="Release your server slot with a 30-day cooldown")
+async def release_premium_slot(slot_no: int, data: dict):
+    actor = _code_actor(data)
+    try:
+        result = premium_membership.release_slot(actor, slot_no)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    from utils import feature_gates
+    await feature_gates.refresh_premium_guilds()
+    await feature_audit.log_action("premium_slot_released", actor=actor, guild_id=int(result["guild_id"]), detail=f"slot={slot_no} cooldown_until={result['available_at']}")
+    return result
 
 
 @router.get("/server/{guild_id}", summary="Premium state for one dashboard server")
@@ -249,6 +266,10 @@ async def server_premium_state(guild_id: int, actor: str = "", bot: "universityb
         raise HTTPException(status_code=404, detail="Der Bot ist nicht auf diesem Server.")
     state = premium_membership.guild_status(guild_id)
     state["guild_name"] = guild.name
+    state["guild_icon"] = str(guild.icon.url) if guild.icon else None
+    owner = (bot.get_user(int(state["account_user_id"])) or guild.get_member(int(state["account_user_id"]))) if state.get("account_user_id") else None
+    state["account_user_name"] = owner.display_name if owner else None
+    state["account_user_avatar"] = str(owner.display_avatar.url) if owner else None
     return state
 
 
@@ -349,7 +370,9 @@ async def premium_v2_accounts(bot: "universitybot" = Depends(get_bot)):
         row["avatar"] = str(user.display_avatar.url) if user else None
         for slot in row.get("slots", []):
             guild = bot.get_guild(int(slot["guild_id"]))
-            slot["guild_name"] = guild.name if guild else str(slot["guild_id"])
+            if guild:
+                slot["guild_name"] = guild.name
+                slot["guild_icon"] = str(guild.icon.url) if guild.icon else None
 
     requests = premium_membership.list_requests()
     for item in requests:

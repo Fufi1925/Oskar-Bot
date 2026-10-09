@@ -1,4 +1,4 @@
-"""Account subscriptions with three fixed guild Premium slots."""
+"""Account Premium with three server slots and a cooldown after release."""
 from __future__ import annotations
 
 import os
@@ -8,7 +8,8 @@ from typing import Any
 
 DB_PATH = os.path.join("db", "premium_membership.db")
 MAX_SLOTS = 3
-PLANS = (30, 90, 365)
+PLANS = (0, 30, 90, 365)  # 0 = lifetime; 90 remains valid for existing requests.
+SLOT_COOLDOWN_SECONDS = 30 * 86400
 LIFETIME_EXPIRES_AT = 253402300799
 
 
@@ -35,6 +36,11 @@ def ensure() -> None:
           PRIMARY KEY(user_id, slot_no)
         );
         CREATE INDEX IF NOT EXISTS premium_slots_guild ON premium_slots(guild_id);
+        CREATE TABLE IF NOT EXISTS premium_slot_cooldowns (
+          user_id TEXT NOT NULL, slot_no INTEGER NOT NULL,
+          released_at INTEGER NOT NULL, available_at INTEGER NOT NULL,
+          PRIMARY KEY(user_id,slot_no)
+        );
         CREATE TABLE IF NOT EXISTS premium_purchase_requests (
           id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL,
           duration_days INTEGER NOT NULL, status TEXT NOT NULL DEFAULT 'pending',
@@ -56,10 +62,14 @@ def ensure() -> None:
           key TEXT PRIMARY KEY, value TEXT NOT NULL
         );
         """)
-        try:
+        # Serialize schema upgrades across API workers so simultaneous startup
+        # cannot both attempt to add the same column.
+        db.execute("BEGIN IMMEDIATE")
+        if "lifetime" not in {r[1] for r in db.execute("PRAGMA table_info(premium_accounts)")}:
             db.execute("ALTER TABLE premium_accounts ADD COLUMN lifetime INTEGER NOT NULL DEFAULT 0")
-        except sqlite3.Error:
-            pass
+        for column, definition in (("guild_name", "TEXT NOT NULL DEFAULT ''"), ("guild_icon", "TEXT")):
+            if column not in {r[1] for r in db.execute("PRAGMA table_info(premium_slots)")}:
+                db.execute(f"ALTER TABLE premium_slots ADD COLUMN {column} {definition}")
 
 
 def migrate_reset_legacy() -> bool:
@@ -95,6 +105,7 @@ def account_status(user_id: int | str) -> dict[str, Any]:
     with _connect() as db:
         row = db.execute("SELECT * FROM premium_accounts WHERE user_id=?", (uid,)).fetchone()
         slots = db.execute("SELECT * FROM premium_slots WHERE user_id=? ORDER BY slot_no", (uid,)).fetchall()
+        cooldowns = db.execute("SELECT slot_no,released_at,available_at FROM premium_slot_cooldowns WHERE user_id=? AND available_at>? ORDER BY slot_no", (uid, now)).fetchall()
         requests = db.execute("SELECT id,duration_days,status,created_at,decided_at FROM premium_purchase_requests WHERE user_id=? ORDER BY created_at DESC LIMIT 20", (uid,)).fetchall()
     active = bool(row and not row["revoked"] and (bool(row["lifetime"]) or int(row["expires_at"]) > now))
     return {
@@ -106,7 +117,11 @@ def account_status(user_id: int | str) -> dict[str, Any]:
         "notice_pending": bool(row and row["notice_pending"]),
         "lifetime": bool(row and row["lifetime"]), "via_trial": False, "via_tester": False,
         "max_slots": MAX_SLOTS,
-        "slots": [dict(slot) for slot in slots],
+        "slots": [{**dict(slot), "guild_id": str(slot["guild_id"])} for slot in slots],
+        "slot_cooldowns": [dict(item) for item in cooldowns],
+        "available_slots": MAX_SLOTS - len(slots) - len(cooldowns),
+        "server_time": now,
+        "cooldown_days": 30,
         "purchase_requests": [dict(request) for request in requests],
     }
 
@@ -114,7 +129,9 @@ def account_status(user_id: int | str) -> dict[str, Any]:
 def grant(user_id: int | str, duration_days: int, source: str = "admin", note: str = "") -> dict[str, Any]:
     ensure(); uid = str(user_id); days = int(duration_days)
     if days not in PLANS:
-        raise ValueError("Erlaubte Laufzeiten sind 30, 90 oder 365 Tage.")
+        raise ValueError("Erlaubte Laufzeiten sind 30, 90 oder 365 Tage oder Lifetime.")
+    if days == 0:
+        return grant_custom(uid, None, source, note)
     now = int(time.time())
     with _connect() as db:
         current = db.execute("SELECT expires_at FROM premium_accounts WHERE user_id=? AND revoked=0", (uid,)).fetchone()
@@ -164,12 +181,14 @@ def dismiss_notice(user_id: int | str) -> None:
 
 def request_purchase(user_id: int | str, duration_days: int) -> dict[str, Any]:
     ensure(); days = int(duration_days)
-    if account_status(user_id)["premium"]:
-        raise ValueError("Du hast bereits aktives Premium. Eine neue Kaufanfrage ist erst nach Ablauf möglich.")
     if days not in PLANS:
-        raise ValueError("Wähle 30, 90 oder 365 Tage.")
+        raise ValueError("Wähle 30, 90 oder 365 Tage oder Lifetime.")
     uid = str(user_id); now = int(time.time())
     with _connect() as db:
+        db.execute("BEGIN IMMEDIATE")
+        account = db.execute("SELECT expires_at,lifetime,revoked FROM premium_accounts WHERE user_id=?", (uid,)).fetchone()
+        if account and not account["revoked"] and (account["lifetime"] or int(account["expires_at"]) > now):
+            raise ValueError("Du hast bereits aktives Premium. Eine neue Kaufanfrage ist erst nach Ablauf möglich.")
         pending = db.execute("SELECT id FROM premium_purchase_requests WHERE user_id=? AND status='pending'", (uid,)).fetchone()
         if pending:
             return {"id": pending[0], "status": "pending", "already": True}
@@ -177,12 +196,14 @@ def request_purchase(user_id: int | str, duration_days: int) -> dict[str, Any]:
         return {"id": cur.lastrowid, "status": "pending", "already": False}
 
 
-def assign_slot(user_id: int | str, guild_id: int) -> dict[str, Any]:
-    status = account_status(user_id)
-    if not status["premium"]:
-        raise ValueError("Dein Konto hat kein aktives Premium.")
+def assign_slot(user_id: int | str, guild_id: int, *, guild_name: str = "", guild_icon: str | None = None) -> dict[str, Any]:
+    ensure()
     uid = str(user_id); gid = int(guild_id); now = int(time.time())
     with _connect() as db:
+        db.execute("BEGIN IMMEDIATE")
+        account = db.execute("SELECT expires_at,revoked,lifetime FROM premium_accounts WHERE user_id=?", (uid,)).fetchone()
+        if not account or account["revoked"] or (not account["lifetime"] and int(account["expires_at"]) <= now):
+            raise ValueError("Dein Konto hat kein aktives Premium.")
         direct = db.execute("SELECT expires_at,revoked FROM premium_server_grants WHERE guild_id=?", (gid,)).fetchone()
         if direct and not direct["revoked"] and int(direct["expires_at"]) > now:
             raise ValueError("Dieser Server hat bereits Admin-Premium. Warte bis die Laufzeit abgelaufen ist.")
@@ -191,16 +212,47 @@ def assign_slot(user_id: int | str, guild_id: int) -> dict[str, Any]:
         if existing:
             existing_active = not existing["revoked"] and int(existing["expires_at"]) > now
             if existing["user_id"] == uid:
+                db.execute("UPDATE premium_slots SET guild_name=?,guild_icon=? WHERE user_id=? AND guild_id=?", (str(guild_name)[:100], guild_icon, uid, gid))
                 return {"slot_no": existing["slot_no"], "guild_id": gid, "already": True}
             if existing_active:
                 raise ValueError("Dieser Server hat bereits Premium. Warte bis die Laufzeit abgelaufen ist.")
-            db.execute("DELETE FROM premium_slots WHERE guild_id=?", (gid,))
+            _release_slot(db, existing["user_id"], existing["slot_no"], now)
         used = {int(r[0]) for r in db.execute("SELECT slot_no FROM premium_slots WHERE user_id=?", (uid,))}
+        used.update(int(r[0]) for r in db.execute("SELECT slot_no FROM premium_slot_cooldowns WHERE user_id=? AND available_at>?", (uid, now)))
         slot = next((n for n in range(1, MAX_SLOTS + 1) if n not in used), None)
         if slot is None:
-            raise ValueError("Alle drei festen Premium-Plätze sind bereits belegt.")
-        db.execute("INSERT INTO premium_slots(user_id,slot_no,guild_id,assigned_at) VALUES(?,?,?,?)", (uid, slot, gid, now))
+            raise ValueError("Alle drei Premium-Plätze sind belegt oder befinden sich im 30-Tage-Cooldown.")
+        db.execute("DELETE FROM premium_slot_cooldowns WHERE user_id=? AND slot_no=?", (uid, slot))
+        db.execute("INSERT INTO premium_slots(user_id,slot_no,guild_id,assigned_at,guild_name,guild_icon) VALUES(?,?,?,?,?,?)", (uid, slot, gid, now, str(guild_name)[:100], guild_icon))
     return {"slot_no": slot, "guild_id": gid, "already": False}
+
+
+def _release_slot(db, user_id, slot_no, now):
+    db.execute("DELETE FROM premium_slots WHERE user_id=? AND slot_no=?", (str(user_id), int(slot_no)))
+    db.execute("""INSERT INTO premium_slot_cooldowns(user_id,slot_no,released_at,available_at)
+      VALUES(?,?,?,?) ON CONFLICT(user_id,slot_no) DO UPDATE SET
+      released_at=excluded.released_at,available_at=MAX(available_at,excluded.available_at)""",
+      (str(user_id), int(slot_no), now, now + SLOT_COOLDOWN_SECONDS))
+
+
+def release_slot(user_id: int | str, slot_no: int) -> dict[str, Any]:
+    """Release only this account's slot, even if Discord no longer knows its guild."""
+    ensure(); uid = str(user_id); slot = int(slot_no); now = int(time.time())
+    if slot not in range(1, MAX_SLOTS + 1):
+        raise ValueError("Ungültiger Premium-Platz.")
+    with _connect() as db:
+        db.execute("BEGIN IMMEDIATE")
+        row = db.execute("SELECT guild_id FROM premium_slots WHERE user_id=? AND slot_no=?", (uid, slot)).fetchone()
+        if not row:
+            raise ValueError("Dieser Premium-Platz ist nicht belegt.")
+        _release_slot(db, uid, slot, now)
+    return {"slot_no": slot, "guild_id": str(row["guild_id"]), "available_at": now + SLOT_COOLDOWN_SECONDS}
+
+
+def remember_slot_guild(user_id: int | str, guild_id: int, name: str, icon: str | None):
+    ensure()
+    with _connect() as db:
+        db.execute("UPDATE premium_slots SET guild_name=?,guild_icon=? WHERE user_id=? AND guild_id=?", (str(name)[:100], icon, str(user_id), int(guild_id)))
 
 
 def grant_server(guild_id: int, owner_user_id: int | str, duration_days: int | None, admin_id: str) -> dict[str, Any]:
@@ -231,14 +283,15 @@ def grant_server(guild_id: int, owner_user_id: int | str, duration_days: int | N
 def revoke_server(guild_id: int, *, delete_settings: bool = False, owner_user_id: int | str | None = None) -> dict[str, Any]:
     ensure(); gid = int(guild_id); now = int(time.time())
     with _connect() as db:
+        db.execute("BEGIN IMMEDIATE")
         row = db.execute("SELECT owner_user_id FROM premium_server_grants WHERE guild_id=? AND revoked=0", (gid,)).fetchone()
-        slot = db.execute("SELECT user_id FROM premium_slots WHERE guild_id=?", (gid,)).fetchone()
+        slot = db.execute("SELECT user_id,slot_no FROM premium_slots WHERE guild_id=?", (gid,)).fetchone()
         if not row and not slot:
             raise ValueError("Dieser Server hat kein Premium.")
         if row:
             db.execute("UPDATE premium_server_grants SET revoked=1,expiry_action='disable' WHERE guild_id=?", (gid,))
         if slot:
-            db.execute("DELETE FROM premium_slots WHERE guild_id=?", (gid,))
+            _release_slot(db, slot["user_id"], slot["slot_no"], now)
         notice_user = str(owner_user_id or (row["owner_user_id"] if row else slot["user_id"]))
         db.execute("INSERT INTO premium_server_notices(user_id,guild_id,kind,created_at) VALUES(?,?,?,?)", (notice_user, gid, "revoked_deleted" if delete_settings else "revoked_kept", now))
     deleted = purge_premium_settings(gid) if delete_settings else {}
@@ -304,10 +357,6 @@ def set_expiry_action(guild_id: int, action: str) -> None:
         raise ValueError("Ungültige Ablaufaktion.")
     ensure()
     with _connect() as db:
-        account = db.execute("SELECT a.source FROM premium_slots s JOIN premium_accounts a ON a.user_id=s.user_id WHERE s.guild_id=?", (int(guild_id),)).fetchone()
-        direct_active = db.execute("SELECT 1 FROM premium_server_grants WHERE guild_id=? AND revoked=0 AND expires_at>?", (int(guild_id), int(time.time()))).fetchone()
-        if action == "keep" and not direct_active and account and account["source"].startswith("stripe:"):
-            raise ValueError("Stripe-Premium endet mit dem bezahlten Zeitraum. Einstellungen bleiben gespeichert.")
         db.execute("UPDATE premium_slots SET expiry_action=? WHERE guild_id=?", (action, int(guild_id)))
         db.execute("UPDATE premium_server_grants SET expiry_action=? WHERE guild_id=?", (action, int(guild_id)))
 
@@ -315,7 +364,7 @@ def set_expiry_action(guild_id: int, action: str) -> None:
 def guild_status(guild_id: int) -> dict[str, Any]:
     ensure(); now = int(time.time())
     with _connect() as db:
-        row = db.execute("""SELECT s.*,a.expires_at,a.duration_days,a.revoked,a.source,a.lifetime,a.user_id account_user_id
+        row = db.execute("""SELECT s.*,a.expires_at,a.duration_days,a.revoked,a.lifetime,a.user_id account_user_id
           FROM premium_slots s JOIN premium_accounts a ON a.user_id=s.user_id
           WHERE s.guild_id=?""", (int(guild_id),)).fetchone()
         direct = db.execute("SELECT * FROM premium_server_grants WHERE guild_id=?", (int(guild_id),)).fetchone()
@@ -328,31 +377,29 @@ def guild_status(guild_id: int) -> dict[str, Any]:
                 "frozen": frozen, "expires_at": int(direct["expires_at"]),
                 "duration_days": int(direct["duration_days"]), "assigned_at": int(direct["granted_at"]),
                 "expiry_action": direct["expiry_action"], "slot_no": None,
-                "account_user_id": direct["owner_user_id"], "billing_managed": False,
-                "lifetime": int(direct["expires_at"]) == LIFETIME_EXPIRES_AT}
+                "account_user_id": direct["owner_user_id"], "lifetime": direct["duration_days"] == 0}
     if not row:
         return {"guild_id": str(guild_id), "assigned": False, "active": False, "runtime": False, "configurable": False}
     active = slot_active
-    frozen = not active and not row["revoked"] and not row["source"].startswith("stripe:") and row["expiry_action"] == "keep"
+    frozen = not active and not row["revoked"] and row["expiry_action"] == "keep"
     return {"guild_id": str(guild_id), "assigned": True, "active": active,
             "runtime": active or frozen, "configurable": active,
             "frozen": frozen, "expires_at": int(row["expires_at"]),
-            "duration_days": int(row["duration_days"]),
+            "duration_days": int(row["duration_days"]), "lifetime": bool(row["lifetime"]),
             "assigned_at": int(row["assigned_at"]),
             "expiry_action": row["expiry_action"], "slot_no": row["slot_no"],
-            "account_user_id": row["account_user_id"], "billing_managed": row["source"].startswith("stripe:"),
-            "lifetime": bool(row["lifetime"])}
+            "account_user_id": row["account_user_id"]}
 
 
 def runtime_guilds() -> tuple[set[int], dict[int, int | None]]:
     ensure(); now = int(time.time()); guilds=set(); expiry={}
     with _connect() as db:
-        rows=db.execute("""SELECT s.guild_id,s.expiry_action,a.expires_at,a.revoked,a.source
+        rows=db.execute("""SELECT s.guild_id,s.expiry_action,a.expires_at,a.revoked
           FROM premium_slots s JOIN premium_accounts a ON a.user_id=s.user_id""").fetchall()
-        direct_rows=db.execute("SELECT guild_id,expiry_action,expires_at,revoked,'admin' AS source FROM premium_server_grants").fetchall()
+        direct_rows=db.execute("SELECT guild_id,expiry_action,expires_at,revoked FROM premium_server_grants").fetchall()
     for row in [*rows, *direct_rows]:
         active=not row["revoked"] and int(row["expires_at"]) > now
-        if not row["revoked"] and (active or (row["expiry_action"] == "keep" and not row["source"].startswith("stripe:"))):
+        if not row["revoked"] and (active or row["expiry_action"] == "keep"):
             gid=int(row["guild_id"]); guilds.add(gid)
             if gid not in expiry or active:
                 expiry[gid]=None if not active else int(row["expires_at"])
@@ -372,11 +419,26 @@ def list_requests() -> list[dict[str, Any]]:
 def decide_request(request_id: int, approve: bool, admin_id: str) -> dict[str, Any]:
     ensure(); now=int(time.time())
     with _connect() as db:
+        db.execute("BEGIN IMMEDIATE")
         row=db.execute("SELECT * FROM premium_purchase_requests WHERE id=? AND status='pending'", (int(request_id),)).fetchone()
         if not row: raise ValueError("Anfrage nicht gefunden oder bereits entschieden.")
+        if approve:
+            days = int(row["duration_days"])
+            if days not in PLANS:
+                raise ValueError("Ungültiges Premium-Paket.")
+            current = db.execute("SELECT expires_at,lifetime FROM premium_accounts WHERE user_id=? AND revoked=0", (row["user_id"],)).fetchone()
+            lifetime = days == 0 or bool(current and current["lifetime"])
+            base = max(now, int(current["expires_at"])) if current else now
+            expires = LIFETIME_EXPIRES_AT if lifetime else base + days * 86400
+            db.execute("""INSERT INTO premium_accounts
+              (user_id,granted_at,expires_at,duration_days,source,note,notice_pending,revoked,lifetime)
+              VALUES(?,?,?,?,'purchase_request',?,1,0,?) ON CONFLICT(user_id) DO UPDATE SET
+              granted_at=excluded.granted_at,expires_at=excluded.expires_at,duration_days=excluded.duration_days,
+              source=excluded.source,note=excluded.note,notice_pending=1,revoked=0,lifetime=excluded.lifetime""",
+              (row["user_id"], now, expires, 0 if lifetime else days, f"Anfrage #{request_id}", int(lifetime)))
         db.execute("UPDATE premium_purchase_requests SET status=?,decided_at=?,decided_by=? WHERE id=?", ("approved" if approve else "denied",now,str(admin_id),int(request_id)))
     if approve:
-        return grant(row["user_id"], row["duration_days"], "purchase_request", f"Anfrage #{request_id}")
+        return account_status(row["user_id"])
     return {"status":"denied", "user_id":row["user_id"]}
 
 

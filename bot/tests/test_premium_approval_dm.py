@@ -68,5 +68,14 @@ class ApprovalTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.status_code,200);self.assertIsNone(response.json()['dm_sent'])
         self.user.send.assert_not_awaited();self.assertFalse(premium_membership.account_status(100)['premium'])
 
+    async def test_lifetime_approval_dm_has_no_synthetic_expiry_date(self):
+        request=premium_membership.request_purchase(100,0)
+        response=await self.client.post(f"/premium/requests/{request['id']}/decide",json={'approve':True,'actor':'999'})
+        self.assertEqual(response.status_code,200);self.assertTrue(response.json()['dm_sent'])
+        self.assertTrue(response.json()['result']['lifetime'])
+        payload=str(self.user.send.call_args.kwargs['view'].to_components())
+        self.assertIn('Lifetime',payload)
+        self.assertNotIn(str(premium_membership.LIFETIME_EXPIRES_AT),payload)
+
 
 if __name__=='__main__':unittest.main()

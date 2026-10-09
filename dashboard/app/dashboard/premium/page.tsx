@@ -22,14 +22,14 @@ export default async function PremiumPage() {
   }
 
   return (
-    <Reveal className="max-w-4xl mx-auto space-y-8">
+    <Reveal className="max-w-6xl mx-auto space-y-8">
       <div>
         <h2 className="text-2xl font-bold text-white flex items-center gap-2">
           <Gem className="h-6 w-6 text-primary" />
           Premium
         </h2>
         <p className="text-slate-400 mt-1">
-          Premium-Paket wählen, Zahlungen verwalten und deine drei Serverplätze zuweisen.
+          Dein Konto, deine Premium-Server und deine Kaufanfragen verwalten.
         </p>
       </div>
 

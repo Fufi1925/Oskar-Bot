@@ -3502,7 +3502,7 @@ export const phrasePairs: Array<[de: string, en: string]> = [
   ["Ja, beitreten", "Yes, join"],
   ["Ja, wir speichern sie —", "Yes, we save them —"],
   ["Ja/Nein", "Yes/No"],
-  ["Jahr", "Year"],
+  ["Jahr", "year"],
   ["Jeden Status einmal durchgehen", "Go through each status once"],
   ["Jemanden ausnehmen", "To gut someone"],
   ["Jetzt auslosen", "Draw now"],
@@ -3570,7 +3570,7 @@ export const phrasePairs: Array<[de: string, en: string]> = [
   ["Mitgliederzahl", "Number of members"],
   ["Mitmachen", "Join in"],
   ["Mittel", "Means"],
-  ["Monat", "Month"],
+  ["Monat", "month"],
   ["Monatlich", "Monthly"],
   ["Multiplikatoren", "Multipliers"],
   ["NICHT gestoppt", "NOT stopped"],
@@ -7362,53 +7362,31 @@ export const phrasePairs: Array<[de: string, en: string]> = [
   // pflegen, sondern die Batches in tools/i18n_work/ anpassen und den
   // Generator neu laufen lassen.
   // ════════════════════════════════════════════════════════════════
-  ["Pakete zur Auswahl", "Available plans"],
-  ["Automatische monatliche Verlängerung. Jederzeit zum Laufzeitende kündbar.", "Renews automatically every month. Cancel at any time for the end of the paid period."],
-  ["Automatische jährliche Verlängerung. Jederzeit zum Laufzeitende kündbar.", "Renews automatically every year. Cancel at any time for the end of the paid period."],
-  ["Einmal zahlen und Premium dauerhaft auf drei festen Servern nutzen.", "Pay once for permanent Premium access on three fixed servers."],
-  ["KI-Assistent und Serverwissen auf allen Premium-Servern.", "AI assistant and server knowledge on all Premium servers."],
-  ["Du bezahlst sicher über Stripe. Monat und Jahr verlängern sich automatisch; Lifetime ist eine Einmalzahlung. Premium wird nach bestätigtem Zahlungseingang aktiviert.", "Pay securely with Stripe. Monthly and yearly plans renew automatically; Lifetime is a one-time payment. Premium activates after payment is confirmed."],
-  ["Nach einer Kündigung bleibt dein Abo bis zum Ende des bezahlten Zeitraums aktiv. Danach enden die Premiumfunktionen. Einstellungen und Daten bleiben erhalten.", "After cancellation, your subscription stays active until the end of the paid period. Premium features then end. Settings and data are retained."],
-  ["Wähle Monat, Jahr oder Lifetime. Bezahle sicher über Stripe und verteile drei feste Serverplätze nach der Zahlungsbestätigung.", "Choose monthly, yearly or Lifetime. Pay securely with Stripe and assign three fixed server slots after payment confirmation."],
-  ["Monat und Jahr als Abo, Lifetime als Einmalzahlung. Deine Zahlungsbestätigung aktiviert Premium automatisch.", "Monthly and yearly subscriptions, or Lifetime with a one-time payment. Payment confirmation activates Premium automatically."],
-  ["Paket auswählen", "Choose a plan"],
-  ["Wähle Monat für 2,99 €, Jahr für 12,99 € oder Lifetime für 29,99 €. Bezahle sicher über Stripe und erhalte drei feste Serverplätze.", "Choose monthly for €2.99, yearly for €12.99 or Lifetime for €29.99. Pay securely with Stripe and get three fixed server slots."],
-  ["Monat und Jahr verlängern sich automatisch. Nach der Kündigung bleibt Premium bis zum Ende des bezahlten Zeitraums aktiv. Lifetime wird einmalig bezahlt.", "Monthly and yearly plans renew automatically. After cancellation, Premium stays active until the end of the paid period. Lifetime is paid once."],
-
-  // ════════════════════════════════════════════════════════════════
-  // Vollstaendige Abdeckung der Dashboard-Oberflaeche. Diese Eintraege
-  // stammen aus tools/build_dom_translations.py — nicht von Hand hier
-  // pflegen, sondern die Batches in tools/i18n_work/ anpassen und den
-  // Generator neu laufen lassen.
-  // ════════════════════════════════════════════════════════════════
-  ["Dauerhafter Zugang", "Permanent access"],
-  ["Mit Stripe bezahlt", "Paid with Stripe"],
-  ["Kein Ablaufdatum", "No expiry date"],
-  ["Bezahlter Zeitraum", "Paid period"],
-  ["Stripe-Kundenzuordnung, Abos und Zahlungsstatus", "Stripe customer association, subscriptions and payment status"],
-  ["Zahlungsabwicklung und Premium-Freischaltung", "Payment processing and Premium activation"],
-  ["Rechnungs- und Zahlungsnachweise bei Stripe, soweit eine gesetzliche Aufbewahrungspflicht besteht", "Invoices and payment records held by Stripe where legally required"],
-
-  // ════════════════════════════════════════════════════════════════
-  // Vollstaendige Abdeckung der Dashboard-Oberflaeche. Diese Eintraege
-  // stammen aus tools/build_dom_translations.py — nicht von Hand hier
-  // pflegen, sondern die Batches in tools/i18n_work/ anpassen und den
-  // Generator neu laufen lassen.
-  // ════════════════════════════════════════════════════════════════
-  ["Premium-Paket wählen, Zahlungen verwalten und deine drei Serverplätze zuweisen.", "Choose a Premium plan, manage payments and assign your three server slots."],
-
-  // ════════════════════════════════════════════════════════════════
-  // Vollstaendige Abdeckung der Dashboard-Oberflaeche. Diese Eintraege
-  // stammen aus tools/build_dom_translations.py — nicht von Hand hier
-  // pflegen, sondern die Batches in tools/i18n_work/ anpassen und den
-  // Generator neu laufen lassen.
-  // ════════════════════════════════════════════════════════════════
-  ["Auf allen Premium-Servern", "On all Premium servers"],
-  ["Lifetime-Premium", "Lifetime Premium"],
-  ["Dieser Serverplatz ist dauerhaft zugewiesen. Lifetime hat kein Ablaufdatum.", "This server slot is permanently assigned. Lifetime has no expiry date."],
-  ["Nach einer Kündigung bleibt Premium bis zum Ende des bezahlten Zeitraums aktiv. Danach stoppen die Premiumfunktionen; Einstellungen und Inhalte bleiben gespeichert.", "After cancellation, Premium stays active until the end of the paid period. Premium features then stop; settings and content are retained."],
-  ["Zahlungen und Abos verwalten", "Manage payments and subscriptions"],
-  ["Stripe-Premium endet mit dem bezahlten Zeitraum. Einstellungen bleiben gespeichert.", "Stripe Premium ends with the paid period. Settings are retained."],
+  ["Dein Konto, deine Premium-Server und deine Kaufanfragen verwalten.", "Manage your account, Premium servers and purchase requests."],
+  ["30 Tage · 2,99 €", "30 days · €2.99"],
+  ["1 Jahr · 12,99 €", "1 year · €12.99"],
+  ["Lifetime · 29,99 €", "Lifetime · €29.99"],
+  ["Ein ganzes Jahr Premium auf drei Servern.", "A full year of Premium on three servers."],
+  ["Einmal kaufen, Premium dauerhaft nutzen.", "Buy once for permanent Premium access."],
+  ["KI-Assistent und Serverwissen auf jedem Premium-Server.", "AI assistance and server knowledge on every Premium server."],
+  ["Ja. Entferne den Server in deiner Premiumverwaltung. Dieser Platz bekommt 30 Tage Cooldown und kann danach neu zugewiesen werden.", "Yes. Remove the server in your Premium dashboard. That slot has a 30-day cooldown before it can be assigned again."],
+  ["Du fragst 30 Tage, ein Jahr oder Lifetime im Dashboard an. Ein Admin prüft und bestätigt den Kauf. Es gibt keine automatische Verlängerung.", "Request 30 days, a year or Lifetime in the dashboard. An admin reviews and confirms the purchase. There is no automatic renewal."],
+  ["Tage Cooldown nach Wechsel", "days of cooldown after switching"],
+  ["30 / 365 / Lifetime", "30 / 365 / Lifetime"],
+  ["Auf jedem Premium-Server verfügbar", "Available on every Premium server"],
+  ["Kontodaten nicht verfügbar", "Account details unavailable"],
+  ["Lebenslanger Zugang", "Lifetime access"],
+  ["Server nicht mehr verfügbar", "Server no longer available"],
+  ["Zugewiesener Premium-Server", "Assigned Premium server"],
+  ["Platz im Cooldown", "Slot on cooldown"],
+  ["Im Dashboard einem Server zuweisen.", "Assign a server in the dashboard."],
+  ["Alle drei Premium-Plätze sind belegt oder befinden sich im 30-Tage-Cooldown.", "All three Premium slots are assigned or on a 30-day cooldown."],
+  ["Ungültiger Premium-Platz.", "Invalid Premium slot."],
+  ["Dieser Premium-Platz ist nicht belegt.", "This Premium slot is not assigned."],
+  ["Wähle 30, 90 oder 365 Tage oder Lifetime.", "Choose 30, 90 or 365 days or Lifetime."],
+  ["Sende eine Kaufanfrage für 30 Tage, ein Jahr oder Lifetime und erhalte drei Serverplätze.", "Submit a purchase request for 30 days, a year or Lifetime to receive three server slots."],
+  ["Im Dashboard kannst du eine Kaufanfrage für 30 Tage, ein Jahr oder Lifetime senden. Nach der manuellen Bestätigung stehen deinem Discord-Konto drei Serverplätze zur Verfügung. Eine bereits laufende Premiumzeit kann nicht durch eine weitere Kaufanfrage überlagert werden.", "Request 30 days, a year or Lifetime in the dashboard. After manual approval, your Discord account receives three server slots. An active Premium period cannot be overlapped by another purchase request."],
+  ["Sende eine Kaufanfrage für 30 Tage, ein Jahr oder Lifetime. Nach der Bestätigung verteilst du drei Serverplätze – mit Server-Design, erweiterten Backups, Server-Stats, User Pull und weiteren Premiumbereichen.", "Submit a purchase request for 30 days, a year or Lifetime. After approval, assign three server slots with server appearance, advanced backups, server statistics, User Pull and more Premium features."],
 ];
 
 /**

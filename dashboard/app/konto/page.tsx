@@ -149,39 +149,40 @@ export default async function AccountPage() {
           <div className="flex flex-col gap-4 border-b border-slate-800 bg-amber-400/[0.04] px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-7">
             <div className="flex items-center gap-3">
               <span className="grid h-11 w-11 place-items-center rounded-2xl bg-amber-400/10"><Crown className="h-5 w-5 text-amber-300" /></span>
-              <div><h2 className="text-lg font-black text-white">Dein Premium</h2><p className="text-sm text-slate-500">Kauf, Laufzeit und deine drei festen Premiumserver.</p></div>
+              <div><h2 className="text-lg font-black text-white">Dein Premium</h2><p className="text-sm text-slate-500">Kauf, Laufzeit und deine drei Premiumserver.</p></div>
             </div>
             <Link href="/dashboard/premium" className="rounded-xl bg-amber-400 px-4 py-2.5 text-center text-sm font-black text-black hover:brightness-110">Premium verwalten</Link>
           </div>
           <div className="p-5 sm:p-7">
             {premium?.premium ? <>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <PremiumFact label="Status" value="Premium aktiv" detail={premium.lifetime ? "Dauerhafter Zugang" : `${premiumDaysLeft} Tage verbleibend`} icon={CheckCircle2} />
-                <PremiumFact label="Gekauft / vergeben" value={formatTimestamp(premium.granted_at)} detail={premium.source?.startsWith("stripe:") ? "Mit Stripe bezahlt" : premium.source === "purchase_request" ? "Bestätigte Kaufanfrage" : "Durch einen Admin vergeben"} icon={CalendarDays} />
-                <PremiumFact label="Läuft ab" value={premium.lifetime ? "Lebenslang" : formatTimestamp(premium.expires_at)} detail={premium.lifetime ? "Kein Ablaufdatum" : premium.source?.startsWith("stripe:") ? "Bezahlter Zeitraum" : `${premium.duration_days || "–"}-Tage-Paket`} icon={Clock3} />
-                <PremiumFact label="Serverplätze" value={`${premiumSlots.length} von 3 belegt`} detail={`${3 - premiumSlots.length} Plätze verfügbar`} icon={Server} />
+                <PremiumFact label="Status" value="Premium aktiv" detail={premium.lifetime ? "Lebenslanger Zugang" : `${premiumDaysLeft} Tage verbleibend`} icon={CheckCircle2} />
+                <PremiumFact label="Gekauft / vergeben" value={formatTimestamp(premium.granted_at)} detail={premium.source === "purchase_request" ? "Bestätigte Kaufanfrage" : "Durch einen Admin vergeben"} icon={CalendarDays} />
+                <PremiumFact label="Läuft ab" value={premium.lifetime ? "Lebenslang" : formatTimestamp(premium.expires_at)} detail={premium.lifetime ? "Lifetime" : `${premium.duration_days || "–"}-Tage-Paket`} icon={Clock3} />
+                <PremiumFact label="Serverplätze" value={`${premiumSlots.length} von 3 belegt`} detail={`${premium.available_slots ?? 3 - premiumSlots.length} Plätze verfügbar`} icon={Server} />
               </div>
               {!premium.lifetime && <div className="mt-5">
                 <div className="mb-2 flex justify-between text-xs"><span className="font-bold text-slate-400">Verbleibende Laufzeit</span><span className="text-amber-300">{premiumDaysLeft} Tage</span></div>
                 <div className="h-2 overflow-hidden rounded-full bg-slate-800"><div className="h-full rounded-full bg-gradient-to-r from-amber-500 to-yellow-300" style={{ width: `${Math.max(2, Math.min(100, (premiumDaysLeft / Math.max(1, premium.duration_days || 1)) * 100))}%` }} /></div>
               </div>}
-            </> : <div className="flex flex-col gap-4 rounded-2xl border border-dashed border-slate-700 p-5 sm:flex-row sm:items-center"><Gem className="h-8 w-8 text-slate-600"/><div className="flex-1"><h3 className="font-black text-white">Noch kein aktives Premium</h3><p className="mt-1 text-sm text-slate-500">Wähle Monat für 2,99 €, Jahr für 12,99 € oder Lifetime für 29,99 €. Bezahle sicher über Stripe und erhalte drei feste Serverplätze.</p></div><Link href="/dashboard/premium" className="rounded-xl border border-amber-400/30 px-4 py-2.5 text-center text-sm font-bold text-amber-300">Pakete ansehen</Link></div>}
+            </> : <div className="flex flex-col gap-4 rounded-2xl border border-dashed border-slate-700 p-5 sm:flex-row sm:items-center"><Gem className="h-8 w-8 text-slate-600"/><div className="flex-1"><h3 className="font-black text-white">Noch kein aktives Premium</h3><p className="mt-1 text-sm text-slate-500">Sende eine Kaufanfrage für 30 Tage, ein Jahr oder Lifetime und erhalte drei Serverplätze.</p></div><Link href="/dashboard/premium" className="rounded-xl border border-amber-400/30 px-4 py-2.5 text-center text-sm font-bold text-amber-300">Pakete ansehen</Link></div>}
 
             <div className="mt-6 grid gap-3 md:grid-cols-3">
               {[1, 2, 3].map(slotNo => {
                 const slot = premiumSlots.find((entry: any) => Number(entry.slot_no) === slotNo);
+                const cooldown = premium?.slot_cooldowns?.find((entry: any) => entry.slot_no === slotNo && entry.available_at * 1000 > Date.now());
                 const guild = slot ? guildById.get(String(slot.guild_id)) : null;
                 const icon = slot?.guild_icon || (guild?.icon ? `https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.png?size=128` : null);
                 return <article key={slotNo} className={`rounded-2xl border p-4 ${slot ? "border-violet-500/25 bg-violet-500/[0.05]" : "border-dashed border-slate-700"}`}>
                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Premium-Platz {slotNo}</p>
-                  {slot ? <div className="mt-3 flex items-center gap-3">{icon ? <Image src={icon} alt="" width={42} height={42} unoptimized className="h-11 w-11 rounded-xl" /> : <span className="grid h-11 w-11 place-items-center rounded-xl bg-violet-500/10"><Server className="h-5 w-5 text-violet-300" /></span>}<div className="min-w-0"><p className="truncate font-black text-white">{slot.guild_name || guild?.name || `Server ${slot.guild_id}`}</p><p className="mt-0.5 text-xs text-emerald-300">Fest zugewiesen · Premium</p></div></div> : <div className="mt-3"><p className="font-bold text-slate-400">Platz ist frei</p><p className="mt-1 text-xs text-slate-600">Im Dashboard fest einem Server zuweisen.</p></div>}
+                  {slot ? <div className="mt-3 flex items-center gap-3">{icon ? <Image src={icon} alt="" width={42} height={42} unoptimized className="h-11 w-11 rounded-xl" /> : <span className="grid h-11 w-11 place-items-center rounded-xl bg-violet-500/10"><Server className="h-5 w-5 text-violet-300" /></span>}<div className="min-w-0"><p className="truncate font-black text-white">{slot.guild_name || guild?.name || "Server nicht mehr verfügbar"}</p><p className="mt-0.5 text-xs text-emerald-300">Zugewiesener Premium-Server</p></div></div> : <div className="mt-3"><p className="font-bold text-slate-400">{cooldown ? "Platz im Cooldown" : "Platz ist frei"}</p><p className="mt-1 text-xs text-slate-600">{cooldown ? `Wieder verfügbar am ${formatTimestamp(cooldown.available_at)}` : "Im Dashboard einem Server zuweisen."}</p></div>}
                 </article>;
               })}
             </div>
 
             {premiumRequests.length > 0 && <div className="mt-6 border-t border-slate-800 pt-5">
               <h3 className="font-black text-white">Kauf- und Anfrageverlauf</h3>
-              <div className="mt-3 space-y-2">{premiumRequests.map((request: any) => <div key={request.id} className="flex flex-col gap-2 rounded-xl border border-slate-800 bg-black/10 px-4 py-3 sm:flex-row sm:items-center"><div className="flex-1"><p className="text-sm font-bold text-white">{request.duration_days}-Tage-Paket</p><p className="mt-0.5 text-xs text-slate-600">Angefragt am {formatTimestamp(request.created_at)}</p></div><span className={`w-fit rounded-full px-2.5 py-1 text-[11px] font-black ${request.status === "approved" ? "bg-emerald-500/10 text-emerald-300" : request.status === "pending" ? "bg-amber-400/10 text-amber-300" : "bg-slate-800 text-slate-400"}`}>{request.status === "approved" ? `Bestätigt${request.decided_at ? ` am ${formatTimestamp(request.decided_at)}` : ""}` : request.status === "pending" ? "Wird geprüft" : request.status === "denied" ? "Abgelehnt" : "Beendet"}</span></div>)}</div>
+              <div className="mt-3 space-y-2">{premiumRequests.map((request: any) => <div key={request.id} className="flex flex-col gap-2 rounded-xl border border-slate-800 bg-black/10 px-4 py-3 sm:flex-row sm:items-center"><div className="flex-1"><p className="text-sm font-bold text-white">{request.duration_days === 0 ? "Lifetime" : `${request.duration_days}-Tage-Paket`}</p><p className="mt-0.5 text-xs text-slate-600">Angefragt am {formatTimestamp(request.created_at)}</p></div><span className={`w-fit rounded-full px-2.5 py-1 text-[11px] font-black ${request.status === "approved" ? "bg-emerald-500/10 text-emerald-300" : request.status === "pending" ? "bg-amber-400/10 text-amber-300" : "bg-slate-800 text-slate-400"}`}>{request.status === "approved" ? `Bestätigt${request.decided_at ? ` am ${formatTimestamp(request.decided_at)}` : ""}` : request.status === "pending" ? "Wird geprüft" : request.status === "denied" ? "Abgelehnt" : "Beendet"}</span></div>)}</div>
             </div>}
           </div>
         </section>

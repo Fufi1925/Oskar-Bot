@@ -1214,16 +1214,16 @@ async function authorize(
   if (scope === "premium") {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) return { ok: false, response: deny(401, "Not signed in.") };
-
-    if (rest[0] === "billing") {
-      const reads = ["catalog", "me", "checkout-status"];
-      const writes = ["checkout", "portal"];
-      const allowed = rest.length === 2 && (request.method === "GET" ? reads.includes(rest[1]) : request.method === "POST" && writes.includes(rest[1]));
-      if (request.method === "POST") {
-        const expectedOrigin = new URL(process.env.NEXTAUTH_URL || request.nextUrl.origin).origin;
-        if (request.headers.get("origin") !== expectedOrigin) return { ok: false, response: deny(403, "Invalid request origin.") };
-      }
-      return allowed ? { ok: true } : { ok: false, response: deny(404, "Unknown billing action.") };
+    if (rest[0] === "slots") {
+      const valid = request.method === "POST" && (
+        (rest.length === 2 && rest[1] === "assign") ||
+        (rest.length === 3 && /^[1-3]$/.test(rest[1]) && rest[2] === "release")
+      );
+      if (!valid) return { ok: false, response: deny(404, "Unknown Premium slot action.") };
+      const origin = request.headers.get("origin");
+      const expected = new URL(process.env.NEXTAUTH_URL || request.url).origin;
+      if (origin !== expected) return { ok: false, response: deny(403, "Invalid request origin.") };
+      return { ok: true };
     }
 
     // `grant` gehoert dem Template-Bot, nicht dem Browser.

@@ -161,9 +161,6 @@ def subject_export(user_id: str) -> dict[str, Any]:
     """Maschinenlesbare Kopie der direkt zum Konto gespeicherten Daten."""
     uid = str(user_id)
     datasets = {
-        "stripe_customers": _export_rows("db/premium_membership.db", "stripe_customers", "user_id=?", (uid,)),
-        "stripe_subscriptions": _export_rows("db/premium_membership.db", "stripe_subscriptions", "user_id=?", (uid,)),
-        "stripe_payments": _export_rows("db/premium_membership.db", "stripe_payments", "user_id=?", (uid,)),
         "ticket_ai_coaching": _export_rows(
             "db/ticket.db", "ticket_ai_coaching", "user_id=?", (uid,)
         ),
@@ -209,6 +206,10 @@ def subject_export(user_id: str) -> dict[str, Any]:
         "premium_notices": _export_rows(
             "db/premium_notice.db", "premium_notice", "user_id=?", (uid,)
         ),
+        "premium_account": _export_rows("db/premium_membership.db", "premium_accounts", "user_id=?", (uid,)),
+        "premium_slots": _export_rows("db/premium_membership.db", "premium_slots", "user_id=?", (uid,)),
+        "premium_slot_cooldowns": _export_rows("db/premium_membership.db", "premium_slot_cooldowns", "user_id=?", (uid,)),
+        "premium_purchase_requests": _export_rows("db/premium_membership.db", "premium_purchase_requests", "user_id=?", (uid,)),
         "dashboard_access": _export_rows(
             "db/guild_dashboard_access.db", "dashboard_access_users",
             "CAST(user_id AS TEXT)=?", (uid,)
@@ -228,7 +229,6 @@ def subject_export(user_id: str) -> dict[str, Any]:
         datasets["account_sessions"] = []
 
     descriptions = [
-        {"key": "stripe_billing", "label": "Stripe-Kundenzuordnung, Abos und Zahlungsstatus", "count": len(datasets["stripe_customers"]) + len(datasets["stripe_subscriptions"]) + len(datasets["stripe_payments"]), "purpose": "Zahlungsabwicklung und Premium-Freischaltung"},
         {"key": "ticket_ai_coaching", "label": "Persönlicher Ticket-KI-Chat", "count": len(datasets["ticket_ai_coaching"]), "purpose": "Serverwissen hinterlegen und Ticket-Antworten testen"},
         {"key": "dashboard_login", "label": "Dashboard-Profil und Anmeldezeitpunkte", "count": len(datasets["dashboard_login"]), "purpose": "Anmeldung und Kontosicherheit"},
         {"key": "account_preferences", "label": "Persönliche Einstellungen", "count": len(datasets["account_preferences"]), "purpose": "Sprache, Darstellung und bevorzugte Startseite"},
@@ -239,7 +239,7 @@ def subject_export(user_id: str) -> dict[str, Any]:
         {"key": "team_application", "label": "Team-Bewerbung", "count": len(datasets["team_application"]), "purpose": "Bearbeitung deiner Bewerbung"},
         {"key": "beta_applications", "label": "Premium-Beta-Anträge", "count": len(datasets["beta_applications"]), "purpose": "Prüfung und Verwaltung des Zugangs"},
         {"key": "tester_feedback", "label": "Tester-Feedback, Bewertungen und Verlauf", "count": len(datasets["tester_feedback"]) + len(datasets["tester_feedback_votes"]) + len(datasets["tester_feedback_log"]), "purpose": "Nachverfolgung deiner Meldungen"},
-        {"key": "premium", "label": "Premium-Zuordnung, Testphase und Hinweise", "count": len(datasets["premium_keys"]) + len(datasets["premium_trials"]) + len(datasets["premium_trial_resets"]) + len(datasets["premium_notices"]), "purpose": "Bereitstellung und Missbrauchsschutz"},
+        {"key": "premium", "label": "Premium-Zuordnung, Kaufanfragen, Cooldowns und Hinweise", "count": sum(len(datasets[key]) for key in ("premium_keys", "premium_trials", "premium_trial_resets", "premium_notices", "premium_account", "premium_slots", "premium_slot_cooldowns", "premium_purchase_requests")), "purpose": "Bereitstellung und Missbrauchsschutz"},
         {"key": "dashboard_access", "label": "Vom Serverinhaber erteilter Dashboard-Zugang", "count": len(datasets["dashboard_access"]), "purpose": "Zugriff auf die Verwaltung bestimmter Discord-Server"},
         {"key": "erasure_requests", "label": "Datenschutz- und Löschanträge", "count": len(datasets["erasure_requests"]), "purpose": "Bearbeitung und Nachweis deiner Anträge"},
         {"key": "guild_content", "label": "Serverinhalte, Sprachaktivität und Moderationsnachweise", "count": None, "purpose": "Vom jeweiligen Discord-Server verwaltete Inhalte; können gesetzlichen oder berechtigten Aufbewahrungsgründen unterliegen"},
@@ -252,7 +252,6 @@ def subject_export(user_id: str) -> dict[str, Any]:
         "inventory": descriptions,
         "data": datasets,
         "retained_exceptions": [
-            "Rechnungs- und Zahlungsnachweise bei Stripe, soweit eine gesetzliche Aufbewahrungspflicht besteht",
             "Erforderliche Moderations- und Sicherheitsnachweise",
             "Servereinstellungen anderer Verantwortlicher",
             "XP und Leveling-Daten, soweit der jeweilige Server verantwortlich ist",
@@ -351,9 +350,6 @@ def erase_subject(user_id: str, username: str = "") -> dict[str, int]:
     anon_number = -(int(digest[:15], 16) or 1)
     result: dict[str, int] = {}
 
-    for table in ("stripe_intents", "stripe_customers", "stripe_subscriptions", "stripe_payments", "premium_slots", "premium_accounts"):
-        result[table] = _delete("db/premium_membership.db", table, "user_id=?", (uid,))
-
     result["dashboard_profile"] = _delete("db/admin_config.db", "dashboard_logins", "user_id = ?", (uid,))
     result["ticket_ai_coaching"] = _delete("db/ticket.db", "ticket_ai_coaching", "user_id=?", (uid,))
     result["owner_louckup_oauth"] = _delete("db/owner_louckup.db", "louckup_oauth", "user_id=?", (uid,))
@@ -403,6 +399,8 @@ def erase_subject(user_id: str, username: str = "") -> dict[str, int]:
         (anon, uid),
     )
     result["premium_notice"] = _delete("db/premium_notice.db", "premium_notice", "user_id = ?", (uid,))
+    for table in ("premium_accounts", "premium_slots", "premium_slot_cooldowns", "premium_purchase_requests", "premium_server_notices"):
+        result[table] = _delete("db/premium_membership.db", table, "user_id=?", (uid,))
     try:
         from utils import account_security
         result["account_sessions"] = account_security.erase_subject(uid)

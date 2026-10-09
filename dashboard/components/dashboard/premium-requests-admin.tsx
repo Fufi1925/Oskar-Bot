@@ -112,7 +112,7 @@ export function PremiumRequestsAdmin() {
                   </p>
                   <p className="mt-1 flex items-center gap-1.5 text-[11px] text-slate-600">
                     <Clock3 className="h-3 w-3" />
-                    {request.duration_days} Tage · Anfrage #{request.id}
+                    {request.duration_days === 0 ? "Lifetime" : `${request.duration_days} ${t("Tage", "days")}`} · {t("Anfrage", "Request")} #{request.id}
                     {request.created_at
                       ? ` · ${new Date(request.created_at * 1000).toLocaleDateString(websiteLocale())}`
                       : ""}

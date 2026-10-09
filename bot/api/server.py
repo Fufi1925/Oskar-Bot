@@ -12,7 +12,6 @@ from utils.config import *
 from api.routes import bot, guilds, admin, team, moderation, actions, access, guild_access, dashboard_ai, support_operations, servers, servertools, server_stats, tickets, giveaways, leveling, vanity, broadcast, anonchat, diagnose, compose, nukealert, memberperks, extras, voice, verify, automod, logging_cfg, antinuke, pingreactions, premium, privacy, cookies, speedrun, supportqueue, support, honeypot, design, beta, backup, tester, music, templates, teamlist, applications, teamupdate, webapply, ideas, firewall as firewall_route, commands as commands_route
 from api.routes import owner_louckup
 from api.routes import dashboard_settings
-from api.routes import stripe_billing
 from utils import owner_louckup as owner_louckup_store
 from utils import owner_oauth
 from api.dependencies import verify_api_key, limiter, get_bot_loop, get_bot, run_on_bot_loop
@@ -24,7 +23,6 @@ from utils import feature_gates
 from utils import dashboard_roles
 from utils import dashboard_access
 from utils import premium_membership
-from utils import stripe_billing as stripe_store
 from utils import firewall
 from utils.feature_services import record_request
 
@@ -128,8 +126,6 @@ async def lifespan(app: FastAPI):
         except asyncio.CancelledError:
             pass
         await db_manager.close_all()
-        await run_on_bot_loop(stripe_store.close_client())
-        await stripe_store.close_client()
 
 
 # api_rate_limit_boost: authenticated dashboard traffic gets a much higher
@@ -385,7 +381,6 @@ def create_app() -> FastAPI:
         nukealert.router, prefix="/nukealert", tags=["Anti-Nuke Alerts"]
     )
     api_app.include_router(premium.router, prefix="/premium", tags=["Premium"])
-    api_app.include_router(stripe_billing.router, prefix="/premium/billing", tags=["Billing"])
     api_app.include_router(privacy.router, prefix="/privacy", tags=["Privacy"])
     api_app.include_router(
         memberperks.router, prefix="/perks", tags=["Member Perks"]
@@ -476,8 +471,6 @@ def create_app() -> FastAPI:
         return {"status": "ok"}
 
     # Mount bot API at /api/v1 ONLY
-    # Stripe authenticates with its signature, independently of dashboard keys.
-    app.include_router(stripe_billing.webhook_router, prefix="/api/stripe", tags=["Stripe"])
     app.mount("/api/v1", api_app)
 
     # Phantom isolated stack under /phantom (own dashboard + API + tickets bot config)
