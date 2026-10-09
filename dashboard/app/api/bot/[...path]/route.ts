@@ -1315,6 +1315,11 @@ async function authorize(
     // the shared picker on every module page. Guild access above is enough;
     // channels.manage would wrongly hide them from specialised team roles.
     if (rest[1] === "emojis" && request.method === "GET") return { ok: true };
+    // Viewing or loading a saved design does not send or change a message.
+    // Creating codes and sending messages still require write permission.
+    if (rest[1] === "codes" && request.method === "GET" &&
+        (rest.length === 2 || (rest.length === 3 && /^\d{8}$/.test(rest[2])))) return { ok: true };
+    if (rest.length === 3 && rest[1] === "codes" && rest[2] === "import" && request.method === "POST") return { ok: true };
 
     if (isGlobalAdmin(session.user.id)) return { ok: true };
 

@@ -7387,6 +7387,22 @@ export const phrasePairs: Array<[de: string, en: string]> = [
   ["Sende eine Kaufanfrage für 30 Tage, ein Jahr oder Lifetime und erhalte drei Serverplätze.", "Submit a purchase request for 30 days, a year or Lifetime to receive three server slots."],
   ["Im Dashboard kannst du eine Kaufanfrage für 30 Tage, ein Jahr oder Lifetime senden. Nach der manuellen Bestätigung stehen deinem Discord-Konto drei Serverplätze zur Verfügung. Eine bereits laufende Premiumzeit kann nicht durch eine weitere Kaufanfrage überlagert werden.", "Request 30 days, a year or Lifetime in the dashboard. After manual approval, your Discord account receives three server slots. An active Premium period cannot be overlapped by another purchase request."],
   ["Sende eine Kaufanfrage für 30 Tage, ein Jahr oder Lifetime. Nach der Bestätigung verteilst du drei Serverplätze – mit Server-Design, erweiterten Backups, Server-Stats, User Pull und weiteren Premiumbereichen.", "Submit a purchase request for 30 days, a year or Lifetime. After approval, assign three server slots with server appearance, advanced backups, server statistics, User Pull and more Premium features."],
+
+  // ════════════════════════════════════════════════════════════════
+  // Vollstaendige Abdeckung der Dashboard-Oberflaeche. Diese Eintraege
+  // stammen aus tools/build_dom_translations.py — nicht von Hand hier
+  // pflegen, sondern die Batches in tools/i18n_work/ anpassen und den
+  // Generator neu laufen lassen.
+  // ════════════════════════════════════════════════════════════════
+  ["Wiederverwendbarer Code erstellt.", "Reusable code created."],
+  ["Als Code speichern", "Save as code"],
+  ["Dein wiederverwendbarer Import-Code", "Your reusable import code"],
+  ["Genau 8 Zahlen. Jeder mit dem Code kann das Design beliebig oft auf seinen Servern importieren.", "Exactly 8 digits. Anyone with this code can import the design as often as they like on their own servers."],
+  ["Nachricht aus dem Code geladen. Der Code bleibt weiter nutzbar.", "Message loaded from the code. The code remains reusable."],
+  ["Nachricht geladen. Wähle einen Kanal auf diesem Server. Der Code bleibt weiter nutzbar.", "Message loaded. Choose a channel on this server. The code remains reusable."],
+  ["Lädt Text, Bilder, Embed-Felder, Components-V2-Bausteine, Trennlinien, Knöpfe und Sendeeinstellungen aus einem wiederverwendbaren Code.", "Loads text, images, embed fields, Components V2 blocks, separators, buttons and delivery settings from a reusable code."],
+  ["Nachrichtencode", "Message code"],
+  ["Dieser Code existiert auf diesem Server nicht.", "This code does not exist on this server."],
 ];
 
 /**

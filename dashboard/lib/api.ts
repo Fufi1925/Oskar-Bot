@@ -762,6 +762,8 @@ export const api = {
       method: "POST",
       body: JSON.stringify(data),
     }),
+  listComposeCodes: (guildId: string, offset = 0) => request<any>(`/compose/${guildId}/codes?offset=${offset}`),
+  previewComposeCode: (guildId: string, code: string) => request<any>(`/compose/${guildId}/codes/${code}`),
   importComposeCode: (guildId: string, code: string) =>
     request<any>(`/compose/${guildId}/codes/import`, {
       method: "POST",

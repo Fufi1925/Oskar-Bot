@@ -22,7 +22,7 @@ check("legacy <emoji:id> values are supported", "<emoji:" in renderer)
 check("text is kept in its original form for the API", "presentation-only" in renderer)
 
 panels = [
-    "applications-panel.tsx", "broadcast-panel.tsx", "compose-panel.tsx",
+    "applications-panel.tsx", "broadcast-panel.tsx", "compose-message-preview.tsx",
     "giveaway-detail.tsx", "giveaways-panel.tsx", "joindm-panel.tsx",
     "leveling-panel.tsx", "reactionroles-panel.tsx", "speedrun-panel.tsx",
     "teamlist-panel.tsx", "teamupdate-panel.tsx", "ticket-panels.tsx",
@@ -30,7 +30,9 @@ panels = [
 ]
 for filename in panels:
     body = (DASH / filename).read_text(encoding="utf-8")
-    check(f"{filename} uses the shared emoji renderer", "DiscordEmoji" in body)
+    if filename == "ticket-panels.tsx":
+        body += (DASH / "ticket-workspace.tsx").read_text(encoding="utf-8")
+    check(f"{filename} uses the shared emoji renderer", "DiscordEmoji" in body or "EmojiText" in body)
 
 emoji_field = (DASH / "emoji-field.tsx").read_text(encoding="utf-8")
 check("single emoji fields show the image after selection", "<DiscordEmoji value={value}" in emoji_field)

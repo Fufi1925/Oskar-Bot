@@ -172,7 +172,7 @@ def test_preview_renders_headings():
     """
     print("\nPreview")
 
-    src = read("components/dashboard/compose-panel.tsx")
+    src = read("components/dashboard/compose-message-preview.tsx")
 
     for pattern, label in (
         (r"\^# \(\.\*\)\$", "h1"),

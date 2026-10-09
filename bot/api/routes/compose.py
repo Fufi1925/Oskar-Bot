@@ -28,7 +28,7 @@ from typing import TYPE_CHECKING
 
 import discord
 import httpx
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from api.dependencies import get_bot
 from utils import feature_audit
@@ -53,6 +53,7 @@ def _compose_codes_db() -> sqlite3.Connection:
         " created_by TEXT NOT NULL DEFAULT '', created_at INTEGER NOT NULL,"
         " used_by TEXT, used_at INTEGER)"
     )
+    db.execute("CREATE INDEX IF NOT EXISTS compose_codes_guild_created ON compose_codes(guild_id,created_at DESC,code DESC)")
     return db
 
 
@@ -91,7 +92,38 @@ def _channel(guild, raw) -> object:
     return channel
 
 
-@router.post("/{guild_id}/codes", summary="Create a one-use message design code")
+@router.get("/{guild_id}/codes", summary="List this server's saved message codes")
+async def list_compose_codes(guild_id: int, offset: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=100)):
+    db = _compose_codes_db()
+    try:
+        total = db.execute("SELECT COUNT(*) FROM compose_codes WHERE guild_id=?", (str(guild_id),)).fetchone()[0]
+        rows = db.execute("SELECT code,payload_json,created_at FROM compose_codes WHERE guild_id=? ORDER BY created_at DESC,code DESC LIMIT ? OFFSET ?", (str(guild_id), limit, offset)).fetchall()
+        codes = []
+        for row in rows:
+            payload = json.loads(row["payload_json"])
+            embed = payload.get("embed") if isinstance(payload.get("embed"), dict) else {}
+            blocks = payload.get("blocks") if isinstance(payload.get("blocks"), list) else []
+            text = str(payload.get("content") or embed.get("description") or next((block.get("text") for block in blocks if isinstance(block, dict) and block.get("type") == "text" and block.get("text")), ""))
+            title = str(embed.get("title") or (text.splitlines()[0] if text else ""))
+            codes.append({"code": row["code"], "kind": payload.get("kind", "text"), "title": title[:120], "excerpt": text[:200], "created_at": row["created_at"]})
+        return {"codes": codes, "total": total, "next_offset": offset + len(codes) if offset + len(codes) < total else None}
+    finally:
+        db.close()
+
+
+@router.get("/{guild_id}/codes/{code}", summary="Preview one of this server's message codes")
+async def preview_compose_code(guild_id: int, code: str):
+    db = _compose_codes_db()
+    try:
+        row = db.execute("SELECT payload_json,created_at FROM compose_codes WHERE guild_id=? AND code=?", (str(guild_id), code)).fetchone()
+        if row is None:
+            raise HTTPException(status_code=404, detail="Dieser Code existiert auf diesem Server nicht.")
+        return {"code": code, "created_at": row["created_at"], "payload": json.loads(row["payload_json"])}
+    finally:
+        db.close()
+
+
+@router.post("/{guild_id}/codes", summary="Create a reusable message design code")
 async def create_compose_code(guild_id: int, data: dict, actor: str = ""):
     payload = {
         key: value for key, value in data.items()
@@ -127,10 +159,10 @@ async def create_compose_code(guild_id: int, data: dict, actor: str = ""):
                 raise HTTPException(status_code=503, detail="Code konnte nicht erzeugt werden.")
     finally:
         db.close()
-    return {"code": code, "digits": 8, "single_use": True}
+    return {"code": code, "digits": 8, "single_use": False}
 
 
-@router.post("/{guild_id}/codes/import", summary="Import and consume one message design code")
+@router.post("/{guild_id}/codes/import", summary="Import a reusable message design code")
 async def import_compose_code(guild_id: int, data: dict, actor: str = ""):
     code = str(data.get("code") or "").strip()
     if len(code) != 8 or not code.isdigit():
@@ -139,27 +171,23 @@ async def import_compose_code(guild_id: int, data: dict, actor: str = ""):
     db = _compose_codes_db()
     try:
         with db:
-            # BEGIN IMMEDIATE serialises competing consumers before either can
-            # read the unused row. The guarded UPDATE remains a second line of
-            # defence and makes the one-use rule explicit in the database.
-            db.execute("BEGIN IMMEDIATE")
             row = db.execute("SELECT * FROM compose_codes WHERE code=?", (code,)).fetchone()
             if row is None:
                 raise HTTPException(status_code=404, detail="Dieser Code existiert nicht.")
-            if row["used_at"] is not None:
-                raise HTTPException(status_code=409, detail="Dieser Code wurde bereits verwendet.")
-            if str(row["guild_id"]) != str(guild_id):
-                raise HTTPException(status_code=403, detail="Dieser Code gehört zu einem anderen Server.")
-            changed = db.execute(
-                "UPDATE compose_codes SET used_by=?,used_at=? WHERE code=? AND used_at IS NULL",
+            db.execute(
+                "UPDATE compose_codes SET used_by=?,used_at=? WHERE code=?",
                 (str(actor or data.get("actor") or "dashboard"), int(time.time()), code),
             )
-            if changed.rowcount != 1:
-                raise HTTPException(status_code=409, detail="Dieser Code wurde bereits verwendet.")
             payload = json.loads(row["payload_json"])
+            cross_server = str(row["guild_id"]) != str(guild_id)
+            if cross_server:
+                # A source guild's channel and support-only alternate bot are
+                # not valid delivery targets on the destination guild.
+                payload["channel_id"] = ""
+                payload["sender"] = "main"
     finally:
         db.close()
-    return {"code": code, "consumed": True, "payload": payload}
+    return {"code": code, "consumed": False, "cross_server": cross_server, "payload": payload}
 
 
 @router.post("/{guild_id}/check", summary="Is this message sendable?")
