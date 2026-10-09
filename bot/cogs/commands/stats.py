@@ -77,8 +77,8 @@ def create_stats_content(stats_data, selected):
         "Team Info": (
             "There is only one person who made me. Thanks to him ❤️.\n\n"
             f"**{universitybot_OWNER} Main Owner**\n"
-            "[01]. [runxking](https://discord.com/users/767979794411028491)\n"
-            "[02]. [Ray](https://discord.com/users/870179991462236170)"
+            "[01]. [Fufi/!L](https://discord.com/users/1303627964734246944)\n"
+            "[02]. [Vexo](https://discord.com/users/1033826242270609449)"
         ),
         "Code Info": (
             f"**{universitybot_SEARCH} Codebase Overview**\n\n"
