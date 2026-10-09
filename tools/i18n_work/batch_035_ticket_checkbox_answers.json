@@ -1,0 +1,5 @@
+{
+  "Eine Checkbox pro Zeile, maximal 10. Die Überschrift bleibt der Anzeigename; Nutzer können mehrere Optionen auswählen.": "One checkbox per line, up to 10. The display name remains the heading; users can select multiple options.",
+  "Checkbox-Felder unterstützen bis zu 10 Optionen.": "Checkbox fields support up to 10 options.",
+  "Bitte wähle bei jedem erforderlichen Checkbox-Feld mindestens eine Option aus.": "Please select at least one option for every required checkbox field."
+}

@@ -328,7 +328,7 @@ def _clean_questions(value: Any) -> list[dict]:
             "category_ids": category_ids,
             "description": str(item.get('description') or '')[:100],
             "max_length": max(1, min(4000, int(item.get('max_length') or (4000 if question_type == 'paragraph' else 200)))),
-            "options": [str(x)[:100] for x in (item.get('options') or [])][:25],
+            "options": [str(x).strip()[:100] for x in (item.get('options') or []) if str(x).strip()][:10 if question_type == 'checkbox' else 25],
             "public": bool(item.get('public', False)),
         })
     return cleaned

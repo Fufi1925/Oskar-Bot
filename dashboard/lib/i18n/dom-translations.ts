@@ -7403,6 +7403,16 @@ export const phrasePairs: Array<[de: string, en: string]> = [
   ["Lädt Text, Bilder, Embed-Felder, Components-V2-Bausteine, Trennlinien, Knöpfe und Sendeeinstellungen aus einem wiederverwendbaren Code.", "Loads text, images, embed fields, Components V2 blocks, separators, buttons and delivery settings from a reusable code."],
   ["Nachrichtencode", "Message code"],
   ["Dieser Code existiert auf diesem Server nicht.", "This code does not exist on this server."],
+
+  // ════════════════════════════════════════════════════════════════
+  // Vollstaendige Abdeckung der Dashboard-Oberflaeche. Diese Eintraege
+  // stammen aus tools/build_dom_translations.py — nicht von Hand hier
+  // pflegen, sondern die Batches in tools/i18n_work/ anpassen und den
+  // Generator neu laufen lassen.
+  // ════════════════════════════════════════════════════════════════
+  ["Eine Checkbox pro Zeile, maximal 10. Die Überschrift bleibt der Anzeigename; Nutzer können mehrere Optionen auswählen.", "One checkbox per line, up to 10. The display name remains the heading; users can select multiple options."],
+  ["Checkbox-Felder unterstützen bis zu 10 Optionen.", "Checkbox fields support up to 10 options."],
+  ["Bitte wähle bei jedem erforderlichen Checkbox-Feld mindestens eine Option aus.", "Please select at least one option for every required checkbox field."],
 ];
 
 /**

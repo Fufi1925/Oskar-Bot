@@ -1,5 +1,13 @@
 [
   {
+    "en": "Please select at least one option for every required checkbox field.",
+    "de": "Bitte wähle bei jedem erforderlichen Checkbox-Feld mindestens eine Option aus."
+  },
+  {
+    "en": "Full answers are attached below.",
+    "de": "Die vollständigen Antworten sind unten angehängt."
+  },
+  {
     "en": "Feedback submitted",
     "de": "Feedback eingereicht"
   },

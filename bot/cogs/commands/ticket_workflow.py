@@ -1,5 +1,6 @@
 """Ticket forms, feedback and persisted automation state."""
 import asyncio
+import io
 import re
 import json
 import time
@@ -73,7 +74,12 @@ def add_fields(modal, questions):
             field=discord.ui.Select(options=[discord.SelectOption(label=x[:100],value=str(i)) for i,x in enumerate(question.get('options',[])[:25])],
                 min_values=1 if required else 0,max_values=1,required=required,placeholder=question.get('placeholder') or None)
         elif kind=='checkbox':
-            field=discord.ui.Checkbox()
+            choices=question.get('options') or []
+            if choices:
+                field=discord.ui.CheckboxGroup(options=[discord.CheckboxGroupOption(label=str(x)[:100],value=str(i)) for i,x in enumerate(choices[:10])],
+                    required=required,min_values=1 if required else 0,max_values=min(len(choices),10))
+            else:
+                field=discord.ui.Checkbox()  # Existing single-confirmation fields.
         else:
             field=discord.ui.TextInput(style=discord.TextStyle.paragraph if kind=='paragraph' else discord.TextStyle.short,
                 required=required,max_length=question.get('max_length',4000 if kind=='paragraph' else 200),
@@ -95,27 +101,82 @@ def form_answers(inputs):
             choices=question.get('options',[])
             answer['value']=', '.join(choices[int(x)] for x in field.values if str(x).isdigit() and int(x)<len(choices))
         elif kind=='checkbox':
-            if question.get('required',True) and not field.value:
-                raise ValueError('Please confirm every required checkbox.')
-            answer['value']='Yes' if field.value else 'No'
+            choices=question.get('options') or []
+            if choices:
+                selected=[choices[int(x)] for x in field.values if str(x).isdigit() and 0<=int(x)<len(choices)]
+                if question.get('required',True) and not selected:
+                    raise ValueError('Please select at least one option for every required checkbox field.')
+                answer['value']='\n'.join(selected)
+            else:
+                if question.get('required',True) and not field.value:
+                    raise ValueError('Please confirm every required checkbox.')
+                answer['value']='Yes' if field.value else 'No'
         else: answer['value']=field.value
         answers.append(answer)
     return answers
 
 
-async def send_answers(channel,title,answers, *, quoted=False):
-    # Separate cards keep each form answer within the Components V2 text budget.
-    for answer in answers:
-        value=str(answer.get('value') or 'No answer')
-        if quoted: value='\n'.join('> '+line for line in value.splitlines())
-        for offset in range(0,len(value),3500):
-            body=value[offset:offset+3500]
-            await channel.send(view=Panel(f'{MESSAGE} {title}',f"**{discord.utils.escape_markdown(answer['label'])}**\n{body}"),allowed_mentions=discord.AllowedMentions.none())
-        for attachment in answer.get('attachments',[]):
-            try:
-                file=await attachment.to_file()
-                await channel.send(file=file,allowed_mentions=discord.AllowedMentions.none())
-            except discord.HTTPException: pass
+async def send_answers(channel,title,answers, *, quoted=True):
+    """One V2 card per form, with each upload immediately below its question."""
+    if not answers:return
+    entries=[];files=[]
+    try:
+        for index,answer in enumerate(answers):
+            attachments=answer.get('attachments') or []
+            value=str(answer.get('value') if answer.get('value') is not None else '')
+            if not value.strip() and not attachments:value='Not provided'
+            entry={'heading':f"**{discord.utils.escape_markdown(str(answer['label']))}**",'value':value,'media':[]}
+            images=[]
+            for number,attachment in enumerate(attachments):
+                content_type=str(getattr(attachment,'content_type',None) or '')
+                image=content_type.startswith('image/') or (not content_type and answer.get('type')=='image')
+                url=str(attachment.url)
+                file=None
+                # Leave one upload available for full answers exceeding the
+                # 4000-character V2 limit. Extra images still render via CDN.
+                if len(files)<9:
+                    try:
+                        async with asyncio.timeout(15):file=await attachment.to_file()
+                    except (discord.HTTPException,TimeoutError):pass
+                if file:
+                    file.filename=f'question-{index+1}-{number+1}-{file.filename}'
+                    files.append(file);url=f'attachment://{file.filename}'
+                if image:
+                    images.append(discord.MediaGalleryItem(url))
+                elif file:
+                    entry['media'].append(discord.ui.File(url))
+                else:
+                    label=discord.utils.escape_markdown(str(attachment.filename))
+                    entry['value']+=f'\n[{label}]({url})'
+            if images:entry['media'].insert(0,discord.ui.MediaGallery(*images))
+            entries.append(entry)
+
+        view=Panel(f'{MESSAGE} {title}')
+        box=view.children[0]
+        def body(entry):
+            value=entry['value']
+            if quoted and value:value='\n'.join('> '+line for line in value.splitlines())
+            return entry['heading']+('\n'+value if value else '')
+        bodies=[body(entry) for entry in entries]
+        overflow=view.content_length()+sum(map(len,bodies))>4000
+        if overflow:
+            full='\n\n'.join(body(entry)+'\n'+'\n'.join(str(a.url) for a in (answers[i].get('attachments') or [])) for i,entry in enumerate(entries))
+            files.append(discord.File(io.BytesIO(full.encode('utf-8')),filename='full-form-answers.txt'))
+            note='Full answers are attached below.'
+            budget=4000-view.content_length()-len(note)
+            available=max(0,(budget-sum(len(entry['heading'])+1 for entry in entries))//len(entries))
+            bodies=[entry['heading']+'\n'+(text[len(entry['heading'])+1:][:max(0,available-3)]+'…' if len(text)>len(entry['heading'])+1+available else text[len(entry['heading'])+1:]) for entry,text in zip(entries,bodies)]
+        for entry,text in zip(entries,bodies):
+            box.add_item(discord.ui.Separator())
+            display=discord.ui.TextDisplay(text);display._university_dm_custom_copy=True
+            box.add_item(display)
+            for media in entry['media']:box.add_item(media)
+        if overflow:
+            box.add_item(discord.ui.TextDisplay(note))
+            box.add_item(discord.ui.File('attachment://full-form-answers.txt'))
+        await channel.send(view=view,**({'files':files} if files else {}),allowed_mentions=discord.AllowedMentions.none())
+    finally:
+        for file in files:file.close()
 
 
 class ActionFormModal(discord.ui.Modal):

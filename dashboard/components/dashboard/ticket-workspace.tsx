@@ -216,6 +216,11 @@ function FormEditor({
                           ...x,
                           type,
                           max_length: type === "paragraph" ? 4000 : 200,
+                          ...(type === "checkbox" ? {
+                            options: (x.options || []).some((option: string) => option.trim())
+                              ? x.options.filter((option: string) => option.trim()).slice(0, 10)
+                              : ["Option 1"],
+                          } : {}),
                         }
                       : x,
                   ),
@@ -246,7 +251,7 @@ function FormEditor({
               }
             />
           </Field>
-          <Field label="Platzhalter">
+          {field.type !== "checkbox" && <Field label="Platzhalter">
             <input
               className={INPUT}
               maxLength={100}
@@ -259,11 +264,12 @@ function FormEditor({
                 )
               }
             />
-          </Field>
-          {["select", "radio"].includes(field.type) && (
-            <Field label="Optionen" hint="Eine Option pro Zeile.">
+          </Field>}
+          {["select", "radio", "checkbox"].includes(field.type) && (
+            <Field label="Optionen" hint={field.type === "checkbox" ? "Eine Checkbox pro Zeile, maximal 10. Die Überschrift bleibt der Anzeigename; Nutzer können mehrere Optionen auswählen." : "Eine Option pro Zeile."}>
               <textarea
                 className={INPUT}
+                aria-label="Optionen"
                 value={(field.options || []).join("\n")}
                 onChange={(e) =>
                   onChange(

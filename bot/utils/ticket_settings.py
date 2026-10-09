@@ -67,6 +67,8 @@ def validate(data, *, category=False):
                 choices = [str(x).strip()[:100] for x in field.get('options', []) if str(x).strip()]
                 if kind in ('select', 'radio') and not 1 <= len(choices) <= 25:
                     raise ValueError('Selection fields need between 1 and 25 options.')
+                if kind == 'checkbox' and len(choices) > 10:
+                    raise ValueError('Checkbox fields support up to 10 options.')
                 questions.append(dict(label=str(field['label']).strip()[:45], type=kind,
                     required=bool(field.get('required', True)), placeholder=str(field.get('placeholder', ''))[:100],
                     description=str(field.get('description', ''))[:100], max_length=maximum,

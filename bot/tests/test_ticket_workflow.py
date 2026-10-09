@@ -57,10 +57,11 @@ class StorageTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((await ticket_panels.list_panels(self.db,42))[0]['categories'][0]['open_tickets'],1)
 
     async def test_all_supported_global_questions_survive_storage(self):
-        fields=[{'label':'Choice','type':'select','options':['Yes','No']},{'label':'Confirm','type':'checkbox'},{'label':'File','type':'file'},{'label':'Detail','type':'paragraph','max_length':3900,'category_ids':[4]}]
+        fields=[{'label':'Choice','type':'select','options':['Yes','No']},{'label':'Choose topics','type':'checkbox','options':['Premium','',' Account ','']},{'label':'File','type':'file'},{'label':'Detail','type':'paragraph','max_length':3900,'category_ids':[4]}]
         await ticket_panels.update_panel(self.db,42,self.panel,{'ticket_questions':fields})
         result=(await ticket_panels.list_panels(self.db,42))[0]['ticket_questions']
         self.assertEqual([x['type'] for x in result],['select','checkbox','file','paragraph'])
+        self.assertEqual(result[1]['label'],'Choose topics');self.assertEqual(result[1]['options'],['Premium','Account'])
         self.assertEqual(result[-1]['max_length'],3900);self.assertEqual(result[-1]['category_ids'],[4])
 
 
