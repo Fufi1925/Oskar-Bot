@@ -371,7 +371,7 @@ async def premium_v2_accounts(bot: "universitybot" = Depends(get_bot)):
 
 
 @router.post("/requests/{request_id}/decide", summary="Approve or deny a Premium purchase request")
-async def decide_purchase_request(request_id: int, data: dict):
+async def decide_purchase_request(request_id: int, data: dict, bot: "universitybot" = Depends(get_bot)):
     try:
         approved = bool(data.get("approve"))
         result = premium_membership.decide_request(request_id, approved, str(data.get("actor") or "dashboard"))
@@ -380,7 +380,11 @@ async def decide_purchase_request(request_id: int, data: dict):
             premium_notice.zuruecksetzen(result["user_id"])
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return {"status": "ok", "result": result}
+    dm_sent = None
+    if approved:
+        from utils.premium_notifications import notify_approved
+        dm_sent = await notify_approved(bot,result)
+    return {"status": "ok", "result": result, "dm_sent": dm_sent}
 
 
 @router.post("/redeem", summary="Redeem a licence key")

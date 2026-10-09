@@ -9,8 +9,39 @@ from types import SimpleNamespace
 import discord
 from utils.component_emojis import category_text
 from utils import ticket_settings, ticket_notify, guild_modules
-from utils.emoji import TICK, CROSS, MESSAGE, WARNING
+from utils.emoji import TICK, CROSS, MESSAGE, WARNING, STAR
 from utils.panels import Panel
+
+
+async def remove_lock_controls(message):
+    """Preserve existing ticket cards and remove only their two old buttons."""
+    view_type=discord.ui.LayoutView if message.flags.components_v2 else discord.ui.View
+    view=view_type.from_message(message)
+    removed=False
+    for item in list(view.walk_children()):
+        if getattr(item,'custom_id',None) not in ('t_lock','t_unlock'):continue
+        parent=getattr(item,'parent',None)
+        (parent or view).remove_item(item);removed=True
+        if isinstance(parent,discord.ui.ActionRow) and not parent.children:
+            (parent.parent or view).remove_item(parent)
+    if removed:await message.edit(view=view,allowed_mentions=discord.AllowedMentions.none())
+    return removed
+
+
+async def migrate_lock_controls(cog):
+    semaphore=asyncio.Semaphore(3)
+    async def migrate(ticket):
+        guild=cog.bot.get_guild(ticket['guild_id'])
+        channel=guild.get_channel(ticket['channel_id']) if guild else None
+        if not channel:return
+        async with semaphore:
+            try:
+                async with asyncio.timeout(15):
+                    async for message in channel.history(limit=50,oldest_first=True):
+                        if message.author.id==cog.bot.user.id:
+                            await remove_lock_controls(message)
+            except (discord.HTTPException,TimeoutError):pass
+    await asyncio.gather(*(migrate(t) for t in cog.db.fetchall('SELECT guild_id,channel_id FROM open_tickets WHERE closed_at IS NULL')))
 
 
 def staff_ids(cog, guild_id, category_id):
@@ -72,16 +103,18 @@ def form_answers(inputs):
     return answers
 
 
-async def send_answers(channel,title,answers):
+async def send_answers(channel,title,answers, *, quoted=False):
     # Separate cards keep each form answer within the Components V2 text budget.
     for answer in answers:
         value=str(answer.get('value') or 'No answer')
+        if quoted: value='\n'.join('> '+line for line in value.splitlines())
         for offset in range(0,len(value),3500):
-            await channel.send(view=Panel(f'{MESSAGE} {title}',f"**{answer['label']}**\n{value[offset:offset+3500]}"),allowed_mentions=discord.AllowedMentions.none())
+            body=value[offset:offset+3500]
+            await channel.send(view=Panel(f'{MESSAGE} {title}',f"**{discord.utils.escape_markdown(answer['label'])}**\n{body}"),allowed_mentions=discord.AllowedMentions.none())
         for attachment in answer.get('attachments',[]):
             try:
                 file=await attachment.to_file()
-                await channel.send(file=file)
+                await channel.send(file=file,allowed_mentions=discord.AllowedMentions.none())
             except discord.HTTPException: pass
 
 
@@ -108,7 +141,7 @@ class RatingModal(discord.ui.Modal):
         self.cog,self.ticket=cog,ticket
         self.settings=ticket.get('_settings') if isinstance(ticket,dict) else None
         self.settings=self.settings or cog.preferences(ticket['guild_id'],ticket['category_db_id'])
-        self.score=discord.ui.Select(options=[discord.SelectOption(label=f'{x} / 5',value=str(x)) for x in range(1,6)])
+        self.score=discord.ui.Select(options=[discord.SelectOption(label=f'{x} / 5',value=str(x),emoji=STAR) for x in range(1,6)])
         self.add_item(discord.ui.Label(text='Your rating',component=self.score))
         self.inputs=add_fields(self,self.settings['rating_questions'][:4])
 
@@ -126,7 +159,7 @@ class RatingModal(discord.ui.Modal):
         score=int(self.score.values[0])
         cursor=self.cog.db.execute('INSERT OR IGNORE INTO ticket_ratings VALUES(?,?,?,?,?,?)',(self.ticket['channel_id'],self.ticket['guild_id'],interaction.user.id,score,'\n'.join(f"{x['label']}: {x.get('value','')}" for x in answers),time.time()))
         if not cursor.rowcount:
-            return await interaction.followup.send(view=Panel('Already rated','You have already submitted feedback for this ticket.'),ephemeral=True)
+            return await interaction.followup.send(view=Panel(f'{WARNING} Already rated','You have already submitted feedback for this ticket.',tone='warning'),ephemeral=True)
         guild=self.cog.bot.get_guild(self.ticket['guild_id'])
         cat=self.cog.db.fetchone('SELECT name,panel_id FROM ticket_categories WHERE category_id=?',(self.ticket['category_db_id'],))
         created=datetime.fromisoformat(self.ticket['created_at']);closed=datetime.fromisoformat(self.ticket['closed_at'])
@@ -136,12 +169,12 @@ class RatingModal(discord.ui.Modal):
             channel=guild.get_channel(int(self.settings[key])) if guild and self.settings[key] else None
             if not channel: continue
             visible=self.settings['rating_values'] if public else list(fields)
-            body=f'**{score} / 5**\n'+'\n'.join(f'**{name.title()}:** {fields[name]}' for name in visible)
+            body=f"**Rating**\n> {STAR * score} **{score} / 5**\n\n**Ticket details**\n"+'\n'.join(f"> **{name.title()}:** {discord.utils.escape_markdown(fields[name])}" for name in visible)
             try:
-                await channel.send(view=Panel(f'{TICK} Support feedback',body))
-                await send_answers(channel,'Feedback form',[x for x in answers if not public or x['public']])
+                await channel.send(view=Panel(f'{STAR} Support feedback',body,tone='success'),allowed_mentions=discord.AllowedMentions.none())
+                await send_answers(channel,'Feedback form',[x for x in answers if not public or x['public']],quoted=True)
             except discord.HTTPException: pass
-        await interaction.followup.send(view=Panel(f'{TICK} Thank you','Your feedback has been saved.'),ephemeral=True)
+        await interaction.followup.send(view=Panel(f'{TICK} Feedback submitted','Your feedback has been successfully submitted.',tone='success'),ephemeral=True,allowed_mentions=discord.AllowedMentions.none())
 
 
 async def claim(cog,channel,category_id,user):

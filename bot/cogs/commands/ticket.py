@@ -16,7 +16,7 @@
 
 import discord
 from utils.component_emojis import normalize_controls
-from utils.emoji import CROSS, DELETE_ALT1, HANDSHAKE, LOCK, MESSAGE, TICK, UNLOCK, ZBAN, ZMODULE, ZWRENCH
+from utils.emoji import CROSS, DELETE_ALT1, HANDSHAKE, LOCK, MESSAGE, TICK, UNLOCK, WARNING, ZBAN, ZMODULE, ZWRENCH
 from discord import app_commands
 from discord.ext import commands, tasks
 import sqlite3
@@ -150,7 +150,7 @@ async def log_ticket_action(db, guild, user, action, details):
     if log_channel := await get_or_create_log_channel(db, guild):
         embed = discord.Embed(title=f"Ticket Action: {action}", color=EMBED_COLOR, timestamp=datetime.now())
         embed.add_field(name="Action By", value=user.mention).add_field(name="Details", value=details, inline=False)
-        try: await log_channel.send(view=from_embed(embed))
+        try: await log_channel.send(view=from_embed(embed), allowed_mentions=discord.AllowedMentions.none())
         except: pass
 
 def _transcript_link(ticket_id: int) -> str:
@@ -459,7 +459,6 @@ class TicketCog(commands.Cog, name="Ticket System"):
         self._creation_locks = {}
         self._action_locks = {}
         self.ticket_automations.start()
-        asyncio.create_task(ticket_ai.refresh_allowed_guilds())
         asyncio.create_task(self.load_persistent_views())
         self.purge_expired_transcripts.start()
 
@@ -632,6 +631,8 @@ class TicketCog(commands.Cog, name="Ticket System"):
 
         # Und den Zaehler gegen die echten Kanaele abgleichen.
         await self.reconcile_counts()
+        from cogs.commands.ticket_workflow import migrate_lock_controls
+        await migrate_lock_controls(self)
 
     def create_panel_view(self, guild_id, panel_id=None):
         """
@@ -791,6 +792,8 @@ class TicketCog(commands.Cog, name="Ticket System"):
                 request = self.db.fetchone('SELECT snapshot FROM ticket_feedback_requests WHERE channel_id=?', (int(suffix),))
                 ticket = json.loads(request['snapshot']) if request else self.db.fetchone('SELECT * FROM open_tickets WHERE channel_id=?', (int(suffix),))
                 if ticket and ticket['creator_id'] == inter.user.id and ticket['closed_at']:
+                    if self.db.fetchone('SELECT 1 FROM ticket_ratings WHERE channel_id=?', (int(suffix),)):
+                        return await inter.response.send_message(view=Panel(f'{WARNING} Already rated', 'You have already submitted feedback for this ticket.', tone='warning'), ephemeral=True)
                     return await inter.response.send_modal(RatingModal(self, ticket))
             return await inter.response.send_message(view=Panel(f'{ERROR_EMOJI} Rating unavailable', 'Only the original ticket creator can rate a closed ticket.'), ephemeral=True)
 
@@ -1280,6 +1283,8 @@ class TicketActionsView(discord.ui.View):
     def __init__(self, cog, ch_id, cat_id):
         super().__init__(timeout=None)
         self.cog, self.ch_id, self.cat_id = cog, ch_id, cat_id
+        self.remove_item(self.b_lock)
+        self.remove_item(self.b_unlock)
         self.remove_item(self.b_confirm)
         self.remove_item(self.b_cancel)
         from cogs.commands.ticket_workflow import protect_actions
@@ -1551,7 +1556,7 @@ class ClosedTicketActionsView(discord.ui.View):
                     await log_channel.send(
                         view=transcript_dm_view(
                             i.guild.name, ch.name, ticket["ticket_number"], link
-                        )
+                        ), allowed_mentions=discord.AllowedMentions.none()
                     )
                     delivery_notes.append("the ticket log")
                 except Exception:

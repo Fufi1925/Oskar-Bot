@@ -22,7 +22,7 @@ class WorkspaceTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         self.temp=tempfile.TemporaryDirectory(); self.path=self.temp.name+'/ticket.db'
         self.patches=[patch.object(tickets,'DB',self.path),patch.object(store,'DB',self.path),patch.object(scan,'DB',self.path),
-          patch.object(ai,'is_allowlisted',side_effect=lambda gid:gid in (42,43)),patch.object(ai,'pilot_available',return_value=True),patch.object(tickets.feature_gates,'has_premium_access',return_value=True)]
+          patch.object(ai.feature_gates,'is_premium_guild',side_effect=lambda gid:gid in (42,43)),patch.object(tickets.feature_gates,'has_premium_access',side_effect=lambda gid,*args,**kwargs:gid in (42,43))]
         for p in self.patches:p.start()
         db=await tickets._db();await tickets._ensure_ai_schema(db)
         panel=await ticket_panels.create_panel(db,42,'Support');self.cat=await ticket_panels.upsert_category(db,42,panel,{'name':'Premium'})
@@ -100,13 +100,26 @@ class WorkspaceTests(unittest.IsolatedAsyncioTestCase):
         context=ai.answer_context('Premium cost?', 'Premium costs 3 euros.', [{'title':'New pricing','content':'Premium costs 6 euros from November onwards in the server shop.'},{'title':'Premium','content':'Premium costs 5 euros.'}])
         self.assertIn('6 euros',context[0]);self.assertIn('3 euros',context[-1])
     async def test_access_limits_and_failed_settings_cannot_partially_persist(self):
-        self.assertEqual((await self.post('fact',gid=99)).status_code,404)
+        self.assertEqual((await self.post('fact',gid=99)).status_code,402)
         with patch.object(ai,'pilot_available',return_value=False),patch.object(tickets.feature_gates,'has_premium_access',return_value=False):self.assertEqual((await self.post('fact')).status_code,402)
         self.assertEqual((await self.post('fact',actor='')).status_code,401);self.assertEqual((await self.post('x'*4001)).status_code,400)
         r=await self.client.patch('/tickets/42/ai',json={'enabled':False,'fallback_text':'bad','categories':[{'category_id':99999,'enabled':True}]})
         self.assertEqual(r.status_code,400);await self.post('Premium costs 5 euros here.')
         self.assertNotEqual((await self.client.get('/tickets/42/ai')).json()['fallback_text'],'bad')
         with patch.object(ai,'api_key_configured',return_value=False):self.assertEqual((await self.post('Premium?',mode='ask')).status_code,503)
+
+    async def test_any_premium_server_has_access_without_rollout_and_frozen_rules_remain(self):
+        with patch.object(ai,'_allowed_guilds',set()),patch.object(ai.feature_gates,'is_premium_guild',return_value=True),patch.object(tickets.feature_gates,'has_premium_access',return_value=True):
+            self.assertTrue(ai.pilot_available(777))
+            self.assertTrue((await self.client.get('/tickets/777/ai-available')).json()['available'])
+            self.assertEqual((await self.post('Premium costs 5 euros.',gid=777)).status_code,200)
+            self.assertEqual((await self.client.get('/tickets/777/ai')).status_code,200)
+        with patch.object(ai.feature_gates,'is_premium_guild',return_value=True),patch.object(tickets.feature_gates,'has_premium_access',side_effect=lambda gid,*args,configure=False: not configure):
+            self.assertEqual((await self.client.get('/tickets/777/ai')).status_code,200)
+            self.assertEqual((await self.post('new fact',gid=777)).status_code,423)
+        with patch.object(ai.feature_gates,'is_premium_guild',return_value=False),patch.object(tickets.feature_gates,'has_premium_access',return_value=False):
+            self.assertFalse((await self.client.get('/tickets/777/ai-available')).json()['available'])
+            self.assertEqual((await self.client.get('/tickets/777/ai')).status_code,402)
     async def test_scan_is_local_and_handles_unreadable_and_private_ticket_channels(self):
         admin=NS(id=7,bot=False,guild_permissions=NS(administrator=True));visitor=NS(id=8,bot=False,guild_permissions=NS(administrator=False))
         def channel(ident,name,permitted=True):

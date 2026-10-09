@@ -531,17 +531,13 @@ async def send_panel(
 
 
 # ══════════════════════════════════════════════════════════════════════
-#  Private Ticket AI pilot
+#  Premium Ticket AI
 # ══════════════════════════════════════════════════════════════════════
 
 
 def _ai_or_404(
     guild_id: int, actor: str = "", *, configure: bool = False
 ) -> None:
-    # Deliberately return 404 outside the pilot so other guilds do not even
-    # learn that an unreleased feature exists.
-    if not ticket_ai.is_allowlisted(guild_id):
-        raise HTTPException(status_code=404, detail="Not found.")
     if (
         not ticket_ai.pilot_available(guild_id)
         and not feature_gates.has_premium_access(guild_id, actor)
@@ -585,11 +581,9 @@ async def reset_interrupted_ai_scans() -> int:
 
 @router.get("/{guild_id}/ai-available", summary="Whether Ticket AI is visible")
 async def ticket_ai_available(guild_id: int, actor: str = ""):
-    # This intentionally returns only a boolean. It lets the dashboard hide an
-    # unreleased feature before requesting the shared guild knowledge endpoint.
+    # Existing Premium access and frozen configuration rules remain intact.
     return {
-        "available": ticket_ai.is_allowlisted(guild_id)
-        and (
+        "available": (
             ticket_ai.pilot_available(guild_id)
             or feature_gates.has_premium_access(guild_id, actor)
         )

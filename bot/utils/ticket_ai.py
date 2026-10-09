@@ -1,6 +1,6 @@
 """Private, guild-scoped AI assistant for unclaimed support tickets.
 
-Access requires server Premium and the admin rollout list. Knowledge is stored
+Access requires server Premium. Knowledge is stored
 locally per guild; Groq receives the question and matching excerpts only.
 Dashboard coaching conversations are personal; ticket messages are not retained.
 """
@@ -134,8 +134,8 @@ def allowed_guilds() -> set[int]:
 
 
 def pilot_available(guild_id: int) -> bool:
-    """Both the admin allowlist and Server Premium are hard requirements."""
-    return is_allowlisted(guild_id) and feature_gates.is_premium_guild(guild_id)
+    """Available to every Premium server; legacy rollout records are ignored."""
+    return feature_gates.is_premium_guild(guild_id)
 
 
 def api_key_configured() -> bool:

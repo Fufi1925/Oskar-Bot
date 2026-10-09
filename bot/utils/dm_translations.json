@@ -1,5 +1,13 @@
 [
   {
+    "en": "Feedback submitted",
+    "de": "Feedback eingereicht"
+  },
+  {
+    "en": "Your feedback has been successfully submitted.",
+    "de": "Dein Feedback wurde erfolgreich eingereicht."
+  },
+  {
     "en": "You received the role **{0}**.",
     "de": "Du hast die Rolle **{0}** bekommen."
   },

@@ -1031,29 +1031,19 @@ async def set_guild_premium(
 
 @router.get("/ticket-ai-access", summary="Servers allowed to use Ticket AI")
 async def get_ticket_ai_access(bot: "universitybot" = Depends(get_bot)):
-    await ticket_ai.refresh_allowed_guilds()
     guilds = []
-    seen: set[int] = set()
     for guild in sorted(bot.guilds, key=lambda item: str(item.name).lower()):
-        seen.add(guild.id)
         guilds.append({
             "guild_id": str(guild.id),
             "name": guild.name,
             "icon": str(guild.icon.url) if guild.icon else None,
             "members": guild.member_count or 0,
             "premium": feature_gates.is_premium_guild(guild.id),
-            "enabled": ticket_ai.is_allowlisted(guild.id),
-        })
-    # Keep revoked/offline servers visible when they are still allowlisted so
-    # an admin can always remove stale access.
-    for guild_id in sorted(ticket_ai.allowed_guilds() - seen):
-        guilds.append({
-            "guild_id": str(guild_id), "name": "Bot nicht auf dem Server",
-            "icon": None, "members": 0,
-            "premium": feature_gates.is_premium_guild(guild_id), "enabled": True,
+            "enabled": ticket_ai.pilot_available(guild.id),
         })
     return {
         "guilds": guilds,
+        "access_policy": "all_premium_servers",
         "enabled_count": sum(1 for item in guilds if item["enabled"]),
         "api_key_configured": ticket_ai.api_key_configured(),
     }
@@ -1089,32 +1079,11 @@ async def test_ticket_ai_provider(data: dict):
     }
 
 
-@router.post("/ticket-ai-access/{guild_id}", summary="Grant or revoke Ticket AI")
+@router.post("/ticket-ai-access/{guild_id}", summary="Legacy manual rollout endpoint")
 async def set_ticket_ai_access(
     guild_id: int, data: dict, bot: "universitybot" = Depends(get_bot)
 ):
-    enabled = bool(data.get("enabled"))
-    if enabled and bot.get_guild(guild_id) is None:
-        raise HTTPException(status_code=404, detail="Der Bot ist nicht auf diesem Server.")
-    async with aiosqlite.connect(ticket_ai.ACCESS_DB) as db:
-        await db.execute(
-            "CREATE TABLE IF NOT EXISTS ticket_ai_access ("
-            " guild_id INTEGER PRIMARY KEY, granted_at INTEGER NOT NULL)"
-        )
-        if enabled:
-            await db.execute(
-                "INSERT OR REPLACE INTO ticket_ai_access (guild_id, granted_at) VALUES (?, ?)",
-                (guild_id, int(time.time())),
-            )
-        else:
-            await db.execute("DELETE FROM ticket_ai_access WHERE guild_id = ?", (guild_id,))
-        await db.commit()
-    await ticket_ai.refresh_allowed_guilds()
-    await feature_audit.log_action(
-        "ticket_ai_access_changed", actor="dashboard", guild_id=guild_id,
-        detail="granted" if enabled else "revoked",
-    )
-    return {"status": "success", "guild_id": str(guild_id), "enabled": enabled}
+    raise HTTPException(status_code=409, detail="Ticket-KI ist automatisch für alle Premium-Server verfügbar. Eine manuelle Freigabe ist nicht mehr erforderlich.")
 
 
 def _dashboard_ai_owner(request: Request) -> str:

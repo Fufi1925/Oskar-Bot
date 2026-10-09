@@ -3,7 +3,6 @@
 import { websiteLocale, useWebsiteLocale } from "@/lib/i18n/locale";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Bot, BrainCircuit, KeyRound, Loader2, RefreshCw, Search, ShieldCheck } from "lucide-react";
-import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
@@ -17,13 +16,13 @@ type Guild = {
 };
 
 export function TicketAiAdmin() {
-  useWebsiteLocale();
+  const locale = useWebsiteLocale();
+  const t = (de: string, en: string) => locale === "en-GB" ? en : de;
   const [guilds, setGuilds] = useState<Guild[]>([]);
   const [keyReady, setKeyReady] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
-  const [busy, setBusy] = useState<string | null>(null);
   const [testQuestion, setTestQuestion] = useState("Wie viel ist 17 × 6?");
   const [testBusy, setTestBusy] = useState(false);
   const [testResult, setTestResult] = useState<any>(null);
@@ -55,19 +54,6 @@ export function TicketAiAdmin() {
     return guilds.filter((guild) => !query || guild.name.toLowerCase().includes(query) || guild.guild_id.includes(query));
   }, [guilds, search]);
 
-  const toggle = async (guild: Guild) => {
-    setBusy(guild.guild_id);
-    try {
-      await api.setTicketAiAccess(guild.guild_id, !guild.enabled);
-      setGuilds((current) => current.map((item) => item.guild_id === guild.guild_id ? { ...item, enabled: !item.enabled } : item));
-      toast.success(!guild.enabled ? `${guild.name} wurde freigeschaltet.` : `${guild.name} wurde gesperrt.`);
-    } catch (err: any) {
-      toast.error(err?.message || "Freigabe konnte nicht geändert werden.");
-    } finally {
-      setBusy(null);
-    }
-  };
-
   const runTest = async () => {
     if (!testQuestion.trim()) {
       setTestError("Bitte eine Testfrage eingeben.");
@@ -94,8 +80,8 @@ export function TicketAiAdmin() {
           <div className="flex gap-3">
             <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-violet-500/12 text-violet-300"><BrainCircuit className="h-5 w-5" /></span>
             <div>
-              <h2 className="text-lg font-black text-white">Ticket-KI · Serverfreigaben</h2>
-              <p className="mt-1 max-w-2xl text-xs leading-5 text-slate-400">Nur freigeschaltete Premium-Server sehen die Wissensdatenbank im Ticket-Dashboard und können automatische Antworten verwenden.</p>
+              <h2 className="text-lg font-black text-white">{t("Ticket-KI · Premium-Server", "Ticket AI · Premium servers")}</h2>
+              <p className="mt-1 max-w-2xl text-xs leading-5 text-slate-400">{t("Alle Premium-Server haben automatisch Zugriff auf die Ticket-KI. Server-Administratoren hinterlegen Wissen und aktivieren die gewünschten Ticket-Kategorien.", "Every Premium server automatically has access to Ticket AI. Server administrators add knowledge and enable the ticket categories they want.")}</p>
             </div>
           </div>
           <button type="button" onClick={load} disabled={loading} className="inline-flex items-center gap-2 rounded-xl border border-slate-700 px-3 py-2 text-xs font-bold text-slate-300 hover:bg-white/[0.04] disabled:opacity-40"><RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} /> Aktualisieren</button>
@@ -149,9 +135,7 @@ export function TicketAiAdmin() {
                     {guild.enabled && <span className="rounded bg-violet-500/12 px-1.5 py-0.5 text-[8px] font-black uppercase text-violet-300">KI freigeschaltet</span>}
                   </div>
                 </div>
-                <button type="button" onClick={() => toggle(guild)} disabled={busy === guild.guild_id} className={cn("relative h-7 w-12 shrink-0 rounded-full transition-colors disabled:opacity-40", guild.enabled ? "bg-violet-500" : "bg-slate-700")} aria-label={`Ticket-KI für ${guild.name} ${guild.enabled ? "sperren" : "freischalten"}`}>
-                  {busy === guild.guild_id ? <Loader2 className="absolute left-4 top-1.5 h-4 w-4 animate-spin text-white" /> : <span className={cn("absolute left-0 top-1 h-5 w-5 rounded-full bg-white transition-transform", guild.enabled ? "translate-x-6" : "translate-x-1")} />}
-                </button>
+                <span className={cn("shrink-0 rounded-lg px-2 py-1 text-[10px] font-bold", guild.enabled ? "bg-violet-500/10 text-violet-300" : "bg-slate-800 text-slate-500")}>{guild.enabled ? t("Automatisch", "Automatic") : t("Premium benötigt", "Premium required")}</span>
               </div>
             ))}
             {!visible.length && <p className="col-span-full py-10 text-center text-sm text-slate-500">Kein passender Server gefunden.</p>}
@@ -159,7 +143,7 @@ export function TicketAiAdmin() {
         )}
       </div>
 
-      <div className="flex items-start gap-2 rounded-xl border border-blue-500/15 bg-blue-500/[0.04] p-4 text-xs leading-5 text-slate-400"><ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-blue-400" /> Eine Admin-Freigabe allein reicht nicht: Ohne aktives Server-Premium bleibt die Ticket-KI serverseitig gesperrt.</div>
+      <div className="flex items-start gap-2 rounded-xl border border-blue-500/15 bg-blue-500/[0.04] p-4 text-xs leading-5 text-slate-400"><ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-blue-400" />{t("Eine zusätzliche Admin-Freigabe ist nicht erforderlich. Die bestehenden Regeln für Premium-Laufzeit und eingefrorene Einstellungen gelten weiterhin.", "No additional admin approval is required. Existing rules for Premium expiry and frozen settings still apply.")}</div>
     </div>
   );
 }

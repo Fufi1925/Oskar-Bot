@@ -195,9 +195,71 @@ class RuntimeTests(unittest.IsolatedAsyncioTestCase):
         interaction=SimpleNamespace(user=SimpleNamespace(id=99),response=SimpleNamespace(defer=AsyncMock(),send_message=AsyncMock()),followup=SimpleNamespace(send=AsyncMock()))
         modal=RatingModal(self.cog,ticket);modal.score._values=['5']
         await modal.on_submit(interaction)
+        first=interaction.followup.send.call_args.kwargs
+        self.assertIn('Your feedback has been successfully submitted.',str(first['view'].to_components()))
+        self.assertTrue(first['ephemeral'])
         await modal.on_submit(interaction)
+        self.assertIn('Already rated',str(interaction.followup.send.call_args.kwargs['view'].to_components()))
         self.assertEqual(self.db.fetchone('SELECT COUNT(*) AS n FROM ticket_ratings')['n'],1)
         self.assertEqual(self.db.fetchone('SELECT score FROM ticket_ratings')['score'],5)
+
+    async def test_feedback_logs_quote_answers_and_never_ping(self):
+        from cogs.commands.ticket_workflow import RatingModal
+        from utils.dm_i18n import translate
+        ticket=dict(self.db.fetchone('SELECT * FROM open_tickets WHERE channel_id=123'))
+        ticket['closed_at']='2026-10-08T13:00:00';ticket['closed_by_id']=77
+        ticket['_settings']=settings.resolve({'rating_enabled':True,'rating_channel_id':'456','rating_public_channel_id':'789','rating_values':['creator','case'],'rating_questions':[{'label':'Comment','type':'paragraph','required':False,'public':True}]})
+        private=SimpleNamespace(send=AsyncMock());public=SimpleNamespace(send=AsyncMock())
+        self.guild.get_channel=lambda cid:private if cid==456 else public
+        modal=RatingModal(self.cog,ticket);modal.score._values=['4'];modal.inputs[0][1]._value='Great support!\n<@&12> <@99> @everyone'
+        inter=SimpleNamespace(user=SimpleNamespace(id=99),response=SimpleNamespace(defer=AsyncMock(),send_message=AsyncMock()),followup=SimpleNamespace(send=AsyncMock()))
+        await modal.on_submit(inter)
+        for channel in (private,public):
+            self.assertEqual(channel.send.await_count,2)
+            for call in channel.send.call_args_list:self.assertEqual(call.kwargs['allowed_mentions'].to_dict()['parse'],[])
+            payload=str(channel.send.call_args_list[0].kwargs['view'].to_components())
+            self.assertIn('> **Creator:**',payload);self.assertIn('4 / 5',payload)
+            self.assertIn('> Great support!',str(channel.send.call_args_list[1].kwargs['view'].to_components()))
+        self.assertNotIn('Supporter:',str(public.send.call_args_list[0].kwargs['view'].to_components()))
+        self.assertEqual(translate('Your feedback has been successfully submitted.','de'),'Dein Feedback wurde erfolgreich eingereicht.')
+
+    async def test_ticket_controls_and_existing_cards_remove_only_lock_buttons(self):
+        import discord
+        from discord.components import _component_factory
+        from cogs.commands.ticket import TicketActionsView
+        from cogs.commands.ticket_workflow import remove_lock_controls
+        from utils.panels import Panel
+        controls=TicketActionsView(self.cog,123,1)
+        self.assertNotIn('t_lock',{item.custom_id for item in controls.children})
+        self.assertNotIn('t_unlock',{item.custom_id for item in controls.children})
+        for v2 in (False,True):
+            buttons=[discord.ui.Button(label=name,custom_id=cid) for name,cid in [('Lock','t_lock'),('Claim','t_claim'),('Unlock','t_unlock')]]
+            if v2: old=Panel('Original welcome','Keep this text',buttons=buttons)
+            else:
+                old=discord.ui.View()
+                for item in buttons:old.add_item(item)
+            message=SimpleNamespace(components=[_component_factory(c) for c in old.to_components()],flags=discord.MessageFlags(components_v2=v2),edit=AsyncMock())
+            self.assertTrue(await remove_lock_controls(message))
+            payload=str(message.edit.call_args.kwargs['view'].to_components())
+            self.assertNotIn('t_lock',payload);self.assertNotIn('t_unlock',payload);self.assertIn('t_claim',payload)
+            if v2:self.assertIn('Original welcome',payload);self.assertIn('Keep this text',payload)
+
+    async def test_ticket_action_logs_keep_mentions_visible_without_notifications(self):
+        from cogs.commands.ticket import log_ticket_action
+        user=SimpleNamespace(mention='<@99>')
+        with patch('cogs.commands.ticket.get_or_create_log_channel',AsyncMock(return_value=self.channel)):
+            await log_ticket_action(self.db,self.guild,user,'Created','<@&12> <@99> @everyone')
+        self.assertEqual(self.channel.send.call_args.kwargs['allowed_mentions'].to_dict()['parse'],[])
+
+    async def test_second_rating_button_click_confirms_existing_feedback_without_modal(self):
+        import discord
+        self.db.execute("UPDATE open_tickets SET closed_at='2026-10-08T13:00:00' WHERE channel_id=123")
+        self.db.execute('INSERT INTO ticket_ratings VALUES(123,42,99,5,?,0)',('Original feedback',))
+        inter=SimpleNamespace(type=discord.InteractionType.component,guild_id=42,user=SimpleNamespace(id=99),data={'custom_id':'ticket_rating_123'},response=SimpleNamespace(is_done=lambda:False,send_message=AsyncMock(),send_modal=AsyncMock()))
+        await self.cog.on_interaction(inter)
+        inter.response.send_modal.assert_not_awaited()
+        self.assertIn('Already rated',str(inter.response.send_message.call_args.kwargs['view'].to_components()))
+        self.assertEqual(self.db.fetchone('SELECT comment FROM ticket_ratings WHERE channel_id=123')[0],'Original feedback')
 
     async def test_priority_exemption_blocks_automatic_close(self):
         from cogs.commands.ticket_workflow import tick

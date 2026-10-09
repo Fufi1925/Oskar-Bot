@@ -1,7 +1,9 @@
 # Ticket AI workspace
 
 The guild ticket page now has **Ticket panels** and **Ticket AI** tabs. The latter
-is visible only for servers admitted by the rollout list with Premium access.
+is available to every server with Premium access. The old admin rollout list
+no longer restricts access. Existing Premium expiry and frozen-settings rules
+still apply; the server must enable the assistant and its ticket categories.
 A direct link can use `/dashboard/guild/<id>/tickets#ticket-ai`.
 
 - **Chat:** Remember knowledge stores the administrator's exact statement as a

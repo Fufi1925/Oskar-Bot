@@ -39,7 +39,8 @@ function AccountAvatar({ request }: { request: PurchaseRequest }) {
 }
 
 export function PremiumRequestsAdmin() {
-  useWebsiteLocale();
+  const locale = useWebsiteLocale();
+  const t = (de: string, en: string) => locale === "en-GB" ? en : de;
   const [data, setData] = useState<any>(null);
   const [busy, setBusy] = useState<number | null>(null);
 
@@ -58,12 +59,9 @@ export function PremiumRequestsAdmin() {
   const decide = async (id: number, approve: boolean) => {
     setBusy(id);
     try {
-      await api.decidePremiumRequest(id, approve);
-      toast.success(
-        approve
-          ? "Premium vergeben. Der Nutzer erhält den Hinweis im Dashboard."
-          : "Anfrage abgelehnt.",
-      );
+      const result = await api.decidePremiumRequest(id, approve);
+      if (approve && result.dm_sent === false) toast.warning(t("Premium aktiviert. Die DM konnte nicht zugestellt werden.", "Premium activated. The DM could not be delivered."));
+      else toast.success(approve ? t("Premium aktiviert und Bestätigung per DM gesendet.", "Premium activated and confirmation sent by DM.") : t("Anfrage abgelehnt.", "Request denied."));
       await load();
     } catch (error: any) {
       toast.error(error?.message || "Entscheidung fehlgeschlagen.");
