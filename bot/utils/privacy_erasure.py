@@ -161,6 +161,9 @@ def subject_export(user_id: str) -> dict[str, Any]:
     """Maschinenlesbare Kopie der direkt zum Konto gespeicherten Daten."""
     uid = str(user_id)
     datasets = {
+        "stripe_customers": _export_rows("db/premium_membership.db", "stripe_customers", "user_id=?", (uid,)),
+        "stripe_subscriptions": _export_rows("db/premium_membership.db", "stripe_subscriptions", "user_id=?", (uid,)),
+        "stripe_payments": _export_rows("db/premium_membership.db", "stripe_payments", "user_id=?", (uid,)),
         "ticket_ai_coaching": _export_rows(
             "db/ticket.db", "ticket_ai_coaching", "user_id=?", (uid,)
         ),
@@ -225,6 +228,7 @@ def subject_export(user_id: str) -> dict[str, Any]:
         datasets["account_sessions"] = []
 
     descriptions = [
+        {"key": "stripe_billing", "label": "Stripe-Kundenzuordnung, Abos und Zahlungsstatus", "count": len(datasets["stripe_customers"]) + len(datasets["stripe_subscriptions"]) + len(datasets["stripe_payments"]), "purpose": "Zahlungsabwicklung und Premium-Freischaltung"},
         {"key": "ticket_ai_coaching", "label": "Persönlicher Ticket-KI-Chat", "count": len(datasets["ticket_ai_coaching"]), "purpose": "Serverwissen hinterlegen und Ticket-Antworten testen"},
         {"key": "dashboard_login", "label": "Dashboard-Profil und Anmeldezeitpunkte", "count": len(datasets["dashboard_login"]), "purpose": "Anmeldung und Kontosicherheit"},
         {"key": "account_preferences", "label": "Persönliche Einstellungen", "count": len(datasets["account_preferences"]), "purpose": "Sprache, Darstellung und bevorzugte Startseite"},
@@ -248,6 +252,7 @@ def subject_export(user_id: str) -> dict[str, Any]:
         "inventory": descriptions,
         "data": datasets,
         "retained_exceptions": [
+            "Rechnungs- und Zahlungsnachweise bei Stripe, soweit eine gesetzliche Aufbewahrungspflicht besteht",
             "Erforderliche Moderations- und Sicherheitsnachweise",
             "Servereinstellungen anderer Verantwortlicher",
             "XP und Leveling-Daten, soweit der jeweilige Server verantwortlich ist",
@@ -345,6 +350,9 @@ def erase_subject(user_id: str, username: str = "") -> dict[str, int]:
     # retaining the Discord snowflake.
     anon_number = -(int(digest[:15], 16) or 1)
     result: dict[str, int] = {}
+
+    for table in ("stripe_intents", "stripe_customers", "stripe_subscriptions", "stripe_payments", "premium_slots", "premium_accounts"):
+        result[table] = _delete("db/premium_membership.db", table, "user_id=?", (uid,))
 
     result["dashboard_profile"] = _delete("db/admin_config.db", "dashboard_logins", "user_id = ?", (uid,))
     result["ticket_ai_coaching"] = _delete("db/ticket.db", "ticket_ai_coaching", "user_id=?", (uid,))

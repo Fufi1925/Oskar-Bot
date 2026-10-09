@@ -1215,6 +1215,17 @@ async function authorize(
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) return { ok: false, response: deny(401, "Not signed in.") };
 
+    if (rest[0] === "billing") {
+      const reads = ["catalog", "me", "checkout-status"];
+      const writes = ["checkout", "portal"];
+      const allowed = rest.length === 2 && (request.method === "GET" ? reads.includes(rest[1]) : request.method === "POST" && writes.includes(rest[1]));
+      if (request.method === "POST") {
+        const expectedOrigin = new URL(process.env.NEXTAUTH_URL || request.nextUrl.origin).origin;
+        if (request.headers.get("origin") !== expectedOrigin) return { ok: false, response: deny(403, "Invalid request origin.") };
+      }
+      return allowed ? { ok: true } : { ok: false, response: deny(404, "Unknown billing action.") };
+    }
+
     // `grant` gehoert dem Template-Bot, nicht dem Browser.
     //
     // Die Route traegt sich selbst mit dem Partner-Token ab; erreichbar

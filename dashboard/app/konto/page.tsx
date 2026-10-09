@@ -156,16 +156,16 @@ export default async function AccountPage() {
           <div className="p-5 sm:p-7">
             {premium?.premium ? <>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <PremiumFact label="Status" value="Premium aktiv" detail={`${premiumDaysLeft} Tage verbleibend`} icon={CheckCircle2} />
-                <PremiumFact label="Gekauft / vergeben" value={formatTimestamp(premium.granted_at)} detail={premium.source === "purchase_request" ? "Bestätigte Kaufanfrage" : "Durch einen Admin vergeben"} icon={CalendarDays} />
-                <PremiumFact label="Läuft ab" value={formatTimestamp(premium.expires_at)} detail={`${premium.duration_days || "–"}-Tage-Paket`} icon={Clock3} />
+                <PremiumFact label="Status" value="Premium aktiv" detail={premium.lifetime ? "Dauerhafter Zugang" : `${premiumDaysLeft} Tage verbleibend`} icon={CheckCircle2} />
+                <PremiumFact label="Gekauft / vergeben" value={formatTimestamp(premium.granted_at)} detail={premium.source?.startsWith("stripe:") ? "Mit Stripe bezahlt" : premium.source === "purchase_request" ? "Bestätigte Kaufanfrage" : "Durch einen Admin vergeben"} icon={CalendarDays} />
+                <PremiumFact label="Läuft ab" value={premium.lifetime ? "Lebenslang" : formatTimestamp(premium.expires_at)} detail={premium.lifetime ? "Kein Ablaufdatum" : premium.source?.startsWith("stripe:") ? "Bezahlter Zeitraum" : `${premium.duration_days || "–"}-Tage-Paket`} icon={Clock3} />
                 <PremiumFact label="Serverplätze" value={`${premiumSlots.length} von 3 belegt`} detail={`${3 - premiumSlots.length} Plätze verfügbar`} icon={Server} />
               </div>
-              <div className="mt-5">
+              {!premium.lifetime && <div className="mt-5">
                 <div className="mb-2 flex justify-between text-xs"><span className="font-bold text-slate-400">Verbleibende Laufzeit</span><span className="text-amber-300">{premiumDaysLeft} Tage</span></div>
                 <div className="h-2 overflow-hidden rounded-full bg-slate-800"><div className="h-full rounded-full bg-gradient-to-r from-amber-500 to-yellow-300" style={{ width: `${Math.max(2, Math.min(100, (premiumDaysLeft / Math.max(1, premium.duration_days || 1)) * 100))}%` }} /></div>
-              </div>
-            </> : <div className="flex flex-col gap-4 rounded-2xl border border-dashed border-slate-700 p-5 sm:flex-row sm:items-center"><Gem className="h-8 w-8 text-slate-600"/><div className="flex-1"><h3 className="font-black text-white">Noch kein aktives Premium</h3><p className="mt-1 text-sm text-slate-500">Sende eine Kaufanfrage für 30, 90 oder 365 Tage und erhalte drei feste Serverplätze.</p></div><Link href="/dashboard/premium" className="rounded-xl border border-amber-400/30 px-4 py-2.5 text-center text-sm font-bold text-amber-300">Pakete ansehen</Link></div>}
+              </div>}
+            </> : <div className="flex flex-col gap-4 rounded-2xl border border-dashed border-slate-700 p-5 sm:flex-row sm:items-center"><Gem className="h-8 w-8 text-slate-600"/><div className="flex-1"><h3 className="font-black text-white">Noch kein aktives Premium</h3><p className="mt-1 text-sm text-slate-500">Wähle Monat für 2,99 €, Jahr für 12,99 € oder Lifetime für 29,99 €. Bezahle sicher über Stripe und erhalte drei feste Serverplätze.</p></div><Link href="/dashboard/premium" className="rounded-xl border border-amber-400/30 px-4 py-2.5 text-center text-sm font-bold text-amber-300">Pakete ansehen</Link></div>}
 
             <div className="mt-6 grid gap-3 md:grid-cols-3">
               {[1, 2, 3].map(slotNo => {

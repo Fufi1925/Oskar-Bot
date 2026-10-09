@@ -44,3 +44,32 @@ async def notify_approved(bot, account):
     except Exception as exc:
         logger.warning('Premium approval DM could not be delivered: %s',type(exc).__name__)
         return False
+
+
+def payment_view(account, language='en'):
+    def t(en, de): return de if language == 'de' else en
+    term = t('Lifetime', 'Lebenslang') if account.get('lifetime') else f"<t:{int(account['expires_at'])}:F>"
+    base = dashboard_url()
+    buttons = [discord.ui.Button(label=t('Manage Premium', 'Premium verwalten'),
+                                url=f'{base}/dashboard/premium', emoji=NEXT_ALT1)] if base else []
+    return Panel(t(f'{PREMIUM} Payment confirmed', f'{PREMIUM} Zahlung bestätigt'),
+                 t(f'{TICK} Your payment was successful. Premium is active on your account.',
+                   f'{TICK} Deine Zahlung war erfolgreich. Premium ist für dein Konto aktiv.'),
+                 t(f'{UPTIME} **Access**\n> {term}\n\n{STAR} **Server slots**\n> {account["max_slots"]}',
+                   f'{UPTIME} **Zugang**\n> {term}\n\n{STAR} **Serverplätze**\n> {account["max_slots"]}'),
+                 t('> Assign your server slots in the dashboard. Manage subscriptions and invoices there too.',
+                   '> Weise deine Serverplätze im Dashboard zu. Dort verwaltest du auch Abos und Rechnungen.'),
+                 tone='success', buttons=buttons)
+
+
+async def notify_payment(bot, account):
+    try:
+        uid = int(account['user_id'])
+        async with asyncio.timeout(15):
+            user = bot.get_user(uid) or await bot.fetch_user(uid)
+            await user.send(view=payment_view(account, dm_preferences.language(uid)),
+                            allowed_mentions=discord.AllowedMentions.none())
+        return True
+    except Exception as exc:
+        logger.warning('Premium payment DM could not be delivered: %s', type(exc).__name__)
+        return False

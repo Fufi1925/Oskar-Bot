@@ -480,7 +480,7 @@ const FAQ = [
   {
     frage: "Wie bekomme ich Premium?",
     antwort:
-      "Im Dashboard kannst du eine Kaufanfrage für 30, 90 oder 365 Tage senden. Nach der manuellen Bestätigung stehen deinem Discord-Konto drei feste Serverplätze zur Verfügung. Eine bereits laufende Premiumzeit kann nicht durch eine weitere Kaufanfrage überlagert werden.",
+      "Wähle Monat für 2,99 €, Jahr für 12,99 € oder Lifetime für 29,99 €. Bezahle sicher über Stripe und erhalte drei feste Serverplätze.",
   },
   {
     frage: "Welche Befehlsarten unterstützt der Bot?",
@@ -871,8 +871,8 @@ export function LegacyHomepage() {
             <div>
               <span className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[.14em] text-amber-300"><Crown className="h-3.5 w-3.5" />Premium · drei feste Serverplätze</span>
               <h2 className="mt-5 max-w-2xl text-3xl font-black tracking-tight text-white sm:text-5xl">Premium genau auf deinen wichtigsten Servern.</h2>
-              <p className="mt-4 max-w-2xl text-[15px] leading-7 text-slate-400">Sende eine Kaufanfrage für 30, 90 oder 365 Tage. Nach der Bestätigung verteilst du drei feste Serverplätze – mit Server-Design, erweiterten Backups, Server-Stats, User Pull und weiteren Premiumbereichen.</p>
-              <div className="mt-7 flex flex-wrap gap-3"><Link href="/dashboard/premium" className="inline-flex items-center gap-2 rounded-xl bg-amber-400 px-5 py-3 text-sm font-black text-black hover:bg-amber-300"><Sparkles className="h-4 w-4" />Kaufanfrage starten</Link><Link href="/premium" className="inline-flex items-center gap-2 rounded-xl border border-amber-400/25 px-5 py-3 text-sm font-semibold text-amber-200 hover:bg-amber-400/10">Alles über Premium<ArrowRight className="h-4 w-4" /></Link></div>
+              <p className="mt-4 max-w-2xl text-[15px] leading-7 text-slate-400">Wähle Monat für 2,99 €, Jahr für 12,99 € oder Lifetime für 29,99 €. Bezahle sicher über Stripe und erhalte drei feste Serverplätze.</p>
+              <div className="mt-7 flex flex-wrap gap-3"><Link href="/dashboard/premium" className="inline-flex items-center gap-2 rounded-xl bg-amber-400 px-5 py-3 text-sm font-black text-black hover:bg-amber-300"><Sparkles className="h-4 w-4" />Premium kaufen</Link><Link href="/premium" className="inline-flex items-center gap-2 rounded-xl border border-amber-400/25 px-5 py-3 text-sm font-semibold text-amber-200 hover:bg-amber-400/10">Alles über Premium<ArrowRight className="h-4 w-4" /></Link></div>
               <dl className="mt-8 flex max-w-xl flex-wrap gap-x-10 gap-y-5 border-t border-slate-800 pt-6"><div><dd className="text-xl font-black text-white">3</dd><dt className="text-[11px] text-slate-500">feste Plätze</dt></div><div><dd className="text-xl font-black text-white">365</dd><dt className="text-[11px] text-slate-500">Tage maximal</dt></div><div><dd className="text-xl font-black text-white">Keine</dd><dt className="text-[11px] text-slate-500">Löschung bei Ablauf</dt></div></dl>
             </div>
             <div className="grid grid-cols-2 gap-2 sm:gap-3">{[[Palette,"Eigenes Bot-Aussehen","Name, Avatar und Banner"],[Database,"Erweiterte Backups","10 Plätze und Automatik"],[BarChart4,"Server-Stats","Live gepflegte Statistikkanäle"],[Zap,"User Pull","Vollständig Premium und owner-only"],[KeyRound,"Custom Commands","Bis zu 20 eigene Befehle"],[Server,"Sicherer Ablauf","Einfrieren oder deaktivieren"]].map(([Icon,title,text])=>{const PremiumIcon=Icon as React.ElementType;return <div key={String(title)} className="rounded-2xl border border-white/10 bg-white/[.035] p-3 shadow-[inset_0_1px_rgba(255,255,255,.06)] backdrop-blur-xl transition hover:bg-white/[.06] sm:p-4"><PremiumIcon className="h-5 w-5 text-amber-400"/><p className="mt-3 text-sm font-black text-white">{title as string}</p><p className="mt-1 text-xs text-slate-500">{text as string}</p></div>})}</div>

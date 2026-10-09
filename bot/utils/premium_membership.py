@@ -304,6 +304,10 @@ def set_expiry_action(guild_id: int, action: str) -> None:
         raise ValueError("Ungültige Ablaufaktion.")
     ensure()
     with _connect() as db:
+        account = db.execute("SELECT a.source FROM premium_slots s JOIN premium_accounts a ON a.user_id=s.user_id WHERE s.guild_id=?", (int(guild_id),)).fetchone()
+        direct_active = db.execute("SELECT 1 FROM premium_server_grants WHERE guild_id=? AND revoked=0 AND expires_at>?", (int(guild_id), int(time.time()))).fetchone()
+        if action == "keep" and not direct_active and account and account["source"].startswith("stripe:"):
+            raise ValueError("Stripe-Premium endet mit dem bezahlten Zeitraum. Einstellungen bleiben gespeichert.")
         db.execute("UPDATE premium_slots SET expiry_action=? WHERE guild_id=?", (action, int(guild_id)))
         db.execute("UPDATE premium_server_grants SET expiry_action=? WHERE guild_id=?", (action, int(guild_id)))
 
@@ -311,7 +315,7 @@ def set_expiry_action(guild_id: int, action: str) -> None:
 def guild_status(guild_id: int) -> dict[str, Any]:
     ensure(); now = int(time.time())
     with _connect() as db:
-        row = db.execute("""SELECT s.*,a.expires_at,a.duration_days,a.revoked,a.user_id account_user_id
+        row = db.execute("""SELECT s.*,a.expires_at,a.duration_days,a.revoked,a.source,a.lifetime,a.user_id account_user_id
           FROM premium_slots s JOIN premium_accounts a ON a.user_id=s.user_id
           WHERE s.guild_id=?""", (int(guild_id),)).fetchone()
         direct = db.execute("SELECT * FROM premium_server_grants WHERE guild_id=?", (int(guild_id),)).fetchone()
@@ -324,29 +328,31 @@ def guild_status(guild_id: int) -> dict[str, Any]:
                 "frozen": frozen, "expires_at": int(direct["expires_at"]),
                 "duration_days": int(direct["duration_days"]), "assigned_at": int(direct["granted_at"]),
                 "expiry_action": direct["expiry_action"], "slot_no": None,
-                "account_user_id": direct["owner_user_id"]}
+                "account_user_id": direct["owner_user_id"], "billing_managed": False,
+                "lifetime": int(direct["expires_at"]) == LIFETIME_EXPIRES_AT}
     if not row:
         return {"guild_id": str(guild_id), "assigned": False, "active": False, "runtime": False, "configurable": False}
     active = slot_active
-    frozen = not active and row["expiry_action"] == "keep"
+    frozen = not active and not row["revoked"] and not row["source"].startswith("stripe:") and row["expiry_action"] == "keep"
     return {"guild_id": str(guild_id), "assigned": True, "active": active,
             "runtime": active or frozen, "configurable": active,
             "frozen": frozen, "expires_at": int(row["expires_at"]),
             "duration_days": int(row["duration_days"]),
             "assigned_at": int(row["assigned_at"]),
             "expiry_action": row["expiry_action"], "slot_no": row["slot_no"],
-            "account_user_id": row["account_user_id"]}
+            "account_user_id": row["account_user_id"], "billing_managed": row["source"].startswith("stripe:"),
+            "lifetime": bool(row["lifetime"])}
 
 
 def runtime_guilds() -> tuple[set[int], dict[int, int | None]]:
     ensure(); now = int(time.time()); guilds=set(); expiry={}
     with _connect() as db:
-        rows=db.execute("""SELECT s.guild_id,s.expiry_action,a.expires_at,a.revoked
+        rows=db.execute("""SELECT s.guild_id,s.expiry_action,a.expires_at,a.revoked,a.source
           FROM premium_slots s JOIN premium_accounts a ON a.user_id=s.user_id""").fetchall()
-        direct_rows=db.execute("SELECT guild_id,expiry_action,expires_at,revoked FROM premium_server_grants").fetchall()
+        direct_rows=db.execute("SELECT guild_id,expiry_action,expires_at,revoked,'admin' AS source FROM premium_server_grants").fetchall()
     for row in [*rows, *direct_rows]:
         active=not row["revoked"] and int(row["expires_at"]) > now
-        if not row["revoked"] and (active or row["expiry_action"] == "keep"):
+        if not row["revoked"] and (active or (row["expiry_action"] == "keep" and not row["source"].startswith("stripe:"))):
             gid=int(row["guild_id"]); guilds.add(gid)
             if gid not in expiry or active:
                 expiry[gid]=None if not active else int(row["expires_at"])

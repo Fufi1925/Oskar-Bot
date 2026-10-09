@@ -113,6 +113,15 @@ async def decide_erasure(data: dict, bot: "universitybot" = Depends(get_bot)):
     action = str(data.get("action") or "")
     if action == "approve":
         before = store.get_request(request_id)
+        if before and before.get("status") == "pending":
+            from utils import stripe_billing
+            import stripe
+            try:
+                await stripe_billing.cancel_for_erasure(before["user_id"])
+            except stripe_billing.BillingError as exc:
+                raise HTTPException(exc.status, "Billing cancellation must be completed before erasure.") from None
+            except stripe.StripeError:
+                raise HTTPException(503, "Billing cancellation is temporarily unavailable. Retry the erasure.") from None
         item = store.approve(request_id, actor)
         if not item:
             raise HTTPException(status_code=409, detail="Der Antrag ist nicht mehr offen.")

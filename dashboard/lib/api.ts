@@ -622,6 +622,10 @@ export const api = {
    * that is actually signed in.
    */
   getMyPremium: (userId: string) => request<any>(`/premium/me/${userId}`),
+  getPremiumBilling: () => request<any>("/premium/billing/me"),
+  createPremiumCheckout: (plan: string, locale: "de" | "en") => request<{ url: string }>("/premium/billing/checkout", { method: "POST", body: JSON.stringify({ plan, locale }) }),
+  openPremiumPortal: () => request<{ url: string }>("/premium/billing/portal", { method: "POST", body: "{}" }),
+  getPremiumCheckoutStatus: (sessionId: string) => request<any>(`/premium/billing/checkout-status?session_id=${encodeURIComponent(sessionId)}`),
   requestPremiumPurchase: (durationDays: number) => request<any>("/premium/purchase-request", { method: "POST", body: JSON.stringify({ duration_days: durationDays }) }),
   assignPremiumSlot: (guildId: string) => request<any>("/premium/slots/assign", { method: "POST", body: JSON.stringify({ guild_id: guildId }) }),
   getServerPremium: (guildId: string) => request<any>(`/premium/server/${guildId}`),
