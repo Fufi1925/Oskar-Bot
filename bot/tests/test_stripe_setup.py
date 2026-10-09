@@ -1,4 +1,4 @@
-"""Provisioning uses supported SDK resource shapes and is repeatable in test mode."""
+"""Provisioning validates mode, account readiness and repeatable SDK operations."""
 import contextlib
 import importlib.util
 import io
@@ -28,24 +28,27 @@ class Page:
 
 
 class SetupTests(unittest.IsolatedAsyncioTestCase):
-    async def test_existing_catalog_and_configuration_are_reused(self):
+    async def check_reuse(self, *, live=False):
         prices = {'price_' + plan: {'id': 'price_' + plan, 'active': True, 'unit_amount': entry['amount'],
-                   'currency': 'eur', 'livemode': False, 'tax_behavior': 'inclusive',
+                   'currency': 'eur', 'livemode': live, 'tax_behavior': 'inclusive',
                    'recurring': {'interval': entry['interval'], 'interval_count': 1} if entry['interval'] else None}
                   for plan, entry in billing.PLANS.items()}
         async def list_prices(params):
             plan = params['lookup_keys'][0].removeprefix('university_premium_').removesuffix('_v1')
             return NS(data=[resource(prices['price_' + plan])])
         api = NS(v1=NS(
+            accounts=NS(retrieve_current_async=AsyncMock(return_value=resource({'charges_enabled': True}))),
             products=NS(retrieve_async=AsyncMock(side_effect=lambda key: resource({'id': key})), create_async=AsyncMock()),
             prices=NS(list_async=AsyncMock(side_effect=list_prices), retrieve_async=AsyncMock(side_effect=lambda key: resource(prices[key])), create_async=AsyncMock()),
             billing_portal=NS(configurations=NS(list_async=AsyncMock(return_value=Page([{'id': 'bpc_existing', 'active': True, 'metadata': {'application': 'university_bot'}}])),
                               update_async=AsyncMock(return_value=resource({'id': 'bpc_existing'})), create_async=AsyncMock())),
             webhook_endpoints=NS(list_async=AsyncMock(return_value=Page([{'id': 'we_existing', 'url': 'https://bot.example/api/stripe/webhook', 'api_version': billing.API_VERSION}])),
                                  update_async=AsyncMock(return_value=resource({'id': 'we_existing'})), create_async=AsyncMock())))
-        with patch.object(billing, 'client', return_value=api), patch.dict(os.environ, {'STRIPE_MODE': 'test'}), contextlib.redirect_stdout(io.StringIO()) as output:
-            await setup.setup('https://bot.example')
-            await setup.setup('https://bot.example')
+        with patch.object(billing, 'client', return_value=api), patch.dict(os.environ, {
+                'STRIPE_MODE': 'live' if live else 'test', 'STRIPE_SECRET_KEY': 'UNIT_TEST_ONLY',
+                'STRIPE_WEBHOOK_SECRET': 'whsec_UNIT_TEST_ONLY'}), contextlib.redirect_stdout(io.StringIO()) as output:
+            settings = await setup.setup('https://bot.example', live=live)
+            await setup.setup('https://bot.example', live=live)
         api.v1.products.create_async.assert_not_awaited()
         api.v1.prices.create_async.assert_not_awaited()
         api.v1.billing_portal.configurations.create_async.assert_not_awaited()
@@ -57,11 +60,32 @@ class SetupTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn('invoice.paid', events); self.assertIn('charge.dispute.created', events)
         self.assertNotIn('sk_test_', output.getvalue()); self.assertNotIn('whsec_', output.getvalue())
         self.assertIn('STRIPE_PRICE_LIFETIME=price_lifetime', output.getvalue())
+        self.assertEqual(settings['STRIPE_WEBHOOK_SECRET'], 'whsec_UNIT_TEST_ONLY')
+        self.assertEqual(settings['STRIPE_MODE'], 'live' if live else 'test')
+
+    async def test_existing_test_catalog_and_configuration_are_reused(self):
+        await self.check_reuse()
+
+    async def test_explicit_live_setup_reuses_live_catalog(self):
+        await self.check_reuse(live=True)
 
     async def test_provisioning_refuses_live_mode(self):
         with patch.dict(os.environ, {'STRIPE_MODE': 'live'}), patch.object(billing, 'client') as client:
             with self.assertRaises(billing.BillingError): await setup.setup('https://bot.example')
         client.assert_not_called()
+
+    async def test_live_setup_refuses_test_mode(self):
+        with patch.dict(os.environ, {'STRIPE_MODE': 'test'}), patch.object(billing, 'client') as client:
+            with self.assertRaises(billing.BillingError): await setup.setup('https://bot.example', live=True)
+        client.assert_not_called()
+
+    async def test_live_setup_refuses_unactivated_account_before_creating_objects(self):
+        api = NS(v1=NS(accounts=NS(retrieve_current_async=AsyncMock(return_value=resource({'charges_enabled': False}))),
+                       products=NS(create_async=AsyncMock())))
+        with patch.dict(os.environ, {'STRIPE_MODE': 'live'}), patch.object(billing, 'client', return_value=api):
+            with self.assertRaisesRegex(billing.BillingError, 'Activate payments'):
+                await setup.setup('https://bot.example', live=True)
+        api.v1.products.create_async.assert_not_awaited()
 
 
 if __name__ == '__main__': unittest.main()

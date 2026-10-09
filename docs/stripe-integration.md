@@ -30,8 +30,8 @@ Keep keys in the platform's secret storage or private runtime variables, never i
 
 Required runtime variables:
 
-- `STRIPE_MODE=test` (default; live keys are refused unless explicitly set to `live`).
-- `STRIPE_SECRET_KEY`: private test credential from secure environment settings.
+- `STRIPE_MODE=live` for the authorized production launch. The application defaults to `test` when absent; live keys are refused in test mode.
+- `STRIPE_SECRET_KEY`: private live credential from secure environment settings for production; use a separate test credential for test setup.
 - `STRIPE_WEBHOOK_SECRET`: signing secret for the exact webhook endpoint and mode.
 - `STRIPE_PRICE_MONTHLY`, `STRIPE_PRICE_YEARLY`, `STRIPE_PRICE_LIFETIME`: IDs for the matching active EUR prices. Runtime validates amounts, intervals, mode and inclusive tax behavior.
 - `STRIPE_PORTAL_CONFIGURATION`: customer portal configuration ID.
@@ -48,7 +48,23 @@ When secure credentials and Stripe API network access are available:
 python tools/setup_stripe.py
 ```
 
-The command is test-only and repeatable. It creates/reuses Premium and Premium Lifetime products, the three prices, the restricted portal configuration, and a webhook endpoint. It prints public object IDs, never credentials. Copy those IDs to Railway variables. Obtain the endpoint's signing secret from Stripe Dashboard and save it privately as `STRIPE_WEBHOOK_SECRET`. Restart/redeploy the service after changing runtime settings.
+The command defaults to test mode and is repeatable. It creates/reuses Premium and Premium Lifetime products, the three prices, the restricted portal configuration, and a webhook endpoint. It prints public object IDs, never credentials. Copy those IDs to Railway variables. Obtain the endpoint's signing secret from Stripe Dashboard and save it privately as `STRIPE_WEBHOOK_SECRET`. Restart/redeploy the service after changing runtime settings.
+
+The user authorized real payments and selected this production target:
+
+- Project: `cc07f89d-2778-4349-829d-6818f5919b3e`
+- Service: `843cb7e8-0b8d-403d-8c21-c219a309fbc8`
+- Environment: `4a49133c-f668-4bad-b6d5-d991c55759bf`
+
+For direct setup and private transfer, supply `STRIPE_MODE=live`, the live `STRIPE_SECRET_KEY` and a Railway project/environment token as `RAILWAY_TOKEN` **securely in environment settings**, then run:
+
+```sh
+python tools/setup_stripe.py --live --railway-url 'https://railway.com/project/cc07f89d-2778-4349-829d-6818f5919b3e/service/843cb7e8-0b8d-403d-8c21-c219a309fbc8?environmentId=4a49133c-f668-4bad-b6d5-d991c55759bf'
+```
+
+The helper verifies the token's project/environment and selected service before creating Stripe objects. Live setup additionally checks that the Stripe account has payments activated (provisioning credentials need account-read access). It sends the eight Stripe settings directly to Railway's official HTTPS GraphQL endpoint in memory, without logging keys or storing secrets in files. It merges variables with `replace=false` and requests deployment; it does not upload the Railway token or alter other services. Newly created webhook secrets are transferred automatically. An existing endpoint's secret is not retrievable through the Stripe API: supply its matching `STRIPE_WEBHOOK_SECRET` securely before rerunning. Provider error bodies are never logged.
+
+Required network destinations: `api.stripe.com`, `backboard.railway.com`; interactive Stripe authentication additionally uses `dashboard.stripe.com`, `mcp.stripe.com`, `access.stripe.com`. Saved environment drafts must be applied/published before relying on new network or credential bindings. A saved draft or deployment request is not evidence of successful live operation; verify Railway deployment, webhook signature handling and an authenticated checkout before announcing availability.
 
 Webhook URL: `https://universtiy-bot.up.railway.app/api/stripe/webhook`
 API and SDK: Stripe Python 16.x, `2026-09-30.endive`.
