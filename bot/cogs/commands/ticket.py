@@ -535,10 +535,11 @@ class TicketCog(commands.Cog, name="Ticket System"):
             memories = [dict(row) for row in self.db.fetchall(
                 "SELECT title,content FROM ticket_ai_memories WHERE guild_id=? ORDER BY updated_at DESC,id DESC", (message.guild.id,)
             )]
-            excerpts = ticket_ai.answer_context(message.content, config["content"], memories)
+            recent = await ticket_ai.recent_ticket_questions(message)
+            excerpts = ticket_ai.conversation_excerpts(message.content, config["content"], memories, recent)
             async with message.channel.typing():
                 answer = await ticket_ai.grounded_answer(
-                    message.content, excerpts, config["instructions"] or ""
+                    ticket_ai.conversation_question(message.content,recent), excerpts, config["instructions"] or ""
                 )
 
             # Claim can happen while the Groq request is running. Re-read immediately

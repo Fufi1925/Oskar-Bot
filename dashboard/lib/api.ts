@@ -1707,8 +1707,8 @@ export const api = {
   getTicketAiScan: (guildId: string) =>
     request<any>(`/tickets/${guildId}/ai/scan`),
   getTicketAiChat: (guildId: string) => request<any>(`/tickets/${guildId}/ai/chat`),
-  sendTicketAiChat: (guildId: string, message: string, mode: "teach" | "ask", language: string) =>
-    request<any>(`/tickets/${guildId}/ai/chat`, { method: "POST", body: JSON.stringify({ message, mode, language }) }),
+  sendTicketAiChat: (guildId: string, message: string, mode: "teach" | "ask", language: string, resolution?: { action: "keep" | "replace"; versions: Record<string,string> }) =>
+    request<any>(`/tickets/${guildId}/ai/chat`, { method: "POST", body: JSON.stringify({ message, mode, language, resolution }) }),
   clearTicketAiChat: (guildId: string) => request<any>(`/tickets/${guildId}/ai/chat`, { method: "DELETE" }),
   saveTicketAiMemory: (guildId: string, data: { id?: number; title: string; content: string }) =>
     request<any>(`/tickets/${guildId}/ai/memories`, { method: "PUT", body: JSON.stringify(data) }),

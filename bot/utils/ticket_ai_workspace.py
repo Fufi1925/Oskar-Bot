@@ -1,12 +1,37 @@
 """Guild knowledge and personal dashboard coaching, stored in the ticket DB."""
 from __future__ import annotations
 import time
+import hashlib
+import re
 from contextlib import asynccontextmanager
 import aiosqlite
 from utils import ticket_ai
+from utils.ticket_ai_matching import same_topic
 
 DB = 'db/ticket.db'
 CHAT_RETENTION = 30 * 86400
+
+class KnowledgeConflict(Exception):
+    def __init__(self, conflicts):
+        self.conflicts = conflicts
+
+def version(text):
+    return hashlib.sha256(text.encode('utf-8')).hexdigest()
+
+async def conflicts_for(db, guild_id, message):
+    conflicts = []
+    async with db.execute('SELECT id,title,content FROM ticket_ai_memories WHERE guild_id=? ORDER BY updated_at DESC,id DESC',(guild_id,)) as cur:
+        for row in await cur.fetchall():
+            if same_topic(message,row['content']):
+                conflicts.append({'reference':f"memory:{row['id']}",'version':version(row['title']+'\n'+row['content']),'title':row['title'],'content':row['content'],'source':'memory'})
+    async with db.execute('SELECT filename,content FROM ticket_ai_knowledge WHERE guild_id=?',(guild_id,)) as cur:
+        doc = await cur.fetchone()
+    if doc:
+        for match in re.finditer(r'[^\n]+',doc['content']):
+            line = match.group().strip()
+            if len(line) <= 4000 and not line.startswith(('#','{','}','[',']')) and same_topic(message,line):
+                conflicts.append({'reference':f'document:{match.start()}:{match.end()}','version':version(doc['content']),'title':doc['filename'],'content':line,'source':'document'})
+    return conflicts
 
 
 @asynccontextmanager
@@ -94,10 +119,32 @@ async def clear_history(guild_id, user_id):
         await db.commit()
 
 
-async def record_exchange(guild_id, user_id, message, answer, teach=False):
+async def record_exchange(guild_id, user_id, message, answer, teach=False, resolution=None):
     async with connection() as db:
         await db.execute('BEGIN IMMEDIATE')
-        memory_id = await write_memory(db,guild_id,message,'','chat') if teach else None
+        memory_id = None
+        if teach:
+            conflicts = await conflicts_for(db,guild_id,message)
+            if conflicts:
+                current = {item['reference']:item['version'] for item in conflicts}
+                accepted = resolution.get('versions') if isinstance(resolution,dict) else None
+                if not isinstance(resolution,dict) or resolution.get('action') not in ('keep','replace') or accepted != current:
+                    raise KnowledgeConflict(conflicts)
+                if resolution['action'] == 'replace':
+                    for conflict in conflicts:
+                        if conflict['source'] == 'memory':
+                            await db.execute('DELETE FROM ticket_ai_memories WHERE guild_id=? AND id=?',(guild_id,int(conflict['reference'].split(':')[1])))
+                    spans = sorted((tuple(map(int,c['reference'].split(':')[1:])) for c in conflicts if c['source']=='document'),reverse=True)
+                    if spans:
+                        async with db.execute('SELECT content FROM ticket_ai_knowledge WHERE guild_id=?',(guild_id,)) as cur:doc = (await cur.fetchone())[0]
+                        for index,(start,end) in enumerate(spans):doc = doc[:start]+(message if index==len(spans)-1 else '')+doc[end:]
+                        if len(doc.encode('utf-8')) > ticket_ai.MAX_KNOWLEDGE_BYTES:raise ValueError('knowledge_too_large')
+                        await db.execute('UPDATE ticket_ai_knowledge SET content=?,updated_at=? WHERE guild_id=?',(doc,int(time.time()),guild_id))
+                    memory_id = await write_memory(db,guild_id,message,'','chat')
+            elif resolution:
+                raise ValueError('knowledge_changed')
+            else:
+                memory_id = await write_memory(db,guild_id,message,'','chat')
         now = int(time.time())
         await db.executemany('INSERT INTO ticket_ai_coaching(guild_id,user_id,role,content,created_at) VALUES(?,?,?,?,?)', [(guild_id,user_id,'user',message,now),(guild_id,user_id,'assistant',answer,now)])
         await db.execute('DELETE FROM ticket_ai_coaching WHERE guild_id=? AND user_id=? AND id NOT IN (SELECT id FROM ticket_ai_coaching WHERE guild_id=? AND user_id=? ORDER BY id DESC LIMIT 60)', (guild_id,user_id,guild_id,user_id))

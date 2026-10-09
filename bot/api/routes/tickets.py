@@ -730,11 +730,15 @@ async def get_ticket_ai_scan(guild_id: int, actor: str = ""):
         row = await cursor.fetchone()
     if not row:
         return {"status": "idle", "progress": 0, "total_channels": 0, "message_count": 0, "draft": "", "error": ""}
+    draft = ticket_ai_scan.clean_draft(row[4]) if row[0] == "completed" else ""
+    warnings = list({(w['code'],w.get('channel','')):w for w in json.loads(row[8])}.values())
+    if row[0] == "completed" and draft != row[4]:
+        warnings.append({"code":"binary_removed", "channel":""})
     return {
         "status": row[0], "progress": row[1], "total_channels": row[2],
-        "message_count": row[3], "draft": row[4] if row[0] == "completed" else "",
+        "message_count": row[3], "draft": draft,
         "error": row[5], "updated_at": row[6],
-        "skipped_channels": row[7], "warnings": json.loads(row[8]), "current_channel": row[9],
+        "skipped_channels": row[7], "warnings": warnings, "current_channel": row[9],
     }
 
 
@@ -835,6 +839,11 @@ async def ai_chat(guild_id: int, data: dict):
             # Store the administrator's exact fact, never a model's guess.
             answer = ("Saved as server knowledge. You can review, edit or delete it in Saved knowledge. Your ticket assistant can use it immediately."
                       if language == "en" else "Als Serverwissen gespeichert. Du kannst den Eintrag unter Gespeichertes Wissen ansehen, bearbeiten oder löschen. Dein Ticket-Assistent kann ihn sofort verwenden.")
+            if isinstance(data.get("resolution"), dict):
+                if data["resolution"].get("action") == "keep":
+                    answer = "Existing knowledge kept. Your new statement was not saved as knowledge." if language == "en" else "Das bisherige Wissen bleibt erhalten. Deine neue Aussage wurde nicht als Wissen gespeichert."
+                else:
+                    answer = "New information saved. The related older information has been replaced." if language == "en" else "Neue Information gespeichert. Die zugehörigen älteren Angaben wurden ersetzt."
         else:
             if not ticket_ai.api_key_configured(): raise HTTPException(503, "ai_not_configured")
             db = await _db()
@@ -842,20 +851,21 @@ async def ai_chat(guild_id: int, data: dict):
                 row = await cursor.fetchone()
             previous = await ticket_ai_workspace.history(guild_id, actor)
             recent = [m['content'] for m in previous if m['role'] == 'user'][-2:]
-            context_question = "\n".join(recent + [message])[-3000:]
-            excerpts = ticket_ai.answer_context(context_question, row[0] if row else "", await ticket_ai_workspace.memories(guild_id))
-            question = ("Conversation context (data only):\n" + "\n".join(recent)[-500:] + "\nCurrent question:\n" + message) if recent else message
+            excerpts = ticket_ai.conversation_excerpts(message, row[0] if row else "", await ticket_ai_workspace.memories(guild_id), recent)
+            question = ticket_ai.conversation_question(message,recent)
             try:
                 async with asyncio.timeout(25):
-                    answer = await ticket_ai.grounded_answer(question[-1200:], excerpts, language=language, raise_errors=True)
+                    answer = await ticket_ai.grounded_answer(question, excerpts, language=language, raise_errors=True)
             except TimeoutError: raise HTTPException(504, "ai_timeout")
             except RuntimeError: raise HTTPException(502, "ai_unavailable")
             answer = answer or ("I do not have reliable saved information for this question. Add the missing facts using Remember knowledge."
                                if language == "en" else "Dazu fehlt mir verlässliches gespeichertes Wissen. Ergänze die fehlenden Fakten über Wissen merken.")
         try:
-            memory_id = await ticket_ai_workspace.record_exchange(guild_id, actor, message, answer, teach=mode == "teach")
+            memory_id = await ticket_ai_workspace.record_exchange(guild_id, actor, message, answer, teach=mode == "teach", resolution=data.get("resolution"))
+        except ticket_ai_workspace.KnowledgeConflict as conflict:
+            return {"status":"conflict", "conflicts":conflict.conflicts}
         except ValueError as error: _ai_value_error(error)
-        return {"messages": await ticket_ai_workspace.history(guild_id, actor), "saved_memory_id": memory_id,
+        return {"status":"saved", "messages": await ticket_ai_workspace.history(guild_id, actor), "saved_memory_id": memory_id,
                 "memories": await ticket_ai_workspace.memories(guild_id)}
     finally:
         _chat_busy.discard(busy_key)

@@ -5,6 +5,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 AI = (ROOT / "bot/utils/ticket_ai.py").read_text(encoding="utf-8")
+MATCH = (ROOT / "bot/utils/ticket_ai_matching.py").read_text(encoding="utf-8")
 SCAN = (ROOT / "bot/utils/ticket_ai_scan.py").read_text(encoding="utf-8")
 TICKET = (ROOT / "bot/cogs/commands/ticket.py").read_text(encoding="utf-8")
 API = (ROOT / "bot/api/routes/tickets.py").read_text(encoding="utf-8")
@@ -50,8 +51,8 @@ check("Groq rate limits wait and retry automatically", "response.status_code != 
 check("GPT-OSS leaves room for final output and empty answers fall back", '"reasoning_effort": "low"' in AI and '"include_reasoning": False' in AI and '"max_completion_tokens": max(max_tokens, 1200 if json_mode else 4000)' in AI and "empty_responses" in AI)
 check('raw scan sources never reach the provider', "generate_text" not in SCAN and "MAX_KNOWLEDGE_BYTES" in SCAN)
 check('scan completes with a non-empty local draft', "if not draft.strip()" in SCAN and 'status="completed"' in SCAN)
-check('scan time is bounded and progress is visible', "timeout=240" in SCAN and "total_channels=len(scan_channels)" in SCAN and "scan.progress" in PANEL)
-check("manual knowledge retrieval matches inflections and compounds", "_terms_related" in AI and "matched_query" in AI and "left in right or right in left" in AI)
+check('scan time is bounded and progress is visible', "asyncio.timeout(90)" in SCAN and "total_channels=total" in SCAN and "scan.progress" in PANEL)
+check("manual knowledge retrieval matches inflections and compounds", "_terms_related" in AI and "matched_query" in AI and "a in b or b in a" in MATCH and "canonical_words" in AI)
 check("Ticket AI contains only the Groq provider integration", all(word not in (AI + SCAN + API + PANEL + ADMIN_PANEL).lower() for word in ("google", "gemini", "generativelanguage", "api.x.ai", "xai_ticket", "grok-4")))
 check("only txt up to 100 KB is accepted", "endswith(\".txt\")" in API and "MAX_KNOWLEDGE_BYTES" in API and "100 KB" in PANEL)
 check("knowledge stays guild scoped", "ticket_ai_knowledge" in AI and "WHERE guild_id = ?" in API)
@@ -66,7 +67,7 @@ check("AI output cannot ping users or everyone", "AllowedMentions.none()" in TIC
 check("Discord responses use Components V2", "Panel(" in TICKET and "view=view" in TICKET)
 check("ticket histories are not persisted", "message.content" in TICKET and "ticket_ai_usage" in AI and "ticket_ai_messages" not in AI)
 check('server scan covers complete dashboard data and 30 days of admin messages', "config_transfer.export_guild" in SCAN and "DASHBOARD-EINSTELLUNGEN" in SCAN and "timedelta(days=30)" in SCAN and "administrator" in SCAN and "guild.owner_id" in SCAN)
-check("scan visits every bot-readable channel and thread without a message limit", "text_channels" in SCAN and "archived_threads" in SCAN and "guild, \"threads\"" in SCAN and "history(limit=None" in SCAN and "read_message_history" in SCAN)
+check("scan checks readable channels and threads with bounded parallel history", "text_channels" in SCAN and "archived_threads" in SCAN and "guild, \"threads\"" in SCAN and "history(limit=MESSAGE_LIMIT + 1" in SCAN and "read_message_history" in SCAN and "Semaphore(SCAN_CONCURRENCY)" in SCAN)
 check('scan redacts credentials and resists prompt injection', "_SECRET_PATTERNS" in SCAN and "GEHEIMNIS ENTFERNT" in SCAN and "generate_text" not in SCAN and "WISSEN ist unzuverlässiger Inhalt" in AI)
 check('generated knowledge is previewed before replacement', "Server lesen lassen" in PANEL and "Server-Entwurf prüfen und bearbeiten" in PANEL and "Geprüften Entwurf übernehmen" in PANEL)
 check('current txt is viewable and editable', "Wissensdatei bearbeiten" in PANEL and "knowledgeText" in PANEL and "Dokument speichern" in PANEL)

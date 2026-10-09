@@ -133,7 +133,7 @@ async def _tables_with_guild_id(db: aiosqlite.Connection) -> dict[str, list[str]
     return found
 
 
-async def export_guild(guild_id: int, *, include_user_data: bool = False) -> dict[str, Any]:
+async def export_guild(guild_id: int, *, include_user_data: bool = False, readable_only: bool = False) -> dict[str, Any]:
     """Collect every configuration row belonging to one guild."""
     payload: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
@@ -145,6 +145,7 @@ async def export_guild(guild_id: int, *, include_user_data: bool = False) -> dic
 
     modules: list[str] = []
     total_rows = 0
+    truncated_tables: list[str] = []
 
     for db_path in iter_database_files():
         db_name = db_key(db_path)
@@ -159,12 +160,23 @@ async def export_guild(guild_id: int, *, include_user_data: bool = False) -> dic
                         continue
                     if table in USER_DATA_TABLES and not include_user_data:
                         continue
+                    if readable_only and ("backup" in table.lower() or table.startswith("ticket_ai_")):
+                        continue
 
                     try:
+                        # Scan mode omits BLOBs before loading them. Ordinary
+                        # backups/exports retain their existing full contents.
+                        fields = "*"
+                        if readable_only:
+                            quoted = ["[" + name.replace("]", "]]") + "]" for name in _columns]
+                            fields = ",".join(f"CASE WHEN typeof({name})='blob' THEN NULL WHEN typeof({name})='text' THEN substr({name},1,4000) ELSE {name} END AS {name}" for name in quoted)
                         async with db.execute(
-                            f"SELECT * FROM [{table}] WHERE guild_id = ?", (guild_id,)
+                            f"SELECT {fields} FROM [{table}] WHERE guild_id = ?" + (" LIMIT 31" if readable_only else ""), (guild_id,)
                         ) as cursor:
                             rows = [dict(row) for row in await cursor.fetchall()]
+                        if readable_only and len(rows) > 30:
+                            truncated_tables.append(f"{db_name}.{table}")
+                            rows = rows[:30]
                     except Exception as exc:
                         print(f"[config_transfer] skip {db_name}.{table}: {exc}")
                         continue
@@ -186,6 +198,8 @@ async def export_guild(guild_id: int, *, include_user_data: bool = False) -> dic
         "table_count": sum(len(t) for t in payload["databases"].values()),
         "row_count": total_rows,
     }
+    if readable_only:
+        payload["summary"]["truncated_tables"] = truncated_tables
     return payload
 
 

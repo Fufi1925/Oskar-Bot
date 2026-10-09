@@ -37,10 +37,42 @@ class WorkspaceTests(unittest.IsolatedAsyncioTestCase):
     async def post(self,message,mode='teach',gid=42,actor='100'):
         return await self.client.post(f'/tickets/{gid}/ai/chat',json={'message':message,'mode':mode,'actor':actor,'language':'en'})
     async def test_exact_facts_deduplicate_and_chats_are_personal(self):
-        for _ in range(2):self.assertEqual((await self.post('Premium costs 5 euros here.')).status_code,200)
+        await self.post('Premium costs 5 euros here.')
+        repeated=(await self.post('Premium costs 5 euros here.')).json()
+        self.assertEqual(repeated['status'],'conflict')
+        self.assertEqual(len(await store.history(42,'100')),2)
+        await self.resolve('Premium costs 5 euros here.',repeated,'keep')
         facts=await store.memories(42);self.assertEqual(len(facts),1);self.assertEqual(facts[0]['content'],'Premium costs 5 euros here.')
         self.assertEqual(len(await store.history(42,'100')),4);self.assertEqual(await store.history(42,'200'),[]);self.assertEqual(await store.memories(43),[])
         await store.clear_history(42,'100');self.assertEqual(await store.history(42,'100'),[]);self.assertEqual(len(await store.memories(42)),1)
+
+    async def resolve(self,message,pending,action):
+        return await self.client.post('/tickets/42/ai/chat',json={'actor':'100','message':message,'mode':'teach','language':'en','resolution':{'action':action,'versions':{item['reference']:item['version'] for item in pending['conflicts']}}})
+
+    async def test_paraphrases_require_decision_and_replace_all_related_sources(self):
+        await self.post('Premium kostet nix.')
+        pending=(await self.post('Premium ist gratis.')).json()
+        self.assertEqual(pending['status'],'conflict');self.assertEqual((await store.memories(42))[0]['content'],'Premium kostet nix.')
+        await self.resolve('Premium ist gratis.',pending,'keep')
+        self.assertEqual((await store.memories(42))[0]['content'],'Premium kostet nix.')
+        await store.save_memory(42,'Premium bekommt eine blaue Rolle.')
+        upload=await self.client.put('/tickets/42/ai/knowledge',json={'filename':'info.txt','content':'Premium ist kostenlos.\nTickets helfen dir bei Fragen.'})
+        self.assertEqual(upload.status_code,200)
+        pending=(await self.post('Premium costs 5 euros.')).json()
+        self.assertEqual({c['source'] for c in pending['conflicts']},{'memory','document'})
+        result=await self.resolve('Premium costs 5 euros.',pending,'replace')
+        self.assertEqual(result.json()['status'],'saved')
+        self.assertEqual({m['content'] for m in await store.memories(42)},{'Premium costs 5 euros.','Premium bekommt eine blaue Rolle.'})
+        doc=(await tickets.get_ticket_ai(42))['knowledge']['content']
+        self.assertNotIn('kostenlos',doc);self.assertIn('5 euros',doc);self.assertIn('Tickets helfen',doc)
+
+    async def test_stale_decisions_never_overwrite_newer_knowledge(self):
+        await self.post('Premium costs 5 euros.')
+        pending=(await self.post('Premium is free.')).json();fact=(await store.memories(42))[0]
+        await store.save_memory(42,'Premium costs 6 euros.',memory_id=fact['id'])
+        stale=await self.resolve('Premium is free.',pending,'replace')
+        self.assertEqual(stale.json()['status'],'conflict');self.assertIn('6 euros',stale.json()['conflicts'][0]['content'])
+        self.assertEqual((await store.memories(42))[0]['content'],'Premium costs 6 euros.')
     async def test_edit_delete_and_enable_memory_only_with_panel_categories(self):
         await self.post('Premium costs 5 euros here.');fact=(await store.memories(42))[0]
         self.assertEqual((await self.client.put('/tickets/43/ai/memories',json={'id':fact['id'],'content':'intruder'})).status_code,404)
@@ -138,5 +170,79 @@ class WorkspaceTests(unittest.IsolatedAsyncioTestCase):
         payload=json.dumps(exported)
         self.assertIn('ticket_ai_memories',payload)
         self.assertNotIn('ticket_ai_coaching',payload);self.assertNotIn('ticket_transcripts',payload);self.assertNotIn('private conversation',payload)
+
+    async def test_large_binary_backups_cannot_starve_scan_and_workers_are_parallel(self):
+        from api import config_transfer
+        async with store.connection() as db:
+            await db.execute('CREATE TABLE backups(guild_id INTEGER,daten BLOB)')
+            await db.execute('INSERT INTO backups VALUES(42,?)',(b'\xc0\xb2'*500000,))
+            await db.execute('CREATE TABLE support_config(guild_id INTEGER,image BLOB,description TEXT)')
+            await db.execute('INSERT INTO support_config VALUES(42,?,?)',(b'\xc0\xb2'*500000,'Read the support rules'))
+            await db.commit()
+        active=peak=0
+        def channel(index):
+            async def history(**kwargs):
+                nonlocal active,peak
+                self.assertEqual(kwargs['limit'],301);self.assertFalse(kwargs['oldest_first'])
+                active+=1;peak=max(peak,active)
+                try:
+                    await asyncio.sleep(.02)
+                    yield NS(author=NS(id=7,bot=False,guild_permissions=NS(administrator=True)),content='Premium costs 5 euros.',created_at=datetime.now(timezone.utc))
+                finally:active-=1
+            return NS(id=index,name=f'rules-{index}',topic=None,history=history,permissions_for=lambda _:NS(view_channel=True,read_message_history=True))
+        channels=[channel(i+100) for i in range(37)]
+        guild=NS(id=42,name='Server',owner_id=7,roles=[],channels=channels,text_channels=channels,threads=[],forums=[],me=object())
+        with patch.object(config_transfer,'iter_database_files',return_value=[self.path]):
+            full=await config_transfer.export_guild(42)
+            self.assertTrue(any(t.get('backups') for t in full['databases'].values()))
+            await tickets.start_ticket_ai_scan(42,bot=NS(get_guild=lambda _:guild,intents=NS(message_content=True)))
+            await tickets._scan_tasks[42]
+        result=await tickets.get_ticket_ai_scan(42)
+        self.assertEqual(result['progress'],37);self.assertEqual(result['total_channels'],37);self.assertEqual(result['message_count'],37)
+        self.assertGreater(peak,1);self.assertLessEqual(peak,4)
+        self.assertIn('5 euros',result['draft']);self.assertIn('Read the support rules',result['draft'])
+        self.assertNotIn('\\x',result['draft']);self.assertLess(len(result['draft'].encode()),100000)
+        self.assertFalse(any(w['code']=='source_limit' for w in result['warnings']))
+        async with store.connection() as db:
+            await db.execute('UPDATE ticket_ai_scan_jobs SET draft=? WHERE guild_id=42',("data: "+str(b'\xc0\xb2'*1000)+"\nPremium costs 5 euros.",));await db.commit()
+        old=await tickets.get_ticket_ai_scan(42);self.assertNotIn('\\x',old['draft']);self.assertIn('5 euros',old['draft']);self.assertIn('binary_removed',{w['code'] for w in old['warnings']})
+
+    async def test_cancel_scan_stops_parallel_readers_without_completed_draft(self):
+        started=asyncio.Event();stopped=asyncio.Event();active=0
+        async def history(**kwargs):
+            nonlocal active
+            active+=1;started.set()
+            try:
+                await asyncio.Event().wait()
+                yield None
+            finally:
+                active-=1
+                if not active:stopped.set()
+        channels=[NS(id=i+100,name=f'channel-{i}',topic='',history=history,permissions_for=lambda _:NS(view_channel=True,read_message_history=True)) for i in range(8)]
+        guild=NS(name='Cancel test',owner_id=100,me=object(),channels=channels,text_channels=channels,threads=[],forums=[],roles=[])
+        with patch.object(scan.config_transfer,'export_guild',AsyncMock(return_value={'databases':{}})):
+            await tickets.start_ticket_ai_scan(42,bot=NS(get_guild=lambda _:guild,intents=NS(message_content=True)))
+            await asyncio.wait_for(started.wait(),2)
+            await tickets.cancel_ticket_ai_scan(42)
+            await asyncio.wait_for(stopped.wait(),2)
+        self.assertEqual(active,0)
+        result=await tickets.get_ticket_ai_scan(42)
+        self.assertEqual(result['status'],'cancelled');self.assertEqual(result['draft'],'')
+        self.assertNotIn(42,tickets._scan_tasks)
+
+    async def test_followups_use_only_creator_context_and_match_typoes(self):
+        creator=NS(id=100,bot=False)
+        async def history(**kwargs):
+            yield NS(id=3,author=creator,content='Und wo bekomme ich es?')
+            yield NS(id=2,author=NS(id=200,bot=False),content='Other member private data')
+            yield NS(id=1,author=creator,content='Wie viel kostet Premium?')
+        current=NS(id=3,author=creator,content='Und wo bekomme ich es?',channel=NS(history=history))
+        previous=await ai.recent_ticket_questions(current)
+        self.assertEqual(previous,['Wie viel kostet Premium?'])
+        self.assertTrue(ai.answer_context('Was kostet Prenium?', '', [{'title':'Premium','content':'Premium ist gratis.'}]))
+        self.assertIn('Premium',ai.conversation_question(current.content,previous))
+        facts=[{'title':'Jail','content':'Jail costs 10 euros.'},{'title':'Premium','content':'Premium costs 5 euros.'}]
+        self.assertIn('Premium',ai.conversation_excerpts('Und wie viel kostet es?', '', facts, previous)[0])
+        self.assertIn('Jail',ai.conversation_excerpts('What does Jail cost?', '', facts, previous)[0])
 
 if __name__=='__main__':unittest.main()
