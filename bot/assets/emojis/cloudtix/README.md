@@ -4,7 +4,8 @@ Die ursprünglichen Bot-Symbole verwenden jetzt das [graue Set](bot-gray/README.
 silbergraue Symbole auf grauen, abgerundeten Kacheln, gelbe Warnungen und rote
 Fehler. Es wird zuletzt geladen und
 liefert die zentralen Bot-Konstanten sowie die semantischen `EMOJIS`-Schlüssel.
-Die 84 bunten Utility-Kacheln bleiben im Dashboard und über `utility_*` verfügbar.
+Im Dashboard stehen die 148 grauen Symbole neben den 84 bunten Utility-Kacheln.
+Die bunten Varianten bleiben über `utility_*` verfügbar.
 
 Das neueste Bot-Set enthält [84 kräftig farbige Utility-Emojis mit abgerundeten
 Kacheln](discord-utility/README.md), darunter eine grüne Bestätigung und ein
@@ -16,7 +17,7 @@ Zusätzlich gibt es [75 farbige Twemoji-Symbole für Bot-Nachrichten](discord-co
 Diese werden ebenfalls automatisch hochgeladen und stehen als `EMOJIS["color_gift"]`
 bzw. `CT_COLOR_GIFT` im Bot bereit. Die Standardkonstanten wie `TICK`, `ERROR`,
 `WARNING` und `TICKET` verwenden das graue Set mit Hinweisfarben.
-Die Dashboard-Auswahl enthält die 84 neuen Utility-Kacheln.
+Die Dashboard-Auswahl enthält 148 graue Symbole und 84 bunte Utility-Kacheln.
 
 110 weiße Lucide-Symbole, 128 × 128 Pixel, transparent. Alle Dateien sind deutlich
 unter Discords 256-KB-Grenze; `loading.gif` hat 16 Frames und läuft in einer Schleife.

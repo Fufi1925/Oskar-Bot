@@ -7,7 +7,7 @@ Symbole. Transparent,
 Lucide-Glyphen; die Lizenz steht in [LICENSE.lucide.txt](LICENSE.lucide.txt).
 
 Für Bot-Nachrichten in Discord, automatisch beim Start als Application Emojis
-hochgeladen. Die Dashboard-Auswahl verwendet dieses farbige Set.
+hochgeladen. Die Dashboard-Auswahl bietet dieses farbige Set und die grauen Kacheln.
 Die Kacheln werden über `utility_*` ausdrücklich gewählt. Die ursprünglichen
 Bot-Konstanten verwenden das separate graue Set mit Hinweisfarben.
 

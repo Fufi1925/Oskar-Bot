@@ -8,7 +8,7 @@
  * gerade steht -- nicht am Ende. Wer mitten im Satz eines braucht,
  * müsste es sonst von Hand dorthin schieben.
  *
- * Der Bot liefert den Katalog der farbigen Utility-Emojis mit echten
+ * Der Bot liefert die grauen Symbole und farbigen Utility-Emojis mit echten
  * Discord-Codes. Vorschauen ohne Discord-ID werden angezeigt,
  * können aber erst nach dem Upload eingefügt werden.
  */

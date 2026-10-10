@@ -496,7 +496,7 @@ async def guild_emojis(guild_id: int, bot: "universitybot" = Depends(get_bot)):
 
 @router.get("/emojis", summary="Die eigenen Emojis des Bots")
 async def emojis(bot: "universitybot" = Depends(get_bot)):
-    """Utility previews and real application IDs, without retired bot emojis.
+    """Colorful/gray previews and real IDs, without retired bot emojis.
 
     Pending assets remain visible until Discord assigns an insertable ID.
     """
@@ -511,6 +511,8 @@ async def emojis(bot: "universitybot" = Depends(get_bot)):
         "Community": "Community",
         "Music": "Musik",
         "UI": "Oberfläche",
+        "Badges": "Abzeichen",
+        "Status": "Status",
     }
     pattern = _re.compile(r"^<(a?):([A-Za-z0-9_]+):(\d+)>$")
     items: list[dict] = []
@@ -520,13 +522,14 @@ async def emojis(bot: "universitybot" = Depends(get_bot)):
     for entry in pack:
         raw = entry["discord_code"]
         match = pattern.fullmatch(raw) if raw else None
+        style = "Grau" if entry.get("provider") == "CloudTIX Gray" else "Farbe"
         items.append({
             "key": f"CT_{entry['key'].upper()}",
             "name": entry["name"],
             "id": match.group(3) if match else None,
             "animated": bool(match.group(1)) if match else entry["animated"],
             "raw": raw,
-            "group": f"CloudTIX · {category_labels.get(entry['category'], entry['category'])}",
+            "group": f"CloudTIX {style} · {category_labels.get(entry['category'], entry['category'])}",
             "url": f"/emojis/cloudtix/{entry['file']}",
             "source": "cloudtix",
         })

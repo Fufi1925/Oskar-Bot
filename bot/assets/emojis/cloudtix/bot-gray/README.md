@@ -8,8 +8,8 @@ Lucide 0.468.0; vollständige Lizenz in [LICENSE.lucide.txt](LICENSE.lucide.txt)
 
 Das Set wird beim Bot-Start automatisch als Application Emojis hochgeladen
 und zuletzt auf die zentralen Bot-Konstanten angewendet. Auch Badge-Mappings,
-Kompatibilitätsnamen und Kategorien verwenden diese Werte. Die 84 bunten
-Utility-Kacheln im Dashboard bleiben erhalten. Alte IDs werden nicht gelöscht.
+Kompatibilitätsnamen und Kategorien verwenden diese Werte. Im Dashboard stehen
+diese grauen Symbole neben den 84 bunten Utility-Kacheln. Alte IDs werden nicht gelöscht.
 
 ```python
 from utils.emoji import TICKET, WARNING, ERROR, EMOJIS
@@ -17,7 +17,7 @@ await ctx.send(f"{TICKET} Dein Ticket")
 await ctx.send(f"{WARNING} Bitte beachten")
 # Direkter Zugriff auf das graue Bot-Symbol:
 await ctx.send(EMOJIS["gray_ticket"])
-# Das farbige Dashboard-Symbol bleibt separat nutzbar:
+# Das farbige Utility-Symbol bleibt separat nutzbar:
 await ctx.send(EMOJIS["utility_ticket"])
 ```
 

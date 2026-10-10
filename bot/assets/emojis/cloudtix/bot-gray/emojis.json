@@ -18,7 +18,7 @@
       "constants": [
         "SHIELD"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -39,7 +39,7 @@
       "constants": [
         "ANTI_NUKE"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "yellow",
       "background": "gray",
@@ -60,7 +60,7 @@
       "constants": [
         "AUTOMOD"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -82,7 +82,7 @@
         "JAIL",
         "LOCK"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -103,7 +103,7 @@
       "constants": [
         "TICKET"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -126,7 +126,7 @@
         "ZSAFE",
         "CERTIFIED_MODERATOR"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -147,7 +147,7 @@
       "constants": [
         "APPLICATIONS"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -168,7 +168,7 @@
       "constants": [
         "LEVEL_UP"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -189,7 +189,7 @@
       "constants": [
         "RANK"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -213,7 +213,7 @@
         "TADAA",
         "CELEBRATE"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -234,7 +234,7 @@
       "constants": [
         "WELCOME"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -255,7 +255,7 @@
       "constants": [
         "ZPLAY"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -278,7 +278,7 @@
         "ZMUSICPAUSE",
         "ZPAUSE"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -301,7 +301,7 @@
         "ICONS_MUSIC",
         "MUSIC_ALT1"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -323,7 +323,7 @@
         "VOLUME",
         "ZUNMUTE"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -350,7 +350,7 @@
         "CHECKMARK",
         "OK"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -383,7 +383,7 @@
         "NOT_OK",
         "CROSS_MARK"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "red",
       "background": "gray",
@@ -406,7 +406,7 @@
         "ARROWRED",
         "ARROW_RIGHT"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -427,7 +427,7 @@
       "constants": [
         "INFO"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -454,7 +454,7 @@
         "_37496ALERT",
         "WARNING_UNICODE"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "yellow",
       "background": "gray",
@@ -477,7 +477,7 @@
         "LOADING_ALT1",
         "LOADINGRED"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -499,7 +499,7 @@
         "ZBACK",
         "ARROW_LEFT"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -521,7 +521,7 @@
         "MUSICSTOP_ICONS",
         "STOP_BUTTON"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -545,7 +545,7 @@
         "SKIP",
         "FORWARD"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -566,7 +566,7 @@
       "constants": [
         "PREVIOUS"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -587,7 +587,7 @@
       "constants": [
         "ZSETTINGS"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -610,7 +610,7 @@
         "HUMAN",
         "ZHUMAN"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -631,7 +631,7 @@
       "constants": [
         "MESSAGE"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -653,7 +653,7 @@
         "REFRESH",
         "ICONLOAD"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -675,7 +675,7 @@
         "ZPLUS",
         "ICONS_PLUS"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -697,7 +697,7 @@
         "DELETE",
         "DELETE_ALT1"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -719,7 +719,7 @@
         "MUTE",
         "ZMUTE"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -740,7 +740,7 @@
       "constants": [
         "UNLOCK"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -765,7 +765,7 @@
         "SYSTEM",
         "STAR_UNICODE"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -786,7 +786,7 @@
       "constants": [
         "ZCLOUD"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -809,7 +809,7 @@
         "universitybotHAMMER",
         "SWORD"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -830,7 +830,7 @@
       "constants": [
         "KICK"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -852,7 +852,7 @@
         "TIMER",
         "TIMER_ALT1"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -873,7 +873,7 @@
       "constants": [
         "WARN"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "yellow",
       "background": "gray",
@@ -894,7 +894,7 @@
       "constants": [
         "AUDIT_LOG"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -915,7 +915,7 @@
       "constants": [
         "PERMISSIONS"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -936,7 +936,7 @@
       "constants": [
         "FIREWALL"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -957,7 +957,7 @@
       "constants": [
         "QUARANTINE"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -978,7 +978,7 @@
       "constants": [
         "SCAN"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -999,7 +999,7 @@
       "constants": [
         "FINGERPRINT"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -1020,7 +1020,7 @@
       "constants": [
         "PASSWORD"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -1041,7 +1041,7 @@
       "constants": [
         "INCOGNITO"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -1063,7 +1063,7 @@
         "LOCKDOWN",
         "LOCK_UNICODE"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "red",
       "background": "gray",
@@ -1084,7 +1084,7 @@
       "constants": [
         "PROTECTION"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -1105,7 +1105,7 @@
       "constants": [
         "REPORT"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "yellow",
       "background": "gray",
@@ -1126,7 +1126,7 @@
       "constants": [
         "TICKET_OPEN"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -1147,7 +1147,7 @@
       "constants": [
         "TICKET_CLOSE"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "red",
       "background": "gray",
@@ -1168,7 +1168,7 @@
       "constants": [
         "TICKET_CLAIM"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -1191,7 +1191,7 @@
         "PAPER",
         "REDRULESBOOK"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -1214,7 +1214,7 @@
         "HANDSHAKE",
         "MINGLE"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -1235,7 +1235,7 @@
       "constants": [
         "FAQ"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -1256,7 +1256,7 @@
       "constants": [
         "MAIL"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -1277,7 +1277,7 @@
       "constants": [
         "INBOX"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -1298,7 +1298,7 @@
       "constants": [
         "FORM"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -1319,7 +1319,7 @@
       "constants": [
         "ACCEPT"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -1340,7 +1340,7 @@
       "constants": [
         "REJECT"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "red",
       "background": "gray",
@@ -1361,7 +1361,7 @@
       "constants": [
         "FEEDBACK"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -1385,7 +1385,7 @@
         "BOOSTS",
         "NITRO_BOOST"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -1406,7 +1406,7 @@
       "constants": [
         "BIRTHDAY"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -1427,7 +1427,7 @@
       "constants": [
         "EVENT"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -1448,7 +1448,7 @@
       "constants": [
         "ANNOUNCEMENT"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -1469,7 +1469,7 @@
       "constants": [
         "INVITE"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -1490,7 +1490,7 @@
       "constants": [
         "LEAVE"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -1515,7 +1515,7 @@
         "U_ADMIN",
         "STAFF"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -1536,7 +1536,7 @@
       "constants": [
         "LEADERBOARD"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -1558,7 +1558,7 @@
         "XP",
         "SPARKLE"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -1579,7 +1579,7 @@
       "constants": [
         "POLL"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -1600,7 +1600,7 @@
       "constants": [
         "ZCOUNTING"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -1626,7 +1626,7 @@
         "EARLY_SUPPORTER",
         "HEARTS"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -1650,7 +1650,7 @@
         "MINECRAFT",
         "MAX__A"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -1673,7 +1673,7 @@
         "KING_ALT1",
         "BLACKCROWN"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -1695,7 +1695,7 @@
         "PREMIUM",
         "PARTNER_BADGE"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -1716,7 +1716,7 @@
       "constants": [
         "SHUFFLE"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -1737,7 +1737,7 @@
       "constants": [
         "REPEAT"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -1758,7 +1758,7 @@
       "constants": [
         "REPEAT_ONE"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -1779,7 +1779,7 @@
       "constants": [
         "QUEUE"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -1800,7 +1800,7 @@
       "constants": [
         "PLAYLIST"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -1822,7 +1822,7 @@
         "MUSIC_NOTE",
         "NOTE"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -1843,7 +1843,7 @@
       "constants": [
         "MICROPHONE"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -1864,7 +1864,7 @@
       "constants": [
         "MICROPHONE_OFF"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -1885,7 +1885,7 @@
       "constants": [
         "VOICE"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -1906,7 +1906,7 @@
       "constants": [
         "EQUALIZER"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -1927,7 +1927,7 @@
       "constants": [
         "SEEK_FORWARD"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -1949,7 +1949,7 @@
         "REWIND",
         "REWIND_ALT1"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -1970,7 +1970,7 @@
       "constants": [
         "HOME"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -1991,7 +1991,7 @@
       "constants": [
         "DASHBOARD"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -2013,7 +2013,7 @@
         "CHANNEL",
         "ICONS_CHANNEL"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -2036,7 +2036,7 @@
         "universitybot_CODE",
         "universitybot_COMMAND"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -2057,7 +2057,7 @@
       "constants": [
         "EDIT"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -2078,7 +2078,7 @@
       "constants": [
         "SAVE"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -2099,7 +2099,7 @@
       "constants": [
         "COPY"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -2120,7 +2120,7 @@
       "constants": [
         "DOWNLOAD"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -2141,7 +2141,7 @@
       "constants": [
         "UPLOAD"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -2163,7 +2163,7 @@
         "links",
         "universitybotLINKS"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -2184,7 +2184,7 @@
       "constants": [
         "EXTERNAL_LINK"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -2205,7 +2205,7 @@
       "constants": [
         "ARROW_UP"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -2226,7 +2226,7 @@
       "constants": [
         "ARROW_DOWN"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -2248,7 +2248,7 @@
         "MENU",
         "INDEX"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -2269,7 +2269,7 @@
       "constants": [
         "CLOSE_PANEL"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -2290,7 +2290,7 @@
       "constants": [
         "OPEN_PANEL"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -2311,7 +2311,7 @@
       "constants": [
         "NOTIFICATION"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -2333,7 +2333,7 @@
         "PIN",
         "RED_PIN"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -2355,7 +2355,7 @@
         "TIME",
         "CLOCK"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -2377,7 +2377,7 @@
         "ZBOT",
         "universitybotSYS"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -2399,7 +2399,7 @@
         "ZWRENCH",
         "TOOLS"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -2421,7 +2421,7 @@
         "BUG_HUNTER",
         "BUG_HUNTER_LVL2"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -2446,7 +2446,7 @@
         "Developer",
         "EARLY_VERIFIED_BOT_DEV"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -2470,7 +2470,7 @@
         "HYPESQUAD_BRAVERY",
         "HYPESQUAD_EVENTS"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -2492,7 +2492,7 @@
         "ICON_BROWSER",
         "universitybot_GLOBAL"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -2513,7 +2513,7 @@
       "constants": [
         "universitybot_OWNER"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -2535,7 +2535,7 @@
         "MENTION",
         "MENTION_ALT1"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -2556,7 +2556,7 @@
       "constants": [
         "NEW"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -2577,7 +2577,7 @@
       "constants": [
         "PC"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -2598,7 +2598,7 @@
       "constants": [
         "MOBILE"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -2621,7 +2621,7 @@
         "UPTIME",
         "universitybotCONNECTION"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -2642,7 +2642,7 @@
       "constants": [
         "ZAI"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -2663,7 +2663,7 @@
       "constants": [
         "ZMODULE"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -2684,7 +2684,7 @@
       "constants": [
         "SEED"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -2705,7 +2705,7 @@
       "constants": [
         "THUNDER"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -2729,7 +2729,7 @@
         "RED_BUTTON",
         "REDDOT"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -2750,7 +2750,7 @@
       "constants": [
         "ONLINE"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -2771,7 +2771,7 @@
       "constants": [
         "OFFLINE"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -2792,7 +2792,7 @@
       "constants": [
         "IDLE"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -2813,7 +2813,7 @@
       "constants": [
         "DND"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "red",
       "background": "gray",
@@ -2834,7 +2834,7 @@
       "constants": [
         "CAST"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -2861,7 +2861,7 @@
         "UPSIDE_DOWN",
         "TONGUE_OUT"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -2882,7 +2882,7 @@
       "constants": [
         "HAPPY_PANDA"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -2904,7 +2904,7 @@
         "HEERIYE",
         "SG_RD"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -2927,7 +2927,7 @@
         "GIFD",
         "GIFN"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -2948,7 +2948,7 @@
       "constants": [
         "RACECAR64"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -2969,7 +2969,7 @@
       "constants": [
         "BUBBLE_TEA"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -2990,7 +2990,7 @@
       "constants": [
         "CHERRIES"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -3011,7 +3011,7 @@
       "constants": [
         "COOKIE"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -3032,7 +3032,7 @@
       "constants": [
         "CURSOR"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -3053,7 +3053,7 @@
       "constants": [
         "DIZZY"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -3074,7 +3074,7 @@
       "constants": [
         "JAVA_COFFEE"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -3095,7 +3095,7 @@
       "constants": [
         "MONEY"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -3116,7 +3116,7 @@
       "constants": [
         "MOON"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -3137,7 +3137,7 @@
       "constants": [
         "PEACH"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -3158,7 +3158,7 @@
       "constants": [
         "ROCK"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -3179,7 +3179,7 @@
       "constants": [
         "SCISSORS"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -3200,7 +3200,7 @@
       "constants": [
         "SHOCKED"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",
@@ -3221,7 +3221,7 @@
       "constants": [
         "TARGET"
       ],
-      "dashboard_visible": false,
+      "dashboard_visible": true,
       "provider": "CloudTIX Gray",
       "color": "gray",
       "background": "gray",

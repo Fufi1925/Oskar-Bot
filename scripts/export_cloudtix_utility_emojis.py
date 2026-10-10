@@ -11,6 +11,7 @@ from xml.etree import ElementTree as ET
 
 from PIL import Image
 from playwright.sync_api import sync_playwright
+from publish_cloudtix_dashboard_emojis import publish
 
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT / "bot/assets/emojis/cloudtix"
@@ -205,11 +206,7 @@ def main():
     }
     manifest_text = json.dumps(manifest, indent=2, ensure_ascii=False) + "\n"
     (OUT / "emojis.json").write_text(manifest_text, encoding="utf-8")
-    public = ROOT / "dashboard/public/emojis/cloudtix"
-    (public / "discord-utility").mkdir(parents=True, exist_ok=True)
-    for entry in entries:
-        shutil.copyfile(ASSETS / entry["file"], public / entry["file"])
-    (public / "emojis.json").write_text(manifest_text, encoding="utf-8")
+    publish()
     readme = f'''# CloudTIX Utility Emojis
 
 {len(entries)} neue Utility-Emojis im Stil farbiger Discord-Badges: stark gerundete
@@ -219,7 +216,7 @@ Symbole. Transparent,
 Lucide-Glyphen; die Lizenz steht in [LICENSE.lucide.txt](LICENSE.lucide.txt).
 
 Für Bot-Nachrichten in Discord, automatisch beim Start als Application Emojis
-hochgeladen. Die Dashboard-Auswahl verwendet dieses farbige Set.
+hochgeladen. Die Dashboard-Auswahl bietet dieses farbige Set und die grauen Kacheln.
 Die Kacheln werden über `utility_*` ausdrücklich gewählt. Die ursprünglichen
 Bot-Konstanten verwenden das separate graue Set mit Hinweisfarben.
 

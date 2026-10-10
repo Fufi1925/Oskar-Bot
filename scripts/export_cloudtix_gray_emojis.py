@@ -18,6 +18,7 @@ from PIL import Image
 from playwright.sync_api import sync_playwright
 
 from export_cloudtix_emojis import SPECS as BASE_SPECS, VERSION, BASE
+from publish_cloudtix_dashboard_emojis import publish
 
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT / "bot/assets/emojis/cloudtix"
@@ -189,7 +190,7 @@ def main():
             entries.append({"key": key, "name": f"ct_{key}_{digest[:6]}", "category": category,
                             "file": f"bot-gray/{target.name}", "animated": label == "loading",
                             "width": 128, "height": 128, "bytes": len(data), "sha256": digest,
-                            "fallback": fallback, "constants": names.split(), "dashboard_visible": False,
+                            "fallback": fallback, "constants": names.split(), "dashboard_visible": True,
                             "provider": "CloudTIX Gray", "color": shade, "background": "gray",
                             "replaces": label if label in {item[0] for item in BASE_SPECS} else None,
                             "source_url": f"{BASE}/icons/{vector}.svg"})
@@ -197,6 +198,7 @@ def main():
     manifest = {"schema_version": 1, "brand": "CloudTIX", "provider": "CloudTIX Gray",
                 "license_file": "LICENSE.lucide.txt", "emojis": entries}
     (OUT / "emojis.json").write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    publish()
     readme = f'''# Graue CloudTIX Bot-Emojis
 
 {len(entries)} Symbole auf abgerundeten grauen Kacheln für die ursprünglichen
@@ -207,8 +209,8 @@ Lucide {VERSION}; vollständige Lizenz in [LICENSE.lucide.txt](LICENSE.lucide.tx
 
 Das Set wird beim Bot-Start automatisch als Application Emojis hochgeladen
 und zuletzt auf die zentralen Bot-Konstanten angewendet. Auch Badge-Mappings,
-Kompatibilitätsnamen und Kategorien verwenden diese Werte. Die 84 bunten
-Utility-Kacheln im Dashboard bleiben erhalten. Alte IDs werden nicht gelöscht.
+Kompatibilitätsnamen und Kategorien verwenden diese Werte. Im Dashboard stehen
+diese grauen Symbole neben den 84 bunten Utility-Kacheln. Alte IDs werden nicht gelöscht.
 
 ```python
 from utils.emoji import TICKET, WARNING, ERROR, EMOJIS
@@ -216,7 +218,7 @@ await ctx.send(f"{{TICKET}} Dein Ticket")
 await ctx.send(f"{{WARNING}} Bitte beachten")
 # Direkter Zugriff auf das graue Bot-Symbol:
 await ctx.send(EMOJIS["gray_ticket"])
-# Das farbige Dashboard-Symbol bleibt separat nutzbar:
+# Das farbige Utility-Symbol bleibt separat nutzbar:
 await ctx.send(EMOJIS["utility_ticket"])
 ```
 
