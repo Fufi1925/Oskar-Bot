@@ -1,10 +1,23 @@
 "use client";
 
-import { ModerationTabs } from "@/components/dashboard/moderation-design";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useState } from "react";
 import {
-  AlertTriangle, AtSign, ChevronDown, Hash, Link as LinkIcon, Loader2,
-  MessageSquare, RefreshCw, Search, Shield, Smile, Type, Zap,
+  Activity,
+  AlertTriangle,
+  AtSign,
+  ChevronDown,
+  Hash,
+  Link as LinkIcon,
+  Loader2,
+  MessageSquare,
+  Save,
+  Search,
+  Shield,
+  Smile,
+  SlidersHorizontal,
+  Type,
+  Users,
+  Zap,
 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
@@ -12,20 +25,27 @@ import { WebsiteSelect } from "@/components/ui/website-select";
 import { filterRules, ruleDefaults, validateRules } from "@/lib/security-rules";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 import { translateWebsiteText } from "@/lib/i18n/dom-translations";
-import { cn } from "@/lib/utils";
 import {
-  ChannelPicker, MultiChannelPicker, MultiRolePicker,
+  MultiChannelPicker,
+  MultiRolePicker,
 } from "@/components/dashboard/pickers";
 import { InlineToggle } from "@/components/dashboard/form-elements";
 import { LogUmgezogen } from "@/components/dashboard/log-umgezogen";
 import {
-  Loading, StickySaveBar, usePanel, useSaveGuard,
+  Loading,
+  StickySaveBar,
+  usePanel,
+  useSaveGuard,
 } from "@/components/dashboard/save-bar";
+import {
+  SecurityCard as Card,
+  SecurityField as Field,
+  SecurityMetrics,
+  SecurityTabs,
+  SecurityWarnings as Warnings,
+} from "@/components/dashboard/security-workspace";
 
-const INPUT =
-  "w-full cloudtix-workspace-field bg-[#18191c] border border-white/[.07] rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-primary/50 transition-colors";
-
-const ICONS: Record<string, any> = {
+const ICONS: Record<string, typeof Shield> = {
   spam: Zap,
   caps: Type,
   links: LinkIcon,
@@ -33,251 +53,172 @@ const ICONS: Record<string, any> = {
   mentions: AtSign,
   emoji: Smile,
 };
-
-/** What each punishment actually does, in the order they escalate. */
 const PUNISHMENTS: Record<string, { label: string; hint: string }> = {
-  delete: { label: "Nur löschen", hint: "Nachricht weg, sonst nichts." },
-  warn: { label: "Verwarnen", hint: "Wird notiert, keine Sperre." },
-  mute: { label: "Stummschalten", hint: "Timeout für die eingestellte Dauer." },
-  kick: { label: "Kicken", hint: "Fliegt raus, darf wiederkommen." },
-  ban: { label: "Bannen", hint: "Dauerhaft draußen." },
+  delete: {
+    label: "Nachricht löschen",
+    hint: "Löscht die Nachricht ohne weitere Sanktion.",
+  },
+  warn: {
+    label: "Verwarnen",
+    hint: "Vermerkt eine Verwarnung, ohne das Mitglied zu sperren.",
+  },
+  mute: {
+    label: "Timeout",
+    hint: "Schränkt das Mitglied für die eingestellte Dauer ein.",
+  },
+  kick: {
+    label: "Kicken",
+    hint: "Entfernt das Mitglied. Ein erneuter Beitritt ist möglich.",
+  },
+  ban: {
+    label: "Bannen",
+    hint: "Entfernt das Mitglied und verhindert einen erneuten Beitritt.",
+  },
 };
 
-function Field({ label, hint, children }: any) {
-  return (
-    <div className="space-y-2">
-      <span className="text-xs font-semibold uppercase tracking-widest text-slate-500">
-        {label}
-      </span>
-      {children}
-      {hint && <p className="text-xs text-slate-500 leading-relaxed">{hint}</p>}
-    </div>
-  );
-}
-
-function Card({ icon: Icon, title, subtitle, children, onReload, reloadDisabled }: any) {
-  return (
-    <div className="cloudtix-workspace-card bg-[#202124] border border-white/[.07] rounded-2xl p-4 sm:p-6 space-y-5">
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex gap-3 min-w-0">
-          <div className="h-10 w-10 rounded-2xl bg-primary/15 grid place-items-center shrink-0">
-            <Icon className="h-5 w-5 text-primary" />
-          </div>
-          <div className="min-w-0">
-            <p className="font-semibold text-white">{title}</p>
-            {subtitle && (
-              <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                {subtitle}
-              </p>
-            )}
-          </div>
-        </div>
-        {onReload && (
-          <button
-            onClick={onReload}
-            disabled={reloadDisabled}
-            title="Status aktualisieren"
-            className="p-2.5 rounded-xl bg-white/[0.03] border border-white/5 hover:bg-white/[0.06] shrink-0"
-          >
-            <RefreshCw className="h-4 w-4 text-primary" />
-          </button>
-        )}
-      </div>
-      {children}
-    </div>
-  );
-}
-
-function Warnings({ items }: { items?: string[] }) {
-  if (!items?.length) return null;
-  return (
-    <div className="rounded-xl bg-amber-500/[0.06] border border-amber-500/20 p-3.5 flex gap-2.5">
-      <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
-      <div className="text-xs text-amber-200/80 leading-relaxed">
-        <span className="font-bold">Das läuft so nicht rund:</span>
-        <br />
-        {items.map((w, i) => (
-          <span key={i}>
-            • {w}
-            <br />
-          </span>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-/**
- * One save bar for the whole tab, pinned to the bottom.
- *
- * Turns red and shakes when a navigation is refused -- a browser
- * confirm() cannot be styled and browsers often suppress it.
- */
-
-/** One rule: a switch, and the details folded away behind it. */
 function RuleCard({ rule, draft, onChange, master, busy }: any) {
   const [open, setOpen] = useState(false);
   const Icon = ICONS[rule.key] || Shield;
-
-  // The draft wins so a half-finished edit is never lost by a reload.
   const value = (field: string) =>
     draft?.[field] !== undefined ? draft[field] : rule[field];
-
   const enabled = !!value("enabled");
   const punishment = value("punishment") || "mute";
-
+  const active = enabled && master;
   return (
-    <div
-      className={cn(
-        "rounded-2xl border transition-colors",
-        enabled
-          ? "cloudtix-workspace-field bg-[#18191c] border-primary/30"
-          : "cloudtix-workspace-field bg-[#18191c]/60 border-white/[.07]"
-      )}
+    <article
+      className={`cloudtix-security-rule ${enabled ? "is-enabled" : ""}`}
     >
-      <div className="flex items-start gap-3 p-4">
-        <div
-          className={cn(
-            "h-9 w-9 rounded-xl grid place-items-center shrink-0",
-            enabled ? "bg-primary/15" : "bg-white/[0.03]"
-          )}
-        >
-          <Icon className={cn("h-4 w-4", enabled ? "text-primary" : "text-slate-500")} />
+      <header className="cloudtix-security-rule-heading">
+        <span className="cloudtix-security-rule-icon">
+          <Icon size={18} />
+        </span>
+        <div>
+          <h3>{rule.label}</h3>
+          <p>{rule.description}</p>
         </div>
-
-        <div className="min-w-0 flex-1">
-          <p className={cn("font-bold text-sm", enabled ? "text-white" : "text-slate-400")}>
-            {rule.label}
-          </p>
-          <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
-            {rule.description}
-          </p>
-          {enabled && (
-            <p className="text-xs text-slate-500 mt-1.5">
-              Ab <span className="text-slate-300 font-bold">{value("threshold")}</span>{" "}
-              {rule.threshold_label} →{" "}
-              <span className="text-slate-300 font-bold">
-                {PUNISHMENTS[punishment]?.label ?? punishment}
-              </span>
-              {punishment === "mute" && ` (${value("duration")} Min.)`}
-            </p>
-          )}
-        </div>
-
         <InlineToggle
           ariaLabel={rule.label}
-          checked={enabled}
-          onCheckedChange={(v: boolean) => onChange({ enabled: v })}
           label=""
+          checked={enabled}
           disabled={!master || busy}
+          onCheckedChange={(enabled: boolean) => onChange({ enabled })}
         />
+      </header>
+      <div className="cloudtix-security-rule-status">
+        <span className="cloudtix-settings-badge">
+          <i data-active={active} />
+          {active ? "Eingeschaltet" : enabled ? "Pausiert" : "Ausgeschaltet"}
+        </span>
+        {enabled && (
+          <span>
+            Ab {value("threshold") ?? rule.defaults.threshold}{" "}
+            {rule.threshold_label}
+          </span>
+        )}
+        {enabled && (
+          <span>
+            {PUNISHMENTS[punishment]?.label ?? punishment}
+            {punishment === "mute" && ` · ${value("duration")} Min.`}
+          </span>
+        )}
       </div>
-
-      {enabled && (
-        <>
-          <button
-            aria-expanded={open}
-            onClick={() => setOpen((o) => !o)}
-            className="w-full flex items-center justify-between px-4 py-2.5 border-t border-white/[.05]"
+      <button
+        type="button"
+        className="cloudtix-security-rule-edit"
+        aria-expanded={open}
+        aria-controls={`automod-rule-${rule.key}`}
+        onClick={() => setOpen(!open)}
+      >
+        <span>Grenzwerte & Aktion</span>
+        <ChevronDown size={15} className={open ? "rotate-180" : ""} />
+      </button>
+      <fieldset
+        id={`automod-rule-${rule.key}`}
+        hidden={!open}
+        disabled={busy}
+        className="cloudtix-security-rule-fields"
+      >
+        <Field
+          label="Aktion bei einem Verstoß"
+          hint={PUNISHMENTS[punishment]?.hint}
+        >
+          <WebsiteSelect
+            aria-label={`${rule.label}: Aktion`}
+            value={punishment}
+            onChange={(e) => onChange({ punishment: e.target.value })}
+            className="cloudtix-security-input"
           >
-            <span className="text-xs font-semibold uppercase tracking-widest text-slate-500">
-              Regel einstellen
-            </span>
-            <ChevronDown
-              className={cn(
-                "h-3.5 w-3.5 text-slate-500 transition-transform",
-                open && "rotate-180"
-              )}
+            {Object.entries(PUNISHMENTS).map(([id, spec]) => (
+              <option key={id} value={id}>
+                {spec.label}
+              </option>
+            ))}
+          </WebsiteSelect>
+        </Field>
+        <div className="cloudtix-security-number-fields">
+          <Field
+            label={`Grenzwert · ${rule.threshold_label}`}
+            hint={`${rule.threshold_min} bis ${rule.threshold_max}`}
+          >
+            <input
+              aria-label={`${rule.label}: Grenzwert`}
+              type="number"
+              min={rule.threshold_min}
+              max={rule.threshold_max}
+              step={1}
+              className="cloudtix-security-input"
+              value={value("threshold") ?? rule.defaults.threshold}
+              onChange={(e) => onChange({ threshold: Number(e.target.value) })}
             />
-          </button>
-
-          {open && (
-            <fieldset disabled={busy} className="px-4 pb-4 space-y-4 disabled:opacity-60">
-              <Field label="Strafe">
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {Object.entries(PUNISHMENTS).map(([id, spec]) => (
-                    <button
-                      key={id}
-                      onClick={() => onChange({ punishment: id })}
-                      title={spec.hint}
-                      className={cn(
-                        "rounded-xl border px-2 py-2.5 text-xs font-bold transition-all",
-                        punishment === id
-                          ? "bg-primary/10 border-primary/40 text-white"
-                          : "cloudtix-workspace-field bg-[#18191c] border-white/[.07] text-slate-400 hover:border-slate-700"
-                      )}
-                    >
-                      {spec.label}
-                    </button>
-                  ))}
-                </div>
-                <p className="text-xs text-slate-500">
-                  {PUNISHMENTS[punishment]?.hint}
-                </p>
-              </Field>
-
-              <div className="grid sm:grid-cols-2 gap-4">
-                <Field
-                  label={`Ab wie vielen ${rule.threshold_label}`}
-                  hint={`Erlaubt: ${rule.threshold_min}–${rule.threshold_max}.`}
-                >
-                  <input
-                    type="number"
-                    min={rule.threshold_min}
-                    max={rule.threshold_max}
-                    className={INPUT}
-                    value={value("threshold") ?? rule.defaults.threshold}
-                    onChange={(e) => onChange({ threshold: Number(e.target.value) })}
-                  />
-                </Field>
-
-                {punishment === "mute" && (
-                  <Field label="Stumm für (Minuten)" hint="1 bis 10.080 Minuten (7 Tage).">
-                    <input
-                      type="number"
-                      min={1}
-                      max={10080}
-                      className={INPUT}
-                      value={value("duration") ?? rule.defaults.duration}
-                      onChange={(e) => onChange({ duration: Number(e.target.value) })}
-                    />
-                  </Field>
-                )}
-
-                {rule.has_window && (
-                  <Field
-                    label="Zeitfenster (Sekunden)"
-                    hint="So lange wird mitgezählt."
-                  >
-                    <input
-                      type="number"
-                      min={2}
-                      max={120}
-                      className={INPUT}
-                      value={value("window") ?? 10}
-                      onChange={(e) => onChange({ window: Number(e.target.value) })}
-                    />
-                  </Field>
-                )}
-              </div>
-
-              <button
-                onClick={() =>
-                  onChange(ruleDefaults(rule))
-                }
-                className="text-xs text-slate-500 hover:text-slate-300 underline"
-              >
-                Auf Standard zurücksetzen
-              </button>
-            </fieldset>
+          </Field>
+          {punishment === "mute" && (
+            <Field label="Timeout · Minuten" hint="Bis zu 7 Tage">
+              <input
+                aria-label={`${rule.label}: Timeout in Minuten`}
+                type="number"
+                min={1}
+                max={10080}
+                step={1}
+                className="cloudtix-security-input"
+                value={value("duration") ?? rule.defaults.duration}
+                onChange={(e) => onChange({ duration: Number(e.target.value) })}
+              />
+            </Field>
           )}
-        </>
-      )}
-    </div>
+          {rule.has_window && (
+            <Field label="Zeitfenster · Sekunden" hint="2 bis 120 Sekunden">
+              <input
+                aria-label={`${rule.label}: Zeitfenster in Sekunden`}
+                type="number"
+                min={2}
+                max={120}
+                step={1}
+                className="cloudtix-security-input"
+                value={value("window") ?? 10}
+                onChange={(e) => onChange({ window: Number(e.target.value) })}
+              />
+            </Field>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={() => onChange(ruleDefaults(rule))}
+          className="cloudtix-security-text-button justify-self-start"
+        >
+          Standardwerte übernehmen
+        </button>
+      </fieldset>
+    </article>
   );
 }
 
-export function AutomodPanel({ guildId, liveStatus }: { guildId: string; liveStatus?: React.ReactNode }) {
+export function AutomodPanel({
+  guildId,
+  liveStatus,
+}: {
+  guildId: string;
+  liveStatus?: React.ReactNode;
+}) {
   const { language } = useLanguage();
   const load = useCallback(() => api.getAutomod(guildId), [guildId]);
   const p = usePanel(load);
@@ -285,35 +226,51 @@ export function AutomodPanel({ guildId, liveStatus }: { guildId: string; liveSta
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("all");
 
-
   // Flash the bar red instead of a browser dialog: the dialog cannot
   // be styled, and half the time the browser suppresses it anyway.
   const guard = useSaveGuard(p.dirty, "automod-save-bar");
 
   if (p.loading) return <Loading />;
-  if (!p.data) return <Card icon={AlertTriangle} title="AutoMod konnte nicht geladen werden"><button type="button" onClick={p.reload} className="text-sm text-blue-300">Erneut versuchen</button></Card>;
+  if (!p.data)
+    return (
+      <Card icon={AlertTriangle} title="AutoMod konnte nicht geladen werden">
+        <button
+          type="button"
+          onClick={p.reload}
+          className="text-sm text-blue-300"
+        >
+          Erneut versuchen
+        </button>
+      </Card>
+    );
 
   const master = !!p.value("enabled");
   const rules: any[] = p.data?.rules || [];
   const ruleDraft = p.draft.rules || {};
 
   const changeRule = (key: string, patch: any) =>
-    p.set("rules", { ...ruleDraft, [key]: { ...(ruleDraft[key] || {}), ...patch } });
+    p.set("rules", {
+      ...ruleDraft,
+      [key]: { ...(ruleDraft[key] || {}), ...patch },
+    });
 
   const activeNow = rules.filter((r) =>
     ruleDraft[r.key]?.enabled !== undefined
       ? ruleDraft[r.key].enabled
-      : r.enabled
+      : r.enabled,
   ).length;
 
   const refreshLiveStatus = () =>
     window.dispatchEvent(new CustomEvent("automod-saved", { detail: guildId }));
 
-  const visibleRules = filterRules(rules, ruleDraft, query, filter, text => translateWebsiteText(text, language));
+  const visibleRules = filterRules(rules, ruleDraft, query, filter, (text) =>
+    translateWebsiteText(text, language),
+  );
   const invalid = validateRules(rules, ruleDraft);
 
   const save = async () => {
-    if (invalid) return toast.error("Bitte prüfe die Grenzwerte deiner Regeln.");
+    if (invalid)
+      return toast.error("Bitte prüfe die Grenzwerte deiner Regeln.");
     const result = await p.act(() => api.updateAutomod(guildId, p.draft));
     if (result) refreshLiveStatus();
   };
@@ -321,136 +278,219 @@ export function AutomodPanel({ guildId, liveStatus }: { guildId: string; liveSta
   const reset = async () => {
     const result = await p.act(
       () => api.resetAutomod(guildId),
-      "Automod ausschalten? Deine Regeln bleiben gespeichert."
+      "Automod ausschalten? Deine Regeln bleiben gespeichert.",
     );
     if (result) refreshLiveStatus();
   };
 
   return (
-    <section className="space-y-5">
-      <Warnings items={p.data?.warnings} />
-      <ModerationTabs value={view} onChange={setView} items={[["rules", "Regeln"], ["exceptions", "Ausnahmen"], ["live", "Live-Status"]]} label="AutoMod-Bereiche" />
-      <div hidden={view !== "rules"} className="space-y-5">
-
-      <Card
-        icon={Shield}
-        title="Automod"
-        subtitle="Regeln, die der Bot ohne Nachfragen durchsetzt."
-        onReload={p.reload}
-        reloadDisabled={p.busy || !!p.dirty}
-      >
-        <div className="grid grid-cols-2 gap-3">
-          <div className="cloudtix-workspace-field bg-[#18191c] border border-white/[.07] rounded-2xl px-4 py-3">
-            <p className="text-lg font-semibold text-white">
-              {master ? "Aktiv" : "Aus"}
-            </p>
-            <p className="text-xs text-slate-500">Hauptschalter</p>
-          </div>
-          <div className="cloudtix-workspace-field bg-[#18191c] border border-white/[.07] rounded-2xl px-4 py-3">
-            <p className="text-lg font-semibold text-white">{activeNow}</p>
-            <p className="text-xs text-slate-500">Eingeschaltete Regeln</p>
-          </div>
+    <section className="cloudtix-settings-page cloudtix-security-page">
+      <header className="cloudtix-settings-heading">
+        <div>
+          <p className="cloudtix-workspace-eyebrow">MODERATION / AUTOMOD</p>
+          <h1>AutoMod</h1>
+          <p>
+            Fange Spam, unerwünschte Links und Massenpings ab. Du bestimmst die
+            Grenzen und die Reaktion.
+          </p>
         </div>
-
-        <InlineToggle
-          disabled={p.busy}
-          checked={master}
-          onCheckedChange={(v: boolean) => p.set("enabled", v)}
-          label="Automod aktiv"
-          hint="Steht das auf aus, greift keine einzige Regel — egal was unten eingestellt ist."
-        />
-      </Card>
-
-      <Card
-        icon={Zap}
-        title="Regeln"
-        subtitle="Wähle eine Regel und passe Grenzwerte und Aktionen an. Änderungen werden gemeinsam gespeichert."
-      >
+        <div className="cloudtix-security-heading-actions">
+          <div className="cloudtix-security-master">
+            <span>AutoMod aktivieren</span>
+            <InlineToggle
+              label=""
+              ariaLabel="AutoMod aktivieren"
+              checked={master}
+              disabled={p.busy}
+              onCheckedChange={(v: boolean) => p.set("enabled", v)}
+            />
+          </div>
+          <button
+            type="button"
+            className="cloudtix-workspace-action"
+            disabled={!p.dirty || p.busy || !!invalid}
+            onClick={save}
+          >
+            {p.busy ? (
+              <Loader2 size={15} className="animate-spin" />
+            ) : (
+              <Save size={15} />
+            )}
+            Speichern
+          </button>
+        </div>
+      </header>
+      <SecurityMetrics
+        items={[
+          {
+            label: "Hauptschalter",
+            value: master ? "An" : "Aus",
+            icon: Shield,
+            note: p.dirty
+              ? "Entwurf · noch nicht gespeichert"
+              : "Gespeicherte Einstellung",
+          },
+          {
+            label: "Eingeschaltete Regeln",
+            value: `${activeNow} / ${rules.length}`,
+            icon: SlidersHorizontal,
+            note: master
+              ? "Regeln nach deiner Konfiguration"
+              : "Pausiert, solange AutoMod aus ist",
+          },
+          {
+            label: "Eigene Ausnahmen",
+            value:
+              (p.value("ignored_roles") || []).length +
+              (p.value("ignored_channels") || []).length,
+            icon: Users,
+            note: "Ausgenommene Rollen und Kanäle",
+          },
+        ]}
+      />
+      <Warnings items={p.data?.warnings} />
+      <SecurityTabs
+        value={view}
+        onChange={setView}
+        items={[
+          ["rules", "Regeln", SlidersHorizontal],
+          ["exceptions", "Ausnahmen & Logs", Users],
+          ["live", "Live-Status", Activity],
+        ]}
+        label="AutoMod-Bereiche"
+      />
+      <div hidden={view !== "rules"} className="space-y-5">
+        <div className="cloudtix-security-subheading">
+          <div>
+            <h2>Nachrichten filtern</h2>
+            <p>
+              Schalte Regeln einzeln ein und öffne die Einstellungen für
+              Grenzwerte und Aktionen.
+            </p>
+          </div>
+          <span className="cloudtix-settings-badge">
+            {visibleRules.length} Regeln
+          </span>
+        </div>
         {!master && (
-          <div className="rounded-xl bg-white/[0.02] border border-white/5 p-3.5">
-            <p className="text-xs text-slate-500">
-              Der Hauptschalter steht auf aus — die Regeln hier sind
-              gespeichert, greifen aber nicht.
+          <div className="cloudtix-settings-running">
+            <Shield size={18} />
+            <p>
+              AutoMod ist ausgeschaltet. Deine Regeln bleiben gespeichert und
+              lassen sich vorbereiten.
             </p>
           </div>
         )}
-
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="relative flex-1"><Search className="absolute left-3 top-3.5 h-4 w-4 text-slate-500" /><input aria-label="Regel suchen" placeholder="Regel suchen …" value={query} onChange={e => setQuery(e.target.value)} className={cn(INPUT, "pl-10")} /></div>
-          <WebsiteSelect aria-label="Regeln filtern" value={filter} onChange={e => setFilter(e.target.value)} className={cn(INPUT, "sm:w-48")}><option value="all">Alle Regeln</option><option value="enabled">Eingeschaltet</option><option value="disabled">Ausgeschaltet</option></WebsiteSelect>
-        </div>
-        {visibleRules.length === 0 && <p className="py-6 text-center text-sm text-slate-400">Keine passenden Regeln.</p>}
-        <div className="grid lg:grid-cols-2 gap-3 items-start">
-          {visibleRules.map((rule) => (
-            <RuleCard
-              key={rule.key}
-              rule={rule}
-              draft={ruleDraft[rule.key]}
-              master={master}
-              busy={p.busy}
-              onChange={(patch: any) => changeRule(rule.key, patch)}
+        <div className="cloudtix-security-toolbar">
+          <div className="cloudtix-settings-search">
+            <Search size={16} />
+            <input
+              aria-label="Regel suchen"
+              placeholder="Regeln durchsuchen …"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="cloudtix-security-input"
             />
-          ))}
+          </div>
+          <div>
+            <WebsiteSelect
+              aria-label="Regeln filtern"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              className="cloudtix-security-input"
+            >
+              <option value="all">Alle Regeln</option>
+              <option value="enabled">Eingeschaltet</option>
+              <option value="disabled">Ausgeschaltet</option>
+            </WebsiteSelect>
+          </div>
         </div>
-      </Card>
-
+        {visibleRules.length ? (
+          <div className="cloudtix-security-rules">
+            {visibleRules.map((rule) => (
+              <RuleCard
+                key={rule.key}
+                rule={rule}
+                draft={ruleDraft[rule.key]}
+                master={master}
+                busy={p.busy}
+                onChange={(patch: any) => changeRule(rule.key, patch)}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="cloudtix-settings-empty">
+            <Search size={27} />
+            <h3>Keine passenden Regeln</h3>
+            <p>Ändere den Suchbegriff oder den Filter.</p>
+          </div>
+        )}
       </div>
-      <div hidden={view !== "exceptions"}>
-      <Card icon={Hash} title="Ausnahmen und Log" subtitle="Lege fest, welche Rollen und Kanäle von deinen Regeln ausgenommen sind.">
-          <fieldset disabled={p.busy} className="space-y-5 disabled:opacity-60">
-            <div className="rounded-xl bg-white/[0.02] border border-white/5 p-3.5">
-              <p className="text-xs text-slate-500 leading-relaxed">
-                Serverinhaber und alle mit „Administrator“ oder „Nachrichten
-                verwalten“ sind ohnehin ausgenommen — die musst du hier nicht
-                eintragen.
-              </p>
-            </div>
-
+      <div hidden={view !== "exceptions"} className="cloudtix-settings-grid">
+        <Card
+          icon={Users}
+          title="Wer wird ausgenommen?"
+          subtitle="Ausnahmen gelten für alle AutoMod-Regeln."
+        >
+          <fieldset disabled={p.busy} className="space-y-5">
             <Field
               label="Rollen ausnehmen"
-              hint="Wer eine dieser Rollen hat, wird von keiner Regel erwischt."
+              hint="Mitglieder mit diesen Rollen werden nicht geprüft."
             >
               <MultiRolePicker
                 guildId={guildId}
                 value={p.value("ignored_roles") || []}
                 onChange={(ids) => p.set("ignored_roles", ids)}
-                placeholder="Keine"
+                placeholder="Rollen auswählen"
               />
             </Field>
-
             <Field
               label="Kanäle ausnehmen"
-              hint="In diesen Kanälen greift Automod gar nicht."
+              hint="In diesen Kanälen greift keine AutoMod-Regel."
             >
               <MultiChannelPicker
                 guildId={guildId}
                 value={p.value("ignored_channels") || []}
                 onChange={(ids) => p.set("ignored_channels", ids)}
-                placeholder="Keine"
+                placeholder="Kanäle auswählen"
                 channelTypes={["0", "5"]}
               />
             </Field>
-
-            {/* Siehe verify-panel: der Log-Kanal steht jetzt unter
-                Bot-Logs, damit es ihn nur einmal gibt. */}
+          </fieldset>
+          <p className="cloudtix-security-note">
+            Serverinhaber und Mitglieder mit „Administrator“ oder „Nachrichten
+            verwalten“ sind automatisch ausgenommen.
+          </p>
+        </Card>
+        <div className="space-y-5">
+          <Card
+            icon={Hash}
+            title="Moderationsprotokoll"
+            subtitle="Nachvollziehen, welche Nachrichten gelöscht und welche Strafen vergeben wurden."
+          >
             <LogUmgezogen
               guildId={guildId}
               logKey="automod"
               was="Gelöschte Nachrichten und Strafen"
             />
-
+          </Card>
+          <Card
+            icon={AlertTriangle}
+            title="AutoMod pausieren"
+            subtitle="Schaltet die Moderation sofort aus. Deine Regeln bleiben erhalten."
+          >
             <button
+              type="button"
+              className="cloudtix-workspace-action is-secondary"
               onClick={reset}
               disabled={p.busy}
-              className="w-full py-3 rounded-xl bg-red-500/[0.06] border border-red-500/20 text-xs font-semibold uppercase tracking-widest text-red-300 hover:bg-red-500/10 disabled:opacity-40 transition-all"
             >
-              Automod ausschalten
+              AutoMod ausschalten
             </button>
-          </fieldset>
-      </Card>
+          </Card>
+        </div>
       </div>
       <div hidden={view !== "live"}>{liveStatus}</div>
-
       <StickySaveBar
         id="automod-save-bar"
         count={p.dirty}

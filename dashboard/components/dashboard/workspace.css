@@ -439,3 +439,112 @@ body:has(.cloudtix-workspace-shell) [data-dashboard-surface="true"] :is([class~=
   .cloudtix-backup-entry-heading > .cloudtix-settings-badge { margin-left: 54px; }
   .cloudtix-design-image-field [class~="w-32"] { width: 95px; }
 }
+
+/* Moderation and statistics workspaces. */
+.cloudtix-security-card { display: grid; gap: 22px; align-content: start; }
+.cloudtix-security-card.is-danger { border-color: #603333; }
+.cloudtix-security-card-heading { display: flex; align-items: start; justify-content: space-between; gap: 12px; }
+.cloudtix-security-metrics small { display: block; margin-top: 9px; color: #797979; font-size: 11px; }
+.cloudtix-security-heading-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.cloudtix-security-master { display: flex; align-items: center; gap: 15px; border: 1px solid #333; border-radius: 12px; padding: 9px 14px; background: #101010; }
+.cloudtix-security-master > span { color: #ccc; font-size: 12px; }
+.cloudtix-security-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.cloudtix-security-toolbar > .cloudtix-settings-search { flex: 1; min-width: 180px; }
+.cloudtix-security-toolbar > div:not(.cloudtix-settings-search) { min-width: 170px; }
+.cloudtix-security-input { width: 100%; border: 1px solid #353535; border-radius: 11px; background: #090909; padding: 12px 14px; color: #ddd; font-size: 13px; outline: none; }
+.cloudtix-security-input:focus { border-color: #aaa; }
+.cloudtix-security-input::placeholder { color: #777; }
+.cloudtix-security-field { display: grid; gap: 9px; min-width: 0; }
+.cloudtix-security-field > span { color: #aaa; font-size: 11px; font-weight: 550; }
+.cloudtix-security-field > small { color: #777; font-size: 11px; line-height: 1.7; }
+.cloudtix-security-rules { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
+.cloudtix-security-rule { overflow: hidden; border: 1px solid #303030; border-radius: 17px; background: #101010; }
+.cloudtix-security-rule.is-enabled { border-color: #515151; }
+.cloudtix-security-rule.is-unavailable { border-color: #623333; }
+.cloudtix-security-rule-heading { display: flex; align-items: start; gap: 13px; padding: 22px; }
+.cloudtix-security-rule-icon { display: grid; width: 39px; height: 39px; flex-shrink: 0; place-items: center; border: 1px solid #383838; border-radius: 11px; background: #191919; color: #ccc; }
+.cloudtix-security-rule-heading > div { flex: 1; min-width: 0; }
+.cloudtix-security-rule h3 { color: #e5e5e5; font-size: 14px; }
+.cloudtix-security-rule p { margin-top: 7px; color: #898989; font-size: 12px; line-height: 1.8; }
+.cloudtix-security-rule-status { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 0 22px 20px; color: #aaa; font-size: 11px; }
+.cloudtix-security-rule-edit { display: flex; align-items: center; justify-content: space-between; width: 100%; border-top: 1px solid #2c2c2c; padding: 13px 22px; color: #aaa; font-size: 11px; }
+.cloudtix-security-rule-edit:hover { background: #191919; color: #eee; }
+.cloudtix-security-rule-fields { display: grid; gap: 19px; padding: 9px 22px 22px; border: 0; }
+.cloudtix-security-rule-fields:disabled { opacity: .55; }
+.cloudtix-security-number-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 15px; }
+.cloudtix-security-subheading { display: flex; align-items: center; justify-content: space-between; gap: 15px; }
+.cloudtix-security-subheading h2 { color: #ddd; font-size: 17px; }
+.cloudtix-security-subheading p { margin-top: 7px; color: #898989; font-size: 12px; line-height: 1.8; }
+.cloudtix-security-note { color: #929292; font-size: 12px; line-height: 1.9; }
+.cloudtix-security-text-button { color: #aaa; font-size: 11px; text-decoration: underline; text-underline-offset: 4px; }
+.cloudtix-security-text-button:hover { color: #fff; }
+.cloudtix-security-whitelist-editor { display: grid; gap: 19px; border: 1px solid #3d3d3d; border-radius: 14px; padding: 20px; background: #0a0a0a; }
+.cloudtix-security-whitelist-editor > header { display: flex; justify-content: space-between; align-items: center; gap: 15px; font-size: 13px; }
+.cloudtix-security-permissions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+.cloudtix-security-permission { display: flex; gap: 10px; align-items: start; border: 1px solid #303030; border-radius: 11px; padding: 13px; text-align: left; }
+.cloudtix-security-permission[aria-pressed=true] { border-color: #aaa; background: #1a1a1a; }
+.cloudtix-security-permission > span:first-child { display: grid; width: 17px; height: 17px; flex-shrink: 0; place-items: center; border: 1px solid #666; border-radius: 5px; margin-top: 2px; }
+.cloudtix-security-permission strong { color: #ddd; font-size: 11px; }
+.cloudtix-security-permission small { display: block; margin-top: 5px; color: #888; font-size: 10px; line-height: 1.7; }
+.cloudtix-security-button-row { display: flex; flex-wrap: wrap; gap: 10px; }
+.cloudtix-security-member { border: 1px solid #303030; border-radius: 14px; background: #0c0c0c; padding: 18px; }
+.cloudtix-security-member.is-unrestricted { border-color: #653535; }
+.cloudtix-security-member-header { display: flex; align-items: center; gap: 11px; }
+.cloudtix-security-member-avatar { display: grid; place-items: center; width: 37px; height: 37px; flex-shrink: 0; border: 1px solid #444; border-radius: 50%; background: #202020; color: #aaa; object-fit: cover; }
+.cloudtix-security-member-header > div { min-width: 0; flex: 1; }
+.cloudtix-security-member h3 { overflow-wrap: anywhere; color: #ddd; font-size: 13px; }
+.cloudtix-security-member p { margin-top: 6px; color: #888; font-size: 11px; line-height: 1.8; overflow-wrap: anywhere; }
+.cloudtix-security-member .cloudtix-security-whitelist-editor { margin-top: 18px; }
+.cloudtix-security-system-list { display: grid; gap: 20px; counter-reset: requirement; }
+.cloudtix-security-system-list > div { display: flex; gap: 14px; align-items: start; }
+.cloudtix-security-system-list > div::before { counter-increment: requirement; content: "0" counter(requirement); color: #747474; font-family: ui-monospace, monospace; font-size: 13px; }
+.cloudtix-security-system-list strong { color: #ddd; font-size: 13px; }
+.cloudtix-security-system-list p { margin-top: 7px; color: #888; font-size: 12px; line-height: 1.9; }
+.cloudtix-security-live-row { display: flex; align-items: center; flex-wrap: wrap; justify-content: space-between; gap: 12px; border: 1px solid #303030; border-radius: 12px; padding: 17px; font-size: 12px; }
+.cloudtix-security-live-row > div { display: flex; align-items: center; gap: 10px; }
+.cloudtix-security-live-row p { color: #888; font-size: 10px; margin-top: 5px; }
+.cloudtix-stats-layout { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(260px, 1fr); gap: 22px; align-items: start; }
+.cloudtix-stats-groups { display: grid; gap: 26px; min-width: 0; }
+.cloudtix-stats-items { display: grid; gap: 12px; margin-top: 17px; }
+.cloudtix-stats-item { display: grid; gap: 16px; border: 1px solid #303030; border-radius: 15px; background: #101010; padding: 21px; }
+.cloudtix-stats-item.is-selected { border-color: #555; }
+.cloudtix-stats-item > header { display: flex; align-items: start; gap: 12px; }
+.cloudtix-stats-item > header > div { flex: 1; min-width: 0; }
+.cloudtix-stats-item h3 { color: #ddd; font-size: 13px; }
+.cloudtix-stats-item p { margin-top: 6px; color: #888; font-size: 11px; line-height: 1.8; }
+.cloudtix-stats-item > footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 9px; border-top: 1px solid #292929; padding-top: 13px; color: #888; font-size: 10px; }
+.cloudtix-stats-item > footer > strong { color: #bbb; font-size: 13px; font-weight: 500; }
+.cloudtix-stats-preview { position: sticky; top: 100px; }
+.cloudtix-stats-channel-list { display: grid; gap: 8px; border: 1px solid #333; border-radius: 14px; background: #090909; padding: 17px 13px; }
+.cloudtix-stats-channel-list > p { color: #777; font-size: 9px; font-weight: 650; letter-spacing: .12em; margin-bottom: 7px; }
+.cloudtix-stats-channel { display: flex; align-items: center; gap: 9px; border-radius: 8px; padding: 10px 8px; color: #bbb; font-size: 12px; min-width: 0; }
+.cloudtix-stats-channel > svg { flex-shrink: 0; color: #777; }
+.cloudtix-stats-channel > span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.cloudtix-stats-channel:hover { background: #1b1b1b; }
+.cloudtix-stats-channel.is-pending { border: 1px dashed #444; }
+.cloudtix-stats-reports { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; align-items: start; }
+.cloudtix-security-page [hidden] { display: none !important; }
+.cloudtix-security-page button:disabled { cursor: not-allowed; opacity: .45; }
+@media(max-width: 1100px) { .cloudtix-stats-layout { grid-template-columns: 1fr; } .cloudtix-stats-preview { position: static; } }
+@media(max-width: 760px) {
+  .cloudtix-security-rules, .cloudtix-security-permissions, .cloudtix-stats-reports { grid-template-columns: 1fr; }
+  .cloudtix-security-heading-actions { width: 100%; }
+  .cloudtix-security-master { justify-content: space-between; width: 100%; }
+  .cloudtix-security-rule-heading { padding: 18px; gap: 10px; }
+  .cloudtix-security-rule-status { padding: 0 18px 18px; }
+  .cloudtix-security-rule-edit { padding: 13px 18px; }
+  .cloudtix-security-rule-fields { padding: 9px 18px 18px; }
+  .cloudtix-security-member { padding: 14px; }
+  .cloudtix-security-member-header { flex-wrap: wrap; }
+  .cloudtix-security-whitelist-editor { padding: 15px; }
+  .cloudtix-stats-item { padding: 18px; }
+}
+.cloudtix-security-page > .cloudtix-settings-warning { margin-top: 0; }
+.cloudtix-security-page .cloudtix-settings-warning:has(> svg) { display: flex; align-items: start; gap: 12px; }
+.cloudtix-security-page .cloudtix-settings-warning > svg { flex-shrink: 0; margin-top: 3px; }
+.cloudtix-security-toolbar .cloudtix-settings-search { margin-bottom: 0; }
+.cloudtix-security-page .cloudtix-security-live-row > div { align-items: start; min-width: 0; }
+.cloudtix-security-live-row section { min-width: 0; }
+.cloudtix-security-live-row strong, .cloudtix-security-live-row p { overflow-wrap: anywhere; }
+@media(max-width: 760px) { .cloudtix-security-subheading { align-items: start; flex-wrap: wrap; } }
+.cloudtix-security-page .cloudtix-settings-badge i[data-active="true"] { background: #8dd5a3; }

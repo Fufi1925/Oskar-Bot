@@ -1,9 +1,12 @@
 "use client";
 
 import React, { useCallback, useEffect, useState } from "react";
-import { AlertTriangle, CheckCircle2, Loader2, RefreshCw, Zap } from "lucide-react";
+import { AlertTriangle, Loader2, Zap } from "lucide-react";
 import { api } from "@/lib/api";
-import { cn } from "@/lib/utils";
+import {
+  SecurityCard,
+  SecurityWarnings,
+} from "@/components/dashboard/security-workspace";
 
 interface ModuleState {
   key: string;
@@ -66,101 +69,98 @@ export function AutomodStatus({ guildId }: { guildId: string }) {
     return () => window.removeEventListener("automod-saved", afterSave);
   }, [guildId, load]);
 
-  if (loading) {
+  if (loading)
     return (
-      <div className="cloudtix-workspace-card bg-[#202124] border border-white/[.07] rounded-2xl p-4 sm:p-6 flex items-center justify-center">
-        <Loader2 className="h-6 w-6 text-primary animate-spin opacity-40" />
+      <div className="cloudtix-settings-card flex justify-center py-10">
+        <Loader2 size={22} className="animate-spin" />
       </div>
     );
-  }
-
-  if (!data) return <div className="rounded-2xl border border-white/10 cloudtix-workspace-card bg-[#202124] p-6 space-y-3"><p className="text-sm text-slate-300">Live-Status konnte nicht geladen werden.</p><button type="button" onClick={load} className="text-sm text-blue-300">Erneut versuchen</button></div>;
+  if (!data)
+    return (
+      <SecurityCard
+        icon={AlertTriangle}
+        title="Live-Status konnte nicht geladen werden"
+      >
+        <button
+          type="button"
+          onClick={load}
+          className="cloudtix-workspace-action is-secondary"
+        >
+          Erneut versuchen
+        </button>
+      </SecurityCard>
+    );
 
   return (
-    <div
-      className={cn(
-        "cloudtix-workspace-card bg-[#202124] border rounded-2xl p-4 sm:p-6",
-        data.master_enabled ? "border-emerald-500/25" : "border-white/[.07]"
-      )}
-    >
-      <div className="flex items-center justify-between gap-4 mb-4 flex-wrap">
-        <div className="flex items-center gap-3">
-          <Zap className={cn("h-5 w-5", data.master_enabled ? "text-emerald-400" : "text-slate-500")} />
-          <div>
-            <h4 className="font-semibold text-white">Live status</h4>
-            <p className="text-xs text-slate-500 mt-0.5">
-              {data.master_enabled
-                ? `${data.active_count} of ${data.modules.length} rules are enforcing right now`
-                : "Automod is switched off — no rule is enforcing"}
-            </p>
-          </div>
+    <div className="space-y-5">
+      <SecurityWarnings
+        items={
+          data.missing_permissions.length
+            ? [
+                `Fehlende Discord-Rechte: ${data.missing_permissions.join(", ")}. Die entsprechenden Aktionen können ohne diese Rechte nicht ausgeführt werden.`,
+              ]
+            : []
+        }
+      />
+      <SecurityCard
+        icon={Zap}
+        title="Was läuft gerade wirklich?"
+        subtitle={
+          data.master_enabled
+            ? `${data.active_count} von ${data.modules.length} Regeln greifen laut gespeicherter Konfiguration.`
+            : "AutoMod ist ausgeschaltet. Keine Regel greift."
+        }
+        onReload={load}
+      >
+        <div className="cloudtix-security-rules">
+          {data.modules.map((mod) => (
+            <div key={mod.key} className="cloudtix-security-live-row">
+              <div>
+                <span className="cloudtix-settings-badge">
+                  <i data-active={mod.active} />
+                </span>
+                <section>
+                  <strong>{mod.label}</strong>
+                  <p>
+                    {mod.listener_loaded
+                      ? "Listener geladen"
+                      : "Listener nicht geladen"}
+                  </p>
+                </section>
+              </div>
+              <span className="cloudtix-settings-badge">
+                {mod.state === "active"
+                  ? PUNISHMENT_LABELS[mod.punishment || ""] || mod.punishment
+                  : mod.state === "paused"
+                    ? "Pausiert"
+                    : "Aus"}
+              </span>
+            </div>
+          ))}
         </div>
-        <button
-          onClick={load}
-          className="p-2.5 rounded-xl bg-white/[0.03] border border-white/5 hover:bg-white/[0.06] transition-all"
-          title="Re-read from the database"
-        >
-          <RefreshCw className="h-4 w-4 text-primary" />
-        </button>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-        {data.modules.map((mod) => (
-          <div
-            key={mod.key}
-            className={cn(
-              "flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl border text-sm",
-              mod.active
-                ? "bg-emerald-500/5 border-emerald-500/20"
-                : "bg-white/[0.02] border-white/5"
-            )}
-          >
-            <span className={mod.active ? "text-white font-bold" : "text-slate-500"}>
-              {mod.label}
-            </span>
-            <span
-              className={cn(
-                "text-xs font-semibold uppercase tracking-widest shrink-0",
-                mod.active ? "text-emerald-400" : "text-slate-500"
-              )}
-            >
-              {mod.state === "active"
-                ? PUNISHMENT_LABELS[mod.punishment || ""] || mod.punishment
-                : mod.state === "paused" ? "Pausiert" : "Aus"}
-            </span>
-          </div>
-        ))}
-      </div>
-
-      {data.missing_permissions.length > 0 && (
-        <div className="mt-4 flex gap-3 p-4 bg-amber-500/10 border border-amber-500/25 rounded-2xl">
-          <AlertTriangle className="h-5 w-5 text-amber-400 shrink-0" />
+        {!data.modules.length && (
+          <p className="cloudtix-security-note">
+            Keine Regeln im Live-Status vorhanden.
+          </p>
+        )}
+        <div className="cloudtix-settings-details">
           <div>
-            <p className="text-sm font-bold text-amber-200">
-              The bot is missing permissions
-            </p>
-            <p className="text-xs text-amber-200/70 mt-1">
-              {data.missing_permissions.join(", ")} — the punishments above cannot run
-              without them.
-            </p>
+            <dt>Ausgenommene Rollen</dt>
+            <dd>{data.ignored_roles.length}</dd>
           </div>
+          <div>
+            <dt>Ausgenommene Kanäle</dt>
+            <dd>{data.ignored_channels.length}</dd>
+          </div>
+          {data.log_channel && (
+            <div>
+              <dt>Log-Kanal</dt>
+              <dd>#{data.log_channel}</dd>
+            </div>
+          )}
         </div>
-      )}
-
-      <div className="mt-4 flex flex-wrap gap-x-5 gap-y-1.5 text-xs text-slate-500">
-        {data.log_channel && <span>Log: #{data.log_channel}</span>}
-        {data.ignored_channels.length > 0 && (
-          <span>{data.ignored_channels.length} ignored channels</span>
-        )}
-        {data.ignored_roles.length > 0 && (
-          <span>{data.ignored_roles.length} ignored roles</span>
-        )}
-      </div>
-
-      <p className="mt-4 flex items-start gap-2 text-xs text-slate-500 leading-relaxed">
-        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0 mt-0.5" />
-        {data.live}
-      </p>
+        <p className="cloudtix-security-note">{data.live}</p>
+      </SecurityCard>
     </div>
   );
 }

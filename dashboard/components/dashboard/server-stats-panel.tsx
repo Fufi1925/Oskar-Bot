@@ -3,19 +3,48 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import {
-  Bot, Crown, Globe2, Hash, Layers3, Loader2, Lock, Save, Server, Terminal,
-  Users, UserRound, Volume2,
+  Activity,
+  BarChart3,
+  Bot,
+  Crown,
+  Globe2,
+  Hash,
+  Layers3,
+  Loader2,
+  Lock,
+  Save,
+  Server,
+  Terminal,
+  Users,
+  UserRound,
+  Volume2,
+  RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Switch } from "@/components/ui/switch";
 import { api } from "@/lib/api";
-
-const CARD = "rounded-3xl border border-slate-800 cloudtix-workspace-card bg-[#131318]";
+import {
+  SecurityCard,
+  SecurityMetrics,
+  SecurityWarnings,
+} from "@/components/dashboard/security-workspace";
+import {
+  Loading,
+  StickySaveBar,
+  useSaveGuard,
+} from "@/components/dashboard/save-bar";
 
 type Kind =
-  | "humans" | "bots" | "boosts" | "online" | "roles" | "channels"
-  | "global_servers" | "global_users" | "global_commands";
+  | "humans"
+  | "bots"
+  | "boosts"
+  | "online"
+  | "roles"
+  | "channels"
+  | "global_servers"
+  | "global_users"
+  | "global_commands";
 type Form = Record<`${Kind}_enabled`, boolean>;
 
 const ITEMS: Array<{
@@ -91,7 +120,8 @@ const ITEMS: Array<{
   {
     kind: "global_users",
     title: "Alle Nutzer",
-    description: "Eindeutige Mitglieder aller verbundenen Server. Gemeinsame Mitglieder zählen einmal; fremde DM-Nutzer zählen nicht mit.",
+    description:
+      "Eindeutige Mitglieder aller verbundenen Server. Gemeinsame Mitglieder zählen einmal; fremde DM-Nutzer zählen nicht mit.",
     preview: (count) => `👥 Alle Nutzer: ${count}`,
     icon: Globe2,
     color: "text-indigo-400",
@@ -139,9 +169,27 @@ export function ServerStatsPanel({ guildId }: { guildId: string }) {
   const [form, setForm] = useState<Form>(EMPTY_FORM);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [revision, setRevision] = useState(0);
+  const premium = Boolean(data?.premium);
+  const availableItems = ITEMS.filter(
+    (item) =>
+      (!item.premium || premium) &&
+      (!item.global || data?.global_stats_available),
+  );
+  const changedItems = data
+    ? availableItems.filter(
+        ({ kind }) =>
+          Boolean(data[`${kind}_enabled`]) !== form[`${kind}_enabled`],
+      )
+    : [];
+  const dirtyCount = changedItems.length;
+  const guard = useSaveGuard(dirtyCount, "server-stats-save-bar");
 
   useEffect(() => {
     let cancelled = false;
+    setLoading(true);
+    setData(null);
+    setForm(EMPTY_FORM);
     api
       .getServerStats(guildId)
       .then((answer) => {
@@ -151,7 +199,9 @@ export function ServerStatsPanel({ guildId }: { guildId: string }) {
       })
       .catch((error) => {
         if (!cancelled)
-          toast.error(error?.message || "Server-Stats konnten nicht geladen werden.");
+          toast.error(
+            error?.message || "Server-Stats konnten nicht geladen werden.",
+          );
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -159,190 +209,331 @@ export function ServerStatsPanel({ guildId }: { guildId: string }) {
     return () => {
       cancelled = true;
     };
-  }, [guildId]);
+  }, [guildId, revision]);
 
   const save = async () => {
+    if (!data?.can_manage_channels || !dirtyCount || saving) return;
     setSaving(true);
     try {
-      // Premium-Schalter werden nicht bloß im Browser gesperrt. Ohne
-      // Premium schicken wir sie gar nicht erst; die API prüft zusätzlich.
-      const payload: Record<string, boolean> = data?.premium
-        ? { ...form }
-        : {
-            humans_enabled: form.humans_enabled,
-            bots_enabled: form.bots_enabled,
-            boosts_enabled: form.boosts_enabled,
-          };
-      if (data?.global_stats_available) {
-        payload.global_servers_enabled = form.global_servers_enabled;
-        payload.global_users_enabled = form.global_users_enabled;
-        payload.global_commands_enabled = form.global_commands_enabled;
-      }
+      // Only send switches available to this guild. The API also enforces permissions.
+      const payload: Record<string, boolean> = {};
+      for (const { kind } of availableItems)
+        payload[`${kind}_enabled`] = form[`${kind}_enabled`];
       const answer = await api.updateServerStats(guildId, payload);
       setData(answer);
       setForm(formFrom(answer));
       toast.success("Server-Stats wurden aktualisiert.");
     } catch (error: any) {
-      toast.error(error?.message || "Server-Stats konnten nicht gespeichert werden.");
+      toast.error(
+        error?.message || "Server-Stats konnten nicht gespeichert werden.",
+      );
     } finally {
       setSaving(false);
     }
   };
 
-  if (loading) {
+  if (loading) return <Loading />;
+  if (!data)
     return (
-      <div className={`${CARD} flex min-h-48 items-center justify-center`}>
-        <Loader2 className="h-6 w-6 animate-spin text-primary" />
-      </div>
+      <SecurityCard
+        icon={BarChart3}
+        title="Server-Stats konnten nicht geladen werden"
+      >
+        <button
+          type="button"
+          className="cloudtix-workspace-action is-secondary"
+          onClick={() => setRevision((r) => r + 1)}
+        >
+          <RefreshCw size={15} />
+          Erneut versuchen
+        </button>
+      </SecurityCard>
     );
-  }
 
-  const premium = Boolean(data?.premium);
-  const changed = data && ITEMS.some(({ kind, premium: required, global }) =>
-    (!required || premium) &&
-    (!global || data.global_stats_available) &&
-    Boolean(data[`${kind}_enabled`]) !== form[`${kind}_enabled`]
+  const channelFor = (kind: Kind) =>
+    data.channels?.[kind]?.name && !data.channels[kind].missing
+      ? data.channels[kind]
+      : null;
+  const selected = availableItems.filter(({ kind }) => form[`${kind}_enabled`]);
+  const managed = availableItems.filter(({ kind }) => !!channelFor(kind));
+  const created = changedItems.filter(
+    ({ kind }) => form[`${kind}_enabled`] && !channelFor(kind),
   );
-
+  const removed = changedItems.filter(
+    ({ kind }) => !form[`${kind}_enabled`] && channelFor(kind),
+  );
   const renderItem = ({
-    kind, title, description, preview, icon: Icon, color, premium: required,
+    kind,
+    title,
+    description,
+    icon: Icon,
+    premium: required,
   }: (typeof ITEMS)[number]) => {
-    const enabledKey = `${kind}_enabled` as keyof Form;
-    const count = Number(data?.counts?.[kind] || 0);
-    const channel = data?.channels?.[kind];
+    const key = `${kind}_enabled` as keyof Form;
+    const channel = channelFor(kind);
+    const locked = !!required && !premium;
+    const enabled = !locked && form[key];
     return (
-      <div key={kind} className={`${CARD} overflow-hidden p-5`}>
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex min-w-0 gap-3">
-            <div className="rounded-xl border border-slate-800 cloudtix-workspace-field bg-[#0e0e12] p-2.5">
-              <Icon className={`h-5 w-5 ${color}`} />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="font-bold text-white">{title}</h3>
-                {required && (
-                  <span className="rounded-full border border-amber-400/20 bg-amber-400/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-amber-300">
-                    Premium
-                  </span>
-                )}
-              </div>
-              <p className="mt-1 text-xs leading-5 text-slate-500">{description}</p>
-            </div>
+      <article
+        key={kind}
+        className={`cloudtix-stats-item ${enabled ? "is-selected" : ""}`}
+      >
+        <header>
+          <span className="cloudtix-security-rule-icon">
+            <Icon size={18} />
+          </span>
+          <div>
+            <h3>{title}</h3>
+            <p>{description}</p>
           </div>
-          <Switch
-            checked={form[enabledKey]}
-            disabled={!data?.can_manage_channels || saving || (Boolean(required) && !premium)}
-            onCheckedChange={(checked) =>
-              setForm((old) => ({ ...old, [enabledKey]: checked }))
-            }
-            aria-label={`${title} aktivieren`}
-          />
-        </div>
-
-        <div className="mt-5 rounded-xl border border-slate-800 cloudtix-workspace-field bg-[#0e0e12] px-3.5 py-3">
-          <div className="flex items-center gap-2 text-sm text-slate-300">
-            <Volume2 className="h-4 w-4 text-slate-600" />
-            <span className="truncate">{preview(count)}</span>
-          </div>
-        </div>
-
-        <p className="mt-3 min-h-5 text-xs text-slate-600">
-          {channel?.name
-            ? `Aktiv: ${channel.name}`
-            : form[enabledKey]
-              ? "Wird beim Speichern erstellt."
-              : "Kein Kanal aktiv."}
-        </p>
-      </div>
+          {locked ? (
+            <Lock size={16} className="text-neutral-500 mt-1" />
+          ) : (
+            <Switch
+              aria-label={`${title} aktivieren`}
+              checked={enabled}
+              disabled={!data.can_manage_channels || saving}
+              onCheckedChange={(checked) =>
+                setForm((old) => ({ ...old, [key]: checked }))
+              }
+            />
+          )}
+        </header>
+        <footer>
+          <span>
+            {locked
+              ? "Mit Premium verfügbar"
+              : channel
+                ? enabled
+                  ? `Aktiv: ${channel.name}`
+                  : "Wird beim Speichern entfernt"
+                : enabled
+                  ? "Wird beim Speichern erstellt"
+                  : "Kein Kanal aktiviert"}
+          </span>
+          <strong>
+            {Number(data.counts?.[kind] || 0).toLocaleString("de-DE")}
+          </strong>
+        </footer>
+      </article>
     );
   };
 
   return (
-    <div className="space-y-5">
-      {data?.warning && (
-        <div className="rounded-2xl border border-amber-500/25 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
-          {data.warning} Ohne dieses Recht kann der Bot keine Statistikkanäle anlegen oder umbenennen.
-        </div>
-      )}
-
-      <div className="grid gap-4 lg:grid-cols-3">
-        {ITEMS.filter((item) => !item.premium && !item.global).map(renderItem)}
-      </div>
-
-      <div className="space-y-3">
-        <div className="flex items-center gap-2 px-1">
-          <Crown className="h-4 w-4 text-amber-400" />
-          <h3 className="text-sm font-bold text-white">Weitere Statistiken mit Premium</h3>
-        </div>
-        <div className="relative overflow-hidden rounded-3xl">
-          <div
-            className={`grid gap-4 lg:grid-cols-3 transition ${
-              premium ? "" : "pointer-events-none select-none blur-[3px] opacity-45"
-            }`}
-            aria-hidden={!premium}
-          >
-            {ITEMS.filter((item) => item.premium).map(renderItem)}
-          </div>
-
-          {!premium && (
-            <div className="absolute inset-0 z-10 flex items-center justify-center cloudtix-workspace-field bg-[#0a0a0c]/35 p-4">
-              <div className="max-w-sm rounded-2xl border border-amber-400/25 cloudtix-workspace-card bg-[#131318]/95 p-5 text-center shadow-2xl backdrop-blur-md">
-                <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-amber-400/10">
-                  <Lock className="h-5 w-5 text-amber-300" />
-                </div>
-                <h3 className="mt-3 font-bold text-white">Premium erforderlich</h3>
-                <p className="mt-1 text-sm leading-5 text-slate-400">
-                  Online-Nutzer, Rollen und Kanäle sind zusätzliche Premium-Statistiken.
-                </p>
-                <Link
-                  href="/premium"
-                  className="mt-4 inline-flex items-center gap-2 rounded-xl bg-amber-400 px-4 py-2 text-sm font-bold text-black transition hover:bg-amber-300"
-                >
-                  <Crown className="h-4 w-4" />
-                  Premium ansehen
-                </Link>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {data?.global_stats_available && (
-        <div className="space-y-3">
-          <div className="flex items-center gap-2 px-1">
-            <Globe2 className="h-4 w-4 text-indigo-400" />
-            <div>
-              <h3 className="text-sm font-bold text-white">Globale Bot-Statistiken</h3>
-              <p className="text-xs text-slate-500">
-                Exklusiv für den Main-Support-Server · live über alle Server
-              </p>
-            </div>
-          </div>
-          <div className="grid gap-4 lg:grid-cols-3">
-            {ITEMS.filter((item) => item.global).map(renderItem)}
-          </div>
-        </div>
-      )}
-
-      <div className={`${CARD} flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between`}>
+    <section className="cloudtix-settings-page cloudtix-security-page">
+      <header className="cloudtix-settings-heading">
         <div>
-          <h3 className="font-bold text-white">Automatische Aktualisierung</h3>
-          <p className="mt-1 max-w-2xl text-sm text-slate-500">
-            Die Kanäle werden automatisch aktualisiert. Sie sind gesperrt, damit
-            niemand ihnen beitreten kann. Beim Ausschalten wird nur der vom Bot
-            angelegte Kanal entfernt.
+          <p className="cloudtix-workspace-eyebrow">SERVER / STATISTIKEN</p>
+          <h1>Server Stats</h1>
+          <p>
+            Zeige aktuelle Serverzahlen als Sprachkanäle an. CloudTIX hält sie
+            automatisch auf dem neuesten Stand.
           </p>
         </div>
         <button
           type="button"
+          className="cloudtix-workspace-action"
           onClick={save}
-          disabled={!changed || saving || !data?.can_manage_channels}
-          className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-white transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40"
+          disabled={!dirtyCount || saving || !data.can_manage_channels}
         >
-          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+          {saving ? (
+            <Loader2 size={15} className="animate-spin" />
+          ) : (
+            <Save size={15} />
+          )}
           Speichern
         </button>
+      </header>
+      <SecurityMetrics
+        items={[
+          {
+            label: "Mitglieder ohne Bots",
+            value: Number(data.counts?.humans || 0).toLocaleString("de-DE"),
+            icon: Users,
+            note: "Menschen auf diesem Server",
+          },
+          {
+            label: "Verwaltete Statistikkanäle",
+            value: managed.length,
+            icon: Volume2,
+            note: "Bereits vom Bot angelegte Kanäle",
+          },
+          {
+            label: "Ausgewählte Zähler",
+            value: selected.length,
+            icon: BarChart3,
+            note: dirtyCount
+              ? `${dirtyCount} Änderungen im Entwurf`
+              : "Gespeicherte Auswahl",
+          },
+        ]}
+      />
+      <SecurityWarnings
+        items={
+          data.warning
+            ? [data.warning]
+            : !data.can_manage_channels
+              ? [
+                  "CloudTIX benötigt „Kanäle verwalten“, um Statistikkanäle anzulegen, umzubenennen oder zu entfernen.",
+                ]
+              : []
+        }
+      />
+      <div className="cloudtix-stats-layout">
+        <div className="cloudtix-stats-groups">
+          <section>
+            <div className="cloudtix-security-subheading">
+              <div>
+                <h2>Die Grundlagen</h2>
+                <p>Mitglieder, Bots und Boosts · für jeden Server verfügbar.</p>
+              </div>
+              <span className="cloudtix-settings-badge">Standard</span>
+            </div>
+            <div className="cloudtix-stats-items">
+              {ITEMS.filter((item) => !item.premium && !item.global).map(
+                renderItem,
+              )}
+            </div>
+          </section>
+          <section>
+            <div className="cloudtix-security-subheading">
+              <div>
+                <h2>Noch mehr Einblicke</h2>
+                <p>Online-Mitglieder, Rollen und Kanäle im Blick behalten.</p>
+              </div>
+              <span className="cloudtix-settings-badge">
+                <Crown size={11} />
+                Premium
+              </span>
+            </div>
+            <div className="cloudtix-stats-items">
+              {ITEMS.filter((item) => item.premium).map(renderItem)}
+            </div>
+            {!premium && (
+              <div className="cloudtix-settings-premium-notice mt-4">
+                <Crown size={23} />
+                <div>
+                  <h2>Zusätzliche Zähler freischalten</h2>
+                  <p>
+                    Aktiviere Premium für diesen Server, um diese Statistiken zu
+                    verwenden.
+                  </p>
+                </div>
+                <Link
+                  href={`/dashboard/guild/${guildId}/premium`}
+                  className="cloudtix-workspace-action is-secondary"
+                >
+                  Premium ansehen
+                </Link>
+              </div>
+            )}
+          </section>
+          {data.global_stats_available && (
+            <section>
+              <div className="cloudtix-security-subheading">
+                <div>
+                  <h2>Das CloudTIX-Netzwerk</h2>
+                  <p>Globale Zahlen · exklusiv für den Main-Support-Server.</p>
+                </div>
+                <Globe2 size={19} className="text-neutral-400" />
+              </div>
+              <div className="cloudtix-stats-items">
+                {ITEMS.filter((item) => item.global).map(renderItem)}
+              </div>
+            </section>
+          )}
+        </div>
+        <aside className="cloudtix-stats-preview space-y-5">
+          <SecurityCard
+            icon={Volume2}
+            title="So sieht es auf Discord aus"
+            subtitle="Vorschau deiner Auswahl. Änderungen erscheinen nach dem Speichern."
+          >
+            <div className="cloudtix-stats-channel-list">
+              <p>SERVER-STATISTIKEN</p>
+              {selected.length ? (
+                selected.map((item) => (
+                  <div
+                    key={item.kind}
+                    className={`cloudtix-stats-channel ${!channelFor(item.kind) ? "is-pending" : ""}`}
+                  >
+                    <Volume2 size={16} />
+                    <span>
+                      {channelFor(item.kind)?.name ||
+                        item.preview(Number(data.counts?.[item.kind] || 0))}
+                    </span>
+                    <Lock size={11} />
+                  </div>
+                ))
+              ) : (
+                <p className="cloudtix-security-note py-4">
+                  Wähle einen Zähler, um die Kanalvorschau zu sehen.
+                </p>
+              )}
+            </div>
+            {dirtyCount > 0 && (
+              <div className="cloudtix-settings-details">
+                <div>
+                  <dt>Neue Kanäle</dt>
+                  <dd>{created.length}</dd>
+                </div>
+                <div>
+                  <dt>Kanäle entfernen</dt>
+                  <dd>{removed.length}</dd>
+                </div>
+              </div>
+            )}
+            <p className="cloudtix-security-note">
+              Gestrichelte Kanäle werden neu angelegt. Bestehende Kanäle
+              behalten ihren aktuellen Namen bis zur nächsten Aktualisierung.
+            </p>
+          </SecurityCard>
+          <SecurityCard icon={Activity} title="Automatisch aktuell">
+            <div className="cloudtix-security-system-list">
+              <div>
+                <section>
+                  <strong>Zahlen ohne Handarbeit</strong>
+                  <p>
+                    CloudTIX aktualisiert die Kanalnamen automatisch mit den
+                    aktuellen Werten.
+                  </p>
+                </section>
+              </div>
+              <div>
+                <section>
+                  <strong>Nur zum Anzeigen</strong>
+                  <p>
+                    Die Sprachkanäle sind gesperrt, damit niemand ihnen
+                    beitritt.
+                  </p>
+                </section>
+              </div>
+              <div>
+                <section>
+                  <strong>Kontrolliert entfernen</strong>
+                  <p>
+                    Beim Ausschalten wird ausschließlich der vom Bot verwaltete
+                    Statistikkanal entfernt.
+                  </p>
+                </section>
+              </div>
+            </div>
+          </SecurityCard>
+        </aside>
       </div>
-    </div>
+      <StickySaveBar
+        id="server-stats-save-bar"
+        count={dirtyCount}
+        busy={saving}
+        shake={guard.shake}
+        blocked={
+          !data.can_manage_channels
+            ? "CloudTIX benötigt das Recht „Kanäle verwalten“."
+            : null
+        }
+        onDiscard={() => setForm(formFrom(data))}
+        onSave={save}
+      />
+    </section>
   );
 }

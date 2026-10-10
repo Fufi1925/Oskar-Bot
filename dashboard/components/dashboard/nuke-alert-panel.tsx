@@ -16,12 +16,23 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import {
-  AlertTriangle, Bell, Check, Clock, Loader2, Send,
-  EyeOff, Shield, ShieldAlert, ShieldCheck, Trash2, X,
+  AlertTriangle,
+  Bell,
+  Clock,
+  Loader2,
+  Send,
+  EyeOff,
+  Shield,
+  ShieldAlert,
+  ShieldCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
-import { cn } from "@/lib/utils";
+import {
+  SecurityCard,
+  SecurityField,
+  SecurityWarnings,
+} from "@/components/dashboard/security-workspace";
 import { ChannelPicker } from "@/components/dashboard/pickers";
 import { InlineToggle } from "@/components/dashboard/form-elements";
 import { StickySaveBar, useSaveGuard } from "@/components/dashboard/save-bar";
@@ -31,66 +42,34 @@ const OUTCOME = {
   // The attack was undone but the attacker got away: a real outcome of
   // its own, previously lumped in with "NICHT gestoppt" and so reported
   // as a failure when it was not one.
-  partial: { label: "Gestoppt, kein Bann", tone: "text-amber-400", icon: ShieldAlert },
-  no_perms: { label: "NICHT gestoppt", tone: "text-red-400", icon: ShieldAlert },
+  partial: {
+    label: "Gestoppt, kein Bann",
+    tone: "text-amber-400",
+    icon: ShieldAlert,
+  },
+  no_perms: {
+    label: "NICHT gestoppt",
+    tone: "text-red-400",
+    icon: ShieldAlert,
+  },
   // The bot cannot even read the audit log, so nothing is defended.
   blind: { label: "Blind — keine Rechte", tone: "text-red-400", icon: EyeOff },
-  disabled: { label: "Anti-Nuke war aus", tone: "text-amber-400", icon: AlertTriangle },
+  disabled: {
+    label: "Anti-Nuke war aus",
+    tone: "text-amber-400",
+    icon: AlertTriangle,
+  },
 } as const;
 
 function ago(unix: number) {
   const diff = Date.now() - unix * 1000;
-  const m = 60_000, h = 60 * m, d = 24 * h;
+  const m = 60_000,
+    h = 60 * m,
+    d = 24 * h;
   if (diff < m) return "gerade eben";
   if (diff < h) return `vor ${Math.round(diff / m)} Min`;
   if (diff < d) return `vor ${Math.round(diff / h)} Std`;
   return `vor ${Math.round(diff / d)} Tg`;
-}
-
-function Field({ label, hint, children }: any) {
-  return (
-    <div className="space-y-2">
-      <span className="text-xs font-semibold uppercase tracking-widest text-slate-500">
-        {label}
-      </span>
-      {children}
-      {hint && <p className="text-xs text-slate-500 leading-relaxed">{hint}</p>}
-    </div>
-  );
-}
-
-/**
- * Eine Zeile der Übersicht „wann tut der Bot was".
- *
- * Die neuen Regeln sind bewusst still — und genau das ist
- * erklärungsbedürftig: Schweigen sieht leicht nach einem Ausfall aus.
- * Wer hier nachliest, soll verstehen, dass nichts kaputt ist.
- */
-function Rule({
-  when,
-  what,
-  tone,
-}: {
-  when: string;
-  what: string;
-  tone: "bad" | "mid" | "off";
-}) {
-  const colour =
-    tone === "bad"
-      ? "bg-red-400"
-      : tone === "mid"
-      ? "bg-amber-400"
-      : "bg-slate-600";
-
-  return (
-    <div className="flex gap-2.5">
-      <span className={cn("h-2 w-2 rounded-full shrink-0 mt-1.5", colour)} />
-      <p className="text-xs leading-relaxed">
-        <span className="text-slate-300">{when}</span>
-        <span className="text-slate-500"> — {what}</span>
-      </p>
-    </div>
-  );
 }
 
 export function NukeAlertPanel({ guildId }: { guildId: string }) {
@@ -110,7 +89,9 @@ export function NukeAlertPanel({ guildId }: { guildId: string }) {
     }
   }, [guildId]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const value = (key: string) => (key in draft ? draft[key] : data?.[key]);
   const set = (key: string, v: any) => setDraft((d) => ({ ...d, [key]: v }));
@@ -143,204 +124,200 @@ export function NukeAlertPanel({ guildId }: { guildId: string }) {
     }
   };
 
-  if (loading) {
+  if (loading)
     return (
-      <div className="flex items-center justify-center min-h-[200px]">
-        <Loader2 className="h-8 w-8 text-primary animate-spin opacity-40" />
+      <div className="cloudtix-settings-card flex justify-center py-10">
+        <Loader2 size={22} className="animate-spin" />
       </div>
     );
-  }
+  if (!data)
+    return (
+      <SecurityCard
+        icon={AlertTriangle}
+        title="Angriffsmeldungen konnten nicht geladen werden"
+      >
+        <button
+          type="button"
+          onClick={load}
+          className="cloudtix-workspace-action is-secondary"
+        >
+          Erneut laden
+        </button>
+      </SecurityCard>
+    );
 
-  if (!data) return <div className="rounded-2xl border border-white/[.07] cloudtix-workspace-card bg-[#202124] p-6"><p className="text-sm text-slate-400">Angriffsmeldungen konnten nicht geladen werden.</p><button type="button" onClick={load} className="mt-4 text-sm text-blue-300">Erneut laden</button></div>;
-
-  const missing: string[] = data?.missing_permissions || [];
-
+  const missing: string[] = data.missing_permissions || [];
+  const settings = [
+    [
+      "create_channel",
+      "Notfall-Kanal anlegen",
+      "Wenn kein Kanal mehr übrig ist, legt CloudTIX einen Kanal für den Bot und das Team an.",
+    ],
+    [
+      "clean_channels",
+      "Angreifer-Kanäle entfernen",
+      "Entfernt nur Kanäle, die laut Audit-Log vom Angreifer erstellt wurden.",
+    ],
+    [
+      "offer_rebuild",
+      "Wiederherstellung anbieten",
+      "Bietet nach gelöschten Kanälen oder Rollen eine Wiederherstellung an.",
+    ],
+    [
+      "dm_owner",
+      "Serverinhaber per DM informieren",
+      "Nur bei einem echten Nuke, wenn der Bot einen Angreifer gebannt hat.",
+    ],
+    [
+      "post_incidents",
+      "Kleine Vorfälle im Kanal melden",
+      "Zum Beispiel Webhooks oder einzelne Banns. Im Verlauf stehen sie auch ohne Kanalnachricht.",
+    ],
+  ];
   return (
-    <section className="space-y-6">
-      {/* ── The thing that actually matters ──────────── */}
-      {missing.length > 0 ? (
-        <div className="bg-red-500/[0.07] border border-red-500/30 rounded-2xl p-4 sm:p-6 space-y-3">
-          <div className="flex gap-3">
-            <ShieldAlert className="h-5 w-5 text-red-400 shrink-0 mt-0.5" />
-            <div className="min-w-0">
-              <p className="font-semibold text-white">
-                Der Bot könnte einen Angriff gerade nicht stoppen
-              </p>
-              <p className="text-xs text-red-200/80 mt-1.5 leading-relaxed">
-                Ihm fehlen: <b>{missing.join(", ")}</b>
-              </p>
-              <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-                Er sieht den Angriff, kann aber nichts dagegen tun. Gib ihm
-                diese Rechte und schieb seine Rolle in den Server­einstellungen
-                möglichst weit nach oben — er kann nur gegen Rollen vorgehen,
-                die unter seiner eigenen stehen.
-              </p>
-            </div>
-          </div>
-        </div>
+    <section className="space-y-5">
+      {missing.length ? (
+        <SecurityWarnings
+          items={[
+            `Der Bot könnte einen Angriff aktuell nicht stoppen. Fehlende Rechte: ${missing.join(", ")}. Prüfe zusätzlich seine Rollenposition.`,
+          ]}
+        />
       ) : (
-        <div className="bg-emerald-500/[0.05] border border-emerald-500/20 rounded-2xl p-5 flex gap-3">
-          <ShieldCheck className="h-5 w-5 text-emerald-400 shrink-0" />
-          <p className="text-xs text-emerald-200/80 leading-relaxed">
-            Der Bot hat alle nötigen Rechte und könnte eingreifen. Achte
-            zusätzlich darauf, dass seine Rolle weit oben steht.
+        <div className="cloudtix-settings-running">
+          <ShieldCheck size={20} />
+          <p>
+            Alle nötigen Discord-Rechte sind vorhanden. Prüfe zusätzlich, dass
+            die Bot-Rolle über den Rollen möglicher Angreifer steht.
           </p>
         </div>
       )}
-
-      {/* ── Settings ─────────────────────────────────── */}
-      <div className="cloudtix-workspace-card bg-[#202124] border border-white/[.07] rounded-2xl p-4 sm:p-6 space-y-5">
-        <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-2xl bg-primary/15 grid place-items-center shrink-0">
-            <Bell className="h-5 w-5 text-primary" />
-          </div>
-          <div className="min-w-0">
-            <p className="font-semibold text-white">Meldung bei Angriffen</p>
-            <p className="text-xs text-slate-500">
-              Bisher hat der Bot bei einem Angriff nichts gesagt — weder wenn er
-              ihn abwehrte, noch wenn er es nicht konnte.
-            </p>
-          </div>
-        </div>
-
-        <InlineToggle
-          checked={value("enabled")}
-          onCheckedChange={(v: boolean) => set("enabled", v)}
-          label="Angriffe melden"
-        />
-
-        <Field
-          label="Melde-Kanal"
-          hint="Leer lassen: der Bot sucht sich selbst einen (Mod-Log, System-Kanal, …)."
+      <div className="cloudtix-stats-reports">
+        <SecurityCard
+          icon={Bell}
+          title="Alarm & Benachrichtigungen"
+          subtitle="Entscheide, wie CloudTIX einen Angriff meldet."
         >
-          <ChannelPicker
-            guildId={guildId}
-            value={value("channel_id") || ""}
-            onChange={(id) => set("channel_id", id || null)}
-            placeholder="Automatisch wählen"
-            channelTypes={["0", "5"]}
-          />
-        </Field>
-
-        <div className="space-y-3">
-          <InlineToggle
-            checked={value("create_channel")}
-            onCheckedChange={(v: boolean) => set("create_channel", v)}
-            label="Notfall-Kanal anlegen, wenn keiner übrig ist"
-            hint="Bei einem echten Nuke sind alle Kanäle weg. Dann legt der Bot einen an, den nur er und das Team sehen."
-          />
-          <InlineToggle
-            checked={value("clean_channels")}
-            onCheckedChange={(v: boolean) => set("clean_channels", v)}
-            label="Vom Angreifer erstellte Kanäle löschen"
-            hint="Nur Kanäle, die laut Audit-Log wirklich von ihm stammen — was ihr kurz vorher angelegt habt, bleibt."
-          />
-          <InlineToggle
-            checked={value("offer_rebuild")}
-            onCheckedChange={(v: boolean) => set("offer_rebuild", v)}
-            label="Wiederherstellung anbieten"
-            hint="Nur nach einem echten Nuke — also wenn Kanäle oder Rollen gelöscht wurden. Bei allem anderen passiert nichts."
-          />
-          <InlineToggle
-            checked={value("dm_owner")}
-            onCheckedChange={(v: boolean) => set("dm_owner", v)}
-            label="Bei einem Nuke per DM benachrichtigen"
-            hint="Nur bei einem echten Nuke und nur, wenn der Bot jemanden gebannt hat. Sonst nie."
-          />
-          <InlineToggle
-            checked={value("post_incidents")}
-            onCheckedChange={(v: boolean) => set("post_incidents", v)}
-            label="Auch kleine Vorfälle in den Kanal posten"
-            hint="Rollenvergaben, Webhooks, einzelne Banns. Aus empfohlen: sonst geht der echte Nuke in der Menge unter — im Verlauf stehen sie trotzdem."
-          />
-        </div>
-
-        {/* Was das System tut — und was nicht.
-            Die Regeln sind bewusst still: das ist erklärungsbedürftig,
-            weil Schweigen leicht wie ein Ausfall aussieht. */}
-        <div className="rounded-2xl cloudtix-workspace-field bg-[#18191c] border border-white/[.07] p-4 space-y-2.5">
-          <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">
-            Wann der Bot was tut
-          </p>
-          <Rule
-            when="Kanäle oder Rollen werden gelöscht"
-            what="Alarm im Kanal, Wiederherstellung angeboten — und eine DM, sobald der Angreifer gebannt ist."
-            tone="bad"
-          />
-          <Rule
-            when="Jemand vergibt eine Rolle, legt einen Webhook an, bannt jemanden"
-            what="Nur ein Eintrag im Verlauf. Kein Kanal, kein Alarm, keine DM."
-            tone="mid"
-          />
-          <Rule
-            when="Dem Bot fehlt ein Recht, oder er darf das Audit-Log nicht lesen"
-            what="Gar nichts. Er hat den Angriff nicht gestoppt — dann ist eine Meldung darüber nur Lärm."
-            tone="off"
-          />
-        </div>
-
-        <div className="flex gap-3 flex-wrap">
+          <fieldset disabled={busy} className="space-y-5">
+            <InlineToggle
+              checked={!!value("enabled")}
+              onCheckedChange={(v: boolean) => set("enabled", v)}
+              label="Angriffe melden"
+            />
+            <SecurityField
+              label="Melde-Kanal"
+              hint="Ohne Auswahl sucht CloudTIX einen geeigneten Mod-Log- oder System-Kanal."
+            >
+              <ChannelPicker
+                guildId={guildId}
+                value={value("channel_id") || ""}
+                onChange={(id) => set("channel_id", id || null)}
+                placeholder="Automatisch wählen"
+                channelTypes={["0", "5"]}
+              />
+            </SecurityField>
+            {settings.map(([key, label, hint]) => (
+              <InlineToggle
+                key={key}
+                checked={!!value(key)}
+                onCheckedChange={(v: boolean) => set(key, v)}
+                label={label}
+                hint={hint}
+              />
+            ))}
+          </fieldset>
           <button
+            type="button"
             onClick={test}
-            disabled={busy}
-            className="flex items-center gap-2 px-5 py-3 rounded-xl bg-white/[0.03] border border-white/10 text-xs font-semibold uppercase tracking-widest text-slate-300 hover:text-primary hover:border-primary/30 disabled:opacity-40 transition-all"
+            disabled={busy || !!dirtyCount}
+            className="cloudtix-workspace-action is-secondary"
           >
-            <Send className="h-4 w-4" />
+            <Send size={15} />
             Testmeldung senden
           </button>
-        </div>
+          {dirtyCount > 0 && (
+            <p className="cloudtix-security-note">
+              Speichere deine Änderungen, bevor du die Testmeldung sendest.
+            </p>
+          )}
+        </SecurityCard>
+        <SecurityCard
+          icon={ShieldAlert}
+          title="Reaktion auf einen Vorfall"
+          subtitle="Die aktivierten Optionen bestimmen die Benachrichtigungen."
+        >
+          <div className="cloudtix-security-system-list">
+            <div>
+              <section>
+                <strong>Kanäle oder Rollen gelöscht</strong>
+                <p>
+                  Ein echter Nuke kann einen Alarm, ein
+                  Wiederherstellungsangebot und nach dem Bann des Angreifers
+                  eine DM auslösen.
+                </p>
+              </section>
+            </div>
+            <div>
+              <section>
+                <strong>Einzelne Aktionen</strong>
+                <p>
+                  Rollenvergaben, Webhooks und einzelne Banns erscheinen im
+                  Verlauf. Kanalnachrichten lassen sich zusätzlich aktivieren.
+                </p>
+              </section>
+            </div>
+            <div>
+              <section>
+                <strong>Fehlende Rechte</strong>
+                <p>
+                  Ohne passende Rechte kann der Bot einen Angriff nicht
+                  abwehren. Prüfe die Rechteanzeige und die Rollenposition.
+                </p>
+              </section>
+            </div>
+          </div>
+        </SecurityCard>
       </div>
-
-      {/* ── History ──────────────────────────────────── */}
-      <div>
-        <h3 className="font-semibold text-white flex items-center gap-2 mb-3">
-          <Clock className="h-5 w-5 text-slate-500" />
-          Vorfälle
-          <span className="text-xs font-normal text-slate-500">
-            ({data?.incidents?.length || 0})
-          </span>
-        </h3>
-
-        {!data?.incidents?.length ? (
-          <p className="text-sm text-slate-500 py-8 text-center border border-dashed border-white/[.07] rounded-2xl">
-            Noch nichts passiert.
-          </p>
+      <SecurityCard
+        icon={Clock}
+        title="Vorfälle"
+        subtitle={`${data.incidents?.length || 0} gespeicherte Einträge`}
+        onReload={load}
+        reloadDisabled={busy || !!dirtyCount}
+      >
+        {!data.incidents?.length ? (
+          <div className="cloudtix-settings-empty">
+            <Shield size={29} />
+            <h3>Noch keine Vorfälle</h3>
+            <p>Erkannte Aktionen und ihre Ergebnisse erscheinen hier.</p>
+          </div>
         ) : (
-          <div className="space-y-2 max-h-[500px] overflow-y-auto pr-1">
+          <div className="space-y-3 max-h-[500px] overflow-y-auto">
             {data.incidents.map((entry: any) => {
-              // Falling back to `stopped` would show an unknown outcome as a
-              // success, which is the safest-looking and least true option.
-              const style =
-                (OUTCOME as any)[entry.outcome] || OUTCOME.no_perms;
+              const style = (OUTCOME as any)[entry.outcome] || OUTCOME.no_perms;
               const Icon = style.icon;
               return (
-                <div
-                  key={entry.id}
-                  className="cloudtix-workspace-card bg-[#202124] border border-white/[.07] rounded-2xl px-4 py-3 flex items-center gap-3 flex-wrap"
-                >
-                  <Icon className={cn("h-4 w-4 shrink-0", style.tone)} />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-bold text-white truncate">
-                      {entry.action_label}
-                      <span className={cn("ml-2 text-xs font-semibold uppercase", style.tone)}>
-                        {style.label}
-                      </span>
-                    </p>
-                    <p className="text-xs text-slate-500">
-                      {entry.executor_name || "unbekannt"}
-                      {entry.executor_id && ` (${entry.executor_id})`}
-                      {" · "}
-                      {ago(entry.at)}
-                      {entry.detail && ` · ${entry.detail}`}
-                    </p>
+                <article key={entry.id} className="cloudtix-security-live-row">
+                  <div>
+                    <Icon size={18} className={style.tone} />
+                    <section>
+                      <strong>{entry.action_label}</strong>
+                      <p>
+                        {entry.executor_name || "Unbekannt"}
+                        {entry.executor_id && ` (${entry.executor_id})`} ·{" "}
+                        {ago(entry.at)}
+                        {entry.detail && ` · ${entry.detail}`}
+                      </p>
+                    </section>
                   </div>
-                </div>
+                  <span className={`cloudtix-settings-badge ${style.tone}`}>
+                    {style.label}
+                  </span>
+                </article>
               );
             })}
           </div>
         )}
-      </div>
-
+      </SecurityCard>
       <StickySaveBar
         id="nukealert-save-bar"
         count={dirtyCount}
