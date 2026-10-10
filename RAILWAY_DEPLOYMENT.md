@@ -285,6 +285,12 @@ bekannte frühere Website-Hosts in URL-Variablen automatisch umgestellt.
 Eigene Domains und lokale Adressen bleiben weiterhin konfigurierbar.
 Die internen Adressen von FastAPI und Next.js bleiben auf `127.0.0.1`.
 
+`NEXTAUTH_URL` muss genau `https://cloudtix.up.railway.app` lauten.
+Zusätzlicher Text vor `https://` ist ungültig. Findet der Start eine
+ungültige URL, setzt er die gültige Railway-Origin oder die CloudTIX-Adresse,
+bevor Dashboard und Unterbereiche starten. Ungültige Basisadressen der
+Unterbereiche werden aus dieser korrigierten Origin neu gebildet.
+
 Die folgenden Redirects müssen im **Discord Developer Portal** unter
 **OAuth2 → Redirects** bei der jeweils zugehörigen Application eingetragen
 sein. Code und Railway können die Liste im Portal nicht ändern:

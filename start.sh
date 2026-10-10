@@ -25,19 +25,17 @@ NORMALIZED_NEXTAUTH_URL="$(python - "$NEXTAUTH_URL" "${RAILWAY_PUBLIC_DOMAIN:-}"
 import sys
 from urllib.parse import urlsplit
 sys.path.insert(0, sys.argv[3])
-from utils.links import normalize_public_url
+from utils.links import PUBLIC_WEBSITE_URL, normalize_public_url
 raw = (sys.argv[1] or "").strip().strip('"').strip("'")
 railway = (sys.argv[2] or "").strip()
 if raw and "://" not in raw:
     raw = "https://" + raw
-parts = urlsplit(raw)
-host = (parts.hostname or "").lower()
-if railway and host in {"localhost", "127.0.0.1", "0.0.0.0", ""}:
-    print(normalize_public_url("https://" + railway, origin_only=True))
-elif parts.scheme in {"http", "https"} and parts.netloc:
-    print(normalize_public_url(raw, origin_only=True))
-else:
-    print("")
+normalized = normalize_public_url(raw, origin_only=True)
+host = (urlsplit(normalized).hostname or "").lower()
+railway_origin = normalize_public_url("https://" + railway, origin_only=True) if railway else ""
+if not normalized or (railway_origin and host in {"localhost", "127.0.0.1", "0.0.0.0"}):
+    normalized = railway_origin or PUBLIC_WEBSITE_URL
+print(normalized)
 PY
 )"
 if [ -n "$NORMALIZED_NEXTAUTH_URL" ]; then
@@ -46,7 +44,8 @@ if [ -n "$NORMALIZED_NEXTAUTH_URL" ]; then
   fi
   export NEXTAUTH_URL="$NORMALIZED_NEXTAUTH_URL"
 else
-  echo "❌ NEXTAUTH_URL is invalid; Discord OAuth cannot start"
+  echo "❌ Failed to resolve a public website origin; stopping before starting services"
+  exit 1
 fi
 export NEXTAUTH_URL_INTERNAL="${NEXTAUTH_URL_INTERNAL:-http://127.0.0.1:$DASHBOARD_PORT}"
 echo "🔁 CloudTIX OAuth callback: $NEXTAUTH_URL/api/auth/callback/discord"
@@ -61,11 +60,25 @@ import sys
 sys.path.insert(0, sys.argv[1])
 from utils.links import normalize_public_url
 
-for name in ("DASHBOARD_URL", "DASHBOARD_PUBLIC_URL", "WEBSITE_URL", "PUBLIC_BASE_URL",
-             "PHANTOM_BASE_URL", "LOUCKUP_BASE_URL", "LBOST_SHOP_BASE_URL"):
-    value = normalize_public_url(os.getenv(name))
-    if value:
-        print(f"{name}={value}")
+base = os.environ["NEXTAUTH_URL"]
+defaults = {
+    "DASHBOARD_URL": base, "DASHBOARD_PUBLIC_URL": base,
+    "WEBSITE_URL": base, "PUBLIC_BASE_URL": base,
+    "PHANTOM_BASE_URL": base + "/phantom",
+    "LOUCKUP_BASE_URL": base + "/louckup",
+    "LBOST_SHOP_BASE_URL": base + "/lbost-shop",
+}
+for name, fallback in defaults.items():
+    raw = os.getenv(name)
+    if not raw:
+        continue
+    value = normalize_public_url(raw, origin_only=name in {
+        "DASHBOARD_URL", "DASHBOARD_PUBLIC_URL", "WEBSITE_URL",
+    })
+    if not value:
+        value = fallback
+        print(f"[urls] {name} is invalid; using {value}", file=sys.stderr)
+    print(f"{name}={value}")
 if os.getenv("CORS_ORIGINS"):
     origins = [normalize_public_url(value, origin_only=True) or value.strip()
                for value in os.environ["CORS_ORIGINS"].split(",")]
@@ -231,7 +244,7 @@ echo "✅ Dashboard started on port $DASHBOARD_PORT (PID: $DASHBOARD_PID)"
 # Wait for dashboard to be ready
 echo "⏳ Waiting for Dashboard to be ready..."
 for i in $(seq 1 30); do
-  if curl -s http://127.0.0.1:$DASHBOARD_PORT > /dev/null 2>&1; then
+  if curl --fail --silent --max-time 2 "http://127.0.0.1:$DASHBOARD_PORT" > /dev/null 2>&1; then
     echo "✅ Dashboard is ready!"
     break
   fi
