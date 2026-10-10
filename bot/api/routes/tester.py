@@ -17,6 +17,7 @@ an ``dashboard_roles``, nicht an einer Sitzung, die noch offen ist.
 
 from __future__ import annotations
 
+import re
 from fastapi import APIRouter, HTTPException
 
 from utils import changelog
@@ -142,6 +143,35 @@ async def feedback_detail(entry_id: int, user_id: str = ""):
         )
 
     return entry
+
+
+@router.post("/bug-report", summary="Bug aus dem Dashboard melden")
+async def dashboard_bug_report(data: dict):
+    # The authenticated dashboard proxy supplies this identity. This route
+    # allows submission only; the private tester/owner views stay restricted.
+    uid = str(data.get("user_id") or "").strip()
+    if not re.fullmatch(r"[0-9]{17,20}", uid):
+        raise HTTPException(status_code=401, detail="Nicht angemeldet.")
+    title = " ".join(str(data.get("title") or "").split())
+    body = str(data.get("body") or "").strip()
+    page = str(data.get("page") or "/dashboard").strip()
+    if not 5 <= len(title) <= feedback.MAX_TITLE:
+        raise HTTPException(status_code=400, detail="Der Titel muss 5 bis 120 Zeichen enthalten.")
+    if not 10 <= len(body) <= 3500:
+        raise HTTPException(status_code=400, detail="Beschreibe den Bug mit 10 bis 3500 Zeichen.")
+    if len(page) > 300 or not re.fullmatch(r"/dashboard(?:/[A-Za-z0-9_/-]*)?", page):
+        raise HTTPException(status_code=400, detail="Ungültige Dashboard-Seite.")
+    result = feedback.submit(
+        uid, title, body=f"{body}\n\nDashboard-Seite: {page}",
+        kind="bug", area=f"Dashboard: {page}",
+        priority=str(data.get("priority") or "normal"),
+        user_name=str(data.get("user_name") or "")[:100], rate_limit=5,
+    )
+    if not result["ok"]:
+        raise HTTPException(status_code=429 if result.get("limited") else 400,
+                            detail=result["reason"])
+    # Do not expose similar private reports to ordinary dashboard members.
+    return {"submitted": True, "id": result["id"]}
 
 
 @router.post("/feedback", summary="Fehler oder Vorschlag einreichen")

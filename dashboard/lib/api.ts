@@ -777,6 +777,15 @@ export const api = {
   // Die user_id setzt der Proxy aus der Sitzung; sie hier mitzugeben
   // hätte keine Wirkung.
   testerStatus: () => request<any>(`/tester/status`),
+  reportDashboardBug: (payload: {
+    title: string;
+    body: string;
+    page: string;
+    priority: string;
+  }) => request<{ submitted: boolean; id: number }>(`/tester/bug-report`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  }),
   testerChangelog: (limit = 40) =>
     request<any>(`/tester/changelog?limit=${limit}`),
   testerFeedback: (limit = 100) =>

@@ -62,6 +62,7 @@ export function StickySaveBar({
   return (
     <div
       id={id}
+      data-dashboard-save-bar="true"
       className="sticky bottom-3 sm:bottom-4 z-40 pt-2"
       // Keeps the bar clear of the home indicator on phones that have one.
       style={{ marginBottom: "env(safe-area-inset-bottom)" }}

@@ -191,6 +191,7 @@ def submit(
     area: str = "",
     priority: str = "normal",
     user_name: str = "",
+    rate_limit: int = 0,
 ) -> dict[str, Any]:
     """Eine Meldung speichern.
 
@@ -224,6 +225,15 @@ def submit(
 
     now = int(time.time())
     with _connect() as conn:
+        if rate_limit:
+            conn.execute("BEGIN IMMEDIATE")
+            recent = conn.execute(
+                "SELECT COUNT(*) FROM tester_feedback WHERE user_id = ? AND at > ?",
+                (str(user_id), now - 600),
+            ).fetchone()[0]
+            if recent >= rate_limit:
+                return {"ok": False, "reason": "Bitte warte etwas, bevor du weitere Bugs meldest.",
+                        "id": 0, "similar": [], "limited": True}
         cursor = conn.execute(
             "INSERT INTO tester_feedback "
             "(user_id, user_name, kind, title, body, area, priority, "

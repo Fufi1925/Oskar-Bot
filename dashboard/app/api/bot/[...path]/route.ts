@@ -1199,6 +1199,15 @@ async function authorize(
   }
 
   if (scope === "tester") {
+    if (rest[0] === "bug-report") {
+      if (rest.length !== 1 || request.method !== "POST") {
+        return { ok: false, response: deny(404, "Not found.") };
+      }
+      const expected = new URL(websiteOrigin(new URL(request.url).origin)).origin;
+      if (request.headers.get("origin") !== expected) {
+        return { ok: false, response: deny(403, "Invalid request origin.") };
+      }
+    }
     // Der Tester-Bereich prüft seine Rechte im Bot selbst, über die
     // Tester-Rolle. Hier reicht deshalb "angemeldet" -- ein
     // isGlobalAdmin-Gate wie bei /admin würde genau die Leute
@@ -1885,6 +1894,9 @@ async function handler(request: NextRequest, context: { params: { path?: string[
           // jeder eine fremde ID hinein.
           if (segments[0] === "tester") {
             parsed.user_id = actorId;
+            if (segments[1] === "bug-report") {
+              parsed.user_name = session?.user?.name ?? "";
+            }
           }
           // Datenschutzanträge gehören immer zur aktuellen Sitzung. Weder
           // Nutzer-ID noch Prüfer dürfen aus einem Browserfeld stammen.
