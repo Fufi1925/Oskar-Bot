@@ -80,3 +80,6 @@ louckup/data/*.db
 lbost-shop/data/*
 !lbost-shop/data/.gitkeep
 louckup/**/__pycache__/
+
+# Generated Discord application IDs (deployment-specific)
+bot/jsondb/cloudtix-emojis.json

@@ -81,6 +81,17 @@ def _run_bootstrap():
 _prepare_storage()
 _run_bootstrap()
 
+# Resolve real application-emoji IDs before imports copy constants into cogs.
+# The deployed bot already has TOKEN; no dashboard or user token is involved.
+from dotenv import load_dotenv
+load_dotenv()
+try:
+    asyncio.run(_load_standalone("application_emojis").sync_from_token(os.getenv("TOKEN", "")))
+except Exception as emoji_error:
+    # Emoji availability must never prevent the bot itself from starting.
+    logging.warning("CloudTIX emoji synchronization unavailable (%s); using available fallbacks",
+                    type(emoji_error).__name__)
+
 from core import Context
 from core.Cog import Cog
 from core.universitybot import universitybot

@@ -14,7 +14,7 @@
 
 """
 Application Emoji Sync Utility
-Reads all custom Discord emojis from utils/emoji.py, checks them against
+Reads the active custom Discord constants from utils.emoji, checks them against
 the bot's application emojis, uploads any that are missing, and patches
 emoji.py in-place with corrected IDs.
 
@@ -194,12 +194,16 @@ async def run_sync(token: str) -> None:
         error(f"Could not read emoji.py ({err})")
         return
 
-    matches = set(re.findall(r"<(a?):(\w+):(\d+)>", content))
+    # CloudTIX overlays legacy constants at import time. Sync the actual values
+    # used by cogs, so overridden legacy artwork is not uploaded again.
+    from utils import emoji as live_emojis
+    runtime_values = "\n".join(value for value in vars(live_emojis).values() if isinstance(value, str))
+    matches = set(re.findall(r"<(a?):(\w+):(\d+)>", runtime_values))
     if not matches:
         info("No custom emojis found in emoji.py — nothing to sync.")
         return
 
-    system(f"Starting Application Emoji Sync — {len(matches)} unique emojis found in emoji.py")
+    system(f"Starting Application Emoji Sync — {len(matches)} unique active emoji constants found")
 
     headers = {
         "Authorization": f"Bot {token}",

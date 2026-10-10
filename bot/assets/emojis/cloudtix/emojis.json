@@ -1,0 +1,645 @@
+{
+  "schema_version": 1,
+  "brand": "CloudTIX",
+  "provider": "Lucide",
+  "provider_version": "0.468.0",
+  "license_file": "LICENSE.lucide.txt",
+  "emojis": [
+    {
+      "key": "shield",
+      "name": "ct_shield_e2d8a9",
+      "category": "Security",
+      "file": "shield.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 2335,
+      "sha256": "e2d8a93960700d15252d62287f793786eb669a6bcb6eb3607ec8919886a69e47",
+      "fallback": "🛡️",
+      "constants": [
+        "SHIELD"
+      ],
+      "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/shield.svg",
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/shield.png"
+    },
+    {
+      "key": "anti_nuke",
+      "name": "ct_anti_nuke_50a19d",
+      "category": "Security",
+      "file": "anti_nuke.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 2593,
+      "sha256": "50a19d31f1017016f830293459163adf7da37b5be01c6bddc152d5763321091c",
+      "fallback": "🛡️",
+      "constants": [
+        "ANTI_NUKE"
+      ],
+      "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/shield-alert.svg",
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/anti_nuke.png"
+    },
+    {
+      "key": "automod",
+      "name": "ct_automod_14832c",
+      "category": "Security",
+      "file": "automod.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 2786,
+      "sha256": "14832cb672b1a0d9c65b6c4f6731b06625807bb1c0afd21adbf1c8a3cf9c4966",
+      "fallback": "🛡️",
+      "constants": [
+        "AUTOMOD"
+      ],
+      "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/shield-check.svg",
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/automod.png"
+    },
+    {
+      "key": "jail",
+      "name": "ct_jail_46c48d",
+      "category": "Security",
+      "file": "jail.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 1990,
+      "sha256": "46c48d8b14b58fc6321f3d304218126f29d205104ed06bc44de384723cf277a7",
+      "fallback": "🔒",
+      "constants": [
+        "JAIL",
+        "LOCK"
+      ],
+      "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/lock-keyhole.svg",
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/jail.png"
+    },
+    {
+      "key": "ticket",
+      "name": "ct_ticket_aaa567",
+      "category": "Support",
+      "file": "ticket.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 2102,
+      "sha256": "aaa567d371c90af694f4e92fc6626ea4a633bb662d20daa850a15284cadc172b",
+      "fallback": "🎫",
+      "constants": [
+        "TICKET"
+      ],
+      "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/ticket.svg",
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/ticket.png"
+    },
+    {
+      "key": "verification",
+      "name": "ct_verification_d532d1",
+      "category": "Support",
+      "file": "verification.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 3284,
+      "sha256": "d532d13f4692690adff765a8db39392f8459dd7dc1dbb4a7057536040bc48a50",
+      "fallback": "✅",
+      "constants": [
+        "VERIFICATION",
+        "ZSAFE"
+      ],
+      "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/badge-check.svg",
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/verification.png"
+    },
+    {
+      "key": "applications",
+      "name": "ct_applications_f708e1",
+      "category": "Support",
+      "file": "applications.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 1865,
+      "sha256": "f708e113d7a1527065f3915545151a5db1da39986abe3a7c733d834c51492b49",
+      "fallback": "📋",
+      "constants": [
+        "APPLICATIONS"
+      ],
+      "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/clipboard-list.svg",
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/applications.png"
+    },
+    {
+      "key": "level",
+      "name": "ct_level_cd9ac0",
+      "category": "Community",
+      "file": "level.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 706,
+      "sha256": "cd9ac0591a6a2b1a48c27b7d9b70d360ef5df35e500dac80c3969b23d168447d",
+      "fallback": "📈",
+      "constants": [
+        "LEVEL_UP"
+      ],
+      "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/chart-no-axes-column-increasing.svg",
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/level.png"
+    },
+    {
+      "key": "rank",
+      "name": "ct_rank_a7276b",
+      "category": "Community",
+      "file": "rank.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 2704,
+      "sha256": "a7276b96fbd1ff5b3f8115aaa99512219b7bc872ac137644e04ac18468734119",
+      "fallback": "🏆",
+      "constants": [
+        "RANK"
+      ],
+      "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/trophy.svg",
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/rank.png"
+    },
+    {
+      "key": "giveaway",
+      "name": "ct_giveaway_ef1cbe",
+      "category": "Community",
+      "file": "giveaway.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 2059,
+      "sha256": "ef1cbe2e96caac5ba686ac2cbb94b828fae09d6e4ff2a476fb8d74c2471df5b4",
+      "fallback": "🎉",
+      "constants": [
+        "GIVEAWAY",
+        "ZTADA",
+        "TADAA",
+        "CELEBRATE"
+      ],
+      "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/gift.svg",
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/giveaway.png"
+    },
+    {
+      "key": "welcome",
+      "name": "ct_welcome_d3883f",
+      "category": "Community",
+      "file": "welcome.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 2922,
+      "sha256": "d3883f8854b10c24f39db6baff5932fbca635bb7288d009551369034347d9b8c",
+      "fallback": "👋",
+      "constants": [
+        "WELCOME"
+      ],
+      "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/hand.svg",
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/welcome.png"
+    },
+    {
+      "key": "play",
+      "name": "ct_play_f478a4",
+      "category": "Music",
+      "file": "play.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 1625,
+      "sha256": "f478a4422619fa3a449995bb414a7ed5d65de5c5f9c4cc2c089eaed64ef2bc4e",
+      "fallback": "▶️",
+      "constants": [
+        "ZPLAY"
+      ],
+      "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/play.svg",
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/play.png"
+    },
+    {
+      "key": "pause",
+      "name": "ct_pause_6ba9e9",
+      "category": "Music",
+      "file": "pause.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 1065,
+      "sha256": "6ba9e9fd5bf060d3ab923b045c2927c7ae097a5c89d34ec214162c204fc455bc",
+      "fallback": "⏸️",
+      "constants": [
+        "ICONS_PAUSE",
+        "ZMUSICPAUSE",
+        "ZPAUSE"
+      ],
+      "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/pause.svg",
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/pause.png"
+    },
+    {
+      "key": "headphones",
+      "name": "ct_headphones_da879c",
+      "category": "Music",
+      "file": "headphones.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 2481,
+      "sha256": "da879c161e5319ad87382d9fc9fcbf9152b0da7102309f3ff34e9e580bd11b00",
+      "fallback": "🎧",
+      "constants": [
+        "MUSIC",
+        "ICONS_MUSIC",
+        "MUSIC_ALT1"
+      ],
+      "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/headphones.svg",
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/headphones.png"
+    },
+    {
+      "key": "volume",
+      "name": "ct_volume_9d4c90",
+      "category": "Music",
+      "file": "volume.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 2399,
+      "sha256": "9d4c90cc884e00e92b682a81faf2d09a929e1da3154ff051acd917309d4127be",
+      "fallback": "🔊",
+      "constants": [
+        "VOLUME",
+        "ZUNMUTE"
+      ],
+      "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/volume-2.svg",
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/volume.png"
+    },
+    {
+      "key": "checkmark",
+      "name": "ct_checkmark_ce51cb",
+      "category": "UI",
+      "file": "checkmark.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 1300,
+      "sha256": "ce51cb7212641f42ed51db43f0f9b9f13184a1f38682483f1231a0eb23b1181d",
+      "fallback": "✅",
+      "constants": [
+        "TICK",
+        "TICK_ALT",
+        "ZTICK",
+        "SUCCESS",
+        "ENABLE"
+      ],
+      "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/check.svg",
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/checkmark.png"
+    },
+    {
+      "key": "cross",
+      "name": "ct_cross_244424",
+      "category": "UI",
+      "file": "cross.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 1048,
+      "sha256": "2444246c119a9e743ca0954dba7ea78b1e584d70376f5c86f8ab362e5863bfb5",
+      "fallback": "❌",
+      "constants": [
+        "CROSS",
+        "CROSS_ALT",
+        "ML_CROSS",
+        "ZCROSS",
+        "ERROR",
+        "DENIED",
+        "DISABLE"
+      ],
+      "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/x.svg",
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/cross.png"
+    },
+    {
+      "key": "arrow",
+      "name": "ct_arrow_657d09",
+      "category": "UI",
+      "file": "arrow.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 1165,
+      "sha256": "657d09c3d7f3cbe6a8271125ae5acbb653b453a9cd706a7d49ec56894d132500",
+      "fallback": "➡️",
+      "constants": [
+        "ZARROW",
+        "ARROWRED",
+        "ARROW_RIGHT"
+      ],
+      "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/arrow-right.svg",
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/arrow.png"
+    },
+    {
+      "key": "info",
+      "name": "ct_info_948ff5",
+      "category": "UI",
+      "file": "info.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 3136,
+      "sha256": "948ff5a61536d8b83b8aa307181f967f423e815eb4a0413937fb4fbfc189872a",
+      "fallback": "ℹ️",
+      "constants": [
+        "INFO"
+      ],
+      "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/info.svg",
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/info.png"
+    },
+    {
+      "key": "warning",
+      "name": "ct_warning_0e7dff",
+      "category": "UI",
+      "file": "warning.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 2578,
+      "sha256": "0e7dffc70099ac8a1bae760f9a172a33db148332a34e0a5cd628487ba26e3ad9",
+      "fallback": "⚠️",
+      "constants": [
+        "WARNING",
+        "WARNING_ALT",
+        "ZWARNING",
+        "ICONS_WARNING",
+        "ICONS_WARNING_ALT1"
+      ],
+      "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/triangle-alert.svg",
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/warning.png"
+    },
+    {
+      "key": "loading",
+      "name": "ct_loading_aff8dd",
+      "category": "UI",
+      "file": "loading.gif",
+      "animated": true,
+      "width": 128,
+      "height": 128,
+      "bytes": 7031,
+      "sha256": "aff8dd2990f2d65e20c7a04edccee2e77c52b52544026b37b54e640e53a3040e",
+      "fallback": "⏳",
+      "constants": [
+        "LOADING",
+        "LOADING_ALT1",
+        "LOADINGRED"
+      ],
+      "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/loader-circle.svg",
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/loading.gif"
+    },
+    {
+      "key": "back",
+      "name": "ct_back_51fecc",
+      "category": "UI",
+      "file": "back.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 1194,
+      "sha256": "51feccbe9ba62dfb657538e852212a09e70cf04d73cb7a4a7a7dfec0b8ccb40c",
+      "fallback": "⬅️",
+      "constants": [
+        "ZBACK",
+        "ARROW_LEFT"
+      ],
+      "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/arrow-left.svg",
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/back.png"
+    },
+    {
+      "key": "stop",
+      "name": "ct_stop_1c5d6d",
+      "category": "Music",
+      "file": "stop.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 1061,
+      "sha256": "1c5d6dd4c8a731b3e23d1e649392833245a2cdc5c048d6a0988185ca026e7b4f",
+      "fallback": "⏹️",
+      "constants": [
+        "MUSICSTOP_ICONS",
+        "STOP_BUTTON"
+      ],
+      "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/square.svg",
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/stop.png"
+    },
+    {
+      "key": "skip",
+      "name": "ct_skip_3636d1",
+      "category": "Music",
+      "file": "skip.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 1746,
+      "sha256": "3636d11b603fcfda07c57411d21a28886f8f48297adc574343f35460002e2c42",
+      "fallback": "⏭️",
+      "constants": [
+        "NEXT",
+        "NEXT_ALT1",
+        "SKIP",
+        "FORWARD"
+      ],
+      "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/skip-forward.svg",
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/skip.png"
+    },
+    {
+      "key": "previous",
+      "name": "ct_previous_f0ecbf",
+      "category": "Music",
+      "file": "previous.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 1829,
+      "sha256": "f0ecbf682fa5f0c89db2eab2edc0a0cca79e93b9d914fbce9c8fd827cf66efaf",
+      "fallback": "⏮️",
+      "constants": [
+        "PREVIOUS"
+      ],
+      "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/skip-back.svg",
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/previous.png"
+    },
+    {
+      "key": "settings",
+      "name": "ct_settings_2f18da",
+      "category": "UI",
+      "file": "settings.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 3926,
+      "sha256": "2f18dab269dfd625a45766a641a5303f5ce2dc8aa90dfca745ebc764cbe70636",
+      "fallback": "⚙️",
+      "constants": [
+        "ZSETTINGS"
+      ],
+      "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/settings.svg",
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/settings.png"
+    },
+    {
+      "key": "members",
+      "name": "ct_members_9f64b2",
+      "category": "Community",
+      "file": "members.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 2661,
+      "sha256": "9f64b295b4dfff8cee181aca09afe03a78908f0cf1439dd17867a23be32a4fc1",
+      "fallback": "👥",
+      "constants": [
+        "ZPEOPLE",
+        "HUMAN",
+        "ZHUMAN"
+      ],
+      "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/users.svg",
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/members.png"
+    },
+    {
+      "key": "message",
+      "name": "ct_message_9434c4",
+      "category": "Support",
+      "file": "message.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 1946,
+      "sha256": "9434c4a969f3aa8872073ccd9d4bbc6aec8f203777f7810caa3ed3d2e3fc6965",
+      "fallback": "💬",
+      "constants": [
+        "MESSAGE"
+      ],
+      "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/messages-square.svg",
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/message.png"
+    },
+    {
+      "key": "refresh",
+      "name": "ct_refresh_47b1e1",
+      "category": "UI",
+      "file": "refresh.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 2741,
+      "sha256": "47b1e17061877c5ef8a2b6eb3804f8acef083ccc21d4e6dac03b9d8b852b05d8",
+      "fallback": "🔄",
+      "constants": [
+        "REFRESH",
+        "ICONLOAD"
+      ],
+      "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/rotate-cw.svg",
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/refresh.png"
+    },
+    {
+      "key": "plus",
+      "name": "ct_plus_bf491d",
+      "category": "UI",
+      "file": "plus.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 767,
+      "sha256": "bf491d0bc837f7c16588740ebf93b8a5112975486ca553fcc2413498e7923ae4",
+      "fallback": "➕",
+      "constants": [
+        "ZPLUS",
+        "ICONS_PLUS"
+      ],
+      "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/plus.svg",
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/plus.png"
+    },
+    {
+      "key": "delete",
+      "name": "ct_delete_470c0a",
+      "category": "UI",
+      "file": "delete.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 1527,
+      "sha256": "470c0aee80af69046f3330a6c9d59ff146552ef53484d27a4073abc26ff433e9",
+      "fallback": "🗑️",
+      "constants": [
+        "DELETE",
+        "DELETE_ALT1"
+      ],
+      "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/trash-2.svg",
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/delete.png"
+    },
+    {
+      "key": "mute",
+      "name": "ct_mute_893900",
+      "category": "Music",
+      "file": "mute.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 1899,
+      "sha256": "893900c818e579a233966da622e18dd7de09e5221be8fdd841e4f87e2376c132",
+      "fallback": "🔇",
+      "constants": [
+        "MUTE",
+        "ZMUTE"
+      ],
+      "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/volume-x.svg",
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/mute.png"
+    },
+    {
+      "key": "unlock",
+      "name": "ct_unlock_cd047a",
+      "category": "Security",
+      "file": "unlock.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 1921,
+      "sha256": "cd047a45377390367f12d1400c7ccd5083e3bca3d608a3b982df6fde1b1ee621",
+      "fallback": "🔓",
+      "constants": [
+        "UNLOCK"
+      ],
+      "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/lock-keyhole-open.svg",
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/unlock.png"
+    },
+    {
+      "key": "star",
+      "name": "ct_star_03376c",
+      "category": "Community",
+      "file": "star.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 2997,
+      "sha256": "03376c4145eac44d82f7498eee666d66a1d29cfbcf14257c257c4162b8fa2a2f",
+      "fallback": "⭐",
+      "constants": [
+        "STAR",
+        "STAR_ALT1",
+        "STAR_ALT2"
+      ],
+      "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/star.svg",
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/star.png"
+    },
+    {
+      "key": "cloud",
+      "name": "ct_cloud_28c372",
+      "category": "UI",
+      "file": "cloud.png",
+      "animated": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 2321,
+      "sha256": "28c3727f56cecd3b09a14e560f9176703ae13249743883c8873941d3cbae57b9",
+      "fallback": "☁️",
+      "constants": [
+        "ZCLOUD"
+      ],
+      "source_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/cloud.svg",
+      "preview_url": "https://cloudtix.up.railway.app/emojis/cloudtix/cloud.png"
+    }
+  ]
+}

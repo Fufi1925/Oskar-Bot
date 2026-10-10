@@ -28,6 +28,12 @@ if TYPE_CHECKING:
 
 router = APIRouter()
 
+@router.get("/cloudtix-emojis", summary="Public CloudTIX application emoji catalog")
+async def get_cloudtix_emojis(bot: "universitybot" = Depends(get_bot)):
+    from utils.application_emojis import catalog
+    application_id = bot.application_id or (bot.user.id if bot.user else None)
+    return catalog(application_id)
+
 @router.get("/status", response_model=BotStatus, summary="Get bot status", description="Returns real-time health metrics, latency, and scale information.")
 async def get_status(bot: "universitybot" = Depends(get_bot)):
     """

@@ -255,6 +255,12 @@ TONGUE_OUT = "😜"
 UPSIDE_DOWN = "🙃"
 WARNING_UNICODE = "⚠️"
 
+# CloudTIX application pack: real IDs are resolved before cogs import this file.
+# Every entry remains usable with a Unicode fallback if Discord is unavailable.
+from utils.application_emojis import load_collection, apply_constants
+EMOJIS = load_collection()
+apply_constants(globals(), EMOJIS)
+
 # ============================================================================
 # EMOJI COLLECTIONS BY CATEGORY
 # ============================================================================
