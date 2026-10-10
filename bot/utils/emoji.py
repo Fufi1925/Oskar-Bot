@@ -194,26 +194,6 @@ TIMER_ALT1 = "<a:timer:1530375349232472206>"
 _37496ALERT = "<a:37496alert:1530375474276995152>"
 
 # ============================================================================
-# DISCORD BADGE EMOJIS MAPPING
-# ============================================================================
-
-DISCORD_BADGE_EMOJIS = {
-    "staff": STAFF,
-    "partner": PARTNER_BADGE,
-    "hypesquad": HYPESQUAD_BRILLIANCE,
-    "hypesquad_bravery": HYPESQUAD_BRAVERY,
-    "hypesquad_brilliance": HYPESQUAD_BRILLIANCE,
-    "hypesquad_balance": HYPESQUAD_BALANCE,
-    "bug_hunter": BUG_HUNTER,
-    "bug_hunter_level_2": BUG_HUNTER_LVL2,
-    "early_supporter": EARLY_SUPPORTER,
-    "early_verified_bot_developer": EARLY_VERIFIED_BOT_DEV,
-    "certified_moderator": CERTIFIED_MODERATOR,
-    "active_developer": ACTIVE_DEVELOPER,
-    "discord_mod": CERTIFIED_MODERATOR,
-}
-
-# ============================================================================
 # UNICODE EMOJIS
 # ============================================================================
 
@@ -261,6 +241,30 @@ from utils.application_emojis import load_collection, apply_constants
 EMOJIS = load_collection()
 apply_constants(globals(), EMOJIS)
 
+# Aliases and badge mappings must use the resolved gray application emojis.
+Developer = ACTIVE_DEVELOPER
+
+# ============================================================================
+# DISCORD BADGE EMOJIS MAPPING
+# ============================================================================
+
+DISCORD_BADGE_EMOJIS = {
+    "staff": STAFF,
+    "partner": PARTNER_BADGE,
+    "hypesquad": HYPESQUAD_BRILLIANCE,
+    "hypesquad_bravery": HYPESQUAD_BRAVERY,
+    "hypesquad_brilliance": HYPESQUAD_BRILLIANCE,
+    "hypesquad_balance": HYPESQUAD_BALANCE,
+    "bug_hunter": BUG_HUNTER,
+    "bug_hunter_level_2": BUG_HUNTER_LVL2,
+    "early_supporter": EARLY_SUPPORTER,
+    "early_verified_bot_developer": EARLY_VERIFIED_BOT_DEV,
+    "certified_moderator": CERTIFIED_MODERATOR,
+    "active_developer": ACTIVE_DEVELOPER,
+    "discord_mod": CERTIFIED_MODERATOR,
+}
+
+
 # ============================================================================
 # EMOJI COLLECTIONS BY CATEGORY
 # ============================================================================
@@ -271,7 +275,7 @@ GAME_BUTTONS = {
     "left": ARROW_LEFT,
     "right": ARROW_RIGHT,
     "stop": STOP_BUTTON,
-    "target": "🎯",
+    "target": TARGET,
 }
 
 ACTION_EMOJIS = {
@@ -294,8 +298,8 @@ BUTTON_EMOJIS = {
     "claim": STAR,
     "untrust": CROSS,
     "block": DENIED,
-    "target": "🎯",
-    "edit": "✏️",
+    "target": TARGET,
+    "edit": EMOJIS["edit"],
 }
 
 REACTION_TEST_EMOJIS = [

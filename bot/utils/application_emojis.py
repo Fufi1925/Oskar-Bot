@@ -20,7 +20,7 @@ ASSETS = BOT_DIR / "assets/emojis/cloudtix"
 MANIFEST = json.loads((ASSETS / "emojis.json").read_text(encoding="utf-8"))
 # Later packs take precedence for native bot aliases. Only the utility pack
 # is offered in the dashboard; other collections remain available to the bot.
-for relative_manifest in ("discord-color/emojis.json", "discord-utility/emojis.json"):
+for relative_manifest in ("discord-color/emojis.json", "discord-utility/emojis.json", "bot-gray/emojis.json"):
     pack_path = ASSETS / relative_manifest
     if pack_path.exists():
         MANIFEST["emojis"].extend(json.loads(pack_path.read_text(encoding="utf-8"))["emojis"])
@@ -61,8 +61,14 @@ def _code(entry, cached):
 
 def load_collection(application_id=None):
     cached = _cache(application_id)
-    return {entry["key"]: _code(entry, cached) or entry["fallback"]
-            for entry in MANIFEST["emojis"]}
+    collection = {entry["key"]: _code(entry, cached) or entry["fallback"]
+                  for entry in MANIFEST["emojis"]}
+    # Semantic keys such as "ticket" use neutral bot artwork; explicit
+    # "utility_ticket" still selects the colorful dashboard tile.
+    for entry in MANIFEST["emojis"]:
+        if entry.get("replaces"):
+            collection[entry["replaces"]] = collection[entry["key"]]
+    return collection
 
 
 def apply_constants(namespace, collection):
@@ -158,7 +164,13 @@ async def sync_from_token(token):
                                           "animated": bool(emoji.get("animated", False)),
                                           "sha256": entry["sha256"]}
         _save(app_id, records)
-        for entry in MANIFEST["emojis"]:
+        # Upload the current bot style and dashboard pack before older sets,
+        # so unused historical artwork cannot consume the startup time budget.
+        upload_entries = sorted(MANIFEST["emojis"], key=lambda entry: (
+            0 if entry["file"].startswith("bot-gray/") else
+            1 if entry.get("dashboard_visible", True) else 2
+        ))
+        for entry in upload_entries:
             emoji = existing.get(entry["name"])
             if emoji is None and enabled:
                 data = (ASSETS / entry["file"]).read_bytes()

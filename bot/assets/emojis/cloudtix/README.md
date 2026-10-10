@@ -1,16 +1,21 @@
 # CloudTIX Application Emojis
 
+Die ursprünglichen Bot-Symbole verwenden jetzt das [graue Set](bot-gray/README.md):
+silbergraue Symbole, gelbe Warnungen und rote Fehler. Es wird zuletzt geladen und
+liefert die zentralen Bot-Konstanten sowie die semantischen `EMOJIS`-Schlüssel.
+Die 84 bunten Utility-Kacheln bleiben im Dashboard und über `utility_*` verfügbar.
+
 Das neueste Bot-Set enthält [84 kräftig farbige Utility-Emojis mit abgerundeten
 Kacheln](discord-utility/README.md), darunter eine grüne Bestätigung und ein
 violettes Unterstützer-Herz. Alle Kacheln haben einen glänzenden Look mit
-Lichtreflexen und dezent leuchtenden Symbolen. Das Set liefert die aktuellen
-Standard-Bot-Symbole.
+Lichtreflexen und dezent leuchtenden Symbolen. Das Set dient der Dashboard-Auswahl
+und lässt sich im Bot ausdrücklich über `utility_*` verwenden.
 
 Zusätzlich gibt es [75 farbige Twemoji-Symbole für Bot-Nachrichten](discord-color/README.md).
 Diese werden ebenfalls automatisch hochgeladen und stehen als `EMOJIS["color_gift"]`
-bzw. `CT_COLOR_GIFT` im Bot bereit. Einige Standardkonstanten wie `TICK`, `ERROR`,
-`WARNING` und `TICKET` nutzen dort die farbigen Varianten. Die Dashboard-Auswahl
-enthält die 84 neuen Utility-Kacheln.
+bzw. `CT_COLOR_GIFT` im Bot bereit. Die Standardkonstanten wie `TICK`, `ERROR`,
+`WARNING` und `TICKET` verwenden das graue Set mit Hinweisfarben.
+Die Dashboard-Auswahl enthält die 84 neuen Utility-Kacheln.
 
 110 weiße Lucide-Symbole, 128 × 128 Pixel, transparent. Alle Dateien sind deutlich
 unter Discords 256-KB-Grenze; `loading.gif` hat 16 Frames und läuft in einer Schleife.
