@@ -1,7 +1,8 @@
 # Graue CloudTIX Bot-Emojis
 
-148 transparente Symbole für die ursprünglichen Bot-Konstanten:
-neutraler silbergrauer Verlauf, gelbe Warnungen und rote Fehler/Sperren.
+148 Symbole auf abgerundeten grauen Kacheln für die ursprünglichen
+Bot-Konstanten: silbergrauer Verlauf, gelbe Warnungen und rote Fehler/Sperren.
+Außerhalb der Kacheln bleibt der Hintergrund transparent.
 128 × 128 Pixel, maximal 256 KB. Der Ladeindikator bleibt animiert.
 Lucide 0.468.0; vollständige Lizenz in [LICENSE.lucide.txt](LICENSE.lucide.txt).
 

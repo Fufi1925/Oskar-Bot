@@ -1,7 +1,8 @@
 # CloudTIX Application Emojis
 
 Die ursprünglichen Bot-Symbole verwenden jetzt das [graue Set](bot-gray/README.md):
-silbergraue Symbole, gelbe Warnungen und rote Fehler. Es wird zuletzt geladen und
+silbergraue Symbole auf grauen, abgerundeten Kacheln, gelbe Warnungen und rote
+Fehler. Es wird zuletzt geladen und
 liefert die zentralen Bot-Konstanten sowie die semantischen `EMOJIS`-Schlüssel.
 Die 84 bunten Utility-Kacheln bleiben im Dashboard und über `utility_*` verfügbar.
 

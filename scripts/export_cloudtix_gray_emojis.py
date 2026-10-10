@@ -120,11 +120,20 @@ def artwork(vector, shade):
                    "yellow": ("#ffe08a", "#e7a62b"),
                    "red": ("#ff9292", "#e35050")}[shade]
     return f'''<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-  <defs><linearGradient id="ink" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="24">
-    <stop stop-color="{top}"/><stop offset="1" stop-color="{bottom}"/>
-  </linearGradient></defs>
-  <g id="icon" transform="translate(12 12) scale(4.3333333)" fill="none" stroke="url(#ink)"
-     stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">{geometry}</g>
+  <defs>
+    <linearGradient id="ink" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="24">
+      <stop stop-color="{top}"/><stop offset="1" stop-color="{bottom}"/>
+    </linearGradient>
+    <linearGradient id="background" x1="0" y1="0" x2=".7" y2="1">
+      <stop stop-color="#464646"/><stop offset="1" stop-color="#2d2d2d"/>
+    </linearGradient>
+  </defs>
+  <rect x="5" y="5" width="118" height="118" rx="36" fill="url(#background)"/>
+  <rect x="6" y="6" width="116" height="116" rx="35" fill="none" stroke="#666666" stroke-opacity=".3"/>
+  <g id="rotation">
+    <g id="icon" transform="translate(30 30) scale(2.8333333)" fill="none" stroke="url(#ink)"
+       stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">{geometry}</g>
+  </g>
 </svg>'''
 
 
@@ -161,7 +170,7 @@ def main():
                 with tempfile.TemporaryDirectory(prefix="cloudtix-gray-") as directory:
                     frames = []
                     for frame in range(16):
-                        page.locator("svg").evaluate("(svg, angle) => svg.style.transform = `rotate(${angle}deg)`", frame * 22.5)
+                        page.locator("#rotation").evaluate("(group, angle) => group.setAttribute('transform', `rotate(${angle} 64 64)`)", frame * 22.5)
                         path = Path(directory) / f"{frame:02d}.png"
                         page.screenshot(path=str(path), omit_background=True)
                         frames.append(str(path))
@@ -181,7 +190,7 @@ def main():
                             "file": f"bot-gray/{target.name}", "animated": label == "loading",
                             "width": 128, "height": 128, "bytes": len(data), "sha256": digest,
                             "fallback": fallback, "constants": names.split(), "dashboard_visible": False,
-                            "provider": "CloudTIX Gray", "color": shade,
+                            "provider": "CloudTIX Gray", "color": shade, "background": "gray",
                             "replaces": label if label in {item[0] for item in BASE_SPECS} else None,
                             "source_url": f"{BASE}/icons/{vector}.svg"})
         browser.close()
@@ -190,8 +199,9 @@ def main():
     (OUT / "emojis.json").write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     readme = f'''# Graue CloudTIX Bot-Emojis
 
-{len(entries)} transparente Symbole für die ursprünglichen Bot-Konstanten:
-neutraler silbergrauer Verlauf, gelbe Warnungen und rote Fehler/Sperren.
+{len(entries)} Symbole auf abgerundeten grauen Kacheln für die ursprünglichen
+Bot-Konstanten: silbergrauer Verlauf, gelbe Warnungen und rote Fehler/Sperren.
+Außerhalb der Kacheln bleibt der Hintergrund transparent.
 128 × 128 Pixel, maximal 256 KB. Der Ladeindikator bleibt animiert.
 Lucide {VERSION}; vollständige Lizenz in [LICENSE.lucide.txt](LICENSE.lucide.txt).
 
