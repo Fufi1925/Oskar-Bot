@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import tempfile
@@ -59,6 +60,86 @@ SPECS = [
     ("unlock", "lock-keyhole-open", "Security", "🔓", "UNLOCK"),
     ("star", "star", "Community", "⭐", "STAR STAR_ALT1 STAR_ALT2"),
     ("cloud", "cloud", "UI", "☁️", "ZCLOUD"),
+    # Security and moderation
+    ("ban", "gavel", "Security", "🔨", "ZBAN universitybotHAMMER"),
+    ("kick", "user-round-minus", "Security", "🚪", "KICK"),
+    ("timeout", "timer", "Security", "⏱️", "TIMER TIMER_ALT1"),
+    ("warn", "shield-x", "Security", "⚠️", "WARN"),
+    ("audit_log", "scroll-text", "Security", "📜", "AUDIT_LOG"),
+    ("permissions", "key-round", "Security", "🔑", "PERMISSIONS"),
+    ("firewall", "brick-wall", "Security", "🧱", "FIREWALL"),
+    ("quarantine", "shield-off", "Security", "🚫", "QUARANTINE"),
+    ("scan", "scan-line", "Security", "🔍", "SCAN"),
+    ("fingerprint", "fingerprint", "Security", "🔐", "FINGERPRINT"),
+    ("password", "key-square", "Security", "🔑", "PASSWORD"),
+    ("incognito", "eye-off", "Security", "🙈", "INCOGNITO"),
+    ("lockdown", "door-closed", "Security", "🔒", "LOCKDOWN"),
+    ("protection", "shield-plus", "Security", "🛡️", "PROTECTION"),
+    ("report", "flag", "Security", "🚩", "REPORT"),
+    # Ticket workflows and support
+    ("ticket_open", "ticket-plus", "Support", "🎫", "TICKET_OPEN"),
+    ("ticket_close", "ticket-x", "Support", "🎫", "TICKET_CLOSE"),
+    ("ticket_claim", "ticket-check", "Support", "🎫", "TICKET_CLAIM"),
+    ("transcript", "file-text", "Support", "📄", "TRANSCRIPT"),
+    ("support", "life-buoy", "Support", "🛟", "SUPPORT"),
+    ("faq", "circle-help", "Support", "❓", "FAQ"),
+    ("mail", "mail", "Support", "✉️", "MAIL"),
+    ("inbox", "inbox", "Support", "📥", "INBOX"),
+    ("form", "notebook-pen", "Support", "📝", "FORM"),
+    ("accept", "circle-check", "Support", "✅", "ACCEPT"),
+    ("reject", "circle-x", "Support", "❌", "REJECT"),
+    ("feedback", "message-square-heart", "Support", "💬", "FEEDBACK"),
+    # Community, events and premium
+    ("boost", "rocket", "Community", "🚀", "ZROCKET"),
+    ("birthday", "cake", "Community", "🎂", "BIRTHDAY"),
+    ("event", "calendar-days", "Community", "📅", "EVENT"),
+    ("announcement", "megaphone", "Community", "📣", "ANNOUNCEMENT"),
+    ("invite", "user-round-plus", "Community", "👋", "INVITE"),
+    ("leave", "log-out", "Community", "🚪", "LEAVE"),
+    ("role", "contact-round", "Community", "👤", "ROLE"),
+    ("leaderboard", "medal", "Community", "🏅", "LEADERBOARD"),
+    ("xp", "sparkles", "Community", "✨", "XP SPARKLE"),
+    ("poll", "chart-pie", "Community", "📊", "POLL"),
+    ("counting", "binary", "Community", "🔢", "ZCOUNTING"),
+    ("heart", "heart", "Community", "❤️", "ZDIL HEART_EM HEART3 REDHEART"),
+    ("game", "gamepad-2", "Community", "🎮", "GAMES GAME_CONTROLLER MINECRAFT"),
+    ("crown", "crown", "Community", "👑", "KING KING_ALT1 BLACKCROWN"),
+    ("premium", "gem", "Community", "💎", "PREMIUM"),
+    # Music and voice controls
+    ("shuffle", "shuffle", "Music", "🔀", "SHUFFLE"),
+    ("repeat", "repeat", "Music", "🔁", "REPEAT"),
+    ("repeat_one", "repeat-1", "Music", "🔂", "REPEAT_ONE"),
+    ("queue", "list-music", "Music", "🎶", "QUEUE"),
+    ("playlist", "library-big", "Music", "🎵", "PLAYLIST"),
+    ("note", "music", "Music", "🎵", "MUSIC_NOTE"),
+    ("microphone", "mic", "Music", "🎤", "MICROPHONE"),
+    ("microphone_off", "mic-off", "Music", "🔇", "MICROPHONE_OFF"),
+    ("voice", "radio", "Music", "📻", "VOICE"),
+    ("equalizer", "audio-lines", "Music", "🎚️", "EQUALIZER"),
+    ("seek_forward", "fast-forward", "Music", "⏩", "SEEK_FORWARD"),
+    ("rewind", "rewind", "Music", "⏪", "REWIND REWIND_ALT1"),
+    # General interface and navigation
+    ("home", "house", "UI", "🏠", "HOME"),
+    ("dashboard", "panels-top-left", "UI", "🖥️", "DASHBOARD"),
+    ("channel", "hash", "UI", "#️⃣", "CHANNEL ICONS_CHANNEL"),
+    ("search", "search", "UI", "🔍", "universitybot_SEARCH"),
+    ("edit", "pencil", "UI", "✏️", "EDIT"),
+    ("save", "save", "UI", "💾", "SAVE"),
+    ("copy", "copy", "UI", "📋", "COPY"),
+    ("download", "download", "UI", "📥", "DOWNLOAD"),
+    ("upload", "upload", "UI", "📤", "UPLOAD"),
+    ("link", "link", "UI", "🔗", "links universitybotLINKS"),
+    ("external_link", "external-link", "UI", "↗️", "EXTERNAL_LINK"),
+    ("arrow_up", "arrow-up", "UI", "⬆️", "ARROW_UP"),
+    ("arrow_down", "arrow-down", "UI", "⬇️", "ARROW_DOWN"),
+    ("menu", "menu", "UI", "☰", "MENU INDEX"),
+    ("close_panel", "panel-left-close", "UI", "◀️", "CLOSE_PANEL"),
+    ("open_panel", "panel-left-open", "UI", "▶️", "OPEN_PANEL"),
+    ("notification", "bell", "UI", "🔔", "NOTIFICATION"),
+    ("pin", "pin", "UI", "📌", "PIN RED_PIN"),
+    ("clock", "clock", "UI", "🕒", "TIME CLOCK"),
+    ("bot", "bot", "UI", "🤖", "ZBOT"),
+    ("tools", "wrench", "UI", "🔧", "ZWRENCH TOOLS"),
 ]
 
 
@@ -67,14 +148,41 @@ def download(relative):
         return response.read()
 
 
+def update_overview(entries):
+    """Keep the documented names and preview links aligned with the pack."""
+    readme_path = OUT / "README.md"
+    if not readme_path.exists():
+        return
+    original = readme_path.read_text(encoding="utf-8")
+    header, remainder = original.split("| Name | Kategorie | Vorschau |", 1)
+    _, footer = remainder.split("\n## Exporte reproduzieren", 1)
+    header = re.sub(r"(?m)^\d+ weiße Lucide-Symbole", f"{len(entries)} weiße Lucide-Symbole", header)
+    table = ["| Name | Kategorie | Vorschau | Im Bot verwendbarer Code |",
+             "| --- | --- | --- | --- |"]
+    for entry in entries:
+        table.append(f"| {entry['key']} | {entry['category']} | [Bild]({entry['preview_url']}) "
+                     f"| `EMOJIS[\"{entry['key']}\"]` |")
+    readme_path.write_text(header + "\n".join(table) + "\n\n## Exporte reproduzieren" + footer,
+                           encoding="utf-8")
+
+
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     PUBLIC.mkdir(parents=True, exist_ok=True)
     source_dir = OUT / "sources"
     source_dir.mkdir(exist_ok=True)
-    vectors = list(ThreadPoolExecutor(max_workers=8).map(
-        download, [f"icons/{spec[1]}.svg" for spec in SPECS]
-    ))
+    previous_path = OUT / "emojis.json"
+    previous = json.loads(previous_path.read_text()) if previous_path.exists() else {}
+    previous_entries = {entry["key"]: entry for entry in previous.get("emojis", [])}
+
+    def vector_source(spec):
+        existing_source = source_dir / f"{spec[1]}.svg"
+        if previous.get("provider_version") == VERSION and existing_source.exists():
+            return existing_source.read_bytes()
+        return download(f"icons/{spec[1]}.svg")
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        vectors = list(pool.map(vector_source, SPECS))
     license_text = download("LICENSE")
     (OUT / "LICENSE.lucide.txt").write_bytes(license_text)
     (PUBLIC / "LICENSE.lucide.txt").write_bytes(license_text)
@@ -90,14 +198,25 @@ def main():
         browser = playwright.chromium.launch(**options)
         page = browser.new_page(viewport={"width": 128, "height": 128})
         for (key, vector, category, fallback, constants), svg in zip(SPECS, vectors):
-            (source_dir / f"{vector}.svg").write_bytes(svg)
+            source_path = source_dir / f"{vector}.svg"
+            previous_entry = previous_entries.get(key, {})
+            extension = "gif" if key == "loading" else "png"
+            target = OUT / f"{key}.{extension}"
+            reusable = (
+                previous_entry.get("source_url") == f"{BASE}/icons/{vector}.svg"
+                and source_path.exists() and source_path.read_bytes() == svg
+                and target.exists()
+                and hashlib.sha256(target.read_bytes()).hexdigest() == previous_entry.get("sha256")
+            )
+            source_path.write_bytes(svg)
             page.set_content('<style>body{margin:0;background:transparent;color:white}'
                              '#icon{width:128px;height:128px;display:grid;place-items:center}'
                              'svg{width:104px;height:104px}</style><div id="icon">'
                              + svg.decode() + '</div>')
-            extension = "gif" if key == "loading" else "png"
-            target = OUT / f"{key}.{extension}"
-            if key == "loading":
+            if reusable:
+                # Preserve published assets and their Discord names exactly.
+                pass
+            elif key == "loading":
                 with tempfile.TemporaryDirectory(prefix="cloudtix-emoji-") as directory:
                     frames = []
                     for frame in range(16):
@@ -129,6 +248,7 @@ def main():
                 "provider_version": VERSION, "license_file": "LICENSE.lucide.txt", "emojis": entries}
     for directory in (OUT, PUBLIC):
         (directory / "emojis.json").write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n")
+    update_overview(entries)
     print(f"Exported {len(entries)} transparent 128×128 assets; largest: {max(e['bytes'] for e in entries)} bytes.")
 
 

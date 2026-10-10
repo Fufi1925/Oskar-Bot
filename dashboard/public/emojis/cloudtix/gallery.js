@@ -87,6 +87,9 @@
     })
     .then((manifest) => {
       entries = manifest.emojis;
+      document.getElementById("emoji-count").textContent = String(
+        entries.length,
+      );
       ["Alle", ...new Set(entries.map((entry) => entry.category))].forEach(
         (name) => {
           const button = element("button", name);
